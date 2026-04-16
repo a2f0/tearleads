@@ -39,6 +39,9 @@ interface AppDataContextValue {
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
+const unavailableExecSql: ExecSql = async () => {
+  throw new Error("Database client is unavailable.");
+};
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const apiClient = useApiClient();
@@ -53,16 +56,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const domainScope = useMemo(() => ({}), [dbId, signingFingerprint]);
 
   const execSql = useMemo(
-    () =>
-      createExecSql({
-        exec: async (options) => {
-          if (!dbClient) {
-            throw new Error("Database client is unavailable.");
-          }
-
-          return dbClient.exec(options);
-        },
-      }),
+    () => (dbClient ? createExecSql(dbClient) : unavailableExecSql),
     [dbClient],
   );
   const cacheReferencedPrincipalPoliciesCallback = useCallback(

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  createExecSql,
   type ExecSql,
   runSerializedSqlMutation,
   type SqlRow,
@@ -64,4 +65,72 @@ test("nested mutations reuse the locked executor without blocking", async () => 
   ).resolves.toBeUndefined();
 
   expect(statements).toEqual(["outer", "inner"]);
+});
+
+test("createExecSql reuses the same executor for the same client", () => {
+  const client = {
+    exec: async () => ({ rows: [] as SqlRow[] }),
+  };
+
+  expect(createExecSql(client)).toBe(createExecSql(client));
+});
+
+test("serialized mutations share a queue across adapters for the same client", async () => {
+  const statements: string[] = [];
+  let releaseFirst = () => {};
+  const firstStarted = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  let firstReleased = false;
+
+  const client = {
+    exec: async ({
+      sql,
+    }: {
+      sql: string;
+      bind?: Record<string, SqlRowValue>;
+    }): Promise<{ rows: SqlRow[] }> => {
+      statements.push(sql);
+
+      if (sql === "first") {
+        releaseFirst();
+        await new Promise<void>((resolve) => {
+          const poll = () => {
+            if (firstReleased) {
+              resolve();
+              return;
+            }
+            queueMicrotask(poll);
+          };
+          poll();
+        });
+      }
+
+      return { rows: [] };
+    },
+  };
+
+  const firstExecSql = createExecSql(client);
+  const secondExecSql = createExecSql(client);
+
+  const firstMutation = runSerializedSqlMutation(
+    firstExecSql,
+    async (lockedExecSql) => {
+      await lockedExecSql("first");
+      firstReleased = true;
+    },
+  );
+
+  await firstStarted;
+
+  const secondMutation = runSerializedSqlMutation(
+    secondExecSql,
+    async (lockedExecSql) => {
+      await lockedExecSql("second");
+    },
+  );
+
+  await expect(firstMutation).resolves.toBeUndefined();
+  await expect(secondMutation).resolves.toBeUndefined();
+  expect(statements).toEqual(["first", "second"]);
 });

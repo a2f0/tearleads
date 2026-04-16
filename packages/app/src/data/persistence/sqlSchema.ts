@@ -21,6 +21,7 @@ export interface SqlTableSchema {
 const sqlMutationQueue = new WeakMap<ExecSql, Promise<void>>();
 const serializedSqlExecs = new WeakSet<ExecSql>();
 const serializedSqlRoots = new WeakMap<ExecSql, ExecSql>();
+const clientExecSqls = new WeakMap<ExecSqlClientLike, ExecSql>();
 
 export function readSqlRowValue(
   row: SqlRow,
@@ -30,10 +31,17 @@ export function readSqlRowValue(
 }
 
 export function createExecSql(client: ExecSqlClientLike): ExecSql {
-  return async (sql, bind) => {
+  const existingExecSql = clientExecSqls.get(client);
+  if (existingExecSql) {
+    return existingExecSql;
+  }
+
+  const execSql: ExecSql = async (sql, bind) => {
     const result = await client.exec(bind ? { sql, bind } : { sql });
     return result.rows;
   };
+  clientExecSqls.set(client, execSql);
+  return execSql;
 }
 
 function isSerializedSqlExec(execSql: ExecSql): boolean {
