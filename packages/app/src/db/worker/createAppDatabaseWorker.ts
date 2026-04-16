@@ -2,11 +2,9 @@ import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
 import { createModuleWorker } from "./createModuleWorker";
 import type { AppDatabaseWorker, ModuleWorkerConstructor } from "./types";
 
-/**
- * Creates the app's main-thread database worker wrapper. In production it
- * loads the bundled worker entrypoint at `/worker.js`, while tests can inject a
- * mock Worker implementation through `workerConstructor`.
- */
+// Creates the app's main-thread database worker wrapper. In production it
+// loads the bundled worker entrypoint at `/worker.js`, while tests can inject a
+// mock Worker implementation through `workerConstructor`.
 export function createAppDatabaseWorker(
   workerConstructor?: ModuleWorkerConstructor,
 ): AppDatabaseWorker {
