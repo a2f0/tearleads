@@ -4,7 +4,7 @@ type ExplorerDocumentRuntime = Parameters<
   typeof import("../../data/documents/DocumentsProvider").primeDocumentStore
 >[2];
 
-type ExplorerDocumentsRuntimeAppData = Pick<
+export type ExplorerDocumentsRuntimeAppData = Pick<
   AppDataContextValue,
   | "apiClient"
   | "blobStore"

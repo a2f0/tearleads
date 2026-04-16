@@ -11,23 +11,12 @@ import {
 } from "../documentDiscovery";
 import {
   createExplorerDocumentsRuntime,
+  type ExplorerDocumentsRuntimeAppData,
   isDestroyedDatabaseWorkerError,
 } from "../explorerRuntime";
 
-type ExplorerDiscoveryAppData = Pick<
-  AppDataContextValue,
-  | "apiClient"
-  | "blobStore"
-  | "cacheReferencedPrincipalPolicies"
-  | "dbStatus"
-  | "domainScope"
-  | "encapsulationKeyPair"
-  | "events"
-  | "execSql"
-  | "isAuthenticated"
-  | "log"
-  | "online"
->;
+type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppData &
+  Pick<AppDataContextValue, "events">;
 
 type ReplaceDocumentLinksBatch = (
   inputs: ReadonlyArray<{
