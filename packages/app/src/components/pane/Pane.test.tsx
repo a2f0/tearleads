@@ -77,7 +77,7 @@ function listExplorerNoteItems(
   );
 }
 
-async function generatePersonaAndWaitForDb(
+async function generateIdentityAndWaitForDb(
   view: ReturnType<typeof renderPane>,
 ) {
   fireEvent.click(view.getByText("Menu"));
@@ -95,7 +95,7 @@ test("displays userId after uploading public key", async () => {
 
   expect(view.getByText(/userId: none/)).toBeTruthy();
 
-  await generatePersonaAndWaitForDb(view);
+  await generateIdentityAndWaitForDb(view);
 
   fireEvent.click(view.getByText("Menu"));
   await waitFor(() => {
@@ -127,7 +127,7 @@ test("userId resets to none when key pair is destroyed", async () => {
   const spy = spyOn(ApiClient.prototype, "postPublicKey");
   const view = renderPane();
 
-  await generatePersonaAndWaitForDb(view);
+  await generateIdentityAndWaitForDb(view);
 
   fireEvent.click(view.getByText("Menu"));
   await waitFor(() => {
@@ -162,7 +162,7 @@ test("userId resets to none when key pair is destroyed", async () => {
 test("notes windows in the same pane share live note state", async () => {
   const view = renderPane();
 
-  await generatePersonaAndWaitForDb(view);
+  await generateIdentityAndWaitForDb(view);
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
@@ -212,7 +212,7 @@ test("contacts windows in the same pane share live address book state", async ()
   const spy = spyOn(ApiClient.prototype, "postPublicKey");
   const view = renderPane();
 
-  await generatePersonaAndWaitForDb(view);
+  await generateIdentityAndWaitForDb(view);
 
   fireEvent.click(view.getByText("Menu"));
   await waitFor(() => {
@@ -310,7 +310,7 @@ test("contacts windows in the same pane share live address book state", async ()
 test("explorer windows in the same pane share newly created notes without refresh", async () => {
   const view = renderPane();
 
-  await generatePersonaAndWaitForDb(view);
+  await generateIdentityAndWaitForDb(view);
 
   const firstExplorer = await openExplorer(view);
   const secondExplorer = await openExplorer(view);

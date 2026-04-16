@@ -12,8 +12,8 @@ import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useEvents } from "../events/EventsProvider";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
+import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
-import { usePersona } from "../persona/PersonaProvider";
 import { useBlobStore } from "./blobs";
 import { createExecSql, type ExecSql } from "./persistence/sqlSchema";
 import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
@@ -29,7 +29,7 @@ export interface AppDataContextValue {
   dbId: string | null;
   dbStatus: ReturnType<typeof useDatabase>["status"];
   domainScope: object;
-  encapsulationKeyPair: ReturnType<typeof usePersona>["encapsulationKeyPair"];
+  encapsulationKeyPair: ReturnType<typeof useIdentity>["encapsulationKeyPair"];
   events: ReturnType<typeof useEvents>["events"];
   execSql: ExecSql;
   isAuthenticated: boolean;
@@ -49,7 +49,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const { online } = useNetworkState();
   const { client: dbClient, id: dbId, status: dbStatus } = useDatabase();
   const { authToken, containerId, isAuthenticated } = useCryptoSession();
-  const { encapsulationKeyPair, signingFingerprint } = usePersona();
+  const { encapsulationKeyPair, signingFingerprint } = useIdentity();
   const { trustedPolicySigners } = useAppHostConfig();
   const { events } = useEvents();
   const { log } = useLog();

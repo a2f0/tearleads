@@ -1,7 +1,7 @@
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
-import { usePersona } from "../../persona/PersonaProvider";
-import { useRegisterCurrentPersona } from "../../persona/useRegisterCurrentPersona";
+import { useIdentity } from "../../identity/IdentityProvider";
+import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -15,9 +15,9 @@ export function PaneMenu({
   const { killWorker, spawnWorker, status } = useDatabase();
   const { userId } = useCryptoSession();
   const { destroyKey, encapsulationKeyPair, generateKey, signingKeyPair } =
-    usePersona();
-  const { canRegisterCurrentPersona, registerCurrentPersona } =
-    useRegisterCurrentPersona();
+    useIdentity();
+  const { canRegisterCurrentIdentity, registerCurrentIdentity } =
+    useRegisterCurrentIdentity();
   const isTerminated = status === "terminated";
 
   return (
@@ -61,16 +61,16 @@ export function PaneMenu({
       {signingKeyPair &&
         encapsulationKeyPair &&
         !userId &&
-        canRegisterCurrentPersona && (
+        canRegisterCurrentIdentity && (
           <MenuItem
             label="Upload Public Key"
             onClick={async () => {
               onClose();
-              if (!canRegisterCurrentPersona) {
+              if (!canRegisterCurrentIdentity) {
                 return;
               }
 
-              await registerCurrentPersona();
+              await registerCurrentIdentity();
             }}
           />
         )}

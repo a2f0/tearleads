@@ -14,11 +14,11 @@ import { createExecSql } from "../data/persistence/sqlSchema";
 import { persistRegistrationBootstrap } from "../data/registrationBootstrapPersistence";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useLog } from "../logging/LogProvider";
-import { usePersona } from "./PersonaProvider";
+import { useIdentity } from "./IdentityProvider";
 
-interface RegisterCurrentPersonaResult {
-  canRegisterCurrentPersona: boolean;
-  registerCurrentPersona: () => Promise<boolean>;
+interface RegisterCurrentIdentityResult {
+  canRegisterCurrentIdentity: boolean;
+  registerCurrentIdentity: () => Promise<boolean>;
 }
 
 interface InitialRootMetadataBootstrap {
@@ -93,7 +93,7 @@ async function persistLocalRegistrationState(
   }
 }
 
-export function useRegisterCurrentPersona(): RegisterCurrentPersonaResult {
+export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const { client: dbClient } = useDatabase();
   const {
     userId,
@@ -102,17 +102,17 @@ export function useRegisterCurrentPersona(): RegisterCurrentPersonaResult {
     setOrganizationId,
     loginWithChallenge,
   } = useCryptoSession();
-  const { encapsulationKeyPair, signingKeyPair } = usePersona();
+  const { encapsulationKeyPair, signingKeyPair } = useIdentity();
   const { log } = useLog();
   const apiClient = useApiClient();
 
-  const canRegisterCurrentPersona =
+  const canRegisterCurrentIdentity =
     signingKeyPair !== null &&
     encapsulationKeyPair !== null &&
     userId === null &&
     containerId !== null;
 
-  const registerCurrentPersona = useCallback(async (): Promise<boolean> => {
+  const registerCurrentIdentity = useCallback(async (): Promise<boolean> => {
     if (
       signingKeyPair === null ||
       encapsulationKeyPair === null ||
@@ -178,5 +178,5 @@ export function useRegisterCurrentPersona(): RegisterCurrentPersonaResult {
     userId,
   ]);
 
-  return { canRegisterCurrentPersona, registerCurrentPersona };
+  return { canRegisterCurrentIdentity, registerCurrentIdentity };
 }

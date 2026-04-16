@@ -22,8 +22,8 @@ import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
 import { useDatabase } from "../../db/DatabaseProvider";
 import { AppHostConfig } from "../../host/AppHostConfig";
-import { usePersona } from "../../persona/PersonaProvider";
-import { useRegisterCurrentPersona } from "../../persona/useRegisterCurrentPersona";
+import { useIdentity } from "../../identity/IdentityProvider";
+import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";
@@ -44,9 +44,9 @@ async function interact(operation: () => void): Promise<void> {
 function PaneAutoProvisioner() {
   const { status } = useDatabase();
   const { containerId, userId } = useCryptoSession();
-  const { generateKey, signingKeyPair } = usePersona();
-  const { canRegisterCurrentPersona, registerCurrentPersona } =
-    useRegisterCurrentPersona();
+  const { generateKey, signingKeyPair } = useIdentity();
+  const { canRegisterCurrentIdentity, registerCurrentIdentity } =
+    useRegisterCurrentIdentity();
   const registrationInFlight = useRef(false);
 
   useEffect(() => {
@@ -60,20 +60,20 @@ function PaneAutoProvisioner() {
       status !== "ready" ||
       containerId === null ||
       userId !== null ||
-      !canRegisterCurrentPersona ||
+      !canRegisterCurrentIdentity ||
       registrationInFlight.current
     ) {
       return;
     }
 
     registrationInFlight.current = true;
-    void registerCurrentPersona().finally(() => {
+    void registerCurrentIdentity().finally(() => {
       registrationInFlight.current = false;
     });
   }, [
-    canRegisterCurrentPersona,
+    canRegisterCurrentIdentity,
     containerId,
-    registerCurrentPersona,
+    registerCurrentIdentity,
     status,
     userId,
   ]);

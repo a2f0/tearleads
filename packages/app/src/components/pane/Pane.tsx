@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
 import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
+import { useIdentity } from "../../identity/IdentityProvider";
 import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
 import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
 import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
-import { usePersona } from "../../persona/PersonaProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";
@@ -21,7 +21,7 @@ import { PaneStatus } from "./PaneStatus";
 
 function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
-  const { signingKeyPair } = usePersona();
+  const { signingKeyPair } = useIdentity();
   useRegisterUserId(userId);
   const { windows } = useWindowStateData();
   const { create } = useWindowActions();
