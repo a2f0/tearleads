@@ -6,15 +6,21 @@ import {
   useState,
 } from "react";
 
+export const WORKSPACE_IDS = [1, 2] as const;
+
+export type WorkspaceId = (typeof WORKSPACE_IDS)[number];
+
 interface WorkspaceContextValue {
-  activeWorkspace: number;
-  setActiveWorkspace: (workspace: number) => void;
+  activeWorkspace: WorkspaceId;
+  setActiveWorkspace: (workspace: WorkspaceId) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: PropsWithChildren) {
-  const [activeWorkspace, setActiveWorkspace] = useState(1);
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceId>(
+    WORKSPACE_IDS[0],
+  );
 
   const value = useMemo(
     () => ({ activeWorkspace, setActiveWorkspace }),

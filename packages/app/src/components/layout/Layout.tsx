@@ -5,7 +5,11 @@ import "./Layout.css";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { Workspace } from "./workspace/Workspace";
-import { useWorkspace, WorkspaceProvider } from "./workspace/WorkspaceProvider";
+import {
+  useWorkspace,
+  WORKSPACE_IDS,
+  WorkspaceProvider,
+} from "./workspace/WorkspaceProvider";
 
 interface LayoutProps {
   hostConfig: AppHostConfig;
@@ -20,7 +24,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   return (
     <div className={split ? "layout layout--split" : "layout"}>
       <Header split={split} onToggleSplit={toggleSplit} />
-      {[1, 2].map((id) => (
+      {WORKSPACE_IDS.map((id) => (
         <Workspace
           key={id}
           hostConfig={hostConfig}
