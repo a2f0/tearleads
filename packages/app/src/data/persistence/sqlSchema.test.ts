@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test";
 import {
+  createExecSql,
   type ExecSql,
   runSerializedSqlMutation,
   type SqlRow,
   type SqlRowValue,
 } from "./sqlSchema";
 
-function createExecSql(log: string[]): ExecSql {
+function createLoggingExecSql(log: string[]): ExecSql {
   return async (
     sql: string,
     _bind?: Record<string, SqlRowValue>,
@@ -18,7 +19,7 @@ function createExecSql(log: string[]): ExecSql {
 
 test("serialized mutations continue after a queued mutation fails", async () => {
   const statements: string[] = [];
-  const execSql = createExecSql(statements);
+  const execSql = createLoggingExecSql(statements);
 
   let releaseFirst = () => {};
   const firstStarted = new Promise<void>((resolve) => {
@@ -52,7 +53,7 @@ test("serialized mutations continue after a queued mutation fails", async () => 
 
 test("nested mutations reuse the locked executor without blocking", async () => {
   const statements: string[] = [];
-  const execSql = createExecSql(statements);
+  const execSql = createLoggingExecSql(statements);
 
   await expect(
     runSerializedSqlMutation(execSql, async (lockedExecSql) => {
@@ -64,4 +65,65 @@ test("nested mutations reuse the locked executor without blocking", async () => 
   ).resolves.toBeUndefined();
 
   expect(statements).toEqual(["outer", "inner"]);
+});
+
+test("createExecSql reuses the same executor for the same client", () => {
+  const client = {
+    exec: async () => ({ rows: [] as SqlRow[] }),
+  };
+
+  expect(createExecSql(client)).toBe(createExecSql(client));
+});
+
+test("serialized mutations share a queue across adapters for the same client", async () => {
+  const statements: string[] = [];
+  let releaseFirst = () => {};
+  const firstStarted = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  let finishFirstMutation = () => {};
+  const firstMayFinish = new Promise<void>((resolve) => {
+    finishFirstMutation = resolve;
+  });
+
+  const client = {
+    exec: async ({
+      sql,
+    }: {
+      sql: string;
+      bind?: Record<string, SqlRowValue>;
+    }): Promise<{ rows: SqlRow[] }> => {
+      statements.push(sql);
+      return { rows: [] };
+    },
+  };
+
+  const firstExecSql = createExecSql(client);
+  const secondExecSql = createExecSql(client);
+
+  const firstMutation = runSerializedSqlMutation(
+    firstExecSql,
+    async (lockedExecSql) => {
+      await lockedExecSql("first");
+      releaseFirst();
+      await firstMayFinish;
+    },
+  );
+
+  await firstStarted;
+
+  const secondMutation = runSerializedSqlMutation(
+    secondExecSql,
+    async (lockedExecSql) => {
+      await lockedExecSql("second");
+    },
+  );
+
+  await Promise.resolve();
+  expect(statements).toEqual(["first"]);
+
+  finishFirstMutation();
+  await expect(firstMutation).resolves.toBeUndefined();
+  await expect(secondMutation).resolves.toBeUndefined();
+  expect(statements).toEqual(["first", "second"]);
 });

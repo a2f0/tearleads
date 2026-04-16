@@ -15,7 +15,7 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "../persona/PersonaProvider";
 import { useBlobStore } from "./blobs";
-import type { SqlRow, SqlRowValue } from "./persistence/sqlSchema";
+import { createExecSql, type ExecSql } from "./persistence/sqlSchema";
 import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
 
 interface AppDataContextValue {
@@ -31,10 +31,7 @@ interface AppDataContextValue {
   domainScope: object;
   encapsulationKeyPair: ReturnType<typeof usePersona>["encapsulationKeyPair"];
   events: ReturnType<typeof useEvents>["events"];
-  execSql: (
-    sql: string,
-    bind?: Record<string, SqlRowValue>,
-  ) => Promise<SqlRow[]>;
+  execSql: ExecSql;
   isAuthenticated: boolean;
   log: ReturnType<typeof useLog>["log"];
   online: boolean;
@@ -42,6 +39,9 @@ interface AppDataContextValue {
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
+const unavailableExecSql: ExecSql = async () => {
+  throw new Error("Database client is unavailable.");
+};
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const apiClient = useApiClient();
@@ -55,15 +55,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const { log } = useLog();
   const domainScope = useMemo(() => ({}), [dbId, signingFingerprint]);
 
-  const execSql = useCallback(
-    async (sql: string, bind?: Record<string, SqlRowValue>) => {
-      if (!dbClient) {
-        throw new Error("Database client is unavailable.");
-      }
-
-      const result = await dbClient.exec(bind ? { sql, bind } : { sql });
-      return result.rows;
-    },
+  const execSql = useMemo(
+    () => (dbClient ? createExecSql(dbClient) : unavailableExecSql),
     [dbClient],
   );
   const cacheReferencedPrincipalPoliciesCallback = useCallback(

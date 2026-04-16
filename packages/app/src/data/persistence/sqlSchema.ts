@@ -6,14 +6,29 @@ export type ExecSql = (
   bind?: Record<string, SqlRowValue>,
 ) => Promise<SqlRow[]>;
 
+interface ExecSqlClientLike {
+  exec(options: {
+    sql: string;
+    bind?: Record<string, SqlRowValue>;
+  }): Promise<{ rows: SqlRow[] }>;
+}
+
 export interface SqlTableSchema {
   name: string;
   createSql: string;
 }
 
+// Tracks the active serialized mutation chain for each canonical SQL executor
+// so callers sharing one connection cannot interleave transactional statements.
 const sqlMutationQueue = new WeakMap<ExecSql, Promise<void>>();
+
+// Marks executors that already run inside the shared mutation lock so nested
+// callers can reuse the current lock instead of queueing a second time.
 const serializedSqlExecs = new WeakSet<ExecSql>();
-const serializedSqlRoots = new WeakMap<ExecSql, ExecSql>();
+
+// Reuses one ExecSql adapter per client so all wrappers around the same
+// connection share the same serialized mutation queue.
+const clientExecSqls = new WeakMap<ExecSqlClientLike, ExecSql>();
 
 export function readSqlRowValue(
   row: SqlRow,
@@ -22,12 +37,22 @@ export function readSqlRowValue(
   return row[key];
 }
 
-function isSerializedSqlExec(execSql: ExecSql): boolean {
-  return serializedSqlExecs.has(execSql);
+export function createExecSql(client: ExecSqlClientLike): ExecSql {
+  const existingExecSql = clientExecSqls.get(client);
+  if (existingExecSql) {
+    return existingExecSql;
+  }
+
+  const execSql: ExecSql = async (sql, bind) => {
+    const result = await client.exec(bind ? { sql, bind } : { sql });
+    return result.rows;
+  };
+  clientExecSqls.set(client, execSql);
+  return execSql;
 }
 
-function getSqlMutationRoot(execSql: ExecSql): ExecSql {
-  return serializedSqlRoots.get(execSql) ?? execSql;
+function isSerializedSqlExec(execSql: ExecSql): boolean {
+  return serializedSqlExecs.has(execSql);
 }
 
 function createSerializedSqlExec(execSql: ExecSql): ExecSql {
@@ -35,19 +60,17 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
     return execSql;
   }
 
-  const rootExecSql = getSqlMutationRoot(execSql);
-  const serializedExecSql: ExecSql = async (sql, bind) =>
-    rootExecSql(sql, bind);
+  const serializedExecSql: ExecSql = async (sql, bind) => execSql(sql, bind);
 
   serializedSqlExecs.add(serializedExecSql);
-  serializedSqlRoots.set(serializedExecSql, rootExecSql);
   return serializedExecSql;
 }
 
 // SQLite transactions are scoped to the shared connection, so we must hold a
 // connection-level lock across multi-statement mutations to prevent interleaving.
 // Nested callers must keep passing the provided locked executor. Re-entering
-// with the original root executor will wait on the current mutation and deadlock.
+// with the original canonical executor will wait on the current mutation and
+// deadlock.
 export async function runSerializedSqlMutation<T>(
   execSql: ExecSql,
   operation: (execSql: ExecSql) => Promise<T> | T,
@@ -56,8 +79,7 @@ export async function runSerializedSqlMutation<T>(
     return operation(execSql);
   }
 
-  const rootExecSql = getSqlMutationRoot(execSql);
-  const previous = sqlMutationQueue.get(rootExecSql) ?? Promise.resolve();
+  const previous = sqlMutationQueue.get(execSql) ?? Promise.resolve();
   let releaseCurrent = () => {};
   const current = new Promise<void>((resolve) => {
     releaseCurrent = resolve;
@@ -65,15 +87,15 @@ export async function runSerializedSqlMutation<T>(
   const waitForPrevious = previous.catch(() => undefined);
   const queuedCurrent = waitForPrevious.then(() => current);
 
-  sqlMutationQueue.set(rootExecSql, queuedCurrent);
+  sqlMutationQueue.set(execSql, queuedCurrent);
   await waitForPrevious;
 
   try {
-    return await operation(createSerializedSqlExec(rootExecSql));
+    return await operation(createSerializedSqlExec(execSql));
   } finally {
     releaseCurrent();
-    if (sqlMutationQueue.get(rootExecSql) === queuedCurrent) {
-      sqlMutationQueue.delete(rootExecSql);
+    if (sqlMutationQueue.get(execSql) === queuedCurrent) {
+      sqlMutationQueue.delete(execSql);
     }
   }
 }

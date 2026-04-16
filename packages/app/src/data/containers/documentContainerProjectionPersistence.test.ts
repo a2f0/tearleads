@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { createExecSql } from "../../../test/helpers/createExecSql";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import { sqlDocumentContainerProjectionPersistence } from "./documentContainerProjectionPersistence";
 
 test("listLinkedContainerIdsByDocumentIds returns empty arrays for documents with no links", async () => {
-  const { close, execSql } = await createExecSql(
+  const { close, execSql } = await createTestExecSql(
     "document-container-projection-test",
   );
 
@@ -35,7 +35,7 @@ test("listLinkedContainerIdsByDocumentIds returns empty arrays for documents wit
 });
 
 test("listDocumentIdsByContainerIds returns unique document ids linked to containers", async () => {
-  const { close, execSql } = await createExecSql(
+  const { close, execSql } = await createTestExecSql(
     "document-container-projection-test",
   );
 

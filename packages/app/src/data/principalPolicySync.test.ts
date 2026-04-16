@@ -8,7 +8,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createExecSql } from "../../test/helpers/createExecSql";
+import { createTestExecSql } from "../../test/helpers/createTestExecSql";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
@@ -75,7 +75,9 @@ async function createPrincipalPolicyBundle(): Promise<{
 }
 
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {
-  const { close, execSql } = await createExecSql("principal-policy-sync-test");
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
 
   try {
     const { bundle, signerPublicKey } = await createPrincipalPolicyBundle();
@@ -131,7 +133,9 @@ test("principal policy sync caches a verified referenced principal bundle and sk
 });
 
 test("principal policy sync skips untrusted bundles without persisting them", async () => {
-  const { close, execSql } = await createExecSql("principal-policy-sync-test");
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
 
   try {
     const { bundle } = await createPrincipalPolicyBundle();

@@ -10,7 +10,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createExecSql } from "../../test/helpers/createExecSql";
+import { createTestExecSql } from "../../test/helpers/createTestExecSql";
 import { decryptBlobEnvelope, serializeBlobEnvelope } from "./blobEnvelope";
 import {
   ensurePrincipalPolicyTables,
@@ -91,7 +91,7 @@ async function createPrincipalPolicyBundle(input: {
 test("principal policy crypto unwraps a blob envelope addressed to a cached group principal", async () => {
   const aliceKem = generateKemSeedAndKeyPair();
   const groupKem = generateKemSeedAndKeyPair();
-  const { close, execSql } = await createExecSql(
+  const { close, execSql } = await createTestExecSql(
     "principal-policy-crypto-test",
   );
 
@@ -136,7 +136,7 @@ test("principal policy crypto recursively unwraps nested group principals", asyn
   const nestedGroupKem = generateKemSeedAndKeyPair();
   const outerGroupKem = generateKemSeedAndKeyPair();
   const objectKey = crypto.getRandomValues(new Uint8Array(32));
-  const { close, execSql } = await createExecSql(
+  const { close, execSql } = await createTestExecSql(
     "principal-policy-crypto-test",
   );
 
