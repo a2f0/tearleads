@@ -765,7 +765,7 @@ async function createInlineDriverLicenseWithAttachments(
   await waitFor(() => {
     fileInputs = Array.from(
       pane.querySelectorAll<HTMLInputElement>(
-        "input.driver-license-file-input",
+        "input.structured-document-file-input",
       ),
     );
     expect(fileInputs).toHaveLength(2);
