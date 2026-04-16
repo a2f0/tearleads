@@ -1,32 +1,21 @@
-import type { DocumentAttachment } from "../../data/documents/documentContent";
 import {
   type DriverLicenseDocumentFields,
   parseDriverLicenseDocument,
   serializeDriverLicenseDocument,
 } from "../../data/documents/documentKinds";
-
-interface DriverLicenseAttachmentSlot {
-  description: string;
-  label: string;
-  slotId: string;
-}
+import {
+  createFrontAndBackImageSlots,
+  type DocumentAttachmentSlot,
+} from "../shared/documentAttachmentUtils";
 
 export const DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID = "driver-license-front-image";
 const DRIVER_LICENSE_BACK_IMAGE_SLOT_ID = "driver-license-back-image";
 
-export const DRIVER_LICENSE_ATTACHMENT_SLOTS: ReadonlyArray<DriverLicenseAttachmentSlot> =
-  [
-    {
-      description: "Opaque slot binding for the front image.",
-      label: "Front Image",
-      slotId: DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID,
-    },
-    {
-      description: "Opaque slot binding for the back image.",
-      label: "Back Image",
-      slotId: DRIVER_LICENSE_BACK_IMAGE_SLOT_ID,
-    },
-  ];
+export const DRIVER_LICENSE_ATTACHMENT_SLOTS: ReadonlyArray<DocumentAttachmentSlot> =
+  createFrontAndBackImageSlots({
+    backSlotId: DRIVER_LICENSE_BACK_IMAGE_SLOT_ID,
+    frontSlotId: DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID,
+  });
 
 export function createEmptyDriverLicenseDocument(): string {
   return serializeDriverLicenseDocument({
@@ -54,13 +43,4 @@ export function updateDriverLicenseFields(
     ...parseDriverLicenseFields(currentText),
     ...patch,
   });
-}
-
-export function getDriverLicenseAttachmentBySlotId(
-  attachments: ReadonlyArray<DocumentAttachment>,
-  slotId: string,
-): DocumentAttachment | null {
-  return (
-    attachments.findLast((attachment) => attachment.slotId === slotId) ?? null
-  );
 }

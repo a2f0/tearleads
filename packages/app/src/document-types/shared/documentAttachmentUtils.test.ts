@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { getDriverLicenseAttachmentBySlotId } from "./driverLicenseDocument";
+import { getLatestDocumentAttachmentBySlotId } from "./documentAttachmentUtils";
 
-test("driver's license attachment lookup returns the latest slot binding", () => {
-  const attachment = getDriverLicenseAttachmentBySlotId(
+test("attachment lookup returns the latest slot binding", () => {
+  const attachment = getLatestDocumentAttachmentBySlotId(
     [
       {
         byteLength: 10,

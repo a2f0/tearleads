@@ -1,38 +1,40 @@
-.driver-license {
+.structured-document {
   display: grid;
   gap: calc(var(--padding) * 1.25);
 }
 
-.driver-license-header {
+.structured-document-header {
   display: grid;
   gap: calc(var(--padding) / 2);
 }
 
-.driver-license-title {
+.structured-document-title {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--padding);
 }
 
-.driver-license-status {
+.structured-document-status {
   color: var(--muted);
   font-size: 0.95rem;
 }
 
-.driver-license-fields {
+.structured-document-fields {
   display: grid;
   gap: var(--padding);
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.driver-license-field {
+.structured-document-field {
   display: grid;
   gap: calc(var(--padding) / 2);
   font-size: 0.95rem;
 }
 
-.driver-license-field input {
+.structured-document-field input,
+.structured-document-field select,
+.structured-document-field textarea {
   width: 100%;
   padding: calc(var(--padding) * 0.75);
   border: 1px solid var(--border);
@@ -42,13 +44,13 @@
   font: inherit;
 }
 
-.driver-license-attachments {
+.structured-document-attachments {
   display: grid;
   gap: var(--padding);
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
-.driver-license-slot {
+.structured-document-slot {
   display: grid;
   gap: calc(var(--padding) / 1.5);
   padding: var(--padding);
@@ -57,17 +59,17 @@
   background: var(--panel-background);
 }
 
-.driver-license-slot-copy {
+.structured-document-slot-copy {
   display: grid;
   gap: calc(var(--padding) / 4);
 }
 
-.driver-license-slot-description {
+.structured-document-slot-description {
   color: var(--muted);
   font-size: 0.9rem;
 }
 
-.driver-license-slot-preview {
+.structured-document-slot-preview {
   aspect-ratio: 1.58 / 1;
   width: 100%;
   border: 1px dashed var(--border);
@@ -80,29 +82,29 @@
   object-fit: cover;
 }
 
-.driver-license-slot-placeholder {
+.structured-document-slot-placeholder {
   display: grid;
   place-items: center;
   color: var(--muted);
   font-size: 0.9rem;
 }
 
-.driver-license-slot-meta {
+.structured-document-slot-meta {
   display: grid;
   gap: calc(var(--padding) / 4);
   min-height: 2.5rem;
 }
 
-.driver-license-slot-name {
+.structured-document-slot-name {
   word-break: break-word;
 }
 
-.driver-license-slot-detail {
+.structured-document-slot-detail {
   color: var(--muted);
   font-size: 0.9rem;
 }
 
-.driver-license-slot-actions {
+.structured-document-slot-actions {
   display: flex;
   justify-content: space-between;
   gap: calc(var(--padding) / 2);
@@ -110,7 +112,7 @@
   flex-wrap: wrap;
 }
 
-.driver-license-slot-button {
+.structured-document-slot-button {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) / 1.5);
   background: var(--button-background);
@@ -120,16 +122,16 @@
   cursor: pointer;
 }
 
-.driver-license-slot-button:disabled {
+.structured-document-slot-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.driver-license-slot-status {
+.structured-document-slot-status {
   color: var(--muted);
   font-size: 0.85rem;
 }
 
-.driver-license-file-input {
+.structured-document-file-input {
   display: none;
 }
