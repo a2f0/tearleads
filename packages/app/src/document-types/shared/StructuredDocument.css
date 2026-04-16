@@ -70,6 +70,7 @@
 }
 
 .structured-document-slot-preview {
+  /* standard ID-1 card format */
   aspect-ratio: 1.58 / 1;
   width: 100%;
   border: 1px dashed var(--border);
