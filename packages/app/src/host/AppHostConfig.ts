@@ -1,4 +1,4 @@
-import type { AppDatabaseWorker } from "../db/sqliteWorker";
+import type { AppDatabaseWorker } from "../db/worker/types";
 
 export type CreateWorkerFn = () => AppDatabaseWorker;
 

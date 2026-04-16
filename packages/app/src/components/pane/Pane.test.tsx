@@ -11,7 +11,7 @@ import {
 import invariant from "invariant";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { resetMockServer, wsUrl } from "../../../test/helpers/mswServer";
-import { createAppDatabaseWorker } from "../../db/sqliteWorker";
+import { createAppDatabaseWorker } from "../../db/worker/createAppDatabaseWorker";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";

@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
-import { createAppDatabaseWorker } from "./db/sqliteWorker";
+import { createAppDatabaseWorker } from "./db/worker/createAppDatabaseWorker";
 import { AppHostConfig } from "./host/AppHostConfig";
 
 afterEach(() => {
