@@ -2,16 +2,16 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { SyncDocumentResponse } from "@tearleads/loro";
-import { waitForCondition } from "../../../test/helpers/waitForCondition";
+import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
-} from "../../data/persistence/documentPersistence";
-import { type ContactsRuntime, createContactsStore } from "./ContactsProvider";
+} from "../../../data/persistence/documentPersistence";
 import type {
   ContactPendingUpdateInsert,
   ContactsPersistence,
-} from "./contactsPersistence";
+} from "../contactsPersistence";
+import { type ContactsRuntime, createContactsStore } from "./ContactsProvider";
 
 interface StoredContactState {
   entry: {

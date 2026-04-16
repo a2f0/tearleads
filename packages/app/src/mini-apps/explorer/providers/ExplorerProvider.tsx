@@ -13,8 +13,8 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { useAppData } from "../../data/AppDataProvider";
-import type { BlobStore } from "../../data/blobs";
+import { useAppData } from "../../../data/AppDataProvider";
+import type { BlobStore } from "../../../data/blobs";
 import {
   type ContainerRecord,
   createContainerMetadataDocument,
@@ -22,7 +22,7 @@ import {
   readContainerMetadataValue,
   sqlDocumentContainerProjectionPersistence,
   writeContainerMetadataValue,
-} from "../../data/containers";
+} from "../../../data/containers";
 import {
   createDocumentEncryptionMaterial,
   createPendingUpdateFields,
@@ -38,22 +38,22 @@ import {
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
-} from "../../data/documentSync";
+} from "../../../data/documentSync";
 import {
   primeDocumentStore,
   requestDomainDocumentSync,
-} from "../../data/documents/DocumentsProvider";
-import { sqlDocumentsPersistence } from "../../data/documents/documentsPersistence";
+} from "../../../data/documents/DocumentsProvider";
+import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
-} from "../../data/persistence/documentPersistence";
-import type { ExecSql } from "../../data/persistence/sqlSchema";
+} from "../../../data/persistence/documentPersistence";
+import type { ExecSql } from "../../../data/persistence/sqlSchema";
 import {
   type ExplorerPersistence,
   sqlExplorerPersistence,
-} from "./explorerPersistence";
-import type { ContainerNode } from "./types";
+} from "../explorerPersistence";
+import type { ContainerNode } from "../types";
 
 type ContainerMetadataDocument = Awaited<
   ReturnType<typeof createContainerMetadataDocument>

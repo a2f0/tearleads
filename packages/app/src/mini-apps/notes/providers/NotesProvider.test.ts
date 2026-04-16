@@ -11,23 +11,22 @@ import {
 } from "@tearleads/loro";
 import { createLargeText } from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
-import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { createMemoryBlobStore } from "../../data/blobs";
+import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
+import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { createMemoryBlobStore } from "../../../data/blobs";
 import {
   createDocumentEncryptionMaterial,
   getOrCreateDocumentEncryptionMaterial,
-} from "../../data/documentSync";
-import { DOCUMENTS_APP_KIND } from "../../data/documents/documentsPersistence";
+} from "../../../data/documentSync";
+import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentsPersistence";
 import {
   createEmptyDriverLicenseDocument,
   DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID,
-} from "../../document-types/drivers-license/driverLicenseDocument";
-import { createNotesStore, type NotesRuntime } from "./NotesProvider";
+} from "../../../document-types/drivers-license/driverLicenseDocument";
 import {
   addNoteAttachments,
   ensureNoteAttachmentStructure,
-} from "./noteDocument";
+} from "../noteDocument";
 import type {
   LocalAttachmentRecord,
   NoteRecord,
@@ -38,7 +37,8 @@ import type {
   PendingAttachmentRewrapRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
-} from "./notesPersistence";
+} from "../notesPersistence";
+import { createNotesStore, type NotesRuntime } from "./NotesProvider";
 
 interface StoredNotesState {
   localAttachments: LocalAttachmentRecord[];
