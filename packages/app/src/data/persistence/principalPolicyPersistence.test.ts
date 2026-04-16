@@ -8,7 +8,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createExecSql } from "../../../test/helpers/createExecSql";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
   ensurePrincipalPolicyTables,
   loadAllPrincipalPolicyBundles,
@@ -71,7 +71,7 @@ async function createPrincipalPolicyBundle() {
 }
 
 test("principal policy persistence stores and reloads the current verified bundle", async () => {
-  const { close, execSql } = await createExecSql(
+  const { close, execSql } = await createTestExecSql(
     "principal-policy-persistence-test",
   );
 
@@ -97,7 +97,7 @@ test("principal policy persistence stores and reloads the current verified bundl
 });
 
 test("principal policy persistence reads from a fresh database before any bundle is cached", async () => {
-  const { close, execSql } = await createExecSql(
+  const { close, execSql } = await createTestExecSql(
     "principal-policy-persistence-test",
   );
 

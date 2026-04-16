@@ -10,7 +10,7 @@ import {
   createPendingUpdateFields,
   encryptPendingUpdates,
 } from "../data/documentSync";
-import type { SqlRow, SqlRowValue } from "../data/persistence/sqlSchema";
+import { createExecSql } from "../data/persistence/sqlSchema";
 import { persistRegistrationBootstrap } from "../data/registrationBootstrapPersistence";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useLog } from "../logging/LogProvider";
@@ -27,18 +27,6 @@ interface InitialRootMetadataBootstrap {
   rootMetadataRecipientEnvelopes: Awaited<
     ReturnType<typeof createDocumentEncryptionMaterial>
   >["documentRecipientEnvelopes"];
-}
-
-function createExecSql(
-  dbClient: NonNullable<ReturnType<typeof useDatabase>["client"]>,
-) {
-  return async (
-    sql: string,
-    bind?: Record<string, SqlRowValue>,
-  ): Promise<SqlRow[]> => {
-    const result = await dbClient.exec(bind ? { sql, bind } : { sql });
-    return result.rows;
-  };
 }
 
 async function createInitialRootMetadataBootstrap(

@@ -6,6 +6,13 @@ export type ExecSql = (
   bind?: Record<string, SqlRowValue>,
 ) => Promise<SqlRow[]>;
 
+export interface ExecSqlClientLike {
+  exec(options: {
+    sql: string;
+    bind?: Record<string, SqlRowValue>;
+  }): Promise<{ rows: SqlRow[] }>;
+}
+
 export interface SqlTableSchema {
   name: string;
   createSql: string;
@@ -20,6 +27,13 @@ export function readSqlRowValue(
   key: string,
 ): SqlRowValue | undefined {
   return row[key];
+}
+
+export function createExecSql(client: ExecSqlClientLike): ExecSql {
+  return async (sql, bind) => {
+    const result = await client.exec(bind ? { sql, bind } : { sql });
+    return result.rows;
+  };
 }
 
 function isSerializedSqlExec(execSql: ExecSql): boolean {

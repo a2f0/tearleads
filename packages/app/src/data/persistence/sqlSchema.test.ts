@@ -6,7 +6,7 @@ import {
   type SqlRowValue,
 } from "./sqlSchema";
 
-function createExecSql(log: string[]): ExecSql {
+function createLoggingExecSql(log: string[]): ExecSql {
   return async (
     sql: string,
     _bind?: Record<string, SqlRowValue>,
@@ -18,7 +18,7 @@ function createExecSql(log: string[]): ExecSql {
 
 test("serialized mutations continue after a queued mutation fails", async () => {
   const statements: string[] = [];
-  const execSql = createExecSql(statements);
+  const execSql = createLoggingExecSql(statements);
 
   let releaseFirst = () => {};
   const firstStarted = new Promise<void>((resolve) => {
@@ -52,7 +52,7 @@ test("serialized mutations continue after a queued mutation fails", async () => 
 
 test("nested mutations reuse the locked executor without blocking", async () => {
   const statements: string[] = [];
-  const execSql = createExecSql(statements);
+  const execSql = createLoggingExecSql(statements);
 
   await expect(
     runSerializedSqlMutation(execSql, async (lockedExecSql) => {

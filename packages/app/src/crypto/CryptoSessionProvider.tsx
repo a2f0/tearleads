@@ -15,6 +15,7 @@ import {
   loadContainers,
   saveContainer,
 } from "../data/containers";
+import { createExecSql } from "../data/persistence/sqlSchema";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "../persona/PersonaProvider";
@@ -56,13 +57,7 @@ function resetCryptoSessionState(
 async function bootstrapRootContainer(
   dbClient: NonNullable<ReturnType<typeof useDatabase>["client"]>,
 ) {
-  const execSql = async (
-    sql: string,
-    bind?: Record<string, string | number | null>,
-  ) => {
-    const result = await dbClient.exec(bind ? { sql, bind } : { sql });
-    return result.rows;
-  };
+  const execSql = createExecSql(dbClient);
 
   await ensureContainerTables(execSql);
   const containers = await loadContainers(execSql);

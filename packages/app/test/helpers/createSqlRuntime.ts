@@ -1,13 +1,13 @@
 import { createMemoryBlobStore } from "../../src/data/blobs";
 import type { DocumentsRuntime } from "../../src/data/documents/DocumentsProvider";
-import { createExecSql } from "./createExecSql";
+import { createTestExecSql } from "./createTestExecSql";
 
 type SharedSqlRuntimeBase = Omit<DocumentsRuntime, "apiClient" | "containerId">;
 
 export async function createSqlRuntimeBase(
   key: string,
 ): Promise<SharedSqlRuntimeBase & { close: () => void }> {
-  const { close, execSql } = await createExecSql(key);
+  const { close, execSql } = await createTestExecSql(key);
 
   return {
     blobStore: createMemoryBlobStore(),

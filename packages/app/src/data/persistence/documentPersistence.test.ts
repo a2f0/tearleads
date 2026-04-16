@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createExecSql } from "../../../test/helpers/createExecSql";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
   ensureDocumentTables,
   loadDocumentRecord,
@@ -7,7 +7,9 @@ import {
 } from "./documentPersistence";
 
 test("ensureDocumentTables adds last_commit_lsn for existing local documents tables", async () => {
-  const { close, execSql } = await createExecSql("document-persistence-test");
+  const { close, execSql } = await createTestExecSql(
+    "document-persistence-test",
+  );
 
   try {
     await execSql(`

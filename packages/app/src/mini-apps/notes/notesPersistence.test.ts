@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createExecSql } from "../../../test/helpers/createExecSql";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import { serializeDriverLicenseDocument } from "../../data/documents/documentKinds";
 import {
   listNotesByContainerIds,
@@ -7,7 +7,7 @@ import {
 } from "./notesPersistence";
 
 test("concurrent note saves are serialized on a shared SQLite connection", async () => {
-  const { close, execSql } = await createExecSql("notes-persistence-test");
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -53,7 +53,7 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
 });
 
 test("upsertDiscoveredNote reuses an existing local note bound to the remote document id", async () => {
-  const { close, execSql } = await createExecSql("notes-persistence-test");
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -113,7 +113,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
 });
 
 test("upsertDiscoveredNote preserves the active local container when another linked container rediscovers the document", async () => {
-  const { close, execSql } = await createExecSql("notes-persistence-test");
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -169,7 +169,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
 });
 
 test("relinkPersistedNote updates the stored container and clears stale bundles on epoch change", async () => {
-  const { close, execSql } = await createExecSql("notes-persistence-test");
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -224,7 +224,7 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
 });
 
 test("listNotesByContainerIds only returns notes for the requested containers", async () => {
-  const { close, execSql } = await createExecSql("notes-persistence-test");
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -283,7 +283,7 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
 });
 
 test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linked notes", async () => {
-  const { close, execSql } = await createExecSql("notes-persistence-test");
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -345,7 +345,7 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
 });
 
 test("listNotes derives driver license titles and document kinds from structured text", async () => {
-  const { close, execSql } = await createExecSql("notes-persistence-test");
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
@@ -379,7 +379,7 @@ test("listNotes derives driver license titles and document kinds from structured
 });
 
 test("upsertDiscoveredNote uses the remote createdAt for a newly discovered document", async () => {
-  const { close, execSql } = await createExecSql("notes-persistence-test");
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
     await sqlNotesPersistence.ensureSchema(execSql);
