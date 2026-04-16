@@ -446,13 +446,14 @@ function useExplorerModalOpeners(params: {
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
   setModalState: (state: ExplorerModalState | null) => void;
+  targetLookups: ExplorerTargetLookups;
 }) {
   const {
-    nodes,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
     setModalState,
+    targetLookups,
   } = params;
   const targetOpeners = useExplorerTargetModalOpeners(params);
 
@@ -468,7 +469,7 @@ function useExplorerModalOpeners(params: {
 
   const openRenameModal = useCallback(
     (containerId: string) => {
-      const container = nodes.find((node) => node.id === containerId);
+      const container = targetLookups.nodesById.get(containerId);
       if (!container) {
         return;
       }
@@ -479,11 +480,11 @@ function useExplorerModalOpeners(params: {
       setDraftTargetContainerId("");
     },
     [
-      nodes,
       setDraftName,
       setDraftTargetContainerId,
       setModalError,
       setModalState,
+      targetLookups,
     ],
   );
 
