@@ -30,12 +30,13 @@ import {
   useExplorerContextMenu,
 } from "./context-menu/ExplorerContextMenu";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
-import {
-  discoverAllContainerDocuments,
-  discoverContainerDocuments,
-  hasUndiscoveredDocumentUpdateEvent,
-} from "./documentDiscovery";
+import { discoverAllContainerDocuments } from "./documentDiscovery";
 import { useExplorer } from "./ExplorerProvider";
+import {
+  createExplorerDocumentsRuntime,
+  isDestroyedDatabaseWorkerError,
+} from "./explorerRuntime";
+import { useDiscoveredDocumentsSync } from "./hooks/useDiscoveredDocumentsSync";
 import {
   ExplorerModalLayer,
   useExplorerModalController,
@@ -66,13 +67,6 @@ type OpenInlineDocument = (
   documentKind: StoredDocumentKind,
   localId?: string,
 ) => void;
-
-function isDestroyedDatabaseWorkerError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message === "Database worker client has been destroyed."
-  );
-}
 
 function buildExplorerTree(
   nodes: ReadonlyArray<ContainerNode>,
@@ -522,45 +516,6 @@ function mergeDocumentSummaryLists(
   return changed ? nextDocumentSummaries : currentDocumentSummaries;
 }
 
-function createDocumentsRuntimeFromExplorer(
-  apiClient: ReturnType<typeof useAppData>["apiClient"],
-  blobStore: ReturnType<typeof useAppData>["blobStore"],
-  cacheReferencedPrincipalPolicies: ReturnType<
-    typeof useAppData
-  >["cacheReferencedPrincipalPolicies"],
-  containerId: string,
-  dbStatus: ReturnType<typeof useAppData>["dbStatus"],
-  domainScope: ReturnType<typeof useAppData>["domainScope"],
-  encapsulationKeyPair: ReturnType<typeof useAppData>["encapsulationKeyPair"],
-  execSql: ReturnType<typeof useAppData>["execSql"],
-  isAuthenticated: ReturnType<typeof useAppData>["isAuthenticated"],
-  log: ReturnType<typeof useAppData>["log"],
-  online: ReturnType<typeof useAppData>["online"],
-) {
-  return {
-    apiClient: {
-      commitDocumentChange: apiClient.commitDocumentChange.bind(apiClient),
-      createDocument: apiClient.createDocument.bind(apiClient),
-      getBlob: apiClient.getBlob.bind(apiClient),
-      listDocumentAttachments:
-        apiClient.listDocumentAttachments.bind(apiClient),
-      stageBlob: apiClient.stageBlob.bind(apiClient),
-      syncDocument: apiClient.syncDocument.bind(apiClient),
-    },
-    blobStore,
-    cacheReferencedPrincipalPolicies,
-    containerId,
-    dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    events: [],
-    execSql,
-    isAuthenticated,
-    log,
-    online,
-  };
-}
-
 async function primeExplorerDocumentStoreForStructuralMutation(params: {
   appData: ReturnType<typeof useAppData>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
@@ -574,19 +529,7 @@ async function primeExplorerDocumentStoreForStructuralMutation(params: {
   const documentStore = primeDocumentStore(
     appData.domainScope,
     note.id,
-    createDocumentsRuntimeFromExplorer(
-      appData.apiClient,
-      appData.blobStore,
-      appData.cacheReferencedPrincipalPolicies,
-      note.containerId,
-      appData.dbStatus,
-      appData.domainScope,
-      appData.encapsulationKeyPair,
-      appData.execSql,
-      appData.isAuthenticated,
-      appData.log,
-      appData.online,
-    ),
+    createExplorerDocumentsRuntime(appData, note.containerId),
     mergeDocumentSummary,
     note.documentId,
   );
@@ -859,267 +802,11 @@ function useDocumentLinkedContainerIdsByDocumentId(params: {
 
   return { linkedContainerIdsByDocumentId, setLinkedContainerIdsForDocument };
 }
-
-function useDiscoveredDocumentsSync(params: {
-  activeContainerId: string | null;
-  apiClient: ReturnType<typeof useAppData>["apiClient"];
-  blobStore: ReturnType<typeof useAppData>["blobStore"];
-  cacheReferencedPrincipalPolicies: ReturnType<
-    typeof useAppData
-  >["cacheReferencedPrincipalPolicies"];
-  dbStatus: ReturnType<typeof useAppData>["dbStatus"];
-  domainScope: ReturnType<typeof useAppData>["domainScope"];
-  encapsulationKeyPair: ReturnType<typeof useAppData>["encapsulationKeyPair"];
-  events: ReturnType<typeof useAppData>["events"];
-  execSql: ReturnType<typeof useAppData>["execSql"];
-  isAuthenticated: ReturnType<typeof useAppData>["isAuthenticated"];
-  knownDocumentIds: ReadonlySet<string>;
-  log: ReturnType<typeof useAppData>["log"];
-  mergeDocumentSummaries: (
-    nextDocuments: ReadonlyArray<DocumentSummary>,
-  ) => void;
-  mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
-  online: ReturnType<typeof useAppData>["online"];
-  replaceDocumentLinksBatch: (
-    inputs: ReadonlyArray<{
-      containerIds: ReadonlyArray<string>;
-      documentId: string;
-    }>,
-  ) => Promise<void>;
-}) {
-  const {
-    activeContainerId,
-    apiClient,
-    blobStore,
-    cacheReferencedPrincipalPolicies,
-    dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    events,
-    execSql,
-    isAuthenticated,
-    knownDocumentIds,
-    log,
-    mergeDocumentSummaries,
-    mergeDocumentSummary,
-    online,
-    replaceDocumentLinksBatch,
-  } = params;
-  const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({
-    apiClient,
-    blobStore,
-    cacheReferencedPrincipalPolicies,
-    dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    execSql,
-    isAuthenticated,
-    log,
-    mergeDocumentSummary,
-    online,
-  });
-
-  const discoverDocumentsForContainer = useCallback(
-    (containerId: string) => {
-      let cancelled = false;
-
-      void (async () => {
-        try {
-          const discoveredDocumentSummaries = await discoverContainerDocuments({
-            cacheReferencedPrincipalPolicies,
-            containerId,
-            listContainerDocuments: (nextContainerId) =>
-              apiClient.listContainerDocuments(nextContainerId),
-            replaceDocumentLinksBatch,
-            upsertDiscoveredDocuments: (inputs) =>
-              upsertDiscoveredDocuments(execSql, inputs),
-          });
-
-          if (!discoveredDocumentSummaries || cancelled) {
-            return;
-          }
-
-          mergeDocumentSummaries(discoveredDocumentSummaries);
-          primeDiscoveredDocuments(discoveredDocumentSummaries);
-        } catch (error: unknown) {
-          if (!isDestroyedDatabaseWorkerError(error)) {
-            throw error;
-          }
-        }
-      })();
-
-      return () => {
-        cancelled = true;
-      };
-    },
-    [
-      apiClient,
-      cacheReferencedPrincipalPolicies,
-      execSql,
-      mergeDocumentSummaries,
-      primeDiscoveredDocuments,
-      replaceDocumentLinksBatch,
-    ],
-  );
-
-  useContainerDiscoveryEffects({
-    activeContainerId,
-    dbStatus,
-    discoverDocumentsForContainer,
-    events,
-    isAuthenticated,
-    knownDocumentIds,
-    online,
-  });
-
-  return { primeDiscoveredDocuments };
-}
-
-function useContainerDiscoveryEffects(params: {
-  activeContainerId: string | null;
-  dbStatus: ReturnType<typeof useAppData>["dbStatus"];
-  discoverDocumentsForContainer: (
-    containerId: string,
-  ) => (() => void) | undefined;
-  events: ReturnType<typeof useAppData>["events"];
-  isAuthenticated: ReturnType<typeof useAppData>["isAuthenticated"];
-  knownDocumentIds: ReadonlySet<string>;
-  online: ReturnType<typeof useAppData>["online"];
-}) {
-  const {
-    activeContainerId,
-    dbStatus,
-    discoverDocumentsForContainer,
-    events,
-    isAuthenticated,
-    knownDocumentIds,
-    online,
-  } = params;
-
-  useEffect(() => {
-    if (
-      !activeContainerId ||
-      dbStatus !== "ready" ||
-      !online ||
-      !isAuthenticated
-    ) {
-      return;
-    }
-
-    return discoverDocumentsForContainer(activeContainerId);
-  }, [
-    activeContainerId,
-    dbStatus,
-    discoverDocumentsForContainer,
-    isAuthenticated,
-    online,
-  ]);
-
-  useEffect(() => {
-    if (
-      !activeContainerId ||
-      dbStatus !== "ready" ||
-      !online ||
-      !isAuthenticated ||
-      !hasUndiscoveredDocumentUpdateEvent(events, knownDocumentIds)
-    ) {
-      return;
-    }
-
-    return discoverDocumentsForContainer(activeContainerId);
-  }, [
-    activeContainerId,
-    dbStatus,
-    discoverDocumentsForContainer,
-    events,
-    isAuthenticated,
-    knownDocumentIds,
-    online,
-  ]);
-}
-
-function usePrimeDiscoveredDocuments(params: {
-  apiClient: ReturnType<typeof useAppData>["apiClient"];
-  blobStore: ReturnType<typeof useAppData>["blobStore"];
-  cacheReferencedPrincipalPolicies: ReturnType<
-    typeof useAppData
-  >["cacheReferencedPrincipalPolicies"];
-  dbStatus: ReturnType<typeof useAppData>["dbStatus"];
-  domainScope: ReturnType<typeof useAppData>["domainScope"];
-  encapsulationKeyPair: ReturnType<typeof useAppData>["encapsulationKeyPair"];
-  execSql: ReturnType<typeof useAppData>["execSql"];
-  isAuthenticated: ReturnType<typeof useAppData>["isAuthenticated"];
-  log: ReturnType<typeof useAppData>["log"];
-  mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
-  online: ReturnType<typeof useAppData>["online"];
-}) {
-  const {
-    apiClient,
-    blobStore,
-    cacheReferencedPrincipalPolicies,
-    dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    execSql,
-    isAuthenticated,
-    log,
-    mergeDocumentSummary,
-    online,
-  } = params;
-
-  const primeDiscoveredDocuments = useCallback(
-    (discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>) => {
-      for (const documentSummary of discoveredDocumentSummaries) {
-        if (!documentSummary.containerId) {
-          continue;
-        }
-
-        const documentStore = primeDocumentStore(
-          domainScope,
-          documentSummary.id,
-          createDocumentsRuntimeFromExplorer(
-            apiClient,
-            blobStore,
-            cacheReferencedPrincipalPolicies,
-            documentSummary.containerId,
-            dbStatus,
-            domainScope,
-            encapsulationKeyPair,
-            execSql,
-            isAuthenticated,
-            log,
-            online,
-          ),
-          mergeDocumentSummary,
-          documentSummary.documentId,
-        );
-        documentStore.requestSync();
-      }
-    },
-    [
-      apiClient,
-      blobStore,
-      cacheReferencedPrincipalPolicies,
-      dbStatus,
-      domainScope,
-      encapsulationKeyPair,
-      execSql,
-      isAuthenticated,
-      log,
-      mergeDocumentSummary,
-      online,
-    ],
-  );
-
-  return { primeDiscoveredDocuments };
-}
-
 function useExplorerRefreshAction(params: {
-  apiClient: ReturnType<typeof useAppData>["apiClient"];
-  cacheReferencedPrincipalPolicies: ReturnType<
-    typeof useAppData
-  >["cacheReferencedPrincipalPolicies"];
-  execSql: ReturnType<typeof useAppData>["execSql"];
+  appData: Pick<
+    ReturnType<typeof useAppData>,
+    "apiClient" | "cacheReferencedPrincipalPolicies" | "execSql"
+  >;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
@@ -1135,14 +822,13 @@ function useExplorerRefreshAction(params: {
   refresh: () => Promise<boolean>;
 }) {
   const {
-    apiClient,
-    cacheReferencedPrincipalPolicies,
-    execSql,
+    appData,
     mergeDocumentSummaries,
     primeDiscoveredDocuments,
     replaceDocumentLinksBatch,
     refresh,
   } = params;
+  const { apiClient, cacheReferencedPrincipalPolicies, execSql } = appData;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
@@ -1648,19 +1334,7 @@ async function relinkExplorerNoteLocally(params: {
 
   mergeDocumentSummary(relinkedNote);
   currentDocumentStore.updateRuntime(
-    createDocumentsRuntimeFromExplorer(
-      appData.apiClient,
-      appData.blobStore,
-      appData.cacheReferencedPrincipalPolicies,
-      targetContainerId,
-      appData.dbStatus,
-      appData.domainScope,
-      appData.encapsulationKeyPair,
-      appData.execSql,
-      appData.isAuthenticated,
-      appData.log,
-      appData.online,
-    ),
+    createExplorerDocumentsRuntime(appData, targetContainerId),
   );
   if (requestSync) {
     currentDocumentStore.requestSync();
@@ -1986,27 +1660,15 @@ function useExplorerInteractionState(params: {
   );
   const { primeDiscoveredDocuments } = useDiscoveredDocumentsSync({
     activeContainerId,
-    apiClient: appData.apiClient,
-    blobStore: appData.blobStore,
-    cacheReferencedPrincipalPolicies: appData.cacheReferencedPrincipalPolicies,
-    dbStatus: appData.dbStatus,
-    domainScope: appData.domainScope,
-    encapsulationKeyPair: appData.encapsulationKeyPair,
-    events: appData.events,
-    execSql: appData.execSql,
-    isAuthenticated: appData.isAuthenticated,
+    appData,
     knownDocumentIds,
-    log: appData.log,
     mergeDocumentSummaries,
     mergeDocumentSummary,
-    online: appData.online,
     replaceDocumentLinksBatch,
   });
 
   return useExplorerRefreshAction({
-    apiClient: appData.apiClient,
-    cacheReferencedPrincipalPolicies: appData.cacheReferencedPrincipalPolicies,
-    execSql: appData.execSql,
+    appData,
     mergeDocumentSummaries,
     primeDiscoveredDocuments,
     replaceDocumentLinksBatch,

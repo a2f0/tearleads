@@ -18,7 +18,7 @@ import { useBlobStore } from "./blobs";
 import { createExecSql, type ExecSql } from "./persistence/sqlSchema";
 import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
 
-interface AppDataContextValue {
+export interface AppDataContextValue {
   apiClient: ReturnType<typeof useApiClient>;
   authToken: string | null;
   blobStore: ReturnType<typeof useBlobStore>;
