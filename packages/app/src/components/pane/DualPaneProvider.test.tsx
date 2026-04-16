@@ -258,8 +258,16 @@ async function createChildContainer(pane: HTMLElement, name: string) {
   await interact(() => {
     fireEvent.click(createChildButton);
   });
+  const containerNameInput = await screen.findByLabelText("Container name");
+  invariant(
+    containerNameInput instanceof HTMLInputElement,
+    "Expected container name input.",
+  );
+  await waitFor(() => {
+    expect(document.activeElement).toBe(containerNameInput);
+  });
   await interact(() => {
-    fireEvent.change(screen.getByLabelText("Container name"), {
+    fireEvent.change(containerNameInput, {
       target: { value: name },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -371,6 +379,9 @@ async function moveContainer(
     destinationSelect instanceof HTMLSelectElement,
     "Expected destination container select.",
   );
+  await waitFor(() => {
+    expect(document.activeElement).toBe(destinationSelect);
+  });
   const destinationOption = Array.from(destinationSelect.options).find(
     (option) => option.textContent?.startsWith(`${destinationName} (`),
   );
@@ -407,6 +418,9 @@ async function moveOpenNoteToContainer(
     destinationSelect instanceof HTMLSelectElement,
     "Expected note destination container select.",
   );
+  await waitFor(() => {
+    expect(document.activeElement).toBe(destinationSelect);
+  });
   const destinationOption = Array.from(destinationSelect.options).find(
     (option) => option.textContent?.startsWith(`${destinationName} (`),
   );
@@ -457,6 +471,9 @@ async function linkOpenNoteToContainer(
     destinationSelect instanceof HTMLSelectElement,
     "Expected note link destination container select.",
   );
+  await waitFor(() => {
+    expect(document.activeElement).toBe(destinationSelect);
+  });
   const destinationOption = Array.from(destinationSelect.options).find(
     (option) => option.textContent?.startsWith(`${destinationName} (`),
   );

@@ -1,9 +1,9 @@
-import { type MouseEvent, useCallback, useState } from "react";
+import { type MouseEvent, useCallback, useMemo, useState } from "react";
 import { Menu, type MenuPosition } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
 import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
-import { getMoveTargetOptions } from "../modal/ExplorerModal";
+import { getMoveTargetOptions } from "../targetOptions";
 import type { ContainerNode } from "../types";
 
 interface ContextMenuState {
@@ -16,6 +16,10 @@ export function useExplorerContextMenu(
   setSelectedId: (id: string | null) => void,
 ) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const nodesById = useMemo(
+    () => new Map(nodes.map((node) => [node.id, node])),
+    [nodes],
+  );
 
   const handleSidebarContextMenu = useCallback(
     (event: MouseEvent<HTMLButtonElement>, nodeId: string) => {
@@ -31,14 +35,19 @@ export function useExplorerContextMenu(
   );
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
-  const contextMenuNode = nodes.find((node) => node.id === contextMenu?.nodeId);
+  const contextMenuNode = contextMenu?.nodeId
+    ? nodesById.get(contextMenu.nodeId)
+    : undefined;
   const contextMenuNodeHasChildren =
     contextMenuNode !== undefined &&
     nodes.some((node) => node.parentId === contextMenuNode.id);
-  const contextMenuNodeMoveTargets =
-    contextMenuNode === undefined
-      ? []
-      : getMoveTargetOptions(nodes, contextMenuNode.id);
+  const contextMenuNodeMoveTargets = useMemo(
+    () =>
+      contextMenuNode === undefined
+        ? []
+        : getMoveTargetOptions(nodes, contextMenuNode.id, { nodesById }),
+    [contextMenuNode, nodes, nodesById],
+  );
 
   return {
     canDeleteContextMenuNode:

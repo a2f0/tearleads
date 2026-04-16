@@ -38,11 +38,14 @@ import {
 import { useExplorer } from "./ExplorerProvider";
 import {
   ExplorerModalLayer,
+  useExplorerModalController,
+} from "./modal/ExplorerModal";
+import {
+  createExplorerTargetLookups,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
   type MoveTargetOption,
-  useExplorerModalController,
-} from "./modal/ExplorerModal";
+} from "./targetOptions";
 import type { ContainerNode } from "./types";
 import "./Explorer.css";
 
@@ -2011,6 +2014,60 @@ function useExplorerInteractionState(params: {
   });
 }
 
+function useSelectedDocumentTargetOptions(params: {
+  documentSummaries: ReadonlyArray<DocumentSummary>;
+  nodes: ReadonlyArray<ContainerNode>;
+  selectedDocument: DocumentSummary | undefined;
+  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
+}) {
+  const {
+    documentSummaries,
+    nodes,
+    selectedDocument,
+    selectedDocumentLinkedContainerIds,
+  } = params;
+  const targetLookups = useMemo(
+    () => createExplorerTargetLookups(nodes, documentSummaries),
+    [documentSummaries, nodes],
+  );
+  const selectedDocumentMoveTargetOptions = useMemo(
+    () =>
+      selectedDocument
+        ? getDocumentMoveTargetOptions(
+            nodes,
+            documentSummaries,
+            selectedDocument.id,
+            targetLookups,
+          )
+        : [],
+    [documentSummaries, nodes, selectedDocument, targetLookups],
+  );
+  const selectedDocumentLinkTargetOptions = useMemo(
+    () =>
+      selectedDocument
+        ? getDocumentLinkTargetOptions(
+            nodes,
+            documentSummaries,
+            selectedDocument.id,
+            selectedDocumentLinkedContainerIds,
+            targetLookups,
+          )
+        : [],
+    [
+      documentSummaries,
+      nodes,
+      selectedDocument,
+      selectedDocumentLinkedContainerIds,
+      targetLookups,
+    ],
+  );
+
+  return {
+    selectedDocumentLinkTargetOptions,
+    selectedDocumentMoveTargetOptions,
+  };
+}
+
 function useSelectedDocumentStructuralState(params: {
   appData: ReturnType<typeof useAppData>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
@@ -2068,21 +2125,15 @@ function useSelectedDocumentStructuralState(params: {
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
   });
-  const selectedDocumentMoveTargetOptions = selectedDocument
-    ? getDocumentMoveTargetOptions(
-        nodes,
-        documentSummaries,
-        selectedDocument.id,
-      )
-    : [];
-  const selectedDocumentLinkTargetOptions = selectedDocument
-    ? getDocumentLinkTargetOptions(
-        nodes,
-        documentSummaries,
-        selectedDocument.id,
-        selectedDocumentLinkedContainerIds,
-      )
-    : [];
+  const {
+    selectedDocumentLinkTargetOptions,
+    selectedDocumentMoveTargetOptions,
+  } = useSelectedDocumentTargetOptions({
+    documentSummaries,
+    nodes,
+    selectedDocument,
+    selectedDocumentLinkedContainerIds,
+  });
 
   return {
     activateLinkedDocument,
@@ -2410,6 +2461,7 @@ export function Explorer() {
         setDraftName={model.modalState.setDraftName}
         setModalError={model.modalState.setModalError}
         setDraftTargetContainerId={model.modalState.setDraftTargetContainerId}
+        targetSelectRef={model.modalState.targetSelectRef}
       />
     </div>
   );

@@ -1,6 +1,14 @@
 import type { FormEvent, RefObject } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
+import {
+  createExplorerTargetLookups,
+  type ExplorerTargetLookups,
+  getDocumentLinkTargetOptions,
+  getDocumentMoveTargetOptions,
+  getMoveTargetOptions,
+  type MoveTargetOption,
+} from "../targetOptions";
 import type { ContainerNode } from "../types";
 
 type ExplorerModalState =
@@ -11,137 +19,6 @@ type ExplorerModalState =
   | { mode: "move-document"; documentLocalId: string }
   | { mode: "rename"; nodeId: string }
   | { mode: "share-peer"; nodeId: string };
-
-export interface MoveTargetOption {
-  id: string;
-  label: string;
-}
-
-export function getMoveTargetOptions(
-  nodes: ReadonlyArray<ContainerNode>,
-  movingNodeId: string,
-): ReadonlyArray<MoveTargetOption> {
-  const movingNode = nodes.find((node) => node.id === movingNodeId);
-  if (!movingNode || movingNode.parentId === null) {
-    return [];
-  }
-
-  const nodesById = new Map(nodes.map((node) => [node.id, node]));
-  const options = nodes
-    .filter((candidateNode) => {
-      if (
-        candidateNode.id === movingNode.id ||
-        candidateNode.organizationId !== movingNode.organizationId
-      ) {
-        return false;
-      }
-
-      let currentNode: ContainerNode | undefined = candidateNode;
-      while (currentNode) {
-        if (currentNode.parentId === movingNode.id) {
-          return false;
-        }
-
-        currentNode = currentNode.parentId
-          ? nodesById.get(currentNode.parentId)
-          : undefined;
-      }
-
-      return true;
-    })
-    .map((candidateNode) => ({
-      id: candidateNode.id,
-      label: `${candidateNode.name} (${candidateNode.id})`,
-    }));
-
-  options.sort((left, right) =>
-    left.label.localeCompare(right.label, undefined, {
-      sensitivity: "base",
-    }),
-  );
-
-  return options;
-}
-
-export function getDocumentMoveTargetOptions(
-  nodes: ReadonlyArray<ContainerNode>,
-  documentSummaries: ReadonlyArray<DocumentSummary>,
-  documentLocalId: string,
-): ReadonlyArray<MoveTargetOption> {
-  const movingDocument = documentSummaries.find(
-    (document) => document.id === documentLocalId,
-  );
-  if (!movingDocument?.containerId) {
-    return [];
-  }
-
-  const currentContainer = nodes.find(
-    (node) => node.id === movingDocument.containerId,
-  );
-  if (!currentContainer) {
-    return [];
-  }
-
-  const options = nodes
-    .filter(
-      (candidateNode) =>
-        candidateNode.id !== currentContainer.id &&
-        candidateNode.organizationId === currentContainer.organizationId,
-    )
-    .map((candidateNode) => ({
-      id: candidateNode.id,
-      label: `${candidateNode.name} (${candidateNode.id})`,
-    }));
-
-  options.sort((left, right) =>
-    left.label.localeCompare(right.label, undefined, {
-      sensitivity: "base",
-    }),
-  );
-
-  return options;
-}
-
-export function getDocumentLinkTargetOptions(
-  nodes: ReadonlyArray<ContainerNode>,
-  documentSummaries: ReadonlyArray<DocumentSummary>,
-  documentLocalId: string,
-  linkedContainerIds: ReadonlyArray<string>,
-): ReadonlyArray<MoveTargetOption> {
-  const linkingDocument = documentSummaries.find(
-    (document) => document.id === documentLocalId,
-  );
-  if (!linkingDocument?.containerId) {
-    return [];
-  }
-
-  const currentContainer = nodes.find(
-    (node) => node.id === linkingDocument.containerId,
-  );
-  if (!currentContainer) {
-    return [];
-  }
-
-  const linkedContainerIdSet = new Set(linkedContainerIds);
-  const options = nodes
-    .filter(
-      (candidateNode) =>
-        candidateNode.organizationId === currentContainer.organizationId &&
-        !linkedContainerIdSet.has(candidateNode.id),
-    )
-    .map((candidateNode) => ({
-      id: candidateNode.id,
-      label: `${candidateNode.name} (${candidateNode.id})`,
-    }));
-
-  options.sort((left, right) =>
-    left.label.localeCompare(right.label, undefined, {
-      sensitivity: "base",
-    }),
-  );
-
-  return options;
-}
 
 function getExplorerModalError(mode: ExplorerModalState["mode"]): string {
   switch (mode) {
@@ -191,6 +68,35 @@ function clearExplorerModalState(
   setModalError(null);
   setDraftName("");
   setDraftTargetContainerId("");
+}
+
+function openExplorerTargetModal(params: {
+  nextModalState:
+    | { mode: "link-document"; documentLocalId: string }
+    | { mode: "move"; nodeId: string }
+    | { mode: "move-document"; documentLocalId: string };
+  setDraftName: (value: string) => void;
+  setDraftTargetContainerId: (value: string) => void;
+  setModalError: (error: string | null) => void;
+  setModalState: (state: ExplorerModalState | null) => void;
+  targetOptions: ReadonlyArray<MoveTargetOption>;
+}) {
+  const {
+    nextModalState,
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+    targetOptions,
+  } = params;
+  if (targetOptions.length === 0) {
+    return;
+  }
+
+  setModalState(nextModalState);
+  setModalError(null);
+  setDraftName("");
+  setDraftTargetContainerId(targetOptions[0]?.id ?? "");
 }
 
 async function submitExplorerDeleteModal(params: {
@@ -327,24 +233,35 @@ function useExplorerModalEffects(params: {
   isSubmittingModal: boolean;
   modalState: ExplorerModalState | null;
   nameInputRef: RefObject<HTMLInputElement | null>;
+  targetSelectRef: RefObject<HTMLSelectElement | null>;
 }) {
-  const { closeModal, isSubmittingModal, modalState, nameInputRef } = params;
+  const {
+    closeModal,
+    isSubmittingModal,
+    modalState,
+    nameInputRef,
+    targetSelectRef,
+  } = params;
 
   useEffect(() => {
-    if (
-      !modalState ||
-      modalState.mode === "delete" ||
-      modalState.mode === "link-document" ||
-      modalState.mode === "move" ||
-      modalState.mode === "move-document" ||
-      modalState.mode === "share-peer"
-    ) {
+    if (!modalState) {
       return;
     }
 
-    nameInputRef.current?.focus();
-    nameInputRef.current?.select();
-  }, [modalState, nameInputRef]);
+    if (modalState.mode === "create-child" || modalState.mode === "rename") {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+      return;
+    }
+
+    if (
+      modalState.mode === "link-document" ||
+      modalState.mode === "move" ||
+      modalState.mode === "move-document"
+    ) {
+      targetSelectRef.current?.focus();
+    }
+  }, [modalState, nameInputRef, targetSelectRef]);
 
   useEffect(() => {
     if (!modalState) {
@@ -371,6 +288,114 @@ function useExplorerTargetModalOpeners(params: {
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
   setModalState: (state: ExplorerModalState | null) => void;
+  targetLookups: ExplorerTargetLookups;
+}) {
+  const openMoveModal = useExplorerMoveModalOpener(params);
+  const openMoveDocumentModal = useExplorerMoveDocumentModalOpener(params);
+  const openLinkDocumentModal = useExplorerLinkDocumentModalOpener(params);
+
+  return {
+    openLinkDocumentModal,
+    openMoveDocumentModal,
+    openMoveModal,
+  };
+}
+
+function useExplorerMoveModalOpener(params: {
+  nodes: ReadonlyArray<ContainerNode>;
+  setDraftName: (value: string) => void;
+  setDraftTargetContainerId: (value: string) => void;
+  setModalError: (error: string | null) => void;
+  setModalState: (state: ExplorerModalState | null) => void;
+  targetLookups: ExplorerTargetLookups;
+}) {
+  const {
+    nodes,
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+    targetLookups,
+  } = params;
+
+  return useCallback(
+    (containerId: string) => {
+      openExplorerTargetModal({
+        nextModalState: { mode: "move", nodeId: containerId },
+        setDraftName,
+        setDraftTargetContainerId,
+        setModalError,
+        setModalState,
+        targetOptions: getMoveTargetOptions(nodes, containerId, targetLookups),
+      });
+    },
+    [
+      nodes,
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+      targetLookups,
+    ],
+  );
+}
+
+function useExplorerMoveDocumentModalOpener(params: {
+  documentSummaries: ReadonlyArray<DocumentSummary>;
+  nodes: ReadonlyArray<ContainerNode>;
+  setDraftName: (value: string) => void;
+  setDraftTargetContainerId: (value: string) => void;
+  setModalError: (error: string | null) => void;
+  setModalState: (state: ExplorerModalState | null) => void;
+  targetLookups: ExplorerTargetLookups;
+}) {
+  const {
+    documentSummaries,
+    nodes,
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+    targetLookups,
+  } = params;
+
+  return useCallback(
+    (documentLocalId: string) => {
+      openExplorerTargetModal({
+        nextModalState: { mode: "move-document", documentLocalId },
+        setDraftName,
+        setDraftTargetContainerId,
+        setModalError,
+        setModalState,
+        targetOptions: getDocumentMoveTargetOptions(
+          nodes,
+          documentSummaries,
+          documentLocalId,
+          targetLookups,
+        ),
+      });
+    },
+    [
+      documentSummaries,
+      nodes,
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+      targetLookups,
+    ],
+  );
+}
+
+function useExplorerLinkDocumentModalOpener(params: {
+  documentSummaries: ReadonlyArray<DocumentSummary>;
+  nodes: ReadonlyArray<ContainerNode>;
+  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
+  setDraftName: (value: string) => void;
+  setDraftTargetContainerId: (value: string) => void;
+  setModalError: (error: string | null) => void;
+  setModalState: (state: ExplorerModalState | null) => void;
+  targetLookups: ExplorerTargetLookups;
 }) {
   const {
     documentSummaries,
@@ -380,71 +405,25 @@ function useExplorerTargetModalOpeners(params: {
     setDraftTargetContainerId,
     setModalError,
     setModalState,
+    targetLookups,
   } = params;
 
-  const openMoveModal = useCallback(
-    (containerId: string) => {
-      const moveTargetOptions = getMoveTargetOptions(nodes, containerId);
-      if (moveTargetOptions.length === 0) {
-        return;
-      }
-
-      setModalState({ mode: "move", nodeId: containerId });
-      setModalError(null);
-      setDraftName("");
-      setDraftTargetContainerId(moveTargetOptions[0]?.id ?? "");
-    },
-    [
-      nodes,
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-    ],
-  );
-
-  const openMoveDocumentModal = useCallback(
+  return useCallback(
     (documentLocalId: string) => {
-      const moveTargetOptions = getDocumentMoveTargetOptions(
-        nodes,
-        documentSummaries,
-        documentLocalId,
-      );
-      if (moveTargetOptions.length === 0) {
-        return;
-      }
-
-      setModalState({ mode: "move-document", documentLocalId });
-      setModalError(null);
-      setDraftName("");
-      setDraftTargetContainerId(moveTargetOptions[0]?.id ?? "");
-    },
-    [
-      documentSummaries,
-      nodes,
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-    ],
-  );
-
-  const openLinkDocumentModal = useCallback(
-    (documentLocalId: string) => {
-      const linkTargetOptions = getDocumentLinkTargetOptions(
-        nodes,
-        documentSummaries,
-        documentLocalId,
-        selectedDocumentLinkedContainerIds,
-      );
-      if (linkTargetOptions.length === 0) {
-        return;
-      }
-
-      setModalState({ mode: "link-document", documentLocalId });
-      setModalError(null);
-      setDraftName("");
-      setDraftTargetContainerId(linkTargetOptions[0]?.id ?? "");
+      openExplorerTargetModal({
+        nextModalState: { mode: "link-document", documentLocalId },
+        setDraftName,
+        setDraftTargetContainerId,
+        setModalError,
+        setModalState,
+        targetOptions: getDocumentLinkTargetOptions(
+          nodes,
+          documentSummaries,
+          documentLocalId,
+          selectedDocumentLinkedContainerIds,
+          targetLookups,
+        ),
+      });
     },
     [
       documentSummaries,
@@ -454,14 +433,9 @@ function useExplorerTargetModalOpeners(params: {
       setDraftTargetContainerId,
       setModalError,
       setModalState,
+      targetLookups,
     ],
   );
-
-  return {
-    openLinkDocumentModal,
-    openMoveDocumentModal,
-    openMoveModal,
-  };
 }
 
 function useExplorerModalOpeners(params: {
@@ -553,6 +527,11 @@ function useExplorerModalState(
   const [draftName, setDraftName] = useState("");
   const [draftTargetContainerId, setDraftTargetContainerId] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const targetSelectRef = useRef<HTMLSelectElement>(null);
+  const targetLookups = useMemo(
+    () => createExplorerTargetLookups(nodes, documentSummaries),
+    [documentSummaries, nodes],
+  );
   const clearModal = useCallback(
     () =>
       clearExplorerModalState(
@@ -577,12 +556,14 @@ function useExplorerModalState(
     setDraftTargetContainerId,
     setModalError,
     setModalState,
+    targetLookups,
   });
   useExplorerModalEffects({
     closeModal,
     isSubmittingModal,
     modalState,
     nameInputRef,
+    targetSelectRef,
   });
 
   return {
@@ -595,6 +576,8 @@ function useExplorerModalState(
     modalError,
     modalState,
     nameInputRef,
+    targetLookups,
+    targetSelectRef,
     setDraftName,
     setDraftTargetContainerId,
     setIsSubmittingModal,
@@ -903,23 +886,42 @@ export function useExplorerModalController(params: {
     params.documentSummaries,
     params.selectedDocumentLinkedContainerIds,
   );
-  const moveTargetOptions =
-    modalState.modalState?.mode === "move"
-      ? getMoveTargetOptions(params.nodes, modalState.modalState.nodeId)
-      : modalState.modalState?.mode === "link-document"
-        ? getDocumentLinkTargetOptions(
-            params.nodes,
-            params.documentSummaries,
-            modalState.modalState.documentLocalId,
-            params.selectedDocumentLinkedContainerIds,
-          )
-        : modalState.modalState?.mode === "move-document"
-          ? getDocumentMoveTargetOptions(
-              params.nodes,
-              params.documentSummaries,
-              modalState.modalState.documentLocalId,
-            )
-          : [];
+  const moveTargetOptions = useMemo(() => {
+    if (modalState.modalState?.mode === "move") {
+      return getMoveTargetOptions(
+        params.nodes,
+        modalState.modalState.nodeId,
+        modalState.targetLookups,
+      );
+    }
+
+    if (modalState.modalState?.mode === "link-document") {
+      return getDocumentLinkTargetOptions(
+        params.nodes,
+        params.documentSummaries,
+        modalState.modalState.documentLocalId,
+        params.selectedDocumentLinkedContainerIds,
+        modalState.targetLookups,
+      );
+    }
+
+    if (modalState.modalState?.mode === "move-document") {
+      return getDocumentMoveTargetOptions(
+        params.nodes,
+        params.documentSummaries,
+        modalState.modalState.documentLocalId,
+        modalState.targetLookups,
+      );
+    }
+
+    return [];
+  }, [
+    modalState.modalState,
+    modalState.targetLookups,
+    params.documentSummaries,
+    params.nodes,
+    params.selectedDocumentLinkedContainerIds,
+  ]);
   const handleModalSubmit = useExplorerModalSubmit({
     ...params,
     clearModal: modalState.clearModal,
@@ -951,6 +953,7 @@ export function useExplorerModalController(params: {
     setDraftName: modalState.setDraftName,
     setDraftTargetContainerId: modalState.setDraftTargetContainerId,
     setModalError: modalState.setModalError,
+    targetSelectRef: modalState.targetSelectRef,
   };
 }
 
@@ -1069,6 +1072,7 @@ function ExplorerModalBody(params: {
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
+  targetSelectRef: RefObject<HTMLSelectElement | null>;
 }) {
   const {
     draftName,
@@ -1081,6 +1085,7 @@ function ExplorerModalBody(params: {
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
+    targetSelectRef,
   } = params;
 
   if (modalState.mode === "delete") {
@@ -1106,6 +1111,7 @@ function ExplorerModalBody(params: {
       <label className="explorer-modal-field">
         Destination
         <select
+          ref={targetSelectRef}
           aria-label="Destination container"
           disabled={isSubmittingModal}
           value={draftTargetContainerId}
@@ -1155,6 +1161,7 @@ export function ExplorerModalLayer(params: {
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
+  targetSelectRef: RefObject<HTMLSelectElement | null>;
 }) {
   const {
     closeModal,
@@ -1170,6 +1177,7 @@ export function ExplorerModalLayer(params: {
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
+    targetSelectRef,
   } = params;
 
   if (!modalState) {
@@ -1197,6 +1205,7 @@ export function ExplorerModalLayer(params: {
             setDraftName={setDraftName}
             setDraftTargetContainerId={setDraftTargetContainerId}
             setModalError={setModalError}
+            targetSelectRef={targetSelectRef}
           />
           {modalError && (
             <div className="explorer-modal-error">{modalError}</div>
