@@ -2,7 +2,7 @@ import {
   execDatabaseStatement,
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
-import type { ExecSql } from "../../src/data/sqlSchema";
+import type { ExecSql } from "../../src/data/persistence/sqlSchema";
 
 export async function createExecSql(key: string): Promise<{
   close: () => void;

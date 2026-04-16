@@ -10,8 +10,8 @@ import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyStateHash,
   savePrincipalPolicyBundle,
-} from "./principalPolicyPersistence";
-import type { ExecSql } from "./sqlSchema";
+} from "./persistence/principalPolicyPersistence";
+import type { ExecSql } from "./persistence/sqlSchema";
 
 interface CacheReferencedPrincipalPoliciesOptions {
   execSql: ExecSql;

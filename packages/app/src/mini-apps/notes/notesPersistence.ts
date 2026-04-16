@@ -3,7 +3,7 @@ import {
   listDocumentsByContainerIds,
   sqlDocumentsPersistence,
 } from "../../data/documents/documentsPersistence";
-import type { ExecSql } from "../../data/sqlSchema";
+import type { ExecSql } from "../../data/persistence/sqlSchema";
 
 export interface NoteRecord extends DocumentPersistence.StoredDocumentRecord {}
 

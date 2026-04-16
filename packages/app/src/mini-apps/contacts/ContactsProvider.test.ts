@@ -6,7 +6,7 @@ import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
-} from "../../data/documentPersistence";
+} from "../../data/persistence/documentPersistence";
 import { type ContactsRuntime, createContactsStore } from "./ContactsProvider";
 import type {
   ContactPendingUpdateInsert,

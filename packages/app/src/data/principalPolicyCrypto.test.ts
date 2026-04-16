@@ -12,11 +12,11 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createExecSql } from "../../test/helpers/createExecSql";
 import { decryptBlobEnvelope, serializeBlobEnvelope } from "./blobEnvelope";
-import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
-} from "./principalPolicyPersistence";
+} from "./persistence/principalPolicyPersistence";
+import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 
 async function createPrincipalPolicyBundle(input: {
   keyEpoch?: number;

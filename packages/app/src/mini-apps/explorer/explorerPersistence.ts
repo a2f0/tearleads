@@ -17,8 +17,11 @@ import {
   type PendingUpdateFields,
   type PendingUpdateRecord,
   saveDocumentRecord,
-} from "../../data/documentPersistence";
-import { type ExecSql, runSerializedSqlMutation } from "../../data/sqlSchema";
+} from "../../data/persistence/documentPersistence";
+import {
+  type ExecSql,
+  runSerializedSqlMutation,
+} from "../../data/persistence/sqlSchema";
 
 const CONTAINER_METADATA_APP_KIND = "container-metadata";
 

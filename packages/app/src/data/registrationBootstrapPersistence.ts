@@ -2,9 +2,12 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { SerializedRecipientEnvelope } from "@tearleads/loro";
 import { sqlContactsPersistence } from "../mini-apps/contacts/contactsPersistence";
 import { sqlExplorerPersistence } from "../mini-apps/explorer/explorerPersistence";
-import type { DocumentRecord } from "./documentPersistence";
 import { serializeDocumentRecipientEnvelopes } from "./documentSync";
-import { type ExecSql, runSerializedSqlMutation } from "./sqlSchema";
+import type { DocumentRecord } from "./persistence/documentPersistence";
+import {
+  type ExecSql,
+  runSerializedSqlMutation,
+} from "./persistence/sqlSchema";
 
 interface RegistrationBootstrapInput {
   containerId: string;

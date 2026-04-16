@@ -5,8 +5,8 @@ import type {
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
-import { loadAllPrincipalPolicyBundles } from "./principalPolicyPersistence";
-import type { ExecSql } from "./sqlSchema";
+import { loadAllPrincipalPolicyBundles } from "./persistence/principalPolicyPersistence";
+import type { ExecSql } from "./persistence/sqlSchema";
 
 interface PrincipalPolicyResolutionContext {
   bundlesByKeyFingerprint: ReadonlyMap<

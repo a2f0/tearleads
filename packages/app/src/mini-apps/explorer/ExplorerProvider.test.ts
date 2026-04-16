@@ -12,14 +12,14 @@ import {
   sqlDocumentContainerProjectionPersistence,
 } from "../../data/containers";
 import {
-  ensureDocumentTables,
-  saveDocumentRecord,
-} from "../../data/documentPersistence";
-import {
   createDocumentEncryptionMaterial,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
-import { readSqlRowValue } from "../../data/sqlSchema";
+import {
+  ensureDocumentTables,
+  saveDocumentRecord,
+} from "../../data/persistence/documentPersistence";
+import { readSqlRowValue } from "../../data/persistence/sqlSchema";
 import { primeNotesStore } from "../notes/NotesProvider";
 import { sqlNotesPersistence } from "../notes/notesPersistence";
 import { createExplorerStore } from "./ExplorerProvider";

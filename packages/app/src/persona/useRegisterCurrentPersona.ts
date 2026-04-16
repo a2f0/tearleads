@@ -10,8 +10,8 @@ import {
   createPendingUpdateFields,
   encryptPendingUpdates,
 } from "../data/documentSync";
+import type { SqlRow, SqlRowValue } from "../data/persistence/sqlSchema";
 import { persistRegistrationBootstrap } from "../data/registrationBootstrapPersistence";
-import type { SqlRow, SqlRowValue } from "../data/sqlSchema";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useLog } from "../logging/LogProvider";
 import { usePersona } from "./PersonaProvider";

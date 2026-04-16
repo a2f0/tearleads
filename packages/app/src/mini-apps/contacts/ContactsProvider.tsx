@@ -16,10 +16,6 @@ import {
 } from "react";
 import { useAppData } from "../../data/AppDataProvider";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
-import type {
-  DocumentRecord,
-  PendingUpdateRecord,
-} from "../../data/documentPersistence";
 import {
   createPendingUpdateFields,
   decryptIncomingUpdates,
@@ -35,7 +31,11 @@ import {
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../data/documentSync";
-import type { ExecSql } from "../../data/sqlSchema";
+import type {
+  DocumentRecord,
+  PendingUpdateRecord,
+} from "../../data/persistence/documentPersistence";
+import type { ExecSql } from "../../data/persistence/sqlSchema";
 import {
   type ContactsPersistence,
   sqlContactsPersistence,
