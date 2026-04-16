@@ -1,5 +1,5 @@
+import { Layout } from "./components/layout/Layout";
 import type { AppHostConfig } from "./host/AppHostConfig";
-import { Layout } from "./Layout";
 
 interface AppProps {
   hostConfig: AppHostConfig;

@@ -1,9 +1,8 @@
 import { useCallback, useState } from "react";
-import type { MenuPosition } from "./components/shared/Menu";
-import { StartMenu } from "./components/shared/StartMenu";
+import type { MenuPosition } from "../shared/Menu";
+import { StartMenu } from "../shared/StartMenu";
 import "./Footer.css";
-import "./Workspace.css";
-import { useWorkspace } from "./WorkspaceProvider";
+import { useWorkspace, WORKSPACE_IDS } from "./workspace/WorkspaceProvider";
 
 export function Footer() {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
@@ -22,7 +21,7 @@ export function Footer() {
           Footer
         </button>
         <div className="workspace-switcher">
-          {[1, 2].map((id) => (
+          {WORKSPACE_IDS.map((id) => (
             <button
               key={id}
               type="button"
