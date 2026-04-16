@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
-import { serializeDriverLicenseDocument } from "../../data/documents/documentKinds";
+import {
+  serializeCreditCardDocument,
+  serializeDriverLicenseDocument,
+} from "../../data/documents/documentKinds";
 import {
   listNotesByContainerIds,
   sqlNotesPersistence,
@@ -370,6 +373,42 @@ test("listNotes derives driver license titles and document kinds from structured
         documentKind: "drivers_license",
         documentId: "document-license",
         title: "Driver's License D1234567",
+        updatedAt: expect.any(String),
+      },
+    ]);
+  } finally {
+    close();
+  }
+});
+
+test("listNotes derives masked credit card titles and document kinds from structured text", async () => {
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+
+  try {
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await sqlNotesPersistence.saveNote(execSql, {
+      id: "credit-card",
+      containerId: "billing-container",
+      documentId: "document-card",
+      documentRecipientEnvelopes: null,
+      text: serializeCreditCardDocument({
+        cardNumber: "4111 1111 1111 1234",
+        cvvCode: "123",
+        expirationDate: "2030-05",
+        nameOnCard: "Ada Lovelace",
+      }),
+      loroSnapshot: "snapshot-card",
+      accessEpoch: 1,
+    });
+
+    await expect(sqlNotesPersistence.listNotes(execSql)).resolves.toEqual([
+      {
+        id: "credit-card",
+        containerId: "billing-container",
+        documentKind: "credit_card",
+        documentId: "document-card",
+        title: "Credit Card ending in 1234",
         updatedAt: expect.any(String),
       },
     ]);

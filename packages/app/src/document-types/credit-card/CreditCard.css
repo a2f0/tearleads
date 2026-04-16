@@ -1,0 +1,135 @@
+.credit-card {
+  display: grid;
+  gap: calc(var(--padding) * 1.25);
+}
+
+.credit-card-header {
+  display: grid;
+  gap: calc(var(--padding) / 2);
+}
+
+.credit-card-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--padding);
+}
+
+.credit-card-status {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.credit-card-fields {
+  display: grid;
+  gap: var(--padding);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.credit-card-field {
+  display: grid;
+  gap: calc(var(--padding) / 2);
+  font-size: 0.95rem;
+}
+
+.credit-card-field input {
+  width: 100%;
+  padding: calc(var(--padding) * 0.75);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 1.5);
+  background: var(--panel-background);
+  color: inherit;
+  font: inherit;
+}
+
+.credit-card-attachments {
+  display: grid;
+  gap: var(--padding);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.credit-card-slot {
+  display: grid;
+  gap: calc(var(--padding) / 1.5);
+  padding: var(--padding);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-background);
+}
+
+.credit-card-slot-copy {
+  display: grid;
+  gap: calc(var(--padding) / 4);
+}
+
+.credit-card-slot-description {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.credit-card-slot-preview {
+  aspect-ratio: 1.58 / 1;
+  width: 100%;
+  border: 1px dashed var(--border);
+  border-radius: calc(var(--radius) / 1.5);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--panel-background) 84%, var(--accent) 16%),
+    var(--panel-background)
+  );
+  object-fit: cover;
+}
+
+.credit-card-slot-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.credit-card-slot-meta {
+  display: grid;
+  gap: calc(var(--padding) / 4);
+  min-height: 2.5rem;
+}
+
+.credit-card-slot-name {
+  word-break: break-word;
+}
+
+.credit-card-slot-detail {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.credit-card-slot-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(var(--padding) / 2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.credit-card-slot-button {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 1.5);
+  background: var(--button-background);
+  color: inherit;
+  padding: calc(var(--padding) * 0.6) calc(var(--padding) * 0.9);
+  font: inherit;
+  cursor: pointer;
+}
+
+.credit-card-slot-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.credit-card-slot-status {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.credit-card-file-input {
+  display: none;
+}
