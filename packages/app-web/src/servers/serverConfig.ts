@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import {
   getDefaultDatabaseWorkerEntrypointUrl,
   getSqliteWasmAssetUrl,
@@ -5,7 +6,7 @@ import {
 import index from "../index.html";
 
 const workerBuild = await Bun.build({
-  entrypoints: [getDefaultDatabaseWorkerEntrypointUrl().pathname],
+  entrypoints: [fileURLToPath(getDefaultDatabaseWorkerEntrypointUrl())],
   target: "browser",
   format: "esm",
 });

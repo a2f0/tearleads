@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow } from "electrobun/bun";
@@ -5,14 +6,12 @@ import { BrowserWindow } from "electrobun/bun";
 const isDev = process.env.NODE_ENV !== "production";
 
 async function createDevServerConfig() {
-  const workerEntrypoint = new URL(
-    "../renderer/databaseWorker.ts",
-    import.meta.url,
-  ).pathname;
-  const webEntrypoint = new URL(
-    "../../../app-web/src/index.html",
-    import.meta.url,
-  ).pathname;
+  const workerEntrypoint = fileURLToPath(
+    new URL("../renderer/databaseWorker.ts", import.meta.url),
+  );
+  const webEntrypoint = fileURLToPath(
+    new URL("../../../app-web/src/index.html", import.meta.url),
+  );
 
   const webBuild = await Bun.build({
     entrypoints: [webEntrypoint],
