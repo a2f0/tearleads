@@ -10,8 +10,8 @@ import { useAppData } from "../../data/AppDataProvider";
 import type { BlobBytes } from "../../data/blobs";
 import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
 import { formatByteLength } from "../../utils/formatByteLength";
-import { type NoteAttachmentStatus, useNotes } from "./NotesProvider";
 import type { NoteAttachment } from "./noteDocument";
+import { type NoteAttachmentStatus, useNotes } from "./providers/NotesProvider";
 import "./Notes.css";
 
 type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;

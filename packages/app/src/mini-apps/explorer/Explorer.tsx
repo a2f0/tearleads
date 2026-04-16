@@ -27,7 +27,6 @@ import {
 } from "./context-menu/ExplorerContextMenu";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { discoverAllContainerDocuments } from "./documentDiscovery";
-import { useExplorer } from "./ExplorerProvider";
 import { isDestroyedDatabaseWorkerError } from "./explorerRuntime";
 import { useDiscoveredDocumentsSync } from "./hooks/useDiscoveredDocumentsSync";
 import {
@@ -38,6 +37,7 @@ import {
   ExplorerModalLayer,
   useExplorerModalController,
 } from "./modal/ExplorerModal";
+import { useExplorer } from "./providers/ExplorerProvider";
 import type { MoveTargetOption } from "./targetOptions";
 import type { ContainerNode } from "./types";
 import "./Explorer.css";

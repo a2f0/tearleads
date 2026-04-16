@@ -1,6 +1,6 @@
 import { AppWindow } from "../AppWindow";
 import { Contacts } from "./Contacts";
-import { ContactsProvider } from "./ContactsProvider";
+import { ContactsProvider } from "./providers/ContactsProvider";
 
 export function ContactsApp() {
   return (

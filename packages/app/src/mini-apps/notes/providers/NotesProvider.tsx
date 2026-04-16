@@ -8,9 +8,9 @@ import {
   type DocumentsRuntime,
   primeDocumentStore,
   useDocument,
-} from "../../data/documents/DocumentsProvider";
-import type { NoteSummary, NotesPersistence } from "./notesPersistence";
-import { adaptNotesPersistence } from "./notesPersistence";
+} from "../../../data/documents/DocumentsProvider";
+import type { NoteSummary, NotesPersistence } from "../notesPersistence";
+import { adaptNotesPersistence } from "../notesPersistence";
 
 export const DEFAULT_NOTE_ID = DEFAULT_DOCUMENT_ID;
 

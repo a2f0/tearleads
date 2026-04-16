@@ -14,8 +14,8 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { useAppData } from "../../data/AppDataProvider";
-import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
+import { useAppData } from "../../../data/AppDataProvider";
+import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
 import {
   createPendingUpdateFields,
   decryptIncomingUpdates,
@@ -30,17 +30,17 @@ import {
   resolveRecipientPublicKeys,
   resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
-} from "../../data/documentSync";
+} from "../../../data/documentSync";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
-} from "../../data/persistence/documentPersistence";
-import type { ExecSql } from "../../data/persistence/sqlSchema";
+} from "../../../data/persistence/documentPersistence";
+import type { ExecSql } from "../../../data/persistence/sqlSchema";
 import {
   type ContactsPersistence,
   sqlContactsPersistence,
-} from "./contactsPersistence";
-import type { AddressBookEntry } from "./types";
+} from "../contactsPersistence";
+import type { AddressBookEntry } from "../types";
 
 type ContactsDocument = Awaited<ReturnType<typeof createDocument>>;
 type ContactsAppData = ReturnType<typeof useAppData>;

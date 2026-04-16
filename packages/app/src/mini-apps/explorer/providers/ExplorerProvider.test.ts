@@ -2,26 +2,26 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { SyncDocumentResponse } from "@tearleads/loro";
-import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
-import { waitForCondition } from "../../../test/helpers/waitForCondition";
+import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
+import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import {
   createInitializedContainerMetadataDocument,
   ensureContainerTables,
   loadContainers,
   saveContainer,
   sqlDocumentContainerProjectionPersistence,
-} from "../../data/containers";
+} from "../../../data/containers";
 import {
   createDocumentEncryptionMaterial,
   serializeDocumentRecipientEnvelopes,
-} from "../../data/documentSync";
+} from "../../../data/documentSync";
 import {
   ensureDocumentTables,
   saveDocumentRecord,
-} from "../../data/persistence/documentPersistence";
-import { readSqlRowValue } from "../../data/persistence/sqlSchema";
-import { primeNotesStore } from "../notes/NotesProvider";
-import { sqlNotesPersistence } from "../notes/notesPersistence";
+} from "../../../data/persistence/documentPersistence";
+import { readSqlRowValue } from "../../../data/persistence/sqlSchema";
+import { sqlNotesPersistence } from "../../notes/notesPersistence";
+import { primeNotesStore } from "../../notes/providers/NotesProvider";
 import { createExplorerStore } from "./ExplorerProvider";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];

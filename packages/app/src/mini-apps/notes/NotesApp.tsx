@@ -1,6 +1,6 @@
 import { Notes } from "./Notes";
-import { DEFAULT_NOTE_ID, NotesProvider } from "./NotesProvider";
 import type { NoteSummary } from "./notesPersistence";
+import { DEFAULT_NOTE_ID, NotesProvider } from "./providers/NotesProvider";
 
 interface NotesAppProps {
   noteId?: string;
