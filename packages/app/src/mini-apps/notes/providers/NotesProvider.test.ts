@@ -18,6 +18,7 @@ import {
   createDocumentEncryptionMaterial,
   getOrCreateDocumentEncryptionMaterial,
 } from "../../../data/documentSync";
+import { subscribeToPersistedDocuments } from "../../../data/documents/DocumentsProvider";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentsPersistence";
 import {
   createEmptyDriverLicenseDocument,
@@ -38,7 +39,11 @@ import type {
   PendingUpdateInsert,
   PendingUpdateRecord,
 } from "../notesPersistence";
-import { createNotesStore, type NotesRuntime } from "./NotesProvider";
+import {
+  createNotesStore,
+  type NotesRuntime,
+  primeNotesStore,
+} from "./NotesProvider";
 
 interface StoredNotesState {
   localAttachments: LocalAttachmentRecord[];
@@ -509,6 +514,205 @@ async function createSqlRuntime(): Promise<
   };
 }
 
+test("primeNotesStore reuses a synced remote note across different local ids", async () => {
+  const runtimeBase = await createSqlRuntime();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const runtime: NotesRuntime & { close: () => void } = {
+    ...runtimeBase,
+    apiClient: {
+      commitDocumentChange: async () => null,
+      createDocument: async () => ({
+        id: "shared-remote-note",
+        createdAt: "2026-04-07T00:00:00.000Z",
+        currentAccessEpoch: 1,
+        documentRecipientEnvelopes: null,
+        recipientEncapsulationPublicKeys: [
+          bytesToBase64(encapsulationKeyPair.publicKey),
+        ],
+      }),
+      getBlob: async () => null,
+      listDocumentAttachments: async () => [],
+      stageBlob: async () => null,
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        _localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+      ) =>
+        createSyncDocumentResponse({
+          acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
+          accessEpoch,
+          documentId,
+          documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
+          recipientEncapsulationPublicKeys: [
+            bytesToBase64(encapsulationKeyPair.publicKey),
+          ],
+        }),
+    },
+    encapsulationKeyPair,
+    isAuthenticated: true,
+    online: true,
+  };
+
+  try {
+    const firstStore = primeNotesStore(runtime.domainScope, "note-1", runtime);
+    await waitForCondition(
+      () => firstStore.getSnapshot().ready,
+      "First primed note store did not initialize.",
+    );
+
+    firstStore.setText("Shared note");
+    await waitForCondition(
+      () => firstStore.getSnapshot().documentId === "shared-remote-note",
+      "First primed note store did not persist its remote document id.",
+    );
+
+    const secondStore = primeNotesStore(
+      runtime.domainScope,
+      "default",
+      runtime,
+      "shared-remote-note",
+    );
+
+    expect(secondStore).toBe(firstStore);
+    expect(secondStore.getSnapshot().text).toBe("Shared note");
+    await waitForCondition(
+      () => !firstStore.getSnapshot().syncing,
+      "Shared note store did not finish syncing before cleanup.",
+    );
+  } finally {
+    runtimeBase.close();
+  }
+});
+
+test("primeNotesStore collapses live duplicate note facades after remote identity resolves", async () => {
+  const runtimeBase = await createSqlRuntime();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const runtime: NotesRuntime & { close: () => void } = {
+    ...runtimeBase,
+    apiClient: {
+      commitDocumentChange: async () => null,
+      createDocument: async () => ({
+        id: "shared-remote-note",
+        createdAt: "2026-04-07T00:00:00.000Z",
+        currentAccessEpoch: 1,
+        documentRecipientEnvelopes: null,
+        recipientEncapsulationPublicKeys: [
+          bytesToBase64(encapsulationKeyPair.publicKey),
+        ],
+      }),
+      getBlob: async () => null,
+      listDocumentAttachments: async () => [],
+      stageBlob: async () => null,
+      syncDocument: async (
+        documentId,
+        accessEpoch,
+        _localVersionVector,
+        outgoingUpdates,
+        documentRecipientEnvelopes,
+      ) =>
+        createSyncDocumentResponse({
+          acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
+          accessEpoch,
+          documentId,
+          documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
+          recipientEncapsulationPublicKeys: [
+            bytesToBase64(encapsulationKeyPair.publicKey),
+          ],
+        }),
+    },
+    encapsulationKeyPair,
+    isAuthenticated: true,
+    online: true,
+  };
+
+  try {
+    const firstStore = primeNotesStore(runtime.domainScope, "note-1", runtime);
+    const secondStore = primeNotesStore(
+      runtime.domainScope,
+      "default",
+      runtime,
+      "shared-remote-note",
+    );
+
+    expect(secondStore).not.toBe(firstStore);
+
+    await waitForCondition(
+      () => firstStore.getSnapshot().ready && secondStore.getSnapshot().ready,
+      "Duplicate note facades did not initialize before consolidation.",
+    );
+
+    firstStore.setText("Shared note");
+
+    await waitForCondition(
+      () =>
+        secondStore.getSnapshot().documentId === "shared-remote-note" &&
+        secondStore.getSnapshot().text === "Shared note",
+      "Live duplicate note facades did not collapse onto the same backing store.",
+    );
+
+    secondStore.setText("Merged note");
+
+    await waitForCondition(
+      () => firstStore.getSnapshot().text === "Merged note",
+      "Collapsed note facades did not share subsequent updates.",
+    );
+    await waitForCondition(
+      () =>
+        !firstStore.getSnapshot().syncing && !secondStore.getSnapshot().syncing,
+      "Collapsed note facades did not finish syncing before cleanup.",
+    );
+  } finally {
+    runtimeBase.close();
+  }
+});
+
+test("domain-scoped persisted document subscriptions fan out to multiple listeners", async () => {
+  const persistence = createNotesPersistence();
+  const runtime = createRuntime();
+  const firstListenerDocuments: NoteSummary[] = [];
+  const secondListenerDocuments: NoteSummary[] = [];
+  const unsubscribeFirst = subscribeToPersistedDocuments(
+    runtime.domainScope,
+    (document) => {
+      firstListenerDocuments.push(document);
+    },
+  );
+  const unsubscribeSecond = subscribeToPersistedDocuments(
+    runtime.domainScope,
+    (document) => {
+      secondListenerDocuments.push(document);
+    },
+  );
+
+  try {
+    const store = createNotesStore("shared-listeners", runtime, persistence);
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Notes store did not become ready before broadcasting persisted updates.",
+    );
+
+    store.setText("Shared note");
+
+    await waitForCondition(
+      () =>
+        firstListenerDocuments.some(
+          (document) => document.title === "Shared note",
+        ) &&
+        secondListenerDocuments.some(
+          (document) => document.title === "Shared note",
+        ),
+      "Persisted document listeners did not all receive the saved note summary.",
+    );
+  } finally {
+    unsubscribeFirst();
+    unsubscribeSecond();
+  }
+});
+
 test("notes store reloads persisted note text and pending updates", async () => {
   const persistence = createNotesPersistence();
 
@@ -653,7 +857,6 @@ test("document store seeds initial text before first persistence", async () => {
     "driver-license",
     runtime,
     persistence,
-    undefined,
     null,
     initialText,
   );

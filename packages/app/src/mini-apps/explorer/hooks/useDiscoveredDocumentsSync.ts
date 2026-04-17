@@ -32,7 +32,6 @@ export function useDiscoveredDocumentsSync(params: {
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
-  mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   replaceDocumentLinksBatch: ReplaceDocumentLinksBatch;
 }) {
   const {
@@ -40,13 +39,9 @@ export function useDiscoveredDocumentsSync(params: {
     appData,
     knownDocumentIds,
     mergeDocumentSummaries,
-    mergeDocumentSummary,
     replaceDocumentLinksBatch,
   } = params;
-  const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({
-    appData,
-    mergeDocumentSummary,
-  });
+  const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({ appData });
   const {
     apiClient,
     cacheReferencedPrincipalPolicies,
@@ -176,9 +171,8 @@ function useContainerDiscoveryEffects(params: {
 
 function usePrimeDiscoveredDocuments(params: {
   appData: ExplorerDiscoveryAppData;
-  mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
 }) {
-  const { appData, mergeDocumentSummary } = params;
+  const { appData } = params;
   const {
     apiClient,
     blobStore,
@@ -232,13 +226,12 @@ function usePrimeDiscoveredDocuments(params: {
             runtimeAppData,
             documentSummary.containerId,
           ),
-          mergeDocumentSummary,
           documentSummary.documentId,
         );
         documentStore.requestSync();
       }
     },
-    [domainScope, mergeDocumentSummary, runtimeAppData],
+    [domainScope, runtimeAppData],
   );
 
   return { primeDiscoveredDocuments };

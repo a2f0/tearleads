@@ -29,6 +29,7 @@ import {
 } from "../../../data/documentSync";
 import { requestDomainDocumentSync } from "../../../data/documents/DocumentsProvider";
 import type { DocumentRecord } from "../../../data/persistence/documentPersistence";
+import { didRegainSyncPrerequisites } from "../../../data/sync/syncCoordinator";
 import {
   type ExplorerPersistence,
   sqlExplorerPersistence,
@@ -164,8 +165,7 @@ function createExplorerStoreState(
       nodes: [],
       ready: false,
     },
-    syncPromise: null,
-    syncRequested: false,
+    syncLane: null,
     writeChain: Promise.resolve<ContainerNode | null>(null),
   };
 }
@@ -202,9 +202,7 @@ function resetExplorerStore(state: ExplorerStoreState) {
   state.containersById = new Map();
   state.initialized = false;
   state.initializePromise = null;
-  state.syncPromise = null;
   state.remoteHydrationPromise = null;
-  state.syncRequested = false;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
   setExplorerSnapshot(state, {
     nodes: [],
@@ -647,15 +645,12 @@ function updateExplorerStoreRuntime(
 
   syncAgent.ensureInitialized();
 
-  const regainedSyncPrerequisites =
-    (!previousRuntime.online && nextRuntime.online) ||
-    (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) ||
-    (!previousRuntime.encapsulationKeyPair &&
-      !!nextRuntime.encapsulationKeyPair);
-
   syncAgent.handleRemoteEvents();
 
-  if (state.snapshot.ready && regainedSyncPrerequisites) {
+  if (
+    state.snapshot.ready &&
+    didRegainSyncPrerequisites(previousRuntime, nextRuntime)
+  ) {
     syncAgent.scheduleRemoteHydration();
   }
 }

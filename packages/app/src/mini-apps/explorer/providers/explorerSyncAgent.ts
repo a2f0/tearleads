@@ -35,6 +35,11 @@ import type {
   PendingUpdateRecord,
 } from "../../../data/persistence/documentPersistence";
 import type { ExecSql } from "../../../data/persistence/sqlSchema";
+import {
+  getOrCreateDomainSyncCoordinator,
+  isDestroyedDatabaseClientError,
+  type SyncLane,
+} from "../../../data/sync/syncCoordinator";
 import type { ExplorerPersistence } from "../explorerPersistence";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
@@ -132,8 +137,7 @@ export interface ExplorerSyncState {
   snapshot: {
     ready: boolean;
   };
-  syncPromise: Promise<void> | null;
-  syncRequested: boolean;
+  syncLane: SyncLane | null;
 }
 
 export type ExplorerRemoteContainer =
@@ -165,6 +169,10 @@ interface ExplorerSyncHost {
     updateView?: boolean,
   ) => Promise<DocumentRecord>;
   updateSnapshot: () => void;
+}
+
+function requestExplorerSync(state: ExplorerSyncState) {
+  state.syncLane?.requestSync();
 }
 
 export function getFallbackContainerName(parentId: string | null): string {
@@ -328,7 +336,6 @@ async function primeDocumentsForSharedSubtree(
       state.runtime.domainScope,
       documentSummary.id,
       buildNotesRuntime(state, runtimeContainerId),
-      undefined,
       documentSummary.documentId,
     );
     documentStore.requestSync();
@@ -509,10 +516,7 @@ function requestRemoteHydration(input: {
 
   state.remoteHydrationPromise = hydrateRemoteContainers(state, host)
     .catch((error: unknown) => {
-      if (
-        error instanceof Error &&
-        error.message === "Database worker client has been destroyed."
-      ) {
+      if (isDestroyedDatabaseClientError(error)) {
         return;
       }
 
@@ -646,10 +650,7 @@ function ensureExplorerStoreInitialized(input: {
   }).catch((error: unknown) => {
     state.initializePromise = null;
 
-    if (
-      error instanceof Error &&
-      error.message === "Database worker client has been destroyed."
-    ) {
+    if (isDestroyedDatabaseClientError(error)) {
       return;
     }
 
@@ -784,7 +785,7 @@ async function handleSyncedContainerEpochChange(input: {
         : null,
     );
   }
-  input.state.syncRequested = true;
+  requestExplorerSync(input.state);
 }
 
 async function requestContainerMetadataSync(
@@ -919,7 +920,7 @@ async function syncSingleContainerMetadata(input: {
     synced.canonicalDocumentRecipientEnvelopesAdopted ||
     outgoingUpdates.length > synced.acceptedOutgoingUpdateIds.length
   ) {
-    state.syncRequested = true;
+    requestExplorerSync(state);
   }
 }
 
@@ -958,32 +959,13 @@ export function createExplorerSyncAgent(input: {
 }): ExplorerSyncAgent {
   const { host, state } = input;
 
-  const scheduleSync = () => {
-    state.syncRequested = true;
-
-    if (state.syncPromise) {
-      return;
-    }
-
-    state.syncPromise = (async () => {
-      while (state.syncRequested) {
-        state.syncRequested = false;
-        await runExplorerSyncIteration({ host, state });
-      }
-    })().catch((error: unknown) => {
-      if (
-        error instanceof Error &&
-        error.message === "Database worker client has been destroyed."
-      ) {
-        return;
-      }
-
-      throw error;
-    });
-    state.syncPromise.finally(() => {
-      state.syncPromise = null;
-    });
-  };
+  state.syncLane = getOrCreateDomainSyncCoordinator(
+    state.runtime.domainScope,
+  ).registerLane("explorer", {
+    run: () => runExplorerSyncIteration({ host, state }),
+    shouldIgnoreError: isDestroyedDatabaseClientError,
+  });
+  const scheduleSync = () => requestExplorerSync(state);
 
   const requestHydration = () =>
     requestRemoteHydration({ host, scheduleSync, state });

@@ -9,7 +9,7 @@ import {
   primeDocumentStore,
   useDocument,
 } from "../../../data/documents/DocumentsProvider";
-import type { NoteSummary, NotesPersistence } from "../notesPersistence";
+import type { NotesPersistence } from "../notesPersistence";
 import { adaptNotesPersistence } from "../notesPersistence";
 
 export const DEFAULT_NOTE_ID = DEFAULT_DOCUMENT_ID;
@@ -21,7 +21,6 @@ export function createNotesStore(
   noteId: string,
   initialRuntime: NotesRuntime,
   persistence?: NotesPersistence,
-  onPersistedNote?: (note: NoteSummary) => void,
   initialDocumentId: string | null = null,
   initialText = "",
 ): ReturnType<typeof createDocumentStore> {
@@ -29,7 +28,6 @@ export function createNotesStore(
     noteId,
     initialRuntime,
     persistence ? adaptNotesPersistence(persistence) : undefined,
-    onPersistedNote,
     initialDocumentId,
     initialText,
   );
@@ -55,7 +53,6 @@ interface NotesProviderProps extends PropsWithChildren {
   noteId?: string;
   containerId?: string | null;
   documentId?: string | null;
-  onPersistedNote?: (note: NoteSummary) => void;
 }
 
 export function NotesProvider({
@@ -63,16 +60,12 @@ export function NotesProvider({
   noteId = DEFAULT_NOTE_ID,
   containerId,
   documentId,
-  onPersistedNote,
 }: NotesProviderProps) {
   return (
     <DocumentsProvider
       localId={noteId}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
-      {...(onPersistedNote === undefined
-        ? {}
-        : { onPersistedDocument: onPersistedNote })}
     >
       {children}
     </DocumentsProvider>

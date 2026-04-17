@@ -37,6 +37,12 @@ import type {
 } from "../../../data/persistence/documentPersistence";
 import type { ExecSql } from "../../../data/persistence/sqlSchema";
 import {
+  didRegainSyncPrerequisites,
+  getOrCreateDomainSyncCoordinator,
+  isDestroyedDatabaseClientError,
+  type SyncLane,
+} from "../../../data/sync/syncCoordinator";
+import {
   type ContactsPersistence,
   sqlContactsPersistence,
 } from "../contactsPersistence";
@@ -142,8 +148,7 @@ interface ContactsStoreState {
   persistence: ContactsPersistence;
   runtime: ContactsRuntime;
   snapshot: ContactsSnapshot;
-  syncPromise: Promise<void> | null;
-  syncRequested: boolean;
+  syncLane: SyncLane | null;
   writeChain: Promise<void>;
 }
 
@@ -163,8 +168,7 @@ function createContactsStoreState(
       entries: [],
       ready: false,
     },
-    syncPromise: null,
-    syncRequested: false,
+    syncLane: null,
     writeChain: Promise.resolve(),
   };
 }
@@ -202,13 +206,15 @@ function resetContactsStore(state: ContactsStoreState) {
   state.contactsByUserId = new Map();
   state.initialized = false;
   state.initializePromise = null;
-  state.syncPromise = null;
-  state.syncRequested = false;
   state.writeChain = Promise.resolve();
   setContactsSnapshot(state, {
     entries: [],
     ready: false,
   });
+}
+
+function requestContactsSync(state: ContactsStoreState) {
+  state.syncLane?.requestSync();
 }
 
 async function createContactDocument() {
@@ -395,10 +401,7 @@ function ensureContactsInitialized(
   state.initializePromise = initializeContactsStore(state, scheduleSync).catch(
     (error: unknown) => {
       state.initializePromise = null;
-      if (
-        error instanceof Error &&
-        error.message === "Database worker client has been destroyed."
-      ) {
+      if (isDestroyedDatabaseClientError(error)) {
         return;
       }
       throw error;
@@ -611,14 +614,14 @@ async function applySyncedContactUpdates(
           : null,
       );
     }
-    state.syncRequested = true;
+    requestContactsSync(state);
   }
 
   if (
     synced.canonicalDocumentRecipientEnvelopesAdopted ||
     outgoingUpdateCount > synced.acceptedOutgoingUpdateIds.length
   ) {
-    state.syncRequested = true;
+    requestContactsSync(state);
   }
 }
 
@@ -724,30 +727,7 @@ async function runContactsSyncIteration(state: ContactsStoreState) {
 }
 
 function scheduleContactsSync(state: ContactsStoreState) {
-  state.syncRequested = true;
-  if (state.syncPromise) {
-    return;
-  }
-
-  state.syncPromise = (async () => {
-    while (state.syncRequested) {
-      state.syncRequested = false;
-
-      try {
-        await runContactsSyncIteration(state);
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message === "Database worker client has been destroyed."
-        ) {
-          return;
-        }
-        throw error;
-      }
-    }
-  })().finally(() => {
-    state.syncPromise = null;
-  });
+  requestContactsSync(state);
 }
 
 function handleContactsRemoteEvents(
@@ -925,15 +905,12 @@ function updateContactsStoreRuntime(
 
   ensureContactsInitialized(state, scheduleSync);
 
-  const regainedSyncPrerequisites =
-    (!previousRuntime.online && nextRuntime.online) ||
-    (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) ||
-    (!previousRuntime.encapsulationKeyPair &&
-      !!nextRuntime.encapsulationKeyPair);
-
   handleContactsRemoteEvents(state, scheduleSync);
 
-  if (state.snapshot.ready && regainedSyncPrerequisites) {
+  if (
+    state.snapshot.ready &&
+    didRegainSyncPrerequisites(previousRuntime, nextRuntime)
+  ) {
     scheduleSync();
   }
 }
@@ -953,6 +930,12 @@ export function createContactsStore(
   persistence: ContactsPersistence = sqlContactsPersistence,
 ): ContactsStore {
   const state = createContactsStoreState(initialRuntime, persistence);
+  state.syncLane = getOrCreateDomainSyncCoordinator(
+    initialRuntime.domainScope,
+  ).registerLane("contacts", {
+    run: () => runContactsSyncIteration(state),
+    shouldIgnoreError: isDestroyedDatabaseClientError,
+  });
   const scheduleSync = () => scheduleContactsSync(state);
 
   return {
