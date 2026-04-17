@@ -1,9 +1,8 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   encodeVersionVector,
   exportAllUpdates,
   exportUpdatesSince,
-  importUpdates,
 } from "@tearleads/loro";
 import {
   createContext,
@@ -14,83 +13,38 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../../data/AppDataProvider";
-import type { BlobStore } from "../../../data/blobs";
 import {
   type ContainerRecord,
-  createContainerMetadataDocument,
   createInitializedContainerMetadataDocument,
   readContainerMetadataValue,
-  sqlDocumentContainerProjectionPersistence,
   writeContainerMetadataValue,
 } from "../../../data/containers";
 import {
   createDocumentEncryptionMaterial,
   createPendingUpdateFields,
-  decryptIncomingUpdates,
   encryptPendingUpdates,
   getLocalRecipientPublicKeys,
-  getOrCreateDocumentEncryptionMaterial,
-  isDocumentUpdateCreatedEvent,
-  maybeSeedRewrappedDocumentRecipientEnvelopes,
-  parseDocumentRecipientEnvelopes,
-  requiresBaselineAfterDocumentEpochChange,
-  resolveIncomingUpdateDecryptionBatches,
   resolveRecipientPublicKeys,
-  resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../../data/documentSync";
-import {
-  primeDocumentStore,
-  requestDomainDocumentSync,
-} from "../../../data/documents/DocumentsProvider";
-import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
-import type {
-  DocumentRecord,
-  PendingUpdateRecord,
-} from "../../../data/persistence/documentPersistence";
-import type { ExecSql } from "../../../data/persistence/sqlSchema";
+import { requestDomainDocumentSync } from "../../../data/documents/DocumentsProvider";
+import type { DocumentRecord } from "../../../data/persistence/documentPersistence";
+import { didRegainSyncPrerequisites } from "../../../data/sync/syncCoordinator";
 import {
   type ExplorerPersistence,
   sqlExplorerPersistence,
 } from "../explorerPersistence";
 import type { ContainerNode } from "../types";
-
-type ContainerMetadataDocument = Awaited<
-  ReturnType<typeof createContainerMetadataDocument>
->;
-type ExplorerAppData = ReturnType<typeof useAppData>;
-type ListedRemoteContainer = NonNullable<
-  Awaited<ReturnType<ExplorerRuntime["apiClient"]["listContainers"]>>
->[number];
-type CommitDocumentChangeInput = Parameters<
-  ExplorerRuntime["apiClient"]["commitDocumentChange"]
->[1];
-type MovedRemoteContainer = NonNullable<
-  Awaited<ReturnType<ExplorerRuntime["apiClient"]["moveContainer"]>>
->;
-type StageBlobInput = Parameters<ExplorerRuntime["apiClient"]["stageBlob"]>[0];
-type SyncDocumentOutgoingUpdates = Parameters<
-  ExplorerRuntime["apiClient"]["syncDocument"]
->[3];
-type SyncDocumentRecipientEnvelopes = Parameters<
-  ExplorerRuntime["apiClient"]["syncDocument"]
->[4];
-type DocumentRecipientEnvelopes = ReturnType<
-  typeof parseDocumentRecipientEnvelopes
->;
-type DocumentEncryptionMaterial = Awaited<
-  ReturnType<typeof getOrCreateDocumentEncryptionMaterial>
->;
-type ExplorerSyncDocumentResponse = NonNullable<
-  Awaited<ReturnType<ExplorerRuntime["apiClient"]["syncDocument"]>>
->;
-
-interface ContainerMetadataSyncAttempt {
-  currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
-  encryptionMaterial: DocumentEncryptionMaterial | null;
-  outgoingUpdates: SyncDocumentOutgoingUpdates;
-  synced: ExplorerSyncDocumentResponse;
-}
+import {
+  type ContainerMetadataDocument,
+  type ContainerState,
+  createExplorerSyncAgent,
+  type ExplorerContainerPatch,
+  type ExplorerRuntime,
+  type ExplorerSyncAgent,
+  type ExplorerSyncState,
+  getFallbackContainerName,
+} from "./explorerSyncAgent";
 
 interface ExplorerContextValue {
   createChild: (
@@ -117,32 +71,6 @@ interface ExplorerSnapshot {
   ready: boolean;
 }
 
-interface ExplorerRuntime {
-  apiClient: Pick<
-    ExplorerAppData["apiClient"],
-    | "commitDocumentChange"
-    | "createContainer"
-    | "createDocument"
-    | "getBlob"
-    | "listContainers"
-    | "listDocumentAttachments"
-    | "moveContainer"
-    | "shareContainer"
-    | "stageBlob"
-    | "syncDocument"
-  >;
-  blobStore: BlobStore;
-  cacheReferencedPrincipalPolicies: ExplorerAppData["cacheReferencedPrincipalPolicies"];
-  dbStatus: ExplorerAppData["dbStatus"];
-  domainScope: ExplorerAppData["domainScope"];
-  encapsulationKeyPair: ExplorerAppData["encapsulationKeyPair"];
-  events: ExplorerAppData["events"];
-  execSql: ExecSql;
-  isAuthenticated: ExplorerAppData["isAuthenticated"];
-  log: ExplorerAppData["log"];
-  online: ExplorerAppData["online"];
-}
-
 interface ExplorerStore {
   createChild: (
     parentId: string,
@@ -164,34 +92,14 @@ interface ExplorerStore {
   updateRuntime: (runtime: ExplorerRuntime) => void;
 }
 
-interface ContainerState {
-  container: ContainerRecord;
-  doc: ContainerMetadataDocument;
-  recipientPublicKeys: Uint8Array[];
-  record: DocumentRecord;
-}
-
-interface ExplorerStoreState {
-  containersById: Map<string, ContainerState>;
-  initializePromise: Promise<void> | null;
-  initialized: boolean;
-  lastEventCount: number;
+interface ExplorerStoreState extends ExplorerSyncState {
   listeners: Set<() => void>;
-  persistence: ExplorerPersistence;
-  remoteHydrationPromise: Promise<void> | null;
-  runtime: ExplorerRuntime;
   snapshot: ExplorerSnapshot;
-  syncPromise: Promise<void> | null;
-  syncRequested: boolean;
   writeChain: Promise<ContainerNode | null>;
 }
 
 const explorerStoresByScope = new WeakMap<object, ExplorerStore>();
 const ExplorerContext = createContext<ExplorerStore | null>(null);
-
-function getFallbackContainerName(parentId: string | null): string {
-  return parentId === null ? "/" : "Untitled";
-}
 
 function toContainerNode(container: ContainerRecord): ContainerNode {
   return {
@@ -257,8 +165,7 @@ function createExplorerStoreState(
       nodes: [],
       ready: false,
     },
-    syncPromise: null,
-    syncRequested: false,
+    syncLane: null,
     writeChain: Promise.resolve<ContainerNode | null>(null),
   };
 }
@@ -295,9 +202,7 @@ function resetExplorerStore(state: ExplorerStoreState) {
   state.containersById = new Map();
   state.initialized = false;
   state.initializePromise = null;
-  state.syncPromise = null;
   state.remoteHydrationPromise = null;
-  state.syncRequested = false;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
   setExplorerSnapshot(state, {
     nodes: [],
@@ -308,18 +213,7 @@ function resetExplorerStore(state: ExplorerStoreState) {
 async function persistContainerState(
   state: ExplorerStoreState,
   containerState: ContainerState,
-  patch: Partial<{
-    accessEpoch: number;
-    documentId: string | null;
-    documentRecipientEnvelopes: string | null;
-    icon: string | null;
-    lastCommitLsn: string | null;
-    metadataDocumentId: string | null;
-    loroSnapshot: string;
-    name: string;
-    organizationId: string;
-    parentId: string | null;
-  }> = {},
+  patch: Partial<ExplorerContainerPatch> = {},
   updateView = true,
 ): Promise<DocumentRecord> {
   const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
@@ -376,811 +270,6 @@ async function persistContainerState(
     updateExplorerSnapshot(state);
   }
   return nextRecord;
-}
-
-function buildNotesRuntime(state: ExplorerStoreState, containerId: string) {
-  return {
-    apiClient: {
-      commitDocumentChange: (
-        documentId: string,
-        input: CommitDocumentChangeInput,
-      ) => state.runtime.apiClient.commitDocumentChange(documentId, input),
-      createDocument: (linkedContainerIds: string[]) =>
-        state.runtime.apiClient.createDocument(linkedContainerIds),
-      getBlob: (blobId: string) => state.runtime.apiClient.getBlob(blobId),
-      listDocumentAttachments: (documentId: string) =>
-        state.runtime.apiClient.listDocumentAttachments(documentId),
-      stageBlob: (input: StageBlobInput) =>
-        state.runtime.apiClient.stageBlob(input),
-      syncDocument: (
-        documentId: string,
-        accessEpoch: number,
-        localVersionVector: string,
-        outgoingUpdates: SyncDocumentOutgoingUpdates,
-        documentRecipientEnvelopes: SyncDocumentRecipientEnvelopes,
-        minLsn?: string,
-      ) =>
-        state.runtime.apiClient.syncDocument(
-          documentId,
-          accessEpoch,
-          localVersionVector,
-          outgoingUpdates,
-          documentRecipientEnvelopes,
-          minLsn,
-        ),
-    },
-    blobStore: state.runtime.blobStore,
-    cacheReferencedPrincipalPolicies:
-      state.runtime.cacheReferencedPrincipalPolicies,
-    containerId,
-    dbStatus: state.runtime.dbStatus,
-    domainScope: state.runtime.domainScope,
-    encapsulationKeyPair: state.runtime.encapsulationKeyPair,
-    events: state.runtime.events,
-    execSql: state.runtime.execSql,
-    isAuthenticated: state.runtime.isAuthenticated,
-    log: state.runtime.log,
-    online: state.runtime.online,
-  };
-}
-
-function resolveSharedDocumentRuntimeContainerId(params: {
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  documentSummary: {
-    containerId: string | null;
-    documentId: string | null;
-  };
-  sharedContainerIds: ReadonlySet<string>;
-}): string | null {
-  const {
-    linkedContainerIdsByDocumentId,
-    documentSummary,
-    sharedContainerIds,
-  } = params;
-  if (
-    documentSummary.containerId &&
-    sharedContainerIds.has(documentSummary.containerId)
-  ) {
-    return documentSummary.containerId;
-  }
-
-  if (!documentSummary.documentId) {
-    return null;
-  }
-
-  return (
-    linkedContainerIdsByDocumentId
-      .get(documentSummary.documentId)
-      ?.find((containerId) => sharedContainerIds.has(containerId)) ?? null
-  );
-}
-
-async function primeDocumentsForSharedSubtree(
-  state: ExplorerStoreState,
-  rootContainerId: string,
-) {
-  const sharedContainerIds = new Set(
-    Array.from(state.containersById.values())
-      .filter((containerState) =>
-        isContainerInSubtree(
-          state.containersById,
-          containerState.container.id,
-          rootContainerId,
-        ),
-      )
-      .map((containerState) => containerState.container.id),
-  );
-
-  if (sharedContainerIds.size === 0) {
-    return;
-  }
-
-  await sqlDocumentsPersistence.ensureSchema(state.runtime.execSql);
-  const sharedContainerIdList = Array.from(sharedContainerIds);
-  const sharedDocumentIds =
-    await sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
-      state.runtime.execSql,
-      sharedContainerIdList,
-    );
-  const documentSummaries =
-    await sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
-      state.runtime.execSql,
-      {
-        containerIds: sharedContainerIdList,
-        documentIds: sharedDocumentIds,
-      },
-    );
-  const documentIds = Array.from(
-    new Set(
-      documentSummaries.flatMap((documentSummary) =>
-        documentSummary.documentId ? [documentSummary.documentId] : [],
-      ),
-    ),
-  );
-  const linkedContainerIdsByDocumentId =
-    await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
-      state.runtime.execSql,
-      documentIds,
-    );
-
-  for (const documentSummary of documentSummaries) {
-    const runtimeContainerId = resolveSharedDocumentRuntimeContainerId({
-      linkedContainerIdsByDocumentId,
-      documentSummary,
-      sharedContainerIds,
-    });
-    if (!runtimeContainerId) {
-      continue;
-    }
-
-    const documentStore = primeDocumentStore(
-      state.runtime.domainScope,
-      documentSummary.id,
-      buildNotesRuntime(state, runtimeContainerId),
-      undefined,
-      documentSummary.documentId,
-    );
-    documentStore.requestSync();
-  }
-}
-
-async function listPendingContainerUpdates(
-  state: ExplorerStoreState,
-  containerId: string,
-): Promise<PendingUpdateRecord[]> {
-  return state.persistence.listPendingUpdates(
-    state.runtime.execSql,
-    containerId,
-  );
-}
-
-async function enqueuePendingContainerUpdate(
-  state: ExplorerStoreState,
-  containerId: string,
-  update: Uint8Array,
-  sourceVersionVector?: string | null,
-) {
-  const pendingUpdateFields = createPendingUpdateFields(
-    update,
-    sourceVersionVector,
-  );
-  if (!pendingUpdateFields) {
-    return;
-  }
-
-  await state.persistence.enqueuePendingUpdate(state.runtime.execSql, {
-    containerId,
-    ...pendingUpdateFields,
-  });
-}
-
-async function deletePendingContainerUpdate(
-  state: ExplorerStoreState,
-  id: string,
-) {
-  await state.persistence.deletePendingUpdate(state.runtime.execSql, id);
-}
-
-async function replacePendingContainerUpdatesWithBaseline(
-  state: ExplorerStoreState,
-  containerState: ContainerState,
-  sourceVersionVector?: string | null,
-) {
-  await state.persistence.deletePendingUpdates(
-    state.runtime.execSql,
-    containerState.container.id,
-  );
-  await enqueuePendingContainerUpdate(
-    state,
-    containerState.container.id,
-    exportAllUpdates(containerState.doc),
-    sourceVersionVector,
-  );
-}
-
-async function decryptMetadataUpdates(
-  state: ExplorerStoreState,
-  encryptedUpdates: ReadonlyArray<{ encryptedData: string }>,
-  accessEpoch: number,
-  documentKey: Uint8Array,
-): Promise<Uint8Array[]> {
-  return decryptIncomingUpdates(
-    encryptedUpdates,
-    accessEpoch,
-    documentKey,
-    (message) => state.runtime.log(`Explorer: ${message}`),
-  );
-}
-
-async function hydrateRemoteContainers(
-  state: ExplorerStoreState,
-): Promise<void> {
-  if (
-    !state.runtime.isAuthenticated ||
-    !state.runtime.online ||
-    state.runtime.dbStatus !== "ready"
-  ) {
-    return;
-  }
-
-  const remoteContainers = await state.runtime.apiClient.listContainers();
-  if (!remoteContainers) {
-    return;
-  }
-
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    remoteContainers.flatMap(
-      (remoteContainer) => remoteContainer.metadataReferencedPrincipals ?? [],
-    ),
-  );
-
-  for (const remoteContainer of remoteContainers) {
-    await upsertRemoteContainerState(state, remoteContainer);
-  }
-
-  if (remoteContainers.length > 0) {
-    updateExplorerSnapshot(state);
-    state.runtime.log(
-      `Explorer: hydrated ${remoteContainers.length} remote container(s)`,
-    );
-  }
-}
-
-async function upsertRemoteContainerState(
-  state: ExplorerStoreState,
-  remoteContainer: ListedRemoteContainer | MovedRemoteContainer,
-): Promise<ContainerState> {
-  const existingState = state.containersById.get(remoteContainer.id);
-
-  if (existingState) {
-    existingState.recipientPublicKeys = resolveRecipientPublicKeys(
-      remoteContainer.metadataRecipientEncapsulationPublicKeys,
-    );
-    await persistContainerState(
-      state,
-      existingState,
-      {
-        accessEpoch: remoteContainer.metadataAccessEpoch,
-        documentId: remoteContainer.metadataDocumentId,
-        metadataDocumentId: remoteContainer.metadataDocumentId,
-        organizationId: remoteContainer.organizationId,
-        parentId: remoteContainer.parentId,
-      },
-      false,
-    );
-    return existingState;
-  }
-
-  const doc = await createContainerMetadataDocument(remoteContainer.id);
-  const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
-  const containerState: ContainerState = {
-    container: {
-      id: remoteContainer.id,
-      organizationId: remoteContainer.organizationId,
-      parentId: remoteContainer.parentId,
-      metadataDocumentId: remoteContainer.metadataDocumentId,
-      name: getFallbackContainerName(remoteContainer.parentId),
-      icon: null,
-    },
-    doc,
-    recipientPublicKeys: resolveRecipientPublicKeys(
-      remoteContainer.metadataRecipientEncapsulationPublicKeys,
-    ),
-    record: {
-      accessEpoch: remoteContainer.metadataAccessEpoch,
-      documentId: remoteContainer.metadataDocumentId,
-      documentRecipientEnvelopes: null,
-      id: remoteContainer.id,
-      lastCommitLsn: null,
-      loroSnapshot: initialSnapshot,
-    },
-  };
-
-  await state.persistence.saveContainer(
-    state.runtime.execSql,
-    containerState.container,
-    containerState.record,
-  );
-  state.containersById.set(remoteContainer.id, containerState);
-  return containerState;
-}
-
-function requestRemoteHydration(state: ExplorerStoreState): Promise<void> {
-  if (state.remoteHydrationPromise) {
-    return state.remoteHydrationPromise;
-  }
-
-  state.remoteHydrationPromise = hydrateRemoteContainers(state)
-    .catch((error: unknown) => {
-      if (
-        error instanceof Error &&
-        error.message === "Database worker client has been destroyed."
-      ) {
-        return;
-      }
-
-      throw error;
-    })
-    .finally(() => {
-      state.remoteHydrationPromise = null;
-
-      if (
-        state.snapshot.ready &&
-        state.runtime.isAuthenticated &&
-        state.runtime.online
-      ) {
-        scheduleExplorerSync(state);
-      }
-    });
-
-  return state.remoteHydrationPromise;
-}
-
-function scheduleRemoteHydration(state: ExplorerStoreState) {
-  void requestRemoteHydration(state);
-}
-
-async function initializeExplorerStore(
-  state: ExplorerStoreState,
-  scheduleSync: () => void,
-) {
-  if (state.runtime.dbStatus !== "ready") {
-    return;
-  }
-
-  await state.persistence.ensureSchema(state.runtime.execSql);
-  const storedContainers = await state.persistence.loadContainers(
-    state.runtime.execSql,
-  );
-
-  for (const storedContainer of storedContainers) {
-    const { container } = storedContainer;
-    const doc = await createContainerMetadataDocument(container.id);
-    let nextContainer = container;
-    let nextRecord = storedContainer.record;
-
-    if (nextRecord?.loroSnapshot) {
-      importUpdates(doc, [base64ToBytes(nextRecord.loroSnapshot)]);
-      const metadata = readContainerMetadataValue(
-        doc,
-        getFallbackContainerName(container.parentId),
-      );
-      nextContainer = {
-        ...container,
-        icon: metadata.icon,
-        name: metadata.name,
-      };
-      await state.persistence.saveContainer(
-        state.runtime.execSql,
-        nextContainer,
-        nextRecord,
-      );
-    } else {
-      writeContainerMetadataValue(doc, {
-        icon: container.icon,
-        name: container.name,
-      });
-      const initialUpdate = exportAllUpdates(doc);
-      nextRecord = {
-        accessEpoch: 1,
-        documentId: container.metadataDocumentId,
-        documentRecipientEnvelopes: null,
-        id: container.id,
-        lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(initialUpdate),
-      };
-      await state.persistence.saveContainer(
-        state.runtime.execSql,
-        nextContainer,
-        nextRecord,
-      );
-
-      if (!container.metadataDocumentId) {
-        await enqueuePendingContainerUpdate(state, container.id, initialUpdate);
-      }
-    }
-
-    state.containersById.set(container.id, {
-      container: nextContainer,
-      doc,
-      recipientPublicKeys: getLocalRecipientPublicKeys(
-        state.runtime.encapsulationKeyPair,
-      ),
-      record: nextRecord,
-    });
-  }
-
-  state.initialized = true;
-  state.initializePromise = null;
-  updateExplorerSnapshot(state);
-
-  state.runtime.log(
-    `Explorer: loaded ${state.containersById.size} container(s)`,
-  );
-
-  if (state.runtime.isAuthenticated && state.runtime.online) {
-    await hydrateRemoteContainers(state);
-  }
-
-  if (
-    state.containersById.size > 0 ||
-    (state.runtime.isAuthenticated && state.runtime.online)
-  ) {
-    scheduleSync();
-  }
-}
-
-function ensureExplorerStoreInitialized(
-  state: ExplorerStoreState,
-  scheduleSync: () => void,
-) {
-  if (
-    state.initialized ||
-    state.initializePromise ||
-    state.runtime.dbStatus !== "ready"
-  ) {
-    return;
-  }
-
-  state.initializePromise = initializeExplorerStore(state, scheduleSync).catch(
-    (error: unknown) => {
-      state.initializePromise = null;
-
-      if (
-        error instanceof Error &&
-        error.message === "Database worker client has been destroyed."
-      ) {
-        return;
-      }
-
-      throw error;
-    },
-  );
-}
-
-async function buildOutgoingContainerSync(
-  containerState: ContainerState,
-  execSql: ExplorerRuntime["execSql"],
-  pendingUpdates: PendingUpdateRecord[],
-  secretKey: Uint8Array,
-) {
-  const currentDocumentRecipientEnvelopes = parseDocumentRecipientEnvelopes(
-    containerState.record.documentRecipientEnvelopes,
-  );
-  const encryptionMaterial =
-    pendingUpdates.length > 0
-      ? await getOrCreateDocumentEncryptionMaterial({
-          documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-          execSql,
-          recipientPublicKeys: containerState.recipientPublicKeys,
-          secretKey,
-        })
-      : null;
-  const outgoingUpdates = encryptionMaterial
-    ? await encryptPendingUpdates(
-        pendingUpdates,
-        containerState.record.accessEpoch,
-        encryptionMaterial.documentKey,
-      )
-    : [];
-
-  return {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdates,
-  };
-}
-
-async function applySyncedContainerUpdates(
-  state: ExplorerStoreState,
-  containerState: ContainerState,
-  synced: NonNullable<
-    Awaited<ReturnType<ExplorerRuntime["apiClient"]["syncDocument"]>>
-  >,
-  currentDocumentRecipientEnvelopes: ReturnType<
-    typeof parseDocumentRecipientEnvelopes
-  >,
-  encryptionMaterial: Awaited<
-    ReturnType<typeof getOrCreateDocumentEncryptionMaterial>
-  > | null,
-  secretKey: Uint8Array,
-) {
-  containerState.recipientPublicKeys = resolveRecipientPublicKeys(
-    synced.recipientEncapsulationPublicKeys,
-  );
-
-  for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
-    await deletePendingContainerUpdate(state, acceptedOutgoingUpdateId);
-  }
-
-  const previousAccessEpoch = containerState.record.accessEpoch;
-  const nextDocumentRecipientEnvelopes =
-    resolveSyncedDocumentRecipientEnvelopes({
-      currentAccessEpoch: previousAccessEpoch,
-      currentDocumentRecipientEnvelopes,
-      generatedDocumentRecipientEnvelopes:
-        encryptionMaterial?.documentRecipientEnvelopes ?? null,
-      synced,
-    });
-  if (synced.updates.length > 0) {
-    const decryptionBatches = resolveIncomingUpdateDecryptionBatches({
-      currentDocumentRecipientEnvelopes,
-      nextDocumentRecipientEnvelopes,
-      previousAccessEpoch,
-      synced,
-    });
-
-    if (decryptionBatches.length === 0) {
-      state.runtime.log(
-        `Explorer: skipped metadata updates for container ${containerState.container.id} because the current document key bundle is missing.`,
-      );
-    } else {
-      for (const decryptionBatch of decryptionBatches) {
-        const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-          documentRecipientEnvelopes:
-            decryptionBatch.documentRecipientEnvelopes,
-          execSql: state.runtime.execSql,
-          recipientPublicKeys: containerState.recipientPublicKeys,
-          secretKey,
-        });
-        const decryptedUpdates = await decryptMetadataUpdates(
-          state,
-          decryptionBatch.updates,
-          decryptionBatch.accessEpoch,
-          documentKey,
-        );
-        if (decryptedUpdates.length > 0) {
-          importUpdates(containerState.doc, decryptedUpdates);
-        }
-      }
-    }
-  }
-}
-
-async function handleSyncedContainerEpochChange(input: {
-  containerState: ContainerState;
-  nextDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
-  previousAccessEpoch: number;
-  state: ExplorerStoreState;
-  synced: NonNullable<
-    Awaited<ReturnType<ExplorerRuntime["apiClient"]["syncDocument"]>>
-  >;
-}) {
-  if (input.synced.currentAccessEpoch === input.previousAccessEpoch) {
-    return;
-  }
-
-  if (
-    requiresBaselineAfterDocumentEpochChange({
-      previousAccessEpoch: input.previousAccessEpoch,
-      resolvedDocumentRecipientEnvelopes: input.nextDocumentRecipientEnvelopes,
-      synced: input.synced,
-    })
-  ) {
-    await replacePendingContainerUpdatesWithBaseline(
-      input.state,
-      input.containerState,
-      input.synced.documentRecipientEnvelopeAction === "rotate"
-        ? input.synced.rotateBaselineSourceVersionVector
-        : null,
-    );
-  }
-  input.state.syncRequested = true;
-}
-
-async function syncSingleContainerMetadata(
-  state: ExplorerStoreState,
-  containerState: ContainerState,
-  encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>,
-) {
-  const syncAttempt = await requestContainerMetadataSync(
-    state,
-    containerState,
-    encapsulationKeyPair,
-  );
-  if (!syncAttempt) {
-    return;
-  }
-
-  const {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdates,
-    synced,
-  } = syncAttempt;
-
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    synced.referencedPrincipals,
-  );
-
-  await applySyncedContainerUpdates(
-    state,
-    containerState,
-    synced,
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    encapsulationKeyPair.secretKey,
-  );
-
-  const previousAccessEpoch = containerState.record.accessEpoch;
-  const nextDocumentRecipientEnvelopes =
-    resolveSyncedDocumentRecipientEnvelopes({
-      currentAccessEpoch: previousAccessEpoch,
-      currentDocumentRecipientEnvelopes,
-      generatedDocumentRecipientEnvelopes:
-        encryptionMaterial?.documentRecipientEnvelopes ?? null,
-      synced,
-    });
-  await persistContainerState(state, containerState, {
-    accessEpoch: synced.currentAccessEpoch,
-    documentId: containerState.record.documentId,
-    documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-      nextDocumentRecipientEnvelopes,
-    ),
-    lastCommitLsn:
-      synced.commitLsn ?? containerState.record.lastCommitLsn ?? null,
-    metadataDocumentId: containerState.record.documentId,
-  });
-
-  await handleSyncedContainerEpochChange({
-    containerState,
-    nextDocumentRecipientEnvelopes,
-    previousAccessEpoch,
-    state,
-    synced,
-  });
-
-  if (
-    synced.canonicalDocumentRecipientEnvelopesAdopted ||
-    outgoingUpdates.length > synced.acceptedOutgoingUpdateIds.length
-  ) {
-    state.syncRequested = true;
-  }
-}
-
-async function requestContainerMetadataSync(
-  state: ExplorerStoreState,
-  containerState: ContainerState,
-  encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>,
-): Promise<ContainerMetadataSyncAttempt | null> {
-  const pendingUpdates = await listPendingContainerUpdates(
-    state,
-    containerState.container.id,
-  );
-  const documentId = containerState.record.documentId;
-
-  if (!documentId) {
-    return null;
-  }
-
-  const {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdates,
-  } = await buildOutgoingContainerSync(
-    containerState,
-    state.runtime.execSql,
-    pendingUpdates,
-    encapsulationKeyPair.secretKey,
-  );
-
-  let synced = await state.runtime.apiClient.syncDocument(
-    documentId,
-    containerState.record.accessEpoch,
-    encodeVersionVector(containerState.doc),
-    outgoingUpdates,
-    encryptionMaterial && currentDocumentRecipientEnvelopes === null
-      ? encryptionMaterial.documentRecipientEnvelopes
-      : undefined,
-    containerState.record.lastCommitLsn ?? undefined,
-  );
-
-  if (!synced) {
-    return null;
-  }
-
-  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
-    currentAccessEpoch: containerState.record.accessEpoch,
-    currentDocumentRecipientEnvelopes,
-    documentId,
-    execSql: state.runtime.execSql,
-    localVersionVector: encodeVersionVector(containerState.doc),
-    minLsn: containerState.record.lastCommitLsn ?? undefined,
-    recipientPublicKeys: containerState.recipientPublicKeys,
-    secretKey: encapsulationKeyPair.secretKey,
-    syncDocument: state.runtime.apiClient.syncDocument.bind(
-      state.runtime.apiClient,
-    ),
-    synced,
-  });
-
-  return {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    synced,
-    outgoingUpdates,
-  };
-}
-
-async function runExplorerSyncIteration(state: ExplorerStoreState) {
-  if (
-    !state.snapshot.ready ||
-    !state.runtime.online ||
-    !state.runtime.isAuthenticated ||
-    !state.runtime.encapsulationKeyPair
-  ) {
-    return;
-  }
-
-  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
-  if (!encapsulationKeyPair) {
-    return;
-  }
-
-  for (const containerState of Array.from(state.containersById.values())) {
-    await syncSingleContainerMetadata(
-      state,
-      containerState,
-      encapsulationKeyPair,
-    );
-  }
-}
-
-function scheduleExplorerSync(state: ExplorerStoreState) {
-  state.syncRequested = true;
-
-  if (state.syncPromise) {
-    return;
-  }
-
-  state.syncPromise = (async () => {
-    while (state.syncRequested) {
-      state.syncRequested = false;
-      await runExplorerSyncIteration(state);
-    }
-  })().catch((error: unknown) => {
-    if (
-      error instanceof Error &&
-      error.message === "Database worker client has been destroyed."
-    ) {
-      return;
-    }
-
-    throw error;
-  });
-  state.syncPromise.finally(() => {
-    state.syncPromise = null;
-  });
-}
-
-function handleExplorerRemoteEvents(
-  state: ExplorerStoreState,
-  scheduleSync: () => void,
-) {
-  const knownDocumentIds = new Set(
-    Array.from(
-      state.containersById.values(),
-      (containerState) => containerState.record.documentId,
-    ).filter((documentId) => documentId !== null),
-  );
-
-  if (knownDocumentIds.size === 0) {
-    state.lastEventCount = state.runtime.events.length;
-    return;
-  }
-
-  const nextEvents = state.runtime.events.slice(state.lastEventCount);
-  state.lastEventCount = state.runtime.events.length;
-
-  if (
-    nextEvents.some(
-      (event) =>
-        isDocumentUpdateCreatedEvent(event) &&
-        knownDocumentIds.has(event.documentId),
-    )
-  ) {
-    scheduleSync();
-  }
 }
 
 async function buildRemoteChildContainerState(
@@ -1274,6 +363,7 @@ function buildLocalChildContainerState(
 
 async function createChildContainer(
   state: ExplorerStoreState,
+  syncAgent: ExplorerSyncAgent,
   parentId: string,
   name: string,
 ) {
@@ -1336,8 +426,7 @@ async function createChildContainer(
   );
 
   if (!childState.record.documentId) {
-    await enqueuePendingContainerUpdate(
-      state,
+    await syncAgent.enqueuePendingContainerUpdate(
       childState.container.id,
       initialUpdate,
     );
@@ -1381,21 +470,9 @@ async function deleteExplorerContainer(
   return deletedNode;
 }
 
-function refreshExplorerStore(state: ExplorerStoreState) {
-  if (
-    state.runtime.dbStatus !== "ready" ||
-    !state.initialized ||
-    !state.runtime.isAuthenticated ||
-    !state.runtime.online
-  ) {
-    return Promise.resolve(false);
-  }
-
-  return requestRemoteHydration(state).then(() => true);
-}
-
 async function renameExplorerContainer(
   state: ExplorerStoreState,
+  syncAgent: ExplorerSyncAgent,
   containerId: string,
   name: string,
 ) {
@@ -1424,19 +501,19 @@ async function renameExplorerContainer(
   });
   const update = exportUpdatesSince(existingState.doc, previousVersion);
 
-  await enqueuePendingContainerUpdate(
-    state,
+  await syncAgent.enqueuePendingContainerUpdate(
     existingState.container.id,
     update,
   );
   await persistContainerState(state, existingState, { name: trimmedName });
-  scheduleExplorerSync(state);
+  syncAgent.scheduleSync();
   state.runtime.log(`Explorer: renamed container to "${trimmedName}"`);
   return toContainerNode(existingState.container);
 }
 
 async function shareExplorerContainerWithUser(
   state: ExplorerStoreState,
+  syncAgent: ExplorerSyncAgent,
   containerId: string,
   userId: string,
 ) {
@@ -1478,15 +555,16 @@ async function shareExplorerContainerWithUser(
     documentRecipientEnvelopes: existingState.record.documentRecipientEnvelopes,
     metadataDocumentId: shared.metadataDocumentId,
   });
-  await primeDocumentsForSharedSubtree(state, containerId);
+  await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
-  scheduleExplorerSync(state);
+  syncAgent.scheduleSync();
   state.runtime.log(`Explorer: shared container ${containerId} with ${userId}`);
   return toContainerNode(existingState.container);
 }
 
 async function moveExplorerContainer(
   state: ExplorerStoreState,
+  syncAgent: ExplorerSyncAgent,
   containerId: string,
   parentId: string,
 ) {
@@ -1518,16 +596,10 @@ async function moveExplorerContainer(
     return null;
   }
 
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    moved.metadataReferencedPrincipals,
-  );
-
-  await upsertRemoteContainerState(state, moved);
-  updateExplorerSnapshot(state);
-
-  await requestRemoteHydration(state);
+  await syncAgent.ingestRemoteContainer(moved);
+  await syncAgent.requestRemoteHydration();
   requestDomainDocumentSync(state.runtime.domainScope);
-  scheduleExplorerSync(state);
+  syncAgent.scheduleSync();
   state.runtime.log(
     `Explorer: moved container ${containerId} under ${parentId}`,
   );
@@ -1545,8 +617,7 @@ function subscribeToExplorerStore(
 function updateExplorerStoreRuntime(
   state: ExplorerStoreState,
   nextRuntime: ExplorerRuntime,
-  scheduleSync: () => void,
-  scheduleHydration: () => void,
+  syncAgent: ExplorerSyncAgent,
 ) {
   const previousRuntime = state.runtime;
   state.runtime = nextRuntime;
@@ -1572,18 +643,15 @@ function updateExplorerStoreRuntime(
     }
   }
 
-  ensureExplorerStoreInitialized(state, scheduleSync);
+  syncAgent.ensureInitialized();
 
-  const regainedSyncPrerequisites =
-    (!previousRuntime.online && nextRuntime.online) ||
-    (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) ||
-    (!previousRuntime.encapsulationKeyPair &&
-      !!nextRuntime.encapsulationKeyPair);
+  syncAgent.handleRemoteEvents();
 
-  handleExplorerRemoteEvents(state, scheduleSync);
-
-  if (state.snapshot.ready && regainedSyncPrerequisites) {
-    scheduleHydration();
+  if (
+    state.snapshot.ready &&
+    didRegainSyncPrerequisites(previousRuntime, nextRuntime)
+  ) {
+    syncAgent.scheduleRemoteHydration();
   }
 }
 
@@ -1592,14 +660,20 @@ export function createExplorerStore(
   persistence: ExplorerPersistence = sqlExplorerPersistence,
 ): ExplorerStore {
   const state = createExplorerStoreState(initialRuntime, persistence);
-  const scheduleSync = () => scheduleExplorerSync(state);
-  const scheduleHydration = () => scheduleRemoteHydration(state);
+  const syncAgent = createExplorerSyncAgent({
+    host: {
+      persistContainerState: (containerState, patch, updateView) =>
+        persistContainerState(state, containerState, patch, updateView),
+      updateSnapshot: () => updateExplorerSnapshot(state),
+    },
+    state,
+  });
 
   return {
     createChild: (parentId: string, name: string) => {
       state.writeChain = state.writeChain
         .catch(() => null)
-        .then(() => createChildContainer(state, parentId, name));
+        .then(() => createChildContainer(state, syncAgent, parentId, name));
       return state.writeChain;
     },
     deleteContainer: (containerId: string) => {
@@ -1611,31 +685,32 @@ export function createExplorerStore(
     moveContainer: (containerId: string, parentId: string) => {
       state.writeChain = state.writeChain
         .catch(() => null)
-        .then(() => moveExplorerContainer(state, containerId, parentId));
+        .then(() =>
+          moveExplorerContainer(state, syncAgent, containerId, parentId),
+        );
       return state.writeChain;
     },
-    refresh: () => refreshExplorerStore(state),
+    refresh: () => syncAgent.refresh(),
     renameContainer: (containerId: string, name: string) => {
       state.writeChain = state.writeChain
         .catch(() => null)
-        .then(() => renameExplorerContainer(state, containerId, name));
+        .then(() =>
+          renameExplorerContainer(state, syncAgent, containerId, name),
+        );
       return state.writeChain;
     },
     shareWithUser: (containerId: string, userId: string) => {
       state.writeChain = state.writeChain
         .catch(() => null)
-        .then(() => shareExplorerContainerWithUser(state, containerId, userId));
+        .then(() =>
+          shareExplorerContainerWithUser(state, syncAgent, containerId, userId),
+        );
       return state.writeChain.then((sharedNode) => sharedNode !== null);
     },
     getSnapshot: () => state.snapshot,
     subscribe: (listener) => subscribeToExplorerStore(state, listener),
     updateRuntime: (runtime) =>
-      updateExplorerStoreRuntime(
-        state,
-        runtime,
-        scheduleSync,
-        scheduleHydration,
-      ),
+      updateExplorerStoreRuntime(state, runtime, syncAgent),
   };
 }
 

@@ -149,10 +149,9 @@ async function unlinkExplorerDocument(params: {
 
 async function primeExplorerDocumentStoreForStructuralMutation(params: {
   appData: ExplorerDocumentsRuntimeAppData;
-  mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
 }) {
-  const { appData, mergeDocumentSummary, note } = params;
+  const { appData, note } = params;
   if (!note.containerId || !note.documentId) {
     return null;
   }
@@ -161,7 +160,6 @@ async function primeExplorerDocumentStoreForStructuralMutation(params: {
     appData.domainScope,
     note.id,
     createExplorerDocumentsRuntime(appData, note.containerId),
-    mergeDocumentSummary,
     note.documentId,
   );
   if (!(await documentStore.ensureInitialized())) {
@@ -258,7 +256,6 @@ async function moveExplorerNote(params: {
   const currentDocumentStore =
     await primeExplorerDocumentStoreForStructuralMutation({
       appData,
-      mergeDocumentSummary,
       note,
     });
   if (!currentDocumentStore) {
@@ -315,7 +312,6 @@ async function linkExplorerNote(params: {
   const currentDocumentStore =
     await primeExplorerDocumentStoreForStructuralMutation({
       appData,
-      mergeDocumentSummary,
       note,
     });
   if (!currentDocumentStore) {
@@ -372,7 +368,6 @@ async function unlinkExplorerLinkedNote(params: {
   const currentDocumentStore =
     await primeExplorerDocumentStoreForStructuralMutation({
       appData,
-      mergeDocumentSummary,
       note,
     });
   if (!currentDocumentStore) {
@@ -439,7 +434,6 @@ async function activateExplorerLinkedNote(params: {
   const currentDocumentStore =
     await primeExplorerDocumentStoreForStructuralMutation({
       appData,
-      mergeDocumentSummary,
       note,
     });
   if (!currentDocumentStore) {

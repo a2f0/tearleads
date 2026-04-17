@@ -938,7 +938,6 @@ function useExplorerInteractionState(params: {
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
-  mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   onDocumentLinksChanged: () => void;
 }) {
   const {
@@ -947,7 +946,6 @@ function useExplorerInteractionState(params: {
     explorer,
     knownDocumentIds,
     mergeDocumentSummaries,
-    mergeDocumentSummary,
     onDocumentLinksChanged,
   } = params;
   const replaceDocumentLinksBatch = useCallback(
@@ -970,7 +968,6 @@ function useExplorerInteractionState(params: {
     appData,
     knownDocumentIds,
     mergeDocumentSummaries,
-    mergeDocumentSummary,
     replaceDocumentLinksBatch,
   });
 
@@ -1160,7 +1157,6 @@ function useExplorerModel(
       explorer,
       knownDocumentIds,
       mergeDocumentSummaries,
-      mergeDocumentSummary,
       onDocumentLinksChanged: handleDocumentLinksChanged,
     });
   const {
@@ -1230,7 +1226,6 @@ export function Explorer() {
         handleRefresh={model.handleRefresh}
         isRefreshing={model.isRefreshing}
         linkedContainerIds={model.linkedContainerIds}
-        mergeDocumentSummary={model.mergeDocumentSummary}
         nodes={model.explorer.nodes}
         openInlineDocument={model.openInlineDocument}
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}

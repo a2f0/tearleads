@@ -10,7 +10,6 @@ export function CreditCardDocumentApp({
   containerId,
   documentId,
   localId = DEFAULT_DOCUMENT_ID,
-  onPersistedDocument,
 }: DocumentTypeAppProps) {
   return (
     <DocumentsProvider
@@ -18,7 +17,6 @@ export function CreditCardDocumentApp({
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
       initialText={createEmptyCreditCardDocument()}
-      {...(onPersistedDocument === undefined ? {} : { onPersistedDocument })}
     >
       <CreditCard />
     </DocumentsProvider>

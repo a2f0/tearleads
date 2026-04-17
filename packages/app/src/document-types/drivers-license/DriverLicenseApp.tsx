@@ -10,7 +10,6 @@ export function DriverLicenseDocumentApp({
   containerId,
   documentId,
   localId = DEFAULT_DOCUMENT_ID,
-  onPersistedDocument,
 }: DocumentTypeAppProps) {
   return (
     <DocumentsProvider
@@ -18,7 +17,6 @@ export function DriverLicenseDocumentApp({
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
       initialText={createEmptyDriverLicenseDocument()}
-      {...(onPersistedDocument === undefined ? {} : { onPersistedDocument })}
     >
       <DriverLicense />
     </DocumentsProvider>

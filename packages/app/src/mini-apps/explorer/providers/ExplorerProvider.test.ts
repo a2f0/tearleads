@@ -22,7 +22,12 @@ import {
 import { readSqlRowValue } from "../../../data/persistence/sqlSchema";
 import { sqlNotesPersistence } from "../../notes/notesPersistence";
 import { primeNotesStore } from "../../notes/providers/NotesProvider";
+import { sqlExplorerPersistence } from "../explorerPersistence";
 import { createExplorerStore } from "./ExplorerProvider";
+import {
+  createExplorerSyncAgent,
+  type ExplorerSyncState,
+} from "./explorerSyncAgent";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void };
@@ -180,6 +185,93 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
     expect(
       secondStore.getSnapshot().nodes.some((node) => node.id === childNode.id),
     ).toBe(false);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("explorer sync agent batches concurrent remote ingests into one snapshot update", async () => {
+  const runtime = await createSqlRuntime();
+  let snapshotUpdateCount = 0;
+  const cachedPrincipalBatches: number[] = [];
+
+  runtime.cacheReferencedPrincipalPolicies = async (principals) => {
+    cachedPrincipalBatches.push(principals?.length ?? 0);
+  };
+
+  try {
+    await sqlExplorerPersistence.ensureSchema(runtime.execSql);
+
+    const state: ExplorerSyncState = {
+      containersById: new Map(),
+      initializePromise: null,
+      initialized: false,
+      lastEventCount: 0,
+      persistence: sqlExplorerPersistence,
+      remoteHydrationPromise: null,
+      runtime,
+      snapshot: {
+        ready: true,
+      },
+      syncLane: null,
+    };
+    const syncAgent = createExplorerSyncAgent({
+      host: {
+        persistContainerState: async (containerState) => {
+          await sqlExplorerPersistence.saveContainer(
+            runtime.execSql,
+            containerState.container,
+            containerState.record,
+          );
+          return containerState.record;
+        },
+        updateSnapshot: () => {
+          snapshotUpdateCount += 1;
+        },
+      },
+      state,
+    });
+
+    await Promise.all([
+      syncAgent.ingestRemoteContainer({
+        id: "container-a",
+        metadataAccessEpoch: 1,
+        metadataDocumentId: "metadata-document-a",
+        metadataRecipientEncapsulationPublicKeys: [],
+        metadataReferencedPrincipals: [
+          {
+            keyEpoch: 1,
+            principalId: "group-a",
+            principalType: "group",
+            stateHash: "state-hash-a",
+            version: 1,
+          },
+        ],
+        organizationId: "org-1",
+        parentId: null,
+      }),
+      syncAgent.ingestRemoteContainer({
+        id: "container-b",
+        metadataAccessEpoch: 1,
+        metadataDocumentId: "metadata-document-b",
+        metadataRecipientEncapsulationPublicKeys: [],
+        metadataReferencedPrincipals: [
+          {
+            keyEpoch: 1,
+            principalId: "group-b",
+            principalType: "group",
+            stateHash: "state-hash-b",
+            version: 1,
+          },
+        ],
+        organizationId: "org-1",
+        parentId: "container-a",
+      }),
+    ]);
+
+    expect(snapshotUpdateCount).toBe(1);
+    expect(state.containersById.size).toBe(2);
+    expect(cachedPrincipalBatches).toEqual([2]);
   } finally {
     runtime.close();
   }

@@ -391,7 +391,6 @@ function ExplorerDocumentDetail(params: {
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
   linkedContainerIds: ReadonlyArray<string>;
-  mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
   openLinkDocumentModal: (noteId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
@@ -462,7 +461,6 @@ function ExplorerDocumentDetail(params: {
           {...(params.selectedDocument.documentId === undefined
             ? {}
             : { documentId: params.selectedDocument.documentId })}
-          onPersistedDocument={params.mergeDocumentSummary}
         />
       </div>
     </div>
@@ -556,7 +554,6 @@ export function ExplorerDetailPanel(params: {
   handleRefresh: () => Promise<void>;
   isRefreshing: boolean;
   linkedContainerIds: ReadonlyArray<string>;
-  mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
   openInlineDocument: (
     containerId: string,

@@ -41,6 +41,12 @@ import {
   serializeDocumentRecipientEnvelopes,
 } from "../documentSync";
 import {
+  didRegainSyncPrerequisites,
+  getOrCreateDomainSyncCoordinator,
+  isDestroyedDatabaseClientError,
+  type SyncLane,
+} from "../sync/syncCoordinator";
+import {
   addDocumentAttachments,
   type DocumentAttachment,
   ensureDocumentAttachmentStructure,
@@ -215,22 +221,165 @@ interface DocumentStore {
   relink: (
     input: RelinkPersistedDocumentInput,
   ) => Promise<DocumentSummary | null>;
-  setPersistedDocumentListener: (
-    listener: PersistedDocumentListener | undefined,
-  ) => void;
   setText: (value: string) => void;
   subscribe: (listener: () => void) => () => void;
   updateRuntime: (runtime: DocumentsRuntime) => void;
 }
 
+interface DocumentStoreFacade extends DocumentStore {
+  rebindTo: (store: DocumentStore) => void;
+}
+
 type PersistedDocumentListener = (document: DocumentSummary) => void;
 
-const documentStoresByScope = new WeakMap<object, Map<string, DocumentStore>>();
+interface DocumentStoreRegistry {
+  storeKeysByDocumentId: Map<string, string>;
+  storeKeysByLocalId: Map<string, string>;
+  storesByKey: Map<string, DocumentStoreFacade>;
+}
+
+const documentStoreRegistriesByScope = new WeakMap<
+  object,
+  DocumentStoreRegistry
+>();
 const persistedDocumentListenersByScope = new WeakMap<
   object,
   Set<PersistedDocumentListener>
 >();
 const DocumentContext = createContext<DocumentStore | null>(null);
+
+function getOrCreateDocumentStoreRegistry(
+  domainScope: object,
+): DocumentStoreRegistry {
+  const existingRegistry = documentStoreRegistriesByScope.get(domainScope);
+  if (existingRegistry) {
+    return existingRegistry;
+  }
+
+  const nextRegistry: DocumentStoreRegistry = {
+    storeKeysByDocumentId: new Map(),
+    storeKeysByLocalId: new Map(),
+    storesByKey: new Map(),
+  };
+  documentStoreRegistriesByScope.set(domainScope, nextRegistry);
+  return nextRegistry;
+}
+
+function resolveDocumentStoreKey(
+  registry: DocumentStoreRegistry,
+  localId: string,
+  documentId: string | null,
+): string {
+  return (
+    (documentId ? registry.storeKeysByDocumentId.get(documentId) : undefined) ??
+    registry.storeKeysByLocalId.get(localId) ??
+    localId
+  );
+}
+
+function registerDocumentStore(
+  domainScope: object,
+  localId: string,
+  store: DocumentStoreFacade,
+  documentId: string | null,
+) {
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  const storeKey = resolveDocumentStoreKey(registry, localId, documentId);
+  registry.storeKeysByLocalId.set(localId, storeKey);
+  if (documentId) {
+    registry.storeKeysByDocumentId.set(documentId, storeKey);
+  }
+  registry.storesByKey.set(storeKey, store);
+}
+
+function registerDocumentStoreIdentity(
+  domainScope: object,
+  localId: string,
+  documentId: string | null,
+) {
+  if (!documentId) {
+    return;
+  }
+
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  const localStoreKey = registry.storeKeysByLocalId.get(localId) ?? localId;
+  const documentStoreKey =
+    registry.storeKeysByDocumentId.get(documentId) ?? documentId;
+
+  registry.storeKeysByLocalId.set(localId, documentStoreKey);
+  registry.storeKeysByDocumentId.set(documentId, documentStoreKey);
+
+  if (documentStoreKey === localStoreKey) {
+    return;
+  }
+
+  const localStore = registry.storesByKey.get(localStoreKey);
+  const documentStore = registry.storesByKey.get(documentStoreKey);
+  if (localStore && documentStore) {
+    documentStore.rebindTo(localStore);
+    registry.storesByKey.set(documentStoreKey, localStore);
+  } else if (localStore && !documentStore) {
+    registry.storesByKey.set(documentStoreKey, localStore);
+  }
+  registry.storesByKey.delete(localStoreKey);
+}
+
+function requestDocumentStoreSync(state: DocumentStoreState) {
+  state.syncLane?.requestSync();
+}
+
+function createDocumentStoreFacade(
+  initialStore: DocumentStore,
+): DocumentStoreFacade {
+  let targetStore = initialStore;
+  const listeners = new Set<() => void>();
+
+  const emitFacade = () => {
+    for (const listener of listeners) {
+      listener();
+    }
+  };
+
+  let unsubscribeTarget = targetStore.subscribe(() => {
+    emitFacade();
+  });
+
+  const connectTarget = (nextStore: DocumentStore) => {
+    if (targetStore === nextStore) {
+      return;
+    }
+
+    unsubscribeTarget();
+    targetStore = nextStore;
+    unsubscribeTarget = targetStore.subscribe(() => {
+      emitFacade();
+    });
+    emitFacade();
+  };
+
+  return {
+    attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
+      targetStore.attachFiles(files),
+    ensureInitialized: () => targetStore.ensureInitialized(),
+    getSnapshot: () => targetStore.getSnapshot(),
+    replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
+      targetStore.replaceAttachment(slotId, file),
+    requestSync: () => targetStore.requestSync(),
+    relink: (input) => targetStore.relink(input),
+    rebindTo: (store) => connectTarget(store),
+    setAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
+      targetStore.setAttachment(slotId, file),
+    setText: (value: string) => targetStore.setText(value),
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    updateRuntime: (runtime: DocumentsRuntime) =>
+      targetStore.updateRuntime(runtime),
+  };
+}
 
 function emitPersistedDocument(
   domainScope: object,
@@ -277,14 +426,12 @@ interface DocumentStoreState {
   pendingAttachments: PendingAttachmentRecord[];
   pendingAttachmentReplacements: PendingAttachmentReplacementRecord[];
   pendingAttachmentRewraps: PendingAttachmentRewrapRecord[];
-  persistedDocumentListener: PersistedDocumentListener | undefined;
   persistence: DocumentsPersistence;
   recipientPublicKeys: Uint8Array[];
   record: DocumentRecord | null;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
-  syncPromise: Promise<void> | null;
-  syncRequested: boolean;
+  syncLane: SyncLane | null;
   writeChain: Promise<void>;
 }
 
@@ -292,7 +439,6 @@ function createDocumentStoreState(
   localId: string,
   initialRuntime: DocumentsRuntime,
   persistence: DocumentsPersistence,
-  persistedDocumentListener: PersistedDocumentListener | undefined,
   initialDocumentId: string | null,
   initialText = "",
 ): DocumentStoreState {
@@ -309,7 +455,6 @@ function createDocumentStoreState(
     pendingAttachments: [],
     pendingAttachmentReplacements: [],
     pendingAttachmentRewraps: [],
-    persistedDocumentListener,
     persistence,
     recipientPublicKeys: getLocalRecipientPublicKeys(
       initialRuntime.encapsulationKeyPair,
@@ -326,8 +471,7 @@ function createDocumentStoreState(
       text: "",
       syncing: false,
     },
-    syncPromise: null,
-    syncRequested: false,
+    syncLane: null,
     writeChain: Promise.resolve(),
   };
 }
@@ -381,8 +525,6 @@ function resetDocumentStore(state: DocumentStoreState) {
   state.attachmentStorageKeyBySlotId = {};
   state.initialized = false;
   state.initializePromise = null;
-  state.syncPromise = null;
-  state.syncRequested = false;
   state.writeChain = Promise.resolve();
   state.recipientPublicKeys = getLocalRecipientPublicKeys(
     state.runtime.encapsulationKeyPair,
@@ -521,7 +663,11 @@ async function saveDocumentRecord(
     title: deriveDocumentTitle(nextRecord.text),
     updatedAt,
   };
-  state.persistedDocumentListener?.(persistedDocument);
+  registerDocumentStoreIdentity(
+    state.runtime.domainScope,
+    nextRecord.id,
+    nextRecord.documentId,
+  );
   emitPersistedDocument(state.runtime.domainScope, persistedDocument);
   return {
     record: nextRecord,
@@ -1157,22 +1303,12 @@ function ensureDocumentStoreInitialized(
     (error: unknown) => {
       state.initializePromise = null;
 
-      if (
-        error instanceof Error &&
-        error.message === "Database worker client has been destroyed."
-      ) {
+      if (isDestroyedDatabaseClientError(error)) {
         return;
       }
 
       throw error;
     },
-  );
-}
-
-function isDestroyedDatabaseError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message === "Database worker client has been destroyed."
   );
 }
 
@@ -1198,7 +1334,7 @@ async function awaitInitializationForSync(state: DocumentStoreState) {
     await state.initializePromise;
     return true;
   } catch (error) {
-    if (isDestroyedDatabaseError(error)) {
+    if (isDestroyedDatabaseClientError(error)) {
       return false;
     }
 
@@ -2079,14 +2215,14 @@ async function finalizeDocumentSync(
         await replacePendingUpdatesWithBaseline(state, currentDoc);
       }
     }
-    state.syncRequested = true;
+    requestDocumentStoreSync(state);
   }
 
   if (
     synced.canonicalDocumentRecipientEnvelopesAdopted ||
     syncAttempt.outgoingUpdateCount > synced.acceptedOutgoingUpdateIds.length
   ) {
-    state.syncRequested = true;
+    requestDocumentStoreSync(state);
   }
 
   if (!rotatedAccessEpoch) {
@@ -2194,7 +2330,7 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     );
   nextRecord = refreshedResult.nextRecord;
   if (refreshedResult.completed) {
-    state.syncRequested = true;
+    requestDocumentStoreSync(state);
     return;
   }
 
@@ -2205,7 +2341,7 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
   );
   nextRecord = attachmentResult.nextRecord;
   if (attachmentResult.completed) {
-    state.syncRequested = true;
+    requestDocumentStoreSync(state);
     return;
   }
 
@@ -2216,7 +2352,7 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
   );
   nextRecord = rewrapResult.nextRecord;
   if (rewrapResult.completed) {
-    state.syncRequested = true;
+    requestDocumentStoreSync(state);
     return;
   }
 
@@ -2240,13 +2376,11 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
     await runDocumentSyncPass(state);
     return true;
   } catch (error) {
-    if (isDestroyedDatabaseError(error)) {
+    if (isDestroyedDatabaseClientError(error)) {
       return false;
     }
 
     throw error;
-  } finally {
-    setDocumentSyncing(state, false);
   }
 }
 
@@ -2254,39 +2388,13 @@ async function runScheduledSyncLoop(state: DocumentStoreState) {
   setDocumentSyncing(state, true);
 
   try {
-    while (state.syncRequested) {
-      state.syncRequested = false;
-
-      const shouldContinue = await runScheduledSyncIteration(state);
-      if (!shouldContinue) {
-        return;
-      }
+    const shouldContinue = await runScheduledSyncIteration(state);
+    if (!shouldContinue) {
+      return;
     }
   } finally {
     setDocumentSyncing(state, false);
   }
-}
-
-function scheduleDocumentSync(state: DocumentStoreState) {
-  state.syncRequested = true;
-
-  if (state.syncPromise) {
-    return;
-  }
-
-  state.syncPromise = (async () => {
-    try {
-      await runScheduledSyncLoop(state);
-    } catch (error) {
-      console.error("Failed to sync documents:", error);
-    } finally {
-      const shouldRetry = state.syncRequested;
-      state.syncPromise = null;
-      if (shouldRetry) {
-        scheduleDocumentSync(state);
-      }
-    }
-  })();
 }
 
 function handleDocumentRemoteEvents(
@@ -2410,7 +2518,7 @@ async function persistAttachedFiles(
   upsertPendingAttachments(state, nextPendingAttachments);
   await persistDocument(state, currentDoc);
   logAttachedFiles(state, files.length);
-  scheduleDocumentSync(state);
+  requestDocumentStoreSync(state);
 }
 
 async function persistSlotAttachmentFile(
@@ -2454,7 +2562,7 @@ async function persistSlotAttachmentFile(
   await queuePendingAttachmentUpload(state, replacementAttachment, storageKey);
   await persistDocument(state, currentDoc);
   state.runtime.log(`Queued attachment ${file.name} for slot ${slotId}.`);
-  scheduleDocumentSync(state);
+  requestDocumentStoreSync(state);
 }
 
 function refreshAttachabilitySnapshot(state: DocumentStoreState) {
@@ -2472,18 +2580,6 @@ function refreshAttachabilitySnapshot(state: DocumentStoreState) {
     text: state.snapshot.text,
     syncing: state.snapshot.syncing,
   });
-}
-
-function regainedSyncPrerequisites(
-  previousRuntime: DocumentsRuntime,
-  nextRuntime: DocumentsRuntime,
-): boolean {
-  return (
-    (!previousRuntime.online && nextRuntime.online) ||
-    (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) ||
-    (!previousRuntime.encapsulationKeyPair &&
-      !!nextRuntime.encapsulationKeyPair)
-  );
 }
 
 function attachFilesToDocumentStore(
@@ -2560,7 +2656,7 @@ function setDocumentText(state: DocumentStoreState, value: string) {
 
       await enqueuePendingUpdate(state, update);
       await persistDocument(state, state.doc, { text: value });
-      scheduleDocumentSync(state);
+      requestDocumentStoreSync(state);
     })
     .catch((error: unknown) => {
       console.error("Failed to persist document changes:", error);
@@ -2605,17 +2701,16 @@ function updateDocumentStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    regainedSyncPrerequisites(previousRuntime, state.runtime)
+    didRegainSyncPrerequisites(previousRuntime, state.runtime)
   ) {
     scheduleSync();
   }
 }
 
-export function createDocumentStore(
+function createBackingDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
   persistence: DocumentsPersistence = sqlDocumentsPersistence,
-  onPersistedDocument?: PersistedDocumentListener,
   initialDocumentId: string | null = null,
   initialText = "",
 ): DocumentStore {
@@ -2623,11 +2718,19 @@ export function createDocumentStore(
     localId,
     initialRuntime,
     persistence,
-    onPersistedDocument,
     initialDocumentId,
     initialText,
   );
-  const scheduleSync = () => scheduleDocumentSync(state);
+  state.syncLane = getOrCreateDomainSyncCoordinator(
+    initialRuntime.domainScope,
+  ).registerLane(`documents:${localId}`, {
+    onUnexpectedError: (error) => {
+      console.error("Failed to sync documents:", error);
+    },
+    run: () => runScheduledSyncLoop(state),
+    shouldIgnoreError: isDestroyedDatabaseClientError,
+  });
+  const scheduleSync = () => requestDocumentStoreSync(state);
 
   return {
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
@@ -2640,9 +2743,6 @@ export function createDocumentStore(
       replaceAttachmentInDocumentStore(state, slotId, file),
     requestSync: () => scheduleSync(),
     relink: (input) => relinkDocumentStore(state, input),
-    setPersistedDocumentListener: (listener) => {
-      state.persistedDocumentListener = listener;
-    },
     setText: (value: string) => setDocumentText(state, value),
     subscribe: (listener: () => void) =>
       subscribeToDocumentStore(state, listener),
@@ -2651,34 +2751,69 @@ export function createDocumentStore(
   };
 }
 
+function createRegisteredDocumentStore(
+  localId: string,
+  initialRuntime: DocumentsRuntime,
+  persistence: DocumentsPersistence = sqlDocumentsPersistence,
+  initialDocumentId: string | null = null,
+  initialText = "",
+): DocumentStoreFacade {
+  return createDocumentStoreFacade(
+    createBackingDocumentStore(
+      localId,
+      initialRuntime,
+      persistence,
+      initialDocumentId,
+      initialText,
+    ),
+  );
+}
+
+export function createDocumentStore(
+  localId: string,
+  initialRuntime: DocumentsRuntime,
+  persistence: DocumentsPersistence = sqlDocumentsPersistence,
+  initialDocumentId: string | null = null,
+  initialText = "",
+): DocumentStore {
+  return createRegisteredDocumentStore(
+    localId,
+    initialRuntime,
+    persistence,
+    initialDocumentId,
+    initialText,
+  );
+}
+
 function getOrCreateDocumentStore(
   domainScope: object,
   localId: string,
   runtime: DocumentsRuntime,
-  onPersistedDocument?: PersistedDocumentListener,
   initialDocumentId: string | null = null,
   initialText = "",
 ): DocumentStore {
-  const existingStores = documentStoresByScope.get(domainScope);
-  if (existingStores) {
-    const existingStore = existingStores.get(localId);
-    if (existingStore) {
-      existingStore.setPersistedDocumentListener(onPersistedDocument);
-      return existingStore;
-    }
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  const existingStore = registry.storesByKey.get(
+    resolveDocumentStoreKey(registry, localId, initialDocumentId),
+  );
+  if (existingStore) {
+    registerDocumentStore(
+      domainScope,
+      localId,
+      existingStore,
+      initialDocumentId,
+    );
+    return existingStore;
   }
 
-  const nextStore = createDocumentStore(
+  const nextStore = createRegisteredDocumentStore(
     localId,
     runtime,
     sqlDocumentsPersistence,
-    onPersistedDocument,
     initialDocumentId,
     initialText,
   );
-  const stores = existingStores ?? new Map<string, DocumentStore>();
-  stores.set(localId, nextStore);
-  documentStoresByScope.set(domainScope, stores);
+  registerDocumentStore(domainScope, localId, nextStore, initialDocumentId);
   return nextStore;
 }
 
@@ -2686,7 +2821,6 @@ export function primeDocumentStore(
   domainScope: object,
   localId: string,
   runtime: DocumentsRuntime,
-  onPersistedDocument?: PersistedDocumentListener,
   initialDocumentId: string | null = null,
   initialText = "",
 ): DocumentStore {
@@ -2694,7 +2828,6 @@ export function primeDocumentStore(
     domainScope,
     localId,
     runtime,
-    onPersistedDocument,
     initialDocumentId,
     initialText,
   );
@@ -2703,12 +2836,12 @@ export function primeDocumentStore(
 }
 
 export function requestDomainDocumentSync(domainScope: object): void {
-  const stores = documentStoresByScope.get(domainScope);
-  if (!stores) {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  if (!registry) {
     return;
   }
 
-  for (const store of stores.values()) {
+  for (const store of new Set(registry.storesByKey.values())) {
     store.requestSync();
   }
 }
@@ -2718,7 +2851,6 @@ interface DocumentsProviderProps extends PropsWithChildren {
   containerId?: string | null;
   documentId?: string | null;
   initialText?: string;
-  onPersistedDocument?: PersistedDocumentListener;
 }
 
 export function DocumentsProvider({
@@ -2727,7 +2859,6 @@ export function DocumentsProvider({
   containerId,
   documentId = null,
   initialText = "",
-  onPersistedDocument,
 }: DocumentsProviderProps) {
   const appData = useAppData();
   const runtime = useMemo<DocumentsRuntime>(
@@ -2755,17 +2886,10 @@ export function DocumentsProvider({
         runtime.domainScope,
         localId,
         runtime,
-        onPersistedDocument,
         documentId,
         initialText,
       ),
-    [
-      documentId,
-      initialText,
-      localId,
-      onPersistedDocument,
-      runtime.domainScope,
-    ],
+    [documentId, initialText, localId, runtime.domainScope],
   );
 
   useEffect(() => {
