@@ -953,6 +953,58 @@ async function runExplorerSyncIteration(input: {
   }
 }
 
+function createRemoteContainerIngestor(input: {
+  host: ExplorerSyncHost;
+  state: ExplorerSyncState;
+}): (remoteContainer: ExplorerRemoteContainer) => Promise<void> {
+  const { host, state } = input;
+  const pendingRemoteContainersById = new Map<
+    string,
+    ExplorerRemoteContainer
+  >();
+  let ingestRemoteContainersPromise: Promise<void> | null = null;
+
+  return async (remoteContainer: ExplorerRemoteContainer) => {
+    pendingRemoteContainersById.set(remoteContainer.id, remoteContainer);
+
+    if (ingestRemoteContainersPromise) {
+      return ingestRemoteContainersPromise;
+    }
+
+    ingestRemoteContainersPromise = Promise.resolve()
+      .then(async () => {
+        while (pendingRemoteContainersById.size > 0) {
+          const queuedRemoteContainers = Array.from(
+            pendingRemoteContainersById.values(),
+          );
+          pendingRemoteContainersById.clear();
+
+          await state.runtime.cacheReferencedPrincipalPolicies(
+            queuedRemoteContainers.flatMap(
+              (queuedRemoteContainer) =>
+                queuedRemoteContainer.metadataReferencedPrincipals ?? [],
+            ),
+          );
+
+          for (const queuedRemoteContainer of queuedRemoteContainers) {
+            await upsertRemoteContainerState(
+              state,
+              host,
+              queuedRemoteContainer,
+            );
+          }
+
+          host.updateSnapshot();
+        }
+      })
+      .finally(() => {
+        ingestRemoteContainersPromise = null;
+      });
+
+    return ingestRemoteContainersPromise;
+  };
+}
+
 export function createExplorerSyncAgent(input: {
   host: ExplorerSyncHost;
   state: ExplorerSyncState;
@@ -966,6 +1018,7 @@ export function createExplorerSyncAgent(input: {
     shouldIgnoreError: isDestroyedDatabaseClientError,
   });
   const scheduleSync = () => requestExplorerSync(state);
+  const ingestRemoteContainer = createRemoteContainerIngestor({ host, state });
 
   const requestHydration = () =>
     requestRemoteHydration({ host, scheduleSync, state });
@@ -1010,13 +1063,7 @@ export function createExplorerSyncAgent(input: {
         scheduleSync();
       }
     },
-    ingestRemoteContainer: async (remoteContainer: ExplorerRemoteContainer) => {
-      await state.runtime.cacheReferencedPrincipalPolicies(
-        remoteContainer.metadataReferencedPrincipals ?? [],
-      );
-      await upsertRemoteContainerState(state, host, remoteContainer);
-      host.updateSnapshot();
-    },
+    ingestRemoteContainer,
     primeDocumentsForSharedSubtree: (rootContainerId: string) =>
       primeDocumentsForSharedSubtree(state, rootContainerId),
     refresh: () => {
