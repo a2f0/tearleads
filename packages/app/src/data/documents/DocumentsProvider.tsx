@@ -2751,13 +2751,13 @@ function createBackingDocumentStore(
   };
 }
 
-export function createDocumentStore(
+function createRegisteredDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
   persistence: DocumentsPersistence = sqlDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
-): DocumentStore {
+): DocumentStoreFacade {
   return createDocumentStoreFacade(
     createBackingDocumentStore(
       localId,
@@ -2766,6 +2766,22 @@ export function createDocumentStore(
       initialDocumentId,
       initialText,
     ),
+  );
+}
+
+export function createDocumentStore(
+  localId: string,
+  initialRuntime: DocumentsRuntime,
+  persistence: DocumentsPersistence = sqlDocumentsPersistence,
+  initialDocumentId: string | null = null,
+  initialText = "",
+): DocumentStore {
+  return createRegisteredDocumentStore(
+    localId,
+    initialRuntime,
+    persistence,
+    initialDocumentId,
+    initialText,
   );
 }
 
@@ -2790,7 +2806,7 @@ function getOrCreateDocumentStore(
     return existingStore;
   }
 
-  const nextStore = createDocumentStore(
+  const nextStore = createRegisteredDocumentStore(
     localId,
     runtime,
     sqlDocumentsPersistence,
