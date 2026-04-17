@@ -1,4 +1,4 @@
-export interface SyncRuntimeStatus {
+interface SyncRuntimeStatus {
   encapsulationKeyPair: unknown;
   isAuthenticated: boolean;
   online: boolean;
@@ -20,7 +20,7 @@ interface SyncLaneState {
   running: Promise<void> | null;
 }
 
-export interface DomainSyncCoordinator {
+interface DomainSyncCoordinator {
   registerLane: (key: string, config: SyncLaneConfig) => SyncLane;
 }
 
