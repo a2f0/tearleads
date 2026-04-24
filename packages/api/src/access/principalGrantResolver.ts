@@ -11,8 +11,9 @@ import {
   type StoredPrincipalState,
 } from "./principalStateStore";
 import {
-  type AccessLevel,
   type EffectivePrincipalRecipient,
+  isAccessLevel,
+  mergeAccessLevel,
   principalRecipientKey,
   toEffectivePrincipalRecipient,
   toEffectiveUserPrincipalRecipient,
@@ -65,39 +66,10 @@ export class ContainerCryptoRecipientResolutionError extends Error {
   }
 }
 
-function isAccessLevel(value: string): value is AccessLevel {
-  return value === "read" || value === "write" || value === "admin";
-}
-
 function isManagedPrincipalType(
   value: string,
 ): value is ManagedRecipientPrincipalType {
   return value === "group" || value === "organization";
-}
-
-function accessLevelRank(accessLevel: AccessLevel): number {
-  if (accessLevel === "admin") {
-    return 3;
-  }
-
-  if (accessLevel === "write") {
-    return 2;
-  }
-
-  return 1;
-}
-
-function mergeAccessLevel(
-  current: AccessLevel | undefined,
-  incoming: AccessLevel,
-): AccessLevel {
-  if (!current) {
-    return incoming;
-  }
-
-  return accessLevelRank(incoming) > accessLevelRank(current)
-    ? incoming
-    : current;
 }
 
 function missingDirectUserRecipientMessage(userId: string): string {
@@ -190,11 +162,10 @@ function upsertCryptoRecipient(
   recipientsByPrincipalKey: Map<string, EffectivePrincipalRecipient>,
   nextRecipient: EffectivePrincipalRecipient,
 ): void {
-  const existingRecipient = recipientsByPrincipalKey.get(
-    principalRecipientKey(nextRecipient),
-  );
+  const principalKey = principalRecipientKey(nextRecipient);
+  const existingRecipient = recipientsByPrincipalKey.get(principalKey);
 
-  recipientsByPrincipalKey.set(principalRecipientKey(nextRecipient), {
+  recipientsByPrincipalKey.set(principalKey, {
     ...nextRecipient,
     accessLevel: mergeAccessLevel(
       existingRecipient?.accessLevel,
@@ -216,6 +187,11 @@ export class PrincipalGrantResolver {
   private readonly directUserGrantRecipientsById = new Map<
     string,
     DirectUserGrantRecipientRow
+  >();
+
+  private readonly directUserGrantRecipientPromisesById = new Map<
+    string,
+    Promise<void>
   >();
 
   private readonly managedPrincipalExpansionPromisesByKey = new Map<
@@ -407,23 +383,51 @@ export class PrincipalGrantResolver {
   private async ensureDirectUserGrantRecipients(
     userIds: ReadonlyArray<string>,
   ): Promise<void> {
+    const uniqueUserIds = uniqueSortedStrings([...userIds]);
     const missingUserIds = uniqueSortedStrings(
-      userIds.filter(
-        (userId) => !this.directUserGrantRecipientsById.has(userId),
+      uniqueUserIds.filter(
+        (userId) =>
+          !this.directUserGrantRecipientsById.has(userId) &&
+          !this.directUserGrantRecipientPromisesById.has(userId),
       ),
     );
 
-    if (missingUserIds.length === 0) {
-      return;
+    if (missingUserIds.length > 0) {
+      const loadPromise = (async () => {
+        const loadedRecipients = await loadDirectUserGrantRecipients(
+          missingUserIds,
+          this.executor,
+        );
+
+        for (const [userId, recipient] of loadedRecipients) {
+          this.directUserGrantRecipientsById.set(userId, recipient);
+        }
+      })();
+
+      for (const userId of missingUserIds) {
+        this.directUserGrantRecipientPromisesById.set(userId, loadPromise);
+      }
+
+      void loadPromise.finally(() => {
+        for (const userId of missingUserIds) {
+          this.directUserGrantRecipientPromisesById.delete(userId);
+        }
+      });
     }
 
-    const loadedRecipients = await loadDirectUserGrantRecipients(
-      missingUserIds,
-      this.executor,
+    const pendingLoads = Array.from(
+      new Set(
+        uniqueUserIds
+          .filter((userId) => !this.directUserGrantRecipientsById.has(userId))
+          .map((userId) =>
+            this.directUserGrantRecipientPromisesById.get(userId),
+          )
+          .filter((promise): promise is Promise<void> => promise !== undefined),
+      ),
     );
 
-    for (const [userId, recipient] of loadedRecipients) {
-      this.directUserGrantRecipientsById.set(userId, recipient);
+    if (pendingLoads.length > 0) {
+      await Promise.all(pendingLoads);
     }
   }
 

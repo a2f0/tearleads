@@ -22,9 +22,9 @@ import {
   resolveDocumentAccessStates,
 } from "./documentAccess";
 import {
-  type AccessLevel,
   type EffectivePrincipalRecipient,
   isUserPrincipalRecipient,
+  mergeAccessLevel,
   type PrincipalEnvelopeRecipient,
   principalRecipientKey,
   toPrincipalEnvelopeRecipient,
@@ -63,31 +63,6 @@ function isResolvedDocumentAccessState(
   value: ResolvedDocumentAccessState,
 ): value is Exclude<ResolvedDocumentAccessState, null> {
   return value !== null;
-}
-
-function accessLevelRank(accessLevel: AccessLevel): number {
-  if (accessLevel === "admin") {
-    return 3;
-  }
-
-  if (accessLevel === "write") {
-    return 2;
-  }
-
-  return 1;
-}
-
-function mergeAccessLevel(
-  current: AccessLevel | undefined,
-  incoming: AccessLevel,
-): AccessLevel {
-  if (!current) {
-    return incoming;
-  }
-
-  return accessLevelRank(incoming) > accessLevelRank(current)
-    ? incoming
-    : current;
 }
 
 async function getCurrentEpochRow(

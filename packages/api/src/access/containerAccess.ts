@@ -16,8 +16,11 @@ import {
 import { mergeReferencedPrincipals } from "./principalReferences";
 import {
   type AccessLevel,
+  accessLevelRank,
   type EffectivePrincipalRecipient,
+  isAccessLevel,
   isUserPrincipalRecipient,
+  mergeAccessLevel,
   principalRecipientKey,
   toEffectiveUserPrincipalRecipient,
   toPrincipalFingerprintRecipient,
@@ -79,37 +82,8 @@ interface DirectResolvedGrantInputs {
   referencedPrincipals: ReferencedPrincipalStateResponse[];
 }
 
-function isAccessLevel(value: string): value is AccessLevel {
-  return value === "read" || value === "write" || value === "admin";
-}
-
 function isUuidString(value: string): boolean {
   return new RegExp(UUID_PATTERN).test(value);
-}
-
-function accessLevelRank(accessLevel: AccessLevel): number {
-  if (accessLevel === "admin") {
-    return 3;
-  }
-
-  if (accessLevel === "write") {
-    return 2;
-  }
-
-  return 1;
-}
-
-function mergeAccessLevel(
-  current: AccessLevel | undefined,
-  incoming: AccessLevel,
-): AccessLevel {
-  if (!current) {
-    return incoming;
-  }
-
-  return accessLevelRank(incoming) > accessLevelRank(current)
-    ? incoming
-    : current;
 }
 
 function mergeReferencedPrincipalStateArrays(
@@ -429,7 +403,6 @@ async function resolveContainerRecipients(
   );
   const grants = await loadContainerGrantRows(ancestorContainerIds, executor);
   const resolver = grantResolver ?? new PrincipalGrantResolver(executor);
-  await resolver.prime(grants);
   const { grantedRecipients, referencedPrincipalsByObjectId } =
     await resolver.resolveGrantEffects(grants);
   const effectiveRecipients =

@@ -21,9 +21,10 @@ import {
 import { resolveContainerAccessState } from "./containerAccess";
 import { mergeReferencedPrincipals } from "./principalReferences";
 import {
-  type AccessLevel,
+  accessLevelRank,
   type EffectivePrincipalRecipient,
   isUserPrincipalRecipient,
+  mergeAccessLevel,
   principalRecipientKey,
   toPrincipalEnvelopeRecipient,
   toPrincipalFingerprintRecipient,
@@ -74,31 +75,6 @@ function isResolvedContainerAccessState(
   value: ResolvedContainerAccessState,
 ): value is Exclude<ResolvedContainerAccessState, null> {
   return value !== null;
-}
-
-function accessLevelRank(accessLevel: AccessLevel): number {
-  if (accessLevel === "admin") {
-    return 3;
-  }
-
-  if (accessLevel === "write") {
-    return 2;
-  }
-
-  return 1;
-}
-
-function mergeAccessLevel(
-  current: AccessLevel | undefined,
-  incoming: AccessLevel,
-): AccessLevel {
-  if (!current) {
-    return incoming;
-  }
-
-  return accessLevelRank(incoming) > accessLevelRank(current)
-    ? incoming
-    : current;
 }
 
 async function getCurrentEpoch(
