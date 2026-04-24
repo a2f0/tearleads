@@ -175,6 +175,7 @@ export async function loadDocumentRecord(
         document_recipient_envelopes,
         loro_snapshot,
         access_epoch,
+        access_state_hash,
         last_commit_lsn
       FROM documents
       WHERE app_kind = :appKind AND local_id = :localId

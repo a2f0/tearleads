@@ -296,9 +296,16 @@ function isDocumentRecipientEnvelopesConflict(appendAttempt: {
 
 function getWriteAccessError(
   access: DocumentAccessState,
-  outgoingUpdates: SyncDocumentOutgoingUpdate[],
+  input: {
+    documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
+    outgoingUpdates: SyncDocumentOutgoingUpdate[];
+  },
 ): SyncAccessError | null {
-  if (outgoingUpdates.length > 0 && !access.canWrite) {
+  if (
+    (input.outgoingUpdates.length > 0 ||
+      input.documentRecipientEnvelopes !== undefined) &&
+    !access.canWrite
+  ) {
     return { error: "Forbidden", status: 403 };
   }
 
@@ -524,10 +531,10 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
     }
     let access = syncAccess.access;
 
-    const writeAccessError = getWriteAccessError(
-      access,
-      request.outgoingUpdates,
-    );
+    const writeAccessError = getWriteAccessError(access, {
+      documentRecipientEnvelopes: request.documentRecipientEnvelopes,
+      outgoingUpdates: request.outgoingUpdates,
+    });
     if (writeAccessError) {
       return c.json({ error: writeAccessError.error }, writeAccessError.status);
     }

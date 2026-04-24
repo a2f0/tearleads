@@ -1505,6 +1505,12 @@ async function commitBaselineChange(
   if (!nextRemoteRecord.documentId) {
     return null;
   }
+  if (!nextRemoteRecord.accessStateHash) {
+    state.runtime.log(
+      "Documents: skipped attachment commit because the current access state hash is unavailable.",
+    );
+    return null;
+  }
 
   const baselineUpdate = exportAllUpdates(currentDoc);
   const baselineUpdateFields = createPendingUpdateFields(baselineUpdate);
@@ -1532,7 +1538,7 @@ async function commitBaselineChange(
     nextRemoteRecord.documentId,
     {
       accessEpoch: nextRemoteRecord.accessEpoch,
-      expectedAccessStateHash: nextRemoteRecord.accessStateHash ?? "",
+      expectedAccessStateHash: nextRemoteRecord.accessStateHash,
       attachmentCommits,
       attachmentDetaches: [],
       attachmentRewraps,
@@ -1564,12 +1570,18 @@ async function commitAttachmentRewrapChange(
   if (!nextRemoteRecord.documentId) {
     return null;
   }
+  if (!nextRemoteRecord.accessStateHash) {
+    state.runtime.log(
+      "Documents: skipped attachment rewrap because the current access state hash is unavailable.",
+    );
+    return null;
+  }
 
   return state.runtime.apiClient.commitDocumentChange(
     nextRemoteRecord.documentId,
     {
       accessEpoch: nextRemoteRecord.accessEpoch,
-      expectedAccessStateHash: nextRemoteRecord.accessStateHash ?? "",
+      expectedAccessStateHash: nextRemoteRecord.accessStateHash,
       attachmentCommits: [],
       attachmentDetaches: [],
       attachmentRewraps,

@@ -35,6 +35,7 @@ test("ensureDocumentTables adds last_commit_lsn for existing local documents tab
       },
       {
         accessEpoch: 2,
+        accessStateHash: "access-hash-1",
         documentId: "remote-document-1",
         documentRecipientEnvelopes: "[]",
         id: "local-document-1",
@@ -51,6 +52,7 @@ test("ensureDocumentTables adds last_commit_lsn for existing local documents tab
       }),
     ).resolves.toEqual({
       accessEpoch: 2,
+      accessStateHash: "access-hash-1",
       documentId: "remote-document-1",
       documentRecipientEnvelopes: "[]",
       id: "local-document-1",
