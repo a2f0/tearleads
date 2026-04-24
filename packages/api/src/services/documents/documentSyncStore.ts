@@ -74,6 +74,7 @@ interface DocumentAccessState {
   canRead: boolean;
   canWrite: boolean;
   currentAccessEpoch: number;
+  currentAccessStateHash: string;
   documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   rotateBaselineSourceVersionVector: string | null;
@@ -111,6 +112,7 @@ interface DocumentSyncStore {
   }): Promise<{
     document: DocumentRecord;
     currentAccessEpoch: number;
+    currentAccessStateHash: string;
     documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
     recipientEncapsulationPublicKeys: string[];
     referencedPrincipals: ReferencedPrincipalStateResponse[];
@@ -654,6 +656,7 @@ async function createInitialDocumentAccess(
 
   return {
     currentAccessEpoch,
+    currentAccessStateHash: access.accessStateHash,
     documentRecipientEnvelopes: initialDocumentRecipientEnvelopes,
     recipientEncapsulationPublicKeys:
       listRecipientEncapsulationPublicKeys(access),
@@ -722,6 +725,7 @@ async function getSyncDocumentAccess(
     canRead: canReadDocumentAccess(access, input.userId),
     canWrite: canWriteDocumentAccess(access, input.userId),
     currentAccessEpoch: access.currentAccessEpoch,
+    currentAccessStateHash: access.accessStateHash,
     documentRecipientEnvelopeAction,
     documentRecipientEnvelopes: await listDocumentRecipientEnvelopes(
       input.documentId,

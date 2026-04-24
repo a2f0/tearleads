@@ -22,7 +22,7 @@ function isManagedPrincipalType(
   return value === "group" || value === "organization";
 }
 
-function toReferencedPrincipalState(
+export function toReferencedPrincipalState(
   state: Pick<
     StoredPrincipalState,
     "principalId" | "principalType" | "version" | "keyEpoch" | "stateHash"

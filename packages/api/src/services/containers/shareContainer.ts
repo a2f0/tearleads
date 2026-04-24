@@ -106,6 +106,7 @@ export async function shareContainer(
         id: input.containerId,
         metadataDocumentId: metadataBinding.documentId,
         metadataAccessEpoch: metadataAccess.currentAccessEpoch,
+        metadataAccessStateHash: metadataAccess.accessStateHash,
         metadataRecipientEncapsulationPublicKeys:
           listRecipientEncapsulationPublicKeys(metadataAccess),
         metadataReferencedPrincipals: metadataAccess.referencedPrincipals,

@@ -56,6 +56,50 @@ export type AccessFingerprintPayload =
   | ContainerAccessFingerprintPayload
   | DocumentAccessFingerprintPayload;
 
+export type AccessStateReferencedPrincipal = {
+  readonly keyEpoch: number;
+  readonly principalId: string;
+  readonly principalType: "group" | "organization";
+  readonly stateHash: string;
+  readonly version: number;
+};
+
+export type DocumentAccessStateLink = {
+  readonly accessStateHash: string;
+  readonly containerId: string;
+};
+
+export type BlobAccessStateLink = {
+  readonly accessStateHash: string;
+  readonly documentId: string;
+};
+
+export type ContainerAccessStateHashPayload = {
+  readonly objectType: "container";
+  readonly ancestorContainerIds: readonly string[];
+  readonly containerId: string;
+  readonly grants: readonly ContainerAccessFingerprintGrant[];
+  readonly referencedPrincipals: readonly AccessStateReferencedPrincipal[];
+};
+
+export type DocumentAccessStateHashPayload = {
+  readonly objectType: "document";
+  readonly documentId: string;
+  readonly grants: readonly DocumentAccessFingerprintGrant[];
+  readonly linkedContainers: readonly DocumentAccessStateLink[];
+};
+
+export type BlobAccessStateHashPayload = {
+  readonly objectType: "blob";
+  readonly blobId: string;
+  readonly linkedDocuments: readonly BlobAccessStateLink[];
+};
+
+export type AccessStateHashPayload =
+  | BlobAccessStateHashPayload
+  | ContainerAccessStateHashPayload
+  | DocumentAccessStateHashPayload;
+
 function isPlainObject(value: object): boolean {
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
@@ -206,6 +250,54 @@ function normalizeDocumentGrant(
   };
 }
 
+function normalizeReferencedPrincipal(
+  principal: AccessStateReferencedPrincipal,
+): AccessStateReferencedPrincipal {
+  assertExactKeys(
+    principal,
+    ["keyEpoch", "principalId", "principalType", "stateHash", "version"],
+    "referenced principal",
+  );
+
+  return {
+    keyEpoch: principal.keyEpoch,
+    principalId: principal.principalId,
+    principalType: principal.principalType,
+    stateHash: principal.stateHash,
+    version: principal.version,
+  };
+}
+
+function normalizeDocumentAccessStateLink(
+  link: DocumentAccessStateLink,
+): DocumentAccessStateLink {
+  assertExactKeys(
+    link,
+    ["accessStateHash", "containerId"],
+    "document access-state link",
+  );
+
+  return {
+    accessStateHash: link.accessStateHash,
+    containerId: link.containerId,
+  };
+}
+
+function normalizeBlobAccessStateLink(
+  link: BlobAccessStateLink,
+): BlobAccessStateLink {
+  assertExactKeys(
+    link,
+    ["accessStateHash", "documentId"],
+    "blob access-state link",
+  );
+
+  return {
+    accessStateHash: link.accessStateHash,
+    documentId: link.documentId,
+  };
+}
+
 function normalizeAccessFingerprintPayload(
   value: AccessFingerprintPayload,
 ): AccessFingerprintPayload {
@@ -282,12 +374,81 @@ function normalizeAccessFingerprintPayload(
   };
 }
 
+function normalizeAccessStateHashPayload(
+  value: AccessStateHashPayload,
+): AccessStateHashPayload {
+  if (value.objectType === "container") {
+    assertExactKeys(
+      value,
+      [
+        "ancestorContainerIds",
+        "containerId",
+        "grants",
+        "objectType",
+        "referencedPrincipals",
+      ],
+      "container state-hash payload",
+    );
+
+    return {
+      objectType: "container",
+      ancestorContainerIds: value.ancestorContainerIds,
+      containerId: value.containerId,
+      grants: sortCanonicalJsonArray(value.grants.map(normalizeContainerGrant)),
+      referencedPrincipals: sortCanonicalJsonArray(
+        value.referencedPrincipals.map(normalizeReferencedPrincipal),
+      ),
+    };
+  }
+
+  if (value.objectType === "document") {
+    assertExactKeys(
+      value,
+      ["documentId", "grants", "linkedContainers", "objectType"],
+      "document state-hash payload",
+    );
+
+    return {
+      objectType: "document",
+      documentId: value.documentId,
+      grants: sortCanonicalJsonArray(value.grants.map(normalizeDocumentGrant)),
+      linkedContainers: sortCanonicalJsonArray(
+        value.linkedContainers.map(normalizeDocumentAccessStateLink),
+      ),
+    };
+  }
+
+  assertExactKeys(
+    value,
+    ["blobId", "linkedDocuments", "objectType"],
+    "blob state-hash payload",
+  );
+
+  return {
+    objectType: "blob",
+    blobId: value.blobId,
+    linkedDocuments: sortCanonicalJsonArray(
+      value.linkedDocuments.map(normalizeBlobAccessStateLink),
+    ),
+  };
+}
+
 export async function computeAccessFingerprint(
   value: AccessFingerprintPayload,
 ): Promise<string> {
   return toFingerprint(
     textEncoder.encode(
       stringifyCanonicalJson(normalizeAccessFingerprintPayload(value)),
+    ),
+  );
+}
+
+export async function computeAccessStateHash(
+  value: AccessStateHashPayload,
+): Promise<string> {
+  return toFingerprint(
+    textEncoder.encode(
+      stringifyCanonicalJson(normalizeAccessStateHashPayload(value)),
     ),
   );
 }

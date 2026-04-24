@@ -9,10 +9,17 @@ import {
   users,
 } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
-import { computeAccessFingerprint } from "./accessFingerprint";
-import { listReferencedPrincipalStatesForGrants } from "./principalReferences";
+import {
+  computeAccessFingerprint,
+  computeAccessStateHash,
+} from "./accessFingerprint";
+import {
+  mergeReferencedPrincipals,
+  toReferencedPrincipalState,
+} from "./principalReferences";
 import {
   getCurrentPrincipalStates,
+  listCurrentPrincipalProjectionMembers,
   type StoredPrincipalState,
 } from "./principalStateStore";
 import {
@@ -72,11 +79,13 @@ type ContainerGrantRow = {
 type CurrentEpochRow = {
   epoch: number;
   accessFingerprint: string;
+  accessStateHash: string | null;
 };
 
 interface ContainerAccessState {
   currentAccessEpoch: number;
   accessFingerprint: string;
+  accessStateHash: string;
   ancestorContainerIds: string[];
   grants: Array<{
     objectId: string;
@@ -89,15 +98,28 @@ interface ContainerAccessState {
   cryptoRecipients: EffectiveContainerRecipient[];
 }
 
-interface CryptoRecipientResolutionContext {
-  currentPrincipalStatesByType: ReadonlyMap<
+type ProjectionMember = Awaited<
+  ReturnType<typeof listCurrentPrincipalProjectionMembers>
+>[number];
+
+interface GrantResolutionContext {
+  currentPrincipalStatesByType: Map<
     ManagedRecipientPrincipalType,
-    ReadonlyMap<string, StoredPrincipalState>
+    Map<string, StoredPrincipalState>
   >;
-  directUserGrantRecipientsById: ReadonlyMap<
-    string,
-    DirectUserGrantRecipientRow
-  >;
+  directUserGrantRecipientsById: Map<string, DirectUserGrantRecipientRow>;
+  managedPrincipalExpansionsByKey: Map<string, ManagedPrincipalExpansion>;
+  projectionMembersByPrincipalKey: Map<string, ProjectionMember[]>;
+}
+
+interface ManagedPrincipalExpansion {
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
+  userRecipients: DirectUserGrantRecipientRow[];
+}
+
+interface DirectResolvedGrantInputs {
+  effectiveRecipients: EffectiveContainerRecipient[];
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
 }
 
 export class ContainerCryptoRecipientResolutionError extends Error {
@@ -157,6 +179,368 @@ function missingManagedPrincipalStateMessage(
   return `Missing current principal policy state for ${principalType}:${principalId}`;
 }
 
+function membershipCycleMessage(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+): string {
+  return `Principal membership cycle detected for ${principalType}:${principalId}`;
+}
+
+function managedPrincipalKey(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+): string {
+  return `${principalType}:${principalId}`;
+}
+
+function referencedPrincipalKey(
+  principal: Pick<
+    ReferencedPrincipalStateResponse,
+    "principalType" | "principalId"
+  >,
+): string {
+  return `${principal.principalType}:${principal.principalId}`;
+}
+
+function sortReferencedPrincipalStates(
+  principals: ReferencedPrincipalStateResponse[],
+): ReferencedPrincipalStateResponse[] {
+  return principals.sort((left, right) => {
+    if (left.principalType !== right.principalType) {
+      return left.principalType.localeCompare(right.principalType);
+    }
+
+    return left.principalId.localeCompare(right.principalId);
+  });
+}
+
+function mergeReferencedPrincipalStateArrays(
+  ...principalSets: ReadonlyArray<ReferencedPrincipalStateResponse>[]
+): ReferencedPrincipalStateResponse[] {
+  return mergeReferencedPrincipals(
+    principalSets.map((referencedPrincipals) => ({
+      referencedPrincipals: [...referencedPrincipals],
+    })),
+  );
+}
+
+async function ensureDirectUserGrantRecipients(
+  userIds: ReadonlyArray<string>,
+  context: GrantResolutionContext,
+  executor: ContainerAccessExecutor = db,
+): Promise<void> {
+  const missingUserIds = uniqueSortedStrings(
+    userIds.filter(
+      (userId) => !context.directUserGrantRecipientsById.has(userId),
+    ),
+  );
+
+  if (missingUserIds.length === 0) {
+    return;
+  }
+
+  const loadedRecipients = await loadDirectUserGrantRecipients(
+    missingUserIds,
+    executor,
+  );
+
+  for (const [userId, recipient] of loadedRecipients) {
+    context.directUserGrantRecipientsById.set(userId, recipient);
+  }
+}
+
+async function getOrLoadCurrentManagedPrincipalState(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  context: GrantResolutionContext,
+  executor: ContainerAccessExecutor = db,
+): Promise<StoredPrincipalState> {
+  const cachedState = context.currentPrincipalStatesByType
+    .get(principalType)
+    ?.get(principalId);
+
+  if (cachedState) {
+    return cachedState;
+  }
+
+  const loadedStates = await getCurrentPrincipalStates(
+    principalType,
+    [principalId],
+    executor,
+  );
+  const loadedState = loadedStates.get(principalId);
+
+  if (!loadedState) {
+    throw new ContainerCryptoRecipientResolutionError(
+      missingManagedPrincipalStateMessage(principalType, principalId),
+    );
+  }
+
+  let statesById = context.currentPrincipalStatesByType.get(principalType);
+  if (!statesById) {
+    statesById = new Map();
+    context.currentPrincipalStatesByType.set(principalType, statesById);
+  }
+  statesById.set(principalId, loadedState);
+
+  return loadedState;
+}
+
+async function listOrLoadProjectionMembers(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  context: GrantResolutionContext,
+  executor: ContainerAccessExecutor = db,
+): Promise<ProjectionMember[]> {
+  const principalKey = managedPrincipalKey(principalType, principalId);
+  const cachedMembers =
+    context.projectionMembersByPrincipalKey.get(principalKey);
+
+  if (cachedMembers) {
+    return cachedMembers;
+  }
+
+  const loadedMembers = await listCurrentPrincipalProjectionMembers(
+    principalType,
+    principalId,
+    executor,
+  );
+
+  context.projectionMembersByPrincipalKey.set(principalKey, loadedMembers);
+
+  return loadedMembers;
+}
+
+async function createGrantResolutionContext(
+  grants: ReadonlyArray<ContainerGrantRow>,
+  executor: ContainerAccessExecutor = db,
+): Promise<GrantResolutionContext> {
+  const directUserGrantRecipientsById = await loadDirectUserGrantRecipients(
+    grants
+      .filter((grant) => grant.subjectType === "user")
+      .map((grant) => grant.subjectId),
+    executor,
+  );
+  const currentPrincipalStatesByType = new Map<
+    ManagedRecipientPrincipalType,
+    Map<string, StoredPrincipalState>
+  >([
+    ["group", new Map()],
+    ["organization", new Map()],
+  ]);
+
+  for (const principalType of ["group", "organization"] as const) {
+    const currentStates = await getCurrentPrincipalStates(
+      principalType,
+      uniqueSortedStrings(
+        grants
+          .filter((grant) => grant.subjectType === principalType)
+          .map((grant) => grant.subjectId),
+      ),
+      executor,
+    );
+
+    currentPrincipalStatesByType.set(principalType, new Map(currentStates));
+  }
+
+  return {
+    currentPrincipalStatesByType,
+    directUserGrantRecipientsById,
+    managedPrincipalExpansionsByKey: new Map(),
+    projectionMembersByPrincipalKey: new Map(),
+  };
+}
+
+async function expandManagedPrincipal(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  context: GrantResolutionContext,
+  executor: ContainerAccessExecutor = db,
+  trail: ReadonlySet<string> = new Set(),
+): Promise<ManagedPrincipalExpansion> {
+  const principalKey = managedPrincipalKey(principalType, principalId);
+  const cachedExpansion =
+    context.managedPrincipalExpansionsByKey.get(principalKey);
+
+  if (cachedExpansion) {
+    return cachedExpansion;
+  }
+
+  if (trail.has(principalKey)) {
+    throw new ContainerCryptoRecipientResolutionError(
+      membershipCycleMessage(principalType, principalId),
+    );
+  }
+
+  const currentState = await getOrLoadCurrentManagedPrincipalState(
+    principalType,
+    principalId,
+    context,
+    executor,
+  );
+  const projectionMembers = await listOrLoadProjectionMembers(
+    principalType,
+    principalId,
+    context,
+    executor,
+  );
+  const nestedTrail = new Set(trail);
+  nestedTrail.add(principalKey);
+  const nestedReferencedPrincipals = new Map<
+    string,
+    ReferencedPrincipalStateResponse
+  >([[principalKey, toReferencedPrincipalState(currentState)]]);
+  const memberUserIds = new Set<string>();
+
+  for (const member of projectionMembers) {
+    if (member.memberPrincipalType === "user") {
+      memberUserIds.add(member.memberPrincipalId);
+      continue;
+    }
+
+    const nestedExpansion = await expandManagedPrincipal(
+      "group",
+      member.memberPrincipalId,
+      context,
+      executor,
+      nestedTrail,
+    );
+
+    for (const recipient of nestedExpansion.userRecipients) {
+      memberUserIds.add(recipient.userId);
+    }
+
+    for (const referencedPrincipal of nestedExpansion.referencedPrincipals) {
+      nestedReferencedPrincipals.set(
+        referencedPrincipalKey(referencedPrincipal),
+        referencedPrincipal,
+      );
+    }
+  }
+
+  await ensureDirectUserGrantRecipients(
+    Array.from(memberUserIds),
+    context,
+    executor,
+  );
+
+  const userRecipients = uniqueSortedStrings(Array.from(memberUserIds)).map(
+    (userId) => {
+      const recipient = context.directUserGrantRecipientsById.get(userId);
+
+      if (!recipient) {
+        throw new ContainerCryptoRecipientResolutionError(
+          missingDirectUserRecipientMessage(userId),
+        );
+      }
+
+      return recipient;
+    },
+  );
+  const expansion = {
+    referencedPrincipals: sortReferencedPrincipalStates(
+      Array.from(nestedReferencedPrincipals.values()),
+    ),
+    userRecipients,
+  };
+
+  context.managedPrincipalExpansionsByKey.set(principalKey, expansion);
+
+  return expansion;
+}
+
+async function resolveGrantedRecipientsByObjectId(
+  grants: ReadonlyArray<ContainerGrantRow>,
+  context: GrantResolutionContext,
+  executor: ContainerAccessExecutor = db,
+): Promise<{
+  grantedRecipients: GrantedRecipientWithObjectIdRow[];
+  referencedPrincipalsByObjectId: Map<
+    string,
+    ReferencedPrincipalStateResponse[]
+  >;
+}> {
+  const grantedRecipients: GrantedRecipientWithObjectIdRow[] = [];
+  const referencedPrincipalsByObjectId = new Map<
+    string,
+    Map<string, ReferencedPrincipalStateResponse>
+  >();
+
+  for (const grant of grants) {
+    if (!isAccessLevel(grant.accessLevel)) {
+      continue;
+    }
+
+    if (grant.subjectType === "user") {
+      const recipient = context.directUserGrantRecipientsById.get(
+        grant.subjectId,
+      );
+
+      if (!recipient) {
+        throw new ContainerCryptoRecipientResolutionError(
+          missingDirectUserRecipientMessage(grant.subjectId),
+        );
+      }
+
+      grantedRecipients.push({
+        objectId: grant.objectId,
+        userId: recipient.userId,
+        accessLevel: grant.accessLevel,
+        encapsulationPublicKey: recipient.encapsulationPublicKey,
+        encapsulationKeyFingerprint: recipient.encapsulationKeyFingerprint,
+      });
+      continue;
+    }
+
+    if (!isManagedPrincipalType(grant.subjectType)) {
+      throw new ContainerCryptoRecipientResolutionError(
+        `Unsupported container grant subject type ${grant.subjectType}`,
+      );
+    }
+
+    const expansion = await expandManagedPrincipal(
+      grant.subjectType,
+      grant.subjectId,
+      context,
+      executor,
+    );
+
+    for (const recipient of expansion.userRecipients) {
+      grantedRecipients.push({
+        objectId: grant.objectId,
+        userId: recipient.userId,
+        accessLevel: grant.accessLevel,
+        encapsulationPublicKey: recipient.encapsulationPublicKey,
+        encapsulationKeyFingerprint: recipient.encapsulationKeyFingerprint,
+      });
+    }
+
+    const referencesForObject =
+      referencedPrincipalsByObjectId.get(grant.objectId) ?? new Map();
+    for (const referencedPrincipal of expansion.referencedPrincipals) {
+      referencesForObject.set(
+        referencedPrincipalKey(referencedPrincipal),
+        referencedPrincipal,
+      );
+    }
+    referencedPrincipalsByObjectId.set(grant.objectId, referencesForObject);
+  }
+
+  return {
+    grantedRecipients,
+    referencedPrincipalsByObjectId: new Map(
+      Array.from(referencedPrincipalsByObjectId.entries()).map(
+        ([objectId, referencedPrincipals]) => [
+          objectId,
+          sortReferencedPrincipalStates(
+            Array.from(referencedPrincipals.values()),
+          ),
+        ],
+      ),
+    ),
+  };
+}
+
 function upsertCryptoRecipient(
   recipientsByPrincipalKey: Map<string, EffectiveContainerRecipient>,
   nextRecipient: EffectiveContainerRecipient,
@@ -171,32 +555,6 @@ function upsertCryptoRecipient(
       nextRecipient.accessLevel,
     ),
   });
-}
-
-function isGrantedRecipientRow(value: unknown): value is GrantedRecipientRow {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  return (
-    typeof Reflect.get(value, "userId") === "string" &&
-    typeof Reflect.get(value, "accessLevel") === "string" &&
-    typeof Reflect.get(value, "encapsulationPublicKey") === "string" &&
-    typeof Reflect.get(value, "encapsulationKeyFingerprint") === "string"
-  );
-}
-
-function isGrantedRecipientWithObjectIdRow(
-  value: unknown,
-): value is GrantedRecipientWithObjectIdRow {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  return (
-    typeof Reflect.get(value, "objectId") === "string" &&
-    isGrantedRecipientRow(value)
-  );
 }
 
 function isAncestorContainerRow(value: unknown): value is AncestorContainerRow {
@@ -233,6 +591,7 @@ async function getCurrentEpochRow(
     .select({
       epoch: objectAccessEpochs.epoch,
       accessFingerprint: objectAccessEpochs.accessFingerprint,
+      accessStateHash: objectAccessEpochs.accessStateHash,
     })
     .from(objectAccessEpochs)
     .where(
@@ -262,6 +621,7 @@ async function getCurrentEpochRows(
       containerId: objectAccessEpochs.objectId,
       epoch: objectAccessEpochs.epoch,
       accessFingerprint: objectAccessEpochs.accessFingerprint,
+      accessStateHash: objectAccessEpochs.accessStateHash,
     })
     .from(objectAccessEpochs)
     .where(
@@ -282,6 +642,7 @@ async function getCurrentEpochRows(
     currentEpochByContainerId.set(row.containerId, {
       epoch: row.epoch,
       accessFingerprint: row.accessFingerprint,
+      accessStateHash: row.accessStateHash,
     });
   }
 
@@ -343,6 +704,7 @@ async function writeEpoch(
   containerId: string,
   epoch: number,
   accessFingerprint: string,
+  accessStateHash: string,
   executor: ContainerAccessExecutor = db,
 ) {
   await executor.insert(objectAccessEpochs).values({
@@ -350,6 +712,7 @@ async function writeEpoch(
     objectId: containerId,
     epoch,
     accessFingerprint,
+    accessStateHash,
     updatedAt: new Date(),
   });
 }
@@ -367,7 +730,12 @@ export async function initializeContainerAccess(
   }
 
   const inheritedState = options.inheritedFrom;
-  const { ancestorContainerIds, cryptoRecipients, grants } = inheritedState
+  const {
+    ancestorContainerIds,
+    cryptoRecipients,
+    grants,
+    referencedPrincipals,
+  } = inheritedState
     ? {
         ancestorContainerIds: [
           ...inheritedState.ancestorContainerIds,
@@ -375,6 +743,7 @@ export async function initializeContainerAccess(
         ],
         cryptoRecipients: inheritedState.cryptoRecipients,
         grants: inheritedState.grants,
+        referencedPrincipals: inheritedState.referencedPrincipals,
       }
     : await resolveContainerRecipients(containerId, executor);
   const accessFingerprint = await computeContainerFingerprint({
@@ -383,9 +752,21 @@ export async function initializeContainerAccess(
     grants,
     cryptoRecipients,
   });
+  const accessStateHash = await computeContainerAccessStateHash({
+    containerId,
+    ancestorContainerIds,
+    grants,
+    referencedPrincipals,
+  });
 
   const initialEpoch = 1;
-  await writeEpoch(containerId, initialEpoch, accessFingerprint, executor);
+  await writeEpoch(
+    containerId,
+    initialEpoch,
+    accessFingerprint,
+    accessStateHash,
+    executor,
+  );
   return initialEpoch;
 }
 
@@ -466,102 +847,6 @@ async function loadContainerGrantRows(
     );
 }
 
-async function loadGrantedRecipientsByObjectId(
-  containerIds: string[],
-  executor: ContainerAccessExecutor = db,
-): Promise<GrantedRecipientWithObjectIdRow[]> {
-  if (containerIds.length === 0) {
-    return [];
-  }
-
-  const safeSubjectUuid = sql`substring(g.subject_id from ${UUID_PATTERN})::uuid`;
-  const objectIdList = sql.join(
-    containerIds.map((containerId) => sql`${containerId}`),
-    sql`, `,
-  );
-
-  const result = await executor.execute(sql`
-    select
-      g.object_id as "objectId",
-      u.id as "userId",
-      g.access_level as "accessLevel",
-      u.encapsulation_public_key as "encapsulationPublicKey",
-      u.encapsulation_key_fingerprint as "encapsulationKeyFingerprint"
-    from object_access_grants g
-    inner join users u on u.id = ${safeSubjectUuid}
-    where
-      g.object_type = ${CONTAINER_OBJECT_TYPE}
-      and g.subject_type = ${"user"}
-      and g.object_id in (${objectIdList})
-    union all
-    select
-      g.object_id as "objectId",
-      u.id as "userId",
-      g.access_level as "accessLevel",
-      u.encapsulation_public_key as "encapsulationPublicKey",
-      u.encapsulation_key_fingerprint as "encapsulationKeyFingerprint"
-    from object_access_grants g
-    inner join organization_members om on om.organization_id = ${safeSubjectUuid}
-    inner join users u on u.id = om.user_id
-    where
-      g.object_type = ${CONTAINER_OBJECT_TYPE}
-      and g.subject_type = ${"organization"}
-      and g.object_id in (${objectIdList})
-    union all
-    select
-      g.object_id as "objectId",
-      u.id as "userId",
-      g.access_level as "accessLevel",
-      u.encapsulation_public_key as "encapsulationPublicKey",
-      u.encapsulation_key_fingerprint as "encapsulationKeyFingerprint"
-    from object_access_grants g
-    inner join group_members gm on gm.group_id = ${safeSubjectUuid}
-    inner join users u on u.id = gm.user_id
-    where
-      g.object_type = ${CONTAINER_OBJECT_TYPE}
-      and g.subject_type = ${"group"}
-      and g.object_id in (${objectIdList})
-  `);
-
-  const grantedRecipients: GrantedRecipientWithObjectIdRow[] = [];
-
-  for (const row of result.rows) {
-    if (!isGrantedRecipientWithObjectIdRow(row)) {
-      continue;
-    }
-
-    grantedRecipients.push({
-      objectId: Reflect.get(row, "objectId"),
-      userId: Reflect.get(row, "userId"),
-      accessLevel: Reflect.get(row, "accessLevel"),
-      encapsulationPublicKey: Reflect.get(row, "encapsulationPublicKey"),
-      encapsulationKeyFingerprint: Reflect.get(
-        row,
-        "encapsulationKeyFingerprint",
-      ),
-    });
-  }
-
-  return grantedRecipients;
-}
-
-async function loadGrantedRecipients(
-  containerIds: string[],
-  executor: ContainerAccessExecutor = db,
-) {
-  const grantedRecipients = await loadGrantedRecipientsByObjectId(
-    containerIds,
-    executor,
-  );
-
-  return grantedRecipients.map((row) => ({
-    userId: row.userId,
-    accessLevel: row.accessLevel,
-    encapsulationPublicKey: row.encapsulationPublicKey,
-    encapsulationKeyFingerprint: row.encapsulationKeyFingerprint,
-  }));
-}
-
 async function loadDirectUserGrantRecipients(
   userIds: string[],
   executor: ContainerAccessExecutor = db,
@@ -593,54 +878,9 @@ async function loadDirectUserGrantRecipients(
   );
 }
 
-async function createCryptoRecipientResolutionContext(
-  grants: ReadonlyArray<ContainerGrantRow>,
-  executor: ContainerAccessExecutor = db,
-): Promise<CryptoRecipientResolutionContext> {
-  const directUserGrantRecipientsById = await loadDirectUserGrantRecipients(
-    grants
-      .filter((grant) => grant.subjectType === "user")
-      .map((grant) => grant.subjectId),
-    executor,
-  );
-  const principalIdsByType = new Map<ManagedRecipientPrincipalType, string[]>([
-    ["group", []],
-    ["organization", []],
-  ]);
-
-  for (const grant of grants) {
-    if (!isManagedPrincipalType(grant.subjectType)) {
-      continue;
-    }
-
-    principalIdsByType.get(grant.subjectType)?.push(grant.subjectId);
-  }
-
-  const currentPrincipalStatesByType = new Map<
-    ManagedRecipientPrincipalType,
-    ReadonlyMap<string, StoredPrincipalState>
-  >();
-
-  for (const [principalType, principalIds] of principalIdsByType) {
-    currentPrincipalStatesByType.set(
-      principalType,
-      await getCurrentPrincipalStates(
-        principalType,
-        uniqueSortedStrings(principalIds),
-        executor,
-      ),
-    );
-  }
-
-  return {
-    currentPrincipalStatesByType,
-    directUserGrantRecipientsById,
-  };
-}
-
 function buildCryptoRecipientsFromGrantRows(
   grants: ReadonlyArray<ContainerGrantRow>,
-  context: CryptoRecipientResolutionContext,
+  context: GrantResolutionContext,
 ): EffectiveContainerRecipient[] {
   const recipientsByPrincipalKey = new Map<
     string,
@@ -707,6 +947,7 @@ function buildCryptoRecipientsFromGrantRows(
 async function resolveContainerRecipients(
   containerId: string,
   executor: ContainerAccessExecutor = db,
+  grantResolutionContext?: GrantResolutionContext,
 ): Promise<{
   ancestorContainerIds: string[];
   effectiveRecipients: EffectiveContainerRecipient[];
@@ -719,29 +960,22 @@ async function resolveContainerRecipients(
     executor,
   );
   const grants = await loadContainerGrantRows(ancestorContainerIds, executor);
-  const grantedRecipients = await loadGrantedRecipients(
-    ancestorContainerIds,
-    executor,
-  );
+  const context =
+    grantResolutionContext ??
+    (await createGrantResolutionContext(grants, executor));
+  const { grantedRecipients, referencedPrincipalsByObjectId } =
+    await resolveGrantedRecipientsByObjectId(grants, context, executor);
   const effectiveRecipients =
     buildEffectiveRecipientsFromGrantedRecipients(grantedRecipients);
-  const cryptoRecipientResolutionContext =
-    await createCryptoRecipientResolutionContext(grants, executor);
+  const referencedPrincipals = mergeReferencedPrincipalStateArrays(
+    ...Array.from(referencedPrincipalsByObjectId.values()),
+  );
 
   return {
     ancestorContainerIds,
-    referencedPrincipals: await listReferencedPrincipalStatesForGrants(
-      grants.map((grant) => ({
-        principalId: grant.subjectId,
-        principalType: grant.subjectType,
-      })),
-      executor,
-    ),
+    referencedPrincipals,
     effectiveRecipients,
-    cryptoRecipients: buildCryptoRecipientsFromGrantRows(
-      grants,
-      cryptoRecipientResolutionContext,
-    ),
+    cryptoRecipients: buildCryptoRecipientsFromGrantRows(grants, context),
     grants,
   };
 }
@@ -794,7 +1028,7 @@ function buildEffectiveRecipientsFromGrantedRecipients(
 
 function mergeEffectiveRecipients(
   inheritedRecipients: ReadonlyArray<EffectiveContainerRecipient>,
-  directGrantedRecipients: ReadonlyArray<GrantedRecipientRow>,
+  directRecipients: ReadonlyArray<EffectiveContainerRecipient>,
 ): EffectiveContainerRecipient[] {
   const recipientsByPrincipalKey = new Map<
     string,
@@ -805,9 +1039,7 @@ function mergeEffectiveRecipients(
     recipientsByPrincipalKey.set(principalRecipientKey(recipient), recipient);
   }
 
-  for (const recipient of buildEffectiveRecipientsFromGrantedRecipients(
-    directGrantedRecipients,
-  )) {
+  for (const recipient of directRecipients) {
     const principalKey = principalRecipientKey(recipient);
     const existingRecipient = recipientsByPrincipalKey.get(principalKey);
 
@@ -851,10 +1083,41 @@ async function computeContainerFingerprint(input: {
   });
 }
 
+async function computeContainerAccessStateHash(input: {
+  containerId: string;
+  ancestorContainerIds: string[];
+  grants: ContainerGrantRow[];
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
+}) {
+  return computeAccessStateHash({
+    objectType: CONTAINER_OBJECT_TYPE,
+    containerId: input.containerId,
+    ancestorContainerIds: input.ancestorContainerIds,
+    grants: input.grants
+      .map((grant) => ({
+        objectId: grant.objectId,
+        subjectType: grant.subjectType,
+        subjectId: grant.subjectId,
+        accessLevel: grant.accessLevel,
+      }))
+      .sort((left, right) =>
+        JSON.stringify(left).localeCompare(JSON.stringify(right)),
+      ),
+    referencedPrincipals: input.referencedPrincipals.map((principal) => ({
+      principalType: principal.principalType,
+      principalId: principal.principalId,
+      version: principal.version,
+      keyEpoch: principal.keyEpoch,
+      stateHash: principal.stateHash,
+    })),
+  });
+}
+
 interface ResolvedContainerInputs {
   ancestorContainerIds: string[];
   effectiveRecipients: EffectiveContainerRecipient[];
   grants: ContainerGrantRow[];
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
 }
 
 function groupContainerGrantsByObjectId(grants: ContainerGrantRow[]) {
@@ -896,13 +1159,42 @@ function groupGrantedRecipientsByObjectId(
   return directGrantedRecipientsByContainerId;
 }
 
+function groupDirectResolvedInputsByObjectId(input: {
+  grantedRecipients: GrantedRecipientWithObjectIdRow[];
+  referencedPrincipalsByObjectId: Map<
+    string,
+    ReferencedPrincipalStateResponse[]
+  >;
+}): Map<string, DirectResolvedGrantInputs> {
+  const grantedRecipientsByObjectId = groupGrantedRecipientsByObjectId(
+    input.grantedRecipients,
+  );
+  const containerIds = uniqueSortedStrings([
+    ...Array.from(grantedRecipientsByObjectId.keys()),
+    ...Array.from(input.referencedPrincipalsByObjectId.keys()),
+  ]);
+
+  return new Map(
+    containerIds.map((containerId) => [
+      containerId,
+      {
+        effectiveRecipients: buildEffectiveRecipientsFromGrantedRecipients(
+          grantedRecipientsByObjectId.get(containerId) ?? [],
+        ),
+        referencedPrincipals:
+          input.referencedPrincipalsByObjectId.get(containerId) ?? [],
+      },
+    ]),
+  );
+}
+
 function resolveDescendantContainerInputs(
   descendantContainer: DescendantContainerRow,
   rootContainerId: string,
   rootResolvedInputs: ResolvedContainerInputs,
   resolvedInputsByContainerId: Map<string, ResolvedContainerInputs>,
   directGrantsByContainerId: Map<string, ContainerGrantRow[]>,
-  directGrantedRecipientsByContainerId: Map<string, GrantedRecipientRow[]>,
+  directResolvedInputsByContainerId: Map<string, DirectResolvedGrantInputs>,
 ): ResolvedContainerInputs {
   if (descendantContainer.id === rootContainerId) {
     return rootResolvedInputs;
@@ -922,6 +1214,13 @@ function resolveDescendantContainerInputs(
     );
   }
 
+  const directResolvedInputs = directResolvedInputsByContainerId.get(
+    descendantContainer.id,
+  ) ?? {
+    effectiveRecipients: [],
+    referencedPrincipals: [],
+  };
+
   return {
     ancestorContainerIds: [
       ...parentResolvedInputs.ancestorContainerIds,
@@ -929,12 +1228,58 @@ function resolveDescendantContainerInputs(
     ],
     effectiveRecipients: mergeEffectiveRecipients(
       parentResolvedInputs.effectiveRecipients,
-      directGrantedRecipientsByContainerId.get(descendantContainer.id) ?? [],
+      directResolvedInputs.effectiveRecipients,
     ),
     grants: [
       ...parentResolvedInputs.grants,
       ...(directGrantsByContainerId.get(descendantContainer.id) ?? []),
     ],
+    referencedPrincipals: mergeReferencedPrincipalStateArrays(
+      parentResolvedInputs.referencedPrincipals,
+      directResolvedInputs.referencedPrincipals,
+    ),
+  };
+}
+
+async function prepareRefreshContainerAccessSubtree(input: {
+  containerId: string;
+  descendantIds: string[];
+  executor: ContainerAccessExecutor;
+}) {
+  const directGrants = await loadContainerGrantRows(
+    input.descendantIds,
+    input.executor,
+  );
+  const directGrantsByContainerId =
+    groupContainerGrantsByObjectId(directGrants);
+  const rootAncestorContainerIds = await listAncestorContainerIds(
+    input.containerId,
+    input.executor,
+  );
+  const rootAncestorGrants = await loadContainerGrantRows(
+    rootAncestorContainerIds,
+    input.executor,
+  );
+  const grantResolutionContext = await createGrantResolutionContext(
+    [...rootAncestorGrants, ...directGrants],
+    input.executor,
+  );
+
+  return {
+    directGrantsByContainerId,
+    directResolvedInputsByContainerId: groupDirectResolvedInputsByObjectId(
+      await resolveGrantedRecipientsByObjectId(
+        directGrants,
+        grantResolutionContext,
+        input.executor,
+      ),
+    ),
+    grantResolutionContext,
+    rootResolvedInputs: await resolveContainerRecipients(
+      input.containerId,
+      input.executor,
+      grantResolutionContext,
+    ),
   };
 }
 
@@ -953,30 +1298,21 @@ export async function refreshContainerAccessSubtree(
     descendantIds,
     executor,
   );
-  const directGrants = await loadContainerGrantRows(descendantIds, executor);
-  const directGrantedRecipients = await loadGrantedRecipientsByObjectId(
+  const epochByContainerId = new Map<string, number>();
+  const {
+    directGrantsByContainerId,
+    directResolvedInputsByContainerId,
+    grantResolutionContext,
+    rootResolvedInputs,
+  } = await prepareRefreshContainerAccessSubtree({
+    containerId,
     descendantIds,
     executor,
-  );
-  const epochByContainerId = new Map<string, number>();
-  const directGrantsByContainerId =
-    groupContainerGrantsByObjectId(directGrants);
-  const directGrantedRecipientsByContainerId = groupGrantedRecipientsByObjectId(
-    directGrantedRecipients,
-  );
+  });
   const resolvedInputsByContainerId = new Map<
     string,
     ResolvedContainerInputs
   >();
-  const rootResolvedInputs = await resolveContainerRecipients(
-    containerId,
-    executor,
-  );
-  const cryptoRecipientResolutionContext =
-    await createCryptoRecipientResolutionContext(
-      [...rootResolvedInputs.grants, ...directGrants],
-      executor,
-    );
 
   for (const descendantContainer of descendantContainers) {
     const currentEpochRow =
@@ -987,23 +1323,31 @@ export async function refreshContainerAccessSubtree(
       rootResolvedInputs,
       resolvedInputsByContainerId,
       directGrantsByContainerId,
-      directGrantedRecipientsByContainerId,
+      directResolvedInputsByContainerId,
+    );
+    const cryptoRecipients = buildCryptoRecipientsFromGrantRows(
+      resolvedInputs.grants,
+      grantResolutionContext,
     );
     const accessFingerprint = await computeContainerFingerprint({
       containerId: descendantContainer.id,
       ancestorContainerIds: resolvedInputs.ancestorContainerIds,
       grants: resolvedInputs.grants,
-      cryptoRecipients: buildCryptoRecipientsFromGrantRows(
-        resolvedInputs.grants,
-        cryptoRecipientResolutionContext,
-      ),
+      cryptoRecipients,
+    });
+    const accessStateHash = await computeContainerAccessStateHash({
+      containerId: descendantContainer.id,
+      ancestorContainerIds: resolvedInputs.ancestorContainerIds,
+      grants: resolvedInputs.grants,
+      referencedPrincipals: resolvedInputs.referencedPrincipals,
     });
 
     resolvedInputsByContainerId.set(descendantContainer.id, resolvedInputs);
 
     if (
       currentEpochRow &&
-      currentEpochRow.accessFingerprint === accessFingerprint
+      currentEpochRow.accessFingerprint === accessFingerprint &&
+      currentEpochRow.accessStateHash === accessStateHash
     ) {
       epochByContainerId.set(descendantContainer.id, currentEpochRow.epoch);
       continue;
@@ -1014,6 +1358,7 @@ export async function refreshContainerAccessSubtree(
       descendantContainer.id,
       nextEpoch,
       accessFingerprint,
+      accessStateHash,
       executor,
     );
     epochByContainerId.set(descendantContainer.id, nextEpoch);
@@ -1111,10 +1456,17 @@ export async function resolveContainerAccessState(
     grants,
     cryptoRecipients,
   });
+  const accessStateHash = await computeContainerAccessStateHash({
+    containerId,
+    ancestorContainerIds,
+    grants,
+    referencedPrincipals,
+  });
 
   return {
     currentAccessEpoch: currentEpochRow.epoch,
     accessFingerprint,
+    accessStateHash,
     ancestorContainerIds,
     grants,
     referencedPrincipals,

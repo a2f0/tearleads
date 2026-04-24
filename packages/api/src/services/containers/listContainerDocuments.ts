@@ -166,6 +166,7 @@ export async function listContainerDocuments(
         createdAtByDocumentId.get(documentId)?.toISOString() ??
         new Date(0).toISOString(),
       currentAccessEpoch: accessState.currentAccessEpoch,
+      currentAccessStateHash: accessState.accessStateHash,
       id: documentId,
       linkedContainerIds: linkedContainerIdsByDocumentId.get(documentId) ?? [],
       recipientEncapsulationPublicKeys:

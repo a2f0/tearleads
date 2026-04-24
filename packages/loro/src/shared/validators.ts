@@ -38,6 +38,7 @@ export interface CreateDocumentResponse {
   id: string;
   createdAt: string;
   currentAccessEpoch: number;
+  currentAccessStateHash?: string;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientEncapsulationPublicKeys: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
@@ -70,6 +71,7 @@ export interface SyncDocumentResponse {
   missingUpdateEpochs: SyncDocumentMissingUpdateEpoch[];
   updates: DocumentSyncUpdate[];
   currentAccessEpoch: number;
+  currentAccessStateHash?: string;
   documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   rotateBaselineSourceVersionVector: string | null;
@@ -162,12 +164,17 @@ export function isCreateDocumentResponse(
   const referencedPrincipals = isPlainObject(value)
     ? Reflect.get(value, "referencedPrincipals")
     : undefined;
+  const currentAccessStateHash = isPlainObject(value)
+    ? Reflect.get(value, "currentAccessStateHash")
+    : undefined;
 
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "createdAt") &&
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&
+    (currentAccessStateHash === undefined ||
+      typeof currentAccessStateHash === "string") &&
     (documentRecipientEnvelopes === null ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     hasStringArrayProperty(value, "recipientEncapsulationPublicKeys") &&
@@ -227,6 +234,9 @@ export function isSyncDocumentResponse(
   const referencedPrincipals = isPlainObject(value)
     ? Reflect.get(value, "referencedPrincipals")
     : undefined;
+  const currentAccessStateHash = isPlainObject(value)
+    ? Reflect.get(value, "currentAccessStateHash")
+    : undefined;
 
   return (
     isPlainObject(value) &&
@@ -242,6 +252,8 @@ export function isSyncDocumentResponse(
     hasArrayProperty(value, "updates") &&
     value.updates.every(isDocumentSyncUpdate) &&
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&
+    (currentAccessStateHash === undefined ||
+      typeof currentAccessStateHash === "string") &&
     isDocumentRecipientEnvelopeAction(documentRecipientEnvelopeAction) &&
     (documentRecipientEnvelopes === null ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&

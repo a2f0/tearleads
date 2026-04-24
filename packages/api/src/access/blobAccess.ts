@@ -13,7 +13,10 @@ import {
   extractBlobRecipientEnvelopeEntries,
   type PersistedRecipientEnvelopeEntry,
 } from "../utils/recipientEnvelopes";
-import { computeAccessFingerprint } from "./accessFingerprint";
+import {
+  computeAccessFingerprint,
+  computeAccessStateHash,
+} from "./accessFingerprint";
 import {
   resolveDocumentAccessState,
   resolveDocumentAccessStates,
@@ -31,7 +34,11 @@ import {
 const BLOB_OBJECT_TYPE = "blob";
 
 type BlobAccessExecutor = DatabaseExecutor;
-type CurrentEpochRow = { epoch: number; accessFingerprint: string };
+type CurrentEpochRow = {
+  epoch: number;
+  accessFingerprint: string;
+  accessStateHash: string | null;
+};
 type ResolvedDocumentAccessState = Awaited<
   ReturnType<typeof resolveDocumentAccessState>
 >;
@@ -47,6 +54,7 @@ type StoredBlobRecipientEnvelopeIdentity = {
 interface BlobAccessState {
   currentAccessEpoch: number;
   accessFingerprint: string;
+  accessStateHash: string;
   effectiveRecipients: EffectiveBlobRecipient[];
   cryptoRecipients: EffectiveBlobRecipient[];
 }
@@ -85,11 +93,12 @@ function mergeAccessLevel(
 async function getCurrentEpochRow(
   blobId: string,
   executor: BlobAccessExecutor = db,
-): Promise<{ epoch: number; accessFingerprint: string } | null> {
+): Promise<CurrentEpochRow | null> {
   const [row] = await executor
     .select({
       epoch: objectAccessEpochs.epoch,
       accessFingerprint: objectAccessEpochs.accessFingerprint,
+      accessStateHash: objectAccessEpochs.accessStateHash,
     })
     .from(objectAccessEpochs)
     .where(
@@ -119,6 +128,7 @@ async function getCurrentEpochRows(
       blobId: objectAccessEpochs.objectId,
       epoch: objectAccessEpochs.epoch,
       accessFingerprint: objectAccessEpochs.accessFingerprint,
+      accessStateHash: objectAccessEpochs.accessStateHash,
     })
     .from(objectAccessEpochs)
     .where(
@@ -139,6 +149,7 @@ async function getCurrentEpochRows(
     currentEpochByBlobId.set(row.blobId, {
       epoch: row.epoch,
       accessFingerprint: row.accessFingerprint,
+      accessStateHash: row.accessStateHash,
     });
   }
 
@@ -149,6 +160,7 @@ async function writeEpoch(
   blobId: string,
   epoch: number,
   accessFingerprint: string,
+  accessStateHash: string,
   executor: BlobAccessExecutor = db,
 ) {
   await executor.insert(objectAccessEpochs).values({
@@ -156,6 +168,7 @@ async function writeEpoch(
     objectId: blobId,
     epoch,
     accessFingerprint,
+    accessStateHash,
     updatedAt: new Date(),
   });
 }
@@ -312,6 +325,31 @@ async function computeBlobAccessFingerprint(input: {
     linkedDocumentIds: input.linkedDocumentIds,
     linkedDocumentFingerprints: input.linkedDocumentFingerprints,
     recipients: input.cryptoRecipients.map(toPrincipalFingerprintRecipient),
+  });
+}
+
+async function computeBlobAccessStateHash(input: {
+  blobId: string;
+  linkedDocumentIds: string[];
+  linkedDocumentStates: Exclude<ResolvedDocumentAccessState, null>[];
+}) {
+  return computeAccessStateHash({
+    objectType: BLOB_OBJECT_TYPE,
+    blobId: input.blobId,
+    linkedDocuments: input.linkedDocumentIds.map((documentId, index) => {
+      const linkedDocumentState = input.linkedDocumentStates[index];
+
+      if (!linkedDocumentState) {
+        throw new Error(
+          `Invariant violation: linked document state missing for ${documentId}`,
+        );
+      }
+
+      return {
+        documentId,
+        accessStateHash: linkedDocumentState.accessStateHash,
+      };
+    }),
   });
 }
 
@@ -643,6 +681,11 @@ async function materializeBlobAccessState(
     ),
     cryptoRecipients,
   });
+  const accessStateHash = await computeBlobAccessStateHash({
+    blobId,
+    linkedDocumentIds,
+    linkedDocumentStates,
+  });
   const linkedEpoch = Math.max(
     1,
     ...linkedDocumentStates.map((state) => state.currentAccessEpoch),
@@ -650,7 +693,8 @@ async function materializeBlobAccessState(
   const nextEpoch =
     resolvedCurrentEpochRow === null
       ? linkedEpoch
-      : resolvedCurrentEpochRow.accessFingerprint === accessFingerprint
+      : resolvedCurrentEpochRow.accessFingerprint === accessFingerprint &&
+          resolvedCurrentEpochRow.accessStateHash === accessStateHash
         ? Math.max(resolvedCurrentEpochRow.epoch, linkedEpoch)
         : Math.max(resolvedCurrentEpochRow.epoch + 1, linkedEpoch);
   const persistedEnvelopeEntries = await resolveMaterializedRecipientEnvelopes(
@@ -663,9 +707,16 @@ async function materializeBlobAccessState(
   if (
     resolvedCurrentEpochRow === null ||
     resolvedCurrentEpochRow.epoch !== nextEpoch ||
-    resolvedCurrentEpochRow.accessFingerprint !== accessFingerprint
+    resolvedCurrentEpochRow.accessFingerprint !== accessFingerprint ||
+    resolvedCurrentEpochRow.accessStateHash !== accessStateHash
   ) {
-    await writeEpoch(blobId, nextEpoch, accessFingerprint, executor);
+    await writeEpoch(
+      blobId,
+      nextEpoch,
+      accessFingerprint,
+      accessStateHash,
+      executor,
+    );
     await replaceRecipientEnvelopes(
       blobId,
       nextEpoch,
@@ -707,6 +758,11 @@ export async function resolveBlobAccessState(
     ),
     cryptoRecipients,
   });
+  const accessStateHash = await computeBlobAccessStateHash({
+    blobId,
+    linkedDocumentIds,
+    linkedDocumentStates,
+  });
   const currentAccessEpoch = Math.max(
     currentEpochRow?.epoch ?? 1,
     ...linkedDocumentStates.map((state) => state.currentAccessEpoch),
@@ -715,6 +771,7 @@ export async function resolveBlobAccessState(
   return {
     currentAccessEpoch,
     accessFingerprint,
+    accessStateHash,
     effectiveRecipients,
     cryptoRecipients,
   };

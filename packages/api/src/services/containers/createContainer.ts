@@ -97,6 +97,7 @@ export async function createContainer(
       organizationId: container.organizationId,
       parentId: container.parentId ?? parent.id,
       metadataAccessEpoch: metadata.metadataAccessEpoch,
+      metadataAccessStateHash: metadata.metadataAccessStateHash,
       metadataDocumentId: metadata.metadataDocumentId,
       metadataRecipientEncapsulationPublicKeys:
         metadata.metadataRecipientEncapsulationPublicKeys,

@@ -185,6 +185,7 @@ export async function buildDocumentMutationResponse(
   return {
     createdAt: document.createdAt.toISOString(),
     currentAccessEpoch: access.currentAccessEpoch,
+    currentAccessStateHash: access.accessStateHash,
     id: document.id,
     linkedContainerIds: linkedContainerIds
       ? uniqueSortedStrings([...linkedContainerIds])
