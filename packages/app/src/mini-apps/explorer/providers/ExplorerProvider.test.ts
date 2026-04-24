@@ -1132,6 +1132,11 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
     documentId: string;
     expectedBindingIds: Array<string | null>;
   }> = [];
+  const noteSyncCalls: Array<{
+    accessEpoch: number;
+    documentRecipientEnvelopeCount: number;
+    outgoingUpdateCount: number;
+  }> = [];
   let commitCallCount = 0;
   let currentBindingId: string | null = null;
   let currentBlobId: string | null = null;
@@ -1255,10 +1260,16 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
       accessEpoch,
       _localVersionVector,
       updates,
-      _documentRecipientEnvelopes,
+      documentRecipientEnvelopes,
     ) => {
       if (documentId === "notes-document-1") {
         noteSyncCallCount += 1;
+        noteSyncCalls.push({
+          accessEpoch,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
+          outgoingUpdateCount: updates.length,
+        });
 
         if (noteSyncCallCount === 2) {
           return createSyncDocumentResponse({
@@ -1418,6 +1429,16 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
     expect(
       commitChangeCalls.length === 2 || pendingAttachmentRewraps.length === 1,
     ).toBe(true);
+    expect(noteSyncCalls).toContainEqual({
+      accessEpoch: 2,
+      documentRecipientEnvelopeCount: 0,
+      outgoingUpdateCount: 0,
+    });
+    expect(noteSyncCalls).toContainEqual({
+      accessEpoch: 2,
+      documentRecipientEnvelopeCount: 1,
+      outgoingUpdateCount: 1,
+    });
     if (commitChangeCalls.length === 2) {
       expect(commitChangeCalls[1]).toEqual({
         accessEpoch: 2,

@@ -201,6 +201,7 @@ function buildNotesRuntime(state: ExplorerSyncState, containerId: string) {
         outgoingUpdates: SyncDocumentOutgoingUpdates,
         documentRecipientEnvelopes: SyncDocumentRecipientEnvelopes,
         minLsn?: string,
+        expectedAccessStateHash?: string,
       ) =>
         state.runtime.apiClient.syncDocument(
           documentId,
@@ -209,6 +210,7 @@ function buildNotesRuntime(state: ExplorerSyncState, containerId: string) {
           outgoingUpdates,
           documentRecipientEnvelopes,
           minLsn,
+          expectedAccessStateHash,
         ),
     },
     blobStore: state.runtime.blobStore,

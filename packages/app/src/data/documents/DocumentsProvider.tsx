@@ -2281,13 +2281,17 @@ async function syncDocumentState(
   );
 }
 
-async function refreshRemoteDocumentBeforePendingAttachmentCommit(
+async function refreshRemoteDocumentBeforePendingAttachmentMutation(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
-  if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
+  if (
+    (state.pendingAttachments.length === 0 &&
+      state.pendingAttachmentRewraps.length === 0) ||
+    !nextRecord.documentId
+  ) {
     return { completed: false, nextRecord };
   }
 
@@ -2331,7 +2335,7 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
   }
 
   const refreshedResult =
-    await refreshRemoteDocumentBeforePendingAttachmentCommit(
+    await refreshRemoteDocumentBeforePendingAttachmentMutation(
       state,
       currentDoc,
       nextRecord,
