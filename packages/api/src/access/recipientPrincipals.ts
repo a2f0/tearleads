@@ -38,6 +38,35 @@ export function principalRecipientKey(
   return `${recipient.principalType}:${recipient.principalId}`;
 }
 
+export function isAccessLevel(value: string): value is AccessLevel {
+  return value === "read" || value === "write" || value === "admin";
+}
+
+export function accessLevelRank(accessLevel: AccessLevel): number {
+  if (accessLevel === "admin") {
+    return 3;
+  }
+
+  if (accessLevel === "write") {
+    return 2;
+  }
+
+  return 1;
+}
+
+export function mergeAccessLevel(
+  current: AccessLevel | undefined,
+  incoming: AccessLevel,
+): AccessLevel {
+  if (!current) {
+    return incoming;
+  }
+
+  return accessLevelRank(incoming) > accessLevelRank(current)
+    ? incoming
+    : current;
+}
+
 export function isUserPrincipalRecipient(
   recipient: Pick<PrincipalEnvelopeRecipient, "principalType" | "principalId">,
   userId: string,
