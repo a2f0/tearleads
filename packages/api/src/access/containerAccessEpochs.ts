@@ -110,16 +110,7 @@ export async function computeContainerFingerprint(input: {
     objectType: CONTAINER_OBJECT_TYPE,
     containerId: input.containerId,
     ancestorContainerIds: input.ancestorContainerIds,
-    grants: input.grants
-      .map((grant) => ({
-        objectId: grant.objectId,
-        subjectType: grant.subjectType,
-        subjectId: grant.subjectId,
-        accessLevel: grant.accessLevel,
-      }))
-      .sort((left, right) =>
-        JSON.stringify(left).localeCompare(JSON.stringify(right)),
-      ),
+    grants: input.grants,
     recipients: input.cryptoRecipients.map(toPrincipalFingerprintRecipient),
   });
 }
@@ -134,19 +125,8 @@ export async function computeContainerAccessStateHash(input: {
     objectType: CONTAINER_OBJECT_TYPE,
     containerId: input.containerId,
     ancestorContainerIds: input.ancestorContainerIds,
-    grants: input.grants.map((grant) => ({
-      objectId: grant.objectId,
-      subjectType: grant.subjectType,
-      subjectId: grant.subjectId,
-      accessLevel: grant.accessLevel,
-    })),
-    referencedPrincipals: input.referencedPrincipals.map((principal) => ({
-      principalType: principal.principalType,
-      principalId: principal.principalId,
-      version: principal.version,
-      keyEpoch: principal.keyEpoch,
-      stateHash: principal.stateHash,
-    })),
+    grants: input.grants,
+    referencedPrincipals: input.referencedPrincipals,
   });
 }
 
