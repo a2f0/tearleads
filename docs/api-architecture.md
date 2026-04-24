@@ -2,9 +2,7 @@
 
 ## Summary
 
-Yes, these are layers.
-
-The important distinction is:
+This document defines two related but distinct structures:
 
 - protocol planes describe *what kind of state* we are handling
 - API layers describe *where code lives* and *what each part is allowed to do*
@@ -13,7 +11,7 @@ Those are related, but they are not the same axis.
 
 ## Protocol Planes
 
-The protocol currently has three main planes:
+The protocol has three main planes:
 
 1. document plane
 2. attachment plane
@@ -27,7 +25,7 @@ A single use case can touch more than one plane. For example:
 - `createContainer` touches access plane and metadata-document setup
 - `commit-change` spans document plane, attachment plane, and access plane
 
-So the planes are a domain/protocol concept, not a source-tree layout rule.
+Protocol planes are a domain model, not a source-tree layout rule.
 
 ## Code Layers
 
@@ -44,7 +42,7 @@ These are the top-level process and app bindings.
   - reusable HTTP app
   - owns route registration, but not the outer server process
 
-This split exists so in-process callers, especially tests, can use the HTTP app
+This split allows in-process callers, especially tests, to use the HTTP app
 without importing the full server entrypoint and its runtime side effects.
 
 ### 2. Transport Layer
@@ -58,16 +56,16 @@ Examples:
 - response shaping
 - auth/session middleware
 
-This layer does only a few things for extracted routes:
+For service-backed routes, this layer:
 
-- parse and validate the request
-- load auth/session context
-- call a service
-- convert service results/errors into HTTP responses
+- parses and validates the request
+- loads auth/session context
+- calls a service
+- converts service results and errors into HTTP responses
 
-It does not own large business-logic transactions once a use case has been
-extracted. The remaining route-level exceptions are listed in the future-work
-section.
+It does not own business-logic transactions once a use case has been extracted
+into a service module. Route-local logic is limited to thin adapters and simple
+endpoints that do not require service orchestration.
 
 ### 3. Application Service Layer
 
@@ -76,7 +74,10 @@ This is the use-case orchestration layer.
 Examples:
 
 - `packages/api/src/services/auth/**`
+- `packages/api/src/services/blobs/**`
 - `packages/api/src/services/containers/**`
+- `packages/api/src/services/documents/**`
+- `packages/api/src/services/principals/**`
 - `packages/api/src/services/runtime.ts`
 
 This layer:
@@ -86,7 +87,7 @@ This layer:
 - depends on explicit infrastructure seams
 - accepts validated inputs instead of raw HTTP context
 
-This is the layer that the app-side MSW harness calls when it wants real
+This is the layer reused by the app-side MSW harness when tests need real
 backend behavior without duplicating route logic.
 
 ### 4. Domain and Protocol Helpers
@@ -117,45 +118,47 @@ Examples:
 
 This layer exposes capabilities, not use-case policy.
 
-## Service Seams
+## Service Runtime
 
-The current seam is `ApiServiceRuntime` in
+The service runtime boundary is `ApiServiceRuntime` in
 `packages/api/src/services/runtime.ts`.
 
-That seam exists to inject the infrastructure a service needs:
+It injects the infrastructure required by application services:
 
 - database access
 - key-value storage
 - event publishing
+- principal signer trust lookup
 - session token issuance
 
-The point is not dependency injection for its own sake. The point is:
+This boundary exists so that:
 
 - route handlers and tests can call the same service code
 - app tests do not need to import the full API server entrypoint
 - MSW does not need a second fake implementation of backend behavior
 
-The rule is:
+Rule:
 
 - if a use case is important enough to test from app UI through MSW, it must
   live in a service module, not only in a route body
 
-## Current Extraction Boundary
+## Service Coverage
 
-The first extracted service seam currently covers:
+The service layer covers these route-backed capabilities:
 
-- auth challenge
-- auth verify
-- auth register
-- auth encapsulation-key lookup
-- container create
-- container list
-- container share
-- container document listing
+- auth challenge, verify, register, and encapsulation-key lookup
+- blob staging and blob reads
+- container creation, listing, sharing, movement, and document listing
 - container metadata document creation for auth registration and container
   creation
+- document creation and sync storage
+- document attachment listing
+- document `commit-change`
+- document link and unlink mutations
+- principal policy read and write operations
 
-That is enough for the current app-side dual-pane share flows.
+The `logout` route remains route-local. It composes `requireAuth` and
+`destroySession` directly and does not orchestrate application-service logic.
 
 Container list and container document listing pass their injected runtime
 executor through the access helpers they call, so in-process callers do not
@@ -172,7 +175,7 @@ from service code without importing from `routes/**`.
 API route tests, API integration helpers, and in-process API integration tests
 call `routeApp` directly instead of importing the server entrypoint.
 
-Blob staging is implemented as a document service. The `/blobs/stage` route
+Blob staging is implemented as a blob service. The `/blobs/stage` route
 validates request shape and maps service errors to HTTP responses, while the
 service owns digest/byte-length validation and staged-row creation.
 
@@ -181,15 +184,15 @@ Document attachment listing is implemented as a document service. The
 responses, while the service owns document-read authorization and active
 attachment binding lookup through the injected runtime database.
 
-Blob reads are implemented as a document service. The `/blobs/:blobId` route
+Blob reads are implemented as a blob service. The `/blobs/:blobId` route
 maps service errors to HTTP responses, while the service owns blob-read
 authorization, committed blob lookup, current recipient-envelope projection,
 and digest recalculation through the injected runtime database.
 
 Document creation and Loro sync persistence are implemented as a document
-service store. The `createLoroRouter` route adapter owns request validation,
-auth middleware, response shaping, and update notifications, while the store
-owns linked-container authorization, document access bundle lookup, document
+service store. The `createLoroRouter` adapter owns request validation, auth
+middleware, response shaping, and update notifications, while the store owns
+linked-container authorization, document access bundle lookup, document
 recipient-envelope persistence, and update storage through the injected runtime
 database.
 
@@ -205,7 +208,7 @@ runtime database.
 
 `routeApp` is the reusable HTTP app.
 
-It allows three different callers to share one transport definition:
+It allows three callers to share one transport definition:
 
 1. the real server process in `index.ts`
 2. in-process test proxying from the app test harness
@@ -216,7 +219,7 @@ concerns that do not belong in a lightweight in-process test path.
 
 ## Testing Model
 
-The intended testing pyramid is:
+The testing model is:
 
 ### Route Tests
 
@@ -242,14 +245,14 @@ App tests verify:
 - real request/response semantics
 - shared service behavior through MSW-backed handlers or `routeApp` proxying
 
-The key constraint is:
+Constraint:
 
 - MSW reuses backend logic
 - MSW does not become a second backend implementation
 
 ## Design Rules
 
-The rules are:
+Rules:
 
 1. Hono route files stay thin.
 2. Services accept validated arguments, not `Context`.
@@ -264,6 +267,6 @@ The rules are:
 
 ## Future Work
 
-The API route extraction targets tracked by #177 are complete. Future work in
-this area should be opened as specific follow-up issues rather than kept as a
+The API route extraction work tracked by #177 is complete. Future work in this
+area should be opened as specific follow-up issues rather than kept as a
 standing migration list here.
