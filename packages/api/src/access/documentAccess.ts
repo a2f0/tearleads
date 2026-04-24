@@ -381,15 +381,11 @@ async function computeDocumentAccessStateHash(input: {
   return computeAccessStateHash({
     objectType: DOCUMENT_OBJECT_TYPE,
     documentId: input.documentId,
-    grants: input.grants
-      .map((grant) => ({
-        subjectType: grant.subjectType,
-        subjectId: grant.subjectId,
-        accessLevel: grant.accessLevel,
-      }))
-      .sort((left, right) =>
-        JSON.stringify(left).localeCompare(JSON.stringify(right)),
-      ),
+    grants: input.grants.map((grant) => ({
+      subjectType: grant.subjectType,
+      subjectId: grant.subjectId,
+      accessLevel: grant.accessLevel,
+    })),
     linkedContainers: input.linkedContainerIds.map((containerId, index) => {
       const linkedContainerState = input.linkedContainerStates[index];
 

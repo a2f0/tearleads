@@ -103,12 +103,24 @@ type ProjectionMember = Awaited<
 >[number];
 
 interface GrantResolutionContext {
+  currentPrincipalStatePromisesByType: Map<
+    ManagedRecipientPrincipalType,
+    Map<string, Promise<StoredPrincipalState>>
+  >;
   currentPrincipalStatesByType: Map<
     ManagedRecipientPrincipalType,
     Map<string, StoredPrincipalState>
   >;
   directUserGrantRecipientsById: Map<string, DirectUserGrantRecipientRow>;
+  managedPrincipalExpansionPromisesByKey: Map<
+    string,
+    Promise<ManagedPrincipalExpansion>
+  >;
   managedPrincipalExpansionsByKey: Map<string, ManagedPrincipalExpansion>;
+  projectionMemberPromisesByPrincipalKey: Map<
+    string,
+    Promise<ProjectionMember[]>
+  >;
   projectionMembersByPrincipalKey: Map<string, ProjectionMember[]>;
 }
 
@@ -263,27 +275,49 @@ async function getOrLoadCurrentManagedPrincipalState(
     return cachedState;
   }
 
-  const loadedStates = await getCurrentPrincipalStates(
-    principalType,
-    [principalId],
-    executor,
-  );
-  const loadedState = loadedStates.get(principalId);
+  let promiseById =
+    context.currentPrincipalStatePromisesByType.get(principalType);
+  if (!promiseById) {
+    promiseById = new Map();
+    context.currentPrincipalStatePromisesByType.set(principalType, promiseById);
+  }
 
-  if (!loadedState) {
-    throw new ContainerCryptoRecipientResolutionError(
-      missingManagedPrincipalStateMessage(principalType, principalId),
+  const cachedPromise = promiseById.get(principalId);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  const loadPromise = (async () => {
+    const loadedStates = await getCurrentPrincipalStates(
+      principalType,
+      [principalId],
+      executor,
     );
-  }
+    const loadedState = loadedStates.get(principalId);
 
-  let statesById = context.currentPrincipalStatesByType.get(principalType);
-  if (!statesById) {
-    statesById = new Map();
-    context.currentPrincipalStatesByType.set(principalType, statesById);
-  }
-  statesById.set(principalId, loadedState);
+    if (!loadedState) {
+      throw new ContainerCryptoRecipientResolutionError(
+        missingManagedPrincipalStateMessage(principalType, principalId),
+      );
+    }
 
-  return loadedState;
+    let statesById = context.currentPrincipalStatesByType.get(principalType);
+    if (!statesById) {
+      statesById = new Map();
+      context.currentPrincipalStatesByType.set(principalType, statesById);
+    }
+    statesById.set(principalId, loadedState);
+
+    return loadedState;
+  })();
+
+  promiseById.set(principalId, loadPromise);
+
+  try {
+    return await loadPromise;
+  } finally {
+    promiseById.delete(principalId);
+  }
 }
 
 async function listOrLoadProjectionMembers(
@@ -300,15 +334,32 @@ async function listOrLoadProjectionMembers(
     return cachedMembers;
   }
 
-  const loadedMembers = await listCurrentPrincipalProjectionMembers(
-    principalType,
-    principalId,
-    executor,
-  );
+  const cachedPromise =
+    context.projectionMemberPromisesByPrincipalKey.get(principalKey);
 
-  context.projectionMembersByPrincipalKey.set(principalKey, loadedMembers);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
 
-  return loadedMembers;
+  const loadPromise = (async () => {
+    const loadedMembers = await listCurrentPrincipalProjectionMembers(
+      principalType,
+      principalId,
+      executor,
+    );
+
+    context.projectionMembersByPrincipalKey.set(principalKey, loadedMembers);
+
+    return loadedMembers;
+  })();
+
+  context.projectionMemberPromisesByPrincipalKey.set(principalKey, loadPromise);
+
+  try {
+    return await loadPromise;
+  } finally {
+    context.projectionMemberPromisesByPrincipalKey.delete(principalKey);
+  }
 }
 
 async function createGrantResolutionContext(
@@ -344,34 +395,27 @@ async function createGrantResolutionContext(
   }
 
   return {
+    currentPrincipalStatePromisesByType: new Map([
+      ["group", new Map()],
+      ["organization", new Map()],
+    ]),
     currentPrincipalStatesByType,
     directUserGrantRecipientsById,
+    managedPrincipalExpansionPromisesByKey: new Map(),
     managedPrincipalExpansionsByKey: new Map(),
+    projectionMemberPromisesByPrincipalKey: new Map(),
     projectionMembersByPrincipalKey: new Map(),
   };
 }
 
-async function expandManagedPrincipal(
+async function buildManagedPrincipalExpansion(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
+  principalKey: string,
   context: GrantResolutionContext,
-  executor: ContainerAccessExecutor = db,
-  trail: ReadonlySet<string> = new Set(),
+  executor: ContainerAccessExecutor,
+  trail: ReadonlySet<string>,
 ): Promise<ManagedPrincipalExpansion> {
-  const principalKey = managedPrincipalKey(principalType, principalId);
-  const cachedExpansion =
-    context.managedPrincipalExpansionsByKey.get(principalKey);
-
-  if (cachedExpansion) {
-    return cachedExpansion;
-  }
-
-  if (trail.has(principalKey)) {
-    throw new ContainerCryptoRecipientResolutionError(
-      membershipCycleMessage(principalType, principalId),
-    );
-  }
-
   const currentState = await getOrLoadCurrentManagedPrincipalState(
     principalType,
     principalId,
@@ -431,29 +475,74 @@ async function expandManagedPrincipal(
     executor,
   );
 
-  const userRecipients = uniqueSortedStrings(Array.from(memberUserIds)).map(
-    (userId) => {
-      const recipient = context.directUserGrantRecipientsById.get(userId);
-
-      if (!recipient) {
-        throw new ContainerCryptoRecipientResolutionError(
-          missingDirectUserRecipientMessage(userId),
-        );
-      }
-
-      return recipient;
-    },
-  );
-  const expansion = {
+  return {
     referencedPrincipals: sortReferencedPrincipalStates(
       Array.from(nestedReferencedPrincipals.values()),
     ),
-    userRecipients,
+    userRecipients: uniqueSortedStrings(Array.from(memberUserIds)).map(
+      (userId) => {
+        const recipient = context.directUserGrantRecipientsById.get(userId);
+
+        if (!recipient) {
+          throw new ContainerCryptoRecipientResolutionError(
+            missingDirectUserRecipientMessage(userId),
+          );
+        }
+
+        return recipient;
+      },
+    ),
   };
+}
 
-  context.managedPrincipalExpansionsByKey.set(principalKey, expansion);
+async function expandManagedPrincipal(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  context: GrantResolutionContext,
+  executor: ContainerAccessExecutor = db,
+  trail: ReadonlySet<string> = new Set(),
+): Promise<ManagedPrincipalExpansion> {
+  const principalKey = managedPrincipalKey(principalType, principalId);
 
-  return expansion;
+  if (trail.has(principalKey)) {
+    throw new ContainerCryptoRecipientResolutionError(
+      membershipCycleMessage(principalType, principalId),
+    );
+  }
+
+  const cachedExpansion =
+    context.managedPrincipalExpansionsByKey.get(principalKey);
+  if (cachedExpansion) {
+    return cachedExpansion;
+  }
+
+  const cachedPromise =
+    context.managedPrincipalExpansionPromisesByKey.get(principalKey);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  const expansionPromise = buildManagedPrincipalExpansion(
+    principalType,
+    principalId,
+    principalKey,
+    context,
+    executor,
+    trail,
+  );
+
+  context.managedPrincipalExpansionPromisesByKey.set(
+    principalKey,
+    expansionPromise,
+  );
+
+  try {
+    const expansion = await expansionPromise;
+    context.managedPrincipalExpansionsByKey.set(principalKey, expansion);
+    return expansion;
+  } finally {
+    context.managedPrincipalExpansionPromisesByKey.delete(principalKey);
+  }
 }
 
 async function resolveGrantedRecipientsByObjectId(
@@ -1132,16 +1221,12 @@ async function computeContainerAccessStateHash(input: {
     objectType: CONTAINER_OBJECT_TYPE,
     containerId: input.containerId,
     ancestorContainerIds: input.ancestorContainerIds,
-    grants: input.grants
-      .map((grant) => ({
-        objectId: grant.objectId,
-        subjectType: grant.subjectType,
-        subjectId: grant.subjectId,
-        accessLevel: grant.accessLevel,
-      }))
-      .sort((left, right) =>
-        JSON.stringify(left).localeCompare(JSON.stringify(right)),
-      ),
+    grants: input.grants.map((grant) => ({
+      objectId: grant.objectId,
+      subjectType: grant.subjectType,
+      subjectId: grant.subjectId,
+      accessLevel: grant.accessLevel,
+    })),
     referencedPrincipals: input.referencedPrincipals.map((principal) => ({
       principalType: principal.principalType,
       principalId: principal.principalId,
