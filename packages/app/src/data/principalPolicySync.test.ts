@@ -72,7 +72,7 @@ async function createPrincipalPolicyBundle(): Promise<{
       principalType: "group",
       principalId: "group-1",
       stateHash,
-      cipherSuite: "xchacha20poly1305-v1",
+      cipherSuite: "aes-256-gcm-v1",
       ciphertext: signedState.payloadCiphertext ?? "ciphertext-1",
       ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
         signedState.payloadCiphertext ?? "ciphertext-1",

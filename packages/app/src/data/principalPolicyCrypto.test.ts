@@ -91,7 +91,7 @@ async function createPrincipalPolicyBundle(input: {
       principalType: "group",
       principalId: input.principalId,
       stateHash,
-      cipherSuite: "xchacha20poly1305-v1",
+      cipherSuite: "aes-256-gcm-v1",
       ciphertext:
         signedState.payloadCiphertext ?? `${input.principalId}-ciphertext`,
       ciphertextHash: await computePrincipalStatePayloadCiphertextHash(

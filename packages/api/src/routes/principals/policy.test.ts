@@ -93,7 +93,7 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
       body: JSON.stringify({
         state: signedState,
         encryptedPayload: {
-          cipherSuite: "xchacha20poly1305-v1",
+          cipherSuite: "aes-256-gcm-v1",
           ciphertext: signedState.payloadCiphertext,
           ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
             signedState.payloadCiphertext ?? "",
@@ -169,7 +169,7 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
       body: JSON.stringify({
         state: signedState,
         encryptedPayload: {
-          cipherSuite: "xchacha20poly1305-v1",
+          cipherSuite: "aes-256-gcm-v1",
           ciphertext: signedState.payloadCiphertext,
           ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
             signedState.payloadCiphertext ?? "",
@@ -275,7 +275,7 @@ test("PUT /principals/:principalType/:principalId/state rejects untrusted signer
       body: JSON.stringify({
         state: signedState,
         encryptedPayload: {
-          cipherSuite: "xchacha20poly1305-v1",
+          cipherSuite: "aes-256-gcm-v1",
           ciphertext: signedState.payloadCiphertext,
           ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
             signedState.payloadCiphertext ?? "",

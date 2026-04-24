@@ -71,7 +71,7 @@ export function toPrincipalStatePayloadResponse(input: {
   principalType: "group" | "organization";
   principalId: string;
   stateHash: string;
-  cipherSuite: "xchacha20poly1305-v1";
+  cipherSuite: "aes-256-gcm-v1";
   ciphertext: string;
   ciphertextHash: string;
   createdAt: Date;

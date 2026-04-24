@@ -10,7 +10,7 @@ export type ManagedRecipientPrincipalType = "group" | "organization";
 export type PrincipalStateMemberType = "user" | "group";
 export type PrincipalProjectionRole = "member" | "admin";
 export type PrincipalStateMembershipMode = "projection_v1";
-export type PrincipalStatePayloadCipherSuite = "xchacha20poly1305-v1";
+export type PrincipalStatePayloadCipherSuite = "aes-256-gcm-v1";
 
 export interface PrincipalStateMember {
   principalType: PrincipalStateMemberType;

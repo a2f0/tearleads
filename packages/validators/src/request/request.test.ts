@@ -255,7 +255,7 @@ test("isPutPrincipalStateRequest", () => {
         signature: "signature",
       },
       encryptedPayload: {
-        cipherSuite: "xchacha20poly1305-v1",
+        cipherSuite: "aes-256-gcm-v1",
         ciphertext: "ciphertext",
         ciphertextHash: "ciphertext-hash",
       },
@@ -288,7 +288,7 @@ test("isPutPrincipalStateRequest", () => {
         signature: "signature",
       },
       encryptedPayload: {
-        cipherSuite: "xchacha20poly1305-v1",
+        cipherSuite: "aes-256-gcm-v1",
         ciphertext: "ciphertext",
         ciphertextHash: "ciphertext-hash",
       },

@@ -33,7 +33,7 @@ export interface PrincipalStateRequest {
 }
 
 export interface PrincipalStateEncryptedPayloadRequest {
-  cipherSuite: "xchacha20poly1305-v1";
+  cipherSuite: "aes-256-gcm-v1";
   ciphertext: string;
   ciphertextHash: string;
 }
@@ -123,7 +123,7 @@ function isPrincipalStateEncryptedPayloadRequest(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "cipherSuite") &&
-    value.cipherSuite === "xchacha20poly1305-v1" &&
+    value.cipherSuite === "aes-256-gcm-v1" &&
     hasStringProperty(value, "ciphertext") &&
     hasStringProperty(value, "ciphertextHash")
   );

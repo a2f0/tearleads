@@ -31,7 +31,7 @@ export interface PrincipalStatePayloadResponse {
   principalType: "group" | "organization";
   principalId: string;
   stateHash: string;
-  cipherSuite: "xchacha20poly1305-v1";
+  cipherSuite: "aes-256-gcm-v1";
   ciphertext: string;
   ciphertextHash: string;
   createdAt: string;
@@ -132,7 +132,7 @@ export function isPrincipalStatePayloadResponse(
     hasStringProperty(value, "principalId") &&
     hasStringProperty(value, "stateHash") &&
     hasStringProperty(value, "cipherSuite") &&
-    value.cipherSuite === "xchacha20poly1305-v1" &&
+    value.cipherSuite === "aes-256-gcm-v1" &&
     hasStringProperty(value, "ciphertext") &&
     hasStringProperty(value, "ciphertextHash") &&
     hasStringProperty(value, "createdAt")

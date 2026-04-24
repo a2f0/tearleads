@@ -179,7 +179,7 @@ async function normalizePrincipalStateWriteInput(
   return {
     state: stripSignedPrincipalStateArtifacts(input),
     encryptedPayload: {
-      cipherSuite: "xchacha20poly1305-v1",
+      cipherSuite: "aes-256-gcm-v1",
       ciphertext: input.payloadCiphertext,
       ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
         input.payloadCiphertext,
