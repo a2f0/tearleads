@@ -1,14 +1,14 @@
 # Document Rekey, Rebaselines, And Audit History
 
-This note captures the current behavior and intended future direction for
-document rekey, fresh-baseline generation, offline merge handling, and
-tamper-evident document history.
+This document defines implemented behavior and the target model for document
+rekey, fresh-baseline generation, offline merge handling, and tamper-evident
+document history.
 
 It is separate from the signed group / organization policy-state design. Policy
-state protects who should have access. This note is about how document content
-and document history behave when access epochs change.
+state protects who should have access. This document covers how document
+content and document history behave when access epochs change.
 
-## Current Behavior
+## Implemented Behavior
 
 ### Document Updates Are Epoch-Bound
 
@@ -38,7 +38,7 @@ does not try to reuse the previous epoch's document DEK. Instead, a retained
 client clears stale pending encrypted updates and resends a fresh baseline under
 the new DEK.
 
-The important distinction is:
+Distinction:
 
 - old ciphertext remains valid under the old DEK
 - future writes move to a new DEK
@@ -59,11 +59,10 @@ transient replacement metadata, not an attachment audit log.
 That means document update history and attachment/blob history have different
 retention properties.
 
-This is an accepted product decision, not only an implementation accident. For
-the explicit attachment/blob retention policy, see
+The attachment/blob retention policy is defined in
 [attachment-retention.md](./attachment-retention.md).
 
-## Desired Rekey / Rebaseline Model
+## Target Rekey / Rebaseline Model
 
 ### Any Retained Authorized Client Should Be Able To Win
 
@@ -92,7 +91,7 @@ The server should not accept a rotate baseline blindly. To avoid dropping
 server-known edits, the baseline should commit to the exact source frontier it
 includes.
 
-Recommended acceptance rule:
+Acceptance rule:
 
 - the client includes the source version vector / causal frontier used to build
   the proposed baseline
@@ -115,7 +114,7 @@ Once a current-epoch document bundle exists, later writes for that same epoch
 should not be allowed to replace it with a different DEK for the same recipient
 set.
 
-Recommended rule:
+Rule:
 
 - if no current-epoch bundle exists yet, one client may seed it
 - if a current-epoch bundle already exists and another client proposes a
@@ -192,7 +191,7 @@ inputs:
 
 That is not yet the same thing as a tamper-evident document edit history.
 
-### Recommended Direction
+### Audit-Layer Structure
 
 Treat live document state and audit history as separate layers:
 
@@ -339,7 +338,7 @@ Only after the write-side model is stable should we add read paths such as:
 Fresh-client historical replay is a later slice. It should not block the core
 write-side audit model.
 
-## Recommended Next Slice
+## Next Slice
 
 The next concrete step should be Phase 1:
 
@@ -356,7 +355,7 @@ the later audit ledger verifiable.
 
 ## Phase 1 Concrete Design
 
-This section resolves the Phase 1 storage-boundary questions for `#204`.
+This section resolves the Phase 1 storage boundary.
 
 ### Design Decisions
 
@@ -482,13 +481,13 @@ These rows are not the live baseline payload. They are durable checkpoint
 metadata that says which audit head a baseline claims to cover.
 
 The first implementation should only write these rows for updates that are
-explicitly marked as baselines. That means `#205` should add an explicit
-baseline/checkpoint marker to the write contract instead of trying to infer all
-baseline writes from version-vector shape alone.
+explicitly marked as baselines. That requires an explicit
+baseline/checkpoint marker in the write contract instead of inferring baseline
+writes from version-vector shape alone.
 
 Because the current sync-store append interface only receives
-`authorFingerprint`, `#205` should also thread `authorUserId` through the sync
-write path so checkpoint and audit rows can record both the stable actor
+`authorFingerprint`, the write path also needs to thread `authorUserId`
+through sync so checkpoint and audit rows can record both the stable actor
 principal and the authenticated key fingerprint used for the write.
 
 #### `blob_audit_objects`

@@ -9,7 +9,7 @@ SQLite.
 
 This document describes the bootstrap step for the root container only. It does
 not mean every encrypted payload in the system should use the container DEK
-directly. The current direction is:
+directly. The key hierarchy is:
 
 - containers have their own access state and wrapped key bundles
 - documents derive access from linked containers and use document DEKs
@@ -113,7 +113,7 @@ Each `RecipientEntry` contains:
 The wrapping IV is derived from `kemCipherText.slice(0, 12)`, matching the
 convention used by `encryptForRecipients`.
 
-`encryptForRecipients` now delegates to `wrapDekForRecipients` internally for
+`encryptForRecipients` delegates to `wrapDekForRecipients` internally for
 the key wrapping step.
 
 ### `unwrapDek`
@@ -164,7 +164,7 @@ interface PublicKeyResponse {
 }
 ```
 
-## Current Schema Excerpts
+## Schema Excerpts
 
 ### Server: `containers`
 
@@ -243,7 +243,7 @@ CREATE UNIQUE INDEX address_book_projection_self_idx
 The partial unique index enforces at most one self-contact per address book at
 the database level.
 
-## Future: Adding Users To An Organization
+## Adding Users To An Organization
 
 Adding a user to an organization means they need access to the container tree
 and its documents. The flow would be:
@@ -256,7 +256,7 @@ and its documents. The flow would be:
    recipient set.
 
 Whether this is eager (re-wrap everything at grant time) or lazy (re-wrap on
-next write or access) is a future design decision. The registration flow
+next write or access) remains a separate design decision. The registration flow
 establishes the DEK and container primitives so that adding members later is
 "more recipient envelopes for the same container DEK," not a schema redesign.
 

@@ -1,12 +1,10 @@
-# Loro E2EE Sync Protocol Note
-
-Related historical issues: `#82`, `#88`
+# Loro E2EE Sync Protocol
 
 ## Summary
 
-This note refines the scope of the Loro-native E2EE sync work.
+This document defines the Loro-native E2EE sync protocol boundary.
 
-The main decision is:
+Core rules:
 
 - Raw Loro sync should cover encrypted CRDT document state.
 - Blob attach and detach should **not** exist only inside encrypted Loro diffs.
@@ -22,12 +20,11 @@ adjacent planes:
 
 The server must remain plaintext-blind for document content.
 
-## Current Implementation
+## Implemented Protocol
 
-The sequence-based client protocol has now been replaced by a single sync
-handshake for the document plane.
+The document plane uses a single sync handshake.
 
-Current shape:
+Protocol shape:
 
 - `POST /documents`
   - creates a document and initializes access state
@@ -58,33 +55,33 @@ Current shape:
       client version vector
   - each returned encrypted update includes its visible `accessEpoch`
 
-The server still does not decrypt document content. It filters updates using the
+The server does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
-The `document_update_spans` table now exists as a server-side causal indexing
-primitive: it can store one row per document/update
+`document_update_spans` is the server-side causal indexing primitive: it stores
+one row per document/update
 peer span with start and end counters, plus indexes for
 `(document_id, peer_id, end_counter)` and unique update/peer lookups. The
-composite index also covers document-only lookups. Append paths now write the
+composite index also covers document-only lookups. Append paths write the
 encrypted update row and visible span rows in the same transaction, and the
-sync route now asks Postgres for only the updates whose causal span is not yet
+sync route asks Postgres for only the updates whose causal span is not yet
 covered by the client's frontier instead of loading full document history into
-application memory. Sync responses now always include a `commitLsn`: accepted
+application memory. Sync responses include a `commitLsn`: accepted
 current-epoch writes return the append LSN, and read-only syncs return the
 current WAL LSN observed after the missing-update read. Sync requests may
-include `minLsn` as a forward-compatible consistency hook for later
+include `minLsn` as a consistency hook for
 replica-safe read-after-write behavior.
 
-The sync response now also tells the client whether the current epoch expects a
+The sync response tells the client whether the current epoch expects a
 document-DEK `rewrap` or `rotate`. When the current epoch can safely reuse the
-previous DEK and the server still has no current-epoch bundle, clients seed the
+previous DEK and the server has no current-epoch bundle, clients seed the
 current bundle with a follow-up sync, keep local pending updates intact, and
 retry those updates under the new epoch. When the server classifies the current
 epoch as `rotate`, clients clear any stale bundle for that epoch and resend the
 next baseline under a freshly generated DEK.
 
-Current implementation:
+Implemented behavior:
 
-- each encrypted Loro update now carries:
+- each encrypted Loro update carries:
   - an inline `accessEpoch`
   - AES-GCM ciphertext encrypted with the current document DEK
 - sync responses also expose each returned update's stored `accessEpoch`, plus
@@ -98,42 +95,42 @@ Current implementation:
 - sync responses set `canonicalDocumentRecipientEnvelopesAdopted` when a
   same-epoch document bundle conflict was resolved by returning the canonical
   current bundle and leaving outgoing updates unaccepted for retry
-- accepted current-epoch sync writes return a `commitLsn`, and the server now
+- accepted current-epoch sync writes return a `commitLsn`, and the server
   materializes per-peer `document_update_spans` from each update's visible
   partial version-vector metadata in the same transaction as the encrypted
   `document_updates` row
-- the current document-DEK bundle can now be materialized in strict
+- the current document-DEK bundle is materialized in strict
   `object_recipient_envelopes` rows with required wrapped-key material
 - recipient bundle rows are principal-shaped, and document/blob wrapped-key
-  material now prefers current group/org principal keys when the relevant
+  material prefers current group/org principal keys when the relevant
   signed policy state exists
-- `POST /auth/register` and `POST /containers` can seed initial metadata
+- `POST /auth/register` and `POST /containers` seed initial metadata
   document bundles atomically
-- blob payloads are further along: committed blob envelopes now carry real
+- committed blob envelopes carry real
   wrapped-key material that the API can persist for blob objects when the blob
   recipient set matches current access
-- blob envelopes now use a header-delimited wire format so recipient metadata
+- blob envelopes use a header-delimited wire format so recipient metadata
   can be read without JSON-parsing the ciphertext body
-- committed attachments can now update current blob recipient wraps in place
+- committed attachments update current blob recipient wraps in place
   for additive access growth, and `GET /blobs/:blobId` serves the current
   wrapped-recipient header from sidecar metadata without creating a new blob
   row
-- explicit structural mutation routes now exist for:
+- explicit structural mutation routes:
   - `POST /containers/:containerId/move`
   - `POST /documents/:documentId/link`
   - `POST /documents/:documentId/unlink`
-- those routes now materialize affected document epochs and active blob epochs
+- those routes materialize affected document epochs and active blob epochs
   immediately after the container/document graph changes
-- the app explorer now drives the container `move` route directly for
+- the app explorer drives the container `move` route directly for
   reparenting and uses `link` + `unlink` to move a note between containers
   without creating a new document object; it also exposes direct note
   link/detach controls in note detail and can locally switch which linked
   container is treated as the active note projection
-- additive document epoch changes now reuse the current document DEK by
+- additive document epoch changes reuse the current document DEK by
   materializing a current-epoch recipient bundle; notes and contacts preserve
   pending Loro updates and retry them under the new epoch instead of replacing
   them with a full baseline
-- note attachment rewrap-only work now commits blob recipient-envelope updates
+- note attachment rewrap-only work commits blob recipient-envelope updates
   without sending an unrelated Loro baseline
 - note clients with pending local attachment drafts for an existing remote
   document first issue a no-outgoing document sync probe, so completed rotates
@@ -142,30 +139,30 @@ Current implementation:
   atomic blob/binding commit can include it, including the rotate baseline
   source frontier when the probe discovered a rotate
 
-Important remaining limitation:
+Limitations:
 
-- document/blob bundle material now consumes cached principal policy bundles
+- document/blob bundle material consumes cached principal policy bundles
   and can target current group/org keys, but managed grants require current
-  signed policy state to remain usable; missing policy state now fails closed
+  signed policy state to remain usable; missing policy state fails closed
   instead of degrading to expanded user recipients
-- container/document discovery and Loro create/sync responses now expose
+- container/document discovery and Loro create/sync responses expose
   `referencedPrincipals[]` summaries so clients can discover and cache the
   current signed group/org policy states that back those principal recipients
-- the current app explorer now renders linked document projections beneath each
+- the app explorer renders linked document projections beneath each
   linked container, exposes document link/unlink management, and can switch
   which linked container is locally active
-- subtractive rotation for document epochs still uses the current
-  fresh-baseline path with source-frontier validation; durable audit/history
-  hardening remains future work
+- subtractive rotation for document epochs uses the fresh-baseline path with
+  source-frontier validation; durable audit/history hardening remains separate
+  work
 
-For the current access-plane model, see
+For the access-plane model, see
 [access-plane.md](./access-plane.md).
 
 ## Why This Boundary Matters
 
-The work that started in issue `#82` replaced the old sequence-oriented update
-fetch with a Loro-native causal sync contract. That is the right direction for
-document state, but it does not fully answer attachment lifecycle questions.
+The protocol uses a Loro-native causal sync contract instead of a
+sequence-oriented update fetch. That is the right direction for document state,
+but it does not fully answer attachment lifecycle questions.
 
 If attach and detach exist only inside encrypted Loro diffs, the server cannot
 reliably:
@@ -179,7 +176,7 @@ reliably:
 That means attachment state cannot be only "whatever is implied by decrypted
 Loro content on the client." Some attachment metadata has to be visible.
 
-## Recommended Model
+## Reference Model
 
 ### 1. Document Plane
 
@@ -203,13 +200,13 @@ metadata such as:
 - `keyEpoch`
 - `createdAt`
 
-The current database `sequence` may still exist internally as a storage-order
+The database `sequence` may still exist internally as a storage-order
 implementation detail, but it should stop being the primary client-visible sync
 contract.
 
 ### 2. Attachment Plane
 
-Attachment lifecycle should be a separate, explicit metadata protocol.
+Attachment lifecycle is a separate, explicit metadata protocol.
 
 This plane owns:
 
@@ -223,7 +220,7 @@ The Loro document may still reference attachment IDs for editor semantics, but
 the authoritative attachment state should not live only inside encrypted Loro
 updates.
 
-Recommended objects:
+Objects:
 
 - `blob_object`
   - immutable encrypted blob bytes in object storage
@@ -232,16 +229,16 @@ Recommended objects:
 - `note_attachment`
   - logical attachment record keyed to a note
 - `attachment_binding`
-  - server-visible binding from attachment record to blob object; the current model keeps
+  - server-visible binding from attachment record to blob object; this model keeps
     detached bindings only as transient replacement metadata and prunes them
     with unreachable blobs
 
 For the attachment/blob retention decision, see
 [attachment-retention.md](./attachment-retention.md). Historical attachment
-bytes, signed tombstones, and attachment manifests are future audit/history
-concepts, not part of the current `commit-change` contract.
+bytes, signed tombstones, and attachment manifests are audit/history
+concepts, not part of the `commit-change` contract.
 
-For the current access-plane direction, the important semantic is:
+For the access-plane model, the important semantic is:
 
 - blobs are first-class encrypted objects
 - blobs may be attached to multiple documents
@@ -252,12 +249,12 @@ So attach and detach are not only indexing operations. They are also
 security-relevant graph mutations that may require access-epoch bumps and
 wrapped-key bundle changes for the blob object.
 
-Recommended logical operations:
+Logical operations:
 
 - `POST /blobs/stage`
 - `POST /documents/:documentId/commit-change`
 
-The current implementation uses:
+Implementation objects:
 
 - `blob_stages`
   - temporary encrypted upload bytes keyed by `stageId`
@@ -282,7 +279,7 @@ This plane owns:
 - `accessEpoch`
 - wrapped content keys / recipient envelopes
 
-Important limitation:
+Limitation:
 
 Permission revocation is not retroactive. If a client has already received the
 relevant DEK or plaintext, removing that client from a group does not make them
@@ -418,10 +415,10 @@ they remain outside encrypted Loro payloads.
 
 ## Server Indexing
 
-Server-side indexing for Loro-native causal sync is now defined around
+Server-side indexing for Loro-native causal sync is defined around
 `document_update_spans` plus SQL-side missing-update selection.
 
-The recommended split is:
+Split:
 
 - index Loro update metadata for causal sync
 - index attachment metadata for lookup and GC
