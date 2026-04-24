@@ -19,7 +19,7 @@ afterEach(async () => {
   await resetMockServer();
 });
 
-async function registerPersona(
+async function registerIdentity(
   signingPublicKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
 ): Promise<{ userId: string }> {
@@ -92,7 +92,7 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
   const signingKeys = generateSigningSeedAndKeyPair();
   const kemKeys = generateKemSeedAndKeyPair();
   const fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  const { userId } = await registerPersona(
+  const { userId } = await registerIdentity(
     signingKeys.signingPublicKey,
     kemKeys.publicKey,
   );
