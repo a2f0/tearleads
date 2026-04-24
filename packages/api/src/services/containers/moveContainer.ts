@@ -35,6 +35,9 @@ export class MoveContainerError extends Error {
 async function requireCurrentMetadataAccessStateHash(
   tx: DatabaseTransaction,
   containerId: string,
+  containerAccess: NonNullable<
+    Awaited<ReturnType<typeof resolveContainerAccessState>>
+  >,
   expectedAccessStateHash: string,
 ): Promise<void> {
   const [metadataBinding] = await tx
@@ -52,6 +55,10 @@ async function requireCurrentMetadataAccessStateHash(
   const previousMetadataAccess = await resolveDocumentAccessState(
     metadataBinding.documentId,
     tx,
+    {
+      linkedContainerIds: [containerId],
+      linkedContainerStateById: new Map([[containerId, containerAccess]]),
+    },
   );
 
   if (!previousMetadataAccess) {
@@ -132,6 +139,7 @@ async function moveContainerInTransaction(
   await requireCurrentMetadataAccessStateHash(
     tx,
     container.id,
+    containerAccess,
     input.expectedAccessStateHash,
   );
 

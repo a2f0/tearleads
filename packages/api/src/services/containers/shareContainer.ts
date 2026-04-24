@@ -12,6 +12,7 @@ import {
   listRecipientEncapsulationPublicKeys,
   resolveDocumentAccessState,
 } from "../../access/documentAccess";
+import type { DatabaseTransaction } from "../../adapters/postgres";
 import { containerMetadataDocuments, containers } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
 import { refreshAccessForLinkedContainers } from "../structural/shared";
@@ -28,6 +29,33 @@ export class ShareContainerError extends Error {
   ) {
     super(message);
   }
+}
+
+async function resolveMetadataAccessForCurrentContainerState(
+  tx: DatabaseTransaction,
+  metadataDocumentId: string,
+  containerId: string,
+  containerAccess: NonNullable<
+    Awaited<ReturnType<typeof resolveContainerAccessState>>
+  >,
+) {
+  const metadataAccess = await resolveDocumentAccessState(
+    metadataDocumentId,
+    tx,
+    {
+      linkedContainerIds: [containerId],
+      linkedContainerStateById: new Map([[containerId, containerAccess]]),
+    },
+  );
+
+  if (!metadataAccess) {
+    throw new ShareContainerError(
+      "Container metadata access state is unavailable",
+      409,
+    );
+  }
+
+  return metadataAccess;
 }
 
 export async function shareContainer(
@@ -75,17 +103,13 @@ export async function shareContainer(
         );
       }
 
-      const previousMetadataAccess = await resolveDocumentAccessState(
-        metadataBinding.documentId,
-        tx,
-      );
-
-      if (!previousMetadataAccess) {
-        throw new ShareContainerError(
-          "Container metadata access state is unavailable",
-          409,
+      const previousMetadataAccess =
+        await resolveMetadataAccessForCurrentContainerState(
+          tx,
+          metadataBinding.documentId,
+          input.containerId,
+          containerAccess,
         );
-      }
 
       if (
         input.expectedAccessStateHash !== previousMetadataAccess.accessStateHash

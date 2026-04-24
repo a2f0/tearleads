@@ -444,6 +444,13 @@ async function buildDocumentAccessState(input: {
 export async function resolveDocumentAccessState(
   documentId: string,
   executor: DocumentAccessExecutor = db,
+  options: {
+    linkedContainerIds?: string[];
+    linkedContainerStateById?: ReadonlyMap<
+      string,
+      ResolvedContainerAccessState
+    >;
+  } = {},
 ): Promise<DocumentAccessState | null> {
   const currentEpochRow = await getCurrentEpoch(documentId, executor);
   const {
@@ -454,7 +461,12 @@ export async function resolveDocumentAccessState(
     referencedPrincipals,
     effectiveRecipients,
     cryptoRecipients,
-  } = await resolveDocumentAccessInputs(documentId, executor);
+  } = await resolveDocumentAccessInputs(
+    documentId,
+    executor,
+    options.linkedContainerStateById,
+    options.linkedContainerIds,
+  );
 
   return buildDocumentAccessState({
     currentEpochRow,
