@@ -101,6 +101,53 @@ test("storeVerifiedPrincipalState rejects invalid signatures", async () => {
   ).rejects.toThrow("Invalid principal state signature");
 });
 
+test("storeVerifiedPrincipalState rejects same-version state hash conflicts", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const principalId = crypto.randomUUID();
+
+  await storeVerifiedPrincipalState(
+    await signPrincipalState(
+      {
+        principalType: "group",
+        principalId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(publicKey),
+        keyFingerprint: await toFingerprint(publicKey),
+        members: [{ principalType: "user", principalId: "alice" }],
+        signedAt: new Date("2026-04-07T12:10:00.000Z").toISOString(),
+        signerKeyId: "policy-key-2",
+      },
+      signingPrivateKey,
+    ),
+    signingPublicKey,
+  );
+
+  await expect(
+    storeVerifiedPrincipalState(
+      await signPrincipalState(
+        {
+          principalType: "group",
+          principalId,
+          version: 1,
+          prevStateHash: null,
+          keyEpoch: 1,
+          encapsulationPublicKey: bytesToBase64(publicKey),
+          keyFingerprint: await toFingerprint(publicKey),
+          members: [{ principalType: "user", principalId: "bob" }],
+          signedAt: new Date("2026-04-07T12:11:00.000Z").toISOString(),
+          signerKeyId: "policy-key-2",
+        },
+        signingPrivateKey,
+      ),
+      signingPublicKey,
+    ),
+  ).rejects.toThrow("Principal state version conflict");
+});
+
 test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal id", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();

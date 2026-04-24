@@ -333,6 +333,7 @@ async function listProjectionMembersForState(
 
 async function validatePrincipalStateChain(
   state: SignedPrincipalState,
+  stateHash: string,
   executor: PrincipalStateExecutor,
 ): Promise<void> {
   const currentState = await getCurrentPrincipalState(
@@ -349,6 +350,9 @@ async function validatePrincipalStateChain(
   }
 
   if (state.version === currentState.version) {
+    if (stateHash !== currentState.stateHash) {
+      throw new Error("Principal state version conflict");
+    }
     return;
   }
 
@@ -627,10 +631,10 @@ export async function storeVerifiedPrincipalState(
     throw new Error("Invalid principal state signature");
   }
 
-  await validatePrincipalStateChain(normalizedInput.state, executor);
   await validatePrincipalStateArtifacts(normalizedInput);
 
   const stateHash = await computePrincipalStateHash(normalizedInput.state);
+  await validatePrincipalStateChain(normalizedInput.state, stateHash, executor);
   const signedAt = new Date(normalizedInput.state.signedAt);
 
   await insertPrincipalStateRow({
