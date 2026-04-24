@@ -41,9 +41,8 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
   );
 
   const serializedState = await serializeUnsignedPrincipalState(signedState);
-  expect(serializedState).toContain(
-    '"members":[{"principalType":"group","principalId":"nested-group"},{"principalType":"user","principalId":"alice"}]',
-  );
+  expect(serializedState).toContain('"membershipMode":"projection_v1"');
+  expect(serializedState).toContain('"memberCount":2');
   expect(await verifySignedPrincipalState(signedState, signingPublicKey)).toBe(
     true,
   );

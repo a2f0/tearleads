@@ -1,5 +1,6 @@
 import {
   computePrincipalStateHash,
+  computePrincipalStatePayloadCiphertextHash,
   verifySignedPrincipalState,
 } from "@tearleads/crypto";
 import type {
@@ -83,6 +84,17 @@ function getBundleReferenceMismatchReason(
     return "member envelope epoch does not match referenced principal";
   }
 
+  if (
+    bundle.currentPayload.principalType !== reference.principalType ||
+    bundle.currentPayload.principalId !== reference.principalId
+  ) {
+    return "payload principal does not match referenced principal";
+  }
+
+  if (bundle.currentPayload.stateHash !== reference.stateHash) {
+    return "payload state hash does not match referenced principal";
+  }
+
   return null;
 }
 
@@ -103,6 +115,21 @@ async function getBundleSignatureMismatchReason(
   );
   if (computedStateHash !== bundle.currentState.stateHash) {
     return "computed state hash does not match bundle state hash";
+  }
+
+  const computedPayloadCiphertextHash =
+    await computePrincipalStatePayloadCiphertextHash(
+      bundle.currentPayload.ciphertext,
+    );
+  if (computedPayloadCiphertextHash !== bundle.currentPayload.ciphertextHash) {
+    return "computed payload hash does not match bundle payload hash";
+  }
+
+  if (
+    bundle.currentPayload.ciphertextHash !==
+    bundle.currentState.payloadCiphertextHash
+  ) {
+    return "bundle payload hash does not match current state payload hash";
   }
 
   const signatureVerified = await verifySignedPrincipalState(

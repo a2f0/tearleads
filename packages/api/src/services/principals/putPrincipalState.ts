@@ -20,9 +20,24 @@ function toPrincipalStateError(error: unknown): PrincipalPolicyError | null {
 
   if (
     error.message === "Principal state version conflict" ||
-    error.message === "Principal epoch key conflict"
+    error.message === "Principal epoch key conflict" ||
+    error.message === "Principal state previous hash mismatch" ||
+    error.message === "Principal state payload conflict" ||
+    error.message === "Principal state projection conflict"
   ) {
     return new PrincipalPolicyError(error.message, 409);
+  }
+
+  if (
+    error.message ===
+      "Principal state payload ciphertext hash does not match ciphertext" ||
+    error.message ===
+      "Principal state payloadCiphertextHash does not match encrypted payload" ||
+    error.message ===
+      "Principal state projectionRoot does not match projection" ||
+    error.message === "Principal state memberCount does not match projection"
+  ) {
+    return new PrincipalPolicyError(error.message, 400);
   }
 
   return null;
@@ -32,14 +47,14 @@ export async function putPrincipalState(
   runtime: ApiServiceRuntime,
   input: PutPrincipalStateInput,
 ): Promise<PrincipalStateResponse> {
-  if (input.principalType !== input.expectedPrincipalType) {
+  if (input.state.principalType !== input.expectedPrincipalType) {
     throw new PrincipalPolicyError(
       "Principal state principalType does not match route principal",
       400,
     );
   }
 
-  if (input.principalId !== input.expectedPrincipalId) {
+  if (input.state.principalId !== input.expectedPrincipalId) {
     throw new PrincipalPolicyError(
       "Principal state principalId does not match route principal",
       400,
@@ -48,7 +63,7 @@ export async function putPrincipalState(
 
   const trustedSignerPublicKey =
     await runtime.principalSignerTrustStore.getTrustedSignerPublicKey(
-      input.signerKeyId,
+      input.state.signerKeyId,
     );
 
   if (!trustedSignerPublicKey) {
@@ -58,21 +73,33 @@ export async function putPrincipalState(
   try {
     const storedState = await storeVerifiedPrincipalState(
       {
-        principalType: input.principalType,
-        principalId: input.principalId,
-        version: input.version,
-        prevStateHash: input.prevStateHash,
-        keyEpoch: input.keyEpoch,
-        encapsulationPublicKey: input.encapsulationPublicKey,
-        keyFingerprint: input.keyFingerprint,
-        members: input.members.map((member) => ({
-          principalType: member.principalType,
-          principalId: member.principalId,
+        state: {
+          principalType: input.state.principalType,
+          principalId: input.state.principalId,
+          version: input.state.version,
+          prevStateHash: input.state.prevStateHash,
+          keyEpoch: input.state.keyEpoch,
+          encapsulationPublicKey: input.state.encapsulationPublicKey,
+          keyFingerprint: input.state.keyFingerprint,
+          membershipMode: input.state.membershipMode,
+          membershipRoot: input.state.membershipRoot,
+          projectionRoot: input.state.projectionRoot,
+          payloadCiphertextHash: input.state.payloadCiphertextHash,
+          memberCount: input.state.memberCount,
+          signedAt: input.state.signedAt,
+          signerKeyId: input.state.signerKeyId,
+          signature: input.state.signature,
+        },
+        encryptedPayload: {
+          cipherSuite: input.encryptedPayload.cipherSuite,
+          ciphertext: input.encryptedPayload.ciphertext,
+          ciphertextHash: input.encryptedPayload.ciphertextHash,
+        },
+        projection: input.projection.map((member) => ({
+          memberPrincipalType: member.memberPrincipalType,
+          memberPrincipalId: member.memberPrincipalId,
+          role: member.role,
         })),
-        membershipRoot: input.membershipRoot,
-        signedAt: input.signedAt,
-        signerKeyId: input.signerKeyId,
-        signature: input.signature,
       },
       trustedSignerPublicKey,
       runtime.db,

@@ -1,21 +1,50 @@
 import {
+  computePrincipalProjectionRoot,
   computePrincipalStateHash,
-  isPrincipalStateMemberType,
+  computePrincipalStatePayloadCiphertextHash,
   type ManagedRecipientPrincipalType,
-  normalizePrincipalStateMembers,
-  type PrincipalStateMember,
+  normalizePrincipalProjectionMembers,
+  type PrincipalProjectionMember,
+  type PrincipalProjectionRole,
+  type PrincipalStateMemberType,
+  type PrincipalStatePayloadCipherSuite,
   type SignedPrincipalState,
   verifySignedPrincipalState,
 } from "@tearleads/crypto";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
-import { principalEpochKeys, principalStates } from "../schema";
+import {
+  principalEpochKeys,
+  principalMembershipProjection,
+  principalStatePayloads,
+  principalStates,
+} from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
 
 type PrincipalStateExecutor = DatabaseExecutor;
 
 export interface StoredPrincipalState extends SignedPrincipalState {
   stateHash: string;
+  createdAt: Date;
+}
+
+interface StoredPrincipalStatePayload {
+  principalType: ManagedRecipientPrincipalType;
+  principalId: string;
+  stateHash: string;
+  cipherSuite: PrincipalStatePayloadCipherSuite;
+  ciphertext: string;
+  ciphertextHash: string;
+  createdAt: Date;
+}
+
+interface StoredPrincipalProjectionMember {
+  principalType: ManagedRecipientPrincipalType;
+  principalId: string;
+  stateHash: string;
+  memberPrincipalType: PrincipalStateMemberType;
+  memberPrincipalId: string;
+  role: PrincipalProjectionRole;
   createdAt: Date;
 }
 
@@ -29,6 +58,18 @@ interface StoredPrincipalEpochKey {
   createdAt: Date;
 }
 
+interface PrincipalStatePayloadInput {
+  cipherSuite: PrincipalStatePayloadCipherSuite;
+  ciphertext: string;
+  ciphertextHash: string;
+}
+
+interface PrincipalStateBundleInput {
+  state: SignedPrincipalState;
+  encryptedPayload: PrincipalStatePayloadInput;
+  projection: PrincipalProjectionMember[];
+}
+
 function toStoredPrincipalState(row: {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
@@ -37,8 +78,11 @@ function toStoredPrincipalState(row: {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  membersJson: string;
+  membershipMode: "projection_v1";
   membershipRoot: string;
+  projectionRoot: string;
+  payloadCiphertextHash: string;
+  memberCount: number;
   signedAt: Date;
   signerKeyId: string;
   signature: string;
@@ -53,8 +97,11 @@ function toStoredPrincipalState(row: {
     keyEpoch: row.keyEpoch,
     encapsulationPublicKey: row.encapsulationPublicKey,
     keyFingerprint: row.keyFingerprint,
-    members: parsePrincipalStateMembers(row.membersJson),
+    membershipMode: row.membershipMode,
     membershipRoot: row.membershipRoot,
+    projectionRoot: row.projectionRoot,
+    payloadCiphertextHash: row.payloadCiphertextHash,
+    memberCount: row.memberCount,
     signedAt: row.signedAt.toISOString(),
     signerKeyId: row.signerKeyId,
     signature: row.signature,
@@ -63,39 +110,92 @@ function toStoredPrincipalState(row: {
   };
 }
 
-function isPrincipalStateMember(value: unknown): value is PrincipalStateMember {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const principalType = Reflect.get(value, "principalType");
-  const principalId = Reflect.get(value, "principalId");
-
-  return (
-    typeof principalType === "string" &&
-    isPrincipalStateMemberType(principalType) &&
-    typeof principalId === "string" &&
-    principalId.length > 0
-  );
+function toStoredProjectionMember(row: {
+  principalType: ManagedRecipientPrincipalType;
+  principalId: string;
+  stateHash: string;
+  memberPrincipalType: PrincipalStateMemberType;
+  memberPrincipalId: string;
+  role: PrincipalProjectionRole;
+  createdAt: Date;
+}): StoredPrincipalProjectionMember {
+  return {
+    principalType: row.principalType,
+    principalId: row.principalId,
+    stateHash: row.stateHash,
+    memberPrincipalType: row.memberPrincipalType,
+    memberPrincipalId: row.memberPrincipalId,
+    role: row.role,
+    createdAt: row.createdAt,
+  };
 }
 
-function parsePrincipalStateMembers(value: string): PrincipalStateMember[] {
-  let parsedValue: unknown;
+function stripSignedPrincipalStateArtifacts(
+  state: SignedPrincipalState,
+): SignedPrincipalState {
+  return {
+    principalType: state.principalType,
+    principalId: state.principalId,
+    version: state.version,
+    prevStateHash: state.prevStateHash,
+    keyEpoch: state.keyEpoch,
+    encapsulationPublicKey: state.encapsulationPublicKey,
+    keyFingerprint: state.keyFingerprint,
+    membershipMode: state.membershipMode,
+    membershipRoot: state.membershipRoot,
+    projectionRoot: state.projectionRoot,
+    payloadCiphertextHash: state.payloadCiphertextHash,
+    memberCount: state.memberCount,
+    signedAt: state.signedAt,
+    signerKeyId: state.signerKeyId,
+    signature: state.signature,
+  };
+}
 
-  try {
-    parsedValue = JSON.parse(value);
-  } catch {
-    throw new Error("Invalid JSON for principal state members");
+async function normalizePrincipalStateWriteInput(
+  input: PrincipalStateBundleInput | SignedPrincipalState,
+): Promise<PrincipalStateBundleInput> {
+  if ("state" in input) {
+    return {
+      state: stripSignedPrincipalStateArtifacts(input.state),
+      encryptedPayload: {
+        cipherSuite: input.encryptedPayload.cipherSuite,
+        ciphertext: input.encryptedPayload.ciphertext,
+        ciphertextHash: input.encryptedPayload.ciphertextHash,
+      },
+      projection: normalizePrincipalProjectionMembers(input.projection),
+    };
   }
 
   if (
-    !Array.isArray(parsedValue) ||
-    !parsedValue.every(isPrincipalStateMember)
+    !Array.isArray(input.projection) ||
+    typeof input.payloadCiphertext !== "string"
   ) {
-    throw new Error("Invalid principal state members structure");
+    throw new Error(
+      "Signed principal state is missing projection or payload artifacts",
+    );
   }
 
-  return normalizePrincipalStateMembers(parsedValue);
+  return {
+    state: stripSignedPrincipalStateArtifacts(input),
+    encryptedPayload: {
+      cipherSuite: "aes-256-gcm-v1",
+      ciphertext: input.payloadCiphertext,
+      ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
+        input.payloadCiphertext,
+      ),
+    },
+    projection: normalizePrincipalProjectionMembers(input.projection),
+  };
+}
+
+function projectionMemberKey(
+  member: Pick<
+    StoredPrincipalProjectionMember | PrincipalProjectionMember,
+    "memberPrincipalType" | "memberPrincipalId" | "role"
+  >,
+): string {
+  return `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`;
 }
 
 async function getPrincipalStateByVersion(
@@ -113,8 +213,11 @@ async function getPrincipalStateByVersion(
       keyEpoch: principalStates.keyEpoch,
       encapsulationPublicKey: principalStates.encapsulationPublicKey,
       keyFingerprint: principalStates.keyFingerprint,
-      membersJson: principalStates.membersJson,
+      membershipMode: principalStates.membershipMode,
       membershipRoot: principalStates.membershipRoot,
+      projectionRoot: principalStates.projectionRoot,
+      payloadCiphertextHash: principalStates.payloadCiphertextHash,
+      memberCount: principalStates.memberCount,
       signedAt: principalStates.signedAt,
       signerKeyId: principalStates.signerKeyId,
       signature: principalStates.signature,
@@ -167,42 +270,157 @@ async function getPrincipalEpochKeyByEpoch(
   return row ?? null;
 }
 
-export async function storeVerifiedPrincipalState(
-  state: SignedPrincipalState,
-  signerPublicKey: Uint8Array,
+async function getPrincipalStatePayloadForState(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  stateHash: string,
   executor: PrincipalStateExecutor = db,
-): Promise<StoredPrincipalState> {
-  if (executor === db) {
-    return db.transaction(async (tx) =>
-      storeVerifiedPrincipalState(state, signerPublicKey, tx),
+): Promise<StoredPrincipalStatePayload | null> {
+  const [row] = await executor
+    .select({
+      principalType: principalStatePayloads.principalType,
+      principalId: principalStatePayloads.principalId,
+      stateHash: principalStatePayloads.stateHash,
+      cipherSuite: principalStatePayloads.cipherSuite,
+      ciphertext: principalStatePayloads.ciphertext,
+      ciphertextHash: principalStatePayloads.ciphertextHash,
+      createdAt: principalStatePayloads.createdAt,
+    })
+    .from(principalStatePayloads)
+    .where(
+      and(
+        eq(principalStatePayloads.principalType, principalType),
+        eq(principalStatePayloads.principalId, principalId),
+        eq(principalStatePayloads.stateHash, stateHash),
+      ),
+    )
+    .limit(1);
+
+  return row ?? null;
+}
+
+async function listProjectionMembersForState(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  stateHash: string,
+  executor: PrincipalStateExecutor = db,
+): Promise<StoredPrincipalProjectionMember[]> {
+  const rows = await executor
+    .select({
+      principalType: principalMembershipProjection.principalType,
+      principalId: principalMembershipProjection.principalId,
+      stateHash: principalMembershipProjection.stateHash,
+      memberPrincipalType: principalMembershipProjection.memberPrincipalType,
+      memberPrincipalId: principalMembershipProjection.memberPrincipalId,
+      role: principalMembershipProjection.role,
+      createdAt: principalMembershipProjection.createdAt,
+    })
+    .from(principalMembershipProjection)
+    .where(
+      and(
+        eq(principalMembershipProjection.principalType, principalType),
+        eq(principalMembershipProjection.principalId, principalId),
+        eq(principalMembershipProjection.stateHash, stateHash),
+      ),
+    )
+    .orderBy(
+      principalMembershipProjection.memberPrincipalType,
+      principalMembershipProjection.memberPrincipalId,
+    );
+
+  return rows.map(toStoredProjectionMember);
+}
+
+async function validatePrincipalStateChain(
+  state: SignedPrincipalState,
+  stateHash: string,
+  executor: PrincipalStateExecutor,
+): Promise<void> {
+  const currentState = await getCurrentPrincipalState(
+    state.principalType,
+    state.principalId,
+    executor,
+  );
+
+  if (!currentState) {
+    if (state.prevStateHash !== null || state.version !== 1) {
+      throw new Error("Principal state previous hash mismatch");
+    }
+    return;
+  }
+
+  if (state.version === currentState.version) {
+    if (stateHash !== currentState.stateHash) {
+      throw new Error("Principal state version conflict");
+    }
+    return;
+  }
+
+  if (
+    state.version !== currentState.version + 1 ||
+    state.prevStateHash !== currentState.stateHash
+  ) {
+    throw new Error("Principal state previous hash mismatch");
+  }
+}
+
+async function validatePrincipalStateArtifacts(
+  input: PrincipalStateBundleInput,
+): Promise<void> {
+  const computedProjectionRoot = await computePrincipalProjectionRoot(
+    input.projection,
+  );
+  if (computedProjectionRoot !== input.state.projectionRoot) {
+    throw new Error("Principal state projectionRoot does not match projection");
+  }
+
+  const computedPayloadCiphertextHash =
+    await computePrincipalStatePayloadCiphertextHash(
+      input.encryptedPayload.ciphertext,
+    );
+  if (computedPayloadCiphertextHash !== input.encryptedPayload.ciphertextHash) {
+    throw new Error(
+      "Principal state payload ciphertext hash does not match ciphertext",
     );
   }
 
-  if (!(await verifySignedPrincipalState(state, signerPublicKey))) {
-    throw new Error("Invalid principal state signature");
+  if (computedPayloadCiphertextHash !== input.state.payloadCiphertextHash) {
+    throw new Error(
+      "Principal state payloadCiphertextHash does not match encrypted payload",
+    );
   }
 
-  const stateHash = await computePrincipalStateHash(state);
-  const signedAt = new Date(state.signedAt);
+  if (input.projection.length !== input.state.memberCount) {
+    throw new Error("Principal state memberCount does not match projection");
+  }
+}
 
-  await executor
+async function insertPrincipalStateRow(input: {
+  normalizedInput: PrincipalStateBundleInput;
+  stateHash: string;
+  signedAt: Date;
+  executor: PrincipalStateExecutor;
+}): Promise<void> {
+  await input.executor
     .insert(principalStates)
     .values({
-      principalType: state.principalType,
-      principalId: state.principalId,
-      version: state.version,
-      prevStateHash: state.prevStateHash,
-      keyEpoch: state.keyEpoch,
-      encapsulationPublicKey: state.encapsulationPublicKey,
-      keyFingerprint: state.keyFingerprint,
-      membersJson: JSON.stringify(
-        normalizePrincipalStateMembers(state.members),
-      ),
-      membershipRoot: state.membershipRoot,
-      stateHash,
-      signedAt,
-      signerKeyId: state.signerKeyId,
-      signature: state.signature,
+      principalType: input.normalizedInput.state.principalType,
+      principalId: input.normalizedInput.state.principalId,
+      version: input.normalizedInput.state.version,
+      prevStateHash: input.normalizedInput.state.prevStateHash,
+      keyEpoch: input.normalizedInput.state.keyEpoch,
+      encapsulationPublicKey:
+        input.normalizedInput.state.encapsulationPublicKey,
+      keyFingerprint: input.normalizedInput.state.keyFingerprint,
+      membershipMode: input.normalizedInput.state.membershipMode,
+      membershipRoot: input.normalizedInput.state.membershipRoot,
+      projectionRoot: input.normalizedInput.state.projectionRoot,
+      payloadCiphertextHash: input.normalizedInput.state.payloadCiphertextHash,
+      memberCount: input.normalizedInput.state.memberCount,
+      stateHash: input.stateHash,
+      signedAt: input.signedAt,
+      signerKeyId: input.normalizedInput.state.signerKeyId,
+      signature: input.normalizedInput.state.signature,
     })
     .onConflictDoNothing({
       target: [
@@ -211,31 +429,154 @@ export async function storeVerifiedPrincipalState(
         principalStates.version,
       ],
     });
+}
 
+async function ensureStoredPrincipalStateMatches(input: {
+  normalizedInput: PrincipalStateBundleInput;
+  stateHash: string;
+  executor: PrincipalStateExecutor;
+}): Promise<StoredPrincipalState> {
   const storedState = await getPrincipalStateByVersion(
-    state.principalType,
-    state.principalId,
-    state.version,
-    executor,
+    input.normalizedInput.state.principalType,
+    input.normalizedInput.state.principalId,
+    input.normalizedInput.state.version,
+    input.executor,
   );
 
   if (!storedState) {
     throw new Error("Failed to load stored principal state");
   }
 
-  if (storedState.stateHash !== stateHash) {
+  if (storedState.stateHash !== input.stateHash) {
     throw new Error("Principal state version conflict");
   }
 
-  await executor
+  return storedState;
+}
+
+async function insertPrincipalStatePayloadRow(input: {
+  normalizedInput: PrincipalStateBundleInput;
+  stateHash: string;
+  executor: PrincipalStateExecutor;
+}): Promise<void> {
+  await input.executor
+    .insert(principalStatePayloads)
+    .values({
+      principalType: input.normalizedInput.state.principalType,
+      principalId: input.normalizedInput.state.principalId,
+      stateHash: input.stateHash,
+      cipherSuite: input.normalizedInput.encryptedPayload.cipherSuite,
+      ciphertext: input.normalizedInput.encryptedPayload.ciphertext,
+      ciphertextHash: input.normalizedInput.encryptedPayload.ciphertextHash,
+    })
+    .onConflictDoNothing({
+      target: [
+        principalStatePayloads.principalType,
+        principalStatePayloads.principalId,
+        principalStatePayloads.stateHash,
+      ],
+    });
+}
+
+async function ensureStoredPrincipalPayloadMatches(input: {
+  normalizedInput: PrincipalStateBundleInput;
+  stateHash: string;
+  executor: PrincipalStateExecutor;
+}): Promise<void> {
+  const storedPayload = await getPrincipalStatePayloadForState(
+    input.normalizedInput.state.principalType,
+    input.normalizedInput.state.principalId,
+    input.stateHash,
+    input.executor,
+  );
+  if (!storedPayload) {
+    throw new Error("Failed to load stored principal state payload");
+  }
+  if (
+    storedPayload.cipherSuite !==
+      input.normalizedInput.encryptedPayload.cipherSuite ||
+    storedPayload.ciphertext !==
+      input.normalizedInput.encryptedPayload.ciphertext ||
+    storedPayload.ciphertextHash !==
+      input.normalizedInput.encryptedPayload.ciphertextHash
+  ) {
+    throw new Error("Principal state payload conflict");
+  }
+}
+
+async function insertPrincipalProjectionRows(input: {
+  normalizedInput: PrincipalStateBundleInput;
+  stateHash: string;
+  executor: PrincipalStateExecutor;
+}): Promise<void> {
+  if (input.normalizedInput.projection.length === 0) {
+    return;
+  }
+
+  await input.executor
+    .insert(principalMembershipProjection)
+    .values(
+      input.normalizedInput.projection.map((member) => ({
+        principalType: input.normalizedInput.state.principalType,
+        principalId: input.normalizedInput.state.principalId,
+        stateHash: input.stateHash,
+        memberPrincipalType: member.memberPrincipalType,
+        memberPrincipalId: member.memberPrincipalId,
+        role: member.role,
+      })),
+    )
+    .onConflictDoNothing({
+      target: [
+        principalMembershipProjection.principalType,
+        principalMembershipProjection.principalId,
+        principalMembershipProjection.stateHash,
+        principalMembershipProjection.memberPrincipalType,
+        principalMembershipProjection.memberPrincipalId,
+      ],
+    });
+}
+
+async function ensureStoredPrincipalProjectionMatches(input: {
+  normalizedInput: PrincipalStateBundleInput;
+  stateHash: string;
+  executor: PrincipalStateExecutor;
+}): Promise<void> {
+  const storedProjection = await listProjectionMembersForState(
+    input.normalizedInput.state.principalType,
+    input.normalizedInput.state.principalId,
+    input.stateHash,
+    input.executor,
+  );
+
+  if (storedProjection.length !== input.normalizedInput.projection.length) {
+    throw new Error("Principal state projection conflict");
+  }
+
+  const storedProjectionKeys = new Set(
+    storedProjection.map((member) => projectionMemberKey(member)),
+  );
+  for (const member of input.normalizedInput.projection) {
+    if (!storedProjectionKeys.has(projectionMemberKey(member))) {
+      throw new Error("Principal state projection conflict");
+    }
+  }
+}
+
+async function insertPrincipalEpochKeyRow(input: {
+  normalizedInput: PrincipalStateBundleInput;
+  stateHash: string;
+  executor: PrincipalStateExecutor;
+}): Promise<void> {
+  await input.executor
     .insert(principalEpochKeys)
     .values({
-      principalType: state.principalType,
-      principalId: state.principalId,
-      epoch: state.keyEpoch,
-      introducedByStateHash: stateHash,
-      encapsulationPublicKey: state.encapsulationPublicKey,
-      keyFingerprint: state.keyFingerprint,
+      principalType: input.normalizedInput.state.principalType,
+      principalId: input.normalizedInput.state.principalId,
+      epoch: input.normalizedInput.state.keyEpoch,
+      introducedByStateHash: input.stateHash,
+      encapsulationPublicKey:
+        input.normalizedInput.state.encapsulationPublicKey,
+      keyFingerprint: input.normalizedInput.state.keyFingerprint,
     })
     .onConflictDoNothing({
       target: [
@@ -244,12 +585,18 @@ export async function storeVerifiedPrincipalState(
         principalEpochKeys.epoch,
       ],
     });
+}
 
+async function ensureStoredPrincipalEpochKeyMatches(input: {
+  normalizedInput: PrincipalStateBundleInput;
+  stateHash: string;
+  executor: PrincipalStateExecutor;
+}): Promise<void> {
   const storedEpochKey = await getPrincipalEpochKeyByEpoch(
-    state.principalType,
-    state.principalId,
-    state.keyEpoch,
-    executor,
+    input.normalizedInput.state.principalType,
+    input.normalizedInput.state.principalId,
+    input.normalizedInput.state.keyEpoch,
+    input.executor,
   );
 
   if (!storedEpochKey) {
@@ -257,11 +604,80 @@ export async function storeVerifiedPrincipalState(
   }
 
   if (
-    storedEpochKey.encapsulationPublicKey !== state.encapsulationPublicKey ||
-    storedEpochKey.keyFingerprint !== state.keyFingerprint
+    storedEpochKey.encapsulationPublicKey !==
+      input.normalizedInput.state.encapsulationPublicKey ||
+    storedEpochKey.keyFingerprint !== input.normalizedInput.state.keyFingerprint
   ) {
     throw new Error("Principal epoch key conflict");
   }
+}
+
+export async function storeVerifiedPrincipalState(
+  input: PrincipalStateBundleInput | SignedPrincipalState,
+  signerPublicKey: Uint8Array,
+  executor: PrincipalStateExecutor = db,
+): Promise<StoredPrincipalState> {
+  if (executor === db) {
+    return db.transaction(async (tx) =>
+      storeVerifiedPrincipalState(input, signerPublicKey, tx),
+    );
+  }
+
+  const normalizedInput = await normalizePrincipalStateWriteInput(input);
+
+  if (
+    !(await verifySignedPrincipalState(normalizedInput.state, signerPublicKey))
+  ) {
+    throw new Error("Invalid principal state signature");
+  }
+
+  await validatePrincipalStateArtifacts(normalizedInput);
+
+  const stateHash = await computePrincipalStateHash(normalizedInput.state);
+  await validatePrincipalStateChain(normalizedInput.state, stateHash, executor);
+  const signedAt = new Date(normalizedInput.state.signedAt);
+
+  await insertPrincipalStateRow({
+    normalizedInput,
+    stateHash,
+    signedAt,
+    executor,
+  });
+  const storedState = await ensureStoredPrincipalStateMatches({
+    normalizedInput,
+    stateHash,
+    executor,
+  });
+  await insertPrincipalStatePayloadRow({
+    normalizedInput,
+    stateHash,
+    executor,
+  });
+  await ensureStoredPrincipalPayloadMatches({
+    normalizedInput,
+    stateHash,
+    executor,
+  });
+  await insertPrincipalProjectionRows({
+    normalizedInput,
+    stateHash,
+    executor,
+  });
+  await ensureStoredPrincipalProjectionMatches({
+    normalizedInput,
+    stateHash,
+    executor,
+  });
+  await insertPrincipalEpochKeyRow({
+    normalizedInput,
+    stateHash,
+    executor,
+  });
+  await ensureStoredPrincipalEpochKeyMatches({
+    normalizedInput,
+    stateHash,
+    executor,
+  });
 
   return storedState;
 }
@@ -280,8 +696,11 @@ export async function getCurrentPrincipalState(
       keyEpoch: principalStates.keyEpoch,
       encapsulationPublicKey: principalStates.encapsulationPublicKey,
       keyFingerprint: principalStates.keyFingerprint,
-      membersJson: principalStates.membersJson,
+      membershipMode: principalStates.membershipMode,
       membershipRoot: principalStates.membershipRoot,
+      projectionRoot: principalStates.projectionRoot,
+      payloadCiphertextHash: principalStates.payloadCiphertextHash,
+      memberCount: principalStates.memberCount,
       signedAt: principalStates.signedAt,
       signerKeyId: principalStates.signerKeyId,
       signature: principalStates.signature,
@@ -325,8 +744,11 @@ export async function getCurrentPrincipalStates(
       keyEpoch: principalStates.keyEpoch,
       encapsulationPublicKey: principalStates.encapsulationPublicKey,
       keyFingerprint: principalStates.keyFingerprint,
-      membersJson: principalStates.membersJson,
+      membershipMode: principalStates.membershipMode,
       membershipRoot: principalStates.membershipRoot,
+      projectionRoot: principalStates.projectionRoot,
+      payloadCiphertextHash: principalStates.payloadCiphertextHash,
+      memberCount: principalStates.memberCount,
       signedAt: principalStates.signedAt,
       signerKeyId: principalStates.signerKeyId,
       signature: principalStates.signature,
@@ -356,6 +778,52 @@ export async function getCurrentPrincipalStates(
   }
 
   return currentStatesByPrincipalId;
+}
+
+export async function getCurrentPrincipalStatePayload(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  executor: PrincipalStateExecutor = db,
+): Promise<StoredPrincipalStatePayload | null> {
+  const currentState = await getCurrentPrincipalState(
+    principalType,
+    principalId,
+    executor,
+  );
+
+  if (!currentState) {
+    return null;
+  }
+
+  return getPrincipalStatePayloadForState(
+    principalType,
+    principalId,
+    currentState.stateHash,
+    executor,
+  );
+}
+
+export async function listCurrentPrincipalProjectionMembers(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  executor: PrincipalStateExecutor = db,
+): Promise<StoredPrincipalProjectionMember[]> {
+  const currentState = await getCurrentPrincipalState(
+    principalType,
+    principalId,
+    executor,
+  );
+
+  if (!currentState) {
+    return [];
+  }
+
+  return listProjectionMembersForState(
+    principalType,
+    principalId,
+    currentState.stateHash,
+    executor,
+  );
 }
 
 export async function getCurrentPrincipalEpochKey(

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   computePrincipalStateHash,
+  computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   signPrincipalState,
@@ -35,6 +36,7 @@ async function createPrincipalPolicyBundle() {
           principalId: "alice",
         },
       ],
+      payloadCiphertext: "ciphertext-1",
       signedAt: "2026-04-08T00:00:00.000Z",
       signerKeyId: "signer-1",
     },
@@ -61,6 +63,17 @@ async function createPrincipalPolicyBundle() {
       ...signedState,
       createdAt: "2026-04-08T00:00:00.000Z",
       stateHash,
+    },
+    currentPayload: {
+      principalType: "group",
+      principalId: "group-1",
+      stateHash,
+      cipherSuite: "aes-256-gcm-v1",
+      ciphertext: signedState.payloadCiphertext ?? "ciphertext-1",
+      ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
+        signedState.payloadCiphertext ?? "ciphertext-1",
+      ),
+      createdAt: "2026-04-08T00:00:00.000Z",
     },
   };
 

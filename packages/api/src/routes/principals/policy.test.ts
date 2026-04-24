@@ -1,6 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
+  computePrincipalStatePayloadCiphertextHash,
+  derivePrincipalProjectionMembers,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   signPrincipalState,
@@ -51,6 +53,9 @@ async function createSignedPrincipalState(input: {
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: await toFingerprint(principalKem.publicKey),
       members: input.members,
+      payloadCiphertext: bytesToBase64(
+        new TextEncoder().encode(JSON.stringify(input.members)),
+      ),
       signedAt: new Date("2026-04-08T16:00:00.000Z").toISOString(),
       signerKeyId: input.signerKeyId,
     },
@@ -85,7 +90,17 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
         "Content-Type": "application/json",
         Authorization: `Bearer ${actor.token}`,
       },
-      body: JSON.stringify(signedState),
+      body: JSON.stringify({
+        state: signedState,
+        encryptedPayload: {
+          cipherSuite: "aes-256-gcm-v1",
+          ciphertext: signedState.payloadCiphertext,
+          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
+            signedState.payloadCiphertext ?? "",
+          ),
+        },
+        projection: derivePrincipalProjectionMembers(signedState.members ?? []),
+      }),
     },
   );
 
@@ -96,12 +111,7 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
     "expected principal state response",
   );
   expect(storedState.stateHash.length).toBeGreaterThan(0);
-  expect(storedState.members).toEqual([
-    {
-      principalType: "user",
-      principalId: actor.userId,
-    },
-  ]);
+  expect(storedState.memberCount).toBe(1);
 
   const getPolicyResponse = await routeApp.request(
     `/principals/group/${principalId}/policy`,
@@ -120,6 +130,7 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
     "expected principal policy bundle response",
   );
   expect(policyBundle.currentState.stateHash).toBe(storedState.stateHash);
+  expect(policyBundle.currentPayload.stateHash).toBe(storedState.stateHash);
   expect(policyBundle.currentMemberEnvelopes.principalId).toBe(principalId);
   expect(policyBundle.currentMemberEnvelopes.stateHash).toBe(
     storedState.stateHash,
@@ -155,7 +166,17 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
         "Content-Type": "application/json",
         Authorization: `Bearer ${actor.token}`,
       },
-      body: JSON.stringify(signedState),
+      body: JSON.stringify({
+        state: signedState,
+        encryptedPayload: {
+          cipherSuite: "aes-256-gcm-v1",
+          ciphertext: signedState.payloadCiphertext,
+          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
+            signedState.payloadCiphertext ?? "",
+          ),
+        },
+        projection: derivePrincipalProjectionMembers(signedState.members ?? []),
+      }),
     },
   );
 
@@ -251,7 +272,17 @@ test("PUT /principals/:principalType/:principalId/state rejects untrusted signer
         "Content-Type": "application/json",
         Authorization: `Bearer ${actor.token}`,
       },
-      body: JSON.stringify(signedState),
+      body: JSON.stringify({
+        state: signedState,
+        encryptedPayload: {
+          cipherSuite: "aes-256-gcm-v1",
+          ciphertext: signedState.payloadCiphertext,
+          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
+            signedState.payloadCiphertext ?? "",
+          ),
+        },
+        projection: derivePrincipalProjectionMembers(signedState.members ?? []),
+      }),
     },
   );
 

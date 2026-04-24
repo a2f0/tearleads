@@ -17,6 +17,7 @@ interface PrincipalPolicyRow {
   principalId: string;
   stateHash: string;
   currentStateJson: string;
+  currentPayloadJson: string;
   currentMemberEnvelopesJson: string;
 }
 
@@ -29,6 +30,7 @@ const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
         principal_id TEXT NOT NULL,
         state_hash TEXT NOT NULL,
         current_state_json TEXT NOT NULL,
+        current_payload_json TEXT NOT NULL,
         current_member_envelopes_json TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (principal_type, principal_id)
@@ -48,6 +50,7 @@ function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
   const principalId = readSqlRowValue(row, "principal_id");
   const stateHash = readSqlRowValue(row, "state_hash");
   const currentStateJson = readSqlRowValue(row, "current_state_json");
+  const currentPayloadJson = readSqlRowValue(row, "current_payload_json");
   const currentMemberEnvelopesJson = readSqlRowValue(
     row,
     "current_member_envelopes_json",
@@ -59,6 +62,7 @@ function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
     typeof principalId !== "string" ||
     typeof stateHash !== "string" ||
     typeof currentStateJson !== "string" ||
+    typeof currentPayloadJson !== "string" ||
     typeof currentMemberEnvelopesJson !== "string"
   ) {
     return null;
@@ -69,6 +73,7 @@ function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
     principalId,
     stateHash,
     currentStateJson,
+    currentPayloadJson,
     currentMemberEnvelopesJson,
   };
 }
@@ -77,9 +82,11 @@ function parsePrincipalPolicyBundle(
   row: PrincipalPolicyRow,
 ): PrincipalPolicyBundleResponse {
   const currentState = JSON.parse(row.currentStateJson);
+  const currentPayload = JSON.parse(row.currentPayloadJson);
   const currentMemberEnvelopes = JSON.parse(row.currentMemberEnvelopesJson);
   const bundle = {
     currentState,
+    currentPayload,
     currentMemberEnvelopes,
   };
 
@@ -111,6 +118,7 @@ export async function loadPrincipalPolicyBundle(
         principal_id,
         state_hash,
         current_state_json,
+        current_payload_json,
         current_member_envelopes_json
       FROM principal_policies
       WHERE principal_type = :principalType AND principal_id = :principalId
@@ -137,6 +145,7 @@ export async function loadAllPrincipalPolicyBundles(
         principal_id,
         state_hash,
         current_state_json,
+        current_payload_json,
         current_member_envelopes_json
       FROM principal_policies
       ORDER BY principal_type, principal_id
@@ -194,6 +203,7 @@ export async function savePrincipalPolicyBundle(
           principal_id,
           state_hash,
           current_state_json,
+          current_payload_json,
           current_member_envelopes_json,
           updated_at
         )
@@ -202,12 +212,14 @@ export async function savePrincipalPolicyBundle(
           :principalId,
           :stateHash,
           :currentStateJson,
+          :currentPayloadJson,
           :currentMemberEnvelopesJson,
           :updatedAt
         )
         ON CONFLICT(principal_type, principal_id) DO UPDATE SET
           state_hash = excluded.state_hash,
           current_state_json = excluded.current_state_json,
+          current_payload_json = excluded.current_payload_json,
           current_member_envelopes_json = excluded.current_member_envelopes_json,
           updated_at = excluded.updated_at
       `,
@@ -216,6 +228,7 @@ export async function savePrincipalPolicyBundle(
         ":principalId": bundle.currentState.principalId,
         ":stateHash": bundle.currentState.stateHash,
         ":currentStateJson": JSON.stringify(bundle.currentState),
+        ":currentPayloadJson": JSON.stringify(bundle.currentPayload),
         ":currentMemberEnvelopesJson": JSON.stringify(
           bundle.currentMemberEnvelopes,
         ),

@@ -7,11 +7,6 @@ import {
   hasStringProperty,
 } from "../util";
 
-export interface PrincipalStateMemberResponse {
-  principalType: "user" | "group";
-  principalId: string;
-}
-
 export interface PrincipalStateResponse {
   principalType: "group" | "organization";
   principalId: string;
@@ -20,12 +15,25 @@ export interface PrincipalStateResponse {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  members: PrincipalStateMemberResponse[];
+  membershipMode: "projection_v1";
   membershipRoot: string;
+  projectionRoot: string;
+  payloadCiphertextHash: string;
+  memberCount: number;
   signedAt: string;
   signerKeyId: string;
   signature: string;
   stateHash: string;
+  createdAt: string;
+}
+
+export interface PrincipalStatePayloadResponse {
+  principalType: "group" | "organization";
+  principalId: string;
+  stateHash: string;
+  cipherSuite: "aes-256-gcm-v1";
+  ciphertext: string;
+  ciphertextHash: string;
   createdAt: string;
 }
 
@@ -55,6 +63,7 @@ export interface ReferencedPrincipalStateResponse {
 
 export interface PrincipalPolicyBundleResponse {
   currentState: PrincipalStateResponse;
+  currentPayload: PrincipalStatePayloadResponse;
   currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponse;
 }
 
@@ -66,19 +75,8 @@ function isManagedPrincipalType(
 
 function isPrincipalStateMemberType(
   value: string,
-): value is PrincipalStateMemberResponse["principalType"] {
+): value is PrincipalMemberEnvelopeResponse["memberPrincipalType"] {
   return value === "user" || value === "group";
-}
-
-function isPrincipalStateMemberResponse(
-  value: unknown,
-): value is PrincipalStateMemberResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "principalType") &&
-    isPrincipalStateMemberType(value.principalType) &&
-    hasStringProperty(value, "principalId")
-  );
 }
 
 function isPrincipalMemberEnvelopeResponse(
@@ -108,13 +106,35 @@ export function isPrincipalStateResponse(
     hasNumberProperty(value, "keyEpoch") &&
     hasStringProperty(value, "encapsulationPublicKey") &&
     hasStringProperty(value, "keyFingerprint") &&
-    hasArrayProperty(value, "members") &&
-    value.members.every(isPrincipalStateMemberResponse) &&
+    hasStringProperty(value, "membershipMode") &&
+    value.membershipMode === "projection_v1" &&
     hasStringProperty(value, "membershipRoot") &&
+    hasStringProperty(value, "projectionRoot") &&
+    hasStringProperty(value, "payloadCiphertextHash") &&
+    hasNumberProperty(value, "memberCount") &&
+    Number.isInteger(value.memberCount) &&
+    value.memberCount >= 0 &&
     hasStringProperty(value, "signedAt") &&
     hasStringProperty(value, "signerKeyId") &&
     hasStringProperty(value, "signature") &&
     hasStringProperty(value, "stateHash") &&
+    hasStringProperty(value, "createdAt")
+  );
+}
+
+export function isPrincipalStatePayloadResponse(
+  value: unknown,
+): value is PrincipalStatePayloadResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "principalType") &&
+    isManagedPrincipalType(value.principalType) &&
+    hasStringProperty(value, "principalId") &&
+    hasStringProperty(value, "stateHash") &&
+    hasStringProperty(value, "cipherSuite") &&
+    value.cipherSuite === "aes-256-gcm-v1" &&
+    hasStringProperty(value, "ciphertext") &&
+    hasStringProperty(value, "ciphertextHash") &&
     hasStringProperty(value, "createdAt")
   );
 }
@@ -155,6 +175,8 @@ export function isPrincipalPolicyBundleResponse(
     isPlainObject(value) &&
     hasObjectProperty(value, "currentState") &&
     isPrincipalStateResponse(value.currentState) &&
+    hasObjectProperty(value, "currentPayload") &&
+    isPrincipalStatePayloadResponse(value.currentPayload) &&
     hasObjectProperty(value, "currentMemberEnvelopes") &&
     isCurrentPrincipalMemberEnvelopesResponse(value.currentMemberEnvelopes)
   );

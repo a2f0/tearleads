@@ -3,16 +3,18 @@ import {
   hasArrayProperty,
   hasNullableStringProperty,
   hasNumberProperty,
+  hasObjectProperty,
   hasStringProperty,
   isUuidV4String,
 } from "../util";
 
-export interface PrincipalStateMemberRequest {
-  principalType: "user" | "group";
-  principalId: string;
+export interface PrincipalProjectionMemberRequest {
+  memberPrincipalType: "user" | "group";
+  memberPrincipalId: string;
+  role: "member" | "admin";
 }
 
-export interface PutPrincipalStateRequest {
+export interface PrincipalStateRequest {
   principalType: "group" | "organization";
   principalId: string;
   version: number;
@@ -20,11 +22,26 @@ export interface PutPrincipalStateRequest {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  members: PrincipalStateMemberRequest[];
+  membershipMode: "projection_v1";
   membershipRoot: string;
+  projectionRoot: string;
+  payloadCiphertextHash: string;
+  memberCount: number;
   signedAt: string;
   signerKeyId: string;
   signature: string;
+}
+
+export interface PrincipalStateEncryptedPayloadRequest {
+  cipherSuite: "aes-256-gcm-v1";
+  ciphertext: string;
+  ciphertextHash: string;
+}
+
+export interface PutPrincipalStateRequest {
+  state: PrincipalStateRequest;
+  encryptedPayload: PrincipalStateEncryptedPayloadRequest;
+  projection: PrincipalProjectionMemberRequest[];
 }
 
 export interface PrincipalMemberEnvelopeRequest {
@@ -42,25 +59,73 @@ export interface PutPrincipalMemberEnvelopesRequest {
 
 function isManagedPrincipalType(
   value: string,
-): value is PutPrincipalStateRequest["principalType"] {
+): value is PrincipalStateRequest["principalType"] {
   return value === "group" || value === "organization";
 }
 
 function isPrincipalStateMemberType(
   value: string,
-): value is PrincipalStateMemberRequest["principalType"] {
+): value is PrincipalProjectionMemberRequest["memberPrincipalType"] {
   return value === "user" || value === "group";
 }
 
-function isPrincipalStateMemberRequest(
+function isProjectionRole(
+  value: string,
+): value is PrincipalProjectionMemberRequest["role"] {
+  return value === "member" || value === "admin";
+}
+
+function isPrincipalProjectionMemberRequest(
   value: unknown,
-): value is PrincipalStateMemberRequest {
+): value is PrincipalProjectionMemberRequest {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "memberPrincipalType") &&
+    isPrincipalStateMemberType(value.memberPrincipalType) &&
+    hasStringProperty(value, "memberPrincipalId") &&
+    isUuidV4String(value.memberPrincipalId) &&
+    hasStringProperty(value, "role") &&
+    isProjectionRole(value.role)
+  );
+}
+
+function isPrincipalStateRequest(
+  value: unknown,
+): value is PrincipalStateRequest {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "principalType") &&
-    isPrincipalStateMemberType(value.principalType) &&
+    isManagedPrincipalType(value.principalType) &&
     hasStringProperty(value, "principalId") &&
-    isUuidV4String(value.principalId)
+    isUuidV4String(value.principalId) &&
+    hasNumberProperty(value, "version") &&
+    hasNullableStringProperty(value, "prevStateHash") &&
+    hasNumberProperty(value, "keyEpoch") &&
+    hasStringProperty(value, "encapsulationPublicKey") &&
+    hasStringProperty(value, "keyFingerprint") &&
+    hasStringProperty(value, "membershipMode") &&
+    value.membershipMode === "projection_v1" &&
+    hasStringProperty(value, "membershipRoot") &&
+    hasStringProperty(value, "projectionRoot") &&
+    hasStringProperty(value, "payloadCiphertextHash") &&
+    hasNumberProperty(value, "memberCount") &&
+    Number.isInteger(value.memberCount) &&
+    value.memberCount >= 0 &&
+    hasStringProperty(value, "signedAt") &&
+    hasStringProperty(value, "signerKeyId") &&
+    hasStringProperty(value, "signature")
+  );
+}
+
+function isPrincipalStateEncryptedPayloadRequest(
+  value: unknown,
+): value is PrincipalStateEncryptedPayloadRequest {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "cipherSuite") &&
+    value.cipherSuite === "aes-256-gcm-v1" &&
+    hasStringProperty(value, "ciphertext") &&
+    hasStringProperty(value, "ciphertextHash")
   );
 }
 
@@ -84,21 +149,12 @@ export function isPutPrincipalStateRequest(
 ): value is PutPrincipalStateRequest {
   return (
     isPlainObject(value) &&
-    hasStringProperty(value, "principalType") &&
-    isManagedPrincipalType(value.principalType) &&
-    hasStringProperty(value, "principalId") &&
-    isUuidV4String(value.principalId) &&
-    hasNumberProperty(value, "version") &&
-    hasNullableStringProperty(value, "prevStateHash") &&
-    hasNumberProperty(value, "keyEpoch") &&
-    hasStringProperty(value, "encapsulationPublicKey") &&
-    hasStringProperty(value, "keyFingerprint") &&
-    hasArrayProperty(value, "members") &&
-    value.members.every(isPrincipalStateMemberRequest) &&
-    hasStringProperty(value, "membershipRoot") &&
-    hasStringProperty(value, "signedAt") &&
-    hasStringProperty(value, "signerKeyId") &&
-    hasStringProperty(value, "signature")
+    hasObjectProperty(value, "state") &&
+    isPrincipalStateRequest(value.state) &&
+    hasObjectProperty(value, "encryptedPayload") &&
+    isPrincipalStateEncryptedPayloadRequest(value.encryptedPayload) &&
+    hasArrayProperty(value, "projection") &&
+    value.projection.every(isPrincipalProjectionMemberRequest)
   );
 }
 
