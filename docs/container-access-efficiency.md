@@ -1,6 +1,6 @@
 # Container Access Efficiency
 
-This note documents the runtime characteristics of
+This document describes the runtime characteristics of
 `packages/api/src/access/containerAccess.ts`, especially the recipient
 expansion path discussed in PR review feedback.
 
@@ -25,7 +25,7 @@ Let:
   and group grants into users
 - `U` = number of distinct effective users after access-level merging
 
-The current runtime is:
+The API-layer runtime is:
 
 - ancestor discovery: `O(A)`
 - grant row loading: `O(G)` application-side after the query returns
@@ -54,7 +54,7 @@ expanded organization and group grants with nested loops in application code.
 That produced an `O(G * M)` scan in the worst case, where `M` was the number of
 membership rows under consideration.
 
-The current implementation removes that nested-loop expansion from TypeScript by
+The implementation removes that nested-loop expansion from TypeScript by
 delegating recipient expansion to SQL joins in `loadGrantedRecipients(...)`.
 That changes the application-side expansion step from repeated grant-to-
 membership scans to a single pass over the returned recipient rows.
@@ -62,7 +62,7 @@ membership scans to a single pass over the returned recipient rows.
 So the key improvement is:
 
 - before: `O(G * M)` application-side expansion
-- now: `O(R)` application-side processing after SQL expansion
+- after SQL expansion: `O(R)` application-side processing
 
 This does not mean the database work is free. It means the expensive
 grant-to-membership cross-product is no longer implemented as explicit nested
@@ -85,11 +85,11 @@ loops in the API layer.
 The asymptotic summary above is useful, but it does not fully describe where the
 system will get expensive in production.
 
-The main improvement in the current implementation is that the API process no
+The main improvement is that the API process no
 longer performs explicit `grant x membership` nested loops. That is a meaningful
 win.
 
-However, the current design still has a large fanout surface:
+However, the design still has a large fanout surface:
 
 - `loadGrantedRecipients(...)` materializes one SQL row per expanded recipient
   match
@@ -106,7 +106,7 @@ That means the real bottleneck is no longer TypeScript loop complexity. It is:
 - result-set size crossing the DB boundary
 - repeated recomputation of the same recipient sets in higher layers
 
-In particular, this note only describes `containerAccess.ts` in isolation. The
+This document describes `containerAccess.ts` in isolation. The
 full access plane compounds this work:
 
 - document access resolves linked container access states
@@ -119,7 +119,7 @@ So the practical cost is often closer to:
 - then re-read and re-merge those results again while deriving document access
 - then re-read and re-merge them again while deriving blob access
 
-This means the current approach should scale adequately for:
+This approach scales adequately for:
 
 - personal and small-team usage
 - small organizations
@@ -145,7 +145,7 @@ This approach is likely to become a redesign target for:
 Deep trees are not the first concern here. Ancestor traversal is linear in path
 length and capped. Recipient expansion fanout is the real scaling limit.
 
-## Recommended Next Design
+## Next Design
 
 If the goal is to keep the current semantics but raise the scaling ceiling, the
 next design should focus on eliminating repeated expansion work, not merely
@@ -173,7 +173,7 @@ maintenance.
 
 ### 2. Make document and blob access depend on upstream fingerprints first
 
-The current document and blob layers resolve and merge full recipient lists.
+The document and blob layers resolve and merge full recipient lists.
 That is expensive.
 
 A better shape is:
@@ -221,7 +221,7 @@ DB-to-app transfer volume.
 
 ## Architectural Framing
 
-Yes, this is part of the access plane.
+This belongs to the access plane.
 
 More specifically:
 

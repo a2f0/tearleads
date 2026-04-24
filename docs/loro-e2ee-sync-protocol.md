@@ -4,7 +4,7 @@
 
 This document defines the Loro-native E2EE sync protocol boundary.
 
-The main decision is:
+Core rules:
 
 - Raw Loro sync should cover encrypted CRDT document state.
 - Blob attach and detach should **not** exist only inside encrypted Loro diffs.
@@ -20,7 +20,7 @@ adjacent planes:
 
 The server must remain plaintext-blind for document content.
 
-## Current Implementation
+## Implemented Protocol
 
 The document plane uses a single sync handshake.
 
@@ -176,7 +176,7 @@ reliably:
 That means attachment state cannot be only "whatever is implied by decrypted
 Loro content on the client." Some attachment metadata has to be visible.
 
-## Recommended Model
+## Reference Model
 
 ### 1. Document Plane
 
@@ -206,7 +206,7 @@ contract.
 
 ### 2. Attachment Plane
 
-Attachment lifecycle should be a separate, explicit metadata protocol.
+Attachment lifecycle is a separate, explicit metadata protocol.
 
 This plane owns:
 
@@ -220,7 +220,7 @@ The Loro document may still reference attachment IDs for editor semantics, but
 the authoritative attachment state should not live only inside encrypted Loro
 updates.
 
-Recommended objects:
+Objects:
 
 - `blob_object`
   - immutable encrypted blob bytes in object storage
@@ -249,7 +249,7 @@ So attach and detach are not only indexing operations. They are also
 security-relevant graph mutations that may require access-epoch bumps and
 wrapped-key bundle changes for the blob object.
 
-Recommended logical operations:
+Logical operations:
 
 - `POST /blobs/stage`
 - `POST /documents/:documentId/commit-change`
@@ -279,7 +279,7 @@ This plane owns:
 - `accessEpoch`
 - wrapped content keys / recipient envelopes
 
-Important limitation:
+Limitation:
 
 Permission revocation is not retroactive. If a client has already received the
 relevant DEK or plaintext, removing that client from a group does not make them
@@ -418,7 +418,7 @@ they remain outside encrypted Loro payloads.
 Server-side indexing for Loro-native causal sync is defined around
 `document_update_spans` plus SQL-side missing-update selection.
 
-The recommended split is:
+Split:
 
 - index Loro update metadata for causal sync
 - index attachment metadata for lookup and GC

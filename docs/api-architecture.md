@@ -265,8 +265,8 @@ Rules:
 7. Protocol planes can cross service boundaries, but transport concerns do
    not leak downward.
 
-## Future Work
+## Follow-up Work
 
-The API route extraction work tracked by #177 is complete. Future work in this
-area should be opened as specific follow-up issues rather than kept as a
-standing migration list here.
+The route extraction work is complete. New work in this area belongs in
+separate follow-up issues rather than a standing migration list in this
+document.

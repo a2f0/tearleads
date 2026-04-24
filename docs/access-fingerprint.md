@@ -37,7 +37,7 @@ Operationally, the fingerprint is derived from the fully expanded access
 closure plus recipient validity inputs such as account status and current
 recipient key identity.
 
-Important limitation:
+Limitation:
 
 The fingerprint is not itself proof that the access closure was authorized.
 
@@ -161,7 +161,7 @@ state identifiers, not just the expanded recipient list. For example:
 That way the fingerprint changes not only when recipients change, but also when
 the signed policy state used to justify those recipients changes.
 
-Recommended canonical inputs are:
+Canonical inputs are:
 
 - container
   - ancestor container ids

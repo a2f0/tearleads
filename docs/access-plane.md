@@ -87,7 +87,7 @@ user to a group. In that case:
 So in zero-trust mode, the fingerprint must be derived from policy inputs that
 are independently verifiable by the client, not just returned by the API.
 
-## Recommended Data Model
+## Data Model
 
 ### Principals
 
@@ -274,13 +274,13 @@ standalone blob ACL.
 Recipient envelopes should persist the wrapped key bundle for the current epoch
 of each encrypted object.
 
-Current direction:
+Key hierarchy:
 
 - containers have wrapped key bundles for container-level crypto state
 - documents have wrapped key bundles for document DEKs
 - blobs have wrapped key bundles for blob DEKs
 
-Current implementation note:
+Implemented behavior:
 
 - containers persist real wrapped key material
 - documents persist real wrapped key material for the current access epoch once
@@ -289,29 +289,29 @@ Current implementation note:
   a valid blob envelope for the current effective recipient set
 - blob envelopes delimit header metadata from ciphertext bytes so blob recipient
   inspection does not require parsing the full ciphertext payload as JSON
-- committed note attachments can now update current-epoch blob recipient wraps
+- committed note attachments update current-epoch blob recipient wraps
   in place, and `GET /blobs/:blobId` serves the current wrapped-recipient
   header from sidecar envelope rows so additive access growth does not require
   a new blob row
-- encrypted Loro updates now use the current epoch's document DEK plus an
+- encrypted Loro updates use the current epoch's document DEK plus an
   inline `accessEpoch`, not a per-update recipient bundle
 - newly created documents may still have no persisted bundle until the client
   seeds one during initial metadata creation or the first document write of the
   epoch
 - container listings, container document listings, and Loro create/sync
-  responses now surface `referencedPrincipals[]` summaries for the current
+  responses surface `referencedPrincipals[]` summaries for the current
   signed group/org policy states that contributed to derived access
-- app clients can now fetch, verify, and cache the current principal policy
+- app clients can fetch, verify, and cache the current principal policy
   bundle for those references when a trusted policy signer set is configured
   out of band
-- document and blob wrapped-key paths now consume that cache at runtime so a
+- document and blob wrapped-key paths consume that cache at runtime so a
   client can unwrap a group/org-addressed object bundle through the current
   principal member-envelope chain
-- current object recipient material now requires current signed policy state
+- current object recipient material requires current signed policy state
   for managed grants; group/org-addressed grants without that state fail
   closed instead of falling back to expanded user recipient material
 
-The important distinction is:
+Distinction:
 
 - grants and memberships answer who should have access
 - recipient envelopes answer how the current epoch's DEK is distributed
@@ -360,7 +360,7 @@ Any fingerprint change should bump `accessEpoch`, even if the final recipient
 set happens to be unchanged, because upstream security-relevant structure may
 have changed.
 
-The current sync path now exposes that server-side decision explicitly through
+The sync path exposes that server-side decision through
 `documentRecipientEnvelopeAction` on `POST /documents/:documentId/sync`:
 
 - `none`
@@ -474,27 +474,27 @@ Attachment/blob retention is live-only:
 - detached bindings are transient replacement metadata, not historical
   attachment/audit retention
 
-For the accepted product decision, see
+For retention semantics, see
 [attachment-retention.md](./attachment-retention.md). Durable old blob bytes,
-attachment tombstones, signed manifests, or historical attachment replay are
-future audit/history features, not part of issue `#105`.
+attachment tombstones, signed manifests, and historical attachment replay
+belong to a separate audit/history layer.
 
 The initial scope should allow offline structural mutations such as move, link,
 unlink, attach, and detach, with authoritative recomputation at sync time.
 
-The current API now exposes the first explicit structural mutation routes:
+The API exposes structural mutation routes:
 
 - `POST /containers/:containerId/move`
 - `POST /documents/:documentId/link`
 - `POST /documents/:documentId/unlink`
 
-These routes now recompute the affected container subtree first, then
+These routes recompute the affected container subtree first, then
 materialize downstream document epochs and active blob epochs so access and
 bundle invalidation move with the structure instead of waiting for an unrelated
 content mutation.
 
-The app explorer now uses `POST /containers/:containerId/move` for container
-reparenting, and it now moves documents between containers by calling
+The app explorer uses `POST /containers/:containerId/move` for container
+reparenting and moves documents between containers by calling
 `POST /documents/:documentId/link` followed by
 `POST /documents/:documentId/unlink` while updating the local
 document/container projection from the authoritative mutation response. The
@@ -604,7 +604,7 @@ set that needs fresh wrapped copies.
 
 ### Policy API Surface
 
-The current implementation now exposes the principal-policy foundation through
+The implementation exposes the principal-policy foundation through
 authenticated API routes:
 
 - `PUT /principals/:principalType/:principalId/state`
@@ -755,7 +755,7 @@ snapshots and indexed principal epoch keys:
 - `principal_states`
 - `principal_epoch_keys`
 
-Those tables are foundation only in the current implementation. They do not yet
+Those tables are foundational. They do not yet
 drive effective-recipient expansion or object rewrap decisions.
 
 For document rekey, rotate-baseline generation, and tamper-evident document
@@ -818,7 +818,7 @@ encrypted Loro diffs.
 - Do not add branching-aware access semantics yet.
 - Do not require external authorization service parity before shipping basic local-first sync.
 
-## Recommended First Implementation Slice
+## Initial Implementation Slice
 
 1. Add explicit access-plane schema tables owned by the app.
 2. Add a small resolver that computes effective recipients for one object.

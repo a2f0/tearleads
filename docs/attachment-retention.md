@@ -70,12 +70,12 @@ This retention model does not provide:
 - signed attachment tombstones or manifests
 - retroactive recovery of pruned blobs from the server
 
-## Future Direction
+## Separate Audit Layer
 
 Durable attachment history requires a separate audit/history layer rather than
 changes to detached binding retention.
 
-That future layer should align with
+That audit/history layer should align with
 [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md):
 
 - live sync remains compact
