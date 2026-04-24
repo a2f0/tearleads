@@ -32,6 +32,40 @@ export class MoveContainerError extends Error {
   }
 }
 
+async function requireCurrentMetadataAccessStateHash(
+  tx: DatabaseTransaction,
+  containerId: string,
+  expectedAccessStateHash: string,
+): Promise<void> {
+  const [metadataBinding] = await tx
+    .select({
+      documentId: containerMetadataDocuments.documentId,
+    })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.containerId, containerId))
+    .limit(1);
+
+  if (!metadataBinding) {
+    throw new MoveContainerError("Container metadata document not found", 409);
+  }
+
+  const previousMetadataAccess = await resolveDocumentAccessState(
+    metadataBinding.documentId,
+    tx,
+  );
+
+  if (!previousMetadataAccess) {
+    throw new MoveContainerError(
+      "Container metadata access state is unavailable",
+      409,
+    );
+  }
+
+  if (expectedAccessStateHash !== previousMetadataAccess.accessStateHash) {
+    throw new MoveContainerError("Stale access state hash", 409);
+  }
+}
+
 async function moveContainerInTransaction(
   tx: DatabaseTransaction,
   input: MoveContainerInput,
@@ -94,6 +128,12 @@ async function moveContainerInTransaction(
   if (!canWriteContainerAccess(parentAccess, input.userId)) {
     throw new MoveContainerError("Forbidden", 403);
   }
+
+  await requireCurrentMetadataAccessStateHash(
+    tx,
+    container.id,
+    input.expectedAccessStateHash,
+  );
 
   if (container.parentId === parent.id) {
     return buildMoveContainerResponse(tx, container.id, parent.id);

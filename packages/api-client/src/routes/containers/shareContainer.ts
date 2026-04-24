@@ -7,6 +7,7 @@ export function shareContainer(
   subjectType: "user" | "group" | "organization",
   subjectId: string,
   accessLevel: "read" | "write" | "admin",
+  expectedAccessStateHash: string,
 ) {
   return request(
     `/containers/${containerId}/share`,
@@ -14,6 +15,7 @@ export function shareContainer(
     "POST",
     JSON.stringify({
       accessLevel,
+      expectedAccessStateHash,
       subjectId,
       subjectType,
     }),

@@ -25,6 +25,11 @@ export async function linkDocumentToContainer(
       input.documentId,
       input.userId,
     );
+
+    if (input.expectedAccessStateHash !== documentContext.accessStateHash) {
+      throw new StructuralDocumentMutationError("Stale access state hash", 409);
+    }
+
     const targetContainer = await requireWritableContainer(
       tx,
       input.containerId,

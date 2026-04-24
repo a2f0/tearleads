@@ -638,6 +638,25 @@ function findLatestCreatedOrCommittedDocumentId(
   return documentId;
 }
 
+async function waitForLatestCreatedOrCommittedDocumentId(
+  excludeDocumentIds: ReadonlyArray<string>,
+  message: string,
+): Promise<string> {
+  let documentId: string | null = null;
+
+  await waitForCondition(() => {
+    try {
+      documentId = findLatestCreatedOrCommittedDocumentId(excludeDocumentIds);
+      return true;
+    } catch {
+      return false;
+    }
+  }, message);
+
+  invariant(documentId, "Expected committed document id.");
+  return documentId;
+}
+
 function countSuccessfulDocumentCommitChanges(documentId: string): number {
   return listProxiedApiRequests().filter(
     (request) =>
@@ -1202,9 +1221,11 @@ test("dual panes can share the root container and open pre-share root documents 
     "license-front.png",
     "license-back.png",
   );
-  const driverLicenseDocumentId = findLatestCreatedOrCommittedDocumentId([
-    createdDocumentId,
-  ]);
+  const driverLicenseDocumentId =
+    await waitForLatestCreatedOrCommittedDocumentId(
+      [createdDocumentId],
+      "Driver's license document id was not observed before waiting for commit.",
+    );
   await waitForInlineDriverLicenseToSettle(leftPane, "DL-987654", [
     "license-front.png",
     "license-back.png",

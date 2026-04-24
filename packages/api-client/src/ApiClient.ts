@@ -228,6 +228,7 @@ export class ApiClient {
     subjectType: "user" | "group" | "organization",
     subjectId: string,
     accessLevel: "read" | "write" | "admin",
+    expectedAccessStateHash: string,
   ) {
     return shareContainer(
       this.request,
@@ -235,19 +236,47 @@ export class ApiClient {
       subjectType,
       subjectId,
       accessLevel,
+      expectedAccessStateHash,
     );
   }
 
-  moveContainer(containerId: string, parentId: string) {
-    return moveContainer(this.request, containerId, parentId);
+  moveContainer(
+    containerId: string,
+    parentId: string,
+    expectedAccessStateHash: string,
+  ) {
+    return moveContainer(
+      this.request,
+      containerId,
+      parentId,
+      expectedAccessStateHash,
+    );
   }
 
-  linkDocumentToContainer(documentId: string, containerId: string) {
-    return linkDocumentToContainer(this.request, documentId, containerId);
+  linkDocumentToContainer(
+    documentId: string,
+    containerId: string,
+    expectedAccessStateHash: string,
+  ) {
+    return linkDocumentToContainer(
+      this.request,
+      documentId,
+      containerId,
+      expectedAccessStateHash,
+    );
   }
 
-  unlinkDocumentFromContainer(documentId: string, containerId: string) {
-    return unlinkDocumentFromContainer(this.request, documentId, containerId);
+  unlinkDocumentFromContainer(
+    documentId: string,
+    containerId: string,
+    expectedAccessStateHash: string,
+  ) {
+    return unlinkDocumentFromContainer(
+      this.request,
+      documentId,
+      containerId,
+      expectedAccessStateHash,
+    );
   }
 
   syncDocument(

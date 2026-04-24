@@ -5,11 +5,15 @@ export function moveContainer(
   request: RequestFn,
   containerId: string,
   parentId: string,
+  expectedAccessStateHash: string,
 ) {
   return request(
     `/containers/${containerId}/move`,
     isMoveContainerResponse,
     "POST",
-    JSON.stringify({ parentId }),
+    JSON.stringify({
+      expectedAccessStateHash,
+      parentId,
+    }),
   );
 }

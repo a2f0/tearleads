@@ -531,7 +531,12 @@ async function shareExplorerContainerWithUser(
   }
 
   const existingState = state.containersById.get(containerId);
-  if (!existingState?.record.documentId) {
+  const expectedAccessStateHash = existingState?.record.accessStateHash;
+  if (
+    !existingState?.record.documentId ||
+    typeof expectedAccessStateHash !== "string" ||
+    expectedAccessStateHash.length === 0
+  ) {
     return null;
   }
 
@@ -540,6 +545,7 @@ async function shareExplorerContainerWithUser(
     "user",
     userId,
     "write",
+    expectedAccessStateHash,
   );
 
   if (!shared) {
@@ -588,7 +594,9 @@ async function moveExplorerContainer(
     !existingState ||
     !targetParentState ||
     existingState.container.parentId === null ||
-    isContainerInSubtree(state.containersById, parentId, containerId)
+    isContainerInSubtree(state.containersById, parentId, containerId) ||
+    typeof existingState.record.accessStateHash !== "string" ||
+    existingState.record.accessStateHash.length === 0
   ) {
     return null;
   }
@@ -596,6 +604,7 @@ async function moveExplorerContainer(
   const moved = await state.runtime.apiClient.moveContainer(
     containerId,
     parentId,
+    existingState.record.accessStateHash,
   );
   if (!moved) {
     return null;

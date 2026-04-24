@@ -72,7 +72,13 @@ test("includes backend error details in onError output for non-2xx responses", a
   });
 
   expect(
-    await client.shareContainer("container-1", "user", "user-2", "write"),
+    await client.shareContainer(
+      "container-1",
+      "user",
+      "user-2",
+      "write",
+      "access-state-1",
+    ),
   ).toBeNull();
   expect(errors).toEqual([
     "POST /containers/container-1/share: 409 Conflict: Container metadata access state is unavailable",

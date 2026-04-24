@@ -58,6 +58,7 @@ test("POST /containers/:containerId/share grants direct user access and bumps de
   });
 
   expect(sharedCreateResponse.status).toBe(200);
+  const createdSharedContainer = await sharedCreateResponse.json();
 
   const descendantCreateResponse = await routeApp.request("/containers", {
     method: "POST",
@@ -84,6 +85,7 @@ test("POST /containers/:containerId/share grants direct user access and bumps de
       },
       body: JSON.stringify({
         accessLevel: "write",
+        expectedAccessStateHash: createdSharedContainer.metadataAccessStateHash,
         subjectId: recipient.userId,
         subjectType: "user",
       }),
@@ -151,6 +153,7 @@ test("POST /containers/:containerId/share rejects callers without admin access",
   });
 
   expect(createResponse.status).toBe(200);
+  const createdContainer = await createResponse.json();
 
   const shareResponse = await routeApp.request(
     `/containers/${sharedContainerId}/share`,
@@ -162,6 +165,7 @@ test("POST /containers/:containerId/share rejects callers without admin access",
       },
       body: JSON.stringify({
         accessLevel: "write",
+        expectedAccessStateHash: createdContainer.metadataAccessStateHash,
         subjectId: recipient.userId,
         subjectType: "user",
       }),
@@ -194,6 +198,7 @@ test("POST /containers/:containerId/share rejects managed grants without current
   });
 
   expect(createResponse.status).toBe(200);
+  const createdContainer = await createResponse.json();
 
   const [ownerRow] = await db
     .select({
@@ -223,6 +228,7 @@ test("POST /containers/:containerId/share rejects managed grants without current
       },
       body: JSON.stringify({
         accessLevel: "read",
+        expectedAccessStateHash: createdContainer.metadataAccessStateHash,
         subjectId: group.id,
         subjectType: "group",
       }),
@@ -232,5 +238,55 @@ test("POST /containers/:containerId/share rejects managed grants without current
   expect(shareResponse.status).toBe(409);
   expect(await shareResponse.json()).toEqual({
     error: `Missing current principal policy state for group:${group.id}`,
+  });
+});
+
+test("POST /containers/:containerId/share rejects stale access state hashes", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const recipient = createTestUser();
+  await registerUser(recipient);
+  await authenticate(recipient);
+
+  const ownerRootId = await getRootContainerIdForUser(owner.userId);
+  const sharedContainerId = crypto.randomUUID();
+
+  const createResponse = await routeApp.request("/containers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${owner.token}`,
+    },
+    body: JSON.stringify({
+      id: sharedContainerId,
+      initialMetadataUpdates: [],
+      parentId: ownerRootId,
+    }),
+  });
+
+  expect(createResponse.status).toBe(200);
+
+  const shareResponse = await routeApp.request(
+    `/containers/${sharedContainerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${owner.token}`,
+      },
+      body: JSON.stringify({
+        accessLevel: "write",
+        expectedAccessStateHash: "stale-access-state-hash",
+        subjectId: recipient.userId,
+        subjectType: "user",
+      }),
+    },
+  );
+
+  expect(shareResponse.status).toBe(409);
+  expect(await shareResponse.json()).toEqual({
+    error: "Stale access state hash",
   });
 });

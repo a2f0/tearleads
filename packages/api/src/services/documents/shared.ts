@@ -31,6 +31,7 @@ export async function requireMutableDocumentContext(
   documentId: string,
   userId: string,
 ): Promise<{
+  accessStateHash: string;
   createdAt: Date;
   linkedContainerIds: string[];
   organizationId: string;
@@ -114,7 +115,16 @@ export async function requireMutableDocumentContext(
     }
   }
 
+  const documentAccess = await resolveDocumentAccessState(documentId, tx);
+  if (!documentAccess) {
+    throw new StructuralDocumentMutationError(
+      "Document access state is unavailable",
+      409,
+    );
+  }
+
   return {
+    accessStateHash: documentAccess.accessStateHash,
     createdAt: document.createdAt,
     linkedContainerIds,
     organizationId: organizationIds[0] ?? "",

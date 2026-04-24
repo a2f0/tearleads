@@ -118,6 +118,7 @@ Implemented behavior:
   wrapped-recipient header from sidecar metadata without creating a new blob
   row
 - explicit structural mutation routes:
+  - each write request includes `expectedAccessStateHash`
   - `POST /containers/:containerId/move`
   - `POST /documents/:documentId/link`
   - `POST /documents/:documentId/unlink`

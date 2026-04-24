@@ -124,12 +124,14 @@ test("document link and unlink routes bump document and blob access epochs", asy
       },
       body: JSON.stringify({
         containerId: siblingContainerId,
+        expectedAccessStateHash: createdDocument.currentAccessStateHash,
       }),
     },
   );
 
   expect(linkedResponse.status).toBe(200);
-  expect(await linkedResponse.json()).toEqual(
+  const linkedDocument = await linkedResponse.json();
+  expect(linkedDocument).toEqual(
     expect.objectContaining({
       currentAccessEpoch: 2,
       id: documentId,
@@ -176,6 +178,7 @@ test("document link and unlink routes bump document and blob access epochs", asy
       },
       body: JSON.stringify({
         containerId: siblingContainerId,
+        expectedAccessStateHash: linkedDocument.currentAccessStateHash,
       }),
     },
   );
@@ -233,6 +236,7 @@ test("document unlink route rejects removing the final linked container", async 
       },
       body: JSON.stringify({
         containerId: owner.rootContainerId,
+        expectedAccessStateHash: createdDocument.currentAccessStateHash,
       }),
     },
   );
@@ -240,5 +244,46 @@ test("document unlink route rejects removing the final linked container", async 
   expect(unlinkedResponse.status).toBe(409);
   expect(await unlinkedResponse.json()).toEqual({
     error: "Document must remain linked to at least one container",
+  });
+});
+
+test("document link route rejects stale access state hashes", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const rootContainerId = await getRootContainerIdForUser(owner.userId);
+  const siblingContainerId = crypto.randomUUID();
+  await createContainerForUser({
+    id: siblingContainerId,
+    parentId: rootContainerId,
+    token: owner.token,
+  });
+
+  const createDocumentResponse = await createDocument(owner.token, [
+    rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+
+  const linkedResponse = await routeApp.request(
+    `/documents/${documentId}/link`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        containerId: siblingContainerId,
+        expectedAccessStateHash: "stale-access-state-hash",
+      }),
+    },
+  );
+
+  expect(linkedResponse.status).toBe(409);
+  expect(await linkedResponse.json()).toEqual({
+    error: "Stale access state hash",
   });
 });

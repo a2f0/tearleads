@@ -502,12 +502,14 @@ test("explorer store moves an authenticated child container through the API and 
   const recipientPublicKeys = [bytesToBase64(localKeyPair.publicKey)];
   const moveContainerCalls: Array<{
     containerId: string;
+    expectedAccessStateHash: string;
     parentId: string;
   }> = [];
   let remoteContainers = [
     {
       id: "root-container",
       metadataAccessEpoch: 1,
+      metadataAccessStateHash: "root-access-state-hash-1",
       metadataDocumentId: "root-metadata-document",
       metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
       organizationId: "org-1",
@@ -516,6 +518,7 @@ test("explorer store moves an authenticated child container through the API and 
     {
       id: "parent-a",
       metadataAccessEpoch: 1,
+      metadataAccessStateHash: "parent-a-access-state-hash-1",
       metadataDocumentId: "parent-a-metadata-document",
       metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
       organizationId: "org-1",
@@ -524,6 +527,7 @@ test("explorer store moves an authenticated child container through the API and 
     {
       id: "parent-b",
       metadataAccessEpoch: 1,
+      metadataAccessStateHash: "parent-b-access-state-hash-1",
       metadataDocumentId: "parent-b-metadata-document",
       metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
       organizationId: "org-1",
@@ -532,6 +536,7 @@ test("explorer store moves an authenticated child container through the API and 
     {
       id: "child-container",
       metadataAccessEpoch: 1,
+      metadataAccessStateHash: "child-access-state-hash-1",
       metadataDocumentId: "child-metadata-document",
       metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
       organizationId: "org-1",
@@ -545,13 +550,18 @@ test("explorer store moves an authenticated child container through the API and 
   runtime.apiClient = {
     ...runtime.apiClient,
     listContainers: async () => remoteContainers,
-    moveContainer: async (containerId, parentId) => {
-      moveContainerCalls.push({ containerId, parentId });
+    moveContainer: async (containerId, parentId, expectedAccessStateHash) => {
+      moveContainerCalls.push({
+        containerId,
+        expectedAccessStateHash,
+        parentId,
+      });
       remoteContainers = remoteContainers.map((container) =>
         container.id === containerId
           ? {
               ...container,
               metadataAccessEpoch: container.metadataAccessEpoch + 1,
+              metadataAccessStateHash: "child-access-state-hash-2",
               parentId,
             }
           : container,
@@ -592,7 +602,11 @@ test("explorer store moves an authenticated child container through the API and 
     );
 
     expect(moveContainerCalls).toEqual([
-      { containerId: "child-container", parentId: "parent-b" },
+      {
+        containerId: "child-container",
+        expectedAccessStateHash: "child-access-state-hash-1",
+        parentId: "parent-b",
+      },
     ]);
     expect(movedNode.parentId).toBe("parent-b");
 
@@ -614,6 +628,7 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
   const shareContainerCalls: Array<{
     accessLevel: "read" | "write" | "admin";
     containerId: string;
+    expectedAccessStateHash: string;
     subjectId: string;
     subjectType: "user" | "group" | "organization";
   }> = [];
@@ -640,16 +655,19 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
       subjectType: "user" | "group" | "organization",
       subjectId: string,
       accessLevel: "read" | "write" | "admin",
+      expectedAccessStateHash: string,
     ) => {
       shareContainerCalls.push({
         accessLevel,
         containerId,
+        expectedAccessStateHash,
         subjectId,
         subjectType,
       });
       return {
         id: containerId,
         metadataAccessEpoch: 2,
+        metadataAccessStateHash: "access-state-hash-2",
         metadataDocumentId: "metadata-document-1",
         metadataRecipientEncapsulationPublicKeys: [
           bytesToBase64(localKeyPair.publicKey),
@@ -788,6 +806,7 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
       {
         accessLevel: "write",
         containerId: "child-container",
+        expectedAccessStateHash: "access-state-hash-1",
         subjectId: "550e8400-e29b-41d4-a716-446655440000",
         subjectType: "user",
       },
@@ -1125,6 +1144,7 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
   const shareContainerCalls: Array<{
     accessLevel: "read" | "write" | "admin";
     containerId: string;
+    expectedAccessStateHash: string;
     subjectId: string;
     subjectType: "user" | "group" | "organization";
   }> = [];
@@ -1234,16 +1254,19 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
       subjectType: "user" | "group" | "organization",
       subjectId: string,
       accessLevel: "read" | "write" | "admin",
+      expectedAccessStateHash: string,
     ) => {
       shareContainerCalls.push({
         accessLevel,
         containerId,
+        expectedAccessStateHash,
         subjectId,
         subjectType,
       });
       return {
         id: containerId,
         metadataAccessEpoch: 2,
+        metadataAccessStateHash: "access-state-hash-2",
         metadataDocumentId:
           containerId === "child-container"
             ? "child-metadata-document"
@@ -1420,6 +1443,7 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
       {
         accessLevel: "write",
         containerId: "child-container",
+        expectedAccessStateHash: "access-state-hash-1",
         subjectId: "550e8400-e29b-41d4-a716-446655440000",
         subjectType: "user",
       },
