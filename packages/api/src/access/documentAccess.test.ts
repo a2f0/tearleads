@@ -16,7 +16,6 @@ import { db } from "../adapters/postgres";
 import {
   containers,
   documentContainerLinks,
-  groupMembers,
   groups,
   objectAccessGrants,
   objectRecipientEnvelopes,
@@ -281,10 +280,6 @@ test("document access includes referenced principal policy states from linked co
     .returning({ id: groups.id });
   invariant(group, "expected group");
 
-  await db.insert(groupMembers).values([
-    { groupId: group.id, userId: bob.userId },
-    { groupId: group.id, userId: charlie.userId },
-  ]);
   await storeCurrentGroupState(group.id, [bob.userId, charlie.userId]);
 
   await grantContainerAccess({

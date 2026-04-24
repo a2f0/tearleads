@@ -15,6 +15,7 @@ interface CommittedBindingResponse {
 
 export interface CommitDocumentChangeResponse {
   currentAccessEpoch: number;
+  currentAccessStateHash?: string;
   acceptedOutgoingUpdateIds: string[];
   committedBindings: CommittedBindingResponse[];
   detachedBindingIds: string[];
@@ -44,12 +45,17 @@ export function isCommitDocumentChangeResponse(
   const documentRecipientEnvelopes = isPlainObject(value)
     ? Reflect.get(value, "documentRecipientEnvelopes")
     : undefined;
+  const currentAccessStateHash = isPlainObject(value)
+    ? Reflect.get(value, "currentAccessStateHash")
+    : undefined;
 
   return (
     isPlainObject(value) &&
     hasNumberProperty(value, "currentAccessEpoch") &&
     Number.isInteger(value.currentAccessEpoch) &&
     value.currentAccessEpoch > 0 &&
+    (currentAccessStateHash === undefined ||
+      typeof currentAccessStateHash === "string") &&
     hasArrayProperty(value, "acceptedOutgoingUpdateIds") &&
     isStringArray(value.acceptedOutgoingUpdateIds) &&
     hasArrayProperty(value, "committedBindings") &&

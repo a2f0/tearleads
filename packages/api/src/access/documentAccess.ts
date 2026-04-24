@@ -14,7 +14,10 @@ import {
   objectRecipientEnvelopes,
 } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
-import { computeAccessFingerprint } from "./accessFingerprint";
+import {
+  computeAccessFingerprint,
+  computeAccessStateHash,
+} from "./accessFingerprint";
 import { resolveContainerAccessState } from "./containerAccess";
 import { mergeReferencedPrincipals } from "./principalReferences";
 import {
@@ -29,7 +32,11 @@ import {
 const DOCUMENT_OBJECT_TYPE = "document";
 
 type DocumentAccessExecutor = DatabaseExecutor;
-type CurrentEpochRow = { epoch: number; accessFingerprint: string };
+type CurrentEpochRow = {
+  epoch: number;
+  accessFingerprint: string;
+  accessStateHash: string | null;
+};
 type ResolvedContainerAccessState = Awaited<
   ReturnType<typeof resolveContainerAccessState>
 >;
@@ -51,6 +58,7 @@ type StoredDocumentRecipientEnvelopeIdentity = {
 interface DocumentAccessState {
   currentAccessEpoch: number;
   accessFingerprint: string;
+  accessStateHash: string;
   referencedPrincipals: ReferencedPrincipalStateResponse[];
   effectiveRecipients: EffectiveDocumentRecipient[];
   cryptoRecipients: EffectiveDocumentRecipient[];
@@ -101,6 +109,7 @@ async function getCurrentEpoch(
     .select({
       epoch: objectAccessEpochs.epoch,
       accessFingerprint: objectAccessEpochs.accessFingerprint,
+      accessStateHash: objectAccessEpochs.accessStateHash,
     })
     .from(objectAccessEpochs)
     .where(
@@ -130,6 +139,7 @@ async function getCurrentEpochs(
       documentId: objectAccessEpochs.objectId,
       epoch: objectAccessEpochs.epoch,
       accessFingerprint: objectAccessEpochs.accessFingerprint,
+      accessStateHash: objectAccessEpochs.accessStateHash,
     })
     .from(objectAccessEpochs)
     .where(
@@ -150,6 +160,7 @@ async function getCurrentEpochs(
     currentEpochByDocumentId.set(row.documentId, {
       epoch: row.epoch,
       accessFingerprint: row.accessFingerprint,
+      accessStateHash: row.accessStateHash,
     });
   }
 
@@ -361,6 +372,37 @@ async function computeDocumentAccessFingerprint(input: {
   });
 }
 
+async function computeDocumentAccessStateHash(input: {
+  documentId: string;
+  grants: GrantRow[];
+  linkedContainerIds: string[];
+  linkedContainerStates: Exclude<ResolvedContainerAccessState, null>[];
+}) {
+  return computeAccessStateHash({
+    objectType: DOCUMENT_OBJECT_TYPE,
+    documentId: input.documentId,
+    grants: input.grants.map((grant) => ({
+      subjectType: grant.subjectType,
+      subjectId: grant.subjectId,
+      accessLevel: grant.accessLevel,
+    })),
+    linkedContainers: input.linkedContainerIds.map((containerId, index) => {
+      const linkedContainerState = input.linkedContainerStates[index];
+
+      if (!linkedContainerState) {
+        throw new Error(
+          `Invariant violation: linked container state missing for ${containerId}`,
+        );
+      }
+
+      return {
+        containerId,
+        accessStateHash: linkedContainerState.accessStateHash,
+      };
+    }),
+  });
+}
+
 async function buildDocumentAccessState(input: {
   currentEpochRow: CurrentEpochRow | null;
   documentId: string;
@@ -401,6 +443,12 @@ async function buildDocumentAccessState(input: {
     ),
     cryptoRecipients,
   });
+  const accessStateHash = await computeDocumentAccessStateHash({
+    documentId,
+    grants,
+    linkedContainerIds,
+    linkedContainerStates,
+  });
 
   const currentAccessEpoch = Math.max(
     currentEpochRow?.epoch ?? 1,
@@ -410,6 +458,7 @@ async function buildDocumentAccessState(input: {
   return {
     currentAccessEpoch,
     accessFingerprint,
+    accessStateHash,
     referencedPrincipals,
     effectiveRecipients,
     cryptoRecipients,
@@ -879,6 +928,7 @@ async function writeEpoch(
   documentId: string,
   epoch: number,
   accessFingerprint: string,
+  accessStateHash: string,
   executor: DocumentAccessExecutor = db,
 ) {
   await executor.insert(objectAccessEpochs).values({
@@ -886,6 +936,7 @@ async function writeEpoch(
     objectId: documentId,
     epoch,
     accessFingerprint,
+    accessStateHash,
     updatedAt: new Date(),
   });
 }
@@ -929,6 +980,12 @@ async function materializeDocumentAccessState(
     ),
     cryptoRecipients,
   });
+  const accessStateHash = await computeDocumentAccessStateHash({
+    documentId,
+    grants,
+    linkedContainerIds,
+    linkedContainerStates,
+  });
   const linkedEpoch = Math.max(
     1,
     ...linkedContainerStates.map((state) => state.currentAccessEpoch),
@@ -936,16 +993,24 @@ async function materializeDocumentAccessState(
   const nextEpoch =
     resolvedCurrentEpochRow === null
       ? linkedEpoch
-      : resolvedCurrentEpochRow.accessFingerprint === accessFingerprint
+      : resolvedCurrentEpochRow.accessFingerprint === accessFingerprint &&
+          resolvedCurrentEpochRow.accessStateHash === accessStateHash
         ? Math.max(resolvedCurrentEpochRow.epoch, linkedEpoch)
         : Math.max(resolvedCurrentEpochRow.epoch + 1, linkedEpoch);
 
   if (
     resolvedCurrentEpochRow === null ||
     resolvedCurrentEpochRow.epoch !== nextEpoch ||
-    resolvedCurrentEpochRow.accessFingerprint !== accessFingerprint
+    resolvedCurrentEpochRow.accessFingerprint !== accessFingerprint ||
+    resolvedCurrentEpochRow.accessStateHash !== accessStateHash
   ) {
-    await writeEpoch(documentId, nextEpoch, accessFingerprint, executor);
+    await writeEpoch(
+      documentId,
+      nextEpoch,
+      accessFingerprint,
+      accessStateHash,
+      executor,
+    );
   }
 
   return nextEpoch;
@@ -979,12 +1044,24 @@ export async function initializeDocumentAccess(
       ),
       cryptoRecipients,
     });
+    const accessStateHash = await computeDocumentAccessStateHash({
+      documentId,
+      grants,
+      linkedContainerIds,
+      linkedContainerStates,
+    });
     const initialEpoch = Math.max(
       1,
       ...linkedContainerStates.map((state) => state.currentAccessEpoch),
     );
 
-    await writeEpoch(documentId, initialEpoch, accessFingerprint, tx);
+    await writeEpoch(
+      documentId,
+      initialEpoch,
+      accessFingerprint,
+      accessStateHash,
+      tx,
+    );
 
     return initialEpoch;
   };

@@ -86,7 +86,7 @@ interface ValidatedAttachmentRewrap {
 
 type CommitChangeTransactionResult = Omit<
   CommitDocumentChangeResponse,
-  "currentAccessEpoch"
+  "currentAccessEpoch" | "currentAccessStateHash"
 >;
 
 export class CommitDocumentChangeError extends Error {
@@ -995,6 +995,7 @@ export async function commitDocumentChange(
 
   return {
     currentAccessEpoch: access.currentAccessEpoch,
+    currentAccessStateHash: access.accessStateHash,
     ...result,
   };
 }

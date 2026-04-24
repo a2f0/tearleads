@@ -32,6 +32,7 @@ interface DocumentAccessState {
   canRead: boolean;
   canWrite: boolean;
   currentAccessEpoch: number;
+  currentAccessStateHash: string;
   documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   rotateBaselineSourceVersionVector: string | null;
@@ -55,6 +56,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
     }): Promise<{
       document: DocumentRecord;
       currentAccessEpoch: number;
+      currentAccessStateHash: string;
       documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
       recipientEncapsulationPublicKeys: string[];
       referencedPrincipals: ReferencedPrincipalStateResponse[];
@@ -140,6 +142,7 @@ function createDocumentRouteHandler<TSession extends SessionLike>(
         id: created.document.id,
         createdAt: created.document.createdAt.toISOString(),
         currentAccessEpoch: created.currentAccessEpoch,
+        currentAccessStateHash: created.currentAccessStateHash,
         documentRecipientEnvelopes: created.documentRecipientEnvelopes,
         recipientEncapsulationPublicKeys:
           created.recipientEncapsulationPublicKeys,
@@ -425,6 +428,40 @@ async function listMissingSyncUpdates<TSession extends SessionLike>(
   ).map((update) => toSyncUpdate(update));
 }
 
+async function buildSyncDocumentResponse<TSession extends SessionLike>(input: {
+  access: DocumentAccessState;
+  acceptedOutgoingUpdateIds: string[];
+  canonicalDocumentRecipientEnvelopesAdopted: boolean;
+  commitLsn: string | null;
+  documentId: string;
+  missingUpdates: DocumentSyncUpdate[];
+  responseDocumentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
+  store: LoroRouterDeps<TSession>["store"];
+}): Promise<SyncDocumentResponse> {
+  return {
+    documentId: input.documentId,
+    acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds,
+    canonicalDocumentRecipientEnvelopesAdopted:
+      input.canonicalDocumentRecipientEnvelopesAdopted,
+    commitLsn: input.commitLsn ?? (await input.store.readCurrentCommitLsn()),
+    missingUpdateEpochs: getMissingUpdateEpochs(
+      input.missingUpdates,
+      input.access.currentAccessEpoch,
+    ),
+    updates: input.missingUpdates,
+    currentAccessEpoch: input.access.currentAccessEpoch,
+    currentAccessStateHash: input.access.currentAccessStateHash,
+    documentRecipientEnvelopeAction:
+      input.access.documentRecipientEnvelopeAction,
+    documentRecipientEnvelopes: input.responseDocumentRecipientEnvelopes,
+    rotateBaselineSourceVersionVector:
+      input.access.rotateBaselineSourceVersionVector,
+    recipientEncapsulationPublicKeys:
+      input.access.recipientEncapsulationPublicKeys,
+    referencedPrincipals: input.access.referencedPrincipals,
+  };
+}
+
 function createSyncDocumentRouteHandler<TSession extends SessionLike>(
   store: LoroRouterDeps<TSession>["store"],
   publish: LoroRouterDeps<TSession>["publish"],
@@ -507,24 +544,18 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
       });
     }
 
-    return c.json<SyncDocumentResponse>({
-      documentId,
-      acceptedOutgoingUpdateIds,
-      canonicalDocumentRecipientEnvelopesAdopted,
-      commitLsn: commitLsn ?? (await store.readCurrentCommitLsn()),
-      missingUpdateEpochs: getMissingUpdateEpochs(
+    return c.json<SyncDocumentResponse>(
+      await buildSyncDocumentResponse({
+        access,
+        acceptedOutgoingUpdateIds,
+        canonicalDocumentRecipientEnvelopesAdopted,
+        commitLsn,
+        documentId,
         missingUpdates,
-        access.currentAccessEpoch,
-      ),
-      updates: missingUpdates,
-      currentAccessEpoch: access.currentAccessEpoch,
-      documentRecipientEnvelopeAction: access.documentRecipientEnvelopeAction,
-      documentRecipientEnvelopes: responseDocumentRecipientEnvelopes,
-      rotateBaselineSourceVersionVector:
-        access.rotateBaselineSourceVersionVector,
-      recipientEncapsulationPublicKeys: access.recipientEncapsulationPublicKeys,
-      referencedPrincipals: access.referencedPrincipals,
-    });
+        responseDocumentRecipientEnvelopes,
+        store,
+      }),
+    );
   };
 }
 

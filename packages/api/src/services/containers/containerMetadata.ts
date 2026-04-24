@@ -128,6 +128,7 @@ export async function createContainerMetadataDocument(
   },
 ): Promise<{
   metadataAccessEpoch: number;
+  metadataAccessStateHash: string;
   metadataDocumentId: string;
   metadataRecipientEncapsulationPublicKeys: string[];
   metadataReferencedPrincipals: ReferencedPrincipalStateResponse[];
@@ -217,6 +218,7 @@ export async function createContainerMetadataDocument(
 
   return {
     metadataAccessEpoch,
+    metadataAccessStateHash: access.accessStateHash,
     metadataDocumentId: metadataDocument.id,
     metadataRecipientEncapsulationPublicKeys:
       listRecipientEncapsulationPublicKeys(access),

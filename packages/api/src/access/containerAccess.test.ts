@@ -13,16 +13,15 @@ import { registerUser } from "../../test/helpers/registerUser";
 import { db } from "../adapters/postgres";
 import {
   containers,
-  groupMembers,
   groups,
   objectAccessEpochs,
   objectAccessGrants,
-  organizationMembers,
   users,
 } from "../schema";
 import {
   canReadContainerAccess,
   canWriteContainerAccess,
+  grantContainerAccess,
   resolveContainerAccessState,
 } from "./containerAccess";
 import { storeVerifiedPrincipalState } from "./principalStateStore";
@@ -47,32 +46,79 @@ function userPrincipal(userId: string): {
   };
 }
 
+interface PrincipalStateWriter {
+  principalId: string;
+  principalKem: ReturnType<typeof generateKemSeedAndKeyPair>;
+  principalType: "group" | "organization";
+  prevStateHash: string | null;
+  signerKeyId: string;
+  signingPrivateKey: Uint8Array;
+  signingPublicKey: Uint8Array;
+  version: number;
+}
+
+function createPrincipalStateWriter(input: {
+  principalId: string;
+  principalType: "group" | "organization";
+}): PrincipalStateWriter {
+  const principalKem = generateKemSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+
+  return {
+    principalId: input.principalId,
+    principalKem,
+    principalType: input.principalType,
+    prevStateHash: null,
+    signerKeyId: `${input.principalType}-policy-key`,
+    signingPrivateKey,
+    signingPublicKey,
+    version: 1,
+  };
+}
+
+async function storePrincipalStateVersion(
+  writer: PrincipalStateWriter,
+  members: Array<{ principalType: "user" | "group"; principalId: string }>,
+  signedAtOffsetMinutes: number,
+) {
+  const storedState = await storeVerifiedPrincipalState(
+    await signPrincipalState(
+      {
+        principalType: writer.principalType,
+        principalId: writer.principalId,
+        version: writer.version,
+        prevStateHash: writer.prevStateHash,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(writer.principalKem.publicKey),
+        keyFingerprint: await toFingerprint(writer.principalKem.publicKey),
+        members,
+        signedAt: principalStateSignedAt(signedAtOffsetMinutes),
+        signerKeyId: writer.signerKeyId,
+      },
+      writer.signingPrivateKey,
+    ),
+    writer.signingPublicKey,
+  );
+
+  writer.prevStateHash = storedState.stateHash;
+  writer.version += 1;
+
+  return storedState;
+}
+
 async function storeCurrentPrincipalState(input: {
   members: Array<{ principalType: "user" | "group"; principalId: string }>;
   principalId: string;
   principalType: "group" | "organization";
 }): Promise<void> {
-  const principalKem = generateKemSeedAndKeyPair();
-  const { signingPrivateKey, signingPublicKey } =
-    generateSigningSeedAndKeyPair();
-
-  await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: input.principalType,
-        principalId: input.principalId,
-        version: 1,
-        prevStateHash: null,
-        keyEpoch: 1,
-        encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-        keyFingerprint: await toFingerprint(principalKem.publicKey),
-        members: input.members,
-        signedAt: principalStateSignedAt(0),
-        signerKeyId: `${input.principalType}-policy-key`,
-      },
-      signingPrivateKey,
-    ),
-    signingPublicKey,
+  await storePrincipalStateVersion(
+    createPrincipalStateWriter({
+      principalId: input.principalId,
+      principalType: input.principalType,
+    }),
+    input.members,
+    0,
   );
 }
 
@@ -231,30 +277,6 @@ test("container access expands organization and group grants and merges access l
 
   invariant(group, "expected group");
 
-  await db.insert(organizationMembers).values([
-    {
-      organizationId: aliceRow.defaultOrganizationId,
-      userId: bob.userId,
-      role: "member",
-    },
-    {
-      organizationId: aliceRow.defaultOrganizationId,
-      userId: charlie.userId,
-      role: "member",
-    },
-  ]);
-
-  await db.insert(groupMembers).values([
-    {
-      groupId: group.id,
-      userId: bob.userId,
-    },
-    {
-      groupId: group.id,
-      userId: charlie.userId,
-    },
-  ]);
-
   await storeCurrentPrincipalState({
     principalType: "organization",
     principalId: aliceRow.defaultOrganizationId,
@@ -359,6 +381,135 @@ test("container access expands organization and group grants and merges access l
       (recipient) => recipient.principalId === outsider.userId,
     ),
   ).toBeUndefined();
+});
+
+test("nested group policy changes bump container epoch even when crypto recipients stay stable", async () => {
+  const owner = createTestUser();
+  const bob = createTestUser();
+  const charlie = createTestUser();
+
+  await registerUser(owner);
+  await registerUser(bob);
+  await registerUser(charlie);
+
+  const [ownerRow] = await db
+    .select({
+      defaultOrganizationId: users.defaultOrganizationId,
+    })
+    .from(users)
+    .where(eq(users.id, owner.userId))
+    .limit(1);
+  invariant(ownerRow, "expected owner row");
+
+  const [rootContainer] = await db
+    .select({
+      id: containers.id,
+    })
+    .from(containers)
+    .where(
+      and(
+        eq(containers.organizationId, ownerRow.defaultOrganizationId),
+        sql`${containers.parentId} is null`,
+      ),
+    )
+    .limit(1);
+  invariant(rootContainer, "expected root container");
+
+  const [outerGroup] = await db
+    .insert(groups)
+    .values({
+      organizationId: ownerRow.defaultOrganizationId,
+      name: "Outer",
+    })
+    .returning({ id: groups.id });
+  invariant(outerGroup, "expected outer group");
+
+  const [innerGroup] = await db
+    .insert(groups)
+    .values({
+      organizationId: ownerRow.defaultOrganizationId,
+      name: "Inner",
+    })
+    .returning({ id: groups.id });
+  invariant(innerGroup, "expected inner group");
+
+  const outerWriter = createPrincipalStateWriter({
+    principalId: outerGroup.id,
+    principalType: "group",
+  });
+  const innerWriter = createPrincipalStateWriter({
+    principalId: innerGroup.id,
+    principalType: "group",
+  });
+
+  await storePrincipalStateVersion(
+    innerWriter,
+    [{ principalType: "user", principalId: bob.userId }],
+    0,
+  );
+  await storePrincipalStateVersion(
+    outerWriter,
+    [{ principalType: "group", principalId: innerGroup.id }],
+    1,
+  );
+
+  const initialEpoch = await grantContainerAccess({
+    containerId: rootContainer.id,
+    subjectType: "group",
+    subjectId: outerGroup.id,
+    accessLevel: "read",
+  });
+
+  const initialState = await resolveContainerAccessState(rootContainer.id);
+  invariant(initialState, "expected initial container access state");
+
+  await storePrincipalStateVersion(
+    innerWriter,
+    [
+      { principalType: "user", principalId: bob.userId },
+      { principalType: "user", principalId: charlie.userId },
+    ],
+    2,
+  );
+
+  const refreshedState = await resolveContainerAccessState(rootContainer.id);
+  invariant(refreshedState, "expected refreshed container access state");
+
+  expect(refreshedState.currentAccessEpoch).toBe(initialEpoch + 1);
+  expect(refreshedState.accessFingerprint).toBe(initialState.accessFingerprint);
+  expect(refreshedState.accessStateHash).not.toBe(initialState.accessStateHash);
+  expect(
+    refreshedState.cryptoRecipients.map((recipient) => ({
+      principalId: recipient.principalId,
+      principalType: recipient.principalType,
+      keyFingerprint: recipient.keyFingerprint,
+    })),
+  ).toEqual(
+    initialState.cryptoRecipients.map((recipient) => ({
+      principalId: recipient.principalId,
+      principalType: recipient.principalType,
+      keyFingerprint: recipient.keyFingerprint,
+    })),
+  );
+  expect(canReadContainerAccess(refreshedState, charlie.userId)).toBe(true);
+  expect(refreshedState.referencedPrincipals).toEqual(
+    expect.arrayContaining([
+      {
+        principalType: "group",
+        principalId: innerGroup.id,
+        version: 2,
+        keyEpoch: 1,
+        stateHash: expect.any(String),
+      },
+      {
+        principalType: "group",
+        principalId: outerGroup.id,
+        version: 1,
+        keyEpoch: 1,
+        stateHash: expect.any(String),
+      },
+    ]),
+  );
 });
 
 test("container access is unavailable when a group grant lacks current principal policy state", async () => {

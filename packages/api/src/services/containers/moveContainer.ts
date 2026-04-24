@@ -197,6 +197,7 @@ async function buildMoveContainerResponse(
     parentId: container.parentId ?? parentId,
     metadataDocumentId: metadataBinding.documentId,
     metadataAccessEpoch: metadataAccess.currentAccessEpoch,
+    metadataAccessStateHash: metadataAccess.accessStateHash,
     metadataRecipientEncapsulationPublicKeys:
       listRecipientEncapsulationPublicKeys(metadataAccess),
     metadataReferencedPrincipals: metadataAccess.referencedPrincipals,
