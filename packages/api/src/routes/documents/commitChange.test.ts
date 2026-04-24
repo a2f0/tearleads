@@ -483,6 +483,30 @@ test("POST /documents/:documentId/commit-change atomically commits a blob attach
   expect(deletedStage).toBeUndefined();
 });
 
+test("POST /documents/:documentId/commit-change rejects a stale access state hash", async () => {
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+
+  const response = await commitDocumentChange(
+    String(createdDocument.id ?? ""),
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      expectedAccessStateHash: "stale-access-state-hash",
+      attachmentCommits: [],
+      attachmentDetaches: [],
+      attachmentRewraps: [],
+      loroUpdate: null,
+    },
+    alice.token,
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({ error: "Stale access state hash" });
+});
+
 test("POST /documents/:documentId/commit-change rejects a divergent current-epoch document bundle", async () => {
   const createDocumentResponse = await createDocument(alice.token, [
     alice.rootContainerId,

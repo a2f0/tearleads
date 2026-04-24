@@ -120,6 +120,7 @@ test("isCommitDocumentChangeRequest", () => {
   expect(
     isCommitDocumentChangeRequest({
       accessEpoch: 1,
+      expectedAccessStateHash: "access-state-1",
       attachmentCommits: [
         {
           slotId: "slot_01",
@@ -140,6 +141,15 @@ test("isCommitDocumentChangeRequest", () => {
       },
     }),
   ).toBe(true);
+  expect(
+    isCommitDocumentChangeRequest({
+      accessEpoch: 1,
+      attachmentCommits: [],
+      attachmentDetaches: [],
+      attachmentRewraps: [],
+      loroUpdate: null,
+    }),
+  ).toBe(false);
   expect(
     isCommitDocumentChangeRequest({
       accessEpoch: 1,

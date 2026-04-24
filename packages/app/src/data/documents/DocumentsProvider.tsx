@@ -702,6 +702,8 @@ async function persistDocument(
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
     accessEpoch: patch.accessEpoch ?? state.record?.accessEpoch ?? 1,
+    accessStateHash:
+      patch.accessStateHash ?? state.record?.accessStateHash ?? null,
     lastCommitLsn: hasLastCommitLsnPatch
       ? (patch.lastCommitLsn ?? null)
       : nextDocumentId !== currentDocumentId
@@ -754,6 +756,7 @@ async function ensureRemoteDocument(
         created.documentRecipientEnvelopes,
       ),
       accessEpoch: created.currentAccessEpoch,
+      accessStateHash: created.currentAccessStateHash ?? null,
     })
   ).record;
 }
@@ -1272,6 +1275,7 @@ async function initializeDocumentStore(
       text: state.initialText,
       loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
       accessEpoch: 1,
+      accessStateHash: null,
       lastCommitLsn: null,
     };
     await saveDocumentRecord(state, created);
@@ -1528,6 +1532,7 @@ async function commitBaselineChange(
     nextRemoteRecord.documentId,
     {
       accessEpoch: nextRemoteRecord.accessEpoch,
+      expectedAccessStateHash: nextRemoteRecord.accessStateHash ?? "",
       attachmentCommits,
       attachmentDetaches: [],
       attachmentRewraps,
@@ -1564,6 +1569,7 @@ async function commitAttachmentRewrapChange(
     nextRemoteRecord.documentId,
     {
       accessEpoch: nextRemoteRecord.accessEpoch,
+      expectedAccessStateHash: nextRemoteRecord.accessStateHash ?? "",
       attachmentCommits: [],
       attachmentDetaches: [],
       attachmentRewraps,
@@ -1776,6 +1782,7 @@ async function persistCommittedDocumentRecord(
   return (
     await persistDocument(state, currentDoc, {
       accessEpoch: committed.currentAccessEpoch,
+      accessStateHash: committed.currentAccessStateHash ?? null,
       documentId,
       documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
         committed.documentRecipientEnvelopes,
@@ -1992,6 +1999,7 @@ async function requestDocumentSync(
       ? encryptionMaterial.documentRecipientEnvelopes
       : undefined,
     currentRecord.lastCommitLsn ?? undefined,
+    currentRecord.accessStateHash ?? undefined,
   );
   if (!synced) {
     return null;
@@ -2175,6 +2183,7 @@ async function finalizeDocumentSync(
   const { record: nextRecord } = await persistDocument(state, currentDoc, {
     documentId: currentRecord.documentId,
     accessEpoch: synced.currentAccessEpoch,
+    accessStateHash: synced.currentAccessStateHash ?? null,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,
     ),

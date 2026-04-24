@@ -44,6 +44,7 @@ export function syncDocument(
   outgoingUpdates: SyncDocumentOutgoingUpdate[],
   documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
   minLsn?: string,
+  expectedAccessStateHash?: string,
 ): Promise<SyncDocumentResponse | null> {
   return request(
     `/documents/${documentId}/sync`,
@@ -51,6 +52,7 @@ export function syncDocument(
     "POST",
     JSON.stringify({
       accessEpoch,
+      expectedAccessStateHash,
       documentRecipientEnvelopes,
       localVersionVector,
       minLsn,

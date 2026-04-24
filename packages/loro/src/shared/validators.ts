@@ -46,6 +46,7 @@ export interface CreateDocumentResponse {
 
 export interface SyncDocumentRequest {
   accessEpoch: number;
+  expectedAccessStateHash?: string;
   documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
   localVersionVector: string | null;
   minLsn?: string;
@@ -190,13 +191,27 @@ export function isSyncDocumentRequest(
   const documentRecipientEnvelopes = isPlainObject(value)
     ? Reflect.get(value, "documentRecipientEnvelopes")
     : undefined;
+  const expectedAccessStateHash = isPlainObject(value)
+    ? Reflect.get(value, "expectedAccessStateHash")
+    : undefined;
   const minLsn = isPlainObject(value)
     ? Reflect.get(value, "minLsn")
     : undefined;
+  const outgoingUpdates = isPlainObject(value)
+    ? Reflect.get(value, "outgoingUpdates")
+    : undefined;
+  const hasWritePayload =
+    documentRecipientEnvelopes !== undefined ||
+    (Array.isArray(outgoingUpdates) && outgoingUpdates.length > 0);
 
   return (
     isPlainObject(value) &&
     hasPositiveNumberProperty(value, "accessEpoch") &&
+    (expectedAccessStateHash === undefined ||
+      typeof expectedAccessStateHash === "string") &&
+    (!hasWritePayload ||
+      (typeof expectedAccessStateHash === "string" &&
+        expectedAccessStateHash.length > 0)) &&
     (documentRecipientEnvelopes === undefined ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     hasNullableStringProperty(value, "localVersionVector") &&

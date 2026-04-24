@@ -115,6 +115,7 @@ export interface ContainerState {
 
 export interface ExplorerContainerPatch {
   accessEpoch: number;
+  accessStateHash: string | null;
   documentId: string | null;
   documentRecipientEnvelopes: string | null;
   icon: string | null;
@@ -425,6 +426,7 @@ async function upsertRemoteContainerState(
       existingState,
       {
         accessEpoch: remoteContainer.metadataAccessEpoch,
+        accessStateHash: remoteContainer.metadataAccessStateHash ?? null,
         documentId: remoteContainer.metadataDocumentId,
         metadataDocumentId: remoteContainer.metadataDocumentId,
         organizationId: remoteContainer.organizationId,
@@ -452,6 +454,7 @@ async function upsertRemoteContainerState(
     ),
     record: {
       accessEpoch: remoteContainer.metadataAccessEpoch,
+      accessStateHash: remoteContainer.metadataAccessStateHash ?? null,
       documentId: remoteContainer.metadataDocumentId,
       documentRecipientEnvelopes: null,
       id: remoteContainer.id,
@@ -582,6 +585,7 @@ async function initializeExplorerStore(input: {
       const initialUpdate = exportAllUpdates(doc);
       nextRecord = {
         accessEpoch: 1,
+        accessStateHash: null,
         documentId: container.metadataDocumentId,
         documentRecipientEnvelopes: null,
         id: container.id,
@@ -823,6 +827,7 @@ async function requestContainerMetadataSync(
       ? encryptionMaterial.documentRecipientEnvelopes
       : undefined,
     containerState.record.lastCommitLsn ?? undefined,
+    containerState.record.accessStateHash ?? undefined,
   );
 
   if (!synced) {
@@ -899,6 +904,7 @@ async function syncSingleContainerMetadata(input: {
     });
   await host.persistContainerState(containerState, {
     accessEpoch: synced.currentAccessEpoch,
+    accessStateHash: synced.currentAccessStateHash ?? null,
     documentId: containerState.record.documentId,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,
