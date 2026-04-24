@@ -1,13 +1,13 @@
-# Attachment Retention V1
+# Attachment Retention
 
-Status: accepted for V1.
+Status: accepted.
 
 This note records the attachment/blob retention decision for the current
 access-plane work in GitHub issue `#105`.
 
 ## Decision
 
-V1 attachment/blob retention is live-only.
+Attachment/blob retention is live-only.
 
 The server retains attachment blob bytes, blob access epochs, and blob
 recipient envelopes only while at least one active `attachment_bindings` row
@@ -28,8 +28,8 @@ historical attachment log, tombstone store, audit manifest, or recovery index.
 
 ## Product Semantics
 
-V1 guarantees live note state and live attachment availability, not durable
-attachment history.
+The current design guarantees live note state and live attachment availability,
+not durable attachment history.
 
 Consequences:
 
@@ -38,8 +38,8 @@ Consequences:
 - replacing or detaching an attachment can make the old blob bytes unavailable
   from the server once no active binding references them
 - historical document updates may still contain encrypted metadata that once
-  referenced an old attachment slot, but V1 does not guarantee that the old blob
-  bytes remain fetchable for historical replay
+  referenced an old attachment slot, but the system does not guarantee that the
+  old blob bytes remain fetchable for historical replay
 - retained clients may still have local blob bytes in their local cache, but
   that is not a server retention guarantee
 - fresh-client bootstrap is expected to use the current live baseline and live
@@ -61,11 +61,11 @@ Useful historical attachment retention needs a separate design for:
   baseline checkpoints
 
 Those choices are larger than blob reachability GC and should not be smuggled
-into V1 by keeping detached binding rows indefinitely.
+into the current design by keeping detached binding rows indefinitely.
 
 ## Non-Goals
 
-V1 does not provide:
+This design does not provide:
 
 - durable old attachment bytes after replacement or detach
 - server-side historical attachment replay

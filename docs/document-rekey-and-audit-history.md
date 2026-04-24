@@ -44,7 +44,7 @@ The important distinction is:
 - future writes move to a new DEK
 - the rotate baseline is the bridge from old readable state to new epoch state
 
-### Blob History Is Live-Only In V1
+### Blob History Is Live-Only
 
 Current blob GC is based on active attachment reachability, not historical
 document replay. If a blob is no longer referenced by any active
@@ -53,15 +53,15 @@ blob recipient envelopes, and detached binding rows for that blob. If another
 active binding still references the same blob, those rows remain live until the
 final active binding is retired.
 
-Historical attachment bytes are therefore not durable in V1. Detached bindings
-are transient replacement metadata, not an attachment audit log.
+Historical attachment bytes are therefore not durable. Detached bindings are
+transient replacement metadata, not an attachment audit log.
 
 That means document update history and attachment/blob history have different
 retention properties.
 
-This is an accepted V1 product decision, not only an implementation accident.
-For the explicit attachment/blob retention policy, see
-[attachment-retention-v1.md](./attachment-retention-v1.md).
+This is an accepted product decision, not only an implementation accident. For
+the explicit attachment/blob retention policy, see
+[attachment-retention.md](./attachment-retention.md).
 
 ## Desired Rekey / Rebaseline Model
 
@@ -627,7 +627,8 @@ Live GC must never delete from history-side tables.
 ## Open Questions
 
 - Should fresh retained clients be able to rematerialize old epochs directly
-  from the server, or is a retained already-synced client sufficient for V1/V2?
+  from the server, or is a retained already-synced client sufficient for the
+  initial rollout?
 - Should rotate baselines carry an explicit compare-and-set frontier in the API
   contract?
 - Should document updates be signed by users, devices, or both?
