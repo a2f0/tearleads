@@ -702,6 +702,8 @@ async function persistDocument(
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
     accessEpoch: patch.accessEpoch ?? state.record?.accessEpoch ?? 1,
+    accessStateHash:
+      patch.accessStateHash ?? state.record?.accessStateHash ?? null,
     lastCommitLsn: hasLastCommitLsnPatch
       ? (patch.lastCommitLsn ?? null)
       : nextDocumentId !== currentDocumentId
@@ -754,6 +756,7 @@ async function ensureRemoteDocument(
         created.documentRecipientEnvelopes,
       ),
       accessEpoch: created.currentAccessEpoch,
+      accessStateHash: created.currentAccessStateHash ?? null,
     })
   ).record;
 }
@@ -1272,6 +1275,7 @@ async function initializeDocumentStore(
       text: state.initialText,
       loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
       accessEpoch: 1,
+      accessStateHash: null,
       lastCommitLsn: null,
     };
     await saveDocumentRecord(state, created);
@@ -1501,6 +1505,12 @@ async function commitBaselineChange(
   if (!nextRemoteRecord.documentId) {
     return null;
   }
+  if (!nextRemoteRecord.accessStateHash) {
+    state.runtime.log(
+      "Documents: skipped attachment commit because the current access state hash is unavailable.",
+    );
+    return null;
+  }
 
   const baselineUpdate = exportAllUpdates(currentDoc);
   const baselineUpdateFields = createPendingUpdateFields(baselineUpdate);
@@ -1528,6 +1538,7 @@ async function commitBaselineChange(
     nextRemoteRecord.documentId,
     {
       accessEpoch: nextRemoteRecord.accessEpoch,
+      expectedAccessStateHash: nextRemoteRecord.accessStateHash,
       attachmentCommits,
       attachmentDetaches: [],
       attachmentRewraps,
@@ -1559,11 +1570,18 @@ async function commitAttachmentRewrapChange(
   if (!nextRemoteRecord.documentId) {
     return null;
   }
+  if (!nextRemoteRecord.accessStateHash) {
+    state.runtime.log(
+      "Documents: skipped attachment rewrap because the current access state hash is unavailable.",
+    );
+    return null;
+  }
 
   return state.runtime.apiClient.commitDocumentChange(
     nextRemoteRecord.documentId,
     {
       accessEpoch: nextRemoteRecord.accessEpoch,
+      expectedAccessStateHash: nextRemoteRecord.accessStateHash,
       attachmentCommits: [],
       attachmentDetaches: [],
       attachmentRewraps,
@@ -1776,6 +1794,7 @@ async function persistCommittedDocumentRecord(
   return (
     await persistDocument(state, currentDoc, {
       accessEpoch: committed.currentAccessEpoch,
+      accessStateHash: committed.currentAccessStateHash ?? null,
       documentId,
       documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
         committed.documentRecipientEnvelopes,
@@ -1992,6 +2011,7 @@ async function requestDocumentSync(
       ? encryptionMaterial.documentRecipientEnvelopes
       : undefined,
     currentRecord.lastCommitLsn ?? undefined,
+    currentRecord.accessStateHash ?? undefined,
   );
   if (!synced) {
     return null;
@@ -2175,6 +2195,7 @@ async function finalizeDocumentSync(
   const { record: nextRecord } = await persistDocument(state, currentDoc, {
     documentId: currentRecord.documentId,
     accessEpoch: synced.currentAccessEpoch,
+    accessStateHash: synced.currentAccessStateHash ?? null,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,
     ),
@@ -2272,13 +2293,17 @@ async function syncDocumentState(
   );
 }
 
-async function refreshRemoteDocumentBeforePendingAttachmentCommit(
+async function refreshRemoteDocumentBeforePendingAttachmentMutation(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
-  if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
+  if (
+    (state.pendingAttachments.length === 0 &&
+      state.pendingAttachmentRewraps.length === 0) ||
+    !nextRecord.documentId
+  ) {
     return { completed: false, nextRecord };
   }
 
@@ -2322,7 +2347,7 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
   }
 
   const refreshedResult =
-    await refreshRemoteDocumentBeforePendingAttachmentCommit(
+    await refreshRemoteDocumentBeforePendingAttachmentMutation(
       state,
       currentDoc,
       nextRecord,

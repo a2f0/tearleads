@@ -25,6 +25,7 @@ interface StoredContactState {
 function createSyncDocumentResponse(input: {
   accessEpoch: number;
   commitLsn?: string | null;
+  currentAccessStateHash?: string;
   documentId: string;
   recipientEncapsulationPublicKeys: string[];
   acceptedOutgoingUpdateIds?: string[];
@@ -41,6 +42,8 @@ function createSyncDocumentResponse(input: {
       input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
     commitLsn: input.commitLsn ?? null,
     currentAccessEpoch: input.accessEpoch,
+    currentAccessStateHash:
+      input.currentAccessStateHash ?? `access-state-hash-${input.accessEpoch}`,
     documentId: input.documentId,
     documentRecipientEnvelopeAction:
       input.documentRecipientEnvelopeAction ?? "none",

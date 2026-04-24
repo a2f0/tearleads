@@ -445,6 +445,7 @@ Mutation entry points:
 Atomic document mutation payload:
 
 - `accessEpoch`
+- `expectedAccessStateHash`
 - `attachmentCommits[]`
   - `slotId`
   - `stageId`

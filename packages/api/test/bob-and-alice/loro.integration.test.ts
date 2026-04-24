@@ -982,6 +982,88 @@ test("Bob can discover and read a note after Alice shares its container through 
   expect(getTextValue(bobDoc)).toBe("shared through http route");
 });
 
+test("read-only users cannot submit envelope-only sync writes", async () => {
+  const owner = createTestUser();
+  const reader = createTestUser();
+
+  await registerUser(owner);
+  await authenticate(owner);
+  await registerUser(reader);
+  await authenticate(reader);
+
+  const sharedContainerId = crypto.randomUUID();
+  const createContainerResponse = await routeApp.request("/containers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id: sharedContainerId,
+      initialMetadataUpdates: [],
+      parentId: owner.rootContainerId,
+    }),
+  });
+  expect(createContainerResponse.status).toBe(200);
+
+  const createDocumentResponse = await createDocument(owner.token, [
+    sharedContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const sharedDocumentId = String(createdDocument.id ?? "");
+
+  const shareResponse = await routeApp.request(
+    `/containers/${sharedContainerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        accessLevel: "read",
+        subjectId: reader.userId,
+        subjectType: "user",
+      }),
+    },
+  );
+  expect(shareResponse.status).toBe(200);
+
+  const eveReadResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: createdDocument.currentAccessEpoch,
+      localVersionVector: "AA==",
+      outgoingUpdates: [],
+    },
+    reader.token,
+  );
+  expect(eveReadResponse.status).toBe(200);
+  const eveReadSync = await eveReadResponse.json();
+  expect(eveReadSync.currentAccessEpoch).toBeGreaterThan(
+    createdDocument.currentAccessEpoch,
+  );
+  expect(typeof eveReadSync.currentAccessStateHash).toBe("string");
+  expect(eveReadSync.currentAccessStateHash.length).toBeGreaterThan(0);
+
+  const forbiddenEnvelopeWriteResponse = await syncDocument(
+    sharedDocumentId,
+    {
+      accessEpoch: eveReadSync.currentAccessEpoch,
+      expectedAccessStateHash: eveReadSync.currentAccessStateHash,
+      documentRecipientEnvelopes: [],
+      localVersionVector: "AA==",
+      outgoingUpdates: [],
+    },
+    reader.token,
+  );
+  expect(forbiddenEnvelopeWriteResponse.status).toBe(403);
+  expect(await forbiddenEnvelopeWriteResponse.json()).toEqual({
+    error: "Forbidden",
+  });
+});
+
 test("rotate baseline sync requires the latest prior-epoch source frontier", async () => {
   const charlie = createTestUser();
   await registerUser(charlie);

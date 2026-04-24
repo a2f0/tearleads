@@ -35,6 +35,8 @@ Protocol shape:
 - `POST /documents/:documentId/sync`
   - request includes:
     - `accessEpoch`
+    - `expectedAccessStateHash` when the request carries outgoing writes or
+      replacement document recipient envelopes
     - optional `documentRecipientEnvelopes[]`
     - `localVersionVector`
     - `outgoingUpdates[]`
@@ -305,6 +307,7 @@ source-frontier CAS as raw document sync.
 `commit-change` accepts:
 
 - `accessEpoch`
+- `expectedAccessStateHash`
 - `attachmentCommits[]`
 - `attachmentDetaches[]`
 - optional `documentRecipientEnvelopes[]`
@@ -338,6 +341,8 @@ The optional `loroUpdate` contains:
 The server must reject `commit-change` if:
 
 - the provided `accessEpoch` is stale
+- the provided `expectedAccessStateHash` does not match current document
+  access state
 - the caller cannot write the document
 - a `stageId` does not exist, expired, or belongs to another user
 - a `slotId` is not currently bound to the `expectedBindingId`

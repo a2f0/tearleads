@@ -112,6 +112,7 @@ async function createDocumentWithAuditHistory() {
     documentId: created.document.id,
     request: {
       accessEpoch: created.currentAccessEpoch,
+      expectedAccessStateHash: created.currentAccessStateHash,
       attachmentCommits: [
         {
           expectedBindingId: null,
@@ -147,6 +148,7 @@ async function createDocumentWithAuditHistory() {
     documentId: created.document.id,
     request: {
       accessEpoch: created.currentAccessEpoch,
+      expectedAccessStateHash: created.currentAccessStateHash,
       attachmentCommits: [],
       attachmentDetaches: [],
       attachmentRewraps: [],

@@ -35,6 +35,7 @@ type TestRuntime = ExplorerRuntime & { close: () => void };
 function createSyncDocumentResponse(input: {
   accessEpoch: number;
   commitLsn?: string | null;
+  currentAccessStateHash?: string;
   documentId: string;
   recipientEncapsulationPublicKeys: string[];
   acceptedOutgoingUpdateIds?: string[];
@@ -51,6 +52,8 @@ function createSyncDocumentResponse(input: {
       input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
     commitLsn: input.commitLsn ?? null,
     currentAccessEpoch: input.accessEpoch,
+    currentAccessStateHash:
+      input.currentAccessStateHash ?? `access-state-hash-${input.accessEpoch}`,
     documentId: input.documentId,
     documentRecipientEnvelopeAction:
       input.documentRecipientEnvelopeAction ?? "none",
@@ -1132,6 +1135,11 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
     documentId: string;
     expectedBindingIds: Array<string | null>;
   }> = [];
+  const noteSyncCalls: Array<{
+    accessEpoch: number;
+    documentRecipientEnvelopeCount: number;
+    outgoingUpdateCount: number;
+  }> = [];
   let commitCallCount = 0;
   let currentBindingId: string | null = null;
   let currentBlobId: string | null = null;
@@ -1178,7 +1186,8 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
           : [],
         committedBindings,
         currentAccessEpoch: input.accessEpoch,
-        documentRecipientEnvelopes: null,
+        currentAccessStateHash: `access-state-hash-${input.accessEpoch}`,
+        documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
         detachedBindingIds: [],
       };
     },
@@ -1201,6 +1210,7 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
     createDocument: async () => ({
       createdAt: "2026-03-31T00:00:00.000Z",
       currentAccessEpoch: 1,
+      currentAccessStateHash: "access-state-hash-1",
       documentRecipientEnvelopes: null,
       id: "notes-document-1",
       recipientEncapsulationPublicKeys: [bytesToBase64(localKeyPair.publicKey)],
@@ -1255,10 +1265,16 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
       accessEpoch,
       _localVersionVector,
       updates,
-      _documentRecipientEnvelopes,
+      documentRecipientEnvelopes,
     ) => {
       if (documentId === "notes-document-1") {
         noteSyncCallCount += 1;
+        noteSyncCalls.push({
+          accessEpoch,
+          documentRecipientEnvelopeCount:
+            documentRecipientEnvelopes?.length ?? 0,
+          outgoingUpdateCount: updates.length,
+        });
 
         if (noteSyncCallCount === 2) {
           return createSyncDocumentResponse({
@@ -1418,6 +1434,16 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
     expect(
       commitChangeCalls.length === 2 || pendingAttachmentRewraps.length === 1,
     ).toBe(true);
+    expect(noteSyncCalls).toContainEqual({
+      accessEpoch: 2,
+      documentRecipientEnvelopeCount: 0,
+      outgoingUpdateCount: 0,
+    });
+    expect(noteSyncCalls).toContainEqual({
+      accessEpoch: 2,
+      documentRecipientEnvelopeCount: 1,
+      outgoingUpdateCount: 1,
+    });
     if (commitChangeCalls.length === 2) {
       expect(commitChangeCalls[1]).toEqual({
         accessEpoch: 2,

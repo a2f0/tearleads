@@ -12,7 +12,6 @@ import {
   type SerializedRecipientEnvelope,
   type SyncDocumentMissingUpdateEpoch,
   type SyncDocumentOutgoingUpdate,
-  type SyncDocumentRequest,
   type SyncDocumentResponse,
 } from "../shared";
 import type { DocumentRecord, DocumentUpdateRecord } from "./schema";
@@ -297,9 +296,16 @@ function isDocumentRecipientEnvelopesConflict(appendAttempt: {
 
 function getWriteAccessError(
   access: DocumentAccessState,
-  outgoingUpdates: SyncDocumentOutgoingUpdate[],
+  input: {
+    documentRecipientEnvelopes: SerializedRecipientEnvelope[] | undefined;
+    outgoingUpdates: SyncDocumentOutgoingUpdate[];
+  },
 ): SyncAccessError | null {
-  if (outgoingUpdates.length > 0 && !access.canWrite) {
+  if (
+    (input.outgoingUpdates.length > 0 ||
+      input.documentRecipientEnvelopes !== undefined) &&
+    !access.canWrite
+  ) {
     return { error: "Forbidden", status: 403 };
   }
 
@@ -462,6 +468,47 @@ async function buildSyncDocumentResponse<TSession extends SessionLike>(input: {
   };
 }
 
+function getSyncWritePreconditionError(input: {
+  access: DocumentAccessState;
+  accessEpoch: number;
+  documentRecipientEnvelopes?: SerializedRecipientEnvelope[] | undefined;
+  expectedAccessStateHash?: string | undefined;
+  outgoingUpdates: SyncDocumentOutgoingUpdate[];
+}): { error: string; status: 409 } | null {
+  const hasWritePayload =
+    input.outgoingUpdates.length > 0 ||
+    input.documentRecipientEnvelopes !== undefined;
+
+  if (!hasWritePayload) {
+    return null;
+  }
+
+  if (input.accessEpoch !== input.access.currentAccessEpoch) {
+    return { error: "Stale access epoch", status: 409 };
+  }
+
+  if (input.expectedAccessStateHash !== input.access.currentAccessStateHash) {
+    return { error: "Stale access state hash", status: 409 };
+  }
+
+  return null;
+}
+
+async function publishAcceptedOutgoingUpdates<TSession extends SessionLike>(
+  publish: LoroRouterDeps<TSession>["publish"],
+  input: { documentId: string; updateIds: string[] },
+): Promise<void> {
+  if (input.updateIds.length === 0) {
+    return;
+  }
+
+  await publish({
+    type: "document_update_created",
+    documentId: input.documentId,
+    updateIds: input.updateIds,
+  });
+}
+
 function createSyncDocumentRouteHandler<TSession extends SessionLike>(
   store: LoroRouterDeps<TSession>["store"],
   publish: LoroRouterDeps<TSession>["publish"],
@@ -472,13 +519,6 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
     if (!request) {
       return c.json({ error: "Invalid request" }, 400);
     }
-    const {
-      accessEpoch,
-      documentRecipientEnvelopes,
-      localVersionVector,
-      minLsn,
-      outgoingUpdates,
-    }: SyncDocumentRequest = request;
     const session = c.get("session");
 
     const syncAccess = await loadSyncDocumentAccess(
@@ -491,7 +531,10 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
     }
     let access = syncAccess.access;
 
-    const writeAccessError = getWriteAccessError(access, outgoingUpdates);
+    const writeAccessError = getWriteAccessError(access, {
+      documentRecipientEnvelopes: request.documentRecipientEnvelopes,
+      outgoingUpdates: request.outgoingUpdates,
+    });
     if (writeAccessError) {
       return c.json({ error: writeAccessError.error }, writeAccessError.status);
     }
@@ -500,14 +543,27 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
     let canonicalDocumentRecipientEnvelopesAdopted = false;
     let commitLsn: string | null = null;
     let responseDocumentRecipientEnvelopes = access.documentRecipientEnvelopes;
+    const preconditionError = getSyncWritePreconditionError({
+      access,
+      accessEpoch: request.accessEpoch,
+      documentRecipientEnvelopes: request.documentRecipientEnvelopes,
+      expectedAccessStateHash: request.expectedAccessStateHash,
+      outgoingUpdates: request.outgoingUpdates,
+    });
+    if (preconditionError) {
+      return c.json(
+        { error: preconditionError.error },
+        preconditionError.status,
+      );
+    }
 
-    if (accessEpoch === access.currentAccessEpoch) {
+    if (request.accessEpoch === access.currentAccessEpoch) {
       const appendResult = await appendCurrentEpochOutgoingUpdates(store, {
-        accessEpoch,
+        accessEpoch: request.accessEpoch,
         currentAccess: access,
         documentId,
-        documentRecipientEnvelopes,
-        outgoingUpdates,
+        documentRecipientEnvelopes: request.documentRecipientEnvelopes,
+        outgoingUpdates: request.outgoingUpdates,
         session,
       });
       if ("error" in appendResult) {
@@ -527,8 +583,8 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
     try {
       missingUpdates = await listMissingSyncUpdates(store, {
         documentId,
-        localVersionVector,
-        minLsn,
+        localVersionVector: request.localVersionVector,
+        minLsn: request.minLsn,
       });
     } catch (error) {
       if (isStatusError(error)) {
@@ -536,13 +592,10 @@ function createSyncDocumentRouteHandler<TSession extends SessionLike>(
       }
       throw error;
     }
-    if (acceptedOutgoingUpdateIds.length > 0) {
-      await publish({
-        type: "document_update_created",
-        documentId,
-        updateIds: acceptedOutgoingUpdateIds,
-      });
-    }
+    await publishAcceptedOutgoingUpdates(publish, {
+      documentId,
+      updateIds: acceptedOutgoingUpdateIds,
+    });
 
     return c.json<SyncDocumentResponse>(
       await buildSyncDocumentResponse({

@@ -257,6 +257,7 @@ export class ApiClient {
     outgoingUpdates: Parameters<typeof syncDocument>[4],
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
     minLsn?: string,
+    expectedAccessStateHash?: string,
   ) {
     return syncDocument(
       this.request,
@@ -266,6 +267,7 @@ export class ApiClient {
       outgoingUpdates,
       documentRecipientEnvelopes,
       minLsn,
+      expectedAccessStateHash,
     );
   }
 

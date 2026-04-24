@@ -242,6 +242,8 @@ async function persistContact(
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(contact.doc)),
     accessEpoch: patch.accessEpoch ?? contact.record.accessEpoch ?? 1,
+    accessStateHash:
+      patch.accessStateHash ?? contact.record.accessStateHash ?? null,
     lastCommitLsn: hasLastCommitLsnPatch
       ? (patch.lastCommitLsn ?? null)
       : nextDocumentId !== currentDocumentId
@@ -337,6 +339,7 @@ async function initializeStoredContact(
       documentRecipientEnvelopes: null,
       loroSnapshot: bytesToBase64(initialUpdate),
       accessEpoch: 1,
+      accessStateHash: null,
       lastCommitLsn: null,
     };
     await state.persistence.saveContact(
@@ -452,6 +455,7 @@ async function ensureContactDocumentForSync(
         created.documentRecipientEnvelopes,
       ),
       accessEpoch: created.currentAccessEpoch,
+      accessStateHash: created.currentAccessStateHash ?? null,
     });
     state.runtime.log(
       `Created contact document: ${created.id} (${contact.entry.userId})`,
@@ -592,6 +596,7 @@ async function applySyncedContactUpdates(
   await persistContact(state, contact, {
     documentId,
     accessEpoch: synced.currentAccessEpoch,
+    accessStateHash: synced.currentAccessStateHash ?? null,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,
     ),
@@ -661,6 +666,7 @@ async function syncSingleContact(
       ? encryptionMaterial.documentRecipientEnvelopes
       : undefined,
     contact.record.lastCommitLsn ?? undefined,
+    contact.record.accessStateHash ?? undefined,
   );
 
   if (!synced) {
@@ -790,6 +796,7 @@ async function importContactEntry(
         documentRecipientEnvelopes: null,
         loroSnapshot: bytesToBase64(initialUpdate),
         accessEpoch: 1,
+        accessStateHash: null,
         lastCommitLsn: null,
       },
     };

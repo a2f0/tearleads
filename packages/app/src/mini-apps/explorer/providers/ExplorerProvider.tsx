@@ -252,6 +252,8 @@ async function persistContainerState(
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(containerState.doc)),
     accessEpoch: nextAccessEpoch,
+    accessStateHash:
+      patch.accessStateHash ?? containerState.record.accessStateHash ?? null,
     lastCommitLsn: hasLastCommitLsnPatch
       ? (patch.lastCommitLsn ?? null)
       : nextDocumentId !== currentDocumentId
@@ -328,6 +330,7 @@ async function buildRemoteChildContainerState(
     record: {
       ...initialRecord,
       accessEpoch: created.metadataAccessEpoch,
+      accessStateHash: created.metadataAccessStateHash ?? null,
       documentId: created.metadataDocumentId,
       documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
         initialDocumentEncryption.documentRecipientEnvelopes,
@@ -389,6 +392,7 @@ async function createChildContainer(
     });
   const initialRecord: DocumentRecord = {
     accessEpoch: 1,
+    accessStateHash: null,
     documentId: null,
     documentRecipientEnvelopes: null,
     id: childId,
@@ -551,6 +555,7 @@ async function shareExplorerContainerWithUser(
   );
   await persistContainerState(state, existingState, {
     accessEpoch: shared.metadataAccessEpoch,
+    accessStateHash: shared.metadataAccessStateHash ?? null,
     documentId: shared.metadataDocumentId,
     documentRecipientEnvelopes: existingState.record.documentRecipientEnvelopes,
     metadataDocumentId: shared.metadataDocumentId,

@@ -127,6 +127,7 @@ test("commitDocumentChange promotes staged blobs into active attachment bindings
       documentId: created.document.id,
       request: {
         accessEpoch: created.currentAccessEpoch,
+        expectedAccessStateHash: created.currentAccessStateHash,
         attachmentCommits: [
           {
             expectedBindingId: null,
@@ -228,6 +229,7 @@ test("commitDocumentChange persists explicit baseline checkpoints", async () => 
     documentId: created.document.id,
     request: {
       accessEpoch: created.currentAccessEpoch,
+      expectedAccessStateHash: created.currentAccessStateHash,
       attachmentCommits: [],
       attachmentDetaches: [],
       attachmentRewraps: [],
@@ -334,6 +336,7 @@ test("commitDocumentChange reports missing, forbidden, and stale access cases", 
       documentId: crypto.randomUUID(),
       request: {
         accessEpoch: created.currentAccessEpoch,
+        expectedAccessStateHash: created.currentAccessStateHash,
         attachmentCommits: [],
         attachmentDetaches: [],
         attachmentRewraps: [],
@@ -353,6 +356,7 @@ test("commitDocumentChange reports missing, forbidden, and stale access cases", 
       documentId: created.document.id,
       request: {
         accessEpoch: created.currentAccessEpoch,
+        expectedAccessStateHash: created.currentAccessStateHash,
         attachmentCommits: [],
         attachmentDetaches: [],
         attachmentRewraps: [],
@@ -372,6 +376,7 @@ test("commitDocumentChange reports missing, forbidden, and stale access cases", 
       documentId: created.document.id,
       request: {
         accessEpoch: created.currentAccessEpoch + 1,
+        expectedAccessStateHash: created.currentAccessStateHash,
         attachmentCommits: [],
         attachmentDetaches: [],
         attachmentRewraps: [],

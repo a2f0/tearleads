@@ -66,6 +66,7 @@ interface ProjectionLengthRow {
 function createSyncDocumentResponse(input: {
   accessEpoch: number;
   commitLsn?: string | null;
+  currentAccessStateHash?: string;
   documentId: string;
   recipientEncapsulationPublicKeys: string[];
   acceptedOutgoingUpdateIds?: string[];
@@ -82,6 +83,8 @@ function createSyncDocumentResponse(input: {
       input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
     commitLsn: input.commitLsn ?? null,
     currentAccessEpoch: input.accessEpoch,
+    currentAccessStateHash:
+      input.currentAccessStateHash ?? `access-state-hash-${input.accessEpoch}`,
     documentId: input.documentId,
     documentRecipientEnvelopeAction:
       input.documentRecipientEnvelopeAction ?? "none",
@@ -417,13 +420,15 @@ function createSyncRuntime(
           slotId: commit.slotId,
         })),
         currentAccessEpoch: 1,
-        documentRecipientEnvelopes: null,
+        currentAccessStateHash: `access-state-hash-${input.accessEpoch}`,
+        documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
         detachedBindingIds: [],
       }),
       createDocument: async (_linkedContainerIds) => ({
         id: "notes-document-1",
         createdAt: "2026-03-31T00:00:00.000Z",
         currentAccessEpoch: 1,
+        currentAccessStateHash: "access-state-hash-1",
         documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(encapsulationKeyPair.publicKey),
@@ -1141,6 +1146,7 @@ test("notes store probes document sync before committing offline attachment draf
             slotId: commit.slotId,
           })),
           currentAccessEpoch: input.accessEpoch,
+          currentAccessStateHash: `access-state-hash-${input.accessEpoch}`,
           documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
           detachedBindingIds: [],
         };
@@ -1914,6 +1920,7 @@ test("notes store rewraps committed attachments when document access expands", a
             : [],
           committedBindings,
           currentAccessEpoch: input.accessEpoch,
+          currentAccessStateHash: `access-state-hash-${input.accessEpoch}`,
           documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
           detachedBindingIds: [],
         };
@@ -2143,7 +2150,8 @@ test("notes store replaces committed attachments after document rotate", async (
             : [],
           committedBindings,
           currentAccessEpoch: input.accessEpoch,
-          documentRecipientEnvelopes: null,
+          currentAccessStateHash: `access-state-hash-${input.accessEpoch}`,
+          documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
           detachedBindingIds: [],
         };
       },
@@ -2292,7 +2300,7 @@ test("notes store replaces committed attachments after document rotate", async (
   expect(syncDocumentCalls).toContainEqual({
     accessEpoch: 1,
     documentId: "notes-document-1",
-    documentRecipientEnvelopeCount: 1,
+    documentRecipientEnvelopeCount: 0,
     outgoingSourceVersionVectors: [null],
     outgoingUpdateCount: 1,
   });
@@ -2379,6 +2387,7 @@ test("notes store asks for replacement when rotated attachment bytes are not loc
             : [],
           committedBindings,
           currentAccessEpoch: input.accessEpoch,
+          currentAccessStateHash: `access-state-hash-${input.accessEpoch}`,
           documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
           detachedBindingIds: ["binding-before-rotate"],
         };

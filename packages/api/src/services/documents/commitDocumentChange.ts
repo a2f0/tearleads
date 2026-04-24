@@ -259,6 +259,10 @@ function validateCommitChangeInput(
     throw new CommitDocumentChangeError("Stale access epoch", 409);
   }
 
+  if (input.expectedAccessStateHash !== access.accessStateHash) {
+    throw new CommitDocumentChangeError("Stale access state hash", 409);
+  }
+
   if (input.loroUpdate) {
     try {
       if (

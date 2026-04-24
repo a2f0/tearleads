@@ -37,6 +37,7 @@ export interface CommitDocumentChangeLoroUpdate {
 
 export interface CommitDocumentChangeRequest {
   accessEpoch: number;
+  expectedAccessStateHash: string;
   attachmentCommits: AttachmentCommitRequest[];
   attachmentDetaches: AttachmentDetachRequest[];
   attachmentRewraps: AttachmentRewrapRequest[];
@@ -135,6 +136,8 @@ export function isCommitDocumentChangeRequest(
     hasNumberProperty(value, "accessEpoch") &&
     Number.isInteger(value.accessEpoch) &&
     value.accessEpoch > 0 &&
+    hasStringProperty(value, "expectedAccessStateHash") &&
+    value.expectedAccessStateHash.length > 0 &&
     hasArrayProperty(value, "attachmentCommits") &&
     value.attachmentCommits.every(isAttachmentCommitRequest) &&
     hasArrayProperty(value, "attachmentDetaches") &&

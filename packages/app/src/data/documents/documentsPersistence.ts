@@ -79,6 +79,7 @@ export interface LocalAttachmentRecord {
 
 export interface DiscoveredDocumentInput {
   accessEpoch: number;
+  accessStateHash?: string | null;
   containerId: string;
   createdAt: string;
   documentId: string;
@@ -87,6 +88,7 @@ export interface DiscoveredDocumentInput {
 
 export interface RelinkPersistedDocumentInput {
   accessEpoch: number;
+  accessStateHash?: string | null;
   containerId: string;
   documentId: string;
   localId: string;
@@ -366,6 +368,7 @@ async function upsertDiscoveredDocumentWithExec(
       existingDocument?.accessEpoch ?? 1,
       input.accessEpoch,
     ),
+    accessStateHash: input.accessStateHash ?? null,
     lastCommitLsn:
       existingDocument?.documentId === input.documentId
         ? (existingDocument.lastCommitLsn ?? null)
@@ -411,6 +414,7 @@ async function relinkPersistedDocumentWithExec(
   const nextDocument: StoredDocumentRecord = {
     ...existingDocument,
     accessEpoch: nextAccessEpoch,
+    accessStateHash: input.accessStateHash ?? null,
     containerId: input.containerId,
     documentId: input.documentId,
     documentRecipientEnvelopes:

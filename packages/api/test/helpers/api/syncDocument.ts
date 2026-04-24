@@ -6,6 +6,7 @@ export async function syncDocument(
   documentId: string,
   input: {
     accessEpoch: number;
+    expectedAccessStateHash?: string;
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[];
     localVersionVector: string | null;
     minLsn?: string;

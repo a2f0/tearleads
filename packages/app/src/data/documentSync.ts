@@ -202,6 +202,7 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
     outgoingUpdates: SyncDocumentOutgoingUpdate[],
     documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
     minLsn?: string,
+    expectedAccessStateHash?: string,
   ) => Promise<SyncDocumentResponse | null>;
   synced: SyncDocumentResponse;
 }): Promise<SyncDocumentResponse> {
@@ -243,6 +244,7 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
     [],
     rewrappedDocumentRecipientEnvelopes,
     synced.commitLsn ?? minLsn,
+    synced.currentAccessStateHash,
   );
 
   return rewrappedSync ?? synced;

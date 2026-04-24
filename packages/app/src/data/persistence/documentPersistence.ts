@@ -12,6 +12,7 @@ export interface DocumentRecord {
   documentRecipientEnvelopes: string | null;
   loroSnapshot: string;
   accessEpoch: number;
+  accessStateHash?: string | null;
   lastCommitLsn?: string | null;
 }
 
@@ -42,6 +43,7 @@ const documentTables: ReadonlyArray<SqlTableSchema> = [
         document_recipient_envelopes TEXT,
         loro_snapshot TEXT NOT NULL,
         access_epoch INTEGER NOT NULL DEFAULT 1,
+        access_state_hash TEXT,
         last_commit_lsn TEXT,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (app_kind, local_id)
@@ -81,6 +83,16 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
     const hasLastCommitLsnColumn = columnRows.some(
       (row) => readSqlRowValue(row, "name") === "last_commit_lsn",
     );
+    const hasAccessStateHashColumn = columnRows.some(
+      (row) => readSqlRowValue(row, "name") === "access_state_hash",
+    );
+
+    if (!hasAccessStateHashColumn) {
+      await lockedExecSql(`
+        ALTER TABLE documents
+        ADD COLUMN access_state_hash TEXT
+      `);
+    }
 
     if (!hasLastCommitLsnColumn) {
       await lockedExecSql(`
@@ -100,9 +112,10 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
   );
   const loroSnapshot = readSqlRowValue(row, "loro_snapshot");
   const accessEpoch = readSqlRowValue(row, "access_epoch");
+  const accessStateHash = readSqlRowValue(row, "access_state_hash");
   const lastCommitLsn = readSqlRowValue(row, "last_commit_lsn");
 
-  return {
+  const record: DocumentRecord = {
     id: String(id ?? ""),
     documentId: documentId === null ? null : String(documentId),
     documentRecipientEnvelopes:
@@ -117,6 +130,12 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
         ? null
         : String(lastCommitLsn),
   };
+
+  if (accessStateHash !== null && accessStateHash !== undefined) {
+    record.accessStateHash = String(accessStateHash);
+  }
+
+  return record;
 }
 
 function parsePendingUpdateRecord(row: SqlRow): PendingUpdateRecord {
@@ -156,6 +175,7 @@ export async function loadDocumentRecord(
         document_recipient_envelopes,
         loro_snapshot,
         access_epoch,
+        access_state_hash,
         last_commit_lsn
       FROM documents
       WHERE app_kind = :appKind AND local_id = :localId
@@ -205,6 +225,7 @@ export async function saveDocumentRecord(
           document_recipient_envelopes,
           loro_snapshot,
           access_epoch,
+          access_state_hash,
           last_commit_lsn,
           updated_at
         )
@@ -215,6 +236,7 @@ export async function saveDocumentRecord(
           :documentRecipientEnvelopes,
           :loroSnapshot,
           :accessEpoch,
+          :accessStateHash,
           :lastCommitLsn,
           :updatedAt
         )
@@ -224,6 +246,7 @@ export async function saveDocumentRecord(
             excluded.document_recipient_envelopes,
           loro_snapshot = excluded.loro_snapshot,
           access_epoch = excluded.access_epoch,
+          access_state_hash = excluded.access_state_hash,
           last_commit_lsn = excluded.last_commit_lsn,
           updated_at = excluded.updated_at
       `,
@@ -233,6 +256,7 @@ export async function saveDocumentRecord(
         ":documentRecipientEnvelopes": record.documentRecipientEnvelopes,
         ":loroSnapshot": record.loroSnapshot,
         ":accessEpoch": record.accessEpoch,
+        ":accessStateHash": record.accessStateHash ?? null,
         ":lastCommitLsn": record.lastCommitLsn ?? null,
         ":updatedAt": updatedAt,
       },
