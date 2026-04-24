@@ -7,7 +7,10 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
-import { computeAccessFingerprint } from "../../access/accessFingerprint";
+import {
+  computeAccessFingerprint,
+  computeAccessStateHash,
+} from "../../access/accessFingerprint";
 import {
   toUserPrincipalEnvelopeRecipient,
   toUserPrincipalFingerprintRecipient,
@@ -167,6 +170,20 @@ async function writeInitialRootContainerAccess(
           keyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
         }),
       ],
+    }),
+    accessStateHash: await computeAccessStateHash({
+      objectType: CONTAINER_OBJECT_TYPE,
+      ancestorContainerIds: [input.containerId],
+      containerId: input.containerId,
+      grants: [
+        {
+          objectId: input.containerId,
+          subjectType: "user",
+          subjectId: input.userId,
+          accessLevel: "admin",
+        },
+      ],
+      referencedPrincipals: [],
     }),
     updatedAt: new Date(),
   });
