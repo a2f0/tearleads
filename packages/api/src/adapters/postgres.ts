@@ -62,12 +62,35 @@ await client.exec(`
     key_epoch INTEGER NOT NULL,
     encapsulation_public_key TEXT NOT NULL,
     key_fingerprint TEXT NOT NULL,
-    members_json TEXT NOT NULL,
+    membership_mode TEXT NOT NULL,
     membership_root TEXT NOT NULL,
+    projection_root TEXT NOT NULL,
+    payload_ciphertext_hash TEXT NOT NULL,
+    member_count INTEGER NOT NULL,
     state_hash TEXT NOT NULL,
     signed_at TIMESTAMP NOT NULL,
     signer_key_id TEXT NOT NULL,
     signature TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS principal_state_payloads (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    principal_type TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    state_hash TEXT NOT NULL,
+    cipher_suite TEXT NOT NULL,
+    ciphertext TEXT NOT NULL,
+    ciphertext_hash TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS principal_membership_projection (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    principal_type TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    state_hash TEXT NOT NULL,
+    member_principal_type TEXT NOT NULL,
+    member_principal_id TEXT NOT NULL,
+    role TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE TABLE IF NOT EXISTS principal_epoch_keys (
@@ -108,6 +131,7 @@ await client.exec(`
     object_id TEXT NOT NULL,
     epoch INTEGER NOT NULL,
     access_fingerprint TEXT NOT NULL,
+    access_state_hash TEXT,
     updated_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE TABLE IF NOT EXISTS object_recipient_envelopes (
@@ -227,6 +251,20 @@ await client.exec(`
     ON principal_states (principal_type, principal_id, version);
   CREATE UNIQUE INDEX IF NOT EXISTS principal_states_principal_state_hash_idx
     ON principal_states (principal_type, principal_id, state_hash);
+  CREATE INDEX IF NOT EXISTS principal_state_payloads_principal_idx
+    ON principal_state_payloads (principal_type, principal_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS principal_state_payloads_principal_state_idx
+    ON principal_state_payloads (principal_type, principal_id, state_hash);
+  CREATE INDEX IF NOT EXISTS principal_membership_projection_principal_idx
+    ON principal_membership_projection (principal_type, principal_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS principal_membership_projection_state_member_idx
+    ON principal_membership_projection (
+      principal_type,
+      principal_id,
+      state_hash,
+      member_principal_type,
+      member_principal_id
+    );
   CREATE INDEX IF NOT EXISTS principal_epoch_keys_principal_idx
     ON principal_epoch_keys (principal_type, principal_id);
   CREATE UNIQUE INDEX IF NOT EXISTS principal_epoch_keys_principal_epoch_idx

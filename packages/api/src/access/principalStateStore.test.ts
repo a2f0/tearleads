@@ -53,16 +53,8 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
   expect(storedState.stateHash).toBe(
     await computePrincipalStateHash(signedState),
   );
-  expect(storedState.members).toEqual([
-    {
-      principalType: "group",
-      principalId: "nested-group",
-    },
-    {
-      principalType: "user",
-      principalId: "bob",
-    },
-  ]);
+  expect(storedState.memberCount).toBe(2);
+  expect(storedState.membershipMode).toBe("projection_v1");
 
   const currentState = await getCurrentPrincipalState("group", principalId);
   expect(currentState?.stateHash).toBe(storedState.stateHash);

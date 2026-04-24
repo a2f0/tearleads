@@ -23,7 +23,9 @@ export {
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
   type PrincipalMemberEnvelopeRequest,
-  type PrincipalStateMemberRequest,
+  type PrincipalProjectionMemberRequest,
+  type PrincipalStateEncryptedPayloadRequest,
+  type PrincipalStateRequest,
   type PutPrincipalMemberEnvelopesRequest,
   type PutPrincipalStateRequest,
 } from "./principal";

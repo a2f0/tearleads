@@ -8,6 +8,7 @@ import { principalMemberEnvelopes, users } from "../schema";
 import {
   getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,
+  listCurrentPrincipalProjectionMembers,
 } from "./principalStateStore";
 
 type PrincipalMemberEnvelopeExecutor = DatabaseExecutor;
@@ -94,16 +95,21 @@ async function loadCurrentPrincipalMemberRecipientsForState(
     );
   }
 
-  const userMemberIds = currentState.members
-    .filter((member) => member.principalType === "user")
-    .map((member) => member.principalId);
+  const currentProjection = await listCurrentPrincipalProjectionMembers(
+    principalType,
+    principalId,
+    executor,
+  );
+  const userMemberIds = currentProjection
+    .filter((member) => member.memberPrincipalType === "user")
+    .map((member) => member.memberPrincipalId);
   const userRecipientsById = await loadUserMemberRecipients(
     userMemberIds,
     executor,
   );
-  const groupMemberIds = currentState.members
-    .filter((member) => member.principalType === "group")
-    .map((member) => member.principalId);
+  const groupMemberIds = currentProjection
+    .filter((member) => member.memberPrincipalType === "group")
+    .map((member) => member.memberPrincipalId);
   const groupRecipientsById = await getCurrentPrincipalEpochKeys(
     "group",
     groupMemberIds,
@@ -112,13 +118,13 @@ async function loadCurrentPrincipalMemberRecipientsForState(
 
   const recipients: PrincipalMemberRecipient[] = [];
 
-  for (const member of currentState.members) {
-    if (member.principalType === "user") {
-      const recipient = userRecipientsById.get(member.principalId);
+  for (const member of currentProjection) {
+    if (member.memberPrincipalType === "user") {
+      const recipient = userRecipientsById.get(member.memberPrincipalId);
 
       if (!recipient) {
         throw new Error(
-          `Missing user recipient key for principal state member ${member.principalId}`,
+          `Missing user recipient key for principal state member ${member.memberPrincipalId}`,
         );
       }
 
@@ -126,17 +132,19 @@ async function loadCurrentPrincipalMemberRecipientsForState(
       continue;
     }
 
-    const nestedPrincipalEpochKey = groupRecipientsById.get(member.principalId);
+    const nestedPrincipalEpochKey = groupRecipientsById.get(
+      member.memberPrincipalId,
+    );
 
     if (!nestedPrincipalEpochKey) {
       throw new Error(
-        `Missing current principal epoch key for group member ${member.principalId}`,
+        `Missing current principal epoch key for group member ${member.memberPrincipalId}`,
       );
     }
 
     recipients.push({
       memberPrincipalType: "group",
-      memberPrincipalId: member.principalId,
+      memberPrincipalId: member.memberPrincipalId,
       memberKeyFingerprint: nestedPrincipalEpochKey.keyFingerprint,
       encapsulationPublicKey: nestedPrincipalEpochKey.encapsulationPublicKey,
     });

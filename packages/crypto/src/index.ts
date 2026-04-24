@@ -22,17 +22,26 @@ export { toFingerprint } from "./fingerprint";
 export { bytesToHex, hexToBytes } from "./hex";
 export type {
   ManagedRecipientPrincipalType,
+  PrincipalProjectionMember,
+  PrincipalProjectionRole,
   PrincipalStateMember,
+  PrincipalStateMembershipMode,
   PrincipalStateMemberType,
+  PrincipalStatePayloadCipherSuite,
   PrincipalStateSigningInput,
   SignedPrincipalState,
   UnsignedPrincipalState,
 } from "./principalState";
 export {
   computePrincipalMembershipRoot,
+  computePrincipalProjectionRoot,
   computePrincipalStateHash,
+  computePrincipalStatePayloadCiphertextHash,
+  derivePrincipalProjectionMembers,
   isManagedRecipientPrincipalType,
+  isPrincipalProjectionRole,
   isPrincipalStateMemberType,
+  normalizePrincipalProjectionMembers,
   normalizePrincipalStateMembers,
   serializeUnsignedPrincipalState,
   signPrincipalState,

@@ -4,6 +4,7 @@ import type { PrincipalMemberEnvelopeRequest } from "@tearleads/validators/reque
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalMemberEnvelopeResponse,
+  PrincipalStatePayloadResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 
@@ -34,8 +35,11 @@ export function toPrincipalStateResponse(state: {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  members: Array<{ principalType: "user" | "group"; principalId: string }>;
+  membershipMode: "projection_v1";
   membershipRoot: string;
+  projectionRoot: string;
+  payloadCiphertextHash: string;
+  memberCount: number;
   signedAt: string;
   signerKeyId: string;
   signature: string;
@@ -50,16 +54,36 @@ export function toPrincipalStateResponse(state: {
     keyEpoch: state.keyEpoch,
     encapsulationPublicKey: state.encapsulationPublicKey,
     keyFingerprint: state.keyFingerprint,
-    members: state.members.map((member) => ({
-      principalType: member.principalType,
-      principalId: member.principalId,
-    })),
+    membershipMode: state.membershipMode,
     membershipRoot: state.membershipRoot,
+    projectionRoot: state.projectionRoot,
+    payloadCiphertextHash: state.payloadCiphertextHash,
+    memberCount: state.memberCount,
     signedAt: state.signedAt,
     signerKeyId: state.signerKeyId,
     signature: state.signature,
     stateHash: state.stateHash,
     createdAt: state.createdAt.toISOString(),
+  };
+}
+
+export function toPrincipalStatePayloadResponse(input: {
+  principalType: "group" | "organization";
+  principalId: string;
+  stateHash: string;
+  cipherSuite: "xchacha20poly1305-v1";
+  ciphertext: string;
+  ciphertextHash: string;
+  createdAt: Date;
+}): PrincipalStatePayloadResponse {
+  return {
+    principalType: input.principalType,
+    principalId: input.principalId,
+    stateHash: input.stateHash,
+    cipherSuite: input.cipherSuite,
+    ciphertext: input.ciphertext,
+    ciphertextHash: input.ciphertextHash,
+    createdAt: input.createdAt.toISOString(),
   };
 }
 

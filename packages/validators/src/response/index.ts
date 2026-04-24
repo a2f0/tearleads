@@ -46,11 +46,12 @@ export {
   type CurrentPrincipalMemberEnvelopesResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,
+  isPrincipalStatePayloadResponse,
   isPrincipalStateResponse,
   isReferencedPrincipalStateResponse,
   type PrincipalMemberEnvelopeResponse,
   type PrincipalPolicyBundleResponse,
-  type PrincipalStateMemberResponse,
+  type PrincipalStatePayloadResponse,
   type PrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
 } from "./principal";

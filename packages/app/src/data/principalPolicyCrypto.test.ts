@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   computePrincipalStateHash,
+  computePrincipalStatePayloadCiphertextHash,
   encryptForRecipients,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -47,6 +48,7 @@ async function createPrincipalPolicyBundle(input: {
       encapsulationPublicKey: bytesToBase64(input.principalKem.publicKey),
       keyFingerprint: await toFingerprint(input.principalKem.publicKey),
       members: input.members,
+      payloadCiphertext: `${input.principalId}-ciphertext`,
       signedAt: input.signedAt,
       signerKeyId: `${input.principalId}-signer`,
     },
@@ -84,6 +86,18 @@ async function createPrincipalPolicyBundle(input: {
       ...signedState,
       createdAt: input.signedAt,
       stateHash,
+    },
+    currentPayload: {
+      principalType: "group",
+      principalId: input.principalId,
+      stateHash,
+      cipherSuite: "xchacha20poly1305-v1",
+      ciphertext:
+        signedState.payloadCiphertext ?? `${input.principalId}-ciphertext`,
+      ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
+        signedState.payloadCiphertext ?? `${input.principalId}-ciphertext`,
+      ),
+      createdAt: input.signedAt,
     },
   };
 }

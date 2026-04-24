@@ -1,10 +1,14 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { listCurrentPrincipalMemberEnvelopes } from "../../access/principalMemberEnvelopes";
-import { getCurrentPrincipalState } from "../../access/principalStateStore";
+import {
+  getCurrentPrincipalState,
+  getCurrentPrincipalStatePayload,
+} from "../../access/principalStateStore";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   PrincipalPolicyError,
   toCurrentPrincipalMemberEnvelopesResponse,
+  toPrincipalStatePayloadResponse,
   toPrincipalStateResponse,
 } from "./shared";
 
@@ -22,6 +26,14 @@ export async function getCurrentPrincipalPolicy(
   if (!currentState) {
     throw new PrincipalPolicyError("Principal state not found", 404);
   }
+  const currentPayload = await getCurrentPrincipalStatePayload(
+    principalType,
+    principalId,
+    runtime.db,
+  );
+  if (!currentPayload) {
+    throw new PrincipalPolicyError("Principal state payload not found", 404);
+  }
 
   const currentMemberEnvelopes = await listCurrentPrincipalMemberEnvelopes(
     principalType,
@@ -31,6 +43,7 @@ export async function getCurrentPrincipalPolicy(
 
   return {
     currentState: toPrincipalStateResponse(currentState),
+    currentPayload: toPrincipalStatePayloadResponse(currentPayload),
     currentMemberEnvelopes: toCurrentPrincipalMemberEnvelopesResponse({
       principalType,
       principalId,

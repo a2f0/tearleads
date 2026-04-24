@@ -1,6 +1,9 @@
 import type {
   ManagedRecipientPrincipalType,
+  PrincipalProjectionRole,
+  PrincipalStateMembershipMode,
   PrincipalStateMemberType,
+  PrincipalStatePayloadCipherSuite,
 } from "@tearleads/crypto";
 import {
   documents,
@@ -89,8 +92,13 @@ export const principalStates = pgTable(
     keyEpoch: integer("key_epoch").notNull(),
     encapsulationPublicKey: text("encapsulation_public_key").notNull(),
     keyFingerprint: text("key_fingerprint").notNull(),
-    membersJson: text("members_json").notNull(),
+    membershipMode: text("membership_mode")
+      .$type<PrincipalStateMembershipMode>()
+      .notNull(),
     membershipRoot: text("membership_root").notNull(),
+    projectionRoot: text("projection_root").notNull(),
+    payloadCiphertextHash: text("payload_ciphertext_hash").notNull(),
+    memberCount: integer("member_count").notNull(),
     stateHash: text("state_hash").notNull(),
     signedAt: timestamp("signed_at").notNull(),
     signerKeyId: text("signer_key_id").notNull(),
@@ -111,6 +119,66 @@ export const principalStates = pgTable(
       table.principalType,
       table.principalId,
       table.stateHash,
+    ),
+  ],
+);
+
+export const principalStatePayloads = pgTable(
+  "principal_state_payloads",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    principalType: text("principal_type")
+      .$type<ManagedRecipientPrincipalType>()
+      .notNull(),
+    principalId: text("principal_id").notNull(),
+    stateHash: text("state_hash").notNull(),
+    cipherSuite: text("cipher_suite")
+      .$type<PrincipalStatePayloadCipherSuite>()
+      .notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    ciphertextHash: text("ciphertext_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("principal_state_payloads_principal_idx").on(
+      table.principalType,
+      table.principalId,
+    ),
+    uniqueIndex("principal_state_payloads_principal_state_idx").on(
+      table.principalType,
+      table.principalId,
+      table.stateHash,
+    ),
+  ],
+);
+
+export const principalMembershipProjection = pgTable(
+  "principal_membership_projection",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    principalType: text("principal_type")
+      .$type<ManagedRecipientPrincipalType>()
+      .notNull(),
+    principalId: text("principal_id").notNull(),
+    stateHash: text("state_hash").notNull(),
+    memberPrincipalType: text("member_principal_type")
+      .$type<PrincipalStateMemberType>()
+      .notNull(),
+    memberPrincipalId: text("member_principal_id").notNull(),
+    role: text("role").$type<PrincipalProjectionRole>().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("principal_membership_projection_principal_idx").on(
+      table.principalType,
+      table.principalId,
+    ),
+    uniqueIndex("principal_membership_projection_state_member_idx").on(
+      table.principalType,
+      table.principalId,
+      table.stateHash,
+      table.memberPrincipalType,
+      table.memberPrincipalId,
     ),
   ],
 );
@@ -192,6 +260,7 @@ export const objectAccessEpochs = pgTable("object_access_epochs", {
   objectId: text("object_id").notNull(),
   epoch: integer("epoch").notNull(),
   accessFingerprint: text("access_fingerprint").notNull(),
+  accessStateHash: text("access_state_hash"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

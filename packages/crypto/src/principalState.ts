@@ -4,13 +4,23 @@ import { sign } from "./signing/sign";
 import { verify } from "./signing/verify";
 
 const TEXT_ENCODER = new TextEncoder();
+const TEXT_DECODER = new TextDecoder();
 
 export type ManagedRecipientPrincipalType = "group" | "organization";
 export type PrincipalStateMemberType = "user" | "group";
+export type PrincipalProjectionRole = "member" | "admin";
+export type PrincipalStateMembershipMode = "projection_v1";
+export type PrincipalStatePayloadCipherSuite = "xchacha20poly1305-v1";
 
 export interface PrincipalStateMember {
   principalType: PrincipalStateMemberType;
   principalId: string;
+}
+
+export interface PrincipalProjectionMember {
+  memberPrincipalType: PrincipalStateMemberType;
+  memberPrincipalId: string;
+  role: PrincipalProjectionRole;
 }
 
 export interface PrincipalStateSigningInput {
@@ -22,7 +32,13 @@ export interface PrincipalStateSigningInput {
   encapsulationPublicKey: string;
   keyFingerprint: string;
   members: PrincipalStateMember[];
+  projection?: PrincipalProjectionMember[];
+  membershipMode?: PrincipalStateMembershipMode;
   membershipRoot?: string;
+  projectionRoot?: string;
+  payloadCiphertext?: string;
+  payloadCiphertextHash?: string;
+  memberCount?: number;
   signedAt: string;
   signerKeyId: string;
 }
@@ -35,26 +51,41 @@ export interface UnsignedPrincipalState {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  members: PrincipalStateMember[];
+  membershipMode: PrincipalStateMembershipMode;
   membershipRoot: string;
+  projectionRoot: string;
+  payloadCiphertextHash: string;
+  memberCount: number;
   signedAt: string;
   signerKeyId: string;
 }
 
 export interface SignedPrincipalState extends UnsignedPrincipalState {
   signature: string;
+  members?: PrincipalStateMember[];
+  projection?: PrincipalProjectionMember[];
+  payloadCiphertext?: string;
 }
 
-export function isManagedRecipientPrincipalType(
-  value: string,
-): value is ManagedRecipientPrincipalType {
-  return value === "group" || value === "organization";
-}
-
-export function isPrincipalStateMemberType(
-  value: string,
-): value is PrincipalStateMemberType {
-  return value === "user" || value === "group";
+interface PrincipalStateLike {
+  principalType: ManagedRecipientPrincipalType;
+  principalId: string;
+  version: number;
+  prevStateHash: string | null;
+  keyEpoch: number;
+  encapsulationPublicKey: string;
+  keyFingerprint: string;
+  signedAt: string;
+  signerKeyId: string;
+  membershipMode?: PrincipalStateMembershipMode;
+  membershipRoot?: string;
+  projectionRoot?: string;
+  payloadCiphertextHash?: string;
+  memberCount?: number;
+  signature?: string;
+  members?: PrincipalStateMember[];
+  projection?: PrincipalProjectionMember[];
+  payloadCiphertext?: string;
 }
 
 function comparePrincipalStateMembers(
@@ -66,6 +97,17 @@ function comparePrincipalStateMembers(
   }
 
   return left.principalType.localeCompare(right.principalType);
+}
+
+function comparePrincipalProjectionMembers(
+  left: PrincipalProjectionMember,
+  right: PrincipalProjectionMember,
+): number {
+  if (left.memberPrincipalType === right.memberPrincipalType) {
+    return left.memberPrincipalId.localeCompare(right.memberPrincipalId);
+  }
+
+  return left.memberPrincipalType.localeCompare(right.memberPrincipalType);
 }
 
 function hasDuplicatePrincipalStateMembers(
@@ -90,8 +132,35 @@ function hasDuplicatePrincipalStateMembers(
   return false;
 }
 
+function hasDuplicatePrincipalProjectionMembers(
+  members: ReadonlyArray<PrincipalProjectionMember>,
+): boolean {
+  const normalizedMembers = normalizePrincipalProjectionMembers(members);
+
+  for (let index = 1; index < normalizedMembers.length; index += 1) {
+    const previousMember = normalizedMembers[index - 1];
+    const currentMember = normalizedMembers[index];
+
+    if (
+      previousMember &&
+      currentMember &&
+      previousMember.memberPrincipalType ===
+        currentMember.memberPrincipalType &&
+      previousMember.memberPrincipalId === currentMember.memberPrincipalId
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function isValidPositiveInteger(value: number): boolean {
   return Number.isInteger(value) && value > 0;
+}
+
+function isValidNonNegativeInteger(value: number): boolean {
+  return Number.isInteger(value) && value >= 0;
 }
 
 function isValidSignedAt(value: string): boolean {
@@ -111,6 +180,20 @@ function encodePrincipalStateMembers(
   );
 }
 
+function encodePrincipalProjectionMembers(
+  members: ReadonlyArray<PrincipalProjectionMember>,
+): Uint8Array {
+  return TEXT_ENCODER.encode(
+    JSON.stringify(
+      normalizePrincipalProjectionMembers(members).map((member) => ({
+        memberPrincipalType: member.memberPrincipalType,
+        memberPrincipalId: member.memberPrincipalId,
+        role: member.role,
+      })),
+    ),
+  );
+}
+
 function encodeUnsignedPrincipalState(
   state: UnsignedPrincipalState,
 ): Uint8Array {
@@ -123,11 +206,11 @@ function encodeUnsignedPrincipalState(
       keyEpoch: state.keyEpoch,
       encapsulationPublicKey: state.encapsulationPublicKey,
       keyFingerprint: state.keyFingerprint,
-      members: normalizePrincipalStateMembers(state.members).map((member) => ({
-        principalType: member.principalType,
-        principalId: member.principalId,
-      })),
+      membershipMode: state.membershipMode,
       membershipRoot: state.membershipRoot,
+      projectionRoot: state.projectionRoot,
+      payloadCiphertextHash: state.payloadCiphertextHash,
+      memberCount: state.memberCount,
       signedAt: state.signedAt,
       signerKeyId: state.signerKeyId,
     }),
@@ -135,12 +218,9 @@ function encodeUnsignedPrincipalState(
 }
 
 function toUnsignedPrincipalState(
-  state:
-    | PrincipalStateSigningInput
-    | UnsignedPrincipalState
-    | SignedPrincipalState,
-): PrincipalStateSigningInput | UnsignedPrincipalState {
-  return {
+  state: PrincipalStateLike,
+): PrincipalStateLike {
+  const unsignedState: PrincipalStateLike = {
     principalType: state.principalType,
     principalId: state.principalId,
     version: state.version,
@@ -148,21 +228,58 @@ function toUnsignedPrincipalState(
     keyEpoch: state.keyEpoch,
     encapsulationPublicKey: state.encapsulationPublicKey,
     keyFingerprint: state.keyFingerprint,
-    members: state.members,
     signedAt: state.signedAt,
     signerKeyId: state.signerKeyId,
-    ...(typeof state.membershipRoot === "string"
-      ? { membershipRoot: state.membershipRoot }
-      : {}),
   };
+
+  if ("members" in state && Array.isArray(state.members)) {
+    unsignedState.members = state.members;
+  }
+
+  if ("projection" in state && Array.isArray(state.projection)) {
+    unsignedState.projection = state.projection;
+  }
+
+  if (typeof state.membershipMode === "string") {
+    unsignedState.membershipMode = state.membershipMode;
+  }
+
+  if (typeof state.membershipRoot === "string") {
+    unsignedState.membershipRoot = state.membershipRoot;
+  }
+
+  if (typeof state.projectionRoot === "string") {
+    unsignedState.projectionRoot = state.projectionRoot;
+  }
+
+  if (typeof state.payloadCiphertext === "string") {
+    unsignedState.payloadCiphertext = state.payloadCiphertext;
+  }
+
+  if (typeof state.payloadCiphertextHash === "string") {
+    unsignedState.payloadCiphertextHash = state.payloadCiphertextHash;
+  }
+
+  if (typeof state.memberCount === "number") {
+    unsignedState.memberCount = state.memberCount;
+  }
+
+  return unsignedState;
 }
 
-async function normalizeUnsignedPrincipalState(
-  state:
-    | PrincipalStateSigningInput
-    | UnsignedPrincipalState
-    | SignedPrincipalState,
-): Promise<UnsignedPrincipalState> {
+function isMembershipMode(
+  value: string,
+): value is PrincipalStateMembershipMode {
+  return value === "projection_v1";
+}
+
+function defaultPayloadCiphertextForMembers(
+  members: ReadonlyArray<PrincipalStateMember>,
+): string {
+  return bytesToBase64(encodePrincipalStateMembers(members));
+}
+
+function validatePrincipalStateIdentityFields(state: PrincipalStateLike): void {
   if (!isValidPositiveInteger(state.version)) {
     throw new Error("Principal state version must be a positive integer");
   }
@@ -190,31 +307,215 @@ async function normalizeUnsignedPrincipalState(
   if (!isValidSignedAt(state.signedAt)) {
     throw new Error("Principal state signedAt must be a valid timestamp");
   }
+}
 
-  if (hasDuplicatePrincipalStateMembers(state.members)) {
+function resolveMembershipMode(
+  membershipMode: string | undefined,
+): PrincipalStateMembershipMode {
+  const resolvedMembershipMode = membershipMode ?? "projection_v1";
+  if (!isMembershipMode(resolvedMembershipMode)) {
+    throw new Error("Principal state membershipMode is unsupported");
+  }
+  return resolvedMembershipMode;
+}
+
+function resolveNormalizedMembers(
+  state: PrincipalStateLike,
+): PrincipalStateMember[] | null {
+  const providedMembers = Array.isArray(state.members) ? state.members : null;
+  if (!providedMembers) {
+    return null;
+  }
+
+  if (hasDuplicatePrincipalStateMembers(providedMembers)) {
     throw new Error("Principal state cannot contain duplicate members");
   }
 
-  const normalizedMembers = normalizePrincipalStateMembers(state.members);
-  const membershipRoot =
-    await computePrincipalMembershipRoot(normalizedMembers);
+  return normalizePrincipalStateMembers(providedMembers);
+}
+
+function resolveNormalizedProjection(input: {
+  state: PrincipalStateLike;
+  normalizedMembers: PrincipalStateMember[] | null;
+}): PrincipalProjectionMember[] | null {
+  const providedProjection = Array.isArray(input.state.projection)
+    ? input.state.projection
+    : null;
+
+  if (providedProjection) {
+    if (hasDuplicatePrincipalProjectionMembers(providedProjection)) {
+      throw new Error(
+        "Principal state projection cannot contain duplicate members",
+      );
+    }
+    return normalizePrincipalProjectionMembers(providedProjection);
+  }
+
+  return input.normalizedMembers
+    ? derivePrincipalProjectionMembers(input.normalizedMembers)
+    : null;
+}
+
+async function resolveComputedPolicyHashes(input: {
+  normalizedMembers: PrincipalStateMember[] | null;
+  normalizedProjection: PrincipalProjectionMember[] | null;
+  payloadCiphertext: string | null;
+}): Promise<{
+  membershipRoot: string | null;
+  projectionRoot: string | null;
+  payloadCiphertextHash: string | null;
+}> {
+  const membershipRoot = input.normalizedMembers
+    ? await computePrincipalMembershipRoot(input.normalizedMembers)
+    : null;
+  const projectionRoot = input.normalizedProjection
+    ? await computePrincipalProjectionRoot(input.normalizedProjection)
+    : null;
+  const payloadCiphertextHash =
+    input.payloadCiphertext === null
+      ? null
+      : await computePrincipalStatePayloadCiphertextHash(
+          input.payloadCiphertext,
+        );
+
+  return {
+    membershipRoot,
+    projectionRoot,
+    payloadCiphertextHash,
+  };
+}
+
+function resolvePayloadCiphertext(input: {
+  state: PrincipalStateLike;
+  normalizedMembers: PrincipalStateMember[] | null;
+}): string | null {
+  if (typeof input.state.payloadCiphertext === "string") {
+    return input.state.payloadCiphertext;
+  }
+
+  return input.normalizedMembers
+    ? defaultPayloadCiphertextForMembers(input.normalizedMembers)
+    : null;
+}
+
+function validateResolvedHashField(input: {
+  fieldName: "membershipRoot" | "projectionRoot" | "payloadCiphertextHash";
+  providedValue: string | undefined;
+  computedValue: string | null;
+  mismatchMessage: string;
+  requiredMessage: string;
+}): string {
+  if (input.computedValue) {
+    if (
+      typeof input.providedValue === "string" &&
+      input.providedValue.length > 0 &&
+      input.providedValue !== input.computedValue
+    ) {
+      throw new Error(input.mismatchMessage);
+    }
+    return input.computedValue;
+  }
+
+  if (
+    typeof input.providedValue !== "string" ||
+    input.providedValue.length === 0
+  ) {
+    throw new Error(input.requiredMessage);
+  }
+
+  return input.providedValue;
+}
+
+function resolveMemberCount(input: {
+  state: PrincipalStateLike;
+  normalizedProjection: PrincipalProjectionMember[] | null;
+}): number {
+  const memberCount =
+    typeof input.state.memberCount === "number"
+      ? input.state.memberCount
+      : input.normalizedProjection?.length;
+
+  if (
+    typeof memberCount !== "number" ||
+    !isValidNonNegativeInteger(memberCount)
+  ) {
+    throw new Error(
+      "Principal state memberCount must be a non-negative integer",
+    );
+  }
+
+  if (
+    input.normalizedProjection &&
+    memberCount !== input.normalizedProjection.length
+  ) {
+    throw new Error("Principal state memberCount does not match projection");
+  }
+
+  return memberCount;
+}
+
+async function validatePrincipalEncapsulationKey(
+  state: PrincipalStateLike,
+): Promise<void> {
   const publicKeyFingerprint = await toFingerprint(
     base64ToBytes(state.encapsulationPublicKey),
   );
-
   if (publicKeyFingerprint !== state.keyFingerprint) {
     throw new Error(
       "Principal state keyFingerprint does not match encapsulationPublicKey",
     );
   }
+}
 
-  if (
-    typeof state.membershipRoot === "string" &&
-    state.membershipRoot.length > 0 &&
-    state.membershipRoot !== membershipRoot
-  ) {
-    throw new Error("Principal state membershipRoot does not match members");
-  }
+async function normalizeUnsignedPrincipalState(
+  state: PrincipalStateLike,
+): Promise<UnsignedPrincipalState> {
+  validatePrincipalStateIdentityFields(state);
+
+  const membershipMode = resolveMembershipMode(state.membershipMode);
+  const normalizedMembers = resolveNormalizedMembers(state);
+  const normalizedProjection = resolveNormalizedProjection({
+    state,
+    normalizedMembers,
+  });
+  const payloadCiphertext = resolvePayloadCiphertext({
+    state,
+    normalizedMembers,
+  });
+  const computedHashes = await resolveComputedPolicyHashes({
+    normalizedMembers,
+    normalizedProjection,
+    payloadCiphertext,
+  });
+
+  const resolvedMembershipRoot = validateResolvedHashField({
+    fieldName: "membershipRoot",
+    providedValue: state.membershipRoot,
+    computedValue: computedHashes.membershipRoot,
+    mismatchMessage: "Principal state membershipRoot does not match members",
+    requiredMessage: "Principal state membershipRoot is required",
+  });
+  const resolvedProjectionRoot = validateResolvedHashField({
+    fieldName: "projectionRoot",
+    providedValue: state.projectionRoot,
+    computedValue: computedHashes.projectionRoot,
+    mismatchMessage: "Principal state projectionRoot does not match projection",
+    requiredMessage: "Principal state projectionRoot is required",
+  });
+  const resolvedPayloadCiphertextHash = validateResolvedHashField({
+    fieldName: "payloadCiphertextHash",
+    providedValue: state.payloadCiphertextHash,
+    computedValue: computedHashes.payloadCiphertextHash,
+    mismatchMessage:
+      "Principal state payloadCiphertextHash does not match payloadCiphertext",
+    requiredMessage: "Principal state payloadCiphertextHash is required",
+  });
+  const memberCount = resolveMemberCount({
+    state,
+    normalizedProjection,
+  });
+
+  await validatePrincipalEncapsulationKey(state);
 
   return {
     principalType: state.principalType,
@@ -224,11 +525,32 @@ async function normalizeUnsignedPrincipalState(
     keyEpoch: state.keyEpoch,
     encapsulationPublicKey: state.encapsulationPublicKey,
     keyFingerprint: state.keyFingerprint,
-    members: normalizedMembers,
-    membershipRoot,
+    membershipMode,
+    membershipRoot: resolvedMembershipRoot,
+    projectionRoot: resolvedProjectionRoot,
+    payloadCiphertextHash: resolvedPayloadCiphertextHash,
+    memberCount,
     signedAt: state.signedAt,
     signerKeyId: state.signerKeyId,
   };
+}
+
+export function isManagedRecipientPrincipalType(
+  value: string,
+): value is ManagedRecipientPrincipalType {
+  return value === "group" || value === "organization";
+}
+
+export function isPrincipalStateMemberType(
+  value: string,
+): value is PrincipalStateMemberType {
+  return value === "user" || value === "group";
+}
+
+export function isPrincipalProjectionRole(
+  value: string,
+): value is PrincipalProjectionRole {
+  return value === "member" || value === "admin";
 }
 
 export function normalizePrincipalStateMembers(
@@ -242,29 +564,55 @@ export function normalizePrincipalStateMembers(
     .sort(comparePrincipalStateMembers);
 }
 
+export function derivePrincipalProjectionMembers(
+  members: ReadonlyArray<PrincipalStateMember>,
+): PrincipalProjectionMember[] {
+  return normalizePrincipalStateMembers(members).map((member) => ({
+    memberPrincipalType: member.principalType,
+    memberPrincipalId: member.principalId,
+    role: "member",
+  }));
+}
+
+export function normalizePrincipalProjectionMembers(
+  members: ReadonlyArray<PrincipalProjectionMember>,
+): PrincipalProjectionMember[] {
+  return members
+    .map((member) => ({
+      memberPrincipalType: member.memberPrincipalType,
+      memberPrincipalId: member.memberPrincipalId,
+      role: member.role,
+    }))
+    .sort(comparePrincipalProjectionMembers);
+}
+
 export async function computePrincipalMembershipRoot(
   members: ReadonlyArray<PrincipalStateMember>,
 ): Promise<string> {
   return toFingerprint(encodePrincipalStateMembers(members));
 }
 
+export async function computePrincipalProjectionRoot(
+  members: ReadonlyArray<PrincipalProjectionMember>,
+): Promise<string> {
+  return toFingerprint(encodePrincipalProjectionMembers(members));
+}
+
+export async function computePrincipalStatePayloadCiphertextHash(
+  ciphertext: string,
+): Promise<string> {
+  return toFingerprint(TEXT_ENCODER.encode(ciphertext));
+}
+
 export async function serializeUnsignedPrincipalState(
-  state:
-    | PrincipalStateSigningInput
-    | UnsignedPrincipalState
-    | SignedPrincipalState,
+  state: PrincipalStateLike,
 ): Promise<string> {
   const normalizedState = await normalizeUnsignedPrincipalState(state);
-  return new TextDecoder().decode(
-    encodeUnsignedPrincipalState(normalizedState),
-  );
+  return TEXT_DECODER.decode(encodeUnsignedPrincipalState(normalizedState));
 }
 
 export async function computePrincipalStateHash(
-  state:
-    | PrincipalStateSigningInput
-    | UnsignedPrincipalState
-    | SignedPrincipalState,
+  state: PrincipalStateLike,
 ): Promise<string> {
   const normalizedState = await normalizeUnsignedPrincipalState(state);
   return toFingerprint(encodeUnsignedPrincipalState(normalizedState));
@@ -281,10 +629,20 @@ export async function signPrincipalState(
     encodeUnsignedPrincipalState(normalizedState),
     secretKey,
   );
+  const normalizedMembers = normalizePrincipalStateMembers(state.members);
+  const normalizedProjection = normalizePrincipalProjectionMembers(
+    state.projection ?? derivePrincipalProjectionMembers(normalizedMembers),
+  );
+  const payloadCiphertext =
+    state.payloadCiphertext ??
+    defaultPayloadCiphertextForMembers(normalizedMembers);
 
   return {
     ...normalizedState,
     signature: bytesToBase64(signature),
+    members: normalizedMembers,
+    projection: normalizedProjection,
+    payloadCiphertext,
   };
 }
 
