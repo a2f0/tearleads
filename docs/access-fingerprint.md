@@ -2,7 +2,7 @@
 
 An access fingerprint is a composite access view for a protected object.
 
-In V1 there are three relevant object classes:
+There are three relevant object classes:
 
 - container
 - document
@@ -12,7 +12,7 @@ Each one has its own current `accessEpoch` and `accessFingerprint`, but
 documents and blobs derive their principals from upstream links rather than
 from standalone ACLs.
 
-V1 derivation chain:
+Derivation chain:
 
 - container principal = inherited container grants
 - document principal = union of linked container principals
@@ -97,17 +97,17 @@ flowchart LR
 > Nested groups are resolved transitively. The result is the effective active
 > user set plus the contributing groups and organizations.
 
-For containers in V1, access also inherits from ancestor containers. So the
+For containers, access also inherits from ancestor containers. So the
 effective ACL input for one container is the union of grants on the path from
 the organization root to that container.
 
-For documents in V1:
+For documents:
 
 - load the linked containers
 - resolve each linked container principal
 - union those recipient sets
 
-For blobs in V1:
+For blobs:
 
 - load active attachment bindings for the blob
 - extract linked documents from those active bindings
@@ -161,7 +161,7 @@ state identifiers, not just the expanded recipient list. For example:
 That way the fingerprint changes not only when recipients change, but also when
 the signed policy state used to justify those recipients changes.
 
-For V1, recommended canonical inputs are:
+Recommended canonical inputs are:
 
 - container
   - ancestor container ids
@@ -210,7 +210,7 @@ flowchart LR
 - Removal, deactivation, or compromise should rotate to a new DEK for future writes.
 - Any fingerprint change should bump the object's access epoch so stale writes can be rejected.
 
-In V1, structure changes are also access changes:
+In this model, structure changes are also access changes:
 
 - container re-parent
 - document linked into or removed from a container

@@ -159,7 +159,7 @@ Important remaining limitation:
   hardening remains future work
 
 For the current access-plane model, see
-[access-plane-v1.md](./access-plane-v1.md).
+[access-plane.md](./access-plane.md).
 
 ## Why This Boundary Matters
 
@@ -232,14 +232,14 @@ Recommended objects:
 - `note_attachment`
   - logical attachment record keyed to a note
 - `attachment_binding`
-  - server-visible binding from attachment record to blob object; V1 keeps
+  - server-visible binding from attachment record to blob object; the current model keeps
     detached bindings only as transient replacement metadata and prunes them
     with unreachable blobs
 
-For the V1 attachment/blob retention decision, see
-[attachment-retention-v1.md](./attachment-retention-v1.md). Historical
-attachment bytes, signed tombstones, and attachment manifests are future
-audit/history concepts, not part of the V1 commit-change contract.
+For the attachment/blob retention decision, see
+[attachment-retention.md](./attachment-retention.md). Historical attachment
+bytes, signed tombstones, and attachment manifests are future audit/history
+concepts, not part of the current `commit-change` contract.
 
 For the current access-plane direction, the important semantic is:
 
@@ -257,7 +257,7 @@ Recommended logical operations:
 - `POST /blobs/stage`
 - `POST /documents/:documentId/commit-change`
 
-The current V1 implementation uses:
+The current implementation uses:
 
 - `blob_stages`
   - temporary encrypted upload bytes keyed by `stageId`
@@ -291,7 +291,7 @@ ciphertext is re-encrypted.
 
 ## Atomic Attachment Semantics
 
-The implemented V1 contract is intentionally atomic at the document-mutation
+The implemented contract is intentionally atomic at the document-mutation
 layer:
 
 1. `POST /blobs/stage`
@@ -408,7 +408,7 @@ So the answer to "does attach/detach get wired into the Loro protocol?" is:
 - authoritative attach/detach state should live beside Loro, not inside opaque
   encrypted diffs alone
 
-In V1, one practical consequence is:
+One practical consequence is:
 
 - document access derives from linked containers
 - blob access derives from active attachment bindings and linked documents
@@ -452,7 +452,7 @@ Blob states:
 - detached and unreachable from all live metadata roots
   - GC eligible after grace period
 
-If there is no branching in v1, treat every object as living on a single
+If there is no branching yet, treat every object as living on a single
 implicit branch, usually `main`.
 
 If branching is added later, GC must consider references from all live branches
@@ -516,7 +516,7 @@ Loro causal metadata does not, by itself, solve database replication lag.
 
 - define orphan detection rules
 - define grace periods
-- define whether branches or snapshots are in scope for v1
+- define whether branches or snapshots are in scope yet
 
 ## Near-Term Scope Recommendation
 

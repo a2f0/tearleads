@@ -9,7 +9,7 @@ SQLite.
 
 This document describes the bootstrap step for the root container only. It does
 not mean every encrypted payload in the system should use the container DEK
-directly. The current V1 direction is:
+directly. The current direction is:
 
 - containers have their own access state and wrapped key bundles
 - documents derive access from linked containers and use document DEKs
@@ -210,7 +210,7 @@ CREATE TABLE IF NOT EXISTS object_recipient_envelopes (
 
 These columns store base64-encoded wrapped key material. They are required for
 every object recipient envelope row; identity-only recipient-envelope rows are
-not part of the V1 storage model.
+not part of the current storage model.
 
 ### Local SQLite: `containers`
 
@@ -262,6 +262,6 @@ establishes the DEK and container primitives so that adding members later is
 
 For the broader hierarchy direction, see:
 
-- `docs/access-plane-v1.md`
+- `docs/access-plane.md`
 - `docs/access-fingerprint.md`
 - `docs/loro-e2ee-sync-protocol.md`

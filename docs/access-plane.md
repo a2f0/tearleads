@@ -1,4 +1,4 @@
-# Access Plane V1 Note
+# Access Plane
 
 ## Summary
 
@@ -87,7 +87,7 @@ user to a group. In that case:
 So in zero-trust mode, the fingerprint must be derived from policy inputs that
 are independently verifiable by the client, not just returned by the API.
 
-## Recommended V1 Data Model
+## Recommended Data Model
 
 ### Principals
 
@@ -98,7 +98,7 @@ are independently verifiable by the client, not just returned by the API.
 - `documents`
 - `blobs`
 
-V1 treats containers, documents, and blobs as first-class protected objects.
+This model treats containers, documents, and blobs as first-class protected objects.
 
 - containers are the primary access roots
 - documents derive access from linked containers
@@ -114,8 +114,7 @@ V1 treats containers, documents, and blobs as first-class protected objects.
   - `group_id`
   - `user_id`
 
-V1 can start with direct `group -> user` and `organization -> user`
-membership.
+Start with direct `group -> user` and `organization -> user` membership.
 
 Nested groups are compatible with this model but can be deferred. If added,
 they should be expanded transitively before computing effective recipients or
@@ -140,20 +139,20 @@ For example:
 - `group`
 - `organization`
 
-V1 rule:
+Rule:
 
 - containers own direct ACL grants
 - child containers inherit parent grants automatically
 - child containers may add more grants
 - inherited access is additive only
-- V1 does not support deny rules or narrowing inherited access
+- deny rules or narrowing inherited access are out of scope
 
 That means a deep folder can be shared directly, and its descendants inherit
 that access automatically.
 
 ### Structural Links
 
-V1 needs explicit visible link metadata for derived principals:
+This model needs explicit visible link metadata for derived principals:
 
 - `document_container_links`
   - `document_id`
@@ -234,7 +233,7 @@ direct share on a deep child expands only that subtree.
 
 ### Documents
 
-Documents do not own direct ACL grants in V1.
+Documents do not own direct ACL grants.
 
 Instead:
 
@@ -268,14 +267,14 @@ Instead:
   - effective recipient key identities
 
 This lets one blob be attached to multiple documents without inventing a
-standalone blob ACL in V1.
+standalone blob ACL.
 
 ## Wrapped Key Material
 
 Recipient envelopes should persist the wrapped key bundle for the current epoch
 of each encrypted object.
 
-V1 direction:
+Current direction:
 
 - containers have wrapped key bundles for container-level crypto state
 - documents have wrapped key bundles for document DEKs
@@ -404,8 +403,8 @@ not get uploaded ahead of the server-visible replacement binding.
 
 ## Implementation Plan
 
-V1 should build on the existing generic object-access tables rather than
-creating a parallel model.
+The implementation should build on the existing generic object-access tables
+rather than creating a parallel model.
 
 Keep:
 
@@ -458,12 +457,12 @@ Atomic document mutation payload:
   - visible partial version vectors
   - `referencedSlotIds[]`
 
-Important V1 invariant:
+Important invariant:
 
 - the server must not accept a Loro update that references a slot without an
   active committed binding after the same atomic mutation is applied
 
-V1 attachment/blob retention is live-only:
+Attachment/blob retention is live-only:
 
 - `attachmentDetaches[]` and same-slot `attachmentCommits[]` retire the prior
   active binding for that document slot
@@ -476,12 +475,12 @@ V1 attachment/blob retention is live-only:
   attachment/audit retention
 
 For the accepted product decision, see
-[attachment-retention-v1.md](./attachment-retention-v1.md). Durable old blob
-bytes, attachment tombstones, signed manifests, or historical attachment replay
-are future audit/history features, not #105 V1 behavior.
+[attachment-retention.md](./attachment-retention.md). Durable old blob bytes,
+attachment tombstones, signed manifests, or historical attachment replay are
+future audit/history features, not part of issue `#105`.
 
-V1 scope should allow offline structural mutations such as move, link, unlink,
-attach, and detach, with authoritative recomputation at sync time.
+The initial scope should allow offline structural mutations such as move, link,
+unlink, attach, and detach, with authoritative recomputation at sync time.
 
 The current API now exposes the first explicit structural mutation routes:
 
@@ -512,7 +511,7 @@ This section answers the specific concern:
 
 - what if the API changes a group so a bad user gets added?
 
-In the current V1 model, if the API is the only authority for group membership,
+In the current model, if the API is the only authority for group membership,
 clients cannot distinguish:
 
 - a legitimate group change
@@ -812,10 +811,10 @@ The server should reject attachment commit if:
 This is why access must be server-indexable and cannot live only inside
 encrypted Loro diffs.
 
-## V1 Non-Goals
+## Non-Goals
 
 - Do not implement full Zanzibar-style relationship semantics.
-- Do not solve retroactive revocation in v1.
+- Do not solve retroactive revocation yet.
 - Do not add branching-aware access semantics yet.
 - Do not require external authorization service parity before shipping basic local-first sync.
 

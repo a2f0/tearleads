@@ -4,7 +4,7 @@ This file tracks implementation bugs, schema mismatches, and unresolved design
 questions that are already visible in the current docs and code.
 
 For the current access-plane model, see
-[access-plane-v1.md](./access-plane-v1.md).
+[access-plane.md](./access-plane.md).
 
 ## Access Plane And Envelope Storage
 
@@ -56,9 +56,9 @@ remote documents, so completed rotates are discovered before attachment
 `commit-change`. Already-committed note attachments now queue same-slot blob
 replacement after subtractive rotates when local bytes are available, or block
 raw rotate-baseline sync and ask the user to replace the file when they are not.
-V1 attachment/blob retention is explicitly live-only: detached blobs are pruned
+Attachment/blob retention is explicitly live-only: detached blobs are pruned
 once their final active binding is retired. Durable historical attachment/audit
-retention is not a #105 V1 requirement; if the product needs it later, it
+retention is not a `#105` requirement; if the product needs it later, it
 should be designed as a separate audit/history layer. The remaining gap is
 longer-term durable attachment/blob history and audit semantics beyond the
 current live-retention model.
@@ -78,8 +78,8 @@ Current recommendation:
 
 Remaining implementation work:
 
-- keep durable attachment/blob history separate from V1 live retention if
+- keep durable attachment/blob history separate from live retention if
   product audit requirements need it; see
-  [attachment-retention-v1.md](./attachment-retention-v1.md)
+  [attachment-retention.md](./attachment-retention.md)
 - longer-term rekey/bootstrap and tamper-evident document-history design notes
   live in [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md)
