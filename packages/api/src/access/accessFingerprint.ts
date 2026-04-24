@@ -56,7 +56,7 @@ export type AccessFingerprintPayload =
   | ContainerAccessFingerprintPayload
   | DocumentAccessFingerprintPayload;
 
-export type AccessStateReferencedPrincipal = {
+type AccessStateReferencedPrincipal = {
   readonly keyEpoch: number;
   readonly principalId: string;
   readonly principalType: "group" | "organization";
@@ -64,17 +64,17 @@ export type AccessStateReferencedPrincipal = {
   readonly version: number;
 };
 
-export type DocumentAccessStateLink = {
+type DocumentAccessStateLink = {
   readonly accessStateHash: string;
   readonly containerId: string;
 };
 
-export type BlobAccessStateLink = {
+type BlobAccessStateLink = {
   readonly accessStateHash: string;
   readonly documentId: string;
 };
 
-export type ContainerAccessStateHashPayload = {
+type ContainerAccessStateHashPayload = {
   readonly objectType: "container";
   readonly ancestorContainerIds: readonly string[];
   readonly containerId: string;
@@ -82,20 +82,20 @@ export type ContainerAccessStateHashPayload = {
   readonly referencedPrincipals: readonly AccessStateReferencedPrincipal[];
 };
 
-export type DocumentAccessStateHashPayload = {
+type DocumentAccessStateHashPayload = {
   readonly objectType: "document";
   readonly documentId: string;
   readonly grants: readonly DocumentAccessFingerprintGrant[];
   readonly linkedContainers: readonly DocumentAccessStateLink[];
 };
 
-export type BlobAccessStateHashPayload = {
+type BlobAccessStateHashPayload = {
   readonly objectType: "blob";
   readonly blobId: string;
   readonly linkedDocuments: readonly BlobAccessStateLink[];
 };
 
-export type AccessStateHashPayload =
+type AccessStateHashPayload =
   | BlobAccessStateHashPayload
   | ContainerAccessStateHashPayload
   | DocumentAccessStateHashPayload;

@@ -1,25 +1,8 @@
-import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import { type DatabaseExecutor, db } from "../adapters/postgres";
-import { uniqueSortedStrings } from "../utils/array";
-import {
-  getCurrentPrincipalStates,
-  type StoredPrincipalState,
-} from "./principalStateStore";
-
-interface PrincipalGrantReference {
-  principalId: string;
-  principalType: string;
-}
+import type { StoredPrincipalState } from "./principalStateStore";
 
 interface ReferencedPrincipalContainer {
   referencedPrincipals: ReferencedPrincipalStateResponse[];
-}
-
-function isManagedPrincipalType(
-  value: string,
-): value is ManagedRecipientPrincipalType {
-  return value === "group" || value === "organization";
 }
 
 export function toReferencedPrincipalState(
@@ -70,39 +53,4 @@ export function mergeReferencedPrincipals(
   }
 
   return sortReferencedPrincipals(Array.from(referencesByKey.values()));
-}
-
-export async function listReferencedPrincipalStatesForGrants(
-  grants: ReadonlyArray<PrincipalGrantReference>,
-  executor: DatabaseExecutor = db,
-): Promise<ReferencedPrincipalStateResponse[]> {
-  const principalIdsByType = new Map<ManagedRecipientPrincipalType, string[]>([
-    ["group", []],
-    ["organization", []],
-  ]);
-
-  for (const grant of grants) {
-    if (!isManagedPrincipalType(grant.principalType)) {
-      continue;
-    }
-
-    principalIdsByType.get(grant.principalType)?.push(grant.principalId);
-  }
-
-  const currentStatesByType = await Promise.all(
-    Array.from(principalIdsByType.entries()).map(
-      async ([principalType, principalIds]) =>
-        getCurrentPrincipalStates(
-          principalType,
-          uniqueSortedStrings(principalIds),
-          executor,
-        ),
-    ),
-  );
-
-  const references = Array.from(currentStatesByType.values()).flatMap(
-    (states) => Array.from(states.values()).map(toReferencedPrincipalState),
-  );
-
-  return sortReferencedPrincipals(references);
 }
