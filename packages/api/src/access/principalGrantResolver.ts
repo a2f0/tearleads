@@ -33,7 +33,7 @@ export interface GrantedRecipientWithObjectIdRow {
   encapsulationKeyFingerprint: string;
 }
 
-export interface ResolvedGrantEffects {
+interface ResolvedGrantEffects {
   grantedRecipients: GrantedRecipientWithObjectIdRow[];
   referencedPrincipalsByObjectId: Map<
     string,
