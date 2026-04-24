@@ -19,14 +19,14 @@ export type SubjectType = "user" | "group" | "organization";
 export type ContainerAccessExecutor = DatabaseExecutor;
 export type EffectiveContainerRecipient = EffectivePrincipalRecipient;
 
-export interface GrantedRecipientRow {
+interface GrantedRecipientRow {
   userId: string;
   accessLevel: string;
   encapsulationPublicKey: string;
   encapsulationKeyFingerprint: string;
 }
 
-export interface AncestorContainerRow {
+interface AncestorContainerRow {
   id: string;
   cycleDetected: boolean;
 }
