@@ -1,11 +1,8 @@
 # Attachment Retention
 
-Status: accepted.
+This document defines attachment/blob retention semantics for the access plane.
 
-This note records the attachment/blob retention decision for the current
-access-plane work in GitHub issue `#105`.
-
-## Decision
+## Retention Model
 
 Attachment/blob retention is live-only.
 
@@ -28,8 +25,8 @@ historical attachment log, tombstone store, audit manifest, or recovery index.
 
 ## Product Semantics
 
-The current design guarantees live note state and live attachment availability,
-not durable attachment history.
+The system guarantees live note state and live attachment availability, not
+durable attachment history.
 
 Consequences:
 
@@ -45,7 +42,7 @@ Consequences:
 - fresh-client bootstrap is expected to use the current live baseline and live
   attachments, not reconstruct every historical attachment version
 
-## Why
+## Rationale
 
 Keeping detached blobs as "history" would create the appearance of durable audit
 retention without the properties an audit feature needs.
@@ -60,12 +57,12 @@ Useful historical attachment retention needs a separate design for:
 - how historical attachment records relate to document update history and
   baseline checkpoints
 
-Those choices are larger than blob reachability GC and should not be smuggled
-into the current design by keeping detached binding rows indefinitely.
+Those choices are larger than blob reachability GC and should not be introduced
+implicitly by keeping detached binding rows indefinitely.
 
 ## Non-Goals
 
-This design does not provide:
+This retention model does not provide:
 
 - durable old attachment bytes after replacement or detach
 - server-side historical attachment replay
@@ -75,8 +72,8 @@ This design does not provide:
 
 ## Future Direction
 
-If product requirements later need durable attachment history, implement it as a
-separate audit/history layer rather than changing detached binding retention.
+Durable attachment history requires a separate audit/history layer rather than
+changes to detached binding retention.
 
 That future layer should align with
 [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md):
