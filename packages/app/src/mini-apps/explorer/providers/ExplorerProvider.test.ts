@@ -241,6 +241,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
       syncAgent.ingestRemoteContainer({
         id: "container-a",
         metadataAccessEpoch: 1,
+        metadataAccessStateHash: "container-a-access-state-hash-1",
         metadataDocumentId: "metadata-document-a",
         metadataRecipientEncapsulationPublicKeys: [],
         metadataReferencedPrincipals: [
@@ -258,6 +259,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
       syncAgent.ingestRemoteContainer({
         id: "container-b",
         metadataAccessEpoch: 1,
+        metadataAccessStateHash: "container-b-access-state-hash-1",
         metadataDocumentId: "metadata-document-b",
         metadataRecipientEncapsulationPublicKeys: [],
         metadataReferencedPrincipals: [
@@ -311,6 +313,7 @@ test("explorer store creates authenticated child containers through the API befo
       return {
         id,
         metadataAccessEpoch: 1,
+        metadataAccessStateHash: "metadata-access-state-hash-1",
         metadataDocumentId: "metadata-document-1",
         metadataRecipientEncapsulationPublicKeys: [
           bytesToBase64(localKeyPair.publicKey),
@@ -446,6 +449,7 @@ test("explorer store creates a child under a writable shared root using the inhe
       return {
         id,
         metadataAccessEpoch: 1,
+        metadataAccessStateHash: "metadata-access-state-hash-2",
         metadataDocumentId: "metadata-document-2",
         metadataRecipientEncapsulationPublicKeys: [
           bytesToBase64(ownerKeyPair.publicKey),
@@ -895,6 +899,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
     shareContainer: async (containerId) => ({
       id: containerId,
       metadataAccessEpoch: 2,
+      metadataAccessStateHash: "metadata-access-state-hash-2",
       metadataDocumentId: "metadata-document-1",
       metadataRecipientEncapsulationPublicKeys: [
         bytesToBase64(localKeyPair.publicKey),
@@ -1578,6 +1583,7 @@ test("explorer store refreshes remote containers on demand after initialization"
         {
           id: "shared-root-container",
           metadataAccessEpoch: 1,
+          metadataAccessStateHash: "shared-root-access-state-hash-1",
           metadataDocumentId: "shared-root-metadata-document",
           metadataRecipientEncapsulationPublicKeys: [
             bytesToBase64(localKeyPair.publicKey),

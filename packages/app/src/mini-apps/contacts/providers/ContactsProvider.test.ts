@@ -211,6 +211,7 @@ function createSyncRuntime(
         id: "contacts-document-1",
         createdAt: "2026-03-31T00:00:00.000Z",
         currentAccessEpoch: 1,
+        currentAccessStateHash: "contacts-access-state-hash-1",
         documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(encapsulationKeyPair.publicKey),

@@ -435,7 +435,7 @@ async function upsertRemoteContainerState(
       existingState,
       {
         accessEpoch: remoteContainer.metadataAccessEpoch,
-        accessStateHash: remoteContainer.metadataAccessStateHash ?? null,
+        accessStateHash: remoteContainer.metadataAccessStateHash,
         documentId: remoteContainer.metadataDocumentId,
         metadataDocumentId: remoteContainer.metadataDocumentId,
         organizationId: remoteContainer.organizationId,
@@ -463,7 +463,7 @@ async function upsertRemoteContainerState(
     ),
     record: {
       accessEpoch: remoteContainer.metadataAccessEpoch,
-      accessStateHash: remoteContainer.metadataAccessStateHash ?? null,
+      accessStateHash: remoteContainer.metadataAccessStateHash,
       documentId: remoteContainer.metadataDocumentId,
       documentRecipientEnvelopes: null,
       id: remoteContainer.id,
@@ -913,7 +913,7 @@ async function syncSingleContainerMetadata(input: {
     });
   await host.persistContainerState(containerState, {
     accessEpoch: synced.currentAccessEpoch,
-    accessStateHash: synced.currentAccessStateHash ?? null,
+    accessStateHash: synced.currentAccessStateHash,
     documentId: containerState.record.documentId,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,

@@ -12,6 +12,7 @@ export interface PublicKeyResponse {
   rootContainerId: string;
   rootMetadataDocumentId: string;
   rootMetadataAccessEpoch: number;
+  rootMetadataAccessStateHash: string;
   rootMetadataRecipientEncapsulationPublicKeys: string[];
   challenge: string;
 }
@@ -27,6 +28,8 @@ export function isPublicKeyResponse(
     hasStringProperty(value, "rootContainerId") &&
     hasStringProperty(value, "rootMetadataDocumentId") &&
     hasNumberProperty(value, "rootMetadataAccessEpoch") &&
+    hasStringProperty(value, "rootMetadataAccessStateHash") &&
+    value.rootMetadataAccessStateHash.length > 0 &&
     hasArrayProperty(value, "rootMetadataRecipientEncapsulationPublicKeys") &&
     value.rootMetadataRecipientEncapsulationPublicKeys.every(
       (entry) => typeof entry === "string",

@@ -39,7 +39,7 @@ export interface CreateDocumentResponse {
   id: string;
   createdAt: string;
   currentAccessEpoch: number;
-  currentAccessStateHash?: string;
+  currentAccessStateHash: string;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   recipientEncapsulationPublicKeys: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
@@ -73,7 +73,7 @@ export interface SyncDocumentResponse {
   missingUpdateEpochs: SyncDocumentMissingUpdateEpoch[];
   updates: DocumentSyncUpdate[];
   currentAccessEpoch: number;
-  currentAccessStateHash?: string;
+  currentAccessStateHash: string;
   documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
   documentRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   rotateBaselineSourceVersionVector: string | null;
@@ -193,8 +193,8 @@ export function isCreateDocumentResponse(
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "createdAt") &&
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&
-    (currentAccessStateHash === undefined ||
-      typeof currentAccessStateHash === "string") &&
+    typeof currentAccessStateHash === "string" &&
+    currentAccessStateHash.length > 0 &&
     (documentRecipientEnvelopes === null ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&
     hasStringArrayProperty(value, "recipientEncapsulationPublicKeys") &&
@@ -286,8 +286,8 @@ export function isSyncDocumentResponse(
     hasArrayProperty(value, "updates") &&
     value.updates.every(isDocumentSyncUpdate) &&
     hasPositiveNumberProperty(value, "currentAccessEpoch") &&
-    (currentAccessStateHash === undefined ||
-      typeof currentAccessStateHash === "string") &&
+    typeof currentAccessStateHash === "string" &&
+    currentAccessStateHash.length > 0 &&
     isDocumentRecipientEnvelopeAction(documentRecipientEnvelopeAction) &&
     (documentRecipientEnvelopes === null ||
       isSerializedRecipientEnvelopeArray(documentRecipientEnvelopes)) &&

@@ -25,6 +25,7 @@ test("unknown document update events trigger rediscovery for shared container no
   const upsertDiscoveredDocumentsCalls: Array<
     ReadonlyArray<{
       accessEpoch: number;
+      accessStateHash?: string | null;
       containerId: string;
       createdAt: string;
       documentId: string;
@@ -53,6 +54,7 @@ test("unknown document update events trigger rediscovery for shared container no
       {
         createdAt: "2026-04-06T12:00:00.000Z",
         currentAccessEpoch: 1,
+        currentAccessStateHash: "access-state-hash-1",
         id: "peer-note-document",
         linkedContainerIds: ["shared-container"],
         referencedPrincipals: [
@@ -94,6 +96,7 @@ test("unknown document update events trigger rediscovery for shared container no
     [
       {
         accessEpoch: 1,
+        accessStateHash: "access-state-hash-1",
         containerId: "shared-container",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "peer-note-document",
@@ -143,6 +146,7 @@ test("manual refresh can discover documents across all visible containers", asyn
   const upsertDiscoveredDocumentsCalls: Array<
     ReadonlyArray<{
       accessEpoch: number;
+      accessStateHash?: string | null;
       containerId: string;
       createdAt: string;
       documentId: string;
@@ -161,6 +165,7 @@ test("manual refresh can discover documents across all visible containers", asyn
           {
             createdAt: "2026-04-06T12:00:00.000Z",
             currentAccessEpoch: 1,
+            currentAccessStateHash: "access-state-hash-a",
             id: "document-a",
             linkedContainerIds: ["container-a"],
             referencedPrincipals: [
@@ -180,6 +185,7 @@ test("manual refresh can discover documents across all visible containers", asyn
         {
           createdAt: "2026-04-06T12:05:00.000Z",
           currentAccessEpoch: 2,
+          currentAccessStateHash: "access-state-hash-b",
           id: "document-b",
           linkedContainerIds: ["container-b"],
           referencedPrincipals: [
@@ -226,6 +232,7 @@ test("manual refresh can discover documents across all visible containers", asyn
     [
       {
         accessEpoch: 1,
+        accessStateHash: "access-state-hash-a",
         containerId: "container-a",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "document-a",
@@ -233,6 +240,7 @@ test("manual refresh can discover documents across all visible containers", asyn
       },
       {
         accessEpoch: 2,
+        accessStateHash: "access-state-hash-b",
         containerId: "container-b",
         createdAt: "2026-04-06T12:05:00.000Z",
         documentId: "document-b",

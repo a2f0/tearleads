@@ -341,7 +341,7 @@ async function buildRemoteChildContainerState(
     record: {
       ...initialRecord,
       accessEpoch: created.metadataAccessEpoch,
-      accessStateHash: created.metadataAccessStateHash ?? null,
+      accessStateHash: created.metadataAccessStateHash,
       documentId: created.metadataDocumentId,
       documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
         initialDocumentEncryption.documentRecipientEnvelopes,
@@ -572,7 +572,7 @@ async function shareExplorerContainerWithUser(
   );
   await persistContainerState(state, existingState, {
     accessEpoch: shared.metadataAccessEpoch,
-    accessStateHash: shared.metadataAccessStateHash ?? null,
+    accessStateHash: shared.metadataAccessStateHash,
     documentId: shared.metadataDocumentId,
     documentRecipientEnvelopes: existingState.record.documentRecipientEnvelopes,
     metadataDocumentId: shared.metadataDocumentId,

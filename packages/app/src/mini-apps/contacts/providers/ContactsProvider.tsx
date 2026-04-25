@@ -479,7 +479,7 @@ async function ensureContactDocumentForSync(
         created.documentRecipientEnvelopes,
       ),
       accessEpoch: created.currentAccessEpoch,
-      accessStateHash: created.currentAccessStateHash ?? null,
+      accessStateHash: created.currentAccessStateHash,
     });
     state.runtime.log(
       `Created contact document: ${created.id} (${contact.entry.userId})`,
@@ -620,7 +620,7 @@ async function applySyncedContactUpdates(
   await persistContact(state, contact, {
     documentId,
     accessEpoch: synced.currentAccessEpoch,
-    accessStateHash: synced.currentAccessStateHash ?? null,
+    accessStateHash: synced.currentAccessStateHash,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,
     ),

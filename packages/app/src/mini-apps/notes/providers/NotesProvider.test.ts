@@ -551,6 +551,7 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
         id: "shared-remote-note",
         createdAt: "2026-04-07T00:00:00.000Z",
         currentAccessEpoch: 1,
+        currentAccessStateHash: "access-state-hash-1",
         documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(encapsulationKeyPair.publicKey),
@@ -624,6 +625,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
         id: "shared-remote-note",
         createdAt: "2026-04-07T00:00:00.000Z",
         currentAccessEpoch: 1,
+        currentAccessStateHash: "access-state-hash-1",
         documentRecipientEnvelopes: null,
         recipientEncapsulationPublicKeys: [
           bytesToBase64(encapsulationKeyPair.publicKey),

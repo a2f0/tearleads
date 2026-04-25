@@ -16,7 +16,7 @@ export interface CreateContainerResponse {
   parentId: string;
   metadataDocumentId: string;
   metadataAccessEpoch: number;
-  metadataAccessStateHash?: string;
+  metadataAccessStateHash: string;
   metadataRecipientEncapsulationPublicKeys: string[];
   metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
@@ -25,7 +25,7 @@ export interface ShareContainerResponse {
   id: string;
   metadataDocumentId: string;
   metadataAccessEpoch: number;
-  metadataAccessStateHash?: string;
+  metadataAccessStateHash: string;
   metadataRecipientEncapsulationPublicKeys: string[];
   metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
@@ -38,7 +38,7 @@ export interface ContainerSummary {
   parentId: string | null;
   metadataDocumentId: string;
   metadataAccessEpoch: number;
-  metadataAccessStateHash?: string;
+  metadataAccessStateHash: string;
   metadataRecipientEncapsulationPublicKeys: string[];
   metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
@@ -60,8 +60,8 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
     hasNullableStringProperty(value, "parentId") &&
     hasStringProperty(value, "metadataDocumentId") &&
     hasNumberProperty(value, "metadataAccessEpoch") &&
-    (metadataAccessStateHash === undefined ||
-      typeof metadataAccessStateHash === "string") &&
+    typeof metadataAccessStateHash === "string" &&
+    metadataAccessStateHash.length > 0 &&
     hasArrayProperty(value, "metadataRecipientEncapsulationPublicKeys") &&
     value.metadataRecipientEncapsulationPublicKeys.every(
       (entry) => typeof entry === "string",
@@ -99,8 +99,8 @@ export function isShareContainerResponse(
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "metadataDocumentId") &&
     hasNumberProperty(value, "metadataAccessEpoch") &&
-    (metadataAccessStateHash === undefined ||
-      typeof metadataAccessStateHash === "string") &&
+    typeof metadataAccessStateHash === "string" &&
+    metadataAccessStateHash.length > 0 &&
     hasArrayProperty(value, "metadataRecipientEncapsulationPublicKeys") &&
     value.metadataRecipientEncapsulationPublicKeys.every(
       (entry) => typeof entry === "string",

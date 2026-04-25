@@ -12,7 +12,7 @@ import {
 export interface ContainerDocumentSummary {
   createdAt: string;
   currentAccessEpoch: number;
-  currentAccessStateHash?: string;
+  currentAccessStateHash: string;
   id: string;
   linkedContainerIds: string[];
   recipientEncapsulationPublicKeys: string[];
@@ -37,8 +37,8 @@ function isContainerDocumentSummary(
     isPlainObject(value) &&
     hasStringProperty(value, "createdAt") &&
     hasNumberProperty(value, "currentAccessEpoch") &&
-    (currentAccessStateHash === undefined ||
-      typeof currentAccessStateHash === "string") &&
+    typeof currentAccessStateHash === "string" &&
+    currentAccessStateHash.length > 0 &&
     hasStringProperty(value, "id") &&
     hasArrayProperty(value, "linkedContainerIds") &&
     value.linkedContainerIds.every((entry) => typeof entry === "string") &&

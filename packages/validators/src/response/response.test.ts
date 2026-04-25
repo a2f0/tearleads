@@ -35,6 +35,7 @@ test("isPublicKeyResponse", () => {
       rootContainerId: "ctr-789",
       rootMetadataDocumentId: "doc-root",
       rootMetadataAccessEpoch: 1,
+      rootMetadataAccessStateHash: "root-access-state-hash",
       rootMetadataRecipientEncapsulationPublicKeys: ["pub-key"],
       challenge: "deadbeef",
     }),
@@ -95,6 +96,7 @@ test("isCommitDocumentChangeResponse", () => {
   expect(
     isCommitDocumentChangeResponse({
       currentAccessEpoch: 2,
+      currentAccessStateHash: "access-state-hash",
       acceptedOutgoingUpdateIds: ["update_01"],
       committedBindings: [
         {
@@ -131,6 +133,7 @@ test("isCreateContainerResponse", () => {
       parentId: "ctr-root",
       metadataDocumentId: "doc-123",
       metadataAccessEpoch: 1,
+      metadataAccessStateHash: "access-state-hash",
       metadataRecipientEncapsulationPublicKeys: ["pub-key"],
       metadataReferencedPrincipals: [
         {
@@ -161,6 +164,7 @@ test("isListContainersResponse", () => {
         parentId: null,
         metadataDocumentId: "doc-root",
         metadataAccessEpoch: 1,
+        metadataAccessStateHash: "access-state-hash",
         metadataRecipientEncapsulationPublicKeys: ["pub-key"],
         metadataReferencedPrincipals: [
           {
@@ -194,6 +198,7 @@ test("isShareContainerResponse", () => {
       id: "ctr-123",
       metadataDocumentId: "doc-123",
       metadataAccessEpoch: 2,
+      metadataAccessStateHash: "access-state-hash",
       metadataRecipientEncapsulationPublicKeys: ["pub-key"],
       metadataReferencedPrincipals: [
         {
@@ -223,6 +228,7 @@ test("isMoveContainerResponse", () => {
       parentId: "ctr-parent",
       metadataDocumentId: "doc-123",
       metadataAccessEpoch: 2,
+      metadataAccessStateHash: "access-state-hash",
       metadataRecipientEncapsulationPublicKeys: ["pub-key"],
     }),
   ).toBe(true);
@@ -245,6 +251,7 @@ test("isListContainerDocumentsResponse", () => {
       {
         createdAt: new Date().toISOString(),
         currentAccessEpoch: 2,
+        currentAccessStateHash: "access-state-hash",
         id: "doc-123",
         linkedContainerIds: ["ctr-root"],
         recipientEncapsulationPublicKeys: ["pub-key"],
@@ -278,6 +285,7 @@ test("isLinkDocumentToContainerResponse", () => {
     isLinkDocumentToContainerResponse({
       createdAt: new Date().toISOString(),
       currentAccessEpoch: 2,
+      currentAccessStateHash: "access-state-hash",
       id: "doc-123",
       linkedContainerIds: ["ctr-root", "ctr-child"],
       recipientEncapsulationPublicKeys: ["pub-key"],
@@ -299,6 +307,7 @@ test("isUnlinkDocumentFromContainerResponse", () => {
     isUnlinkDocumentFromContainerResponse({
       createdAt: new Date().toISOString(),
       currentAccessEpoch: 3,
+      currentAccessStateHash: "access-state-hash",
       id: "doc-123",
       linkedContainerIds: ["ctr-root"],
       recipientEncapsulationPublicKeys: ["pub-key"],
