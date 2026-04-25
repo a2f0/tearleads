@@ -13,6 +13,7 @@ interface RegistrationBootstrapInput {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
   rootMetadataAccessEpoch: number;
+  rootMetadataAccessStateHash: string;
   rootMetadataDocumentId: string;
   rootMetadataRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   rootMetadataSnapshot: string;
@@ -36,6 +37,7 @@ export async function persistRegistrationBootstrap(
     await sqlContactsPersistence.ensureSchema(lockedExecSql);
     const rootRecord: DocumentRecord = {
       accessEpoch: input.rootMetadataAccessEpoch,
+      accessStateHash: input.rootMetadataAccessStateHash,
       documentId: input.rootMetadataDocumentId,
       documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
         input.rootMetadataRecipientEnvelopes,

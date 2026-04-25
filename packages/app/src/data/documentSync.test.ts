@@ -45,13 +45,18 @@ function createSyncUpdate(input: {
 
 function createSyncResponse(input: {
   currentAccessEpoch?: number;
+  currentAccessStateHash?: string;
   updates: SyncDocumentResponse["updates"];
 }): SyncDocumentResponse {
+  const currentAccessEpoch = input.currentAccessEpoch ?? 2;
+
   return {
     acceptedOutgoingUpdateIds: [],
     canonicalDocumentRecipientEnvelopesAdopted: false,
     commitLsn: null,
-    currentAccessEpoch: input.currentAccessEpoch ?? 2,
+    currentAccessEpoch,
+    currentAccessStateHash:
+      input.currentAccessStateHash ?? `access-state-hash-${currentAccessEpoch}`,
     documentId: "document-1",
     documentRecipientEnvelopeAction: "rotate",
     documentRecipientEnvelopes: [createEnvelope("current")],
@@ -241,6 +246,7 @@ test("additive rewrap preserves prior-epoch decryptability for a newly added rec
         canonicalDocumentRecipientEnvelopesAdopted: false,
         commitLsn: "0/20",
         currentAccessEpoch: accessEpoch,
+        currentAccessStateHash: `access-state-hash-${accessEpoch}`,
         documentId,
         documentRecipientEnvelopeAction: "none",
         documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
@@ -264,6 +270,7 @@ test("additive rewrap preserves prior-epoch decryptability for a newly added rec
       canonicalDocumentRecipientEnvelopesAdopted: false,
       commitLsn: "0/10",
       currentAccessEpoch: 2,
+      currentAccessStateHash: "access-state-hash-2",
       documentId: "document-1",
       documentRecipientEnvelopeAction: "rewrap",
       documentRecipientEnvelopes: null,
@@ -361,6 +368,7 @@ test("rewrap seeding prefers synced recipient public keys over stale local keys"
         canonicalDocumentRecipientEnvelopesAdopted: false,
         commitLsn: "0/20",
         currentAccessEpoch: accessEpoch,
+        currentAccessStateHash: `access-state-hash-${accessEpoch}`,
         documentId,
         documentRecipientEnvelopeAction: "none",
         documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
@@ -375,6 +383,7 @@ test("rewrap seeding prefers synced recipient public keys over stale local keys"
       canonicalDocumentRecipientEnvelopesAdopted: false,
       commitLsn: "0/10",
       currentAccessEpoch: 2,
+      currentAccessStateHash: "access-state-hash-2",
       documentId: "document-1",
       documentRecipientEnvelopeAction: "rewrap",
       documentRecipientEnvelopes: null,
@@ -442,6 +451,7 @@ test("rewrap seeding can materialize current-epoch envelopes after local access 
         canonicalDocumentRecipientEnvelopesAdopted: false,
         commitLsn: "0/20",
         currentAccessEpoch: accessEpoch,
+        currentAccessStateHash: `access-state-hash-${accessEpoch}`,
         documentId,
         documentRecipientEnvelopeAction: "none",
         documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
@@ -456,6 +466,7 @@ test("rewrap seeding can materialize current-epoch envelopes after local access 
       canonicalDocumentRecipientEnvelopesAdopted: false,
       commitLsn: "0/10",
       currentAccessEpoch: 2,
+      currentAccessStateHash: "access-state-hash-2",
       documentId: "document-1",
       documentRecipientEnvelopeAction: "rewrap",
       documentRecipientEnvelopes: null,

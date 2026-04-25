@@ -1,10 +1,38 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "../../data/documents/documentsPersistence";
+import type {
+  DiscoveredDocumentInput,
+  DocumentSummary,
+} from "../../data/documents/documentsPersistence";
 import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
   hasUndiscoveredDocumentUpdateEvent,
 } from "./documentDiscovery";
+
+type CapturedDiscoveredDocumentInput = Omit<
+  DiscoveredDocumentInput,
+  "accessStateHash"
+> & {
+  accessStateHash: string;
+};
+
+function captureDiscoveredDocumentInputs(
+  inputs: ReadonlyArray<DiscoveredDocumentInput>,
+): CapturedDiscoveredDocumentInput[] {
+  return inputs.map((input) => {
+    if (
+      typeof input.accessStateHash !== "string" ||
+      input.accessStateHash.length === 0
+    ) {
+      throw new Error("Expected discovered document input to include a hash.");
+    }
+
+    return {
+      ...input,
+      accessStateHash: input.accessStateHash,
+    };
+  });
+}
 
 test("unknown document update events trigger rediscovery for shared container notes", async () => {
   const cachedPrincipalReferences: Array<
@@ -23,13 +51,7 @@ test("unknown document update events trigger rediscovery for shared container no
     }>
   > = [];
   const upsertDiscoveredDocumentsCalls: Array<
-    ReadonlyArray<{
-      accessEpoch: number;
-      containerId: string;
-      createdAt: string;
-      documentId: string;
-      linkedContainerIds: ReadonlyArray<string>;
-    }>
+    ReadonlyArray<CapturedDiscoveredDocumentInput>
   > = [];
   const knownDocumentIds = new Set<string>();
   const events = [
@@ -53,6 +75,7 @@ test("unknown document update events trigger rediscovery for shared container no
       {
         createdAt: "2026-04-06T12:00:00.000Z",
         currentAccessEpoch: 1,
+        currentAccessStateHash: "access-state-hash-1",
         id: "peer-note-document",
         linkedContainerIds: ["shared-container"],
         referencedPrincipals: [
@@ -70,8 +93,9 @@ test("unknown document update events trigger rediscovery for shared container no
       replaceDocumentLinksBatchCalls.push(inputs);
     },
     upsertDiscoveredDocuments: async (inputs) => {
-      upsertDiscoveredDocumentsCalls.push(inputs);
-      const summaries: DocumentSummary[] = inputs.map((input) => ({
+      const capturedInputs = captureDiscoveredDocumentInputs(inputs);
+      upsertDiscoveredDocumentsCalls.push(capturedInputs);
+      const summaries: DocumentSummary[] = capturedInputs.map((input) => ({
         id: `document-${input.documentId}`,
         containerId: input.containerId,
         documentId: input.documentId,
@@ -94,6 +118,7 @@ test("unknown document update events trigger rediscovery for shared container no
     [
       {
         accessEpoch: 1,
+        accessStateHash: "access-state-hash-1",
         containerId: "shared-container",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "peer-note-document",
@@ -141,13 +166,7 @@ test("manual refresh can discover documents across all visible containers", asyn
     }>
   > = [];
   const upsertDiscoveredDocumentsCalls: Array<
-    ReadonlyArray<{
-      accessEpoch: number;
-      containerId: string;
-      createdAt: string;
-      documentId: string;
-      linkedContainerIds: ReadonlyArray<string>;
-    }>
+    ReadonlyArray<CapturedDiscoveredDocumentInput>
   > = [];
   const discovered = await discoverAllContainerDocuments({
     cacheReferencedPrincipalPolicies: async (references) => {
@@ -161,6 +180,7 @@ test("manual refresh can discover documents across all visible containers", asyn
           {
             createdAt: "2026-04-06T12:00:00.000Z",
             currentAccessEpoch: 1,
+            currentAccessStateHash: "access-state-hash-a",
             id: "document-a",
             linkedContainerIds: ["container-a"],
             referencedPrincipals: [
@@ -180,6 +200,7 @@ test("manual refresh can discover documents across all visible containers", asyn
         {
           createdAt: "2026-04-06T12:05:00.000Z",
           currentAccessEpoch: 2,
+          currentAccessStateHash: "access-state-hash-b",
           id: "document-b",
           linkedContainerIds: ["container-b"],
           referencedPrincipals: [
@@ -198,8 +219,9 @@ test("manual refresh can discover documents across all visible containers", asyn
       replaceDocumentLinksBatchCalls.push(inputs);
     },
     upsertDiscoveredDocuments: async (inputs) => {
-      upsertDiscoveredDocumentsCalls.push(inputs);
-      return inputs.map<DocumentSummary>((input) => ({
+      const capturedInputs = captureDiscoveredDocumentInputs(inputs);
+      upsertDiscoveredDocumentsCalls.push(capturedInputs);
+      return capturedInputs.map<DocumentSummary>((input) => ({
         id: `document-${input.documentId}`,
         containerId: input.containerId,
         documentId: input.documentId,
@@ -226,6 +248,7 @@ test("manual refresh can discover documents across all visible containers", asyn
     [
       {
         accessEpoch: 1,
+        accessStateHash: "access-state-hash-a",
         containerId: "container-a",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "document-a",
@@ -233,6 +256,7 @@ test("manual refresh can discover documents across all visible containers", asyn
       },
       {
         accessEpoch: 2,
+        accessStateHash: "access-state-hash-b",
         containerId: "container-b",
         createdAt: "2026-04-06T12:05:00.000Z",
         documentId: "document-b",

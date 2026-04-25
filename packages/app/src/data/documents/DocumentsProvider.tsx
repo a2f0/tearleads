@@ -783,7 +783,7 @@ async function ensureRemoteDocument(
         created.documentRecipientEnvelopes,
       ),
       accessEpoch: created.currentAccessEpoch,
-      accessStateHash: created.currentAccessStateHash ?? null,
+      accessStateHash: created.currentAccessStateHash,
     })
   ).record;
 }
@@ -1826,7 +1826,7 @@ async function persistCommittedDocumentRecord(
   return (
     await persistDocument(state, currentDoc, {
       accessEpoch: committed.currentAccessEpoch,
-      accessStateHash: committed.currentAccessStateHash ?? null,
+      accessStateHash: committed.currentAccessStateHash,
       documentId,
       documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
         committed.documentRecipientEnvelopes,
@@ -2227,7 +2227,7 @@ async function finalizeDocumentSync(
   const { record: nextRecord } = await persistDocument(state, currentDoc, {
     documentId: currentRecord.documentId,
     accessEpoch: synced.currentAccessEpoch,
-    accessStateHash: synced.currentAccessStateHash ?? null,
+    accessStateHash: synced.currentAccessStateHash,
     documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
       nextDocumentRecipientEnvelopes,
     ),

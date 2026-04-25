@@ -41,7 +41,7 @@ async function createContainerForUser(input: {
   id: string;
   parentId: string;
   token: string;
-}): Promise<{ metadataAccessStateHash?: string }> {
+}): Promise<{ metadataAccessStateHash: string }> {
   const response = await createContainerRequest(
     {
       id: input.id,

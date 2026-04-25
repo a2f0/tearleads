@@ -385,6 +385,7 @@ async function runRegisterPublicKeyTransaction(
       organizationId: org.id,
       rootContainerId: container.id,
       rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
+      rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,
       rootMetadataDocumentId: rootMetadata.metadataDocumentId,
       rootMetadataRecipientEncapsulationPublicKeys:
         rootMetadata.metadataRecipientEncapsulationPublicKeys,
@@ -462,6 +463,7 @@ export async function registerPublicKey(
     rootContainerId: result.rootContainerId,
     rootMetadataDocumentId: result.rootMetadataDocumentId,
     rootMetadataAccessEpoch: result.rootMetadataAccessEpoch,
+    rootMetadataAccessStateHash: result.rootMetadataAccessStateHash,
     rootMetadataRecipientEncapsulationPublicKeys:
       result.rootMetadataRecipientEncapsulationPublicKeys,
     challenge: challengeHex,

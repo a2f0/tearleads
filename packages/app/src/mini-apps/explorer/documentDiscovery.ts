@@ -8,7 +8,7 @@ import type {
 interface ExplorerListedDocument {
   createdAt: string;
   currentAccessEpoch: number;
-  currentAccessStateHash?: string;
+  currentAccessStateHash: string;
   id: string;
   linkedContainerIds: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
@@ -77,9 +77,7 @@ export async function discoverContainerDocuments({
   return upsertDiscoveredDocuments(
     listedDocuments.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
-      ...(document.currentAccessStateHash
-        ? { accessStateHash: document.currentAccessStateHash }
-        : {}),
+      accessStateHash: document.currentAccessStateHash,
       containerId,
       createdAt: document.createdAt,
       documentId: document.id,
@@ -127,9 +125,7 @@ export async function discoverAllContainerDocuments({
       });
       discoveredDocumentInputs.push({
         accessEpoch: document.currentAccessEpoch,
-        ...(document.currentAccessStateHash
-          ? { accessStateHash: document.currentAccessStateHash }
-          : {}),
+        accessStateHash: document.currentAccessStateHash,
         containerId,
         createdAt: document.createdAt,
         documentId: document.id,

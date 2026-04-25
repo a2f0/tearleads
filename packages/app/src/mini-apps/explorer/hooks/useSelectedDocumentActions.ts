@@ -132,7 +132,7 @@ async function moveExplorerDocument(params: {
 
   return {
     currentAccessEpoch: unlinkedDocument.currentAccessEpoch,
-    currentAccessStateHash: unlinkedDocument.currentAccessStateHash ?? null,
+    currentAccessStateHash: unlinkedDocument.currentAccessStateHash,
     linkedContainerIds: unlinkedDocument.linkedContainerIds,
     nextContainerId,
   };
@@ -399,7 +399,7 @@ async function linkExplorerNote(params: {
 
   const linkedNote = await relinkExplorerNoteAfterStructuralMutation({
     accessEpoch: linkedDocument.currentAccessEpoch,
-    accessStateHash: linkedDocument.currentAccessStateHash ?? null,
+    accessStateHash: linkedDocument.currentAccessStateHash,
     appData,
     currentDocumentStore,
     mergeDocumentSummary,
@@ -467,7 +467,7 @@ async function unlinkExplorerLinkedNote(params: {
 
   const unlinkedNote = await relinkExplorerNoteAfterStructuralMutation({
     accessEpoch: unlinkedDocument.currentAccessEpoch,
-    accessStateHash: unlinkedDocument.currentAccessStateHash ?? null,
+    accessStateHash: unlinkedDocument.currentAccessStateHash,
     appData,
     currentDocumentStore,
     mergeDocumentSummary,
