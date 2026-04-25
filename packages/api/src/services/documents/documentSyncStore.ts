@@ -922,6 +922,7 @@ async function appendSyncDocumentUpdates(
       {
         accessEpoch: access.currentAccessEpoch,
         accessFingerprint: access.accessFingerprint,
+        accessStateHash: access.accessStateHash,
         actorFingerprint: input.authorFingerprint,
         actorUserId: input.authorUserId,
         documentId: input.documentId,
@@ -944,6 +945,7 @@ async function appendSyncDocumentUpdates(
       await maybeWriteDocumentAuditCheckpoint(tx, {
         accessEpoch: access.currentAccessEpoch,
         accessFingerprint: access.accessFingerprint,
+        accessStateHash: access.accessStateHash,
         actorFingerprint: input.authorFingerprint,
         actorUserId: input.authorUserId,
         checkpointUpdate,

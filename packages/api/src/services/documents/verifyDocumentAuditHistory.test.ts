@@ -303,6 +303,39 @@ test("verifyDocumentAuditHistory detects tampered attachment audit metadata", as
   ).toBe(true);
 });
 
+test("verifyDocumentAuditHistory detects tampered audit access state hash", async () => {
+  const { documentId } = await createDocumentWithAuditHistory();
+
+  const [updateEvent] = await db
+    .select({ auditEntryId: documentUpdateAuditEvents.auditEntryId })
+    .from(documentUpdateAuditEvents)
+    .innerJoin(
+      documentAuditEntries,
+      eq(documentAuditEntries.id, documentUpdateAuditEvents.auditEntryId),
+    )
+    .where(eq(documentAuditEntries.documentId, documentId))
+    .limit(1);
+  if (!updateEvent) {
+    throw new Error("Expected document update audit event");
+  }
+
+  await db
+    .update(documentAuditEntries)
+    .set({ accessStateHash: "tampered-access-state-hash" })
+    .where(eq(documentAuditEntries.id, updateEvent.auditEntryId));
+
+  const result = await verifyDocumentAuditHistory(db, { documentId });
+
+  expect(result.isValid).toBe(false);
+  expect(
+    result.errors.some((error) =>
+      error.startsWith(
+        "Document update audit entry hash mismatch at sequence ",
+      ),
+    ),
+  ).toBe(true);
+});
+
 test("verifyDocumentAuditHistory detects tampered checkpoint coverage", async () => {
   const { documentId } = await createDocumentWithAuditHistory();
 
@@ -322,6 +355,24 @@ test("verifyDocumentAuditHistory detects tampered checkpoint coverage", async ()
         error.endsWith(
           "covers unknown audit entry hash tampered-covered-audit-hash",
         ),
+    ),
+  ).toBe(true);
+});
+
+test("verifyDocumentAuditHistory detects tampered checkpoint access state hash", async () => {
+  const { documentId } = await createDocumentWithAuditHistory();
+
+  await db
+    .update(documentAuditCheckpoints)
+    .set({ accessStateHash: "tampered-access-state-hash" })
+    .where(eq(documentAuditCheckpoints.documentId, documentId));
+
+  const result = await verifyDocumentAuditHistory(db, { documentId });
+
+  expect(result.isValid).toBe(false);
+  expect(
+    result.errors.some((error) =>
+      error.startsWith("Checkpoint hash mismatch at sequence "),
     ),
   ).toBe(true);
 });

@@ -35,6 +35,7 @@ function serializeAuditEntryHashField(name: string, value: string) {
 function buildDocumentUpdateAuditEntryHashPayload(input: {
   accessEpoch: number;
   accessFingerprint: string;
+  accessStateHash?: string | null;
   actorFingerprint: string;
   actorUserId: string;
   documentId: string;
@@ -47,11 +48,18 @@ function buildDocumentUpdateAuditEntryHashPayload(input: {
   previousEntryHash: string | null;
   sourceVersionVector: string | null;
 }) {
-  return [
+  const fields = [
     serializeAuditEntryHashField("documentId", input.documentId),
     serializeAuditEntryHashField("eventType", input.eventType),
     serializeAuditEntryHashField("accessEpoch", String(input.accessEpoch)),
     serializeAuditEntryHashField("accessFingerprint", input.accessFingerprint),
+  ];
+  if (input.accessStateHash !== null && input.accessStateHash !== undefined) {
+    fields.push(
+      serializeAuditEntryHashField("accessStateHash", input.accessStateHash),
+    );
+  }
+  fields.push(
     serializeAuditEntryHashField("actorUserId", input.actorUserId),
     serializeAuditEntryHashField("actorFingerprint", input.actorFingerprint),
     serializeAuditEntryHashField(
@@ -79,12 +87,14 @@ function buildDocumentUpdateAuditEntryHashPayload(input: {
       "encryptedUpdateByteLength",
       String(input.encryptedUpdateByteLength),
     ),
-  ].join("\n");
+  );
+  return fields.join("\n");
 }
 
 export async function computeDocumentUpdateAuditEntryHash(input: {
   accessEpoch: number;
   accessFingerprint: string;
+  accessStateHash?: string | null;
   actorFingerprint: string;
   actorUserId: string;
   documentId: string;
@@ -109,6 +119,7 @@ export async function appendDocumentUpdateAuditEntries(
   input: {
     accessEpoch: number;
     accessFingerprint: string;
+    accessStateHash: string | null;
     actorFingerprint: string;
     actorUserId: string;
     documentId: string;
@@ -153,6 +164,7 @@ export async function appendDocumentUpdateAuditEntries(
     const entryHash = await computeDocumentUpdateAuditEntryHash({
       accessEpoch: input.accessEpoch,
       accessFingerprint: input.accessFingerprint,
+      accessStateHash: input.accessStateHash,
       actorFingerprint: input.actorFingerprint,
       actorUserId: input.actorUserId,
       documentId: input.documentId,
@@ -171,6 +183,7 @@ export async function appendDocumentUpdateAuditEntries(
       eventType: DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE,
       accessEpoch: input.accessEpoch,
       accessFingerprint: input.accessFingerprint,
+      accessStateHash: input.accessStateHash,
       actorUserId: input.actorUserId,
       actorFingerprint: input.actorFingerprint,
       prevEntryHash: previousEntryHash,

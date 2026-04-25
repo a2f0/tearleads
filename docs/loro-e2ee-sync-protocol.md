@@ -374,6 +374,8 @@ If the request succeeds:
   header material without creating a new blob row only when the current blob
   epoch is rewrap-capable
 - the optional Loro update is appended
+- appended audit rows snapshot the current document `accessEpoch`,
+  `accessFingerprint`, and `accessStateHash`
 - affected blob access state is recomputed
 - all of the above happen in one transaction
 

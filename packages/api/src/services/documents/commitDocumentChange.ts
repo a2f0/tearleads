@@ -748,38 +748,54 @@ async function commitDocumentLoroUpdate(
       documentId,
       updates: [input.loroUpdate],
     });
-    const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(
-      tx,
-      {
-        accessEpoch: access.currentAccessEpoch,
-        accessFingerprint: access.accessFingerprint,
-        actorFingerprint: session.fingerprint,
-        actorUserId: session.userId,
-        documentId,
-        updates: [input.loroUpdate],
-      },
-    );
-    const coveredAuditEntryHash = auditEntryHashByUpdateId.get(
-      input.loroUpdate.id,
-    );
-    if (!coveredAuditEntryHash) {
-      throw new Error(
-        `Missing audit entry hash for checkpoint update ${input.loroUpdate.id}`,
-      );
-    }
-    await maybeWriteDocumentAuditCheckpoint(tx, {
-      accessEpoch: access.currentAccessEpoch,
-      accessFingerprint: access.accessFingerprint,
-      actorFingerprint: session.fingerprint,
-      actorUserId: session.userId,
-      checkpointUpdate: input.loroUpdate,
-      coveredAuditEntryHash,
+    await appendCommittedLoroUpdateAuditArtifacts(tx, {
+      access,
       documentId,
+      loroUpdate: input.loroUpdate,
+      session,
     });
     acceptedOutgoingUpdateIds.push(inserted.id);
   }
 
   return { acceptedOutgoingUpdateIds, currentDocumentRecipientEnvelopes };
+}
+
+async function appendCommittedLoroUpdateAuditArtifacts(
+  tx: CommitChangeExecutor,
+  input: {
+    access: CommitChangeAccess;
+    documentId: string;
+    loroUpdate: NonNullable<CommitDocumentChangeRequest["loroUpdate"]>;
+    session: CommitDocumentChangeSession;
+  },
+) {
+  const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(tx, {
+    accessEpoch: input.access.currentAccessEpoch,
+    accessFingerprint: input.access.accessFingerprint,
+    accessStateHash: input.access.accessStateHash,
+    actorFingerprint: input.session.fingerprint,
+    actorUserId: input.session.userId,
+    documentId: input.documentId,
+    updates: [input.loroUpdate],
+  });
+  const coveredAuditEntryHash = auditEntryHashByUpdateId.get(
+    input.loroUpdate.id,
+  );
+  if (!coveredAuditEntryHash) {
+    throw new Error(
+      `Missing audit entry hash for checkpoint update ${input.loroUpdate.id}`,
+    );
+  }
+  await maybeWriteDocumentAuditCheckpoint(tx, {
+    accessEpoch: input.access.currentAccessEpoch,
+    accessFingerprint: input.access.accessFingerprint,
+    accessStateHash: input.access.accessStateHash,
+    actorFingerprint: input.session.fingerprint,
+    actorUserId: input.session.userId,
+    checkpointUpdate: input.loroUpdate,
+    coveredAuditEntryHash,
+    documentId: input.documentId,
+  });
 }
 
 async function applyAttachmentRewraps(
@@ -911,6 +927,7 @@ async function executeCommitChangeTransaction(
   await appendDocumentAttachmentAuditEntries(tx, {
     accessEpoch: input.access.currentAccessEpoch,
     accessFingerprint: input.access.accessFingerprint,
+    accessStateHash: input.access.accessStateHash,
     actorFingerprint: input.session.fingerprint,
     actorUserId: input.session.userId,
     documentId: input.documentId,
