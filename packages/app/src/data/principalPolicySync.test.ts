@@ -8,7 +8,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  EncapsulationKeyResponse,
+  PrincipalPolicyBundleResponse,
+} from "@tearleads/validators/response";
 import { createTestExecSql } from "../../test/helpers/createTestExecSql";
 import {
   ensurePrincipalPolicyTables,
@@ -239,6 +242,145 @@ async function createSuccessorPrincipalPolicyBundle(): Promise<{
   };
 }
 
+async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promise<{
+  bundle: PrincipalPolicyBundleResponse;
+  signerKeyResponses: Map<string, EncapsulationKeyResponse>;
+}> {
+  const principalKem = generateKemSeedAndKeyPair();
+  const principalKeyFingerprint = await toFingerprint(principalKem.publicKey);
+  const adminUserId = "admin-user-1";
+  const outsiderUserId = "outsider-user-1";
+  const {
+    signingPublicKey: adminSigningPublicKey,
+    signingPrivateKey: adminSigningPrivateKey,
+  } = generateSigningSeedAndKeyPair();
+  const {
+    signingPublicKey: outsiderSigningPublicKey,
+    signingPrivateKey: outsiderSigningPrivateKey,
+  } = generateSigningSeedAndKeyPair();
+  const adminSigningKeyFingerprint = await toFingerprint(adminSigningPublicKey);
+  const outsiderSigningKeyFingerprint = await toFingerprint(
+    outsiderSigningPublicKey,
+  );
+  const previousProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: adminUserId,
+      role: "admin" as const,
+    },
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: outsiderUserId,
+      role: "member" as const,
+    },
+  ];
+  const previousPayloadCiphertext = "ciphertext-1";
+  const previousSignedState = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
+      principalType: "group",
+      principalId: "group-1",
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+      keyFingerprint: principalKeyFingerprint,
+      members: [{ principalType: "user", principalId: adminUserId }],
+      projection: previousProjection,
+      payloadCiphertext: previousPayloadCiphertext,
+      signedAt: "2026-04-08T00:00:00.000Z",
+      signerUserId: adminUserId,
+      signerUserKeyFingerprint: adminSigningKeyFingerprint,
+    }),
+    adminSigningPrivateKey,
+  );
+  const previousStateHash =
+    await computePrincipalStateHash(previousSignedState);
+  const currentProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: outsiderUserId,
+      role: "admin" as const,
+    },
+  ];
+  const currentPayloadCiphertext = "ciphertext-2";
+  const currentSignedState = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
+      principalType: "group",
+      principalId: "group-1",
+      version: 2,
+      prevStateHash: previousStateHash,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+      keyFingerprint: principalKeyFingerprint,
+      members: [{ principalType: "user", principalId: outsiderUserId }],
+      projection: currentProjection,
+      payloadCiphertext: currentPayloadCiphertext,
+      signedAt: "2026-04-08T00:01:00.000Z",
+      signerUserId: outsiderUserId,
+      signerUserKeyFingerprint: outsiderSigningKeyFingerprint,
+    }),
+    outsiderSigningPrivateKey,
+  );
+  const currentStateHash = await computePrincipalStateHash(currentSignedState);
+
+  return {
+    bundle: {
+      currentMemberEnvelopes: {
+        principalType: "group",
+        principalId: "group-1",
+        stateHash: currentStateHash,
+        epoch: 1,
+        envelopes: [],
+      },
+      currentState: {
+        ...currentSignedState,
+        createdAt: "2026-04-08T00:01:00.000Z",
+        stateHash: currentStateHash,
+      },
+      currentProjection,
+      currentPayload: {
+        principalType: "group",
+        principalId: "group-1",
+        stateHash: currentStateHash,
+        cipherSuite: "aes-256-gcm-v1",
+        ciphertext: currentPayloadCiphertext,
+        ciphertextHash: currentSignedState.payloadCiphertextHash,
+        createdAt: "2026-04-08T00:01:00.000Z",
+      },
+      previousStates: [
+        {
+          state: {
+            ...previousSignedState,
+            createdAt: "2026-04-08T00:00:00.000Z",
+            stateHash: previousStateHash,
+          },
+          projection: previousProjection,
+        },
+      ],
+    },
+    signerKeyResponses: new Map([
+      [
+        adminUserId,
+        {
+          userId: adminUserId,
+          signingPublicKey: bytesToBase64(adminSigningPublicKey),
+          signingKeyFingerprint: adminSigningKeyFingerprint,
+          encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+        },
+      ],
+      [
+        outsiderUserId,
+        {
+          userId: outsiderUserId,
+          signingPublicKey: bytesToBase64(outsiderSigningPublicKey),
+          signingKeyFingerprint: outsiderSigningKeyFingerprint,
+          encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+        },
+      ],
+    ]),
+  };
+}
+
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
@@ -327,6 +469,97 @@ test("principal policy sync verifies successor state from the fetched chain when
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toEqual(bundle);
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync skips bundles whose projection does not match the signed root", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
+
+  try {
+    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    await ensurePrincipalPolicyTables(execSql);
+    const logs: string[] = [];
+    const [firstProjectionMember, ...remainingProjection] =
+      bundle.currentProjection;
+    if (!firstProjectionMember) {
+      throw new Error("expected principal policy projection member");
+    }
+    const tamperedBundle: PrincipalPolicyBundleResponse = {
+      ...bundle,
+      currentProjection: [
+        {
+          ...firstProjectionMember,
+          role: firstProjectionMember.role === "admin" ? "member" : "admin",
+        },
+        ...remainingProjection,
+      ],
+    };
+
+    await cacheReferencedPrincipalPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => tamperedBundle,
+      getEncapsulationKey: async () => signerKeyResponse,
+      log: (message) => logs.push(message),
+      references: [
+        {
+          principalType: "group",
+          principalId: "group-1",
+          version: bundle.currentState.version,
+          keyEpoch: bundle.currentState.keyEpoch,
+          stateHash: bundle.currentState.stateHash,
+        },
+      ],
+    });
+
+    expect(logs).toContain(
+      "Principal policy cache: skipped group:group-1: computed projection root does not match chain entry state projection root",
+    );
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync skips successor bundles signed by non-admins", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
+
+  try {
+    const { bundle, signerKeyResponses } =
+      await createUnauthorizedSuccessorPrincipalPolicyBundle();
+    await ensurePrincipalPolicyTables(execSql);
+    const logs: string[] = [];
+
+    await cacheReferencedPrincipalPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => bundle,
+      getEncapsulationKey: async (userId) =>
+        signerKeyResponses.get(userId) ?? null,
+      log: (message) => logs.push(message),
+      references: [
+        {
+          principalType: "group",
+          principalId: "group-1",
+          version: bundle.currentState.version,
+          keyEpoch: bundle.currentState.keyEpoch,
+          stateHash: bundle.currentState.stateHash,
+        },
+      ],
+    });
+
+    expect(logs).toContain(
+      "Principal policy cache: skipped group:group-1: state signer is not an admin in previous projection",
+    );
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toBeNull();
   } finally {
     close();
   }

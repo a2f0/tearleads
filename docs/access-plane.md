@@ -9,10 +9,11 @@ The initial access plane focuses on explicit, durable metadata we control:
 - users
 - organizations
 - groups
-- memberships
+- signed principal states and membership projections
 - object grants
 - access epochs
 - access fingerprints
+- access state hashes
 - recipient envelopes
 
 ## Principles
@@ -120,11 +121,13 @@ Start with direct `group -> user` and `organization -> user` membership inside
 signed principal state. Mutable `organization_members` / `group_members` rows
 are not part of the access authority model.
 
-Registration bootstraps a personal organization with a direct admin grant on the
-root container for the registering user. It does not create server-authored
-organization membership. Sharing to an `organization` principal requires the
-organization to publish a signed principal state first; otherwise managed
-principal access fails closed with a missing-policy-state conflict.
+Registration bootstraps a personal organization by requiring the onboarding
+user to submit the initial signed organization state and member envelope
+atomically with key registration. The root container still gets a direct admin
+grant for the registering user, but organization membership is not
+server-authored. Sharing to any managed `group` or `organization` principal
+requires current signed principal state; otherwise managed principal access
+fails closed with a missing-policy-state conflict.
 
 Nested groups are compatible with this model but can be deferred. If added,
 they are expanded transitively from current projection rows before computing
@@ -187,6 +190,7 @@ Every protected object should have a current epoch.
   - `object_id`
   - `epoch`
   - `access_fingerprint`
+  - `access_state_hash`
   - `updated_at`
 
 Any change that affects future recipient sets should advance the epoch.
@@ -202,8 +206,10 @@ Examples:
 - account deactivation affecting access
 - recipient key change affecting future wrapping
 
-The current epoch and current `accessFingerprint` together represent the active
-authorization state for future writes.
+The current epoch and current `accessFingerprint` identify the active
+recipient bundle for future writes. The current `accessStateHash` identifies
+the authorization state that produced it, including referenced signed
+principal policy states.
 
 ### Access Fingerprints
 
@@ -312,8 +318,9 @@ Implemented behavior:
   responses surface `referencedPrincipals[]` summaries for the current
   signed group/org policy states that contributed to derived access
 - app clients can fetch, verify, and cache the current principal policy
-  bundle for those references when a trusted policy signer set is configured
-  out of band
+  bundle for those references by checking the registered signer identity key,
+  signed state hash chain, projection root, payload ciphertext hash, and
+  admin-signer rule
 - document and blob wrapped-key paths consume that cache at runtime so a
   client can unwrap a group/org-addressed object bundle through the current
   principal member-envelope chain
@@ -541,8 +548,8 @@ clients cannot distinguish:
 - a legitimate group change
 - an unauthorized server-side membership insertion
 
-To make that verifiable, the trust root for group and ACL state must live
-outside the ordinary API mutation path.
+To make that verifiable, the trust root for group and organization membership
+state must live outside the ordinary API mutation path.
 
 ### Required Trust Boundary
 
@@ -611,7 +618,8 @@ indexed table for principal epoch keys so object-envelope lookup is efficient.
   - `key_fingerprint`
 
 This is the public-key side of the principal-recipient model. The member-wrap
-side for distributing principal keys to current members is separate work.
+side for distributing principal keys to current members is stored separately
+under `principal_member_envelopes`.
 
 ### Principal Member Envelopes
 
@@ -635,8 +643,8 @@ set that needs fresh wrapped copies.
 
 ### Policy API Surface
 
-The implementation exposes the principal-policy foundation through
-authenticated API routes:
+The implementation exposes principal-policy state through authenticated API
+routes:
 
 - `PUT /principals/:principalType/:principalId/state`
   Stores a signed current principal state after verifying its signature against
@@ -646,18 +654,25 @@ authenticated API routes:
   Stores the current direct-member wrapped copies of the principal epoch secret
   for the current signed state.
 - `GET /principals/:principalType/:principalId/policy`
-  Returns the current signed principal state plus the current state-scoped
-  member envelopes.
+  Returns the current signed principal state, encrypted payload, current
+  projection, current state-scoped member envelopes, and previous state chain
+  entries needed for successor verification.
 
 This is no longer only policy-metadata plumbing. Container/document/blob
 access resolution now uses current group/org principal keys when verified
 signed policy state exists, and managed grants without that state now fail
 closed instead of degrading to expanded user recipients.
 
-### Signed Access Manifest
+### Future Signed Access Manifest
 
-The server can still materialize a per-object access view, but clients should
-verify it against the signed policy inputs.
+The server currently materializes per-object access state by returning
+`accessEpoch`, `accessFingerprint`, `accessStateHash`, and referenced
+principal policy summaries. Clients verify the referenced principal policy
+bundles before using group/org-addressed key material.
+
+A future hardening layer could add a signed per-object access manifest so
+clients can also verify object grants and effective recipients without trusting
+the API process as the issuer of that object view.
 
 ```ts
 interface SignedAccessManifest {
@@ -703,7 +718,7 @@ unless:
 
 ### Client Verification Flow
 
-Before encrypting for a new write, the client should:
+With a future signed access manifest, the client would:
 
 1. Fetch the latest `SignedAccessManifest` plus all referenced signed group or organization states.
 2. Verify signatures on the manifest and all referenced policy states.
@@ -715,10 +730,10 @@ Before encrypting for a new write, the client should:
 5. Recompute `accessFingerprint` from that verified closure.
 6. Encrypt only if the recomputed fingerprint matches the manifest fingerprint and the caller is still an authorized writer.
 
-The client should include the manifest identity in writes:
+With such a manifest, the client would include the manifest identity in writes:
 
 - `accessEpoch`
-- `accessFingerprint`
+- `accessStateHash`
 - optionally a `manifestHash` or manifest signature reference
 
 The server should reject a write if the client targets anything other than the
@@ -730,7 +745,7 @@ With this extension, the API cannot unilaterally add a bad user to a group and
 successfully trick honest clients into encrypting for them unless at least one
 of these is also true:
 
-- a trusted policy signing key is compromised
+- an authorized policy signing key is compromised
 - clients accept unsigned or invalidly signed policy state
 - clients fail to detect rollback or split-view responses
 
@@ -759,10 +774,13 @@ So the secure interpretation is:
 
 - `accessFingerprint` is a useful stale-check and cache key
 - it is not an authorization proof by itself
-- zero-trust verification of group membership requires signed, versioned policy
-  state outside the API's unilateral control
-- without that extra structure, the server remains the trust root for group
-  membership
+- group and organization membership now require signed, versioned policy state
+  outside the API's unilateral control
+- `accessStateHash` binds object access state to the referenced principal
+  `{ principalType, principalId, version, keyEpoch, stateHash }` values
+- signed object access manifests remain future work if we want clients to
+  independently verify the full object grant view, not just referenced
+  principal policy state
 
 ### Recipient Envelopes
 
@@ -789,8 +807,9 @@ snapshots and indexed principal epoch keys:
 - `principal_states`
 - `principal_epoch_keys`
 
-Those tables are foundational. They do not yet
-drive effective-recipient expansion or object rewrap decisions.
+Those tables now drive managed-principal recipient material. Group/org grants
+without current signed principal state fail closed instead of falling back to
+server-authored membership rows.
 
 For document rekey, rotate-baseline generation, and tamper-evident document
 history considerations, see [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md).
