@@ -675,50 +675,52 @@ async function requireCurrentLinkedContainerMetadataAccessStateHashes(input: {
     NonNullable<Awaited<ReturnType<typeof resolveContainerAccessState>>>
   >;
 }) {
-  for (const container of input.linkedContainers) {
-    if (!container.metadataDocumentId) {
-      throw new CreateDocumentError(
-        "Linked container metadata document not found",
-        409,
+  await Promise.all(
+    input.linkedContainers.map(async (container) => {
+      if (!container.metadataDocumentId) {
+        throw new CreateDocumentError(
+          "Linked container metadata document not found",
+          409,
+        );
+      }
+
+      const linkedContainerAccess = input.linkedContainerStateById.get(
+        container.id,
       );
-    }
 
-    const linkedContainerAccess = input.linkedContainerStateById.get(
-      container.id,
-    );
+      if (!linkedContainerAccess) {
+        throw new CreateDocumentError(
+          "Linked container access state is unavailable",
+          409,
+        );
+      }
 
-    if (!linkedContainerAccess) {
-      throw new CreateDocumentError(
-        "Linked container access state is unavailable",
-        409,
+      const metadataAccess = await resolveDocumentAccessState(
+        container.metadataDocumentId,
+        input.executor,
+        {
+          linkedContainerIds: [container.id],
+          linkedContainerStateById: new Map([
+            [container.id, linkedContainerAccess],
+          ]),
+        },
       );
-    }
 
-    const metadataAccess = await resolveDocumentAccessState(
-      container.metadataDocumentId,
-      input.executor,
-      {
-        linkedContainerIds: [container.id],
-        linkedContainerStateById: new Map([
-          [container.id, linkedContainerAccess],
-        ]),
-      },
-    );
+      if (!metadataAccess) {
+        throw new CreateDocumentError(
+          "Linked container metadata access is unavailable",
+          409,
+        );
+      }
 
-    if (!metadataAccess) {
-      throw new CreateDocumentError(
-        "Linked container metadata access is unavailable",
-        409,
-      );
-    }
-
-    if (
-      input.expectedLinkedContainerAccessStateHashes[container.id] !==
-      metadataAccess.accessStateHash
-    ) {
-      throw new CreateDocumentError("Stale access state hash", 409);
-    }
-  }
+      if (
+        input.expectedLinkedContainerAccessStateHashes[container.id] !==
+        metadataAccess.accessStateHash
+      ) {
+        throw new CreateDocumentError("Stale access state hash", 409);
+      }
+    }),
+  );
 }
 
 async function insertDocumentWithLinks(input: {
