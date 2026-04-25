@@ -17,7 +17,7 @@ import { grantContainerAccess } from "../../access/containerAccess";
 import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { containers, groupMembers, groups, users } from "../../schema";
+import { containers, groups, users } from "../../schema";
 
 const PRINCIPAL_STATE_BASE_TIME_MS = Date.UTC(2000, 0, 1, 0, 0, 0);
 
@@ -208,10 +208,6 @@ test("GET /containers/:containerId/documents includes referenced principal polic
     .returning({ id: groups.id });
   invariant(group, "expected group");
 
-  await db.insert(groupMembers).values({
-    groupId: group.id,
-    userId: recipient.userId,
-  });
   const groupState = await storeCurrentGroupState(group.id, [recipient.userId]);
 
   const createDocumentResponse = await createDocument(owner.token, [

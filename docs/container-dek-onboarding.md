@@ -248,7 +248,7 @@ the database level.
 Adding a user to an organization means they need access to the container tree
 and its documents. The flow would be:
 
-1. Org admin grants membership (insert `organization_members` row).
+1. Org admin publishes a signed principal state update and derived projection.
 2. Container DEKs are re-wrapped for the new member's encapsulation public key.
 3. New recipient envelopes are stored. The access fingerprint changes and the
    epoch advances.

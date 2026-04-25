@@ -64,21 +64,6 @@ export const groups = pgTable("groups", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const organizationMembers = pgTable("organization_members", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id").notNull(),
-  userId: uuid("user_id").notNull(),
-  role: text("role").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const groupMembers = pgTable("group_members", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  groupId: uuid("group_id").notNull(),
-  userId: uuid("user_id").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 export const principalStates = pgTable(
   "principal_states",
   {
