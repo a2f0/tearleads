@@ -20,6 +20,7 @@ interface PrincipalPolicyRow {
   currentPayloadJson: string;
   currentProjectionJson: string;
   currentMemberEnvelopesJson: string;
+  previousStatesJson: string;
 }
 
 const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
@@ -34,6 +35,7 @@ const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
         current_payload_json TEXT NOT NULL,
         current_projection_json TEXT NOT NULL,
         current_member_envelopes_json TEXT NOT NULL,
+        previous_states_json TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (principal_type, principal_id)
       )
@@ -58,6 +60,7 @@ function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
     row,
     "current_member_envelopes_json",
   );
+  const previousStatesJson = readSqlRowValue(row, "previous_states_json");
 
   if (
     typeof principalType !== "string" ||
@@ -67,7 +70,8 @@ function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
     typeof currentStateJson !== "string" ||
     typeof currentPayloadJson !== "string" ||
     typeof currentProjectionJson !== "string" ||
-    typeof currentMemberEnvelopesJson !== "string"
+    typeof currentMemberEnvelopesJson !== "string" ||
+    typeof previousStatesJson !== "string"
   ) {
     return null;
   }
@@ -80,6 +84,7 @@ function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
     currentPayloadJson,
     currentProjectionJson,
     currentMemberEnvelopesJson,
+    previousStatesJson,
   };
 }
 
@@ -90,11 +95,13 @@ function parsePrincipalPolicyBundle(
   const currentPayload = JSON.parse(row.currentPayloadJson);
   const currentProjection = JSON.parse(row.currentProjectionJson);
   const currentMemberEnvelopes = JSON.parse(row.currentMemberEnvelopesJson);
+  const previousStates = JSON.parse(row.previousStatesJson);
   const bundle = {
     currentState,
     currentPayload,
     currentProjection,
     currentMemberEnvelopes,
+    previousStates,
   };
 
   if (!isPrincipalPolicyBundleResponse(bundle)) {
@@ -107,22 +114,7 @@ function parsePrincipalPolicyBundle(
 export async function ensurePrincipalPolicyTables(
   execSql: ExecSql,
 ): Promise<void> {
-  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await ensureSqlTables(lockedExecSql, principalPolicyTables);
-    const columnRows = await lockedExecSql(
-      "PRAGMA table_info(principal_policies)",
-    );
-    const hasCurrentProjectionJsonColumn = columnRows.some(
-      (row) => readSqlRowValue(row, "name") === "current_projection_json",
-    );
-
-    if (!hasCurrentProjectionJsonColumn) {
-      await lockedExecSql(`
-        ALTER TABLE principal_policies
-        ADD COLUMN current_projection_json TEXT NOT NULL DEFAULT '[]'
-      `);
-    }
-  });
+  await ensureSqlTables(execSql, principalPolicyTables);
 }
 
 export async function loadPrincipalPolicyBundle(
@@ -140,7 +132,8 @@ export async function loadPrincipalPolicyBundle(
         current_state_json,
         current_payload_json,
         current_projection_json,
-        current_member_envelopes_json
+        current_member_envelopes_json,
+        previous_states_json
       FROM principal_policies
       WHERE principal_type = :principalType AND principal_id = :principalId
       LIMIT 1
@@ -168,7 +161,8 @@ export async function loadAllPrincipalPolicyBundles(
         current_state_json,
         current_payload_json,
         current_projection_json,
-        current_member_envelopes_json
+        current_member_envelopes_json,
+        previous_states_json
       FROM principal_policies
       ORDER BY principal_type, principal_id
     `,
@@ -228,6 +222,7 @@ export async function savePrincipalPolicyBundle(
           current_payload_json,
           current_projection_json,
           current_member_envelopes_json,
+          previous_states_json,
           updated_at
         )
         VALUES (
@@ -238,6 +233,7 @@ export async function savePrincipalPolicyBundle(
           :currentPayloadJson,
           :currentProjectionJson,
           :currentMemberEnvelopesJson,
+          :previousStatesJson,
           :updatedAt
         )
         ON CONFLICT(principal_type, principal_id) DO UPDATE SET
@@ -246,6 +242,7 @@ export async function savePrincipalPolicyBundle(
           current_payload_json = excluded.current_payload_json,
           current_projection_json = excluded.current_projection_json,
           current_member_envelopes_json = excluded.current_member_envelopes_json,
+          previous_states_json = excluded.previous_states_json,
           updated_at = excluded.updated_at
       `,
       {
@@ -258,6 +255,7 @@ export async function savePrincipalPolicyBundle(
         ":currentMemberEnvelopesJson": JSON.stringify(
           bundle.currentMemberEnvelopes,
         ),
+        ":previousStatesJson": JSON.stringify(bundle.previousStates),
         ":updatedAt": updatedAt,
       },
     );

@@ -117,6 +117,7 @@ async function createPrincipalPolicyBundle(input: {
       ),
       createdAt: input.signedAt,
     },
+    previousStates: [],
   };
 }
 

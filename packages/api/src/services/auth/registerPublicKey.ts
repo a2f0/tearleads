@@ -139,9 +139,11 @@ async function createRegisteredUser(
 
 function validateInitialOrganizationPolicyInput(
   input: PublicKeyRequest,
-  fingerprint: string,
+  signingFingerprint: string,
+  encapsulationFingerprint: string,
 ) {
-  const { state } = input.initialOrganizationPolicy;
+  const { memberEnvelopes, projection, state } =
+    input.initialOrganizationPolicy;
 
   if (
     state.principalType !== "organization" ||
@@ -155,10 +157,50 @@ function validateInitialOrganizationPolicyInput(
 
   if (
     state.signerUserId !== input.userId ||
-    state.signerUserKeyFingerprint !== fingerprint
+    state.signerUserKeyFingerprint !== signingFingerprint
   ) {
     throw new RegisterPublicKeyError(
       "initialOrganizationPolicy signer must match the registering user",
+      400,
+    );
+  }
+
+  if (
+    state.version !== 1 ||
+    state.prevStateHash !== null ||
+    state.keyEpoch !== 1
+  ) {
+    throw new RegisterPublicKeyError(
+      "initialOrganizationPolicy state must be the first organization state",
+      400,
+    );
+  }
+
+  const onlyProjectionMember = projection[0];
+  if (
+    projection.length !== 1 ||
+    !onlyProjectionMember ||
+    onlyProjectionMember.memberPrincipalType !== "user" ||
+    onlyProjectionMember.memberPrincipalId !== input.userId ||
+    onlyProjectionMember.role !== "admin" ||
+    state.memberCount !== 1
+  ) {
+    throw new RegisterPublicKeyError(
+      "initialOrganizationPolicy projection must contain the registering user as sole admin",
+      400,
+    );
+  }
+
+  const onlyMemberEnvelope = memberEnvelopes[0];
+  if (
+    memberEnvelopes.length !== 1 ||
+    !onlyMemberEnvelope ||
+    onlyMemberEnvelope.memberPrincipalType !== "user" ||
+    onlyMemberEnvelope.memberPrincipalId !== input.userId ||
+    onlyMemberEnvelope.memberKeyFingerprint !== encapsulationFingerprint
+  ) {
+    throw new RegisterPublicKeyError(
+      "initialOrganizationPolicy member envelope must wrap the registering user",
       400,
     );
   }
@@ -359,30 +401,10 @@ function toRegisterPrincipalPolicyError(
 
   if (
     error.message === "Invalid principal state signature" ||
-    error.message === "Principal state signer user not found" ||
-    error.message === "Principal state signer fingerprint mismatch" ||
-    error.message === "Principal state signer must be an admin" ||
-    error.message === "Principal state previous hash mismatch" ||
-    error.message ===
-      "Principal state projectionRoot does not match projection" ||
-    error.message ===
-      "Principal state payload ciphertext hash does not match ciphertext" ||
-    error.message ===
-      "Principal state payloadCiphertextHash does not match encrypted payload" ||
-    error.message === "Principal state memberCount does not match projection" ||
-    error.message ===
-      "Principal member envelopes must match the current direct member set" ||
-    error.message ===
-      "Principal member envelopes must cover the current direct member set" ||
-    error.message.startsWith(
-      "Principal member envelope targets unknown member",
-    ) ||
-    error.message.startsWith(
-      "Principal member envelope fingerprint mismatch",
-    ) ||
-    error.message.startsWith(
-      "Principal member envelope is missing wrapped material",
-    )
+    error.message.startsWith("Principal state ") ||
+    error.message.startsWith("Principal member envelope") ||
+    error.message.startsWith("Principal member envelopes") ||
+    error.message === "Principal epoch key conflict"
   ) {
     return new RegisterPublicKeyError(error.message, 400);
   }
@@ -399,7 +421,11 @@ export async function registerPublicKey(
   const fingerprint = await toFingerprint(signingKeyBytes);
   const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
   await validateWrappedDekEnvelope(input, encapsulationFingerprint);
-  validateInitialOrganizationPolicyInput(input, fingerprint);
+  validateInitialOrganizationPolicyInput(
+    input,
+    fingerprint,
+    encapsulationFingerprint,
+  );
   let result: Awaited<ReturnType<typeof runRegisterPublicKeyTransaction>>;
   try {
     result = await runRegisterPublicKeyTransaction(

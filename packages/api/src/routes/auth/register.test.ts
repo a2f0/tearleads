@@ -197,6 +197,43 @@ test("POST /auth/register rejects malformed wrapped envelope lengths", async () 
   });
 });
 
+test("POST /auth/register rejects initial org policies that do not bootstrap the registering user as sole admin", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  fingerprint = await toFingerprint(signingPublicKey);
+  const body = await createPublicKeyRequestBody(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
+  const onlyProjectionMember = body.initialOrganizationPolicy.projection[0];
+  invariant(onlyProjectionMember, "expected initial org projection member");
+
+  const response = await routeApp.request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...body,
+      initialOrganizationPolicy: {
+        ...body.initialOrganizationPolicy,
+        projection: [
+          {
+            ...onlyProjectionMember,
+            role: "member",
+          },
+        ],
+      },
+    }),
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error:
+      "initialOrganizationPolicy projection must contain the registering user as sole admin",
+  });
+});
+
 test("POST /auth/register provisions a root metadata document", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();

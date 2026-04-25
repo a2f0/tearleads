@@ -116,37 +116,9 @@ function projectionIncludesAdminUser(
   );
 }
 
-async function getBundleSignatureMismatchReason(
+async function getBundlePayloadMismatchReason(
   bundle: PrincipalPolicyBundleResponse,
-  signerKey: EncapsulationKeyResponse,
-  previousBundle: PrincipalPolicyBundleResponse | null,
 ): Promise<string | null> {
-  if (signerKey.userId !== bundle.currentState.signerUserId) {
-    return "signer key user does not match current state signer";
-  }
-
-  if (
-    signerKey.signingKeyFingerprint !==
-    bundle.currentState.signerUserKeyFingerprint
-  ) {
-    return "signer key fingerprint does not match current state signer";
-  }
-
-  const signerPublicKey = base64ToBytes(signerKey.signingPublicKey);
-  if (
-    (await toFingerprint(signerPublicKey)) !==
-    bundle.currentState.signerUserKeyFingerprint
-  ) {
-    return "computed signer key fingerprint does not match current state signer";
-  }
-
-  const computedStateHash = await computePrincipalStateHash(
-    bundle.currentState,
-  );
-  if (computedStateHash !== bundle.currentState.stateHash) {
-    return "computed state hash does not match bundle state hash";
-  }
-
   const computedPayloadCiphertextHash =
     await computePrincipalStatePayloadCiphertextHash(
       bundle.currentPayload.ciphertext,
@@ -162,49 +134,141 @@ async function getBundleSignatureMismatchReason(
     return "bundle payload hash does not match current state payload hash";
   }
 
+  return null;
+}
+
+interface PrincipalPolicyStateChainEntry {
+  state: PrincipalPolicyBundleResponse["currentState"];
+  projection: PrincipalPolicyBundleResponse["currentProjection"];
+}
+
+function getPrincipalPolicyStateChain(
+  bundle: PrincipalPolicyBundleResponse,
+): PrincipalPolicyStateChainEntry[] {
+  return [
+    ...bundle.previousStates,
+    {
+      state: bundle.currentState,
+      projection: bundle.currentProjection,
+    },
+  ];
+}
+
+async function loadVerifiedSignerPublicKey(input: {
+  getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"];
+  signerPublicKeysByFingerprint: Map<string, Uint8Array>;
+  state: PrincipalPolicyStateChainEntry["state"];
+}): Promise<{ publicKey: Uint8Array } | { error: string }> {
+  const signerCacheKey = `${input.state.signerUserId}:${input.state.signerUserKeyFingerprint}`;
+  const cachedPublicKey =
+    input.signerPublicKeysByFingerprint.get(signerCacheKey);
+  if (cachedPublicKey) {
+    return { publicKey: cachedPublicKey };
+  }
+
+  const signerKey = await input.getEncapsulationKey(input.state.signerUserId);
+  if (!signerKey) {
+    return { error: "failed to fetch signer key" };
+  }
+
+  if (signerKey.userId !== input.state.signerUserId) {
+    return { error: "signer key user does not match state signer" };
+  }
+
+  if (
+    signerKey.signingKeyFingerprint !== input.state.signerUserKeyFingerprint
+  ) {
+    return { error: "signer key fingerprint does not match state signer" };
+  }
+
+  const signerPublicKey = base64ToBytes(signerKey.signingPublicKey);
+  if (
+    (await toFingerprint(signerPublicKey)) !==
+    input.state.signerUserKeyFingerprint
+  ) {
+    return {
+      error: "computed signer key fingerprint does not match state signer",
+    };
+  }
+
+  input.signerPublicKeysByFingerprint.set(signerCacheKey, signerPublicKey);
+  return { publicKey: signerPublicKey };
+}
+
+async function getPrincipalPolicyChainEntryMismatchReason(input: {
+  bundle: PrincipalPolicyBundleResponse;
+  entry: PrincipalPolicyStateChainEntry;
+  expectedVersion: number;
+  getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"];
+  previousEntry: PrincipalPolicyStateChainEntry | null;
+  signerPublicKeysByFingerprint: Map<string, Uint8Array>;
+}): Promise<string | null> {
+  if (
+    input.entry.state.principalType !==
+      input.bundle.currentState.principalType ||
+    input.entry.state.principalId !== input.bundle.currentState.principalId
+  ) {
+    return "principal policy chain entry principal does not match current state";
+  }
+
+  if (input.entry.state.version !== input.expectedVersion) {
+    return "principal policy chain entry version is not contiguous";
+  }
+
+  const computedStateHash = await computePrincipalStateHash(input.entry.state);
+  if (computedStateHash !== input.entry.state.stateHash) {
+    return "computed state hash does not match chain entry state hash";
+  }
+
   const computedProjectionRoot = await computePrincipalProjectionRoot(
-    bundle.currentProjection,
+    input.entry.projection,
   );
-  if (computedProjectionRoot !== bundle.currentState.projectionRoot) {
-    return "computed projection root does not match current state projection root";
+  if (computedProjectionRoot !== input.entry.state.projectionRoot) {
+    return "computed projection root does not match chain entry state projection root";
   }
 
-  if (bundle.currentProjection.length !== bundle.currentState.memberCount) {
-    return "bundle projection count does not match current state member count";
+  if (input.entry.projection.length !== input.entry.state.memberCount) {
+    return "chain entry projection count does not match state member count";
   }
 
-  if (bundle.currentState.prevStateHash === null) {
+  if (input.previousEntry) {
+    if (
+      input.entry.state.prevStateHash !== input.previousEntry.state.stateHash
+    ) {
+      return "principal policy chain entry previous hash mismatch";
+    }
+
     if (
       !projectionIncludesAdminUser(
-        bundle.currentProjection,
-        bundle.currentState.signerUserId,
-      )
-    ) {
-      return "initial state signer is not an admin in current projection";
-    }
-  } else {
-    if (!previousBundle) {
-      return "previous principal policy state is not cached";
-    }
-    if (
-      previousBundle.currentState.stateHash !==
-      bundle.currentState.prevStateHash
-    ) {
-      return "cached previous principal policy state does not match current state";
-    }
-    if (
-      !projectionIncludesAdminUser(
-        previousBundle.currentProjection,
-        bundle.currentState.signerUserId,
+        input.previousEntry.projection,
+        input.entry.state.signerUserId,
       )
     ) {
       return "state signer is not an admin in previous projection";
     }
+  } else if (input.entry.state.prevStateHash !== null) {
+    return "initial principal policy chain entry has a previous state hash";
+  } else if (
+    !projectionIncludesAdminUser(
+      input.entry.projection,
+      input.entry.state.signerUserId,
+    )
+  ) {
+    return "initial state signer is not an admin in current projection";
+  }
+
+  const signerPublicKey = await loadVerifiedSignerPublicKey({
+    getEncapsulationKey: input.getEncapsulationKey,
+    signerPublicKeysByFingerprint: input.signerPublicKeysByFingerprint,
+    state: input.entry.state,
+  });
+  if ("error" in signerPublicKey) {
+    return signerPublicKey.error;
   }
 
   const signatureVerified = await verifySignedPrincipalState(
-    bundle.currentState,
-    signerPublicKey,
+    input.entry.state,
+    signerPublicKey.publicKey,
   );
   if (!signatureVerified) {
     return "principal state signature verification failed";
@@ -213,18 +277,58 @@ async function getBundleSignatureMismatchReason(
   return null;
 }
 
+async function getPrincipalPolicyChainMismatchReason(
+  bundle: PrincipalPolicyBundleResponse,
+  getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"],
+): Promise<string | null> {
+  const stateChain = getPrincipalPolicyStateChain(bundle);
+  if (stateChain.length !== bundle.currentState.version) {
+    return "principal policy chain length does not match current state version";
+  }
+
+  const signerPublicKeysByFingerprint = new Map<string, Uint8Array>();
+  let previousEntry: PrincipalPolicyStateChainEntry | null = null;
+
+  for (let index = 0; index < stateChain.length; index += 1) {
+    const entry = stateChain[index];
+    if (!entry) {
+      return "principal policy chain entry is missing";
+    }
+
+    const mismatch = await getPrincipalPolicyChainEntryMismatchReason({
+      bundle,
+      entry,
+      expectedVersion: index + 1,
+      getEncapsulationKey,
+      previousEntry,
+      signerPublicKeysByFingerprint,
+    });
+    if (mismatch) {
+      return mismatch;
+    }
+
+    previousEntry = entry;
+  }
+
+  return null;
+}
+
 async function validatePrincipalPolicyBundle(
   reference: ReferencedPrincipalStateResponse,
   bundle: PrincipalPolicyBundleResponse,
-  signerKey: EncapsulationKeyResponse,
-  previousBundle: PrincipalPolicyBundleResponse | null,
+  getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"],
 ): Promise<string | null> {
   const referenceMismatch = getBundleReferenceMismatchReason(reference, bundle);
   if (referenceMismatch) {
     return referenceMismatch;
   }
 
-  return getBundleSignatureMismatchReason(bundle, signerKey, previousBundle);
+  const payloadMismatch = await getBundlePayloadMismatchReason(bundle);
+  if (payloadMismatch) {
+    return payloadMismatch;
+  }
+
+  return getPrincipalPolicyChainMismatchReason(bundle, getEncapsulationKey);
 }
 
 async function cacheReferencedPrincipalPolicy(
@@ -234,12 +338,12 @@ async function cacheReferencedPrincipalPolicy(
   reference: ReferencedPrincipalStateResponse,
   log: ((message: string) => void) | undefined,
 ): Promise<void> {
-  const previousBundle = await loadPrincipalPolicyBundle(
+  const cachedBundle = await loadPrincipalPolicyBundle(
     execSql,
     reference.principalType,
     reference.principalId,
   );
-  const cachedStateHash = previousBundle?.currentState.stateHash ?? null;
+  const cachedStateHash = cachedBundle?.currentState.stateHash ?? null;
   if (cachedStateHash === reference.stateHash) {
     return;
   }
@@ -255,19 +359,10 @@ async function cacheReferencedPrincipalPolicy(
     return;
   }
 
-  const signerKey = await getEncapsulationKey(bundle.currentState.signerUserId);
-  if (!signerKey) {
-    log?.(
-      `Principal policy cache: skipped ${getReferencedPrincipalKey(reference)}: failed to fetch signer key`,
-    );
-    return;
-  }
-
   const validationError = await validatePrincipalPolicyBundle(
     reference,
     bundle,
-    signerKey,
-    previousBundle,
+    getEncapsulationKey,
   );
   if (validationError) {
     log?.(

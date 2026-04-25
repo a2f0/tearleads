@@ -423,6 +423,7 @@ test("isPrincipalPolicyBundleResponse", () => {
         epoch: 1,
         envelopes: [],
       },
+      previousStates: [],
     }),
   ).toBe(true);
   expect(

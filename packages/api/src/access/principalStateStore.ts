@@ -40,7 +40,7 @@ interface StoredPrincipalStatePayload {
   createdAt: Date;
 }
 
-interface StoredPrincipalProjectionMember {
+export interface StoredPrincipalProjectionMember {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
   stateHash: string;
@@ -48,6 +48,11 @@ interface StoredPrincipalProjectionMember {
   memberPrincipalId: string;
   role: PrincipalProjectionRole;
   createdAt: Date;
+}
+
+export interface StoredPrincipalStateChainEntry {
+  state: StoredPrincipalState;
+  projection: StoredPrincipalProjectionMember[];
 }
 
 interface StoredPrincipalEpochKey {
@@ -879,6 +884,59 @@ export async function getCurrentPrincipalStates(
   }
 
   return currentStatesByPrincipalId;
+}
+
+export async function listPrincipalStateHistory(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  executor: PrincipalStateExecutor = db,
+): Promise<StoredPrincipalStateChainEntry[]> {
+  const rows = await executor
+    .select({
+      principalType: principalStates.principalType,
+      principalId: principalStates.principalId,
+      version: principalStates.version,
+      prevStateHash: principalStates.prevStateHash,
+      keyEpoch: principalStates.keyEpoch,
+      encapsulationPublicKey: principalStates.encapsulationPublicKey,
+      keyFingerprint: principalStates.keyFingerprint,
+      membershipMode: principalStates.membershipMode,
+      membershipRoot: principalStates.membershipRoot,
+      projectionRoot: principalStates.projectionRoot,
+      payloadCiphertextHash: principalStates.payloadCiphertextHash,
+      memberCount: principalStates.memberCount,
+      signedAt: principalStates.signedAt,
+      signerUserId: principalStates.signerUserId,
+      signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
+      signature: principalStates.signature,
+      stateHash: principalStates.stateHash,
+      createdAt: principalStates.createdAt,
+    })
+    .from(principalStates)
+    .where(
+      and(
+        eq(principalStates.principalType, principalType),
+        eq(principalStates.principalId, principalId),
+      ),
+    )
+    .orderBy(asc(principalStates.version));
+
+  const history: StoredPrincipalStateChainEntry[] = [];
+
+  for (const row of rows) {
+    const state = toStoredPrincipalState(row);
+    history.push({
+      state,
+      projection: await listProjectionMembersForState(
+        principalType,
+        principalId,
+        state.stateHash,
+        executor,
+      ),
+    });
+  }
+
+  return history;
 }
 
 export async function getCurrentPrincipalStatePayload(

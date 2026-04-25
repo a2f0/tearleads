@@ -68,11 +68,17 @@ export interface ReferencedPrincipalStateResponse {
   stateHash: string;
 }
 
+export interface PrincipalPolicyStateChainEntryResponse {
+  state: PrincipalStateResponse;
+  projection: PrincipalProjectionMemberResponse[];
+}
+
 export interface PrincipalPolicyBundleResponse {
   currentState: PrincipalStateResponse;
   currentPayload: PrincipalStatePayloadResponse;
   currentProjection: PrincipalProjectionMemberResponse[];
   currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponse;
+  previousStates: PrincipalPolicyStateChainEntryResponse[];
 }
 
 function isManagedPrincipalType(
@@ -196,6 +202,18 @@ export function isReferencedPrincipalStateResponse(
   );
 }
 
+export function isPrincipalPolicyStateChainEntryResponse(
+  value: unknown,
+): value is PrincipalPolicyStateChainEntryResponse {
+  return (
+    isPlainObject(value) &&
+    hasObjectProperty(value, "state") &&
+    isPrincipalStateResponse(value.state) &&
+    hasArrayProperty(value, "projection") &&
+    value.projection.every(isPrincipalProjectionMemberResponse)
+  );
+}
+
 export function isPrincipalPolicyBundleResponse(
   value: unknown,
 ): value is PrincipalPolicyBundleResponse {
@@ -208,6 +226,8 @@ export function isPrincipalPolicyBundleResponse(
     hasArrayProperty(value, "currentProjection") &&
     value.currentProjection.every(isPrincipalProjectionMemberResponse) &&
     hasObjectProperty(value, "currentMemberEnvelopes") &&
-    isCurrentPrincipalMemberEnvelopesResponse(value.currentMemberEnvelopes)
+    isCurrentPrincipalMemberEnvelopesResponse(value.currentMemberEnvelopes) &&
+    hasArrayProperty(value, "previousStates") &&
+    value.previousStates.every(isPrincipalPolicyStateChainEntryResponse)
   );
 }
