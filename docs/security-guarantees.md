@@ -85,6 +85,7 @@ For group and organization policy state, the signed state binds:
 - key epoch
 - principal encapsulation public key and key fingerprint
 - membership mode
+- membership root
 - projection root
 - encrypted payload ciphertext hash
 - member count
@@ -96,6 +97,11 @@ The server validates this before storage. The app validates it again before
 caching a referenced policy bundle. The app also verifies the whole returned
 chain, including contiguous versions, previous-state links, per-entry
 projection roots, per-entry member counts, and per-entry signatures.
+
+The membership root is part of the signed state and signature input. The
+current API does not accept a separate member list for independent
+`membershipRoot` recomputation; the validated authorization projection is the
+signed `projectionRoot` plus the supplied projection rows.
 
 This means mutable projection rows are not authority by themselves. If the API
 or database changes projection rows without a matching signed state, honest
