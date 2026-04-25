@@ -1271,6 +1271,7 @@ test("POST /documents/:documentId/commit-change requires rotate baseline source 
   const [checkpointRow] = await db
     .select({
       accessEpoch: documentAuditCheckpoints.accessEpoch,
+      accessStateHash: documentAuditCheckpoints.accessStateHash,
       actorFingerprint: documentAuditCheckpoints.actorFingerprint,
       actorUserId: documentAuditCheckpoints.actorUserId,
       baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
@@ -1284,6 +1285,7 @@ test("POST /documents/:documentId/commit-change requires rotate baseline source 
     .limit(1);
   expect(checkpointRow).toEqual({
     accessEpoch: unlinkedDocument.currentAccessEpoch,
+    accessStateHash: acceptedRotate.currentAccessStateHash,
     actorFingerprint: alice.fingerprint,
     actorUserId: alice.userId,
     baselineUpdateId: acceptedRotateUpdateId,

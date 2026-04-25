@@ -803,13 +803,13 @@ A note write should carry enough metadata to say:
 
 - which document it targets
 - which `accessEpoch` it assumes
-- which `accessFingerprint` or recipient-set identity it targeted
+- which `expectedAccessStateHash` it targeted
 
 If the access epoch is stale, the server should reject the write rather than
 accepting ciphertext for an obsolete recipient set.
 
-If the epoch matches but the derived fingerprint does not, the server should
-also reject the write as targeting a stale wrapped-key bundle.
+If the epoch matches but the expected access-state hash does not, the server
+should also reject the write as targeting stale authorization state.
 
 ## Attachments, Blobs, And Access
 

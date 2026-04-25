@@ -377,8 +377,9 @@ This section resolves the Phase 1 storage boundary.
   server in the first implementation
 - because historical replay is deferred, do not add historical wrapped-key or
   recipient-envelope tables in the first implementation
-- instead, snapshot `accessEpoch` and `accessFingerprint` into audit records so
-  the audit layer can prove which access state a write was accepted under
+- instead, snapshot `accessEpoch`, `accessFingerprint`, and
+  `accessStateHash` into audit records so the audit layer can prove which
+  access state a write was accepted under
 
 ### Live-State Boundary
 
@@ -412,6 +413,7 @@ Suggested columns:
 - `event_type TEXT NOT NULL`
 - `access_epoch INTEGER NOT NULL`
 - `access_fingerprint TEXT NOT NULL`
+- `access_state_hash TEXT`
 - `actor_user_id UUID NOT NULL`
 - `actor_fingerprint TEXT NOT NULL`
 - `prev_entry_hash TEXT`
@@ -467,6 +469,7 @@ Suggested columns:
 - `checkpoint_hash TEXT NOT NULL`
 - `access_epoch INTEGER NOT NULL`
 - `access_fingerprint TEXT NOT NULL`
+- `access_state_hash TEXT`
 - `actor_user_id UUID NOT NULL`
 - `actor_fingerprint TEXT NOT NULL`
 - `created_at TIMESTAMP NOT NULL DEFAULT now()`

@@ -31,6 +31,7 @@ function serializeAttachmentAuditHashField(name: string, value: string) {
 function buildDocumentAttachmentAuditEntryHashPayload(input: {
   accessEpoch: number;
   accessFingerprint: string;
+  accessStateHash?: string | null;
   action: DocumentAttachmentAuditAction;
   actorFingerprint: string;
   actorUserId: string;
@@ -44,7 +45,7 @@ function buildDocumentAttachmentAuditEntryHashPayload(input: {
   retentionMode: BlobAuditRetentionMode;
   slotId: string;
 }) {
-  return [
+  const fields = [
     serializeAttachmentAuditHashField("documentId", input.documentId),
     serializeAttachmentAuditHashField("eventType", input.eventType),
     serializeAttachmentAuditHashField("accessEpoch", String(input.accessEpoch)),
@@ -52,6 +53,16 @@ function buildDocumentAttachmentAuditEntryHashPayload(input: {
       "accessFingerprint",
       input.accessFingerprint,
     ),
+  ];
+  if (input.accessStateHash !== null && input.accessStateHash !== undefined) {
+    fields.push(
+      serializeAttachmentAuditHashField(
+        "accessStateHash",
+        input.accessStateHash,
+      ),
+    );
+  }
+  fields.push(
     serializeAttachmentAuditHashField("actorUserId", input.actorUserId),
     serializeAttachmentAuditHashField(
       "actorFingerprint",
@@ -74,12 +85,14 @@ function buildDocumentAttachmentAuditEntryHashPayload(input: {
       input.previousBlobId ?? "",
     ),
     serializeAttachmentAuditHashField("retentionMode", input.retentionMode),
-  ].join("\n");
+  );
+  return fields.join("\n");
 }
 
 export async function computeDocumentAttachmentAuditEntryHash(input: {
   accessEpoch: number;
   accessFingerprint: string;
+  accessStateHash?: string | null;
   action: DocumentAttachmentAuditAction;
   actorFingerprint: string;
   actorUserId: string;
@@ -170,6 +183,7 @@ export async function appendDocumentAttachmentAuditEntries(
   input: {
     accessEpoch: number;
     accessFingerprint: string;
+    accessStateHash: string;
     actorFingerprint: string;
     actorUserId: string;
     documentId: string;
@@ -210,6 +224,7 @@ export async function appendDocumentAttachmentAuditEntries(
     const entryHash = await computeDocumentAttachmentAuditEntryHash({
       accessEpoch: input.accessEpoch,
       accessFingerprint: input.accessFingerprint,
+      accessStateHash: input.accessStateHash,
       action: event.action,
       actorFingerprint: input.actorFingerprint,
       actorUserId: input.actorUserId,
@@ -227,6 +242,7 @@ export async function appendDocumentAttachmentAuditEntries(
       id: auditEntryId,
       accessEpoch: input.accessEpoch,
       accessFingerprint: input.accessFingerprint,
+      accessStateHash: input.accessStateHash,
       actorFingerprint: input.actorFingerprint,
       actorUserId: input.actorUserId,
       documentId: input.documentId,

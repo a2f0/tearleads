@@ -224,6 +224,7 @@ test("document sync store appends missing document updates idempotently", async 
   const auditEntries = await db
     .select({
       accessEpoch: documentAuditEntries.accessEpoch,
+      accessStateHash: documentAuditEntries.accessStateHash,
       actorFingerprint: documentAuditEntries.actorFingerprint,
       actorUserId: documentAuditEntries.actorUserId,
       entryHash: documentAuditEntries.entryHash,
@@ -235,6 +236,7 @@ test("document sync store appends missing document updates idempotently", async 
   expect(auditEntries).toHaveLength(1);
   expect(auditEntries[0]).toEqual({
     accessEpoch: created.currentAccessEpoch,
+    accessStateHash: created.currentAccessStateHash,
     actorFingerprint: await toFingerprint(user.signing.signingPublicKey),
     actorUserId: registration.userId,
     entryHash: expect.any(String),
@@ -327,6 +329,7 @@ test("document sync store persists explicit baseline checkpoints", async () => {
   const checkpointRows = await db
     .select({
       accessEpoch: documentAuditCheckpoints.accessEpoch,
+      accessStateHash: documentAuditCheckpoints.accessStateHash,
       actorFingerprint: documentAuditCheckpoints.actorFingerprint,
       actorUserId: documentAuditCheckpoints.actorUserId,
       baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
@@ -343,6 +346,7 @@ test("document sync store persists explicit baseline checkpoints", async () => {
   expect(checkpointRows).toHaveLength(2);
   expect(checkpointRows[0]).toEqual({
     accessEpoch: created.currentAccessEpoch,
+    accessStateHash: created.currentAccessStateHash,
     actorFingerprint: authorFingerprint,
     actorUserId: registration.userId,
     baselineUpdateId: firstUpdateId,
@@ -355,6 +359,7 @@ test("document sync store persists explicit baseline checkpoints", async () => {
   });
   expect(checkpointRows[1]).toEqual({
     accessEpoch: created.currentAccessEpoch,
+    accessStateHash: created.currentAccessStateHash,
     actorFingerprint: authorFingerprint,
     actorUserId: registration.userId,
     baselineUpdateId: secondUpdateId,

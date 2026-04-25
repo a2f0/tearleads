@@ -295,6 +295,7 @@ test("commitDocumentChange persists explicit baseline checkpoints", async () => 
   const [checkpointRow] = await db
     .select({
       accessEpoch: documentAuditCheckpoints.accessEpoch,
+      accessStateHash: documentAuditCheckpoints.accessStateHash,
       actorFingerprint: documentAuditCheckpoints.actorFingerprint,
       actorUserId: documentAuditCheckpoints.actorUserId,
       baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
@@ -308,6 +309,7 @@ test("commitDocumentChange persists explicit baseline checkpoints", async () => 
     .limit(1);
   expect(checkpointRow).toEqual({
     accessEpoch: created.currentAccessEpoch,
+    accessStateHash: created.currentAccessStateHash,
     actorFingerprint: fingerprint,
     actorUserId: registration.userId,
     baselineUpdateId: updateId,
@@ -324,6 +326,7 @@ test("commitDocumentChange persists explicit baseline checkpoints", async () => 
   const [auditEntry] = await db
     .select({
       accessEpoch: documentAuditEntries.accessEpoch,
+      accessStateHash: documentAuditEntries.accessStateHash,
       actorFingerprint: documentAuditEntries.actorFingerprint,
       actorUserId: documentAuditEntries.actorUserId,
       entryHash: documentAuditEntries.entryHash,
@@ -335,6 +338,7 @@ test("commitDocumentChange persists explicit baseline checkpoints", async () => 
     .limit(1);
   expect(auditEntry).toEqual({
     accessEpoch: created.currentAccessEpoch,
+    accessStateHash: created.currentAccessStateHash,
     actorFingerprint: fingerprint,
     actorUserId: registration.userId,
     entryHash: coveredAuditEntryHash,

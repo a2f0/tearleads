@@ -169,6 +169,7 @@ await client.exec(`
     checkpoint_hash TEXT NOT NULL,
     access_epoch INTEGER NOT NULL,
     access_fingerprint TEXT NOT NULL,
+    access_state_hash TEXT,
     actor_user_id UUID NOT NULL,
     actor_fingerprint TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
@@ -180,12 +181,17 @@ await client.exec(`
     event_type TEXT NOT NULL,
     access_epoch INTEGER NOT NULL,
     access_fingerprint TEXT NOT NULL,
+    access_state_hash TEXT,
     actor_user_id UUID NOT NULL,
     actor_fingerprint TEXT NOT NULL,
     prev_entry_hash TEXT,
     entry_hash TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  ALTER TABLE document_audit_checkpoints
+    ADD COLUMN IF NOT EXISTS access_state_hash TEXT;
+  ALTER TABLE document_audit_entries
+    ADD COLUMN IF NOT EXISTS access_state_hash TEXT;
   CREATE TABLE IF NOT EXISTS document_update_audit_events (
     audit_entry_id UUID PRIMARY KEY REFERENCES document_audit_entries(id),
     live_update_id UUID NOT NULL UNIQUE,

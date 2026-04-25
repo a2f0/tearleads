@@ -25,6 +25,7 @@ function serializeCheckpointHashField(name: string, value: string) {
 function buildCheckpointHashPayload(input: {
   accessEpoch: number;
   accessFingerprint: string;
+  accessStateHash?: string | null;
   actorFingerprint: string;
   actorUserId: string;
   baselineUpdateId: string;
@@ -34,7 +35,7 @@ function buildCheckpointHashPayload(input: {
   previousCheckpointHash: string | null;
   sourceVersionVector: string;
 }) {
-  return [
+  const fields = [
     serializeCheckpointHashField("documentId", input.documentId),
     serializeCheckpointHashField("baselineUpdateId", input.baselineUpdateId),
     serializeCheckpointHashField("checkpointKind", input.checkpointKind),
@@ -52,14 +53,23 @@ function buildCheckpointHashPayload(input: {
     ),
     serializeCheckpointHashField("accessEpoch", String(input.accessEpoch)),
     serializeCheckpointHashField("accessFingerprint", input.accessFingerprint),
+  ];
+  if (input.accessStateHash !== null && input.accessStateHash !== undefined) {
+    fields.push(
+      serializeCheckpointHashField("accessStateHash", input.accessStateHash),
+    );
+  }
+  fields.push(
     serializeCheckpointHashField("actorUserId", input.actorUserId),
     serializeCheckpointHashField("actorFingerprint", input.actorFingerprint),
-  ].join("\n");
+  );
+  return fields.join("\n");
 }
 
 export async function computeDocumentAuditCheckpointHash(input: {
   accessEpoch: number;
   accessFingerprint: string;
+  accessStateHash?: string | null;
   actorFingerprint: string;
   actorUserId: string;
   baselineUpdateId: string;
@@ -139,6 +149,7 @@ export async function maybeWriteDocumentAuditCheckpoint(
   input: {
     accessEpoch: number;
     accessFingerprint: string;
+    accessStateHash: string;
     actorFingerprint: string;
     actorUserId: string;
     checkpointUpdate: CheckpointInput;
@@ -184,6 +195,7 @@ export async function maybeWriteDocumentAuditCheckpoint(
   const checkpointHash = await computeDocumentAuditCheckpointHash({
     accessEpoch: input.accessEpoch,
     accessFingerprint: input.accessFingerprint,
+    accessStateHash: input.accessStateHash,
     actorFingerprint: input.actorFingerprint,
     actorUserId: input.actorUserId,
     baselineUpdateId: input.checkpointUpdate.id,
@@ -204,6 +216,7 @@ export async function maybeWriteDocumentAuditCheckpoint(
     checkpointHash,
     accessEpoch: input.accessEpoch,
     accessFingerprint: input.accessFingerprint,
+    accessStateHash: input.accessStateHash,
     actorUserId: input.actorUserId,
     actorFingerprint: input.actorFingerprint,
   });
