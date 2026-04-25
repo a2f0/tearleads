@@ -120,6 +120,12 @@ Start with direct `group -> user` and `organization -> user` membership inside
 signed principal state. Mutable `organization_members` / `group_members` rows
 are not part of the access authority model.
 
+Registration bootstraps a personal organization with a direct admin grant on the
+root container for the registering user. It does not create server-authored
+organization membership. Sharing to an `organization` principal requires the
+organization to publish a signed principal state first; otherwise managed
+principal access fails closed with a missing-policy-state conflict.
+
 Nested groups are compatible with this model but can be deferred. If added,
 they are expanded transitively from current projection rows before computing
 effective recipients, referenced principal states, or access-state hashes.

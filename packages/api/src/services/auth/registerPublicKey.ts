@@ -266,6 +266,8 @@ async function runRegisterPublicKeyTransaction(
       organizationId: org.id,
       signingKeyBytes,
     });
+    // Registration bootstraps personal access with a direct root-container grant.
+    // Organization-principal access requires a separately signed principal state.
     await writeInitialRootContainerAccess(tx, {
       containerId: container.id,
       userId: user.id,

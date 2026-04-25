@@ -210,6 +210,54 @@ test("POST /containers/:containerId/share rejects managed grants without current
   });
 });
 
+test("POST /containers/:containerId/share rejects default organization grants before signed org state exists", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const ownerRootId = await getRootContainerIdForUser(owner.userId);
+  const sharedContainerId = crypto.randomUUID();
+
+  const createResponse = await createContainerRequest(
+    { id: sharedContainerId, parentId: ownerRootId },
+    owner.token,
+  );
+
+  expect(createResponse.status).toBe(200);
+  const createdContainer = await createResponse.json();
+
+  const [ownerRow] = await db
+    .select({
+      defaultOrganizationId: users.defaultOrganizationId,
+    })
+    .from(users)
+    .where(eq(users.id, owner.userId))
+    .limit(1);
+  invariant(ownerRow, "expected owner row");
+
+  const shareResponse = await routeApp.request(
+    `/containers/${sharedContainerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${owner.token}`,
+      },
+      body: JSON.stringify({
+        accessLevel: "read",
+        expectedAccessStateHash: createdContainer.metadataAccessStateHash,
+        subjectId: ownerRow.defaultOrganizationId,
+        subjectType: "organization",
+      }),
+    },
+  );
+
+  expect(shareResponse.status).toBe(409);
+  expect(await shareResponse.json()).toEqual({
+    error: `Missing current principal policy state for organization:${ownerRow.defaultOrganizationId}`,
+  });
+});
+
 test("POST /containers/:containerId/share rejects stale access state hashes", async () => {
   const owner = createTestUser();
   await registerUser(owner);
