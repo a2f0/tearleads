@@ -50,7 +50,7 @@ export interface StoredPrincipalProjectionMember {
   createdAt: Date;
 }
 
-export interface StoredPrincipalStateChainEntry {
+interface StoredPrincipalStateChainEntry {
   state: StoredPrincipalState;
   projection: StoredPrincipalProjectionMember[];
 }
