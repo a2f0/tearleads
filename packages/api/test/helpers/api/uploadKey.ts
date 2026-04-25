@@ -10,7 +10,7 @@ import type { SyncDocumentOutgoingUpdate } from "@tearleads/loro";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
 
-export async function createInitialOrganizationPolicy(input: {
+async function createInitialOrganizationPolicy(input: {
   encapsulationPublicKey: Uint8Array;
   organizationId: string;
   signingPrivateKey: Uint8Array;

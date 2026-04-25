@@ -7,8 +7,4 @@ export { requestChallenge } from "./requestChallenge";
 export { submitLogout } from "./submitLogout";
 export { submitVerify } from "./submitVerify";
 export { syncDocument } from "./syncDocument";
-export {
-  createInitialOrganizationPolicy,
-  createPublicKeyRequestBody,
-  uploadKey,
-} from "./uploadKey";
+export { createPublicKeyRequestBody, uploadKey } from "./uploadKey";
