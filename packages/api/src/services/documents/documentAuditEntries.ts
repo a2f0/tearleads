@@ -119,7 +119,7 @@ export async function appendDocumentUpdateAuditEntries(
   input: {
     accessEpoch: number;
     accessFingerprint: string;
-    accessStateHash: string;
+    accessStateHash: string | null;
     actorFingerprint: string;
     actorUserId: string;
     documentId: string;

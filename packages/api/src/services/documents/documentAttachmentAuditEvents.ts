@@ -183,7 +183,7 @@ export async function appendDocumentAttachmentAuditEntries(
   input: {
     accessEpoch: number;
     accessFingerprint: string;
-    accessStateHash: string;
+    accessStateHash: string | null;
     actorFingerprint: string;
     actorUserId: string;
     documentId: string;

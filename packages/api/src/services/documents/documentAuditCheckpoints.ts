@@ -149,7 +149,7 @@ export async function maybeWriteDocumentAuditCheckpoint(
   input: {
     accessEpoch: number;
     accessFingerprint: string;
-    accessStateHash: string;
+    accessStateHash: string | null;
     actorFingerprint: string;
     actorUserId: string;
     checkpointUpdate: CheckpointInput;
