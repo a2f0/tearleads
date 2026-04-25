@@ -656,6 +656,7 @@ async function saveDocumentRecord(
   );
   state.record = nextRecord;
   const persistedDocument = {
+    accessStateHash: nextRecord.accessStateHash ?? null,
     id: nextRecord.id,
     containerId: nextRecord.containerId,
     documentKind: deriveDocumentKind(nextRecord.text),
@@ -1374,6 +1375,10 @@ async function relinkDocumentStore(
   const currentAccessEpoch = state.record?.accessEpoch ?? 1;
   const patch: Partial<DocumentRecord> = {
     accessEpoch: Math.max(currentAccessEpoch, input.accessEpoch),
+    accessStateHash:
+      input.accessStateHash === undefined
+        ? (state.record?.accessStateHash ?? null)
+        : input.accessStateHash,
     containerId: input.containerId,
     documentId: input.documentId,
   };
@@ -1388,6 +1393,7 @@ async function relinkDocumentStore(
     patch,
   );
   return {
+    accessStateHash: nextRecord.accessStateHash ?? null,
     id: nextRecord.id,
     containerId: nextRecord.containerId,
     documentId: nextRecord.documentId,

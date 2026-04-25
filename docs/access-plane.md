@@ -485,9 +485,16 @@ unlink, attach, and detach, with authoritative recomputation at sync time.
 
 The API exposes structural mutation routes:
 
+- `POST /containers/:containerId/share`
 - `POST /containers/:containerId/move`
 - `POST /documents/:documentId/link`
 - `POST /documents/:documentId/unlink`
+
+Each structural/access-sensitive write now carries `expectedAccessStateHash`:
+
+- `share`: current container metadata access-state hash
+- `move`: current container metadata access-state hash
+- `link` / `unlink`: current document access-state hash
 
 These routes recompute the affected container subtree first, then
 materialize downstream document epochs and active blob epochs so access and

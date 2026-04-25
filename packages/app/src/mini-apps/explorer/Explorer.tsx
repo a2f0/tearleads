@@ -288,6 +288,8 @@ function mergeSingleDocumentSummaryList(
 
   if (
     existingDocument.title === nextDocument.title &&
+    (existingDocument.accessStateHash ?? null) ===
+      (nextDocument.accessStateHash ?? null) &&
     existingDocument.containerId === nextDocument.containerId &&
     existingDocument.documentKind === nextDocument.documentKind &&
     existingDocument.documentId === nextDocument.documentId
@@ -367,6 +369,8 @@ function mergeDocumentSummaryLists(
     if (
       !existingDocument ||
       (existingDocument.title === nextDocument.title &&
+        (existingDocument.accessStateHash ?? null) ===
+          (nextDocument.accessStateHash ?? null) &&
         existingDocument.containerId === nextDocument.containerId &&
         existingDocument.documentKind === nextDocument.documentKind &&
         existingDocument.documentId === nextDocument.documentId)

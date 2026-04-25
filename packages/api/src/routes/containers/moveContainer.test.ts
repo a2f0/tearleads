@@ -40,7 +40,7 @@ async function createContainerForUser(input: {
   id: string;
   parentId: string;
   token: string;
-}): Promise<void> {
+}): Promise<{ metadataAccessStateHash?: string }> {
   const response = await routeApp.request("/containers", {
     method: "POST",
     headers: {
@@ -55,6 +55,7 @@ async function createContainerForUser(input: {
   });
 
   expect(response.status).toBe(200);
+  return response.json();
 }
 
 test("POST /containers/:containerId/move reparents the subtree and bumps descendant metadata epochs", async () => {
@@ -67,7 +68,7 @@ test("POST /containers/:containerId/move reparents the subtree and bumps descend
   const grandchildContainerId = crypto.randomUUID();
   const targetParentId = crypto.randomUUID();
 
-  await createContainerForUser({
+  const createdSourceContainer = await createContainerForUser({
     id: sourceContainerId,
     parentId: rootContainerId,
     token: owner.token,
@@ -92,6 +93,7 @@ test("POST /containers/:containerId/move reparents the subtree and bumps descend
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        expectedAccessStateHash: createdSourceContainer.metadataAccessStateHash,
         parentId: targetParentId,
       }),
     },
@@ -139,7 +141,7 @@ test("POST /containers/:containerId/move rejects moving a container under its de
   const sourceContainerId = crypto.randomUUID();
   const grandchildContainerId = crypto.randomUUID();
 
-  await createContainerForUser({
+  const createdSourceContainer = await createContainerForUser({
     id: sourceContainerId,
     parentId: rootContainerId,
     token: owner.token,
@@ -159,6 +161,7 @@ test("POST /containers/:containerId/move rejects moving a container under its de
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        expectedAccessStateHash: createdSourceContainer.metadataAccessStateHash,
         parentId: grandchildContainerId,
       }),
     },
@@ -167,5 +170,46 @@ test("POST /containers/:containerId/move rejects moving a container under its de
   expect(moveResponse.status).toBe(400);
   expect(await moveResponse.json()).toEqual({
     error: "Container cannot be moved under its descendant",
+  });
+});
+
+test("POST /containers/:containerId/move rejects stale access state hashes", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const rootContainerId = await getRootContainerIdForUser(owner.userId);
+  const sourceContainerId = crypto.randomUUID();
+  const targetParentId = crypto.randomUUID();
+
+  await createContainerForUser({
+    id: sourceContainerId,
+    parentId: rootContainerId,
+    token: owner.token,
+  });
+  await createContainerForUser({
+    id: targetParentId,
+    parentId: rootContainerId,
+    token: owner.token,
+  });
+
+  const moveResponse = await routeApp.request(
+    `/containers/${sourceContainerId}/move`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        expectedAccessStateHash: "stale-access-state-hash",
+        parentId: targetParentId,
+      }),
+    },
+  );
+
+  expect(moveResponse.status).toBe(409);
+  expect(await moveResponse.json()).toEqual({
+    error: "Stale access state hash",
   });
 });

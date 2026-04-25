@@ -26,11 +26,49 @@ export class StructuralDocumentMutationError extends Error {
   }
 }
 
+async function resolveWritableLinkedContainerStates(
+  tx: DatabaseTransaction,
+  linkedContainerIds: string[],
+  userId: string,
+): Promise<
+  ReadonlyMap<string, Awaited<ReturnType<typeof resolveContainerAccessState>>>
+> {
+  const linkedContainerAccessStates = await Promise.all(
+    linkedContainerIds.map((containerId) =>
+      resolveContainerAccessState(containerId, tx),
+    ),
+  );
+  const linkedContainerStateById = new Map<
+    string,
+    Awaited<ReturnType<typeof resolveContainerAccessState>>
+  >();
+
+  for (const [index, containerId] of linkedContainerIds.entries()) {
+    const access = linkedContainerAccessStates[index];
+
+    if (!access) {
+      throw new StructuralDocumentMutationError(
+        "Linked container access state is unavailable",
+        409,
+      );
+    }
+
+    if (!canWriteContainerAccess(access, userId)) {
+      throw new StructuralDocumentMutationError("Forbidden", 403);
+    }
+
+    linkedContainerStateById.set(containerId, access);
+  }
+
+  return linkedContainerStateById;
+}
+
 export async function requireMutableDocumentContext(
   tx: DatabaseTransaction,
   documentId: string,
   userId: string,
 ): Promise<{
+  accessStateHash: string;
   createdAt: Date;
   linkedContainerIds: string[];
   organizationId: string;
@@ -95,26 +133,25 @@ export async function requireMutableDocumentContext(
     );
   }
 
-  const linkedContainerAccessStates = await Promise.all(
-    linkedContainerIds.map((containerId) =>
-      resolveContainerAccessState(containerId, tx),
-    ),
+  const linkedContainerStateById = await resolveWritableLinkedContainerStates(
+    tx,
+    linkedContainerIds,
+    userId,
   );
 
-  for (const access of linkedContainerAccessStates) {
-    if (!access) {
-      throw new StructuralDocumentMutationError(
-        "Linked container access state is unavailable",
-        409,
-      );
-    }
-
-    if (!canWriteContainerAccess(access, userId)) {
-      throw new StructuralDocumentMutationError("Forbidden", 403);
-    }
+  const documentAccess = await resolveDocumentAccessState(documentId, tx, {
+    linkedContainerIds,
+    linkedContainerStateById,
+  });
+  if (!documentAccess) {
+    throw new StructuralDocumentMutationError(
+      "Document access state is unavailable",
+      409,
+    );
   }
 
   return {
+    accessStateHash: documentAccess.accessStateHash,
     createdAt: document.createdAt,
     linkedContainerIds,
     organizationId: organizationIds[0] ?? "",

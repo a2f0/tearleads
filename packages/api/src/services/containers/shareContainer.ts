@@ -12,6 +12,7 @@ import {
   listRecipientEncapsulationPublicKeys,
   resolveDocumentAccessState,
 } from "../../access/documentAccess";
+import type { DatabaseTransaction } from "../../adapters/postgres";
 import { containerMetadataDocuments, containers } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
 import { refreshAccessForLinkedContainers } from "../structural/shared";
@@ -28,6 +29,33 @@ export class ShareContainerError extends Error {
   ) {
     super(message);
   }
+}
+
+async function resolveMetadataAccessForCurrentContainerState(
+  tx: DatabaseTransaction,
+  metadataDocumentId: string,
+  containerId: string,
+  containerAccess: NonNullable<
+    Awaited<ReturnType<typeof resolveContainerAccessState>>
+  >,
+) {
+  const metadataAccess = await resolveDocumentAccessState(
+    metadataDocumentId,
+    tx,
+    {
+      linkedContainerIds: [containerId],
+      linkedContainerStateById: new Map([[containerId, containerAccess]]),
+    },
+  );
+
+  if (!metadataAccess) {
+    throw new ShareContainerError(
+      "Container metadata access state is unavailable",
+      409,
+    );
+  }
+
+  return metadataAccess;
 }
 
 export async function shareContainer(
@@ -62,6 +90,33 @@ export async function shareContainer(
         throw new ShareContainerError("Forbidden", 403);
       }
 
+      const [metadataBinding] = await tx
+        .select({ documentId: containerMetadataDocuments.documentId })
+        .from(containerMetadataDocuments)
+        .where(eq(containerMetadataDocuments.containerId, input.containerId))
+        .limit(1);
+
+      if (!metadataBinding) {
+        throw new ShareContainerError(
+          "Container metadata document not found",
+          409,
+        );
+      }
+
+      const previousMetadataAccess =
+        await resolveMetadataAccessForCurrentContainerState(
+          tx,
+          metadataBinding.documentId,
+          input.containerId,
+          containerAccess,
+        );
+
+      if (
+        input.expectedAccessStateHash !== previousMetadataAccess.accessStateHash
+      ) {
+        throw new ShareContainerError("Stale access state hash", 409);
+      }
+
       await grantContainerAccess(
         {
           accessLevel: input.accessLevel,
@@ -76,19 +131,6 @@ export async function shareContainer(
         await listDescendantContainerIds(input.containerId, tx),
         tx,
       );
-
-      const [metadataBinding] = await tx
-        .select({ documentId: containerMetadataDocuments.documentId })
-        .from(containerMetadataDocuments)
-        .where(eq(containerMetadataDocuments.containerId, input.containerId))
-        .limit(1);
-
-      if (!metadataBinding) {
-        throw new ShareContainerError(
-          "Container metadata document not found",
-          409,
-        );
-      }
 
       const metadataAccess = await resolveDocumentAccessState(
         metadataBinding.documentId,

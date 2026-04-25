@@ -194,6 +194,7 @@ test("isCreateContainerRequest", () => {
 test("isShareContainerRequest", () => {
   expect(
     isShareContainerRequest({
+      expectedAccessStateHash: "access-state-1",
       subjectType: "user",
       subjectId: "550e8400-e29b-41d4-a716-446655440000",
       accessLevel: "write",
@@ -201,6 +202,7 @@ test("isShareContainerRequest", () => {
   ).toBe(true);
   expect(
     isShareContainerRequest({
+      expectedAccessStateHash: "access-state-1",
       subjectType: "team",
       subjectId: "550e8400-e29b-41d4-a716-446655440000",
       accessLevel: "write",
@@ -208,8 +210,17 @@ test("isShareContainerRequest", () => {
   ).toBe(false);
   expect(
     isShareContainerRequest({
+      expectedAccessStateHash: "access-state-1",
       subjectType: "user",
       subjectId: "not-a-uuid",
+      accessLevel: "write",
+    }),
+  ).toBe(false);
+  expect(
+    isShareContainerRequest({
+      expectedAccessStateHash: "",
+      subjectType: "user",
+      subjectId: "550e8400-e29b-41d4-a716-446655440000",
       accessLevel: "write",
     }),
   ).toBe(false);
@@ -219,12 +230,20 @@ test("isShareContainerRequest", () => {
 test("isMoveContainerRequest", () => {
   expect(
     isMoveContainerRequest({
+      expectedAccessStateHash: "access-state-1",
       parentId: "550e8400-e29b-41d4-a716-446655440000",
     }),
   ).toBe(true);
   expect(
     isMoveContainerRequest({
+      expectedAccessStateHash: "access-state-1",
       parentId: "not-a-uuid",
+    }),
+  ).toBe(false);
+  expect(
+    isMoveContainerRequest({
+      expectedAccessStateHash: "",
+      parentId: "550e8400-e29b-41d4-a716-446655440000",
     }),
   ).toBe(false);
   expect(isMoveContainerRequest(null)).toBe(false);
@@ -234,11 +253,19 @@ test("isLinkDocumentToContainerRequest", () => {
   expect(
     isLinkDocumentToContainerRequest({
       containerId: "550e8400-e29b-41d4-a716-446655440000",
+      expectedAccessStateHash: "access-state-1",
     }),
   ).toBe(true);
   expect(
     isLinkDocumentToContainerRequest({
       containerId: "not-a-uuid",
+      expectedAccessStateHash: "access-state-1",
+    }),
+  ).toBe(false);
+  expect(
+    isLinkDocumentToContainerRequest({
+      containerId: "550e8400-e29b-41d4-a716-446655440000",
+      expectedAccessStateHash: "",
     }),
   ).toBe(false);
   expect(isLinkDocumentToContainerRequest(null)).toBe(false);

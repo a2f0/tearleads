@@ -28,6 +28,10 @@ export async function unlinkDocumentFromContainer(
       input.userId,
     );
 
+    if (input.expectedAccessStateHash !== documentContext.accessStateHash) {
+      throw new StructuralDocumentMutationError("Stale access state hash", 409);
+    }
+
     await requireWritableContainer(tx, input.containerId, input.userId);
 
     if (!documentContext.linkedContainerIds.includes(input.containerId)) {

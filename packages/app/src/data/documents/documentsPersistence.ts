@@ -35,6 +35,7 @@ export interface StoredDocumentRecord extends BaseDocumentRecord {
 }
 
 export interface DocumentSummary {
+  accessStateHash?: string | null;
   id: string;
   containerId: string | null;
   documentKind?: StoredDocumentKind;
@@ -286,6 +287,17 @@ function parseProjectionUpdatedAt(row: SqlRow | undefined): string {
   return String(updatedAt ?? "");
 }
 
+function parseProjectionAccessStateHash(
+  row: SqlRow | undefined,
+): string | null {
+  const accessStateHash = row
+    ? readSqlRowValue(row, "access_state_hash")
+    : null;
+  return accessStateHash === null || accessStateHash === undefined
+    ? null
+    : String(accessStateHash);
+}
+
 function parsePendingAttachmentMimeType(
   row: SqlRow | undefined,
 ): string | null {
@@ -368,7 +380,10 @@ async function upsertDiscoveredDocumentWithExec(
       existingDocument?.accessEpoch ?? 1,
       input.accessEpoch,
     ),
-    accessStateHash: input.accessStateHash ?? null,
+    accessStateHash:
+      input.accessStateHash === undefined
+        ? (existingDocument?.accessStateHash ?? null)
+        : input.accessStateHash,
     lastCommitLsn:
       existingDocument?.documentId === input.documentId
         ? (existingDocument.lastCommitLsn ?? null)
@@ -386,6 +401,7 @@ async function upsertDiscoveredDocumentWithExec(
   );
 
   return {
+    accessStateHash: nextDocument.accessStateHash ?? null,
     id: localId,
     containerId: nextDocument.containerId,
     documentKind: derivePersistedDocumentKind(nextDocument.text),
@@ -414,7 +430,10 @@ async function relinkPersistedDocumentWithExec(
   const nextDocument: StoredDocumentRecord = {
     ...existingDocument,
     accessEpoch: nextAccessEpoch,
-    accessStateHash: input.accessStateHash ?? null,
+    accessStateHash:
+      input.accessStateHash === undefined
+        ? (existingDocument.accessStateHash ?? null)
+        : input.accessStateHash,
     containerId: input.containerId,
     documentId: input.documentId,
     documentRecipientEnvelopes:
@@ -442,6 +461,7 @@ async function relinkPersistedDocumentWithExec(
   );
 
   return {
+    accessStateHash: nextDocument.accessStateHash ?? null,
     id: nextDocument.id,
     containerId: nextDocument.containerId,
     documentKind: derivePersistedDocumentKind(nextDocument.text),
@@ -489,19 +509,27 @@ export async function listDocumentsByContainerIds(
   const rows = await execSql(
     `
       SELECT
-        local_id,
-        document_id,
-        container_id,
-        text,
-        updated_at
-      FROM document_projection
-      WHERE container_id IN (${placeholders.join(", ")})
-      ORDER BY updated_at DESC, local_id DESC
+        projection.local_id,
+        projection.document_id,
+        projection.container_id,
+        projection.text,
+        projection.updated_at,
+        persisted.access_state_hash
+      FROM document_projection projection
+      LEFT JOIN documents persisted
+        ON persisted.app_kind = :appKind
+       AND persisted.local_id = projection.local_id
+      WHERE projection.container_id IN (${placeholders.join(", ")})
+      ORDER BY projection.updated_at DESC, projection.local_id DESC
     `,
-    bind,
+    {
+      ...bind,
+      ":appKind": DOCUMENTS_APP_KIND,
+    },
   );
 
   return rows.map((row) => ({
+    accessStateHash: parseProjectionAccessStateHash(row),
     id: String(readSqlRowValue(row, "local_id") ?? ""),
     containerId: parseProjectionContainerId(row),
     documentKind: derivePersistedDocumentKind(parseProjectionText(row)),
@@ -525,6 +553,7 @@ async function listDocumentsByContainerIdsOrDocumentIds(
   }
 
   const bind: Record<string, string> = {};
+  bind[":appKind"] = DOCUMENTS_APP_KIND;
   const filters: string[] = [];
   if (uniqueContainerIds.length > 0) {
     const placeholders = uniqueContainerIds.map((containerId, index) => {
@@ -532,7 +561,7 @@ async function listDocumentsByContainerIdsOrDocumentIds(
       bind[key] = containerId;
       return key;
     });
-    filters.push(`container_id IN (${placeholders.join(", ")})`);
+    filters.push(`projection.container_id IN (${placeholders.join(", ")})`);
   }
 
   if (uniqueDocumentIds.length > 0) {
@@ -541,25 +570,30 @@ async function listDocumentsByContainerIdsOrDocumentIds(
       bind[key] = documentId;
       return key;
     });
-    filters.push(`document_id IN (${placeholders.join(", ")})`);
+    filters.push(`projection.document_id IN (${placeholders.join(", ")})`);
   }
 
   const rows = await execSql(
     `
       SELECT
-        local_id,
-        document_id,
-        container_id,
-        text,
-        updated_at
-      FROM document_projection
+        projection.local_id,
+        projection.document_id,
+        projection.container_id,
+        projection.text,
+        projection.updated_at,
+        persisted.access_state_hash
+      FROM document_projection projection
+      LEFT JOIN documents persisted
+        ON persisted.app_kind = :appKind
+       AND persisted.local_id = projection.local_id
       WHERE ${filters.join(" OR ")}
-      ORDER BY updated_at DESC, local_id DESC
+      ORDER BY projection.updated_at DESC, projection.local_id DESC
     `,
     bind,
   );
 
   return rows.map((row) => ({
+    accessStateHash: parseProjectionAccessStateHash(row),
     id: String(readSqlRowValue(row, "local_id") ?? ""),
     containerId: parseProjectionContainerId(row),
     documentKind: derivePersistedDocumentKind(parseProjectionText(row)),
@@ -580,17 +614,25 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     const rows = await execSql(
       `
         SELECT
-          local_id,
-          document_id,
-          container_id,
-          text,
-          updated_at
-        FROM document_projection
-        ORDER BY updated_at DESC, local_id DESC
+          projection.local_id,
+          projection.document_id,
+          projection.container_id,
+          projection.text,
+          projection.updated_at,
+          persisted.access_state_hash
+        FROM document_projection projection
+        LEFT JOIN documents persisted
+          ON persisted.app_kind = :appKind
+         AND persisted.local_id = projection.local_id
+        ORDER BY projection.updated_at DESC, projection.local_id DESC
       `,
+      {
+        ":appKind": DOCUMENTS_APP_KIND,
+      },
     );
 
     return rows.map((row) => ({
+      accessStateHash: parseProjectionAccessStateHash(row),
       id: String(readSqlRowValue(row, "local_id") ?? ""),
       containerId: parseProjectionContainerId(row),
       documentKind: derivePersistedDocumentKind(parseProjectionText(row)),

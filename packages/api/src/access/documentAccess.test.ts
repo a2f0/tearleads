@@ -231,6 +231,40 @@ test("document access includes recipients inherited from its linked root contain
   );
 });
 
+test("document access can reuse caller-provided linked container state", async () => {
+  const alice = createTestUser();
+
+  await registerUser(alice);
+  await authenticate(alice);
+
+  const createDocumentResponse = await createDocument(alice.token, [
+    alice.rootContainerId,
+  ]);
+  expect(createDocumentResponse.status).toBe(200);
+  const createdDocument = await createDocumentResponse.json();
+  const documentId = String(createdDocument.id ?? "");
+
+  const [link] = await db
+    .select({
+      containerId: documentContainerLinks.containerId,
+    })
+    .from(documentContainerLinks)
+    .where(eq(documentContainerLinks.documentId, documentId))
+    .limit(1);
+  invariant(link, "expected document link");
+
+  const containerAccess = await resolveContainerAccessState(link.containerId);
+  invariant(containerAccess, "expected linked container access state");
+
+  const expectedAccess = await resolveDocumentAccessState(documentId);
+  const reusedAccess = await resolveDocumentAccessState(documentId, db, {
+    linkedContainerIds: [link.containerId],
+    linkedContainerStateById: new Map([[link.containerId, containerAccess]]),
+  });
+
+  expect(reusedAccess).toEqual(expectedAccess);
+});
+
 test("document access includes referenced principal policy states from linked containers", async () => {
   const owner = createTestUser();
   const bob = createTestUser();

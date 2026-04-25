@@ -86,6 +86,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
         linkedContainerIds: ["shared-container"],
       }),
     ).resolves.toEqual({
+      accessStateHash: null,
       id: "local-note",
       containerId: "shared-container",
       documentKind: "note",
@@ -146,6 +147,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
         linkedContainerIds: ["container-a", "container-b"],
       }),
     ).resolves.toEqual({
+      accessStateHash: null,
       id: "local-note",
       containerId: "container-a",
       documentKind: "note",
@@ -201,6 +203,7 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
         noteId: "local-note",
       }),
     ).resolves.toEqual({
+      accessStateHash: null,
       id: "local-note",
       containerId: "container-b",
       documentKind: "note",
@@ -264,6 +267,7 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
       listNotesByContainerIds(execSql, ["container-a", "container-c"]),
     ).resolves.toEqual([
       {
+        accessStateHash: null,
         id: "note-c",
         containerId: "container-c",
         documentKind: "note",
@@ -272,6 +276,7 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
         updatedAt: expect.any(String),
       },
       {
+        accessStateHash: null,
         id: "note-a",
         containerId: "container-a",
         documentKind: "note",
@@ -326,6 +331,7 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
       }),
     ).resolves.toEqual([
       {
+        accessStateHash: null,
         id: "linked-note",
         containerId: "outside-container",
         documentKind: "note",
@@ -334,6 +340,7 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
         updatedAt: expect.any(String),
       },
       {
+        accessStateHash: null,
         id: "direct-note",
         containerId: "shared-container",
         documentKind: "note",
@@ -368,6 +375,7 @@ test("listNotes derives driver license titles and document kinds from structured
 
     await expect(sqlNotesPersistence.listNotes(execSql)).resolves.toEqual([
       {
+        accessStateHash: null,
         id: "drivers-license",
         containerId: "identity-container",
         documentKind: "drivers_license",
@@ -404,6 +412,7 @@ test("listNotes derives masked credit card titles and document kinds from struct
 
     await expect(sqlNotesPersistence.listNotes(execSql)).resolves.toEqual([
       {
+        accessStateHash: null,
         id: "credit-card",
         containerId: "billing-container",
         documentKind: "credit_card",
@@ -432,6 +441,7 @@ test("upsertDiscoveredNote uses the remote createdAt for a newly discovered docu
         linkedContainerIds: ["shared-container"],
       }),
     ).resolves.toEqual({
+      accessStateHash: null,
       id: "remote-document",
       containerId: "shared-container",
       documentKind: "note",
@@ -442,6 +452,7 @@ test("upsertDiscoveredNote uses the remote createdAt for a newly discovered docu
 
     await expect(sqlNotesPersistence.listNotes(execSql)).resolves.toEqual([
       {
+        accessStateHash: null,
         id: "remote-document",
         containerId: "shared-container",
         documentKind: "note",

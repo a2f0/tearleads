@@ -19,17 +19,20 @@ export interface CreateContainerRequest {
 }
 
 export interface ShareContainerRequest {
+  expectedAccessStateHash: string;
   subjectType: "user" | "group" | "organization";
   subjectId: string;
   accessLevel: "read" | "write" | "admin";
 }
 
 export interface MoveContainerRequest {
+  expectedAccessStateHash: string;
   parentId: string;
 }
 
 export interface LinkDocumentToContainerRequest {
   containerId: string;
+  expectedAccessStateHash: string;
 }
 
 function isShareSubjectType(
@@ -69,6 +72,8 @@ export function isShareContainerRequest(
 ): value is ShareContainerRequest {
   return (
     isPlainObject(value) &&
+    hasStringProperty(value, "expectedAccessStateHash") &&
+    value.expectedAccessStateHash.length > 0 &&
     hasStringProperty(value, "subjectType") &&
     isShareSubjectType(value.subjectType) &&
     hasStringProperty(value, "subjectId") &&
@@ -83,6 +88,8 @@ export function isMoveContainerRequest(
 ): value is MoveContainerRequest {
   return (
     isPlainObject(value) &&
+    hasStringProperty(value, "expectedAccessStateHash") &&
+    value.expectedAccessStateHash.length > 0 &&
     hasStringProperty(value, "parentId") &&
     isUuidV4String(value.parentId)
   );
@@ -94,6 +101,8 @@ export function isLinkDocumentToContainerRequest(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "containerId") &&
-    isUuidV4String(value.containerId)
+    isUuidV4String(value.containerId) &&
+    hasStringProperty(value, "expectedAccessStateHash") &&
+    value.expectedAccessStateHash.length > 0
   );
 }

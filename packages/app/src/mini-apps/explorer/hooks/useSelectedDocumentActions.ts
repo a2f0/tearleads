@@ -33,6 +33,24 @@ function getMovedDocumentContainerId(
   return document.linkedContainerIds[0] ?? null;
 }
 
+function getExpectedDocumentAccessStateHash(
+  appData: ExplorerDocumentsRuntimeAppData,
+  note: DocumentSummary,
+  operation: string,
+): string | null {
+  if (
+    typeof note.accessStateHash !== "string" ||
+    note.accessStateHash.length === 0
+  ) {
+    appData.log(
+      `Explorer: note ${note.id} is missing access state hash for ${operation}`,
+    );
+    return null;
+  }
+
+  return note.accessStateHash;
+}
+
 async function syncExplorerDocumentLinks(
   appData: ExplorerDocumentsRuntimeAppData,
   documentId: string,
@@ -58,9 +76,19 @@ async function moveExplorerDocument(params: {
     return null;
   }
 
+  const linkAccessStateHash = getExpectedDocumentAccessStateHash(
+    appData,
+    note,
+    "move",
+  );
+  if (!linkAccessStateHash) {
+    return null;
+  }
+
   const linkedDocument = await appData.apiClient.linkDocumentToContainer(
     note.documentId,
     targetContainerId,
+    linkAccessStateHash,
   );
   if (!linkedDocument) {
     appData.log(
@@ -70,9 +98,21 @@ async function moveExplorerDocument(params: {
   }
   await syncExplorerDocumentLinks(appData, note.documentId, linkedDocument);
 
+  const unlinkAccessStateHash = linkedDocument.currentAccessStateHash;
+  if (
+    typeof unlinkAccessStateHash !== "string" ||
+    unlinkAccessStateHash.length === 0
+  ) {
+    appData.log(
+      `Explorer: note ${note.id} is missing refreshed access state hash after linking`,
+    );
+    return null;
+  }
+
   const unlinkedDocument = await appData.apiClient.unlinkDocumentFromContainer(
     note.documentId,
     note.containerId,
+    unlinkAccessStateHash,
   );
   if (!unlinkedDocument) {
     appData.log(
@@ -92,6 +132,7 @@ async function moveExplorerDocument(params: {
 
   return {
     currentAccessEpoch: unlinkedDocument.currentAccessEpoch,
+    currentAccessStateHash: unlinkedDocument.currentAccessStateHash ?? null,
     linkedContainerIds: unlinkedDocument.linkedContainerIds,
     nextContainerId,
   };
@@ -107,9 +148,19 @@ async function linkExplorerDocument(params: {
     return null;
   }
 
+  const expectedAccessStateHash = getExpectedDocumentAccessStateHash(
+    appData,
+    note,
+    "link",
+  );
+  if (!expectedAccessStateHash) {
+    return null;
+  }
+
   const linkedDocument = await appData.apiClient.linkDocumentToContainer(
     note.documentId,
     targetContainerId,
+    expectedAccessStateHash,
   );
   if (!linkedDocument) {
     appData.log(
@@ -132,9 +183,19 @@ async function unlinkExplorerDocument(params: {
     return null;
   }
 
+  const expectedAccessStateHash = getExpectedDocumentAccessStateHash(
+    appData,
+    note,
+    "unlink",
+  );
+  if (!expectedAccessStateHash) {
+    return null;
+  }
+
   const unlinkedDocument = await appData.apiClient.unlinkDocumentFromContainer(
     note.documentId,
     targetContainerId,
+    expectedAccessStateHash,
   );
   if (!unlinkedDocument) {
     appData.log(
@@ -172,6 +233,7 @@ async function primeExplorerDocumentStoreForStructuralMutation(params: {
 
 async function relinkExplorerNoteLocally(params: {
   accessEpoch: number;
+  accessStateHash?: string | null;
   appData: ExplorerDocumentsRuntimeAppData;
   currentDocumentStore: ExplorerDocumentStore;
   mergeDocumentSummary: MergeDocumentSummary;
@@ -181,6 +243,7 @@ async function relinkExplorerNoteLocally(params: {
 }) {
   const {
     accessEpoch,
+    accessStateHash,
     appData,
     currentDocumentStore,
     mergeDocumentSummary,
@@ -194,6 +257,7 @@ async function relinkExplorerNoteLocally(params: {
 
   const relinkedNote = await currentDocumentStore.relink({
     accessEpoch,
+    ...(accessStateHash === undefined ? {} : { accessStateHash }),
     containerId: targetContainerId,
     documentId: note.documentId,
     localId: note.id,
@@ -217,6 +281,7 @@ async function relinkExplorerNoteLocally(params: {
 
 async function relinkExplorerNoteAfterStructuralMutation(params: {
   accessEpoch: number;
+  accessStateHash?: string | null;
   appData: ExplorerDocumentsRuntimeAppData;
   currentDocumentStore: ExplorerDocumentStore;
   mergeDocumentSummary: MergeDocumentSummary;
@@ -276,6 +341,7 @@ async function moveExplorerNote(params: {
 
   const movedNote = await relinkExplorerNoteAfterStructuralMutation({
     accessEpoch: currentAccessEpoch,
+    accessStateHash: movedDocument.currentAccessStateHash,
     appData,
     currentDocumentStore,
     mergeDocumentSummary,
@@ -333,6 +399,7 @@ async function linkExplorerNote(params: {
 
   const linkedNote = await relinkExplorerNoteAfterStructuralMutation({
     accessEpoch: linkedDocument.currentAccessEpoch,
+    accessStateHash: linkedDocument.currentAccessStateHash ?? null,
     appData,
     currentDocumentStore,
     mergeDocumentSummary,
@@ -400,6 +467,7 @@ async function unlinkExplorerLinkedNote(params: {
 
   const unlinkedNote = await relinkExplorerNoteAfterStructuralMutation({
     accessEpoch: unlinkedDocument.currentAccessEpoch,
+    accessStateHash: unlinkedDocument.currentAccessStateHash ?? null,
     appData,
     currentDocumentStore,
     mergeDocumentSummary,

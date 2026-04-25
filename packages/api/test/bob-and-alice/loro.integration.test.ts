@@ -197,34 +197,19 @@ test("Alice and Bob converge through encrypted Loro update streaming", async () 
   const aliceVersion = encodeVersionVector(aliceDoc);
   aliceDoc.getText("text").update("Hello from Alice");
   const firstUpdate = exportUpdatesSince(aliceDoc, aliceVersion);
-  const encryptedFirstUpdate = await encryptLoroUpdate(
-    firstUpdate,
-    createdDocument.currentAccessEpoch,
-    initialDocumentKey,
-  );
   const firstUpdateVersionVectors = getUpdateVersionVectors(firstUpdate);
 
-  const appendFirstResponse = await syncDocument(
+  const staleEpochResponse = await syncDocument(
     documentId,
     {
       accessEpoch: 1,
-      documentRecipientEnvelopes: createdDocument.documentRecipientEnvelopes,
       localVersionVector: encodeVersionVector(aliceDoc),
-      outgoingUpdates: [
-        {
-          id: crypto.randomUUID(),
-          encryptedData: encryptedFirstUpdate,
-          partialStartVersionVector:
-            firstUpdateVersionVectors.partialStartVersionVector,
-          partialEndVersionVector:
-            firstUpdateVersionVectors.partialEndVersionVector,
-        },
-      ],
+      outgoingUpdates: [],
     },
     alice.token,
   );
-  expect(appendFirstResponse.status).toBe(200);
-  const staleEpochSync = await appendFirstResponse.json();
+  expect(staleEpochResponse.status).toBe(200);
+  const staleEpochSync = await staleEpochResponse.json();
   expect(staleEpochSync.acceptedOutgoingUpdateIds).toHaveLength(0);
   expect(staleEpochSync.currentAccessEpoch).toBe(grantedAccessEpoch);
   expect(staleEpochSync.recipientEncapsulationPublicKeys).toHaveLength(2);
@@ -778,6 +763,7 @@ test("Bob can discover and read a note after Alice shares its container through 
     }),
   });
   expect(createContainerResponse.status).toBe(200);
+  const createdSharedContainer = await createContainerResponse.json();
 
   const createDocumentResponse = await createDocument(alice.token, [
     sharedContainerId,
@@ -834,6 +820,7 @@ test("Bob can discover and read a note after Alice shares its container through 
       },
       body: JSON.stringify({
         accessLevel: "write",
+        expectedAccessStateHash: createdSharedContainer.metadataAccessStateHash,
         subjectId: bob.userId,
         subjectType: "user",
       }),
@@ -1005,6 +992,7 @@ test("read-only users cannot submit envelope-only sync writes", async () => {
     }),
   });
   expect(createContainerResponse.status).toBe(200);
+  const createdSharedContainer = await createContainerResponse.json();
 
   const createDocumentResponse = await createDocument(owner.token, [
     sharedContainerId,
@@ -1023,6 +1011,7 @@ test("read-only users cannot submit envelope-only sync writes", async () => {
       },
       body: JSON.stringify({
         accessLevel: "read",
+        expectedAccessStateHash: createdSharedContainer.metadataAccessStateHash,
         subjectId: reader.userId,
         subjectType: "user",
       }),
@@ -1083,6 +1072,7 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
     }),
   });
   expect(createContainerResponse.status).toBe(200);
+  const createdSharedContainer = await createContainerResponse.json();
 
   const shareResponse = await routeApp.request(
     `/containers/${sharedContainerId}/share`,
@@ -1094,6 +1084,7 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
       },
       body: JSON.stringify({
         accessLevel: "write",
+        expectedAccessStateHash: createdSharedContainer.metadataAccessStateHash,
         subjectId: charlie.userId,
         subjectType: "user",
       }),

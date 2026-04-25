@@ -277,6 +277,18 @@ async function shareContainerWithUser(input: {
       },
       body: JSON.stringify({
         accessLevel: input.accessLevel,
+        expectedAccessStateHash: (
+          await (
+            await routeApp.request("/containers", {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${input.token}`,
+              },
+            })
+          ).json()
+        ).find(
+          (container: { id?: string }) => container.id === input.containerId,
+        )?.metadataAccessStateHash,
         subjectId: input.subjectId,
         subjectType: "user",
       }),
@@ -304,6 +316,20 @@ async function unlinkDocumentFromContainer(input: {
       },
       body: JSON.stringify({
         containerId: input.containerId,
+        expectedAccessStateHash: (
+          await (
+            await routeApp.request(
+              `/containers/${input.containerId}/documents`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${input.token}`,
+                },
+              },
+            )
+          ).json()
+        ).find((document: { id?: string }) => document.id === input.documentId)
+          ?.currentAccessStateHash,
       }),
     },
   );
