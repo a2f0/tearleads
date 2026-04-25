@@ -14,8 +14,10 @@ import {
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
+import { resolveDocumentAccessState } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
 import {
+  containerMetadataDocuments,
   documentAuditCheckpoints,
   documentAuditEntries,
   documentContainerLinks,
@@ -30,12 +32,51 @@ import {
   DocumentUpdateError,
 } from "./documentSyncStore";
 
+async function getExpectedLinkedContainerAccessStateHashes(
+  linkedContainerIds: string[],
+): Promise<Record<string, string>> {
+  const bindings = await db
+    .select({
+      containerId: containerMetadataDocuments.containerId,
+      documentId: containerMetadataDocuments.documentId,
+    })
+    .from(containerMetadataDocuments)
+    .where(inArray(containerMetadataDocuments.containerId, linkedContainerIds));
+
+  const expectedLinkedContainerAccessStateHashes: Record<string, string> = {};
+
+  for (const containerId of linkedContainerIds) {
+    const binding = bindings.find((row) => row.containerId === containerId);
+    if (!binding) {
+      throw new Error(
+        `Expected metadata document binding for container ${containerId}`,
+      );
+    }
+
+    const access = await resolveDocumentAccessState(binding.documentId, db);
+    if (!access) {
+      throw new Error(
+        `Expected metadata access state for container ${containerId}`,
+      );
+    }
+
+    expectedLinkedContainerAccessStateHashes[containerId] =
+      access.accessStateHash;
+  }
+
+  return expectedLinkedContainerAccessStateHashes;
+}
+
 async function createServiceDocument() {
   const { fingerprint, registration, user } = await registerServiceUser();
   const store = createDocumentSyncStore(createServiceTestRuntime());
   const created = await store.createDocument({
     createdByFingerprint: fingerprint,
     createdByUserId: registration.userId,
+    expectedLinkedContainerAccessStateHashes:
+      await getExpectedLinkedContainerAccessStateHashes([
+        registration.rootContainerId,
+      ]),
     linkedContainerIds: [registration.rootContainerId],
   });
 
@@ -80,6 +121,10 @@ test("document sync store creates documents and resolves access through the runt
   const created = await store.createDocument({
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
     createdByUserId: registration.userId,
+    expectedLinkedContainerAccessStateHashes:
+      await getExpectedLinkedContainerAccessStateHashes([
+        registration.rootContainerId,
+      ]),
     linkedContainerIds: [registration.rootContainerId],
   });
 
@@ -493,6 +538,10 @@ test("document sync store reports create and append errors", async () => {
     store.createDocument({
       createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
       createdByUserId: registration.userId,
+      expectedLinkedContainerAccessStateHashes:
+        await getExpectedLinkedContainerAccessStateHashes([
+          registration.rootContainerId,
+        ]),
       linkedContainerIds: [
         registration.rootContainerId,
         registration.rootContainerId,
@@ -508,11 +557,28 @@ test("document sync store reports create and append errors", async () => {
     store.createDocument({
       createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
       createdByUserId: other.registration.userId,
+      expectedLinkedContainerAccessStateHashes:
+        await getExpectedLinkedContainerAccessStateHashes([
+          registration.rootContainerId,
+        ]),
       linkedContainerIds: [registration.rootContainerId],
     }),
   );
   expect(forbiddenContainer.status).toBe(403);
   expect(forbiddenContainer.message).toBe("Forbidden");
+
+  const staleAccessStateHash = await expectCreateDocumentError(
+    store.createDocument({
+      createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+      createdByUserId: registration.userId,
+      expectedLinkedContainerAccessStateHashes: {
+        [registration.rootContainerId]: "stale-access-state-hash",
+      },
+      linkedContainerIds: [registration.rootContainerId],
+    }),
+  );
+  expect(staleAccessStateHash.status).toBe(409);
+  expect(staleAccessStateHash.message).toBe("Stale access state hash");
 
   const missingDocument = await expectDocumentSyncStoreError(
     store.appendDocumentUpdates({

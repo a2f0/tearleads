@@ -97,6 +97,23 @@ function createSyncDocumentResponse(input: {
   };
 }
 
+function createListedContainers(
+  containerId: string,
+  metadataAccessStateHash = `${containerId}-access-state-hash-1`,
+) {
+  return [
+    {
+      id: containerId,
+      metadataAccessEpoch: 1,
+      metadataAccessStateHash,
+      metadataDocumentId: `metadata-${containerId}`,
+      metadataRecipientEncapsulationPublicKeys: [],
+      organizationId: "org-1",
+      parentId: null,
+    },
+  ];
+}
+
 interface PendingUpdateDetailRow extends PendingUpdateLengthRow {
   partial_start_version_vector: string | null;
   partial_end_version_vector: string | null;
@@ -383,8 +400,9 @@ function createRuntime(containerId = "root-container"): NotesRuntime {
   return {
     apiClient: {
       commitDocumentChange: async () => null,
-      createDocument: async (_linkedContainerIds) => null,
+      createDocument: async (_linkedContainerIds, _expectedHashes) => null,
       getBlob: async () => null,
+      listContainers: async () => createListedContainers(containerId),
       listDocumentAttachments: async () => null,
       stageBlob: async () => null,
       syncDocument: async () => null,
@@ -424,7 +442,7 @@ function createSyncRuntime(
         documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
         detachedBindingIds: [],
       }),
-      createDocument: async (_linkedContainerIds) => ({
+      createDocument: async (_linkedContainerIds, _expectedHashes) => ({
         id: "notes-document-1",
         createdAt: "2026-03-31T00:00:00.000Z",
         currentAccessEpoch: 1,
@@ -435,6 +453,7 @@ function createSyncRuntime(
         ],
       }),
       getBlob: async () => null,
+      listContainers: async () => createListedContainers(containerId),
       listDocumentAttachments: async () => [],
       stageBlob: async () => ({
         expiresAt: "2026-04-07T00:00:00.000Z",
@@ -478,8 +497,9 @@ function createOfflineAttachmentRuntime(
   return {
     apiClient: {
       commitDocumentChange: async () => null,
-      createDocument: async () => null,
+      createDocument: async (_linkedContainerIds, _expectedHashes) => null,
       getBlob: async () => null,
+      listContainers: async () => createListedContainers(containerId),
       listDocumentAttachments: async () => null,
       stageBlob: async () => null,
       syncDocument: async () => null,
@@ -509,8 +529,9 @@ async function createSqlRuntime(): Promise<
     ...runtimeBase,
     apiClient: {
       commitDocumentChange: async () => null,
-      createDocument: async (_linkedContainerIds) => null,
+      createDocument: async (_linkedContainerIds, _expectedHashes) => null,
       getBlob: async () => null,
+      listContainers: async () => createListedContainers("root-container"),
       listDocumentAttachments: async () => null,
       stageBlob: async () => null,
       syncDocument: async () => null,
@@ -526,7 +547,7 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
     ...runtimeBase,
     apiClient: {
       commitDocumentChange: async () => null,
-      createDocument: async () => ({
+      createDocument: async (_linkedContainerIds, _expectedHashes) => ({
         id: "shared-remote-note",
         createdAt: "2026-04-07T00:00:00.000Z",
         currentAccessEpoch: 1,
@@ -536,6 +557,7 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
         ],
       }),
       getBlob: async () => null,
+      listContainers: async () => createListedContainers("root-container"),
       listDocumentAttachments: async () => [],
       stageBlob: async () => null,
       syncDocument: async (
@@ -598,7 +620,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
     ...runtimeBase,
     apiClient: {
       commitDocumentChange: async () => null,
-      createDocument: async () => ({
+      createDocument: async (_linkedContainerIds, _expectedHashes) => ({
         id: "shared-remote-note",
         createdAt: "2026-04-07T00:00:00.000Z",
         currentAccessEpoch: 1,
@@ -608,6 +630,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
         ],
       }),
       getBlob: async () => null,
+      listContainers: async () => createListedContainers("root-container"),
       listDocumentAttachments: async () => [],
       stageBlob: async () => null,
       syncDocument: async (
@@ -786,7 +809,10 @@ test("notes store creates a document linked to the configured container", async 
       version: number;
     }>
   > = [];
-  const createDocumentCalls: string[][] = [];
+  const createDocumentCalls: Array<{
+    expectedLinkedContainerAccessStateHashes: Record<string, string>;
+    linkedContainerIds: string[];
+  }> = [];
   const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
   const instrumentedRuntime: NotesRuntime = {
     ...runtime,
@@ -795,10 +821,18 @@ test("notes store creates a document linked to the configured container", async 
     },
     apiClient: {
       ...runtime.apiClient,
-      createDocument: async (linkedContainerIds) => {
-        createDocumentCalls.push(linkedContainerIds);
-        const created =
-          await runtime.apiClient.createDocument(linkedContainerIds);
+      createDocument: async (
+        linkedContainerIds,
+        expectedLinkedContainerAccessStateHashes,
+      ) => {
+        createDocumentCalls.push({
+          expectedLinkedContainerAccessStateHashes,
+          linkedContainerIds,
+        });
+        const created = await runtime.apiClient.createDocument(
+          linkedContainerIds,
+          expectedLinkedContainerAccessStateHashes,
+        );
         if (!created) {
           return null;
         }
@@ -842,7 +876,14 @@ test("notes store creates a document linked to the configured container", async 
     "Container-scoped note did not create and sync its document.",
   );
 
-  expect(createDocumentCalls).toEqual([["shared-container"]]);
+  expect(createDocumentCalls).toEqual([
+    {
+      expectedLinkedContainerAccessStateHashes: {
+        "shared-container": "shared-container-access-state-hash-1",
+      },
+      linkedContainerIds: ["shared-container"],
+    },
+  ]);
   expect(cachedPrincipalReferences).toContainEqual([
     {
       keyEpoch: 1,
@@ -890,7 +931,10 @@ test("document store seeds initial text before first persistence", async () => {
 test("notes store stages and commits attachments against the note document", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const createDocumentCalls: string[][] = [];
+  const createDocumentCalls: Array<{
+    expectedLinkedContainerAccessStateHashes: Record<string, string>;
+    linkedContainerIds: string[];
+  }> = [];
   const stageBlobCalls: Array<{
     byteLength: number;
     encryptedBytes: string;
@@ -916,9 +960,18 @@ test("notes store stages and commits attachments against the note document", asy
         });
         return runtime.apiClient.commitDocumentChange(documentId, input);
       },
-      createDocument: async (linkedContainerIds) => {
-        createDocumentCalls.push(linkedContainerIds);
-        return runtime.apiClient.createDocument(linkedContainerIds);
+      createDocument: async (
+        linkedContainerIds,
+        expectedLinkedContainerAccessStateHashes,
+      ) => {
+        createDocumentCalls.push({
+          expectedLinkedContainerAccessStateHashes,
+          linkedContainerIds,
+        });
+        return runtime.apiClient.createDocument(
+          linkedContainerIds,
+          expectedLinkedContainerAccessStateHashes,
+        );
       },
       stageBlob: async (input) => {
         stageBlobCalls.push(input);
@@ -958,7 +1011,14 @@ test("notes store stages and commits attachments against the note document", asy
     "Attachment flow did not create, stage, and commit the note change.",
   );
 
-  expect(createDocumentCalls).toEqual([["shared-container"]]);
+  expect(createDocumentCalls).toEqual([
+    {
+      expectedLinkedContainerAccessStateHashes: {
+        "shared-container": "shared-container-access-state-hash-1",
+      },
+      linkedContainerIds: ["shared-container"],
+    },
+  ]);
   expect(stageBlobCalls[0]?.encryptedBytes.length).toBeGreaterThan(0);
   expect(stageBlobCalls[0]?.byteLength).toBeGreaterThan(0);
   expect(stageBlobCalls[0]?.sha256.length).toBeGreaterThan(0);
@@ -1565,7 +1625,10 @@ test("large note edits remain a single pending update row before sync", async ()
 test("notes store rewraps document access expansion without replacing pending updates with a baseline", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const createDocumentCalls: string[][] = [];
+  const createDocumentCalls: Array<{
+    expectedLinkedContainerAccessStateHashes: Record<string, string>;
+    linkedContainerIds: string[];
+  }> = [];
   const syncDocumentCalls: Array<{
     accessEpoch: number;
     documentId: string;
@@ -1580,9 +1643,18 @@ test("notes store rewraps document access expansion without replacing pending up
     ...runtime,
     apiClient: {
       ...runtime.apiClient,
-      createDocument: async (linkedContainerIds) => {
-        createDocumentCalls.push(linkedContainerIds);
-        return runtime.apiClient.createDocument(linkedContainerIds);
+      createDocument: async (
+        linkedContainerIds,
+        expectedLinkedContainerAccessStateHashes,
+      ) => {
+        createDocumentCalls.push({
+          expectedLinkedContainerAccessStateHashes,
+          linkedContainerIds,
+        });
+        return runtime.apiClient.createDocument(
+          linkedContainerIds,
+          expectedLinkedContainerAccessStateHashes,
+        );
       },
       syncDocument: async (
         documentId,
@@ -1653,7 +1725,14 @@ test("notes store rewraps document access expansion without replacing pending up
     "Expanded access epoch did not rewrap and retry the pending note update.",
   );
 
-  expect(createDocumentCalls).toEqual([["root-container"]]);
+  expect(createDocumentCalls).toEqual([
+    {
+      expectedLinkedContainerAccessStateHashes: {
+        "root-container": "root-container-access-state-hash-1",
+      },
+      linkedContainerIds: ["root-container"],
+    },
+  ]);
   expect(
     syncDocumentCalls.map((call) => ({
       accessEpoch: call.accessEpoch,

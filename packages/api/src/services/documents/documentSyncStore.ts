@@ -37,6 +37,7 @@ import {
 } from "../../access/documentAccess";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
+  containerMetadataDocuments,
   containers,
   documentContainerLinks,
   documents,
@@ -92,11 +93,13 @@ interface AppendDocumentUpdatesResult {
 interface CreateDocumentInput {
   createdByFingerprint: string;
   createdByUserId: string;
+  expectedLinkedContainerAccessStateHashes: Record<string, string>;
   linkedContainerIds: string[];
 }
 
 type LinkedContainerRow = {
   id: string;
+  metadataDocumentId: string | null;
   organizationId: string;
 };
 
@@ -108,6 +111,7 @@ interface DocumentSyncStore {
   createDocument(input: {
     createdByFingerprint: string;
     createdByUserId: string;
+    expectedLinkedContainerAccessStateHashes: Record<string, string>;
     linkedContainerIds: string[];
   }): Promise<{
     document: DocumentRecord;
@@ -546,6 +550,43 @@ function normalizeLinkedContainerIds(linkedContainerIds: string[]): string[] {
   return uniqueLinkedContainerIds;
 }
 
+function normalizeExpectedLinkedContainerAccessStateHashes(
+  linkedContainerIds: string[],
+  expectedLinkedContainerAccessStateHashes: Record<string, string>,
+): Record<string, string> {
+  const expectedEntries = Object.entries(
+    expectedLinkedContainerAccessStateHashes,
+  );
+
+  if (
+    expectedEntries.length !== linkedContainerIds.length ||
+    linkedContainerIds.some((containerId) => {
+      const accessStateHash =
+        expectedLinkedContainerAccessStateHashes[containerId];
+      return (
+        typeof accessStateHash !== "string" || accessStateHash.length === 0
+      );
+    }) ||
+    expectedEntries.some(
+      ([containerId, accessStateHash]) =>
+        !linkedContainerIds.includes(containerId) ||
+        accessStateHash.length === 0,
+    )
+  ) {
+    throw new CreateDocumentError(
+      "expectedLinkedContainerAccessStateHashes must match linkedContainerIds",
+      400,
+    );
+  }
+
+  return Object.fromEntries(
+    linkedContainerIds.map((containerId) => [
+      containerId,
+      expectedLinkedContainerAccessStateHashes[containerId] ?? "",
+    ]),
+  );
+}
+
 async function loadLinkedContainers(
   executor: DocumentSyncExecutor,
   linkedContainerIds: string[],
@@ -553,9 +594,14 @@ async function loadLinkedContainers(
   const linkedContainers = await executor
     .select({
       id: containers.id,
+      metadataDocumentId: containerMetadataDocuments.documentId,
       organizationId: containers.organizationId,
     })
     .from(containers)
+    .leftJoin(
+      containerMetadataDocuments,
+      eq(containerMetadataDocuments.containerId, containers.id),
+    )
     .where(inArray(containers.id, linkedContainerIds));
 
   if (linkedContainers.length !== linkedContainerIds.length) {
@@ -580,16 +626,28 @@ function assertSingleLinkedOrganization(
   }
 }
 
-async function assertWritableLinkedContainers(input: {
+async function resolveWritableLinkedContainerStates(input: {
   executor: DocumentSyncExecutor;
   linkedContainers: LinkedContainerRow[];
   userId: string;
-}) {
-  for (const container of input.linkedContainers) {
-    const access = await resolveContainerAccessState(
-      container.id,
-      input.executor,
-    );
+}): Promise<
+  ReadonlyMap<
+    string,
+    NonNullable<Awaited<ReturnType<typeof resolveContainerAccessState>>>
+  >
+> {
+  const linkedContainerStates = await Promise.all(
+    input.linkedContainers.map((container) =>
+      resolveContainerAccessState(container.id, input.executor),
+    ),
+  );
+  const linkedContainerStateById = new Map<
+    string,
+    NonNullable<Awaited<ReturnType<typeof resolveContainerAccessState>>>
+  >();
+
+  for (const [index, container] of input.linkedContainers.entries()) {
+    const access = linkedContainerStates[index];
 
     if (!access) {
       throw new CreateDocumentError(
@@ -600,6 +658,65 @@ async function assertWritableLinkedContainers(input: {
 
     if (!canWriteContainerAccess(access, input.userId)) {
       throw new CreateDocumentError("Forbidden", 403);
+    }
+
+    linkedContainerStateById.set(container.id, access);
+  }
+
+  return linkedContainerStateById;
+}
+
+async function requireCurrentLinkedContainerMetadataAccessStateHashes(input: {
+  executor: DocumentSyncExecutor;
+  expectedLinkedContainerAccessStateHashes: Record<string, string>;
+  linkedContainers: LinkedContainerRow[];
+  linkedContainerStateById: ReadonlyMap<
+    string,
+    NonNullable<Awaited<ReturnType<typeof resolveContainerAccessState>>>
+  >;
+}) {
+  for (const container of input.linkedContainers) {
+    if (!container.metadataDocumentId) {
+      throw new CreateDocumentError(
+        "Linked container metadata document not found",
+        409,
+      );
+    }
+
+    const linkedContainerAccess = input.linkedContainerStateById.get(
+      container.id,
+    );
+
+    if (!linkedContainerAccess) {
+      throw new CreateDocumentError(
+        "Linked container access state is unavailable",
+        409,
+      );
+    }
+
+    const metadataAccess = await resolveDocumentAccessState(
+      container.metadataDocumentId,
+      input.executor,
+      {
+        linkedContainerIds: [container.id],
+        linkedContainerStateById: new Map([
+          [container.id, linkedContainerAccess],
+        ]),
+      },
+    );
+
+    if (!metadataAccess) {
+      throw new CreateDocumentError(
+        "Linked container metadata access is unavailable",
+        409,
+      );
+    }
+
+    if (
+      input.expectedLinkedContainerAccessStateHashes[container.id] !==
+      metadataAccess.accessStateHash
+    ) {
+      throw new CreateDocumentError("Stale access state hash", 409);
     }
   }
 }
@@ -671,14 +788,27 @@ async function createSyncDocument(
   const linkedContainerIds = normalizeLinkedContainerIds(
     input.linkedContainerIds,
   );
+  const expectedLinkedContainerAccessStateHashes =
+    normalizeExpectedLinkedContainerAccessStateHashes(
+      linkedContainerIds,
+      input.expectedLinkedContainerAccessStateHashes,
+    );
 
   return runtime.db.transaction(async (tx) => {
     const linkedContainers = await loadLinkedContainers(tx, linkedContainerIds);
     assertSingleLinkedOrganization(linkedContainers);
-    await assertWritableLinkedContainers({
+    const linkedContainerStateById = await resolveWritableLinkedContainerStates(
+      {
+        executor: tx,
+        linkedContainers,
+        userId: input.createdByUserId,
+      },
+    );
+    await requireCurrentLinkedContainerMetadataAccessStateHashes({
       executor: tx,
+      expectedLinkedContainerAccessStateHashes,
       linkedContainers,
-      userId: input.createdByUserId,
+      linkedContainerStateById,
     });
 
     const document = await insertDocumentWithLinks({

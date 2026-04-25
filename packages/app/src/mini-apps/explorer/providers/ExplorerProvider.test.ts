@@ -1269,7 +1269,30 @@ test("explorer share primes note attachment rewrap work for linked notes in the 
       id: "notes-document-1",
       recipientEncapsulationPublicKeys: [bytesToBase64(localKeyPair.publicKey)],
     }),
-    listContainers: async () => [],
+    listContainers: async () => [
+      {
+        id: "root-container",
+        metadataAccessEpoch: 1,
+        metadataAccessStateHash: "root-access-state-hash-1",
+        metadataDocumentId: "root-metadata-document",
+        metadataRecipientEncapsulationPublicKeys: [
+          bytesToBase64(localKeyPair.publicKey),
+        ],
+        organizationId: "org-1",
+        parentId: null,
+      },
+      {
+        id: "child-container",
+        metadataAccessEpoch: 1,
+        metadataAccessStateHash: "access-state-hash-1",
+        metadataDocumentId: "child-metadata-document",
+        metadataRecipientEncapsulationPublicKeys: [
+          bytesToBase64(localKeyPair.publicKey),
+        ],
+        organizationId: "org-1",
+        parentId: "root-container",
+      },
+    ],
     listDocumentAttachments: async () => {
       if (!currentBindingId || !currentBlobId || !currentSlotId) {
         return [];

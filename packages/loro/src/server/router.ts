@@ -51,6 +51,7 @@ interface LoroRouterDeps<TSession extends SessionLike> {
     createDocument(input: {
       createdByFingerprint: string;
       createdByUserId: string;
+      expectedLinkedContainerAccessStateHashes: Record<string, string>;
       linkedContainerIds: string[];
     }): Promise<{
       document: DocumentRecord;
@@ -124,12 +125,16 @@ function createDocumentRouteHandler<TSession extends SessionLike>(
     if (!isCreateDocumentRequest(request)) {
       return c.json({ error: "Invalid request" }, 400);
     }
-    const { linkedContainerIds }: CreateDocumentRequest = request;
+    const {
+      expectedLinkedContainerAccessStateHashes,
+      linkedContainerIds,
+    }: CreateDocumentRequest = request;
 
     try {
       const created = await store.createDocument({
         createdByFingerprint: session.fingerprint,
         createdByUserId: session.userId,
+        expectedLinkedContainerAccessStateHashes,
         linkedContainerIds,
       });
 

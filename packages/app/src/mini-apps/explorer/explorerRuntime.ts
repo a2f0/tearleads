@@ -47,6 +47,7 @@ export function createExplorerDocumentsRuntime(
       commitDocumentChange: apiClient.commitDocumentChange.bind(apiClient),
       createDocument: apiClient.createDocument.bind(apiClient),
       getBlob: apiClient.getBlob.bind(apiClient),
+      listContainers: apiClient.listContainers.bind(apiClient),
       listDocumentAttachments:
         apiClient.listDocumentAttachments.bind(apiClient),
       stageBlob: apiClient.stageBlob.bind(apiClient),

@@ -31,6 +31,7 @@ export const DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE =
 export type SyncDocumentMissingUpdateEpoch = "prior_epoch" | "current_epoch";
 
 export interface CreateDocumentRequest {
+  expectedLinkedContainerAccessStateHashes: Record<string, string>;
   linkedContainerIds: string[];
 }
 
@@ -149,10 +150,28 @@ export function isSyncDocumentOutgoingUpdate(
 export function isCreateDocumentRequest(
   value: unknown,
 ): value is CreateDocumentRequest {
+  const expectedLinkedContainerAccessStateHashes = isPlainObject(value)
+    ? Reflect.get(value, "expectedLinkedContainerAccessStateHashes")
+    : undefined;
+
   return (
     isPlainObject(value) &&
     hasStringArrayProperty(value, "linkedContainerIds") &&
-    value.linkedContainerIds.length > 0
+    value.linkedContainerIds.length > 0 &&
+    isPlainObject(expectedLinkedContainerAccessStateHashes) &&
+    Object.entries(expectedLinkedContainerAccessStateHashes).every(
+      ([, accessStateHash]) =>
+        typeof accessStateHash === "string" && accessStateHash.length > 0,
+    ) &&
+    Object.keys(expectedLinkedContainerAccessStateHashes).length ===
+      new Set(value.linkedContainerIds).size &&
+    Array.from(new Set(value.linkedContainerIds)).every((containerId) => {
+      const accessStateHash = Reflect.get(
+        expectedLinkedContainerAccessStateHashes,
+        containerId,
+      );
+      return typeof accessStateHash === "string" && accessStateHash.length > 0;
+    })
   );
 }
 

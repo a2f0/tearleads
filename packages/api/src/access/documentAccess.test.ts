@@ -9,6 +9,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import invariant from "invariant";
+import { createContainer } from "../../test/helpers/api/createContainer";
 import { createDocument } from "../../test/helpers/api/createDocument";
 import { authenticate } from "../../test/helpers/authenticate";
 import { registerUser } from "../../test/helpers/registerUser";
@@ -284,26 +285,15 @@ test("document access includes referenced principal policy states from linked co
     .limit(1);
   invariant(ownerRow, "expected owner row");
 
-  const [rootContainer] = await db
-    .select({ id: containers.id })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, ownerRow.defaultOrganizationId),
-        isNull(containers.parentId),
-      ),
-    )
-    .limit(1);
-  invariant(rootContainer, "expected root container");
-
-  const [childContainer] = await db
-    .insert(containers)
-    .values({
-      organizationId: ownerRow.defaultOrganizationId,
-      parentId: rootContainer.id,
-    })
-    .returning({ id: containers.id });
-  invariant(childContainer, "expected child container");
+  const childContainerId = crypto.randomUUID();
+  const createContainerResponse = await createContainer(
+    {
+      id: childContainerId,
+      parentId: owner.rootContainerId,
+    },
+    owner.token,
+  );
+  expect(createContainerResponse.status).toBe(200);
 
   const [group] = await db
     .insert(groups)
@@ -317,14 +307,14 @@ test("document access includes referenced principal policy states from linked co
   await storeCurrentGroupState(group.id, [bob.userId, charlie.userId]);
 
   await grantContainerAccess({
-    containerId: childContainer.id,
+    containerId: childContainerId,
     subjectType: "group",
     subjectId: group.id,
     accessLevel: "read",
   });
 
   const createDocumentResponse = await createDocument(owner.token, [
-    childContainer.id,
+    childContainerId,
   ]);
   expect(createDocumentResponse.status).toBe(200);
   const createdDocument = await createDocumentResponse.json();

@@ -196,8 +196,15 @@ export class ApiClient {
     return getCurrentPrincipalPolicy(this.request, principalType, principalId);
   }
 
-  createDocument(linkedContainerIds: string[]) {
-    return createDocument(this.request, linkedContainerIds);
+  createDocument(
+    linkedContainerIds: string[],
+    expectedLinkedContainerAccessStateHashes: Record<string, string>,
+  ) {
+    return createDocument(
+      this.request,
+      linkedContainerIds,
+      expectedLinkedContainerAccessStateHashes,
+    );
   }
 
   createContainer(

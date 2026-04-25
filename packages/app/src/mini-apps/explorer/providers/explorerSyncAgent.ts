@@ -187,9 +187,16 @@ function buildNotesRuntime(state: ExplorerSyncState, containerId: string) {
         documentId: string,
         input: CommitDocumentChangeInput,
       ) => state.runtime.apiClient.commitDocumentChange(documentId, input),
-      createDocument: (linkedContainerIds: string[]) =>
-        state.runtime.apiClient.createDocument(linkedContainerIds),
+      createDocument: (
+        linkedContainerIds: string[],
+        expectedLinkedContainerAccessStateHashes: Record<string, string>,
+      ) =>
+        state.runtime.apiClient.createDocument(
+          linkedContainerIds,
+          expectedLinkedContainerAccessStateHashes,
+        ),
       getBlob: (blobId: string) => state.runtime.apiClient.getBlob(blobId),
+      listContainers: () => state.runtime.apiClient.listContainers(),
       listDocumentAttachments: (documentId: string) =>
         state.runtime.apiClient.listDocumentAttachments(documentId),
       stageBlob: (input: StageBlobInput) =>
