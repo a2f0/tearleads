@@ -8,6 +8,7 @@ import {
   canWriteContainerAccess,
   resolveContainerAccessState,
 } from "../../access/containerAccess";
+import { resolveDocumentAccessState } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
 import { containerMetadataDocuments, containers, users } from "../../schema";
@@ -41,6 +42,21 @@ async function getRootContainerForUser(userId: string) {
   return rootContainer;
 }
 
+async function getCurrentContainerMetadataAccessStateHash(
+  containerId: string,
+): Promise<string> {
+  const [metadataBinding] = await db
+    .select({ documentId: containerMetadataDocuments.documentId })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.containerId, containerId))
+    .limit(1);
+  invariant(metadataBinding, "expected metadata binding");
+
+  const access = await resolveDocumentAccessState(metadataBinding.documentId);
+  invariant(access, "expected container metadata access state");
+  return access.accessStateHash;
+}
+
 test("POST /containers creates a child container under a writable parent", async () => {
   const user = createTestUser();
   await registerUser(user);
@@ -56,6 +72,9 @@ test("POST /containers creates a child container under a writable parent", async
       Authorization: `Bearer ${user.token}`,
     },
     body: JSON.stringify({
+      expectedAccessStateHash: await getCurrentContainerMetadataAccessStateHash(
+        rootContainer.id,
+      ),
       id: childId,
       initialMetadataUpdates: [],
       parentId: rootContainer.id,
@@ -116,6 +135,9 @@ test("POST /containers rejects creating a child container under a parent without
       Authorization: `Bearer ${intruder.token}`,
     },
     body: JSON.stringify({
+      expectedAccessStateHash: await getCurrentContainerMetadataAccessStateHash(
+        ownerRootContainer.id,
+      ),
       id: crypto.randomUUID(),
       initialMetadataUpdates: [],
       parentId: ownerRootContainer.id,
@@ -124,4 +146,29 @@ test("POST /containers rejects creating a child container under a parent without
 
   expect(response.status).toBe(403);
   expect(await response.json()).toEqual({ error: "Forbidden" });
+});
+
+test("POST /containers rejects stale access state hashes", async () => {
+  const user = createTestUser();
+  await registerUser(user);
+  await authenticate(user);
+
+  const rootContainer = await getRootContainerForUser(user.userId);
+
+  const response = await routeApp.request("/containers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${user.token}`,
+    },
+    body: JSON.stringify({
+      expectedAccessStateHash: "stale-access-state-hash",
+      id: crypto.randomUUID(),
+      initialMetadataUpdates: [],
+      parentId: rootContainer.id,
+    }),
+  });
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({ error: "Stale access state hash" });
 });

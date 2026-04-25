@@ -1,5 +1,6 @@
 export { stageBlob } from "./blobs/stageBlob";
 export { commitDocumentChange } from "./commitDocumentChange";
+export { createContainer } from "./createContainer";
 export { createDocument } from "./createDocument";
 export { fetchEncapsulationKey } from "./fetchEncapsulationKey";
 export { requestChallenge } from "./requestChallenge";

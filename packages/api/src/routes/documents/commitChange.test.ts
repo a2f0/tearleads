@@ -23,6 +23,7 @@ import { DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE } from "@tearleads/loro/s
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
   commitDocumentChange,
+  createContainer as createContainerRequest,
   createDocument,
   stageBlob,
 } from "../../../test/helpers/api";
@@ -245,18 +246,13 @@ async function createContainerForUser(input: {
   parentId: string;
   token: string;
 }): Promise<void> {
-  const response = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const response = await createContainerRequest(
+    {
       id: input.id,
-      initialMetadataUpdates: [],
       parentId: input.parentId,
-    }),
-  });
+    },
+    input.token,
+  );
 
   expect(response.status).toBe(200);
 }

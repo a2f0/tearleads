@@ -7,6 +7,7 @@ export function createContainer(
   request: RequestFn,
   id: string,
   parentId: string,
+  expectedAccessStateHash: string,
   initialMetadataUpdates: SyncDocumentOutgoingUpdate[],
   initialMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
 ) {
@@ -15,6 +16,7 @@ export function createContainer(
     isCreateContainerResponse,
     "POST",
     JSON.stringify({
+      expectedAccessStateHash,
       id,
       initialMetadataRecipientEnvelopes,
       initialMetadataUpdates,

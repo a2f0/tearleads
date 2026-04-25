@@ -9,6 +9,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
+import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { grantContainerAccess } from "../../access/containerAccess";
@@ -90,18 +91,10 @@ test("GET /containers returns the readable structural forest for the authenticat
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const childId = crypto.randomUUID();
 
-  const createResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: childId,
-      initialMetadataUpdates: [],
-      parentId: ownerRootId,
-    }),
-  });
+  const createResponse = await createContainerRequest(
+    { id: childId, parentId: ownerRootId },
+    owner.token,
+  );
 
   expect(createResponse.status).toBe(200);
   const createdChild = await createResponse.json();
@@ -170,33 +163,17 @@ test("GET /containers includes descendants of directly shared containers outside
   const sharedContainerId = crypto.randomUUID();
   const descendantContainerId = crypto.randomUUID();
 
-  const sharedCreateResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: sharedContainerId,
-      initialMetadataUpdates: [],
-      parentId: ownerRootId,
-    }),
-  });
+  const sharedCreateResponse = await createContainerRequest(
+    { id: sharedContainerId, parentId: ownerRootId },
+    owner.token,
+  );
 
   expect(sharedCreateResponse.status).toBe(200);
 
-  const descendantCreateResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: descendantContainerId,
-      initialMetadataUpdates: [],
-      parentId: sharedContainerId,
-    }),
-  });
+  const descendantCreateResponse = await createContainerRequest(
+    { id: descendantContainerId, parentId: sharedContainerId },
+    owner.token,
+  );
 
   expect(descendantCreateResponse.status).toBe(200);
 
@@ -247,33 +224,17 @@ test("GET /containers includes descendants shared through projection-backed grou
   const sharedContainerId = crypto.randomUUID();
   const descendantContainerId = crypto.randomUUID();
 
-  const sharedCreateResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: sharedContainerId,
-      initialMetadataUpdates: [],
-      parentId: ownerRootId,
-    }),
-  });
+  const sharedCreateResponse = await createContainerRequest(
+    { id: sharedContainerId, parentId: ownerRootId },
+    owner.token,
+  );
 
   expect(sharedCreateResponse.status).toBe(200);
 
-  const descendantCreateResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: descendantContainerId,
-      initialMetadataUpdates: [],
-      parentId: sharedContainerId,
-    }),
-  });
+  const descendantCreateResponse = await createContainerRequest(
+    { id: descendantContainerId, parentId: sharedContainerId },
+    owner.token,
+  );
 
   expect(descendantCreateResponse.status).toBe(200);
 
