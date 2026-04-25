@@ -1,6 +1,7 @@
 import { afterAll } from "bun:test";
 import type {
   EncapsulationKeyResponse,
+  ListContainersResponse,
   PublicKeyResponse,
   VerifyResponse,
 } from "@tearleads/validators/response";
@@ -88,6 +89,9 @@ const server = setupServer(
       authenticated: true,
       token: randomHex(64),
     });
+  }),
+  http.get("http://localhost:3001/containers", () => {
+    return HttpResponse.json<ListContainersResponse>([]);
   }),
   http.post("http://localhost:3001/documents", () => {
     return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });

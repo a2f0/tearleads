@@ -65,13 +65,13 @@ interface StoredPrincipalEpochKey {
   createdAt: Date;
 }
 
-interface PrincipalStatePayloadInput {
+export interface PrincipalStatePayloadInput {
   cipherSuite: PrincipalStatePayloadCipherSuite;
   ciphertext: string;
   ciphertextHash: string;
 }
 
-interface PrincipalStateBundleInput {
+export interface PrincipalStateBundleInput {
   state: SignedPrincipalState;
   encryptedPayload: PrincipalStatePayloadInput;
   projection: PrincipalProjectionMember[];
@@ -162,38 +162,15 @@ function stripSignedPrincipalStateArtifacts(
   };
 }
 
-async function normalizePrincipalStateWriteInput(
-  input: PrincipalStateBundleInput | SignedPrincipalState,
-): Promise<PrincipalStateBundleInput> {
-  if ("state" in input) {
-    return {
-      state: stripSignedPrincipalStateArtifacts(input.state),
-      encryptedPayload: {
-        cipherSuite: input.encryptedPayload.cipherSuite,
-        ciphertext: input.encryptedPayload.ciphertext,
-        ciphertextHash: input.encryptedPayload.ciphertextHash,
-      },
-      projection: normalizePrincipalProjectionMembers(input.projection),
-    };
-  }
-
-  if (
-    !Array.isArray(input.projection) ||
-    typeof input.payloadCiphertext !== "string"
-  ) {
-    throw new Error(
-      "Signed principal state is missing projection or payload artifacts",
-    );
-  }
-
+function normalizePrincipalStateWriteInput(
+  input: PrincipalStateBundleInput,
+): PrincipalStateBundleInput {
   return {
-    state: stripSignedPrincipalStateArtifacts(input),
+    state: stripSignedPrincipalStateArtifacts(input.state),
     encryptedPayload: {
-      cipherSuite: "aes-256-gcm-v1",
-      ciphertext: input.payloadCiphertext,
-      ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-        input.payloadCiphertext,
-      ),
+      cipherSuite: input.encryptedPayload.cipherSuite,
+      ciphertext: input.encryptedPayload.ciphertext,
+      ciphertextHash: input.encryptedPayload.ciphertextHash,
     },
     projection: normalizePrincipalProjectionMembers(input.projection),
   };
@@ -703,14 +680,14 @@ async function ensureStoredPrincipalEpochKeyMatches(input: {
 }
 
 export async function storeVerifiedPrincipalState(
-  input: PrincipalStateBundleInput | SignedPrincipalState,
+  input: PrincipalStateBundleInput,
   executor: PrincipalStateExecutor = db,
 ): Promise<StoredPrincipalState> {
   if (executor === db) {
     return db.transaction(async (tx) => storeVerifiedPrincipalState(input, tx));
   }
 
-  const normalizedInput = await normalizePrincipalStateWriteInput(input);
+  const normalizedInput = normalizePrincipalStateWriteInput(input);
   const signer = await loadPrincipalStateSigner(
     normalizedInput.state,
     executor,

@@ -24,6 +24,7 @@ export type {
   ManagedRecipientPrincipalType,
   PrincipalProjectionMember,
   PrincipalProjectionRole,
+  PrincipalStateHeaderInput,
   PrincipalStateMember,
   PrincipalStateMembershipMode,
   PrincipalStateMemberType,
@@ -33,6 +34,7 @@ export type {
   UnsignedPrincipalState,
 } from "./principalState";
 export {
+  buildPrincipalStateSigningInput,
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
   computePrincipalStateHash,

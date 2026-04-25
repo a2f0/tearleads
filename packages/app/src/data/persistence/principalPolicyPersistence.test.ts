@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+  buildPrincipalStateSigningInput,
   computePrincipalStateHash,
-  computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   signPrincipalState,
@@ -36,8 +36,9 @@ async function createPrincipalPolicyBundle() {
       role: "member" as const,
     },
   ];
+  const payloadCiphertext = "ciphertext-1";
   const signedState = await signPrincipalState(
-    {
+    await buildPrincipalStateSigningInput({
       principalType: "group",
       principalId: "group-1",
       version: 1,
@@ -52,11 +53,11 @@ async function createPrincipalPolicyBundle() {
         },
       ],
       projection: currentProjection,
-      payloadCiphertext: "ciphertext-1",
+      payloadCiphertext,
       signedAt: "2026-04-08T00:00:00.000Z",
       signerUserId,
       signerUserKeyFingerprint,
-    },
+    }),
     signingPrivateKey,
   );
   const stateHash = await computePrincipalStateHash(signedState);
@@ -87,10 +88,8 @@ async function createPrincipalPolicyBundle() {
       principalId: "group-1",
       stateHash,
       cipherSuite: "aes-256-gcm-v1",
-      ciphertext: signedState.payloadCiphertext ?? "ciphertext-1",
-      ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-        signedState.payloadCiphertext ?? "ciphertext-1",
-      ),
+      ciphertext: payloadCiphertext,
+      ciphertextHash: signedState.payloadCiphertextHash,
       createdAt: "2026-04-08T00:00:00.000Z",
     },
     previousStates: [],

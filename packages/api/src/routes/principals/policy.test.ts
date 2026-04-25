@@ -1,11 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import {
-  computePrincipalStatePayloadCiphertextHash,
-  generateKemSeedAndKeyPair,
-  signPrincipalState,
-  toFingerprint,
-} from "@tearleads/crypto";
+import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isCurrentPrincipalMemberEnvelopesResponse,
@@ -14,7 +9,10 @@ import {
 } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createProjectionWithAdminSigner } from "../../../test/helpers/principalState";
+import {
+  createProjectionWithAdminSigner,
+  signPrincipalStateBundle,
+} from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -37,30 +35,29 @@ async function createSignedPrincipalState(input: {
   }>;
 }) {
   const principalKem = input.principalKem ?? generateKemSeedAndKeyPair();
+  const projection =
+    input.projection ??
+    createProjectionWithAdminSigner(input.signerUserId, input.members);
 
-  return signPrincipalState(
-    {
-      principalType: input.principalType,
-      principalId: input.principalId,
-      version: input.version ?? 1,
-      prevStateHash: input.prevStateHash ?? null,
-      keyEpoch: input.keyEpoch ?? 1,
-      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-      keyFingerprint: await toFingerprint(principalKem.publicKey),
-      members: input.members,
-      projection:
-        input.projection ??
-        createProjectionWithAdminSigner(input.signerUserId, input.members),
-      payloadCiphertext: bytesToBase64(
-        new TextEncoder().encode(JSON.stringify(input.members)),
-      ),
-      signedAt:
-        input.signedAt ?? new Date("2026-04-08T16:00:00.000Z").toISOString(),
-      signerUserId: input.signerUserId,
-      signerUserKeyFingerprint: input.signerUserKeyFingerprint,
-    },
-    input.signingPrivateKey,
-  );
+  return signPrincipalStateBundle({
+    principalType: input.principalType,
+    principalId: input.principalId,
+    version: input.version ?? 1,
+    prevStateHash: input.prevStateHash ?? null,
+    keyEpoch: input.keyEpoch ?? 1,
+    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+    keyFingerprint: await toFingerprint(principalKem.publicKey),
+    members: input.members,
+    projection,
+    payloadCiphertext: bytesToBase64(
+      new TextEncoder().encode(JSON.stringify(input.members)),
+    ),
+    signedAt:
+      input.signedAt ?? new Date("2026-04-08T16:00:00.000Z").toISOString(),
+    signerUserId: input.signerUserId,
+    signerUserKeyFingerprint: input.signerUserKeyFingerprint,
+    signingPrivateKey: input.signingPrivateKey,
+  });
 }
 
 test("PUT /principals/:principalType/:principalId/state stores verified state and GET /policy returns the current bundle", async () => {
@@ -78,10 +75,7 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
-  const projection = createProjectionWithAdminSigner(
-    actor.userId,
-    signedState.members ?? [],
-  );
+  const projection = signedState.projection;
 
   const putStateResponse = await routeApp.request(
     `/principals/group/${principalId}/state`,
@@ -92,14 +86,8 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
         Authorization: `Bearer ${actor.token}`,
       },
       body: JSON.stringify({
-        state: signedState,
-        encryptedPayload: {
-          cipherSuite: "aes-256-gcm-v1",
-          ciphertext: signedState.payloadCiphertext,
-          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-            signedState.payloadCiphertext ?? "",
-          ),
-        },
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
         projection,
       }),
     },
@@ -174,14 +162,8 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
         Authorization: `Bearer ${actor.token}`,
       },
       body: JSON.stringify({
-        state: initialSignedState,
-        encryptedPayload: {
-          cipherSuite: "aes-256-gcm-v1",
-          ciphertext: initialSignedState.payloadCiphertext,
-          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-            initialSignedState.payloadCiphertext ?? "",
-          ),
-        },
+        state: initialSignedState.state,
+        encryptedPayload: initialSignedState.encryptedPayload,
         projection,
       }),
     },
@@ -217,14 +199,8 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
         Authorization: `Bearer ${actor.token}`,
       },
       body: JSON.stringify({
-        state: successorSignedState,
-        encryptedPayload: {
-          cipherSuite: "aes-256-gcm-v1",
-          ciphertext: successorSignedState.payloadCiphertext,
-          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-            successorSignedState.payloadCiphertext ?? "",
-          ),
-        },
+        state: successorSignedState.state,
+        encryptedPayload: successorSignedState.encryptedPayload,
         projection,
       }),
     },
@@ -278,10 +254,7 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
-  const projection = createProjectionWithAdminSigner(
-    actor.userId,
-    signedState.members ?? [],
-  );
+  const projection = signedState.projection;
 
   const putStateResponse = await routeApp.request(
     `/principals/group/${principalId}/state`,
@@ -292,14 +265,8 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
         Authorization: `Bearer ${actor.token}`,
       },
       body: JSON.stringify({
-        state: signedState,
-        encryptedPayload: {
-          cipherSuite: "aes-256-gcm-v1",
-          ciphertext: signedState.payloadCiphertext,
-          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-            signedState.payloadCiphertext ?? "",
-          ),
-        },
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
         projection,
       }),
     },
@@ -404,14 +371,8 @@ test("PUT /principals/:principalType/:principalId/state rejects signers who are 
         Authorization: `Bearer ${actor.token}`,
       },
       body: JSON.stringify({
-        state: signedState,
-        encryptedPayload: {
-          cipherSuite: "aes-256-gcm-v1",
-          ciphertext: signedState.payloadCiphertext,
-          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-            signedState.payloadCiphertext ?? "",
-          ),
-        },
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
         projection: [
           {
             memberPrincipalType: "user",

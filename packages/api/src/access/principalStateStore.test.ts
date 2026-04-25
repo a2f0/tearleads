@@ -3,10 +3,10 @@ import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-  signPrincipalState,
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { signPrincipalStateBundle } from "../../test/helpers/principalState";
 import { db } from "../adapters/postgres";
 import { users } from "../schema";
 import {
@@ -36,6 +36,20 @@ async function createPrincipalStateSigner(
   });
 
   return { signerUserId, signerUserKeyFingerprint };
+}
+
+async function signPrincipalState(
+  input: Omit<
+    Parameters<typeof signPrincipalStateBundle>[0],
+    "payloadCiphertext" | "signingPrivateKey"
+  >,
+  signingPrivateKey: Uint8Array,
+): ReturnType<typeof signPrincipalStateBundle> {
+  return signPrincipalStateBundle({
+    ...input,
+    payloadCiphertext: JSON.stringify({ members: input.projection }),
+    signingPrivateKey,
+  });
 }
 
 test("storeVerifiedPrincipalState persists the latest signed principal state and epoch key", async () => {
@@ -88,7 +102,7 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
   const storedState = await storeVerifiedPrincipalState(signedState);
 
   expect(storedState.stateHash).toBe(
-    await computePrincipalStateHash(signedState),
+    await computePrincipalStateHash(signedState.state),
   );
   expect(storedState.memberCount).toBe(2);
   expect(storedState.membershipMode).toBe("projection_v1");

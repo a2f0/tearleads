@@ -3,8 +3,11 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { generateKemSeedAndKeyPair } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
 import {
+  buildPrincipalStateSigningInput,
   computePrincipalMembershipRoot,
+  computePrincipalProjectionRoot,
   computePrincipalStateHash,
+  derivePrincipalProjectionMembers,
   serializeUnsignedPrincipalState,
   signPrincipalState,
   verifySignedPrincipalState,
@@ -15,8 +18,18 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
   const { publicKey } = generateKemSeedAndKeyPair();
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
-  const signedState = await signPrincipalState(
+  const members = [
     {
+      principalType: "group" as const,
+      principalId: "nested-group",
+    },
+    {
+      principalType: "user" as const,
+      principalId: "alice",
+    },
+  ];
+  const signedState = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
       principalType: "group",
       principalId: crypto.randomUUID(),
       version: 2,
@@ -24,20 +37,13 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
       keyEpoch: 3,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [
-        {
-          principalType: "group",
-          principalId: "nested-group",
-        },
-        {
-          principalType: "user",
-          principalId: "alice",
-        },
-      ],
+      members,
+      projection: derivePrincipalProjectionMembers(members),
+      payloadCiphertext: "ciphertext-1",
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
       signerUserId: crypto.randomUUID(),
       signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
-    },
+    }),
     signingPrivateKey,
   );
 
@@ -64,8 +70,18 @@ test("signPrincipalState computes membershipRoot and key fingerprint from normal
       principalId: "alice",
     },
   ]);
-  const signedState = await signPrincipalState(
+  const members = [
     {
+      principalType: "user" as const,
+      principalId: "alice",
+    },
+    {
+      principalType: "group" as const,
+      principalId: "nested-group",
+    },
+  ];
+  const signedState = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
       principalType: "organization",
       principalId: crypto.randomUUID(),
       version: 1,
@@ -73,33 +89,72 @@ test("signPrincipalState computes membershipRoot and key fingerprint from normal
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [
-        {
-          principalType: "user",
-          principalId: "alice",
-        },
-        {
-          principalType: "group",
-          principalId: "nested-group",
-        },
-      ],
-      membershipRoot: expectedMembershipRoot,
+      members,
+      projection: derivePrincipalProjectionMembers(members),
+      payloadCiphertext: "ciphertext-2",
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
       signerUserId: crypto.randomUUID(),
       signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
-    },
+    }),
     signingPrivateKey,
   );
 
   expect(signedState.membershipRoot).toBe(expectedMembershipRoot);
 });
 
+test("principal roots reject duplicate members after normalization", async () => {
+  await expect(
+    computePrincipalMembershipRoot([
+      {
+        principalType: "user",
+        principalId: "alice",
+      },
+      {
+        principalType: "group",
+        principalId: "team",
+      },
+      {
+        principalType: "user",
+        principalId: "alice",
+      },
+    ]),
+  ).rejects.toThrow("Principal state cannot contain duplicate members");
+
+  await expect(
+    computePrincipalProjectionRoot([
+      {
+        memberPrincipalType: "group",
+        memberPrincipalId: "team",
+        role: "member",
+      },
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: "alice",
+        role: "member",
+      },
+      {
+        memberPrincipalType: "group",
+        memberPrincipalId: "team",
+        role: "admin",
+      },
+    ]),
+  ).rejects.toThrow(
+    "Principal state projection cannot contain duplicate members",
+  );
+});
+
 test("verifySignedPrincipalState rejects tampered membership roots", async () => {
   const { publicKey } = generateKemSeedAndKeyPair();
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
-  const signedState = await signPrincipalState(
+  const members = [
     {
+      principalType: "user" as const,
+      principalId: "alice",
+    },
+  ];
+  const signedState = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
       principalType: "group",
       principalId: crypto.randomUUID(),
       version: 1,
@@ -107,16 +162,13 @@ test("verifySignedPrincipalState rejects tampered membership roots", async () =>
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [
-        {
-          principalType: "user",
-          principalId: "alice",
-        },
-      ],
+      members,
+      projection: derivePrincipalProjectionMembers(members),
+      payloadCiphertext: "ciphertext-3",
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
       signerUserId: crypto.randomUUID(),
       signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
-    },
+    }),
     signingPrivateKey,
   );
 

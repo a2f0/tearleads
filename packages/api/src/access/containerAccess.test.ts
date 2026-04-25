@@ -1,16 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import {
-  generateKemSeedAndKeyPair,
-  signPrincipalState,
-  toFingerprint,
-} from "@tearleads/crypto";
+import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { and, eq, sql } from "drizzle-orm";
 import invariant from "invariant";
 import {
   createPrincipalStateSigner,
   createProjectionWithAdminSigner,
+  signPrincipalStateBundle,
 } from "../../test/helpers/principalState";
 import { registerUser } from "../../test/helpers/registerUser";
 import { db } from "../adapters/postgres";
@@ -87,27 +84,27 @@ async function storePrincipalStateVersion(
   members: Array<{ principalType: "user" | "group"; principalId: string }>,
   signedAtOffsetMinutes: number,
 ) {
+  const projection = createProjectionWithAdminSigner(
+    writer.signerUserId,
+    members,
+  );
   const storedState = await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: writer.principalType,
-        principalId: writer.principalId,
-        version: writer.version,
-        prevStateHash: writer.prevStateHash,
-        keyEpoch: 1,
-        encapsulationPublicKey: bytesToBase64(writer.principalKem.publicKey),
-        keyFingerprint: await toFingerprint(writer.principalKem.publicKey),
-        members,
-        projection: createProjectionWithAdminSigner(
-          writer.signerUserId,
-          members,
-        ),
-        signedAt: principalStateSignedAt(signedAtOffsetMinutes),
-        signerUserId: writer.signerUserId,
-        signerUserKeyFingerprint: writer.signerUserKeyFingerprint,
-      },
-      writer.signingPrivateKey,
-    ),
+    await signPrincipalStateBundle({
+      principalType: writer.principalType,
+      principalId: writer.principalId,
+      version: writer.version,
+      prevStateHash: writer.prevStateHash,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(writer.principalKem.publicKey),
+      keyFingerprint: await toFingerprint(writer.principalKem.publicKey),
+      members,
+      projection,
+      payloadCiphertext: JSON.stringify({ members: projection }),
+      signedAt: principalStateSignedAt(signedAtOffsetMinutes),
+      signerUserId: writer.signerUserId,
+      signerUserKeyFingerprint: writer.signerUserKeyFingerprint,
+      signingPrivateKey: writer.signingPrivateKey,
+    }),
   );
 
   writer.prevStateHash = storedState.stateHash;
@@ -124,27 +121,27 @@ async function storeCurrentPrincipalState(input: {
 }): Promise<void> {
   if (input.signer) {
     const principalKem = generateKemSeedAndKeyPair();
+    const projection = createProjectionWithAdminSigner(
+      input.signer.userId,
+      input.members,
+    );
     await storeVerifiedPrincipalState(
-      await signPrincipalState(
-        {
-          principalType: input.principalType,
-          principalId: input.principalId,
-          version: 1,
-          prevStateHash: null,
-          keyEpoch: 1,
-          encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-          keyFingerprint: await toFingerprint(principalKem.publicKey),
-          members: input.members,
-          projection: createProjectionWithAdminSigner(
-            input.signer.userId,
-            input.members,
-          ),
-          signedAt: principalStateSignedAt(0),
-          signerUserId: input.signer.userId,
-          signerUserKeyFingerprint: input.signer.fingerprint,
-        },
-        input.signer.signing.signingPrivateKey,
-      ),
+      await signPrincipalStateBundle({
+        principalType: input.principalType,
+        principalId: input.principalId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+        keyFingerprint: await toFingerprint(principalKem.publicKey),
+        members: input.members,
+        projection,
+        payloadCiphertext: JSON.stringify({ members: projection }),
+        signedAt: principalStateSignedAt(0),
+        signerUserId: input.signer.userId,
+        signerUserKeyFingerprint: input.signer.fingerprint,
+        signingPrivateKey: input.signer.signing.signingPrivateKey,
+      }),
     );
     return;
   }
@@ -170,27 +167,27 @@ async function storeNextOrganizationState(input: {
   );
   invariant(currentState, "expected current organization state");
 
+  const projection = createProjectionWithAdminSigner(
+    input.signer.userId,
+    input.members,
+  );
   await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: "organization",
-        principalId: input.organizationId,
-        version: currentState.version + 1,
-        prevStateHash: currentState.stateHash,
-        keyEpoch: currentState.keyEpoch,
-        encapsulationPublicKey: currentState.encapsulationPublicKey,
-        keyFingerprint: currentState.keyFingerprint,
-        members: input.members,
-        projection: createProjectionWithAdminSigner(
-          input.signer.userId,
-          input.members,
-        ),
-        signedAt: principalStateSignedAt(0),
-        signerUserId: input.signer.userId,
-        signerUserKeyFingerprint: input.signer.fingerprint,
-      },
-      input.signer.signing.signingPrivateKey,
-    ),
+    await signPrincipalStateBundle({
+      principalType: "organization",
+      principalId: input.organizationId,
+      version: currentState.version + 1,
+      prevStateHash: currentState.stateHash,
+      keyEpoch: currentState.keyEpoch,
+      encapsulationPublicKey: currentState.encapsulationPublicKey,
+      keyFingerprint: currentState.keyFingerprint,
+      members: input.members,
+      projection,
+      payloadCiphertext: JSON.stringify({ members: projection }),
+      signedAt: principalStateSignedAt(0),
+      signerUserId: input.signer.userId,
+      signerUserKeyFingerprint: input.signer.fingerprint,
+      signingPrivateKey: input.signer.signing.signingPrivateKey,
+    }),
   );
 }
 
