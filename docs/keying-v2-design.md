@@ -90,8 +90,7 @@ Protected manifest scopes:
 - organization;
 - container;
 - document link set;
-- attachment binding set;
-- blob target set, derived from signed attachment bindings.
+- blob attachment/target set, derived from signed attachment binding events.
 
 The API may store materialized projection rows, but projection rows are not
 authority. A client verifies manifests and derives projections locally.
@@ -108,12 +107,13 @@ type AccessEventV2 = {
     | "container.create"
     | "container.grant"
     | "container.revoke"
+    | "container.rekey"
     | "container.move"
     | "document.link"
     | "document.unlink"
     | "attachment.bind"
     | "attachment.detach";
-  objectKind: "container" | "document" | "attachment";
+  objectKind: "container" | "document" | "blob";
   objectId: string;
   organizationId: string;
   previousManifestHash: string | null;
@@ -132,13 +132,24 @@ subject principal, access level, current referenced principal policy head, and
 the container manifest hash being advanced. `document.link` includes the
 document manifest hash and target container manifest hash. `attachment.bind`
 includes document id, slot id, blob id, expected binding id, and document
-manifest hash.
+manifest hash. Attachment events use `objectKind: "blob"` when they advance
+the blob target/binding manifest; the attachment-specific identity lives in the
+event body, not in a separate fourth manifest kind.
 
 ### Manifest Shape
 
 An access manifest is a canonical snapshot derived from events:
 
 ```ts
+type ReferencedPrincipalHead = {
+  principalType: "group" | "organization";
+  principalId: string;
+  version: number;
+  keyEpoch: number;
+  stateHash: string;
+  keyFingerprint: string;
+};
+
 type AccessManifestV2 = {
   version: 2;
   objectKind: "container" | "document" | "blob";
@@ -151,9 +162,14 @@ type AccessManifestV2 = {
   grantRoot: string;
   referencedPrincipalHeads: ReferencedPrincipalHead[];
   keyTargetHash: string;
-  manifestHash: string;
 };
+
+type AccessManifestHashV2 = string;
 ```
+
+`AccessManifestHashV2` is the digest of the canonical serialization of
+`AccessManifestV2`. It is stored and referenced beside the manifest, not inside
+the manifest payload being hashed.
 
 Clients verify:
 
@@ -253,18 +269,26 @@ Use stricter rules than V1:
 - `container.create`: signer must have write access to the parent container.
 - `container.grant` / `container.revoke`: signer must have admin access to the
   container.
+- `container.rekey`: signer must have current write access to the container and
+  may only advance the KEK epoch for an already-authorized manifest. It cannot
+  change grants, parentage, or linked objects.
 - `container.move`: signer must have admin access to the moved container and
   write access to the destination parent; the event references both manifest
   heads.
-- `document.link`: signer must have write access to the document through all
-  current linked containers and write access to the target container.
-- `document.unlink`: signer must have write access to the document through all
-  current linked containers and write access to the unlinked container.
+- `document.link`: signer must have write access to the document through at
+  least one current linked container and write access to the target container.
+- `document.unlink`: signer must have write access to the document through at
+  least one remaining linked container and write or admin access to the
+  unlinked container.
 - `attachment.bind` / `attachment.detach`: signer must have write access to the
   document under the current document manifest.
 
-These rules are conservative. They prevent a writer from one linked container
-from silently changing another linked container's access to the same document.
+These rules treat link as additive and unlink as potentially subtractive. A
+writer who can edit the document can already disclose its plaintext through
+ordinary content edits, so requiring write access through every linked
+container would add friction without preventing a meaningful confidentiality
+attack. Unlink remains stricter because it can remove another container's
+future access path.
 
 ## Container KEK Hierarchy
 
@@ -343,8 +367,21 @@ Subtractive changes:
 
 Lazy descendant rekey is acceptable, but writes must fail closed. If a document
 write targets a container whose current key epoch is still reachable through a
-revoked ancestor key, the client/API must materialize the new descendant KEK
-epoch first or return `409`.
+revoked ancestor key, a post-revocation descendant KEK epoch must be
+materialized before the write is accepted.
+
+That materialization is a key-maintenance transition, not an access-control
+transition. A current writer may submit a signed `container.rekey` event when
+the event only advances the KEK epoch for the already-verified manifest and
+wraps the new KEK to the exact current targets. Admin rights are still required
+for grant, revoke, and move events. The API can coordinate the transaction and
+validate targets, but it cannot synthesize wrapped key material because it does
+not know the plaintext KEK.
+
+If no retained authorized client can unwrap the old container KEK and create
+the new wraps, the subtree needs admin-assisted recovery or a fresh-content
+baseline. The server should return a specific `rekey_required` conflict rather
+than accepting future writes under the unsafe old KEK chain.
 
 ## Document Content Keys
 
