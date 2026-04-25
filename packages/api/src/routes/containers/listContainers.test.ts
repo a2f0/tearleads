@@ -1,10 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import {
-  generateKemSeedAndKeyPair,
-  signPrincipalState,
-  toFingerprint,
-} from "@tearleads/crypto";
+import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -13,6 +9,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import {
   createPrincipalStateSigner,
   createProjectionWithAdminSigner,
+  signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { grantContainerAccess } from "../../access/containerAccess";
@@ -61,28 +58,28 @@ async function storeCurrentGroupState(
     principalType: "user" as const,
     principalId: userId,
   }));
+  const projection = createProjectionWithAdminSigner(
+    signer.signerUserId,
+    members,
+  );
 
   await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: "group",
-        principalId: groupId,
-        version: 1,
-        prevStateHash: null,
-        keyEpoch: 1,
-        encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-        keyFingerprint: await toFingerprint(principalKem.publicKey),
-        members,
-        projection: createProjectionWithAdminSigner(
-          signer.signerUserId,
-          members,
-        ),
-        signedAt: new Date(PRINCIPAL_STATE_BASE_TIME_MS).toISOString(),
-        signerUserId: signer.signerUserId,
-        signerUserKeyFingerprint: signer.signerUserKeyFingerprint,
-      },
-      signer.signingPrivateKey,
-    ),
+    await signPrincipalStateBundle({
+      principalType: "group",
+      principalId: groupId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+      keyFingerprint: await toFingerprint(principalKem.publicKey),
+      members,
+      projection,
+      payloadCiphertext: JSON.stringify({ members: projection }),
+      signedAt: new Date(PRINCIPAL_STATE_BASE_TIME_MS).toISOString(),
+      signerUserId: signer.signerUserId,
+      signerUserKeyFingerprint: signer.signerUserKeyFingerprint,
+      signingPrivateKey: signer.signingPrivateKey,
+    }),
   );
 }
 

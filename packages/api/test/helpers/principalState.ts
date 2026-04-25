@@ -1,12 +1,16 @@
 import {
+  buildPrincipalStateSigningInput,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   normalizePrincipalProjectionMembers,
   type PrincipalProjectionMember,
+  type PrincipalStateHeaderInput,
   type PrincipalStateMember,
+  signPrincipalState,
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { PrincipalStateBundleInput } from "../../src/access/principalStateStore";
 import { db } from "../../src/adapters/postgres";
 import { users } from "../../src/schema";
 
@@ -71,4 +75,25 @@ export function createProjectionWithAdminSigner(
   return normalizePrincipalProjectionMembers(
     Array.from(projectionByMember.values()),
   );
+}
+
+export async function signPrincipalStateBundle(
+  input: PrincipalStateHeaderInput & {
+    signingPrivateKey: Uint8Array;
+  },
+): Promise<PrincipalStateBundleInput> {
+  const state = await signPrincipalState(
+    await buildPrincipalStateSigningInput(input),
+    input.signingPrivateKey,
+  );
+
+  return {
+    state,
+    encryptedPayload: {
+      cipherSuite: "aes-256-gcm-v1",
+      ciphertext: input.payloadCiphertext,
+      ciphertextHash: state.payloadCiphertextHash,
+    },
+    projection: normalizePrincipalProjectionMembers(input.projection),
+  };
 }

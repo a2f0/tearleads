@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+  buildPrincipalStateSigningInput,
   computePrincipalStateHash,
-  computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   signPrincipalState,
@@ -44,8 +44,9 @@ async function createPrincipalPolicyBundle(): Promise<{
       role: "member" as const,
     },
   ];
+  const payloadCiphertext = "ciphertext-1";
   const signedState = await signPrincipalState(
-    {
+    await buildPrincipalStateSigningInput({
       principalType: "group",
       principalId: "group-1",
       version: 1,
@@ -60,11 +61,11 @@ async function createPrincipalPolicyBundle(): Promise<{
         },
       ],
       projection: currentProjection,
-      payloadCiphertext: "ciphertext-1",
+      payloadCiphertext,
       signedAt: "2026-04-08T00:00:00.000Z",
       signerUserId,
       signerUserKeyFingerprint,
-    },
+    }),
     signingPrivateKey,
   );
   const stateHash = await computePrincipalStateHash(signedState);
@@ -95,10 +96,8 @@ async function createPrincipalPolicyBundle(): Promise<{
       principalId: "group-1",
       stateHash,
       cipherSuite: "aes-256-gcm-v1",
-      ciphertext: signedState.payloadCiphertext ?? "ciphertext-1",
-      ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-        signedState.payloadCiphertext ?? "ciphertext-1",
-      ),
+      ciphertext: payloadCiphertext,
+      ciphertextHash: signedState.payloadCiphertextHash,
       createdAt: "2026-04-08T00:00:00.000Z",
     },
     previousStates: [],
@@ -142,8 +141,9 @@ async function createSuccessorPrincipalPolicyBundle(): Promise<{
       role: "member" as const,
     },
   ];
+  const previousPayloadCiphertext = "ciphertext-1";
   const previousSignedState = await signPrincipalState(
-    {
+    await buildPrincipalStateSigningInput({
       principalType: "group",
       principalId: "group-1",
       version: 1,
@@ -153,11 +153,11 @@ async function createSuccessorPrincipalPolicyBundle(): Promise<{
       keyFingerprint: principalKeyFingerprint,
       members: [{ principalType: "user", principalId: "alice" }],
       projection: previousProjection,
-      payloadCiphertext: "ciphertext-1",
+      payloadCiphertext: previousPayloadCiphertext,
       signedAt: "2026-04-08T00:00:00.000Z",
       signerUserId,
       signerUserKeyFingerprint,
-    },
+    }),
     signingPrivateKey,
   );
   const previousStateHash =
@@ -174,8 +174,9 @@ async function createSuccessorPrincipalPolicyBundle(): Promise<{
       role: "member" as const,
     },
   ];
+  const currentPayloadCiphertext = "ciphertext-2";
   const currentSignedState = await signPrincipalState(
-    {
+    await buildPrincipalStateSigningInput({
       principalType: "group",
       principalId: "group-1",
       version: 2,
@@ -185,11 +186,11 @@ async function createSuccessorPrincipalPolicyBundle(): Promise<{
       keyFingerprint: principalKeyFingerprint,
       members: [{ principalType: "user", principalId: "bob" }],
       projection: currentProjection,
-      payloadCiphertext: "ciphertext-2",
+      payloadCiphertext: currentPayloadCiphertext,
       signedAt: "2026-04-08T00:01:00.000Z",
       signerUserId,
       signerUserKeyFingerprint,
-    },
+    }),
     signingPrivateKey,
   );
   const currentStateHash = await computePrincipalStateHash(currentSignedState);
@@ -214,10 +215,8 @@ async function createSuccessorPrincipalPolicyBundle(): Promise<{
         principalId: "group-1",
         stateHash: currentStateHash,
         cipherSuite: "aes-256-gcm-v1",
-        ciphertext: currentSignedState.payloadCiphertext ?? "ciphertext-2",
-        ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-          currentSignedState.payloadCiphertext ?? "ciphertext-2",
-        ),
+        ciphertext: currentPayloadCiphertext,
+        ciphertextHash: currentSignedState.payloadCiphertextHash,
         createdAt: "2026-04-08T00:01:00.000Z",
       },
       previousStates: [

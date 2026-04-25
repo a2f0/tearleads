@@ -1,5 +1,6 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
 import {
+  buildPrincipalStateSigningInput,
   computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   signPrincipalState,
@@ -79,7 +80,7 @@ export async function createPublicKeyRequest(
     encapsulationPublicKey: Array.from(user.kem.publicKey),
     initialOrganizationPolicy: {
       state: await signPrincipalState(
-        {
+        await buildPrincipalStateSigningInput({
           principalType: "organization",
           principalId: organizationId,
           version: 1,
@@ -95,7 +96,7 @@ export async function createPublicKeyRequest(
           signerUserKeyFingerprint: await toFingerprint(
             user.signing.signingPublicKey,
           ),
-        },
+        }),
         user.signing.signingPrivateKey,
       ),
       encryptedPayload: {

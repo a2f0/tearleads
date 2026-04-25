@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-  signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { signPrincipalStateBundle } from "../../test/helpers/principalState";
 import { db } from "../adapters/postgres";
 import { users } from "../schema";
 import {
@@ -78,76 +78,78 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
     aliceKem.publicKey,
     { signingPrivateKey, signingPublicKey },
   );
+  const nestedMembers = [
+    {
+      principalType: "user" as const,
+      principalId: aliceUserId,
+    },
+  ];
+  const nestedProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: aliceUserId,
+      role: "admin" as const,
+    },
+  ];
 
   await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: "group",
-        principalId: nestedGroupPrincipalId,
-        version: 1,
-        prevStateHash: null,
-        keyEpoch: 1,
-        encapsulationPublicKey: bytesToBase64(nestedGroupKem.publicKey),
-        keyFingerprint: await toFingerprint(nestedGroupKem.publicKey),
-        members: [
-          {
-            principalType: "user",
-            principalId: aliceUserId,
-          },
-        ],
-        projection: [
-          {
-            memberPrincipalType: "user",
-            memberPrincipalId: aliceUserId,
-            role: "admin",
-          },
-        ],
-        signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
-        signerUserId: aliceSigner.signerUserId,
-        signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
-      },
+    await signPrincipalStateBundle({
+      principalType: "group",
+      principalId: nestedGroupPrincipalId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(nestedGroupKem.publicKey),
+      keyFingerprint: await toFingerprint(nestedGroupKem.publicKey),
+      members: nestedMembers,
+      projection: nestedProjection,
+      payloadCiphertext: JSON.stringify({ members: nestedProjection }),
+      signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
+      signerUserId: aliceSigner.signerUserId,
+      signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       signingPrivateKey,
-    ),
+    }),
   );
 
+  const groupMembers = [
+    {
+      principalType: "user" as const,
+      principalId: aliceUserId,
+    },
+    {
+      principalType: "group" as const,
+      principalId: nestedGroupPrincipalId,
+    },
+  ];
+  const groupProjection = [
+    {
+      memberPrincipalType: "group" as const,
+      memberPrincipalId: nestedGroupPrincipalId,
+      role: "member" as const,
+    },
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: aliceUserId,
+      role: "admin" as const,
+    },
+  ];
   const storedState = await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: "group",
-        principalId: groupPrincipalId,
-        version: 1,
-        prevStateHash: null,
-        keyEpoch: 1,
-        encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-        keyFingerprint: await toFingerprint(groupKem.publicKey),
-        members: [
-          {
-            principalType: "user",
-            principalId: aliceUserId,
-          },
-          {
-            principalType: "group",
-            principalId: nestedGroupPrincipalId,
-          },
-        ],
-        projection: [
-          {
-            memberPrincipalType: "group",
-            memberPrincipalId: nestedGroupPrincipalId,
-            role: "member",
-          },
-          {
-            memberPrincipalType: "user",
-            memberPrincipalId: aliceUserId,
-            role: "admin",
-          },
-        ],
-        signedAt: new Date("2026-04-07T12:05:00.000Z").toISOString(),
-        signerUserId: aliceSigner.signerUserId,
-        signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
-      },
+    await signPrincipalStateBundle({
+      principalType: "group",
+      principalId: groupPrincipalId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
+      keyFingerprint: await toFingerprint(groupKem.publicKey),
+      members: groupMembers,
+      projection: groupProjection,
+      payloadCiphertext: JSON.stringify({ members: groupProjection }),
+      signedAt: new Date("2026-04-07T12:05:00.000Z").toISOString(),
+      signerUserId: aliceSigner.signerUserId,
+      signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       signingPrivateKey,
-    ),
+    }),
   );
 
   const currentRecipients = await listCurrentPrincipalMemberRecipients(
@@ -217,75 +219,77 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
   );
   await insertUserWithRecipientKey(bobUserId, bobKem.publicKey);
 
+  const initialMembers = [
+    {
+      principalType: "user" as const,
+      principalId: aliceUserId,
+    },
+  ];
+  const initialProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: aliceUserId,
+      role: "admin" as const,
+    },
+  ];
   const initialState = await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: "group",
-        principalId: groupPrincipalId,
-        version: 1,
-        prevStateHash: null,
-        keyEpoch: 1,
-        encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-        keyFingerprint: await toFingerprint(groupKem.publicKey),
-        members: [
-          {
-            principalType: "user",
-            principalId: aliceUserId,
-          },
-        ],
-        projection: [
-          {
-            memberPrincipalType: "user",
-            memberPrincipalId: aliceUserId,
-            role: "admin",
-          },
-        ],
-        signedAt: new Date("2026-04-07T13:00:00.000Z").toISOString(),
-        signerUserId: aliceSigner.signerUserId,
-        signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
-      },
+    await signPrincipalStateBundle({
+      principalType: "group",
+      principalId: groupPrincipalId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
+      keyFingerprint: await toFingerprint(groupKem.publicKey),
+      members: initialMembers,
+      projection: initialProjection,
+      payloadCiphertext: JSON.stringify({ members: initialProjection }),
+      signedAt: new Date("2026-04-07T13:00:00.000Z").toISOString(),
+      signerUserId: aliceSigner.signerUserId,
+      signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       signingPrivateKey,
-    ),
+    }),
   );
 
+  const nextMembers = [
+    {
+      principalType: "user" as const,
+      principalId: aliceUserId,
+    },
+    {
+      principalType: "user" as const,
+      principalId: bobUserId,
+    },
+  ];
+  const nextProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: aliceUserId,
+      role: "admin" as const,
+    },
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: bobUserId,
+      role: "member" as const,
+    },
+  ];
   const nextState = await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: "group",
-        principalId: groupPrincipalId,
-        version: 2,
-        prevStateHash: initialState.stateHash,
-        keyEpoch: 1,
-        encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-        keyFingerprint: await toFingerprint(groupKem.publicKey),
-        members: [
-          {
-            principalType: "user",
-            principalId: aliceUserId,
-          },
-          {
-            principalType: "user",
-            principalId: bobUserId,
-          },
-        ],
-        projection: [
-          {
-            memberPrincipalType: "user",
-            memberPrincipalId: aliceUserId,
-            role: "admin",
-          },
-          {
-            memberPrincipalType: "user",
-            memberPrincipalId: bobUserId,
-            role: "member",
-          },
-        ],
-        signedAt: new Date("2026-04-07T13:05:00.000Z").toISOString(),
-        signerUserId: aliceSigner.signerUserId,
-        signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
-      },
+    await signPrincipalStateBundle({
+      principalType: "group",
+      principalId: groupPrincipalId,
+      version: 2,
+      prevStateHash: initialState.stateHash,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
+      keyFingerprint: await toFingerprint(groupKem.publicKey),
+      members: nextMembers,
+      projection: nextProjection,
+      payloadCiphertext: JSON.stringify({ members: nextProjection }),
+      signedAt: new Date("2026-04-07T13:05:00.000Z").toISOString(),
+      signerUserId: aliceSigner.signerUserId,
+      signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       signingPrivateKey,
-    ),
+    }),
   );
 
   const currentRecipients = await listCurrentPrincipalMemberRecipients(

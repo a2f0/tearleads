@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  buildPrincipalStateSigningInput,
   computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -64,7 +65,7 @@ async function registerIdentity(
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
       initialOrganizationPolicy: {
         state: await signPrincipalState(
-          {
+          await buildPrincipalStateSigningInput({
             principalType: "organization",
             principalId: organizationId,
             version: 1,
@@ -78,7 +79,7 @@ async function registerIdentity(
             signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
             signerUserId: userId,
             signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
-          },
+          }),
           signingPrivateKey,
         ),
         encryptedPayload: {

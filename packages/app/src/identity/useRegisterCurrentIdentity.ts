@@ -1,5 +1,5 @@
 import {
-  computePrincipalStatePayloadCiphertextHash,
+  buildPrincipalStateSigningInput,
   generateKemSeedAndKeyPair,
   signPrincipalState,
   toFingerprint,
@@ -63,7 +63,7 @@ async function createInitialOrganizationPolicy(input: {
     ),
   );
   const state = await signPrincipalState(
-    {
+    await buildPrincipalStateSigningInput({
       principalType: "organization",
       principalId: input.organizationId,
       version: 1,
@@ -77,7 +77,7 @@ async function createInitialOrganizationPolicy(input: {
       signedAt: new Date().toISOString(),
       signerUserId: input.userId,
       signerUserKeyFingerprint,
-    },
+    }),
     input.signingPrivateKey,
   );
   const [memberEnvelope] = await wrapDekForRecipients(
@@ -94,8 +94,7 @@ async function createInitialOrganizationPolicy(input: {
     encryptedPayload: {
       cipherSuite: "aes-256-gcm-v1",
       ciphertext: payloadCiphertext,
-      ciphertextHash:
-        await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
+      ciphertextHash: state.payloadCiphertextHash,
     },
     projection,
     memberEnvelopes: [

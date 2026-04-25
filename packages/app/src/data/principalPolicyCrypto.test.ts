@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+  buildPrincipalStateSigningInput,
   computePrincipalStateHash,
-  computePrincipalStatePayloadCiphertextHash,
   encryptForRecipients,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -53,8 +53,9 @@ async function createPrincipalPolicyBundle(input: {
       role: "member" as const,
     })),
   ];
+  const payloadCiphertext = `${input.principalId}-ciphertext`;
   const signedState = await signPrincipalState(
-    {
+    await buildPrincipalStateSigningInput({
       principalType: "group",
       principalId: input.principalId,
       version,
@@ -64,11 +65,11 @@ async function createPrincipalPolicyBundle(input: {
       keyFingerprint: await toFingerprint(input.principalKem.publicKey),
       members: input.members,
       projection: currentProjection,
-      payloadCiphertext: `${input.principalId}-ciphertext`,
+      payloadCiphertext,
       signedAt: input.signedAt,
       signerUserId,
       signerUserKeyFingerprint,
-    },
+    }),
     signingPrivateKey,
   );
   const stateHash = await computePrincipalStateHash(signedState);
@@ -110,11 +111,8 @@ async function createPrincipalPolicyBundle(input: {
       principalId: input.principalId,
       stateHash,
       cipherSuite: "aes-256-gcm-v1",
-      ciphertext:
-        signedState.payloadCiphertext ?? `${input.principalId}-ciphertext`,
-      ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
-        signedState.payloadCiphertext ?? `${input.principalId}-ciphertext`,
-      ),
+      ciphertext: payloadCiphertext,
+      ciphertextHash: signedState.payloadCiphertextHash,
       createdAt: input.signedAt,
     },
     previousStates: [],
