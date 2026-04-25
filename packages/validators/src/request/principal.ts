@@ -28,7 +28,8 @@ export interface PrincipalStateRequest {
   payloadCiphertextHash: string;
   memberCount: number;
   signedAt: string;
-  signerKeyId: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
   signature: string;
 }
 
@@ -75,7 +76,7 @@ function isProjectionRole(
   return value === "member" || value === "admin";
 }
 
-function isPrincipalProjectionMemberRequest(
+export function isPrincipalProjectionMemberRequest(
   value: unknown,
 ): value is PrincipalProjectionMemberRequest {
   return (
@@ -89,7 +90,7 @@ function isPrincipalProjectionMemberRequest(
   );
 }
 
-function isPrincipalStateRequest(
+export function isPrincipalStateRequest(
   value: unknown,
 ): value is PrincipalStateRequest {
   return (
@@ -112,12 +113,14 @@ function isPrincipalStateRequest(
     Number.isInteger(value.memberCount) &&
     value.memberCount >= 0 &&
     hasStringProperty(value, "signedAt") &&
-    hasStringProperty(value, "signerKeyId") &&
+    hasStringProperty(value, "signerUserId") &&
+    isUuidV4String(value.signerUserId) &&
+    hasStringProperty(value, "signerUserKeyFingerprint") &&
     hasStringProperty(value, "signature")
   );
 }
 
-function isPrincipalStateEncryptedPayloadRequest(
+export function isPrincipalStateEncryptedPayloadRequest(
   value: unknown,
 ): value is PrincipalStateEncryptedPayloadRequest {
   return (
@@ -129,7 +132,7 @@ function isPrincipalStateEncryptedPayloadRequest(
   );
 }
 
-function isPrincipalMemberEnvelopeRequest(
+export function isPrincipalMemberEnvelopeRequest(
   value: unknown,
 ): value is PrincipalMemberEnvelopeRequest {
   return (

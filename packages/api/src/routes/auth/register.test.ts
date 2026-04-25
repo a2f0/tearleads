@@ -8,7 +8,10 @@ import {
 import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { uploadKey } from "../../../test/helpers/api";
+import {
+  createPublicKeyRequestBody,
+  uploadKey,
+} from "../../../test/helpers/api";
 import { db } from "../../adapters/postgres";
 import { del, get } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
@@ -30,12 +33,13 @@ afterAll(async () => {
 });
 
 test("POST /auth/register stores the key in redis keyed by fingerprint", async () => {
-  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   const keyArray = Array.from(signingPublicKey);
   fingerprint = await toFingerprint(signingPublicKey);
 
-  const res = await uploadKey(signingPublicKey, publicKey);
+  const res = await uploadKey(signingPublicKey, signingPrivateKey, publicKey);
 
   expect(res.status).toBe(200);
   const body = await res.json();
@@ -52,13 +56,14 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
 });
 
 test("POST /auth/register creates a user in postgres", async () => {
-  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   const keyArray = Array.from(signingPublicKey);
   const encapsulationFingerprint = await toFingerprint(publicKey);
   fingerprint = await toFingerprint(signingPublicKey);
 
-  const res = await uploadKey(signingPublicKey, publicKey);
+  const res = await uploadKey(signingPublicKey, signingPrivateKey, publicKey);
   expect(res.status).toBe(200);
   const body = await res.json();
 
@@ -71,20 +76,26 @@ test("POST /auth/register creates a user in postgres", async () => {
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {
-  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   fingerprint = await toFingerprint(signingPublicKey);
 
-  const first = await uploadKey(signingPublicKey, publicKey);
+  const first = await uploadKey(signingPublicKey, signingPrivateKey, publicKey);
   expect(first.status).toBe(200);
 
-  const second = await uploadKey(signingPublicKey, publicKey);
+  const second = await uploadKey(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
   expect(second.status).toBe(409);
   expect(await second.json()).toEqual({ error: "Key already exists" });
 });
 
 test("POST /auth/register rolls back organization and container rows on duplicate fingerprint", async () => {
-  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
 
   const countOrganizations = async () =>
@@ -95,7 +106,7 @@ test("POST /auth/register rolls back organization and container rows on duplicat
   const organizationsBefore = await countOrganizations();
   const containersBefore = await countContainers();
 
-  const first = await uploadKey(signingPublicKey, publicKey);
+  const first = await uploadKey(signingPublicKey, signingPrivateKey, publicKey);
   expect(first.status).toBe(200);
 
   const organizationsAfterFirst = await countOrganizations();
@@ -103,7 +114,11 @@ test("POST /auth/register rolls back organization and container rows on duplicat
   expect(organizationsAfterFirst).toBe(organizationsBefore + 1);
   expect(containersAfterFirst).toBe(containersBefore + 1);
 
-  const second = await uploadKey(signingPublicKey, publicKey);
+  const second = await uploadKey(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
   expect(second.status).toBe(409);
 
   expect(await countOrganizations()).toBe(organizationsAfterFirst);
@@ -111,7 +126,8 @@ test("POST /auth/register rolls back organization and container rows on duplicat
 });
 
 test("POST /auth/register rejects a wrapped envelope whose fingerprint does not match the encapsulation key", async () => {
-  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   const recipients = await wrapDekForRecipients(
     crypto.getRandomValues(new Uint8Array(32)),
@@ -124,10 +140,11 @@ test("POST /auth/register rejects a wrapped envelope whose fingerprint does not 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      rootContainerId: crypto.randomUUID(),
-      signingPublicKey: Array.from(signingPublicKey),
-      encapsulationPublicKey: Array.from(publicKey),
-      initialRootMetadataUpdates: [],
+      ...(await createPublicKeyRequestBody(
+        signingPublicKey,
+        signingPrivateKey,
+        publicKey,
+      )),
       wrappedDekEnvelope: {
         keyFingerprint: "mismatch",
         kemCipherText: Array.from(wrappedEnvelope.kemCipherText),
@@ -144,7 +161,8 @@ test("POST /auth/register rejects a wrapped envelope whose fingerprint does not 
 });
 
 test("POST /auth/register rejects malformed wrapped envelope lengths", async () => {
-  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   const recipients = await wrapDekForRecipients(
     crypto.getRandomValues(new Uint8Array(32)),
@@ -160,10 +178,11 @@ test("POST /auth/register rejects malformed wrapped envelope lengths", async () 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      rootContainerId: crypto.randomUUID(),
-      signingPublicKey: Array.from(signingPublicKey),
-      encapsulationPublicKey: Array.from(publicKey),
-      initialRootMetadataUpdates: [],
+      ...(await createPublicKeyRequestBody(
+        signingPublicKey,
+        signingPrivateKey,
+        publicKey,
+      )),
       wrappedDekEnvelope: {
         keyFingerprint: wrappedEnvelope.keyFingerprint,
         kemCipherText: badKemCipherText,
@@ -179,10 +198,15 @@ test("POST /auth/register rejects malformed wrapped envelope lengths", async () 
 });
 
 test("POST /auth/register provisions a root metadata document", async () => {
-  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
 
-  const response = await uploadKey(signingPublicKey, publicKey);
+  const response = await uploadKey(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
   expect(response.status).toBe(200);
   const body = await response.json();
 

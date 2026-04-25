@@ -25,7 +25,11 @@ afterAll(async () => {
 
 test("authenticates with a valid signature", async () => {
   fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  await uploadKey(signingKeys.signingPublicKey, kemKeys.publicKey);
+  await uploadKey(
+    signingKeys.signingPublicKey,
+    signingKeys.signingPrivateKey,
+    kemKeys.publicKey,
+  );
 
   const challengeRes = await requestChallenge(fingerprint);
   const { challenge } = await challengeRes.json();

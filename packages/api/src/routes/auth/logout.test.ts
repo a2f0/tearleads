@@ -38,7 +38,11 @@ async function authenticate(): Promise<string> {
 
 test("setup: register key", async () => {
   fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  await uploadKey(signingKeys.signingPublicKey, kemKeys.publicKey);
+  await uploadKey(
+    signingKeys.signingPublicKey,
+    signingKeys.signingPrivateKey,
+    kemKeys.publicKey,
+  );
 });
 
 test("returns 401 without a token", async () => {

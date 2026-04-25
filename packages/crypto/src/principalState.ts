@@ -40,7 +40,8 @@ export interface PrincipalStateSigningInput {
   payloadCiphertextHash?: string;
   memberCount?: number;
   signedAt: string;
-  signerKeyId: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
 }
 
 export interface UnsignedPrincipalState {
@@ -57,7 +58,8 @@ export interface UnsignedPrincipalState {
   payloadCiphertextHash: string;
   memberCount: number;
   signedAt: string;
-  signerKeyId: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
 }
 
 export interface SignedPrincipalState extends UnsignedPrincipalState {
@@ -76,7 +78,8 @@ interface PrincipalStateLike {
   encapsulationPublicKey: string;
   keyFingerprint: string;
   signedAt: string;
-  signerKeyId: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
   membershipMode?: PrincipalStateMembershipMode;
   membershipRoot?: string;
   projectionRoot?: string;
@@ -212,7 +215,8 @@ function encodeUnsignedPrincipalState(
       payloadCiphertextHash: state.payloadCiphertextHash,
       memberCount: state.memberCount,
       signedAt: state.signedAt,
-      signerKeyId: state.signerKeyId,
+      signerUserId: state.signerUserId,
+      signerUserKeyFingerprint: state.signerUserKeyFingerprint,
     }),
   );
 }
@@ -229,7 +233,8 @@ function toUnsignedPrincipalState(
     encapsulationPublicKey: state.encapsulationPublicKey,
     keyFingerprint: state.keyFingerprint,
     signedAt: state.signedAt,
-    signerKeyId: state.signerKeyId,
+    signerUserId: state.signerUserId,
+    signerUserKeyFingerprint: state.signerUserKeyFingerprint,
   };
 
   if ("members" in state && Array.isArray(state.members)) {
@@ -300,8 +305,12 @@ function validatePrincipalStateIdentityFields(state: PrincipalStateLike): void {
     throw new Error("Principal state keyFingerprint cannot be empty");
   }
 
-  if (state.signerKeyId.length === 0) {
-    throw new Error("Principal state signerKeyId cannot be empty");
+  if (state.signerUserId.length === 0) {
+    throw new Error("Principal state signerUserId cannot be empty");
+  }
+
+  if (state.signerUserKeyFingerprint.length === 0) {
+    throw new Error("Principal state signerUserKeyFingerprint cannot be empty");
   }
 
   if (!isValidSignedAt(state.signedAt)) {
@@ -531,7 +540,8 @@ async function normalizeUnsignedPrincipalState(
     payloadCiphertextHash: resolvedPayloadCiphertextHash,
     memberCount,
     signedAt: state.signedAt,
-    signerKeyId: state.signerKeyId,
+    signerUserId: state.signerUserId,
+    signerUserKeyFingerprint: state.signerUserKeyFingerprint,
   };
 }
 

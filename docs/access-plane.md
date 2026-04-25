@@ -546,10 +546,11 @@ outside the ordinary API mutation path.
 
 ### Required Trust Boundary
 
-At minimum, clients need one or both of:
+At minimum, clients need signed principal state rooted in user identity keys:
 
-- trusted group or organization admin public keys
-- a dedicated policy-signing service whose signing key is isolated from the API
+- the initial organization state is signed by the onboarding user's identity key
+- later group or organization states are signed by a user who was an admin in
+  the previous signed projection
 
 The API may store and distribute access metadata, but it must not be able to
 invent authoritative membership state on its own.
@@ -573,7 +574,8 @@ interface SignedPrincipalState {
   payloadCiphertextHash: string;
   memberCount: number;
   signedAt: string;
-  signerKeyId: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
   signature: string;
 }
 ```
@@ -587,7 +589,10 @@ Rules:
 - `prevStateHash` forms a hash chain so rollback is detectable
 - `encapsulationPublicKey` and `keyFingerprint` bind the current principal epoch
   key to the signed policy state
-- `signature` must verify against a trusted admin or policy key
+- `signature` must verify against the signer's registered user identity key
+- initial states must include the signer as an admin in the signed projection
+- successor states must be signed by a user who was an admin in the previous
+  signed projection
 
 If the API adds `mallory` to a group without a valid signature from the
 principal's authorized signer, clients reject the new principal state.
@@ -635,7 +640,8 @@ authenticated API routes:
 
 - `PUT /principals/:principalType/:principalId/state`
   Stores a signed current principal state after verifying its signature against
-  a trusted policy signer configured outside the ordinary mutation path.
+  the registered signing key for `signerUserId` and enforcing the admin-signer
+  rule.
 - `PUT /principals/:principalType/:principalId/member-envelopes`
   Stores the current direct-member wrapped copies of the principal epoch secret
   for the current signed state.
@@ -680,16 +686,18 @@ interface SignedAccessManifest {
     recipientKeyFingerprint: string;
   }>;
   issuedAt: string;
-  signerKeyId: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
   signature: string;
 }
 ```
 
-The manifest signer should be a trusted policy signer, not the general-purpose
-API process. A client should treat the manifest as invalid unless:
+The manifest signer should be an authorized user identity key, not the
+general-purpose API process. A client should treat the manifest as invalid
+unless:
 
 - the manifest signature verifies
-- every referenced group or organization state is signed by a trusted authority
+- every referenced group or organization state is signed by an authorized admin
 - each referenced state hash matches the signed group or organization snapshot
 - the client can recompute the effective recipients and `accessFingerprint`
 

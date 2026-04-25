@@ -3,6 +3,7 @@ import { listCurrentPrincipalMemberEnvelopes } from "../../access/principalMembe
 import {
   getCurrentPrincipalState,
   getCurrentPrincipalStatePayload,
+  listCurrentPrincipalProjectionMembers,
 } from "../../access/principalStateStore";
 import type { ApiServiceRuntime } from "../runtime";
 import {
@@ -34,6 +35,11 @@ export async function getCurrentPrincipalPolicy(
   if (!currentPayload) {
     throw new PrincipalPolicyError("Principal state payload not found", 404);
   }
+  const currentProjection = await listCurrentPrincipalProjectionMembers(
+    principalType,
+    principalId,
+    runtime.db,
+  );
 
   const currentMemberEnvelopes = await listCurrentPrincipalMemberEnvelopes(
     principalType,
@@ -44,6 +50,11 @@ export async function getCurrentPrincipalPolicy(
   return {
     currentState: toPrincipalStateResponse(currentState),
     currentPayload: toPrincipalStatePayloadResponse(currentPayload),
+    currentProjection: currentProjection.map((member) => ({
+      memberPrincipalType: member.memberPrincipalType,
+      memberPrincipalId: member.memberPrincipalId,
+      role: member.role,
+    })),
     currentMemberEnvelopes: toCurrentPrincipalMemberEnvelopesResponse({
       principalType,
       principalId,

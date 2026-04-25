@@ -210,7 +210,7 @@ test("POST /containers/:containerId/share rejects managed grants without current
   });
 });
 
-test("POST /containers/:containerId/share rejects default organization grants before signed org state exists", async () => {
+test("POST /containers/:containerId/share grants default organization access after onboarding provisions signed org state", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -252,10 +252,10 @@ test("POST /containers/:containerId/share rejects default organization grants be
     },
   );
 
-  expect(shareResponse.status).toBe(409);
-  expect(await shareResponse.json()).toEqual({
-    error: `Missing current principal policy state for organization:${ownerRow.defaultOrganizationId}`,
-  });
+  expect(shareResponse.status).toBe(200);
+  const shared = await shareResponse.json();
+  expect(shared.id).toBe(sharedContainerId);
+  expect(shared.metadataAccessEpoch).toBe(2);
 });
 
 test("POST /containers/:containerId/share rejects stale access state hashes", async () => {

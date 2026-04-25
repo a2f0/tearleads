@@ -19,6 +19,14 @@ function toPrincipalStateError(error: unknown): PrincipalPolicyError | null {
   }
 
   if (
+    error.message === "Principal state signer user not found" ||
+    error.message === "Principal state signer fingerprint mismatch" ||
+    error.message === "Principal state signer must be an admin"
+  ) {
+    return new PrincipalPolicyError(error.message, 403);
+  }
+
+  if (
     error.message === "Principal state version conflict" ||
     error.message === "Principal epoch key conflict" ||
     error.message === "Principal state previous hash mismatch" ||
@@ -61,15 +69,6 @@ export async function putPrincipalState(
     );
   }
 
-  const trustedSignerPublicKey =
-    await runtime.principalSignerTrustStore.getTrustedSignerPublicKey(
-      input.state.signerKeyId,
-    );
-
-  if (!trustedSignerPublicKey) {
-    throw new PrincipalPolicyError("Untrusted principal state signer", 403);
-  }
-
   try {
     const storedState = await storeVerifiedPrincipalState(
       {
@@ -87,7 +86,8 @@ export async function putPrincipalState(
           payloadCiphertextHash: input.state.payloadCiphertextHash,
           memberCount: input.state.memberCount,
           signedAt: input.state.signedAt,
-          signerKeyId: input.state.signerKeyId,
+          signerUserId: input.state.signerUserId,
+          signerUserKeyFingerprint: input.state.signerUserKeyFingerprint,
           signature: input.state.signature,
         },
         encryptedPayload: {
@@ -101,7 +101,6 @@ export async function putPrincipalState(
           role: member.role,
         })),
       },
-      trustedSignerPublicKey,
       runtime.db,
     );
 

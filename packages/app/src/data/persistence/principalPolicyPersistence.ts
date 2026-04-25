@@ -18,6 +18,7 @@ interface PrincipalPolicyRow {
   stateHash: string;
   currentStateJson: string;
   currentPayloadJson: string;
+  currentProjectionJson: string;
   currentMemberEnvelopesJson: string;
 }
 
@@ -31,6 +32,7 @@ const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
         state_hash TEXT NOT NULL,
         current_state_json TEXT NOT NULL,
         current_payload_json TEXT NOT NULL,
+        current_projection_json TEXT NOT NULL,
         current_member_envelopes_json TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (principal_type, principal_id)
@@ -51,6 +53,7 @@ function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
   const stateHash = readSqlRowValue(row, "state_hash");
   const currentStateJson = readSqlRowValue(row, "current_state_json");
   const currentPayloadJson = readSqlRowValue(row, "current_payload_json");
+  const currentProjectionJson = readSqlRowValue(row, "current_projection_json");
   const currentMemberEnvelopesJson = readSqlRowValue(
     row,
     "current_member_envelopes_json",
@@ -63,6 +66,7 @@ function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
     typeof stateHash !== "string" ||
     typeof currentStateJson !== "string" ||
     typeof currentPayloadJson !== "string" ||
+    typeof currentProjectionJson !== "string" ||
     typeof currentMemberEnvelopesJson !== "string"
   ) {
     return null;
@@ -74,6 +78,7 @@ function parsePrincipalPolicyRow(row: SqlRow): PrincipalPolicyRow | null {
     stateHash,
     currentStateJson,
     currentPayloadJson,
+    currentProjectionJson,
     currentMemberEnvelopesJson,
   };
 }
@@ -83,10 +88,12 @@ function parsePrincipalPolicyBundle(
 ): PrincipalPolicyBundleResponse {
   const currentState = JSON.parse(row.currentStateJson);
   const currentPayload = JSON.parse(row.currentPayloadJson);
+  const currentProjection = JSON.parse(row.currentProjectionJson);
   const currentMemberEnvelopes = JSON.parse(row.currentMemberEnvelopesJson);
   const bundle = {
     currentState,
     currentPayload,
+    currentProjection,
     currentMemberEnvelopes,
   };
 
@@ -102,6 +109,19 @@ export async function ensurePrincipalPolicyTables(
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureSqlTables(lockedExecSql, principalPolicyTables);
+    const columnRows = await lockedExecSql(
+      "PRAGMA table_info(principal_policies)",
+    );
+    const hasCurrentProjectionJsonColumn = columnRows.some(
+      (row) => readSqlRowValue(row, "name") === "current_projection_json",
+    );
+
+    if (!hasCurrentProjectionJsonColumn) {
+      await lockedExecSql(`
+        ALTER TABLE principal_policies
+        ADD COLUMN current_projection_json TEXT NOT NULL DEFAULT '[]'
+      `);
+    }
   });
 }
 
@@ -119,6 +139,7 @@ export async function loadPrincipalPolicyBundle(
         state_hash,
         current_state_json,
         current_payload_json,
+        current_projection_json,
         current_member_envelopes_json
       FROM principal_policies
       WHERE principal_type = :principalType AND principal_id = :principalId
@@ -146,6 +167,7 @@ export async function loadAllPrincipalPolicyBundles(
         state_hash,
         current_state_json,
         current_payload_json,
+        current_projection_json,
         current_member_envelopes_json
       FROM principal_policies
       ORDER BY principal_type, principal_id
@@ -204,6 +226,7 @@ export async function savePrincipalPolicyBundle(
           state_hash,
           current_state_json,
           current_payload_json,
+          current_projection_json,
           current_member_envelopes_json,
           updated_at
         )
@@ -213,6 +236,7 @@ export async function savePrincipalPolicyBundle(
           :stateHash,
           :currentStateJson,
           :currentPayloadJson,
+          :currentProjectionJson,
           :currentMemberEnvelopesJson,
           :updatedAt
         )
@@ -220,6 +244,7 @@ export async function savePrincipalPolicyBundle(
           state_hash = excluded.state_hash,
           current_state_json = excluded.current_state_json,
           current_payload_json = excluded.current_payload_json,
+          current_projection_json = excluded.current_projection_json,
           current_member_envelopes_json = excluded.current_member_envelopes_json,
           updated_at = excluded.updated_at
       `,
@@ -229,6 +254,7 @@ export async function savePrincipalPolicyBundle(
         ":stateHash": bundle.currentState.stateHash,
         ":currentStateJson": JSON.stringify(bundle.currentState),
         ":currentPayloadJson": JSON.stringify(bundle.currentPayload),
+        ":currentProjectionJson": JSON.stringify(bundle.currentProjection),
         ":currentMemberEnvelopesJson": JSON.stringify(
           bundle.currentMemberEnvelopes,
         ),

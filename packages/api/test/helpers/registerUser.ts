@@ -9,6 +9,7 @@ export async function registerUser(user: TestUser): Promise<string> {
 
   const res = await uploadKey(
     user.signing.signingPublicKey,
+    user.signing.signingPrivateKey,
     user.kem.publicKey,
   );
   if (res.status !== 200) {

@@ -51,6 +51,7 @@ export {
   isReferencedPrincipalStateResponse,
   type PrincipalMemberEnvelopeResponse,
   type PrincipalPolicyBundleResponse,
+  type PrincipalProjectionMemberResponse,
   type PrincipalStatePayloadResponse,
   type PrincipalStateResponse,
   type ReferencedPrincipalStateResponse,

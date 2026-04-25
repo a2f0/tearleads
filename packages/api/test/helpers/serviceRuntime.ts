@@ -1,5 +1,12 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
-import { wrapDekForRecipients } from "@tearleads/crypto";
+import {
+  computePrincipalStatePayloadCiphertextHash,
+  generateKemSeedAndKeyPair,
+  signPrincipalState,
+  toFingerprint,
+  wrapDekForRecipients,
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import { db as defaultDb } from "../../src/adapters/postgres";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
@@ -23,9 +30,6 @@ export function createServiceTestRuntime(
         values.set(key, value);
       },
     },
-    principalSignerTrustStore: {
-      getTrustedSignerPublicKey: async () => null,
-    },
     sessionTokenIssuer: {
       createSession: async () => "test-session",
     },
@@ -43,11 +47,77 @@ export async function createPublicKeyRequest(
   if (!wrappedDekEnvelope) {
     throw new Error("Failed to wrap DEK for test user");
   }
+  const userId = user.userId || crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
+  const organizationKem = generateKemSeedAndKeyPair();
+  const initialOrganizationProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: userId,
+      role: "admin" as const,
+    },
+  ];
+  const organizationPayloadCiphertext = bytesToBase64(
+    new TextEncoder().encode(
+      JSON.stringify({ members: initialOrganizationProjection }),
+    ),
+  );
+  const [organizationMemberEnvelope] = await wrapDekForRecipients(
+    organizationKem.secretKey,
+    [user.kem.publicKey],
+  );
+
+  if (!organizationMemberEnvelope) {
+    throw new Error("Failed to wrap organization key for test user");
+  }
 
   return {
+    userId,
+    organizationId,
     rootContainerId: crypto.randomUUID(),
     signingPublicKey: Array.from(user.signing.signingPublicKey),
     encapsulationPublicKey: Array.from(user.kem.publicKey),
+    initialOrganizationPolicy: {
+      state: await signPrincipalState(
+        {
+          principalType: "organization",
+          principalId: organizationId,
+          version: 1,
+          prevStateHash: null,
+          keyEpoch: 1,
+          encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
+          keyFingerprint: await toFingerprint(organizationKem.publicKey),
+          members: [{ principalType: "user", principalId: userId }],
+          projection: initialOrganizationProjection,
+          payloadCiphertext: organizationPayloadCiphertext,
+          signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
+          signerUserId: userId,
+          signerUserKeyFingerprint: await toFingerprint(
+            user.signing.signingPublicKey,
+          ),
+        },
+        user.signing.signingPrivateKey,
+      ),
+      encryptedPayload: {
+        cipherSuite: "aes-256-gcm-v1",
+        ciphertext: organizationPayloadCiphertext,
+        ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
+          organizationPayloadCiphertext,
+        ),
+      },
+      projection: initialOrganizationProjection,
+      memberEnvelopes: [
+        {
+          memberPrincipalType: "user",
+          memberPrincipalId: userId,
+          memberKeyFingerprint: await toFingerprint(user.kem.publicKey),
+          kemCipherText: bytesToBase64(
+            organizationMemberEnvelope.kemCipherText,
+          ),
+          wrappedKey: bytesToBase64(organizationMemberEnvelope.wrappedKey),
+        },
+      ],
+    },
     initialRootMetadataUpdates: [],
     wrappedDekEnvelope: {
       keyFingerprint: wrappedDekEnvelope.keyFingerprint,

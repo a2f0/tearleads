@@ -1,5 +1,12 @@
-import { wrapDekForRecipients } from "@tearleads/crypto";
+import {
+  computePrincipalStatePayloadCiphertextHash,
+  generateKemSeedAndKeyPair,
+  signPrincipalState,
+  toFingerprint,
+  wrapDekForRecipients,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { PublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { useCallback } from "react";
 import { useApiClient } from "../api/ApiClientProvider";
@@ -27,6 +34,80 @@ interface InitialRootMetadataBootstrap {
   rootMetadataRecipientEnvelopes: Awaited<
     ReturnType<typeof createDocumentEncryptionMaterial>
   >["documentRecipientEnvelopes"];
+}
+
+async function createInitialOrganizationPolicy(input: {
+  encapsulationPublicKey: Uint8Array;
+  organizationId: string;
+  signingPrivateKey: Uint8Array;
+  signingPublicKey: Uint8Array;
+  userId: string;
+}): Promise<PublicKeyRequest["initialOrganizationPolicy"]> {
+  const organizationKem = generateKemSeedAndKeyPair();
+  const signerUserKeyFingerprint = await toFingerprint(input.signingPublicKey);
+  const userEncapsulationKeyFingerprint = await toFingerprint(
+    input.encapsulationPublicKey,
+  );
+  const projection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.userId,
+      role: "admin" as const,
+    },
+  ];
+  const payloadCiphertext = bytesToBase64(
+    new TextEncoder().encode(
+      JSON.stringify({
+        members: projection,
+      }),
+    ),
+  );
+  const state = await signPrincipalState(
+    {
+      principalType: "organization",
+      principalId: input.organizationId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
+      keyFingerprint: await toFingerprint(organizationKem.publicKey),
+      members: [{ principalType: "user", principalId: input.userId }],
+      projection,
+      payloadCiphertext,
+      signedAt: new Date().toISOString(),
+      signerUserId: input.userId,
+      signerUserKeyFingerprint,
+    },
+    input.signingPrivateKey,
+  );
+  const [memberEnvelope] = await wrapDekForRecipients(
+    organizationKem.secretKey,
+    [input.encapsulationPublicKey],
+  );
+
+  if (!memberEnvelope) {
+    throw new Error("Failed to wrap organization key for registering user");
+  }
+
+  return {
+    state,
+    encryptedPayload: {
+      cipherSuite: "aes-256-gcm-v1",
+      ciphertext: payloadCiphertext,
+      ciphertextHash:
+        await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
+    },
+    projection,
+    memberEnvelopes: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: input.userId,
+        memberKeyFingerprint: userEncapsulationKeyFingerprint,
+        kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
+        wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
+      },
+    ],
+  };
 }
 
 async function createInitialRootMetadataBootstrap(
@@ -93,6 +174,76 @@ async function persistLocalRegistrationState(
   }
 }
 
+async function registerIdentity(input: {
+  apiClient: ReturnType<typeof useApiClient>;
+  containerId: string;
+  dbClient: ReturnType<typeof useDatabase>["client"];
+  encapsulationKeyPair: NonNullable<
+    ReturnType<typeof useIdentity>["encapsulationKeyPair"]
+  >;
+  log: (message: string) => void;
+  loginWithChallenge: (challenge: string) => Promise<boolean>;
+  setOrganizationId: (organizationId: string | null) => void;
+  setUserId: (userId: string | null) => void;
+  signingKeyPair: NonNullable<ReturnType<typeof useIdentity>["signingKeyPair"]>;
+}): Promise<boolean> {
+  input.log("Uploading public key...");
+
+  const recipients = await wrapDekForRecipients(
+    crypto.getRandomValues(new Uint8Array(32)),
+    [input.encapsulationKeyPair.publicKey],
+  );
+  const wrappedEnvelope = recipients[0];
+
+  if (wrappedEnvelope === undefined) {
+    return false;
+  }
+
+  const bootstrap = await createInitialRootMetadataBootstrap(
+    input.containerId,
+    input.encapsulationKeyPair.publicKey,
+  );
+  const newUserId = crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
+  const initialOrganizationPolicy = await createInitialOrganizationPolicy({
+    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+    organizationId,
+    signingPrivateKey: input.signingKeyPair.signingPrivateKey,
+    signingPublicKey: input.signingKeyPair.signingPublicKey,
+    userId: newUserId,
+  });
+
+  const response = await input.apiClient.postPublicKey(
+    newUserId,
+    organizationId,
+    input.containerId,
+    input.signingKeyPair.signingPublicKey,
+    input.encapsulationKeyPair.publicKey,
+    wrappedEnvelope,
+    initialOrganizationPolicy,
+    bootstrap.initialRootMetadataUpdates,
+    bootstrap.rootMetadataRecipientEnvelopes,
+  );
+  if (!response) {
+    return false;
+  }
+
+  input.log(`Key registered (${response.userId})`);
+  input.setUserId(response.userId);
+  input.setOrganizationId(response.organizationId);
+  await persistLocalRegistrationState(
+    input.dbClient,
+    input.containerId,
+    input.encapsulationKeyPair.publicKey,
+    response,
+    bootstrap,
+    input.log,
+  );
+
+  await input.loginWithChallenge(response.challenge);
+  return true;
+}
+
 export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const { client: dbClient } = useDatabase();
   const {
@@ -122,49 +273,17 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       return false;
     }
 
-    log("Uploading public key...");
-
-    const recipients = await wrapDekForRecipients(
-      crypto.getRandomValues(new Uint8Array(32)),
-      [encapsulationKeyPair.publicKey],
-    );
-    const wrappedEnvelope = recipients[0];
-
-    if (wrappedEnvelope === undefined) {
-      return false;
-    }
-
-    const bootstrap = await createInitialRootMetadataBootstrap(
+    return registerIdentity({
+      apiClient,
       containerId,
-      encapsulationKeyPair.publicKey,
-    );
-
-    const response = await apiClient.postPublicKey(
-      containerId,
-      signingKeyPair.signingPublicKey,
-      encapsulationKeyPair.publicKey,
-      wrappedEnvelope,
-      bootstrap.initialRootMetadataUpdates,
-      bootstrap.rootMetadataRecipientEnvelopes,
-    );
-    if (!response) {
-      return false;
-    }
-
-    log(`Key registered (${response.userId})`);
-    setUserId(response.userId);
-    setOrganizationId(response.organizationId);
-    await persistLocalRegistrationState(
       dbClient,
-      containerId,
-      encapsulationKeyPair.publicKey,
-      response,
-      bootstrap,
+      encapsulationKeyPair,
       log,
-    );
-
-    await loginWithChallenge(response.challenge);
-    return true;
+      loginWithChallenge,
+      setOrganizationId,
+      setUserId,
+      signingKeyPair,
+    });
   }, [
     apiClient,
     containerId,

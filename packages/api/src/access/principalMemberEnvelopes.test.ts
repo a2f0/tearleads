@@ -19,17 +19,26 @@ import { storeVerifiedPrincipalState } from "./principalStateStore";
 async function insertUserWithRecipientKey(
   userId: string,
   publicKey: Uint8Array,
+  signingKeys: ReturnType<
+    typeof generateSigningSeedAndKeyPair
+  > = generateSigningSeedAndKeyPair(),
 ) {
-  const { signingPublicKey } = generateSigningSeedAndKeyPair();
+  const fingerprint = await toFingerprint(signingKeys.signingPublicKey);
 
   await db.insert(users).values({
     id: userId,
-    fingerprint: await toFingerprint(signingPublicKey),
-    signingPublicKey: bytesToBase64(signingPublicKey),
+    fingerprint,
+    signingPublicKey: bytesToBase64(signingKeys.signingPublicKey),
     encapsulationPublicKey: bytesToBase64(publicKey),
     encapsulationKeyFingerprint: await toFingerprint(publicKey),
     defaultOrganizationId: crypto.randomUUID(),
   });
+
+  return {
+    ...signingKeys,
+    signerUserId: userId,
+    signerUserKeyFingerprint: fingerprint,
+  };
 }
 
 function toMemberEnvelopeInputs(
@@ -64,7 +73,11 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
   const nestedGroupKem = generateKemSeedAndKeyPair();
   const groupKem = generateKemSeedAndKeyPair();
 
-  await insertUserWithRecipientKey(aliceUserId, aliceKem.publicKey);
+  const aliceSigner = await insertUserWithRecipientKey(
+    aliceUserId,
+    aliceKem.publicKey,
+    { signingPrivateKey, signingPublicKey },
+  );
 
   await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -82,12 +95,19 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
             principalId: aliceUserId,
           },
         ],
+        projection: [
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: aliceUserId,
+            role: "admin",
+          },
+        ],
         signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
-        signerKeyId: "policy-key-1",
+        signerUserId: aliceSigner.signerUserId,
+        signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       },
       signingPrivateKey,
     ),
-    signingPublicKey,
   );
 
   const storedState = await storeVerifiedPrincipalState(
@@ -110,12 +130,24 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
             principalId: nestedGroupPrincipalId,
           },
         ],
+        projection: [
+          {
+            memberPrincipalType: "group",
+            memberPrincipalId: nestedGroupPrincipalId,
+            role: "member",
+          },
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: aliceUserId,
+            role: "admin",
+          },
+        ],
         signedAt: new Date("2026-04-07T12:05:00.000Z").toISOString(),
-        signerKeyId: "policy-key-1",
+        signerUserId: aliceSigner.signerUserId,
+        signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       },
       signingPrivateKey,
     ),
-    signingPublicKey,
   );
 
   const currentRecipients = await listCurrentPrincipalMemberRecipients(
@@ -178,7 +210,11 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
   const aliceKem = generateKemSeedAndKeyPair();
   const bobKem = generateKemSeedAndKeyPair();
 
-  await insertUserWithRecipientKey(aliceUserId, aliceKem.publicKey);
+  const aliceSigner = await insertUserWithRecipientKey(
+    aliceUserId,
+    aliceKem.publicKey,
+    { signingPrivateKey, signingPublicKey },
+  );
   await insertUserWithRecipientKey(bobUserId, bobKem.publicKey);
 
   const initialState = await storeVerifiedPrincipalState(
@@ -197,12 +233,19 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
             principalId: aliceUserId,
           },
         ],
+        projection: [
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: aliceUserId,
+            role: "admin",
+          },
+        ],
         signedAt: new Date("2026-04-07T13:00:00.000Z").toISOString(),
-        signerKeyId: "policy-key-2",
+        signerUserId: aliceSigner.signerUserId,
+        signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       },
       signingPrivateKey,
     ),
-    signingPublicKey,
   );
 
   const nextState = await storeVerifiedPrincipalState(
@@ -225,12 +268,24 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
             principalId: bobUserId,
           },
         ],
+        projection: [
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: aliceUserId,
+            role: "admin",
+          },
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: bobUserId,
+            role: "member",
+          },
+        ],
         signedAt: new Date("2026-04-07T13:05:00.000Z").toISOString(),
-        signerKeyId: "policy-key-2",
+        signerUserId: aliceSigner.signerUserId,
+        signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       },
       signingPrivateKey,
     ),
-    signingPublicKey,
   );
 
   const currentRecipients = await listCurrentPrincipalMemberRecipients(

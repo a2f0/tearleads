@@ -19,12 +19,31 @@ import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
 
 async function createPrincipalPolicyBundle(): Promise<{
   bundle: PrincipalPolicyBundleResponse;
-  signerPublicKey: Uint8Array;
+  signerKeyResponse: {
+    userId: string;
+    signingPublicKey: string;
+    signingKeyFingerprint: string;
+    encapsulationPublicKey: string;
+  };
 }> {
   const principalKem = generateKemSeedAndKeyPair();
   const principalKeyFingerprint = await toFingerprint(principalKem.publicKey);
+  const signerUserId = "signer-user-1";
   const { signingPublicKey: signerPublicKey, signingPrivateKey } =
     generateSigningSeedAndKeyPair();
+  const signerUserKeyFingerprint = await toFingerprint(signerPublicKey);
+  const currentProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: signerUserId,
+      role: "admin" as const,
+    },
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: "alice",
+      role: "member" as const,
+    },
+  ];
   const signedState = await signPrincipalState(
     {
       principalType: "group",
@@ -40,9 +59,11 @@ async function createPrincipalPolicyBundle(): Promise<{
           principalId: "alice",
         },
       ],
+      projection: currentProjection,
       payloadCiphertext: "ciphertext-1",
       signedAt: "2026-04-08T00:00:00.000Z",
-      signerKeyId: "signer-1",
+      signerUserId,
+      signerUserKeyFingerprint,
     },
     signingPrivateKey,
   );
@@ -68,6 +89,7 @@ async function createPrincipalPolicyBundle(): Promise<{
       createdAt: "2026-04-08T00:00:00.000Z",
       stateHash,
     },
+    currentProjection,
     currentPayload: {
       principalType: "group",
       principalId: "group-1",
@@ -83,7 +105,12 @@ async function createPrincipalPolicyBundle(): Promise<{
 
   return {
     bundle,
-    signerPublicKey,
+    signerKeyResponse: {
+      userId: signerUserId,
+      signingPublicKey: bytesToBase64(signerPublicKey),
+      signingKeyFingerprint: signerUserKeyFingerprint,
+      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+    },
   };
 }
 
@@ -93,7 +120,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
   );
 
   try {
-    const { bundle, signerPublicKey } = await createPrincipalPolicyBundle();
+    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
     let getCurrentPrincipalPolicyCallCount = 0;
 
     await cacheReferencedPrincipalPolicies({
@@ -102,6 +129,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
         getCurrentPrincipalPolicyCallCount += 1;
         return bundle;
       },
+      getEncapsulationKey: async () => signerKeyResponse,
       references: [
         {
           principalType: "group",
@@ -111,7 +139,6 @@ test("principal policy sync caches a verified referenced principal bundle and sk
           stateHash: bundle.currentState.stateHash,
         },
       ],
-      trustedPolicySigners: new Map([["signer-1", signerPublicKey]]),
     });
 
     await expect(
@@ -127,6 +154,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
         getCurrentPrincipalPolicyCallCount += 1;
         return bundle;
       },
+      getEncapsulationKey: async () => signerKeyResponse,
       references: [
         {
           principalType: "group",
@@ -136,7 +164,6 @@ test("principal policy sync caches a verified referenced principal bundle and sk
           stateHash: bundle.currentState.stateHash,
         },
       ],
-      trustedPolicySigners: new Map([["signer-1", signerPublicKey]]),
     });
 
     expect(getCurrentPrincipalPolicyCallCount).toBe(1);
@@ -145,18 +172,22 @@ test("principal policy sync caches a verified referenced principal bundle and sk
   }
 });
 
-test("principal policy sync skips untrusted bundles without persisting them", async () => {
+test("principal policy sync skips bundles when the signer key does not match", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
   );
 
   try {
-    const { bundle } = await createPrincipalPolicyBundle();
+    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
     await ensurePrincipalPolicyTables(execSql);
 
     await cacheReferencedPrincipalPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
+      getEncapsulationKey: async () => ({
+        ...signerKeyResponse,
+        signingKeyFingerprint: "mismatched-fingerprint",
+      }),
       references: [
         {
           principalType: "group",
@@ -166,7 +197,6 @@ test("principal policy sync skips untrusted bundles without persisting them", as
           stateHash: bundle.currentState.stateHash,
         },
       ],
-      trustedPolicySigners: new Map(),
     });
 
     await expect(

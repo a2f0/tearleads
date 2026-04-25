@@ -150,19 +150,25 @@ export class ApiClient {
   }
 
   postPublicKey(
+    userId: string,
+    organizationId: string,
     rootContainerId: string,
     signingPublicKey: Uint8Array,
     encapsulationPublicKey: Uint8Array,
-    wrappedDekEnvelope: Parameters<typeof postPublicKey>[4],
-    initialRootMetadataUpdates: Parameters<typeof postPublicKey>[5],
+    wrappedDekEnvelope: Parameters<typeof postPublicKey>[6],
+    initialOrganizationPolicy: Parameters<typeof postPublicKey>[7],
+    initialRootMetadataUpdates: Parameters<typeof postPublicKey>[8],
     initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
   ) {
     return postPublicKey(
       this.request,
+      userId,
+      organizationId,
       rootContainerId,
       signingPublicKey,
       encapsulationPublicKey,
       wrappedDekEnvelope,
+      initialOrganizationPolicy,
       initialRootMetadataUpdates,
       initialRootMetadataRecipientEnvelopes,
     );

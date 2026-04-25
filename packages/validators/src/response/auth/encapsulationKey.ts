@@ -3,6 +3,8 @@ import { hasStringProperty } from "../../util";
 
 export interface EncapsulationKeyResponse {
   userId: string;
+  signingPublicKey: string;
+  signingKeyFingerprint: string;
   encapsulationPublicKey: string;
 }
 
@@ -12,6 +14,8 @@ export function isEncapsulationKeyResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "userId") &&
+    hasStringProperty(value, "signingPublicKey") &&
+    hasStringProperty(value, "signingKeyFingerprint") &&
     hasStringProperty(value, "encapsulationPublicKey")
   );
 }

@@ -1,12 +1,15 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   hexToBytes,
   sign,
+  signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import invariant from "invariant";
 import {
   resetMockServer,
@@ -21,20 +24,82 @@ afterEach(async () => {
 
 async function registerPersona(
   signingPublicKey: Uint8Array,
+  signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
 ): Promise<{ userId: string }> {
   const dek = crypto.getRandomValues(new Uint8Array(32));
   const recipients = await wrapDekForRecipients(dek, [encapsulationPublicKey]);
   const wrappedEnvelope = recipients[0];
   invariant(wrappedEnvelope, "Expected wrapped DEK envelope.");
+  const userId = crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
+  const organizationKem = generateKemSeedAndKeyPair();
+  const projection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: userId,
+      role: "admin" as const,
+    },
+  ];
+  const payloadCiphertext = bytesToBase64(
+    new TextEncoder().encode(JSON.stringify({ members: projection })),
+  );
+  const [organizationMemberEnvelope] = await wrapDekForRecipients(
+    organizationKem.secretKey,
+    [encapsulationPublicKey],
+  );
+  invariant(
+    organizationMemberEnvelope,
+    "Expected organization member envelope.",
+  );
 
   const response = await fetch(`${apiBaseUrl}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      userId,
+      organizationId,
       rootContainerId: crypto.randomUUID(),
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
+      initialOrganizationPolicy: {
+        state: await signPrincipalState(
+          {
+            principalType: "organization",
+            principalId: organizationId,
+            version: 1,
+            prevStateHash: null,
+            keyEpoch: 1,
+            encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
+            keyFingerprint: await toFingerprint(organizationKem.publicKey),
+            members: [{ principalType: "user", principalId: userId }],
+            projection,
+            payloadCiphertext,
+            signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
+            signerUserId: userId,
+            signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
+          },
+          signingPrivateKey,
+        ),
+        encryptedPayload: {
+          cipherSuite: "aes-256-gcm-v1",
+          ciphertext: payloadCiphertext,
+          ciphertextHash:
+            await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
+        },
+        projection,
+        memberEnvelopes: [
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: userId,
+            memberKeyFingerprint: await toFingerprint(encapsulationPublicKey),
+            kemCipherText: bytesToBase64(
+              organizationMemberEnvelope.kemCipherText,
+            ),
+            wrappedKey: bytesToBase64(organizationMemberEnvelope.wrappedKey),
+          },
+        ],
+      },
       initialRootMetadataUpdates: [],
       wrappedDekEnvelope: {
         keyFingerprint: wrappedEnvelope.keyFingerprint,
@@ -94,6 +159,7 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
   const fingerprint = await toFingerprint(signingKeys.signingPublicKey);
   const { userId } = await registerPersona(
     signingKeys.signingPublicKey,
+    signingKeys.signingPrivateKey,
     kemKeys.publicKey,
   );
 

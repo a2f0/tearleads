@@ -1,15 +1,19 @@
 import {
+  computePrincipalProjectionRoot,
   computePrincipalStateHash,
   computePrincipalStatePayloadCiphertextHash,
+  toFingerprint,
   verifySignedPrincipalState,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import type {
+  EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import {
   ensurePrincipalPolicyTables,
-  loadPrincipalPolicyStateHash,
+  loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "./persistence/principalPolicyPersistence";
 import type { ExecSql } from "./persistence/sqlSchema";
@@ -20,9 +24,11 @@ interface CacheReferencedPrincipalPoliciesOptions {
     principalType: "group" | "organization",
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
+  getEncapsulationKey: (
+    userId: string,
+  ) => Promise<EncapsulationKeyResponse | null>;
   log?: (message: string) => void;
   references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined;
-  trustedPolicySigners: ReadonlyMap<string, Uint8Array>;
 }
 
 function getReferencedPrincipalKey(
@@ -98,16 +104,40 @@ function getBundleReferenceMismatchReason(
   return null;
 }
 
+function projectionIncludesAdminUser(
+  projection: PrincipalPolicyBundleResponse["currentProjection"],
+  userId: string,
+): boolean {
+  return projection.some(
+    (member) =>
+      member.memberPrincipalType === "user" &&
+      member.memberPrincipalId === userId &&
+      member.role === "admin",
+  );
+}
+
 async function getBundleSignatureMismatchReason(
   bundle: PrincipalPolicyBundleResponse,
-  trustedPolicySigners: ReadonlyMap<string, Uint8Array>,
+  signerKey: EncapsulationKeyResponse,
+  previousBundle: PrincipalPolicyBundleResponse | null,
 ): Promise<string | null> {
-  const trustedSignerPublicKey = trustedPolicySigners.get(
-    bundle.currentState.signerKeyId,
-  );
+  if (signerKey.userId !== bundle.currentState.signerUserId) {
+    return "signer key user does not match current state signer";
+  }
 
-  if (!trustedSignerPublicKey) {
-    return `untrusted signer ${bundle.currentState.signerKeyId}`;
+  if (
+    signerKey.signingKeyFingerprint !==
+    bundle.currentState.signerUserKeyFingerprint
+  ) {
+    return "signer key fingerprint does not match current state signer";
+  }
+
+  const signerPublicKey = base64ToBytes(signerKey.signingPublicKey);
+  if (
+    (await toFingerprint(signerPublicKey)) !==
+    bundle.currentState.signerUserKeyFingerprint
+  ) {
+    return "computed signer key fingerprint does not match current state signer";
   }
 
   const computedStateHash = await computePrincipalStateHash(
@@ -132,9 +162,49 @@ async function getBundleSignatureMismatchReason(
     return "bundle payload hash does not match current state payload hash";
   }
 
+  const computedProjectionRoot = await computePrincipalProjectionRoot(
+    bundle.currentProjection,
+  );
+  if (computedProjectionRoot !== bundle.currentState.projectionRoot) {
+    return "computed projection root does not match current state projection root";
+  }
+
+  if (bundle.currentProjection.length !== bundle.currentState.memberCount) {
+    return "bundle projection count does not match current state member count";
+  }
+
+  if (bundle.currentState.prevStateHash === null) {
+    if (
+      !projectionIncludesAdminUser(
+        bundle.currentProjection,
+        bundle.currentState.signerUserId,
+      )
+    ) {
+      return "initial state signer is not an admin in current projection";
+    }
+  } else {
+    if (!previousBundle) {
+      return "previous principal policy state is not cached";
+    }
+    if (
+      previousBundle.currentState.stateHash !==
+      bundle.currentState.prevStateHash
+    ) {
+      return "cached previous principal policy state does not match current state";
+    }
+    if (
+      !projectionIncludesAdminUser(
+        previousBundle.currentProjection,
+        bundle.currentState.signerUserId,
+      )
+    ) {
+      return "state signer is not an admin in previous projection";
+    }
+  }
+
   const signatureVerified = await verifySignedPrincipalState(
     bundle.currentState,
-    trustedSignerPublicKey,
+    signerPublicKey,
   );
   if (!signatureVerified) {
     return "principal state signature verification failed";
@@ -146,28 +216,30 @@ async function getBundleSignatureMismatchReason(
 async function validatePrincipalPolicyBundle(
   reference: ReferencedPrincipalStateResponse,
   bundle: PrincipalPolicyBundleResponse,
-  trustedPolicySigners: ReadonlyMap<string, Uint8Array>,
+  signerKey: EncapsulationKeyResponse,
+  previousBundle: PrincipalPolicyBundleResponse | null,
 ): Promise<string | null> {
   const referenceMismatch = getBundleReferenceMismatchReason(reference, bundle);
   if (referenceMismatch) {
     return referenceMismatch;
   }
 
-  return getBundleSignatureMismatchReason(bundle, trustedPolicySigners);
+  return getBundleSignatureMismatchReason(bundle, signerKey, previousBundle);
 }
 
 async function cacheReferencedPrincipalPolicy(
   execSql: ExecSql,
   getCurrentPrincipalPolicy: CacheReferencedPrincipalPoliciesOptions["getCurrentPrincipalPolicy"],
-  trustedPolicySigners: ReadonlyMap<string, Uint8Array>,
+  getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"],
   reference: ReferencedPrincipalStateResponse,
   log: ((message: string) => void) | undefined,
 ): Promise<void> {
-  const cachedStateHash = await loadPrincipalPolicyStateHash(
+  const previousBundle = await loadPrincipalPolicyBundle(
     execSql,
     reference.principalType,
     reference.principalId,
   );
+  const cachedStateHash = previousBundle?.currentState.stateHash ?? null;
   if (cachedStateHash === reference.stateHash) {
     return;
   }
@@ -183,10 +255,19 @@ async function cacheReferencedPrincipalPolicy(
     return;
   }
 
+  const signerKey = await getEncapsulationKey(bundle.currentState.signerUserId);
+  if (!signerKey) {
+    log?.(
+      `Principal policy cache: skipped ${getReferencedPrincipalKey(reference)}: failed to fetch signer key`,
+    );
+    return;
+  }
+
   const validationError = await validatePrincipalPolicyBundle(
     reference,
     bundle,
-    trustedPolicySigners,
+    signerKey,
+    previousBundle,
   );
   if (validationError) {
     log?.(
@@ -200,16 +281,12 @@ async function cacheReferencedPrincipalPolicy(
 
 export async function cacheReferencedPrincipalPolicies({
   execSql,
+  getEncapsulationKey,
   getCurrentPrincipalPolicy,
   log,
   references,
-  trustedPolicySigners,
 }: CacheReferencedPrincipalPoliciesOptions): Promise<void> {
-  if (
-    !references ||
-    references.length === 0 ||
-    trustedPolicySigners.size === 0
-  ) {
+  if (!references || references.length === 0) {
     return;
   }
 
@@ -223,7 +300,7 @@ export async function cacheReferencedPrincipalPolicies({
           await cacheReferencedPrincipalPolicy(
             execSql,
             getCurrentPrincipalPolicy,
-            trustedPolicySigners,
+            getEncapsulationKey,
             reference,
             log,
           );

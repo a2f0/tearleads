@@ -19,7 +19,11 @@ afterAll(async () => {
 
 test("returns a challenge for a known fingerprint", async () => {
   fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  await uploadKey(signingKeys.signingPublicKey, kemKeys.publicKey);
+  await uploadKey(
+    signingKeys.signingPublicKey,
+    signingKeys.signingPrivateKey,
+    kemKeys.publicKey,
+  );
 
   const res = await requestChallenge(fingerprint);
   expect(res.status).toBe(200);

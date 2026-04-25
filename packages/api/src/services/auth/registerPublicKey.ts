@@ -11,6 +11,8 @@ import {
   computeAccessFingerprint,
   computeAccessStateHash,
 } from "../../access/accessFingerprint";
+import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/principalMemberEnvelopes";
+import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
 import {
   toUserPrincipalEnvelopeRecipient,
   toUserPrincipalFingerprintRecipient,
@@ -73,10 +75,13 @@ async function validateWrappedDekEnvelope(
   }
 }
 
-async function createPersonalOrganization(tx: DatabaseTransaction) {
+async function createPersonalOrganization(
+  tx: DatabaseTransaction,
+  organizationId: string,
+) {
   const [org] = await tx
     .insert(organizations)
-    .values({ name: "Personal" })
+    .values({ id: organizationId, name: "Personal" })
     .returning({ id: organizations.id });
   if (!org) {
     throw new Error("Failed to create organization");
@@ -110,12 +115,14 @@ async function createRegisteredUser(
     encapsulationKeyBytes: Uint8Array;
     fingerprint: string;
     organizationId: string;
+    userId: string;
     signingKeyBytes: Uint8Array;
   },
 ) {
   const [user] = await tx
     .insert(users)
     .values({
+      id: input.userId,
       fingerprint: input.fingerprint,
       signingPublicKey: bytesToBase64(input.signingKeyBytes),
       encapsulationPublicKey: bytesToBase64(input.encapsulationKeyBytes),
@@ -128,6 +135,57 @@ async function createRegisteredUser(
     throw new Error(DUPLICATE_FINGERPRINT_ERROR);
   }
   return user;
+}
+
+function validateInitialOrganizationPolicyInput(
+  input: PublicKeyRequest,
+  fingerprint: string,
+) {
+  const { state } = input.initialOrganizationPolicy;
+
+  if (
+    state.principalType !== "organization" ||
+    state.principalId !== input.organizationId
+  ) {
+    throw new RegisterPublicKeyError(
+      "initialOrganizationPolicy state must target the registered organization",
+      400,
+    );
+  }
+
+  if (
+    state.signerUserId !== input.userId ||
+    state.signerUserKeyFingerprint !== fingerprint
+  ) {
+    throw new RegisterPublicKeyError(
+      "initialOrganizationPolicy signer must match the registering user",
+      400,
+    );
+  }
+}
+
+async function storeInitialOrganizationPolicy(
+  tx: DatabaseTransaction,
+  input: PublicKeyRequest,
+) {
+  const storedState = await storeVerifiedPrincipalState(
+    {
+      state: input.initialOrganizationPolicy.state,
+      encryptedPayload: input.initialOrganizationPolicy.encryptedPayload,
+      projection: input.initialOrganizationPolicy.projection,
+    },
+    tx,
+  );
+
+  await replaceCurrentPrincipalMemberEnvelopes(
+    {
+      principalType: "organization",
+      principalId: input.organizationId,
+      stateHash: storedState.stateHash,
+      envelopes: input.initialOrganizationPolicy.memberEnvelopes,
+    },
+    tx,
+  );
 }
 
 async function writeInitialRootContainerAccess(
@@ -253,7 +311,7 @@ async function runRegisterPublicKeyTransaction(
   encapsulationKeyBytes: Uint8Array,
 ) {
   return runtime.db.transaction(async (tx) => {
-    const org = await createPersonalOrganization(tx);
+    const org = await createPersonalOrganization(tx, input.organizationId);
     const container = await createRootContainer(
       tx,
       input.rootContainerId,
@@ -264,10 +322,10 @@ async function runRegisterPublicKeyTransaction(
       encapsulationKeyBytes,
       fingerprint,
       organizationId: org.id,
+      userId: input.userId,
       signingKeyBytes,
     });
-    // Registration bootstraps personal access with a direct root-container grant.
-    // Organization-principal access requires a separately signed principal state.
+    await storeInitialOrganizationPolicy(tx, input);
     await writeInitialRootContainerAccess(tx, {
       containerId: container.id,
       userId: user.id,
@@ -292,6 +350,46 @@ async function runRegisterPublicKeyTransaction(
   });
 }
 
+function toRegisterPrincipalPolicyError(
+  error: unknown,
+): RegisterPublicKeyError | null {
+  if (!(error instanceof Error)) {
+    return null;
+  }
+
+  if (
+    error.message === "Invalid principal state signature" ||
+    error.message === "Principal state signer user not found" ||
+    error.message === "Principal state signer fingerprint mismatch" ||
+    error.message === "Principal state signer must be an admin" ||
+    error.message === "Principal state previous hash mismatch" ||
+    error.message ===
+      "Principal state projectionRoot does not match projection" ||
+    error.message ===
+      "Principal state payload ciphertext hash does not match ciphertext" ||
+    error.message ===
+      "Principal state payloadCiphertextHash does not match encrypted payload" ||
+    error.message === "Principal state memberCount does not match projection" ||
+    error.message ===
+      "Principal member envelopes must match the current direct member set" ||
+    error.message ===
+      "Principal member envelopes must cover the current direct member set" ||
+    error.message.startsWith(
+      "Principal member envelope targets unknown member",
+    ) ||
+    error.message.startsWith(
+      "Principal member envelope fingerprint mismatch",
+    ) ||
+    error.message.startsWith(
+      "Principal member envelope is missing wrapped material",
+    )
+  ) {
+    return new RegisterPublicKeyError(error.message, 400);
+  }
+
+  return null;
+}
+
 export async function registerPublicKey(
   runtime: ApiServiceRuntime,
   input: PublicKeyRequest,
@@ -301,14 +399,24 @@ export async function registerPublicKey(
   const fingerprint = await toFingerprint(signingKeyBytes);
   const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
   await validateWrappedDekEnvelope(input, encapsulationFingerprint);
-  const result = await runRegisterPublicKeyTransaction(
-    runtime,
-    input,
-    fingerprint,
-    encapsulationFingerprint,
-    signingKeyBytes,
-    encapsulationKeyBytes,
-  );
+  validateInitialOrganizationPolicyInput(input, fingerprint);
+  let result: Awaited<ReturnType<typeof runRegisterPublicKeyTransaction>>;
+  try {
+    result = await runRegisterPublicKeyTransaction(
+      runtime,
+      input,
+      fingerprint,
+      encapsulationFingerprint,
+      signingKeyBytes,
+      encapsulationKeyBytes,
+    );
+  } catch (error) {
+    const registerPrincipalPolicyError = toRegisterPrincipalPolicyError(error);
+    if (registerPrincipalPolicyError) {
+      throw registerPrincipalPolicyError;
+    }
+    throw error;
+  }
   const challengeHex = await issueRegistrationChallenge(
     runtime,
     fingerprint,

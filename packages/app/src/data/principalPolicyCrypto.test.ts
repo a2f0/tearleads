@@ -35,9 +35,24 @@ async function createPrincipalPolicyBundle(input: {
   signedAt: string;
   version?: number;
 }): Promise<PrincipalPolicyBundleResponse> {
-  const { signingPrivateKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
   const keyEpoch = input.keyEpoch ?? 1;
   const version = input.version ?? 1;
+  const signerUserId = `${input.principalId}-signer-user`;
+  const signerUserKeyFingerprint = await toFingerprint(signingPublicKey);
+  const currentProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: signerUserId,
+      role: "admin" as const,
+    },
+    ...input.members.map((member) => ({
+      memberPrincipalType: member.principalType,
+      memberPrincipalId: member.principalId,
+      role: "member" as const,
+    })),
+  ];
   const signedState = await signPrincipalState(
     {
       principalType: "group",
@@ -48,9 +63,11 @@ async function createPrincipalPolicyBundle(input: {
       encapsulationPublicKey: bytesToBase64(input.principalKem.publicKey),
       keyFingerprint: await toFingerprint(input.principalKem.publicKey),
       members: input.members,
+      projection: currentProjection,
       payloadCiphertext: `${input.principalId}-ciphertext`,
       signedAt: input.signedAt,
-      signerKeyId: `${input.principalId}-signer`,
+      signerUserId,
+      signerUserKeyFingerprint,
     },
     signingPrivateKey,
   );
@@ -87,6 +104,7 @@ async function createPrincipalPolicyBundle(input: {
       createdAt: input.signedAt,
       stateHash,
     },
+    currentProjection,
     currentPayload: {
       principalType: "group",
       principalId: input.principalId,

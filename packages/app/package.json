@@ -6,8 +6,7 @@
   "exports": {
     "./App": "./src/App.tsx",
     "./client": "./src/client.tsx",
-    "./host/AppHostConfig": "./src/host/AppHostConfig.ts",
-    "./host/trustedPolicySigners": "./src/host/trustedPolicySigners.ts"
+    "./host/AppHostConfig": "./src/host/AppHostConfig.ts"
   },
   "scripts": {
     "test": "bun test src --max-concurrency=1"

@@ -35,7 +35,8 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
         },
       ],
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
-      signerKeyId: "policy-key-1",
+      signerUserId: crypto.randomUUID(),
+      signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
     },
     signingPrivateKey,
   );
@@ -51,7 +52,8 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
 
 test("signPrincipalState computes membershipRoot and key fingerprint from normalized inputs", async () => {
   const { publicKey } = generateKemSeedAndKeyPair();
-  const { signingPrivateKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
   const expectedMembershipRoot = await computePrincipalMembershipRoot([
     {
       principalType: "group",
@@ -83,7 +85,8 @@ test("signPrincipalState computes membershipRoot and key fingerprint from normal
       ],
       membershipRoot: expectedMembershipRoot,
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
-      signerKeyId: "policy-key-1",
+      signerUserId: crypto.randomUUID(),
+      signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
     },
     signingPrivateKey,
   );
@@ -111,7 +114,8 @@ test("verifySignedPrincipalState rejects tampered membership roots", async () =>
         },
       ],
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
-      signerKeyId: "policy-key-1",
+      signerUserId: crypto.randomUUID(),
+      signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
     },
     signingPrivateKey,
   );

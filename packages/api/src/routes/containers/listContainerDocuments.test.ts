@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
   signPrincipalState,
   toFingerprint,
 } from "@tearleads/crypto";
@@ -12,6 +11,10 @@ import invariant from "invariant";
 import { createDocument } from "../../../test/helpers/api";
 import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  createPrincipalStateSigner,
+  createProjectionWithAdminSigner,
+} from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { grantContainerAccess } from "../../access/containerAccess";
 import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
@@ -55,9 +58,12 @@ async function storeCurrentGroupState(
   memberUserIds: string[],
 ): Promise<{ encapsulationPublicKey: string }> {
   const principalKem = generateKemSeedAndKeyPair();
-  const { signingPrivateKey, signingPublicKey } =
-    generateSigningSeedAndKeyPair();
+  const signer = await createPrincipalStateSigner();
   const encapsulationPublicKey = bytesToBase64(principalKem.publicKey);
+  const members = memberUserIds.map((userId) => ({
+    principalType: "user" as const,
+    principalId: userId,
+  }));
 
   await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -69,16 +75,17 @@ async function storeCurrentGroupState(
         keyEpoch: 1,
         encapsulationPublicKey,
         keyFingerprint: await toFingerprint(principalKem.publicKey),
-        members: memberUserIds.map((userId) => ({
-          principalType: "user",
-          principalId: userId,
-        })),
+        members,
+        projection: createProjectionWithAdminSigner(
+          signer.signerUserId,
+          members,
+        ),
         signedAt: principalStateSignedAt(20),
-        signerKeyId: "group-policy-key",
+        signerUserId: signer.signerUserId,
+        signerUserKeyFingerprint: signer.signerUserKeyFingerprint,
       },
-      signingPrivateKey,
+      signer.signingPrivateKey,
     ),
-    signingPublicKey,
   );
 
   return { encapsulationPublicKey };

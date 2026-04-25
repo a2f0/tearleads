@@ -96,6 +96,8 @@ const server = setupServer(
     ({ params }) => {
       return HttpResponse.json<EncapsulationKeyResponse>({
         userId: params.userId,
+        signingPublicKey: randomHex(32),
+        signingKeyFingerprint: randomHex(32),
         encapsulationPublicKey: randomHex(32),
       });
     },
@@ -223,9 +225,6 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
       db,
       eventPublisher,
       keyValueStore,
-      principalSignerTrustStore: {
-        getTrustedSignerPublicKey: async () => null,
-      },
       sessionTokenIssuer: {
         createSession: createSessionTokenIssuer(keyValueStore.set),
       },

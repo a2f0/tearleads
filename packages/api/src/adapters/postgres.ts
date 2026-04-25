@@ -56,7 +56,8 @@ await client.exec(`
     member_count INTEGER NOT NULL,
     state_hash TEXT NOT NULL,
     signed_at TIMESTAMP NOT NULL,
-    signer_key_id TEXT NOT NULL,
+    signer_user_id UUID NOT NULL,
+    signer_user_key_fingerprint TEXT NOT NULL,
     signature TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );

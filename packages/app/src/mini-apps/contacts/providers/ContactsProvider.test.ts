@@ -174,6 +174,8 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
 
         return {
           encapsulationPublicKey: `${userId}-key`,
+          signingKeyFingerprint: `${userId}-signing-fingerprint`,
+          signingPublicKey: `${userId}-signing-key`,
           userId,
         };
       },
@@ -201,6 +203,8 @@ function createSyncRuntime(
     apiClient: {
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: `${userId}-key`,
+        signingKeyFingerprint: `${userId}-signing-fingerprint`,
+        signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
       createDocument: async (_linkedContainerIds, _expectedHashes) => ({
@@ -483,6 +487,8 @@ test("contacts store rewraps document access expansion without replacing pending
       },
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: importedEncapsulationPublicKey,
+        signingKeyFingerprint: `${userId}-signing-fingerprint`,
+        signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
       syncDocument: async (
@@ -620,6 +626,8 @@ test("contacts store persists commitLsn and reuses it as minLsn on the next sync
       ...runtime.apiClient,
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: importedEncapsulationPublicKey,
+        signingKeyFingerprint: `${userId}-signing-fingerprint`,
+        signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
       syncDocument: async (
