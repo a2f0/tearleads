@@ -40,19 +40,6 @@ await client.exec(`
     name TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
-  CREATE TABLE IF NOT EXISTS organization_members (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    role TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now()
-  );
-  CREATE TABLE IF NOT EXISTS group_members (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    group_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now()
-  );
   CREATE TABLE IF NOT EXISTS principal_states (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     principal_type TEXT NOT NULL,
@@ -247,10 +234,6 @@ await client.exec(`
     detached_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
-  CREATE INDEX IF NOT EXISTS organization_members_organization_id_idx
-    ON organization_members (organization_id);
-  CREATE INDEX IF NOT EXISTS group_members_group_id_idx
-    ON group_members (group_id);
   CREATE INDEX IF NOT EXISTS principal_states_principal_idx
     ON principal_states (principal_type, principal_id);
   CREATE UNIQUE INDEX IF NOT EXISTS principal_states_principal_version_idx

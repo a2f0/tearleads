@@ -106,19 +106,29 @@ This model treats containers, documents, and blobs as first-class protected obje
 
 ### Membership
 
-- `organization_members`
-  - `organization_id`
-  - `user_id`
-  - `role`
-- `group_members`
-  - `group_id`
-  - `user_id`
+- `principal_states`
+  - signed group/organization policy headers
+  - chained by `prevStateHash`
+  - keyed by the computed `stateHash`
+- `principal_state_payloads`
+  - encrypted canonical membership payloads keyed by `stateHash`
+- `principal_membership_projection`
+  - server-visible projection rows keyed by `stateHash`
+  - derived cache, not authority
 
-Start with direct `group -> user` and `organization -> user` membership.
+Start with direct `group -> user` and `organization -> user` membership inside
+signed principal state. Mutable `organization_members` / `group_members` rows
+are not part of the access authority model.
+
+Registration bootstraps a personal organization with a direct admin grant on the
+root container for the registering user. It does not create server-authored
+organization membership. Sharing to an `organization` principal requires the
+organization to publish a signed principal state first; otherwise managed
+principal access fails closed with a missing-policy-state conflict.
 
 Nested groups are compatible with this model but can be deferred. If added,
-they should be expanded transitively before computing effective recipients or
-an `accessFingerprint`.
+they are expanded transitively from current projection rows before computing
+effective recipients, referenced principal states, or access-state hashes.
 
 ### Object Grants
 
@@ -557,11 +567,11 @@ interface SignedPrincipalState {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  members: Array<
-    | { principalType: "user"; principalId: string }
-    | { principalType: "group"; principalId: string }
-  >;
+  membershipMode: "projection_v1";
   membershipRoot: string;
+  projectionRoot: string;
+  payloadCiphertextHash: string;
+  memberCount: number;
   signedAt: string;
   signerKeyId: string;
   signature: string;
@@ -570,8 +580,10 @@ interface SignedPrincipalState {
 
 Rules:
 
-- `members` must be canonically sorted before hashing or signing
-- `membershipRoot` is the hash of the normalized member list
+- `membershipRoot` identifies the encrypted canonical membership payload
+- `projectionRoot` is the hash of the normalized server-visible projection
+- `payloadCiphertextHash` binds the encrypted membership payload to the signed
+  header
 - `prevStateHash` forms a hash chain so rollback is detectable
 - `encapsulationPublicKey` and `keyFingerprint` bind the current principal epoch
   key to the signed policy state
