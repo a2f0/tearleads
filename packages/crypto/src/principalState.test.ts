@@ -5,6 +5,7 @@ import { toFingerprint } from "./fingerprint";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalMembershipRoot,
+  computePrincipalProjectionRoot,
   computePrincipalStateHash,
   derivePrincipalProjectionMembers,
   serializeUnsignedPrincipalState,
@@ -99,6 +100,47 @@ test("signPrincipalState computes membershipRoot and key fingerprint from normal
   );
 
   expect(signedState.membershipRoot).toBe(expectedMembershipRoot);
+});
+
+test("principal roots reject duplicate members after normalization", async () => {
+  await expect(
+    computePrincipalMembershipRoot([
+      {
+        principalType: "user",
+        principalId: "alice",
+      },
+      {
+        principalType: "group",
+        principalId: "team",
+      },
+      {
+        principalType: "user",
+        principalId: "alice",
+      },
+    ]),
+  ).rejects.toThrow("Principal state cannot contain duplicate members");
+
+  await expect(
+    computePrincipalProjectionRoot([
+      {
+        memberPrincipalType: "group",
+        memberPrincipalId: "team",
+        role: "member",
+      },
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: "alice",
+        role: "member",
+      },
+      {
+        memberPrincipalType: "group",
+        memberPrincipalId: "team",
+        role: "admin",
+      },
+    ]),
+  ).rejects.toThrow(
+    "Principal state projection cannot contain duplicate members",
+  );
 });
 
 test("verifySignedPrincipalState rejects tampered membership roots", async () => {

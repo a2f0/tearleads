@@ -23,40 +23,6 @@ export interface PrincipalProjectionMember {
   role: PrincipalProjectionRole;
 }
 
-export interface PrincipalStateSigningInput {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  version: number;
-  prevStateHash: string | null;
-  keyEpoch: number;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-  membershipMode: PrincipalStateMembershipMode;
-  membershipRoot: string;
-  projectionRoot: string;
-  payloadCiphertextHash: string;
-  memberCount: number;
-  signedAt: string;
-  signerUserId: string;
-  signerUserKeyFingerprint: string;
-}
-
-export interface PrincipalStateHeaderInput {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  version: number;
-  prevStateHash: string | null;
-  keyEpoch: number;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-  members: PrincipalStateMember[];
-  projection: PrincipalProjectionMember[];
-  payloadCiphertext: string;
-  signedAt: string;
-  signerUserId: string;
-  signerUserKeyFingerprint: string;
-}
-
 export interface UnsignedPrincipalState {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
@@ -70,6 +36,24 @@ export interface UnsignedPrincipalState {
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
+  signedAt: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
+}
+
+export type PrincipalStateSigningInput = UnsignedPrincipalState;
+
+export interface PrincipalStateHeaderInput {
+  principalType: ManagedRecipientPrincipalType;
+  principalId: string;
+  version: number;
+  prevStateHash: string | null;
+  keyEpoch: number;
+  encapsulationPublicKey: string;
+  keyFingerprint: string;
+  members: PrincipalStateMember[];
+  projection: PrincipalProjectionMember[];
+  payloadCiphertext: string;
   signedAt: string;
   signerUserId: string;
   signerUserKeyFingerprint: string;
@@ -120,11 +104,9 @@ function comparePrincipalProjectionMembers(
   return left.memberPrincipalType.localeCompare(right.memberPrincipalType);
 }
 
-function hasDuplicatePrincipalStateMembers(
-  members: ReadonlyArray<PrincipalStateMember>,
+function hasDuplicateNormalizedPrincipalStateMembers(
+  normalizedMembers: ReadonlyArray<PrincipalStateMember>,
 ): boolean {
-  const normalizedMembers = normalizePrincipalStateMembers(members);
-
   for (let index = 1; index < normalizedMembers.length; index += 1) {
     const previousMember = normalizedMembers[index - 1];
     const currentMember = normalizedMembers[index];
@@ -142,11 +124,9 @@ function hasDuplicatePrincipalStateMembers(
   return false;
 }
 
-function hasDuplicatePrincipalProjectionMembers(
-  members: ReadonlyArray<PrincipalProjectionMember>,
+function hasDuplicateNormalizedPrincipalProjectionMembers(
+  normalizedMembers: ReadonlyArray<PrincipalProjectionMember>,
 ): boolean {
-  const normalizedMembers = normalizePrincipalProjectionMembers(members);
-
   for (let index = 1; index < normalizedMembers.length; index += 1) {
     const previousMember = normalizedMembers[index - 1];
     const currentMember = normalizedMembers[index];
@@ -177,12 +157,12 @@ function isValidSignedAt(value: string): boolean {
   return !Number.isNaN(new Date(value).valueOf());
 }
 
-function encodePrincipalStateMembers(
-  members: ReadonlyArray<PrincipalStateMember>,
+function encodeNormalizedPrincipalStateMembers(
+  normalizedMembers: ReadonlyArray<PrincipalStateMember>,
 ): Uint8Array {
   return TEXT_ENCODER.encode(
     JSON.stringify(
-      normalizePrincipalStateMembers(members).map((member) => ({
+      normalizedMembers.map((member) => ({
         principalType: member.principalType,
         principalId: member.principalId,
       })),
@@ -190,12 +170,12 @@ function encodePrincipalStateMembers(
   );
 }
 
-function encodePrincipalProjectionMembers(
-  members: ReadonlyArray<PrincipalProjectionMember>,
+function encodeNormalizedPrincipalProjectionMembers(
+  normalizedMembers: ReadonlyArray<PrincipalProjectionMember>,
 ): Uint8Array {
   return TEXT_ENCODER.encode(
     JSON.stringify(
-      normalizePrincipalProjectionMembers(members).map((member) => ({
+      normalizedMembers.map((member) => ({
         memberPrincipalType: member.memberPrincipalType,
         memberPrincipalId: member.memberPrincipalId,
         role: member.role,
@@ -447,23 +427,31 @@ export function normalizePrincipalProjectionMembers(
 export async function computePrincipalMembershipRoot(
   members: ReadonlyArray<PrincipalStateMember>,
 ): Promise<string> {
-  if (hasDuplicatePrincipalStateMembers(members)) {
+  const normalizedMembers = normalizePrincipalStateMembers(members);
+
+  if (hasDuplicateNormalizedPrincipalStateMembers(normalizedMembers)) {
     throw new Error("Principal state cannot contain duplicate members");
   }
 
-  return toFingerprint(encodePrincipalStateMembers(members));
+  return toFingerprint(
+    encodeNormalizedPrincipalStateMembers(normalizedMembers),
+  );
 }
 
 export async function computePrincipalProjectionRoot(
   members: ReadonlyArray<PrincipalProjectionMember>,
 ): Promise<string> {
-  if (hasDuplicatePrincipalProjectionMembers(members)) {
+  const normalizedMembers = normalizePrincipalProjectionMembers(members);
+
+  if (hasDuplicateNormalizedPrincipalProjectionMembers(normalizedMembers)) {
     throw new Error(
       "Principal state projection cannot contain duplicate members",
     );
   }
 
-  return toFingerprint(encodePrincipalProjectionMembers(members));
+  return toFingerprint(
+    encodeNormalizedPrincipalProjectionMembers(normalizedMembers),
+  );
 }
 
 export async function computePrincipalStatePayloadCiphertextHash(
@@ -475,10 +463,6 @@ export async function computePrincipalStatePayloadCiphertextHash(
 export async function buildPrincipalStateSigningInput(
   input: PrincipalStateHeaderInput,
 ): Promise<PrincipalStateSigningInput> {
-  const normalizedProjection = normalizePrincipalProjectionMembers(
-    input.projection,
-  );
-
   return {
     principalType: input.principalType,
     principalId: input.principalId,
@@ -489,11 +473,11 @@ export async function buildPrincipalStateSigningInput(
     keyFingerprint: input.keyFingerprint,
     membershipMode: "projection_v1",
     membershipRoot: await computePrincipalMembershipRoot(input.members),
-    projectionRoot: await computePrincipalProjectionRoot(normalizedProjection),
+    projectionRoot: await computePrincipalProjectionRoot(input.projection),
     payloadCiphertextHash: await computePrincipalStatePayloadCiphertextHash(
       input.payloadCiphertext,
     ),
-    memberCount: normalizedProjection.length,
+    memberCount: input.projection.length,
     signedAt: input.signedAt,
     signerUserId: input.signerUserId,
     signerUserKeyFingerprint: input.signerUserKeyFingerprint,
