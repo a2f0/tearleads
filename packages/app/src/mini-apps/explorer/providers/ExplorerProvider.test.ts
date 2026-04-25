@@ -76,6 +76,7 @@ async function createSqlRuntime(): Promise<TestRuntime> {
       createContainer: async (
         _id: string,
         _parentId: string,
+        _expectedAccessStateHash: string,
         _initialMetadataUpdates,
       ) => null,
       createDocument: async () => null,
@@ -100,6 +101,7 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
 
   try {
     await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
     await saveContainer(runtime.execSql, {
       id: "root-container",
       organizationId: "org-1",
@@ -284,6 +286,7 @@ test("explorer store creates authenticated child containers through the API befo
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const createContainerCalls: Array<{
+    expectedAccessStateHash: string;
     id: string;
     initialMetadataUpdateCount: number;
     parentId: string;
@@ -296,9 +299,11 @@ test("explorer store creates authenticated child containers through the API befo
     createContainer: async (
       id: string,
       parentId: string,
+      expectedAccessStateHash: string,
       initialMetadataUpdates,
     ) => {
       createContainerCalls.push({
+        expectedAccessStateHash,
         id,
         initialMetadataUpdateCount: initialMetadataUpdates.length,
         parentId,
@@ -320,14 +325,37 @@ test("explorer store creates authenticated child containers through the API befo
   };
   try {
     await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
+    const { initialUpdate: rootInitialUpdate } =
+      await createInitializedContainerMetadataDocument("root-container", {
+        icon: null,
+        name: "/",
+      });
     await saveContainer(runtime.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
-      metadataDocumentId: null,
+      metadataDocumentId: "root-metadata-document",
       name: "/",
       icon: null,
     });
+    await saveDocumentRecord(
+      runtime.execSql,
+      {
+        appKind: "container-metadata",
+        localId: "root-container",
+      },
+      {
+        accessEpoch: 1,
+        accessStateHash: "root-access-state-hash-1",
+        documentId: "root-metadata-document",
+        documentRecipientEnvelopes: null,
+        id: "root-container",
+        lastCommitLsn: null,
+        loroSnapshot: bytesToBase64(rootInitialUpdate),
+      },
+      new Date("2026-04-25T00:00:00.000Z").toISOString(),
+    );
 
     const store = createExplorerStore(runtime);
     store.updateRuntime(runtime);
@@ -344,6 +372,7 @@ test("explorer store creates authenticated child containers through the API befo
 
     expect(createContainerCalls).toEqual([
       {
+        expectedAccessStateHash: "root-access-state-hash-1",
         id: childNode.id,
         initialMetadataUpdateCount: 1,
         parentId: "root-container",
@@ -383,6 +412,7 @@ test("explorer store creates a child under a writable shared root using the inhe
     await toFingerprint(localKeyPair.publicKey),
   ].sort();
   const createContainerCalls: Array<{
+    expectedAccessStateHash: string;
     id: string;
     initialMetadataRecipientFingerprints: string[];
     parentId: string;
@@ -399,10 +429,12 @@ test("explorer store creates a child under a writable shared root using the inhe
     createContainer: async (
       id: string,
       parentId: string,
+      expectedAccessStateHash: string,
       _initialMetadataUpdates,
       initialMetadataRecipientEnvelopes,
     ) => {
       createContainerCalls.push({
+        expectedAccessStateHash,
         id,
         initialMetadataRecipientFingerprints: [
           ...(initialMetadataRecipientEnvelopes ?? []),
@@ -436,6 +468,7 @@ test("explorer store creates a child under a writable shared root using the inhe
       {
         id: "shared-root-container",
         metadataAccessEpoch: 1,
+        metadataAccessStateHash: "shared-root-access-state-hash-1",
         metadataDocumentId: "shared-root-metadata-document",
         metadataRecipientEncapsulationPublicKeys: [
           bytesToBase64(ownerKeyPair.publicKey),
@@ -477,6 +510,7 @@ test("explorer store creates a child under a writable shared root using the inhe
 
     expect(createContainerCalls).toEqual([
       {
+        expectedAccessStateHash: "shared-root-access-state-hash-1",
         id: childNode.id,
         initialMetadataRecipientFingerprints: expectedRecipientFingerprints,
         parentId: "shared-root-container",

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
+import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
@@ -44,34 +45,18 @@ test("POST /containers/:containerId/share grants direct user access and bumps de
   const sharedContainerId = crypto.randomUUID();
   const descendantContainerId = crypto.randomUUID();
 
-  const sharedCreateResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: sharedContainerId,
-      initialMetadataUpdates: [],
-      parentId: ownerRootId,
-    }),
-  });
+  const sharedCreateResponse = await createContainerRequest(
+    { id: sharedContainerId, parentId: ownerRootId },
+    owner.token,
+  );
 
   expect(sharedCreateResponse.status).toBe(200);
   const createdSharedContainer = await sharedCreateResponse.json();
 
-  const descendantCreateResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: descendantContainerId,
-      initialMetadataUpdates: [],
-      parentId: sharedContainerId,
-    }),
-  });
+  const descendantCreateResponse = await createContainerRequest(
+    { id: descendantContainerId, parentId: sharedContainerId },
+    owner.token,
+  );
 
   expect(descendantCreateResponse.status).toBe(200);
 
@@ -139,18 +124,10 @@ test("POST /containers/:containerId/share rejects callers without admin access",
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const sharedContainerId = crypto.randomUUID();
 
-  const createResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: sharedContainerId,
-      initialMetadataUpdates: [],
-      parentId: ownerRootId,
-    }),
-  });
+  const createResponse = await createContainerRequest(
+    { id: sharedContainerId, parentId: ownerRootId },
+    owner.token,
+  );
 
   expect(createResponse.status).toBe(200);
   const createdContainer = await createResponse.json();
@@ -184,18 +161,10 @@ test("POST /containers/:containerId/share rejects managed grants without current
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const sharedContainerId = crypto.randomUUID();
 
-  const createResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: sharedContainerId,
-      initialMetadataUpdates: [],
-      parentId: ownerRootId,
-    }),
-  });
+  const createResponse = await createContainerRequest(
+    { id: sharedContainerId, parentId: ownerRootId },
+    owner.token,
+  );
 
   expect(createResponse.status).toBe(200);
   const createdContainer = await createResponse.json();
@@ -253,18 +222,10 @@ test("POST /containers/:containerId/share rejects stale access state hashes", as
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const sharedContainerId = crypto.randomUUID();
 
-  const createResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${owner.token}`,
-    },
-    body: JSON.stringify({
-      id: sharedContainerId,
-      initialMetadataUpdates: [],
-      parentId: ownerRootId,
-    }),
-  });
+  const createResponse = await createContainerRequest(
+    { id: sharedContainerId, parentId: ownerRootId },
+    owner.token,
+  );
 
   expect(createResponse.status).toBe(200);
 

@@ -10,6 +10,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createDocument } from "../../../test/helpers/api";
+import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { grantContainerAccess } from "../../access/containerAccess";
@@ -128,18 +129,10 @@ test("GET /containers/:containerId/documents returns documents for directly shar
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const sharedContainerId = crypto.randomUUID();
 
-  const sharedContainerResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      id: sharedContainerId,
-      initialMetadataUpdates: [],
-      parentId: ownerRootId,
-    }),
-  });
+  const sharedContainerResponse = await createContainerRequest(
+    { id: sharedContainerId, parentId: ownerRootId },
+    owner.token,
+  );
 
   expect(sharedContainerResponse.status).toBe(200);
 
@@ -190,18 +183,10 @@ test("GET /containers/:containerId/documents includes referenced principal polic
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const sharedContainerId = crypto.randomUUID();
 
-  const sharedContainerResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      id: sharedContainerId,
-      initialMetadataUpdates: [],
-      parentId: ownerRootId,
-    }),
-  });
+  const sharedContainerResponse = await createContainerRequest(
+    { id: sharedContainerId, parentId: ownerRootId },
+    owner.token,
+  );
 
   expect(sharedContainerResponse.status).toBe(200);
 

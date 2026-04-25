@@ -28,6 +28,7 @@ import { routeApp } from "../../src/routeApp";
 import { documentUpdates, objectAccessGrants } from "../../src/schema";
 import {
   commitDocumentChange,
+  createContainer as createContainerRequest,
   createDocument,
   stageBlob,
   syncDocument,
@@ -750,18 +751,13 @@ test("Bob can read a rebaselined note after share and decrypt a correctly wrappe
 
 test("Bob can discover and read a note after Alice shares its container through the HTTP share route", async () => {
   const sharedContainerId = crypto.randomUUID();
-  const createContainerResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${alice.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const createContainerResponse = await createContainerRequest(
+    {
       id: sharedContainerId,
-      initialMetadataUpdates: [],
       parentId: alice.rootContainerId,
-    }),
-  });
+    },
+    alice.token,
+  );
   expect(createContainerResponse.status).toBe(200);
   const createdSharedContainer = await createContainerResponse.json();
 
@@ -979,18 +975,13 @@ test("read-only users cannot submit envelope-only sync writes", async () => {
   await authenticate(reader);
 
   const sharedContainerId = crypto.randomUUID();
-  const createContainerResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const createContainerResponse = await createContainerRequest(
+    {
       id: sharedContainerId,
-      initialMetadataUpdates: [],
       parentId: owner.rootContainerId,
-    }),
-  });
+    },
+    owner.token,
+  );
   expect(createContainerResponse.status).toBe(200);
   const createdSharedContainer = await createContainerResponse.json();
 
@@ -1059,18 +1050,13 @@ test("rotate baseline sync requires the latest prior-epoch source frontier", asy
   await authenticate(charlie);
 
   const sharedContainerId = crypto.randomUUID();
-  const createContainerResponse = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${alice.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const createContainerResponse = await createContainerRequest(
+    {
       id: sharedContainerId,
-      initialMetadataUpdates: [],
       parentId: alice.rootContainerId,
-    }),
-  });
+    },
+    alice.token,
+  );
   expect(createContainerResponse.status).toBe(200);
   const createdSharedContainer = await createContainerResponse.json();
 

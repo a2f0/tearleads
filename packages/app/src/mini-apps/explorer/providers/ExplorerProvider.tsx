@@ -283,6 +283,16 @@ async function buildRemoteChildContainerState(
   initialRecord: DocumentRecord,
   initialUpdate: Uint8Array,
 ) {
+  if (
+    typeof parentState.record.accessStateHash !== "string" ||
+    parentState.record.accessStateHash.length === 0
+  ) {
+    state.runtime.log(
+      `Explorer: container ${parentState.container.id} is missing access state hash for create`,
+    );
+    return null;
+  }
+
   const initialDocumentEncryption = await createDocumentEncryptionMaterial(
     parentState.recipientPublicKeys,
   );
@@ -302,6 +312,7 @@ async function buildRemoteChildContainerState(
   const created = await state.runtime.apiClient.createContainer(
     childId,
     parentState.container.id,
+    parentState.record.accessStateHash,
     initialMetadataUpdates,
     initialDocumentEncryption.documentRecipientEnvelopes,
   );

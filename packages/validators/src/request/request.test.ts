@@ -170,6 +170,7 @@ test("isCommitDocumentChangeRequest", () => {
 test("isCreateContainerRequest", () => {
   expect(
     isCreateContainerRequest({
+      expectedAccessStateHash: "access-state-1",
       id: "550e8400-e29b-41d4-a716-446655440000",
       parentId: "550e8400-e29b-41d4-a716-446655440001",
       initialMetadataUpdates: [],
@@ -177,12 +178,22 @@ test("isCreateContainerRequest", () => {
   ).toBe(true);
   expect(
     isCreateContainerRequest({
+      expectedAccessStateHash: "access-state-1",
       id: "550e8400-e29b-41d4-a716-446655440000",
       initialMetadataUpdates: [],
     }),
   ).toBe(false);
   expect(
     isCreateContainerRequest({
+      expectedAccessStateHash: "",
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      parentId: "550e8400-e29b-41d4-a716-446655440001",
+      initialMetadataUpdates: [],
+    }),
+  ).toBe(false);
+  expect(
+    isCreateContainerRequest({
+      expectedAccessStateHash: "access-state-1",
       id: "not-a-uuid",
       parentId: "550e8400-e29b-41d4-a716-446655440001",
       initialMetadataUpdates: [],

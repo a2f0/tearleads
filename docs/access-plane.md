@@ -485,6 +485,7 @@ unlink, attach, and detach, with authoritative recomputation at sync time.
 
 The API exposes structural mutation routes:
 
+- `POST /containers`
 - `POST /containers/:containerId/share`
 - `POST /containers/:containerId/move`
 - `POST /documents/:documentId/link`
@@ -492,6 +493,7 @@ The API exposes structural mutation routes:
 
 Each structural/access-sensitive write now carries `expectedAccessStateHash`:
 
+- `create`: current parent container metadata access-state hash
 - `share`: current container metadata access-state hash
 - `move`: current container metadata access-state hash
 - `link` / `unlink`: current document access-state hash
@@ -501,8 +503,9 @@ materialize downstream document epochs and active blob epochs so access and
 bundle invalidation move with the structure instead of waiting for an unrelated
 content mutation.
 
-The app explorer uses `POST /containers/:containerId/move` for container
-reparenting and moves documents between containers by calling
+The app explorer uses `POST /containers` for child creation,
+`POST /containers/:containerId/move` for container reparenting, and moves
+documents between containers by calling
 `POST /documents/:documentId/link` followed by
 `POST /documents/:documentId/unlink` while updating the local
 document/container projection from the authoritative mutation response. The

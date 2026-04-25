@@ -6,7 +6,9 @@ import {
   initializeContainerAccess,
   resolveContainerAccessState,
 } from "../../access/containerAccess";
-import { containers } from "../../schema";
+import { resolveDocumentAccessState } from "../../access/documentAccess";
+import type { DatabaseTransaction } from "../../adapters/postgres";
+import { containerMetadataDocuments, containers } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   ContainerMetadataError,
@@ -24,6 +26,48 @@ export class CreateContainerError extends Error {
     readonly status: 400 | 403 | 404 | 409,
   ) {
     super(message);
+  }
+}
+
+async function requireCurrentParentMetadataAccessStateHash(
+  tx: DatabaseTransaction,
+  parentId: string,
+  parentAccess: NonNullable<
+    Awaited<ReturnType<typeof resolveContainerAccessState>>
+  >,
+  expectedAccessStateHash: string,
+): Promise<void> {
+  const [metadataBinding] = await tx
+    .select({ documentId: containerMetadataDocuments.documentId })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.containerId, parentId))
+    .limit(1);
+
+  if (!metadataBinding) {
+    throw new CreateContainerError(
+      "Parent container metadata document not found",
+      409,
+    );
+  }
+
+  const metadataAccess = await resolveDocumentAccessState(
+    metadataBinding.documentId,
+    tx,
+    {
+      linkedContainerIds: [parentId],
+      linkedContainerStateById: new Map([[parentId, parentAccess]]),
+    },
+  );
+
+  if (!metadataAccess) {
+    throw new CreateContainerError(
+      "Parent container metadata access is unavailable",
+      409,
+    );
+  }
+
+  if (expectedAccessStateHash !== metadataAccess.accessStateHash) {
+    throw new CreateContainerError("Stale access state hash", 409);
   }
 }
 
@@ -56,6 +100,13 @@ export async function createContainer(
     if (!canWriteContainerAccess(parentAccess, input.userId)) {
       throw new CreateContainerError("Forbidden", 403);
     }
+
+    await requireCurrentParentMetadataAccessStateHash(
+      tx,
+      parent.id,
+      parentAccess,
+      input.expectedAccessStateHash,
+    );
 
     const [container] = await tx
       .insert(containers)

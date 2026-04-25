@@ -6,6 +6,7 @@ import {
   createPublicKeyRequest,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
+import { resolveDocumentAccessState } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
 import { containerMetadataDocuments, containers } from "../../schema";
 import { registerPublicKey } from "../auth/registerPublicKey";
@@ -20,8 +21,25 @@ test("createContainer service creates a metadata document without route helpers"
   );
   const fingerprint = await toFingerprint(user.signing.signingPublicKey);
   const childId = crypto.randomUUID();
+  const [metadataBinding] = await db
+    .select({ documentId: containerMetadataDocuments.documentId })
+    .from(containerMetadataDocuments)
+    .where(
+      eq(containerMetadataDocuments.containerId, registration.rootContainerId),
+    )
+    .limit(1);
+  if (!metadataBinding) {
+    throw new Error("Expected root metadata document binding.");
+  }
+  const parentAccess = await resolveDocumentAccessState(
+    metadataBinding.documentId,
+  );
+  if (!parentAccess) {
+    throw new Error("Expected root metadata access state.");
+  }
 
   const created = await createContainer(runtime, {
+    expectedAccessStateHash: parentAccess.accessStateHash,
     id: childId,
     createdByFingerprint: fingerprint,
     initialMetadataUpdates: [],

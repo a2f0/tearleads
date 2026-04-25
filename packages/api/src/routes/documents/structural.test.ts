@@ -4,6 +4,7 @@ import { encryptForRecipients, serializeBlobEnvelope } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
+import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
 import { createDocument } from "../../../test/helpers/api/createDocument";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -49,18 +50,13 @@ async function createContainerForUser(input: {
   parentId: string;
   token: string;
 }): Promise<void> {
-  const response = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const response = await createContainerRequest(
+    {
       id: input.id,
-      initialMetadataUpdates: [],
       parentId: input.parentId,
-    }),
-  });
+    },
+    input.token,
+  );
 
   expect(response.status).toBe(200);
 }

@@ -203,13 +203,15 @@ export class ApiClient {
   createContainer(
     id: string,
     parentId: string,
-    initialMetadataUpdates: Parameters<typeof createContainer>[3],
+    expectedAccessStateHash: string,
+    initialMetadataUpdates: Parameters<typeof createContainer>[4],
     initialMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
   ) {
     return createContainer(
       this.request,
       id,
       parentId,
+      expectedAccessStateHash,
       initialMetadataUpdates,
       initialMetadataRecipientEnvelopes,
     );

@@ -12,6 +12,7 @@ import {
 } from "./documentUpdate";
 
 export interface CreateContainerRequest {
+  expectedAccessStateHash: string;
   id: string;
   initialMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[];
   parentId: string;
@@ -56,6 +57,8 @@ export function isCreateContainerRequest(
 
   return (
     isPlainObject(value) &&
+    hasStringProperty(value, "expectedAccessStateHash") &&
+    value.expectedAccessStateHash.length > 0 &&
     hasStringProperty(value, "id") &&
     isUuidV4String(value.id) &&
     hasStringProperty(value, "parentId") &&
