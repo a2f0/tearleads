@@ -38,7 +38,11 @@ async function authenticate(): Promise<string> {
 
 test("setup: register key", async () => {
   fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  const res = await uploadKey(signingKeys.signingPublicKey, kemKeys.publicKey);
+  const res = await uploadKey(
+    signingKeys.signingPublicKey,
+    signingKeys.signingPrivateKey,
+    kemKeys.publicKey,
+  );
   const body = await res.json();
   invariant(typeof body.userId === "string", "expected userId string");
   userId = body.userId;
@@ -57,6 +61,8 @@ test("returns encapsulation public key for a valid user", async () => {
 
   const body = await res.json();
   expect(body.userId).toBe(userId);
+  expect(typeof body.signingPublicKey).toBe("string");
+  expect(body.signingKeyFingerprint).toBe(fingerprint);
   expect(typeof body.encapsulationPublicKey).toBe("string");
   expect(body.encapsulationPublicKey.length).toBeGreaterThan(0);
 });

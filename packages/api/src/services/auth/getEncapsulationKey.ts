@@ -17,7 +17,11 @@ export async function getEncapsulationKey(
   userId: string,
 ): Promise<EncapsulationKeyResponse> {
   const [user] = await runtime.db
-    .select({ encapsulationPublicKey: users.encapsulationPublicKey })
+    .select({
+      encapsulationPublicKey: users.encapsulationPublicKey,
+      signingPublicKey: users.signingPublicKey,
+      signingKeyFingerprint: users.fingerprint,
+    })
     .from(users)
     .where(eq(users.id, userId));
 
@@ -27,6 +31,8 @@ export async function getEncapsulationKey(
 
   return {
     userId,
+    signingPublicKey: user.signingPublicKey,
+    signingKeyFingerprint: user.signingKeyFingerprint,
     encapsulationPublicKey: user.encapsulationPublicKey,
   };
 }

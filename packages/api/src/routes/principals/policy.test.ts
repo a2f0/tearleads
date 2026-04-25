@@ -1,10 +1,8 @@
-import { afterEach, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStatePayloadCiphertextHash,
-  derivePrincipalProjectionMembers,
   generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
   signPrincipalState,
   toFingerprint,
 } from "@tearleads/crypto";
@@ -16,48 +14,50 @@ import {
 } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createProjectionWithAdminSigner } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-import { TRUSTED_POLICY_SIGNERS_ENV_VAR } from "../../services/runtime";
-
-afterEach(() => {
-  delete process.env[TRUSTED_POLICY_SIGNERS_ENV_VAR];
-});
-
-function configureTrustedPolicySigner(
-  signerKeyId: string,
-  signingPublicKey: Uint8Array,
-): void {
-  process.env[TRUSTED_POLICY_SIGNERS_ENV_VAR] = JSON.stringify({
-    [signerKeyId]: bytesToBase64(signingPublicKey),
-  });
-}
 
 async function createSignedPrincipalState(input: {
   keyEpoch?: number;
   members: Array<{ principalType: "user" | "group"; principalId: string }>;
+  prevStateHash?: string | null;
+  principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
   principalId: string;
   principalType: "group" | "organization";
-  signerKeyId: string;
+  signedAt?: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
   signingPrivateKey: Uint8Array;
+  version?: number;
+  projection?: Array<{
+    memberPrincipalType: "user" | "group";
+    memberPrincipalId: string;
+    role: "member" | "admin";
+  }>;
 }) {
-  const principalKem = generateKemSeedAndKeyPair();
+  const principalKem = input.principalKem ?? generateKemSeedAndKeyPair();
 
   return signPrincipalState(
     {
       principalType: input.principalType,
       principalId: input.principalId,
-      version: 1,
-      prevStateHash: null,
+      version: input.version ?? 1,
+      prevStateHash: input.prevStateHash ?? null,
       keyEpoch: input.keyEpoch ?? 1,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: await toFingerprint(principalKem.publicKey),
       members: input.members,
+      projection:
+        input.projection ??
+        createProjectionWithAdminSigner(input.signerUserId, input.members),
       payloadCiphertext: bytesToBase64(
         new TextEncoder().encode(JSON.stringify(input.members)),
       ),
-      signedAt: new Date("2026-04-08T16:00:00.000Z").toISOString(),
-      signerKeyId: input.signerKeyId,
+      signedAt:
+        input.signedAt ?? new Date("2026-04-08T16:00:00.000Z").toISOString(),
+      signerUserId: input.signerUserId,
+      signerUserKeyFingerprint: input.signerUserKeyFingerprint,
     },
     input.signingPrivateKey,
   );
@@ -69,18 +69,19 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
-  const signerKeyId = "policy-key-1";
-  const { signingPrivateKey, signingPublicKey } =
-    generateSigningSeedAndKeyPair();
-  configureTrustedPolicySigner(signerKeyId, signingPublicKey);
 
   const signedState = await createSignedPrincipalState({
     principalType: "group",
     principalId,
     members: [{ principalType: "user", principalId: actor.userId }],
-    signerKeyId,
-    signingPrivateKey,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
   });
+  const projection = createProjectionWithAdminSigner(
+    actor.userId,
+    signedState.members ?? [],
+  );
 
   const putStateResponse = await routeApp.request(
     `/principals/group/${principalId}/state`,
@@ -99,7 +100,7 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
             signedState.payloadCiphertext ?? "",
           ),
         },
-        projection: derivePrincipalProjectionMembers(signedState.members ?? []),
+        projection,
       }),
     },
   );
@@ -131,12 +132,135 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
   );
   expect(policyBundle.currentState.stateHash).toBe(storedState.stateHash);
   expect(policyBundle.currentPayload.stateHash).toBe(storedState.stateHash);
+  expect(policyBundle.currentProjection).toEqual(projection);
   expect(policyBundle.currentMemberEnvelopes.principalId).toBe(principalId);
   expect(policyBundle.currentMemberEnvelopes.stateHash).toBe(
     storedState.stateHash,
   );
   expect(policyBundle.currentMemberEnvelopes.epoch).toBe(1);
   expect(policyBundle.currentMemberEnvelopes.envelopes).toEqual([]);
+  expect(policyBundle.previousStates).toEqual([]);
+});
+
+test("GET /principals/:principalType/:principalId/policy returns previous states for successor verification", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+
+  const principalId = crypto.randomUUID();
+  const members = [
+    { principalType: "user" as const, principalId: actor.userId },
+  ];
+  const principalKem = generateKemSeedAndKeyPair();
+  const projection = createProjectionWithAdminSigner(actor.userId, members);
+
+  const initialSignedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId,
+    principalKem,
+    members,
+    projection,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const initialPutResponse = await routeApp.request(
+    `/principals/group/${principalId}/state`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: initialSignedState,
+        encryptedPayload: {
+          cipherSuite: "aes-256-gcm-v1",
+          ciphertext: initialSignedState.payloadCiphertext,
+          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
+            initialSignedState.payloadCiphertext ?? "",
+          ),
+        },
+        projection,
+      }),
+    },
+  );
+
+  expect(initialPutResponse.status).toBe(200);
+  const initialStoredState = await initialPutResponse.json();
+  invariant(
+    isPrincipalStateResponse(initialStoredState),
+    "expected initial principal state response",
+  );
+
+  const successorSignedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId,
+    principalKem,
+    version: 2,
+    prevStateHash: initialStoredState.stateHash,
+    members,
+    projection,
+    signedAt: "2026-04-08T16:01:00.000Z",
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const successorPutResponse = await routeApp.request(
+    `/principals/group/${principalId}/state`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: successorSignedState,
+        encryptedPayload: {
+          cipherSuite: "aes-256-gcm-v1",
+          ciphertext: successorSignedState.payloadCiphertext,
+          ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
+            successorSignedState.payloadCiphertext ?? "",
+          ),
+        },
+        projection,
+      }),
+    },
+  );
+
+  expect(successorPutResponse.status).toBe(200);
+  const successorStoredState = await successorPutResponse.json();
+  invariant(
+    isPrincipalStateResponse(successorStoredState),
+    "expected successor principal state response",
+  );
+
+  const getPolicyResponse = await routeApp.request(
+    `/principals/group/${principalId}/policy`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${actor.token}`,
+      },
+    },
+  );
+
+  expect(getPolicyResponse.status).toBe(200);
+  const policyBundle = await getPolicyResponse.json();
+  invariant(
+    isPrincipalPolicyBundleResponse(policyBundle),
+    "expected principal policy bundle response",
+  );
+  expect(policyBundle.currentState.stateHash).toBe(
+    successorStoredState.stateHash,
+  );
+  expect(policyBundle.previousStates).toHaveLength(1);
+  expect(policyBundle.previousStates[0]?.state.stateHash).toBe(
+    initialStoredState.stateHash,
+  );
+  expect(policyBundle.previousStates[0]?.projection).toEqual(projection);
 });
 
 test("PUT /principals/:principalType/:principalId/member-envelopes stores current member wraps", async () => {
@@ -145,18 +269,19 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
-  const signerKeyId = "policy-key-2";
-  const { signingPrivateKey, signingPublicKey } =
-    generateSigningSeedAndKeyPair();
-  configureTrustedPolicySigner(signerKeyId, signingPublicKey);
 
   const signedState = await createSignedPrincipalState({
     principalType: "group",
     principalId,
     members: [{ principalType: "user", principalId: actor.userId }],
-    signerKeyId,
-    signingPrivateKey,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
   });
+  const projection = createProjectionWithAdminSigner(
+    actor.userId,
+    signedState.members ?? [],
+  );
 
   const putStateResponse = await routeApp.request(
     `/principals/group/${principalId}/state`,
@@ -175,7 +300,7 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
             signedState.payloadCiphertext ?? "",
           ),
         },
-        projection: derivePrincipalProjectionMembers(signedState.members ?? []),
+        projection,
       }),
     },
   );
@@ -248,20 +373,26 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
   );
 });
 
-test("PUT /principals/:principalType/:principalId/state rejects untrusted signers", async () => {
+test("PUT /principals/:principalType/:principalId/state rejects signers who are not admins", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
-  const signerKeyId = "policy-key-3";
-  const { signingPrivateKey } = generateSigningSeedAndKeyPair();
   const signedState = await createSignedPrincipalState({
     principalType: "organization",
     principalId,
     members: [{ principalType: "user", principalId: actor.userId }],
-    signerKeyId,
-    signingPrivateKey,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+    projection: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: actor.userId,
+        role: "member",
+      },
+    ],
   });
 
   const response = await routeApp.request(
@@ -281,13 +412,19 @@ test("PUT /principals/:principalType/:principalId/state rejects untrusted signer
             signedState.payloadCiphertext ?? "",
           ),
         },
-        projection: derivePrincipalProjectionMembers(signedState.members ?? []),
+        projection: [
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: actor.userId,
+            role: "member",
+          },
+        ],
       }),
     },
   );
 
   expect(response.status).toBe(403);
   expect(await response.json()).toEqual({
-    error: "Untrusted principal state signer",
+    error: "Principal state signer must be an admin",
   });
 });

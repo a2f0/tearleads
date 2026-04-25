@@ -41,7 +41,8 @@ export function toPrincipalStateResponse(state: {
   payloadCiphertextHash: string;
   memberCount: number;
   signedAt: string;
-  signerKeyId: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
   signature: string;
   stateHash: string;
   createdAt: Date;
@@ -60,7 +61,8 @@ export function toPrincipalStateResponse(state: {
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,
     signedAt: state.signedAt,
-    signerKeyId: state.signerKeyId,
+    signerUserId: state.signerUserId,
+    signerUserKeyFingerprint: state.signerUserKeyFingerprint,
     signature: state.signature,
     stateHash: state.stateHash,
     createdAt: state.createdAt.toISOString(),

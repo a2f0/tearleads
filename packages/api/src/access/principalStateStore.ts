@@ -11,6 +11,7 @@ import {
   type SignedPrincipalState,
   verifySignedPrincipalState,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
@@ -18,6 +19,7 @@ import {
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
+  users,
 } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
 
@@ -38,7 +40,7 @@ interface StoredPrincipalStatePayload {
   createdAt: Date;
 }
 
-interface StoredPrincipalProjectionMember {
+export interface StoredPrincipalProjectionMember {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
   stateHash: string;
@@ -46,6 +48,11 @@ interface StoredPrincipalProjectionMember {
   memberPrincipalId: string;
   role: PrincipalProjectionRole;
   createdAt: Date;
+}
+
+interface StoredPrincipalStateChainEntry {
+  state: StoredPrincipalState;
+  projection: StoredPrincipalProjectionMember[];
 }
 
 interface StoredPrincipalEpochKey {
@@ -84,7 +91,8 @@ function toStoredPrincipalState(row: {
   payloadCiphertextHash: string;
   memberCount: number;
   signedAt: Date;
-  signerKeyId: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
   signature: string;
   stateHash: string;
   createdAt: Date;
@@ -103,7 +111,8 @@ function toStoredPrincipalState(row: {
     payloadCiphertextHash: row.payloadCiphertextHash,
     memberCount: row.memberCount,
     signedAt: row.signedAt.toISOString(),
-    signerKeyId: row.signerKeyId,
+    signerUserId: row.signerUserId,
+    signerUserKeyFingerprint: row.signerUserKeyFingerprint,
     signature: row.signature,
     stateHash: row.stateHash,
     createdAt: row.createdAt,
@@ -147,7 +156,8 @@ function stripSignedPrincipalStateArtifacts(
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,
     signedAt: state.signedAt,
-    signerKeyId: state.signerKeyId,
+    signerUserId: state.signerUserId,
+    signerUserKeyFingerprint: state.signerUserKeyFingerprint,
     signature: state.signature,
   };
 }
@@ -219,7 +229,8 @@ async function getPrincipalStateByVersion(
       payloadCiphertextHash: principalStates.payloadCiphertextHash,
       memberCount: principalStates.memberCount,
       signedAt: principalStates.signedAt,
-      signerKeyId: principalStates.signerKeyId,
+      signerUserId: principalStates.signerUserId,
+      signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
       signature: principalStates.signature,
       stateHash: principalStates.stateHash,
       createdAt: principalStates.createdAt,
@@ -331,11 +342,56 @@ async function listProjectionMembersForState(
   return rows.map(toStoredProjectionMember);
 }
 
+async function loadPrincipalStateSigner(
+  state: SignedPrincipalState,
+  executor: PrincipalStateExecutor,
+): Promise<{ signingPublicKey: Uint8Array; userId: string }> {
+  const [signer] = await executor
+    .select({
+      id: users.id,
+      fingerprint: users.fingerprint,
+      signingPublicKey: users.signingPublicKey,
+    })
+    .from(users)
+    .where(eq(users.id, state.signerUserId))
+    .limit(1);
+
+  if (!signer) {
+    throw new Error("Principal state signer user not found");
+  }
+
+  if (signer.fingerprint !== state.signerUserKeyFingerprint) {
+    throw new Error("Principal state signer fingerprint mismatch");
+  }
+
+  return {
+    signingPublicKey: base64ToBytes(signer.signingPublicKey),
+    userId: signer.id,
+  };
+}
+
+function projectionIncludesAdminUser(
+  projection: ReadonlyArray<
+    Pick<
+      StoredPrincipalProjectionMember | PrincipalProjectionMember,
+      "memberPrincipalType" | "memberPrincipalId" | "role"
+    >
+  >,
+  userId: string,
+): boolean {
+  return projection.some(
+    (member) =>
+      member.memberPrincipalType === "user" &&
+      member.memberPrincipalId === userId &&
+      member.role === "admin",
+  );
+}
+
 async function validatePrincipalStateChain(
   state: SignedPrincipalState,
   stateHash: string,
   executor: PrincipalStateExecutor,
-): Promise<void> {
+): Promise<StoredPrincipalState | null> {
   const currentState = await getCurrentPrincipalState(
     state.principalType,
     state.principalId,
@@ -346,14 +402,14 @@ async function validatePrincipalStateChain(
     if (state.prevStateHash !== null || state.version !== 1) {
       throw new Error("Principal state previous hash mismatch");
     }
-    return;
+    return null;
   }
 
   if (state.version === currentState.version) {
     if (stateHash !== currentState.stateHash) {
       throw new Error("Principal state version conflict");
     }
-    return;
+    return currentState;
   }
 
   if (
@@ -361,6 +417,38 @@ async function validatePrincipalStateChain(
     state.prevStateHash !== currentState.stateHash
   ) {
     throw new Error("Principal state previous hash mismatch");
+  }
+
+  return currentState;
+}
+
+async function validatePrincipalStateSignerAuthorization(input: {
+  currentState: StoredPrincipalState | null;
+  normalizedInput: PrincipalStateBundleInput;
+  signerUserId: string;
+  executor: PrincipalStateExecutor;
+}): Promise<void> {
+  if (!input.currentState) {
+    if (
+      !projectionIncludesAdminUser(
+        input.normalizedInput.projection,
+        input.signerUserId,
+      )
+    ) {
+      throw new Error("Principal state signer must be an admin");
+    }
+    return;
+  }
+
+  const previousProjection = await listProjectionMembersForState(
+    input.currentState.principalType,
+    input.currentState.principalId,
+    input.currentState.stateHash,
+    input.executor,
+  );
+
+  if (!projectionIncludesAdminUser(previousProjection, input.signerUserId)) {
+    throw new Error("Principal state signer must be an admin");
   }
 }
 
@@ -419,7 +507,9 @@ async function insertPrincipalStateRow(input: {
       memberCount: input.normalizedInput.state.memberCount,
       stateHash: input.stateHash,
       signedAt: input.signedAt,
-      signerKeyId: input.normalizedInput.state.signerKeyId,
+      signerUserId: input.normalizedInput.state.signerUserId,
+      signerUserKeyFingerprint:
+        input.normalizedInput.state.signerUserKeyFingerprint,
       signature: input.normalizedInput.state.signature,
     })
     .onConflictDoNothing({
@@ -614,19 +704,23 @@ async function ensureStoredPrincipalEpochKeyMatches(input: {
 
 export async function storeVerifiedPrincipalState(
   input: PrincipalStateBundleInput | SignedPrincipalState,
-  signerPublicKey: Uint8Array,
   executor: PrincipalStateExecutor = db,
 ): Promise<StoredPrincipalState> {
   if (executor === db) {
-    return db.transaction(async (tx) =>
-      storeVerifiedPrincipalState(input, signerPublicKey, tx),
-    );
+    return db.transaction(async (tx) => storeVerifiedPrincipalState(input, tx));
   }
 
   const normalizedInput = await normalizePrincipalStateWriteInput(input);
+  const signer = await loadPrincipalStateSigner(
+    normalizedInput.state,
+    executor,
+  );
 
   if (
-    !(await verifySignedPrincipalState(normalizedInput.state, signerPublicKey))
+    !(await verifySignedPrincipalState(
+      normalizedInput.state,
+      signer.signingPublicKey,
+    ))
   ) {
     throw new Error("Invalid principal state signature");
   }
@@ -634,7 +728,17 @@ export async function storeVerifiedPrincipalState(
   await validatePrincipalStateArtifacts(normalizedInput);
 
   const stateHash = await computePrincipalStateHash(normalizedInput.state);
-  await validatePrincipalStateChain(normalizedInput.state, stateHash, executor);
+  const currentState = await validatePrincipalStateChain(
+    normalizedInput.state,
+    stateHash,
+    executor,
+  );
+  await validatePrincipalStateSignerAuthorization({
+    currentState,
+    normalizedInput,
+    signerUserId: signer.userId,
+    executor,
+  });
   const signedAt = new Date(normalizedInput.state.signedAt);
 
   await insertPrincipalStateRow({
@@ -702,7 +806,8 @@ export async function getCurrentPrincipalState(
       payloadCiphertextHash: principalStates.payloadCiphertextHash,
       memberCount: principalStates.memberCount,
       signedAt: principalStates.signedAt,
-      signerKeyId: principalStates.signerKeyId,
+      signerUserId: principalStates.signerUserId,
+      signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
       signature: principalStates.signature,
       stateHash: principalStates.stateHash,
       createdAt: principalStates.createdAt,
@@ -750,7 +855,8 @@ export async function getCurrentPrincipalStates(
       payloadCiphertextHash: principalStates.payloadCiphertextHash,
       memberCount: principalStates.memberCount,
       signedAt: principalStates.signedAt,
-      signerKeyId: principalStates.signerKeyId,
+      signerUserId: principalStates.signerUserId,
+      signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
       signature: principalStates.signature,
       stateHash: principalStates.stateHash,
       createdAt: principalStates.createdAt,
@@ -778,6 +884,59 @@ export async function getCurrentPrincipalStates(
   }
 
   return currentStatesByPrincipalId;
+}
+
+export async function listPrincipalStateHistory(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  executor: PrincipalStateExecutor = db,
+): Promise<StoredPrincipalStateChainEntry[]> {
+  const rows = await executor
+    .select({
+      principalType: principalStates.principalType,
+      principalId: principalStates.principalId,
+      version: principalStates.version,
+      prevStateHash: principalStates.prevStateHash,
+      keyEpoch: principalStates.keyEpoch,
+      encapsulationPublicKey: principalStates.encapsulationPublicKey,
+      keyFingerprint: principalStates.keyFingerprint,
+      membershipMode: principalStates.membershipMode,
+      membershipRoot: principalStates.membershipRoot,
+      projectionRoot: principalStates.projectionRoot,
+      payloadCiphertextHash: principalStates.payloadCiphertextHash,
+      memberCount: principalStates.memberCount,
+      signedAt: principalStates.signedAt,
+      signerUserId: principalStates.signerUserId,
+      signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
+      signature: principalStates.signature,
+      stateHash: principalStates.stateHash,
+      createdAt: principalStates.createdAt,
+    })
+    .from(principalStates)
+    .where(
+      and(
+        eq(principalStates.principalType, principalType),
+        eq(principalStates.principalId, principalId),
+      ),
+    )
+    .orderBy(asc(principalStates.version));
+
+  const history: StoredPrincipalStateChainEntry[] = [];
+
+  for (const row of rows) {
+    const state = toStoredPrincipalState(row);
+    history.push({
+      state,
+      projection: await listProjectionMembersForState(
+        principalType,
+        principalId,
+        state.stateHash,
+        executor,
+      ),
+    });
+  }
+
+  return history;
 }
 
 export async function getCurrentPrincipalStatePayload(

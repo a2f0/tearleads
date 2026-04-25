@@ -14,37 +14,81 @@ import {
 } from "./index";
 
 test("isPublicKeyRequest", () => {
+  const userId = "550e8400-e29b-41d4-a716-446655440001";
+  const organizationId = "550e8400-e29b-41d4-a716-446655440002";
   const validEnvelope = {
     keyFingerprint: "abc123",
     kemCipherText: [1, 2, 3],
     wrappedKey: [4, 5, 6],
   };
+  const validInitialOrganizationPolicy = {
+    state: {
+      principalType: "organization" as const,
+      principalId: organizationId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: "public-key",
+      keyFingerprint: "key-fingerprint",
+      membershipMode: "projection_v1" as const,
+      membershipRoot: "membership-root",
+      projectionRoot: "projection-root",
+      payloadCiphertextHash: "ciphertext-hash",
+      memberCount: 1,
+      signedAt: new Date().toISOString(),
+      signerUserId: userId,
+      signerUserKeyFingerprint: "signing-fingerprint",
+      signature: "signature",
+    },
+    encryptedPayload: {
+      cipherSuite: "aes-256-gcm-v1" as const,
+      ciphertext: "ciphertext",
+      ciphertextHash: "ciphertext-hash",
+    },
+    projection: [
+      {
+        memberPrincipalType: "user" as const,
+        memberPrincipalId: userId,
+        role: "admin" as const,
+      },
+    ],
+    memberEnvelopes: [
+      {
+        memberPrincipalType: "user" as const,
+        memberPrincipalId: userId,
+        memberKeyFingerprint: "member-key-fingerprint",
+        kemCipherText: "kem-ciphertext",
+        wrappedKey: "wrapped-key",
+      },
+    ],
+  };
+  const createValidRequest = (overrides: Record<string, unknown> = {}) => ({
+    userId,
+    organizationId,
+    rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
+    signingPublicKey: [1, 2, 3],
+    encapsulationPublicKey: [4, 5, 6],
+    initialOrganizationPolicy: validInitialOrganizationPolicy,
+    initialRootMetadataUpdates: [],
+    wrappedDekEnvelope: validEnvelope,
+    ...overrides,
+  });
+
+  expect(isPublicKeyRequest(createValidRequest())).toBe(true);
   expect(
-    isPublicKeyRequest({
-      rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
-      signingPublicKey: [1, 2, 3],
-      encapsulationPublicKey: [4, 5, 6],
-      initialRootMetadataUpdates: [],
-      wrappedDekEnvelope: validEnvelope,
-    }),
-  ).toBe(true);
-  expect(
-    isPublicKeyRequest({
-      rootContainerId: "not-a-uuid",
-      signingPublicKey: [1, 2, 3],
-      encapsulationPublicKey: [4, 5, 6],
-      initialRootMetadataUpdates: [],
-      wrappedDekEnvelope: validEnvelope,
-    }),
+    isPublicKeyRequest(
+      createValidRequest({
+        rootContainerId: "not-a-uuid",
+      }),
+    ),
   ).toBe(false);
   expect(
-    isPublicKeyRequest({
-      rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
-      signingPublicKey: [],
-      encapsulationPublicKey: [],
-      initialRootMetadataUpdates: [],
-      wrappedDekEnvelope: validEnvelope,
-    }),
+    isPublicKeyRequest(
+      createValidRequest({
+        signingPublicKey: [],
+        encapsulationPublicKey: [],
+      }),
+    ),
   ).toBe(true);
   expect(
     isPublicKeyRequest({
@@ -299,7 +343,8 @@ test("isPutPrincipalStateRequest", () => {
         payloadCiphertextHash: "ciphertext-hash",
         memberCount: 1,
         signedAt: new Date().toISOString(),
-        signerKeyId: "policy-key-1",
+        signerUserId: "550e8400-e29b-41d4-a716-446655440001",
+        signerUserKeyFingerprint: "policy-key-fingerprint-1",
         signature: "signature",
       },
       encryptedPayload: {
@@ -332,7 +377,8 @@ test("isPutPrincipalStateRequest", () => {
         payloadCiphertextHash: "ciphertext-hash",
         memberCount: 0,
         signedAt: new Date().toISOString(),
-        signerKeyId: "policy-key-1",
+        signerUserId: "550e8400-e29b-41d4-a716-446655440001",
+        signerUserKeyFingerprint: "policy-key-fingerprint-1",
         signature: "signature",
       },
       encryptedPayload: {

@@ -20,7 +20,22 @@ import {
 
 async function createPrincipalPolicyBundle() {
   const principalKem = generateKemSeedAndKeyPair();
-  const { signingPrivateKey } = generateSigningSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const signerUserId = "signer-user-1";
+  const signerUserKeyFingerprint = await toFingerprint(signingPublicKey);
+  const currentProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: signerUserId,
+      role: "admin" as const,
+    },
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: "alice",
+      role: "member" as const,
+    },
+  ];
   const signedState = await signPrincipalState(
     {
       principalType: "group",
@@ -36,9 +51,11 @@ async function createPrincipalPolicyBundle() {
           principalId: "alice",
         },
       ],
+      projection: currentProjection,
       payloadCiphertext: "ciphertext-1",
       signedAt: "2026-04-08T00:00:00.000Z",
-      signerKeyId: "signer-1",
+      signerUserId,
+      signerUserKeyFingerprint,
     },
     signingPrivateKey,
   );
@@ -64,6 +81,7 @@ async function createPrincipalPolicyBundle() {
       createdAt: "2026-04-08T00:00:00.000Z",
       stateHash,
     },
+    currentProjection,
     currentPayload: {
       principalType: "group",
       principalId: "group-1",
@@ -75,6 +93,7 @@ async function createPrincipalPolicyBundle() {
       ),
       createdAt: "2026-04-08T00:00:00.000Z",
     },
+    previousStates: [],
   };
 
   return {

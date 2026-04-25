@@ -7,6 +7,5 @@ export class AppHostConfig {
     readonly apiBaseUrl: string,
     readonly wsUrl: string,
     readonly createDatabaseRuntime?: CreateDatabaseRuntimeFn,
-    readonly trustedPolicySigners: ReadonlyMap<string, Uint8Array> = new Map(),
   ) {}
 }

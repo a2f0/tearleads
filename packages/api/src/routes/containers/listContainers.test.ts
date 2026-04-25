@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
   signPrincipalState,
   toFingerprint,
 } from "@tearleads/crypto";
@@ -11,6 +10,10 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  createPrincipalStateSigner,
+  createProjectionWithAdminSigner,
+} from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { grantContainerAccess } from "../../access/containerAccess";
 import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
@@ -53,8 +56,11 @@ async function storeCurrentGroupState(
   memberUserIds: string[],
 ): Promise<void> {
   const principalKem = generateKemSeedAndKeyPair();
-  const { signingPrivateKey, signingPublicKey } =
-    generateSigningSeedAndKeyPair();
+  const signer = await createPrincipalStateSigner();
+  const members = memberUserIds.map((userId) => ({
+    principalType: "user" as const,
+    principalId: userId,
+  }));
 
   await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -66,16 +72,17 @@ async function storeCurrentGroupState(
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
         keyFingerprint: await toFingerprint(principalKem.publicKey),
-        members: memberUserIds.map((userId) => ({
-          principalType: "user",
-          principalId: userId,
-        })),
+        members,
+        projection: createProjectionWithAdminSigner(
+          signer.signerUserId,
+          members,
+        ),
         signedAt: new Date(PRINCIPAL_STATE_BASE_TIME_MS).toISOString(),
-        signerKeyId: "group-policy-key",
+        signerUserId: signer.signerUserId,
+        signerUserKeyFingerprint: signer.signerUserKeyFingerprint,
       },
-      signingPrivateKey,
+      signer.signingPrivateKey,
     ),
-    signingPublicKey,
   );
 }
 

@@ -11,7 +11,6 @@ import { useNetworkState } from "../api/NetworkStateProvider";
 import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useEvents } from "../events/EventsProvider";
-import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
 import { useBlobStore } from "./blobs";
@@ -35,7 +34,6 @@ export interface AppDataContextValue {
   isAuthenticated: boolean;
   log: ReturnType<typeof useLog>["log"];
   online: boolean;
-  trustedPolicySigners: ReadonlyMap<string, Uint8Array>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -50,7 +48,6 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const { client: dbClient, id: dbId, status: dbStatus } = useDatabase();
   const { authToken, containerId, isAuthenticated } = useCryptoSession();
   const { encapsulationKeyPair, signingFingerprint } = useIdentity();
-  const { trustedPolicySigners } = useAppHostConfig();
   const { events } = useEvents();
   const { log } = useLog();
   const domainScope = useMemo(() => ({}), [dbId, signingFingerprint]);
@@ -65,14 +62,14 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     ) => {
       await cacheReferencedPrincipalPolicies({
         execSql,
+        getEncapsulationKey: (userId) => apiClient.getEncapsulationKey(userId),
         getCurrentPrincipalPolicy: (principalType, principalId) =>
           apiClient.getCurrentPrincipalPolicy(principalType, principalId),
         log,
         references,
-        trustedPolicySigners,
       });
     },
-    [apiClient, execSql, log, trustedPolicySigners],
+    [apiClient, execSql, log],
   );
 
   const value = useMemo(
@@ -92,7 +89,6 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       isAuthenticated,
       log,
       online,
-      trustedPolicySigners,
     }),
     [
       apiClient,
@@ -110,7 +106,6 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       log,
       online,
       signingFingerprint,
-      trustedPolicySigners,
     ],
   );
 

@@ -21,10 +21,17 @@ export interface PrincipalStateResponse {
   payloadCiphertextHash: string;
   memberCount: number;
   signedAt: string;
-  signerKeyId: string;
+  signerUserId: string;
+  signerUserKeyFingerprint: string;
   signature: string;
   stateHash: string;
   createdAt: string;
+}
+
+export interface PrincipalProjectionMemberResponse {
+  memberPrincipalType: "user" | "group";
+  memberPrincipalId: string;
+  role: "member" | "admin";
 }
 
 export interface PrincipalStatePayloadResponse {
@@ -61,10 +68,17 @@ export interface ReferencedPrincipalStateResponse {
   stateHash: string;
 }
 
+export interface PrincipalPolicyStateChainEntryResponse {
+  state: PrincipalStateResponse;
+  projection: PrincipalProjectionMemberResponse[];
+}
+
 export interface PrincipalPolicyBundleResponse {
   currentState: PrincipalStateResponse;
   currentPayload: PrincipalStatePayloadResponse;
+  currentProjection: PrincipalProjectionMemberResponse[];
   currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponse;
+  previousStates: PrincipalPolicyStateChainEntryResponse[];
 }
 
 function isManagedPrincipalType(
@@ -77,6 +91,25 @@ function isPrincipalStateMemberType(
   value: string,
 ): value is PrincipalMemberEnvelopeResponse["memberPrincipalType"] {
   return value === "user" || value === "group";
+}
+
+function isProjectionRole(
+  value: string,
+): value is PrincipalProjectionMemberResponse["role"] {
+  return value === "member" || value === "admin";
+}
+
+function isPrincipalProjectionMemberResponse(
+  value: unknown,
+): value is PrincipalProjectionMemberResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "memberPrincipalType") &&
+    isPrincipalStateMemberType(value.memberPrincipalType) &&
+    hasStringProperty(value, "memberPrincipalId") &&
+    hasStringProperty(value, "role") &&
+    isProjectionRole(value.role)
+  );
 }
 
 function isPrincipalMemberEnvelopeResponse(
@@ -115,7 +148,8 @@ export function isPrincipalStateResponse(
     Number.isInteger(value.memberCount) &&
     value.memberCount >= 0 &&
     hasStringProperty(value, "signedAt") &&
-    hasStringProperty(value, "signerKeyId") &&
+    hasStringProperty(value, "signerUserId") &&
+    hasStringProperty(value, "signerUserKeyFingerprint") &&
     hasStringProperty(value, "signature") &&
     hasStringProperty(value, "stateHash") &&
     hasStringProperty(value, "createdAt")
@@ -168,6 +202,18 @@ export function isReferencedPrincipalStateResponse(
   );
 }
 
+export function isPrincipalPolicyStateChainEntryResponse(
+  value: unknown,
+): value is PrincipalPolicyStateChainEntryResponse {
+  return (
+    isPlainObject(value) &&
+    hasObjectProperty(value, "state") &&
+    isPrincipalStateResponse(value.state) &&
+    hasArrayProperty(value, "projection") &&
+    value.projection.every(isPrincipalProjectionMemberResponse)
+  );
+}
+
 export function isPrincipalPolicyBundleResponse(
   value: unknown,
 ): value is PrincipalPolicyBundleResponse {
@@ -177,7 +223,11 @@ export function isPrincipalPolicyBundleResponse(
     isPrincipalStateResponse(value.currentState) &&
     hasObjectProperty(value, "currentPayload") &&
     isPrincipalStatePayloadResponse(value.currentPayload) &&
+    hasArrayProperty(value, "currentProjection") &&
+    value.currentProjection.every(isPrincipalProjectionMemberResponse) &&
     hasObjectProperty(value, "currentMemberEnvelopes") &&
-    isCurrentPrincipalMemberEnvelopesResponse(value.currentMemberEnvelopes)
+    isCurrentPrincipalMemberEnvelopesResponse(value.currentMemberEnvelopes) &&
+    hasArrayProperty(value, "previousStates") &&
+    value.previousStates.every(isPrincipalPolicyStateChainEntryResponse)
   );
 }
