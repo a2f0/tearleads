@@ -28,6 +28,8 @@ Protocol shape:
 
 - `POST /documents`
   - creates a document and initializes access state
+  - request includes:
+    - `expectedLinkedContainerAccessStateHashes{}` keyed by linked container id
   - response includes:
     - `currentAccessEpoch`
     - `recipientEncapsulationPublicKeys[]`
@@ -117,7 +119,10 @@ Implemented behavior:
   for additive access growth, and `GET /blobs/:blobId` serves the current
   wrapped-recipient header from sidecar metadata without creating a new blob
   row
-- explicit structural mutation routes:
+- access-sensitive create / structural mutation routes:
+  - `POST /documents`
+  - each create request includes current linked or parent container
+    access-state preconditions
   - `POST /containers`
   - each write request includes `expectedAccessStateHash`
   - `POST /containers/:containerId/move`

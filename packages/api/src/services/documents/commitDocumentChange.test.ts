@@ -12,17 +12,19 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
+import { resolveDocumentAccessState } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
 import {
   attachmentBindings,
   blobStages,
   blobs,
+  containerMetadataDocuments,
   documentAuditCheckpoints,
   documentAuditEntries,
   documentUpdateAuditEvents,
@@ -35,12 +37,51 @@ import {
 } from "./commitDocumentChange";
 import { createDocumentSyncStore } from "./documentSyncStore";
 
+async function getExpectedLinkedContainerAccessStateHashes(
+  linkedContainerIds: string[],
+): Promise<Record<string, string>> {
+  const bindings = await db
+    .select({
+      containerId: containerMetadataDocuments.containerId,
+      documentId: containerMetadataDocuments.documentId,
+    })
+    .from(containerMetadataDocuments)
+    .where(inArray(containerMetadataDocuments.containerId, linkedContainerIds));
+
+  const expectedLinkedContainerAccessStateHashes: Record<string, string> = {};
+
+  for (const containerId of linkedContainerIds) {
+    const binding = bindings.find((row) => row.containerId === containerId);
+    if (!binding) {
+      throw new Error(
+        `Expected metadata document binding for container ${containerId}`,
+      );
+    }
+
+    const access = await resolveDocumentAccessState(binding.documentId, db);
+    if (!access) {
+      throw new Error(
+        `Expected metadata access state for container ${containerId}`,
+      );
+    }
+
+    expectedLinkedContainerAccessStateHashes[containerId] =
+      access.accessStateHash;
+  }
+
+  return expectedLinkedContainerAccessStateHashes;
+}
+
 async function createServiceDocument() {
   const { fingerprint, registration, user } = await registerServiceUser();
   const store = createDocumentSyncStore(createServiceTestRuntime());
   const created = await store.createDocument({
     createdByFingerprint: fingerprint,
     createdByUserId: registration.userId,
+    expectedLinkedContainerAccessStateHashes:
+      await getExpectedLinkedContainerAccessStateHashes([
+        registration.rootContainerId,
+      ]),
     linkedContainerIds: [registration.rootContainerId],
   });
 

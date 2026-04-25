@@ -147,6 +147,7 @@ export interface DocumentsRuntime {
     | "commitDocumentChange"
     | "createDocument"
     | "getBlob"
+    | "listContainers"
     | "listDocumentAttachments"
     | "stageBlob"
     | "syncDocument"
@@ -171,6 +172,7 @@ function createDocumentsRuntimeApiClient(
     commitDocumentChange: apiClient.commitDocumentChange.bind(apiClient),
     createDocument: apiClient.createDocument.bind(apiClient),
     getBlob: apiClient.getBlob.bind(apiClient),
+    listContainers: apiClient.listContainers.bind(apiClient),
     listDocumentAttachments: apiClient.listDocumentAttachments.bind(apiClient),
     stageBlob: apiClient.stageBlob.bind(apiClient),
     syncDocument: apiClient.syncDocument.bind(apiClient),
@@ -733,9 +735,33 @@ async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  const created = await state.runtime.apiClient.createDocument([
-    state.runtime.containerId,
-  ]);
+  const listedContainers = await state.runtime.apiClient.listContainers();
+  if (!listedContainers) {
+    state.runtime.log(
+      "Documents: skipped remote create because container access state is unavailable.",
+    );
+    return nextRecord;
+  }
+
+  const expectedAccessStateHash = listedContainers.find(
+    (container) => container.id === state.runtime.containerId,
+  )?.metadataAccessStateHash;
+  if (
+    typeof expectedAccessStateHash !== "string" ||
+    expectedAccessStateHash.length === 0
+  ) {
+    state.runtime.log(
+      "Documents: skipped remote create because the current container access state hash is unavailable.",
+    );
+    return nextRecord;
+  }
+
+  const created = await state.runtime.apiClient.createDocument(
+    [state.runtime.containerId],
+    {
+      [state.runtime.containerId]: expectedAccessStateHash,
+    },
+  );
   if (!created) {
     return nextRecord;
   }

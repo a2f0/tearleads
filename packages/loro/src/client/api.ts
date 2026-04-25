@@ -19,8 +19,10 @@ export type LoroRequestFn = <T>(
 export function createDocument(
   request: LoroRequestFn,
   linkedContainerIds: string[],
+  expectedLinkedContainerAccessStateHashes: Record<string, string>,
 ): Promise<CreateDocumentResponse | null> {
   const body: CreateDocumentRequest = {
+    expectedLinkedContainerAccessStateHashes,
     linkedContainerIds,
   };
 

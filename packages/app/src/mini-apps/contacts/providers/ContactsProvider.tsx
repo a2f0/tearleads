@@ -73,7 +73,7 @@ interface ContactsSnapshot {
 export interface ContactsRuntime {
   apiClient: Pick<
     ContactsAppData["apiClient"],
-    "createDocument" | "getEncapsulationKey" | "syncDocument"
+    "createDocument" | "getEncapsulationKey" | "listContainers" | "syncDocument"
   >;
   cacheReferencedPrincipalPolicies: ContactsAppData["cacheReferencedPrincipalPolicies"];
   containerId: ContactsAppData["containerId"];
@@ -434,9 +434,33 @@ async function ensureContactDocumentForSync(
       return null;
     }
 
-    const created = await state.runtime.apiClient.createDocument([
-      state.runtime.containerId,
-    ]);
+    const listedContainers = await state.runtime.apiClient.listContainers();
+    if (!listedContainers) {
+      state.runtime.log(
+        "Contacts: skipped remote create because container access state is unavailable.",
+      );
+      return null;
+    }
+
+    const expectedAccessStateHash = listedContainers.find(
+      (container) => container.id === state.runtime.containerId,
+    )?.metadataAccessStateHash;
+    if (
+      typeof expectedAccessStateHash !== "string" ||
+      expectedAccessStateHash.length === 0
+    ) {
+      state.runtime.log(
+        "Contacts: skipped remote create because the current container access state hash is unavailable.",
+      );
+      return null;
+    }
+
+    const created = await state.runtime.apiClient.createDocument(
+      [state.runtime.containerId],
+      {
+        [state.runtime.containerId]: expectedAccessStateHash,
+      },
+    );
     if (!created) {
       return null;
     }

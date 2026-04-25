@@ -56,6 +56,23 @@ function createSyncDocumentResponse(input: {
   };
 }
 
+function createListedContainers(
+  containerId: string,
+  metadataAccessStateHash = `${containerId}-access-state-hash-1`,
+) {
+  return [
+    {
+      id: containerId,
+      metadataAccessEpoch: 1,
+      metadataAccessStateHash,
+      metadataDocumentId: `metadata-${containerId}`,
+      metadataRecipientEncapsulationPublicKeys: [],
+      organizationId: "org-1",
+      parentId: null,
+    },
+  ];
+}
+
 function sortContacts(
   contacts: Iterable<StoredContactState>,
 ): StoredContactState[] {
@@ -160,7 +177,8 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
           userId,
         };
       },
-      createDocument: async (_linkedContainerIds) => null,
+      createDocument: async (_linkedContainerIds, _expectedHashes) => null,
+      listContainers: async () => createListedContainers("root-container"),
       syncDocument: async () => null,
     },
     cacheReferencedPrincipalPolicies: async () => {},
@@ -185,7 +203,7 @@ function createSyncRuntime(
         encapsulationPublicKey: `${userId}-key`,
         userId,
       }),
-      createDocument: async (_linkedContainerIds) => ({
+      createDocument: async (_linkedContainerIds, _expectedHashes) => ({
         id: "contacts-document-1",
         createdAt: "2026-03-31T00:00:00.000Z",
         currentAccessEpoch: 1,
@@ -194,6 +212,7 @@ function createSyncRuntime(
           bytesToBase64(encapsulationKeyPair.publicKey),
         ],
       }),
+      listContainers: async () => createListedContainers("root-container"),
       syncDocument: async (
         documentId,
         accessEpoch,
@@ -307,7 +326,10 @@ test("contacts store creates and syncs a contact document", async () => {
       version: number;
     }>
   > = [];
-  const createDocumentCalls: string[][] = [];
+  const createDocumentCalls: Array<{
+    expectedLinkedContainerAccessStateHashes: Record<string, string>;
+    linkedContainerIds: string[];
+  }> = [];
   const syncDocumentCalls: Array<{
     accessEpoch: number;
     documentId: string;
@@ -323,10 +345,18 @@ test("contacts store creates and syncs a contact document", async () => {
     },
     apiClient: {
       ...runtime.apiClient,
-      createDocument: async (linkedContainerIds) => {
-        createDocumentCalls.push(linkedContainerIds);
-        const created =
-          await runtime.apiClient.createDocument(linkedContainerIds);
+      createDocument: async (
+        linkedContainerIds,
+        expectedLinkedContainerAccessStateHashes,
+      ) => {
+        createDocumentCalls.push({
+          expectedLinkedContainerAccessStateHashes,
+          linkedContainerIds,
+        });
+        const created = await runtime.apiClient.createDocument(
+          linkedContainerIds,
+          expectedLinkedContainerAccessStateHashes,
+        );
         if (!created) {
           return null;
         }
@@ -397,7 +427,14 @@ test("contacts store creates and syncs a contact document", async () => {
       outgoingUpdateCount: 1,
     },
   ]);
-  expect(createDocumentCalls).toEqual([["root-container"]]);
+  expect(createDocumentCalls).toEqual([
+    {
+      expectedLinkedContainerAccessStateHashes: {
+        "root-container": "root-container-access-state-hash-1",
+      },
+      linkedContainerIds: ["root-container"],
+    },
+  ]);
   expect(cachedPrincipalReferences).toContainEqual([
     {
       keyEpoch: 1,
@@ -412,7 +449,10 @@ test("contacts store creates and syncs a contact document", async () => {
 test("contacts store rewraps document access expansion without replacing pending updates with a baseline", async () => {
   const persistence = createContactsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const createDocumentCalls: string[][] = [];
+  const createDocumentCalls: Array<{
+    expectedLinkedContainerAccessStateHashes: Record<string, string>;
+    linkedContainerIds: string[];
+  }> = [];
   const syncDocumentCalls: Array<{
     accessEpoch: number;
     documentId: string;
@@ -428,9 +468,18 @@ test("contacts store rewraps document access expansion without replacing pending
     ...runtime,
     apiClient: {
       ...runtime.apiClient,
-      createDocument: async (linkedContainerIds) => {
-        createDocumentCalls.push(linkedContainerIds);
-        return runtime.apiClient.createDocument(linkedContainerIds);
+      createDocument: async (
+        linkedContainerIds,
+        expectedLinkedContainerAccessStateHashes,
+      ) => {
+        createDocumentCalls.push({
+          expectedLinkedContainerAccessStateHashes,
+          linkedContainerIds,
+        });
+        return runtime.apiClient.createDocument(
+          linkedContainerIds,
+          expectedLinkedContainerAccessStateHashes,
+        );
       },
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: importedEncapsulationPublicKey,
@@ -507,7 +556,14 @@ test("contacts store rewraps document access expansion without replacing pending
     "Expanded access epoch did not rewrap and retry the pending contact update.",
   );
 
-  expect(createDocumentCalls).toEqual([["root-container"]]);
+  expect(createDocumentCalls).toEqual([
+    {
+      expectedLinkedContainerAccessStateHashes: {
+        "root-container": "root-container-access-state-hash-1",
+      },
+      linkedContainerIds: ["root-container"],
+    },
+  ]);
   expect(
     syncDocumentCalls.map((call) => ({
       accessEpoch: call.accessEpoch,
