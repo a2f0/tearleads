@@ -41,6 +41,7 @@ export type KeyingV2HashDomain =
   | "tearleads.keying-v2.container-access-direct-grants.v1"
   | "tearleads.keying-v2.container-access-key-target.v1"
   | "tearleads.keying-v2.container-access-structural.v1"
+  | "tearleads.keying-v2.container-key-epoch.v1"
   | "tearleads.keying-v2.container-kek-recipient-targets.v1"
   | "tearleads.keying-v2.document-content-key-targets.v1"
   | "tearleads.keying-v2.write-header-signing.v1"
@@ -180,6 +181,33 @@ export interface ContainerKekRecipientTargetV2 {
   recipientKeyFingerprint: string;
 }
 
+export interface ContainerKeyEpochV2 {
+  id: string;
+  containerId: string;
+  keyEpoch: number;
+  accessManifestHash: string;
+  parentContainerKeyEpochId: string | null;
+  createdByEventHash: string;
+  createdByManifestHash: string;
+}
+
+export interface ContainerKeyWrapV2 {
+  containerKeyEpochId: string;
+  recipientKind: KekRecipientKindV2;
+  recipientId: string;
+  recipientKeyEpochId: string;
+  recipientKeyFingerprint: string;
+  kemCipherText: string;
+  wrappedKey: string;
+  wrapManifestHash: string;
+}
+
+export interface ContainerUserRecipientKeyV2 {
+  userId: string;
+  recipientKeyEpochId: string;
+  recipientKeyFingerprint: string;
+}
+
 export interface ContainerKekTargetV2 {
   containerId: string;
   containerManifestHash: string;
@@ -301,7 +329,14 @@ export interface VerifiedContainerParentEdge {
 export interface VerifiedContainerKekState {
   readonly containerId: string;
   readonly accessManifestHash: string;
+  readonly containerKeyEpochId: string;
+  readonly containerKeyEpoch: number;
+  readonly keyEpoch: ContainerKeyEpochV2;
+  readonly keyEpochHash: string;
+  readonly parentContainerKeyEpochId: string | null;
   readonly keyTargetHash: string;
+  readonly recipientTargets: readonly ContainerKekRecipientTargetV2[];
+  readonly wraps: readonly ContainerKeyWrapV2[];
   readonly [verifiedContainerKekStateBrand]: true;
 }
 
@@ -349,6 +384,20 @@ export interface VerifyContainerAccessManifestInput {
 export interface VerifyContainerParentEdgeInput {
   readonly child: VerifiedContainerAccessManifest;
   readonly parentHistory: readonly VerifiedContainerAccessManifest[];
+}
+
+export interface DeriveContainerKekRecipientTargetsInput {
+  readonly containerManifest: VerifiedContainerAccessManifest;
+  readonly parentKekState?: VerifiedContainerKekState | null;
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly userRecipientKeys?: readonly ContainerUserRecipientKeyV2[];
+}
+
+export interface VerifyContainerKekStateInput
+  extends DeriveContainerKekRecipientTargetsInput {
+  readonly keyEpoch: ContainerKeyEpochV2;
+  readonly wraps: readonly ContainerKeyWrapV2[];
+  readonly containerManifestHistory?: readonly VerifiedContainerAccessManifest[];
 }
 
 export interface VerifyWriteHeaderInput {
@@ -2870,6 +2919,13 @@ function deriveContainerGrantManifestState(
     userId: input.event.event.signerUserId,
   });
 
+  if (body.containerKeyEpochId !== previous.previousState.containerKeyEpochId) {
+    throwVerification(
+      "key_epoch_reuse",
+      "container.grant must keep the current container KEK epoch",
+    );
+  }
+
   return normalizeContainerAccessManifestState({
     ...previous.nextBase,
     containerKeyEpochId: body.containerKeyEpochId,
@@ -2898,6 +2954,16 @@ function deriveContainerRevokeManifestState(
     principalPolicies: input.principalPolicies,
     userId: input.event.event.signerUserId,
   });
+
+  if (
+    body.containerKeyEpochId === null ||
+    body.containerKeyEpochId === previous.previousState.containerKeyEpochId
+  ) {
+    throwVerification(
+      "key_epoch_reuse",
+      "container.revoke must create a new container KEK epoch",
+    );
+  }
 
   return normalizeContainerAccessManifestState({
     ...previous.nextBase,
@@ -3091,6 +3157,642 @@ export function verifyContainerParentEdge({
   } catch (error) {
     return toVerificationResult(error);
   }
+}
+
+function normalizeContainerKeyEpoch(
+  value: ContainerKeyEpochV2,
+): ContainerKeyEpochV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "accessManifestHash",
+      "containerId",
+      "createdByEventHash",
+      "createdByManifestHash",
+      "id",
+      "keyEpoch",
+      "parentContainerKeyEpochId",
+    ],
+    "container key epoch",
+  );
+
+  return {
+    id: readString(record, "id", "container key epoch"),
+    containerId: readString(record, "containerId", "container key epoch"),
+    keyEpoch: readPositiveInteger(record, "keyEpoch", "container key epoch"),
+    accessManifestHash: readHashString(
+      record,
+      "accessManifestHash",
+      "container key epoch",
+    ),
+    parentContainerKeyEpochId: readNullableString(
+      record,
+      "parentContainerKeyEpochId",
+      "container key epoch",
+    ),
+    createdByEventHash: readHashString(
+      record,
+      "createdByEventHash",
+      "container key epoch",
+    ),
+    createdByManifestHash: readHashString(
+      record,
+      "createdByManifestHash",
+      "container key epoch",
+    ),
+  };
+}
+
+function normalizeContainerKeyWrap(
+  value: ContainerKeyWrapV2,
+): ContainerKeyWrapV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "containerKeyEpochId",
+      "kemCipherText",
+      "recipientId",
+      "recipientKeyEpochId",
+      "recipientKeyFingerprint",
+      "recipientKind",
+      "wrapManifestHash",
+      "wrappedKey",
+    ],
+    "container key wrap",
+  );
+
+  return {
+    containerKeyEpochId: readString(
+      record,
+      "containerKeyEpochId",
+      "container key wrap",
+    ),
+    recipientKind: normalizeKekRecipientKind(
+      record.recipientKind,
+      "container key wrap",
+    ),
+    recipientId: readString(record, "recipientId", "container key wrap"),
+    recipientKeyEpochId: readString(
+      record,
+      "recipientKeyEpochId",
+      "container key wrap",
+    ),
+    recipientKeyFingerprint: readHashString(
+      record,
+      "recipientKeyFingerprint",
+      "container key wrap",
+    ),
+    kemCipherText: readString(record, "kemCipherText", "container key wrap"),
+    wrappedKey: readString(record, "wrappedKey", "container key wrap"),
+    wrapManifestHash: readHashString(
+      record,
+      "wrapManifestHash",
+      "container key wrap",
+    ),
+  };
+}
+
+function normalizeContainerUserRecipientKey(
+  value: ContainerUserRecipientKeyV2,
+): ContainerUserRecipientKeyV2 {
+  const record = assertExactKeys(
+    value,
+    ["recipientKeyEpochId", "recipientKeyFingerprint", "userId"],
+    "container user recipient key",
+  );
+
+  return {
+    userId: readString(record, "userId", "container user recipient key"),
+    recipientKeyEpochId: readString(
+      record,
+      "recipientKeyEpochId",
+      "container user recipient key",
+    ),
+    recipientKeyFingerprint: readHashString(
+      record,
+      "recipientKeyFingerprint",
+      "container user recipient key",
+    ),
+  };
+}
+
+function containerKeyWrapTarget(
+  wrap: ContainerKeyWrapV2,
+): ContainerKekRecipientTargetV2 {
+  return {
+    recipientKind: wrap.recipientKind,
+    recipientId: wrap.recipientId,
+    recipientKeyEpochId: wrap.recipientKeyEpochId,
+    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+  };
+}
+
+function containerKeyWrapKey(wrap: ContainerKeyWrapV2): string {
+  return `${wrap.containerKeyEpochId}:${containerKekRecipientTargetKey(containerKeyWrapTarget(wrap))}`;
+}
+
+export function derivePrincipalRecipientKeyEpochId(
+  reference: ReferencedPrincipalHeadV2,
+): string {
+  const normalizedReference = normalizeReferencedPrincipalHead(reference);
+
+  return [
+    normalizedReference.principalType,
+    normalizedReference.principalId,
+    normalizedReference.keyEpoch,
+    normalizedReference.stateHash,
+  ].join(":");
+}
+
+export async function computeContainerKeyEpochHash(
+  keyEpoch: ContainerKeyEpochV2,
+): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.container-key-epoch.v1",
+    normalizeContainerKeyEpoch(keyEpoch) as unknown as KeyingV2CanonicalJson,
+  );
+}
+
+function buildContainerUserRecipientKeyMap(
+  userRecipientKeys: readonly ContainerUserRecipientKeyV2[],
+): Map<string, ContainerUserRecipientKeyV2> {
+  const userKeyByUserId = new Map<string, ContainerUserRecipientKeyV2>();
+
+  for (const userKey of userRecipientKeys.map(
+    normalizeContainerUserRecipientKey,
+  )) {
+    if (userKeyByUserId.has(userKey.userId)) {
+      throwVerification(
+        "duplicate_entry",
+        "container user recipient keys contain a duplicate user",
+      );
+    }
+
+    userKeyByUserId.set(userKey.userId, userKey);
+  }
+
+  return userKeyByUserId;
+}
+
+function requirePrincipalRecipientTarget(input: {
+  readonly grant: ContainerDirectGrantV2;
+  readonly state: ContainerAccessManifestStateV2;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}): ContainerKekRecipientTargetV2 {
+  if (input.grant.subjectType === "user") {
+    throwVerification(
+      "invalid_domain",
+      "user grants do not have principal recipient targets",
+    );
+  }
+
+  const referencedHead = input.state.referencedPrincipalHeads.find(
+    (principalHead) =>
+      principalHead.principalType === input.grant.subjectType &&
+      principalHead.principalId === input.grant.subjectId,
+  );
+
+  if (!referencedHead) {
+    throwVerification(
+      "missing_dependency",
+      "container KEK target derivation requires a referenced principal head",
+    );
+  }
+
+  const verifiedPolicy = input.principalPolicies.find((policy) =>
+    principalPolicyMatchesReference({ policy, reference: referencedHead }),
+  );
+
+  if (!verifiedPolicy) {
+    throwVerification(
+      "missing_dependency",
+      "container KEK target derivation requires the verified principal policy",
+    );
+  }
+
+  return {
+    recipientKind: referencedHead.principalType,
+    recipientId: referencedHead.principalId,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(referencedHead),
+    recipientKeyFingerprint: referencedHead.keyFingerprint,
+  };
+}
+
+function deriveContainerKekRecipientTargetsOrThrow({
+  containerManifest,
+  parentKekState = null,
+  principalPolicies = [],
+  userRecipientKeys = [],
+}: DeriveContainerKekRecipientTargetsInput): ContainerKekRecipientTargetV2[] {
+  const targets: ContainerKekRecipientTargetV2[] = [];
+  const userKeyByUserId = buildContainerUserRecipientKeyMap(userRecipientKeys);
+
+  for (const grant of containerManifest.state.directGrants) {
+    if (grant.subjectType === "user") {
+      const userKey = userKeyByUserId.get(grant.subjectId);
+
+      if (!userKey) {
+        throwVerification(
+          "missing_dependency",
+          "container KEK target derivation requires a user recipient key",
+        );
+      }
+
+      targets.push({
+        recipientKind: "user",
+        recipientId: grant.subjectId,
+        recipientKeyEpochId: userKey.recipientKeyEpochId,
+        recipientKeyFingerprint: userKey.recipientKeyFingerprint,
+      });
+      continue;
+    }
+
+    targets.push(
+      requirePrincipalRecipientTarget({
+        grant,
+        state: containerManifest.state,
+        principalPolicies,
+      }),
+    );
+  }
+
+  if (containerManifest.state.parentContainerId) {
+    if (!parentKekState) {
+      throwVerification(
+        "missing_dependency",
+        "container KEK target derivation requires verified parent KEK state",
+      );
+    }
+
+    if (
+      parentKekState.containerId !== containerManifest.state.parentContainerId
+    ) {
+      throwVerification(
+        "object_mismatch",
+        "container KEK parent target points at the wrong parent container",
+      );
+    }
+
+    targets.push({
+      recipientKind: "container",
+      recipientId: parentKekState.containerId,
+      recipientKeyEpochId: parentKekState.containerKeyEpochId,
+      recipientKeyFingerprint: parentKekState.keyEpochHash,
+    });
+  }
+
+  return normalizeSortedUniqueArray(
+    targets,
+    normalizeContainerKekRecipientTarget,
+    containerKekRecipientTargetKey,
+    "container KEK recipient targets",
+  );
+}
+
+export function deriveContainerKekRecipientTargets(
+  input: DeriveContainerKekRecipientTargetsInput,
+): KeyingV2VerificationResult<readonly ContainerKekRecipientTargetV2[]> {
+  try {
+    return ok(deriveContainerKekRecipientTargetsOrThrow(input));
+  } catch (error) {
+    return toVerificationResult(error);
+  }
+}
+
+function buildAuthorizedContainerManifestMap(input: {
+  readonly current: VerifiedContainerAccessManifest;
+  readonly history: readonly VerifiedContainerAccessManifest[];
+  readonly keyEpochId: string;
+}): Map<string, VerifiedContainerAccessManifest> {
+  const manifestByHash = new Map<string, VerifiedContainerAccessManifest>();
+
+  for (const manifest of [...input.history, input.current]) {
+    if (manifest.state.containerId !== input.current.state.containerId) {
+      throwVerification(
+        "object_mismatch",
+        "container KEK history contains the wrong container",
+      );
+    }
+
+    if (manifestByHash.has(manifest.manifestHash)) {
+      throwVerification(
+        "duplicate_entry",
+        "container KEK history contains a duplicate manifest",
+      );
+    }
+
+    if (manifest.state.containerKeyEpochId === input.keyEpochId) {
+      manifestByHash.set(manifest.manifestHash, manifest);
+    }
+  }
+
+  return manifestByHash;
+}
+
+function assertContainerKeyEpochManifestBinding(input: {
+  readonly keyEpoch: ContainerKeyEpochV2;
+  readonly manifestByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): void {
+  const accessManifest = input.manifestByHash.get(
+    input.keyEpoch.accessManifestHash,
+  );
+  const createdByManifest = input.manifestByHash.get(
+    input.keyEpoch.createdByManifestHash,
+  );
+
+  if (!accessManifest || !createdByManifest) {
+    throwVerification(
+      "missing_dependency",
+      "container key epoch requires verified creation manifest history",
+    );
+  }
+
+  if (createdByManifest.event.eventHash !== input.keyEpoch.createdByEventHash) {
+    throwVerification(
+      "hash_mismatch",
+      "container key epoch created-by event hash does not match manifest",
+    );
+  }
+}
+
+function assertContainerKeyEpochParentBinding(input: {
+  readonly containerManifest: VerifiedContainerAccessManifest;
+  readonly keyEpoch: ContainerKeyEpochV2;
+  readonly parentKekState: VerifiedContainerKekState | null | undefined;
+}): void {
+  if (!input.containerManifest.state.parentContainerId) {
+    if (input.keyEpoch.parentContainerKeyEpochId !== null) {
+      throwVerification(
+        "object_mismatch",
+        "root container key epoch must not name a parent key epoch",
+      );
+    }
+
+    return;
+  }
+
+  if (!input.parentKekState) {
+    throwVerification(
+      "missing_dependency",
+      "container key epoch requires verified parent KEK state",
+    );
+  }
+
+  if (
+    input.parentKekState.containerId !==
+    input.containerManifest.state.parentContainerId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "container key epoch parent state is for the wrong container",
+    );
+  }
+
+  if (
+    input.keyEpoch.parentContainerKeyEpochId !==
+    input.parentKekState.containerKeyEpochId
+  ) {
+    throwVerification(
+      "key_epoch_reuse",
+      "container key epoch parent edge points at the wrong parent key epoch",
+    );
+  }
+}
+
+function assertWrapJustifiedByManifest(input: {
+  readonly wrap: ContainerKeyWrapV2;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly parentKekState: VerifiedContainerKekState | null | undefined;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly userRecipientKeys: readonly ContainerUserRecipientKeyV2[];
+}): void {
+  const manifestTargets = deriveContainerKekRecipientTargetsOrThrow({
+    containerManifest: input.manifest,
+    parentKekState: input.parentKekState ?? null,
+    principalPolicies: input.principalPolicies,
+    userRecipientKeys: input.userRecipientKeys,
+  });
+  const wrapTarget = containerKeyWrapTarget(input.wrap);
+  const matchingTarget = manifestTargets.find(
+    (target) =>
+      containerKekRecipientTargetKey(target) ===
+      containerKekRecipientTargetKey(wrapTarget),
+  );
+
+  if (!matchingTarget) {
+    throwVerification(
+      "missing_dependency",
+      "container key wrap is not justified by its manifest",
+    );
+  }
+
+  if (
+    matchingTarget.recipientKeyFingerprint !==
+    wrapTarget.recipientKeyFingerprint
+  ) {
+    throwVerification(
+      "hash_mismatch",
+      "container key wrap recipient fingerprint does not match justified target",
+    );
+  }
+}
+
+function assertContainerKeyEpochMatchesManifest(input: {
+  readonly containerManifest: VerifiedContainerAccessManifest;
+  readonly keyEpoch: ContainerKeyEpochV2;
+}): void {
+  const containerKeyEpochId = input.containerManifest.state.containerKeyEpochId;
+
+  if (containerKeyEpochId === null) {
+    throwVerification(
+      "missing_dependency",
+      "container KEK state requires a container key epoch id",
+    );
+  }
+
+  if (input.keyEpoch.id !== containerKeyEpochId) {
+    throwVerification(
+      "key_epoch_reuse",
+      "container KEK state does not match the current access manifest",
+    );
+  }
+
+  if (
+    input.keyEpoch.containerId !== input.containerManifest.state.containerId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "container key epoch belongs to the wrong container",
+    );
+  }
+}
+
+function verifyContainerKeyWraps(input: {
+  readonly keyEpoch: ContainerKeyEpochV2;
+  readonly manifestByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+  readonly parentKekState: VerifiedContainerKekState | null;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly userRecipientKeys: readonly ContainerUserRecipientKeyV2[];
+  readonly wraps: readonly ContainerKeyWrapV2[];
+}): {
+  readonly normalizedWraps: ContainerKeyWrapV2[];
+  readonly wrapByTargetKey: Map<string, ContainerKeyWrapV2>;
+} {
+  const normalizedWraps = normalizeSortedUniqueArray(
+    input.wraps,
+    normalizeContainerKeyWrap,
+    containerKeyWrapKey,
+    "container key wraps",
+  );
+  const wrapByTargetKey = new Map<string, ContainerKeyWrapV2>();
+
+  for (const wrap of normalizedWraps) {
+    if (wrap.containerKeyEpochId !== input.keyEpoch.id) {
+      throwVerification(
+        "object_mismatch",
+        "container key wrap belongs to the wrong key epoch",
+      );
+    }
+
+    const wrapManifest = input.manifestByHash.get(wrap.wrapManifestHash);
+    if (!wrapManifest) {
+      throwVerification(
+        "missing_dependency",
+        "container key wrap manifest is not in verified history",
+      );
+    }
+
+    assertWrapJustifiedByManifest({
+      wrap,
+      manifest: wrapManifest,
+      parentKekState: input.parentKekState,
+      principalPolicies: input.principalPolicies,
+      userRecipientKeys: input.userRecipientKeys,
+    });
+
+    wrapByTargetKey.set(
+      containerKekRecipientTargetKey(containerKeyWrapTarget(wrap)),
+      wrap,
+    );
+  }
+
+  return { normalizedWraps, wrapByTargetKey };
+}
+
+function assertContainerKeyWrapsMatchTargets(input: {
+  readonly recipientTargets: readonly ContainerKekRecipientTargetV2[];
+  readonly wrapByTargetKey: ReadonlyMap<string, ContainerKeyWrapV2>;
+}): void {
+  for (const target of input.recipientTargets) {
+    const wrap = input.wrapByTargetKey.get(
+      containerKekRecipientTargetKey(target),
+    );
+
+    if (!wrap) {
+      throwVerification(
+        "missing_dependency",
+        "container KEK state is missing a required key wrap",
+      );
+    }
+
+    if (wrap.recipientKeyFingerprint !== target.recipientKeyFingerprint) {
+      throwVerification(
+        "hash_mismatch",
+        "container key wrap recipient fingerprint does not match verified target",
+      );
+    }
+  }
+
+  if (input.wrapByTargetKey.size !== input.recipientTargets.length) {
+    throwVerification(
+      "missing_dependency",
+      "container KEK state contains an extra key wrap",
+    );
+  }
+}
+
+async function buildVerifiedContainerKekState(input: {
+  readonly containerManifest: VerifiedContainerAccessManifest;
+  readonly keyEpoch: ContainerKeyEpochV2;
+  readonly normalizedWraps: readonly ContainerKeyWrapV2[];
+  readonly recipientTargets: readonly ContainerKekRecipientTargetV2[];
+}): Promise<VerifiedContainerKekState> {
+  return {
+    containerId: input.containerManifest.state.containerId,
+    accessManifestHash: input.containerManifest.manifestHash,
+    containerKeyEpochId: input.keyEpoch.id,
+    containerKeyEpoch: input.keyEpoch.keyEpoch,
+    keyEpoch: input.keyEpoch,
+    keyEpochHash: await computeContainerKeyEpochHash(input.keyEpoch),
+    parentContainerKeyEpochId: input.keyEpoch.parentContainerKeyEpochId,
+    keyTargetHash: await computeContainerKekRecipientTargetHash(
+      input.recipientTargets,
+    ),
+    recipientTargets: input.recipientTargets,
+    wraps: input.normalizedWraps,
+  } as unknown as VerifiedContainerKekState;
+}
+
+export async function verifyContainerKekState({
+  containerManifest,
+  containerManifestHistory = [],
+  keyEpoch,
+  parentKekState = null,
+  principalPolicies = [],
+  userRecipientKeys = [],
+  wraps,
+}: VerifyContainerKekStateInput): Promise<
+  KeyingV2VerificationResult<VerifiedContainerKekState>
+> {
+  return runVerifier(async () => {
+    const normalizedKeyEpoch = normalizeContainerKeyEpoch(keyEpoch);
+    assertContainerKeyEpochMatchesManifest({
+      containerManifest,
+      keyEpoch: normalizedKeyEpoch,
+    });
+
+    assertContainerKeyEpochParentBinding({
+      containerManifest,
+      keyEpoch: normalizedKeyEpoch,
+      parentKekState,
+    });
+
+    const manifestByHash = buildAuthorizedContainerManifestMap({
+      current: containerManifest,
+      history: containerManifestHistory,
+      keyEpochId: normalizedKeyEpoch.id,
+    });
+    assertContainerKeyEpochManifestBinding({
+      keyEpoch: normalizedKeyEpoch,
+      manifestByHash,
+    });
+
+    const recipientTargets = deriveContainerKekRecipientTargetsOrThrow({
+      containerManifest,
+      parentKekState,
+      principalPolicies,
+      userRecipientKeys,
+    });
+    const { normalizedWraps, wrapByTargetKey } = verifyContainerKeyWraps({
+      keyEpoch: normalizedKeyEpoch,
+      manifestByHash,
+      parentKekState,
+      principalPolicies,
+      userRecipientKeys,
+      wraps,
+    });
+    assertContainerKeyWrapsMatchTargets({
+      recipientTargets,
+      wrapByTargetKey,
+    });
+
+    return buildVerifiedContainerKekState({
+      containerManifest,
+      keyEpoch: normalizedKeyEpoch,
+      normalizedWraps,
+      recipientTargets,
+    });
+  });
 }
 
 function normalizeContainerKekRecipientTarget(

@@ -179,6 +179,28 @@ await client.exec(`
     manifest_hash TEXT NOT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS container_key_epochs (
+    id TEXT PRIMARY KEY,
+    container_id TEXT NOT NULL,
+    key_epoch INTEGER NOT NULL,
+    access_manifest_hash TEXT NOT NULL,
+    parent_container_key_epoch_id TEXT,
+    created_by_event_hash TEXT NOT NULL,
+    created_by_manifest_hash TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS container_key_wraps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    container_key_epoch_id TEXT NOT NULL,
+    recipient_kind TEXT NOT NULL,
+    recipient_id TEXT NOT NULL,
+    recipient_key_epoch_id TEXT NOT NULL,
+    recipient_key_fingerprint TEXT NOT NULL,
+    kem_cipher_text TEXT NOT NULL,
+    wrapped_key TEXT NOT NULL,
+    wrap_manifest_hash TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS access_event_dependency_projection (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_hash TEXT NOT NULL,
@@ -371,6 +393,27 @@ await client.exec(`
     ON access_manifest_heads (object_kind, object_id);
   CREATE INDEX IF NOT EXISTS access_manifest_heads_manifest_hash_idx
     ON access_manifest_heads (manifest_hash);
+  CREATE UNIQUE INDEX IF NOT EXISTS container_key_epochs_container_epoch_idx
+    ON container_key_epochs (container_id, key_epoch);
+  CREATE INDEX IF NOT EXISTS container_key_epochs_container_idx
+    ON container_key_epochs (container_id);
+  CREATE INDEX IF NOT EXISTS container_key_epochs_access_manifest_idx
+    ON container_key_epochs (access_manifest_hash);
+  CREATE INDEX IF NOT EXISTS container_key_epochs_parent_idx
+    ON container_key_epochs (parent_container_key_epoch_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS container_key_wraps_epoch_recipient_idx
+    ON container_key_wraps (
+      container_key_epoch_id,
+      recipient_kind,
+      recipient_id,
+      recipient_key_epoch_id
+    );
+  CREATE INDEX IF NOT EXISTS container_key_wraps_epoch_idx
+    ON container_key_wraps (container_key_epoch_id);
+  CREATE INDEX IF NOT EXISTS container_key_wraps_recipient_idx
+    ON container_key_wraps (recipient_kind, recipient_id);
+  CREATE INDEX IF NOT EXISTS container_key_wraps_manifest_idx
+    ON container_key_wraps (wrap_manifest_hash);
   CREATE INDEX IF NOT EXISTS access_event_dependency_projection_event_idx
     ON access_event_dependency_projection (event_hash);
   CREATE INDEX IF NOT EXISTS access_event_dependency_projection_dependency_idx
