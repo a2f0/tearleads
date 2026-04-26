@@ -230,6 +230,36 @@ await client.exec(`
     container_id TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS document_content_key_epochs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id TEXT NOT NULL,
+    content_key_epoch INTEGER NOT NULL,
+    link_set_manifest_hash TEXT NOT NULL,
+    target_hash TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS document_content_key_targets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_content_key_epoch_id UUID NOT NULL REFERENCES document_content_key_epochs(id),
+    container_id TEXT NOT NULL,
+    container_manifest_hash TEXT NOT NULL,
+    container_key_epoch_id TEXT NOT NULL,
+    container_key_epoch INTEGER NOT NULL,
+    wrapped_key TEXT NOT NULL,
+    wrapping_metadata JSONB NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS document_content_write_headers (
+    update_id UUID PRIMARY KEY,
+    document_id TEXT NOT NULL,
+    content_key_epoch INTEGER NOT NULL,
+    access_manifest_hash TEXT NOT NULL,
+    target_hash TEXT NOT NULL,
+    header_hash TEXT NOT NULL,
+    header JSONB NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS document_container_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id TEXT NOT NULL,
@@ -451,6 +481,25 @@ await client.exec(`
       manifest_hash,
       container_id
     );
+  CREATE UNIQUE INDEX IF NOT EXISTS document_content_key_epochs_document_epoch_idx
+    ON document_content_key_epochs (document_id, content_key_epoch);
+  CREATE INDEX IF NOT EXISTS document_content_key_epochs_document_idx
+    ON document_content_key_epochs (document_id);
+  CREATE INDEX IF NOT EXISTS document_content_key_epochs_target_idx
+    ON document_content_key_epochs (target_hash);
+  CREATE INDEX IF NOT EXISTS document_content_key_targets_epoch_idx
+    ON document_content_key_targets (document_content_key_epoch_id);
+  CREATE INDEX IF NOT EXISTS document_content_key_targets_container_epoch_idx
+    ON document_content_key_targets (container_key_epoch_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS document_content_key_targets_epoch_container_idx
+    ON document_content_key_targets (
+      document_content_key_epoch_id,
+      container_id
+    );
+  CREATE INDEX IF NOT EXISTS document_content_write_headers_document_epoch_idx
+    ON document_content_write_headers (document_id, content_key_epoch);
+  CREATE UNIQUE INDEX IF NOT EXISTS document_content_write_headers_header_hash_idx
+    ON document_content_write_headers (header_hash);
   CREATE UNIQUE INDEX IF NOT EXISTS document_container_links_document_container_idx
     ON document_container_links (document_id, container_id);
   CREATE INDEX IF NOT EXISTS document_container_links_container_idx

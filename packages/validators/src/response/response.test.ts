@@ -5,6 +5,8 @@ import {
   isCommitDocumentChangeResponse,
   isCreateContainerResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
+  isDocumentV2CreateResponse,
+  isDocumentV2SyncResponse,
   isHealthResponse,
   isLinkDocumentToContainerResponse,
   isListContainerDocumentsResponse,
@@ -459,4 +461,121 @@ test("isPrincipalPolicyBundleResponse", () => {
     }),
   ).toBe(false);
   expect(isPrincipalPolicyBundleResponse(null)).toBe(false);
+});
+
+function createDocumentV2ContentKeyBundleResponse(overrides = {}) {
+  return {
+    documentId: "550e8400-e29b-41d4-a716-446655440001",
+    contentKeyEpoch: 1,
+    linkSetManifestHash: "document-link-set-hash",
+    targetHash: "target-hash",
+    targets: [
+      {
+        containerId: "550e8400-e29b-41d4-a716-446655440000",
+        containerManifestHash: "container-manifest-hash",
+        containerKeyEpochId: "container-key-epoch-id",
+        containerKeyEpoch: 1,
+        wrappedKey: "wrapped-key",
+        wrappingMetadata: { alg: "x25519-hkdf-sha256" },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function createDocumentV2KekTargetsResponse(overrides = {}) {
+  return {
+    documentId: "550e8400-e29b-41d4-a716-446655440001",
+    linkSetManifestHash: "document-link-set-hash",
+    linkedContainerManifestHashes: ["container-manifest-hash"],
+    linkedContainerKeyEpochIds: ["container-key-epoch-id"],
+    targets: [{ containerId: "550e8400-e29b-41d4-a716-446655440000" }],
+    documentKeyTargetHash: "target-hash",
+    ...overrides,
+  };
+}
+
+function createDocumentV2ManifestBundleResponse(overrides = {}) {
+  return {
+    event: { eventType: "document.link" },
+    manifest: { objectType: "document", objectId: "doc-1" },
+    manifestHash: "manifest-hash",
+    state: { objectId: "doc-1" },
+    ...overrides,
+  };
+}
+
+test("isDocumentV2CreateResponse", () => {
+  const validResponse = {
+    id: "550e8400-e29b-41d4-a716-446655440001",
+    createdAt: new Date().toISOString(),
+    accessManifest: createDocumentV2ManifestBundleResponse(),
+    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
+    documentKekTargets: createDocumentV2KekTargetsResponse(),
+  };
+
+  expect(isDocumentV2CreateResponse(validResponse)).toBe(true);
+  expect(
+    isDocumentV2CreateResponse({
+      ...validResponse,
+      accessManifest: createDocumentV2ManifestBundleResponse({
+        manifestHash: "",
+      }),
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2CreateResponse({
+      ...validResponse,
+      contentKeyBundle: createDocumentV2ContentKeyBundleResponse({
+        contentKeyEpoch: 0,
+      }),
+    }),
+  ).toBe(false);
+  expect(isDocumentV2CreateResponse(null)).toBe(false);
+});
+
+test("isDocumentV2SyncResponse", () => {
+  const validResponse = {
+    acceptedOutgoingUpdateIds: ["update-1"],
+    commitLsn: null,
+    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
+    documentId: "550e8400-e29b-41d4-a716-446655440001",
+    documentKekTargets: createDocumentV2KekTargetsResponse(),
+    missingUpdateEpochs: ["current_epoch"],
+    updates: [
+      {
+        accessEpoch: 1,
+        id: "update-2",
+        documentId: "550e8400-e29b-41d4-a716-446655440001",
+        authorFingerprint: "author-fingerprint",
+        encryptedData: "ciphertext",
+        partialStartVersionVector: "{}",
+        partialEndVersionVector: '{"actor":1}',
+        createdAt: new Date().toISOString(),
+        writeHeader: { objectKind: "document" },
+        writeHeaderHash: "write-header-hash",
+      },
+    ],
+  };
+
+  expect(isDocumentV2SyncResponse(validResponse)).toBe(true);
+  expect(
+    isDocumentV2SyncResponse({
+      ...validResponse,
+      missingUpdateEpochs: ["unknown_epoch"],
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2SyncResponse({
+      ...validResponse,
+      commitLsn: 123,
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2SyncResponse({
+      ...validResponse,
+      updates: [{ id: "update-2" }],
+    }),
+  ).toBe(false);
+  expect(isDocumentV2SyncResponse(null)).toBe(false);
 });

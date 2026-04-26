@@ -44,6 +44,16 @@ export {
   type ListContainerDocumentsResponse,
   type UnlinkDocumentFromContainerResponse,
 } from "./document";
+export {
+  type DocumentV2ContentKeyBundleResponse,
+  type DocumentV2ContentKeyTargetEnvelopeResponse,
+  type DocumentV2CreateResponse,
+  type DocumentV2KekTargetsResponse,
+  type DocumentV2ManifestBundleResponse,
+  type DocumentV2SyncResponse,
+  isDocumentV2CreateResponse,
+  isDocumentV2SyncResponse,
+} from "./documentV2";
 export { type HealthResponse, isHealthResponse } from "./health";
 export {
   type CurrentPrincipalMemberEnvelopesResponse,
