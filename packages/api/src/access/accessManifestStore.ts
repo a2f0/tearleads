@@ -6,7 +6,7 @@ import type {
   VerifiedAccessManifest,
 } from "@tearleads/crypto";
 import { serializeKeyingV2CanonicalJson } from "@tearleads/crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, lt } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
   accessEventDependencyProjection,
@@ -185,7 +185,7 @@ async function ensureStoredAccessEventMatches(
 async function insertAccessManifest(
   verifiedManifest: VerifiedAccessManifest,
   executor: AccessManifestStoreExecutor,
-): Promise<void> {
+): Promise<boolean> {
   const manifest = verifiedManifest.manifest;
 
   const [insertedManifest] = await executor
@@ -209,7 +209,10 @@ async function insertAccessManifest(
 
   if (!insertedManifest) {
     await ensureStoredAccessManifestMatches(verifiedManifest, executor);
+    return false;
   }
+
+  return true;
 }
 
 async function ensureStoredAccessManifestMatches(
@@ -391,6 +394,32 @@ async function advanceAccessManifestHead(
   executor: AccessManifestStoreExecutor,
 ): Promise<StoredAccessManifestHead> {
   const manifest = verifiedManifest.manifest;
+
+  const [advancedHead] = await executor
+    .insert(accessManifestHeads)
+    .values({
+      objectKind: manifest.objectKind,
+      objectId: manifest.objectId,
+      organizationId: manifest.organizationId,
+      epoch: manifest.epoch,
+      manifestHash: verifiedManifest.manifestHash,
+    })
+    .onConflictDoUpdate({
+      target: [accessManifestHeads.objectKind, accessManifestHeads.objectId],
+      set: {
+        organizationId: manifest.organizationId,
+        epoch: manifest.epoch,
+        manifestHash: verifiedManifest.manifestHash,
+        updatedAt: new Date(),
+      },
+      setWhere: lt(accessManifestHeads.epoch, manifest.epoch),
+    })
+    .returning();
+
+  if (advancedHead) {
+    return toStoredAccessManifestHead(advancedHead);
+  }
+
   const currentHead = await loadCurrentAccessManifestHead(
     manifest.objectKind,
     manifest.objectId,
@@ -398,21 +427,7 @@ async function advanceAccessManifestHead(
   );
 
   if (!currentHead) {
-    const [insertedHead] = await executor
-      .insert(accessManifestHeads)
-      .values({
-        objectKind: manifest.objectKind,
-        objectId: manifest.objectId,
-        organizationId: manifest.organizationId,
-        epoch: manifest.epoch,
-        manifestHash: verifiedManifest.manifestHash,
-      })
-      .returning();
-
-    if (!insertedHead) {
-      throw new Error("Failed to load stored access manifest head");
-    }
-    return toStoredAccessManifestHead(insertedHead);
+    throw new Error("Failed to load stored access manifest head");
   }
 
   if (
@@ -422,30 +437,7 @@ async function advanceAccessManifestHead(
     throw new Error("Access manifest head epoch conflict");
   }
 
-  if (manifest.epoch <= currentHead.epoch) {
-    return currentHead;
-  }
-
-  const [updatedHead] = await executor
-    .update(accessManifestHeads)
-    .set({
-      organizationId: manifest.organizationId,
-      epoch: manifest.epoch,
-      manifestHash: verifiedManifest.manifestHash,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(accessManifestHeads.objectKind, manifest.objectKind),
-        eq(accessManifestHeads.objectId, manifest.objectId),
-      ),
-    )
-    .returning();
-
-  if (!updatedHead) {
-    throw new Error("Failed to load updated access manifest head");
-  }
-  return toStoredAccessManifestHead(updatedHead);
+  return currentHead;
 }
 
 export async function storeVerifiedAccessManifest(
@@ -457,11 +449,16 @@ export async function storeVerifiedAccessManifest(
   }
 
   await insertAccessEvent(input.verifiedManifest.event, executor);
-  await insertAccessManifest(input.verifiedManifest, executor);
-  await regenerateAccessManifestProjections(
-    input.verifiedManifest.manifestHash,
+  const manifestInserted = await insertAccessManifest(
+    input.verifiedManifest,
     executor,
   );
+  if (manifestInserted) {
+    await regenerateAccessManifestProjections(
+      input.verifiedManifest.manifestHash,
+      executor,
+    );
+  }
 
   return advanceAccessManifestHead(input.verifiedManifest, executor);
 }
