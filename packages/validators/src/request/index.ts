@@ -10,7 +10,10 @@ export {
   isCommitDocumentChangeRequest,
 } from "./commitDocumentChange";
 export {
+  type ContainerV2ManifestBundle,
+  type ContainerV2MutationRequest,
   type CreateContainerRequest,
+  isContainerV2MutationRequest,
   isCreateContainerRequest,
   isLinkDocumentToContainerRequest,
   isMoveContainerRequest,

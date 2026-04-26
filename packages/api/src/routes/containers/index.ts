@@ -7,6 +7,7 @@ import { createListContainerDocumentsRoute } from "./listContainerDocuments";
 import { createListContainersRoute } from "./listContainers";
 import { createMoveContainerRoute } from "./moveContainer";
 import { createShareContainerRoute } from "./shareContainer";
+import { createContainerV2MutationsRoute } from "./v2Mutations";
 
 interface ContainersRouterDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -25,6 +26,7 @@ export function createContainersRouter({
   containersRouter.route("/", createListContainersRoute(routeDeps));
   containersRouter.route("/", createMoveContainerRoute(routeDeps));
   containersRouter.route("/", createShareContainerRoute(routeDeps));
+  containersRouter.route("/", createContainerV2MutationsRoute(routeDeps));
 
   return containersRouter;
 }

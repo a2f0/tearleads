@@ -18,6 +18,7 @@ import {
   getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
+  listPrincipalProjectionMembersForStates,
   storeVerifiedPrincipalState,
 } from "./principalStateStore";
 
@@ -705,4 +706,112 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
   expect(currentStates.get(firstPrincipalId)?.keyEpoch).toBe(2);
   expect(currentStates.get(secondPrincipalId)?.version).toBe(1);
   expect(currentStates.get(secondPrincipalId)?.keyEpoch).toBe(1);
+});
+
+test("listPrincipalProjectionMembersForStates batches projection lookup by current state", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const signer = await createPrincipalStateSigner(signingPublicKey);
+  const firstPrincipalId = crypto.randomUUID();
+  const secondPrincipalId = crypto.randomUUID();
+  const firstKem = generateKemSeedAndKeyPair();
+  const secondKem = generateKemSeedAndKeyPair();
+  const firstProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: signer.signerUserId,
+      role: "admin" as const,
+    },
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: "first-member",
+      role: "member" as const,
+    },
+  ];
+  const secondProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: signer.signerUserId,
+      role: "admin" as const,
+    },
+    {
+      memberPrincipalType: "group" as const,
+      memberPrincipalId: "nested-group",
+      role: "member" as const,
+    },
+  ];
+
+  const firstState = await storeVerifiedPrincipalState(
+    await signPrincipalState(
+      {
+        principalType: "group",
+        principalId: firstPrincipalId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(firstKem.publicKey),
+        keyFingerprint: await toFingerprint(firstKem.publicKey),
+        members: [
+          { principalType: "user", principalId: signer.signerUserId },
+          { principalType: "user", principalId: "first-member" },
+        ],
+        projection: firstProjection,
+        signedAt: new Date("2026-04-07T16:00:00.000Z").toISOString(),
+        ...signer,
+      },
+      signingPrivateKey,
+    ),
+  );
+  const secondState = await storeVerifiedPrincipalState(
+    await signPrincipalState(
+      {
+        principalType: "group",
+        principalId: secondPrincipalId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
+        keyFingerprint: await toFingerprint(secondKem.publicKey),
+        members: [
+          { principalType: "user", principalId: signer.signerUserId },
+          { principalType: "group", principalId: "nested-group" },
+        ],
+        projection: secondProjection,
+        signedAt: new Date("2026-04-07T16:05:00.000Z").toISOString(),
+        ...signer,
+      },
+      signingPrivateKey,
+    ),
+  );
+
+  const projections = await listPrincipalProjectionMembersForStates("group", [
+    secondState,
+    firstState,
+    firstState,
+  ]);
+
+  const firstKey = `${firstPrincipalId}:${firstState.stateHash}`;
+  const secondKey = `${secondPrincipalId}:${secondState.stateHash}`;
+  expect(
+    projections
+      .get(firstKey)
+      ?.map(
+        (member) =>
+          `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`,
+      )
+      .sort(),
+  ).toEqual(
+    ["user:first-member:member", `user:${signer.signerUserId}:admin`].sort(),
+  );
+  expect(
+    projections
+      .get(secondKey)
+      ?.map(
+        (member) =>
+          `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`,
+      )
+      .sort(),
+  ).toEqual(
+    ["group:nested-group:member", `user:${signer.signerUserId}:admin`].sort(),
+  );
 });

@@ -32,6 +32,39 @@ export interface ShareContainerResponse {
 
 export type MoveContainerResponse = ContainerSummary;
 
+export interface ContainerV2ManifestBundleResponse {
+  event: Record<string, unknown>;
+  manifest: Record<string, unknown>;
+  manifestHash: string;
+  state: Record<string, unknown>;
+}
+
+export interface ContainerV2KekResponse {
+  containerId: string;
+  accessManifestHash: string;
+  containerKeyEpochId: string;
+  containerKeyEpoch: number;
+  keyEpoch: Record<string, unknown>;
+  keyEpochHash: string;
+  keyTargetHash: string;
+  parentContainerKeyEpochId: string | null;
+  recipientTargets: Record<string, unknown>[];
+  wraps: Record<string, unknown>[];
+}
+
+export interface ContainerV2MutationResponse {
+  containerId: string;
+  organizationId: string;
+  parentId: string | null;
+  manifestHead: {
+    epoch: number;
+    manifestHash: string;
+  };
+  accessManifest: ContainerV2ManifestBundleResponse;
+  containerKek: ContainerV2KekResponse;
+  referencedPrincipalHeads: Record<string, unknown>[];
+}
+
 export interface ContainerSummary {
   id: string;
   organizationId: string;
@@ -115,4 +148,83 @@ export function isMoveContainerResponse(
   value: unknown,
 ): value is MoveContainerResponse {
   return isContainerSummary(value) && value.parentId !== null;
+}
+
+function isRecordArray(value: unknown): value is Record<string, unknown>[] {
+  return Array.isArray(value) && value.every(isPlainObject);
+}
+
+function isContainerV2ManifestBundleResponse(
+  value: unknown,
+): value is ContainerV2ManifestBundleResponse {
+  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
+  const manifest = isPlainObject(value)
+    ? Reflect.get(value, "manifest")
+    : undefined;
+  const state = isPlainObject(value) ? Reflect.get(value, "state") : undefined;
+
+  return (
+    isPlainObject(value) &&
+    isPlainObject(event) &&
+    isPlainObject(manifest) &&
+    hasStringProperty(value, "manifestHash") &&
+    value.manifestHash.length > 0 &&
+    isPlainObject(state)
+  );
+}
+
+function isContainerV2KekResponse(
+  value: unknown,
+): value is ContainerV2KekResponse {
+  const keyEpoch = isPlainObject(value)
+    ? Reflect.get(value, "keyEpoch")
+    : undefined;
+  const recipientTargets = isPlainObject(value)
+    ? Reflect.get(value, "recipientTargets")
+    : undefined;
+  const wraps = isPlainObject(value) ? Reflect.get(value, "wraps") : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    hasStringProperty(value, "accessManifestHash") &&
+    hasStringProperty(value, "containerKeyEpochId") &&
+    hasNumberProperty(value, "containerKeyEpoch") &&
+    isPlainObject(keyEpoch) &&
+    hasStringProperty(value, "keyEpochHash") &&
+    hasStringProperty(value, "keyTargetHash") &&
+    hasNullableStringProperty(value, "parentContainerKeyEpochId") &&
+    isRecordArray(recipientTargets) &&
+    isRecordArray(wraps)
+  );
+}
+
+export function isContainerV2MutationResponse(
+  value: unknown,
+): value is ContainerV2MutationResponse {
+  const manifestHead = isPlainObject(value)
+    ? Reflect.get(value, "manifestHead")
+    : undefined;
+  const accessManifest = isPlainObject(value)
+    ? Reflect.get(value, "accessManifest")
+    : undefined;
+  const containerKek = isPlainObject(value)
+    ? Reflect.get(value, "containerKek")
+    : undefined;
+  const referencedPrincipalHeads = isPlainObject(value)
+    ? Reflect.get(value, "referencedPrincipalHeads")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    hasStringProperty(value, "organizationId") &&
+    hasNullableStringProperty(value, "parentId") &&
+    isPlainObject(manifestHead) &&
+    hasNumberProperty(manifestHead, "epoch") &&
+    hasStringProperty(manifestHead, "manifestHash") &&
+    isContainerV2ManifestBundleResponse(accessManifest) &&
+    isContainerV2KekResponse(containerKek) &&
+    isRecordArray(referencedPrincipalHeads)
+  );
 }
