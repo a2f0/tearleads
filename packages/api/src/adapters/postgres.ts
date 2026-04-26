@@ -223,6 +223,13 @@ await client.exec(`
     key_fingerprint TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS access_manifest_document_link_projection (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    manifest_hash TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    container_id TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS document_container_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id TEXT NOT NULL,
@@ -432,6 +439,17 @@ await client.exec(`
       manifest_hash,
       principal_type,
       principal_id
+    );
+  CREATE INDEX IF NOT EXISTS access_manifest_document_link_manifest_idx
+    ON access_manifest_document_link_projection (manifest_hash);
+  CREATE INDEX IF NOT EXISTS access_manifest_document_link_document_idx
+    ON access_manifest_document_link_projection (document_id);
+  CREATE INDEX IF NOT EXISTS access_manifest_document_link_container_idx
+    ON access_manifest_document_link_projection (container_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS access_manifest_document_link_unique_idx
+    ON access_manifest_document_link_projection (
+      manifest_hash,
+      container_id
     );
   CREATE UNIQUE INDEX IF NOT EXISTS document_container_links_document_container_idx
     ON document_container_links (document_id, container_id);

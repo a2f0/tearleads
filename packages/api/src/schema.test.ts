@@ -62,6 +62,8 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         as "accessEventDependencyProjection",
       to_regclass('access_manifest_principal_head_projection') is not null
         as "accessManifestPrincipalHeadProjection",
+      to_regclass('access_manifest_document_link_projection') is not null
+        as "accessManifestDocumentLinkProjection",
       to_regclass('access_events_event_hash_idx') is not null
         as "accessEventsEventHashIndex",
       to_regclass('access_manifests_object_epoch_idx') is not null
@@ -72,6 +74,8 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         as "containerKeyEpochsContainerEpochIndex",
       to_regclass('container_key_wraps_epoch_recipient_idx') is not null
         as "containerKeyWrapsEpochRecipientIndex",
+      to_regclass('access_manifest_document_link_unique_idx') is not null
+        as "accessManifestDocumentLinkUniqueIndex",
       (
         select data_type
         from information_schema.columns
@@ -99,12 +103,14 @@ test("V2 access manifest schema creates tables and indexes", async () => {
     containerKeyEpochs: true,
     containerKeyWraps: true,
     accessEventDependencyProjection: true,
+    accessManifestDocumentLinkProjection: true,
     accessManifestPrincipalHeadProjection: true,
     accessEventsEventHashIndex: true,
     accessManifestsObjectEpochIndex: true,
     accessManifestHeadsObjectIndex: true,
     containerKeyEpochsContainerEpochIndex: true,
     containerKeyWrapsEpochRecipientIndex: true,
+    accessManifestDocumentLinkUniqueIndex: true,
     accessEventsDependenciesJsonb: true,
     accessEventsBodyJsonb: true,
     accessManifestsPrincipalHeadsJsonb: true,

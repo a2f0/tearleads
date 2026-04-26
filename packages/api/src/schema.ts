@@ -490,6 +490,27 @@ export const accessManifestPrincipalHeadProjection = pgTable(
   ],
 );
 
+// Derived cache only. Document link authority is the signed document manifest.
+export const accessManifestDocumentLinkProjection = pgTable(
+  "access_manifest_document_link_projection",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    manifestHash: text("manifest_hash").notNull(),
+    documentId: text("document_id").notNull(),
+    containerId: text("container_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("access_manifest_document_link_manifest_idx").on(table.manifestHash),
+    index("access_manifest_document_link_document_idx").on(table.documentId),
+    index("access_manifest_document_link_container_idx").on(table.containerId),
+    uniqueIndex("access_manifest_document_link_unique_idx").on(
+      table.manifestHash,
+      table.containerId,
+    ),
+  ],
+);
+
 export const documentContainerLinks = pgTable("document_container_links", {
   id: uuid("id").defaultRandom().primaryKey(),
   documentId: text("document_id").notNull(),

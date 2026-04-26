@@ -11,12 +11,16 @@ import type {
   ContainerKeyEpochV2,
   ContainerKeyWrapV2,
   ContainerUserRecipientKeyV2,
+  DocumentAccessEventBodyV2,
+  DocumentLinkSetManifestStateV2,
   KeyingV2CanonicalJson,
   KeyingV2VerificationCode,
   KeyingV2VerificationResult,
   UnsignedAccessEventV2,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
+  VerifiedContainerKekState,
+  VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
 } from "./keyingV2";
 import {
@@ -27,6 +31,8 @@ import {
   computeKeyingV2DomainHash,
   computeWriteHeaderHash,
   deriveContainerAccessManifest,
+  deriveDocumentKekTargets,
+  deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
   serializeKeyingV2CanonicalJson,
   signAccessEvent,
@@ -35,6 +41,7 @@ import {
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifyContainerParentEdge,
+  verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
   verifyWriteHeader,
 } from "./keyingV2";
@@ -145,6 +152,7 @@ async function createManifest(event: VerifiedAccessEvent) {
 
 async function createVerifiedContainerAccessEvent(input: {
   readonly body: ContainerAccessEventBodyV2;
+  readonly dependencyManifestHashes?: readonly string[];
   readonly objectId: string;
   readonly organizationId: string;
   readonly previousManifestHash: string | null;
@@ -160,7 +168,49 @@ async function createVerifiedContainerAccessEvent(input: {
       objectId: input.objectId,
       organizationId: input.organizationId,
       previousManifestHash: input.previousManifestHash,
-      dependencyManifestHashes: [],
+      dependencyManifestHashes: [...(input.dependencyManifestHashes ?? [])],
+      bodyHash: await computeAccessEventBodyHash(
+        input.body as unknown as KeyingV2CanonicalJson,
+      ),
+      signerUserId: input.signerUserId,
+      signerDeviceId: "device-1",
+      signerKeyFingerprint: await toFingerprint(input.signer.signingPublicKey),
+      signedAt: "2026-04-25T12:00:00.000Z",
+    },
+    input.signer.signingPrivateKey,
+  );
+  const verifiedEvent = await verifySignedAccessEvent({
+    body: input.body as unknown as KeyingV2CanonicalJson,
+    event,
+    signerPublicKey: input.signer.signingPublicKey,
+  });
+
+  if (!verifiedEvent.ok) {
+    throw verifiedEvent.error;
+  }
+
+  return verifiedEvent.value;
+}
+
+async function createVerifiedDocumentAccessEvent(input: {
+  readonly body: DocumentAccessEventBodyV2;
+  readonly dependencyManifestHashes?: readonly string[];
+  readonly objectId: string;
+  readonly organizationId: string;
+  readonly previousManifestHash: string | null;
+  readonly signer: ReturnType<typeof generateSigningSeedAndKeyPair>;
+  readonly signerUserId: string;
+}) {
+  const event = await signAccessEvent(
+    {
+      version: 2,
+      eventId: crypto.randomUUID(),
+      eventType: input.body.eventType,
+      objectKind: "document",
+      objectId: input.objectId,
+      organizationId: input.organizationId,
+      previousManifestHash: input.previousManifestHash,
+      dependencyManifestHashes: [...(input.dependencyManifestHashes ?? [])],
       bodyHash: await computeAccessEventBodyHash(
         input.body as unknown as KeyingV2CanonicalJson,
       ),
@@ -304,6 +354,78 @@ async function createContainerKeyWrap(input: {
     wrappedKey: `wrapped:${await fixtureHash(`${input.recipientId}:wrapped`)}`,
     wrapManifestHash: input.wrapManifestHash,
   };
+}
+
+async function createDocumentLinkSetManifestFixture(input: {
+  readonly documentId: string;
+  readonly event: VerifiedAccessEvent;
+  readonly linkedContainerIds: readonly string[];
+  readonly organizationId: string;
+  readonly previousManifestHash?: string | null;
+  readonly epoch?: number;
+}): Promise<VerifiedDocumentLinkSetManifest> {
+  const state: DocumentLinkSetManifestStateV2 = {
+    version: 2,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+    epoch: input.epoch ?? 1,
+    previousManifestHash: input.previousManifestHash ?? null,
+    eventHash: input.event.eventHash,
+    linkedContainerIds: [...input.linkedContainerIds].sort(),
+  };
+  const manifest = await deriveDocumentLinkSetManifest(state);
+
+  return {
+    manifest,
+    manifestHash: await computeAccessManifestHash(manifest),
+    event: input.event,
+    state,
+  } as VerifiedDocumentLinkSetManifest;
+}
+
+async function createVerifiedContainerKekStateFixture(input: {
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly recipientUserId: string;
+}): Promise<VerifiedContainerKekState> {
+  const keyEpoch = await createContainerKeyEpochFixture({
+    manifest: input.manifest,
+  });
+  const recipientKeyFingerprint = await fixtureHash(
+    `${input.manifest.state.containerId}:recipient-key`,
+  );
+  const recipientKeyEpochId = [
+    "user",
+    input.recipientUserId,
+    1,
+    recipientKeyFingerprint,
+  ].join(":");
+  const result = await verifyContainerKekState({
+    containerManifest: input.manifest,
+    keyEpoch,
+    userRecipientKeys: [
+      {
+        userId: input.recipientUserId,
+        recipientKeyEpochId,
+        recipientKeyFingerprint,
+      },
+    ],
+    wraps: [
+      await createContainerKeyWrap({
+        containerKeyEpochId: keyEpoch.id,
+        recipientKind: "user",
+        recipientId: input.recipientUserId,
+        recipientKeyEpochId,
+        recipientKeyFingerprint,
+        wrapManifestHash: input.manifest.manifestHash,
+      }),
+    ],
+  });
+
+  if (!result.ok) {
+    throw result.error;
+  }
+
+  return result.value;
 }
 
 test("keying v2 canonical JSON sorts object keys deterministically", () => {
@@ -1000,6 +1122,330 @@ test("parent sharing does not require descendant container manifest rewrites", a
       parentHistory: [parentAfterShare.value, parent],
     }).ok,
   ).toBe(true);
+});
+
+test("verifyDocumentLinkSetManifest advances signed link and unlink heads", async () => {
+  const writerUserId = "writer-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const firstContainer = await createContainerManifestFixture({
+    containerId: "container-a",
+    containerKeyEpochId: "container-a-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const secondContainer = await createContainerManifestFixture({
+    containerId: "container-b",
+    containerKeyEpochId: "container-b-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const documentId = "document-1";
+  const initialBody: DocumentAccessEventBodyV2 = {
+    eventType: "document.link",
+    containerId: firstContainer.state.containerId,
+    containerManifestHash: firstContainer.manifestHash,
+  };
+  const initialEvent = await createVerifiedDocumentAccessEvent({
+    body: initialBody,
+    dependencyManifestHashes: [firstContainer.manifestHash],
+    objectId: documentId,
+    organizationId: firstContainer.state.organizationId,
+    previousManifestHash: null,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const initialManifest = await createDocumentLinkSetManifestFixture({
+    documentId,
+    event: initialEvent,
+    linkedContainerIds: [firstContainer.state.containerId],
+    organizationId: firstContainer.state.organizationId,
+  });
+  const initialResult = await verifyDocumentLinkSetManifest({
+    manifest: initialManifest.manifest,
+    expectedManifestHash: initialManifest.manifestHash,
+    event: initialEvent,
+    targetContainerPath: [firstContainer],
+  });
+
+  expect(initialResult.ok).toBe(true);
+  if (!initialResult.ok) {
+    throw initialResult.error;
+  }
+
+  const linkBody: DocumentAccessEventBodyV2 = {
+    eventType: "document.link",
+    containerId: secondContainer.state.containerId,
+    containerManifestHash: secondContainer.manifestHash,
+  };
+  const linkEvent = await createVerifiedDocumentAccessEvent({
+    body: linkBody,
+    dependencyManifestHashes: [
+      firstContainer.manifestHash,
+      secondContainer.manifestHash,
+    ],
+    objectId: documentId,
+    organizationId: firstContainer.state.organizationId,
+    previousManifestHash: initialResult.value.manifestHash,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const linkedManifest = await createDocumentLinkSetManifestFixture({
+    documentId,
+    event: linkEvent,
+    linkedContainerIds: [
+      firstContainer.state.containerId,
+      secondContainer.state.containerId,
+    ],
+    organizationId: firstContainer.state.organizationId,
+    previousManifestHash: initialResult.value.manifestHash,
+    epoch: 2,
+  });
+  const linkResult = await verifyDocumentLinkSetManifest({
+    manifest: linkedManifest.manifest,
+    expectedManifestHash: linkedManifest.manifestHash,
+    event: linkEvent,
+    previousManifest: initialResult.value,
+    authorizingContainerPaths: [[firstContainer]],
+    targetContainerPath: [secondContainer],
+  });
+
+  expect(linkResult.ok).toBe(true);
+  if (!linkResult.ok) {
+    throw linkResult.error;
+  }
+  expect(linkResult.value.state.linkedContainerIds).toEqual([
+    firstContainer.state.containerId,
+    secondContainer.state.containerId,
+  ]);
+
+  const unlinkBody: DocumentAccessEventBodyV2 = {
+    eventType: "document.unlink",
+    containerId: secondContainer.state.containerId,
+    containerManifestHash: secondContainer.manifestHash,
+  };
+  const unlinkEvent = await createVerifiedDocumentAccessEvent({
+    body: unlinkBody,
+    dependencyManifestHashes: [
+      firstContainer.manifestHash,
+      secondContainer.manifestHash,
+    ],
+    objectId: documentId,
+    organizationId: firstContainer.state.organizationId,
+    previousManifestHash: linkResult.value.manifestHash,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const unlinkedManifest = await createDocumentLinkSetManifestFixture({
+    documentId,
+    event: unlinkEvent,
+    linkedContainerIds: [firstContainer.state.containerId],
+    organizationId: firstContainer.state.organizationId,
+    previousManifestHash: linkResult.value.manifestHash,
+    epoch: 3,
+  });
+  const unlinkResult = await verifyDocumentLinkSetManifest({
+    manifest: unlinkedManifest.manifest,
+    expectedManifestHash: unlinkedManifest.manifestHash,
+    event: unlinkEvent,
+    previousManifest: linkResult.value,
+    authorizingContainerPaths: [[firstContainer]],
+    targetContainerPath: [secondContainer],
+  });
+
+  expect(unlinkResult.ok).toBe(true);
+  if (!unlinkResult.ok) {
+    throw unlinkResult.error;
+  }
+  expect(unlinkResult.value.state.linkedContainerIds).toEqual([
+    firstContainer.state.containerId,
+  ]);
+});
+
+test("verifyDocumentLinkSetManifest rejects forged linked containers", async () => {
+  const writerUserId = "writer-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const firstContainer = await createContainerManifestFixture({
+    containerId: "container-a",
+    containerKeyEpochId: "container-a-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const secondContainer = await createContainerManifestFixture({
+    containerId: "container-b",
+    containerKeyEpochId: "container-b-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const initialBody: DocumentAccessEventBodyV2 = {
+    eventType: "document.link",
+    containerId: firstContainer.state.containerId,
+    containerManifestHash: firstContainer.manifestHash,
+  };
+  const initialEvent = await createVerifiedDocumentAccessEvent({
+    body: initialBody,
+    dependencyManifestHashes: [firstContainer.manifestHash],
+    objectId: "document-1",
+    organizationId: firstContainer.state.organizationId,
+    previousManifestHash: null,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const forgedManifest = await createDocumentLinkSetManifestFixture({
+    documentId: "document-1",
+    event: initialEvent,
+    linkedContainerIds: [
+      firstContainer.state.containerId,
+      secondContainer.state.containerId,
+    ],
+    organizationId: firstContainer.state.organizationId,
+  });
+
+  const result = await verifyDocumentLinkSetManifest({
+    manifest: forgedManifest.manifest,
+    expectedManifestHash: forgedManifest.manifestHash,
+    event: initialEvent,
+    targetContainerPath: [firstContainer],
+  });
+
+  expectVerificationError(result, "hash_mismatch");
+});
+
+test("deriveDocumentKekTargets resolves every linked container KEK target", async () => {
+  const writerUserId = "writer-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const firstContainer = await createContainerManifestFixture({
+    containerId: "container-a",
+    containerKeyEpochId: "container-a-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const secondContainer = await createContainerManifestFixture({
+    containerId: "container-b",
+    containerKeyEpochId: "container-b-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const body: DocumentAccessEventBodyV2 = {
+    eventType: "document.link",
+    containerId: firstContainer.state.containerId,
+    containerManifestHash: firstContainer.manifestHash,
+  };
+  const event = await createVerifiedDocumentAccessEvent({
+    body,
+    dependencyManifestHashes: [firstContainer.manifestHash],
+    objectId: "document-1",
+    organizationId: firstContainer.state.organizationId,
+    previousManifestHash: null,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const documentManifest = await createDocumentLinkSetManifestFixture({
+    documentId: "document-1",
+    event,
+    linkedContainerIds: [
+      secondContainer.state.containerId,
+      firstContainer.state.containerId,
+    ],
+    organizationId: firstContainer.state.organizationId,
+  });
+  const firstKekState = await createVerifiedContainerKekStateFixture({
+    manifest: firstContainer,
+    recipientUserId: writerUserId,
+  });
+  const secondKekState = await createVerifiedContainerKekStateFixture({
+    manifest: secondContainer,
+    recipientUserId: writerUserId,
+  });
+
+  const result = await deriveDocumentKekTargets({
+    documentManifest,
+    linkedContainerManifests: [secondContainer, firstContainer],
+    containerKekStates: [secondKekState, firstKekState],
+  });
+
+  expect(result.ok).toBe(true);
+  if (!result.ok) {
+    throw result.error;
+  }
+  expect(result.value.targets).toEqual([
+    {
+      containerId: firstContainer.state.containerId,
+      containerManifestHash: firstContainer.manifestHash,
+      containerKeyEpochId: firstKekState.containerKeyEpochId,
+      containerKeyEpoch: firstKekState.containerKeyEpoch,
+    },
+    {
+      containerId: secondContainer.state.containerId,
+      containerManifestHash: secondContainer.manifestHash,
+      containerKeyEpochId: secondKekState.containerKeyEpochId,
+      containerKeyEpoch: secondKekState.containerKeyEpoch,
+    },
+  ]);
+  expect(result.value.documentKeyTargetHash).toBe(
+    await computeDocumentContentKeyTargetHash(result.value.targets),
+  );
+
+  const missingTargetResult = await deriveDocumentKekTargets({
+    documentManifest,
+    linkedContainerManifests: [firstContainer],
+    containerKekStates: [firstKekState],
+  });
+  expectVerificationError(missingTargetResult, "missing_dependency");
+
+  const staleKekResult = await deriveDocumentKekTargets({
+    documentManifest,
+    linkedContainerManifests: [firstContainer, secondContainer],
+    containerKekStates: [
+      firstKekState,
+      {
+        ...secondKekState,
+        accessManifestHash: await fixtureHash("stale-container-manifest"),
+      } as VerifiedContainerKekState,
+    ],
+  });
+  expectVerificationError(staleKekResult, "stale_predecessor");
 });
 
 test("container managed-principal grants commit matching principal heads", async () => {
