@@ -2,6 +2,7 @@ import {
   computePrincipalProjectionRoot,
   computePrincipalStateHash,
   computePrincipalStatePayloadCiphertextHash,
+  getPrincipalPolicyTransitionMismatchReason,
   toFingerprint,
   verifySignedPrincipalState,
 } from "@tearleads/crypto";
@@ -246,6 +247,14 @@ async function getPrincipalPolicyChainEntryMismatchReason(input: {
     ) {
       return "state signer is not an admin in previous projection";
     }
+
+    const transitionMismatch = getPrincipalPolicyTransitionMismatchReason({
+      current: input.entry,
+      previous: input.previousEntry,
+    });
+    if (transitionMismatch) {
+      return transitionMismatch;
+    }
   } else if (input.entry.state.prevStateHash !== null) {
     return "initial principal policy chain entry has a previous state hash";
   } else if (
@@ -313,14 +322,66 @@ async function getPrincipalPolicyChainMismatchReason(
   return null;
 }
 
+function getPrincipalPolicyCheckpointMismatchReason(
+  cachedBundle: PrincipalPolicyBundleResponse | null,
+  bundle: PrincipalPolicyBundleResponse,
+): string | null {
+  if (!cachedBundle) {
+    return null;
+  }
+
+  if (
+    cachedBundle.currentState.principalType !==
+      bundle.currentState.principalType ||
+    cachedBundle.currentState.principalId !== bundle.currentState.principalId
+  ) {
+    return "cached principal policy checkpoint principal mismatch";
+  }
+
+  if (bundle.currentState.version < cachedBundle.currentState.version) {
+    return "principal policy state is older than the local checkpoint";
+  }
+
+  if (
+    bundle.currentState.version === cachedBundle.currentState.version &&
+    bundle.currentState.stateHash !== cachedBundle.currentState.stateHash
+  ) {
+    return "principal policy state conflicts with the local checkpoint";
+  }
+
+  if (bundle.currentState.version <= cachedBundle.currentState.version) {
+    return null;
+  }
+
+  const stateChain = getPrincipalPolicyStateChain(bundle);
+  const checkpointEntry = stateChain[cachedBundle.currentState.version - 1];
+  if (
+    !checkpointEntry ||
+    checkpointEntry.state.stateHash !== cachedBundle.currentState.stateHash
+  ) {
+    return "principal policy chain does not extend the local checkpoint";
+  }
+
+  return null;
+}
+
 async function validatePrincipalPolicyBundle(
   reference: ReferencedPrincipalStateResponse,
   bundle: PrincipalPolicyBundleResponse,
   getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"],
+  cachedBundle: PrincipalPolicyBundleResponse | null,
 ): Promise<string | null> {
   const referenceMismatch = getBundleReferenceMismatchReason(reference, bundle);
   if (referenceMismatch) {
     return referenceMismatch;
+  }
+
+  const checkpointMismatch = getPrincipalPolicyCheckpointMismatchReason(
+    cachedBundle,
+    bundle,
+  );
+  if (checkpointMismatch) {
+    return checkpointMismatch;
   }
 
   const payloadMismatch = await getBundlePayloadMismatchReason(bundle);
@@ -363,6 +424,7 @@ async function cacheReferencedPrincipalPolicy(
     reference,
     bundle,
     getEncapsulationKey,
+    cachedBundle,
   );
   if (validationError) {
     log?.(

@@ -17,6 +17,7 @@ import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
   loadPrincipalPolicyStateHash,
+  savePrincipalPolicyBundle,
 } from "./persistence/principalPolicyPersistence";
 import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
 
@@ -117,7 +118,9 @@ async function createPrincipalPolicyBundle(): Promise<{
   };
 }
 
-async function createSuccessorPrincipalPolicyBundle(): Promise<{
+async function createSuccessorPrincipalPolicyBundle(
+  options: { shrinkWithoutRotation?: boolean } = {},
+): Promise<{
   bundle: PrincipalPolicyBundleResponse;
   signerKeyResponse: {
     userId: string;
@@ -171,6 +174,15 @@ async function createSuccessorPrincipalPolicyBundle(): Promise<{
       memberPrincipalId: signerUserId,
       role: "admin" as const,
     },
+    ...(options.shrinkWithoutRotation
+      ? []
+      : [
+          {
+            memberPrincipalType: "user" as const,
+            memberPrincipalId: "alice",
+            role: "member" as const,
+          },
+        ]),
     {
       memberPrincipalType: "user" as const,
       memberPrincipalId: "bob",
@@ -187,7 +199,12 @@ async function createSuccessorPrincipalPolicyBundle(): Promise<{
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
-      members: [{ principalType: "user", principalId: "bob" }],
+      members: [
+        ...(options.shrinkWithoutRotation
+          ? []
+          : [{ principalType: "user" as const, principalId: "alice" }]),
+        { principalType: "user", principalId: "bob" },
+      ],
       projection: currentProjection,
       payloadCiphertext: currentPayloadCiphertext,
       signedAt: "2026-04-08T00:01:00.000Z",
@@ -469,6 +486,132 @@ test("principal policy sync verifies successor state from the fetched chain when
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toEqual(bundle);
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync skips shrinking successors that reuse the key epoch", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
+
+  try {
+    const { bundle, signerKeyResponse } =
+      await createSuccessorPrincipalPolicyBundle({
+        shrinkWithoutRotation: true,
+      });
+    const logs: string[] = [];
+
+    await cacheReferencedPrincipalPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => bundle,
+      getEncapsulationKey: async () => signerKeyResponse,
+      log: (message) => logs.push(message),
+      references: [
+        {
+          principalType: "group",
+          principalId: "group-1",
+          version: bundle.currentState.version,
+          keyEpoch: bundle.currentState.keyEpoch,
+          stateHash: bundle.currentState.stateHash,
+        },
+      ],
+    });
+
+    expect(logs).toContain(
+      "Principal policy cache: skipped group:group-1: Principal policy shrink requires a new key epoch and key material",
+    );
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync skips rollbacks against the cached checkpoint", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
+
+  try {
+    const { bundle: cachedBundle, signerKeyResponse } =
+      await createSuccessorPrincipalPolicyBundle();
+    const { bundle: olderBundle } = await createPrincipalPolicyBundle();
+    await ensurePrincipalPolicyTables(execSql);
+    await savePrincipalPolicyBundle(
+      execSql,
+      cachedBundle,
+      "2026-04-08T00:02:00.000Z",
+    );
+    const logs: string[] = [];
+
+    await cacheReferencedPrincipalPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => olderBundle,
+      getEncapsulationKey: async () => signerKeyResponse,
+      log: (message) => logs.push(message),
+      references: [
+        {
+          principalType: "group",
+          principalId: "group-1",
+          version: olderBundle.currentState.version,
+          keyEpoch: olderBundle.currentState.keyEpoch,
+          stateHash: olderBundle.currentState.stateHash,
+        },
+      ],
+    });
+
+    expect(logs).toContain(
+      "Principal policy cache: skipped group:group-1: principal policy state is older than the local checkpoint",
+    );
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(cachedBundle);
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync skips same-version conflicts against the cached checkpoint", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
+
+  try {
+    const { bundle: cachedBundle } = await createPrincipalPolicyBundle();
+    const { bundle: conflictingBundle } = await createPrincipalPolicyBundle();
+    await ensurePrincipalPolicyTables(execSql);
+    await savePrincipalPolicyBundle(
+      execSql,
+      cachedBundle,
+      "2026-04-08T00:02:00.000Z",
+    );
+    const logs: string[] = [];
+
+    await cacheReferencedPrincipalPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => conflictingBundle,
+      getEncapsulationKey: async () => null,
+      log: (message) => logs.push(message),
+      references: [
+        {
+          principalType: "group",
+          principalId: "group-1",
+          version: conflictingBundle.currentState.version,
+          keyEpoch: conflictingBundle.currentState.keyEpoch,
+          stateHash: conflictingBundle.currentState.stateHash,
+        },
+      ],
+    });
+
+    expect(logs).toContain(
+      "Principal policy cache: skipped group:group-1: principal policy state conflicts with the local checkpoint",
+    );
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(cachedBundle);
   } finally {
     close();
   }
