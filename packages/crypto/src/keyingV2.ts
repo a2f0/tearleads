@@ -1171,7 +1171,7 @@ function verifyPrincipalPolicyCheckpoint(input: {
     );
   }
 
-  if (currentState.version <= localCheckpoint.version) {
+  if (currentState.version === localCheckpoint.version) {
     return;
   }
 
