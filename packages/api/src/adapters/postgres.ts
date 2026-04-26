@@ -134,6 +134,73 @@ await client.exec(`
     wrapped_key TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS access_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    version INTEGER NOT NULL,
+    event_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    object_kind TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    organization_id TEXT NOT NULL,
+    previous_manifest_hash TEXT,
+    dependency_manifest_hashes JSONB NOT NULL,
+    body_hash TEXT NOT NULL,
+    body JSONB NOT NULL,
+    event_hash TEXT NOT NULL,
+    signer_user_id TEXT NOT NULL,
+    signer_device_id TEXT NOT NULL,
+    signer_key_fingerprint TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    signed_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS access_manifests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    version INTEGER NOT NULL,
+    object_kind TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    organization_id TEXT NOT NULL,
+    epoch INTEGER NOT NULL,
+    previous_manifest_hash TEXT,
+    event_hash TEXT NOT NULL,
+    structural_hash TEXT NOT NULL,
+    grant_root TEXT NOT NULL,
+    referenced_principal_heads JSONB NOT NULL,
+    key_target_hash TEXT NOT NULL,
+    manifest_hash TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS access_manifest_heads (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    object_kind TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    organization_id TEXT NOT NULL,
+    epoch INTEGER NOT NULL,
+    manifest_hash TEXT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS access_event_dependency_projection (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_hash TEXT NOT NULL,
+    object_kind TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    dependency_manifest_hash TEXT NOT NULL,
+    dependency_index INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS access_manifest_principal_head_projection (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    manifest_hash TEXT NOT NULL,
+    object_kind TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    principal_type TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    key_epoch INTEGER NOT NULL,
+    state_hash TEXT NOT NULL,
+    key_fingerprint TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS document_container_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id TEXT NOT NULL,
@@ -283,6 +350,45 @@ await client.exec(`
       object_id,
       epoch,
       recipient_key_fingerprint
+    );
+  CREATE UNIQUE INDEX IF NOT EXISTS access_events_event_id_idx
+    ON access_events (event_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS access_events_event_hash_idx
+    ON access_events (event_hash);
+  CREATE INDEX IF NOT EXISTS access_events_object_idx
+    ON access_events (object_kind, object_id);
+  CREATE INDEX IF NOT EXISTS access_events_signer_idx
+    ON access_events (signer_user_id, signer_key_fingerprint);
+  CREATE UNIQUE INDEX IF NOT EXISTS access_manifests_manifest_hash_idx
+    ON access_manifests (manifest_hash);
+  CREATE UNIQUE INDEX IF NOT EXISTS access_manifests_event_hash_idx
+    ON access_manifests (event_hash);
+  CREATE UNIQUE INDEX IF NOT EXISTS access_manifests_object_epoch_idx
+    ON access_manifests (object_kind, object_id, epoch);
+  CREATE INDEX IF NOT EXISTS access_manifests_object_idx
+    ON access_manifests (object_kind, object_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS access_manifest_heads_object_idx
+    ON access_manifest_heads (object_kind, object_id);
+  CREATE INDEX IF NOT EXISTS access_manifest_heads_manifest_hash_idx
+    ON access_manifest_heads (manifest_hash);
+  CREATE INDEX IF NOT EXISTS access_event_dependency_projection_event_idx
+    ON access_event_dependency_projection (event_hash);
+  CREATE INDEX IF NOT EXISTS access_event_dependency_projection_dependency_idx
+    ON access_event_dependency_projection (dependency_manifest_hash);
+  CREATE UNIQUE INDEX IF NOT EXISTS access_event_dependency_projection_unique_idx
+    ON access_event_dependency_projection (
+      event_hash,
+      dependency_manifest_hash
+    );
+  CREATE INDEX IF NOT EXISTS access_manifest_principal_projection_manifest_idx
+    ON access_manifest_principal_head_projection (manifest_hash);
+  CREATE INDEX IF NOT EXISTS access_manifest_principal_projection_principal_idx
+    ON access_manifest_principal_head_projection (principal_type, principal_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS access_manifest_principal_projection_unique_idx
+    ON access_manifest_principal_head_projection (
+      manifest_hash,
+      principal_type,
+      principal_id
     );
   CREATE UNIQUE INDEX IF NOT EXISTS document_container_links_document_container_idx
     ON document_container_links (document_id, container_id);

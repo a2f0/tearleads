@@ -1,9 +1,14 @@
 import type {
+  AccessEventTypeV2,
+  AccessObjectKindV2,
+  KeyingV2CanonicalJson,
+  ManagedPrincipalKindV2,
   ManagedRecipientPrincipalType,
   PrincipalProjectionRole,
   PrincipalStateMembershipMode,
   PrincipalStateMemberType,
   PrincipalStatePayloadCipherSuite,
+  ReferencedPrincipalHeadV2,
 } from "@tearleads/crypto";
 import {
   documents,
@@ -15,6 +20,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -277,6 +283,151 @@ export const objectRecipientEnvelopes = pgTable(
       table.objectId,
       table.epoch,
       table.recipientKeyFingerprint,
+    ),
+  ],
+);
+
+export const accessEvents = pgTable(
+  "access_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    version: integer("version").notNull(),
+    eventId: text("event_id").notNull(),
+    eventType: text("event_type").$type<AccessEventTypeV2>().notNull(),
+    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    objectId: text("object_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    previousManifestHash: text("previous_manifest_hash"),
+    dependencyManifestHashes: jsonb("dependency_manifest_hashes")
+      .$type<string[]>()
+      .notNull(),
+    bodyHash: text("body_hash").notNull(),
+    body: jsonb("body").$type<KeyingV2CanonicalJson>().notNull(),
+    eventHash: text("event_hash").notNull(),
+    signerUserId: text("signer_user_id").notNull(),
+    signerDeviceId: text("signer_device_id").notNull(),
+    signerKeyFingerprint: text("signer_key_fingerprint").notNull(),
+    signature: text("signature").notNull(),
+    signedAt: timestamp("signed_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("access_events_event_id_idx").on(table.eventId),
+    uniqueIndex("access_events_event_hash_idx").on(table.eventHash),
+    index("access_events_object_idx").on(table.objectKind, table.objectId),
+    index("access_events_signer_idx").on(
+      table.signerUserId,
+      table.signerKeyFingerprint,
+    ),
+  ],
+);
+
+export const accessManifests = pgTable(
+  "access_manifests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    version: integer("version").notNull(),
+    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    objectId: text("object_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    epoch: integer("epoch").notNull(),
+    previousManifestHash: text("previous_manifest_hash"),
+    eventHash: text("event_hash").notNull(),
+    structuralHash: text("structural_hash").notNull(),
+    grantRoot: text("grant_root").notNull(),
+    referencedPrincipalHeads: jsonb("referenced_principal_heads")
+      .$type<ReferencedPrincipalHeadV2[]>()
+      .notNull(),
+    keyTargetHash: text("key_target_hash").notNull(),
+    manifestHash: text("manifest_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("access_manifests_manifest_hash_idx").on(table.manifestHash),
+    uniqueIndex("access_manifests_event_hash_idx").on(table.eventHash),
+    uniqueIndex("access_manifests_object_epoch_idx").on(
+      table.objectKind,
+      table.objectId,
+      table.epoch,
+    ),
+    index("access_manifests_object_idx").on(table.objectKind, table.objectId),
+  ],
+);
+
+export const accessManifestHeads = pgTable(
+  "access_manifest_heads",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    objectId: text("object_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    epoch: integer("epoch").notNull(),
+    manifestHash: text("manifest_hash").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("access_manifest_heads_object_idx").on(
+      table.objectKind,
+      table.objectId,
+    ),
+    index("access_manifest_heads_manifest_hash_idx").on(table.manifestHash),
+  ],
+);
+
+// Derived cache only. Access decisions must verify the source event/manifest.
+export const accessEventDependencyProjection = pgTable(
+  "access_event_dependency_projection",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventHash: text("event_hash").notNull(),
+    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    objectId: text("object_id").notNull(),
+    dependencyManifestHash: text("dependency_manifest_hash").notNull(),
+    dependencyIndex: integer("dependency_index").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("access_event_dependency_projection_event_idx").on(table.eventHash),
+    index("access_event_dependency_projection_dependency_idx").on(
+      table.dependencyManifestHash,
+    ),
+    uniqueIndex("access_event_dependency_projection_unique_idx").on(
+      table.eventHash,
+      table.dependencyManifestHash,
+    ),
+  ],
+);
+
+// Derived cache only. Access decisions must verify the source event/manifest.
+export const accessManifestPrincipalHeadProjection = pgTable(
+  "access_manifest_principal_head_projection",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    manifestHash: text("manifest_hash").notNull(),
+    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    objectId: text("object_id").notNull(),
+    principalType: text("principal_type")
+      .$type<ManagedPrincipalKindV2>()
+      .notNull(),
+    principalId: text("principal_id").notNull(),
+    version: integer("version").notNull(),
+    keyEpoch: integer("key_epoch").notNull(),
+    stateHash: text("state_hash").notNull(),
+    keyFingerprint: text("key_fingerprint").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("access_manifest_principal_projection_manifest_idx").on(
+      table.manifestHash,
+    ),
+    index("access_manifest_principal_projection_principal_idx").on(
+      table.principalType,
+      table.principalId,
+    ),
+    uniqueIndex("access_manifest_principal_projection_unique_idx").on(
+      table.manifestHash,
+      table.principalType,
+      table.principalId,
     ),
   ],
 );
