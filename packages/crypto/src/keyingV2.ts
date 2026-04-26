@@ -3559,21 +3559,38 @@ function assertContainerKeyEpochParentBinding(input: {
   }
 }
 
-function assertWrapJustifiedByManifest(input: {
-  readonly wrap: ContainerKeyWrapV2;
+function deriveTargetsForWrapManifest(input: {
   readonly manifest: VerifiedContainerAccessManifest;
-  readonly parentKekState: VerifiedContainerKekState | null | undefined;
+  readonly parentKekState: VerifiedContainerKekState | null;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly targetsByManifestHash: Map<string, ContainerKekRecipientTargetV2[]>;
   readonly userRecipientKeys: readonly ContainerUserRecipientKeyV2[];
-}): void {
-  const manifestTargets = deriveContainerKekRecipientTargetsOrThrow({
+}): ContainerKekRecipientTargetV2[] {
+  const cachedTargets = input.targetsByManifestHash.get(
+    input.manifest.manifestHash,
+  );
+
+  if (cachedTargets) {
+    return cachedTargets;
+  }
+
+  const targets = deriveContainerKekRecipientTargetsOrThrow({
     containerManifest: input.manifest,
-    parentKekState: input.parentKekState ?? null,
+    parentKekState: input.parentKekState,
     principalPolicies: input.principalPolicies,
     userRecipientKeys: input.userRecipientKeys,
   });
+  input.targetsByManifestHash.set(input.manifest.manifestHash, targets);
+
+  return targets;
+}
+
+function assertWrapJustifiedByTargets(input: {
+  readonly wrap: ContainerKeyWrapV2;
+  readonly targets: readonly ContainerKekRecipientTargetV2[];
+}): void {
   const wrapTarget = containerKeyWrapTarget(input.wrap);
-  const matchingTarget = manifestTargets.find(
+  const matchingTarget = input.targets.find(
     (target) =>
       containerKekRecipientTargetKey(target) ===
       containerKekRecipientTargetKey(wrapTarget),
@@ -3632,6 +3649,7 @@ function verifyContainerKeyWraps(input: {
   readonly manifestByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
   readonly parentKekState: VerifiedContainerKekState | null;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly targetsByManifestHash: Map<string, ContainerKekRecipientTargetV2[]>;
   readonly userRecipientKeys: readonly ContainerUserRecipientKeyV2[];
   readonly wraps: readonly ContainerKeyWrapV2[];
 }): {
@@ -3662,13 +3680,14 @@ function verifyContainerKeyWraps(input: {
       );
     }
 
-    assertWrapJustifiedByManifest({
-      wrap,
+    const targets = deriveTargetsForWrapManifest({
       manifest: wrapManifest,
       parentKekState: input.parentKekState,
       principalPolicies: input.principalPolicies,
+      targetsByManifestHash: input.targetsByManifestHash,
       userRecipientKeys: input.userRecipientKeys,
     });
+    assertWrapJustifiedByTargets({ wrap, targets });
 
     wrapByTargetKey.set(
       containerKekRecipientTargetKey(containerKeyWrapTarget(wrap)),
@@ -3773,11 +3792,16 @@ export async function verifyContainerKekState({
       principalPolicies,
       userRecipientKeys,
     });
+    const targetsByManifestHash = new Map<
+      string,
+      ContainerKekRecipientTargetV2[]
+    >([[containerManifest.manifestHash, recipientTargets]]);
     const { normalizedWraps, wrapByTargetKey } = verifyContainerKeyWraps({
       keyEpoch: normalizedKeyEpoch,
       manifestByHash,
       parentKekState,
       principalPolicies,
+      targetsByManifestHash,
       userRecipientKeys,
       wraps,
     });

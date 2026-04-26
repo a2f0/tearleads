@@ -104,6 +104,24 @@ function containerKeyWrapConflictWhere(wrap: ContainerKeyWrapV2) {
   );
 }
 
+interface ContainerKeyWrapConflictTarget {
+  readonly containerKeyEpochId: string;
+  readonly recipientKind: ContainerKeyWrapV2["recipientKind"];
+  readonly recipientId: string;
+  readonly recipientKeyEpochId: string;
+}
+
+function containerKeyWrapConflictKey(
+  wrap: ContainerKeyWrapConflictTarget,
+): string {
+  return [
+    wrap.containerKeyEpochId,
+    wrap.recipientKind,
+    wrap.recipientId,
+    wrap.recipientKeyEpochId,
+  ].join(":");
+}
+
 async function ensureStoredContainerKeyEpochMatches(
   keyEpoch: ContainerKeyEpochV2,
   executor: ContainerKekStoreExecutor,
@@ -174,22 +192,28 @@ async function insertContainerKeyEpoch(
   }
 }
 
-async function insertContainerKeyWrap(
-  wrap: ContainerKeyWrapV2,
+async function insertContainerKeyWraps(
+  wraps: readonly ContainerKeyWrapV2[],
   executor: ContainerKekStoreExecutor,
 ): Promise<void> {
-  const [insertedWrap] = await executor
+  if (wraps.length === 0) {
+    return;
+  }
+
+  const insertedWraps = await executor
     .insert(containerKeyWraps)
-    .values({
-      containerKeyEpochId: wrap.containerKeyEpochId,
-      recipientKind: wrap.recipientKind,
-      recipientId: wrap.recipientId,
-      recipientKeyEpochId: wrap.recipientKeyEpochId,
-      recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-      kemCipherText: wrap.kemCipherText,
-      wrappedKey: wrap.wrappedKey,
-      wrapManifestHash: wrap.wrapManifestHash,
-    })
+    .values(
+      wraps.map((wrap) => ({
+        containerKeyEpochId: wrap.containerKeyEpochId,
+        recipientKind: wrap.recipientKind,
+        recipientId: wrap.recipientId,
+        recipientKeyEpochId: wrap.recipientKeyEpochId,
+        recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+        kemCipherText: wrap.kemCipherText,
+        wrappedKey: wrap.wrappedKey,
+        wrapManifestHash: wrap.wrapManifestHash,
+      })),
+    )
     .onConflictDoNothing({
       target: [
         containerKeyWraps.containerKeyEpochId,
@@ -198,10 +222,25 @@ async function insertContainerKeyWrap(
         containerKeyWraps.recipientKeyEpochId,
       ],
     })
-    .returning();
+    .returning({
+      containerKeyEpochId: containerKeyWraps.containerKeyEpochId,
+      recipientKind: containerKeyWraps.recipientKind,
+      recipientId: containerKeyWraps.recipientId,
+      recipientKeyEpochId: containerKeyWraps.recipientKeyEpochId,
+    });
 
-  if (!insertedWrap) {
-    await ensureStoredContainerKeyWrapMatches(wrap, executor);
+  if (insertedWraps.length === wraps.length) {
+    return;
+  }
+
+  const insertedWrapKeys = new Set(
+    insertedWraps.map(containerKeyWrapConflictKey),
+  );
+
+  for (const wrap of wraps) {
+    if (!insertedWrapKeys.has(containerKeyWrapConflictKey(wrap))) {
+      await ensureStoredContainerKeyWrapMatches(wrap, executor);
+    }
   }
 }
 
@@ -216,9 +255,7 @@ export async function storeVerifiedContainerKekState(
   }
 
   await insertContainerKeyEpoch(input.verifiedState.keyEpoch, executor);
-  for (const wrap of input.verifiedState.wraps) {
-    await insertContainerKeyWrap(wrap, executor);
-  }
+  await insertContainerKeyWraps(input.verifiedState.wraps, executor);
 
   return input.verifiedState;
 }
