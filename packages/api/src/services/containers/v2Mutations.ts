@@ -38,8 +38,10 @@ import {
   storeVerifiedContainerKekState,
 } from "../../access/containerKekStore";
 import {
-  getCurrentPrincipalState,
-  listCurrentPrincipalProjectionMembers,
+  getCurrentPrincipalStates,
+  listPrincipalProjectionMembersForStates,
+  type StoredPrincipalProjectionMember,
+  type StoredPrincipalState,
 } from "../../access/principalStateStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import { containers, users } from "../../schema";
@@ -71,6 +73,15 @@ interface StoredContainerRow {
   readonly parentId: string | null;
 }
 
+type CurrentAccessManifestHead = Awaited<
+  ReturnType<typeof getCurrentAccessManifestHead>
+>;
+
+interface ContainerV2MutationContext {
+  readonly executor: DatabaseExecutor;
+  readonly manifestHeadByContainerId: Map<string, CurrentAccessManifestHead>;
+}
+
 function toVerifiedContainerManifest(
   bundle: ContainerV2ManifestBundle,
 ): VerifiedContainerAccessManifest {
@@ -98,6 +109,10 @@ function userRecipientKeysFromRequest(
 }
 
 function canonicalJsonEquals(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true;
+  }
+
   return (
     serializeKeyingV2CanonicalJson(left as KeyingV2CanonicalJson) ===
     serializeKeyingV2CanonicalJson(right as KeyingV2CanonicalJson)
@@ -115,6 +130,19 @@ function projectionMemberKey(
     member.memberPrincipalId,
     member.role,
   ].join(":");
+}
+
+function principalPolicyKey(
+  policy: Pick<VerifiedPrincipalPolicy, "principalId" | "principalType">,
+): string {
+  return `${policy.principalType}:${policy.principalId}`;
+}
+
+function principalProjectionStateKey(input: {
+  readonly principalId: string;
+  readonly stateHash: string;
+}): string {
+  return `${input.principalId}:${input.stateHash}`;
 }
 
 function toContainerKeyEpoch(
@@ -146,10 +174,7 @@ function mapVerificationStatus(
     return 400;
   }
 
-  if (
-    error.code === "object_mismatch" &&
-    error.message.includes("descendant")
-  ) {
+  if (error.code === "object_mismatch") {
     return 400;
   }
 
@@ -172,15 +197,25 @@ function toMutationError(error: unknown): ContainerV2MutationError | null {
     return null;
   }
 
-  if (
-    error.message.includes("conflict") ||
-    error.message.includes("epoch") ||
-    error.message.includes("stale")
-  ) {
-    return new ContainerV2MutationError(error.message, 409);
-  }
-
   return null;
+}
+
+async function runConflictBoundary<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (
+      error instanceof ContainerV2MutationError ||
+      error instanceof KeyingV2VerificationError
+    ) {
+      throw error;
+    }
+
+    throw new ContainerV2MutationError(
+      error instanceof Error ? error.message : String(error),
+      409,
+    );
+  }
 }
 
 async function loadSignerPublicKey(
@@ -286,15 +321,31 @@ async function assertContainerManifestBundleConsistent(
   return verified;
 }
 
+async function getCachedCurrentAccessManifestHead(
+  context: ContainerV2MutationContext,
+  containerId: string,
+): Promise<CurrentAccessManifestHead> {
+  if (context.manifestHeadByContainerId.has(containerId)) {
+    return context.manifestHeadByContainerId.get(containerId) ?? null;
+  }
+
+  const head = await getCurrentAccessManifestHead(
+    "container",
+    containerId,
+    context.executor,
+  );
+  context.manifestHeadByContainerId.set(containerId, head);
+  return head;
+}
+
 async function assertManifestHeadCurrent(
-  executor: DatabaseExecutor,
+  context: ContainerV2MutationContext,
   manifest: VerifiedContainerAccessManifest,
   label: string,
 ): Promise<void> {
-  const head = await getCurrentAccessManifestHead(
-    "container",
+  const head = await getCachedCurrentAccessManifestHead(
+    context,
     manifest.state.containerId,
-    executor,
   );
 
   if (!head) {
@@ -331,7 +382,7 @@ function assertContainerPathEdges(
 }
 
 async function assertCurrentContainerPath(
-  executor: DatabaseExecutor,
+  context: ContainerV2MutationContext,
   bundles: readonly ContainerV2ManifestBundle[] | undefined,
   label: string,
 ): Promise<void> {
@@ -345,7 +396,7 @@ async function assertCurrentContainerPath(
       bundle,
       `${label}[${index}]`,
     );
-    await assertManifestHeadCurrent(executor, manifest, `${label}[${index}]`);
+    await assertManifestHeadCurrent(context, manifest, `${label}[${index}]`);
     path.push(manifest);
   }
 
@@ -368,13 +419,12 @@ async function assertHistoricalContainerManifestsConsistent(
 }
 
 async function assertMutationHeadCanAdvance(
-  executor: DatabaseExecutor,
+  context: ContainerV2MutationContext,
   manifest: VerifiedContainerAccessManifest,
 ): Promise<void> {
-  const currentHead = await getCurrentAccessManifestHead(
-    "container",
+  const currentHead = await getCachedCurrentAccessManifestHead(
+    context,
     manifest.state.containerId,
-    executor,
   );
 
   if (manifest.event.event.eventType === "container.create") {
@@ -441,61 +491,137 @@ async function assertUserRecipientKeysCurrent(
   }
 }
 
+function assertPrincipalPolicyShape(policy: VerifiedPrincipalPolicy): void {
+  if (
+    typeof policy.principalType !== "string" ||
+    typeof policy.principalId !== "string" ||
+    typeof policy.version !== "number" ||
+    typeof policy.keyEpoch !== "number" ||
+    typeof policy.stateHash !== "string" ||
+    typeof policy.state?.keyFingerprint !== "string" ||
+    !Array.isArray(policy.projection)
+  ) {
+    throw new ContainerV2MutationError("Invalid principal policy", 400);
+  }
+}
+
+interface PrincipalPolicyArtifacts {
+  readonly currentStateByPolicyKey: Map<string, StoredPrincipalState>;
+  readonly projectionByPolicyKey: Map<
+    string,
+    StoredPrincipalProjectionMember[]
+  >;
+}
+
+async function loadPrincipalPolicyArtifacts(
+  executor: DatabaseExecutor,
+  principalPolicies: readonly VerifiedPrincipalPolicy[],
+): Promise<PrincipalPolicyArtifacts> {
+  const currentStateByPolicyKey = new Map<string, StoredPrincipalState>();
+  const projectionByPolicyKey = new Map<
+    string,
+    StoredPrincipalProjectionMember[]
+  >();
+
+  for (const principalType of [
+    ...new Set(principalPolicies.map((policy) => policy.principalType)),
+  ]) {
+    const policiesForType = principalPolicies.filter(
+      (policy) => policy.principalType === principalType,
+    );
+    const currentStates = await getCurrentPrincipalStates(
+      principalType,
+      policiesForType.map((policy) => policy.principalId),
+      executor,
+    );
+
+    for (const policy of policiesForType) {
+      const currentState = currentStates.get(policy.principalId);
+      if (currentState) {
+        currentStateByPolicyKey.set(principalPolicyKey(policy), currentState);
+      }
+    }
+
+    const projections = await listPrincipalProjectionMembersForStates(
+      principalType,
+      [...currentStates.values()],
+      executor,
+    );
+
+    for (const policy of policiesForType) {
+      const currentState = currentStates.get(policy.principalId);
+      if (currentState) {
+        projectionByPolicyKey.set(
+          principalPolicyKey(policy),
+          projections.get(principalProjectionStateKey(currentState)) ?? [],
+        );
+      }
+    }
+  }
+
+  return { currentStateByPolicyKey, projectionByPolicyKey };
+}
+
+function assertPrincipalPolicyStateCurrent(
+  policy: VerifiedPrincipalPolicy,
+  currentState: StoredPrincipalState | undefined,
+): void {
+  if (
+    !currentState ||
+    currentState.version !== policy.version ||
+    currentState.keyEpoch !== policy.keyEpoch ||
+    currentState.stateHash !== policy.stateHash ||
+    currentState.keyFingerprint !== policy.state.keyFingerprint
+  ) {
+    throw new ContainerV2MutationError("Principal policy is stale", 409);
+  }
+}
+
+function assertPrincipalPolicyProjectionCurrent(
+  policy: VerifiedPrincipalPolicy,
+  storedProjection: readonly StoredPrincipalProjectionMember[],
+): void {
+  const storedProjectionKeys = storedProjection.map(projectionMemberKey).sort();
+  const policyProjectionKeys = policy.projection
+    .map(projectionMemberKey)
+    .sort();
+
+  if (
+    storedProjectionKeys.length !== policyProjectionKeys.length ||
+    storedProjectionKeys.some(
+      (storedKey, index) => storedKey !== policyProjectionKeys[index],
+    )
+  ) {
+    throw new ContainerV2MutationError(
+      "Principal policy projection is stale",
+      409,
+    );
+  }
+}
+
 async function assertPrincipalPoliciesCurrent(
   executor: DatabaseExecutor,
   principalPolicies: readonly VerifiedPrincipalPolicy[],
 ): Promise<void> {
   for (const policy of principalPolicies) {
-    if (
-      typeof policy.principalType !== "string" ||
-      typeof policy.principalId !== "string" ||
-      typeof policy.version !== "number" ||
-      typeof policy.keyEpoch !== "number" ||
-      typeof policy.stateHash !== "string" ||
-      typeof policy.state?.keyFingerprint !== "string" ||
-      !Array.isArray(policy.projection)
-    ) {
-      throw new ContainerV2MutationError("Invalid principal policy", 400);
-    }
+    assertPrincipalPolicyShape(policy);
+  }
 
-    const currentState = await getCurrentPrincipalState(
-      policy.principalType,
-      policy.principalId,
-      executor,
+  const artifacts = await loadPrincipalPolicyArtifacts(
+    executor,
+    principalPolicies,
+  );
+
+  for (const policy of principalPolicies) {
+    const key = principalPolicyKey(policy);
+    assertPrincipalPolicyStateCurrent(
+      policy,
+      artifacts.currentStateByPolicyKey.get(key),
     );
-    if (
-      !currentState ||
-      currentState.version !== policy.version ||
-      currentState.keyEpoch !== policy.keyEpoch ||
-      currentState.stateHash !== policy.stateHash ||
-      currentState.keyFingerprint !== policy.state.keyFingerprint
-    ) {
-      throw new ContainerV2MutationError("Principal policy is stale", 409);
-    }
-
-    const storedProjection = await listCurrentPrincipalProjectionMembers(
-      policy.principalType,
-      policy.principalId,
-      executor,
+    assertPrincipalPolicyProjectionCurrent(
+      policy,
+      artifacts.projectionByPolicyKey.get(key) ?? [],
     );
-    const storedProjectionKeys = storedProjection
-      .map(projectionMemberKey)
-      .sort();
-    const policyProjectionKeys = policy.projection
-      .map(projectionMemberKey)
-      .sort();
-
-    if (
-      storedProjectionKeys.length !== policyProjectionKeys.length ||
-      storedProjectionKeys.some(
-        (storedKey, index) => storedKey !== policyProjectionKeys[index],
-      )
-    ) {
-      throw new ContainerV2MutationError(
-        "Principal policy projection is stale",
-        409,
-      );
-    }
   }
 }
 
@@ -783,17 +909,18 @@ async function persistVerifiedMutation(
 ): Promise<ContainerV2MutationResponse> {
   await persistContainerStructure(executor, manifest);
 
-  const manifestHead = await storeVerifiedAccessManifest(
-    { verifiedManifest: manifest as unknown as VerifiedAccessManifest },
-    executor,
+  const manifestHead = await runConflictBoundary(() =>
+    storeVerifiedAccessManifest(
+      { verifiedManifest: manifest as unknown as VerifiedAccessManifest },
+      executor,
+    ),
   );
   if (manifestHead.manifestHash !== manifest.manifestHash) {
     throw new ContainerV2MutationError("Container manifest head is stale", 409);
   }
 
-  const storedKekState = await storeVerifiedContainerKekState(
-    { verifiedState: kekState },
-    executor,
+  const storedKekState = await runConflictBoundary(() =>
+    storeVerifiedContainerKekState({ verifiedState: kekState }, executor),
   );
 
   return {
@@ -836,18 +963,23 @@ export async function mutateContainerV2(
 ): Promise<ContainerV2MutationResponse> {
   try {
     return await runtime.db.transaction(async (tx) => {
+      const context: ContainerV2MutationContext = {
+        executor: tx,
+        manifestHeadByContainerId: new Map(),
+      };
+
       await assertCurrentContainerPath(
-        tx,
+        context,
         input.request.previousContainerPath,
         "previousContainerPath",
       );
       await assertCurrentContainerPath(
-        tx,
+        context,
         input.request.parentContainerPath,
         "parentContainerPath",
       );
       await assertCurrentContainerPath(
-        tx,
+        context,
         input.request.destinationParentContainerPath,
         "destinationParentContainerPath",
       );
@@ -860,7 +992,7 @@ export async function mutateContainerV2(
           "previousManifest",
         );
         await assertManifestHeadCurrent(
-          tx,
+          context,
           previousManifest,
           "previousManifest",
         );
@@ -876,7 +1008,7 @@ export async function mutateContainerV2(
         input.request,
         event,
       );
-      await assertMutationHeadCanAdvance(tx, manifest);
+      await assertMutationHeadCanAdvance(context, manifest);
       const kekState = await verifyContainerKekFromRequest(
         tx,
         input.request,

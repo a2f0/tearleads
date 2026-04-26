@@ -320,6 +320,74 @@ async function listProjectionMembersForState(
   return rows.map(toStoredProjectionMember);
 }
 
+function principalStateProjectionKey(input: {
+  readonly principalId: string;
+  readonly stateHash: string;
+}): string {
+  return `${input.principalId}:${input.stateHash}`;
+}
+
+export async function listPrincipalProjectionMembersForStates(
+  principalType: ManagedRecipientPrincipalType,
+  states: readonly Pick<StoredPrincipalState, "principalId" | "stateHash">[],
+  executor: PrincipalStateExecutor = db,
+): Promise<Map<string, StoredPrincipalProjectionMember[]>> {
+  const uniquePrincipalIds = uniqueSortedStrings(
+    states.map((state) => state.principalId),
+  );
+  const uniqueStateHashes = uniqueSortedStrings(
+    states.map((state) => state.stateHash),
+  );
+  const requestedKeys = new Set(states.map(principalStateProjectionKey));
+  const projectionByState = new Map<
+    string,
+    StoredPrincipalProjectionMember[]
+  >();
+
+  for (const key of requestedKeys) {
+    projectionByState.set(key, []);
+  }
+
+  if (uniquePrincipalIds.length === 0 || uniqueStateHashes.length === 0) {
+    return projectionByState;
+  }
+
+  const rows = await executor
+    .select({
+      principalType: principalMembershipProjection.principalType,
+      principalId: principalMembershipProjection.principalId,
+      stateHash: principalMembershipProjection.stateHash,
+      memberPrincipalType: principalMembershipProjection.memberPrincipalType,
+      memberPrincipalId: principalMembershipProjection.memberPrincipalId,
+      role: principalMembershipProjection.role,
+      createdAt: principalMembershipProjection.createdAt,
+    })
+    .from(principalMembershipProjection)
+    .where(
+      and(
+        eq(principalMembershipProjection.principalType, principalType),
+        inArray(principalMembershipProjection.principalId, uniquePrincipalIds),
+        inArray(principalMembershipProjection.stateHash, uniqueStateHashes),
+      ),
+    )
+    .orderBy(
+      principalMembershipProjection.principalId,
+      principalMembershipProjection.memberPrincipalType,
+      principalMembershipProjection.memberPrincipalId,
+    );
+
+  for (const row of rows.map(toStoredProjectionMember)) {
+    const key = principalStateProjectionKey(row);
+    const projection = projectionByState.get(key);
+
+    if (projection) {
+      projection.push(row);
+    }
+  }
+
+  return projectionByState;
+}
+
 async function loadPrincipalStateSigner(
   state: SignedPrincipalState,
   executor: PrincipalStateExecutor,
