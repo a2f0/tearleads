@@ -291,6 +291,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
+function compareCanonicalStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 function assertExactKeys<const ExpectedKeys extends readonly string[]>(
   value: unknown,
   expectedKeys: ExpectedKeys,
@@ -303,8 +307,8 @@ function assertExactKeys<const ExpectedKeys extends readonly string[]>(
   const actualKeys = [
     ...Object.getOwnPropertyNames(value),
     ...Object.getOwnPropertySymbols(value).map(String),
-  ].sort();
-  const sortedExpectedKeys = [...expectedKeys].sort();
+  ].sort(compareCanonicalStrings);
+  const sortedExpectedKeys = [...expectedKeys].sort(compareCanonicalStrings);
 
   if (
     actualKeys.length !== sortedExpectedKeys.length ||
@@ -439,7 +443,7 @@ function normalizeUniqueSortedStrings(
   values: readonly string[],
   label: string,
 ): string[] {
-  const sortedValues = [...values].sort();
+  const sortedValues = [...values].sort(compareCanonicalStrings);
 
   for (let index = 1; index < sortedValues.length; index += 1) {
     if (sortedValues[index - 1] === sortedValues[index]) {
@@ -485,7 +489,7 @@ function normalizeCanonicalJsonValue(
 
   const normalized: Record<string, KeyingV2CanonicalJson> = {};
 
-  for (const key of Object.keys(value).sort()) {
+  for (const key of Object.keys(value).sort(compareCanonicalStrings)) {
     const item = value[key];
     if (item === undefined) {
       throwVerification("invalid_shape", `${label}.${key} is undefined`);
@@ -524,7 +528,7 @@ function stringifyCanonicalJson(value: KeyingV2CanonicalJson): string {
   };
 
   return `{${Object.keys(normalizedObject)
-    .sort()
+    .sort(compareCanonicalStrings)
     .map((key) => {
       const item = normalizedObject[key];
       if (item === undefined) {
@@ -955,7 +959,10 @@ function normalizeReferencedPrincipalHeads(
   const normalizedValues = values
     .map(normalizeReferencedPrincipalHead)
     .sort((left, right) =>
-      referencedPrincipalKey(left).localeCompare(referencedPrincipalKey(right)),
+      compareCanonicalStrings(
+        referencedPrincipalKey(left),
+        referencedPrincipalKey(right),
+      ),
     );
 
   for (let index = 1; index < normalizedValues.length; index += 1) {
@@ -1235,7 +1242,7 @@ function normalizeSortedUniqueArray<T>(
 ): T[] {
   const normalizedValues = values
     .map(normalize)
-    .sort((left, right) => key(left).localeCompare(key(right)));
+    .sort((left, right) => compareCanonicalStrings(key(left), key(right)));
 
   for (let index = 1; index < normalizedValues.length; index += 1) {
     if (

@@ -129,6 +129,8 @@ async function createManifest(event: VerifiedAccessEvent) {
 }
 
 test("keying v2 canonical JSON sorts object keys deterministically", () => {
+  const umlautA = "\u00e4";
+
   expect(
     serializeKeyingV2CanonicalJson({
       z: "last",
@@ -140,6 +142,14 @@ test("keying v2 canonical JSON sorts object keys deterministically", () => {
       z: "last",
     }),
   );
+
+  expect(
+    serializeKeyingV2CanonicalJson({
+      [umlautA]: "umlaut",
+      z: "zed",
+      a: "aye",
+    }),
+  ).toBe(`{"a":"aye","z":"zed","${umlautA}":"umlaut"}`);
 });
 
 test("keying v2 target hashes sort arrays where ordering is a set", async () => {
