@@ -31,7 +31,16 @@ function toPrincipalStateError(error: unknown): PrincipalPolicyError | null {
     error.message === "Principal epoch key conflict" ||
     error.message === "Principal state previous hash mismatch" ||
     error.message === "Principal state payload conflict" ||
-    error.message === "Principal state projection conflict"
+    error.message === "Principal state projection conflict" ||
+    error.message === "Principal policy transition principal mismatch" ||
+    error.message === "Principal policy transition version is not contiguous" ||
+    error.message === "Principal policy transition previous hash mismatch" ||
+    error.message === "Principal policy key epoch cannot decrease" ||
+    error.message === "Principal policy key change requires a new key epoch" ||
+    error.message ===
+      "Principal policy key epoch advance requires new key material" ||
+    error.message ===
+      "Principal policy shrink requires a new key epoch and key material"
   ) {
     return new PrincipalPolicyError(error.message, 409);
   }

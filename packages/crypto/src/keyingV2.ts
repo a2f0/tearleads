@@ -1,5 +1,17 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { toFingerprint } from "./fingerprint";
+import type {
+  PrincipalProjectionMember,
+  PrincipalStatePayloadCipherSuite,
+  SignedPrincipalState,
+} from "./principalState";
+import {
+  computePrincipalProjectionRoot,
+  computePrincipalStateHash,
+  computePrincipalStatePayloadCiphertextHash,
+  normalizePrincipalProjectionMembers,
+  verifySignedPrincipalState,
+} from "./principalState";
 import { sign } from "./signing/sign";
 import { verify } from "./signing/verify";
 
@@ -136,13 +148,18 @@ export interface WriteHeaderV2 extends UnsignedWriteHeaderV2 {
 
 export type KeyingV2VerificationCode =
   | "duplicate_entry"
+  | "equivocation"
   | "hash_mismatch"
   | "invalid_domain"
   | "invalid_shape"
+  | "key_epoch_reuse"
+  | "missing_dependency"
   | "object_mismatch"
+  | "rollback"
   | "signature_mismatch"
   | "signer_mismatch"
-  | "stale_predecessor";
+  | "stale_predecessor"
+  | "unauthorized";
 
 export class KeyingV2VerificationError extends Error {
   constructor(
@@ -176,6 +193,9 @@ export interface VerifiedPrincipalPolicy {
   readonly version: number;
   readonly keyEpoch: number;
   readonly stateHash: string;
+  readonly state: PrincipalPolicySignedStateV2;
+  readonly projection: PrincipalProjectionMember[];
+  readonly checkpoint: PrincipalPolicyCheckpointV2;
   readonly [verifiedPrincipalPolicyBrand]: true;
 }
 
@@ -236,6 +256,86 @@ export interface VerifyWriteHeaderInput {
   readonly expectedObject?: ExpectedWriteObjectV2;
   readonly expectedAccessManifestHash?: string;
   readonly expectedTargetHash?: string;
+}
+
+export interface PrincipalPolicyCheckpointV2 {
+  readonly principalType: ManagedPrincipalKindV2;
+  readonly principalId: string;
+  readonly version: number;
+  readonly stateHash: string;
+}
+
+export interface IdentityStateCheckpointV2 {
+  readonly identityId: string;
+  readonly version: number;
+  readonly stateHash: string;
+}
+
+export interface KeyingV2LocalCheckpointStore {
+  readonly readIdentityStateCheckpoint: (
+    identityId: string,
+  ) => Promise<IdentityStateCheckpointV2 | null>;
+  readonly writeIdentityStateCheckpoint: (
+    checkpoint: IdentityStateCheckpointV2,
+  ) => Promise<void>;
+  readonly readPrincipalPolicyCheckpoint: (
+    principalType: ManagedPrincipalKindV2,
+    principalId: string,
+  ) => Promise<PrincipalPolicyCheckpointV2 | null>;
+  readonly writePrincipalPolicyCheckpoint: (
+    checkpoint: PrincipalPolicyCheckpointV2,
+  ) => Promise<void>;
+}
+
+export interface PrincipalPolicySignedStateV2 extends SignedPrincipalState {
+  readonly stateHash: string;
+}
+
+export interface PrincipalPolicyStateChainEntryV2 {
+  readonly state: PrincipalPolicySignedStateV2;
+  readonly projection: readonly PrincipalProjectionMember[];
+}
+
+export interface PrincipalPolicyPayloadV2 {
+  readonly principalType: ManagedPrincipalKindV2;
+  readonly principalId: string;
+  readonly stateHash: string;
+  readonly cipherSuite: PrincipalStatePayloadCipherSuite;
+  readonly ciphertext: string;
+  readonly ciphertextHash: string;
+}
+
+export interface PrincipalPolicyMemberEnvelopesV2 {
+  readonly principalType: ManagedPrincipalKindV2;
+  readonly principalId: string;
+  readonly stateHash: string;
+  readonly epoch: number;
+}
+
+export interface PrincipalPolicyBundleV2 {
+  readonly currentState: PrincipalPolicySignedStateV2;
+  readonly currentPayload: PrincipalPolicyPayloadV2;
+  readonly currentProjection: readonly PrincipalProjectionMember[];
+  readonly currentMemberEnvelopes?: PrincipalPolicyMemberEnvelopesV2;
+  readonly previousStates: readonly PrincipalPolicyStateChainEntryV2[];
+}
+
+export interface PrincipalPolicySignerPublicKeyV2 {
+  readonly userId: string;
+  readonly signingKeyFingerprint: string;
+  readonly signingPublicKey: Uint8Array;
+}
+
+export interface VerifyPrincipalPolicyBundleInput {
+  readonly bundle: PrincipalPolicyBundleV2;
+  readonly expectedReference?: ReferencedPrincipalHeadV2;
+  readonly localCheckpoint?: PrincipalPolicyCheckpointV2 | null;
+  readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKeyV2[];
+}
+
+interface NormalizedPrincipalPolicyStateChainEntryV2 {
+  readonly state: PrincipalPolicySignedStateV2;
+  readonly projection: PrincipalProjectionMember[];
 }
 
 function ok<T>(value: T): KeyingV2VerificationResult<T> {
@@ -674,6 +774,648 @@ function normalizeContentObjectKind(
   }
 
   return value;
+}
+
+function principalProjectionMemberKey(
+  member: PrincipalProjectionMember,
+): string {
+  return `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+}
+
+function principalProjectionRoleRank(
+  role: PrincipalProjectionMember["role"],
+): number {
+  return role === "admin" ? 2 : 1;
+}
+
+function projectionIncludesAdminUser(
+  projection: readonly PrincipalProjectionMember[],
+  userId: string,
+): boolean {
+  return projection.some(
+    (member) =>
+      member.memberPrincipalType === "user" &&
+      member.memberPrincipalId === userId &&
+      member.role === "admin",
+  );
+}
+
+function hasPrincipalPolicyProjectionShrink(input: {
+  currentProjection: readonly PrincipalProjectionMember[];
+  previousProjection: readonly PrincipalProjectionMember[];
+}): boolean {
+  const currentProjectionByMember = new Map<string, PrincipalProjectionMember>(
+    input.currentProjection.map((member) => [
+      principalProjectionMemberKey(member),
+      member,
+    ]),
+  );
+
+  return input.previousProjection.some((previousMember) => {
+    const currentMember = currentProjectionByMember.get(
+      principalProjectionMemberKey(previousMember),
+    );
+
+    if (!currentMember) {
+      return true;
+    }
+
+    return (
+      principalProjectionRoleRank(currentMember.role) <
+      principalProjectionRoleRank(previousMember.role)
+    );
+  });
+}
+
+function principalPolicyKeyMaterialChanged(input: {
+  currentState: SignedPrincipalState;
+  previousState: SignedPrincipalState;
+}): boolean {
+  return (
+    input.currentState.encapsulationPublicKey !==
+      input.previousState.encapsulationPublicKey ||
+    input.currentState.keyFingerprint !== input.previousState.keyFingerprint
+  );
+}
+
+export function getPrincipalPolicyTransitionMismatchReason(input: {
+  readonly current: {
+    readonly projection: readonly PrincipalProjectionMember[];
+    readonly state: SignedPrincipalState;
+  };
+  readonly previous: {
+    readonly projection: readonly PrincipalProjectionMember[];
+    readonly state: PrincipalPolicySignedStateV2;
+  };
+}): string | null {
+  const { current, previous } = input;
+
+  if (
+    current.state.principalType !== previous.state.principalType ||
+    current.state.principalId !== previous.state.principalId
+  ) {
+    return "Principal policy transition principal mismatch";
+  }
+
+  if (current.state.version !== previous.state.version + 1) {
+    return "Principal policy transition version is not contiguous";
+  }
+
+  if (current.state.prevStateHash !== previous.state.stateHash) {
+    return "Principal policy transition previous hash mismatch";
+  }
+
+  if (current.state.keyEpoch < previous.state.keyEpoch) {
+    return "Principal policy key epoch cannot decrease";
+  }
+
+  const previousProjection = normalizePrincipalProjectionMembers(
+    previous.projection,
+  );
+  const currentProjection = normalizePrincipalProjectionMembers(
+    current.projection,
+  );
+  const keyMaterialChanged = principalPolicyKeyMaterialChanged({
+    currentState: current.state,
+    previousState: previous.state,
+  });
+
+  if (
+    current.state.keyEpoch === previous.state.keyEpoch &&
+    keyMaterialChanged
+  ) {
+    return "Principal policy key change requires a new key epoch";
+  }
+
+  if (current.state.keyEpoch > previous.state.keyEpoch && !keyMaterialChanged) {
+    return "Principal policy key epoch advance requires new key material";
+  }
+
+  if (
+    hasPrincipalPolicyProjectionShrink({
+      currentProjection,
+      previousProjection,
+    }) &&
+    (current.state.keyEpoch <= previous.state.keyEpoch || !keyMaterialChanged)
+  ) {
+    return "Principal policy shrink requires a new key epoch and key material";
+  }
+
+  return null;
+}
+
+function mapPrincipalPolicyTransitionError(message: string): void {
+  if (
+    message.includes("key epoch") ||
+    message.includes("key change") ||
+    message.includes("shrink")
+  ) {
+    throwVerification("key_epoch_reuse", message);
+  }
+
+  if (message.includes("previous hash")) {
+    throwVerification("stale_predecessor", message);
+  }
+
+  throwVerification("invalid_shape", message);
+}
+
+function normalizePrincipalPolicySignerKey(
+  signerKey: PrincipalPolicySignerPublicKeyV2,
+): PrincipalPolicySignerPublicKeyV2 {
+  if (signerKey.userId.length === 0) {
+    throwVerification("invalid_shape", "principal policy signer user missing");
+  }
+
+  if (!/^[0-9a-f]{64}$/.test(signerKey.signingKeyFingerprint)) {
+    throwVerification(
+      "hash_mismatch",
+      "principal policy signer fingerprint must be a 64-character lowercase hex hash",
+    );
+  }
+
+  if (signerKey.signingPublicKey.length === 0) {
+    throwVerification(
+      "invalid_shape",
+      "principal policy signer public key missing",
+    );
+  }
+
+  return signerKey;
+}
+
+async function buildPrincipalPolicySignerKeyMap(
+  signerPublicKeys: readonly PrincipalPolicySignerPublicKeyV2[],
+): Promise<Map<string, Uint8Array>> {
+  const signerPublicKeyByUserAndFingerprint = new Map<string, Uint8Array>();
+
+  for (const signerKey of signerPublicKeys.map(
+    normalizePrincipalPolicySignerKey,
+  )) {
+    const computedFingerprint = await toFingerprint(signerKey.signingPublicKey);
+
+    if (computedFingerprint !== signerKey.signingKeyFingerprint) {
+      throwVerification(
+        "signer_mismatch",
+        "principal policy signer key fingerprint does not match public key",
+      );
+    }
+
+    const key = `${signerKey.userId}:${signerKey.signingKeyFingerprint}`;
+    if (signerPublicKeyByUserAndFingerprint.has(key)) {
+      throwVerification(
+        "duplicate_entry",
+        "principal policy signer key list contains a duplicate",
+      );
+    }
+
+    signerPublicKeyByUserAndFingerprint.set(key, signerKey.signingPublicKey);
+  }
+
+  return signerPublicKeyByUserAndFingerprint;
+}
+
+function getPrincipalPolicySignerPublicKey(input: {
+  readonly signerPublicKeyByUserAndFingerprint: ReadonlyMap<string, Uint8Array>;
+  readonly state: SignedPrincipalState;
+}): Uint8Array {
+  const signerPublicKey = input.signerPublicKeyByUserAndFingerprint.get(
+    `${input.state.signerUserId}:${input.state.signerUserKeyFingerprint}`,
+  );
+
+  if (!signerPublicKey) {
+    throwVerification(
+      "missing_dependency",
+      "principal policy signer public key is unavailable",
+    );
+  }
+
+  return signerPublicKey;
+}
+
+async function normalizePrincipalPolicyStateChainEntry(
+  entry: PrincipalPolicyStateChainEntryV2,
+): Promise<NormalizedPrincipalPolicyStateChainEntryV2> {
+  const projection = normalizePrincipalProjectionMembers(entry.projection);
+  const computedStateHash = await computePrincipalStateHash(entry.state);
+
+  if (computedStateHash !== entry.state.stateHash) {
+    throwVerification(
+      "hash_mismatch",
+      "principal policy state hash does not match signed state",
+    );
+  }
+
+  const computedProjectionRoot =
+    await computePrincipalProjectionRoot(projection);
+
+  if (computedProjectionRoot !== entry.state.projectionRoot) {
+    throwVerification(
+      "hash_mismatch",
+      "principal policy projection root does not match projection",
+    );
+  }
+
+  if (projection.length !== entry.state.memberCount) {
+    throwVerification(
+      "invalid_shape",
+      "principal policy projection count does not match state member count",
+    );
+  }
+
+  return {
+    state: entry.state,
+    projection,
+  };
+}
+
+function verifyPrincipalPolicyReference(input: {
+  readonly expectedReference: ReferencedPrincipalHeadV2 | undefined;
+  readonly state: PrincipalPolicySignedStateV2;
+}): void {
+  const { expectedReference, state } = input;
+
+  if (!expectedReference) {
+    return;
+  }
+
+  if (
+    expectedReference.principalType !== state.principalType ||
+    expectedReference.principalId !== state.principalId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "principal policy bundle does not match referenced principal",
+    );
+  }
+
+  if (
+    expectedReference.version !== state.version ||
+    expectedReference.keyEpoch !== state.keyEpoch ||
+    expectedReference.stateHash !== state.stateHash ||
+    expectedReference.keyFingerprint !== state.keyFingerprint
+  ) {
+    throwVerification(
+      "hash_mismatch",
+      "principal policy bundle does not match referenced principal head",
+    );
+  }
+}
+
+async function verifyPrincipalPolicyPayload(input: {
+  readonly bundle: PrincipalPolicyBundleV2;
+}): Promise<void> {
+  const { currentPayload, currentState } = input.bundle;
+
+  if (
+    currentPayload.principalType !== currentState.principalType ||
+    currentPayload.principalId !== currentState.principalId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "principal policy payload does not match current state principal",
+    );
+  }
+
+  if (currentPayload.stateHash !== currentState.stateHash) {
+    throwVerification(
+      "hash_mismatch",
+      "principal policy payload state hash does not match current state",
+    );
+  }
+
+  const computedPayloadHash = await computePrincipalStatePayloadCiphertextHash(
+    currentPayload.ciphertext,
+  );
+
+  if (computedPayloadHash !== currentPayload.ciphertextHash) {
+    throwVerification(
+      "hash_mismatch",
+      "principal policy payload hash does not match ciphertext",
+    );
+  }
+
+  if (computedPayloadHash !== currentState.payloadCiphertextHash) {
+    throwVerification(
+      "hash_mismatch",
+      "principal policy payload hash does not match current state",
+    );
+  }
+}
+
+function verifyPrincipalPolicyMemberEnvelopes(input: {
+  readonly bundle: PrincipalPolicyBundleV2;
+}): void {
+  const { currentMemberEnvelopes, currentState } = input.bundle;
+
+  if (!currentMemberEnvelopes) {
+    return;
+  }
+
+  if (
+    currentMemberEnvelopes.principalType !== currentState.principalType ||
+    currentMemberEnvelopes.principalId !== currentState.principalId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "principal policy member envelopes do not match current state principal",
+    );
+  }
+
+  if (
+    currentMemberEnvelopes.stateHash !== currentState.stateHash ||
+    currentMemberEnvelopes.epoch !== currentState.keyEpoch
+  ) {
+    throwVerification(
+      "hash_mismatch",
+      "principal policy member envelopes do not match current state",
+    );
+  }
+}
+
+function verifyPrincipalPolicyCheckpoint(input: {
+  readonly chain: readonly NormalizedPrincipalPolicyStateChainEntryV2[];
+  readonly currentState: PrincipalPolicySignedStateV2;
+  readonly localCheckpoint: PrincipalPolicyCheckpointV2 | null | undefined;
+}): void {
+  const { currentState, localCheckpoint } = input;
+
+  if (!localCheckpoint) {
+    return;
+  }
+
+  if (
+    localCheckpoint.principalType !== currentState.principalType ||
+    localCheckpoint.principalId !== currentState.principalId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "principal policy checkpoint does not match current principal",
+    );
+  }
+
+  if (currentState.version < localCheckpoint.version) {
+    throwVerification(
+      "rollback",
+      "principal policy state is older than the local checkpoint",
+    );
+  }
+
+  if (
+    currentState.version === localCheckpoint.version &&
+    currentState.stateHash !== localCheckpoint.stateHash
+  ) {
+    throwVerification(
+      "equivocation",
+      "principal policy state conflicts with the local checkpoint",
+    );
+  }
+
+  if (currentState.version <= localCheckpoint.version) {
+    return;
+  }
+
+  const checkpointEntry = input.chain[localCheckpoint.version - 1];
+  if (
+    !checkpointEntry ||
+    checkpointEntry.state.stateHash !== localCheckpoint.stateHash
+  ) {
+    throwVerification(
+      "stale_predecessor",
+      "principal policy chain does not extend the local checkpoint",
+    );
+  }
+}
+
+function verifyPrincipalPolicyChainShape(input: {
+  readonly chainLength: number;
+  readonly currentState: PrincipalPolicySignedStateV2;
+}): void {
+  if (input.chainLength !== input.currentState.version) {
+    throwVerification(
+      "missing_dependency",
+      "principal policy chain length does not match current state version",
+    );
+  }
+}
+
+function verifyPrincipalPolicyChainEntryIdentity(input: {
+  readonly currentState: PrincipalPolicySignedStateV2;
+  readonly expectedVersion: number;
+  readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntryV2;
+}): void {
+  if (
+    input.normalizedEntry.state.principalType !==
+      input.currentState.principalType ||
+    input.normalizedEntry.state.principalId !== input.currentState.principalId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "principal policy chain entry principal does not match current state",
+    );
+  }
+
+  if (input.normalizedEntry.state.version !== input.expectedVersion) {
+    throwVerification(
+      "stale_predecessor",
+      "principal policy chain entry version is not contiguous",
+    );
+  }
+}
+
+function verifyInitialPrincipalPolicyChainEntry(
+  normalizedEntry: NormalizedPrincipalPolicyStateChainEntryV2,
+): void {
+  if (normalizedEntry.state.prevStateHash !== null) {
+    throwVerification(
+      "stale_predecessor",
+      "initial principal policy chain entry has a previous state hash",
+    );
+  }
+
+  if (
+    !projectionIncludesAdminUser(
+      normalizedEntry.projection,
+      normalizedEntry.state.signerUserId,
+    )
+  ) {
+    throwVerification(
+      "unauthorized",
+      "initial principal policy state signer is not an admin",
+    );
+  }
+}
+
+function verifySuccessorPrincipalPolicyChainEntry(input: {
+  readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntryV2;
+  readonly previousEntry: NormalizedPrincipalPolicyStateChainEntryV2;
+}): void {
+  if (
+    input.normalizedEntry.state.prevStateHash !==
+    input.previousEntry.state.stateHash
+  ) {
+    throwVerification(
+      "stale_predecessor",
+      "principal policy chain entry previous hash mismatch",
+    );
+  }
+
+  if (
+    !projectionIncludesAdminUser(
+      input.previousEntry.projection,
+      input.normalizedEntry.state.signerUserId,
+    )
+  ) {
+    throwVerification(
+      "unauthorized",
+      "principal policy state signer is not an admin in previous projection",
+    );
+  }
+
+  const transitionMismatch = getPrincipalPolicyTransitionMismatchReason({
+    current: input.normalizedEntry,
+    previous: input.previousEntry,
+  });
+
+  if (transitionMismatch) {
+    mapPrincipalPolicyTransitionError(transitionMismatch);
+  }
+}
+
+async function verifyPrincipalPolicyChainEntrySignature(input: {
+  readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntryV2;
+  readonly signerPublicKeyByUserAndFingerprint: ReadonlyMap<string, Uint8Array>;
+}): Promise<void> {
+  const signerPublicKey = getPrincipalPolicySignerPublicKey({
+    signerPublicKeyByUserAndFingerprint:
+      input.signerPublicKeyByUserAndFingerprint,
+    state: input.normalizedEntry.state,
+  });
+
+  if (
+    !(await verifySignedPrincipalState(
+      input.normalizedEntry.state,
+      signerPublicKey,
+    ))
+  ) {
+    throwVerification(
+      "signature_mismatch",
+      "principal policy state signature verification failed",
+    );
+  }
+}
+
+async function verifyPrincipalPolicyChain(input: {
+  readonly bundle: PrincipalPolicyBundleV2;
+  readonly signerPublicKeyByUserAndFingerprint: ReadonlyMap<string, Uint8Array>;
+}): Promise<NormalizedPrincipalPolicyStateChainEntryV2[]> {
+  const chain = [
+    ...input.bundle.previousStates,
+    {
+      state: input.bundle.currentState,
+      projection: input.bundle.currentProjection,
+    },
+  ];
+
+  verifyPrincipalPolicyChainShape({
+    chainLength: chain.length,
+    currentState: input.bundle.currentState,
+  });
+
+  const normalizedChain: NormalizedPrincipalPolicyStateChainEntryV2[] = [];
+
+  for (let index = 0; index < chain.length; index += 1) {
+    const entry = chain[index];
+    if (!entry) {
+      throwVerification(
+        "missing_dependency",
+        "principal policy chain entry is missing",
+      );
+    }
+
+    const normalizedEntry =
+      await normalizePrincipalPolicyStateChainEntry(entry);
+
+    verifyPrincipalPolicyChainEntryIdentity({
+      currentState: input.bundle.currentState,
+      expectedVersion: index + 1,
+      normalizedEntry,
+    });
+
+    const previousEntry = normalizedChain[index - 1];
+    if (previousEntry) {
+      verifySuccessorPrincipalPolicyChainEntry({
+        normalizedEntry,
+        previousEntry,
+      });
+    } else {
+      verifyInitialPrincipalPolicyChainEntry(normalizedEntry);
+    }
+
+    await verifyPrincipalPolicyChainEntrySignature({
+      normalizedEntry,
+      signerPublicKeyByUserAndFingerprint:
+        input.signerPublicKeyByUserAndFingerprint,
+    });
+
+    normalizedChain.push(normalizedEntry);
+  }
+
+  return normalizedChain;
+}
+
+export async function verifyPrincipalPolicyBundle({
+  bundle,
+  expectedReference,
+  localCheckpoint,
+  signerPublicKeys,
+}: VerifyPrincipalPolicyBundleInput): Promise<
+  KeyingV2VerificationResult<VerifiedPrincipalPolicy>
+> {
+  return runVerifier(async () => {
+    const signerPublicKeyByUserAndFingerprint =
+      await buildPrincipalPolicySignerKeyMap(signerPublicKeys);
+    const normalizedChain = await verifyPrincipalPolicyChain({
+      bundle,
+      signerPublicKeyByUserAndFingerprint,
+    });
+    const currentEntry = normalizedChain.at(-1);
+
+    if (!currentEntry) {
+      throwVerification(
+        "missing_dependency",
+        "principal policy chain is empty",
+      );
+    }
+
+    await verifyPrincipalPolicyPayload({ bundle });
+    verifyPrincipalPolicyMemberEnvelopes({ bundle });
+    verifyPrincipalPolicyReference({
+      expectedReference,
+      state: currentEntry.state,
+    });
+    verifyPrincipalPolicyCheckpoint({
+      chain: normalizedChain,
+      currentState: currentEntry.state,
+      localCheckpoint,
+    });
+
+    return {
+      principalType: currentEntry.state.principalType,
+      principalId: currentEntry.state.principalId,
+      version: currentEntry.state.version,
+      keyEpoch: currentEntry.state.keyEpoch,
+      stateHash: currentEntry.state.stateHash,
+      state: currentEntry.state,
+      projection: currentEntry.projection,
+      checkpoint: {
+        principalType: currentEntry.state.principalType,
+        principalId: currentEntry.state.principalId,
+        version: currentEntry.state.version,
+        stateHash: currentEntry.state.stateHash,
+      },
+    } as VerifiedPrincipalPolicy;
+  });
 }
 
 function normalizeUnsignedAccessEvent(

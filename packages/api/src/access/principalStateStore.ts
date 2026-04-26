@@ -2,6 +2,7 @@ import {
   computePrincipalProjectionRoot,
   computePrincipalStateHash,
   computePrincipalStatePayloadCiphertextHash,
+  getPrincipalPolicyTransitionMismatchReason,
   type ManagedRecipientPrincipalType,
   normalizePrincipalProjectionMembers,
   type PrincipalProjectionMember,
@@ -404,7 +405,7 @@ async function validatePrincipalStateSignerAuthorization(input: {
   normalizedInput: PrincipalStateBundleInput;
   signerUserId: string;
   executor: PrincipalStateExecutor;
-}): Promise<void> {
+}): Promise<StoredPrincipalProjectionMember[] | null> {
   if (!input.currentState) {
     if (
       !projectionIncludesAdminUser(
@@ -414,7 +415,7 @@ async function validatePrincipalStateSignerAuthorization(input: {
     ) {
       throw new Error("Principal state signer must be an admin");
     }
-    return;
+    return null;
   }
 
   const previousProjection = await listProjectionMembersForState(
@@ -426,6 +427,34 @@ async function validatePrincipalStateSignerAuthorization(input: {
 
   if (!projectionIncludesAdminUser(previousProjection, input.signerUserId)) {
     throw new Error("Principal state signer must be an admin");
+  }
+
+  return previousProjection;
+}
+
+function validatePrincipalPolicyTransition(input: {
+  currentState: SignedPrincipalState;
+  currentProjection: readonly PrincipalProjectionMember[];
+  previousProjection: readonly StoredPrincipalProjectionMember[] | null;
+  previousState: StoredPrincipalState | null;
+}): void {
+  if (!input.previousState || !input.previousProjection) {
+    return;
+  }
+
+  const mismatchReason = getPrincipalPolicyTransitionMismatchReason({
+    current: {
+      state: input.currentState,
+      projection: input.currentProjection,
+    },
+    previous: {
+      state: input.previousState,
+      projection: input.previousProjection,
+    },
+  });
+
+  if (mismatchReason) {
+    throw new Error(mismatchReason);
   }
 }
 
@@ -710,12 +739,20 @@ export async function storeVerifiedPrincipalState(
     stateHash,
     executor,
   );
-  await validatePrincipalStateSignerAuthorization({
+  const previousProjection = await validatePrincipalStateSignerAuthorization({
     currentState,
     normalizedInput,
     signerUserId: signer.userId,
     executor,
   });
+  if (currentState && normalizedInput.state.version > currentState.version) {
+    validatePrincipalPolicyTransition({
+      currentState: normalizedInput.state,
+      currentProjection: normalizedInput.projection,
+      previousProjection,
+      previousState: currentState,
+    });
+  }
   const signedAt = new Date(normalizedInput.state.signedAt);
 
   await insertPrincipalStateRow({

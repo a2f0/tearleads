@@ -82,15 +82,19 @@ interface PrincipalStateLike {
   signature?: string;
 }
 
+function compareCanonicalStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 function comparePrincipalStateMembers(
   left: PrincipalStateMember,
   right: PrincipalStateMember,
 ): number {
   if (left.principalType === right.principalType) {
-    return left.principalId.localeCompare(right.principalId);
+    return compareCanonicalStrings(left.principalId, right.principalId);
   }
 
-  return left.principalType.localeCompare(right.principalType);
+  return compareCanonicalStrings(left.principalType, right.principalType);
 }
 
 function comparePrincipalProjectionMembers(
@@ -98,10 +102,16 @@ function comparePrincipalProjectionMembers(
   right: PrincipalProjectionMember,
 ): number {
   if (left.memberPrincipalType === right.memberPrincipalType) {
-    return left.memberPrincipalId.localeCompare(right.memberPrincipalId);
+    return compareCanonicalStrings(
+      left.memberPrincipalId,
+      right.memberPrincipalId,
+    );
   }
 
-  return left.memberPrincipalType.localeCompare(right.memberPrincipalType);
+  return compareCanonicalStrings(
+    left.memberPrincipalType,
+    right.memberPrincipalType,
+  );
 }
 
 function hasDuplicateNormalizedPrincipalStateMembers(

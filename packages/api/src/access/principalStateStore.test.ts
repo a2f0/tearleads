@@ -122,6 +122,9 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
   expect(currentEpochKey?.epoch).toBe(1);
   expect(currentEpochKey?.introducedByStateHash).toBe(storedState.stateHash);
   expect(currentEpochKey?.keyFingerprint).toBe(await toFingerprint(publicKey));
+
+  const repeatedState = await storeVerifiedPrincipalState(signedState);
+  expect(repeatedState.stateHash).toBe(storedState.stateHash);
 });
 
 test("storeVerifiedPrincipalState rejects invalid signatures", async () => {
@@ -435,6 +438,77 @@ test("storeVerifiedPrincipalState rejects same-version state hash conflicts", as
       ),
     ),
   ).rejects.toThrow("Principal state version conflict");
+});
+
+test("storeVerifiedPrincipalState rejects member removal without key rotation", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const signer = await createPrincipalStateSigner(signingPublicKey);
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const principalId = crypto.randomUUID();
+  const initialState = await storeVerifiedPrincipalState(
+    await signPrincipalState(
+      {
+        principalType: "group",
+        principalId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(publicKey),
+        keyFingerprint: await toFingerprint(publicKey),
+        members: [
+          { principalType: "user", principalId: signer.signerUserId },
+          { principalType: "user", principalId: "removed-user" },
+        ],
+        projection: [
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: signer.signerUserId,
+            role: "admin",
+          },
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: "removed-user",
+            role: "member",
+          },
+        ],
+        signedAt: new Date("2026-04-07T12:12:00.000Z").toISOString(),
+        ...signer,
+      },
+      signingPrivateKey,
+    ),
+  );
+
+  await expect(
+    storeVerifiedPrincipalState(
+      await signPrincipalState(
+        {
+          principalType: "group",
+          principalId,
+          version: 2,
+          prevStateHash: initialState.stateHash,
+          keyEpoch: 1,
+          encapsulationPublicKey: bytesToBase64(publicKey),
+          keyFingerprint: await toFingerprint(publicKey),
+          members: [
+            { principalType: "user", principalId: signer.signerUserId },
+          ],
+          projection: [
+            {
+              memberPrincipalType: "user",
+              memberPrincipalId: signer.signerUserId,
+              role: "admin",
+            },
+          ],
+          signedAt: new Date("2026-04-07T12:13:00.000Z").toISOString(),
+          ...signer,
+        },
+        signingPrivateKey,
+      ),
+    ),
+  ).rejects.toThrow(
+    "Principal policy shrink requires a new key epoch and key material",
+  );
 });
 
 test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal id", async () => {
