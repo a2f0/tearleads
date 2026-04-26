@@ -3,11 +3,17 @@ import { toFingerprint } from "./fingerprint";
 import type {
   AccessEventV2,
   AccessManifestV2,
+  ContainerAccessEventBodyV2,
+  ContainerAccessManifestStateV2,
+  ContainerCreateAccessEventBodyV2,
+  ContainerDirectGrantV2,
   ContainerKekTargetV2,
+  KeyingV2CanonicalJson,
   KeyingV2VerificationCode,
   KeyingV2VerificationResult,
   UnsignedAccessEventV2,
   VerifiedAccessEvent,
+  VerifiedContainerAccessManifest,
 } from "./keyingV2";
 import {
   computeAccessEventBodyHash,
@@ -16,10 +22,13 @@ import {
   computeDocumentContentKeyTargetHash,
   computeKeyingV2DomainHash,
   computeWriteHeaderHash,
+  deriveContainerAccessManifest,
   serializeKeyingV2CanonicalJson,
   signAccessEvent,
   signWriteHeader,
   verifyAccessManifest,
+  verifyContainerAccessManifest,
+  verifyContainerParentEdge,
   verifySignedAccessEvent,
   verifyWriteHeader,
 } from "./keyingV2";
@@ -126,6 +135,104 @@ async function createManifest(event: VerifiedAccessEvent) {
     manifest,
     manifestHash: await computeAccessManifestHash(manifest),
   };
+}
+
+async function createVerifiedContainerAccessEvent(input: {
+  readonly body: ContainerAccessEventBodyV2;
+  readonly objectId: string;
+  readonly organizationId: string;
+  readonly previousManifestHash: string | null;
+  readonly signer: ReturnType<typeof generateSigningSeedAndKeyPair>;
+  readonly signerUserId: string;
+}) {
+  const event = await signAccessEvent(
+    {
+      version: 2,
+      eventId: crypto.randomUUID(),
+      eventType: input.body.eventType,
+      objectKind: "container",
+      objectId: input.objectId,
+      organizationId: input.organizationId,
+      previousManifestHash: input.previousManifestHash,
+      dependencyManifestHashes: [],
+      bodyHash: await computeAccessEventBodyHash(
+        input.body as unknown as KeyingV2CanonicalJson,
+      ),
+      signerUserId: input.signerUserId,
+      signerDeviceId: "device-1",
+      signerKeyFingerprint: await toFingerprint(input.signer.signingPublicKey),
+      signedAt: "2026-04-25T12:00:00.000Z",
+    },
+    input.signer.signingPrivateKey,
+  );
+  const verifiedEvent = await verifySignedAccessEvent({
+    body: input.body as unknown as KeyingV2CanonicalJson,
+    event,
+    signerPublicKey: input.signer.signingPublicKey,
+  });
+
+  if (!verifiedEvent.ok) {
+    throw verifiedEvent.error;
+  }
+
+  return verifiedEvent.value;
+}
+
+async function createContainerManifestFixture(input: {
+  readonly containerId: string;
+  readonly containerKeyEpochId?: string | null;
+  readonly directGrants: readonly ContainerDirectGrantV2[];
+  readonly epoch?: number;
+  readonly event?: VerifiedAccessEvent;
+  readonly organizationId?: string;
+  readonly parentContainerId?: string | null;
+  readonly parentManifestHash?: string | null;
+  readonly previousManifestHash?: string | null;
+  readonly referencedPrincipalHeads?: ContainerAccessManifestStateV2["referencedPrincipalHeads"];
+  readonly signer?: ReturnType<typeof generateSigningSeedAndKeyPair>;
+  readonly signerUserId?: string;
+}): Promise<VerifiedContainerAccessManifest> {
+  const organizationId = input.organizationId ?? "organization-1";
+  const signer = input.signer ?? generateSigningSeedAndKeyPair();
+  const body: ContainerCreateAccessEventBodyV2 = {
+    eventType: "container.create",
+    parentContainerId: input.parentContainerId ?? null,
+    parentManifestHash: input.parentManifestHash ?? null,
+    containerKeyEpochId: input.containerKeyEpochId ?? null,
+    directGrants: [...input.directGrants],
+    referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
+  };
+  const event =
+    input.event ??
+    (await createVerifiedContainerAccessEvent({
+      body,
+      objectId: input.containerId,
+      organizationId,
+      previousManifestHash: input.previousManifestHash ?? null,
+      signer,
+      signerUserId: input.signerUserId ?? "fixture-signer",
+    }));
+  const state: ContainerAccessManifestStateV2 = {
+    version: 2,
+    containerId: input.containerId,
+    organizationId,
+    epoch: input.epoch ?? 1,
+    previousManifestHash: input.previousManifestHash ?? null,
+    eventHash: event.eventHash,
+    parentContainerId: input.parentContainerId ?? null,
+    parentManifestHash: input.parentManifestHash ?? null,
+    containerKeyEpochId: input.containerKeyEpochId ?? null,
+    directGrants: [...input.directGrants],
+    referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
+  };
+  const manifest = await deriveContainerAccessManifest(state);
+
+  return {
+    manifest,
+    manifestHash: await computeAccessManifestHash(manifest),
+    event,
+    state,
+  } as VerifiedContainerAccessManifest;
 }
 
 test("keying v2 canonical JSON sorts object keys deterministically", () => {
@@ -365,6 +472,507 @@ test("verifyAccessManifest rejects duplicate referenced principal heads", async 
   ).rejects.toThrow(
     "access manifest referencedPrincipalHeads contains a duplicate",
   );
+});
+
+test("verifyContainerAccessManifest accepts a signed child create under a writable parent", async () => {
+  const adminUserId = "admin-user";
+  const adminSigning = generateSigningSeedAndKeyPair();
+  const parent = await createContainerManifestFixture({
+    containerId: "parent-container",
+    containerKeyEpochId: "parent-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: adminUserId,
+        accessLevel: "admin",
+      },
+    ],
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const createBody: ContainerCreateAccessEventBodyV2 = {
+    eventType: "container.create",
+    parentContainerId: parent.state.containerId,
+    parentManifestHash: parent.manifestHash,
+    containerKeyEpochId: "child-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: adminUserId,
+        accessLevel: "admin",
+      },
+    ],
+    referencedPrincipalHeads: [],
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body: createBody,
+    objectId: "child-container",
+    organizationId: parent.state.organizationId,
+    previousManifestHash: null,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const state: ContainerAccessManifestStateV2 = {
+    version: 2,
+    containerId: "child-container",
+    organizationId: parent.state.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash: event.eventHash,
+    parentContainerId: parent.state.containerId,
+    parentManifestHash: parent.manifestHash,
+    containerKeyEpochId: "child-key-epoch-1",
+    directGrants: createBody.directGrants,
+    referencedPrincipalHeads: [],
+  };
+  const manifest = await deriveContainerAccessManifest(state);
+  const manifestHash = await computeAccessManifestHash(manifest);
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: manifestHash,
+    event,
+    parentContainerPath: [parent],
+  });
+
+  expect(result.ok).toBe(true);
+  if (result.ok) {
+    expect(result.value.state.parentManifestHash).toBe(parent.manifestHash);
+  }
+});
+
+test("verifyContainerAccessManifest rejects a forged API-only grant row", async () => {
+  const adminUserId = "admin-user";
+  const aliceUserId = "alice-user";
+  const bobUserId = "bob-user";
+  const adminSigning = generateSigningSeedAndKeyPair();
+  const previous = await createContainerManifestFixture({
+    containerId: "container-1",
+    containerKeyEpochId: "container-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: adminUserId,
+        accessLevel: "admin",
+      },
+    ],
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const body: ContainerAccessEventBodyV2 = {
+    eventType: "container.grant",
+    containerKeyEpochId: previous.state.containerKeyEpochId,
+    grant: {
+      subjectType: "user",
+      subjectId: aliceUserId,
+      accessLevel: "read",
+    },
+    referencedPrincipalHead: null,
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: previous.manifestHash,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const forgedState: ContainerAccessManifestStateV2 = {
+    ...previous.state,
+    epoch: previous.state.epoch + 1,
+    previousManifestHash: previous.manifestHash,
+    eventHash: event.eventHash,
+    directGrants: [
+      ...previous.state.directGrants,
+      body.grant,
+      {
+        subjectType: "user",
+        subjectId: bobUserId,
+        accessLevel: "read",
+      },
+    ],
+  };
+  const forgedManifest = await deriveContainerAccessManifest(forgedState);
+
+  const result = await verifyContainerAccessManifest({
+    manifest: forgedManifest,
+    expectedManifestHash: await computeAccessManifestHash(forgedManifest),
+    event,
+    previousManifest: previous,
+    previousContainerPath: [previous],
+  });
+
+  expectVerificationError(result, "hash_mismatch");
+});
+
+test("verifyContainerAccessManifest rejects container grants signed by non-admins", async () => {
+  const adminUserId = "admin-user";
+  const writerUserId = "writer-user";
+  const aliceUserId = "alice-user";
+  const adminSigning = generateSigningSeedAndKeyPair();
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const previous = await createContainerManifestFixture({
+    containerId: "container-1",
+    containerKeyEpochId: "container-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: adminUserId,
+        accessLevel: "admin",
+      },
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const body: ContainerAccessEventBodyV2 = {
+    eventType: "container.grant",
+    containerKeyEpochId: previous.state.containerKeyEpochId,
+    grant: {
+      subjectType: "user",
+      subjectId: aliceUserId,
+      accessLevel: "read",
+    },
+    referencedPrincipalHead: null,
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: previous.manifestHash,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const manifest = await deriveContainerAccessManifest({
+    ...previous.state,
+    epoch: previous.state.epoch + 1,
+    previousManifestHash: previous.manifestHash,
+    eventHash: event.eventHash,
+    directGrants: [...previous.state.directGrants, body.grant],
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: await computeAccessManifestHash(manifest),
+    event,
+    previousManifest: previous,
+    previousContainerPath: [previous],
+  });
+
+  expectVerificationError(result, "unauthorized");
+});
+
+test("verifyContainerAccessManifest rejects child create signed without parent write access", async () => {
+  const readerUserId = "reader-user";
+  const readerSigning = generateSigningSeedAndKeyPair();
+  const parent = await createContainerManifestFixture({
+    containerId: "parent-container",
+    containerKeyEpochId: "parent-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: readerUserId,
+        accessLevel: "read",
+      },
+    ],
+    signer: readerSigning,
+    signerUserId: readerUserId,
+  });
+  const body: ContainerCreateAccessEventBodyV2 = {
+    eventType: "container.create",
+    parentContainerId: parent.state.containerId,
+    parentManifestHash: parent.manifestHash,
+    containerKeyEpochId: "child-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: readerUserId,
+        accessLevel: "admin",
+      },
+    ],
+    referencedPrincipalHeads: [],
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: "child-container",
+    organizationId: parent.state.organizationId,
+    previousManifestHash: null,
+    signer: readerSigning,
+    signerUserId: readerUserId,
+  });
+  const manifest = await deriveContainerAccessManifest({
+    version: 2,
+    containerId: "child-container",
+    organizationId: parent.state.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash: event.eventHash,
+    parentContainerId: parent.state.containerId,
+    parentManifestHash: parent.manifestHash,
+    containerKeyEpochId: "child-key-epoch-1",
+    directGrants: body.directGrants,
+    referencedPrincipalHeads: [],
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: await computeAccessManifestHash(manifest),
+    event,
+    parentContainerPath: [parent],
+  });
+
+  expectVerificationError(result, "unauthorized");
+});
+
+test("verifyContainerAccessManifest rejects moving a container under its descendant", async () => {
+  const adminUserId = "admin-user";
+  const adminSigning = generateSigningSeedAndKeyPair();
+  const root = await createContainerManifestFixture({
+    containerId: "root-container",
+    containerKeyEpochId: "root-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: adminUserId,
+        accessLevel: "admin",
+      },
+    ],
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const child = await createContainerManifestFixture({
+    containerId: "child-container",
+    containerKeyEpochId: "child-key-epoch-1",
+    directGrants: [],
+    parentContainerId: root.state.containerId,
+    parentManifestHash: root.manifestHash,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const grandchild = await createContainerManifestFixture({
+    containerId: "grandchild-container",
+    containerKeyEpochId: "grandchild-key-epoch-1",
+    directGrants: [],
+    parentContainerId: child.state.containerId,
+    parentManifestHash: child.manifestHash,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const body: ContainerAccessEventBodyV2 = {
+    eventType: "container.move",
+    parentContainerId: grandchild.state.containerId,
+    parentManifestHash: grandchild.manifestHash,
+    containerKeyEpochId: "child-key-epoch-2",
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: child.state.containerId,
+    organizationId: child.state.organizationId,
+    previousManifestHash: child.manifestHash,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const manifest = await deriveContainerAccessManifest({
+    ...child.state,
+    epoch: child.state.epoch + 1,
+    previousManifestHash: child.manifestHash,
+    eventHash: event.eventHash,
+    parentContainerId: grandchild.state.containerId,
+    parentManifestHash: grandchild.manifestHash,
+    containerKeyEpochId: "child-key-epoch-2",
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: await computeAccessManifestHash(manifest),
+    event,
+    previousManifest: child,
+    previousContainerPath: [root, child],
+    destinationParentContainerPath: [root, child, grandchild],
+  });
+
+  expectVerificationError(result, "object_mismatch");
+});
+
+test("verifyContainerAccessManifest rejects parent manifest hash mismatches", async () => {
+  const adminUserId = "admin-user";
+  const adminSigning = generateSigningSeedAndKeyPair();
+  const parent = await createContainerManifestFixture({
+    containerId: "parent-container",
+    containerKeyEpochId: "parent-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: adminUserId,
+        accessLevel: "admin",
+      },
+    ],
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const wrongParentManifestHash = await fixtureHash("wrong-parent-manifest");
+  const body: ContainerCreateAccessEventBodyV2 = {
+    eventType: "container.create",
+    parentContainerId: parent.state.containerId,
+    parentManifestHash: wrongParentManifestHash,
+    containerKeyEpochId: "child-key-epoch-1",
+    directGrants: [],
+    referencedPrincipalHeads: [],
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: "child-container",
+    organizationId: parent.state.organizationId,
+    previousManifestHash: null,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const manifest = await deriveContainerAccessManifest({
+    version: 2,
+    containerId: "child-container",
+    organizationId: parent.state.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash: event.eventHash,
+    parentContainerId: parent.state.containerId,
+    parentManifestHash: wrongParentManifestHash,
+    containerKeyEpochId: "child-key-epoch-1",
+    directGrants: [],
+    referencedPrincipalHeads: [],
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: await computeAccessManifestHash(manifest),
+    event,
+    parentContainerPath: [parent],
+  });
+
+  expectVerificationError(result, "missing_dependency");
+});
+
+test("parent sharing does not require descendant container manifest rewrites", async () => {
+  const adminUserId = "admin-user";
+  const aliceUserId = "alice-user";
+  const adminSigning = generateSigningSeedAndKeyPair();
+  const parent = await createContainerManifestFixture({
+    containerId: "parent-container",
+    containerKeyEpochId: "parent-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: adminUserId,
+        accessLevel: "admin",
+      },
+    ],
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const child = await createContainerManifestFixture({
+    containerId: "child-container",
+    containerKeyEpochId: "child-key-epoch-1",
+    directGrants: [],
+    parentContainerId: parent.state.containerId,
+    parentManifestHash: parent.manifestHash,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const childManifestHashBeforeParentShare = child.manifestHash;
+  const body: ContainerAccessEventBodyV2 = {
+    eventType: "container.grant",
+    containerKeyEpochId: parent.state.containerKeyEpochId,
+    grant: {
+      subjectType: "user",
+      subjectId: aliceUserId,
+      accessLevel: "read",
+    },
+    referencedPrincipalHead: null,
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: parent.state.containerId,
+    organizationId: parent.state.organizationId,
+    previousManifestHash: parent.manifestHash,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const parentAfterShareManifest = await deriveContainerAccessManifest({
+    ...parent.state,
+    epoch: parent.state.epoch + 1,
+    previousManifestHash: parent.manifestHash,
+    eventHash: event.eventHash,
+    directGrants: [...parent.state.directGrants, body.grant],
+  });
+  const parentAfterShare = await verifyContainerAccessManifest({
+    manifest: parentAfterShareManifest,
+    expectedManifestHash: await computeAccessManifestHash(
+      parentAfterShareManifest,
+    ),
+    event,
+    previousManifest: parent,
+    previousContainerPath: [parent],
+  });
+
+  expect(parentAfterShare.ok).toBe(true);
+  if (!parentAfterShare.ok) {
+    throw parentAfterShare.error;
+  }
+
+  expect(child.manifestHash).toBe(childManifestHashBeforeParentShare);
+  expect(
+    verifyContainerParentEdge({
+      child,
+      parentHistory: [parentAfterShare.value, parent],
+    }).ok,
+  ).toBe(true);
+});
+
+test("container managed-principal grants commit matching principal heads", async () => {
+  const groupGrant: ContainerDirectGrantV2 = {
+    subjectType: "group",
+    subjectId: "group-1",
+    accessLevel: "write",
+  };
+  const state: ContainerAccessManifestStateV2 = {
+    version: 2,
+    containerId: "container-1",
+    organizationId: "organization-1",
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash: await fixtureHash("container-event"),
+    parentContainerId: null,
+    parentManifestHash: null,
+    containerKeyEpochId: "container-key-epoch-1",
+    directGrants: [groupGrant],
+    referencedPrincipalHeads: [],
+  };
+
+  await expect(deriveContainerAccessManifest(state)).rejects.toThrow(
+    "container access manifest is missing a referenced principal head",
+  );
+
+  await expect(
+    deriveContainerAccessManifest({
+      ...state,
+      referencedPrincipalHeads: [
+        {
+          principalType: "group",
+          principalId: groupGrant.subjectId,
+          version: 1,
+          keyEpoch: 1,
+          stateHash: await fixtureHash("group-state"),
+          keyFingerprint: await fixtureHash("group-key"),
+        },
+      ],
+    }),
+  ).resolves.toMatchObject({
+    objectKind: "container",
+    objectId: state.containerId,
+  });
 });
 
 test("write headers are signed, hashed, and verified against expected targets", async () => {

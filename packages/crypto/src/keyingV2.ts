@@ -38,6 +38,9 @@ export type KeyingV2HashDomain =
   | "tearleads.keying-v2.access-event.v1"
   | "tearleads.keying-v2.access-manifest.v1"
   | "tearleads.keying-v2.blob-content-key-targets.v1"
+  | "tearleads.keying-v2.container-access-direct-grants.v1"
+  | "tearleads.keying-v2.container-access-key-target.v1"
+  | "tearleads.keying-v2.container-access-structural.v1"
   | "tearleads.keying-v2.container-kek-recipient-targets.v1"
   | "tearleads.keying-v2.document-content-key-targets.v1"
   | "tearleads.keying-v2.write-header-signing.v1"
@@ -62,6 +65,8 @@ export type KekRecipientKindV2 =
   | "organization"
   | "user";
 export type ContentObjectKindV2 = "blob" | "document";
+export type ContainerAccessLevelV2 = "admin" | "read" | "write";
+export type ContainerGrantSubjectTypeV2 = "group" | "organization" | "user";
 
 export interface UnsignedAccessEventV2 {
   version: 2;
@@ -105,6 +110,68 @@ export interface AccessManifestV2 {
   referencedPrincipalHeads: ReferencedPrincipalHeadV2[];
   keyTargetHash: string;
 }
+
+export interface ContainerDirectGrantV2 {
+  accessLevel: ContainerAccessLevelV2;
+  subjectId: string;
+  subjectType: ContainerGrantSubjectTypeV2;
+}
+
+export interface ContainerAccessStructuralV2 {
+  parentContainerId: string | null;
+  parentManifestHash: string | null;
+}
+
+export interface ContainerAccessKeyStateV2 {
+  containerKeyEpochId: string | null;
+}
+
+export interface ContainerAccessManifestStateV2
+  extends ContainerAccessStructuralV2,
+    ContainerAccessKeyStateV2 {
+  version: 2;
+  containerId: string;
+  organizationId: string;
+  epoch: number;
+  previousManifestHash: string | null;
+  eventHash: string;
+  directGrants: ContainerDirectGrantV2[];
+  referencedPrincipalHeads: ReferencedPrincipalHeadV2[];
+}
+
+export interface ContainerCreateAccessEventBodyV2
+  extends ContainerAccessStructuralV2,
+    ContainerAccessKeyStateV2 {
+  eventType: "container.create";
+  directGrants: ContainerDirectGrantV2[];
+  referencedPrincipalHeads: ReferencedPrincipalHeadV2[];
+}
+
+export interface ContainerGrantAccessEventBodyV2
+  extends ContainerAccessKeyStateV2 {
+  eventType: "container.grant";
+  grant: ContainerDirectGrantV2;
+  referencedPrincipalHead: ReferencedPrincipalHeadV2 | null;
+}
+
+export interface ContainerRevokeAccessEventBodyV2
+  extends ContainerAccessKeyStateV2 {
+  eventType: "container.revoke";
+  subjectId: string;
+  subjectType: ContainerGrantSubjectTypeV2;
+}
+
+export interface ContainerMoveAccessEventBodyV2
+  extends ContainerAccessStructuralV2,
+    ContainerAccessKeyStateV2 {
+  eventType: "container.move";
+}
+
+export type ContainerAccessEventBodyV2 =
+  | ContainerCreateAccessEventBodyV2
+  | ContainerGrantAccessEventBodyV2
+  | ContainerMoveAccessEventBodyV2
+  | ContainerRevokeAccessEventBodyV2;
 
 export interface ContainerKekRecipientTargetV2 {
   recipientKind: KekRecipientKindV2;
@@ -179,6 +246,8 @@ declare const verifiedIdentityStateBrand: unique symbol;
 declare const verifiedPrincipalPolicyBrand: unique symbol;
 declare const verifiedAccessEventBrand: unique symbol;
 declare const verifiedAccessManifestBrand: unique symbol;
+declare const verifiedContainerAccessManifestBrand: unique symbol;
+declare const verifiedContainerParentEdgeBrand: unique symbol;
 declare const verifiedContainerKekStateBrand: unique symbol;
 declare const verifiedWriteHeaderBrand: unique symbol;
 
@@ -211,6 +280,22 @@ export interface VerifiedAccessManifest {
   readonly manifestHash: string;
   readonly event: VerifiedAccessEvent;
   readonly [verifiedAccessManifestBrand]: true;
+}
+
+export interface VerifiedContainerAccessManifest {
+  readonly manifest: AccessManifestV2;
+  readonly manifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly state: ContainerAccessManifestStateV2;
+  readonly [verifiedContainerAccessManifestBrand]: true;
+}
+
+export interface VerifiedContainerParentEdge {
+  readonly childContainerId: string;
+  readonly childManifestHash: string;
+  readonly parentContainerId: string;
+  readonly parentManifestHash: string;
+  readonly [verifiedContainerParentEdgeBrand]: true;
 }
 
 export interface VerifiedContainerKekState {
@@ -248,6 +333,22 @@ export interface VerifyAccessManifestInput {
   readonly event: VerifiedAccessEvent;
   readonly expectedObject?: ExpectedObjectV2;
   readonly expectedPreviousManifestHash?: string | null;
+}
+
+export interface VerifyContainerAccessManifestInput {
+  readonly manifest: AccessManifestV2;
+  readonly expectedManifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly previousManifest?: VerifiedContainerAccessManifest | null;
+  readonly previousContainerPath?: readonly VerifiedContainerAccessManifest[];
+  readonly parentContainerPath?: readonly VerifiedContainerAccessManifest[];
+  readonly destinationParentContainerPath?: readonly VerifiedContainerAccessManifest[];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+}
+
+export interface VerifyContainerParentEdgeInput {
+  readonly child: VerifiedContainerAccessManifest;
+  readonly parentHistory: readonly VerifiedContainerAccessManifest[];
 }
 
 export interface VerifyWriteHeaderInput {
@@ -432,6 +533,27 @@ function readString(
 
   if (typeof value !== "string" || value.length === 0) {
     throwVerification("invalid_shape", `${label}.${key} must be a string`);
+  }
+
+  return value;
+}
+
+function readNullableString(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): string | null {
+  const value = record[key];
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string" || value.length === 0) {
+    throwVerification(
+      "invalid_shape",
+      `${label}.${key} must be null or string`,
+    );
   }
 
   return value;
@@ -701,6 +823,18 @@ function isContentObjectKind(value: string): value is ContentObjectKindV2 {
   return value === "blob" || value === "document";
 }
 
+function isContainerAccessLevel(
+  value: string,
+): value is ContainerAccessLevelV2 {
+  return value === "admin" || value === "read" || value === "write";
+}
+
+function isContainerGrantSubjectType(
+  value: string,
+): value is ContainerGrantSubjectTypeV2 {
+  return value === "group" || value === "organization" || value === "user";
+}
+
 function expectedObjectKindForEventType(
   eventType: AccessEventTypeV2,
 ): AccessObjectKindV2 {
@@ -771,6 +905,28 @@ function normalizeContentObjectKind(
 ): ContentObjectKindV2 {
   if (typeof value !== "string" || !isContentObjectKind(value)) {
     throwVerification("invalid_domain", `${label}.objectKind is unsupported`);
+  }
+
+  return value;
+}
+
+function normalizeContainerAccessLevel(
+  value: unknown,
+  label: string,
+): ContainerAccessLevelV2 {
+  if (typeof value !== "string" || !isContainerAccessLevel(value)) {
+    throwVerification("invalid_domain", `${label}.accessLevel is unsupported`);
+  }
+
+  return value;
+}
+
+function normalizeContainerGrantSubjectType(
+  value: unknown,
+  label: string,
+): ContainerGrantSubjectTypeV2 {
+  if (typeof value !== "string" || !isContainerGrantSubjectType(value)) {
+    throwVerification("invalid_domain", `${label}.subjectType is unsupported`);
   }
 
   return value;
@@ -1858,6 +2014,1083 @@ export async function verifyAccessManifest({
       event,
     } as VerifiedAccessManifest;
   });
+}
+
+function containerAccessLevelRank(accessLevel: ContainerAccessLevelV2): number {
+  if (accessLevel === "admin") {
+    return 3;
+  }
+
+  if (accessLevel === "write") {
+    return 2;
+  }
+
+  return 1;
+}
+
+function mergeContainerAccessLevel(
+  current: ContainerAccessLevelV2 | null,
+  incoming: ContainerAccessLevelV2,
+): ContainerAccessLevelV2 {
+  if (
+    current === null ||
+    containerAccessLevelRank(incoming) > containerAccessLevelRank(current)
+  ) {
+    return incoming;
+  }
+
+  return current;
+}
+
+function normalizeContainerDirectGrant(
+  value: ContainerDirectGrantV2,
+): ContainerDirectGrantV2 {
+  const record = assertExactKeys(
+    value,
+    ["accessLevel", "subjectId", "subjectType"],
+    "container direct grant",
+  );
+
+  return {
+    accessLevel: normalizeContainerAccessLevel(
+      record.accessLevel,
+      "container direct grant",
+    ),
+    subjectId: readString(record, "subjectId", "container direct grant"),
+    subjectType: normalizeContainerGrantSubjectType(
+      record.subjectType,
+      "container direct grant",
+    ),
+  };
+}
+
+function containerDirectGrantKey(grant: ContainerDirectGrantV2): string {
+  return `${grant.subjectType}:${grant.subjectId}`;
+}
+
+function normalizeContainerDirectGrants(
+  values: readonly ContainerDirectGrantV2[],
+): ContainerDirectGrantV2[] {
+  return normalizeSortedUniqueArray(
+    values,
+    normalizeContainerDirectGrant,
+    containerDirectGrantKey,
+    "container direct grants",
+  );
+}
+
+function normalizeContainerAccessStructural(
+  value: ContainerAccessStructuralV2,
+): ContainerAccessStructuralV2 {
+  const record = assertExactKeys(
+    value,
+    ["parentContainerId", "parentManifestHash"],
+    "container access structural state",
+  );
+  const parentContainerId = readNullableString(
+    record,
+    "parentContainerId",
+    "container access structural state",
+  );
+  const parentManifestHash = readNullableHashString(
+    record,
+    "parentManifestHash",
+    "container access structural state",
+  );
+
+  if ((parentContainerId === null) !== (parentManifestHash === null)) {
+    throwVerification(
+      "invalid_shape",
+      "container access parent id and parent manifest hash must both be present or both be null",
+    );
+  }
+
+  return {
+    parentContainerId,
+    parentManifestHash,
+  };
+}
+
+function normalizeContainerAccessKeyState(
+  value: ContainerAccessKeyStateV2,
+): ContainerAccessKeyStateV2 {
+  const record = assertExactKeys(
+    value,
+    ["containerKeyEpochId"],
+    "container access key state",
+  );
+
+  return {
+    containerKeyEpochId: readNullableString(
+      record,
+      "containerKeyEpochId",
+      "container access key state",
+    ),
+  };
+}
+
+function managedGrantReferenceKey(
+  grant: ContainerDirectGrantV2,
+): string | null {
+  if (grant.subjectType === "user") {
+    return null;
+  }
+
+  return `${grant.subjectType}:${grant.subjectId}`;
+}
+
+function assertReferencedPrincipalHeadsMatchDirectGrants(input: {
+  readonly directGrants: readonly ContainerDirectGrantV2[];
+  readonly referencedPrincipalHeads: readonly ReferencedPrincipalHeadV2[];
+}): void {
+  const managedGrantKeys = new Set<string>();
+  for (const grant of input.directGrants) {
+    const key = managedGrantReferenceKey(grant);
+    if (key) {
+      managedGrantKeys.add(key);
+    }
+  }
+
+  const referencedKeys = new Set<string>();
+  for (const principalHead of input.referencedPrincipalHeads) {
+    referencedKeys.add(referencedPrincipalKey(principalHead));
+  }
+
+  for (const grantKey of managedGrantKeys) {
+    if (!referencedKeys.has(grantKey)) {
+      throwVerification(
+        "missing_dependency",
+        "container access manifest is missing a referenced principal head",
+      );
+    }
+  }
+
+  for (const referencedKey of referencedKeys) {
+    if (!managedGrantKeys.has(referencedKey)) {
+      throwVerification(
+        "missing_dependency",
+        "container access manifest references a principal without a direct grant",
+      );
+    }
+  }
+}
+
+function normalizeContainerAccessManifestState(
+  value: ContainerAccessManifestStateV2,
+): ContainerAccessManifestStateV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "containerId",
+      "containerKeyEpochId",
+      "directGrants",
+      "epoch",
+      "eventHash",
+      "organizationId",
+      "parentContainerId",
+      "parentManifestHash",
+      "previousManifestHash",
+      "referencedPrincipalHeads",
+      "version",
+    ],
+    "container access manifest state",
+  );
+  const directGrants = record.directGrants;
+  const referencedPrincipalHeads = record.referencedPrincipalHeads;
+
+  if (!Array.isArray(directGrants)) {
+    throwVerification(
+      "invalid_shape",
+      "container access manifest state.directGrants must be an array",
+    );
+  }
+
+  if (!Array.isArray(referencedPrincipalHeads)) {
+    throwVerification(
+      "invalid_shape",
+      "container access manifest state.referencedPrincipalHeads must be an array",
+    );
+  }
+
+  const structural = normalizeContainerAccessStructural({
+    parentContainerId: record.parentContainerId,
+    parentManifestHash: record.parentManifestHash,
+  } as ContainerAccessStructuralV2);
+  const keyState = normalizeContainerAccessKeyState({
+    containerKeyEpochId: record.containerKeyEpochId,
+  } as ContainerAccessKeyStateV2);
+  const normalizedDirectGrants = normalizeContainerDirectGrants(
+    directGrants as ContainerDirectGrantV2[],
+  );
+  const normalizedReferencedPrincipalHeads = normalizeReferencedPrincipalHeads(
+    referencedPrincipalHeads as ReferencedPrincipalHeadV2[],
+  );
+
+  assertReferencedPrincipalHeadsMatchDirectGrants({
+    directGrants: normalizedDirectGrants,
+    referencedPrincipalHeads: normalizedReferencedPrincipalHeads,
+  });
+
+  return {
+    version: readVersion(record, "container access manifest state"),
+    containerId: readString(
+      record,
+      "containerId",
+      "container access manifest state",
+    ),
+    organizationId: readString(
+      record,
+      "organizationId",
+      "container access manifest state",
+    ),
+    epoch: readPositiveInteger(
+      record,
+      "epoch",
+      "container access manifest state",
+    ),
+    previousManifestHash: readNullableHashString(
+      record,
+      "previousManifestHash",
+      "container access manifest state",
+    ),
+    eventHash: readHashString(
+      record,
+      "eventHash",
+      "container access manifest state",
+    ),
+    ...structural,
+    ...keyState,
+    directGrants: normalizedDirectGrants,
+    referencedPrincipalHeads: normalizedReferencedPrincipalHeads,
+  };
+}
+
+export async function computeContainerAccessStructuralHash(
+  structural: ContainerAccessStructuralV2,
+): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.container-access-structural.v1",
+    normalizeContainerAccessStructural(
+      structural,
+    ) as unknown as KeyingV2CanonicalJson,
+  );
+}
+
+export async function computeContainerDirectGrantRoot(
+  grants: readonly ContainerDirectGrantV2[],
+): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.container-access-direct-grants.v1",
+    normalizeContainerDirectGrants(grants) as unknown as KeyingV2CanonicalJson,
+  );
+}
+
+export async function computeContainerAccessKeyTargetHash(
+  keyState: ContainerAccessKeyStateV2,
+): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.container-access-key-target.v1",
+    normalizeContainerAccessKeyState(
+      keyState,
+    ) as unknown as KeyingV2CanonicalJson,
+  );
+}
+
+export async function deriveContainerAccessManifest(
+  state: ContainerAccessManifestStateV2,
+): Promise<AccessManifestV2> {
+  const normalizedState = normalizeContainerAccessManifestState(state);
+
+  return {
+    version: 2,
+    objectKind: "container",
+    objectId: normalizedState.containerId,
+    organizationId: normalizedState.organizationId,
+    epoch: normalizedState.epoch,
+    previousManifestHash: normalizedState.previousManifestHash,
+    eventHash: normalizedState.eventHash,
+    structuralHash: await computeContainerAccessStructuralHash({
+      parentContainerId: normalizedState.parentContainerId,
+      parentManifestHash: normalizedState.parentManifestHash,
+    }),
+    grantRoot: await computeContainerDirectGrantRoot(
+      normalizedState.directGrants,
+    ),
+    referencedPrincipalHeads: normalizedState.referencedPrincipalHeads,
+    keyTargetHash: await computeContainerAccessKeyTargetHash({
+      containerKeyEpochId: normalizedState.containerKeyEpochId,
+    }),
+  };
+}
+
+function normalizeContainerCreateAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): ContainerCreateAccessEventBodyV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "containerKeyEpochId",
+      "directGrants",
+      "eventType",
+      "parentContainerId",
+      "parentManifestHash",
+      "referencedPrincipalHeads",
+    ],
+    "container.create event body",
+  );
+  const directGrants = record.directGrants;
+  const referencedPrincipalHeads = record.referencedPrincipalHeads;
+
+  if (!Array.isArray(directGrants)) {
+    throwVerification(
+      "invalid_shape",
+      "container.create event body.directGrants must be an array",
+    );
+  }
+
+  if (!Array.isArray(referencedPrincipalHeads)) {
+    throwVerification(
+      "invalid_shape",
+      "container.create event body.referencedPrincipalHeads must be an array",
+    );
+  }
+
+  const structural = normalizeContainerAccessStructural({
+    parentContainerId: record.parentContainerId,
+    parentManifestHash: record.parentManifestHash,
+  } as ContainerAccessStructuralV2);
+  const keyState = normalizeContainerAccessKeyState({
+    containerKeyEpochId: record.containerKeyEpochId,
+  } as ContainerAccessKeyStateV2);
+  const normalizedDirectGrants = normalizeContainerDirectGrants(
+    directGrants as ContainerDirectGrantV2[],
+  );
+  const normalizedReferencedPrincipalHeads = normalizeReferencedPrincipalHeads(
+    referencedPrincipalHeads as ReferencedPrincipalHeadV2[],
+  );
+
+  assertReferencedPrincipalHeadsMatchDirectGrants({
+    directGrants: normalizedDirectGrants,
+    referencedPrincipalHeads: normalizedReferencedPrincipalHeads,
+  });
+
+  return {
+    eventType: "container.create",
+    ...structural,
+    ...keyState,
+    directGrants: normalizedDirectGrants,
+    referencedPrincipalHeads: normalizedReferencedPrincipalHeads,
+  };
+}
+
+function normalizeContainerGrantAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): ContainerGrantAccessEventBodyV2 {
+  const record = assertExactKeys(
+    value,
+    ["containerKeyEpochId", "eventType", "grant", "referencedPrincipalHead"],
+    "container.grant event body",
+  );
+  const grant = normalizeContainerDirectGrant(
+    record.grant as ContainerDirectGrantV2,
+  );
+  const referencedPrincipalHead =
+    record.referencedPrincipalHead === null
+      ? null
+      : normalizeReferencedPrincipalHead(
+          record.referencedPrincipalHead as ReferencedPrincipalHeadV2,
+        );
+  const managedGrantKey = managedGrantReferenceKey(grant);
+
+  if (managedGrantKey === null && referencedPrincipalHead !== null) {
+    throwVerification(
+      "missing_dependency",
+      "container.grant user grants must not include a referenced principal head",
+    );
+  }
+
+  if (
+    managedGrantKey !== null &&
+    (!referencedPrincipalHead ||
+      referencedPrincipalKey(referencedPrincipalHead) !== managedGrantKey)
+  ) {
+    throwVerification(
+      "missing_dependency",
+      "container.grant managed-principal grants must include the matching referenced principal head",
+    );
+  }
+
+  return {
+    eventType: "container.grant",
+    ...normalizeContainerAccessKeyState({
+      containerKeyEpochId: record.containerKeyEpochId,
+    } as ContainerAccessKeyStateV2),
+    grant,
+    referencedPrincipalHead,
+  };
+}
+
+function normalizeContainerRevokeAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): ContainerRevokeAccessEventBodyV2 {
+  const record = assertExactKeys(
+    value,
+    ["containerKeyEpochId", "eventType", "subjectId", "subjectType"],
+    "container.revoke event body",
+  );
+
+  return {
+    eventType: "container.revoke",
+    ...normalizeContainerAccessKeyState({
+      containerKeyEpochId: record.containerKeyEpochId,
+    } as ContainerAccessKeyStateV2),
+    subjectId: readString(record, "subjectId", "container.revoke event body"),
+    subjectType: normalizeContainerGrantSubjectType(
+      record.subjectType,
+      "container.revoke event body",
+    ),
+  };
+}
+
+function normalizeContainerMoveAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): ContainerMoveAccessEventBodyV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "containerKeyEpochId",
+      "eventType",
+      "parentContainerId",
+      "parentManifestHash",
+    ],
+    "container.move event body",
+  );
+
+  return {
+    eventType: "container.move",
+    ...normalizeContainerAccessStructural({
+      parentContainerId: record.parentContainerId,
+      parentManifestHash: record.parentManifestHash,
+    } as ContainerAccessStructuralV2),
+    ...normalizeContainerAccessKeyState({
+      containerKeyEpochId: record.containerKeyEpochId,
+    } as ContainerAccessKeyStateV2),
+  };
+}
+
+export function normalizeContainerAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): ContainerAccessEventBodyV2 {
+  if (!isPlainObject(value)) {
+    throwVerification(
+      "invalid_shape",
+      "container access event body must be a plain object",
+    );
+  }
+
+  const eventType = readString(value, "eventType", "container access body");
+
+  if (eventType === "container.create") {
+    return normalizeContainerCreateAccessEventBody(value);
+  }
+
+  if (eventType === "container.grant") {
+    return normalizeContainerGrantAccessEventBody(value);
+  }
+
+  if (eventType === "container.revoke") {
+    return normalizeContainerRevokeAccessEventBody(value);
+  }
+
+  if (eventType === "container.move") {
+    return normalizeContainerMoveAccessEventBody(value);
+  }
+
+  throwVerification(
+    "invalid_domain",
+    "container access event body eventType is unsupported",
+  );
+}
+
+function upsertContainerDirectGrant(
+  grants: readonly ContainerDirectGrantV2[],
+  grant: ContainerDirectGrantV2,
+): ContainerDirectGrantV2[] {
+  const nextGrants = grants.filter(
+    (existingGrant) =>
+      containerDirectGrantKey(existingGrant) !== containerDirectGrantKey(grant),
+  );
+  nextGrants.push(grant);
+  return normalizeContainerDirectGrants(nextGrants);
+}
+
+function removeContainerDirectGrant(
+  grants: readonly ContainerDirectGrantV2[],
+  revokedGrant: Pick<ContainerDirectGrantV2, "subjectId" | "subjectType">,
+): ContainerDirectGrantV2[] {
+  const revokedGrantKey = `${revokedGrant.subjectType}:${revokedGrant.subjectId}`;
+  return normalizeContainerDirectGrants(
+    grants.filter(
+      (existingGrant) =>
+        containerDirectGrantKey(existingGrant) !== revokedGrantKey,
+    ),
+  );
+}
+
+function upsertReferencedPrincipalHead(
+  principalHeads: readonly ReferencedPrincipalHeadV2[],
+  principalHead: ReferencedPrincipalHeadV2,
+): ReferencedPrincipalHeadV2[] {
+  const nextPrincipalHeads = principalHeads.filter(
+    (existingHead) =>
+      referencedPrincipalKey(existingHead) !==
+      referencedPrincipalKey(principalHead),
+  );
+  nextPrincipalHeads.push(principalHead);
+  return normalizeReferencedPrincipalHeads(nextPrincipalHeads);
+}
+
+function removeReferencedPrincipalHead(
+  principalHeads: readonly ReferencedPrincipalHeadV2[],
+  revokedGrant: Pick<ContainerDirectGrantV2, "subjectId" | "subjectType">,
+): ReferencedPrincipalHeadV2[] {
+  if (revokedGrant.subjectType === "user") {
+    return normalizeReferencedPrincipalHeads(principalHeads);
+  }
+
+  const revokedReferenceKey = `${revokedGrant.subjectType}:${revokedGrant.subjectId}`;
+  return normalizeReferencedPrincipalHeads(
+    principalHeads.filter(
+      (principalHead) =>
+        referencedPrincipalKey(principalHead) !== revokedReferenceKey,
+    ),
+  );
+}
+
+function requireContainerPathLast(
+  path: readonly VerifiedContainerAccessManifest[] | undefined,
+  label: string,
+): VerifiedContainerAccessManifest {
+  const lastManifest = path?.at(-1);
+  if (!lastManifest) {
+    throwVerification("missing_dependency", `${label} path is required`);
+  }
+
+  return lastManifest;
+}
+
+function requirePathLastMatchesManifest(input: {
+  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly label: string;
+}): void {
+  const lastManifest = requireContainerPathLast(input.path, input.label);
+
+  if (lastManifest.manifestHash !== input.manifest.manifestHash) {
+    throwVerification(
+      "missing_dependency",
+      `${input.label} path does not end at the expected manifest`,
+    );
+  }
+}
+
+function principalPolicyMatchesReference(input: {
+  readonly policy: VerifiedPrincipalPolicy;
+  readonly reference: ReferencedPrincipalHeadV2;
+}): boolean {
+  return (
+    input.policy.principalType === input.reference.principalType &&
+    input.policy.principalId === input.reference.principalId &&
+    input.policy.version === input.reference.version &&
+    input.policy.keyEpoch === input.reference.keyEpoch &&
+    input.policy.stateHash === input.reference.stateHash &&
+    input.policy.state.keyFingerprint === input.reference.keyFingerprint
+  );
+}
+
+function grantAccessLevelForUser(input: {
+  readonly grant: ContainerDirectGrantV2;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly state: ContainerAccessManifestStateV2;
+  readonly userId: string;
+}): ContainerAccessLevelV2 | null {
+  if (input.grant.subjectType === "user") {
+    return input.grant.subjectId === input.userId
+      ? input.grant.accessLevel
+      : null;
+  }
+
+  const referencedHead = input.state.referencedPrincipalHeads.find(
+    (principalHead) =>
+      principalHead.principalType === input.grant.subjectType &&
+      principalHead.principalId === input.grant.subjectId,
+  );
+
+  if (!referencedHead) {
+    return null;
+  }
+
+  const verifiedPolicy = input.principalPolicies.find((policy) =>
+    principalPolicyMatchesReference({ policy, reference: referencedHead }),
+  );
+
+  if (!verifiedPolicy) {
+    return null;
+  }
+
+  return verifiedPolicy.projection.some(
+    (member) =>
+      member.memberPrincipalType === "user" &&
+      member.memberPrincipalId === input.userId,
+  )
+    ? input.grant.accessLevel
+    : null;
+}
+
+export function resolveContainerPathUserAccessLevel(input: {
+  readonly path: readonly VerifiedContainerAccessManifest[];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly userId: string;
+}): ContainerAccessLevelV2 | null {
+  let accessLevel: ContainerAccessLevelV2 | null = null;
+
+  for (const containerManifest of input.path) {
+    for (const grant of containerManifest.state.directGrants) {
+      const grantAccessLevel = grantAccessLevelForUser({
+        grant,
+        principalPolicies: input.principalPolicies ?? [],
+        state: containerManifest.state,
+        userId: input.userId,
+      });
+
+      if (grantAccessLevel) {
+        accessLevel = mergeContainerAccessLevel(accessLevel, grantAccessLevel);
+      }
+    }
+  }
+
+  return accessLevel;
+}
+
+function requireContainerPathUserAccess(input: {
+  readonly label: string;
+  readonly minimumAccessLevel: ContainerAccessLevelV2;
+  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly userId: string;
+}): void {
+  const path = input.path;
+  if (!path || path.length === 0) {
+    throwVerification("missing_dependency", `${input.label} path is required`);
+  }
+
+  const accessLevel = resolveContainerPathUserAccessLevel({
+    path,
+    principalPolicies: input.principalPolicies,
+    userId: input.userId,
+  });
+
+  if (
+    accessLevel === null ||
+    containerAccessLevelRank(accessLevel) <
+      containerAccessLevelRank(input.minimumAccessLevel)
+  ) {
+    throwVerification(
+      "unauthorized",
+      `${input.label} signer lacks ${input.minimumAccessLevel} access`,
+    );
+  }
+}
+
+function requireContainerPathCurrentParent(input: {
+  readonly parentContainerId: string | null;
+  readonly parentManifestHash: string | null;
+  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
+  readonly label: string;
+}): void {
+  if (!input.parentContainerId || !input.parentManifestHash) {
+    throwVerification(
+      "missing_dependency",
+      `${input.label} parent manifest is required`,
+    );
+  }
+
+  const parentManifest = requireContainerPathLast(input.path, input.label);
+  if (
+    parentManifest.state.containerId !== input.parentContainerId ||
+    parentManifest.manifestHash !== input.parentManifestHash
+  ) {
+    throwVerification(
+      "missing_dependency",
+      `${input.label} parent manifest hash mismatch`,
+    );
+  }
+}
+
+type ContainerAccessManifestDerivationInput = {
+  readonly body: ContainerAccessEventBodyV2;
+  readonly event: VerifiedAccessEvent;
+  readonly previousManifest: VerifiedContainerAccessManifest | null;
+  readonly previousContainerPath:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly parentContainerPath:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly destinationParentContainerPath:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+};
+
+type ContainerAccessManifestTransitionBase = Omit<
+  ContainerAccessManifestStateV2,
+  "containerKeyEpochId" | "directGrants" | "referencedPrincipalHeads"
+>;
+
+interface PreviousContainerAccessTransition {
+  readonly nextBase: ContainerAccessManifestTransitionBase;
+  readonly previousState: ContainerAccessManifestStateV2;
+}
+
+function assertContainerAccessEventDomain(
+  input: ContainerAccessManifestDerivationInput,
+): void {
+  const { body, event } = input;
+
+  if (event.event.objectKind !== "container") {
+    throwVerification(
+      "object_mismatch",
+      "container access event must target a container",
+    );
+  }
+
+  if (body.eventType !== event.event.eventType) {
+    throwVerification(
+      "invalid_domain",
+      "container access event body type does not match event type",
+    );
+  }
+}
+
+function deriveContainerCreateManifestState(
+  input: ContainerAccessManifestDerivationInput,
+  body: ContainerCreateAccessEventBodyV2,
+): ContainerAccessManifestStateV2 {
+  const { event, previousManifest } = input;
+
+  if (previousManifest !== null || event.event.previousManifestHash !== null) {
+    throwVerification(
+      "stale_predecessor",
+      "container.create must not have a previous manifest",
+    );
+  }
+
+  requireContainerPathCurrentParent({
+    label: "container.create",
+    parentContainerId: body.parentContainerId,
+    parentManifestHash: body.parentManifestHash,
+    path: input.parentContainerPath,
+  });
+  requireContainerPathUserAccess({
+    label: "container.create",
+    minimumAccessLevel: "write",
+    path: input.parentContainerPath,
+    principalPolicies: input.principalPolicies,
+    userId: event.event.signerUserId,
+  });
+
+  return normalizeContainerAccessManifestState({
+    version: 2,
+    containerId: event.event.objectId,
+    organizationId: event.event.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash: event.eventHash,
+    parentContainerId: body.parentContainerId,
+    parentManifestHash: body.parentManifestHash,
+    containerKeyEpochId: body.containerKeyEpochId,
+    directGrants: body.directGrants,
+    referencedPrincipalHeads: body.referencedPrincipalHeads,
+  });
+}
+
+function preparePreviousContainerAccessTransition(
+  input: ContainerAccessManifestDerivationInput,
+): PreviousContainerAccessTransition {
+  const { body, event, previousManifest } = input;
+
+  if (!previousManifest) {
+    throwVerification(
+      "missing_dependency",
+      `${body.eventType} requires the previous container manifest`,
+    );
+  }
+
+  if (event.event.previousManifestHash !== previousManifest.manifestHash) {
+    throwVerification(
+      "stale_predecessor",
+      "container access event previous manifest does not match supplied previous manifest",
+    );
+  }
+
+  requirePathLastMatchesManifest({
+    label: "previous container",
+    manifest: previousManifest,
+    path: input.previousContainerPath,
+  });
+
+  const previousState = previousManifest.state;
+
+  return {
+    previousState,
+    nextBase: {
+      version: 2,
+      containerId: previousState.containerId,
+      organizationId: previousState.organizationId,
+      epoch: previousState.epoch + 1,
+      previousManifestHash: previousManifest.manifestHash,
+      eventHash: event.eventHash,
+      parentContainerId: previousState.parentContainerId,
+      parentManifestHash: previousState.parentManifestHash,
+    },
+  };
+}
+
+function deriveContainerGrantManifestState(
+  input: ContainerAccessManifestDerivationInput,
+  body: ContainerGrantAccessEventBodyV2,
+  previous: PreviousContainerAccessTransition,
+): ContainerAccessManifestStateV2 {
+  requireContainerPathUserAccess({
+    label: "container.grant",
+    minimumAccessLevel: "admin",
+    path: input.previousContainerPath,
+    principalPolicies: input.principalPolicies,
+    userId: input.event.event.signerUserId,
+  });
+
+  return normalizeContainerAccessManifestState({
+    ...previous.nextBase,
+    containerKeyEpochId: body.containerKeyEpochId,
+    directGrants: upsertContainerDirectGrant(
+      previous.previousState.directGrants,
+      body.grant,
+    ),
+    referencedPrincipalHeads: body.referencedPrincipalHead
+      ? upsertReferencedPrincipalHead(
+          previous.previousState.referencedPrincipalHeads,
+          body.referencedPrincipalHead,
+        )
+      : previous.previousState.referencedPrincipalHeads,
+  });
+}
+
+function deriveContainerRevokeManifestState(
+  input: ContainerAccessManifestDerivationInput,
+  body: ContainerRevokeAccessEventBodyV2,
+  previous: PreviousContainerAccessTransition,
+): ContainerAccessManifestStateV2 {
+  requireContainerPathUserAccess({
+    label: "container.revoke",
+    minimumAccessLevel: "admin",
+    path: input.previousContainerPath,
+    principalPolicies: input.principalPolicies,
+    userId: input.event.event.signerUserId,
+  });
+
+  return normalizeContainerAccessManifestState({
+    ...previous.nextBase,
+    containerKeyEpochId: body.containerKeyEpochId,
+    directGrants: removeContainerDirectGrant(
+      previous.previousState.directGrants,
+      body,
+    ),
+    referencedPrincipalHeads: removeReferencedPrincipalHead(
+      previous.previousState.referencedPrincipalHeads,
+      body,
+    ),
+  });
+}
+
+function deriveContainerMoveManifestState(
+  input: ContainerAccessManifestDerivationInput,
+  body: ContainerMoveAccessEventBodyV2,
+  previous: PreviousContainerAccessTransition,
+): ContainerAccessManifestStateV2 {
+  requireContainerPathUserAccess({
+    label: "container.move source",
+    minimumAccessLevel: "admin",
+    path: input.previousContainerPath,
+    principalPolicies: input.principalPolicies,
+    userId: input.event.event.signerUserId,
+  });
+  requireContainerPathCurrentParent({
+    label: "container.move destination",
+    parentContainerId: body.parentContainerId,
+    parentManifestHash: body.parentManifestHash,
+    path: input.destinationParentContainerPath,
+  });
+  requireContainerPathUserAccess({
+    label: "container.move destination",
+    minimumAccessLevel: "write",
+    path: input.destinationParentContainerPath,
+    principalPolicies: input.principalPolicies,
+    userId: input.event.event.signerUserId,
+  });
+
+  if (
+    input.destinationParentContainerPath?.some(
+      (containerManifest) =>
+        containerManifest.state.containerId ===
+        previous.previousState.containerId,
+    )
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "container.move destination parent cannot be the moved container or its descendant",
+    );
+  }
+
+  return normalizeContainerAccessManifestState({
+    ...previous.nextBase,
+    parentContainerId: body.parentContainerId,
+    parentManifestHash: body.parentManifestHash,
+    containerKeyEpochId: body.containerKeyEpochId,
+    directGrants: previous.previousState.directGrants,
+    referencedPrincipalHeads: previous.previousState.referencedPrincipalHeads,
+  });
+}
+
+function deriveContainerAccessManifestStateFromEvent(
+  input: ContainerAccessManifestDerivationInput,
+): ContainerAccessManifestStateV2 {
+  assertContainerAccessEventDomain(input);
+
+  if (input.body.eventType === "container.create") {
+    return deriveContainerCreateManifestState(input, input.body);
+  }
+
+  const previous = preparePreviousContainerAccessTransition(input);
+
+  if (input.body.eventType === "container.grant") {
+    return deriveContainerGrantManifestState(input, input.body, previous);
+  }
+
+  if (input.body.eventType === "container.revoke") {
+    return deriveContainerRevokeManifestState(input, input.body, previous);
+  }
+
+  return deriveContainerMoveManifestState(input, input.body, previous);
+}
+
+export async function verifyContainerAccessManifest({
+  destinationParentContainerPath,
+  event,
+  expectedManifestHash,
+  manifest,
+  parentContainerPath,
+  previousContainerPath,
+  previousManifest = null,
+  principalPolicies = [],
+}: VerifyContainerAccessManifestInput): Promise<
+  KeyingV2VerificationResult<VerifiedContainerAccessManifest>
+> {
+  return runVerifier(async () => {
+    const body = normalizeContainerAccessEventBody(event.body);
+    const state = deriveContainerAccessManifestStateFromEvent({
+      body,
+      destinationParentContainerPath,
+      event,
+      parentContainerPath,
+      previousContainerPath,
+      previousManifest,
+      principalPolicies,
+    });
+    const derivedManifest = await deriveContainerAccessManifest(state);
+    const derivedManifestHash =
+      await computeAccessManifestHash(derivedManifest);
+
+    if (derivedManifestHash !== expectedManifestHash) {
+      throwVerification(
+        "hash_mismatch",
+        "container access manifest hash does not match derived state",
+      );
+    }
+
+    const verifiedManifest = await verifyAccessManifest({
+      manifest,
+      expectedManifestHash,
+      event,
+      expectedObject: {
+        objectKind: "container",
+        objectId: state.containerId,
+      },
+      expectedPreviousManifestHash: state.previousManifestHash,
+    });
+
+    if (!verifiedManifest.ok) {
+      throw verifiedManifest.error;
+    }
+
+    return {
+      manifest: verifiedManifest.value.manifest,
+      manifestHash: verifiedManifest.value.manifestHash,
+      event,
+      state,
+    } as VerifiedContainerAccessManifest;
+  });
+}
+
+export function verifyContainerParentEdge({
+  child,
+  parentHistory,
+}: VerifyContainerParentEdgeInput): KeyingV2VerificationResult<VerifiedContainerParentEdge> {
+  try {
+    if (!child.state.parentContainerId || !child.state.parentManifestHash) {
+      throwVerification(
+        "missing_dependency",
+        "container parent edge requires a parent manifest hash",
+      );
+    }
+
+    if (parentHistory.length === 0) {
+      throwVerification(
+        "missing_dependency",
+        "container parent edge requires parent manifest history",
+      );
+    }
+
+    for (const parentManifest of parentHistory) {
+      if (parentManifest.state.containerId !== child.state.parentContainerId) {
+        throwVerification(
+          "object_mismatch",
+          "container parent edge history contains the wrong parent container",
+        );
+      }
+    }
+
+    if (
+      !parentHistory.some(
+        (parentManifest) =>
+          parentManifest.manifestHash === child.state.parentManifestHash,
+      )
+    ) {
+      throwVerification(
+        "missing_dependency",
+        "container parent manifest hash is not present in parent history",
+      );
+    }
+
+    return ok({
+      childContainerId: child.state.containerId,
+      childManifestHash: child.manifestHash,
+      parentContainerId: child.state.parentContainerId,
+      parentManifestHash: child.state.parentManifestHash,
+    } as VerifiedContainerParentEdge);
+  } catch (error) {
+    return toVerificationResult(error);
+  }
 }
 
 function normalizeContainerKekRecipientTarget(
