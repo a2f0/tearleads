@@ -23,7 +23,10 @@ export {
 } from "./commitDocumentChange";
 export {
   type ContainerSummary,
+  type ContainerV2ManifestBundleResponse,
+  type ContainerV2MutationResponse,
   type CreateContainerResponse,
+  isContainerV2MutationResponse,
   isCreateContainerResponse,
   isListContainersResponse,
   isMoveContainerResponse,
