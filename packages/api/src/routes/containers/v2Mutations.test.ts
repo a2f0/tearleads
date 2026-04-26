@@ -9,7 +9,6 @@ import type {
   KekRecipientKindV2,
   KeyingV2CanonicalJson,
   VerifiedAccessEvent,
-  VerifiedAccessManifest,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
@@ -308,9 +307,7 @@ async function bootstrapRootV2(
   });
 
   await storeVerifiedAccessManifest({
-    verifiedManifest: asVerifiedContainerManifest(
-      bundle,
-    ) as unknown as VerifiedAccessManifest,
+    verifiedManifest: asVerifiedContainerManifest(bundle),
   });
   await storeVerifiedContainerKekState({ verifiedState: kekState });
 

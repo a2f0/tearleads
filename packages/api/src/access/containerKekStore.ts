@@ -7,7 +7,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { verifyContainerKekState } from "@tearleads/crypto";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import { containerKeyEpochs, containerKeyWraps } from "../schema";
 
@@ -285,6 +285,30 @@ export async function getCurrentContainerKeyEpoch(
     .limit(1);
 
   return keyEpoch ? toStoredContainerKeyEpoch(keyEpoch) : null;
+}
+
+export async function getCurrentContainerKeyEpochs(
+  containerIds: readonly string[],
+  executor: ContainerKekStoreExecutor = db,
+): Promise<Map<string, StoredContainerKeyEpoch>> {
+  const uniqueContainerIds = [...new Set(containerIds)].sort();
+
+  if (uniqueContainerIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await executor
+    .selectDistinctOn([containerKeyEpochs.containerId])
+    .from(containerKeyEpochs)
+    .where(inArray(containerKeyEpochs.containerId, uniqueContainerIds))
+    .orderBy(
+      asc(containerKeyEpochs.containerId),
+      desc(containerKeyEpochs.keyEpoch),
+    );
+
+  return new Map(
+    rows.map((row) => [row.containerId, toStoredContainerKeyEpoch(row)]),
+  );
 }
 
 export async function listContainerKeyWraps(

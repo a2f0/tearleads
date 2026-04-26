@@ -1,16 +1,18 @@
 import type {
   AccessObjectKindV2,
+  AnyVerifiedAccessManifest,
   KeyingV2CanonicalJson,
   ReferencedPrincipalHeadV2,
   VerifiedAccessEvent,
-  VerifiedAccessManifest,
+  VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import { serializeKeyingV2CanonicalJson } from "@tearleads/crypto";
-import { and, asc, eq, lt } from "drizzle-orm";
+import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
   accessEventDependencyProjection,
   accessEvents,
+  accessManifestDocumentLinkProjection,
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
@@ -49,8 +51,14 @@ interface StoredAccessManifestPrincipalHeadProjection
   readonly objectId: string;
 }
 
+interface StoredAccessManifestDocumentLinkProjection {
+  readonly manifestHash: string;
+  readonly documentId: string;
+  readonly containerId: string;
+}
+
 interface StoreVerifiedAccessManifestInput {
-  readonly verifiedManifest: VerifiedAccessManifest;
+  readonly verifiedManifest: AnyVerifiedAccessManifest;
 }
 
 function accessEventDependencyHashes(event: VerifiedAccessEvent): string[] {
@@ -58,11 +66,30 @@ function accessEventDependencyHashes(event: VerifiedAccessEvent): string[] {
 }
 
 function accessManifestReferencedHeads(
-  manifest: VerifiedAccessManifest,
+  manifest: AnyVerifiedAccessManifest,
 ): ReferencedPrincipalHeadV2[] {
   return manifest.manifest.referencedPrincipalHeads.map((principalHead) => ({
     ...principalHead,
   }));
+}
+
+function documentLinkSetState(
+  manifest: AnyVerifiedAccessManifest,
+): VerifiedDocumentLinkSetManifest["state"] | null {
+  if (manifest.manifest.objectKind !== "document" || !("state" in manifest)) {
+    return null;
+  }
+
+  const { state } = manifest;
+  if (
+    !("documentId" in state) ||
+    state.documentId !== manifest.manifest.objectId ||
+    !Array.isArray(state.linkedContainerIds)
+  ) {
+    return null;
+  }
+
+  return state;
 }
 
 function referencedPrincipalHeadsCanonicalJson(
@@ -183,7 +210,7 @@ async function ensureStoredAccessEventMatches(
 }
 
 async function insertAccessManifest(
-  verifiedManifest: VerifiedAccessManifest,
+  verifiedManifest: AnyVerifiedAccessManifest,
   executor: AccessManifestStoreExecutor,
 ): Promise<boolean> {
   const manifest = verifiedManifest.manifest;
@@ -216,7 +243,7 @@ async function insertAccessManifest(
 }
 
 async function ensureStoredAccessManifestMatches(
-  verifiedManifest: VerifiedAccessManifest,
+  verifiedManifest: AnyVerifiedAccessManifest,
   executor: AccessManifestStoreExecutor,
 ): Promise<void> {
   const [storedManifest] = await executor
@@ -353,6 +380,37 @@ async function regenerateAccessManifestPrincipalProjection(
   );
 }
 
+async function replaceAccessManifestDocumentLinkProjection(
+  verifiedManifest: AnyVerifiedAccessManifest,
+  executor: AccessManifestStoreExecutor,
+): Promise<void> {
+  const state = documentLinkSetState(verifiedManifest);
+  if (!state) {
+    return;
+  }
+
+  await executor
+    .delete(accessManifestDocumentLinkProjection)
+    .where(
+      eq(
+        accessManifestDocumentLinkProjection.manifestHash,
+        verifiedManifest.manifestHash,
+      ),
+    );
+
+  if (state.linkedContainerIds.length === 0) {
+    return;
+  }
+
+  await executor.insert(accessManifestDocumentLinkProjection).values(
+    state.linkedContainerIds.map((containerId) => ({
+      manifestHash: verifiedManifest.manifestHash,
+      documentId: state.documentId,
+      containerId,
+    })),
+  );
+}
+
 export async function regenerateAccessManifestProjections(
   manifestHash: string,
   executor: AccessManifestStoreExecutor = db,
@@ -390,7 +448,7 @@ async function loadCurrentAccessManifestHead(
 }
 
 async function advanceAccessManifestHead(
-  verifiedManifest: VerifiedAccessManifest,
+  verifiedManifest: AnyVerifiedAccessManifest,
   executor: AccessManifestStoreExecutor,
 ): Promise<StoredAccessManifestHead> {
   const manifest = verifiedManifest.manifest;
@@ -459,6 +517,12 @@ export async function storeVerifiedAccessManifest(
       executor,
     );
   }
+  // Link-set membership is verifier state, so refresh it from the branded
+  // manifest rather than trying to infer it from generic manifest rows.
+  await replaceAccessManifestDocumentLinkProjection(
+    input.verifiedManifest,
+    executor,
+  );
 
   return advanceAccessManifestHead(input.verifiedManifest, executor);
 }
@@ -469,6 +533,32 @@ export async function getCurrentAccessManifestHead(
   executor: AccessManifestStoreExecutor = db,
 ): Promise<StoredAccessManifestHead | null> {
   return loadCurrentAccessManifestHead(objectKind, objectId, executor);
+}
+
+export async function getCurrentAccessManifestHeads(
+  objectKind: AccessObjectKindV2,
+  objectIds: readonly string[],
+  executor: AccessManifestStoreExecutor = db,
+): Promise<Map<string, StoredAccessManifestHead>> {
+  const uniqueObjectIds = [...new Set(objectIds)].sort();
+
+  if (uniqueObjectIds.length === 0) {
+    return new Map();
+  }
+
+  const heads = await executor
+    .select()
+    .from(accessManifestHeads)
+    .where(
+      and(
+        eq(accessManifestHeads.objectKind, objectKind),
+        inArray(accessManifestHeads.objectId, uniqueObjectIds),
+      ),
+    );
+
+  return new Map(
+    heads.map((head) => [head.objectId, toStoredAccessManifestHead(head)]),
+  );
 }
 
 export async function listAccessEventDependencyProjection(
@@ -511,4 +601,19 @@ export async function listAccessManifestPrincipalHeadProjection(
       asc(accessManifestPrincipalHeadProjection.principalType),
       asc(accessManifestPrincipalHeadProjection.principalId),
     );
+}
+
+export async function listAccessManifestDocumentLinkProjection(
+  manifestHash: string,
+  executor: AccessManifestStoreExecutor = db,
+): Promise<StoredAccessManifestDocumentLinkProjection[]> {
+  return executor
+    .select({
+      manifestHash: accessManifestDocumentLinkProjection.manifestHash,
+      documentId: accessManifestDocumentLinkProjection.documentId,
+      containerId: accessManifestDocumentLinkProjection.containerId,
+    })
+    .from(accessManifestDocumentLinkProjection)
+    .where(eq(accessManifestDocumentLinkProjection.manifestHash, manifestHash))
+    .orderBy(asc(accessManifestDocumentLinkProjection.containerId));
 }

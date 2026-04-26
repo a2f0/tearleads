@@ -44,6 +44,9 @@ export type KeyingV2HashDomain =
   | "tearleads.keying-v2.container-key-epoch.v1"
   | "tearleads.keying-v2.container-kek-recipient-targets.v1"
   | "tearleads.keying-v2.document-content-key-targets.v1"
+  | "tearleads.keying-v2.document-link-set-grants.v1"
+  | "tearleads.keying-v2.document-link-set-key-target.v1"
+  | "tearleads.keying-v2.document-link-set-structural.v1"
   | "tearleads.keying-v2.write-header-signing.v1"
   | "tearleads.keying-v2.write-header.v1";
 
@@ -174,6 +177,36 @@ export type ContainerAccessEventBodyV2 =
   | ContainerMoveAccessEventBodyV2
   | ContainerRevokeAccessEventBodyV2;
 
+export interface DocumentLinkSetStructuralV2 {
+  linkedContainerIds: string[];
+}
+
+export interface DocumentLinkSetManifestStateV2
+  extends DocumentLinkSetStructuralV2 {
+  version: 2;
+  documentId: string;
+  organizationId: string;
+  epoch: number;
+  previousManifestHash: string | null;
+  eventHash: string;
+}
+
+export interface DocumentLinkAccessEventBodyV2 {
+  eventType: "document.link";
+  containerId: string;
+  containerManifestHash: string;
+}
+
+export interface DocumentUnlinkAccessEventBodyV2 {
+  eventType: "document.unlink";
+  containerId: string;
+  containerManifestHash: string;
+}
+
+export type DocumentAccessEventBodyV2 =
+  | DocumentLinkAccessEventBodyV2
+  | DocumentUnlinkAccessEventBodyV2;
+
 export interface ContainerKekRecipientTargetV2 {
   recipientKind: KekRecipientKindV2;
   recipientId: string;
@@ -275,6 +308,8 @@ declare const verifiedPrincipalPolicyBrand: unique symbol;
 declare const verifiedAccessEventBrand: unique symbol;
 declare const verifiedAccessManifestBrand: unique symbol;
 declare const verifiedContainerAccessManifestBrand: unique symbol;
+declare const verifiedDocumentLinkSetManifestBrand: unique symbol;
+declare const verifiedDocumentKekTargetsBrand: unique symbol;
 declare const verifiedContainerParentEdgeBrand: unique symbol;
 declare const verifiedContainerKekStateBrand: unique symbol;
 declare const verifiedWriteHeaderBrand: unique symbol;
@@ -316,6 +351,29 @@ export interface VerifiedContainerAccessManifest {
   readonly event: VerifiedAccessEvent;
   readonly state: ContainerAccessManifestStateV2;
   readonly [verifiedContainerAccessManifestBrand]: true;
+}
+
+export interface VerifiedDocumentLinkSetManifest {
+  readonly manifest: AccessManifestV2;
+  readonly manifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly state: DocumentLinkSetManifestStateV2;
+  readonly [verifiedDocumentLinkSetManifestBrand]: true;
+}
+
+export type AnyVerifiedAccessManifest =
+  | VerifiedAccessManifest
+  | VerifiedContainerAccessManifest
+  | VerifiedDocumentLinkSetManifest;
+
+export interface VerifiedDocumentKekTargets {
+  readonly documentId: string;
+  readonly linkSetManifestHash: string;
+  readonly linkedContainerManifestHashes: readonly string[];
+  readonly linkedContainerKeyEpochIds: readonly string[];
+  readonly targets: readonly DocumentContentKeyTargetV2[];
+  readonly documentKeyTargetHash: string;
+  readonly [verifiedDocumentKekTargetsBrand]: true;
 }
 
 export interface VerifiedContainerParentEdge {
@@ -386,6 +444,16 @@ export interface VerifyContainerParentEdgeInput {
   readonly parentHistory: readonly VerifiedContainerAccessManifest[];
 }
 
+export interface VerifyDocumentLinkSetManifestInput {
+  readonly manifest: AccessManifestV2;
+  readonly expectedManifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly previousManifest?: VerifiedDocumentLinkSetManifest | null;
+  readonly targetContainerPath?: readonly VerifiedContainerAccessManifest[];
+  readonly authorizingContainerPaths?: readonly VerifiedContainerAccessManifest[][];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+}
+
 export interface DeriveContainerKekRecipientTargetsInput {
   readonly containerManifest: VerifiedContainerAccessManifest;
   readonly parentKekState?: VerifiedContainerKekState | null;
@@ -398,6 +466,12 @@ export interface VerifyContainerKekStateInput
   readonly keyEpoch: ContainerKeyEpochV2;
   readonly wraps: readonly ContainerKeyWrapV2[];
   readonly containerManifestHistory?: readonly VerifiedContainerAccessManifest[];
+}
+
+export interface DeriveDocumentKekTargetsInput {
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly linkedContainerManifests: readonly VerifiedContainerAccessManifest[];
+  readonly containerKekStates: readonly VerifiedContainerKekState[];
 }
 
 export interface VerifyWriteHeaderInput {
@@ -3108,6 +3182,590 @@ export async function verifyContainerAccessManifest({
   });
 }
 
+function normalizeDocumentLinkSetStructural(
+  value: DocumentLinkSetStructuralV2,
+): DocumentLinkSetStructuralV2 {
+  const record = assertExactKeys(
+    value,
+    ["linkedContainerIds"],
+    "document link-set structural state",
+  );
+  const linkedContainerIds = normalizeUniqueSortedStrings(
+    readStringArray(
+      record,
+      "linkedContainerIds",
+      "document link-set structural state",
+    ),
+    "document link-set linkedContainerIds",
+  );
+
+  if (linkedContainerIds.length === 0) {
+    throwVerification(
+      "missing_dependency",
+      "document link-set must include at least one linked container",
+    );
+  }
+
+  return { linkedContainerIds };
+}
+
+function normalizeDocumentLinkSetManifestState(
+  value: DocumentLinkSetManifestStateV2,
+): DocumentLinkSetManifestStateV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "documentId",
+      "epoch",
+      "eventHash",
+      "linkedContainerIds",
+      "organizationId",
+      "previousManifestHash",
+      "version",
+    ],
+    "document link-set manifest state",
+  );
+  const structural = normalizeDocumentLinkSetStructural({
+    linkedContainerIds: record.linkedContainerIds,
+  } as DocumentLinkSetStructuralV2);
+
+  return {
+    version: readVersion(record, "document link-set manifest state"),
+    documentId: readString(
+      record,
+      "documentId",
+      "document link-set manifest state",
+    ),
+    organizationId: readString(
+      record,
+      "organizationId",
+      "document link-set manifest state",
+    ),
+    epoch: readPositiveInteger(
+      record,
+      "epoch",
+      "document link-set manifest state",
+    ),
+    previousManifestHash: readNullableHashString(
+      record,
+      "previousManifestHash",
+      "document link-set manifest state",
+    ),
+    eventHash: readHashString(
+      record,
+      "eventHash",
+      "document link-set manifest state",
+    ),
+    linkedContainerIds: structural.linkedContainerIds,
+  };
+}
+
+export async function computeDocumentLinkSetStructuralHash(
+  structural: DocumentLinkSetStructuralV2,
+): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.document-link-set-structural.v1",
+    normalizeDocumentLinkSetStructural(
+      structural,
+    ) as unknown as KeyingV2CanonicalJson,
+  );
+}
+
+export async function computeDocumentLinkSetGrantRoot(): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.document-link-set-grants.v1",
+    { grants: [] },
+  );
+}
+
+export async function computeDocumentLinkSetKeyTargetHash(): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.document-link-set-key-target.v1",
+    { targetMode: "current-linked-container-keks" },
+  );
+}
+
+export async function deriveDocumentLinkSetManifest(
+  state: DocumentLinkSetManifestStateV2,
+): Promise<AccessManifestV2> {
+  const normalizedState = normalizeDocumentLinkSetManifestState(state);
+
+  return {
+    version: 2,
+    objectKind: "document",
+    objectId: normalizedState.documentId,
+    organizationId: normalizedState.organizationId,
+    epoch: normalizedState.epoch,
+    previousManifestHash: normalizedState.previousManifestHash,
+    eventHash: normalizedState.eventHash,
+    structuralHash: await computeDocumentLinkSetStructuralHash({
+      linkedContainerIds: normalizedState.linkedContainerIds,
+    }),
+    grantRoot: await computeDocumentLinkSetGrantRoot(),
+    referencedPrincipalHeads: [],
+    keyTargetHash: await computeDocumentLinkSetKeyTargetHash(),
+  };
+}
+
+function normalizeDocumentLinkAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): DocumentLinkAccessEventBodyV2 {
+  const record = assertExactKeys(
+    value,
+    ["containerId", "containerManifestHash", "eventType"],
+    "document.link event body",
+  );
+
+  return {
+    eventType: "document.link",
+    containerId: readString(record, "containerId", "document.link event body"),
+    containerManifestHash: readHashString(
+      record,
+      "containerManifestHash",
+      "document.link event body",
+    ),
+  };
+}
+
+function normalizeDocumentUnlinkAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): DocumentUnlinkAccessEventBodyV2 {
+  const record = assertExactKeys(
+    value,
+    ["containerId", "containerManifestHash", "eventType"],
+    "document.unlink event body",
+  );
+
+  return {
+    eventType: "document.unlink",
+    containerId: readString(
+      record,
+      "containerId",
+      "document.unlink event body",
+    ),
+    containerManifestHash: readHashString(
+      record,
+      "containerManifestHash",
+      "document.unlink event body",
+    ),
+  };
+}
+
+export function normalizeDocumentAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): DocumentAccessEventBodyV2 {
+  if (!isPlainObject(value)) {
+    throwVerification(
+      "invalid_shape",
+      "document access event body must be a plain object",
+    );
+  }
+
+  const eventType = readString(value, "eventType", "document access body");
+
+  if (eventType === "document.link") {
+    return normalizeDocumentLinkAccessEventBody(value);
+  }
+
+  if (eventType === "document.unlink") {
+    return normalizeDocumentUnlinkAccessEventBody(value);
+  }
+
+  throwVerification(
+    "invalid_domain",
+    "document access event body eventType is unsupported",
+  );
+}
+
+function requireEventDependency(input: {
+  readonly event: VerifiedAccessEvent;
+  readonly manifestHash: string;
+  readonly label: string;
+}): void {
+  if (
+    !input.event.event.dependencyManifestHashes.includes(input.manifestHash)
+  ) {
+    throwVerification(
+      "missing_dependency",
+      `${input.label} manifest hash is not signed as an event dependency`,
+    );
+  }
+}
+
+function requireContainerPathCurrentManifest(input: {
+  readonly containerId: string;
+  readonly event: VerifiedAccessEvent;
+  readonly label: string;
+  readonly manifestHash: string;
+  readonly organizationId: string;
+  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
+}): VerifiedContainerAccessManifest {
+  const manifest = requireContainerPathLast(input.path, input.label);
+
+  if (
+    manifest.state.containerId !== input.containerId ||
+    manifest.manifestHash !== input.manifestHash
+  ) {
+    throwVerification(
+      "missing_dependency",
+      `${input.label} path does not end at the signed container manifest`,
+    );
+  }
+
+  if (manifest.state.organizationId !== input.organizationId) {
+    throwVerification(
+      "object_mismatch",
+      `${input.label} container belongs to the wrong organization`,
+    );
+  }
+
+  requireEventDependency({
+    event: input.event,
+    manifestHash: input.manifestHash,
+    label: input.label,
+  });
+
+  return manifest;
+}
+
+function requireContainerPathCurrentWriteAccess(input: {
+  readonly containerId: string;
+  readonly event: VerifiedAccessEvent;
+  readonly label: string;
+  readonly manifestHash: string;
+  readonly organizationId: string;
+  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}): void {
+  requireContainerPathCurrentManifest(input);
+  requireContainerPathUserAccess({
+    label: input.label,
+    minimumAccessLevel: "write",
+    path: input.path,
+    principalPolicies: input.principalPolicies,
+    userId: input.event.event.signerUserId,
+  });
+}
+
+function requireAnyLinkedContainerWriteAccess(input: {
+  readonly event: VerifiedAccessEvent;
+  readonly label: string;
+  readonly linkedContainerIds: readonly string[];
+  readonly organizationId: string;
+  readonly paths:
+    | readonly (readonly VerifiedContainerAccessManifest[])[]
+    | undefined;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}): void {
+  const dependencyManifestHashes = new Set(
+    input.event.event.dependencyManifestHashes,
+  );
+  const linkedContainerIds = new Set(input.linkedContainerIds);
+
+  for (const path of input.paths ?? []) {
+    const manifest = path.at(-1);
+    if (
+      !manifest ||
+      !linkedContainerIds.has(manifest.state.containerId) ||
+      manifest.state.organizationId !== input.organizationId ||
+      !dependencyManifestHashes.has(manifest.manifestHash)
+    ) {
+      continue;
+    }
+
+    const accessLevel = resolveContainerPathUserAccessLevel({
+      path,
+      principalPolicies: input.principalPolicies,
+      userId: input.event.event.signerUserId,
+    });
+
+    if (
+      accessLevel !== null &&
+      containerAccessLevelRank(accessLevel) >= containerAccessLevelRank("write")
+    ) {
+      return;
+    }
+  }
+
+  throwVerification(
+    "unauthorized",
+    `${input.label} signer lacks write access through a signed linked container dependency`,
+  );
+}
+
+type DocumentLinkSetManifestDerivationInput = {
+  readonly body: DocumentAccessEventBodyV2;
+  readonly event: VerifiedAccessEvent;
+  readonly previousManifest: VerifiedDocumentLinkSetManifest | null;
+  readonly targetContainerPath:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly authorizingContainerPaths:
+    | readonly (readonly VerifiedContainerAccessManifest[])[]
+    | undefined;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+};
+
+interface PreviousDocumentLinkSetTransition {
+  readonly nextBase: Omit<DocumentLinkSetManifestStateV2, "linkedContainerIds">;
+  readonly previousState: DocumentLinkSetManifestStateV2;
+}
+
+function assertDocumentAccessEventDomain(
+  input: DocumentLinkSetManifestDerivationInput,
+): void {
+  const { body, event } = input;
+
+  if (event.event.objectKind !== "document") {
+    throwVerification(
+      "object_mismatch",
+      "document access event must target a document",
+    );
+  }
+
+  if (body.eventType !== event.event.eventType) {
+    throwVerification(
+      "invalid_domain",
+      "document access event body type does not match event type",
+    );
+  }
+}
+
+function preparePreviousDocumentLinkSetTransition(
+  input: DocumentLinkSetManifestDerivationInput,
+): PreviousDocumentLinkSetTransition {
+  const { event, previousManifest } = input;
+
+  if (!previousManifest) {
+    throwVerification(
+      "missing_dependency",
+      `${input.body.eventType} requires the previous document link-set manifest`,
+    );
+  }
+
+  if (event.event.previousManifestHash !== previousManifest.manifestHash) {
+    throwVerification(
+      "stale_predecessor",
+      "document access event previous manifest does not match supplied previous manifest",
+    );
+  }
+
+  if (
+    previousManifest.state.documentId !== event.event.objectId ||
+    previousManifest.state.organizationId !== event.event.organizationId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "document access previous manifest targets the wrong document",
+    );
+  }
+
+  return {
+    previousState: previousManifest.state,
+    nextBase: {
+      version: 2,
+      documentId: previousManifest.state.documentId,
+      organizationId: previousManifest.state.organizationId,
+      epoch: previousManifest.state.epoch + 1,
+      previousManifestHash: previousManifest.manifestHash,
+      eventHash: event.eventHash,
+    },
+  };
+}
+
+function deriveInitialDocumentLinkSetManifestState(
+  input: DocumentLinkSetManifestDerivationInput,
+  body: DocumentLinkAccessEventBodyV2,
+): DocumentLinkSetManifestStateV2 {
+  if (input.event.event.previousManifestHash !== null) {
+    throwVerification(
+      "stale_predecessor",
+      "initial document.link must not have a previous manifest",
+    );
+  }
+
+  requireContainerPathCurrentWriteAccess({
+    containerId: body.containerId,
+    event: input.event,
+    label: "document.link target",
+    manifestHash: body.containerManifestHash,
+    organizationId: input.event.event.organizationId,
+    path: input.targetContainerPath,
+    principalPolicies: input.principalPolicies,
+  });
+
+  return normalizeDocumentLinkSetManifestState({
+    version: 2,
+    documentId: input.event.event.objectId,
+    organizationId: input.event.event.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash: input.event.eventHash,
+    linkedContainerIds: [body.containerId],
+  });
+}
+
+function deriveDocumentLinkManifestState(
+  input: DocumentLinkSetManifestDerivationInput,
+  body: DocumentLinkAccessEventBodyV2,
+  previous: PreviousDocumentLinkSetTransition,
+): DocumentLinkSetManifestStateV2 {
+  if (previous.previousState.linkedContainerIds.includes(body.containerId)) {
+    throwVerification(
+      "duplicate_entry",
+      "document.link target container is already linked",
+    );
+  }
+
+  requireAnyLinkedContainerWriteAccess({
+    event: input.event,
+    label: "document.link existing access",
+    linkedContainerIds: previous.previousState.linkedContainerIds,
+    organizationId: previous.previousState.organizationId,
+    paths: input.authorizingContainerPaths,
+    principalPolicies: input.principalPolicies,
+  });
+  requireContainerPathCurrentWriteAccess({
+    containerId: body.containerId,
+    event: input.event,
+    label: "document.link target",
+    manifestHash: body.containerManifestHash,
+    organizationId: previous.previousState.organizationId,
+    path: input.targetContainerPath,
+    principalPolicies: input.principalPolicies,
+  });
+
+  return normalizeDocumentLinkSetManifestState({
+    ...previous.nextBase,
+    linkedContainerIds: [
+      ...previous.previousState.linkedContainerIds,
+      body.containerId,
+    ],
+  });
+}
+
+function deriveDocumentUnlinkManifestState(
+  input: DocumentLinkSetManifestDerivationInput,
+  body: DocumentUnlinkAccessEventBodyV2,
+  previous: PreviousDocumentLinkSetTransition,
+): DocumentLinkSetManifestStateV2 {
+  if (!previous.previousState.linkedContainerIds.includes(body.containerId)) {
+    throwVerification(
+      "missing_dependency",
+      "document.unlink target container is not linked",
+    );
+  }
+
+  const remainingLinkedContainerIds =
+    previous.previousState.linkedContainerIds.filter(
+      (containerId) => containerId !== body.containerId,
+    );
+
+  if (remainingLinkedContainerIds.length === 0) {
+    throwVerification(
+      "missing_dependency",
+      "document.unlink must leave at least one linked container",
+    );
+  }
+
+  requireContainerPathCurrentWriteAccess({
+    containerId: body.containerId,
+    event: input.event,
+    label: "document.unlink target",
+    manifestHash: body.containerManifestHash,
+    organizationId: previous.previousState.organizationId,
+    path: input.targetContainerPath,
+    principalPolicies: input.principalPolicies,
+  });
+  requireAnyLinkedContainerWriteAccess({
+    event: input.event,
+    label: "document.unlink remaining access",
+    linkedContainerIds: remainingLinkedContainerIds,
+    organizationId: previous.previousState.organizationId,
+    paths: input.authorizingContainerPaths,
+    principalPolicies: input.principalPolicies,
+  });
+
+  return normalizeDocumentLinkSetManifestState({
+    ...previous.nextBase,
+    linkedContainerIds: remainingLinkedContainerIds,
+  });
+}
+
+function deriveDocumentLinkSetManifestStateFromEvent(
+  input: DocumentLinkSetManifestDerivationInput,
+): DocumentLinkSetManifestStateV2 {
+  assertDocumentAccessEventDomain(input);
+
+  if (input.body.eventType === "document.link" && !input.previousManifest) {
+    return deriveInitialDocumentLinkSetManifestState(input, input.body);
+  }
+
+  const previous = preparePreviousDocumentLinkSetTransition(input);
+
+  if (input.body.eventType === "document.link") {
+    return deriveDocumentLinkManifestState(input, input.body, previous);
+  }
+
+  return deriveDocumentUnlinkManifestState(input, input.body, previous);
+}
+
+export async function verifyDocumentLinkSetManifest({
+  authorizingContainerPaths,
+  event,
+  expectedManifestHash,
+  manifest,
+  previousManifest = null,
+  principalPolicies = [],
+  targetContainerPath,
+}: VerifyDocumentLinkSetManifestInput): Promise<
+  KeyingV2VerificationResult<VerifiedDocumentLinkSetManifest>
+> {
+  return runVerifier(async () => {
+    const body = normalizeDocumentAccessEventBody(event.body);
+    const state = deriveDocumentLinkSetManifestStateFromEvent({
+      authorizingContainerPaths,
+      body,
+      event,
+      previousManifest,
+      principalPolicies,
+      targetContainerPath,
+    });
+    const derivedManifest = await deriveDocumentLinkSetManifest(state);
+    const derivedManifestHash =
+      await computeAccessManifestHash(derivedManifest);
+
+    if (derivedManifestHash !== expectedManifestHash) {
+      throwVerification(
+        "hash_mismatch",
+        "document link-set manifest hash does not match derived state",
+      );
+    }
+
+    const verifiedManifest = await verifyAccessManifest({
+      manifest,
+      expectedManifestHash,
+      event,
+      expectedObject: {
+        objectKind: "document",
+        objectId: state.documentId,
+      },
+      expectedPreviousManifestHash: state.previousManifestHash,
+    });
+
+    if (!verifiedManifest.ok) {
+      throw verifiedManifest.error;
+    }
+
+    return {
+      manifest: verifiedManifest.value.manifest,
+      manifestHash: verifiedManifest.value.manifestHash,
+      event,
+      state,
+    } as VerifiedDocumentLinkSetManifest;
+  });
+}
+
 export function verifyContainerParentEdge({
   child,
   parentHistory,
@@ -3988,6 +4646,162 @@ export async function computeDocumentContentKeyTargetHash(
     "tearleads.keying-v2.document-content-key-targets.v1",
     normalizedTargets as unknown as KeyingV2CanonicalJson,
   );
+}
+
+function uniqueContainerManifestMap(
+  manifests: readonly VerifiedContainerAccessManifest[],
+): Map<string, VerifiedContainerAccessManifest> {
+  const manifestByContainerId = new Map<
+    string,
+    VerifiedContainerAccessManifest
+  >();
+
+  for (const containerManifest of manifests) {
+    if (manifestByContainerId.has(containerManifest.state.containerId)) {
+      throwVerification(
+        "duplicate_entry",
+        "document KEK target derivation contains a duplicate container manifest",
+      );
+    }
+    manifestByContainerId.set(
+      containerManifest.state.containerId,
+      containerManifest,
+    );
+  }
+
+  return manifestByContainerId;
+}
+
+function uniqueContainerKekStateMap(
+  states: readonly VerifiedContainerKekState[],
+): Map<string, VerifiedContainerKekState> {
+  const kekStateByContainerId = new Map<string, VerifiedContainerKekState>();
+
+  for (const kekState of states) {
+    if (kekStateByContainerId.has(kekState.containerId)) {
+      throwVerification(
+        "duplicate_entry",
+        "document KEK target derivation contains a duplicate container KEK state",
+      );
+    }
+    kekStateByContainerId.set(kekState.containerId, kekState);
+  }
+
+  return kekStateByContainerId;
+}
+
+function deriveLinkedDocumentKekTarget(input: {
+  readonly containerId: string;
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly manifestByContainerId: ReadonlyMap<
+    string,
+    VerifiedContainerAccessManifest
+  >;
+  readonly kekStateByContainerId: ReadonlyMap<
+    string,
+    VerifiedContainerKekState
+  >;
+}): DocumentContentKeyTargetV2 {
+  const containerManifest = input.manifestByContainerId.get(input.containerId);
+  const kekState = input.kekStateByContainerId.get(input.containerId);
+
+  if (!containerManifest || !kekState) {
+    throwVerification(
+      "missing_dependency",
+      "document KEK target derivation is missing a linked container target",
+    );
+  }
+
+  if (
+    containerManifest.state.organizationId !==
+      input.documentManifest.state.organizationId ||
+    kekState.containerId !== input.containerId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "document KEK target belongs to the wrong document organization or container",
+    );
+  }
+
+  if (kekState.accessManifestHash !== containerManifest.manifestHash) {
+    throwVerification(
+      "stale_predecessor",
+      "document KEK target container manifest is stale",
+    );
+  }
+
+  if (
+    containerManifest.state.containerKeyEpochId === null ||
+    kekState.containerKeyEpochId !== containerManifest.state.containerKeyEpochId
+  ) {
+    throwVerification(
+      "key_epoch_reuse",
+      "document KEK target container key epoch does not match the manifest",
+    );
+  }
+
+  return {
+    containerId: input.containerId,
+    containerManifestHash: containerManifest.manifestHash,
+    containerKeyEpochId: kekState.containerKeyEpochId,
+    containerKeyEpoch: kekState.containerKeyEpoch,
+  };
+}
+
+async function buildVerifiedDocumentKekTargets(input: {
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly targets: readonly DocumentContentKeyTargetV2[];
+}): Promise<VerifiedDocumentKekTargets> {
+  return {
+    documentId: input.documentManifest.state.documentId,
+    linkSetManifestHash: input.documentManifest.manifestHash,
+    linkedContainerManifestHashes: input.targets.map(
+      (target) => target.containerManifestHash,
+    ),
+    linkedContainerKeyEpochIds: input.targets.map(
+      (target) => target.containerKeyEpochId,
+    ),
+    targets: input.targets,
+    documentKeyTargetHash: await computeDocumentContentKeyTargetHash(
+      input.targets,
+    ),
+  } as unknown as VerifiedDocumentKekTargets;
+}
+
+export async function deriveDocumentKekTargets({
+  containerKekStates,
+  documentManifest,
+  linkedContainerManifests,
+}: DeriveDocumentKekTargetsInput): Promise<
+  KeyingV2VerificationResult<VerifiedDocumentKekTargets>
+> {
+  return runVerifier(async () => {
+    const manifestByContainerId = uniqueContainerManifestMap(
+      linkedContainerManifests,
+    );
+    const kekStateByContainerId =
+      uniqueContainerKekStateMap(containerKekStates);
+
+    const normalizedTargets = normalizeSortedUniqueArray(
+      documentManifest.state.linkedContainerIds.map((containerId) =>
+        deriveLinkedDocumentKekTarget({
+          containerId,
+          documentManifest,
+          manifestByContainerId,
+          kekStateByContainerId,
+        }),
+      ),
+      (target) =>
+        normalizeContainerKekTarget(target, "document content-key target"),
+      containerKekTargetKey,
+      "document content-key targets",
+    );
+
+    return buildVerifiedDocumentKekTargets({
+      documentManifest,
+      targets: normalizedTargets,
+    });
+  });
 }
 
 export async function computeBlobContentKeyTargetHash(
