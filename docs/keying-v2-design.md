@@ -398,19 +398,92 @@ type DocumentKekTargetV2 = {
 };
 ```
 
-The client:
+For a content write, the client:
 
 1. verifies the document manifest and linked container manifests;
 2. verifies all referenced principal policies and identity keys;
 3. derives the sorted target list;
 4. computes `documentKeyTargetHash`;
-5. wraps the document content key to each target container KEK;
+5. verifies that the current canonical document content-key bundle commits to
+   that exact target hash;
 6. signs the encrypted write header over object id, document epoch, manifest
    hash, target hash, update metadata, and ciphertext hash.
 
 The API rejects writes when submitted targets do not exactly match current
 verified targets. Readers verify the signed write header before trusting target
 metadata.
+
+Read/key access to every linked container is not required for ordinary content
+writes. Verifying linked container manifests and deriving target ids uses signed
+server-visible metadata, not plaintext container KEKs. A writer needs a valid
+document content key from an authorized linked-container path and write
+authorization through at least one active linked container. The write still
+commits to the full target hash so all linked-container readers use the same
+document state.
+
+Creating or rotating a document content-key bundle is the separate operation
+that must produce wraps for every current linked container KEK target. The
+implementation may require the bundle materializer to have key access to all
+target container KEKs, or it may support a protocol for per-target envelope
+contribution. If the full target bundle cannot be materialized, the API should
+return `rekey_required` or a bundle-materialization conflict instead of making
+ordinary document writes require read access to every linked container.
+
+### Content Write Authorization
+
+A content write-header signature proves which device produced the ciphertext
+metadata, but it does not by itself prove that the device was allowed to write
+the object. Because any reader with the current content key can usually produce
+fresh ciphertext under that key, V2 write verification must treat write
+authorization as part of the signed-header proof.
+
+`verifyWriteHeader` must verify that:
+
+- the signer identity/device key is trusted for the signed identity state
+  referenced by the header;
+- the header commits to the object id, organization id, object kind, content-key
+  epoch, access manifest hash, key target hash, encryption suite, nonce or
+  subkey derivation inputs, update metadata, and ciphertext hash;
+- the committed access manifest and referenced principal policy heads verify;
+- the signer had write access under the committed manifest state, not merely
+  read access and not merely a mutable API-authenticated session;
+- the committed key targets exactly match the verified graph for that manifest
+  state.
+
+Historical writes are verified against the manifest state they commit to, while
+new writes must also satisfy the latest-state and local-checkpoint rules before
+the API accepts them. For documents linked to multiple containers, the V2
+authorization rule is that write access through at least one active linked
+container authorizes a document content write, and that write is then encrypted
+to the full verified target set for all active linked containers.
+
+### AEAD Nonce And Subkey Discipline
+
+Documents and blobs are multi-writer objects. Multiple devices may encrypt
+different ciphertext records under the same content key epoch, including while
+offline, so V2 must not rely on local counters or implicit library defaults for
+nonce uniqueness.
+
+Every encrypted content record needs a verifier-enforced encryption domain. The
+preferred rule is:
+
+1. assign a globally unique, high-entropy `contentRecordId` for each encrypted
+   update, baseline, blob version, or replacement object, such as a UUIDv4 or
+   another identifier with at least 128 bits of CSPRNG randomness;
+2. derive a per-record AEAD key or nonce with domain-separated HKDF inputs that
+   include protocol version, organization id, object kind, object id,
+   content-key epoch, encryption suite, and `contentRecordId`;
+3. include the same fields as AEAD additional authenticated data;
+4. commit those fields in the signed write header;
+5. reject duplicate `contentRecordId` or duplicate derived nonce domains for the
+   same object/content-key epoch.
+
+For example, a suite may derive
+`recordKey = HKDF(contentKey, "keying-v2 content record", aadFields...)` and use
+a fixed nonce with that per-record key, or it may keep the epoch content key and
+derive a deterministic nonce from the same unique domain. The exact suite can
+vary, but the invariant cannot: honest concurrent writers must be unable to
+reuse the same AEAD key/nonce pair for two different plaintexts.
 
 For additive changes, the document content key may be reused and wrapped to a
 new target if the target set only grows. For shrink, future writes require a
@@ -533,7 +606,9 @@ Required proof obligations:
   implied by the verified graph, not by an API-provided recipient list.
 - `VerifiedWriteHeader` proves encrypted content metadata commits to the object
   id, manifest hash, content key epoch, target hash, ciphertext hash, and
-  writer identity.
+  writer identity; that the signer had write access under the committed
+  manifest state; and that the ciphertext used a unique, domain-separated
+  encryption record id, nonce, or subkey for the object/content-key epoch.
 - `VerifiedCheckpoint` proves the response is not older than the client's
   persisted checkpoint and, when transparency is enabled, is included in a
   consistent append-only log.
@@ -637,6 +712,8 @@ revoked principal.
 ## Implementation Slices
 
 1. Define canonical encodings and shared verifier APIs.
+   - Include content-write authorization checks and content-record
+     nonce/subkey derivation rules before switching document/blob writes.
 2. Add signed access event and manifest types for containers.
 3. Add identity/principal checkpoint pinning and key-shrink validation.
 4. Add container KEK epoch/wrap storage and target derivation.
@@ -665,6 +742,10 @@ creation to V2-only objects.
 - Multi-linked documents require all linked container KEK targets.
 - Blob writes and attachment commits cannot drop targets for other active
   signed bindings.
+- A read-only recipient cannot produce a content write that passes
+  `verifyWriteHeader`, even when they can decrypt the current content key.
+- Concurrent/offline writers cannot reuse an AEAD key/nonce pair for two
+  different content records under the same content-key epoch.
 - Local child creation under a local-only parent queues without inventing a
   server access hash.
 - Clients enforce monotonic checkpoints for identities, principal policies, and
