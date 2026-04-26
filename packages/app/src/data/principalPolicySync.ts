@@ -349,7 +349,7 @@ function getPrincipalPolicyCheckpointMismatchReason(
     return "principal policy state conflicts with the local checkpoint";
   }
 
-  if (bundle.currentState.version <= cachedBundle.currentState.version) {
+  if (bundle.currentState.version === cachedBundle.currentState.version) {
     return null;
   }
 
