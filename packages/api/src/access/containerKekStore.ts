@@ -298,7 +298,7 @@ export async function getCurrentContainerKeyEpochs(
   }
 
   const rows = await executor
-    .select()
+    .selectDistinctOn([containerKeyEpochs.containerId])
     .from(containerKeyEpochs)
     .where(inArray(containerKeyEpochs.containerId, uniqueContainerIds))
     .orderBy(
@@ -306,20 +306,9 @@ export async function getCurrentContainerKeyEpochs(
       desc(containerKeyEpochs.keyEpoch),
     );
 
-  const currentEpochByContainerId = new Map<string, StoredContainerKeyEpoch>();
-
-  for (const row of rows) {
-    if (currentEpochByContainerId.has(row.containerId)) {
-      continue;
-    }
-
-    currentEpochByContainerId.set(
-      row.containerId,
-      toStoredContainerKeyEpoch(row),
-    );
-  }
-
-  return currentEpochByContainerId;
+  return new Map(
+    rows.map((row) => [row.containerId, toStoredContainerKeyEpoch(row)]),
+  );
 }
 
 export async function listContainerKeyWraps(

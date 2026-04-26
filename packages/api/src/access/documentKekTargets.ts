@@ -75,15 +75,10 @@ export async function resolveCurrentDocumentKekTargets(
     );
   }
 
-  const containerHeadById = await getCurrentAccessManifestHeads(
-    "container",
-    linkedContainerIds,
-    executor,
-  );
-  const containerKeyEpochById = await getCurrentContainerKeyEpochs(
-    linkedContainerIds,
-    executor,
-  );
+  const [containerHeadById, containerKeyEpochById] = await Promise.all([
+    getCurrentAccessManifestHeads("container", linkedContainerIds, executor),
+    getCurrentContainerKeyEpochs(linkedContainerIds, executor),
+  ]);
   const targets: DocumentContentKeyTargetV2[] = [];
 
   for (const containerId of linkedContainerIds) {

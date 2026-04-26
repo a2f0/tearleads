@@ -361,6 +361,11 @@ export interface VerifiedDocumentLinkSetManifest {
   readonly [verifiedDocumentLinkSetManifestBrand]: true;
 }
 
+export type AnyVerifiedAccessManifest =
+  | VerifiedAccessManifest
+  | VerifiedContainerAccessManifest
+  | VerifiedDocumentLinkSetManifest;
+
 export interface VerifiedDocumentKekTargets {
   readonly documentId: string;
   readonly linkSetManifestHash: string;
@@ -3452,6 +3457,9 @@ function requireAnyLinkedContainerWriteAccess(input: {
     | undefined;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }): void {
+  const dependencyManifestHashes = new Set(
+    input.event.event.dependencyManifestHashes,
+  );
   const linkedContainerIds = new Set(input.linkedContainerIds);
 
   for (const path of input.paths ?? []) {
@@ -3460,9 +3468,7 @@ function requireAnyLinkedContainerWriteAccess(input: {
       !manifest ||
       !linkedContainerIds.has(manifest.state.containerId) ||
       manifest.state.organizationId !== input.organizationId ||
-      !input.event.event.dependencyManifestHashes.includes(
-        manifest.manifestHash,
-      )
+      !dependencyManifestHashes.has(manifest.manifestHash)
     ) {
       continue;
     }

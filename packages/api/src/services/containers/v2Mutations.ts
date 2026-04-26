@@ -7,7 +7,6 @@ import type {
   ContainerUserRecipientKeyV2,
   KeyingV2CanonicalJson,
   PrincipalProjectionMember,
-  VerifiedAccessManifest,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
@@ -910,10 +909,7 @@ async function persistVerifiedMutation(
   await persistContainerStructure(executor, manifest);
 
   const manifestHead = await runConflictBoundary(() =>
-    storeVerifiedAccessManifest(
-      { verifiedManifest: manifest as unknown as VerifiedAccessManifest },
-      executor,
-    ),
+    storeVerifiedAccessManifest({ verifiedManifest: manifest }, executor),
   );
   if (manifestHead.manifestHash !== manifest.manifestHash) {
     throw new ContainerV2MutationError("Container manifest head is stale", 409);

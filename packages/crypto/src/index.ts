@@ -25,6 +25,7 @@ export type {
   AccessEventV2,
   AccessManifestV2,
   AccessObjectKindV2,
+  AnyVerifiedAccessManifest,
   BlobContentKeyTargetV2,
   ContainerAccessEventBodyV2,
   ContainerAccessKeyStateV2,

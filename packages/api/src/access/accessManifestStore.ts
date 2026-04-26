@@ -1,9 +1,9 @@
 import type {
   AccessObjectKindV2,
+  AnyVerifiedAccessManifest,
   KeyingV2CanonicalJson,
   ReferencedPrincipalHeadV2,
   VerifiedAccessEvent,
-  VerifiedAccessManifest,
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import { serializeKeyingV2CanonicalJson } from "@tearleads/crypto";
@@ -58,7 +58,7 @@ interface StoredAccessManifestDocumentLinkProjection {
 }
 
 interface StoreVerifiedAccessManifestInput {
-  readonly verifiedManifest: VerifiedAccessManifest;
+  readonly verifiedManifest: AnyVerifiedAccessManifest;
 }
 
 function accessEventDependencyHashes(event: VerifiedAccessEvent): string[] {
@@ -66,7 +66,7 @@ function accessEventDependencyHashes(event: VerifiedAccessEvent): string[] {
 }
 
 function accessManifestReferencedHeads(
-  manifest: VerifiedAccessManifest,
+  manifest: AnyVerifiedAccessManifest,
 ): ReferencedPrincipalHeadV2[] {
   return manifest.manifest.referencedPrincipalHeads.map((principalHead) => ({
     ...principalHead,
@@ -74,15 +74,15 @@ function accessManifestReferencedHeads(
 }
 
 function documentLinkSetState(
-  manifest: VerifiedAccessManifest,
+  manifest: AnyVerifiedAccessManifest,
 ): VerifiedDocumentLinkSetManifest["state"] | null {
-  if (manifest.manifest.objectKind !== "document") {
+  if (manifest.manifest.objectKind !== "document" || !("state" in manifest)) {
     return null;
   }
 
-  const state = (manifest as Partial<VerifiedDocumentLinkSetManifest>).state;
+  const { state } = manifest;
   if (
-    !state ||
+    !("documentId" in state) ||
     state.documentId !== manifest.manifest.objectId ||
     !Array.isArray(state.linkedContainerIds)
   ) {
@@ -210,7 +210,7 @@ async function ensureStoredAccessEventMatches(
 }
 
 async function insertAccessManifest(
-  verifiedManifest: VerifiedAccessManifest,
+  verifiedManifest: AnyVerifiedAccessManifest,
   executor: AccessManifestStoreExecutor,
 ): Promise<boolean> {
   const manifest = verifiedManifest.manifest;
@@ -243,7 +243,7 @@ async function insertAccessManifest(
 }
 
 async function ensureStoredAccessManifestMatches(
-  verifiedManifest: VerifiedAccessManifest,
+  verifiedManifest: AnyVerifiedAccessManifest,
   executor: AccessManifestStoreExecutor,
 ): Promise<void> {
   const [storedManifest] = await executor
@@ -381,7 +381,7 @@ async function regenerateAccessManifestPrincipalProjection(
 }
 
 async function replaceAccessManifestDocumentLinkProjection(
-  verifiedManifest: VerifiedAccessManifest,
+  verifiedManifest: AnyVerifiedAccessManifest,
   executor: AccessManifestStoreExecutor,
 ): Promise<void> {
   const state = documentLinkSetState(verifiedManifest);
@@ -448,7 +448,7 @@ async function loadCurrentAccessManifestHead(
 }
 
 async function advanceAccessManifestHead(
-  verifiedManifest: VerifiedAccessManifest,
+  verifiedManifest: AnyVerifiedAccessManifest,
   executor: AccessManifestStoreExecutor,
 ): Promise<StoredAccessManifestHead> {
   const manifest = verifiedManifest.manifest;

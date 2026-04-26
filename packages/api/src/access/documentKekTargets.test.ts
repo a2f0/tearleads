@@ -227,7 +227,7 @@ test("resolveCurrentDocumentKekTargets derives targets from linked container hea
     organizationId,
   });
   await storeVerifiedAccessManifest({
-    verifiedManifest: documentManifest as unknown as VerifiedAccessManifest,
+    verifiedManifest: documentManifest,
   });
 
   const targets = await resolveCurrentDocumentKekTargets(documentId);
@@ -277,7 +277,7 @@ test("assertDocumentKekTargetsCurrent rejects stale target hashes", async () => 
     organizationId,
   });
   await storeVerifiedAccessManifest({
-    verifiedManifest: documentManifest as unknown as VerifiedAccessManifest,
+    verifiedManifest: documentManifest,
   });
   const oldTargets = await resolveCurrentDocumentKekTargets(documentId);
   const nextContainerManifest = await createVerifiedContainerManifest({
