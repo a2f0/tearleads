@@ -398,19 +398,36 @@ type DocumentKekTargetV2 = {
 };
 ```
 
-The client:
+For a content write, the client:
 
 1. verifies the document manifest and linked container manifests;
 2. verifies all referenced principal policies and identity keys;
 3. derives the sorted target list;
 4. computes `documentKeyTargetHash`;
-5. wraps the document content key to each target container KEK;
+5. verifies that the current canonical document content-key bundle commits to
+   that exact target hash;
 6. signs the encrypted write header over object id, document epoch, manifest
    hash, target hash, update metadata, and ciphertext hash.
 
 The API rejects writes when submitted targets do not exactly match current
 verified targets. Readers verify the signed write header before trusting target
 metadata.
+
+Read/key access to every linked container is not required for ordinary content
+writes. Verifying linked container manifests and deriving target ids uses signed
+server-visible metadata, not plaintext container KEKs. A writer needs a valid
+document content key from an authorized linked-container path and write
+authorization through at least one active linked container. The write still
+commits to the full target hash so all linked-container readers use the same
+document state.
+
+Creating or rotating a document content-key bundle is the separate operation
+that must produce wraps for every current linked container KEK target. The
+implementation may require the bundle materializer to have key access to all
+target container KEKs, or it may support a protocol for per-target envelope
+contribution. If the full target bundle cannot be materialized, the API should
+return `rekey_required` or a bundle-materialization conflict instead of making
+ordinary document writes require read access to every linked container.
 
 ### Content Write Authorization
 
@@ -450,8 +467,9 @@ nonce uniqueness.
 Every encrypted content record needs a verifier-enforced encryption domain. The
 preferred rule is:
 
-1. assign a globally unique `contentRecordId` for each encrypted update,
-   baseline, blob version, or replacement object;
+1. assign a globally unique, high-entropy `contentRecordId` for each encrypted
+   update, baseline, blob version, or replacement object, such as a UUIDv4 or
+   another identifier with at least 128 bits of CSPRNG randomness;
 2. derive a per-record AEAD key or nonce with domain-separated HKDF inputs that
    include protocol version, organization id, object kind, object id,
    content-key epoch, encryption suite, and `contentRecordId`;
