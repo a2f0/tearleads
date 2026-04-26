@@ -1,6 +1,7 @@
 import type {
   AccessEventTypeV2,
   AccessObjectKindV2,
+  KekRecipientKindV2,
   KeyingV2CanonicalJson,
   ManagedPrincipalKindV2,
   ManagedRecipientPrincipalType,
@@ -371,6 +372,63 @@ export const accessManifestHeads = pgTable(
       table.objectId,
     ),
     index("access_manifest_heads_manifest_hash_idx").on(table.manifestHash),
+  ],
+);
+
+export const containerKeyEpochs = pgTable(
+  "container_key_epochs",
+  {
+    id: text("id").primaryKey(),
+    containerId: text("container_id").notNull(),
+    keyEpoch: integer("key_epoch").notNull(),
+    accessManifestHash: text("access_manifest_hash").notNull(),
+    parentContainerKeyEpochId: text("parent_container_key_epoch_id"),
+    createdByEventHash: text("created_by_event_hash").notNull(),
+    createdByManifestHash: text("created_by_manifest_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("container_key_epochs_container_epoch_idx").on(
+      table.containerId,
+      table.keyEpoch,
+    ),
+    index("container_key_epochs_container_idx").on(table.containerId),
+    index("container_key_epochs_access_manifest_idx").on(
+      table.accessManifestHash,
+    ),
+    index("container_key_epochs_parent_idx").on(
+      table.parentContainerKeyEpochId,
+    ),
+  ],
+);
+
+export const containerKeyWraps = pgTable(
+  "container_key_wraps",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    containerKeyEpochId: text("container_key_epoch_id").notNull(),
+    recipientKind: text("recipient_kind").$type<KekRecipientKindV2>().notNull(),
+    recipientId: text("recipient_id").notNull(),
+    recipientKeyEpochId: text("recipient_key_epoch_id").notNull(),
+    recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
+    kemCipherText: text("kem_cipher_text").notNull(),
+    wrappedKey: text("wrapped_key").notNull(),
+    wrapManifestHash: text("wrap_manifest_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("container_key_wraps_epoch_recipient_idx").on(
+      table.containerKeyEpochId,
+      table.recipientKind,
+      table.recipientId,
+      table.recipientKeyEpochId,
+    ),
+    index("container_key_wraps_epoch_idx").on(table.containerKeyEpochId),
+    index("container_key_wraps_recipient_idx").on(
+      table.recipientKind,
+      table.recipientId,
+    ),
+    index("container_key_wraps_manifest_idx").on(table.wrapManifestHash),
   ],
 );
 
