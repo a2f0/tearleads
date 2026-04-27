@@ -661,6 +661,45 @@ export const blobContentKeyTargets = pgTable(
   ],
 );
 
+export const blobContentWriteHeaders = pgTable(
+  "blob_content_write_headers",
+  {
+    recordId: uuid("record_id").primaryKey(),
+    blobId: uuid("blob_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    contentKeyEpoch: integer("content_key_epoch").notNull(),
+    accessManifestHash: text("access_manifest_hash").notNull(),
+    targetHash: text("target_hash").notNull(),
+    encryptionSuite: text("encryption_suite")
+      .$type<ContentRecordEncryptionSuiteV2>()
+      .notNull(),
+    contentRecordId: text("content_record_id").notNull(),
+    nonceDomainHash: text("nonce_domain_hash").notNull(),
+    headerHash: text("header_hash").notNull(),
+    header: jsonb("header").$type<WriteHeaderV2>().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("blob_content_write_headers_blob_epoch_idx").on(
+      table.blobId,
+      table.contentKeyEpoch,
+    ),
+    uniqueIndex("blob_content_write_headers_header_hash_idx").on(
+      table.headerHash,
+    ),
+    uniqueIndex("blob_content_write_headers_content_record_idx").on(
+      table.blobId,
+      table.contentKeyEpoch,
+      table.contentRecordId,
+    ),
+    uniqueIndex("blob_content_write_headers_nonce_domain_idx").on(
+      table.blobId,
+      table.contentKeyEpoch,
+      table.nonceDomainHash,
+    ),
+  ],
+);
+
 export const documentContainerLinks = pgTable("document_container_links", {
   id: uuid("id").defaultRandom().primaryKey(),
   documentId: text("document_id").notNull(),

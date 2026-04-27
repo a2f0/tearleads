@@ -285,6 +285,20 @@ await client.exec(`
     wrapping_metadata JSONB NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS blob_content_write_headers (
+    record_id UUID PRIMARY KEY,
+    blob_id UUID NOT NULL,
+    organization_id TEXT NOT NULL,
+    content_key_epoch INTEGER NOT NULL,
+    access_manifest_hash TEXT NOT NULL,
+    target_hash TEXT NOT NULL,
+    encryption_suite TEXT NOT NULL,
+    content_record_id TEXT NOT NULL,
+    nonce_domain_hash TEXT NOT NULL,
+    header_hash TEXT NOT NULL,
+    header JSONB NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS document_container_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id TEXT NOT NULL,
@@ -561,6 +575,22 @@ await client.exec(`
       binding_id,
       document_id,
       container_id
+    );
+  CREATE INDEX IF NOT EXISTS blob_content_write_headers_blob_epoch_idx
+    ON blob_content_write_headers (blob_id, content_key_epoch);
+  CREATE UNIQUE INDEX IF NOT EXISTS blob_content_write_headers_header_hash_idx
+    ON blob_content_write_headers (header_hash);
+  CREATE UNIQUE INDEX IF NOT EXISTS blob_content_write_headers_content_record_idx
+    ON blob_content_write_headers (
+      blob_id,
+      content_key_epoch,
+      content_record_id
+    );
+  CREATE UNIQUE INDEX IF NOT EXISTS blob_content_write_headers_nonce_domain_idx
+    ON blob_content_write_headers (
+      blob_id,
+      content_key_epoch,
+      nonce_domain_hash
     );
   CREATE UNIQUE INDEX IF NOT EXISTS document_container_links_document_container_idx
     ON document_container_links (document_id, container_id);
