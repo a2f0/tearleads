@@ -94,6 +94,17 @@ interface SyncDocumentV2Input {
   readonly userId: string;
 }
 
+interface AppendDocumentV2UpdatesInput {
+  readonly accessEpoch: number;
+  readonly documentId: string;
+  readonly executor: DatabaseExecutor;
+  readonly fingerprint: string;
+  readonly organizationId: string;
+  readonly request: DocumentV2SyncRequest;
+  readonly signingPublicKey: Uint8Array;
+  readonly userId: string;
+}
+
 function canonicalJsonEquals(left: unknown, right: unknown): boolean {
   return (
     serializeKeyingV2CanonicalJson(left as KeyingV2CanonicalJson) ===
@@ -605,6 +616,7 @@ async function verifyOutgoingWriteHeader(input: {
   readonly documentId: string;
   readonly expectedLinkSetManifestHash: string;
   readonly expectedTargetHash: string;
+  readonly organizationId: string;
   readonly requestContentKeyEpoch: number;
   readonly signingPublicKey: Uint8Array;
   readonly update: DocumentV2OutgoingUpdate;
@@ -626,6 +638,7 @@ async function verifyOutgoingWriteHeader(input: {
     expectedObject: {
       objectKind: "document",
       objectId: input.documentId,
+      organizationId: input.organizationId,
     },
     expectedTargetHash: input.expectedTargetHash,
     header,
@@ -650,15 +663,50 @@ async function assertRetryWriteHeaderMatches(input: {
   }
 }
 
-async function appendDocumentV2Updates(input: {
+function acceptedOutgoingUpdateIds(
+  updates: readonly DocumentV2OutgoingUpdate[],
+  acceptedUpdateIds: ReadonlySet<string>,
+): string[] {
+  return updates
+    .filter((update) => acceptedUpdateIds.has(update.id))
+    .map((update) => update.id);
+}
+
+async function insertNewDocumentV2Updates(input: {
   readonly accessEpoch: number;
   readonly documentId: string;
   readonly executor: DatabaseExecutor;
   readonly fingerprint: string;
-  readonly request: DocumentV2SyncRequest;
-  readonly signingPublicKey: Uint8Array;
-  readonly userId: string;
-}): Promise<string[]> {
+  readonly updates: readonly DocumentV2OutgoingUpdate[];
+}): Promise<void> {
+  if (input.updates.length === 0) {
+    return;
+  }
+
+  const insertedRows = await input.executor
+    .insert(documentUpdates)
+    .values(
+      input.updates.map((update) => ({
+        id: update.id,
+        documentId: input.documentId,
+        accessEpoch: input.accessEpoch,
+        authorFingerprint: input.fingerprint,
+        encryptedData: update.encryptedData,
+        partialStartVersionVector: update.partialStartVersionVector,
+        partialEndVersionVector: update.partialEndVersionVector,
+      })),
+    )
+    .returning({ id: documentUpdates.id });
+  const insertedUpdateIds = new Set(insertedRows.map((row) => row.id));
+  await insertDocumentUpdateSpans(input.executor, {
+    documentId: input.documentId,
+    updates: input.updates.filter((update) => insertedUpdateIds.has(update.id)),
+  });
+}
+
+async function appendDocumentV2Updates(
+  input: AppendDocumentV2UpdatesInput,
+): Promise<string[]> {
   if (input.request.outgoingUpdates.length === 0) {
     return [];
   }
@@ -706,6 +754,7 @@ async function appendDocumentV2Updates(input: {
       documentId: input.documentId,
       expectedLinkSetManifestHash: input.request.expectedLinkSetManifestHash,
       expectedTargetHash: input.request.expectedTargetHash,
+      organizationId: input.organizationId,
       requestContentKeyEpoch: input.request.contentKeyEpoch,
       signingPublicKey: input.signingPublicKey,
       update,
@@ -730,31 +779,18 @@ async function appendDocumentV2Updates(input: {
     newUpdates.push(update);
   }
 
-  if (newUpdates.length > 0) {
-    const insertedRows = await input.executor
-      .insert(documentUpdates)
-      .values(
-        newUpdates.map((update) => ({
-          id: update.id,
-          documentId: input.documentId,
-          accessEpoch: input.accessEpoch,
-          authorFingerprint: input.fingerprint,
-          encryptedData: update.encryptedData,
-          partialStartVersionVector: update.partialStartVersionVector,
-          partialEndVersionVector: update.partialEndVersionVector,
-        })),
-      )
-      .returning({ id: documentUpdates.id });
-    const insertedUpdateIds = new Set(insertedRows.map((row) => row.id));
-    await insertDocumentUpdateSpans(input.executor, {
-      documentId: input.documentId,
-      updates: newUpdates.filter((update) => insertedUpdateIds.has(update.id)),
-    });
-  }
+  await insertNewDocumentV2Updates({
+    accessEpoch: input.accessEpoch,
+    documentId: input.documentId,
+    executor: input.executor,
+    fingerprint: input.fingerprint,
+    updates: newUpdates,
+  });
 
-  return input.request.outgoingUpdates
-    .filter((update) => acceptedUpdateIds.has(update.id))
-    .map((update) => update.id);
+  return acceptedOutgoingUpdateIds(
+    input.request.outgoingUpdates,
+    acceptedUpdateIds,
+  );
 }
 
 async function listMissingUpdates(input: {
@@ -837,6 +873,10 @@ export async function syncDocumentV2(
         userId: input.userId,
       });
       assertSyncContentKeyBundleMatchesRequest(input.request);
+      const currentTargets = await resolveCurrentDocumentKekTargets(
+        input.documentId,
+        tx,
+      );
       const contentKeyBundle = input.request.contentKeyBundle
         ? await storeDocumentContentKeyBundle(
             toStoredContentKeyBundleInput(
@@ -858,14 +898,11 @@ export async function syncDocumentV2(
         documentId: input.documentId,
         executor: tx,
         fingerprint: input.fingerprint,
+        organizationId: currentTargets.organizationId,
         request: input.request,
         signingPublicKey,
         userId: input.userId,
       });
-      const currentTargets = await resolveCurrentDocumentKekTargets(
-        input.documentId,
-        tx,
-      );
 
       return {
         accessEpoch: access.currentAccessEpoch,

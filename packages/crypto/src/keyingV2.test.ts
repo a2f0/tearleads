@@ -33,10 +33,12 @@ import type {
 } from "./keyingV2";
 import {
   accessManifestTransparencyLeaf,
+  CONTENT_RECORD_ENCRYPTION_SUITE_V2,
   computeAccessEventBodyHash,
   computeAccessManifestHash,
   computeBlobContentKeyTargetHash,
   computeContainerKekRecipientTargetHash,
+  computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
   computeKeyingV2DomainHash,
   computeTransparencyLeafHash,
@@ -2673,14 +2675,29 @@ test("write headers are signed, hashed, and verified against expected targets", 
   const signing = generateSigningSeedAndKeyPair();
   const accessManifestHash = await fixtureHash("write-access-manifest");
   const targetHash = await fixtureHash("write-targets");
+  const organizationId = "organization-1";
+  const contentRecordId = "11111111-1111-4111-8111-111111111111";
+  const nonceDomainHash = await computeContentRecordNonceDomainHash({
+    version: 2,
+    organizationId,
+    objectKind: "document",
+    objectId: "document-1",
+    contentKeyEpoch: 1,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    contentRecordId,
+  });
   const header = await signWriteHeader(
     {
       version: 2,
+      organizationId,
       objectKind: "document",
       objectId: "document-1",
       accessManifestHash,
       contentKeyEpoch: 1,
       targetHash,
+      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+      contentRecordId,
+      nonceDomainHash,
       metadataHash: await fixtureHash("metadata"),
       ciphertextHash: await fixtureHash("ciphertext"),
       writerUserId: "user-1",
@@ -2697,6 +2714,7 @@ test("write headers are signed, hashed, and verified against expected targets", 
     expectedObject: {
       objectKind: "document",
       objectId: "document-1",
+      organizationId,
     },
     expectedAccessManifestHash: accessManifestHash,
     expectedTargetHash: targetHash,
@@ -2706,6 +2724,8 @@ test("write headers are signed, hashed, and verified against expected targets", 
     expect(verified.value.headerHash).toBe(
       await computeWriteHeaderHash(header),
     );
+    expect(verified.value.nonceDomainHash).toBe(nonceDomainHash);
+    expect(verified.value.nonceDomain.contentRecordId).toBe(contentRecordId);
   }
 
   const staleTarget = await verifyWriteHeader({
@@ -2714,4 +2734,24 @@ test("write headers are signed, hashed, and verified against expected targets", 
     expectedTargetHash: await fixtureHash("stale-target"),
   });
   expectVerificationError(staleTarget, "hash_mismatch");
+
+  const secondNonceDomainHash = await computeContentRecordNonceDomainHash({
+    version: 2,
+    organizationId,
+    objectKind: "document",
+    objectId: "document-1",
+    contentKeyEpoch: 1,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    contentRecordId: "22222222-2222-4222-8222-222222222222",
+  });
+  expect(secondNonceDomainHash).not.toBe(nonceDomainHash);
+
+  const badNonceDomain = await verifyWriteHeader({
+    header: {
+      ...header,
+      nonceDomainHash: await fixtureHash("wrong-nonce-domain"),
+    },
+    writerPublicKey: signing.signingPublicKey,
+  });
+  expectVerificationError(badNonceDomain, "hash_mismatch");
 });

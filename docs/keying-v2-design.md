@@ -478,12 +478,16 @@ preferred rule is:
 5. reject duplicate `contentRecordId` or duplicate derived nonce domains for the
    same object/content-key epoch.
 
-For example, a suite may derive
-`recordKey = HKDF(contentKey, "keying-v2 content record", aadFields...)` and use
-a fixed nonce with that per-record key, or it may keep the epoch content key and
-derive a deterministic nonce from the same unique domain. The exact suite can
-vary, but the invariant cannot: honest concurrent writers must be unable to
-reuse the same AEAD key/nonce pair for two different plaintexts.
+The initial V2 suite is
+`aes-256-gcm-hkdf-sha256-record-key-v1`. A content writer supplies a UUIDv4
+`contentRecordId`, commits the suite in the signed write header, and commits a
+`nonceDomainHash` over the protocol version, organization id, object kind,
+object id, content-key epoch, suite, and `contentRecordId`. The content record
+domain is the input to per-record key/nonce derivation, and storage enforces
+uniqueness for both `contentRecordId` and `nonceDomainHash` within the same
+object/content-key epoch. The invariant cannot vary: honest concurrent writers
+must be unable to reuse the same AEAD key/nonce pair for two different
+plaintexts.
 
 For additive changes, the document content key may be reused and wrapped to a
 new target if the target set only grows. For shrink, future writes require a

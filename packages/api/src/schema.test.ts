@@ -92,6 +92,10 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         as "documentContentKeyTargetsEpochContainerIndex",
       to_regclass('document_content_write_headers_header_hash_idx') is not null
         as "documentContentWriteHeadersHeaderHashIndex",
+      to_regclass('document_content_write_headers_content_record_idx') is not null
+        as "documentContentWriteHeadersContentRecordIndex",
+      to_regclass('document_content_write_headers_nonce_domain_idx') is not null
+        as "documentContentWriteHeadersNonceDomainIndex",
       to_regclass('blob_content_key_epochs_blob_epoch_idx') is not null
         as "blobContentKeyEpochsBlobEpochIndex",
       to_regclass('blob_content_key_targets_epoch_binding_container_idx') is not null
@@ -157,6 +161,8 @@ test("V2 access manifest schema creates tables and indexes", async () => {
     documentContentKeyEpochsDocumentEpochIndex: true,
     documentContentKeyTargetsEpochContainerIndex: true,
     documentContentWriteHeadersHeaderHashIndex: true,
+    documentContentWriteHeadersContentRecordIndex: true,
+    documentContentWriteHeadersNonceDomainIndex: true,
     blobContentKeyEpochsBlobEpochIndex: true,
     blobContentKeyTargetsEpochBindingContainerIndex: true,
     accessEventsDependenciesJsonb: true,

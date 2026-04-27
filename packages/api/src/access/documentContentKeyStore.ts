@@ -702,9 +702,13 @@ export async function storeDocumentContentWriteHeader(
     .values({
       updateId: input.updateId,
       documentId: input.documentId,
+      organizationId: input.header.organizationId,
       contentKeyEpoch: input.header.contentKeyEpoch,
       accessManifestHash: input.header.accessManifestHash,
       targetHash: input.header.targetHash,
+      encryptionSuite: input.header.encryptionSuite,
+      contentRecordId: input.header.contentRecordId,
+      nonceDomainHash: input.header.nonceDomainHash,
       headerHash: input.headerHash,
       header: input.header,
     })
