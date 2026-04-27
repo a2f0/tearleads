@@ -3,8 +3,12 @@ import type {
   AccessManifestV2,
   ContainerAccessManifestStateV2,
   KeyingV2CanonicalJson,
+  PrincipalPolicySignedStateV2,
+  PrincipalProjectionMember,
+  ReferencedPrincipalHeadV2,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
+  VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
   VerifiedWriteHeader,
@@ -12,6 +16,7 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
+  computePrincipalProjectionRoot,
   computeWriteHeaderHash,
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
@@ -56,6 +61,14 @@ import {
   storeDocumentContentWriteHeader,
 } from "../../access/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../../access/documentKekTargets";
+import {
+  getPrincipalStatesForReferences,
+  listPrincipalProjectionMembersForStates,
+  type PrincipalStateReference,
+  principalStateReferenceKey,
+  type StoredPrincipalProjectionMember,
+  type StoredPrincipalState,
+} from "../../access/principalStateStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
   documentContainerLinks,
@@ -103,6 +116,14 @@ interface AppendDocumentV2UpdatesInput {
   readonly request: DocumentV2SyncRequest;
   readonly signingPublicKey: Uint8Array;
   readonly userId: string;
+  readonly writeAuthorization: DocumentWriteAuthorizationProof | null;
+}
+
+interface DocumentWriteAuthorizationProof {
+  readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
+  readonly documentKekTargets: VerifiedDocumentKekTargets;
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }
 
 function canonicalJsonEquals(left: unknown, right: unknown): boolean {
@@ -340,10 +361,158 @@ async function assertCurrentContainerPathGroups(
   return verifiedGroups;
 }
 
-function principalPoliciesFromRequest(
-  policies: readonly Record<string, unknown>[] | undefined,
-): VerifiedPrincipalPolicy[] {
-  return (policies ?? []) as unknown as VerifiedPrincipalPolicy[];
+function projectionStateKey(input: {
+  readonly principalId: string;
+  readonly stateHash: string;
+}): string {
+  return `${input.principalId}:${input.stateHash}`;
+}
+
+function projectionMemberFromStored(
+  member: StoredPrincipalProjectionMember,
+): PrincipalProjectionMember {
+  return {
+    memberPrincipalType: member.memberPrincipalType,
+    memberPrincipalId: member.memberPrincipalId,
+    role: member.role,
+  };
+}
+
+function collectReferencedPrincipalHeads(
+  paths: readonly (readonly VerifiedContainerAccessManifest[])[],
+): ReferencedPrincipalHeadV2[] {
+  const headsByReference = new Map<string, ReferencedPrincipalHeadV2>();
+
+  for (const path of paths) {
+    for (const manifest of path) {
+      for (const principalHead of manifest.state.referencedPrincipalHeads) {
+        headsByReference.set(principalStateReferenceKey(principalHead), {
+          ...principalHead,
+        });
+      }
+    }
+  }
+
+  return Array.from(headsByReference.values()).sort((left, right) =>
+    principalStateReferenceKey(left).localeCompare(
+      principalStateReferenceKey(right),
+    ),
+  );
+}
+
+function assertStoredPrincipalStateMatchesReference(
+  reference: PrincipalStateReference,
+  state: StoredPrincipalState | undefined,
+): asserts state is StoredPrincipalState {
+  if (
+    !state ||
+    state.principalType !== reference.principalType ||
+    state.principalId !== reference.principalId ||
+    state.version !== reference.version ||
+    state.keyEpoch !== reference.keyEpoch ||
+    state.stateHash !== reference.stateHash ||
+    state.keyFingerprint !== reference.keyFingerprint
+  ) {
+    throw new DocumentV2MutationError("Principal policy state is stale", 409);
+  }
+}
+
+async function assertStoredProjectionMatchesState(input: {
+  readonly projection: readonly PrincipalProjectionMember[];
+  readonly state: StoredPrincipalState;
+}): Promise<void> {
+  const projectionRoot = await computePrincipalProjectionRoot(input.projection);
+  if (
+    projectionRoot !== input.state.projectionRoot ||
+    input.projection.length !== input.state.memberCount
+  ) {
+    throw new DocumentV2MutationError(
+      "Principal policy projection is stale",
+      409,
+    );
+  }
+}
+
+async function principalPolicyFromStored(input: {
+  readonly projection: readonly StoredPrincipalProjectionMember[];
+  readonly state: StoredPrincipalState;
+}): Promise<VerifiedPrincipalPolicy> {
+  const projection = input.projection.map(projectionMemberFromStored);
+
+  await assertStoredProjectionMatchesState({
+    projection,
+    state: input.state,
+  });
+
+  return {
+    principalType: input.state.principalType,
+    principalId: input.state.principalId,
+    version: input.state.version,
+    keyEpoch: input.state.keyEpoch,
+    stateHash: input.state.stateHash,
+    state: input.state as PrincipalPolicySignedStateV2,
+    projection,
+    checkpoint: {
+      principalType: input.state.principalType,
+      principalId: input.state.principalId,
+      version: input.state.version,
+      stateHash: input.state.stateHash,
+    },
+  } as VerifiedPrincipalPolicy;
+}
+
+async function loadPrincipalPoliciesForContainerPaths(
+  executor: DatabaseExecutor,
+  paths: readonly (readonly VerifiedContainerAccessManifest[])[],
+): Promise<VerifiedPrincipalPolicy[]> {
+  const referencedPrincipalHeads = collectReferencedPrincipalHeads(paths);
+
+  if (referencedPrincipalHeads.length === 0) {
+    return [];
+  }
+
+  const statesByReference = await getPrincipalStatesForReferences(
+    referencedPrincipalHeads,
+    executor,
+  );
+  const policies: VerifiedPrincipalPolicy[] = [];
+
+  for (const principalType of [
+    ...new Set(
+      referencedPrincipalHeads.map((reference) => reference.principalType),
+    ),
+  ]) {
+    const referencesForType = referencedPrincipalHeads.filter(
+      (reference) => reference.principalType === principalType,
+    );
+    const states = referencesForType.map((reference) => {
+      const state = statesByReference.get(
+        principalStateReferenceKey(reference),
+      );
+      assertStoredPrincipalStateMatchesReference(reference, state);
+      return state;
+    });
+    const projectionsByState = await listPrincipalProjectionMembersForStates(
+      principalType,
+      states,
+      executor,
+    );
+
+    for (const state of states) {
+      policies.push(
+        await principalPolicyFromStored({
+          projection: projectionsByState.get(projectionStateKey(state)) ?? [],
+          state,
+        }),
+      );
+    }
+  }
+
+  return policies.sort((left, right) =>
+    principalStateReferenceKey(left).localeCompare(
+      principalStateReferenceKey(right),
+    ),
+  );
 }
 
 async function verifyDocumentManifestFromRequest(input: {
@@ -363,6 +532,13 @@ async function verifyDocumentManifestFromRequest(input: {
       "authorizingContainerPaths",
     ),
   ]);
+  const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
+    input.executor,
+    [
+      ...(targetContainerPath ? [targetContainerPath] : []),
+      ...(authorizingContainerPaths ?? []),
+    ],
+  );
   const result = await verifyDocumentLinkSetManifest({
     event: input.event,
     expectedManifestHash: input.request.expectedManifestHash,
@@ -375,9 +551,7 @@ async function verifyDocumentManifestFromRequest(input: {
             input.request.previousManifest,
             "previousManifest",
           ),
-    principalPolicies: principalPoliciesFromRequest(
-      input.request.principalPolicies,
-    ),
+    principalPolicies,
     ...(targetContainerPath !== undefined ? { targetContainerPath } : {}),
     ...(authorizingContainerPaths !== undefined
       ? { authorizingContainerPaths }
@@ -466,6 +640,69 @@ function toDocumentKekTargetsResponse(
     linkedContainerKeyEpochIds: [...targets.linkedContainerKeyEpochIds],
     targets: targets.targets.map((target) => ({ ...target })),
     documentKeyTargetHash: targets.documentKeyTargetHash,
+  };
+}
+
+async function verifySyncWriteAuthorizationProof(input: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly documentId: string;
+  readonly executor: DatabaseExecutor;
+  readonly request: DocumentV2SyncRequest;
+}): Promise<DocumentWriteAuthorizationProof | null> {
+  if (input.request.outgoingUpdates.length === 0) {
+    return null;
+  }
+  if (!input.request.documentManifest) {
+    throw new DocumentV2MutationError(
+      "Document write authorization proof is required",
+      400,
+    );
+  }
+  if (!input.request.authorizingContainerPaths) {
+    throw new DocumentV2MutationError(
+      "Document write authorization paths are required",
+      400,
+    );
+  }
+
+  const documentManifest = await assertDocumentManifestBundleConsistent(
+    input.request.documentManifest,
+    "documentManifest",
+  );
+  if (
+    documentManifest.state.documentId !== input.documentId ||
+    documentManifest.manifestHash !== input.request.expectedLinkSetManifestHash
+  ) {
+    throw new DocumentV2MutationError(
+      "Document write authorization manifest does not match sync request",
+      409,
+    );
+  }
+
+  const authorizingContainerPaths = await assertCurrentContainerPathGroups(
+    input.executor,
+    input.request.authorizingContainerPaths,
+    "authorizingContainerPaths",
+  );
+  if (!authorizingContainerPaths || authorizingContainerPaths.length === 0) {
+    throw new DocumentV2MutationError(
+      "Document write authorization paths are required",
+      400,
+    );
+  }
+  const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
+    input.executor,
+    authorizingContainerPaths,
+  );
+
+  return {
+    authorizingContainerPaths,
+    documentKekTargets:
+      input.currentTargets as unknown as VerifiedDocumentKekTargets,
+    documentManifest,
+    principalPolicies,
   };
 }
 
@@ -621,6 +858,7 @@ async function verifyOutgoingWriteHeader(input: {
   readonly signingPublicKey: Uint8Array;
   readonly update: DocumentV2OutgoingUpdate;
   readonly userId: string;
+  readonly writeAuthorization: DocumentWriteAuthorizationProof | null;
 }): Promise<VerifiedWriteHeader> {
   const header = input.update.writeHeader as unknown as WriteHeaderV2;
   if (
@@ -632,8 +870,15 @@ async function verifyOutgoingWriteHeader(input: {
       400,
     );
   }
+  if (!input.writeAuthorization) {
+    throw new DocumentV2MutationError(
+      "Document write authorization proof is required",
+      400,
+    );
+  }
 
   const verified = await verifyWriteHeader({
+    documentAuthorization: input.writeAuthorization,
     expectedAccessManifestHash: input.expectedLinkSetManifestHash,
     expectedObject: {
       objectKind: "document",
@@ -759,6 +1004,7 @@ async function appendDocumentV2Updates(
       signingPublicKey: input.signingPublicKey,
       update,
       userId: input.userId,
+      writeAuthorization: input.writeAuthorization,
     });
 
     await storeDocumentContentWriteHeader(
@@ -877,6 +1123,12 @@ export async function syncDocumentV2(
         input.documentId,
         tx,
       );
+      const writeAuthorization = await verifySyncWriteAuthorizationProof({
+        currentTargets,
+        documentId: input.documentId,
+        executor: tx,
+        request: input.request,
+      });
       const contentKeyBundle = input.request.contentKeyBundle
         ? await storeDocumentContentKeyBundle(
             toStoredContentKeyBundleInput(
@@ -902,6 +1154,7 @@ export async function syncDocumentV2(
         request: input.request,
         signingPublicKey,
         userId: input.userId,
+        writeAuthorization,
       });
 
       return {

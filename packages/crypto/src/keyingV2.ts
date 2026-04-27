@@ -713,6 +713,12 @@ export interface VerifyWriteHeaderInput {
   readonly expectedObject?: ExpectedWriteObjectV2;
   readonly expectedAccessManifestHash?: string;
   readonly expectedTargetHash?: string;
+  readonly documentAuthorization?: {
+    readonly documentManifest: VerifiedDocumentLinkSetManifest;
+    readonly documentKekTargets: VerifiedDocumentKekTargets;
+    readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
+    readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  };
 }
 
 export interface PrincipalPolicyCheckpointV2 {
@@ -5567,6 +5573,57 @@ function requireAnyLinkedContainerWriteAccess(input: {
   );
 }
 
+function requireWriteAccessThroughCommittedDocumentTarget(input: {
+  readonly documentKekTargets: VerifiedDocumentKekTargets;
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly label: string;
+  readonly paths: readonly (readonly VerifiedContainerAccessManifest[])[];
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly userId: string;
+}): void {
+  const targetHashByContainerId = new Map(
+    input.documentKekTargets.targets.map((target) => [
+      target.containerId,
+      target.containerManifestHash,
+    ]),
+  );
+  const linkedContainerIds = new Set(
+    input.documentManifest.state.linkedContainerIds,
+  );
+
+  for (const path of input.paths) {
+    const manifest = path.at(-1);
+    if (
+      !manifest ||
+      !linkedContainerIds.has(manifest.state.containerId) ||
+      manifest.state.organizationId !==
+        input.documentManifest.state.organizationId ||
+      targetHashByContainerId.get(manifest.state.containerId) !==
+        manifest.manifestHash
+    ) {
+      continue;
+    }
+
+    const accessLevel = resolveContainerPathUserAccessLevel({
+      path,
+      principalPolicies: input.principalPolicies,
+      userId: input.userId,
+    });
+
+    if (
+      accessLevel !== null &&
+      containerAccessLevelRank(accessLevel) >= containerAccessLevelRank("write")
+    ) {
+      return;
+    }
+  }
+
+  throwVerification(
+    "unauthorized",
+    `${input.label} signer lacks write access through a committed linked container target`,
+  );
+}
+
 type DocumentLinkSetManifestDerivationInput = {
   readonly body: DocumentAccessEventBodyV2;
   readonly event: VerifiedAccessEvent;
@@ -7396,7 +7453,69 @@ export async function computeWriteHeaderHash(
   );
 }
 
+function assertDocumentWriteHeaderAuthorization(input: {
+  readonly authorization: NonNullable<
+    VerifyWriteHeaderInput["documentAuthorization"]
+  >;
+  readonly header: WriteHeaderV2;
+}): void {
+  const { authorization, header } = input;
+  const { documentKekTargets, documentManifest } = authorization;
+
+  if (header.objectKind !== "document") {
+    throwVerification(
+      "object_mismatch",
+      "document write authorization requires a document write header",
+    );
+  }
+
+  if (
+    documentManifest.state.documentId !== header.objectId ||
+    documentManifest.state.organizationId !== header.organizationId ||
+    documentManifest.manifestHash !== header.accessManifestHash
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "write header does not match the committed document access manifest",
+    );
+  }
+
+  if (
+    documentKekTargets.documentId !== header.objectId ||
+    documentKekTargets.linkSetManifestHash !== documentManifest.manifestHash ||
+    documentKekTargets.documentKeyTargetHash !== header.targetHash
+  ) {
+    throwVerification(
+      "hash_mismatch",
+      "write header target hash does not match the verified document KEK targets",
+    );
+  }
+
+  const linkedContainerIds = new Set(documentManifest.state.linkedContainerIds);
+  if (
+    documentKekTargets.targets.length !== linkedContainerIds.size ||
+    documentKekTargets.targets.some(
+      (target) => !linkedContainerIds.has(target.containerId),
+    )
+  ) {
+    throwVerification(
+      "hash_mismatch",
+      "verified document KEK targets do not cover the committed linked containers",
+    );
+  }
+
+  requireWriteAccessThroughCommittedDocumentTarget({
+    documentKekTargets,
+    documentManifest,
+    label: "write header",
+    paths: authorization.authorizingContainerPaths,
+    principalPolicies: authorization.principalPolicies ?? [],
+    userId: header.writerUserId,
+  });
+}
+
 export async function verifyWriteHeader({
+  documentAuthorization,
   expectedAccessManifestHash,
   expectedObject,
   expectedTargetHash,
@@ -7450,6 +7569,13 @@ export async function verifyWriteHeader({
         "object_mismatch",
         "write header object does not match expected object",
       );
+    }
+
+    if (documentAuthorization) {
+      assertDocumentWriteHeaderAuthorization({
+        authorization: documentAuthorization,
+        header: normalizedHeader,
+      });
     }
 
     let signature: Uint8Array;

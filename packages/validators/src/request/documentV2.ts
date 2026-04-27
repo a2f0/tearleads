@@ -36,7 +36,6 @@ export interface DocumentV2CreateRequest {
   previousManifest?: DocumentV2ManifestBundle | null;
   targetContainerPath?: Record<string, unknown>[];
   authorizingContainerPaths?: Record<string, unknown>[][];
-  principalPolicies?: Record<string, unknown>[];
   contentKeyBundle: DocumentV2ContentKeyBundleRequest;
 }
 
@@ -53,8 +52,10 @@ export interface DocumentV2OutgoingUpdate {
 export interface DocumentV2SyncRequest {
   contentKeyBundle?: DocumentV2ContentKeyBundleRequest;
   contentKeyEpoch: number;
+  documentManifest?: DocumentV2ManifestBundle;
   expectedLinkSetManifestHash: string;
   expectedTargetHash: string;
+  authorizingContainerPaths?: Record<string, unknown>[][];
   localVersionVector: string | null;
   minLsn?: string;
   outgoingUpdates: DocumentV2OutgoingUpdate[];
@@ -202,9 +203,6 @@ export function isDocumentV2CreateRequest(
   const authorizingContainerPaths = isPlainObject(value)
     ? Reflect.get(value, "authorizingContainerPaths")
     : undefined;
-  const principalPolicies = isPlainObject(value)
-    ? Reflect.get(value, "principalPolicies")
-    : undefined;
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
     : undefined;
@@ -222,7 +220,6 @@ export function isDocumentV2CreateRequest(
       isDocumentV2ManifestBundle(previousManifest)) &&
     isOptionalRecordArray(targetContainerPath) &&
     isOptionalRecordArrayArray(authorizingContainerPaths) &&
-    isOptionalRecordArray(principalPolicies) &&
     isDocumentV2ContentKeyBundleRequest(contentKeyBundle)
   );
 }
@@ -230,22 +227,39 @@ export function isDocumentV2CreateRequest(
 export function isDocumentV2SyncRequest(
   value: unknown,
 ): value is DocumentV2SyncRequest {
+  const authorizingContainerPaths = isPlainObject(value)
+    ? Reflect.get(value, "authorizingContainerPaths")
+    : undefined;
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
+    : undefined;
+  const documentManifest = isPlainObject(value)
+    ? Reflect.get(value, "documentManifest")
     : undefined;
   const minLsn = isPlainObject(value)
     ? Reflect.get(value, "minLsn")
     : undefined;
+  const outgoingUpdates = isPlainObject(value)
+    ? Reflect.get(value, "outgoingUpdates")
+    : undefined;
+  const hasOutgoingUpdates =
+    Array.isArray(outgoingUpdates) && outgoingUpdates.length > 0;
 
   return (
     isPlainObject(value) &&
     (contentKeyBundle === undefined ||
       isDocumentV2ContentKeyBundleRequest(contentKeyBundle)) &&
+    (documentManifest === undefined
+      ? !hasOutgoingUpdates
+      : isDocumentV2ManifestBundle(documentManifest)) &&
     hasPositiveNumberProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "expectedLinkSetManifestHash") &&
     value.expectedLinkSetManifestHash.length > 0 &&
     hasStringProperty(value, "expectedTargetHash") &&
     value.expectedTargetHash.length > 0 &&
+    (authorizingContainerPaths === undefined
+      ? !hasOutgoingUpdates
+      : isRecordArrayArray(authorizingContainerPaths)) &&
     isNullableString(Reflect.get(value, "localVersionVector")) &&
     (minLsn === undefined || isWalLsnString(minLsn)) &&
     hasArrayProperty(value, "outgoingUpdates") &&
