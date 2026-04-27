@@ -214,6 +214,42 @@ test("buildDocumentV2CreatePlan rejects missing or stale content-key target enve
   ).rejects.toThrow("unexpected");
 });
 
+test("deriveDocumentV2CreateTargets uses the leaf projection manifest and KEK", async () => {
+  const projection = await createProjection();
+  const currentManifest = projection.path[0];
+  const currentKek = projection.containerKeks[0];
+  if (!currentManifest || !currentKek) {
+    throw new Error("Expected test projection to include current V2 state");
+  }
+  const staleManifestHash = await fixtureHash("stale-container-manifest");
+  const staleKeyEpochHash = await fixtureHash("stale-container-key-epoch");
+  const staleKeyTargetHash = await fixtureHash("stale-container-key-target");
+  const staleManifest = {
+    ...currentManifest,
+    manifestHash: staleManifestHash,
+  };
+  const staleKek = {
+    ...currentKek,
+    accessManifestHash: staleManifestHash,
+    containerKeyEpochId: "container-key-epoch-stale",
+    containerKeyEpoch: 1,
+    keyEpochHash: staleKeyEpochHash,
+    keyTargetHash: staleKeyTargetHash,
+  };
+  const target = getOnlyTarget({
+    ...projection,
+    path: [staleManifest, ...projection.path],
+    containerKeks: [staleKek, ...projection.containerKeks],
+  });
+
+  expect(target).toEqual({
+    containerId: projection.containerId,
+    containerManifestHash: currentManifest.manifestHash,
+    containerKeyEpochId: currentKek.containerKeyEpochId,
+    containerKeyEpoch: currentKek.containerKeyEpoch,
+  });
+});
+
 test("persistedDocumentV2CreateStateFromResponse stores verified V2 create bundles", async () => {
   const { author } = await createAuthor();
   const projection = await createProjection();

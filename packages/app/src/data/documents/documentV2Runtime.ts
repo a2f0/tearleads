@@ -111,33 +111,23 @@ function sortDocumentTargets<T extends DocumentContentKeyTargetV2>(
 export function deriveDocumentV2CreateTargets(
   projection: ContainerV2WriterProjectionResponse,
 ): DocumentContentKeyTargetV2[] {
-  const targetManifest =
-    projection.path.find(
-      (bundle) => readManifestContainerId(bundle) === projection.containerId,
-    ) ?? projection.path[projection.path.length - 1];
+  const targetIndex = projection.path.length - 1;
+  const targetManifest = projection.path[targetIndex];
   if (!targetManifest) {
     throw new Error("Container writer projection path is empty");
   }
 
-  if (
-    readManifestContainerId(targetManifest) !== null &&
-    readManifestContainerId(targetManifest) !== projection.containerId
-  ) {
+  if (readManifestContainerId(targetManifest) !== projection.containerId) {
     throw new Error("Container writer projection target path is inconsistent");
   }
 
-  const targetKeks = projection.containerKeks.filter(
-    (kek) => kek.containerId === projection.containerId,
-  );
-  if (targetKeks.length !== 1) {
-    throw new Error("Container writer projection must include one target KEK");
-  }
-
-  const targetKek = targetKeks[0];
+  const targetKek = projection.containerKeks[targetIndex];
   if (!targetKek) {
     throw new Error("Container writer projection target KEK is unavailable");
   }
-
+  if (targetKek.containerId !== projection.containerId) {
+    throw new Error("Container writer projection target KEK is inconsistent");
+  }
   if (targetKek.accessManifestHash !== targetManifest.manifestHash) {
     throw new Error("Container writer projection target KEK is stale");
   }
