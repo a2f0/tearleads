@@ -495,8 +495,25 @@ test("isDocumentV2CreateRequest", () => {
 });
 
 test("isDocumentV2SyncRequest", () => {
+  const documentManifest = {
+    event: { eventId: "event-1" },
+    manifest: { version: 2 },
+    manifestHash: "document-link-set-hash",
+    state: { documentId: "document-1" },
+  };
   const validRequest = {
+    authorizingContainerPaths: [
+      [
+        {
+          event: { eventId: "container-event-1" },
+          manifest: { version: 2 },
+          manifestHash: "container-manifest-hash",
+          state: { containerId: "container-1" },
+        },
+      ],
+    ],
     contentKeyEpoch: 1,
+    documentManifest,
     expectedLinkSetManifestHash: "document-link-set-hash",
     expectedTargetHash: "target-hash",
     localVersionVector: null,
@@ -512,9 +529,30 @@ test("isDocumentV2SyncRequest", () => {
         writeHeader: { updateId: "update-1" },
       },
     ],
+    principalPolicies: [],
   };
 
   expect(isDocumentV2SyncRequest(validRequest)).toBe(true);
+  expect(
+    isDocumentV2SyncRequest({
+      ...validRequest,
+      documentManifest: undefined,
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2SyncRequest({
+      ...validRequest,
+      authorizingContainerPaths: undefined,
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2SyncRequest({
+      ...validRequest,
+      documentManifest: undefined,
+      authorizingContainerPaths: undefined,
+      outgoingUpdates: [],
+    }),
+  ).toBe(true);
   expect(
     isDocumentV2SyncRequest({
       ...validRequest,

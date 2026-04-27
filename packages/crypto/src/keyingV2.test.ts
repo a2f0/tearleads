@@ -28,8 +28,10 @@ import type {
   VerifiedAccessManifest,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
+  VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
+  WriteHeaderV2,
 } from "./keyingV2";
 import {
   accessManifestTransparencyLeaf,
@@ -559,39 +561,42 @@ async function createDocumentLinkSetManifestFixture(input: {
 async function createVerifiedContainerKekStateFixture(input: {
   readonly manifest: VerifiedContainerAccessManifest;
   readonly recipientUserId: string;
+  readonly recipientUserIds?: readonly string[];
 }): Promise<VerifiedContainerKekState> {
   const keyEpoch = await createContainerKeyEpochFixture({
     manifest: input.manifest,
   });
-  const recipientKeyFingerprint = await fixtureHash(
-    `${input.manifest.state.containerId}:recipient-key`,
+  const recipientUserIds = input.recipientUserIds ?? [input.recipientUserId];
+  const recipientKeys = await Promise.all(
+    recipientUserIds.map(async (userId) => {
+      const recipientKeyFingerprint = await fixtureHash(
+        `${input.manifest.state.containerId}:${userId}:recipient-key`,
+      );
+      return {
+        userId,
+        recipientKeyEpochId: ["user", userId, 1, recipientKeyFingerprint].join(
+          ":",
+        ),
+        recipientKeyFingerprint,
+      };
+    }),
   );
-  const recipientKeyEpochId = [
-    "user",
-    input.recipientUserId,
-    1,
-    recipientKeyFingerprint,
-  ].join(":");
   const result = await verifyContainerKekState({
     containerManifest: input.manifest,
     keyEpoch,
-    userRecipientKeys: [
-      {
-        userId: input.recipientUserId,
-        recipientKeyEpochId,
-        recipientKeyFingerprint,
-      },
-    ],
-    wraps: [
-      await createContainerKeyWrap({
-        containerKeyEpochId: keyEpoch.id,
-        recipientKind: "user",
-        recipientId: input.recipientUserId,
-        recipientKeyEpochId,
-        recipientKeyFingerprint,
-        wrapManifestHash: input.manifest.manifestHash,
-      }),
-    ],
+    userRecipientKeys: recipientKeys,
+    wraps: await Promise.all(
+      recipientKeys.map((recipient) =>
+        createContainerKeyWrap({
+          containerKeyEpochId: keyEpoch.id,
+          recipientKind: "user",
+          recipientId: recipient.userId,
+          recipientKeyEpochId: recipient.recipientKeyEpochId,
+          recipientKeyFingerprint: recipient.recipientKeyFingerprint,
+          wrapManifestHash: input.manifest.manifestHash,
+        }),
+      ),
+    ),
   });
 
   if (!result.ok) {
@@ -599,6 +604,65 @@ async function createVerifiedContainerKekStateFixture(input: {
   }
 
   return result.value;
+}
+
+async function deriveRequiredDocumentKekTargets(input: {
+  readonly containerKekStates: readonly VerifiedContainerKekState[];
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly linkedContainerManifests: readonly VerifiedContainerAccessManifest[];
+}): Promise<VerifiedDocumentKekTargets> {
+  const result = await deriveDocumentKekTargets(input);
+  if (!result.ok) {
+    throw result.error;
+  }
+
+  return result.value;
+}
+
+async function createWriteHeaderFixture(input: {
+  readonly accessManifestHash: string;
+  readonly contentRecordId?: string;
+  readonly contentKeyEpoch?: number;
+  readonly objectId: string;
+  readonly objectKind?: "blob" | "document";
+  readonly organizationId: string;
+  readonly signing: ReturnType<typeof generateSigningSeedAndKeyPair>;
+  readonly targetHash: string;
+  readonly writerUserId: string;
+}): Promise<WriteHeaderV2> {
+  const contentKeyEpoch = input.contentKeyEpoch ?? 1;
+  const contentRecordId =
+    input.contentRecordId ?? "11111111-1111-4111-8111-111111111111";
+
+  return signWriteHeader(
+    {
+      version: 2,
+      organizationId: input.organizationId,
+      objectKind: input.objectKind ?? "document",
+      objectId: input.objectId,
+      accessManifestHash: input.accessManifestHash,
+      contentKeyEpoch,
+      targetHash: input.targetHash,
+      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+      contentRecordId,
+      nonceDomainHash: await computeContentRecordNonceDomainHash({
+        version: 2,
+        organizationId: input.organizationId,
+        objectKind: input.objectKind ?? "document",
+        objectId: input.objectId,
+        contentKeyEpoch,
+        encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+        contentRecordId,
+      }),
+      metadataHash: await fixtureHash(`${contentRecordId}:metadata`),
+      ciphertextHash: await fixtureHash(`${contentRecordId}:ciphertext`),
+      writerUserId: input.writerUserId,
+      writerDeviceId: "device-1",
+      writerKeyFingerprint: await toFingerprint(input.signing.signingPublicKey),
+      signedAt: "2026-04-25T12:00:00.000Z",
+    },
+    input.signing.signingPrivateKey,
+  );
 }
 
 test("keying v2 canonical JSON sorts object keys deterministically", () => {
@@ -2754,4 +2818,258 @@ test("write headers are signed, hashed, and verified against expected targets", 
     writerPublicKey: signing.signingPublicKey,
   });
   expectVerificationError(badNonceDomain, "hash_mismatch");
+});
+
+test("write headers prove document write access through committed targets", async () => {
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const readerSigning = generateSigningSeedAndKeyPair();
+  const writerUserId = "writer-user";
+  const readerUserId = "reader-user";
+  const organizationId = "organization-write-proof";
+  const documentId = "document-write-proof";
+  const container = await createContainerManifestFixture({
+    containerId: "container-write-proof",
+    containerKeyEpochId: "container-write-proof-key-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+      {
+        subjectType: "user",
+        subjectId: readerUserId,
+        accessLevel: "read",
+      },
+    ],
+    organizationId,
+  });
+  const documentEvent = await createVerifiedDocumentAccessEvent({
+    body: {
+      eventType: "document.link",
+      containerId: container.state.containerId,
+      containerManifestHash: container.manifestHash,
+    },
+    dependencyManifestHashes: [container.manifestHash],
+    objectId: documentId,
+    organizationId,
+    previousManifestHash: null,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const documentManifest = await createDocumentLinkSetManifestFixture({
+    documentId,
+    event: documentEvent,
+    linkedContainerIds: [container.state.containerId],
+    organizationId,
+  });
+  const documentKekTargets = await deriveRequiredDocumentKekTargets({
+    containerKekStates: [
+      await createVerifiedContainerKekStateFixture({
+        manifest: container,
+        recipientUserId: writerUserId,
+        recipientUserIds: [writerUserId, readerUserId],
+      }),
+    ],
+    documentManifest,
+    linkedContainerManifests: [container],
+  });
+  const writerHeader = await createWriteHeaderFixture({
+    accessManifestHash: documentManifest.manifestHash,
+    objectId: documentId,
+    organizationId,
+    signing: writerSigning,
+    targetHash: documentKekTargets.documentKeyTargetHash,
+    writerUserId,
+  });
+
+  const verifiedWriter = await verifyWriteHeader({
+    documentAuthorization: {
+      authorizingContainerPaths: [[container]],
+      documentKekTargets,
+      documentManifest,
+    },
+    header: writerHeader,
+    writerPublicKey: writerSigning.signingPublicKey,
+  });
+  expect(verifiedWriter.ok).toBe(true);
+
+  const readerHeader = await createWriteHeaderFixture({
+    accessManifestHash: documentManifest.manifestHash,
+    contentRecordId: "22222222-2222-4222-8222-222222222222",
+    objectId: documentId,
+    organizationId,
+    signing: readerSigning,
+    targetHash: documentKekTargets.documentKeyTargetHash,
+    writerUserId: readerUserId,
+  });
+
+  expectVerificationError(
+    await verifyWriteHeader({
+      documentAuthorization: {
+        authorizingContainerPaths: [[container]],
+        documentKekTargets,
+        documentManifest,
+      },
+      header: readerHeader,
+      writerPublicKey: readerSigning.signingPublicKey,
+    }),
+    "unauthorized",
+  );
+});
+
+test("write header authorization covers every linked container target and historical state", async () => {
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const writerUserId = "writer-multi-link";
+  const organizationId = "organization-multi-link";
+  const documentId = "document-multi-link";
+  const writeContainer = await createContainerManifestFixture({
+    containerId: "container-multi-write",
+    containerKeyEpochId: "container-multi-write-key-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    organizationId,
+  });
+  const readContainer = await createContainerManifestFixture({
+    containerId: "container-multi-read",
+    containerKeyEpochId: "container-multi-read-key-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "read",
+      },
+    ],
+    organizationId,
+  });
+  const documentEvent = await createVerifiedDocumentAccessEvent({
+    body: {
+      eventType: "document.link",
+      containerId: writeContainer.state.containerId,
+      containerManifestHash: writeContainer.manifestHash,
+    },
+    dependencyManifestHashes: [writeContainer.manifestHash],
+    objectId: documentId,
+    organizationId,
+    previousManifestHash: null,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const documentManifest = await createDocumentLinkSetManifestFixture({
+    documentId,
+    event: documentEvent,
+    linkedContainerIds: [
+      writeContainer.state.containerId,
+      readContainer.state.containerId,
+    ],
+    organizationId,
+  });
+  const historicalTargets = await deriveRequiredDocumentKekTargets({
+    containerKekStates: [
+      await createVerifiedContainerKekStateFixture({
+        manifest: writeContainer,
+        recipientUserId: writerUserId,
+      }),
+      await createVerifiedContainerKekStateFixture({
+        manifest: readContainer,
+        recipientUserId: writerUserId,
+      }),
+    ],
+    documentManifest,
+    linkedContainerManifests: [writeContainer, readContainer],
+  });
+  const header = await createWriteHeaderFixture({
+    accessManifestHash: documentManifest.manifestHash,
+    objectId: documentId,
+    organizationId,
+    signing: writerSigning,
+    targetHash: historicalTargets.documentKeyTargetHash,
+    writerUserId,
+  });
+
+  const historicalVerification = await verifyWriteHeader({
+    documentAuthorization: {
+      authorizingContainerPaths: [[writeContainer]],
+      documentKekTargets: historicalTargets,
+      documentManifest,
+    },
+    header,
+    writerPublicKey: writerSigning.signingPublicKey,
+  });
+  expect(historicalVerification.ok).toBe(true);
+
+  const firstHistoricalTarget = historicalTargets.targets[0];
+  if (!firstHistoricalTarget) {
+    throw new Error("Expected at least one historical document target");
+  }
+  const partialTargetHash = await computeDocumentContentKeyTargetHash([
+    firstHistoricalTarget,
+  ]);
+  const partialHeader = await createWriteHeaderFixture({
+    accessManifestHash: documentManifest.manifestHash,
+    contentRecordId: "33333333-3333-4333-8333-333333333333",
+    objectId: documentId,
+    organizationId,
+    signing: writerSigning,
+    targetHash: partialTargetHash,
+    writerUserId,
+  });
+  expectVerificationError(
+    await verifyWriteHeader({
+      documentAuthorization: {
+        authorizingContainerPaths: [[writeContainer]],
+        documentKekTargets: historicalTargets,
+        documentManifest,
+      },
+      header: partialHeader,
+      writerPublicKey: writerSigning.signingPublicKey,
+    }),
+    "hash_mismatch",
+  );
+
+  const laterWriteContainer = await createContainerManifestFixture({
+    containerId: writeContainer.state.containerId,
+    containerKeyEpochId: "container-multi-write-key-2",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "read",
+      },
+    ],
+    epoch: 2,
+    organizationId,
+    previousManifestHash: writeContainer.manifestHash,
+  });
+  const laterTargets = await deriveRequiredDocumentKekTargets({
+    containerKekStates: [
+      await createVerifiedContainerKekStateFixture({
+        manifest: laterWriteContainer,
+        recipientUserId: writerUserId,
+      }),
+      await createVerifiedContainerKekStateFixture({
+        manifest: readContainer,
+        recipientUserId: writerUserId,
+      }),
+    ],
+    documentManifest,
+    linkedContainerManifests: [laterWriteContainer, readContainer],
+  });
+  expectVerificationError(
+    await verifyWriteHeader({
+      documentAuthorization: {
+        authorizingContainerPaths: [[laterWriteContainer]],
+        documentKekTargets: laterTargets,
+        documentManifest,
+      },
+      header,
+      writerPublicKey: writerSigning.signingPublicKey,
+    }),
+    "hash_mismatch",
+  );
 });

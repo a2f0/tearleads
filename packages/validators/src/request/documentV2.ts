@@ -53,8 +53,11 @@ export interface DocumentV2OutgoingUpdate {
 export interface DocumentV2SyncRequest {
   contentKeyBundle?: DocumentV2ContentKeyBundleRequest;
   contentKeyEpoch: number;
+  documentManifest?: DocumentV2ManifestBundle;
   expectedLinkSetManifestHash: string;
   expectedTargetHash: string;
+  authorizingContainerPaths?: Record<string, unknown>[][];
+  principalPolicies?: Record<string, unknown>[];
   localVersionVector: string | null;
   minLsn?: string;
   outgoingUpdates: DocumentV2OutgoingUpdate[];
@@ -230,22 +233,42 @@ export function isDocumentV2CreateRequest(
 export function isDocumentV2SyncRequest(
   value: unknown,
 ): value is DocumentV2SyncRequest {
+  const authorizingContainerPaths = isPlainObject(value)
+    ? Reflect.get(value, "authorizingContainerPaths")
+    : undefined;
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
+    : undefined;
+  const documentManifest = isPlainObject(value)
+    ? Reflect.get(value, "documentManifest")
     : undefined;
   const minLsn = isPlainObject(value)
     ? Reflect.get(value, "minLsn")
     : undefined;
+  const outgoingUpdates = isPlainObject(value)
+    ? Reflect.get(value, "outgoingUpdates")
+    : undefined;
+  const principalPolicies = isPlainObject(value)
+    ? Reflect.get(value, "principalPolicies")
+    : undefined;
+  const hasOutgoingUpdates =
+    Array.isArray(outgoingUpdates) && outgoingUpdates.length > 0;
 
   return (
     isPlainObject(value) &&
     (contentKeyBundle === undefined ||
       isDocumentV2ContentKeyBundleRequest(contentKeyBundle)) &&
+    (!hasOutgoingUpdates || isDocumentV2ManifestBundle(documentManifest)) &&
+    (documentManifest === undefined ||
+      isDocumentV2ManifestBundle(documentManifest)) &&
     hasPositiveNumberProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "expectedLinkSetManifestHash") &&
     value.expectedLinkSetManifestHash.length > 0 &&
     hasStringProperty(value, "expectedTargetHash") &&
     value.expectedTargetHash.length > 0 &&
+    (!hasOutgoingUpdates || isRecordArrayArray(authorizingContainerPaths)) &&
+    isOptionalRecordArrayArray(authorizingContainerPaths) &&
+    isOptionalRecordArray(principalPolicies) &&
     isNullableString(Reflect.get(value, "localVersionVector")) &&
     (minLsn === undefined || isWalLsnString(minLsn)) &&
     hasArrayProperty(value, "outgoingUpdates") &&
