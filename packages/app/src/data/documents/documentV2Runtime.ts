@@ -57,10 +57,11 @@ const DOCUMENT_V2_CONTENT_RECORD_METADATA_HASH_DOMAIN =
   "tearleads.document-v2.content-record-metadata.v1";
 const DOCUMENT_V2_CONTENT_RECORD_CIPHERTEXT_HASH_DOMAIN =
   "tearleads.document-v2.content-record-ciphertext.v1";
-const DOCUMENT_V2_CONTENT_RECORD_HKDF_SALT = new TextEncoder().encode(
-  "tearleads.document-v2.content-record-hkdf-salt.v1",
+const DOCUMENT_V2_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
+  new TextEncoder().encode("tearleads.document-v2.content-record-hkdf-salt.v1");
+const DOCUMENT_V2_CONTENT_RECORD_IV: Uint8Array<ArrayBuffer> = new Uint8Array(
+  12,
 );
-const DOCUMENT_V2_CONTENT_RECORD_IV = new Uint8Array(12);
 const TEXT_ENCODER = new TextEncoder();
 
 export interface DocumentV2CreateAuthor {
@@ -273,11 +274,11 @@ function readRecordNullableString(
   return value;
 }
 
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
+function asWebCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  if (!(bytes.buffer instanceof ArrayBuffer)) {
+    throw new Error("Document V2 byte material must be ArrayBuffer-backed");
+  }
+  return bytes as Uint8Array<ArrayBuffer>;
 }
 
 function normalizeContainerKeyWrap(value: unknown): ContainerKeyWrapV2 {
@@ -894,7 +895,7 @@ function contentRecordDerivationBytes(input: {
   contentRecordId: string;
   documentId: string;
   organizationId: string;
-}): Uint8Array {
+}): Uint8Array<ArrayBuffer> {
   return TEXT_ENCODER.encode(
     serializeKeyingV2CanonicalJson({
       domain: DOCUMENT_V2_CONTENT_RECORD_KEY_INFO_DOMAIN,
@@ -910,7 +911,7 @@ function contentRecordAdditionalDataBytes(input: {
   metadataHash: string;
   nonceDomainHash: string;
   organizationId: string;
-}): Uint8Array {
+}): Uint8Array<ArrayBuffer> {
   return TEXT_ENCODER.encode(
     serializeKeyingV2CanonicalJson({
       domain: DOCUMENT_V2_CONTENT_RECORD_AAD_DOMAIN,
@@ -932,7 +933,7 @@ async function deriveDocumentV2ContentRecordKey(input: {
 }): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
-    toArrayBuffer(input.contentKey),
+    asWebCryptoBytes(input.contentKey),
     "HKDF",
     false,
     ["deriveKey"],
@@ -942,8 +943,8 @@ async function deriveDocumentV2ContentRecordKey(input: {
     {
       name: "HKDF",
       hash: "SHA-256",
-      salt: toArrayBuffer(DOCUMENT_V2_CONTENT_RECORD_HKDF_SALT),
-      info: toArrayBuffer(contentRecordDerivationBytes(input)),
+      salt: DOCUMENT_V2_CONTENT_RECORD_HKDF_SALT,
+      info: contentRecordDerivationBytes(input),
     },
     keyMaterial,
     {
@@ -989,20 +990,18 @@ async function encryptDocumentV2PendingUpdate(input: {
     await crypto.subtle.encrypt(
       {
         name: "AES-GCM",
-        iv: toArrayBuffer(DOCUMENT_V2_CONTENT_RECORD_IV),
-        additionalData: toArrayBuffer(
-          contentRecordAdditionalDataBytes({
-            contentKeyEpoch: input.contentKeyEpoch,
-            contentRecordId,
-            documentId: input.documentId,
-            metadataHash,
-            nonceDomainHash,
-            organizationId: input.organizationId,
-          }),
-        ),
+        iv: DOCUMENT_V2_CONTENT_RECORD_IV,
+        additionalData: contentRecordAdditionalDataBytes({
+          contentKeyEpoch: input.contentKeyEpoch,
+          contentRecordId,
+          documentId: input.documentId,
+          metadataHash,
+          nonceDomainHash,
+          organizationId: input.organizationId,
+        }),
       },
       recordKey,
-      toArrayBuffer(base64ToBytes(input.update.updateData)),
+      asWebCryptoBytes(base64ToBytes(input.update.updateData)),
     ),
   );
   const encryptedData = serializeKeyingV2CanonicalJson({
