@@ -70,6 +70,10 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         as "documentContentKeyTargets",
       to_regclass('document_content_write_headers') is not null
         as "documentContentWriteHeaders",
+      to_regclass('blob_content_key_epochs') is not null
+        as "blobContentKeyEpochs",
+      to_regclass('blob_content_key_targets') is not null
+        as "blobContentKeyTargets",
       to_regclass('access_events_event_hash_idx') is not null
         as "accessEventsEventHashIndex",
       to_regclass('access_manifests_object_epoch_idx') is not null
@@ -88,6 +92,10 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         as "documentContentKeyTargetsEpochContainerIndex",
       to_regclass('document_content_write_headers_header_hash_idx') is not null
         as "documentContentWriteHeadersHeaderHashIndex",
+      to_regclass('blob_content_key_epochs_blob_epoch_idx') is not null
+        as "blobContentKeyEpochsBlobEpochIndex",
+      to_regclass('blob_content_key_targets_epoch_binding_container_idx') is not null
+        as "blobContentKeyTargetsEpochBindingContainerIndex",
       (
         select data_type
         from information_schema.columns
@@ -117,7 +125,13 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         from information_schema.columns
         where table_name = 'document_content_write_headers'
           and column_name = 'header'
-      ) = 'jsonb' as "documentContentWriteHeadersHeaderJsonb"
+      ) = 'jsonb' as "documentContentWriteHeadersHeaderJsonb",
+      (
+        select data_type
+        from information_schema.columns
+        where table_name = 'blob_content_key_targets'
+          and column_name = 'wrapping_metadata'
+      ) = 'jsonb' as "blobContentKeyTargetsMetadataJsonb"
   `);
 
   expect(result.rows[0]).toEqual({
@@ -132,6 +146,8 @@ test("V2 access manifest schema creates tables and indexes", async () => {
     documentContentKeyEpochs: true,
     documentContentKeyTargets: true,
     documentContentWriteHeaders: true,
+    blobContentKeyEpochs: true,
+    blobContentKeyTargets: true,
     accessEventsEventHashIndex: true,
     accessManifestsObjectEpochIndex: true,
     accessManifestHeadsObjectIndex: true,
@@ -141,10 +157,13 @@ test("V2 access manifest schema creates tables and indexes", async () => {
     documentContentKeyEpochsDocumentEpochIndex: true,
     documentContentKeyTargetsEpochContainerIndex: true,
     documentContentWriteHeadersHeaderHashIndex: true,
+    blobContentKeyEpochsBlobEpochIndex: true,
+    blobContentKeyTargetsEpochBindingContainerIndex: true,
     accessEventsDependenciesJsonb: true,
     accessEventsBodyJsonb: true,
     accessManifestsPrincipalHeadsJsonb: true,
     documentContentKeyTargetsMetadataJsonb: true,
     documentContentWriteHeadersHeaderJsonb: true,
+    blobContentKeyTargetsMetadataJsonb: true,
   });
 });

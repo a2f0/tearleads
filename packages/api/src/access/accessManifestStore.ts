@@ -170,6 +170,18 @@ async function insertAccessEvent(
   }
 }
 
+export async function storeVerifiedAccessEvent(
+  verifiedEvent: VerifiedAccessEvent,
+  executor: AccessManifestStoreExecutor = db,
+): Promise<VerifiedAccessEvent> {
+  if (executor === db) {
+    return db.transaction((tx) => storeVerifiedAccessEvent(verifiedEvent, tx));
+  }
+
+  await insertAccessEvent(verifiedEvent, executor);
+  return verifiedEvent;
+}
+
 async function ensureStoredAccessEventMatches(
   verifiedEvent: VerifiedAccessEvent,
   executor: AccessManifestStoreExecutor,
@@ -616,4 +628,33 @@ export async function listAccessManifestDocumentLinkProjection(
     .from(accessManifestDocumentLinkProjection)
     .where(eq(accessManifestDocumentLinkProjection.manifestHash, manifestHash))
     .orderBy(asc(accessManifestDocumentLinkProjection.containerId));
+}
+
+export async function listAccessManifestDocumentLinkProjections(
+  manifestHashes: readonly string[],
+  executor: AccessManifestStoreExecutor = db,
+): Promise<StoredAccessManifestDocumentLinkProjection[]> {
+  const uniqueManifestHashes = [...new Set(manifestHashes)].sort();
+
+  if (uniqueManifestHashes.length === 0) {
+    return [];
+  }
+
+  return executor
+    .select({
+      manifestHash: accessManifestDocumentLinkProjection.manifestHash,
+      documentId: accessManifestDocumentLinkProjection.documentId,
+      containerId: accessManifestDocumentLinkProjection.containerId,
+    })
+    .from(accessManifestDocumentLinkProjection)
+    .where(
+      inArray(
+        accessManifestDocumentLinkProjection.manifestHash,
+        uniqueManifestHashes,
+      ),
+    )
+    .orderBy(
+      asc(accessManifestDocumentLinkProjection.manifestHash),
+      asc(accessManifestDocumentLinkProjection.containerId),
+    );
 }
