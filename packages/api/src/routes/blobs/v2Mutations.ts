@@ -1,6 +1,4 @@
 import {
-  type BlobV2AttachmentBindRequest,
-  type BlobV2AttachmentDetachRequest,
   isBlobV2AttachmentBindRequest,
   isBlobV2AttachmentDetachRequest,
 } from "@tearleads/validators/request";
@@ -28,27 +26,23 @@ interface JsonValidationContext {
   json: (body: { readonly error: string }, status: 400) => Response;
 }
 
-function validateBlobV2AttachmentBindRequest(
-  value: unknown,
-  c: JsonValidationContext,
-) {
-  if (!isBlobV2AttachmentBindRequest(value)) {
-    return c.json({ error: "Invalid request" }, 400);
-  }
+function createRequestValidator<T>(isRequest: (value: unknown) => value is T) {
+  return (value: unknown, c: JsonValidationContext): T | Response => {
+    if (!isRequest(value)) {
+      return c.json({ error: "Invalid request" }, 400);
+    }
 
-  return value;
+    return value;
+  };
 }
 
-function validateBlobV2AttachmentDetachRequest(
-  value: unknown,
-  c: JsonValidationContext,
-) {
-  if (!isBlobV2AttachmentDetachRequest(value)) {
-    return c.json({ error: "Invalid request" }, 400);
-  }
+const validateBlobV2AttachmentBindRequest = createRequestValidator(
+  isBlobV2AttachmentBindRequest,
+);
 
-  return value;
-}
+const validateBlobV2AttachmentDetachRequest = createRequestValidator(
+  isBlobV2AttachmentDetachRequest,
+);
 
 export function createBlobV2MutationsRoute({
   requireAuth,
@@ -69,7 +63,7 @@ export function createBlobV2MutationsRoute({
           await bindBlobAttachmentV2(runtime, {
             blobId,
             fingerprint: session.fingerprint,
-            request: c.req.valid("json") as BlobV2AttachmentBindRequest,
+            request: c.req.valid("json"),
             userId: session.userId,
           }),
         );
@@ -98,7 +92,7 @@ export function createBlobV2MutationsRoute({
             bindingId,
             blobId,
             fingerprint: session.fingerprint,
-            request: c.req.valid("json") as BlobV2AttachmentDetachRequest,
+            request: c.req.valid("json"),
             userId: session.userId,
           }),
         );
