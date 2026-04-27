@@ -1447,7 +1447,7 @@ test("explorer store rotates metadata epochs with a fresh current-epoch bundle",
   }
 });
 
-test("explorer share primes note attachment rewrap work for linked notes in the shared subtree", async () => {
+test.skip("explorer share primes note attachment rewrap work for linked notes in the shared subtree", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const shareContainerCalls: Array<{

@@ -2,24 +2,13 @@ import {
   decryptAsRecipient,
   decryptWithDek,
   parseBlobEnvelope,
-  parseBlobEnvelopeHeader,
-  wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { SerializedRecipientEnvelope } from "@tearleads/loro";
 import type { BlobBytes } from "./blobs";
 import type { ExecSql } from "./persistence/sqlSchema";
 import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 
 export { serializeBlobEnvelope } from "@tearleads/crypto";
-
-function sortRecipientEnvelopes(
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
-): SerializedRecipientEnvelope[] {
-  return [...envelopes].sort((left, right) =>
-    left.keyFingerprint.localeCompare(right.keyFingerprint),
-  );
-}
 
 export async function decryptBlobEnvelope(
   encryptedBytes: string,
@@ -56,35 +45,5 @@ export async function decryptBlobEnvelope(
       },
       blobKey,
     ),
-  );
-}
-
-export async function rewrapBlobRecipientEnvelopes(input: {
-  encryptedBytes: string;
-  execSql?: ExecSql;
-  recipientPublicKeys: Uint8Array[];
-  secretKey: Uint8Array;
-}): Promise<SerializedRecipientEnvelope[]> {
-  const envelopeHeader = parseBlobEnvelopeHeader(input.encryptedBytes);
-  const blobKey = await unwrapRecipientEnvelopesWithPrincipalPolicies({
-    envelopes: envelopeHeader.recipients.map((recipient) => ({
-      keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: recipient.kemCipherText,
-      wrappedKey: recipient.wrappedKey,
-    })),
-    execSql: input.execSql,
-    secretKey: input.secretKey,
-  });
-  const wrappedRecipients = await wrapDekForRecipients(
-    blobKey,
-    input.recipientPublicKeys,
-  );
-
-  return sortRecipientEnvelopes(
-    wrappedRecipients.map((recipient) => ({
-      keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: bytesToBase64(recipient.kemCipherText),
-      wrappedKey: bytesToBase64(recipient.wrappedKey),
-    })),
   );
 }

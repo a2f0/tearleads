@@ -1,9 +1,8 @@
-import { bytesToHex, encryptForRecipients } from "@tearleads/crypto";
+import { bytesToHex } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
-  encryptLoroUpdate,
   exportAllUpdates,
   exportUpdatesSince,
   getTextValue,
@@ -18,27 +17,13 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../AppDataProvider";
-import {
-  decryptBlobEnvelope,
-  rewrapBlobRecipientEnvelopes,
-  serializeBlobEnvelope,
-} from "../blobEnvelope";
+import { decryptBlobEnvelope } from "../blobEnvelope";
 import type { BlobBytes, BlobStore } from "../blobs";
 import { getScopedPeerSeed } from "../crdtPeerSeed";
 import {
   createPendingUpdateFields,
-  decryptIncomingUpdates,
-  encryptPendingUpdates,
   getLocalRecipientPublicKeys,
-  getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
-  maybeSeedRewrappedDocumentRecipientEnvelopes,
-  parseDocumentRecipientEnvelopes,
-  requiresBaselineAfterDocumentEpochChange,
-  resolveIncomingUpdateDecryptionBatches,
-  resolveRecipientPublicKeys,
-  resolveSyncedDocumentRecipientEnvelopes,
-  serializeDocumentRecipientEnvelopes,
 } from "../documentSync";
 import {
   didRegainSyncPrerequisites,
@@ -68,34 +53,31 @@ import {
   type RelinkPersistedDocumentInput,
   sqlDocumentsPersistence,
 } from "./documentsPersistence";
+import {
+  createRemoteDocumentV2,
+  type DocumentV2CreateAuthor,
+  syncRemoteDocumentV2,
+} from "./documentV2Runtime";
 
 type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 type DocumentAppData = ReturnType<typeof useAppData>;
 type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["encapsulationKeyPair"]
 >;
+type DocumentRuntimeV2Api = Pick<
+  DocumentAppData["apiClient"],
+  | "createDocumentV2"
+  | "getContainerV2WriterProjection"
+  | "getDocumentV2WriterProjection"
+  | "syncDocumentV2"
+>;
+type DocumentRuntimeLegacyApi = Pick<
+  DocumentAppData["apiClient"],
+  "commitDocumentChange" | "createDocument" | "stageBlob" | "syncDocument"
+>;
 type DocumentAttachmentBinding = NonNullable<
   Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
 >[number];
-type DocumentEncryptionMaterial = Awaited<
-  ReturnType<typeof getOrCreateDocumentEncryptionMaterial>
->;
-type DocumentRecipientEnvelopes = ReturnType<
-  typeof parseDocumentRecipientEnvelopes
->;
-type CommitDocumentChangeResponse = NonNullable<
-  Awaited<ReturnType<DocumentsRuntime["apiClient"]["commitDocumentChange"]>>
->;
-type AttachmentCommitChange = {
-  expectedBindingId: string | null;
-  slotId: string;
-  stageId: string;
-};
-type AttachmentRewrapChange = {
-  expectedBindingId: string;
-  recipientEnvelopes: Awaited<ReturnType<typeof rewrapBlobRecipientEnvelopes>>;
-  slotId: string;
-};
 type PendingMutationSyncResult = {
   completed: boolean;
   nextRecord: DocumentRecord;
@@ -105,12 +87,8 @@ interface PersistedDocumentRecord {
   updatedAt: string;
 }
 interface DocumentSyncAttempt {
-  currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
-  encryptionMaterial: DocumentEncryptionMaterial | null;
   outgoingUpdateCount: number;
-  synced: NonNullable<
-    Awaited<ReturnType<DocumentsRuntime["apiClient"]["syncDocument"]>>
-  >;
+  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocumentV2>>>;
 }
 const DEFAULT_LOCAL_DOCUMENT_ID = "default";
 export const DEFAULT_DOCUMENT_ID = DEFAULT_LOCAL_DOCUMENT_ID;
@@ -144,14 +122,10 @@ function sameAttachmentStatuses(
 export interface DocumentsRuntime {
   apiClient: Pick<
     DocumentAppData["apiClient"],
-    | "commitDocumentChange"
-    | "createDocument"
-    | "getBlob"
-    | "listContainers"
-    | "listDocumentAttachments"
-    | "stageBlob"
-    | "syncDocument"
-  >;
+    "getBlob" | "listContainers" | "listDocumentAttachments"
+  > &
+    Partial<DocumentRuntimeLegacyApi> &
+    Partial<DocumentRuntimeV2Api>;
   blobStore: BlobStore;
   cacheReferencedPrincipalPolicies: DocumentAppData["cacheReferencedPrincipalPolicies"];
   containerId: DocumentAppData["containerId"];
@@ -173,13 +147,15 @@ function createDocumentsRuntimeApiClient(
   apiClient: DocumentAppData["apiClient"],
 ): DocumentsRuntime["apiClient"] {
   return {
-    commitDocumentChange: apiClient.commitDocumentChange.bind(apiClient),
-    createDocument: apiClient.createDocument.bind(apiClient),
+    createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
+    getContainerV2WriterProjection:
+      apiClient.getContainerV2WriterProjection.bind(apiClient),
+    getDocumentV2WriterProjection:
+      apiClient.getDocumentV2WriterProjection.bind(apiClient),
     getBlob: apiClient.getBlob.bind(apiClient),
     listContainers: apiClient.listContainers.bind(apiClient),
     listDocumentAttachments: apiClient.listDocumentAttachments.bind(apiClient),
-    stageBlob: apiClient.stageBlob.bind(apiClient),
-    syncDocument: apiClient.syncDocument.bind(apiClient),
+    syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
   };
 }
 
@@ -515,13 +491,6 @@ function setDocumentSnapshot(
   emitDocumentStore(state);
 }
 
-function updateDocumentRecipientPublicKeys(
-  state: DocumentStoreState,
-  encodedPublicKeys: string[],
-) {
-  state.recipientPublicKeys = resolveRecipientPublicKeys(encodedPublicKeys);
-}
-
 function resetDocumentStore(state: DocumentStoreState) {
   state.doc = null;
   state.record = null;
@@ -551,6 +520,53 @@ function canAttachFiles(state: DocumentStoreState): boolean {
   return (
     state.runtime.dbStatus === "ready" && !!state.runtime.encapsulationKeyPair
   );
+}
+
+function resolveDocumentV2Author(
+  runtime: DocumentsRuntime,
+): DocumentV2CreateAuthor | null {
+  if (
+    !runtime.organizationId ||
+    !runtime.signingFingerprint ||
+    !runtime.signingKeyPair ||
+    !runtime.userId
+  ) {
+    return null;
+  }
+
+  return {
+    organizationId: runtime.organizationId,
+    signerDeviceId: runtime.signingFingerprint,
+    signerKeyFingerprint: runtime.signingFingerprint,
+    signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
+    signerUserId: runtime.userId,
+  };
+}
+
+function resolveDocumentV2Api(
+  runtime: DocumentsRuntime,
+): DocumentRuntimeV2Api | null {
+  const {
+    createDocumentV2,
+    getContainerV2WriterProjection,
+    getDocumentV2WriterProjection,
+    syncDocumentV2,
+  } = runtime.apiClient;
+  if (
+    !createDocumentV2 ||
+    !getContainerV2WriterProjection ||
+    !getDocumentV2WriterProjection ||
+    !syncDocumentV2
+  ) {
+    return null;
+  }
+
+  return {
+    createDocumentV2,
+    getContainerV2WriterProjection,
+    getDocumentV2WriterProjection,
+    syncDocumentV2,
+  };
 }
 
 function getSnapshotAttachments(
@@ -630,28 +646,6 @@ async function createStoredDocument() {
   return createdDoc;
 }
 
-async function createEncryptedBlobUpload(
-  bytes: BlobBytes,
-  recipientKeys: Uint8Array[],
-): Promise<{
-  byteLength: number;
-  encryptedBytes: string;
-  sha256: string;
-}> {
-  const encryptedEnvelope = await encryptForRecipients(bytes, recipientKeys);
-  const encryptedBytes = serializeBlobEnvelope(encryptedEnvelope);
-  const encodedEnvelope = new TextEncoder().encode(encryptedBytes);
-  const digest = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", encodedEnvelope),
-  );
-
-  return {
-    byteLength: encodedEnvelope.byteLength,
-    encryptedBytes,
-    sha256: bytesToHex(digest),
-  };
-}
-
 async function saveDocumentRecord(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
@@ -682,6 +676,26 @@ async function saveDocumentRecord(
   };
 }
 
+type NullableDocumentRuntimeField =
+  | "documentRecipientEnvelopes"
+  | "lastCommitLsn"
+  | "v2ContentKeyBundle"
+  | "v2DocumentKekTargets"
+  | "v2DocumentManifestBundle";
+
+function resolveNullableDocumentRuntimeField(
+  patch: Partial<DocumentRecord>,
+  key: NullableDocumentRuntimeField,
+  currentValue: string | null | undefined,
+  resetWhenUnpatched = false,
+): string | null {
+  if (Object.hasOwn(patch, key)) {
+    return patch[key] ?? null;
+  }
+
+  return resetWhenUnpatched ? null : (currentValue ?? null);
+}
+
 async function persistDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -689,11 +703,7 @@ async function persistDocument(
 ): Promise<PersistedDocumentRecord> {
   const currentDocumentId = state.record?.documentId ?? null;
   const nextDocumentId = patch.documentId ?? currentDocumentId;
-  const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
-    patch,
-    "documentRecipientEnvelopes",
-  );
-  const hasLastCommitLsnPatch = Object.hasOwn(patch, "lastCommitLsn");
+  const documentIdChanged = nextDocumentId !== currentDocumentId;
   const nextRecord: DocumentRecord = {
     id: state.record?.id ?? state.localId,
     containerId:
@@ -702,20 +712,41 @@ async function persistDocument(
       state.runtime.containerId ??
       null,
     documentId: nextDocumentId,
-    documentRecipientEnvelopes: hasDocumentRecipientEnvelopesPatch
-      ? (patch.documentRecipientEnvelopes ?? null)
-      : (state.record?.documentRecipientEnvelopes ?? null),
+    documentRecipientEnvelopes: resolveNullableDocumentRuntimeField(
+      patch,
+      "documentRecipientEnvelopes",
+      state.record?.documentRecipientEnvelopes,
+    ),
     text: patch.text ?? getTextValue(currentDoc),
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
     accessEpoch: patch.accessEpoch ?? state.record?.accessEpoch ?? 1,
     accessStateHash:
       patch.accessStateHash ?? state.record?.accessStateHash ?? null,
-    lastCommitLsn: hasLastCommitLsnPatch
-      ? (patch.lastCommitLsn ?? null)
-      : nextDocumentId !== currentDocumentId
-        ? null
-        : (state.record?.lastCommitLsn ?? null),
+    lastCommitLsn: resolveNullableDocumentRuntimeField(
+      patch,
+      "lastCommitLsn",
+      state.record?.lastCommitLsn,
+      documentIdChanged,
+    ),
+    v2ContentKeyBundle: resolveNullableDocumentRuntimeField(
+      patch,
+      "v2ContentKeyBundle",
+      state.record?.v2ContentKeyBundle,
+      documentIdChanged,
+    ),
+    v2DocumentKekTargets: resolveNullableDocumentRuntimeField(
+      patch,
+      "v2DocumentKekTargets",
+      state.record?.v2DocumentKekTargets,
+      documentIdChanged,
+    ),
+    v2DocumentManifestBundle: resolveNullableDocumentRuntimeField(
+      patch,
+      "v2DocumentManifestBundle",
+      state.record?.v2DocumentManifestBundle,
+      documentIdChanged,
+    ),
   };
 
   const persistedRecord = await saveDocumentRecord(state, nextRecord);
@@ -727,6 +758,7 @@ async function ensureRemoteDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   nextRecord: DocumentRecord | null,
+  encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<DocumentRecord | null> {
   if (nextRecord?.documentId) {
     return nextRecord;
@@ -739,55 +771,32 @@ async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  const listedContainers = await state.runtime.apiClient.listContainers();
-  if (!listedContainers) {
+  const author = resolveDocumentV2Author(state.runtime);
+  const apiClient = resolveDocumentV2Api(state.runtime);
+  if (!author || !apiClient) {
     state.runtime.log(
-      "Documents: skipped remote create because container access state is unavailable.",
+      "Documents: skipped V2 remote create because the V2 writer context is unavailable.",
     );
     return nextRecord;
   }
 
-  const expectedAccessStateHash = listedContainers.find(
-    (container) => container.id === state.runtime.containerId,
-  )?.metadataAccessStateHash;
-  if (
-    typeof expectedAccessStateHash !== "string" ||
-    expectedAccessStateHash.length === 0
-  ) {
-    state.runtime.log(
-      "Documents: skipped remote create because the current container access state hash is unavailable.",
-    );
-    return nextRecord;
-  }
-
-  const created = await state.runtime.apiClient.createDocument(
-    [state.runtime.containerId],
-    {
-      [state.runtime.containerId]: expectedAccessStateHash,
-    },
-  );
+  const created = await createRemoteDocumentV2({
+    apiClient,
+    author,
+    containerId: state.runtime.containerId,
+    execSql: state.runtime.execSql,
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
   if (!created) {
     return nextRecord;
   }
 
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    created.referencedPrincipals,
-  );
-
-  updateDocumentRecipientPublicKeys(
-    state,
-    created.recipientEncapsulationPublicKeys,
-  );
-  state.runtime.log(`Created document: ${created.id}`);
+  state.runtime.log(`Created document: ${created.documentId}`);
 
   return (
     await persistDocument(state, currentDoc, {
-      documentId: created.id,
-      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-        created.documentRecipientEnvelopes,
-      ),
-      accessEpoch: created.currentAccessEpoch,
-      accessStateHash: created.currentAccessStateHash,
+      ...created.persistedState,
+      documentRecipientEnvelopes: null,
     })
   ).record;
 }
@@ -971,94 +980,6 @@ async function hydrateAttachmentBlobs(
   }
 }
 
-function isAttachmentSyncAlreadyPending(
-  state: DocumentStoreState,
-  slotId: string,
-): boolean {
-  return (
-    state.pendingAttachmentReplacements.some(
-      (pendingAttachmentReplacement) =>
-        pendingAttachmentReplacement.slotId === slotId,
-    ) ||
-    state.pendingAttachmentRewraps.some(
-      (pendingAttachmentRewrap) => pendingAttachmentRewrap.slotId === slotId,
-    ) ||
-    state.pendingAttachments.some(
-      (pendingAttachment) => pendingAttachment.slotId === slotId,
-    )
-  );
-}
-
-async function createPendingAttachmentRewrap(
-  state: DocumentStoreState,
-  slotId: string,
-  blobId: string,
-): Promise<PendingAttachmentRewrapRecord> {
-  const pendingAttachmentRewrap: PendingAttachmentRewrapRecord = {
-    blobId,
-    localId: state.localId,
-    slotId,
-  };
-  await state.persistence.savePendingAttachmentRewrap(
-    state.runtime.execSql,
-    pendingAttachmentRewrap,
-  );
-  return pendingAttachmentRewrap;
-}
-
-async function createPendingAttachmentReplacement(
-  state: DocumentStoreState,
-  slotId: string,
-  blobId: string | null,
-): Promise<PendingAttachmentReplacementRecord> {
-  const pendingAttachmentReplacement: PendingAttachmentReplacementRecord = {
-    blobId,
-    localId: state.localId,
-    slotId,
-  };
-  await state.persistence.savePendingAttachmentReplacement(
-    state.runtime.execSql,
-    pendingAttachmentReplacement,
-  );
-  return pendingAttachmentReplacement;
-}
-
-function mergePendingAttachmentRewraps(
-  state: DocumentStoreState,
-  nextPendingAttachmentRewraps: ReadonlyArray<PendingAttachmentRewrapRecord>,
-) {
-  const nextSlotIds = new Set(
-    nextPendingAttachmentRewraps.map(
-      (pendingAttachmentRewrap) => pendingAttachmentRewrap.slotId,
-    ),
-  );
-  state.pendingAttachmentRewraps = [
-    ...state.pendingAttachmentRewraps.filter(
-      (existingAttachmentRewrap) =>
-        !nextSlotIds.has(existingAttachmentRewrap.slotId),
-    ),
-    ...nextPendingAttachmentRewraps,
-  ];
-}
-
-function mergePendingAttachmentReplacements(
-  state: DocumentStoreState,
-  nextPendingAttachmentReplacements: ReadonlyArray<PendingAttachmentReplacementRecord>,
-) {
-  const nextSlotIds = new Set(
-    nextPendingAttachmentReplacements.map(
-      (pendingAttachmentReplacement) => pendingAttachmentReplacement.slotId,
-    ),
-  );
-  state.pendingAttachmentReplacements = [
-    ...state.pendingAttachmentReplacements.filter(
-      (existingAttachmentReplacement) =>
-        !nextSlotIds.has(existingAttachmentReplacement.slotId),
-    ),
-    ...nextPendingAttachmentReplacements,
-  ];
-}
-
 async function clearPendingAttachmentReplacementsForSlots(
   state: DocumentStoreState,
   slotIds: ReadonlyArray<string>,
@@ -1118,132 +1039,6 @@ async function queuePendingAttachmentUpload(
   upsertPendingAttachments(state, [pendingAttachment]);
   await clearPendingAttachmentReplacementsForSlots(state, [attachment.slotId]);
   return pendingAttachment;
-}
-
-async function queueCommittedAttachmentsForRewrap(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-): Promise<boolean> {
-  const currentAttachments = getDocumentAttachments(currentDoc);
-  if (currentAttachments.length === 0) {
-    return false;
-  }
-
-  const localAttachments = await listLocalAttachmentRecords(state);
-  const localAttachmentBySlotId = new Map(
-    localAttachments.map((attachment) => [attachment.slotId, attachment]),
-  );
-  const nextPendingAttachmentRewraps: PendingAttachmentRewrapRecord[] = [];
-
-  for (const attachment of currentAttachments) {
-    if (isAttachmentSyncAlreadyPending(state, attachment.slotId)) {
-      continue;
-    }
-
-    const localAttachment = localAttachmentBySlotId.get(attachment.slotId);
-    if (!localAttachment?.blobId) {
-      continue;
-    }
-
-    nextPendingAttachmentRewraps.push(
-      await createPendingAttachmentRewrap(
-        state,
-        attachment.slotId,
-        localAttachment.blobId,
-      ),
-    );
-  }
-
-  if (nextPendingAttachmentRewraps.length === 0) {
-    return false;
-  }
-
-  mergePendingAttachmentRewraps(state, nextPendingAttachmentRewraps);
-  return true;
-}
-
-async function queueCommittedAttachmentsForReplacement(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  documentId: string | null,
-): Promise<boolean> {
-  const currentAttachments = getDocumentAttachments(currentDoc);
-  if (currentAttachments.length === 0) {
-    return false;
-  }
-
-  const [localAttachments, currentBindings] = await Promise.all([
-    listLocalAttachmentRecords(state),
-    documentId ? listCurrentDocumentBindings(state, documentId) : null,
-  ]);
-  const localAttachmentBySlotId = new Map(
-    localAttachments.map((attachment) => [attachment.slotId, attachment]),
-  );
-  const currentBindingBySlotId = new Map(
-    (currentBindings ?? []).map((binding) => [binding.slotId, binding]),
-  );
-  const nextPendingAttachmentReplacements: PendingAttachmentReplacementRecord[] =
-    [];
-  let queuedUpload = false;
-
-  for (const attachment of currentAttachments) {
-    if (isAttachmentSyncAlreadyPending(state, attachment.slotId)) {
-      continue;
-    }
-
-    const localAttachment = localAttachmentBySlotId.get(attachment.slotId);
-    const localBytes = localAttachment
-      ? await state.runtime.blobStore.readBytes(localAttachment.storageKey)
-      : null;
-    if (localAttachment && localBytes) {
-      await queuePendingAttachmentUpload(
-        state,
-        attachment,
-        localAttachment.storageKey,
-      );
-      queuedUpload = true;
-      continue;
-    }
-
-    const currentBinding = currentBindingBySlotId.get(attachment.slotId);
-    nextPendingAttachmentReplacements.push(
-      await createPendingAttachmentReplacement(
-        state,
-        attachment.slotId,
-        localAttachment?.blobId ?? currentBinding?.blobId ?? null,
-      ),
-    );
-  }
-
-  if (nextPendingAttachmentReplacements.length > 0) {
-    mergePendingAttachmentReplacements(
-      state,
-      nextPendingAttachmentReplacements,
-    );
-  }
-
-  if (queuedUpload || nextPendingAttachmentReplacements.length > 0) {
-    setReadySnapshot(state, currentDoc, state.snapshot.syncing);
-    return true;
-  }
-
-  return false;
-}
-
-async function replacePendingUpdatesWithBaseline(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  sourceVersionVector?: string | null,
-) {
-  await state.persistence.deletePendingUpdates(
-    state.runtime.execSql,
-    state.localId,
-  );
-  await enqueuePendingUpdate(
-    state,
-    exportAllUpdates(currentDoc),
-    sourceVersionVector,
-  );
 }
 
 async function initializeDocumentStore(
@@ -1308,6 +1103,9 @@ async function initializeDocumentStore(
       accessEpoch: 1,
       accessStateHash: null,
       lastCommitLsn: null,
+      v2ContentKeyBundle: null,
+      v2DocumentKekTargets: null,
+      v2DocumentManifestBundle: null,
     };
     await saveDocumentRecord(state, created);
     if (state.initialText.length > 0) {
@@ -1438,561 +1236,40 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.snapshot.ready &&
     state.runtime.online &&
     state.runtime.isAuthenticated &&
-    state.runtime.encapsulationKeyPair !== null
+    state.runtime.encapsulationKeyPair !== null &&
+    resolveDocumentV2Author(state.runtime) !== null &&
+    resolveDocumentV2Api(state.runtime) !== null
   );
-}
-
-async function buildAttachmentCommits(
-  state: DocumentStoreState,
-  attachmentsToCommit: PendingAttachmentRecord[],
-  currentBindings: ReadonlyArray<DocumentAttachmentBinding>,
-): Promise<AttachmentCommitChange[] | null> {
-  const currentBindingBySlotId = new Map(
-    currentBindings.map((binding) => [binding.slotId, binding]),
-  );
-  const attachmentCommits: AttachmentCommitChange[] = [];
-
-  for (const attachment of attachmentsToCommit) {
-    const localBytes = await state.runtime.blobStore.readBytes(
-      attachment.storageKey,
-    );
-    if (!localBytes) {
-      state.runtime.log(
-        `Documents: missing local blob bytes for attachment ${attachment.slotId}.`,
-      );
-      return null;
-    }
-
-    const stagedBlob = await createEncryptedBlobUpload(
-      localBytes,
-      state.recipientPublicKeys,
-    );
-    const stage = await state.runtime.apiClient.stageBlob(stagedBlob);
-
-    if (!stage) {
-      return null;
-    }
-
-    attachmentCommits.push({
-      expectedBindingId:
-        currentBindingBySlotId.get(attachment.slotId)?.bindingId ?? null,
-      slotId: attachment.slotId,
-      stageId: stage.stageId,
-    });
-  }
-
-  return attachmentCommits;
-}
-
-async function buildAttachmentRewraps(
-  state: DocumentStoreState,
-  attachmentsToRewrap: PendingAttachmentRewrapRecord[],
-  currentBindings: ReadonlyArray<DocumentAttachmentBinding>,
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<AttachmentRewrapChange[] | null> {
-  const currentBindingBySlotId = new Map(
-    currentBindings.map((binding) => [binding.slotId, binding]),
-  );
-  const blobById = new Map<
-    string,
-    Awaited<ReturnType<DocumentsRuntime["apiClient"]["getBlob"]>>
-  >();
-  const attachmentRewraps: AttachmentRewrapChange[] = [];
-
-  for (const attachment of attachmentsToRewrap) {
-    const currentBinding = currentBindingBySlotId.get(attachment.slotId);
-    if (!currentBinding || currentBinding.blobId !== attachment.blobId) {
-      continue;
-    }
-
-    let blob = blobById.get(attachment.blobId);
-    if (!blob) {
-      blob = await state.runtime.apiClient.getBlob(attachment.blobId);
-      if (!blob) {
-        return null;
-      }
-      blobById.set(attachment.blobId, blob);
-    }
-
-    attachmentRewraps.push({
-      expectedBindingId: currentBinding.bindingId,
-      recipientEnvelopes: await rewrapBlobRecipientEnvelopes({
-        encryptedBytes: blob.encryptedBytes,
-        execSql: state.runtime.execSql,
-        recipientPublicKeys: state.recipientPublicKeys,
-        secretKey: encapsulationKeyPair.secretKey,
-      }),
-      slotId: attachment.slotId,
-    });
-  }
-
-  return attachmentRewraps;
-}
-
-async function commitBaselineChange(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  nextRemoteRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
-  attachmentCommits: AttachmentCommitChange[],
-  attachmentRewraps: AttachmentRewrapChange[],
-  sourceVersionVector: string | null,
-): Promise<CommitDocumentChangeResponse | null> {
-  if (!nextRemoteRecord.documentId) {
-    return null;
-  }
-  if (!nextRemoteRecord.accessStateHash) {
-    state.runtime.log(
-      "Documents: skipped attachment commit because the current access state hash is unavailable.",
-    );
-    return null;
-  }
-
-  const baselineUpdate = exportAllUpdates(currentDoc);
-  const baselineUpdateFields = createPendingUpdateFields(baselineUpdate);
-  if (!baselineUpdateFields) {
-    return null;
-  }
-
-  const currentDocumentRecipientEnvelopes = parseDocumentRecipientEnvelopes(
-    nextRemoteRecord.documentRecipientEnvelopes,
-  );
-  const { documentKey, documentRecipientEnvelopes } =
-    await getOrCreateDocumentEncryptionMaterial({
-      documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-      execSql: state.runtime.execSql,
-      recipientPublicKeys: state.recipientPublicKeys,
-      secretKey: encapsulationKeyPair.secretKey,
-    });
-  const encryptedBaseline = await encryptLoroUpdate(
-    baselineUpdate,
-    nextRemoteRecord.accessEpoch,
-    documentKey,
-  );
-
-  return state.runtime.apiClient.commitDocumentChange(
-    nextRemoteRecord.documentId,
-    {
-      accessEpoch: nextRemoteRecord.accessEpoch,
-      expectedAccessStateHash: nextRemoteRecord.accessStateHash,
-      attachmentCommits,
-      attachmentDetaches: [],
-      attachmentRewraps,
-      documentRecipientEnvelopes,
-      loroUpdate: {
-        checkpointKind: sourceVersionVector
-          ? "rotate_baseline"
-          : "fresh_baseline",
-        encryptedData: encryptedBaseline,
-        id: crypto.randomUUID(),
-        partialEndVersionVector: baselineUpdateFields.partialEndVersionVector,
-        partialStartVersionVector:
-          baselineUpdateFields.partialStartVersionVector,
-        referencedSlotIds: getDocumentAttachments(currentDoc).map(
-          (attachment) => attachment.slotId,
-        ),
-        sourceVersionVector:
-          sourceVersionVector ?? encodeVersionVector(currentDoc),
-      },
-    },
-  );
-}
-
-async function commitAttachmentRewrapChange(
-  state: DocumentStoreState,
-  nextRemoteRecord: DocumentRecord,
-  attachmentRewraps: AttachmentRewrapChange[],
-): Promise<CommitDocumentChangeResponse | null> {
-  if (!nextRemoteRecord.documentId) {
-    return null;
-  }
-  if (!nextRemoteRecord.accessStateHash) {
-    state.runtime.log(
-      "Documents: skipped attachment rewrap because the current access state hash is unavailable.",
-    );
-    return null;
-  }
-
-  return state.runtime.apiClient.commitDocumentChange(
-    nextRemoteRecord.documentId,
-    {
-      accessEpoch: nextRemoteRecord.accessEpoch,
-      expectedAccessStateHash: nextRemoteRecord.accessStateHash,
-      attachmentCommits: [],
-      attachmentDetaches: [],
-      attachmentRewraps,
-      loroUpdate: null,
-    },
-  );
-}
-
-async function saveCommittedAttachmentRecords(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  attachmentsToCommit: ReadonlyArray<PendingAttachmentRecord>,
-  committedBindings: CommitDocumentChangeResponse["committedBindings"],
-) {
-  const localAttachmentBySlotId = new Map(
-    attachmentsToCommit.map((attachment) => [attachment.slotId, attachment]),
-  );
-
-  for (const committedBinding of committedBindings) {
-    const localAttachment = localAttachmentBySlotId.get(
-      committedBinding.slotId,
-    );
-    if (!localAttachment) {
-      continue;
-    }
-
-    await saveLocalAttachmentRecord(
-      state,
-      {
-        blobId: committedBinding.blobId,
-        byteLength: localAttachment.byteLength,
-        localId: state.localId,
-        mimeType: localAttachment.mimeType,
-        slotId: localAttachment.slotId,
-        storageKey: localAttachment.storageKey,
-      },
-      currentDoc,
-    );
-  }
-}
-
-function getCurrentSyncState(state: DocumentStoreState): {
-  currentDoc: DocumentState;
-  currentRecord: DocumentRecord;
-} | null {
-  if (
-    !state.doc ||
-    !state.record ||
-    !state.runtime.online ||
-    !state.runtime.isAuthenticated
-  ) {
-    return null;
-  }
-
-  return {
-    currentDoc: state.doc,
-    currentRecord: state.record,
-  };
-}
-
-async function listCurrentDocumentBindings(
-  state: DocumentStoreState,
-  documentId: string,
-): Promise<ReadonlyArray<DocumentAttachmentBinding> | null> {
-  return state.runtime.apiClient.listDocumentAttachments(documentId);
-}
-
-async function runSerializedMutation(
-  state: DocumentStoreState,
-  nextRecord: DocumentRecord,
-  onError: string,
-  task: () => Promise<PendingMutationSyncResult>,
-): Promise<PendingMutationSyncResult> {
-  let result: PendingMutationSyncResult = {
-    completed: false,
-    nextRecord,
-  };
-
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () => {
-      result = await task();
-    })
-    .catch((error: unknown) => {
-      console.error(onError, error);
-    });
-
-  await state.writeChain;
-  return result;
-}
-
-async function runPendingAttachmentSyncTask(
-  state: DocumentStoreState,
-  nextRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<PendingMutationSyncResult> {
-  const currentSyncState = getCurrentSyncState(state);
-  if (!currentSyncState) {
-    return { completed: false, nextRecord };
-  }
-  const { currentDoc, currentRecord } = currentSyncState;
-
-  const nextRemoteRecord = await ensureRemoteDocument(
-    state,
-    currentDoc,
-    currentRecord,
-  );
-  if (!nextRemoteRecord?.documentId) {
-    return { completed: false, nextRecord };
-  }
-
-  const attachmentsToCommit = [...state.pendingAttachments];
-  if (attachmentsToCommit.length === 0) {
-    return { completed: false, nextRecord };
-  }
-
-  const currentBindings = await listCurrentDocumentBindings(
-    state,
-    nextRemoteRecord.documentId,
-  );
-  if (!currentBindings) {
-    return { completed: false, nextRecord };
-  }
-
-  const attachmentCommits = await buildAttachmentCommits(
-    state,
-    attachmentsToCommit,
-    currentBindings,
-  );
-  if (!attachmentCommits) {
-    return { completed: false, nextRecord };
-  }
-
-  const rotateBaselineSourceVersionVector =
-    (await listPendingUpdates(state)).find(
-      (pendingUpdate) => pendingUpdate.sourceVersionVector,
-    )?.sourceVersionVector ?? null;
-  const committed = await commitBaselineChange(
-    state,
-    currentDoc,
-    nextRemoteRecord,
-    encapsulationKeyPair,
-    attachmentCommits,
-    [],
-    rotateBaselineSourceVersionVector,
-  );
-  if (!committed) {
-    return { completed: false, nextRecord };
-  }
-
-  return {
-    completed: true,
-    nextRecord: await finalizePendingAttachmentSync(
-      state,
-      currentDoc,
-      nextRemoteRecord.documentId,
-      attachmentsToCommit,
-      committed,
-    ),
-  };
 }
 
 async function syncPendingAttachments(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
+  _encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
   if (state.pendingAttachments.length === 0) {
     return { completed: false, nextRecord };
   }
 
-  return runSerializedMutation(
-    state,
-    nextRecord,
-    "Failed to sync document attachments:",
-    () => runPendingAttachmentSyncTask(state, nextRecord, encapsulationKeyPair),
+  state.runtime.log(
+    "Documents: attachment upload sync is waiting for V2 attachment bindings.",
   );
-}
-
-async function clearSyncedPendingAttachments(
-  state: DocumentStoreState,
-  attachmentsToCommit: ReadonlyArray<PendingAttachmentRecord>,
-) {
-  const committedSlotIds = new Set(
-    attachmentsToCommit.map((attachmentToCommit) => attachmentToCommit.slotId),
-  );
-  state.pendingAttachments = state.pendingAttachments.filter(
-    (pendingAttachment) => !committedSlotIds.has(pendingAttachment.slotId),
-  );
-  await state.persistence.deletePendingAttachments(
-    state.runtime.execSql,
-    state.localId,
-  );
-  await state.persistence.deletePendingUpdates(
-    state.runtime.execSql,
-    state.localId,
-  );
-  await clearPendingAttachmentReplacementsForSlots(
-    state,
-    Array.from(committedSlotIds),
-  );
-}
-
-async function persistCommittedDocumentRecord(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  documentId: string,
-  committed: CommitDocumentChangeResponse,
-): Promise<DocumentRecord> {
-  return (
-    await persistDocument(state, currentDoc, {
-      accessEpoch: committed.currentAccessEpoch,
-      accessStateHash: committed.currentAccessStateHash,
-      documentId,
-      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-        committed.documentRecipientEnvelopes,
-      ),
-    })
-  ).record;
-}
-
-async function finalizePendingAttachmentSync(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  documentId: string,
-  attachmentsToCommit: ReadonlyArray<PendingAttachmentRecord>,
-  committed: CommitDocumentChangeResponse,
-): Promise<DocumentRecord> {
-  await saveCommittedAttachmentRecords(
-    state,
-    currentDoc,
-    attachmentsToCommit,
-    committed.committedBindings,
-  );
-  await clearSyncedPendingAttachments(state, attachmentsToCommit);
-  return persistCommittedDocumentRecord(
-    state,
-    currentDoc,
-    documentId,
-    committed,
-  );
-}
-
-async function clearPendingAttachmentRewraps(state: DocumentStoreState) {
-  state.pendingAttachmentRewraps = [];
-  await state.persistence.deletePendingAttachmentRewraps(
-    state.runtime.execSql,
-    state.localId,
-  );
-}
-
-async function clearSyncedPendingAttachmentRewraps(
-  state: DocumentStoreState,
-  attachmentsToRewrap: ReadonlyArray<PendingAttachmentRewrapRecord>,
-) {
-  const syncedSlotIds = new Set(
-    attachmentsToRewrap.map((attachmentToRewrap) => attachmentToRewrap.slotId),
-  );
-  state.pendingAttachmentRewraps = state.pendingAttachmentRewraps.filter(
-    (pendingAttachmentRewrap) =>
-      !syncedSlotIds.has(pendingAttachmentRewrap.slotId),
-  );
-  await state.persistence.deletePendingAttachmentRewraps(
-    state.runtime.execSql,
-    state.localId,
-  );
-}
-
-async function clearEmptyPendingAttachmentRewraps(
-  state: DocumentStoreState,
-  nextRecord: DocumentRecord,
-): Promise<PendingMutationSyncResult> {
-  await clearPendingAttachmentRewraps(state);
   return { completed: false, nextRecord };
-}
-
-async function finalizePendingAttachmentRewrapSync(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  documentId: string,
-  attachmentsToRewrap: ReadonlyArray<PendingAttachmentRewrapRecord>,
-  committed: CommitDocumentChangeResponse,
-): Promise<DocumentRecord> {
-  await clearSyncedPendingAttachmentRewraps(state, attachmentsToRewrap);
-  return persistCommittedDocumentRecord(
-    state,
-    currentDoc,
-    documentId,
-    committed,
-  );
-}
-
-async function runPendingAttachmentRewrapTask(
-  state: DocumentStoreState,
-  nextRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<PendingMutationSyncResult> {
-  const currentSyncState = getCurrentSyncState(state);
-  if (!currentSyncState) {
-    return { completed: false, nextRecord };
-  }
-  const { currentDoc, currentRecord } = currentSyncState;
-
-  const nextRemoteRecord = await ensureRemoteDocument(
-    state,
-    currentDoc,
-    currentRecord,
-  );
-  if (!nextRemoteRecord?.documentId) {
-    return { completed: false, nextRecord };
-  }
-
-  const attachmentsToRewrap = [...state.pendingAttachmentRewraps];
-  if (attachmentsToRewrap.length === 0) {
-    return { completed: false, nextRecord };
-  }
-
-  const currentBindings = await listCurrentDocumentBindings(
-    state,
-    nextRemoteRecord.documentId,
-  );
-  if (!currentBindings) {
-    return { completed: false, nextRecord };
-  }
-
-  const attachmentRewraps = await buildAttachmentRewraps(
-    state,
-    attachmentsToRewrap,
-    currentBindings,
-    encapsulationKeyPair,
-  );
-  if (!attachmentRewraps) {
-    return { completed: false, nextRecord };
-  }
-  if (attachmentRewraps.length === 0) {
-    return clearEmptyPendingAttachmentRewraps(state, nextRecord);
-  }
-
-  const committed = await commitAttachmentRewrapChange(
-    state,
-    nextRemoteRecord,
-    attachmentRewraps,
-  );
-  if (!committed) {
-    return { completed: false, nextRecord };
-  }
-
-  return {
-    completed: true,
-    nextRecord: await finalizePendingAttachmentRewrapSync(
-      state,
-      currentDoc,
-      nextRemoteRecord.documentId,
-      attachmentsToRewrap,
-      committed,
-    ),
-  };
 }
 
 async function syncPendingAttachmentRewraps(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
+  _encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
   if (state.pendingAttachmentRewraps.length === 0) {
     return { completed: false, nextRecord };
   }
 
-  return runSerializedMutation(
-    state,
-    nextRecord,
-    "Failed to rewrap document attachments:",
-    () =>
-      runPendingAttachmentRewrapTask(state, nextRecord, encapsulationKeyPair),
+  state.runtime.log(
+    "Documents: attachment rewrap sync is waiting for V2 attachment bindings.",
   );
+  return { completed: false, nextRecord };
 }
 
 async function ensureDocumentRecordForSync(
@@ -2000,12 +1277,18 @@ async function ensureDocumentRecordForSync(
   currentDoc: DocumentState,
   nextRecord: DocumentRecord,
   pendingUpdates: PendingUpdateRecord[],
+  encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<DocumentRecord | null> {
   if (nextRecord.documentId || pendingUpdates.length === 0) {
     return nextRecord;
   }
 
-  return ensureRemoteDocument(state, currentDoc, nextRecord);
+  return ensureRemoteDocument(
+    state,
+    currentDoc,
+    nextRecord,
+    encapsulationKeyPair,
+  );
 }
 
 async function requestDocumentSync(
@@ -2019,59 +1302,31 @@ async function requestDocumentSync(
     return null;
   }
 
-  const currentDocumentRecipientEnvelopes = parseDocumentRecipientEnvelopes(
-    currentRecord.documentRecipientEnvelopes,
-  );
-  const encryptionMaterial =
-    pendingUpdates.length > 0
-      ? await getOrCreateDocumentEncryptionMaterial({
-          documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-          execSql: state.runtime.execSql,
-          recipientPublicKeys: state.recipientPublicKeys,
-          secretKey: encapsulationKeyPair.secretKey,
-        })
-      : null;
-  const outgoingUpdates = encryptionMaterial
-    ? await encryptPendingUpdates(
-        pendingUpdates,
-        currentRecord.accessEpoch,
-        encryptionMaterial.documentKey,
-      )
-    : [];
-  let synced = await state.runtime.apiClient.syncDocument(
-    currentRecord.documentId,
-    currentRecord.accessEpoch,
-    encodeVersionVector(currentDoc),
-    outgoingUpdates,
-    encryptionMaterial && currentDocumentRecipientEnvelopes === null
-      ? encryptionMaterial.documentRecipientEnvelopes
-      : undefined,
-    currentRecord.lastCommitLsn ?? undefined,
-    currentRecord.accessStateHash ?? undefined,
-  );
-  if (!synced) {
+  const author = resolveDocumentV2Author(state.runtime);
+  const apiClient = resolveDocumentV2Api(state.runtime);
+  if (!author || !apiClient) {
+    state.runtime.log(
+      "Documents: skipped V2 sync because the V2 writer context is unavailable.",
+    );
     return null;
   }
 
-  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
-    currentAccessEpoch: currentRecord.accessEpoch,
-    currentDocumentRecipientEnvelopes,
+  const synced = await syncRemoteDocumentV2({
+    apiClient,
+    author,
     documentId: currentRecord.documentId,
     execSql: state.runtime.execSql,
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
-    recipientPublicKeys: state.recipientPublicKeys,
-    secretKey: encapsulationKeyPair.secretKey,
-    syncDocument: state.runtime.apiClient.syncDocument.bind(
-      state.runtime.apiClient,
-    ),
-    synced,
+    pendingUpdates,
+    targetSecretKey: encapsulationKeyPair.secretKey,
   });
+  if (!synced) {
+    return null;
+  }
 
   return {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdateCount: outgoingUpdates.length,
+    outgoingUpdateCount: pendingUpdates.length,
     synced,
   };
 }
@@ -2086,112 +1341,48 @@ async function requestDocumentSyncProbe(
     return null;
   }
 
-  const currentDocumentRecipientEnvelopes = parseDocumentRecipientEnvelopes(
-    currentRecord.documentRecipientEnvelopes,
-  );
-  let synced = await state.runtime.apiClient.syncDocument(
-    currentRecord.documentId,
-    currentRecord.accessEpoch,
-    encodeVersionVector(currentDoc),
-    [],
-    undefined,
-    currentRecord.lastCommitLsn ?? undefined,
-  );
-  if (!synced) {
+  const author = resolveDocumentV2Author(state.runtime);
+  const apiClient = resolveDocumentV2Api(state.runtime);
+  if (!author || !apiClient) {
+    state.runtime.log(
+      "Documents: skipped V2 sync probe because the V2 writer context is unavailable.",
+    );
     return null;
   }
 
-  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
-    currentAccessEpoch: currentRecord.accessEpoch,
-    currentDocumentRecipientEnvelopes,
+  const synced = await syncRemoteDocumentV2({
+    apiClient,
+    author,
     documentId: currentRecord.documentId,
     execSql: state.runtime.execSql,
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
-    recipientPublicKeys: state.recipientPublicKeys,
-    secretKey: encapsulationKeyPair.secretKey,
-    syncDocument: state.runtime.apiClient.syncDocument.bind(
-      state.runtime.apiClient,
-    ),
-    synced,
+    pendingUpdates: [],
+    targetSecretKey: encapsulationKeyPair.secretKey,
   });
+  if (!synced) {
+    return null;
+  }
 
   return {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial: null,
     outgoingUpdateCount: 0,
     synced,
   };
 }
 
-function resolveNextDocumentRecipientEnvelopes(
-  currentRecord: DocumentRecord,
-  syncAttempt: DocumentSyncAttempt,
-): DocumentRecipientEnvelopes {
-  const { currentDocumentRecipientEnvelopes, encryptionMaterial, synced } =
-    syncAttempt;
-
-  return resolveSyncedDocumentRecipientEnvelopes({
-    currentAccessEpoch: currentRecord.accessEpoch,
-    currentDocumentRecipientEnvelopes,
-    generatedDocumentRecipientEnvelopes:
-      encryptionMaterial?.documentRecipientEnvelopes ?? null,
-    synced,
-  });
-}
-
 async function applyIncomingSyncedUpdates(
   state: DocumentStoreState,
   currentDoc: DocumentState,
-  synced: DocumentSyncAttempt["synced"],
-  currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes,
-  nextDocumentRecipientEnvelopes: DocumentRecipientEnvelopes,
-  previousAccessEpoch: number,
-  encapsulationKeyPair: EncapsulationKeyPair,
+  syncAttempt: DocumentSyncAttempt,
 ) {
-  if (synced.updates.length === 0) {
+  if (syncAttempt.synced.decryptedUpdates.length === 0) {
     return;
   }
 
-  const decryptionBatches = resolveIncomingUpdateDecryptionBatches({
-    currentDocumentRecipientEnvelopes,
-    nextDocumentRecipientEnvelopes,
-    previousAccessEpoch,
-    synced,
-  });
-
-  if (decryptionBatches.length === 0) {
-    state.runtime.log(
-      "Documents: skipped incoming updates because the current document key bundle is missing.",
-    );
-    return;
-  }
-
-  let importedUpdates = 0;
-  for (const decryptionBatch of decryptionBatches) {
-    const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-      documentRecipientEnvelopes: decryptionBatch.documentRecipientEnvelopes,
-      execSql: state.runtime.execSql,
-      recipientPublicKeys: state.recipientPublicKeys,
-      secretKey: encapsulationKeyPair.secretKey,
-    });
-    const decrypted = await decryptIncomingUpdates(
-      decryptionBatch.updates,
-      decryptionBatch.accessEpoch,
-      documentKey,
-      (message) => state.runtime.log(`Documents: ${message}`),
-    );
-    if (decrypted.length === 0) {
-      continue;
-    }
-
-    importUpdates(currentDoc, decrypted);
-    importedUpdates += decrypted.length;
-  }
-
-  if (importedUpdates === 0) {
-    return;
-  }
+  importUpdates(
+    currentDoc,
+    syncAttempt.synced.decryptedUpdates.map((update) => update.updateData),
+  );
 
   setReadySnapshot(state, currentDoc, true);
 }
@@ -2201,90 +1392,31 @@ async function finalizeDocumentSync(
   currentDoc: DocumentState,
   currentRecord: DocumentRecord,
   syncAttempt: DocumentSyncAttempt,
-  encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
-  updateDocumentRecipientPublicKeys(
-    state,
-    synced.recipientEncapsulationPublicKeys,
-  );
 
-  for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
+  for (const acceptedOutgoingUpdateId of synced.response
+    .acceptedOutgoingUpdateIds) {
     await deletePendingUpdate(state, acceptedOutgoingUpdateId);
   }
 
-  const previousAccessEpoch = currentRecord.accessEpoch;
-  const nextDocumentRecipientEnvelopes = resolveNextDocumentRecipientEnvelopes(
-    currentRecord,
-    syncAttempt,
-  );
-  await applyIncomingSyncedUpdates(
-    state,
-    currentDoc,
-    synced,
-    syncAttempt.currentDocumentRecipientEnvelopes,
-    nextDocumentRecipientEnvelopes,
-    previousAccessEpoch,
-    encapsulationKeyPair,
-  );
+  await applyIncomingSyncedUpdates(state, currentDoc, syncAttempt);
 
   const { record: nextRecord } = await persistDocument(state, currentDoc, {
-    documentId: currentRecord.documentId,
-    accessEpoch: synced.currentAccessEpoch,
-    accessStateHash: synced.currentAccessStateHash,
-    documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-      nextDocumentRecipientEnvelopes,
-    ),
-    lastCommitLsn: synced.commitLsn ?? currentRecord.lastCommitLsn ?? null,
+    ...synced.persistedState,
+    documentRecipientEnvelopes: null,
+    lastCommitLsn:
+      synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
   });
-  const rotatedAccessEpoch =
-    synced.currentAccessEpoch !== previousAccessEpoch &&
-    synced.documentRecipientEnvelopeAction === "rotate";
-
-  if (synced.currentAccessEpoch !== previousAccessEpoch) {
-    if (rotatedAccessEpoch) {
-      await clearPendingAttachmentRewraps(state);
-      await replacePendingUpdatesWithBaseline(
-        state,
-        currentDoc,
-        synced.rotateBaselineSourceVersionVector,
-      );
-      await hydrateAttachmentBlobs(state, currentDoc, nextRecord);
-      const queuedReplacement = await queueCommittedAttachmentsForReplacement(
-        state,
-        currentDoc,
-        nextRecord.documentId,
-      );
-      if (queuedReplacement) {
-        state.runtime.log(
-          "Documents: document epoch rotated; committed attachments were queued for replacement.",
-        );
-      }
-    } else {
-      await queueCommittedAttachmentsForRewrap(state, currentDoc);
-      if (
-        requiresBaselineAfterDocumentEpochChange({
-          previousAccessEpoch,
-          resolvedDocumentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
-          synced,
-        })
-      ) {
-        await replacePendingUpdatesWithBaseline(state, currentDoc);
-      }
-    }
-    requestDocumentStoreSync(state);
-  }
 
   if (
-    synced.canonicalDocumentRecipientEnvelopesAdopted ||
-    syncAttempt.outgoingUpdateCount > synced.acceptedOutgoingUpdateIds.length
+    syncAttempt.outgoingUpdateCount >
+    synced.response.acceptedOutgoingUpdateIds.length
   ) {
     requestDocumentStoreSync(state);
   }
 
-  if (!rotatedAccessEpoch) {
-    await hydrateAttachmentBlobs(state, currentDoc, nextRecord);
-  }
+  await hydrateAttachmentBlobs(state, currentDoc, nextRecord);
   return nextRecord;
 }
 
@@ -2300,6 +1432,7 @@ async function syncDocumentState(
     currentDoc,
     nextRecord,
     pendingUpdates,
+    encapsulationKeyPair,
   );
   if (!nextRemoteRecord?.documentId) {
     return nextRecord;
@@ -2316,17 +1449,7 @@ async function syncDocumentState(
     return nextRemoteRecord;
   }
 
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    syncAttempt.synced.referencedPrincipals,
-  );
-
-  return finalizeDocumentSync(
-    state,
-    currentDoc,
-    nextRemoteRecord,
-    syncAttempt,
-    encapsulationKeyPair,
-  );
+  return finalizeDocumentSync(state, currentDoc, nextRemoteRecord, syncAttempt);
 }
 
 async function refreshRemoteDocumentBeforePendingAttachmentMutation(
@@ -2353,22 +1476,17 @@ async function refreshRemoteDocumentBeforePendingAttachmentMutation(
     return { completed: false, nextRecord };
   }
 
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    syncAttempt.synced.referencedPrincipals,
-  );
-
   const refreshedRecord = await finalizeDocumentSync(
     state,
     currentDoc,
     nextRecord,
     syncAttempt,
-    encapsulationKeyPair,
   );
 
   return {
     completed:
-      refreshedRecord.accessEpoch !== nextRecord.accessEpoch ||
-      syncAttempt.synced.canonicalDocumentRecipientEnvelopesAdopted,
+      refreshedRecord.lastCommitLsn !== nextRecord.lastCommitLsn ||
+      syncAttempt.synced.decryptedUpdates.length > 0,
     nextRecord: refreshedRecord,
   };
 }
@@ -2401,6 +1519,9 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     encapsulationKeyPair,
   );
   nextRecord = attachmentResult.nextRecord;
+  if (state.pendingAttachments.length > 0) {
+    return;
+  }
   if (attachmentResult.completed) {
     requestDocumentStoreSync(state);
     return;
@@ -2412,6 +1533,9 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     encapsulationKeyPair,
   );
   nextRecord = rewrapResult.nextRecord;
+  if (state.pendingAttachmentRewraps.length > 0) {
+    return;
+  }
   if (rewrapResult.completed) {
     requestDocumentStoreSync(state);
     return;
@@ -2967,7 +2091,11 @@ export function DocumentsProvider({
     runtime.encapsulationKeyPair,
     runtime.isAuthenticated,
     runtime.online,
+    runtime.organizationId,
+    runtime.signingFingerprint,
+    runtime.signingKeyPair,
     store,
+    runtime.userId,
   ]);
 
   return (
