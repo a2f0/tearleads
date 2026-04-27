@@ -1,21 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { encryptForRecipients, serializeBlobEnvelope } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
-import { createDocument } from "../../test/helpers/api/createDocument";
-import { authenticate } from "../../test/helpers/authenticate";
+import { createDocumentFixture } from "../../test/helpers/documentFixture";
 import { grantRootContainerWriteAccessToUser } from "../../test/helpers/grantContainerAccess";
 import { registerUser } from "../../test/helpers/registerUser";
 import { db } from "../adapters/postgres";
-import { blobs, objectRecipientEnvelopes } from "../schema";
-import {
-  attachBlobToDocument,
-  initializeBlobAccess,
-  replaceBlobRecipientEnvelopes,
-  resolveBlobAccessState,
-} from "./blobAccess";
+import { attachmentBindings, blobs, objectRecipientEnvelopes } from "../schema";
+import { resolveBlobAccessState } from "./blobAccess";
 import { resolveDocumentAccessState } from "./documentAccess";
 import type { RecipientPrincipalType } from "./recipientPrincipals";
 
@@ -29,16 +21,8 @@ function userPrincipal(userId: string): {
   };
 }
 
-async function createEncryptedBlobBytes(
-  plaintext: string,
-  encodedRecipientPublicKeys: string[],
-): Promise<string> {
-  const envelope = await encryptForRecipients(
-    new TextEncoder().encode(plaintext),
-    encodedRecipientPublicKeys.map((publicKey) => base64ToBytes(publicKey)),
-  );
-
-  return serializeBlobEnvelope(envelope);
+function encodedByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
 }
 
 test("blob access is derived from linked document access", async () => {
@@ -47,48 +31,32 @@ test("blob access is derived from linked document access", async () => {
 
   await registerUser(alice);
   await registerUser(bob);
-  await authenticate(alice);
 
-  const createDocumentResponse = await createDocument(alice.token, [
-    alice.rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
-  const documentId = String(createdDocument.id ?? "");
-  const encryptedBytes = await createEncryptedBlobBytes("blob-1-bytes", [
-    createdDocument.recipientEncapsulationPublicKeys[0],
-  ]);
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: alice.fingerprint,
+    linkedContainerIds: [alice.rootContainerId],
+  });
+  const documentId = createdDocument.id;
 
   const [blob] = await db
     .insert(blobs)
     .values({
-      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
-      encryptedBytes,
+      byteLength: encodedByteLength("blob-1-bytes"),
+      encryptedBytes: "blob-1-bytes",
       sha256: "blob-1-sha256",
       storageKey: "blob-1",
     })
     .returning({ id: blobs.id });
   invariant(blob, "expected blob row");
 
-  const blobEpoch = await attachBlobToDocument(blob.id, documentId, "slot_01");
-  expect(blobEpoch).toBeGreaterThan(0);
-  const initializedBlobEpoch = await initializeBlobAccess(blob.id);
-  expect(initializedBlobEpoch).toBeGreaterThan(0);
+  await db.insert(attachmentBindings).values({
+    blobId: blob.id,
+    documentId,
+    slotId: "slot_01",
+  });
 
   const beforeShare = await resolveBlobAccessState(blob.id);
   invariant(beforeShare, "expected blob access state");
-  await expect(
-    replaceBlobRecipientEnvelopes(
-      crypto.randomUUID(),
-      1,
-      beforeShare.cryptoRecipients,
-      beforeShare.cryptoRecipients.map((recipient) => ({
-        keyFingerprint: recipient.keyFingerprint,
-        kemCipherText: "",
-        wrappedKey: "wrapped-key",
-      })),
-    ),
-  ).rejects.toThrow("Blob recipient envelope is missing wrapped material");
   expect(
     beforeShare.effectiveRecipients.map((recipient) => ({
       principalId: recipient.principalId,
@@ -117,63 +85,62 @@ test("blob access is derived from linked document access", async () => {
   );
 });
 
-test("initializeBlobAccess does not rewrite recipient envelopes when access is unchanged", async () => {
+test("resolving blob access does not create direct recipient envelopes", async () => {
   const alice = createTestUser();
 
   await registerUser(alice);
-  await authenticate(alice);
 
-  const createDocumentResponse = await createDocument(alice.token, [
-    alice.rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
-  const documentId = String(createdDocument.id ?? "");
-  const encryptedBytes = await createEncryptedBlobBytes(
-    "blob-static-recipients-bytes",
-    createdDocument.recipientEncapsulationPublicKeys,
-  );
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: alice.fingerprint,
+    linkedContainerIds: [alice.rootContainerId],
+  });
+  const documentId = createdDocument.id;
 
   const [blob] = await db
     .insert(blobs)
     .values({
-      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
-      encryptedBytes,
+      byteLength: encodedByteLength("blob-static-recipients-bytes"),
+      encryptedBytes: "blob-static-recipients-bytes",
       sha256: "blob-static-recipients-sha256",
       storageKey: "blob-static-recipients",
     })
     .returning({ id: blobs.id });
   invariant(blob, "expected blob row");
 
-  const initialEpoch = await attachBlobToDocument(
-    blob.id,
+  await db.insert(attachmentBindings).values({
+    blobId: blob.id,
     documentId,
-    "slot_01",
-  );
+    slotId: "slot_01",
+  });
+
   const initialEnvelopes = await db
     .select({
       id: objectRecipientEnvelopes.id,
-      kemCipherText: objectRecipientEnvelopes.kemCipherText,
-      wrappedKey: objectRecipientEnvelopes.wrappedKey,
     })
     .from(objectRecipientEnvelopes)
-    .where(eq(objectRecipientEnvelopes.objectId, blob.id));
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, "blob"),
+        eq(objectRecipientEnvelopes.objectId, blob.id),
+      ),
+    );
 
-  expect(initialEnvelopes.length).toBeGreaterThan(0);
-  expect(initialEnvelopes.every((row) => !!row.kemCipherText)).toBe(true);
-  expect(initialEnvelopes.every((row) => !!row.wrappedKey)).toBe(true);
+  expect(initialEnvelopes).toHaveLength(0);
 
-  const recomputedEpoch = await initializeBlobAccess(blob.id);
-  expect(recomputedEpoch).toBe(initialEpoch);
+  const access = await resolveBlobAccessState(blob.id);
+  invariant(access, "expected blob access state");
 
   const recomputedEnvelopes = await db
     .select({
       id: objectRecipientEnvelopes.id,
     })
     .from(objectRecipientEnvelopes)
-    .where(eq(objectRecipientEnvelopes.objectId, blob.id));
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, "blob"),
+        eq(objectRecipientEnvelopes.objectId, blob.id),
+      ),
+    );
 
-  expect(recomputedEnvelopes.map((row) => row.id)).toEqual(
-    initialEnvelopes.map((row) => row.id),
-  );
+  expect(recomputedEnvelopes).toHaveLength(0);
 });

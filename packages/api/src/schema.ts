@@ -258,6 +258,9 @@ export const objectAccessEpochs = pgTable("object_access_epochs", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Legacy V1 direct recipient envelopes. V2 document/blob key delivery uses
+// container KEK wraps plus document/blob content-key target tables; structural
+// and write paths must not fan out descendant document/blob rows here.
 export const objectRecipientEnvelopes = pgTable(
   "object_recipient_envelopes",
   {

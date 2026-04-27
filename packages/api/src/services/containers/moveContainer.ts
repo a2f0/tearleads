@@ -16,7 +16,6 @@ import {
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import { containerMetadataDocuments, containers } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
-import { refreshAccessForLinkedContainers } from "../structural/shared";
 
 interface MoveContainerInput extends MoveContainerRequest {
   containerId: string;
@@ -164,17 +163,9 @@ async function moveContainerInTransaction(
     .set({ parentId: parent.id })
     .where(eq(containers.id, container.id));
 
-  const refreshedEpochs = await refreshContainerAccessSubtree(
-    container.id,
-    tx,
-    {
-      descendantContainers,
-    },
-  );
-  await refreshAccessForLinkedContainers(
-    Array.from(refreshedEpochs.keys()),
-    tx,
-  );
+  await refreshContainerAccessSubtree(container.id, tx, {
+    descendantContainers,
+  });
 
   return buildMoveContainerResponse(tx, container.id, parent.id);
 }

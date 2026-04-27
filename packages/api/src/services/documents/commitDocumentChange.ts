@@ -4,7 +4,6 @@ import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import {
   blobRecipientEnvelopesMatchRecipients,
   getBlobRecipientEnvelopeAction,
-  refreshBlobAccesses,
   replaceBlobRecipientEnvelopes,
   resolveBlobAccessState,
 } from "../../access/blobAccess";
@@ -47,6 +46,13 @@ import { appendDocumentUpdateAuditEntries } from "./documentAuditEntries";
 import { getRotateBaselineSourceError } from "./documentSyncStore";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 
+/**
+ * Legacy V1 direct-recipient document/blob commit implementation.
+ *
+ * The documents router no longer mounts this as an API write path. New V2
+ * document/blob writes must use content-key target tables instead of direct
+ * per-user recipient envelopes.
+ */
 type CommitChangeExecutor = DatabaseExecutor;
 type CommitChangeAccess = NonNullable<
   Awaited<ReturnType<typeof resolveDocumentAccessState>>
@@ -89,7 +95,7 @@ type CommitChangeTransactionResult = Omit<
   "currentAccessEpoch" | "currentAccessStateHash"
 >;
 
-export class CommitDocumentChangeError extends Error {
+class CommitDocumentChangeError extends Error {
   constructor(
     message: string,
     readonly status: 400 | 403 | 404 | 409 = 400,
@@ -119,14 +125,11 @@ function hasDuplicateValues(values: string[]): boolean {
 async function pruneUnreachableAttachmentBlobs(
   blobIds: string[],
   executor: CommitChangeExecutor,
-): Promise<{ activeBlobIds: string[]; prunedBlobIds: string[] }> {
+): Promise<string[]> {
   const uniqueBlobIds = uniqueSortedStrings(blobIds);
 
   if (uniqueBlobIds.length === 0) {
-    return {
-      activeBlobIds: [],
-      prunedBlobIds: [],
-    };
+    return [];
   }
 
   const activeRows = await executor
@@ -147,10 +150,7 @@ async function pruneUnreachableAttachmentBlobs(
   );
 
   if (orphanedBlobIds.length === 0) {
-    return {
-      activeBlobIds,
-      prunedBlobIds: [],
-    };
+    return [];
   }
 
   // V1 attachment retention is live-only: once no active binding references a
@@ -197,10 +197,7 @@ async function pruneUnreachableAttachmentBlobs(
     );
   await executor.delete(blobs).where(inArray(blobs.id, orphanedBlobIds));
 
-  return {
-    activeBlobIds,
-    prunedBlobIds: orphanedBlobIds,
-  };
+  return orphanedBlobIds;
 }
 
 async function ensureDocumentExists(
@@ -815,7 +812,7 @@ async function applyAttachmentRewraps(
     );
     if (blobRecipientEnvelopeAction === "rotate") {
       throw new CommitDocumentChangeError(
-        "Blob recipient envelopes require blob replacement after access shrink",
+        "Blob recipient envelopes require blob replacement after access target change",
         409,
       );
     }
@@ -945,10 +942,11 @@ async function executeCommitChangeTransaction(
     input.session,
   );
 
-  const { activeBlobIds, prunedBlobIds } =
-    await pruneUnreachableAttachmentBlobs(Array.from(affectedBlobIds), tx);
+  const prunedBlobIds = await pruneUnreachableAttachmentBlobs(
+    Array.from(affectedBlobIds),
+    tx,
+  );
   await markPrunedBlobAuditObjects(tx, prunedBlobIds);
-  await refreshBlobAccesses(activeBlobIds, tx);
 
   return {
     acceptedOutgoingUpdateIds: loroUpdateResult.acceptedOutgoingUpdateIds,

@@ -20,7 +20,6 @@
   },
   "devDependencies": {
     "@tearleads/bob-and-alice": "workspace:*",
-    "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:"
   }
 }

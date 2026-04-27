@@ -54,6 +54,12 @@ import {
 import { appendDocumentUpdateAuditEntries } from "./documentAuditEntries";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 
+/**
+ * Legacy V1 direct-recipient Loro sync store.
+ *
+ * The API no longer mounts its create/sync routes. V2 document sync uses this
+ * module only for persisted update reads until that query is split out.
+ */
 type DocumentSyncExecutor = DatabaseExecutor;
 type DocumentAccess = NonNullable<
   Awaited<ReturnType<typeof resolveDocumentAccessState>>

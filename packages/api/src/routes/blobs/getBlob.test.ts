@@ -1,16 +1,13 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { encryptForRecipients, serializeBlobEnvelope } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import {
-  commitDocumentChange,
-  createDocument,
-  stageBlob,
-} from "../../../test/helpers/api";
+import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createDocumentFixture } from "../../../test/helpers/documentFixture";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
+import { attachmentBindings, blobs } from "../../schema";
 
 const alice = createTestUser();
 
@@ -38,56 +35,35 @@ async function createStagedBlobInput(encryptedBytes: string) {
   };
 }
 
-async function createEncryptedBlobInput(
-  plaintext: string,
-  encodedRecipientPublicKeys: string[],
-) {
-  const envelope = await encryptForRecipients(
-    new TextEncoder().encode(plaintext),
-    encodedRecipientPublicKeys.map((publicKey) => base64ToBytes(publicKey)),
-  );
-
-  return createStagedBlobInput(serializeBlobEnvelope(envelope));
+async function createAliceDocumentFixture() {
+  return createDocumentFixture({
+    createdByFingerprint: alice.fingerprint,
+    linkedContainerIds: [alice.rootContainerId],
+  });
 }
 
 test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blobs", async () => {
-  const createDocumentResponse = await createDocument(alice.token, [
-    alice.rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
+  const createdDocument = await createAliceDocumentFixture();
   const documentId = String(createdDocument.id ?? "");
-  const stagedBlobInput = await createEncryptedBlobInput(
-    "encrypted-image-bytes",
-    createdDocument.recipientEncapsulationPublicKeys,
-  );
+  const stagedBlobInput = await createStagedBlobInput("encrypted-image-bytes");
 
-  const stageResponse = await stageBlob(stagedBlobInput, alice.token);
-  expect(stageResponse.status).toBe(200);
-  const stage = await stageResponse.json();
-
-  const commitResponse = await commitDocumentChange(
+  const [blob] = await db
+    .insert(blobs)
+    .values({
+      byteLength: stagedBlobInput.byteLength,
+      encryptedBytes: stagedBlobInput.encryptedBytes,
+      sha256: stagedBlobInput.sha256,
+      storageKey: crypto.randomUUID(),
+    })
+    .returning({ id: blobs.id });
+  invariant(blob, "expected blob row");
+  await db.insert(attachmentBindings).values({
+    blobId: blob.id,
     documentId,
-    {
-      accessEpoch: createdDocument.currentAccessEpoch,
-      attachmentCommits: [
-        {
-          slotId: "slot_image",
-          stageId: stage.stageId,
-          expectedBindingId: null,
-        },
-      ],
-      attachmentDetaches: [],
-      attachmentRewraps: [],
-      loroUpdate: null,
-    },
-    alice.token,
-  );
-  expect(commitResponse.status).toBe(200);
-  const commitBody = await commitResponse.json();
-  const blobId = String(commitBody.committedBindings[0]?.blobId ?? "");
+    slotId: "slot_image",
+  });
 
-  const blobResponse = await routeApp.request(`/blobs/${blobId}`, {
+  const blobResponse = await routeApp.request(`/blobs/${blob.id}`, {
     headers: {
       Authorization: `Bearer ${alice.token}`,
     },
@@ -96,7 +72,7 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
 
   expect(blobResponse.status).toBe(200);
   expect(await blobResponse.json()).toEqual({
-    blobId,
+    blobId: blob.id,
     encryptedBytes: stagedBlobInput.encryptedBytes,
     sha256: stagedBlobInput.sha256,
   });

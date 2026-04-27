@@ -30,10 +30,7 @@ import {
   isUserPrincipalRecipient,
 } from "./recipientPrincipals";
 
-export {
-  listDescendantContainerIds,
-  listDescendantContainers,
-} from "./containerAccessTree";
+export { listDescendantContainers } from "./containerAccessTree";
 export { ContainerCryptoRecipientResolutionError } from "./principalGrantResolver";
 
 const UUID_PATTERN =
