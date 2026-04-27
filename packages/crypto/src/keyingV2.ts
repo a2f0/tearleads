@@ -1107,30 +1107,30 @@ function normalizeCanonicalJsonValue(
   return normalized;
 }
 
-function stringifyCanonicalJson(value: KeyingV2CanonicalJson): string {
-  const normalizedValue = normalizeCanonicalJsonValue(value, "payload");
-
-  if (normalizedValue === null) {
+function stringifyNormalizedCanonicalJson(
+  value: KeyingV2CanonicalJson,
+): string {
+  if (value === null) {
     return "null";
   }
 
-  if (typeof normalizedValue === "string") {
-    return JSON.stringify(normalizedValue);
+  if (typeof value === "string") {
+    return JSON.stringify(value);
   }
 
-  if (typeof normalizedValue === "number") {
-    return JSON.stringify(normalizedValue);
+  if (typeof value === "number") {
+    return JSON.stringify(value);
   }
 
-  if (typeof normalizedValue === "boolean") {
-    return normalizedValue ? "true" : "false";
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
   }
 
-  if (Array.isArray(normalizedValue)) {
-    return `[${normalizedValue.map((item) => stringifyCanonicalJson(item)).join(",")}]`;
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stringifyNormalizedCanonicalJson(item)).join(",")}]`;
   }
 
-  const normalizedObject = normalizedValue as {
+  const normalizedObject = value as {
     readonly [key: string]: KeyingV2CanonicalJson;
   };
 
@@ -1141,9 +1141,15 @@ function stringifyCanonicalJson(value: KeyingV2CanonicalJson): string {
       if (item === undefined) {
         throwVerification("invalid_shape", `payload.${key} is undefined`);
       }
-      return `${JSON.stringify(key)}:${stringifyCanonicalJson(item)}`;
+      return `${JSON.stringify(key)}:${stringifyNormalizedCanonicalJson(item)}`;
     })
     .join(",")}}`;
+}
+
+function stringifyCanonicalJson(value: KeyingV2CanonicalJson): string {
+  return stringifyNormalizedCanonicalJson(
+    normalizeCanonicalJsonValue(value, "payload"),
+  );
 }
 
 function encodeDomainPayload(
@@ -2434,6 +2440,12 @@ async function verifyTrivialTransparencyConsistency(input: {
       throwVerification(
         "hash_mismatch",
         "empty transparency tree checkpoint root is invalid",
+      );
+    }
+    if (input.proof.nodeHashes.length !== 0) {
+      throwVerification(
+        "invalid_shape",
+        "transparency consistency proof for empty tree must be empty",
       );
     }
     return true;

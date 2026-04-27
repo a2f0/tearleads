@@ -1136,6 +1136,41 @@ test("verifyTransparencyProof verifies consistency from a pinned tree head", asy
   expectVerificationError(pinnedCheckpointSplitView, "hash_mismatch");
 });
 
+test("verifyTransparencyProof rejects non-empty consistency proofs from an empty tree", async () => {
+  const leaf = identityStateTransparencyLeaf({
+    identityId: "user-1",
+    version: 1,
+    stateHash: await fixtureHash("empty-consistency-leaf"),
+    previousStateHash: null,
+  });
+  const leafHashes = [await computeTransparencyLeafHash(leaf)];
+  const signing = generateSigningSeedAndKeyPair();
+  const emptyTree = await signTransparencyTreeHeadFixture({
+    leafHashes: [],
+    signing,
+  });
+  const newTree = await signTransparencyTreeHeadFixture({
+    leafHashes,
+    signing,
+  });
+
+  const result = await verifyTransparencyProof({
+    leaf,
+    inclusionProof: await createTransparencyInclusionProof(leafHashes, 0),
+    treeHead: newTree.treeHead,
+    previousTreeHead: emptyTree.treeHead,
+    consistencyProof: {
+      version: 2,
+      previousTreeSize: 0,
+      treeSize: 1,
+      nodeHashes: [await fixtureHash("unexpected-empty-consistency-node")],
+    },
+    logPublicKey: signing.signingPublicKey,
+  });
+
+  expectVerificationError(result, "invalid_shape");
+});
+
 test("verifyContainerAccessManifest accepts a signed child create under a writable parent", async () => {
   const adminUserId = "admin-user";
   const adminSigning = generateSigningSeedAndKeyPair();
