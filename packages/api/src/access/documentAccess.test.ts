@@ -5,8 +5,8 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import invariant from "invariant";
 import { createContainer } from "../../test/helpers/api/createContainer";
-import { createDocument } from "../../test/helpers/api/createDocument";
 import { authenticate } from "../../test/helpers/authenticate";
+import { createDocumentFixture } from "../../test/helpers/documentFixture";
 import {
   createPrincipalStateSigner,
   createProjectionWithAdminSigner,
@@ -26,11 +26,7 @@ import {
   grantContainerAccess,
   resolveContainerAccessState,
 } from "./containerAccess";
-import {
-  getDocumentRecipientEnvelopeAction,
-  putDocumentRecipientEnvelopes,
-  resolveDocumentAccessState,
-} from "./documentAccess";
+import { resolveDocumentAccessState } from "./documentAccess";
 import { storeVerifiedPrincipalState } from "./principalStateStore";
 import type { RecipientPrincipalType } from "./recipientPrincipals";
 
@@ -124,14 +120,12 @@ test("document access includes recipients inherited from its linked root contain
   await registerUser(bob);
   await authenticate(alice);
 
-  const createDocumentResponse = await createDocument(alice.token, [
-    alice.rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
-  const documentId = String(createdDocument.id ?? "");
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: alice.fingerprint,
+    linkedContainerIds: [alice.rootContainerId],
+  });
+  const documentId = createdDocument.id;
   expect(createdDocument.currentAccessEpoch).toBe(1);
-  expect(createdDocument.documentRecipientEnvelopes).toHaveLength(1);
 
   const [aliceRow] = await db
     .select({
@@ -173,32 +167,11 @@ test("document access includes recipients inherited from its linked root contain
     })
     .from(objectRecipientEnvelopes)
     .where(eq(objectRecipientEnvelopes.objectId, documentId));
-  expect(documentEnvelopes).toHaveLength(1);
-  expect(documentEnvelopes.every((row) => row.kemCipherText.length > 0)).toBe(
-    true,
-  );
-  expect(documentEnvelopes.every((row) => row.wrappedKey.length > 0)).toBe(
-    true,
-  );
+  expect(documentEnvelopes).toHaveLength(0);
 
   const beforeShare = await resolveDocumentAccessState(documentId);
   invariant(beforeShare, "expected document access state");
   expect(beforeShare.currentAccessEpoch).toBe(1);
-  await expect(
-    putDocumentRecipientEnvelopes(
-      crypto.randomUUID(),
-      1,
-      beforeShare,
-      beforeShare.cryptoRecipients.map((recipient) => ({
-        keyFingerprint: recipient.keyFingerprint,
-        kemCipherText: "",
-        wrappedKey: "wrapped-key",
-      })),
-    ),
-  ).rejects.toThrow("Document recipient envelope is missing wrapped material");
-  expect(
-    await getDocumentRecipientEnvelopeAction(documentId, beforeShare),
-  ).toBe("none");
   expect(
     beforeShare.effectiveRecipients.map((recipient) => ({
       principalId: recipient.principalId,
@@ -220,9 +193,6 @@ test("document access includes recipients inherited from its linked root contain
   const afterShare = await resolveDocumentAccessState(documentId);
   invariant(afterShare, "expected document access state after share");
   expect(afterShare.currentAccessEpoch).toBe(containerState.currentAccessEpoch);
-  expect(await getDocumentRecipientEnvelopeAction(documentId, afterShare)).toBe(
-    "rewrap",
-  );
   const recipientPrincipals = afterShare.effectiveRecipients
     .map((recipient) => ({
       principalId: recipient.principalId,
@@ -242,12 +212,11 @@ test("document access can reuse caller-provided linked container state", async (
   await registerUser(alice);
   await authenticate(alice);
 
-  const createDocumentResponse = await createDocument(alice.token, [
-    alice.rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
-  const documentId = String(createdDocument.id ?? "");
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: alice.fingerprint,
+    linkedContainerIds: [alice.rootContainerId],
+  });
+  const documentId = createdDocument.id;
 
   const [link] = await db
     .select({
@@ -317,11 +286,10 @@ test("document access includes referenced principal policy states from linked co
     accessLevel: "read",
   });
 
-  const createDocumentResponse = await createDocument(owner.token, [
-    childContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: owner.fingerprint,
+    linkedContainerIds: [childContainerId],
+  });
 
   const accessState = await resolveDocumentAccessState(createdDocument.id);
   invariant(accessState, "expected document access state");
@@ -341,11 +309,10 @@ test("document access is unavailable when a linked container has no current prin
   await registerUser(owner);
   await authenticate(owner);
 
-  const createDocumentResponse = await createDocument(owner.token, [
-    owner.rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: owner.fingerprint,
+    linkedContainerIds: [owner.rootContainerId],
+  });
 
   const [ownerRow] = await db
     .select({

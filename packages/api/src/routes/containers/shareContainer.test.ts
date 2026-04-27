@@ -7,7 +7,12 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { containers, groups, users } from "../../schema";
+import {
+  containers,
+  groups,
+  objectRecipientEnvelopes,
+  users,
+} from "../../schema";
 
 async function getRootContainerIdForUser(userId: string): Promise<string> {
   const [user] = await db
@@ -32,7 +37,15 @@ async function getRootContainerIdForUser(userId: string): Promise<string> {
   return rootContainer.id;
 }
 
-test("POST /containers/:containerId/share grants direct user access and bumps descendant metadata epochs", async () => {
+async function countObjectRecipientEnvelopes(): Promise<number> {
+  return (
+    await db
+      .select({ id: objectRecipientEnvelopes.id })
+      .from(objectRecipientEnvelopes)
+  ).length;
+}
+
+test("POST /containers/:containerId/share grants direct user access without descendant envelope fanout", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -59,6 +72,8 @@ test("POST /containers/:containerId/share grants direct user access and bumps de
   );
 
   expect(descendantCreateResponse.status).toBe(200);
+  const recipientEnvelopeCountBeforeShare =
+    await countObjectRecipientEnvelopes();
 
   const shareResponse = await routeApp.request(
     `/containers/${sharedContainerId}/share`,
@@ -78,6 +93,9 @@ test("POST /containers/:containerId/share grants direct user access and bumps de
   );
 
   expect(shareResponse.status).toBe(200);
+  expect(await countObjectRecipientEnvelopes()).toBe(
+    recipientEnvelopeCountBeforeShare,
+  );
   const shared = await shareResponse.json();
   expect(shared.id).toBe(sharedContainerId);
   expect(shared.metadataAccessEpoch).toBe(2);

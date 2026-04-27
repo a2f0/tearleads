@@ -142,15 +142,6 @@ export async function listDescendantContainers(
   return descendantContainers;
 }
 
-export async function listDescendantContainerIds(
-  containerId: string,
-  executor: ContainerAccessExecutor = db,
-): Promise<string[]> {
-  return (await listDescendantContainers(containerId, executor)).map(
-    (container) => container.id,
-  );
-}
-
 export async function resolveContainerRecipients(
   containerId: string,
   executor: ContainerAccessExecutor = db,

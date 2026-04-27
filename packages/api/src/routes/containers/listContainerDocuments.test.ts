@@ -4,9 +4,9 @@ import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { createDocument } from "../../../test/helpers/api";
 import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createDocumentFixture } from "../../../test/helpers/documentFixture";
 import {
   createPrincipalStateSigner,
   createProjectionWithAdminSigner,
@@ -94,9 +94,10 @@ test("GET /containers/:containerId/documents lists readable non-metadata documen
   await authenticate(owner);
 
   const rootContainerId = await getRootContainerIdForUser(owner.userId);
-  const createResponse = await createDocument(owner.token, [rootContainerId]);
-  expect(createResponse.status).toBe(200);
-  const createdDocument = await createResponse.json();
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: owner.fingerprint,
+    linkedContainerIds: [rootContainerId],
+  });
 
   const response = await routeApp.request(
     `/containers/${rootContainerId}/documents`,
@@ -140,11 +141,10 @@ test("GET /containers/:containerId/documents returns documents for directly shar
 
   expect(sharedContainerResponse.status).toBe(200);
 
-  const createDocumentResponse = await createDocument(owner.token, [
-    sharedContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: owner.fingerprint,
+    linkedContainerIds: [sharedContainerId],
+  });
 
   await grantContainerAccess({
     accessLevel: "read",
@@ -214,11 +214,10 @@ test("GET /containers/:containerId/documents includes referenced principal polic
 
   const groupState = await storeCurrentGroupState(group.id, [recipient.userId]);
 
-  const createDocumentResponse = await createDocument(owner.token, [
-    sharedContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: owner.fingerprint,
+    linkedContainerIds: [sharedContainerId],
+  });
 
   await grantContainerAccess({
     accessLevel: "read",

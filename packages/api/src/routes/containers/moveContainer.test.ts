@@ -7,7 +7,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { containers, users } from "../../schema";
+import { containers, objectRecipientEnvelopes, users } from "../../schema";
 
 async function getRootContainerIdForUser(userId: string): Promise<string> {
   const [user] = await db
@@ -54,7 +54,15 @@ async function createContainerForUser(input: {
   return response.json();
 }
 
-test("POST /containers/:containerId/move reparents the subtree and bumps descendant metadata epochs", async () => {
+async function countObjectRecipientEnvelopes(): Promise<number> {
+  return (
+    await db
+      .select({ id: objectRecipientEnvelopes.id })
+      .from(objectRecipientEnvelopes)
+  ).length;
+}
+
+test("POST /containers/:containerId/move reparents the subtree without descendant envelope fanout", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -79,6 +87,8 @@ test("POST /containers/:containerId/move reparents the subtree and bumps descend
     parentId: rootContainerId,
     token: owner.token,
   });
+  const recipientEnvelopeCountBeforeMove =
+    await countObjectRecipientEnvelopes();
 
   const moveResponse = await routeApp.request(
     `/containers/${sourceContainerId}/move`,
@@ -96,6 +106,9 @@ test("POST /containers/:containerId/move reparents the subtree and bumps descend
   );
 
   expect(moveResponse.status).toBe(200);
+  expect(await countObjectRecipientEnvelopes()).toBe(
+    recipientEnvelopeCountBeforeMove,
+  );
   expect(await moveResponse.json()).toEqual(
     expect.objectContaining({
       id: sourceContainerId,

@@ -1,21 +1,22 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { encryptForRecipients, serializeBlobEnvelope } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
-import { createDocument } from "../../../test/helpers/api/createDocument";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createDocumentFixture } from "../../../test/helpers/documentFixture";
 import { registerUser } from "../../../test/helpers/registerUser";
-import {
-  attachBlobToDocument,
-  resolveBlobAccessState,
-} from "../../access/blobAccess";
+import { resolveBlobAccessState } from "../../access/blobAccess";
 import { resolveDocumentAccessState } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { blobs, containers, users } from "../../schema";
+import {
+  attachmentBindings,
+  blobs,
+  containers,
+  objectRecipientEnvelopes,
+  users,
+} from "../../schema";
 
 async function getRootContainerIdForUser(userId: string): Promise<string> {
   const [user] = await db
@@ -61,19 +62,21 @@ async function createContainerForUser(input: {
   expect(response.status).toBe(200);
 }
 
-async function createEncryptedBlobBytes(
-  plaintext: string,
-  encodedRecipientPublicKeys: string[],
-): Promise<string> {
-  const envelope = await encryptForRecipients(
-    new TextEncoder().encode(plaintext),
-    encodedRecipientPublicKeys.map((publicKey) => base64ToBytes(publicKey)),
-  );
-
-  return serializeBlobEnvelope(envelope);
+async function countBlobRecipientEnvelopes(blobId: string): Promise<number> {
+  return (
+    await db
+      .select({ id: objectRecipientEnvelopes.id })
+      .from(objectRecipientEnvelopes)
+      .where(
+        and(
+          eq(objectRecipientEnvelopes.objectType, "blob"),
+          eq(objectRecipientEnvelopes.objectId, blobId),
+        ),
+      )
+  ).length;
 }
 
-test("document link and unlink routes bump document and blob access epochs", async () => {
+test("document link and unlink routes update access state without blob envelope fanout", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -86,29 +89,32 @@ test("document link and unlink routes bump document and blob access epochs", asy
     token: owner.token,
   });
 
-  const createDocumentResponse = await createDocument(owner.token, [
-    rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: owner.fingerprint,
+    linkedContainerIds: [rootContainerId],
+  });
   const documentId = String(createdDocument.id ?? "");
-  const encryptedBytes = await createEncryptedBlobBytes(
-    "blob-bytes",
-    createdDocument.recipientEncapsulationPublicKeys,
-  );
 
   const [blob] = await db
     .insert(blobs)
     .values({
-      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
-      encryptedBytes,
+      byteLength: "blob-bytes".length,
+      encryptedBytes: "blob-bytes",
       sha256: "structural-blob-sha256",
       storageKey: "structural-blob",
     })
     .returning({ id: blobs.id });
   invariant(blob, "expected blob row");
 
-  await attachBlobToDocument(blob.id, documentId, "slot_01");
+  await db.insert(attachmentBindings).values({
+    blobId: blob.id,
+    documentId,
+    slotId: "slot_01",
+  });
+  const initialBlobRecipientEnvelopeCount = await countBlobRecipientEnvelopes(
+    blob.id,
+  );
+  expect(initialBlobRecipientEnvelopeCount).toBe(0);
 
   const linkedResponse = await routeApp.request(
     `/documents/${documentId}/link`,
@@ -142,6 +148,9 @@ test("document link and unlink routes bump document and blob access epochs", asy
   const linkedBlobState = await resolveBlobAccessState(blob.id);
   invariant(linkedBlobState, "expected linked blob state");
   expect(linkedBlobState.currentAccessEpoch).toBe(2);
+  expect(await countBlobRecipientEnvelopes(blob.id)).toBe(
+    initialBlobRecipientEnvelopeCount,
+  );
 
   const siblingListResponse = await routeApp.request(
     `/containers/${siblingContainerId}/documents`,
@@ -195,6 +204,9 @@ test("document link and unlink routes bump document and blob access epochs", asy
   const unlinkedBlobState = await resolveBlobAccessState(blob.id);
   invariant(unlinkedBlobState, "expected unlinked blob state");
   expect(unlinkedBlobState.currentAccessEpoch).toBe(3);
+  expect(await countBlobRecipientEnvelopes(blob.id)).toBe(
+    initialBlobRecipientEnvelopeCount,
+  );
 
   const afterUnlinkListResponse = await routeApp.request(
     `/containers/${siblingContainerId}/documents`,
@@ -215,11 +227,10 @@ test("document unlink route rejects removing the final linked container", async 
   await registerUser(owner);
   await authenticate(owner);
 
-  const createDocumentResponse = await createDocument(owner.token, [
-    owner.rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: owner.fingerprint,
+    linkedContainerIds: [owner.rootContainerId],
+  });
   const documentId = String(createdDocument.id ?? "");
 
   const unlinkedResponse = await routeApp.request(
@@ -256,11 +267,10 @@ test("document link route rejects stale access state hashes", async () => {
     token: owner.token,
   });
 
-  const createDocumentResponse = await createDocument(owner.token, [
-    rootContainerId,
-  ]);
-  expect(createDocumentResponse.status).toBe(200);
-  const createdDocument = await createDocumentResponse.json();
+  const createdDocument = await createDocumentFixture({
+    createdByFingerprint: owner.fingerprint,
+    linkedContainerIds: [rootContainerId],
+  });
   const documentId = String(createdDocument.id ?? "");
 
   const linkedResponse = await routeApp.request(

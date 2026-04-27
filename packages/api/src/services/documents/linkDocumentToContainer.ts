@@ -1,8 +1,8 @@
 import type { LinkDocumentToContainerRequest } from "@tearleads/validators/request";
 import type { LinkDocumentToContainerResponse } from "@tearleads/validators/response";
+import { refreshDocumentAccesses } from "../../access/documentAccess";
 import { documentContainerLinks } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
-import { refreshLinkedDocumentAndBlobAccess } from "../structural/shared";
 import {
   buildDocumentMutationResponse,
   requireMutableDocumentContext,
@@ -55,7 +55,7 @@ export async function linkDocumentToContainer(
       containerId: input.containerId,
     });
 
-    await refreshLinkedDocumentAndBlobAccess([input.documentId], tx);
+    await refreshDocumentAccesses([input.documentId], tx);
 
     return buildDocumentMutationResponse(tx, input.documentId, [
       ...documentContext.linkedContainerIds,

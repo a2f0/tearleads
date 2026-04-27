@@ -1,6 +1,6 @@
 import type { DocumentRecipientEnvelopeAction } from "@tearleads/loro/shared";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
   attachmentBindings,
@@ -17,10 +17,7 @@ import {
   computeAccessFingerprint,
   computeAccessStateHash,
 } from "./accessFingerprint";
-import {
-  resolveDocumentAccessState,
-  resolveDocumentAccessStates,
-} from "./documentAccess";
+import { resolveDocumentAccessState } from "./documentAccess";
 import {
   type EffectivePrincipalRecipient,
   isUserPrincipalRecipient,
@@ -88,49 +85,6 @@ async function getCurrentEpochRow(
   return row ?? null;
 }
 
-async function getCurrentEpochRows(
-  blobIds: string[],
-  executor: BlobAccessExecutor = db,
-): Promise<Map<string, CurrentEpochRow>> {
-  const uniqueBlobIds = uniqueSortedStrings(blobIds);
-
-  if (uniqueBlobIds.length === 0) {
-    return new Map();
-  }
-
-  const rows = await executor
-    .select({
-      blobId: objectAccessEpochs.objectId,
-      epoch: objectAccessEpochs.epoch,
-      accessFingerprint: objectAccessEpochs.accessFingerprint,
-      accessStateHash: objectAccessEpochs.accessStateHash,
-    })
-    .from(objectAccessEpochs)
-    .where(
-      and(
-        eq(objectAccessEpochs.objectType, BLOB_OBJECT_TYPE),
-        inArray(objectAccessEpochs.objectId, uniqueBlobIds),
-      ),
-    )
-    .orderBy(desc(objectAccessEpochs.epoch));
-
-  const currentEpochByBlobId = new Map<string, CurrentEpochRow>();
-
-  for (const row of rows) {
-    if (currentEpochByBlobId.has(row.blobId)) {
-      continue;
-    }
-
-    currentEpochByBlobId.set(row.blobId, {
-      epoch: row.epoch,
-      accessFingerprint: row.accessFingerprint,
-      accessStateHash: row.accessStateHash,
-    });
-  }
-
-  return currentEpochByBlobId;
-}
-
 async function writeEpoch(
   blobId: string,
   epoch: number,
@@ -163,52 +117,6 @@ async function listLinkedDocumentIds(
     );
 
   return uniqueSortedStrings(rows.map((row) => row.documentId));
-}
-
-async function listLinkedDocumentIdsByBlobId(
-  blobIds: string[],
-  executor: BlobAccessExecutor = db,
-): Promise<Map<string, string[]>> {
-  const linkedDocumentIdsByBlobId = new Map<string, string[]>();
-
-  for (const blobId of blobIds) {
-    linkedDocumentIdsByBlobId.set(blobId, []);
-  }
-
-  if (blobIds.length === 0) {
-    return linkedDocumentIdsByBlobId;
-  }
-
-  const rows = await executor
-    .select({
-      blobId: attachmentBindings.blobId,
-      documentId: attachmentBindings.documentId,
-    })
-    .from(attachmentBindings)
-    .where(
-      and(
-        inArray(attachmentBindings.blobId, blobIds),
-        isNull(attachmentBindings.detachedAt),
-      ),
-    );
-
-  for (const row of rows) {
-    const linkedDocumentIds = linkedDocumentIdsByBlobId.get(row.blobId);
-    if (!linkedDocumentIds) {
-      linkedDocumentIdsByBlobId.set(row.blobId, [row.documentId]);
-      continue;
-    }
-    linkedDocumentIds.push(row.documentId);
-  }
-
-  for (const [blobId, linkedDocumentIds] of linkedDocumentIdsByBlobId) {
-    linkedDocumentIdsByBlobId.set(
-      blobId,
-      uniqueSortedStrings(linkedDocumentIds),
-    );
-  }
-
-  return linkedDocumentIdsByBlobId;
 }
 
 async function resolveBlobAccessInputs(
@@ -759,61 +667,6 @@ export function canReadBlobAccess(
   return state.effectiveRecipients.some((recipient) =>
     isUserPrincipalRecipient(recipient, userId),
   );
-}
-
-export async function initializeBlobAccess(blobId: string): Promise<number> {
-  return db.transaction(async (tx) => {
-    const [blob] = await tx
-      .select({ id: blobs.id })
-      .from(blobs)
-      .where(eq(blobs.id, blobId))
-      .limit(1);
-
-    if (!blob) {
-      throw new Error(`Blob ${blobId} does not exist`);
-    }
-
-    const epoch = await materializeBlobAccessState(blobId, tx);
-    if (epoch === null) {
-      throw new Error(`Blob ${blobId} access state could not be initialized`);
-    }
-    return epoch;
-  });
-}
-
-export async function refreshBlobAccesses(
-  blobIds: string[],
-  executor: BlobAccessExecutor = db,
-): Promise<Map<string, number | null>> {
-  const uniqueBlobIds = uniqueSortedStrings(blobIds);
-  const linkedDocumentIdsByBlobId = await listLinkedDocumentIdsByBlobId(
-    uniqueBlobIds,
-    executor,
-  );
-  const documentAccessStateById = await resolveDocumentAccessStates(
-    Array.from(linkedDocumentIdsByBlobId.values()).flat(),
-    executor,
-  );
-  const currentEpochByBlobId = await getCurrentEpochRows(
-    uniqueBlobIds,
-    executor,
-  );
-  const refreshedEpochEntries = await Promise.all(
-    uniqueBlobIds.map(
-      async (blobId): Promise<[string, number | null]> => [
-        blobId,
-        await materializeBlobAccessState(
-          blobId,
-          executor,
-          documentAccessStateById,
-          linkedDocumentIdsByBlobId.get(blobId),
-          currentEpochByBlobId.get(blobId) ?? null,
-        ),
-      ],
-    ),
-  );
-
-  return new Map(refreshedEpochEntries);
 }
 
 export async function attachBlobToDocument(

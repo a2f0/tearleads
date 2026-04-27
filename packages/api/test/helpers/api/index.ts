@@ -1,10 +1,6 @@
 export { stageBlob } from "./blobs/stageBlob";
-export { commitDocumentChange } from "./commitDocumentChange";
-export { createContainer } from "./createContainer";
-export { createDocument } from "./createDocument";
 export { fetchEncapsulationKey } from "./fetchEncapsulationKey";
 export { requestChallenge } from "./requestChallenge";
 export { submitLogout } from "./submitLogout";
 export { submitVerify } from "./submitVerify";
-export { syncDocument } from "./syncDocument";
 export { createPublicKeyRequestBody, uploadKey } from "./uploadKey";
