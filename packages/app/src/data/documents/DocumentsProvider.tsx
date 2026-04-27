@@ -163,6 +163,10 @@ export interface DocumentsRuntime {
   isAuthenticated: DocumentAppData["isAuthenticated"];
   log: DocumentAppData["log"];
   online: DocumentAppData["online"];
+  organizationId?: DocumentAppData["organizationId"];
+  signingFingerprint?: DocumentAppData["signingFingerprint"];
+  signingKeyPair?: DocumentAppData["signingKeyPair"];
+  userId?: DocumentAppData["userId"];
 }
 
 function createDocumentsRuntimeApiClient(
@@ -2934,6 +2938,10 @@ export function DocumentsProvider({
       isAuthenticated: appData.isAuthenticated,
       log: appData.log,
       online: appData.online,
+      organizationId: appData.organizationId,
+      signingFingerprint: appData.signingFingerprint,
+      signingKeyPair: appData.signingKeyPair,
+      userId: appData.userId,
     }),
     [appData, containerId],
   );

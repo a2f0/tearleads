@@ -342,6 +342,33 @@ function didStoredDocumentContentChange(
   );
 }
 
+function resolvePersistedDocumentRuntimeState(
+  existingDocument: StoredDocumentRecord | null | undefined,
+  documentId: string,
+): Pick<
+  StoredDocumentRecord,
+  | "lastCommitLsn"
+  | "v2ContentKeyBundle"
+  | "v2DocumentKekTargets"
+  | "v2DocumentManifestBundle"
+> {
+  if (existingDocument?.documentId !== documentId) {
+    return {
+      lastCommitLsn: null,
+      v2ContentKeyBundle: null,
+      v2DocumentKekTargets: null,
+      v2DocumentManifestBundle: null,
+    };
+  }
+
+  return {
+    lastCommitLsn: existingDocument.lastCommitLsn ?? null,
+    v2ContentKeyBundle: existingDocument.v2ContentKeyBundle ?? null,
+    v2DocumentKekTargets: existingDocument.v2DocumentKekTargets ?? null,
+    v2DocumentManifestBundle: existingDocument.v2DocumentManifestBundle ?? null,
+  };
+}
+
 async function upsertDiscoveredDocumentWithExec(
   execSql: ExecSql,
   input: DiscoveredDocumentInput,
@@ -384,10 +411,7 @@ async function upsertDiscoveredDocumentWithExec(
       input.accessStateHash === undefined
         ? (existingDocument?.accessStateHash ?? null)
         : input.accessStateHash,
-    lastCommitLsn:
-      existingDocument?.documentId === input.documentId
-        ? (existingDocument.lastCommitLsn ?? null)
-        : null,
+    ...resolvePersistedDocumentRuntimeState(existingDocument, input.documentId),
   };
 
   const saveOptions =
@@ -440,10 +464,7 @@ async function relinkPersistedDocumentWithExec(
       input.accessEpoch > existingDocument.accessEpoch
         ? null
         : existingDocument.documentRecipientEnvelopes,
-    lastCommitLsn:
-      existingDocument.documentId === input.documentId
-        ? (existingDocument.lastCommitLsn ?? null)
-        : null,
+    ...resolvePersistedDocumentRuntimeState(existingDocument, input.documentId),
   };
 
   await sqlDocumentsPersistence.saveDocument(execSql, nextDocument);

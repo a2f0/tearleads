@@ -9,6 +9,12 @@ import {
   sqlNotesPersistence,
 } from "./notesPersistence";
 
+const emptyV2DocumentState = {
+  v2ContentKeyBundle: null,
+  v2DocumentKekTargets: null,
+  v2DocumentManifestBundle: null,
+};
+
 test("concurrent note saves are serialized on a shared SQLite connection", async () => {
   const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
@@ -49,6 +55,7 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
       text: "second",
       loroSnapshot: "snapshot-2",
       accessEpoch: 2,
+      ...emptyV2DocumentState,
     });
   } finally {
     close();
@@ -106,11 +113,124 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
+      ...emptyV2DocumentState,
     });
 
     await expect(
       sqlNotesPersistence.loadNote(execSql, "remote-document"),
     ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("upsertDiscoveredNote preserves V2 document state for the same remote document id", async () => {
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+
+  try {
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await sqlNotesPersistence.saveNote(
+      execSql,
+      {
+        accessEpoch: 2,
+        containerId: "shared-container",
+        documentId: "remote-document",
+        documentRecipientEnvelopes: null,
+        id: "local-note",
+        lastCommitLsn: "0/10",
+        loroSnapshot: "snapshot-1",
+        text: "Existing local note",
+        v2ContentKeyBundle: JSON.stringify({
+          contentKeyEpoch: 1,
+          linkSetManifestHash: "document-manifest-hash-1",
+        }),
+        v2DocumentKekTargets: JSON.stringify({
+          documentKeyTargetHash: "document-target-hash-1",
+        }),
+        v2DocumentManifestBundle: JSON.stringify({
+          manifestHash: "document-manifest-hash-1",
+        }),
+      },
+      {
+        updatedAt: "2026-04-05T00:00:00.000Z",
+      },
+    );
+
+    await sqlNotesPersistence.upsertDiscoveredNote(execSql, {
+      accessEpoch: 3,
+      containerId: "shared-container",
+      createdAt: "2026-04-06T00:00:00.000Z",
+      documentId: "remote-document",
+      linkedContainerIds: ["shared-container"],
+    });
+
+    await expect(
+      sqlNotesPersistence.loadNote(execSql, "local-note"),
+    ).resolves.toMatchObject({
+      documentId: "remote-document",
+      lastCommitLsn: "0/10",
+      v2ContentKeyBundle: JSON.stringify({
+        contentKeyEpoch: 1,
+        linkSetManifestHash: "document-manifest-hash-1",
+      }),
+      v2DocumentKekTargets: JSON.stringify({
+        documentKeyTargetHash: "document-target-hash-1",
+      }),
+      v2DocumentManifestBundle: JSON.stringify({
+        manifestHash: "document-manifest-hash-1",
+      }),
+    });
+  } finally {
+    close();
+  }
+});
+
+test("relinkPersistedNote clears V2 document state for a different remote document id", async () => {
+  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+
+  try {
+    await sqlNotesPersistence.ensureSchema(execSql);
+
+    await sqlNotesPersistence.saveNote(execSql, {
+      accessEpoch: 2,
+      containerId: "container-a",
+      documentId: "remote-document-a",
+      documentRecipientEnvelopes: null,
+      id: "local-note",
+      lastCommitLsn: "0/10",
+      loroSnapshot: "snapshot-1",
+      text: "Existing local note",
+      v2ContentKeyBundle: JSON.stringify({
+        contentKeyEpoch: 1,
+      }),
+      v2DocumentKekTargets: JSON.stringify({
+        documentKeyTargetHash: "document-target-hash-1",
+      }),
+      v2DocumentManifestBundle: JSON.stringify({
+        manifestHash: "document-manifest-hash-1",
+      }),
+    });
+
+    await sqlNotesPersistence.relinkPersistedNote(execSql, {
+      accessEpoch: 3,
+      accessStateHash: "access-state-hash-2",
+      containerId: "container-b",
+      documentId: "remote-document-b",
+      noteId: "local-note",
+    });
+
+    const note = await sqlNotesPersistence.loadNote(execSql, "local-note");
+
+    expect(note).toMatchObject({
+      accessEpoch: 3,
+      containerId: "container-b",
+      documentId: "remote-document-b",
+      lastCommitLsn: null,
+    });
+    expect(note?.v2ContentKeyBundle).toBeNull();
+    expect(note?.v2DocumentKekTargets).toBeNull();
+    expect(note?.v2DocumentManifestBundle).toBeNull();
   } finally {
     close();
   }
@@ -167,6 +287,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
+      ...emptyV2DocumentState,
     });
   } finally {
     close();
@@ -223,6 +344,7 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
+      ...emptyV2DocumentState,
     });
   } finally {
     close();

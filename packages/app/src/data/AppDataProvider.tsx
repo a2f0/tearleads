@@ -34,6 +34,10 @@ export interface AppDataContextValue {
   isAuthenticated: boolean;
   log: ReturnType<typeof useLog>["log"];
   online: boolean;
+  organizationId: ReturnType<typeof useCryptoSession>["organizationId"];
+  signingFingerprint: ReturnType<typeof useIdentity>["signingFingerprint"];
+  signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"];
+  userId: ReturnType<typeof useCryptoSession>["userId"];
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -46,8 +50,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const blobStore = useBlobStore();
   const { online } = useNetworkState();
   const { client: dbClient, id: dbId, status: dbStatus } = useDatabase();
-  const { authToken, containerId, isAuthenticated } = useCryptoSession();
-  const { encapsulationKeyPair, signingFingerprint } = useIdentity();
+  const { authToken, containerId, isAuthenticated, organizationId, userId } =
+    useCryptoSession();
+  const { encapsulationKeyPair, signingFingerprint, signingKeyPair } =
+    useIdentity();
   const { events } = useEvents();
   const { log } = useLog();
   const domainScope = useMemo(() => ({}), [dbId, signingFingerprint]);
@@ -89,6 +95,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       isAuthenticated,
       log,
       online,
+      organizationId,
+      signingFingerprint,
+      signingKeyPair,
+      userId,
     }),
     [
       apiClient,
@@ -105,7 +115,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       isAuthenticated,
       log,
       online,
+      organizationId,
       signingFingerprint,
+      signingKeyPair,
+      userId,
     ],
   );
 
