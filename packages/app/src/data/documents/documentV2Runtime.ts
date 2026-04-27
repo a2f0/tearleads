@@ -1246,13 +1246,15 @@ export async function persistedDocumentV2SyncStateFromResponse(
   }
   assertAcceptedOutgoingUpdateIdsMatchPlan(plan, response);
 
-  for (const update of response.updates) {
-    await assertDocumentV2SyncResponseUpdateMatchesPlan({
-      plan,
-      update,
-      writerPublicKeysByFingerprint: options.writerPublicKeysByFingerprint,
-    });
-  }
+  await Promise.all(
+    response.updates.map((update) =>
+      assertDocumentV2SyncResponseUpdateMatchesPlan({
+        plan,
+        update,
+        writerPublicKeysByFingerprint: options.writerPublicKeysByFingerprint,
+      }),
+    ),
+  );
 
   return {
     documentId: plan.documentId,
