@@ -1,11 +1,14 @@
 import {
   type AccessEventV2,
   type AccessManifestV2,
+  CONTENT_RECORD_ENCRYPTION_SUITE_V2,
   type ContainerKeyWrapV2,
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
+  computeWriteHeaderHash,
   type DocumentContentKeyTargetV2,
   type DocumentLinkAccessEventBodyV2,
   type DocumentLinkSetManifestStateV2,
@@ -15,16 +18,23 @@ import {
   type KeyingV2CanonicalJson,
   serializeKeyingV2CanonicalJson,
   signAccessEvent,
+  signWriteHeader,
   type UnsignedAccessEventV2,
+  type UnsignedWriteHeaderV2,
+  verifyWriteHeader,
+  type WriteHeaderV2,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   DocumentV2ContentKeyTargetEnvelope,
   DocumentV2CreateRequest,
+  DocumentV2OutgoingUpdate,
+  DocumentV2SyncRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerV2WriterProjectionResponse,
   DocumentV2CreateResponse,
+  DocumentV2SyncResponse,
 } from "@tearleads/validators/response";
 import type { DocumentRecord } from "../persistence/documentPersistence";
 import type { ExecSql } from "../persistence/sqlSchema";
@@ -86,6 +96,58 @@ interface CreateRemoteDocumentV2Result {
   response: DocumentV2CreateResponse;
 }
 
+interface DocumentV2SyncPreparedUpdate {
+  checkpointKind?: DocumentV2OutgoingUpdate["checkpointKind"] | undefined;
+  ciphertextHash: string;
+  contentRecordId?: string | undefined;
+  encryptedData: string;
+  id: string;
+  metadataHash: string;
+  partialEndVersionVector: string;
+  partialStartVersionVector: string;
+  signedAt?: string | undefined;
+  sourceVersionVector?: string | undefined;
+}
+
+interface BuildDocumentV2SyncPlanInput {
+  author: DocumentV2CreateAuthor;
+  authorizingContainerPaths?: readonly (readonly Record<string, unknown>[])[];
+  contentKeyBundle: DocumentV2CreateResponse["contentKeyBundle"];
+  documentId?: string | undefined;
+  documentKekTargets: DocumentV2SyncResponse["documentKekTargets"];
+  documentManifest: DocumentV2CreateResponse["accessManifest"];
+  includeContentKeyBundle?: boolean | undefined;
+  localVersionVector: string | null;
+  minLsn?: string | undefined;
+  outgoingUpdates?: readonly DocumentV2SyncPreparedUpdate[] | undefined;
+  signedAt?: string | undefined;
+}
+
+interface DocumentV2SyncPlan {
+  contentKeyEpoch: number;
+  documentId: string;
+  documentKekTargets: DocumentV2SyncResponse["documentKekTargets"];
+  documentManifest: DocumentV2CreateResponse["accessManifest"];
+  expectedLinkSetManifestHash: string;
+  expectedTargetHash: string;
+  organizationId: string;
+  request: DocumentV2SyncRequest;
+  sourceContentKeyBundle: DocumentV2CreateResponse["contentKeyBundle"];
+}
+
+interface SyncRemoteDocumentV2Result {
+  persistedState: PersistedDocumentV2SyncState;
+  plan: DocumentV2SyncPlan;
+  response: DocumentV2SyncResponse;
+}
+
+interface DocumentV2SyncApi {
+  syncDocumentV2(
+    documentId: string,
+    input: DocumentV2SyncRequest,
+  ): Promise<DocumentV2SyncResponse | null>;
+}
+
 type PersistedDocumentV2CreateState = Pick<
   DocumentRecord,
   | "documentId"
@@ -93,6 +155,8 @@ type PersistedDocumentV2CreateState = Pick<
   | "v2DocumentKekTargets"
   | "v2DocumentManifestBundle"
 >;
+
+type PersistedDocumentV2SyncState = PersistedDocumentV2CreateState;
 
 interface UnwrappedContainerKek {
   containerId: string;
@@ -709,6 +773,519 @@ export async function createRemoteDocumentV2(input: {
     documentId: response.id,
     persistedState,
     plan: materializedPlan.plan,
+    response,
+  };
+}
+
+function contentKeyBundleForSyncRequest(
+  bundle: DocumentV2CreateResponse["contentKeyBundle"],
+): NonNullable<DocumentV2SyncRequest["contentKeyBundle"]> {
+  return {
+    contentKeyEpoch: bundle.contentKeyEpoch,
+    linkSetManifestHash: bundle.linkSetManifestHash,
+    targetHash: bundle.targetHash,
+    targets: bundle.targets.map((target) => ({
+      containerId: target.containerId,
+      containerManifestHash: target.containerManifestHash,
+      containerKeyEpochId: target.containerKeyEpochId,
+      containerKeyEpoch: target.containerKeyEpoch,
+      wrappedKey: target.wrappedKey,
+      wrappingMetadata: target.wrappingMetadata,
+    })),
+  };
+}
+
+function manifestBundleForSyncRequest(
+  bundle: DocumentV2CreateResponse["accessManifest"],
+): NonNullable<DocumentV2SyncRequest["documentManifest"]> {
+  return {
+    event: bundle.event,
+    manifest: bundle.manifest,
+    manifestHash: bundle.manifestHash,
+    state: bundle.state,
+  };
+}
+
+function readDocumentV2Target(
+  value: Record<string, unknown>,
+  label: string,
+): DocumentContentKeyTargetV2 {
+  return {
+    containerId: readRecordString(value, "containerId", label),
+    containerManifestHash: readRecordString(
+      value,
+      "containerManifestHash",
+      label,
+    ),
+    containerKeyEpochId: readRecordString(value, "containerKeyEpochId", label),
+    containerKeyEpoch: readRecordNumber(value, "containerKeyEpoch", label),
+  };
+}
+
+function normalizeDocumentV2KekTargetResponse(
+  targets: DocumentV2SyncResponse["documentKekTargets"],
+): DocumentContentKeyTargetV2[] {
+  return sortDocumentTargets(
+    targets.targets.map((target, index) => {
+      if (!isPlainRecord(target)) {
+        throw new Error(`Document V2 KEK target[${index}] is invalid`);
+      }
+      return readDocumentV2Target(target, `Document V2 KEK target[${index}]`);
+    }),
+  );
+}
+
+function targetEnvelopeReference(
+  envelope: DocumentV2CreateResponse["contentKeyBundle"]["targets"][number],
+): DocumentContentKeyTargetV2 {
+  return {
+    containerId: envelope.containerId,
+    containerManifestHash: envelope.containerManifestHash,
+    containerKeyEpochId: envelope.containerKeyEpochId,
+    containerKeyEpoch: envelope.containerKeyEpoch,
+  };
+}
+
+async function assertDocumentV2ManifestBundleConsistent(input: {
+  bundle: DocumentV2CreateResponse["accessManifest"];
+  label: string;
+}): Promise<{ documentId: string; organizationId: string }> {
+  const manifestHash = await computeAccessManifestHash(
+    input.bundle.manifest as unknown as AccessManifestV2,
+  );
+  if (manifestHash !== input.bundle.manifestHash) {
+    throw new Error(`${input.label} manifest hash mismatch`);
+  }
+
+  const eventBundle = input.bundle.event;
+  if (!isPlainRecord(eventBundle)) {
+    throw new Error(`${input.label} event bundle is invalid`);
+  }
+  const eventHash = readRecordString(eventBundle, "eventHash", input.label);
+  const event = Reflect.get(eventBundle, "event");
+  if (!isPlainRecord(event)) {
+    throw new Error(`${input.label} signed event is invalid`);
+  }
+  const computedEventHash = await computeAccessEventHash(
+    event as unknown as AccessEventV2,
+  );
+  if (computedEventHash !== eventHash) {
+    throw new Error(`${input.label} event hash mismatch`);
+  }
+
+  const state = input.bundle.state;
+  if (!isPlainRecord(state)) {
+    throw new Error(`${input.label} state is invalid`);
+  }
+  if (readRecordString(state, "eventHash", input.label) !== eventHash) {
+    throw new Error(`${input.label} state event hash mismatch`);
+  }
+
+  return {
+    documentId: readRecordString(state, "documentId", input.label),
+    organizationId: readRecordString(state, "organizationId", input.label),
+  };
+}
+
+async function resolveDocumentV2SyncIdentity(
+  input: BuildDocumentV2SyncPlanInput,
+): Promise<{
+  documentId: string;
+  expectedLinkSetManifestHash: string;
+  expectedTargetHash: string;
+  organizationId: string;
+}> {
+  const manifestIdentity = await assertDocumentV2ManifestBundleConsistent({
+    bundle: input.documentManifest,
+    label: "Document V2 sync manifest",
+  });
+  const documentId = input.documentId ?? input.contentKeyBundle.documentId;
+  if (documentId.length === 0) {
+    throw new Error("Document V2 sync document id is empty");
+  }
+  if (
+    input.contentKeyBundle.documentId !== documentId ||
+    input.documentKekTargets.documentId !== documentId ||
+    manifestIdentity.documentId !== documentId
+  ) {
+    throw new Error("Document V2 sync state document id mismatch");
+  }
+  if (manifestIdentity.organizationId !== input.author.organizationId) {
+    throw new Error("Document V2 sync author organization mismatch");
+  }
+  if (
+    input.documentManifest.manifestHash !==
+      input.contentKeyBundle.linkSetManifestHash ||
+    input.documentKekTargets.linkSetManifestHash !==
+      input.contentKeyBundle.linkSetManifestHash
+  ) {
+    throw new Error("Document V2 sync link manifest mismatch");
+  }
+  if (
+    input.documentKekTargets.documentKeyTargetHash !==
+    input.contentKeyBundle.targetHash
+  ) {
+    throw new Error("Document V2 sync target hash mismatch");
+  }
+
+  const kekTargets = normalizeDocumentV2KekTargetResponse(
+    input.documentKekTargets,
+  );
+  const contentKeyTargets = sortDocumentTargets(
+    input.contentKeyBundle.targets.map(targetEnvelopeReference),
+  );
+  if (
+    serializeCanonical(kekTargets, "KEK targets") !==
+    serializeCanonical(contentKeyTargets, "content-key targets")
+  ) {
+    throw new Error("Document V2 sync content-key targets mismatch");
+  }
+
+  const targetHash = await computeDocumentContentKeyTargetHash(kekTargets);
+  if (targetHash !== input.contentKeyBundle.targetHash) {
+    throw new Error("Document V2 sync target hash is not canonical");
+  }
+
+  return {
+    documentId,
+    expectedLinkSetManifestHash: input.contentKeyBundle.linkSetManifestHash,
+    expectedTargetHash: input.contentKeyBundle.targetHash,
+    organizationId: manifestIdentity.organizationId,
+  };
+}
+
+function normalizeAuthorizingContainerPaths(
+  paths: readonly (readonly Record<string, unknown>[])[] | undefined,
+): Record<string, unknown>[][] {
+  if (!paths || paths.length === 0) {
+    throw new Error("Document V2 sync write authorization paths are missing");
+  }
+
+  return paths.map((path, pathIndex) => {
+    if (path.length === 0) {
+      throw new Error(
+        `Document V2 sync write authorization path[${pathIndex}] is empty`,
+      );
+    }
+    return path.map((bundle, bundleIndex) => {
+      if (!isPlainRecord(bundle)) {
+        throw new Error(
+          `Document V2 sync write authorization path[${pathIndex}][${bundleIndex}] is invalid`,
+        );
+      }
+      return bundle;
+    });
+  });
+}
+
+async function signDocumentV2OutgoingUpdate(input: {
+  author: DocumentV2CreateAuthor;
+  contentKeyEpoch: number;
+  documentId: string;
+  expectedLinkSetManifestHash: string;
+  expectedTargetHash: string;
+  organizationId: string;
+  signedAt: string;
+  update: DocumentV2SyncPreparedUpdate;
+}): Promise<DocumentV2OutgoingUpdate> {
+  const contentRecordId = input.update.contentRecordId ?? input.update.id;
+  const nonceDomain = {
+    version: 2,
+    organizationId: input.organizationId,
+    objectKind: "document",
+    objectId: input.documentId,
+    contentKeyEpoch: input.contentKeyEpoch,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    contentRecordId,
+  } as const;
+  const unsignedHeader: UnsignedWriteHeaderV2 = {
+    ...nonceDomain,
+    accessManifestHash: input.expectedLinkSetManifestHash,
+    targetHash: input.expectedTargetHash,
+    nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
+    metadataHash: input.update.metadataHash,
+    ciphertextHash: input.update.ciphertextHash,
+    writerUserId: input.author.signerUserId,
+    writerDeviceId: input.author.signerDeviceId,
+    writerKeyFingerprint: input.author.signerKeyFingerprint,
+    signedAt: input.update.signedAt ?? input.signedAt,
+  };
+  const writeHeader = await signWriteHeader(
+    unsignedHeader,
+    input.author.signerPrivateKey,
+  );
+
+  return {
+    ...(input.update.checkpointKind === undefined
+      ? {}
+      : { checkpointKind: input.update.checkpointKind }),
+    id: input.update.id,
+    encryptedData: input.update.encryptedData,
+    partialStartVersionVector: input.update.partialStartVersionVector,
+    partialEndVersionVector: input.update.partialEndVersionVector,
+    ...(input.update.sourceVersionVector === undefined
+      ? {}
+      : { sourceVersionVector: input.update.sourceVersionVector }),
+    writeHeader: writeHeader as unknown as Record<string, unknown>,
+  };
+}
+
+function assertUniqueDocumentV2OutgoingUpdates(
+  updates: readonly DocumentV2SyncPreparedUpdate[],
+): void {
+  const updateIds = new Set<string>();
+  const contentRecordIds = new Set<string>();
+  for (const update of updates) {
+    if (updateIds.has(update.id)) {
+      throw new Error("Document V2 sync update id is duplicated");
+    }
+    updateIds.add(update.id);
+
+    const contentRecordId = (update.contentRecordId ?? update.id).toLowerCase();
+    if (contentRecordIds.has(contentRecordId)) {
+      throw new Error("Document V2 sync content record id is duplicated");
+    }
+    contentRecordIds.add(contentRecordId);
+  }
+}
+
+export async function buildDocumentV2SyncPlan(
+  input: BuildDocumentV2SyncPlanInput,
+): Promise<DocumentV2SyncPlan> {
+  const {
+    documentId,
+    expectedLinkSetManifestHash,
+    expectedTargetHash,
+    organizationId,
+  } = await resolveDocumentV2SyncIdentity(input);
+  const outgoingUpdateInputs = [...(input.outgoingUpdates ?? [])];
+  const signedAt = input.signedAt ?? new Date().toISOString();
+  assertUniqueDocumentV2OutgoingUpdates(outgoingUpdateInputs);
+
+  const outgoingUpdates = await Promise.all(
+    outgoingUpdateInputs.map((update) =>
+      signDocumentV2OutgoingUpdate({
+        author: input.author,
+        contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+        documentId,
+        expectedLinkSetManifestHash,
+        expectedTargetHash,
+        organizationId,
+        signedAt,
+        update,
+      }),
+    ),
+  );
+  const request: DocumentV2SyncRequest = {
+    ...(input.includeContentKeyBundle === true
+      ? {
+          contentKeyBundle: contentKeyBundleForSyncRequest(
+            input.contentKeyBundle,
+          ),
+        }
+      : {}),
+    contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+    ...(outgoingUpdates.length === 0
+      ? {}
+      : {
+          documentManifest: manifestBundleForSyncRequest(
+            input.documentManifest,
+          ),
+          authorizingContainerPaths: normalizeAuthorizingContainerPaths(
+            input.authorizingContainerPaths,
+          ),
+        }),
+    expectedLinkSetManifestHash,
+    expectedTargetHash,
+    localVersionVector: input.localVersionVector,
+    ...(input.minLsn === undefined ? {} : { minLsn: input.minLsn }),
+    outgoingUpdates,
+  };
+
+  return {
+    contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+    documentId,
+    documentKekTargets: input.documentKekTargets,
+    documentManifest: input.documentManifest,
+    expectedLinkSetManifestHash,
+    expectedTargetHash,
+    organizationId,
+    request,
+    sourceContentKeyBundle: input.contentKeyBundle,
+  };
+}
+
+function assertAcceptedOutgoingUpdateIdsMatchPlan(
+  plan: DocumentV2SyncPlan,
+  response: DocumentV2SyncResponse,
+): void {
+  const expected = plan.request.outgoingUpdates.map((update) => update.id);
+  const accepted = response.acceptedOutgoingUpdateIds;
+  const expectedSorted = [...expected].sort();
+  const acceptedSorted = [...accepted].sort();
+  if (
+    expectedSorted.length !== acceptedSorted.length ||
+    expectedSorted.some((id, index) => id !== acceptedSorted[index])
+  ) {
+    throw new Error("Document V2 sync response accepted update mismatch");
+  }
+}
+
+async function assertDocumentV2SyncResponseUpdateMatchesPlan(input: {
+  plan: DocumentV2SyncPlan;
+  update: DocumentV2SyncResponse["updates"][number];
+  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+}): Promise<void> {
+  const { plan, update } = input;
+  if (update.documentId !== plan.documentId) {
+    throw new Error("Document V2 sync response update document mismatch");
+  }
+  if (!isPlainRecord(update.writeHeader)) {
+    throw new Error("Document V2 sync response write header is invalid");
+  }
+
+  const header = update.writeHeader as unknown as WriteHeaderV2;
+  const headerHash = await computeWriteHeaderHash(header);
+  if (headerHash !== update.writeHeaderHash) {
+    throw new Error("Document V2 sync response write header hash mismatch");
+  }
+  if (
+    readRecordNumber(update.writeHeader, "version", "write header") !== 2 ||
+    readRecordString(update.writeHeader, "objectKind", "write header") !==
+      "document" ||
+    readRecordString(update.writeHeader, "objectId", "write header") !==
+      plan.documentId ||
+    readRecordString(update.writeHeader, "organizationId", "write header") !==
+      plan.organizationId ||
+    readRecordString(
+      update.writeHeader,
+      "accessManifestHash",
+      "write header",
+    ) !== plan.expectedLinkSetManifestHash ||
+    readRecordNumber(update.writeHeader, "contentKeyEpoch", "write header") !==
+      plan.contentKeyEpoch ||
+    readRecordString(update.writeHeader, "targetHash", "write header") !==
+      plan.expectedTargetHash ||
+    readRecordString(update.writeHeader, "encryptionSuite", "write header") !==
+      CONTENT_RECORD_ENCRYPTION_SUITE_V2 ||
+    readRecordString(
+      update.writeHeader,
+      "writerKeyFingerprint",
+      "write header",
+    ) !== update.authorFingerprint
+  ) {
+    throw new Error("Document V2 sync response write header mismatch");
+  }
+
+  const nonceDomainHash = await computeContentRecordNonceDomainHash({
+    version: 2,
+    organizationId: plan.organizationId,
+    objectKind: "document",
+    objectId: plan.documentId,
+    contentKeyEpoch: plan.contentKeyEpoch,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    contentRecordId: readRecordString(
+      update.writeHeader,
+      "contentRecordId",
+      "write header",
+    ),
+  });
+  if (
+    nonceDomainHash !==
+    readRecordString(update.writeHeader, "nonceDomainHash", "write header")
+  ) {
+    throw new Error("Document V2 sync response nonce domain mismatch");
+  }
+
+  const writerPublicKey = input.writerPublicKeysByFingerprint?.get(
+    update.authorFingerprint,
+  );
+  if (!writerPublicKey) {
+    return;
+  }
+
+  const verified = await verifyWriteHeader({
+    expectedAccessManifestHash: plan.expectedLinkSetManifestHash,
+    expectedObject: {
+      objectKind: "document",
+      objectId: plan.documentId,
+      organizationId: plan.organizationId,
+    },
+    expectedTargetHash: plan.expectedTargetHash,
+    header,
+    writerPublicKey,
+  });
+  if (!verified.ok || verified.value.headerHash !== update.writeHeaderHash) {
+    throw new Error(
+      "Document V2 sync response write header signature mismatch",
+    );
+  }
+}
+
+export async function persistedDocumentV2SyncStateFromResponse(
+  plan: DocumentV2SyncPlan,
+  response: DocumentV2SyncResponse,
+  options: {
+    writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+  } = {},
+): Promise<PersistedDocumentV2SyncState> {
+  if (response.documentId !== plan.documentId) {
+    throw new Error("Document V2 sync response document id mismatch");
+  }
+  if (
+    serializeCanonical(response.contentKeyBundle, "content-key bundle") !==
+    serializeCanonical(plan.sourceContentKeyBundle, "content-key bundle")
+  ) {
+    throw new Error("Document V2 sync response content-key bundle mismatch");
+  }
+  if (
+    serializeCanonical(response.documentKekTargets, "KEK targets") !==
+    serializeCanonical(plan.documentKekTargets, "KEK targets")
+  ) {
+    throw new Error("Document V2 sync response KEK target mismatch");
+  }
+  assertAcceptedOutgoingUpdateIdsMatchPlan(plan, response);
+
+  for (const update of response.updates) {
+    await assertDocumentV2SyncResponseUpdateMatchesPlan({
+      plan,
+      update,
+      writerPublicKeysByFingerprint: options.writerPublicKeysByFingerprint,
+    });
+  }
+
+  return {
+    documentId: plan.documentId,
+    v2ContentKeyBundle: serializeV2State(response.contentKeyBundle),
+    v2DocumentKekTargets: serializeV2State(response.documentKekTargets),
+    v2DocumentManifestBundle: serializeV2State(plan.documentManifest),
+  };
+}
+
+export async function syncRemoteDocumentV2(
+  input: BuildDocumentV2SyncPlanInput & {
+    apiClient: DocumentV2SyncApi;
+    writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+  },
+): Promise<SyncRemoteDocumentV2Result | null> {
+  const plan = await buildDocumentV2SyncPlan(input);
+  const response = await input.apiClient.syncDocumentV2(
+    plan.documentId,
+    plan.request,
+  );
+  if (!response) {
+    return null;
+  }
+
+  return {
+    persistedState: await persistedDocumentV2SyncStateFromResponse(
+      plan,
+      response,
+      {
+        writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+      },
+    ),
+    plan,
     response,
   };
 }
