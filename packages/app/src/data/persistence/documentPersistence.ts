@@ -159,22 +159,23 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
       lastCommitLsn === null || lastCommitLsn === undefined
         ? null
         : String(lastCommitLsn),
+    v2ContentKeyBundle:
+      v2ContentKeyBundle === null || v2ContentKeyBundle === undefined
+        ? null
+        : String(v2ContentKeyBundle),
+    v2DocumentKekTargets:
+      v2DocumentKekTargets === null || v2DocumentKekTargets === undefined
+        ? null
+        : String(v2DocumentKekTargets),
+    v2DocumentManifestBundle:
+      v2DocumentManifestBundle === null ||
+      v2DocumentManifestBundle === undefined
+        ? null
+        : String(v2DocumentManifestBundle),
   };
 
   if (accessStateHash !== null && accessStateHash !== undefined) {
     record.accessStateHash = String(accessStateHash);
-  }
-  if (v2ContentKeyBundle !== null && v2ContentKeyBundle !== undefined) {
-    record.v2ContentKeyBundle = String(v2ContentKeyBundle);
-  }
-  if (v2DocumentKekTargets !== null && v2DocumentKekTargets !== undefined) {
-    record.v2DocumentKekTargets = String(v2DocumentKekTargets);
-  }
-  if (
-    v2DocumentManifestBundle !== null &&
-    v2DocumentManifestBundle !== undefined
-  ) {
-    record.v2DocumentManifestBundle = String(v2DocumentManifestBundle);
   }
 
   return record;

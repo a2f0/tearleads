@@ -9,6 +9,12 @@ import {
   sqlNotesPersistence,
 } from "./notesPersistence";
 
+const emptyV2DocumentState = {
+  v2ContentKeyBundle: null,
+  v2DocumentKekTargets: null,
+  v2DocumentManifestBundle: null,
+};
+
 test("concurrent note saves are serialized on a shared SQLite connection", async () => {
   const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
@@ -49,6 +55,7 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
       text: "second",
       loroSnapshot: "snapshot-2",
       accessEpoch: 2,
+      ...emptyV2DocumentState,
     });
   } finally {
     close();
@@ -106,6 +113,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
+      ...emptyV2DocumentState,
     });
 
     await expect(
@@ -220,9 +228,9 @@ test("relinkPersistedNote clears V2 document state for a different remote docume
       documentId: "remote-document-b",
       lastCommitLsn: null,
     });
-    expect(note?.v2ContentKeyBundle).toBeUndefined();
-    expect(note?.v2DocumentKekTargets).toBeUndefined();
-    expect(note?.v2DocumentManifestBundle).toBeUndefined();
+    expect(note?.v2ContentKeyBundle).toBeNull();
+    expect(note?.v2DocumentKekTargets).toBeNull();
+    expect(note?.v2DocumentManifestBundle).toBeNull();
   } finally {
     close();
   }
@@ -279,6 +287,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
+      ...emptyV2DocumentState,
     });
   } finally {
     close();
@@ -335,6 +344,7 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
+      ...emptyV2DocumentState,
     });
   } finally {
     close();
