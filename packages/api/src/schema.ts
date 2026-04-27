@@ -346,6 +346,7 @@ export const accessManifests = pgTable(
       .notNull(),
     keyTargetHash: text("key_target_hash").notNull(),
     manifestHash: text("manifest_hash").notNull(),
+    state: jsonb("state").$type<KeyingV2CanonicalJson>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

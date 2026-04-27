@@ -65,6 +65,13 @@ export interface ContainerV2MutationResponse {
   referencedPrincipalHeads: Record<string, unknown>[];
 }
 
+export interface ContainerV2WriterProjectionResponse {
+  containerId: string;
+  organizationId: string;
+  path: ContainerV2ManifestBundleResponse[];
+  containerKeks: ContainerV2KekResponse[];
+}
+
 export interface ContainerSummary {
   id: string;
   organizationId: string;
@@ -154,6 +161,24 @@ function isRecordArray(value: unknown): value is Record<string, unknown>[] {
   return Array.isArray(value) && value.every(isPlainObject);
 }
 
+function isAccessEventBundleResponse(
+  value: unknown,
+): value is Record<string, unknown> {
+  const signedEvent = isPlainObject(value)
+    ? Reflect.get(value, "event")
+    : undefined;
+  const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
+
+  return (
+    isPlainObject(value) &&
+    isPlainObject(signedEvent) &&
+    Reflect.has(value, "body") &&
+    body !== undefined &&
+    hasStringProperty(value, "eventHash") &&
+    value.eventHash.length > 0
+  );
+}
+
 function isContainerV2ManifestBundleResponse(
   value: unknown,
 ): value is ContainerV2ManifestBundleResponse {
@@ -165,7 +190,7 @@ function isContainerV2ManifestBundleResponse(
 
   return (
     isPlainObject(value) &&
-    isPlainObject(event) &&
+    isAccessEventBundleResponse(event) &&
     isPlainObject(manifest) &&
     hasStringProperty(value, "manifestHash") &&
     value.manifestHash.length > 0 &&
@@ -188,14 +213,22 @@ function isContainerV2KekResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "containerId") &&
     hasStringProperty(value, "accessManifestHash") &&
+    value.accessManifestHash.length > 0 &&
     hasStringProperty(value, "containerKeyEpochId") &&
+    value.containerKeyEpochId.length > 0 &&
     hasNumberProperty(value, "containerKeyEpoch") &&
+    Number.isInteger(value.containerKeyEpoch) &&
+    value.containerKeyEpoch > 0 &&
     isPlainObject(keyEpoch) &&
     hasStringProperty(value, "keyEpochHash") &&
+    value.keyEpochHash.length > 0 &&
     hasStringProperty(value, "keyTargetHash") &&
+    value.keyTargetHash.length > 0 &&
     hasNullableStringProperty(value, "parentContainerKeyEpochId") &&
     isRecordArray(recipientTargets) &&
-    isRecordArray(wraps)
+    recipientTargets.length > 0 &&
+    isRecordArray(wraps) &&
+    wraps.length > 0
   );
 }
 
@@ -226,5 +259,21 @@ export function isContainerV2MutationResponse(
     isContainerV2ManifestBundleResponse(accessManifest) &&
     isContainerV2KekResponse(containerKek) &&
     isRecordArray(referencedPrincipalHeads)
+  );
+}
+
+export function isContainerV2WriterProjectionResponse(
+  value: unknown,
+): value is ContainerV2WriterProjectionResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    hasStringProperty(value, "organizationId") &&
+    hasArrayProperty(value, "path") &&
+    value.path.length > 0 &&
+    value.path.every(isContainerV2ManifestBundleResponse) &&
+    hasArrayProperty(value, "containerKeks") &&
+    value.containerKeks.length === value.path.length &&
+    value.containerKeks.every(isContainerV2KekResponse)
   );
 }

@@ -326,7 +326,7 @@ async function getDocumentContentKeyBundle(
   return row ? toStoredBundle(row, executor) : null;
 }
 
-async function getLatestDocumentContentKeyBundle(
+export async function getLatestDocumentContentKeyBundle(
   documentId: string,
   executor: DocumentContentKeyExecutor = db,
 ): Promise<StoredDocumentContentKeyBundle | null> {

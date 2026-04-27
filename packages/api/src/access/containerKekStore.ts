@@ -260,7 +260,7 @@ export async function storeVerifiedContainerKekState(
   return input.verifiedState;
 }
 
-async function getContainerKeyEpochById(
+export async function getContainerKeyEpochById(
   containerKeyEpochId: string,
   executor: ContainerKekStoreExecutor = db,
 ): Promise<StoredContainerKeyEpoch | null> {

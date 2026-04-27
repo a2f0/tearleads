@@ -8,6 +8,7 @@ import {
 } from "../../services/documents/listDocumentAttachments";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createDocumentV2MutationsRoute } from "./v2Mutations";
+import { createDocumentV2WriterProjectionRoute } from "./v2WriterProjection";
 
 interface DocumentsRouterDeps {
   readonly publish: (event: Record<string, unknown>) => Promise<void>;
@@ -58,6 +59,10 @@ export function createDocumentsRouter({
   documentsRouter.route(
     "/",
     createDocumentV2MutationsRoute({ publish, requireAuth, runtime }),
+  );
+  documentsRouter.route(
+    "/",
+    createDocumentV2WriterProjectionRoute({ requireAuth, runtime }),
   );
 
   return documentsRouter;

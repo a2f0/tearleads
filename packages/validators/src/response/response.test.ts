@@ -5,10 +5,12 @@ import {
   isChallengeErrorResponse,
   isChallengeResponse,
   isCommitDocumentChangeResponse,
+  isContainerV2WriterProjectionResponse,
   isCreateContainerResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isDocumentV2CreateResponse,
   isDocumentV2SyncResponse,
+  isDocumentV2WriterProjectionResponse,
   isHealthResponse,
   isLinkDocumentToContainerResponse,
   isListContainerDocumentsResponse,
@@ -581,10 +583,51 @@ function createDocumentV2KekTargetsResponse(overrides = {}) {
 
 function createDocumentV2ManifestBundleResponse(overrides = {}) {
   return {
-    event: { eventType: "document.link" },
+    event: {
+      event: { eventType: "document.link" },
+      body: { eventType: "document.link" },
+      eventHash: "document-event-hash",
+    },
     manifest: { objectType: "document", objectId: "doc-1" },
     manifestHash: "manifest-hash",
     state: { objectId: "doc-1" },
+    ...overrides,
+  };
+}
+
+function createContainerV2KekResponse(overrides = {}) {
+  return {
+    containerId: "550e8400-e29b-41d4-a716-446655440000",
+    accessManifestHash: "container-manifest-hash",
+    containerKeyEpochId: "container-key-epoch-id",
+    containerKeyEpoch: 1,
+    keyEpoch: { id: "container-key-epoch-id" },
+    keyEpochHash: "key-epoch-hash",
+    keyTargetHash: "key-target-hash",
+    parentContainerKeyEpochId: null,
+    recipientTargets: [{ recipientKind: "user" }],
+    wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
+    ...overrides,
+  };
+}
+
+function createContainerV2WriterProjectionResponse(overrides = {}) {
+  return {
+    containerId: "550e8400-e29b-41d4-a716-446655440000",
+    organizationId: "550e8400-e29b-41d4-a716-446655440099",
+    path: [
+      {
+        event: {
+          event: { eventType: "container.create" },
+          body: { eventType: "container.create" },
+          eventHash: "container-event-hash",
+        },
+        manifest: { objectType: "container" },
+        manifestHash: "container-manifest-hash",
+        state: { containerId: "550e8400-e29b-41d4-a716-446655440000" },
+      },
+    ],
+    containerKeks: [createContainerV2KekResponse()],
     ...overrides,
   };
 }
@@ -662,4 +705,62 @@ test("isDocumentV2SyncResponse", () => {
     }),
   ).toBe(false);
   expect(isDocumentV2SyncResponse(null)).toBe(false);
+});
+
+test("isContainerV2WriterProjectionResponse", () => {
+  const validResponse = createContainerV2WriterProjectionResponse();
+
+  expect(isContainerV2WriterProjectionResponse(validResponse)).toBe(true);
+  expect(
+    isContainerV2WriterProjectionResponse({
+      ...validResponse,
+      path: [{ manifestHash: "" }],
+    }),
+  ).toBe(false);
+  expect(
+    isContainerV2WriterProjectionResponse({
+      ...validResponse,
+      containerKeks: [],
+    }),
+  ).toBe(false);
+  expect(
+    isContainerV2WriterProjectionResponse({
+      ...validResponse,
+      containerKeks: [createContainerV2KekResponse({ containerKeyEpoch: 0 })],
+    }),
+  ).toBe(false);
+  expect(isContainerV2WriterProjectionResponse(null)).toBe(false);
+});
+
+test("isDocumentV2WriterProjectionResponse", () => {
+  const validResponse = {
+    documentId: "550e8400-e29b-41d4-a716-446655440001",
+    documentManifest: createDocumentV2ManifestBundleResponse(),
+    documentKekTargets: createDocumentV2KekTargetsResponse(),
+    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
+    authorizingContainerPaths: [createContainerV2WriterProjectionResponse()],
+  };
+
+  expect(isDocumentV2WriterProjectionResponse(validResponse)).toBe(true);
+  expect(
+    isDocumentV2WriterProjectionResponse({
+      ...validResponse,
+      authorizingContainerPaths: [{ containerId: "" }],
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2WriterProjectionResponse({
+      ...validResponse,
+      authorizingContainerPaths: [],
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2WriterProjectionResponse({
+      ...validResponse,
+      contentKeyBundle: createDocumentV2ContentKeyBundleResponse({
+        targetHash: "",
+      }),
+    }),
+  ).toBe(false);
+  expect(isDocumentV2WriterProjectionResponse(null)).toBe(false);
 });

@@ -1,6 +1,10 @@
 import { createDocument, syncDocument } from "@tearleads/loro/client";
 import type {
+  BlobV2AttachmentBindRequest,
+  BlobV2AttachmentDetachRequest,
   CommitDocumentChangeRequest,
+  DocumentV2CreateRequest,
+  DocumentV2SyncRequest,
   StageBlobRequest,
 } from "@tearleads/validators/request";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
@@ -9,9 +13,15 @@ import {
   authenticateWithChallenge,
   getEncapsulationKey,
 } from "./routes/auth";
-import { getBlob, stageBlob } from "./routes/blobs";
+import {
+  bindBlobAttachmentV2,
+  detachBlobAttachmentV2,
+  getBlob,
+  stageBlob,
+} from "./routes/blobs";
 import {
   createContainer,
+  getContainerV2WriterProjection,
   listContainerDocuments,
   listContainers,
   moveContainer,
@@ -19,8 +29,11 @@ import {
 } from "./routes/containers";
 import {
   commitDocumentChange,
+  createDocumentV2,
+  getDocumentV2WriterProjection,
   linkDocumentToContainer,
   listDocumentAttachments,
+  syncDocumentV2,
   unlinkDocumentFromContainer,
 } from "./routes/documents";
 import { getHealth } from "./routes/health";
@@ -213,6 +226,18 @@ export class ApiClient {
     );
   }
 
+  createDocumentV2(input: DocumentV2CreateRequest) {
+    return createDocumentV2(this.request, input);
+  }
+
+  getContainerV2WriterProjection(containerId: string) {
+    return getContainerV2WriterProjection(this.request, containerId);
+  }
+
+  getDocumentV2WriterProjection(documentId: string) {
+    return getDocumentV2WriterProjection(this.request, documentId);
+  }
+
   createContainer(
     id: string,
     parentId: string,
@@ -315,12 +340,28 @@ export class ApiClient {
     );
   }
 
+  syncDocumentV2(documentId: string, input: DocumentV2SyncRequest) {
+    return syncDocumentV2(this.request, documentId, input);
+  }
+
   stageBlob(input: StageBlobRequest) {
     return stageBlob(this.request, input);
   }
 
   getBlob(blobId: string) {
     return getBlob(this.request, blobId);
+  }
+
+  bindBlobAttachmentV2(blobId: string, input: BlobV2AttachmentBindRequest) {
+    return bindBlobAttachmentV2(this.request, blobId, input);
+  }
+
+  detachBlobAttachmentV2(
+    blobId: string,
+    bindingId: string,
+    input: BlobV2AttachmentDetachRequest,
+  ) {
+    return detachBlobAttachmentV2(this.request, blobId, bindingId, input);
   }
 
   listDocumentAttachments(documentId: string) {

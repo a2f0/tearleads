@@ -30,10 +30,13 @@ export {
 } from "./commitDocumentChange";
 export {
   type ContainerSummary,
+  type ContainerV2KekResponse,
   type ContainerV2ManifestBundleResponse,
   type ContainerV2MutationResponse,
+  type ContainerV2WriterProjectionResponse,
   type CreateContainerResponse,
   isContainerV2MutationResponse,
+  isContainerV2WriterProjectionResponse,
   isCreateContainerResponse,
   isListContainersResponse,
   isMoveContainerResponse,
@@ -58,8 +61,10 @@ export {
   type DocumentV2KekTargetsResponse,
   type DocumentV2ManifestBundleResponse,
   type DocumentV2SyncResponse,
+  type DocumentV2WriterProjectionResponse,
   isDocumentV2CreateResponse,
   isDocumentV2SyncResponse,
+  isDocumentV2WriterProjectionResponse,
 } from "./documentV2";
 export { type HealthResponse, isHealthResponse } from "./health";
 export {

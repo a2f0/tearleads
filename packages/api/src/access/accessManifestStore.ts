@@ -1,4 +1,5 @@
 import type {
+  AccessManifestV2,
   AccessObjectKindV2,
   AnyVerifiedAccessManifest,
   KeyingV2CanonicalJson,
@@ -61,6 +62,13 @@ interface StoreVerifiedAccessManifestInput {
   readonly verifiedManifest: AnyVerifiedAccessManifest;
 }
 
+interface StoredAccessManifestBundle {
+  readonly event: VerifiedAccessEvent;
+  readonly manifest: AccessManifestV2;
+  readonly manifestHash: string;
+  readonly state: KeyingV2CanonicalJson;
+}
+
 function accessEventDependencyHashes(event: VerifiedAccessEvent): string[] {
   return [...event.event.dependencyManifestHashes];
 }
@@ -71,6 +79,14 @@ function accessManifestReferencedHeads(
   return manifest.manifest.referencedPrincipalHeads.map((principalHead) => ({
     ...principalHead,
   }));
+}
+
+function accessManifestState(
+  manifest: AnyVerifiedAccessManifest,
+): KeyingV2CanonicalJson {
+  return "state" in manifest
+    ? (manifest.state as unknown as KeyingV2CanonicalJson)
+    : {};
 }
 
 function documentLinkSetState(
@@ -242,6 +258,7 @@ async function insertAccessManifest(
       referencedPrincipalHeads: accessManifestReferencedHeads(verifiedManifest),
       keyTargetHash: manifest.keyTargetHash,
       manifestHash: verifiedManifest.manifestHash,
+      state: accessManifestState(verifiedManifest),
     })
     .onConflictDoNothing({ target: accessManifests.manifestHash })
     .returning();
@@ -287,10 +304,63 @@ async function ensureStoredAccessManifestMatches(
         accessManifestReferencedHeads(verifiedManifest),
       ),
     ) ||
-    storedManifest.keyTargetHash !== manifest.keyTargetHash
+    storedManifest.keyTargetHash !== manifest.keyTargetHash ||
+    !canonicalJsonMatches(
+      storedManifest.state as KeyingV2CanonicalJson,
+      accessManifestState(verifiedManifest),
+    )
   ) {
     throw new Error("Access manifest conflict");
   }
+}
+
+function toStoredAccessEvent(
+  row: typeof accessEvents.$inferSelect,
+): VerifiedAccessEvent {
+  return {
+    event: {
+      version: row.version as 2,
+      eventId: row.eventId,
+      eventType: row.eventType,
+      objectKind: row.objectKind,
+      objectId: row.objectId,
+      organizationId: row.organizationId,
+      previousManifestHash: row.previousManifestHash,
+      dependencyManifestHashes: readJsonArray<string>(
+        row.dependencyManifestHashes,
+        "access event dependency hashes",
+      ),
+      bodyHash: row.bodyHash,
+      signerUserId: row.signerUserId,
+      signerDeviceId: row.signerDeviceId,
+      signerKeyFingerprint: row.signerKeyFingerprint,
+      signedAt: row.signedAt.toISOString(),
+      signature: row.signature,
+    },
+    body: row.body as KeyingV2CanonicalJson,
+    eventHash: row.eventHash,
+  } as VerifiedAccessEvent;
+}
+
+function toStoredAccessManifest(
+  row: typeof accessManifests.$inferSelect,
+): AccessManifestV2 {
+  return {
+    version: row.version as 2,
+    objectKind: row.objectKind,
+    objectId: row.objectId,
+    organizationId: row.organizationId,
+    epoch: row.epoch,
+    previousManifestHash: row.previousManifestHash,
+    eventHash: row.eventHash,
+    structuralHash: row.structuralHash,
+    grantRoot: row.grantRoot,
+    referencedPrincipalHeads: readJsonArray<ReferencedPrincipalHeadV2>(
+      row.referencedPrincipalHeads,
+      "access manifest referenced principal heads",
+    ),
+    keyTargetHash: row.keyTargetHash,
+  };
 }
 
 async function loadAccessManifestRow(
@@ -325,6 +395,30 @@ async function loadAccessEventRow(
   }
 
   return event;
+}
+
+export async function getAccessManifestBundle(
+  manifestHash: string,
+  executor: AccessManifestStoreExecutor = db,
+): Promise<StoredAccessManifestBundle | null> {
+  const [manifest] = await executor
+    .select()
+    .from(accessManifests)
+    .where(eq(accessManifests.manifestHash, manifestHash))
+    .limit(1);
+
+  if (!manifest) {
+    return null;
+  }
+
+  const event = await loadAccessEventRow(manifest.eventHash, executor);
+
+  return {
+    event: toStoredAccessEvent(event),
+    manifest: toStoredAccessManifest(manifest),
+    manifestHash: manifest.manifestHash,
+    state: manifest.state as KeyingV2CanonicalJson,
+  };
 }
 
 async function regenerateAccessEventDependencyProjection(
