@@ -1,4 +1,5 @@
 import { toFingerprint } from "@tearleads/crypto";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
   AccessLevel,
   RecipientPrincipalType,
@@ -99,11 +100,6 @@ type AccessStateHashPayload =
   | BlobAccessStateHashPayload
   | ContainerAccessStateHashPayload
   | DocumentAccessStateHashPayload;
-
-function isPlainObject(value: object): boolean {
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
 
 function assertExactKeys(
   value: object,

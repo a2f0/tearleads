@@ -1,4 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toFingerprint } from "./fingerprint";
 import type {
   PrincipalProjectionMember,
@@ -871,15 +872,6 @@ async function runVerifier<T>(
   } catch (error) {
     return toVerificationResult(error);
   }
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }
 
 function compareCanonicalStrings(left: string, right: string): number {
