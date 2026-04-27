@@ -5,6 +5,10 @@ import {
   hasNumberProperty,
   hasStringProperty,
 } from "../util";
+import {
+  type ContainerV2WriterProjectionResponse,
+  isContainerV2WriterProjectionResponse,
+} from "./container";
 
 export interface DocumentV2ContentKeyTargetEnvelopeResponse {
   containerId: string;
@@ -70,6 +74,14 @@ export interface DocumentV2SyncResponse {
   updates: DocumentV2SyncUpdateResponse[];
 }
 
+export interface DocumentV2WriterProjectionResponse {
+  documentId: string;
+  documentManifest: DocumentV2ManifestBundleResponse;
+  documentKekTargets: DocumentV2KekTargetsResponse;
+  contentKeyBundle: DocumentV2ContentKeyBundleResponse;
+  authorizingContainerPaths: ContainerV2WriterProjectionResponse[];
+}
+
 function isRecordArray(value: unknown): value is Record<string, unknown>[] {
   return Array.isArray(value) && value.every(isPlainObject);
 }
@@ -77,6 +89,14 @@ function isRecordArray(value: unknown): value is Record<string, unknown>[] {
 function isStringArray(value: unknown): value is string[] {
   return (
     Array.isArray(value) && value.every((entry) => typeof entry === "string")
+  );
+}
+
+function isNonEmptyStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((entry) => typeof entry === "string" && entry.length > 0)
   );
 }
 
@@ -95,6 +115,24 @@ function hasPositiveNumberProperty<Key extends string>(
   );
 }
 
+function isAccessEventBundleResponse(
+  value: unknown,
+): value is Record<string, unknown> {
+  const signedEvent = isPlainObject(value)
+    ? Reflect.get(value, "event")
+    : undefined;
+  const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
+
+  return (
+    isPlainObject(value) &&
+    isPlainObject(signedEvent) &&
+    Reflect.has(value, "body") &&
+    body !== undefined &&
+    hasStringProperty(value, "eventHash") &&
+    value.eventHash.length > 0
+  );
+}
+
 function isDocumentV2ManifestBundleResponse(
   value: unknown,
 ): value is DocumentV2ManifestBundleResponse {
@@ -106,7 +144,7 @@ function isDocumentV2ManifestBundleResponse(
 
   return (
     isPlainObject(value) &&
-    isPlainObject(event) &&
+    isAccessEventBundleResponse(event) &&
     isPlainObject(manifest) &&
     hasStringProperty(value, "manifestHash") &&
     value.manifestHash.length > 0 &&
@@ -124,10 +162,14 @@ function isDocumentV2ContentKeyTargetEnvelopeResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "containerId") &&
+    value.containerId.length > 0 &&
     hasStringProperty(value, "containerManifestHash") &&
+    value.containerManifestHash.length > 0 &&
     hasStringProperty(value, "containerKeyEpochId") &&
+    value.containerKeyEpochId.length > 0 &&
     hasPositiveNumberProperty(value, "containerKeyEpoch") &&
     hasStringProperty(value, "wrappedKey") &&
+    value.wrappedKey.length > 0 &&
     isPlainObject(wrappingMetadata)
   );
 }
@@ -139,13 +181,16 @@ function isDocumentV2KekTargetsResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "documentId") &&
     hasStringProperty(value, "linkSetManifestHash") &&
+    value.linkSetManifestHash.length > 0 &&
     hasArrayProperty(value, "linkedContainerManifestHashes") &&
-    isStringArray(value.linkedContainerManifestHashes) &&
+    isNonEmptyStringArray(value.linkedContainerManifestHashes) &&
     hasArrayProperty(value, "linkedContainerKeyEpochIds") &&
-    isStringArray(value.linkedContainerKeyEpochIds) &&
+    isNonEmptyStringArray(value.linkedContainerKeyEpochIds) &&
     hasArrayProperty(value, "targets") &&
     isRecordArray(value.targets) &&
-    hasStringProperty(value, "documentKeyTargetHash")
+    value.targets.length > 0 &&
+    hasStringProperty(value, "documentKeyTargetHash") &&
+    value.documentKeyTargetHash.length > 0
   );
 }
 
@@ -157,8 +202,11 @@ function isDocumentV2ContentKeyBundleResponse(
     hasStringProperty(value, "documentId") &&
     hasPositiveNumberProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "linkSetManifestHash") &&
+    value.linkSetManifestHash.length > 0 &&
     hasStringProperty(value, "targetHash") &&
+    value.targetHash.length > 0 &&
     hasArrayProperty(value, "targets") &&
+    value.targets.length > 0 &&
     value.targets.every(isDocumentV2ContentKeyTargetEnvelopeResponse)
   );
 }
@@ -231,5 +279,30 @@ export function isDocumentV2SyncResponse(
     value.missingUpdateEpochs.every(isMissingUpdateEpoch) &&
     hasArrayProperty(value, "updates") &&
     value.updates.every(isDocumentV2SyncUpdateResponse)
+  );
+}
+
+export function isDocumentV2WriterProjectionResponse(
+  value: unknown,
+): value is DocumentV2WriterProjectionResponse {
+  const documentManifest = isPlainObject(value)
+    ? Reflect.get(value, "documentManifest")
+    : undefined;
+  const documentKekTargets = isPlainObject(value)
+    ? Reflect.get(value, "documentKekTargets")
+    : undefined;
+  const contentKeyBundle = isPlainObject(value)
+    ? Reflect.get(value, "contentKeyBundle")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "documentId") &&
+    isDocumentV2ManifestBundleResponse(documentManifest) &&
+    isDocumentV2KekTargetsResponse(documentKekTargets) &&
+    isDocumentV2ContentKeyBundleResponse(contentKeyBundle) &&
+    hasArrayProperty(value, "authorizingContainerPaths") &&
+    value.authorizingContainerPaths.length > 0 &&
+    value.authorizingContainerPaths.every(isContainerV2WriterProjectionResponse)
   );
 }

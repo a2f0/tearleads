@@ -129,6 +129,12 @@ test("V2 access manifest schema creates tables and indexes", async () => {
       (
         select data_type
         from information_schema.columns
+        where table_name = 'access_manifests'
+          and column_name = 'state'
+      ) = 'jsonb' as "accessManifestsStateJsonb",
+      (
+        select data_type
+        from information_schema.columns
         where table_name = 'document_content_key_targets'
           and column_name = 'wrapping_metadata'
       ) = 'jsonb' as "documentContentKeyTargetsMetadataJsonb",
@@ -186,6 +192,7 @@ test("V2 access manifest schema creates tables and indexes", async () => {
     accessEventsDependenciesJsonb: true,
     accessEventsBodyJsonb: true,
     accessManifestsPrincipalHeadsJsonb: true,
+    accessManifestsStateJsonb: true,
     documentContentKeyTargetsMetadataJsonb: true,
     documentContentWriteHeadersHeaderJsonb: true,
     blobContentKeyTargetsMetadataJsonb: true,

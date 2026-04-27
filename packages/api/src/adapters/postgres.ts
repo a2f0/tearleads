@@ -168,8 +168,11 @@ await client.exec(`
     referenced_principal_heads JSONB NOT NULL,
     key_target_hash TEXT NOT NULL,
     manifest_hash TEXT NOT NULL,
+    state JSONB NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  ALTER TABLE access_manifests
+    ADD COLUMN IF NOT EXISTS state JSONB NOT NULL DEFAULT '{}'::jsonb;
   CREATE TABLE IF NOT EXISTS access_manifest_heads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     object_kind TEXT NOT NULL,
