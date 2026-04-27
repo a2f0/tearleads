@@ -62,6 +62,17 @@ const DOCUMENT_V2_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
 const DOCUMENT_V2_CONTENT_RECORD_IV: Uint8Array<ArrayBuffer> = new Uint8Array(
   12,
 );
+const DOCUMENT_V2_ENCRYPTED_UPDATE_KEYS = new Set([
+  "ciphertext",
+  "contentKeyEpoch",
+  "contentRecordId",
+  "encryptionSuite",
+  "format",
+  "iv",
+  "metadataHash",
+  "nonceDomainHash",
+  "version",
+]);
 const TEXT_ENCODER = new TextEncoder();
 
 export interface DocumentV2CreateAuthor {
@@ -137,6 +148,22 @@ interface DocumentV2EncryptedPendingUpdate {
   ciphertextHash: string;
 }
 
+interface ParsedDocumentV2EncryptedUpdate {
+  ciphertext: Uint8Array;
+  contentKeyEpoch: number;
+  contentRecordId: string;
+  metadataHash: string;
+  nonceDomainHash: string;
+  iv: Uint8Array;
+}
+
+interface DecryptedDocumentV2SyncUpdate {
+  id: string;
+  partialEndVersionVector: string;
+  partialStartVersionVector: string;
+  updateData: Uint8Array;
+}
+
 interface BuildDocumentV2SyncPlanInput {
   author: DocumentV2CreateAuthor;
   authorizingContainerPaths?: readonly (readonly Record<string, unknown>[])[];
@@ -170,6 +197,7 @@ interface MaterializedDocumentV2SyncPlan {
 
 interface SyncRemoteDocumentV2Result {
   contentKey: Uint8Array;
+  decryptedUpdates: DecryptedDocumentV2SyncUpdate[];
   persistedState: PersistedDocumentV2SyncState;
   plan: DocumentV2SyncPlan;
   response: DocumentV2SyncResponse;
@@ -279,6 +307,21 @@ function asWebCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
     throw new Error("Document V2 byte material must be ArrayBuffer-backed");
   }
   return bytes as Uint8Array<ArrayBuffer>;
+}
+
+function assertOnlyRecordKeys(
+  record: Record<string, unknown>,
+  allowedKeys: ReadonlySet<string>,
+  label: string,
+): void {
+  const unexpectedKeys = Object.keys(record).filter(
+    (key) => !allowedKeys.has(key),
+  );
+  if (unexpectedKeys.length > 0) {
+    throw new Error(
+      `${label} has unexpected keys: ${unexpectedKeys.join(",")}`,
+    );
+  }
 }
 
 function normalizeContainerKeyWrap(value: unknown): ContainerKeyWrapV2 {
@@ -930,6 +973,7 @@ async function deriveDocumentV2ContentRecordKey(input: {
   contentRecordId: string;
   documentId: string;
   organizationId: string;
+  usage: "decrypt" | "encrypt";
 }): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -952,7 +996,7 @@ async function deriveDocumentV2ContentRecordKey(input: {
       length: 256,
     },
     false,
-    ["encrypt"],
+    [input.usage],
   );
 }
 
@@ -985,6 +1029,7 @@ async function encryptDocumentV2PendingUpdate(input: {
     contentRecordId,
     documentId: input.documentId,
     organizationId: input.organizationId,
+    usage: "encrypt",
   });
   const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt(
@@ -1023,6 +1068,218 @@ async function encryptDocumentV2PendingUpdate(input: {
     ciphertextHash:
       await computeDocumentV2ContentRecordCiphertextHash(encryptedData),
   };
+}
+
+function parseDocumentV2EncryptedUpdate(
+  encryptedData: string,
+): ParsedDocumentV2EncryptedUpdate {
+  let value: unknown;
+  try {
+    value = JSON.parse(encryptedData);
+  } catch {
+    throw new Error("Document V2 encrypted update is invalid JSON");
+  }
+  if (!isPlainRecord(value)) {
+    throw new Error("Document V2 encrypted update must be an object");
+  }
+  assertOnlyRecordKeys(
+    value,
+    DOCUMENT_V2_ENCRYPTED_UPDATE_KEYS,
+    "Document V2 encrypted update",
+  );
+  if (
+    readRecordString(value, "format", "Document V2 encrypted update") !==
+    DOCUMENT_V2_ENCRYPTED_LORO_UPDATE_FORMAT
+  ) {
+    throw new Error("Document V2 encrypted update format is invalid");
+  }
+  if (
+    readRecordNumber(value, "version", "Document V2 encrypted update") !== 1
+  ) {
+    throw new Error("Document V2 encrypted update version is invalid");
+  }
+  if (
+    readRecordString(
+      value,
+      "encryptionSuite",
+      "Document V2 encrypted update",
+    ) !== CONTENT_RECORD_ENCRYPTION_SUITE_V2
+  ) {
+    throw new Error("Document V2 encrypted update suite is invalid");
+  }
+
+  const iv = base64ToBytes(
+    readRecordString(value, "iv", "Document V2 encrypted update"),
+  );
+  assertEqualBytes(
+    iv,
+    DOCUMENT_V2_CONTENT_RECORD_IV,
+    "Document V2 encrypted update IV is invalid",
+  );
+
+  return {
+    ciphertext: base64ToBytes(
+      readRecordString(value, "ciphertext", "Document V2 encrypted update"),
+    ),
+    contentKeyEpoch: readRecordNumber(
+      value,
+      "contentKeyEpoch",
+      "Document V2 encrypted update",
+    ),
+    contentRecordId: readRecordString(
+      value,
+      "contentRecordId",
+      "Document V2 encrypted update",
+    ),
+    metadataHash: readRecordString(
+      value,
+      "metadataHash",
+      "Document V2 encrypted update",
+    ),
+    nonceDomainHash: readRecordString(
+      value,
+      "nonceDomainHash",
+      "Document V2 encrypted update",
+    ),
+    iv,
+  };
+}
+
+async function assertDocumentV2EncryptedUpdateMatchesHeader(input: {
+  encrypted: ParsedDocumentV2EncryptedUpdate;
+  encryptedData: string;
+  contentKeyEpoch: number;
+  documentId: string;
+  organizationId: string;
+  update: DocumentV2SyncResponse["updates"][number];
+}): Promise<void> {
+  const { encrypted, update } = input;
+  if (encrypted.contentKeyEpoch !== input.contentKeyEpoch) {
+    throw new Error("Document V2 encrypted update content-key epoch mismatch");
+  }
+  if (update.documentId !== input.documentId) {
+    throw new Error("Document V2 encrypted update document id mismatch");
+  }
+  const headerContentRecordId = readRecordString(
+    update.writeHeader,
+    "contentRecordId",
+    "write header",
+  );
+  if (encrypted.contentRecordId !== headerContentRecordId) {
+    throw new Error("Document V2 encrypted update content record mismatch");
+  }
+
+  const metadataHash = await computeDocumentV2ContentRecordMetadataHash({
+    documentId: input.documentId,
+    partialEndVersionVector: update.partialEndVersionVector,
+    partialStartVersionVector: update.partialStartVersionVector,
+    updateId: update.id,
+  });
+  if (
+    encrypted.metadataHash !== metadataHash ||
+    encrypted.metadataHash !==
+      readRecordString(update.writeHeader, "metadataHash", "write header")
+  ) {
+    throw new Error("Document V2 encrypted update metadata hash mismatch");
+  }
+
+  const nonceDomainHash = await computeContentRecordNonceDomainHash({
+    version: 2,
+    organizationId: input.organizationId,
+    objectKind: "document",
+    objectId: input.documentId,
+    contentKeyEpoch: input.contentKeyEpoch,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    contentRecordId: encrypted.contentRecordId,
+  });
+  if (
+    encrypted.nonceDomainHash !== nonceDomainHash ||
+    encrypted.nonceDomainHash !==
+      readRecordString(update.writeHeader, "nonceDomainHash", "write header")
+  ) {
+    throw new Error("Document V2 encrypted update nonce domain mismatch");
+  }
+
+  const ciphertextHash = await computeDocumentV2ContentRecordCiphertextHash(
+    input.encryptedData,
+  );
+  if (
+    ciphertextHash !==
+    readRecordString(update.writeHeader, "ciphertextHash", "write header")
+  ) {
+    throw new Error("Document V2 encrypted update ciphertext hash mismatch");
+  }
+}
+
+async function decryptDocumentV2SyncUpdate(input: {
+  contentKey: Uint8Array;
+  contentKeyEpoch: number;
+  documentId: string;
+  organizationId: string;
+  update: DocumentV2SyncResponse["updates"][number];
+}): Promise<DecryptedDocumentV2SyncUpdate> {
+  const encrypted = parseDocumentV2EncryptedUpdate(input.update.encryptedData);
+  await assertDocumentV2EncryptedUpdateMatchesHeader({
+    encrypted,
+    encryptedData: input.update.encryptedData,
+    contentKeyEpoch: input.contentKeyEpoch,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+    update: input.update,
+  });
+  const recordKey = await deriveDocumentV2ContentRecordKey({
+    contentKey: input.contentKey,
+    contentKeyEpoch: input.contentKeyEpoch,
+    contentRecordId: encrypted.contentRecordId,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+    usage: "decrypt",
+  });
+  const updateData = new Uint8Array(
+    await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: asWebCryptoBytes(encrypted.iv),
+        additionalData: contentRecordAdditionalDataBytes({
+          contentKeyEpoch: input.contentKeyEpoch,
+          contentRecordId: encrypted.contentRecordId,
+          documentId: input.documentId,
+          metadataHash: encrypted.metadataHash,
+          nonceDomainHash: encrypted.nonceDomainHash,
+          organizationId: input.organizationId,
+        }),
+      },
+      recordKey,
+      asWebCryptoBytes(encrypted.ciphertext),
+    ),
+  );
+
+  return {
+    id: input.update.id,
+    partialEndVersionVector: input.update.partialEndVersionVector,
+    partialStartVersionVector: input.update.partialStartVersionVector,
+    updateData,
+  };
+}
+
+export async function decryptDocumentV2SyncUpdates(input: {
+  contentKey: Uint8Array;
+  contentKeyEpoch: number;
+  documentId: string;
+  organizationId: string;
+  updates: readonly DocumentV2SyncResponse["updates"][number][];
+}): Promise<DecryptedDocumentV2SyncUpdate[]> {
+  return Promise.all(
+    input.updates.map((update) =>
+      decryptDocumentV2SyncUpdate({
+        contentKey: input.contentKey,
+        contentKeyEpoch: input.contentKeyEpoch,
+        documentId: input.documentId,
+        organizationId: input.organizationId,
+        update,
+      }),
+    ),
+  );
 }
 
 function assertEqualBytes(
@@ -1786,16 +2043,24 @@ export async function syncRemoteDocumentV2(input: {
   if (!response) {
     return null;
   }
+  const persistedState = await persistedDocumentV2SyncStateFromResponse(
+    plan,
+    response,
+    {
+      writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+    },
+  );
 
   return {
     contentKey: materializedPlan.contentKey,
-    persistedState: await persistedDocumentV2SyncStateFromResponse(
-      plan,
-      response,
-      {
-        writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
-      },
-    ),
+    decryptedUpdates: await decryptDocumentV2SyncUpdates({
+      contentKey: materializedPlan.contentKey,
+      contentKeyEpoch: plan.contentKeyEpoch,
+      documentId: plan.documentId,
+      organizationId: plan.organizationId,
+      updates: response.updates,
+    }),
+    persistedState,
     plan,
     response,
     writerProjection,
