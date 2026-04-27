@@ -10,6 +10,7 @@ import type {
   PrincipalStateMemberType,
   PrincipalStatePayloadCipherSuite,
   ReferencedPrincipalHeadV2,
+  WriteHeaderV2,
 } from "@tearleads/crypto";
 import {
   documents,
@@ -507,6 +508,81 @@ export const accessManifestDocumentLinkProjection = pgTable(
     uniqueIndex("access_manifest_document_link_unique_idx").on(
       table.manifestHash,
       table.containerId,
+    ),
+  ],
+);
+
+export const documentContentKeyEpochs = pgTable(
+  "document_content_key_epochs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    documentId: text("document_id").notNull(),
+    contentKeyEpoch: integer("content_key_epoch").notNull(),
+    linkSetManifestHash: text("link_set_manifest_hash").notNull(),
+    targetHash: text("target_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("document_content_key_epochs_document_epoch_idx").on(
+      table.documentId,
+      table.contentKeyEpoch,
+    ),
+    index("document_content_key_epochs_document_idx").on(table.documentId),
+    index("document_content_key_epochs_target_idx").on(table.targetHash),
+  ],
+);
+
+export const documentContentKeyTargets = pgTable(
+  "document_content_key_targets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    documentContentKeyEpochId: uuid("document_content_key_epoch_id")
+      .notNull()
+      .references(() => documentContentKeyEpochs.id),
+    containerId: text("container_id").notNull(),
+    containerManifestHash: text("container_manifest_hash").notNull(),
+    containerKeyEpochId: text("container_key_epoch_id").notNull(),
+    containerKeyEpoch: integer("container_key_epoch").notNull(),
+    wrappedKey: text("wrapped_key").notNull(),
+    wrappingMetadata: jsonb("wrapping_metadata")
+      .$type<KeyingV2CanonicalJson>()
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("document_content_key_targets_epoch_idx").on(
+      table.documentContentKeyEpochId,
+    ),
+    index("document_content_key_targets_container_epoch_idx").on(
+      table.containerKeyEpochId,
+    ),
+    uniqueIndex("document_content_key_targets_epoch_container_idx").on(
+      table.documentContentKeyEpochId,
+      table.containerId,
+    ),
+  ],
+);
+
+export const documentContentWriteHeaders = pgTable(
+  "document_content_write_headers",
+  {
+    updateId: uuid("update_id").primaryKey(),
+    documentId: text("document_id").notNull(),
+    contentKeyEpoch: integer("content_key_epoch").notNull(),
+    accessManifestHash: text("access_manifest_hash").notNull(),
+    targetHash: text("target_hash").notNull(),
+    headerHash: text("header_hash").notNull(),
+    header: jsonb("header").$type<WriteHeaderV2>().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("document_content_write_headers_document_epoch_idx").on(
+      table.documentId,
+      table.contentKeyEpoch,
+    ),
+    uniqueIndex("document_content_write_headers_header_hash_idx").on(
+      table.headerHash,
     ),
   ],
 );

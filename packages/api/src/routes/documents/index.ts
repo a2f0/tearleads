@@ -18,6 +18,7 @@ import {
 } from "../../services/documents/listDocumentAttachments";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import type { SessionData } from "../../validators/session";
+import { createDocumentV2MutationsRoute } from "./v2Mutations";
 
 interface DocumentsRouterDeps {
   readonly publish: (event: Record<string, unknown>) => Promise<void>;
@@ -118,6 +119,10 @@ export function createDocumentsRouter({
 
   addCommitChangeRoute(documentsRouter, publish, requireAuth, runtime);
   addDocumentReadRoutes(documentsRouter, requireAuth, runtime);
+  documentsRouter.route(
+    "/",
+    createDocumentV2MutationsRoute({ publish, requireAuth, runtime }),
+  );
 
   return documentsRouter;
 }

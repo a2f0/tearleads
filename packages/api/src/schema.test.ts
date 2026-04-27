@@ -64,6 +64,12 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         as "accessManifestPrincipalHeadProjection",
       to_regclass('access_manifest_document_link_projection') is not null
         as "accessManifestDocumentLinkProjection",
+      to_regclass('document_content_key_epochs') is not null
+        as "documentContentKeyEpochs",
+      to_regclass('document_content_key_targets') is not null
+        as "documentContentKeyTargets",
+      to_regclass('document_content_write_headers') is not null
+        as "documentContentWriteHeaders",
       to_regclass('access_events_event_hash_idx') is not null
         as "accessEventsEventHashIndex",
       to_regclass('access_manifests_object_epoch_idx') is not null
@@ -76,6 +82,12 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         as "containerKeyWrapsEpochRecipientIndex",
       to_regclass('access_manifest_document_link_unique_idx') is not null
         as "accessManifestDocumentLinkUniqueIndex",
+      to_regclass('document_content_key_epochs_document_epoch_idx') is not null
+        as "documentContentKeyEpochsDocumentEpochIndex",
+      to_regclass('document_content_key_targets_epoch_container_idx') is not null
+        as "documentContentKeyTargetsEpochContainerIndex",
+      to_regclass('document_content_write_headers_header_hash_idx') is not null
+        as "documentContentWriteHeadersHeaderHashIndex",
       (
         select data_type
         from information_schema.columns
@@ -93,7 +105,19 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         from information_schema.columns
         where table_name = 'access_manifests'
           and column_name = 'referenced_principal_heads'
-      ) = 'jsonb' as "accessManifestsPrincipalHeadsJsonb"
+      ) = 'jsonb' as "accessManifestsPrincipalHeadsJsonb",
+      (
+        select data_type
+        from information_schema.columns
+        where table_name = 'document_content_key_targets'
+          and column_name = 'wrapping_metadata'
+      ) = 'jsonb' as "documentContentKeyTargetsMetadataJsonb",
+      (
+        select data_type
+        from information_schema.columns
+        where table_name = 'document_content_write_headers'
+          and column_name = 'header'
+      ) = 'jsonb' as "documentContentWriteHeadersHeaderJsonb"
   `);
 
   expect(result.rows[0]).toEqual({
@@ -105,14 +129,22 @@ test("V2 access manifest schema creates tables and indexes", async () => {
     accessEventDependencyProjection: true,
     accessManifestDocumentLinkProjection: true,
     accessManifestPrincipalHeadProjection: true,
+    documentContentKeyEpochs: true,
+    documentContentKeyTargets: true,
+    documentContentWriteHeaders: true,
     accessEventsEventHashIndex: true,
     accessManifestsObjectEpochIndex: true,
     accessManifestHeadsObjectIndex: true,
     containerKeyEpochsContainerEpochIndex: true,
     containerKeyWrapsEpochRecipientIndex: true,
     accessManifestDocumentLinkUniqueIndex: true,
+    documentContentKeyEpochsDocumentEpochIndex: true,
+    documentContentKeyTargetsEpochContainerIndex: true,
+    documentContentWriteHeadersHeaderHashIndex: true,
     accessEventsDependenciesJsonb: true,
     accessEventsBodyJsonb: true,
     accessManifestsPrincipalHeadsJsonb: true,
+    documentContentKeyTargetsMetadataJsonb: true,
+    documentContentWriteHeadersHeaderJsonb: true,
   });
 });

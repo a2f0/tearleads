@@ -3,6 +3,9 @@ import {
   isChallengeRequest,
   isCommitDocumentChangeRequest,
   isCreateContainerRequest,
+  isDocumentV2ContentKeyBundleRequest,
+  isDocumentV2CreateRequest,
+  isDocumentV2SyncRequest,
   isLinkDocumentToContainerRequest,
   isMoveContainerRequest,
   isPublicKeyRequest,
@@ -422,4 +425,107 @@ test("isPutPrincipalMemberEnvelopesRequest", () => {
     }),
   ).toBe(false);
   expect(isPutPrincipalMemberEnvelopesRequest(null)).toBe(false);
+});
+
+function createDocumentV2ContentKeyBundle(overrides = {}) {
+  return {
+    contentKeyEpoch: 1,
+    linkSetManifestHash: "document-link-set-hash",
+    targetHash: "target-hash",
+    targets: [
+      {
+        containerId: "550e8400-e29b-41d4-a716-446655440000",
+        containerManifestHash: "container-manifest-hash",
+        containerKeyEpochId: "container-key-epoch-id",
+        containerKeyEpoch: 1,
+        wrappedKey: "wrapped-key",
+        wrappingMetadata: { alg: "x25519-hkdf-sha256" },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+test("isDocumentV2ContentKeyBundleRequest", () => {
+  expect(
+    isDocumentV2ContentKeyBundleRequest(createDocumentV2ContentKeyBundle()),
+  ).toBe(true);
+  expect(
+    isDocumentV2ContentKeyBundleRequest(
+      createDocumentV2ContentKeyBundle({ contentKeyEpoch: 0 }),
+    ),
+  ).toBe(false);
+  expect(
+    isDocumentV2ContentKeyBundleRequest(
+      createDocumentV2ContentKeyBundle({ targets: [{ wrappedKey: "" }] }),
+    ),
+  ).toBe(false);
+  expect(isDocumentV2ContentKeyBundleRequest(null)).toBe(false);
+});
+
+test("isDocumentV2CreateRequest", () => {
+  const validRequest = {
+    event: { eventType: "document.link" },
+    body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
+    expectedManifestHash: "manifest-hash",
+    manifest: { objectType: "document", objectId: "doc-1" },
+    previousManifest: null,
+    targetContainerPath: [{ containerId: "container-1" }],
+    authorizingContainerPaths: [[{ containerId: "container-1" }]],
+    principalPolicies: [{ principalId: "principal-1" }],
+    contentKeyBundle: createDocumentV2ContentKeyBundle(),
+  };
+
+  expect(isDocumentV2CreateRequest(validRequest)).toBe(true);
+  expect(
+    isDocumentV2CreateRequest({
+      ...validRequest,
+      expectedManifestHash: "",
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2CreateRequest({
+      ...validRequest,
+      contentKeyBundle: createDocumentV2ContentKeyBundle({
+        targetHash: "",
+      }),
+    }),
+  ).toBe(false);
+  expect(isDocumentV2CreateRequest(null)).toBe(false);
+});
+
+test("isDocumentV2SyncRequest", () => {
+  const validRequest = {
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "document-link-set-hash",
+    expectedTargetHash: "target-hash",
+    localVersionVector: null,
+    minLsn: "0/16B6C50",
+    outgoingUpdates: [
+      {
+        checkpointKind: "fresh_baseline",
+        id: "update-1",
+        encryptedData: "ciphertext",
+        partialStartVersionVector: "{}",
+        partialEndVersionVector: '{"actor":1}',
+        sourceVersionVector: "{}",
+        writeHeader: { updateId: "update-1" },
+      },
+    ],
+  };
+
+  expect(isDocumentV2SyncRequest(validRequest)).toBe(true);
+  expect(
+    isDocumentV2SyncRequest({
+      ...validRequest,
+      minLsn: "not-an-lsn",
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2SyncRequest({
+      ...validRequest,
+      outgoingUpdates: [{ id: "update-1" }],
+    }),
+  ).toBe(false);
+  expect(isDocumentV2SyncRequest(null)).toBe(false);
 });
