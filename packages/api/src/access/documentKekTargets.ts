@@ -24,6 +24,7 @@ export class DocumentKekTargetError extends Error {
 
 interface ResolvedDocumentKekTargets {
   readonly documentId: string;
+  readonly organizationId: string;
   readonly linkSetManifestHash: string;
   readonly linkedContainerManifestHashes: readonly string[];
   readonly linkedContainerKeyEpochIds: readonly string[];
@@ -105,6 +106,7 @@ export async function resolveCurrentDocumentKekTargets(
 
   return {
     documentId,
+    organizationId: linkSetHead.organizationId,
     linkSetManifestHash: linkSetHead.manifestHash,
     linkedContainerManifestHashes: targets.map(
       (target) => target.containerManifestHash,

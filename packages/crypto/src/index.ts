@@ -49,6 +49,8 @@ export type {
   ContainerRevokeAccessEventBodyV2,
   ContainerUserRecipientKeyV2,
   ContentObjectKindV2,
+  ContentRecordEncryptionSuiteV2,
+  ContentRecordNonceDomainV2,
   DeriveBlobKekTargetsInput,
   DeriveContainerKekRecipientTargetsInput,
   DeriveDocumentKekTargetsInput,
@@ -118,6 +120,7 @@ export type {
 } from "./keyingV2";
 export {
   accessManifestTransparencyLeaf,
+  CONTENT_RECORD_ENCRYPTION_SUITE_V2,
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
@@ -127,6 +130,7 @@ export {
   computeContainerDirectGrantRoot,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
   computeDocumentLinkSetGrantRoot,
   computeDocumentLinkSetKeyTargetHash,

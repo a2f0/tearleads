@@ -1,6 +1,7 @@
 import type {
   AccessEventTypeV2,
   AccessObjectKindV2,
+  ContentRecordEncryptionSuiteV2,
   KekRecipientKindV2,
   KeyingV2CanonicalJson,
   ManagedPrincipalKindV2,
@@ -572,9 +573,15 @@ export const documentContentWriteHeaders = pgTable(
   {
     updateId: uuid("update_id").primaryKey(),
     documentId: text("document_id").notNull(),
+    organizationId: text("organization_id").notNull(),
     contentKeyEpoch: integer("content_key_epoch").notNull(),
     accessManifestHash: text("access_manifest_hash").notNull(),
     targetHash: text("target_hash").notNull(),
+    encryptionSuite: text("encryption_suite")
+      .$type<ContentRecordEncryptionSuiteV2>()
+      .notNull(),
+    contentRecordId: text("content_record_id").notNull(),
+    nonceDomainHash: text("nonce_domain_hash").notNull(),
     headerHash: text("header_hash").notNull(),
     header: jsonb("header").$type<WriteHeaderV2>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -586,6 +593,16 @@ export const documentContentWriteHeaders = pgTable(
     ),
     uniqueIndex("document_content_write_headers_header_hash_idx").on(
       table.headerHash,
+    ),
+    uniqueIndex("document_content_write_headers_content_record_idx").on(
+      table.documentId,
+      table.contentKeyEpoch,
+      table.contentRecordId,
+    ),
+    uniqueIndex("document_content_write_headers_nonce_domain_idx").on(
+      table.documentId,
+      table.contentKeyEpoch,
+      table.nonceDomainHash,
     ),
   ],
 );

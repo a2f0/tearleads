@@ -38,6 +38,7 @@ export type KeyingV2HashDomain =
   | "tearleads.keying-v2.access-event.v1"
   | "tearleads.keying-v2.access-manifest.v1"
   | "tearleads.keying-v2.blob-content-key-targets.v1"
+  | "tearleads.keying-v2.content-record-nonce-domain.v1"
   | "tearleads.keying-v2.container-access-direct-grants.v1"
   | "tearleads.keying-v2.container-access-key-target.v1"
   | "tearleads.keying-v2.container-access-structural.v1"
@@ -75,6 +76,10 @@ export type KekRecipientKindV2 =
 export type ContentObjectKindV2 = "blob" | "document";
 export type ContainerAccessLevelV2 = "admin" | "read" | "write";
 export type ContainerGrantSubjectTypeV2 = "group" | "organization" | "user";
+export const CONTENT_RECORD_ENCRYPTION_SUITE_V2 =
+  "aes-256-gcm-hkdf-sha256-record-key-v1" as const;
+export type ContentRecordEncryptionSuiteV2 =
+  typeof CONTENT_RECORD_ENCRYPTION_SUITE_V2;
 
 export interface UnsignedAccessEventV2 {
   version: 2;
@@ -284,11 +289,15 @@ export interface BlobContentKeyTargetV2 extends ContainerKekTargetV2 {
 
 export interface UnsignedWriteHeaderV2 {
   version: 2;
+  organizationId: string;
   objectKind: ContentObjectKindV2;
   objectId: string;
   accessManifestHash: string;
   contentKeyEpoch: number;
   targetHash: string;
+  encryptionSuite: ContentRecordEncryptionSuiteV2;
+  contentRecordId: string;
+  nonceDomainHash: string;
   metadataHash: string;
   ciphertextHash: string;
   writerUserId: string;
@@ -299,6 +308,16 @@ export interface UnsignedWriteHeaderV2 {
 
 export interface WriteHeaderV2 extends UnsignedWriteHeaderV2 {
   signature: string;
+}
+
+export interface ContentRecordNonceDomainV2 {
+  version: 2;
+  organizationId: string;
+  objectKind: ContentObjectKindV2;
+  objectId: string;
+  contentKeyEpoch: number;
+  encryptionSuite: ContentRecordEncryptionSuiteV2;
+  contentRecordId: string;
 }
 
 export interface IdentityStateHeadV2 {
@@ -553,6 +572,8 @@ export interface VerifiedContainerKekState {
 export interface VerifiedWriteHeader {
   readonly header: WriteHeaderV2;
   readonly headerHash: string;
+  readonly nonceDomain: ContentRecordNonceDomainV2;
+  readonly nonceDomainHash: string;
   readonly [verifiedWriteHeaderBrand]: true;
 }
 
@@ -579,6 +600,7 @@ interface ExpectedObjectV2 {
 interface ExpectedWriteObjectV2 {
   readonly objectKind: ContentObjectKindV2;
   readonly objectId: string;
+  readonly organizationId?: string;
 }
 
 export interface VerifyAccessEventInput {
@@ -944,6 +966,27 @@ function readHashString(
   return value;
 }
 
+function readContentRecordId(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): string {
+  const value = readString(record, key, label).toLowerCase();
+
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      value,
+    )
+  ) {
+    throwVerification(
+      "invalid_shape",
+      `${label}.${key} must be a UUIDv4 content record id`,
+    );
+  }
+
+  return value;
+}
+
 function readNullableHashString(
   record: Record<string, unknown>,
   key: string,
@@ -1296,6 +1339,20 @@ function normalizeContentObjectKind(
 ): ContentObjectKindV2 {
   if (typeof value !== "string" || !isContentObjectKind(value)) {
     throwVerification("invalid_domain", `${label}.objectKind is unsupported`);
+  }
+
+  return value;
+}
+
+function normalizeContentRecordEncryptionSuite(
+  value: unknown,
+  label: string,
+): ContentRecordEncryptionSuiteV2 {
+  if (value !== CONTENT_RECORD_ENCRYPTION_SUITE_V2) {
+    throwVerification(
+      "invalid_domain",
+      `${label}.encryptionSuite is unsupported`,
+    );
   }
 
   return value;
@@ -7089,10 +7146,14 @@ function normalizeUnsignedWriteHeader(
     [
       "accessManifestHash",
       "ciphertextHash",
+      "contentRecordId",
       "contentKeyEpoch",
+      "encryptionSuite",
       "metadataHash",
+      "nonceDomainHash",
       "objectId",
       "objectKind",
+      "organizationId",
       "signedAt",
       "targetHash",
       "version",
@@ -7105,6 +7166,7 @@ function normalizeUnsignedWriteHeader(
 
   return {
     version: readVersion(record, "write header"),
+    organizationId: readString(record, "organizationId", "write header"),
     objectKind: normalizeContentObjectKind(record.objectKind, "write header"),
     objectId: readString(record, "objectId", "write header"),
     accessManifestHash: readHashString(
@@ -7118,6 +7180,16 @@ function normalizeUnsignedWriteHeader(
       "write header",
     ),
     targetHash: readHashString(record, "targetHash", "write header"),
+    encryptionSuite: normalizeContentRecordEncryptionSuite(
+      record.encryptionSuite,
+      "write header",
+    ),
+    contentRecordId: readContentRecordId(
+      record,
+      "contentRecordId",
+      "write header",
+    ),
+    nonceDomainHash: readHashString(record, "nonceDomainHash", "write header"),
     metadataHash: readHashString(record, "metadataHash", "write header"),
     ciphertextHash: readHashString(record, "ciphertextHash", "write header"),
     writerUserId: readString(record, "writerUserId", "write header"),
@@ -7137,10 +7209,14 @@ function normalizeWriteHeader(value: WriteHeaderV2): WriteHeaderV2 {
     [
       "accessManifestHash",
       "ciphertextHash",
+      "contentRecordId",
       "contentKeyEpoch",
+      "encryptionSuite",
       "metadataHash",
+      "nonceDomainHash",
       "objectId",
       "objectKind",
+      "organizationId",
       "signature",
       "signedAt",
       "targetHash",
@@ -7153,11 +7229,15 @@ function normalizeWriteHeader(value: WriteHeaderV2): WriteHeaderV2 {
   );
   const unsignedHeader = normalizeUnsignedWriteHeader({
     version: record.version,
+    organizationId: record.organizationId,
     objectKind: record.objectKind,
     objectId: record.objectId,
     accessManifestHash: record.accessManifestHash,
     contentKeyEpoch: record.contentKeyEpoch,
     targetHash: record.targetHash,
+    encryptionSuite: record.encryptionSuite,
+    contentRecordId: record.contentRecordId,
+    nonceDomainHash: record.nonceDomainHash,
     metadataHash: record.metadataHash,
     ciphertextHash: record.ciphertextHash,
     writerUserId: record.writerUserId,
@@ -7180,6 +7260,96 @@ function unsignedWriteHeaderPayload(
   ) as unknown as KeyingV2CanonicalJson;
 }
 
+function contentRecordNonceDomainFromHeader(
+  header: UnsignedWriteHeaderV2,
+): ContentRecordNonceDomainV2 {
+  const normalizedHeader = normalizeUnsignedWriteHeader(header);
+
+  return {
+    version: 2,
+    organizationId: normalizedHeader.organizationId,
+    objectKind: normalizedHeader.objectKind,
+    objectId: normalizedHeader.objectId,
+    contentKeyEpoch: normalizedHeader.contentKeyEpoch,
+    encryptionSuite: normalizedHeader.encryptionSuite,
+    contentRecordId: normalizedHeader.contentRecordId,
+  };
+}
+
+function normalizeContentRecordNonceDomain(
+  value: ContentRecordNonceDomainV2,
+): ContentRecordNonceDomainV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "contentKeyEpoch",
+      "contentRecordId",
+      "encryptionSuite",
+      "objectId",
+      "objectKind",
+      "organizationId",
+      "version",
+    ],
+    "content record nonce domain",
+  );
+
+  return {
+    version: readVersion(record, "content record nonce domain"),
+    organizationId: readString(
+      record,
+      "organizationId",
+      "content record nonce domain",
+    ),
+    objectKind: normalizeContentObjectKind(
+      record.objectKind,
+      "content record nonce domain",
+    ),
+    objectId: readString(record, "objectId", "content record nonce domain"),
+    contentKeyEpoch: readPositiveInteger(
+      record,
+      "contentKeyEpoch",
+      "content record nonce domain",
+    ),
+    encryptionSuite: normalizeContentRecordEncryptionSuite(
+      record.encryptionSuite,
+      "content record nonce domain",
+    ),
+    contentRecordId: readContentRecordId(
+      record,
+      "contentRecordId",
+      "content record nonce domain",
+    ),
+  };
+}
+
+export async function computeContentRecordNonceDomainHash(
+  domain: ContentRecordNonceDomainV2,
+): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.content-record-nonce-domain.v1",
+    normalizeContentRecordNonceDomain(
+      domain,
+    ) as unknown as KeyingV2CanonicalJson,
+  );
+}
+
+async function assertWriteHeaderNonceDomainHash(
+  header: UnsignedWriteHeaderV2,
+): Promise<ContentRecordNonceDomainV2> {
+  const nonceDomain = contentRecordNonceDomainFromHeader(header);
+  const nonceDomainHash =
+    await computeContentRecordNonceDomainHash(nonceDomain);
+
+  if (nonceDomainHash !== header.nonceDomainHash) {
+    throwVerification(
+      "hash_mismatch",
+      "write header nonce domain hash does not match derived content record domain",
+    );
+  }
+
+  return nonceDomain;
+}
+
 function writeHeaderSigningBytes(header: UnsignedWriteHeaderV2): Uint8Array {
   return encodeDomainPayload(
     "tearleads.keying-v2.write-header-signing.v1",
@@ -7190,11 +7360,15 @@ function writeHeaderSigningBytes(header: UnsignedWriteHeaderV2): Uint8Array {
 function toUnsignedWriteHeader(header: WriteHeaderV2): UnsignedWriteHeaderV2 {
   return {
     version: header.version,
+    organizationId: header.organizationId,
     objectKind: header.objectKind,
     objectId: header.objectId,
     accessManifestHash: header.accessManifestHash,
     contentKeyEpoch: header.contentKeyEpoch,
     targetHash: header.targetHash,
+    encryptionSuite: header.encryptionSuite,
+    contentRecordId: header.contentRecordId,
+    nonceDomainHash: header.nonceDomainHash,
     metadataHash: header.metadataHash,
     ciphertextHash: header.ciphertextHash,
     writerUserId: header.writerUserId,
@@ -7209,6 +7383,7 @@ export async function signWriteHeader(
   signingPrivateKey: Uint8Array,
 ): Promise<WriteHeaderV2> {
   const normalizedHeader = normalizeUnsignedWriteHeader(header);
+  await assertWriteHeaderNonceDomainHash(normalizedHeader);
   const signature = sign(
     writeHeaderSigningBytes(normalizedHeader),
     signingPrivateKey,
@@ -7240,6 +7415,9 @@ export async function verifyWriteHeader({
 > {
   return runVerifier(async () => {
     const normalizedHeader = normalizeWriteHeader(header);
+    const nonceDomain = await assertWriteHeaderNonceDomainHash(
+      toUnsignedWriteHeader(normalizedHeader),
+    );
     const writerKeyFingerprint = await toFingerprint(writerPublicKey);
 
     if (writerKeyFingerprint !== normalizedHeader.writerKeyFingerprint) {
@@ -7272,7 +7450,9 @@ export async function verifyWriteHeader({
     if (
       expectedObject &&
       (expectedObject.objectKind !== normalizedHeader.objectKind ||
-        expectedObject.objectId !== normalizedHeader.objectId)
+        expectedObject.objectId !== normalizedHeader.objectId ||
+        (expectedObject.organizationId !== undefined &&
+          expectedObject.organizationId !== normalizedHeader.organizationId))
     ) {
       throwVerification(
         "object_mismatch",
@@ -7303,6 +7483,8 @@ export async function verifyWriteHeader({
     return {
       header: normalizedHeader,
       headerHash: await computeWriteHeaderHash(normalizedHeader),
+      nonceDomain,
+      nonceDomainHash: normalizedHeader.nonceDomainHash,
     } as VerifiedWriteHeader;
   });
 }

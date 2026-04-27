@@ -253,9 +253,13 @@ await client.exec(`
   CREATE TABLE IF NOT EXISTS document_content_write_headers (
     update_id UUID PRIMARY KEY,
     document_id TEXT NOT NULL,
+    organization_id TEXT NOT NULL,
     content_key_epoch INTEGER NOT NULL,
     access_manifest_hash TEXT NOT NULL,
     target_hash TEXT NOT NULL,
+    encryption_suite TEXT NOT NULL,
+    content_record_id TEXT NOT NULL,
+    nonce_domain_hash TEXT NOT NULL,
     header_hash TEXT NOT NULL,
     header JSONB NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
@@ -527,6 +531,18 @@ await client.exec(`
     ON document_content_write_headers (document_id, content_key_epoch);
   CREATE UNIQUE INDEX IF NOT EXISTS document_content_write_headers_header_hash_idx
     ON document_content_write_headers (header_hash);
+  CREATE UNIQUE INDEX IF NOT EXISTS document_content_write_headers_content_record_idx
+    ON document_content_write_headers (
+      document_id,
+      content_key_epoch,
+      content_record_id
+    );
+  CREATE UNIQUE INDEX IF NOT EXISTS document_content_write_headers_nonce_domain_idx
+    ON document_content_write_headers (
+      document_id,
+      content_key_epoch,
+      nonce_domain_hash
+    );
   CREATE UNIQUE INDEX IF NOT EXISTS blob_content_key_epochs_blob_epoch_idx
     ON blob_content_key_epochs (blob_id, content_key_epoch);
   CREATE INDEX IF NOT EXISTS blob_content_key_epochs_blob_idx
