@@ -379,6 +379,19 @@ test("storeBlobContentWriteHeader stores canonical headers by record id", async 
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError("Blob write header does not match blob", 409),
   );
+  await expect(
+    storeBlobContentWriteHeader({
+      blobId,
+      header: { ...header, contentKeyEpoch: 2 },
+      headerHash: await hashOf("blob-write-header-unsupported-epoch"),
+      recordId: crypto.randomUUID(),
+    }),
+  ).rejects.toMatchObject(
+    new BlobContentKeyBundleError(
+      "Blob content key epoch must be 1; replace the blob after target shrink",
+      409,
+    ),
+  );
 
   const secondRecordId = crypto.randomUUID();
   const secondHeader = await createBlobWriteHeader({

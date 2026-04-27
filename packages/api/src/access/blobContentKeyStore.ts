@@ -623,6 +623,7 @@ export async function storeBlobContentWriteHeader(
       409,
     );
   }
+  ensureContentKeyEpoch(input.header.contentKeyEpoch);
 
   const [inserted] = await executor
     .insert(blobContentWriteHeaders)
