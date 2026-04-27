@@ -1,5 +1,6 @@
 import type {
   AccessManifestV2,
+  ContainerAccessManifestStateV2,
   ContainerKekRecipientTargetV2,
   ContainerKeyEpochV2,
   ContainerKeyWrapV2,
@@ -65,7 +66,62 @@ function toManifestBundleResponse(input: {
 function toVerifiedContainerManifest(
   bundle: ContainerV2ManifestBundleResponse,
 ): VerifiedContainerAccessManifest {
-  return bundle as unknown as VerifiedContainerAccessManifest;
+  return {
+    ...bundle,
+    state: readContainerAccessState(bundle),
+  } as unknown as VerifiedContainerAccessManifest;
+}
+
+function readContainerAccessState(
+  bundle: ContainerV2ManifestBundleResponse,
+): ContainerAccessManifestStateV2 {
+  const record =
+    bundle.state as unknown as Partial<ContainerAccessManifestStateV2>;
+  const manifest = bundle.manifest as Partial<AccessManifestV2>;
+
+  if (
+    record.version !== 2 ||
+    typeof record.containerId !== "string" ||
+    record.containerId.length === 0 ||
+    typeof record.organizationId !== "string" ||
+    record.organizationId.length === 0 ||
+    typeof record.epoch !== "number" ||
+    !Number.isInteger(record.epoch) ||
+    record.epoch <= 0 ||
+    !("parentContainerId" in record) ||
+    (record.parentContainerId !== null &&
+      typeof record.parentContainerId !== "string") ||
+    typeof record.eventHash !== "string" ||
+    record.eventHash.length === 0 ||
+    !("previousManifestHash" in record) ||
+    (record.previousManifestHash !== null &&
+      typeof record.previousManifestHash !== "string") ||
+    typeof record.containerKeyEpochId !== "string" ||
+    record.containerKeyEpochId.length === 0 ||
+    !Array.isArray(record.directGrants) ||
+    !Array.isArray(record.referencedPrincipalHeads)
+  ) {
+    throw new ContainerV2WriterProjectionError(
+      "Container V2 manifest state is invalid",
+      409,
+    );
+  }
+
+  if (
+    manifest.objectKind !== "container" ||
+    manifest.objectId !== record.containerId ||
+    manifest.organizationId !== record.organizationId ||
+    manifest.epoch !== record.epoch ||
+    manifest.eventHash !== record.eventHash ||
+    manifest.previousManifestHash !== record.previousManifestHash
+  ) {
+    throw new ContainerV2WriterProjectionError(
+      "Container V2 manifest state mismatch",
+      409,
+    );
+  }
+
+  return record as ContainerAccessManifestStateV2;
 }
 
 function containerKeyWrapTarget(
@@ -224,8 +280,8 @@ async function loadContainerKekResponse(
     keyTargetHash:
       await computeContainerKekRecipientTargetHash(recipientTargets),
     parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    recipientTargets: recipientTargets.map((target) => ({ ...target })),
-    wraps: wraps.map((wrap) => ({ ...wrap })),
+    recipientTargets: recipientTargets as unknown as Record<string, unknown>[],
+    wraps: wraps as unknown as Record<string, unknown>[],
   };
 }
 

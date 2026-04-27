@@ -4,6 +4,7 @@ import type {
   KeyingV2CanonicalJson,
 } from "@tearleads/crypto";
 import type {
+  ContainerV2WriterProjectionResponse,
   DocumentV2ContentKeyBundleResponse,
   DocumentV2KekTargetsResponse,
   DocumentV2ManifestBundleResponse,
@@ -147,28 +148,33 @@ async function resolveAuthorizingContainerPaths(input: {
   readonly executor: DatabaseExecutor;
   readonly userId: string;
 }) {
-  const authorizingPaths = [];
+  const results = await Promise.all(
+    input.containerIds.map(
+      async (
+        containerId,
+      ): Promise<ContainerV2WriterProjectionResponse | null> => {
+        try {
+          return await resolveContainerV2WriterProjection({
+            containerId,
+            executor: input.executor,
+            userId: input.userId,
+          });
+        } catch (error) {
+          if (
+            error instanceof ContainerV2WriterProjectionError &&
+            error.status === 403
+          ) {
+            return null;
+          }
 
-  for (const containerId of input.containerIds) {
-    try {
-      authorizingPaths.push(
-        await resolveContainerV2WriterProjection({
-          containerId,
-          executor: input.executor,
-          userId: input.userId,
-        }),
-      );
-    } catch (error) {
-      if (
-        error instanceof ContainerV2WriterProjectionError &&
-        error.status === 403
-      ) {
-        continue;
-      }
-
-      throw error;
-    }
-  }
+          throw error;
+        }
+      },
+    ),
+  );
+  const authorizingPaths = results.filter(
+    (path): path is ContainerV2WriterProjectionResponse => path !== null,
+  );
 
   if (authorizingPaths.length === 0) {
     throw new DocumentV2WriterProjectionError("Forbidden", 403);

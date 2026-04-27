@@ -41,7 +41,7 @@ import { storeVerifiedAccessManifest } from "../access/accessManifestStore";
 import { storeVerifiedContainerKekState } from "../access/containerKekStore";
 import { db } from "../adapters/postgres";
 import { routeApp } from "../routeApp";
-import { containers, users } from "../schema";
+import { accessManifests, containers, users } from "../schema";
 
 interface RootContainerFixture {
   readonly id: string;
@@ -376,6 +376,34 @@ test("GET /v2/containers/:containerId/writer-projection rejects users without V2
   );
 
   expect(response.status).toBe(403);
+});
+
+test("GET /v2/containers/:containerId/writer-projection rejects malformed stored V2 state", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+
+  await db
+    .update(accessManifests)
+    .set({
+      state: {
+        ...root.bundle.state,
+        version: 1,
+      } as KeyingV2CanonicalJson,
+    })
+    .where(eq(accessManifests.manifestHash, root.bundle.manifestHash));
+
+  const response = await routeApp.request(
+    `/v2/containers/${root.kekState.containerId}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(response.status).toBe(409);
 });
 
 test("GET /v2/documents/:documentId/writer-projection returns document targets and authorizing paths", async () => {
