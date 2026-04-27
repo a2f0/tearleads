@@ -472,7 +472,6 @@ test("isDocumentV2CreateRequest", () => {
     previousManifest: null,
     targetContainerPath: [{ containerId: "container-1" }],
     authorizingContainerPaths: [[{ containerId: "container-1" }]],
-    principalPolicies: [{ principalId: "principal-1" }],
     contentKeyBundle: createDocumentV2ContentKeyBundle(),
   };
 
@@ -529,7 +528,6 @@ test("isDocumentV2SyncRequest", () => {
         writeHeader: { updateId: "update-1" },
       },
     ],
-    principalPolicies: [],
   };
 
   expect(isDocumentV2SyncRequest(validRequest)).toBe(true);

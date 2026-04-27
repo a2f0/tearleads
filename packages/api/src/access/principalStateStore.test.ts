@@ -18,7 +18,9 @@ import {
   getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
+  getPrincipalStatesForReferences,
   listPrincipalProjectionMembersForStates,
+  principalStateReferenceKey,
   storeVerifiedPrincipalState,
 } from "./principalStateStore";
 
@@ -706,6 +708,79 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
   expect(currentStates.get(firstPrincipalId)?.keyEpoch).toBe(2);
   expect(currentStates.get(secondPrincipalId)?.version).toBe(1);
   expect(currentStates.get(secondPrincipalId)?.keyEpoch).toBe(1);
+});
+
+test("getPrincipalStatesForReferences batches exact historical state lookup by referenced head", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const signer = await createPrincipalStateSigner(signingPublicKey);
+  const principalId = crypto.randomUUID();
+  const firstKem = generateKemSeedAndKeyPair();
+  const secondKem = generateKemSeedAndKeyPair();
+
+  const firstState = await storeVerifiedPrincipalState(
+    await signPrincipalState(
+      {
+        principalType: "group",
+        principalId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(firstKem.publicKey),
+        keyFingerprint: await toFingerprint(firstKem.publicKey),
+        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        projection: [
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: signer.signerUserId,
+            role: "admin",
+          },
+        ],
+        signedAt: new Date("2026-04-07T15:20:00.000Z").toISOString(),
+        ...signer,
+      },
+      signingPrivateKey,
+    ),
+  );
+  const secondState = await storeVerifiedPrincipalState(
+    await signPrincipalState(
+      {
+        principalType: "group",
+        principalId,
+        version: 2,
+        prevStateHash: firstState.stateHash,
+        keyEpoch: 2,
+        encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
+        keyFingerprint: await toFingerprint(secondKem.publicKey),
+        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        projection: [
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: signer.signerUserId,
+            role: "admin",
+          },
+        ],
+        signedAt: new Date("2026-04-07T15:25:00.000Z").toISOString(),
+        ...signer,
+      },
+      signingPrivateKey,
+    ),
+  );
+
+  const states = await getPrincipalStatesForReferences([
+    firstState,
+    secondState,
+    firstState,
+  ]);
+
+  expect(states.get(principalStateReferenceKey(firstState))?.version).toBe(1);
+  expect(states.get(principalStateReferenceKey(firstState))?.stateHash).toBe(
+    firstState.stateHash,
+  );
+  expect(states.get(principalStateReferenceKey(secondState))?.version).toBe(2);
+  expect(states.get(principalStateReferenceKey(secondState))?.stateHash).toBe(
+    secondState.stateHash,
+  );
 });
 
 test("listPrincipalProjectionMembersForStates batches projection lookup by current state", async () => {

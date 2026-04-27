@@ -36,7 +36,6 @@ export interface DocumentV2CreateRequest {
   previousManifest?: DocumentV2ManifestBundle | null;
   targetContainerPath?: Record<string, unknown>[];
   authorizingContainerPaths?: Record<string, unknown>[][];
-  principalPolicies?: Record<string, unknown>[];
   contentKeyBundle: DocumentV2ContentKeyBundleRequest;
 }
 
@@ -57,7 +56,6 @@ export interface DocumentV2SyncRequest {
   expectedLinkSetManifestHash: string;
   expectedTargetHash: string;
   authorizingContainerPaths?: Record<string, unknown>[][];
-  principalPolicies?: Record<string, unknown>[];
   localVersionVector: string | null;
   minLsn?: string;
   outgoingUpdates: DocumentV2OutgoingUpdate[];
@@ -205,9 +203,6 @@ export function isDocumentV2CreateRequest(
   const authorizingContainerPaths = isPlainObject(value)
     ? Reflect.get(value, "authorizingContainerPaths")
     : undefined;
-  const principalPolicies = isPlainObject(value)
-    ? Reflect.get(value, "principalPolicies")
-    : undefined;
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
     : undefined;
@@ -225,7 +220,6 @@ export function isDocumentV2CreateRequest(
       isDocumentV2ManifestBundle(previousManifest)) &&
     isOptionalRecordArray(targetContainerPath) &&
     isOptionalRecordArrayArray(authorizingContainerPaths) &&
-    isOptionalRecordArray(principalPolicies) &&
     isDocumentV2ContentKeyBundleRequest(contentKeyBundle)
   );
 }
@@ -248,9 +242,6 @@ export function isDocumentV2SyncRequest(
   const outgoingUpdates = isPlainObject(value)
     ? Reflect.get(value, "outgoingUpdates")
     : undefined;
-  const principalPolicies = isPlainObject(value)
-    ? Reflect.get(value, "principalPolicies")
-    : undefined;
   const hasOutgoingUpdates =
     Array.isArray(outgoingUpdates) && outgoingUpdates.length > 0;
 
@@ -258,17 +249,17 @@ export function isDocumentV2SyncRequest(
     isPlainObject(value) &&
     (contentKeyBundle === undefined ||
       isDocumentV2ContentKeyBundleRequest(contentKeyBundle)) &&
-    (!hasOutgoingUpdates || isDocumentV2ManifestBundle(documentManifest)) &&
-    (documentManifest === undefined ||
-      isDocumentV2ManifestBundle(documentManifest)) &&
+    (documentManifest === undefined
+      ? !hasOutgoingUpdates
+      : isDocumentV2ManifestBundle(documentManifest)) &&
     hasPositiveNumberProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "expectedLinkSetManifestHash") &&
     value.expectedLinkSetManifestHash.length > 0 &&
     hasStringProperty(value, "expectedTargetHash") &&
     value.expectedTargetHash.length > 0 &&
-    (!hasOutgoingUpdates || isRecordArrayArray(authorizingContainerPaths)) &&
-    isOptionalRecordArrayArray(authorizingContainerPaths) &&
-    isOptionalRecordArray(principalPolicies) &&
+    (authorizingContainerPaths === undefined
+      ? !hasOutgoingUpdates
+      : isRecordArrayArray(authorizingContainerPaths)) &&
     isNullableString(Reflect.get(value, "localVersionVector")) &&
     (minLsn === undefined || isWalLsnString(minLsn)) &&
     hasArrayProperty(value, "outgoingUpdates") &&
