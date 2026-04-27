@@ -260,6 +260,27 @@ await client.exec(`
     header JSONB NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS blob_content_key_epochs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    blob_id UUID NOT NULL,
+    content_key_epoch INTEGER NOT NULL,
+    target_hash TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS blob_content_key_targets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    blob_content_key_epoch_id UUID NOT NULL REFERENCES blob_content_key_epochs(id),
+    binding_id UUID NOT NULL,
+    document_id TEXT NOT NULL,
+    container_id TEXT NOT NULL,
+    container_manifest_hash TEXT NOT NULL,
+    container_key_epoch_id TEXT NOT NULL,
+    container_key_epoch INTEGER NOT NULL,
+    wrapped_key TEXT NOT NULL,
+    wrapping_metadata JSONB NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS document_container_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id TEXT NOT NULL,
@@ -358,9 +379,15 @@ await client.exec(`
     slot_id TEXT NOT NULL,
     blob_id UUID NOT NULL,
     previous_binding_id UUID,
+    attachment_event_hash TEXT,
+    document_manifest_hash TEXT,
     detached_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  ALTER TABLE attachment_bindings
+    ADD COLUMN IF NOT EXISTS attachment_event_hash TEXT;
+  ALTER TABLE attachment_bindings
+    ADD COLUMN IF NOT EXISTS document_manifest_hash TEXT;
   CREATE INDEX IF NOT EXISTS principal_states_principal_idx
     ON principal_states (principal_type, principal_id);
   CREATE UNIQUE INDEX IF NOT EXISTS principal_states_principal_version_idx
@@ -500,6 +527,25 @@ await client.exec(`
     ON document_content_write_headers (document_id, content_key_epoch);
   CREATE UNIQUE INDEX IF NOT EXISTS document_content_write_headers_header_hash_idx
     ON document_content_write_headers (header_hash);
+  CREATE UNIQUE INDEX IF NOT EXISTS blob_content_key_epochs_blob_epoch_idx
+    ON blob_content_key_epochs (blob_id, content_key_epoch);
+  CREATE INDEX IF NOT EXISTS blob_content_key_epochs_blob_idx
+    ON blob_content_key_epochs (blob_id);
+  CREATE INDEX IF NOT EXISTS blob_content_key_epochs_target_idx
+    ON blob_content_key_epochs (target_hash);
+  CREATE INDEX IF NOT EXISTS blob_content_key_targets_epoch_idx
+    ON blob_content_key_targets (blob_content_key_epoch_id);
+  CREATE INDEX IF NOT EXISTS blob_content_key_targets_binding_idx
+    ON blob_content_key_targets (binding_id);
+  CREATE INDEX IF NOT EXISTS blob_content_key_targets_container_epoch_idx
+    ON blob_content_key_targets (container_key_epoch_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS blob_content_key_targets_epoch_binding_container_idx
+    ON blob_content_key_targets (
+      blob_content_key_epoch_id,
+      binding_id,
+      document_id,
+      container_id
+    );
   CREATE UNIQUE INDEX IF NOT EXISTS document_container_links_document_container_idx
     ON document_container_links (document_id, container_id);
   CREATE INDEX IF NOT EXISTS document_container_links_container_idx
@@ -522,6 +568,8 @@ await client.exec(`
     ON attachment_bindings (blob_id);
   CREATE INDEX IF NOT EXISTS attachment_bindings_previous_binding_id_idx
     ON attachment_bindings (previous_binding_id);
+  CREATE INDEX IF NOT EXISTS attachment_bindings_attachment_event_hash_idx
+    ON attachment_bindings (attachment_event_hash);
   CREATE UNIQUE INDEX IF NOT EXISTS attachment_bindings_document_slot_active_idx
     ON attachment_bindings (document_id, slot_id) WHERE detached_at IS NULL;
   ${loroSql}

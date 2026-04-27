@@ -207,6 +207,29 @@ export type DocumentAccessEventBodyV2 =
   | DocumentLinkAccessEventBodyV2
   | DocumentUnlinkAccessEventBodyV2;
 
+export interface AttachmentBindAccessEventBodyV2 {
+  eventType: "attachment.bind";
+  bindingId: string;
+  blobId: string;
+  documentId: string;
+  slotId: string;
+  expectedBindingId: string | null;
+  documentManifestHash: string;
+}
+
+export interface AttachmentDetachAccessEventBodyV2 {
+  eventType: "attachment.detach";
+  bindingId: string;
+  blobId: string;
+  documentId: string;
+  slotId: string;
+  documentManifestHash: string;
+}
+
+export type AttachmentAccessEventBodyV2 =
+  | AttachmentBindAccessEventBodyV2
+  | AttachmentDetachAccessEventBodyV2;
+
 export interface ContainerKekRecipientTargetV2 {
   recipientKind: KekRecipientKindV2;
   recipientId: string;
@@ -310,6 +333,9 @@ declare const verifiedAccessManifestBrand: unique symbol;
 declare const verifiedContainerAccessManifestBrand: unique symbol;
 declare const verifiedDocumentLinkSetManifestBrand: unique symbol;
 declare const verifiedDocumentKekTargetsBrand: unique symbol;
+declare const verifiedAttachmentBindingBrand: unique symbol;
+declare const verifiedAttachmentDetachBrand: unique symbol;
+declare const verifiedBlobKekTargetsBrand: unique symbol;
 declare const verifiedContainerParentEdgeBrand: unique symbol;
 declare const verifiedContainerKekStateBrand: unique symbol;
 declare const verifiedWriteHeaderBrand: unique symbol;
@@ -376,6 +402,39 @@ export interface VerifiedDocumentKekTargets {
   readonly [verifiedDocumentKekTargetsBrand]: true;
 }
 
+export interface VerifiedAttachmentBinding {
+  readonly bindingId: string;
+  readonly blobId: string;
+  readonly documentId: string;
+  readonly slotId: string;
+  readonly documentManifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly body: AttachmentBindAccessEventBodyV2;
+  readonly [verifiedAttachmentBindingBrand]: true;
+}
+
+export interface VerifiedAttachmentDetach {
+  readonly bindingId: string;
+  readonly blobId: string;
+  readonly documentId: string;
+  readonly slotId: string;
+  readonly documentManifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly body: AttachmentDetachAccessEventBodyV2;
+  readonly [verifiedAttachmentDetachBrand]: true;
+}
+
+export interface VerifiedBlobKekTargets {
+  readonly blobId: string;
+  readonly activeBindingIds: readonly string[];
+  readonly documentManifestHashes: readonly string[];
+  readonly linkedContainerManifestHashes: readonly string[];
+  readonly linkedContainerKeyEpochIds: readonly string[];
+  readonly targets: readonly BlobContentKeyTargetV2[];
+  readonly blobKeyTargetHash: string;
+  readonly [verifiedBlobKekTargetsBrand]: true;
+}
+
 export interface VerifiedContainerParentEdge {
   readonly childContainerId: string;
   readonly childManifestHash: string;
@@ -418,6 +477,29 @@ export interface VerifyAccessEventInput {
   readonly event: AccessEventV2;
   readonly body: KeyingV2CanonicalJson;
   readonly signerPublicKey: Uint8Array;
+}
+
+export interface VerifyAttachmentBindingEventInput
+  extends VerifyAccessEventInput {
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly expectedBindingId?: string;
+  readonly expectedBlobId?: string;
+  readonly expectedDocumentId?: string;
+  readonly expectedDocumentManifestHash?: string;
+  readonly expectedPreviousBindingId?: string | null;
+}
+
+export interface VerifyAttachmentDetachEventInput
+  extends VerifyAccessEventInput {
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly expectedBindingId?: string;
+  readonly expectedBlobId?: string;
+  readonly expectedDocumentId?: string;
+  readonly expectedDocumentManifestHash?: string;
 }
 
 export interface VerifyAccessManifestInput {
@@ -470,6 +552,14 @@ export interface VerifyContainerKekStateInput
 
 export interface DeriveDocumentKekTargetsInput {
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly linkedContainerManifests: readonly VerifiedContainerAccessManifest[];
+  readonly containerKekStates: readonly VerifiedContainerKekState[];
+}
+
+export interface DeriveBlobKekTargetsInput {
+  readonly blobId: string;
+  readonly activeBindings: readonly VerifiedAttachmentBinding[];
+  readonly documentManifests: readonly VerifiedDocumentLinkSetManifest[];
   readonly linkedContainerManifests: readonly VerifiedContainerAccessManifest[];
   readonly containerKekStates: readonly VerifiedContainerKekState[];
 }
@@ -3377,6 +3467,352 @@ export function normalizeDocumentAccessEventBody(
   );
 }
 
+function normalizeAttachmentBindAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): AttachmentBindAccessEventBodyV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "bindingId",
+      "blobId",
+      "documentId",
+      "documentManifestHash",
+      "eventType",
+      "expectedBindingId",
+      "slotId",
+    ],
+    "attachment.bind event body",
+  );
+
+  return {
+    eventType: "attachment.bind",
+    bindingId: readString(record, "bindingId", "attachment.bind event body"),
+    blobId: readString(record, "blobId", "attachment.bind event body"),
+    documentId: readString(record, "documentId", "attachment.bind event body"),
+    slotId: readString(record, "slotId", "attachment.bind event body"),
+    expectedBindingId: readNullableString(
+      record,
+      "expectedBindingId",
+      "attachment.bind event body",
+    ),
+    documentManifestHash: readHashString(
+      record,
+      "documentManifestHash",
+      "attachment.bind event body",
+    ),
+  };
+}
+
+function normalizeAttachmentDetachAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): AttachmentDetachAccessEventBodyV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "bindingId",
+      "blobId",
+      "documentId",
+      "documentManifestHash",
+      "eventType",
+      "slotId",
+    ],
+    "attachment.detach event body",
+  );
+
+  return {
+    eventType: "attachment.detach",
+    bindingId: readString(record, "bindingId", "attachment.detach event body"),
+    blobId: readString(record, "blobId", "attachment.detach event body"),
+    documentId: readString(
+      record,
+      "documentId",
+      "attachment.detach event body",
+    ),
+    slotId: readString(record, "slotId", "attachment.detach event body"),
+    documentManifestHash: readHashString(
+      record,
+      "documentManifestHash",
+      "attachment.detach event body",
+    ),
+  };
+}
+
+export function normalizeAttachmentAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): AttachmentAccessEventBodyV2 {
+  if (!isPlainObject(value)) {
+    throwVerification(
+      "invalid_shape",
+      "attachment access event body must be a plain object",
+    );
+  }
+
+  const eventType = readString(value, "eventType", "attachment access body");
+
+  if (eventType === "attachment.bind") {
+    return normalizeAttachmentBindAccessEventBody(value);
+  }
+
+  if (eventType === "attachment.detach") {
+    return normalizeAttachmentDetachAccessEventBody(value);
+  }
+
+  throwVerification(
+    "invalid_domain",
+    "attachment access event body eventType is unsupported",
+  );
+}
+
+function assertAttachmentAccessEventDomain(input: {
+  readonly body: AttachmentAccessEventBodyV2;
+  readonly event: VerifiedAccessEvent;
+}): void {
+  const { body, event } = input;
+
+  if (event.event.objectKind !== "blob") {
+    throwVerification(
+      "object_mismatch",
+      "attachment access event must target a blob",
+    );
+  }
+
+  if (event.event.objectId !== body.blobId) {
+    throwVerification(
+      "object_mismatch",
+      "attachment access event blob id does not match body",
+    );
+  }
+
+  if (event.event.eventType !== body.eventType) {
+    throwVerification(
+      "invalid_domain",
+      "attachment access event body type does not match event type",
+    );
+  }
+
+  requireEventDependency({
+    event,
+    manifestHash: body.documentManifestHash,
+    label: "attachment access event document link-set",
+  });
+}
+
+function assertExpectedAttachmentEventFields(input: {
+  readonly body: AttachmentAccessEventBodyV2;
+  readonly expectedBindingId?: string | undefined;
+  readonly expectedBlobId?: string | undefined;
+  readonly expectedDocumentId?: string | undefined;
+  readonly expectedDocumentManifestHash?: string | undefined;
+}): void {
+  if (
+    input.expectedBindingId !== undefined &&
+    input.body.bindingId !== input.expectedBindingId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "attachment event binding id does not match expected binding id",
+    );
+  }
+
+  if (
+    input.expectedBlobId !== undefined &&
+    input.body.blobId !== input.expectedBlobId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "attachment event blob id does not match expected blob id",
+    );
+  }
+
+  if (
+    input.expectedDocumentId !== undefined &&
+    input.body.documentId !== input.expectedDocumentId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "attachment event document id does not match expected document id",
+    );
+  }
+
+  if (
+    input.expectedDocumentManifestHash !== undefined &&
+    input.body.documentManifestHash !== input.expectedDocumentManifestHash
+  ) {
+    throwVerification(
+      "stale_predecessor",
+      "attachment event document manifest hash does not match expected manifest",
+    );
+  }
+}
+
+function assertAttachmentDocumentAuthority(input: {
+  readonly authorizingContainerPaths:
+    | readonly (readonly VerifiedContainerAccessManifest[])[]
+    | undefined;
+  readonly body: AttachmentAccessEventBodyV2;
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly event: VerifiedAccessEvent;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}): void {
+  if (
+    input.body.documentId !== input.documentManifest.state.documentId ||
+    input.body.documentManifestHash !== input.documentManifest.manifestHash
+  ) {
+    throwVerification(
+      "stale_predecessor",
+      "attachment event document manifest does not match body",
+    );
+  }
+
+  if (
+    input.event.event.organizationId !==
+    input.documentManifest.state.organizationId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "attachment event organization does not match document manifest",
+    );
+  }
+
+  requireAnyLinkedContainerWriteAccess({
+    event: input.event,
+    label: input.body.eventType,
+    linkedContainerIds: input.documentManifest.state.linkedContainerIds,
+    organizationId: input.documentManifest.state.organizationId,
+    paths: input.authorizingContainerPaths,
+    principalPolicies: input.principalPolicies,
+  });
+}
+
+async function verifyAttachmentAccessEvent(
+  input: VerifyAccessEventInput,
+): Promise<{
+  readonly body: AttachmentAccessEventBodyV2;
+  readonly event: VerifiedAccessEvent;
+}> {
+  const body = normalizeAttachmentAccessEventBody(input.body);
+  const event = await verifySignedAccessEvent({
+    body: body as unknown as KeyingV2CanonicalJson,
+    event: input.event,
+    signerPublicKey: input.signerPublicKey,
+  });
+
+  if (!event.ok) {
+    throw event.error;
+  }
+
+  assertAttachmentAccessEventDomain({ body, event: event.value });
+  return { body, event: event.value };
+}
+
+export async function verifyAttachmentBindingEvent({
+  authorizingContainerPaths,
+  documentManifest,
+  expectedBindingId,
+  expectedBlobId,
+  expectedDocumentId,
+  expectedDocumentManifestHash,
+  expectedPreviousBindingId,
+  principalPolicies = [],
+  ...input
+}: VerifyAttachmentBindingEventInput): Promise<
+  KeyingV2VerificationResult<VerifiedAttachmentBinding>
+> {
+  return runVerifier(async () => {
+    const { body, event } = await verifyAttachmentAccessEvent(input);
+
+    if (body.eventType !== "attachment.bind") {
+      throwVerification(
+        "invalid_domain",
+        "attachment binding verifier requires an attachment.bind event",
+      );
+    }
+
+    assertExpectedAttachmentEventFields({
+      body,
+      expectedBindingId,
+      expectedBlobId,
+      expectedDocumentId,
+      expectedDocumentManifestHash,
+    });
+    if (
+      expectedPreviousBindingId !== undefined &&
+      body.expectedBindingId !== expectedPreviousBindingId
+    ) {
+      throwVerification(
+        "stale_predecessor",
+        "attachment binding previous binding id does not match expected binding id",
+      );
+    }
+    assertAttachmentDocumentAuthority({
+      authorizingContainerPaths,
+      body,
+      documentManifest,
+      event,
+      principalPolicies,
+    });
+
+    return {
+      bindingId: body.bindingId,
+      blobId: body.blobId,
+      documentId: body.documentId,
+      slotId: body.slotId,
+      documentManifestHash: body.documentManifestHash,
+      event,
+      body,
+    } as VerifiedAttachmentBinding;
+  });
+}
+
+export async function verifyAttachmentDetachEvent({
+  authorizingContainerPaths,
+  documentManifest,
+  expectedBindingId,
+  expectedBlobId,
+  expectedDocumentId,
+  expectedDocumentManifestHash,
+  principalPolicies = [],
+  ...input
+}: VerifyAttachmentDetachEventInput): Promise<
+  KeyingV2VerificationResult<VerifiedAttachmentDetach>
+> {
+  return runVerifier(async () => {
+    const { body, event } = await verifyAttachmentAccessEvent(input);
+
+    if (body.eventType !== "attachment.detach") {
+      throwVerification(
+        "invalid_domain",
+        "attachment detach verifier requires an attachment.detach event",
+      );
+    }
+
+    assertExpectedAttachmentEventFields({
+      body,
+      expectedBindingId,
+      expectedBlobId,
+      expectedDocumentId,
+      expectedDocumentManifestHash,
+    });
+    assertAttachmentDocumentAuthority({
+      authorizingContainerPaths,
+      body,
+      documentManifest,
+      event,
+      principalPolicies,
+    });
+
+    return {
+      bindingId: body.bindingId,
+      blobId: body.blobId,
+      documentId: body.documentId,
+      slotId: body.slotId,
+      documentManifestHash: body.documentManifestHash,
+      event,
+      body,
+    } as VerifiedAttachmentDetach;
+  });
+}
+
 function requireEventDependency(input: {
   readonly event: VerifiedAccessEvent;
   readonly manifestHash: string;
@@ -4799,6 +5235,237 @@ export async function deriveDocumentKekTargets({
 
     return buildVerifiedDocumentKekTargets({
       documentManifest,
+      targets: normalizedTargets,
+    });
+  });
+}
+
+function uniqueSortedStrings(values: readonly string[]): string[] {
+  return [...new Set(values)].sort(compareCanonicalStrings);
+}
+
+function uniqueDocumentManifestMap(
+  manifests: readonly VerifiedDocumentLinkSetManifest[],
+): Map<string, VerifiedDocumentLinkSetManifest> {
+  const manifestByDocumentId = new Map<
+    string,
+    VerifiedDocumentLinkSetManifest
+  >();
+
+  for (const documentManifest of manifests) {
+    if (manifestByDocumentId.has(documentManifest.state.documentId)) {
+      throwVerification(
+        "duplicate_entry",
+        "blob KEK target derivation contains a duplicate document manifest",
+      );
+    }
+    manifestByDocumentId.set(
+      documentManifest.state.documentId,
+      documentManifest,
+    );
+  }
+
+  return manifestByDocumentId;
+}
+
+function normalizeActiveAttachmentBindings(input: {
+  readonly activeBindings: readonly VerifiedAttachmentBinding[];
+  readonly blobId: string;
+}): VerifiedAttachmentBinding[] {
+  if (input.activeBindings.length === 0) {
+    throwVerification(
+      "missing_dependency",
+      "blob KEK target derivation requires an active attachment binding",
+    );
+  }
+
+  const normalizedBindings = [...input.activeBindings].sort((left, right) =>
+    compareCanonicalStrings(left.bindingId, right.bindingId),
+  );
+
+  for (let index = 0; index < normalizedBindings.length; index += 1) {
+    const binding = normalizedBindings[index] as VerifiedAttachmentBinding;
+
+    if (binding.blobId !== input.blobId) {
+      throwVerification(
+        "object_mismatch",
+        "blob KEK target derivation binding targets the wrong blob",
+      );
+    }
+
+    if (
+      binding.body.bindingId !== binding.bindingId ||
+      binding.body.blobId !== binding.blobId ||
+      binding.body.documentId !== binding.documentId ||
+      binding.body.slotId !== binding.slotId ||
+      binding.body.documentManifestHash !== binding.documentManifestHash
+    ) {
+      throwVerification(
+        "object_mismatch",
+        "blob KEK target derivation binding body does not match projection",
+      );
+    }
+
+    if (binding.event.event.objectKind !== "blob") {
+      throwVerification(
+        "object_mismatch",
+        "blob KEK target derivation binding event must target a blob",
+      );
+    }
+
+    if (
+      binding.event.event.eventType !== "attachment.bind" ||
+      binding.event.event.objectId !== input.blobId
+    ) {
+      throwVerification(
+        "object_mismatch",
+        "blob KEK target derivation binding event does not match blob",
+      );
+    }
+
+    if (
+      index > 0 &&
+      (normalizedBindings[index - 1] as VerifiedAttachmentBinding).bindingId ===
+        binding.bindingId
+    ) {
+      throwVerification(
+        "duplicate_entry",
+        "blob KEK target derivation contains a duplicate attachment binding",
+      );
+    }
+  }
+
+  return normalizedBindings;
+}
+
+function requireDocumentManifestForBinding(input: {
+  readonly binding: VerifiedAttachmentBinding;
+  readonly documentManifestById: ReadonlyMap<
+    string,
+    VerifiedDocumentLinkSetManifest
+  >;
+}): VerifiedDocumentLinkSetManifest {
+  const documentManifest = input.documentManifestById.get(
+    input.binding.documentId,
+  );
+
+  if (!documentManifest) {
+    throwVerification(
+      "missing_dependency",
+      "blob KEK target derivation is missing a binding document manifest",
+    );
+  }
+
+  if (
+    documentManifest.state.organizationId !==
+    input.binding.event.event.organizationId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "blob KEK target derivation document manifest belongs to the wrong organization",
+    );
+  }
+
+  requireEventDependency({
+    event: input.binding.event,
+    manifestHash: input.binding.documentManifestHash,
+    label: "blob KEK target derivation attachment binding",
+  });
+
+  return documentManifest;
+}
+
+async function deriveBlobKekTargetsForBinding(input: {
+  readonly binding: VerifiedAttachmentBinding;
+  readonly containerKekStates: readonly VerifiedContainerKekState[];
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly linkedContainerManifests: readonly VerifiedContainerAccessManifest[];
+}): Promise<BlobContentKeyTargetV2[]> {
+  const documentTargets = await deriveDocumentKekTargets({
+    documentManifest: input.documentManifest,
+    linkedContainerManifests: input.linkedContainerManifests,
+    containerKekStates: input.containerKekStates,
+  });
+
+  if (!documentTargets.ok) {
+    throw documentTargets.error;
+  }
+
+  return documentTargets.value.targets.map((target) => ({
+    ...target,
+    bindingId: input.binding.bindingId,
+    documentId: input.binding.documentId,
+  }));
+}
+
+async function buildVerifiedBlobKekTargets(input: {
+  readonly activeBindings: readonly VerifiedAttachmentBinding[];
+  readonly blobId: string;
+  readonly documentManifests: readonly VerifiedDocumentLinkSetManifest[];
+  readonly targets: readonly BlobContentKeyTargetV2[];
+}): Promise<VerifiedBlobKekTargets> {
+  return {
+    blobId: input.blobId,
+    activeBindingIds: input.activeBindings.map((binding) => binding.bindingId),
+    documentManifestHashes: uniqueSortedStrings(
+      input.documentManifests.map((manifest) => manifest.manifestHash),
+    ),
+    linkedContainerManifestHashes: uniqueSortedStrings(
+      input.targets.map((target) => target.containerManifestHash),
+    ),
+    linkedContainerKeyEpochIds: uniqueSortedStrings(
+      input.targets.map((target) => target.containerKeyEpochId),
+    ),
+    targets: input.targets,
+    blobKeyTargetHash: await computeBlobContentKeyTargetHash(input.targets),
+  } as unknown as VerifiedBlobKekTargets;
+}
+
+export async function deriveBlobKekTargets({
+  activeBindings,
+  blobId,
+  containerKekStates,
+  documentManifests,
+  linkedContainerManifests,
+}: DeriveBlobKekTargetsInput): Promise<
+  KeyingV2VerificationResult<VerifiedBlobKekTargets>
+> {
+  return runVerifier(async () => {
+    const normalizedBindings = normalizeActiveAttachmentBindings({
+      activeBindings,
+      blobId,
+    });
+    const documentManifestById = uniqueDocumentManifestMap(documentManifests);
+    const targets: BlobContentKeyTargetV2[] = [];
+
+    for (const binding of normalizedBindings) {
+      const documentManifest = requireDocumentManifestForBinding({
+        binding,
+        documentManifestById,
+      });
+      targets.push(
+        ...(await deriveBlobKekTargetsForBinding({
+          binding,
+          documentManifest,
+          linkedContainerManifests,
+          containerKekStates,
+        })),
+      );
+    }
+
+    const normalizedTargets = normalizeSortedUniqueArray(
+      targets,
+      normalizeBlobContentKeyTarget,
+      blobContentKeyTargetKey,
+      "blob content-key targets",
+    );
+
+    return buildVerifiedBlobKekTargets({
+      activeBindings: normalizedBindings,
+      blobId,
+      documentManifests: normalizedBindings.map((binding) =>
+        requireDocumentManifestForBinding({ binding, documentManifestById }),
+      ),
       targets: normalizedTargets,
     });
   });

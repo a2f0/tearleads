@@ -3,6 +3,9 @@ import { toFingerprint } from "./fingerprint";
 import type {
   AccessEventV2,
   AccessManifestV2,
+  AttachmentAccessEventBodyV2,
+  AttachmentBindAccessEventBodyV2,
+  AttachmentDetachAccessEventBodyV2,
   ContainerAccessEventBodyV2,
   ContainerAccessManifestStateV2,
   ContainerCreateAccessEventBodyV2,
@@ -26,10 +29,12 @@ import type {
 import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
+  computeBlobContentKeyTargetHash,
   computeContainerKekRecipientTargetHash,
   computeDocumentContentKeyTargetHash,
   computeKeyingV2DomainHash,
   computeWriteHeaderHash,
+  deriveBlobKekTargets,
   deriveContainerAccessManifest,
   deriveDocumentKekTargets,
   deriveDocumentLinkSetManifest,
@@ -38,6 +43,8 @@ import {
   signAccessEvent,
   signWriteHeader,
   verifyAccessManifest,
+  verifyAttachmentBindingEvent,
+  verifyAttachmentDetachEvent,
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifyContainerParentEdge,
@@ -232,6 +239,85 @@ async function createVerifiedDocumentAccessEvent(input: {
   }
 
   return verifiedEvent.value;
+}
+
+async function createSignedAttachmentEvent(input: {
+  readonly body: AttachmentAccessEventBodyV2;
+  readonly dependencyManifestHashes: readonly string[];
+  readonly objectId: string;
+  readonly organizationId: string;
+  readonly signer: ReturnType<typeof generateSigningSeedAndKeyPair>;
+  readonly signerUserId: string;
+}) {
+  return signAccessEvent(
+    {
+      version: 2,
+      eventId: crypto.randomUUID(),
+      eventType: input.body.eventType,
+      objectKind: "blob",
+      objectId: input.objectId,
+      organizationId: input.organizationId,
+      previousManifestHash: null,
+      dependencyManifestHashes: [...input.dependencyManifestHashes],
+      bodyHash: await computeAccessEventBodyHash(
+        input.body as unknown as KeyingV2CanonicalJson,
+      ),
+      signerUserId: input.signerUserId,
+      signerDeviceId: "device-1",
+      signerKeyFingerprint: await toFingerprint(input.signer.signingPublicKey),
+      signedAt: "2026-04-25T12:00:00.000Z",
+    },
+    input.signer.signingPrivateKey,
+  );
+}
+
+async function createVerifiedAttachmentBinding(input: {
+  readonly bindingId: string;
+  readonly blobId: string;
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly expectedBindingId?: string | null;
+  readonly signer: ReturnType<typeof generateSigningSeedAndKeyPair>;
+  readonly signerUserId: string;
+  readonly slotId: string;
+  readonly writePath: readonly VerifiedContainerAccessManifest[];
+}) {
+  const body: AttachmentBindAccessEventBodyV2 = {
+    eventType: "attachment.bind",
+    bindingId: input.bindingId,
+    blobId: input.blobId,
+    documentId: input.documentManifest.state.documentId,
+    slotId: input.slotId,
+    expectedBindingId: input.expectedBindingId ?? null,
+    documentManifestHash: input.documentManifest.manifestHash,
+  };
+  const writeManifest = input.writePath.at(-1);
+  if (!writeManifest) {
+    throw new Error("Attachment binding fixture requires a write path");
+  }
+  const event = await createSignedAttachmentEvent({
+    body,
+    dependencyManifestHashes: [
+      input.documentManifest.manifestHash,
+      writeManifest.manifestHash,
+    ],
+    objectId: input.blobId,
+    organizationId: input.documentManifest.state.organizationId,
+    signer: input.signer,
+    signerUserId: input.signerUserId,
+  });
+  const verifiedBinding = await verifyAttachmentBindingEvent({
+    body: body as unknown as KeyingV2CanonicalJson,
+    event,
+    signerPublicKey: input.signer.signingPublicKey,
+    documentManifest: input.documentManifest,
+    authorizingContainerPaths: [input.writePath],
+  });
+
+  if (!verifiedBinding.ok) {
+    throw verifiedBinding.error;
+  }
+
+  return verifiedBinding.value;
 }
 
 async function createContainerManifestFixture(input: {
@@ -1446,6 +1532,277 @@ test("deriveDocumentKekTargets resolves every linked container KEK target", asyn
     ],
   });
   expectVerificationError(staleKekResult, "stale_predecessor");
+});
+
+test("attachment binding events prove signed document write authority", async () => {
+  const writerUserId = "writer-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const container = await createContainerManifestFixture({
+    containerId: "attachment-container",
+    containerKeyEpochId: "attachment-container-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const documentEvent = await createVerifiedDocumentAccessEvent({
+    body: {
+      eventType: "document.link",
+      containerId: container.state.containerId,
+      containerManifestHash: container.manifestHash,
+    },
+    dependencyManifestHashes: [container.manifestHash],
+    objectId: "attachment-document",
+    organizationId: container.state.organizationId,
+    previousManifestHash: null,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const documentManifest = await createDocumentLinkSetManifestFixture({
+    documentId: "attachment-document",
+    event: documentEvent,
+    linkedContainerIds: [container.state.containerId],
+    organizationId: container.state.organizationId,
+  });
+  const bindBody: AttachmentBindAccessEventBodyV2 = {
+    eventType: "attachment.bind",
+    bindingId: "binding-1",
+    blobId: "blob-1",
+    documentId: documentManifest.state.documentId,
+    slotId: "slot-1",
+    expectedBindingId: null,
+    documentManifestHash: documentManifest.manifestHash,
+  };
+  const bindEvent = await createSignedAttachmentEvent({
+    body: bindBody,
+    dependencyManifestHashes: [
+      documentManifest.manifestHash,
+      container.manifestHash,
+    ],
+    objectId: bindBody.blobId,
+    organizationId: documentManifest.state.organizationId,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+
+  const bindResult = await verifyAttachmentBindingEvent({
+    body: bindBody as unknown as KeyingV2CanonicalJson,
+    event: bindEvent,
+    signerPublicKey: writerSigning.signingPublicKey,
+    documentManifest,
+    authorizingContainerPaths: [[container]],
+  });
+  expect(bindResult.ok).toBe(true);
+  if (!bindResult.ok) {
+    throw bindResult.error;
+  }
+  expect(bindResult.value).toMatchObject({
+    bindingId: "binding-1",
+    blobId: "blob-1",
+    documentId: "attachment-document",
+    documentManifestHash: documentManifest.manifestHash,
+  });
+
+  const missingAuthorityResult = await verifyAttachmentBindingEvent({
+    body: bindBody as unknown as KeyingV2CanonicalJson,
+    event: bindEvent,
+    signerPublicKey: writerSigning.signingPublicKey,
+    documentManifest,
+    authorizingContainerPaths: [],
+  });
+  expectVerificationError(missingAuthorityResult, "unauthorized");
+
+  const detachBody: AttachmentDetachAccessEventBodyV2 = {
+    eventType: "attachment.detach",
+    bindingId: bindBody.bindingId,
+    blobId: bindBody.blobId,
+    documentId: bindBody.documentId,
+    slotId: bindBody.slotId,
+    documentManifestHash: documentManifest.manifestHash,
+  };
+  const detachEvent = await createSignedAttachmentEvent({
+    body: detachBody,
+    dependencyManifestHashes: [
+      documentManifest.manifestHash,
+      container.manifestHash,
+    ],
+    objectId: detachBody.blobId,
+    organizationId: documentManifest.state.organizationId,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const detachResult = await verifyAttachmentDetachEvent({
+    body: detachBody as unknown as KeyingV2CanonicalJson,
+    event: detachEvent,
+    signerPublicKey: writerSigning.signingPublicKey,
+    documentManifest,
+    authorizingContainerPaths: [[container]],
+  });
+
+  expect(detachResult.ok).toBe(true);
+});
+
+test("deriveBlobKekTargets resolves the union of every active attachment binding", async () => {
+  const writerUserId = "writer-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const firstContainer = await createContainerManifestFixture({
+    containerId: "blob-container-a",
+    containerKeyEpochId: "blob-container-a-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const secondContainer = await createContainerManifestFixture({
+    containerId: "blob-container-b",
+    containerKeyEpochId: "blob-container-b-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const firstDocumentEvent = await createVerifiedDocumentAccessEvent({
+    body: {
+      eventType: "document.link",
+      containerId: firstContainer.state.containerId,
+      containerManifestHash: firstContainer.manifestHash,
+    },
+    dependencyManifestHashes: [firstContainer.manifestHash],
+    objectId: "blob-document-a",
+    organizationId: firstContainer.state.organizationId,
+    previousManifestHash: null,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const secondDocumentEvent = await createVerifiedDocumentAccessEvent({
+    body: {
+      eventType: "document.link",
+      containerId: secondContainer.state.containerId,
+      containerManifestHash: secondContainer.manifestHash,
+    },
+    dependencyManifestHashes: [secondContainer.manifestHash],
+    objectId: "blob-document-b",
+    organizationId: firstContainer.state.organizationId,
+    previousManifestHash: null,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const firstDocumentManifest = await createDocumentLinkSetManifestFixture({
+    documentId: "blob-document-a",
+    event: firstDocumentEvent,
+    linkedContainerIds: [
+      secondContainer.state.containerId,
+      firstContainer.state.containerId,
+    ],
+    organizationId: firstContainer.state.organizationId,
+  });
+  const secondDocumentManifest = await createDocumentLinkSetManifestFixture({
+    documentId: "blob-document-b",
+    event: secondDocumentEvent,
+    linkedContainerIds: [secondContainer.state.containerId],
+    organizationId: firstContainer.state.organizationId,
+  });
+  const firstKekState = await createVerifiedContainerKekStateFixture({
+    manifest: firstContainer,
+    recipientUserId: writerUserId,
+  });
+  const secondKekState = await createVerifiedContainerKekStateFixture({
+    manifest: secondContainer,
+    recipientUserId: writerUserId,
+  });
+  const firstBinding = await createVerifiedAttachmentBinding({
+    bindingId: "binding-a",
+    blobId: "blob-shared",
+    documentManifest: firstDocumentManifest,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+    slotId: "slot-a",
+    writePath: [firstContainer],
+  });
+  const secondBinding = await createVerifiedAttachmentBinding({
+    bindingId: "binding-b",
+    blobId: "blob-shared",
+    documentManifest: secondDocumentManifest,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+    slotId: "slot-b",
+    writePath: [secondContainer],
+  });
+
+  const result = await deriveBlobKekTargets({
+    blobId: "blob-shared",
+    activeBindings: [secondBinding, firstBinding],
+    documentManifests: [secondDocumentManifest, firstDocumentManifest],
+    linkedContainerManifests: [secondContainer, firstContainer],
+    containerKekStates: [secondKekState, firstKekState],
+  });
+
+  expect(result.ok).toBe(true);
+  if (!result.ok) {
+    throw result.error;
+  }
+  expect(result.value.targets).toEqual([
+    {
+      bindingId: "binding-a",
+      documentId: "blob-document-a",
+      containerId: firstContainer.state.containerId,
+      containerManifestHash: firstContainer.manifestHash,
+      containerKeyEpochId: firstKekState.containerKeyEpochId,
+      containerKeyEpoch: firstKekState.containerKeyEpoch,
+    },
+    {
+      bindingId: "binding-a",
+      documentId: "blob-document-a",
+      containerId: secondContainer.state.containerId,
+      containerManifestHash: secondContainer.manifestHash,
+      containerKeyEpochId: secondKekState.containerKeyEpochId,
+      containerKeyEpoch: secondKekState.containerKeyEpoch,
+    },
+    {
+      bindingId: "binding-b",
+      documentId: "blob-document-b",
+      containerId: secondContainer.state.containerId,
+      containerManifestHash: secondContainer.manifestHash,
+      containerKeyEpochId: secondKekState.containerKeyEpochId,
+      containerKeyEpoch: secondKekState.containerKeyEpoch,
+    },
+  ]);
+  expect(result.value.blobKeyTargetHash).toBe(
+    await computeBlobContentKeyTargetHash(result.value.targets),
+  );
+
+  const omittedBindingResult = await deriveBlobKekTargets({
+    blobId: "blob-shared",
+    activeBindings: [firstBinding, secondBinding],
+    documentManifests: [firstDocumentManifest],
+    linkedContainerManifests: [firstContainer, secondContainer],
+    containerKekStates: [firstKekState, secondKekState],
+  });
+  expectVerificationError(omittedBindingResult, "missing_dependency");
+
+  const wrongBlobResult = await deriveBlobKekTargets({
+    blobId: "other-blob",
+    activeBindings: [firstBinding],
+    documentManifests: [firstDocumentManifest],
+    linkedContainerManifests: [firstContainer, secondContainer],
+    containerKekStates: [firstKekState, secondKekState],
+  });
+  expectVerificationError(wrongBlobResult, "object_mismatch");
 });
 
 test("container managed-principal grants commit matching principal heads", async () => {

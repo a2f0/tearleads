@@ -587,6 +587,60 @@ export const documentContentWriteHeaders = pgTable(
   ],
 );
 
+export const blobContentKeyEpochs = pgTable(
+  "blob_content_key_epochs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    blobId: uuid("blob_id").notNull(),
+    contentKeyEpoch: integer("content_key_epoch").notNull(),
+    targetHash: text("target_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("blob_content_key_epochs_blob_epoch_idx").on(
+      table.blobId,
+      table.contentKeyEpoch,
+    ),
+    index("blob_content_key_epochs_blob_idx").on(table.blobId),
+    index("blob_content_key_epochs_target_idx").on(table.targetHash),
+  ],
+);
+
+export const blobContentKeyTargets = pgTable(
+  "blob_content_key_targets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    blobContentKeyEpochId: uuid("blob_content_key_epoch_id")
+      .notNull()
+      .references(() => blobContentKeyEpochs.id),
+    bindingId: uuid("binding_id").notNull(),
+    documentId: text("document_id").notNull(),
+    containerId: text("container_id").notNull(),
+    containerManifestHash: text("container_manifest_hash").notNull(),
+    containerKeyEpochId: text("container_key_epoch_id").notNull(),
+    containerKeyEpoch: integer("container_key_epoch").notNull(),
+    wrappedKey: text("wrapped_key").notNull(),
+    wrappingMetadata: jsonb("wrapping_metadata")
+      .$type<KeyingV2CanonicalJson>()
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("blob_content_key_targets_epoch_idx").on(table.blobContentKeyEpochId),
+    index("blob_content_key_targets_binding_idx").on(table.bindingId),
+    index("blob_content_key_targets_container_epoch_idx").on(
+      table.containerKeyEpochId,
+    ),
+    uniqueIndex("blob_content_key_targets_epoch_binding_container_idx").on(
+      table.blobContentKeyEpochId,
+      table.bindingId,
+      table.documentId,
+      table.containerId,
+    ),
+  ],
+);
+
 export const documentContainerLinks = pgTable("document_container_links", {
   id: uuid("id").defaultRandom().primaryKey(),
   documentId: text("document_id").notNull(),
@@ -749,12 +803,17 @@ export const attachmentBindings = pgTable(
     slotId: text("slot_id").notNull(),
     blobId: uuid("blob_id").notNull(),
     previousBindingId: uuid("previous_binding_id"),
+    attachmentEventHash: text("attachment_event_hash"),
+    documentManifestHash: text("document_manifest_hash"),
     detachedAt: timestamp("detached_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("attachment_bindings_previous_binding_id_idx").on(
       table.previousBindingId,
+    ),
+    index("attachment_bindings_attachment_event_hash_idx").on(
+      table.attachmentEventHash,
     ),
   ],
 );
