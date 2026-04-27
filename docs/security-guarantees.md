@@ -10,11 +10,11 @@ Given an honest, uncompromised client, the system can detect forged or tampered
 signed group and organization policy state when the signer identity key is
 authentic and the client receives the referenced policy bundle.
 
-The system does not yet provide a universal guarantee that an honest client can
+The system does not provide a universal guarantee that an honest client can
 detect every compromised-server behavior. A compromised server can still deny
-service, omit state, replay older valid state, show split views to different
-clients, substitute identity keys on first contact, or present a self-consistent
-object grant view because object access manifests are not signed yet.
+service, omit state, replay older valid state when the client has no checkpoint,
+show split views to different clients without gossip or witnessing, or
+substitute identity keys on first contact.
 
 The practical confidentiality guarantee today is:
 
@@ -24,9 +24,9 @@ The practical confidentiality guarantee today is:
   unless it controls an authorized policy signer key, can substitute the signer
   identity key trusted by the client, or can make the client accept invalid
   policy state.
-- The server can still influence which object grants and recipient sets an
-  honest client sees, because object grant state is API-authored rather than
-  user-signed.
+- The server cannot make an honest V2 client accept object grants or recipient
+  targets that are not justified by signed access manifests and verified
+  principal policy heads.
 
 ## Threat Model Assumptions
 
@@ -62,16 +62,19 @@ The current access and policy handshake has these layers:
 4. Direct member envelopes for a principal are stored separately but must
    target the current principal state exactly. The API rejects missing,
    extra, or fingerprint-mismatched direct member envelopes.
-5. Object access resolution records `accessEpoch`, `accessFingerprint`,
-   `accessStateHash`, recipient envelopes, and referenced principal summaries.
-   For group and organization grants, the summary includes the referenced
-   principal type, id, version, key epoch, and state hash.
+5. Object access changes are represented as signed V2 access events and derived
+   access manifests. Manifests bind the object, organization, epoch,
+   predecessor hash, event hash, structural hash, grant root, referenced
+   principal heads, and key-target hash.
 6. App clients fetch referenced principal policy bundles, verify them, and
    cache only bundles whose signed state chain matches the object reference.
 7. App clients unwrap group or organization addressed object envelopes only
-   through verified cached principal policies and valid member envelopes.
-8. Writes that mutate encrypted object state include `expectedAccessStateHash`
-   so stale access views are rejected by the API.
+   through verified cached principal policies, valid member envelopes, and
+   signed access manifests.
+8. Writes commit to the verified access manifest hash and derived recipient
+   target hash so stale or forged access views fail verification.
+9. The shared crypto verifier exposes local checkpoint checks for identity
+   state heads, principal policy heads, and access manifest heads.
 
 ## Guarantees We Currently Have
 
@@ -168,23 +171,21 @@ recipient resolution fails rather than degrading to unsigned expanded users.
 This prevents unsigned group or organization membership rows from being enough
 to create crypto recipients.
 
-### Object Access State Hashes
+### Signed Object Access Manifests
 
-`accessStateHash` is a deterministic commitment to the current object access
-inputs used by the API:
+V2 access manifests are deterministic, signed commitments to the object access
+state used for key derivation:
 
-- container hashes include container identity, ancestor container ids, grants,
-  and referenced principal summaries
-- document hashes include document identity, document grants, and linked
-  container access-state hashes
-- blob hashes include blob identity and linked document access-state hashes
+- container manifests include container identity, structural state, direct
+  grants, referenced principal heads, predecessor hash, and key target hash
+- document link-set manifests include document identity, linked containers,
+  predecessor hash, and key target hash
+- attachment, document, and blob key targets are derived from verified
+  manifests rather than API-provided recipient lists
 
-Clients include `expectedAccessStateHash` on writes. The server rejects writes
-that target a stale access state hash.
-
-This gives stale-write detection and a stable reference point for encrypted
-writes. It does not prove that the underlying object grants were authorized by
-an end user.
+Clients should commit writes to the verified manifest hash and derived target
+hash. Projection hashes may still be useful cache keys, but they are not the
+authorization source.
 
 ### Content Confidentiality
 
@@ -207,12 +208,13 @@ The server can:
 - omit newer states or grants
 - replay an older valid policy chain
 - show different valid policy heads to different clients
-- return a self-consistent object grant view that was not user-signed
+- return projection rows that do not match the signed access manifests
 - substitute signer or recipient public keys before a client has any trusted
   binding for those identities
 
 The current validation turns many tampering attempts into fail-closed behavior,
-but it is not a global transparency system.
+but it is not a global transparency system unless clients also pin or witness
+tree heads.
 
 ### Rollback And Split-View Are Not Fully Solved
 
@@ -221,9 +223,9 @@ themselves, prove that the returned head is the latest head.
 
 A server that has older valid signed states can replay an older valid chain
 unless the client has an independent monotonic checkpoint, highest-seen
-version/hash pin, or transparency log. The local policy cache stores one bundle
-per principal and does not currently enforce "never go backwards" as a security
-invariant.
+version/hash pin, or transparency log. The shared verifier now rejects
+rollbacks and same-version hash conflicts for identity heads, principal policy
+heads, and access manifest heads when the caller supplies the local checkpoint.
 
 ### First-Contact Identity-Key Substitution
 
@@ -237,24 +239,18 @@ seen before. A compromised server that controls the first key lookup can
 construct a coherent fake signer identity unless clients have a previously
 pinned key, an out-of-band identity check, or a key-transparency mechanism.
 
-### Object Grants Are Not User-Signed
+### Projection Rows Are Not A Security Boundary
 
-Group and organization policy state is signed. Object access grants are not
-currently signed access manifests.
+Group and organization policy state is signed. Object access grants are now
+represented by signed access events and derived access manifests in the V2
+verifier. Projection rows such as effective grants, access fingerprints,
+recipient summaries, and target caches remain indexing aids only.
 
-`accessFingerprint` and `accessStateHash` are useful commitments, cache keys,
-and stale-write guards. They are not authorization proofs. If the API process
-is compromised, it can present a self-consistent object access view. Honest
-clients can verify referenced group and organization policy bundles, but they
-cannot yet independently prove that the object grant graph itself was approved
-by an authorized user.
-
-This is the biggest remaining gap for the specific question "can a compromised
-server cause information disclosure by changing access state?" The server
-should not be able to forge signed group or organization membership. However,
-because object grants are still API-authored, a compromised server may be able
-to make an honest writer encrypt future object key material to an unauthorized
-recipient if the writer accepts the server-provided object grant view.
+If the API process is compromised, it may still return a self-consistent
+projection view. Honest V2 clients must derive encryption targets from verified
+manifests and verified principal policies, not from projection rows. A client
+that accepts projection rows as authority can still be tricked into encrypting
+to the wrong recipient set.
 
 ### Revocation Is Not Retroactive Without Rotation
 
@@ -264,16 +260,17 @@ principal key and rewrapping future object keys to the new epoch. The signed
 state format can represent this, but current validation does not enforce a
 semantic rule that removals must increase `keyEpoch`.
 
-### Audit State Is Not A Full Transparency Log
+### Transparency Requires A Pinned View Or Witnessing
 
-Document and attachment audit entries include access-state information and hash
-links for verification, but the system does not yet provide an external
-append-only transparency log for object grants, principal policy heads, or key
-registry state.
+The shared verifier now has signed tree-head, inclusion-proof, and consistency
+proof primitives for identity state heads, principal policy heads, and access
+manifest heads. These prove that a returned leaf is in a signed log view and
+that a newer log view extends a previous pinned tree head.
 
-Audit verification can detect inconsistencies in the returned history. It does
-not prevent a server from withholding entries or presenting different valid
-histories without an independent checkpoint.
+They do not, by themselves, prevent withholding or first-contact split views. A
+client with no prior tree head, witness, gossip peer, or external checkpoint can
+still be shown a self-consistent signed log view that differs from another
+client's view.
 
 ### Availability Is Out Of Scope
 
@@ -317,13 +314,14 @@ version/hash or checks an external transparency source.
 
 ### Forged Object Grant View
 
-If the server changes object grants and recomputes the object access hash, the
-view can be self-consistent because object grants are not signed by users
-today.
+If the server changes projection rows and recomputes projection hashes, an
+honest V2 client should reject the view unless the signed access manifest,
+event, referenced principal policies, predecessor checkpoint, and derived
+target hash all verify.
 
-Result: not independently detectable by the client as unauthorized. The client
-can detect stale views relative to a supplied `expectedAccessStateHash`, but
-not prove that the new current object grant view was user-authorized.
+Result: detected and fail closed for clients that require the V2 verifier
+outputs before encrypting. Clients that trust projection rows directly remain
+outside this guarantee.
 
 ### Substituted First-Contact Signer Key
 
@@ -347,23 +345,23 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Principal member envelopes must match the current direct signed projection.
 - Post-removal confidentiality requires principal key rotation; the current
   system records key epochs but does not enforce rotation semantics.
-- Object writes are protected from stale access views with
-  `expectedAccessStateHash`.
-- Object access hashes commit to the API's current access view, but do not
-  prove that the view was user-authorized.
-- Rollback, split-view, first-contact key substitution, and signed object
-  access manifests remain outside the current guarantee boundary.
+- Signed access manifests are the authority for object grant and document-link
+  state used by V2 key derivation.
+- Object writes commit to the verified access manifest hash and derived target
+  hash.
+- Local checkpoints can detect replayed older identity, principal policy, and
+  access manifest heads after a client has seen newer state.
+- First-contact key substitution, withholding, and split views without a
+  pinned checkpoint, witness, or gossip peer remain outside the current
+  guarantee boundary.
 
 ## Direction For Stronger Guarantees
 
-The next hardening layer should be a signed object access manifest. It should
-bind object grants, referenced principal states, effective recipients,
-`accessFingerprint`, `accessStateHash`, and epoch under an authorized user
-signature. Clients should verify the manifest, expand recipients locally, and
-refuse to encrypt unless the manifest and referenced principal policies are
-valid.
+The next hardening layer is adoption: every API response and app workflow that
+drives encryption should require the signed V2 manifest, verified referenced
+principal policies, local checkpoint comparison, and derived target hash before
+encrypting or decrypting.
 
-For rollback and split-view resistance, clients should also remember
-highest-seen principal policy versions and object manifest epochs, or publish
-state heads to an append-only transparency log or independently auditable
-checkpoint stream.
+For stronger split-view resistance, clients should persist transparency tree
+checkpoints and compare signed tree heads through device sync, gossip,
+witnesses, or an independently auditable checkpoint stream.
