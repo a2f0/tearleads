@@ -424,11 +424,12 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
   const existingByContainerId = new Map(
     input.existingBundle.targets.map((target) => [target.containerId, target]),
   );
+  const nextByContainerId = new Map(
+    input.nextBundle.targets.map((target) => [target.containerId, target]),
+  );
 
   for (const target of input.existingBundle.targets) {
-    const nextTarget = input.nextBundle.targets.find(
-      (candidate) => candidate.containerId === target.containerId,
-    );
+    const nextTarget = nextByContainerId.get(target.containerId);
     if (!nextTarget || !targetEnvelopeEqual(target, nextTarget)) {
       throw new DocumentContentKeyBundleError(
         "Document content-key bundle conflict",

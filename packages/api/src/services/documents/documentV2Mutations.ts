@@ -12,6 +12,7 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
+  computeWriteHeaderHash,
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   KeyingV2VerificationError,
@@ -637,6 +638,18 @@ async function verifyOutgoingWriteHeader(input: {
   return verified.value;
 }
 
+async function assertRetryWriteHeaderMatches(input: {
+  readonly expectedHeaderHash: string;
+  readonly update: DocumentV2OutgoingUpdate;
+}): Promise<void> {
+  const headerHash = await computeWriteHeaderHash(
+    input.update.writeHeader as unknown as WriteHeaderV2,
+  );
+  if (headerHash !== input.expectedHeaderHash) {
+    throw new DocumentV2MutationError("Document write header conflict", 409);
+  }
+}
+
 async function appendDocumentV2Updates(input: {
   readonly accessEpoch: number;
   readonly documentId: string;
@@ -654,13 +667,41 @@ async function appendDocumentV2Updates(input: {
     input.request.outgoingUpdates.map((update) => update.id),
   );
   const existingRows = await input.executor
-    .select({ id: documentUpdates.id })
+    .select({ documentId: documentUpdates.documentId, id: documentUpdates.id })
     .from(documentUpdates)
     .where(inArray(documentUpdates.id, updateIds));
+  for (const row of existingRows) {
+    if (row.documentId !== input.documentId) {
+      throw new DocumentV2MutationError("Document update id conflict", 409);
+    }
+  }
   const acceptedUpdateIds = new Set(existingRows.map((row) => row.id));
+  const acceptedHeaderHashes = new Map(
+    (
+      await listDocumentContentWriteHeaders(
+        [...acceptedUpdateIds],
+        input.executor,
+      )
+    ).entries(),
+  );
   const newUpdates: DocumentV2OutgoingUpdate[] = [];
 
   for (const update of input.request.outgoingUpdates) {
+    const acceptedHeaderHash = acceptedHeaderHashes.get(update.id)?.headerHash;
+    if (acceptedUpdateIds.has(update.id)) {
+      if (!acceptedHeaderHash) {
+        throw new DocumentV2MutationError(
+          "Document write header conflict",
+          409,
+        );
+      }
+      await assertRetryWriteHeaderMatches({
+        expectedHeaderHash: acceptedHeaderHash,
+        update,
+      });
+      continue;
+    }
+
     const verifiedHeader = await verifyOutgoingWriteHeader({
       documentId: input.documentId,
       expectedLinkSetManifestHash: input.request.expectedLinkSetManifestHash,
@@ -681,11 +722,11 @@ async function appendDocumentV2Updates(input: {
       input.executor,
     );
 
-    if (acceptedUpdateIds.has(update.id)) {
-      continue;
-    }
-
     acceptedUpdateIds.add(update.id);
+    acceptedHeaderHashes.set(update.id, {
+      header: verifiedHeader.header,
+      headerHash: verifiedHeader.headerHash,
+    });
     newUpdates.push(update);
   }
 
