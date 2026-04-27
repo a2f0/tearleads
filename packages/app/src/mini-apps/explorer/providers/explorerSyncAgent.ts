@@ -14,6 +14,7 @@ import {
   writeContainerMetadataValue,
 } from "../../../data/containers";
 import {
+  createDocumentEncryptionMaterial,
   createPendingUpdateFields,
   decryptIncomingUpdates,
   encryptPendingUpdates,
@@ -40,7 +41,10 @@ import {
   isDestroyedDatabaseClientError,
   type SyncLane,
 } from "../../../data/sync/syncCoordinator";
-import type { ExplorerPersistence } from "../explorerPersistence";
+import type {
+  ContainerCreateIntentRecord,
+  ExplorerPersistence,
+} from "../explorerPersistence";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
 
@@ -806,15 +810,16 @@ async function requestContainerMetadataSync(
   containerState: ContainerState,
   encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>,
 ): Promise<ContainerMetadataSyncAttempt | null> {
-  const pendingUpdates = await listPendingContainerUpdates(
-    state,
-    containerState.container.id,
-  );
   const documentId = containerState.record.documentId;
 
   if (!documentId) {
     return null;
   }
+
+  const pendingUpdates = await listPendingContainerUpdates(
+    state,
+    containerState.container.id,
+  );
 
   const {
     currentDocumentRecipientEnvelopes,
@@ -939,23 +944,260 @@ async function syncSingleContainerMetadata(input: {
   }
 }
 
+function hasRemoteMetadataState(containerState: ContainerState): boolean {
+  return (
+    typeof containerState.record.documentId === "string" &&
+    containerState.record.documentId.length > 0 &&
+    typeof containerState.record.accessStateHash === "string" &&
+    containerState.record.accessStateHash.length > 0
+  );
+}
+
+function createCurrentMetadataPendingRecord(
+  containerState: ContainerState,
+): PendingUpdateRecord[] {
+  const updateFields = createPendingUpdateFields(
+    exportAllUpdates(containerState.doc),
+  );
+
+  return updateFields
+    ? [
+        {
+          id: crypto.randomUUID(),
+          ...updateFields,
+        },
+      ]
+    : [];
+}
+
+async function markCreateIntentAlreadySynced(input: {
+  intent: ContainerCreateIntentRecord;
+  state: ExplorerSyncState;
+  containerState: ContainerState;
+}) {
+  const { containerState, intent, state } = input;
+  const remoteMetadataDocumentId = containerState.record.documentId;
+  const remoteMetadataAccessStateHash = containerState.record.accessStateHash;
+
+  if (!remoteMetadataDocumentId || !remoteMetadataAccessStateHash) {
+    return;
+  }
+
+  await state.persistence.markCreateIntentSynced(state.runtime.execSql, {
+    containerId: intent.containerId,
+    remoteContainerId: containerState.container.id,
+    remoteMetadataAccessStateHash,
+    remoteMetadataDocumentId,
+  });
+}
+
+async function persistCreatedContainerFromIntent(input: {
+  created: NonNullable<
+    Awaited<ReturnType<ExplorerRuntime["apiClient"]["createContainer"]>>
+  >;
+  documentRecipientEnvelopes: DocumentEncryptionMaterial["documentRecipientEnvelopes"];
+  host: ExplorerSyncHost;
+  state: ExplorerSyncState;
+  containerState: ContainerState;
+}) {
+  const { containerState, created, documentRecipientEnvelopes, host, state } =
+    input;
+
+  containerState.recipientPublicKeys = resolveRecipientPublicKeys(
+    created.metadataRecipientEncapsulationPublicKeys,
+  );
+  const nextRecord = await host.persistContainerState(
+    containerState,
+    {
+      accessEpoch: created.metadataAccessEpoch,
+      accessStateHash: created.metadataAccessStateHash,
+      documentId: created.metadataDocumentId,
+      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
+        documentRecipientEnvelopes,
+      ),
+      lastCommitLsn: null,
+      metadataDocumentId: created.metadataDocumentId,
+      organizationId: created.organizationId,
+      parentId: created.parentId,
+    },
+    false,
+  );
+
+  containerState.record = nextRecord;
+  containerState.container = {
+    ...containerState.container,
+    metadataDocumentId: created.metadataDocumentId,
+    organizationId: created.organizationId,
+    parentId: created.parentId,
+  };
+
+  await state.persistence.deletePendingUpdates(
+    state.runtime.execSql,
+    containerState.container.id,
+  );
+  await state.persistence.markCreateIntentSynced(state.runtime.execSql, {
+    containerId: containerState.container.id,
+    remoteContainerId: created.id,
+    remoteMetadataAccessStateHash: created.metadataAccessStateHash,
+    remoteMetadataDocumentId: created.metadataDocumentId,
+  });
+}
+
+async function tryCreateRemoteContainerFromIntent(input: {
+  host: ExplorerSyncHost;
+  intent: ContainerCreateIntentRecord;
+  state: ExplorerSyncState;
+}): Promise<"created" | "blocked" | "failed"> {
+  const { host, intent, state } = input;
+  const containerState = state.containersById.get(intent.containerId);
+  const parentState = state.containersById.get(intent.parentContainerId);
+
+  if (!containerState || !parentState) {
+    await state.persistence.recordCreateIntentError(
+      state.runtime.execSql,
+      intent.containerId,
+      "Container create intent references a missing local container",
+    );
+    return "failed";
+  }
+
+  if (hasRemoteMetadataState(containerState)) {
+    await markCreateIntentAlreadySynced({ containerState, intent, state });
+    return "created";
+  }
+
+  if (!hasRemoteMetadataState(parentState)) {
+    return "blocked";
+  }
+  const expectedAccessStateHash = parentState.record.accessStateHash;
+  if (
+    typeof expectedAccessStateHash !== "string" ||
+    expectedAccessStateHash.length === 0
+  ) {
+    return "blocked";
+  }
+
+  if (parentState.recipientPublicKeys.length === 0) {
+    await state.persistence.recordCreateIntentError(
+      state.runtime.execSql,
+      intent.containerId,
+      "Parent container recipient keys are unavailable",
+    );
+    return "failed";
+  }
+
+  const documentEncryption = await createDocumentEncryptionMaterial(
+    parentState.recipientPublicKeys,
+  );
+  const initialMetadataUpdates = await encryptPendingUpdates(
+    createCurrentMetadataPendingRecord(containerState),
+    containerState.record.accessEpoch,
+    documentEncryption.documentKey,
+  );
+  const created = await state.runtime.apiClient.createContainer(
+    containerState.container.id,
+    parentState.container.id,
+    expectedAccessStateHash,
+    initialMetadataUpdates,
+    documentEncryption.documentRecipientEnvelopes,
+  );
+
+  if (!created) {
+    await state.persistence.recordCreateIntentError(
+      state.runtime.execSql,
+      intent.containerId,
+      "Remote container create was rejected or unavailable",
+    );
+    return "failed";
+  }
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    created.metadataReferencedPrincipals,
+  );
+  await persistCreatedContainerFromIntent({
+    containerState,
+    created,
+    documentRecipientEnvelopes: documentEncryption.documentRecipientEnvelopes,
+    host,
+    state,
+  });
+  state.runtime.log(
+    `Explorer: synced local container create ${containerState.container.id}`,
+  );
+  return "created";
+}
+
+async function syncPendingContainerCreateIntents(input: {
+  host: ExplorerSyncHost;
+  state: ExplorerSyncState;
+}): Promise<number> {
+  const { host, state } = input;
+  const pendingIntents = await state.persistence.listPendingCreateIntents(
+    state.runtime.execSql,
+  );
+  const remainingContainerIds = new Set(
+    pendingIntents.map((intent) => intent.containerId),
+  );
+  const failedThisRun = new Set<string>();
+  let createdCount = 0;
+  let progressed = true;
+
+  while (progressed) {
+    progressed = false;
+
+    for (const intent of pendingIntents) {
+      if (
+        !remainingContainerIds.has(intent.containerId) ||
+        failedThisRun.has(intent.containerId)
+      ) {
+        continue;
+      }
+
+      const result = await tryCreateRemoteContainerFromIntent({
+        host,
+        intent,
+        state,
+      });
+
+      if (result === "blocked") {
+        continue;
+      }
+
+      remainingContainerIds.delete(intent.containerId);
+      progressed = result === "created" || progressed;
+      if (result === "created") {
+        createdCount += 1;
+      } else {
+        failedThisRun.add(intent.containerId);
+      }
+    }
+  }
+
+  return createdCount;
+}
+
 async function runExplorerSyncIteration(input: {
   host: ExplorerSyncHost;
   state: ExplorerSyncState;
 }) {
   const { host, state } = input;
+  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
   if (
+    state.runtime.dbStatus !== "ready" ||
     !state.snapshot.ready ||
     !state.runtime.online ||
     !state.runtime.isAuthenticated ||
-    !state.runtime.encapsulationKeyPair
+    !encapsulationKeyPair
   ) {
     return;
   }
 
-  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
-  if (!encapsulationKeyPair) {
-    return;
+  const createdContainerCount = await syncPendingContainerCreateIntents({
+    host,
+    state,
+  });
+  if (createdContainerCount > 0) {
+    host.updateSnapshot();
   }
 
   for (const containerState of Array.from(state.containersById.values())) {

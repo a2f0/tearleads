@@ -31,6 +31,9 @@ import {
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void };
+type ListedContainer = NonNullable<
+  Awaited<ReturnType<TestRuntime["apiClient"]["listContainers"]>>
+>[number];
 
 function createSyncDocumentResponse(input: {
   accessEpoch: number;
@@ -393,6 +396,273 @@ test("explorer store creates authenticated child containers through the API befo
     expect(childNode.organizationId).toBe("org-1");
     expect(childNode.parentId).toBe("root-container");
   } finally {
+    runtime.close();
+  }
+});
+
+test("explorer store queues authenticated child create when parent has no remote access state", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  let createContainerCallCount = 0;
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = localKeyPair;
+  runtime.apiClient = {
+    ...runtime.apiClient,
+    createContainer: async () => {
+      createContainerCallCount += 1;
+      return null;
+    },
+    listContainers: async () => [],
+    syncDocument: async () => null,
+  };
+
+  try {
+    await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: null,
+      name: "/",
+      icon: null,
+    });
+
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => createdStore.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    const childNode = await createdStore.createChild("root-container", "Docs");
+    if (!childNode) {
+      throw new Error("Expected createChild to queue a local container.");
+    }
+
+    expect(createContainerCallCount).toBe(0);
+    expect(childNode.parentId).toBe("root-container");
+    expect(childNode.name).toBe("Docs");
+
+    const pendingIntents =
+      await sqlExplorerPersistence.listPendingCreateIntents(runtime.execSql);
+    expect(pendingIntents).toEqual([
+      expect.objectContaining({
+        containerId: childNode.id,
+        parentContainerId: "root-container",
+        syncStatus: "pending",
+      }),
+    ]);
+
+    const pendingUpdateRows = await runtime.execSql(
+      `
+        SELECT COUNT(*) AS count
+        FROM document_pending_updates
+        WHERE app_kind = 'container-metadata'
+          AND local_id = :containerId
+      `,
+      {
+        ":containerId": childNode.id,
+      },
+    );
+    expect(Number(readSqlRowValue(pendingUpdateRows[0] ?? {}, "count"))).toBe(
+      1,
+    );
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
+test("explorer sync creates queued local containers parent before child", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  try {
+    await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
+    const { initialUpdate: rootInitialUpdate } =
+      await createInitializedContainerMetadataDocument("root-container", {
+        icon: null,
+        name: "/",
+      });
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: "root-metadata-document",
+      name: "/",
+      icon: null,
+    });
+    await saveDocumentRecord(
+      runtime.execSql,
+      {
+        appKind: "container-metadata",
+        localId: "root-container",
+      },
+      {
+        accessEpoch: 1,
+        accessStateHash: "stale-root-access-state-hash",
+        documentId: "root-metadata-document",
+        documentRecipientEnvelopes: null,
+        id: "root-container",
+        lastCommitLsn: null,
+        loroSnapshot: bytesToBase64(rootInitialUpdate),
+      },
+      new Date("2026-04-25T00:00:00.000Z").toISOString(),
+    );
+
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => createdStore.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    const parentNode = await createdStore.createChild(
+      "root-container",
+      "Parent",
+    );
+    const childNode = parentNode
+      ? await createdStore.createChild(parentNode.id, "Child")
+      : null;
+    const grandchildNode = childNode
+      ? await createdStore.createChild(childNode.id, "Grandchild")
+      : null;
+    if (!parentNode || !childNode || !grandchildNode) {
+      throw new Error("Expected local container create chain.");
+    }
+
+    const createContainerCalls: Array<{
+      expectedAccessStateHash: string;
+      id: string;
+      initialMetadataRecipientEnvelopeCount: number;
+      initialMetadataUpdateCount: number;
+      parentId: string;
+    }> = [];
+    const remoteContainers = new Map<string, ListedContainer>([
+      [
+        "root-container",
+        {
+          id: "root-container",
+          metadataAccessEpoch: 2,
+          metadataAccessStateHash: "current-root-access-state-hash",
+          metadataDocumentId: "root-metadata-document",
+          metadataRecipientEncapsulationPublicKeys: [
+            bytesToBase64(localKeyPair.publicKey),
+          ],
+          organizationId: "org-1",
+          parentId: null,
+        },
+      ],
+    ]);
+    const authenticatedRuntime: TestRuntime = {
+      ...runtime,
+      encapsulationKeyPair: localKeyPair,
+      isAuthenticated: true,
+      online: true,
+      apiClient: {
+        ...runtime.apiClient,
+        createContainer: async (
+          id,
+          parentId,
+          expectedAccessStateHash,
+          initialMetadataUpdates,
+          initialMetadataRecipientEnvelopes,
+        ) => {
+          createContainerCalls.push({
+            expectedAccessStateHash,
+            id,
+            initialMetadataRecipientEnvelopeCount:
+              initialMetadataRecipientEnvelopes?.length ?? 0,
+            initialMetadataUpdateCount: initialMetadataUpdates.length,
+            parentId,
+          });
+          const created = {
+            id,
+            metadataAccessEpoch: 1,
+            metadataAccessStateHash: `access-state-hash-${id}`,
+            metadataDocumentId: `metadata-document-${id}`,
+            metadataRecipientEncapsulationPublicKeys: [
+              bytesToBase64(localKeyPair.publicKey),
+            ],
+            organizationId: "org-1",
+            parentId,
+          };
+          remoteContainers.set(id, created);
+          return created;
+        },
+        listContainers: async () => Array.from(remoteContainers.values()),
+        syncDocument: async () => null,
+      },
+    };
+
+    createdStore.updateRuntime(authenticatedRuntime);
+
+    await waitForCondition(
+      () => createContainerCalls.length === 3,
+      `Queued local containers were not synced.\ncreateContainerCalls=${JSON.stringify(
+        createContainerCalls,
+      )}`,
+    );
+
+    expect(createContainerCalls).toEqual([
+      {
+        expectedAccessStateHash: "current-root-access-state-hash",
+        id: parentNode.id,
+        initialMetadataRecipientEnvelopeCount: 1,
+        initialMetadataUpdateCount: 1,
+        parentId: "root-container",
+      },
+      {
+        expectedAccessStateHash: `access-state-hash-${parentNode.id}`,
+        id: childNode.id,
+        initialMetadataRecipientEnvelopeCount: 1,
+        initialMetadataUpdateCount: 1,
+        parentId: parentNode.id,
+      },
+      {
+        expectedAccessStateHash: `access-state-hash-${childNode.id}`,
+        id: grandchildNode.id,
+        initialMetadataRecipientEnvelopeCount: 1,
+        initialMetadataUpdateCount: 1,
+        parentId: childNode.id,
+      },
+    ]);
+    expect(
+      await sqlExplorerPersistence.listPendingCreateIntents(runtime.execSql),
+    ).toEqual([]);
+
+    const persistedContainers = await loadContainers(runtime.execSql);
+    expect(
+      persistedContainers.find((container) => container.id === parentNode.id)
+        ?.metadataDocumentId,
+    ).toBe(`metadata-document-${parentNode.id}`);
+    expect(
+      persistedContainers.find((container) => container.id === childNode.id)
+        ?.metadataDocumentId,
+    ).toBe(`metadata-document-${childNode.id}`);
+    expect(
+      persistedContainers.find(
+        (container) => container.id === grandchildNode.id,
+      )?.metadataDocumentId,
+    ).toBe(`metadata-document-${grandchildNode.id}`);
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
     runtime.close();
   }
 });

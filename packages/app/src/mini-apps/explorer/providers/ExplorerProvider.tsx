@@ -430,27 +430,41 @@ async function createChildContainer(
           initialRecord,
         );
 
-  if (!childState) {
-    return null;
-  }
+  const resolvedChildState =
+    childState ??
+    buildLocalChildContainerState(
+      state,
+      parentState,
+      childId,
+      trimmedName,
+      doc,
+      initialRecord,
+    );
+  const createIntent =
+    !resolvedChildState.record.documentId &&
+    resolvedChildState.container.parentId
+      ? { parentContainerId: resolvedChildState.container.parentId }
+      : undefined;
 
   await state.persistence.saveContainer(
     state.runtime.execSql,
-    childState.container,
-    childState.record,
+    resolvedChildState.container,
+    resolvedChildState.record,
+    createIntent ? { createIntent } : undefined,
   );
 
-  if (!childState.record.documentId) {
+  if (!resolvedChildState.record.documentId) {
     await syncAgent.enqueuePendingContainerUpdate(
-      childState.container.id,
+      resolvedChildState.container.id,
       initialUpdate,
     );
+    syncAgent.scheduleSync();
   }
 
-  state.containersById.set(childState.container.id, childState);
+  state.containersById.set(resolvedChildState.container.id, resolvedChildState);
   updateExplorerSnapshot(state);
   state.runtime.log(`Explorer: created container "${trimmedName}"`);
-  return toContainerNode(childState.container);
+  return toContainerNode(resolvedChildState.container);
 }
 
 async function deleteExplorerContainer(
