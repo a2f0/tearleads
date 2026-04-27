@@ -1,32 +1,42 @@
 import { expect, test } from "bun:test";
 import {
   type AccessEventV2,
+  CONTENT_RECORD_ENCRYPTION_SUITE_V2,
   computeAccessEventHash,
+  computeWriteHeaderHash,
   encryptWithDek,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   type KeyingV2CanonicalJson,
   toFingerprint,
   verifySignedAccessEvent,
+  verifyWriteHeader,
+  type WriteHeaderV2,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   type DocumentV2CreateRequest,
+  type DocumentV2SyncRequest,
   isDocumentV2CreateRequest,
+  isDocumentV2SyncRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerV2WriterProjectionResponse,
   DocumentV2CreateResponse,
+  DocumentV2SyncResponse,
 } from "@tearleads/validators/response";
 import {
   buildDocumentV2CreatePlan,
+  buildDocumentV2SyncPlan,
   buildMaterializedDocumentV2CreatePlan,
   createRemoteDocumentV2,
   type DocumentV2CreateAuthor,
   type DocumentV2CreatePlan,
   deriveDocumentV2CreateTargets,
   persistedDocumentV2CreateStateFromResponse,
+  persistedDocumentV2SyncStateFromResponse,
+  syncRemoteDocumentV2,
   unwrapContainerV2KekPath,
   unwrapDocumentV2ContentKeyTarget,
 } from "./documentV2Runtime";
@@ -670,4 +680,308 @@ test("persistedDocumentV2CreateStateFromResponse stores verified V2 create bundl
       },
     }),
   ).toThrow("content-key targets mismatch");
+});
+
+async function createSyncFixture() {
+  const { author, signingPublicKey } = await createAuthor();
+  const projection = await createProjection();
+  const target = getOnlyTarget(projection);
+  const createPlan = await buildDocumentV2CreatePlan({
+    author,
+    containerProjection: projection,
+    documentId: "550e8400-e29b-41d4-a716-446655440001",
+    eventId: "event-sync",
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetEnvelopes: [
+      {
+        ...target,
+        wrappedKey: "wrapped-document-key",
+        wrappingMetadata: {},
+      },
+    ],
+  });
+
+  return {
+    author,
+    createResponse: createResponse(createPlan),
+    projection,
+    signingPublicKey,
+  };
+}
+
+async function createPreparedUpdate(
+  overrides: {
+    checkpointKind?: "fresh_baseline" | "rotate_baseline" | undefined;
+    ciphertextHash?: string | undefined;
+    contentRecordId?: string | undefined;
+    encryptedData?: string | undefined;
+    id?: string | undefined;
+    metadataHash?: string | undefined;
+    partialEndVersionVector?: string | undefined;
+    partialStartVersionVector?: string | undefined;
+    signedAt?: string | undefined;
+    sourceVersionVector?: string | undefined;
+  } = {},
+) {
+  return {
+    id: overrides.id ?? "550e8400-e29b-41d4-a716-446655440111",
+    encryptedData: overrides.encryptedData ?? "encrypted-update",
+    partialStartVersionVector: overrides.partialStartVersionVector ?? "{}",
+    partialEndVersionVector: overrides.partialEndVersionVector ?? '{"actor":1}',
+    metadataHash: overrides.metadataHash ?? (await fixtureHash("metadata")),
+    ciphertextHash:
+      overrides.ciphertextHash ?? (await fixtureHash("ciphertext")),
+    ...(overrides.checkpointKind === undefined
+      ? {}
+      : { checkpointKind: overrides.checkpointKind }),
+    ...(overrides.contentRecordId === undefined
+      ? {}
+      : { contentRecordId: overrides.contentRecordId }),
+    ...(overrides.signedAt === undefined
+      ? {}
+      : { signedAt: overrides.signedAt }),
+    ...(overrides.sourceVersionVector === undefined
+      ? {}
+      : { sourceVersionVector: overrides.sourceVersionVector }),
+  };
+}
+
+function projectionPathRecords(
+  projection: ContainerV2WriterProjectionResponse,
+): Record<string, unknown>[] {
+  return projection.path.map(
+    (bundle) => bundle as unknown as Record<string, unknown>,
+  );
+}
+
+async function createSyncResponse(
+  plan: Awaited<ReturnType<typeof buildDocumentV2SyncPlan>>,
+  overrides: Partial<DocumentV2SyncResponse> = {},
+): Promise<DocumentV2SyncResponse> {
+  const updates = await Promise.all(
+    plan.request.outgoingUpdates.map(async (update) => {
+      const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
+      return {
+        accessEpoch: 1,
+        id: update.id,
+        documentId: plan.documentId,
+        authorFingerprint: writeHeader.writerKeyFingerprint,
+        encryptedData: update.encryptedData,
+        partialStartVersionVector: update.partialStartVersionVector,
+        partialEndVersionVector: update.partialEndVersionVector,
+        createdAt: "2026-04-27T00:00:00.000Z",
+        writeHeader: update.writeHeader,
+        writeHeaderHash: await computeWriteHeaderHash(writeHeader),
+      };
+    }),
+  );
+
+  return {
+    acceptedOutgoingUpdateIds: plan.request.outgoingUpdates.map(
+      (update) => update.id,
+    ),
+    commitLsn: "0/16B6C50",
+    contentKeyBundle: plan.sourceContentKeyBundle,
+    documentId: plan.documentId,
+    documentKekTargets: plan.documentKekTargets,
+    missingUpdateEpochs: updates.length === 0 ? [] : ["current_epoch"],
+    updates,
+    ...overrides,
+  };
+}
+
+test("buildDocumentV2SyncPlan signs document write headers with the current V2 access boundary", async () => {
+  const { author, createResponse, projection, signingPublicKey } =
+    await createSyncFixture();
+  const plan = await buildDocumentV2SyncPlan({
+    author,
+    authorizingContainerPaths: [projectionPathRecords(projection)],
+    contentKeyBundle: createResponse.contentKeyBundle,
+    documentKekTargets: createResponse.documentKekTargets,
+    documentManifest: createResponse.accessManifest,
+    localVersionVector: null,
+    minLsn: "0/16B6C50",
+    outgoingUpdates: [
+      await createPreparedUpdate({
+        checkpointKind: "fresh_baseline",
+        signedAt: "2026-04-27T00:00:01.000Z",
+      }),
+    ],
+    signedAt: "2026-04-27T00:00:00.000Z",
+  });
+
+  expect(isDocumentV2SyncRequest(plan.request)).toBe(true);
+  expect(plan.request.documentManifest?.manifestHash).toBe(
+    createResponse.accessManifest.manifestHash,
+  );
+  expect(
+    Reflect.get(
+      plan.request.authorizingContainerPaths?.[0]?.[0] ?? {},
+      "manifestHash",
+    ),
+  ).toBe(projection.path[0]?.manifestHash);
+  const update = plan.request.outgoingUpdates[0];
+  if (!update) {
+    throw new Error("Expected a signed outgoing update");
+  }
+  const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
+  expect(writeHeader.objectKind).toBe("document");
+  expect(writeHeader.objectId).toBe(plan.documentId);
+  expect(writeHeader.organizationId).toBe(author.organizationId);
+  expect(writeHeader.accessManifestHash).toBe(
+    createResponse.accessManifest.manifestHash,
+  );
+  expect(writeHeader.targetHash).toBe(
+    createResponse.contentKeyBundle.targetHash,
+  );
+  expect(writeHeader.encryptionSuite).toBe(CONTENT_RECORD_ENCRYPTION_SUITE_V2);
+
+  const verified = await verifyWriteHeader({
+    expectedAccessManifestHash: createResponse.accessManifest.manifestHash,
+    expectedObject: {
+      objectKind: "document",
+      objectId: plan.documentId,
+      organizationId: author.organizationId,
+    },
+    expectedTargetHash: createResponse.contentKeyBundle.targetHash,
+    header: writeHeader,
+    writerPublicKey: signingPublicKey,
+  });
+  expect(verified.ok).toBe(true);
+});
+
+test("buildDocumentV2SyncPlan omits write authorization proof fields for read-only probes", async () => {
+  const { author, createResponse } = await createSyncFixture();
+  const plan = await buildDocumentV2SyncPlan({
+    author,
+    contentKeyBundle: createResponse.contentKeyBundle,
+    documentKekTargets: createResponse.documentKekTargets,
+    documentManifest: createResponse.accessManifest,
+    includeContentKeyBundle: true,
+    localVersionVector: "{}",
+  });
+
+  expect(isDocumentV2SyncRequest(plan.request)).toBe(true);
+  expect(plan.request.outgoingUpdates).toEqual([]);
+  expect(plan.request.documentManifest).toBeUndefined();
+  expect(plan.request.authorizingContainerPaths).toBeUndefined();
+  expect(plan.request.contentKeyBundle?.targetHash).toBe(
+    createResponse.contentKeyBundle.targetHash,
+  );
+});
+
+test("buildDocumentV2SyncPlan rejects duplicate V2 content record domains before signing", async () => {
+  const { author, createResponse, projection } = await createSyncFixture();
+  const duplicateContentRecordId = "550e8400-e29b-41d4-a716-446655440333";
+
+  await expect(
+    buildDocumentV2SyncPlan({
+      author,
+      authorizingContainerPaths: [projectionPathRecords(projection)],
+      contentKeyBundle: createResponse.contentKeyBundle,
+      documentKekTargets: createResponse.documentKekTargets,
+      documentManifest: createResponse.accessManifest,
+      localVersionVector: null,
+      outgoingUpdates: [
+        await createPreparedUpdate({
+          contentRecordId: duplicateContentRecordId,
+          id: "550e8400-e29b-41d4-a716-446655440222",
+        }),
+        await createPreparedUpdate({
+          contentRecordId: duplicateContentRecordId.toUpperCase(),
+          id: "550e8400-e29b-41d4-a716-446655440223",
+        }),
+      ],
+    }),
+  ).rejects.toThrow("content record id is duplicated");
+});
+
+test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and returned write headers", async () => {
+  const { author, createResponse, projection, signingPublicKey } =
+    await createSyncFixture();
+  const plan = await buildDocumentV2SyncPlan({
+    author,
+    authorizingContainerPaths: [projectionPathRecords(projection)],
+    contentKeyBundle: createResponse.contentKeyBundle,
+    documentKekTargets: createResponse.documentKekTargets,
+    documentManifest: createResponse.accessManifest,
+    localVersionVector: null,
+    outgoingUpdates: [await createPreparedUpdate()],
+    signedAt: "2026-04-27T00:00:00.000Z",
+  });
+  const response = await createSyncResponse(plan);
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, response, {
+      writerPublicKeysByFingerprint: new Map([
+        [author.signerKeyFingerprint, signingPublicKey],
+      ]),
+    }),
+  ).resolves.toEqual({
+    documentId: plan.documentId,
+    v2ContentKeyBundle: JSON.stringify(response.contentKeyBundle),
+    v2DocumentKekTargets: JSON.stringify(response.documentKekTargets),
+    v2DocumentManifestBundle: JSON.stringify(plan.documentManifest),
+  });
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, {
+      ...response,
+      acceptedOutgoingUpdateIds: ["550e8400-e29b-41d4-a716-446655440999"],
+    }),
+  ).rejects.toThrow("accepted update mismatch");
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, {
+      ...response,
+      updates: response.updates.map((update) => ({
+        ...update,
+        writeHeaderHash: "0".repeat(64),
+      })),
+    }),
+  ).rejects.toThrow("write header hash mismatch");
+});
+
+test("syncRemoteDocumentV2 submits a signed V2 sync request and persists the verified response", async () => {
+  const { author, createResponse, projection, signingPublicKey } =
+    await createSyncFixture();
+  const submittedRequests: DocumentV2SyncRequest[] = [];
+  const synced = await syncRemoteDocumentV2({
+    apiClient: {
+      syncDocumentV2: async (documentId, request) => {
+        submittedRequests.push(request);
+        const plan = await buildDocumentV2SyncPlan({
+          author,
+          authorizingContainerPaths: [projectionPathRecords(projection)],
+          contentKeyBundle: createResponse.contentKeyBundle,
+          documentId,
+          documentKekTargets: createResponse.documentKekTargets,
+          documentManifest: createResponse.accessManifest,
+          localVersionVector: null,
+          outgoingUpdates: [],
+        });
+        return createSyncResponse({
+          ...plan,
+          request,
+        });
+      },
+    },
+    author,
+    authorizingContainerPaths: [projectionPathRecords(projection)],
+    contentKeyBundle: createResponse.contentKeyBundle,
+    documentKekTargets: createResponse.documentKekTargets,
+    documentManifest: createResponse.accessManifest,
+    localVersionVector: null,
+    outgoingUpdates: [await createPreparedUpdate()],
+    signedAt: "2026-04-27T00:00:00.000Z",
+    writerPublicKeysByFingerprint: new Map([
+      [author.signerKeyFingerprint, signingPublicKey],
+    ]),
+  });
+
+  expect(submittedRequests).toHaveLength(1);
+  expect(synced?.persistedState.documentId).toBe(createResponse.id);
+  expect(synced?.response.acceptedOutgoingUpdateIds).toEqual([
+    "550e8400-e29b-41d4-a716-446655440111",
+  ]);
 });
