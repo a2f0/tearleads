@@ -174,7 +174,7 @@ function toMutationError(error: unknown): DocumentV2MutationError | null {
   return null;
 }
 
-async function loadSignerPublicKey(
+export async function loadSignerPublicKey(
   executor: DatabaseExecutor,
   input: {
     readonly fingerprint: string;
@@ -281,7 +281,7 @@ async function assertContainerManifestBundleConsistent(
   return verified;
 }
 
-async function assertDocumentManifestBundleConsistent(
+export async function assertDocumentManifestBundleConsistent(
   bundle: DocumentV2ManifestBundle,
   label: string,
 ): Promise<VerifiedDocumentLinkSetManifest> {
@@ -338,7 +338,7 @@ async function assertCurrentContainerPath(
   return path;
 }
 
-async function assertCurrentContainerPathGroups(
+export async function assertCurrentContainerPathGroups(
   executor: DatabaseExecutor,
   groups: readonly (readonly Record<string, unknown>[])[] | undefined,
   label: string,
@@ -461,7 +461,7 @@ async function principalPolicyFromStored(input: {
   } as VerifiedPrincipalPolicy;
 }
 
-async function loadPrincipalPoliciesForContainerPaths(
+export async function loadPrincipalPoliciesForContainerPaths(
   executor: DatabaseExecutor,
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
 ): Promise<VerifiedPrincipalPolicy[]> {

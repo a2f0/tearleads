@@ -4,7 +4,18 @@ export {
   isVerifyRequest,
   type VerifyRequest,
 } from "./auth";
-export { isStageBlobRequest, type StageBlobRequest } from "./blob";
+export {
+  type BlobV2AttachmentBindRequest,
+  type BlobV2AttachmentDetachRequest,
+  type BlobV2ContentKeyBundleRequest,
+  type BlobV2ContentKeyTargetEnvelopeRequest,
+  type BlobV2ManifestBundleRequest,
+  type BlobV2StagedBlobRequest,
+  isBlobV2AttachmentBindRequest,
+  isBlobV2AttachmentDetachRequest,
+  isStageBlobRequest,
+  type StageBlobRequest,
+} from "./blob";
 export {
   type CommitDocumentChangeRequest,
   isCommitDocumentChangeRequest,

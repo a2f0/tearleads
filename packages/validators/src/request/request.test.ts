@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+  isBlobV2AttachmentBindRequest,
+  isBlobV2AttachmentDetachRequest,
   isChallengeRequest,
   isCommitDocumentChangeRequest,
   isCreateContainerRequest,
@@ -425,6 +427,83 @@ test("isPutPrincipalMemberEnvelopesRequest", () => {
     }),
   ).toBe(false);
   expect(isPutPrincipalMemberEnvelopesRequest(null)).toBe(false);
+});
+
+function createBlobV2ContentKeyBundle(overrides = {}) {
+  return {
+    contentKeyEpoch: 1,
+    targetHash: "target-hash",
+    targets: [
+      {
+        bindingId: "550e8400-e29b-41d4-a716-446655440001",
+        documentId: "550e8400-e29b-41d4-a716-446655440002",
+        containerId: "550e8400-e29b-41d4-a716-446655440003",
+        containerManifestHash: "container-manifest-hash",
+        containerKeyEpochId: "container-key-epoch-id",
+        containerKeyEpoch: 1,
+        wrappedKey: "wrapped-key",
+        wrappingMetadata: { alg: "x25519-hkdf-sha256" },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function createBlobV2ManifestBundle(overrides = {}) {
+  return {
+    event: { eventId: "event-1" },
+    manifest: { version: 2 },
+    manifestHash: "document-link-set-hash",
+    state: { documentId: "document-1" },
+    ...overrides,
+  };
+}
+
+test("isBlobV2AttachmentBindRequest", () => {
+  const validRequest = {
+    event: { eventType: "attachment.bind" },
+    body: { eventType: "attachment.bind" },
+    documentManifest: createBlobV2ManifestBundle(),
+    authorizingContainerPaths: [[{ containerId: "container-1" }]],
+    contentKeyBundle: createBlobV2ContentKeyBundle(),
+    stagedBlob: {
+      stageId: "550e8400-e29b-41d4-a716-446655440004",
+      writeHeader: { objectKind: "blob" },
+    },
+  };
+
+  expect(isBlobV2AttachmentBindRequest(validRequest)).toBe(true);
+  expect(
+    isBlobV2AttachmentBindRequest({
+      ...validRequest,
+      contentKeyBundle: createBlobV2ContentKeyBundle({ targetHash: "" }),
+    }),
+  ).toBe(false);
+  expect(
+    isBlobV2AttachmentBindRequest({
+      ...validRequest,
+      stagedBlob: { stageId: "", writeHeader: {} },
+    }),
+  ).toBe(false);
+  expect(isBlobV2AttachmentBindRequest(null)).toBe(false);
+});
+
+test("isBlobV2AttachmentDetachRequest", () => {
+  const validRequest = {
+    event: { eventType: "attachment.detach" },
+    body: { eventType: "attachment.detach" },
+    documentManifest: createBlobV2ManifestBundle(),
+    authorizingContainerPaths: [[{ containerId: "container-1" }]],
+  };
+
+  expect(isBlobV2AttachmentDetachRequest(validRequest)).toBe(true);
+  expect(
+    isBlobV2AttachmentDetachRequest({
+      ...validRequest,
+      authorizingContainerPaths: [{ containerId: "container-1" }],
+    }),
+  ).toBe(false);
+  expect(isBlobV2AttachmentDetachRequest(null)).toBe(false);
 });
 
 function createDocumentV2ContentKeyBundle(overrides = {}) {

@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+  isBlobV2AttachmentBindResponse,
+  isBlobV2AttachmentDetachResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
   isCommitDocumentChangeResponse,
@@ -92,6 +94,88 @@ test("isStageBlobResponse", () => {
   ).toBe(true);
   expect(isStageBlobResponse({ stageId: "stage_01" })).toBe(false);
   expect(isStageBlobResponse(null)).toBe(false);
+});
+
+function createBlobV2ContentKeyBundleResponse(overrides = {}) {
+  return {
+    blobId: "550e8400-e29b-41d4-a716-446655440001",
+    contentKeyEpoch: 1,
+    targetHash: "target-hash",
+    targets: [
+      {
+        bindingId: "550e8400-e29b-41d4-a716-446655440002",
+        documentId: "550e8400-e29b-41d4-a716-446655440003",
+        containerId: "550e8400-e29b-41d4-a716-446655440004",
+        containerManifestHash: "container-manifest-hash",
+        containerKeyEpochId: "container-key-epoch-id",
+        containerKeyEpoch: 1,
+        wrappedKey: "wrapped-key",
+        wrappingMetadata: { alg: "x25519-hkdf-sha256" },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function createBlobV2KekTargetsResponse(overrides = {}) {
+  return {
+    blobId: "550e8400-e29b-41d4-a716-446655440001",
+    organizationId: "550e8400-e29b-41d4-a716-446655440005",
+    activeBindingIds: ["550e8400-e29b-41d4-a716-446655440002"],
+    documentManifestHashes: ["document-manifest-hash"],
+    linkedContainerManifestHashes: ["container-manifest-hash"],
+    linkedContainerKeyEpochIds: ["container-key-epoch-id"],
+    targets: [{ bindingId: "550e8400-e29b-41d4-a716-446655440002" }],
+    blobKeyTargetHash: "target-hash",
+    blobAccessManifestHash: "blob-access-manifest-hash",
+    ...overrides,
+  };
+}
+
+test("isBlobV2AttachmentBindResponse", () => {
+  const validResponse = {
+    bindingId: "550e8400-e29b-41d4-a716-446655440002",
+    blobId: "550e8400-e29b-41d4-a716-446655440001",
+    documentId: "550e8400-e29b-41d4-a716-446655440003",
+    slotId: "slot-a",
+    contentKeyBundle: createBlobV2ContentKeyBundleResponse(),
+    blobKekTargets: createBlobV2KekTargetsResponse(),
+    writeHeaderHash: "write-header-hash",
+  };
+
+  expect(isBlobV2AttachmentBindResponse(validResponse)).toBe(true);
+  expect(
+    isBlobV2AttachmentBindResponse({
+      ...validResponse,
+      blobKekTargets: createBlobV2KekTargetsResponse({
+        activeBindingIds: [123],
+      }),
+    }),
+  ).toBe(false);
+  expect(
+    isBlobV2AttachmentBindResponse({
+      ...validResponse,
+      contentKeyBundle: createBlobV2ContentKeyBundleResponse({
+        contentKeyEpoch: 0,
+      }),
+    }),
+  ).toBe(false);
+  expect(isBlobV2AttachmentBindResponse(null)).toBe(false);
+});
+
+test("isBlobV2AttachmentDetachResponse", () => {
+  expect(
+    isBlobV2AttachmentDetachResponse({
+      bindingId: "550e8400-e29b-41d4-a716-446655440002",
+      blobId: "550e8400-e29b-41d4-a716-446655440001",
+      documentId: "550e8400-e29b-41d4-a716-446655440003",
+      slotId: "slot-a",
+    }),
+  ).toBe(true);
+  expect(isBlobV2AttachmentDetachResponse({ bindingId: "binding-1" })).toBe(
+    false,
+  );
+  expect(isBlobV2AttachmentDetachResponse(null)).toBe(false);
 });
 
 test("isCommitDocumentChangeResponse", () => {

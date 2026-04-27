@@ -26,6 +26,8 @@ import type {
   UnsignedAccessEventV2,
   VerifiedAccessEvent,
   VerifiedAccessManifest,
+  VerifiedAttachmentBinding,
+  VerifiedBlobKekTargets,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedDocumentKekTargets,
@@ -38,6 +40,7 @@ import {
   CONTENT_RECORD_ENCRYPTION_SUITE_V2,
   computeAccessEventBodyHash,
   computeAccessManifestHash,
+  computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
   computeContainerKekRecipientTargetHash,
   computeContentRecordNonceDomainHash,
@@ -612,6 +615,21 @@ async function deriveRequiredDocumentKekTargets(input: {
   readonly linkedContainerManifests: readonly VerifiedContainerAccessManifest[];
 }): Promise<VerifiedDocumentKekTargets> {
   const result = await deriveDocumentKekTargets(input);
+  if (!result.ok) {
+    throw result.error;
+  }
+
+  return result.value;
+}
+
+async function deriveRequiredBlobKekTargets(input: {
+  readonly activeBindings: readonly VerifiedAttachmentBinding[];
+  readonly blobId: string;
+  readonly containerKekStates: readonly VerifiedContainerKekState[];
+  readonly documentManifests: readonly VerifiedDocumentLinkSetManifest[];
+  readonly linkedContainerManifests: readonly VerifiedContainerAccessManifest[];
+}): Promise<VerifiedBlobKekTargets> {
+  const result = await deriveBlobKekTargets(input);
   if (!result.ok) {
     throw result.error;
   }
@@ -2915,6 +2933,148 @@ test("write headers prove document write access through committed targets", asyn
       writerPublicKey: readerSigning.signingPublicKey,
     }),
     "unauthorized",
+  );
+});
+
+test("write headers prove blob write access through derived attachment targets", async () => {
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const readerSigning = generateSigningSeedAndKeyPair();
+  const writerUserId = "blob-writer-user";
+  const readerUserId = "blob-reader-user";
+  const organizationId = "blob-write-organization";
+  const blobId = "blob-write-proof";
+  const documentId = "blob-write-document";
+  const container = await createContainerManifestFixture({
+    containerId: "blob-write-container",
+    containerKeyEpochId: "blob-write-container-key-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+      {
+        subjectType: "user",
+        subjectId: readerUserId,
+        accessLevel: "read",
+      },
+    ],
+    organizationId,
+  });
+  const documentEvent = await createVerifiedDocumentAccessEvent({
+    body: {
+      eventType: "document.link",
+      containerId: container.state.containerId,
+      containerManifestHash: container.manifestHash,
+    },
+    dependencyManifestHashes: [container.manifestHash],
+    objectId: documentId,
+    organizationId,
+    previousManifestHash: null,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const documentManifest = await createDocumentLinkSetManifestFixture({
+    documentId,
+    event: documentEvent,
+    linkedContainerIds: [container.state.containerId],
+    organizationId,
+  });
+  const binding = await createVerifiedAttachmentBinding({
+    bindingId: "blob-write-binding",
+    blobId,
+    documentManifest,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+    slotId: "slot-a",
+    writePath: [container],
+  });
+  const containerKekState = await createVerifiedContainerKekStateFixture({
+    manifest: container,
+    recipientUserId: writerUserId,
+    recipientUserIds: [writerUserId, readerUserId],
+  });
+  const blobKekTargets = await deriveRequiredBlobKekTargets({
+    activeBindings: [binding],
+    blobId,
+    containerKekStates: [containerKekState],
+    documentManifests: [documentManifest],
+    linkedContainerManifests: [container],
+  });
+  expect(blobKekTargets.blobAccessManifestHash).toBe(
+    await computeBlobAccessManifestHash({
+      version: 2,
+      blobId,
+      organizationId,
+      activeBindingIds: [binding.bindingId],
+      documentManifestHashes: [documentManifest.manifestHash],
+      linkedContainerManifestHashes: [container.manifestHash],
+      linkedContainerKeyEpochIds: [containerKekState.containerKeyEpochId],
+      blobKeyTargetHash: blobKekTargets.blobKeyTargetHash,
+    }),
+  );
+
+  const writerHeader = await createWriteHeaderFixture({
+    accessManifestHash: blobKekTargets.blobAccessManifestHash,
+    objectId: blobId,
+    objectKind: "blob",
+    organizationId,
+    signing: writerSigning,
+    targetHash: blobKekTargets.blobKeyTargetHash,
+    writerUserId,
+  });
+  const verifiedWriter = await verifyWriteHeader({
+    blobAuthorization: {
+      authorizingContainerPaths: [[container]],
+      blobKekTargets,
+    },
+    header: writerHeader,
+    writerPublicKey: writerSigning.signingPublicKey,
+  });
+  expect(verifiedWriter.ok).toBe(true);
+
+  const readerHeader = await createWriteHeaderFixture({
+    accessManifestHash: blobKekTargets.blobAccessManifestHash,
+    contentRecordId: "22222222-2222-4222-8222-222222222222",
+    objectId: blobId,
+    objectKind: "blob",
+    organizationId,
+    signing: readerSigning,
+    targetHash: blobKekTargets.blobKeyTargetHash,
+    writerUserId: readerUserId,
+  });
+  expectVerificationError(
+    await verifyWriteHeader({
+      blobAuthorization: {
+        authorizingContainerPaths: [[container]],
+        blobKekTargets,
+      },
+      header: readerHeader,
+      writerPublicKey: readerSigning.signingPublicKey,
+    }),
+    "unauthorized",
+  );
+
+  const staleHeader = await createWriteHeaderFixture({
+    accessManifestHash: blobKekTargets.blobAccessManifestHash,
+    contentRecordId: "33333333-3333-4333-8333-333333333333",
+    objectId: blobId,
+    objectKind: "blob",
+    organizationId,
+    signing: writerSigning,
+    targetHash: await fixtureHash("blob-stale-target"),
+    writerUserId,
+  });
+  expectVerificationError(
+    await verifyWriteHeader({
+      blobAuthorization: {
+        authorizingContainerPaths: [[container]],
+        blobKekTargets,
+      },
+      header: staleHeader,
+      writerPublicKey: writerSigning.signingPublicKey,
+    }),
+    "hash_mismatch",
   );
 });
 

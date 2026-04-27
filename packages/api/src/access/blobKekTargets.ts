@@ -1,5 +1,6 @@
 import {
   type BlobContentKeyTargetV2,
+  computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
 import { and, asc, eq, isNull } from "drizzle-orm";
@@ -25,12 +26,14 @@ export class BlobKekTargetError extends Error {
 
 interface ResolvedBlobKekTargets {
   readonly blobId: string;
+  readonly organizationId: string;
   readonly activeBindingIds: readonly string[];
   readonly documentManifestHashes: readonly string[];
   readonly linkedContainerManifestHashes: readonly string[];
   readonly linkedContainerKeyEpochIds: readonly string[];
   readonly targets: readonly BlobContentKeyTargetV2[];
   readonly blobKeyTargetHash: string;
+  readonly blobAccessManifestHash: string;
 }
 
 interface AssertBlobKekTargetsCurrentInput {
@@ -133,9 +136,11 @@ function documentManifestHashesForBindings(input: {
 }): {
   readonly documentManifestHashes: string[];
   readonly documentManifestHashesByDocumentId: ReadonlyMap<string, string>;
+  readonly organizationId: string;
 } {
   const documentManifestHashes: string[] = [];
   const documentManifestHashesByDocumentId = new Map<string, string>();
+  const organizationIds = new Set<string>();
 
   for (const binding of input.activeBindings) {
     const documentHead = input.documentHeadById.get(binding.documentId);
@@ -150,9 +155,29 @@ function documentManifestHashesForBindings(input: {
       documentHead.manifestHash,
     );
     documentManifestHashes.push(documentHead.manifestHash);
+    organizationIds.add(documentHead.organizationId);
   }
 
-  return { documentManifestHashes, documentManifestHashesByDocumentId };
+  if (organizationIds.size !== 1) {
+    throw new BlobKekTargetError(
+      "Blob KEK targets must stay within one organization",
+      409,
+    );
+  }
+
+  const organizationId = [...organizationIds][0];
+  if (!organizationId) {
+    throw new BlobKekTargetError(
+      "Blob KEK target is missing a linked document organization",
+      409,
+    );
+  }
+
+  return {
+    documentManifestHashes,
+    documentManifestHashesByDocumentId,
+    organizationId,
+  };
 }
 
 async function loadBatchedBlobKekTargetState(input: {
@@ -164,6 +189,7 @@ async function loadBatchedBlobKekTargetState(input: {
   readonly documentManifestHashes: readonly string[];
   readonly documentManifestHashesByDocumentId: ReadonlyMap<string, string>;
   readonly linkRowsByManifestHash: ReadonlyMap<string, DocumentLinkRows>;
+  readonly organizationId: string;
 }> {
   const documentIds = input.activeBindings.map((binding) => {
     assertBindingHasSignedV2Event(binding);
@@ -174,11 +200,14 @@ async function loadBatchedBlobKekTargetState(input: {
     documentIds,
     input.executor,
   );
-  const { documentManifestHashes, documentManifestHashesByDocumentId } =
-    documentManifestHashesForBindings({
-      activeBindings: input.activeBindings,
-      documentHeadById,
-    });
+  const {
+    documentManifestHashes,
+    documentManifestHashesByDocumentId,
+    organizationId,
+  } = documentManifestHashesForBindings({
+    activeBindings: input.activeBindings,
+    documentHeadById,
+  });
   const linkRows = await listAccessManifestDocumentLinkProjections(
     documentManifestHashes,
     input.executor,
@@ -199,6 +228,7 @@ async function loadBatchedBlobKekTargetState(input: {
     documentManifestHashes,
     documentManifestHashesByDocumentId,
     linkRowsByManifestHash: groupDocumentLinksByManifestHash(linkRows),
+    organizationId,
   };
 }
 
@@ -283,21 +313,38 @@ export async function resolveCurrentBlobKekTargets(
     ...targetState,
   });
   const sortedTargets = sortBlobTargets(targets);
+  const blobKeyTargetHash =
+    await computeBlobContentKeyTargetHash(sortedTargets);
+  const documentManifestHashes = uniqueSortedStrings(
+    targetState.documentManifestHashes,
+  );
+  const linkedContainerManifestHashes = uniqueSortedStrings(
+    sortedTargets.map((target) => target.containerManifestHash),
+  );
+  const linkedContainerKeyEpochIds = uniqueSortedStrings(
+    sortedTargets.map((target) => target.containerKeyEpochId),
+  );
+  const activeBindingIds = activeBindings.map((binding) => binding.bindingId);
 
   return {
     blobId,
-    activeBindingIds: activeBindings.map((binding) => binding.bindingId),
-    documentManifestHashes: uniqueSortedStrings(
-      targetState.documentManifestHashes,
-    ),
-    linkedContainerManifestHashes: uniqueSortedStrings(
-      sortedTargets.map((target) => target.containerManifestHash),
-    ),
-    linkedContainerKeyEpochIds: uniqueSortedStrings(
-      sortedTargets.map((target) => target.containerKeyEpochId),
-    ),
+    organizationId: targetState.organizationId,
+    activeBindingIds,
+    documentManifestHashes,
+    linkedContainerManifestHashes,
+    linkedContainerKeyEpochIds,
     targets: sortedTargets,
-    blobKeyTargetHash: await computeBlobContentKeyTargetHash(sortedTargets),
+    blobKeyTargetHash,
+    blobAccessManifestHash: await computeBlobAccessManifestHash({
+      version: 2,
+      blobId,
+      organizationId: targetState.organizationId,
+      activeBindingIds,
+      documentManifestHashes,
+      linkedContainerManifestHashes,
+      linkedContainerKeyEpochIds,
+      blobKeyTargetHash,
+    }),
   };
 }
 
