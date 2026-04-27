@@ -4,10 +4,15 @@ import {
   type KeyingV2CanonicalJson,
   KeyingV2VerificationError,
   serializeKeyingV2CanonicalJson,
+  type WriteHeaderV2,
 } from "@tearleads/crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
-import { blobContentKeyEpochs, blobContentKeyTargets } from "../schema";
+import {
+  blobContentKeyEpochs,
+  blobContentKeyTargets,
+  blobContentWriteHeaders,
+} from "../schema";
 import {
   assertBlobKekTargetsCurrent,
   BlobKekTargetError,
@@ -598,4 +603,82 @@ export async function storeBlobContentKeyBundle(
     nextBundle: input,
     executor,
   });
+}
+
+export async function storeBlobContentWriteHeader(
+  input: {
+    readonly blobId: string;
+    readonly header: WriteHeaderV2;
+    readonly headerHash: string;
+    readonly recordId: string;
+  },
+  executor: BlobContentKeyExecutor = db,
+): Promise<void> {
+  if (
+    input.header.objectKind !== "blob" ||
+    input.header.objectId !== input.blobId
+  ) {
+    throw new BlobContentKeyBundleError(
+      "Blob write header does not match blob",
+      409,
+    );
+  }
+
+  const [inserted] = await executor
+    .insert(blobContentWriteHeaders)
+    .values({
+      recordId: input.recordId,
+      blobId: input.blobId,
+      organizationId: input.header.organizationId,
+      contentKeyEpoch: input.header.contentKeyEpoch,
+      accessManifestHash: input.header.accessManifestHash,
+      targetHash: input.header.targetHash,
+      encryptionSuite: input.header.encryptionSuite,
+      contentRecordId: input.header.contentRecordId,
+      nonceDomainHash: input.header.nonceDomainHash,
+      headerHash: input.headerHash,
+      header: input.header,
+    })
+    .onConflictDoNothing()
+    .returning({ headerHash: blobContentWriteHeaders.headerHash });
+
+  if (inserted) {
+    return;
+  }
+
+  const [existing] = await executor
+    .select({ headerHash: blobContentWriteHeaders.headerHash })
+    .from(blobContentWriteHeaders)
+    .where(eq(blobContentWriteHeaders.recordId, input.recordId))
+    .limit(1);
+
+  if (!existing || existing.headerHash !== input.headerHash) {
+    throw new BlobContentKeyBundleError("Blob write header conflict", 409);
+  }
+}
+
+export async function listBlobContentWriteHeaders(
+  recordIds: readonly string[],
+  executor: BlobContentKeyExecutor = db,
+): Promise<Map<string, { header: WriteHeaderV2; headerHash: string }>> {
+  const uniqueRecordIds = [...new Set(recordIds)];
+  if (uniqueRecordIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await executor
+    .select({
+      recordId: blobContentWriteHeaders.recordId,
+      header: blobContentWriteHeaders.header,
+      headerHash: blobContentWriteHeaders.headerHash,
+    })
+    .from(blobContentWriteHeaders)
+    .where(inArray(blobContentWriteHeaders.recordId, uniqueRecordIds));
+
+  return new Map(
+    rows.map((row) => [
+      row.recordId,
+      { header: row.header, headerHash: row.headerHash },
+    ]),
+  );
 }

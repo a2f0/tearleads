@@ -519,9 +519,53 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError("Document write header conflict", 409),
   );
+  await expect(
+    storeDocumentContentWriteHeader({
+      documentId,
+      header: { ...header, objectKind: "blob" },
+      headerHash: await hashOf("write-header-wrong-object"),
+      updateId: crypto.randomUUID(),
+    }),
+  ).rejects.toMatchObject(
+    new DocumentContentKeyBundleError(
+      "Document write header does not match document",
+      409,
+    ),
+  );
 
-  expect(await listDocumentContentWriteHeaders([updateId])).toEqual(
-    new Map([[updateId, { header, headerHash }]]),
+  const secondUpdateId = crypto.randomUUID();
+  const secondContentRecordId = "66666666-6666-4666-8666-666666666666";
+  const secondHeader: WriteHeaderV2 = {
+    ...header,
+    contentRecordId: secondContentRecordId,
+    nonceDomainHash: await computeContentRecordNonceDomainHash({
+      version: 2,
+      organizationId,
+      objectKind: "document",
+      objectId: documentId,
+      contentKeyEpoch: 1,
+      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+      contentRecordId: secondContentRecordId,
+    }),
+    metadataHash: await hashOf("write-header-second-metadata"),
+    ciphertextHash: await hashOf("write-header-second-ciphertext"),
+    signature: "signature-2",
+  };
+  const secondHeaderHash = await hashOf("write-header-second");
+  await storeDocumentContentWriteHeader({
+    documentId,
+    header: secondHeader,
+    headerHash: secondHeaderHash,
+    updateId: secondUpdateId,
+  });
+
+  expect(
+    await listDocumentContentWriteHeaders([updateId, secondUpdateId]),
+  ).toEqual(
+    new Map([
+      [updateId, { header, headerHash }],
+      [secondUpdateId, { header: secondHeader, headerHash: secondHeaderHash }],
+    ]),
   );
 });
 

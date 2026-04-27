@@ -697,6 +697,16 @@ export async function storeDocumentContentWriteHeader(
   },
   executor: DocumentContentKeyExecutor = db,
 ): Promise<void> {
+  if (
+    input.header.objectKind !== "document" ||
+    input.header.objectId !== input.documentId
+  ) {
+    throw new DocumentContentKeyBundleError(
+      "Document write header does not match document",
+      409,
+    );
+  }
+
   const [inserted] = await executor
     .insert(documentContentWriteHeaders)
     .values({
