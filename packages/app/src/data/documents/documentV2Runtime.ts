@@ -19,6 +19,7 @@ import {
   serializeKeyingV2CanonicalJson,
   signAccessEvent,
   signWriteHeader,
+  toFingerprint,
   type UnsignedAccessEventV2,
   type UnsignedWriteHeaderV2,
   verifyWriteHeader,
@@ -35,13 +36,33 @@ import type {
   ContainerV2WriterProjectionResponse,
   DocumentV2CreateResponse,
   DocumentV2SyncResponse,
+  DocumentV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { DocumentRecord } from "../persistence/documentPersistence";
+import type {
+  DocumentRecord,
+  PendingUpdateRecord,
+} from "../persistence/documentPersistence";
 import type { ExecSql } from "../persistence/sqlSchema";
 import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "../principalPolicyCrypto";
 
 const DOCUMENT_V2_CONTENT_KEY_WRAP_SUITE =
   "tearleads.document-v2.content-key-wrap.aes-256-gcm-container-kek.v1";
+const DOCUMENT_V2_ENCRYPTED_LORO_UPDATE_FORMAT =
+  "tearleads.document-v2.loro-update.v1";
+const DOCUMENT_V2_CONTENT_RECORD_KEY_INFO_DOMAIN =
+  "tearleads.document-v2.content-record-key-info.v1";
+const DOCUMENT_V2_CONTENT_RECORD_AAD_DOMAIN =
+  "tearleads.document-v2.content-record-aad.v1";
+const DOCUMENT_V2_CONTENT_RECORD_METADATA_HASH_DOMAIN =
+  "tearleads.document-v2.content-record-metadata.v1";
+const DOCUMENT_V2_CONTENT_RECORD_CIPHERTEXT_HASH_DOMAIN =
+  "tearleads.document-v2.content-record-ciphertext.v1";
+const DOCUMENT_V2_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
+  new TextEncoder().encode("tearleads.document-v2.content-record-hkdf-salt.v1");
+const DOCUMENT_V2_CONTENT_RECORD_IV: Uint8Array<ArrayBuffer> = new Uint8Array(
+  12,
+);
+const TEXT_ENCODER = new TextEncoder();
 
 export interface DocumentV2CreateAuthor {
   organizationId: string;
@@ -109,6 +130,13 @@ interface DocumentV2SyncPreparedUpdate {
   sourceVersionVector?: string | undefined;
 }
 
+interface DocumentV2EncryptedPendingUpdate {
+  contentRecordId: string;
+  encryptedData: string;
+  metadataHash: string;
+  ciphertextHash: string;
+}
+
 interface BuildDocumentV2SyncPlanInput {
   author: DocumentV2CreateAuthor;
   authorizingContainerPaths?: readonly (readonly Record<string, unknown>[])[];
@@ -135,13 +163,23 @@ interface DocumentV2SyncPlan {
   sourceContentKeyBundle: DocumentV2CreateResponse["contentKeyBundle"];
 }
 
+interface MaterializedDocumentV2SyncPlan {
+  contentKey: Uint8Array;
+  plan: DocumentV2SyncPlan;
+}
+
 interface SyncRemoteDocumentV2Result {
+  contentKey: Uint8Array;
   persistedState: PersistedDocumentV2SyncState;
   plan: DocumentV2SyncPlan;
   response: DocumentV2SyncResponse;
+  writerProjection: DocumentV2WriterProjectionResponse;
 }
 
 interface DocumentV2SyncApi {
+  getDocumentV2WriterProjection(
+    documentId: string,
+  ): Promise<DocumentV2WriterProjectionResponse | null>;
   syncDocumentV2(
     documentId: string,
     input: DocumentV2SyncRequest,
@@ -234,6 +272,13 @@ function readRecordNullableString(
     throw new Error(`${label}.${key} must be a non-empty string or null`);
   }
   return value;
+}
+
+function asWebCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  if (!(bytes.buffer instanceof ArrayBuffer)) {
+    throw new Error("Document V2 byte material must be ArrayBuffer-backed");
+  }
+  return bytes as Uint8Array<ArrayBuffer>;
 }
 
 function normalizeContainerKeyWrap(value: unknown): ContainerKeyWrapV2 {
@@ -777,6 +822,387 @@ export async function createRemoteDocumentV2(input: {
   };
 }
 
+async function hashDocumentV2ContentRecord(
+  domain: string,
+  payload: KeyingV2CanonicalJson,
+): Promise<string> {
+  return toFingerprint(
+    TEXT_ENCODER.encode(
+      serializeKeyingV2CanonicalJson({
+        domain,
+        payload,
+      }),
+    ),
+  );
+}
+
+function documentV2ContentRecordMetadata(input: {
+  documentId: string;
+  partialEndVersionVector: string;
+  partialStartVersionVector: string;
+  updateId: string;
+}): KeyingV2CanonicalJson {
+  return {
+    version: 1,
+    recordKind: "loro_update",
+    documentId: input.documentId,
+    updateId: input.updateId,
+    partialStartVersionVector: input.partialStartVersionVector,
+    partialEndVersionVector: input.partialEndVersionVector,
+  };
+}
+
+async function computeDocumentV2ContentRecordMetadataHash(input: {
+  documentId: string;
+  partialEndVersionVector: string;
+  partialStartVersionVector: string;
+  updateId: string;
+}): Promise<string> {
+  return hashDocumentV2ContentRecord(
+    DOCUMENT_V2_CONTENT_RECORD_METADATA_HASH_DOMAIN,
+    documentV2ContentRecordMetadata(input),
+  );
+}
+
+async function computeDocumentV2ContentRecordCiphertextHash(
+  encryptedData: string,
+): Promise<string> {
+  return hashDocumentV2ContentRecord(
+    DOCUMENT_V2_CONTENT_RECORD_CIPHERTEXT_HASH_DOMAIN,
+    encryptedData,
+  );
+}
+
+function contentRecordDerivationPayload(input: {
+  contentKeyEpoch: number;
+  contentRecordId: string;
+  documentId: string;
+  organizationId: string;
+}): Record<string, KeyingV2CanonicalJson> {
+  return {
+    version: 2,
+    organizationId: input.organizationId,
+    objectKind: "document",
+    objectId: input.documentId,
+    contentKeyEpoch: input.contentKeyEpoch,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    contentRecordId: input.contentRecordId,
+  };
+}
+
+function contentRecordDerivationBytes(input: {
+  contentKeyEpoch: number;
+  contentRecordId: string;
+  documentId: string;
+  organizationId: string;
+}): Uint8Array<ArrayBuffer> {
+  return TEXT_ENCODER.encode(
+    serializeKeyingV2CanonicalJson({
+      domain: DOCUMENT_V2_CONTENT_RECORD_KEY_INFO_DOMAIN,
+      payload: contentRecordDerivationPayload(input),
+    }),
+  );
+}
+
+function contentRecordAdditionalDataBytes(input: {
+  contentKeyEpoch: number;
+  contentRecordId: string;
+  documentId: string;
+  metadataHash: string;
+  nonceDomainHash: string;
+  organizationId: string;
+}): Uint8Array<ArrayBuffer> {
+  return TEXT_ENCODER.encode(
+    serializeKeyingV2CanonicalJson({
+      domain: DOCUMENT_V2_CONTENT_RECORD_AAD_DOMAIN,
+      payload: {
+        ...contentRecordDerivationPayload(input),
+        metadataHash: input.metadataHash,
+        nonceDomainHash: input.nonceDomainHash,
+      },
+    }),
+  );
+}
+
+async function deriveDocumentV2ContentRecordKey(input: {
+  contentKey: Uint8Array;
+  contentKeyEpoch: number;
+  contentRecordId: string;
+  documentId: string;
+  organizationId: string;
+}): Promise<CryptoKey> {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    asWebCryptoBytes(input.contentKey),
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: DOCUMENT_V2_CONTENT_RECORD_HKDF_SALT,
+      info: contentRecordDerivationBytes(input),
+    },
+    keyMaterial,
+    {
+      name: "AES-GCM",
+      length: 256,
+    },
+    false,
+    ["encrypt"],
+  );
+}
+
+async function encryptDocumentV2PendingUpdate(input: {
+  contentKey: Uint8Array;
+  contentKeyEpoch: number;
+  documentId: string;
+  organizationId: string;
+  update: PendingUpdateRecord;
+}): Promise<DocumentV2EncryptedPendingUpdate> {
+  const contentRecordId = input.update.id;
+  const nonceDomainHash = await computeContentRecordNonceDomainHash({
+    version: 2,
+    organizationId: input.organizationId,
+    objectKind: "document",
+    objectId: input.documentId,
+    contentKeyEpoch: input.contentKeyEpoch,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    contentRecordId,
+  });
+  const metadataHash = await computeDocumentV2ContentRecordMetadataHash({
+    documentId: input.documentId,
+    partialEndVersionVector: input.update.partialEndVersionVector,
+    partialStartVersionVector: input.update.partialStartVersionVector,
+    updateId: input.update.id,
+  });
+  const recordKey = await deriveDocumentV2ContentRecordKey({
+    contentKey: input.contentKey,
+    contentKeyEpoch: input.contentKeyEpoch,
+    contentRecordId,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+  });
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv: DOCUMENT_V2_CONTENT_RECORD_IV,
+        additionalData: contentRecordAdditionalDataBytes({
+          contentKeyEpoch: input.contentKeyEpoch,
+          contentRecordId,
+          documentId: input.documentId,
+          metadataHash,
+          nonceDomainHash,
+          organizationId: input.organizationId,
+        }),
+      },
+      recordKey,
+      asWebCryptoBytes(base64ToBytes(input.update.updateData)),
+    ),
+  );
+  const encryptedData = serializeKeyingV2CanonicalJson({
+    format: DOCUMENT_V2_ENCRYPTED_LORO_UPDATE_FORMAT,
+    version: 1,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    contentKeyEpoch: input.contentKeyEpoch,
+    contentRecordId,
+    nonceDomainHash,
+    metadataHash,
+    iv: bytesToBase64(DOCUMENT_V2_CONTENT_RECORD_IV),
+    ciphertext: bytesToBase64(ciphertext),
+  });
+
+  return {
+    contentRecordId,
+    encryptedData,
+    metadataHash,
+    ciphertextHash:
+      await computeDocumentV2ContentRecordCiphertextHash(encryptedData),
+  };
+}
+
+function assertEqualBytes(
+  left: Uint8Array,
+  right: Uint8Array,
+  message: string,
+): void {
+  if (
+    left.byteLength !== right.byteLength ||
+    left.some((byte, index) => byte !== right[index])
+  ) {
+    throw new Error(message);
+  }
+}
+
+async function collectContainerKeksForDocumentV2Sync(input: {
+  execSql?: ExecSql | undefined;
+  secretKey: Uint8Array;
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): Promise<ReadonlyMap<string, Uint8Array>> {
+  const keksByEpochId = new Map<string, Uint8Array>();
+
+  for (const projection of input.writerProjection.authorizingContainerPaths) {
+    const projectionKeks = await unwrapContainerV2KekPath({
+      execSql: input.execSql,
+      projection,
+      secretKey: input.secretKey,
+    });
+    for (const [containerKeyEpochId, keyMaterial] of projectionKeks) {
+      const existing = keksByEpochId.get(containerKeyEpochId);
+      if (existing) {
+        assertEqualBytes(
+          existing,
+          keyMaterial,
+          "Document V2 writer projection contains conflicting container KEKs",
+        );
+        continue;
+      }
+      keksByEpochId.set(containerKeyEpochId, keyMaterial);
+    }
+  }
+
+  return keksByEpochId;
+}
+
+async function unwrapDocumentV2ContentKeyFromWriterProjection(input: {
+  execSql?: ExecSql | undefined;
+  secretKey: Uint8Array;
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): Promise<Uint8Array> {
+  const keksByEpochId = await collectContainerKeksForDocumentV2Sync(input);
+  let contentKey: Uint8Array | null = null;
+
+  for (const envelope of input.writerProjection.contentKeyBundle.targets) {
+    const containerKek = keksByEpochId.get(envelope.containerKeyEpochId);
+    if (!containerKek) {
+      continue;
+    }
+    const unwrapped = await unwrapDocumentV2ContentKeyTarget({
+      containerKek,
+      envelope,
+    });
+    if (contentKey) {
+      assertEqualBytes(
+        contentKey,
+        unwrapped,
+        "Document V2 content-key targets unwrap to conflicting keys",
+      );
+      continue;
+    }
+    contentKey = unwrapped;
+  }
+
+  if (!contentKey) {
+    throw new Error("Document V2 content key could not be unwrapped");
+  }
+  if (contentKey.byteLength !== 32) {
+    throw new Error("Document V2 content key must be 32 bytes");
+  }
+
+  return contentKey;
+}
+
+function authorizingContainerPathRecords(
+  writerProjection: DocumentV2WriterProjectionResponse,
+): Record<string, unknown>[][] {
+  return writerProjection.authorizingContainerPaths.map((projection) =>
+    projection.path.map(
+      (bundle) => bundle as unknown as Record<string, unknown>,
+    ),
+  );
+}
+
+async function prepareDocumentV2OutgoingUpdates(input: {
+  contentKey: Uint8Array;
+  documentId: string;
+  organizationId: string;
+  pendingUpdates: readonly PendingUpdateRecord[];
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): Promise<DocumentV2SyncPreparedUpdate[]> {
+  return Promise.all(
+    input.pendingUpdates.map(async (update) => {
+      const encrypted = await encryptDocumentV2PendingUpdate({
+        contentKey: input.contentKey,
+        contentKeyEpoch:
+          input.writerProjection.contentKeyBundle.contentKeyEpoch,
+        documentId: input.documentId,
+        organizationId: input.organizationId,
+        update,
+      });
+
+      return {
+        contentRecordId: encrypted.contentRecordId,
+        encryptedData: encrypted.encryptedData,
+        id: update.id,
+        partialStartVersionVector: update.partialStartVersionVector,
+        partialEndVersionVector: update.partialEndVersionVector,
+        metadataHash: encrypted.metadataHash,
+        ciphertextHash: encrypted.ciphertextHash,
+        ...(update.sourceVersionVector
+          ? {
+              checkpointKind: "rotate_baseline" as const,
+              sourceVersionVector: update.sourceVersionVector,
+            }
+          : {}),
+      };
+    }),
+  );
+}
+
+export async function buildMaterializedDocumentV2SyncPlan(input: {
+  author: DocumentV2CreateAuthor;
+  execSql?: ExecSql | undefined;
+  includeContentKeyBundle?: boolean | undefined;
+  localVersionVector: string | null;
+  minLsn?: string | undefined;
+  pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): Promise<MaterializedDocumentV2SyncPlan> {
+  const contentKey = await unwrapDocumentV2ContentKeyFromWriterProjection({
+    execSql: input.execSql,
+    secretKey: input.targetSecretKey,
+    writerProjection: input.writerProjection,
+  });
+  const documentId = input.writerProjection.documentId;
+  const manifestIdentity = await assertDocumentV2ManifestBundleConsistent({
+    bundle: input.writerProjection.documentManifest,
+    label: "Document V2 sync manifest",
+  });
+  const outgoingUpdates = await prepareDocumentV2OutgoingUpdates({
+    contentKey,
+    documentId,
+    organizationId: manifestIdentity.organizationId,
+    pendingUpdates: input.pendingUpdates ?? [],
+    writerProjection: input.writerProjection,
+  });
+  const plan = await buildDocumentV2SyncPlan({
+    author: input.author,
+    authorizingContainerPaths: authorizingContainerPathRecords(
+      input.writerProjection,
+    ),
+    contentKeyBundle: input.writerProjection.contentKeyBundle,
+    documentId,
+    documentKekTargets: input.writerProjection.documentKekTargets,
+    documentManifest: input.writerProjection.documentManifest,
+    includeContentKeyBundle: input.includeContentKeyBundle,
+    localVersionVector: input.localVersionVector,
+    minLsn: input.minLsn,
+    outgoingUpdates,
+    signedAt: input.signedAt,
+  });
+
+  return {
+    contentKey,
+    plan,
+  };
+}
+
 function contentKeyBundleForSyncRequest(
   bundle: DocumentV2CreateResponse["contentKeyBundle"],
 ): NonNullable<DocumentV2SyncRequest["contentKeyBundle"]> {
@@ -1145,10 +1571,54 @@ async function assertDocumentV2SyncResponseUpdateMatchesPlan(input: {
   }
 
   const header = update.writeHeader as unknown as WriteHeaderV2;
+  await assertDocumentV2SyncResponseUpdateHashes({ header, update });
+  assertDocumentV2SyncResponseWriteHeaderFields({ plan, update });
+  await assertDocumentV2SyncResponseNonceDomain({ plan, update });
+  await assertDocumentV2SyncResponseWriteHeaderSignature({
+    header,
+    plan,
+    update,
+    writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+  });
+}
+
+async function assertDocumentV2SyncResponseUpdateHashes(input: {
+  header: WriteHeaderV2;
+  update: DocumentV2SyncResponse["updates"][number];
+}): Promise<void> {
+  const { header, update } = input;
   const headerHash = await computeWriteHeaderHash(header);
   if (headerHash !== update.writeHeaderHash) {
     throw new Error("Document V2 sync response write header hash mismatch");
   }
+  const ciphertextHash = await computeDocumentV2ContentRecordCiphertextHash(
+    update.encryptedData,
+  );
+  if (
+    ciphertextHash !==
+    readRecordString(update.writeHeader, "ciphertextHash", "write header")
+  ) {
+    throw new Error("Document V2 sync response ciphertext hash mismatch");
+  }
+  const metadataHash = await computeDocumentV2ContentRecordMetadataHash({
+    documentId: update.documentId,
+    partialEndVersionVector: update.partialEndVersionVector,
+    partialStartVersionVector: update.partialStartVersionVector,
+    updateId: update.id,
+  });
+  if (
+    metadataHash !==
+    readRecordString(update.writeHeader, "metadataHash", "write header")
+  ) {
+    throw new Error("Document V2 sync response metadata hash mismatch");
+  }
+}
+
+function assertDocumentV2SyncResponseWriteHeaderFields(input: {
+  plan: DocumentV2SyncPlan;
+  update: DocumentV2SyncResponse["updates"][number];
+}): void {
+  const { plan, update } = input;
   if (
     readRecordNumber(update.writeHeader, "version", "write header") !== 2 ||
     readRecordString(update.writeHeader, "objectKind", "write header") !==
@@ -1176,7 +1646,13 @@ async function assertDocumentV2SyncResponseUpdateMatchesPlan(input: {
   ) {
     throw new Error("Document V2 sync response write header mismatch");
   }
+}
 
+async function assertDocumentV2SyncResponseNonceDomain(input: {
+  plan: DocumentV2SyncPlan;
+  update: DocumentV2SyncResponse["updates"][number];
+}): Promise<void> {
+  const { plan, update } = input;
   const nonceDomainHash = await computeContentRecordNonceDomainHash({
     version: 2,
     organizationId: plan.organizationId,
@@ -1196,7 +1672,15 @@ async function assertDocumentV2SyncResponseUpdateMatchesPlan(input: {
   ) {
     throw new Error("Document V2 sync response nonce domain mismatch");
   }
+}
 
+async function assertDocumentV2SyncResponseWriteHeaderSignature(input: {
+  header: WriteHeaderV2;
+  plan: DocumentV2SyncPlan;
+  update: DocumentV2SyncResponse["updates"][number];
+  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+}): Promise<void> {
+  const { header, plan, update } = input;
   const writerPublicKey = input.writerPublicKeysByFingerprint?.get(
     update.authorFingerprint,
   );
@@ -1264,13 +1748,37 @@ export async function persistedDocumentV2SyncStateFromResponse(
   };
 }
 
-export async function syncRemoteDocumentV2(
-  input: BuildDocumentV2SyncPlanInput & {
-    apiClient: DocumentV2SyncApi;
-    writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
-  },
-): Promise<SyncRemoteDocumentV2Result | null> {
-  const plan = await buildDocumentV2SyncPlan(input);
+export async function syncRemoteDocumentV2(input: {
+  apiClient: DocumentV2SyncApi;
+  author: DocumentV2CreateAuthor;
+  documentId: string;
+  execSql?: ExecSql | undefined;
+  includeContentKeyBundle?: boolean | undefined;
+  localVersionVector: string | null;
+  minLsn?: string | undefined;
+  pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+}): Promise<SyncRemoteDocumentV2Result | null> {
+  const writerProjection = await input.apiClient.getDocumentV2WriterProjection(
+    input.documentId,
+  );
+  if (!writerProjection) {
+    return null;
+  }
+  const materializedPlan = await buildMaterializedDocumentV2SyncPlan({
+    author: input.author,
+    execSql: input.execSql,
+    includeContentKeyBundle: input.includeContentKeyBundle,
+    localVersionVector: input.localVersionVector,
+    minLsn: input.minLsn,
+    pendingUpdates: input.pendingUpdates,
+    signedAt: input.signedAt,
+    targetSecretKey: input.targetSecretKey,
+    writerProjection,
+  });
+  const plan = materializedPlan.plan;
   const response = await input.apiClient.syncDocumentV2(
     plan.documentId,
     plan.request,
@@ -1280,6 +1788,7 @@ export async function syncRemoteDocumentV2(
   }
 
   return {
+    contentKey: materializedPlan.contentKey,
     persistedState: await persistedDocumentV2SyncStateFromResponse(
       plan,
       response,
@@ -1289,6 +1798,7 @@ export async function syncRemoteDocumentV2(
     ),
     plan,
     response,
+    writerProjection,
   };
 }
 
