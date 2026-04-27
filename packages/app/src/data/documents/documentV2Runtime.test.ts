@@ -25,11 +25,13 @@ import type {
   ContainerV2WriterProjectionResponse,
   DocumentV2CreateResponse,
   DocumentV2SyncResponse,
+  DocumentV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
   buildDocumentV2CreatePlan,
   buildDocumentV2SyncPlan,
   buildMaterializedDocumentV2CreatePlan,
+  buildMaterializedDocumentV2SyncPlan,
   createRemoteDocumentV2,
   type DocumentV2CreateAuthor,
   type DocumentV2CreatePlan,
@@ -709,6 +711,41 @@ async function createSyncFixture() {
   };
 }
 
+async function createMaterializedSyncFixture() {
+  const { author, signingPublicKey } = await createAuthor();
+  const { childContainerKek, projection, secretKey } =
+    await createWrappedProjection();
+  const contentKey = crypto.getRandomValues(new Uint8Array(32));
+  const materializedCreate = await buildMaterializedDocumentV2CreatePlan({
+    author,
+    containerProjection: projection,
+    contentKey,
+    documentId: "550e8400-e29b-41d4-a716-446655440010",
+    eventId: "event-materialized-sync",
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+  });
+  const response = createResponse(materializedCreate.plan);
+  const writerProjection: DocumentV2WriterProjectionResponse = {
+    documentId: response.id,
+    documentManifest: response.accessManifest,
+    documentKekTargets: response.documentKekTargets,
+    contentKeyBundle: response.contentKeyBundle,
+    authorizingContainerPaths: [projection],
+  };
+
+  return {
+    author,
+    childContainerKek,
+    contentKey,
+    createResponse: response,
+    projection,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  };
+}
+
 async function createPreparedUpdate(
   overrides: {
     checkpointKind?: "fresh_baseline" | "rotate_baseline" | undefined;
@@ -743,6 +780,26 @@ async function createPreparedUpdate(
     ...(overrides.sourceVersionVector === undefined
       ? {}
       : { sourceVersionVector: overrides.sourceVersionVector }),
+  };
+}
+
+function createPendingUpdateRecord(
+  overrides: {
+    id?: string | undefined;
+    partialEndVersionVector?: string | undefined;
+    partialStartVersionVector?: string | undefined;
+    sourceVersionVector?: string | null | undefined;
+    updateData?: string | undefined;
+  } = {},
+) {
+  return {
+    id: overrides.id ?? "550e8400-e29b-41d4-a716-446655440444",
+    updateData:
+      overrides.updateData ??
+      bytesToBase64(new TextEncoder().encode("materialized update")),
+    partialStartVersionVector: overrides.partialStartVersionVector ?? "{}",
+    partialEndVersionVector: overrides.partialEndVersionVector ?? '{"actor":2}',
+    sourceVersionVector: overrides.sourceVersionVector ?? null,
   };
 }
 
@@ -896,19 +953,65 @@ test("buildDocumentV2SyncPlan rejects duplicate V2 content record domains before
   ).rejects.toThrow("content record id is duplicated");
 });
 
-test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and returned write headers", async () => {
-  const { author, createResponse, projection, signingPublicKey } =
-    await createSyncFixture();
-  const plan = await buildDocumentV2SyncPlan({
+test("buildMaterializedDocumentV2SyncPlan unwraps the V2 content key and encrypts pending updates", async () => {
+  const { author, contentKey, secretKey, signingPublicKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const plan = await buildMaterializedDocumentV2SyncPlan({
     author,
-    authorizingContainerPaths: [projectionPathRecords(projection)],
-    contentKeyBundle: createResponse.contentKeyBundle,
-    documentKekTargets: createResponse.documentKekTargets,
-    documentManifest: createResponse.accessManifest,
     localVersionVector: null,
-    outgoingUpdates: [await createPreparedUpdate()],
+    pendingUpdates: [
+      createPendingUpdateRecord({
+        sourceVersionVector: "rotate-frontier",
+      }),
+    ],
     signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
   });
+
+  expect(Array.from(plan.contentKey)).toEqual(Array.from(contentKey));
+  expect(isDocumentV2SyncRequest(plan.plan.request)).toBe(true);
+  const update = plan.plan.request.outgoingUpdates[0];
+  if (!update) {
+    throw new Error("Expected materialized V2 outgoing update");
+  }
+  expect(update.checkpointKind).toBe("rotate_baseline");
+  expect(update.sourceVersionVector).toBe("rotate-frontier");
+  expect(update.encryptedData).toContain(
+    "tearleads.document-v2.loro-update.v1",
+  );
+  expect(update.encryptedData).not.toContain("materialized update");
+
+  const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
+  expect(writeHeader.contentRecordId).toBe(update.id);
+  expect(writeHeader.ciphertextHash).toHaveLength(64);
+  expect(writeHeader.metadataHash).toHaveLength(64);
+  const verified = await verifyWriteHeader({
+    expectedAccessManifestHash: writerProjection.documentManifest.manifestHash,
+    expectedObject: {
+      objectKind: "document",
+      objectId: writerProjection.documentId,
+      organizationId: author.organizationId,
+    },
+    expectedTargetHash: writerProjection.contentKeyBundle.targetHash,
+    header: writeHeader,
+    writerPublicKey: signingPublicKey,
+  });
+  expect(verified.ok).toBe(true);
+});
+
+test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and returned write headers", async () => {
+  const { author, secretKey, signingPublicKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const materialized = await buildMaterializedDocumentV2SyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const plan = materialized.plan;
   const response = await createSyncResponse(plan);
 
   await expect(
@@ -940,48 +1043,56 @@ test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and retu
       })),
     }),
   ).rejects.toThrow("write header hash mismatch");
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, {
+      ...response,
+      updates: response.updates.map((update) => ({
+        ...update,
+        encryptedData: "tampered",
+      })),
+    }),
+  ).rejects.toThrow("ciphertext hash mismatch");
 });
 
 test("syncRemoteDocumentV2 submits a signed V2 sync request and persists the verified response", async () => {
-  const { author, createResponse, projection, signingPublicKey } =
-    await createSyncFixture();
+  const { author, secretKey, signingPublicKey, writerProjection } =
+    await createMaterializedSyncFixture();
   const submittedRequests: DocumentV2SyncRequest[] = [];
   const synced = await syncRemoteDocumentV2({
     apiClient: {
+      getDocumentV2WriterProjection: async (documentId) =>
+        documentId === writerProjection.documentId ? writerProjection : null,
       syncDocumentV2: async (documentId, request) => {
         submittedRequests.push(request);
-        const plan = await buildDocumentV2SyncPlan({
+        const materialized = await buildMaterializedDocumentV2SyncPlan({
           author,
-          authorizingContainerPaths: [projectionPathRecords(projection)],
-          contentKeyBundle: createResponse.contentKeyBundle,
-          documentId,
-          documentKekTargets: createResponse.documentKekTargets,
-          documentManifest: createResponse.accessManifest,
           localVersionVector: null,
-          outgoingUpdates: [],
+          pendingUpdates: [],
+          targetSecretKey: secretKey,
+          writerProjection,
         });
         return createSyncResponse({
-          ...plan,
+          ...materialized.plan,
+          documentId,
           request,
         });
       },
     },
     author,
-    authorizingContainerPaths: [projectionPathRecords(projection)],
-    contentKeyBundle: createResponse.contentKeyBundle,
-    documentKekTargets: createResponse.documentKekTargets,
-    documentManifest: createResponse.accessManifest,
+    documentId: writerProjection.documentId,
     localVersionVector: null,
-    outgoingUpdates: [await createPreparedUpdate()],
+    pendingUpdates: [createPendingUpdateRecord()],
     signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
     writerPublicKeysByFingerprint: new Map([
       [author.signerKeyFingerprint, signingPublicKey],
     ]),
   });
 
   expect(submittedRequests).toHaveLength(1);
-  expect(synced?.persistedState.documentId).toBe(createResponse.id);
+  expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
   expect(synced?.response.acceptedOutgoingUpdateIds).toEqual([
-    "550e8400-e29b-41d4-a716-446655440111",
+    "550e8400-e29b-41d4-a716-446655440444",
   ]);
 });
