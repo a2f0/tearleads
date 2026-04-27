@@ -35,6 +35,7 @@ import {
   createRemoteDocumentV2,
   type DocumentV2CreateAuthor,
   type DocumentV2CreatePlan,
+  decryptDocumentV2SyncUpdates,
   deriveDocumentV2CreateTargets,
   persistedDocumentV2CreateStateFromResponse,
   persistedDocumentV2SyncStateFromResponse,
@@ -1000,6 +1001,54 @@ test("buildMaterializedDocumentV2SyncPlan unwraps the V2 content key and encrypt
   expect(verified.ok).toBe(true);
 });
 
+test("decryptDocumentV2SyncUpdates verifies and decrypts V2 content records", async () => {
+  const { author, contentKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const materialized = await buildMaterializedDocumentV2SyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [
+      createPendingUpdateRecord({
+        updateData: bytesToBase64(new TextEncoder().encode("incoming update")),
+      }),
+    ],
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const response = await createSyncResponse(materialized.plan);
+
+  const decrypted = await decryptDocumentV2SyncUpdates({
+    contentKey,
+    contentKeyEpoch: materialized.plan.contentKeyEpoch,
+    documentId: materialized.plan.documentId,
+    organizationId: materialized.plan.organizationId,
+    updates: response.updates,
+  });
+
+  expect(decrypted).toHaveLength(1);
+  expect(decrypted[0]?.id).toBe("550e8400-e29b-41d4-a716-446655440444");
+  expect(new TextDecoder().decode(decrypted[0]?.updateData)).toBe(
+    "incoming update",
+  );
+
+  await expect(
+    decryptDocumentV2SyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: response.updates.map((update) => ({
+        ...update,
+        encryptedData: update.encryptedData.replace(
+          "tearleads.document-v2.loro-update.v1",
+          "tearleads.document-v2.loro-update.invalid",
+        ),
+      })),
+    }),
+  ).rejects.toThrow("format is invalid");
+});
+
 test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and returned write headers", async () => {
   const { author, secretKey, signingPublicKey, writerProjection } =
     await createMaterializedSyncFixture();
@@ -1095,4 +1144,7 @@ test("syncRemoteDocumentV2 submits a signed V2 sync request and persists the ver
   expect(synced?.response.acceptedOutgoingUpdateIds).toEqual([
     "550e8400-e29b-41d4-a716-446655440444",
   ]);
+  expect(
+    new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
+  ).toBe("materialized update");
 });
