@@ -108,6 +108,10 @@ export interface ExplorerRuntime {
   isAuthenticated: ExplorerAppData["isAuthenticated"];
   log: ExplorerAppData["log"];
   online: ExplorerAppData["online"];
+  organizationId?: ExplorerAppData["organizationId"];
+  signingFingerprint?: ExplorerAppData["signingFingerprint"];
+  signingKeyPair?: ExplorerAppData["signingKeyPair"];
+  userId?: ExplorerAppData["userId"];
 }
 
 export interface ContainerState {
@@ -236,6 +240,10 @@ function buildNotesRuntime(state: ExplorerSyncState, containerId: string) {
     isAuthenticated: state.runtime.isAuthenticated,
     log: state.runtime.log,
     online: state.runtime.online,
+    organizationId: state.runtime.organizationId ?? null,
+    signingFingerprint: state.runtime.signingFingerprint ?? null,
+    signingKeyPair: state.runtime.signingKeyPair ?? null,
+    userId: state.runtime.userId ?? null,
   };
 }
 

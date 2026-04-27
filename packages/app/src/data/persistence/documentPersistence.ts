@@ -14,6 +14,9 @@ export interface DocumentRecord {
   accessEpoch: number;
   accessStateHash?: string | null;
   lastCommitLsn?: string | null;
+  v2ContentKeyBundle?: string | null;
+  v2DocumentKekTargets?: string | null;
+  v2DocumentManifestBundle?: string | null;
 }
 
 export interface PendingUpdateFields {
@@ -45,6 +48,9 @@ const documentTables: ReadonlyArray<SqlTableSchema> = [
         access_epoch INTEGER NOT NULL DEFAULT 1,
         access_state_hash TEXT,
         last_commit_lsn TEXT,
+        v2_document_manifest_bundle TEXT,
+        v2_content_key_bundle TEXT,
+        v2_document_kek_targets TEXT,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (app_kind, local_id)
       )
@@ -80,24 +86,42 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
       await lockedExecSql(table.createSql);
     }
     const columnRows = await lockedExecSql("PRAGMA table_info(documents)");
-    const hasLastCommitLsnColumn = columnRows.some(
-      (row) => readSqlRowValue(row, "name") === "last_commit_lsn",
-    );
-    const hasAccessStateHashColumn = columnRows.some(
-      (row) => readSqlRowValue(row, "name") === "access_state_hash",
+    const existingColumns = new Set(
+      columnRows.map((row) => readSqlRowValue(row, "name")),
     );
 
-    if (!hasAccessStateHashColumn) {
+    if (!existingColumns.has("access_state_hash")) {
       await lockedExecSql(`
         ALTER TABLE documents
         ADD COLUMN access_state_hash TEXT
       `);
     }
 
-    if (!hasLastCommitLsnColumn) {
+    if (!existingColumns.has("last_commit_lsn")) {
       await lockedExecSql(`
         ALTER TABLE documents
         ADD COLUMN last_commit_lsn TEXT
+      `);
+    }
+
+    if (!existingColumns.has("v2_document_manifest_bundle")) {
+      await lockedExecSql(`
+        ALTER TABLE documents
+        ADD COLUMN v2_document_manifest_bundle TEXT
+      `);
+    }
+
+    if (!existingColumns.has("v2_content_key_bundle")) {
+      await lockedExecSql(`
+        ALTER TABLE documents
+        ADD COLUMN v2_content_key_bundle TEXT
+      `);
+    }
+
+    if (!existingColumns.has("v2_document_kek_targets")) {
+      await lockedExecSql(`
+        ALTER TABLE documents
+        ADD COLUMN v2_document_kek_targets TEXT
       `);
     }
   });
@@ -114,6 +138,12 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
   const accessEpoch = readSqlRowValue(row, "access_epoch");
   const accessStateHash = readSqlRowValue(row, "access_state_hash");
   const lastCommitLsn = readSqlRowValue(row, "last_commit_lsn");
+  const v2ContentKeyBundle = readSqlRowValue(row, "v2_content_key_bundle");
+  const v2DocumentKekTargets = readSqlRowValue(row, "v2_document_kek_targets");
+  const v2DocumentManifestBundle = readSqlRowValue(
+    row,
+    "v2_document_manifest_bundle",
+  );
 
   const record: DocumentRecord = {
     id: String(id ?? ""),
@@ -133,6 +163,18 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
 
   if (accessStateHash !== null && accessStateHash !== undefined) {
     record.accessStateHash = String(accessStateHash);
+  }
+  if (v2ContentKeyBundle !== null && v2ContentKeyBundle !== undefined) {
+    record.v2ContentKeyBundle = String(v2ContentKeyBundle);
+  }
+  if (v2DocumentKekTargets !== null && v2DocumentKekTargets !== undefined) {
+    record.v2DocumentKekTargets = String(v2DocumentKekTargets);
+  }
+  if (
+    v2DocumentManifestBundle !== null &&
+    v2DocumentManifestBundle !== undefined
+  ) {
+    record.v2DocumentManifestBundle = String(v2DocumentManifestBundle);
   }
 
   return record;
@@ -176,7 +218,10 @@ export async function loadDocumentRecord(
         loro_snapshot,
         access_epoch,
         access_state_hash,
-        last_commit_lsn
+        last_commit_lsn,
+        v2_document_manifest_bundle,
+        v2_content_key_bundle,
+        v2_document_kek_targets
       FROM documents
       WHERE app_kind = :appKind AND local_id = :localId
       LIMIT 1
@@ -227,6 +272,9 @@ export async function saveDocumentRecord(
           access_epoch,
           access_state_hash,
           last_commit_lsn,
+          v2_document_manifest_bundle,
+          v2_content_key_bundle,
+          v2_document_kek_targets,
           updated_at
         )
         VALUES (
@@ -238,6 +286,9 @@ export async function saveDocumentRecord(
           :accessEpoch,
           :accessStateHash,
           :lastCommitLsn,
+          :v2DocumentManifestBundle,
+          :v2ContentKeyBundle,
+          :v2DocumentKekTargets,
           :updatedAt
         )
         ON CONFLICT(app_kind, local_id) DO UPDATE SET
@@ -248,6 +299,10 @@ export async function saveDocumentRecord(
           access_epoch = excluded.access_epoch,
           access_state_hash = excluded.access_state_hash,
           last_commit_lsn = excluded.last_commit_lsn,
+          v2_document_manifest_bundle =
+            excluded.v2_document_manifest_bundle,
+          v2_content_key_bundle = excluded.v2_content_key_bundle,
+          v2_document_kek_targets = excluded.v2_document_kek_targets,
           updated_at = excluded.updated_at
       `,
       {
@@ -258,6 +313,9 @@ export async function saveDocumentRecord(
         ":accessEpoch": record.accessEpoch,
         ":accessStateHash": record.accessStateHash ?? null,
         ":lastCommitLsn": record.lastCommitLsn ?? null,
+        ":v2ContentKeyBundle": record.v2ContentKeyBundle ?? null,
+        ":v2DocumentKekTargets": record.v2DocumentKekTargets ?? null,
+        ":v2DocumentManifestBundle": record.v2DocumentManifestBundle ?? null,
         ":updatedAt": updatedAt,
       },
     );

@@ -6,7 +6,7 @@ import {
   saveDocumentRecord,
 } from "./documentPersistence";
 
-test("ensureDocumentTables adds last_commit_lsn for existing local documents tables", async () => {
+test("ensureDocumentTables adds V1 and V2 columns for existing local documents tables", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-persistence-test",
   );
@@ -41,6 +41,21 @@ test("ensureDocumentTables adds last_commit_lsn for existing local documents tab
         id: "local-document-1",
         lastCommitLsn: "0/10",
         loroSnapshot: "snapshot-1",
+        v2ContentKeyBundle: JSON.stringify({
+          contentKeyEpoch: 1,
+          linkSetManifestHash: "document-manifest-hash-1",
+        }),
+        v2DocumentKekTargets: JSON.stringify([
+          {
+            containerId: "container-1",
+            containerKeyEpoch: 1,
+            containerManifestHash: "container-manifest-hash-1",
+          },
+        ]),
+        v2DocumentManifestBundle: JSON.stringify({
+          eventHash: "event-hash-1",
+          manifestHash: "document-manifest-hash-1",
+        }),
       },
       "2026-04-12T00:00:00.000Z",
     );
@@ -58,6 +73,21 @@ test("ensureDocumentTables adds last_commit_lsn for existing local documents tab
       id: "local-document-1",
       lastCommitLsn: "0/10",
       loroSnapshot: "snapshot-1",
+      v2ContentKeyBundle: JSON.stringify({
+        contentKeyEpoch: 1,
+        linkSetManifestHash: "document-manifest-hash-1",
+      }),
+      v2DocumentKekTargets: JSON.stringify([
+        {
+          containerId: "container-1",
+          containerKeyEpoch: 1,
+          containerManifestHash: "container-manifest-hash-1",
+        },
+      ]),
+      v2DocumentManifestBundle: JSON.stringify({
+        eventHash: "event-hash-1",
+        manifestHash: "document-manifest-hash-1",
+      }),
     });
   } finally {
     close();
