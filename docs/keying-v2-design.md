@@ -540,8 +540,8 @@ needed.
 ## Transparency And Checkpointing
 
 Signed manifests prevent unauthorized mutation, but they do not alone prove
-latest-state freshness. V2 should add monotonic client checkpoints and,
-optionally, a transparency log.
+latest-state freshness. V2 uses local monotonic checkpoints first, with an
+optional transparency log for cross-client append-only proofs.
 
 Minimum:
 
@@ -550,12 +550,34 @@ Minimum:
 - clients persist highest-seen access manifest epoch/hash per object;
 - clients refuse to move backwards without explicit recovery UX.
 
+The executable checkpoint model is:
+
+- `IdentityStateCheckpointV2`: `identityId`, `version`, `stateHash`.
+- `PrincipalPolicyCheckpointV2`: `principalType`, `principalId`, `version`,
+  `stateHash`.
+- `AccessManifestCheckpointV2`: `objectKind`, `organizationId`, `objectId`,
+  `epoch`, `manifestHash`.
+
+Verifier rules are fail-closed:
+
+- lower version/epoch than the local checkpoint is rollback;
+- same version/epoch with a different hash is equivocation;
+- higher version/epoch is accepted only when the returned signed chain or
+  predecessor proof extends the local checkpoint.
+
 Stronger:
 
 - append identity states, principal policy heads, and object manifest heads to
   an append-only Merkle log;
 - return inclusion and consistency proofs with API responses;
 - let clients gossip or compare signed tree heads across devices.
+
+The transparency scaffold uses signed tree heads plus compact Merkle proofs.
+Identity state heads, principal policy heads, and access manifest heads are
+encoded as domain-separated transparency leaves. Inclusion proofs bind a leaf to
+a signed tree head. Consistency proofs bind a newer signed tree head to a
+previous pinned tree head. A first-contact client that has no pinned tree head,
+gossip peer, or witness can still be shown a self-consistent split view.
 
 Public blockchain anchoring is optional. It can timestamp an aggregate log root
 and make server equivocation harder to hide, but it does not authorize object
@@ -570,14 +592,14 @@ code.
 Suggested entry points:
 
 ```ts
-verifyIdentityKeyState(input): VerifiedIdentityState | VerificationError;
+verifyIdentityStateCheckpoint(input): VerifiedIdentityState | VerificationError;
 verifyPrincipalPolicyBundle(input): VerifiedPrincipalPolicy | VerificationError;
 verifyAccessManifest(input): VerifiedAccessManifest | VerificationError;
 deriveContainerKekState(input): VerifiedContainerKekState | VerificationError;
 deriveDocumentKekTargets(input): DocumentKekTargetV2[] | VerificationError;
 deriveBlobKekTargets(input): BlobKekTargetV2[] | VerificationError;
 verifyWriteHeader(input): VerifiedWriteHeader | VerificationError;
-verifyTransparencyProof(input): VerifiedCheckpoint | VerificationError;
+verifyTransparencyProof(input): VerifiedTransparencyProof | VerificationError;
 ```
 
 These functions should be deterministic and side-effect free. API routes may
@@ -593,8 +615,9 @@ into encryption decisions by type accident.
 
 Required proof obligations:
 
-- `VerifiedIdentityState` proves a user/device key is signed by an accepted
-  identity trust root and is not older than the client's local checkpoint.
+- `VerifiedIdentityState` proves an identity state head is not older than the
+  client's local checkpoint. The eventual identity-key verifier must also bind
+  that head to an accepted identity trust root.
 - `VerifiedPrincipalPolicy` proves the group/org policy chain is signed,
   contiguous, projection-bound, payload-bound, and key-epoch-correct for any
   shrink transition.
@@ -609,9 +632,9 @@ Required proof obligations:
   writer identity; that the signer had write access under the committed
   manifest state; and that the ciphertext used a unique, domain-separated
   encryption record id, nonce, or subkey for the object/content-key epoch.
-- `VerifiedCheckpoint` proves the response is not older than the client's
-  persisted checkpoint and, when transparency is enabled, is included in a
-  consistent append-only log.
+- `VerifiedTransparencyProof` proves the response leaf is included in the
+  signed tree head and, when a previous tree head is supplied, that the newer
+  tree head extends the pinned checkpoint.
 
 This creates two classes of guarantees:
 

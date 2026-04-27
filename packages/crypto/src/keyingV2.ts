@@ -47,6 +47,10 @@ export type KeyingV2HashDomain =
   | "tearleads.keying-v2.document-link-set-grants.v1"
   | "tearleads.keying-v2.document-link-set-key-target.v1"
   | "tearleads.keying-v2.document-link-set-structural.v1"
+  | "tearleads.keying-v2.transparency-empty-tree.v1"
+  | "tearleads.keying-v2.transparency-leaf.v1"
+  | "tearleads.keying-v2.transparency-node.v1"
+  | "tearleads.keying-v2.transparency-tree-head-signing.v1"
   | "tearleads.keying-v2.write-header-signing.v1"
   | "tearleads.keying-v2.write-header.v1";
 
@@ -297,6 +301,86 @@ export interface WriteHeaderV2 extends UnsignedWriteHeaderV2 {
   signature: string;
 }
 
+export interface IdentityStateHeadV2 {
+  identityId: string;
+  version: number;
+  stateHash: string;
+  previousStateHash: string | null;
+}
+
+export type TransparencyLeafKindV2 =
+  | "access_manifest_head"
+  | "identity_state_head"
+  | "principal_policy_head";
+
+export interface IdentityStateTransparencyLeafV2 {
+  version: 2;
+  leafKind: "identity_state_head";
+  identityId: string;
+  stateVersion: number;
+  stateHash: string;
+}
+
+export interface PrincipalPolicyTransparencyLeafV2 {
+  version: 2;
+  leafKind: "principal_policy_head";
+  principalType: ManagedPrincipalKindV2;
+  principalId: string;
+  policyVersion: number;
+  keyEpoch: number;
+  stateHash: string;
+  keyFingerprint: string;
+}
+
+export interface AccessManifestTransparencyLeafV2 {
+  version: 2;
+  leafKind: "access_manifest_head";
+  objectKind: AccessObjectKindV2;
+  objectId: string;
+  organizationId: string;
+  epoch: number;
+  manifestHash: string;
+}
+
+export type TransparencyLeafV2 =
+  | AccessManifestTransparencyLeafV2
+  | IdentityStateTransparencyLeafV2
+  | PrincipalPolicyTransparencyLeafV2;
+
+export interface UnsignedTransparencyTreeHeadV2 {
+  version: 2;
+  logId: string;
+  treeSize: number;
+  rootHash: string;
+  signedAt: string;
+  logKeyFingerprint: string;
+}
+
+export interface SignedTransparencyTreeHeadV2
+  extends UnsignedTransparencyTreeHeadV2 {
+  signature: string;
+}
+
+export interface TransparencyInclusionProofV2 {
+  version: 2;
+  treeSize: number;
+  leafIndex: number;
+  auditPath: readonly string[];
+}
+
+export interface TransparencyConsistencyProofV2 {
+  version: 2;
+  previousTreeSize: number;
+  treeSize: number;
+  nodeHashes: readonly string[];
+}
+
+export interface TransparencyTreeCheckpointV2 {
+  readonly logId: string;
+  readonly treeSize: number;
+  readonly rootHash: string;
+}
+
 export type KeyingV2VerificationCode =
   | "duplicate_entry"
   | "equivocation"
@@ -339,9 +423,15 @@ declare const verifiedBlobKekTargetsBrand: unique symbol;
 declare const verifiedContainerParentEdgeBrand: unique symbol;
 declare const verifiedContainerKekStateBrand: unique symbol;
 declare const verifiedWriteHeaderBrand: unique symbol;
+declare const verifiedTransparencyTreeHeadBrand: unique symbol;
+declare const verifiedTransparencyProofBrand: unique symbol;
 
 export interface VerifiedIdentityState {
+  readonly identityId: string;
+  readonly version: number;
   readonly stateHash: string;
+  readonly head: IdentityStateHeadV2;
+  readonly checkpoint: IdentityStateCheckpointV2;
   readonly [verifiedIdentityStateBrand]: true;
 }
 
@@ -368,6 +458,7 @@ export interface VerifiedAccessManifest {
   readonly manifest: AccessManifestV2;
   readonly manifestHash: string;
   readonly event: VerifiedAccessEvent;
+  readonly checkpoint: AccessManifestCheckpointV2;
   readonly [verifiedAccessManifestBrand]: true;
 }
 
@@ -376,6 +467,7 @@ export interface VerifiedContainerAccessManifest {
   readonly manifestHash: string;
   readonly event: VerifiedAccessEvent;
   readonly state: ContainerAccessManifestStateV2;
+  readonly checkpoint: AccessManifestCheckpointV2;
   readonly [verifiedContainerAccessManifestBrand]: true;
 }
 
@@ -384,6 +476,7 @@ export interface VerifiedDocumentLinkSetManifest {
   readonly manifestHash: string;
   readonly event: VerifiedAccessEvent;
   readonly state: DocumentLinkSetManifestStateV2;
+  readonly checkpoint: AccessManifestCheckpointV2;
   readonly [verifiedDocumentLinkSetManifestBrand]: true;
 }
 
@@ -463,6 +556,21 @@ export interface VerifiedWriteHeader {
   readonly [verifiedWriteHeaderBrand]: true;
 }
 
+export interface VerifiedTransparencyTreeHead {
+  readonly treeHead: SignedTransparencyTreeHeadV2;
+  readonly checkpoint: TransparencyTreeCheckpointV2;
+  readonly [verifiedTransparencyTreeHeadBrand]: true;
+}
+
+export interface VerifiedTransparencyProof {
+  readonly leaf: TransparencyLeafV2;
+  readonly leafHash: string;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+  readonly inclusionProof: TransparencyInclusionProofV2;
+  readonly consistencyProof?: TransparencyConsistencyProofV2;
+  readonly [verifiedTransparencyProofBrand]: true;
+}
+
 interface ExpectedObjectV2 {
   readonly objectKind: AccessObjectKindV2;
   readonly objectId: string;
@@ -508,6 +616,10 @@ export interface VerifyAccessManifestInput {
   readonly event: VerifiedAccessEvent;
   readonly expectedObject?: ExpectedObjectV2;
   readonly expectedPreviousManifestHash?: string | null;
+  readonly localCheckpoint?: AccessManifestCheckpointV2 | null | undefined;
+  readonly checkpointPredecessors?:
+    | readonly AnyVerifiedAccessManifest[]
+    | undefined;
 }
 
 export interface VerifyContainerAccessManifestInput {
@@ -515,6 +627,10 @@ export interface VerifyContainerAccessManifestInput {
   readonly expectedManifestHash: string;
   readonly event: VerifiedAccessEvent;
   readonly previousManifest?: VerifiedContainerAccessManifest | null;
+  readonly localCheckpoint?: AccessManifestCheckpointV2 | null | undefined;
+  readonly checkpointPredecessors?:
+    | readonly AnyVerifiedAccessManifest[]
+    | undefined;
   readonly previousContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly parentContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly destinationParentContainerPath?: readonly VerifiedContainerAccessManifest[];
@@ -531,6 +647,10 @@ export interface VerifyDocumentLinkSetManifestInput {
   readonly expectedManifestHash: string;
   readonly event: VerifiedAccessEvent;
   readonly previousManifest?: VerifiedDocumentLinkSetManifest | null;
+  readonly localCheckpoint?: AccessManifestCheckpointV2 | null | undefined;
+  readonly checkpointPredecessors?:
+    | readonly AnyVerifiedAccessManifest[]
+    | undefined;
   readonly targetContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly authorizingContainerPaths?: readonly VerifiedContainerAccessManifest[][];
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
@@ -585,6 +705,14 @@ export interface IdentityStateCheckpointV2 {
   readonly stateHash: string;
 }
 
+export interface AccessManifestCheckpointV2 {
+  readonly objectKind: AccessObjectKindV2;
+  readonly objectId: string;
+  readonly organizationId: string;
+  readonly epoch: number;
+  readonly manifestHash: string;
+}
+
 export interface KeyingV2LocalCheckpointStore {
   readonly readIdentityStateCheckpoint: (
     identityId: string,
@@ -599,6 +727,33 @@ export interface KeyingV2LocalCheckpointStore {
   readonly writePrincipalPolicyCheckpoint: (
     checkpoint: PrincipalPolicyCheckpointV2,
   ) => Promise<void>;
+  readonly readAccessManifestCheckpoint: (
+    objectKind: AccessObjectKindV2,
+    organizationId: string,
+    objectId: string,
+  ) => Promise<AccessManifestCheckpointV2 | null>;
+  readonly writeAccessManifestCheckpoint: (
+    checkpoint: AccessManifestCheckpointV2,
+  ) => Promise<void>;
+}
+
+export interface VerifyIdentityStateCheckpointInput {
+  readonly head: IdentityStateHeadV2;
+  readonly localCheckpoint?: IdentityStateCheckpointV2 | null | undefined;
+  readonly checkpointPredecessors?: readonly IdentityStateHeadV2[] | undefined;
+}
+
+export interface VerifySignedTransparencyTreeHeadInput {
+  readonly treeHead: SignedTransparencyTreeHeadV2;
+  readonly logPublicKey: Uint8Array;
+}
+
+export interface VerifyTransparencyProofInput
+  extends VerifySignedTransparencyTreeHeadInput {
+  readonly leaf: TransparencyLeafV2;
+  readonly inclusionProof: TransparencyInclusionProofV2;
+  readonly previousTreeHead?: SignedTransparencyTreeHeadV2 | null | undefined;
+  readonly consistencyProof?: TransparencyConsistencyProofV2 | null | undefined;
 }
 
 export interface PrincipalPolicySignedStateV2 extends SignedPrincipalState {
@@ -821,6 +976,23 @@ function readPositiveInteger(
     throwVerification(
       "invalid_shape",
       `${label}.${key} must be a positive integer`,
+    );
+  }
+
+  return value;
+}
+
+function readNonNegativeInteger(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): number {
+  const value = record[key];
+
+  if (!Number.isInteger(value) || typeof value !== "number" || value < 0) {
+    throwVerification(
+      "invalid_shape",
+      `${label}.${key} must be a non-negative integer`,
     );
   }
 
@@ -1143,6 +1315,1390 @@ function normalizeContainerGrantSubjectType(
   }
 
   return value;
+}
+
+function readHashArray(value: unknown, label: string): string[] {
+  if (!Array.isArray(value)) {
+    throwVerification("invalid_shape", `${label} must be an array`);
+  }
+
+  return value.map((item, index) => {
+    if (typeof item !== "string" || !/^[0-9a-f]{64}$/.test(item)) {
+      throwVerification(
+        "hash_mismatch",
+        `${label}[${index}] must be a 64-character lowercase hex hash`,
+      );
+    }
+
+    return item;
+  });
+}
+
+function normalizeIdentityStateHead(
+  value: IdentityStateHeadV2,
+): IdentityStateHeadV2 {
+  const record = assertExactKeys(
+    value,
+    ["identityId", "previousStateHash", "stateHash", "version"],
+    "identity state head",
+  );
+
+  return {
+    identityId: readString(record, "identityId", "identity state head"),
+    version: readPositiveInteger(record, "version", "identity state head"),
+    stateHash: readHashString(record, "stateHash", "identity state head"),
+    previousStateHash: readNullableHashString(
+      record,
+      "previousStateHash",
+      "identity state head",
+    ),
+  };
+}
+
+function normalizeIdentityStateCheckpoint(
+  value: IdentityStateCheckpointV2,
+): IdentityStateCheckpointV2 {
+  const record = assertExactKeys(
+    value,
+    ["identityId", "stateHash", "version"],
+    "identity state checkpoint",
+  );
+
+  return {
+    identityId: readString(record, "identityId", "identity state checkpoint"),
+    version: readPositiveInteger(
+      record,
+      "version",
+      "identity state checkpoint",
+    ),
+    stateHash: readHashString(record, "stateHash", "identity state checkpoint"),
+  };
+}
+
+function identityStateCheckpointFromHead(
+  head: IdentityStateHeadV2,
+): IdentityStateCheckpointV2 {
+  return {
+    identityId: head.identityId,
+    version: head.version,
+    stateHash: head.stateHash,
+  };
+}
+
+function verifyIdentityStateCheckpointChain(input: {
+  readonly head: IdentityStateHeadV2;
+  readonly localCheckpoint: IdentityStateCheckpointV2 | null | undefined;
+  readonly checkpointPredecessors: readonly IdentityStateHeadV2[] | undefined;
+}): void {
+  const { head, localCheckpoint } = input;
+
+  if (!localCheckpoint) {
+    return;
+  }
+
+  if (head.identityId !== localCheckpoint.identityId) {
+    throwVerification(
+      "object_mismatch",
+      "identity state checkpoint does not match current identity",
+    );
+  }
+
+  if (head.version < localCheckpoint.version) {
+    throwVerification(
+      "rollback",
+      "identity state head is older than the local checkpoint",
+    );
+  }
+
+  if (
+    head.version === localCheckpoint.version &&
+    head.stateHash !== localCheckpoint.stateHash
+  ) {
+    throwVerification(
+      "equivocation",
+      "identity state head conflicts with the local checkpoint",
+    );
+  }
+
+  if (head.version === localCheckpoint.version) {
+    return;
+  }
+
+  let expectedVersion = localCheckpoint.version + 1;
+  let expectedPreviousHash = localCheckpoint.stateHash;
+  const chain = [
+    ...(input.checkpointPredecessors ?? []).map(normalizeIdentityStateHead),
+    head,
+  ];
+
+  for (const chainHead of chain) {
+    if (chainHead.identityId !== localCheckpoint.identityId) {
+      throwVerification(
+        "object_mismatch",
+        "identity state checkpoint predecessor identity mismatch",
+      );
+    }
+
+    if (
+      chainHead.version !== expectedVersion ||
+      chainHead.previousStateHash !== expectedPreviousHash
+    ) {
+      throwVerification(
+        "stale_predecessor",
+        "identity state chain does not extend the local checkpoint",
+      );
+    }
+
+    expectedVersion += 1;
+    expectedPreviousHash = chainHead.stateHash;
+  }
+}
+
+export async function verifyIdentityStateCheckpoint({
+  checkpointPredecessors,
+  head,
+  localCheckpoint,
+}: VerifyIdentityStateCheckpointInput): Promise<
+  KeyingV2VerificationResult<VerifiedIdentityState>
+> {
+  return runVerifier(async () => {
+    const normalizedHead = normalizeIdentityStateHead(head);
+    verifyIdentityStateCheckpointChain({
+      head: normalizedHead,
+      localCheckpoint: localCheckpoint
+        ? normalizeIdentityStateCheckpoint(localCheckpoint)
+        : null,
+      checkpointPredecessors,
+    });
+
+    return {
+      identityId: normalizedHead.identityId,
+      version: normalizedHead.version,
+      stateHash: normalizedHead.stateHash,
+      head: normalizedHead,
+      checkpoint: identityStateCheckpointFromHead(normalizedHead),
+    } as VerifiedIdentityState;
+  });
+}
+
+function normalizeAccessManifestCheckpoint(
+  value: AccessManifestCheckpointV2,
+): AccessManifestCheckpointV2 {
+  const record = assertExactKeys(
+    value,
+    ["epoch", "manifestHash", "objectId", "objectKind", "organizationId"],
+    "access manifest checkpoint",
+  );
+
+  return {
+    objectKind: normalizeAccessObjectKind(
+      record.objectKind,
+      "access manifest checkpoint",
+    ),
+    objectId: readString(record, "objectId", "access manifest checkpoint"),
+    organizationId: readString(
+      record,
+      "organizationId",
+      "access manifest checkpoint",
+    ),
+    epoch: readPositiveInteger(record, "epoch", "access manifest checkpoint"),
+    manifestHash: readHashString(
+      record,
+      "manifestHash",
+      "access manifest checkpoint",
+    ),
+  };
+}
+
+function accessManifestCheckpointFromManifest(input: {
+  readonly manifest: AccessManifestV2;
+  readonly manifestHash: string;
+}): AccessManifestCheckpointV2 {
+  return {
+    objectKind: input.manifest.objectKind,
+    objectId: input.manifest.objectId,
+    organizationId: input.manifest.organizationId,
+    epoch: input.manifest.epoch,
+    manifestHash: input.manifestHash,
+  };
+}
+
+function accessManifestCheckpointObjectMatches(
+  left: AccessManifestCheckpointV2,
+  right: AccessManifestCheckpointV2,
+): boolean {
+  return (
+    left.objectKind === right.objectKind &&
+    left.objectId === right.objectId &&
+    left.organizationId === right.organizationId
+  );
+}
+
+function verifiedAccessManifestCheckpointLink(
+  manifest: AnyVerifiedAccessManifest,
+): AccessManifestCheckpointV2 & {
+  readonly previousManifestHash: string | null;
+} {
+  return {
+    ...manifest.checkpoint,
+    previousManifestHash: manifest.manifest.previousManifestHash,
+  };
+}
+
+function verifyAccessManifestLocalCheckpoint(input: {
+  readonly current: AccessManifestCheckpointV2 & {
+    readonly previousManifestHash: string | null;
+  };
+  readonly localCheckpoint: AccessManifestCheckpointV2 | null | undefined;
+  readonly checkpointPredecessors:
+    | readonly AnyVerifiedAccessManifest[]
+    | undefined;
+}): void {
+  const { current, localCheckpoint } = input;
+
+  if (!localCheckpoint) {
+    return;
+  }
+
+  const normalizedCheckpoint =
+    normalizeAccessManifestCheckpoint(localCheckpoint);
+
+  if (!accessManifestCheckpointObjectMatches(current, normalizedCheckpoint)) {
+    throwVerification(
+      "object_mismatch",
+      "access manifest checkpoint does not match current object",
+    );
+  }
+
+  if (current.epoch < normalizedCheckpoint.epoch) {
+    throwVerification(
+      "rollback",
+      "access manifest is older than the local checkpoint",
+    );
+  }
+
+  if (
+    current.epoch === normalizedCheckpoint.epoch &&
+    current.manifestHash !== normalizedCheckpoint.manifestHash
+  ) {
+    throwVerification(
+      "equivocation",
+      "access manifest conflicts with the local checkpoint",
+    );
+  }
+
+  if (current.epoch === normalizedCheckpoint.epoch) {
+    return;
+  }
+
+  let expectedEpoch = normalizedCheckpoint.epoch + 1;
+  let expectedPreviousHash = normalizedCheckpoint.manifestHash;
+  const chain = [
+    ...(input.checkpointPredecessors ?? []).map(
+      verifiedAccessManifestCheckpointLink,
+    ),
+    current,
+  ];
+
+  for (const link of chain) {
+    if (!accessManifestCheckpointObjectMatches(link, normalizedCheckpoint)) {
+      throwVerification(
+        "object_mismatch",
+        "access manifest checkpoint predecessor object mismatch",
+      );
+    }
+
+    if (
+      link.epoch !== expectedEpoch ||
+      link.previousManifestHash !== expectedPreviousHash
+    ) {
+      throwVerification(
+        "stale_predecessor",
+        "access manifest chain does not extend the local checkpoint",
+      );
+    }
+
+    expectedEpoch += 1;
+    expectedPreviousHash = link.manifestHash;
+  }
+}
+
+function normalizeIdentityTransparencyLeaf(
+  value: IdentityStateTransparencyLeafV2,
+): IdentityStateTransparencyLeafV2 {
+  const record = assertExactKeys(
+    value,
+    ["identityId", "leafKind", "stateHash", "stateVersion", "version"],
+    "identity transparency leaf",
+  );
+
+  if (record.leafKind !== "identity_state_head") {
+    throwVerification(
+      "invalid_domain",
+      "identity transparency leaf.leafKind is unsupported",
+    );
+  }
+
+  return {
+    version: readVersion(record, "identity transparency leaf"),
+    leafKind: "identity_state_head",
+    identityId: readString(record, "identityId", "identity transparency leaf"),
+    stateVersion: readPositiveInteger(
+      record,
+      "stateVersion",
+      "identity transparency leaf",
+    ),
+    stateHash: readHashString(
+      record,
+      "stateHash",
+      "identity transparency leaf",
+    ),
+  };
+}
+
+function normalizePrincipalPolicyTransparencyLeaf(
+  value: PrincipalPolicyTransparencyLeafV2,
+): PrincipalPolicyTransparencyLeafV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "keyEpoch",
+      "keyFingerprint",
+      "leafKind",
+      "policyVersion",
+      "principalId",
+      "principalType",
+      "stateHash",
+      "version",
+    ],
+    "principal policy transparency leaf",
+  );
+
+  if (record.leafKind !== "principal_policy_head") {
+    throwVerification(
+      "invalid_domain",
+      "principal policy transparency leaf.leafKind is unsupported",
+    );
+  }
+
+  return {
+    version: readVersion(record, "principal policy transparency leaf"),
+    leafKind: "principal_policy_head",
+    principalType: normalizeManagedPrincipalKind(
+      record.principalType,
+      "principal policy transparency leaf",
+    ),
+    principalId: readString(
+      record,
+      "principalId",
+      "principal policy transparency leaf",
+    ),
+    policyVersion: readPositiveInteger(
+      record,
+      "policyVersion",
+      "principal policy transparency leaf",
+    ),
+    keyEpoch: readPositiveInteger(
+      record,
+      "keyEpoch",
+      "principal policy transparency leaf",
+    ),
+    stateHash: readHashString(
+      record,
+      "stateHash",
+      "principal policy transparency leaf",
+    ),
+    keyFingerprint: readHashString(
+      record,
+      "keyFingerprint",
+      "principal policy transparency leaf",
+    ),
+  };
+}
+
+function normalizeAccessManifestTransparencyLeaf(
+  value: AccessManifestTransparencyLeafV2,
+): AccessManifestTransparencyLeafV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "epoch",
+      "leafKind",
+      "manifestHash",
+      "objectId",
+      "objectKind",
+      "organizationId",
+      "version",
+    ],
+    "access manifest transparency leaf",
+  );
+
+  if (record.leafKind !== "access_manifest_head") {
+    throwVerification(
+      "invalid_domain",
+      "access manifest transparency leaf.leafKind is unsupported",
+    );
+  }
+
+  return {
+    version: readVersion(record, "access manifest transparency leaf"),
+    leafKind: "access_manifest_head",
+    objectKind: normalizeAccessObjectKind(
+      record.objectKind,
+      "access manifest transparency leaf",
+    ),
+    objectId: readString(
+      record,
+      "objectId",
+      "access manifest transparency leaf",
+    ),
+    organizationId: readString(
+      record,
+      "organizationId",
+      "access manifest transparency leaf",
+    ),
+    epoch: readPositiveInteger(
+      record,
+      "epoch",
+      "access manifest transparency leaf",
+    ),
+    manifestHash: readHashString(
+      record,
+      "manifestHash",
+      "access manifest transparency leaf",
+    ),
+  };
+}
+
+function normalizeTransparencyLeaf(
+  value: TransparencyLeafV2,
+): TransparencyLeafV2 {
+  if (!isPlainObject(value)) {
+    throwVerification("invalid_shape", "transparency leaf must be an object");
+  }
+
+  if (value.leafKind === "identity_state_head") {
+    return normalizeIdentityTransparencyLeaf(
+      value as IdentityStateTransparencyLeafV2,
+    );
+  }
+
+  if (value.leafKind === "principal_policy_head") {
+    return normalizePrincipalPolicyTransparencyLeaf(
+      value as PrincipalPolicyTransparencyLeafV2,
+    );
+  }
+
+  if (value.leafKind === "access_manifest_head") {
+    return normalizeAccessManifestTransparencyLeaf(
+      value as AccessManifestTransparencyLeafV2,
+    );
+  }
+
+  throwVerification(
+    "invalid_domain",
+    "transparency leaf.leafKind is unsupported",
+  );
+}
+
+export function identityStateTransparencyLeaf(
+  head: IdentityStateHeadV2,
+): IdentityStateTransparencyLeafV2 {
+  const normalizedHead = normalizeIdentityStateHead(head);
+
+  return {
+    version: 2,
+    leafKind: "identity_state_head",
+    identityId: normalizedHead.identityId,
+    stateVersion: normalizedHead.version,
+    stateHash: normalizedHead.stateHash,
+  };
+}
+
+export function principalPolicyTransparencyLeaf(
+  policy: VerifiedPrincipalPolicy,
+): PrincipalPolicyTransparencyLeafV2 {
+  return {
+    version: 2,
+    leafKind: "principal_policy_head",
+    principalType: policy.principalType,
+    principalId: policy.principalId,
+    policyVersion: policy.version,
+    keyEpoch: policy.keyEpoch,
+    stateHash: policy.stateHash,
+    keyFingerprint: policy.state.keyFingerprint,
+  };
+}
+
+export function accessManifestTransparencyLeaf(
+  manifest: AnyVerifiedAccessManifest,
+): AccessManifestTransparencyLeafV2 {
+  return {
+    version: 2,
+    leafKind: "access_manifest_head",
+    objectKind: manifest.checkpoint.objectKind,
+    objectId: manifest.checkpoint.objectId,
+    organizationId: manifest.checkpoint.organizationId,
+    epoch: manifest.checkpoint.epoch,
+    manifestHash: manifest.checkpoint.manifestHash,
+  };
+}
+
+export async function computeTransparencyLeafHash(
+  leaf: TransparencyLeafV2,
+): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.transparency-leaf.v1",
+    normalizeTransparencyLeaf(leaf) as unknown as KeyingV2CanonicalJson,
+  );
+}
+
+async function computeTransparencyEmptyTreeHash(): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.transparency-empty-tree.v1",
+    { version: 2 },
+  );
+}
+
+async function computeTransparencyNodeHash(
+  leftHash: string,
+  rightHash: string,
+): Promise<string> {
+  return computeKeyingV2DomainHash("tearleads.keying-v2.transparency-node.v1", {
+    leftHash,
+    rightHash,
+    version: 2,
+  });
+}
+
+function largestPowerOfTwoLessThan(value: number): number {
+  let power = 1;
+
+  while (power * 2 < value) {
+    power *= 2;
+  }
+
+  return power;
+}
+
+function normalizeLeafHashes(
+  leafHashes: readonly string[],
+  label: string,
+): string[] {
+  return readHashArray(leafHashes, label);
+}
+
+export async function computeTransparencyMerkleRoot(
+  leafHashes: readonly string[],
+): Promise<string> {
+  const normalizedLeafHashes = normalizeLeafHashes(
+    leafHashes,
+    "transparency leaf hashes",
+  );
+
+  if (normalizedLeafHashes.length === 0) {
+    return computeTransparencyEmptyTreeHash();
+  }
+
+  if (normalizedLeafHashes.length === 1) {
+    return normalizedLeafHashes[0] as string;
+  }
+
+  const splitIndex = largestPowerOfTwoLessThan(normalizedLeafHashes.length);
+  return computeTransparencyNodeHash(
+    await computeTransparencyMerkleRoot(
+      normalizedLeafHashes.slice(0, splitIndex),
+    ),
+    await computeTransparencyMerkleRoot(normalizedLeafHashes.slice(splitIndex)),
+  );
+}
+
+async function createTransparencyInclusionAuditPath(input: {
+  readonly leafHashes: readonly string[];
+  readonly leafIndex: number;
+}): Promise<string[]> {
+  if (input.leafHashes.length === 1) {
+    return [];
+  }
+
+  const splitIndex = largestPowerOfTwoLessThan(input.leafHashes.length);
+  if (input.leafIndex < splitIndex) {
+    return [
+      ...(await createTransparencyInclusionAuditPath({
+        leafHashes: input.leafHashes.slice(0, splitIndex),
+        leafIndex: input.leafIndex,
+      })),
+      await computeTransparencyMerkleRoot(input.leafHashes.slice(splitIndex)),
+    ];
+  }
+
+  return [
+    ...(await createTransparencyInclusionAuditPath({
+      leafHashes: input.leafHashes.slice(splitIndex),
+      leafIndex: input.leafIndex - splitIndex,
+    })),
+    await computeTransparencyMerkleRoot(input.leafHashes.slice(0, splitIndex)),
+  ];
+}
+
+export async function createTransparencyInclusionProof(
+  leafHashes: readonly string[],
+  leafIndex: number,
+): Promise<TransparencyInclusionProofV2> {
+  const normalizedLeafHashes = normalizeLeafHashes(
+    leafHashes,
+    "transparency leaf hashes",
+  );
+
+  if (normalizedLeafHashes.length === 0) {
+    throwVerification(
+      "invalid_shape",
+      "transparency inclusion proof requires at least one leaf",
+    );
+  }
+
+  if (
+    !Number.isInteger(leafIndex) ||
+    leafIndex < 0 ||
+    leafIndex >= normalizedLeafHashes.length
+  ) {
+    throwVerification(
+      "invalid_shape",
+      "transparency inclusion proof leafIndex is out of bounds",
+    );
+  }
+
+  return {
+    version: 2,
+    treeSize: normalizedLeafHashes.length,
+    leafIndex,
+    auditPath: await createTransparencyInclusionAuditPath({
+      leafHashes: normalizedLeafHashes,
+      leafIndex,
+    }),
+  };
+}
+
+async function createTransparencyConsistencyNodeHashes(input: {
+  readonly leafHashes: readonly string[];
+  readonly previousTreeSize: number;
+  readonly subtreeComplete: boolean;
+}): Promise<string[]> {
+  const treeSize = input.leafHashes.length;
+
+  if (input.previousTreeSize === treeSize) {
+    return input.subtreeComplete
+      ? []
+      : [await computeTransparencyMerkleRoot(input.leafHashes)];
+  }
+
+  const splitIndex = largestPowerOfTwoLessThan(treeSize);
+  if (input.previousTreeSize <= splitIndex) {
+    return [
+      ...(await createTransparencyConsistencyNodeHashes({
+        leafHashes: input.leafHashes.slice(0, splitIndex),
+        previousTreeSize: input.previousTreeSize,
+        subtreeComplete: input.subtreeComplete,
+      })),
+      await computeTransparencyMerkleRoot(input.leafHashes.slice(splitIndex)),
+    ];
+  }
+
+  return [
+    ...(await createTransparencyConsistencyNodeHashes({
+      leafHashes: input.leafHashes.slice(splitIndex),
+      previousTreeSize: input.previousTreeSize - splitIndex,
+      subtreeComplete: false,
+    })),
+    await computeTransparencyMerkleRoot(input.leafHashes.slice(0, splitIndex)),
+  ];
+}
+
+export async function createTransparencyConsistencyProof(
+  leafHashes: readonly string[],
+  previousTreeSize: number,
+): Promise<TransparencyConsistencyProofV2> {
+  const normalizedLeafHashes = normalizeLeafHashes(
+    leafHashes,
+    "transparency leaf hashes",
+  );
+
+  if (
+    !Number.isInteger(previousTreeSize) ||
+    previousTreeSize < 0 ||
+    previousTreeSize > normalizedLeafHashes.length
+  ) {
+    throwVerification(
+      "invalid_shape",
+      "transparency consistency proof previousTreeSize is out of bounds",
+    );
+  }
+
+  return {
+    version: 2,
+    previousTreeSize,
+    treeSize: normalizedLeafHashes.length,
+    nodeHashes:
+      previousTreeSize === 0
+        ? []
+        : await createTransparencyConsistencyNodeHashes({
+            leafHashes: normalizedLeafHashes,
+            previousTreeSize,
+            subtreeComplete: true,
+          }),
+  };
+}
+
+function normalizeUnsignedTransparencyTreeHead(
+  value: UnsignedTransparencyTreeHeadV2,
+): UnsignedTransparencyTreeHeadV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "logId",
+      "logKeyFingerprint",
+      "rootHash",
+      "signedAt",
+      "treeSize",
+      "version",
+    ],
+    "transparency tree head",
+  );
+
+  return {
+    version: readVersion(record, "transparency tree head"),
+    logId: readString(record, "logId", "transparency tree head"),
+    treeSize: readNonNegativeInteger(
+      record,
+      "treeSize",
+      "transparency tree head",
+    ),
+    rootHash: readHashString(record, "rootHash", "transparency tree head"),
+    signedAt: readSignedAt(record, "signedAt", "transparency tree head"),
+    logKeyFingerprint: readHashString(
+      record,
+      "logKeyFingerprint",
+      "transparency tree head",
+    ),
+  };
+}
+
+function normalizeSignedTransparencyTreeHead(
+  value: SignedTransparencyTreeHeadV2,
+): SignedTransparencyTreeHeadV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "logId",
+      "logKeyFingerprint",
+      "rootHash",
+      "signature",
+      "signedAt",
+      "treeSize",
+      "version",
+    ],
+    "transparency tree head",
+  );
+  const unsignedHead = normalizeUnsignedTransparencyTreeHead({
+    version: record.version,
+    logId: record.logId,
+    treeSize: record.treeSize,
+    rootHash: record.rootHash,
+    signedAt: record.signedAt,
+    logKeyFingerprint: record.logKeyFingerprint,
+  } as UnsignedTransparencyTreeHeadV2);
+
+  return {
+    ...unsignedHead,
+    signature: readString(record, "signature", "transparency tree head"),
+  };
+}
+
+function transparencyTreeHeadSigningBytes(
+  treeHead: UnsignedTransparencyTreeHeadV2,
+): Uint8Array {
+  return encodeDomainPayload(
+    "tearleads.keying-v2.transparency-tree-head-signing.v1",
+    normalizeUnsignedTransparencyTreeHead(
+      treeHead,
+    ) as unknown as KeyingV2CanonicalJson,
+  );
+}
+
+function toUnsignedTransparencyTreeHead(
+  treeHead: SignedTransparencyTreeHeadV2,
+): UnsignedTransparencyTreeHeadV2 {
+  return {
+    version: treeHead.version,
+    logId: treeHead.logId,
+    treeSize: treeHead.treeSize,
+    rootHash: treeHead.rootHash,
+    signedAt: treeHead.signedAt,
+    logKeyFingerprint: treeHead.logKeyFingerprint,
+  };
+}
+
+export async function signTransparencyTreeHead(
+  treeHead: UnsignedTransparencyTreeHeadV2,
+  signingPrivateKey: Uint8Array,
+): Promise<SignedTransparencyTreeHeadV2> {
+  const normalizedTreeHead = normalizeUnsignedTransparencyTreeHead(treeHead);
+  const signature = sign(
+    transparencyTreeHeadSigningBytes(normalizedTreeHead),
+    signingPrivateKey,
+  );
+
+  return {
+    ...normalizedTreeHead,
+    signature: bytesToBase64(signature),
+  };
+}
+
+function transparencyTreeCheckpointFromHead(
+  treeHead: UnsignedTransparencyTreeHeadV2,
+): TransparencyTreeCheckpointV2 {
+  return {
+    logId: treeHead.logId,
+    treeSize: treeHead.treeSize,
+    rootHash: treeHead.rootHash,
+  };
+}
+
+export async function verifySignedTransparencyTreeHead({
+  logPublicKey,
+  treeHead,
+}: VerifySignedTransparencyTreeHeadInput): Promise<
+  KeyingV2VerificationResult<VerifiedTransparencyTreeHead>
+> {
+  return runVerifier(async () => {
+    const normalizedTreeHead = normalizeSignedTransparencyTreeHead(treeHead);
+    const logKeyFingerprint = await toFingerprint(logPublicKey);
+    if (logKeyFingerprint !== normalizedTreeHead.logKeyFingerprint) {
+      throwVerification(
+        "signer_mismatch",
+        "transparency tree head log key fingerprint does not match public key",
+      );
+    }
+
+    let signature: Uint8Array;
+    try {
+      signature = base64ToBytes(normalizedTreeHead.signature);
+    } catch {
+      throwVerification(
+        "signature_mismatch",
+        "transparency tree head signature invalid",
+      );
+    }
+
+    if (
+      !verify(
+        signature,
+        transparencyTreeHeadSigningBytes(
+          toUnsignedTransparencyTreeHead(normalizedTreeHead),
+        ),
+        logPublicKey,
+      )
+    ) {
+      throwVerification(
+        "signature_mismatch",
+        "transparency tree head signature verification failed",
+      );
+    }
+
+    return {
+      treeHead: normalizedTreeHead,
+      checkpoint: transparencyTreeCheckpointFromHead(normalizedTreeHead),
+    } as VerifiedTransparencyTreeHead;
+  });
+}
+
+function normalizeTransparencyInclusionProof(
+  value: TransparencyInclusionProofV2,
+): TransparencyInclusionProofV2 {
+  const record = assertExactKeys(
+    value,
+    ["auditPath", "leafIndex", "treeSize", "version"],
+    "transparency inclusion proof",
+  );
+
+  return {
+    version: readVersion(record, "transparency inclusion proof"),
+    treeSize: readPositiveInteger(
+      record,
+      "treeSize",
+      "transparency inclusion proof",
+    ),
+    leafIndex: readNonNegativeInteger(
+      record,
+      "leafIndex",
+      "transparency inclusion proof",
+    ),
+    auditPath: readHashArray(
+      record.auditPath,
+      "transparency inclusion proof.auditPath",
+    ),
+  };
+}
+
+function normalizeTransparencyConsistencyProof(
+  value: TransparencyConsistencyProofV2,
+): TransparencyConsistencyProofV2 {
+  const record = assertExactKeys(
+    value,
+    ["nodeHashes", "previousTreeSize", "treeSize", "version"],
+    "transparency consistency proof",
+  );
+
+  return {
+    version: readVersion(record, "transparency consistency proof"),
+    previousTreeSize: readNonNegativeInteger(
+      record,
+      "previousTreeSize",
+      "transparency consistency proof",
+    ),
+    treeSize: readNonNegativeInteger(
+      record,
+      "treeSize",
+      "transparency consistency proof",
+    ),
+    nodeHashes: readHashArray(
+      record.nodeHashes,
+      "transparency consistency proof.nodeHashes",
+    ),
+  };
+}
+
+async function computeTransparencyInclusionRoot(input: {
+  readonly leafHash: string;
+  readonly proof: TransparencyInclusionProofV2;
+}): Promise<string> {
+  let proofIndex = input.proof.auditPath.length - 1;
+
+  const computeRoot = async (
+    leafIndex: number,
+    treeSize: number,
+  ): Promise<string> => {
+    if (treeSize === 1) {
+      return input.leafHash;
+    }
+
+    const siblingHash = input.proof.auditPath[proofIndex];
+    if (!siblingHash) {
+      throwVerification(
+        "missing_dependency",
+        "transparency inclusion proof is missing an audit path node",
+      );
+    }
+    proofIndex -= 1;
+
+    const splitIndex = largestPowerOfTwoLessThan(treeSize);
+    if (leafIndex < splitIndex) {
+      return computeTransparencyNodeHash(
+        await computeRoot(leafIndex, splitIndex),
+        siblingHash,
+      );
+    }
+
+    return computeTransparencyNodeHash(
+      siblingHash,
+      await computeRoot(leafIndex - splitIndex, treeSize - splitIndex),
+    );
+  };
+
+  const computedRoot = await computeRoot(
+    input.proof.leafIndex,
+    input.proof.treeSize,
+  );
+
+  if (proofIndex !== -1) {
+    throwVerification(
+      "invalid_shape",
+      "transparency inclusion proof has extra audit path nodes",
+    );
+  }
+
+  return computedRoot;
+}
+
+function verifyTransparencyInclusionProofAgainstHead(input: {
+  readonly leafHash: string;
+  readonly proof: TransparencyInclusionProofV2;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+}): void {
+  if (input.proof.treeSize !== input.treeHead.treeHead.treeSize) {
+    throwVerification(
+      "object_mismatch",
+      "transparency inclusion proof tree size does not match tree head",
+    );
+  }
+
+  if (input.proof.leafIndex >= input.proof.treeSize) {
+    throwVerification(
+      "invalid_shape",
+      "transparency inclusion proof leafIndex is out of bounds",
+    );
+  }
+}
+
+async function verifyTransparencyInclusionRoot(input: {
+  readonly leafHash: string;
+  readonly proof: TransparencyInclusionProofV2;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+}): Promise<void> {
+  verifyTransparencyInclusionProofAgainstHead(input);
+  const computedRoot = await computeTransparencyInclusionRoot({
+    leafHash: input.leafHash,
+    proof: input.proof,
+  });
+
+  if (computedRoot !== input.treeHead.treeHead.rootHash) {
+    throwVerification(
+      "hash_mismatch",
+      "transparency inclusion proof root does not match tree head",
+    );
+  }
+}
+
+async function verifyTransparencyConsistencyRoot(input: {
+  readonly proof: TransparencyConsistencyProofV2;
+  readonly previousTreeHead: VerifiedTransparencyTreeHead;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+}): Promise<void> {
+  verifyTransparencyConsistencyShape(input);
+
+  if (await verifyTrivialTransparencyConsistency(input)) {
+    return;
+  }
+
+  const roots = await computeTransparencyConsistencyProofRoots(input);
+  if (roots.proofIndex !== input.proof.nodeHashes.length) {
+    throwVerification(
+      "invalid_shape",
+      "transparency consistency proof has extra nodes",
+    );
+  }
+
+  verifyTransparencyConsistencyProofRoots({
+    ...input,
+    previousRoot: roots.previousRoot,
+    currentRoot: roots.currentRoot,
+  });
+}
+
+function verifyTransparencyConsistencyShape(input: {
+  readonly proof: TransparencyConsistencyProofV2;
+  readonly previousTreeHead: VerifiedTransparencyTreeHead;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+}): void {
+  if (input.previousTreeHead.treeHead.logId !== input.treeHead.treeHead.logId) {
+    throwVerification(
+      "object_mismatch",
+      "transparency consistency proof log id does not match",
+    );
+  }
+
+  if (
+    input.proof.previousTreeSize !== input.previousTreeHead.treeHead.treeSize
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "transparency consistency proof previous tree size does not match",
+    );
+  }
+
+  if (input.proof.treeSize !== input.treeHead.treeHead.treeSize) {
+    throwVerification(
+      "object_mismatch",
+      "transparency consistency proof tree size does not match",
+    );
+  }
+
+  if (
+    input.previousTreeHead.treeHead.treeSize > input.treeHead.treeHead.treeSize
+  ) {
+    throwVerification(
+      "rollback",
+      "transparency tree head is older than the local checkpoint",
+    );
+  }
+}
+
+async function verifyTrivialTransparencyConsistency(input: {
+  readonly proof: TransparencyConsistencyProofV2;
+  readonly previousTreeHead: VerifiedTransparencyTreeHead;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+}): Promise<boolean> {
+  if (input.previousTreeHead.treeHead.treeSize === 0) {
+    const emptyRoot = await computeTransparencyEmptyTreeHash();
+    if (input.previousTreeHead.treeHead.rootHash !== emptyRoot) {
+      throwVerification(
+        "hash_mismatch",
+        "empty transparency tree checkpoint root is invalid",
+      );
+    }
+    return true;
+  }
+
+  if (
+    input.previousTreeHead.treeHead.treeSize ===
+    input.treeHead.treeHead.treeSize
+  ) {
+    if (input.proof.nodeHashes.length !== 0) {
+      throwVerification(
+        "invalid_shape",
+        "same-size transparency consistency proof must be empty",
+      );
+    }
+
+    if (
+      input.previousTreeHead.treeHead.rootHash !==
+      input.treeHead.treeHead.rootHash
+    ) {
+      throwVerification(
+        "equivocation",
+        "same-size transparency tree head root changed",
+      );
+    }
+    return true;
+  }
+
+  return false;
+}
+
+function readTransparencyConsistencyNode(
+  proof: TransparencyConsistencyProofV2,
+  proofIndex: number,
+): string {
+  const proofHash = proof.nodeHashes[proofIndex];
+  if (!proofHash) {
+    throwVerification(
+      "missing_dependency",
+      "transparency consistency proof is missing a node",
+    );
+  }
+  return proofHash;
+}
+
+function halveTreeIndex(value: number): number {
+  return Math.floor(value / 2);
+}
+
+interface TransparencyConsistencyRootState {
+  readonly previousNodeIndex: number;
+  readonly currentNodeIndex: number;
+  readonly previousRoot: string;
+  readonly currentRoot: string;
+  readonly proofIndex: number;
+}
+
+function initializeTransparencyConsistencyRootState(input: {
+  readonly proof: TransparencyConsistencyProofV2;
+  readonly previousTreeHead: VerifiedTransparencyTreeHead;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+}): TransparencyConsistencyRootState {
+  let previousNodeIndex = input.previousTreeHead.treeHead.treeSize - 1;
+  let currentNodeIndex = input.treeHead.treeHead.treeSize - 1;
+
+  while (previousNodeIndex % 2 === 1) {
+    previousNodeIndex = halveTreeIndex(previousNodeIndex);
+    currentNodeIndex = halveTreeIndex(currentNodeIndex);
+  }
+
+  let proofIndex = 0;
+  let previousRoot: string;
+  let currentRoot: string;
+
+  if (previousNodeIndex === 0) {
+    previousRoot = input.previousTreeHead.treeHead.rootHash;
+    currentRoot = input.previousTreeHead.treeHead.rootHash;
+  } else {
+    const firstProofHash = readTransparencyConsistencyNode(input.proof, 0);
+    previousRoot = firstProofHash;
+    currentRoot = firstProofHash;
+    proofIndex += 1;
+  }
+
+  return {
+    previousNodeIndex,
+    currentNodeIndex,
+    previousRoot,
+    currentRoot,
+    proofIndex,
+  };
+}
+
+async function foldPreviousTransparencyConsistencyNodes(input: {
+  readonly proof: TransparencyConsistencyProofV2;
+  readonly state: TransparencyConsistencyRootState;
+}): Promise<TransparencyConsistencyRootState> {
+  let { currentNodeIndex, currentRoot, previousNodeIndex, previousRoot } =
+    input.state;
+  let { proofIndex } = input.state;
+
+  while (previousNodeIndex > 0) {
+    const proofHash = readTransparencyConsistencyNode(input.proof, proofIndex);
+
+    if (previousNodeIndex % 2 === 1) {
+      previousRoot = await computeTransparencyNodeHash(proofHash, previousRoot);
+      currentRoot = await computeTransparencyNodeHash(proofHash, currentRoot);
+    } else {
+      currentRoot = await computeTransparencyNodeHash(currentRoot, proofHash);
+    }
+
+    previousNodeIndex = halveTreeIndex(previousNodeIndex);
+    currentNodeIndex = halveTreeIndex(currentNodeIndex);
+    proofIndex += 1;
+  }
+
+  return {
+    previousNodeIndex,
+    currentNodeIndex,
+    previousRoot,
+    currentRoot,
+    proofIndex,
+  };
+}
+
+async function foldCurrentTransparencyConsistencyNodes(input: {
+  readonly proof: TransparencyConsistencyProofV2;
+  readonly state: TransparencyConsistencyRootState;
+}): Promise<TransparencyConsistencyRootState> {
+  let { currentNodeIndex, currentRoot, previousNodeIndex, previousRoot } =
+    input.state;
+  let { proofIndex } = input.state;
+
+  while (currentNodeIndex > 0) {
+    const proofHash = readTransparencyConsistencyNode(input.proof, proofIndex);
+
+    currentRoot = await computeTransparencyNodeHash(currentRoot, proofHash);
+    currentNodeIndex = halveTreeIndex(currentNodeIndex);
+    proofIndex += 1;
+  }
+
+  return {
+    previousNodeIndex,
+    currentNodeIndex,
+    previousRoot,
+    currentRoot,
+    proofIndex,
+  };
+}
+
+async function computeTransparencyConsistencyProofRoots(input: {
+  readonly proof: TransparencyConsistencyProofV2;
+  readonly previousTreeHead: VerifiedTransparencyTreeHead;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+}): Promise<{
+  readonly previousRoot: string;
+  readonly currentRoot: string;
+  readonly proofIndex: number;
+}> {
+  const previousFold = await foldPreviousTransparencyConsistencyNodes({
+    proof: input.proof,
+    state: initializeTransparencyConsistencyRootState(input),
+  });
+  const currentFold = await foldCurrentTransparencyConsistencyNodes({
+    proof: input.proof,
+    state: previousFold,
+  });
+
+  return {
+    previousRoot: currentFold.previousRoot,
+    currentRoot: currentFold.currentRoot,
+    proofIndex: currentFold.proofIndex,
+  };
+}
+
+function verifyTransparencyConsistencyProofRoots(input: {
+  readonly previousTreeHead: VerifiedTransparencyTreeHead;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+  readonly previousRoot: string;
+  readonly currentRoot: string;
+}): void {
+  if (input.previousRoot !== input.previousTreeHead.treeHead.rootHash) {
+    throwVerification(
+      "hash_mismatch",
+      "transparency consistency proof previous root mismatch",
+    );
+  }
+
+  if (input.currentRoot !== input.treeHead.treeHead.rootHash) {
+    throwVerification(
+      "hash_mismatch",
+      "transparency consistency proof current root mismatch",
+    );
+  }
+}
+
+export async function verifyTransparencyProof({
+  consistencyProof,
+  inclusionProof,
+  leaf,
+  logPublicKey,
+  previousTreeHead,
+  treeHead,
+}: VerifyTransparencyProofInput): Promise<
+  KeyingV2VerificationResult<VerifiedTransparencyProof>
+> {
+  return runVerifier(async () => {
+    const verifiedTreeHead = await verifySignedTransparencyTreeHead({
+      treeHead,
+      logPublicKey,
+    });
+
+    if (!verifiedTreeHead.ok) {
+      throw verifiedTreeHead.error;
+    }
+
+    const normalizedLeaf = normalizeTransparencyLeaf(leaf);
+    const leafHash = await computeTransparencyLeafHash(normalizedLeaf);
+    const normalizedInclusionProof =
+      normalizeTransparencyInclusionProof(inclusionProof);
+
+    await verifyTransparencyInclusionRoot({
+      leafHash,
+      proof: normalizedInclusionProof,
+      treeHead: verifiedTreeHead.value,
+    });
+
+    let normalizedConsistencyProof: TransparencyConsistencyProofV2 | undefined;
+
+    if (previousTreeHead || consistencyProof) {
+      if (!previousTreeHead || !consistencyProof) {
+        throwVerification(
+          "missing_dependency",
+          "transparency consistency verification requires both previous tree head and proof",
+        );
+      }
+
+      const verifiedPreviousTreeHead = await verifySignedTransparencyTreeHead({
+        treeHead: previousTreeHead,
+        logPublicKey,
+      });
+
+      if (!verifiedPreviousTreeHead.ok) {
+        throw verifiedPreviousTreeHead.error;
+      }
+
+      normalizedConsistencyProof =
+        normalizeTransparencyConsistencyProof(consistencyProof);
+      await verifyTransparencyConsistencyRoot({
+        proof: normalizedConsistencyProof,
+        previousTreeHead: verifiedPreviousTreeHead.value,
+        treeHead: verifiedTreeHead.value,
+      });
+    }
+
+    return {
+      leaf: normalizedLeaf,
+      leafHash,
+      treeHead: verifiedTreeHead.value,
+      inclusionProof: normalizedInclusionProof,
+      ...(normalizedConsistencyProof
+        ? { consistencyProof: normalizedConsistencyProof }
+        : {}),
+    } as VerifiedTransparencyProof;
+  });
 }
 
 function principalProjectionMemberKey(
@@ -2153,10 +3709,12 @@ export async function computeAccessManifestHash(
 }
 
 export async function verifyAccessManifest({
+  checkpointPredecessors,
   event,
   expectedManifestHash,
   expectedObject,
   expectedPreviousManifestHash,
+  localCheckpoint,
   manifest,
 }: VerifyAccessManifestInput): Promise<
   KeyingV2VerificationResult<VerifiedAccessManifest>
@@ -2221,10 +3779,24 @@ export async function verifyAccessManifest({
       );
     }
 
+    const checkpoint = accessManifestCheckpointFromManifest({
+      manifest: normalizedManifest,
+      manifestHash,
+    });
+    verifyAccessManifestLocalCheckpoint({
+      current: {
+        ...checkpoint,
+        previousManifestHash: normalizedManifest.previousManifestHash,
+      },
+      localCheckpoint,
+      checkpointPredecessors,
+    });
+
     return {
       manifest: normalizedManifest,
       manifestHash,
       event,
+      checkpoint,
     } as VerifiedAccessManifest;
   });
 }
@@ -3215,9 +4787,11 @@ function deriveContainerAccessManifestStateFromEvent(
 }
 
 export async function verifyContainerAccessManifest({
+  checkpointPredecessors,
   destinationParentContainerPath,
   event,
   expectedManifestHash,
+  localCheckpoint,
   manifest,
   parentContainerPath,
   previousContainerPath,
@@ -3257,6 +4831,8 @@ export async function verifyContainerAccessManifest({
         objectId: state.containerId,
       },
       expectedPreviousManifestHash: state.previousManifestHash,
+      localCheckpoint,
+      checkpointPredecessors,
     });
 
     if (!verifiedManifest.ok) {
@@ -3268,6 +4844,7 @@ export async function verifyContainerAccessManifest({
       manifestHash: verifiedManifest.value.manifestHash,
       event,
       state,
+      checkpoint: verifiedManifest.value.checkpoint,
     } as VerifiedContainerAccessManifest;
   });
 }
@@ -4148,8 +5725,10 @@ function deriveDocumentLinkSetManifestStateFromEvent(
 
 export async function verifyDocumentLinkSetManifest({
   authorizingContainerPaths,
+  checkpointPredecessors,
   event,
   expectedManifestHash,
+  localCheckpoint,
   manifest,
   previousManifest = null,
   principalPolicies = [],
@@ -4187,6 +5766,8 @@ export async function verifyDocumentLinkSetManifest({
         objectId: state.documentId,
       },
       expectedPreviousManifestHash: state.previousManifestHash,
+      localCheckpoint,
+      checkpointPredecessors,
     });
 
     if (!verifiedManifest.ok) {
@@ -4198,6 +5779,7 @@ export async function verifyDocumentLinkSetManifest({
       manifestHash: verifiedManifest.value.manifestHash,
       event,
       state,
+      checkpoint: verifiedManifest.value.checkpoint,
     } as VerifiedDocumentLinkSetManifest;
   });
 }

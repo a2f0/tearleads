@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { toFingerprint } from "./fingerprint";
 import type {
   AccessEventV2,
+  AccessManifestCheckpointV2,
   AccessManifestV2,
   AttachmentAccessEventBodyV2,
   AttachmentBindAccessEventBodyV2,
@@ -16,31 +17,42 @@ import type {
   ContainerUserRecipientKeyV2,
   DocumentAccessEventBodyV2,
   DocumentLinkSetManifestStateV2,
+  IdentityStateHeadV2,
   KeyingV2CanonicalJson,
   KeyingV2VerificationCode,
   KeyingV2VerificationResult,
+  SignedTransparencyTreeHeadV2,
+  TransparencyLeafV2,
   UnsignedAccessEventV2,
   VerifiedAccessEvent,
+  VerifiedAccessManifest,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
 } from "./keyingV2";
 import {
+  accessManifestTransparencyLeaf,
   computeAccessEventBodyHash,
   computeAccessManifestHash,
   computeBlobContentKeyTargetHash,
   computeContainerKekRecipientTargetHash,
   computeDocumentContentKeyTargetHash,
   computeKeyingV2DomainHash,
+  computeTransparencyLeafHash,
+  computeTransparencyMerkleRoot,
   computeWriteHeaderHash,
+  createTransparencyConsistencyProof,
+  createTransparencyInclusionProof,
   deriveBlobKekTargets,
   deriveContainerAccessManifest,
   deriveDocumentKekTargets,
   deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
+  identityStateTransparencyLeaf,
   serializeKeyingV2CanonicalJson,
   signAccessEvent,
+  signTransparencyTreeHead,
   signWriteHeader,
   verifyAccessManifest,
   verifyAttachmentBindingEvent,
@@ -49,7 +61,9 @@ import {
   verifyContainerKekState,
   verifyContainerParentEdge,
   verifyDocumentLinkSetManifest,
+  verifyIdentityStateCheckpoint,
   verifySignedAccessEvent,
+  verifyTransparencyProof,
   verifyWriteHeader,
 } from "./keyingV2";
 import { generateSigningSeedAndKeyPair } from "./signing/generateKeyPair";
@@ -154,6 +168,77 @@ async function createManifest(event: VerifiedAccessEvent) {
   return {
     manifest,
     manifestHash: await computeAccessManifestHash(manifest),
+  };
+}
+
+async function createVerifiedAccessManifestCheckpointFixture(input: {
+  readonly epoch: number;
+  readonly previousManifestHash: string | null;
+  readonly structuralLabel?: string;
+}): Promise<VerifiedAccessManifest> {
+  const fixture = await createSignedContainerEvent({
+    overrides: {
+      previousManifestHash: input.previousManifestHash,
+    },
+  });
+  const eventResult = await verifySignedAccessEvent({
+    body: fixture.body,
+    event: fixture.event,
+    signerPublicKey: fixture.signingPublicKey,
+  });
+
+  if (!eventResult.ok) {
+    throw eventResult.error;
+  }
+
+  const { manifest } = await createManifest(eventResult.value);
+  const checkpointManifest: AccessManifestV2 = {
+    ...manifest,
+    epoch: input.epoch,
+    previousManifestHash: input.previousManifestHash,
+    structuralHash: await fixtureHash(
+      input.structuralLabel ?? `structural-${input.epoch}`,
+    ),
+  };
+  const manifestHash = await computeAccessManifestHash(checkpointManifest);
+  const verifiedManifest = await verifyAccessManifest({
+    manifest: checkpointManifest,
+    expectedManifestHash: manifestHash,
+    event: eventResult.value,
+    expectedPreviousManifestHash: input.previousManifestHash,
+  });
+
+  if (!verifiedManifest.ok) {
+    throw verifiedManifest.error;
+  }
+
+  return verifiedManifest.value;
+}
+
+async function signTransparencyTreeHeadFixture(input: {
+  readonly leafHashes: readonly string[];
+  readonly logId?: string;
+  readonly signing?: ReturnType<typeof generateSigningSeedAndKeyPair>;
+}): Promise<{
+  readonly treeHead: SignedTransparencyTreeHeadV2;
+  readonly signingPublicKey: Uint8Array;
+}> {
+  const signing = input.signing ?? generateSigningSeedAndKeyPair();
+  const treeHead = await signTransparencyTreeHead(
+    {
+      version: 2,
+      logId: input.logId ?? "keying-v2-transparency-log",
+      treeSize: input.leafHashes.length,
+      rootHash: await computeTransparencyMerkleRoot(input.leafHashes),
+      signedAt: "2026-04-27T12:00:00.000Z",
+      logKeyFingerprint: await toFingerprint(signing.signingPublicKey),
+    },
+    signing.signingPrivateKey,
+  );
+
+  return {
+    treeHead,
+    signingPublicKey: signing.signingPublicKey,
   };
 }
 
@@ -751,6 +836,304 @@ test("verifyAccessManifest rejects duplicate referenced principal heads", async 
   ).rejects.toThrow(
     "access manifest referencedPrincipalHeads contains a duplicate",
   );
+});
+
+test("verifyAccessManifest rejects rollback and equivocation against local checkpoints", async () => {
+  const first = await createVerifiedAccessManifestCheckpointFixture({
+    epoch: 1,
+    previousManifestHash: null,
+  });
+  const second = await createVerifiedAccessManifestCheckpointFixture({
+    epoch: 2,
+    previousManifestHash: first.manifestHash,
+  });
+  const checkpoint: AccessManifestCheckpointV2 = second.checkpoint;
+
+  const rollback = await verifyAccessManifest({
+    manifest: first.manifest,
+    expectedManifestHash: first.manifestHash,
+    event: first.event,
+    localCheckpoint: checkpoint,
+  });
+  expectVerificationError(rollback, "rollback");
+
+  const alternateSecond = await createVerifiedAccessManifestCheckpointFixture({
+    epoch: 2,
+    previousManifestHash: first.manifestHash,
+    structuralLabel: "alternate-second-structural",
+  });
+  const equivocation = await verifyAccessManifest({
+    manifest: alternateSecond.manifest,
+    expectedManifestHash: alternateSecond.manifestHash,
+    event: alternateSecond.event,
+    localCheckpoint: checkpoint,
+  });
+  expectVerificationError(equivocation, "equivocation");
+});
+
+test("verifyAccessManifest requires a verified predecessor chain to advance past a checkpoint gap", async () => {
+  const first = await createVerifiedAccessManifestCheckpointFixture({
+    epoch: 1,
+    previousManifestHash: null,
+  });
+  const second = await createVerifiedAccessManifestCheckpointFixture({
+    epoch: 2,
+    previousManifestHash: first.manifestHash,
+  });
+  const third = await createVerifiedAccessManifestCheckpointFixture({
+    epoch: 3,
+    previousManifestHash: second.manifestHash,
+  });
+
+  const missingProof = await verifyAccessManifest({
+    manifest: third.manifest,
+    expectedManifestHash: third.manifestHash,
+    event: third.event,
+    localCheckpoint: first.checkpoint,
+  });
+  expectVerificationError(missingProof, "stale_predecessor");
+
+  const withProof = await verifyAccessManifest({
+    manifest: third.manifest,
+    expectedManifestHash: third.manifestHash,
+    event: third.event,
+    localCheckpoint: first.checkpoint,
+    checkpointPredecessors: [second],
+  });
+  expect(withProof.ok).toBe(true);
+  if (withProof.ok) {
+    expect(withProof.value.checkpoint).toEqual(third.checkpoint);
+  }
+});
+
+test("verifyIdentityStateCheckpoint rejects rollback and equivocation against local checkpoints", async () => {
+  const first: IdentityStateHeadV2 = {
+    identityId: "user-1",
+    version: 1,
+    stateHash: await fixtureHash("identity-state-1"),
+    previousStateHash: null,
+  };
+  const second: IdentityStateHeadV2 = {
+    identityId: "user-1",
+    version: 2,
+    stateHash: await fixtureHash("identity-state-2"),
+    previousStateHash: first.stateHash,
+  };
+  const verifiedSecond = await verifyIdentityStateCheckpoint({ head: second });
+
+  if (!verifiedSecond.ok) {
+    throw verifiedSecond.error;
+  }
+
+  const rollback = await verifyIdentityStateCheckpoint({
+    head: first,
+    localCheckpoint: verifiedSecond.value.checkpoint,
+  });
+  expectVerificationError(rollback, "rollback");
+
+  const equivocation = await verifyIdentityStateCheckpoint({
+    head: {
+      ...first,
+      stateHash: await fixtureHash("identity-state-1-alt"),
+    },
+    localCheckpoint: {
+      identityId: first.identityId,
+      version: first.version,
+      stateHash: first.stateHash,
+    },
+  });
+  expectVerificationError(equivocation, "equivocation");
+});
+
+test("verifyIdentityStateCheckpoint requires a predecessor chain to advance past a checkpoint gap", async () => {
+  const first: IdentityStateHeadV2 = {
+    identityId: "user-1",
+    version: 1,
+    stateHash: await fixtureHash("identity-state-gap-1"),
+    previousStateHash: null,
+  };
+  const second: IdentityStateHeadV2 = {
+    identityId: "user-1",
+    version: 2,
+    stateHash: await fixtureHash("identity-state-gap-2"),
+    previousStateHash: first.stateHash,
+  };
+  const third: IdentityStateHeadV2 = {
+    identityId: "user-1",
+    version: 3,
+    stateHash: await fixtureHash("identity-state-gap-3"),
+    previousStateHash: second.stateHash,
+  };
+  const checkpoint = {
+    identityId: first.identityId,
+    version: first.version,
+    stateHash: first.stateHash,
+  };
+
+  const missingProof = await verifyIdentityStateCheckpoint({
+    head: third,
+    localCheckpoint: checkpoint,
+  });
+  expectVerificationError(missingProof, "stale_predecessor");
+
+  const withProof = await verifyIdentityStateCheckpoint({
+    head: third,
+    localCheckpoint: checkpoint,
+    checkpointPredecessors: [second],
+  });
+  expect(withProof.ok).toBe(true);
+  if (withProof.ok) {
+    expect(withProof.value.checkpoint.stateHash).toBe(third.stateHash);
+  }
+});
+
+test("verifyTransparencyProof verifies inclusion against a signed tree head", async () => {
+  const accessManifest = await createVerifiedAccessManifestCheckpointFixture({
+    epoch: 1,
+    previousManifestHash: null,
+  });
+  const identityHead: IdentityStateHeadV2 = {
+    identityId: "user-1",
+    version: 1,
+    stateHash: await fixtureHash("transparency-identity-state"),
+    previousStateHash: null,
+  };
+  const leaves: TransparencyLeafV2[] = [
+    identityStateTransparencyLeaf(identityHead),
+    {
+      version: 2,
+      leafKind: "principal_policy_head",
+      principalType: "group",
+      principalId: "group-1",
+      policyVersion: 3,
+      keyEpoch: 2,
+      stateHash: await fixtureHash("transparency-principal-state"),
+      keyFingerprint: await fixtureHash("transparency-principal-key"),
+    },
+    accessManifestTransparencyLeaf(accessManifest),
+  ];
+  const leafHashes = await Promise.all(leaves.map(computeTransparencyLeafHash));
+  const { treeHead, signingPublicKey } = await signTransparencyTreeHeadFixture({
+    leafHashes,
+  });
+  const inclusionProof = await createTransparencyInclusionProof(leafHashes, 1);
+
+  const verified = await verifyTransparencyProof({
+    leaf: leaves[1] as TransparencyLeafV2,
+    inclusionProof,
+    treeHead,
+    logPublicKey: signingPublicKey,
+  });
+  expect(verified.ok).toBe(true);
+  if (verified.ok) {
+    expect(verified.value.treeHead.checkpoint.rootHash).toBe(treeHead.rootHash);
+  }
+
+  const tampered = await verifyTransparencyProof({
+    leaf: {
+      ...(leaves[1] as TransparencyLeafV2),
+      stateHash: await fixtureHash("transparency-principal-state-tampered"),
+    } as TransparencyLeafV2,
+    inclusionProof,
+    treeHead,
+    logPublicKey: signingPublicKey,
+  });
+  expectVerificationError(tampered, "hash_mismatch");
+});
+
+test("verifyTransparencyProof verifies consistency from a pinned tree head", async () => {
+  const leaves: TransparencyLeafV2[] = [
+    identityStateTransparencyLeaf({
+      identityId: "user-1",
+      version: 1,
+      stateHash: await fixtureHash("consistency-leaf-1"),
+      previousStateHash: null,
+    }),
+    identityStateTransparencyLeaf({
+      identityId: "user-2",
+      version: 1,
+      stateHash: await fixtureHash("consistency-leaf-2"),
+      previousStateHash: null,
+    }),
+    identityStateTransparencyLeaf({
+      identityId: "user-3",
+      version: 1,
+      stateHash: await fixtureHash("consistency-leaf-3"),
+      previousStateHash: null,
+    }),
+    identityStateTransparencyLeaf({
+      identityId: "user-4",
+      version: 1,
+      stateHash: await fixtureHash("consistency-leaf-4"),
+      previousStateHash: null,
+    }),
+  ];
+  const leafHashes = await Promise.all(leaves.map(computeTransparencyLeafHash));
+  const signing = generateSigningSeedAndKeyPair();
+  const oldTree = await signTransparencyTreeHeadFixture({
+    leafHashes: leafHashes.slice(0, 2),
+    signing,
+  });
+  const newTree = await signTransparencyTreeHeadFixture({
+    leafHashes,
+    signing,
+  });
+  const inclusionProof = await createTransparencyInclusionProof(leafHashes, 3);
+  const consistencyProof = await createTransparencyConsistencyProof(
+    leafHashes,
+    2,
+  );
+
+  const verified = await verifyTransparencyProof({
+    leaf: leaves[3] as TransparencyLeafV2,
+    inclusionProof,
+    treeHead: newTree.treeHead,
+    previousTreeHead: oldTree.treeHead,
+    consistencyProof,
+    logPublicKey: signing.signingPublicKey,
+  });
+  expect(verified.ok).toBe(true);
+
+  const alternateLeaves = [
+    {
+      ...(leaves[0] as TransparencyLeafV2),
+      stateHash: await fixtureHash("consistency-leaf-1-alternate"),
+    } as TransparencyLeafV2,
+    ...leaves.slice(1),
+  ];
+  const alternateLeafHashes = await Promise.all(
+    alternateLeaves.map(computeTransparencyLeafHash),
+  );
+  const alternateTree = await signTransparencyTreeHeadFixture({
+    leafHashes: alternateLeafHashes,
+    signing,
+  });
+  const alternateInclusionProof = await createTransparencyInclusionProof(
+    alternateLeafHashes,
+    3,
+  );
+  const alternateConsistencyProof = await createTransparencyConsistencyProof(
+    alternateLeafHashes,
+    2,
+  );
+
+  const firstContactSplitView = await verifyTransparencyProof({
+    leaf: alternateLeaves[3] as TransparencyLeafV2,
+    inclusionProof: alternateInclusionProof,
+    treeHead: alternateTree.treeHead,
+    logPublicKey: signing.signingPublicKey,
+  });
+  expect(firstContactSplitView.ok).toBe(true);
+
+  const pinnedCheckpointSplitView = await verifyTransparencyProof({
+    leaf: alternateLeaves[3] as TransparencyLeafV2,
+    inclusionProof: alternateInclusionProof,
+    treeHead: alternateTree.treeHead,
+    previousTreeHead: oldTree.treeHead,
+    consistencyProof: alternateConsistencyProof,
+    logPublicKey: signing.signingPublicKey,
+  });
+  expectVerificationError(pinnedCheckpointSplitView, "hash_mismatch");
 });
 
 test("verifyContainerAccessManifest accepts a signed child create under a writable parent", async () => {
