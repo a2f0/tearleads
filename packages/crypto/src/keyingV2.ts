@@ -38,6 +38,7 @@ export type KeyingV2HashDomain =
   | "tearleads.keying-v2.access-event-signing.v1"
   | "tearleads.keying-v2.access-event.v1"
   | "tearleads.keying-v2.access-manifest.v1"
+  | "tearleads.keying-v2.blob-access-manifest.v1"
   | "tearleads.keying-v2.blob-content-key-targets.v1"
   | "tearleads.keying-v2.content-record-nonce-domain.v1"
   | "tearleads.keying-v2.container-access-direct-grants.v1"
@@ -286,6 +287,17 @@ export type DocumentContentKeyTargetV2 = ContainerKekTargetV2;
 export interface BlobContentKeyTargetV2 extends ContainerKekTargetV2 {
   bindingId: string;
   documentId: string;
+}
+
+export interface BlobAccessManifestV2 {
+  version: 2;
+  blobId: string;
+  organizationId: string;
+  activeBindingIds: string[];
+  documentManifestHashes: string[];
+  linkedContainerManifestHashes: string[];
+  linkedContainerKeyEpochIds: string[];
+  blobKeyTargetHash: string;
 }
 
 export interface UnsignedWriteHeaderV2 {
@@ -539,12 +551,14 @@ export interface VerifiedAttachmentDetach {
 
 export interface VerifiedBlobKekTargets {
   readonly blobId: string;
+  readonly organizationId: string;
   readonly activeBindingIds: readonly string[];
   readonly documentManifestHashes: readonly string[];
   readonly linkedContainerManifestHashes: readonly string[];
   readonly linkedContainerKeyEpochIds: readonly string[];
   readonly targets: readonly BlobContentKeyTargetV2[];
   readonly blobKeyTargetHash: string;
+  readonly blobAccessManifestHash: string;
   readonly [verifiedBlobKekTargetsBrand]: true;
 }
 
@@ -716,6 +730,11 @@ export interface VerifyWriteHeaderInput {
   readonly documentAuthorization?: {
     readonly documentManifest: VerifiedDocumentLinkSetManifest;
     readonly documentKekTargets: VerifiedDocumentKekTargets;
+    readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
+    readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  };
+  readonly blobAuthorization?: {
+    readonly blobKekTargets: VerifiedBlobKekTargets;
     readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
     readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   };
@@ -5624,6 +5643,54 @@ function requireWriteAccessThroughCommittedDocumentTarget(input: {
   );
 }
 
+function requireWriteAccessThroughCommittedBlobTarget(input: {
+  readonly blobKekTargets: VerifiedBlobKekTargets;
+  readonly header: WriteHeaderV2;
+  readonly label: string;
+  readonly paths: readonly (readonly VerifiedContainerAccessManifest[])[];
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}): void {
+  const targetManifestHashesByContainerId = new Map<string, Set<string>>();
+
+  for (const target of input.blobKekTargets.targets) {
+    const manifestHashes =
+      targetManifestHashesByContainerId.get(target.containerId) ?? new Set();
+    manifestHashes.add(target.containerManifestHash);
+    targetManifestHashesByContainerId.set(target.containerId, manifestHashes);
+  }
+
+  for (const path of input.paths) {
+    const manifest = path.at(-1);
+    if (
+      !manifest ||
+      manifest.state.organizationId !== input.header.organizationId ||
+      !targetManifestHashesByContainerId
+        .get(manifest.state.containerId)
+        ?.has(manifest.manifestHash)
+    ) {
+      continue;
+    }
+
+    const accessLevel = resolveContainerPathUserAccessLevel({
+      path,
+      principalPolicies: input.principalPolicies,
+      userId: input.header.writerUserId,
+    });
+
+    if (
+      accessLevel !== null &&
+      containerAccessLevelRank(accessLevel) >= containerAccessLevelRank("write")
+    ) {
+      return;
+    }
+  }
+
+  throwVerification(
+    "unauthorized",
+    `${input.label} signer lacks write access through a committed blob target`,
+  );
+}
+
 type DocumentLinkSetManifestDerivationInput = {
   readonly body: DocumentAccessEventBodyV2;
   readonly event: VerifiedAccessEvent;
@@ -7104,8 +7171,39 @@ async function buildVerifiedBlobKekTargets(input: {
   readonly documentManifests: readonly VerifiedDocumentLinkSetManifest[];
   readonly targets: readonly BlobContentKeyTargetV2[];
 }): Promise<VerifiedBlobKekTargets> {
+  const organizationIds = uniqueSortedStrings(
+    input.documentManifests.map((manifest) => manifest.state.organizationId),
+  );
+  const organizationId = organizationIds[0];
+  if (!organizationId || organizationIds.length !== 1) {
+    throwVerification(
+      "object_mismatch",
+      "blob KEK target derivation must stay within one organization",
+    );
+  }
+  const blobKeyTargetHash = await computeBlobContentKeyTargetHash(
+    input.targets,
+  );
+  const blobAccessManifestHash = await computeBlobAccessManifestHash({
+    version: 2,
+    blobId: input.blobId,
+    organizationId,
+    activeBindingIds: input.activeBindings.map((binding) => binding.bindingId),
+    documentManifestHashes: uniqueSortedStrings(
+      input.documentManifests.map((manifest) => manifest.manifestHash),
+    ),
+    linkedContainerManifestHashes: uniqueSortedStrings(
+      input.targets.map((target) => target.containerManifestHash),
+    ),
+    linkedContainerKeyEpochIds: uniqueSortedStrings(
+      input.targets.map((target) => target.containerKeyEpochId),
+    ),
+    blobKeyTargetHash,
+  });
+
   return {
     blobId: input.blobId,
+    organizationId,
     activeBindingIds: input.activeBindings.map((binding) => binding.bindingId),
     documentManifestHashes: uniqueSortedStrings(
       input.documentManifests.map((manifest) => manifest.manifestHash),
@@ -7117,7 +7215,8 @@ async function buildVerifiedBlobKekTargets(input: {
       input.targets.map((target) => target.containerKeyEpochId),
     ),
     targets: input.targets,
-    blobKeyTargetHash: await computeBlobContentKeyTargetHash(input.targets),
+    blobKeyTargetHash,
+    blobAccessManifestHash,
   } as unknown as VerifiedBlobKekTargets;
 }
 
@@ -7184,6 +7283,93 @@ export async function computeBlobContentKeyTargetHash(
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.blob-content-key-targets.v1",
     normalizedTargets as unknown as KeyingV2CanonicalJson,
+  );
+}
+
+function normalizeHashStringArray(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): string[] {
+  const values = normalizeUniqueSortedStrings(
+    readStringArray(record, key, label),
+    `${label}.${key}`,
+  );
+
+  for (const [index, value] of values.entries()) {
+    if (!/^[0-9a-f]{64}$/.test(value)) {
+      throwVerification(
+        "hash_mismatch",
+        `${label}.${key}[${index}] must be a 64-character lowercase hex hash`,
+      );
+    }
+  }
+
+  return values;
+}
+
+function normalizeBlobAccessManifest(
+  value: BlobAccessManifestV2,
+): BlobAccessManifestV2 {
+  const record = assertExactKeys(
+    value,
+    [
+      "activeBindingIds",
+      "blobId",
+      "blobKeyTargetHash",
+      "documentManifestHashes",
+      "linkedContainerKeyEpochIds",
+      "linkedContainerManifestHashes",
+      "organizationId",
+      "version",
+    ],
+    "blob access manifest",
+  );
+
+  return {
+    version: readVersion(record, "blob access manifest"),
+    blobId: readString(record, "blobId", "blob access manifest"),
+    organizationId: readString(
+      record,
+      "organizationId",
+      "blob access manifest",
+    ),
+    activeBindingIds: normalizeUniqueSortedStrings(
+      readStringArray(record, "activeBindingIds", "blob access manifest"),
+      "blob access manifest.activeBindingIds",
+    ),
+    documentManifestHashes: normalizeHashStringArray(
+      record,
+      "documentManifestHashes",
+      "blob access manifest",
+    ),
+    linkedContainerManifestHashes: normalizeHashStringArray(
+      record,
+      "linkedContainerManifestHashes",
+      "blob access manifest",
+    ),
+    linkedContainerKeyEpochIds: normalizeUniqueSortedStrings(
+      readStringArray(
+        record,
+        "linkedContainerKeyEpochIds",
+        "blob access manifest",
+      ),
+      "blob access manifest.linkedContainerKeyEpochIds",
+    ),
+    blobKeyTargetHash: readHashString(
+      record,
+      "blobKeyTargetHash",
+      "blob access manifest",
+    ),
+  };
+}
+
+export async function computeBlobAccessManifestHash(
+  manifest: BlobAccessManifestV2,
+): Promise<string> {
+  return computeKeyingV2DomainHash(
+    "tearleads.keying-v2.blob-access-manifest.v1",
+    normalizeBlobAccessManifest(manifest) as unknown as KeyingV2CanonicalJson,
   );
 }
 
@@ -7514,7 +7700,81 @@ function assertDocumentWriteHeaderAuthorization(input: {
   });
 }
 
+function assertBlobWriteHeaderAuthorization(input: {
+  readonly authorization: NonNullable<
+    VerifyWriteHeaderInput["blobAuthorization"]
+  >;
+  readonly header: WriteHeaderV2;
+}): void {
+  const { authorization, header } = input;
+  const { blobKekTargets } = authorization;
+
+  if (header.objectKind !== "blob") {
+    throwVerification(
+      "object_mismatch",
+      "blob write authorization requires a blob write header",
+    );
+  }
+
+  if (
+    blobKekTargets.blobId !== header.objectId ||
+    blobKekTargets.organizationId !== header.organizationId ||
+    blobKekTargets.blobAccessManifestHash !== header.accessManifestHash
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "write header does not match the committed blob access manifest",
+    );
+  }
+
+  if (blobKekTargets.blobKeyTargetHash !== header.targetHash) {
+    throwVerification(
+      "hash_mismatch",
+      "write header target hash does not match the verified blob KEK targets",
+    );
+  }
+
+  if (
+    blobKekTargets.activeBindingIds.length === 0 ||
+    blobKekTargets.targets.length === 0
+  ) {
+    throwVerification(
+      "missing_dependency",
+      "verified blob KEK targets do not cover an active attachment binding",
+    );
+  }
+
+  requireWriteAccessThroughCommittedBlobTarget({
+    blobKekTargets,
+    header,
+    label: "write header",
+    paths: authorization.authorizingContainerPaths,
+    principalPolicies: authorization.principalPolicies ?? [],
+  });
+}
+
+function assertWriteHeaderAuthorizations(input: {
+  readonly blobAuthorization: VerifyWriteHeaderInput["blobAuthorization"];
+  readonly documentAuthorization: VerifyWriteHeaderInput["documentAuthorization"];
+  readonly header: WriteHeaderV2;
+}): void {
+  if (input.documentAuthorization) {
+    assertDocumentWriteHeaderAuthorization({
+      authorization: input.documentAuthorization,
+      header: input.header,
+    });
+  }
+
+  if (input.blobAuthorization) {
+    assertBlobWriteHeaderAuthorization({
+      authorization: input.blobAuthorization,
+      header: input.header,
+    });
+  }
+}
+
 export async function verifyWriteHeader({
+  blobAuthorization,
   documentAuthorization,
   expectedAccessManifestHash,
   expectedObject,
@@ -7571,12 +7831,11 @@ export async function verifyWriteHeader({
       );
     }
 
-    if (documentAuthorization) {
-      assertDocumentWriteHeaderAuthorization({
-        authorization: documentAuthorization,
-        header: normalizedHeader,
-      });
-    }
+    assertWriteHeaderAuthorizations({
+      blobAuthorization,
+      documentAuthorization,
+      header: normalizedHeader,
+    });
 
     let signature: Uint8Array;
     try {
