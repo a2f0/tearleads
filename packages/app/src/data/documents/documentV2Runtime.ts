@@ -968,21 +968,13 @@ function contentRecordAdditionalDataBytes(input: {
 }
 
 async function deriveDocumentV2ContentRecordKey(input: {
-  contentKey: Uint8Array;
+  contentKeyMaterial: CryptoKey;
   contentKeyEpoch: number;
   contentRecordId: string;
   documentId: string;
   organizationId: string;
   usage: "decrypt" | "encrypt";
 }): Promise<CryptoKey> {
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    asWebCryptoBytes(input.contentKey),
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
-
   return crypto.subtle.deriveKey(
     {
       name: "HKDF",
@@ -990,7 +982,7 @@ async function deriveDocumentV2ContentRecordKey(input: {
       salt: DOCUMENT_V2_CONTENT_RECORD_HKDF_SALT,
       info: contentRecordDerivationBytes(input),
     },
-    keyMaterial,
+    input.contentKeyMaterial,
     {
       name: "AES-GCM",
       length: 256,
@@ -1000,8 +992,20 @@ async function deriveDocumentV2ContentRecordKey(input: {
   );
 }
 
+async function importDocumentV2ContentKeyMaterial(
+  contentKey: Uint8Array,
+): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "raw",
+    asWebCryptoBytes(contentKey),
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+}
+
 async function encryptDocumentV2PendingUpdate(input: {
-  contentKey: Uint8Array;
+  contentKeyMaterial: CryptoKey;
   contentKeyEpoch: number;
   documentId: string;
   organizationId: string;
@@ -1024,7 +1028,7 @@ async function encryptDocumentV2PendingUpdate(input: {
     updateId: input.update.id,
   });
   const recordKey = await deriveDocumentV2ContentRecordKey({
-    contentKey: input.contentKey,
+    contentKeyMaterial: input.contentKeyMaterial,
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId,
     documentId: input.documentId,
@@ -1169,6 +1173,7 @@ async function assertDocumentV2EncryptedUpdateMatchesHeader(input: {
     throw new Error("Document V2 encrypted update content record mismatch");
   }
 
+  // Keep this helper fail-closed even when it is used outside syncRemoteDocumentV2.
   const metadataHash = await computeDocumentV2ContentRecordMetadataHash({
     documentId: input.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
@@ -1212,7 +1217,7 @@ async function assertDocumentV2EncryptedUpdateMatchesHeader(input: {
 }
 
 async function decryptDocumentV2SyncUpdate(input: {
-  contentKey: Uint8Array;
+  contentKeyMaterial: CryptoKey;
   contentKeyEpoch: number;
   documentId: string;
   organizationId: string;
@@ -1228,7 +1233,7 @@ async function decryptDocumentV2SyncUpdate(input: {
     update: input.update,
   });
   const recordKey = await deriveDocumentV2ContentRecordKey({
-    contentKey: input.contentKey,
+    contentKeyMaterial: input.contentKeyMaterial,
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId: encrypted.contentRecordId,
     documentId: input.documentId,
@@ -1269,10 +1274,17 @@ export async function decryptDocumentV2SyncUpdates(input: {
   organizationId: string;
   updates: readonly DocumentV2SyncResponse["updates"][number][];
 }): Promise<DecryptedDocumentV2SyncUpdate[]> {
+  if (input.updates.length === 0) {
+    return [];
+  }
+  const contentKeyMaterial = await importDocumentV2ContentKeyMaterial(
+    input.contentKey,
+  );
+
   return Promise.all(
     input.updates.map((update) =>
       decryptDocumentV2SyncUpdate({
-        contentKey: input.contentKey,
+        contentKeyMaterial,
         contentKeyEpoch: input.contentKeyEpoch,
         documentId: input.documentId,
         organizationId: input.organizationId,
@@ -1380,10 +1392,17 @@ async function prepareDocumentV2OutgoingUpdates(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
   writerProjection: DocumentV2WriterProjectionResponse;
 }): Promise<DocumentV2SyncPreparedUpdate[]> {
+  if (input.pendingUpdates.length === 0) {
+    return [];
+  }
+  const contentKeyMaterial = await importDocumentV2ContentKeyMaterial(
+    input.contentKey,
+  );
+
   return Promise.all(
     input.pendingUpdates.map(async (update) => {
       const encrypted = await encryptDocumentV2PendingUpdate({
-        contentKey: input.contentKey,
+        contentKeyMaterial,
         contentKeyEpoch:
           input.writerProjection.contentKeyBundle.contentKeyEpoch,
         documentId: input.documentId,
