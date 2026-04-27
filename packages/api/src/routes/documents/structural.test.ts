@@ -76,6 +76,10 @@ async function countBlobRecipientEnvelopes(blobId: string): Promise<number> {
   ).length;
 }
 
+function encodedByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
 test("document link and unlink routes update access state without blob envelope fanout", async () => {
   const owner = createTestUser();
   await registerUser(owner);
@@ -98,7 +102,7 @@ test("document link and unlink routes update access state without blob envelope 
   const [blob] = await db
     .insert(blobs)
     .values({
-      byteLength: "blob-bytes".length,
+      byteLength: encodedByteLength("blob-bytes"),
       encryptedBytes: "blob-bytes",
       sha256: "structural-blob-sha256",
       storageKey: "structural-blob",

@@ -21,6 +21,10 @@ function userPrincipal(userId: string): {
   };
 }
 
+function encodedByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
 test("blob access is derived from linked document access", async () => {
   const alice = createTestUser();
   const bob = createTestUser();
@@ -37,7 +41,7 @@ test("blob access is derived from linked document access", async () => {
   const [blob] = await db
     .insert(blobs)
     .values({
-      byteLength: "blob-1-bytes".length,
+      byteLength: encodedByteLength("blob-1-bytes"),
       encryptedBytes: "blob-1-bytes",
       sha256: "blob-1-sha256",
       storageKey: "blob-1",
@@ -95,7 +99,7 @@ test("resolving blob access does not create direct recipient envelopes", async (
   const [blob] = await db
     .insert(blobs)
     .values({
-      byteLength: "blob-static-recipients-bytes".length,
+      byteLength: encodedByteLength("blob-static-recipients-bytes"),
       encryptedBytes: "blob-static-recipients-bytes",
       sha256: "blob-static-recipients-sha256",
       storageKey: "blob-static-recipients",
