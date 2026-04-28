@@ -214,6 +214,12 @@ interface DocumentV2SyncApi {
   ): Promise<DocumentV2SyncResponse | null>;
 }
 
+type DocumentV2WriterPublicKeyResolver = (input: {
+  authorFingerprint: string;
+  header: WriteHeaderV2;
+  update: DocumentV2SyncResponse["updates"][number];
+}) => Promise<Uint8Array | null>;
+
 type PersistedDocumentV2CreateState = Pick<
   DocumentRecord,
   | "documentId"
@@ -1836,6 +1842,7 @@ function assertAcceptedOutgoingUpdateIdsMatchPlan(
 async function assertDocumentV2SyncResponseUpdateMatchesPlan(input: {
   plan: DocumentV2SyncPlan;
   update: DocumentV2SyncResponse["updates"][number];
+  resolveWriterPublicKey?: DocumentV2WriterPublicKeyResolver | undefined;
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<void> {
   const { plan, update } = input;
@@ -1853,6 +1860,7 @@ async function assertDocumentV2SyncResponseUpdateMatchesPlan(input: {
   await assertDocumentV2SyncResponseWriteHeaderSignature({
     header,
     plan,
+    resolveWriterPublicKey: input.resolveWriterPublicKey,
     update,
     writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
   });
@@ -1953,17 +1961,24 @@ async function assertDocumentV2SyncResponseNonceDomain(input: {
 async function assertDocumentV2SyncResponseWriteHeaderSignature(input: {
   header: WriteHeaderV2;
   plan: DocumentV2SyncPlan;
+  resolveWriterPublicKey?: DocumentV2WriterPublicKeyResolver | undefined;
   update: DocumentV2SyncResponse["updates"][number];
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<void> {
   const { header, plan, update } = input;
-  if (!input.writerPublicKeysByFingerprint) {
+  if (!input.writerPublicKeysByFingerprint && !input.resolveWriterPublicKey) {
     return;
   }
 
-  const writerPublicKey = input.writerPublicKeysByFingerprint.get(
-    update.authorFingerprint,
-  );
+  const writerPublicKey =
+    input.writerPublicKeysByFingerprint?.get(update.authorFingerprint) ??
+    (input.resolveWriterPublicKey
+      ? await input.resolveWriterPublicKey({
+          authorFingerprint: update.authorFingerprint,
+          header,
+          update,
+        })
+      : null);
   if (!writerPublicKey) {
     throw new Error("Document V2 sync response writer public key missing");
   }
@@ -1990,6 +2005,7 @@ export async function persistedDocumentV2SyncStateFromResponse(
   plan: DocumentV2SyncPlan,
   response: DocumentV2SyncResponse,
   options: {
+    resolveWriterPublicKey?: DocumentV2WriterPublicKeyResolver | undefined;
     writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
   } = {},
 ): Promise<PersistedDocumentV2SyncState> {
@@ -2014,6 +2030,7 @@ export async function persistedDocumentV2SyncStateFromResponse(
     response.updates.map((update) =>
       assertDocumentV2SyncResponseUpdateMatchesPlan({
         plan,
+        resolveWriterPublicKey: options.resolveWriterPublicKey,
         update,
         writerPublicKeysByFingerprint: options.writerPublicKeysByFingerprint,
       }),
@@ -2037,6 +2054,7 @@ export async function syncRemoteDocumentV2(input: {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+  resolveWriterPublicKey?: DocumentV2WriterPublicKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
@@ -2070,6 +2088,7 @@ export async function syncRemoteDocumentV2(input: {
     plan,
     response,
     {
+      resolveWriterPublicKey: input.resolveWriterPublicKey,
       writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
     },
   );

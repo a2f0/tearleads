@@ -265,6 +265,9 @@ async function saveContainerMetadataRecord(input: {
         access_epoch,
         access_state_hash,
         last_commit_lsn,
+        v2_document_manifest_bundle,
+        v2_content_key_bundle,
+        v2_document_kek_targets,
         updated_at
       )
       VALUES (
@@ -276,6 +279,9 @@ async function saveContainerMetadataRecord(input: {
         :accessEpoch,
         :accessStateHash,
         :lastCommitLsn,
+        :v2DocumentManifestBundle,
+        :v2ContentKeyBundle,
+        :v2DocumentKekTargets,
         :updatedAt
       )
       ON CONFLICT(app_kind, local_id) DO UPDATE SET
@@ -286,6 +292,10 @@ async function saveContainerMetadataRecord(input: {
         access_epoch = excluded.access_epoch,
         access_state_hash = excluded.access_state_hash,
         last_commit_lsn = excluded.last_commit_lsn,
+        v2_document_manifest_bundle =
+          excluded.v2_document_manifest_bundle,
+        v2_content_key_bundle = excluded.v2_content_key_bundle,
+        v2_document_kek_targets = excluded.v2_document_kek_targets,
         updated_at = excluded.updated_at
     `,
     {
@@ -297,6 +307,9 @@ async function saveContainerMetadataRecord(input: {
       ":lastCommitLsn": record.lastCommitLsn ?? null,
       ":localId": containerId,
       ":loroSnapshot": record.loroSnapshot,
+      ":v2ContentKeyBundle": record.v2ContentKeyBundle ?? null,
+      ":v2DocumentKekTargets": record.v2DocumentKekTargets ?? null,
+      ":v2DocumentManifestBundle": record.v2DocumentManifestBundle ?? null,
       ":updatedAt": updatedAt,
     },
   );
