@@ -14,6 +14,7 @@ import {
   attachmentBindings,
   blobs,
   containers,
+  objectAccessEpochs,
   objectRecipientEnvelopes,
   users,
 } from "../../schema";
@@ -76,11 +77,25 @@ async function countBlobRecipientEnvelopes(blobId: string): Promise<number> {
   ).length;
 }
 
+async function countDocumentAccessEpochs(documentId: string): Promise<number> {
+  return (
+    await db
+      .select({ epoch: objectAccessEpochs.epoch })
+      .from(objectAccessEpochs)
+      .where(
+        and(
+          eq(objectAccessEpochs.objectType, "document"),
+          eq(objectAccessEpochs.objectId, documentId),
+        ),
+      )
+  ).length;
+}
+
 function encodedByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
 }
 
-test("document link and unlink routes update access state without blob envelope fanout", async () => {
+test("document link and unlink routes update access state without V1 access refresh", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -115,9 +130,12 @@ test("document link and unlink routes update access state without blob envelope 
     documentId,
     slotId: "slot_01",
   });
+  const initialDocumentAccessEpochCount =
+    await countDocumentAccessEpochs(documentId);
   const initialBlobRecipientEnvelopeCount = await countBlobRecipientEnvelopes(
     blob.id,
   );
+  expect(initialDocumentAccessEpochCount).toBe(1);
   expect(initialBlobRecipientEnvelopeCount).toBe(0);
 
   const linkedResponse = await routeApp.request(
@@ -139,19 +157,25 @@ test("document link and unlink routes update access state without blob envelope 
   const linkedDocument = await linkedResponse.json();
   expect(linkedDocument).toEqual(
     expect.objectContaining({
-      currentAccessEpoch: 2,
+      currentAccessEpoch: 1,
       id: documentId,
       linkedContainerIds: [rootContainerId, siblingContainerId].sort(),
     }),
   );
+  expect(linkedDocument.currentAccessStateHash).not.toBe(
+    createdDocument.currentAccessStateHash,
+  );
+  expect(await countDocumentAccessEpochs(documentId)).toBe(
+    initialDocumentAccessEpochCount,
+  );
 
   const linkedDocumentState = await resolveDocumentAccessState(documentId);
   invariant(linkedDocumentState, "expected linked document state");
-  expect(linkedDocumentState.currentAccessEpoch).toBe(2);
+  expect(linkedDocumentState.currentAccessEpoch).toBe(1);
 
   const linkedBlobState = await resolveBlobAccessState(blob.id);
   invariant(linkedBlobState, "expected linked blob state");
-  expect(linkedBlobState.currentAccessEpoch).toBe(2);
+  expect(linkedBlobState.currentAccessEpoch).toBe(1);
   expect(await countBlobRecipientEnvelopes(blob.id)).toBe(
     initialBlobRecipientEnvelopeCount,
   );
@@ -170,7 +194,7 @@ test("document link and unlink routes update access state without blob envelope 
   expect(await siblingListResponse.json()).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        currentAccessEpoch: 2,
+        currentAccessEpoch: 1,
         id: documentId,
         linkedContainerIds: [rootContainerId, siblingContainerId].sort(),
       }),
@@ -195,19 +219,23 @@ test("document link and unlink routes update access state without blob envelope 
   expect(unlinkedResponse.status).toBe(200);
   expect(await unlinkedResponse.json()).toEqual(
     expect.objectContaining({
-      currentAccessEpoch: 3,
+      currentAccessEpoch: 1,
+      currentAccessStateHash: createdDocument.currentAccessStateHash,
       id: documentId,
       linkedContainerIds: [rootContainerId],
     }),
   );
+  expect(await countDocumentAccessEpochs(documentId)).toBe(
+    initialDocumentAccessEpochCount,
+  );
 
   const unlinkedDocumentState = await resolveDocumentAccessState(documentId);
   invariant(unlinkedDocumentState, "expected unlinked document state");
-  expect(unlinkedDocumentState.currentAccessEpoch).toBe(3);
+  expect(unlinkedDocumentState.currentAccessEpoch).toBe(1);
 
   const unlinkedBlobState = await resolveBlobAccessState(blob.id);
   invariant(unlinkedBlobState, "expected unlinked blob state");
-  expect(unlinkedBlobState.currentAccessEpoch).toBe(3);
+  expect(unlinkedBlobState.currentAccessEpoch).toBe(1);
   expect(await countBlobRecipientEnvelopes(blob.id)).toBe(
     initialBlobRecipientEnvelopeCount,
   );

@@ -1,7 +1,6 @@
 import type { LinkDocumentToContainerRequest } from "@tearleads/validators/request";
 import type { UnlinkDocumentFromContainerResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
-import { refreshDocumentAccesses } from "../../access/documentAccess";
 import { documentContainerLinks } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
 import {
@@ -53,8 +52,6 @@ export async function unlinkDocumentFromContainer(
           eq(documentContainerLinks.containerId, input.containerId),
         ),
       );
-
-    await refreshDocumentAccesses([input.documentId], tx);
 
     return buildDocumentMutationResponse(
       tx,

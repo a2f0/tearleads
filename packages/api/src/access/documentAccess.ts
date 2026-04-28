@@ -779,81 +779,6 @@ async function writeEpoch(
   });
 }
 
-async function materializeDocumentAccessState(
-  documentId: string,
-  executor: DocumentAccessExecutor = db,
-  linkedContainerStateById?: ReadonlyMap<string, ResolvedContainerAccessState>,
-  providedLinkedContainerIds?: string[],
-  currentEpochRow?: CurrentEpochRow | null,
-): Promise<number | null> {
-  const resolvedCurrentEpochRow =
-    currentEpochRow ?? (await getCurrentEpoch(documentId, executor));
-  const {
-    linkedContainerIds,
-    linkedContainerStates,
-    grants,
-    hasUnavailableLinkedContainers,
-    cryptoRecipients,
-  } = await resolveDocumentAccessInputs(
-    documentId,
-    executor,
-    linkedContainerStateById,
-    providedLinkedContainerIds,
-  );
-
-  if (hasUnavailableLinkedContainers) {
-    return null;
-  }
-
-  if (resolvedCurrentEpochRow === null && linkedContainerStates.length === 0) {
-    return null;
-  }
-
-  const accessFingerprint = await computeDocumentAccessFingerprint({
-    documentId,
-    grants,
-    linkedContainerIds,
-    linkedContainerFingerprints: linkedContainerStates.map(
-      (state) => state.accessFingerprint,
-    ),
-    cryptoRecipients,
-  });
-  const accessStateHash = await computeDocumentAccessStateHash({
-    documentId,
-    grants,
-    linkedContainerIds,
-    linkedContainerStates,
-  });
-  const linkedEpoch = Math.max(
-    1,
-    ...linkedContainerStates.map((state) => state.currentAccessEpoch),
-  );
-  const nextEpoch =
-    resolvedCurrentEpochRow === null
-      ? linkedEpoch
-      : resolvedCurrentEpochRow.accessFingerprint === accessFingerprint &&
-          resolvedCurrentEpochRow.accessStateHash === accessStateHash
-        ? Math.max(resolvedCurrentEpochRow.epoch, linkedEpoch)
-        : Math.max(resolvedCurrentEpochRow.epoch + 1, linkedEpoch);
-
-  if (
-    resolvedCurrentEpochRow === null ||
-    resolvedCurrentEpochRow.epoch !== nextEpoch ||
-    resolvedCurrentEpochRow.accessFingerprint !== accessFingerprint ||
-    resolvedCurrentEpochRow.accessStateHash !== accessStateHash
-  ) {
-    await writeEpoch(
-      documentId,
-      nextEpoch,
-      accessFingerprint,
-      accessStateHash,
-      executor,
-    );
-  }
-
-  return nextEpoch;
-}
-
 export async function initializeDocumentAccess(
   documentId: string,
   executor: DocumentAccessExecutor = db,
@@ -909,37 +834,4 @@ export async function initializeDocumentAccess(
   }
 
   return initialize(executor);
-}
-
-export async function refreshDocumentAccesses(
-  documentIds: string[],
-  executor: DocumentAccessExecutor = db,
-): Promise<Map<string, number | null>> {
-  const uniqueDocumentIds = uniqueSortedStrings(documentIds);
-  const linkedContainerIdsByDocumentId =
-    await listLinkedContainerIdsByDocumentId(uniqueDocumentIds, executor);
-  const linkedContainerStateById = await resolveContainerAccessStates(
-    Array.from(linkedContainerIdsByDocumentId.values()).flat(),
-    executor,
-  );
-  const currentEpochByDocumentId = await getCurrentEpochs(
-    uniqueDocumentIds,
-    executor,
-  );
-  const refreshedEpochEntries = await Promise.all(
-    uniqueDocumentIds.map(
-      async (documentId): Promise<[string, number | null]> => [
-        documentId,
-        await materializeDocumentAccessState(
-          documentId,
-          executor,
-          linkedContainerStateById,
-          linkedContainerIdsByDocumentId.get(documentId),
-          currentEpochByDocumentId.get(documentId) ?? null,
-        ),
-      ],
-    ),
-  );
-
-  return new Map(refreshedEpochEntries);
 }
