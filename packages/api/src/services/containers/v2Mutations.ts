@@ -43,7 +43,12 @@ import {
   type StoredPrincipalState,
 } from "../../access/principalStateStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
-import { containers, users } from "../../schema";
+import {
+  containerMetadataDocuments,
+  containers,
+  documents,
+  users,
+} from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
 
 type ContainerV2MutationStatus = 400 | 403 | 404 | 409;
@@ -71,6 +76,8 @@ interface StoredContainerRow {
   readonly organizationId: string;
   readonly parentId: string | null;
 }
+
+type VerifiedContainerAccessState = VerifiedContainerAccessManifest["state"];
 
 type CurrentAccessManifestHead = Awaited<
   ReturnType<typeof getCurrentAccessManifestHead>
@@ -811,6 +818,85 @@ async function loadContainerRow(
   return row ?? null;
 }
 
+async function assertMetadataDocumentAvailable(
+  executor: DatabaseExecutor,
+  metadataDocumentId: string,
+): Promise<void> {
+  const [existingMetadataDocument] = await executor
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.id, metadataDocumentId))
+    .limit(1);
+  if (existingMetadataDocument) {
+    throw new ContainerV2MutationError(
+      "Container metadata document already exists",
+      409,
+    );
+  }
+}
+
+async function insertContainerMetadataBinding(
+  executor: DatabaseExecutor,
+  state: VerifiedContainerAccessState,
+): Promise<void> {
+  const [metadataBinding] = await executor
+    .insert(containerMetadataDocuments)
+    .values({
+      containerId: state.containerId,
+      documentId: state.metadataDocumentId,
+    })
+    .onConflictDoNothing()
+    .returning({ containerId: containerMetadataDocuments.containerId });
+  if (!metadataBinding) {
+    throw new ContainerV2MutationError(
+      "Container metadata binding already exists",
+      409,
+    );
+  }
+}
+
+async function persistCreatedContainerStructure(
+  executor: DatabaseExecutor,
+  state: VerifiedContainerAccessState,
+): Promise<void> {
+  if (!state.parentContainerId) {
+    throw new ContainerV2MutationError(
+      "V2 container create requires a parent",
+      400,
+    );
+  }
+
+  const parent = await loadContainerRow(executor, state.parentContainerId);
+  if (!parent) {
+    throw new ContainerV2MutationError("Parent container not found", 404);
+  }
+
+  if (parent.organizationId !== state.organizationId) {
+    throw new ContainerV2MutationError(
+      "Parent container organization mismatch",
+      409,
+    );
+  }
+
+  await assertMetadataDocumentAvailable(executor, state.metadataDocumentId);
+
+  const [inserted] = await executor
+    .insert(containers)
+    .values({
+      id: state.containerId,
+      organizationId: state.organizationId,
+      parentId: state.parentContainerId,
+    })
+    .onConflictDoNothing({ target: containers.id })
+    .returning({ id: containers.id });
+
+  if (!inserted) {
+    throw new ContainerV2MutationError("Container already exists", 409);
+  }
+
+  await insertContainerMetadataBinding(executor, state);
+}
+
 async function persistContainerStructure(
   executor: DatabaseExecutor,
   manifest: VerifiedContainerAccessManifest,
@@ -818,38 +904,7 @@ async function persistContainerStructure(
   const state = manifest.state;
 
   if (manifest.event.event.eventType === "container.create") {
-    if (!state.parentContainerId) {
-      throw new ContainerV2MutationError(
-        "V2 container create requires a parent",
-        400,
-      );
-    }
-
-    const parent = await loadContainerRow(executor, state.parentContainerId);
-    if (!parent) {
-      throw new ContainerV2MutationError("Parent container not found", 404);
-    }
-
-    if (parent.organizationId !== state.organizationId) {
-      throw new ContainerV2MutationError(
-        "Parent container organization mismatch",
-        409,
-      );
-    }
-
-    const [inserted] = await executor
-      .insert(containers)
-      .values({
-        id: state.containerId,
-        organizationId: state.organizationId,
-        parentId: state.parentContainerId,
-      })
-      .onConflictDoNothing({ target: containers.id })
-      .returning({ id: containers.id });
-
-    if (!inserted) {
-      throw new ContainerV2MutationError("Container already exists", 409);
-    }
+    await persistCreatedContainerStructure(executor, state);
     return;
   }
 

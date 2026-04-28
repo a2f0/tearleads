@@ -137,13 +137,18 @@ export interface ContainerAccessStructuralV2 {
   parentManifestHash: string | null;
 }
 
+export interface ContainerAccessMetadataV2 {
+  metadataDocumentId: string;
+}
+
 export interface ContainerAccessKeyStateV2 {
   containerKeyEpochId: string | null;
 }
 
 export interface ContainerAccessManifestStateV2
   extends ContainerAccessStructuralV2,
-    ContainerAccessKeyStateV2 {
+    ContainerAccessKeyStateV2,
+    ContainerAccessMetadataV2 {
   version: 2;
   containerId: string;
   organizationId: string;
@@ -156,7 +161,8 @@ export interface ContainerAccessManifestStateV2
 
 export interface ContainerCreateAccessEventBodyV2
   extends ContainerAccessStructuralV2,
-    ContainerAccessKeyStateV2 {
+    ContainerAccessKeyStateV2,
+    ContainerAccessMetadataV2 {
   eventType: "container.create";
   directGrants: ContainerDirectGrantV2[];
   referencedPrincipalHeads: ReferencedPrincipalHeadV2[];
@@ -3982,6 +3988,44 @@ function normalizeContainerAccessStructural(
   };
 }
 
+function normalizeContainerAccessMetadata(
+  value: ContainerAccessMetadataV2,
+): ContainerAccessMetadataV2 {
+  const record = assertExactKeys(
+    value,
+    ["metadataDocumentId"],
+    "container access metadata state",
+  );
+
+  return {
+    metadataDocumentId: readString(
+      record,
+      "metadataDocumentId",
+      "container access metadata state",
+    ),
+  };
+}
+
+function normalizeContainerAccessStructuralState(
+  value: ContainerAccessStructuralV2 & ContainerAccessMetadataV2,
+): ContainerAccessStructuralV2 & ContainerAccessMetadataV2 {
+  const record = assertExactKeys(
+    value,
+    ["metadataDocumentId", "parentContainerId", "parentManifestHash"],
+    "container access structural state",
+  );
+
+  return {
+    ...normalizeContainerAccessStructural({
+      parentContainerId: record.parentContainerId,
+      parentManifestHash: record.parentManifestHash,
+    } as ContainerAccessStructuralV2),
+    ...normalizeContainerAccessMetadata({
+      metadataDocumentId: record.metadataDocumentId,
+    } as ContainerAccessMetadataV2),
+  };
+}
+
 function normalizeContainerAccessKeyState(
   value: ContainerAccessKeyStateV2,
 ): ContainerAccessKeyStateV2 {
@@ -4046,6 +4090,43 @@ function assertReferencedPrincipalHeadsMatchDirectGrants(input: {
   }
 }
 
+function normalizeContainerAccessGrantState(input: {
+  readonly directGrants: unknown;
+  readonly label: string;
+  readonly referencedPrincipalHeads: unknown;
+}): Pick<
+  ContainerAccessManifestStateV2,
+  "directGrants" | "referencedPrincipalHeads"
+> {
+  if (!Array.isArray(input.directGrants)) {
+    throwVerification(
+      "invalid_shape",
+      `${input.label}.directGrants must be an array`,
+    );
+  }
+
+  if (!Array.isArray(input.referencedPrincipalHeads)) {
+    throwVerification(
+      "invalid_shape",
+      `${input.label}.referencedPrincipalHeads must be an array`,
+    );
+  }
+
+  const directGrants = normalizeContainerDirectGrants(
+    input.directGrants as ContainerDirectGrantV2[],
+  );
+  const referencedPrincipalHeads = normalizeReferencedPrincipalHeads(
+    input.referencedPrincipalHeads as ReferencedPrincipalHeadV2[],
+  );
+
+  assertReferencedPrincipalHeadsMatchDirectGrants({
+    directGrants,
+    referencedPrincipalHeads,
+  });
+
+  return { directGrants, referencedPrincipalHeads };
+}
+
 function normalizeContainerAccessManifestState(
   value: ContainerAccessManifestStateV2,
 ): ContainerAccessManifestStateV2 {
@@ -4057,6 +4138,7 @@ function normalizeContainerAccessManifestState(
       "directGrants",
       "epoch",
       "eventHash",
+      "metadataDocumentId",
       "organizationId",
       "parentContainerId",
       "parentManifestHash",
@@ -4066,23 +4148,6 @@ function normalizeContainerAccessManifestState(
     ],
     "container access manifest state",
   );
-  const directGrants = record.directGrants;
-  const referencedPrincipalHeads = record.referencedPrincipalHeads;
-
-  if (!Array.isArray(directGrants)) {
-    throwVerification(
-      "invalid_shape",
-      "container access manifest state.directGrants must be an array",
-    );
-  }
-
-  if (!Array.isArray(referencedPrincipalHeads)) {
-    throwVerification(
-      "invalid_shape",
-      "container access manifest state.referencedPrincipalHeads must be an array",
-    );
-  }
-
   const structural = normalizeContainerAccessStructural({
     parentContainerId: record.parentContainerId,
     parentManifestHash: record.parentManifestHash,
@@ -4090,16 +4155,13 @@ function normalizeContainerAccessManifestState(
   const keyState = normalizeContainerAccessKeyState({
     containerKeyEpochId: record.containerKeyEpochId,
   } as ContainerAccessKeyStateV2);
-  const normalizedDirectGrants = normalizeContainerDirectGrants(
-    directGrants as ContainerDirectGrantV2[],
-  );
-  const normalizedReferencedPrincipalHeads = normalizeReferencedPrincipalHeads(
-    referencedPrincipalHeads as ReferencedPrincipalHeadV2[],
-  );
-
-  assertReferencedPrincipalHeadsMatchDirectGrants({
-    directGrants: normalizedDirectGrants,
-    referencedPrincipalHeads: normalizedReferencedPrincipalHeads,
+  const metadata = normalizeContainerAccessMetadata({
+    metadataDocumentId: record.metadataDocumentId,
+  } as ContainerAccessMetadataV2);
+  const grants = normalizeContainerAccessGrantState({
+    directGrants: record.directGrants,
+    referencedPrincipalHeads: record.referencedPrincipalHeads,
+    label: "container access manifest state",
   });
 
   return {
@@ -4131,17 +4193,17 @@ function normalizeContainerAccessManifestState(
     ),
     ...structural,
     ...keyState,
-    directGrants: normalizedDirectGrants,
-    referencedPrincipalHeads: normalizedReferencedPrincipalHeads,
+    ...metadata,
+    ...grants,
   };
 }
 
 export async function computeContainerAccessStructuralHash(
-  structural: ContainerAccessStructuralV2,
+  structural: ContainerAccessStructuralV2 & ContainerAccessMetadataV2,
 ): Promise<string> {
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.container-access-structural.v1",
-    normalizeContainerAccessStructural(
+    normalizeContainerAccessStructuralState(
       structural,
     ) as unknown as KeyingV2CanonicalJson,
   );
@@ -4181,6 +4243,7 @@ export async function deriveContainerAccessManifest(
     previousManifestHash: normalizedState.previousManifestHash,
     eventHash: normalizedState.eventHash,
     structuralHash: await computeContainerAccessStructuralHash({
+      metadataDocumentId: normalizedState.metadataDocumentId,
       parentContainerId: normalizedState.parentContainerId,
       parentManifestHash: normalizedState.parentManifestHash,
     }),
@@ -4203,6 +4266,7 @@ function normalizeContainerCreateAccessEventBody(
       "containerKeyEpochId",
       "directGrants",
       "eventType",
+      "metadataDocumentId",
       "parentContainerId",
       "parentManifestHash",
       "referencedPrincipalHeads",
@@ -4233,6 +4297,9 @@ function normalizeContainerCreateAccessEventBody(
   const keyState = normalizeContainerAccessKeyState({
     containerKeyEpochId: record.containerKeyEpochId,
   } as ContainerAccessKeyStateV2);
+  const metadata = normalizeContainerAccessMetadata({
+    metadataDocumentId: record.metadataDocumentId,
+  } as ContainerAccessMetadataV2);
   const normalizedDirectGrants = normalizeContainerDirectGrants(
     directGrants as ContainerDirectGrantV2[],
   );
@@ -4249,6 +4316,7 @@ function normalizeContainerCreateAccessEventBody(
     eventType: "container.create",
     ...structural,
     ...keyState,
+    ...metadata,
     directGrants: normalizedDirectGrants,
     referencedPrincipalHeads: normalizedReferencedPrincipalHeads,
   };
@@ -4680,6 +4748,7 @@ function deriveContainerCreateManifestState(
     eventHash: event.eventHash,
     parentContainerId: body.parentContainerId,
     parentManifestHash: body.parentManifestHash,
+    metadataDocumentId: body.metadataDocumentId,
     containerKeyEpochId: body.containerKeyEpochId,
     directGrants: body.directGrants,
     referencedPrincipalHeads: body.referencedPrincipalHeads,
@@ -4724,6 +4793,7 @@ function preparePreviousContainerAccessTransition(
       eventHash: event.eventHash,
       parentContainerId: previousState.parentContainerId,
       parentManifestHash: previousState.parentManifestHash,
+      metadataDocumentId: previousState.metadataDocumentId,
     },
   };
 }

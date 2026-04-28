@@ -93,6 +93,8 @@ function readContainerAccessState(
       typeof record.parentContainerId !== "string") ||
     typeof record.eventHash !== "string" ||
     record.eventHash.length === 0 ||
+    typeof record.metadataDocumentId !== "string" ||
+    record.metadataDocumentId.length === 0 ||
     !("previousManifestHash" in record) ||
     (record.previousManifestHash !== null &&
       typeof record.previousManifestHash !== "string") ||

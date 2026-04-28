@@ -194,10 +194,12 @@ async function bootstrapRootV2(owner: TestUser): Promise<StoredRootV2Fixture> {
   const rootContainer = await getRootContainerForUser(owner.userId);
   const ownerKey = await userRecipientKey(owner);
   const containerKeyEpochId = crypto.randomUUID();
+  const metadataDocumentId = crypto.randomUUID();
   const body: ContainerAccessEventBodyV2 = {
     eventType: "container.create",
     parentContainerId: null,
     parentManifestHash: null,
+    metadataDocumentId,
     containerKeyEpochId,
     directGrants: [
       {
@@ -226,6 +228,7 @@ async function bootstrapRootV2(owner: TestUser): Promise<StoredRootV2Fixture> {
       eventHash: event.eventHash,
       parentContainerId: null,
       parentManifestHash: null,
+      metadataDocumentId,
       containerKeyEpochId,
       directGrants: body.directGrants,
       referencedPrincipalHeads: [],

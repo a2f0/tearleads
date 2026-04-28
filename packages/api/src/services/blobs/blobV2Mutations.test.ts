@@ -251,10 +251,12 @@ async function bootstrapRootV2(
   const rootContainer = await getRootContainerForUser(owner.userId);
   const ownerKey = await userRecipientKey(owner);
   const containerKeyEpochId = crypto.randomUUID();
+  const metadataDocumentId = crypto.randomUUID();
   const body: ContainerAccessEventBodyV2 = {
     eventType: "container.create",
     parentContainerId: null,
     parentManifestHash: null,
+    metadataDocumentId,
     containerKeyEpochId,
     directGrants: [
       {
@@ -283,6 +285,7 @@ async function bootstrapRootV2(
       eventHash: event.eventHash,
       parentContainerId: null,
       parentManifestHash: null,
+      metadataDocumentId,
       containerKeyEpochId,
       directGrants: body.directGrants,
       referencedPrincipalHeads: [],

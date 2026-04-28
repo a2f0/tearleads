@@ -176,8 +176,9 @@ to create crypto recipients.
 V2 access manifests are deterministic, signed commitments to the object access
 state used for key derivation:
 
-- container manifests include container identity, structural state, direct
-  grants, referenced principal heads, predecessor hash, and key target hash
+- container manifests include container identity, parent edge, metadata
+  document identity, direct grants, referenced principal heads, predecessor
+  hash, and key target hash
 - document link-set manifests include document identity, linked containers,
   predecessor hash, and key target hash
 - attachment, document, and blob key targets are derived from verified
