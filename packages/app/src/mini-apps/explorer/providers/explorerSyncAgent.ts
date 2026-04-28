@@ -20,7 +20,6 @@ import {
 } from "../../../data/containers";
 import {
   createPendingUpdateFields,
-  getLocalRecipientPublicKeys,
   isDocumentUpdateCreatedEvent,
 } from "../../../data/documentSync";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
@@ -121,7 +120,6 @@ export interface ExplorerRuntime {
 export interface ContainerState {
   container: ContainerRecord;
   doc: ContainerMetadataDocument;
-  recipientPublicKeys: Uint8Array[];
   record: DocumentRecord;
 }
 
@@ -407,7 +405,6 @@ async function upsertRemoteContainerState(
   const existingState = state.containersById.get(remoteContainer.id);
 
   if (existingState) {
-    existingState.recipientPublicKeys = [];
     await host.persistContainerState(
       existingState,
       {
@@ -435,7 +432,6 @@ async function upsertRemoteContainerState(
       icon: null,
     },
     doc,
-    recipientPublicKeys: [],
     record: {
       accessEpoch: remoteContainer.metadataAccessEpoch,
       accessStateHash: remoteContainer.metadataAccessStateHash,
@@ -596,9 +592,6 @@ async function initializeExplorerStore(input: {
     state.containersById.set(container.id, {
       container: nextContainer,
       doc,
-      recipientPublicKeys: getLocalRecipientPublicKeys(
-        state.runtime.encapsulationKeyPair,
-      ),
       record: nextRecord,
     });
   }

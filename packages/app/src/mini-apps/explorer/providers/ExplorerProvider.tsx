@@ -19,7 +19,6 @@ import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../../data/containers";
-import { getLocalRecipientPublicKeys } from "../../../data/documentSync";
 import { requestDomainDocumentSync } from "../../../data/documents/DocumentsProvider";
 import type { DocumentRecord } from "../../../data/persistence/documentPersistence";
 import { didRegainSyncPrerequisites } from "../../../data/sync/syncCoordinator";
@@ -341,7 +340,6 @@ async function buildRemoteChildContainerState(
       icon: null,
     },
     doc,
-    recipientPublicKeys: parentState.recipientPublicKeys,
     record: {
       ...initialRecord,
       accessEpoch: 1,
@@ -353,7 +351,6 @@ async function buildRemoteChildContainerState(
 }
 
 function buildLocalChildContainerState(
-  state: ExplorerStoreState,
   parentState: ContainerState,
   childId: string,
   trimmedName: string,
@@ -370,9 +367,6 @@ function buildLocalChildContainerState(
       icon: null,
     },
     doc,
-    recipientPublicKeys: getLocalRecipientPublicKeys(
-      state.runtime.encapsulationKeyPair,
-    ),
     record: initialRecord,
   };
 }
@@ -423,7 +417,6 @@ async function createChildContainer(
           initialRecord,
         )
       : buildLocalChildContainerState(
-          state,
           parentState,
           childId,
           trimmedName,
@@ -434,7 +427,6 @@ async function createChildContainer(
   const resolvedChildState =
     childState ??
     buildLocalChildContainerState(
-      state,
       parentState,
       childId,
       trimmedName,
@@ -674,14 +666,6 @@ function updateExplorerStoreRuntime(
   if (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) {
     resetExplorerStore(state);
     state.lastEventCount = nextRuntime.events.length;
-  }
-
-  for (const containerState of state.containersById.values()) {
-    if (!containerState.record.documentId) {
-      containerState.recipientPublicKeys = getLocalRecipientPublicKeys(
-        state.runtime.encapsulationKeyPair,
-      );
-    }
   }
 
   syncAgent.ensureInitialized();
