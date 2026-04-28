@@ -3,6 +3,7 @@ import type {
   BlobV2AttachmentDetachRequest,
   ContainerV2MutationRequest,
   DocumentV2CreateRequest,
+  DocumentV2LinkSetMutationRequest,
   DocumentV2SyncRequest,
   StageBlobRequest,
 } from "@tearleads/validators/request";
@@ -30,9 +31,11 @@ import {
   createDocumentV2,
   getDocumentV2WriterProjection,
   linkDocumentToContainer,
+  linkDocumentV2,
   listDocumentAttachments,
   syncDocumentV2,
   unlinkDocumentFromContainer,
+  unlinkDocumentV2,
 } from "./routes/documents";
 import { getHealth } from "./routes/health";
 import { getCurrentPrincipalPolicy } from "./routes/principals";
@@ -239,6 +242,10 @@ export class ApiClient {
     return getDocumentV2WriterProjection(this.request, documentId);
   }
 
+  linkDocumentV2(documentId: string, input: DocumentV2LinkSetMutationRequest) {
+    return linkDocumentV2(this.request, documentId, input);
+  }
+
   listContainers() {
     return listContainers(this.request);
   }
@@ -271,6 +278,13 @@ export class ApiClient {
       containerId,
       expectedAccessStateHash,
     );
+  }
+
+  unlinkDocumentV2(
+    documentId: string,
+    input: DocumentV2LinkSetMutationRequest,
+  ) {
+    return unlinkDocumentV2(this.request, documentId, input);
   }
 
   syncDocumentV2(documentId: string, input: DocumentV2SyncRequest) {

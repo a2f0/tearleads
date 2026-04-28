@@ -7,6 +7,7 @@ import {
   isContainerV2WriterProjectionResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isDocumentV2CreateResponse,
+  isDocumentV2LinkSetMutationResponse,
   isDocumentV2SyncResponse,
   isDocumentV2WriterProjectionResponse,
   isHealthResponse,
@@ -536,6 +537,34 @@ test("isDocumentV2CreateResponse", () => {
     }),
   ).toBe(false);
   expect(isDocumentV2CreateResponse(null)).toBe(false);
+});
+
+test("isDocumentV2LinkSetMutationResponse", () => {
+  const validResponse = {
+    id: "550e8400-e29b-41d4-a716-446655440001",
+    accessManifest: createDocumentV2ManifestBundleResponse(),
+    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
+    documentKekTargets: createDocumentV2KekTargetsResponse(),
+  };
+
+  expect(isDocumentV2LinkSetMutationResponse(validResponse)).toBe(true);
+  expect(
+    isDocumentV2LinkSetMutationResponse({
+      ...validResponse,
+      accessManifest: createDocumentV2ManifestBundleResponse({
+        manifestHash: "",
+      }),
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2LinkSetMutationResponse({
+      ...validResponse,
+      contentKeyBundle: createDocumentV2ContentKeyBundleResponse({
+        targetHash: "",
+      }),
+    }),
+  ).toBe(false);
+  expect(isDocumentV2LinkSetMutationResponse(null)).toBe(false);
 });
 
 test("isDocumentV2SyncResponse", () => {

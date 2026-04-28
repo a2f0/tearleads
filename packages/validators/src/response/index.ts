@@ -49,10 +49,12 @@ export {
   type DocumentV2ContentKeyTargetEnvelopeResponse,
   type DocumentV2CreateResponse,
   type DocumentV2KekTargetsResponse,
+  type DocumentV2LinkSetMutationResponse,
   type DocumentV2ManifestBundleResponse,
   type DocumentV2SyncResponse,
   type DocumentV2WriterProjectionResponse,
   isDocumentV2CreateResponse,
+  isDocumentV2LinkSetMutationResponse,
   isDocumentV2SyncResponse,
   isDocumentV2WriterProjectionResponse,
 } from "./documentV2";
