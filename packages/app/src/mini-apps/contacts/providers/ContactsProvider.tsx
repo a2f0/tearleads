@@ -18,19 +18,13 @@ import { useAppData } from "../../../data/AppDataProvider";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
 import {
   createPendingUpdateFields,
-  decryptIncomingUpdates,
-  encryptPendingUpdates,
-  getLocalRecipientPublicKeys,
-  getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
-  maybeSeedRewrappedDocumentRecipientEnvelopes,
-  parseDocumentRecipientEnvelopes,
-  requiresBaselineAfterDocumentEpochChange,
-  resolveIncomingUpdateDecryptionBatches,
-  resolveRecipientPublicKeys,
-  resolveSyncedDocumentRecipientEnvelopes,
-  serializeDocumentRecipientEnvelopes,
 } from "../../../data/documentSync";
+import {
+  createRemoteDocumentV2,
+  type DocumentV2CreateAuthor,
+  syncRemoteDocumentV2,
+} from "../../../data/documents/documentV2Runtime";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -50,11 +44,20 @@ import type { AddressBookEntry } from "../types";
 
 type ContactsDocument = Awaited<ReturnType<typeof createDocument>>;
 type ContactsAppData = ReturnType<typeof useAppData>;
+type EncapsulationKeyPair = NonNullable<
+  ContactsRuntime["encapsulationKeyPair"]
+>;
+type ContactsRuntimeV2Api = Pick<
+  ContactsAppData["apiClient"],
+  | "createDocumentV2"
+  | "getContainerV2WriterProjection"
+  | "getDocumentV2WriterProjection"
+  | "syncDocumentV2"
+>;
 
 interface ContactState {
   doc: ContactsDocument;
   entry: AddressBookEntry;
-  recipientPublicKeys: Uint8Array[];
   record: DocumentRecord;
 }
 
@@ -71,11 +74,8 @@ interface ContactsSnapshot {
 }
 
 export interface ContactsRuntime {
-  apiClient: Pick<
-    ContactsAppData["apiClient"],
-    "createDocument" | "getEncapsulationKey" | "listContainers" | "syncDocument"
-  >;
-  cacheReferencedPrincipalPolicies: ContactsAppData["cacheReferencedPrincipalPolicies"];
+  apiClient: Pick<ContactsAppData["apiClient"], "getEncapsulationKey"> &
+    Partial<ContactsRuntimeV2Api>;
   containerId: ContactsAppData["containerId"];
   dbStatus: ContactsAppData["dbStatus"];
   domainScope: ContactsAppData["domainScope"];
@@ -85,6 +85,10 @@ export interface ContactsRuntime {
   isAuthenticated: ContactsAppData["isAuthenticated"];
   log: ContactsAppData["log"];
   online: ContactsAppData["online"];
+  organizationId?: ContactsAppData["organizationId"];
+  signingFingerprint?: ContactsAppData["signingFingerprint"];
+  signingKeyPair?: ContactsAppData["signingKeyPair"];
+  userId?: ContactsAppData["userId"];
 }
 
 interface ContactsStore {
@@ -221,6 +225,26 @@ async function createContactDocument() {
   return createDocument(getScopedPeerSeed("contacts"));
 }
 
+type NullableContactRuntimeField =
+  | "documentRecipientEnvelopes"
+  | "lastCommitLsn"
+  | "v2ContentKeyBundle"
+  | "v2DocumentKekTargets"
+  | "v2DocumentManifestBundle";
+
+function resolveNullableContactRuntimeField(
+  patch: Partial<DocumentRecord>,
+  key: NullableContactRuntimeField,
+  currentValue: string | null | undefined,
+  resetWhenUnpatched = false,
+): string | null {
+  if (Object.hasOwn(patch, key)) {
+    return patch[key] ?? null;
+  }
+
+  return resetWhenUnpatched ? null : (currentValue ?? null);
+}
+
 async function persistContact(
   state: ContactsStoreState,
   contact: ContactState,
@@ -228,27 +252,44 @@ async function persistContact(
 ): Promise<DocumentRecord> {
   const currentDocumentId = contact.record.documentId ?? null;
   const nextDocumentId = patch.documentId ?? currentDocumentId;
-  const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
-    patch,
-    "documentRecipientEnvelopes",
-  );
-  const hasLastCommitLsnPatch = Object.hasOwn(patch, "lastCommitLsn");
+  const documentIdChanged = nextDocumentId !== currentDocumentId;
   const nextRecord: DocumentRecord = {
     id: contact.entry.userId,
     documentId: nextDocumentId,
-    documentRecipientEnvelopes: hasDocumentRecipientEnvelopesPatch
-      ? (patch.documentRecipientEnvelopes ?? null)
-      : (contact.record.documentRecipientEnvelopes ?? null),
+    documentRecipientEnvelopes: resolveNullableContactRuntimeField(
+      patch,
+      "documentRecipientEnvelopes",
+      contact.record.documentRecipientEnvelopes,
+    ),
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(contact.doc)),
     accessEpoch: patch.accessEpoch ?? contact.record.accessEpoch ?? 1,
     accessStateHash:
       patch.accessStateHash ?? contact.record.accessStateHash ?? null,
-    lastCommitLsn: hasLastCommitLsnPatch
-      ? (patch.lastCommitLsn ?? null)
-      : nextDocumentId !== currentDocumentId
-        ? null
-        : (contact.record.lastCommitLsn ?? null),
+    lastCommitLsn: resolveNullableContactRuntimeField(
+      patch,
+      "lastCommitLsn",
+      contact.record.lastCommitLsn,
+      documentIdChanged,
+    ),
+    v2ContentKeyBundle: resolveNullableContactRuntimeField(
+      patch,
+      "v2ContentKeyBundle",
+      contact.record.v2ContentKeyBundle,
+      documentIdChanged,
+    ),
+    v2DocumentKekTargets: resolveNullableContactRuntimeField(
+      patch,
+      "v2DocumentKekTargets",
+      contact.record.v2DocumentKekTargets,
+      documentIdChanged,
+    ),
+    v2DocumentManifestBundle: resolveNullableContactRuntimeField(
+      patch,
+      "v2DocumentManifestBundle",
+      contact.record.v2DocumentManifestBundle,
+      documentIdChanged,
+    ),
   };
 
   await state.persistence.saveContact(
@@ -296,23 +337,6 @@ async function deletePendingUpdate(state: ContactsStoreState, id: string) {
   await state.persistence.deletePendingUpdate(state.runtime.execSql, id);
 }
 
-async function replacePendingUpdatesWithBaseline(
-  state: ContactsStoreState,
-  contact: ContactState,
-  sourceVersionVector?: string | null,
-) {
-  await state.persistence.deletePendingUpdates(
-    state.runtime.execSql,
-    contact.entry.userId,
-  );
-  await enqueuePendingUpdate(
-    state,
-    contact.entry.userId,
-    exportAllUpdates(contact.doc),
-    sourceVersionVector,
-  );
-}
-
 async function initializeStoredContact(
   state: ContactsStoreState,
   storedContact: Awaited<
@@ -341,6 +365,9 @@ async function initializeStoredContact(
       accessEpoch: 1,
       accessStateHash: null,
       lastCommitLsn: null,
+      v2ContentKeyBundle: null,
+      v2DocumentKekTargets: null,
+      v2DocumentManifestBundle: null,
     };
     await state.persistence.saveContact(
       state.runtime.execSql,
@@ -353,9 +380,6 @@ async function initializeStoredContact(
   state.contactsByUserId.set(entry.userId, {
     doc: nextDoc,
     entry,
-    recipientPublicKeys: getLocalRecipientPublicKeys(
-      state.runtime.encapsulationKeyPair,
-    ),
     record,
   });
 }
@@ -422,10 +446,55 @@ async function waitForContactsInitialization(
   }
 }
 
+function resolveContactsV2Author(
+  runtime: ContactsRuntime,
+): DocumentV2CreateAuthor | null {
+  if (
+    !runtime.organizationId ||
+    !runtime.signingFingerprint ||
+    !runtime.signingKeyPair ||
+    !runtime.userId
+  ) {
+    return null;
+  }
+
+  return {
+    organizationId: runtime.organizationId,
+    signerDeviceId: runtime.signingFingerprint,
+    signerKeyFingerprint: runtime.signingFingerprint,
+    signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
+    signerUserId: runtime.userId,
+  };
+}
+
+function resolveContactsV2Api(
+  runtime: ContactsRuntime,
+): ContactsRuntimeV2Api | null {
+  const { apiClient } = runtime;
+  if (
+    !apiClient.createDocumentV2 ||
+    !apiClient.getContainerV2WriterProjection ||
+    !apiClient.getDocumentV2WriterProjection ||
+    !apiClient.syncDocumentV2
+  ) {
+    return null;
+  }
+
+  return {
+    createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
+    getContainerV2WriterProjection:
+      apiClient.getContainerV2WriterProjection.bind(apiClient),
+    getDocumentV2WriterProjection:
+      apiClient.getDocumentV2WriterProjection.bind(apiClient),
+    syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
+  };
+}
+
 async function ensureContactDocumentForSync(
   state: ContactsStoreState,
   contact: ContactState,
   pendingUpdates: PendingUpdateRecord[],
+  encapsulationKeyPair: EncapsulationKeyPair,
 ) {
   let documentId = contact.record.documentId;
 
@@ -434,222 +503,74 @@ async function ensureContactDocumentForSync(
       return null;
     }
 
-    const listedContainers = await state.runtime.apiClient.listContainers();
-    if (!listedContainers) {
+    const author = resolveContactsV2Author(state.runtime);
+    const apiClient = resolveContactsV2Api(state.runtime);
+    if (!author || !apiClient) {
       state.runtime.log(
-        "Contacts: skipped remote create because container access state is unavailable.",
+        "Contacts: skipped V2 remote create because the V2 writer context is unavailable.",
       );
       return null;
     }
 
-    const expectedAccessStateHash = listedContainers.find(
-      (container) => container.id === state.runtime.containerId,
-    )?.metadataAccessStateHash;
-    if (
-      typeof expectedAccessStateHash !== "string" ||
-      expectedAccessStateHash.length === 0
-    ) {
-      state.runtime.log(
-        "Contacts: skipped remote create because the current container access state hash is unavailable.",
-      );
-      return null;
-    }
-
-    const created = await state.runtime.apiClient.createDocument(
-      [state.runtime.containerId],
-      {
-        [state.runtime.containerId]: expectedAccessStateHash,
-      },
-    );
+    const created = await createRemoteDocumentV2({
+      apiClient,
+      author,
+      containerId: state.runtime.containerId,
+      execSql: state.runtime.execSql,
+      targetSecretKey: encapsulationKeyPair.secretKey,
+    });
     if (!created) {
       return null;
     }
 
-    await state.runtime.cacheReferencedPrincipalPolicies(
-      created.referencedPrincipals,
-    );
-
-    contact.recipientPublicKeys = resolveRecipientPublicKeys(
-      created.recipientEncapsulationPublicKeys,
-    );
-    documentId = created.id;
+    documentId = created.documentId;
     await persistContact(state, contact, {
+      ...created.persistedState,
       documentId,
-      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-        created.documentRecipientEnvelopes,
-      ),
-      accessEpoch: created.currentAccessEpoch,
-      accessStateHash: created.currentAccessStateHash,
+      documentRecipientEnvelopes: null,
     });
     state.runtime.log(
-      `Created contact document: ${created.id} (${contact.entry.userId})`,
+      `Created contact document: ${created.documentId} (${contact.entry.userId})`,
     );
   }
 
   return documentId;
 }
 
-async function buildContactOutgoingSync(
-  contact: ContactState,
-  execSql: ContactsRuntime["execSql"],
-  pendingUpdates: PendingUpdateRecord[],
-  secretKey: Uint8Array,
-) {
-  const currentDocumentRecipientEnvelopes = parseDocumentRecipientEnvelopes(
-    contact.record.documentRecipientEnvelopes,
-  );
-  const encryptionMaterial =
-    pendingUpdates.length > 0
-      ? await getOrCreateDocumentEncryptionMaterial({
-          documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-          execSql,
-          recipientPublicKeys: contact.recipientPublicKeys,
-          secretKey,
-        })
-      : null;
-  const outgoingUpdates = encryptionMaterial
-    ? await encryptPendingUpdates(
-        pendingUpdates,
-        contact.record.accessEpoch,
-        encryptionMaterial.documentKey,
-      )
-    : [];
-
-  return {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdates,
-  };
-}
-
-async function importSyncedContactUpdateBatch(input: {
-  contact: ContactState;
-  decryptionBatch: ReturnType<
-    typeof resolveIncomingUpdateDecryptionBatches
-  >[number];
-  secretKey: Uint8Array;
-  state: ContactsStoreState;
-}) {
-  const { contact, decryptionBatch, secretKey, state } = input;
-  const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-    documentRecipientEnvelopes: decryptionBatch.documentRecipientEnvelopes,
-    execSql: state.runtime.execSql,
-    recipientPublicKeys: contact.recipientPublicKeys,
-    secretKey,
-  });
-  const decrypted = await decryptIncomingUpdates(
-    decryptionBatch.updates,
-    decryptionBatch.accessEpoch,
-    documentKey,
-    (message) =>
-      state.runtime.log(`Contacts (${contact.entry.userId}): ${message}`),
-  );
-  if (decrypted.length === 0) {
-    return;
-  }
-
-  importUpdates(contact.doc, decrypted);
-  const updatedEntry = getEntryValue(
-    contact.entry.userId,
-    contact.doc,
-    contact.entry.isSelf,
-  );
-  if (updatedEntry) {
-    contact.entry = updatedEntry;
-  }
-}
-
 async function applySyncedContactUpdates(
   state: ContactsStoreState,
   contact: ContactState,
-  documentId: string,
-  synced: NonNullable<
-    Awaited<ReturnType<ContactsRuntime["apiClient"]["syncDocument"]>>
-  >,
-  currentDocumentRecipientEnvelopes: ReturnType<
-    typeof parseDocumentRecipientEnvelopes
-  >,
-  encryptionMaterial: Awaited<
-    ReturnType<typeof getOrCreateDocumentEncryptionMaterial>
-  > | null,
+  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocumentV2>>>,
   outgoingUpdateCount: number,
-  secretKey: Uint8Array,
 ) {
-  contact.recipientPublicKeys = resolveRecipientPublicKeys(
-    synced.recipientEncapsulationPublicKeys,
-  );
-
-  for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
+  for (const acceptedOutgoingUpdateId of synced.response
+    .acceptedOutgoingUpdateIds) {
     await deletePendingUpdate(state, acceptedOutgoingUpdateId);
   }
 
-  const previousAccessEpoch = contact.record.accessEpoch;
-  const nextDocumentRecipientEnvelopes =
-    resolveSyncedDocumentRecipientEnvelopes({
-      currentAccessEpoch: previousAccessEpoch,
-      currentDocumentRecipientEnvelopes,
-      generatedDocumentRecipientEnvelopes:
-        encryptionMaterial?.documentRecipientEnvelopes ?? null,
-      synced,
-    });
-
-  if (synced.updates.length > 0) {
-    const decryptionBatches = resolveIncomingUpdateDecryptionBatches({
-      currentDocumentRecipientEnvelopes,
-      nextDocumentRecipientEnvelopes,
-      previousAccessEpoch,
-      synced,
-    });
-
-    if (decryptionBatches.length === 0) {
-      state.runtime.log(
-        `Contacts (${contact.entry.userId}): skipped incoming updates because the current document key bundle is missing.`,
-      );
-    } else {
-      for (const decryptionBatch of decryptionBatches) {
-        await importSyncedContactUpdateBatch({
-          contact,
-          decryptionBatch,
-          secretKey,
-          state,
-        });
-      }
+  if (synced.decryptedUpdates.length > 0) {
+    importUpdates(
+      contact.doc,
+      synced.decryptedUpdates.map((update) => update.updateData),
+    );
+    const updatedEntry = getEntryValue(
+      contact.entry.userId,
+      contact.doc,
+      contact.entry.isSelf,
+    );
+    if (updatedEntry) {
+      contact.entry = updatedEntry;
     }
   }
 
   await persistContact(state, contact, {
-    documentId,
-    accessEpoch: synced.currentAccessEpoch,
-    accessStateHash: synced.currentAccessStateHash,
-    documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-      nextDocumentRecipientEnvelopes,
-    ),
-    lastCommitLsn: synced.commitLsn ?? contact.record.lastCommitLsn ?? null,
+    ...synced.persistedState,
+    documentRecipientEnvelopes: null,
+    lastCommitLsn:
+      synced.response.commitLsn ?? contact.record.lastCommitLsn ?? null,
   });
 
-  if (synced.currentAccessEpoch !== previousAccessEpoch) {
-    if (
-      requiresBaselineAfterDocumentEpochChange({
-        previousAccessEpoch,
-        resolvedDocumentRecipientEnvelopes: nextDocumentRecipientEnvelopes,
-        synced,
-      })
-    ) {
-      await replacePendingUpdatesWithBaseline(
-        state,
-        contact,
-        synced.documentRecipientEnvelopeAction === "rotate"
-          ? synced.rotateBaselineSourceVersionVector
-          : null,
-      );
-    }
-    requestContactsSync(state);
-  }
-
-  if (
-    synced.canonicalDocumentRecipientEnvelopesAdopted ||
-    outgoingUpdateCount > synced.acceptedOutgoingUpdateIds.length
-  ) {
+  if (outgoingUpdateCount > synced.response.acceptedOutgoingUpdateIds.length) {
     requestContactsSync(state);
   }
 }
@@ -658,71 +579,48 @@ async function syncSingleContact(
   state: ContactsStoreState,
   contact: ContactState,
   userId: string,
-  secretKey: Uint8Array,
+  encapsulationKeyPair: EncapsulationKeyPair,
 ) {
   const pendingUpdates = await listPendingUpdates(state, userId);
   const documentId = await ensureContactDocumentForSync(
     state,
     contact,
     pendingUpdates,
+    encapsulationKeyPair,
   );
 
   if (!documentId) {
     return;
   }
 
-  const {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdates,
-  } = await buildContactOutgoingSync(
-    contact,
-    state.runtime.execSql,
-    pendingUpdates,
-    secretKey,
-  );
-  let synced = await state.runtime.apiClient.syncDocument(
-    documentId,
-    contact.record.accessEpoch,
-    encodeVersionVector(contact.doc),
-    outgoingUpdates,
-    encryptionMaterial && currentDocumentRecipientEnvelopes === null
-      ? encryptionMaterial.documentRecipientEnvelopes
-      : undefined,
-    contact.record.lastCommitLsn ?? undefined,
-    contact.record.accessStateHash ?? undefined,
-  );
-
-  if (!synced) {
+  const author = resolveContactsV2Author(state.runtime);
+  const apiClient = resolveContactsV2Api(state.runtime);
+  if (!author || !apiClient) {
+    state.runtime.log(
+      "Contacts: skipped V2 sync because the V2 writer context is unavailable.",
+    );
     return;
   }
 
-  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
-    currentAccessEpoch: contact.record.accessEpoch,
-    currentDocumentRecipientEnvelopes,
+  const synced = await syncRemoteDocumentV2({
+    apiClient,
+    author,
     documentId,
     execSql: state.runtime.execSql,
     localVersionVector: encodeVersionVector(contact.doc),
     minLsn: contact.record.lastCommitLsn ?? undefined,
-    recipientPublicKeys: contact.recipientPublicKeys,
-    secretKey,
-    syncDocument: state.runtime.apiClient.syncDocument,
-    synced,
+    pendingUpdates,
+    targetSecretKey: encapsulationKeyPair.secretKey,
   });
-
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    synced.referencedPrincipals,
-  );
+  if (!synced) {
+    return;
+  }
 
   await applySyncedContactUpdates(
     state,
     contact,
-    documentId,
     synced,
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdates.length,
-    secretKey,
+    pendingUpdates.length,
   );
 }
 
@@ -747,12 +645,7 @@ async function runContactsSyncIteration(state: ContactsStoreState) {
       continue;
     }
 
-    await syncSingleContact(
-      state,
-      contact,
-      userId,
-      encapsulationKeyPair.secretKey,
-    );
+    await syncSingleContact(state, contact, userId, encapsulationKeyPair);
   }
 }
 
@@ -811,9 +704,6 @@ async function importContactEntry(
     const nextContact: ContactState = {
       doc: nextDoc,
       entry,
-      recipientPublicKeys: getLocalRecipientPublicKeys(
-        state.runtime.encapsulationKeyPair,
-      ),
       record: {
         id: entry.userId,
         documentId: null,
@@ -822,6 +712,9 @@ async function importContactEntry(
         accessEpoch: 1,
         accessStateHash: null,
         lastCommitLsn: null,
+        v2ContentKeyBundle: null,
+        v2DocumentKekTargets: null,
+        v2DocumentManifestBundle: null,
       },
     };
 
@@ -917,14 +810,6 @@ function updateContactsStoreRuntime(
 ) {
   const previousRuntime = state.runtime;
   state.runtime = nextRuntime;
-
-  for (const contact of state.contactsByUserId.values()) {
-    if (!contact.record.documentId) {
-      contact.recipientPublicKeys = getLocalRecipientPublicKeys(
-        state.runtime.encapsulationKeyPair,
-      );
-    }
-  }
 
   if (nextRuntime.dbStatus !== "ready") {
     if (state.snapshot.ready || state.initialized || state.initializePromise) {

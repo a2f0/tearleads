@@ -1,7 +1,24 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  type AccessEventV2,
+  computeAccessEventHash,
+  computeWriteHeaderHash,
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+  type WriteHeaderV2,
+  wrapDekForRecipients,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { SyncDocumentResponse } from "@tearleads/loro";
+import type {
+  DocumentV2CreateRequest,
+  DocumentV2SyncRequest,
+} from "@tearleads/validators/request";
+import type {
+  ContainerV2WriterProjectionResponse,
+  DocumentV2CreateResponse,
+  DocumentV2SyncResponse,
+} from "@tearleads/validators/response";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import type {
   DocumentRecord,
@@ -22,55 +39,256 @@ interface StoredContactState {
   record: DocumentRecord | null;
 }
 
-function createSyncDocumentResponse(input: {
-  accessEpoch: number;
-  commitLsn?: string | null;
-  currentAccessStateHash?: string;
-  documentId: string;
-  recipientEncapsulationPublicKeys: string[];
-  acceptedOutgoingUpdateIds?: string[];
-  canonicalDocumentRecipientEnvelopesAdopted?: boolean;
-  documentRecipientEnvelopeAction?: SyncDocumentResponse["documentRecipientEnvelopeAction"];
-  documentRecipientEnvelopes?: SyncDocumentResponse["documentRecipientEnvelopes"];
-  missingUpdateEpochs?: SyncDocumentResponse["missingUpdateEpochs"];
-  rotateBaselineSourceVersionVector?: string | null;
-  updates?: SyncDocumentResponse["updates"];
-}): SyncDocumentResponse {
+async function contactV2FixtureHash(label: string): Promise<string> {
+  return toFingerprint(new TextEncoder().encode(`contacts-v2:${label}`));
+}
+
+async function createContactV2ContainerProjection(input: {
+  containerId: string;
+  encapsulationPublicKey: Uint8Array;
+  userId: string;
+}): Promise<ContainerV2WriterProjectionResponse> {
+  const manifestHash = await contactV2FixtureHash(
+    `${input.containerId}:manifest`,
+  );
+  const eventHash = await contactV2FixtureHash(`${input.containerId}:event`);
+  const keyEpochHash = await contactV2FixtureHash(
+    `${input.containerId}:key-epoch`,
+  );
+  const keyTargetHash = await contactV2FixtureHash(
+    `${input.containerId}:key-target`,
+  );
+  const containerKeyEpochId = `${input.containerId}-key-epoch-1`;
+  const containerKek = crypto.getRandomValues(new Uint8Array(32));
+  const [recipient] = await wrapDekForRecipients(containerKek, [
+    input.encapsulationPublicKey,
+  ]);
+  if (!recipient) {
+    throw new Error("Expected V2 contact fixture recipient wrap.");
+  }
+
   return {
-    acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
-    canonicalDocumentRecipientEnvelopesAdopted:
-      input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
-    commitLsn: input.commitLsn ?? null,
-    currentAccessEpoch: input.accessEpoch,
-    currentAccessStateHash:
-      input.currentAccessStateHash ?? `access-state-hash-${input.accessEpoch}`,
-    documentId: input.documentId,
-    documentRecipientEnvelopeAction:
-      input.documentRecipientEnvelopeAction ?? "none",
-    documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
-    missingUpdateEpochs: input.missingUpdateEpochs ?? [],
-    rotateBaselineSourceVersionVector:
-      input.rotateBaselineSourceVersionVector ?? null,
-    recipientEncapsulationPublicKeys: input.recipientEncapsulationPublicKeys,
-    updates: input.updates ?? [],
+    containerId: input.containerId,
+    organizationId: "organization-1",
+    path: [
+      {
+        event: { event: {}, body: {}, eventHash },
+        manifest: {},
+        manifestHash,
+        state: {
+          containerId: input.containerId,
+          organizationId: "organization-1",
+        },
+      },
+    ],
+    containerKeks: [
+      {
+        containerId: input.containerId,
+        accessManifestHash: manifestHash,
+        containerKeyEpochId,
+        containerKeyEpoch: 1,
+        keyEpoch: {
+          id: containerKeyEpochId,
+          containerId: input.containerId,
+          keyEpoch: 1,
+          accessManifestHash: manifestHash,
+          parentContainerKeyEpochId: null,
+          createdByEventHash: eventHash,
+          createdByManifestHash: manifestHash,
+        },
+        keyEpochHash,
+        keyTargetHash,
+        parentContainerKeyEpochId: null,
+        recipientTargets: [{}],
+        wraps: [
+          {
+            containerKeyEpochId,
+            recipientKind: "user",
+            recipientId: input.userId,
+            recipientKeyEpochId: `user:${input.userId}:epoch-1`,
+            recipientKeyFingerprint: recipient.keyFingerprint,
+            kemCipherText: bytesToBase64(recipient.kemCipherText),
+            wrappedKey: bytesToBase64(recipient.wrappedKey),
+            wrapManifestHash: manifestHash,
+          },
+        ],
+      },
+    ],
   };
 }
 
-function createListedContainers(
-  containerId: string,
-  metadataAccessStateHash = `${containerId}-access-state-hash-1`,
-) {
-  return [
-    {
-      id: containerId,
-      metadataAccessEpoch: 1,
-      metadataAccessStateHash,
-      metadataDocumentId: `metadata-${containerId}`,
-      metadataRecipientEncapsulationPublicKeys: [],
-      organizationId: "org-1",
-      parentId: null,
+async function createContactV2CreateResponse(
+  request: DocumentV2CreateRequest,
+): Promise<DocumentV2CreateResponse> {
+  const manifest = request.manifest as Record<string, unknown>;
+  const body = request.body as Record<string, unknown>;
+  const documentId = String(Reflect.get(manifest, "objectId"));
+  const eventHash = await computeAccessEventHash(
+    request.event as unknown as AccessEventV2,
+  );
+  const linkedContainerId = String(Reflect.get(body, "containerId"));
+  const targets = request.contentKeyBundle.targets.map((target) => ({
+    containerId: target.containerId,
+    containerManifestHash: target.containerManifestHash,
+    containerKeyEpochId: target.containerKeyEpochId,
+    containerKeyEpoch: target.containerKeyEpoch,
+  }));
+
+  return {
+    id: documentId,
+    createdAt: "2026-04-27T00:00:00.000Z",
+    accessManifest: {
+      event: { event: request.event, body, eventHash },
+      manifest,
+      manifestHash: request.expectedManifestHash,
+      state: {
+        version: 2,
+        documentId,
+        organizationId: String(Reflect.get(manifest, "organizationId")),
+        epoch: Number(Reflect.get(manifest, "epoch")),
+        previousManifestHash: Reflect.get(manifest, "previousManifestHash"),
+        eventHash,
+        linkedContainerIds: [linkedContainerId],
+      },
     },
-  ];
+    contentKeyBundle: {
+      documentId,
+      contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
+      linkSetManifestHash: request.contentKeyBundle.linkSetManifestHash,
+      targetHash: request.contentKeyBundle.targetHash,
+      targets: request.contentKeyBundle.targets,
+    },
+    documentKekTargets: {
+      documentId,
+      linkSetManifestHash: request.expectedManifestHash,
+      linkedContainerManifestHashes: targets.map(
+        (target) => target.containerManifestHash,
+      ),
+      linkedContainerKeyEpochIds: targets.map(
+        (target) => target.containerKeyEpochId,
+      ),
+      targets,
+      documentKeyTargetHash: request.contentKeyBundle.targetHash,
+    },
+  };
+}
+
+async function createContactV2SyncResponse(input: {
+  request: DocumentV2SyncRequest;
+  storedDocument: DocumentV2CreateResponse;
+  commitLsn: string;
+}): Promise<DocumentV2SyncResponse> {
+  const updates = await Promise.all(
+    input.request.outgoingUpdates.map(async (update) => {
+      const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
+      return {
+        accessEpoch: 1,
+        id: update.id,
+        documentId: input.storedDocument.id,
+        authorFingerprint: writeHeader.writerKeyFingerprint,
+        encryptedData: update.encryptedData,
+        partialStartVersionVector: update.partialStartVersionVector,
+        partialEndVersionVector: update.partialEndVersionVector,
+        createdAt: "2026-04-27T00:00:00.000Z",
+        writeHeader: update.writeHeader,
+        writeHeaderHash: await computeWriteHeaderHash(writeHeader),
+      };
+    }),
+  );
+
+  return {
+    acceptedOutgoingUpdateIds: input.request.outgoingUpdates.map(
+      (update) => update.id,
+    ),
+    commitLsn: input.commitLsn,
+    contentKeyBundle: input.storedDocument.contentKeyBundle,
+    documentId: input.storedDocument.id,
+    documentKekTargets: input.storedDocument.documentKekTargets,
+    missingUpdateEpochs: updates.length === 0 ? [] : ["current_epoch"],
+    updates,
+  };
+}
+
+interface ContactV2RuntimePatch {
+  apiClient: ContactsRuntime["apiClient"];
+  organizationId: string;
+  signingFingerprint: string;
+  signingKeyPair: NonNullable<ContactsRuntime["signingKeyPair"]>;
+  userId: string;
+}
+
+function createContactV2RuntimePatch(input: {
+  containerId?: string;
+  createCalls?: Array<{ linkedContainerIds: string[] }>;
+  encapsulationKeyPair: NonNullable<ContactsRuntime["encapsulationKeyPair"]>;
+  syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
+}): ContactV2RuntimePatch {
+  const containerId = input.containerId ?? "root-container";
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  let projectionPromise: Promise<ContainerV2WriterProjectionResponse> | null =
+    null;
+  let storedDocument: DocumentV2CreateResponse | null = null;
+  let syncCount = 0;
+  const getProjection = () => {
+    projectionPromise ??= createContactV2ContainerProjection({
+      containerId,
+      encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+      userId: "user-1",
+    });
+    return projectionPromise;
+  };
+
+  return {
+    apiClient: {
+      getEncapsulationKey: async (userId: string) => ({
+        encapsulationPublicKey: `${userId}-key`,
+        signingKeyFingerprint: `${userId}-signing-fingerprint`,
+        signingPublicKey: `${userId}-signing-key`,
+        userId,
+      }),
+      createDocumentV2: async (request) => {
+        input.createCalls?.push({
+          linkedContainerIds: request.contentKeyBundle.targets.map(
+            (target) => target.containerId,
+          ),
+        });
+        storedDocument = await createContactV2CreateResponse(request);
+        return storedDocument;
+      },
+      getContainerV2WriterProjection: () => getProjection(),
+      getDocumentV2WriterProjection: async () => {
+        if (!storedDocument) {
+          return null;
+        }
+        return {
+          authorizingContainerPaths: [await getProjection()],
+          contentKeyBundle: storedDocument.contentKeyBundle,
+          documentId: storedDocument.id,
+          documentKekTargets: storedDocument.documentKekTargets,
+          documentManifest: storedDocument.accessManifest,
+        };
+      },
+      syncDocumentV2: async (_documentId, request) => {
+        if (!storedDocument) {
+          return null;
+        }
+        input.syncCalls?.push({
+          minLsn: request.minLsn ?? null,
+          outgoingUpdateCount: request.outgoingUpdates.length,
+        });
+        syncCount += 1;
+        return createContactV2SyncResponse({
+          request,
+          storedDocument,
+          commitLsn: syncCount === 1 ? "0/10" : "0/20",
+        });
+      },
+    },
+    organizationId: "organization-1",
+    signingFingerprint: "a".repeat(64),
+    signingKeyPair,
+    userId: "user-1",
+  };
 }
 
 function sortContacts(
@@ -130,7 +348,7 @@ function createContactsPersistence(): ContactsPersistence & {
       pendingUpdate: ContactPendingUpdateInsert,
     ) {
       const nextPendingUpdate: PendingUpdateRecord = {
-        id: `pending-${pendingUpdate.userId}-${(pendingUpdatesByUserId.get(pendingUpdate.userId) ?? []).length + 1}`,
+        id: crypto.randomUUID(),
         partialEndVersionVector: pendingUpdate.partialEndVersionVector,
         partialStartVersionVector: pendingUpdate.partialStartVersionVector,
         sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
@@ -179,11 +397,7 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
           userId,
         };
       },
-      createDocument: async (_linkedContainerIds, _expectedHashes) => null,
-      listContainers: async () => createListedContainers("root-container"),
-      syncDocument: async () => null,
     },
-    cacheReferencedPrincipalPolicies: async () => {},
     containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},
@@ -198,44 +412,18 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
 
 function createSyncRuntime(
   encapsulationKeyPair: NonNullable<ContactsRuntime["encapsulationKeyPair"]>,
+  options: {
+    createCalls?: Array<{ linkedContainerIds: string[] }>;
+    syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
+  } = {},
 ): ContactsRuntime {
+  const v2Patch = createContactV2RuntimePatch({
+    encapsulationKeyPair,
+    ...(options.createCalls ? { createCalls: options.createCalls } : {}),
+    ...(options.syncCalls ? { syncCalls: options.syncCalls } : {}),
+  });
   return {
-    apiClient: {
-      getEncapsulationKey: async (userId: string) => ({
-        encapsulationPublicKey: `${userId}-key`,
-        signingKeyFingerprint: `${userId}-signing-fingerprint`,
-        signingPublicKey: `${userId}-signing-key`,
-        userId,
-      }),
-      createDocument: async (_linkedContainerIds, _expectedHashes) => ({
-        id: "contacts-document-1",
-        createdAt: "2026-03-31T00:00:00.000Z",
-        currentAccessEpoch: 1,
-        currentAccessStateHash: "contacts-access-state-hash-1",
-        documentRecipientEnvelopes: null,
-        recipientEncapsulationPublicKeys: [
-          bytesToBase64(encapsulationKeyPair.publicKey),
-        ],
-      }),
-      listContainers: async () => createListedContainers("root-container"),
-      syncDocument: async (
-        documentId,
-        accessEpoch,
-        _localVersionVector,
-        outgoingUpdates,
-        documentRecipientEnvelopes,
-      ) =>
-        createSyncDocumentResponse({
-          acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
-          accessEpoch,
-          documentId,
-          documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
-          recipientEncapsulationPublicKeys: [
-            bytesToBase64(encapsulationKeyPair.publicKey),
-          ],
-        }),
-    },
-    cacheReferencedPrincipalPolicies: async () => {},
+    apiClient: v2Patch.apiClient,
     containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},
@@ -245,6 +433,10 @@ function createSyncRuntime(
     isAuthenticated: true,
     log: () => {},
     online: true,
+    organizationId: v2Patch.organizationId,
+    signingFingerprint: v2Patch.signingFingerprint,
+    signingKeyPair: v2Patch.signingKeyPair,
+    userId: v2Patch.userId,
   };
 }
 
@@ -319,93 +511,21 @@ test("contacts store reloads persisted address book entries", async () => {
   });
 });
 
-test("contacts store creates and syncs a contact document", async () => {
+test("contacts store creates and syncs a contact document through V2", async () => {
   const persistence = createContactsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const cachedPrincipalReferences: Array<
-    ReadonlyArray<{
-      keyEpoch: number;
-      principalId: string;
-      principalType: "group" | "organization";
-      stateHash: string;
-      version: number;
-    }>
-  > = [];
-  const createDocumentCalls: Array<{
-    expectedLinkedContainerAccessStateHashes: Record<string, string>;
-    linkedContainerIds: string[];
-  }> = [];
-  const syncDocumentCalls: Array<{
-    accessEpoch: number;
-    documentId: string;
-    documentRecipientEnvelopeCount: number;
+  const createCalls: Array<{ linkedContainerIds: string[] }> = [];
+  const syncCalls: Array<{
+    minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
+  const runtime = createSyncRuntime(encapsulationKeyPair, {
+    createCalls,
+    syncCalls,
+  });
+  const store = createContactsStore(runtime, persistence);
 
-  const runtime = createSyncRuntime(encapsulationKeyPair);
-  const instrumentedRuntime: ContactsRuntime = {
-    ...runtime,
-    cacheReferencedPrincipalPolicies: async (references) => {
-      cachedPrincipalReferences.push(references ?? []);
-    },
-    apiClient: {
-      ...runtime.apiClient,
-      createDocument: async (
-        linkedContainerIds,
-        expectedLinkedContainerAccessStateHashes,
-      ) => {
-        createDocumentCalls.push({
-          expectedLinkedContainerAccessStateHashes,
-          linkedContainerIds,
-        });
-        const created = await runtime.apiClient.createDocument(
-          linkedContainerIds,
-          expectedLinkedContainerAccessStateHashes,
-        );
-        if (!created) {
-          return null;
-        }
-
-        return {
-          ...created,
-          referencedPrincipals: [
-            {
-              keyEpoch: 1,
-              principalId: "group-1",
-              principalType: "group",
-              stateHash: "state-hash-1",
-              version: 1,
-            },
-          ],
-        };
-      },
-      syncDocument: async (
-        documentId,
-        accessEpoch,
-        localVersionVector,
-        outgoingUpdates,
-        documentRecipientEnvelopes,
-      ) => {
-        syncDocumentCalls.push({
-          accessEpoch,
-          documentId,
-          documentRecipientEnvelopeCount:
-            documentRecipientEnvelopes?.length ?? 0,
-          outgoingUpdateCount: outgoingUpdates.length,
-        });
-        return runtime.apiClient.syncDocument(
-          documentId,
-          accessEpoch,
-          localVersionVector,
-          outgoingUpdates,
-          documentRecipientEnvelopes,
-        );
-      },
-    },
-  };
-  const store = createContactsStore(instrumentedRuntime, persistence);
-
-  store.updateRuntime(instrumentedRuntime);
+  store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
@@ -416,119 +536,46 @@ test("contacts store creates and syncs a contact document", async () => {
 
   await waitForCondition(
     () =>
-      createDocumentCalls.length === 1 &&
-      syncDocumentCalls.length === 1 &&
+      createCalls.length === 1 &&
+      syncCalls.length === 1 &&
       persistence.getPendingUpdates("peer-user-1").length === 0 &&
-      persistence.getContact("peer-user-1")?.record?.documentId ===
-        "contacts-document-1",
-    "Contact document was not synced.",
+      typeof persistence.getContact("peer-user-1")?.record?.documentId ===
+        "string",
+    "Contact document was not synced through V2.",
   );
 
-  expect(syncDocumentCalls).toEqual([
-    {
-      accessEpoch: 1,
-      documentId: "contacts-document-1",
-      documentRecipientEnvelopeCount: 1,
-      outgoingUpdateCount: 1,
-    },
-  ]);
-  expect(createDocumentCalls).toEqual([
-    {
-      expectedLinkedContainerAccessStateHashes: {
-        "root-container": "root-container-access-state-hash-1",
-      },
-      linkedContainerIds: ["root-container"],
-    },
-  ]);
-  expect(cachedPrincipalReferences).toContainEqual([
-    {
-      keyEpoch: 1,
-      principalId: "group-1",
-      principalType: "group",
-      stateHash: "state-hash-1",
-      version: 1,
-    },
-  ]);
+  const record = persistence.getContact("peer-user-1")?.record;
+  expect(createCalls).toEqual([{ linkedContainerIds: ["root-container"] }]);
+  expect(syncCalls).toEqual([{ minLsn: null, outgoingUpdateCount: 1 }]);
+  expect(record?.documentRecipientEnvelopes).toBeNull();
+  expect(record?.v2ContentKeyBundle).toBeString();
+  expect(record?.v2DocumentKekTargets).toBeString();
+  expect(record?.v2DocumentManifestBundle).toBeString();
 });
 
-test("contacts store rewraps document access expansion without replacing pending updates with a baseline", async () => {
+test("contacts store keeps contact updates on V2 without recipient fanout", async () => {
   const persistence = createContactsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const createDocumentCalls: Array<{
-    expectedLinkedContainerAccessStateHashes: Record<string, string>;
-    linkedContainerIds: string[];
-  }> = [];
-  const syncDocumentCalls: Array<{
-    accessEpoch: number;
-    documentId: string;
-    documentRecipientEnvelopeCount: number;
-    outgoingUpdateIds: string[];
+  const createCalls: Array<{ linkedContainerIds: string[] }> = [];
+  const syncCalls: Array<{
+    minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
   let importedEncapsulationPublicKey = "peer-user-1-key";
-  let syncCallCount = 0;
-
-  const runtime = createSyncRuntime(encapsulationKeyPair);
+  const runtime = createSyncRuntime(encapsulationKeyPair, {
+    createCalls,
+    syncCalls,
+  });
   const instrumentedRuntime: ContactsRuntime = {
     ...runtime,
     apiClient: {
       ...runtime.apiClient,
-      createDocument: async (
-        linkedContainerIds,
-        expectedLinkedContainerAccessStateHashes,
-      ) => {
-        createDocumentCalls.push({
-          expectedLinkedContainerAccessStateHashes,
-          linkedContainerIds,
-        });
-        return runtime.apiClient.createDocument(
-          linkedContainerIds,
-          expectedLinkedContainerAccessStateHashes,
-        );
-      },
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: importedEncapsulationPublicKey,
         signingKeyFingerprint: `${userId}-signing-fingerprint`,
         signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
-      syncDocument: async (
-        documentId,
-        accessEpoch,
-        localVersionVector,
-        outgoingUpdates,
-        documentRecipientEnvelopes,
-      ) => {
-        syncCallCount += 1;
-        syncDocumentCalls.push({
-          accessEpoch,
-          documentId,
-          documentRecipientEnvelopeCount:
-            documentRecipientEnvelopes?.length ?? 0,
-          outgoingUpdateIds: outgoingUpdates.map((update) => update.id),
-          outgoingUpdateCount: outgoingUpdates.length,
-        });
-
-        if (syncCallCount === 2) {
-          return createSyncDocumentResponse({
-            acceptedOutgoingUpdateIds: [],
-            accessEpoch: 2,
-            documentId,
-            documentRecipientEnvelopeAction: "rewrap",
-            recipientEncapsulationPublicKeys: [
-              bytesToBase64(encapsulationKeyPair.publicKey),
-            ],
-          });
-        }
-
-        return runtime.apiClient.syncDocument(
-          documentId,
-          accessEpoch,
-          localVersionVector,
-          outgoingUpdates,
-          documentRecipientEnvelopes,
-        );
-      },
     },
   };
   const store = createContactsStore(instrumentedRuntime, persistence);
@@ -541,15 +588,12 @@ test("contacts store rewraps document access expansion without replacing pending
   );
 
   await store.importKey("peer-user-1");
-
   await waitForCondition(
     () =>
-      createDocumentCalls.length === 1 &&
-      syncDocumentCalls.length === 1 &&
-      persistence.getPendingUpdates("peer-user-1").length === 0 &&
-      persistence.getContact("peer-user-1")?.record?.documentId ===
-        "contacts-document-1",
-    "Initial contact document sync did not complete.",
+      createCalls.length === 1 &&
+      syncCalls.length === 1 &&
+      persistence.getPendingUpdates("peer-user-1").length === 0,
+    "Initial contact V2 sync did not complete.",
   );
 
   importedEncapsulationPublicKey = "peer-user-1-key-2";
@@ -557,70 +601,31 @@ test("contacts store rewraps document access expansion without replacing pending
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 4 &&
-      persistence.getPendingUpdates("peer-user-1").length === 0 &&
-      persistence.getContact("peer-user-1")?.record?.accessEpoch === 2,
-    "Expanded access epoch did not rewrap and retry the pending contact update.",
+      createCalls.length === 1 &&
+      syncCalls.length === 2 &&
+      persistence.getPendingUpdates("peer-user-1").length === 0,
+    "Follow-up contact V2 sync did not complete.",
   );
 
-  expect(createDocumentCalls).toEqual([
-    {
-      expectedLinkedContainerAccessStateHashes: {
-        "root-container": "root-container-access-state-hash-1",
-      },
-      linkedContainerIds: ["root-container"],
-    },
+  expect(syncCalls).toEqual([
+    { minLsn: null, outgoingUpdateCount: 1 },
+    { minLsn: "0/10", outgoingUpdateCount: 1 },
   ]);
-  expect(
-    syncDocumentCalls.map((call) => ({
-      accessEpoch: call.accessEpoch,
-      documentId: call.documentId,
-      documentRecipientEnvelopeCount: call.documentRecipientEnvelopeCount,
-      outgoingUpdateCount: call.outgoingUpdateCount,
-    })),
-  ).toEqual([
-    {
-      accessEpoch: 1,
-      documentId: "contacts-document-1",
-      documentRecipientEnvelopeCount: 1,
-      outgoingUpdateCount: 1,
-    },
-    {
-      accessEpoch: 1,
-      documentId: "contacts-document-1",
-      documentRecipientEnvelopeCount: 0,
-      outgoingUpdateCount: 1,
-    },
-    {
-      accessEpoch: 2,
-      documentId: "contacts-document-1",
-      documentRecipientEnvelopeCount: 1,
-      outgoingUpdateCount: 0,
-    },
-    {
-      accessEpoch: 2,
-      documentId: "contacts-document-1",
-      documentRecipientEnvelopeCount: 0,
-      outgoingUpdateCount: 1,
-    },
-  ]);
-  expect(syncDocumentCalls[1]?.outgoingUpdateIds).toHaveLength(1);
-  expect(syncDocumentCalls[3]?.outgoingUpdateIds).toEqual(
-    syncDocumentCalls[1]?.outgoingUpdateIds,
-  );
+  expect(persistence.getContact("peer-user-1")?.record).toMatchObject({
+    documentRecipientEnvelopes: null,
+    lastCommitLsn: "0/20",
+  });
 });
 
 test("contacts store persists commitLsn and reuses it as minLsn on the next sync", async () => {
   const persistence = createContactsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const syncDocumentCalls: Array<{
+  const syncCalls: Array<{
     minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
   let importedEncapsulationPublicKey = "peer-user-1-key";
-  let syncCallCount = 0;
-
-  const runtime = createSyncRuntime(encapsulationKeyPair);
+  const runtime = createSyncRuntime(encapsulationKeyPair, { syncCalls });
   const instrumentedRuntime: ContactsRuntime = {
     ...runtime,
     apiClient: {
@@ -631,31 +636,6 @@ test("contacts store persists commitLsn and reuses it as minLsn on the next sync
         signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
-      syncDocument: async (
-        documentId,
-        accessEpoch,
-        _localVersionVector,
-        outgoingUpdates,
-        documentRecipientEnvelopes,
-        minLsn,
-      ) => {
-        syncCallCount += 1;
-        syncDocumentCalls.push({
-          minLsn: minLsn ?? null,
-          outgoingUpdateCount: outgoingUpdates.length,
-        });
-
-        return createSyncDocumentResponse({
-          acceptedOutgoingUpdateIds: outgoingUpdates.map((update) => update.id),
-          accessEpoch,
-          commitLsn: syncCallCount === 1 ? "0/10" : "0/20",
-          documentId,
-          documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
-          recipientEncapsulationPublicKeys: [
-            bytesToBase64(encapsulationKeyPair.publicKey),
-          ],
-        });
-      },
     },
   };
   const store = createContactsStore(instrumentedRuntime, persistence);
@@ -671,7 +651,7 @@ test("contacts store persists commitLsn and reuses it as minLsn on the next sync
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 1 &&
+      syncCalls.length === 1 &&
       persistence.getPendingUpdates("peer-user-1").length === 0 &&
       persistence.getContact("peer-user-1")?.record?.lastCommitLsn === "0/10",
     "Initial contact document sync did not persist the returned commitLsn.",
@@ -682,13 +662,13 @@ test("contacts store persists commitLsn and reuses it as minLsn on the next sync
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 2 &&
+      syncCalls.length === 2 &&
       persistence.getPendingUpdates("peer-user-1").length === 0 &&
       persistence.getContact("peer-user-1")?.record?.lastCommitLsn === "0/20",
     "Follow-up contact sync did not reuse and refresh the persisted commitLsn.",
   );
 
-  expect(syncDocumentCalls).toEqual([
+  expect(syncCalls).toEqual([
     {
       minLsn: null,
       outgoingUpdateCount: 1,
