@@ -73,7 +73,6 @@ function createListedContainers(
       metadataAccessEpoch: 1,
       metadataAccessStateHash,
       metadataDocumentId: `metadata-${containerId}`,
-      metadataRecipientEncapsulationPublicKeys: [],
       organizationId: "org-1",
       parentId: null,
     },

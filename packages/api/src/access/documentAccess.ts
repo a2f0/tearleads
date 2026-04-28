@@ -532,14 +532,6 @@ export function canReadDocumentAccess(
   );
 }
 
-export function listRecipientEncapsulationPublicKeys(
-  state: DocumentAccessState,
-): string[] {
-  return state.cryptoRecipients.map(
-    (recipient) => recipient.encapsulationPublicKey,
-  );
-}
-
 function envelopeFingerprintsMatchRecipients(
   envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
   recipients: ReadonlyArray<EffectiveDocumentRecipient>,

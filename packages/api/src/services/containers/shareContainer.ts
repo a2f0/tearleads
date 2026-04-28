@@ -7,10 +7,7 @@ import {
   grantContainerAccess,
   resolveContainerAccessState,
 } from "../../access/containerAccess";
-import {
-  listRecipientEncapsulationPublicKeys,
-  resolveDocumentAccessState,
-} from "../../access/documentAccess";
+import { resolveDocumentAccessState } from "../../access/documentAccess";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import { containerMetadataDocuments, containers } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
@@ -142,8 +139,6 @@ export async function shareContainer(
         metadataDocumentId: metadataBinding.documentId,
         metadataAccessEpoch: metadataAccess.currentAccessEpoch,
         metadataAccessStateHash: metadataAccess.accessStateHash,
-        metadataRecipientEncapsulationPublicKeys:
-          listRecipientEncapsulationPublicKeys(metadataAccess),
         metadataReferencedPrincipals: metadataAccess.referencedPrincipals,
       };
     });

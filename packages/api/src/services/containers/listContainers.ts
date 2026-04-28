@@ -2,7 +2,6 @@ import type { ListContainersResponse } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import {
   canReadDocumentAccess,
-  listRecipientEncapsulationPublicKeys,
   resolveDocumentAccessStates,
 } from "../../access/documentAccess";
 import {
@@ -368,9 +367,6 @@ export async function listContainers(
       metadataAccessStateHash:
         v2MetadataAccessStateHash ?? metadataAccess?.accessStateHash ?? "",
       metadataDocumentId: containerRow.metadataDocumentId,
-      metadataRecipientEncapsulationPublicKeys: metadataAccess
-        ? listRecipientEncapsulationPublicKeys(metadataAccess)
-        : [],
       metadataReferencedPrincipals:
         metadataAccess?.referencedPrincipals ??
         normalizeReferencedPrincipals(

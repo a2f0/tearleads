@@ -22,7 +22,6 @@ import {
   createPendingUpdateFields,
   getLocalRecipientPublicKeys,
   isDocumentUpdateCreatedEvent,
-  resolveRecipientPublicKeys,
 } from "../../../data/documentSync";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
@@ -408,9 +407,7 @@ async function upsertRemoteContainerState(
   const existingState = state.containersById.get(remoteContainer.id);
 
   if (existingState) {
-    existingState.recipientPublicKeys = resolveRecipientPublicKeys(
-      remoteContainer.metadataRecipientEncapsulationPublicKeys,
-    );
+    existingState.recipientPublicKeys = [];
     await host.persistContainerState(
       existingState,
       {
@@ -438,9 +435,7 @@ async function upsertRemoteContainerState(
       icon: null,
     },
     doc,
-    recipientPublicKeys: resolveRecipientPublicKeys(
-      remoteContainer.metadataRecipientEncapsulationPublicKeys,
-    ),
+    recipientPublicKeys: [],
     record: {
       accessEpoch: remoteContainer.metadataAccessEpoch,
       accessStateHash: remoteContainer.metadataAccessStateHash,
@@ -954,7 +949,6 @@ export async function moveRemoteExplorerContainerV2(input: {
     }),
     metadataAccessEpoch: moved.response.manifestHead.epoch,
     metadataAccessStateHash: moved.response.manifestHead.manifestHash,
-    metadataRecipientEncapsulationPublicKeys: [],
     metadataReferencedPrincipals: referencedPrincipalHeadsFromV2Response({
       response: moved.response,
     }),

@@ -17,7 +17,6 @@ export interface CreateContainerResponse {
   metadataDocumentId: string;
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
-  metadataRecipientEncapsulationPublicKeys: string[];
   metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
@@ -26,7 +25,6 @@ export interface ShareContainerResponse {
   metadataDocumentId: string;
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
-  metadataRecipientEncapsulationPublicKeys: string[];
   metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
@@ -79,7 +77,6 @@ export interface ContainerSummary {
   metadataDocumentId: string;
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
-  metadataRecipientEncapsulationPublicKeys: string[];
   metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
@@ -102,10 +99,6 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
     hasNumberProperty(value, "metadataAccessEpoch") &&
     typeof metadataAccessStateHash === "string" &&
     metadataAccessStateHash.length > 0 &&
-    hasArrayProperty(value, "metadataRecipientEncapsulationPublicKeys") &&
-    value.metadataRecipientEncapsulationPublicKeys.every(
-      (entry) => typeof entry === "string",
-    ) &&
     (metadataReferencedPrincipals === undefined ||
       (Array.isArray(metadataReferencedPrincipals) &&
         metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)))
@@ -141,10 +134,6 @@ export function isShareContainerResponse(
     hasNumberProperty(value, "metadataAccessEpoch") &&
     typeof metadataAccessStateHash === "string" &&
     metadataAccessStateHash.length > 0 &&
-    hasArrayProperty(value, "metadataRecipientEncapsulationPublicKeys") &&
-    value.metadataRecipientEncapsulationPublicKeys.every(
-      (entry) => typeof entry === "string",
-    ) &&
     (metadataReferencedPrincipals === undefined ||
       (Array.isArray(metadataReferencedPrincipals) &&
         metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)))

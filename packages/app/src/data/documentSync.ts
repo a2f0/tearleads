@@ -50,12 +50,6 @@ export function getLocalRecipientPublicKeys(
   return encapsulationKeyPair ? [encapsulationKeyPair.publicKey] : [];
 }
 
-export function resolveRecipientPublicKeys(
-  encodedPublicKeys: string[],
-): Uint8Array[] {
-  return encodedPublicKeys.map((publicKey) => base64ToBytes(publicKey));
-}
-
 export function createPendingUpdateFields(
   update: Uint8Array,
   sourceVersionVector?: string | null,
