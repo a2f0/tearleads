@@ -26,6 +26,7 @@ import {
   deriveStoredDocumentTitle,
   type StoredDocumentKind,
 } from "./documentKinds";
+import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "./documentV2Constants";
 
 export type { PendingUpdateRecord } from "../persistence/documentPersistence";
 
@@ -342,9 +343,26 @@ function didStoredDocumentContentChange(
   );
 }
 
+function didPersistedDocumentSecurityContextChange(
+  existingDocument: StoredDocumentRecord | null | undefined,
+  input: {
+    accessEpoch: number;
+    documentId: string;
+  },
+): boolean {
+  return (
+    existingDocument?.documentId !== input.documentId ||
+    (existingDocument?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH) !==
+      input.accessEpoch
+  );
+}
+
 function resolvePersistedDocumentRuntimeState(
   existingDocument: StoredDocumentRecord | null | undefined,
-  documentId: string,
+  input: {
+    accessEpoch: number;
+    documentId: string;
+  },
 ): Pick<
   StoredDocumentRecord,
   | "lastCommitLsn"
@@ -352,21 +370,47 @@ function resolvePersistedDocumentRuntimeState(
   | "v2DocumentKekTargets"
   | "v2DocumentManifestBundle"
 > {
-  if (existingDocument?.documentId !== documentId) {
-    return {
-      lastCommitLsn: null,
-      v2ContentKeyBundle: null,
-      v2DocumentKekTargets: null,
-      v2DocumentManifestBundle: null,
-    };
-  }
+  const documentIdChanged = existingDocument?.documentId !== input.documentId;
+  const securityContextChanged = didPersistedDocumentSecurityContextChange(
+    existingDocument,
+    input,
+  );
 
   return {
-    lastCommitLsn: existingDocument.lastCommitLsn ?? null,
-    v2ContentKeyBundle: existingDocument.v2ContentKeyBundle ?? null,
-    v2DocumentKekTargets: existingDocument.v2DocumentKekTargets ?? null,
-    v2DocumentManifestBundle: existingDocument.v2DocumentManifestBundle ?? null,
+    lastCommitLsn: documentIdChanged
+      ? null
+      : (existingDocument?.lastCommitLsn ?? null),
+    v2ContentKeyBundle: securityContextChanged
+      ? null
+      : (existingDocument?.v2ContentKeyBundle ?? null),
+    v2DocumentKekTargets: securityContextChanged
+      ? null
+      : (existingDocument?.v2DocumentKekTargets ?? null),
+    v2DocumentManifestBundle: securityContextChanged
+      ? null
+      : (existingDocument?.v2DocumentManifestBundle ?? null),
   };
+}
+
+function resolvePersistedAccessStateHash(
+  existingDocument: StoredDocumentRecord | null | undefined,
+  input: {
+    accessEpoch: number;
+    accessStateHash?: string | null | undefined;
+    documentId: string;
+  },
+): string | null {
+  if (input.accessStateHash !== undefined) {
+    return input.accessStateHash;
+  }
+
+  const securityContextChanged = didPersistedDocumentSecurityContextChange(
+    existingDocument,
+    input,
+  );
+  return securityContextChanged
+    ? null
+    : (existingDocument?.accessStateHash ?? null);
 }
 
 async function upsertDiscoveredDocumentWithExec(
@@ -383,6 +427,17 @@ async function upsertDiscoveredDocumentWithExec(
     execSql,
     localId,
   );
+  const nextAccessEpoch = Math.max(
+    existingDocument?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH,
+    input.accessEpoch,
+  );
+  const securityContextChanged = didPersistedDocumentSecurityContextChange(
+    existingDocument,
+    {
+      accessEpoch: nextAccessEpoch,
+      documentId: input.documentId,
+    },
+  );
   const nextContainerId =
     existingDocument?.containerId &&
     input.linkedContainerIds.includes(existingDocument.containerId)
@@ -397,21 +452,21 @@ async function upsertDiscoveredDocumentWithExec(
     id: localId,
     containerId: nextContainerId,
     documentId: input.documentId,
-    documentRecipientEnvelopes:
-      input.accessEpoch > (existingDocument?.accessEpoch ?? 1)
-        ? null
-        : (existingDocument?.documentRecipientEnvelopes ?? null),
+    documentRecipientEnvelopes: securityContextChanged
+      ? null
+      : (existingDocument?.documentRecipientEnvelopes ?? null),
     text: existingDocument?.text ?? "",
     loroSnapshot: existingDocument?.loroSnapshot ?? "",
-    accessEpoch: Math.max(
-      existingDocument?.accessEpoch ?? 1,
-      input.accessEpoch,
-    ),
-    accessStateHash:
-      input.accessStateHash === undefined
-        ? (existingDocument?.accessStateHash ?? null)
-        : input.accessStateHash,
-    ...resolvePersistedDocumentRuntimeState(existingDocument, input.documentId),
+    accessEpoch: nextAccessEpoch,
+    accessStateHash: resolvePersistedAccessStateHash(existingDocument, {
+      accessEpoch: nextAccessEpoch,
+      accessStateHash: input.accessStateHash,
+      documentId: input.documentId,
+    }),
+    ...resolvePersistedDocumentRuntimeState(existingDocument, {
+      accessEpoch: nextAccessEpoch,
+      documentId: input.documentId,
+    }),
   };
 
   const saveOptions =
@@ -451,20 +506,30 @@ async function relinkPersistedDocumentWithExec(
     existingDocument.accessEpoch,
     input.accessEpoch,
   );
+  const securityContextChanged = didPersistedDocumentSecurityContextChange(
+    existingDocument,
+    {
+      accessEpoch: nextAccessEpoch,
+      documentId: input.documentId,
+    },
+  );
   const nextDocument: StoredDocumentRecord = {
     ...existingDocument,
     accessEpoch: nextAccessEpoch,
-    accessStateHash:
-      input.accessStateHash === undefined
-        ? (existingDocument.accessStateHash ?? null)
-        : input.accessStateHash,
+    accessStateHash: resolvePersistedAccessStateHash(existingDocument, {
+      accessEpoch: nextAccessEpoch,
+      accessStateHash: input.accessStateHash,
+      documentId: input.documentId,
+    }),
     containerId: input.containerId,
     documentId: input.documentId,
-    documentRecipientEnvelopes:
-      input.accessEpoch > existingDocument.accessEpoch
-        ? null
-        : existingDocument.documentRecipientEnvelopes,
-    ...resolvePersistedDocumentRuntimeState(existingDocument, input.documentId),
+    documentRecipientEnvelopes: securityContextChanged
+      ? null
+      : existingDocument.documentRecipientEnvelopes,
+    ...resolvePersistedDocumentRuntimeState(existingDocument, {
+      accessEpoch: nextAccessEpoch,
+      documentId: input.documentId,
+    }),
   };
 
   await sqlDocumentsPersistence.saveDocument(execSql, nextDocument);

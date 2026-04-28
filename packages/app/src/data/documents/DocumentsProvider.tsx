@@ -54,6 +54,10 @@ import {
   sqlDocumentsPersistence,
 } from "./documentsPersistence";
 import {
+  createDocumentV2SignerDeviceId,
+  DEFAULT_DOCUMENT_ACCESS_EPOCH,
+} from "./documentV2Constants";
+import {
   createRemoteDocumentV2,
   type DocumentV2CreateAuthor,
   syncRemoteDocumentV2,
@@ -71,6 +75,10 @@ type DocumentRuntimeV2Api = Pick<
   | "getDocumentV2WriterProjection"
   | "syncDocumentV2"
 >;
+/**
+ * @deprecated Test-only compile affordance for pre-V2 attachment specs. App
+ * runtime factories do not bind these removed document write routes.
+ */
 type DocumentRuntimeLegacyApi = Pick<
   DocumentAppData["apiClient"],
   "commitDocumentChange" | "createDocument" | "stageBlob" | "syncDocument"
@@ -536,7 +544,7 @@ function resolveDocumentV2Author(
 
   return {
     organizationId: runtime.organizationId,
-    signerDeviceId: runtime.signingFingerprint,
+    signerDeviceId: createDocumentV2SignerDeviceId(runtime.signingFingerprint),
     signerKeyFingerprint: runtime.signingFingerprint,
     signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
     signerUserId: runtime.userId,
@@ -677,6 +685,7 @@ async function saveDocumentRecord(
 }
 
 type NullableDocumentRuntimeField =
+  | "accessStateHash"
   | "documentRecipientEnvelopes"
   | "lastCommitLsn"
   | "v2ContentKeyBundle"
@@ -704,6 +713,11 @@ async function persistDocument(
   const currentDocumentId = state.record?.documentId ?? null;
   const nextDocumentId = patch.documentId ?? currentDocumentId;
   const documentIdChanged = nextDocumentId !== currentDocumentId;
+  const currentAccessEpoch =
+    state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
+  const nextAccessEpoch = patch.accessEpoch ?? currentAccessEpoch;
+  const securityContextChanged =
+    documentIdChanged || nextAccessEpoch !== currentAccessEpoch;
   const nextRecord: DocumentRecord = {
     id: state.record?.id ?? state.localId,
     containerId:
@@ -716,13 +730,18 @@ async function persistDocument(
       patch,
       "documentRecipientEnvelopes",
       state.record?.documentRecipientEnvelopes,
+      securityContextChanged,
     ),
     text: patch.text ?? getTextValue(currentDoc),
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
-    accessEpoch: patch.accessEpoch ?? state.record?.accessEpoch ?? 1,
-    accessStateHash:
-      patch.accessStateHash ?? state.record?.accessStateHash ?? null,
+    accessEpoch: nextAccessEpoch,
+    accessStateHash: resolveNullableDocumentRuntimeField(
+      patch,
+      "accessStateHash",
+      state.record?.accessStateHash,
+      securityContextChanged,
+    ),
     lastCommitLsn: resolveNullableDocumentRuntimeField(
       patch,
       "lastCommitLsn",
@@ -733,19 +752,19 @@ async function persistDocument(
       patch,
       "v2ContentKeyBundle",
       state.record?.v2ContentKeyBundle,
-      documentIdChanged,
+      securityContextChanged,
     ),
     v2DocumentKekTargets: resolveNullableDocumentRuntimeField(
       patch,
       "v2DocumentKekTargets",
       state.record?.v2DocumentKekTargets,
-      documentIdChanged,
+      securityContextChanged,
     ),
     v2DocumentManifestBundle: resolveNullableDocumentRuntimeField(
       patch,
       "v2DocumentManifestBundle",
       state.record?.v2DocumentManifestBundle,
-      documentIdChanged,
+      securityContextChanged,
     ),
   };
 
@@ -1100,7 +1119,7 @@ async function initializeDocumentStore(
       documentRecipientEnvelopes: null,
       text: state.initialText,
       loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
-      accessEpoch: 1,
+      accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
       accessStateHash: null,
       lastCommitLsn: null,
       v2ContentKeyBundle: null,
@@ -1200,7 +1219,8 @@ async function relinkDocumentStore(
     return null;
   }
 
-  const currentAccessEpoch = state.record?.accessEpoch ?? 1;
+  const currentAccessEpoch =
+    state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
   const patch: Partial<DocumentRecord> = {
     accessEpoch: Math.max(currentAccessEpoch, input.accessEpoch),
     accessStateHash:

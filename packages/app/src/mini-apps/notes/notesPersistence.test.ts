@@ -134,6 +134,7 @@ test("upsertDiscoveredNote preserves V2 document state for the same remote docum
       execSql,
       {
         accessEpoch: 2,
+        accessStateHash: "access-state-hash-1",
         containerId: "shared-container",
         documentId: "remote-document",
         documentRecipientEnvelopes: null,
@@ -158,7 +159,7 @@ test("upsertDiscoveredNote preserves V2 document state for the same remote docum
     );
 
     await sqlNotesPersistence.upsertDiscoveredNote(execSql, {
-      accessEpoch: 3,
+      accessEpoch: 2,
       containerId: "shared-container",
       createdAt: "2026-04-06T00:00:00.000Z",
       documentId: "remote-document",
@@ -168,6 +169,7 @@ test("upsertDiscoveredNote preserves V2 document state for the same remote docum
     await expect(
       sqlNotesPersistence.loadNote(execSql, "local-note"),
     ).resolves.toMatchObject({
+      accessStateHash: "access-state-hash-1",
       documentId: "remote-document",
       lastCommitLsn: "0/10",
       v2ContentKeyBundle: JSON.stringify({
@@ -307,9 +309,14 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
         containerId: "container-a",
         documentId: "remote-document",
         documentRecipientEnvelopes: '{"wrapped":true}',
+        accessStateHash: "access-state-hash-1",
+        lastCommitLsn: "0/10",
         text: "Existing local note",
         loroSnapshot: "snapshot-1",
         accessEpoch: 2,
+        v2ContentKeyBundle: "stale-content-key-bundle",
+        v2DocumentKekTargets: "stale-kek-targets",
+        v2DocumentManifestBundle: "stale-manifest-bundle",
       },
       {
         updatedAt: "2026-04-05T02:00:00.000Z",
@@ -333,19 +340,23 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
       updatedAt: "2026-04-05T02:00:00.000Z",
     });
 
-    await expect(
-      sqlNotesPersistence.loadNote(execSql, "local-note"),
-    ).resolves.toEqual({
+    const reloadedNote = await sqlNotesPersistence.loadNote(
+      execSql,
+      "local-note",
+    );
+
+    expect(reloadedNote).toEqual({
       id: "local-note",
       containerId: "container-b",
       documentId: "remote-document",
       documentRecipientEnvelopes: null,
-      lastCommitLsn: null,
+      lastCommitLsn: "0/10",
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
       ...emptyV2DocumentState,
     });
+    expect(reloadedNote?.accessStateHash ?? null).toBeNull();
   } finally {
     close();
   }
