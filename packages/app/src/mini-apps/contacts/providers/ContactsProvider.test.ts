@@ -217,14 +217,17 @@ interface ContactV2RuntimePatch {
   userId: string;
 }
 
-function createContactV2RuntimePatch(input: {
+async function createContactV2RuntimePatch(input: {
   containerId?: string;
   createCalls?: Array<{ linkedContainerIds: string[] }>;
   encapsulationKeyPair: NonNullable<ContactsRuntime["encapsulationKeyPair"]>;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
-}): ContactV2RuntimePatch {
+}): Promise<ContactV2RuntimePatch> {
   const containerId = input.containerId ?? "root-container";
   const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
   let projectionPromise: Promise<ContainerV2WriterProjectionResponse> | null =
     null;
   let storedDocument: DocumentV2CreateResponse | null = null;
@@ -285,7 +288,7 @@ function createContactV2RuntimePatch(input: {
       },
     },
     organizationId: "organization-1",
-    signingFingerprint: "a".repeat(64),
+    signingFingerprint,
     signingKeyPair,
     userId: "user-1",
   };
@@ -410,14 +413,14 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
   };
 }
 
-function createSyncRuntime(
+async function createSyncRuntime(
   encapsulationKeyPair: NonNullable<ContactsRuntime["encapsulationKeyPair"]>,
   options: {
     createCalls?: Array<{ linkedContainerIds: string[] }>;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
-): ContactsRuntime {
-  const v2Patch = createContactV2RuntimePatch({
+): Promise<ContactsRuntime> {
+  const v2Patch = await createContactV2RuntimePatch({
     encapsulationKeyPair,
     ...(options.createCalls ? { createCalls: options.createCalls } : {}),
     ...(options.syncCalls ? { syncCalls: options.syncCalls } : {}),
@@ -519,7 +522,7 @@ test("contacts store creates and syncs a contact document through V2", async () 
     minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
-  const runtime = createSyncRuntime(encapsulationKeyPair, {
+  const runtime = await createSyncRuntime(encapsulationKeyPair, {
     createCalls,
     syncCalls,
   });
@@ -562,7 +565,7 @@ test("contacts store keeps contact updates on V2 without recipient fanout", asyn
     outgoingUpdateCount: number;
   }> = [];
   let importedEncapsulationPublicKey = "peer-user-1-key";
-  const runtime = createSyncRuntime(encapsulationKeyPair, {
+  const runtime = await createSyncRuntime(encapsulationKeyPair, {
     createCalls,
     syncCalls,
   });
@@ -625,7 +628,7 @@ test("contacts store persists commitLsn and reuses it as minLsn on the next sync
     outgoingUpdateCount: number;
   }> = [];
   let importedEncapsulationPublicKey = "peer-user-1-key";
-  const runtime = createSyncRuntime(encapsulationKeyPair, { syncCalls });
+  const runtime = await createSyncRuntime(encapsulationKeyPair, { syncCalls });
   const instrumentedRuntime: ContactsRuntime = {
     ...runtime,
     apiClient: {

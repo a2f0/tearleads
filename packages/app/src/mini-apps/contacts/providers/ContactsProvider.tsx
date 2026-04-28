@@ -1,3 +1,4 @@
+import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
@@ -460,7 +461,7 @@ function resolveContactsV2Author(
 
   return {
     organizationId: runtime.organizationId,
-    signerDeviceId: runtime.signingFingerprint,
+    signerDeviceId: `signing-key:${runtime.signingFingerprint}`,
     signerKeyFingerprint: runtime.signingFingerprint,
     signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
     signerUserId: runtime.userId,
@@ -488,6 +489,51 @@ function resolveContactsV2Api(
       apiClient.getDocumentV2WriterProjection.bind(apiClient),
     syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
   };
+}
+
+async function resolveContactWriterPublicKeys(
+  state: ContactsStoreState,
+  contact: ContactState,
+  author: DocumentV2CreateAuthor,
+): Promise<Map<string, Uint8Array>> {
+  const { signingKeyPair } = state.runtime;
+  if (!signingKeyPair) {
+    throw new Error("Contacts V2 writer public key is unavailable.");
+  }
+
+  const writerPublicKeysByFingerprint = new Map<string, Uint8Array>([
+    [author.signerKeyFingerprint, signingKeyPair.signingPublicKey],
+  ]);
+
+  if (contact.entry.userId === state.runtime.userId) {
+    return writerPublicKeysByFingerprint;
+  }
+
+  const response = await state.runtime.apiClient.getEncapsulationKey(
+    contact.entry.userId,
+  );
+  if (!response) {
+    return writerPublicKeysByFingerprint;
+  }
+
+  try {
+    const signingPublicKey = base64ToBytes(response.signingPublicKey);
+    const signingKeyFingerprint = await toFingerprint(signingPublicKey);
+    if (signingKeyFingerprint !== response.signingKeyFingerprint) {
+      state.runtime.log(
+        `Contacts (${contact.entry.userId}): skipped peer writer key because the signing fingerprint does not match the public key.`,
+      );
+      return writerPublicKeysByFingerprint;
+    }
+
+    writerPublicKeysByFingerprint.set(signingKeyFingerprint, signingPublicKey);
+  } catch {
+    state.runtime.log(
+      `Contacts (${contact.entry.userId}): skipped peer writer key because it could not be decoded.`,
+    );
+  }
+
+  return writerPublicKeysByFingerprint;
 }
 
 async function ensureContactDocumentForSync(
@@ -611,6 +657,11 @@ async function syncSingleContact(
     minLsn: contact.record.lastCommitLsn ?? undefined,
     pendingUpdates,
     targetSecretKey: encapsulationKeyPair.secretKey,
+    writerPublicKeysByFingerprint: await resolveContactWriterPublicKeys(
+      state,
+      contact,
+      author,
+    ),
   });
   if (!synced) {
     return;
