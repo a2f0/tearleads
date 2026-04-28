@@ -1,13 +1,7 @@
-import { DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE } from "@tearleads/loro/shared";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
-import {
-  documentContainerLinks,
-  objectAccessEpochs,
-  objectRecipientEnvelopes,
-} from "../schema";
+import { documentContainerLinks, objectAccessEpochs } from "../schema";
 import { uniqueSortedStrings } from "../utils/array";
 import {
   computeAccessFingerprint,
@@ -20,7 +14,6 @@ import {
   isUserPrincipalRecipient,
   mergeAccessLevel,
   principalRecipientKey,
-  toPrincipalEnvelopeRecipient,
   toPrincipalFingerprintRecipient,
 } from "./recipientPrincipals";
 
@@ -51,12 +44,6 @@ interface DocumentAccessState {
   referencedPrincipals: ReferencedPrincipalStateResponse[];
   effectiveRecipients: EffectiveDocumentRecipient[];
   cryptoRecipients: EffectiveDocumentRecipient[];
-}
-
-class DocumentRecipientEnvelopeConflictError extends Error {
-  constructor() {
-    super(DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE);
-  }
 }
 
 function isResolvedContainerAccessState(
@@ -530,228 +517,6 @@ export function canReadDocumentAccess(
   return state.effectiveRecipients.some((recipient) =>
     isUserPrincipalRecipient(recipient, userId),
   );
-}
-
-function envelopeFingerprintsMatchRecipients(
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
-  recipients: ReadonlyArray<EffectiveDocumentRecipient>,
-): boolean {
-  const sortedEnvelopeFingerprints = envelopes
-    .map((envelope) => envelope.keyFingerprint)
-    .sort();
-  const envelopeFingerprints = uniqueSortedStrings(sortedEnvelopeFingerprints);
-  const recipientFingerprints = uniqueSortedStrings(
-    recipients.map((recipient) => recipient.keyFingerprint),
-  );
-
-  return (
-    sortedEnvelopeFingerprints.length === envelopeFingerprints.length &&
-    envelopeFingerprints.length === recipientFingerprints.length &&
-    envelopeFingerprints.every(
-      (fingerprint, index) => fingerprint === recipientFingerprints[index],
-    )
-  );
-}
-
-export function documentRecipientEnvelopesMatchRecipients(
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
-  state: DocumentAccessState,
-): boolean {
-  return envelopeFingerprintsMatchRecipients(envelopes, state.cryptoRecipients);
-}
-
-function sortDocumentRecipientEnvelopes(
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
-): SerializedRecipientEnvelope[] {
-  return [...envelopes].sort((left, right) =>
-    left.keyFingerprint.localeCompare(right.keyFingerprint),
-  );
-}
-
-function documentRecipientEnvelopeBundlesEqual(
-  left: ReadonlyArray<SerializedRecipientEnvelope>,
-  right: ReadonlyArray<SerializedRecipientEnvelope>,
-): boolean {
-  const sortedLeft = sortDocumentRecipientEnvelopes(left);
-  const sortedRight = sortDocumentRecipientEnvelopes(right);
-
-  return (
-    sortedLeft.length === sortedRight.length &&
-    sortedLeft.every((leftEnvelope, index) => {
-      const rightEnvelope = sortedRight[index];
-      return (
-        rightEnvelope !== undefined &&
-        leftEnvelope.keyFingerprint === rightEnvelope.keyFingerprint &&
-        leftEnvelope.kemCipherText === rightEnvelope.kemCipherText &&
-        leftEnvelope.wrappedKey === rightEnvelope.wrappedKey
-      );
-    })
-  );
-}
-
-async function listDocumentRecipientEnvelopes(
-  documentId: string,
-  epoch: number,
-  executor: DocumentAccessExecutor = db,
-): Promise<SerializedRecipientEnvelope[] | null> {
-  const rows = await executor
-    .select({
-      keyFingerprint: objectRecipientEnvelopes.recipientKeyFingerprint,
-      kemCipherText: objectRecipientEnvelopes.kemCipherText,
-      wrappedKey: objectRecipientEnvelopes.wrappedKey,
-    })
-    .from(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, DOCUMENT_OBJECT_TYPE),
-        eq(objectRecipientEnvelopes.objectId, documentId),
-        eq(objectRecipientEnvelopes.epoch, epoch),
-      ),
-    );
-
-  if (rows.length === 0) {
-    return null;
-  }
-
-  return rows
-    .sort((left, right) =>
-      left.keyFingerprint.localeCompare(right.keyFingerprint),
-    )
-    .map((row) => ({
-      keyFingerprint: row.keyFingerprint,
-      kemCipherText: row.kemCipherText,
-      wrappedKey: row.wrappedKey,
-    }));
-}
-
-export async function replaceDocumentRecipientEnvelopes(
-  documentId: string,
-  epoch: number,
-  state: DocumentAccessState,
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
-  executor: DocumentAccessExecutor = db,
-): Promise<void> {
-  await putDocumentRecipientEnvelopes(
-    documentId,
-    epoch,
-    state,
-    envelopes,
-    executor,
-  );
-}
-
-function buildDocumentRecipientEnvelopeRows(
-  documentId: string,
-  epoch: number,
-  state: DocumentAccessState,
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
-): Array<typeof objectRecipientEnvelopes.$inferInsert> {
-  const recipientByKeyFingerprint = new Map(
-    state.cryptoRecipients.map((recipient) => [
-      recipient.keyFingerprint,
-      recipient,
-    ]),
-  );
-
-  return envelopes.map((envelope) => {
-    if (
-      envelope.kemCipherText.length === 0 ||
-      envelope.wrappedKey.length === 0
-    ) {
-      throw new Error(
-        `Document recipient envelope is missing wrapped material for ${envelope.keyFingerprint}`,
-      );
-    }
-
-    const recipient = recipientByKeyFingerprint.get(envelope.keyFingerprint);
-    if (!recipient) {
-      throw new Error(
-        `Invariant violation: recipient not found for key fingerprint ${envelope.keyFingerprint}`,
-      );
-    }
-
-    const principalRecipient = toPrincipalEnvelopeRecipient(recipient);
-
-    return {
-      objectType: DOCUMENT_OBJECT_TYPE,
-      objectId: documentId,
-      epoch,
-      recipientPrincipalType: principalRecipient.principalType,
-      recipientPrincipalId: principalRecipient.principalId,
-      recipientKeyFingerprint: envelope.keyFingerprint,
-      kemCipherText: envelope.kemCipherText,
-      wrappedKey: envelope.wrappedKey,
-    };
-  });
-}
-
-async function putDocumentRecipientEnvelopes(
-  documentId: string,
-  epoch: number,
-  state: DocumentAccessState,
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
-  executor: DocumentAccessExecutor = db,
-): Promise<SerializedRecipientEnvelope[]> {
-  if (!documentRecipientEnvelopesMatchRecipients(envelopes, state)) {
-    throw new Error("Document recipient envelopes mismatch");
-  }
-
-  const sortedEnvelopes = sortDocumentRecipientEnvelopes(envelopes);
-  const existingEnvelopes = await listDocumentRecipientEnvelopes(
-    documentId,
-    epoch,
-    executor,
-  );
-
-  if (existingEnvelopes && existingEnvelopes.length > 0) {
-    if (
-      !documentRecipientEnvelopeBundlesEqual(existingEnvelopes, sortedEnvelopes)
-    ) {
-      throw new DocumentRecipientEnvelopeConflictError();
-    }
-
-    return existingEnvelopes;
-  }
-
-  if (sortedEnvelopes.length === 0) {
-    return [];
-  }
-
-  await executor
-    .insert(objectRecipientEnvelopes)
-    .values(
-      buildDocumentRecipientEnvelopeRows(
-        documentId,
-        epoch,
-        state,
-        sortedEnvelopes,
-      ),
-    )
-    .onConflictDoNothing({
-      target: [
-        objectRecipientEnvelopes.objectType,
-        objectRecipientEnvelopes.objectId,
-        objectRecipientEnvelopes.epoch,
-        objectRecipientEnvelopes.recipientKeyFingerprint,
-      ],
-    });
-
-  const storedEnvelopes = await listDocumentRecipientEnvelopes(
-    documentId,
-    epoch,
-    executor,
-  );
-  if (!storedEnvelopes || storedEnvelopes.length === 0) {
-    throw new Error("Failed to store document recipient envelopes");
-  }
-
-  if (
-    !documentRecipientEnvelopeBundlesEqual(storedEnvelopes, sortedEnvelopes)
-  ) {
-    throw new DocumentRecipientEnvelopeConflictError();
-  }
-
-  return storedEnvelopes;
 }
 
 async function writeEpoch(

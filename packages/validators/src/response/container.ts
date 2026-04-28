@@ -10,26 +10,6 @@ import {
   type ReferencedPrincipalStateResponse,
 } from "./principal";
 
-export interface CreateContainerResponse {
-  id: string;
-  organizationId: string;
-  parentId: string;
-  metadataDocumentId: string;
-  metadataAccessEpoch: number;
-  metadataAccessStateHash: string;
-  metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
-}
-
-export interface ShareContainerResponse {
-  id: string;
-  metadataDocumentId: string;
-  metadataAccessEpoch: number;
-  metadataAccessStateHash: string;
-  metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
-}
-
-export type MoveContainerResponse = ContainerSummary;
-
 export interface ContainerV2ManifestBundleResponse {
   event: Record<string, unknown>;
   manifest: Record<string, unknown>;
@@ -105,45 +85,10 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
   );
 }
 
-export function isCreateContainerResponse(
-  value: unknown,
-): value is CreateContainerResponse {
-  return isContainerSummary(value) && value.parentId !== null;
-}
-
 export function isListContainersResponse(
   value: unknown,
 ): value is ListContainersResponse {
   return Array.isArray(value) && value.every(isContainerSummary);
-}
-
-export function isShareContainerResponse(
-  value: unknown,
-): value is ShareContainerResponse {
-  const metadataReferencedPrincipals = isPlainObject(value)
-    ? Reflect.get(value, "metadataReferencedPrincipals")
-    : undefined;
-  const metadataAccessStateHash = isPlainObject(value)
-    ? Reflect.get(value, "metadataAccessStateHash")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "id") &&
-    hasStringProperty(value, "metadataDocumentId") &&
-    hasNumberProperty(value, "metadataAccessEpoch") &&
-    typeof metadataAccessStateHash === "string" &&
-    metadataAccessStateHash.length > 0 &&
-    (metadataReferencedPrincipals === undefined ||
-      (Array.isArray(metadataReferencedPrincipals) &&
-        metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)))
-  );
-}
-
-export function isMoveContainerResponse(
-  value: unknown,
-): value is MoveContainerResponse {
-  return isContainerSummary(value) && value.parentId !== null;
 }
 
 function isRecordArray(value: unknown): value is Record<string, unknown>[] {

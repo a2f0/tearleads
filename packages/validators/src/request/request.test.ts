@@ -3,16 +3,13 @@ import {
   isBlobV2AttachmentBindRequest,
   isBlobV2AttachmentDetachRequest,
   isChallengeRequest,
-  isCreateContainerRequest,
   isDocumentV2ContentKeyBundleRequest,
   isDocumentV2CreateRequest,
   isDocumentV2SyncRequest,
   isLinkDocumentToContainerRequest,
-  isMoveContainerRequest,
   isPublicKeyRequest,
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
-  isShareContainerRequest,
   isStageBlobRequest,
   isVerifyRequest,
 } from "./index";
@@ -162,99 +159,6 @@ test("isStageBlobRequest", () => {
     }),
   ).toBe(false);
   expect(isStageBlobRequest(null)).toBe(false);
-});
-
-test("isCreateContainerRequest", () => {
-  expect(
-    isCreateContainerRequest({
-      expectedAccessStateHash: "access-state-1",
-      id: "550e8400-e29b-41d4-a716-446655440000",
-      parentId: "550e8400-e29b-41d4-a716-446655440001",
-      initialMetadataUpdates: [],
-    }),
-  ).toBe(true);
-  expect(
-    isCreateContainerRequest({
-      expectedAccessStateHash: "access-state-1",
-      id: "550e8400-e29b-41d4-a716-446655440000",
-      initialMetadataUpdates: [],
-    }),
-  ).toBe(false);
-  expect(
-    isCreateContainerRequest({
-      expectedAccessStateHash: "",
-      id: "550e8400-e29b-41d4-a716-446655440000",
-      parentId: "550e8400-e29b-41d4-a716-446655440001",
-      initialMetadataUpdates: [],
-    }),
-  ).toBe(false);
-  expect(
-    isCreateContainerRequest({
-      expectedAccessStateHash: "access-state-1",
-      id: "not-a-uuid",
-      parentId: "550e8400-e29b-41d4-a716-446655440001",
-      initialMetadataUpdates: [],
-    }),
-  ).toBe(false);
-  expect(isCreateContainerRequest(null)).toBe(false);
-});
-
-test("isShareContainerRequest", () => {
-  expect(
-    isShareContainerRequest({
-      expectedAccessStateHash: "access-state-1",
-      subjectType: "user",
-      subjectId: "550e8400-e29b-41d4-a716-446655440000",
-      accessLevel: "write",
-    }),
-  ).toBe(true);
-  expect(
-    isShareContainerRequest({
-      expectedAccessStateHash: "access-state-1",
-      subjectType: "team",
-      subjectId: "550e8400-e29b-41d4-a716-446655440000",
-      accessLevel: "write",
-    }),
-  ).toBe(false);
-  expect(
-    isShareContainerRequest({
-      expectedAccessStateHash: "access-state-1",
-      subjectType: "user",
-      subjectId: "not-a-uuid",
-      accessLevel: "write",
-    }),
-  ).toBe(false);
-  expect(
-    isShareContainerRequest({
-      expectedAccessStateHash: "",
-      subjectType: "user",
-      subjectId: "550e8400-e29b-41d4-a716-446655440000",
-      accessLevel: "write",
-    }),
-  ).toBe(false);
-  expect(isShareContainerRequest(null)).toBe(false);
-});
-
-test("isMoveContainerRequest", () => {
-  expect(
-    isMoveContainerRequest({
-      expectedAccessStateHash: "access-state-1",
-      parentId: "550e8400-e29b-41d4-a716-446655440000",
-    }),
-  ).toBe(true);
-  expect(
-    isMoveContainerRequest({
-      expectedAccessStateHash: "access-state-1",
-      parentId: "not-a-uuid",
-    }),
-  ).toBe(false);
-  expect(
-    isMoveContainerRequest({
-      expectedAccessStateHash: "",
-      parentId: "550e8400-e29b-41d4-a716-446655440000",
-    }),
-  ).toBe(false);
-  expect(isMoveContainerRequest(null)).toBe(false);
 });
 
 test("isLinkDocumentToContainerRequest", () => {

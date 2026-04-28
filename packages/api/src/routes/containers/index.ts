@@ -2,11 +2,8 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
-import { createCreateContainerRoute } from "./createContainer";
 import { createListContainerDocumentsRoute } from "./listContainerDocuments";
 import { createListContainersRoute } from "./listContainers";
-import { createMoveContainerRoute } from "./moveContainer";
-import { createShareContainerRoute } from "./shareContainer";
 import { createContainerV2MutationsRoute } from "./v2Mutations";
 import { createContainerV2WriterProjectionRoute } from "./v2WriterProjection";
 
@@ -22,11 +19,8 @@ export function createContainersRouter({
   const containersRouter = new Hono();
   const routeDeps = { requireAuth, runtime };
 
-  containersRouter.route("/", createCreateContainerRoute(routeDeps));
   containersRouter.route("/", createListContainerDocumentsRoute(routeDeps));
   containersRouter.route("/", createListContainersRoute(routeDeps));
-  containersRouter.route("/", createMoveContainerRoute(routeDeps));
-  containersRouter.route("/", createShareContainerRoute(routeDeps));
   containersRouter.route("/", createContainerV2MutationsRoute(routeDeps));
   containersRouter.route(
     "/",

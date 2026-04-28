@@ -71,19 +71,6 @@ export function isUserPrincipalRecipient(
   return recipient.principalType === "user" && recipient.principalId === userId;
 }
 
-export function toPrincipalEnvelopeRecipient(
-  recipient: Pick<
-    PrincipalEnvelopeRecipient,
-    "principalType" | "principalId" | "keyFingerprint"
-  >,
-): PrincipalEnvelopeRecipient {
-  return {
-    principalType: recipient.principalType,
-    principalId: recipient.principalId,
-    keyFingerprint: recipient.keyFingerprint,
-  };
-}
-
 export function toPrincipalFingerprintRecipient(
   recipient: Pick<
     PrincipalFingerprintRecipient,

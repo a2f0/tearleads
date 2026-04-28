@@ -4,15 +4,19 @@ import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createDocumentFixture } from "../../../test/helpers/documentFixture";
 import {
   createPrincipalStateSigner,
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { grantContainerAccess } from "../../access/containerAccess";
+import {
+  grantContainerAccess,
+  initializeContainerAccess,
+  resolveContainerAccessState,
+} from "../../access/containerAccess";
 import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
@@ -46,6 +50,47 @@ async function getRootContainerIdForUser(userId: string): Promise<string> {
 
   invariant(rootContainer, "expected root container row");
   return rootContainer.id;
+}
+
+async function createContainerFixture(input: {
+  createdByFingerprint: string;
+  id: string;
+  parentId: string;
+}): Promise<{ metadataDocumentId: string; organizationId: string }> {
+  const [parent] = await db
+    .select({
+      organizationId: containers.organizationId,
+    })
+    .from(containers)
+    .where(eq(containers.id, input.parentId))
+    .limit(1);
+  invariant(parent, "expected parent container row");
+
+  const parentAccess = await resolveContainerAccessState(input.parentId);
+  invariant(parentAccess, "expected parent container access state");
+
+  await db.insert(containers).values({
+    id: input.id,
+    organizationId: parent.organizationId,
+    parentId: input.parentId,
+  });
+  await initializeContainerAccess(input.id, db, {
+    inheritedFrom: parentAccess,
+  });
+
+  const metadataDocument = await createDocumentFixture({
+    createdByFingerprint: input.createdByFingerprint,
+    linkedContainerIds: [input.id],
+  });
+  await db.insert(containerMetadataDocuments).values({
+    containerId: input.id,
+    documentId: metadataDocument.id,
+  });
+
+  return {
+    metadataDocumentId: metadataDocument.id,
+    organizationId: parent.organizationId,
+  };
 }
 
 async function storeCurrentGroupState(
@@ -95,13 +140,11 @@ test("GET /containers returns the readable structural forest for the authenticat
   const ownerRootId = await getRootContainerIdForUser(owner.userId);
   const childId = crypto.randomUUID();
 
-  const createResponse = await createContainerRequest(
-    { id: childId, parentId: ownerRootId },
-    owner.token,
-  );
-
-  expect(createResponse.status).toBe(200);
-  const createdChild = await createResponse.json();
+  const createdChild = await createContainerFixture({
+    createdByFingerprint: owner.fingerprint,
+    id: childId,
+    parentId: ownerRootId,
+  });
 
   const listResponse = await routeApp.request("/containers", {
     method: "GET",
@@ -167,19 +210,17 @@ test("GET /containers includes descendants of directly shared containers outside
   const sharedContainerId = crypto.randomUUID();
   const descendantContainerId = crypto.randomUUID();
 
-  const sharedCreateResponse = await createContainerRequest(
-    { id: sharedContainerId, parentId: ownerRootId },
-    owner.token,
-  );
+  await createContainerFixture({
+    createdByFingerprint: owner.fingerprint,
+    id: sharedContainerId,
+    parentId: ownerRootId,
+  });
 
-  expect(sharedCreateResponse.status).toBe(200);
-
-  const descendantCreateResponse = await createContainerRequest(
-    { id: descendantContainerId, parentId: sharedContainerId },
-    owner.token,
-  );
-
-  expect(descendantCreateResponse.status).toBe(200);
+  await createContainerFixture({
+    createdByFingerprint: owner.fingerprint,
+    id: descendantContainerId,
+    parentId: sharedContainerId,
+  });
 
   await grantContainerAccess({
     accessLevel: "read",
@@ -228,19 +269,17 @@ test("GET /containers includes descendants shared through projection-backed grou
   const sharedContainerId = crypto.randomUUID();
   const descendantContainerId = crypto.randomUUID();
 
-  const sharedCreateResponse = await createContainerRequest(
-    { id: sharedContainerId, parentId: ownerRootId },
-    owner.token,
-  );
+  await createContainerFixture({
+    createdByFingerprint: owner.fingerprint,
+    id: sharedContainerId,
+    parentId: ownerRootId,
+  });
 
-  expect(sharedCreateResponse.status).toBe(200);
-
-  const descendantCreateResponse = await createContainerRequest(
-    { id: descendantContainerId, parentId: sharedContainerId },
-    owner.token,
-  );
-
-  expect(descendantCreateResponse.status).toBe(200);
+  await createContainerFixture({
+    createdByFingerprint: owner.fingerprint,
+    id: descendantContainerId,
+    parentId: sharedContainerId,
+  });
 
   const [ownerRow] = await db
     .select({

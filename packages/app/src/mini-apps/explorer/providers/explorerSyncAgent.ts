@@ -53,9 +53,6 @@ export type ContainerMetadataDocument = Awaited<
 type ListedRemoteContainer = NonNullable<
   Awaited<ReturnType<ExplorerRuntime["apiClient"]["listContainers"]>>
 >[number];
-type MovedRemoteContainer = NonNullable<
-  Awaited<ReturnType<ExplorerRuntime["apiClient"]["moveContainer"]>>
->;
 type ExplorerRuntimeV2Api = Pick<
   ExplorerAppData["apiClient"],
   "getDocumentV2WriterProjection" | "syncDocumentV2"
@@ -81,13 +78,10 @@ interface ContainerMetadataSyncAttempt {
 export interface ExplorerRuntime {
   apiClient: Pick<
     ExplorerAppData["apiClient"],
-    | "createContainer"
     | "getEncapsulationKey"
     | "getBlob"
     | "listContainers"
     | "listDocumentAttachments"
-    | "moveContainer"
-    | "shareContainer"
   > &
     Partial<
       Pick<
@@ -153,9 +147,7 @@ export interface ExplorerSyncState {
   syncLane: SyncLane | null;
 }
 
-export type ExplorerRemoteContainer =
-  | ListedRemoteContainer
-  | MovedRemoteContainer;
+export type ExplorerRemoteContainer = ListedRemoteContainer;
 
 export interface ExplorerSyncAgent {
   enqueuePendingContainerUpdate: (

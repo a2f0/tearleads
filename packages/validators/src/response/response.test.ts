@@ -5,7 +5,6 @@ import {
   isChallengeErrorResponse,
   isChallengeResponse,
   isContainerV2WriterProjectionResponse,
-  isCreateContainerResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isDocumentV2CreateResponse,
   isDocumentV2SyncResponse,
@@ -14,11 +13,9 @@ import {
   isLinkDocumentToContainerResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
-  isMoveContainerResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
   isPublicKeyResponse,
-  isShareContainerResponse,
   isStageBlobResponse,
   isUnlinkDocumentFromContainerResponse,
   isVerifyResponse,
@@ -179,35 +176,6 @@ test("isBlobV2AttachmentDetachResponse", () => {
   expect(isBlobV2AttachmentDetachResponse(null)).toBe(false);
 });
 
-test("isCreateContainerResponse", () => {
-  expect(
-    isCreateContainerResponse({
-      id: "ctr-123",
-      organizationId: "org-123",
-      parentId: "ctr-root",
-      metadataDocumentId: "doc-123",
-      metadataAccessEpoch: 1,
-      metadataAccessStateHash: "access-state-hash",
-      metadataReferencedPrincipals: [
-        {
-          principalType: "group",
-          principalId: "group-123",
-          version: 1,
-          keyEpoch: 1,
-          stateHash: "state-hash",
-        },
-      ],
-    }),
-  ).toBe(true);
-  expect(
-    isCreateContainerResponse({
-      id: "ctr-123",
-      organizationId: "org-123",
-    }),
-  ).toBe(false);
-  expect(isCreateContainerResponse(null)).toBe(false);
-});
-
 test("isListContainersResponse", () => {
   expect(
     isListContainersResponse([
@@ -241,56 +209,6 @@ test("isListContainersResponse", () => {
     ]),
   ).toBe(false);
   expect(isListContainersResponse(null)).toBe(false);
-});
-
-test("isShareContainerResponse", () => {
-  expect(
-    isShareContainerResponse({
-      id: "ctr-123",
-      metadataDocumentId: "doc-123",
-      metadataAccessEpoch: 2,
-      metadataAccessStateHash: "access-state-hash",
-      metadataReferencedPrincipals: [
-        {
-          principalType: "group",
-          principalId: "group-123",
-          version: 1,
-          keyEpoch: 1,
-          stateHash: "state-hash",
-        },
-      ],
-    }),
-  ).toBe(true);
-  expect(
-    isShareContainerResponse({
-      id: "ctr-123",
-      metadataAccessEpoch: 2,
-    }),
-  ).toBe(false);
-  expect(isShareContainerResponse(null)).toBe(false);
-});
-
-test("isMoveContainerResponse", () => {
-  expect(
-    isMoveContainerResponse({
-      id: "ctr-123",
-      organizationId: "org-123",
-      parentId: "ctr-parent",
-      metadataDocumentId: "doc-123",
-      metadataAccessEpoch: 2,
-      metadataAccessStateHash: "access-state-hash",
-    }),
-  ).toBe(true);
-  expect(
-    isMoveContainerResponse({
-      id: "ctr-123",
-      organizationId: "org-123",
-      parentId: null,
-      metadataDocumentId: "doc-123",
-      metadataAccessEpoch: 2,
-    }),
-  ).toBe(false);
-  expect(isMoveContainerResponse(null)).toBe(false);
 });
 
 test("isListContainerDocumentsResponse", () => {

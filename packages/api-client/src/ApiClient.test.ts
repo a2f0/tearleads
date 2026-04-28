@@ -100,7 +100,7 @@ test("includes backend error details in onError output for non-2xx responses", a
     async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
       new Response(
         JSON.stringify({
-          error: "Container metadata access state is unavailable",
+          error: "Stale container manifest",
         }),
         {
           status: 409,
@@ -119,16 +119,13 @@ test("includes backend error details in onError output for non-2xx responses", a
   });
 
   expect(
-    await client.shareContainer(
+    await client.shareContainerV2(
       "container-1",
-      "user",
-      "user-2",
-      "write",
-      "access-state-1",
+      createContainerV2MutationRequest(),
     ),
   ).toBeNull();
   expect(errors).toEqual([
-    "POST /containers/container-1/share: 409 Conflict: Container metadata access state is unavailable",
+    "POST /v2/containers/container-1/share: 409 Conflict: Stale container manifest",
   ]);
 
   globalThis.fetch = originalFetch;
