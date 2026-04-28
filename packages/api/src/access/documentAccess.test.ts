@@ -5,6 +5,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
+import { createContainerFixture } from "../../test/helpers/containerFixture";
 import { createDocumentFixture } from "../../test/helpers/documentFixture";
 import {
   createPrincipalStateSigner,
@@ -23,7 +24,6 @@ import {
 } from "../schema";
 import {
   grantContainerAccess,
-  initializeContainerAccess,
   resolveContainerAccessState,
 } from "./containerAccess";
 import { resolveDocumentAccessState } from "./documentAccess";
@@ -229,17 +229,10 @@ test("document access includes referenced principal policy states from linked co
     .limit(1);
   invariant(ownerRow, "expected owner row");
 
-  const rootAccess = await resolveContainerAccessState(owner.rootContainerId);
-  invariant(rootAccess, "expected root container access state");
-
   const childContainerId = crypto.randomUUID();
-  await db.insert(containers).values({
+  await createContainerFixture({
     id: childContainerId,
-    organizationId: ownerRow.defaultOrganizationId,
     parentId: owner.rootContainerId,
-  });
-  await initializeContainerAccess(childContainerId, db, {
-    inheritedFrom: rootAccess,
   });
 
   const [group] = await db

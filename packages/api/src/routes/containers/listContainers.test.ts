@@ -5,18 +5,14 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createDocumentFixture } from "../../../test/helpers/documentFixture";
+import { createContainerFixture } from "../../../test/helpers/containerFixture";
 import {
   createPrincipalStateSigner,
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
-import {
-  grantContainerAccess,
-  initializeContainerAccess,
-  resolveContainerAccessState,
-} from "../../access/containerAccess";
+import { grantContainerAccess } from "../../access/containerAccess";
 import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
@@ -50,47 +46,6 @@ async function getRootContainerIdForUser(userId: string): Promise<string> {
 
   invariant(rootContainer, "expected root container row");
   return rootContainer.id;
-}
-
-async function createContainerFixture(input: {
-  createdByFingerprint: string;
-  id: string;
-  parentId: string;
-}): Promise<{ metadataDocumentId: string; organizationId: string }> {
-  const [parent] = await db
-    .select({
-      organizationId: containers.organizationId,
-    })
-    .from(containers)
-    .where(eq(containers.id, input.parentId))
-    .limit(1);
-  invariant(parent, "expected parent container row");
-
-  const parentAccess = await resolveContainerAccessState(input.parentId);
-  invariant(parentAccess, "expected parent container access state");
-
-  await db.insert(containers).values({
-    id: input.id,
-    organizationId: parent.organizationId,
-    parentId: input.parentId,
-  });
-  await initializeContainerAccess(input.id, db, {
-    inheritedFrom: parentAccess,
-  });
-
-  const metadataDocument = await createDocumentFixture({
-    createdByFingerprint: input.createdByFingerprint,
-    linkedContainerIds: [input.id],
-  });
-  await db.insert(containerMetadataDocuments).values({
-    containerId: input.id,
-    documentId: metadataDocument.id,
-  });
-
-  return {
-    metadataDocumentId: metadataDocument.id,
-    organizationId: parent.organizationId,
-  };
 }
 
 async function storeCurrentGroupState(

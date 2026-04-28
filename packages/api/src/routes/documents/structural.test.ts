@@ -3,13 +3,10 @@ import { createTestUser } from "@tearleads/bob-and-alice";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createContainerFixture } from "../../../test/helpers/containerFixture";
 import { createDocumentFixture } from "../../../test/helpers/documentFixture";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { resolveBlobAccessState } from "../../access/blobAccess";
-import {
-  initializeContainerAccess,
-  resolveContainerAccessState,
-} from "../../access/containerAccess";
 import { resolveDocumentAccessState } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
@@ -48,32 +45,6 @@ async function getRootContainerIdForUser(userId: string): Promise<string> {
 
   invariant(rootContainer, "expected root container row");
   return rootContainer.id;
-}
-
-async function createContainerForUser(input: {
-  id: string;
-  parentId: string;
-}): Promise<void> {
-  const [parent] = await db
-    .select({
-      organizationId: containers.organizationId,
-    })
-    .from(containers)
-    .where(eq(containers.id, input.parentId))
-    .limit(1);
-  invariant(parent, "expected parent container row");
-
-  const parentAccess = await resolveContainerAccessState(input.parentId);
-  invariant(parentAccess, "expected parent container access state");
-
-  await db.insert(containers).values({
-    id: input.id,
-    organizationId: parent.organizationId,
-    parentId: input.parentId,
-  });
-  await initializeContainerAccess(input.id, db, {
-    inheritedFrom: parentAccess,
-  });
 }
 
 async function countBlobRecipientEnvelopes(blobId: string): Promise<number> {
@@ -115,7 +86,7 @@ test("document link and unlink routes update access state without V1 access refr
 
   const rootContainerId = await getRootContainerIdForUser(owner.userId);
   const siblingContainerId = crypto.randomUUID();
-  await createContainerForUser({
+  await createContainerFixture({
     id: siblingContainerId,
     parentId: rootContainerId,
   });
@@ -305,7 +276,7 @@ test("document link route rejects stale access state hashes", async () => {
 
   const rootContainerId = await getRootContainerIdForUser(owner.userId);
   const siblingContainerId = crypto.randomUUID();
-  await createContainerForUser({
+  await createContainerFixture({
     id: siblingContainerId,
     parentId: rootContainerId,
   });
