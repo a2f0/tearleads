@@ -25,6 +25,7 @@ import {
 } from "../../../data/documentSync";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
+import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
 import {
   type DocumentV2CreateAuthor,
   syncRemoteDocumentV2,
@@ -79,12 +80,6 @@ export interface ExplorerRuntime {
     | "moveContainer"
     | "shareContainer"
   > &
-    Partial<
-      Pick<
-        ExplorerAppData["apiClient"],
-        "commitDocumentChange" | "createDocument" | "stageBlob"
-      >
-    > &
     Partial<
       Pick<
         ExplorerAppData["apiClient"],
@@ -662,7 +657,7 @@ function resolveExplorerV2Author(
 
   return {
     organizationId: runtime.organizationId,
-    signerDeviceId: `signing-key:${runtime.signingFingerprint}`,
+    signerDeviceId: createDocumentV2SignerDeviceId(runtime.signingFingerprint),
     signerKeyFingerprint: runtime.signingFingerprint,
     signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
     signerUserId: runtime.userId,

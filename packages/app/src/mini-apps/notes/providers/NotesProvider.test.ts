@@ -136,6 +136,12 @@ async function noteV2FixtureHash(label: string): Promise<string> {
   return toFingerprint(new TextEncoder().encode(`notes-v2:${label}`));
 }
 
+async function createPersistedNoteSnapshot(text: string): Promise<string> {
+  const doc = await createDocument("persisted-note-fixture");
+  doc.getText("text").update(text);
+  return bytesToBase64(exportAllUpdates(doc));
+}
+
 async function createNoteV2ContainerProjection(input: {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
@@ -1012,6 +1018,61 @@ test("notes store creates a document linked to the configured container", async 
       persistence.getState().note?.v2DocumentManifestBundle !== null,
     "Container-scoped note did not create and sync its document.",
   );
+});
+
+test("notes store clears V2 document state when access epoch changes", async () => {
+  const persistence = createNotesPersistence();
+  const runtime = createRuntime();
+
+  await persistence.saveNote(runtime.execSql, {
+    accessEpoch: 1,
+    accessStateHash: "access-state-hash-1",
+    containerId: "container-a",
+    documentId: "remote-document",
+    documentRecipientEnvelopes: "legacy-envelope-bundle",
+    id: "epoch-note",
+    lastCommitLsn: "0/10",
+    loroSnapshot: await createPersistedNoteSnapshot("Existing note"),
+    text: "Existing note",
+    v2ContentKeyBundle: "stale-content-key-bundle",
+    v2DocumentKekTargets: "stale-kek-targets",
+    v2DocumentManifestBundle: "stale-manifest-bundle",
+  });
+
+  const store = createNotesStore("epoch-note", runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Epoch relink note store did not become ready.",
+  );
+
+  await expect(
+    store.relink({
+      accessEpoch: 2,
+      accessStateHash: "access-state-hash-2",
+      containerId: "container-b",
+      documentId: "remote-document",
+      localId: "epoch-note",
+    }),
+  ).resolves.toMatchObject({
+    accessStateHash: "access-state-hash-2",
+    containerId: "container-b",
+    documentId: "remote-document",
+    id: "epoch-note",
+  });
+
+  expect(persistence.getState().note).toMatchObject({
+    accessEpoch: 2,
+    accessStateHash: "access-state-hash-2",
+    containerId: "container-b",
+    documentId: "remote-document",
+    documentRecipientEnvelopes: null,
+    lastCommitLsn: "0/10",
+    v2ContentKeyBundle: null,
+    v2DocumentKekTargets: null,
+    v2DocumentManifestBundle: null,
+  });
 });
 
 test("document store seeds initial text before first persistence", async () => {

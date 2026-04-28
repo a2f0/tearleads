@@ -21,6 +21,7 @@ import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
 } from "../../../data/documentSync";
+import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
 import {
   createRemoteDocumentV2,
   type DocumentV2CreateAuthor,
@@ -461,7 +462,7 @@ function resolveContactsV2Author(
 
   return {
     organizationId: runtime.organizationId,
-    signerDeviceId: `signing-key:${runtime.signingFingerprint}`,
+    signerDeviceId: createDocumentV2SignerDeviceId(runtime.signingFingerprint),
     signerKeyFingerprint: runtime.signingFingerprint,
     signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
     signerUserId: runtime.userId,

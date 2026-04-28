@@ -32,6 +32,7 @@ import {
   createDocumentEncryptionMaterial,
   serializeDocumentRecipientEnvelopes,
 } from "../../../data/documentSync";
+import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
 import {
   buildMaterializedDocumentV2CreatePlan,
   persistedDocumentV2CreateStateFromResponse,
@@ -252,7 +253,7 @@ async function createExplorerMetadataV2Fixture(input: {
   const materializedPlan = await buildMaterializedDocumentV2CreatePlan({
     author: {
       organizationId,
-      signerDeviceId: `signing-key:${signingFingerprint}`,
+      signerDeviceId: createDocumentV2SignerDeviceId(signingFingerprint),
       signerKeyFingerprint: signingFingerprint,
       signerPrivateKey: signingKeyPair.signingPrivateKey,
       signerUserId: userId,
@@ -331,14 +332,12 @@ async function createSqlRuntime(): Promise<TestRuntime> {
   return {
     ...runtimeBase,
     apiClient: {
-      commitDocumentChange: async () => null,
       createContainer: async (
         _id: string,
         _parentId: string,
         _expectedAccessStateHash: string,
         _initialMetadataUpdates,
       ) => null,
-      createDocument: async () => null,
       getBlob: async () => null,
       listContainers: async () => [],
       listDocumentAttachments: async () => null,
@@ -349,7 +348,6 @@ async function createSqlRuntime(): Promise<TestRuntime> {
         _subjectId: string,
         _accessLevel: "read" | "write" | "admin",
       ) => null,
-      stageBlob: async () => null,
       getEncapsulationKey: async () => null,
       getDocumentV2WriterProjection: async () => null,
       syncDocumentV2: async () => null,
