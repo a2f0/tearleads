@@ -75,14 +75,6 @@ type DocumentRuntimeV2Api = Pick<
   | "getDocumentV2WriterProjection"
   | "syncDocumentV2"
 >;
-/**
- * @deprecated Test-only compile affordance for pre-V2 attachment specs. App
- * runtime factories do not bind these removed document write routes.
- */
-type DocumentRuntimeLegacyApi = Pick<
-  DocumentAppData["apiClient"],
-  "commitDocumentChange" | "createDocument" | "stageBlob" | "syncDocument"
->;
 type DocumentAttachmentBinding = NonNullable<
   Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
 >[number];
@@ -132,7 +124,6 @@ export interface DocumentsRuntime {
     DocumentAppData["apiClient"],
     "getBlob" | "listContainers" | "listDocumentAttachments"
   > &
-    Partial<DocumentRuntimeLegacyApi> &
     Partial<DocumentRuntimeV2Api>;
   blobStore: BlobStore;
   cacheReferencedPrincipalPolicies: DocumentAppData["cacheReferencedPrincipalPolicies"];
