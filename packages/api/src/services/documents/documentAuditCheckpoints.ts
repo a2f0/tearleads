@@ -1,7 +1,4 @@
-import type {
-  DocumentCheckpointKind,
-  DocumentRecipientEnvelopeAction,
-} from "@tearleads/loro/shared";
+import type { DocumentCheckpointKind } from "@tearleads/loro/shared";
 import { desc, eq } from "drizzle-orm";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import { documentAuditCheckpoints, documents } from "../../schema";
@@ -11,11 +8,6 @@ interface CheckpointInput {
   checkpointKind?: DocumentCheckpointKind | undefined;
   id: string;
   sourceVersionVector?: string | undefined;
-}
-
-interface DocumentCheckpointInputError {
-  message: string;
-  status: 400;
 }
 
 function serializeCheckpointHashField(name: string, value: string) {
@@ -80,68 +72,6 @@ export async function computeDocumentAuditCheckpointHash(input: {
   sourceVersionVector: string;
 }) {
   return sha256Hex(buildCheckpointHashPayload(input));
-}
-
-export function getDocumentCheckpointInputError(input: {
-  documentRecipientEnvelopeAction: DocumentRecipientEnvelopeAction;
-  updates: ReadonlyArray<CheckpointInput>;
-}): DocumentCheckpointInputError | null {
-  const checkpointUpdates = input.updates.filter(
-    (update) =>
-      update.checkpointKind !== undefined ||
-      update.sourceVersionVector !== undefined,
-  );
-  if (checkpointUpdates.length === 0) {
-    return null;
-  }
-
-  if (input.updates.length !== 1 || checkpointUpdates.length !== 1) {
-    return {
-      message: "Checkpoint writes require exactly one document update",
-      status: 400,
-    };
-  }
-
-  const [update] = checkpointUpdates;
-  if (!update) {
-    return null;
-  }
-
-  if (!update.checkpointKind) {
-    return {
-      message: "sourceVersionVector requires checkpointKind",
-      status: 400,
-    };
-  }
-
-  if (!update.sourceVersionVector) {
-    return {
-      message: "Checkpoint writes require source version vector",
-      status: 400,
-    };
-  }
-
-  if (
-    update.checkpointKind === "rotate_baseline" &&
-    input.documentRecipientEnvelopeAction !== "rotate"
-  ) {
-    return {
-      message: "Rotate baseline checkpoint requires rotate access transition",
-      status: 400,
-    };
-  }
-
-  if (
-    input.documentRecipientEnvelopeAction === "rotate" &&
-    update.checkpointKind !== "rotate_baseline"
-  ) {
-    return {
-      message: "Rotate baseline requires checkpointKind rotate_baseline",
-      status: 400,
-    };
-  }
-
-  return null;
 }
 
 export async function maybeWriteDocumentAuditCheckpoint(

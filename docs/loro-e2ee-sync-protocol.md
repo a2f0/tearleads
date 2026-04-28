@@ -1,5 +1,11 @@
 # Loro E2EE Sync Protocol
 
+> Status: historical V1 protocol. The direct-recipient `/documents`,
+> `/documents/:documentId/sync`, and `/documents/:documentId/commit-change`
+> write APIs have been retired in favor of the signed Keying V2 document and
+> blob mutation routes. This document remains useful background for Loro
+> update storage semantics, not current API surface.
+
 ## Summary
 
 This document defines the Loro-native E2EE sync protocol boundary.

@@ -15,7 +15,7 @@ import { sha256Hex } from "../../utils/sha256";
 export const DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT = "attachment_event";
 const BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY: BlobAuditRetentionMode = "live_only";
 
-export interface DocumentAttachmentAuditEventInput {
+interface DocumentAttachmentAuditEventInput {
   action: DocumentAttachmentAuditAction;
   bindingId: string | null;
   blobId: string | null;
@@ -268,24 +268,4 @@ export async function appendDocumentAttachmentAuditEntries(
   await executor
     .insert(documentAttachmentAuditEvents)
     .values(attachmentAuditEvents);
-}
-
-export async function markPrunedBlobAuditObjects(
-  executor: DatabaseExecutor,
-  blobIds: string[],
-): Promise<void> {
-  const uniqueBlobIds = uniqueSortedStrings(blobIds);
-  if (uniqueBlobIds.length === 0) {
-    return;
-  }
-
-  await executor
-    .update(blobAuditObjects)
-    .set({
-      historicalBytesRetained: false,
-      liveStorageKey: null,
-      prunedAt: new Date(),
-      retentionMode: BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY,
-    })
-    .where(inArray(blobAuditObjects.blobId, uniqueBlobIds));
 }

@@ -25,10 +25,6 @@ export {
   type StageBlobResponse,
 } from "./blob";
 export {
-  type CommitDocumentChangeResponse,
-  isCommitDocumentChangeResponse,
-} from "./commitDocumentChange";
-export {
   type ContainerSummary,
   type ContainerV2KekResponse,
   type ContainerV2ManifestBundleResponse,

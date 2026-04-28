@@ -23,7 +23,8 @@ A single use case can touch more than one plane. For example:
 
 - `shareContainer` is mostly access-plane work
 - `createContainer` touches access plane and metadata-document setup
-- `commit-change` spans document plane, attachment plane, and access plane
+- signed V2 document/blob mutations span document, attachment, and access
+  planes
 
 Protocol planes are a domain model, not a source-tree layout rule.
 
@@ -151,9 +152,9 @@ The service layer covers these route-backed capabilities:
 - container creation, listing, sharing, movement, and document listing
 - container metadata document creation for auth registration and container
   creation
-- document creation and sync storage
+- V2 document creation, sync storage, and writer projection
 - document attachment listing
-- document `commit-change`
+- V2 blob staging, attachment binding, and detach mutations
 - document link and unlink mutations
 - principal policy read and write operations
 
@@ -189,20 +190,17 @@ maps service errors to HTTP responses, while the service owns blob-read
 authorization, committed blob lookup, current recipient-envelope projection,
 and digest recalculation through the injected runtime database.
 
-Document creation and Loro sync persistence are implemented as a document
-service store. The `createLoroRouter` adapter owns request validation, auth
-middleware, response shaping, and update notifications, while the store owns
-linked-container authorization, document access bundle lookup, document
-recipient-envelope persistence, and update storage through the injected runtime
-database.
+Document creation and sync writes are implemented by signed V2 mutation
+services. The V2 document route validates request shape and maps service
+errors to HTTP responses; `documentV2Mutations` owns manifest verification,
+content-key target validation, write-header verification, and update storage.
+The neutral `documentUpdateStore` owns causally-missing update reads for V2
+sync responses.
 
-Document commit/change is implemented as a document service. The
-`/documents/:documentId/commit-change` route validates request shape, maps
-service errors to HTTP responses, and publishes accepted update events, while
-the service owns document-write authorization, staged blob promotion,
-attachment mutation application, recipient-envelope persistence, Loro update
-storage, blob access refresh, and unreachable blob pruning through the injected
-runtime database.
+The old direct-recipient `createLoroRouter` and
+`/documents/:documentId/commit-change` adapters have been retired. Blob
+attachment mutations now use signed V2 blob routes instead of the deleted
+document commit/change service.
 
 ## Why `routeApp` Exists
 

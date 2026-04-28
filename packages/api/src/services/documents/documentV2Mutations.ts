@@ -79,8 +79,11 @@ import {
 import { uniqueSortedStrings } from "../../utils/array";
 import type { ApiServiceRuntime } from "../runtime";
 import { readCurrentCommitLsn } from "./commitLsn";
-import { createDocumentSyncStore } from "./documentSyncStore";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
+import {
+  DocumentUpdateReadError,
+  listMissingDocumentUpdates,
+} from "./documentUpdateStore";
 
 type DocumentV2MutationStatus = 400 | 403 | 404 | 409 | 503;
 
@@ -161,6 +164,10 @@ function toMutationError(error: unknown): DocumentV2MutationError | null {
   }
 
   if (error instanceof DocumentContentKeyBundleError) {
+    return new DocumentV2MutationError(error.message, error.status);
+  }
+
+  if (error instanceof DocumentUpdateReadError) {
     return new DocumentV2MutationError(error.message, error.status);
   }
 
@@ -1045,8 +1052,7 @@ async function listMissingUpdates(input: {
   readonly minLsn?: string | undefined;
   readonly runtime: ApiServiceRuntime;
 }) {
-  const store = createDocumentSyncStore(input.runtime);
-  return store.listMissingDocumentUpdates({
+  return listMissingDocumentUpdates(input.runtime.db, {
     documentId: input.documentId,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,

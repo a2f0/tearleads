@@ -1,5 +1,9 @@
 # Access Plane
 
+> Status: historical V1 details remain in this note. The direct-recipient
+> document sync/commit-change write APIs described below have been retired in
+> favor of signed Keying V2 document and blob mutation routes.
+
 ## Summary
 
 The access plane is application-owned.

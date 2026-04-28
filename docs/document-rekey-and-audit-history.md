@@ -1,5 +1,10 @@
 # Document Rekey, Rebaselines, And Audit History
 
+> Status: mixed historical/current design note. The V1 direct-recipient
+> `commit-change` service and sync store have been removed; current document
+> writes flow through signed Keying V2 mutations, while durable audit rows are
+> still verified by the audit-history verifier described here.
+
 This document defines implemented behavior and the target model for document
 rekey, fresh-baseline generation, offline merge handling, and tamper-evident
 document history.
@@ -280,8 +285,9 @@ Those records should include metadata such as:
 - last included audit entry hash or history-root hash
 - author or device identity for the checkpoint write
 
-This phase builds on the current rotate-baseline validation that already exists
-in `documentSyncStore.ts` and `commitDocumentChange.ts`.
+This phase now targets the signed V2 write path. The old direct-recipient
+sync-store and commit-change services that originally hosted this validation
+have been removed.
 
 ### Phase 3: Tamper-Evident Document Update Ledger
 

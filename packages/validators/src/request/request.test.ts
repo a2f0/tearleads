@@ -3,7 +3,6 @@ import {
   isBlobV2AttachmentBindRequest,
   isBlobV2AttachmentDetachRequest,
   isChallengeRequest,
-  isCommitDocumentChangeRequest,
   isCreateContainerRequest,
   isDocumentV2ContentKeyBundleRequest,
   isDocumentV2CreateRequest,
@@ -163,57 +162,6 @@ test("isStageBlobRequest", () => {
     }),
   ).toBe(false);
   expect(isStageBlobRequest(null)).toBe(false);
-});
-
-test("isCommitDocumentChangeRequest", () => {
-  expect(
-    isCommitDocumentChangeRequest({
-      accessEpoch: 1,
-      expectedAccessStateHash: "access-state-1",
-      attachmentCommits: [
-        {
-          slotId: "slot_01",
-          stageId: "stage_01",
-          expectedBindingId: null,
-        },
-      ],
-      attachmentDetaches: [],
-      attachmentRewraps: [],
-      loroUpdate: {
-        checkpointKind: "fresh_baseline",
-        id: "update_01",
-        encryptedData: "encrypted",
-        partialStartVersionVector: "{}",
-        partialEndVersionVector: '{"a":1}',
-        sourceVersionVector: '{"a":1}',
-        referencedSlotIds: ["slot_01"],
-      },
-    }),
-  ).toBe(true);
-  expect(
-    isCommitDocumentChangeRequest({
-      accessEpoch: 1,
-      attachmentCommits: [],
-      attachmentDetaches: [],
-      attachmentRewraps: [],
-      loroUpdate: null,
-    }),
-  ).toBe(false);
-  expect(
-    isCommitDocumentChangeRequest({
-      accessEpoch: 1,
-      attachmentCommits: [],
-      attachmentDetaches: [],
-      attachmentRewraps: [],
-      loroUpdate: {
-        id: "update_01",
-        encryptedData: "encrypted",
-        partialStartVersionVector: "{}",
-        referencedSlotIds: [],
-      },
-    }),
-  ).toBe(false);
-  expect(isCommitDocumentChangeRequest(null)).toBe(false);
 });
 
 test("isCreateContainerRequest", () => {

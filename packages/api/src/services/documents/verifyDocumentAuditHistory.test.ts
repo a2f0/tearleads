@@ -1,219 +1,104 @@
 import { expect, test } from "bun:test";
-import {
-  encryptForRecipients,
-  serializeBlobEnvelope,
-  unwrapDek,
-} from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import {
-  createDocument as createLoroDocument,
-  encodeVersionVector,
-  encryptLoroUpdate,
-  exportUpdatesSince,
-  getUpdateVersionVectors,
-} from "@tearleads/loro";
-import { eq, inArray } from "drizzle-orm";
-import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
-import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
-import { resolveDocumentAccessState } from "../../access/documentAccess";
+import { eq } from "drizzle-orm";
 import { db } from "../../adapters/postgres";
 import {
-  containerMetadataDocuments,
+  blobs,
   documentAttachmentAuditEvents,
   documentAuditCheckpoints,
   documentAuditEntries,
+  documents,
   documentUpdateAuditEvents,
 } from "../../schema";
-import { stageBlob } from "../blobs/stageBlob";
-import { commitDocumentChange } from "./commitDocumentChange";
-import { createDocumentSyncStore } from "./documentSyncStore";
+import { sha256Hex } from "../../utils/sha256";
+import { appendDocumentAttachmentAuditEntries } from "./documentAttachmentAuditEvents";
+import { maybeWriteDocumentAuditCheckpoint } from "./documentAuditCheckpoints";
+import { appendDocumentUpdateAuditEntries } from "./documentAuditEntries";
 import { verifyDocumentAuditHistory } from "./verifyDocumentAuditHistory";
 
-async function getExpectedLinkedContainerAccessStateHashes(
-  linkedContainerIds: string[],
-): Promise<Record<string, string>> {
-  const bindings = await db
-    .select({
-      containerId: containerMetadataDocuments.containerId,
-      documentId: containerMetadataDocuments.documentId,
-    })
-    .from(containerMetadataDocuments)
-    .where(inArray(containerMetadataDocuments.containerId, linkedContainerIds));
-
-  const expectedLinkedContainerAccessStateHashes: Record<string, string> = {};
-
-  for (const containerId of linkedContainerIds) {
-    const binding = bindings.find((row) => row.containerId === containerId);
-    if (!binding) {
-      throw new Error(
-        `Expected metadata document binding for container ${containerId}`,
-      );
-    }
-
-    const access = await resolveDocumentAccessState(binding.documentId, db);
-    if (!access) {
-      throw new Error(
-        `Expected metadata access state for container ${containerId}`,
-      );
-    }
-
-    expectedLinkedContainerAccessStateHashes[containerId] =
-      access.accessStateHash;
-  }
-
-  return expectedLinkedContainerAccessStateHashes;
-}
-
-async function createServiceDocument() {
-  const { fingerprint, registration, user } = await registerServiceUser();
-  const store = createDocumentSyncStore(createServiceTestRuntime());
-  const created = await store.createDocument({
-    createdByFingerprint: fingerprint,
-    createdByUserId: registration.userId,
-    expectedLinkedContainerAccessStateHashes:
-      await getExpectedLinkedContainerAccessStateHashes([
-        registration.rootContainerId,
-      ]),
-    linkedContainerIds: [registration.rootContainerId],
-  });
-
-  if (!created) {
-    throw new Error("Failed to create service test document");
-  }
-
-  return { created, fingerprint, registration, user };
-}
-
-async function readDocumentEncryption(input: {
-  documentRecipientEnvelopes: Array<{
-    keyFingerprint: string;
-    kemCipherText: string;
-    wrappedKey: string;
-  }>;
-  secretKey: Uint8Array;
-}) {
-  return {
-    documentKey: await unwrapDek(
-      input.documentRecipientEnvelopes.map((recipient) => ({
-        keyFingerprint: recipient.keyFingerprint,
-        kemCipherText: base64ToBytes(recipient.kemCipherText),
-        wrappedKey: base64ToBytes(recipient.wrappedKey),
-      })),
-      input.secretKey,
-    ),
-    documentRecipientEnvelopes: input.documentRecipientEnvelopes,
-  };
-}
-
-async function createEncryptedBlobBytes(
-  plaintext: string,
-  encodedRecipientPublicKeys: string[],
-): Promise<string> {
-  const envelope = await encryptForRecipients(
-    new TextEncoder().encode(plaintext),
-    encodedRecipientPublicKeys.map((publicKey) => base64ToBytes(publicKey)),
-  );
-
-  return serializeBlobEnvelope(envelope);
-}
-
-async function stageServiceBlob(input: {
-  encryptedBytes: string;
-  userId: string;
-}) {
-  return stageBlob(createServiceTestRuntime(), {
-    encryptedBytes: input.encryptedBytes,
-    byteLength: new TextEncoder().encode(input.encryptedBytes).byteLength,
-    sha256: Array.from(
-      new Uint8Array(
-        await crypto.subtle.digest(
-          "SHA-256",
-          new TextEncoder().encode(input.encryptedBytes),
-        ),
-      ),
-      (byte) => byte.toString(16).padStart(2, "0"),
-    ).join(""),
-    userId: input.userId,
-  });
-}
+const ACCESS_EPOCH = 1;
+const ACCESS_FINGERPRINT = "audit-history-access-fingerprint";
+const ACCESS_STATE_HASH = "audit-history-access-state-hash";
+const ACTOR_FINGERPRINT = "audit-history-actor-fingerprint";
 
 async function createDocumentWithAuditHistory() {
-  const { created, fingerprint, registration, user } =
-    await createServiceDocument();
-  const encryptedBytes = await createEncryptedBlobBytes(
-    "audit-history-blob",
-    created.recipientEncapsulationPublicKeys,
-  );
-  const stage = await stageServiceBlob({
-    encryptedBytes,
-    userId: registration.userId,
-  });
-
-  await commitDocumentChange(createServiceTestRuntime(), {
-    documentId: created.document.id,
-    request: {
-      accessEpoch: created.currentAccessEpoch,
-      expectedAccessStateHash: created.currentAccessStateHash,
-      attachmentCommits: [
-        {
-          expectedBindingId: null,
-          slotId: "audit-slot",
-          stageId: stage.stageId,
-        },
-      ],
-      attachmentDetaches: [],
-      attachmentRewraps: [],
-      loroUpdate: null,
-    },
-    session: {
-      fingerprint,
-      userId: registration.userId,
-    },
-  });
-
-  const currentDocumentRecipientEnvelopes = created.documentRecipientEnvelopes;
-  if (!currentDocumentRecipientEnvelopes) {
-    throw new Error("Expected service test document recipient envelopes");
+  const actorUserId = crypto.randomUUID();
+  const [document] = await db
+    .insert(documents)
+    .values({ createdByFingerprint: ACTOR_FINGERPRINT })
+    .returning({ id: documents.id });
+  if (!document) {
+    throw new Error("Failed to create audit test document");
   }
-  const { documentKey } = await readDocumentEncryption({
-    documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-    secretKey: user.kem.secretKey,
-  });
-  const loroDoc = await createLoroDocument("verify-document-audit-history");
-  loroDoc.getText("text").update("baseline checkpoint");
-  const baselineUpdate = exportUpdatesSince(loroDoc, null);
-  const baselineVectors = getUpdateVersionVectors(baselineUpdate);
-  const sourceVersionVector = encodeVersionVector(loroDoc);
 
-  await commitDocumentChange(createServiceTestRuntime(), {
-    documentId: created.document.id,
-    request: {
-      accessEpoch: created.currentAccessEpoch,
-      expectedAccessStateHash: created.currentAccessStateHash,
-      attachmentCommits: [],
-      attachmentDetaches: [],
-      attachmentRewraps: [],
-      loroUpdate: {
-        checkpointKind: "fresh_baseline",
-        id: crypto.randomUUID(),
-        encryptedData: await encryptLoroUpdate(
-          baselineUpdate,
-          created.currentAccessEpoch,
-          documentKey,
-        ),
-        partialStartVersionVector: baselineVectors.partialStartVersionVector,
-        partialEndVersionVector: baselineVectors.partialEndVersionVector,
-        referencedSlotIds: [],
-        sourceVersionVector,
+  const encryptedBytes = "audit-history-blob";
+  const [blob] = await db
+    .insert(blobs)
+    .values({
+      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
+      encryptedBytes,
+      sha256: await sha256Hex(encryptedBytes),
+      storageKey: `audit-history/${crypto.randomUUID()}`,
+    })
+    .returning({ id: blobs.id });
+  if (!blob) {
+    throw new Error("Failed to create audit test blob");
+  }
+
+  await appendDocumentAttachmentAuditEntries(db, {
+    accessEpoch: ACCESS_EPOCH,
+    accessFingerprint: ACCESS_FINGERPRINT,
+    accessStateHash: ACCESS_STATE_HASH,
+    actorFingerprint: ACTOR_FINGERPRINT,
+    actorUserId,
+    documentId: document.id,
+    events: [
+      {
+        action: "attach",
+        bindingId: crypto.randomUUID(),
+        blobId: blob.id,
+        previousBindingId: null,
+        previousBlobId: null,
+        slotId: "audit-slot",
       },
-    },
-    session: {
-      fingerprint,
-      userId: registration.userId,
-    },
+    ],
   });
 
-  return { documentId: created.document.id };
+  const checkpointUpdate = {
+    checkpointKind: "fresh_baseline",
+    encryptedData: "encrypted-baseline-update",
+    id: crypto.randomUUID(),
+    partialEndVersionVector: "baseline-end-version-vector",
+    partialStartVersionVector: "baseline-start-version-vector",
+    sourceVersionVector: "baseline-source-version-vector",
+  } as const;
+  const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(db, {
+    accessEpoch: ACCESS_EPOCH,
+    accessFingerprint: ACCESS_FINGERPRINT,
+    accessStateHash: ACCESS_STATE_HASH,
+    actorFingerprint: ACTOR_FINGERPRINT,
+    actorUserId,
+    documentId: document.id,
+    updates: [checkpointUpdate],
+  });
+  const coveredAuditEntryHash = auditEntryHashByUpdateId.get(
+    checkpointUpdate.id,
+  );
+  if (!coveredAuditEntryHash) {
+    throw new Error("Expected checkpoint update audit entry hash");
+  }
+
+  await maybeWriteDocumentAuditCheckpoint(db, {
+    accessEpoch: ACCESS_EPOCH,
+    accessFingerprint: ACCESS_FINGERPRINT,
+    accessStateHash: ACCESS_STATE_HASH,
+    actorFingerprint: ACTOR_FINGERPRINT,
+    actorUserId,
+    checkpointUpdate,
+    coveredAuditEntryHash,
+    documentId: document.id,
+  });
+
+  return { documentId: document.id };
 }
 
 test("verifyDocumentAuditHistory accepts a valid mixed document history", async () => {

@@ -1,5 +1,9 @@
 # Attachment Retention
 
+> Status: historical V1 attachment-retention note. The V1 `commit-change`
+> service has been removed; current attachment writes use signed Keying V2 blob
+> attachment mutation routes.
+
 This document defines attachment/blob retention semantics for the access plane.
 
 ## Retention Model

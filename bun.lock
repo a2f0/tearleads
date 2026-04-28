@@ -146,7 +146,6 @@
         "@tearleads/encoding": "workspace:*",
         "@tearleads/validators": "workspace:*",
         "drizzle-orm": "0.45.1",
-        "hono": "4.7.11",
         "loro-crdt": "catalog:",
       },
       "devDependencies": {
