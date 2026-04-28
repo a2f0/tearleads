@@ -54,19 +54,12 @@ export type ContainerMetadataDocument = Awaited<
 type ListedRemoteContainer = NonNullable<
   Awaited<ReturnType<ExplorerRuntime["apiClient"]["listContainers"]>>
 >[number];
-type CommitDocumentChangeInput = Parameters<
-  ExplorerRuntime["apiClient"]["commitDocumentChange"]
->[1];
 type MovedRemoteContainer = NonNullable<
   Awaited<ReturnType<ExplorerRuntime["apiClient"]["moveContainer"]>>
 >;
-type StageBlobInput = Parameters<ExplorerRuntime["apiClient"]["stageBlob"]>[0];
 type SyncDocumentOutgoingUpdates = Parameters<
   ExplorerRuntime["apiClient"]["syncDocument"]
 >[3];
-type SyncDocumentRecipientEnvelopes = Parameters<
-  ExplorerRuntime["apiClient"]["syncDocument"]
->[4];
 type DocumentRecipientEnvelopes = ReturnType<
   typeof parseDocumentRecipientEnvelopes
 >;
@@ -87,17 +80,29 @@ interface ContainerMetadataSyncAttempt {
 export interface ExplorerRuntime {
   apiClient: Pick<
     ExplorerAppData["apiClient"],
-    | "commitDocumentChange"
     | "createContainer"
-    | "createDocument"
     | "getBlob"
     | "listContainers"
     | "listDocumentAttachments"
     | "moveContainer"
     | "shareContainer"
-    | "stageBlob"
     | "syncDocument"
-  >;
+  > &
+    Partial<
+      Pick<
+        ExplorerAppData["apiClient"],
+        "commitDocumentChange" | "createDocument" | "stageBlob"
+      >
+    > &
+    Partial<
+      Pick<
+        ExplorerAppData["apiClient"],
+        | "createDocumentV2"
+        | "getContainerV2WriterProjection"
+        | "getDocumentV2WriterProjection"
+        | "syncDocumentV2"
+      >
+    >;
   blobStore: BlobStore;
   cacheReferencedPrincipalPolicies: ExplorerAppData["cacheReferencedPrincipalPolicies"];
   dbStatus: ExplorerAppData["dbStatus"];
@@ -191,42 +196,28 @@ export function getFallbackContainerName(parentId: string | null): string {
 function buildNotesRuntime(state: ExplorerSyncState, containerId: string) {
   return {
     apiClient: {
-      commitDocumentChange: (
-        documentId: string,
-        input: CommitDocumentChangeInput,
-      ) => state.runtime.apiClient.commitDocumentChange(documentId, input),
-      createDocument: (
-        linkedContainerIds: string[],
-        expectedLinkedContainerAccessStateHashes: Record<string, string>,
-      ) =>
-        state.runtime.apiClient.createDocument(
-          linkedContainerIds,
-          expectedLinkedContainerAccessStateHashes,
-        ),
+      ...(state.runtime.apiClient.createDocumentV2
+        ? { createDocumentV2: state.runtime.apiClient.createDocumentV2 }
+        : {}),
+      ...(state.runtime.apiClient.getContainerV2WriterProjection
+        ? {
+            getContainerV2WriterProjection:
+              state.runtime.apiClient.getContainerV2WriterProjection,
+          }
+        : {}),
+      ...(state.runtime.apiClient.getDocumentV2WriterProjection
+        ? {
+            getDocumentV2WriterProjection:
+              state.runtime.apiClient.getDocumentV2WriterProjection,
+          }
+        : {}),
       getBlob: (blobId: string) => state.runtime.apiClient.getBlob(blobId),
       listContainers: () => state.runtime.apiClient.listContainers(),
       listDocumentAttachments: (documentId: string) =>
         state.runtime.apiClient.listDocumentAttachments(documentId),
-      stageBlob: (input: StageBlobInput) =>
-        state.runtime.apiClient.stageBlob(input),
-      syncDocument: (
-        documentId: string,
-        accessEpoch: number,
-        localVersionVector: string,
-        outgoingUpdates: SyncDocumentOutgoingUpdates,
-        documentRecipientEnvelopes: SyncDocumentRecipientEnvelopes,
-        minLsn?: string,
-        expectedAccessStateHash?: string,
-      ) =>
-        state.runtime.apiClient.syncDocument(
-          documentId,
-          accessEpoch,
-          localVersionVector,
-          outgoingUpdates,
-          documentRecipientEnvelopes,
-          minLsn,
-          expectedAccessStateHash,
-        ),
+      ...(state.runtime.apiClient.syncDocumentV2
+        ? { syncDocumentV2: state.runtime.apiClient.syncDocumentV2 }
+        : {}),
     },
     blobStore: state.runtime.blobStore,
     cacheReferencedPrincipalPolicies:

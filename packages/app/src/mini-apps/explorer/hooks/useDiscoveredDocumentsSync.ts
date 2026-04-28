@@ -180,10 +180,15 @@ function usePrimeDiscoveredDocuments(params: {
     dbStatus,
     domainScope,
     encapsulationKeyPair,
+    events,
     execSql,
     isAuthenticated,
     log,
     online,
+    organizationId,
+    signingFingerprint,
+    signingKeyPair,
+    userId,
   } = appData;
   const runtimeAppData = useMemo<ExplorerDocumentsRuntimeAppData>(
     () => ({
@@ -193,10 +198,15 @@ function usePrimeDiscoveredDocuments(params: {
       dbStatus,
       domainScope,
       encapsulationKeyPair,
+      events,
       execSql,
       isAuthenticated,
       log,
       online,
+      organizationId,
+      signingFingerprint,
+      signingKeyPair,
+      userId,
     }),
     [
       apiClient,
@@ -205,10 +215,15 @@ function usePrimeDiscoveredDocuments(params: {
       dbStatus,
       domainScope,
       encapsulationKeyPair,
+      events,
       execSql,
       isAuthenticated,
       log,
       online,
+      organizationId,
+      signingFingerprint,
+      signingKeyPair,
+      userId,
     ],
   );
 

@@ -12,10 +12,15 @@ export type ExplorerDocumentsRuntimeAppData = Pick<
   | "dbStatus"
   | "domainScope"
   | "encapsulationKeyPair"
+  | "events"
   | "execSql"
   | "isAuthenticated"
   | "log"
   | "online"
+  | "organizationId"
+  | "signingFingerprint"
+  | "signingKeyPair"
+  | "userId"
 >;
 
 export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
@@ -36,22 +41,29 @@ export function createExplorerDocumentsRuntime(
     dbStatus,
     domainScope,
     encapsulationKeyPair,
+    events,
     execSql,
     isAuthenticated,
     log,
     online,
+    organizationId,
+    signingFingerprint,
+    signingKeyPair,
+    userId,
   } = appData;
 
   return {
     apiClient: {
-      commitDocumentChange: apiClient.commitDocumentChange.bind(apiClient),
-      createDocument: apiClient.createDocument.bind(apiClient),
+      createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
+      getContainerV2WriterProjection:
+        apiClient.getContainerV2WriterProjection.bind(apiClient),
+      getDocumentV2WriterProjection:
+        apiClient.getDocumentV2WriterProjection.bind(apiClient),
       getBlob: apiClient.getBlob.bind(apiClient),
       listContainers: apiClient.listContainers.bind(apiClient),
       listDocumentAttachments:
         apiClient.listDocumentAttachments.bind(apiClient),
-      stageBlob: apiClient.stageBlob.bind(apiClient),
-      syncDocument: apiClient.syncDocument.bind(apiClient),
+      syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
     },
     blobStore,
     cacheReferencedPrincipalPolicies,
@@ -59,10 +71,14 @@ export function createExplorerDocumentsRuntime(
     dbStatus,
     domainScope,
     encapsulationKeyPair,
-    events: [],
+    events,
     execSql,
     isAuthenticated,
     log,
     online,
+    organizationId,
+    signingFingerprint,
+    signingKeyPair,
+    userId,
   };
 }
