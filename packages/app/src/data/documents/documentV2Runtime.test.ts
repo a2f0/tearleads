@@ -17,13 +17,16 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   type DocumentV2CreateRequest,
+  type DocumentV2LinkSetMutationRequest,
   type DocumentV2SyncRequest,
   isDocumentV2CreateRequest,
+  isDocumentV2LinkSetMutationRequest,
   isDocumentV2SyncRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerV2WriterProjectionResponse,
   DocumentV2CreateResponse,
+  DocumentV2LinkSetMutationResponse,
   DocumentV2SyncResponse,
   DocumentV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -31,6 +34,7 @@ import {
   buildDocumentV2CreatePlan,
   buildDocumentV2SyncPlan,
   buildMaterializedDocumentV2CreatePlan,
+  buildMaterializedDocumentV2LinkSetMutationPlan,
   buildMaterializedDocumentV2SyncPlan,
   createRemoteDocumentV2,
   type DocumentV2CreateAuthor,
@@ -38,7 +42,9 @@ import {
   decryptDocumentV2SyncUpdates,
   deriveDocumentV2CreateTargets,
   persistedDocumentV2CreateStateFromResponse,
+  persistedDocumentV2LinkSetMutationStateFromResponse,
   persistedDocumentV2SyncStateFromResponse,
+  relinkRemoteDocumentV2,
   syncRemoteDocumentV2,
   unwrapContainerV2KekPath,
   unwrapDocumentV2ContentKeyTarget,
@@ -263,6 +269,88 @@ async function createWrappedProjection(): Promise<{
   };
 }
 
+async function createSiblingProjection(input: {
+  baseProjection: ContainerV2WriterProjectionResponse;
+  rootContainerKek: Uint8Array;
+}): Promise<{
+  projection: ContainerV2WriterProjectionResponse;
+  siblingContainerKek: Uint8Array;
+  siblingContainerKeyEpochId: string;
+}> {
+  const rootManifest = input.baseProjection.path[0];
+  const rootKek = input.baseProjection.containerKeks[0];
+  if (!rootManifest || !rootKek) {
+    throw new Error("Expected root projection fixture");
+  }
+
+  const siblingContainerId = "sibling-container";
+  const siblingManifestHash = await fixtureHash("sibling-container-manifest");
+  const siblingEventHash = await fixtureHash("sibling-container-event");
+  const siblingKeyEpochHash = await fixtureHash("sibling-container-key-epoch");
+  const siblingKeyTargetHash = await fixtureHash(
+    "sibling-container-key-target",
+  );
+  const siblingContainerKeyEpochId = "sibling-container-key-epoch-1";
+  const siblingContainerKek = crypto.getRandomValues(new Uint8Array(32));
+  const siblingWrap = await createContainerWrap({
+    childContainerKeyEpochId: siblingContainerKeyEpochId,
+    childKek: siblingContainerKek,
+    parentContainerId: rootKek.containerId,
+    parentContainerKeyEpochId: rootKek.containerKeyEpochId,
+    parentKeyEpochHash: rootKek.keyEpochHash,
+    parentKek: input.rootContainerKek,
+    wrapManifestHash: siblingManifestHash,
+  });
+
+  return {
+    projection: {
+      containerId: siblingContainerId,
+      organizationId: input.baseProjection.organizationId,
+      path: [
+        rootManifest,
+        {
+          event: {
+            event: {},
+            body: {},
+            eventHash: siblingEventHash,
+          },
+          manifest: {},
+          manifestHash: siblingManifestHash,
+          state: {
+            containerId: siblingContainerId,
+            organizationId: input.baseProjection.organizationId,
+          },
+        },
+      ],
+      containerKeks: [
+        rootKek,
+        {
+          containerId: siblingContainerId,
+          accessManifestHash: siblingManifestHash,
+          containerKeyEpochId: siblingContainerKeyEpochId,
+          containerKeyEpoch: 1,
+          keyEpoch: {
+            id: siblingContainerKeyEpochId,
+            containerId: siblingContainerId,
+            keyEpoch: 1,
+            accessManifestHash: siblingManifestHash,
+            parentContainerKeyEpochId: rootKek.containerKeyEpochId,
+            createdByEventHash: siblingEventHash,
+            createdByManifestHash: siblingManifestHash,
+          },
+          keyEpochHash: siblingKeyEpochHash,
+          keyTargetHash: siblingKeyTargetHash,
+          parentContainerKeyEpochId: rootKek.containerKeyEpochId,
+          recipientTargets: [{}],
+          wraps: [siblingWrap],
+        },
+      ],
+    },
+    siblingContainerKek,
+    siblingContainerKeyEpochId,
+  };
+}
+
 async function createAuthor(): Promise<{
   author: DocumentV2CreateAuthor;
   signingPublicKey: Uint8Array;
@@ -358,6 +446,83 @@ async function createResponseFromRequest(
         previousManifestHash: Reflect.get(manifest, "previousManifestHash"),
         eventHash,
         linkedContainerIds: [linkedContainerId],
+      },
+    },
+    contentKeyBundle: {
+      documentId,
+      contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
+      linkSetManifestHash: request.contentKeyBundle.linkSetManifestHash,
+      targetHash: request.contentKeyBundle.targetHash,
+      targets: request.contentKeyBundle.targets,
+    },
+    documentKekTargets: {
+      documentId,
+      linkSetManifestHash: request.expectedManifestHash,
+      linkedContainerManifestHashes: targets.map(
+        (target) => target.containerManifestHash,
+      ),
+      linkedContainerKeyEpochIds: targets.map(
+        (target) => target.containerKeyEpochId,
+      ),
+      targets,
+      documentKeyTargetHash: request.contentKeyBundle.targetHash,
+    },
+  };
+}
+
+async function createLinkSetResponseFromRequest(
+  documentId: string,
+  request: DocumentV2LinkSetMutationRequest,
+): Promise<DocumentV2LinkSetMutationResponse> {
+  const body = request.body as Record<string, unknown>;
+  const manifest = request.manifest as Record<string, unknown>;
+  const event = request.event as unknown as AccessEventV2;
+  const eventHash = await computeAccessEventHash(event);
+  const targetContainerId = String(Reflect.get(body, "containerId"));
+  const previousLinkedContainerIds = (
+    Reflect.get(request.previousManifest.state, "linkedContainerIds") as
+      | unknown[]
+      | undefined
+  )
+    ?.filter(
+      (containerId): containerId is string => typeof containerId === "string",
+    )
+    .sort();
+  if (!previousLinkedContainerIds) {
+    throw new Error("Expected previous linked container ids");
+  }
+
+  const linkedContainerIds =
+    Reflect.get(body, "eventType") === "document.link"
+      ? [...new Set([...previousLinkedContainerIds, targetContainerId])].sort()
+      : previousLinkedContainerIds.filter(
+          (containerId) => containerId !== targetContainerId,
+        );
+  const targets = request.contentKeyBundle.targets.map((target) => ({
+    containerId: target.containerId,
+    containerManifestHash: target.containerManifestHash,
+    containerKeyEpochId: target.containerKeyEpochId,
+    containerKeyEpoch: target.containerKeyEpoch,
+  }));
+
+  return {
+    id: documentId,
+    accessManifest: {
+      event: {
+        event: request.event,
+        body,
+        eventHash,
+      },
+      manifest,
+      manifestHash: request.expectedManifestHash,
+      state: {
+        version: 2,
+        documentId,
+        organizationId: String(Reflect.get(manifest, "organizationId")),
+        epoch: Number(Reflect.get(manifest, "epoch")),
+        previousManifestHash: request.previousManifest.manifestHash,
+        eventHash,
+        linkedContainerIds,
       },
     },
     contentKeyBundle: {
@@ -683,6 +848,172 @@ test("persistedDocumentV2CreateStateFromResponse stores verified V2 create bundl
       },
     }),
   ).toThrow("content-key targets mismatch");
+});
+
+test("buildMaterializedDocumentV2LinkSetMutationPlan adds links without rotating and unlinks with a rotated content key", async () => {
+  const { author } = await createAuthor();
+  const { childContainerKek, projection, rootContainerKek, secretKey } =
+    await createWrappedProjection();
+  const { projection: siblingProjection, siblingContainerKek } =
+    await createSiblingProjection({
+      baseProjection: projection,
+      rootContainerKek,
+    });
+  const contentKey = crypto.getRandomValues(new Uint8Array(32));
+  const created = await buildMaterializedDocumentV2CreatePlan({
+    author,
+    containerProjection: projection,
+    contentKey,
+    documentId: "document-link-set",
+    targetSecretKey: secretKey,
+  });
+  const createdResponse = createResponse(created.plan);
+  const writerProjection: DocumentV2WriterProjectionResponse = {
+    authorizingContainerPaths: [projection],
+    contentKeyBundle: createdResponse.contentKeyBundle,
+    documentId: createdResponse.id,
+    documentKekTargets: createdResponse.documentKekTargets,
+    documentManifest: createdResponse.accessManifest,
+  };
+
+  const linked = await buildMaterializedDocumentV2LinkSetMutationPlan({
+    author,
+    operation: "link",
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetContainerProjection: siblingProjection,
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  expect(isDocumentV2LinkSetMutationRequest(linked.plan.request)).toBe(true);
+  expect(linked.contentKeyRotated).toBe(false);
+  expect(linked.plan.contentKeyEpoch).toBe(1);
+  expect(linked.plan.state.linkedContainerIds).toEqual(
+    [projection.containerId, siblingProjection.containerId].sort(),
+  );
+  expect(linked.plan.targets.map((target) => target.containerId)).toEqual(
+    [projection.containerId, siblingProjection.containerId].sort(),
+  );
+  const siblingEnvelope = linked.plan.request.contentKeyBundle.targets.find(
+    (target) => target.containerId === siblingProjection.containerId,
+  );
+  if (!siblingEnvelope) {
+    throw new Error("Expected sibling content-key envelope");
+  }
+  await expect(
+    unwrapDocumentV2ContentKeyTarget({
+      containerKek: childContainerKek,
+      envelope: siblingEnvelope,
+    }),
+  ).rejects.toThrow();
+  const siblingContentKey = await unwrapDocumentV2ContentKeyTarget({
+    containerKek: siblingContainerKek,
+    envelope: siblingEnvelope,
+  });
+  expect(Array.from(siblingContentKey)).toEqual(Array.from(contentKey));
+
+  const linkResponse = await createLinkSetResponseFromRequest(
+    writerProjection.documentId,
+    linked.plan.request,
+  );
+  const rotatedContentKey = crypto.getRandomValues(new Uint8Array(32));
+  const unlinked = await buildMaterializedDocumentV2LinkSetMutationPlan({
+    author,
+    contentKey: rotatedContentKey,
+    operation: "unlink",
+    signedAt: "2026-04-27T00:00:01.000Z",
+    targetContainerProjection: projection,
+    targetSecretKey: secretKey,
+    writerProjection: {
+      authorizingContainerPaths: [projection, siblingProjection],
+      contentKeyBundle: linkResponse.contentKeyBundle,
+      documentId: linkResponse.id,
+      documentKekTargets: linkResponse.documentKekTargets,
+      documentManifest: linkResponse.accessManifest,
+    },
+  });
+
+  expect(unlinked.contentKeyRotated).toBe(true);
+  expect(unlinked.plan.contentKeyEpoch).toBe(2);
+  expect(unlinked.plan.state.linkedContainerIds).toEqual([
+    siblingProjection.containerId,
+  ]);
+  expect(unlinked.plan.targets.map((target) => target.containerId)).toEqual([
+    siblingProjection.containerId,
+  ]);
+  const [remainingEnvelope] = unlinked.plan.request.contentKeyBundle.targets;
+  if (!remainingEnvelope) {
+    throw new Error("Expected remaining content-key envelope");
+  }
+  const remainingContentKey = await unwrapDocumentV2ContentKeyTarget({
+    containerKek: siblingContainerKek,
+    envelope: remainingEnvelope,
+  });
+  expect(Array.from(remainingContentKey)).toEqual(
+    Array.from(rotatedContentKey),
+  );
+});
+
+test("relinkRemoteDocumentV2 submits a verified signed link-set mutation", async () => {
+  const { author } = await createAuthor();
+  const { projection, rootContainerKek, secretKey } =
+    await createWrappedProjection();
+  const { projection: siblingProjection } = await createSiblingProjection({
+    baseProjection: projection,
+    rootContainerKek,
+  });
+  const created = await buildMaterializedDocumentV2CreatePlan({
+    author,
+    containerProjection: projection,
+    documentId: "document-remote-link",
+    targetSecretKey: secretKey,
+  });
+  const createdResponse = createResponse(created.plan);
+  const writerProjection: DocumentV2WriterProjectionResponse = {
+    authorizingContainerPaths: [projection],
+    contentKeyBundle: createdResponse.contentKeyBundle,
+    documentId: createdResponse.id,
+    documentKekTargets: createdResponse.documentKekTargets,
+    documentManifest: createdResponse.accessManifest,
+  };
+  const submittedRequests: DocumentV2LinkSetMutationRequest[] = [];
+
+  const linked = await relinkRemoteDocumentV2({
+    apiClient: {
+      getContainerV2WriterProjection: async (containerId) =>
+        containerId === siblingProjection.containerId
+          ? siblingProjection
+          : null,
+      getDocumentV2WriterProjection: async (documentId) =>
+        documentId === writerProjection.documentId ? writerProjection : null,
+      linkDocumentV2: async (documentId, request) => {
+        submittedRequests.push(request);
+        return createLinkSetResponseFromRequest(documentId, request);
+      },
+      unlinkDocumentV2: async () => {
+        throw new Error("Unexpected unlink call");
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    operation: "link",
+    targetContainerId: siblingProjection.containerId,
+    targetSecretKey: secretKey,
+  });
+
+  expect(submittedRequests).toHaveLength(1);
+  expect(linked?.contentKeyRotated).toBe(false);
+  expect(linked?.linkedContainerIds).toEqual(
+    [projection.containerId, siblingProjection.containerId].sort(),
+  );
+  if (!linked) {
+    throw new Error("Expected remote link result");
+  }
+  expect(
+    persistedDocumentV2LinkSetMutationStateFromResponse(
+      linked.plan,
+      linked.response,
+    ),
+  ).toEqual(linked.persistedState);
 });
 
 async function createSyncFixture() {

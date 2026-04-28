@@ -37,12 +37,8 @@ export {
 } from "./container";
 export {
   type ContainerDocumentSummary,
-  isLinkDocumentToContainerResponse,
   isListContainerDocumentsResponse,
-  isUnlinkDocumentFromContainerResponse,
-  type LinkDocumentToContainerResponse,
   type ListContainerDocumentsResponse,
-  type UnlinkDocumentFromContainerResponse,
 } from "./document";
 export {
   type DocumentV2ContentKeyBundleResponse,

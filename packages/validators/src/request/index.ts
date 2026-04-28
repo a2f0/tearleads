@@ -20,8 +20,6 @@ export {
   type ContainerV2ManifestBundle,
   type ContainerV2MutationRequest,
   isContainerV2MutationRequest,
-  isLinkDocumentToContainerRequest,
-  type LinkDocumentToContainerRequest,
 } from "./container";
 export {
   type DocumentV2ContentKeyBundleRequest,

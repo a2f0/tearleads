@@ -30,11 +30,9 @@ import {
 import {
   createDocumentV2,
   getDocumentV2WriterProjection,
-  linkDocumentToContainer,
   linkDocumentV2,
   listDocumentAttachments,
   syncDocumentV2,
-  unlinkDocumentFromContainer,
   unlinkDocumentV2,
 } from "./routes/documents";
 import { getHealth } from "./routes/health";
@@ -252,32 +250,6 @@ export class ApiClient {
 
   listContainerDocuments(containerId: string) {
     return listContainerDocuments(this.request, containerId);
-  }
-
-  linkDocumentToContainer(
-    documentId: string,
-    containerId: string,
-    expectedAccessStateHash: string,
-  ) {
-    return linkDocumentToContainer(
-      this.request,
-      documentId,
-      containerId,
-      expectedAccessStateHash,
-    );
-  }
-
-  unlinkDocumentFromContainer(
-    documentId: string,
-    containerId: string,
-    expectedAccessStateHash: string,
-  ) {
-    return unlinkDocumentFromContainer(
-      this.request,
-      documentId,
-      containerId,
-      expectedAccessStateHash,
-    );
   }
 
   unlinkDocumentV2(

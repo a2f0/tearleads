@@ -10,7 +10,6 @@ import { createAuthRouter } from "./routes/auth";
 import { createBlobsRouter } from "./routes/blobs";
 import { createContainersRouter } from "./routes/containers";
 import { createDocumentsRouter } from "./routes/documents";
-import { createStructuralDocumentsRoute } from "./routes/documents/structural";
 import { createHealthRoute } from "./routes/health";
 import { createPrincipalsRouter } from "./routes/principals";
 import {
@@ -91,13 +90,6 @@ export function createRouteApp(overrides: RouteAppOverrides) {
     "/",
     createDocumentsRouter({
       publish: resolvedPublish,
-      requireAuth: resolvedRequireAuth,
-      runtime: resolvedRuntime,
-    }),
-  );
-  routeApp.route(
-    "/",
-    createStructuralDocumentsRoute({
       requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),
