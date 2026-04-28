@@ -5,7 +5,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
   createPublicKeyRequestBody,
@@ -18,7 +18,6 @@ import {
   containerMetadataDocuments,
   containers,
   documentContentKeyEpochs,
-  objectRecipientEnvelopes,
   organizations,
   users,
 } from "../../schema";
@@ -167,7 +166,7 @@ test("POST /auth/register rejects initial org policies that do not bootstrap the
   });
 });
 
-test("POST /auth/register provisions V2 root metadata without V1 object recipient envelopes", async () => {
+test("POST /auth/register provisions V2 root metadata", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
@@ -202,26 +201,4 @@ test("POST /auth/register provisions V2 root metadata without V1 object recipien
     .where(eq(documentContentKeyEpochs.documentId, body.rootMetadataDocumentId))
     .limit(1);
   expect(contentKeyEpoch?.contentKeyEpoch).toBe(1);
-
-  const rootContainerRecipientEnvelopes = await db
-    .select({ id: objectRecipientEnvelopes.id })
-    .from(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, "container"),
-        eq(objectRecipientEnvelopes.objectId, body.rootContainerId),
-      ),
-    );
-  expect(rootContainerRecipientEnvelopes).toHaveLength(0);
-
-  const metadataRecipientEnvelopes = await db
-    .select({ id: objectRecipientEnvelopes.id })
-    .from(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, "document"),
-        eq(objectRecipientEnvelopes.objectId, body.rootMetadataDocumentId),
-      ),
-    );
-  expect(metadataRecipientEnvelopes).toHaveLength(0);
 });

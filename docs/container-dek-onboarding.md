@@ -1,10 +1,9 @@
 # Historical Container DEK Onboarding
 
 > Status: historical V1 design note. Registration no longer accepts
-> `wrappedDekEnvelope` or writes root-container rows to
-> `object_recipient_envelopes`. The current greenfield registration bootstrap
-> submits signed V2 root container KEK state and a signed V2 root metadata
-> document create request.
+> `wrappedDekEnvelope`, and the legacy `object_recipient_envelopes` table has
+> been removed. The current greenfield registration bootstrap submits signed V2
+> root container KEK state and a signed V2 root metadata document create request.
 
 ## Summary
 
@@ -195,27 +194,6 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 ```
-
-### Server: `object_recipient_envelopes`
-
-```sql
-CREATE TABLE IF NOT EXISTS object_recipient_envelopes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  object_type TEXT NOT NULL,
-  object_id TEXT NOT NULL,
-  epoch INTEGER NOT NULL,
-  recipient_principal_type TEXT NOT NULL,
-  recipient_principal_id TEXT NOT NULL,
-  recipient_key_fingerprint TEXT NOT NULL,
-  kem_cipher_text TEXT NOT NULL,
-  wrapped_key TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT now()
-);
-```
-
-These columns store base64-encoded wrapped key material. They are required for
-every object recipient envelope row; identity-only recipient-envelope rows are
-not part of the current storage model.
 
 ### Local SQLite: `containers`
 

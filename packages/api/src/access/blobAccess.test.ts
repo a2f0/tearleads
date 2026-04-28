@@ -6,7 +6,7 @@ import { createDocumentFixture } from "../../test/helpers/documentFixture";
 import { grantRootContainerWriteAccessToUser } from "../../test/helpers/grantContainerAccess";
 import { registerUser } from "../../test/helpers/registerUser";
 import { db } from "../adapters/postgres";
-import { attachmentBindings, blobs, objectRecipientEnvelopes } from "../schema";
+import { attachmentBindings, blobs } from "../schema";
 import { attachBlobToDocument, resolveBlobAccessState } from "./blobAccess";
 import { resolveDocumentAccessState } from "./documentAccess";
 import type { RecipientPrincipalType } from "./recipientPrincipals";
@@ -23,20 +23,6 @@ function userPrincipal(userId: string): {
 
 function encodedByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
-}
-
-async function countBlobRecipientEnvelopes(blobId: string): Promise<number> {
-  return (
-    await db
-      .select({ id: objectRecipientEnvelopes.id })
-      .from(objectRecipientEnvelopes)
-      .where(
-        and(
-          eq(objectRecipientEnvelopes.objectType, "blob"),
-          eq(objectRecipientEnvelopes.objectId, blobId),
-        ),
-      )
-  ).length;
 }
 
 async function createBlobFixture(storageKey: string): Promise<{ id: string }> {
@@ -113,67 +99,7 @@ test("blob access is derived from linked document access", async () => {
   );
 });
 
-test("resolving blob access does not create direct recipient envelopes", async () => {
-  const alice = createTestUser();
-
-  await registerUser(alice);
-
-  const createdDocument = await createDocumentFixture({
-    createdByFingerprint: alice.fingerprint,
-    linkedContainerIds: [alice.rootContainerId],
-  });
-  const documentId = createdDocument.id;
-
-  const [blob] = await db
-    .insert(blobs)
-    .values({
-      byteLength: encodedByteLength("blob-static-recipients-bytes"),
-      encryptedBytes: "blob-static-recipients-bytes",
-      sha256: "blob-static-recipients-sha256",
-      storageKey: "blob-static-recipients",
-    })
-    .returning({ id: blobs.id });
-  invariant(blob, "expected blob row");
-
-  await db.insert(attachmentBindings).values({
-    blobId: blob.id,
-    documentId,
-    slotId: "slot_01",
-  });
-
-  const initialEnvelopes = await db
-    .select({
-      id: objectRecipientEnvelopes.id,
-    })
-    .from(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, "blob"),
-        eq(objectRecipientEnvelopes.objectId, blob.id),
-      ),
-    );
-
-  expect(initialEnvelopes).toHaveLength(0);
-
-  const access = await resolveBlobAccessState(blob.id);
-  invariant(access, "expected blob access state");
-
-  const recomputedEnvelopes = await db
-    .select({
-      id: objectRecipientEnvelopes.id,
-    })
-    .from(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, "blob"),
-        eq(objectRecipientEnvelopes.objectId, blob.id),
-      ),
-    );
-
-  expect(recomputedEnvelopes).toHaveLength(0);
-});
-
-test("attaching a blob replaces the active slot binding without recipient fanout", async () => {
+test("attaching a blob replaces the active slot binding", async () => {
   const alice = createTestUser();
 
   await registerUser(alice);
@@ -229,6 +155,4 @@ test("attaching a blob replaces the active slot binding without recipient fanout
     );
 
   expect(activeSlotBindings).toEqual([{ blobId: secondBlob.id }]);
-  expect(await countBlobRecipientEnvelopes(firstBlob.id)).toBe(0);
-  expect(await countBlobRecipientEnvelopes(secondBlob.id)).toBe(0);
 });

@@ -22,7 +22,7 @@ adjacent planes:
 
 1. document plane: encrypted Loro updates
 2. attachment plane: blob stage plus atomic attachment-binding metadata
-3. access plane: permissions, recipient envelopes, and key epochs
+3. access plane: permissions, key-target envelopes, and key epochs
 
 The server must remain plaintext-blind for document content.
 
@@ -44,8 +44,8 @@ Protocol shape:
   - request includes:
     - `accessEpoch`
     - `expectedAccessStateHash` when the request carries outgoing writes or
-      replacement document recipient envelopes
-    - optional `documentRecipientEnvelopes[]`
+      replacement document key-target envelopes
+    - optional `documentKeyTargetEnvelopes[]`
     - `localVersionVector`
     - `outgoingUpdates[]`
   - each outgoing update includes:
@@ -55,8 +55,8 @@ Protocol shape:
     - visible `partialEndVersionVector`
   - response includes:
     - `currentAccessEpoch`
-    - `documentRecipientEnvelopeAction`
-    - `documentRecipientEnvelopes | null`
+    - `documentKeyTargetEnvelopeAction`
+    - `documentKeyTargetEnvelopes | null`
     - `acceptedOutgoingUpdateIds[]`
     - `canonicalDocumentRecipientEnvelopesAdopted`
     - `commitLsn | null`
@@ -109,11 +109,10 @@ Implemented behavior:
   materializes per-peer `document_update_spans` from each update's visible
   partial version-vector metadata in the same transaction as the encrypted
   `document_updates` row
-- the current document-DEK bundle is materialized in strict
-  `object_recipient_envelopes` rows with required wrapped-key material
-- recipient bundle rows are principal-shaped, and document/blob wrapped-key
-  material prefers current group/org principal keys when the relevant
-  signed policy state exists
+- the current document content-key bundle is materialized in V2
+  `document_content_key_targets` rows with required wrapped-key material
+- blob content-key bundles are materialized in V2 `blob_content_key_targets`
+  rows, and container KEK sharing is materialized in `container_key_wraps`
 - `POST /auth/register` and signed `/v2/containers` mutations seed initial
   metadata document bundles atomically
 - committed blob envelopes carry real
@@ -141,10 +140,10 @@ Implemented behavior:
   link/detach controls in note detail and can locally switch which linked
   container is treated as the active note projection
 - additive document epoch changes reuse the current document DEK by
-  materializing a current-epoch recipient bundle; notes and contacts preserve
+  materializing a current-epoch key-target bundle; notes and contacts preserve
   pending Loro updates and retry them under the new epoch instead of replacing
   them with a full baseline
-- note attachment rewrap-only work commits blob recipient-envelope updates
+- note attachment rewrap-only work commits blob key-target updates
   without sending an unrelated Loro baseline
 - note clients with pending local attachment drafts for an existing remote
   document first issue a no-outgoing document sync probe, so completed rotates
@@ -291,7 +290,7 @@ This plane owns:
 - recipient membership
 - visible permission checkpoints
 - `accessEpoch`
-- wrapped content keys / recipient envelopes
+- wrapped content keys / key-target envelopes
 
 Limitation:
 
@@ -340,7 +339,7 @@ Each attachment rewrap contains:
 
 - opaque `slotId`
 - `expectedBindingId`
-- replacement recipient envelopes for the current bound blob
+- replacement key-target envelopes for the current bound blob
 
 The optional `loroUpdate` contains:
 
@@ -492,7 +491,7 @@ The protocol should fail closed:
 - server rejects commit if that epoch is stale or if the caller no longer has
   write permission
 
-Future writes then use a new epoch and new recipient envelopes.
+Future writes then use a new epoch and new key-target envelopes.
 
 ## Read Replica / Consistency Guidance
 

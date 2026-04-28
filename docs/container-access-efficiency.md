@@ -189,7 +189,7 @@ Then:
 - if upstream fingerprints are unchanged, downstream recomputation can be
   skipped
 - downstream layers only expand recipients when they actually need to
-  materialize recipient envelopes
+  materialize V2 key-target envelopes
 
 ### 3. Batch recomputation by transaction scope
 

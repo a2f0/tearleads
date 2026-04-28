@@ -187,7 +187,7 @@ attachment binding lookup through the injected runtime database.
 
 Blob reads are implemented as a blob service. The `/blobs/:blobId` route
 maps service errors to HTTP responses, while the service owns blob-read
-authorization, committed blob lookup, current recipient-envelope projection,
+authorization, committed blob lookup, current key-target projection,
 and digest recalculation through the injected runtime database.
 
 Document creation and sync writes are implemented by signed V2 mutation

@@ -44,7 +44,6 @@ import {
   containerMetadataDocuments,
   containers,
   documents,
-  objectRecipientEnvelopes,
   users,
 } from "../../schema";
 
@@ -668,10 +667,6 @@ async function createV2Child(input: {
   );
 }
 
-async function countObjectRecipientEnvelopes(): Promise<number> {
-  return (await db.select().from(objectRecipientEnvelopes)).length;
-}
-
 test("POST /v2/containers materializes the signed metadata document binding", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
@@ -817,7 +812,7 @@ test("POST /v2/containers/:containerId/share rejects grants signed without admin
   expect(response.status).toBe(403);
 });
 
-test("POST /v2/containers/:containerId/share stores signed grants without descendant envelope fanout", async () => {
+test("POST /v2/containers/:containerId/share stores signed grants", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();
@@ -839,8 +834,6 @@ test("POST /v2/containers/:containerId/share stores signed grants without descen
     recipient,
     signer: owner,
   });
-  const beforeEnvelopeCount = await countObjectRecipientEnvelopes();
-
   const shared = await expectV2MutationSuccess(
     await postV2Mutation({
       path: `/v2/containers/${created.containerId}/share`,
@@ -849,7 +842,6 @@ test("POST /v2/containers/:containerId/share stores signed grants without descen
     }),
   );
 
-  expect(await countObjectRecipientEnvelopes()).toBe(beforeEnvelopeCount);
   expect(shared.manifestHead.epoch).toBe(2);
   expect(shared.containerKek.containerKeyEpochId).toBe(
     created.containerKek.containerKeyEpochId,
