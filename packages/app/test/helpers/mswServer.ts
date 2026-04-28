@@ -93,6 +93,12 @@ const server = setupServer(
   http.get("http://localhost:3001/containers", () => {
     return HttpResponse.json<ListContainersResponse>([]);
   }),
+  http.get(
+    "http://localhost:3001/v2/containers/:containerId/writer-projection",
+    () => {
+      return HttpResponse.json({ error: "Not Found" }, { status: 404 });
+    },
+  ),
   http.post("http://localhost:3001/documents", () => {
     return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
   }),

@@ -1957,11 +1957,15 @@ async function assertDocumentV2SyncResponseWriteHeaderSignature(input: {
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<void> {
   const { header, plan, update } = input;
-  const writerPublicKey = input.writerPublicKeysByFingerprint?.get(
+  if (!input.writerPublicKeysByFingerprint) {
+    return;
+  }
+
+  const writerPublicKey = input.writerPublicKeysByFingerprint.get(
     update.authorFingerprint,
   );
   if (!writerPublicKey) {
-    return;
+    throw new Error("Document V2 sync response writer public key missing");
   }
 
   const verified = await verifyWriteHeader({

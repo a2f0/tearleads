@@ -1077,6 +1077,12 @@ test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and retu
   });
 
   await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, response, {
+      writerPublicKeysByFingerprint: new Map(),
+    }),
+  ).rejects.toThrow("writer public key missing");
+
+  await expect(
     persistedDocumentV2SyncStateFromResponse(plan, {
       ...response,
       acceptedOutgoingUpdateIds: ["550e8400-e29b-41d4-a716-446655440999"],
