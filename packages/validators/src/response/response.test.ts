@@ -308,7 +308,6 @@ test("isListContainerDocumentsResponse", () => {
         currentAccessStateHash: "access-state-hash",
         id: "doc-123",
         linkedContainerIds: ["ctr-root"],
-        recipientEncapsulationPublicKeys: ["pub-key"],
         referencedPrincipals: [
           {
             principalType: "group",
@@ -327,7 +326,6 @@ test("isListContainerDocumentsResponse", () => {
         currentAccessEpoch: 2,
         id: "doc-123",
         linkedContainerIds: ["ctr-root"],
-        recipientEncapsulationPublicKeys: ["pub-key"],
       },
     ]),
   ).toBe(false);
@@ -342,7 +340,6 @@ test("isLinkDocumentToContainerResponse", () => {
       currentAccessStateHash: "access-state-hash",
       id: "doc-123",
       linkedContainerIds: ["ctr-root", "ctr-child"],
-      recipientEncapsulationPublicKeys: ["pub-key"],
     }),
   ).toBe(true);
   expect(
@@ -350,7 +347,6 @@ test("isLinkDocumentToContainerResponse", () => {
       currentAccessEpoch: 2,
       id: "doc-123",
       linkedContainerIds: ["ctr-root", "ctr-child"],
-      recipientEncapsulationPublicKeys: ["pub-key"],
     }),
   ).toBe(false);
   expect(isLinkDocumentToContainerResponse(null)).toBe(false);
@@ -364,7 +360,6 @@ test("isUnlinkDocumentFromContainerResponse", () => {
       currentAccessStateHash: "access-state-hash",
       id: "doc-123",
       linkedContainerIds: ["ctr-root"],
-      recipientEncapsulationPublicKeys: ["pub-key"],
     }),
   ).toBe(true);
   expect(
@@ -372,7 +367,6 @@ test("isUnlinkDocumentFromContainerResponse", () => {
       createdAt: new Date().toISOString(),
       id: "doc-123",
       linkedContainerIds: ["ctr-root"],
-      recipientEncapsulationPublicKeys: ["pub-key"],
     }),
   ).toBe(false);
   expect(isUnlinkDocumentFromContainerResponse(null)).toBe(false);

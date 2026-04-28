@@ -4,10 +4,7 @@ import {
   canWriteContainerAccess,
   resolveContainerAccessState,
 } from "../../access/containerAccess";
-import {
-  listRecipientEncapsulationPublicKeys,
-  resolveDocumentAccessState,
-} from "../../access/documentAccess";
+import { resolveDocumentAccessState } from "../../access/documentAccess";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
   containerMetadataDocuments,
@@ -236,8 +233,6 @@ export async function buildDocumentMutationResponse(
               .where(eq(documentContainerLinks.documentId, documentId))
           ).map((row) => row.containerId),
         ),
-    recipientEncapsulationPublicKeys:
-      listRecipientEncapsulationPublicKeys(access),
     referencedPrincipals: access.referencedPrincipals,
   };
 }

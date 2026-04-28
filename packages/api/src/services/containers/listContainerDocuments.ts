@@ -6,7 +6,6 @@ import {
 } from "../../access/containerAccess";
 import {
   canReadDocumentAccess,
-  listRecipientEncapsulationPublicKeys,
   resolveDocumentAccessStates,
 } from "../../access/documentAccess";
 import {
@@ -169,8 +168,6 @@ export async function listContainerDocuments(
       currentAccessStateHash: accessState.accessStateHash,
       id: documentId,
       linkedContainerIds: linkedContainerIdsByDocumentId.get(documentId) ?? [],
-      recipientEncapsulationPublicKeys:
-        listRecipientEncapsulationPublicKeys(accessState),
       referencedPrincipals: accessState.referencedPrincipals,
     });
   }
