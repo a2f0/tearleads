@@ -1,4 +1,3 @@
-import type { DocumentRecipientEnvelopeAction } from "@tearleads/loro/shared";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
@@ -41,12 +40,6 @@ type ResolvedDocumentAccessState = Awaited<
 >;
 
 type EffectiveBlobRecipient = EffectivePrincipalRecipient;
-type StoredBlobRecipientEnvelopeIdentity = {
-  epoch: number;
-  principalId: string;
-  principalType: string;
-  keyFingerprint: string;
-};
 
 interface BlobAccessState {
   currentAccessEpoch: number;
@@ -337,87 +330,6 @@ function envelopeEntriesMatchRecipients(
   );
 }
 
-function recipientIdentityKey(input: {
-  principalId: string;
-  principalType: string;
-  keyFingerprint: string;
-}): string {
-  return `${input.principalType}:${input.principalId}:${input.keyFingerprint}`;
-}
-
-async function listLatestBlobRecipientEnvelopeIdentities(
-  blobId: string,
-  executor: BlobAccessExecutor = db,
-): Promise<StoredBlobRecipientEnvelopeIdentity[] | null> {
-  const [latestEpochRow] = await executor
-    .select({ epoch: objectRecipientEnvelopes.epoch })
-    .from(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, BLOB_OBJECT_TYPE),
-        eq(objectRecipientEnvelopes.objectId, blobId),
-      ),
-    )
-    .orderBy(desc(objectRecipientEnvelopes.epoch))
-    .limit(1);
-
-  if (!latestEpochRow) {
-    return null;
-  }
-
-  return executor
-    .select({
-      epoch: objectRecipientEnvelopes.epoch,
-      principalId: objectRecipientEnvelopes.recipientPrincipalId,
-      principalType: objectRecipientEnvelopes.recipientPrincipalType,
-      keyFingerprint: objectRecipientEnvelopes.recipientKeyFingerprint,
-    })
-    .from(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, BLOB_OBJECT_TYPE),
-        eq(objectRecipientEnvelopes.objectId, blobId),
-        eq(objectRecipientEnvelopes.epoch, latestEpochRow.epoch),
-      ),
-    );
-}
-
-function canReuseBlobRecipientEnvelopes(
-  previousRecipients: ReadonlyArray<StoredBlobRecipientEnvelopeIdentity>,
-  currentRecipients: ReadonlyArray<EffectiveBlobRecipient>,
-): boolean {
-  if (previousRecipients.length === 0 || currentRecipients.length === 0) {
-    return false;
-  }
-
-  const currentRecipientKeys = new Set(
-    currentRecipients.map((recipient) =>
-      recipientIdentityKey({
-        principalId: recipient.principalId,
-        principalType: recipient.principalType,
-        keyFingerprint: recipient.keyFingerprint,
-      }),
-    ),
-  );
-
-  return previousRecipients.every((recipient) =>
-    currentRecipientKeys.has(
-      recipientIdentityKey({
-        principalId: recipient.principalId,
-        principalType: recipient.principalType,
-        keyFingerprint: recipient.keyFingerprint,
-      }),
-    ),
-  );
-}
-
-export function blobRecipientEnvelopesMatchRecipients(
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
-  recipients: ReadonlyArray<{ keyFingerprint: string }>,
-): boolean {
-  return envelopeEntriesMatchRecipients(envelopes, recipients);
-}
-
 export async function listBlobRecipientEnvelopes(
   blobId: string,
   epoch: number,
@@ -451,52 +363,6 @@ export async function listBlobRecipientEnvelopes(
       kemCipherText: row.kemCipherText,
       wrappedKey: row.wrappedKey,
     }));
-}
-
-export async function replaceBlobRecipientEnvelopes(
-  blobId: string,
-  epoch: number,
-  recipients: ReadonlyArray<PrincipalEnvelopeRecipient>,
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
-  executor: BlobAccessExecutor = db,
-): Promise<void> {
-  if (!blobRecipientEnvelopesMatchRecipients(envelopes, recipients)) {
-    throw new Error("Blob recipient envelopes mismatch");
-  }
-
-  await replaceRecipientEnvelopes(
-    blobId,
-    epoch,
-    recipients,
-    envelopes,
-    executor,
-  );
-}
-
-export async function getBlobRecipientEnvelopeAction(
-  blobId: string,
-  state: BlobAccessState,
-  executor: BlobAccessExecutor = db,
-): Promise<DocumentRecipientEnvelopeAction> {
-  const latestRecipients = await listLatestBlobRecipientEnvelopeIdentities(
-    blobId,
-    executor,
-  );
-
-  if (!latestRecipients) {
-    return state.cryptoRecipients.length === 0 ? "none" : "rotate";
-  }
-
-  if (latestRecipients[0]?.epoch === state.currentAccessEpoch) {
-    return "none";
-  }
-
-  return canReuseBlobRecipientEnvelopes(
-    latestRecipients,
-    state.cryptoRecipients,
-  )
-    ? "rewrap"
-    : "rotate";
 }
 
 async function resolveMaterializedRecipientEnvelopes(

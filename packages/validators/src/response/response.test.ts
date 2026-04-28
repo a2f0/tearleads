@@ -4,7 +4,6 @@ import {
   isBlobV2AttachmentDetachResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
-  isCommitDocumentChangeResponse,
   isContainerV2WriterProjectionResponse,
   isCreateContainerResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
@@ -178,39 +177,6 @@ test("isBlobV2AttachmentDetachResponse", () => {
     false,
   );
   expect(isBlobV2AttachmentDetachResponse(null)).toBe(false);
-});
-
-test("isCommitDocumentChangeResponse", () => {
-  expect(
-    isCommitDocumentChangeResponse({
-      currentAccessEpoch: 2,
-      currentAccessStateHash: "access-state-hash",
-      acceptedOutgoingUpdateIds: ["update_01"],
-      committedBindings: [
-        {
-          slotId: "slot_01",
-          bindingId: "binding_01",
-          blobId: "blob_01",
-        },
-      ],
-      detachedBindingIds: ["binding_old"],
-      documentRecipientEnvelopes: null,
-    }),
-  ).toBe(true);
-  expect(
-    isCommitDocumentChangeResponse({
-      currentAccessEpoch: 2,
-      acceptedOutgoingUpdateIds: [],
-      committedBindings: [
-        {
-          slotId: "slot_01",
-          bindingId: "binding_01",
-        },
-      ],
-      detachedBindingIds: [],
-    }),
-  ).toBe(false);
-  expect(isCommitDocumentChangeResponse(null)).toBe(false);
 });
 
 test("isCreateContainerResponse", () => {

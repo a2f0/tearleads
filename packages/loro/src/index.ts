@@ -1,5 +1,4 @@
 export { LoroList, LoroMap } from "loro-crdt";
-export * from "./client";
 export {
   createDocument,
   decodeVersionVector,

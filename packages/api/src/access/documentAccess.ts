@@ -1,9 +1,4 @@
-import { wrapDekForRecipients } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import {
-  DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE,
-  type DocumentRecipientEnvelopeAction,
-} from "@tearleads/loro/shared";
+import { DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE } from "@tearleads/loro/shared";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -49,12 +44,6 @@ interface GrantRow {
 }
 
 type EffectiveDocumentRecipient = EffectivePrincipalRecipient;
-type StoredDocumentRecipientEnvelopeIdentity = {
-  epoch: number;
-  principalId: string;
-  principalType: string;
-  keyFingerprint: string;
-};
 
 interface DocumentAccessState {
   currentAccessEpoch: number;
@@ -65,7 +54,7 @@ interface DocumentAccessState {
   cryptoRecipients: EffectiveDocumentRecipient[];
 }
 
-export class DocumentRecipientEnvelopeConflictError extends Error {
+class DocumentRecipientEnvelopeConflictError extends Error {
   constructor() {
     super(DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE);
   }
@@ -555,44 +544,12 @@ export function canWriteDocumentAccess(
   );
 }
 
-export function listRecipientKeyFingerprints(
-  state: DocumentAccessState,
-): string[] {
-  return state.cryptoRecipients.map((recipient) => recipient.keyFingerprint);
-}
-
 export function listRecipientEncapsulationPublicKeys(
   state: DocumentAccessState,
 ): string[] {
   return state.cryptoRecipients.map(
     (recipient) => recipient.encapsulationPublicKey,
   );
-}
-
-export async function createDocumentRecipientEnvelopes(
-  state: DocumentAccessState,
-): Promise<SerializedRecipientEnvelope[] | null> {
-  if (state.cryptoRecipients.length === 0) {
-    return null;
-  }
-
-  const documentKey = crypto.getRandomValues(new Uint8Array(32));
-  const wrappedRecipients = await wrapDekForRecipients(
-    documentKey,
-    state.cryptoRecipients.map((recipient) =>
-      base64ToBytes(recipient.encapsulationPublicKey),
-    ),
-  );
-
-  return wrappedRecipients
-    .map((recipient) => ({
-      keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: bytesToBase64(recipient.kemCipherText),
-      wrappedKey: bytesToBase64(recipient.wrappedKey),
-    }))
-    .sort((left, right) =>
-      left.keyFingerprint.localeCompare(right.keyFingerprint),
-    );
 }
 
 function envelopeFingerprintsMatchRecipients(
@@ -652,102 +609,7 @@ function documentRecipientEnvelopeBundlesEqual(
   );
 }
 
-function recipientIdentityKey(input: {
-  principalId: string;
-  principalType: string;
-  keyFingerprint: string;
-}): string {
-  return `${input.principalType}:${input.principalId}:${input.keyFingerprint}`;
-}
-
-async function listLatestDocumentRecipientEnvelopeIdentities(
-  documentId: string,
-  executor: DocumentAccessExecutor = db,
-): Promise<StoredDocumentRecipientEnvelopeIdentity[] | null> {
-  const rows = await executor
-    .select({
-      epoch: objectRecipientEnvelopes.epoch,
-      principalId: objectRecipientEnvelopes.recipientPrincipalId,
-      principalType: objectRecipientEnvelopes.recipientPrincipalType,
-      keyFingerprint: objectRecipientEnvelopes.recipientKeyFingerprint,
-    })
-    .from(objectRecipientEnvelopes)
-    .where(
-      and(
-        eq(objectRecipientEnvelopes.objectType, DOCUMENT_OBJECT_TYPE),
-        eq(objectRecipientEnvelopes.objectId, documentId),
-      ),
-    )
-    .orderBy(desc(objectRecipientEnvelopes.epoch));
-
-  if (rows.length === 0) {
-    return null;
-  }
-
-  const latestEpoch = rows[0]?.epoch;
-  if (!latestEpoch) {
-    return null;
-  }
-
-  return rows.filter((row) => row.epoch === latestEpoch);
-}
-
-function canReuseDocumentRecipientEnvelopes(
-  previousRecipients: ReadonlyArray<StoredDocumentRecipientEnvelopeIdentity>,
-  currentRecipients: ReadonlyArray<EffectiveDocumentRecipient>,
-): boolean {
-  if (previousRecipients.length === 0 || currentRecipients.length === 0) {
-    return false;
-  }
-
-  const currentRecipientKeys = new Set(
-    currentRecipients.map((recipient) =>
-      recipientIdentityKey({
-        principalId: recipient.principalId,
-        principalType: recipient.principalType,
-        keyFingerprint: recipient.keyFingerprint,
-      }),
-    ),
-  );
-
-  return previousRecipients.every((recipient) =>
-    currentRecipientKeys.has(
-      recipientIdentityKey({
-        principalId: recipient.principalId,
-        principalType: recipient.principalType,
-        keyFingerprint: recipient.keyFingerprint,
-      }),
-    ),
-  );
-}
-
-export async function getDocumentRecipientEnvelopeAction(
-  documentId: string,
-  state: DocumentAccessState,
-  executor: DocumentAccessExecutor = db,
-): Promise<DocumentRecipientEnvelopeAction> {
-  const latestRecipients = await listLatestDocumentRecipientEnvelopeIdentities(
-    documentId,
-    executor,
-  );
-
-  if (!latestRecipients) {
-    return state.cryptoRecipients.length === 0 ? "none" : "rotate";
-  }
-
-  if (latestRecipients[0]?.epoch === state.currentAccessEpoch) {
-    return "none";
-  }
-
-  return canReuseDocumentRecipientEnvelopes(
-    latestRecipients,
-    state.cryptoRecipients,
-  )
-    ? "rewrap"
-    : "rotate";
-}
-
-export async function listDocumentRecipientEnvelopes(
+async function listDocumentRecipientEnvelopes(
   documentId: string,
   epoch: number,
   executor: DocumentAccessExecutor = db,
@@ -843,7 +705,7 @@ function buildDocumentRecipientEnvelopeRows(
   });
 }
 
-export async function putDocumentRecipientEnvelopes(
+async function putDocumentRecipientEnvelopes(
   documentId: string,
   epoch: number,
   state: DocumentAccessState,

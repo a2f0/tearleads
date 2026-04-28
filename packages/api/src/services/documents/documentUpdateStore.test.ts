@@ -1,0 +1,145 @@
+import { expect, test } from "bun:test";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportUpdatesSince,
+  getUpdateVersionVectors,
+  importUpdates,
+} from "@tearleads/loro";
+import { db } from "../../adapters/postgres";
+import { documents, documentUpdates } from "../../schema";
+import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
+import {
+  DocumentUpdateReadError,
+  listMissingDocumentUpdates,
+} from "./documentUpdateStore";
+
+async function createStoredDocument(): Promise<string> {
+  const [document] = await db
+    .insert(documents)
+    .values({ createdByFingerprint: "document-update-store-test" })
+    .returning({ id: documents.id });
+  if (!document) {
+    throw new Error("Failed to create stored document");
+  }
+  return document.id;
+}
+
+async function insertStoredUpdate(input: {
+  documentId: string;
+  encryptedData: string;
+  id: string;
+  partialEndVersionVector: string;
+  partialStartVersionVector: string;
+}) {
+  await db.insert(documentUpdates).values({
+    id: input.id,
+    documentId: input.documentId,
+    accessEpoch: 1,
+    authorFingerprint: "document-update-store-author",
+    encryptedData: input.encryptedData,
+    partialStartVersionVector: input.partialStartVersionVector,
+    partialEndVersionVector: input.partialEndVersionVector,
+  });
+  await insertDocumentUpdateSpans(db, {
+    documentId: input.documentId,
+    updates: [input],
+  });
+}
+
+async function expectDocumentUpdateReadError(
+  promise: Promise<unknown>,
+): Promise<DocumentUpdateReadError> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error).toBeInstanceOf(DocumentUpdateReadError);
+    return error as DocumentUpdateReadError;
+  }
+
+  throw new Error("Expected document update read operation to fail");
+}
+
+test("listMissingDocumentUpdates returns only causally missing document updates", async () => {
+  const documentId = await createStoredDocument();
+  const aliceDoc = await createDocument("document-update-store-alice");
+  const aliceStartVersion = encodeVersionVector(aliceDoc);
+  aliceDoc.getText("text").update("Hello from Alice");
+  const firstUpdate = exportUpdatesSince(aliceDoc, aliceStartVersion);
+  const firstVectors = getUpdateVersionVectors(firstUpdate);
+  const bobDoc = await createDocument("document-update-store-bob");
+  importUpdates(bobDoc, [firstUpdate]);
+  const bobStartVersion = encodeVersionVector(bobDoc);
+  bobDoc.getText("text").update("Hello from Alice and Bob");
+  const secondUpdate = exportUpdatesSince(bobDoc, bobStartVersion);
+  const secondVectors = getUpdateVersionVectors(secondUpdate);
+
+  const firstUpdateId = crypto.randomUUID();
+  const secondUpdateId = crypto.randomUUID();
+  await insertStoredUpdate({
+    documentId,
+    encryptedData: "encrypted-first-update",
+    id: firstUpdateId,
+    partialStartVersionVector: firstVectors.partialStartVersionVector,
+    partialEndVersionVector: firstVectors.partialEndVersionVector,
+  });
+  await insertStoredUpdate({
+    documentId,
+    encryptedData: "encrypted-second-update",
+    id: secondUpdateId,
+    partialStartVersionVector: secondVectors.partialStartVersionVector,
+    partialEndVersionVector: secondVectors.partialEndVersionVector,
+  });
+
+  const allMissing = await listMissingDocumentUpdates(db, {
+    documentId,
+    localVersionVector: null,
+  });
+  expect(allMissing.map((update) => update.id)).toEqual([
+    firstUpdateId,
+    secondUpdateId,
+  ]);
+
+  const missingAfterFirstUpdate = await listMissingDocumentUpdates(db, {
+    documentId,
+    localVersionVector: encodeVersionVector(aliceDoc),
+  });
+  expect(missingAfterFirstUpdate.map((update) => update.id)).toEqual([
+    secondUpdateId,
+  ]);
+
+  const missingAfterSecondUpdate = await listMissingDocumentUpdates(db, {
+    documentId,
+    localVersionVector: encodeVersionVector(bobDoc),
+  });
+  expect(missingAfterSecondUpdate).toEqual([]);
+});
+
+test("listMissingDocumentUpdates rejects unsatisfied minLsn reads", async () => {
+  const documentId = await createStoredDocument();
+
+  const error = await expectDocumentUpdateReadError(
+    listMissingDocumentUpdates(db, {
+      documentId,
+      localVersionVector: null,
+      minLsn: "FFFFFFFF/FFFFFFFF",
+    }),
+  );
+  expect(error.status).toBe(503);
+  expect(error.message).toBe(
+    "Requested minimum commit LSN has not been reached",
+  );
+});
+
+test("listMissingDocumentUpdates rejects malformed local version vectors", async () => {
+  const documentId = await createStoredDocument();
+
+  const error = await expectDocumentUpdateReadError(
+    listMissingDocumentUpdates(db, {
+      documentId,
+      localVersionVector: "not-base64",
+    }),
+  );
+  expect(error.status).toBe(400);
+  expect(error.message).toBe("Invalid local version vector");
+});

@@ -1,4 +1,3 @@
-export { createLoroRouter } from "./router";
 export {
   type DocumentRecord,
   type DocumentUpdateRecord,

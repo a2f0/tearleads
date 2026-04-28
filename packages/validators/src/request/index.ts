@@ -17,10 +17,6 @@ export {
   type StageBlobRequest,
 } from "./blob";
 export {
-  type CommitDocumentChangeRequest,
-  isCommitDocumentChangeRequest,
-} from "./commitDocumentChange";
-export {
   type ContainerV2ManifestBundle,
   type ContainerV2MutationRequest,
   type CreateContainerRequest,
