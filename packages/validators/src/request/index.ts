@@ -50,8 +50,4 @@ export {
   type PutPrincipalMemberEnvelopesRequest,
   type PutPrincipalStateRequest,
 } from "./principal";
-export {
-  isPublicKeyRequest,
-  type PublicKeyRequest,
-  type WrappedDekEnvelope,
-} from "./publicKey";
+export { isPublicKeyRequest, type PublicKeyRequest } from "./publicKey";

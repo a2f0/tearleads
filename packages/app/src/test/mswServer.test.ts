@@ -35,10 +35,6 @@ async function registerIdentity(
   encapsulationPublicKey: Uint8Array,
   encapsulationSecretKey: Uint8Array,
 ): Promise<{ userId: string }> {
-  const dek = crypto.getRandomValues(new Uint8Array(32));
-  const recipients = await wrapDekForRecipients(dek, [encapsulationPublicKey]);
-  const wrappedEnvelope = recipients[0];
-  invariant(wrappedEnvelope, "Expected wrapped DEK envelope.");
   const userId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
   const rootContainerId = crypto.randomUUID();
@@ -136,11 +132,6 @@ async function registerIdentity(
       },
       initialRootContainerV2: rootContainerV2.plan.request,
       initialRootMetadataDocumentV2: rootMetadataDocumentV2.plan.request,
-      wrappedDekEnvelope: {
-        keyFingerprint: wrappedEnvelope.keyFingerprint,
-        kemCipherText: Array.from(wrappedEnvelope.kemCipherText),
-        wrappedKey: Array.from(wrappedEnvelope.wrappedKey),
-      },
     }),
   });
 

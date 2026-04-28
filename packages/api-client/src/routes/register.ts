@@ -1,4 +1,3 @@
-import type { RecipientEntry } from "@tearleads/crypto";
 import type {
   DocumentV2CreateRequest,
   PublicKeyRequest,
@@ -13,7 +12,6 @@ export function postPublicKey(
   rootContainerId: string,
   signingPublicKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
-  wrappedDekEnvelope: RecipientEntry,
   initialOrganizationPolicy: PublicKeyRequest["initialOrganizationPolicy"],
   initialRootContainerV2: PublicKeyRequest["initialRootContainerV2"],
   initialRootMetadataDocumentV2: DocumentV2CreateRequest,
@@ -31,11 +29,6 @@ export function postPublicKey(
       initialOrganizationPolicy,
       initialRootContainerV2,
       initialRootMetadataDocumentV2,
-      wrappedDekEnvelope: {
-        keyFingerprint: wrappedDekEnvelope.keyFingerprint,
-        kemCipherText: Array.from(wrappedDekEnvelope.kemCipherText),
-        wrappedKey: Array.from(wrappedDekEnvelope.wrappedKey),
-      },
     }),
   );
 }

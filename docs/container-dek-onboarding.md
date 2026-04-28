@@ -1,4 +1,10 @@
-# Container DEK Onboarding
+# Historical Container DEK Onboarding
+
+> Status: historical V1 design note. Registration no longer accepts
+> `wrappedDekEnvelope` or writes root-container rows to
+> `object_recipient_envelopes`. The current greenfield registration bootstrap
+> submits signed V2 root container KEK state and a signed V2 root metadata
+> document create request.
 
 ## Summary
 
@@ -7,21 +13,20 @@ request. The client generates cryptographic material locally, the server creates
 the relational structure atomically, and the client persists the result to local
 SQLite.
 
-This document describes the bootstrap step for the root container only. It does
-not mean every encrypted payload in the system should use the container DEK
-directly. The key hierarchy is:
+This document originally described the bootstrap step for the root container
+direct-recipient DEK path. The current key hierarchy is:
 
-- containers have their own access state and wrapped key bundles
-- documents derive access from linked containers and use document DEKs
-- blobs derive access from linked documents and use blob DEKs
+- containers have signed access manifests and KEK epochs
+- document content keys wrap to current linked container KEK targets
+- blob content keys wrap to KEK targets derived from active bindings
 
 After registration, every user has:
 
 - a default organization
 - a root container for that organization
-- a DEK for the root container, wrapped for the user's own encapsulation key
-- an access grant, epoch, and recipient envelope for the container
-- an initialized root metadata document with its own document-DEK bundle
+- a signed V2 root container manifest and container KEK wrap
+- an access grant and epoch for the root container access projection
+- an initialized V2 root metadata document with content-key targets
 - a local "me" contact and persisted root container in SQLite
 
 The server never sees the plaintext DEK.
@@ -51,12 +56,13 @@ This avoids a circular foreign key between organizations and containers.
 ### Client Side (before request)
 
 1. Generate signing and encapsulation key pairs (already existed).
-2. Generate a 32-byte DEK: `crypto.getRandomValues(new Uint8Array(32))`.
-3. Wrap the DEK for self using `wrapDekForRecipients(dek, [encapsulationPublicKey])`.
-4. Create the initial root metadata Loro update locally.
-5. Generate a root-metadata document DEK and wrap it for self.
-6. Encrypt the initial root metadata update with that document DEK.
-7. Send all material in a single `POST /auth/register`.
+2. Create the initial organization policy and member envelope.
+3. Create the initial root metadata Loro update locally.
+4. Build and sign the V2 root container create request, including the initial
+   container KEK epoch and wrap for the registering user.
+5. Build and sign the V2 root metadata document create request, wrapping its
+   content key to the root container KEK target.
+6. Send all material in a single `POST /auth/register`.
 
 ### Server Side (atomic transaction)
 
@@ -66,12 +72,12 @@ container access, and root metadata document rows in one transaction:
 1. Insert organization (name: `"Personal"`).
 2. Insert container (`organization_id = org.id`, `parent_id = NULL`).
 3. Insert user (`default_organization_id = org.id`).
-4. Insert organization member (`role: "owner"`).
+4. Store the initial organization policy.
 5. Insert object access grant (`objectType: "container"`, `accessLevel: "admin"`).
 6. Insert object access epoch (`epoch: 1`).
-7. Insert object recipient envelope (`epoch: 1`, with `kem_cipher_text` and
-   `wrapped_key` from the client).
-8. Insert root metadata document/link/bundle/update rows.
+7. Verify and store the V2 root container manifest and KEK state.
+8. Verify and store the V2 root metadata document manifest, content-key
+   targets, and initial encrypted update.
 
 If the user's fingerprint already exists, the transaction rolls back and the
 endpoint returns 409.
@@ -87,9 +93,9 @@ The response includes `userId`, `organizationId`, `rootContainerId`,
 3. Persist a "me" contact in `address_book_projection` with `is_self = 1`.
 4. Authenticate using the challenge.
 
-The plaintext DEK remains in memory for immediate use. It is not persisted to
-SQLite. Future access to the DEK requires unwrapping from the recipient envelope
-via `unwrapDek`.
+The root metadata content key is recovered through the V2 document content-key
+target bundle and root container KEK state. There is no registration-time V1
+root container DEK envelope.
 
 ## Crypto Functions
 
@@ -141,11 +147,6 @@ interface PublicKeyRequest {
   rootContainerId: string;
   signingPublicKey: number[];
   encapsulationPublicKey: number[];
-  wrappedDekEnvelope: {
-    keyFingerprint: string;
-    kemCipherText: number[];
-    wrappedKey: number[];
-  };
   initialOrganizationPolicy: InitialOrganizationPolicyRequest;
   initialRootContainerV2: ContainerV2MutationRequest;
   initialRootMetadataDocumentV2: DocumentV2CreateRequest;
@@ -249,20 +250,20 @@ the database level.
 
 ## Adding Users To An Organization
 
-Adding a user to an organization means they need access to the container tree
-and its documents. The flow would be:
+Adding a user to an organization means they may need access to signed principal
+state and selected container KEK epochs. The current V2 direction is:
 
 1. Org admin publishes a signed principal state update and derived projection.
-2. Container DEKs are re-wrapped for the new member's encapsulation public key.
-3. New recipient envelopes are stored. The access fingerprint changes and the
-   epoch advances.
-4. Document DEKs inside those containers are also re-wrapped for the new
-   recipient set.
+2. Principal member envelopes wrap the organization/group key to the new
+   member.
+3. Container grants update signed container access manifests.
+4. Additive container access can add container KEK wraps for the new principal
+   without rewriting descendant document/blob content-key targets.
+5. Document/blob writes continue to target current container KEK epochs.
 
-Whether this is eager (re-wrap everything at grant time) or lazy (re-wrap on
-next write or access) remains a separate design decision. The registration flow
-establishes the DEK and container primitives so that adding members later is
-"more recipient envelopes for the same container DEK," not a schema redesign.
+Subtractive access changes create new container KEK epochs for future writes.
+They do not claim retroactive secrecy for ciphertext and keys already
+distributed before the shrink.
 
 For the broader hierarchy direction, see:
 

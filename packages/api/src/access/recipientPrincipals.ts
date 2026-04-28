@@ -2,13 +2,10 @@ export type RecipientPrincipalType = "user" | "group" | "organization";
 
 export type AccessLevel = "read" | "write" | "admin";
 
-interface UserRecipientKeyIdentity {
+interface UserRecipientFingerprintInput {
   userId: string;
-  keyFingerprint: string;
-}
-
-interface UserRecipientFingerprintInput extends UserRecipientKeyIdentity {
   accessLevel: AccessLevel;
+  keyFingerprint: string;
 }
 
 export interface PrincipalEnvelopeRecipient {
@@ -118,16 +115,6 @@ export function toEffectiveUserPrincipalRecipient(
   return toEffectivePrincipalRecipient({
     ...toUserPrincipalFingerprintRecipient(recipient),
     encapsulationPublicKey: recipient.encapsulationPublicKey,
-  });
-}
-
-export function toUserPrincipalEnvelopeRecipient(
-  recipient: UserRecipientKeyIdentity,
-): PrincipalEnvelopeRecipient {
-  return toPrincipalEnvelopeRecipient({
-    principalType: "user",
-    principalId: recipient.userId,
-    keyFingerprint: recipient.keyFingerprint,
   });
 }
 

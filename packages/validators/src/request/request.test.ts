@@ -20,11 +20,6 @@ import {
 test("isPublicKeyRequest", () => {
   const userId = "550e8400-e29b-41d4-a716-446655440001";
   const organizationId = "550e8400-e29b-41d4-a716-446655440002";
-  const validEnvelope = {
-    keyFingerprint: "abc123",
-    kemCipherText: [1, 2, 3],
-    wrappedKey: [4, 5, 6],
-  };
   const validInitialOrganizationPolicy = {
     state: {
       principalType: "organization" as const,
@@ -93,7 +88,6 @@ test("isPublicKeyRequest", () => {
       targetContainerPath: [{ containerId: "container-1" }],
       contentKeyBundle: createDocumentV2ContentKeyBundle(),
     },
-    wrappedDekEnvelope: validEnvelope,
     ...overrides,
   });
 
@@ -121,27 +115,14 @@ test("isPublicKeyRequest", () => {
   ).toBe(false);
   expect(
     isPublicKeyRequest({
-      signingPublicKey: [1, 2, 3],
-      encapsulationPublicKey: [4, 5, 6],
-      wrappedDekEnvelope: {
-        keyFingerprint: 123,
-        kemCipherText: [],
-        wrappedKey: [],
-      },
-    }),
-  ).toBe(false);
-  expect(
-    isPublicKeyRequest({
       signingPublicKey: "not-array",
       encapsulationPublicKey: [1],
-      wrappedDekEnvelope: validEnvelope,
     }),
   ).toBe(false);
   expect(
     isPublicKeyRequest({
       signingPublicKey: [1],
       encapsulationPublicKey: ["a"],
-      wrappedDekEnvelope: validEnvelope,
     }),
   ).toBe(false);
   expect(isPublicKeyRequest({ signingPublicKey: [1] })).toBe(false);

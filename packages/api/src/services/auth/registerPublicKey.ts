@@ -23,17 +23,13 @@ import { storeVerifiedAccessManifest } from "../../access/accessManifestStore";
 import { storeVerifiedContainerKekState } from "../../access/containerKekStore";
 import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/principalMemberEnvelopes";
 import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
-import {
-  toUserPrincipalEnvelopeRecipient,
-  toUserPrincipalFingerprintRecipient,
-} from "../../access/recipientPrincipals";
+import { toUserPrincipalFingerprintRecipient } from "../../access/recipientPrincipals";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
   containerMetadataDocuments,
   containers,
   objectAccessEpochs,
   objectAccessGrants,
-  objectRecipientEnvelopes,
   organizations,
   users,
 } from "../../schema";
@@ -45,8 +41,6 @@ import type { ApiServiceRuntime } from "../runtime";
 
 const CONTAINER_OBJECT_TYPE = "container";
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTER_DUPLICATE_FINGERPRINT";
-const ML_KEM1024_CIPHERTEXT_LENGTH = 1568;
-const WRAPPED_DEK_LENGTH = 48;
 
 export class RegisterPublicKeyError extends Error {
   constructor(
@@ -54,35 +48,6 @@ export class RegisterPublicKeyError extends Error {
     readonly status: 400 | 403 | 404 | 409 | 503,
   ) {
     super(message);
-  }
-}
-
-async function validateWrappedDekEnvelope(
-  input: PublicKeyRequest,
-  encapsulationFingerprint: string,
-) {
-  if (input.wrappedDekEnvelope.keyFingerprint !== encapsulationFingerprint) {
-    throw new RegisterPublicKeyError(
-      "wrappedDekEnvelope.keyFingerprint does not match encapsulationPublicKey",
-      400,
-    );
-  }
-
-  if (
-    input.wrappedDekEnvelope.kemCipherText.length !==
-    ML_KEM1024_CIPHERTEXT_LENGTH
-  ) {
-    throw new RegisterPublicKeyError(
-      "Invalid wrappedDekEnvelope.kemCipherText length",
-      400,
-    );
-  }
-
-  if (input.wrappedDekEnvelope.wrappedKey.length !== WRAPPED_DEK_LENGTH) {
-    throw new RegisterPublicKeyError(
-      "Invalid wrappedDekEnvelope.wrappedKey length",
-      400,
-    );
   }
 }
 
@@ -350,8 +315,8 @@ async function writeInitialRootContainerAccess(
   tx: DatabaseTransaction,
   input: {
     containerId: string;
+    encapsulationFingerprint: string;
     userId: string;
-    wrappedDekEnvelope: PublicKeyRequest["wrappedDekEnvelope"];
   },
 ) {
   await tx.insert(objectAccessGrants).values({
@@ -382,7 +347,7 @@ async function writeInitialRootContainerAccess(
         toUserPrincipalFingerprintRecipient({
           userId: input.userId,
           accessLevel: "admin",
-          keyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
+          keyFingerprint: input.encapsulationFingerprint,
         }),
       ],
     }),
@@ -401,25 +366,6 @@ async function writeInitialRootContainerAccess(
       referencedPrincipals: [],
     }),
     updatedAt: new Date(),
-  });
-
-  const principalRecipient = toUserPrincipalEnvelopeRecipient({
-    userId: input.userId,
-    keyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
-  });
-  await tx.insert(objectRecipientEnvelopes).values({
-    objectType: CONTAINER_OBJECT_TYPE,
-    objectId: input.containerId,
-    epoch: 1,
-    recipientPrincipalType: principalRecipient.principalType,
-    recipientPrincipalId: principalRecipient.principalId,
-    recipientKeyFingerprint: input.wrappedDekEnvelope.keyFingerprint,
-    kemCipherText: bytesToBase64(
-      new Uint8Array(input.wrappedDekEnvelope.kemCipherText),
-    ),
-    wrappedKey: bytesToBase64(
-      new Uint8Array(input.wrappedDekEnvelope.wrappedKey),
-    ),
   });
 }
 
@@ -512,8 +458,8 @@ async function runRegisterPublicKeyTransaction(
     await storeInitialOrganizationPolicy(tx, input);
     await writeInitialRootContainerAccess(tx, {
       containerId: container.id,
+      encapsulationFingerprint,
       userId: user.id,
-      wrappedDekEnvelope: input.wrappedDekEnvelope,
     });
     const rootMetadata = await storeInitialRootContainerV2(
       tx,
@@ -571,7 +517,6 @@ export async function registerPublicKey(
   const encapsulationKeyBytes = new Uint8Array(input.encapsulationPublicKey);
   const fingerprint = await toFingerprint(signingKeyBytes);
   const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
-  await validateWrappedDekEnvelope(input, encapsulationFingerprint);
   validateInitialOrganizationPolicyInput(
     input,
     fingerprint,

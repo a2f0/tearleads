@@ -25,19 +25,12 @@ import {
   type PrincipalStateRequest,
 } from "./principal";
 
-export interface WrappedDekEnvelope {
-  keyFingerprint: string;
-  kemCipherText: number[];
-  wrappedKey: number[];
-}
-
 export interface PublicKeyRequest {
   userId: string;
   organizationId: string;
   rootContainerId: string;
   signingPublicKey: number[];
   encapsulationPublicKey: number[];
-  wrappedDekEnvelope: WrappedDekEnvelope;
   initialOrganizationPolicy: {
     state: PrincipalStateRequest;
     encryptedPayload: PrincipalStateEncryptedPayloadRequest;
@@ -46,16 +39,6 @@ export interface PublicKeyRequest {
   };
   initialRootContainerV2: ContainerV2MutationRequest;
   initialRootMetadataDocumentV2: DocumentV2CreateRequest;
-}
-
-function isWrappedDekEnvelope(value: Record<string, unknown>): boolean {
-  return (
-    hasStringProperty(value, "keyFingerprint") &&
-    hasArrayProperty(value, "kemCipherText") &&
-    isNumberArray(value.kemCipherText) &&
-    hasArrayProperty(value, "wrappedKey") &&
-    isNumberArray(value.wrappedKey)
-  );
 }
 
 export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
@@ -78,8 +61,6 @@ export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
     isNumberArray(value.signingPublicKey) &&
     hasArrayProperty(value, "encapsulationPublicKey") &&
     isNumberArray(value.encapsulationPublicKey) &&
-    hasObjectProperty(value, "wrappedDekEnvelope") &&
-    isWrappedDekEnvelope(value.wrappedDekEnvelope) &&
     hasObjectProperty(value, "initialOrganizationPolicy") &&
     hasObjectProperty(value.initialOrganizationPolicy, "state") &&
     isPrincipalStateRequest(value.initialOrganizationPolicy.state) &&

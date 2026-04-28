@@ -98,13 +98,6 @@ export async function createPublicKeyRequestBody(
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
 ): Promise<PublicKeyRequest> {
-  const dek = crypto.getRandomValues(new Uint8Array(32));
-  const recipients = await wrapDekForRecipients(dek, [encapsulationPublicKey]);
-  const wrappedEnvelope = recipients[0];
-
-  if (!wrappedEnvelope) {
-    throw new Error("Failed to wrap DEK for test user");
-  }
   const userId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
   const rootContainerId = crypto.randomUUID();
@@ -132,10 +125,5 @@ export async function createPublicKeyRequestBody(
     }),
     initialRootContainerV2: rootBootstrap.initialRootContainerV2,
     initialRootMetadataDocumentV2: rootBootstrap.initialRootMetadataDocumentV2,
-    wrappedDekEnvelope: {
-      keyFingerprint: wrappedEnvelope.keyFingerprint,
-      kemCipherText: Array.from(wrappedEnvelope.kemCipherText),
-      wrappedKey: Array.from(wrappedEnvelope.wrappedKey),
-    },
   };
 }
