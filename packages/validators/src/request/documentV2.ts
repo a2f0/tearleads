@@ -39,6 +39,17 @@ export interface DocumentV2CreateRequest {
   contentKeyBundle: DocumentV2ContentKeyBundleRequest;
 }
 
+export interface DocumentV2LinkSetMutationRequest {
+  event: Record<string, unknown>;
+  body: unknown;
+  expectedManifestHash: string;
+  manifest: Record<string, unknown>;
+  previousManifest: DocumentV2ManifestBundle;
+  targetContainerPath: Record<string, unknown>[];
+  authorizingContainerPaths: Record<string, unknown>[][];
+  contentKeyBundle: DocumentV2ContentKeyBundleRequest;
+}
+
 export interface DocumentV2OutgoingUpdate {
   checkpointKind?: "fresh_baseline" | "rotate_baseline";
   id: string;
@@ -220,6 +231,42 @@ export function isDocumentV2CreateRequest(
       isDocumentV2ManifestBundle(previousManifest)) &&
     isOptionalRecordArray(targetContainerPath) &&
     isOptionalRecordArrayArray(authorizingContainerPaths) &&
+    isDocumentV2ContentKeyBundleRequest(contentKeyBundle)
+  );
+}
+
+export function isDocumentV2LinkSetMutationRequest(
+  value: unknown,
+): value is DocumentV2LinkSetMutationRequest {
+  const previousManifest = isPlainObject(value)
+    ? Reflect.get(value, "previousManifest")
+    : undefined;
+  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
+  const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
+  const manifest = isPlainObject(value)
+    ? Reflect.get(value, "manifest")
+    : undefined;
+  const targetContainerPath = isPlainObject(value)
+    ? Reflect.get(value, "targetContainerPath")
+    : undefined;
+  const authorizingContainerPaths = isPlainObject(value)
+    ? Reflect.get(value, "authorizingContainerPaths")
+    : undefined;
+  const contentKeyBundle = isPlainObject(value)
+    ? Reflect.get(value, "contentKeyBundle")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    isPlainObject(event) &&
+    Reflect.has(value, "body") &&
+    body !== undefined &&
+    hasStringProperty(value, "expectedManifestHash") &&
+    value.expectedManifestHash.length > 0 &&
+    isPlainObject(manifest) &&
+    isDocumentV2ManifestBundle(previousManifest) &&
+    isRecordArray(targetContainerPath) &&
+    isRecordArrayArray(authorizingContainerPaths) &&
     isDocumentV2ContentKeyBundleRequest(contentKeyBundle)
   );
 }

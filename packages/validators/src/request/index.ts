@@ -27,11 +27,13 @@ export {
   type DocumentV2ContentKeyBundleRequest,
   type DocumentV2ContentKeyTargetEnvelope,
   type DocumentV2CreateRequest,
+  type DocumentV2LinkSetMutationRequest,
   type DocumentV2ManifestBundle,
   type DocumentV2OutgoingUpdate,
   type DocumentV2SyncRequest,
   isDocumentV2ContentKeyBundleRequest,
   isDocumentV2CreateRequest,
+  isDocumentV2LinkSetMutationRequest,
   isDocumentV2SyncRequest,
 } from "./documentV2";
 export {

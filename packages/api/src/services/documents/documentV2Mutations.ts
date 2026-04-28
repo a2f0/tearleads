@@ -28,6 +28,7 @@ import type {
   DocumentV2ContentKeyBundleRequest,
   DocumentV2ContentKeyTargetEnvelope,
   DocumentV2CreateRequest,
+  DocumentV2LinkSetMutationRequest,
   DocumentV2ManifestBundle,
   DocumentV2OutgoingUpdate,
   DocumentV2SyncRequest,
@@ -36,6 +37,7 @@ import type {
   DocumentV2ContentKeyBundleResponse,
   DocumentV2CreateResponse,
   DocumentV2KekTargetsResponse,
+  DocumentV2LinkSetMutationResponse,
   DocumentV2SyncResponse,
 } from "@tearleads/validators/response";
 import { eq, inArray } from "drizzle-orm";
@@ -57,6 +59,7 @@ import {
 } from "../../access/documentKekTargets";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
+  containerMetadataDocuments,
   documentContainerLinks,
   documents,
   documentUpdates,
@@ -101,6 +104,14 @@ interface SyncDocumentV2Input {
   readonly documentId: string;
   readonly fingerprint: string;
   readonly request: DocumentV2SyncRequest;
+  readonly userId: string;
+}
+
+interface MutateDocumentV2LinkSetInput {
+  readonly documentId: string;
+  readonly eventType: "document.link" | "document.unlink";
+  readonly fingerprint: string;
+  readonly request: DocumentV2LinkSetMutationRequest;
   readonly userId: string;
 }
 
@@ -420,6 +431,54 @@ async function verifyDocumentManifestFromRequest(input: {
   return result.value;
 }
 
+async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
+  readonly event: VerifiedAccessEvent;
+  readonly executor: DatabaseExecutor;
+  readonly request: DocumentV2LinkSetMutationRequest;
+}): Promise<VerifiedDocumentLinkSetManifest> {
+  const [targetContainerPath, authorizingContainerPaths, previousManifest] =
+    await Promise.all([
+      assertCurrentContainerPath(
+        input.executor,
+        input.request.targetContainerPath,
+        "targetContainerPath",
+      ),
+      assertCurrentContainerPathGroups(
+        input.executor,
+        input.request.authorizingContainerPaths,
+        "authorizingContainerPaths",
+      ),
+      assertDocumentManifestBundleConsistent(
+        input.request.previousManifest,
+        "previousManifest",
+      ),
+    ]);
+  const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
+    input.executor,
+    [
+      ...(targetContainerPath ? [targetContainerPath] : []),
+      ...(authorizingContainerPaths ?? []),
+    ],
+  );
+  const result = await verifyDocumentLinkSetManifest({
+    event: input.event,
+    expectedManifestHash: input.request.expectedManifestHash,
+    manifest: input.request.manifest as unknown as AccessManifestV2,
+    previousManifest,
+    principalPolicies,
+    ...(targetContainerPath !== undefined ? { targetContainerPath } : {}),
+    ...(authorizingContainerPaths !== undefined
+      ? { authorizingContainerPaths }
+      : {}),
+  });
+
+  if (!result.ok) {
+    throw result.error;
+  }
+
+  return result.value;
+}
+
 function toStoredTargetEnvelope(
   target: DocumentV2ContentKeyTargetEnvelope,
 ): StoredDocumentContentKeyTargetEnvelope {
@@ -601,6 +660,72 @@ async function assertCreateCanAdvanceDocumentHead(
   }
 }
 
+async function assertDocumentLinkSetCanAdvance(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseExecutor;
+  readonly manifest: VerifiedDocumentLinkSetManifest;
+  readonly previousManifest: VerifiedDocumentLinkSetManifest;
+}): Promise<void> {
+  if (
+    input.manifest.state.documentId !== input.documentId ||
+    input.previousManifest.state.documentId !== input.documentId
+  ) {
+    throw new DocumentV2MutationError("Document id mismatch", 400);
+  }
+
+  const currentHead = await getCurrentAccessManifestHead(
+    "document",
+    input.documentId,
+    input.executor,
+  );
+  if (!currentHead) {
+    throw new DocumentV2MutationError("Document manifest head missing", 404);
+  }
+  if (currentHead.manifestHash !== input.previousManifest.manifestHash) {
+    throw new DocumentV2MutationError("Document manifest is stale", 409);
+  }
+}
+
+async function assertDocumentCanRelink(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseExecutor;
+}): Promise<void> {
+  await ensureDocumentExists({
+    documentId: input.documentId,
+    executor: input.executor,
+  });
+
+  const [metadataBinding] = await input.executor
+    .select({ documentId: containerMetadataDocuments.documentId })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.documentId, input.documentId))
+    .limit(1);
+
+  if (metadataBinding) {
+    throw new DocumentV2MutationError(
+      "Container metadata documents cannot be structurally relinked",
+      409,
+    );
+  }
+}
+
+async function replaceDocumentContainerLinks(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseExecutor;
+  readonly linkedContainerIds: readonly string[];
+}): Promise<void> {
+  await input.executor
+    .delete(documentContainerLinks)
+    .where(eq(documentContainerLinks.documentId, input.documentId));
+
+  await input.executor.insert(documentContainerLinks).values(
+    input.linkedContainerIds.map((containerId) => ({
+      documentId: input.documentId,
+      containerId,
+    })),
+  );
+}
+
 export async function createDocumentV2(
   runtime: ApiServiceRuntime,
   input: CreateDocumentV2Input,
@@ -692,6 +817,110 @@ export async function createDocumentV2WithExecutor(input: {
       contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
       documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
     };
+  } catch (error) {
+    const mutationError = toMutationError(error);
+    if (mutationError) {
+      throw mutationError;
+    }
+    throw error;
+  }
+}
+
+async function mutateDocumentV2LinkSetWithExecutor(input: {
+  readonly documentId: string;
+  readonly eventType: "document.link" | "document.unlink";
+  readonly executor: DatabaseExecutor;
+  readonly fingerprint: string;
+  readonly request: DocumentV2LinkSetMutationRequest;
+  readonly userId: string;
+}): Promise<DocumentV2LinkSetMutationResponse> {
+  try {
+    await assertDocumentCanRelink({
+      documentId: input.documentId,
+      executor: input.executor,
+    });
+    const event = await verifyDocumentEvent({
+      body: input.request.body,
+      event: input.request.event,
+      expectedDocumentId: input.documentId,
+      expectedEventType: input.eventType,
+      executor: input.executor,
+      fingerprint: input.fingerprint,
+      userId: input.userId,
+    });
+    const previousManifest = await assertDocumentManifestBundleConsistent(
+      input.request.previousManifest,
+      "previousManifest",
+    );
+    const manifest = await verifyDocumentLinkSetMutationManifestFromRequest({
+      event,
+      executor: input.executor,
+      request: input.request,
+    });
+
+    await assertDocumentLinkSetCanAdvance({
+      documentId: input.documentId,
+      executor: input.executor,
+      manifest,
+      previousManifest,
+    });
+    await storeVerifiedAccessManifest(
+      { verifiedManifest: manifest },
+      input.executor,
+    );
+    await replaceDocumentContainerLinks({
+      documentId: input.documentId,
+      executor: input.executor,
+      linkedContainerIds: manifest.state.linkedContainerIds,
+    });
+
+    const contentKeyBundle = await storeDocumentContentKeyBundle(
+      toStoredContentKeyBundleInput(
+        input.documentId,
+        input.request.contentKeyBundle,
+      ),
+      input.executor,
+    );
+    const currentTargets = await resolveCurrentDocumentKekTargets(
+      input.documentId,
+      input.executor,
+    );
+
+    return {
+      id: input.documentId,
+      accessManifest: {
+        event: manifest.event as unknown as Record<string, unknown>,
+        manifest: manifest.manifest as unknown as Record<string, unknown>,
+        manifestHash: manifest.manifestHash,
+        state: manifest.state as unknown as Record<string, unknown>,
+      },
+      contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
+      documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
+    };
+  } catch (error) {
+    const mutationError = toMutationError(error);
+    if (mutationError) {
+      throw mutationError;
+    }
+    throw error;
+  }
+}
+
+export async function mutateDocumentV2LinkSet(
+  runtime: ApiServiceRuntime,
+  input: MutateDocumentV2LinkSetInput,
+): Promise<DocumentV2LinkSetMutationResponse> {
+  try {
+    return await runtime.db.transaction((tx) =>
+      mutateDocumentV2LinkSetWithExecutor({
+        documentId: input.documentId,
+        eventType: input.eventType,
+        executor: tx,
+        fingerprint: input.fingerprint,
+        request: input.request,
+        userId: input.userId,
+      }),
+    );
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {

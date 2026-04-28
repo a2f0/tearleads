@@ -51,6 +51,13 @@ export interface DocumentV2CreateResponse {
   documentKekTargets: DocumentV2KekTargetsResponse;
 }
 
+export interface DocumentV2LinkSetMutationResponse {
+  id: string;
+  accessManifest: DocumentV2ManifestBundleResponse;
+  contentKeyBundle: DocumentV2ContentKeyBundleResponse;
+  documentKekTargets: DocumentV2KekTargetsResponse;
+}
+
 export interface DocumentV2SyncUpdateResponse {
   accessEpoch: number;
   id: string;
@@ -251,6 +258,28 @@ export function isDocumentV2CreateResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "createdAt") &&
+    isDocumentV2ManifestBundleResponse(accessManifest) &&
+    isDocumentV2ContentKeyBundleResponse(contentKeyBundle) &&
+    isDocumentV2KekTargetsResponse(documentKekTargets)
+  );
+}
+
+export function isDocumentV2LinkSetMutationResponse(
+  value: unknown,
+): value is DocumentV2LinkSetMutationResponse {
+  const accessManifest = isPlainObject(value)
+    ? Reflect.get(value, "accessManifest")
+    : undefined;
+  const contentKeyBundle = isPlainObject(value)
+    ? Reflect.get(value, "contentKeyBundle")
+    : undefined;
+  const documentKekTargets = isPlainObject(value)
+    ? Reflect.get(value, "documentKekTargets")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "id") &&
     isDocumentV2ManifestBundleResponse(accessManifest) &&
     isDocumentV2ContentKeyBundleResponse(contentKeyBundle) &&
     isDocumentV2KekTargetsResponse(documentKekTargets)

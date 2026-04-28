@@ -5,6 +5,7 @@ import {
   isChallengeRequest,
   isDocumentV2ContentKeyBundleRequest,
   isDocumentV2CreateRequest,
+  isDocumentV2LinkSetMutationRequest,
   isDocumentV2SyncRequest,
   isLinkDocumentToContainerRequest,
   isPublicKeyRequest,
@@ -422,6 +423,45 @@ test("isDocumentV2CreateRequest", () => {
     }),
   ).toBe(false);
   expect(isDocumentV2CreateRequest(null)).toBe(false);
+});
+
+test("isDocumentV2LinkSetMutationRequest", () => {
+  const validRequest = {
+    event: { eventType: "document.link" },
+    body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
+    expectedManifestHash: "manifest-hash",
+    manifest: { objectType: "document", objectId: "doc-1" },
+    previousManifest: {
+      event: { eventId: "event-1" },
+      manifest: { version: 2 },
+      manifestHash: "previous-manifest-hash",
+      state: { documentId: "doc-1" },
+    },
+    targetContainerPath: [{ containerId: "container-1" }],
+    authorizingContainerPaths: [[{ containerId: "container-1" }]],
+    contentKeyBundle: createDocumentV2ContentKeyBundle(),
+  };
+
+  expect(isDocumentV2LinkSetMutationRequest(validRequest)).toBe(true);
+  expect(
+    isDocumentV2LinkSetMutationRequest({
+      ...validRequest,
+      previousManifest: null,
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2LinkSetMutationRequest({
+      ...validRequest,
+      targetContainerPath: undefined,
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentV2LinkSetMutationRequest({
+      ...validRequest,
+      authorizingContainerPaths: [{ containerId: "container-1" }],
+    }),
+  ).toBe(false);
+  expect(isDocumentV2LinkSetMutationRequest(null)).toBe(false);
 });
 
 test("isDocumentV2SyncRequest", () => {
