@@ -4,7 +4,7 @@ import type {
   PrincipalMemberEnvelopeResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
+import type { SerializedKeyEnvelope } from "@tearleads/validators/util";
 import { loadAllPrincipalPolicyBundles } from "./persistence/principalPolicyPersistence";
 import type { ExecSql } from "./persistence/sqlSchema";
 
@@ -18,7 +18,7 @@ interface PrincipalPolicyResolutionContext {
 }
 
 function toRecipientEntries(
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
+  envelopes: ReadonlyArray<SerializedKeyEnvelope>,
 ): RecipientEntry[] {
   return envelopes.map((envelope) => ({
     keyFingerprint: envelope.keyFingerprint,
@@ -145,8 +145,8 @@ async function unwrapPrincipalSecretKey(
   throw new Error(`No matching principal member envelope for ${principalKey}`);
 }
 
-export async function unwrapRecipientEnvelopesWithPrincipalPolicies(input: {
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>;
+export async function unwrapKeyEnvelopesWithPrincipalPolicies(input: {
+  envelopes: ReadonlyArray<SerializedKeyEnvelope>;
   execSql?: ExecSql | undefined;
   secretKey: Uint8Array;
 }): Promise<Uint8Array> {

@@ -17,7 +17,7 @@ import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
 } from "./persistence/principalPolicyPersistence";
-import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
+import { unwrapKeyEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 
 async function createPrincipalPolicyBundle(input: {
   keyEpoch?: number;
@@ -204,7 +204,7 @@ test("principal policy crypto recursively unwraps nested group principals", asyn
     const wrappedObjectEntry = wrappedObjectEntries[0];
 
     if (!wrappedObjectEntry) {
-      throw new Error("Missing wrapped object recipient entry");
+      throw new Error("Missing wrapped object key entry");
     }
 
     await ensurePrincipalPolicyTables(execSql);
@@ -220,7 +220,7 @@ test("principal policy crypto recursively unwraps nested group principals", asyn
     );
 
     await expect(
-      unwrapRecipientEnvelopesWithPrincipalPolicies({
+      unwrapKeyEnvelopesWithPrincipalPolicies({
         envelopes: [
           {
             keyFingerprint: wrappedObjectEntry.keyFingerprint,
