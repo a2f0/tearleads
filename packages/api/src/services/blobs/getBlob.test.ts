@@ -4,7 +4,7 @@ import {
   serializeBlobEnvelope,
   toFingerprint,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { and, eq } from "drizzle-orm";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
@@ -115,10 +115,9 @@ test("getBlob returns committed blob bytes for readable blobs", async () => {
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
   });
-  const encryptedBytes = await createEncryptedBlobBytes(
-    "service-blob-bytes",
-    registration.rootMetadataRecipientEncapsulationPublicKeys,
-  );
+  const encryptedBytes = await createEncryptedBlobBytes("service-blob-bytes", [
+    bytesToBase64(user.kem.publicKey),
+  ]);
   const blob = await createCommittedBlob({
     documentId: document.id,
     encryptedBytes,
