@@ -174,6 +174,7 @@ export class ApiClient {
     initialOrganizationPolicy: Parameters<typeof postPublicKey>[7],
     initialRootMetadataUpdates: Parameters<typeof postPublicKey>[8],
     initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
+    initialRootContainerV2?: Parameters<typeof postPublicKey>[10],
   ) {
     return postPublicKey(
       this.request,
@@ -186,6 +187,7 @@ export class ApiClient {
       initialOrganizationPolicy,
       initialRootMetadataUpdates,
       initialRootMetadataRecipientEnvelopes,
+      initialRootContainerV2,
     );
   }
 

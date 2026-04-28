@@ -19,14 +19,7 @@ import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../../data/containers";
-import {
-  createDocumentEncryptionMaterial,
-  createPendingUpdateFields,
-  encryptPendingUpdates,
-  getLocalRecipientPublicKeys,
-  resolveRecipientPublicKeys,
-  serializeDocumentRecipientEnvelopes,
-} from "../../../data/documentSync";
+import { getLocalRecipientPublicKeys } from "../../../data/documentSync";
 import { requestDomainDocumentSync } from "../../../data/documents/DocumentsProvider";
 import type { DocumentRecord } from "../../../data/persistence/documentPersistence";
 import { didRegainSyncPrerequisites } from "../../../data/sync/syncCoordinator";
@@ -39,11 +32,14 @@ import {
   type ContainerMetadataDocument,
   type ContainerState,
   createExplorerSyncAgent,
+  createRemoteExplorerContainerV2,
   type ExplorerContainerPatch,
   type ExplorerRuntime,
   type ExplorerSyncAgent,
   type ExplorerSyncState,
   getFallbackContainerName,
+  moveRemoteExplorerContainerV2,
+  shareRemoteExplorerContainerV2,
 } from "./explorerSyncAgent";
 
 interface ExplorerContextValue {
@@ -324,53 +320,20 @@ async function buildRemoteChildContainerState(
   trimmedName: string,
   doc: ContainerMetadataDocument,
   initialRecord: DocumentRecord,
-  initialUpdate: Uint8Array,
 ) {
-  if (
-    typeof parentState.record.accessStateHash !== "string" ||
-    parentState.record.accessStateHash.length === 0
-  ) {
-    state.runtime.log(
-      `Explorer: container ${parentState.container.id} is missing access state hash for create`,
-    );
-    return null;
-  }
-
-  const initialDocumentEncryption = await createDocumentEncryptionMaterial(
-    parentState.recipientPublicKeys,
-  );
-  const pendingUpdateFields = createPendingUpdateFields(initialUpdate);
-  const initialMetadataUpdates = pendingUpdateFields
-    ? await encryptPendingUpdates(
-        [
-          {
-            id: crypto.randomUUID(),
-            ...pendingUpdateFields,
-          },
-        ],
-        initialRecord.accessEpoch,
-        initialDocumentEncryption.documentKey,
-      )
-    : [];
-  const created = await state.runtime.apiClient.createContainer(
-    childId,
-    parentState.container.id,
-    parentState.record.accessStateHash,
-    initialMetadataUpdates,
-    initialDocumentEncryption.documentRecipientEnvelopes,
-  );
+  const created = await createRemoteExplorerContainerV2({
+    containerId: childId,
+    parentContainerId: parentState.container.id,
+    runtime: state.runtime,
+  });
 
   if (!created) {
     return null;
   }
 
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    created.metadataReferencedPrincipals,
-  );
-
   return {
     container: {
-      id: created.id,
+      id: created.containerId,
       organizationId: created.organizationId,
       parentId: created.parentId,
       metadataDocumentId: created.metadataDocumentId,
@@ -378,17 +341,13 @@ async function buildRemoteChildContainerState(
       icon: null,
     },
     doc,
-    recipientPublicKeys: resolveRecipientPublicKeys(
-      created.metadataRecipientEncapsulationPublicKeys,
-    ),
+    recipientPublicKeys: parentState.recipientPublicKeys,
     record: {
       ...initialRecord,
-      accessEpoch: created.metadataAccessEpoch,
-      accessStateHash: created.metadataAccessStateHash,
-      documentId: created.metadataDocumentId,
-      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-        initialDocumentEncryption.documentRecipientEnvelopes,
-      ),
+      accessEpoch: 1,
+      accessStateHash: created.accessManifestHash,
+      documentRecipientEnvelopes: null,
+      ...created.persistedMetadataState,
     },
   };
 }
@@ -462,7 +421,6 @@ async function createChildContainer(
           trimmedName,
           doc,
           initialRecord,
-          initialUpdate,
         )
       : buildLocalChildContainerState(
           state,
@@ -496,7 +454,10 @@ async function createChildContainer(
     createIntent ? { createIntent } : undefined,
   );
 
-  if (!resolvedChildState.record.documentId) {
+  if (
+    !resolvedChildState.record.documentId ||
+    resolvedChildState.record.v2ContentKeyBundle
+  ) {
     await syncAgent.enqueuePendingContainerUpdate(
       resolvedChildState.container.id,
       initialUpdate,
@@ -608,31 +569,29 @@ async function shareExplorerContainerWithUser(
     return null;
   }
 
-  const shared = await state.runtime.apiClient.shareContainer(
+  const shared = await shareRemoteExplorerContainerV2({
+    accessLevel: "write",
     containerId,
-    "user",
-    userId,
-    "write",
-    expectedAccessStateHash,
-  );
+    recipientUserId: userId,
+    runtime: state.runtime,
+  });
 
   if (!shared) {
     return null;
   }
 
   await state.runtime.cacheReferencedPrincipalPolicies(
-    shared.metadataReferencedPrincipals,
-  );
-
-  existingState.recipientPublicKeys = resolveRecipientPublicKeys(
-    shared.metadataRecipientEncapsulationPublicKeys,
+    shared.referencedPrincipalHeads,
   );
   await persistContainerState(state, existingState, {
-    accessEpoch: shared.metadataAccessEpoch,
-    accessStateHash: shared.metadataAccessStateHash,
+    accessEpoch: shared.accessEpoch,
+    accessStateHash: shared.accessManifestHash,
     documentId: shared.metadataDocumentId,
     documentRecipientEnvelopes: null,
     metadataDocumentId: shared.metadataDocumentId,
+    v2ContentKeyBundle: null,
+    v2DocumentKekTargets: null,
+    v2DocumentManifestBundle: null,
   });
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
@@ -669,11 +628,11 @@ async function moveExplorerContainer(
     return null;
   }
 
-  const moved = await state.runtime.apiClient.moveContainer(
+  const moved = await moveRemoteExplorerContainerV2({
     containerId,
-    parentId,
-    existingState.record.accessStateHash,
-  );
+    parentContainerId: parentId,
+    runtime: state.runtime,
+  });
   if (!moved) {
     return null;
   }

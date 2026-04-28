@@ -16,7 +16,6 @@ import {
 import { resolveContainerAccessState } from "./containerAccess";
 import { mergeReferencedPrincipals } from "./principalReferences";
 import {
-  accessLevelRank,
   type EffectivePrincipalRecipient,
   isUserPrincipalRecipient,
   mergeAccessLevel,
@@ -530,17 +529,6 @@ export function canReadDocumentAccess(
 ): boolean {
   return state.effectiveRecipients.some((recipient) =>
     isUserPrincipalRecipient(recipient, userId),
-  );
-}
-
-export function canWriteDocumentAccess(
-  state: DocumentAccessState,
-  userId: string,
-): boolean {
-  return state.effectiveRecipients.some(
-    (recipient) =>
-      isUserPrincipalRecipient(recipient, userId) &&
-      accessLevelRank(recipient.accessLevel) >= accessLevelRank("write"),
   );
 }
 

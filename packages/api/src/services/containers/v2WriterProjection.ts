@@ -6,6 +6,7 @@ import type {
   ContainerKeyWrapV2,
   KeyingV2CanonicalJson,
   VerifiedContainerAccessManifest,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeContainerKekRecipientTargetHash,
@@ -28,7 +29,10 @@ import {
 } from "../../access/containerKekStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import { containers } from "../../schema";
-import { loadPrincipalPoliciesForContainerPaths } from "../documents/documentV2Mutations";
+import {
+  loadPrincipalPoliciesForContainerPaths,
+  PrincipalPolicyProjectionError,
+} from "../documents/principalPolicyProjection";
 import type { ApiServiceRuntime } from "../runtime";
 
 type ContainerV2WriterProjectionStatus = 403 | 404 | 409;
@@ -256,10 +260,7 @@ async function loadContainerKekResponse(
       409,
     );
   }
-  if (
-    storedKeyEpoch.containerId !== manifest.state.containerId ||
-    storedKeyEpoch.accessManifestHash !== manifest.manifestHash
-  ) {
+  if (storedKeyEpoch.containerId !== manifest.state.containerId) {
     throw new ContainerV2WriterProjectionError(
       "Container V2 KEK epoch is stale",
       409,
@@ -299,10 +300,18 @@ export async function resolveContainerV2WriterProjection(input: {
     ),
   );
   const verifiedPath = path.map(toVerifiedContainerManifest);
-  const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
-    input.executor,
-    [verifiedPath],
-  );
+  let principalPolicies: VerifiedPrincipalPolicy[];
+  try {
+    principalPolicies = await loadPrincipalPoliciesForContainerPaths(
+      input.executor,
+      [verifiedPath],
+    );
+  } catch (error) {
+    if (error instanceof PrincipalPolicyProjectionError) {
+      throw new ContainerV2WriterProjectionError(error.message, error.status);
+    }
+    throw error;
+  }
   const accessLevel = resolveContainerPathUserAccessLevel({
     path: verifiedPath,
     principalPolicies,

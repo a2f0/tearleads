@@ -3,9 +3,6 @@ import type {
   AccessManifestV2,
   ContainerAccessManifestStateV2,
   KeyingV2CanonicalJson,
-  PrincipalPolicySignedStateV2,
-  PrincipalProjectionMember,
-  ReferencedPrincipalHeadV2,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentKekTargets,
@@ -16,7 +13,6 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
-  computePrincipalProjectionRoot,
   computeWriteHeaderHash,
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
@@ -48,11 +44,6 @@ import {
   storeVerifiedAccessManifest,
 } from "../../access/accessManifestStore";
 import {
-  canReadDocumentAccess,
-  canWriteDocumentAccess,
-  resolveDocumentAccessState,
-} from "../../access/documentAccess";
-import {
   DocumentContentKeyBundleError,
   listDocumentContentWriteHeaders,
   requireCurrentDocumentContentKeyBundle,
@@ -60,15 +51,10 @@ import {
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,
 } from "../../access/documentContentKeyStore";
-import { resolveCurrentDocumentKekTargets } from "../../access/documentKekTargets";
 import {
-  getPrincipalStatesForReferences,
-  listPrincipalProjectionMembersForStates,
-  type PrincipalStateReference,
-  principalStateReferenceKey,
-  type StoredPrincipalProjectionMember,
-  type StoredPrincipalState,
-} from "../../access/principalStateStore";
+  DocumentKekTargetError,
+  resolveCurrentDocumentKekTargets,
+} from "../../access/documentKekTargets";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
   documentContainerLinks,
@@ -77,6 +63,10 @@ import {
   users,
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
+import {
+  ContainerV2WriterProjectionError,
+  resolveContainerV2WriterProjection,
+} from "../containers/v2WriterProjection";
 import type { ApiServiceRuntime } from "../runtime";
 import { readCurrentCommitLsn } from "./commitLsn";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
@@ -84,6 +74,10 @@ import {
   DocumentUpdateReadError,
   listMissingDocumentUpdates,
 } from "./documentUpdateStore";
+import {
+  loadPrincipalPoliciesForContainerPaths,
+  PrincipalPolicyProjectionError,
+} from "./principalPolicyProjection";
 
 type DocumentV2MutationStatus = 400 | 403 | 404 | 409 | 503;
 
@@ -168,6 +162,14 @@ function toMutationError(error: unknown): DocumentV2MutationError | null {
   }
 
   if (error instanceof DocumentUpdateReadError) {
+    return new DocumentV2MutationError(error.message, error.status);
+  }
+
+  if (error instanceof DocumentKekTargetError) {
+    return new DocumentV2MutationError(error.message, error.status);
+  }
+
+  if (error instanceof PrincipalPolicyProjectionError) {
     return new DocumentV2MutationError(error.message, error.status);
   }
 
@@ -366,160 +368,6 @@ export async function assertCurrentContainerPathGroups(
   }
 
   return verifiedGroups;
-}
-
-function projectionStateKey(input: {
-  readonly principalId: string;
-  readonly stateHash: string;
-}): string {
-  return `${input.principalId}:${input.stateHash}`;
-}
-
-function projectionMemberFromStored(
-  member: StoredPrincipalProjectionMember,
-): PrincipalProjectionMember {
-  return {
-    memberPrincipalType: member.memberPrincipalType,
-    memberPrincipalId: member.memberPrincipalId,
-    role: member.role,
-  };
-}
-
-function collectReferencedPrincipalHeads(
-  paths: readonly (readonly VerifiedContainerAccessManifest[])[],
-): ReferencedPrincipalHeadV2[] {
-  const headsByReference = new Map<string, ReferencedPrincipalHeadV2>();
-
-  for (const path of paths) {
-    for (const manifest of path) {
-      for (const principalHead of manifest.state.referencedPrincipalHeads) {
-        headsByReference.set(principalStateReferenceKey(principalHead), {
-          ...principalHead,
-        });
-      }
-    }
-  }
-
-  return Array.from(headsByReference.values()).sort((left, right) =>
-    principalStateReferenceKey(left).localeCompare(
-      principalStateReferenceKey(right),
-    ),
-  );
-}
-
-function assertStoredPrincipalStateMatchesReference(
-  reference: PrincipalStateReference,
-  state: StoredPrincipalState | undefined,
-): asserts state is StoredPrincipalState {
-  if (
-    !state ||
-    state.principalType !== reference.principalType ||
-    state.principalId !== reference.principalId ||
-    state.version !== reference.version ||
-    state.keyEpoch !== reference.keyEpoch ||
-    state.stateHash !== reference.stateHash ||
-    state.keyFingerprint !== reference.keyFingerprint
-  ) {
-    throw new DocumentV2MutationError("Principal policy state is stale", 409);
-  }
-}
-
-async function assertStoredProjectionMatchesState(input: {
-  readonly projection: readonly PrincipalProjectionMember[];
-  readonly state: StoredPrincipalState;
-}): Promise<void> {
-  const projectionRoot = await computePrincipalProjectionRoot(input.projection);
-  if (
-    projectionRoot !== input.state.projectionRoot ||
-    input.projection.length !== input.state.memberCount
-  ) {
-    throw new DocumentV2MutationError(
-      "Principal policy projection is stale",
-      409,
-    );
-  }
-}
-
-async function principalPolicyFromStored(input: {
-  readonly projection: readonly StoredPrincipalProjectionMember[];
-  readonly state: StoredPrincipalState;
-}): Promise<VerifiedPrincipalPolicy> {
-  const projection = input.projection.map(projectionMemberFromStored);
-
-  await assertStoredProjectionMatchesState({
-    projection,
-    state: input.state,
-  });
-
-  return {
-    principalType: input.state.principalType,
-    principalId: input.state.principalId,
-    version: input.state.version,
-    keyEpoch: input.state.keyEpoch,
-    stateHash: input.state.stateHash,
-    state: input.state as PrincipalPolicySignedStateV2,
-    projection,
-    checkpoint: {
-      principalType: input.state.principalType,
-      principalId: input.state.principalId,
-      version: input.state.version,
-      stateHash: input.state.stateHash,
-    },
-  } as VerifiedPrincipalPolicy;
-}
-
-export async function loadPrincipalPoliciesForContainerPaths(
-  executor: DatabaseExecutor,
-  paths: readonly (readonly VerifiedContainerAccessManifest[])[],
-): Promise<VerifiedPrincipalPolicy[]> {
-  const referencedPrincipalHeads = collectReferencedPrincipalHeads(paths);
-
-  if (referencedPrincipalHeads.length === 0) {
-    return [];
-  }
-
-  const statesByReference = await getPrincipalStatesForReferences(
-    referencedPrincipalHeads,
-    executor,
-  );
-  const policies: VerifiedPrincipalPolicy[] = [];
-
-  for (const principalType of [
-    ...new Set(
-      referencedPrincipalHeads.map((reference) => reference.principalType),
-    ),
-  ]) {
-    const referencesForType = referencedPrincipalHeads.filter(
-      (reference) => reference.principalType === principalType,
-    );
-    const states = referencesForType.map((reference) => {
-      const state = statesByReference.get(
-        principalStateReferenceKey(reference),
-      );
-      assertStoredPrincipalStateMatchesReference(reference, state);
-      return state;
-    });
-    const projectionsByState = await listPrincipalProjectionMembersForStates(
-      principalType,
-      states,
-      executor,
-    );
-
-    for (const state of states) {
-      policies.push(
-        await principalPolicyFromStored({
-          projection: projectionsByState.get(projectionStateKey(state)) ?? [],
-          state,
-        }),
-      );
-    }
-  }
-
-  return policies.sort((left, right) =>
-    principalStateReferenceKey(left).localeCompare(
-      principalStateReferenceKey(right),
-    ),
-  );
 }
 
 async function verifyDocumentManifestFromRequest(input: {
@@ -825,11 +673,10 @@ export async function createDocumentV2(
   }
 }
 
-async function ensureWritableDocument(input: {
+async function ensureDocumentExists(input: {
   readonly documentId: string;
   readonly executor: DatabaseExecutor;
-  readonly userId: string;
-}) {
+}): Promise<void> {
   const [document] = await input.executor
     .select({ id: documents.id })
     .from(documents)
@@ -838,22 +685,38 @@ async function ensureWritableDocument(input: {
   if (!document) {
     throw new DocumentV2MutationError("Document not found", 404);
   }
+}
 
-  const access = await resolveDocumentAccessState(
-    input.documentId,
-    input.executor,
-  );
-  if (!access) {
-    throw new DocumentV2MutationError("Document access state not found", 409);
-  }
-  if (!canReadDocumentAccess(access, input.userId)) {
-    throw new DocumentV2MutationError("Forbidden", 403);
-  }
-  if (!canWriteDocumentAccess(access, input.userId)) {
-    throw new DocumentV2MutationError("Forbidden", 403);
+async function ensureWritableDocumentV2(input: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly executor: DatabaseExecutor;
+  readonly userId: string;
+}): Promise<void> {
+  for (const containerId of new Set(
+    input.currentTargets.targets.map((target) => target.containerId),
+  )) {
+    try {
+      await resolveContainerV2WriterProjection({
+        containerId,
+        executor: input.executor,
+        userId: input.userId,
+      });
+      return;
+    } catch (error) {
+      if (
+        error instanceof ContainerV2WriterProjectionError &&
+        error.status === 403
+      ) {
+        continue;
+      }
+
+      throw error;
+    }
   }
 
-  return access;
+  throw new DocumentV2MutationError("Forbidden", 403);
 }
 
 async function verifyOutgoingWriteHeader(input: {
@@ -1112,64 +975,85 @@ function getMissingUpdateEpochs(
   return missingUpdateEpochs;
 }
 
+async function syncDocumentV2Transaction(input: {
+  readonly documentId: string;
+  readonly fingerprint: string;
+  readonly request: DocumentV2SyncRequest;
+  readonly signingPublicKey: Uint8Array;
+  readonly tx: DatabaseExecutor;
+  readonly userId: string;
+}) {
+  await ensureDocumentExists({
+    documentId: input.documentId,
+    executor: input.tx,
+  });
+  assertSyncContentKeyBundleMatchesRequest(input.request);
+  const currentTargets = await resolveCurrentDocumentKekTargets(
+    input.documentId,
+    input.tx,
+  );
+  await ensureWritableDocumentV2({
+    currentTargets,
+    executor: input.tx,
+    userId: input.userId,
+  });
+  const writeAuthorization = await verifySyncWriteAuthorizationProof({
+    currentTargets,
+    documentId: input.documentId,
+    executor: input.tx,
+    request: input.request,
+  });
+  const contentKeyBundle = input.request.contentKeyBundle
+    ? await storeDocumentContentKeyBundle(
+        toStoredContentKeyBundleInput(
+          input.documentId,
+          input.request.contentKeyBundle,
+        ),
+        input.tx,
+      )
+    : await requireCurrentDocumentContentKeyBundle({
+        documentId: input.documentId,
+        contentKeyEpoch: input.request.contentKeyEpoch,
+        expectedLinkSetManifestHash: input.request.expectedLinkSetManifestHash,
+        expectedTargetHash: input.request.expectedTargetHash,
+        executor: input.tx,
+      });
+  const acceptedOutgoingUpdateIds = await appendDocumentV2Updates({
+    accessEpoch: currentTargets.linkSetEpoch,
+    documentId: input.documentId,
+    executor: input.tx,
+    fingerprint: input.fingerprint,
+    organizationId: currentTargets.organizationId,
+    request: input.request,
+    signingPublicKey: input.signingPublicKey,
+    userId: input.userId,
+    writeAuthorization,
+  });
+
+  return {
+    accessEpoch: currentTargets.linkSetEpoch,
+    acceptedOutgoingUpdateIds,
+    contentKeyBundle,
+    currentTargets,
+  };
+}
+
 export async function syncDocumentV2(
   runtime: ApiServiceRuntime,
   input: SyncDocumentV2Input,
 ): Promise<DocumentV2SyncResponse> {
   try {
     const signingPublicKey = await loadSignerPublicKey(runtime.db, input);
-    const transactionResult = await runtime.db.transaction(async (tx) => {
-      const access = await ensureWritableDocument({
+    const transactionResult = await runtime.db.transaction((tx) =>
+      syncDocumentV2Transaction({
         documentId: input.documentId,
-        executor: tx,
-        userId: input.userId,
-      });
-      assertSyncContentKeyBundleMatchesRequest(input.request);
-      const currentTargets = await resolveCurrentDocumentKekTargets(
-        input.documentId,
-        tx,
-      );
-      const writeAuthorization = await verifySyncWriteAuthorizationProof({
-        currentTargets,
-        documentId: input.documentId,
-        executor: tx,
-        request: input.request,
-      });
-      const contentKeyBundle = input.request.contentKeyBundle
-        ? await storeDocumentContentKeyBundle(
-            toStoredContentKeyBundleInput(
-              input.documentId,
-              input.request.contentKeyBundle,
-            ),
-            tx,
-          )
-        : await requireCurrentDocumentContentKeyBundle({
-            documentId: input.documentId,
-            contentKeyEpoch: input.request.contentKeyEpoch,
-            expectedLinkSetManifestHash:
-              input.request.expectedLinkSetManifestHash,
-            expectedTargetHash: input.request.expectedTargetHash,
-            executor: tx,
-          });
-      const acceptedOutgoingUpdateIds = await appendDocumentV2Updates({
-        accessEpoch: access.currentAccessEpoch,
-        documentId: input.documentId,
-        executor: tx,
         fingerprint: input.fingerprint,
-        organizationId: currentTargets.organizationId,
         request: input.request,
         signingPublicKey,
+        tx,
         userId: input.userId,
-        writeAuthorization,
-      });
-
-      return {
-        accessEpoch: access.currentAccessEpoch,
-        acceptedOutgoingUpdateIds,
-        contentKeyBundle,
-        currentTargets,
-      };
-    });
+      }),
+    );
     const missingUpdateRecords = await listMissingUpdates({
       documentId: input.documentId,
       localVersionVector: input.request.localVersionVector,

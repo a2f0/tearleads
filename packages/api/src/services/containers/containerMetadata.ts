@@ -123,6 +123,7 @@ export async function createContainerMetadataDocument(
     authorFingerprint: string;
     containerId: string;
     createdByFingerprint: string;
+    metadataDocumentId?: string;
     initialMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[];
     initialMetadataUpdates: ReadonlyArray<SyncDocumentOutgoingUpdate>;
   },
@@ -136,6 +137,7 @@ export async function createContainerMetadataDocument(
   const [metadataDocument] = await tx
     .insert(documents)
     .values({
+      ...(input.metadataDocumentId ? { id: input.metadataDocumentId } : {}),
       createdByFingerprint: input.createdByFingerprint,
     })
     .returning({ id: documents.id });

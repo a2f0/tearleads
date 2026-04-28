@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import {
   type AccessEventV2,
+  type ContainerKeyEpochV2,
   computeAccessEventHash,
+  computeContainerKeyEpochHash,
   computeWriteHeaderHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -11,10 +13,12 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
+  ContainerV2MutationRequest,
   DocumentV2CreateRequest,
   DocumentV2SyncRequest,
 } from "@tearleads/validators/request";
 import type {
+  ContainerV2MutationResponse,
   ContainerV2WriterProjectionResponse,
   DocumentV2CreateResponse,
   DocumentV2SyncResponse,
@@ -63,6 +67,7 @@ async function createExplorerMetadataV2ContainerProjection(input: {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
   organizationId: string;
+  parentProjection?: ContainerV2WriterProjectionResponse;
   userId: string;
 }): Promise<ContainerV2WriterProjectionResponse> {
   const manifestHash = await explorerMetadataV2FixtureHash(
@@ -77,6 +82,16 @@ async function createExplorerMetadataV2ContainerProjection(input: {
   const keyTargetHash = await explorerMetadataV2FixtureHash(
     `${input.containerId}:key-target`,
   );
+  const parentManifest = input.parentProjection?.path.at(-1) ?? null;
+  const parentKek = input.parentProjection?.containerKeks.at(-1) ?? null;
+  const parentManifestContainerId = parentManifest
+    ? Reflect.get(parentManifest.state, "containerId")
+    : undefined;
+  const parentContainerId =
+    typeof parentManifestContainerId === "string"
+      ? parentManifestContainerId
+      : null;
+  const parentManifestHash = parentManifest?.manifestHash ?? null;
   const containerKeyEpochId = `${input.containerId}-key-epoch-1`;
   const containerKek = crypto.getRandomValues(new Uint8Array(32));
   const [recipient] = await wrapDekForRecipients(containerKek, [
@@ -86,53 +101,84 @@ async function createExplorerMetadataV2ContainerProjection(input: {
     throw new Error("Expected V2 explorer metadata fixture recipient wrap.");
   }
 
+  const bundle = {
+    event: { event: {}, body: {}, eventHash },
+    manifest: {
+      version: 2,
+      objectKind: "container",
+      objectId: input.containerId,
+      organizationId: input.organizationId,
+      epoch: 1,
+      previousManifestHash: null,
+      eventHash,
+      structuralHash: await explorerMetadataV2FixtureHash(
+        `${input.containerId}:structural`,
+      ),
+      grantRoot: await explorerMetadataV2FixtureHash(
+        `${input.containerId}:grant-root`,
+      ),
+      referencedPrincipalHeads: [],
+      keyTargetHash,
+    },
+    manifestHash,
+    state: {
+      version: 2,
+      containerId: input.containerId,
+      organizationId: input.organizationId,
+      epoch: 1,
+      previousManifestHash: null,
+      eventHash,
+      parentContainerId,
+      parentManifestHash,
+      metadataDocumentId: `${input.containerId}-metadata-document`,
+      containerKeyEpochId,
+      directGrants: [
+        {
+          subjectType: "user",
+          subjectId: input.userId,
+          accessLevel: "admin",
+        },
+      ],
+      referencedPrincipalHeads: [],
+    },
+  };
+  const kek = {
+    containerId: input.containerId,
+    accessManifestHash: manifestHash,
+    containerKeyEpochId,
+    containerKeyEpoch: 1,
+    keyEpoch: {
+      id: containerKeyEpochId,
+      containerId: input.containerId,
+      keyEpoch: 1,
+      accessManifestHash: manifestHash,
+      parentContainerKeyEpochId: parentKek?.containerKeyEpochId ?? null,
+      createdByEventHash: eventHash,
+      createdByManifestHash: manifestHash,
+    },
+    keyEpochHash,
+    keyTargetHash,
+    parentContainerKeyEpochId: parentKek?.containerKeyEpochId ?? null,
+    recipientTargets: [{}],
+    wraps: [
+      {
+        containerKeyEpochId,
+        recipientKind: "user",
+        recipientId: input.userId,
+        recipientKeyEpochId: `user:${input.userId}:epoch-1`,
+        recipientKeyFingerprint: recipient.keyFingerprint,
+        kemCipherText: bytesToBase64(recipient.kemCipherText),
+        wrappedKey: bytesToBase64(recipient.wrappedKey),
+        wrapManifestHash: manifestHash,
+      },
+    ],
+  };
+
   return {
     containerId: input.containerId,
     organizationId: input.organizationId,
-    path: [
-      {
-        event: { event: {}, body: {}, eventHash },
-        manifest: {},
-        manifestHash,
-        state: {
-          containerId: input.containerId,
-          organizationId: input.organizationId,
-        },
-      },
-    ],
-    containerKeks: [
-      {
-        containerId: input.containerId,
-        accessManifestHash: manifestHash,
-        containerKeyEpochId,
-        containerKeyEpoch: 1,
-        keyEpoch: {
-          id: containerKeyEpochId,
-          containerId: input.containerId,
-          keyEpoch: 1,
-          accessManifestHash: manifestHash,
-          parentContainerKeyEpochId: null,
-          createdByEventHash: eventHash,
-          createdByManifestHash: manifestHash,
-        },
-        keyEpochHash,
-        keyTargetHash,
-        parentContainerKeyEpochId: null,
-        recipientTargets: [{}],
-        wraps: [
-          {
-            containerKeyEpochId,
-            recipientKind: "user",
-            recipientId: input.userId,
-            recipientKeyEpochId: `user:${input.userId}:epoch-1`,
-            recipientKeyFingerprint: recipient.keyFingerprint,
-            kemCipherText: bytesToBase64(recipient.kemCipherText),
-            wrappedKey: bytesToBase64(recipient.wrappedKey),
-            wrapManifestHash: manifestHash,
-          },
-        ],
-      },
-    ],
+    path: [...(input.parentProjection?.path ?? []), bundle],
+    containerKeks: [...(input.parentProjection?.containerKeks ?? []), kek],
   };
 }
 
@@ -225,6 +271,261 @@ async function createExplorerMetadataV2SyncResponse(input: {
     documentKekTargets: input.storedDocument.documentKekTargets,
     missingUpdateEpochs: updates.length === 0 ? [] : ["current_epoch"],
     updates,
+  };
+}
+
+function readRequestString(
+  record: Record<string, unknown>,
+  key: string,
+): string {
+  const value = Reflect.get(record, key);
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Expected ${key} to be a non-empty string.`);
+  }
+
+  return value;
+}
+
+async function createExplorerContainerV2MutationResponse(
+  request: ContainerV2MutationRequest,
+): Promise<ContainerV2MutationResponse> {
+  const body = request.body as Record<string, unknown>;
+  const manifest = request.manifest as Record<string, unknown>;
+  const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpochV2;
+  const eventHash = await computeAccessEventHash(
+    request.event as unknown as AccessEventV2,
+  );
+  const previousState = request.previousManifest?.state ?? null;
+  const containerId = readRequestString(manifest, "objectId");
+  const organizationId = readRequestString(manifest, "organizationId");
+  const parentIdValue = Reflect.get(body, "parentContainerId");
+  const parentId =
+    typeof parentIdValue === "string"
+      ? parentIdValue
+      : previousState &&
+          typeof Reflect.get(previousState, "parentContainerId") === "string"
+        ? (Reflect.get(previousState, "parentContainerId") as string)
+        : null;
+  const metadataDocumentIdValue = Reflect.get(body, "metadataDocumentId");
+  const metadataDocumentId =
+    typeof metadataDocumentIdValue === "string"
+      ? metadataDocumentIdValue
+      : previousState &&
+          typeof Reflect.get(previousState, "metadataDocumentId") === "string"
+        ? (Reflect.get(previousState, "metadataDocumentId") as string)
+        : `${containerId}-metadata-document`;
+  const containerKeyEpochId = readRequestString(body, "containerKeyEpochId");
+  const previousDirectGrants = previousState
+    ? Reflect.get(previousState, "directGrants")
+    : undefined;
+  const directGrants = Array.isArray(previousDirectGrants)
+    ? [...previousDirectGrants]
+    : [];
+  const eventType = Reflect.get(body, "eventType");
+  if (eventType === "container.grant") {
+    directGrants.push(Reflect.get(body, "grant"));
+  }
+
+  return {
+    containerId,
+    organizationId,
+    parentId,
+    manifestHead: {
+      epoch: Number(Reflect.get(manifest, "epoch")),
+      manifestHash: request.expectedManifestHash,
+    },
+    accessManifest: {
+      event: { event: request.event, body, eventHash },
+      manifest,
+      manifestHash: request.expectedManifestHash,
+      state: {
+        version: 2,
+        containerId,
+        organizationId,
+        epoch: Number(Reflect.get(manifest, "epoch")),
+        previousManifestHash: Reflect.get(manifest, "previousManifestHash"),
+        eventHash,
+        parentContainerId: parentId,
+        parentManifestHash:
+          Reflect.get(body, "parentManifestHash") ??
+          (previousState
+            ? Reflect.get(previousState, "parentManifestHash")
+            : null),
+        metadataDocumentId,
+        containerKeyEpochId,
+        directGrants,
+        referencedPrincipalHeads: [],
+      },
+    },
+    containerKek: {
+      containerId,
+      accessManifestHash: request.expectedManifestHash,
+      containerKeyEpochId,
+      containerKeyEpoch: keyEpoch.keyEpoch,
+      keyEpoch: request.keyEpoch,
+      keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
+      keyTargetHash: "test-container-key-target-hash",
+      parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+      recipientTargets: [],
+      wraps: request.wraps,
+    },
+    referencedPrincipalHeads: [],
+  };
+}
+
+function createExplorerContainerV2ApiHarness(
+  initialProjections: readonly ContainerV2WriterProjectionResponse[],
+) {
+  const projections = new Map(
+    initialProjections.map((projection) => [
+      projection.containerId,
+      projection,
+    ]),
+  );
+  const containerCreateCalls: Array<{
+    containerId: string;
+    metadataDocumentId: string;
+    parentId: string;
+    wrapRecipientKinds: string[];
+  }> = [];
+  const documentCreateCalls: Array<{
+    containerId: string;
+    documentId: string;
+  }> = [];
+  const containerShareCalls: Array<{
+    accessLevel: unknown;
+    containerId: string;
+    subjectId: unknown;
+    wrapRecipientKinds: string[];
+  }> = [];
+  const containerMoveCalls: Array<{
+    containerId: string;
+    parentId: string | null;
+    wrapRecipientKinds: string[];
+  }> = [];
+
+  return {
+    apiClient: {
+      createContainerV2: async (request: ContainerV2MutationRequest) => {
+        const response =
+          await createExplorerContainerV2MutationResponse(request);
+        const parentProjection = projections.get(response.parentId ?? "");
+        if (!parentProjection) {
+          return null;
+        }
+
+        projections.set(response.containerId, {
+          containerId: response.containerId,
+          organizationId: response.organizationId,
+          path: [...parentProjection.path, response.accessManifest],
+          containerKeks: [
+            ...parentProjection.containerKeks,
+            response.containerKek,
+          ],
+        });
+        containerCreateCalls.push({
+          containerId: response.containerId,
+          metadataDocumentId: readRequestString(
+            request.body as Record<string, unknown>,
+            "metadataDocumentId",
+          ),
+          parentId: response.parentId ?? "",
+          wrapRecipientKinds: request.wraps
+            .map((wrap) => Reflect.get(wrap, "recipientKind"))
+            .filter((kind): kind is string => typeof kind === "string")
+            .sort(),
+        });
+        return response;
+      },
+      createDocumentV2: async (request: DocumentV2CreateRequest) => {
+        const response = await createExplorerMetadataV2CreateResponse(request);
+        documentCreateCalls.push({
+          containerId: readRequestString(
+            request.body as Record<string, unknown>,
+            "containerId",
+          ),
+          documentId: response.id,
+        });
+        return response;
+      },
+      getContainerV2WriterProjection: async (containerId: string) =>
+        projections.get(containerId) ?? null,
+      shareContainerV2: async (
+        containerId: string,
+        request: ContainerV2MutationRequest,
+      ) => {
+        const response =
+          await createExplorerContainerV2MutationResponse(request);
+        const previousProjection = projections.get(containerId);
+        if (!previousProjection) {
+          return null;
+        }
+
+        projections.set(containerId, {
+          containerId,
+          organizationId: response.organizationId,
+          path: [
+            ...previousProjection.path.slice(0, -1),
+            response.accessManifest,
+          ],
+          containerKeks: [
+            ...previousProjection.containerKeks.slice(0, -1),
+            response.containerKek,
+          ],
+        });
+        const body = request.body as Record<string, unknown>;
+        const grant = Reflect.get(body, "grant") as
+          | Record<string, unknown>
+          | undefined;
+        containerShareCalls.push({
+          accessLevel: grant ? Reflect.get(grant, "accessLevel") : undefined,
+          containerId,
+          subjectId: grant ? Reflect.get(grant, "subjectId") : undefined,
+          wrapRecipientKinds: request.wraps
+            .map((wrap) => Reflect.get(wrap, "recipientKind"))
+            .filter((kind): kind is string => typeof kind === "string")
+            .sort(),
+        });
+        return response;
+      },
+      moveContainerV2: async (
+        containerId: string,
+        request: ContainerV2MutationRequest,
+      ) => {
+        const response =
+          await createExplorerContainerV2MutationResponse(request);
+        const destinationProjection = response.parentId
+          ? projections.get(response.parentId)
+          : null;
+        if (!destinationProjection) {
+          return null;
+        }
+
+        projections.set(containerId, {
+          containerId,
+          organizationId: response.organizationId,
+          path: [...destinationProjection.path, response.accessManifest],
+          containerKeks: [
+            ...destinationProjection.containerKeks,
+            response.containerKek,
+          ],
+        });
+        containerMoveCalls.push({
+          containerId,
+          parentId: response.parentId,
+          wrapRecipientKinds: request.wraps
+            .map((wrap) => Reflect.get(wrap, "recipientKind"))
+            .filter((kind): kind is string => typeof kind === "string")
+            .sort(),
+        });
+        return response;
+      },
+    },
+    containerCreateCalls,
+    documentCreateCalls,
+    containerMoveCalls,
+    containerShareCalls,
+    projections,
   };
 }
 
@@ -546,41 +847,28 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
 test("explorer store creates authenticated child containers through the API before persisting locally", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
-  const createContainerCalls: Array<{
-    expectedAccessStateHash: string;
-    id: string;
-    initialMetadataUpdateCount: number;
-    parentId: string;
-  }> = [];
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const v2Harness = createExplorerContainerV2ApiHarness([
+    await createExplorerMetadataV2ContainerProjection({
+      containerId: "root-container",
+      encapsulationPublicKey: localKeyPair.publicKey,
+      organizationId: "org-1",
+      userId: "user-1",
+    }),
+  ]);
 
   runtime.isAuthenticated = true;
   runtime.encapsulationKeyPair = localKeyPair;
+  runtime.organizationId = "org-1";
+  runtime.signingFingerprint = signingFingerprint;
+  runtime.signingKeyPair = signingKeyPair;
+  runtime.userId = "user-1";
   runtime.apiClient = {
     ...runtime.apiClient,
-    createContainer: async (
-      id: string,
-      parentId: string,
-      expectedAccessStateHash: string,
-      initialMetadataUpdates,
-    ) => {
-      createContainerCalls.push({
-        expectedAccessStateHash,
-        id,
-        initialMetadataUpdateCount: initialMetadataUpdates.length,
-        parentId,
-      });
-      return {
-        id,
-        metadataAccessEpoch: 1,
-        metadataAccessStateHash: "metadata-access-state-hash-1",
-        metadataDocumentId: "metadata-document-1",
-        metadataRecipientEncapsulationPublicKeys: [
-          bytesToBase64(localKeyPair.publicKey),
-        ],
-        organizationId: "org-1",
-        parentId,
-      };
-    },
+    ...v2Harness.apiClient,
     listContainers: async () => [],
     shareContainer: async () => null,
   };
@@ -631,12 +919,18 @@ test("explorer store creates authenticated child containers through the API befo
       throw new Error("Expected createChild to return a new container node.");
     }
 
-    expect(createContainerCalls).toEqual([
+    expect(v2Harness.containerCreateCalls).toEqual([
       {
-        expectedAccessStateHash: "root-access-state-hash-1",
-        id: childNode.id,
-        initialMetadataUpdateCount: 1,
+        containerId: childNode.id,
+        metadataDocumentId: childNode.id,
         parentId: "root-container",
+        wrapRecipientKinds: ["container"],
+      },
+    ]);
+    expect(v2Harness.documentCreateCalls).toEqual([
+      {
+        containerId: childNode.id,
+        documentId: childNode.id,
       },
     ]);
 
@@ -646,10 +940,22 @@ test("explorer store creates authenticated child containers through the API befo
     );
 
     expect(persistedChild).not.toBeUndefined();
-    expect(persistedChild?.metadataDocumentId).toBe("metadata-document-1");
+    expect(persistedChild?.metadataDocumentId).toBe(childNode.id);
     expect(persistedChild?.name).toBe("Docs");
     expect(childNode.organizationId).toBe("org-1");
     expect(childNode.parentId).toBe("root-container");
+    const pendingRows = await runtime.execSql(
+      `
+        SELECT COUNT(*) AS count
+        FROM document_pending_updates
+        WHERE app_kind = 'container-metadata'
+          AND local_id = :containerId
+      `,
+      {
+        ":containerId": childNode.id,
+      },
+    );
+    expect(Number(readSqlRowValue(pendingRows[0] ?? {}, "count"))).toBe(1);
   } finally {
     runtime.close();
   }
@@ -798,13 +1104,18 @@ test("explorer sync creates queued local containers parent before child", async 
       throw new Error("Expected local container create chain.");
     }
 
-    const createContainerCalls: Array<{
-      expectedAccessStateHash: string;
-      id: string;
-      initialMetadataRecipientEnvelopeCount: number;
-      initialMetadataUpdateCount: number;
-      parentId: string;
-    }> = [];
+    const signingKeyPair = generateSigningSeedAndKeyPair();
+    const signingFingerprint = await toFingerprint(
+      signingKeyPair.signingPublicKey,
+    );
+    const v2Harness = createExplorerContainerV2ApiHarness([
+      await createExplorerMetadataV2ContainerProjection({
+        containerId: "root-container",
+        encapsulationPublicKey: localKeyPair.publicKey,
+        organizationId: "org-1",
+        userId: "user-1",
+      }),
+    ]);
     const remoteContainers = new Map<string, ListedContainer>([
       [
         "root-container",
@@ -826,37 +1137,13 @@ test("explorer sync creates queued local containers parent before child", async 
       encapsulationKeyPair: localKeyPair,
       isAuthenticated: true,
       online: true,
+      organizationId: "org-1",
+      signingFingerprint,
+      signingKeyPair,
+      userId: "user-1",
       apiClient: {
         ...runtime.apiClient,
-        createContainer: async (
-          id,
-          parentId,
-          expectedAccessStateHash,
-          initialMetadataUpdates,
-          initialMetadataRecipientEnvelopes,
-        ) => {
-          createContainerCalls.push({
-            expectedAccessStateHash,
-            id,
-            initialMetadataRecipientEnvelopeCount:
-              initialMetadataRecipientEnvelopes?.length ?? 0,
-            initialMetadataUpdateCount: initialMetadataUpdates.length,
-            parentId,
-          });
-          const created = {
-            id,
-            metadataAccessEpoch: 1,
-            metadataAccessStateHash: `access-state-hash-${id}`,
-            metadataDocumentId: `metadata-document-${id}`,
-            metadataRecipientEncapsulationPublicKeys: [
-              bytesToBase64(localKeyPair.publicKey),
-            ],
-            organizationId: "org-1",
-            parentId,
-          };
-          remoteContainers.set(id, created);
-          return created;
-        },
+        ...v2Harness.apiClient,
         listContainers: async () => Array.from(remoteContainers.values()),
       },
     };
@@ -864,33 +1151,46 @@ test("explorer sync creates queued local containers parent before child", async 
     createdStore.updateRuntime(authenticatedRuntime);
 
     await waitForCondition(
-      () => createContainerCalls.length === 3,
+      () =>
+        v2Harness.containerCreateCalls.length === 3 &&
+        v2Harness.documentCreateCalls.length === 3,
       `Queued local containers were not synced.\ncreateContainerCalls=${JSON.stringify(
-        createContainerCalls,
+        v2Harness.containerCreateCalls,
       )}`,
     );
 
-    expect(createContainerCalls).toEqual([
+    expect(v2Harness.containerCreateCalls).toEqual([
       {
-        expectedAccessStateHash: "current-root-access-state-hash",
-        id: parentNode.id,
-        initialMetadataRecipientEnvelopeCount: 1,
-        initialMetadataUpdateCount: 1,
+        containerId: parentNode.id,
+        metadataDocumentId: parentNode.id,
         parentId: "root-container",
+        wrapRecipientKinds: ["container"],
       },
       {
-        expectedAccessStateHash: `access-state-hash-${parentNode.id}`,
-        id: childNode.id,
-        initialMetadataRecipientEnvelopeCount: 1,
-        initialMetadataUpdateCount: 1,
+        containerId: childNode.id,
+        metadataDocumentId: childNode.id,
         parentId: parentNode.id,
+        wrapRecipientKinds: ["container"],
       },
       {
-        expectedAccessStateHash: `access-state-hash-${childNode.id}`,
-        id: grandchildNode.id,
-        initialMetadataRecipientEnvelopeCount: 1,
-        initialMetadataUpdateCount: 1,
+        containerId: grandchildNode.id,
+        metadataDocumentId: grandchildNode.id,
         parentId: childNode.id,
+        wrapRecipientKinds: ["container"],
+      },
+    ]);
+    expect(v2Harness.documentCreateCalls).toEqual([
+      {
+        containerId: parentNode.id,
+        documentId: parentNode.id,
+      },
+      {
+        containerId: childNode.id,
+        documentId: childNode.id,
+      },
+      {
+        containerId: grandchildNode.id,
+        documentId: grandchildNode.id,
       },
     ]);
     expect(
@@ -901,16 +1201,16 @@ test("explorer sync creates queued local containers parent before child", async 
     expect(
       persistedContainers.find((container) => container.id === parentNode.id)
         ?.metadataDocumentId,
-    ).toBe(`metadata-document-${parentNode.id}`);
+    ).toBe(parentNode.id);
     expect(
       persistedContainers.find((container) => container.id === childNode.id)
         ?.metadataDocumentId,
-    ).toBe(`metadata-document-${childNode.id}`);
+    ).toBe(childNode.id);
     expect(
       persistedContainers.find(
         (container) => container.id === grandchildNode.id,
       )?.metadataDocumentId,
-    ).toBe(`metadata-document-${grandchildNode.id}`);
+    ).toBe(grandchildNode.id);
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";
@@ -920,7 +1220,7 @@ test("explorer sync creates queued local containers parent before child", async 
   }
 });
 
-test("explorer store creates a child under a writable shared root using the inherited recipient set", async () => {
+test("explorer store creates a V2 child under a writable shared root through the parent KEK", async () => {
   const runtime = await createSqlRuntime();
   const cachedPrincipalReferences: Array<
     ReadonlyArray<{
@@ -933,64 +1233,32 @@ test("explorer store creates a child under a writable shared root using the inhe
   > = [];
   const ownerKeyPair = generateKemSeedAndKeyPair();
   const localKeyPair = generateKemSeedAndKeyPair();
-  const expectedRecipientFingerprints = [
-    await toFingerprint(ownerKeyPair.publicKey),
-    await toFingerprint(localKeyPair.publicKey),
-  ].sort();
-  const createContainerCalls: Array<{
-    expectedAccessStateHash: string;
-    id: string;
-    initialMetadataRecipientFingerprints: string[];
-    parentId: string;
-  }> = [];
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const v2Harness = createExplorerContainerV2ApiHarness([
+    await createExplorerMetadataV2ContainerProjection({
+      containerId: "shared-root-container",
+      encapsulationPublicKey: localKeyPair.publicKey,
+      organizationId: "org-2",
+      userId: "user-1",
+    }),
+  ]);
 
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
+  runtime.organizationId = "org-2";
+  runtime.signingFingerprint = signingFingerprint;
+  runtime.signingKeyPair = signingKeyPair;
+  runtime.userId = "user-1";
   runtime.cacheReferencedPrincipalPolicies = async (references) => {
     cachedPrincipalReferences.push(references ?? []);
   };
   runtime.apiClient = {
     ...runtime.apiClient,
-    createContainer: async (
-      id: string,
-      parentId: string,
-      expectedAccessStateHash: string,
-      _initialMetadataUpdates,
-      initialMetadataRecipientEnvelopes,
-    ) => {
-      createContainerCalls.push({
-        expectedAccessStateHash,
-        id,
-        initialMetadataRecipientFingerprints: [
-          ...(initialMetadataRecipientEnvelopes ?? []),
-        ]
-          .map((recipient) => recipient.keyFingerprint)
-          .sort(),
-        parentId,
-      });
-      return {
-        id,
-        metadataAccessEpoch: 1,
-        metadataAccessStateHash: "metadata-access-state-hash-2",
-        metadataDocumentId: "metadata-document-2",
-        metadataRecipientEncapsulationPublicKeys: [
-          bytesToBase64(ownerKeyPair.publicKey),
-          bytesToBase64(localKeyPair.publicKey),
-        ],
-        metadataReferencedPrincipals: [
-          {
-            keyEpoch: 1,
-            principalId: "group-1",
-            principalType: "group",
-            stateHash: "state-hash-1",
-            version: 1,
-          },
-        ],
-        organizationId: "org-2",
-        parentId,
-      };
-    },
+    ...v2Harness.apiClient,
     listContainers: async () => [
       {
         id: "shared-root-container",
@@ -1034,12 +1302,18 @@ test("explorer store creates a child under a writable shared root using the inhe
       throw new Error("Expected createChild to return a new container node.");
     }
 
-    expect(createContainerCalls).toEqual([
+    expect(v2Harness.containerCreateCalls).toEqual([
       {
-        expectedAccessStateHash: "shared-root-access-state-hash-1",
-        id: childNode.id,
-        initialMetadataRecipientFingerprints: expectedRecipientFingerprints,
+        containerId: childNode.id,
+        metadataDocumentId: childNode.id,
         parentId: "shared-root-container",
+        wrapRecipientKinds: ["container"],
+      },
+    ]);
+    expect(v2Harness.documentCreateCalls).toEqual([
+      {
+        containerId: childNode.id,
+        documentId: childNode.id,
       },
     ]);
     expect(cachedPrincipalReferences).toContainEqual([
@@ -1060,11 +1334,43 @@ test("explorer store moves an authenticated child container through the API and 
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const recipientPublicKeys = [bytesToBase64(localKeyPair.publicKey)];
-  const moveContainerCalls: Array<{
-    containerId: string;
-    expectedAccessStateHash: string;
-    parentId: string;
-  }> = [];
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const rootProjection = await createExplorerMetadataV2ContainerProjection({
+    containerId: "root-container",
+    encapsulationPublicKey: localKeyPair.publicKey,
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+  const parentAProjection = await createExplorerMetadataV2ContainerProjection({
+    containerId: "parent-a",
+    encapsulationPublicKey: localKeyPair.publicKey,
+    organizationId: "org-1",
+    parentProjection: rootProjection,
+    userId: "user-1",
+  });
+  const parentBProjection = await createExplorerMetadataV2ContainerProjection({
+    containerId: "parent-b",
+    encapsulationPublicKey: localKeyPair.publicKey,
+    organizationId: "org-1",
+    parentProjection: rootProjection,
+    userId: "user-1",
+  });
+  const childProjection = await createExplorerMetadataV2ContainerProjection({
+    containerId: "child-container",
+    encapsulationPublicKey: localKeyPair.publicKey,
+    organizationId: "org-1",
+    parentProjection: parentAProjection,
+    userId: "user-1",
+  });
+  const v2Harness = createExplorerContainerV2ApiHarness([
+    rootProjection,
+    parentAProjection,
+    parentBProjection,
+    childProjection,
+  ]);
   let remoteContainers = [
     {
       id: "root-container",
@@ -1107,31 +1413,39 @@ test("explorer store moves an authenticated child container through the API and 
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
+  runtime.organizationId = "org-1";
+  runtime.signingFingerprint = signingFingerprint;
+  runtime.signingKeyPair = signingKeyPair;
+  runtime.userId = "user-1";
   runtime.apiClient = {
     ...runtime.apiClient,
+    ...v2Harness.apiClient,
     listContainers: async () => remoteContainers,
-    moveContainer: async (containerId, parentId, expectedAccessStateHash) => {
-      moveContainerCalls.push({
+    moveContainerV2: async (containerId, request) => {
+      const response = await v2Harness.apiClient.moveContainerV2(
         containerId,
-        expectedAccessStateHash,
-        parentId,
-      });
-      remoteContainers = remoteContainers.map((container) =>
-        container.id === containerId
-          ? {
-              ...container,
-              metadataAccessEpoch: container.metadataAccessEpoch + 1,
-              metadataAccessStateHash: "child-access-state-hash-2",
-              parentId,
-            }
-          : container,
+        request,
       );
-      return (
-        remoteContainers.find((container) => container.id === containerId) ??
-        null
-      );
+      if (response) {
+        remoteContainers = remoteContainers.map((container) =>
+          container.id === containerId
+            ? {
+                ...container,
+                metadataAccessEpoch: response.manifestHead.epoch,
+                metadataAccessStateHash: response.manifestHead.manifestHash,
+                metadataDocumentId: String(
+                  Reflect.get(
+                    response.accessManifest.state,
+                    "metadataDocumentId",
+                  ),
+                ),
+                parentId: response.parentId,
+              }
+            : container,
+        );
+      }
+      return response;
     },
-    shareContainer: async () => null,
   };
 
   try {
@@ -1160,11 +1474,11 @@ test("explorer store moves an authenticated child container through the API and 
       "Explorer store did not update the moved container parent.",
     );
 
-    expect(moveContainerCalls).toEqual([
+    expect(v2Harness.containerMoveCalls).toEqual([
       {
         containerId: "child-container",
-        expectedAccessStateHash: "child-access-state-hash-1",
         parentId: "parent-b",
+        wrapRecipientKinds: ["container"],
       },
     ]);
     expect(movedNode.parentId).toBe("parent-b");
@@ -1188,13 +1502,15 @@ test("explorer store shares an authenticated container without reseeding legacy 
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
-  const shareContainerCalls: Array<{
-    accessLevel: "read" | "write" | "admin";
-    containerId: string;
-    expectedAccessStateHash: string;
-    subjectId: string;
-    subjectType: "user" | "group" | "organization";
-  }> = [];
+  const containerProjection = await createExplorerMetadataV2ContainerProjection(
+    {
+      containerId: "child-container",
+      encapsulationPublicKey: localKeyPair.publicKey,
+      organizationId: "org-1",
+      userId: "user-1",
+    },
+  );
+  const v2Harness = createExplorerContainerV2ApiHarness([containerProjection]);
   let writerProjectionCallCount = 0;
   let v2SyncCallCount = 0;
 
@@ -1207,37 +1523,25 @@ test("explorer store shares an authenticated container without reseeding legacy 
   runtime.userId = "user-1";
   runtime.apiClient = {
     ...runtime.apiClient,
+    ...v2Harness.apiClient,
     createContainer: async () => null,
+    getEncapsulationKey: async (requestedUserId: string) => {
+      if (requestedUserId !== "550e8400-e29b-41d4-a716-446655440000") {
+        return null;
+      }
+
+      return {
+        encapsulationPublicKey: bytesToBase64(peerKeyPair.publicKey),
+        signingKeyFingerprint: signingFingerprint,
+        signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+        userId: requestedUserId,
+      };
+    },
     getDocumentV2WriterProjection: async () => {
       writerProjectionCallCount += 1;
       return null;
     },
     listContainers: async () => [],
-    shareContainer: async (
-      containerId: string,
-      subjectType: "user" | "group" | "organization",
-      subjectId: string,
-      accessLevel: "read" | "write" | "admin",
-      expectedAccessStateHash: string,
-    ) => {
-      shareContainerCalls.push({
-        accessLevel,
-        containerId,
-        expectedAccessStateHash,
-        subjectId,
-        subjectType,
-      });
-      return {
-        id: containerId,
-        metadataAccessEpoch: 2,
-        metadataAccessStateHash: "access-state-hash-2",
-        metadataDocumentId: "metadata-document-1",
-        metadataRecipientEncapsulationPublicKeys: [
-          bytesToBase64(localKeyPair.publicKey),
-          bytesToBase64(peerKeyPair.publicKey),
-        ],
-      };
-    },
     syncDocumentV2: async () => {
       v2SyncCallCount += 1;
       return null;
@@ -1346,13 +1650,12 @@ test("explorer store shares an authenticated container without reseeding legacy 
         ),
     ).toBe(true);
 
-    expect(shareContainerCalls).toEqual([
+    expect(v2Harness.containerShareCalls).toEqual([
       {
         accessLevel: "write",
         containerId: "child-container",
-        expectedAccessStateHash: "access-state-hash-1",
         subjectId: "550e8400-e29b-41d4-a716-446655440000",
-        subjectType: "user",
+        wrapRecipientKinds: ["user", "user"],
       },
     ]);
   } finally {

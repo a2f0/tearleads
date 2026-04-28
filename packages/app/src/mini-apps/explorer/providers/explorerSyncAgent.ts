@@ -5,28 +5,30 @@ import {
   exportAllUpdates,
   importUpdates,
 } from "@tearleads/loro";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { useAppData } from "../../../data/AppDataProvider";
 import type { BlobStore } from "../../../data/blobs";
 import {
   type ContainerRecord,
   createContainerMetadataDocument,
+  createRemoteContainerV2,
+  moveRemoteContainerV2,
   readContainerMetadataValue,
+  shareRemoteContainerV2,
   sqlDocumentContainerProjectionPersistence,
   writeContainerMetadataValue,
 } from "../../../data/containers";
 import {
-  createDocumentEncryptionMaterial,
   createPendingUpdateFields,
-  encryptPendingUpdates,
   getLocalRecipientPublicKeys,
   isDocumentUpdateCreatedEvent,
   resolveRecipientPublicKeys,
-  serializeDocumentRecipientEnvelopes,
 } from "../../../data/documentSync";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
 import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
 import {
+  createRemoteDocumentV2,
   type DocumentV2CreateAuthor,
   syncRemoteDocumentV2,
 } from "../../../data/documents/documentV2Runtime";
@@ -56,12 +58,21 @@ type ListedRemoteContainer = NonNullable<
 type MovedRemoteContainer = NonNullable<
   Awaited<ReturnType<ExplorerRuntime["apiClient"]["moveContainer"]>>
 >;
-type ContainerMetadataEncryptionMaterial = Awaited<
-  ReturnType<typeof createDocumentEncryptionMaterial>
->;
 type ExplorerRuntimeV2Api = Pick<
   ExplorerAppData["apiClient"],
   "getDocumentV2WriterProjection" | "syncDocumentV2"
+>;
+type ExplorerRuntimeV2CreateApi = Pick<
+  ExplorerAppData["apiClient"],
+  "createContainerV2" | "createDocumentV2" | "getContainerV2WriterProjection"
+>;
+type ExplorerRuntimeV2ShareApi = Pick<
+  ExplorerAppData["apiClient"],
+  "getContainerV2WriterProjection" | "shareContainerV2"
+>;
+type ExplorerRuntimeV2MoveApi = Pick<
+  ExplorerAppData["apiClient"],
+  "getContainerV2WriterProjection" | "moveContainerV2"
 >;
 
 interface ContainerMetadataSyncAttempt {
@@ -83,9 +94,12 @@ export interface ExplorerRuntime {
     Partial<
       Pick<
         ExplorerAppData["apiClient"],
+        | "createContainerV2"
         | "createDocumentV2"
         | "getContainerV2WriterProjection"
         | "getDocumentV2WriterProjection"
+        | "moveContainerV2"
+        | "shareContainerV2"
         | "syncDocumentV2"
       >
     >;
@@ -679,6 +693,274 @@ function resolveExplorerV2Api(
   };
 }
 
+function resolveExplorerV2CreateApi(
+  runtime: ExplorerRuntime,
+): ExplorerRuntimeV2CreateApi | null {
+  const { apiClient } = runtime;
+  if (
+    !apiClient.createContainerV2 ||
+    !apiClient.createDocumentV2 ||
+    !apiClient.getContainerV2WriterProjection
+  ) {
+    return null;
+  }
+
+  return {
+    createContainerV2: apiClient.createContainerV2.bind(apiClient),
+    createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
+    getContainerV2WriterProjection:
+      apiClient.getContainerV2WriterProjection.bind(apiClient),
+  };
+}
+
+function resolveExplorerV2ShareApi(
+  runtime: ExplorerRuntime,
+): ExplorerRuntimeV2ShareApi | null {
+  const { apiClient } = runtime;
+  if (
+    !apiClient.getContainerV2WriterProjection ||
+    !apiClient.shareContainerV2
+  ) {
+    return null;
+  }
+
+  return {
+    getContainerV2WriterProjection:
+      apiClient.getContainerV2WriterProjection.bind(apiClient),
+    shareContainerV2: apiClient.shareContainerV2.bind(apiClient),
+  };
+}
+
+function resolveExplorerV2MoveApi(
+  runtime: ExplorerRuntime,
+): ExplorerRuntimeV2MoveApi | null {
+  const { apiClient } = runtime;
+  if (!apiClient.getContainerV2WriterProjection || !apiClient.moveContainerV2) {
+    return null;
+  }
+
+  return {
+    getContainerV2WriterProjection:
+      apiClient.getContainerV2WriterProjection.bind(apiClient),
+    moveContainerV2: apiClient.moveContainerV2.bind(apiClient),
+  };
+}
+
+export async function createRemoteExplorerContainerV2(input: {
+  containerId: string;
+  parentContainerId: string;
+  runtime: ExplorerRuntime;
+}): Promise<{
+  accessManifestHash: string;
+  containerId: string;
+  metadataDocumentId: string;
+  organizationId: string;
+  parentId: string | null;
+  persistedMetadataState: Pick<
+    DocumentRecord,
+    | "documentId"
+    | "v2ContentKeyBundle"
+    | "v2DocumentKekTargets"
+    | "v2DocumentManifestBundle"
+  >;
+} | null> {
+  const author = resolveExplorerV2Author(input.runtime);
+  const apiClient = resolveExplorerV2CreateApi(input.runtime);
+  const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  if (!author || !apiClient || !parentSecretKey) {
+    input.runtime.log(
+      "Explorer: skipped V2 container create because the V2 writer context is unavailable.",
+    );
+    return null;
+  }
+
+  const createdContainer = await createRemoteContainerV2({
+    apiClient,
+    author,
+    containerId: input.containerId,
+    execSql: input.runtime.execSql,
+    metadataDocumentId: input.containerId,
+    parentContainerId: input.parentContainerId,
+    parentSecretKey,
+  });
+  if (!createdContainer) {
+    return null;
+  }
+
+  const createdMetadataDocument = await createRemoteDocumentV2({
+    apiClient,
+    author,
+    containerId: createdContainer.containerId,
+    documentId: createdContainer.metadataDocumentId,
+    execSql: input.runtime.execSql,
+    targetSecretKey: parentSecretKey,
+  });
+  if (!createdMetadataDocument) {
+    return null;
+  }
+
+  return {
+    accessManifestHash: createdContainer.response.manifestHead.manifestHash,
+    containerId: createdContainer.containerId,
+    metadataDocumentId: createdMetadataDocument.documentId,
+    organizationId: createdContainer.response.organizationId,
+    parentId: createdContainer.response.parentId,
+    persistedMetadataState: createdMetadataDocument.persistedState,
+  };
+}
+
+function readMutationMetadataDocumentId(input: {
+  response: {
+    accessManifest: { state: Record<string, unknown> };
+  };
+}): string {
+  const metadataDocumentId = Reflect.get(
+    input.response.accessManifest.state,
+    "metadataDocumentId",
+  );
+  if (
+    typeof metadataDocumentId !== "string" ||
+    metadataDocumentId.length === 0
+  ) {
+    throw new Error("Container V2 mutation response is missing metadata state");
+  }
+
+  return metadataDocumentId;
+}
+
+function referencedPrincipalHeadsFromV2Response(input: {
+  response: { referencedPrincipalHeads: readonly Record<string, unknown>[] };
+}): ReferencedPrincipalStateResponse[] {
+  return input.response.referencedPrincipalHeads.flatMap((head) => {
+    const principalType = Reflect.get(head, "principalType");
+    const principalId = Reflect.get(head, "principalId");
+    const version = Reflect.get(head, "version");
+    const keyEpoch = Reflect.get(head, "keyEpoch");
+    const stateHash = Reflect.get(head, "stateHash");
+
+    if (
+      (principalType !== "group" && principalType !== "organization") ||
+      typeof principalId !== "string" ||
+      !Number.isInteger(version) ||
+      !Number.isInteger(keyEpoch) ||
+      typeof stateHash !== "string"
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        principalType,
+        principalId,
+        version: version as number,
+        keyEpoch: keyEpoch as number,
+        stateHash,
+      },
+    ];
+  });
+}
+
+export async function shareRemoteExplorerContainerV2(input: {
+  accessLevel: "read" | "write" | "admin";
+  containerId: string;
+  recipientUserId: string;
+  runtime: ExplorerRuntime;
+}): Promise<{
+  accessManifestHash: string;
+  accessEpoch: number;
+  metadataDocumentId: string;
+  referencedPrincipalHeads: ReturnType<
+    typeof referencedPrincipalHeadsFromV2Response
+  >;
+} | null> {
+  const author = resolveExplorerV2Author(input.runtime);
+  const apiClient = resolveExplorerV2ShareApi(input.runtime);
+  const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  if (!author || !apiClient || !targetSecretKey) {
+    input.runtime.log(
+      "Explorer: skipped V2 container share because the V2 writer context is unavailable.",
+    );
+    return null;
+  }
+
+  const recipientKey = await input.runtime.apiClient.getEncapsulationKey(
+    input.recipientUserId,
+  );
+  if (!recipientKey) {
+    return null;
+  }
+
+  const shared = await shareRemoteContainerV2({
+    accessLevel: input.accessLevel,
+    apiClient,
+    author,
+    containerId: input.containerId,
+    execSql: input.runtime.execSql,
+    recipientEncapsulationPublicKey: base64ToBytes(
+      recipientKey.encapsulationPublicKey,
+    ),
+    recipientUserId: input.recipientUserId,
+    targetSecretKey,
+  });
+  if (!shared) {
+    return null;
+  }
+
+  return {
+    accessManifestHash: shared.response.manifestHead.manifestHash,
+    accessEpoch: shared.response.manifestHead.epoch,
+    metadataDocumentId: readMutationMetadataDocumentId({
+      response: shared.response,
+    }),
+    referencedPrincipalHeads: referencedPrincipalHeadsFromV2Response({
+      response: shared.response,
+    }),
+  };
+}
+
+export async function moveRemoteExplorerContainerV2(input: {
+  containerId: string;
+  parentContainerId: string;
+  runtime: ExplorerRuntime;
+}): Promise<ExplorerRemoteContainer | null> {
+  const author = resolveExplorerV2Author(input.runtime);
+  const apiClient = resolveExplorerV2MoveApi(input.runtime);
+  const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  if (!author || !apiClient || !targetSecretKey) {
+    input.runtime.log(
+      "Explorer: skipped V2 container move because the V2 writer context is unavailable.",
+    );
+    return null;
+  }
+
+  const moved = await moveRemoteContainerV2({
+    apiClient,
+    author,
+    containerId: input.containerId,
+    destinationParentContainerId: input.parentContainerId,
+    execSql: input.runtime.execSql,
+    targetSecretKey,
+  });
+  if (!moved) {
+    return null;
+  }
+
+  return {
+    id: moved.response.containerId,
+    organizationId: moved.response.organizationId,
+    parentId: moved.response.parentId,
+    metadataDocumentId: readMutationMetadataDocumentId({
+      response: moved.response,
+    }),
+    metadataAccessEpoch: moved.response.manifestHead.epoch,
+    metadataAccessStateHash: moved.response.manifestHead.manifestHash,
+    metadataRecipientEncapsulationPublicKeys: [],
+    metadataReferencedPrincipals: referencedPrincipalHeadsFromV2Response({
+      response: moved.response,
+    }),
+  };
+}
+
 function createExplorerWriterPublicKeyResolver(state: ExplorerSyncState) {
   const cache = new Map<string, Promise<Uint8Array | null>>();
 
@@ -783,6 +1065,20 @@ async function requestContainerMetadataSync(
     pendingUpdates,
     resolveWriterPublicKey: createExplorerWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
+  }).catch((error: unknown) => {
+    if (
+      error instanceof Error &&
+      (error.message === "Document V2 content key could not be unwrapped" ||
+        error.message === "Document V2 sync target hash mismatch" ||
+        error.message === "Document V2 sync content-key targets mismatch")
+    ) {
+      state.runtime.log(
+        `Explorer: deferred metadata sync for ${containerState.container.id} because its V2 content-key targets are stale.`,
+      );
+      return null;
+    }
+
+    throw error;
   });
   if (!synced) {
     return null;
@@ -841,23 +1137,6 @@ function hasRemoteMetadataState(containerState: ContainerState): boolean {
   );
 }
 
-function createCurrentMetadataPendingRecord(
-  containerState: ContainerState,
-): PendingUpdateRecord[] {
-  const updateFields = createPendingUpdateFields(
-    exportAllUpdates(containerState.doc),
-  );
-
-  return updateFields
-    ? [
-        {
-          id: crypto.randomUUID(),
-          ...updateFields,
-        },
-      ]
-    : [];
-}
-
 async function markCreateIntentAlreadySynced(input: {
   intent: ContainerCreateIntentRecord;
   state: ExplorerSyncState;
@@ -881,35 +1160,25 @@ async function markCreateIntentAlreadySynced(input: {
 
 async function persistCreatedContainerFromIntent(input: {
   created: NonNullable<
-    Awaited<ReturnType<ExplorerRuntime["apiClient"]["createContainer"]>>
+    Awaited<ReturnType<typeof createRemoteExplorerContainerV2>>
   >;
-  documentRecipientEnvelopes: ContainerMetadataEncryptionMaterial["documentRecipientEnvelopes"];
   host: ExplorerSyncHost;
   state: ExplorerSyncState;
   containerState: ContainerState;
 }) {
-  const { containerState, created, documentRecipientEnvelopes, host, state } =
-    input;
+  const { containerState, created, host, state } = input;
 
-  containerState.recipientPublicKeys = resolveRecipientPublicKeys(
-    created.metadataRecipientEncapsulationPublicKeys,
-  );
   const nextRecord = await host.persistContainerState(
     containerState,
     {
-      accessEpoch: created.metadataAccessEpoch,
-      accessStateHash: created.metadataAccessStateHash,
-      documentId: created.metadataDocumentId,
-      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-        documentRecipientEnvelopes,
-      ),
+      accessEpoch: 1,
+      accessStateHash: created.accessManifestHash,
+      documentRecipientEnvelopes: null,
       lastCommitLsn: null,
       metadataDocumentId: created.metadataDocumentId,
       organizationId: created.organizationId,
       parentId: created.parentId,
-      v2ContentKeyBundle: null,
-      v2DocumentKekTargets: null,
-      v2DocumentManifestBundle: null,
+      ...created.persistedMetadataState,
     },
     false,
   );
@@ -922,14 +1191,10 @@ async function persistCreatedContainerFromIntent(input: {
     parentId: created.parentId,
   };
 
-  await state.persistence.deletePendingUpdates(
-    state.runtime.execSql,
-    containerState.container.id,
-  );
   await state.persistence.markCreateIntentSynced(state.runtime.execSql, {
     containerId: containerState.container.id,
-    remoteContainerId: created.id,
-    remoteMetadataAccessStateHash: created.metadataAccessStateHash,
+    remoteContainerId: created.containerId,
+    remoteMetadataAccessStateHash: created.accessManifestHash,
     remoteMetadataDocumentId: created.metadataDocumentId,
   });
 }
@@ -960,55 +1225,24 @@ async function tryCreateRemoteContainerFromIntent(input: {
   if (!hasRemoteMetadataState(parentState)) {
     return "blocked";
   }
-  const expectedAccessStateHash = parentState.record.accessStateHash;
-  if (
-    typeof expectedAccessStateHash !== "string" ||
-    expectedAccessStateHash.length === 0
-  ) {
-    return "blocked";
-  }
-
-  if (parentState.recipientPublicKeys.length === 0) {
-    await state.persistence.recordCreateIntentError(
-      state.runtime.execSql,
-      intent.containerId,
-      "Parent container recipient keys are unavailable",
-    );
-    return "failed";
-  }
-
-  const documentEncryption = await createDocumentEncryptionMaterial(
-    parentState.recipientPublicKeys,
-  );
-  const initialMetadataUpdates = await encryptPendingUpdates(
-    createCurrentMetadataPendingRecord(containerState),
-    containerState.record.accessEpoch,
-    documentEncryption.documentKey,
-  );
-  const created = await state.runtime.apiClient.createContainer(
-    containerState.container.id,
-    parentState.container.id,
-    expectedAccessStateHash,
-    initialMetadataUpdates,
-    documentEncryption.documentRecipientEnvelopes,
-  );
+  const created = await createRemoteExplorerContainerV2({
+    containerId: containerState.container.id,
+    parentContainerId: parentState.container.id,
+    runtime: state.runtime,
+  });
 
   if (!created) {
     await state.persistence.recordCreateIntentError(
       state.runtime.execSql,
       intent.containerId,
-      "Remote container create was rejected or unavailable",
+      "Remote V2 container create was rejected or unavailable",
     );
     return "failed";
   }
 
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    created.metadataReferencedPrincipals,
-  );
   await persistCreatedContainerFromIntent({
     containerState,
     created,
-    documentRecipientEnvelopes: documentEncryption.documentRecipientEnvelopes,
     host,
     state,
   });

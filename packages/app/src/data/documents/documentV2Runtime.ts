@@ -446,11 +446,6 @@ function assertProjectionKekMatchesPath(
       kek.containerId ||
     readRecordNumber(kek.keyEpoch, "keyEpoch", projectionKekLabel(index)) !==
       kek.containerKeyEpoch ||
-    readRecordString(
-      kek.keyEpoch,
-      "accessManifestHash",
-      projectionKekLabel(index),
-    ) !== kek.accessManifestHash ||
     readRecordNullableString(
       kek.keyEpoch,
       "parentContainerKeyEpochId",
@@ -572,7 +567,7 @@ export async function unwrapContainerV2KekPath(input: {
       }));
 
     if (!unwrapped) {
-      throw new Error(`${projectionKekLabel(index)} could not be unwrapped`);
+      continue;
     }
     keksByEpochId.set(kek.containerKeyEpochId, {
       containerId: kek.containerId,
@@ -584,6 +579,12 @@ export async function unwrapContainerV2KekPath(input: {
   const keyMaterialByEpochId = new Map<string, Uint8Array>();
   for (const [containerKeyEpochId, kek] of keksByEpochId) {
     keyMaterialByEpochId.set(containerKeyEpochId, kek.keyMaterial);
+  }
+  const targetKek = input.projection.containerKeks.at(-1);
+  if (targetKek && !keyMaterialByEpochId.has(targetKek.containerKeyEpochId)) {
+    throw new Error(
+      `${projectionKekLabel(input.projection.containerKeks.length - 1)} could not be unwrapped`,
+    );
   }
   return keyMaterialByEpochId;
 }
@@ -1464,7 +1465,10 @@ export async function buildMaterializedDocumentV2SyncPlan(input: {
     writerProjection: input.writerProjection,
   });
   const plan = await buildDocumentV2SyncPlan({
-    author: input.author,
+    author: {
+      ...input.author,
+      organizationId: manifestIdentity.organizationId,
+    },
     authorizingContainerPaths: authorizingContainerPathRecords(
       input.writerProjection,
     ),
