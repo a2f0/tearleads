@@ -1,13 +1,10 @@
-import { replaceBlobEnvelopeRecipients } from "@tearleads/crypto";
 import type { BlobResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   canReadBlobAccess,
-  listBlobRecipientEnvelopes,
   resolveBlobAccessState,
 } from "../../access/blobAccess";
 import { blobs } from "../../schema";
-import { sha256Hex } from "../../utils/sha256";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface GetBlobInput {
@@ -51,24 +48,9 @@ export async function getBlob(
     throw new GetBlobError("Blob not found", 404);
   }
 
-  const currentRecipientEnvelopes = await listBlobRecipientEnvelopes(
-    input.blobId,
-    access.currentAccessEpoch,
-    runtime.db,
-  );
-  const encryptedBytes = currentRecipientEnvelopes
-    ? replaceBlobEnvelopeRecipients(
-        row.encryptedBytes,
-        currentRecipientEnvelopes,
-      )
-    : row.encryptedBytes;
-
   return {
     blobId: row.blobId,
-    encryptedBytes,
-    sha256:
-      encryptedBytes === row.encryptedBytes
-        ? row.sha256
-        : await sha256Hex(encryptedBytes),
+    encryptedBytes: row.encryptedBytes,
+    sha256: row.sha256,
   };
 }
