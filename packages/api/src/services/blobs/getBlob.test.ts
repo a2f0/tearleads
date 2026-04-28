@@ -5,6 +5,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
+import { and, eq } from "drizzle-orm";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
   createRecordingDb,
@@ -13,7 +14,12 @@ import {
 import { attachBlobToDocument } from "../../access/blobAccess";
 import { initializeDocumentAccess } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
-import { blobs, documentContainerLinks, documents } from "../../schema";
+import {
+  blobs,
+  documentContainerLinks,
+  documents,
+  objectRecipientEnvelopes,
+} from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
 import { GetBlobError, getBlob } from "./getBlob";
 
@@ -64,6 +70,20 @@ async function createCommittedBlob(input: {
   return blob;
 }
 
+async function countBlobRecipientEnvelopes(blobId: string): Promise<number> {
+  return (
+    await db
+      .select({ id: objectRecipientEnvelopes.id })
+      .from(objectRecipientEnvelopes)
+      .where(
+        and(
+          eq(objectRecipientEnvelopes.objectType, "blob"),
+          eq(objectRecipientEnvelopes.objectId, blobId),
+        ),
+      )
+  ).length;
+}
+
 async function createEncryptedBlobBytes(
   plaintext: string,
   encodedRecipientPublicKeys: string[],
@@ -105,6 +125,8 @@ test("getBlob returns committed blob bytes for readable blobs", async () => {
   });
   const recording = createRecordingDb();
 
+  expect(await countBlobRecipientEnvelopes(blob.id)).toBe(0);
+
   const result = await getBlob(createServiceTestRuntime(recording.db), {
     blobId: blob.id,
     userId: registration.userId,
@@ -115,6 +137,7 @@ test("getBlob returns committed blob bytes for readable blobs", async () => {
     encryptedBytes,
     sha256: await sha256Hex(encryptedBytes),
   });
+  expect(await countBlobRecipientEnvelopes(blob.id)).toBe(0);
   expect(recording.calls.get("select") ?? 0).toBeGreaterThan(0);
 });
 

@@ -125,23 +125,3 @@ export function parseBlobEnvelope(encryptedBytes: string): EncryptedEnvelope {
     recipients: decodeRecipients(header.recipients),
   };
 }
-
-export function replaceBlobEnvelopeRecipients(
-  encryptedBytes: string,
-  recipients: SerializedBlobRecipientEntry[],
-): string {
-  if (!encryptedBytes.startsWith(ENCRYPTED_BLOB_PREFIX_V2)) {
-    throw new Error("Invalid encrypted blob envelope");
-  }
-
-  const { header, ciphertext } = parseV2WireParts(encryptedBytes);
-
-  return [
-    ENCRYPTED_BLOB_FORMAT_V2,
-    JSON.stringify({
-      iv: header.iv,
-      recipients,
-    } satisfies SerializedBlobEnvelopeHeader),
-    ciphertext,
-  ].join("\n");
-}
