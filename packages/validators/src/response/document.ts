@@ -15,7 +15,6 @@ export interface ContainerDocumentSummary {
   currentAccessStateHash: string;
   id: string;
   linkedContainerIds: string[];
-  recipientEncapsulationPublicKeys: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
 }
 
@@ -42,10 +41,6 @@ function isContainerDocumentSummary(
     hasStringProperty(value, "id") &&
     hasArrayProperty(value, "linkedContainerIds") &&
     value.linkedContainerIds.every((entry) => typeof entry === "string") &&
-    hasArrayProperty(value, "recipientEncapsulationPublicKeys") &&
-    value.recipientEncapsulationPublicKeys.every(
-      (entry) => typeof entry === "string",
-    ) &&
     (referencedPrincipals === undefined ||
       (Array.isArray(referencedPrincipals) &&
         referencedPrincipals.every(isReferencedPrincipalStateResponse)))

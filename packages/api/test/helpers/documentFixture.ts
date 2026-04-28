@@ -1,7 +1,6 @@
 import invariant from "invariant";
 import {
   initializeDocumentAccess,
-  listRecipientEncapsulationPublicKeys,
   resolveDocumentAccessState,
 } from "../../src/access/documentAccess";
 import { db } from "../../src/adapters/postgres";
@@ -39,8 +38,6 @@ export async function createDocumentFixture(input: {
       document,
       id: document.id,
       linkedContainerIds: [...input.linkedContainerIds].sort(),
-      recipientEncapsulationPublicKeys:
-        listRecipientEncapsulationPublicKeys(access),
       referencedPrincipals: access.referencedPrincipals,
     };
   });

@@ -212,7 +212,7 @@ test("GET /containers/:containerId/documents includes referenced principal polic
     .returning({ id: groups.id });
   invariant(group, "expected group");
 
-  const groupState = await storeCurrentGroupState(group.id, [recipient.userId]);
+  await storeCurrentGroupState(group.id, [recipient.userId]);
 
   const createdDocument = await createDocumentFixture({
     createdByFingerprint: owner.fingerprint,
@@ -243,9 +243,6 @@ test("GET /containers/:containerId/documents includes referenced principal polic
       expect.objectContaining({
         id: createdDocument.id,
         linkedContainerIds: [sharedContainerId],
-        recipientEncapsulationPublicKeys: expect.arrayContaining([
-          groupState.encapsulationPublicKey,
-        ]),
         referencedPrincipals: [
           expect.objectContaining({
             principalType: "group",
@@ -254,6 +251,13 @@ test("GET /containers/:containerId/documents includes referenced principal polic
             keyEpoch: 1,
           }),
         ],
+      }),
+    ]),
+  );
+  expect(listedDocuments).toEqual(
+    expect.not.arrayContaining([
+      expect.objectContaining({
+        recipientEncapsulationPublicKeys: expect.anything(),
       }),
     ]),
   );
