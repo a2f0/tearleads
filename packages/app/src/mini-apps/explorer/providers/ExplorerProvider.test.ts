@@ -1291,6 +1291,9 @@ test("explorer store shares an authenticated container without reseeding legacy 
         ),
         id: "child-container",
         loroSnapshot: bytesToBase64(initialUpdate),
+        v2ContentKeyBundle: "stale-content-key-bundle",
+        v2DocumentKekTargets: "stale-kek-targets",
+        v2DocumentManifestBundle: "stale-manifest-bundle",
       },
       new Date("2026-04-09T12:00:00.000Z").toISOString(),
     );
@@ -1316,7 +1319,11 @@ test("explorer store shares an authenticated container without reseeding legacy 
     await waitForCondition(async () => {
       const rows = await runtime.execSql(
         `
-          SELECT document_recipient_envelopes AS envelopes
+          SELECT
+            document_recipient_envelopes AS envelopes,
+            v2_content_key_bundle,
+            v2_document_kek_targets,
+            v2_document_manifest_bundle
           FROM documents
           WHERE app_kind = 'container-metadata'
             AND local_id = 'child-container'
@@ -1324,9 +1331,12 @@ test("explorer store shares an authenticated container without reseeding legacy 
       );
       return (
         writerProjectionCallCount > 0 &&
-        readSqlRowValue(rows[0] ?? {}, "envelopes") === null
+        readSqlRowValue(rows[0] ?? {}, "envelopes") === null &&
+        readSqlRowValue(rows[0] ?? {}, "v2_content_key_bundle") === null &&
+        readSqlRowValue(rows[0] ?? {}, "v2_document_kek_targets") === null &&
+        readSqlRowValue(rows[0] ?? {}, "v2_document_manifest_bundle") === null
       );
-    }, "Explorer store did not clear legacy metadata envelopes after share.");
+    }, "Explorer store did not clear stale metadata security state after share.");
 
     expect(v2SyncCallCount).toBe(0);
     expect(

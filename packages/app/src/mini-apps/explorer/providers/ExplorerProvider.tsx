@@ -211,6 +211,7 @@ function resetExplorerStore(state: ExplorerStoreState) {
 }
 
 type NullableExplorerDocumentField =
+  | "accessStateHash"
   | "documentRecipientEnvelopes"
   | "lastCommitLsn"
   | "v2ContentKeyBundle"
@@ -241,6 +242,8 @@ async function persistContainerState(
   const documentIdChanged = nextDocumentId !== currentDocumentId;
   const nextAccessEpoch =
     patch.accessEpoch ?? containerState.record.accessEpoch;
+  const securityContextChanged =
+    documentIdChanged || nextAccessEpoch !== containerState.record.accessEpoch;
   const metadata = readContainerMetadataValue(
     containerState.doc,
     getFallbackContainerName(containerState.container.parentId),
@@ -264,13 +267,17 @@ async function persistContainerState(
       patch,
       "documentRecipientEnvelopes",
       containerState.record.documentRecipientEnvelopes,
-      nextAccessEpoch !== containerState.record.accessEpoch,
+      securityContextChanged,
     ),
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(containerState.doc)),
     accessEpoch: nextAccessEpoch,
-    accessStateHash:
-      patch.accessStateHash ?? containerState.record.accessStateHash ?? null,
+    accessStateHash: resolveNullableExplorerDocumentField(
+      patch,
+      "accessStateHash",
+      containerState.record.accessStateHash,
+      securityContextChanged,
+    ),
     lastCommitLsn: resolveNullableExplorerDocumentField(
       patch,
       "lastCommitLsn",
@@ -281,19 +288,19 @@ async function persistContainerState(
       patch,
       "v2ContentKeyBundle",
       containerState.record.v2ContentKeyBundle,
-      documentIdChanged,
+      securityContextChanged,
     ),
     v2DocumentKekTargets: resolveNullableExplorerDocumentField(
       patch,
       "v2DocumentKekTargets",
       containerState.record.v2DocumentKekTargets,
-      documentIdChanged,
+      securityContextChanged,
     ),
     v2DocumentManifestBundle: resolveNullableExplorerDocumentField(
       patch,
       "v2DocumentManifestBundle",
       containerState.record.v2DocumentManifestBundle,
-      documentIdChanged,
+      securityContextChanged,
     ),
   };
 
