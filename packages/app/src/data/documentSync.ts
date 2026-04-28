@@ -1,5 +1,5 @@
 import { type RecipientEntry, wrapDekForRecipients } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   encryptLoroUpdate,
   getUpdateVersionVectors,
