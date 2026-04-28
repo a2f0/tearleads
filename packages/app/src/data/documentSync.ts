@@ -39,17 +39,6 @@ function serializeRecipientEntry(
   };
 }
 
-export function getLocalRecipientPublicKeys(
-  encapsulationKeyPair:
-    | {
-        publicKey: Uint8Array;
-      }
-    | null
-    | undefined,
-): Uint8Array[] {
-  return encapsulationKeyPair ? [encapsulationKeyPair.publicKey] : [];
-}
-
 export function createPendingUpdateFields(
   update: Uint8Array,
   sourceVersionVector?: string | null,

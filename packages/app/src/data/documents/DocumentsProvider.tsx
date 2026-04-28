@@ -22,7 +22,6 @@ import type { BlobBytes, BlobStore } from "../blobs";
 import { getScopedPeerSeed } from "../crdtPeerSeed";
 import {
   createPendingUpdateFields,
-  getLocalRecipientPublicKeys,
   isDocumentUpdateCreatedEvent,
 } from "../documentSync";
 import {
@@ -408,7 +407,6 @@ interface DocumentStoreState {
   pendingAttachmentReplacements: PendingAttachmentReplacementRecord[];
   pendingAttachmentRewraps: PendingAttachmentRewrapRecord[];
   persistence: DocumentsPersistence;
-  recipientPublicKeys: Uint8Array[];
   record: DocumentRecord | null;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
@@ -437,9 +435,6 @@ function createDocumentStoreState(
     pendingAttachmentReplacements: [],
     pendingAttachmentRewraps: [],
     persistence,
-    recipientPublicKeys: getLocalRecipientPublicKeys(
-      initialRuntime.encapsulationKeyPair,
-    ),
     record: null,
     runtime: initialRuntime,
     snapshot: {
@@ -500,9 +495,6 @@ function resetDocumentStore(state: DocumentStoreState) {
   state.initialized = false;
   state.initializePromise = null;
   state.writeChain = Promise.resolve();
-  state.recipientPublicKeys = getLocalRecipientPublicKeys(
-    state.runtime.encapsulationKeyPair,
-  );
   setDocumentSnapshot(state, {
     attachments: [],
     attachmentStatusBySlotId: {},
@@ -1877,11 +1869,6 @@ function updateDocumentStoreRuntime(
 ) {
   const previousRuntime = state.runtime;
   state.runtime = nextRuntime;
-  if (!state.record?.documentId) {
-    state.recipientPublicKeys = getLocalRecipientPublicKeys(
-      state.runtime.encapsulationKeyPair,
-    );
-  }
 
   if (nextRuntime.dbStatus !== "ready") {
     if (state.snapshot.ready || state.initialized || state.initializePromise) {
