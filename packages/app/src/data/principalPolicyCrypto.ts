@@ -17,7 +17,7 @@ interface PrincipalPolicyResolutionContext {
   resolvedPrincipalSecretKeys: Map<string, Uint8Array>;
 }
 
-function toRecipientEntries(
+function toKeyEnvelopeEntries(
   envelopes: ReadonlyArray<SerializedKeyEnvelope>,
 ): RecipientEntry[] {
   return envelopes.map((envelope) => ({
@@ -150,14 +150,14 @@ export async function unwrapKeyEnvelopesWithPrincipalPolicies(input: {
   execSql?: ExecSql | undefined;
   secretKey: Uint8Array;
 }): Promise<Uint8Array> {
-  const recipientEntries = toRecipientEntries(input.envelopes);
+  const keyEntries = toKeyEnvelopeEntries(input.envelopes);
 
   try {
-    return await unwrapDek(recipientEntries, input.secretKey);
+    return await unwrapDek(keyEntries, input.secretKey);
   } catch {
     if (!input.execSql) {
       throw new Error(
-        "No matching recipient entry found for this secret key and no principal policy cache is available",
+        "No matching key envelope entry found for this secret key and no principal policy cache is available",
       );
     }
   }
@@ -186,12 +186,12 @@ export async function unwrapKeyEnvelopesWithPrincipalPolicies(input: {
           new Set(),
         );
 
-        return await unwrapDek(recipientEntries, principalSecretKey);
+        return await unwrapDek(keyEntries, principalSecretKey);
       } catch {}
     }
   }
 
   throw new Error(
-    "No matching recipient entry found for this secret key or cached principal policies",
+    "No matching key envelope entry found for this secret key or cached principal policies",
   );
 }
