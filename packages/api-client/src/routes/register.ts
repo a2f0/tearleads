@@ -1,8 +1,9 @@
 import type { RecipientEntry } from "@tearleads/crypto";
-import type { SyncDocumentOutgoingUpdate } from "@tearleads/loro";
-import type { PublicKeyRequest } from "@tearleads/validators/request";
+import type {
+  DocumentV2CreateRequest,
+  PublicKeyRequest,
+} from "@tearleads/validators/request";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
-import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import type { RequestFn } from "../types";
 
 export function postPublicKey(
@@ -14,9 +15,8 @@ export function postPublicKey(
   encapsulationPublicKey: Uint8Array,
   wrappedDekEnvelope: RecipientEntry,
   initialOrganizationPolicy: PublicKeyRequest["initialOrganizationPolicy"],
-  initialRootMetadataUpdates: SyncDocumentOutgoingUpdate[],
-  initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
-  initialRootContainerV2?: PublicKeyRequest["initialRootContainerV2"],
+  initialRootContainerV2: PublicKeyRequest["initialRootContainerV2"],
+  initialRootMetadataDocumentV2: DocumentV2CreateRequest,
 ) {
   return request(
     "/auth/register",
@@ -30,8 +30,7 @@ export function postPublicKey(
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
       initialOrganizationPolicy,
       initialRootContainerV2,
-      initialRootMetadataRecipientEnvelopes,
-      initialRootMetadataUpdates,
+      initialRootMetadataDocumentV2,
       wrappedDekEnvelope: {
         keyFingerprint: wrappedDekEnvelope.keyFingerprint,
         kemCipherText: Array.from(wrappedDekEnvelope.kemCipherText),

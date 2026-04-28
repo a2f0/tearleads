@@ -11,6 +11,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import { db as defaultDb } from "../../src/adapters/postgres";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
+import { createRegistrationV2Bootstrap } from "./registrationV2";
 
 export function createServiceTestRuntime(
   db: ApiServiceRuntime["db"] = defaultDb,
@@ -50,6 +51,7 @@ export async function createPublicKeyRequest(
   }
   const userId = user.userId || crypto.randomUUID();
   const organizationId = crypto.randomUUID();
+  const rootContainerId = crypto.randomUUID();
   const organizationKem = generateKemSeedAndKeyPair();
   const initialOrganizationProjection = [
     {
@@ -71,11 +73,19 @@ export async function createPublicKeyRequest(
   if (!organizationMemberEnvelope) {
     throw new Error("Failed to wrap organization key for test user");
   }
+  const rootBootstrap = await createRegistrationV2Bootstrap({
+    encapsulationPublicKey: user.kem.publicKey,
+    organizationId,
+    rootContainerId,
+    signingPrivateKey: user.signing.signingPrivateKey,
+    signingPublicKey: user.signing.signingPublicKey,
+    userId,
+  });
 
   return {
     userId,
     organizationId,
-    rootContainerId: crypto.randomUUID(),
+    rootContainerId,
     signingPublicKey: Array.from(user.signing.signingPublicKey),
     encapsulationPublicKey: Array.from(user.kem.publicKey),
     initialOrganizationPolicy: {
@@ -119,7 +129,8 @@ export async function createPublicKeyRequest(
         },
       ],
     },
-    initialRootMetadataUpdates: [],
+    initialRootContainerV2: rootBootstrap.initialRootContainerV2,
+    initialRootMetadataDocumentV2: rootBootstrap.initialRootMetadataDocumentV2,
     wrappedDekEnvelope: {
       keyFingerprint: wrappedDekEnvelope.keyFingerprint,
       kemCipherText: Array.from(wrappedDekEnvelope.kemCipherText),

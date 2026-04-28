@@ -14,13 +14,13 @@ import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import {
   buildRootContainerV2CreatePlan,
   createInitializedContainerMetadataDocument,
+  rootContainerV2WriterProjectionFromCreatePlan,
 } from "../data/containers";
-import {
-  createDocumentEncryptionMaterial,
-  createPendingUpdateFields,
-  encryptPendingUpdates,
-} from "../data/documentSync";
 import { createDocumentV2SignerDeviceId } from "../data/documents/documentV2Constants";
+import {
+  buildMaterializedDocumentV2CreatePlan,
+  persistedDocumentV2CreateStateFromResponse,
+} from "../data/documents/documentV2Runtime";
 import { createExecSql } from "../data/persistence/sqlSchema";
 import { persistRegistrationBootstrap } from "../data/registrationBootstrapPersistence";
 import { useDatabase } from "../db/DatabaseProvider";
@@ -33,13 +33,13 @@ interface RegisterCurrentIdentityResult {
 }
 
 interface InitialRootMetadataBootstrap {
-  initialRootMetadataUpdates: Awaited<ReturnType<typeof encryptPendingUpdates>>;
   initialUpdate: Uint8Array;
   metadataDocumentId: string;
-  rootMetadataRecipientEnvelopes: Awaited<
-    ReturnType<typeof createDocumentEncryptionMaterial>
-  >["documentRecipientEnvelopes"];
 }
+
+type InitialRootMetadataDocumentV2 = Awaited<
+  ReturnType<typeof buildMaterializedDocumentV2CreatePlan>
+>;
 
 async function createInitialOrganizationPolicy(input: {
   encapsulationPublicKey: Uint8Array;
@@ -116,7 +116,6 @@ async function createInitialOrganizationPolicy(input: {
 
 async function createInitialRootMetadataBootstrap(
   containerId: string,
-  encapsulationPublicKey: Uint8Array,
 ): Promise<InitialRootMetadataBootstrap> {
   const metadataDocumentId = crypto.randomUUID();
   const { initialUpdate } = await createInitializedContainerMetadataDocument(
@@ -126,28 +125,10 @@ async function createInitialRootMetadataBootstrap(
       name: "/",
     },
   );
-  const initialMetadataDocumentEncryption =
-    await createDocumentEncryptionMaterial([encapsulationPublicKey]);
-  const pendingUpdateFields = createPendingUpdateFields(initialUpdate);
-  const initialRootMetadataUpdates = pendingUpdateFields
-    ? await encryptPendingUpdates(
-        [
-          {
-            id: crypto.randomUUID(),
-            ...pendingUpdateFields,
-          },
-        ],
-        1,
-        initialMetadataDocumentEncryption.documentKey,
-      )
-    : [];
 
   return {
-    initialRootMetadataUpdates,
     initialUpdate,
     metadataDocumentId,
-    rootMetadataRecipientEnvelopes:
-      initialMetadataDocumentEncryption.documentRecipientEnvelopes,
   };
 }
 
@@ -157,6 +138,7 @@ async function persistLocalRegistrationState(
   encapsulationPublicKey: Uint8Array,
   response: PublicKeyResponse,
   bootstrap: InitialRootMetadataBootstrap,
+  rootMetadataDocumentV2: InitialRootMetadataDocumentV2,
   log: (message: string) => void,
 ) {
   if (!dbClient) {
@@ -171,7 +153,12 @@ async function persistLocalRegistrationState(
       rootMetadataAccessEpoch: response.rootMetadataAccessEpoch,
       rootMetadataAccessStateHash: response.rootMetadataAccessStateHash,
       rootMetadataDocumentId: response.rootMetadataDocumentId,
+      rootMetadataInitialUpdate: bootstrap.initialUpdate,
       rootMetadataSnapshot: bytesToBase64(bootstrap.initialUpdate),
+      rootMetadataV2State: persistedDocumentV2CreateStateFromResponse(
+        rootMetadataDocumentV2.plan,
+        response.rootMetadataDocumentV2,
+      ),
       userId: response.userId,
     });
     log("Local identity and root container persisted");
@@ -205,10 +192,7 @@ async function registerIdentity(input: {
     return false;
   }
 
-  const bootstrap = await createInitialRootMetadataBootstrap(
-    input.containerId,
-    input.encapsulationKeyPair.publicKey,
-  );
+  const bootstrap = await createInitialRootMetadataBootstrap(input.containerId);
   const newUserId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
   const initialOrganizationPolicy = await createInitialOrganizationPolicy({
@@ -221,17 +205,26 @@ async function registerIdentity(input: {
   const signingFingerprint = await toFingerprint(
     input.signingKeyPair.signingPublicKey,
   );
+  const author = {
+    organizationId,
+    signerDeviceId: createDocumentV2SignerDeviceId(signingFingerprint),
+    signerKeyFingerprint: signingFingerprint,
+    signerPrivateKey: input.signingKeyPair.signingPrivateKey,
+    signerUserId: newUserId,
+  };
   const rootContainerV2 = await buildRootContainerV2CreatePlan({
-    author: {
-      organizationId,
-      signerDeviceId: createDocumentV2SignerDeviceId(signingFingerprint),
-      signerKeyFingerprint: signingFingerprint,
-      signerPrivateKey: input.signingKeyPair.signingPrivateKey,
-      signerUserId: newUserId,
-    },
+    author,
     containerId: input.containerId,
     metadataDocumentId: bootstrap.metadataDocumentId,
     recipientEncapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+  });
+  const rootMetadataDocumentV2 = await buildMaterializedDocumentV2CreatePlan({
+    author,
+    containerProjection: rootContainerV2WriterProjectionFromCreatePlan(
+      rootContainerV2.plan,
+    ),
+    documentId: bootstrap.metadataDocumentId,
+    targetSecretKey: input.encapsulationKeyPair.secretKey,
   });
 
   const response = await input.apiClient.postPublicKey(
@@ -242,9 +235,8 @@ async function registerIdentity(input: {
     input.encapsulationKeyPair.publicKey,
     wrappedEnvelope,
     initialOrganizationPolicy,
-    bootstrap.initialRootMetadataUpdates,
-    bootstrap.rootMetadataRecipientEnvelopes,
     rootContainerV2.plan.request,
+    rootMetadataDocumentV2.plan.request,
   );
   if (!response) {
     return false;
@@ -259,6 +251,7 @@ async function registerIdentity(input: {
     input.encapsulationKeyPair.publicKey,
     response,
     bootstrap,
+    rootMetadataDocumentV2,
     input.log,
   );
 

@@ -4,18 +4,16 @@ import {
   hasArrayProperty,
   hasObjectProperty,
   hasStringProperty,
-  isSerializedRecipientEnvelopeArray,
   isUuidV4String,
-  type SerializedRecipientEnvelope,
 } from "../util";
 import {
   type ContainerV2MutationRequest,
   isContainerV2MutationRequest,
 } from "./container";
 import {
-  type EncryptedDocumentUpdate,
-  isEncryptedDocumentUpdate,
-} from "./documentUpdate";
+  type DocumentV2CreateRequest,
+  isDocumentV2CreateRequest,
+} from "./documentV2";
 import {
   isPrincipalMemberEnvelopeRequest,
   isPrincipalProjectionMemberRequest,
@@ -46,9 +44,8 @@ export interface PublicKeyRequest {
     projection: PrincipalProjectionMemberRequest[];
     memberEnvelopes: PrincipalMemberEnvelopeRequest[];
   };
-  initialRootContainerV2?: ContainerV2MutationRequest;
-  initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[];
-  initialRootMetadataUpdates: EncryptedDocumentUpdate[];
+  initialRootContainerV2: ContainerV2MutationRequest;
+  initialRootMetadataDocumentV2: DocumentV2CreateRequest;
 }
 
 function isWrappedDekEnvelope(value: Record<string, unknown>): boolean {
@@ -62,11 +59,11 @@ function isWrappedDekEnvelope(value: Record<string, unknown>): boolean {
 }
 
 export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
-  const initialRootMetadataRecipientEnvelopes = isPlainObject(value)
-    ? Reflect.get(value, "initialRootMetadataRecipientEnvelopes")
-    : undefined;
   const initialRootContainerV2 = isPlainObject(value)
     ? Reflect.get(value, "initialRootContainerV2")
+    : undefined;
+  const initialRootMetadataDocumentV2 = isPlainObject(value)
+    ? Reflect.get(value, "initialRootMetadataDocumentV2")
     : undefined;
 
   return (
@@ -98,13 +95,7 @@ export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
     value.initialOrganizationPolicy.memberEnvelopes.every(
       isPrincipalMemberEnvelopeRequest,
     ) &&
-    (initialRootContainerV2 === undefined ||
-      isContainerV2MutationRequest(initialRootContainerV2)) &&
-    (initialRootMetadataRecipientEnvelopes === undefined ||
-      isSerializedRecipientEnvelopeArray(
-        initialRootMetadataRecipientEnvelopes,
-      )) &&
-    hasArrayProperty(value, "initialRootMetadataUpdates") &&
-    value.initialRootMetadataUpdates.every(isEncryptedDocumentUpdate)
+    isContainerV2MutationRequest(initialRootContainerV2) &&
+    isDocumentV2CreateRequest(initialRootMetadataDocumentV2)
   );
 }

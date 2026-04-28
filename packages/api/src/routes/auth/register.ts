@@ -3,7 +3,6 @@ import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import {
-  ContainerMetadataError,
   isDuplicateRegisterFingerprintError,
   RegisterPublicKeyError,
   registerPublicKey,
@@ -32,10 +31,6 @@ export function createRegisterRoute(runtime: ApiServiceRuntime) {
         }
 
         if (error instanceof RegisterPublicKeyError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        if (error instanceof ContainerMetadataError) {
           return c.json({ error: error.message }, error.status);
         }
 

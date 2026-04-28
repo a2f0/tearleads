@@ -6,9 +6,9 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { SyncDocumentOutgoingUpdate } from "@tearleads/loro";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
+import { createRegistrationV2Bootstrap } from "../registrationV2";
 
 async function createInitialOrganizationPolicy(input: {
   encapsulationPublicKey: Uint8Array;
@@ -79,7 +79,6 @@ export async function uploadKey(
   signingPublicKey: Uint8Array,
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
-  initialRootMetadataUpdates: SyncDocumentOutgoingUpdate[] = [],
 ): Promise<Response> {
   return routeApp.request("/auth/register", {
     method: "POST",
@@ -89,7 +88,6 @@ export async function uploadKey(
         signingPublicKey,
         signingPrivateKey,
         encapsulationPublicKey,
-        initialRootMetadataUpdates,
       ),
     ),
   });
@@ -99,7 +97,6 @@ export async function createPublicKeyRequestBody(
   signingPublicKey: Uint8Array,
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
-  initialRootMetadataUpdates: SyncDocumentOutgoingUpdate[] = [],
 ): Promise<PublicKeyRequest> {
   const dek = crypto.getRandomValues(new Uint8Array(32));
   const recipients = await wrapDekForRecipients(dek, [encapsulationPublicKey]);
@@ -110,11 +107,20 @@ export async function createPublicKeyRequestBody(
   }
   const userId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
+  const rootContainerId = crypto.randomUUID();
+  const rootBootstrap = await createRegistrationV2Bootstrap({
+    encapsulationPublicKey,
+    organizationId,
+    rootContainerId,
+    signingPrivateKey,
+    signingPublicKey,
+    userId,
+  });
 
   return {
     userId,
     organizationId,
-    rootContainerId: crypto.randomUUID(),
+    rootContainerId,
     signingPublicKey: Array.from(signingPublicKey),
     encapsulationPublicKey: Array.from(encapsulationPublicKey),
     initialOrganizationPolicy: await createInitialOrganizationPolicy({
@@ -124,7 +130,8 @@ export async function createPublicKeyRequestBody(
       signingPublicKey,
       userId,
     }),
-    initialRootMetadataUpdates,
+    initialRootContainerV2: rootBootstrap.initialRootContainerV2,
+    initialRootMetadataDocumentV2: rootBootstrap.initialRootMetadataDocumentV2,
     wrappedDekEnvelope: {
       keyFingerprint: wrappedEnvelope.keyFingerprint,
       kemCipherText: Array.from(wrappedEnvelope.kemCipherText),

@@ -136,6 +136,8 @@ ML-KEM-1024, and decrypts the wrapped key via AES-256-GCM.
 
 ```ts
 interface PublicKeyRequest {
+  userId: string;
+  organizationId: string;
   rootContainerId: string;
   signingPublicKey: number[];
   encapsulationPublicKey: number[];
@@ -144,8 +146,9 @@ interface PublicKeyRequest {
     kemCipherText: number[];
     wrappedKey: number[];
   };
-  initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[];
-  initialRootMetadataUpdates: SyncDocumentOutgoingUpdate[];
+  initialOrganizationPolicy: InitialOrganizationPolicyRequest;
+  initialRootContainerV2: ContainerV2MutationRequest;
+  initialRootMetadataDocumentV2: DocumentV2CreateRequest;
 }
 ```
 
@@ -160,6 +163,7 @@ interface PublicKeyResponse {
   rootMetadataDocumentId: string;
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
+  rootMetadataDocumentV2: DocumentV2CreateResponse;
   challenge: string;
 }
 ```

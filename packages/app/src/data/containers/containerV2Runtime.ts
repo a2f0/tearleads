@@ -716,6 +716,45 @@ export async function buildRootContainerV2CreatePlan(input: {
   return { containerKey, plan };
 }
 
+export function rootContainerV2WriterProjectionFromCreatePlan(
+  plan: ContainerV2CreatePlan,
+): ContainerV2WriterProjectionResponse {
+  return {
+    containerId: plan.containerId,
+    organizationId: plan.state.organizationId,
+    path: [
+      {
+        event: {
+          event: plan.event as unknown as Record<string, unknown>,
+          body: plan.body as unknown as Record<string, unknown>,
+          eventHash: plan.eventHash,
+        },
+        manifest: plan.manifest as unknown as Record<string, unknown>,
+        manifestHash: plan.manifestHash,
+        state: plan.state as unknown as Record<string, unknown>,
+      },
+    ],
+    containerKeks: [
+      {
+        containerId: plan.containerId,
+        accessManifestHash: plan.manifestHash,
+        containerKeyEpochId: plan.containerKeyEpochId,
+        containerKeyEpoch: plan.keyEpoch.keyEpoch,
+        keyEpoch: plan.keyEpoch as unknown as Record<string, unknown>,
+        keyEpochHash: plan.keyEpochHash,
+        keyTargetHash: plan.keyTargetHash,
+        parentContainerKeyEpochId: null,
+        recipientTargets: plan.recipientTargets.map(
+          (target) => target as unknown as Record<string, unknown>,
+        ),
+        wraps: plan.wraps.map(
+          (wrap) => wrap as unknown as Record<string, unknown>,
+        ),
+      },
+    ],
+  };
+}
+
 function grantKey(
   grant: Pick<ContainerDirectGrantV2, "subjectId" | "subjectType">,
 ): string {

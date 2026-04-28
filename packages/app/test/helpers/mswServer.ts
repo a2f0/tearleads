@@ -1,4 +1,5 @@
 import { afterAll } from "bun:test";
+import { computeAccessEventHash } from "@tearleads/crypto";
 import type {
   EncapsulationKeyResponse,
   ListContainersResponse,
@@ -67,19 +68,186 @@ function randomHex(bytes: number): string {
     .join("");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function createFallbackRootMetadataDocumentV2Response(
+  rootMetadataDocumentId: string,
+): PublicKeyResponse["rootMetadataDocumentV2"] {
+  const rootContainerId = crypto.randomUUID();
+  const manifestHash = randomHex(32);
+  const targetHash = randomHex(32);
+  const containerKeyEpochId = crypto.randomUUID();
+
+  return {
+    id: rootMetadataDocumentId,
+    createdAt: new Date().toISOString(),
+    accessManifest: {
+      event: {
+        event: { eventType: "document.link" },
+        body: { eventType: "document.link" },
+        eventHash: randomHex(32),
+      },
+      manifest: { objectKind: "document" },
+      manifestHash,
+      state: { documentId: rootMetadataDocumentId },
+    },
+    contentKeyBundle: {
+      documentId: rootMetadataDocumentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: manifestHash,
+      targetHash,
+      targets: [
+        {
+          containerId: rootContainerId,
+          containerManifestHash: randomHex(32),
+          containerKeyEpochId,
+          containerKeyEpoch: 1,
+          wrappedKey: randomHex(32),
+          wrappingMetadata: { suite: "test" },
+        },
+      ],
+    },
+    documentKekTargets: {
+      documentId: rootMetadataDocumentId,
+      linkSetManifestHash: manifestHash,
+      linkedContainerManifestHashes: [randomHex(32)],
+      linkedContainerKeyEpochIds: [containerKeyEpochId],
+      targets: [{ containerId: rootContainerId }],
+      documentKeyTargetHash: targetHash,
+    },
+  };
+}
+
+async function createRootMetadataDocumentV2Response(
+  requestBody: unknown,
+): Promise<PublicKeyResponse["rootMetadataDocumentV2"]> {
+  if (!isRecord(requestBody)) {
+    return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
+  }
+
+  const documentRequest = Reflect.get(
+    requestBody,
+    "initialRootMetadataDocumentV2",
+  );
+  if (!isRecord(documentRequest)) {
+    return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
+  }
+
+  const event = Reflect.get(documentRequest, "event");
+  const body = Reflect.get(documentRequest, "body");
+  const manifest = Reflect.get(documentRequest, "manifest");
+  const contentKeyBundle = Reflect.get(documentRequest, "contentKeyBundle");
+  if (
+    !isRecord(event) ||
+    !isRecord(body) ||
+    !isRecord(manifest) ||
+    !isRecord(contentKeyBundle)
+  ) {
+    return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
+  }
+
+  const documentId = Reflect.get(event, "objectId");
+  const organizationId = Reflect.get(event, "organizationId");
+  const containerId = Reflect.get(body, "containerId");
+  const manifestHash = Reflect.get(documentRequest, "expectedManifestHash");
+  const targetHash = Reflect.get(contentKeyBundle, "targetHash");
+  const contentKeyEpoch = Reflect.get(contentKeyBundle, "contentKeyEpoch");
+  const rawTargets = Reflect.get(contentKeyBundle, "targets");
+  const targets = Array.isArray(rawTargets) ? rawTargets.filter(isRecord) : [];
+  if (
+    typeof documentId !== "string" ||
+    typeof organizationId !== "string" ||
+    typeof containerId !== "string" ||
+    typeof manifestHash !== "string" ||
+    typeof targetHash !== "string" ||
+    typeof contentKeyEpoch !== "number" ||
+    targets.length === 0
+  ) {
+    return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
+  }
+
+  const eventHash = await computeAccessEventHash(
+    event as unknown as Parameters<typeof computeAccessEventHash>[0],
+  );
+  const targetEnvelopes =
+    targets as unknown as PublicKeyResponse["rootMetadataDocumentV2"]["contentKeyBundle"]["targets"];
+  const kekTargets = targetEnvelopes.map((target) => ({
+    containerId: target.containerId,
+    containerManifestHash: target.containerManifestHash,
+    containerKeyEpochId: target.containerKeyEpochId,
+    containerKeyEpoch: target.containerKeyEpoch,
+  }));
+
+  return {
+    id: documentId,
+    createdAt: new Date().toISOString(),
+    accessManifest: {
+      event: {
+        event,
+        body,
+        eventHash,
+      },
+      manifest,
+      manifestHash,
+      state: {
+        version: 2,
+        documentId,
+        organizationId,
+        epoch: 1,
+        previousManifestHash: null,
+        eventHash,
+        linkedContainerIds: [containerId],
+      },
+    },
+    contentKeyBundle: {
+      documentId,
+      contentKeyEpoch,
+      linkSetManifestHash: manifestHash,
+      targetHash,
+      targets: targetEnvelopes,
+    },
+    documentKekTargets: {
+      documentId,
+      linkSetManifestHash: manifestHash,
+      linkedContainerManifestHashes: kekTargets.map((target) =>
+        String(target.containerManifestHash),
+      ),
+      linkedContainerKeyEpochIds: kekTargets.map((target) =>
+        String(target.containerKeyEpochId),
+      ),
+      targets: kekTargets,
+      documentKeyTargetHash: targetHash,
+    },
+  };
+}
+
 const server = setupServer(
   eventsSocket.addEventListener("connection", () => {
     // Keep the test socket open; individual tests can add behavior later.
   }),
-  http.post("http://localhost:3001/auth/register", () => {
+  http.post("http://localhost:3001/auth/register", async ({ request }) => {
+    const requestBody = await request.json().catch(() => null);
+    const rootMetadataDocumentV2 =
+      await createRootMetadataDocumentV2Response(requestBody);
+    const rootMetadataDocumentId = rootMetadataDocumentV2.id;
+    const rootContainerId = isRecord(requestBody)
+      ? Reflect.get(requestBody, "rootContainerId")
+      : null;
+
     return HttpResponse.json<PublicKeyResponse>({
       message: "ok",
       userId: crypto.randomUUID(),
       organizationId: crypto.randomUUID(),
-      rootContainerId: crypto.randomUUID(),
-      rootMetadataDocumentId: crypto.randomUUID(),
+      rootContainerId:
+        typeof rootContainerId === "string"
+          ? rootContainerId
+          : crypto.randomUUID(),
+      rootMetadataDocumentId,
       rootMetadataAccessEpoch: 1,
       rootMetadataAccessStateHash: randomHex(32),
+      rootMetadataDocumentV2,
       challenge: randomHex(32),
     });
   }),

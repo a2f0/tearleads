@@ -33,8 +33,11 @@ import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { storeVerifiedAccessManifest } from "../../access/accessManifestStore";
-import { storeVerifiedContainerKekState } from "../../access/containerKekStore";
+import { getAccessManifestBundle } from "../../access/accessManifestStore";
+import {
+  getCurrentContainerKeyEpoch,
+  listContainerKeyWraps,
+} from "../../access/containerKekStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
 import {
@@ -246,81 +249,70 @@ async function verifyKekState(input: {
   return verified.value;
 }
 
+function toStoredContainerKeyEpochV2(
+  keyEpoch: Awaited<ReturnType<typeof getCurrentContainerKeyEpoch>>,
+): ContainerKeyEpochV2 {
+  invariant(keyEpoch, "expected container key epoch");
+
+  return {
+    id: keyEpoch.id,
+    containerId: keyEpoch.containerId,
+    keyEpoch: keyEpoch.keyEpoch,
+    accessManifestHash: keyEpoch.accessManifestHash,
+    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+    createdByEventHash: keyEpoch.createdByEventHash,
+    createdByManifestHash: keyEpoch.createdByManifestHash,
+  };
+}
+
+function toStoredContainerKeyWrapV2(
+  wrap: Awaited<ReturnType<typeof listContainerKeyWraps>>[number],
+): ContainerKeyWrapV2 {
+  return {
+    containerKeyEpochId: wrap.containerKeyEpochId,
+    recipientKind: wrap.recipientKind,
+    recipientId: wrap.recipientId,
+    recipientKeyEpochId: wrap.recipientKeyEpochId,
+    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+    kemCipherText: wrap.kemCipherText,
+    wrappedKey: wrap.wrappedKey,
+    wrapManifestHash: wrap.wrapManifestHash,
+  };
+}
+
 async function bootstrapRootV2(
   owner: TestUser,
 ): Promise<StoredV2ContainerFixture> {
   const rootContainer = await getRootContainerForUser(owner.userId);
-  const ownerKey = await userRecipientKey(owner);
-  const containerKeyEpochId = crypto.randomUUID();
-  const metadataDocumentId = crypto.randomUUID();
-  const body: ContainerAccessEventBodyV2 = {
-    eventType: "container.create",
-    parentContainerId: null,
-    parentManifestHash: null,
-    metadataDocumentId,
-    containerKeyEpochId,
-    directGrants: [
-      {
-        subjectType: "user",
-        subjectId: owner.userId,
-        accessLevel: "admin",
-      },
-    ],
-    referencedPrincipalHeads: [],
-  };
-  const event = await createSignedContainerEvent({
-    body,
-    objectId: rootContainer.id,
-    organizationId: rootContainer.organizationId,
-    previousManifestHash: null,
-    signer: owner,
-  });
-  const bundle = await createManifestBundle(
-    {
-      version: 2,
-      containerId: rootContainer.id,
-      organizationId: rootContainer.organizationId,
-      epoch: 1,
-      previousManifestHash: null,
-      eventHash: event.eventHash,
-      parentContainerId: null,
-      parentManifestHash: null,
-      metadataDocumentId,
-      containerKeyEpochId,
-      directGrants: body.directGrants,
-      referencedPrincipalHeads: [],
-    },
-    event,
+  const storedKeyEpoch = await getCurrentContainerKeyEpoch(rootContainer.id);
+  const keyEpoch = toStoredContainerKeyEpochV2(storedKeyEpoch);
+  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash);
+  invariant(bundle, "expected registered root container V2 manifest");
+  const wraps = (await listContainerKeyWraps(keyEpoch.id)).map(
+    toStoredContainerKeyWrapV2,
   );
-  const keyEpoch = createContainerKeyEpoch({
-    containerKeyEpochId,
-    keyEpoch: 1,
-    manifest: bundle,
-    parentKekState: null,
-  });
-  const wraps = [
-    createContainerKeyWrap({
-      containerKeyEpochId,
-      recipientKind: "user",
-      recipientId: owner.userId,
-      recipientKeyEpochId: ownerKey.recipientKeyEpochId,
-      recipientKeyFingerprint: ownerKey.recipientKeyFingerprint,
-      wrapManifestHash: bundle.manifestHash,
-    }),
-  ];
+  const ownerWrap = wraps.find(
+    (wrap) =>
+      wrap.recipientKind === "user" && wrap.recipientId === owner.userId,
+  );
+  invariant(ownerWrap, "expected registered root user KEK wrap");
+  const ownerKey: ContainerUserRecipientKeyV2 = {
+    userId: owner.userId,
+    recipientKeyEpochId: ownerWrap.recipientKeyEpochId,
+    recipientKeyFingerprint: ownerWrap.recipientKeyFingerprint,
+  };
   const kekState = await verifyKekState({
-    bundle,
+    bundle: bundle as unknown as ContainerV2ManifestBundle,
     keyEpoch,
     userRecipientKeys: [ownerKey],
     wraps,
   });
 
-  await storeVerifiedAccessManifest({
-    verifiedManifest: asVerifiedContainerManifest(bundle),
-  });
-  await storeVerifiedContainerKekState({ verifiedState: kekState });
-
-  return { bundle, kekState, userKey: ownerKey };
+  return {
+    bundle: bundle as unknown as ContainerV2ManifestBundle,
+    kekState,
+    userKey: ownerKey,
+  };
 }
 
 async function buildCreateRequest(input: {
