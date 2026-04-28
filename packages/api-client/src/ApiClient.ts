@@ -1,6 +1,7 @@
 import type {
   BlobV2AttachmentBindRequest,
   BlobV2AttachmentDetachRequest,
+  ContainerV2MutationRequest,
   DocumentV2CreateRequest,
   DocumentV2SyncRequest,
   StageBlobRequest,
@@ -19,11 +20,15 @@ import {
 } from "./routes/blobs";
 import {
   createContainer,
+  createContainerV2,
   getContainerV2WriterProjection,
   listContainerDocuments,
   listContainers,
   moveContainer,
+  moveContainerV2,
+  revokeContainerV2,
   shareContainer,
+  shareContainerV2,
 } from "./routes/containers";
 import {
   createDocumentV2,
@@ -218,6 +223,22 @@ export class ApiClient {
 
   getContainerV2WriterProjection(containerId: string) {
     return getContainerV2WriterProjection(this.request, containerId);
+  }
+
+  createContainerV2(input: ContainerV2MutationRequest) {
+    return createContainerV2(this.request, input);
+  }
+
+  shareContainerV2(containerId: string, input: ContainerV2MutationRequest) {
+    return shareContainerV2(this.request, containerId, input);
+  }
+
+  revokeContainerV2(containerId: string, input: ContainerV2MutationRequest) {
+    return revokeContainerV2(this.request, containerId, input);
+  }
+
+  moveContainerV2(containerId: string, input: ContainerV2MutationRequest) {
+    return moveContainerV2(this.request, containerId, input);
   }
 
   getDocumentV2WriterProjection(documentId: string) {
