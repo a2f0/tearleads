@@ -418,6 +418,7 @@ async function createContainerManifestFixture(input: {
   readonly directGrants: readonly ContainerDirectGrantV2[];
   readonly epoch?: number;
   readonly event?: VerifiedAccessEvent;
+  readonly metadataDocumentId?: string;
   readonly organizationId?: string;
   readonly parentContainerId?: string | null;
   readonly parentManifestHash?: string | null;
@@ -428,10 +429,13 @@ async function createContainerManifestFixture(input: {
 }): Promise<VerifiedContainerAccessManifest> {
   const organizationId = input.organizationId ?? "organization-1";
   const signer = input.signer ?? generateSigningSeedAndKeyPair();
+  const metadataDocumentId =
+    input.metadataDocumentId ?? `${input.containerId}-metadata-document`;
   const body: ContainerCreateAccessEventBodyV2 = {
     eventType: "container.create",
     parentContainerId: input.parentContainerId ?? null,
     parentManifestHash: input.parentManifestHash ?? null,
+    metadataDocumentId,
     containerKeyEpochId: input.containerKeyEpochId ?? null,
     directGrants: [...input.directGrants],
     referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
@@ -455,6 +459,7 @@ async function createContainerManifestFixture(input: {
     eventHash: event.eventHash,
     parentContainerId: input.parentContainerId ?? null,
     parentManifestHash: input.parentManifestHash ?? null,
+    metadataDocumentId,
     containerKeyEpochId: input.containerKeyEpochId ?? null,
     directGrants: [...input.directGrants],
     referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
@@ -1275,6 +1280,7 @@ test("verifyContainerAccessManifest accepts a signed child create under a writab
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash: parent.manifestHash,
+    metadataDocumentId: "child-metadata-document",
     containerKeyEpochId: "child-key-epoch-1",
     directGrants: [
       {
@@ -1302,6 +1308,7 @@ test("verifyContainerAccessManifest accepts a signed child create under a writab
     eventHash: event.eventHash,
     parentContainerId: parent.state.containerId,
     parentManifestHash: parent.manifestHash,
+    metadataDocumentId: createBody.metadataDocumentId,
     containerKeyEpochId: "child-key-epoch-1",
     directGrants: createBody.directGrants,
     referencedPrincipalHeads: [],
@@ -1467,6 +1474,7 @@ test("verifyContainerAccessManifest rejects child create signed without parent w
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash: parent.manifestHash,
+    metadataDocumentId: "child-metadata-document",
     containerKeyEpochId: "child-key-epoch-1",
     directGrants: [
       {
@@ -1494,6 +1502,7 @@ test("verifyContainerAccessManifest rejects child create signed without parent w
     eventHash: event.eventHash,
     parentContainerId: parent.state.containerId,
     parentManifestHash: parent.manifestHash,
+    metadataDocumentId: body.metadataDocumentId,
     containerKeyEpochId: "child-key-epoch-1",
     directGrants: body.directGrants,
     referencedPrincipalHeads: [],
@@ -1600,6 +1609,7 @@ test("verifyContainerAccessManifest rejects parent manifest hash mismatches", as
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash: wrongParentManifestHash,
+    metadataDocumentId: "child-metadata-document",
     containerKeyEpochId: "child-key-epoch-1",
     directGrants: [],
     referencedPrincipalHeads: [],
@@ -1621,6 +1631,7 @@ test("verifyContainerAccessManifest rejects parent manifest hash mismatches", as
     eventHash: event.eventHash,
     parentContainerId: parent.state.containerId,
     parentManifestHash: wrongParentManifestHash,
+    metadataDocumentId: body.metadataDocumentId,
     containerKeyEpochId: "child-key-epoch-1",
     directGrants: [],
     referencedPrincipalHeads: [],
@@ -2322,6 +2333,7 @@ test("container managed-principal grants commit matching principal heads", async
     eventHash: await fixtureHash("container-event"),
     parentContainerId: null,
     parentManifestHash: null,
+    metadataDocumentId: "container-1-metadata-document",
     containerKeyEpochId: "container-key-epoch-1",
     directGrants: [groupGrant],
     referencedPrincipalHeads: [],

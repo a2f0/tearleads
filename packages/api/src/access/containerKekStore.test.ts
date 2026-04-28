@@ -76,6 +76,7 @@ async function createContainerManifestFixture(input: {
       eventHash,
       parentContainerId: null,
       parentManifestHash: null,
+      metadataDocumentId: `${input.containerId}-metadata-document`,
       containerKeyEpochId: input.containerKeyEpochId,
       directGrants: [...input.directGrants],
       referencedPrincipalHeads: [],

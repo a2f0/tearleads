@@ -195,6 +195,7 @@ Container manifest inputs:
 
 - container id and organization id;
 - parent container id and parent manifest hash;
+- authoritative metadata document id for the container;
 - direct grants on this container;
 - referenced principal policy heads for direct managed-principal grants;
 - current container KEK epoch id;

@@ -37,7 +37,13 @@ import { storeVerifiedAccessManifest } from "../../access/accessManifestStore";
 import { storeVerifiedContainerKekState } from "../../access/containerKekStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { containers, objectRecipientEnvelopes, users } from "../../schema";
+import {
+  containerMetadataDocuments,
+  containers,
+  documents,
+  objectRecipientEnvelopes,
+  users,
+} from "../../schema";
 
 interface RootContainerFixture {
   readonly id: string;
@@ -246,10 +252,12 @@ async function bootstrapRootV2(
   const rootContainer = await getRootContainerForUser(owner.userId);
   const ownerKey = await userRecipientKey(owner);
   const containerKeyEpochId = crypto.randomUUID();
+  const metadataDocumentId = crypto.randomUUID();
   const body: ContainerAccessEventBodyV2 = {
     eventType: "container.create",
     parentContainerId: null,
     parentManifestHash: null,
+    metadataDocumentId,
     containerKeyEpochId,
     directGrants: [
       {
@@ -277,6 +285,7 @@ async function bootstrapRootV2(
       eventHash: event.eventHash,
       parentContainerId: null,
       parentManifestHash: null,
+      metadataDocumentId,
       containerKeyEpochId,
       directGrants: body.directGrants,
       referencedPrincipalHeads: [],
@@ -326,10 +335,12 @@ async function buildCreateRequest(input: {
   const containerKeyEpochId = crypto.randomUUID();
   const parentManifestHash =
     input.parentManifestHashOverride ?? input.parent.manifestHash;
+  const metadataDocumentId = crypto.randomUUID();
   const body: ContainerAccessEventBodyV2 = {
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash,
+    metadataDocumentId,
     containerKeyEpochId,
     directGrants: [],
     referencedPrincipalHeads: [],
@@ -354,6 +365,7 @@ async function buildCreateRequest(input: {
       eventHash: event.eventHash,
       parentContainerId: parent.state.containerId,
       parentManifestHash,
+      metadataDocumentId,
       containerKeyEpochId,
       directGrants: [],
       referencedPrincipalHeads: [],
@@ -667,6 +679,72 @@ async function createV2Child(input: {
 async function countObjectRecipientEnvelopes(): Promise<number> {
   return (await db.select().from(objectRecipientEnvelopes)).length;
 }
+
+test("POST /v2/containers materializes the signed metadata document binding", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const request = await buildCreateRequest({
+    containerId: crypto.randomUUID(),
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+
+  const created = await expectV2MutationSuccess(
+    await postV2Mutation({
+      path: "/v2/containers",
+      request,
+      token: owner.token,
+    }),
+  );
+  const createdManifest = accessManifestFromResponse(created);
+  const metadataDocumentId =
+    asVerifiedContainerManifest(createdManifest).state.metadataDocumentId;
+  const [binding] = await db
+    .select({
+      containerId: containerMetadataDocuments.containerId,
+      documentId: containerMetadataDocuments.documentId,
+    })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.containerId, created.containerId))
+    .limit(1);
+
+  expect(binding).toEqual({
+    containerId: created.containerId,
+    documentId: metadataDocumentId,
+  });
+});
+
+test("POST /v2/containers rejects metadata document id reuse", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const request = await buildCreateRequest({
+    containerId: crypto.randomUUID(),
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const metadataDocumentId = (
+    request.body as { readonly metadataDocumentId: string }
+  ).metadataDocumentId;
+  await db.insert(documents).values({
+    id: metadataDocumentId,
+    createdByFingerprint: owner.fingerprint,
+  });
+
+  const response = await postV2Mutation({
+    path: "/v2/containers",
+    request,
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Container metadata document already exists",
+  });
+});
 
 test("POST /v2/containers rejects child creates under stale parent manifests", async () => {
   const owner = createTestUser();
