@@ -171,7 +171,6 @@ async function persistLocalRegistrationState(
       rootMetadataAccessEpoch: response.rootMetadataAccessEpoch,
       rootMetadataAccessStateHash: response.rootMetadataAccessStateHash,
       rootMetadataDocumentId: response.rootMetadataDocumentId,
-      rootMetadataRecipientEnvelopes: bootstrap.rootMetadataRecipientEnvelopes,
       rootMetadataSnapshot: bytesToBase64(bootstrap.initialUpdate),
       userId: response.userId,
     });

@@ -58,16 +58,6 @@ export function createPendingUpdateFields(
   };
 }
 
-export function serializeDocumentRecipientEnvelopes(
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope> | null,
-): string | null {
-  if (!envelopes || envelopes.length === 0) {
-    return null;
-  }
-
-  return JSON.stringify(sortDocumentRecipientEnvelopes(envelopes));
-}
-
 export async function createDocumentEncryptionMaterial(
   recipientPublicKeys: Uint8Array[],
 ): Promise<DocumentEncryptionMaterial> {

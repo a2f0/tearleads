@@ -459,7 +459,6 @@ function createNotesPersistence(): NotesPersistence & {
         accessEpoch: input.accessEpoch,
         containerId: input.containerId,
         documentId: input.documentId,
-        documentRecipientEnvelopes: note?.documentRecipientEnvelopes ?? null,
         id: note?.id ?? input.documentId,
         loroSnapshot: note?.loroSnapshot ?? "",
         text: note?.text ?? "",
@@ -484,10 +483,6 @@ function createNotesPersistence(): NotesPersistence & {
         accessEpoch: Math.max(note.accessEpoch, input.accessEpoch),
         containerId: input.containerId,
         documentId: input.documentId,
-        documentRecipientEnvelopes:
-          input.accessEpoch > note.accessEpoch
-            ? null
-            : note.documentRecipientEnvelopes,
       };
 
       return {
@@ -949,7 +944,6 @@ test("notes store clears V2 document state when access epoch changes", async () 
     accessStateHash: "access-state-hash-1",
     containerId: "container-a",
     documentId: "remote-document",
-    documentRecipientEnvelopes: "legacy-envelope-bundle",
     id: "epoch-note",
     lastCommitLsn: "0/10",
     loroSnapshot: await createPersistedNoteSnapshot("Existing note"),
@@ -987,7 +981,6 @@ test("notes store clears V2 document state when access epoch changes", async () 
     accessStateHash: "access-state-hash-2",
     containerId: "container-b",
     documentId: "remote-document",
-    documentRecipientEnvelopes: null,
     lastCommitLsn: "0/10",
     v2ContentKeyBundle: null,
     v2DocumentKekTargets: null,

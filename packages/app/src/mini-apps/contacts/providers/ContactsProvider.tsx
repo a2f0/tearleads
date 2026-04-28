@@ -228,7 +228,6 @@ async function createContactDocument() {
 }
 
 type NullableContactRuntimeField =
-  | "documentRecipientEnvelopes"
   | "lastCommitLsn"
   | "v2ContentKeyBundle"
   | "v2DocumentKekTargets"
@@ -258,11 +257,6 @@ async function persistContact(
   const nextRecord: DocumentRecord = {
     id: contact.entry.userId,
     documentId: nextDocumentId,
-    documentRecipientEnvelopes: resolveNullableContactRuntimeField(
-      patch,
-      "documentRecipientEnvelopes",
-      contact.record.documentRecipientEnvelopes,
-    ),
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(contact.doc)),
     accessEpoch: patch.accessEpoch ?? contact.record.accessEpoch ?? 1,
@@ -362,7 +356,6 @@ async function initializeStoredContact(
     record = {
       id: entry.userId,
       documentId: null,
-      documentRecipientEnvelopes: null,
       loroSnapshot: bytesToBase64(initialUpdate),
       accessEpoch: 1,
       accessStateHash: null,
@@ -574,7 +567,6 @@ async function ensureContactDocumentForSync(
     await persistContact(state, contact, {
       ...created.persistedState,
       documentId,
-      documentRecipientEnvelopes: null,
     });
     state.runtime.log(
       `Created contact document: ${created.documentId} (${contact.entry.userId})`,
@@ -612,7 +604,6 @@ async function applySyncedContactUpdates(
 
   await persistContact(state, contact, {
     ...synced.persistedState,
-    documentRecipientEnvelopes: null,
     lastCommitLsn:
       synced.response.commitLsn ?? contact.record.lastCommitLsn ?? null,
   });
@@ -759,7 +750,6 @@ async function importContactEntry(
       record: {
         id: entry.userId,
         documentId: null,
-        documentRecipientEnvelopes: null,
         loroSnapshot: bytesToBase64(initialUpdate),
         accessEpoch: 1,
         accessStateHash: null,

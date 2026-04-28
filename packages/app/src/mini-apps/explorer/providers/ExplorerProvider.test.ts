@@ -32,10 +32,6 @@ import {
   loadContainers,
   saveContainer,
 } from "../../../data/containers";
-import {
-  createDocumentEncryptionMaterial,
-  serializeDocumentRecipientEnvelopes,
-} from "../../../data/documentSync";
 import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
 import {
   buildMaterializedDocumentV2CreatePlan,
@@ -896,7 +892,6 @@ test("explorer store creates authenticated child containers through the API befo
         accessEpoch: 1,
         accessStateHash: "root-access-state-hash-1",
         documentId: "root-metadata-document",
-        documentRecipientEnvelopes: null,
         id: "root-container",
         lastCommitLsn: null,
         loroSnapshot: bytesToBase64(rootInitialUpdate),
@@ -1071,7 +1066,6 @@ test("explorer sync creates queued local containers parent before child", async 
         accessEpoch: 1,
         accessStateHash: "stale-root-access-state-hash",
         documentId: "root-metadata-document",
-        documentRecipientEnvelopes: null,
         id: "root-container",
         lastCommitLsn: null,
         loroSnapshot: bytesToBase64(rootInitialUpdate),
@@ -1560,9 +1554,6 @@ test("explorer store shares an authenticated container without reseeding legacy 
         name: "Docs",
       },
     );
-    const initialEncryption = await createDocumentEncryptionMaterial([
-      localKeyPair.publicKey,
-    ]);
     await saveDocumentRecord(
       runtime.execSql,
       {
@@ -1573,9 +1564,6 @@ test("explorer store shares an authenticated container without reseeding legacy 
         accessEpoch: 1,
         accessStateHash: "access-state-hash-1",
         documentId: "metadata-document-1",
-        documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-          initialEncryption.documentRecipientEnvelopes,
-        ),
         id: "child-container",
         loroSnapshot: bytesToBase64(initialUpdate),
         v2ContentKeyBundle: "stale-content-key-bundle",
@@ -1607,7 +1595,6 @@ test("explorer store shares an authenticated container without reseeding legacy 
       const rows = await runtime.execSql(
         `
           SELECT
-            document_recipient_envelopes AS envelopes,
             v2_content_key_bundle,
             v2_document_kek_targets,
             v2_document_manifest_bundle
@@ -1618,7 +1605,6 @@ test("explorer store shares an authenticated container without reseeding legacy 
       );
       return (
         writerProjectionCallCount > 0 &&
-        readSqlRowValue(rows[0] ?? {}, "envelopes") === null &&
         readSqlRowValue(rows[0] ?? {}, "v2_content_key_bundle") === null &&
         readSqlRowValue(rows[0] ?? {}, "v2_document_kek_targets") === null &&
         readSqlRowValue(rows[0] ?? {}, "v2_document_manifest_bundle") === null
@@ -1719,7 +1705,6 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
         accessEpoch: 1,
         accessStateHash: "metadata-access-state-hash-1",
         documentId: "metadata-document-1",
-        documentRecipientEnvelopes: null,
         id: "child-container",
         lastCommitLsn: null,
         loroSnapshot: bytesToBase64(initialUpdate),

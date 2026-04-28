@@ -260,7 +260,6 @@ async function saveContainerMetadataRecord(input: {
         app_kind,
         local_id,
         document_id,
-        document_recipient_envelopes,
         loro_snapshot,
         access_epoch,
         access_state_hash,
@@ -274,7 +273,6 @@ async function saveContainerMetadataRecord(input: {
         :appKind,
         :localId,
         :documentId,
-        :documentRecipientEnvelopes,
         :loroSnapshot,
         :accessEpoch,
         :accessStateHash,
@@ -286,8 +284,6 @@ async function saveContainerMetadataRecord(input: {
       )
       ON CONFLICT(app_kind, local_id) DO UPDATE SET
         document_id = excluded.document_id,
-        document_recipient_envelopes =
-          excluded.document_recipient_envelopes,
         loro_snapshot = excluded.loro_snapshot,
         access_epoch = excluded.access_epoch,
         access_state_hash = excluded.access_state_hash,
@@ -303,7 +299,6 @@ async function saveContainerMetadataRecord(input: {
       ":accessStateHash": record.accessStateHash ?? null,
       ":appKind": CONTAINER_METADATA_APP_KIND,
       ":documentId": record.documentId,
-      ":documentRecipientEnvelopes": record.documentRecipientEnvelopes,
       ":lastCommitLsn": record.lastCommitLsn ?? null,
       ":localId": containerId,
       ":loroSnapshot": record.loroSnapshot,

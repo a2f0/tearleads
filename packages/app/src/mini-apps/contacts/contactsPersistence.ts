@@ -133,7 +133,6 @@ export const sqlContactsPersistence: ContactsPersistence = {
           projection.is_self,
           documents.local_id AS id,
           documents.document_id,
-          documents.document_recipient_envelopes,
           documents.loro_snapshot,
           documents.access_epoch,
           documents.access_state_hash,

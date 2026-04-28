@@ -550,7 +550,6 @@ test("contacts store creates and syncs a contact document through V2", async () 
   const record = persistence.getContact("peer-user-1")?.record;
   expect(createCalls).toEqual([{ linkedContainerIds: ["root-container"] }]);
   expect(syncCalls).toEqual([{ minLsn: null, outgoingUpdateCount: 1 }]);
-  expect(record?.documentRecipientEnvelopes).toBeNull();
   expect(record?.v2ContentKeyBundle).toBeString();
   expect(record?.v2DocumentKekTargets).toBeString();
   expect(record?.v2DocumentManifestBundle).toBeString();
@@ -615,7 +614,6 @@ test("contacts store keeps contact updates on V2 without recipient fanout", asyn
     { minLsn: "0/10", outgoingUpdateCount: 1 },
   ]);
   expect(persistence.getContact("peer-user-1")?.record).toMatchObject({
-    documentRecipientEnvelopes: null,
     lastCommitLsn: "0/20",
   });
 });

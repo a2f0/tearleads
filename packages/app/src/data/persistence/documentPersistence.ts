@@ -9,7 +9,6 @@ import {
 export interface DocumentRecord {
   id: string;
   documentId: string | null;
-  documentRecipientEnvelopes: string | null;
   loroSnapshot: string;
   accessEpoch: number;
   accessStateHash?: string | null;
@@ -43,7 +42,6 @@ const documentTables: ReadonlyArray<SqlTableSchema> = [
         app_kind TEXT NOT NULL,
         local_id TEXT NOT NULL,
         document_id TEXT,
-        document_recipient_envelopes TEXT,
         loro_snapshot TEXT NOT NULL,
         access_epoch INTEGER NOT NULL DEFAULT 1,
         access_state_hash TEXT,
@@ -85,55 +83,12 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
     for (const table of documentTables) {
       await lockedExecSql(table.createSql);
     }
-    const columnRows = await lockedExecSql("PRAGMA table_info(documents)");
-    const existingColumns = new Set(
-      columnRows.map((row) => readSqlRowValue(row, "name")),
-    );
-
-    if (!existingColumns.has("access_state_hash")) {
-      await lockedExecSql(`
-        ALTER TABLE documents
-        ADD COLUMN access_state_hash TEXT
-      `);
-    }
-
-    if (!existingColumns.has("last_commit_lsn")) {
-      await lockedExecSql(`
-        ALTER TABLE documents
-        ADD COLUMN last_commit_lsn TEXT
-      `);
-    }
-
-    if (!existingColumns.has("v2_document_manifest_bundle")) {
-      await lockedExecSql(`
-        ALTER TABLE documents
-        ADD COLUMN v2_document_manifest_bundle TEXT
-      `);
-    }
-
-    if (!existingColumns.has("v2_content_key_bundle")) {
-      await lockedExecSql(`
-        ALTER TABLE documents
-        ADD COLUMN v2_content_key_bundle TEXT
-      `);
-    }
-
-    if (!existingColumns.has("v2_document_kek_targets")) {
-      await lockedExecSql(`
-        ALTER TABLE documents
-        ADD COLUMN v2_document_kek_targets TEXT
-      `);
-    }
   });
 }
 
 export function parseDocumentRecord(row: SqlRow): DocumentRecord {
   const id = readSqlRowValue(row, "id");
   const documentId = readSqlRowValue(row, "document_id");
-  const documentRecipientEnvelopes = readSqlRowValue(
-    row,
-    "document_recipient_envelopes",
-  );
   const loroSnapshot = readSqlRowValue(row, "loro_snapshot");
   const accessEpoch = readSqlRowValue(row, "access_epoch");
   const accessStateHash = readSqlRowValue(row, "access_state_hash");
@@ -148,11 +103,6 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
   const record: DocumentRecord = {
     id: String(id ?? ""),
     documentId: documentId === null ? null : String(documentId),
-    documentRecipientEnvelopes:
-      documentRecipientEnvelopes === null ||
-      documentRecipientEnvelopes === undefined
-        ? null
-        : String(documentRecipientEnvelopes),
     loroSnapshot: String(loroSnapshot ?? ""),
     accessEpoch: typeof accessEpoch === "number" ? accessEpoch : 1,
     lastCommitLsn:
@@ -215,7 +165,6 @@ export async function loadDocumentRecord(
       SELECT
         local_id AS id,
         document_id,
-        document_recipient_envelopes,
         loro_snapshot,
         access_epoch,
         access_state_hash,
@@ -268,7 +217,6 @@ export async function saveDocumentRecord(
           app_kind,
           local_id,
           document_id,
-          document_recipient_envelopes,
           loro_snapshot,
           access_epoch,
           access_state_hash,
@@ -282,7 +230,6 @@ export async function saveDocumentRecord(
           :appKind,
           :localId,
           :documentId,
-          :documentRecipientEnvelopes,
           :loroSnapshot,
           :accessEpoch,
           :accessStateHash,
@@ -294,8 +241,6 @@ export async function saveDocumentRecord(
         )
         ON CONFLICT(app_kind, local_id) DO UPDATE SET
           document_id = excluded.document_id,
-          document_recipient_envelopes =
-            excluded.document_recipient_envelopes,
           loro_snapshot = excluded.loro_snapshot,
           access_epoch = excluded.access_epoch,
           access_state_hash = excluded.access_state_hash,
@@ -309,7 +254,6 @@ export async function saveDocumentRecord(
       {
         ...getScopeBind(scope),
         ":documentId": record.documentId,
-        ":documentRecipientEnvelopes": record.documentRecipientEnvelopes,
         ":loroSnapshot": record.loroSnapshot,
         ":accessEpoch": record.accessEpoch,
         ":accessStateHash": record.accessStateHash ?? null,
