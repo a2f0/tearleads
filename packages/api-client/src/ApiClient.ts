@@ -1,8 +1,6 @@
-import { createDocument, syncDocument } from "@tearleads/loro/client";
 import type {
   BlobV2AttachmentBindRequest,
   BlobV2AttachmentDetachRequest,
-  CommitDocumentChangeRequest,
   DocumentV2CreateRequest,
   DocumentV2SyncRequest,
   StageBlobRequest,
@@ -28,7 +26,6 @@ import {
   shareContainer,
 } from "./routes/containers";
 import {
-  commitDocumentChange,
   createDocumentV2,
   getDocumentV2WriterProjection,
   linkDocumentToContainer,
@@ -215,17 +212,6 @@ export class ApiClient {
     return getCurrentPrincipalPolicy(this.request, principalType, principalId);
   }
 
-  createDocument(
-    linkedContainerIds: string[],
-    expectedLinkedContainerAccessStateHashes: Record<string, string>,
-  ) {
-    return createDocument(
-      this.request,
-      linkedContainerIds,
-      expectedLinkedContainerAccessStateHashes,
-    );
-  }
-
   createDocumentV2(input: DocumentV2CreateRequest) {
     return createDocumentV2(this.request, input);
   }
@@ -319,27 +305,6 @@ export class ApiClient {
     );
   }
 
-  syncDocument(
-    documentId: string,
-    accessEpoch: number,
-    localVersionVector: string | null,
-    outgoingUpdates: Parameters<typeof syncDocument>[4],
-    documentRecipientEnvelopes?: SerializedRecipientEnvelope[],
-    minLsn?: string,
-    expectedAccessStateHash?: string,
-  ) {
-    return syncDocument(
-      this.request,
-      documentId,
-      accessEpoch,
-      localVersionVector,
-      outgoingUpdates,
-      documentRecipientEnvelopes,
-      minLsn,
-      expectedAccessStateHash,
-    );
-  }
-
   syncDocumentV2(documentId: string, input: DocumentV2SyncRequest) {
     return syncDocumentV2(this.request, documentId, input);
   }
@@ -366,9 +331,5 @@ export class ApiClient {
 
   listDocumentAttachments(documentId: string) {
     return listDocumentAttachments(this.request, documentId);
-  }
-
-  commitDocumentChange(documentId: string, input: CommitDocumentChangeRequest) {
-    return commitDocumentChange(this.request, documentId, input);
   }
 }
