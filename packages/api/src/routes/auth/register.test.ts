@@ -50,7 +50,9 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
   expect(body.rootMetadataAccessEpoch).toBe(1);
   expect(typeof body.rootMetadataAccessStateHash).toBe("string");
   expect(body.rootMetadataAccessStateHash.length).toBeGreaterThan(0);
-  expect(body.rootMetadataRecipientEncapsulationPublicKeys).toHaveLength(1);
+  expect(body).not.toHaveProperty(
+    "rootMetadataRecipientEncapsulationPublicKeys",
+  );
 
   const stored = await get(fingerprint);
   invariant(stored, "expected publicKey to be stored in redis by fingerprint");

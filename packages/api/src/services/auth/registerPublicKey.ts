@@ -387,8 +387,6 @@ async function runRegisterPublicKeyTransaction(
       rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
       rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,
       rootMetadataDocumentId: rootMetadata.metadataDocumentId,
-      rootMetadataRecipientEncapsulationPublicKeys:
-        rootMetadata.metadataRecipientEncapsulationPublicKeys,
     };
   });
 }
@@ -464,8 +462,6 @@ export async function registerPublicKey(
     rootMetadataDocumentId: result.rootMetadataDocumentId,
     rootMetadataAccessEpoch: result.rootMetadataAccessEpoch,
     rootMetadataAccessStateHash: result.rootMetadataAccessStateHash,
-    rootMetadataRecipientEncapsulationPublicKeys:
-      result.rootMetadataRecipientEncapsulationPublicKeys,
     challenge: challengeHex,
   };
 }

@@ -41,7 +41,6 @@ test("isPublicKeyResponse", () => {
       rootMetadataDocumentId: "doc-root",
       rootMetadataAccessEpoch: 1,
       rootMetadataAccessStateHash: "root-access-state-hash",
-      rootMetadataRecipientEncapsulationPublicKeys: ["pub-key"],
       challenge: "deadbeef",
     }),
   ).toBe(true);

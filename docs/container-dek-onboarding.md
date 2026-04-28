@@ -80,7 +80,7 @@ endpoint returns 409.
 
 The response includes `userId`, `organizationId`, `rootContainerId`,
 `rootMetadataDocumentId`, `rootMetadataAccessEpoch`,
-`rootMetadataRecipientEncapsulationPublicKeys`, and `challenge`.
+`rootMetadataAccessStateHash`, and `challenge`.
 
 1. Set `userId`, `organizationId`, and `rootContainerId` in session state.
 2. Persist the root container and root metadata document state to local SQLite.
@@ -159,7 +159,7 @@ interface PublicKeyResponse {
   rootContainerId: string;
   rootMetadataDocumentId: string;
   rootMetadataAccessEpoch: number;
-  rootMetadataRecipientEncapsulationPublicKeys: string[];
+  rootMetadataAccessStateHash: string;
   challenge: string;
 }
 ```
