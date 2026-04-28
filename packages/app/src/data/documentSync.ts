@@ -31,21 +31,6 @@ interface IncomingUpdateDecryptionBatch {
   updates: SyncDocumentResponse["updates"];
 }
 
-function isSerializedRecipientEnvelope(
-  value: unknown,
-): value is SerializedRecipientEnvelope {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "keyFingerprint" in value &&
-    typeof value.keyFingerprint === "string" &&
-    "kemCipherText" in value &&
-    typeof value.kemCipherText === "string" &&
-    "wrappedKey" in value &&
-    typeof value.wrappedKey === "string"
-  );
-}
-
 function sortDocumentRecipientEnvelopes(
   envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
 ): SerializedRecipientEnvelope[] {
@@ -108,28 +93,6 @@ export function serializeDocumentRecipientEnvelopes(
   }
 
   return JSON.stringify(sortDocumentRecipientEnvelopes(envelopes));
-}
-
-export function parseDocumentRecipientEnvelopes(
-  serializedEnvelopes: string | null | undefined,
-): SerializedRecipientEnvelope[] | null {
-  if (!serializedEnvelopes) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(serializedEnvelopes);
-    if (
-      !Array.isArray(parsed) ||
-      !parsed.every(isSerializedRecipientEnvelope)
-    ) {
-      return null;
-    }
-
-    return sortDocumentRecipientEnvelopes(parsed);
-  } catch {
-    return null;
-  }
 }
 
 export async function createDocumentEncryptionMaterial(
@@ -248,57 +211,6 @@ export async function maybeSeedRewrappedDocumentRecipientEnvelopes(input: {
   );
 
   return rewrappedSync ?? synced;
-}
-
-export function resolveSyncedDocumentRecipientEnvelopes(input: {
-  currentAccessEpoch: number;
-  currentDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
-  generatedDocumentRecipientEnvelopes?: ReadonlyArray<SerializedRecipientEnvelope> | null;
-  synced: SyncDocumentResponse;
-}): SerializedRecipientEnvelope[] | null {
-  const {
-    currentAccessEpoch,
-    currentDocumentRecipientEnvelopes,
-    generatedDocumentRecipientEnvelopes,
-    synced,
-  } = input;
-
-  if (synced.currentAccessEpoch !== currentAccessEpoch) {
-    return synced.documentRecipientEnvelopes
-      ? sortDocumentRecipientEnvelopes(synced.documentRecipientEnvelopes)
-      : null;
-  }
-
-  if (synced.documentRecipientEnvelopes) {
-    return sortDocumentRecipientEnvelopes(synced.documentRecipientEnvelopes);
-  }
-
-  if (
-    currentDocumentRecipientEnvelopes === null &&
-    generatedDocumentRecipientEnvelopes
-  ) {
-    return sortDocumentRecipientEnvelopes(generatedDocumentRecipientEnvelopes);
-  }
-
-  return currentDocumentRecipientEnvelopes
-    ? sortDocumentRecipientEnvelopes(currentDocumentRecipientEnvelopes)
-    : null;
-}
-
-export function requiresBaselineAfterDocumentEpochChange(input: {
-  previousAccessEpoch: number;
-  resolvedDocumentRecipientEnvelopes: ReadonlyArray<SerializedRecipientEnvelope> | null;
-  synced: SyncDocumentResponse;
-}): boolean {
-  if (input.synced.currentAccessEpoch === input.previousAccessEpoch) {
-    return false;
-  }
-
-  if (input.synced.documentRecipientEnvelopeAction === "rotate") {
-    return true;
-  }
-
-  return input.resolvedDocumentRecipientEnvelopes === null;
 }
 
 function groupUpdatesByAccessEpoch(

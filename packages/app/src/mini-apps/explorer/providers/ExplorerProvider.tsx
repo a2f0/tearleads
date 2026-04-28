@@ -210,21 +210,40 @@ function resetExplorerStore(state: ExplorerStoreState) {
   });
 }
 
+type NullableExplorerDocumentField =
+  | "accessStateHash"
+  | "documentRecipientEnvelopes"
+  | "lastCommitLsn"
+  | "v2ContentKeyBundle"
+  | "v2DocumentKekTargets"
+  | "v2DocumentManifestBundle";
+
+function resolveNullableExplorerDocumentField(
+  patch: Partial<ExplorerContainerPatch>,
+  key: NullableExplorerDocumentField,
+  currentValue: string | null | undefined,
+  resetWhenUnpatched = false,
+): string | null {
+  if (Object.hasOwn(patch, key)) {
+    return patch[key] ?? null;
+  }
+
+  return resetWhenUnpatched ? null : (currentValue ?? null);
+}
+
 async function persistContainerState(
   state: ExplorerStoreState,
   containerState: ContainerState,
   patch: Partial<ExplorerContainerPatch> = {},
   updateView = true,
 ): Promise<DocumentRecord> {
-  const hasDocumentRecipientEnvelopesPatch = Object.hasOwn(
-    patch,
-    "documentRecipientEnvelopes",
-  );
   const currentDocumentId = containerState.record.documentId ?? null;
   const nextDocumentId = patch.documentId ?? currentDocumentId;
-  const hasLastCommitLsnPatch = Object.hasOwn(patch, "lastCommitLsn");
+  const documentIdChanged = nextDocumentId !== currentDocumentId;
   const nextAccessEpoch =
     patch.accessEpoch ?? containerState.record.accessEpoch;
+  const securityContextChanged =
+    documentIdChanged || nextAccessEpoch !== containerState.record.accessEpoch;
   const metadata = readContainerMetadataValue(
     containerState.doc,
     getFallbackContainerName(containerState.container.parentId),
@@ -244,21 +263,45 @@ async function persistContainerState(
   const nextRecord: DocumentRecord = {
     id: containerState.container.id,
     documentId: nextDocumentId,
-    documentRecipientEnvelopes: hasDocumentRecipientEnvelopesPatch
-      ? (patch.documentRecipientEnvelopes ?? null)
-      : nextAccessEpoch !== containerState.record.accessEpoch
-        ? null
-        : containerState.record.documentRecipientEnvelopes,
+    documentRecipientEnvelopes: resolveNullableExplorerDocumentField(
+      patch,
+      "documentRecipientEnvelopes",
+      containerState.record.documentRecipientEnvelopes,
+      securityContextChanged,
+    ),
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(containerState.doc)),
     accessEpoch: nextAccessEpoch,
-    accessStateHash:
-      patch.accessStateHash ?? containerState.record.accessStateHash ?? null,
-    lastCommitLsn: hasLastCommitLsnPatch
-      ? (patch.lastCommitLsn ?? null)
-      : nextDocumentId !== currentDocumentId
-        ? null
-        : (containerState.record.lastCommitLsn ?? null),
+    accessStateHash: resolveNullableExplorerDocumentField(
+      patch,
+      "accessStateHash",
+      containerState.record.accessStateHash,
+      securityContextChanged,
+    ),
+    lastCommitLsn: resolveNullableExplorerDocumentField(
+      patch,
+      "lastCommitLsn",
+      containerState.record.lastCommitLsn,
+      documentIdChanged,
+    ),
+    v2ContentKeyBundle: resolveNullableExplorerDocumentField(
+      patch,
+      "v2ContentKeyBundle",
+      containerState.record.v2ContentKeyBundle,
+      securityContextChanged,
+    ),
+    v2DocumentKekTargets: resolveNullableExplorerDocumentField(
+      patch,
+      "v2DocumentKekTargets",
+      containerState.record.v2DocumentKekTargets,
+      securityContextChanged,
+    ),
+    v2DocumentManifestBundle: resolveNullableExplorerDocumentField(
+      patch,
+      "v2DocumentManifestBundle",
+      containerState.record.v2DocumentManifestBundle,
+      securityContextChanged,
+    ),
   };
 
   await state.persistence.saveContainer(
@@ -588,7 +631,7 @@ async function shareExplorerContainerWithUser(
     accessEpoch: shared.metadataAccessEpoch,
     accessStateHash: shared.metadataAccessStateHash,
     documentId: shared.metadataDocumentId,
-    documentRecipientEnvelopes: existingState.record.documentRecipientEnvelopes,
+    documentRecipientEnvelopes: null,
     metadataDocumentId: shared.metadataDocumentId,
   });
   await syncAgent.primeDocumentsForSharedSubtree(containerId);

@@ -1,7 +1,25 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
+import {
+  type AccessEventV2,
+  computeAccessEventHash,
+  computeWriteHeaderHash,
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+  type WriteHeaderV2,
+  wrapDekForRecipients,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { SyncDocumentResponse } from "@tearleads/loro";
+import type {
+  DocumentV2CreateRequest,
+  DocumentV2SyncRequest,
+} from "@tearleads/validators/request";
+import type {
+  ContainerV2WriterProjectionResponse,
+  DocumentV2CreateResponse,
+  DocumentV2SyncResponse,
+  DocumentV2WriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import {
@@ -9,19 +27,20 @@ import {
   ensureContainerTables,
   loadContainers,
   saveContainer,
-  sqlDocumentContainerProjectionPersistence,
 } from "../../../data/containers";
 import {
   createDocumentEncryptionMaterial,
   serializeDocumentRecipientEnvelopes,
 } from "../../../data/documentSync";
 import {
+  buildMaterializedDocumentV2CreatePlan,
+  persistedDocumentV2CreateStateFromResponse,
+} from "../../../data/documents/documentV2Runtime";
+import {
   ensureDocumentTables,
   saveDocumentRecord,
 } from "../../../data/persistence/documentPersistence";
 import { readSqlRowValue } from "../../../data/persistence/sqlSchema";
-import { sqlNotesPersistence } from "../../notes/notesPersistence";
-import { primeNotesStore } from "../../notes/providers/NotesProvider";
 import { sqlExplorerPersistence } from "../explorerPersistence";
 import { createExplorerStore } from "./ExplorerProvider";
 import {
@@ -35,37 +54,274 @@ type ListedContainer = NonNullable<
   Awaited<ReturnType<TestRuntime["apiClient"]["listContainers"]>>
 >[number];
 
-function createSyncDocumentResponse(input: {
-  accessEpoch: number;
-  commitLsn?: string | null;
-  currentAccessStateHash?: string;
-  documentId: string;
-  recipientEncapsulationPublicKeys: string[];
-  acceptedOutgoingUpdateIds?: string[];
-  canonicalDocumentRecipientEnvelopesAdopted?: boolean;
-  documentRecipientEnvelopeAction?: SyncDocumentResponse["documentRecipientEnvelopeAction"];
-  documentRecipientEnvelopes?: SyncDocumentResponse["documentRecipientEnvelopes"];
-  missingUpdateEpochs?: SyncDocumentResponse["missingUpdateEpochs"];
-  rotateBaselineSourceVersionVector?: string | null;
-  updates?: SyncDocumentResponse["updates"];
-}): SyncDocumentResponse {
+async function explorerMetadataV2FixtureHash(label: string): Promise<string> {
+  return toFingerprint(new TextEncoder().encode(`explorer-v2:${label}`));
+}
+
+async function createExplorerMetadataV2ContainerProjection(input: {
+  containerId: string;
+  encapsulationPublicKey: Uint8Array;
+  organizationId: string;
+  userId: string;
+}): Promise<ContainerV2WriterProjectionResponse> {
+  const manifestHash = await explorerMetadataV2FixtureHash(
+    `${input.containerId}:manifest`,
+  );
+  const eventHash = await explorerMetadataV2FixtureHash(
+    `${input.containerId}:event`,
+  );
+  const keyEpochHash = await explorerMetadataV2FixtureHash(
+    `${input.containerId}:key-epoch`,
+  );
+  const keyTargetHash = await explorerMetadataV2FixtureHash(
+    `${input.containerId}:key-target`,
+  );
+  const containerKeyEpochId = `${input.containerId}-key-epoch-1`;
+  const containerKek = crypto.getRandomValues(new Uint8Array(32));
+  const [recipient] = await wrapDekForRecipients(containerKek, [
+    input.encapsulationPublicKey,
+  ]);
+  if (!recipient) {
+    throw new Error("Expected V2 explorer metadata fixture recipient wrap.");
+  }
+
   return {
-    acceptedOutgoingUpdateIds: input.acceptedOutgoingUpdateIds ?? [],
-    canonicalDocumentRecipientEnvelopesAdopted:
-      input.canonicalDocumentRecipientEnvelopesAdopted ?? false,
-    commitLsn: input.commitLsn ?? null,
-    currentAccessEpoch: input.accessEpoch,
-    currentAccessStateHash:
-      input.currentAccessStateHash ?? `access-state-hash-${input.accessEpoch}`,
+    containerId: input.containerId,
+    organizationId: input.organizationId,
+    path: [
+      {
+        event: { event: {}, body: {}, eventHash },
+        manifest: {},
+        manifestHash,
+        state: {
+          containerId: input.containerId,
+          organizationId: input.organizationId,
+        },
+      },
+    ],
+    containerKeks: [
+      {
+        containerId: input.containerId,
+        accessManifestHash: manifestHash,
+        containerKeyEpochId,
+        containerKeyEpoch: 1,
+        keyEpoch: {
+          id: containerKeyEpochId,
+          containerId: input.containerId,
+          keyEpoch: 1,
+          accessManifestHash: manifestHash,
+          parentContainerKeyEpochId: null,
+          createdByEventHash: eventHash,
+          createdByManifestHash: manifestHash,
+        },
+        keyEpochHash,
+        keyTargetHash,
+        parentContainerKeyEpochId: null,
+        recipientTargets: [{}],
+        wraps: [
+          {
+            containerKeyEpochId,
+            recipientKind: "user",
+            recipientId: input.userId,
+            recipientKeyEpochId: `user:${input.userId}:epoch-1`,
+            recipientKeyFingerprint: recipient.keyFingerprint,
+            kemCipherText: bytesToBase64(recipient.kemCipherText),
+            wrappedKey: bytesToBase64(recipient.wrappedKey),
+            wrapManifestHash: manifestHash,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+async function createExplorerMetadataV2CreateResponse(
+  request: DocumentV2CreateRequest,
+): Promise<DocumentV2CreateResponse> {
+  const manifest = request.manifest as Record<string, unknown>;
+  const body = request.body as Record<string, unknown>;
+  const documentId = String(Reflect.get(manifest, "objectId"));
+  const eventHash = await computeAccessEventHash(
+    request.event as unknown as AccessEventV2,
+  );
+  const linkedContainerId = String(Reflect.get(body, "containerId"));
+  const targets = request.contentKeyBundle.targets.map((target) => ({
+    containerId: target.containerId,
+    containerManifestHash: target.containerManifestHash,
+    containerKeyEpochId: target.containerKeyEpochId,
+    containerKeyEpoch: target.containerKeyEpoch,
+  }));
+
+  return {
+    id: documentId,
+    createdAt: "2026-04-27T00:00:00.000Z",
+    accessManifest: {
+      event: { event: request.event, body, eventHash },
+      manifest,
+      manifestHash: request.expectedManifestHash,
+      state: {
+        version: 2,
+        documentId,
+        organizationId: String(Reflect.get(manifest, "organizationId")),
+        epoch: Number(Reflect.get(manifest, "epoch")),
+        previousManifestHash: Reflect.get(manifest, "previousManifestHash"),
+        eventHash,
+        linkedContainerIds: [linkedContainerId],
+      },
+    },
+    contentKeyBundle: {
+      documentId,
+      contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
+      linkSetManifestHash: request.contentKeyBundle.linkSetManifestHash,
+      targetHash: request.contentKeyBundle.targetHash,
+      targets: request.contentKeyBundle.targets,
+    },
+    documentKekTargets: {
+      documentId,
+      linkSetManifestHash: request.expectedManifestHash,
+      linkedContainerManifestHashes: targets.map(
+        (target) => target.containerManifestHash,
+      ),
+      linkedContainerKeyEpochIds: targets.map(
+        (target) => target.containerKeyEpochId,
+      ),
+      targets,
+      documentKeyTargetHash: request.contentKeyBundle.targetHash,
+    },
+  };
+}
+
+async function createExplorerMetadataV2SyncResponse(input: {
+  commitLsn: string;
+  request: DocumentV2SyncRequest;
+  storedDocument: DocumentV2CreateResponse;
+}): Promise<DocumentV2SyncResponse> {
+  const updates = await Promise.all(
+    input.request.outgoingUpdates.map(async (update) => {
+      const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
+      return {
+        accessEpoch: 1,
+        id: update.id,
+        documentId: input.storedDocument.id,
+        authorFingerprint: writeHeader.writerKeyFingerprint,
+        encryptedData: update.encryptedData,
+        partialStartVersionVector: update.partialStartVersionVector,
+        partialEndVersionVector: update.partialEndVersionVector,
+        createdAt: "2026-04-27T00:00:00.000Z",
+        writeHeader: update.writeHeader,
+        writeHeaderHash: await computeWriteHeaderHash(writeHeader),
+      };
+    }),
+  );
+
+  return {
+    acceptedOutgoingUpdateIds: input.request.outgoingUpdates.map(
+      (update) => update.id,
+    ),
+    commitLsn: input.commitLsn,
+    contentKeyBundle: input.storedDocument.contentKeyBundle,
+    documentId: input.storedDocument.id,
+    documentKekTargets: input.storedDocument.documentKekTargets,
+    missingUpdateEpochs: updates.length === 0 ? [] : ["current_epoch"],
+    updates,
+  };
+}
+
+async function createExplorerMetadataV2Fixture(input: {
+  containerId: string;
+  documentId: string;
+  encapsulationKeyPair: NonNullable<TestRuntime["encapsulationKeyPair"]>;
+  execSql: TestRuntime["execSql"];
+  organizationId?: string;
+  syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
+}) {
+  const organizationId = input.organizationId ?? "org-1";
+  const userId = "user-1";
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const containerProjection = await createExplorerMetadataV2ContainerProjection(
+    {
+      containerId: input.containerId,
+      encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+      organizationId,
+      userId,
+    },
+  );
+  const materializedPlan = await buildMaterializedDocumentV2CreatePlan({
+    author: {
+      organizationId,
+      signerDeviceId: `signing-key:${signingFingerprint}`,
+      signerKeyFingerprint: signingFingerprint,
+      signerPrivateKey: signingKeyPair.signingPrivateKey,
+      signerUserId: userId,
+    },
+    containerProjection,
     documentId: input.documentId,
-    documentRecipientEnvelopeAction:
-      input.documentRecipientEnvelopeAction ?? "none",
-    documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
-    missingUpdateEpochs: input.missingUpdateEpochs ?? [],
-    rotateBaselineSourceVersionVector:
-      input.rotateBaselineSourceVersionVector ?? null,
-    recipientEncapsulationPublicKeys: input.recipientEncapsulationPublicKeys,
-    updates: input.updates ?? [],
+    execSql: input.execSql,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: input.encapsulationKeyPair.secretKey,
+  });
+  const storedDocument = await createExplorerMetadataV2CreateResponse(
+    materializedPlan.plan.request,
+  );
+  let syncCallCount = 0;
+  const writerProjection: DocumentV2WriterProjectionResponse = {
+    authorizingContainerPaths: [containerProjection],
+    contentKeyBundle: storedDocument.contentKeyBundle,
+    documentId: storedDocument.id,
+    documentKekTargets: storedDocument.documentKekTargets,
+    documentManifest: storedDocument.accessManifest,
+  };
+
+  return {
+    apiClient: {
+      getEncapsulationKey: async (requestedUserId: string) => {
+        if (requestedUserId !== userId) {
+          return null;
+        }
+
+        return {
+          encapsulationPublicKey: bytesToBase64(
+            input.encapsulationKeyPair.publicKey,
+          ),
+          signingKeyFingerprint: signingFingerprint,
+          signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+          userId,
+        };
+      },
+      getDocumentV2WriterProjection: async (documentId: string) =>
+        documentId === storedDocument.id ? writerProjection : null,
+      syncDocumentV2: async (
+        documentId: string,
+        request: DocumentV2SyncRequest,
+      ) => {
+        if (documentId !== storedDocument.id) {
+          return null;
+        }
+
+        syncCallCount += 1;
+        input.syncCalls?.push({
+          minLsn: request.minLsn ?? null,
+          outgoingUpdateCount: request.outgoingUpdates.length,
+        });
+
+        return createExplorerMetadataV2SyncResponse({
+          commitLsn: syncCallCount === 1 ? "0/10" : "0/20",
+          request,
+          storedDocument,
+        });
+      },
+    },
+    organizationId,
+    persistedState: persistedDocumentV2CreateStateFromResponse(
+      materializedPlan.plan,
+      storedDocument,
+    ),
+    signingFingerprint,
+    signingKeyPair,
+    userId,
   };
 }
 
@@ -94,7 +350,9 @@ async function createSqlRuntime(): Promise<TestRuntime> {
         _accessLevel: "read" | "write" | "admin",
       ) => null,
       stageBlob: async () => null,
-      syncDocument: async () => null,
+      getEncapsulationKey: async () => null,
+      getDocumentV2WriterProjection: async () => null,
+      syncDocumentV2: async () => null,
     },
   };
 }
@@ -327,7 +585,6 @@ test("explorer store creates authenticated child containers through the API befo
     },
     listContainers: async () => [],
     shareContainer: async () => null,
-    syncDocument: async () => null,
   };
   try {
     await ensureContainerTables(runtime.execSql);
@@ -416,7 +673,6 @@ test("explorer store queues authenticated child create when parent has no remote
       return null;
     },
     listContainers: async () => [],
-    syncDocument: async () => null,
   };
 
   try {
@@ -604,7 +860,6 @@ test("explorer sync creates queued local containers parent before child", async 
           return created;
         },
         listContainers: async () => Array.from(remoteContainers.values()),
-        syncDocument: async () => null,
       },
     };
 
@@ -762,7 +1017,6 @@ test("explorer store creates a child under a writable shared root using the inhe
       },
     ],
     shareContainer: async () => null,
-    syncDocument: async () => null,
   };
 
   try {
@@ -880,7 +1134,6 @@ test("explorer store moves an authenticated child container through the API and 
       );
     },
     shareContainer: async () => null,
-    syncDocument: async () => null,
   };
 
   try {
@@ -929,10 +1182,14 @@ test("explorer store moves an authenticated child container through the API and 
   }
 });
 
-test("explorer store shares an authenticated container and seeds metadata rewrap envelopes without a new baseline", async () => {
+test("explorer store shares an authenticated container without reseeding legacy metadata envelopes", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const peerKeyPair = generateKemSeedAndKeyPair();
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
   const shareContainerCalls: Array<{
     accessLevel: "read" | "write" | "admin";
     containerId: string;
@@ -940,23 +1197,23 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
     subjectId: string;
     subjectType: "user" | "group" | "organization";
   }> = [];
-  const syncCalls: Array<{
-    accessEpoch: number;
-    documentRecipientEnvelopeCount: number;
-    documentId: string;
-    outgoingUpdateCount: number;
-  }> = [];
-  let sharedMetadataSyncCallCount = 0;
-  let initialMetadataDocumentRecipientEnvelopes:
-    | SyncDocumentResponse["documentRecipientEnvelopes"]
-    | null = null;
+  let writerProjectionCallCount = 0;
+  let v2SyncCallCount = 0;
 
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
+  runtime.organizationId = "org-1";
+  runtime.signingFingerprint = signingFingerprint;
+  runtime.signingKeyPair = signingKeyPair;
+  runtime.userId = "user-1";
   runtime.apiClient = {
     ...runtime.apiClient,
     createContainer: async () => null,
+    getDocumentV2WriterProjection: async () => {
+      writerProjectionCallCount += 1;
+      return null;
+    },
     listContainers: async () => [],
     shareContainer: async (
       containerId: string,
@@ -983,50 +1240,9 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
         ],
       };
     },
-    syncDocument: async (
-      documentId,
-      accessEpoch,
-      _localVersionVector,
-      updates,
-      documentRecipientEnvelopes,
-    ) => {
-      syncCalls.push({
-        accessEpoch,
-        documentRecipientEnvelopeCount: documentRecipientEnvelopes?.length ?? 0,
-        documentId,
-        outgoingUpdateCount: updates.length,
-      });
-      if (documentId === "metadata-document-1" && accessEpoch === 2) {
-        sharedMetadataSyncCallCount += 1;
-      }
-      if (
-        documentId === "metadata-document-1" &&
-        accessEpoch === 2 &&
-        sharedMetadataSyncCallCount === 1
-      ) {
-        return createSyncDocumentResponse({
-          accessEpoch,
-          documentId,
-          documentRecipientEnvelopeAction: "rewrap",
-          recipientEncapsulationPublicKeys: [
-            bytesToBase64(localKeyPair.publicKey),
-            bytesToBase64(peerKeyPair.publicKey),
-          ],
-        });
-      }
-      return createSyncDocumentResponse({
-        acceptedOutgoingUpdateIds: updates.map((update) => update.id),
-        accessEpoch,
-        documentId,
-        documentRecipientEnvelopes:
-          documentId === "metadata-document-1" && accessEpoch === 1
-            ? initialMetadataDocumentRecipientEnvelopes
-            : (documentRecipientEnvelopes ?? null),
-        recipientEncapsulationPublicKeys: [
-          bytesToBase64(localKeyPair.publicKey),
-          bytesToBase64(peerKeyPair.publicKey),
-        ],
-      });
+    syncDocumentV2: async () => {
+      v2SyncCallCount += 1;
+      return null;
     },
   };
   let store: ReturnType<typeof createExplorerStore> | null = null;
@@ -1038,7 +1254,7 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
-      metadataDocumentId: "root-metadata-document",
+      metadataDocumentId: null,
       name: "/",
       icon: null,
     });
@@ -1060,8 +1276,6 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
     const initialEncryption = await createDocumentEncryptionMaterial([
       localKeyPair.publicKey,
     ]);
-    initialMetadataDocumentRecipientEnvelopes =
-      initialEncryption.documentRecipientEnvelopes;
     await saveDocumentRecord(
       runtime.execSql,
       {
@@ -1070,12 +1284,16 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
       },
       {
         accessEpoch: 1,
+        accessStateHash: "access-state-hash-1",
         documentId: "metadata-document-1",
         documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
           initialEncryption.documentRecipientEnvelopes,
         ),
         id: "child-container",
         loroSnapshot: bytesToBase64(initialUpdate),
+        v2ContentKeyBundle: "stale-content-key-bundle",
+        v2DocumentKekTargets: "stale-kek-targets",
+        v2DocumentManifestBundle: "stale-manifest-bundle",
       },
       new Date("2026-04-09T12:00:00.000Z").toISOString(),
     );
@@ -1089,6 +1307,8 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
       "Explorer store did not become ready.",
     );
 
+    writerProjectionCallCount = 0;
+    v2SyncCallCount = 0;
     const shared = await createdStore.shareWithUser(
       "child-container",
       "550e8400-e29b-41d4-a716-446655440000",
@@ -1096,19 +1316,37 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
 
     expect(shared).toBe(true);
 
-    await waitForCondition(
-      () =>
-        syncCalls.some(
-          (call) =>
-            call.accessEpoch === 2 &&
-            call.documentId === "metadata-document-1" &&
-            call.documentRecipientEnvelopeCount === 2 &&
-            call.outgoingUpdateCount === 0,
+    await waitForCondition(async () => {
+      const rows = await runtime.execSql(
+        `
+          SELECT
+            document_recipient_envelopes AS envelopes,
+            v2_content_key_bundle,
+            v2_document_kek_targets,
+            v2_document_manifest_bundle
+          FROM documents
+          WHERE app_kind = 'container-metadata'
+            AND local_id = 'child-container'
+        `,
+      );
+      return (
+        writerProjectionCallCount > 0 &&
+        readSqlRowValue(rows[0] ?? {}, "envelopes") === null &&
+        readSqlRowValue(rows[0] ?? {}, "v2_content_key_bundle") === null &&
+        readSqlRowValue(rows[0] ?? {}, "v2_document_kek_targets") === null &&
+        readSqlRowValue(rows[0] ?? {}, "v2_document_manifest_bundle") === null
+      );
+    }, "Explorer store did not clear stale metadata security state after share.");
+
+    expect(v2SyncCallCount).toBe(0);
+    expect(
+      createdStore
+        .getSnapshot()
+        .nodes.some(
+          (node) =>
+            node.id === "child-container" && node.organizationId === "org-1",
         ),
-      `Explorer store did not seed current-epoch metadata envelopes after share.\nsyncCalls=${JSON.stringify(
-        syncCalls,
-      )}`,
-    );
+    ).toBe(true);
 
     expect(shareContainerCalls).toEqual([
       {
@@ -1119,27 +1357,6 @@ test("explorer store shares an authenticated container and seeds metadata rewrap
         subjectType: "user",
       },
     ]);
-    const metadataSyncCalls = syncCalls.filter(
-      (call) => call.documentId === "metadata-document-1",
-    );
-    expect(metadataSyncCalls).toContainEqual({
-      accessEpoch: 1,
-      documentRecipientEnvelopeCount: 0,
-      documentId: "metadata-document-1",
-      outgoingUpdateCount: 0,
-    });
-    expect(metadataSyncCalls).toContainEqual({
-      accessEpoch: 2,
-      documentRecipientEnvelopeCount: 0,
-      documentId: "metadata-document-1",
-      outgoingUpdateCount: 0,
-    });
-    expect(metadataSyncCalls).toContainEqual({
-      accessEpoch: 2,
-      documentRecipientEnvelopeCount: 2,
-      documentId: "metadata-document-1",
-      outgoingUpdateCount: 0,
-    });
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";
@@ -1156,59 +1373,37 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
     minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
-  let syncCallCount = 0;
   let store: ReturnType<typeof createExplorerStore> | null = null;
+  const v2Fixture = await createExplorerMetadataV2Fixture({
+    containerId: "child-container",
+    documentId: "metadata-document-1",
+    encapsulationKeyPair: localKeyPair,
+    execSql: runtime.execSql,
+    syncCalls,
+  });
 
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
+  runtime.organizationId = v2Fixture.organizationId;
+  runtime.signingFingerprint = v2Fixture.signingFingerprint;
+  runtime.signingKeyPair = v2Fixture.signingKeyPair;
+  runtime.userId = v2Fixture.userId;
   runtime.apiClient = {
     ...runtime.apiClient,
+    ...v2Fixture.apiClient,
     createContainer: async () => null,
     listContainers: async () => [],
-    shareContainer: async (containerId) => ({
-      id: containerId,
-      metadataAccessEpoch: 2,
-      metadataAccessStateHash: "metadata-access-state-hash-2",
-      metadataDocumentId: "metadata-document-1",
-      metadataRecipientEncapsulationPublicKeys: [
-        bytesToBase64(localKeyPair.publicKey),
-      ],
-    }),
-    syncDocument: async (
-      documentId,
-      accessEpoch,
-      _localVersionVector,
-      updates,
-      documentRecipientEnvelopes,
-      minLsn,
-    ) => {
-      syncCallCount += 1;
-      syncCalls.push({
-        minLsn: minLsn ?? null,
-        outgoingUpdateCount: updates.length,
-      });
-
-      return createSyncDocumentResponse({
-        acceptedOutgoingUpdateIds: updates.map((update) => update.id),
-        accessEpoch,
-        commitLsn: syncCallCount === 1 ? "0/10" : "0/20",
-        documentId,
-        documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
-        recipientEncapsulationPublicKeys: [
-          bytesToBase64(localKeyPair.publicKey),
-        ],
-      });
-    },
   };
 
   try {
     await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
     await saveContainer(runtime.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
-      metadataDocumentId: "root-metadata-document",
+      metadataDocumentId: null,
       name: "/",
       icon: null,
     });
@@ -1220,6 +1415,31 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       name: "Docs",
       icon: null,
     });
+    const { initialUpdate } = await createInitializedContainerMetadataDocument(
+      "child-container",
+      {
+        icon: null,
+        name: "Docs",
+      },
+    );
+    await saveDocumentRecord(
+      runtime.execSql,
+      {
+        appKind: "container-metadata",
+        localId: "child-container",
+      },
+      {
+        ...v2Fixture.persistedState,
+        accessEpoch: 1,
+        accessStateHash: "metadata-access-state-hash-1",
+        documentId: "metadata-document-1",
+        documentRecipientEnvelopes: null,
+        id: "child-container",
+        lastCommitLsn: null,
+        loroSnapshot: bytesToBase64(initialUpdate),
+      },
+      new Date("2026-04-09T12:00:00.000Z").toISOString(),
+    );
 
     const createdStore = createExplorerStore(runtime);
     store = createdStore;
@@ -1229,13 +1449,6 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       () => createdStore.getSnapshot().ready,
       "Explorer store did not become ready.",
     );
-
-    expect(
-      await createdStore.shareWithUser(
-        "child-container",
-        "550e8400-e29b-41d4-a716-446655440000",
-      ),
-    ).toBe(true);
 
     await waitForCondition(
       () => syncCalls.some((call) => call.minLsn === null),
@@ -1258,575 +1471,43 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       );
 
       return (
-        syncCalls.some((call) => call.minLsn === "0/10") && pendingCount === 0
+        syncCalls.some(
+          (call) => call.minLsn === "0/10" && call.outgoingUpdateCount === 1,
+        ) && pendingCount === 0
       );
     }, "Follow-up metadata sync did not complete.");
 
+    const documentRows = await runtime.execSql(
+      `
+        SELECT
+          last_commit_lsn,
+          v2_content_key_bundle,
+          v2_document_kek_targets,
+          v2_document_manifest_bundle
+        FROM documents
+        WHERE app_kind = 'container-metadata'
+          AND local_id = 'child-container'
+      `,
+    );
     expect(syncCalls.some((call) => call.minLsn === null)).toBe(true);
     expect(syncCalls.some((call) => call.minLsn === "0/10")).toBe(true);
-  } finally {
-    if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
-    }
-    runtime.close();
-  }
-});
-
-test("explorer store rotates metadata epochs with a fresh current-epoch bundle", async () => {
-  const runtime = await createSqlRuntime();
-  const localKeyPair = generateKemSeedAndKeyPair();
-  const syncCalls: Array<{
-    accessEpoch: number;
-    documentId: string;
-    documentRecipientEnvelopeCount: number;
-    outgoingSourceVersionVectors: Array<string | null>;
-    outgoingUpdateCount: number;
-  }> = [];
-  let store: ReturnType<typeof createExplorerStore> | null = null;
-  let childDocumentSyncCallCount = 0;
-
-  try {
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
-
-    await saveContainer(runtime.execSql, {
-      id: "root-container",
-      organizationId: "org-1",
-      parentId: null,
-      metadataDocumentId: "root-metadata-document",
-      name: "/",
-      icon: null,
-    });
-    await saveContainer(runtime.execSql, {
-      id: "child-container",
-      organizationId: "org-1",
-      parentId: "root-container",
-      metadataDocumentId: "metadata-document-1",
-      name: "Docs",
-      icon: null,
-    });
-
-    const { initialUpdate } = await createInitializedContainerMetadataDocument(
-      "child-container",
-      {
-        icon: null,
-        name: "Docs",
-      },
+    expect(readSqlRowValue(documentRows[0] ?? {}, "last_commit_lsn")).toBe(
+      "0/20",
     );
-    const initialEncryption = await createDocumentEncryptionMaterial([
-      localKeyPair.publicKey,
-    ]);
-    await saveDocumentRecord(
-      runtime.execSql,
-      {
-        appKind: "container-metadata",
-        localId: "child-container",
-      },
-      {
-        accessEpoch: 1,
-        documentId: "metadata-document-1",
-        documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-          initialEncryption.documentRecipientEnvelopes,
-        ),
-        id: "child-container",
-        loroSnapshot: bytesToBase64(initialUpdate),
-      },
-      new Date("2026-04-09T12:00:00.000Z").toISOString(),
-    );
-
-    const createdStore = createExplorerStore(runtime);
-    store = createdStore;
-    createdStore.updateRuntime(runtime);
-
-    await waitForCondition(
-      () => createdStore.getSnapshot().ready,
-      "Explorer store did not become ready for rotate handling.",
-    );
-
-    const renamed = await createdStore.renameContainer(
-      "child-container",
-      "Manuals",
-    );
-    expect(renamed?.name).toBe("Manuals");
-
-    const syncedRuntime: ExplorerRuntime = {
-      ...runtime,
-      encapsulationKeyPair: localKeyPair,
-      isAuthenticated: true,
-      online: true,
-      apiClient: {
-        ...runtime.apiClient,
-        createContainer: async () => null,
-        listContainers: async () => [],
-        shareContainer: async () => null,
-        syncDocument: async (
-          documentId,
-          accessEpoch,
-          _localVersionVector,
-          updates,
-          documentRecipientEnvelopes,
-        ) => {
-          syncCalls.push({
-            accessEpoch,
-            documentId,
-            documentRecipientEnvelopeCount:
-              documentRecipientEnvelopes?.length ?? 0,
-            outgoingSourceVersionVectors: updates.map(
-              (update) => update.sourceVersionVector ?? null,
-            ),
-            outgoingUpdateCount: updates.length,
-          });
-
-          if (documentId === "metadata-document-1") {
-            childDocumentSyncCallCount += 1;
-          }
-
-          if (
-            documentId === "metadata-document-1" &&
-            childDocumentSyncCallCount === 1
-          ) {
-            return createSyncDocumentResponse({
-              accessEpoch: 2,
-              documentId,
-              documentRecipientEnvelopeAction: "rotate",
-              rotateBaselineSourceVersionVector: "metadata-frontier-1",
-              recipientEncapsulationPublicKeys: [
-                bytesToBase64(localKeyPair.publicKey),
-              ],
-            });
-          }
-
-          return createSyncDocumentResponse({
-            acceptedOutgoingUpdateIds: updates.map((update) => update.id),
-            accessEpoch,
-            documentId,
-            documentRecipientEnvelopes: documentRecipientEnvelopes ?? null,
-            recipientEncapsulationPublicKeys: [
-              bytesToBase64(localKeyPair.publicKey),
-            ],
-          });
-        },
-      },
-    };
-
-    createdStore.updateRuntime(syncedRuntime);
-
-    await waitForCondition(
-      () =>
-        syncCalls.some(
-          (call) =>
-            call.accessEpoch === 2 &&
-            call.documentRecipientEnvelopeCount === 1 &&
-            call.outgoingSourceVersionVectors[0] === "metadata-frontier-1" &&
-            call.outgoingUpdateCount === 1,
-        ),
-      "Explorer rotate sync did not resend a fresh metadata baseline.",
-    );
-
-    expect(syncCalls).toContainEqual({
-      accessEpoch: 1,
-      documentId: "metadata-document-1",
-      documentRecipientEnvelopeCount: 0,
-      outgoingSourceVersionVectors: [null],
-      outgoingUpdateCount: 1,
-    });
-    expect(syncCalls).toContainEqual({
-      accessEpoch: 2,
-      documentId: "metadata-document-1",
-      documentRecipientEnvelopeCount: 1,
-      outgoingSourceVersionVectors: ["metadata-frontier-1"],
-      outgoingUpdateCount: 1,
-    });
-  } finally {
-    if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
-    }
-    runtime.close();
-  }
-});
-
-test.skip("explorer share primes note attachment rewrap work for linked notes in the shared subtree", async () => {
-  const runtime = await createSqlRuntime();
-  const localKeyPair = generateKemSeedAndKeyPair();
-  const shareContainerCalls: Array<{
-    accessLevel: "read" | "write" | "admin";
-    containerId: string;
-    expectedAccessStateHash: string;
-    subjectId: string;
-    subjectType: "user" | "group" | "organization";
-  }> = [];
-  const commitChangeCalls: Array<{
-    accessEpoch: number;
-    attachmentCommitCount: number;
-    attachmentRewrapCount: number;
-    documentId: string;
-    expectedBindingIds: Array<string | null>;
-  }> = [];
-  const noteSyncCalls: Array<{
-    accessEpoch: number;
-    documentRecipientEnvelopeCount: number;
-    outgoingUpdateCount: number;
-  }> = [];
-  let commitCallCount = 0;
-  let currentBindingId: string | null = null;
-  let currentBlobId: string | null = null;
-  let currentBlobEncryptedBytes: string | null = null;
-  let currentSlotId: string | null = null;
-  let noteSyncCallCount = 0;
-
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.apiClient = {
-    ...runtime.apiClient,
-    commitDocumentChange: async (documentId, input) => {
-      commitCallCount += 1;
-      commitChangeCalls.push({
-        accessEpoch: input.accessEpoch,
-        attachmentCommitCount: input.attachmentCommits.length,
-        attachmentRewrapCount: input.attachmentRewraps.length,
-        documentId,
-        expectedBindingIds: [
-          ...input.attachmentCommits.map((commit) => commit.expectedBindingId),
-          ...input.attachmentRewraps.map(
-            (attachmentRewrap) => attachmentRewrap.expectedBindingId,
-          ),
-        ],
-      });
-
-      const committedBindings = input.attachmentCommits.map((commit, index) => {
-        const bindingId = `binding-${commitCallCount}-${index + 1}`;
-        const blobId = `blob-${commitCallCount}-${index + 1}`;
-        currentBindingId = bindingId;
-        currentBlobId = blobId;
-
-        return {
-          bindingId,
-          blobId,
-          slotId: commit.slotId,
-        };
-      });
-
-      return {
-        acceptedOutgoingUpdateIds: input.loroUpdate
-          ? [input.loroUpdate.id]
-          : [],
-        committedBindings,
-        currentAccessEpoch: input.accessEpoch,
-        currentAccessStateHash: `access-state-hash-${input.accessEpoch}`,
-        documentRecipientEnvelopes: input.documentRecipientEnvelopes ?? null,
-        detachedBindingIds: [],
-      };
-    },
-    getBlob: async (blobId) => {
-      if (
-        !currentBlobId ||
-        !currentBlobEncryptedBytes ||
-        blobId !== currentBlobId
-      ) {
-        return null;
-      }
-
-      return {
-        blobId,
-        encryptedBytes: currentBlobEncryptedBytes,
-        sha256: "shared-note-blob",
-      };
-    },
-    createContainer: async () => null,
-    createDocument: async () => ({
-      createdAt: "2026-03-31T00:00:00.000Z",
-      currentAccessEpoch: 1,
-      currentAccessStateHash: "access-state-hash-1",
-      documentRecipientEnvelopes: null,
-      id: "notes-document-1",
-      recipientEncapsulationPublicKeys: [bytesToBase64(localKeyPair.publicKey)],
-    }),
-    listContainers: async () => [
-      {
-        id: "root-container",
-        metadataAccessEpoch: 1,
-        metadataAccessStateHash: "root-access-state-hash-1",
-        metadataDocumentId: "root-metadata-document",
-        metadataRecipientEncapsulationPublicKeys: [
-          bytesToBase64(localKeyPair.publicKey),
-        ],
-        organizationId: "org-1",
-        parentId: null,
-      },
-      {
-        id: "child-container",
-        metadataAccessEpoch: 1,
-        metadataAccessStateHash: "access-state-hash-1",
-        metadataDocumentId: "child-metadata-document",
-        metadataRecipientEncapsulationPublicKeys: [
-          bytesToBase64(localKeyPair.publicKey),
-        ],
-        organizationId: "org-1",
-        parentId: "root-container",
-      },
-    ],
-    listDocumentAttachments: async () => {
-      if (!currentBindingId || !currentBlobId || !currentSlotId) {
-        return [];
-      }
-
-      return [
-        {
-          bindingId: currentBindingId,
-          blobId: currentBlobId,
-          slotId: currentSlotId,
-        },
-      ];
-    },
-    shareContainer: async (
-      containerId: string,
-      subjectType: "user" | "group" | "organization",
-      subjectId: string,
-      accessLevel: "read" | "write" | "admin",
-      expectedAccessStateHash: string,
-    ) => {
-      shareContainerCalls.push({
-        accessLevel,
-        containerId,
-        expectedAccessStateHash,
-        subjectId,
-        subjectType,
-      });
-      return {
-        id: containerId,
-        metadataAccessEpoch: 2,
-        metadataAccessStateHash: "access-state-hash-2",
-        metadataDocumentId:
-          containerId === "child-container"
-            ? "child-metadata-document"
-            : "root-metadata-document",
-        metadataRecipientEncapsulationPublicKeys: [
-          bytesToBase64(localKeyPair.publicKey),
-        ],
-      };
-    },
-    stageBlob: async (input) => {
-      currentBlobEncryptedBytes = input.encryptedBytes;
-      return {
-        expiresAt: "2026-04-07T00:00:00.000Z",
-        stageId: crypto.randomUUID(),
-      };
-    },
-    syncDocument: async (
-      documentId,
-      accessEpoch,
-      _localVersionVector,
-      updates,
-      documentRecipientEnvelopes,
-    ) => {
-      if (documentId === "notes-document-1") {
-        noteSyncCallCount += 1;
-        noteSyncCalls.push({
-          accessEpoch,
-          documentRecipientEnvelopeCount:
-            documentRecipientEnvelopes?.length ?? 0,
-          outgoingUpdateCount: updates.length,
-        });
-
-        if (noteSyncCallCount === 2) {
-          return createSyncDocumentResponse({
-            acceptedOutgoingUpdateIds: updates.map((update) => update.id),
-            accessEpoch: 2,
-            documentId,
-            documentRecipientEnvelopeAction: "rewrap",
-            recipientEncapsulationPublicKeys: [
-              bytesToBase64(localKeyPair.publicKey),
-            ],
-          });
-        }
-      }
-
-      return createSyncDocumentResponse({
-        acceptedOutgoingUpdateIds: updates.map((update) => update.id),
-        accessEpoch,
-        documentId,
-        recipientEncapsulationPublicKeys: [
-          bytesToBase64(localKeyPair.publicKey),
-        ],
-      });
-    },
-  };
-  let store: ReturnType<typeof createExplorerStore> | null = null;
-  let noteStore: ReturnType<typeof primeNotesStore> | null = null;
-  const noteRuntime = {
-    ...runtime,
-    containerId: "root-container",
-  };
-
-  try {
-    await ensureContainerTables(runtime.execSql);
-    await saveContainer(runtime.execSql, {
-      id: "root-container",
-      organizationId: "org-1",
-      parentId: null,
-      metadataDocumentId: "root-metadata-document",
-      name: "/",
-      icon: null,
-    });
-    await saveContainer(runtime.execSql, {
-      id: "child-container",
-      organizationId: "org-1",
-      parentId: "root-container",
-      metadataDocumentId: "child-metadata-document",
-      name: "Shared",
-      icon: null,
-    });
-
-    const createdNoteStore = primeNotesStore(
-      runtime.domainScope,
-      "default",
-      noteRuntime,
-    );
-    noteStore = createdNoteStore;
-
-    await waitForCondition(
-      () => createdNoteStore.getSnapshot().ready,
-      "Notes store did not become ready before share fanout.",
-    );
-
-    createdNoteStore.attachFiles([
-      {
-        bytes: new TextEncoder().encode("attachment before share"),
-        mimeType: "image/png",
-        name: "before-share.png",
-      },
-    ]);
-
-    await waitForCondition(async () => {
-      const localAttachments = await sqlNotesPersistence.listLocalAttachments(
-        runtime.execSql,
-        "default",
-      );
-      const pendingAttachments =
-        await sqlNotesPersistence.listPendingAttachments(
-          runtime.execSql,
-          "default",
-        );
-
-      return (
-        commitChangeCalls.length === 1 &&
-        noteSyncCallCount >= 1 &&
-        pendingAttachments.length === 0 &&
-        localAttachments.some((attachment) => !!attachment.blobId)
-      );
-    }, "Initial note attachment sync did not fully complete.");
-
-    currentSlotId =
-      createdNoteStore.getSnapshot().attachments[0]?.slotId ?? null;
-    expect(currentSlotId).toBeString();
-
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-      runtime.execSql,
-      [
-        {
-          containerIds: ["child-container", "root-container"],
-          documentId: "notes-document-1",
-        },
-      ],
-    );
-
-    const createdStore = createExplorerStore(runtime);
-    store = createdStore;
-    createdStore.updateRuntime(runtime);
-
-    await waitForCondition(
-      () => createdStore.getSnapshot().ready,
-      "Explorer store did not become ready before share fanout.",
-    );
-
-    const shared = await createdStore.shareWithUser(
-      "child-container",
-      "550e8400-e29b-41d4-a716-446655440000",
-    );
-
-    expect(shared).toBe(true);
-
-    await waitForCondition(
-      () => noteSyncCallCount >= 2,
-      "Explorer share did not trigger a note resync.",
-    );
-
-    await waitForCondition(
-      async () =>
-        (
-          await sqlNotesPersistence.listPendingAttachmentRewraps(
-            runtime.execSql,
-            "default",
-          )
-        ).length > 0 || commitChangeCalls.length === 2,
-      "Explorer share did not queue note attachment rewrap work.",
-    );
-
-    const pendingAttachmentRewraps =
-      await sqlNotesPersistence.listPendingAttachmentRewraps(
-        runtime.execSql,
-        "default",
-      );
-
-    expect(shareContainerCalls).toEqual([
-      {
-        accessLevel: "write",
-        containerId: "child-container",
-        expectedAccessStateHash: "access-state-hash-1",
-        subjectId: "550e8400-e29b-41d4-a716-446655440000",
-        subjectType: "user",
-      },
-    ]);
-    expect(commitChangeCalls[0]).toEqual({
-      accessEpoch: 1,
-      attachmentCommitCount: 1,
-      attachmentRewrapCount: 0,
-      documentId: "notes-document-1",
-      expectedBindingIds: [null],
-    });
     expect(
-      commitChangeCalls.length === 2 || pendingAttachmentRewraps.length === 1,
-    ).toBe(true);
-    expect(noteSyncCalls).toContainEqual({
-      accessEpoch: 2,
-      documentRecipientEnvelopeCount: 0,
-      outgoingUpdateCount: 0,
-    });
-    expect(noteSyncCalls).toContainEqual({
-      accessEpoch: 2,
-      documentRecipientEnvelopeCount: 1,
-      outgoingUpdateCount: 1,
-    });
-    if (commitChangeCalls.length === 2) {
-      expect(commitChangeCalls[1]).toEqual({
-        accessEpoch: 2,
-        attachmentCommitCount: 0,
-        attachmentRewrapCount: 1,
-        documentId: "notes-document-1",
-        expectedBindingIds: ["binding-1-1"],
-      });
-    } else {
-      expect(pendingAttachmentRewraps).toEqual([
-        {
-          blobId: currentBlobId ?? "",
-          noteId: "default",
-          slotId: currentSlotId ?? "",
-        },
-      ]);
-    }
+      readSqlRowValue(documentRows[0] ?? {}, "v2_content_key_bundle"),
+    ).toBeString();
+    expect(
+      readSqlRowValue(documentRows[0] ?? {}, "v2_document_kek_targets"),
+    ).toBeString();
+    expect(
+      readSqlRowValue(documentRows[0] ?? {}, "v2_document_manifest_bundle"),
+    ).toBeString();
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";
       store.updateRuntime(runtime);
     }
-    if (noteStore) {
-      runtime.dbStatus = "terminated";
-      noteStore.updateRuntime(noteRuntime);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 25));
     runtime.close();
   }
 });
@@ -1864,7 +1545,6 @@ test("explorer store refreshes remote containers on demand after initialization"
       ];
     },
     shareContainer: async () => null,
-    syncDocument: async () => null,
   };
   let store: ReturnType<typeof createExplorerStore> | null = null;
 

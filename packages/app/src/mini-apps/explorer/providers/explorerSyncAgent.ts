@@ -1,3 +1,4 @@
+import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   encodeVersionVector,
@@ -16,21 +17,18 @@ import {
 import {
   createDocumentEncryptionMaterial,
   createPendingUpdateFields,
-  decryptIncomingUpdates,
   encryptPendingUpdates,
   getLocalRecipientPublicKeys,
-  getOrCreateDocumentEncryptionMaterial,
   isDocumentUpdateCreatedEvent,
-  maybeSeedRewrappedDocumentRecipientEnvelopes,
-  parseDocumentRecipientEnvelopes,
-  requiresBaselineAfterDocumentEpochChange,
-  resolveIncomingUpdateDecryptionBatches,
   resolveRecipientPublicKeys,
-  resolveSyncedDocumentRecipientEnvelopes,
   serializeDocumentRecipientEnvelopes,
 } from "../../../data/documentSync";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
+import {
+  type DocumentV2CreateAuthor,
+  syncRemoteDocumentV2,
+} from "../../../data/documents/documentV2Runtime";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -57,36 +55,29 @@ type ListedRemoteContainer = NonNullable<
 type MovedRemoteContainer = NonNullable<
   Awaited<ReturnType<ExplorerRuntime["apiClient"]["moveContainer"]>>
 >;
-type SyncDocumentOutgoingUpdates = Parameters<
-  ExplorerRuntime["apiClient"]["syncDocument"]
->[3];
-type DocumentRecipientEnvelopes = ReturnType<
-  typeof parseDocumentRecipientEnvelopes
+type ContainerMetadataEncryptionMaterial = Awaited<
+  ReturnType<typeof createDocumentEncryptionMaterial>
 >;
-type DocumentEncryptionMaterial = Awaited<
-  ReturnType<typeof getOrCreateDocumentEncryptionMaterial>
->;
-type ExplorerSyncDocumentResponse = NonNullable<
-  Awaited<ReturnType<ExplorerRuntime["apiClient"]["syncDocument"]>>
+type ExplorerRuntimeV2Api = Pick<
+  ExplorerAppData["apiClient"],
+  "getDocumentV2WriterProjection" | "syncDocumentV2"
 >;
 
 interface ContainerMetadataSyncAttempt {
-  currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
-  encryptionMaterial: DocumentEncryptionMaterial | null;
-  outgoingUpdates: SyncDocumentOutgoingUpdates;
-  synced: ExplorerSyncDocumentResponse;
+  outgoingUpdateCount: number;
+  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocumentV2>>>;
 }
 
 export interface ExplorerRuntime {
   apiClient: Pick<
     ExplorerAppData["apiClient"],
     | "createContainer"
+    | "getEncapsulationKey"
     | "getBlob"
     | "listContainers"
     | "listDocumentAttachments"
     | "moveContainer"
     | "shareContainer"
-    | "syncDocument"
   > &
     Partial<
       Pick<
@@ -138,6 +129,9 @@ export interface ExplorerContainerPatch {
   name: string;
   organizationId: string;
   parentId: string | null;
+  v2ContentKeyBundle: string | null;
+  v2DocumentKekTargets: string | null;
+  v2DocumentManifestBundle: string | null;
 }
 
 export interface ExplorerSyncState {
@@ -194,29 +188,34 @@ export function getFallbackContainerName(parentId: string | null): string {
 }
 
 function buildNotesRuntime(state: ExplorerSyncState, containerId: string) {
+  const { apiClient } = state.runtime;
   return {
     apiClient: {
-      ...(state.runtime.apiClient.createDocumentV2
-        ? { createDocumentV2: state.runtime.apiClient.createDocumentV2 }
-        : {}),
-      ...(state.runtime.apiClient.getContainerV2WriterProjection
+      ...(apiClient.createDocumentV2
         ? {
-            getContainerV2WriterProjection:
-              state.runtime.apiClient.getContainerV2WriterProjection,
+            createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
           }
         : {}),
-      ...(state.runtime.apiClient.getDocumentV2WriterProjection
+      ...(apiClient.getContainerV2WriterProjection
+        ? {
+            getContainerV2WriterProjection:
+              apiClient.getContainerV2WriterProjection.bind(apiClient),
+          }
+        : {}),
+      ...(apiClient.getDocumentV2WriterProjection
         ? {
             getDocumentV2WriterProjection:
-              state.runtime.apiClient.getDocumentV2WriterProjection,
+              apiClient.getDocumentV2WriterProjection.bind(apiClient),
           }
         : {}),
       getBlob: (blobId: string) => state.runtime.apiClient.getBlob(blobId),
       listContainers: () => state.runtime.apiClient.listContainers(),
       listDocumentAttachments: (documentId: string) =>
         state.runtime.apiClient.listDocumentAttachments(documentId),
-      ...(state.runtime.apiClient.syncDocumentV2
-        ? { syncDocumentV2: state.runtime.apiClient.syncDocumentV2 }
+      ...(apiClient.syncDocumentV2
+        ? {
+            syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
+          }
         : {}),
     },
     blobStore: state.runtime.blobStore,
@@ -392,37 +391,6 @@ async function deletePendingContainerUpdate(
   await state.persistence.deletePendingUpdate(state.runtime.execSql, id);
 }
 
-async function replacePendingContainerUpdatesWithBaseline(
-  state: ExplorerSyncState,
-  containerState: ContainerState,
-  sourceVersionVector?: string | null,
-) {
-  await state.persistence.deletePendingUpdates(
-    state.runtime.execSql,
-    containerState.container.id,
-  );
-  await enqueuePendingContainerUpdate(
-    state,
-    containerState.container.id,
-    exportAllUpdates(containerState.doc),
-    sourceVersionVector,
-  );
-}
-
-async function decryptMetadataUpdates(
-  state: ExplorerSyncState,
-  encryptedUpdates: ReadonlyArray<{ encryptedData: string }>,
-  accessEpoch: number,
-  documentKey: Uint8Array,
-): Promise<Uint8Array[]> {
-  return decryptIncomingUpdates(
-    encryptedUpdates,
-    accessEpoch,
-    documentKey,
-    (message) => state.runtime.log(`Explorer: ${message}`),
-  );
-}
-
 async function upsertRemoteContainerState(
   state: ExplorerSyncState,
   host: ExplorerSyncHost,
@@ -472,6 +440,9 @@ async function upsertRemoteContainerState(
       id: remoteContainer.id,
       lastCommitLsn: null,
       loroSnapshot: initialSnapshot,
+      v2ContentKeyBundle: null,
+      v2DocumentKekTargets: null,
+      v2DocumentManifestBundle: null,
     },
   };
 
@@ -603,6 +574,9 @@ async function initializeExplorerStore(input: {
         id: container.id,
         lastCommitLsn: null,
         loroSnapshot: bytesToBase64(initialUpdate),
+        v2ContentKeyBundle: null,
+        v2DocumentKekTargets: null,
+        v2DocumentManifestBundle: null,
       };
       await state.persistence.saveContainer(
         state.runtime.execSql,
@@ -674,134 +648,109 @@ function ensureExplorerStoreInitialized(input: {
   });
 }
 
-async function buildOutgoingContainerSync(
-  containerState: ContainerState,
-  execSql: ExplorerRuntime["execSql"],
-  pendingUpdates: PendingUpdateRecord[],
-  secretKey: Uint8Array,
-) {
-  const currentDocumentRecipientEnvelopes = parseDocumentRecipientEnvelopes(
-    containerState.record.documentRecipientEnvelopes,
-  );
-  const encryptionMaterial =
-    pendingUpdates.length > 0
-      ? await getOrCreateDocumentEncryptionMaterial({
-          documentRecipientEnvelopes: currentDocumentRecipientEnvelopes,
-          execSql,
-          recipientPublicKeys: containerState.recipientPublicKeys,
-          secretKey,
-        })
-      : null;
-  const outgoingUpdates = encryptionMaterial
-    ? await encryptPendingUpdates(
-        pendingUpdates,
-        containerState.record.accessEpoch,
-        encryptionMaterial.documentKey,
-      )
-    : [];
+function resolveExplorerV2Author(
+  runtime: ExplorerRuntime,
+): DocumentV2CreateAuthor | null {
+  if (
+    !runtime.organizationId ||
+    !runtime.signingFingerprint ||
+    !runtime.signingKeyPair ||
+    !runtime.userId
+  ) {
+    return null;
+  }
 
   return {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdates,
+    organizationId: runtime.organizationId,
+    signerDeviceId: `signing-key:${runtime.signingFingerprint}`,
+    signerKeyFingerprint: runtime.signingFingerprint,
+    signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
+    signerUserId: runtime.userId,
+  };
+}
+
+function resolveExplorerV2Api(
+  runtime: ExplorerRuntime,
+): ExplorerRuntimeV2Api | null {
+  const { apiClient } = runtime;
+  if (!apiClient.getDocumentV2WriterProjection || !apiClient.syncDocumentV2) {
+    return null;
+  }
+
+  return {
+    getDocumentV2WriterProjection:
+      apiClient.getDocumentV2WriterProjection.bind(apiClient),
+    syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
+  };
+}
+
+function createExplorerWriterPublicKeyResolver(state: ExplorerSyncState) {
+  const cache = new Map<string, Promise<Uint8Array | null>>();
+
+  return async (input: {
+    authorFingerprint: string;
+    header: { writerKeyFingerprint: string; writerUserId: string };
+  }): Promise<Uint8Array | null> => {
+    const { authorFingerprint, header } = input;
+    if (header.writerKeyFingerprint !== authorFingerprint) {
+      return null;
+    }
+
+    const cacheKey = `${header.writerUserId}:${authorFingerprint}`;
+    let cached = cache.get(cacheKey);
+    if (!cached) {
+      cached = state.runtime.apiClient
+        .getEncapsulationKey(header.writerUserId)
+        .then(async (response) => {
+          if (!response) {
+            return null;
+          }
+
+          const signingPublicKey = base64ToBytes(response.signingPublicKey);
+          const signingKeyFingerprint = await toFingerprint(signingPublicKey);
+          if (
+            signingKeyFingerprint !== response.signingKeyFingerprint ||
+            signingKeyFingerprint !== authorFingerprint
+          ) {
+            state.runtime.log(
+              `Explorer: skipped metadata writer key for ${header.writerUserId} because the signing fingerprint does not match the public key.`,
+            );
+            return null;
+          }
+
+          return signingPublicKey;
+        })
+        .catch(() => {
+          state.runtime.log(
+            `Explorer: skipped metadata writer key for ${header.writerUserId} because it could not be loaded.`,
+          );
+          return null;
+        });
+      cache.set(cacheKey, cached);
+    }
+
+    return cached;
   };
 }
 
 async function applySyncedContainerUpdates(input: {
   containerState: ContainerState;
-  currentDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
-  encryptionMaterial: DocumentEncryptionMaterial | null;
-  secretKey: Uint8Array;
   state: ExplorerSyncState;
-  synced: ExplorerSyncDocumentResponse;
+  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocumentV2>>>;
 }) {
-  const {
-    containerState,
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    secretKey,
-    state,
-    synced,
-  } = input;
-  containerState.recipientPublicKeys = resolveRecipientPublicKeys(
-    synced.recipientEncapsulationPublicKeys,
-  );
+  const { containerState, state, synced } = input;
 
-  for (const acceptedOutgoingUpdateId of synced.acceptedOutgoingUpdateIds) {
+  for (const acceptedOutgoingUpdateId of synced.response
+    .acceptedOutgoingUpdateIds) {
     await deletePendingContainerUpdate(state, acceptedOutgoingUpdateId);
   }
 
-  const previousAccessEpoch = containerState.record.accessEpoch;
-  const nextDocumentRecipientEnvelopes =
-    resolveSyncedDocumentRecipientEnvelopes({
-      currentAccessEpoch: previousAccessEpoch,
-      currentDocumentRecipientEnvelopes,
-      generatedDocumentRecipientEnvelopes:
-        encryptionMaterial?.documentRecipientEnvelopes ?? null,
-      synced,
-    });
-  if (synced.updates.length > 0) {
-    const decryptionBatches = resolveIncomingUpdateDecryptionBatches({
-      currentDocumentRecipientEnvelopes,
-      nextDocumentRecipientEnvelopes,
-      previousAccessEpoch,
-      synced,
-    });
-
-    if (decryptionBatches.length === 0) {
-      state.runtime.log(
-        `Explorer: skipped metadata updates for container ${containerState.container.id} because the current document key bundle is missing.`,
-      );
-    } else {
-      for (const decryptionBatch of decryptionBatches) {
-        const { documentKey } = await getOrCreateDocumentEncryptionMaterial({
-          documentRecipientEnvelopes:
-            decryptionBatch.documentRecipientEnvelopes,
-          execSql: state.runtime.execSql,
-          recipientPublicKeys: containerState.recipientPublicKeys,
-          secretKey,
-        });
-        const decryptedUpdates = await decryptMetadataUpdates(
-          state,
-          decryptionBatch.updates,
-          decryptionBatch.accessEpoch,
-          documentKey,
-        );
-        if (decryptedUpdates.length > 0) {
-          importUpdates(containerState.doc, decryptedUpdates);
-        }
-      }
-    }
-  }
-}
-
-async function handleSyncedContainerEpochChange(input: {
-  containerState: ContainerState;
-  nextDocumentRecipientEnvelopes: DocumentRecipientEnvelopes;
-  previousAccessEpoch: number;
-  state: ExplorerSyncState;
-  synced: ExplorerSyncDocumentResponse;
-}) {
-  if (input.synced.currentAccessEpoch === input.previousAccessEpoch) {
-    return;
-  }
-
-  if (
-    requiresBaselineAfterDocumentEpochChange({
-      previousAccessEpoch: input.previousAccessEpoch,
-      resolvedDocumentRecipientEnvelopes: input.nextDocumentRecipientEnvelopes,
-      synced: input.synced,
-    })
-  ) {
-    await replacePendingContainerUpdatesWithBaseline(
-      input.state,
-      input.containerState,
-      input.synced.documentRecipientEnvelopeAction === "rotate"
-        ? input.synced.rotateBaselineSourceVersionVector
-        : null,
+  if (synced.decryptedUpdates.length > 0) {
+    importUpdates(
+      containerState.doc,
+      synced.decryptedUpdates.map((update) => update.updateData),
     );
   }
-  requestExplorerSync(input.state);
 }
 
 async function requestContainerMetadataSync(
@@ -820,53 +769,33 @@ async function requestContainerMetadataSync(
     containerState.container.id,
   );
 
-  const {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdates,
-  } = await buildOutgoingContainerSync(
-    containerState,
-    state.runtime.execSql,
-    pendingUpdates,
-    encapsulationKeyPair.secretKey,
-  );
-
-  let synced = await state.runtime.apiClient.syncDocument(
-    documentId,
-    containerState.record.accessEpoch,
-    encodeVersionVector(containerState.doc),
-    outgoingUpdates,
-    encryptionMaterial && currentDocumentRecipientEnvelopes === null
-      ? encryptionMaterial.documentRecipientEnvelopes
-      : undefined,
-    containerState.record.lastCommitLsn ?? undefined,
-    containerState.record.accessStateHash ?? undefined,
-  );
-
-  if (!synced) {
+  const author = resolveExplorerV2Author(state.runtime);
+  const apiClient = resolveExplorerV2Api(state.runtime);
+  if (!author || !apiClient) {
+    state.runtime.log(
+      "Explorer: skipped V2 metadata sync because the V2 writer context is unavailable.",
+    );
     return null;
   }
 
-  synced = await maybeSeedRewrappedDocumentRecipientEnvelopes({
-    currentAccessEpoch: containerState.record.accessEpoch,
-    currentDocumentRecipientEnvelopes,
+  const synced = await syncRemoteDocumentV2({
+    apiClient,
+    author,
     documentId,
     execSql: state.runtime.execSql,
     localVersionVector: encodeVersionVector(containerState.doc),
     minLsn: containerState.record.lastCommitLsn ?? undefined,
-    recipientPublicKeys: containerState.recipientPublicKeys,
-    secretKey: encapsulationKeyPair.secretKey,
-    syncDocument: state.runtime.apiClient.syncDocument.bind(
-      state.runtime.apiClient,
-    ),
-    synced,
+    pendingUpdates,
+    resolveWriterPublicKey: createExplorerWriterPublicKeyResolver(state),
+    targetSecretKey: encapsulationKeyPair.secretKey,
   });
+  if (!synced) {
+    return null;
+  }
 
   return {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
+    outgoingUpdateCount: pendingUpdates.length,
     synced,
-    outgoingUpdates,
   };
 }
 
@@ -886,59 +815,24 @@ async function syncSingleContainerMetadata(input: {
     return;
   }
 
-  const {
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    outgoingUpdates,
-    synced,
-  } = syncAttempt;
-
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    synced.referencedPrincipals,
-  );
+  const { outgoingUpdateCount, synced } = syncAttempt;
 
   await applySyncedContainerUpdates({
     containerState,
-    currentDocumentRecipientEnvelopes,
-    encryptionMaterial,
-    secretKey: encapsulationKeyPair.secretKey,
     state,
     synced,
   });
 
-  const previousAccessEpoch = containerState.record.accessEpoch;
-  const nextDocumentRecipientEnvelopes =
-    resolveSyncedDocumentRecipientEnvelopes({
-      currentAccessEpoch: previousAccessEpoch,
-      currentDocumentRecipientEnvelopes,
-      generatedDocumentRecipientEnvelopes:
-        encryptionMaterial?.documentRecipientEnvelopes ?? null,
-      synced,
-    });
   await host.persistContainerState(containerState, {
-    accessEpoch: synced.currentAccessEpoch,
-    accessStateHash: synced.currentAccessStateHash,
+    ...synced.persistedState,
     documentId: containerState.record.documentId,
-    documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-      nextDocumentRecipientEnvelopes,
-    ),
+    documentRecipientEnvelopes: null,
     lastCommitLsn:
-      synced.commitLsn ?? containerState.record.lastCommitLsn ?? null,
+      synced.response.commitLsn ?? containerState.record.lastCommitLsn ?? null,
     metadataDocumentId: containerState.record.documentId,
   });
 
-  await handleSyncedContainerEpochChange({
-    containerState,
-    nextDocumentRecipientEnvelopes,
-    previousAccessEpoch,
-    state,
-    synced,
-  });
-
-  if (
-    synced.canonicalDocumentRecipientEnvelopesAdopted ||
-    outgoingUpdates.length > synced.acceptedOutgoingUpdateIds.length
-  ) {
+  if (outgoingUpdateCount > synced.response.acceptedOutgoingUpdateIds.length) {
     requestExplorerSync(state);
   }
 }
@@ -994,7 +888,7 @@ async function persistCreatedContainerFromIntent(input: {
   created: NonNullable<
     Awaited<ReturnType<ExplorerRuntime["apiClient"]["createContainer"]>>
   >;
-  documentRecipientEnvelopes: DocumentEncryptionMaterial["documentRecipientEnvelopes"];
+  documentRecipientEnvelopes: ContainerMetadataEncryptionMaterial["documentRecipientEnvelopes"];
   host: ExplorerSyncHost;
   state: ExplorerSyncState;
   containerState: ContainerState;
@@ -1018,6 +912,9 @@ async function persistCreatedContainerFromIntent(input: {
       metadataDocumentId: created.metadataDocumentId,
       organizationId: created.organizationId,
       parentId: created.parentId,
+      v2ContentKeyBundle: null,
+      v2DocumentKekTargets: null,
+      v2DocumentManifestBundle: null,
     },
     false,
   );
