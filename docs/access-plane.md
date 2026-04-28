@@ -19,7 +19,7 @@ The initial access plane focuses on explicit, durable metadata we control:
 - access epochs
 - access fingerprints
 - access state hashes
-- recipient envelopes
+- signed access manifests and key-target envelopes
 
 ## Principles
 
@@ -42,7 +42,7 @@ Removing a user from a group does not revoke bytes or keys they already have.
 Revocation must therefore be modeled as:
 
 - future writes use a new `accessEpoch`
-- future ciphertext uses new recipient envelopes
+- future ciphertext uses new V2 key-target envelopes
 - old ciphertext remains readable to prior recipients unless re-encrypted
 
 ### 3. Access Fingerprints Should Be Derived State
@@ -54,7 +54,7 @@ closure for an object, not treated as the only authoritative record of access.
 
 That makes it useful as:
 
-- a cache key for the current wrapped-DEK bundle
+- a cache key for the current key-target set
 - a fast stale-check for future writes
 - a compact summary of whether the recipient set has changed
 
@@ -212,7 +212,7 @@ Examples:
 - recipient key change affecting future wrapping
 
 The current epoch and current `accessFingerprint` identify the active
-recipient bundle for future writes. The current `accessStateHash` identifies
+key-target bundle for future writes. The current `accessStateHash` identifies
 the authorization state that produced it, including referenced signed
 principal policy states.
 
@@ -229,7 +229,7 @@ At minimum it should be derived from:
 - recipient key fingerprints or equivalent key identity
 
 This gives the server one compact validation point for deciding whether the
-current wrapped-DEK bundle is still valid.
+current key-target bundle is still valid.
 
 The fingerprint is not a substitute for grants, memberships, or envelopes. It
 is derived state that helps detect when those underlying inputs have changed.
@@ -315,7 +315,7 @@ Implemented behavior:
   header from sidecar envelope rows so additive access growth does not require
   a new blob row
 - encrypted Loro updates use the current epoch's document DEK plus an
-  inline `accessEpoch`, not a per-update recipient bundle
+  inline `accessEpoch`, not a per-update key-target bundle
 - newly created documents may still have no persisted bundle until the client
   seeds one during initial metadata creation or the first document write of the
   epoch
@@ -336,7 +336,7 @@ Implemented behavior:
 Distinction:
 
 - grants and memberships answer who should have access
-- recipient envelopes answer how the current epoch's DEK is distributed
+- key-target envelopes answer how the current epoch's content key is distributed
 
 ## Structural Mutations
 
@@ -432,11 +432,7 @@ Keep:
 
 - `object_access_grants`
 - `object_access_epochs`
-- `object_recipient_envelopes`
-
-`object_recipient_envelopes` is a strict wrapped-DEK bundle table. Every row
-represents actual envelope material for one recipient key in one object epoch;
-identity-only rows are not valid.
+- V2 access manifest and content-key target tables
 
 Add:
 
@@ -490,7 +486,7 @@ Attachment/blob retention is live-only:
 - `attachmentDetaches[]` and same-slot `attachmentCommits[]` retire the prior
   active binding for that document slot
 - if no active binding references the retired blob after the atomic mutation,
-  the server prunes the blob row, blob access epochs, blob recipient envelopes,
+  the server prunes the blob row, blob access epochs, blob key-target rows,
   and detached binding rows for that blob
 - if another active binding still references the blob, the blob and its access
   material remain live until the final active binding is retired
@@ -787,24 +783,17 @@ So the secure interpretation is:
   independently verify the full object grant view, not just referenced
   principal policy state
 
-### Recipient Envelopes
+### Key Target Envelopes
 
-Persist the effective recipient set used for a given encrypted object version.
+Persist the effective KEK/content-key target set used for a given encrypted
+object version.
 
-- `object_recipient_envelopes`
-  - `object_type`
-  - `object_id`
-  - `epoch`
-  - `recipient_principal_type`
-  - `recipient_principal_id`
-  - `recipient_key_fingerprint`
-  - `kem_cipher_text`
-  - `wrapped_key`
+- `container_key_wraps`
+- `document_content_key_targets`
+- `blob_content_key_targets`
 
-`kem_cipher_text` and `wrapped_key` are required for every persisted container,
-document, and blob recipient bundle. The recipient principal columns can still
-be read without the wrapped material for rewrap/rotate classification, but the
-stored row itself is never an identity-only placeholder.
+These rows carry wrapped key material for the current signed V2 key boundary.
+The legacy direct-recipient `object_recipient_envelopes` table has been retired.
 
 The principal-recipient pivot now also has schema support for signed principal
 snapshots and indexed principal epoch keys:
@@ -824,9 +813,9 @@ while still coordinating future writes correctly.
 
 Operationally, think in terms of envelope bundles:
 
-- the current bundle is the set of recipient envelopes for the latest
+- the current bundle is the set of key-target envelopes for the latest
   `accessEpoch`
-- historical bundles are the sets of recipient envelopes for earlier epochs
+- historical bundles are the sets of key-target envelopes for earlier epochs
 
 This is important because the access plane must support both:
 
@@ -841,7 +830,7 @@ be multiple historical bundles retained for older ciphertext versions.
 For notes:
 
 - Loro updates belong to the document plane
-- access epochs and recipient envelopes belong to the access plane
+- access epochs and key-target envelopes belong to the access plane
 
 A note write should carry enough metadata to say:
 
@@ -882,4 +871,4 @@ encrypted Loro diffs.
 2. Add a small resolver that computes effective recipients for one object.
 3. Derive a current `accessFingerprint` from that resolver output.
 4. Use the epoch plus fingerprint check in notes writes before encrypted update append.
-5. Persist recipient envelopes by epoch so the latest bundle is active and older bundles remain available for historical ciphertext.
+5. Persist V2 key-target envelopes by epoch so the latest bundle is active and older bundles remain available for historical ciphertext.

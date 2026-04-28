@@ -19,7 +19,6 @@ import {
   documentContainerLinks,
   groups,
   objectAccessGrants,
-  objectRecipientEnvelopes,
   users,
 } from "../schema";
 import {
@@ -129,16 +128,6 @@ test("document access includes recipients inherited from its linked root contain
     .where(eq(documentContainerLinks.documentId, documentId))
     .limit(1);
   expect(link?.containerId).toBe(rootContainer.id);
-
-  const documentEnvelopes = await db
-    .select({
-      id: objectRecipientEnvelopes.id,
-      kemCipherText: objectRecipientEnvelopes.kemCipherText,
-      wrappedKey: objectRecipientEnvelopes.wrappedKey,
-    })
-    .from(objectRecipientEnvelopes)
-    .where(eq(objectRecipientEnvelopes.objectId, documentId));
-  expect(documentEnvelopes).toHaveLength(0);
 
   const beforeShare = await resolveDocumentAccessState(documentId);
   invariant(beforeShare, "expected document access state");

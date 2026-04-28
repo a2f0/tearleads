@@ -30,7 +30,7 @@ key fingerprint.
 
 > Key idea
 >
-> Each protected object has one active wrapped-DEK bundle for its current
+> Each protected object has one active V2 key-target bundle for its current
 > access fingerprint. When the fingerprint changes, that bundle is stale.
 
 Operationally, the fingerprint is derived from the fully expanded access
@@ -147,7 +147,7 @@ flowchart LR
 > Callout
 >
 > The access fingerprint is the single cache key for the object's active
-> wrapped-DEK bundle.
+> key-target bundle.
 
 In zero-trust mode, the canonicalization input should include verified policy
 state identifiers, not just the expanded recipient list. For example:
@@ -185,10 +185,10 @@ same DEK or must they move to a new one?
 flowchart LR
   CMP{Fingerprint changed?}
   ROTQ{Change shrinks or invalidates<br/>the recipient set?}
-  KEEP[Reuse current wrapped-DEK bundle]
+  KEEP[Reuse current key-target bundle]
   REWRAP[Re-wrap current DEK<br/>for the new fingerprint]
   ROTATE[Rotate to a new DEK<br/>for future writes]
-  BUNDLE[Active recipient-envelope bundle<br/>one active bundle per object fingerprint]
+  BUNDLE[Active key-target bundle<br/>one active bundle per object fingerprint]
   ST[Object state<br/>current access_epoch<br/>current access_fingerprint<br/>active DEK id]
 
   CMP -- no --> KEEP
@@ -226,7 +226,7 @@ In this model, the access fingerprint answers:
 - which groups and organizations contributed to that access
 - which upstream containers or documents contributed to that access
 - which nested groups were reached transitively from an ACL-linked group
-- whether the object's current wrapped-DEK bundle is still valid
+- whether the object's current key-target bundle is still valid
 - whether the next bundle can reuse the current DEK or must rotate to a new one
 
 In zero-trust mode it should additionally answer:

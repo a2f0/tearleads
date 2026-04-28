@@ -54,7 +54,7 @@ Distinction:
 Current blob GC is based on active attachment reachability, not historical
 document replay. If a blob is no longer referenced by any active
 `attachment_bindings`, commit-change prunes the blob row, blob access epochs,
-blob recipient envelopes, and detached binding rows for that blob. If another
+blob key-target rows, and detached binding rows for that blob. If another
 active binding still references the same blob, those rows remain live until the
 final active binding is retired.
 
@@ -249,8 +249,8 @@ The current code already has clear live-state seams:
 - encrypted live document updates live in `document_updates`
 - causal sync indexing lives in `document_update_spans`
 - live blob reachability lives in `attachment_bindings`
-- current access-plane material lives in `object_access_epochs` and
-  `object_recipient_envelopes`
+- current access-plane material lives in `object_access_epochs` and V2
+  key-target tables
 - live blob bytes live in `blobs`
 
 Those tables should remain optimized for current sync and current access state.
@@ -324,8 +324,8 @@ access-plane rows.
 
 That likely means:
 
-- current `object_access_epochs` and `object_recipient_envelopes` remain the
-  canonical live-access tables
+- current `object_access_epochs` and V2 key-target tables remain the canonical
+  live-access tables
 - history-specific bundle or envelope storage persists the material needed to
   verify or decrypt retained historical objects
 
@@ -370,7 +370,7 @@ This section resolves the Phase 1 storage boundary.
   - `document_update_spans`
   - `attachment_bindings`
   - `object_access_epochs`
-  - `object_recipient_envelopes`
+  - V2 key-target tables
   - `blobs`
 - add separate history-side persistence rather than keeping detached live rows
   forever
@@ -382,7 +382,7 @@ This section resolves the Phase 1 storage boundary.
 - defer fresh-client historical replay and historical blob download from the
   server in the first implementation
 - because historical replay is deferred, do not add historical wrapped-key or
-  recipient-envelope tables in the first implementation
+  key-target tables in the first implementation
 - instead, snapshot `accessEpoch`, `accessFingerprint`, and
   `accessStateHash` into audit records so the audit layer can prove which
   access state a write was accepted under
@@ -394,8 +394,8 @@ The current tables keep their current meanings:
 - `document_updates` remains the live sync store for encrypted Loro updates
 - `document_update_spans` remains the causal-sync index
 - `attachment_bindings` remains the live projection of current attachment slots
-- `object_access_epochs` and `object_recipient_envelopes` remain the canonical
-  current access-plane rows
+- `object_access_epochs` and V2 key-target tables remain the canonical current
+  access-plane rows
 - `blobs` remains the live blob-byte store and can continue to be pruned when
   the final active binding disappears
 
@@ -556,11 +556,11 @@ If later work needs server-side historical replay or historical blob download,
 add dedicated history-side tables such as:
 
 - `audit_object_access_epochs`
-- `audit_object_recipient_envelopes`
+- audit key-target tables
 
 Those future tables should be keyed by history objects or audit checkpoints,
-not by the current live object rows. The current `object_access_epochs` and
-`object_recipient_envelopes` tables should remain live-only.
+not by the current live object rows. The current `object_access_epochs` and V2
+key-target tables should remain live-only.
 
 ### Verification Model
 
@@ -587,7 +587,7 @@ The first implementation does **not** promise:
 - fresh-client replay of all historical document updates from scratch
 - historical blob download after a blob has been pruned from the live `blobs`
   table
-- historical wrapped-DEK or recipient-envelope retention for old epochs
+- historical wrapped-DEK or key-target retention for old epochs
 
 Instead, the first implementation promises:
 

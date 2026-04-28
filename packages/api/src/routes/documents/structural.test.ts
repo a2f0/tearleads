@@ -15,7 +15,6 @@ import {
   blobs,
   containers,
   objectAccessEpochs,
-  objectRecipientEnvelopes,
   users,
 } from "../../schema";
 
@@ -45,20 +44,6 @@ async function getRootContainerIdForUser(userId: string): Promise<string> {
 
   invariant(rootContainer, "expected root container row");
   return rootContainer.id;
-}
-
-async function countBlobRecipientEnvelopes(blobId: string): Promise<number> {
-  return (
-    await db
-      .select({ id: objectRecipientEnvelopes.id })
-      .from(objectRecipientEnvelopes)
-      .where(
-        and(
-          eq(objectRecipientEnvelopes.objectType, "blob"),
-          eq(objectRecipientEnvelopes.objectId, blobId),
-        ),
-      )
-  ).length;
 }
 
 async function countDocumentAccessEpochs(documentId: string): Promise<number> {
@@ -115,11 +100,7 @@ test("document link and unlink routes update access state without V1 access refr
   });
   const initialDocumentAccessEpochCount =
     await countDocumentAccessEpochs(documentId);
-  const initialBlobRecipientEnvelopeCount = await countBlobRecipientEnvelopes(
-    blob.id,
-  );
   expect(initialDocumentAccessEpochCount).toBe(1);
-  expect(initialBlobRecipientEnvelopeCount).toBe(0);
 
   const linkedResponse = await routeApp.request(
     `/documents/${documentId}/link`,
@@ -159,9 +140,6 @@ test("document link and unlink routes update access state without V1 access refr
   const linkedBlobState = await resolveBlobAccessState(blob.id);
   invariant(linkedBlobState, "expected linked blob state");
   expect(linkedBlobState.currentAccessEpoch).toBe(1);
-  expect(await countBlobRecipientEnvelopes(blob.id)).toBe(
-    initialBlobRecipientEnvelopeCount,
-  );
 
   const siblingListResponse = await routeApp.request(
     `/containers/${siblingContainerId}/documents`,
@@ -219,9 +197,6 @@ test("document link and unlink routes update access state without V1 access refr
   const unlinkedBlobState = await resolveBlobAccessState(blob.id);
   invariant(unlinkedBlobState, "expected unlinked blob state");
   expect(unlinkedBlobState.currentAccessEpoch).toBe(1);
-  expect(await countBlobRecipientEnvelopes(blob.id)).toBe(
-    initialBlobRecipientEnvelopeCount,
-  );
 
   const afterUnlinkListResponse = await routeApp.request(
     `/containers/${siblingContainerId}/documents`,

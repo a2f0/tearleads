@@ -30,7 +30,6 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { RecipientPrincipalType } from "./access/recipientPrincipals";
 
 export type BlobAuditRetentionMode = "live_only";
 export type DocumentAttachmentAuditAction =
@@ -258,40 +257,6 @@ export const objectAccessEpochs = pgTable("object_access_epochs", {
   accessStateHash: text("access_state_hash"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
-
-// Legacy V1 direct recipient envelopes. V2 document/blob key delivery uses
-// container KEK wraps plus document/blob content-key target tables; structural
-// and write paths must not fan out descendant document/blob rows here.
-export const objectRecipientEnvelopes = pgTable(
-  "object_recipient_envelopes",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    objectType: text("object_type").notNull(),
-    objectId: text("object_id").notNull(),
-    epoch: integer("epoch").notNull(),
-    recipientPrincipalType: text("recipient_principal_type")
-      .$type<RecipientPrincipalType>()
-      .notNull(),
-    recipientPrincipalId: text("recipient_principal_id").notNull(),
-    recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
-    kemCipherText: text("kem_cipher_text").notNull(),
-    wrappedKey: text("wrapped_key").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("object_recipient_envelopes_object_epoch_idx").on(
-      table.objectType,
-      table.objectId,
-      table.epoch,
-    ),
-    uniqueIndex("object_recipient_envelopes_object_epoch_recipient_idx").on(
-      table.objectType,
-      table.objectId,
-      table.epoch,
-      table.recipientKeyFingerprint,
-    ),
-  ],
-);
 
 export const accessEvents = pgTable(
   "access_events",

@@ -122,18 +122,6 @@ await client.exec(`
     access_state_hash TEXT,
     updated_at TIMESTAMP NOT NULL DEFAULT now()
   );
-  CREATE TABLE IF NOT EXISTS object_recipient_envelopes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    object_type TEXT NOT NULL,
-    object_id TEXT NOT NULL,
-    epoch INTEGER NOT NULL,
-    recipient_principal_type TEXT NOT NULL,
-    recipient_principal_id TEXT NOT NULL,
-    recipient_key_fingerprint TEXT NOT NULL,
-    kem_cipher_text TEXT NOT NULL,
-    wrapped_key TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now()
-  );
   CREATE TABLE IF NOT EXISTS access_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     version INTEGER NOT NULL,
@@ -449,15 +437,6 @@ await client.exec(`
     ON object_access_epochs (object_type, object_id);
   CREATE UNIQUE INDEX IF NOT EXISTS object_access_epochs_object_epoch_idx
     ON object_access_epochs (object_type, object_id, epoch);
-  CREATE INDEX IF NOT EXISTS object_recipient_envelopes_object_epoch_idx
-    ON object_recipient_envelopes (object_type, object_id, epoch);
-  CREATE UNIQUE INDEX IF NOT EXISTS object_recipient_envelopes_object_epoch_recipient_idx
-    ON object_recipient_envelopes (
-      object_type,
-      object_id,
-      epoch,
-      recipient_key_fingerprint
-    );
   CREATE UNIQUE INDEX IF NOT EXISTS access_events_event_id_idx
     ON access_events (event_id);
   CREATE UNIQUE INDEX IF NOT EXISTS access_events_event_hash_idx

@@ -276,7 +276,7 @@ client's view.
 ### Availability Is Out Of Scope
 
 The server can always deny service by withholding data, policy bundles,
-recipient envelopes, or key lookup responses. The current security posture is
+key-target envelopes, or key lookup responses. The current security posture is
 to fail closed when required cryptographic policy material is unavailable.
 
 ## Information-Disclosure Scenarios
