@@ -1,5 +1,5 @@
 import { type RecipientEntry, wrapDekForRecipients } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   encryptLoroUpdate,
   getUpdateVersionVectors,
@@ -48,12 +48,6 @@ export function getLocalRecipientPublicKeys(
     | undefined,
 ): Uint8Array[] {
   return encapsulationKeyPair ? [encapsulationKeyPair.publicKey] : [];
-}
-
-export function resolveRecipientPublicKeys(
-  encodedPublicKeys: string[],
-): Uint8Array[] {
-  return encodedPublicKeys.map((publicKey) => base64ToBytes(publicKey));
 }
 
 export function createPendingUpdateFields(

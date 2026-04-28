@@ -50,7 +50,9 @@ test("createContainer service creates a metadata document without route helpers"
   expect(created.id).toBe(childId);
   expect(created.parentId).toBe(registration.rootContainerId);
   expect(created.metadataAccessEpoch).toBe(1);
-  expect(created.metadataRecipientEncapsulationPublicKeys).toHaveLength(1);
+  expect(created).not.toHaveProperty(
+    "metadataRecipientEncapsulationPublicKeys",
+  );
 
   const [container] = await db
     .select({

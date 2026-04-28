@@ -150,8 +150,6 @@ export async function createContainer(
       metadataAccessEpoch: metadata.metadataAccessEpoch,
       metadataAccessStateHash: metadata.metadataAccessStateHash,
       metadataDocumentId: metadata.metadataDocumentId,
-      metadataRecipientEncapsulationPublicKeys:
-        metadata.metadataRecipientEncapsulationPublicKeys,
       metadataReferencedPrincipals: metadata.metadataReferencedPrincipals,
     };
   });

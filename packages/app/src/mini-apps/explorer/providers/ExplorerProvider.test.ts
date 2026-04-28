@@ -803,7 +803,6 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "container-a-access-state-hash-1",
         metadataDocumentId: "metadata-document-a",
-        metadataRecipientEncapsulationPublicKeys: [],
         metadataReferencedPrincipals: [
           {
             keyEpoch: 1,
@@ -821,7 +820,6 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "container-b-access-state-hash-1",
         metadataDocumentId: "metadata-document-b",
-        metadataRecipientEncapsulationPublicKeys: [],
         metadataReferencedPrincipals: [
           {
             keyEpoch: 1,
@@ -1124,9 +1122,6 @@ test("explorer sync creates queued local containers parent before child", async 
           metadataAccessEpoch: 2,
           metadataAccessStateHash: "current-root-access-state-hash",
           metadataDocumentId: "root-metadata-document",
-          metadataRecipientEncapsulationPublicKeys: [
-            bytesToBase64(localKeyPair.publicKey),
-          ],
           organizationId: "org-1",
           parentId: null,
         },
@@ -1231,7 +1226,6 @@ test("explorer store creates a V2 child under a writable shared root through the
       version: number;
     }>
   > = [];
-  const ownerKeyPair = generateKemSeedAndKeyPair();
   const localKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
@@ -1265,10 +1259,6 @@ test("explorer store creates a V2 child under a writable shared root through the
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "shared-root-access-state-hash-1",
         metadataDocumentId: "shared-root-metadata-document",
-        metadataRecipientEncapsulationPublicKeys: [
-          bytesToBase64(ownerKeyPair.publicKey),
-          bytesToBase64(localKeyPair.publicKey),
-        ],
         metadataReferencedPrincipals: [
           {
             keyEpoch: 1,
@@ -1333,7 +1323,6 @@ test("explorer store creates a V2 child under a writable shared root through the
 test("explorer store moves an authenticated child container through the API and refreshes local state", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
-  const recipientPublicKeys = [bytesToBase64(localKeyPair.publicKey)];
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
@@ -1377,7 +1366,6 @@ test("explorer store moves an authenticated child container through the API and 
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "root-access-state-hash-1",
       metadataDocumentId: "root-metadata-document",
-      metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
       organizationId: "org-1",
       parentId: null,
     },
@@ -1386,7 +1374,6 @@ test("explorer store moves an authenticated child container through the API and 
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "parent-a-access-state-hash-1",
       metadataDocumentId: "parent-a-metadata-document",
-      metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
       organizationId: "org-1",
       parentId: "root-container",
     },
@@ -1395,7 +1382,6 @@ test("explorer store moves an authenticated child container through the API and 
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "parent-b-access-state-hash-1",
       metadataDocumentId: "parent-b-metadata-document",
-      metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
       organizationId: "org-1",
       parentId: "root-container",
     },
@@ -1404,7 +1390,6 @@ test("explorer store moves an authenticated child container through the API and 
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "child-access-state-hash-1",
       metadataDocumentId: "child-metadata-document",
-      metadataRecipientEncapsulationPublicKeys: recipientPublicKeys,
       organizationId: "org-1",
       parentId: "parent-a",
     },
@@ -1837,9 +1822,6 @@ test("explorer store refreshes remote containers on demand after initialization"
           metadataAccessEpoch: 1,
           metadataAccessStateHash: "shared-root-access-state-hash-1",
           metadataDocumentId: "shared-root-metadata-document",
-          metadataRecipientEncapsulationPublicKeys: [
-            bytesToBase64(localKeyPair.publicKey),
-          ],
           organizationId: "org-2",
           parentId: null,
         },

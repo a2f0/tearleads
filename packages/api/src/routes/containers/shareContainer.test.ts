@@ -99,7 +99,7 @@ test("POST /containers/:containerId/share grants direct user access without desc
   const shared = await shareResponse.json();
   expect(shared.id).toBe(sharedContainerId);
   expect(shared.metadataAccessEpoch).toBe(2);
-  expect(shared.metadataRecipientEncapsulationPublicKeys).toHaveLength(2);
+  expect(shared).not.toHaveProperty("metadataRecipientEncapsulationPublicKeys");
 
   const listResponse = await routeApp.request("/containers", {
     method: "GET",

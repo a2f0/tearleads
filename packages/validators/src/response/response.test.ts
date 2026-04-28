@@ -187,7 +187,6 @@ test("isCreateContainerResponse", () => {
       metadataDocumentId: "doc-123",
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "access-state-hash",
-      metadataRecipientEncapsulationPublicKeys: ["pub-key"],
       metadataReferencedPrincipals: [
         {
           principalType: "group",
@@ -218,7 +217,6 @@ test("isListContainersResponse", () => {
         metadataDocumentId: "doc-root",
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "access-state-hash",
-        metadataRecipientEncapsulationPublicKeys: ["pub-key"],
         metadataReferencedPrincipals: [
           {
             principalType: "organization",
@@ -238,7 +236,6 @@ test("isListContainersResponse", () => {
         organizationId: "org-123",
         metadataDocumentId: "doc-root",
         metadataAccessEpoch: 1,
-        metadataRecipientEncapsulationPublicKeys: ["pub-key"],
       },
     ]),
   ).toBe(false);
@@ -252,7 +249,6 @@ test("isShareContainerResponse", () => {
       metadataDocumentId: "doc-123",
       metadataAccessEpoch: 2,
       metadataAccessStateHash: "access-state-hash",
-      metadataRecipientEncapsulationPublicKeys: ["pub-key"],
       metadataReferencedPrincipals: [
         {
           principalType: "group",
@@ -282,7 +278,6 @@ test("isMoveContainerResponse", () => {
       metadataDocumentId: "doc-123",
       metadataAccessEpoch: 2,
       metadataAccessStateHash: "access-state-hash",
-      metadataRecipientEncapsulationPublicKeys: ["pub-key"],
     }),
   ).toBe(true);
   expect(
@@ -292,7 +287,6 @@ test("isMoveContainerResponse", () => {
       parentId: null,
       metadataDocumentId: "doc-123",
       metadataAccessEpoch: 2,
-      metadataRecipientEncapsulationPublicKeys: ["pub-key"],
     }),
   ).toBe(false);
   expect(isMoveContainerResponse(null)).toBe(false);

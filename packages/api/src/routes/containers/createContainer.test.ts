@@ -88,7 +88,7 @@ test("POST /containers creates a child container under a writable parent", async
   expect(body.parentId).toBe(rootContainer.id);
   expect(typeof body.metadataDocumentId).toBe("string");
   expect(body.metadataAccessEpoch).toBe(1);
-  expect(body.metadataRecipientEncapsulationPublicKeys).toHaveLength(1);
+  expect(body).not.toHaveProperty("metadataRecipientEncapsulationPublicKeys");
 
   const [createdContainer] = await db
     .select()

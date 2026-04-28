@@ -8,7 +8,6 @@ import { inArray } from "drizzle-orm";
 import {
   documentRecipientEnvelopesMatchRecipients,
   initializeDocumentAccess,
-  listRecipientEncapsulationPublicKeys,
   replaceDocumentRecipientEnvelopes,
   resolveDocumentAccessState,
 } from "../../access/documentAccess";
@@ -131,7 +130,6 @@ export async function createContainerMetadataDocument(
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
   metadataDocumentId: string;
-  metadataRecipientEncapsulationPublicKeys: string[];
   metadataReferencedPrincipals: ReferencedPrincipalStateResponse[];
 }> {
   const [metadataDocument] = await tx
@@ -222,8 +220,6 @@ export async function createContainerMetadataDocument(
     metadataAccessEpoch,
     metadataAccessStateHash: access.accessStateHash,
     metadataDocumentId: metadataDocument.id,
-    metadataRecipientEncapsulationPublicKeys:
-      listRecipientEncapsulationPublicKeys(access),
     metadataReferencedPrincipals: access.referencedPrincipals,
   };
 }
