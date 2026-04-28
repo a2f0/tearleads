@@ -71,9 +71,7 @@ async function requireReadableContainer(
     }
   }
 
-  if (!containerAccess || !canReadContainerAccess(containerAccess, userId)) {
-    throw new ListContainerDocumentsError("Forbidden", 403);
-  }
+  throw new ListContainerDocumentsError("Forbidden", 403);
 }
 
 async function loadContainerDocumentIds(
