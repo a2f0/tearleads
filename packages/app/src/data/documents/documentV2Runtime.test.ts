@@ -953,6 +953,68 @@ test("buildMaterializedDocumentV2LinkSetMutationPlan adds links without rotating
   );
 });
 
+test("buildMaterializedDocumentV2LinkSetMutationPlan names inaccessible remaining KEKs during unlink", async () => {
+  const { author } = await createAuthor();
+  const { projection, rootContainerKek, secretKey } =
+    await createWrappedProjection();
+  const { projection: siblingProjection, siblingContainerKeyEpochId } =
+    await createSiblingProjection({
+      baseProjection: projection,
+      rootContainerKek,
+    });
+  const created = await buildMaterializedDocumentV2CreatePlan({
+    author,
+    containerProjection: projection,
+    documentId: "document-link-set-missing-kek",
+    targetSecretKey: secretKey,
+  });
+  const createdResponse = createResponse(created.plan);
+  const writerProjection: DocumentV2WriterProjectionResponse = {
+    authorizingContainerPaths: [projection],
+    contentKeyBundle: createdResponse.contentKeyBundle,
+    documentId: createdResponse.id,
+    documentKekTargets: createdResponse.documentKekTargets,
+    documentManifest: createdResponse.accessManifest,
+  };
+  const linked = await buildMaterializedDocumentV2LinkSetMutationPlan({
+    author,
+    operation: "link",
+    targetContainerProjection: siblingProjection,
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const linkResponse = await createLinkSetResponseFromRequest(
+    writerProjection.documentId,
+    linked.plan.request,
+  );
+  const inaccessibleSiblingProjection: ContainerV2WriterProjectionResponse = {
+    ...siblingProjection,
+    containerKeks: siblingProjection.containerKeks.map((kek, index) =>
+      index === siblingProjection.containerKeks.length - 1
+        ? { ...kek, wraps: [] }
+        : kek,
+    ),
+  };
+
+  await expect(
+    buildMaterializedDocumentV2LinkSetMutationPlan({
+      author,
+      operation: "unlink",
+      targetContainerProjection: projection,
+      targetSecretKey: secretKey,
+      writerProjection: {
+        authorizingContainerPaths: [projection, inaccessibleSiblingProjection],
+        contentKeyBundle: linkResponse.contentKeyBundle,
+        documentId: linkResponse.id,
+        documentKekTargets: linkResponse.documentKekTargets,
+        documentManifest: linkResponse.accessManifest,
+      },
+    }),
+  ).rejects.toThrow(
+    `container ${siblingProjection.containerId} epoch ${siblingContainerKeyEpochId}`,
+  );
+});
+
 test("relinkRemoteDocumentV2 submits a verified signed link-set mutation", async () => {
   const { author } = await createAuthor();
   const { projection, rootContainerKek, secretKey } =

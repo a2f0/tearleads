@@ -362,6 +362,16 @@ function sortDocumentTargets<T extends DocumentContentKeyTargetV2>(
   );
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function describeDocumentV2TargetKek(
+  target: DocumentContentKeyTargetV2,
+): string {
+  return `container ${target.containerId} epoch ${target.containerKeyEpochId}`;
+}
+
 function uniqueSortedStrings(values: readonly string[]): string[] {
   return [...new Set(values)].sort();
 }
@@ -972,6 +982,19 @@ function projectionLeafContainerId(
   return leafBundle ? readManifestContainerId(leafBundle) : null;
 }
 
+function describeProjectionTargetKek(
+  projection: ContainerV2WriterProjectionResponse,
+): string {
+  const targetKek = projection.containerKeks.at(-1);
+  const containerId =
+    projectionLeafContainerId(projection) ??
+    targetKek?.containerId ??
+    projection.containerId;
+  return targetKek
+    ? `container ${containerId} epoch ${targetKek.containerKeyEpochId}`
+    : `container ${containerId}`;
+}
+
 function deriveDocumentV2TargetFromProjection(
   projection: ContainerV2WriterProjectionResponse,
 ): DocumentContentKeyTargetV2 {
@@ -1104,7 +1127,9 @@ async function wrapDocumentV2ContentKeyForTargets(input: {
     sortDocumentTargets(input.targets).map(async (target) => {
       const targetKek = input.keksByEpochId.get(target.containerKeyEpochId);
       if (!targetKek) {
-        throw new Error("Document V2 target KEK could not be unwrapped");
+        throw new Error(
+          `Document V2 target KEK could not be unwrapped for ${describeDocumentV2TargetKek(target)}`,
+        );
       }
 
       const wrapped = await encryptWithDek(input.contentKey, targetKek);
@@ -1967,11 +1992,18 @@ async function collectContainerKeksForDocumentV2Sync(input: {
   const keksByEpochId = new Map<string, Uint8Array>();
 
   for (const projection of input.writerProjection.authorizingContainerPaths) {
-    const projectionKeks = await unwrapContainerV2KekPath({
-      execSql: input.execSql,
-      projection,
-      secretKey: input.secretKey,
-    });
+    let projectionKeks: ReadonlyMap<string, Uint8Array>;
+    try {
+      projectionKeks = await unwrapContainerV2KekPath({
+        execSql: input.execSql,
+        projection,
+        secretKey: input.secretKey,
+      });
+    } catch (error) {
+      throw new Error(
+        `Document V2 authorizing container KEK path could not be unwrapped for ${describeProjectionTargetKek(projection)}: ${errorMessage(error)}`,
+      );
+    }
     for (const [containerKeyEpochId, keyMaterial] of projectionKeks) {
       const existing = keksByEpochId.get(containerKeyEpochId);
       if (existing) {

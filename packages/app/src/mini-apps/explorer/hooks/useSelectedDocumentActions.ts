@@ -19,6 +19,7 @@ type SetLinkedContainerIdsForDocument = (
   linkedContainerIds: ReadonlyArray<string>,
 ) => void;
 type ExplorerDocumentStore = ReturnType<typeof primeDocumentStore>;
+type MoveExplorerDocumentStatus = "complete" | "partial";
 
 function canMutateSelectedDocument(appData: ExplorerDocumentsRuntimeAppData) {
   return (
@@ -127,6 +128,24 @@ async function mutateExplorerDocumentLinkSet(params: {
   return result;
 }
 
+function explorerDocumentMoveResult(input: {
+  document: RelinkRemoteDocumentV2Result;
+  nextContainerId: string;
+  queueBaselineAfterRelink?: boolean;
+  status: MoveExplorerDocumentStatus;
+}) {
+  return {
+    accessEpoch: input.document.plan.state.epoch,
+    accessStateHash: input.document.response.accessManifest.manifestHash,
+    linkedContainerIds: input.document.linkedContainerIds,
+    nextContainerId: input.nextContainerId,
+    queueBaselineAfterRelink:
+      input.queueBaselineAfterRelink ?? input.document.contentKeyRotated,
+    status: input.status,
+    v2State: input.document.persistedState,
+  };
+}
+
 async function moveExplorerDocument(params: {
   appData: ExplorerDocumentsRuntimeAppData;
   note: DocumentSummary;
@@ -159,7 +178,11 @@ async function moveExplorerDocument(params: {
     appData.log(
       `Explorer: note ${note.id} was linked to ${targetContainerId} but failed to unlink from ${note.containerId}`,
     );
-    return null;
+    return explorerDocumentMoveResult({
+      document: linkedDocument,
+      nextContainerId: targetContainerId,
+      status: "partial",
+    });
   }
 
   const nextContainerId = getMovedDocumentContainerId(
@@ -170,15 +193,13 @@ async function moveExplorerDocument(params: {
     return null;
   }
 
-  return {
-    accessEpoch: unlinkedDocument.plan.state.epoch,
-    accessStateHash: unlinkedDocument.response.accessManifest.manifestHash,
-    linkedContainerIds: unlinkedDocument.linkedContainerIds,
+  return explorerDocumentMoveResult({
+    document: unlinkedDocument,
     nextContainerId,
     queueBaselineAfterRelink:
       linkedDocument.contentKeyRotated || unlinkedDocument.contentKeyRotated,
-    v2State: unlinkedDocument.persistedState,
-  };
+    status: "complete",
+  });
 }
 
 async function linkExplorerDocument(params: {
@@ -337,7 +358,7 @@ async function moveExplorerNote(params: {
     !note.containerId ||
     note.containerId === targetContainerId
   ) {
-    return null;
+    return { linksChanged: false, note: null };
   }
 
   const currentDocumentStore =
@@ -346,7 +367,7 @@ async function moveExplorerNote(params: {
       note,
     });
   if (!currentDocumentStore) {
-    return null;
+    return { linksChanged: false, note: null };
   }
 
   const movedDocument = await moveExplorerDocument({
@@ -355,7 +376,7 @@ async function moveExplorerNote(params: {
     targetContainerId,
   });
   if (!movedDocument) {
-    return null;
+    return { linksChanged: false, note: null };
   }
   const { accessEpoch, linkedContainerIds, nextContainerId } = movedDocument;
   setLinkedContainerIdsForDocument(note.documentId, linkedContainerIds);
@@ -372,12 +393,18 @@ async function moveExplorerNote(params: {
     v2State: movedDocument.v2State,
   });
   if (!movedNote) {
-    return null;
+    return { linksChanged: true, note: null };
   }
 
   expandNode(nextContainerId);
-  appData.log(`Explorer: moved note ${movedNote.id} to ${nextContainerId}`);
-  return movedNote;
+  if (movedDocument.status === "partial") {
+    appData.log(
+      `Explorer: partially moved note ${movedNote.id}; linked to ${nextContainerId} but still linked to ${note.containerId}`,
+    );
+  } else {
+    appData.log(`Explorer: moved note ${movedNote.id} to ${nextContainerId}`);
+  }
+  return { linksChanged: true, note: movedNote };
 }
 
 async function linkExplorerNote(params: {
@@ -582,7 +609,7 @@ function useMoveDocumentAction(params: {
         return null;
       }
 
-      const movedNote = await moveExplorerNote({
+      const moveResult = await moveExplorerNote({
         appData,
         expandNode,
         mergeDocumentSummary,
@@ -590,11 +617,11 @@ function useMoveDocumentAction(params: {
         setLinkedContainerIdsForDocument,
         targetContainerId,
       });
-      if (movedNote) {
+      if (moveResult.linksChanged) {
         onDocumentLinksChanged();
       }
 
-      return movedNote;
+      return moveResult.note;
     },
     [
       appData,
