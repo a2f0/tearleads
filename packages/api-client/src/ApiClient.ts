@@ -6,7 +6,6 @@ import type {
   DocumentV2SyncRequest,
   StageBlobRequest,
 } from "@tearleads/validators/request";
-import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
 import {
   authenticate,
   authenticateWithChallenge,
@@ -19,15 +18,12 @@ import {
   stageBlob,
 } from "./routes/blobs";
 import {
-  createContainer,
   createContainerV2,
   getContainerV2WriterProjection,
   listContainerDocuments,
   listContainers,
-  moveContainer,
   moveContainerV2,
   revokeContainerV2,
-  shareContainer,
   shareContainerV2,
 } from "./routes/containers";
 import {
@@ -243,59 +239,12 @@ export class ApiClient {
     return getDocumentV2WriterProjection(this.request, documentId);
   }
 
-  createContainer(
-    id: string,
-    parentId: string,
-    expectedAccessStateHash: string,
-    initialMetadataUpdates: Parameters<typeof createContainer>[4],
-    initialMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
-  ) {
-    return createContainer(
-      this.request,
-      id,
-      parentId,
-      expectedAccessStateHash,
-      initialMetadataUpdates,
-      initialMetadataRecipientEnvelopes,
-    );
-  }
-
   listContainers() {
     return listContainers(this.request);
   }
 
   listContainerDocuments(containerId: string) {
     return listContainerDocuments(this.request, containerId);
-  }
-
-  shareContainer(
-    containerId: string,
-    subjectType: "user" | "group" | "organization",
-    subjectId: string,
-    accessLevel: "read" | "write" | "admin",
-    expectedAccessStateHash: string,
-  ) {
-    return shareContainer(
-      this.request,
-      containerId,
-      subjectType,
-      subjectId,
-      accessLevel,
-      expectedAccessStateHash,
-    );
-  }
-
-  moveContainer(
-    containerId: string,
-    parentId: string,
-    expectedAccessStateHash: string,
-  ) {
-    return moveContainer(
-      this.request,
-      containerId,
-      parentId,
-      expectedAccessStateHash,
-    );
   }
 
   linkDocumentToContainer(

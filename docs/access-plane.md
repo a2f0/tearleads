@@ -1,8 +1,9 @@
 # Access Plane
 
 > Status: historical V1 details remain in this note. The direct-recipient
-> document sync/commit-change write APIs described below have been retired in
-> favor of signed Keying V2 document and blob mutation routes.
+> document sync/commit-change and legacy container mutation APIs described
+> below have been retired in favor of signed Keying V2 document/blob and
+> container mutation routes.
 
 ## Summary
 
@@ -504,7 +505,7 @@ belong to a separate audit/history layer.
 The initial scope should allow offline structural mutations such as move, link,
 unlink, attach, and detach, with authoritative recomputation at sync time.
 
-The API exposes structural mutation routes:
+The historical API exposed structural mutation routes:
 
 - `POST /documents`
 - `POST /containers`
@@ -527,9 +528,9 @@ materialize downstream document epochs and active blob epochs so access and
 bundle invalidation move with the structure instead of waiting for an unrelated
 content mutation.
 
-The app explorer uses `POST /containers` for child creation,
-`POST /containers/:containerId/move` for container reparenting, and moves
-documents between containers by calling
+The current app explorer uses signed `/v2/containers` mutations for child
+creation, sharing, and reparenting. It still moves documents between containers
+by calling
 `POST /documents/:documentId/link` followed by
 `POST /documents/:documentId/unlink` while updating the local
 document/container projection from the authoritative mutation response. The

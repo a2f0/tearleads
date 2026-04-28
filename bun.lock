@@ -47,7 +47,6 @@
       "version": "0.1.0",
       "dependencies": {
         "@tearleads/crypto": "workspace:*",
-        "@tearleads/loro": "workspace:*",
         "@tearleads/validators": "workspace:*",
       },
       "devDependencies": {

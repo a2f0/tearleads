@@ -19,15 +19,9 @@ export {
 export {
   type ContainerV2ManifestBundle,
   type ContainerV2MutationRequest,
-  type CreateContainerRequest,
   isContainerV2MutationRequest,
-  isCreateContainerRequest,
   isLinkDocumentToContainerRequest,
-  isMoveContainerRequest,
-  isShareContainerRequest,
   type LinkDocumentToContainerRequest,
-  type MoveContainerRequest,
-  type ShareContainerRequest,
 } from "./container";
 export {
   type DocumentV2ContentKeyBundleRequest,

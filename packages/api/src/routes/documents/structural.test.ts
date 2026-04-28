@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
-import { createContainer as createContainerRequest } from "../../../test/helpers/api/createContainer";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createContainerFixture } from "../../../test/helpers/containerFixture";
 import { createDocumentFixture } from "../../../test/helpers/documentFixture";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { resolveBlobAccessState } from "../../access/blobAccess";
@@ -47,22 +47,6 @@ async function getRootContainerIdForUser(userId: string): Promise<string> {
   return rootContainer.id;
 }
 
-async function createContainerForUser(input: {
-  id: string;
-  parentId: string;
-  token: string;
-}): Promise<void> {
-  const response = await createContainerRequest(
-    {
-      id: input.id,
-      parentId: input.parentId,
-    },
-    input.token,
-  );
-
-  expect(response.status).toBe(200);
-}
-
 async function countBlobRecipientEnvelopes(blobId: string): Promise<number> {
   return (
     await db
@@ -102,10 +86,9 @@ test("document link and unlink routes update access state without V1 access refr
 
   const rootContainerId = await getRootContainerIdForUser(owner.userId);
   const siblingContainerId = crypto.randomUUID();
-  await createContainerForUser({
+  await createContainerFixture({
     id: siblingContainerId,
     parentId: rootContainerId,
-    token: owner.token,
   });
 
   const createdDocument = await createDocumentFixture({
@@ -293,10 +276,9 @@ test("document link route rejects stale access state hashes", async () => {
 
   const rootContainerId = await getRootContainerIdForUser(owner.userId);
   const siblingContainerId = crypto.randomUUID();
-  await createContainerForUser({
+  await createContainerFixture({
     id: siblingContainerId,
     parentId: rootContainerId,
-    token: owner.token,
   });
 
   const createdDocument = await createDocumentFixture({

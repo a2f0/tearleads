@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@tearleads/crypto": "workspace:*",
-    "@tearleads/loro": "workspace:*",
     "@tearleads/validators": "workspace:*"
   },
   "devDependencies": {

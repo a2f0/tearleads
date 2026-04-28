@@ -629,22 +629,9 @@ async function createSqlRuntime(): Promise<TestRuntime> {
   return {
     ...runtimeBase,
     apiClient: {
-      createContainer: async (
-        _id: string,
-        _parentId: string,
-        _expectedAccessStateHash: string,
-        _initialMetadataUpdates,
-      ) => null,
       getBlob: async () => null,
       listContainers: async () => [],
       listDocumentAttachments: async () => null,
-      moveContainer: async (_containerId: string, _parentId: string) => null,
-      shareContainer: async (
-        _containerId: string,
-        _subjectType: "user" | "group" | "organization",
-        _subjectId: string,
-        _accessLevel: "read" | "write" | "admin",
-      ) => null,
       getEncapsulationKey: async () => null,
       getDocumentV2WriterProjection: async () => null,
       syncDocumentV2: async () => null,
@@ -864,7 +851,6 @@ test("explorer store creates authenticated child containers through the API befo
     ...runtime.apiClient,
     ...v2Harness.apiClient,
     listContainers: async () => [],
-    shareContainer: async () => null,
   };
   try {
     await ensureContainerTables(runtime.execSql);
@@ -957,7 +943,6 @@ test("explorer store creates authenticated child containers through the API befo
 test("explorer store queues authenticated child create when parent has no remote access state", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
-  let createContainerCallCount = 0;
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
   runtime.isAuthenticated = true;
@@ -965,10 +950,6 @@ test("explorer store queues authenticated child create when parent has no remote
   runtime.encapsulationKeyPair = localKeyPair;
   runtime.apiClient = {
     ...runtime.apiClient,
-    createContainer: async () => {
-      createContainerCallCount += 1;
-      return null;
-    },
     listContainers: async () => [],
   };
 
@@ -998,7 +979,6 @@ test("explorer store queues authenticated child create when parent has no remote
       throw new Error("Expected createChild to queue a local container.");
     }
 
-    expect(createContainerCallCount).toBe(0);
     expect(childNode.parentId).toBe("root-container");
     expect(childNode.name).toBe("Docs");
 
@@ -1266,7 +1246,6 @@ test("explorer store creates a V2 child under a writable shared root through the
         parentId: null,
       },
     ],
-    shareContainer: async () => null,
   };
 
   try {
@@ -1503,7 +1482,6 @@ test("explorer store shares an authenticated container without reseeding legacy 
   runtime.apiClient = {
     ...runtime.apiClient,
     ...v2Harness.apiClient,
-    createContainer: async () => null,
     getEncapsulationKey: async (requestedUserId: string) => {
       if (requestedUserId !== "550e8400-e29b-41d4-a716-446655440000") {
         return null;
@@ -1664,7 +1642,6 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
   runtime.apiClient = {
     ...runtime.apiClient,
     ...v2Fixture.apiClient,
-    createContainer: async () => null,
     listContainers: async () => [],
   };
 
@@ -1793,7 +1770,6 @@ test("explorer store refreshes remote containers on demand after initialization"
   runtime.encapsulationKeyPair = localKeyPair;
   runtime.apiClient = {
     ...runtime.apiClient,
-    createContainer: async () => null,
     listContainers: async () => {
       listContainersCalls += 1;
 
@@ -1812,7 +1788,6 @@ test("explorer store refreshes remote containers on demand after initialization"
         },
       ];
     },
-    shareContainer: async () => null,
   };
   let store: ReturnType<typeof createExplorerStore> | null = null;
 

@@ -30,16 +30,10 @@ export {
   type ContainerV2ManifestBundleResponse,
   type ContainerV2MutationResponse,
   type ContainerV2WriterProjectionResponse,
-  type CreateContainerResponse,
   isContainerV2MutationResponse,
   isContainerV2WriterProjectionResponse,
-  isCreateContainerResponse,
   isListContainersResponse,
-  isMoveContainerResponse,
-  isShareContainerResponse,
   type ListContainersResponse,
-  type MoveContainerResponse,
-  type ShareContainerResponse,
 } from "./container";
 export {
   type ContainerDocumentSummary,

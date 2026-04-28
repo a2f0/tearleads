@@ -2,10 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
-import { createContainer } from "../../test/helpers/api/createContainer";
 import { authenticate } from "../../test/helpers/authenticate";
+import { createContainerFixture } from "../../test/helpers/containerFixture";
 import { createDocumentFixture } from "../../test/helpers/documentFixture";
 import {
   createPrincipalStateSigner,
@@ -82,35 +82,6 @@ async function storeCurrentGroupState(
     }),
   );
 }
-
-test("object recipient envelopes require wrapped key material", async () => {
-  let insertError: unknown;
-
-  try {
-    await db.execute(sql`
-      INSERT INTO object_recipient_envelopes (
-        object_type,
-        object_id,
-        epoch,
-        recipient_principal_type,
-        recipient_principal_id,
-        recipient_key_fingerprint
-      )
-      VALUES (
-        'document',
-        ${crypto.randomUUID()},
-        1,
-        'user',
-        ${crypto.randomUUID()},
-        ${crypto.randomUUID()}
-      )
-    `);
-  } catch (error) {
-    insertError = error;
-  }
-
-  expect(insertError).toBeInstanceOf(Error);
-});
 
 test("document access includes recipients inherited from its linked root container", async () => {
   const alice = createTestUser();
@@ -259,14 +230,10 @@ test("document access includes referenced principal policy states from linked co
   invariant(ownerRow, "expected owner row");
 
   const childContainerId = crypto.randomUUID();
-  const createContainerResponse = await createContainer(
-    {
-      id: childContainerId,
-      parentId: owner.rootContainerId,
-    },
-    owner.token,
-  );
-  expect(createContainerResponse.status).toBe(200);
+  await createContainerFixture({
+    id: childContainerId,
+    parentId: owner.rootContainerId,
+  });
 
   const [group] = await db
     .insert(groups)

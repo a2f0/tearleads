@@ -30,9 +30,6 @@ import {
   isUserPrincipalRecipient,
 } from "./recipientPrincipals";
 
-export { listDescendantContainers } from "./containerAccessTree";
-export { ContainerCryptoRecipientResolutionError } from "./principalGrantResolver";
-
 const UUID_PATTERN =
   "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
 
@@ -93,7 +90,7 @@ export async function initializeContainerAccess(
   return initialEpoch;
 }
 
-export async function refreshContainerAccessSubtree(
+async function refreshContainerAccessSubtree(
   containerId: string,
   executor: ContainerAccessExecutor = db,
   options: {
@@ -299,16 +296,5 @@ export function canWriteContainerAccess(
     (recipient) =>
       isUserPrincipalRecipient(recipient, userId) &&
       accessLevelRank(recipient.accessLevel) >= accessLevelRank("write"),
-  );
-}
-
-export function canAdminContainerAccess(
-  state: ContainerAccessState,
-  userId: string,
-): boolean {
-  return state.effectiveRecipients.some(
-    (recipient) =>
-      isUserPrincipalRecipient(recipient, userId) &&
-      recipient.accessLevel === "admin",
   );
 }

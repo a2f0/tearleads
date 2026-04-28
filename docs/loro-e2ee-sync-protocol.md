@@ -1,10 +1,10 @@
 # Loro E2EE Sync Protocol
 
 > Status: historical V1 protocol. The direct-recipient `/documents`,
-> `/documents/:documentId/sync`, and `/documents/:documentId/commit-change`
-> write APIs have been retired in favor of the signed Keying V2 document and
-> blob mutation routes. This document remains useful background for Loro
-> update storage semantics, not current API surface.
+> `/documents/:documentId/sync`, `/documents/:documentId/commit-change`, and
+> legacy container mutation write APIs have been retired in favor of signed
+> Keying V2 document/blob/container mutation routes. This document remains
+> useful background for Loro update storage semantics, not current API surface.
 
 ## Summary
 
@@ -114,8 +114,8 @@ Implemented behavior:
 - recipient bundle rows are principal-shaped, and document/blob wrapped-key
   material prefers current group/org principal keys when the relevant
   signed policy state exists
-- `POST /auth/register` and `POST /containers` seed initial metadata
-  document bundles atomically
+- `POST /auth/register` and signed `/v2/containers` mutations seed initial
+  metadata document bundles atomically
 - committed blob envelopes carry real
   wrapped-key material that the API can persist for blob objects when the blob
   recipient set matches current access
@@ -129,15 +129,14 @@ Implemented behavior:
   - `POST /documents`
   - each create request includes current linked or parent container
     access-state preconditions
-  - `POST /containers`
-  - each write request includes `expectedAccessStateHash`
-  - `POST /containers/:containerId/move`
+  - legacy `POST /containers` / `POST /containers/:containerId/move`
+    have been replaced by signed `/v2/containers` mutations
   - `POST /documents/:documentId/link`
   - `POST /documents/:documentId/unlink`
 - those routes materialize affected document epochs and active blob epochs
   immediately after the container/document graph changes
-- the app explorer drives the container `move` route directly for
-  reparenting and uses `link` + `unlink` to move a note between containers
+- the app explorer drives signed V2 container mutations directly for
+  container writes and uses `link` + `unlink` to move a note between containers
   without creating a new document object; it also exposes direct note
   link/detach controls in note detail and can locally switch which linked
   container is treated as the active note projection
