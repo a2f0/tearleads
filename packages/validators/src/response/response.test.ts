@@ -41,6 +41,7 @@ test("isPublicKeyResponse", () => {
       rootMetadataDocumentId: "doc-root",
       rootMetadataAccessEpoch: 1,
       rootMetadataAccessStateHash: "root-access-state-hash",
+      rootMetadataDocumentV2: createDocumentV2CreateResponse(),
       challenge: "deadbeef",
     }),
   ).toBe(true);
@@ -534,6 +535,17 @@ function createDocumentV2KekTargetsResponse(overrides = {}) {
   };
 }
 
+function createDocumentV2CreateResponse(overrides = {}) {
+  return {
+    id: "550e8400-e29b-41d4-a716-446655440001",
+    createdAt: new Date().toISOString(),
+    accessManifest: createDocumentV2ManifestBundleResponse(),
+    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
+    documentKekTargets: createDocumentV2KekTargetsResponse(),
+    ...overrides,
+  };
+}
+
 function createDocumentV2ManifestBundleResponse(overrides = {}) {
   return {
     event: {
@@ -586,13 +598,7 @@ function createContainerV2WriterProjectionResponse(overrides = {}) {
 }
 
 test("isDocumentV2CreateResponse", () => {
-  const validResponse = {
-    id: "550e8400-e29b-41d4-a716-446655440001",
-    createdAt: new Date().toISOString(),
-    accessManifest: createDocumentV2ManifestBundleResponse(),
-    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
-    documentKekTargets: createDocumentV2KekTargetsResponse(),
-  };
+  const validResponse = createDocumentV2CreateResponse();
 
   expect(isDocumentV2CreateResponse(validResponse)).toBe(true);
   expect(

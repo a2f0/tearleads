@@ -4,11 +4,9 @@ import type {
   AttachmentBindAccessEventBodyV2,
   AttachmentDetachAccessEventBodyV2,
   ContainerAccessEventBodyV2,
-  ContainerAccessManifestStateV2,
   ContainerKeyEpochV2,
   ContainerKeyWrapV2,
   ContainerUserRecipientKeyV2,
-  KekRecipientKindV2,
   KeyingV2CanonicalJson,
   VerifiedAccessEvent,
   VerifiedAttachmentBinding,
@@ -24,11 +22,9 @@ import {
   computeContentRecordNonceDomainHash,
   computeKeyingV2DomainHash,
   deriveBlobKekTargets,
-  deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   signAccessEvent,
   signWriteHeader,
-  toFingerprint,
   verifyAttachmentBindingEvent,
   verifyAttachmentDetachEvent,
   verifyContainerKekState,
@@ -39,8 +35,14 @@ import type { BlobV2AttachmentBindRequest } from "@tearleads/validators/request"
 import { and, eq, isNull } from "drizzle-orm";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
-import { storeVerifiedAccessManifest } from "../../access/accessManifestStore";
-import { storeVerifiedContainerKekState } from "../../access/containerKekStore";
+import {
+  getAccessManifestBundle,
+  storeVerifiedAccessManifest,
+} from "../../access/accessManifestStore";
+import {
+  getCurrentContainerKeyEpoch,
+  listContainerKeyWraps,
+} from "../../access/containerKekStore";
 import { db } from "../../adapters/postgres";
 import {
   attachmentBindings,
@@ -132,16 +134,6 @@ async function getRootContainerForUser(
   return rootContainer;
 }
 
-function userRecipientKey(
-  user: TestUser,
-): Promise<ContainerUserRecipientKeyV2> {
-  return toFingerprint(user.kem.publicKey).then((recipientKeyFingerprint) => ({
-    userId: user.userId,
-    recipientKeyEpochId: `user:${user.userId}:encapsulation:v1`,
-    recipientKeyFingerprint,
-  }));
-}
-
 async function verifyAccessEvent(input: {
   readonly body:
     | AttachmentBindAccessEventBodyV2
@@ -193,55 +185,36 @@ async function verifyAccessEvent(input: {
   return verified.value;
 }
 
-async function createContainerManifestBundle(
-  state: ContainerAccessManifestStateV2,
-  event: VerifiedAccessEvent,
-): Promise<VerifiedContainerAccessManifest> {
-  const manifest = await deriveContainerAccessManifest(state);
+function toContainerKeyEpochV2(
+  keyEpoch: Awaited<ReturnType<typeof getCurrentContainerKeyEpoch>>,
+): ContainerKeyEpochV2 {
+  if (!keyEpoch) {
+    throw new Error("Expected container key epoch");
+  }
 
   return {
-    event,
-    manifest,
-    manifestHash: await computeAccessManifestHash(manifest),
-    state,
-  } as VerifiedContainerAccessManifest;
-}
-
-function createContainerKeyEpoch(input: {
-  readonly containerKeyEpochId: string;
-  readonly keyEpoch: number;
-  readonly manifest: VerifiedContainerAccessManifest;
-  readonly parentKekState: VerifiedContainerKekState | null;
-}): ContainerKeyEpochV2 {
-  return {
-    id: input.containerKeyEpochId,
-    containerId: input.manifest.state.containerId,
-    keyEpoch: input.keyEpoch,
-    accessManifestHash: input.manifest.manifestHash,
-    parentContainerKeyEpochId:
-      input.parentKekState?.containerKeyEpochId ?? null,
-    createdByEventHash: input.manifest.event.eventHash,
-    createdByManifestHash: input.manifest.manifestHash,
+    id: keyEpoch.id,
+    containerId: keyEpoch.containerId,
+    keyEpoch: keyEpoch.keyEpoch,
+    accessManifestHash: keyEpoch.accessManifestHash,
+    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+    createdByEventHash: keyEpoch.createdByEventHash,
+    createdByManifestHash: keyEpoch.createdByManifestHash,
   };
 }
 
-function createContainerKeyWrap(input: {
-  readonly containerKeyEpochId: string;
-  readonly recipientId: string;
-  readonly recipientKeyEpochId: string;
-  readonly recipientKeyFingerprint: string;
-  readonly recipientKind: KekRecipientKindV2;
-  readonly wrapManifestHash: string;
-}): ContainerKeyWrapV2 {
+function toContainerKeyWrapV2(
+  wrap: Awaited<ReturnType<typeof listContainerKeyWraps>>[number],
+): ContainerKeyWrapV2 {
   return {
-    containerKeyEpochId: input.containerKeyEpochId,
-    recipientKind: input.recipientKind,
-    recipientId: input.recipientId,
-    recipientKeyEpochId: input.recipientKeyEpochId,
-    recipientKeyFingerprint: input.recipientKeyFingerprint,
-    kemCipherText: `kem:${input.containerKeyEpochId}:${input.recipientId}`,
-    wrappedKey: `wrapped:${input.containerKeyEpochId}:${input.recipientId}`,
-    wrapManifestHash: input.wrapManifestHash,
+    containerKeyEpochId: wrap.containerKeyEpochId,
+    recipientKind: wrap.recipientKind,
+    recipientId: wrap.recipientId,
+    recipientKeyEpochId: wrap.recipientKeyEpochId,
+    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+    kemCipherText: wrap.kemCipherText,
+    wrappedKey: wrap.wrappedKey,
+    wrapManifestHash: wrap.wrapManifestHash,
   };
 }
 
@@ -249,79 +222,43 @@ async function bootstrapRootV2(
   owner: TestUser,
 ): Promise<StoredV2ContainerFixture> {
   const rootContainer = await getRootContainerForUser(owner.userId);
-  const ownerKey = await userRecipientKey(owner);
-  const containerKeyEpochId = crypto.randomUUID();
-  const metadataDocumentId = crypto.randomUUID();
-  const body: ContainerAccessEventBodyV2 = {
-    eventType: "container.create",
-    parentContainerId: null,
-    parentManifestHash: null,
-    metadataDocumentId,
-    containerKeyEpochId,
-    directGrants: [
-      {
-        subjectType: "user",
-        subjectId: owner.userId,
-        accessLevel: "admin",
-      },
-    ],
-    referencedPrincipalHeads: [],
-  };
-  const event = await verifyAccessEvent({
-    body,
-    objectId: rootContainer.id,
-    objectKind: "container",
-    organizationId: rootContainer.organizationId,
-    previousManifestHash: null,
-    signer: owner,
-  });
-  const bundle = await createContainerManifestBundle(
-    {
-      version: 2,
-      containerId: rootContainer.id,
-      organizationId: rootContainer.organizationId,
-      epoch: 1,
-      previousManifestHash: null,
-      eventHash: event.eventHash,
-      parentContainerId: null,
-      parentManifestHash: null,
-      metadataDocumentId,
-      containerKeyEpochId,
-      directGrants: body.directGrants,
-      referencedPrincipalHeads: [],
-    },
-    event,
+  const keyEpoch = toContainerKeyEpochV2(
+    await getCurrentContainerKeyEpoch(rootContainer.id),
   );
-  const keyEpoch = createContainerKeyEpoch({
-    containerKeyEpochId,
-    keyEpoch: 1,
-    manifest: bundle,
-    parentKekState: null,
-  });
+  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash);
+  if (!bundle) {
+    throw new Error("Expected registered root container V2 manifest");
+  }
+  const wraps = (await listContainerKeyWraps(keyEpoch.id)).map(
+    toContainerKeyWrapV2,
+  );
+  const ownerWrap = wraps.find(
+    (wrap) =>
+      wrap.recipientKind === "user" && wrap.recipientId === owner.userId,
+  );
+  if (!ownerWrap) {
+    throw new Error("Expected registered root user KEK wrap");
+  }
+  const ownerKey: ContainerUserRecipientKeyV2 = {
+    userId: owner.userId,
+    recipientKeyEpochId: ownerWrap.recipientKeyEpochId,
+    recipientKeyFingerprint: ownerWrap.recipientKeyFingerprint,
+  };
   const kekState = await verifyContainerKekState({
-    containerManifest: bundle,
+    containerManifest: bundle as unknown as VerifiedContainerAccessManifest,
     keyEpoch,
     userRecipientKeys: [ownerKey],
-    wraps: [
-      createContainerKeyWrap({
-        containerKeyEpochId,
-        recipientKind: "user",
-        recipientId: owner.userId,
-        recipientKeyEpochId: ownerKey.recipientKeyEpochId,
-        recipientKeyFingerprint: ownerKey.recipientKeyFingerprint,
-        wrapManifestHash: bundle.manifestHash,
-      }),
-    ],
+    wraps,
   });
   expect(kekState.ok).toBe(true);
   if (!kekState.ok) {
     throw kekState.error;
   }
 
-  await storeVerifiedAccessManifest({ verifiedManifest: bundle });
-  await storeVerifiedContainerKekState({ verifiedState: kekState.value });
-
-  return { bundle, kekState: kekState.value };
+  return {
+    bundle: bundle as unknown as VerifiedContainerAccessManifest,
+    kekState: kekState.value,
+  };
 }
 
 async function createDocumentFixture(input: {

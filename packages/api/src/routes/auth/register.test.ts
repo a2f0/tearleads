@@ -6,7 +6,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
   createPublicKeyRequestBody,
@@ -18,6 +18,8 @@ import { routeApp } from "../../routeApp";
 import {
   containerMetadataDocuments,
   containers,
+  documentContentKeyEpochs,
+  objectRecipientEnvelopes,
   organizations,
   users,
 } from "../../schema";
@@ -250,6 +252,10 @@ test("POST /auth/register provisions a root metadata document", async () => {
   );
   expect(response.status).toBe(200);
   const body = await response.json();
+  expect(body.rootMetadataDocumentV2.id).toBe(body.rootMetadataDocumentId);
+  expect(body.rootMetadataDocumentV2.contentKeyBundle.documentId).toBe(
+    body.rootMetadataDocumentId,
+  );
 
   const [metadataBinding] = await db
     .select({
@@ -262,4 +268,22 @@ test("POST /auth/register provisions a root metadata document", async () => {
 
   expect(metadataBinding?.containerId).toBe(body.rootContainerId);
   expect(metadataBinding?.documentId).toBe(body.rootMetadataDocumentId);
+
+  const [contentKeyEpoch] = await db
+    .select({ contentKeyEpoch: documentContentKeyEpochs.contentKeyEpoch })
+    .from(documentContentKeyEpochs)
+    .where(eq(documentContentKeyEpochs.documentId, body.rootMetadataDocumentId))
+    .limit(1);
+  expect(contentKeyEpoch?.contentKeyEpoch).toBe(1);
+
+  const metadataRecipientEnvelopes = await db
+    .select({ id: objectRecipientEnvelopes.id })
+    .from(objectRecipientEnvelopes)
+    .where(
+      and(
+        eq(objectRecipientEnvelopes.objectType, "document"),
+        eq(objectRecipientEnvelopes.objectId, body.rootMetadataDocumentId),
+      ),
+    );
+  expect(metadataRecipientEnvelopes).toHaveLength(0);
 });

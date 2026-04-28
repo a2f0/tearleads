@@ -606,64 +606,92 @@ export async function createDocumentV2(
   input: CreateDocumentV2Input,
 ): Promise<DocumentV2CreateResponse> {
   try {
-    return await runtime.db.transaction(async (tx) => {
-      const event = await verifyDocumentEvent({
-        body: input.request.body,
-        event: input.request.event,
-        expectedEventType: "document.link",
+    return await runtime.db.transaction((tx) =>
+      createDocumentV2WithExecutor({
         executor: tx,
         fingerprint: input.fingerprint,
-        userId: input.userId,
-      });
-      const manifest = await verifyDocumentManifestFromRequest({
-        event,
-        executor: tx,
         request: input.request,
-      });
+        userId: input.userId,
+      }),
+    );
+  } catch (error) {
+    const mutationError = toMutationError(error);
+    if (mutationError) {
+      throw mutationError;
+    }
+    throw error;
+  }
+}
 
-      if (
-        manifest.state.epoch !== 1 ||
-        manifest.state.previousManifestHash !== null
-      ) {
-        throw new DocumentV2MutationError(
-          "Document create requires an initial link-set manifest",
-          400,
-        );
-      }
-
-      await assertCreateCanAdvanceDocumentHead(tx, manifest.state.documentId);
-      const document = await insertDocumentAndLinks({
-        createdByFingerprint: input.fingerprint,
-        executor: tx,
-        manifest,
-      });
-      await storeVerifiedAccessManifest({ verifiedManifest: manifest }, tx);
-
-      const contentKeyBundle = await storeDocumentContentKeyBundle(
-        toStoredContentKeyBundleInput(
-          manifest.state.documentId,
-          input.request.contentKeyBundle,
-        ),
-        tx,
-      );
-      const currentTargets = await resolveCurrentDocumentKekTargets(
-        manifest.state.documentId,
-        tx,
-      );
-
-      return {
-        id: document.id,
-        createdAt: document.createdAt.toISOString(),
-        accessManifest: {
-          event: manifest.event as unknown as Record<string, unknown>,
-          manifest: manifest.manifest as unknown as Record<string, unknown>,
-          manifestHash: manifest.manifestHash,
-          state: manifest.state as unknown as Record<string, unknown>,
-        },
-        contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
-        documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
-      };
+export async function createDocumentV2WithExecutor(input: {
+  readonly executor: DatabaseExecutor;
+  readonly fingerprint: string;
+  readonly request: DocumentV2CreateRequest;
+  readonly userId: string;
+}): Promise<DocumentV2CreateResponse> {
+  try {
+    const event = await verifyDocumentEvent({
+      body: input.request.body,
+      event: input.request.event,
+      expectedEventType: "document.link",
+      executor: input.executor,
+      fingerprint: input.fingerprint,
+      userId: input.userId,
     });
+    const manifest = await verifyDocumentManifestFromRequest({
+      event,
+      executor: input.executor,
+      request: input.request,
+    });
+
+    if (
+      manifest.state.epoch !== 1 ||
+      manifest.state.previousManifestHash !== null
+    ) {
+      throw new DocumentV2MutationError(
+        "Document create requires an initial link-set manifest",
+        400,
+      );
+    }
+
+    await assertCreateCanAdvanceDocumentHead(
+      input.executor,
+      manifest.state.documentId,
+    );
+    const document = await insertDocumentAndLinks({
+      createdByFingerprint: input.fingerprint,
+      executor: input.executor,
+      manifest,
+    });
+    await storeVerifiedAccessManifest(
+      { verifiedManifest: manifest },
+      input.executor,
+    );
+
+    const contentKeyBundle = await storeDocumentContentKeyBundle(
+      toStoredContentKeyBundleInput(
+        manifest.state.documentId,
+        input.request.contentKeyBundle,
+      ),
+      input.executor,
+    );
+    const currentTargets = await resolveCurrentDocumentKekTargets(
+      manifest.state.documentId,
+      input.executor,
+    );
+
+    return {
+      id: document.id,
+      createdAt: document.createdAt.toISOString(),
+      accessManifest: {
+        event: manifest.event as unknown as Record<string, unknown>,
+        manifest: manifest.manifest as unknown as Record<string, unknown>,
+        manifestHash: manifest.manifestHash,
+        state: manifest.state as unknown as Record<string, unknown>,
+      },
+      contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
+      documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
+    };
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {

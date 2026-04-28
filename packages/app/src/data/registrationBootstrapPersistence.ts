@@ -1,6 +1,7 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { sqlContactsPersistence } from "../mini-apps/contacts/contactsPersistence";
 import { sqlExplorerPersistence } from "../mini-apps/explorer/explorerPersistence";
+import { createPendingUpdateFields } from "./documentSync";
 import type { DocumentRecord } from "./persistence/documentPersistence";
 import {
   type ExecSql,
@@ -13,7 +14,15 @@ interface RegistrationBootstrapInput {
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
   rootMetadataDocumentId: string;
+  rootMetadataInitialUpdate: Uint8Array;
   rootMetadataSnapshot: string;
+  rootMetadataV2State: Pick<
+    DocumentRecord,
+    | "documentId"
+    | "v2ContentKeyBundle"
+    | "v2DocumentKekTargets"
+    | "v2DocumentManifestBundle"
+  >;
   organizationId: string;
   userId: string;
 }
@@ -39,6 +48,11 @@ export async function persistRegistrationBootstrap(
       id: input.containerId,
       lastCommitLsn: null,
       loroSnapshot: input.rootMetadataSnapshot,
+      v2ContentKeyBundle: input.rootMetadataV2State.v2ContentKeyBundle ?? null,
+      v2DocumentKekTargets:
+        input.rootMetadataV2State.v2DocumentKekTargets ?? null,
+      v2DocumentManifestBundle:
+        input.rootMetadataV2State.v2DocumentManifestBundle ?? null,
     };
     await sqlExplorerPersistence.saveContainer(
       lockedExecSql,
@@ -52,6 +66,15 @@ export async function persistRegistrationBootstrap(
       },
       rootRecord,
     );
+    const initialMetadataUpdate = createPendingUpdateFields(
+      input.rootMetadataInitialUpdate,
+    );
+    if (initialMetadataUpdate) {
+      await sqlExplorerPersistence.enqueuePendingUpdate(lockedExecSql, {
+        containerId: input.containerId,
+        ...initialMetadataUpdate,
+      });
+    }
     await lockedExecSql(
       `
         INSERT INTO address_book_projection (

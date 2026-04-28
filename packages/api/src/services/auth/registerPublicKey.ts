@@ -29,6 +29,7 @@ import {
 } from "../../access/recipientPrincipals";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
+  containerMetadataDocuments,
   containers,
   objectAccessEpochs,
   objectAccessGrants,
@@ -37,9 +38,9 @@ import {
   users,
 } from "../../schema";
 import {
-  ContainerMetadataError,
-  createContainerMetadataDocument,
-} from "../containers/containerMetadata";
+  createDocumentV2WithExecutor,
+  DocumentV2MutationError,
+} from "../documents/documentV2Mutations";
 import type { ApiServiceRuntime } from "../runtime";
 
 const CONTAINER_OBJECT_TYPE = "container";
@@ -50,7 +51,7 @@ const WRAPPED_DEK_LENGTH = 48;
 export class RegisterPublicKeyError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 409,
+    readonly status: 400 | 403 | 404 | 409 | 503,
   ) {
     super(message);
   }
@@ -242,17 +243,16 @@ async function storeInitialOrganizationPolicy(
 
 function readInitialRootContainerV2MetadataDocumentId(
   input: PublicKeyRequest,
-): string | undefined {
-  const body = input.initialRootContainerV2?.body as
-    | Record<string, unknown>
-    | undefined;
-  const metadataDocumentId = body
-    ? Reflect.get(body, "metadataDocumentId")
-    : undefined;
+): string {
+  const body = input.initialRootContainerV2.body;
+  const metadataDocumentId =
+    typeof body === "object" && body !== null && !Array.isArray(body)
+      ? Reflect.get(body, "metadataDocumentId")
+      : null;
 
   return typeof metadataDocumentId === "string" && metadataDocumentId.length > 0
     ? metadataDocumentId
-    : undefined;
+    : "";
 }
 
 function requireRootV2Verification<T>(
@@ -271,12 +271,14 @@ async function storeInitialRootContainerV2(
   tx: DatabaseTransaction,
   input: PublicKeyRequest,
   fingerprint: string,
-  metadataDocumentId: string,
-) {
+): Promise<{
+  metadataAccessEpoch: number;
+  metadataAccessStateHash: string;
+  metadataDocumentId: string;
+}> {
   const request = input.initialRootContainerV2;
-  if (!request) {
-    return;
-  }
+  const metadataDocumentId =
+    readInitialRootContainerV2MetadataDocumentId(input);
 
   const event = requireRootV2Verification(
     await verifySignedAccessEvent({
@@ -337,6 +339,11 @@ async function storeInitialRootContainerV2(
 
   await storeVerifiedAccessManifest({ verifiedManifest: manifest }, tx);
   await storeVerifiedContainerKekState({ verifiedState: kekState }, tx);
+  return {
+    metadataAccessEpoch: manifest.state.epoch,
+    metadataAccessStateHash: manifest.manifestHash,
+    metadataDocumentId: manifest.state.metadataDocumentId,
+  };
 }
 
 async function writeInitialRootContainerAccess(
@@ -416,28 +423,50 @@ async function writeInitialRootContainerAccess(
   });
 }
 
-async function createInitialRootMetadata(
+function readInitialRootMetadataDocumentV2Id(input: PublicKeyRequest): string {
+  const event = input.initialRootMetadataDocumentV2.event;
+  const documentId = Reflect.get(event, "objectId");
+
+  return typeof documentId === "string" && documentId.length > 0
+    ? documentId
+    : "";
+}
+
+async function createInitialRootMetadataDocumentV2(
   tx: DatabaseTransaction,
   input: PublicKeyRequest,
-  containerId: string,
   fingerprint: string,
+  rootMetadata: {
+    metadataDocumentId: string;
+  },
 ) {
-  const metadataDocumentId =
-    readInitialRootContainerV2MetadataDocumentId(input);
+  const requestDocumentId = readInitialRootMetadataDocumentV2Id(input);
+  if (requestDocumentId !== rootMetadata.metadataDocumentId) {
+    throw new RegisterPublicKeyError(
+      "Initial root metadata V2 document does not match root container metadata",
+      400,
+    );
+  }
 
-  return createContainerMetadataDocument(tx, {
-    authorFingerprint: fingerprint,
-    containerId,
-    createdByFingerprint: fingerprint,
-    initialMetadataUpdates: input.initialRootMetadataUpdates,
-    ...(metadataDocumentId === undefined ? {} : { metadataDocumentId }),
-    ...(input.initialRootMetadataRecipientEnvelopes
-      ? {
-          initialMetadataRecipientEnvelopes:
-            input.initialRootMetadataRecipientEnvelopes,
-        }
-      : {}),
+  const created = await createDocumentV2WithExecutor({
+    executor: tx,
+    fingerprint,
+    request: input.initialRootMetadataDocumentV2,
+    userId: input.userId,
   });
+  if (created.id !== rootMetadata.metadataDocumentId) {
+    throw new RegisterPublicKeyError(
+      "Initial root metadata V2 response does not match root container metadata",
+      400,
+    );
+  }
+
+  await tx.insert(containerMetadataDocuments).values({
+    containerId: input.rootContainerId,
+    documentId: created.id,
+  });
+
+  return created;
 }
 
 async function issueRegistrationChallenge(
@@ -486,17 +515,16 @@ async function runRegisterPublicKeyTransaction(
       userId: user.id,
       wrappedDekEnvelope: input.wrappedDekEnvelope,
     });
-    const rootMetadata = await createInitialRootMetadata(
+    const rootMetadata = await storeInitialRootContainerV2(
       tx,
       input,
-      container.id,
       fingerprint,
     );
-    await storeInitialRootContainerV2(
+    const rootMetadataDocumentV2 = await createInitialRootMetadataDocumentV2(
       tx,
       input,
       fingerprint,
-      rootMetadata.metadataDocumentId,
+      rootMetadata,
     );
 
     return {
@@ -506,6 +534,7 @@ async function runRegisterPublicKeyTransaction(
       rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
       rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,
       rootMetadataDocumentId: rootMetadata.metadataDocumentId,
+      rootMetadataDocumentV2,
     };
   });
 }
@@ -525,6 +554,10 @@ function toRegisterPrincipalPolicyError(
     error.message === "Principal epoch key conflict"
   ) {
     return new RegisterPublicKeyError(error.message, 400);
+  }
+
+  if (error instanceof DocumentV2MutationError) {
+    return new RegisterPublicKeyError(error.message, error.status);
   }
 
   return null;
@@ -581,6 +614,7 @@ export async function registerPublicKey(
     rootMetadataDocumentId: result.rootMetadataDocumentId,
     rootMetadataAccessEpoch: result.rootMetadataAccessEpoch,
     rootMetadataAccessStateHash: result.rootMetadataAccessStateHash,
+    rootMetadataDocumentV2: result.rootMetadataDocumentV2,
     challenge: challengeHex,
   };
 }
@@ -590,5 +624,3 @@ export function isDuplicateRegisterFingerprintError(error: unknown): boolean {
     error instanceof Error && error.message === DUPLICATE_FINGERPRINT_ERROR
   );
 }
-
-export { ContainerMetadataError };

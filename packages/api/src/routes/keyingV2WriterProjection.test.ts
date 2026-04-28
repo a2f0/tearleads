@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBodyV2,
-  ContainerAccessManifestStateV2,
   ContainerKeyEpochV2,
   ContainerKeyWrapV2,
   ContainerUserRecipientKeyV2,
@@ -17,10 +16,8 @@ import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
   computeDocumentContentKeyTargetHash,
-  deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   signAccessEvent,
-  toFingerprint,
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
@@ -37,8 +34,11 @@ import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
 import { registerUser } from "../../test/helpers/registerUser";
-import { storeVerifiedAccessManifest } from "../access/accessManifestStore";
-import { storeVerifiedContainerKekState } from "../access/containerKekStore";
+import { getAccessManifestBundle } from "../access/accessManifestStore";
+import {
+  getCurrentContainerKeyEpoch,
+  listContainerKeyWraps,
+} from "../access/containerKekStore";
 import { db } from "../adapters/postgres";
 import { routeApp } from "../routeApp";
 import { accessManifests, containers, users } from "../schema";
@@ -77,16 +77,6 @@ async function getRootContainerForUser(
 
   invariant(rootContainer, "expected root container row");
   return rootContainer;
-}
-
-async function userRecipientKey(
-  user: TestUser,
-): Promise<ContainerUserRecipientKeyV2> {
-  return {
-    userId: user.userId,
-    recipientKeyEpochId: `user:${user.userId}:encapsulation:v1`,
-    recipientKeyFingerprint: await toFingerprint(user.kem.publicKey),
-  };
 }
 
 function asVerifiedContainerManifest(
@@ -138,37 +128,6 @@ async function createSignedAccessEvent(input: {
   return verified.value;
 }
 
-async function createContainerManifestBundle(
-  state: ContainerAccessManifestStateV2,
-  event: VerifiedAccessEvent,
-): Promise<ContainerV2ManifestBundle> {
-  const manifest = await deriveContainerAccessManifest(state);
-
-  return {
-    event: event as unknown as Record<string, unknown>,
-    manifest: manifest as unknown as Record<string, unknown>,
-    manifestHash: await computeAccessManifestHash(manifest),
-    state: state as unknown as Record<string, unknown>,
-  };
-}
-
-function createContainerKeyWrap(input: {
-  readonly containerKeyEpochId: string;
-  readonly recipientKey: ContainerUserRecipientKeyV2;
-  readonly wrapManifestHash: string;
-}): ContainerKeyWrapV2 {
-  return {
-    containerKeyEpochId: input.containerKeyEpochId,
-    recipientKind: "user",
-    recipientId: input.recipientKey.userId,
-    recipientKeyEpochId: input.recipientKey.recipientKeyEpochId,
-    recipientKeyFingerprint: input.recipientKey.recipientKeyFingerprint,
-    kemCipherText: `kem:${input.containerKeyEpochId}`,
-    wrappedKey: `wrapped:${input.containerKeyEpochId}`,
-    wrapManifestHash: input.wrapManifestHash,
-  };
-}
-
 async function verifyKekState(input: {
   readonly bundle: ContainerV2ManifestBundle;
   readonly keyEpoch: ContainerKeyEpochV2;
@@ -190,79 +149,64 @@ async function verifyKekState(input: {
   return verified.value;
 }
 
+function toContainerKeyEpochV2(
+  keyEpoch: Awaited<ReturnType<typeof getCurrentContainerKeyEpoch>>,
+): ContainerKeyEpochV2 {
+  invariant(keyEpoch, "expected container key epoch");
+
+  return {
+    id: keyEpoch.id,
+    containerId: keyEpoch.containerId,
+    keyEpoch: keyEpoch.keyEpoch,
+    accessManifestHash: keyEpoch.accessManifestHash,
+    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+    createdByEventHash: keyEpoch.createdByEventHash,
+    createdByManifestHash: keyEpoch.createdByManifestHash,
+  };
+}
+
+function toContainerKeyWrapV2(
+  wrap: Awaited<ReturnType<typeof listContainerKeyWraps>>[number],
+): ContainerKeyWrapV2 {
+  return {
+    containerKeyEpochId: wrap.containerKeyEpochId,
+    recipientKind: wrap.recipientKind,
+    recipientId: wrap.recipientId,
+    recipientKeyEpochId: wrap.recipientKeyEpochId,
+    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+    kemCipherText: wrap.kemCipherText,
+    wrappedKey: wrap.wrappedKey,
+    wrapManifestHash: wrap.wrapManifestHash,
+  };
+}
+
 async function bootstrapRootV2(owner: TestUser): Promise<StoredRootV2Fixture> {
   const rootContainer = await getRootContainerForUser(owner.userId);
-  const ownerKey = await userRecipientKey(owner);
-  const containerKeyEpochId = crypto.randomUUID();
-  const metadataDocumentId = crypto.randomUUID();
-  const body: ContainerAccessEventBodyV2 = {
-    eventType: "container.create",
-    parentContainerId: null,
-    parentManifestHash: null,
-    metadataDocumentId,
-    containerKeyEpochId,
-    directGrants: [
-      {
-        subjectType: "user",
-        subjectId: owner.userId,
-        accessLevel: "admin",
-      },
-    ],
-    referencedPrincipalHeads: [],
-  };
-  const event = await createSignedAccessEvent({
-    body,
-    objectId: rootContainer.id,
-    objectKind: "container",
-    organizationId: rootContainer.organizationId,
-    previousManifestHash: null,
-    signer: owner,
-  });
-  const bundle = await createContainerManifestBundle(
-    {
-      version: 2,
-      containerId: rootContainer.id,
-      organizationId: rootContainer.organizationId,
-      epoch: 1,
-      previousManifestHash: null,
-      eventHash: event.eventHash,
-      parentContainerId: null,
-      parentManifestHash: null,
-      metadataDocumentId,
-      containerKeyEpochId,
-      directGrants: body.directGrants,
-      referencedPrincipalHeads: [],
-    },
-    event,
+  const storedKeyEpoch = await getCurrentContainerKeyEpoch(rootContainer.id);
+  const keyEpoch = toContainerKeyEpochV2(storedKeyEpoch);
+  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash);
+  invariant(bundle, "expected registered root container V2 manifest");
+  const wraps = (await listContainerKeyWraps(keyEpoch.id)).map(
+    toContainerKeyWrapV2,
   );
-  const keyEpoch: ContainerKeyEpochV2 = {
-    id: containerKeyEpochId,
-    containerId: rootContainer.id,
-    keyEpoch: 1,
-    accessManifestHash: bundle.manifestHash,
-    parentContainerKeyEpochId: null,
-    createdByEventHash: event.eventHash,
-    createdByManifestHash: bundle.manifestHash,
+  const ownerWrap = wraps.find(
+    (wrap) =>
+      wrap.recipientKind === "user" && wrap.recipientId === owner.userId,
+  );
+  invariant(ownerWrap, "expected registered root user KEK wrap");
+  const ownerKey: ContainerUserRecipientKeyV2 = {
+    userId: owner.userId,
+    recipientKeyEpochId: ownerWrap.recipientKeyEpochId,
+    recipientKeyFingerprint: ownerWrap.recipientKeyFingerprint,
   };
   const kekState = await verifyKekState({
-    bundle,
+    bundle: bundle as unknown as ContainerV2ManifestBundle,
     keyEpoch,
     userRecipientKeys: [ownerKey],
-    wraps: [
-      createContainerKeyWrap({
-        containerKeyEpochId,
-        recipientKey: ownerKey,
-        wrapManifestHash: bundle.manifestHash,
-      }),
-    ],
+    wraps,
   });
 
-  await storeVerifiedAccessManifest({
-    verifiedManifest: asVerifiedContainerManifest(bundle),
-  });
-  await storeVerifiedContainerKekState({ verifiedState: kekState });
-
-  return { bundle, kekState };
+  return { bundle: bundle as unknown as ContainerV2ManifestBundle, kekState };
 }
 
 async function createDocumentV2Request(input: {

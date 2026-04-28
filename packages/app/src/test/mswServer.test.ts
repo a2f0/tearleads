@@ -16,6 +16,12 @@ import {
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../test/helpers/mswServer";
+import {
+  buildRootContainerV2CreatePlan,
+  rootContainerV2WriterProjectionFromCreatePlan,
+} from "../data/containers/containerV2Runtime";
+import { createDocumentV2SignerDeviceId } from "../data/documents/documentV2Constants";
+import { buildMaterializedDocumentV2CreatePlan } from "../data/documents/documentV2Runtime";
 
 const apiBaseUrl = "http://localhost:3001";
 
@@ -27,6 +33,7 @@ async function registerIdentity(
   signingPublicKey: Uint8Array,
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
+  encapsulationSecretKey: Uint8Array,
 ): Promise<{ userId: string }> {
   const dek = crypto.getRandomValues(new Uint8Array(32));
   const recipients = await wrapDekForRecipients(dek, [encapsulationPublicKey]);
@@ -34,6 +41,9 @@ async function registerIdentity(
   invariant(wrappedEnvelope, "Expected wrapped DEK envelope.");
   const userId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
+  const rootContainerId = crypto.randomUUID();
+  const rootMetadataDocumentId = crypto.randomUUID();
+  const signingFingerprint = await toFingerprint(signingPublicKey);
   const organizationKem = generateKemSeedAndKeyPair();
   const projection = [
     {
@@ -53,6 +63,29 @@ async function registerIdentity(
     organizationMemberEnvelope,
     "Expected organization member envelope.",
   );
+  const v2Author = {
+    organizationId,
+    signerDeviceId: createDocumentV2SignerDeviceId(signingFingerprint),
+    signerKeyFingerprint: signingFingerprint,
+    signerPrivateKey: signingPrivateKey,
+    signerUserId: userId,
+  };
+  const rootContainerV2 = await buildRootContainerV2CreatePlan({
+    author: v2Author,
+    containerId: rootContainerId,
+    metadataDocumentId: rootMetadataDocumentId,
+    recipientEncapsulationPublicKey: encapsulationPublicKey,
+    signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
+  });
+  const rootMetadataDocumentV2 = await buildMaterializedDocumentV2CreatePlan({
+    author: v2Author,
+    containerProjection: rootContainerV2WriterProjectionFromCreatePlan(
+      rootContainerV2.plan,
+    ),
+    documentId: rootMetadataDocumentId,
+    signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
+    targetSecretKey: encapsulationSecretKey,
+  });
 
   const response = await fetch(`${apiBaseUrl}/auth/register`, {
     method: "POST",
@@ -60,7 +93,7 @@ async function registerIdentity(
     body: JSON.stringify({
       userId,
       organizationId,
-      rootContainerId: crypto.randomUUID(),
+      rootContainerId,
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
       initialOrganizationPolicy: {
@@ -78,7 +111,7 @@ async function registerIdentity(
             payloadCiphertext,
             signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
             signerUserId: userId,
-            signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
+            signerUserKeyFingerprint: signingFingerprint,
           }),
           signingPrivateKey,
         ),
@@ -101,7 +134,8 @@ async function registerIdentity(
           },
         ],
       },
-      initialRootMetadataUpdates: [],
+      initialRootContainerV2: rootContainerV2.plan.request,
+      initialRootMetadataDocumentV2: rootMetadataDocumentV2.plan.request,
       wrappedDekEnvelope: {
         keyFingerprint: wrappedEnvelope.keyFingerprint,
         kemCipherText: Array.from(wrappedEnvelope.kemCipherText),
@@ -162,6 +196,7 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
     signingKeys.signingPublicKey,
     signingKeys.signingPrivateKey,
     kemKeys.publicKey,
+    kemKeys.secretKey,
   );
 
   const challengeResponse = await requestChallenge(fingerprint);
