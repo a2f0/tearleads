@@ -182,16 +182,6 @@ async function registerIdentity(input: {
 }): Promise<boolean> {
   input.log("Uploading public key...");
 
-  const recipients = await wrapDekForRecipients(
-    crypto.getRandomValues(new Uint8Array(32)),
-    [input.encapsulationKeyPair.publicKey],
-  );
-  const wrappedEnvelope = recipients[0];
-
-  if (wrappedEnvelope === undefined) {
-    return false;
-  }
-
   const bootstrap = await createInitialRootMetadataBootstrap(input.containerId);
   const newUserId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
@@ -233,7 +223,6 @@ async function registerIdentity(input: {
     input.containerId,
     input.signingKeyPair.signingPublicKey,
     input.encapsulationKeyPair.publicKey,
-    wrappedEnvelope,
     initialOrganizationPolicy,
     rootContainerV2.plan.request,
     rootMetadataDocumentV2.plan.request,

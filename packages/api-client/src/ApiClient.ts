@@ -170,10 +170,9 @@ export class ApiClient {
     rootContainerId: string,
     signingPublicKey: Uint8Array,
     encapsulationPublicKey: Uint8Array,
-    wrappedDekEnvelope: Parameters<typeof postPublicKey>[6],
-    initialOrganizationPolicy: Parameters<typeof postPublicKey>[7],
-    initialRootContainerV2: Parameters<typeof postPublicKey>[8],
-    initialRootMetadataDocumentV2: Parameters<typeof postPublicKey>[9],
+    initialOrganizationPolicy: Parameters<typeof postPublicKey>[6],
+    initialRootContainerV2: Parameters<typeof postPublicKey>[7],
+    initialRootMetadataDocumentV2: Parameters<typeof postPublicKey>[8],
   ) {
     return postPublicKey(
       this.request,
@@ -182,7 +181,6 @@ export class ApiClient {
       rootContainerId,
       signingPublicKey,
       encapsulationPublicKey,
-      wrappedDekEnvelope,
       initialOrganizationPolicy,
       initialRootContainerV2,
       initialRootMetadataDocumentV2,
