@@ -12,6 +12,7 @@ import {
   type DocumentContentKeyTargetV2,
   type DocumentLinkAccessEventBodyV2,
   type DocumentLinkSetManifestStateV2,
+  type DocumentUnlinkAccessEventBodyV2,
   decryptWithDek,
   deriveDocumentLinkSetManifest,
   encryptWithDek,
@@ -29,12 +30,14 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   DocumentV2ContentKeyTargetEnvelope,
   DocumentV2CreateRequest,
+  DocumentV2LinkSetMutationRequest,
   DocumentV2OutgoingUpdate,
   DocumentV2SyncRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerV2WriterProjectionResponse,
   DocumentV2CreateResponse,
+  DocumentV2LinkSetMutationResponse,
   DocumentV2SyncResponse,
   DocumentV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -126,6 +129,84 @@ interface CreateRemoteDocumentV2Result {
   persistedState: PersistedDocumentV2CreateState;
   plan: DocumentV2CreatePlan;
   response: DocumentV2CreateResponse;
+}
+
+type DocumentV2LinkSetMutationOperation = "link" | "unlink";
+type DocumentV2LinkSetMutationBody =
+  | DocumentLinkAccessEventBodyV2
+  | DocumentUnlinkAccessEventBodyV2;
+
+interface DocumentV2LinkSetTargetState {
+  readonly currentTargets: readonly DocumentContentKeyTargetV2[];
+  readonly linkedContainerIds: readonly string[];
+  readonly target: DocumentContentKeyTargetV2;
+  readonly targets: readonly DocumentContentKeyTargetV2[];
+}
+
+interface BuildDocumentV2LinkSetMutationPlanInput {
+  author: DocumentV2CreateAuthor;
+  contentKeyEpoch: number;
+  eventId?: string | undefined;
+  operation: DocumentV2LinkSetMutationOperation;
+  signedAt?: string | undefined;
+  targetContainerProjection: ContainerV2WriterProjectionResponse;
+  targetEnvelopes: readonly DocumentV2ContentKeyTargetEnvelope[];
+  writerProjection: DocumentV2WriterProjectionResponse;
+}
+
+export interface DocumentV2LinkSetMutationPlan {
+  body: DocumentV2LinkSetMutationBody;
+  contentKeyEpoch: number;
+  documentId: string;
+  event: AccessEventV2;
+  eventHash: string;
+  manifest: AccessManifestV2;
+  manifestHash: string;
+  operation: DocumentV2LinkSetMutationOperation;
+  request: DocumentV2LinkSetMutationRequest;
+  state: DocumentLinkSetManifestStateV2;
+  targetHash: string;
+  targets: DocumentContentKeyTargetV2[];
+}
+
+interface MaterializedDocumentV2LinkSetMutationPlan {
+  contentKey: Uint8Array;
+  contentKeyRotated: boolean;
+  plan: DocumentV2LinkSetMutationPlan;
+}
+
+interface DocumentV2LinkSetEventPlan {
+  authorizingContainerPaths: Record<string, unknown>[][];
+  body: DocumentV2LinkSetMutationBody;
+  event: AccessEventV2;
+  eventHash: string;
+}
+
+interface DocumentV2LinkSetMutationApi {
+  getContainerV2WriterProjection(
+    containerId: string,
+  ): Promise<ContainerV2WriterProjectionResponse | null>;
+  getDocumentV2WriterProjection(
+    documentId: string,
+  ): Promise<DocumentV2WriterProjectionResponse | null>;
+  linkDocumentV2(
+    documentId: string,
+    input: DocumentV2LinkSetMutationRequest,
+  ): Promise<DocumentV2LinkSetMutationResponse | null>;
+  unlinkDocumentV2(
+    documentId: string,
+    input: DocumentV2LinkSetMutationRequest,
+  ): Promise<DocumentV2LinkSetMutationResponse | null>;
+}
+
+export interface RelinkRemoteDocumentV2Result {
+  contentKey: Uint8Array;
+  contentKeyRotated: boolean;
+  documentId: string;
+  linkedContainerIds: readonly string[];
+  persistedState: PersistedDocumentV2CreateState;
+  plan: DocumentV2LinkSetMutationPlan;
+  response: DocumentV2LinkSetMutationResponse;
 }
 
 interface DocumentV2SyncPreparedUpdate {
@@ -279,6 +360,20 @@ function sortDocumentTargets<T extends DocumentContentKeyTargetV2>(
   return [...targets].sort((left, right) =>
     targetKey(left).localeCompare(targetKey(right)),
   );
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function describeDocumentV2TargetKek(
+  target: DocumentContentKeyTargetV2,
+): string {
+  return `container ${target.containerId} epoch ${target.containerKeyEpochId}`;
+}
+
+function uniqueSortedStrings(values: readonly string[]): string[] {
+  return [...new Set(values)].sort();
 }
 
 function readRecordNumber(
@@ -872,6 +967,581 @@ export async function createRemoteDocumentV2(input: {
   };
 }
 
+function projectionPathRecords(
+  projection: ContainerV2WriterProjectionResponse,
+): Record<string, unknown>[] {
+  return projection.path.map(
+    (bundle) => bundle as unknown as Record<string, unknown>,
+  );
+}
+
+function projectionLeafContainerId(
+  projection: ContainerV2WriterProjectionResponse,
+): string | null {
+  const leafBundle = projection.path.at(-1);
+  return leafBundle ? readManifestContainerId(leafBundle) : null;
+}
+
+function describeProjectionTargetKek(
+  projection: ContainerV2WriterProjectionResponse,
+): string {
+  const targetKek = projection.containerKeks.at(-1);
+  const containerId =
+    projectionLeafContainerId(projection) ??
+    targetKek?.containerId ??
+    projection.containerId;
+  return targetKek
+    ? `container ${containerId} epoch ${targetKek.containerKeyEpochId}`
+    : `container ${containerId}`;
+}
+
+function deriveDocumentV2TargetFromProjection(
+  projection: ContainerV2WriterProjectionResponse,
+): DocumentContentKeyTargetV2 {
+  const target = deriveDocumentV2CreateTargets(projection)[0];
+  if (!target) {
+    throw new Error("Document V2 target projection is unavailable");
+  }
+  return target;
+}
+
+function readLinkedContainerIdsFromDocumentManifest(
+  writerProjection: DocumentV2WriterProjectionResponse,
+): string[] {
+  const state = writerProjection.documentManifest.state;
+  const linkedContainerIds = isPlainRecord(state)
+    ? Reflect.get(state, "linkedContainerIds")
+    : undefined;
+  if (
+    !Array.isArray(linkedContainerIds) ||
+    linkedContainerIds.some(
+      (containerId) =>
+        typeof containerId !== "string" || containerId.length === 0,
+    )
+  ) {
+    throw new Error("Document V2 link-set state is invalid");
+  }
+
+  return uniqueSortedStrings(linkedContainerIds);
+}
+
+function currentDocumentV2Targets(
+  writerProjection: DocumentV2WriterProjectionResponse,
+): DocumentContentKeyTargetV2[] {
+  const targets = normalizeDocumentV2KekTargetResponse(
+    writerProjection.documentKekTargets,
+  );
+  const bundleTargets = sortDocumentTargets(
+    writerProjection.contentKeyBundle.targets.map(targetEnvelopeReference),
+  );
+
+  if (
+    serializeCanonical(targets, "KEK targets") !==
+    serializeCanonical(bundleTargets, "content-key targets")
+  ) {
+    throw new Error("Document V2 link-set content-key targets mismatch");
+  }
+
+  return targets;
+}
+
+function deriveDocumentV2LinkSetTargetState(input: {
+  operation: DocumentV2LinkSetMutationOperation;
+  targetContainerProjection: ContainerV2WriterProjectionResponse;
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): DocumentV2LinkSetTargetState {
+  const currentTargets = currentDocumentV2Targets(input.writerProjection);
+  const currentLinkedContainerIds = readLinkedContainerIdsFromDocumentManifest(
+    input.writerProjection,
+  );
+  const target = deriveDocumentV2TargetFromProjection(
+    input.targetContainerProjection,
+  );
+  const currentTarget = currentTargets.find(
+    (candidate) => candidate.containerId === target.containerId,
+  );
+
+  if (input.operation === "link") {
+    if (currentTarget) {
+      throw new Error("Document V2 link target is already linked");
+    }
+
+    return {
+      currentTargets,
+      linkedContainerIds: uniqueSortedStrings([
+        ...currentLinkedContainerIds,
+        target.containerId,
+      ]),
+      target,
+      targets: sortDocumentTargets([...currentTargets, target]),
+    };
+  }
+
+  if (!currentTarget) {
+    throw new Error("Document V2 unlink target is not linked");
+  }
+  if (targetKey(currentTarget) !== targetKey(target)) {
+    throw new Error("Document V2 unlink target projection is stale");
+  }
+
+  const linkedContainerIds = currentLinkedContainerIds.filter(
+    (containerId) => containerId !== target.containerId,
+  );
+  if (linkedContainerIds.length === 0) {
+    throw new Error("Document V2 unlink must leave a linked container");
+  }
+
+  return {
+    currentTargets,
+    linkedContainerIds,
+    target,
+    targets: currentTargets.filter(
+      (candidate) => candidate.containerId !== target.containerId,
+    ),
+  };
+}
+
+function authorizingContainerPathRecordsForLinkSet(input: {
+  operation: DocumentV2LinkSetMutationOperation;
+  targetContainerId: string;
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): Record<string, unknown>[][] {
+  const paths = input.writerProjection.authorizingContainerPaths.filter(
+    (projection) =>
+      input.operation === "link" ||
+      projectionLeafContainerId(projection) !== input.targetContainerId,
+  );
+  if (paths.length === 0) {
+    throw new Error("Document V2 link-set authorizing paths are missing");
+  }
+
+  return paths.map(projectionPathRecords);
+}
+
+async function wrapDocumentV2ContentKeyForTargets(input: {
+  contentKey: Uint8Array;
+  keksByEpochId: ReadonlyMap<string, Uint8Array>;
+  targets: readonly DocumentContentKeyTargetV2[];
+}): Promise<DocumentV2ContentKeyTargetEnvelope[]> {
+  return Promise.all(
+    sortDocumentTargets(input.targets).map(async (target) => {
+      const targetKek = input.keksByEpochId.get(target.containerKeyEpochId);
+      if (!targetKek) {
+        throw new Error(
+          `Document V2 target KEK could not be unwrapped for ${describeDocumentV2TargetKek(target)}`,
+        );
+      }
+
+      const wrapped = await encryptWithDek(input.contentKey, targetKek);
+      return {
+        ...target,
+        wrappedKey: bytesToBase64(wrapped.ciphertext),
+        wrappingMetadata: {
+          suite: DOCUMENT_V2_CONTENT_KEY_WRAP_SUITE,
+          iv: bytesToBase64(wrapped.iv),
+        },
+      };
+    }),
+  );
+}
+
+async function assertDocumentV2LinkSetMutationOrganizations(input: {
+  author: DocumentV2CreateAuthor;
+  targetContainerProjection: ContainerV2WriterProjectionResponse;
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): Promise<void> {
+  const manifestIdentity = await assertDocumentV2ManifestBundleConsistent({
+    bundle: input.writerProjection.documentManifest,
+    label: "Document V2 link-set manifest",
+  });
+  if (input.author.organizationId !== manifestIdentity.organizationId) {
+    throw new Error("Document V2 link-set author organization mismatch");
+  }
+  if (
+    input.author.organizationId !==
+    input.targetContainerProjection.organizationId
+  ) {
+    throw new Error("Document V2 target container organization mismatch");
+  }
+}
+
+function readDocumentV2LinkSetPreviousEpoch(
+  writerProjection: DocumentV2WriterProjectionResponse,
+): number {
+  const previousState = writerProjection.documentManifest.state;
+  const previousEpoch = isPlainRecord(previousState)
+    ? Reflect.get(previousState, "epoch")
+    : undefined;
+  if (!Number.isInteger(previousEpoch) || (previousEpoch as number) <= 0) {
+    throw new Error("Document V2 link-set previous epoch is invalid");
+  }
+
+  return previousEpoch as number;
+}
+
+async function buildDocumentV2LinkSetEventPlan(input: {
+  author: DocumentV2CreateAuthor;
+  eventId: string;
+  operation: DocumentV2LinkSetMutationOperation;
+  signedAt: string;
+  targetState: DocumentV2LinkSetTargetState;
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): Promise<DocumentV2LinkSetEventPlan> {
+  const eventType =
+    input.operation === "link" ? "document.link" : "document.unlink";
+  const body: DocumentV2LinkSetMutationBody = {
+    eventType,
+    containerId: input.targetState.target.containerId,
+    containerManifestHash: input.targetState.target.containerManifestHash,
+  };
+  const bodyHash = await computeAccessEventBodyHash(
+    body as unknown as KeyingV2CanonicalJson,
+  );
+  const authorizingContainerPaths = authorizingContainerPathRecordsForLinkSet({
+    operation: input.operation,
+    targetContainerId: input.targetState.target.containerId,
+    writerProjection: input.writerProjection,
+  });
+  const dependencyManifestHashes = uniqueSortedStrings([
+    input.targetState.target.containerManifestHash,
+    ...authorizingContainerPaths
+      .map((path) => Reflect.get(path.at(-1) ?? {}, "manifestHash"))
+      .filter((hash): hash is string => typeof hash === "string"),
+  ]);
+  const unsignedEvent: UnsignedAccessEventV2 = {
+    version: 2,
+    eventId: input.eventId,
+    eventType,
+    objectKind: "document",
+    objectId: input.writerProjection.documentId,
+    organizationId: input.author.organizationId,
+    previousManifestHash: input.writerProjection.documentManifest.manifestHash,
+    dependencyManifestHashes,
+    bodyHash,
+    signerUserId: input.author.signerUserId,
+    signerDeviceId: input.author.signerDeviceId,
+    signerKeyFingerprint: input.author.signerKeyFingerprint,
+    signedAt: input.signedAt,
+  };
+  const event = await signAccessEvent(
+    unsignedEvent,
+    input.author.signerPrivateKey,
+  );
+  const eventHash = await computeAccessEventHash(event);
+
+  return {
+    authorizingContainerPaths,
+    body,
+    event,
+    eventHash,
+  };
+}
+
+async function buildDocumentV2LinkSetMutationPlan({
+  author,
+  contentKeyEpoch,
+  eventId = crypto.randomUUID(),
+  operation,
+  signedAt = new Date().toISOString(),
+  targetContainerProjection,
+  targetEnvelopes,
+  writerProjection,
+}: BuildDocumentV2LinkSetMutationPlanInput): Promise<DocumentV2LinkSetMutationPlan> {
+  await assertDocumentV2LinkSetMutationOrganizations({
+    author,
+    targetContainerProjection,
+    writerProjection,
+  });
+  const targetState = deriveDocumentV2LinkSetTargetState({
+    operation,
+    targetContainerProjection,
+    writerProjection,
+  });
+  const targetEnvelopesForRequest = mergeTargetEnvelopes(
+    targetState.targets,
+    targetEnvelopes,
+  );
+  const eventPlan = await buildDocumentV2LinkSetEventPlan({
+    author,
+    eventId,
+    operation,
+    signedAt,
+    targetState,
+    writerProjection,
+  });
+  const previousEpoch = readDocumentV2LinkSetPreviousEpoch(writerProjection);
+
+  const state: DocumentLinkSetManifestStateV2 = {
+    version: 2,
+    documentId: writerProjection.documentId,
+    organizationId: author.organizationId,
+    epoch: previousEpoch + 1,
+    previousManifestHash: writerProjection.documentManifest.manifestHash,
+    eventHash: eventPlan.eventHash,
+    linkedContainerIds: [...targetState.linkedContainerIds],
+  };
+  const manifest = await deriveDocumentLinkSetManifest(state);
+  const manifestHash = await computeAccessManifestHash(manifest);
+  const targetHash = await computeDocumentContentKeyTargetHash(
+    targetState.targets,
+  );
+
+  return {
+    body: eventPlan.body,
+    contentKeyEpoch,
+    documentId: writerProjection.documentId,
+    event: eventPlan.event,
+    eventHash: eventPlan.eventHash,
+    manifest,
+    manifestHash,
+    operation,
+    request: {
+      event: eventPlan.event as unknown as Record<string, unknown>,
+      body: eventPlan.body as unknown as Record<string, unknown>,
+      expectedManifestHash: manifestHash,
+      manifest: manifest as unknown as Record<string, unknown>,
+      previousManifest: writerProjection.documentManifest,
+      targetContainerPath: projectionPathRecords(targetContainerProjection),
+      authorizingContainerPaths: eventPlan.authorizingContainerPaths,
+      contentKeyBundle: {
+        contentKeyEpoch,
+        linkSetManifestHash: manifestHash,
+        targetHash,
+        targets: targetEnvelopesForRequest,
+      },
+    },
+    state,
+    targetHash,
+    targets: sortDocumentTargets(targetState.targets),
+  };
+}
+
+export async function buildMaterializedDocumentV2LinkSetMutationPlan(input: {
+  author: DocumentV2CreateAuthor;
+  contentKey?: Uint8Array | undefined;
+  eventId?: string | undefined;
+  execSql?: ExecSql | undefined;
+  operation: DocumentV2LinkSetMutationOperation;
+  signedAt?: string | undefined;
+  targetContainerProjection: ContainerV2WriterProjectionResponse;
+  targetSecretKey: Uint8Array;
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): Promise<MaterializedDocumentV2LinkSetMutationPlan> {
+  const targetState = deriveDocumentV2LinkSetTargetState({
+    operation: input.operation,
+    targetContainerProjection: input.targetContainerProjection,
+    writerProjection: input.writerProjection,
+  });
+  const currentContentKey =
+    await unwrapDocumentV2ContentKeyFromWriterProjection({
+      execSql: input.execSql,
+      secretKey: input.targetSecretKey,
+      writerProjection: input.writerProjection,
+    });
+  const contentKeyRotated = input.operation === "unlink";
+  const contentKey = contentKeyRotated
+    ? (input.contentKey ?? crypto.getRandomValues(new Uint8Array(32)))
+    : currentContentKey;
+  if (contentKey.byteLength !== 32) {
+    throw new Error("Document V2 content key must be 32 bytes");
+  }
+
+  const targetEnvelopes =
+    input.operation === "link"
+      ? [
+          ...input.writerProjection.contentKeyBundle.targets,
+          ...(await wrapDocumentV2ContentKeyForTargets({
+            contentKey,
+            keksByEpochId: await unwrapContainerV2KekPath({
+              execSql: input.execSql,
+              projection: input.targetContainerProjection,
+              secretKey: input.targetSecretKey,
+            }),
+            targets: [targetState.target],
+          })),
+        ]
+      : await wrapDocumentV2ContentKeyForTargets({
+          contentKey,
+          keksByEpochId: await collectContainerKeksForDocumentV2Sync({
+            execSql: input.execSql,
+            secretKey: input.targetSecretKey,
+            writerProjection: input.writerProjection,
+          }),
+          targets: targetState.targets,
+        });
+
+  const plan = await buildDocumentV2LinkSetMutationPlan({
+    author: input.author,
+    contentKeyEpoch:
+      input.writerProjection.contentKeyBundle.contentKeyEpoch +
+      (contentKeyRotated ? 1 : 0),
+    eventId: input.eventId,
+    operation: input.operation,
+    signedAt: input.signedAt,
+    targetContainerProjection: input.targetContainerProjection,
+    targetEnvelopes,
+    writerProjection: input.writerProjection,
+  });
+
+  return {
+    contentKey,
+    contentKeyRotated,
+    plan,
+  };
+}
+
+function assertLinkSetMutationResponseMatchesPlan(
+  plan: DocumentV2LinkSetMutationPlan,
+  response: DocumentV2LinkSetMutationResponse,
+): void {
+  if (response.id !== plan.documentId) {
+    throw new Error("Document V2 link-set response id mismatch");
+  }
+  if (response.accessManifest.manifestHash !== plan.manifestHash) {
+    throw new Error("Document V2 link-set response manifest hash mismatch");
+  }
+  if (
+    serializeCanonical(response.accessManifest.manifest, "manifest") !==
+    serializeCanonical(plan.manifest, "manifest")
+  ) {
+    throw new Error("Document V2 link-set response manifest mismatch");
+  }
+
+  const responseEvent = response.accessManifest.event;
+  if (!isPlainRecord(responseEvent)) {
+    throw new Error("Document V2 link-set response event bundle is invalid");
+  }
+  if (
+    readRecordString(responseEvent, "eventHash", "event bundle") !==
+    plan.eventHash
+  ) {
+    throw new Error("Document V2 link-set response event hash mismatch");
+  }
+  if (
+    serializeCanonical(Reflect.get(responseEvent, "event"), "event") !==
+    serializeCanonical(plan.event, "event")
+  ) {
+    throw new Error("Document V2 link-set response event mismatch");
+  }
+  if (
+    serializeCanonical(response.accessManifest.state, "state") !==
+    serializeCanonical(plan.state, "state")
+  ) {
+    throw new Error("Document V2 link-set response state mismatch");
+  }
+  if (
+    response.contentKeyBundle.documentId !== plan.documentId ||
+    response.contentKeyBundle.contentKeyEpoch !== plan.contentKeyEpoch ||
+    response.contentKeyBundle.linkSetManifestHash !== plan.manifestHash ||
+    response.contentKeyBundle.targetHash !== plan.targetHash
+  ) {
+    throw new Error("Document V2 link-set response content-key mismatch");
+  }
+  if (
+    serializeCanonical(
+      response.contentKeyBundle.targets,
+      "content-key targets",
+    ) !==
+    serializeCanonical(
+      plan.request.contentKeyBundle.targets,
+      "content-key targets",
+    )
+  ) {
+    throw new Error(
+      "Document V2 link-set response content-key targets mismatch",
+    );
+  }
+  if (
+    response.documentKekTargets.documentId !== plan.documentId ||
+    response.documentKekTargets.linkSetManifestHash !== plan.manifestHash ||
+    response.documentKekTargets.documentKeyTargetHash !== plan.targetHash
+  ) {
+    throw new Error("Document V2 link-set response KEK target mismatch");
+  }
+  if (
+    serializeCanonical(response.documentKekTargets.targets, "KEK targets") !==
+    serializeCanonical(plan.targets, "KEK targets")
+  ) {
+    throw new Error("Document V2 link-set response KEK targets mismatch");
+  }
+}
+
+export function persistedDocumentV2LinkSetMutationStateFromResponse(
+  plan: DocumentV2LinkSetMutationPlan,
+  response: DocumentV2LinkSetMutationResponse,
+): PersistedDocumentV2CreateState {
+  assertLinkSetMutationResponseMatchesPlan(plan, response);
+
+  return {
+    documentId: response.id,
+    v2ContentKeyBundle: serializeV2State(response.contentKeyBundle),
+    v2DocumentKekTargets: serializeV2State(response.documentKekTargets),
+    v2DocumentManifestBundle: serializeV2State(response.accessManifest),
+  };
+}
+
+export async function relinkRemoteDocumentV2(input: {
+  apiClient: DocumentV2LinkSetMutationApi;
+  author: DocumentV2CreateAuthor;
+  contentKey?: Uint8Array | undefined;
+  documentId: string;
+  eventId?: string | undefined;
+  execSql?: ExecSql | undefined;
+  operation: DocumentV2LinkSetMutationOperation;
+  signedAt?: string | undefined;
+  targetContainerId: string;
+  targetSecretKey: Uint8Array;
+}): Promise<RelinkRemoteDocumentV2Result | null> {
+  const [writerProjection, targetContainerProjection] = await Promise.all([
+    input.apiClient.getDocumentV2WriterProjection(input.documentId),
+    input.apiClient.getContainerV2WriterProjection(input.targetContainerId),
+  ]);
+  if (!writerProjection || !targetContainerProjection) {
+    return null;
+  }
+
+  const materializedPlan = await buildMaterializedDocumentV2LinkSetMutationPlan(
+    {
+      author: input.author,
+      contentKey: input.contentKey,
+      eventId: input.eventId,
+      execSql: input.execSql,
+      operation: input.operation,
+      signedAt: input.signedAt,
+      targetContainerProjection,
+      targetSecretKey: input.targetSecretKey,
+      writerProjection,
+    },
+  );
+  const response =
+    input.operation === "link"
+      ? await input.apiClient.linkDocumentV2(
+          materializedPlan.plan.documentId,
+          materializedPlan.plan.request,
+        )
+      : await input.apiClient.unlinkDocumentV2(
+          materializedPlan.plan.documentId,
+          materializedPlan.plan.request,
+        );
+  if (!response) {
+    return null;
+  }
+  const persistedState = persistedDocumentV2LinkSetMutationStateFromResponse(
+    materializedPlan.plan,
+    response,
+  );
+
+  return {
+    contentKey: materializedPlan.contentKey,
+    contentKeyRotated: materializedPlan.contentKeyRotated,
+    documentId: response.id,
+    linkedContainerIds: [...materializedPlan.plan.state.linkedContainerIds],
+    persistedState,
+    plan: materializedPlan.plan,
+    response,
+  };
+}
+
 async function hashDocumentV2ContentRecord(
   domain: string,
   payload: KeyingV2CanonicalJson,
@@ -1322,11 +1992,18 @@ async function collectContainerKeksForDocumentV2Sync(input: {
   const keksByEpochId = new Map<string, Uint8Array>();
 
   for (const projection of input.writerProjection.authorizingContainerPaths) {
-    const projectionKeks = await unwrapContainerV2KekPath({
-      execSql: input.execSql,
-      projection,
-      secretKey: input.secretKey,
-    });
+    let projectionKeks: ReadonlyMap<string, Uint8Array>;
+    try {
+      projectionKeks = await unwrapContainerV2KekPath({
+        execSql: input.execSql,
+        projection,
+        secretKey: input.secretKey,
+      });
+    } catch (error) {
+      throw new Error(
+        `Document V2 authorizing container KEK path could not be unwrapped for ${describeProjectionTargetKek(projection)}: ${errorMessage(error)}`,
+      );
+    }
     for (const [containerKeyEpochId, keyMaterial] of projectionKeks) {
       const existing = keksByEpochId.get(containerKeyEpochId);
       if (existing) {

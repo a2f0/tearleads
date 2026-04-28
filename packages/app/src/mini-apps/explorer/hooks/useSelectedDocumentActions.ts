@@ -1,8 +1,12 @@
-import type { ContainerDocumentSummary } from "@tearleads/validators/response";
 import { useCallback } from "react";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/containers";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
+import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
+import {
+  type RelinkRemoteDocumentV2Result,
+  relinkRemoteDocumentV2,
+} from "../../../data/documents/documentV2Runtime";
 import { getDocumentByLocalId } from "../documentSummaries";
 import {
   createExplorerDocumentsRuntime,
@@ -15,6 +19,7 @@ type SetLinkedContainerIdsForDocument = (
   linkedContainerIds: ReadonlyArray<string>,
 ) => void;
 type ExplorerDocumentStore = ReturnType<typeof primeDocumentStore>;
+type MoveExplorerDocumentStatus = "complete" | "partial";
 
 function canMutateSelectedDocument(appData: ExplorerDocumentsRuntimeAppData) {
   return (
@@ -23,47 +28,122 @@ function canMutateSelectedDocument(appData: ExplorerDocumentsRuntimeAppData) {
 }
 
 function getMovedDocumentContainerId(
-  document: ContainerDocumentSummary,
+  linkedContainerIds: ReadonlyArray<string>,
   preferredContainerId: string,
 ): string | null {
-  if (document.linkedContainerIds.includes(preferredContainerId)) {
+  if (linkedContainerIds.includes(preferredContainerId)) {
     return preferredContainerId;
   }
 
-  return document.linkedContainerIds[0] ?? null;
+  return linkedContainerIds[0] ?? null;
 }
 
-function getExpectedDocumentAccessStateHash(
+function resolveExplorerDocumentV2MutationContext(
   appData: ExplorerDocumentsRuntimeAppData,
-  note: DocumentSummary,
-  operation: string,
-): string | null {
+): {
+  author: Parameters<typeof relinkRemoteDocumentV2>[0]["author"];
+  targetSecretKey: Uint8Array;
+} | null {
   if (
-    typeof note.accessStateHash !== "string" ||
-    note.accessStateHash.length === 0
+    !appData.encapsulationKeyPair ||
+    !appData.organizationId ||
+    !appData.signingFingerprint ||
+    !appData.signingKeyPair ||
+    !appData.userId
   ) {
     appData.log(
-      `Explorer: note ${note.id} is missing access state hash for ${operation}`,
+      "Explorer: V2 document mutation skipped because the local key context is unavailable",
     );
     return null;
   }
 
-  return note.accessStateHash;
+  return {
+    author: {
+      organizationId: appData.organizationId,
+      signerDeviceId: createDocumentV2SignerDeviceId(
+        appData.signingFingerprint,
+      ),
+      signerKeyFingerprint: appData.signingFingerprint,
+      signerPrivateKey: appData.signingKeyPair.signingPrivateKey,
+      signerUserId: appData.userId,
+    },
+    targetSecretKey: appData.encapsulationKeyPair.secretKey,
+  };
 }
 
 async function syncExplorerDocumentLinks(
   appData: ExplorerDocumentsRuntimeAppData,
   documentId: string,
-  document: ContainerDocumentSummary,
+  linkedContainerIds: ReadonlyArray<string>,
 ) {
-  await appData.cacheReferencedPrincipalPolicies(
-    document.referencedPrincipals ?? [],
-  );
   await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
     appData.execSql,
     documentId,
-    document.linkedContainerIds,
+    linkedContainerIds,
   );
+}
+
+async function mutateExplorerDocumentLinkSet(params: {
+  appData: ExplorerDocumentsRuntimeAppData;
+  documentId: string;
+  noteId: string;
+  operation: "link" | "unlink";
+  targetContainerId: string;
+}): Promise<RelinkRemoteDocumentV2Result | null> {
+  const { appData, documentId, noteId, operation, targetContainerId } = params;
+  const mutationContext = resolveExplorerDocumentV2MutationContext(appData);
+  if (!mutationContext) {
+    return null;
+  }
+
+  let result: RelinkRemoteDocumentV2Result | null;
+  try {
+    result = await relinkRemoteDocumentV2({
+      apiClient: appData.apiClient,
+      author: mutationContext.author,
+      documentId,
+      execSql: appData.execSql,
+      operation,
+      targetContainerId,
+      targetSecretKey: mutationContext.targetSecretKey,
+    });
+  } catch (error) {
+    appData.log(
+      `Explorer: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+  if (!result) {
+    appData.log(
+      `Explorer: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}`,
+    );
+    return null;
+  }
+
+  await syncExplorerDocumentLinks(
+    appData,
+    documentId,
+    result.linkedContainerIds,
+  );
+  return result;
+}
+
+function explorerDocumentMoveResult(input: {
+  document: RelinkRemoteDocumentV2Result;
+  nextContainerId: string;
+  queueBaselineAfterRelink?: boolean;
+  status: MoveExplorerDocumentStatus;
+}) {
+  return {
+    accessEpoch: input.document.plan.state.epoch,
+    accessStateHash: input.document.response.accessManifest.manifestHash,
+    linkedContainerIds: input.document.linkedContainerIds,
+    nextContainerId: input.nextContainerId,
+    queueBaselineAfterRelink:
+      input.queueBaselineAfterRelink ?? input.document.contentKeyRotated,
+    status: input.status,
+    v2State: input.document.persistedState,
+  };
 }
 
 async function moveExplorerDocument(params: {
@@ -76,66 +156,50 @@ async function moveExplorerDocument(params: {
     return null;
   }
 
-  const linkAccessStateHash = getExpectedDocumentAccessStateHash(
+  const linkedDocument = await mutateExplorerDocumentLinkSet({
     appData,
-    note,
-    "move",
-  );
-  if (!linkAccessStateHash) {
-    return null;
-  }
-
-  const linkedDocument = await appData.apiClient.linkDocumentToContainer(
-    note.documentId,
+    documentId: note.documentId,
+    noteId: note.id,
+    operation: "link",
     targetContainerId,
-    linkAccessStateHash,
-  );
+  });
   if (!linkedDocument) {
-    appData.log(
-      `Explorer: failed to link note ${note.id} to container ${targetContainerId}`,
-    );
-    return null;
-  }
-  await syncExplorerDocumentLinks(appData, note.documentId, linkedDocument);
-
-  const unlinkAccessStateHash = linkedDocument.currentAccessStateHash;
-  if (
-    typeof unlinkAccessStateHash !== "string" ||
-    unlinkAccessStateHash.length === 0
-  ) {
-    appData.log(
-      `Explorer: note ${note.id} is missing refreshed access state hash after linking`,
-    );
     return null;
   }
 
-  const unlinkedDocument = await appData.apiClient.unlinkDocumentFromContainer(
-    note.documentId,
-    note.containerId,
-    unlinkAccessStateHash,
-  );
+  const unlinkedDocument = await mutateExplorerDocumentLinkSet({
+    appData,
+    documentId: note.documentId,
+    noteId: note.id,
+    operation: "unlink",
+    targetContainerId: note.containerId,
+  });
   if (!unlinkedDocument) {
     appData.log(
       `Explorer: note ${note.id} was linked to ${targetContainerId} but failed to unlink from ${note.containerId}`,
     );
-    return null;
+    return explorerDocumentMoveResult({
+      document: linkedDocument,
+      nextContainerId: targetContainerId,
+      status: "partial",
+    });
   }
-  await syncExplorerDocumentLinks(appData, note.documentId, unlinkedDocument);
 
   const nextContainerId = getMovedDocumentContainerId(
-    unlinkedDocument,
+    unlinkedDocument.linkedContainerIds,
     targetContainerId,
   );
   if (!nextContainerId) {
     return null;
   }
 
-  return {
-    currentAccessEpoch: unlinkedDocument.currentAccessEpoch,
-    currentAccessStateHash: unlinkedDocument.currentAccessStateHash,
-    linkedContainerIds: unlinkedDocument.linkedContainerIds,
+  return explorerDocumentMoveResult({
+    document: unlinkedDocument,
     nextContainerId,
-  };
+    queueBaselineAfterRelink:
+      linkedDocument.contentKeyRotated || unlinkedDocument.contentKeyRotated,
+    status: "complete",
+  });
 }
 
 async function linkExplorerDocument(params: {
@@ -144,33 +208,18 @@ async function linkExplorerDocument(params: {
   targetContainerId: string;
 }) {
   const { appData, note, targetContainerId } = params;
-  if (!note.documentId) {
+  const documentId = note.documentId;
+  if (!documentId) {
     return null;
   }
 
-  const expectedAccessStateHash = getExpectedDocumentAccessStateHash(
+  return mutateExplorerDocumentLinkSet({
     appData,
-    note,
-    "link",
-  );
-  if (!expectedAccessStateHash) {
-    return null;
-  }
-
-  const linkedDocument = await appData.apiClient.linkDocumentToContainer(
-    note.documentId,
+    documentId,
+    noteId: note.id,
+    operation: "link",
     targetContainerId,
-    expectedAccessStateHash,
-  );
-  if (!linkedDocument) {
-    appData.log(
-      `Explorer: failed to link note ${note.id} to container ${targetContainerId}`,
-    );
-    return null;
-  }
-
-  await syncExplorerDocumentLinks(appData, note.documentId, linkedDocument);
-  return linkedDocument;
+  });
 }
 
 async function unlinkExplorerDocument(params: {
@@ -179,33 +228,18 @@ async function unlinkExplorerDocument(params: {
   targetContainerId: string;
 }) {
   const { appData, note, targetContainerId } = params;
-  if (!note.documentId) {
+  const documentId = note.documentId;
+  if (!documentId) {
     return null;
   }
 
-  const expectedAccessStateHash = getExpectedDocumentAccessStateHash(
+  return mutateExplorerDocumentLinkSet({
     appData,
-    note,
-    "unlink",
-  );
-  if (!expectedAccessStateHash) {
-    return null;
-  }
-
-  const unlinkedDocument = await appData.apiClient.unlinkDocumentFromContainer(
-    note.documentId,
+    documentId,
+    noteId: note.id,
+    operation: "unlink",
     targetContainerId,
-    expectedAccessStateHash,
-  );
-  if (!unlinkedDocument) {
-    appData.log(
-      `Explorer: failed to unlink note ${note.id} from container ${targetContainerId}`,
-    );
-    return null;
-  }
-
-  await syncExplorerDocumentLinks(appData, note.documentId, unlinkedDocument);
-  return unlinkedDocument;
+  });
 }
 
 async function primeExplorerDocumentStoreForStructuralMutation(params: {
@@ -238,8 +272,10 @@ async function relinkExplorerNoteLocally(params: {
   currentDocumentStore: ExplorerDocumentStore;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
+  queueBaselineAfterRelink?: boolean;
   requestSync: boolean;
   targetContainerId: string;
+  v2State?: RelinkRemoteDocumentV2Result["persistedState"] | undefined;
 }) {
   const {
     accessEpoch,
@@ -248,10 +284,13 @@ async function relinkExplorerNoteLocally(params: {
     currentDocumentStore,
     mergeDocumentSummary,
     note,
+    queueBaselineAfterRelink,
     requestSync,
     targetContainerId,
+    v2State,
   } = params;
-  if (!note.documentId) {
+  const documentId = note.documentId;
+  if (!documentId) {
     return null;
   }
 
@@ -259,8 +298,10 @@ async function relinkExplorerNoteLocally(params: {
     accessEpoch,
     ...(accessStateHash === undefined ? {} : { accessStateHash }),
     containerId: targetContainerId,
-    documentId: note.documentId,
+    ...v2State,
+    documentId,
     localId: note.id,
+    queueBaselineAfterRelink,
   });
   if (!relinkedNote) {
     appData.log(
@@ -286,7 +327,9 @@ async function relinkExplorerNoteAfterStructuralMutation(params: {
   currentDocumentStore: ExplorerDocumentStore;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
+  queueBaselineAfterRelink?: boolean;
   targetContainerId: string;
+  v2State?: RelinkRemoteDocumentV2Result["persistedState"] | undefined;
 }) {
   return relinkExplorerNoteLocally({
     ...params,
@@ -315,7 +358,7 @@ async function moveExplorerNote(params: {
     !note.containerId ||
     note.containerId === targetContainerId
   ) {
-    return null;
+    return { linksChanged: false, note: null };
   }
 
   const currentDocumentStore =
@@ -324,7 +367,7 @@ async function moveExplorerNote(params: {
       note,
     });
   if (!currentDocumentStore) {
-    return null;
+    return { linksChanged: false, note: null };
   }
 
   const movedDocument = await moveExplorerDocument({
@@ -333,28 +376,35 @@ async function moveExplorerNote(params: {
     targetContainerId,
   });
   if (!movedDocument) {
-    return null;
+    return { linksChanged: false, note: null };
   }
-  const { currentAccessEpoch, linkedContainerIds, nextContainerId } =
-    movedDocument;
+  const { accessEpoch, linkedContainerIds, nextContainerId } = movedDocument;
   setLinkedContainerIdsForDocument(note.documentId, linkedContainerIds);
 
   const movedNote = await relinkExplorerNoteAfterStructuralMutation({
-    accessEpoch: currentAccessEpoch,
-    accessStateHash: movedDocument.currentAccessStateHash,
+    accessEpoch,
+    accessStateHash: movedDocument.accessStateHash,
     appData,
     currentDocumentStore,
     mergeDocumentSummary,
     note,
+    queueBaselineAfterRelink: movedDocument.queueBaselineAfterRelink,
     targetContainerId: nextContainerId,
+    v2State: movedDocument.v2State,
   });
   if (!movedNote) {
-    return null;
+    return { linksChanged: true, note: null };
   }
 
   expandNode(nextContainerId);
-  appData.log(`Explorer: moved note ${movedNote.id} to ${nextContainerId}`);
-  return movedNote;
+  if (movedDocument.status === "partial") {
+    appData.log(
+      `Explorer: partially moved note ${movedNote.id}; linked to ${nextContainerId} but still linked to ${note.containerId}`,
+    );
+  } else {
+    appData.log(`Explorer: moved note ${movedNote.id} to ${nextContainerId}`);
+  }
+  return { linksChanged: true, note: movedNote };
 }
 
 async function linkExplorerNote(params: {
@@ -398,13 +448,15 @@ async function linkExplorerNote(params: {
   );
 
   const linkedNote = await relinkExplorerNoteAfterStructuralMutation({
-    accessEpoch: linkedDocument.currentAccessEpoch,
-    accessStateHash: linkedDocument.currentAccessStateHash,
+    accessEpoch: linkedDocument.plan.state.epoch,
+    accessStateHash: linkedDocument.response.accessManifest.manifestHash,
     appData,
     currentDocumentStore,
     mergeDocumentSummary,
     note,
+    queueBaselineAfterRelink: linkedDocument.contentKeyRotated,
     targetContainerId: note.containerId,
+    v2State: linkedDocument.persistedState,
   });
   if (!linkedNote) {
     return null;
@@ -455,7 +507,7 @@ async function unlinkExplorerLinkedNote(params: {
   );
 
   const nextContainerId = getMovedDocumentContainerId(
-    unlinkedDocument,
+    unlinkedDocument.linkedContainerIds,
     note.containerId,
   );
   if (!nextContainerId) {
@@ -466,13 +518,15 @@ async function unlinkExplorerLinkedNote(params: {
   }
 
   const unlinkedNote = await relinkExplorerNoteAfterStructuralMutation({
-    accessEpoch: unlinkedDocument.currentAccessEpoch,
-    accessStateHash: unlinkedDocument.currentAccessStateHash,
+    accessEpoch: unlinkedDocument.plan.state.epoch,
+    accessStateHash: unlinkedDocument.response.accessManifest.manifestHash,
     appData,
     currentDocumentStore,
     mergeDocumentSummary,
     note,
+    queueBaselineAfterRelink: unlinkedDocument.contentKeyRotated,
     targetContainerId: nextContainerId,
+    v2State: unlinkedDocument.persistedState,
   });
   if (!unlinkedNote) {
     return null;
@@ -555,7 +609,7 @@ function useMoveDocumentAction(params: {
         return null;
       }
 
-      const movedNote = await moveExplorerNote({
+      const moveResult = await moveExplorerNote({
         appData,
         expandNode,
         mergeDocumentSummary,
@@ -563,11 +617,11 @@ function useMoveDocumentAction(params: {
         setLinkedContainerIdsForDocument,
         targetContainerId,
       });
-      if (movedNote) {
+      if (moveResult.linksChanged) {
         onDocumentLinksChanged();
       }
 
-      return movedNote;
+      return moveResult.note;
     },
     [
       appData,

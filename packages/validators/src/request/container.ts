@@ -1,5 +1,5 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasStringProperty, isUuidV4String } from "../util";
+import { hasStringProperty } from "../util";
 
 export interface ContainerV2ManifestBundle {
   event: Record<string, unknown>;
@@ -23,11 +23,6 @@ export interface ContainerV2MutationRequest {
   containerManifestHistory?: ContainerV2ManifestBundle[];
   parentKekState?: Record<string, unknown> | null;
   userRecipientKeys?: Record<string, unknown>[];
-}
-
-export interface LinkDocumentToContainerRequest {
-  containerId: string;
-  expectedAccessStateHash: string;
 }
 
 function isRecordArray(value: unknown): value is Record<string, unknown>[] {
@@ -134,17 +129,5 @@ export function isContainerV2MutationRequest(
     isOptionalContainerV2ManifestBundleArray(containerManifestHistory) &&
     isOptionalParentKekState(parentKekState) &&
     isOptionalRecordArray(userRecipientKeys)
-  );
-}
-
-export function isLinkDocumentToContainerRequest(
-  value: unknown,
-): value is LinkDocumentToContainerRequest {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "containerId") &&
-    isUuidV4String(value.containerId) &&
-    hasStringProperty(value, "expectedAccessStateHash") &&
-    value.expectedAccessStateHash.length > 0
   );
 }

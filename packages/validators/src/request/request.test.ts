@@ -7,7 +7,6 @@ import {
   isDocumentV2CreateRequest,
   isDocumentV2LinkSetMutationRequest,
   isDocumentV2SyncRequest,
-  isLinkDocumentToContainerRequest,
   isPublicKeyRequest,
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
@@ -160,28 +159,6 @@ test("isStageBlobRequest", () => {
     }),
   ).toBe(false);
   expect(isStageBlobRequest(null)).toBe(false);
-});
-
-test("isLinkDocumentToContainerRequest", () => {
-  expect(
-    isLinkDocumentToContainerRequest({
-      containerId: "550e8400-e29b-41d4-a716-446655440000",
-      expectedAccessStateHash: "access-state-1",
-    }),
-  ).toBe(true);
-  expect(
-    isLinkDocumentToContainerRequest({
-      containerId: "not-a-uuid",
-      expectedAccessStateHash: "access-state-1",
-    }),
-  ).toBe(false);
-  expect(
-    isLinkDocumentToContainerRequest({
-      containerId: "550e8400-e29b-41d4-a716-446655440000",
-      expectedAccessStateHash: "",
-    }),
-  ).toBe(false);
-  expect(isLinkDocumentToContainerRequest(null)).toBe(false);
 });
 
 test("isPutPrincipalStateRequest", () => {

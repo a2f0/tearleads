@@ -11,14 +11,12 @@ import {
   isDocumentV2SyncResponse,
   isDocumentV2WriterProjectionResponse,
   isHealthResponse,
-  isLinkDocumentToContainerResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
   isPublicKeyResponse,
   isStageBlobResponse,
-  isUnlinkDocumentFromContainerResponse,
   isVerifyResponse,
 } from "./index";
 
@@ -243,46 +241,6 @@ test("isListContainerDocumentsResponse", () => {
     ]),
   ).toBe(false);
   expect(isListContainerDocumentsResponse(null)).toBe(false);
-});
-
-test("isLinkDocumentToContainerResponse", () => {
-  expect(
-    isLinkDocumentToContainerResponse({
-      createdAt: new Date().toISOString(),
-      currentAccessEpoch: 2,
-      currentAccessStateHash: "access-state-hash",
-      id: "doc-123",
-      linkedContainerIds: ["ctr-root", "ctr-child"],
-    }),
-  ).toBe(true);
-  expect(
-    isLinkDocumentToContainerResponse({
-      currentAccessEpoch: 2,
-      id: "doc-123",
-      linkedContainerIds: ["ctr-root", "ctr-child"],
-    }),
-  ).toBe(false);
-  expect(isLinkDocumentToContainerResponse(null)).toBe(false);
-});
-
-test("isUnlinkDocumentFromContainerResponse", () => {
-  expect(
-    isUnlinkDocumentFromContainerResponse({
-      createdAt: new Date().toISOString(),
-      currentAccessEpoch: 3,
-      currentAccessStateHash: "access-state-hash",
-      id: "doc-123",
-      linkedContainerIds: ["ctr-root"],
-    }),
-  ).toBe(true);
-  expect(
-    isUnlinkDocumentFromContainerResponse({
-      createdAt: new Date().toISOString(),
-      id: "doc-123",
-      linkedContainerIds: ["ctr-root"],
-    }),
-  ).toBe(false);
-  expect(isUnlinkDocumentFromContainerResponse(null)).toBe(false);
 });
 
 test("isPrincipalStateResponse", () => {

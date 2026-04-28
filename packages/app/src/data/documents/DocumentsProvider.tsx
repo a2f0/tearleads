@@ -198,9 +198,7 @@ interface DocumentStore {
   setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   requestSync: () => void;
-  relink: (
-    input: RelinkPersistedDocumentInput,
-  ) => Promise<DocumentSummary | null>;
+  relink: (input: DocumentStoreRelinkInput) => Promise<DocumentSummary | null>;
   setText: (value: string) => void;
   subscribe: (listener: () => void) => () => void;
   updateRuntime: (runtime: DocumentsRuntime) => void;
@@ -211,6 +209,13 @@ interface DocumentStoreFacade extends DocumentStore {
 }
 
 type PersistedDocumentListener = (document: DocumentSummary) => void;
+
+interface DocumentStoreRelinkInput extends RelinkPersistedDocumentInput {
+  queueBaselineAfterRelink?: boolean | undefined;
+  v2ContentKeyBundle?: string | null | undefined;
+  v2DocumentKekTargets?: string | null | undefined;
+  v2DocumentManifestBundle?: string | null | undefined;
+}
 
 interface DocumentStoreRegistry {
   storeKeysByDocumentId: Map<string, string>;
@@ -1187,7 +1192,7 @@ async function ensureDocumentStoreReady(
 
 async function relinkDocumentStore(
   state: DocumentStoreState,
-  input: RelinkPersistedDocumentInput,
+  input: DocumentStoreRelinkInput,
 ): Promise<DocumentSummary | null> {
   if (!state.doc) {
     return null;
@@ -1204,12 +1209,29 @@ async function relinkDocumentStore(
     containerId: input.containerId,
     documentId: input.documentId,
   };
+  if (input.v2ContentKeyBundle !== undefined) {
+    patch.v2ContentKeyBundle = input.v2ContentKeyBundle;
+  }
+  if (input.v2DocumentKekTargets !== undefined) {
+    patch.v2DocumentKekTargets = input.v2DocumentKekTargets;
+  }
+  if (input.v2DocumentManifestBundle !== undefined) {
+    patch.v2DocumentManifestBundle = input.v2DocumentManifestBundle;
+  }
 
   const { record: nextRecord, updatedAt } = await persistDocument(
     state,
     state.doc,
     patch,
   );
+  if (input.queueBaselineAfterRelink) {
+    await enqueuePendingUpdate(
+      state,
+      exportAllUpdates(state.doc),
+      encodeVersionVector(state.doc),
+    );
+    requestDocumentStoreSync(state);
+  }
   return {
     accessStateHash: nextRecord.accessStateHash ?? null,
     id: nextRecord.id,
