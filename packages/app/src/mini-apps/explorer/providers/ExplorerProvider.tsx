@@ -207,7 +207,6 @@ function resetExplorerStore(state: ExplorerStoreState) {
 
 type NullableExplorerDocumentField =
   | "accessStateHash"
-  | "documentRecipientEnvelopes"
   | "lastCommitLsn"
   | "v2ContentKeyBundle"
   | "v2DocumentKekTargets"
@@ -258,12 +257,6 @@ async function persistContainerState(
   const nextRecord: DocumentRecord = {
     id: containerState.container.id,
     documentId: nextDocumentId,
-    documentRecipientEnvelopes: resolveNullableExplorerDocumentField(
-      patch,
-      "documentRecipientEnvelopes",
-      containerState.record.documentRecipientEnvelopes,
-      securityContextChanged,
-    ),
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(containerState.doc)),
     accessEpoch: nextAccessEpoch,
@@ -344,7 +337,6 @@ async function buildRemoteChildContainerState(
       ...initialRecord,
       accessEpoch: 1,
       accessStateHash: created.accessManifestHash,
-      documentRecipientEnvelopes: null,
       ...created.persistedMetadataState,
     },
   };
@@ -401,7 +393,6 @@ async function createChildContainer(
     accessEpoch: 1,
     accessStateHash: null,
     documentId: null,
-    documentRecipientEnvelopes: null,
     id: childId,
     lastCommitLsn: null,
     loroSnapshot: bytesToBase64(initialUpdate),
@@ -579,7 +570,6 @@ async function shareExplorerContainerWithUser(
     accessEpoch: shared.accessEpoch,
     accessStateHash: shared.accessManifestHash,
     documentId: shared.metadataDocumentId,
-    documentRecipientEnvelopes: null,
     metadataDocumentId: shared.metadataDocumentId,
     v2ContentKeyBundle: null,
     v2DocumentKekTargets: null,

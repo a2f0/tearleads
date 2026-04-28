@@ -669,7 +669,6 @@ async function saveDocumentRecord(
 
 type NullableDocumentRuntimeField =
   | "accessStateHash"
-  | "documentRecipientEnvelopes"
   | "lastCommitLsn"
   | "v2ContentKeyBundle"
   | "v2DocumentKekTargets"
@@ -709,12 +708,6 @@ async function persistDocument(
       state.runtime.containerId ??
       null,
     documentId: nextDocumentId,
-    documentRecipientEnvelopes: resolveNullableDocumentRuntimeField(
-      patch,
-      "documentRecipientEnvelopes",
-      state.record?.documentRecipientEnvelopes,
-      securityContextChanged,
-    ),
     text: patch.text ?? getTextValue(currentDoc),
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
@@ -798,7 +791,6 @@ async function ensureRemoteDocument(
   return (
     await persistDocument(state, currentDoc, {
       ...created.persistedState,
-      documentRecipientEnvelopes: null,
     })
   ).record;
 }
@@ -1099,7 +1091,6 @@ async function initializeDocumentStore(
       id: state.localId,
       containerId: state.runtime.containerId ?? null,
       documentId: state.initialDocumentId,
-      documentRecipientEnvelopes: null,
       text: state.initialText,
       loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
       accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -1213,10 +1204,6 @@ async function relinkDocumentStore(
     containerId: input.containerId,
     documentId: input.documentId,
   };
-
-  if (input.accessEpoch > currentAccessEpoch) {
-    patch.documentRecipientEnvelopes = null;
-  }
 
   const { record: nextRecord, updatedAt } = await persistDocument(
     state,
@@ -1407,7 +1394,6 @@ async function finalizeDocumentSync(
 
   const { record: nextRecord } = await persistDocument(state, currentDoc, {
     ...synced.persistedState,
-    documentRecipientEnvelopes: null,
     lastCommitLsn:
       synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
   });

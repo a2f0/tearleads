@@ -127,7 +127,6 @@ export interface ExplorerContainerPatch {
   accessEpoch: number;
   accessStateHash: string | null;
   documentId: string | null;
-  documentRecipientEnvelopes: string | null;
   icon: string | null;
   lastCommitLsn: string | null;
   metadataDocumentId: string | null;
@@ -436,7 +435,6 @@ async function upsertRemoteContainerState(
       accessEpoch: remoteContainer.metadataAccessEpoch,
       accessStateHash: remoteContainer.metadataAccessStateHash,
       documentId: remoteContainer.metadataDocumentId,
-      documentRecipientEnvelopes: null,
       id: remoteContainer.id,
       lastCommitLsn: null,
       loroSnapshot: initialSnapshot,
@@ -570,7 +568,6 @@ async function initializeExplorerStore(input: {
         accessEpoch: 1,
         accessStateHash: null,
         documentId: container.metadataDocumentId,
-        documentRecipientEnvelopes: null,
         id: container.id,
         lastCommitLsn: null,
         loroSnapshot: bytesToBase64(initialUpdate),
@@ -1104,7 +1101,6 @@ async function syncSingleContainerMetadata(input: {
   await host.persistContainerState(containerState, {
     ...synced.persistedState,
     documentId: containerState.record.documentId,
-    documentRecipientEnvelopes: null,
     lastCommitLsn:
       synced.response.commitLsn ?? containerState.record.lastCommitLsn ?? null,
     metadataDocumentId: containerState.record.documentId,
@@ -1160,7 +1156,6 @@ async function persistCreatedContainerFromIntent(input: {
     {
       accessEpoch: 1,
       accessStateHash: created.accessManifestHash,
-      documentRecipientEnvelopes: null,
       lastCommitLsn: null,
       metadataDocumentId: created.metadataDocumentId,
       organizationId: created.organizationId,

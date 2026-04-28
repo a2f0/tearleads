@@ -1,8 +1,6 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { SerializedRecipientEnvelope } from "@tearleads/loro";
 import { sqlContactsPersistence } from "../mini-apps/contacts/contactsPersistence";
 import { sqlExplorerPersistence } from "../mini-apps/explorer/explorerPersistence";
-import { serializeDocumentRecipientEnvelopes } from "./documentSync";
 import type { DocumentRecord } from "./persistence/documentPersistence";
 import {
   type ExecSql,
@@ -15,7 +13,6 @@ interface RegistrationBootstrapInput {
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
   rootMetadataDocumentId: string;
-  rootMetadataRecipientEnvelopes: SerializedRecipientEnvelope[] | null;
   rootMetadataSnapshot: string;
   organizationId: string;
   userId: string;
@@ -39,9 +36,6 @@ export async function persistRegistrationBootstrap(
       accessEpoch: input.rootMetadataAccessEpoch,
       accessStateHash: input.rootMetadataAccessStateHash,
       documentId: input.rootMetadataDocumentId,
-      documentRecipientEnvelopes: serializeDocumentRecipientEnvelopes(
-        input.rootMetadataRecipientEnvelopes,
-      ),
       id: input.containerId,
       lastCommitLsn: null,
       loroSnapshot: input.rootMetadataSnapshot,

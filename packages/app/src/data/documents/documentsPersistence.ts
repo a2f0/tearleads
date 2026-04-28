@@ -431,13 +431,6 @@ async function upsertDiscoveredDocumentWithExec(
     existingDocument?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH,
     input.accessEpoch,
   );
-  const securityContextChanged = didPersistedDocumentSecurityContextChange(
-    existingDocument,
-    {
-      accessEpoch: nextAccessEpoch,
-      documentId: input.documentId,
-    },
-  );
   const nextContainerId =
     existingDocument?.containerId &&
     input.linkedContainerIds.includes(existingDocument.containerId)
@@ -452,9 +445,6 @@ async function upsertDiscoveredDocumentWithExec(
     id: localId,
     containerId: nextContainerId,
     documentId: input.documentId,
-    documentRecipientEnvelopes: securityContextChanged
-      ? null
-      : (existingDocument?.documentRecipientEnvelopes ?? null),
     text: existingDocument?.text ?? "",
     loroSnapshot: existingDocument?.loroSnapshot ?? "",
     accessEpoch: nextAccessEpoch,
@@ -506,13 +496,6 @@ async function relinkPersistedDocumentWithExec(
     existingDocument.accessEpoch,
     input.accessEpoch,
   );
-  const securityContextChanged = didPersistedDocumentSecurityContextChange(
-    existingDocument,
-    {
-      accessEpoch: nextAccessEpoch,
-      documentId: input.documentId,
-    },
-  );
   const nextDocument: StoredDocumentRecord = {
     ...existingDocument,
     accessEpoch: nextAccessEpoch,
@@ -523,9 +506,6 @@ async function relinkPersistedDocumentWithExec(
     }),
     containerId: input.containerId,
     documentId: input.documentId,
-    documentRecipientEnvelopes: securityContextChanged
-      ? null
-      : existingDocument.documentRecipientEnvelopes,
     ...resolvePersistedDocumentRuntimeState(existingDocument, {
       accessEpoch: nextAccessEpoch,
       documentId: input.documentId,
