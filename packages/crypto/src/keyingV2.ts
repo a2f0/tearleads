@@ -4666,6 +4666,38 @@ function requireContainerPathCurrentParent(input: {
   }
 }
 
+function requireRootCreateSignerAdmin(input: {
+  readonly body: ContainerCreateAccessEventBodyV2;
+  readonly event: VerifiedAccessEvent;
+  readonly parentContainerPath:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+}): void {
+  if (input.parentContainerPath && input.parentContainerPath.length > 0) {
+    throwVerification(
+      "invalid_shape",
+      "root container.create must not include a parent path",
+    );
+  }
+
+  const signerGrant = input.body.directGrants.find(
+    (grant) =>
+      grant.subjectType === "user" &&
+      grant.subjectId === input.event.event.signerUserId,
+  );
+
+  if (
+    !signerGrant ||
+    containerAccessLevelRank(signerGrant.accessLevel) <
+      containerAccessLevelRank("admin")
+  ) {
+    throwVerification(
+      "unauthorized",
+      "root container.create signer must grant themselves admin access",
+    );
+  }
+}
+
 type ContainerAccessManifestDerivationInput = {
   readonly body: ContainerAccessEventBodyV2;
   readonly event: VerifiedAccessEvent;
@@ -4725,19 +4757,27 @@ function deriveContainerCreateManifestState(
     );
   }
 
-  requireContainerPathCurrentParent({
-    label: "container.create",
-    parentContainerId: body.parentContainerId,
-    parentManifestHash: body.parentManifestHash,
-    path: input.parentContainerPath,
-  });
-  requireContainerPathUserAccess({
-    label: "container.create",
-    minimumAccessLevel: "write",
-    path: input.parentContainerPath,
-    principalPolicies: input.principalPolicies,
-    userId: event.event.signerUserId,
-  });
+  if (body.parentContainerId === null && body.parentManifestHash === null) {
+    requireRootCreateSignerAdmin({
+      body,
+      event,
+      parentContainerPath: input.parentContainerPath,
+    });
+  } else {
+    requireContainerPathCurrentParent({
+      label: "container.create",
+      parentContainerId: body.parentContainerId,
+      parentManifestHash: body.parentManifestHash,
+      path: input.parentContainerPath,
+    });
+    requireContainerPathUserAccess({
+      label: "container.create",
+      minimumAccessLevel: "write",
+      path: input.parentContainerPath,
+      principalPolicies: input.principalPolicies,
+      userId: event.event.signerUserId,
+    });
+  }
 
   return normalizeContainerAccessManifestState({
     version: 2,

@@ -16,6 +16,7 @@ export function postPublicKey(
   initialOrganizationPolicy: PublicKeyRequest["initialOrganizationPolicy"],
   initialRootMetadataUpdates: SyncDocumentOutgoingUpdate[],
   initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[],
+  initialRootContainerV2?: PublicKeyRequest["initialRootContainerV2"],
 ) {
   return request(
     "/auth/register",
@@ -28,6 +29,7 @@ export function postPublicKey(
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
       initialOrganizationPolicy,
+      initialRootContainerV2,
       initialRootMetadataRecipientEnvelopes,
       initialRootMetadataUpdates,
       wrappedDekEnvelope: {

@@ -16,6 +16,10 @@ import {
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
 import type { ApiServiceRuntime } from "../runtime";
+import {
+  ContainerV2WriterProjectionError,
+  resolveContainerV2WriterProjection,
+} from "./v2WriterProjection";
 
 export class ListContainerDocumentsError extends Error {
   constructor(
@@ -45,9 +49,29 @@ async function requireReadableContainer(
     containerId,
     runtime.db,
   );
-  if (!containerAccess || !canReadContainerAccess(containerAccess, userId)) {
-    throw new ListContainerDocumentsError("Forbidden", 403);
+  if (containerAccess && canReadContainerAccess(containerAccess, userId)) {
+    return;
   }
+
+  try {
+    await resolveContainerV2WriterProjection({
+      containerId,
+      executor: runtime.db,
+      userId,
+    });
+    return;
+  } catch (error) {
+    if (
+      !(
+        error instanceof ContainerV2WriterProjectionError &&
+        error.status === 403
+      )
+    ) {
+      throw error;
+    }
+  }
+
+  throw new ListContainerDocumentsError("Forbidden", 403);
 }
 
 async function loadContainerDocumentIds(

@@ -50,9 +50,12 @@ import {
   assertCurrentContainerPathGroups,
   assertDocumentManifestBundleConsistent,
   DocumentV2MutationError,
-  loadPrincipalPoliciesForContainerPaths,
   loadSignerPublicKey,
 } from "../documents/documentV2Mutations";
+import {
+  loadPrincipalPoliciesForContainerPaths,
+  PrincipalPolicyProjectionError,
+} from "../documents/principalPolicyProjection";
 import type { ApiServiceRuntime } from "../runtime";
 
 type BlobV2MutationStatus = 400 | 403 | 404 | 409 | 503;
@@ -120,6 +123,10 @@ function toMutationError(error: unknown): BlobV2MutationError | null {
   }
 
   if (error instanceof DocumentV2MutationError) {
+    return new BlobV2MutationError(error.message, error.status);
+  }
+
+  if (error instanceof PrincipalPolicyProjectionError) {
     return new BlobV2MutationError(error.message, error.status);
   }
 

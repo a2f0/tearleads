@@ -9,6 +9,10 @@ import {
   type SerializedRecipientEnvelope,
 } from "../util";
 import {
+  type ContainerV2MutationRequest,
+  isContainerV2MutationRequest,
+} from "./container";
+import {
   type EncryptedDocumentUpdate,
   isEncryptedDocumentUpdate,
 } from "./documentUpdate";
@@ -42,6 +46,7 @@ export interface PublicKeyRequest {
     projection: PrincipalProjectionMemberRequest[];
     memberEnvelopes: PrincipalMemberEnvelopeRequest[];
   };
+  initialRootContainerV2?: ContainerV2MutationRequest;
   initialRootMetadataRecipientEnvelopes?: SerializedRecipientEnvelope[];
   initialRootMetadataUpdates: EncryptedDocumentUpdate[];
 }
@@ -59,6 +64,9 @@ function isWrappedDekEnvelope(value: Record<string, unknown>): boolean {
 export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
   const initialRootMetadataRecipientEnvelopes = isPlainObject(value)
     ? Reflect.get(value, "initialRootMetadataRecipientEnvelopes")
+    : undefined;
+  const initialRootContainerV2 = isPlainObject(value)
+    ? Reflect.get(value, "initialRootContainerV2")
     : undefined;
 
   return (
@@ -90,6 +98,8 @@ export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
     value.initialOrganizationPolicy.memberEnvelopes.every(
       isPrincipalMemberEnvelopeRequest,
     ) &&
+    (initialRootContainerV2 === undefined ||
+      isContainerV2MutationRequest(initialRootContainerV2)) &&
     (initialRootMetadataRecipientEnvelopes === undefined ||
       isSerializedRecipientEnvelopeArray(
         initialRootMetadataRecipientEnvelopes,
