@@ -1,6 +1,5 @@
 import type { LinkDocumentToContainerRequest } from "@tearleads/validators/request";
 import type { LinkDocumentToContainerResponse } from "@tearleads/validators/response";
-import { refreshDocumentAccesses } from "../../access/documentAccess";
 import { documentContainerLinks } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
 import {
@@ -54,8 +53,6 @@ export async function linkDocumentToContainer(
       documentId: input.documentId,
       containerId: input.containerId,
     });
-
-    await refreshDocumentAccesses([input.documentId], tx);
 
     return buildDocumentMutationResponse(tx, input.documentId, [
       ...documentContext.linkedContainerIds,
