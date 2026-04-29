@@ -582,7 +582,9 @@ function createDocumentWriterPublicKeyResolver(state: DocumentStoreState) {
     const localSigningPublicKey =
       state.runtime.signingKeyPair?.signingPublicKey;
     if (header.writerUserId === state.runtime.userId && localSigningPublicKey) {
-      const localFingerprint = await toFingerprint(localSigningPublicKey);
+      const localFingerprint =
+        state.runtime.signingFingerprint ??
+        (await toFingerprint(localSigningPublicKey));
       return localFingerprint === authorFingerprint
         ? localSigningPublicKey
         : null;
