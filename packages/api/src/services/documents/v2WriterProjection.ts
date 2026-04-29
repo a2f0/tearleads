@@ -287,10 +287,7 @@ async function resolveDocumentWriterProjection(input: {
     );
   } catch (error) {
     if (error instanceof DocumentContentKeyBundleError) {
-      throw new DocumentV2WriterProjectionError(
-        error.message,
-        error.status === 404 ? 404 : 409,
-      );
+      throw new DocumentV2WriterProjectionError(error.message, 409);
     }
     throw error;
   }
