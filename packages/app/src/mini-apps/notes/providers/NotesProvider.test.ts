@@ -1,13 +1,11 @@
 import { expect, test } from "bun:test";
 import {
-  type AccessEventV2,
   computeAccessEventHash,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-  type WriteHeaderV2,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -26,6 +24,11 @@ import type {
   DocumentV2SyncResponse,
 } from "@tearleads/validators/response";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
+import {
+  assertAccessEventV2,
+  assertOptionalWriteHeaderV2,
+  assertWriteHeaderV2,
+} from "../../../../test/helpers/keyingV2Assertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { createMemoryBlobStore } from "../../../data/blobs";
 import { decryptDocumentAttachmentBlobV2 } from "../../../data/documents/blobV2Runtime";
@@ -184,9 +187,8 @@ async function createNoteV2CreateResponse(
   const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
   const documentId = String(Reflect.get(manifest, "objectId"));
-  const eventHash = await computeAccessEventHash(
-    request.event as unknown as AccessEventV2,
-  );
+  const event = assertAccessEventV2(request.event, "document create event");
+  const eventHash = await computeAccessEventHash(event);
   const linkedContainerId = String(Reflect.get(body, "containerId"));
   const targets = request.contentKeyBundle.targets.map((target) => ({
     containerId: target.containerId,
@@ -199,7 +201,7 @@ async function createNoteV2CreateResponse(
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     accessManifest: {
-      event: { event: request.event, body, eventHash },
+      event: { event, body, eventHash },
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
@@ -241,7 +243,10 @@ async function createNoteV2SyncResponse(input: {
 }): Promise<DocumentV2SyncResponse> {
   const updates = await Promise.all(
     input.request.outgoingUpdates.map(async (update) => {
-      const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
+      const writeHeader = assertWriteHeaderV2(
+        update.writeHeader,
+        "document sync write header",
+      );
       return {
         accessEpoch: 1,
         id: update.id,
@@ -282,9 +287,10 @@ async function createNoteV2AttachmentBindResponse(input: {
   const bindingId = String(Reflect.get(body, "bindingId"));
   const documentId = String(Reflect.get(body, "documentId"));
   const slotId = String(Reflect.get(body, "slotId"));
-  const writeHeader = input.request.stagedBlob?.writeHeader as unknown as
-    | WriteHeaderV2
-    | undefined;
+  const writeHeader = assertOptionalWriteHeaderV2(
+    input.request.stagedBlob?.writeHeader,
+    "staged blob write header",
+  );
   const targets = input.request.contentKeyBundle.targets.map((target) => ({
     bindingId: target.bindingId,
     documentId: target.documentId,

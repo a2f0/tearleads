@@ -1,14 +1,11 @@
 import { expect, test } from "bun:test";
 import {
-  type AccessEventV2,
-  type ContainerKeyEpochV2,
   computeAccessEventHash,
   computeContainerKeyEpochHash,
   computeWriteHeaderHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-  type WriteHeaderV2,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -25,6 +22,11 @@ import type {
   DocumentV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
+import {
+  assertAccessEventV2,
+  assertContainerKeyEpochV2,
+  assertWriteHeaderV2,
+} from "../../../../test/helpers/keyingV2Assertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import {
   createInitializedContainerMetadataDocument,
@@ -184,9 +186,8 @@ async function createExplorerMetadataV2CreateResponse(
   const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
   const documentId = String(Reflect.get(manifest, "objectId"));
-  const eventHash = await computeAccessEventHash(
-    request.event as unknown as AccessEventV2,
-  );
+  const event = assertAccessEventV2(request.event, "metadata document event");
+  const eventHash = await computeAccessEventHash(event);
   const linkedContainerId = String(Reflect.get(body, "containerId"));
   const targets = request.contentKeyBundle.targets.map((target) => ({
     containerId: target.containerId,
@@ -199,7 +200,7 @@ async function createExplorerMetadataV2CreateResponse(
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     accessManifest: {
-      event: { event: request.event, body, eventHash },
+      event: { event, body, eventHash },
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
@@ -241,7 +242,10 @@ async function createExplorerMetadataV2SyncResponse(input: {
 }): Promise<DocumentV2SyncResponse> {
   const updates = await Promise.all(
     input.request.outgoingUpdates.map(async (update) => {
-      const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
+      const writeHeader = assertWriteHeaderV2(
+        update.writeHeader,
+        "metadata sync write header",
+      );
       return {
         accessEpoch: 1,
         id: update.id,
@@ -287,10 +291,12 @@ async function createExplorerContainerV2MutationResponse(
 ): Promise<ContainerV2MutationResponse> {
   const body = request.body as Record<string, unknown>;
   const manifest = request.manifest as Record<string, unknown>;
-  const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpochV2;
-  const eventHash = await computeAccessEventHash(
-    request.event as unknown as AccessEventV2,
+  const keyEpoch = assertContainerKeyEpochV2(
+    request.keyEpoch,
+    "container mutation key epoch",
   );
+  const event = assertAccessEventV2(request.event, "container mutation event");
+  const eventHash = await computeAccessEventHash(event);
   const previousState = request.previousManifest?.state ?? null;
   const containerId = readRequestString(manifest, "objectId");
   const organizationId = readRequestString(manifest, "organizationId");
@@ -331,7 +337,7 @@ async function createExplorerContainerV2MutationResponse(
       manifestHash: request.expectedManifestHash,
     },
     accessManifest: {
-      event: { event: request.event, body, eventHash },
+      event: { event, body, eventHash },
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
