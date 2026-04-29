@@ -9,8 +9,10 @@ import {
 import { eq } from "drizzle-orm";
 import { db } from "../adapters/postgres";
 import {
+  accessEvents,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
+  accessManifests,
   attachmentBindings,
   containerKeyEpochs,
 } from "../schema";
@@ -34,6 +36,60 @@ async function ensureContainerHead(input: {
   readonly organizationId: string;
 }) {
   const manifestHash = await hashOf(`${input.containerId}:manifest`);
+  const eventHash = await hashOf(`${input.containerId}:event`);
+  const containerKeyEpochId = `${input.containerId}:key-epoch-1`;
+  await db
+    .insert(accessEvents)
+    .values({
+      version: 2,
+      eventId: `${input.containerId}:event-id`,
+      eventType: "container.create",
+      objectKind: "container",
+      objectId: input.containerId,
+      organizationId: input.organizationId,
+      previousManifestHash: null,
+      dependencyManifestHashes: [],
+      bodyHash: await hashOf(`${input.containerId}:body`),
+      body: {},
+      eventHash,
+      signerUserId: `${input.containerId}:user`,
+      signerDeviceId: "device-1",
+      signerKeyFingerprint: await hashOf(`${input.containerId}:signer`),
+      signature: `${input.containerId}:signature`,
+      signedAt: new Date(0),
+    })
+    .onConflictDoNothing({ target: accessEvents.eventHash });
+  await db
+    .insert(accessManifests)
+    .values({
+      version: 2,
+      objectKind: "container",
+      objectId: input.containerId,
+      organizationId: input.organizationId,
+      epoch: 1,
+      previousManifestHash: null,
+      eventHash,
+      structuralHash: await hashOf(`${input.containerId}:structural`),
+      grantRoot: await hashOf(`${input.containerId}:grant-root`),
+      referencedPrincipalHeads: [],
+      keyTargetHash: await hashOf(`${input.containerId}:key-target`),
+      manifestHash,
+      state: {
+        version: 2,
+        containerId: input.containerId,
+        organizationId: input.organizationId,
+        epoch: 1,
+        previousManifestHash: null,
+        eventHash,
+        parentContainerId: null,
+        parentManifestHash: null,
+        metadataDocumentId: `${input.containerId}:metadata`,
+        containerKeyEpochId,
+        directGrants: [],
+        referencedPrincipalHeads: [],
+      },
+    })
+    .onConflictDoNothing({ target: accessManifests.manifestHash });
   await db
     .insert(accessManifestHeads)
     .values({
@@ -49,17 +105,17 @@ async function ensureContainerHead(input: {
   await db
     .insert(containerKeyEpochs)
     .values({
-      id: `${input.containerId}:key-epoch-1`,
+      id: containerKeyEpochId,
       containerId: input.containerId,
       keyEpoch: 1,
       accessManifestHash: manifestHash,
       parentContainerKeyEpochId: null,
-      createdByEventHash: await hashOf(`${input.containerId}:event`),
+      createdByEventHash: eventHash,
       createdByManifestHash: manifestHash,
     })
     .onConflictDoNothing({ target: containerKeyEpochs.id });
 
-  return manifestHash;
+  return { containerKeyEpochId, manifestHash };
 }
 
 async function setDocumentHead(input: {
@@ -234,6 +290,49 @@ test("storeBlobContentKeyBundle stores exact active binding targets", async () =
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError("Blob KEK targets are stale", 409),
   );
+});
+
+test("resolveCurrentBlobKekTargets uses the container manifest key epoch", async () => {
+  const organizationId = crypto.randomUUID();
+  const documentId = crypto.randomUUID();
+  const blobId = crypto.randomUUID();
+  const bindingId = crypto.randomUUID();
+  const containerId = crypto.randomUUID();
+  const manifestHash = await setDocumentHead({
+    documentId,
+    epoch: 1,
+    linkedContainerIds: [containerId],
+    organizationId,
+  });
+  await db.insert(containerKeyEpochs).values({
+    id: `${containerId}:unreferenced-key-epoch-2`,
+    containerId,
+    keyEpoch: 2,
+    accessManifestHash: await hashOf(`${containerId}:manifest`),
+    parentContainerKeyEpochId: null,
+    createdByEventHash: await hashOf(`${containerId}:rogue-event`),
+    createdByManifestHash: await hashOf(`${containerId}:manifest`),
+  });
+  await attachBlob({
+    bindingId,
+    blobId,
+    documentId,
+    documentManifestHash: manifestHash,
+    slotId: "slot-a",
+  });
+
+  const currentTargets = await resolveCurrentBlobKekTargets(blobId);
+
+  expect(currentTargets.targets).toEqual([
+    {
+      bindingId,
+      documentId,
+      containerId,
+      containerManifestHash: await hashOf(`${containerId}:manifest`),
+      containerKeyEpochId: `${containerId}:key-epoch-1`,
+      containerKeyEpoch: 1,
+    },
+  ]);
 });
 
 test("storeBlobContentKeyBundle allows additive growth but rejects shrink", async () => {

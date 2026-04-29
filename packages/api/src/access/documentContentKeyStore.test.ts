@@ -14,7 +14,7 @@ import {
   signAccessEvent,
   toFingerprint,
   type VerifiedAccessEvent,
-  type VerifiedAccessManifest,
+  type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
   verifyAccessManifest,
   verifySignedAccessEvent,
@@ -82,15 +82,18 @@ async function createVerifiedEvent(input: {
 }
 
 async function createVerifiedContainerManifest(input: {
+  readonly containerKeyEpochId?: string;
   readonly containerId: string;
   readonly epoch?: number;
   readonly organizationId: string;
   readonly previousManifestHash?: string | null;
   readonly salt: string;
-}): Promise<VerifiedAccessManifest> {
+}): Promise<VerifiedContainerAccessManifest> {
+  const containerKeyEpochId =
+    input.containerKeyEpochId ?? `${input.containerId}:key-epoch-1`;
   const event = await createVerifiedEvent({
     body: {
-      containerKeyEpochId: `${input.containerId}-key-epoch-${input.epoch ?? 1}`,
+      containerKeyEpochId,
       eventType: "container.grant",
       grant: {
         accessLevel: "read",
@@ -131,7 +134,23 @@ async function createVerifiedContainerManifest(input: {
     throw verifiedManifest.error;
   }
 
-  return verifiedManifest.value;
+  return {
+    ...verifiedManifest.value,
+    state: {
+      version: 2,
+      containerId: input.containerId,
+      organizationId: input.organizationId,
+      epoch: input.epoch ?? 1,
+      previousManifestHash: input.previousManifestHash ?? null,
+      eventHash: event.eventHash,
+      parentContainerId: null,
+      parentManifestHash: null,
+      metadataDocumentId: `${input.containerId}:metadata`,
+      containerKeyEpochId,
+      directGrants: [],
+      referencedPrincipalHeads: [],
+    },
+  } as unknown as VerifiedContainerAccessManifest;
 }
 
 async function createVerifiedDocumentLinkSetManifest(input: {
