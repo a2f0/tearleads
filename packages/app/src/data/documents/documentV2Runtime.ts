@@ -41,6 +41,7 @@ import type {
   DocumentV2SyncResponse,
   DocumentV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { parseWalLsn } from "@tearleads/validators/util";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -2684,35 +2685,17 @@ async function assertDocumentV2SyncResponseWriteHeaderSignature(input: {
   }
 }
 
-function parseDocumentV2WalLsn(value: string, label: string): bigint {
-  const [logHex, offsetHex, extra] = value.split("/");
-  if (
-    !logHex ||
-    !offsetHex ||
-    extra !== undefined ||
-    !/^[0-9A-F]+$/i.test(logHex) ||
-    !/^[0-9A-F]+$/i.test(offsetHex)
-  ) {
-    throw new Error(`${label} is invalid`);
-  }
-
-  return (BigInt(`0x${logHex}`) << 32n) + BigInt(`0x${offsetHex}`);
-}
-
 function assertDocumentV2SyncCommitCheckpointMatchesPlan(
   plan: DocumentV2SyncPlan,
   response: DocumentV2SyncResponse,
 ): void {
   if (response.commitLsn !== null) {
-    parseDocumentV2WalLsn(
-      response.commitLsn,
-      "Document V2 sync response commit LSN",
-    );
+    parseWalLsn(response.commitLsn, "Document V2 sync response commit LSN");
   }
   if (plan.minLsn === undefined) {
     return;
   }
-  const minLsn = parseDocumentV2WalLsn(
+  const minLsn = parseWalLsn(
     plan.minLsn,
     "Document V2 sync requested minimum LSN",
   );
@@ -2720,10 +2703,8 @@ function assertDocumentV2SyncCommitCheckpointMatchesPlan(
     throw new Error("Document V2 sync response commit LSN is missing");
   }
   if (
-    parseDocumentV2WalLsn(
-      response.commitLsn,
-      "Document V2 sync response commit LSN",
-    ) < minLsn
+    parseWalLsn(response.commitLsn, "Document V2 sync response commit LSN") <
+    minLsn
   ) {
     throw new Error("Document V2 sync response commit LSN is stale");
   }
@@ -2746,21 +2727,27 @@ function expectedDocumentV2MissingUpdateEpochs(
   response: DocumentV2SyncResponse,
 ): DocumentV2SyncResponse["missingUpdateEpochs"] {
   const currentAccessEpoch = documentV2SyncManifestEpoch(plan);
-  if (
-    response.updates.some((update) => update.accessEpoch > currentAccessEpoch)
-  ) {
-    throw new Error("Document V2 sync response includes a future access epoch");
+  let hasPriorEpochUpdate = false;
+  let hasCurrentEpochUpdate = false;
+
+  for (const update of response.updates) {
+    if (update.accessEpoch > currentAccessEpoch) {
+      throw new Error(
+        "Document V2 sync response includes a future access epoch",
+      );
+    }
+    if (update.accessEpoch < currentAccessEpoch) {
+      hasPriorEpochUpdate = true;
+    } else {
+      hasCurrentEpochUpdate = true;
+    }
   }
 
   const missingUpdateEpochs: DocumentV2SyncResponse["missingUpdateEpochs"] = [];
-  if (
-    response.updates.some((update) => update.accessEpoch < currentAccessEpoch)
-  ) {
+  if (hasPriorEpochUpdate) {
     missingUpdateEpochs.push("prior_epoch");
   }
-  if (
-    response.updates.some((update) => update.accessEpoch === currentAccessEpoch)
-  ) {
+  if (hasCurrentEpochUpdate) {
     missingUpdateEpochs.push("current_epoch");
   }
 

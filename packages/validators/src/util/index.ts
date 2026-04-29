@@ -15,3 +15,4 @@ export {
   hasStringProperty,
 } from "./properties";
 export { isUuidV4String } from "./uuid";
+export { isWalLsnString, parseWalLsn } from "./walLsn";
