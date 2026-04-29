@@ -345,6 +345,10 @@ function createNoteV2RuntimePatch(input: {
   }>;
   containerId?: string;
   encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>;
+  onBindBlobAttachmentV2?: (
+    blobId: string,
+    request: BlobV2AttachmentBindRequest,
+  ) => Promise<void> | void;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }): NoteV2RuntimePatch {
   const containerId = input.containerId ?? "root-container";
@@ -389,6 +393,7 @@ function createNoteV2RuntimePatch(input: {
         if (request.stagedBlob && !stagedBlob) {
           return null;
         }
+        await input.onBindBlobAttachmentV2?.(blobId, request);
         const response = await createNoteV2AttachmentBindResponse({
           blobId,
           request,
@@ -661,10 +666,14 @@ function createNotesPersistence(): NotesPersistence & {
     async deletePendingUpdates() {
       pendingUpdates = [];
     },
-    async deletePendingAttachment(_execSql, noteId, slotId) {
+    async deletePendingAttachment(_execSql, noteId, slotId, storageKey) {
       pendingAttachments = pendingAttachments.filter(
         (attachment) =>
-          !(attachment.noteId === noteId && attachment.slotId === slotId),
+          !(
+            attachment.noteId === noteId &&
+            attachment.slotId === slotId &&
+            attachment.storageKey === storageKey
+          ),
       );
     },
     async saveLocalAttachment(_execSql, attachment) {
@@ -772,6 +781,10 @@ function createSyncRuntime(
       blobId: string;
       request: BlobV2AttachmentBindRequest;
     }>;
+    onBindBlobAttachmentV2?: (
+      blobId: string,
+      request: BlobV2AttachmentBindRequest,
+    ) => Promise<void> | void;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
 ): NotesRuntime {
@@ -780,6 +793,9 @@ function createSyncRuntime(
     encapsulationKeyPair,
     ...(options.attachmentBinds
       ? { attachmentBinds: options.attachmentBinds }
+      : {}),
+    ...(options.onBindBlobAttachmentV2
+      ? { onBindBlobAttachmentV2: options.onBindBlobAttachmentV2 }
       : {}),
     ...(options.syncCalls ? { syncCalls: options.syncCalls } : {}),
   });
@@ -1340,6 +1356,88 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   });
   expect(new TextDecoder().decode(decryptedBytes)).toBe(
     "remote attachment bytes",
+  );
+});
+
+test("notes store preserves a replacement queued during V2 attachment upload", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const attachmentBinds: Array<{
+    blobId: string;
+    request: BlobV2AttachmentBindRequest;
+  }> = [];
+  let replacementQueued = false;
+  let store: ReturnType<typeof createNotesStore>;
+  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container", {
+    attachmentBinds,
+    onBindBlobAttachmentV2: async () => {
+      if (replacementQueued) {
+        return;
+      }
+
+      const slotId = store.getSnapshot().attachments[0]?.slotId;
+      if (!slotId) {
+        throw new Error("Expected an attachment slot before replacement.");
+      }
+
+      replacementQueued = true;
+      store.replaceAttachment(slotId, {
+        bytes: new TextEncoder().encode("replacement bytes"),
+        mimeType: "image/png",
+        name: "replacement.png",
+      });
+
+      await waitForCondition(
+        () =>
+          persistence
+            .getState()
+            .pendingAttachments.some(
+              (attachment) =>
+                attachment.slotId === slotId &&
+                attachment.name === "replacement.png",
+            ),
+        "Replacement attachment was not queued during upload.",
+      );
+    },
+  });
+  store = createNotesStore("v2-attachment-replacement", runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "V2 attachment replacement note store did not become ready.",
+  );
+
+  store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("original bytes"),
+      mimeType: "image/png",
+      name: "original.png",
+    },
+  ]);
+
+  await waitForCondition(
+    () =>
+      attachmentBinds.length === 2 &&
+      persistence.getState().pendingAttachments.length === 0 &&
+      persistence.getState().localAttachments[0]?.blobId !== null &&
+      store.getSnapshot().attachments[0]?.name === "replacement.png",
+    "Replacement attachment was not uploaded after the original upload completed.",
+  );
+
+  const localAttachment = persistence.getState().localAttachments[0];
+  if (!localAttachment) {
+    throw new Error("Expected a local attachment after replacement upload.");
+  }
+
+  const storedBytes = await runtime.blobStore.readBytes(
+    localAttachment.storageKey,
+  );
+  expect(attachmentBinds).toHaveLength(2);
+  expect(persistence.getState().pendingAttachments).toHaveLength(0);
+  expect(store.getSnapshot().attachments[0]?.name).toBe("replacement.png");
+  expect(new TextDecoder().decode(storedBytes ?? new Uint8Array())).toBe(
+    "replacement bytes",
   );
 });
 

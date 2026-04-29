@@ -123,6 +123,7 @@ export interface NotesPersistence {
     execSql: ExecSql,
     noteId: string,
     slotId: string,
+    storageKey: string,
   ) => Promise<void>;
   deletePendingAttachments: (execSql: ExecSql, noteId: string) => Promise<void>;
   deletePendingAttachmentRewraps: (
@@ -390,8 +391,13 @@ function createAdaptedPersistenceMutationMethods(
     deletePendingUpdates(execSql, localId) {
       return notesPersistence.deletePendingUpdates(execSql, localId);
     },
-    deletePendingAttachment(execSql, localId, slotId) {
-      return notesPersistence.deletePendingAttachment(execSql, localId, slotId);
+    deletePendingAttachment(execSql, localId, slotId, storageKey) {
+      return notesPersistence.deletePendingAttachment(
+        execSql,
+        localId,
+        slotId,
+        storageKey,
+      );
     },
     deletePendingAttachments(execSql, localId) {
       return notesPersistence.deletePendingAttachments(execSql, localId);
@@ -522,11 +528,12 @@ export const sqlNotesPersistence: NotesPersistence = {
   deletePendingUpdates(execSql, noteId) {
     return sqlDocumentsPersistence.deletePendingUpdates(execSql, noteId);
   },
-  deletePendingAttachment(execSql, noteId, slotId) {
+  deletePendingAttachment(execSql, noteId, slotId, storageKey) {
     return sqlDocumentsPersistence.deletePendingAttachment(
       execSql,
       noteId,
       slotId,
+      storageKey,
     );
   },
   deletePendingAttachments(execSql, noteId) {

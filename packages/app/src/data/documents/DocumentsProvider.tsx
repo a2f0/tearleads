@@ -883,11 +883,13 @@ async function deletePendingUpdate(state: DocumentStoreState, id: string) {
 async function deletePendingAttachment(
   state: DocumentStoreState,
   slotId: string,
+  storageKey: string,
 ) {
   await state.persistence.deletePendingAttachment(
     state.runtime.execSql,
     state.localId,
     slotId,
+    storageKey,
   );
 }
 
@@ -1381,15 +1383,15 @@ async function syncPendingAttachments(
     }
 
     completedSlotIds.add(pendingAttachment.slotId);
+    state.pendingAttachments = state.pendingAttachments.filter(
+      (attachment) => attachment !== pendingAttachment,
+    );
   }
 
   if (completedSlotIds.size === 0) {
     return { completed: false, nextRecord: currentRecord };
   }
 
-  state.pendingAttachments = state.pendingAttachments.filter(
-    (pendingAttachment) => !completedSlotIds.has(pendingAttachment.slotId),
-  );
   setReadySnapshot(state, currentDoc, state.snapshot.syncing);
 
   return { completed: true, nextRecord: currentRecord };
@@ -1491,7 +1493,11 @@ async function syncPendingAttachmentUpload(input: {
     slotId: pendingAttachment.slotId,
     storageKey: pendingAttachment.storageKey,
   });
-  await deletePendingAttachment(state, pendingAttachment.slotId);
+  await deletePendingAttachment(
+    state,
+    pendingAttachment.slotId,
+    pendingAttachment.storageKey,
+  );
   input.activeBindingBySlotId.set(pendingAttachment.slotId, {
     bindingId: uploaded.bindingId,
     blobId: uploaded.blobId,

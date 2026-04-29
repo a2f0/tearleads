@@ -171,6 +171,7 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     localId: string,
     slotId: string,
+    storageKey: string,
   ) => Promise<void>;
   deletePendingAttachments: (
     execSql: ExecSql,
@@ -1100,16 +1101,17 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       );
     });
   },
-  async deletePendingAttachment(execSql, localId, slotId) {
+  async deletePendingAttachment(execSql, localId, slotId, storageKey) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
           DELETE FROM document_pending_attachments
-          WHERE local_id = :localId AND slot_id = :slotId
+          WHERE local_id = :localId AND slot_id = :slotId AND storage_key = :storageKey
         `,
         {
           ":localId": localId,
           ":slotId": slotId,
+          ":storageKey": storageKey,
         },
       );
     });
