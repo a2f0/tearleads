@@ -24,7 +24,7 @@ interface ExplorerModel {
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
   explorer: ExplorerModelExplorer;
-  handleRefresh: () => Promise<void>;
+  handleRefresh: () => Promise<boolean>;
   isRefreshing: boolean;
   linkedContainerIds: ReadonlyArray<string>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;

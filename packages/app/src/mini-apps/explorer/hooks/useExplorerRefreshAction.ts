@@ -39,7 +39,7 @@ export function useExplorerRefreshAction(params: {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = useCallback(async (): Promise<boolean> => {
     setRefreshError(null);
     setIsRefreshing(true);
 
@@ -47,13 +47,13 @@ export function useExplorerRefreshAction(params: {
       const refreshed = await refresh();
       if (!refreshed) {
         setRefreshError("Refresh unavailable.");
-        return;
+        return false;
       }
 
       const remoteContainers = await apiClient.listContainers();
       if (!remoteContainers) {
         setRefreshError("Failed to refresh documents.");
-        return;
+        return false;
       }
 
       const discoveredDocumentSummaries = await discoverAllContainerDocuments({
@@ -68,11 +68,13 @@ export function useExplorerRefreshAction(params: {
 
       mergeDocumentSummaries(discoveredDocumentSummaries);
       primeDiscoveredDocuments(discoveredDocumentSummaries);
+      return true;
     } catch (error: unknown) {
       if (!isDestroyedDatabaseWorkerError(error)) {
         console.error("Failed to refresh explorer:", error);
         setRefreshError("Failed to refresh explorer.");
       }
+      return false;
     } finally {
       setIsRefreshing(false);
     }
