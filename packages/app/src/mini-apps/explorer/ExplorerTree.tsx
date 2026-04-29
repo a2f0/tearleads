@@ -47,114 +47,127 @@ export function buildExplorerTree(
   return roots;
 }
 
-function renderTreeEntries(
-  entries: ReadonlyArray<ExplorerTreeEntry>,
-  depth: number,
-  activeContainerId: string | null,
-  collapsedIds: ReadonlySet<string>,
+interface ExplorerTreeEntriesProps {
+  activeContainerId: string | null;
+  collapsedIds: ReadonlySet<string>;
+  depth: number;
   documentsByContainerId: ReadonlyMap<
     string,
     ReadonlyArray<DocumentContainerProjection>
-  >,
-  selectedId: string | null,
-  onSelectContainer: (id: string) => void,
-  onSelectDocument: (documentId: string, containerId: string) => void,
-  onToggleCollapsed: (id: string) => void,
-  onContextMenu: (event: MouseEvent<HTMLButtonElement>, id: string) => void,
-): ReactNode {
-  return entries.map((entry) => {
-    const hasChildren = entry.children.length > 0;
-    const isCollapsed = collapsedIds.has(entry.node.id);
+  >;
+  entries: ReadonlyArray<ExplorerTreeEntry>;
+  onContextMenu: (event: MouseEvent<HTMLButtonElement>, id: string) => void;
+  onSelectContainer: (id: string) => void;
+  onSelectDocument: (documentId: string, containerId: string) => void;
+  onToggleCollapsed: (id: string) => void;
+  selectedId: string | null;
+}
 
-    return (
-      <Fragment key={entry.node.id}>
-        <div
-          className="explorer-sidebar-row"
-          style={{
-            paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth}))`,
-          }}
-        >
-          {hasChildren ? (
-            <button
-              type="button"
-              className="explorer-node-toggle"
-              aria-label={
-                isCollapsed ? "Expand container" : "Collapse container"
-              }
-              aria-expanded={!isCollapsed}
-              onClick={() => onToggleCollapsed(entry.node.id)}
-            >
-              <span
-                className={
-                  "explorer-node-icon" +
-                  (!isCollapsed ? " explorer-node-icon--expanded" : "")
-                }
-              >
-                {"\u25B6"}
-              </span>
-            </button>
-          ) : (
-            <span className="explorer-node-spacer" aria-hidden="true" />
-          )}
+function ExplorerTreeEntries(props: ExplorerTreeEntriesProps): ReactNode {
+  return props.entries.map((entry) => (
+    <ExplorerTreeEntryNode key={entry.node.id} {...props} entry={entry} />
+  ));
+}
+
+function ExplorerTreeEntryNode(
+  props: Omit<ExplorerTreeEntriesProps, "entries"> & {
+    entry: ExplorerTreeEntry;
+  },
+) {
+  const {
+    activeContainerId,
+    collapsedIds,
+    depth,
+    documentsByContainerId,
+    entry,
+    onContextMenu,
+    onSelectContainer,
+    onSelectDocument,
+    onToggleCollapsed,
+    selectedId,
+  } = props;
+  const hasChildren = entry.children.length > 0;
+  const isCollapsed = collapsedIds.has(entry.node.id);
+
+  return (
+    <Fragment>
+      <div
+        className="explorer-sidebar-row"
+        style={{
+          paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth}))`,
+        }}
+      >
+        {hasChildren ? (
           <button
             type="button"
-            className={
-              "explorer-sidebar-item" +
-              (selectedId === entry.node.id
-                ? " explorer-sidebar-item--selected"
-                : "")
-            }
-            onClick={() => onSelectContainer(entry.node.id)}
-            onContextMenu={(event) => onContextMenu(event, entry.node.id)}
+            className="explorer-node-toggle"
+            aria-label={isCollapsed ? "Expand container" : "Collapse container"}
+            aria-expanded={!isCollapsed}
+            onClick={() => onToggleCollapsed(entry.node.id)}
           >
-            {entry.node.name}
+            <span
+              className={
+                "explorer-node-icon" +
+                (!isCollapsed ? " explorer-node-icon--expanded" : "")
+              }
+            >
+              {"\u25B6"}
+            </span>
           </button>
-        </div>
-        {!isCollapsed &&
-          renderTreeEntries(
-            entry.children,
-            depth + 1,
-            activeContainerId,
-            collapsedIds,
-            documentsByContainerId,
-            selectedId,
-            onSelectContainer,
-            onSelectDocument,
-            onToggleCollapsed,
-            onContextMenu,
-          )}
-        {!isCollapsed
-          ? (documentsByContainerId.get(entry.node.id) ?? []).map(
-              ({ containerId, localId, title }) => (
-                <div
-                  className="explorer-sidebar-row"
-                  key={`${localId}:${containerId}`}
-                  style={{
-                    paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth + 1}))`,
-                  }}
+        ) : (
+          <span className="explorer-node-spacer" aria-hidden="true" />
+        )}
+        <button
+          type="button"
+          className={
+            "explorer-sidebar-item" +
+            (selectedId === entry.node.id
+              ? " explorer-sidebar-item--selected"
+              : "")
+          }
+          onClick={() => onSelectContainer(entry.node.id)}
+          onContextMenu={(event) => onContextMenu(event, entry.node.id)}
+        >
+          {entry.node.name}
+        </button>
+      </div>
+      {!isCollapsed && (
+        <ExplorerTreeEntries
+          {...props}
+          depth={depth + 1}
+          entries={entry.children}
+        />
+      )}
+      {!isCollapsed
+        ? (documentsByContainerId.get(entry.node.id) ?? []).map(
+            ({ containerId, localId, title }) => (
+              <div
+                className="explorer-sidebar-row"
+                key={`${localId}:${containerId}`}
+                style={{
+                  paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth + 1}))`,
+                }}
+              >
+                <span className="explorer-node-spacer" aria-hidden="true" />
+                <button
+                  type="button"
+                  data-document-local-id={localId}
+                  className={
+                    "explorer-sidebar-item explorer-sidebar-item--note" +
+                    (selectedId === localId && activeContainerId === containerId
+                      ? " explorer-sidebar-item--selected"
+                      : "")
+                  }
+                  onClick={() => onSelectDocument(localId, containerId)}
                 >
-                  <span className="explorer-node-spacer" aria-hidden="true" />
-                  <button
-                    type="button"
-                    data-document-local-id={localId}
-                    className={
-                      "explorer-sidebar-item explorer-sidebar-item--note" +
-                      (selectedId === localId &&
-                      activeContainerId === containerId
-                        ? " explorer-sidebar-item--selected"
-                        : "")
-                    }
-                    onClick={() => onSelectDocument(localId, containerId)}
-                  >
-                    {title}
-                  </button>
-                </div>
-              ),
-            )
-          : null}
-      </Fragment>
-    );
-  });
+                  {title}
+                </button>
+              </div>
+            ),
+          )
+        : null}
+    </Fragment>
+  );
 }
 
 export function useExplorerSidebarPanel(params: {
@@ -200,18 +213,18 @@ export function useExplorerSidebarPanel(params: {
         ) : nodes.length === 0 ? (
           <div className="explorer-hint">No containers.</div>
         ) : (
-          renderTreeEntries(
-            treeEntries,
-            0,
-            activeContainerId,
-            collapsedIds,
-            documentsByContainerId,
-            selectedId,
-            setSelectedId,
-            selectDocumentProjection,
-            toggleCollapsed,
-            handleSidebarContextMenu,
-          )
+          <ExplorerTreeEntries
+            activeContainerId={activeContainerId}
+            collapsedIds={collapsedIds}
+            depth={0}
+            documentsByContainerId={documentsByContainerId}
+            entries={treeEntries}
+            onContextMenu={handleSidebarContextMenu}
+            onSelectContainer={setSelectedId}
+            onSelectDocument={selectDocumentProjection}
+            onToggleCollapsed={toggleCollapsed}
+            selectedId={selectedId}
+          />
         )}
       </div>
     ),

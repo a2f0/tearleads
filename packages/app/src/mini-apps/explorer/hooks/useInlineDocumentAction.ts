@@ -5,7 +5,7 @@ import {
 } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
 
-type OpenInlineDocument = (
+export type OpenInlineDocument = (
   containerId: string,
   documentKind: StoredDocumentKind,
   localId?: string,

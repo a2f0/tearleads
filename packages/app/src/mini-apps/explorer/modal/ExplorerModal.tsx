@@ -11,7 +11,7 @@ import {
 } from "../targetOptions";
 import type { ContainerNode } from "../types";
 
-type ExplorerModalState =
+export type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }
   | { mode: "delete"; nodeId: string }
   | { mode: "link-document"; documentLocalId: string }
