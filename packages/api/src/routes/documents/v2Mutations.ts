@@ -35,9 +35,6 @@ interface JsonValidationContext {
 
 type DocumentV2RouteContext = Context<SessionEnv>;
 type DocumentV2LinkSetEventType = "document.link" | "document.unlink";
-type JsonValidatedRequest = {
-  valid: (target: "json") => unknown;
-};
 
 function validateDocumentV2CreateRequest(
   value: unknown,
@@ -80,13 +77,10 @@ function handleDocumentV2MutationError(error: unknown) {
   throw error;
 }
 
-function readValidatedJson(c: DocumentV2RouteContext): unknown {
-  return (c.req as unknown as JsonValidatedRequest).valid("json");
-}
-
 async function respondWithDocumentV2Create(
   c: DocumentV2RouteContext,
   runtime: ApiServiceRuntime,
+  request: DocumentV2CreateRequest,
 ) {
   const session = c.get("session");
 
@@ -94,7 +88,7 @@ async function respondWithDocumentV2Create(
     return c.json<DocumentV2CreateResponse>(
       await createDocumentV2(runtime, {
         fingerprint: session.fingerprint,
-        request: readValidatedJson(c) as DocumentV2CreateRequest,
+        request,
         userId: session.userId,
       }),
     );
@@ -108,6 +102,7 @@ async function respondWithDocumentV2LinkSetMutation(
   c: DocumentV2RouteContext,
   runtime: ApiServiceRuntime,
   eventType: DocumentV2LinkSetEventType,
+  request: DocumentV2LinkSetMutationRequest,
 ) {
   const documentId = c.req.param("documentId");
   const session = c.get("session");
@@ -118,7 +113,7 @@ async function respondWithDocumentV2LinkSetMutation(
         documentId,
         eventType,
         fingerprint: session.fingerprint,
-        request: readValidatedJson(c) as DocumentV2LinkSetMutationRequest,
+        request,
         userId: session.userId,
       }),
     );
@@ -132,6 +127,7 @@ async function respondWithDocumentV2Sync(
   c: DocumentV2RouteContext,
   input: {
     readonly publish: (event: Record<string, unknown>) => Promise<void>;
+    readonly request: DocumentV2SyncRequest;
     readonly runtime: ApiServiceRuntime;
   },
 ) {
@@ -142,7 +138,7 @@ async function respondWithDocumentV2Sync(
     const result = await syncDocumentV2(input.runtime, {
       documentId,
       fingerprint: session.fingerprint,
-      request: readValidatedJson(c) as DocumentV2SyncRequest,
+      request: input.request,
       userId: session.userId,
     });
 
@@ -172,28 +168,45 @@ export function createDocumentV2MutationsRoute({
     "/v2/documents",
     requireAuth,
     validator("json", validateDocumentV2CreateRequest),
-    (c) => respondWithDocumentV2Create(c, runtime),
+    (c) => respondWithDocumentV2Create(c, runtime, c.req.valid("json")),
   );
 
   route.post(
     "/v2/documents/:documentId/link",
     requireAuth,
     validator("json", validateDocumentV2LinkSetMutationRequest),
-    (c) => respondWithDocumentV2LinkSetMutation(c, runtime, "document.link"),
+    (c) =>
+      respondWithDocumentV2LinkSetMutation(
+        c,
+        runtime,
+        "document.link",
+        c.req.valid("json"),
+      ),
   );
 
   route.post(
     "/v2/documents/:documentId/unlink",
     requireAuth,
     validator("json", validateDocumentV2LinkSetMutationRequest),
-    (c) => respondWithDocumentV2LinkSetMutation(c, runtime, "document.unlink"),
+    (c) =>
+      respondWithDocumentV2LinkSetMutation(
+        c,
+        runtime,
+        "document.unlink",
+        c.req.valid("json"),
+      ),
   );
 
   route.post(
     "/v2/documents/:documentId/sync",
     requireAuth,
     validator("json", validateDocumentV2SyncRequest),
-    (c) => respondWithDocumentV2Sync(c, { publish, runtime }),
+    (c) =>
+      respondWithDocumentV2Sync(c, {
+        publish,
+        request: c.req.valid("json"),
+        runtime,
+      }),
   );
 
   return route;

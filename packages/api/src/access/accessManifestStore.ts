@@ -2,6 +2,8 @@ import type {
   AccessManifestV2,
   AccessObjectKindV2,
   AnyVerifiedAccessManifest,
+  ContainerAccessManifestStateV2,
+  DocumentLinkSetManifestStateV2,
   KeyingV2CanonicalJson,
   ReferencedPrincipalHeadV2,
   VerifiedAccessEvent,
@@ -81,12 +83,72 @@ function accessManifestReferencedHeads(
   }));
 }
 
+function containerDirectGrantsCanonicalJson(
+  directGrants: ContainerAccessManifestStateV2["directGrants"],
+): KeyingV2CanonicalJson {
+  return directGrants.map((grant) => ({
+    accessLevel: grant.accessLevel,
+    subjectId: grant.subjectId,
+    subjectType: grant.subjectType,
+  }));
+}
+
+function containerAccessManifestStateCanonicalJson(
+  state: ContainerAccessManifestStateV2,
+): KeyingV2CanonicalJson {
+  return {
+    version: state.version,
+    containerId: state.containerId,
+    organizationId: state.organizationId,
+    epoch: state.epoch,
+    previousManifestHash: state.previousManifestHash,
+    eventHash: state.eventHash,
+    parentContainerId: state.parentContainerId,
+    parentManifestHash: state.parentManifestHash,
+    metadataDocumentId: state.metadataDocumentId,
+    containerKeyEpochId: state.containerKeyEpochId,
+    directGrants: containerDirectGrantsCanonicalJson(state.directGrants),
+    referencedPrincipalHeads: referencedPrincipalHeadsCanonicalJson(
+      state.referencedPrincipalHeads,
+    ),
+  };
+}
+
+function documentLinkSetStateCanonicalJson(
+  state: DocumentLinkSetManifestStateV2,
+): KeyingV2CanonicalJson {
+  return {
+    version: state.version,
+    documentId: state.documentId,
+    organizationId: state.organizationId,
+    epoch: state.epoch,
+    previousManifestHash: state.previousManifestHash,
+    eventHash: state.eventHash,
+    linkedContainerIds: [...state.linkedContainerIds],
+  };
+}
+
+function unrecognizedAccessManifestState(state: never): never {
+  throw new Error(`Unrecognized access manifest state: ${String(state)}`);
+}
+
 function accessManifestState(
   manifest: AnyVerifiedAccessManifest,
 ): KeyingV2CanonicalJson {
-  return "state" in manifest
-    ? (manifest.state as unknown as KeyingV2CanonicalJson)
-    : {};
+  if (!("state" in manifest)) {
+    return {};
+  }
+
+  const { state } = manifest;
+  if ("containerId" in state) {
+    return containerAccessManifestStateCanonicalJson(state);
+  }
+
+  if ("documentId" in state) {
+    return documentLinkSetStateCanonicalJson(state);
+  }
+
+  return unrecognizedAccessManifestState(state);
 }
 
 function documentLinkSetState(
