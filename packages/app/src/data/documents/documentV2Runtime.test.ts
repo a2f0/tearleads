@@ -1343,6 +1343,35 @@ test("buildDocumentV2SyncPlan rejects manifest bundles whose state does not deri
   ).rejects.toThrow("manifest state mismatch");
 });
 
+test("buildDocumentV2SyncPlan rejects malformed manifest event envelopes before hashing", async () => {
+  const { author, createResponse, projection } = await createSyncFixture();
+  const event = Reflect.get(createResponse.accessManifest.event, "event");
+  if (event === null || typeof event !== "object" || Array.isArray(event)) {
+    throw new Error("Expected signed event fixture");
+  }
+
+  await expect(
+    buildDocumentV2SyncPlan({
+      author,
+      authorizingContainerPaths: [projectionPathRecords(projection)],
+      contentKeyBundle: createResponse.contentKeyBundle,
+      documentKekTargets: createResponse.documentKekTargets,
+      documentManifest: {
+        ...createResponse.accessManifest,
+        event: {
+          ...createResponse.accessManifest.event,
+          event: {
+            ...(event as Record<string, unknown>),
+            eventType: "document.move",
+          },
+        },
+      },
+      localVersionVector: null,
+      outgoingUpdates: [await createPreparedUpdate()],
+    }),
+  ).rejects.toThrow("signed event.eventType is invalid");
+});
+
 test("buildDocumentV2SyncPlan rejects duplicate V2 content record domains before signing", async () => {
   const { author, createResponse, projection } = await createSyncFixture();
   const duplicateContentRecordId = "550e8400-e29b-41d4-a716-446655440333";
@@ -1527,6 +1556,19 @@ test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and retu
       })),
     }),
   ).rejects.toThrow("ciphertext hash mismatch");
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, {
+      ...response,
+      updates: response.updates.map((update) => ({
+        ...update,
+        writeHeader: {
+          ...update.writeHeader,
+          contentKeyEpoch: 0,
+        },
+      })),
+    }),
+  ).rejects.toThrow("write header.contentKeyEpoch must be a positive integer");
 });
 
 test("persistedDocumentV2SyncStateFromResponse rejects stale sync checkpoints", async () => {
