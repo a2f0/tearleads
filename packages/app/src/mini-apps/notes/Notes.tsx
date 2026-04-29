@@ -134,7 +134,7 @@ function getAttachmentStatusLabel(
   status: NoteAttachmentStatus | undefined,
 ): string | null {
   if (status === "syncing") {
-    return "Syncing replacement.";
+    return "Syncing attachment.";
   }
 
   return null;
