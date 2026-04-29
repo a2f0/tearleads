@@ -6,7 +6,7 @@ import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import { getMoveTargetOptions } from "../targetOptions";
 import type { ContainerNode } from "../types";
 
-interface ContextMenuState {
+export interface ContextMenuState {
   nodeId: string;
   position: MenuPosition;
 }

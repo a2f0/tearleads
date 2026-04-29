@@ -22,6 +22,8 @@ interface LinkedContainerDetail {
   label: string;
 }
 
+type ExplorerRefreshAction = () => Promise<boolean>;
+
 function getLinkedContainerDetails(
   nodes: ReadonlyArray<ContainerNode>,
   linkedContainerIds: ReadonlyArray<string>,
@@ -39,7 +41,7 @@ function getLinkedContainerDetails(
 }
 
 function ExplorerRefreshButton(params: {
-  handleRefresh: () => Promise<void>;
+  handleRefresh: ExplorerRefreshAction;
   isRefreshing: boolean;
   ready: boolean;
 }) {
@@ -62,7 +64,7 @@ function ExplorerRefreshButton(params: {
 function ExplorerDocumentDetailActions(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
-  handleRefresh: () => Promise<void>;
+  handleRefresh: ExplorerRefreshAction;
   isRefreshing: boolean;
   openLinkDocumentModal: (noteId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
@@ -388,7 +390,7 @@ function ExplorerDocumentDetail(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
-  handleRefresh: () => Promise<void>;
+  handleRefresh: ExplorerRefreshAction;
   isRefreshing: boolean;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -468,7 +470,7 @@ function ExplorerDocumentDetail(params: {
 }
 
 function ExplorerContainerDetail(params: {
-  handleRefresh: () => Promise<void>;
+  handleRefresh: ExplorerRefreshAction;
   isRefreshing: boolean;
   openInlineDocument: (
     containerId: string,
@@ -551,7 +553,7 @@ export function ExplorerDetailPanel(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
-  handleRefresh: () => Promise<void>;
+  handleRefresh: ExplorerRefreshAction;
   isRefreshing: boolean;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
