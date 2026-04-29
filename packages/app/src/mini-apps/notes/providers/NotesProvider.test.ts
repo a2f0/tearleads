@@ -38,8 +38,6 @@ import type {
   NoteSummary,
   NotesPersistence,
   PendingAttachmentRecord,
-  PendingAttachmentReplacementRecord,
-  PendingAttachmentRewrapRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
 } from "../notesPersistence";
@@ -53,8 +51,6 @@ interface StoredNotesState {
   localAttachments: LocalAttachmentRecord[];
   note: NoteRecord | null;
   pendingAttachments: PendingAttachmentRecord[];
-  pendingAttachmentReplacements: PendingAttachmentReplacementRecord[];
-  pendingAttachmentRewraps: PendingAttachmentRewrapRecord[];
   noteSummaries: NoteSummary[];
   pendingUpdates: PendingUpdateRecord[];
 }
@@ -520,8 +516,6 @@ function createNotesPersistence(): NotesPersistence & {
   let note: NoteRecord | null = null;
   let localAttachments: LocalAttachmentRecord[] = [];
   let pendingAttachments: PendingAttachmentRecord[] = [];
-  let pendingAttachmentReplacements: PendingAttachmentReplacementRecord[] = [];
-  let pendingAttachmentRewraps: PendingAttachmentRewrapRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
 
   return {
@@ -531,8 +525,6 @@ function createNotesPersistence(): NotesPersistence & {
         localAttachments,
         note,
         pendingAttachments,
-        pendingAttachmentReplacements,
-        pendingAttachmentRewraps,
         noteSummaries: note
           ? [
               {
@@ -637,12 +629,6 @@ function createNotesPersistence(): NotesPersistence & {
     async listPendingAttachments() {
       return pendingAttachments;
     },
-    async listPendingAttachmentRewraps() {
-      return pendingAttachmentRewraps;
-    },
-    async listPendingAttachmentReplacements() {
-      return pendingAttachmentReplacements;
-    },
     async listLocalAttachments() {
       return localAttachments;
     },
@@ -700,52 +686,9 @@ function createNotesPersistence(): NotesPersistence & {
         attachment,
       ];
     },
-    async savePendingAttachmentRewrap(_execSql, attachment) {
-      pendingAttachmentRewraps = [
-        ...pendingAttachmentRewraps.filter(
-          (existingAttachmentRewrap) =>
-            !(
-              existingAttachmentRewrap.noteId === attachment.noteId &&
-              existingAttachmentRewrap.slotId === attachment.slotId
-            ),
-        ),
-        attachment,
-      ];
-    },
-    async savePendingAttachmentReplacement(_execSql, attachment) {
-      pendingAttachmentReplacements = [
-        ...pendingAttachmentReplacements.filter(
-          (existingAttachmentReplacement) =>
-            !(
-              existingAttachmentReplacement.noteId === attachment.noteId &&
-              existingAttachmentReplacement.slotId === attachment.slotId
-            ),
-        ),
-        attachment,
-      ];
-    },
     async deletePendingAttachments(_execSql, noteId) {
       pendingAttachments = pendingAttachments.filter(
         (attachment) => attachment.noteId !== noteId,
-      );
-    },
-    async deletePendingAttachmentRewraps(_execSql, noteId) {
-      pendingAttachmentRewraps = pendingAttachmentRewraps.filter(
-        (attachmentRewrap) => attachmentRewrap.noteId !== noteId,
-      );
-    },
-    async deletePendingAttachmentReplacement(_execSql, noteId, slotId) {
-      pendingAttachmentReplacements = pendingAttachmentReplacements.filter(
-        (attachmentReplacement) =>
-          !(
-            attachmentReplacement.noteId === noteId &&
-            attachmentReplacement.slotId === slotId
-          ),
-      );
-    },
-    async deletePendingAttachmentReplacements(_execSql, noteId) {
-      pendingAttachmentReplacements = pendingAttachmentReplacements.filter(
-        (attachmentReplacement) => attachmentReplacement.noteId !== noteId,
       );
     },
   };

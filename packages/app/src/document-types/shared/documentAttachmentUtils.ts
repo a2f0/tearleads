@@ -47,10 +47,6 @@ export async function readDocumentAttachmentUpload(
 export function getDocumentAttachmentStatusLabel(
   status: DocumentAttachmentStatus | undefined,
 ): string | null {
-  if (status === "needs_replacement") {
-    return "Replace this image to finish the access change.";
-  }
-
   if (status === "syncing") {
     return "Syncing image.";
   }
