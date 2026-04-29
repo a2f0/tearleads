@@ -83,17 +83,17 @@ export interface ExplorerRuntime {
     | "listContainers"
     | "listDocumentAttachments"
   > &
-    Partial<
-      Pick<
-        ExplorerAppData["apiClient"],
-        | "createContainerV2"
-        | "createDocumentV2"
-        | "getContainerV2WriterProjection"
-        | "getDocumentV2WriterProjection"
-        | "moveContainerV2"
-        | "shareContainerV2"
-        | "syncDocumentV2"
-      >
+    Pick<
+      ExplorerAppData["apiClient"],
+      | "createContainerV2"
+      | "createDocumentV2"
+      | "getContainerV2WriterProjection"
+      | "getDocumentV2WriterProjection"
+      | "moveContainerV2"
+      | "shareContainerV2"
+      | "bindBlobAttachmentV2"
+      | "stageBlob"
+      | "syncDocumentV2"
     >;
   blobStore: BlobStore;
   cacheReferencedPrincipalPolicies: ExplorerAppData["cacheReferencedPrincipalPolicies"];
@@ -188,32 +188,18 @@ function buildNotesRuntime(state: ExplorerSyncState, containerId: string) {
   const { apiClient } = state.runtime;
   return {
     apiClient: {
-      ...(apiClient.createDocumentV2
-        ? {
-            createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
-          }
-        : {}),
-      ...(apiClient.getContainerV2WriterProjection
-        ? {
-            getContainerV2WriterProjection:
-              apiClient.getContainerV2WriterProjection.bind(apiClient),
-          }
-        : {}),
-      ...(apiClient.getDocumentV2WriterProjection
-        ? {
-            getDocumentV2WriterProjection:
-              apiClient.getDocumentV2WriterProjection.bind(apiClient),
-          }
-        : {}),
+      createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
+      getContainerV2WriterProjection:
+        apiClient.getContainerV2WriterProjection.bind(apiClient),
+      getDocumentV2WriterProjection:
+        apiClient.getDocumentV2WriterProjection.bind(apiClient),
       getBlob: (blobId: string) => state.runtime.apiClient.getBlob(blobId),
       listContainers: () => state.runtime.apiClient.listContainers(),
       listDocumentAttachments: (documentId: string) =>
         state.runtime.apiClient.listDocumentAttachments(documentId),
-      ...(apiClient.syncDocumentV2
-        ? {
-            syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
-          }
-        : {}),
+      bindBlobAttachmentV2: apiClient.bindBlobAttachmentV2.bind(apiClient),
+      stageBlob: apiClient.stageBlob.bind(apiClient),
+      syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
     },
     blobStore: state.runtime.blobStore,
     cacheReferencedPrincipalPolicies:
@@ -655,13 +641,8 @@ function resolveExplorerV2Author(
   };
 }
 
-function resolveExplorerV2Api(
-  runtime: ExplorerRuntime,
-): ExplorerRuntimeV2Api | null {
+function resolveExplorerV2Api(runtime: ExplorerRuntime): ExplorerRuntimeV2Api {
   const { apiClient } = runtime;
-  if (!apiClient.getDocumentV2WriterProjection || !apiClient.syncDocumentV2) {
-    return null;
-  }
 
   return {
     getDocumentV2WriterProjection:
@@ -672,15 +653,8 @@ function resolveExplorerV2Api(
 
 function resolveExplorerV2CreateApi(
   runtime: ExplorerRuntime,
-): ExplorerRuntimeV2CreateApi | null {
+): ExplorerRuntimeV2CreateApi {
   const { apiClient } = runtime;
-  if (
-    !apiClient.createContainerV2 ||
-    !apiClient.createDocumentV2 ||
-    !apiClient.getContainerV2WriterProjection
-  ) {
-    return null;
-  }
 
   return {
     createContainerV2: apiClient.createContainerV2.bind(apiClient),
@@ -692,14 +666,8 @@ function resolveExplorerV2CreateApi(
 
 function resolveExplorerV2ShareApi(
   runtime: ExplorerRuntime,
-): ExplorerRuntimeV2ShareApi | null {
+): ExplorerRuntimeV2ShareApi {
   const { apiClient } = runtime;
-  if (
-    !apiClient.getContainerV2WriterProjection ||
-    !apiClient.shareContainerV2
-  ) {
-    return null;
-  }
 
   return {
     getContainerV2WriterProjection:
@@ -710,11 +678,8 @@ function resolveExplorerV2ShareApi(
 
 function resolveExplorerV2MoveApi(
   runtime: ExplorerRuntime,
-): ExplorerRuntimeV2MoveApi | null {
+): ExplorerRuntimeV2MoveApi {
   const { apiClient } = runtime;
-  if (!apiClient.getContainerV2WriterProjection || !apiClient.moveContainerV2) {
-    return null;
-  }
 
   return {
     getContainerV2WriterProjection:
@@ -744,7 +709,7 @@ export async function createRemoteExplorerContainerV2(input: {
   const author = resolveExplorerV2Author(input.runtime);
   const apiClient = resolveExplorerV2CreateApi(input.runtime);
   const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
-  if (!author || !apiClient || !parentSecretKey) {
+  if (!author || !parentSecretKey) {
     input.runtime.log(
       "Explorer: skipped V2 container create because the V2 writer context is unavailable.",
     );
@@ -853,7 +818,7 @@ export async function shareRemoteExplorerContainerV2(input: {
   const author = resolveExplorerV2Author(input.runtime);
   const apiClient = resolveExplorerV2ShareApi(input.runtime);
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
-  if (!author || !apiClient || !targetSecretKey) {
+  if (!author || !targetSecretKey) {
     input.runtime.log(
       "Explorer: skipped V2 container share because the V2 writer context is unavailable.",
     );
@@ -903,7 +868,7 @@ export async function moveRemoteExplorerContainerV2(input: {
   const author = resolveExplorerV2Author(input.runtime);
   const apiClient = resolveExplorerV2MoveApi(input.runtime);
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
-  if (!author || !apiClient || !targetSecretKey) {
+  if (!author || !targetSecretKey) {
     input.runtime.log(
       "Explorer: skipped V2 container move because the V2 writer context is unavailable.",
     );
@@ -1024,7 +989,7 @@ async function requestContainerMetadataSync(
 
   const author = resolveExplorerV2Author(state.runtime);
   const apiClient = resolveExplorerV2Api(state.runtime);
-  if (!author || !apiClient) {
+  if (!author) {
     state.runtime.log(
       "Explorer: skipped V2 metadata sync because the V2 writer context is unavailable.",
     );

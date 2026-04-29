@@ -77,7 +77,7 @@ interface ContactsSnapshot {
 
 export interface ContactsRuntime {
   apiClient: Pick<ContactsAppData["apiClient"], "getEncapsulationKey"> &
-    Partial<ContactsRuntimeV2Api>;
+    ContactsRuntimeV2Api;
   containerId: ContactsAppData["containerId"];
   dbStatus: ContactsAppData["dbStatus"];
   domainScope: ContactsAppData["domainScope"];
@@ -462,18 +462,8 @@ function resolveContactsV2Author(
   };
 }
 
-function resolveContactsV2Api(
-  runtime: ContactsRuntime,
-): ContactsRuntimeV2Api | null {
+function resolveContactsV2Api(runtime: ContactsRuntime): ContactsRuntimeV2Api {
   const { apiClient } = runtime;
-  if (
-    !apiClient.createDocumentV2 ||
-    !apiClient.getContainerV2WriterProjection ||
-    !apiClient.getDocumentV2WriterProjection ||
-    !apiClient.syncDocumentV2
-  ) {
-    return null;
-  }
 
   return {
     createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
@@ -545,7 +535,7 @@ async function ensureContactDocumentForSync(
 
     const author = resolveContactsV2Author(state.runtime);
     const apiClient = resolveContactsV2Api(state.runtime);
-    if (!author || !apiClient) {
+    if (!author) {
       state.runtime.log(
         "Contacts: skipped V2 remote create because the V2 writer context is unavailable.",
       );
@@ -633,7 +623,7 @@ async function syncSingleContact(
 
   const author = resolveContactsV2Author(state.runtime);
   const apiClient = resolveContactsV2Api(state.runtime);
-  if (!author || !apiClient) {
+  if (!author) {
     state.runtime.log(
       "Contacts: skipped V2 sync because the V2 writer context is unavailable.",
     );

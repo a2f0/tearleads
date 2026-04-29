@@ -39,6 +39,29 @@ interface StoredContactState {
   record: DocumentRecord | null;
 }
 
+function createUnavailableContactsApiClient(
+  userIdToImport?: string,
+): ContactsRuntime["apiClient"] {
+  return {
+    createDocumentV2: async () => null,
+    getContainerV2WriterProjection: async () => null,
+    getDocumentV2WriterProjection: async () => null,
+    getEncapsulationKey: async (userId: string) => {
+      if (userId !== userIdToImport) {
+        return null;
+      }
+
+      return {
+        encapsulationPublicKey: `${userId}-key`,
+        signingKeyFingerprint: `${userId}-signing-fingerprint`,
+        signingPublicKey: `${userId}-signing-key`,
+        userId,
+      };
+    },
+    syncDocumentV2: async () => null,
+  };
+}
+
 async function contactV2FixtureHash(label: string): Promise<string> {
   return toFingerprint(new TextEncoder().encode(`contacts-v2:${label}`));
 }
@@ -387,20 +410,7 @@ function createContactsPersistence(): ContactsPersistence & {
 
 function createRuntime(userIdToImport?: string): ContactsRuntime {
   return {
-    apiClient: {
-      getEncapsulationKey: async (userId: string) => {
-        if (userId !== userIdToImport) {
-          return null;
-        }
-
-        return {
-          encapsulationPublicKey: `${userId}-key`,
-          signingKeyFingerprint: `${userId}-signing-fingerprint`,
-          signingPublicKey: `${userId}-signing-key`,
-          userId,
-        };
-      },
-    },
+    apiClient: createUnavailableContactsApiClient(userIdToImport),
     containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},

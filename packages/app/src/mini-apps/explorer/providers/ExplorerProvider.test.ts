@@ -629,11 +629,18 @@ async function createSqlRuntime(): Promise<TestRuntime> {
   return {
     ...runtimeBase,
     apiClient: {
+      bindBlobAttachmentV2: async () => null,
+      createContainerV2: async () => null,
+      createDocumentV2: async () => null,
       getBlob: async () => null,
+      getContainerV2WriterProjection: async () => null,
+      getDocumentV2WriterProjection: async () => null,
+      getEncapsulationKey: async () => null,
       listContainers: async () => [],
       listDocumentAttachments: async () => null,
-      getEncapsulationKey: async () => null,
-      getDocumentV2WriterProjection: async () => null,
+      moveContainerV2: async () => null,
+      shareContainerV2: async () => null,
+      stageBlob: async () => null,
       syncDocumentV2: async () => null,
     },
   };

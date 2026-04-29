@@ -79,6 +79,22 @@ function createListedContainers(
   ];
 }
 
+function createUnavailableNotesApiClient(
+  containerId = "root-container",
+): NotesRuntime["apiClient"] {
+  return {
+    bindBlobAttachmentV2: async () => null,
+    createDocumentV2: async () => null,
+    getBlob: async () => null,
+    getContainerV2WriterProjection: async () => null,
+    getDocumentV2WriterProjection: async () => null,
+    listContainers: async () => createListedContainers(containerId),
+    listDocumentAttachments: async () => null,
+    stageBlob: async () => null,
+    syncDocumentV2: async () => null,
+  };
+}
+
 async function noteV2FixtureHash(label: string): Promise<string> {
   return toFingerprint(new TextEncoder().encode(`notes-v2:${label}`));
 }
@@ -696,11 +712,7 @@ function createNotesPersistence(): NotesPersistence & {
 
 function createRuntime(containerId = "root-container"): NotesRuntime {
   return {
-    apiClient: {
-      getBlob: async () => null,
-      listContainers: async () => createListedContainers(containerId),
-      listDocumentAttachments: async () => null,
-    },
+    apiClient: createUnavailableNotesApiClient(containerId),
     blobStore: createMemoryBlobStore(),
     cacheReferencedPrincipalPolicies: async () => {},
     containerId,
@@ -767,11 +779,7 @@ function createOfflineAttachmentRuntime(
   containerId = "root-container",
 ): NotesRuntime {
   return {
-    apiClient: {
-      getBlob: async () => null,
-      listContainers: async () => createListedContainers(containerId),
-      listDocumentAttachments: async () => null,
-    },
+    apiClient: createUnavailableNotesApiClient(containerId),
     blobStore: createMemoryBlobStore(),
     cacheReferencedPrincipalPolicies: async () => {},
     containerId,
@@ -816,11 +824,7 @@ async function createSqlRuntime(): Promise<
 
   return {
     ...runtimeBase,
-    apiClient: {
-      getBlob: async () => null,
-      listContainers: async () => createListedContainers("root-container"),
-      listDocumentAttachments: async () => null,
-    },
+    apiClient: createUnavailableNotesApiClient(),
     containerId: "root-container",
   };
 }
