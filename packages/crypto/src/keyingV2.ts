@@ -33,6 +33,14 @@ export type KeyingV2CanonicalJson =
   | readonly KeyingV2CanonicalJson[]
   | { readonly [key: string]: KeyingV2CanonicalJson };
 
+type KeyingV2CanonicalPayload<T> = T extends CanonicalJsonPrimitive
+  ? T
+  : T extends readonly (infer Item)[]
+    ? readonly KeyingV2CanonicalPayload<Item>[]
+    : T extends object
+      ? { readonly [Key in keyof T]: KeyingV2CanonicalPayload<T[Key]> }
+      : never;
+
 export type KeyingV2HashDomain =
   | "tearleads.keying-v2.access-event-body.v1"
   | "tearleads.keying-v2.access-event-signing.v1"
@@ -1933,9 +1941,12 @@ export function accessManifestTransparencyLeaf(
 export async function computeTransparencyLeafHash(
   leaf: TransparencyLeafV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<TransparencyLeafV2> =
+    normalizeTransparencyLeaf(leaf);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.transparency-leaf.v1",
-    normalizeTransparencyLeaf(leaf) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -2203,11 +2214,12 @@ function normalizeSignedTransparencyTreeHead(
 function transparencyTreeHeadSigningBytes(
   treeHead: UnsignedTransparencyTreeHeadV2,
 ): Uint8Array {
+  const payload: KeyingV2CanonicalPayload<UnsignedTransparencyTreeHeadV2> =
+    normalizeUnsignedTransparencyTreeHead(treeHead);
+
   return encodeDomainPayload(
     "tearleads.keying-v2.transparency-tree-head-signing.v1",
-    normalizeUnsignedTransparencyTreeHead(
-      treeHead,
-    ) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -3544,10 +3556,8 @@ function normalizeAccessEvent(value: AccessEventV2): AccessEventV2 {
 
 function unsignedAccessEventPayload(
   event: UnsignedAccessEventV2,
-): KeyingV2CanonicalJson {
-  return normalizeUnsignedAccessEvent(
-    event,
-  ) as unknown as KeyingV2CanonicalJson;
+): KeyingV2CanonicalPayload<UnsignedAccessEventV2> {
+  return normalizeUnsignedAccessEvent(event);
 }
 
 function accessEventSigningBytes(event: UnsignedAccessEventV2): Uint8Array {
@@ -3603,9 +3613,12 @@ export async function signAccessEvent(
 export async function computeAccessEventHash(
   event: AccessEventV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<AccessEventV2> =
+    normalizeAccessEvent(event);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.access-event.v1",
-    normalizeAccessEvent(event) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -3794,9 +3807,12 @@ function normalizeAccessManifest(value: AccessManifestV2): AccessManifestV2 {
 export async function computeAccessManifestHash(
   manifest: AccessManifestV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<AccessManifestV2> =
+    normalizeAccessManifest(manifest);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.access-manifest.v1",
-    normalizeAccessManifest(manifest) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -4201,31 +4217,37 @@ function normalizeContainerAccessManifestState(
 export async function computeContainerAccessStructuralHash(
   structural: ContainerAccessStructuralV2 & ContainerAccessMetadataV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<
+    ContainerAccessStructuralV2 & ContainerAccessMetadataV2
+  > = normalizeContainerAccessStructuralState(structural);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.container-access-structural.v1",
-    normalizeContainerAccessStructuralState(
-      structural,
-    ) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
 export async function computeContainerDirectGrantRoot(
   grants: readonly ContainerDirectGrantV2[],
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<readonly ContainerDirectGrantV2[]> =
+    normalizeContainerDirectGrants(grants);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.container-access-direct-grants.v1",
-    normalizeContainerDirectGrants(grants) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
 export async function computeContainerAccessKeyTargetHash(
   keyState: ContainerAccessKeyStateV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<ContainerAccessKeyStateV2> =
+    normalizeContainerAccessKeyState(keyState);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.container-access-key-target.v1",
-    normalizeContainerAccessKeyState(
-      keyState,
-    ) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -5126,11 +5148,12 @@ function normalizeDocumentLinkSetManifestState(
 export async function computeDocumentLinkSetStructuralHash(
   structural: DocumentLinkSetStructuralV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<DocumentLinkSetStructuralV2> =
+    normalizeDocumentLinkSetStructural(structural);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.document-link-set-structural.v1",
-    normalizeDocumentLinkSetStructural(
-      structural,
-    ) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -5464,8 +5487,10 @@ async function verifyAttachmentAccessEvent(
   readonly event: VerifiedAccessEvent;
 }> {
   const body = normalizeAttachmentAccessEventBody(input.body);
+  const canonicalBody: KeyingV2CanonicalPayload<AttachmentAccessEventBodyV2> =
+    body;
   const event = await verifySignedAccessEvent({
-    body: body as unknown as KeyingV2CanonicalJson,
+    body: canonicalBody,
     event: input.event,
     signerPublicKey: input.signerPublicKey,
   });
@@ -6278,9 +6303,12 @@ export function derivePrincipalRecipientKeyEpochId(
 export async function computeContainerKeyEpochHash(
   keyEpoch: ContainerKeyEpochV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<ContainerKeyEpochV2> =
+    normalizeContainerKeyEpoch(keyEpoch);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.container-key-epoch.v1",
-    normalizeContainerKeyEpoch(keyEpoch) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -6707,7 +6735,7 @@ async function buildVerifiedContainerKekState(input: {
   readonly normalizedWraps: readonly ContainerKeyWrapV2[];
   readonly recipientTargets: readonly ContainerKekRecipientTargetV2[];
 }): Promise<VerifiedContainerKekState> {
-  return {
+  const state = {
     containerId: input.containerManifest.state.containerId,
     accessManifestHash: input.containerManifest.manifestHash,
     containerKeyEpochId: input.keyEpoch.id,
@@ -6720,7 +6748,9 @@ async function buildVerifiedContainerKekState(input: {
     ),
     recipientTargets: input.recipientTargets,
     wraps: input.normalizedWraps,
-  } as unknown as VerifiedContainerKekState;
+  };
+
+  return state as typeof state & VerifiedContainerKekState;
 }
 
 export async function verifyContainerKekState({
@@ -6937,10 +6967,13 @@ export async function computeContainerKekRecipientTargetHash(
     containerKekRecipientTargetKey,
     "container KEK recipient targets",
   );
+  const payload: KeyingV2CanonicalPayload<
+    readonly ContainerKekRecipientTargetV2[]
+  > = normalizedTargets;
 
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.container-kek-recipient-targets.v1",
-    normalizedTargets as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -6954,10 +6987,13 @@ export async function computeDocumentContentKeyTargetHash(
     containerKekTargetKey,
     "document content-key targets",
   );
+  const payload: KeyingV2CanonicalPayload<
+    readonly DocumentContentKeyTargetV2[]
+  > = normalizedTargets;
 
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.document-content-key-targets.v1",
-    normalizedTargets as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -7065,7 +7101,7 @@ async function buildVerifiedDocumentKekTargets(input: {
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly targets: readonly DocumentContentKeyTargetV2[];
 }): Promise<VerifiedDocumentKekTargets> {
-  return {
+  const targets = {
     documentId: input.documentManifest.state.documentId,
     linkSetManifestHash: input.documentManifest.manifestHash,
     linkedContainerManifestHashes: input.targets.map(
@@ -7078,7 +7114,9 @@ async function buildVerifiedDocumentKekTargets(input: {
     documentKeyTargetHash: await computeDocumentContentKeyTargetHash(
       input.targets,
     ),
-  } as unknown as VerifiedDocumentKekTargets;
+  };
+
+  return targets as typeof targets & VerifiedDocumentKekTargets;
 }
 
 export async function deriveDocumentKekTargets({
@@ -7311,7 +7349,7 @@ async function buildVerifiedBlobKekTargets(input: {
     blobKeyTargetHash,
   });
 
-  return {
+  const targets = {
     blobId: input.blobId,
     organizationId,
     activeBindingIds: input.activeBindings.map((binding) => binding.bindingId),
@@ -7327,7 +7365,9 @@ async function buildVerifiedBlobKekTargets(input: {
     targets: input.targets,
     blobKeyTargetHash,
     blobAccessManifestHash,
-  } as unknown as VerifiedBlobKekTargets;
+  };
+
+  return targets as typeof targets & VerifiedBlobKekTargets;
 }
 
 export async function deriveBlobKekTargets({
@@ -7389,10 +7429,12 @@ export async function computeBlobContentKeyTargetHash(
     blobContentKeyTargetKey,
     "blob content-key targets",
   );
+  const payload: KeyingV2CanonicalPayload<readonly BlobContentKeyTargetV2[]> =
+    normalizedTargets;
 
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.blob-content-key-targets.v1",
-    normalizedTargets as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -7477,9 +7519,12 @@ function normalizeBlobAccessManifest(
 export async function computeBlobAccessManifestHash(
   manifest: BlobAccessManifestV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<BlobAccessManifestV2> =
+    normalizeBlobAccessManifest(manifest);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.blob-access-manifest.v1",
-    normalizeBlobAccessManifest(manifest) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -7599,10 +7644,8 @@ function normalizeWriteHeader(value: WriteHeaderV2): WriteHeaderV2 {
 
 function unsignedWriteHeaderPayload(
   header: UnsignedWriteHeaderV2,
-): KeyingV2CanonicalJson {
-  return normalizeUnsignedWriteHeader(
-    header,
-  ) as unknown as KeyingV2CanonicalJson;
+): KeyingV2CanonicalPayload<UnsignedWriteHeaderV2> {
+  return normalizeUnsignedWriteHeader(header);
 }
 
 function contentRecordNonceDomainFromHeader(
@@ -7670,11 +7713,12 @@ function normalizeContentRecordNonceDomain(
 export async function computeContentRecordNonceDomainHash(
   domain: ContentRecordNonceDomainV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<ContentRecordNonceDomainV2> =
+    normalizeContentRecordNonceDomain(domain);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.content-record-nonce-domain.v1",
-    normalizeContentRecordNonceDomain(
-      domain,
-    ) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
@@ -7743,9 +7787,12 @@ export async function signWriteHeader(
 export async function computeWriteHeaderHash(
   header: WriteHeaderV2,
 ): Promise<string> {
+  const payload: KeyingV2CanonicalPayload<WriteHeaderV2> =
+    normalizeWriteHeader(header);
+
   return computeKeyingV2DomainHash(
     "tearleads.keying-v2.write-header.v1",
-    normalizeWriteHeader(header) as unknown as KeyingV2CanonicalJson,
+    payload,
   );
 }
 
