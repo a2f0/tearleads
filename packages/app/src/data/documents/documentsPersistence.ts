@@ -58,18 +58,6 @@ export interface PendingAttachmentRecord {
   storageKey: string;
 }
 
-export interface PendingAttachmentRewrapRecord {
-  blobId: string;
-  localId: string;
-  slotId: string;
-}
-
-export interface PendingAttachmentReplacementRecord {
-  blobId: string | null;
-  localId: string;
-  slotId: string;
-}
-
 export interface LocalAttachmentRecord {
   blobId: string | null;
   byteLength: number;
@@ -133,14 +121,6 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     localId: string,
   ) => Promise<PendingAttachmentRecord[]>;
-  listPendingAttachmentRewraps: (
-    execSql: ExecSql,
-    localId: string,
-  ) => Promise<PendingAttachmentRewrapRecord[]>;
-  listPendingAttachmentReplacements: (
-    execSql: ExecSql,
-    localId: string,
-  ) => Promise<PendingAttachmentReplacementRecord[]>;
   listLocalAttachments: (
     execSql: ExecSql,
     localId: string,
@@ -157,14 +137,6 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     attachment: PendingAttachmentRecord,
   ) => Promise<void>;
-  savePendingAttachmentRewrap: (
-    execSql: ExecSql,
-    attachment: PendingAttachmentRewrapRecord,
-  ) => Promise<void>;
-  savePendingAttachmentReplacement: (
-    execSql: ExecSql,
-    attachment: PendingAttachmentReplacementRecord,
-  ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   deletePendingUpdates: (execSql: ExecSql, localId: string) => Promise<void>;
   deletePendingAttachment: (
@@ -174,19 +146,6 @@ export interface DocumentsPersistence {
     storageKey: string,
   ) => Promise<void>;
   deletePendingAttachments: (
-    execSql: ExecSql,
-    localId: string,
-  ) => Promise<void>;
-  deletePendingAttachmentRewraps: (
-    execSql: ExecSql,
-    localId: string,
-  ) => Promise<void>;
-  deletePendingAttachmentReplacement: (
-    execSql: ExecSql,
-    localId: string,
-    slotId: string,
-  ) => Promise<void>;
-  deletePendingAttachmentReplacements: (
     execSql: ExecSql,
     localId: string,
   ) => Promise<void>;
@@ -233,30 +192,6 @@ const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
         mime_type TEXT,
         byte_length INTEGER NOT NULL,
         updated_at TEXT NOT NULL,
-        PRIMARY KEY (local_id, slot_id)
-      )
-    `,
-  },
-  {
-    name: "document_pending_attachment_rewraps",
-    createSql: `
-      CREATE TABLE IF NOT EXISTS document_pending_attachment_rewraps (
-        local_id TEXT NOT NULL,
-        slot_id TEXT NOT NULL,
-        blob_id TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        PRIMARY KEY (local_id, slot_id)
-      )
-    `,
-  },
-  {
-    name: "document_pending_attachment_replacements",
-    createSql: `
-      CREATE TABLE IF NOT EXISTS document_pending_attachment_replacements (
-        local_id TEXT NOT NULL,
-        slot_id TEXT NOT NULL,
-        blob_id TEXT,
-        created_at TEXT NOT NULL,
         PRIMARY KEY (local_id, slot_id)
       )
     `,
@@ -863,50 +798,6 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       storageKey: parseStorageKey(row),
     }));
   },
-  async listPendingAttachmentRewraps(execSql, localId) {
-    const rows = await execSql(
-      `
-        SELECT
-          local_id,
-          slot_id,
-          blob_id
-        FROM document_pending_attachment_rewraps
-        WHERE local_id = :localId
-        ORDER BY created_at, slot_id
-      `,
-      {
-        ":localId": localId,
-      },
-    );
-
-    return rows.map((row) => ({
-      blobId: String(readSqlRowValue(row, "blob_id") ?? ""),
-      localId: String(readSqlRowValue(row, "local_id") ?? ""),
-      slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
-    }));
-  },
-  async listPendingAttachmentReplacements(execSql, localId) {
-    const rows = await execSql(
-      `
-        SELECT
-          local_id,
-          slot_id,
-          blob_id
-        FROM document_pending_attachment_replacements
-        WHERE local_id = :localId
-        ORDER BY created_at, slot_id
-      `,
-      {
-        ":localId": localId,
-      },
-    );
-
-    return rows.map((row) => ({
-      blobId: parseBlobId(row),
-      localId: String(readSqlRowValue(row, "local_id") ?? ""),
-      slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
-    }));
-  },
   async listLocalAttachments(execSql, localId) {
     const rows = await execSql(
       `
@@ -1028,66 +919,6 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       );
     });
   },
-  async savePendingAttachmentRewrap(execSql, attachment) {
-    const createdAt = new Date().toISOString();
-
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
-          INSERT INTO document_pending_attachment_rewraps (
-            local_id,
-            slot_id,
-            blob_id,
-            created_at
-          )
-          VALUES (
-            :localId,
-            :slotId,
-            :blobId,
-            :createdAt
-          )
-          ON CONFLICT(local_id, slot_id) DO UPDATE SET
-            blob_id = excluded.blob_id
-        `,
-        {
-          ":localId": attachment.localId,
-          ":slotId": attachment.slotId,
-          ":blobId": attachment.blobId,
-          ":createdAt": createdAt,
-        },
-      );
-    });
-  },
-  async savePendingAttachmentReplacement(execSql, attachment) {
-    const createdAt = new Date().toISOString();
-
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
-          INSERT INTO document_pending_attachment_replacements (
-            local_id,
-            slot_id,
-            blob_id,
-            created_at
-          )
-          VALUES (
-            :localId,
-            :slotId,
-            :blobId,
-            :createdAt
-          )
-          ON CONFLICT(local_id, slot_id) DO UPDATE SET
-            blob_id = excluded.blob_id
-        `,
-        {
-          ":localId": attachment.localId,
-          ":slotId": attachment.slotId,
-          ":blobId": attachment.blobId,
-          ":createdAt": createdAt,
-        },
-      );
-    });
-  },
   async deletePendingUpdate(execSql, id) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await deleteDocumentPendingUpdate(lockedExecSql, id);
@@ -1121,46 +952,6 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       await lockedExecSql(
         `
           DELETE FROM document_pending_attachments
-          WHERE local_id = :localId
-        `,
-        {
-          ":localId": localId,
-        },
-      );
-    });
-  },
-  async deletePendingAttachmentRewraps(execSql, localId) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
-          DELETE FROM document_pending_attachment_rewraps
-          WHERE local_id = :localId
-        `,
-        {
-          ":localId": localId,
-        },
-      );
-    });
-  },
-  async deletePendingAttachmentReplacement(execSql, localId, slotId) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
-          DELETE FROM document_pending_attachment_replacements
-          WHERE local_id = :localId AND slot_id = :slotId
-        `,
-        {
-          ":localId": localId,
-          ":slotId": slotId,
-        },
-      );
-    });
-  },
-  async deletePendingAttachmentReplacements(execSql, localId) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
-          DELETE FROM document_pending_attachment_replacements
           WHERE local_id = :localId
         `,
         {

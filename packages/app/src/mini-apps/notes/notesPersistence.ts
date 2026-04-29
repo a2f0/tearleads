@@ -25,19 +25,6 @@ export interface PendingAttachmentRecord
   noteId: string;
 }
 
-export interface PendingAttachmentRewrapRecord
-  extends Omit<DocumentPersistence.PendingAttachmentRewrapRecord, "localId"> {
-  noteId: string;
-}
-
-export interface PendingAttachmentReplacementRecord
-  extends Omit<
-    DocumentPersistence.PendingAttachmentReplacementRecord,
-    "localId"
-  > {
-  noteId: string;
-}
-
 export interface LocalAttachmentRecord
   extends Omit<DocumentPersistence.LocalAttachmentRecord, "localId"> {
   noteId: string;
@@ -85,14 +72,6 @@ export interface NotesPersistence {
     execSql: ExecSql,
     noteId: string,
   ) => Promise<PendingAttachmentRecord[]>;
-  listPendingAttachmentRewraps: (
-    execSql: ExecSql,
-    noteId: string,
-  ) => Promise<PendingAttachmentRewrapRecord[]>;
-  listPendingAttachmentReplacements: (
-    execSql: ExecSql,
-    noteId: string,
-  ) => Promise<PendingAttachmentReplacementRecord[]>;
   listLocalAttachments: (
     execSql: ExecSql,
     noteId: string,
@@ -109,14 +88,6 @@ export interface NotesPersistence {
     execSql: ExecSql,
     attachment: PendingAttachmentRecord,
   ) => Promise<void>;
-  savePendingAttachmentRewrap: (
-    execSql: ExecSql,
-    attachment: PendingAttachmentRewrapRecord,
-  ) => Promise<void>;
-  savePendingAttachmentReplacement: (
-    execSql: ExecSql,
-    attachment: PendingAttachmentReplacementRecord,
-  ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   deletePendingUpdates: (execSql: ExecSql, noteId: string) => Promise<void>;
   deletePendingAttachment: (
@@ -126,19 +97,6 @@ export interface NotesPersistence {
     storageKey: string,
   ) => Promise<void>;
   deletePendingAttachments: (execSql: ExecSql, noteId: string) => Promise<void>;
-  deletePendingAttachmentRewraps: (
-    execSql: ExecSql,
-    noteId: string,
-  ) => Promise<void>;
-  deletePendingAttachmentReplacement: (
-    execSql: ExecSql,
-    noteId: string,
-    slotId: string,
-  ) => Promise<void>;
-  deletePendingAttachmentReplacements: (
-    execSql: ExecSql,
-    noteId: string,
-  ) => Promise<void>;
 }
 
 function toDocumentPendingUpdate(
@@ -164,46 +122,6 @@ function toNotePendingAttachment(
 function toDocumentPendingAttachment(
   attachment: PendingAttachmentRecord,
 ): DocumentPersistence.PendingAttachmentRecord {
-  const { noteId, ...documentAttachment } = attachment;
-  return {
-    ...documentAttachment,
-    localId: noteId,
-  };
-}
-
-function toNotePendingAttachmentRewrap(
-  attachment: DocumentPersistence.PendingAttachmentRewrapRecord,
-): PendingAttachmentRewrapRecord {
-  const { localId, ...noteAttachment } = attachment;
-  return {
-    ...noteAttachment,
-    noteId: localId,
-  };
-}
-
-function toDocumentPendingAttachmentRewrap(
-  attachment: PendingAttachmentRewrapRecord,
-): DocumentPersistence.PendingAttachmentRewrapRecord {
-  const { noteId, ...documentAttachment } = attachment;
-  return {
-    ...documentAttachment,
-    localId: noteId,
-  };
-}
-
-function toNotePendingAttachmentReplacement(
-  attachment: DocumentPersistence.PendingAttachmentReplacementRecord,
-): PendingAttachmentReplacementRecord {
-  const { localId, ...noteAttachment } = attachment;
-  return {
-    ...noteAttachment,
-    noteId: localId,
-  };
-}
-
-function toDocumentPendingAttachmentReplacement(
-  attachment: PendingAttachmentReplacementRecord,
-): DocumentPersistence.PendingAttachmentReplacementRecord {
   const { noteId, ...documentAttachment } = attachment;
   return {
     ...documentAttachment,
@@ -295,11 +213,7 @@ function createAdaptedPersistencePendingReadMethods(
   notesPersistence: NotesPersistence,
 ): Pick<
   DocumentPersistence.DocumentsPersistence,
-  | "listPendingUpdates"
-  | "listPendingAttachments"
-  | "listPendingAttachmentRewraps"
-  | "listPendingAttachmentReplacements"
-  | "listLocalAttachments"
+  "listPendingUpdates" | "listPendingAttachments" | "listLocalAttachments"
 > {
   return {
     listPendingUpdates(execSql, localId) {
@@ -311,21 +225,6 @@ function createAdaptedPersistencePendingReadMethods(
         localId,
       );
       return attachments.map(toDocumentPendingAttachment);
-    },
-    async listPendingAttachmentRewraps(execSql, localId) {
-      const attachments = await notesPersistence.listPendingAttachmentRewraps(
-        execSql,
-        localId,
-      );
-      return attachments.map(toDocumentPendingAttachmentRewrap);
-    },
-    async listPendingAttachmentReplacements(execSql, localId) {
-      const attachments =
-        await notesPersistence.listPendingAttachmentReplacements(
-          execSql,
-          localId,
-        );
-      return attachments.map(toDocumentPendingAttachmentReplacement);
     },
     async listLocalAttachments(execSql, localId) {
       const attachments = await notesPersistence.listLocalAttachments(
@@ -344,15 +243,10 @@ function createAdaptedPersistenceMutationMethods(
   | "enqueuePendingUpdate"
   | "saveLocalAttachment"
   | "savePendingAttachment"
-  | "savePendingAttachmentRewrap"
-  | "savePendingAttachmentReplacement"
   | "deletePendingUpdate"
   | "deletePendingUpdates"
   | "deletePendingAttachment"
   | "deletePendingAttachments"
-  | "deletePendingAttachmentRewraps"
-  | "deletePendingAttachmentReplacement"
-  | "deletePendingAttachmentReplacements"
 > {
   return {
     enqueuePendingUpdate(execSql, { localId, ...pendingUpdate }) {
@@ -373,18 +267,6 @@ function createAdaptedPersistenceMutationMethods(
         noteId: localId,
       });
     },
-    savePendingAttachmentRewrap(execSql, { localId, ...attachment }) {
-      return notesPersistence.savePendingAttachmentRewrap(execSql, {
-        ...attachment,
-        noteId: localId,
-      });
-    },
-    savePendingAttachmentReplacement(execSql, { localId, ...attachment }) {
-      return notesPersistence.savePendingAttachmentReplacement(execSql, {
-        ...attachment,
-        noteId: localId,
-      });
-    },
     deletePendingUpdate(execSql, id) {
       return notesPersistence.deletePendingUpdate(execSql, id);
     },
@@ -401,22 +283,6 @@ function createAdaptedPersistenceMutationMethods(
     },
     deletePendingAttachments(execSql, localId) {
       return notesPersistence.deletePendingAttachments(execSql, localId);
-    },
-    deletePendingAttachmentRewraps(execSql, localId) {
-      return notesPersistence.deletePendingAttachmentRewraps(execSql, localId);
-    },
-    deletePendingAttachmentReplacement(execSql, localId, slotId) {
-      return notesPersistence.deletePendingAttachmentReplacement(
-        execSql,
-        localId,
-        slotId,
-      );
-    },
-    deletePendingAttachmentReplacements(execSql, localId) {
-      return notesPersistence.deletePendingAttachmentReplacements(
-        execSql,
-        localId,
-      );
     },
   };
 }
@@ -469,22 +335,6 @@ export const sqlNotesPersistence: NotesPersistence = {
     );
     return attachments.map(toNotePendingAttachment);
   },
-  async listPendingAttachmentRewraps(execSql, noteId) {
-    const attachments =
-      await sqlDocumentsPersistence.listPendingAttachmentRewraps(
-        execSql,
-        noteId,
-      );
-    return attachments.map(toNotePendingAttachmentRewrap);
-  },
-  async listPendingAttachmentReplacements(execSql, noteId) {
-    const attachments =
-      await sqlDocumentsPersistence.listPendingAttachmentReplacements(
-        execSql,
-        noteId,
-      );
-    return attachments.map(toNotePendingAttachmentReplacement);
-  },
   async listLocalAttachments(execSql, noteId) {
     const attachments = await sqlDocumentsPersistence.listLocalAttachments(
       execSql,
@@ -510,18 +360,6 @@ export const sqlNotesPersistence: NotesPersistence = {
       toDocumentPendingAttachment(attachment),
     );
   },
-  savePendingAttachmentRewrap(execSql, attachment) {
-    return sqlDocumentsPersistence.savePendingAttachmentRewrap(
-      execSql,
-      toDocumentPendingAttachmentRewrap(attachment),
-    );
-  },
-  savePendingAttachmentReplacement(execSql, attachment) {
-    return sqlDocumentsPersistence.savePendingAttachmentReplacement(
-      execSql,
-      toDocumentPendingAttachmentReplacement(attachment),
-    );
-  },
   deletePendingUpdate(execSql, id) {
     return sqlDocumentsPersistence.deletePendingUpdate(execSql, id);
   },
@@ -538,24 +376,5 @@ export const sqlNotesPersistence: NotesPersistence = {
   },
   deletePendingAttachments(execSql, noteId) {
     return sqlDocumentsPersistence.deletePendingAttachments(execSql, noteId);
-  },
-  deletePendingAttachmentRewraps(execSql, noteId) {
-    return sqlDocumentsPersistence.deletePendingAttachmentRewraps(
-      execSql,
-      noteId,
-    );
-  },
-  deletePendingAttachmentReplacement(execSql, noteId, slotId) {
-    return sqlDocumentsPersistence.deletePendingAttachmentReplacement(
-      execSql,
-      noteId,
-      slotId,
-    );
-  },
-  deletePendingAttachmentReplacements(execSql, noteId) {
-    return sqlDocumentsPersistence.deletePendingAttachmentReplacements(
-      execSql,
-      noteId,
-    );
   },
 };

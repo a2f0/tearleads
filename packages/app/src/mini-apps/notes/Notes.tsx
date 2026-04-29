@@ -122,26 +122,19 @@ interface NotesAttachmentsPanelProps {
   handleDragOver: (event: DragEvent<HTMLLabelElement>) => void;
   handleDrop: (event: DragEvent<HTMLLabelElement>) => void;
   imageUrlBySlotId: AttachmentImageUrlBySlotId;
-  onReplaceAttachment: (slotId: string, fileList: FileList | null) => void;
 }
 
 interface NotesAttachmentItemProps {
   attachment: NoteAttachment;
-  canAttach: boolean;
   imageUrl: string | undefined;
-  onReplaceAttachment: (slotId: string, fileList: FileList | null) => void;
   status: NoteAttachmentStatus | undefined;
 }
 
 function getAttachmentStatusLabel(
   status: NoteAttachmentStatus | undefined,
 ): string | null {
-  if (status === "needs_replacement") {
-    return "Replace this file to finish the access change.";
-  }
-
   if (status === "syncing") {
-    return "Syncing replacement.";
+    return "Syncing attachment.";
   }
 
   return null;
@@ -149,20 +142,10 @@ function getAttachmentStatusLabel(
 
 function NotesAttachmentItem({
   attachment,
-  canAttach,
   imageUrl,
-  onReplaceAttachment,
   status,
 }: NotesAttachmentItemProps) {
-  const replacementInputRef = useRef<HTMLInputElement>(null);
-  const replacementInputId = useId();
   const statusLabel = getAttachmentStatusLabel(status);
-  const needsReplacement = status === "needs_replacement";
-
-  function handleReplacementChange(event: ChangeEvent<HTMLInputElement>) {
-    onReplaceAttachment(attachment.slotId, event.currentTarget.files);
-    event.currentTarget.value = "";
-  }
 
   return (
     <li className="notes-attachment">
@@ -176,29 +159,6 @@ function NotesAttachmentItem({
         {statusLabel ? (
           <div className="notes-attachment-status">
             <span>{statusLabel}</span>
-            {needsReplacement ? (
-              <>
-                <button
-                  type="button"
-                  className="notes-attachment-replace-button"
-                  disabled={!canAttach}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    replacementInputRef.current?.click();
-                  }}
-                >
-                  Replace File
-                </button>
-                <input
-                  id={replacementInputId}
-                  ref={replacementInputRef}
-                  className="notes-file-input"
-                  type="file"
-                  disabled={!canAttach}
-                  onChange={handleReplacementChange}
-                />
-              </>
-            ) : null}
           </div>
         ) : null}
         {imageUrl ? (
@@ -224,7 +184,6 @@ function NotesAttachmentsPanel({
   handleDragOver,
   handleDrop,
   imageUrlBySlotId,
-  onReplaceAttachment,
 }: NotesAttachmentsPanelProps) {
   return (
     <label
@@ -243,9 +202,7 @@ function NotesAttachmentsPanel({
             <NotesAttachmentItem
               key={attachment.slotId}
               attachment={attachment}
-              canAttach={canAttach}
               imageUrl={imageUrlBySlotId[attachment.slotId]}
-              onReplaceAttachment={onReplaceAttachment}
               status={attachmentStatusBySlotId[attachment.slotId]}
             />
           ))}
@@ -262,10 +219,6 @@ interface SelectedAttachmentUpload {
 }
 
 type AttachFiles = (files: ReadonlyArray<SelectedAttachmentUpload>) => void;
-type ReplaceAttachment = (
-  slotId: string,
-  file: SelectedAttachmentUpload,
-) => void;
 
 async function readAttachmentUpload(
   file: File,
@@ -277,10 +230,7 @@ async function readAttachmentUpload(
   };
 }
 
-function createNotesFileHandlers(input: {
-  attachFiles: AttachFiles;
-  replaceAttachment: ReplaceAttachment;
-}) {
+function createNotesFileHandlers(input: { attachFiles: AttachFiles }) {
   async function loadFiles(files: ReadonlyArray<File>) {
     input.attachFiles(await Promise.all(files.map(readAttachmentUpload)));
   }
@@ -293,25 +243,8 @@ function createNotesFileHandlers(input: {
     await loadFiles(Array.from(fileList));
   }
 
-  async function handleSelectedReplacementFile(
-    slotId: string,
-    fileList: FileList | null,
-  ) {
-    if (!fileList || fileList.length === 0) {
-      return;
-    }
-
-    const [file] = Array.from(fileList);
-    if (!file) {
-      return;
-    }
-
-    input.replaceAttachment(slotId, await readAttachmentUpload(file));
-  }
-
   return {
     handleSelectedFiles,
-    handleSelectedReplacementFile,
   };
 }
 
@@ -324,7 +257,6 @@ export function Notes() {
     attachFiles,
     canAttach,
     ready,
-    replaceAttachment,
     setText,
     syncing,
     text,
@@ -336,11 +268,7 @@ export function Notes() {
     attachmentStorageKeyBySlotId,
     blobStore,
   );
-  const { handleSelectedFiles, handleSelectedReplacementFile } =
-    createNotesFileHandlers({
-      attachFiles,
-      replaceAttachment,
-    });
+  const { handleSelectedFiles } = createNotesFileHandlers({ attachFiles });
 
   const {
     dragActive,
@@ -372,9 +300,6 @@ export function Notes() {
         handleDragOver={handleDragOver}
         handleDrop={handleDrop}
         imageUrlBySlotId={imageUrlBySlotId}
-        onReplaceAttachment={(slotId, fileList) => {
-          void handleSelectedReplacementFile(slotId, fileList);
-        }}
       />
       <textarea
         className="notes-editor"

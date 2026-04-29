@@ -49,8 +49,6 @@ import {
   deriveDocumentTitle,
   type LocalAttachmentRecord,
   type PendingAttachmentRecord,
-  type PendingAttachmentReplacementRecord,
-  type PendingAttachmentRewrapRecord,
   type PendingUpdateRecord,
   type RelinkPersistedDocumentInput,
   sqlDocumentsPersistence,
@@ -174,7 +172,7 @@ interface DocumentAttachmentUpload {
   mimeType: string | null;
 }
 
-export type DocumentAttachmentStatus = "needs_replacement" | "syncing";
+export type DocumentAttachmentStatus = "syncing";
 
 export interface DocumentContextValue {
   attachments: ReadonlyArray<DocumentAttachment>;
@@ -420,8 +418,6 @@ interface DocumentStoreState {
   localId: string;
   listeners: Set<() => void>;
   pendingAttachments: PendingAttachmentRecord[];
-  pendingAttachmentReplacements: PendingAttachmentReplacementRecord[];
-  pendingAttachmentRewraps: PendingAttachmentRewrapRecord[];
   persistence: DocumentsPersistence;
   record: DocumentRecord | null;
   runtime: DocumentsRuntime;
@@ -448,8 +444,6 @@ function createDocumentStoreState(
     localId,
     listeners: new Set(),
     pendingAttachments: [],
-    pendingAttachmentReplacements: [],
-    pendingAttachmentRewraps: [],
     persistence,
     record: null,
     runtime: initialRuntime,
@@ -505,8 +499,6 @@ function resetDocumentStore(state: DocumentStoreState) {
   state.doc = null;
   state.record = null;
   state.pendingAttachments = [];
-  state.pendingAttachmentReplacements = [];
-  state.pendingAttachmentRewraps = [];
   state.attachmentStorageKeyBySlotId = {};
   state.initialized = false;
   state.initializePromise = null;
@@ -627,19 +619,11 @@ function getAttachmentStatuses(
   const pendingAttachmentSlotIds = new Set(
     state.pendingAttachments.map((attachment) => attachment.slotId),
   );
-  const replacementSlotIds = new Set(
-    state.pendingAttachmentReplacements.map((attachment) => attachment.slotId),
-  );
   const nextStatuses: Record<string, DocumentAttachmentStatus> = {};
 
   for (const attachment of attachments) {
     if (pendingAttachmentSlotIds.has(attachment.slotId)) {
       nextStatuses[attachment.slotId] = "syncing";
-      continue;
-    }
-
-    if (replacementSlotIds.has(attachment.slotId)) {
-      nextStatuses[attachment.slotId] = "needs_replacement";
     }
   }
 
@@ -1045,30 +1029,6 @@ async function hydrateAttachmentBlobs(
   }
 }
 
-async function clearPendingAttachmentReplacementsForSlots(
-  state: DocumentStoreState,
-  slotIds: ReadonlyArray<string>,
-) {
-  if (slotIds.length === 0) {
-    return;
-  }
-
-  const slotIdSet = new Set(slotIds);
-  state.pendingAttachmentReplacements =
-    state.pendingAttachmentReplacements.filter(
-      (pendingAttachmentReplacement) =>
-        !slotIdSet.has(pendingAttachmentReplacement.slotId),
-    );
-
-  for (const slotId of slotIdSet) {
-    await state.persistence.deletePendingAttachmentReplacement(
-      state.runtime.execSql,
-      state.localId,
-      slotId,
-    );
-  }
-}
-
 function upsertPendingAttachments(
   state: DocumentStoreState,
   nextPendingAttachments: ReadonlyArray<PendingAttachmentRecord>,
@@ -1102,7 +1062,6 @@ async function queuePendingAttachmentUpload(
     pendingAttachment,
   );
   upsertPendingAttachments(state, [pendingAttachment]);
-  await clearPendingAttachmentReplacementsForSlots(state, [attachment.slotId]);
   return pendingAttachment;
 }
 
@@ -1117,28 +1076,13 @@ async function initializeDocumentStore(
   await state.persistence.ensureSchema(state.runtime.execSql);
 
   const nextDoc = await createStoredDocument();
-  const [
-    existing,
-    loadedPendingAttachments,
-    loadedPendingAttachmentReplacements,
-    loadedPendingAttachmentRewraps,
-    localAttachments,
-  ] = await Promise.all([
-    state.persistence.loadDocument(state.runtime.execSql, state.localId),
-    listPendingAttachmentRecords(state),
-    state.persistence.listPendingAttachmentReplacements(
-      state.runtime.execSql,
-      state.localId,
-    ),
-    state.persistence.listPendingAttachmentRewraps(
-      state.runtime.execSql,
-      state.localId,
-    ),
-    listLocalAttachmentRecords(state),
-  ]);
+  const [existing, loadedPendingAttachments, localAttachments] =
+    await Promise.all([
+      state.persistence.loadDocument(state.runtime.execSql, state.localId),
+      listPendingAttachmentRecords(state),
+      listLocalAttachmentRecords(state),
+    ]);
   state.pendingAttachments = loadedPendingAttachments;
-  state.pendingAttachmentReplacements = loadedPendingAttachmentReplacements;
-  state.pendingAttachmentRewraps = loadedPendingAttachmentRewraps;
   state.attachmentStorageKeyBySlotId = Object.fromEntries(
     localAttachments.map((attachment) => [
       attachment.slotId,
@@ -1395,21 +1339,6 @@ async function syncPendingAttachments(
   setReadySnapshot(state, currentDoc, state.snapshot.syncing);
 
   return { completed: true, nextRecord: currentRecord };
-}
-
-async function syncPendingAttachmentRewraps(
-  state: DocumentStoreState,
-  nextRecord: DocumentRecord,
-  _encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<PendingMutationSyncResult> {
-  if (state.pendingAttachmentRewraps.length === 0) {
-    return { completed: false, nextRecord };
-  }
-
-  state.runtime.log(
-    "Documents: attachment rewrap sync is waiting for V2 attachment bindings.",
-  );
-  return { completed: false, nextRecord };
 }
 
 async function ensureDocumentRecordForSync(
@@ -1675,11 +1604,7 @@ async function refreshRemoteDocumentBeforePendingAttachmentMutation(
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
-  if (
-    (state.pendingAttachments.length === 0 &&
-      state.pendingAttachmentRewraps.length === 0) ||
-    !nextRecord.documentId
-  ) {
+  if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
     return { completed: false, nextRecord };
   }
 
@@ -1741,24 +1666,6 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
   }
   if (attachmentResult.completed) {
     requestDocumentStoreSync(state);
-    return;
-  }
-
-  const rewrapResult = await syncPendingAttachmentRewraps(
-    state,
-    nextRecord,
-    encapsulationKeyPair,
-  );
-  nextRecord = rewrapResult.nextRecord;
-  if (state.pendingAttachmentRewraps.length > 0) {
-    return;
-  }
-  if (rewrapResult.completed) {
-    requestDocumentStoreSync(state);
-    return;
-  }
-
-  if (state.pendingAttachmentReplacements.length > 0) {
     return;
   }
 
