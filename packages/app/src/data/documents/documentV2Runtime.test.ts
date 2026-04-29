@@ -1503,6 +1503,74 @@ test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and retu
   ).rejects.toThrow("ciphertext hash mismatch");
 });
 
+test("persistedDocumentV2SyncStateFromResponse rejects stale sync checkpoints", async () => {
+  const { author, secretKey, signingPublicKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const materialized = await buildMaterializedDocumentV2SyncPlan({
+    author,
+    localVersionVector: null,
+    minLsn: "0/20",
+    pendingUpdates: [createPendingUpdateRecord()],
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const plan = materialized.plan;
+  const response = await createSyncResponse(plan, { commitLsn: "0/20" });
+  const writerPublicKeysByFingerprint = new Map([
+    [author.signerKeyFingerprint, signingPublicKey],
+  ]);
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, response, {
+      writerPublicKeysByFingerprint,
+    }),
+  ).resolves.toEqual({
+    documentId: plan.documentId,
+    v2ContentKeyBundle: JSON.stringify(response.contentKeyBundle),
+    v2DocumentKekTargets: JSON.stringify(response.documentKekTargets),
+    v2DocumentManifestBundle: JSON.stringify(plan.documentManifest),
+  });
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, {
+      ...response,
+      commitLsn: "0/1F",
+    }),
+  ).rejects.toThrow("commit LSN is stale");
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, {
+      ...response,
+      commitLsn: null,
+    }),
+  ).rejects.toThrow("commit LSN is missing");
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, {
+      ...response,
+      commitLsn: "not-a-lsn",
+    }),
+  ).rejects.toThrow("commit LSN is invalid");
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, {
+      ...response,
+      missingUpdateEpochs: [],
+    }),
+  ).rejects.toThrow("missing update epochs mismatch");
+
+  await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, {
+      ...response,
+      updates: response.updates.map((update) => ({
+        ...update,
+        accessEpoch: 2,
+      })),
+    }),
+  ).rejects.toThrow("future access epoch");
+});
+
 test("syncRemoteDocumentV2 submits a signed V2 sync request and persists the verified response", async () => {
   const { author, secretKey, signingPublicKey, writerProjection } =
     await createMaterializedSyncFixture();

@@ -266,6 +266,7 @@ interface DocumentV2SyncPlan {
   documentManifest: DocumentV2CreateResponse["accessManifest"];
   expectedLinkSetManifestHash: string;
   expectedTargetHash: string;
+  minLsn?: string | undefined;
   organizationId: string;
   request: DocumentV2SyncRequest;
   sourceContentKeyBundle: DocumentV2CreateResponse["contentKeyBundle"];
@@ -2498,6 +2499,7 @@ export async function buildDocumentV2SyncPlan(
     documentManifest: input.documentManifest,
     expectedLinkSetManifestHash,
     expectedTargetHash,
+    minLsn: input.minLsn,
     organizationId,
     request,
     sourceContentKeyBundle: input.contentKeyBundle,
@@ -2682,6 +2684,104 @@ async function assertDocumentV2SyncResponseWriteHeaderSignature(input: {
   }
 }
 
+function parseDocumentV2WalLsn(value: string, label: string): bigint {
+  const [logHex, offsetHex, extra] = value.split("/");
+  if (
+    !logHex ||
+    !offsetHex ||
+    extra !== undefined ||
+    !/^[0-9A-F]+$/i.test(logHex) ||
+    !/^[0-9A-F]+$/i.test(offsetHex)
+  ) {
+    throw new Error(`${label} is invalid`);
+  }
+
+  return (BigInt(`0x${logHex}`) << 32n) + BigInt(`0x${offsetHex}`);
+}
+
+function assertDocumentV2SyncCommitCheckpointMatchesPlan(
+  plan: DocumentV2SyncPlan,
+  response: DocumentV2SyncResponse,
+): void {
+  if (response.commitLsn !== null) {
+    parseDocumentV2WalLsn(
+      response.commitLsn,
+      "Document V2 sync response commit LSN",
+    );
+  }
+  if (plan.minLsn === undefined) {
+    return;
+  }
+  const minLsn = parseDocumentV2WalLsn(
+    plan.minLsn,
+    "Document V2 sync requested minimum LSN",
+  );
+  if (response.commitLsn === null) {
+    throw new Error("Document V2 sync response commit LSN is missing");
+  }
+  if (
+    parseDocumentV2WalLsn(
+      response.commitLsn,
+      "Document V2 sync response commit LSN",
+    ) < minLsn
+  ) {
+    throw new Error("Document V2 sync response commit LSN is stale");
+  }
+}
+
+function documentV2SyncManifestEpoch(plan: DocumentV2SyncPlan): number {
+  if (!isPlainRecord(plan.documentManifest.state)) {
+    throw new Error("Document V2 sync manifest state is invalid");
+  }
+
+  return readRecordNumber(
+    plan.documentManifest.state,
+    "epoch",
+    "Document V2 sync manifest state",
+  );
+}
+
+function expectedDocumentV2MissingUpdateEpochs(
+  plan: DocumentV2SyncPlan,
+  response: DocumentV2SyncResponse,
+): DocumentV2SyncResponse["missingUpdateEpochs"] {
+  const currentAccessEpoch = documentV2SyncManifestEpoch(plan);
+  if (
+    response.updates.some((update) => update.accessEpoch > currentAccessEpoch)
+  ) {
+    throw new Error("Document V2 sync response includes a future access epoch");
+  }
+
+  const missingUpdateEpochs: DocumentV2SyncResponse["missingUpdateEpochs"] = [];
+  if (
+    response.updates.some((update) => update.accessEpoch < currentAccessEpoch)
+  ) {
+    missingUpdateEpochs.push("prior_epoch");
+  }
+  if (
+    response.updates.some((update) => update.accessEpoch === currentAccessEpoch)
+  ) {
+    missingUpdateEpochs.push("current_epoch");
+  }
+
+  return missingUpdateEpochs;
+}
+
+function assertDocumentV2MissingUpdateEpochsMatchPlan(
+  plan: DocumentV2SyncPlan,
+  response: DocumentV2SyncResponse,
+): void {
+  const expected = expectedDocumentV2MissingUpdateEpochs(plan, response);
+  if (
+    response.missingUpdateEpochs.length !== expected.length ||
+    response.missingUpdateEpochs.some(
+      (epoch, index) => epoch !== expected[index],
+    )
+  ) {
+    throw new Error("Document V2 sync response missing update epochs mismatch");
+  }
+}
+
 export async function persistedDocumentV2SyncStateFromResponse(
   plan: DocumentV2SyncPlan,
   response: DocumentV2SyncResponse,
@@ -2706,6 +2806,8 @@ export async function persistedDocumentV2SyncStateFromResponse(
     throw new Error("Document V2 sync response KEK target mismatch");
   }
   assertAcceptedOutgoingUpdateIdsMatchPlan(plan, response);
+  assertDocumentV2SyncCommitCheckpointMatchesPlan(plan, response);
+  assertDocumentV2MissingUpdateEpochsMatchPlan(plan, response);
 
   await Promise.all(
     response.updates.map((update) =>

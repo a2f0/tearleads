@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import type {
   ContainerV2MutationRequest,
+  DocumentV2CreateRequest,
   DocumentV2LinkSetMutationRequest,
+  DocumentV2SyncRequest,
 } from "@tearleads/validators/request";
 import { ApiClient } from "./ApiClient";
 
@@ -127,6 +129,63 @@ function createDocumentV2LinkSetMutationResponse() {
       ],
       documentKeyTargetHash: "target-hash",
     },
+  };
+}
+
+function createDocumentV2CreateRequest(): DocumentV2CreateRequest {
+  return {
+    event: { eventType: "document.link" },
+    body: { eventType: "document.link" },
+    expectedManifestHash: "document-manifest-hash",
+    manifest: { objectKind: "document" },
+    previousManifest: null,
+    targetContainerPath: [{ manifestHash: "container-manifest-hash" }],
+    contentKeyBundle: {
+      contentKeyEpoch: 1,
+      linkSetManifestHash: "document-manifest-hash",
+      targetHash: "target-hash",
+      targets: [
+        {
+          containerId: "container-1",
+          containerManifestHash: "container-manifest-hash",
+          containerKeyEpochId: "container-key-epoch-id",
+          containerKeyEpoch: 1,
+          wrappedKey: "wrapped-key",
+          wrappingMetadata: { alg: "test" },
+        },
+      ],
+    },
+  };
+}
+
+function createDocumentV2CreateResponse() {
+  return {
+    ...createDocumentV2LinkSetMutationResponse(),
+    createdAt: "2026-04-28T00:00:00.000Z",
+  };
+}
+
+function createDocumentV2SyncRequest(): DocumentV2SyncRequest {
+  return {
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "document-manifest-hash",
+    expectedTargetHash: "target-hash",
+    localVersionVector: null,
+    outgoingUpdates: [],
+  };
+}
+
+function createDocumentV2SyncResponse() {
+  const mutationResponse = createDocumentV2LinkSetMutationResponse();
+
+  return {
+    acceptedOutgoingUpdateIds: [],
+    commitLsn: "0/16B6C50",
+    contentKeyBundle: mutationResponse.contentKeyBundle,
+    documentId: mutationResponse.id,
+    documentKekTargets: mutationResponse.documentKekTargets,
+    missingUpdateEpochs: [],
+    updates: [],
   };
 }
 
@@ -322,6 +381,59 @@ test("posts signed V2 document link-set mutations to the V2 route namespace", as
       {
         body: JSON.stringify(mutation),
         input: "http://api.test/v2/documents/document-1/unlink",
+        method: "POST",
+      },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("posts signed V2 document create and sync mutations to the V2 route namespace", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{
+    input: RequestInfo | URL;
+    init: RequestInit | undefined;
+  }> = [];
+  const fetchMock = Object.assign(
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      calls.push({ input, init });
+      const body = String(input).endsWith("/sync")
+        ? createDocumentV2SyncResponse()
+        : createDocumentV2CreateResponse();
+      return new Response(JSON.stringify(body), {
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    { preconnect: originalFetch.preconnect },
+  );
+  globalThis.fetch = fetchMock;
+
+  try {
+    const client = new ApiClient("http://api.test");
+    const createRequest = createDocumentV2CreateRequest();
+    const syncRequest = createDocumentV2SyncRequest();
+
+    expect(await client.createDocumentV2(createRequest)).not.toBeNull();
+    expect(
+      await client.syncDocumentV2("document-1", syncRequest),
+    ).not.toBeNull();
+
+    expect(
+      calls.map((call) => ({
+        body: call.init?.body,
+        input: String(call.input),
+        method: call.init?.method,
+      })),
+    ).toEqual([
+      {
+        body: JSON.stringify(createRequest),
+        input: "http://api.test/v2/documents",
+        method: "POST",
+      },
+      {
+        body: JSON.stringify(syncRequest),
+        input: "http://api.test/v2/documents/document-1/sync",
         method: "POST",
       },
     ]);
