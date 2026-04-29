@@ -86,6 +86,7 @@ function createUnavailableNotesApiClient(
     bindBlobAttachmentV2: async () => null,
     createDocumentV2: async () => null,
     getBlob: async () => null,
+    getEncapsulationKey: async () => null,
     getContainerV2WriterProjection: async () => null,
     getDocumentV2WriterProjection: async () => null,
     listContainers: async () => createListedContainers(containerId),
@@ -350,7 +351,7 @@ interface NoteV2RuntimePatch {
   userId: string;
 }
 
-function createNoteV2RuntimePatch(input: {
+async function createNoteV2RuntimePatch(input: {
   attachmentBinds?: Array<{
     blobId: string;
     request: BlobV2AttachmentBindRequest;
@@ -362,9 +363,12 @@ function createNoteV2RuntimePatch(input: {
     request: BlobV2AttachmentBindRequest,
   ) => Promise<void> | void;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
-}): NoteV2RuntimePatch {
+}): Promise<NoteV2RuntimePatch> {
   const containerId = input.containerId ?? "root-container";
   const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
   let projectionPromise: Promise<ContainerV2WriterProjectionResponse> | null =
     null;
   let stageCount = 0;
@@ -429,6 +433,17 @@ function createNoteV2RuntimePatch(input: {
         const blob = blobs.get(blobId);
         return blob ? { blobId, ...blob } : null;
       },
+      getEncapsulationKey: async (userId) =>
+        userId === "user-1"
+          ? {
+              encapsulationPublicKey: bytesToBase64(
+                input.encapsulationKeyPair.publicKey,
+              ),
+              signingKeyFingerprint: signingFingerprint,
+              signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+              userId,
+            }
+          : null,
       getContainerV2WriterProjection: () => getProjection(),
       getDocumentV2WriterProjection: async () => {
         if (!storedDocument) {
@@ -470,7 +485,7 @@ function createNoteV2RuntimePatch(input: {
       },
     },
     organizationId: "organization-1",
-    signingFingerprint: "a".repeat(64),
+    signingFingerprint,
     signingKeyPair,
     userId: "user-1",
   };
@@ -728,7 +743,7 @@ function createRuntime(containerId = "root-container"): NotesRuntime {
   };
 }
 
-function createSyncRuntime(
+async function createSyncRuntime(
   encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>,
   containerId = "root-container",
   options: {
@@ -742,8 +757,8 @@ function createSyncRuntime(
     ) => Promise<void> | void;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
-): NotesRuntime {
-  const v2Patch = createNoteV2RuntimePatch({
+): Promise<NotesRuntime> {
+  const v2Patch = await createNoteV2RuntimePatch({
     containerId,
     encapsulationKeyPair,
     ...(options.attachmentBinds
@@ -832,7 +847,7 @@ async function createSqlRuntime(): Promise<
 test("primeNotesStore reuses a synced remote note across different local ids", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const v2Patch = createNoteV2RuntimePatch({
+  const v2Patch = await createNoteV2RuntimePatch({
     encapsulationKeyPair,
   });
   const runtime: NotesRuntime & { close: () => void } = {
@@ -886,7 +901,7 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
 test("primeNotesStore collapses live duplicate note facades after remote identity resolves", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const v2Patch = createNoteV2RuntimePatch({
+  const v2Patch = await createNoteV2RuntimePatch({
     encapsulationKeyPair,
   });
   const runtime: NotesRuntime & { close: () => void } = {
@@ -1055,7 +1070,10 @@ test("notes store reloads persisted note text and pending updates", async () => 
 test("notes store creates a document linked to the configured container", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "shared-container",
+  );
 
   const store = createNotesStore("container-note", runtime, persistence);
   store.updateRuntime(runtime);
@@ -1234,10 +1252,10 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
     outgoingUpdateCount: number;
   }> = [];
   const runtime: NotesRuntime = {
-    ...createSyncRuntime(encapsulationKeyPair, "shared-container", {
+    ...(await createSyncRuntime(encapsulationKeyPair, "shared-container", {
       attachmentBinds,
       syncCalls,
-    }),
+    })),
     log: (message) => logs.push(message),
   };
   const store = createNotesStore("v2-attachment-upload", runtime, persistence);
@@ -1315,38 +1333,42 @@ test("notes store preserves a replacement queued during V2 attachment upload", a
   }> = [];
   let replacementQueued = false;
   let store: ReturnType<typeof createNotesStore>;
-  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container", {
-    attachmentBinds,
-    onBindBlobAttachmentV2: async () => {
-      if (replacementQueued) {
-        return;
-      }
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "shared-container",
+    {
+      attachmentBinds,
+      onBindBlobAttachmentV2: async () => {
+        if (replacementQueued) {
+          return;
+        }
 
-      const slotId = store.getSnapshot().attachments[0]?.slotId;
-      if (!slotId) {
-        throw new Error("Expected an attachment slot before replacement.");
-      }
+        const slotId = store.getSnapshot().attachments[0]?.slotId;
+        if (!slotId) {
+          throw new Error("Expected an attachment slot before replacement.");
+        }
 
-      replacementQueued = true;
-      store.replaceAttachment(slotId, {
-        bytes: new TextEncoder().encode("replacement bytes"),
-        mimeType: "image/png",
-        name: "replacement.png",
-      });
+        replacementQueued = true;
+        store.replaceAttachment(slotId, {
+          bytes: new TextEncoder().encode("replacement bytes"),
+          mimeType: "image/png",
+          name: "replacement.png",
+        });
 
-      await waitForCondition(
-        () =>
-          persistence
-            .getState()
-            .pendingAttachments.some(
-              (attachment) =>
-                attachment.slotId === slotId &&
-                attachment.name === "replacement.png",
-            ),
-        "Replacement attachment was not queued during upload.",
-      );
+        await waitForCondition(
+          () =>
+            persistence
+              .getState()
+              .pendingAttachments.some(
+                (attachment) =>
+                  attachment.slotId === slotId &&
+                  attachment.name === "replacement.png",
+              ),
+          "Replacement attachment was not queued during upload.",
+        );
+      },
     },
-  });
+  );
   store = createNotesStore("v2-attachment-replacement", runtime, persistence);
   store.updateRuntime(runtime);
 
@@ -1391,7 +1413,10 @@ test("notes store preserves a replacement queued during V2 attachment upload", a
 test("notes store keeps prior attachments when a second file is attached", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtime = createSyncRuntime(encapsulationKeyPair, "shared-container");
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "shared-container",
+  );
   const store = createNotesStore("attachment-sequence", runtime, persistence);
   store.updateRuntime(runtime);
 
@@ -1434,7 +1459,7 @@ test("notes store keeps prior attachments when a second file is attached", async
 test("notes store reloads persisted attachment metadata from the note snapshot", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtime = createSyncRuntime(encapsulationKeyPair);
+  const runtime = await createSyncRuntime(encapsulationKeyPair);
   const firstStore = createNotesStore(
     "attachment-reload",
     runtime,
@@ -1574,9 +1599,13 @@ test("notes store persists commitLsn and reuses it as minLsn on the next sync", 
     minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
-  const runtime = createSyncRuntime(encapsulationKeyPair, "root-container", {
-    syncCalls: syncDocumentCalls,
-  });
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "root-container",
+    {
+      syncCalls: syncDocumentCalls,
+    },
+  );
   const store = createNotesStore("default", runtime, persistence);
   store.updateRuntime(runtime);
 

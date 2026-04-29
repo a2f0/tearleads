@@ -1470,6 +1470,10 @@ test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and retu
   });
 
   await expect(
+    persistedDocumentV2SyncStateFromResponse(plan, response),
+  ).rejects.toThrow("writer public key verification is required");
+
+  await expect(
     persistedDocumentV2SyncStateFromResponse(plan, response, {
       writerPublicKeysByFingerprint: new Map(),
     }),

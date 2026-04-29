@@ -2651,7 +2651,9 @@ async function assertDocumentV2SyncResponseWriteHeaderSignature(input: {
 }): Promise<void> {
   const { header, plan, update } = input;
   if (!input.writerPublicKeysByFingerprint && !input.resolveWriterPublicKey) {
-    return;
+    throw new Error(
+      "Document V2 sync response writer public key verification is required",
+    );
   }
 
   const writerPublicKey =
