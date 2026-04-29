@@ -18,6 +18,7 @@ import {
   type WriteHeaderV2,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
   BlobV2AttachmentBindRequest,
   BlobV2ContentKeyBundleRequest,
@@ -26,11 +27,15 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   BlobV2AttachmentBindResponse,
-  ContainerV2WriterProjectionResponse,
   DocumentV2WriterProjectionResponse,
   StageBlobResponse,
 } from "@tearleads/validators/response";
 import type { BlobBytes } from "../blobs";
+import {
+  readCanonicalJson,
+  readCanonicalRecord,
+  readCanonicalRecordPaths,
+} from "../keyingV2CanonicalJson";
 import type { ExecSql } from "../persistence/sqlSchema";
 import {
   type DocumentV2CreateAuthor,
@@ -154,10 +159,6 @@ interface DecryptDocumentAttachmentBlobV2Input {
   execSql?: ExecSql | undefined;
   targetSecretKey: Uint8Array;
   writerProjection: DocumentV2WriterProjectionResponse;
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function readRecordString(
@@ -393,11 +394,11 @@ async function unwrapBlobContentKeyTarget(input: {
 function authorizingContainerPathRecords(
   writerProjection: DocumentV2WriterProjectionResponse,
 ): Record<string, unknown>[][] {
-  return writerProjection.authorizingContainerPaths.map(
-    (projection: ContainerV2WriterProjectionResponse) =>
-      projection.path.map(
-        (bundle) => bundle as unknown as Record<string, unknown>,
-      ),
+  return readCanonicalRecordPaths(
+    writerProjection.authorizingContainerPaths.map(
+      (projection) => projection.path,
+    ),
+    "Blob V2 authorizing container paths",
   );
 }
 
@@ -585,8 +586,10 @@ async function encryptBlobBytes(input: {
     nonceDomainHash,
     metadataHash,
     targetHash,
-    contentKeyBundle:
-      input.contentKeyBundle as unknown as KeyingV2CanonicalJson,
+    contentKeyBundle: readCanonicalJson(
+      input.contentKeyBundle,
+      "Blob V2 encrypted bytes content-key bundle",
+    ),
     iv: bytesToBase64(BLOB_V2_CONTENT_RECORD_IV),
     ciphertext: bytesToBase64(ciphertext),
   });
@@ -968,7 +971,7 @@ async function signBlobAttachmentEvent(input: {
       ...input.targets.map((target) => target.containerManifestHash),
     ]),
     bodyHash: await computeAccessEventBodyHash(
-      body as unknown as KeyingV2CanonicalJson,
+      readCanonicalJson(body, "Blob V2 attachment bind body"),
     ),
     signerUserId: input.author.signerUserId,
     signerDeviceId: input.author.signerDeviceId,
@@ -1053,6 +1056,19 @@ function assertBlobAttachmentBindResponse(input: {
   }
 }
 
+function blobAttachmentStagedBlobRequest(
+  stageId: string,
+  writeHeader: WriteHeaderV2,
+): NonNullable<BlobV2AttachmentBindRequest["stagedBlob"]> {
+  return {
+    stageId,
+    writeHeader: readCanonicalRecord(
+      writeHeader,
+      "Blob V2 attachment write header",
+    ),
+  };
+}
+
 export async function uploadDocumentAttachmentV2({
   apiClient,
   author,
@@ -1121,17 +1137,14 @@ export async function uploadDocumentAttachmentV2({
   }
 
   const request: BlobV2AttachmentBindRequest = {
-    event: event as unknown as Record<string, unknown>,
-    body,
+    event: readCanonicalRecord(event, "Blob V2 attachment bind event"),
+    body: readCanonicalRecord(body, "Blob V2 attachment bind body"),
     documentManifest: material.writerProjection.documentManifest,
     authorizingContainerPaths: authorizingContainerPathRecords(
       material.writerProjection,
     ),
     contentKeyBundle: material.contentKeyBundle,
-    stagedBlob: {
-      stageId: stage.stageId,
-      writeHeader: writeHeader as unknown as Record<string, unknown>,
-    },
+    stagedBlob: blobAttachmentStagedBlobRequest(stage.stageId, writeHeader),
   };
   const response = await apiClient.bindBlobAttachmentV2(blobId, request);
   if (!response) {
