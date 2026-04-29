@@ -3,6 +3,7 @@ import {
   hasArrayProperty,
   hasNumberProperty,
   hasStringProperty,
+  isWalLsnString,
 } from "../util";
 
 export interface DocumentV2ManifestBundle {
@@ -103,10 +104,6 @@ function hasPositiveNumberProperty<Key extends string>(
     Number.isInteger(value[key]) &&
     value[key] > 0
   );
-}
-
-function isWalLsnString(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9A-F]+\/[0-9A-F]+$/i.test(value);
 }
 
 function isNullableString(value: unknown): value is string | null {

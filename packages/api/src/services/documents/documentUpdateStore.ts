@@ -1,5 +1,6 @@
 import { decodeVersionVector } from "@tearleads/loro";
 import type { DocumentUpdateRecord } from "@tearleads/loro/server";
+import { parseWalLsn } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import { documentUpdateSpans, documentUpdates } from "../../schema";
@@ -75,16 +76,6 @@ function isMissingDocumentUpdateRow(
     typeof sequence === "number" &&
     Number.isInteger(sequence)
   );
-}
-
-function parseWalLsn(value: string): bigint {
-  const [logHex, offsetHex, extra] = value.split("/");
-
-  if (!logHex || !offsetHex || extra !== undefined) {
-    throw new Error("Invalid WAL LSN.");
-  }
-
-  return (BigInt(`0x${logHex}`) << 32n) + BigInt(`0x${offsetHex}`);
 }
 
 function buildClientFrontierRows(
