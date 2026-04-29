@@ -57,6 +57,8 @@ import {
   containerKeyEpochs,
   containers,
   documentContainerLinks,
+  documentContentKeyEpochs,
+  documentContentKeyTargets,
   users,
 } from "../schema";
 
@@ -862,6 +864,43 @@ test("GET /v2/documents/:documentId/writer-projection returns document targets a
     created.contentKeyBundle.targetHash,
   );
   expect(projection.authorizingContainerPaths).toHaveLength(1);
+});
+
+test("GET /v2/documents/:documentId/writer-projection rejects tampered content-key targets", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const created = await createDocumentV2({ owner, root });
+  const [contentKeyEpoch] = await db
+    .select({ id: documentContentKeyEpochs.id })
+    .from(documentContentKeyEpochs)
+    .where(eq(documentContentKeyEpochs.documentId, created.id))
+    .limit(1);
+  invariant(contentKeyEpoch, "expected document content-key epoch");
+
+  await db
+    .update(documentContentKeyTargets)
+    .set({
+      containerKeyEpochId: "tampered-container-key-epoch",
+    })
+    .where(
+      eq(
+        documentContentKeyTargets.documentContentKeyEpochId,
+        contentKeyEpoch.id,
+      ),
+    );
+
+  const projectionResponse = await routeApp.request(
+    `/v2/documents/${created.id}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(projectionResponse.status).toBe(409);
 });
 
 test("GET /v2/documents/:documentId/writer-projection rejects malformed stored document V2 state", async () => {
