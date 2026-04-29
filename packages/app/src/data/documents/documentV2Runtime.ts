@@ -1291,6 +1291,84 @@ function currentDocumentV2Targets(
   return targets;
 }
 
+function assertSortedStringsEqual(
+  left: readonly string[],
+  right: readonly string[],
+  message: string,
+): void {
+  if (
+    left.length !== right.length ||
+    left.some((value, index) => value !== right[index])
+  ) {
+    throw new Error(message);
+  }
+}
+
+export async function assertDocumentV2WriterProjectionConsistent(
+  writerProjection: DocumentV2WriterProjectionResponse,
+): Promise<DocumentContentKeyTargetV2[]> {
+  const manifestIdentity = await assertDocumentV2ManifestBundleConsistent({
+    bundle: writerProjection.documentManifest,
+    label: "Document V2 writer projection manifest",
+  });
+  if (
+    writerProjection.documentId !== manifestIdentity.documentId ||
+    writerProjection.documentKekTargets.documentId !==
+      manifestIdentity.documentId ||
+    writerProjection.contentKeyBundle.documentId !== manifestIdentity.documentId
+  ) {
+    throw new Error("Document V2 writer projection document id mismatch");
+  }
+  if (
+    writerProjection.documentKekTargets.linkSetManifestHash !==
+      writerProjection.documentManifest.manifestHash ||
+    writerProjection.contentKeyBundle.linkSetManifestHash !==
+      writerProjection.documentManifest.manifestHash
+  ) {
+    throw new Error("Document V2 writer projection link manifest mismatch");
+  }
+  if (
+    writerProjection.documentKekTargets.documentKeyTargetHash !==
+    writerProjection.contentKeyBundle.targetHash
+  ) {
+    throw new Error("Document V2 writer projection target hash mismatch");
+  }
+
+  const targets = currentDocumentV2Targets(writerProjection);
+  const canonicalTargetHash =
+    await computeDocumentContentKeyTargetHash(targets);
+  if (
+    canonicalTargetHash !==
+    writerProjection.documentKekTargets.documentKeyTargetHash
+  ) {
+    throw new Error(
+      "Document V2 writer projection target hash is not canonical",
+    );
+  }
+
+  assertSortedStringsEqual(
+    uniqueSortedStrings(targets.map((target) => target.containerId)),
+    readLinkedContainerIdsFromDocumentManifest(writerProjection),
+    "Document V2 writer projection targets do not match linked containers",
+  );
+  assertSortedStringsEqual(
+    uniqueSortedStrings(
+      writerProjection.documentKekTargets.linkedContainerManifestHashes,
+    ),
+    uniqueSortedStrings(targets.map((target) => target.containerManifestHash)),
+    "Document V2 writer projection target manifest summary mismatch",
+  );
+  assertSortedStringsEqual(
+    uniqueSortedStrings(
+      writerProjection.documentKekTargets.linkedContainerKeyEpochIds,
+    ),
+    uniqueSortedStrings(targets.map((target) => target.containerKeyEpochId)),
+    "Document V2 writer projection target KEK summary mismatch",
+  );
+
+  return targets;
+}
+
 function deriveDocumentV2LinkSetTargetState(input: {
   operation: DocumentV2LinkSetMutationOperation;
   targetContainerProjection: ContainerV2WriterProjectionResponse;
@@ -1577,6 +1655,7 @@ export async function buildMaterializedDocumentV2LinkSetMutationPlan(input: {
   targetSecretKey: Uint8Array;
   writerProjection: DocumentV2WriterProjectionResponse;
 }): Promise<MaterializedDocumentV2LinkSetMutationPlan> {
+  await assertDocumentV2WriterProjectionConsistent(input.writerProjection);
   const targetState = deriveDocumentV2LinkSetTargetState({
     operation: input.operation,
     targetContainerProjection: input.targetContainerProjection,
@@ -2375,6 +2454,7 @@ export async function buildMaterializedDocumentV2SyncPlan(input: {
   targetSecretKey: Uint8Array;
   writerProjection: DocumentV2WriterProjectionResponse;
 }): Promise<MaterializedDocumentV2SyncPlan> {
+  await assertDocumentV2WriterProjectionConsistent(input.writerProjection);
   const contentKey = await unwrapDocumentV2ContentKeyFromWriterProjection({
     execSql: input.execSql,
     secretKey: input.targetSecretKey,
