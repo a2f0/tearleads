@@ -53,21 +53,7 @@ export function createExplorerDocumentsRuntime(
   } = appData;
 
   return {
-    apiClient: {
-      createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
-      getEncapsulationKey: apiClient.getEncapsulationKey.bind(apiClient),
-      getContainerV2WriterProjection:
-        apiClient.getContainerV2WriterProjection.bind(apiClient),
-      getDocumentV2WriterProjection:
-        apiClient.getDocumentV2WriterProjection.bind(apiClient),
-      getBlob: apiClient.getBlob.bind(apiClient),
-      listContainers: apiClient.listContainers.bind(apiClient),
-      listDocumentAttachments:
-        apiClient.listDocumentAttachments.bind(apiClient),
-      bindBlobAttachmentV2: apiClient.bindBlobAttachmentV2.bind(apiClient),
-      stageBlob: apiClient.stageBlob.bind(apiClient),
-      syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
-    },
+    apiClient,
     blobStore,
     cacheReferencedPrincipalPolicies,
     containerId,

@@ -40,6 +40,22 @@ import { getCurrentPrincipalPolicy } from "./routes/principals";
 import { postPublicKey } from "./routes/register";
 import type { HttpMethod, RequestFn } from "./types";
 
+function bindPrototypeMethods(instance: object, prototype: object): void {
+  const instanceRecord = instance as Record<string, unknown>;
+  const prototypeRecord = prototype as Record<string, unknown>;
+
+  for (const propertyName of Object.getOwnPropertyNames(prototypeRecord)) {
+    if (propertyName === "constructor") {
+      continue;
+    }
+
+    const property = prototypeRecord[propertyName];
+    if (typeof property === "function") {
+      instanceRecord[propertyName] = property.bind(instance);
+    }
+  }
+}
+
 export class ApiClient {
   private authToken: string | null = null;
   private readonly request: RequestFn;
@@ -48,7 +64,8 @@ export class ApiClient {
   private onNetworkSuccess: (() => void) | null = null;
 
   constructor(private readonly baseUrl: string) {
-    this.request = this.makeRequest.bind(this);
+    bindPrototypeMethods(this, ApiClient.prototype);
+    this.request = this.makeRequest;
   }
 
   setOnError(handler: ((message: string) => void) | null): void {

@@ -217,6 +217,37 @@ test("includes authorization header after authentication", async () => {
   globalThis.fetch = originalFetch;
 });
 
+test("allows public methods to be called after destructuring", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: RequestInit[] = [];
+  const fetchMock = Object.assign(
+    async (
+      _input: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      calls.push(init ?? {});
+      return new Response(JSON.stringify({ message: "ok" }));
+    },
+    { preconnect: originalFetch.preconnect },
+  );
+  globalThis.fetch = fetchMock;
+
+  try {
+    const client = new ApiClient("http://api.test");
+    const { getHealth, setAuthToken } = client;
+
+    setAuthToken("abc");
+    await getHealth();
+
+    expect(calls[0]?.headers).toEqual({
+      "Content-Type": "application/json",
+      Authorization: "Bearer abc",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("returns null on network error", async () => {
   const originalFetch = globalThis.fetch;
   const fetchMock = Object.assign(

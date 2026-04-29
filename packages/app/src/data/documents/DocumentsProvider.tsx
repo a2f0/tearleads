@@ -72,20 +72,12 @@ type DocumentAppData = ReturnType<typeof useAppData>;
 type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["encapsulationKeyPair"]
 >;
-type DocumentRuntimeV2Api = Pick<
-  DocumentAppData["apiClient"],
-  | "createDocumentV2"
-  | "getEncapsulationKey"
-  | "getContainerV2WriterProjection"
-  | "getDocumentV2WriterProjection"
-  | "syncDocumentV2"
->;
 type DocumentAttachmentRuntimeV2Api = Pick<
   DocumentAppData["apiClient"],
   "bindBlobAttachmentV2" | "getDocumentV2WriterProjection" | "stageBlob"
 >;
 type ResolvedDocumentAttachmentRuntimeV2Api = DocumentAttachmentRuntimeV2Api &
-  Pick<DocumentsRuntime["apiClient"], "listDocumentAttachments">;
+  Pick<DocumentAppData["apiClient"], "listDocumentAttachments">;
 type DocumentAttachmentBinding = NonNullable<
   Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
 >[number];
@@ -131,12 +123,7 @@ function sameAttachmentStatuses(
 }
 
 export interface DocumentsRuntime {
-  apiClient: Pick<
-    DocumentAppData["apiClient"],
-    "getBlob" | "listContainers" | "listDocumentAttachments"
-  > &
-    DocumentRuntimeV2Api &
-    DocumentAttachmentRuntimeV2Api;
+  apiClient: DocumentAppData["apiClient"];
   blobStore: BlobStore;
   cacheReferencedPrincipalPolicies: DocumentAppData["cacheReferencedPrincipalPolicies"];
   containerId: DocumentAppData["containerId"];
@@ -152,25 +139,6 @@ export interface DocumentsRuntime {
   signingFingerprint?: DocumentAppData["signingFingerprint"];
   signingKeyPair?: DocumentAppData["signingKeyPair"];
   userId?: DocumentAppData["userId"];
-}
-
-function createDocumentsRuntimeApiClient(
-  apiClient: DocumentAppData["apiClient"],
-): DocumentsRuntime["apiClient"] {
-  return {
-    createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
-    getEncapsulationKey: apiClient.getEncapsulationKey.bind(apiClient),
-    getContainerV2WriterProjection:
-      apiClient.getContainerV2WriterProjection.bind(apiClient),
-    getDocumentV2WriterProjection:
-      apiClient.getDocumentV2WriterProjection.bind(apiClient),
-    getBlob: apiClient.getBlob.bind(apiClient),
-    listContainers: apiClient.listContainers.bind(apiClient),
-    listDocumentAttachments: apiClient.listDocumentAttachments.bind(apiClient),
-    bindBlobAttachmentV2: apiClient.bindBlobAttachmentV2.bind(apiClient),
-    stageBlob: apiClient.stageBlob.bind(apiClient),
-    syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
-  };
 }
 
 interface DocumentAttachmentUpload {
@@ -549,24 +517,6 @@ function resolveDocumentV2Author(
   };
 }
 
-function resolveDocumentV2Api(runtime: DocumentsRuntime): DocumentRuntimeV2Api {
-  const {
-    createDocumentV2,
-    getEncapsulationKey,
-    getContainerV2WriterProjection,
-    getDocumentV2WriterProjection,
-    syncDocumentV2,
-  } = runtime.apiClient;
-
-  return {
-    createDocumentV2,
-    getEncapsulationKey,
-    getContainerV2WriterProjection,
-    getDocumentV2WriterProjection,
-    syncDocumentV2,
-  };
-}
-
 function createDocumentWriterPublicKeyResolver(state: DocumentStoreState) {
   const cache = new Map<string, Promise<Uint8Array | null>>();
 
@@ -624,24 +574,6 @@ function createDocumentWriterPublicKeyResolver(state: DocumentStoreState) {
     }
 
     return cached;
-  };
-}
-
-function resolveDocumentV2AttachmentApi(
-  runtime: DocumentsRuntime,
-): ResolvedDocumentAttachmentRuntimeV2Api {
-  const {
-    bindBlobAttachmentV2,
-    getDocumentV2WriterProjection,
-    listDocumentAttachments,
-    stageBlob,
-  } = runtime.apiClient;
-
-  return {
-    bindBlobAttachmentV2,
-    getDocumentV2WriterProjection,
-    listDocumentAttachments,
-    stageBlob,
   };
 }
 
@@ -844,7 +776,7 @@ async function ensureRemoteDocument(
   }
 
   const author = resolveDocumentV2Author(state.runtime);
-  const apiClient = resolveDocumentV2Api(state.runtime);
+  const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
       "Documents: skipped V2 remote create because the V2 writer context is unavailable.",
@@ -993,7 +925,7 @@ async function hydrateMissingAttachmentBlob(
     return;
   }
 
-  const attachmentApi = resolveDocumentV2AttachmentApi(state.runtime);
+  const attachmentApi = state.runtime.apiClient;
   if (!attachmentApi) {
     state.runtime.log(
       `Documents: cannot hydrate V2 blob ${binding.blobId} without the V2 attachment API.`,
@@ -1345,7 +1277,7 @@ async function syncPendingAttachments(
   const remoteDocumentId = currentRecord.documentId;
 
   const author = resolveDocumentV2Author(state.runtime);
-  const apiClient = resolveDocumentV2AttachmentApi(state.runtime);
+  const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
       "Documents: skipped V2 attachment upload because the V2 writer context is unavailable.",
@@ -1505,7 +1437,7 @@ async function requestDocumentSync(
   }
 
   const author = resolveDocumentV2Author(state.runtime);
-  const apiClient = resolveDocumentV2Api(state.runtime);
+  const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
       "Documents: skipped V2 sync because the V2 writer context is unavailable.",
@@ -1545,7 +1477,7 @@ async function requestDocumentSyncProbe(
   }
 
   const author = resolveDocumentV2Author(state.runtime);
-  const apiClient = resolveDocumentV2Api(state.runtime);
+  const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
       "Documents: skipped V2 sync probe because the V2 writer context is unavailable.",
@@ -2224,7 +2156,7 @@ export function DocumentsProvider({
   const appData = useAppData();
   const runtime = useMemo<DocumentsRuntime>(
     () => ({
-      apiClient: createDocumentsRuntimeApiClient(appData.apiClient),
+      apiClient: appData.apiClient,
       blobStore: appData.blobStore,
       cacheReferencedPrincipalPolicies:
         appData.cacheReferencedPrincipalPolicies,
