@@ -1,9 +1,8 @@
 import type { ContainerKekTargetV2 } from "@tearleads/crypto";
+import { inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
-import {
-  getAccessManifestBundle,
-  getCurrentAccessManifestHeads,
-} from "./accessManifestStore";
+import { accessManifests } from "../schema";
+import { getCurrentAccessManifestHeads } from "./accessManifestStore";
 import { getContainerKeyEpochsById } from "./containerKekStore";
 
 type ContainerKekTargetExecutor = DatabaseExecutor;
@@ -60,45 +59,74 @@ function readContainerKeyEpochId(input: {
   return containerKeyEpochId;
 }
 
-async function loadCurrentContainerManifestTarget(input: {
-  readonly containerId: string;
-  readonly executor: ContainerKekTargetExecutor;
-  readonly manifestHash: string;
-}): Promise<{
+type ContainerManifestTarget = {
   readonly containerId: string;
   readonly containerKeyEpochId: string;
   readonly containerManifestHash: string;
-}> {
-  const bundle = await getAccessManifestBundle(
-    input.manifestHash,
-    input.executor,
+};
+
+type CurrentContainerHeadMap = Awaited<
+  ReturnType<typeof getCurrentAccessManifestHeads>
+>;
+
+async function loadCurrentContainerManifestTargets(input: {
+  readonly containerHeadById: CurrentContainerHeadMap;
+  readonly containerIds: readonly string[];
+  readonly executor: ContainerKekTargetExecutor;
+}): Promise<ContainerManifestTarget[]> {
+  const manifestHashes = input.containerIds.map((containerId) => {
+    const head = input.containerHeadById.get(containerId);
+    if (!head) {
+      throw new ContainerKekTargetError(
+        "Container V2 manifest head missing",
+        409,
+      );
+    }
+    return head.manifestHash;
+  });
+  const manifestRows = await input.executor
+    .select({
+      manifestHash: accessManifests.manifestHash,
+      objectId: accessManifests.objectId,
+      objectKind: accessManifests.objectKind,
+      state: accessManifests.state,
+    })
+    .from(accessManifests)
+    .where(inArray(accessManifests.manifestHash, manifestHashes));
+  const manifestByHash = new Map(
+    manifestRows.map((row) => [row.manifestHash, row]),
   );
 
-  if (!bundle || bundle.manifest.objectKind !== "container") {
-    throw new ContainerKekTargetError(
-      "Container V2 manifest bundle missing",
-      409,
-    );
-  }
+  return input.containerIds.map((containerId) => {
+    const head = input.containerHeadById.get(containerId);
+    if (!head) {
+      throw new ContainerKekTargetError(
+        "Container V2 manifest head missing",
+        409,
+      );
+    }
 
-  if (
-    bundle.manifest.objectId !== input.containerId ||
-    bundle.manifestHash !== input.manifestHash
-  ) {
-    throw new ContainerKekTargetError(
-      "Container V2 manifest bundle mismatch",
-      409,
-    );
-  }
+    const manifest = manifestByHash.get(head.manifestHash);
+    if (
+      !manifest ||
+      manifest.objectKind !== "container" ||
+      manifest.objectId !== containerId
+    ) {
+      throw new ContainerKekTargetError(
+        "Container V2 manifest bundle mismatch",
+        409,
+      );
+    }
 
-  return {
-    containerId: input.containerId,
-    containerManifestHash: input.manifestHash,
-    containerKeyEpochId: readContainerKeyEpochId({
-      containerId: input.containerId,
-      state: bundle.state,
-    }),
-  };
+    return {
+      containerId,
+      containerManifestHash: head.manifestHash,
+      containerKeyEpochId: readContainerKeyEpochId({
+        containerId,
+        state: manifest.state,
+      }),
+    };
+  });
 }
 
 export async function resolveCurrentContainerKekTargets(
@@ -116,23 +144,11 @@ export async function resolveCurrentContainerKekTargets(
     uniqueContainerIds,
     executor,
   );
-  const manifestTargets = await Promise.all(
-    uniqueContainerIds.map(async (containerId) => {
-      const head = containerHeadById.get(containerId);
-      if (!head) {
-        throw new ContainerKekTargetError(
-          "Container V2 manifest head missing",
-          409,
-        );
-      }
-
-      return loadCurrentContainerManifestTarget({
-        containerId,
-        executor,
-        manifestHash: head.manifestHash,
-      });
-    }),
-  );
+  const manifestTargets = await loadCurrentContainerManifestTargets({
+    containerHeadById,
+    containerIds: uniqueContainerIds,
+    executor,
+  });
   const keyEpochById = await getContainerKeyEpochsById(
     manifestTargets.map((target) => target.containerKeyEpochId),
     executor,
