@@ -1311,19 +1311,18 @@ export async function assertDocumentV2WriterProjectionConsistent(
     bundle: writerProjection.documentManifest,
     label: "Document V2 writer projection manifest",
   });
+  const { documentId } = manifestIdentity;
   if (
-    writerProjection.documentId !== manifestIdentity.documentId ||
-    writerProjection.documentKekTargets.documentId !==
-      manifestIdentity.documentId ||
-    writerProjection.contentKeyBundle.documentId !== manifestIdentity.documentId
+    writerProjection.documentId !== documentId ||
+    writerProjection.documentKekTargets.documentId !== documentId ||
+    writerProjection.contentKeyBundle.documentId !== documentId
   ) {
     throw new Error("Document V2 writer projection document id mismatch");
   }
+  const { manifestHash } = writerProjection.documentManifest;
   if (
-    writerProjection.documentKekTargets.linkSetManifestHash !==
-      writerProjection.documentManifest.manifestHash ||
-    writerProjection.contentKeyBundle.linkSetManifestHash !==
-      writerProjection.documentManifest.manifestHash
+    writerProjection.documentKekTargets.linkSetManifestHash !== manifestHash ||
+    writerProjection.contentKeyBundle.linkSetManifestHash !== manifestHash
   ) {
     throw new Error("Document V2 writer projection link manifest mismatch");
   }
