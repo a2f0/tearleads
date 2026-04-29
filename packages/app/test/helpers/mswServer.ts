@@ -1,6 +1,7 @@
 import { afterAll } from "bun:test";
-import { computeAccessEventHash } from "@tearleads/crypto";
+import { type AccessEventV2, computeAccessEventHash } from "@tearleads/crypto";
 import type {
+  DocumentV2ContentKeyTargetEnvelopeResponse,
   EncapsulationKeyResponse,
   ListContainersResponse,
   PublicKeyResponse,
@@ -70,6 +71,93 @@ function randomHex(bytes: number): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isHashString(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(isNonEmptyString);
+}
+
+function isAccessEventTypeV2(
+  value: unknown,
+): value is AccessEventV2["eventType"] {
+  return (
+    value === "attachment.bind" ||
+    value === "attachment.detach" ||
+    value === "container.create" ||
+    value === "container.grant" ||
+    value === "container.move" ||
+    value === "container.rekey" ||
+    value === "container.revoke" ||
+    value === "document.link" ||
+    value === "document.unlink"
+  );
+}
+
+function isAccessObjectKindV2(
+  value: unknown,
+): value is AccessEventV2["objectKind"] {
+  return value === "blob" || value === "container" || value === "document";
+}
+
+function isAccessEventV2(value: unknown): value is AccessEventV2 {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const dependencyManifestHashes = Reflect.get(
+    value,
+    "dependencyManifestHashes",
+  );
+  const previousManifestHash = Reflect.get(value, "previousManifestHash");
+
+  return (
+    Reflect.get(value, "version") === 2 &&
+    isNonEmptyString(Reflect.get(value, "eventId")) &&
+    isAccessEventTypeV2(Reflect.get(value, "eventType")) &&
+    isAccessObjectKindV2(Reflect.get(value, "objectKind")) &&
+    isNonEmptyString(Reflect.get(value, "objectId")) &&
+    isNonEmptyString(Reflect.get(value, "organizationId")) &&
+    (previousManifestHash === null || isHashString(previousManifestHash)) &&
+    isStringArray(dependencyManifestHashes) &&
+    dependencyManifestHashes.every(isHashString) &&
+    isHashString(Reflect.get(value, "bodyHash")) &&
+    isNonEmptyString(Reflect.get(value, "signerUserId")) &&
+    isNonEmptyString(Reflect.get(value, "signerDeviceId")) &&
+    isHashString(Reflect.get(value, "signerKeyFingerprint")) &&
+    isNonEmptyString(Reflect.get(value, "signedAt")) &&
+    isNonEmptyString(Reflect.get(value, "signature"))
+  );
+}
+
+function isDocumentV2ContentKeyTargetEnvelopeResponse(
+  value: unknown,
+): value is DocumentV2ContentKeyTargetEnvelopeResponse {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const wrappingMetadata = Reflect.get(value, "wrappingMetadata");
+
+  return (
+    isNonEmptyString(Reflect.get(value, "containerId")) &&
+    isHashString(Reflect.get(value, "containerManifestHash")) &&
+    isNonEmptyString(Reflect.get(value, "containerKeyEpochId")) &&
+    isPositiveInteger(Reflect.get(value, "containerKeyEpoch")) &&
+    isNonEmptyString(Reflect.get(value, "wrappedKey")) &&
+    isRecord(wrappingMetadata)
+  );
 }
 
 function createFallbackRootMetadataDocumentV2Response(
@@ -148,17 +236,16 @@ async function createRootMetadataDocumentV2Response(
     return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
   }
 
-  const documentId = Reflect.get(event, "objectId");
-  const organizationId = Reflect.get(event, "organizationId");
   const containerId = Reflect.get(body, "containerId");
   const manifestHash = Reflect.get(documentRequest, "expectedManifestHash");
   const targetHash = Reflect.get(contentKeyBundle, "targetHash");
   const contentKeyEpoch = Reflect.get(contentKeyBundle, "contentKeyEpoch");
   const rawTargets = Reflect.get(contentKeyBundle, "targets");
-  const targets = Array.isArray(rawTargets) ? rawTargets.filter(isRecord) : [];
+  const targets = Array.isArray(rawTargets)
+    ? rawTargets.filter(isDocumentV2ContentKeyTargetEnvelopeResponse)
+    : [];
   if (
-    typeof documentId !== "string" ||
-    typeof organizationId !== "string" ||
+    !isAccessEventV2(event) ||
     typeof containerId !== "string" ||
     typeof manifestHash !== "string" ||
     typeof targetHash !== "string" ||
@@ -168,12 +255,10 @@ async function createRootMetadataDocumentV2Response(
     return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
   }
 
-  const eventHash = await computeAccessEventHash(
-    event as unknown as Parameters<typeof computeAccessEventHash>[0],
-  );
-  const targetEnvelopes =
-    targets as unknown as PublicKeyResponse["rootMetadataDocumentV2"]["contentKeyBundle"]["targets"];
-  const kekTargets = targetEnvelopes.map((target) => ({
+  const documentId = event.objectId;
+  const organizationId = event.organizationId;
+  const eventHash = await computeAccessEventHash(event);
+  const kekTargets = targets.map((target) => ({
     containerId: target.containerId,
     containerManifestHash: target.containerManifestHash,
     containerKeyEpochId: target.containerKeyEpochId,
@@ -206,7 +291,7 @@ async function createRootMetadataDocumentV2Response(
       contentKeyEpoch,
       linkSetManifestHash: manifestHash,
       targetHash,
-      targets: targetEnvelopes,
+      targets,
     },
     documentKekTargets: {
       documentId,
