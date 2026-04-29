@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   type AccessEventV2,
   computeAccessEventHash,
+  computeBlobAccessManifestHash,
   computeWriteHeaderHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -14,8 +15,10 @@ import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { createLargeText } from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
+  BlobV2AttachmentBindRequest,
   DocumentV2CreateRequest,
   DocumentV2SyncRequest,
+  StageBlobRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerV2WriterProjectionResponse,
@@ -25,6 +28,7 @@ import type {
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { createMemoryBlobStore } from "../../../data/blobs";
+import { decryptDocumentAttachmentBlobV2 } from "../../../data/documents/blobV2Runtime";
 import { subscribeToPersistedDocuments } from "../../../data/documents/DocumentsProvider";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentsPersistence";
 import { createEmptyDriverLicenseDocument } from "../../../document-types/drivers-license/driverLicenseDocument";
@@ -253,6 +257,79 @@ async function createNoteV2SyncResponse(input: {
   };
 }
 
+function uniqueSortedStrings(values: readonly string[]): string[] {
+  return [...new Set(values)].sort();
+}
+
+async function createNoteV2AttachmentBindResponse(input: {
+  blobId: string;
+  request: BlobV2AttachmentBindRequest;
+}) {
+  const body = input.request.body as Record<string, unknown>;
+  const bindingId = String(Reflect.get(body, "bindingId"));
+  const documentId = String(Reflect.get(body, "documentId"));
+  const slotId = String(Reflect.get(body, "slotId"));
+  const writeHeader = input.request.stagedBlob?.writeHeader as unknown as
+    | WriteHeaderV2
+    | undefined;
+  const targets = input.request.contentKeyBundle.targets.map((target) => ({
+    bindingId: target.bindingId,
+    documentId: target.documentId,
+    containerId: target.containerId,
+    containerManifestHash: target.containerManifestHash,
+    containerKeyEpochId: target.containerKeyEpochId,
+    containerKeyEpoch: target.containerKeyEpoch,
+  }));
+
+  return {
+    bindingId,
+    blobId: input.blobId,
+    documentId,
+    slotId,
+    contentKeyBundle: {
+      blobId: input.blobId,
+      contentKeyEpoch: input.request.contentKeyBundle.contentKeyEpoch,
+      targetHash: input.request.contentKeyBundle.targetHash,
+      targets: input.request.contentKeyBundle.targets,
+    },
+    blobKekTargets: {
+      blobId: input.blobId,
+      organizationId: String(
+        Reflect.get(input.request.documentManifest.state, "organizationId"),
+      ),
+      activeBindingIds: [bindingId],
+      documentManifestHashes: [input.request.documentManifest.manifestHash],
+      linkedContainerManifestHashes: uniqueSortedStrings(
+        targets.map((target) => target.containerManifestHash),
+      ),
+      linkedContainerKeyEpochIds: uniqueSortedStrings(
+        targets.map((target) => target.containerKeyEpochId),
+      ),
+      targets,
+      blobKeyTargetHash: input.request.contentKeyBundle.targetHash,
+      blobAccessManifestHash: await computeBlobAccessManifestHash({
+        version: 2,
+        blobId: input.blobId,
+        organizationId: String(
+          Reflect.get(input.request.documentManifest.state, "organizationId"),
+        ),
+        activeBindingIds: [bindingId],
+        documentManifestHashes: [input.request.documentManifest.manifestHash],
+        linkedContainerManifestHashes: uniqueSortedStrings(
+          targets.map((target) => target.containerManifestHash),
+        ),
+        linkedContainerKeyEpochIds: uniqueSortedStrings(
+          targets.map((target) => target.containerKeyEpochId),
+        ),
+        blobKeyTargetHash: input.request.contentKeyBundle.targetHash,
+      }),
+    },
+    ...(writeHeader
+      ? { writeHeaderHash: await computeWriteHeaderHash(writeHeader) }
+      : {}),
+  };
+}
+
 interface NoteV2RuntimePatch {
   apiClient: NotesRuntime["apiClient"];
   organizationId: string;
@@ -262,6 +339,10 @@ interface NoteV2RuntimePatch {
 }
 
 function createNoteV2RuntimePatch(input: {
+  attachmentBinds?: Array<{
+    blobId: string;
+    request: BlobV2AttachmentBindRequest;
+  }>;
   containerId?: string;
   encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
@@ -270,8 +351,22 @@ function createNoteV2RuntimePatch(input: {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   let projectionPromise: Promise<ContainerV2WriterProjectionResponse> | null =
     null;
+  let stageCount = 0;
   let storedDocument: DocumentV2CreateResponse | null = null;
   let syncCount = 0;
+  const attachments: Array<{
+    bindingId: string;
+    blobId: string;
+    slotId: string;
+  }> = [];
+  const stagedBlobs = new Map<string, StageBlobRequest>();
+  const blobs = new Map<
+    string,
+    {
+      encryptedBytes: string;
+      sha256: string;
+    }
+  >();
   const getProjection = () => {
     projectionPromise ??= createNoteV2ContainerProjection({
       containerId,
@@ -287,7 +382,36 @@ function createNoteV2RuntimePatch(input: {
         storedDocument = await createNoteV2CreateResponse(request);
         return storedDocument;
       },
-      getBlob: async () => null,
+      bindBlobAttachmentV2: async (blobId, request) => {
+        const stagedBlob = request.stagedBlob
+          ? stagedBlobs.get(request.stagedBlob.stageId)
+          : null;
+        if (request.stagedBlob && !stagedBlob) {
+          return null;
+        }
+        const response = await createNoteV2AttachmentBindResponse({
+          blobId,
+          request,
+        });
+        input.attachmentBinds?.push({ blobId, request });
+        attachments.push({
+          bindingId: response.bindingId,
+          blobId: response.blobId,
+          slotId: response.slotId,
+        });
+        if (stagedBlob) {
+          blobs.set(blobId, {
+            encryptedBytes: stagedBlob.encryptedBytes,
+            sha256: stagedBlob.sha256,
+          });
+          stagedBlobs.delete(request.stagedBlob?.stageId ?? "");
+        }
+        return response;
+      },
+      getBlob: async (blobId) => {
+        const blob = blobs.get(blobId);
+        return blob ? { blobId, ...blob } : null;
+      },
       getContainerV2WriterProjection: () => getProjection(),
       getDocumentV2WriterProjection: async () => {
         if (!storedDocument) {
@@ -302,7 +426,16 @@ function createNoteV2RuntimePatch(input: {
         };
       },
       listContainers: async () => createListedContainers(containerId),
-      listDocumentAttachments: async () => [],
+      listDocumentAttachments: async () => attachments,
+      stageBlob: async (request) => {
+        stageCount += 1;
+        const stageId = `stage-${stageCount}`;
+        stagedBlobs.set(stageId, request);
+        return {
+          stageId,
+          expiresAt: "2026-04-27T00:05:00.000Z",
+        };
+      },
       syncDocumentV2: async (_documentId, request) => {
         if (!storedDocument) {
           return null;
@@ -528,6 +661,12 @@ function createNotesPersistence(): NotesPersistence & {
     async deletePendingUpdates() {
       pendingUpdates = [];
     },
+    async deletePendingAttachment(_execSql, noteId, slotId) {
+      pendingAttachments = pendingAttachments.filter(
+        (attachment) =>
+          !(attachment.noteId === noteId && attachment.slotId === slotId),
+      );
+    },
     async saveLocalAttachment(_execSql, attachment) {
       localAttachments = [
         ...localAttachments.filter(
@@ -629,12 +768,19 @@ function createSyncRuntime(
   encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>,
   containerId = "root-container",
   options: {
+    attachmentBinds?: Array<{
+      blobId: string;
+      request: BlobV2AttachmentBindRequest;
+    }>;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
 ): NotesRuntime {
   const v2Patch = createNoteV2RuntimePatch({
     containerId,
     encapsulationKeyPair,
+    ...(options.attachmentBinds
+      ? { attachmentBinds: options.attachmentBinds }
+      : {}),
     ...(options.syncCalls ? { syncCalls: options.syncCalls } : {}),
   });
   return {
@@ -1112,9 +1258,13 @@ test("notes store attaches files locally without authentication or network", asy
   );
 });
 
-test("notes store does not publish attachment metadata before V2 attachment bindings", async () => {
+test("notes store uploads attachment bytes through V2 signed bindings", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const attachmentBinds: Array<{
+    blobId: string;
+    request: BlobV2AttachmentBindRequest;
+  }> = [];
   const logs: string[] = [];
   const syncCalls: Array<{
     minLsn: string | null;
@@ -1122,16 +1272,17 @@ test("notes store does not publish attachment metadata before V2 attachment bind
   }> = [];
   const runtime: NotesRuntime = {
     ...createSyncRuntime(encapsulationKeyPair, "shared-container", {
+      attachmentBinds,
       syncCalls,
     }),
     log: (message) => logs.push(message),
   };
-  const store = createNotesStore("v2-attachment-block", runtime, persistence);
+  const store = createNotesStore("v2-attachment-upload", runtime, persistence);
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "V2 attachment block note store did not become ready.",
+    "V2 attachment upload note store did not become ready.",
   );
 
   store.attachFiles([
@@ -1144,17 +1295,52 @@ test("notes store does not publish attachment metadata before V2 attachment bind
 
   await waitForCondition(
     () =>
-      logs.includes(
-        "Documents: attachment upload sync is waiting for V2 attachment bindings.",
-      ),
-    "Pending attachment sync was not blocked on V2 attachment bindings.",
+      persistence.getState().pendingAttachments.length === 0 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      typeof persistence.getState().localAttachments[0]?.blobId === "string",
+    "Pending attachment was not uploaded and synced through V2.",
   );
 
   expect(store.getSnapshot().attachments).toHaveLength(1);
-  expect(persistence.getState().pendingAttachments).toHaveLength(1);
-  expect(persistence.getState().pendingUpdates).toHaveLength(1);
-  expect(persistence.getState().note?.documentId).toBeNull();
-  expect(syncCalls).toEqual([]);
+  expect(persistence.getState().pendingAttachments).toHaveLength(0);
+  expect(persistence.getState().pendingUpdates).toHaveLength(0);
+  expect(persistence.getState().note?.documentId).toBeString();
+  expect(persistence.getState().localAttachments[0]?.blobId).toBeString();
+  expect(attachmentBinds).toHaveLength(1);
+  expect(attachmentBinds[0]?.request.stagedBlob?.writeHeader).toBeDefined();
+  expect(attachmentBinds[0]?.request.body).toMatchObject({
+    eventType: "attachment.bind",
+    documentId: persistence.getState().note?.documentId,
+    slotId: store.getSnapshot().attachments[0]?.slotId,
+    expectedBindingId: null,
+  });
+  expect(syncCalls.some((call) => call.outgoingUpdateCount === 1)).toBe(true);
+  expect(logs).not.toContain(
+    "Documents: attachment upload sync is waiting for V2 attachment bindings.",
+  );
+
+  const blobId = persistence.getState().localAttachments[0]?.blobId;
+  const documentId = persistence.getState().note?.documentId;
+  if (!blobId || !documentId) {
+    throw new Error("Expected uploaded attachment and remote document ids.");
+  }
+  const [blob, writerProjection] = await Promise.all([
+    runtime.apiClient.getBlob(blobId),
+    runtime.apiClient.getDocumentV2WriterProjection?.(documentId),
+  ]);
+  if (!blob || !writerProjection) {
+    throw new Error("Expected uploaded blob and writer projection fixtures.");
+  }
+  const decryptedBytes = await decryptDocumentAttachmentBlobV2({
+    encryptedBytes: blob.encryptedBytes,
+    expectedBlobId: blobId,
+    execSql: runtime.execSql,
+    targetSecretKey: encapsulationKeyPair.secretKey,
+    writerProjection,
+  });
+  expect(new TextDecoder().decode(decryptedBytes)).toBe(
+    "remote attachment bytes",
+  );
 });
 
 test("notes store keeps prior attachments when a second file is attached", async () => {

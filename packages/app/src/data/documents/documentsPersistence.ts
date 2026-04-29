@@ -167,6 +167,11 @@ export interface DocumentsPersistence {
   ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   deletePendingUpdates: (execSql: ExecSql, localId: string) => Promise<void>;
+  deletePendingAttachment: (
+    execSql: ExecSql,
+    localId: string,
+    slotId: string,
+  ) => Promise<void>;
   deletePendingAttachments: (
     execSql: ExecSql,
     localId: string,
@@ -1092,6 +1097,20 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       await deleteDocumentPendingUpdates(
         lockedExecSql,
         getDocumentScope(localId),
+      );
+    });
+  },
+  async deletePendingAttachment(execSql, localId, slotId) {
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await lockedExecSql(
+        `
+          DELETE FROM document_pending_attachments
+          WHERE local_id = :localId AND slot_id = :slotId
+        `,
+        {
+          ":localId": localId,
+          ":slotId": slotId,
+        },
       );
     });
   },

@@ -17,7 +17,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../AppDataProvider";
-import { decryptBlobEnvelope } from "../blobEnvelope";
 import type { BlobBytes, BlobStore } from "../blobs";
 import { getScopedPeerSeed } from "../crdtPeerSeed";
 import {
@@ -30,6 +29,10 @@ import {
   isDestroyedDatabaseClientError,
   type SyncLane,
 } from "../sync/syncCoordinator";
+import {
+  decryptDocumentAttachmentBlobV2,
+  uploadDocumentAttachmentV2,
+} from "./blobV2Runtime";
 import {
   addDocumentAttachments,
   type DocumentAttachment,
@@ -74,6 +77,12 @@ type DocumentRuntimeV2Api = Pick<
   | "getDocumentV2WriterProjection"
   | "syncDocumentV2"
 >;
+type DocumentAttachmentRuntimeV2Api = Pick<
+  DocumentAppData["apiClient"],
+  "bindBlobAttachmentV2" | "getDocumentV2WriterProjection" | "stageBlob"
+>;
+type ResolvedDocumentAttachmentRuntimeV2Api = DocumentAttachmentRuntimeV2Api &
+  Pick<DocumentsRuntime["apiClient"], "listDocumentAttachments">;
 type DocumentAttachmentBinding = NonNullable<
   Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
 >[number];
@@ -123,7 +132,7 @@ export interface DocumentsRuntime {
     DocumentAppData["apiClient"],
     "getBlob" | "listContainers" | "listDocumentAttachments"
   > &
-    Partial<DocumentRuntimeV2Api>;
+    Partial<DocumentRuntimeV2Api & DocumentAttachmentRuntimeV2Api>;
   blobStore: BlobStore;
   cacheReferencedPrincipalPolicies: DocumentAppData["cacheReferencedPrincipalPolicies"];
   containerId: DocumentAppData["containerId"];
@@ -153,6 +162,8 @@ function createDocumentsRuntimeApiClient(
     getBlob: apiClient.getBlob.bind(apiClient),
     listContainers: apiClient.listContainers.bind(apiClient),
     listDocumentAttachments: apiClient.listDocumentAttachments.bind(apiClient),
+    bindBlobAttachmentV2: apiClient.bindBlobAttachmentV2.bind(apiClient),
+    stageBlob: apiClient.stageBlob.bind(apiClient),
     syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
   };
 }
@@ -565,6 +576,27 @@ function resolveDocumentV2Api(
   };
 }
 
+function resolveDocumentV2AttachmentApi(
+  runtime: DocumentsRuntime,
+): ResolvedDocumentAttachmentRuntimeV2Api | null {
+  const {
+    bindBlobAttachmentV2,
+    getDocumentV2WriterProjection,
+    listDocumentAttachments,
+    stageBlob,
+  } = runtime.apiClient;
+  if (!bindBlobAttachmentV2 || !getDocumentV2WriterProjection || !stageBlob) {
+    return null;
+  }
+
+  return {
+    bindBlobAttachmentV2,
+    getDocumentV2WriterProjection,
+    listDocumentAttachments,
+    stageBlob,
+  };
+}
+
 function getSnapshotAttachments(
   state: DocumentStoreState,
   currentDoc: DocumentState | null = state.doc,
@@ -848,6 +880,17 @@ async function deletePendingUpdate(state: DocumentStoreState, id: string) {
   await state.persistence.deletePendingUpdate(state.runtime.execSql, id);
 }
 
+async function deletePendingAttachment(
+  state: DocumentStoreState,
+  slotId: string,
+) {
+  await state.persistence.deletePendingAttachment(
+    state.runtime.execSql,
+    state.localId,
+    slotId,
+  );
+}
+
 async function saveLocalAttachmentRecord(
   state: DocumentStoreState,
   attachment: LocalAttachmentRecord,
@@ -886,6 +929,7 @@ async function hydrateMissingAttachmentBlob(
   currentDoc: DocumentState,
   attachment: DocumentAttachment,
   binding: DocumentAttachmentBinding,
+  documentId: string,
   encapsulationKeyPair: EncapsulationKeyPair,
 ) {
   const blob = await state.runtime.apiClient.getBlob(binding.blobId);
@@ -907,11 +951,30 @@ async function hydrateMissingAttachmentBlob(
     return;
   }
 
-  const decryptedBytes = await decryptBlobEnvelope(
-    blob.encryptedBytes,
-    encapsulationKeyPair.secretKey,
-    state.runtime.execSql,
-  );
+  const attachmentApi = resolveDocumentV2AttachmentApi(state.runtime);
+  if (!attachmentApi) {
+    state.runtime.log(
+      `Documents: cannot hydrate V2 blob ${binding.blobId} without the V2 attachment API.`,
+    );
+    return;
+  }
+
+  const writerProjection =
+    await attachmentApi.getDocumentV2WriterProjection(documentId);
+  if (!writerProjection) {
+    state.runtime.log(
+      `Documents: cannot hydrate V2 blob ${binding.blobId} without a writer projection.`,
+    );
+    return;
+  }
+
+  const decryptedBytes = await decryptDocumentAttachmentBlobV2({
+    encryptedBytes: blob.encryptedBytes,
+    expectedBlobId: binding.blobId,
+    execSql: state.runtime.execSql,
+    targetSecretKey: encapsulationKeyPair.secretKey,
+    writerProjection,
+  });
   const storageKey = `blob-${binding.blobId}`;
   await state.runtime.blobStore.writeBytes(storageKey, decryptedBytes);
   await saveLocalAttachmentRecord(
@@ -974,6 +1037,7 @@ async function hydrateAttachmentBlobs(
       currentDoc,
       attachment,
       binding,
+      currentRecord.documentId,
       encapsulationKeyPair,
     );
   }
@@ -1257,16 +1321,78 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
 async function syncPendingAttachments(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
-  _encapsulationKeyPair: EncapsulationKeyPair,
+  encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<PendingMutationSyncResult> {
   if (state.pendingAttachments.length === 0) {
     return { completed: false, nextRecord };
   }
 
-  state.runtime.log(
-    "Documents: attachment upload sync is waiting for V2 attachment bindings.",
+  const currentDoc = state.doc;
+  if (!currentDoc) {
+    return { completed: false, nextRecord };
+  }
+
+  const currentRecord = await ensureRemoteDocumentForAttachmentSync(
+    state,
+    currentDoc,
+    nextRecord,
+    encapsulationKeyPair,
   );
-  return { completed: false, nextRecord };
+  if (!currentRecord?.documentId) {
+    return { completed: false, nextRecord };
+  }
+  const remoteDocumentId = currentRecord.documentId;
+
+  const author = resolveDocumentV2Author(state.runtime);
+  const apiClient = resolveDocumentV2AttachmentApi(state.runtime);
+  if (!author || !apiClient) {
+    state.runtime.log(
+      "Documents: skipped V2 attachment upload because the V2 writer context is unavailable.",
+    );
+    return { completed: false, nextRecord: currentRecord };
+  }
+
+  const remoteBindings =
+    await apiClient.listDocumentAttachments(remoteDocumentId);
+  if (!remoteBindings) {
+    return { completed: false, nextRecord: currentRecord };
+  }
+
+  const activeBindingBySlotId = new Map(
+    remoteBindings.map((binding) => [binding.slotId, binding]),
+  );
+  const completedSlotIds = new Set<string>();
+
+  for (const pendingAttachment of [...state.pendingAttachments]) {
+    const uploaded = await syncPendingAttachmentUpload({
+      activeBindingBySlotId,
+      apiClient,
+      author,
+      encapsulationKeyPair,
+      pendingAttachment,
+      remoteDocumentId,
+      state,
+    });
+    if (!uploaded) {
+      return {
+        completed: completedSlotIds.size > 0,
+        nextRecord: currentRecord,
+      };
+    }
+
+    completedSlotIds.add(pendingAttachment.slotId);
+  }
+
+  if (completedSlotIds.size === 0) {
+    return { completed: false, nextRecord: currentRecord };
+  }
+
+  state.pendingAttachments = state.pendingAttachments.filter(
+    (pendingAttachment) => !completedSlotIds.has(pendingAttachment.slotId),
+  );
+  setReadySnapshot(state, currentDoc, state.snapshot.syncing);
+
+  return { completed: true, nextRecord: currentRecord };
 }
 
 async function syncPendingAttachmentRewraps(
@@ -1301,6 +1427,80 @@ async function ensureDocumentRecordForSync(
     nextRecord,
     encapsulationKeyPair,
   );
+}
+
+async function ensureRemoteDocumentForAttachmentSync(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  nextRecord: DocumentRecord,
+  encapsulationKeyPair: EncapsulationKeyPair,
+): Promise<DocumentRecord | null> {
+  if (nextRecord.documentId) {
+    return nextRecord;
+  }
+
+  return ensureRemoteDocument(
+    state,
+    currentDoc,
+    nextRecord,
+    encapsulationKeyPair,
+  );
+}
+
+async function syncPendingAttachmentUpload(input: {
+  activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
+  apiClient: ResolvedDocumentAttachmentRuntimeV2Api;
+  author: DocumentV2CreateAuthor;
+  encapsulationKeyPair: EncapsulationKeyPair;
+  pendingAttachment: PendingAttachmentRecord;
+  remoteDocumentId: string;
+  state: DocumentStoreState;
+}): Promise<boolean> {
+  const { pendingAttachment, state } = input;
+  const bytes = await state.runtime.blobStore.readBytes(
+    pendingAttachment.storageKey,
+  );
+  if (!bytes) {
+    state.runtime.log(
+      `Documents: pending attachment ${pendingAttachment.slotId} is missing local bytes.`,
+    );
+    return false;
+  }
+
+  const uploaded = await uploadDocumentAttachmentV2({
+    apiClient: input.apiClient,
+    author: input.author,
+    bytes,
+    documentId: input.remoteDocumentId,
+    execSql: state.runtime.execSql,
+    expectedBindingId:
+      input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
+      null,
+    slotId: pendingAttachment.slotId,
+    targetSecretKey: input.encapsulationKeyPair.secretKey,
+  });
+  if (!uploaded) {
+    return false;
+  }
+
+  await saveLocalAttachmentRecord(state, {
+    blobId: uploaded.blobId,
+    byteLength: pendingAttachment.byteLength,
+    localId: state.localId,
+    mimeType: pendingAttachment.mimeType,
+    slotId: pendingAttachment.slotId,
+    storageKey: pendingAttachment.storageKey,
+  });
+  await deletePendingAttachment(state, pendingAttachment.slotId);
+  input.activeBindingBySlotId.set(pendingAttachment.slotId, {
+    bindingId: uploaded.bindingId,
+    blobId: uploaded.blobId,
+    slotId: pendingAttachment.slotId,
+  });
+  state.runtime.log(
+    `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
+  );
+  return true;
 }
 
 async function requestDocumentSync(
