@@ -3,7 +3,6 @@ import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
   AttachmentBindAccessEventBodyV2,
   AttachmentDetachAccessEventBodyV2,
-  ContainerAccessEventBodyV2,
   ContainerKeyEpochV2,
   ContainerKeyWrapV2,
   ContainerUserRecipientKeyV2,
@@ -33,6 +32,7 @@ import {
 } from "@tearleads/crypto";
 import type { BlobV2AttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, isNull } from "drizzle-orm";
+import { buildRootContainerV2RekeyMutation } from "../../../test/helpers/containerV2Rekey";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import {
@@ -138,7 +138,6 @@ async function verifyAccessEvent(input: {
   readonly body:
     | AttachmentBindAccessEventBodyV2
     | AttachmentDetachAccessEventBodyV2
-    | ContainerAccessEventBodyV2
     | {
         readonly eventType: "document.link";
         readonly containerId: string;
@@ -639,6 +638,51 @@ test("bindBlobAttachmentV2 attaches, replaces, and detaches signed bindings", as
     (await loadAttachmentBinding(replacementBind.verifiedBinding.bindingId))
       ?.detachedAt,
   ).toBeInstanceOf(Date);
+});
+
+test("bindBlobAttachmentV2 applies optional container rekeys before target validation", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const container = await bootstrapRootV2(owner);
+  const rekey = await buildRootContainerV2RekeyMutation({
+    previous: container,
+    signer: owner,
+  });
+  const document = await createDocumentFixture({
+    container: rekey.container,
+    owner,
+  });
+  const blobId = crypto.randomUUID();
+  const bind = await buildBindRequest({
+    blobId,
+    container: rekey.container,
+    document,
+    expectedBindingId: null,
+    owner,
+    slotId: "preview",
+    stagedBlob: await stageEncryptedBlob({
+      encryptedBytes: "opportunistic-rekey-bytes",
+      owner,
+    }),
+  });
+  bind.request.containerRekeys = [rekey.request];
+
+  const response = await bindBlobAttachmentV2(runtime, {
+    blobId,
+    fingerprint: owner.fingerprint,
+    request: bind.request,
+    userId: owner.userId,
+  });
+
+  expect(response.blobKekTargets.linkedContainerKeyEpochIds).toEqual([
+    rekey.container.kekState.containerKeyEpochId,
+  ]);
+  const currentRootEpoch = await getCurrentContainerKeyEpoch(
+    container.kekState.containerId,
+  );
+  expect(currentRootEpoch?.id).toBe(
+    rekey.container.kekState.containerKeyEpochId,
+  );
 });
 
 test("bindBlobAttachmentV2 rejects malformed V2 signed event records", async () => {

@@ -190,6 +190,11 @@ export interface ContainerRevokeAccessEventBodyV2
   subjectType: ContainerGrantSubjectTypeV2;
 }
 
+export interface ContainerRekeyAccessEventBodyV2 {
+  eventType: "container.rekey";
+  containerKeyEpochId: string;
+}
+
 export interface ContainerMoveAccessEventBodyV2
   extends ContainerAccessStructuralV2,
     ContainerAccessKeyStateV2 {
@@ -200,6 +205,7 @@ export type ContainerAccessEventBodyV2 =
   | ContainerCreateAccessEventBodyV2
   | ContainerGrantAccessEventBodyV2
   | ContainerMoveAccessEventBodyV2
+  | ContainerRekeyAccessEventBodyV2
   | ContainerRevokeAccessEventBodyV2;
 
 export interface DocumentLinkSetStructuralV2 {
@@ -4413,6 +4419,25 @@ function normalizeContainerRevokeAccessEventBody(
   };
 }
 
+function normalizeContainerRekeyAccessEventBody(
+  value: KeyingV2CanonicalJson,
+): ContainerRekeyAccessEventBodyV2 {
+  const record = assertExactKeys(
+    value,
+    ["containerKeyEpochId", "eventType"],
+    "container.rekey event body",
+  );
+
+  return {
+    eventType: "container.rekey",
+    containerKeyEpochId: readString(
+      record,
+      "containerKeyEpochId",
+      "container.rekey event body",
+    ),
+  };
+}
+
 function normalizeContainerMoveAccessEventBody(
   value: KeyingV2CanonicalJson,
 ): ContainerMoveAccessEventBodyV2 {
@@ -4461,6 +4486,10 @@ export function normalizeContainerAccessEventBody(
 
   if (eventType === "container.revoke") {
     return normalizeContainerRevokeAccessEventBody(value);
+  }
+
+  if (eventType === "container.rekey") {
+    return normalizeContainerRekeyAccessEventBody(value);
   }
 
   if (eventType === "container.move") {
@@ -4933,6 +4962,34 @@ function deriveContainerRevokeManifestState(
   });
 }
 
+function deriveContainerRekeyManifestState(
+  input: ContainerAccessManifestDerivationInput,
+  body: ContainerRekeyAccessEventBodyV2,
+  previous: PreviousContainerAccessTransition,
+): ContainerAccessManifestStateV2 {
+  requireContainerPathUserAccess({
+    label: "container.rekey",
+    minimumAccessLevel: "write",
+    path: input.previousContainerPath,
+    principalPolicies: input.principalPolicies,
+    userId: input.event.event.signerUserId,
+  });
+
+  if (body.containerKeyEpochId === previous.previousState.containerKeyEpochId) {
+    throwVerification(
+      "key_epoch_reuse",
+      "container.rekey must create a new container KEK epoch",
+    );
+  }
+
+  return normalizeContainerAccessManifestState({
+    ...previous.nextBase,
+    containerKeyEpochId: body.containerKeyEpochId,
+    directGrants: previous.previousState.directGrants,
+    referencedPrincipalHeads: previous.previousState.referencedPrincipalHeads,
+  });
+}
+
 function deriveContainerMoveManifestState(
   input: ContainerAccessManifestDerivationInput,
   body: ContainerMoveAccessEventBodyV2,
@@ -4999,6 +5056,10 @@ function deriveContainerAccessManifestStateFromEvent(
 
   if (input.body.eventType === "container.revoke") {
     return deriveContainerRevokeManifestState(input, input.body, previous);
+  }
+
+  if (input.body.eventType === "container.rekey") {
+    return deriveContainerRekeyManifestState(input, input.body, previous);
   }
 
   return deriveContainerMoveManifestState(input, input.body, previous);

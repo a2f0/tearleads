@@ -540,6 +540,72 @@ async function buildRevokeRequest(input: {
   };
 }
 
+async function buildRekeyRequest(input: {
+  readonly parentKekState: VerifiedContainerKekState;
+  readonly previous: ContainerV2ManifestBundle;
+  readonly previousContainerPath: readonly ContainerV2ManifestBundle[];
+  readonly previousKekState: VerifiedContainerKekState;
+  readonly signer: TestUser;
+}): Promise<ContainerV2MutationRequest> {
+  const previous = asVerifiedContainerManifest(input.previous);
+  const containerKeyEpochId = crypto.randomUUID();
+  const body: ContainerAccessEventBodyV2 = {
+    eventType: "container.rekey",
+    containerKeyEpochId,
+  };
+  const event = await createSignedContainerEvent({
+    body,
+    dependencyManifestHashes: [
+      ...new Set(
+        input.previousContainerPath.map((manifest) => manifest.manifestHash),
+      ),
+    ],
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: input.previous.manifestHash,
+    signer: input.signer,
+  });
+  const bundle = await createManifestBundle(
+    {
+      ...previous.state,
+      epoch: previous.state.epoch + 1,
+      previousManifestHash: input.previous.manifestHash,
+      eventHash: event.eventHash,
+      containerKeyEpochId,
+    },
+    event,
+  );
+  const keyEpoch = createContainerKeyEpoch({
+    containerKeyEpochId,
+    keyEpoch: input.previousKekState.containerKeyEpoch + 1,
+    manifest: bundle,
+    parentKekState: input.parentKekState,
+  });
+  const wraps = [
+    createContainerKeyWrap({
+      containerKeyEpochId,
+      recipientKind: "container",
+      recipientId: input.parentKekState.containerId,
+      recipientKeyEpochId: input.parentKekState.containerKeyEpochId,
+      recipientKeyFingerprint: input.parentKekState.keyEpochHash,
+      wrapManifestHash: bundle.manifestHash,
+    }),
+  ];
+
+  return {
+    event: event.event as unknown as Record<string, unknown>,
+    body: body as unknown,
+    expectedManifestHash: bundle.manifestHash,
+    manifest: bundle.manifest,
+    previousManifest: input.previous,
+    previousContainerPath: [...input.previousContainerPath],
+    keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    wraps: wraps as unknown as Record<string, unknown>[],
+    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    userRecipientKeys: [],
+  };
+}
+
 async function buildMoveRequest(input: {
   readonly destinationParent: ContainerV2ManifestBundle;
   readonly destinationParentKekState: VerifiedContainerKekState;
@@ -941,6 +1007,52 @@ test("POST /v2/containers/:containerId/revoke advances the KEK epoch", async () 
     shared.containerKek.containerKeyEpochId,
   );
   expect(revoked.containerKek.recipientTargets).toEqual([
+    {
+      recipientKind: "container",
+      recipientId: root.kekState.containerId,
+      recipientKeyEpochId: root.kekState.containerKeyEpochId,
+      recipientKeyFingerprint: root.kekState.keyEpochHash,
+    },
+  ]);
+});
+
+test("POST /v2/containers/:containerId/rekey materializes a writer KEK rotation", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+
+  const root = await bootstrapRootV2(owner);
+  const created = await createV2Child({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const childBundle = accessManifestFromResponse(created);
+  const childKek = kekStateFromResponse(created);
+  const request = await buildRekeyRequest({
+    parentKekState: root.kekState,
+    previous: childBundle,
+    previousContainerPath: [root.bundle, childBundle],
+    previousKekState: childKek,
+    signer: owner,
+  });
+
+  const rekeyed = await expectV2MutationSuccess(
+    await postV2Mutation({
+      path: `/v2/containers/${created.containerId}/rekey`,
+      request,
+      token: owner.token,
+    }),
+  );
+
+  expect(rekeyed.manifestHead.epoch).toBe(2);
+  expect(rekeyed.parentId).toBe(root.kekState.containerId);
+  expect(rekeyed.containerKek.containerKeyEpoch).toBe(
+    childKek.containerKeyEpoch + 1,
+  );
+  expect(rekeyed.containerKek.containerKeyEpochId).not.toBe(
+    childKek.containerKeyEpochId,
+  );
+  expect(rekeyed.containerKek.recipientTargets).toEqual([
     {
       recipientKind: "container",
       recipientId: root.kekState.containerId,

@@ -94,6 +94,10 @@ interface MutateContainerV2Input {
   readonly userId: string;
 }
 
+interface MutateContainerV2WithExecutorInput extends MutateContainerV2Input {
+  readonly executor: DatabaseExecutor;
+}
+
 interface StoredContainerRow {
   readonly id: string;
   readonly organizationId: string;
@@ -1787,66 +1791,100 @@ async function persistVerifiedMutation(
   };
 }
 
+async function mutateContainerV2WithExecutor(
+  input: MutateContainerV2WithExecutorInput,
+): Promise<ContainerV2MutationResponse> {
+  const context: ContainerV2MutationContext = {
+    executor: input.executor,
+    manifestHeadByContainerId: new Map(),
+  };
+
+  await assertCurrentContainerPath(
+    context,
+    input.request.previousContainerPath,
+    "previousContainerPath",
+  );
+  await assertCurrentContainerPath(
+    context,
+    input.request.parentContainerPath,
+    "parentContainerPath",
+  );
+  await assertCurrentContainerPath(
+    context,
+    input.request.destinationParentContainerPath,
+    "destinationParentContainerPath",
+  );
+  await assertHistoricalContainerManifestsConsistent(
+    input.request.containerManifestHistory,
+  );
+  if (input.request.previousManifest) {
+    const previousManifest = await assertContainerManifestBundleConsistent(
+      input.request.previousManifest,
+      "previousManifest",
+    );
+    await assertManifestHeadCurrent(
+      context,
+      previousManifest,
+      "previousManifest",
+    );
+  }
+  await assertPrincipalPoliciesCurrent(
+    input.executor,
+    principalPoliciesFromRequest(input.request),
+  );
+
+  const event = await verifyMutationEvent(input.executor, input);
+  assertAccessEventDependenciesMatchRequest(input.request, event);
+  const manifest = await verifyContainerManifestFromRequest(
+    input.request,
+    event,
+  );
+  await assertMutationHeadCanAdvance(context, manifest);
+  const kekState = await verifyContainerKekFromRequest(
+    input.executor,
+    input.request,
+    manifest,
+  );
+
+  return persistVerifiedMutation(input.executor, manifest, kekState);
+}
+
+export async function applyContainerV2Rekeys(input: {
+  readonly executor: DatabaseExecutor;
+  readonly fingerprint: string;
+  readonly requests?: readonly ContainerV2MutationRequest[] | undefined;
+  readonly userId: string;
+}): Promise<void> {
+  if (!input.requests || input.requests.length === 0) {
+    return;
+  }
+
+  // Document/blob writes call this before resolving current container heads and
+  // KEK targets. A retry can carry the same signed container.rekey that would
+  // have gone through /rekey, then validate the actual write against the new
+  // head in this transaction; if the write later fails, the rekey rolls back too.
+  for (const request of input.requests) {
+    await mutateContainerV2WithExecutor({
+      executor: input.executor,
+      expectedEventType: "container.rekey",
+      fingerprint: input.fingerprint,
+      request,
+      userId: input.userId,
+    });
+  }
+}
+
 export async function mutateContainerV2(
   runtime: ApiServiceRuntime,
   input: MutateContainerV2Input,
 ): Promise<ContainerV2MutationResponse> {
   try {
-    return await runtime.db.transaction(async (tx) => {
-      const context: ContainerV2MutationContext = {
+    return await runtime.db.transaction((tx) =>
+      mutateContainerV2WithExecutor({
+        ...input,
         executor: tx,
-        manifestHeadByContainerId: new Map(),
-      };
-
-      await assertCurrentContainerPath(
-        context,
-        input.request.previousContainerPath,
-        "previousContainerPath",
-      );
-      await assertCurrentContainerPath(
-        context,
-        input.request.parentContainerPath,
-        "parentContainerPath",
-      );
-      await assertCurrentContainerPath(
-        context,
-        input.request.destinationParentContainerPath,
-        "destinationParentContainerPath",
-      );
-      await assertHistoricalContainerManifestsConsistent(
-        input.request.containerManifestHistory,
-      );
-      if (input.request.previousManifest) {
-        const previousManifest = await assertContainerManifestBundleConsistent(
-          input.request.previousManifest,
-          "previousManifest",
-        );
-        await assertManifestHeadCurrent(
-          context,
-          previousManifest,
-          "previousManifest",
-        );
-      }
-      await assertPrincipalPoliciesCurrent(
-        tx,
-        principalPoliciesFromRequest(input.request),
-      );
-
-      const event = await verifyMutationEvent(tx, input);
-      assertAccessEventDependenciesMatchRequest(input.request, event);
-      const manifest = await verifyContainerManifestFromRequest(
-        input.request,
-        event,
-      );
-      await assertMutationHeadCanAdvance(context, manifest);
-      const kekState = await verifyContainerKekFromRequest(
-        tx,
-        input.request,
-        manifest,
-      );
-
-      return persistVerifiedMutation(tx, manifest, kekState);
-    });
+      }),
+    );
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {

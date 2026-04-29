@@ -49,6 +49,10 @@ import {
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import { attachmentBindings, blobStages, blobs, documents } from "../../schema";
 import {
+  applyContainerV2Rekeys,
+  ContainerV2MutationError,
+} from "../containers/v2Mutations";
+import {
   assertCurrentContainerPathGroups,
   assertDocumentManifestBundleConsistent,
   DocumentV2MutationError,
@@ -152,6 +156,10 @@ function toMutationError(error: unknown): BlobV2MutationError | null {
   }
 
   if (error instanceof DocumentV2MutationError) {
+    return new BlobV2MutationError(error.message, error.status);
+  }
+
+  if (error instanceof ContainerV2MutationError) {
     return new BlobV2MutationError(error.message, error.status);
   }
 
@@ -762,25 +770,53 @@ function toBindResponse(input: {
   };
 }
 
+async function applyAttachmentContainerRekeys(input: {
+  readonly executor: DatabaseExecutor;
+  readonly fingerprint: string;
+  readonly request: BlobV2AttachmentBindRequest | BlobV2AttachmentDetachRequest;
+  readonly userId: string;
+}): Promise<void> {
+  // Attachment writes accept signed container.rekey payloads before reading
+  // current authorization paths or KEK targets, so stale key material can be
+  // repaired in the same transaction as the blob write.
+  await applyContainerV2Rekeys({
+    executor: input.executor,
+    fingerprint: input.fingerprint,
+    requests: input.request.containerRekeys,
+    userId: input.userId,
+  });
+}
+
+function readBindRequestSession(input: BindBlobAttachmentV2Input) {
+  const bindBody = readBindBodyClaim(input.request.body);
+  const event = readBlobV2Event(input.request.event, "Blob V2 event");
+  assertAttachmentEventSession({
+    blobId: input.blobId,
+    event,
+    expectedEventType: "attachment.bind",
+    fingerprint: input.fingerprint,
+    userId: input.userId,
+  });
+  if (bindBody.blobId !== input.blobId) {
+    throw new BlobV2MutationError("Blob id mismatch", 400);
+  }
+
+  return { bindBody, event };
+}
+
 export async function bindBlobAttachmentV2(
   runtime: ApiServiceRuntime,
   input: BindBlobAttachmentV2Input,
 ): Promise<BlobV2AttachmentBindResponse> {
   try {
     return await runtime.db.transaction(async (tx) => {
-      const bindBody = readBindBodyClaim(input.request.body);
-      const event = readBlobV2Event(input.request.event, "Blob V2 event");
-      assertAttachmentEventSession({
-        blobId: input.blobId,
-        event,
-        expectedEventType: "attachment.bind",
+      const { bindBody, event } = readBindRequestSession(input);
+      await applyAttachmentContainerRekeys({
+        executor: tx,
         fingerprint: input.fingerprint,
+        request: input.request,
         userId: input.userId,
       });
-      if (bindBody.blobId !== input.blobId) {
-        throw new BlobV2MutationError("Blob id mismatch", 400);
-      }
-
       const [signingPublicKey, proof] = await Promise.all([
         loadSignerPublicKey(tx, input),
         verifyAttachmentAuthorizationProof({
@@ -888,6 +924,12 @@ export async function detachBlobAttachmentV2(
         throw new BlobV2MutationError("Attachment binding is not active", 409);
       }
 
+      await applyAttachmentContainerRekeys({
+        executor: tx,
+        fingerprint: input.fingerprint,
+        request: input.request,
+        userId: input.userId,
+      });
       const [signingPublicKey, proof] = await Promise.all([
         loadSignerPublicKey(tx, input),
         verifyAttachmentAuthorizationProof({

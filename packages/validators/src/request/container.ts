@@ -131,3 +131,12 @@ export function isContainerV2MutationRequest(
     isOptionalRecordArray(userRecipientKeys)
   );
 }
+
+export function isOptionalContainerV2MutationRequestArray(
+  value: unknown,
+): value is ContainerV2MutationRequest[] | undefined {
+  return (
+    value === undefined ||
+    (Array.isArray(value) && value.every(isContainerV2MutationRequest))
+  );
+}

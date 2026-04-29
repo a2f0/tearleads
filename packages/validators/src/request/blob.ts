@@ -4,6 +4,10 @@ import {
   hasNumberProperty,
   hasStringProperty,
 } from "../util";
+import {
+  type ContainerV2MutationRequest,
+  isOptionalContainerV2MutationRequestArray,
+} from "./container";
 
 export interface StageBlobRequest {
   encryptedBytes: string;
@@ -45,6 +49,7 @@ export interface BlobV2AttachmentBindRequest {
   body: unknown;
   documentManifest: BlobV2ManifestBundleRequest;
   authorizingContainerPaths: Record<string, unknown>[][];
+  containerRekeys?: ContainerV2MutationRequest[];
   contentKeyBundle: BlobV2ContentKeyBundleRequest;
   stagedBlob?: BlobV2StagedBlobRequest;
 }
@@ -54,6 +59,7 @@ export interface BlobV2AttachmentDetachRequest {
   body: unknown;
   documentManifest: BlobV2ManifestBundleRequest;
   authorizingContainerPaths: Record<string, unknown>[][];
+  containerRekeys?: ContainerV2MutationRequest[];
 }
 
 export function isStageBlobRequest(value: unknown): value is StageBlobRequest {
@@ -176,6 +182,9 @@ export function isBlobV2AttachmentBindRequest(
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
     : undefined;
+  const containerRekeys = isPlainObject(value)
+    ? Reflect.get(value, "containerRekeys")
+    : undefined;
   const stagedBlob = isPlainObject(value)
     ? Reflect.get(value, "stagedBlob")
     : undefined;
@@ -187,6 +196,7 @@ export function isBlobV2AttachmentBindRequest(
     body !== undefined &&
     isBlobV2ManifestBundleRequest(documentManifest) &&
     isRecordArrayArray(authorizingContainerPaths) &&
+    isOptionalContainerV2MutationRequestArray(containerRekeys) &&
     isBlobV2ContentKeyBundleRequest(contentKeyBundle) &&
     (stagedBlob === undefined || isBlobV2StagedBlobRequest(stagedBlob))
   );
@@ -203,6 +213,9 @@ export function isBlobV2AttachmentDetachRequest(
   const authorizingContainerPaths = isPlainObject(value)
     ? Reflect.get(value, "authorizingContainerPaths")
     : undefined;
+  const containerRekeys = isPlainObject(value)
+    ? Reflect.get(value, "containerRekeys")
+    : undefined;
 
   return (
     isPlainObject(value) &&
@@ -210,6 +223,7 @@ export function isBlobV2AttachmentDetachRequest(
     Reflect.has(value, "body") &&
     body !== undefined &&
     isBlobV2ManifestBundleRequest(documentManifest) &&
-    isRecordArrayArray(authorizingContainerPaths)
+    isRecordArrayArray(authorizingContainerPaths) &&
+    isOptionalContainerV2MutationRequestArray(containerRekeys)
   );
 }

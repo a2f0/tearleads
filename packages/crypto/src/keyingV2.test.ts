@@ -1454,6 +1454,163 @@ test("verifyContainerAccessManifest rejects container grants signed by non-admin
   expectVerificationError(result, "unauthorized");
 });
 
+test("verifyContainerAccessManifest accepts writer rekeys without grant changes", async () => {
+  const writerUserId = "writer-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const previous = await createContainerManifestFixture({
+    containerId: "container-rekey",
+    containerKeyEpochId: "container-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const body: ContainerAccessEventBodyV2 = {
+    eventType: "container.rekey",
+    containerKeyEpochId: "container-key-epoch-2",
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: previous.manifestHash,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const manifest = await deriveContainerAccessManifest({
+    ...previous.state,
+    epoch: previous.state.epoch + 1,
+    previousManifestHash: previous.manifestHash,
+    eventHash: event.eventHash,
+    containerKeyEpochId: body.containerKeyEpochId,
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: await computeAccessManifestHash(manifest),
+    event,
+    previousManifest: previous,
+    previousContainerPath: [previous],
+  });
+
+  expect(result.ok).toBe(true);
+  if (result.ok) {
+    expect(result.value.state.directGrants).toEqual(
+      previous.state.directGrants,
+    );
+    expect(result.value.state.containerKeyEpochId).toBe(
+      "container-key-epoch-2",
+    );
+  }
+});
+
+test("verifyContainerAccessManifest rejects rekeys that change grants", async () => {
+  const writerUserId = "writer-user";
+  const aliceUserId = "alice-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const previous = await createContainerManifestFixture({
+    containerId: "container-forged-rekey",
+    containerKeyEpochId: "container-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const body: ContainerAccessEventBodyV2 = {
+    eventType: "container.rekey",
+    containerKeyEpochId: "container-key-epoch-2",
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: previous.manifestHash,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const forgedManifest = await deriveContainerAccessManifest({
+    ...previous.state,
+    epoch: previous.state.epoch + 1,
+    previousManifestHash: previous.manifestHash,
+    eventHash: event.eventHash,
+    containerKeyEpochId: body.containerKeyEpochId,
+    directGrants: [
+      ...previous.state.directGrants,
+      {
+        subjectType: "user",
+        subjectId: aliceUserId,
+        accessLevel: "read",
+      },
+    ],
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest: forgedManifest,
+    expectedManifestHash: await computeAccessManifestHash(forgedManifest),
+    event,
+    previousManifest: previous,
+    previousContainerPath: [previous],
+  });
+
+  expectVerificationError(result, "hash_mismatch");
+});
+
+test("verifyContainerAccessManifest rejects rekeys that reuse the current KEK epoch", async () => {
+  const writerUserId = "writer-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const previous = await createContainerManifestFixture({
+    containerId: "container-stale-rekey",
+    containerKeyEpochId: "container-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const body: ContainerAccessEventBodyV2 = {
+    eventType: "container.rekey",
+    containerKeyEpochId: previous.state.containerKeyEpochId ?? "",
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: previous.manifestHash,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const manifest = await deriveContainerAccessManifest({
+    ...previous.state,
+    epoch: previous.state.epoch + 1,
+    previousManifestHash: previous.manifestHash,
+    eventHash: event.eventHash,
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: await computeAccessManifestHash(manifest),
+    event,
+    previousManifest: previous,
+    previousContainerPath: [previous],
+  });
+
+  expectVerificationError(result, "key_epoch_reuse");
+});
+
 test("verifyContainerAccessManifest rejects child create signed without parent write access", async () => {
   const readerUserId = "reader-user";
   const readerSigning = generateSigningSeedAndKeyPair();

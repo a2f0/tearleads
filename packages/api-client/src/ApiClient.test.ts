@@ -301,6 +301,9 @@ test("posts signed V2 container mutations to the V2 route namespace", async () =
       await client.revokeContainerV2("container-1", mutation),
     ).not.toBeNull();
     expect(
+      await client.rekeyContainerV2("container-1", mutation),
+    ).not.toBeNull();
+    expect(
       await client.moveContainerV2("container-1", mutation),
     ).not.toBeNull();
 
@@ -324,6 +327,11 @@ test("posts signed V2 container mutations to the V2 route namespace", async () =
       {
         body: JSON.stringify(mutation),
         input: "http://api.test/v2/containers/container-1/revoke",
+        method: "POST",
+      },
+      {
+        body: JSON.stringify(mutation),
+        input: "http://api.test/v2/containers/container-1/rekey",
         method: "POST",
       },
       {

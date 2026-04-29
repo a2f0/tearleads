@@ -5,6 +5,10 @@ import {
   hasStringProperty,
   isWalLsnString,
 } from "../util";
+import {
+  type ContainerV2MutationRequest,
+  isOptionalContainerV2MutationRequestArray,
+} from "./container";
 
 export interface DocumentV2ManifestBundle {
   event: Record<string, unknown>;
@@ -37,6 +41,7 @@ export interface DocumentV2CreateRequest {
   previousManifest?: DocumentV2ManifestBundle | null;
   targetContainerPath?: Record<string, unknown>[];
   authorizingContainerPaths?: Record<string, unknown>[][];
+  containerRekeys?: ContainerV2MutationRequest[];
   contentKeyBundle: DocumentV2ContentKeyBundleRequest;
 }
 
@@ -48,6 +53,7 @@ export interface DocumentV2LinkSetMutationRequest {
   previousManifest: DocumentV2ManifestBundle;
   targetContainerPath: Record<string, unknown>[];
   authorizingContainerPaths: Record<string, unknown>[][];
+  containerRekeys?: ContainerV2MutationRequest[];
   contentKeyBundle: DocumentV2ContentKeyBundleRequest;
 }
 
@@ -63,6 +69,7 @@ export interface DocumentV2OutgoingUpdate {
 
 export interface DocumentV2SyncRequest {
   contentKeyBundle?: DocumentV2ContentKeyBundleRequest;
+  containerRekeys?: ContainerV2MutationRequest[];
   contentKeyEpoch: number;
   documentManifest?: DocumentV2ManifestBundle;
   expectedLinkSetManifestHash: string;
@@ -214,6 +221,9 @@ export function isDocumentV2CreateRequest(
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
     : undefined;
+  const containerRekeys = isPlainObject(value)
+    ? Reflect.get(value, "containerRekeys")
+    : undefined;
 
   return (
     isPlainObject(value) &&
@@ -228,6 +238,7 @@ export function isDocumentV2CreateRequest(
       isDocumentV2ManifestBundle(previousManifest)) &&
     isOptionalRecordArray(targetContainerPath) &&
     isOptionalRecordArrayArray(authorizingContainerPaths) &&
+    isOptionalContainerV2MutationRequestArray(containerRekeys) &&
     isDocumentV2ContentKeyBundleRequest(contentKeyBundle)
   );
 }
@@ -252,6 +263,9 @@ export function isDocumentV2LinkSetMutationRequest(
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
     : undefined;
+  const containerRekeys = isPlainObject(value)
+    ? Reflect.get(value, "containerRekeys")
+    : undefined;
 
   return (
     isPlainObject(value) &&
@@ -264,6 +278,7 @@ export function isDocumentV2LinkSetMutationRequest(
     isDocumentV2ManifestBundle(previousManifest) &&
     isRecordArray(targetContainerPath) &&
     isRecordArrayArray(authorizingContainerPaths) &&
+    isOptionalContainerV2MutationRequestArray(containerRekeys) &&
     isDocumentV2ContentKeyBundleRequest(contentKeyBundle)
   );
 }
@@ -277,6 +292,9 @@ export function isDocumentV2SyncRequest(
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
     : undefined;
+  const containerRekeys = isPlainObject(value)
+    ? Reflect.get(value, "containerRekeys")
+    : undefined;
   const documentManifest = isPlainObject(value)
     ? Reflect.get(value, "documentManifest")
     : undefined;
@@ -288,6 +306,8 @@ export function isDocumentV2SyncRequest(
     : undefined;
   const hasOutgoingUpdates =
     Array.isArray(outgoingUpdates) && outgoingUpdates.length > 0;
+  const hasContainerRekeys =
+    Array.isArray(containerRekeys) && containerRekeys.length > 0;
 
   return (
     isPlainObject(value) &&
@@ -304,6 +324,8 @@ export function isDocumentV2SyncRequest(
     (authorizingContainerPaths === undefined
       ? !hasOutgoingUpdates
       : isRecordArrayArray(authorizingContainerPaths)) &&
+    isOptionalContainerV2MutationRequestArray(containerRekeys) &&
+    (!hasContainerRekeys || hasOutgoingUpdates) &&
     isNullableString(Reflect.get(value, "localVersionVector")) &&
     (minLsn === undefined || isWalLsnString(minLsn)) &&
     hasArrayProperty(value, "outgoingUpdates") &&
