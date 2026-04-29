@@ -1318,8 +1318,12 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   if (!blob || !writerProjection) {
     throw new Error("Expected uploaded blob and writer projection fixtures.");
   }
+  const bindingId = String(
+    Reflect.get(attachmentBinds[0]?.request.body ?? {}, "bindingId"),
+  );
   const decryptedBytes = await decryptDocumentAttachmentBlobV2({
     encryptedBytes: blob.encryptedBytes,
+    expectedBindingId: bindingId,
     expectedBlobId: blobId,
     execSql: runtime.execSql,
     targetSecretKey: encapsulationKeyPair.secretKey,
@@ -1328,6 +1332,48 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   expect(new TextDecoder().decode(decryptedBytes)).toBe(
     "remote attachment bytes",
   );
+
+  await expect(
+    decryptDocumentAttachmentBlobV2({
+      encryptedBytes: blob.encryptedBytes,
+      expectedBindingId: "wrong-binding-id",
+      expectedBlobId: blobId,
+      execSql: runtime.execSql,
+      targetSecretKey: encapsulationKeyPair.secretKey,
+      writerProjection,
+    }),
+  ).rejects.toThrow("missing attachment target");
+
+  const tamperedEncryptedBytes = JSON.parse(blob.encryptedBytes) as {
+    contentKeyBundle: { targets: Record<string, unknown>[] };
+  };
+  const [firstTarget, ...remainingTargets] =
+    tamperedEncryptedBytes.contentKeyBundle.targets;
+  if (!firstTarget) {
+    throw new Error("Expected uploaded blob content-key target.");
+  }
+  await expect(
+    decryptDocumentAttachmentBlobV2({
+      encryptedBytes: JSON.stringify({
+        ...tamperedEncryptedBytes,
+        contentKeyBundle: {
+          ...tamperedEncryptedBytes.contentKeyBundle,
+          targets: [
+            {
+              ...firstTarget,
+              containerKeyEpochId: "tampered-container-key-epoch",
+            },
+            ...remainingTargets,
+          ],
+        },
+      }),
+      expectedBindingId: bindingId,
+      expectedBlobId: blobId,
+      execSql: runtime.execSql,
+      targetSecretKey: encapsulationKeyPair.secretKey,
+      writerProjection,
+    }),
+  ).rejects.toThrow("target hash is not canonical");
 });
 
 test("notes store preserves a replacement queued during V2 attachment upload", async () => {

@@ -156,6 +156,7 @@ interface UploadDocumentAttachmentV2Result {
 
 interface DecryptDocumentAttachmentBlobV2Input {
   encryptedBytes: string;
+  expectedBindingId: string;
   expectedBlobId: string;
   execSql?: ExecSql | undefined;
   targetSecretKey: Uint8Array;
@@ -737,8 +738,10 @@ function parseBlobV2EncryptedBytes(
 }
 
 async function unwrapBlobContentKey(input: {
+  documentId: string;
   encrypted: BlobV2EncryptedBytesRecord;
   execSql?: ExecSql | undefined;
+  expectedBindingId: string;
   secretKey: Uint8Array;
   writerProjection: DocumentV2WriterProjectionResponse;
 }): Promise<Uint8Array> {
@@ -748,8 +751,17 @@ async function unwrapBlobContentKey(input: {
     writerProjection: input.writerProjection,
   });
   let contentKey: Uint8Array | null = null;
+  const attachmentTargets = input.encrypted.contentKeyBundle.targets.filter(
+    (envelope) =>
+      envelope.bindingId === input.expectedBindingId &&
+      envelope.documentId === input.documentId,
+  );
 
-  for (const envelope of input.encrypted.contentKeyBundle.targets) {
+  if (attachmentTargets.length === 0) {
+    throw new Error("Blob V2 content-key bundle is missing attachment target");
+  }
+
+  for (const envelope of attachmentTargets) {
     const containerKek = keksByEpochId.get(envelope.containerKeyEpochId);
     if (!containerKek) {
       continue;
@@ -778,8 +790,33 @@ async function unwrapBlobContentKey(input: {
   return contentKey;
 }
 
+function contentKeyTargetReference(
+  envelope: BlobV2ContentKeyTargetEnvelopeRequest,
+): BlobContentKeyTarget {
+  return {
+    bindingId: envelope.bindingId,
+    documentId: envelope.documentId,
+    containerId: envelope.containerId,
+    containerManifestHash: envelope.containerManifestHash,
+    containerKeyEpochId: envelope.containerKeyEpochId,
+    containerKeyEpoch: envelope.containerKeyEpoch,
+  };
+}
+
+async function assertBlobContentKeyBundleTargetHash(
+  bundle: BlobV2ContentKeyBundleRequest,
+): Promise<void> {
+  const targetHash = await computeBlobContentKeyTargetHash(
+    bundle.targets.map(contentKeyTargetReference),
+  );
+  if (targetHash !== bundle.targetHash) {
+    throw new Error("Blob V2 content-key target hash is not canonical");
+  }
+}
+
 export async function decryptDocumentAttachmentBlobV2({
   encryptedBytes,
+  expectedBindingId,
   expectedBlobId,
   execSql,
   targetSecretKey,
@@ -798,8 +835,11 @@ export async function decryptDocumentAttachmentBlobV2({
   ) {
     throw new Error("Blob V2 encrypted bytes content-key bundle mismatch");
   }
+  await assertBlobContentKeyBundleTargetHash(encrypted.contentKeyBundle);
 
-  const { organizationId } = readDocumentManifestIdentity(writerProjection);
+  await assertDocumentV2WriterProjectionConsistent(writerProjection);
+  const { documentId, organizationId } =
+    readDocumentManifestIdentity(writerProjection);
   const expectedNonceDomainHash = await computeContentRecordNonceDomainHash({
     version: 2,
     organizationId,
@@ -823,8 +863,10 @@ export async function decryptDocumentAttachmentBlobV2({
   }
 
   const contentKey = await unwrapBlobContentKey({
+    documentId,
     encrypted,
     execSql,
+    expectedBindingId,
     secretKey: targetSecretKey,
     writerProjection,
   });
