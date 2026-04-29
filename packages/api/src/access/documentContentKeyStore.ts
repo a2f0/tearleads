@@ -326,12 +326,44 @@ async function getDocumentContentKeyBundle(
   return row ? toStoredBundle(row, executor) : null;
 }
 
-export async function getLatestDocumentContentKeyBundle(
+async function getLatestDocumentContentKeyBundle(
   documentId: string,
   executor: DocumentContentKeyExecutor = db,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const row = await loadLatestDocumentContentKeyEpochRow(documentId, executor);
   return row ? toStoredBundle(row, executor) : null;
+}
+
+export async function getLatestCurrentDocumentContentKeyBundle(
+  input: {
+    readonly currentTargets: CurrentDocumentKekTargets;
+    readonly documentId: string;
+  },
+  executor: DocumentContentKeyExecutor = db,
+): Promise<StoredDocumentContentKeyBundle | null> {
+  const bundle = await getLatestDocumentContentKeyBundle(
+    input.documentId,
+    executor,
+  );
+  if (!bundle) {
+    return null;
+  }
+
+  if (
+    bundle.linkSetManifestHash !== input.currentTargets.linkSetManifestHash ||
+    bundle.targetHash !== input.currentTargets.documentKeyTargetHash
+  ) {
+    throw new DocumentContentKeyBundleError(
+      "Document content-key bundle is stale",
+      409,
+    );
+  }
+  assertTargetsMatchCurrent({
+    currentTargets: input.currentTargets,
+    targets: bundle.targets,
+  });
+
+  return bundle;
 }
 
 async function insertDocumentContentKeyTargets(input: {
