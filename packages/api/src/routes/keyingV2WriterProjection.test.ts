@@ -43,6 +43,7 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
+import { buildRootContainerV2RekeyMutation } from "../../test/helpers/containerV2Rekey";
 import { registerUser } from "../../test/helpers/registerUser";
 import { getAccessManifestBundle } from "../access/accessManifestStore";
 import {
@@ -471,6 +472,46 @@ test("POST /v2/documents rejects malformed V2 signed event records", async () =>
   expect(await response.json()).toEqual({
     error: "Document V2 event.version is invalid",
   });
+});
+
+test("POST /v2/documents applies optional container rekeys before target validation", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const rootRekey = await buildRootContainerV2RekeyMutation({
+    previous: root,
+    signer: owner,
+  });
+  const request = await createDocumentV2Request({
+    owner,
+    root: {
+      bundle: rootRekey.bundle,
+      kekState: rootRekey.kekState,
+    },
+  });
+  request.containerRekeys = [rootRekey.request];
+
+  const response = await routeApp.request("/v2/documents", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  expect(response.status).toBe(200);
+  const created = await response.json();
+  expect(isDocumentV2CreateResponse(created)).toBe(true);
+  expect(created.documentKekTargets.linkedContainerKeyEpochIds).toEqual([
+    rootRekey.kekState.containerKeyEpochId,
+  ]);
+
+  const currentRootEpoch = await getCurrentContainerKeyEpoch(
+    root.kekState.containerId,
+  );
+  expect(currentRootEpoch?.id).toBe(rootRekey.kekState.containerKeyEpochId);
 });
 
 async function buildDocumentV2LinkRequest(input: {
