@@ -39,9 +39,29 @@ import {
   buildMaterializedContainerV2CreatePlan,
   type ContainerV2MutationAuthor,
   createRemoteContainerV2,
+  shareRemoteContainerV2,
 } from "./containerV2Runtime";
 
 const SIGNED_AT = "2026-04-28T12:00:00.000Z";
+
+interface DeepNonCanonicalRecord {
+  next?: DeepNonCanonicalRecord;
+  notJson?: undefined;
+}
+
+function createDeepNonCanonicalRecord(depth: number): DeepNonCanonicalRecord {
+  const root: DeepNonCanonicalRecord = {};
+  let cursor = root;
+
+  for (let index = 0; index < depth; index += 1) {
+    const next: DeepNonCanonicalRecord = {};
+    cursor.next = next;
+    cursor = next;
+  }
+
+  cursor.notJson = undefined;
+  return root;
+}
 
 async function createAuthor(input?: {
   organizationId?: string;
@@ -452,6 +472,96 @@ test("buildContainerV2CreatePlan rejects stale parent projections and wrong orga
       parentProjection: parent.projection,
     }),
   ).rejects.toThrow("KEK material");
+});
+
+test("buildMaterializedContainerV2CreatePlan rejects non-canonical parent path records before request construction", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+
+  await expect(
+    buildMaterializedContainerV2CreatePlan({
+      author,
+      containerKey: crypto.getRandomValues(new Uint8Array(32)),
+      parentProjection: {
+        ...parent.projection,
+        path: parent.projection.path.map((bundle) => ({
+          ...bundle,
+          state: {
+            ...bundle.state,
+            wouldBeDroppedByJson: undefined,
+          },
+        })),
+      },
+      parentSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("must be canonical JSON");
+});
+
+test("buildMaterializedContainerV2CreatePlan rejects deeply nested non-canonical parent records without overflowing", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+
+  await expect(
+    buildMaterializedContainerV2CreatePlan({
+      author,
+      containerKey: crypto.getRandomValues(new Uint8Array(32)),
+      parentProjection: {
+        ...parent.projection,
+        path: parent.projection.path.map((bundle) => ({
+          ...bundle,
+          event: {
+            ...bundle.event,
+            body: createDeepNonCanonicalRecord(20_000),
+          },
+        })),
+      },
+      parentSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("must be canonical JSON");
+});
+
+test("shareRemoteContainerV2 rejects malformed projected container state before sending", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const recipientKeyPair = generateKemSeedAndKeyPair();
+  let shareCalled = false;
+
+  await expect(
+    shareRemoteContainerV2({
+      accessLevel: "read",
+      apiClient: {
+        getContainerV2WriterProjection: async () => ({
+          ...parent.projection,
+          path: parent.projection.path.map((bundle) => ({
+            ...bundle,
+            state: {
+              ...bundle.state,
+              directGrants: "not-grants",
+            },
+          })),
+        }),
+        shareContainerV2: async () => {
+          shareCalled = true;
+          throw new Error("Unexpected share call");
+        },
+      },
+      author,
+      containerId: parent.projection.containerId,
+      recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
+      recipientUserId: "user-2",
+      targetSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("directGrants must be an array");
+  expect(shareCalled).toBe(false);
 });
 
 test("createRemoteContainerV2 fetches the parent projection and submits the materialized V2 mutation", async () => {
