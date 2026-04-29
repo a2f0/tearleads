@@ -50,6 +50,25 @@ import {
   unwrapDocumentV2ContentKeyTarget,
 } from "./documentV2Runtime";
 
+interface DeepNonCanonicalRecord {
+  next?: DeepNonCanonicalRecord;
+  notJson?: undefined;
+}
+
+function createDeepNonCanonicalRecord(depth: number): DeepNonCanonicalRecord {
+  const root: DeepNonCanonicalRecord = {};
+  let cursor = root;
+
+  for (let index = 0; index < depth; index += 1) {
+    const next: DeepNonCanonicalRecord = {};
+    cursor.next = next;
+    cursor = next;
+  }
+
+  cursor.notJson = undefined;
+  return root;
+}
+
 async function fixtureHash(label: string): Promise<string> {
   return toFingerprint(new TextEncoder().encode(`document-v2:${label}`));
 }
@@ -1370,6 +1389,34 @@ test("buildDocumentV2SyncPlan rejects malformed manifest event envelopes before 
       outgoingUpdates: [await createPreparedUpdate()],
     }),
   ).rejects.toThrow("signed event.eventType is invalid");
+});
+
+test("buildDocumentV2SyncPlan rejects deeply nested non-canonical manifest records without overflowing", async () => {
+  const { author, createResponse, projection } = await createSyncFixture();
+
+  await expect(
+    buildDocumentV2SyncPlan({
+      author,
+      authorizingContainerPaths: [projectionPathRecords(projection)],
+      contentKeyBundle: createResponse.contentKeyBundle,
+      documentKekTargets: createResponse.documentKekTargets,
+      documentManifest: {
+        ...createResponse.accessManifest,
+        event: {
+          ...createResponse.accessManifest.event,
+          event: {
+            ...(Reflect.get(
+              createResponse.accessManifest.event,
+              "event",
+            ) as Record<string, unknown>),
+            unexpectedDeepValue: createDeepNonCanonicalRecord(20_000),
+          },
+        },
+      },
+      localVersionVector: null,
+      outgoingUpdates: [await createPreparedUpdate()],
+    }),
+  ).rejects.toThrow("must be canonical JSON");
 });
 
 test("buildDocumentV2SyncPlan rejects duplicate V2 content record domains before signing", async () => {

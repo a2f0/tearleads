@@ -221,24 +221,36 @@ function readRecordVersion2(
   }
 }
 
-function isCanonicalJson(value: unknown): value is KeyingV2CanonicalJson {
-  if (
+interface CanonicalJsonFrame {
+  leave?: object;
+  value?: unknown;
+}
+
+function isCanonicalJsonScalar(value: unknown): boolean {
+  return (
     value === null ||
     typeof value === "string" ||
-    typeof value === "boolean"
-  ) {
-    return true;
-  }
+    typeof value === "boolean" ||
+    (typeof value === "number" && Number.isFinite(value))
+  );
+}
 
-  if (typeof value === "number") {
-    return Number.isFinite(value);
-  }
-
+function pushCanonicalJsonChildren(
+  value: unknown,
+  active: WeakSet<object>,
+  pending: CanonicalJsonFrame[],
+): boolean {
   if (Array.isArray(value)) {
+    if (active.has(value)) {
+      return false;
+    }
+    active.add(value);
+    pending.push({ leave: value });
     for (let index = 0; index < value.length; index += 1) {
-      if (!(index in value) || !isCanonicalJson(value[index])) {
+      if (!(index in value)) {
         return false;
       }
+      pending.push({ value: value[index] });
     }
     return true;
   }
@@ -246,8 +258,41 @@ function isCanonicalJson(value: unknown): value is KeyingV2CanonicalJson {
   if (!isPlainObject(value)) {
     return false;
   }
+  if (active.has(value)) {
+    return false;
+  }
+  active.add(value);
+  pending.push({ leave: value });
+  for (const key of Object.keys(value)) {
+    pending.push({ value: Reflect.get(value, key) });
+  }
+  return true;
+}
 
-  return Object.keys(value).every((key) => isCanonicalJson(value[key]));
+function isCanonicalJson(value: unknown): value is KeyingV2CanonicalJson {
+  const pending: CanonicalJsonFrame[] = [{ value }];
+  const active = new WeakSet<object>();
+
+  while (pending.length > 0) {
+    const frame = pending.pop();
+    if (!frame) {
+      break;
+    }
+    if (frame.leave) {
+      active.delete(frame.leave);
+      continue;
+    }
+
+    const item = frame.value;
+    if (isCanonicalJsonScalar(item)) {
+      continue;
+    }
+    if (!pushCanonicalJsonChildren(item, active, pending)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function readCanonicalJson(

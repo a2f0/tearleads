@@ -44,6 +44,25 @@ import {
 
 const SIGNED_AT = "2026-04-28T12:00:00.000Z";
 
+interface DeepNonCanonicalRecord {
+  next?: DeepNonCanonicalRecord;
+  notJson?: undefined;
+}
+
+function createDeepNonCanonicalRecord(depth: number): DeepNonCanonicalRecord {
+  const root: DeepNonCanonicalRecord = {};
+  let cursor = root;
+
+  for (let index = 0; index < depth; index += 1) {
+    const next: DeepNonCanonicalRecord = {};
+    cursor.next = next;
+    cursor = next;
+  }
+
+  cursor.notJson = undefined;
+  return root;
+}
+
 async function createAuthor(input?: {
   organizationId?: string;
   userId?: string;
@@ -473,6 +492,32 @@ test("buildMaterializedContainerV2CreatePlan rejects non-canonical parent path r
           state: {
             ...bundle.state,
             wouldBeDroppedByJson: undefined,
+          },
+        })),
+      },
+      parentSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("must be canonical JSON");
+});
+
+test("buildMaterializedContainerV2CreatePlan rejects deeply nested non-canonical parent records without overflowing", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+
+  await expect(
+    buildMaterializedContainerV2CreatePlan({
+      author,
+      containerKey: crypto.getRandomValues(new Uint8Array(32)),
+      parentProjection: {
+        ...parent.projection,
+        path: parent.projection.path.map((bundle) => ({
+          ...bundle,
+          event: {
+            ...bundle.event,
+            body: createDeepNonCanonicalRecord(20_000),
           },
         })),
       },
