@@ -972,6 +972,46 @@ test("buildMaterializedDocumentV2LinkSetMutationPlan adds links without rotating
   );
 });
 
+test("buildMaterializedDocumentV2LinkSetMutationPlan rejects split writer projection target hashes", async () => {
+  const { author } = await createAuthor();
+  const { projection, rootContainerKek, secretKey } =
+    await createWrappedProjection();
+  const { projection: siblingProjection } = await createSiblingProjection({
+    baseProjection: projection,
+    rootContainerKek,
+  });
+  const created = await buildMaterializedDocumentV2CreatePlan({
+    author,
+    containerProjection: projection,
+    documentId: "document-link-set-split-projection",
+    targetSecretKey: secretKey,
+  });
+  const createdResponse = createResponse(created.plan);
+  const splitTargetHash = await fixtureHash("split-writer-projection-target");
+
+  await expect(
+    buildMaterializedDocumentV2LinkSetMutationPlan({
+      author,
+      operation: "link",
+      targetContainerProjection: siblingProjection,
+      targetSecretKey: secretKey,
+      writerProjection: {
+        authorizingContainerPaths: [projection],
+        contentKeyBundle: {
+          ...createdResponse.contentKeyBundle,
+          targetHash: splitTargetHash,
+        },
+        documentId: createdResponse.id,
+        documentKekTargets: {
+          ...createdResponse.documentKekTargets,
+          documentKeyTargetHash: splitTargetHash,
+        },
+        documentManifest: createdResponse.accessManifest,
+      },
+    }),
+  ).rejects.toThrow("writer projection target hash is not canonical");
+});
+
 test("buildMaterializedDocumentV2LinkSetMutationPlan names inaccessible remaining KEKs during unlink", async () => {
   const { author } = await createAuthor();
   const { projection, rootContainerKek, secretKey } =

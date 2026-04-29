@@ -38,6 +38,7 @@ import {
 } from "../keyingV2CanonicalJson";
 import type { ExecSql } from "../persistence/sqlSchema";
 import {
+  assertDocumentV2WriterProjectionConsistent,
   type DocumentV2CreateAuthor,
   unwrapContainerV2KekPath,
 } from "./documentV2Runtime";
@@ -880,6 +881,7 @@ async function buildBlobAttachmentMaterial(input: {
     return null;
   }
 
+  await assertDocumentV2WriterProjectionConsistent(writerProjection);
   const manifestIdentity = readDocumentManifestIdentity(writerProjection);
   if (manifestIdentity.documentId !== input.documentId) {
     throw new Error(
