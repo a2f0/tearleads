@@ -1,7 +1,13 @@
 import type {
-  AccessEventV2,
+  AccessManifestCheckpointV2,
   AccessManifestV2,
+  ContainerAccessLevelV2,
   ContainerAccessManifestStateV2,
+  ContainerDirectGrantV2,
+  ContainerGrantSubjectTypeV2,
+  ContentObjectKindV2,
+  ContentRecordEncryptionSuiteV2,
+  DocumentLinkSetManifestStateV2,
   KeyingV2CanonicalJson,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
@@ -24,12 +30,10 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type {
-  ContainerV2ManifestBundle,
   DocumentV2ContentKeyBundleRequest,
   DocumentV2ContentKeyTargetEnvelope,
   DocumentV2CreateRequest,
   DocumentV2LinkSetMutationRequest,
-  DocumentV2ManifestBundle,
   DocumentV2OutgoingUpdate,
   DocumentV2SyncRequest,
 } from "@tearleads/validators/request";
@@ -38,6 +42,7 @@ import type {
   DocumentV2CreateResponse,
   DocumentV2KekTargetsResponse,
   DocumentV2LinkSetMutationResponse,
+  DocumentV2ManifestBundleResponse,
   DocumentV2SyncResponse,
 } from "@tearleads/validators/response";
 import { eq, inArray } from "drizzle-orm";
@@ -70,6 +75,22 @@ import {
   ContainerV2WriterProjectionError,
   resolveContainerV2WriterProjection,
 } from "../containers/v2WriterProjection";
+import {
+  projectionAccessManifestRecord,
+  projectionVerifiedAccessEventRecord,
+  readProjectionAccessEvent,
+  readProjectionAccessManifest,
+  readProjectionNullableString,
+  readProjectionPlainRecord,
+  readProjectionPositiveInteger,
+  readProjectionRecord,
+  readProjectionReferencedPrincipalHeads,
+  readProjectionString,
+  readProjectionStringArray,
+  readProjectionValue,
+  readProjectionVerifiedAccessEvent,
+  readProjectionVersion2,
+} from "../keyingV2ProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 import { readCurrentCommitLsn } from "./commitLsn";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
@@ -132,6 +153,422 @@ interface DocumentWriteAuthorizationProof {
   readonly documentKekTargets: VerifiedDocumentKekTargets;
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}
+
+type UnbrandedVerified<T> = {
+  readonly [K in keyof T as K extends symbol ? never : K]: T[K];
+};
+
+function documentShapeError(message: string): DocumentV2MutationError {
+  return new DocumentV2MutationError(message, 400);
+}
+
+function isContainerAccessLevel(
+  value: unknown,
+): value is ContainerAccessLevelV2 {
+  return value === "admin" || value === "read" || value === "write";
+}
+
+function isContainerGrantSubjectType(
+  value: unknown,
+): value is ContainerGrantSubjectTypeV2 {
+  return value === "group" || value === "organization" || value === "user";
+}
+
+function isContentObjectKind(value: unknown): value is ContentObjectKindV2 {
+  return value === "blob" || value === "document";
+}
+
+function isContentRecordEncryptionSuite(
+  value: unknown,
+): value is ContentRecordEncryptionSuiteV2 {
+  return value === "aes-256-gcm-hkdf-sha256-record-key-v1";
+}
+
+function readContainerDirectGrant(
+  value: unknown,
+  label: string,
+): ContainerDirectGrantV2 {
+  const record = readProjectionPlainRecord(value, label, documentShapeError);
+  const accessLevel = readProjectionValue(record, "accessLevel");
+  const subjectType = readProjectionValue(record, "subjectType");
+
+  if (!isContainerAccessLevel(accessLevel)) {
+    throw documentShapeError(`${label}.accessLevel is invalid`);
+  }
+  if (!isContainerGrantSubjectType(subjectType)) {
+    throw documentShapeError(`${label}.subjectType is invalid`);
+  }
+
+  return {
+    accessLevel,
+    subjectId: readProjectionString(
+      record,
+      "subjectId",
+      label,
+      documentShapeError,
+    ),
+    subjectType,
+  };
+}
+
+function readContainerDirectGrants(
+  value: unknown,
+  label: string,
+): ContainerDirectGrantV2[] {
+  if (!Array.isArray(value)) {
+    throw documentShapeError(`${label} is invalid`);
+  }
+
+  return value.map((entry, index) =>
+    readContainerDirectGrant(entry, `${label}[${index}]`),
+  );
+}
+
+function readContainerAccessState(
+  value: unknown,
+  label: string,
+): ContainerAccessManifestStateV2 {
+  const record = readProjectionPlainRecord(value, label, documentShapeError);
+  readProjectionVersion2(record, label, documentShapeError);
+
+  return {
+    version: 2,
+    containerId: readProjectionString(
+      record,
+      "containerId",
+      label,
+      documentShapeError,
+    ),
+    organizationId: readProjectionString(
+      record,
+      "organizationId",
+      label,
+      documentShapeError,
+    ),
+    epoch: readProjectionPositiveInteger(
+      record,
+      "epoch",
+      label,
+      documentShapeError,
+    ),
+    previousManifestHash: readProjectionNullableString(
+      record,
+      "previousManifestHash",
+      label,
+      documentShapeError,
+    ),
+    eventHash: readProjectionString(
+      record,
+      "eventHash",
+      label,
+      documentShapeError,
+    ),
+    parentContainerId: readProjectionNullableString(
+      record,
+      "parentContainerId",
+      label,
+      documentShapeError,
+    ),
+    parentManifestHash: readProjectionNullableString(
+      record,
+      "parentManifestHash",
+      label,
+      documentShapeError,
+    ),
+    metadataDocumentId: readProjectionString(
+      record,
+      "metadataDocumentId",
+      label,
+      documentShapeError,
+    ),
+    containerKeyEpochId: readProjectionNullableString(
+      record,
+      "containerKeyEpochId",
+      label,
+      documentShapeError,
+    ),
+    directGrants: readContainerDirectGrants(
+      readProjectionValue(record, "directGrants"),
+      `${label}.directGrants`,
+    ),
+    referencedPrincipalHeads: readProjectionReferencedPrincipalHeads(
+      readProjectionValue(record, "referencedPrincipalHeads"),
+      `${label}.referencedPrincipalHeads`,
+      documentShapeError,
+    ),
+  };
+}
+
+function readDocumentLinkSetState(
+  value: unknown,
+  label: string,
+): DocumentLinkSetManifestStateV2 {
+  const record = readProjectionPlainRecord(value, label, documentShapeError);
+  readProjectionVersion2(record, label, documentShapeError);
+
+  return {
+    version: 2,
+    documentId: readProjectionString(
+      record,
+      "documentId",
+      label,
+      documentShapeError,
+    ),
+    organizationId: readProjectionString(
+      record,
+      "organizationId",
+      label,
+      documentShapeError,
+    ),
+    epoch: readProjectionPositiveInteger(
+      record,
+      "epoch",
+      label,
+      documentShapeError,
+    ),
+    previousManifestHash: readProjectionNullableString(
+      record,
+      "previousManifestHash",
+      label,
+      documentShapeError,
+    ),
+    eventHash: readProjectionString(
+      record,
+      "eventHash",
+      label,
+      documentShapeError,
+    ),
+    linkedContainerIds: readProjectionStringArray(
+      readProjectionValue(record, "linkedContainerIds"),
+      `${label}.linkedContainerIds`,
+      documentShapeError,
+    ),
+  };
+}
+
+function documentLinkSetStateRecord(
+  state: DocumentLinkSetManifestStateV2,
+): Record<string, unknown> {
+  return {
+    version: state.version,
+    documentId: state.documentId,
+    organizationId: state.organizationId,
+    epoch: state.epoch,
+    previousManifestHash: state.previousManifestHash,
+    eventHash: state.eventHash,
+    linkedContainerIds: [...state.linkedContainerIds],
+  };
+}
+
+function accessManifestCheckpoint(input: {
+  readonly manifest: AccessManifestV2;
+  readonly manifestHash: string;
+}): AccessManifestCheckpointV2 {
+  return {
+    objectKind: input.manifest.objectKind,
+    objectId: input.manifest.objectId,
+    organizationId: input.manifest.organizationId,
+    epoch: input.manifest.epoch,
+    manifestHash: input.manifestHash,
+  };
+}
+
+function readVerifiedContainerManifest(
+  value: unknown,
+  label: string,
+): VerifiedContainerAccessManifest {
+  const record = readProjectionPlainRecord(value, label, documentShapeError);
+  const manifest = readProjectionAccessManifest(
+    readProjectionValue(record, "manifest"),
+    `${label}.manifest`,
+    documentShapeError,
+  );
+  const manifestHash = readProjectionString(
+    record,
+    "manifestHash",
+    label,
+    documentShapeError,
+  );
+  const verified: UnbrandedVerified<VerifiedContainerAccessManifest> = {
+    event: readProjectionVerifiedAccessEvent(
+      readProjectionValue(record, "event"),
+      `${label}.event`,
+      documentShapeError,
+    ),
+    manifest,
+    manifestHash,
+    state: readContainerAccessState(
+      readProjectionValue(record, "state"),
+      `${label}.state`,
+    ),
+    checkpoint: accessManifestCheckpoint({
+      manifest,
+      manifestHash,
+    }),
+  };
+
+  return verified as VerifiedContainerAccessManifest;
+}
+
+function readVerifiedDocumentManifest(
+  value: unknown,
+  label: string,
+): VerifiedDocumentLinkSetManifest {
+  const record = readProjectionPlainRecord(value, label, documentShapeError);
+  const manifest = readProjectionAccessManifest(
+    readProjectionValue(record, "manifest"),
+    `${label}.manifest`,
+    documentShapeError,
+  );
+  const state = readDocumentLinkSetState(
+    readProjectionValue(record, "state"),
+    `${label}.state`,
+  );
+  const event = readDocumentManifestEvent(
+    readProjectionValue(record, "event"),
+    state,
+    `${label}.event`,
+  );
+  const manifestHash = readProjectionString(
+    record,
+    "manifestHash",
+    label,
+    documentShapeError,
+  );
+  const verified: UnbrandedVerified<VerifiedDocumentLinkSetManifest> = {
+    event,
+    manifest,
+    manifestHash,
+    state,
+    checkpoint: accessManifestCheckpoint({
+      manifest,
+      manifestHash,
+    }),
+  };
+
+  return verified as VerifiedDocumentLinkSetManifest;
+}
+
+function readDocumentManifestEvent(
+  value: unknown,
+  state: DocumentLinkSetManifestStateV2,
+  label: string,
+): VerifiedAccessEvent {
+  const record = readProjectionPlainRecord(value, label, documentShapeError);
+  if (readProjectionValue(record, "event") !== undefined) {
+    return readProjectionVerifiedAccessEvent(value, label, documentShapeError);
+  }
+
+  const verified: UnbrandedVerified<VerifiedAccessEvent> = {
+    event: readProjectionAccessEvent(value, label, documentShapeError),
+    body: {},
+    eventHash: state.eventHash,
+  };
+
+  return verified as VerifiedAccessEvent;
+}
+
+function documentManifestBundleRecord(
+  manifest: VerifiedDocumentLinkSetManifest,
+): DocumentV2ManifestBundleResponse {
+  return {
+    event: projectionVerifiedAccessEventRecord(manifest.event),
+    manifest: projectionAccessManifestRecord(manifest.manifest),
+    manifestHash: manifest.manifestHash,
+    state: documentLinkSetStateRecord(manifest.state),
+  };
+}
+
+function verifiedDocumentKekTargetsFromResolved(
+  targets: Awaited<ReturnType<typeof resolveCurrentDocumentKekTargets>>,
+): VerifiedDocumentKekTargets {
+  const verified: UnbrandedVerified<VerifiedDocumentKekTargets> = {
+    documentId: targets.documentId,
+    linkSetManifestHash: targets.linkSetManifestHash,
+    linkedContainerManifestHashes: [...targets.linkedContainerManifestHashes],
+    linkedContainerKeyEpochIds: [...targets.linkedContainerKeyEpochIds],
+    targets: targets.targets.map((target) => ({ ...target })),
+    documentKeyTargetHash: targets.documentKeyTargetHash,
+  };
+
+  return verified as VerifiedDocumentKekTargets;
+}
+
+function readWriteHeaderString(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): string {
+  return readProjectionString(record, key, label, documentShapeError);
+}
+
+function readWriteHeader(value: unknown, label: string): WriteHeaderV2 {
+  const record = readProjectionPlainRecord(value, label, documentShapeError);
+  const objectKind = readProjectionValue(record, "objectKind");
+  const encryptionSuite = readProjectionValue(record, "encryptionSuite");
+  if (!isContentObjectKind(objectKind)) {
+    throw documentShapeError(`${label}.objectKind is invalid`);
+  }
+  if (!isContentRecordEncryptionSuite(encryptionSuite)) {
+    throw documentShapeError(`${label}.encryptionSuite is invalid`);
+  }
+  readProjectionVersion2(record, label, documentShapeError);
+
+  return {
+    version: 2,
+    organizationId: readWriteHeaderString(record, "organizationId", label),
+    objectKind,
+    objectId: readWriteHeaderString(record, "objectId", label),
+    accessManifestHash: readWriteHeaderString(
+      record,
+      "accessManifestHash",
+      label,
+    ),
+    contentKeyEpoch: readProjectionPositiveInteger(
+      record,
+      "contentKeyEpoch",
+      label,
+      documentShapeError,
+    ),
+    targetHash: readWriteHeaderString(record, "targetHash", label),
+    encryptionSuite,
+    contentRecordId: readWriteHeaderString(record, "contentRecordId", label),
+    nonceDomainHash: readWriteHeaderString(record, "nonceDomainHash", label),
+    metadataHash: readWriteHeaderString(record, "metadataHash", label),
+    ciphertextHash: readWriteHeaderString(record, "ciphertextHash", label),
+    writerUserId: readWriteHeaderString(record, "writerUserId", label),
+    writerDeviceId: readWriteHeaderString(record, "writerDeviceId", label),
+    writerKeyFingerprint: readWriteHeaderString(
+      record,
+      "writerKeyFingerprint",
+      label,
+    ),
+    signedAt: readWriteHeaderString(record, "signedAt", label),
+    signature: readWriteHeaderString(record, "signature", label),
+  };
+}
+
+function writeHeaderRecord(header: WriteHeaderV2): Record<string, unknown> {
+  return {
+    version: header.version,
+    organizationId: header.organizationId,
+    objectKind: header.objectKind,
+    objectId: header.objectId,
+    accessManifestHash: header.accessManifestHash,
+    contentKeyEpoch: header.contentKeyEpoch,
+    targetHash: header.targetHash,
+    encryptionSuite: header.encryptionSuite,
+    contentRecordId: header.contentRecordId,
+    nonceDomainHash: header.nonceDomainHash,
+    metadataHash: header.metadataHash,
+    ciphertextHash: header.ciphertextHash,
+    writerUserId: header.writerUserId,
+    writerDeviceId: header.writerDeviceId,
+    writerKeyFingerprint: header.writerKeyFingerprint,
+    signedAt: header.signedAt,
+    signature: header.signature,
+  };
 }
 
 function canonicalJsonEquals(left: unknown, right: unknown): boolean {
@@ -221,12 +658,16 @@ async function verifyDocumentEvent(input: {
   readonly body: unknown;
   readonly executor: DatabaseExecutor;
   readonly expectedDocumentId?: string;
-  readonly expectedEventType?: AccessEventV2["eventType"];
+  readonly expectedEventType?: "document.link" | "document.unlink";
   readonly event: Record<string, unknown>;
   readonly fingerprint: string;
   readonly userId: string;
 }): Promise<VerifiedAccessEvent> {
-  const event = input.event as unknown as AccessEventV2;
+  const event = readProjectionAccessEvent(
+    input.event,
+    "Document V2 event",
+    documentShapeError,
+  );
 
   if (
     event.signerUserId !== input.userId ||
@@ -262,26 +703,12 @@ async function verifyDocumentEvent(input: {
   return verifiedEvent.value;
 }
 
-function toVerifiedContainerManifest(
-  bundle: ContainerV2ManifestBundle,
-): VerifiedContainerAccessManifest {
-  return bundle as unknown as VerifiedContainerAccessManifest;
-}
-
-function toVerifiedDocumentManifest(
-  bundle: DocumentV2ManifestBundle,
-): VerifiedDocumentLinkSetManifest {
-  return bundle as unknown as VerifiedDocumentLinkSetManifest;
-}
-
 async function assertContainerManifestBundleConsistent(
-  bundle: ContainerV2ManifestBundle,
+  bundle: unknown,
   label: string,
 ): Promise<VerifiedContainerAccessManifest> {
-  const verified = toVerifiedContainerManifest(bundle);
-  const derivedManifest = await deriveContainerAccessManifest(
-    verified.state as ContainerAccessManifestStateV2,
-  );
+  const verified = readVerifiedContainerManifest(bundle, label);
+  const derivedManifest = await deriveContainerAccessManifest(verified.state);
   const derivedManifestHash = await computeAccessManifestHash(derivedManifest);
   const suppliedManifestHash = await computeAccessManifestHash(
     verified.manifest,
@@ -302,10 +729,10 @@ async function assertContainerManifestBundleConsistent(
 }
 
 export async function assertDocumentManifestBundleConsistent(
-  bundle: DocumentV2ManifestBundle,
+  bundle: unknown,
   label: string,
 ): Promise<VerifiedDocumentLinkSetManifest> {
-  const verified = toVerifiedDocumentManifest(bundle);
+  const verified = readVerifiedDocumentManifest(bundle, label);
   const derivedManifest = await deriveDocumentLinkSetManifest(verified.state);
   const derivedManifestHash = await computeAccessManifestHash(derivedManifest);
   const suppliedManifestHash = await computeAccessManifestHash(
@@ -328,7 +755,7 @@ export async function assertDocumentManifestBundleConsistent(
 
 async function assertCurrentContainerPath(
   executor: DatabaseExecutor,
-  bundles: readonly Record<string, unknown>[] | undefined,
+  bundles: readonly unknown[] | undefined,
   label: string,
 ): Promise<VerifiedContainerAccessManifest[] | undefined> {
   if (bundles === undefined) {
@@ -338,7 +765,7 @@ async function assertCurrentContainerPath(
   const path: VerifiedContainerAccessManifest[] = [];
   for (const [index, bundle] of bundles.entries()) {
     const manifest = await assertContainerManifestBundleConsistent(
-      bundle as unknown as ContainerV2ManifestBundle,
+      bundle,
       `${label}[${index}]`,
     );
     const head = await getCurrentAccessManifestHead(
@@ -360,7 +787,7 @@ async function assertCurrentContainerPath(
 
 export async function assertCurrentContainerPathGroups(
   executor: DatabaseExecutor,
-  groups: readonly (readonly Record<string, unknown>[])[] | undefined,
+  groups: readonly (readonly unknown[])[] | undefined,
   label: string,
 ): Promise<VerifiedContainerAccessManifest[][] | undefined> {
   if (groups === undefined) {
@@ -408,7 +835,11 @@ async function verifyDocumentManifestFromRequest(input: {
   const result = await verifyDocumentLinkSetManifest({
     event: input.event,
     expectedManifestHash: input.request.expectedManifestHash,
-    manifest: input.request.manifest as unknown as AccessManifestV2,
+    manifest: readProjectionAccessManifest(
+      input.request.manifest,
+      "Document V2 manifest",
+      documentShapeError,
+    ),
     previousManifest:
       input.request.previousManifest === undefined ||
       input.request.previousManifest === null
@@ -463,7 +894,11 @@ async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
   const result = await verifyDocumentLinkSetManifest({
     event: input.event,
     expectedManifestHash: input.request.expectedManifestHash,
-    manifest: input.request.manifest as unknown as AccessManifestV2,
+    manifest: readProjectionAccessManifest(
+      input.request.manifest,
+      "Document V2 manifest",
+      documentShapeError,
+    ),
     previousManifest,
     principalPolicies,
     ...(targetContainerPath !== undefined ? { targetContainerPath } : {}),
@@ -488,7 +923,11 @@ function toStoredTargetEnvelope(
     containerKeyEpochId: target.containerKeyEpochId,
     containerKeyEpoch: target.containerKeyEpoch,
     wrappedKey: target.wrappedKey,
-    wrappingMetadata: target.wrappingMetadata as KeyingV2CanonicalJson,
+    wrappingMetadata: readProjectionRecord(
+      target.wrappingMetadata,
+      "Document V2 content-key target wrapping metadata",
+      documentShapeError,
+    ) as KeyingV2CanonicalJson,
   };
 }
 
@@ -539,7 +978,11 @@ function toContentKeyBundleResponse(
       containerKeyEpochId: target.containerKeyEpochId,
       containerKeyEpoch: target.containerKeyEpoch,
       wrappedKey: target.wrappedKey,
-      wrappingMetadata: target.wrappingMetadata as Record<string, unknown>,
+      wrappingMetadata: readProjectionRecord(
+        target.wrappingMetadata,
+        "Document V2 content-key target wrapping metadata",
+        documentShapeError,
+      ),
     })),
   };
 }
@@ -613,8 +1056,9 @@ async function verifySyncWriteAuthorizationProof(input: {
 
   return {
     authorizingContainerPaths,
-    documentKekTargets:
-      input.currentTargets as unknown as VerifiedDocumentKekTargets,
+    documentKekTargets: verifiedDocumentKekTargetsFromResolved(
+      input.currentTargets,
+    ),
     documentManifest,
     principalPolicies,
   };
@@ -808,12 +1252,7 @@ export async function createDocumentV2WithExecutor(input: {
     return {
       id: document.id,
       createdAt: document.createdAt.toISOString(),
-      accessManifest: {
-        event: manifest.event as unknown as Record<string, unknown>,
-        manifest: manifest.manifest as unknown as Record<string, unknown>,
-        manifestHash: manifest.manifestHash,
-        state: manifest.state as unknown as Record<string, unknown>,
-      },
+      accessManifest: documentManifestBundleRecord(manifest),
       contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
       documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
     };
@@ -888,12 +1327,7 @@ async function mutateDocumentV2LinkSetWithExecutor(input: {
 
     return {
       id: input.documentId,
-      accessManifest: {
-        event: manifest.event as unknown as Record<string, unknown>,
-        manifest: manifest.manifest as unknown as Record<string, unknown>,
-        manifestHash: manifest.manifestHash,
-        state: manifest.state as unknown as Record<string, unknown>,
-      },
+      accessManifest: documentManifestBundleRecord(manifest),
       contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
       documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
     };
@@ -987,7 +1421,10 @@ async function verifyOutgoingWriteHeader(input: {
   readonly userId: string;
   readonly writeAuthorization: DocumentWriteAuthorizationProof | null;
 }): Promise<VerifiedWriteHeader> {
-  const header = input.update.writeHeader as unknown as WriteHeaderV2;
+  const header = readWriteHeader(
+    input.update.writeHeader,
+    "Document V2 write header",
+  );
   if (
     header.writerUserId !== input.userId ||
     header.contentKeyEpoch !== input.requestContentKeyEpoch
@@ -1028,7 +1465,7 @@ async function assertRetryWriteHeaderMatches(input: {
   readonly update: DocumentV2OutgoingUpdate;
 }): Promise<void> {
   const headerHash = await computeWriteHeaderHash(
-    input.update.writeHeader as unknown as WriteHeaderV2,
+    readWriteHeader(input.update.writeHeader, "Document V2 write header"),
   );
   if (headerHash !== input.expectedHeaderHash) {
     throw new DocumentV2MutationError("Document write header conflict", 409);
@@ -1192,7 +1629,7 @@ function toSyncUpdate(
     partialStartVersionVector: update.partialStartVersionVector,
     partialEndVersionVector: update.partialEndVersionVector,
     createdAt: update.createdAt.toISOString(),
-    writeHeader: writeHeader.header as unknown as Record<string, unknown>,
+    writeHeader: writeHeaderRecord(writeHeader.header),
     writeHeaderHash: writeHeader.headerHash,
   };
 }

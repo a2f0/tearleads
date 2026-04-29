@@ -446,6 +446,33 @@ async function createDocumentV2(input: {
   return created as DocumentV2CreateResponse;
 }
 
+test("POST /v2/documents rejects malformed V2 signed event records", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const request = await createDocumentV2Request({ owner, root });
+
+  request.event = {
+    ...request.event,
+    version: "2",
+  };
+
+  const response = await routeApp.request("/v2/documents", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Document V2 event.version is invalid",
+  });
+});
+
 async function buildDocumentV2LinkRequest(input: {
   readonly child: ContainerV2MutationResponse;
   readonly createdDocument: Awaited<ReturnType<typeof createDocumentV2>>;
