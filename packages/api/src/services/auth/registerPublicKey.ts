@@ -1,6 +1,4 @@
 import {
-  type AccessEventV2,
-  type AccessManifestV2,
   bytesToHex,
   CHALLENGE_TTL_SECONDS,
   type ContainerKeyEpochV2,
@@ -37,6 +35,15 @@ import {
   createDocumentV2WithExecutor,
   DocumentV2MutationError,
 } from "../documents/documentV2Mutations";
+import {
+  readProjectionAccessEvent,
+  readProjectionAccessManifest,
+  readProjectionNullableString,
+  readProjectionPlainRecord,
+  readProjectionPositiveInteger,
+  readProjectionString,
+  readProjectionValue,
+} from "../keyingV2ProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 
 const CONTAINER_OBJECT_TYPE = "container";
@@ -49,6 +56,21 @@ export class RegisterPublicKeyError extends Error {
   ) {
     super(message);
   }
+}
+
+function registerShapeError(message: string): RegisterPublicKeyError {
+  return new RegisterPublicKeyError(message, 400);
+}
+
+function isKekRecipientKind(
+  value: unknown,
+): value is ContainerKeyWrapV2["recipientKind"] {
+  return (
+    value === "container" ||
+    value === "group" ||
+    value === "organization" ||
+    value === "user"
+  );
 }
 
 async function createPersonalOrganization(
@@ -232,6 +254,161 @@ function requireRootV2Verification<T>(
   throw new RegisterPublicKeyError(result.error.message, 400);
 }
 
+function readContainerKeyEpoch(
+  value: unknown,
+  label: string,
+): ContainerKeyEpochV2 {
+  const record = readProjectionPlainRecord(value, label, registerShapeError);
+  return {
+    id: readProjectionString(record, "id", label, registerShapeError),
+    containerId: readProjectionString(
+      record,
+      "containerId",
+      label,
+      registerShapeError,
+    ),
+    keyEpoch: readProjectionPositiveInteger(
+      record,
+      "keyEpoch",
+      label,
+      registerShapeError,
+    ),
+    accessManifestHash: readProjectionString(
+      record,
+      "accessManifestHash",
+      label,
+      registerShapeError,
+    ),
+    parentContainerKeyEpochId: readProjectionNullableString(
+      record,
+      "parentContainerKeyEpochId",
+      label,
+      registerShapeError,
+    ),
+    createdByEventHash: readProjectionString(
+      record,
+      "createdByEventHash",
+      label,
+      registerShapeError,
+    ),
+    createdByManifestHash: readProjectionString(
+      record,
+      "createdByManifestHash",
+      label,
+      registerShapeError,
+    ),
+  };
+}
+
+function readContainerUserRecipientKey(
+  value: unknown,
+  label: string,
+): ContainerUserRecipientKeyV2 {
+  const record = readProjectionPlainRecord(value, label, registerShapeError);
+
+  return {
+    userId: readProjectionString(record, "userId", label, registerShapeError),
+    recipientKeyEpochId: readProjectionString(
+      record,
+      "recipientKeyEpochId",
+      label,
+      registerShapeError,
+    ),
+    recipientKeyFingerprint: readProjectionString(
+      record,
+      "recipientKeyFingerprint",
+      label,
+      registerShapeError,
+    ),
+  };
+}
+
+function readContainerUserRecipientKeys(
+  value: unknown,
+  label: string,
+): ContainerUserRecipientKeyV2[] {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw registerShapeError(`${label} is invalid`);
+  }
+
+  return value.map((entry, index) =>
+    readContainerUserRecipientKey(entry, `${label}[${index}]`),
+  );
+}
+
+function readContainerKeyWrap(
+  value: unknown,
+  label: string,
+): ContainerKeyWrapV2 {
+  const record = readProjectionPlainRecord(value, label, registerShapeError);
+  const recipientKind = readProjectionValue(record, "recipientKind");
+  if (!isKekRecipientKind(recipientKind)) {
+    throw registerShapeError(`${label}.recipientKind is invalid`);
+  }
+
+  return {
+    containerKeyEpochId: readProjectionString(
+      record,
+      "containerKeyEpochId",
+      label,
+      registerShapeError,
+    ),
+    recipientKind,
+    recipientId: readProjectionString(
+      record,
+      "recipientId",
+      label,
+      registerShapeError,
+    ),
+    recipientKeyEpochId: readProjectionString(
+      record,
+      "recipientKeyEpochId",
+      label,
+      registerShapeError,
+    ),
+    recipientKeyFingerprint: readProjectionString(
+      record,
+      "recipientKeyFingerprint",
+      label,
+      registerShapeError,
+    ),
+    kemCipherText: readProjectionString(
+      record,
+      "kemCipherText",
+      label,
+      registerShapeError,
+    ),
+    wrappedKey: readProjectionString(
+      record,
+      "wrappedKey",
+      label,
+      registerShapeError,
+    ),
+    wrapManifestHash: readProjectionString(
+      record,
+      "wrapManifestHash",
+      label,
+      registerShapeError,
+    ),
+  };
+}
+
+function readContainerKeyWraps(
+  value: unknown,
+  label: string,
+): ContainerKeyWrapV2[] {
+  if (!Array.isArray(value)) {
+    throw registerShapeError(`${label} is invalid`);
+  }
+
+  return value.map((entry, index) =>
+    readContainerKeyWrap(entry, `${label}[${index}]`),
+  );
+}
+
 async function storeInitialRootContainerV2(
   tx: DatabaseTransaction,
   input: PublicKeyRequest,
@@ -250,7 +427,11 @@ async function storeInitialRootContainerV2(
       body: request.body as Parameters<
         typeof verifySignedAccessEvent
       >[0]["body"],
-      event: request.event as unknown as AccessEventV2,
+      event: readProjectionAccessEvent(
+        request.event,
+        "Initial root container V2 event",
+        registerShapeError,
+      ),
       signerPublicKey: new Uint8Array(input.signingPublicKey),
     }),
   );
@@ -273,7 +454,11 @@ async function storeInitialRootContainerV2(
     await verifyContainerAccessManifest({
       event,
       expectedManifestHash: request.expectedManifestHash,
-      manifest: request.manifest as unknown as AccessManifestV2,
+      manifest: readProjectionAccessManifest(
+        request.manifest,
+        "Initial root container V2 manifest",
+        registerShapeError,
+      ),
       parentContainerPath: [],
       previousManifest: null,
     }),
@@ -295,10 +480,18 @@ async function storeInitialRootContainerV2(
   const kekState = requireRootV2Verification(
     await verifyContainerKekState({
       containerManifest: manifest,
-      keyEpoch: request.keyEpoch as unknown as ContainerKeyEpochV2,
-      userRecipientKeys: (request.userRecipientKeys ??
-        []) as unknown as ContainerUserRecipientKeyV2[],
-      wraps: request.wraps as unknown as ContainerKeyWrapV2[],
+      keyEpoch: readContainerKeyEpoch(
+        request.keyEpoch,
+        "Initial root container V2 key epoch",
+      ),
+      userRecipientKeys: readContainerUserRecipientKeys(
+        request.userRecipientKeys,
+        "Initial root container V2 user recipient keys",
+      ),
+      wraps: readContainerKeyWraps(
+        request.wraps,
+        "Initial root container V2 wraps",
+      ),
     }),
   );
 

@@ -166,6 +166,70 @@ test("POST /auth/register rejects initial org policies that do not bootstrap the
   });
 });
 
+test("POST /auth/register rejects malformed initial root container V2 event records", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  fingerprint = await toFingerprint(signingPublicKey);
+  const body = await createPublicKeyRequestBody(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
+
+  const response = await routeApp.request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...body,
+      initialRootContainerV2: {
+        ...body.initialRootContainerV2,
+        event: {
+          ...body.initialRootContainerV2.event,
+          version: "2",
+        },
+      },
+    }),
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Initial root container V2 event.version is invalid",
+  });
+});
+
+test("POST /auth/register rejects malformed initial root container V2 KEK records", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  fingerprint = await toFingerprint(signingPublicKey);
+  const body = await createPublicKeyRequestBody(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
+
+  const response = await routeApp.request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...body,
+      initialRootContainerV2: {
+        ...body.initialRootContainerV2,
+        keyEpoch: {
+          ...body.initialRootContainerV2.keyEpoch,
+          keyEpoch: "1",
+        },
+      },
+    }),
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Initial root container V2 key epoch.keyEpoch is invalid",
+  });
+});
+
 test("POST /auth/register provisions V2 root metadata", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
