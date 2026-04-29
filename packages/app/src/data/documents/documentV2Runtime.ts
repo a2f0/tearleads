@@ -27,6 +27,7 @@ import {
   type WriteHeaderV2,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
   DocumentV2ContentKeyTargetEnvelope,
   DocumentV2CreateRequest,
@@ -42,6 +43,12 @@ import type {
   DocumentV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
+import {
+  readCanonicalJson,
+  readCanonicalRecord,
+  readCanonicalRecordPaths,
+  readCanonicalRecords,
+} from "../keyingV2CanonicalJson";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -319,15 +326,6 @@ interface UnwrappedContainerKek {
   keyMaterial: Uint8Array;
 }
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
 function readRecordString(
   record: Record<string, unknown>,
   key: string,
@@ -368,119 +366,6 @@ function readStringArray(value: unknown, label: string): string[] {
   }
 
   return [...value];
-}
-
-interface CanonicalJsonFrame {
-  leave?: object;
-  value?: unknown;
-}
-
-function isCanonicalJsonScalar(value: unknown): boolean {
-  return (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean" ||
-    (typeof value === "number" && Number.isFinite(value))
-  );
-}
-
-function pushCanonicalJsonChildren(
-  value: unknown,
-  active: WeakSet<object>,
-  pending: CanonicalJsonFrame[],
-): boolean {
-  if (Array.isArray(value)) {
-    if (active.has(value)) {
-      return false;
-    }
-    active.add(value);
-    pending.push({ leave: value });
-    for (let index = 0; index < value.length; index += 1) {
-      if (!(index in value)) {
-        return false;
-      }
-      pending.push({ value: value[index] });
-    }
-    return true;
-  }
-
-  if (!isPlainRecord(value)) {
-    return false;
-  }
-  if (active.has(value)) {
-    return false;
-  }
-  active.add(value);
-  pending.push({ leave: value });
-  for (const key of Object.keys(value)) {
-    pending.push({ value: Reflect.get(value, key) });
-  }
-  return true;
-}
-
-function isCanonicalJson(value: unknown): value is KeyingV2CanonicalJson {
-  const pending: CanonicalJsonFrame[] = [{ value }];
-  const active = new WeakSet<object>();
-
-  while (pending.length > 0) {
-    const frame = pending.pop();
-    if (!frame) {
-      break;
-    }
-    if (frame.leave) {
-      active.delete(frame.leave);
-      continue;
-    }
-
-    const item = frame.value;
-    if (isCanonicalJsonScalar(item)) {
-      continue;
-    }
-    if (!pushCanonicalJsonChildren(item, active, pending)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function readCanonicalJson(
-  value: unknown,
-  label: string,
-): KeyingV2CanonicalJson {
-  if (!isCanonicalJson(value)) {
-    throw new Error(`${label} must be canonical JSON`);
-  }
-  return value;
-}
-
-function readCanonicalRecord(
-  value: unknown,
-  label: string,
-): Record<string, unknown> {
-  if (!isPlainRecord(value)) {
-    throw new Error(`${label} must be an object`);
-  }
-  readCanonicalJson(value, label);
-  return value;
-}
-
-function readCanonicalRecords(
-  values: readonly unknown[],
-  label: string,
-): Record<string, unknown>[] {
-  return values.map((value, index) =>
-    readCanonicalRecord(value, `${label}[${index}]`),
-  );
-}
-
-function readCanonicalRecordPaths(
-  paths: readonly (readonly unknown[])[],
-  label: string,
-): Record<string, unknown>[][] {
-  return paths.map((path, index) =>
-    readCanonicalRecords(path, `${label}[${index}]`),
-  );
 }
 
 function isAccessEventTypeV2(

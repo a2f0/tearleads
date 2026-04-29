@@ -18,7 +18,6 @@ import {
   computeContainerKeyEpochHash,
   deriveContainerAccessManifest,
   encryptWithDek,
-  type KeyingV2CanonicalJson,
   signAccessEvent,
   type UnsignedAccessEventV2,
   wrapDekForRecipients,
@@ -35,6 +34,11 @@ import type {
   ContainerV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { unwrapContainerV2KekPath } from "../documents/documentV2Runtime";
+import {
+  readCanonicalJson,
+  readCanonicalRecord,
+  readCanonicalRecords,
+} from "../keyingV2CanonicalJson";
 import type { ExecSql } from "../persistence/sqlSchema";
 
 export interface ContainerV2MutationAuthor {
@@ -219,110 +223,6 @@ function readRecordVersion2(
   if (readRecordPositiveInteger(record, "version", label) !== 2) {
     throw new Error(`${label}.version must be 2`);
   }
-}
-
-interface CanonicalJsonFrame {
-  leave?: object;
-  value?: unknown;
-}
-
-function isCanonicalJsonScalar(value: unknown): boolean {
-  return (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean" ||
-    (typeof value === "number" && Number.isFinite(value))
-  );
-}
-
-function pushCanonicalJsonChildren(
-  value: unknown,
-  active: WeakSet<object>,
-  pending: CanonicalJsonFrame[],
-): boolean {
-  if (Array.isArray(value)) {
-    if (active.has(value)) {
-      return false;
-    }
-    active.add(value);
-    pending.push({ leave: value });
-    for (let index = 0; index < value.length; index += 1) {
-      if (!(index in value)) {
-        return false;
-      }
-      pending.push({ value: value[index] });
-    }
-    return true;
-  }
-
-  if (!isPlainObject(value)) {
-    return false;
-  }
-  if (active.has(value)) {
-    return false;
-  }
-  active.add(value);
-  pending.push({ leave: value });
-  for (const key of Object.keys(value)) {
-    pending.push({ value: Reflect.get(value, key) });
-  }
-  return true;
-}
-
-function isCanonicalJson(value: unknown): value is KeyingV2CanonicalJson {
-  const pending: CanonicalJsonFrame[] = [{ value }];
-  const active = new WeakSet<object>();
-
-  while (pending.length > 0) {
-    const frame = pending.pop();
-    if (!frame) {
-      break;
-    }
-    if (frame.leave) {
-      active.delete(frame.leave);
-      continue;
-    }
-
-    const item = frame.value;
-    if (isCanonicalJsonScalar(item)) {
-      continue;
-    }
-    if (!pushCanonicalJsonChildren(item, active, pending)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function readCanonicalJson(
-  value: unknown,
-  label: string,
-): KeyingV2CanonicalJson {
-  if (!isCanonicalJson(value)) {
-    throw new Error(`${label} must be canonical JSON`);
-  }
-  return value;
-}
-
-function readCanonicalRecord(
-  value: unknown,
-  label: string,
-): Record<string, unknown> {
-  if (!isPlainObject(value)) {
-    throw new Error(`${label} must be an object`);
-  }
-  readCanonicalJson(value, label);
-  return value;
-}
-
-function readCanonicalRecords(
-  values: readonly unknown[],
-  label: string,
-): Record<string, unknown>[] {
-  return values.map((value, index) =>
-    readCanonicalRecord(value, `${label}[${index}]`),
-  );
 }
 
 function readCanonicalManifestBundle(
