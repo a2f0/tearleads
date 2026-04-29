@@ -778,6 +778,34 @@ test("POST /v2/containers rejects signed events with missing dependency manifest
   });
 });
 
+test("POST /v2/containers rejects malformed V2 KEK request records", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const request = await buildCreateRequest({
+    containerId: crypto.randomUUID(),
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+
+  request.keyEpoch = {
+    ...request.keyEpoch,
+    keyEpoch: "1",
+  };
+
+  const response = await postV2Mutation({
+    path: "/v2/containers",
+    request,
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "keyEpoch.keyEpoch is invalid",
+  });
+});
+
 test("POST /v2/containers/:containerId/share rejects grants signed without admin access", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);

@@ -1,12 +1,21 @@
 import type {
   AccessEventTypeV2,
-  AccessEventV2,
+  AccessManifestCheckpointV2,
   AccessManifestV2,
+  ContainerAccessLevelV2,
+  ContainerAccessManifestStateV2,
+  ContainerDirectGrantV2,
+  ContainerGrantSubjectTypeV2,
+  ContainerKekRecipientTargetV2,
   ContainerKeyEpochV2,
   ContainerKeyWrapV2,
   ContainerUserRecipientKeyV2,
   KeyingV2CanonicalJson,
+  ManagedPrincipalKindV2,
+  PrincipalPolicyCheckpointV2,
+  PrincipalPolicySignedStateV2,
   PrincipalProjectionMember,
+  ReferencedPrincipalHeadV2,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
@@ -49,6 +58,20 @@ import {
   documents,
   users,
 } from "../../schema";
+import {
+  projectionAccessManifestRecord,
+  projectionVerifiedAccessEventRecord,
+  readProjectionAccessEvent,
+  readProjectionAccessManifest,
+  readProjectionNullableString,
+  readProjectionPlainRecord,
+  readProjectionPositiveInteger,
+  readProjectionReferencedPrincipalHeads,
+  readProjectionString,
+  readProjectionValue,
+  readProjectionVerifiedAccessEvent,
+  readProjectionVersion2,
+} from "../keyingV2ProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 
 type ContainerV2MutationStatus = 400 | 403 | 404 | 409;
@@ -78,6 +101,12 @@ interface StoredContainerRow {
 }
 
 type VerifiedContainerAccessState = VerifiedContainerAccessManifest["state"];
+// Verified crypto brands are compile-time only. Request/projection JSON can only
+// rehydrate public fields; callers still run the corresponding verifier or
+// current-head check before trusting these values.
+type UnbrandedVerified<T> = {
+  readonly [K in keyof T as K extends symbol ? never : K]: T[K];
+};
 
 type CurrentAccessManifestHead = Awaited<
   ReturnType<typeof getCurrentAccessManifestHead>
@@ -88,30 +117,763 @@ interface ContainerV2MutationContext {
   readonly manifestHeadByContainerId: Map<string, CurrentAccessManifestHead>;
 }
 
-function toVerifiedContainerManifest(
-  bundle: ContainerV2ManifestBundle,
-): VerifiedContainerAccessManifest {
-  return bundle as unknown as VerifiedContainerAccessManifest;
+function mutationShapeError(message: string): ContainerV2MutationError {
+  return new ContainerV2MutationError(message, 400);
 }
 
-function toVerifiedContainerManifestArray(
+function readNonNegativeInteger(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): number {
+  const value = readProjectionValue(record, key);
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw mutationShapeError(`${label}.${key} is invalid`);
+  }
+  return value;
+}
+
+function isManagedPrincipalKind(
+  value: unknown,
+): value is ManagedPrincipalKindV2 {
+  return value === "group" || value === "organization";
+}
+
+function isPrincipalProjectionMemberType(
+  value: unknown,
+): value is PrincipalProjectionMember["memberPrincipalType"] {
+  return value === "group" || value === "user";
+}
+
+function isPrincipalProjectionRole(
+  value: unknown,
+): value is PrincipalProjectionMember["role"] {
+  return value === "admin" || value === "member";
+}
+
+function isContainerAccessLevel(
+  value: unknown,
+): value is ContainerAccessLevelV2 {
+  return value === "admin" || value === "read" || value === "write";
+}
+
+function isContainerGrantSubjectType(
+  value: unknown,
+): value is ContainerGrantSubjectTypeV2 {
+  return value === "group" || value === "organization" || value === "user";
+}
+
+function isKekRecipientKind(
+  value: unknown,
+): value is ContainerKeyWrapV2["recipientKind"] {
+  return (
+    value === "container" ||
+    value === "group" ||
+    value === "organization" ||
+    value === "user"
+  );
+}
+
+function readContainerDirectGrant(
+  value: unknown,
+  label: string,
+): ContainerDirectGrantV2 {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  const accessLevel = readProjectionValue(record, "accessLevel");
+  const subjectType = readProjectionValue(record, "subjectType");
+
+  if (!isContainerAccessLevel(accessLevel)) {
+    throw mutationShapeError(`${label}.accessLevel is invalid`);
+  }
+  if (!isContainerGrantSubjectType(subjectType)) {
+    throw mutationShapeError(`${label}.subjectType is invalid`);
+  }
+
+  return {
+    accessLevel,
+    subjectId: readProjectionString(
+      record,
+      "subjectId",
+      label,
+      mutationShapeError,
+    ),
+    subjectType,
+  };
+}
+
+function readContainerDirectGrants(
+  value: unknown,
+  label: string,
+): ContainerDirectGrantV2[] {
+  if (!Array.isArray(value)) {
+    throw mutationShapeError(`${label} is invalid`);
+  }
+  return value.map((entry, index) =>
+    readContainerDirectGrant(entry, `${label}[${index}]`),
+  );
+}
+
+function referencedPrincipalHeadRecord(
+  principalHead: ReferencedPrincipalHeadV2,
+): Record<string, unknown> {
+  return {
+    principalType: principalHead.principalType,
+    principalId: principalHead.principalId,
+    version: principalHead.version,
+    keyEpoch: principalHead.keyEpoch,
+    stateHash: principalHead.stateHash,
+    keyFingerprint: principalHead.keyFingerprint,
+  };
+}
+
+function readContainerAccessState(
+  value: unknown,
+  label: string,
+): ContainerAccessManifestStateV2 {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  readProjectionVersion2(record, label, mutationShapeError);
+
+  return {
+    version: 2,
+    containerId: readProjectionString(
+      record,
+      "containerId",
+      label,
+      mutationShapeError,
+    ),
+    organizationId: readProjectionString(
+      record,
+      "organizationId",
+      label,
+      mutationShapeError,
+    ),
+    epoch: readProjectionPositiveInteger(
+      record,
+      "epoch",
+      label,
+      mutationShapeError,
+    ),
+    previousManifestHash: readProjectionNullableString(
+      record,
+      "previousManifestHash",
+      label,
+      mutationShapeError,
+    ),
+    eventHash: readProjectionString(
+      record,
+      "eventHash",
+      label,
+      mutationShapeError,
+    ),
+    parentContainerId: readProjectionNullableString(
+      record,
+      "parentContainerId",
+      label,
+      mutationShapeError,
+    ),
+    parentManifestHash: readProjectionNullableString(
+      record,
+      "parentManifestHash",
+      label,
+      mutationShapeError,
+    ),
+    metadataDocumentId: readProjectionString(
+      record,
+      "metadataDocumentId",
+      label,
+      mutationShapeError,
+    ),
+    containerKeyEpochId: readProjectionNullableString(
+      record,
+      "containerKeyEpochId",
+      label,
+      mutationShapeError,
+    ),
+    directGrants: readContainerDirectGrants(
+      readProjectionValue(record, "directGrants"),
+      `${label}.directGrants`,
+    ),
+    referencedPrincipalHeads: readProjectionReferencedPrincipalHeads(
+      readProjectionValue(record, "referencedPrincipalHeads"),
+      `${label}.referencedPrincipalHeads`,
+      mutationShapeError,
+    ),
+  };
+}
+
+function containerAccessStateRecord(
+  state: ContainerAccessManifestStateV2,
+): Record<string, unknown> {
+  return {
+    version: state.version,
+    containerId: state.containerId,
+    organizationId: state.organizationId,
+    epoch: state.epoch,
+    previousManifestHash: state.previousManifestHash,
+    eventHash: state.eventHash,
+    parentContainerId: state.parentContainerId,
+    parentManifestHash: state.parentManifestHash,
+    metadataDocumentId: state.metadataDocumentId,
+    containerKeyEpochId: state.containerKeyEpochId,
+    directGrants: state.directGrants.map((grant) => ({ ...grant })),
+    referencedPrincipalHeads: state.referencedPrincipalHeads.map(
+      referencedPrincipalHeadRecord,
+    ),
+  };
+}
+
+function accessManifestCheckpoint(input: {
+  readonly manifest: AccessManifestV2;
+  readonly manifestHash: string;
+}): AccessManifestCheckpointV2 {
+  return {
+    objectKind: input.manifest.objectKind,
+    objectId: input.manifest.objectId,
+    organizationId: input.manifest.organizationId,
+    epoch: input.manifest.epoch,
+    manifestHash: input.manifestHash,
+  };
+}
+
+function readVerifiedContainerManifest(
+  bundle: ContainerV2ManifestBundle,
+  label: string,
+): VerifiedContainerAccessManifest {
+  const manifest = readProjectionAccessManifest(
+    bundle.manifest,
+    `${label}.manifest`,
+    mutationShapeError,
+  );
+
+  const verified: UnbrandedVerified<VerifiedContainerAccessManifest> = {
+    event: readProjectionVerifiedAccessEvent(
+      bundle.event,
+      `${label}.event`,
+      mutationShapeError,
+    ),
+    manifest,
+    manifestHash: bundle.manifestHash,
+    state: readContainerAccessState(bundle.state, `${label}.state`),
+    checkpoint: accessManifestCheckpoint({
+      manifest,
+      manifestHash: bundle.manifestHash,
+    }),
+  };
+
+  return verified as VerifiedContainerAccessManifest;
+}
+
+function readVerifiedContainerManifestArray(
   bundles: readonly ContainerV2ManifestBundle[] | undefined,
+  label: string,
 ): VerifiedContainerAccessManifest[] | undefined {
-  return bundles?.map(toVerifiedContainerManifest);
+  return bundles?.map((bundle, index) =>
+    readVerifiedContainerManifest(bundle, `${label}[${index}]`),
+  );
+}
+
+function readPrincipalProjectionMember(
+  value: unknown,
+  label: string,
+): PrincipalProjectionMember {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  const memberPrincipalType = readProjectionValue(
+    record,
+    "memberPrincipalType",
+  );
+  const role = readProjectionValue(record, "role");
+
+  if (!isPrincipalProjectionMemberType(memberPrincipalType)) {
+    throw mutationShapeError(`${label}.memberPrincipalType is invalid`);
+  }
+  if (!isPrincipalProjectionRole(role)) {
+    throw mutationShapeError(`${label}.role is invalid`);
+  }
+
+  return {
+    memberPrincipalType,
+    memberPrincipalId: readProjectionString(
+      record,
+      "memberPrincipalId",
+      label,
+      mutationShapeError,
+    ),
+    role,
+  };
+}
+
+function readPrincipalProjectionMembers(
+  value: unknown,
+  label: string,
+): PrincipalProjectionMember[] {
+  if (!Array.isArray(value)) {
+    throw mutationShapeError(`${label} is invalid`);
+  }
+
+  return value.map((entry, index) =>
+    readPrincipalProjectionMember(entry, `${label}[${index}]`),
+  );
+}
+
+function readPrincipalPolicyState(
+  value: unknown,
+  label: string,
+): PrincipalPolicySignedStateV2 {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  const readStringField = (key: string) =>
+    readProjectionString(record, key, label, mutationShapeError);
+  const readPositiveField = (key: string) =>
+    readProjectionPositiveInteger(record, key, label, mutationShapeError);
+  const principalType = readProjectionValue(record, "principalType");
+  const membershipMode = readProjectionValue(record, "membershipMode");
+
+  if (!isManagedPrincipalKind(principalType)) {
+    throw mutationShapeError(`${label}.principalType is invalid`);
+  }
+  if (membershipMode !== "projection_v1") {
+    throw mutationShapeError(`${label}.membershipMode is invalid`);
+  }
+
+  return {
+    principalType,
+    principalId: readStringField("principalId"),
+    version: readPositiveField("version"),
+    prevStateHash: readProjectionNullableString(
+      record,
+      "prevStateHash",
+      label,
+      mutationShapeError,
+    ),
+    keyEpoch: readPositiveField("keyEpoch"),
+    encapsulationPublicKey: readStringField("encapsulationPublicKey"),
+    keyFingerprint: readStringField("keyFingerprint"),
+    membershipMode,
+    membershipRoot: readStringField("membershipRoot"),
+    projectionRoot: readStringField("projectionRoot"),
+    payloadCiphertextHash: readStringField("payloadCiphertextHash"),
+    memberCount: readNonNegativeInteger(record, "memberCount", label),
+    signedAt: readStringField("signedAt"),
+    signerUserId: readStringField("signerUserId"),
+    signerUserKeyFingerprint: readStringField("signerUserKeyFingerprint"),
+    stateHash: readStringField("stateHash"),
+    signature: readStringField("signature"),
+  };
+}
+
+function readPrincipalPolicyCheckpoint(
+  value: unknown,
+  label: string,
+): PrincipalPolicyCheckpointV2 {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  const principalType = readProjectionValue(record, "principalType");
+  if (!isManagedPrincipalKind(principalType)) {
+    throw mutationShapeError(`${label}.principalType is invalid`);
+  }
+
+  return {
+    principalType,
+    principalId: readProjectionString(
+      record,
+      "principalId",
+      label,
+      mutationShapeError,
+    ),
+    version: readProjectionPositiveInteger(
+      record,
+      "version",
+      label,
+      mutationShapeError,
+    ),
+    stateHash: readProjectionString(
+      record,
+      "stateHash",
+      label,
+      mutationShapeError,
+    ),
+  };
+}
+
+type PrincipalPolicyCommonFields = Pick<
+  VerifiedPrincipalPolicy,
+  "principalId" | "principalType" | "stateHash" | "version"
+>;
+
+function principalPolicyCommonFieldsMatch(
+  left: PrincipalPolicyCommonFields,
+  right: PrincipalPolicyCommonFields,
+): boolean {
+  return (
+    left.principalType === right.principalType &&
+    left.principalId === right.principalId &&
+    left.version === right.version &&
+    left.stateHash === right.stateHash
+  );
+}
+
+function readVerifiedPrincipalPolicy(
+  value: unknown,
+  label: string,
+): VerifiedPrincipalPolicy {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  const principalType = readProjectionValue(record, "principalType");
+  if (!isManagedPrincipalKind(principalType)) {
+    throw mutationShapeError(`${label}.principalType is invalid`);
+  }
+
+  const state = readPrincipalPolicyState(
+    readProjectionValue(record, "state"),
+    `${label}.state`,
+  );
+  const policy: UnbrandedVerified<VerifiedPrincipalPolicy> = {
+    principalType,
+    principalId: readProjectionString(
+      record,
+      "principalId",
+      label,
+      mutationShapeError,
+    ),
+    version: readProjectionPositiveInteger(
+      record,
+      "version",
+      label,
+      mutationShapeError,
+    ),
+    keyEpoch: readProjectionPositiveInteger(
+      record,
+      "keyEpoch",
+      label,
+      mutationShapeError,
+    ),
+    stateHash: readProjectionString(
+      record,
+      "stateHash",
+      label,
+      mutationShapeError,
+    ),
+    state,
+    projection: readPrincipalProjectionMembers(
+      readProjectionValue(record, "projection"),
+      `${label}.projection`,
+    ),
+    checkpoint: readPrincipalPolicyCheckpoint(
+      readProjectionValue(record, "checkpoint"),
+      `${label}.checkpoint`,
+    ),
+  };
+
+  if (
+    !principalPolicyCommonFieldsMatch(policy, policy.state) ||
+    policy.state.keyEpoch !== policy.keyEpoch ||
+    !principalPolicyCommonFieldsMatch(policy, policy.checkpoint)
+  ) {
+    throw mutationShapeError(`${label} domains are inconsistent`);
+  }
+
+  return policy as VerifiedPrincipalPolicy;
 }
 
 function principalPoliciesFromRequest(
   request: ContainerV2MutationRequest,
 ): VerifiedPrincipalPolicy[] {
-  return (request.principalPolicies ??
-    []) as unknown as VerifiedPrincipalPolicy[];
+  return (request.principalPolicies ?? []).map((policy, index) =>
+    readVerifiedPrincipalPolicy(policy, `principalPolicies[${index}]`),
+  );
 }
 
 function userRecipientKeysFromRequest(
   request: ContainerV2MutationRequest,
 ): ContainerUserRecipientKeyV2[] {
-  return (request.userRecipientKeys ??
-    []) as unknown as ContainerUserRecipientKeyV2[];
+  return (request.userRecipientKeys ?? []).map((key, index) =>
+    readContainerUserRecipientKey(key, `userRecipientKeys[${index}]`),
+  );
+}
+
+function readContainerUserRecipientKey(
+  value: unknown,
+  label: string,
+): ContainerUserRecipientKeyV2 {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  return {
+    userId: readProjectionString(record, "userId", label, mutationShapeError),
+    recipientKeyEpochId: readProjectionString(
+      record,
+      "recipientKeyEpochId",
+      label,
+      mutationShapeError,
+    ),
+    recipientKeyFingerprint: readProjectionString(
+      record,
+      "recipientKeyFingerprint",
+      label,
+      mutationShapeError,
+    ),
+  };
+}
+
+function readContainerKeyEpoch(
+  value: unknown,
+  label: string,
+): ContainerKeyEpochV2 {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  return {
+    id: readProjectionString(record, "id", label, mutationShapeError),
+    containerId: readProjectionString(
+      record,
+      "containerId",
+      label,
+      mutationShapeError,
+    ),
+    keyEpoch: readProjectionPositiveInteger(
+      record,
+      "keyEpoch",
+      label,
+      mutationShapeError,
+    ),
+    accessManifestHash: readProjectionString(
+      record,
+      "accessManifestHash",
+      label,
+      mutationShapeError,
+    ),
+    parentContainerKeyEpochId: readProjectionNullableString(
+      record,
+      "parentContainerKeyEpochId",
+      label,
+      mutationShapeError,
+    ),
+    createdByEventHash: readProjectionString(
+      record,
+      "createdByEventHash",
+      label,
+      mutationShapeError,
+    ),
+    createdByManifestHash: readProjectionString(
+      record,
+      "createdByManifestHash",
+      label,
+      mutationShapeError,
+    ),
+  };
+}
+
+function containerKeyEpochRecord(
+  keyEpoch: ContainerKeyEpochV2,
+): Record<string, unknown> {
+  return {
+    id: keyEpoch.id,
+    containerId: keyEpoch.containerId,
+    keyEpoch: keyEpoch.keyEpoch,
+    accessManifestHash: keyEpoch.accessManifestHash,
+    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+    createdByEventHash: keyEpoch.createdByEventHash,
+    createdByManifestHash: keyEpoch.createdByManifestHash,
+  };
+}
+
+function readContainerKeyWrap(
+  value: unknown,
+  label: string,
+): ContainerKeyWrapV2 {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  const recipientKind = readProjectionValue(record, "recipientKind");
+  if (!isKekRecipientKind(recipientKind)) {
+    throw mutationShapeError(`${label}.recipientKind is invalid`);
+  }
+
+  return {
+    containerKeyEpochId: readProjectionString(
+      record,
+      "containerKeyEpochId",
+      label,
+      mutationShapeError,
+    ),
+    recipientKind,
+    recipientId: readProjectionString(
+      record,
+      "recipientId",
+      label,
+      mutationShapeError,
+    ),
+    recipientKeyEpochId: readProjectionString(
+      record,
+      "recipientKeyEpochId",
+      label,
+      mutationShapeError,
+    ),
+    recipientKeyFingerprint: readProjectionString(
+      record,
+      "recipientKeyFingerprint",
+      label,
+      mutationShapeError,
+    ),
+    kemCipherText: readProjectionString(
+      record,
+      "kemCipherText",
+      label,
+      mutationShapeError,
+    ),
+    wrappedKey: readProjectionString(
+      record,
+      "wrappedKey",
+      label,
+      mutationShapeError,
+    ),
+    wrapManifestHash: readProjectionString(
+      record,
+      "wrapManifestHash",
+      label,
+      mutationShapeError,
+    ),
+  };
+}
+
+function readContainerKeyWraps(
+  value: unknown,
+  label: string,
+): ContainerKeyWrapV2[] {
+  if (!Array.isArray(value)) {
+    throw mutationShapeError(`${label} is invalid`);
+  }
+  return value.map((entry, index) =>
+    readContainerKeyWrap(entry, `${label}[${index}]`),
+  );
+}
+
+function containerKeyWrapRecord(
+  wrap: ContainerKeyWrapV2,
+): Record<string, unknown> {
+  return {
+    containerKeyEpochId: wrap.containerKeyEpochId,
+    recipientKind: wrap.recipientKind,
+    recipientId: wrap.recipientId,
+    recipientKeyEpochId: wrap.recipientKeyEpochId,
+    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+    kemCipherText: wrap.kemCipherText,
+    wrappedKey: wrap.wrappedKey,
+    wrapManifestHash: wrap.wrapManifestHash,
+  };
+}
+
+function readContainerKekRecipientTarget(
+  value: unknown,
+  label: string,
+): ContainerKekRecipientTargetV2 {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  const recipientKind = readProjectionValue(record, "recipientKind");
+  if (!isKekRecipientKind(recipientKind)) {
+    throw mutationShapeError(`${label}.recipientKind is invalid`);
+  }
+
+  return {
+    recipientKind,
+    recipientId: readProjectionString(
+      record,
+      "recipientId",
+      label,
+      mutationShapeError,
+    ),
+    recipientKeyEpochId: readProjectionString(
+      record,
+      "recipientKeyEpochId",
+      label,
+      mutationShapeError,
+    ),
+    recipientKeyFingerprint: readProjectionString(
+      record,
+      "recipientKeyFingerprint",
+      label,
+      mutationShapeError,
+    ),
+  };
+}
+
+function readContainerKekRecipientTargets(
+  value: unknown,
+  label: string,
+): ContainerKekRecipientTargetV2[] {
+  if (!Array.isArray(value)) {
+    throw mutationShapeError(`${label} is invalid`);
+  }
+  return value.map((entry, index) =>
+    readContainerKekRecipientTarget(entry, `${label}[${index}]`),
+  );
+}
+
+function containerKekRecipientTargetRecord(
+  target: ContainerKekRecipientTargetV2,
+): Record<string, unknown> {
+  return {
+    recipientKind: target.recipientKind,
+    recipientId: target.recipientId,
+    recipientKeyEpochId: target.recipientKeyEpochId,
+    recipientKeyFingerprint: target.recipientKeyFingerprint,
+  };
+}
+
+function readVerifiedContainerKekState(
+  value: unknown,
+  label: string,
+): VerifiedContainerKekState {
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+
+  const verified: UnbrandedVerified<VerifiedContainerKekState> = {
+    containerId: readProjectionString(
+      record,
+      "containerId",
+      label,
+      mutationShapeError,
+    ),
+    accessManifestHash: readProjectionString(
+      record,
+      "accessManifestHash",
+      label,
+      mutationShapeError,
+    ),
+    containerKeyEpochId: readProjectionString(
+      record,
+      "containerKeyEpochId",
+      label,
+      mutationShapeError,
+    ),
+    containerKeyEpoch: readProjectionPositiveInteger(
+      record,
+      "containerKeyEpoch",
+      label,
+      mutationShapeError,
+    ),
+    keyEpoch: readContainerKeyEpoch(
+      readProjectionValue(record, "keyEpoch"),
+      `${label}.keyEpoch`,
+    ),
+    keyEpochHash: readProjectionString(
+      record,
+      "keyEpochHash",
+      label,
+      mutationShapeError,
+    ),
+    parentContainerKeyEpochId: readProjectionNullableString(
+      record,
+      "parentContainerKeyEpochId",
+      label,
+      mutationShapeError,
+    ),
+    keyTargetHash: readProjectionString(
+      record,
+      "keyTargetHash",
+      label,
+      mutationShapeError,
+    ),
+    recipientTargets: readContainerKekRecipientTargets(
+      readProjectionValue(record, "recipientTargets"),
+      `${label}.recipientTargets`,
+    ),
+    wraps: readContainerKeyWraps(
+      readProjectionValue(record, "wraps"),
+      `${label}.wraps`,
+    ),
+  };
+
+  return verified as VerifiedContainerKekState;
 }
 
 function canonicalJsonEquals(left: unknown, right: unknown): boolean {
@@ -251,7 +1013,11 @@ async function verifyMutationEvent(
   executor: DatabaseExecutor,
   input: MutateContainerV2Input,
 ) {
-  const event = input.request.event as unknown as AccessEventV2;
+  const event = readProjectionAccessEvent(
+    input.request.event,
+    "Container V2 mutation event",
+    mutationShapeError,
+  );
 
   if (
     event.signerUserId !== input.userId ||
@@ -288,7 +1054,7 @@ async function assertContainerManifestBundleConsistent(
   bundle: ContainerV2ManifestBundle,
   label: string,
 ): Promise<VerifiedContainerAccessManifest> {
-  const verified = toVerifiedContainerManifest(bundle);
+  const verified = readVerifiedContainerManifest(bundle, label);
   const derivedManifest = await deriveContainerAccessManifest(verified.state);
   const derivedManifestHash = await computeAccessManifestHash(derivedManifest);
   const suppliedManifestHash = await computeAccessManifestHash(
@@ -677,25 +1443,35 @@ async function verifyContainerManifestFromRequest(
   request: ContainerV2MutationRequest,
   event: Awaited<ReturnType<typeof verifyMutationEvent>>,
 ): Promise<VerifiedContainerAccessManifest> {
-  const destinationParentContainerPath = toVerifiedContainerManifestArray(
+  const destinationParentContainerPath = readVerifiedContainerManifestArray(
     request.destinationParentContainerPath,
+    "destinationParentContainerPath",
   );
-  const parentContainerPath = toVerifiedContainerManifestArray(
+  const parentContainerPath = readVerifiedContainerManifestArray(
     request.parentContainerPath,
+    "parentContainerPath",
   );
-  const previousContainerPath = toVerifiedContainerManifestArray(
+  const previousContainerPath = readVerifiedContainerManifestArray(
     request.previousContainerPath,
+    "previousContainerPath",
   );
   const result = await verifyContainerAccessManifest({
     event,
     expectedManifestHash: request.expectedManifestHash,
-    manifest: request.manifest as unknown as AccessManifestV2,
+    manifest: readProjectionAccessManifest(
+      request.manifest,
+      "Container V2 mutation manifest",
+      mutationShapeError,
+    ),
     previousManifest:
       request.previousManifest === undefined
         ? null
         : request.previousManifest === null
           ? null
-          : toVerifiedContainerManifest(request.previousManifest),
+          : readVerifiedContainerManifest(
+              request.previousManifest,
+              "previousManifest",
+            ),
     principalPolicies: principalPoliciesFromRequest(request),
     ...(destinationParentContainerPath !== undefined
       ? { destinationParentContainerPath }
@@ -773,22 +1549,25 @@ async function verifyContainerKekFromRequest(
   manifest: VerifiedContainerAccessManifest,
 ): Promise<VerifiedContainerKekState> {
   const userRecipientKeys = userRecipientKeysFromRequest(request);
-  const parentKekState = (request.parentKekState ??
-    null) as unknown as VerifiedContainerKekState | null;
+  const parentKekState =
+    request.parentKekState === undefined || request.parentKekState === null
+      ? null
+      : readVerifiedContainerKekState(request.parentKekState, "parentKekState");
 
   await assertUserRecipientKeysCurrent(executor, userRecipientKeys);
   await assertParentKekStateCurrent(executor, manifest, parentKekState);
 
-  const containerManifestHistory = toVerifiedContainerManifestArray(
+  const containerManifestHistory = readVerifiedContainerManifestArray(
     request.containerManifestHistory,
+    "containerManifestHistory",
   );
   const result = await verifyContainerKekState({
     containerManifest: manifest,
-    keyEpoch: request.keyEpoch as unknown as ContainerKeyEpochV2,
+    keyEpoch: readContainerKeyEpoch(request.keyEpoch, "keyEpoch"),
     parentKekState,
     principalPolicies: principalPoliciesFromRequest(request),
     userRecipientKeys,
-    wraps: request.wraps as unknown as ContainerKeyWrapV2[],
+    wraps: readContainerKeyWraps(request.wraps, "wraps"),
     ...(containerManifestHistory !== undefined
       ? { containerManifestHistory }
       : {}),
@@ -983,27 +1762,27 @@ async function persistVerifiedMutation(
       manifestHash: manifestHead.manifestHash,
     },
     accessManifest: {
-      event: manifest.event as unknown as Record<string, unknown>,
-      manifest: manifest.manifest as unknown as Record<string, unknown>,
+      event: projectionVerifiedAccessEventRecord(manifest.event),
+      manifest: projectionAccessManifestRecord(manifest.manifest),
       manifestHash: manifest.manifestHash,
-      state: manifest.state as unknown as Record<string, unknown>,
+      state: containerAccessStateRecord(manifest.state),
     },
     containerKek: {
       containerId: storedKekState.containerId,
       accessManifestHash: storedKekState.accessManifestHash,
       containerKeyEpochId: storedKekState.containerKeyEpochId,
       containerKeyEpoch: storedKekState.containerKeyEpoch,
-      keyEpoch: storedKekState.keyEpoch as unknown as Record<string, unknown>,
+      keyEpoch: containerKeyEpochRecord(storedKekState.keyEpoch),
       keyEpochHash: storedKekState.keyEpochHash,
       keyTargetHash: storedKekState.keyTargetHash,
       parentContainerKeyEpochId: storedKekState.parentContainerKeyEpochId,
-      recipientTargets: storedKekState.recipientTargets.map((target) => ({
-        ...target,
-      })),
-      wraps: storedKekState.wraps.map((wrap) => ({ ...wrap })),
+      recipientTargets: storedKekState.recipientTargets.map(
+        containerKekRecipientTargetRecord,
+      ),
+      wraps: storedKekState.wraps.map(containerKeyWrapRecord),
     },
     referencedPrincipalHeads: manifest.manifest.referencedPrincipalHeads.map(
-      (head) => ({ ...head }),
+      referencedPrincipalHeadRecord,
     ),
   };
 }

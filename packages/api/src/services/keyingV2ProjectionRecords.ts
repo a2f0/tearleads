@@ -133,7 +133,7 @@ function isManagedPrincipalKind(
   return value === "group" || value === "organization";
 }
 
-function readProjectionAccessEvent(
+export function readProjectionAccessEvent(
   value: unknown,
   label: string,
   error: ProjectionErrorFactory,
