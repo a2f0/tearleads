@@ -681,6 +681,27 @@ function createOfflineAttachmentRuntime(
   };
 }
 
+async function waitForStoredDocumentText(
+  runtime: NotesRuntime,
+  localId: string,
+  text: string,
+) {
+  await waitForCondition(async () => {
+    const rows = await runtime.execSql(
+      `
+        SELECT text
+        FROM document_projection
+        WHERE local_id = :localId
+      `,
+      {
+        ":localId": localId,
+      },
+    );
+    const rowText = readRowValue(rows[0], "text");
+    return rowText === text;
+  }, `Document ${localId} did not persist the expected text.`);
+}
+
 async function createSqlRuntime(): Promise<
   NotesRuntime & {
     close: () => void;
@@ -699,7 +720,7 @@ async function createSqlRuntime(): Promise<
   };
 }
 
-test.skip("primeNotesStore reuses a synced remote note across different local ids", async () => {
+test("primeNotesStore reuses a synced remote note across different local ids", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const v2Patch = createNoteV2RuntimePatch({
@@ -725,16 +746,21 @@ test.skip("primeNotesStore reuses a synced remote note across different local id
     );
 
     firstStore.setText("Shared note");
+    await waitForStoredDocumentText(runtime, "note-1", "Shared note");
     await waitForCondition(
-      () => firstStore.getSnapshot().documentId === "shared-remote-note",
+      () => firstStore.getSnapshot().documentId !== null,
       "First primed note store did not persist its remote document id.",
     );
+    const remoteDocumentId = firstStore.getSnapshot().documentId;
+    if (!remoteDocumentId) {
+      throw new Error("Expected first store to have a remote document id.");
+    }
 
     const secondStore = primeNotesStore(
       runtime.domainScope,
       "default",
       runtime,
-      "shared-remote-note",
+      remoteDocumentId,
     );
 
     expect(secondStore).toBe(firstStore);
@@ -748,7 +774,7 @@ test.skip("primeNotesStore reuses a synced remote note across different local id
   }
 });
 
-test.skip("primeNotesStore collapses live duplicate note facades after remote identity resolves", async () => {
+test("primeNotesStore collapses live duplicate note facades after remote identity resolves", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const v2Patch = createNoteV2RuntimePatch({
@@ -782,7 +808,15 @@ test.skip("primeNotesStore collapses live duplicate note facades after remote id
       "Duplicate note facades did not initialize before consolidation.",
     );
 
+    await firstStore.relink({
+      accessEpoch: 1,
+      accessStateHash: "shared-note-access-state",
+      containerId: "root-container",
+      documentId: "shared-remote-note",
+      localId: "note-1",
+    });
     firstStore.setText("Shared note");
+    await waitForStoredDocumentText(runtime, "note-1", "Shared note");
 
     await waitForCondition(
       () =>
@@ -792,6 +826,7 @@ test.skip("primeNotesStore collapses live duplicate note facades after remote id
     );
 
     secondStore.setText("Merged note");
+    await waitForStoredDocumentText(runtime, "note-1", "Merged note");
 
     await waitForCondition(
       () => firstStore.getSnapshot().text === "Merged note",
