@@ -130,7 +130,8 @@ export interface DocumentsRuntime {
     DocumentAppData["apiClient"],
     "getBlob" | "listContainers" | "listDocumentAttachments"
   > &
-    Partial<DocumentRuntimeV2Api & DocumentAttachmentRuntimeV2Api>;
+    DocumentRuntimeV2Api &
+    DocumentAttachmentRuntimeV2Api;
   blobStore: BlobStore;
   cacheReferencedPrincipalPolicies: DocumentAppData["cacheReferencedPrincipalPolicies"];
   containerId: DocumentAppData["containerId"];
@@ -542,23 +543,13 @@ function resolveDocumentV2Author(
   };
 }
 
-function resolveDocumentV2Api(
-  runtime: DocumentsRuntime,
-): DocumentRuntimeV2Api | null {
+function resolveDocumentV2Api(runtime: DocumentsRuntime): DocumentRuntimeV2Api {
   const {
     createDocumentV2,
     getContainerV2WriterProjection,
     getDocumentV2WriterProjection,
     syncDocumentV2,
   } = runtime.apiClient;
-  if (
-    !createDocumentV2 ||
-    !getContainerV2WriterProjection ||
-    !getDocumentV2WriterProjection ||
-    !syncDocumentV2
-  ) {
-    return null;
-  }
 
   return {
     createDocumentV2,
@@ -570,16 +561,13 @@ function resolveDocumentV2Api(
 
 function resolveDocumentV2AttachmentApi(
   runtime: DocumentsRuntime,
-): ResolvedDocumentAttachmentRuntimeV2Api | null {
+): ResolvedDocumentAttachmentRuntimeV2Api {
   const {
     bindBlobAttachmentV2,
     getDocumentV2WriterProjection,
     listDocumentAttachments,
     stageBlob,
   } = runtime.apiClient;
-  if (!bindBlobAttachmentV2 || !getDocumentV2WriterProjection || !stageBlob) {
-    return null;
-  }
 
   return {
     bindBlobAttachmentV2,
@@ -789,7 +777,7 @@ async function ensureRemoteDocument(
 
   const author = resolveDocumentV2Author(state.runtime);
   const apiClient = resolveDocumentV2Api(state.runtime);
-  if (!author || !apiClient) {
+  if (!author) {
     state.runtime.log(
       "Documents: skipped V2 remote create because the V2 writer context is unavailable.",
     );
@@ -1259,8 +1247,7 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.online &&
     state.runtime.isAuthenticated &&
     state.runtime.encapsulationKeyPair !== null &&
-    resolveDocumentV2Author(state.runtime) !== null &&
-    resolveDocumentV2Api(state.runtime) !== null
+    resolveDocumentV2Author(state.runtime) !== null
   );
 }
 
@@ -1291,7 +1278,7 @@ async function syncPendingAttachments(
 
   const author = resolveDocumentV2Author(state.runtime);
   const apiClient = resolveDocumentV2AttachmentApi(state.runtime);
-  if (!author || !apiClient) {
+  if (!author) {
     state.runtime.log(
       "Documents: skipped V2 attachment upload because the V2 writer context is unavailable.",
     );
@@ -1451,7 +1438,7 @@ async function requestDocumentSync(
 
   const author = resolveDocumentV2Author(state.runtime);
   const apiClient = resolveDocumentV2Api(state.runtime);
-  if (!author || !apiClient) {
+  if (!author) {
     state.runtime.log(
       "Documents: skipped V2 sync because the V2 writer context is unavailable.",
     );
@@ -1490,7 +1477,7 @@ async function requestDocumentSyncProbe(
 
   const author = resolveDocumentV2Author(state.runtime);
   const apiClient = resolveDocumentV2Api(state.runtime);
-  if (!author || !apiClient) {
+  if (!author) {
     state.runtime.log(
       "Documents: skipped V2 sync probe because the V2 writer context is unavailable.",
     );

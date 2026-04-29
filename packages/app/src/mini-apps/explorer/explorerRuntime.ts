@@ -63,6 +63,8 @@ export function createExplorerDocumentsRuntime(
       listContainers: apiClient.listContainers.bind(apiClient),
       listDocumentAttachments:
         apiClient.listDocumentAttachments.bind(apiClient),
+      bindBlobAttachmentV2: apiClient.bindBlobAttachmentV2.bind(apiClient),
+      stageBlob: apiClient.stageBlob.bind(apiClient),
       syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
     },
     blobStore,
