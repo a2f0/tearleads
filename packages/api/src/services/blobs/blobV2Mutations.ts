@@ -2,6 +2,8 @@ import type {
   AccessEventV2,
   AttachmentBindAccessEventBodyV2,
   AttachmentDetachAccessEventBodyV2,
+  ContentObjectKindV2,
+  ContentRecordEncryptionSuiteV2,
   KeyingV2CanonicalJson,
   VerifiedAttachmentBinding,
   VerifiedBlobKekTargets,
@@ -56,6 +58,15 @@ import {
   loadPrincipalPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,
 } from "../documents/principalPolicyProjection";
+import {
+  readProjectionAccessEvent,
+  readProjectionPlainRecord,
+  readProjectionPositiveInteger,
+  readProjectionRecord,
+  readProjectionString,
+  readProjectionValue,
+  readProjectionVersion2,
+} from "../keyingV2ProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 
 type BlobV2MutationStatus = 400 | 403 | 404 | 409 | 503;
@@ -94,6 +105,24 @@ interface AttachmentAuthorizationProof {
 type ActiveAttachmentBindingRow = Awaited<
   ReturnType<typeof loadActiveAttachmentBindingsForSlot>
 >[number];
+
+type UnbrandedVerified<T> = {
+  readonly [K in keyof T as K extends symbol ? never : K]: T[K];
+};
+
+function blobShapeError(message: string): BlobV2MutationError {
+  return new BlobV2MutationError(message, 400);
+}
+
+function isContentObjectKind(value: unknown): value is ContentObjectKindV2 {
+  return value === "blob" || value === "document";
+}
+
+function isContentRecordEncryptionSuite(
+  value: unknown,
+): value is ContentRecordEncryptionSuiteV2 {
+  return value === "aes-256-gcm-hkdf-sha256-record-key-v1";
+}
 
 function mapVerificationStatus(
   error: KeyingV2VerificationError,
@@ -211,6 +240,100 @@ function readDetachBodyClaim(body: unknown): AttachmentDetachAccessEventBodyV2 {
       "attachment.detach body",
     ),
   };
+}
+
+function readBlobV2Event(value: unknown, label: string): AccessEventV2 {
+  return readProjectionAccessEvent(value, label, blobShapeError);
+}
+
+function readWriteHeaderString(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): string {
+  return readProjectionString(record, key, label, blobShapeError);
+}
+
+function readWriteHeader(value: unknown, label: string): WriteHeaderV2 {
+  const record = readProjectionPlainRecord(value, label, blobShapeError);
+  const objectKind = readProjectionValue(record, "objectKind");
+  const encryptionSuite = readProjectionValue(record, "encryptionSuite");
+  if (!isContentObjectKind(objectKind)) {
+    throw blobShapeError(`${label}.objectKind is invalid`);
+  }
+  if (!isContentRecordEncryptionSuite(encryptionSuite)) {
+    throw blobShapeError(`${label}.encryptionSuite is invalid`);
+  }
+  readProjectionVersion2(record, label, blobShapeError);
+
+  return {
+    version: 2,
+    organizationId: readWriteHeaderString(record, "organizationId", label),
+    objectKind,
+    objectId: readWriteHeaderString(record, "objectId", label),
+    accessManifestHash: readWriteHeaderString(
+      record,
+      "accessManifestHash",
+      label,
+    ),
+    contentKeyEpoch: readProjectionPositiveInteger(
+      record,
+      "contentKeyEpoch",
+      label,
+      blobShapeError,
+    ),
+    targetHash: readWriteHeaderString(record, "targetHash", label),
+    encryptionSuite,
+    contentRecordId: readWriteHeaderString(record, "contentRecordId", label),
+    nonceDomainHash: readWriteHeaderString(record, "nonceDomainHash", label),
+    metadataHash: readWriteHeaderString(record, "metadataHash", label),
+    ciphertextHash: readWriteHeaderString(record, "ciphertextHash", label),
+    writerUserId: readWriteHeaderString(record, "writerUserId", label),
+    writerDeviceId: readWriteHeaderString(record, "writerDeviceId", label),
+    writerKeyFingerprint: readWriteHeaderString(
+      record,
+      "writerKeyFingerprint",
+      label,
+    ),
+    signedAt: readWriteHeaderString(record, "signedAt", label),
+    signature: readWriteHeaderString(record, "signature", label),
+  };
+}
+
+function verifiedBlobKekTargetsFromResolved(
+  targets: Awaited<ReturnType<typeof resolveCurrentBlobKekTargets>>,
+): VerifiedBlobKekTargets {
+  const verified: UnbrandedVerified<VerifiedBlobKekTargets> = {
+    blobId: targets.blobId,
+    organizationId: targets.organizationId,
+    activeBindingIds: [...targets.activeBindingIds],
+    documentManifestHashes: [...targets.documentManifestHashes],
+    linkedContainerManifestHashes: [...targets.linkedContainerManifestHashes],
+    linkedContainerKeyEpochIds: [...targets.linkedContainerKeyEpochIds],
+    targets: targets.targets.map((target) => ({ ...target })),
+    blobKeyTargetHash: targets.blobKeyTargetHash,
+    blobAccessManifestHash: targets.blobAccessManifestHash,
+  };
+
+  return verified as VerifiedBlobKekTargets;
+}
+
+function readContentKeyWrappingMetadata(
+  value: unknown,
+  label: string,
+): KeyingV2CanonicalJson {
+  return readProjectionRecord(
+    value,
+    label,
+    blobShapeError,
+  ) as KeyingV2CanonicalJson;
+}
+
+function contentKeyWrappingMetadataRecord(
+  value: KeyingV2CanonicalJson,
+  label: string,
+): Record<string, unknown> {
+  return readProjectionRecord(value, label, blobShapeError);
 }
 
 function assertAttachmentEventSession(input: {
@@ -467,7 +590,10 @@ function toStoredTargetEnvelope(
     containerKeyEpochId: target.containerKeyEpochId,
     containerKeyEpoch: target.containerKeyEpoch,
     wrappedKey: target.wrappedKey,
-    wrappingMetadata: target.wrappingMetadata as KeyingV2CanonicalJson,
+    wrappingMetadata: readContentKeyWrappingMetadata(
+      target.wrappingMetadata,
+      "Blob V2 content-key target wrapping metadata",
+    ),
   };
 }
 
@@ -501,7 +627,10 @@ function toContentKeyBundleResponse(input: {
       containerKeyEpochId: target.containerKeyEpochId,
       containerKeyEpoch: target.containerKeyEpoch,
       wrappedKey: target.wrappedKey,
-      wrappingMetadata: target.wrappingMetadata as Record<string, unknown>,
+      wrappingMetadata: contentKeyWrappingMetadataRecord(
+        target.wrappingMetadata,
+        "Blob V2 content-key target wrapping metadata",
+      ),
     })),
   };
 }
@@ -541,8 +670,10 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
     throw new BlobV2MutationError("Blob stage is required", 400);
   }
 
-  const header = input.request.stagedBlob
-    .writeHeader as unknown as WriteHeaderV2;
+  const header = readWriteHeader(
+    input.request.stagedBlob.writeHeader,
+    "Blob V2 write header",
+  );
   if (
     header.writerUserId !== input.userId ||
     header.contentKeyEpoch !== input.request.contentKeyBundle.contentKeyEpoch ||
@@ -563,7 +694,7 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
   const verified = await verifyWriteHeader({
     blobAuthorization: {
       authorizingContainerPaths: input.proof.authorizingContainerPaths,
-      blobKekTargets: input.blobKekTargets as unknown as VerifiedBlobKekTargets,
+      blobKekTargets: verifiedBlobKekTargetsFromResolved(input.blobKekTargets),
       principalPolicies: input.proof.principalPolicies,
     },
     expectedAccessManifestHash: input.blobKekTargets.blobAccessManifestHash,
@@ -638,7 +769,7 @@ export async function bindBlobAttachmentV2(
   try {
     return await runtime.db.transaction(async (tx) => {
       const bindBody = readBindBodyClaim(input.request.body);
-      const event = input.request.event as unknown as AccessEventV2;
+      const event = readBlobV2Event(input.request.event, "Blob V2 event");
       assertAttachmentEventSession({
         blobId: input.blobId,
         event,
@@ -734,7 +865,7 @@ export async function detachBlobAttachmentV2(
   try {
     return await runtime.db.transaction(async (tx) => {
       const detachBody = readDetachBodyClaim(input.request.body);
-      const event = input.request.event as unknown as AccessEventV2;
+      const event = readBlobV2Event(input.request.event, "Blob V2 event");
       assertAttachmentEventSession({
         blobId: input.blobId,
         event,

@@ -641,6 +641,75 @@ test("bindBlobAttachmentV2 attaches, replaces, and detaches signed bindings", as
   ).toBeInstanceOf(Date);
 });
 
+test("bindBlobAttachmentV2 rejects malformed V2 signed event records", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const container = await bootstrapRootV2(owner);
+  const document = await createDocumentFixture({ container, owner });
+
+  const malformedBind = await buildBindRequest({
+    blobId: crypto.randomUUID(),
+    container,
+    document,
+    expectedBindingId: null,
+    owner,
+    slotId: "slot-a",
+  });
+  malformedBind.request.event = {
+    ...malformedBind.request.event,
+    version: "2",
+  };
+
+  await expect(
+    bindBlobAttachmentV2(runtime, {
+      blobId: malformedBind.verifiedBinding.blobId,
+      fingerprint: owner.fingerprint,
+      request: malformedBind.request,
+      userId: owner.userId,
+    }),
+  ).rejects.toMatchObject(
+    new BlobV2MutationError("Blob V2 event.version is invalid", 400),
+  );
+});
+
+test("bindBlobAttachmentV2 rejects malformed staged blob write headers", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const container = await bootstrapRootV2(owner);
+  const document = await createDocumentFixture({ container, owner });
+
+  const malformedBind = await buildBindRequest({
+    blobId: crypto.randomUUID(),
+    container,
+    document,
+    expectedBindingId: null,
+    owner,
+    slotId: "slot-a",
+    stagedBlob: await stageEncryptedBlob({
+      encryptedBytes: "malformed-write-header-bytes",
+      owner,
+    }),
+  });
+  if (!malformedBind.request.stagedBlob) {
+    throw new Error("Expected staged blob request");
+  }
+  malformedBind.request.stagedBlob.writeHeader = {
+    ...malformedBind.request.stagedBlob.writeHeader,
+    version: "2",
+  };
+
+  await expect(
+    bindBlobAttachmentV2(runtime, {
+      blobId: malformedBind.verifiedBinding.blobId,
+      fingerprint: owner.fingerprint,
+      request: malformedBind.request,
+      userId: owner.userId,
+    }),
+  ).rejects.toMatchObject(
+    new BlobV2MutationError("Blob V2 write header.version is invalid", 400),
+  );
+});
+
 test("bindBlobAttachmentV2 rejects stale slot bindings and omitted shared blob targets", async () => {
   const owner = createTestUser();
   await registerOnly(owner);
