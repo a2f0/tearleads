@@ -742,6 +742,37 @@ test("GET /v2/documents/:documentId/writer-projection returns document targets a
   expect(projection.authorizingContainerPaths).toHaveLength(1);
 });
 
+test("GET /v2/documents/:documentId/writer-projection rejects malformed stored document V2 state", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const created = await createDocumentV2({ owner, root });
+
+  await db
+    .update(accessManifests)
+    .set({
+      state: {
+        ...created.accessManifest.state,
+        linkedContainerIds: "not-linked-container-ids",
+      } as KeyingV2CanonicalJson,
+    })
+    .where(
+      eq(accessManifests.manifestHash, created.accessManifest.manifestHash),
+    );
+
+  const projectionResponse = await routeApp.request(
+    `/v2/documents/${created.id}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(projectionResponse.status).toBe(409);
+});
+
 test("POST /v2/documents/:documentId/link advances a signed link-set manifest", async () => {
   const owner = createTestUser();
   await registerUser(owner);

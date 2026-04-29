@@ -2,6 +2,7 @@ import type {
   AccessManifestV2,
   DocumentLinkSetManifestStateV2,
   KeyingV2CanonicalJson,
+  VerifiedAccessEvent,
 } from "@tearleads/crypto";
 import type {
   ContainerV2WriterProjectionResponse,
@@ -24,6 +25,18 @@ import {
   ContainerV2WriterProjectionError,
   resolveContainerV2WriterProjection,
 } from "../containers/v2WriterProjection";
+import {
+  projectionAccessManifestRecord,
+  projectionVerifiedAccessEventRecord,
+  readProjectionNullableString,
+  readProjectionPlainRecord,
+  readProjectionPositiveInteger,
+  readProjectionRecord,
+  readProjectionString,
+  readProjectionStringArray,
+  readProjectionValue,
+  readProjectionVersion2,
+} from "../keyingV2ProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 
 type DocumentV2WriterProjectionStatus = 403 | 404 | 409;
@@ -38,17 +51,65 @@ export class DocumentV2WriterProjectionError extends Error {
   }
 }
 
+function projectionError(message: string): DocumentV2WriterProjectionError {
+  return new DocumentV2WriterProjectionError(message, 409);
+}
+
+function readPlainRecord(value: unknown, label: string) {
+  return readProjectionPlainRecord(value, label, projectionError);
+}
+
+function readCanonicalRecord(value: KeyingV2CanonicalJson, label: string) {
+  return readProjectionRecord(value, label, projectionError);
+}
+
+function readString(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+) {
+  return readProjectionString(record, key, label, projectionError);
+}
+
+function readNullableString(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+) {
+  return readProjectionNullableString(record, key, label, projectionError);
+}
+
+function readPositiveInteger(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+) {
+  return readProjectionPositiveInteger(record, key, label, projectionError);
+}
+
+function readStringArray(value: unknown, label: string) {
+  return readProjectionStringArray(value, label, projectionError);
+}
+
+function readVersion2(record: Record<string, unknown>, label: string) {
+  return readProjectionVersion2(record, label, projectionError);
+}
+
+const readValue = readProjectionValue;
+const accessManifestRecord = projectionAccessManifestRecord;
+const verifiedAccessEventRecord = projectionVerifiedAccessEventRecord;
+
 function toDocumentManifestBundleResponse(input: {
-  readonly event: Record<string, unknown>;
+  readonly event: VerifiedAccessEvent;
   readonly manifest: AccessManifestV2;
   readonly manifestHash: string;
   readonly state: KeyingV2CanonicalJson;
 }): DocumentV2ManifestBundleResponse {
   return {
-    event: input.event,
-    manifest: input.manifest as unknown as Record<string, unknown>,
+    event: verifiedAccessEventRecord(input.event),
+    manifest: accessManifestRecord(input.manifest),
     manifestHash: input.manifestHash,
-    state: input.state as Record<string, unknown>,
+    state: readCanonicalRecord(input.state, "Document V2 manifest state"),
   };
 }
 
@@ -85,30 +146,41 @@ function toContentKeyBundleResponse(input: {
       containerKeyEpochId: target.containerKeyEpochId,
       containerKeyEpoch: target.containerKeyEpoch,
       wrappedKey: target.wrappedKey,
-      wrappingMetadata: target.wrappingMetadata as Record<string, unknown>,
+      wrappingMetadata: readCanonicalRecord(
+        target.wrappingMetadata,
+        "Document V2 content-key target wrapping metadata",
+      ),
     })),
   };
 }
 
 function readDocumentLinkSetState(
-  state: KeyingV2CanonicalJson,
+  state: unknown,
 ): DocumentLinkSetManifestStateV2 {
-  const record = state as unknown as Partial<DocumentLinkSetManifestStateV2>;
+  const record = readPlainRecord(state, "Document V2 manifest state");
+  readVersion2(record, "Document V2 manifest state");
+  const linkedContainerIds = readStringArray(
+    readValue(record, "linkedContainerIds"),
+    "Document V2 manifest state.linkedContainerIds",
+  );
 
-  if (
-    record.version !== 2 ||
-    typeof record.documentId !== "string" ||
-    typeof record.organizationId !== "string" ||
-    !Number.isInteger(record.epoch) ||
-    !Array.isArray(record.linkedContainerIds)
-  ) {
-    throw new DocumentV2WriterProjectionError(
-      "Document V2 manifest state is invalid",
-      409,
-    );
-  }
-
-  return record as DocumentLinkSetManifestStateV2;
+  return {
+    version: 2,
+    documentId: readString(record, "documentId", "Document V2 manifest state"),
+    organizationId: readString(
+      record,
+      "organizationId",
+      "Document V2 manifest state",
+    ),
+    epoch: readPositiveInteger(record, "epoch", "Document V2 manifest state"),
+    previousManifestHash: readNullableString(
+      record,
+      "previousManifestHash",
+      "Document V2 manifest state",
+    ),
+    eventHash: readString(record, "eventHash", "Document V2 manifest state"),
+    linkedContainerIds,
+  };
 }
 
 async function loadCurrentDocumentManifestBundle(
@@ -136,7 +208,7 @@ async function loadCurrentDocumentManifestBundle(
   }
 
   return toDocumentManifestBundleResponse({
-    event: bundle.event as unknown as Record<string, unknown>,
+    event: bundle.event,
     manifest: bundle.manifest,
     manifestHash: bundle.manifestHash,
     state: bundle.state,
@@ -192,9 +264,7 @@ async function resolveDocumentWriterProjection(input: {
     input.executor,
     input.documentId,
   );
-  const documentState = readDocumentLinkSetState(
-    documentManifest.state as KeyingV2CanonicalJson,
-  );
+  const documentState = readDocumentLinkSetState(documentManifest.state);
   const [documentKekTargets, contentKeyBundle, authorizingContainerPaths] =
     await Promise.all([
       resolveCurrentDocumentKekTargets(input.documentId, input.executor),
