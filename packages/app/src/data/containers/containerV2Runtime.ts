@@ -166,6 +166,343 @@ interface ParentContainerCreateContext {
   kek: ContainerV2KekResponse;
 }
 
+function readRecordValue(
+  record: Record<string, unknown>,
+  key: string,
+): unknown {
+  return Reflect.get(record, key);
+}
+
+function readRecordString(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): string {
+  const value = readRecordValue(record, key);
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${label}.${key} must be a non-empty string`);
+  }
+  return value;
+}
+
+function readRecordNullableString(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): string | null {
+  const value = readRecordValue(record, key);
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${label}.${key} must be a non-empty string or null`);
+  }
+  return value;
+}
+
+function readRecordPositiveInteger(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): number {
+  const value = readRecordValue(record, key);
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    throw new Error(`${label}.${key} must be a positive integer`);
+  }
+  return value;
+}
+
+function readRecordVersion2(
+  record: Record<string, unknown>,
+  label: string,
+): void {
+  if (readRecordPositiveInteger(record, "version", label) !== 2) {
+    throw new Error(`${label}.version must be 2`);
+  }
+}
+
+function isCanonicalJson(value: unknown): value is KeyingV2CanonicalJson {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      if (!(index in value) || !isCanonicalJson(value[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return Object.keys(value).every((key) => isCanonicalJson(value[key]));
+}
+
+function readCanonicalJson(
+  value: unknown,
+  label: string,
+): KeyingV2CanonicalJson {
+  if (!isCanonicalJson(value)) {
+    throw new Error(`${label} must be canonical JSON`);
+  }
+  return value;
+}
+
+function readCanonicalRecord(
+  value: unknown,
+  label: string,
+): Record<string, unknown> {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  readCanonicalJson(value, label);
+  return value;
+}
+
+function readCanonicalRecords(
+  values: readonly unknown[],
+  label: string,
+): Record<string, unknown>[] {
+  return values.map((value, index) =>
+    readCanonicalRecord(value, `${label}[${index}]`),
+  );
+}
+
+function readCanonicalManifestBundle(
+  value: unknown,
+  label: string,
+): ContainerV2ManifestBundle {
+  const record = readCanonicalRecord(value, label);
+  return {
+    event: readCanonicalRecord(
+      readRecordValue(record, "event"),
+      `${label}.event`,
+    ),
+    manifest: readCanonicalRecord(
+      readRecordValue(record, "manifest"),
+      `${label}.manifest`,
+    ),
+    manifestHash: readRecordString(record, "manifestHash", label),
+    state: readCanonicalRecord(
+      readRecordValue(record, "state"),
+      `${label}.state`,
+    ),
+  };
+}
+
+function isContainerAccessLevelV2(
+  value: unknown,
+): value is ContainerDirectGrantV2["accessLevel"] {
+  return value === "admin" || value === "read" || value === "write";
+}
+
+function isContainerGrantSubjectTypeV2(
+  value: unknown,
+): value is ContainerDirectGrantV2["subjectType"] {
+  return value === "group" || value === "organization" || value === "user";
+}
+
+function isManagedPrincipalKindV2(
+  value: unknown,
+): value is ContainerAccessManifestStateV2["referencedPrincipalHeads"][number]["principalType"] {
+  return value === "group" || value === "organization";
+}
+
+function isKekRecipientKindV2(
+  value: unknown,
+): value is ContainerKeyWrapV2["recipientKind"] {
+  return (
+    value === "container" ||
+    value === "group" ||
+    value === "organization" ||
+    value === "user"
+  );
+}
+
+function readContainerDirectGrantV2(
+  value: unknown,
+  label: string,
+): ContainerDirectGrantV2 {
+  const record = readCanonicalRecord(value, label);
+  const accessLevel = readRecordValue(record, "accessLevel");
+  const subjectType = readRecordValue(record, "subjectType");
+  if (!isContainerAccessLevelV2(accessLevel)) {
+    throw new Error(`${label}.accessLevel is invalid`);
+  }
+  if (!isContainerGrantSubjectTypeV2(subjectType)) {
+    throw new Error(`${label}.subjectType is invalid`);
+  }
+
+  return {
+    accessLevel,
+    subjectId: readRecordString(record, "subjectId", label),
+    subjectType,
+  };
+}
+
+function readContainerDirectGrants(
+  value: unknown,
+  label: string,
+): ContainerDirectGrantV2[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return value.map((grant, index) =>
+    readContainerDirectGrantV2(grant, `${label}[${index}]`),
+  );
+}
+
+function readReferencedPrincipalHeadV2(
+  value: unknown,
+  label: string,
+): ContainerAccessManifestStateV2["referencedPrincipalHeads"][number] {
+  const record = readCanonicalRecord(value, label);
+  const principalType = readRecordValue(record, "principalType");
+  if (!isManagedPrincipalKindV2(principalType)) {
+    throw new Error(`${label}.principalType is invalid`);
+  }
+
+  return {
+    principalType,
+    principalId: readRecordString(record, "principalId", label),
+    version: readRecordPositiveInteger(record, "version", label),
+    keyEpoch: readRecordPositiveInteger(record, "keyEpoch", label),
+    stateHash: readRecordString(record, "stateHash", label),
+    keyFingerprint: readRecordString(record, "keyFingerprint", label),
+  };
+}
+
+function readReferencedPrincipalHeads(
+  value: unknown,
+  label: string,
+): ContainerAccessManifestStateV2["referencedPrincipalHeads"] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return value.map((head, index) =>
+    readReferencedPrincipalHeadV2(head, `${label}[${index}]`),
+  );
+}
+
+function readContainerAccessManifestStateV2(
+  value: unknown,
+  label: string,
+): ContainerAccessManifestStateV2 {
+  const record = readCanonicalRecord(value, label);
+  readRecordVersion2(record, label);
+
+  return {
+    version: 2,
+    containerId: readRecordString(record, "containerId", label),
+    organizationId: readRecordString(record, "organizationId", label),
+    epoch: readRecordPositiveInteger(record, "epoch", label),
+    previousManifestHash: readRecordNullableString(
+      record,
+      "previousManifestHash",
+      label,
+    ),
+    eventHash: readRecordString(record, "eventHash", label),
+    parentContainerId: readRecordNullableString(
+      record,
+      "parentContainerId",
+      label,
+    ),
+    parentManifestHash: readRecordNullableString(
+      record,
+      "parentManifestHash",
+      label,
+    ),
+    metadataDocumentId: readRecordString(record, "metadataDocumentId", label),
+    containerKeyEpochId: readRecordNullableString(
+      record,
+      "containerKeyEpochId",
+      label,
+    ),
+    directGrants: readContainerDirectGrants(
+      readRecordValue(record, "directGrants"),
+      `${label}.directGrants`,
+    ),
+    referencedPrincipalHeads: readReferencedPrincipalHeads(
+      readRecordValue(record, "referencedPrincipalHeads"),
+      `${label}.referencedPrincipalHeads`,
+    ),
+  };
+}
+
+function readContainerKeyEpochV2(
+  value: unknown,
+  label: string,
+): ContainerKeyEpochV2 {
+  const record = readCanonicalRecord(value, label);
+  return {
+    id: readRecordString(record, "id", label),
+    containerId: readRecordString(record, "containerId", label),
+    keyEpoch: readRecordPositiveInteger(record, "keyEpoch", label),
+    accessManifestHash: readRecordString(record, "accessManifestHash", label),
+    parentContainerKeyEpochId: readRecordNullableString(
+      record,
+      "parentContainerKeyEpochId",
+      label,
+    ),
+    createdByEventHash: readRecordString(record, "createdByEventHash", label),
+    createdByManifestHash: readRecordString(
+      record,
+      "createdByManifestHash",
+      label,
+    ),
+  };
+}
+
+function readContainerKeyWrapV2(
+  value: unknown,
+  label: string,
+): ContainerKeyWrapV2 {
+  const record = readCanonicalRecord(value, label);
+  const recipientKind = readRecordValue(record, "recipientKind");
+  if (!isKekRecipientKindV2(recipientKind)) {
+    throw new Error(`${label}.recipientKind is invalid`);
+  }
+
+  return {
+    containerKeyEpochId: readRecordString(record, "containerKeyEpochId", label),
+    recipientKind,
+    recipientId: readRecordString(record, "recipientId", label),
+    recipientKeyEpochId: readRecordString(record, "recipientKeyEpochId", label),
+    recipientKeyFingerprint: readRecordString(
+      record,
+      "recipientKeyFingerprint",
+      label,
+    ),
+    kemCipherText: readRecordString(record, "kemCipherText", label),
+    wrappedKey: readRecordString(record, "wrappedKey", label),
+    wrapManifestHash: readRecordString(record, "wrapManifestHash", label),
+  };
+}
+
+function readContainerKeyWraps(
+  value: unknown,
+  label: string,
+): ContainerKeyWrapV2[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return value.map((wrap, index) =>
+    readContainerKeyWrapV2(wrap, `${label}[${index}]`),
+  );
+}
+
 function readManifestContainerId(
   bundle: ContainerV2WriterProjectionResponse["path"][number],
 ): string | null {
@@ -214,17 +551,16 @@ function getParentCreateContext(
 function asContainerV2ManifestBundle(
   bundle: ContainerV2WriterProjectionResponse["path"][number],
 ): ContainerV2ManifestBundle {
-  return bundle as unknown as ContainerV2ManifestBundle;
+  return readCanonicalManifestBundle(bundle, "Container V2 manifest bundle");
 }
 
 function readContainerV2State(
   bundle: ContainerV2WriterProjectionResponse["path"][number],
 ): ContainerAccessManifestStateV2 {
-  if (!isPlainObject(bundle.state)) {
-    throw new Error("Container V2 manifest state is invalid");
-  }
-
-  return bundle.state as unknown as ContainerAccessManifestStateV2;
+  return readContainerAccessManifestStateV2(
+    bundle.state,
+    "Container V2 manifest state",
+  );
 }
 
 function getTargetContainerContext(
@@ -339,7 +675,7 @@ async function signContainerV2CreateEvent(input: {
   signedAt: string;
 }): Promise<Pick<ContainerV2CreatePlan, "event" | "eventHash">> {
   const bodyHash = await computeAccessEventBodyHash(
-    input.body as unknown as KeyingV2CanonicalJson,
+    readCanonicalJson(input.body, "Container V2 create body"),
   );
   const unsignedEvent: UnsignedAccessEventV2 = {
     version: 2,
@@ -379,7 +715,7 @@ async function signContainerV2MutationEvent(input: {
   Pick<ContainerV2SharePlan | ContainerV2MovePlan, "event" | "eventHash">
 > {
   const bodyHash = await computeAccessEventBodyHash(
-    input.body as unknown as KeyingV2CanonicalJson,
+    readCanonicalJson(input.body, "Container V2 mutation body"),
   );
   const unsignedEvent: UnsignedAccessEventV2 = {
     version: 2,
@@ -485,20 +821,27 @@ function buildContainerV2CreateRequest(input: {
   wraps: readonly ContainerKeyWrapV2[];
 }): ContainerV2MutationRequest {
   return {
-    event: input.event as unknown as Record<string, unknown>,
-    body: input.body as unknown as Record<string, unknown>,
+    event: readCanonicalRecord(input.event, "Container V2 create event"),
+    body: readCanonicalRecord(input.body, "Container V2 create body"),
     expectedManifestHash: input.manifestHash,
-    manifest: input.manifest as unknown as Record<string, unknown>,
+    manifest: readCanonicalRecord(
+      input.manifest,
+      "Container V2 create manifest",
+    ),
     previousManifest: null,
     parentContainerPath: input.parentProjection.path.map(
       asContainerV2ManifestBundle,
     ),
     principalPolicies: [],
-    keyEpoch: input.keyEpoch as unknown as Record<string, unknown>,
-    wraps: input.wraps.map(
-      (wrap) => wrap as unknown as Record<string, unknown>,
+    keyEpoch: readCanonicalRecord(
+      input.keyEpoch,
+      "Container V2 create key epoch",
     ),
-    parentKekState: input.parentKek as unknown as Record<string, unknown>,
+    wraps: readCanonicalRecords(input.wraps, "Container V2 create wraps"),
+    parentKekState: readCanonicalRecord(
+      input.parentKek,
+      "Container V2 create parent KEK state",
+    ),
     userRecipientKeys: [],
   };
 }
@@ -513,19 +856,24 @@ function buildRootContainerV2CreateRequest(input: {
   wraps: readonly ContainerKeyWrapV2[];
 }): ContainerV2MutationRequest {
   return {
-    event: input.event as unknown as Record<string, unknown>,
-    body: input.body as unknown as Record<string, unknown>,
+    event: readCanonicalRecord(input.event, "Container V2 root create event"),
+    body: readCanonicalRecord(input.body, "Container V2 root create body"),
     expectedManifestHash: input.manifestHash,
-    manifest: input.manifest as unknown as Record<string, unknown>,
+    manifest: readCanonicalRecord(
+      input.manifest,
+      "Container V2 root create manifest",
+    ),
     previousManifest: null,
     parentContainerPath: [],
     principalPolicies: [],
-    keyEpoch: input.keyEpoch as unknown as Record<string, unknown>,
-    wraps: input.wraps.map(
-      (wrap) => wrap as unknown as Record<string, unknown>,
+    keyEpoch: readCanonicalRecord(
+      input.keyEpoch,
+      "Container V2 root create key epoch",
     ),
-    userRecipientKeys: input.userRecipientKeys.map(
-      (recipient) => recipient as unknown as Record<string, unknown>,
+    wraps: readCanonicalRecords(input.wraps, "Container V2 root create wraps"),
+    userRecipientKeys: readCanonicalRecords(
+      input.userRecipientKeys,
+      "Container V2 root create user recipient keys",
     ),
   };
 }
@@ -725,13 +1073,16 @@ export function rootContainerV2WriterProjectionFromCreatePlan(
     path: [
       {
         event: {
-          event: plan.event as unknown as Record<string, unknown>,
-          body: plan.body as unknown as Record<string, unknown>,
+          event: readCanonicalRecord(plan.event, "Container V2 root event"),
+          body: readCanonicalRecord(plan.body, "Container V2 root body"),
           eventHash: plan.eventHash,
         },
-        manifest: plan.manifest as unknown as Record<string, unknown>,
+        manifest: readCanonicalRecord(
+          plan.manifest,
+          "Container V2 root manifest",
+        ),
         manifestHash: plan.manifestHash,
-        state: plan.state as unknown as Record<string, unknown>,
+        state: readCanonicalRecord(plan.state, "Container V2 root state"),
       },
     ],
     containerKeks: [
@@ -740,16 +1091,18 @@ export function rootContainerV2WriterProjectionFromCreatePlan(
         accessManifestHash: plan.manifestHash,
         containerKeyEpochId: plan.containerKeyEpochId,
         containerKeyEpoch: plan.keyEpoch.keyEpoch,
-        keyEpoch: plan.keyEpoch as unknown as Record<string, unknown>,
+        keyEpoch: readCanonicalRecord(
+          plan.keyEpoch,
+          "Container V2 root key epoch",
+        ),
         keyEpochHash: plan.keyEpochHash,
         keyTargetHash: plan.keyTargetHash,
         parentContainerKeyEpochId: null,
-        recipientTargets: plan.recipientTargets.map(
-          (target) => target as unknown as Record<string, unknown>,
+        recipientTargets: readCanonicalRecords(
+          plan.recipientTargets,
+          "Container V2 root recipient targets",
         ),
-        wraps: plan.wraps.map(
-          (wrap) => wrap as unknown as Record<string, unknown>,
-        ),
+        wraps: readCanonicalRecords(plan.wraps, "Container V2 root wraps"),
       },
     ],
   };
@@ -808,27 +1161,35 @@ function buildContainerV2ShareRequest(input: {
   wraps: readonly ContainerKeyWrapV2[];
 }): ContainerV2MutationRequest {
   return {
-    event: input.event as unknown as Record<string, unknown>,
-    body: input.body as unknown as Record<string, unknown>,
+    event: readCanonicalRecord(input.event, "Container V2 share event"),
+    body: readCanonicalRecord(input.body, "Container V2 share body"),
     expectedManifestHash: input.manifestHash,
-    manifest: input.manifest as unknown as Record<string, unknown>,
+    manifest: readCanonicalRecord(
+      input.manifest,
+      "Container V2 share manifest",
+    ),
     previousManifest: input.previousManifest,
     previousContainerPath: input.previousProjection.path.map(
       asContainerV2ManifestBundle,
     ),
     containerManifestHistory: [input.previousManifest],
     principalPolicies: [],
-    keyEpoch: input.keyEpoch as unknown as Record<string, unknown>,
-    wraps: input.wraps.map(
-      (wrap) => wrap as unknown as Record<string, unknown>,
+    keyEpoch: readCanonicalRecord(
+      input.keyEpoch,
+      "Container V2 share key epoch",
     ),
-    parentKekState: input.parentKek as unknown as Record<
-      string,
-      unknown
-    > | null,
-    userRecipientKeys: [
-      input.userRecipientKey as unknown as Record<string, unknown>,
-    ],
+    wraps: readCanonicalRecords(input.wraps, "Container V2 share wraps"),
+    parentKekState:
+      input.parentKek === null
+        ? null
+        : readCanonicalRecord(
+            input.parentKek,
+            "Container V2 share parent KEK state",
+          ),
+    userRecipientKeys: readCanonicalRecords(
+      [input.userRecipientKey],
+      "Container V2 share user recipient keys",
+    ),
   };
 }
 
@@ -866,7 +1227,10 @@ function buildContainerV2SharePlanResult(input: {
   userRecipientKey: ContainerUserRecipientKeyV2;
   wraps: ContainerKeyWrapV2[];
 }): MaterializedContainerV2SharePlan {
-  const keyEpoch = input.targetKek.keyEpoch as unknown as ContainerKeyEpochV2;
+  const keyEpoch = readContainerKeyEpochV2(
+    input.targetKek.keyEpoch,
+    "Container V2 share key epoch",
+  );
   const plan: ContainerV2SharePlan = {
     body: input.body,
     containerId: input.containerId,
@@ -960,7 +1324,10 @@ async function buildMaterializedContainerV2SharePlan(input: {
       recipientEncapsulationPublicKey: input.recipientEncapsulationPublicKey,
       userId: input.recipientUserId,
     });
-  const previousWraps = target.kek.wraps as unknown as ContainerKeyWrapV2[];
+  const previousWraps = readContainerKeyWraps(
+    target.kek.wraps,
+    "Container V2 share previous wraps",
+  );
   return buildContainerV2SharePlanResult({
     body,
     containerKey,
@@ -1067,10 +1434,10 @@ function buildContainerV2MoveRequest(input: {
   wraps: readonly ContainerKeyWrapV2[];
 }): ContainerV2MutationRequest {
   return {
-    event: input.event as unknown as Record<string, unknown>,
-    body: input.body as unknown as Record<string, unknown>,
+    event: readCanonicalRecord(input.event, "Container V2 move event"),
+    body: readCanonicalRecord(input.body, "Container V2 move body"),
     expectedManifestHash: input.manifestHash,
-    manifest: input.manifest as unknown as Record<string, unknown>,
+    manifest: readCanonicalRecord(input.manifest, "Container V2 move manifest"),
     previousManifest: input.previousManifest,
     previousContainerPath: input.previousProjection.path.map(
       asContainerV2ManifestBundle,
@@ -1079,14 +1446,15 @@ function buildContainerV2MoveRequest(input: {
       asContainerV2ManifestBundle,
     ),
     principalPolicies: [],
-    keyEpoch: input.keyEpoch as unknown as Record<string, unknown>,
-    wraps: input.wraps.map(
-      (wrap) => wrap as unknown as Record<string, unknown>,
+    keyEpoch: readCanonicalRecord(
+      input.keyEpoch,
+      "Container V2 move key epoch",
     ),
-    parentKekState: input.destinationParentKek as unknown as Record<
-      string,
-      unknown
-    >,
+    wraps: readCanonicalRecords(input.wraps, "Container V2 move wraps"),
+    parentKekState: readCanonicalRecord(
+      input.destinationParentKek,
+      "Container V2 move destination parent KEK state",
+    ),
     userRecipientKeys: [],
   };
 }
