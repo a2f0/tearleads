@@ -320,7 +320,12 @@ interface UnwrappedContainerKek {
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function readRecordString(
@@ -333,6 +338,316 @@ function readRecordString(
     throw new Error(`${label}.${key} must be a non-empty string`);
   }
   return value;
+}
+
+function readRecordValue(
+  record: Record<string, unknown>,
+  key: string,
+): unknown {
+  return record[key];
+}
+
+function readRecordInteger(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): number {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new Error(`${label}.${key} must be an integer`);
+  }
+  return value;
+}
+
+function readStringArray(value: unknown, label: string): string[] {
+  if (
+    !Array.isArray(value) ||
+    value.some((entry) => typeof entry !== "string" || entry.length === 0)
+  ) {
+    throw new Error(`${label} must be a string array`);
+  }
+
+  return [...value];
+}
+
+function isCanonicalJson(value: unknown): value is KeyingV2CanonicalJson {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      if (!(index in value) || !isCanonicalJson(value[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+
+  return Object.keys(value).every((key) => isCanonicalJson(value[key]));
+}
+
+function readCanonicalJson(
+  value: unknown,
+  label: string,
+): KeyingV2CanonicalJson {
+  if (!isCanonicalJson(value)) {
+    throw new Error(`${label} must be canonical JSON`);
+  }
+  return value;
+}
+
+function readCanonicalRecord(
+  value: unknown,
+  label: string,
+): Record<string, unknown> {
+  if (!isPlainRecord(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  readCanonicalJson(value, label);
+  return value;
+}
+
+function readCanonicalRecords(
+  values: readonly unknown[],
+  label: string,
+): Record<string, unknown>[] {
+  return values.map((value, index) =>
+    readCanonicalRecord(value, `${label}[${index}]`),
+  );
+}
+
+function readCanonicalRecordPaths(
+  paths: readonly (readonly unknown[])[],
+  label: string,
+): Record<string, unknown>[][] {
+  return paths.map((path, index) =>
+    readCanonicalRecords(path, `${label}[${index}]`),
+  );
+}
+
+function isAccessEventTypeV2(
+  value: unknown,
+): value is AccessEventV2["eventType"] {
+  return (
+    value === "attachment.bind" ||
+    value === "attachment.detach" ||
+    value === "container.create" ||
+    value === "container.grant" ||
+    value === "container.move" ||
+    value === "container.rekey" ||
+    value === "container.revoke" ||
+    value === "document.link" ||
+    value === "document.unlink"
+  );
+}
+
+function isAccessObjectKindV2(
+  value: unknown,
+): value is AccessEventV2["objectKind"] {
+  return value === "blob" || value === "container" || value === "document";
+}
+
+function isContentObjectKindV2(
+  value: unknown,
+): value is WriteHeaderV2["objectKind"] {
+  return value === "blob" || value === "document";
+}
+
+function readAccessEventV2(value: unknown, label: string): AccessEventV2 {
+  const record = readCanonicalRecord(value, label);
+  const eventType = readRecordValue(record, "eventType");
+  const objectKind = readRecordValue(record, "objectKind");
+  if (!isAccessEventTypeV2(eventType)) {
+    throw new Error(`${label}.eventType is invalid`);
+  }
+  if (!isAccessObjectKindV2(objectKind)) {
+    throw new Error(`${label}.objectKind is invalid`);
+  }
+  if (readRecordInteger(record, "version", label) !== 2) {
+    throw new Error(`${label}.version must be 2`);
+  }
+
+  return {
+    version: 2,
+    eventId: readRecordString(record, "eventId", label),
+    eventType,
+    objectKind,
+    objectId: readRecordString(record, "objectId", label),
+    organizationId: readRecordString(record, "organizationId", label),
+    previousManifestHash: readRecordNullableString(
+      record,
+      "previousManifestHash",
+      label,
+    ),
+    dependencyManifestHashes: readStringArray(
+      readRecordValue(record, "dependencyManifestHashes"),
+      `${label}.dependencyManifestHashes`,
+    ),
+    bodyHash: readRecordString(record, "bodyHash", label),
+    signerUserId: readRecordString(record, "signerUserId", label),
+    signerDeviceId: readRecordString(record, "signerDeviceId", label),
+    signerKeyFingerprint: readRecordString(
+      record,
+      "signerKeyFingerprint",
+      label,
+    ),
+    signedAt: readRecordString(record, "signedAt", label),
+    signature: readRecordString(record, "signature", label),
+  };
+}
+
+function readAccessManifestV2(value: unknown, label: string): AccessManifestV2 {
+  const record = readCanonicalRecord(value, label);
+  const objectKind = readRecordValue(record, "objectKind");
+  if (!isAccessObjectKindV2(objectKind)) {
+    throw new Error(`${label}.objectKind is invalid`);
+  }
+  if (readRecordInteger(record, "version", label) !== 2) {
+    throw new Error(`${label}.version must be 2`);
+  }
+  const referencedPrincipalHeads = readRecordValue(
+    record,
+    "referencedPrincipalHeads",
+  );
+  if (!Array.isArray(referencedPrincipalHeads)) {
+    throw new Error(`${label}.referencedPrincipalHeads must be an array`);
+  }
+
+  return {
+    version: 2,
+    objectKind,
+    objectId: readRecordString(record, "objectId", label),
+    organizationId: readRecordString(record, "organizationId", label),
+    epoch: readRecordNumber(record, "epoch", label),
+    previousManifestHash: readRecordNullableString(
+      record,
+      "previousManifestHash",
+      label,
+    ),
+    eventHash: readRecordString(record, "eventHash", label),
+    structuralHash: readRecordString(record, "structuralHash", label),
+    grantRoot: readRecordString(record, "grantRoot", label),
+    referencedPrincipalHeads: referencedPrincipalHeads.map((head, index) => {
+      const headRecord = readCanonicalRecord(
+        head,
+        `${label}.referencedPrincipalHeads[${index}]`,
+      );
+      const principalType = readRecordValue(headRecord, "principalType");
+      if (principalType !== "group" && principalType !== "organization") {
+        throw new Error(
+          `${label}.referencedPrincipalHeads[${index}].principalType is invalid`,
+        );
+      }
+      return {
+        principalType,
+        principalId: readRecordString(
+          headRecord,
+          "principalId",
+          `${label}.referencedPrincipalHeads[${index}]`,
+        ),
+        version: readRecordNumber(
+          headRecord,
+          "version",
+          `${label}.referencedPrincipalHeads[${index}]`,
+        ),
+        keyEpoch: readRecordNumber(
+          headRecord,
+          "keyEpoch",
+          `${label}.referencedPrincipalHeads[${index}]`,
+        ),
+        stateHash: readRecordString(
+          headRecord,
+          "stateHash",
+          `${label}.referencedPrincipalHeads[${index}]`,
+        ),
+        keyFingerprint: readRecordString(
+          headRecord,
+          "keyFingerprint",
+          `${label}.referencedPrincipalHeads[${index}]`,
+        ),
+      };
+    }),
+    keyTargetHash: readRecordString(record, "keyTargetHash", label),
+  };
+}
+
+function readDocumentLinkSetManifestStateV2(
+  value: unknown,
+  label: string,
+): DocumentLinkSetManifestStateV2 {
+  const record = readCanonicalRecord(value, label);
+  if (readRecordInteger(record, "version", label) !== 2) {
+    throw new Error(`${label}.version must be 2`);
+  }
+
+  return {
+    version: 2,
+    documentId: readRecordString(record, "documentId", label),
+    organizationId: readRecordString(record, "organizationId", label),
+    epoch: readRecordNumber(record, "epoch", label),
+    previousManifestHash: readRecordNullableString(
+      record,
+      "previousManifestHash",
+      label,
+    ),
+    eventHash: readRecordString(record, "eventHash", label),
+    linkedContainerIds: readStringArray(
+      readRecordValue(record, "linkedContainerIds"),
+      `${label}.linkedContainerIds`,
+    ),
+  };
+}
+
+function readWriteHeaderV2(value: unknown, label: string): WriteHeaderV2 {
+  const record = readCanonicalRecord(value, label);
+  const objectKind = readRecordValue(record, "objectKind");
+  if (!isContentObjectKindV2(objectKind)) {
+    throw new Error(`${label}.objectKind is invalid`);
+  }
+  if (readRecordInteger(record, "version", label) !== 2) {
+    throw new Error(`${label}.version must be 2`);
+  }
+  const encryptionSuite = readRecordValue(record, "encryptionSuite");
+  if (encryptionSuite !== CONTENT_RECORD_ENCRYPTION_SUITE_V2) {
+    throw new Error(`${label}.encryptionSuite is invalid`);
+  }
+
+  return {
+    version: 2,
+    organizationId: readRecordString(record, "organizationId", label),
+    objectKind,
+    objectId: readRecordString(record, "objectId", label),
+    accessManifestHash: readRecordString(record, "accessManifestHash", label),
+    contentKeyEpoch: readRecordNumber(record, "contentKeyEpoch", label),
+    targetHash: readRecordString(record, "targetHash", label),
+    encryptionSuite,
+    contentRecordId: readRecordString(record, "contentRecordId", label),
+    nonceDomainHash: readRecordString(record, "nonceDomainHash", label),
+    metadataHash: readRecordString(record, "metadataHash", label),
+    ciphertextHash: readRecordString(record, "ciphertextHash", label),
+    writerUserId: readRecordString(record, "writerUserId", label),
+    writerDeviceId: readRecordString(record, "writerDeviceId", label),
+    writerKeyFingerprint: readRecordString(
+      record,
+      "writerKeyFingerprint",
+      label,
+    ),
+    signedAt: readRecordString(record, "signedAt", label),
+    signature: readRecordString(record, "signature", label),
+  };
 }
 
 function readManifestContainerId(
@@ -384,10 +699,10 @@ function readRecordNumber(
   label: string,
 ): number {
   const value = record[key];
-  if (!Number.isInteger(value) || (value as number) <= 0) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
     throw new Error(`${label}.${key} must be a positive integer`);
   }
-  return value as number;
+  return value;
 }
 
 function readRecordNullableString(
@@ -819,7 +1134,7 @@ export async function buildDocumentV2CreatePlan({
     containerManifestHash: targetContainerManifestHash,
   };
   const bodyHash = await computeAccessEventBodyHash(
-    body as unknown as KeyingV2CanonicalJson,
+    readCanonicalJson(body, "Document V2 create body"),
   );
   const unsignedEvent: UnsignedAccessEventV2 = {
     version: 2,
@@ -859,13 +1174,14 @@ export async function buildDocumentV2CreatePlan({
     manifest,
     manifestHash,
     request: {
-      event: event as unknown as Record<string, unknown>,
-      body: body as unknown as Record<string, unknown>,
+      event: readCanonicalRecord(event, "Document V2 create event"),
+      body: readCanonicalRecord(body, "Document V2 create body"),
       expectedManifestHash: manifestHash,
-      manifest: manifest as unknown as Record<string, unknown>,
+      manifest: readCanonicalRecord(manifest, "Document V2 create manifest"),
       previousManifest: null,
-      targetContainerPath: containerProjection.path.map(
-        (bundle) => bundle as unknown as Record<string, unknown>,
+      targetContainerPath: readCanonicalRecords(
+        containerProjection.path,
+        "Document V2 create target container path",
       ),
       contentKeyBundle: {
         contentKeyEpoch,
@@ -972,9 +1288,7 @@ export async function createRemoteDocumentV2(input: {
 function projectionPathRecords(
   projection: ContainerV2WriterProjectionResponse,
 ): Record<string, unknown>[] {
-  return projection.path.map(
-    (bundle) => bundle as unknown as Record<string, unknown>,
-  );
+  return readCanonicalRecords(projection.path, "Document V2 projection path");
 }
 
 function projectionLeafContainerId(
@@ -1174,11 +1488,15 @@ function readDocumentV2LinkSetPreviousEpoch(
   const previousEpoch = isPlainRecord(previousState)
     ? Reflect.get(previousState, "epoch")
     : undefined;
-  if (!Number.isInteger(previousEpoch) || (previousEpoch as number) <= 0) {
+  if (
+    typeof previousEpoch !== "number" ||
+    !Number.isInteger(previousEpoch) ||
+    previousEpoch <= 0
+  ) {
     throw new Error("Document V2 link-set previous epoch is invalid");
   }
 
-  return previousEpoch as number;
+  return previousEpoch;
 }
 
 async function buildDocumentV2LinkSetEventPlan(input: {
@@ -1197,7 +1515,7 @@ async function buildDocumentV2LinkSetEventPlan(input: {
     containerManifestHash: input.targetState.target.containerManifestHash,
   };
   const bodyHash = await computeAccessEventBodyHash(
-    body as unknown as KeyingV2CanonicalJson,
+    readCanonicalJson(body, "Document V2 link-set body"),
   );
   const authorizingContainerPaths = authorizingContainerPathRecordsForLinkSet({
     operation: input.operation,
@@ -1298,10 +1616,10 @@ async function buildDocumentV2LinkSetMutationPlan({
     manifestHash,
     operation,
     request: {
-      event: eventPlan.event as unknown as Record<string, unknown>,
-      body: eventPlan.body as unknown as Record<string, unknown>,
+      event: readCanonicalRecord(eventPlan.event, "Document V2 link-set event"),
+      body: readCanonicalRecord(eventPlan.body, "Document V2 link-set body"),
       expectedManifestHash: manifestHash,
-      manifest: manifest as unknown as Record<string, unknown>,
+      manifest: readCanonicalRecord(manifest, "Document V2 link-set manifest"),
       previousManifest: writerProjection.documentManifest,
       targetContainerPath: projectionPathRecords(targetContainerProjection),
       authorizingContainerPaths: eventPlan.authorizingContainerPaths,
@@ -2064,10 +2382,11 @@ async function unwrapDocumentV2ContentKeyFromWriterProjection(input: {
 function authorizingContainerPathRecords(
   writerProjection: DocumentV2WriterProjectionResponse,
 ): Record<string, unknown>[][] {
-  return writerProjection.authorizingContainerPaths.map((projection) =>
-    projection.path.map(
-      (bundle) => bundle as unknown as Record<string, unknown>,
+  return readCanonicalRecordPaths(
+    writerProjection.authorizingContainerPaths.map(
+      (projection) => projection.path,
     ),
+    "Document V2 authorizing container paths",
   );
 }
 
@@ -2242,7 +2561,7 @@ async function assertDocumentV2ManifestBundleConsistent(input: {
   label: string;
 }): Promise<{ documentId: string; organizationId: string }> {
   const manifestHash = await computeAccessManifestHash(
-    input.bundle.manifest as unknown as AccessManifestV2,
+    readAccessManifestV2(input.bundle.manifest, `${input.label} manifest`),
   );
   if (manifestHash !== input.bundle.manifestHash) {
     throw new Error(`${input.label} manifest hash mismatch`);
@@ -2254,26 +2573,20 @@ async function assertDocumentV2ManifestBundleConsistent(input: {
   }
   const eventHash = readRecordString(eventBundle, "eventHash", input.label);
   const event = Reflect.get(eventBundle, "event");
-  if (!isPlainRecord(event)) {
-    throw new Error(`${input.label} signed event is invalid`);
-  }
-  const computedEventHash = await computeAccessEventHash(
-    event as unknown as AccessEventV2,
-  );
+  const accessEvent = readAccessEventV2(event, `${input.label} signed event`);
+  const computedEventHash = await computeAccessEventHash(accessEvent);
   if (computedEventHash !== eventHash) {
     throw new Error(`${input.label} event hash mismatch`);
   }
 
-  const state = input.bundle.state;
-  if (!isPlainRecord(state)) {
-    throw new Error(`${input.label} state is invalid`);
-  }
-  if (readRecordString(state, "eventHash", input.label) !== eventHash) {
+  const state = readDocumentLinkSetManifestStateV2(
+    input.bundle.state,
+    `${input.label} state`,
+  );
+  if (state.eventHash !== eventHash) {
     throw new Error(`${input.label} state event hash mismatch`);
   }
-  const derivedManifest = await deriveDocumentLinkSetManifest(
-    state as unknown as DocumentLinkSetManifestStateV2,
-  );
+  const derivedManifest = await deriveDocumentLinkSetManifest(state);
   if (
     serializeCanonical(input.bundle.manifest, "manifest") !==
     serializeCanonical(derivedManifest, "manifest")
@@ -2282,8 +2595,8 @@ async function assertDocumentV2ManifestBundleConsistent(input: {
   }
 
   return {
-    documentId: readRecordString(state, "documentId", input.label),
-    organizationId: readRecordString(state, "organizationId", input.label),
+    documentId: state.documentId,
+    organizationId: state.organizationId,
   };
 }
 
@@ -2426,7 +2739,10 @@ async function signDocumentV2OutgoingUpdate(input: {
     ...(input.update.sourceVersionVector === undefined
       ? {}
       : { sourceVersionVector: input.update.sourceVersionVector }),
-    writeHeader: writeHeader as unknown as Record<string, unknown>,
+    writeHeader: readCanonicalRecord(
+      writeHeader,
+      "Document V2 outgoing write header",
+    ),
   };
 }
 
@@ -2542,11 +2858,10 @@ async function assertDocumentV2SyncResponseUpdateMatchesPlan(input: {
   if (update.documentId !== plan.documentId) {
     throw new Error("Document V2 sync response update document mismatch");
   }
-  if (!isPlainRecord(update.writeHeader)) {
-    throw new Error("Document V2 sync response write header is invalid");
-  }
-
-  const header = update.writeHeader as unknown as WriteHeaderV2;
+  const header = readWriteHeaderV2(
+    update.writeHeader,
+    "Document V2 sync response write header",
+  );
   await assertDocumentV2SyncResponseUpdateHashes({ header, update });
   assertDocumentV2SyncResponseWriteHeaderFields({ plan, update });
   await assertDocumentV2SyncResponseNonceDomain({ plan, update });
@@ -2903,7 +3218,9 @@ function serializeCanonical(value: unknown, label: string): string {
     throw new Error(`Document V2 create response ${label} is invalid`);
   }
 
-  return serializeKeyingV2CanonicalJson(value as KeyingV2CanonicalJson);
+  return serializeKeyingV2CanonicalJson(
+    readCanonicalJson(value, `Document V2 create response ${label}`),
+  );
 }
 
 function assertCreateResponseMatchesPlan(
