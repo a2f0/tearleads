@@ -8,8 +8,3 @@ export interface SyncDocumentOutgoingUpdate {
   partialEndVersionVector: string;
   sourceVersionVector?: string;
 }
-
-export type DocumentRecipientEnvelopeAction = "none" | "rewrap" | "rotate";
-
-export const DOCUMENT_RECIPIENT_ENVELOPES_CONFLICT_MESSAGE =
-  "Document recipient envelopes conflict";

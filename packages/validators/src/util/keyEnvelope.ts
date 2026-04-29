@@ -1,15 +1,15 @@
 import { isPlainObject } from "../isPlainObject";
 import { hasStringProperty } from "./properties";
 
-export interface SerializedRecipientEnvelope {
+export interface SerializedKeyEnvelope {
   keyFingerprint: string;
   kemCipherText: string;
   wrappedKey: string;
 }
 
-export function isSerializedRecipientEnvelope(
+export function isSerializedKeyEnvelope(
   value: unknown,
-): value is SerializedRecipientEnvelope {
+): value is SerializedKeyEnvelope {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "keyFingerprint") &&
@@ -18,8 +18,8 @@ export function isSerializedRecipientEnvelope(
   );
 }
 
-export function isSerializedRecipientEnvelopeArray(
+export function isSerializedKeyEnvelopeArray(
   value: unknown,
-): value is SerializedRecipientEnvelope[] {
-  return Array.isArray(value) && value.every(isSerializedRecipientEnvelope);
+): value is SerializedKeyEnvelope[] {
+  return Array.isArray(value) && value.every(isSerializedKeyEnvelope);
 }

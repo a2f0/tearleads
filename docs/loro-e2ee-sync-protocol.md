@@ -524,7 +524,7 @@ Loro causal metadata does not, by itself, solve database replication lag.
 ### Slice 3: access and epochs
 
 - define `accessEpoch`
-- define recipient envelope updates for notes and attachments
+- define V2 key-target updates for notes and attachments
 - document non-retroactive revocation limits
 
 ### Slice 4: GC and reachability

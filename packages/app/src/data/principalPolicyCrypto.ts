@@ -4,7 +4,7 @@ import type {
   PrincipalMemberEnvelopeResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import type { SerializedRecipientEnvelope } from "@tearleads/validators/util";
+import type { SerializedKeyEnvelope } from "@tearleads/validators/util";
 import { loadAllPrincipalPolicyBundles } from "./persistence/principalPolicyPersistence";
 import type { ExecSql } from "./persistence/sqlSchema";
 
@@ -17,8 +17,8 @@ interface PrincipalPolicyResolutionContext {
   resolvedPrincipalSecretKeys: Map<string, Uint8Array>;
 }
 
-function toRecipientEntries(
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>,
+function toKeyEnvelopeEntries(
+  envelopes: ReadonlyArray<SerializedKeyEnvelope>,
 ): RecipientEntry[] {
   return envelopes.map((envelope) => ({
     keyFingerprint: envelope.keyFingerprint,
@@ -145,19 +145,19 @@ async function unwrapPrincipalSecretKey(
   throw new Error(`No matching principal member envelope for ${principalKey}`);
 }
 
-export async function unwrapRecipientEnvelopesWithPrincipalPolicies(input: {
-  envelopes: ReadonlyArray<SerializedRecipientEnvelope>;
+export async function unwrapKeyEnvelopesWithPrincipalPolicies(input: {
+  envelopes: ReadonlyArray<SerializedKeyEnvelope>;
   execSql?: ExecSql | undefined;
   secretKey: Uint8Array;
 }): Promise<Uint8Array> {
-  const recipientEntries = toRecipientEntries(input.envelopes);
+  const keyEntries = toKeyEnvelopeEntries(input.envelopes);
 
   try {
-    return await unwrapDek(recipientEntries, input.secretKey);
+    return await unwrapDek(keyEntries, input.secretKey);
   } catch {
     if (!input.execSql) {
       throw new Error(
-        "No matching recipient entry found for this secret key and no principal policy cache is available",
+        "No matching key envelope entry found for this secret key and no principal policy cache is available",
       );
     }
   }
@@ -186,12 +186,12 @@ export async function unwrapRecipientEnvelopesWithPrincipalPolicies(input: {
           new Set(),
         );
 
-        return await unwrapDek(recipientEntries, principalSecretKey);
+        return await unwrapDek(keyEntries, principalSecretKey);
       } catch {}
     }
   }
 
   throw new Error(
-    "No matching recipient entry found for this secret key or cached principal policies",
+    "No matching key envelope entry found for this secret key or cached principal policies",
   );
 }

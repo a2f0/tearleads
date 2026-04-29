@@ -1,4 +1,9 @@
 export {
+  isSerializedKeyEnvelope,
+  isSerializedKeyEnvelopeArray,
+  type SerializedKeyEnvelope,
+} from "./keyEnvelope";
+export {
   hasArrayProperty,
   hasBooleanProperty,
   hasNullableNumberProperty,
@@ -9,9 +14,4 @@ export {
   hasPropertyValue,
   hasStringProperty,
 } from "./properties";
-export {
-  isSerializedRecipientEnvelope,
-  isSerializedRecipientEnvelopeArray,
-  type SerializedRecipientEnvelope,
-} from "./recipientEnvelope";
 export { isUuidV4String } from "./uuid";

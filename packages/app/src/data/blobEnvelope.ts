@@ -6,7 +6,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobBytes } from "./blobs";
 import type { ExecSql } from "./persistence/sqlSchema";
-import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
+import { unwrapKeyEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 
 export { serializeBlobEnvelope } from "@tearleads/crypto";
 
@@ -27,7 +27,7 @@ export async function decryptBlobEnvelope(
     }
   }
 
-  const blobKey = await unwrapRecipientEnvelopesWithPrincipalPolicies({
+  const blobKey = await unwrapKeyEnvelopesWithPrincipalPolicies({
     envelopes: parsedEnvelope.recipients.map((recipient) => ({
       keyFingerprint: recipient.keyFingerprint,
       kemCipherText: bytesToBase64(recipient.kemCipherText),

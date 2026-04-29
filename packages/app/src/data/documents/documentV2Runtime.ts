@@ -46,7 +46,7 @@ import type {
   PendingUpdateRecord,
 } from "../persistence/documentPersistence";
 import type { ExecSql } from "../persistence/sqlSchema";
-import { unwrapRecipientEnvelopesWithPrincipalPolicies } from "../principalPolicyCrypto";
+import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../principalPolicyCrypto";
 
 const DOCUMENT_V2_CONTENT_KEY_WRAP_SUITE =
   "tearleads.document-v2.content-key-wrap.aes-256-gcm-container-kek.v1";
@@ -568,7 +568,7 @@ async function unwrapContainerKekFromPrincipalWraps(input: {
   }
 
   try {
-    return await unwrapRecipientEnvelopesWithPrincipalPolicies({
+    return await unwrapKeyEnvelopesWithPrincipalPolicies({
       envelopes,
       execSql: input.execSql,
       secretKey: input.secretKey,

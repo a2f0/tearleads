@@ -1,5 +1,9 @@
 # Container Access Efficiency
 
+> Status: historical recipient-expansion notes. The current write path uses
+> Keying V2 container KEK targets for document/blob key delivery rather than
+> per-object recipient-envelope fanout.
+
 This document describes the runtime characteristics of
 `packages/api/src/access/containerAccess.ts`, especially the recipient
 expansion path discussed in PR review feedback.
@@ -227,7 +231,7 @@ More specifically:
 
 - container, document, and blob access resolution are core access-plane logic
 - epoch and fingerprint propagation are access-plane invalidation mechanics
-- recipient envelope rewriting is where the access plane meets the key-
+- V2 key-target materialization is where the access plane meets the key-
   distribution / cryptographic-delivery plane
 
 So this is slightly broader than pure authorization.
