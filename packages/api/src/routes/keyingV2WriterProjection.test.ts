@@ -54,6 +54,7 @@ import { db } from "../adapters/postgres";
 import { routeApp } from "../routeApp";
 import {
   accessManifests,
+  containerKeyEpochs,
   containers,
   documentContainerLinks,
   users,
@@ -723,6 +724,34 @@ test("GET /v2/containers/:containerId/writer-projection returns signed path and 
   );
 });
 
+test("GET /v2/containers/:containerId/writer-projection verifies inherited parent KEK edges", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const child = await createV2ChildContainer({ parent: root, signer: owner });
+
+  const response = await routeApp.request(
+    `/v2/containers/${child.containerId}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(isContainerV2WriterProjectionResponse(body)).toBe(true);
+  expect(
+    body.path.map((entry: { manifestHash: string }) => entry.manifestHash),
+  ).toEqual([root.bundle.manifestHash, child.accessManifest.manifestHash]);
+  expect(body.containerKeks).toHaveLength(2);
+  expect(body.containerKeks[1].parentContainerKeyEpochId).toBe(
+    root.kekState.containerKeyEpochId,
+  );
+});
+
 test("GET /v2/containers/:containerId/writer-projection rejects users without V2 write access", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
@@ -759,6 +788,31 @@ test("GET /v2/containers/:containerId/writer-projection rejects malformed stored
       } as KeyingV2CanonicalJson,
     })
     .where(eq(accessManifests.manifestHash, root.bundle.manifestHash));
+
+  const response = await routeApp.request(
+    `/v2/containers/${root.kekState.containerId}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(response.status).toBe(409);
+});
+
+test("GET /v2/containers/:containerId/writer-projection rejects tampered stored KEK state", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+
+  await db
+    .update(containerKeyEpochs)
+    .set({
+      accessManifestHash: "0".repeat(64),
+    })
+    .where(eq(containerKeyEpochs.id, root.kekState.containerKeyEpochId));
 
   const response = await routeApp.request(
     `/v2/containers/${root.kekState.containerId}/writer-projection`,

@@ -7,23 +7,24 @@ import type {
   ContainerKekRecipientTargetV2,
   ContainerKeyEpochV2,
   ContainerKeyWrapV2,
+  ContainerUserRecipientKeyV2,
   KeyingV2CanonicalJson,
   ReferencedPrincipalHeadV2,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
+  VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
-  computeContainerKekRecipientTargetHash,
-  computeContainerKeyEpochHash,
   resolveContainerPathUserAccessLevel,
+  verifyContainerKekState,
 } from "@tearleads/crypto";
 import type {
   ContainerV2KekResponse,
   ContainerV2ManifestBundleResponse,
   ContainerV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
@@ -33,7 +34,7 @@ import {
   listContainerKeyWraps,
 } from "../../access/containerKekStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
-import { containers } from "../../schema";
+import { containers, users } from "../../schema";
 import {
   loadPrincipalPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,
@@ -313,17 +314,6 @@ function readContainerAccessState(
   };
 }
 
-function containerKeyWrapTarget(
-  wrap: ContainerKeyWrapV2,
-): ContainerKekRecipientTargetV2 {
-  return {
-    recipientKind: wrap.recipientKind,
-    recipientId: wrap.recipientId,
-    recipientKeyEpochId: wrap.recipientKeyEpochId,
-    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-  };
-}
-
 function stripContainerKeyEpoch(
   keyEpoch: ContainerKeyEpochV2,
 ): ContainerKeyEpochV2 {
@@ -445,7 +435,14 @@ async function loadCurrentContainerManifestBundle(
     );
   }
 
-  const bundle = await getAccessManifestBundle(head.manifestHash, executor);
+  return loadContainerManifestBundleByHash(executor, head.manifestHash);
+}
+
+async function loadContainerManifestBundleByHash(
+  executor: DatabaseExecutor,
+  manifestHash: string,
+): Promise<ContainerV2ManifestBundleResponse> {
+  const bundle = await getAccessManifestBundle(manifestHash, executor);
   if (!bundle || bundle.manifest.objectKind !== "container") {
     throw new ContainerV2WriterProjectionError(
       "Container V2 manifest bundle missing",
@@ -461,10 +458,121 @@ async function loadCurrentContainerManifestBundle(
   });
 }
 
-async function loadContainerKekResponse(
+async function loadContainerKekManifestHistory(input: {
+  readonly currentManifest: VerifiedContainerAccessManifest;
+  readonly executor: DatabaseExecutor;
+  readonly keyEpoch: ContainerKeyEpochV2;
+  readonly wraps: readonly ContainerKeyWrapV2[];
+}): Promise<VerifiedContainerAccessManifest[]> {
+  const historyHashes = new Set([
+    input.keyEpoch.accessManifestHash,
+    input.keyEpoch.createdByManifestHash,
+    ...input.wraps.map((wrap) => wrap.wrapManifestHash),
+  ]);
+  historyHashes.delete(input.currentManifest.manifestHash);
+
+  const history: VerifiedContainerAccessManifest[] = [];
+  for (const manifestHash of [...historyHashes].sort()) {
+    history.push(
+      toVerifiedContainerManifest(
+        await loadContainerManifestBundleByHash(input.executor, manifestHash),
+      ),
+    );
+  }
+
+  return history;
+}
+
+function collectDirectUserGrantIds(
+  manifest: VerifiedContainerAccessManifest,
+): string[] {
+  return [
+    ...new Set(
+      manifest.state.directGrants
+        .filter((grant) => grant.subjectType === "user")
+        .map((grant) => grant.subjectId),
+    ),
+  ].sort();
+}
+
+function userRecipientKeyFromWrap(
+  wrap: ContainerKeyWrapV2,
+): ContainerUserRecipientKeyV2 {
+  return {
+    userId: wrap.recipientId,
+    recipientKeyEpochId: wrap.recipientKeyEpochId,
+    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+  };
+}
+
+async function loadUserRecipientKeysForContainerKek(input: {
+  readonly executor: DatabaseExecutor;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly wraps: readonly ContainerKeyWrapV2[];
+}): Promise<ContainerUserRecipientKeyV2[]> {
+  const userIds = collectDirectUserGrantIds(input.manifest);
+  if (userIds.length === 0) {
+    return [];
+  }
+
+  const userIdSet = new Set(userIds);
+  const keyByUserId = new Map<string, ContainerUserRecipientKeyV2>();
+  for (const wrap of input.wraps) {
+    if (wrap.recipientKind !== "user" || !userIdSet.has(wrap.recipientId)) {
+      continue;
+    }
+
+    if (keyByUserId.has(wrap.recipientId)) {
+      throw new ContainerV2WriterProjectionError(
+        "Container V2 KEK user recipient key is ambiguous",
+        409,
+      );
+    }
+    keyByUserId.set(wrap.recipientId, userRecipientKeyFromWrap(wrap));
+  }
+
+  const storedUsers = await input.executor
+    .select({
+      encapsulationKeyFingerprint: users.encapsulationKeyFingerprint,
+      id: users.id,
+    })
+    .from(users)
+    .where(inArray(users.id, userIds));
+  const storedUserById = new Map(storedUsers.map((user) => [user.id, user]));
+  const userRecipientKeys: ContainerUserRecipientKeyV2[] = [];
+
+  for (const userId of userIds) {
+    const userRecipientKey = keyByUserId.get(userId);
+    const storedUser = storedUserById.get(userId);
+    if (!userRecipientKey || !storedUser) {
+      throw new ContainerV2WriterProjectionError(
+        "Container V2 KEK user recipient key missing",
+        409,
+      );
+    }
+    if (
+      userRecipientKey.recipientKeyFingerprint !==
+      storedUser.encapsulationKeyFingerprint
+    ) {
+      throw new ContainerV2WriterProjectionError(
+        "Container V2 KEK user recipient key is stale",
+        409,
+      );
+    }
+    userRecipientKeys.push(userRecipientKey);
+  }
+
+  return userRecipientKeys;
+}
+
+async function loadContainerKekState(
   executor: DatabaseExecutor,
   manifest: VerifiedContainerAccessManifest,
-): Promise<ContainerV2KekResponse> {
+  input: {
+    readonly parentKekState: VerifiedContainerKekState | null;
+    readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  },
+): Promise<VerifiedContainerKekState> {
   const containerKeyEpochId = manifest.state.containerKeyEpochId;
   if (!containerKeyEpochId) {
     throw new ContainerV2WriterProjectionError(
@@ -494,20 +602,50 @@ async function loadContainerKekResponse(
   const wraps = (
     await listContainerKeyWraps(containerKeyEpochId, executor)
   ).map(stripContainerKeyWrap);
-  const recipientTargets = wraps.map(containerKeyWrapTarget);
+  const containerManifestHistory = await loadContainerKekManifestHistory({
+    currentManifest: manifest,
+    executor,
+    keyEpoch,
+    wraps,
+  });
+  const userRecipientKeys = await loadUserRecipientKeysForContainerKek({
+    executor,
+    manifest,
+    wraps,
+  });
+  const verified = await verifyContainerKekState({
+    containerManifest: manifest,
+    containerManifestHistory,
+    keyEpoch,
+    parentKekState: input.parentKekState,
+    principalPolicies: input.principalPolicies,
+    userRecipientKeys,
+    wraps,
+  });
 
+  if (!verified.ok) {
+    throw new ContainerV2WriterProjectionError(verified.error.message, 409);
+  }
+
+  return verified.value;
+}
+
+function containerKekResponse(
+  kekState: VerifiedContainerKekState,
+): ContainerV2KekResponse {
   return {
-    containerId: manifest.state.containerId,
-    accessManifestHash: manifest.manifestHash,
-    containerKeyEpochId,
-    containerKeyEpoch: keyEpoch.keyEpoch,
-    keyEpoch: containerKeyEpochRecord(keyEpoch),
-    keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-    keyTargetHash:
-      await computeContainerKekRecipientTargetHash(recipientTargets),
-    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    recipientTargets: recipientTargets.map(containerKekRecipientTargetRecord),
-    wraps: wraps.map(containerKeyWrapRecord),
+    containerId: kekState.containerId,
+    accessManifestHash: kekState.accessManifestHash,
+    containerKeyEpochId: kekState.containerKeyEpochId,
+    containerKeyEpoch: kekState.containerKeyEpoch,
+    keyEpoch: containerKeyEpochRecord(kekState.keyEpoch),
+    keyEpochHash: kekState.keyEpochHash,
+    keyTargetHash: kekState.keyTargetHash,
+    parentContainerKeyEpochId: kekState.parentContainerKeyEpochId,
+    recipientTargets: kekState.recipientTargets.map(
+      containerKekRecipientTargetRecord,
+    ),
+    wraps: kekState.wraps.map(containerKeyWrapRecord),
   };
 }
 
@@ -545,11 +683,15 @@ export async function resolveContainerV2WriterProjection(input: {
     throw new ContainerV2WriterProjectionError("Forbidden", 403);
   }
 
-  const containerKeks = await Promise.all(
-    verifiedPath.map((manifest) =>
-      loadContainerKekResponse(input.executor, manifest),
-    ),
-  );
+  const containerKekStates: VerifiedContainerKekState[] = [];
+  for (const manifest of verifiedPath) {
+    containerKekStates.push(
+      await loadContainerKekState(input.executor, manifest, {
+        parentKekState: containerKekStates.at(-1) ?? null,
+        principalPolicies,
+      }),
+    );
+  }
   const targetManifest = verifiedPath.at(-1);
   if (!targetManifest) {
     throw new ContainerV2WriterProjectionError("Container not found", 404);
@@ -559,7 +701,7 @@ export async function resolveContainerV2WriterProjection(input: {
     containerId: input.containerId,
     organizationId: targetManifest.state.organizationId,
     path,
-    containerKeks,
+    containerKeks: containerKekStates.map(containerKekResponse),
   };
 }
 
