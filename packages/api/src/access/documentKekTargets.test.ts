@@ -12,7 +12,7 @@ import {
   signAccessEvent,
   toFingerprint,
   type VerifiedAccessEvent,
-  type VerifiedAccessManifest,
+  type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
   verifyAccessManifest,
   verifySignedAccessEvent,
@@ -76,15 +76,18 @@ async function createVerifiedEvent(input: {
 }
 
 async function createVerifiedContainerManifest(input: {
+  readonly containerKeyEpochId?: string;
   readonly containerId: string;
   readonly epoch?: number;
   readonly organizationId: string;
   readonly previousManifestHash?: string | null;
   readonly salt: string;
-}): Promise<VerifiedAccessManifest> {
+}): Promise<VerifiedContainerAccessManifest> {
+  const containerKeyEpochId =
+    input.containerKeyEpochId ?? `${input.containerId}:key-epoch-1`;
   const event = await createVerifiedEvent({
     body: {
-      containerKeyEpochId: `${input.containerId}-key-epoch-1`,
+      containerKeyEpochId,
       eventType: "container.grant",
       grant: {
         accessLevel: "read",
@@ -125,7 +128,23 @@ async function createVerifiedContainerManifest(input: {
     throw verifiedManifest.error;
   }
 
-  return verifiedManifest.value;
+  return {
+    ...verifiedManifest.value,
+    state: {
+      version: 2,
+      containerId: input.containerId,
+      organizationId: input.organizationId,
+      epoch: input.epoch ?? 1,
+      previousManifestHash: input.previousManifestHash ?? null,
+      eventHash: event.eventHash,
+      parentContainerId: null,
+      parentManifestHash: null,
+      metadataDocumentId: `${input.containerId}:metadata`,
+      containerKeyEpochId,
+      directGrants: [],
+      referencedPrincipalHeads: [],
+    },
+  } as unknown as VerifiedContainerAccessManifest;
 }
 
 async function createVerifiedDocumentLinkSetManifest(input: {
@@ -176,13 +195,14 @@ async function createVerifiedDocumentLinkSetManifest(input: {
 
 async function insertContainerKeyEpoch(input: {
   readonly containerId: string;
+  readonly keyEpoch?: number;
   readonly keyEpochId: string;
   readonly manifestHash: string;
 }) {
   await db.insert(containerKeyEpochs).values({
     id: input.keyEpochId,
     containerId: input.containerId,
-    keyEpoch: 1,
+    keyEpoch: input.keyEpoch ?? 1,
     accessManifestHash: input.manifestHash,
     parentContainerKeyEpochId: null,
     createdByEventHash: await hashOf(`${input.keyEpochId}:event`),
@@ -251,6 +271,50 @@ test("resolveCurrentDocumentKekTargets derives targets from linked container hea
   expect(targets.documentKeyTargetHash).toBe(
     await computeDocumentContentKeyTargetHash(targets.targets),
   );
+});
+
+test("resolveCurrentDocumentKekTargets uses the container manifest key epoch", async () => {
+  const organizationId = crypto.randomUUID();
+  const documentId = crypto.randomUUID();
+  const containerId = crypto.randomUUID();
+  const container = await createVerifiedContainerManifest({
+    containerId,
+    organizationId,
+    salt: "manifest-key-epoch",
+  });
+  const manifestKeyEpochId = `${containerId}:key-epoch-1`;
+  await storeVerifiedAccessManifest({ verifiedManifest: container });
+  await insertContainerKeyEpoch({
+    containerId,
+    keyEpochId: manifestKeyEpochId,
+    manifestHash: container.manifestHash,
+  });
+  await insertContainerKeyEpoch({
+    containerId,
+    keyEpoch: 2,
+    keyEpochId: `${containerId}:unreferenced-key-epoch-2`,
+    manifestHash: container.manifestHash,
+  });
+  const documentManifest = await createVerifiedDocumentLinkSetManifest({
+    containerManifestHashes: [container.manifestHash],
+    documentId,
+    linkedContainerIds: [containerId],
+    organizationId,
+  });
+  await storeVerifiedAccessManifest({
+    verifiedManifest: documentManifest,
+  });
+
+  const targets = await resolveCurrentDocumentKekTargets(documentId);
+
+  expect(targets.targets).toEqual([
+    {
+      containerId,
+      containerManifestHash: container.manifestHash,
+      containerKeyEpochId: manifestKeyEpochId,
+      containerKeyEpoch: 1,
+    },
+  ]);
 });
 
 test("assertDocumentKekTargetsCurrent rejects stale target hashes", async () => {

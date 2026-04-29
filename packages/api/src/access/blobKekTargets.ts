@@ -10,7 +10,10 @@ import {
   getCurrentAccessManifestHeads,
   listAccessManifestDocumentLinkProjections,
 } from "./accessManifestStore";
-import { getCurrentContainerKeyEpochs } from "./containerKekStore";
+import {
+  ContainerKekTargetError,
+  resolveCurrentContainerKekTargets,
+} from "./containerKekTargets";
 
 type BlobKekTargetExecutor = DatabaseExecutor;
 
@@ -95,8 +98,8 @@ type ActiveV2AttachmentBinding = Awaited<
 type AccessManifestHeadMap = Awaited<
   ReturnType<typeof getCurrentAccessManifestHeads>
 >;
-type ContainerKeyEpochMap = Awaited<
-  ReturnType<typeof getCurrentContainerKeyEpochs>
+type ContainerKekTargetMap = Awaited<
+  ReturnType<typeof resolveCurrentContainerKekTargets>
 >;
 type DocumentLinkRows = Awaited<
   ReturnType<typeof listAccessManifestDocumentLinkProjections>
@@ -184,8 +187,7 @@ async function loadBatchedBlobKekTargetState(input: {
   readonly activeBindings: readonly ActiveV2AttachmentBinding[];
   readonly executor: BlobKekTargetExecutor;
 }): Promise<{
-  readonly containerHeadById: AccessManifestHeadMap;
-  readonly containerKeyEpochById: ContainerKeyEpochMap;
+  readonly containerTargetById: ContainerKekTargetMap;
   readonly documentManifestHashes: readonly string[];
   readonly documentManifestHashesByDocumentId: ReadonlyMap<string, string>;
   readonly linkRowsByManifestHash: ReadonlyMap<string, DocumentLinkRows>;
@@ -213,18 +215,21 @@ async function loadBatchedBlobKekTargetState(input: {
     input.executor,
   );
   const linkedContainerIds = linkRows.map((row) => row.containerId);
-  const [containerHeadById, containerKeyEpochById] = await Promise.all([
-    getCurrentAccessManifestHeads(
-      "container",
+  let containerTargetById: ContainerKekTargetMap;
+  try {
+    containerTargetById = await resolveCurrentContainerKekTargets(
       linkedContainerIds,
       input.executor,
-    ),
-    getCurrentContainerKeyEpochs(linkedContainerIds, input.executor),
-  ]);
+    );
+  } catch (error) {
+    if (error instanceof ContainerKekTargetError) {
+      throw new BlobKekTargetError(error.message, error.status);
+    }
+    throw error;
+  }
 
   return {
-    containerHeadById,
-    containerKeyEpochById,
+    containerTargetById,
     documentManifestHashes,
     documentManifestHashesByDocumentId,
     linkRowsByManifestHash: groupDocumentLinksByManifestHash(linkRows),
@@ -234,8 +239,7 @@ async function loadBatchedBlobKekTargetState(input: {
 
 function deriveTargetsForBinding(input: {
   readonly binding: ActiveV2AttachmentBinding;
-  readonly containerHeadById: AccessManifestHeadMap;
-  readonly containerKeyEpochById: ContainerKeyEpochMap;
+  readonly containerTargetById: ContainerKekTargetMap;
   readonly documentLinkRows: DocumentLinkRows;
 }): BlobContentKeyTargetV2[] {
   if (input.documentLinkRows.length === 0) {
@@ -246,12 +250,11 @@ function deriveTargetsForBinding(input: {
   }
 
   return input.documentLinkRows.map((linkRow) => {
-    const containerHead = input.containerHeadById.get(linkRow.containerId);
-    const keyEpoch = input.containerKeyEpochById.get(linkRow.containerId);
+    const target = input.containerTargetById.get(linkRow.containerId);
 
-    if (!containerHead || !keyEpoch) {
+    if (!target) {
       throw new BlobKekTargetError(
-        "Blob KEK target is missing a linked container head or key epoch",
+        "Blob KEK target is missing a linked container target",
         409,
       );
     }
@@ -259,18 +262,14 @@ function deriveTargetsForBinding(input: {
     return {
       bindingId: input.binding.bindingId,
       documentId: input.binding.documentId,
-      containerId: linkRow.containerId,
-      containerManifestHash: containerHead.manifestHash,
-      containerKeyEpochId: keyEpoch.id,
-      containerKeyEpoch: keyEpoch.keyEpoch,
+      ...target,
     };
   });
 }
 
 function deriveTargetsForBindings(input: {
   readonly activeBindings: readonly ActiveV2AttachmentBinding[];
-  readonly containerHeadById: AccessManifestHeadMap;
-  readonly containerKeyEpochById: ContainerKeyEpochMap;
+  readonly containerTargetById: ContainerKekTargetMap;
   readonly documentManifestHashesByDocumentId: ReadonlyMap<string, string>;
   readonly linkRowsByManifestHash: ReadonlyMap<string, DocumentLinkRows>;
 }): BlobContentKeyTargetV2[] {
@@ -287,8 +286,7 @@ function deriveTargetsForBindings(input: {
 
     return deriveTargetsForBinding({
       binding,
-      containerHeadById: input.containerHeadById,
-      containerKeyEpochById: input.containerKeyEpochById,
+      containerTargetById: input.containerTargetById,
       documentLinkRows:
         input.linkRowsByManifestHash.get(documentManifestHash) ?? [],
     });

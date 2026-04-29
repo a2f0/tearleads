@@ -5,10 +5,12 @@ import {
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
   getCurrentAccessManifestHead,
-  getCurrentAccessManifestHeads,
   listAccessManifestDocumentLinkProjection,
 } from "./accessManifestStore";
-import { getCurrentContainerKeyEpochs } from "./containerKekStore";
+import {
+  ContainerKekTargetError,
+  resolveCurrentContainerKekTargets,
+} from "./containerKekTargets";
 
 type DocumentKekTargetExecutor = DatabaseExecutor;
 
@@ -59,6 +61,23 @@ async function loadDocumentLinkSetHead(
   return head;
 }
 
+async function resolveLinkedContainerKekTargets(
+  linkedContainerIds: readonly string[],
+  executor: DocumentKekTargetExecutor,
+): Promise<ReadonlyMap<string, DocumentContentKeyTargetV2>> {
+  try {
+    return await resolveCurrentContainerKekTargets(
+      linkedContainerIds,
+      executor,
+    );
+  } catch (error) {
+    if (error instanceof ContainerKekTargetError) {
+      throw new DocumentKekTargetError(error.message, error.status);
+    }
+    throw error;
+  }
+}
+
 export async function resolveCurrentDocumentKekTargets(
   documentId: string,
   executor: DocumentKekTargetExecutor = db,
@@ -77,29 +96,23 @@ export async function resolveCurrentDocumentKekTargets(
     );
   }
 
-  const [containerHeadById, containerKeyEpochById] = await Promise.all([
-    getCurrentAccessManifestHeads("container", linkedContainerIds, executor),
-    getCurrentContainerKeyEpochs(linkedContainerIds, executor),
-  ]);
+  const containerTargetById = await resolveLinkedContainerKekTargets(
+    linkedContainerIds,
+    executor,
+  );
   const targets: DocumentContentKeyTargetV2[] = [];
 
   for (const containerId of linkedContainerIds) {
-    const containerHead = containerHeadById.get(containerId);
-    const keyEpoch = containerKeyEpochById.get(containerId);
+    const target = containerTargetById.get(containerId);
 
-    if (!containerHead || !keyEpoch) {
+    if (!target) {
       throw new DocumentKekTargetError(
-        "Document KEK target is missing a linked container head or key epoch",
+        "Document KEK target is missing a linked container target",
         409,
       );
     }
 
-    targets.push({
-      containerId,
-      containerManifestHash: containerHead.manifestHash,
-      containerKeyEpochId: keyEpoch.id,
-      containerKeyEpoch: keyEpoch.keyEpoch,
-    });
+    targets.push(target);
   }
 
   const documentKeyTargetHash =

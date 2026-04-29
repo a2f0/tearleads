@@ -273,6 +273,24 @@ export async function getContainerKeyEpochById(
   return keyEpoch ? toStoredContainerKeyEpoch(keyEpoch) : null;
 }
 
+export async function getContainerKeyEpochsById(
+  containerKeyEpochIds: readonly string[],
+  executor: ContainerKekStoreExecutor = db,
+): Promise<Map<string, StoredContainerKeyEpoch>> {
+  const uniqueContainerKeyEpochIds = [...new Set(containerKeyEpochIds)].sort();
+
+  if (uniqueContainerKeyEpochIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await executor
+    .select()
+    .from(containerKeyEpochs)
+    .where(inArray(containerKeyEpochs.id, uniqueContainerKeyEpochIds));
+
+  return new Map(rows.map((row) => [row.id, toStoredContainerKeyEpoch(row)]));
+}
+
 export async function getCurrentContainerKeyEpoch(
   containerId: string,
   executor: ContainerKekStoreExecutor = db,
@@ -285,30 +303,6 @@ export async function getCurrentContainerKeyEpoch(
     .limit(1);
 
   return keyEpoch ? toStoredContainerKeyEpoch(keyEpoch) : null;
-}
-
-export async function getCurrentContainerKeyEpochs(
-  containerIds: readonly string[],
-  executor: ContainerKekStoreExecutor = db,
-): Promise<Map<string, StoredContainerKeyEpoch>> {
-  const uniqueContainerIds = [...new Set(containerIds)].sort();
-
-  if (uniqueContainerIds.length === 0) {
-    return new Map();
-  }
-
-  const rows = await executor
-    .selectDistinctOn([containerKeyEpochs.containerId])
-    .from(containerKeyEpochs)
-    .where(inArray(containerKeyEpochs.containerId, uniqueContainerIds))
-    .orderBy(
-      asc(containerKeyEpochs.containerId),
-      desc(containerKeyEpochs.keyEpoch),
-    );
-
-  return new Map(
-    rows.map((row) => [row.containerId, toStoredContainerKeyEpoch(row)]),
-  );
 }
 
 export async function listContainerKeyWraps(
