@@ -2271,6 +2271,15 @@ async function assertDocumentV2ManifestBundleConsistent(input: {
   if (readRecordString(state, "eventHash", input.label) !== eventHash) {
     throw new Error(`${input.label} state event hash mismatch`);
   }
+  const derivedManifest = await deriveDocumentLinkSetManifest(
+    state as unknown as DocumentLinkSetManifestStateV2,
+  );
+  if (
+    serializeCanonical(input.bundle.manifest, "manifest") !==
+    serializeCanonical(derivedManifest, "manifest")
+  ) {
+    throw new Error(`${input.label} manifest state mismatch`);
+  }
 
   return {
     documentId: readRecordString(state, "documentId", input.label),

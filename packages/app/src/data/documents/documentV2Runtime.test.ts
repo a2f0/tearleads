@@ -1321,6 +1321,28 @@ test("buildDocumentV2SyncPlan omits write authorization proof fields for read-on
   );
 });
 
+test("buildDocumentV2SyncPlan rejects manifest bundles whose state does not derive the manifest", async () => {
+  const { author, createResponse, projection } = await createSyncFixture();
+
+  await expect(
+    buildDocumentV2SyncPlan({
+      author,
+      authorizingContainerPaths: [projectionPathRecords(projection)],
+      contentKeyBundle: createResponse.contentKeyBundle,
+      documentKekTargets: createResponse.documentKekTargets,
+      documentManifest: {
+        ...createResponse.accessManifest,
+        state: {
+          ...createResponse.accessManifest.state,
+          linkedContainerIds: [projection.containerId, "forged-container-link"],
+        },
+      },
+      localVersionVector: null,
+      outgoingUpdates: [await createPreparedUpdate()],
+    }),
+  ).rejects.toThrow("manifest state mismatch");
+});
+
 test("buildDocumentV2SyncPlan rejects duplicate V2 content record domains before signing", async () => {
   const { author, createResponse, projection } = await createSyncFixture();
   const duplicateContentRecordId = "550e8400-e29b-41d4-a716-446655440333";
