@@ -55,6 +55,7 @@ export function createExplorerDocumentsRuntime(
   return {
     apiClient: {
       createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
+      getEncapsulationKey: apiClient.getEncapsulationKey.bind(apiClient),
       getContainerV2WriterProjection:
         apiClient.getContainerV2WriterProjection.bind(apiClient),
       getDocumentV2WriterProjection:

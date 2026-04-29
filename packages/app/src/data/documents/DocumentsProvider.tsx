@@ -1,4 +1,8 @@
-import { bytesToHex } from "@tearleads/crypto";
+import {
+  bytesToHex,
+  toFingerprint,
+  type WriteHeaderV2,
+} from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
@@ -71,6 +75,7 @@ type EncapsulationKeyPair = NonNullable<
 type DocumentRuntimeV2Api = Pick<
   DocumentAppData["apiClient"],
   | "createDocumentV2"
+  | "getEncapsulationKey"
   | "getContainerV2WriterProjection"
   | "getDocumentV2WriterProjection"
   | "syncDocumentV2"
@@ -154,6 +159,7 @@ function createDocumentsRuntimeApiClient(
 ): DocumentsRuntime["apiClient"] {
   return {
     createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
+    getEncapsulationKey: apiClient.getEncapsulationKey.bind(apiClient),
     getContainerV2WriterProjection:
       apiClient.getContainerV2WriterProjection.bind(apiClient),
     getDocumentV2WriterProjection:
@@ -546,6 +552,7 @@ function resolveDocumentV2Author(
 function resolveDocumentV2Api(runtime: DocumentsRuntime): DocumentRuntimeV2Api {
   const {
     createDocumentV2,
+    getEncapsulationKey,
     getContainerV2WriterProjection,
     getDocumentV2WriterProjection,
     syncDocumentV2,
@@ -553,9 +560,68 @@ function resolveDocumentV2Api(runtime: DocumentsRuntime): DocumentRuntimeV2Api {
 
   return {
     createDocumentV2,
+    getEncapsulationKey,
     getContainerV2WriterProjection,
     getDocumentV2WriterProjection,
     syncDocumentV2,
+  };
+}
+
+function createDocumentWriterPublicKeyResolver(state: DocumentStoreState) {
+  const cache = new Map<string, Promise<Uint8Array | null>>();
+
+  return async (input: {
+    authorFingerprint: string;
+    header: WriteHeaderV2;
+  }): Promise<Uint8Array | null> => {
+    const { authorFingerprint, header } = input;
+    if (header.writerKeyFingerprint !== authorFingerprint) {
+      return null;
+    }
+
+    const localSigningPublicKey =
+      state.runtime.signingKeyPair?.signingPublicKey;
+    if (header.writerUserId === state.runtime.userId && localSigningPublicKey) {
+      const localFingerprint = await toFingerprint(localSigningPublicKey);
+      return localFingerprint === authorFingerprint
+        ? localSigningPublicKey
+        : null;
+    }
+
+    const cacheKey = `${header.writerUserId}:${authorFingerprint}`;
+    let cached = cache.get(cacheKey);
+    if (!cached) {
+      cached = state.runtime.apiClient
+        .getEncapsulationKey(header.writerUserId)
+        .then(async (response) => {
+          if (!response) {
+            return null;
+          }
+
+          const signingPublicKey = base64ToBytes(response.signingPublicKey);
+          const signingKeyFingerprint = await toFingerprint(signingPublicKey);
+          if (
+            signingKeyFingerprint !== response.signingKeyFingerprint ||
+            signingKeyFingerprint !== authorFingerprint
+          ) {
+            state.runtime.log(
+              `Documents: skipped writer key for ${header.writerUserId} because the signing fingerprint does not match the public key.`,
+            );
+            return null;
+          }
+
+          return signingPublicKey;
+        })
+        .catch(() => {
+          state.runtime.log(
+            `Documents: skipped writer key for ${header.writerUserId} because it could not be loaded.`,
+          );
+          return null;
+        });
+      cache.set(cacheKey, cached);
+    }
+
+    return cached;
   };
 }
 
@@ -1453,6 +1519,7 @@ async function requestDocumentSync(
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates,
+    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
   if (!synced) {
@@ -1492,6 +1559,7 @@ async function requestDocumentSyncProbe(
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates: [],
+    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
   if (!synced) {
