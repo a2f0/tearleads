@@ -7,10 +7,10 @@ test("hex helpers round-trip byte arrays", () => {
 
   expect(hex).toBe("00010f10feff");
   expect(hexToBytes(hex)).toEqual(bytes);
-  expect(hexToBytes(hex.toUpperCase())).toEqual(bytes);
 });
 
 test("hexToBytes rejects malformed input", () => {
   expect(() => hexToBytes("abc")).toThrow("Invalid hex string");
+  expect(() => hexToBytes("0F")).toThrow("Invalid hex string");
   expect(() => hexToBytes("zz")).toThrow("Invalid hex string");
 });

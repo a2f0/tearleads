@@ -25,10 +25,22 @@ test("auth challenge signing bytes are domain-bound", () => {
     authChallengeSigningBytes({ challengeHex, fingerprint }),
   );
 
-  expect(encoded).toContain("tearleads.auth.challenge.v1");
-  expect(encoded).toContain(challengeHex);
-  expect(encoded).toContain(fingerprint);
+  expect(encoded).toBe(
+    `{"domain":"tearleads.auth.challenge.v1","payload":{"challenge":"${challengeHex}","fingerprint":"${fingerprint}"}}`,
+  );
   expect(() =>
     authChallengeSigningBytes({ challengeHex: "abc", fingerprint }),
   ).toThrow("Authentication challenge must be canonical hex");
+  expect(() =>
+    authChallengeSigningBytes({
+      challengeHex: "A".repeat(64),
+      fingerprint,
+    }),
+  ).toThrow("Authentication challenge must be canonical hex");
+  expect(() =>
+    authChallengeSigningBytes({
+      challengeHex,
+      fingerprint: "B".repeat(64),
+    }),
+  ).toThrow("Authentication fingerprint must be a SHA-256 hex string");
 });

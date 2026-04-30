@@ -1,4 +1,5 @@
 import { randomBytes } from "@noble/post-quantum/utils.js";
+import { serializeKeyingCanonicalJson } from "./keying";
 
 const TEXT_ENCODER = new TextEncoder();
 
@@ -30,10 +31,12 @@ export function authChallengeSigningBytes(input: {
   }
 
   return TEXT_ENCODER.encode(
-    JSON.stringify({
+    serializeKeyingCanonicalJson({
       domain: "tearleads.auth.challenge.v1",
-      fingerprint: input.fingerprint,
-      challenge: input.challengeHex,
+      payload: {
+        challenge: input.challengeHex,
+        fingerprint: input.fingerprint,
+      },
     }),
   );
 }

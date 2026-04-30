@@ -3,7 +3,7 @@ export function bytesToHex(bytes: Uint8Array): string {
 }
 
 export function hexToBytes(hex: string): Uint8Array {
-  if (hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) {
+  if (hex.length % 2 !== 0 || !/^[0-9a-f]*$/.test(hex)) {
     throw new Error("Invalid hex string");
   }
 
