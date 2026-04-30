@@ -1,14 +1,23 @@
 # Keying V2 Design
 
-This document is a greenfield design for the next access and key-delivery
-model. It incorporates the direction from:
+> Status: mixed current design and future hardening notes. The signed V2
+> access-event, access-manifest, container KEK, document content-key, blob
+> content-key, principal-policy, write-header, and local checkpoint primitives
+> exist in code. Transparency deployment, first-contact identity trust, full
+> client adoption of every verifier path, and historical replay remain future
+> hardening work.
+
+This document describes the access and key-delivery model. It incorporates the
+direction from:
 
 - #257, local-first nested container creation
 - #265 and #266, container KEK hierarchy for document/blob key delivery
 - `docs/security-guarantees.md`, especially the gaps around unsigned object
   grants, rollback, split views, and first-contact identity keys
 
-The design intentionally does not preserve V1 wire compatibility.
+The design intentionally does not preserve V1 wire compatibility. Current HTTP
+routes use the `/v2` signed mutation surface summarized in
+[api-architecture.md](./api-architecture.md#current-http-protocol-surface).
 
 ## Goals
 
@@ -325,6 +334,7 @@ type ContainerKeyEpochV2 = {
   accessManifestHash: string;
   parentContainerKeyEpochId: string | null;
   createdByEventHash: string;
+  createdByManifestHash: string;
   createdAt: string;
 };
 ```
@@ -666,28 +676,41 @@ remain availability failures. Clients fail closed.
 | Shows split views | Detectable through transparency consistency/gossip/witnessing; otherwise still an availability/equivocation gap. |
 | Withholds state or proofs | Availability failure; clients fail closed. |
 
-## Storage Direction
+## Storage State And Direction
 
-Core server tables:
+Current core server tables:
 
-- `identity_states`
+- `principal_states`
+- `principal_state_payloads`
+- `principal_membership_projection`
+- `principal_epoch_keys`
+- `principal_member_envelopes`
 - `access_events`
 - `access_manifests`
-- `access_manifest_log_leaves`
+- `access_manifest_heads`
 - `container_key_epochs`
 - `container_key_wraps`
 - `document_content_key_epochs`
 - `document_content_key_targets`
+- `document_content_write_headers`
 - `blob_content_key_epochs`
 - `blob_content_key_targets`
+- `blob_content_write_headers`
+
+Current projection/cache tables include:
+
+- legacy `object_access_grants` and `object_access_epochs`
+- `access_event_dependency_projection`
+- `access_manifest_principal_head_projection`
+- `access_manifest_document_link_projection`
+- `document_container_links`
+- `attachment_bindings`
+
+Future or local-only storage still under design:
+
+- `identity_states` as a first-contact identity trust boundary
+- transparency log leaves/checkpoints
 - `client_checkpoint_receipts` or local-only checkpoint storage
-
-Projection tables may exist for indexing:
-
-- effective container grants;
-- current document links;
-- current attachment bindings;
-- current KEK target summaries.
 
 Projection tables are caches. The verifier must be able to reject a projection
 that does not match signed manifests.
@@ -739,23 +762,33 @@ revoked principal.
 
 ## Implementation Slices
 
-1. Define canonical encodings and shared verifier APIs.
-   - Include content-write authorization checks and content-record
-     nonce/subkey derivation rules before switching document/blob writes.
-2. Add signed access event and manifest types for containers.
-3. Add identity/principal checkpoint pinning and key-shrink validation.
-4. Add container KEK epoch/wrap storage and target derivation.
-5. Switch document create/sync to document KEK targets.
-6. Add signed document link manifests and multi-container target validation.
-7. Switch blobs/attachments to signed binding events and blob KEK targets.
-8. Add local-first intent storage and topological sync for container creation.
-9. Add transparency log inclusion/consistency proofs; optionally anchor
-   aggregate roots externally.
-10. Remove V1 per-object recipient fanout paths.
+Implemented slices:
 
-Because V2 is greenfield, these slices do not need dual-write compatibility.
-They can be implemented behind a new protocol namespace and cut over object
-creation to V2-only objects.
+1. Canonical encodings and shared verifier APIs for Keying V2 objects.
+2. Signed access event and manifest types for containers, document link sets,
+   and attachment binding events.
+3. Principal-policy state storage, admin-signer checks, member envelopes, and
+   local checkpoint verifier primitives.
+4. Container KEK epoch/wrap storage and target derivation.
+5. V2 document create/sync with document KEK targets and signed write headers.
+6. Signed document link/unlink manifests and multi-container target validation.
+7. V2 blob attachment binding/detach with blob KEK targets and staged blob
+   write headers.
+8. Removal of the V1 direct-recipient document and `commit-change` write
+   surfaces.
+
+Remaining slices:
+
+1. Finish full app adoption of the verifier outputs before every encrypt and
+   decrypt decision.
+2. Add or wire remaining local-first intent storage for offline structural
+   creation flows that are not yet covered by the current explorer sync paths.
+3. Deploy transparency log inclusion/consistency proofs and decide whether to
+   anchor aggregate roots externally.
+4. Add a first-contact identity trust mechanism such as invitations,
+   out-of-band verification, or key transparency.
+5. Wire the document audit-history tables into live V2 document/blob mutation
+   paths if tamper-evident history is part of the next rollout.
 
 ## Acceptance Criteria
 

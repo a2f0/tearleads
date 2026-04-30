@@ -1,8 +1,8 @@
 # Attachment Retention
 
-> Status: historical V1 attachment-retention note. The V1 `commit-change`
-> service has been removed; current attachment writes use signed Keying V2 blob
-> attachment mutation routes.
+> Status: current retention policy with historical V1 context. The V1
+> `commit-change` service has been removed; current attachment writes use
+> signed Keying V2 blob attachment mutation routes.
 
 This document defines attachment/blob retention semantics for the access plane.
 
@@ -14,8 +14,8 @@ The server retains attachment blob bytes, blob access epochs, and blob
 key-target rows only while at least one active `attachment_bindings` row
 references that blob.
 
-When `commit-change` retires an attachment binding through
-`attachmentDetaches[]` or same-slot `attachmentCommits[]`:
+When a signed V2 attachment mutation retires an attachment binding through
+`attachment.detach` or a same-slot `attachment.bind` replacement:
 
 - the old binding is marked detached during the atomic mutation
 - if another active binding still references the old blob, the blob and its
@@ -83,7 +83,10 @@ That audit/history layer should align with
 [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md):
 
 - live sync remains compact
-- audit/history records are append-only or tamper-evident
+- audit/history records are append-only and tamper-evident
 - baseline checkpoints commit to the history they include
 - attachment history explicitly states whether old blob bytes, tombstones, or
   manifests are retained
+
+Current implementation note: the audit/history schema and verifier exist, but
+normal signed V2 attachment mutations do not yet populate those audit tables.

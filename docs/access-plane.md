@@ -1,9 +1,10 @@
 # Access Plane
 
-> Status: historical V1 details remain in this note. The direct-recipient
-> document sync/commit-change and legacy container mutation APIs described
-> below have been retired in favor of signed Keying V2 document/blob and
-> container mutation routes.
+> Status: mixed current model and historical V1 background. The direct-recipient
+> document sync/commit-change and legacy container mutation APIs have been
+> retired. Current writes use signed Keying V2 container, document, and blob
+> routes; see
+> [api-architecture.md](./api-architecture.md#current-http-protocol-surface).
 
 ## Summary
 
@@ -382,51 +383,39 @@ Any fingerprint change should bump `accessEpoch`, even if the final recipient
 set happens to be unchanged, because upstream security-relevant structure may
 have changed.
 
-The sync path exposes that server-side decision through
-`documentRecipientEnvelopeAction` on `POST /documents/:documentId/sync`:
+Current V2 document sync does not expose the old
+`documentRecipientEnvelopeAction` or
+`canonicalDocumentRecipientEnvelopesAdopted` fields. Instead,
+`POST /v2/documents/:documentId/sync` validates the submitted
+`contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`, optional
+`contentKeyBundle`, optional signed `containerRekeys`, and per-update signed
+`writeHeader` values. The response returns the canonical `contentKeyBundle`,
+the derived `documentKekTargets`, `acceptedOutgoingUpdateIds`, `commitLsn`,
+`missingUpdateEpochs[]`, and encrypted updates with their stored
+`accessEpoch`.
 
-- `none`
-- `rewrap`
-- `rotate`
-
-The same response also exposes rotate/adoption sync state explicitly:
-
-- every returned document update includes its stored `accessEpoch`
-- `missingUpdateEpochs[]` summarizes whether the response contains
-  `prior_epoch` updates, `current_epoch` updates, or both
-- `canonicalDocumentRecipientEnvelopesAdopted` is true when the server rejected
-  divergent same-epoch bundle material, returned the canonical current bundle,
-  and left outgoing updates unaccepted for retry
-
-Clients use `rewrap` to seed a missing current-epoch document bundle, preserve
-local pending Loro updates, and retry those updates under the new epoch with
-the same document DEK. When the server returns `rotate`, clients clear stale
-current-epoch bundles and resend a fresh baseline under a new DEK instead of
-trying to reuse the prior epoch's bundle. Committed blob bindings follow the
-same keep/rewrap/rotate rule: additive recipient growth can update wrapped-key
-header material in place, but recipient shrink now requires a later blob
-replacement instead of header-only reuse.
+Clients detect rewrap versus rotate by comparing the current signed document
+link-set manifest, current KEK targets, content-key epoch, and locally retained
+DEK material. Additive changes can reuse the same content key by submitting a
+bundle whose target hash matches current V2 targets. Shrinks require a new
+content-key epoch and a baseline encrypted under fresh key material.
 
 For pending local note attachment drafts on an existing remote document, clients
-probe document sync with no outgoing updates before calling `commit-change`.
-This discovers completed rotates or canonical bundle adoption without uploading
-attachment metadata through raw document sync ahead of the server-visible
-attachment binding commit. If the probe discovers a rotate, the later
-attachment baseline commit carries the rotate baseline source frontier so the
-server can validate it against the prior-epoch document frontier.
+can still issue a no-outgoing V2 document sync probe before binding the blob.
+The attachment itself is committed through signed V2 blob attachment routes,
+not through the retired document `commit-change` service.
 
 For already-committed note attachments after a subtractive rotate, clients do
 not attempt header-only blob rewrap. If local plaintext bytes are available, the
-client queues a same-slot attachment replacement through `commit-change` and
-sends the rotate baseline in the same atomic mutation. If bytes cannot be
-hydrated locally, the note UI marks the affected attachment as requiring a
-replacement file and raw document sync waits so the current-epoch baseline does
-not get uploaded ahead of the server-visible replacement binding.
+client queues a same-slot V2 blob attachment replacement and then emits the
+document update or baseline under the current document content-key epoch. If
+bytes cannot be hydrated locally, the note UI marks the affected attachment as
+requiring a replacement file.
 
-## Implementation Plan
+## Implementation State
 
-The implementation should build on the existing generic object-access tables
-rather than creating a parallel model.
+The implementation builds on the generic object-access tables rather than a
+parallel model.
 
 Keep:
 
@@ -434,7 +423,7 @@ Keep:
 - `object_access_epochs`
 - V2 access manifest and content-key target tables
 
-Add:
+Current supporting tables include:
 
 - `object_access_epochs.access_fingerprint`
 - `document_container_links`
@@ -452,40 +441,60 @@ Resolver modules:
 
 Mutation entry points:
 
-- `shareContainer`
-- `unshareContainer`
-- `moveContainer`
-- `linkDocumentToContainer`
-- `unlinkDocumentFromContainer`
 - `POST /blobs/stage`
-- `POST /documents/:documentId/commit-change`
+- `POST /v2/containers`
+- `POST /v2/containers/:containerId/share`
+- `POST /v2/containers/:containerId/revoke`
+- `POST /v2/containers/:containerId/rekey`
+- `POST /v2/containers/:containerId/move`
+- `POST /v2/documents`
+- `POST /v2/documents/:documentId/link`
+- `POST /v2/documents/:documentId/unlink`
+- `POST /v2/documents/:documentId/sync`
+- `POST /v2/blobs/:blobId/attachment-bindings`
+- `POST /v2/blobs/:blobId/attachment-bindings/:bindingId/detach`
 
-Atomic document mutation payload:
+Current V2 mutation payloads:
 
-- `accessEpoch`
-- `expectedAccessStateHash`
-- `attachmentCommits[]`
-  - `slotId`
-  - `stageId`
-  - `expectedBindingId`
-- `attachmentDetaches[]`
-  - `slotId`
-  - `expectedBindingId`
-- optional `loroUpdate`
+Document sync payload:
+
+- `contentKeyEpoch`
+- `expectedLinkSetManifestHash`
+- `expectedTargetHash`
+- optional `contentKeyBundle`
+- optional signed `containerRekeys[]`
+- optional `documentManifest` and `authorizingContainerPaths` when outgoing
+  writes are included
+- `localVersionVector`
+- optional `minLsn`
+- `outgoingUpdates[]`
+  - update id
   - encrypted payload
   - visible partial version vectors
-  - `referencedSlotIds[]`
+  - signed `writeHeader`
 
-Important invariant:
+Blob binding payload:
 
-- the server must not accept a Loro update that references a slot without an
-  active committed binding after the same atomic mutation is applied
+- signed `attachment.bind` or `attachment.detach` event and body
+- verified document manifest and authorizing container paths
+- optional signed `containerRekeys[]`
+- blob `contentKeyBundle` for bind operations
+- optional staged blob reference with signed blob `writeHeader`
+
+Current gap:
+
+- The retired `commit-change` design could make an attachment metadata update
+  and a Loro update one server-validated atomic mutation. Current V2 routes
+  make attachment binding state server-visible and signed, but encrypted Loro
+  payloads do not expose `referencedSlotIds[]`; the server cannot prove that a
+  document update references only active attachment slots without a future
+  visible-reference field or another commit protocol.
 
 Attachment/blob retention is live-only:
 
-- `attachmentDetaches[]` and same-slot `attachmentCommits[]` retire the prior
-  active binding for that document slot
-- if no active binding references the retired blob after the atomic mutation,
+- signed `attachment.detach` events and same-slot signed `attachment.bind`
+  replacements retire the prior active binding for that document slot
+- if no active binding references the retired blob after the V2 mutation,
   the server prunes the blob row, blob access epochs, blob key-target rows,
   and detached binding rows for that blob
 - if another active binding still references the blob, the blob and its access
@@ -510,32 +519,14 @@ The historical API exposed structural mutation routes:
 - `POST /documents/:documentId/link`
 - `POST /documents/:documentId/unlink`
 
-Each structural/access-sensitive write now carries access-state preconditions:
-
-- `document create`: current linked container metadata access-state hash for
-  each linked container, keyed by container id
-- `container create`: current parent container metadata access-state hash
-- `share`: current container metadata access-state hash
-- `move`: current container metadata access-state hash
-- `link` / `unlink`: current document access-state hash
-
-These routes recompute the affected container subtree first, then
-materialize downstream document epochs and active blob epochs so access and
-bundle invalidation move with the structure instead of waiting for an unrelated
-content mutation.
-
-The current app explorer uses signed `/v2/containers` mutations for child
-creation, sharing, and reparenting. It still moves documents between containers
-by calling
-`POST /documents/:documentId/link` followed by
-`POST /documents/:documentId/unlink` while updating the local
-document/container projection from the authoritative mutation response. The
-explorer detail view also exposes direct document `link` / `unlink`
-management for already-linked documents, and it can locally switch which
-linked container is treated as the active document projection without mutating
-the authoritative link graph. The explorer sidebar now renders linked
-document projections beneath each linked container for document kinds such as
-notes and driver's licenses.
+Current structural/access-sensitive writes carry signed access events,
+expected previous manifest hashes, dependency manifests, key epoch state, and
+key-target bundles rather than V1 access-state hash preconditions. The current
+app explorer uses signed `/v2/containers` mutations for child creation,
+sharing, and reparenting, and signed `/v2/documents/:documentId/link` plus
+`/v2/documents/:documentId/unlink` for document link-set changes. The explorer
+can still locally choose an active linked-container projection without mutating
+the authoritative signed link graph.
 
 ## Zero-Trust Extension For Membership Changes
 
@@ -664,85 +655,75 @@ access resolution now uses current group/org principal keys when verified
 signed policy state exists, and managed grants without that state now fail
 closed instead of degrading to expanded user recipients.
 
-### Future Signed Access Manifest
+### Current Signed Access Manifests
 
-The server currently materializes per-object access state by returning
-`accessEpoch`, `accessFingerprint`, `accessStateHash`, and referenced
-principal policy summaries. Clients verify the referenced principal policy
-bundles before using group/org-addressed key material.
+The server still materializes legacy access-state rows such as `accessEpoch`,
+`accessFingerprint`, and `accessStateHash` for listing, compatibility, and
+audit metadata. The current V2 authority for object grants and link state is
+the signed access event plus derived access manifest.
 
-A future hardening layer could add a signed per-object access manifest so
-clients can also verify object grants and effective recipients without trusting
-the API process as the issuer of that object view.
+The current manifest shape is represented by `AccessEventV2` and
+`AccessManifestV2` in `packages/crypto/src/keyingV2.ts`. A useful conceptual
+view is:
 
 ```ts
-interface SignedAccessManifest {
-  objectType: string;
+interface AccessManifestV2 {
+  version: 2;
+  objectKind: "blob" | "container" | "document";
   objectId: string;
-  accessEpoch: number;
-  accessFingerprint: string;
-  aclEntries: Array<{
-    subjectType: "user" | "group" | "organization";
-    subjectId: string;
-    accessLevel: "read" | "write" | "admin";
-  }>;
-  referencedGroups: Array<{
-    groupId: string;
-    version: number;
-    stateHash: string;
-  }>;
-  referencedOrganizations: Array<{
-    organizationId: string;
-    version: number;
-    stateHash: string;
-  }>;
-  effectiveRecipients: Array<{
-    principalType: "user" | "group" | "organization";
+  organizationId: string;
+  epoch: number;
+  previousManifestHash: string | null;
+  eventHash: string;
+  structuralHash: string;
+  grantRoot: string;
+  referencedPrincipalHeads: Array<{
+    principalType: "group" | "organization";
     principalId: string;
-    recipientKeyFingerprint: string;
+    version: number;
+    keyEpoch: number;
+    stateHash: string;
+    keyFingerprint: string;
   }>;
-  issuedAt: string;
-  signerUserId: string;
-  signerUserKeyFingerprint: string;
-  signature: string;
+  keyTargetHash: string;
 }
 ```
 
-The manifest signer should be an authorized user identity key, not the
-general-purpose API process. A client should treat the manifest as invalid
-unless:
+The signed mutation event should be authored by an authorized user/device key,
+not by the general-purpose API process. A client should treat the manifest as
+invalid unless:
 
-- the manifest signature verifies
+- the signed event verifies and the derived manifest hash matches the stored
+  manifest head
 - every referenced group or organization state is signed by an authorized admin
 - each referenced state hash matches the signed group or organization snapshot
-- the client can recompute the effective recipients and `accessFingerprint`
+- the client can derive the effective KEK/content-key targets and match the
+  manifest `keyTargetHash`
 
 ### Client Verification Flow
 
-With a future signed access manifest, the client would:
+With signed access manifests, the client should:
 
-1. Fetch the latest `SignedAccessManifest` plus all referenced signed group or organization states.
-2. Verify signatures on the manifest and all referenced policy states.
-3. Check monotonicity:
-   - `accessEpoch` did not go backwards
-   - each `group.version` did not go backwards
+1. Fetch the latest manifest bundle plus its signed event/body and referenced
+   signed group or organization policy states.
+2. Verify the event signature, event body hash, derived manifest hash, and all
+   referenced policy states.
+3. Check monotonicity against local checkpoints:
+   - manifest `epoch` did not go backwards
+   - each referenced principal version did not go backwards
    - each `prevStateHash` chain is consistent
-4. Expand the ACL plus signed membership states locally into the effective recipient set.
-5. Recompute `accessFingerprint` from that verified closure.
-6. Encrypt only if the recomputed fingerprint matches the manifest fingerprint and the caller is still an authorized writer.
+4. Derive the current KEK/content-key target set from verified manifests.
+5. Encrypt only if the derived target hash matches the submitted bundle target
+   hash and the caller is an authorized writer.
 
-With such a manifest, the client would include the manifest identity in writes:
-
-- `accessEpoch`
-- `accessStateHash`
-- optionally a `manifestHash` or manifest signature reference
-
-The server should reject a write if the client targets anything other than the
-current signed manifest.
+Current V2 write headers include the manifest identity as `accessManifestHash`
+and include the derived key-target identity as `targetHash`. The server rejects
+a write if the client targets anything other than the current signed manifest
+and current derived targets.
 
 ### Why This Helps
 
-With this extension, the API cannot unilaterally add a bad user to a group and
+With this V2 shape, the API cannot unilaterally add a bad user to a group and
 successfully trick honest clients into encrypting for them unless at least one
 of these is also true:
 
@@ -779,9 +760,9 @@ So the secure interpretation is:
   outside the API's unilateral control
 - `accessStateHash` binds object access state to the referenced principal
   `{ principalType, principalId, version, keyEpoch, stateHash }` values
-- signed object access manifests remain future work if we want clients to
-  independently verify the full object grant view, not just referenced
-  principal policy state
+- signed object access manifests are the V2 authority for object grant and
+  document-link state; remaining work is full client adoption, checkpoint
+  persistence, transparency, and first-contact identity trust
 
 ### Key Target Envelopes
 
@@ -835,24 +816,22 @@ For notes:
 A note write should carry enough metadata to say:
 
 - which document it targets
-- which `accessEpoch` it assumes
-- which `expectedAccessStateHash` it targeted
+- which signed link-set manifest it assumes
+- which content-key epoch and target hash it used
+- which signed write-header metadata commits to the ciphertext
 
-If the access epoch is stale, the server should reject the write rather than
-accepting ciphertext for an obsolete recipient set.
-
-If the epoch matches but the expected access-state hash does not, the server
-should also reject the write as targeting stale authorization state.
+If the manifest hash or target hash is stale, the server should reject the
+write rather than accepting ciphertext for an obsolete recipient set.
 
 ## Attachments, Blobs, And Access
 
-Attachment commit should check the access plane before finalizing a bind between
-a note and a staged blob.
+Attachment bind/detach should check the access plane before finalizing visible
+document/blob binding state.
 
 The server should reject attachment commit if:
 
 - the caller no longer has write access
-- the `accessEpoch` is stale
+- the supplied document manifest or derived blob targets are stale
 - the staged blob is expired or missing
 
 This is why access must be server-indexable and cannot live only inside
