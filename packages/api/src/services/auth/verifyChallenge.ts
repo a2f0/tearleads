@@ -1,4 +1,4 @@
-import { hexToBytes, verify } from "@tearleads/crypto";
+import { authChallengeSigningBytes, verify } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import { users } from "../../schema";
@@ -52,7 +52,10 @@ export async function verifyChallenge(
   }
 
   const publicKey = base64ToBytes(storedKey);
-  const challengeBytes = hexToBytes(challengeHex);
+  const challengeBytes = authChallengeSigningBytes({
+    challengeHex,
+    fingerprint: input.fingerprint,
+  });
   const signatureBytes = new Uint8Array(input.signature);
 
   if (!verify(signatureBytes, challengeBytes, publicKey)) {

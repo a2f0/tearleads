@@ -42,6 +42,8 @@ type KeyingCanonicalPayload<T> = T extends CanonicalJsonPrimitive
       : never;
 
 export type KeyingHashDomain =
+  | "tearleads.document.content-record-ciphertext"
+  | "tearleads.document.content-record-metadata"
   | "tearleads.keying.access-event-body"
   | "tearleads.keying.access-event-signing"
   | "tearleads.keying.access-event"
@@ -336,6 +338,13 @@ export interface UnsignedWriteHeader {
 
 export interface WriteHeader extends UnsignedWriteHeader {
   signature: string;
+}
+
+export interface DocumentContentRecordMetadataInput {
+  documentId: string;
+  partialEndVersionVector: string;
+  partialStartVersionVector: string;
+  updateId: string;
 }
 
 export interface ContentRecordNonceDomain {
@@ -1246,6 +1255,40 @@ export async function computeKeyingDomainHash(
   payload: KeyingCanonicalJson,
 ): Promise<string> {
   return toFingerprint(encodeDomainPayload(domain, payload));
+}
+
+export function documentContentRecordMetadata(
+  input: DocumentContentRecordMetadataInput,
+): KeyingCanonicalPayload<DocumentContentRecordMetadataInput> & {
+  readonly recordKind: "loro_update";
+  readonly version: 1;
+} {
+  return {
+    version: 1,
+    recordKind: "loro_update",
+    documentId: input.documentId,
+    updateId: input.updateId,
+    partialStartVersionVector: input.partialStartVersionVector,
+    partialEndVersionVector: input.partialEndVersionVector,
+  };
+}
+
+export async function computeDocumentContentRecordMetadataHash(
+  input: DocumentContentRecordMetadataInput,
+): Promise<string> {
+  return computeKeyingDomainHash(
+    "tearleads.document.content-record-metadata",
+    documentContentRecordMetadata(input),
+  );
+}
+
+export async function computeDocumentContentRecordCiphertextHash(
+  encryptedData: string,
+): Promise<string> {
+  return computeKeyingDomainHash(
+    "tearleads.document.content-record-ciphertext",
+    encryptedData,
+  );
 }
 
 function isAccessEventType(value: string): value is AccessEventType {

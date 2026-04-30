@@ -34,6 +34,6 @@ test("returns a challenge for a known fingerprint", async () => {
 });
 
 test("returns 404 for an unknown fingerprint", async () => {
-  const res = await requestChallenge("nonexistent");
+  const res = await requestChallenge("0".repeat(64));
   expect(res.status).toBe(404);
 });

@@ -1,8 +1,8 @@
 import { afterAll, expect, test } from "bun:test";
 import {
+  authChallengeSigningBytes,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-  hexToBytes,
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
@@ -29,7 +29,10 @@ async function authenticate(): Promise<string> {
   const { challenge } = await challengeRes.json();
   invariant(typeof challenge === "string", "expected challenge string");
 
-  const signature = sign(hexToBytes(challenge), signingKeys.signingPrivateKey);
+  const signature = sign(
+    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    signingKeys.signingPrivateKey,
+  );
   const res = await submitVerify(fingerprint, signature);
   const body = await res.json();
   invariant(typeof body.token === "string", "expected token string");

@@ -8,6 +8,8 @@ import {
   computeAccessManifestHash,
   computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
+  computeDocumentContentRecordCiphertextHash,
+  computeDocumentContentRecordMetadataHash,
   computeWriteHeaderHash,
   type DocumentContentKeyTarget,
   type DocumentLinkAccessEventBody,
@@ -20,7 +22,6 @@ import {
   serializeKeyingCanonicalJson,
   signAccessEvent,
   signWriteHeader,
-  toFingerprint,
   type UnsignedAccessEvent,
   type UnsignedWriteHeader,
   verifyWriteHeader,
@@ -63,10 +64,6 @@ const DOCUMENT_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.document.content-record-key-info";
 const DOCUMENT_CONTENT_RECORD_AAD_DOMAIN =
   "tearleads.document.content-record-aad";
-const DOCUMENT_CONTENT_RECORD_METADATA_HASH_DOMAIN =
-  "tearleads.document.content-record-metadata";
-const DOCUMENT_CONTENT_RECORD_CIPHERTEXT_HASH_DOMAIN =
-  "tearleads.document.content-record-ciphertext";
 const DOCUMENT_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
   new TextEncoder().encode("tearleads.document.content-record-hkdf-salt");
 const DOCUMENT_CONTENT_RECORD_IV: Uint8Array<ArrayBuffer> = new Uint8Array(12);
@@ -1891,57 +1888,6 @@ export async function relinkRemoteDocument(input: {
     plan: materializedPlan.plan,
     response,
   };
-}
-
-async function hashDocumentContentRecord(
-  domain: string,
-  payload: KeyingCanonicalJson,
-): Promise<string> {
-  return toFingerprint(
-    TEXT_ENCODER.encode(
-      serializeKeyingCanonicalJson({
-        domain,
-        payload,
-      }),
-    ),
-  );
-}
-
-function documentContentRecordMetadata(input: {
-  documentId: string;
-  partialEndVersionVector: string;
-  partialStartVersionVector: string;
-  updateId: string;
-}): KeyingCanonicalJson {
-  return {
-    version: 1,
-    recordKind: "loro_update",
-    documentId: input.documentId,
-    updateId: input.updateId,
-    partialStartVersionVector: input.partialStartVersionVector,
-    partialEndVersionVector: input.partialEndVersionVector,
-  };
-}
-
-async function computeDocumentContentRecordMetadataHash(input: {
-  documentId: string;
-  partialEndVersionVector: string;
-  partialStartVersionVector: string;
-  updateId: string;
-}): Promise<string> {
-  return hashDocumentContentRecord(
-    DOCUMENT_CONTENT_RECORD_METADATA_HASH_DOMAIN,
-    documentContentRecordMetadata(input),
-  );
-}
-
-async function computeDocumentContentRecordCiphertextHash(
-  encryptedData: string,
-): Promise<string> {
-  return hashDocumentContentRecord(
-    DOCUMENT_CONTENT_RECORD_CIPHERTEXT_HASH_DOMAIN,
-    encryptedData,
-  );
 }
 
 function contentRecordDerivationPayload(input: {

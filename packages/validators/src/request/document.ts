@@ -3,6 +3,7 @@ import {
   hasArrayProperty,
   hasNumberProperty,
   hasStringProperty,
+  isUuidV4String,
   isWalLsnString,
 } from "../util";
 import {
@@ -189,9 +190,13 @@ function isDocumentOutgoingUpdate(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
+    isUuidV4String(value.id) &&
     hasStringProperty(value, "encryptedData") &&
+    value.encryptedData.length > 0 &&
     hasStringProperty(value, "partialStartVersionVector") &&
+    value.partialStartVersionVector.length > 0 &&
     hasStringProperty(value, "partialEndVersionVector") &&
+    value.partialEndVersionVector.length > 0 &&
     (checkpointKind === undefined ||
       checkpointKind === "fresh_baseline" ||
       checkpointKind === "rotate_baseline") &&
@@ -306,6 +311,13 @@ export function isDocumentSyncRequest(
     : undefined;
   const hasOutgoingUpdates =
     Array.isArray(outgoingUpdates) && outgoingUpdates.length > 0;
+  const hasUniqueOutgoingUpdateIds =
+    !Array.isArray(outgoingUpdates) ||
+    new Set(
+      outgoingUpdates
+        .filter(isPlainObject)
+        .map((update) => Reflect.get(update, "id")),
+    ).size === outgoingUpdates.length;
   const hasContainerRekeys =
     Array.isArray(containerRekeys) && containerRekeys.length > 0;
 
@@ -329,6 +341,7 @@ export function isDocumentSyncRequest(
     isNullableString(Reflect.get(value, "localVersionVector")) &&
     (minLsn === undefined || isWalLsnString(minLsn)) &&
     hasArrayProperty(value, "outgoingUpdates") &&
+    hasUniqueOutgoingUpdateIds &&
     value.outgoingUpdates.every(isDocumentOutgoingUpdate)
   );
 }

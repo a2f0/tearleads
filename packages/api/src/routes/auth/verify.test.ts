@@ -1,8 +1,9 @@
 import { afterAll, expect, test } from "bun:test";
 import {
+  authChallengeSigningBytes,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-  hexToBytes,
+  ML_DSA87_SIGNATURE_BYTES,
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
@@ -35,7 +36,10 @@ test("authenticates with a valid signature", async () => {
   const { challenge } = await challengeRes.json();
   invariant(typeof challenge === "string", "expected challenge string");
 
-  const signature = sign(hexToBytes(challenge), signingKeys.signingPrivateKey);
+  const signature = sign(
+    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    signingKeys.signingPrivateKey,
+  );
 
   const res = await submitVerify(fingerprint, signature);
   expect(res.status).toBe(200);
@@ -45,7 +49,10 @@ test("authenticates with a valid signature", async () => {
 });
 
 test("returns 401 when no challenge exists", async () => {
-  const res = await submitVerify(fingerprint, new Uint8Array(32));
+  const res = await submitVerify(
+    fingerprint,
+    new Uint8Array(ML_DSA87_SIGNATURE_BYTES),
+  );
   expect(res.status).toBe(401);
 });
 
@@ -54,7 +61,10 @@ test("returns 401 with wrong secret key", async () => {
   const { challenge } = await challengeRes.json();
 
   const wrongKeys = generateSigningSeedAndKeyPair();
-  const signature = sign(hexToBytes(challenge), wrongKeys.signingPrivateKey);
+  const signature = sign(
+    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    wrongKeys.signingPrivateKey,
+  );
 
   const res = await submitVerify(fingerprint, signature);
   expect(res.status).toBe(401);
@@ -66,7 +76,10 @@ test("challenge is consumed after use", async () => {
   const challengeRes = await requestChallenge(fingerprint);
   const { challenge } = await challengeRes.json();
 
-  const signature = sign(hexToBytes(challenge), signingKeys.signingPrivateKey);
+  const signature = sign(
+    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    signingKeys.signingPrivateKey,
+  );
 
   const first = await submitVerify(fingerprint, signature);
   expect(first.status).toBe(200);

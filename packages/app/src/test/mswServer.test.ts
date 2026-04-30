@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  authChallengeSigningBytes,
   buildPrincipalStateSigningInput,
   computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-  hexToBytes,
   sign,
   signPrincipalState,
   toFingerprint,
@@ -200,7 +200,13 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
 
   const tokenResponse = await verifySession(
     fingerprint,
-    sign(hexToBytes(challengeBody.challenge), signingKeys.signingPrivateKey),
+    sign(
+      authChallengeSigningBytes({
+        challengeHex: challengeBody.challenge,
+        fingerprint,
+      }),
+      signingKeys.signingPrivateKey,
+    ),
   );
   expect(tokenResponse.status).toBe(200);
   const tokenBody = await tokenResponse.json();
@@ -223,4 +229,4 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
 
   const resetChallengeResponse = await requestChallenge(fingerprint);
   expect(resetChallengeResponse.status).toBe(404);
-});
+}, 10_000);

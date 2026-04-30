@@ -1,5 +1,5 @@
 import { isPlainObject } from "../../isPlainObject";
-import { hasStringProperty } from "../../util";
+import { hasStringProperty, isAuthChallengeHexString } from "../../util";
 
 export interface ChallengeResponse {
   challenge: string;
@@ -8,7 +8,11 @@ export interface ChallengeResponse {
 export function isChallengeResponse(
   value: unknown,
 ): value is ChallengeResponse {
-  return isPlainObject(value) && hasStringProperty(value, "challenge");
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "challenge") &&
+    isAuthChallengeHexString(value.challenge)
+  );
 }
 
 export interface ChallengeErrorResponse {

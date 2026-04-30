@@ -20,6 +20,8 @@ import {
   isVerifyResponse,
 } from "./index";
 
+const VALID_CHALLENGE = "a".repeat(64);
+
 test("isHealthResponse", () => {
   expect(isHealthResponse({ message: "ok" })).toBe(true);
   expect(isHealthResponse({ message: 123 })).toBe(false);
@@ -38,14 +40,14 @@ test("isPublicKeyResponse", () => {
       rootMetadataAccessEpoch: 1,
       rootMetadataAccessStateHash: "root-access-state-hash",
       rootMetadataDocument: createDocumentCreateResponse(),
-      challenge: "deadbeef",
+      challenge: VALID_CHALLENGE,
     }),
   ).toBe(true);
   expect(
     isPublicKeyResponse({
       message: "ok",
       userId: "abc-123",
-      challenge: "deadbeef",
+      challenge: VALID_CHALLENGE,
     }),
   ).toBe(false);
   expect(isPublicKeyResponse({ message: "ok" })).toBe(false);
@@ -55,7 +57,8 @@ test("isPublicKeyResponse", () => {
 });
 
 test("isChallengeResponse", () => {
-  expect(isChallengeResponse({ challenge: "hex" })).toBe(true);
+  expect(isChallengeResponse({ challenge: VALID_CHALLENGE })).toBe(true);
+  expect(isChallengeResponse({ challenge: "hex" })).toBe(false);
   expect(isChallengeResponse({ challenge: 123 })).toBe(false);
   expect(isChallengeResponse({})).toBe(false);
   expect(isChallengeResponse(null)).toBe(false);
@@ -69,12 +72,15 @@ test("isChallengeErrorResponse", () => {
 });
 
 test("isVerifyResponse", () => {
-  expect(isVerifyResponse({ authenticated: true })).toBe(true);
+  expect(isVerifyResponse({ authenticated: true })).toBe(false);
   expect(isVerifyResponse({ authenticated: true, token: "abc123" })).toBe(true);
   expect(isVerifyResponse({ authenticated: false, error: "bad sig" })).toBe(
     true,
   );
   expect(isVerifyResponse({ authenticated: false })).toBe(true);
+  expect(isVerifyResponse({ authenticated: false, token: "abc123" })).toBe(
+    false,
+  );
   expect(isVerifyResponse({ authenticated: "yes" })).toBe(false);
   expect(isVerifyResponse({ authenticated: true, token: 123 })).toBe(false);
   expect(isVerifyResponse({ authenticated: true, error: 123 })).toBe(false);

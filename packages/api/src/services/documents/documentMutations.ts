@@ -19,6 +19,8 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
+  computeDocumentContentRecordCiphertextHash,
+  computeDocumentContentRecordMetadataHash,
   computeWriteHeaderHash,
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
@@ -1489,8 +1491,42 @@ async function verifyOutgoingWriteHeader(input: {
   if (!verified.ok) {
     throw verified.error;
   }
+  await assertOutgoingUpdatePayloadMatchesHeader({
+    documentId: input.documentId,
+    header: verified.value.header,
+    update: input.update,
+  });
 
   return verified.value;
+}
+
+async function assertOutgoingUpdatePayloadMatchesHeader(input: {
+  readonly documentId: string;
+  readonly header: WriteHeader;
+  readonly update: DocumentOutgoingUpdate;
+}): Promise<void> {
+  const metadataHash = await computeDocumentContentRecordMetadataHash({
+    documentId: input.documentId,
+    partialEndVersionVector: input.update.partialEndVersionVector,
+    partialStartVersionVector: input.update.partialStartVersionVector,
+    updateId: input.update.id,
+  });
+  if (metadataHash !== input.header.metadataHash) {
+    throw new DocumentMutationError(
+      "Document update metadata hash mismatch",
+      400,
+    );
+  }
+
+  const ciphertextHash = await computeDocumentContentRecordCiphertextHash(
+    input.update.encryptedData,
+  );
+  if (ciphertextHash !== input.header.ciphertextHash) {
+    throw new DocumentMutationError(
+      "Document update ciphertext hash mismatch",
+      400,
+    );
+  }
 }
 
 async function assertRetryWriteHeaderMatches(input: {
@@ -1503,6 +1539,36 @@ async function assertRetryWriteHeaderMatches(input: {
   if (headerHash !== input.expectedHeaderHash) {
     throw new DocumentMutationError("Document write header conflict", 409);
   }
+}
+
+async function assertRetryUpdateMatchesAcceptedContent(input: {
+  readonly acceptedHeaderHash: string | undefined;
+  readonly existingRow:
+    | {
+        readonly encryptedData: string;
+        readonly partialEndVersionVector: string;
+        readonly partialStartVersionVector: string;
+      }
+    | undefined;
+  readonly update: DocumentOutgoingUpdate;
+}): Promise<void> {
+  if (
+    !input.existingRow ||
+    input.existingRow.encryptedData !== input.update.encryptedData ||
+    input.existingRow.partialStartVersionVector !==
+      input.update.partialStartVersionVector ||
+    input.existingRow.partialEndVersionVector !==
+      input.update.partialEndVersionVector
+  ) {
+    throw new DocumentMutationError("Document update id conflict", 409);
+  }
+  if (!input.acceptedHeaderHash) {
+    throw new DocumentMutationError("Document write header conflict", 409);
+  }
+  await assertRetryWriteHeaderMatches({
+    expectedHeaderHash: input.acceptedHeaderHash,
+    update: input.update,
+  });
 }
 
 function acceptedOutgoingUpdateIds(
@@ -1557,7 +1623,13 @@ async function appendDocumentUpdates(
     input.request.outgoingUpdates.map((update) => update.id),
   );
   const existingRows = await input.executor
-    .select({ documentId: documentUpdates.documentId, id: documentUpdates.id })
+    .select({
+      documentId: documentUpdates.documentId,
+      encryptedData: documentUpdates.encryptedData,
+      id: documentUpdates.id,
+      partialEndVersionVector: documentUpdates.partialEndVersionVector,
+      partialStartVersionVector: documentUpdates.partialStartVersionVector,
+    })
     .from(documentUpdates)
     .where(inArray(documentUpdates.id, updateIds));
   for (const row of existingRows) {
@@ -1565,7 +1637,8 @@ async function appendDocumentUpdates(
       throw new DocumentMutationError("Document update id conflict", 409);
     }
   }
-  const acceptedUpdateIds = new Set(existingRows.map((row) => row.id));
+  const existingRowsById = new Map(existingRows.map((row) => [row.id, row]));
+  const acceptedUpdateIds = new Set(existingRowsById.keys());
   const acceptedHeaderHashes = new Map(
     (
       await listDocumentContentWriteHeaders(
@@ -1579,11 +1652,9 @@ async function appendDocumentUpdates(
   for (const update of input.request.outgoingUpdates) {
     const acceptedHeaderHash = acceptedHeaderHashes.get(update.id)?.headerHash;
     if (acceptedUpdateIds.has(update.id)) {
-      if (!acceptedHeaderHash) {
-        throw new DocumentMutationError("Document write header conflict", 409);
-      }
-      await assertRetryWriteHeaderMatches({
-        expectedHeaderHash: acceptedHeaderHash,
+      await assertRetryUpdateMatchesAcceptedContent({
+        acceptedHeaderHash,
+        existingRow: existingRowsById.get(update.id),
         update,
       });
       continue;

@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { hexToBytes, sign, toFingerprint } from "@tearleads/crypto";
+import {
+  authChallengeSigningBytes,
+  hexToBytes,
+  sign,
+  toFingerprint,
+} from "@tearleads/crypto";
 import {
   createPublicKeyRequest,
   createServiceTestRuntime,
@@ -65,7 +70,10 @@ test("createChallenge throws a service error for an unknown fingerprint", async 
 test("verifyChallenge returns a session token for a valid signature", async () => {
   const { fingerprint, runtime, user } = await registerAuthServiceUser();
   const { challenge } = await createChallenge(runtime, { fingerprint });
-  const signature = sign(hexToBytes(challenge), user.signing.signingPrivateKey);
+  const signature = sign(
+    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    user.signing.signingPrivateKey,
+  );
 
   const result = await verifyChallenge(runtime, {
     fingerprint,
@@ -73,6 +81,21 @@ test("verifyChallenge returns a session token for a valid signature", async () =
   });
 
   expect(result.token).toBe("test-session");
+});
+
+test("verifyChallenge rejects raw challenge signatures without the auth domain", async () => {
+  const { fingerprint, runtime, user } = await registerAuthServiceUser();
+  const { challenge } = await createChallenge(runtime, { fingerprint });
+  const signature = sign(hexToBytes(challenge), user.signing.signingPrivateKey);
+
+  const error = await expectVerifyChallengeError(
+    verifyChallenge(runtime, {
+      fingerprint,
+      signature: Array.from(signature),
+    }),
+  );
+
+  expect(error.reason).toBe("invalid_signature");
 });
 
 test("verifyChallenge throws service errors for auth failures", async () => {
@@ -89,7 +112,7 @@ test("verifyChallenge throws service errors for auth failures", async () => {
   const { challenge } = await createChallenge(runtime, { fingerprint });
   const wrongUser = createTestUser();
   const invalidSignature = sign(
-    hexToBytes(challenge),
+    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
     wrongUser.signing.signingPrivateKey,
   );
   const badSignature = await expectVerifyChallengeError(
