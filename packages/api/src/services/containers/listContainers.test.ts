@@ -1,19 +1,19 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
-  type AccessEventV2,
-  type ContainerAccessManifestStateV2,
-  type ContainerCreateAccessEventBodyV2,
+  type AccessEvent,
+  type ContainerAccessManifestState,
+  type ContainerCreateAccessEventBody,
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
   deriveContainerAccessManifest,
   generateKemSeedAndKeyPair,
-  type KeyingV2CanonicalJson,
-  type ReferencedPrincipalHeadV2,
+  type KeyingCanonicalJson,
+  type ReferencedPrincipalHead,
   signAccessEvent,
   toFingerprint,
-  type UnsignedAccessEventV2,
+  type UnsignedAccessEvent,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -35,7 +35,7 @@ const SIGNED_AT = "2026-04-30T00:00:00.000Z";
 
 function principalReference(
   state: StoredPrincipalState,
-): ReferencedPrincipalHeadV2 {
+): ReferencedPrincipalHead {
   return {
     principalType: state.principalType,
     principalId: state.principalId,
@@ -47,15 +47,15 @@ function principalReference(
 }
 
 async function signContainerEvent(input: {
-  body: ContainerCreateAccessEventBodyV2;
+  body: ContainerCreateAccessEventBody;
   containerId: string;
   organizationId: string;
   signerKeyFingerprint: string;
   signerPrivateKey: Uint8Array;
   signerUserId: string;
-}): Promise<{ event: AccessEventV2; eventHash: string }> {
-  const unsigned: UnsignedAccessEventV2 = {
-    version: 2,
+}): Promise<{ event: AccessEvent; eventHash: string }> {
+  const unsigned: UnsignedAccessEvent = {
+    version: 1,
     eventId: crypto.randomUUID(),
     eventType: "container.create",
     objectKind: "container",
@@ -64,7 +64,7 @@ async function signContainerEvent(input: {
     previousManifestHash: null,
     dependencyManifestHashes: [],
     bodyHash: await computeAccessEventBodyHash(
-      input.body as unknown as KeyingV2CanonicalJson,
+      input.body as unknown as KeyingCanonicalJson,
     ),
     signerUserId: input.signerUserId,
     signerDeviceId: `signing-key:${input.signerKeyFingerprint}`,
@@ -120,7 +120,7 @@ async function storeGroupPolicy(input: {
 
 async function storeContainerWithReferencedGroup(input: {
   containerId: string;
-  groupReference: ReferencedPrincipalHeadV2;
+  groupReference: ReferencedPrincipalHead;
   metadataDocumentId: string;
   organizationId: string;
   signerKeyFingerprint: string;
@@ -128,7 +128,7 @@ async function storeContainerWithReferencedGroup(input: {
   signerUserId: string;
 }) {
   const containerKeyEpochId = crypto.randomUUID();
-  const body: ContainerCreateAccessEventBodyV2 = {
+  const body: ContainerCreateAccessEventBody = {
     eventType: "container.create",
     parentContainerId: null,
     parentManifestHash: null,
@@ -151,8 +151,8 @@ async function storeContainerWithReferencedGroup(input: {
     signerPrivateKey: input.signerPrivateKey,
     signerUserId: input.signerUserId,
   });
-  const state: ContainerAccessManifestStateV2 = {
-    version: 2,
+  const state: ContainerAccessManifestState = {
+    version: 1,
     containerId: input.containerId,
     organizationId: input.organizationId,
     epoch: 1,
@@ -170,7 +170,7 @@ async function storeContainerWithReferencedGroup(input: {
   const verifiedManifest: VerifiedContainerAccessManifest = {
     event: {
       event,
-      body: body as unknown as KeyingV2CanonicalJson,
+      body: body as unknown as KeyingCanonicalJson,
       eventHash,
     },
     manifest,

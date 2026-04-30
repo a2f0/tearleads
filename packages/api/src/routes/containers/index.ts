@@ -4,8 +4,8 @@ import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createListContainerDocumentsRoute } from "./listContainerDocuments";
 import { createListContainersRoute } from "./listContainers";
-import { createContainerV2MutationsRoute } from "./v2Mutations";
-import { createContainerV2WriterProjectionRoute } from "./v2WriterProjection";
+import { createContainerMutationsRoute } from "./mutations";
+import { createContainerWriterProjectionRoute } from "./writerProjection";
 
 interface ContainersRouterDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -21,11 +21,8 @@ export function createContainersRouter({
 
   containersRouter.route("/", createListContainerDocumentsRoute(routeDeps));
   containersRouter.route("/", createListContainersRoute(routeDeps));
-  containersRouter.route("/", createContainerV2MutationsRoute(routeDeps));
-  containersRouter.route(
-    "/",
-    createContainerV2WriterProjectionRoute(routeDeps),
-  );
+  containersRouter.route("/", createContainerMutationsRoute(routeDeps));
+  containersRouter.route("/", createContainerWriterProjectionRoute(routeDeps));
 
   return containersRouter;
 }

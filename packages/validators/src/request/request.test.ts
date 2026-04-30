@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import {
-  isBlobV2AttachmentBindRequest,
-  isBlobV2AttachmentDetachRequest,
+  isBlobAttachmentBindRequest,
+  isBlobAttachmentDetachRequest,
   isChallengeRequest,
-  isDocumentV2ContentKeyBundleRequest,
-  isDocumentV2CreateRequest,
-  isDocumentV2LinkSetMutationRequest,
-  isDocumentV2SyncRequest,
+  isDocumentContentKeyBundleRequest,
+  isDocumentCreateRequest,
+  isDocumentLinkSetMutationRequest,
+  isDocumentSyncRequest,
   isPublicKeyRequest,
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
@@ -65,7 +65,7 @@ test("isPublicKeyRequest", () => {
     signingPublicKey: [1, 2, 3],
     encapsulationPublicKey: [4, 5, 6],
     initialOrganizationPolicy: validInitialOrganizationPolicy,
-    initialRootContainerV2: {
+    initialRootContainer: {
       event: { eventType: "container.create" },
       body: { eventType: "container.create" },
       expectedManifestHash: "container-manifest-hash",
@@ -76,14 +76,14 @@ test("isPublicKeyRequest", () => {
       wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
       userRecipientKeys: [{ userId }],
     },
-    initialRootMetadataDocumentV2: {
+    initialRootMetadataDocument: {
       event: { eventType: "document.link" },
       body: { eventType: "document.link" },
       expectedManifestHash: "document-manifest-hash",
       manifest: { objectKind: "document" },
       previousManifest: null,
       targetContainerPath: [{ containerId: "container-1" }],
-      contentKeyBundle: createDocumentV2ContentKeyBundle(),
+      contentKeyBundle: createDocumentContentKeyBundle(),
     },
     ...overrides,
   });
@@ -259,7 +259,7 @@ test("isPutPrincipalMemberEnvelopesRequest", () => {
   expect(isPutPrincipalMemberEnvelopesRequest(null)).toBe(false);
 });
 
-function createBlobV2ContentKeyBundle(overrides = {}) {
+function createBlobContentKeyBundle(overrides = {}) {
   return {
     contentKeyEpoch: 1,
     targetHash: "target-hash",
@@ -279,17 +279,17 @@ function createBlobV2ContentKeyBundle(overrides = {}) {
   };
 }
 
-function createBlobV2ManifestBundle(overrides = {}) {
+function createBlobManifestBundle(overrides = {}) {
   return {
     event: { eventId: "event-1" },
-    manifest: { version: 2 },
+    manifest: { version: 1 },
     manifestHash: "document-link-set-hash",
     state: { documentId: "document-1" },
     ...overrides,
   };
 }
 
-function createContainerV2MutationRequest(overrides = {}) {
+function createContainerMutationRequest(overrides = {}) {
   return {
     event: { eventType: "container.rekey" },
     body: { eventType: "container.rekey" },
@@ -297,14 +297,14 @@ function createContainerV2MutationRequest(overrides = {}) {
     manifest: { objectKind: "container" },
     previousManifest: {
       event: { eventId: "container-event-1" },
-      manifest: { version: 2 },
+      manifest: { version: 1 },
       manifestHash: "previous-container-manifest-hash",
       state: { containerId: "container-1" },
     },
     previousContainerPath: [
       {
         event: { eventId: "container-event-1" },
-        manifest: { version: 2 },
+        manifest: { version: 1 },
         manifestHash: "previous-container-manifest-hash",
         state: { containerId: "container-1" },
       },
@@ -315,68 +315,68 @@ function createContainerV2MutationRequest(overrides = {}) {
   };
 }
 
-test("isBlobV2AttachmentBindRequest", () => {
+test("isBlobAttachmentBindRequest", () => {
   const validRequest = {
     event: { eventType: "attachment.bind" },
     body: { eventType: "attachment.bind" },
-    documentManifest: createBlobV2ManifestBundle(),
+    documentManifest: createBlobManifestBundle(),
     authorizingContainerPaths: [[{ containerId: "container-1" }]],
-    containerRekeys: [createContainerV2MutationRequest()],
-    contentKeyBundle: createBlobV2ContentKeyBundle(),
+    containerRekeys: [createContainerMutationRequest()],
+    contentKeyBundle: createBlobContentKeyBundle(),
     stagedBlob: {
       stageId: "550e8400-e29b-41d4-a716-446655440004",
       writeHeader: { objectKind: "blob" },
     },
   };
 
-  expect(isBlobV2AttachmentBindRequest(validRequest)).toBe(true);
+  expect(isBlobAttachmentBindRequest(validRequest)).toBe(true);
   expect(
-    isBlobV2AttachmentBindRequest({
+    isBlobAttachmentBindRequest({
       ...validRequest,
-      contentKeyBundle: createBlobV2ContentKeyBundle({ targetHash: "" }),
+      contentKeyBundle: createBlobContentKeyBundle({ targetHash: "" }),
     }),
   ).toBe(false);
   expect(
-    isBlobV2AttachmentBindRequest({
+    isBlobAttachmentBindRequest({
       ...validRequest,
       stagedBlob: { stageId: "", writeHeader: {} },
     }),
   ).toBe(false);
   expect(
-    isBlobV2AttachmentBindRequest({
+    isBlobAttachmentBindRequest({
       ...validRequest,
       containerRekeys: [{ event: { eventType: "container.rekey" } }],
     }),
   ).toBe(false);
-  expect(isBlobV2AttachmentBindRequest(null)).toBe(false);
+  expect(isBlobAttachmentBindRequest(null)).toBe(false);
 });
 
-test("isBlobV2AttachmentDetachRequest", () => {
+test("isBlobAttachmentDetachRequest", () => {
   const validRequest = {
     event: { eventType: "attachment.detach" },
     body: { eventType: "attachment.detach" },
-    documentManifest: createBlobV2ManifestBundle(),
+    documentManifest: createBlobManifestBundle(),
     authorizingContainerPaths: [[{ containerId: "container-1" }]],
-    containerRekeys: [createContainerV2MutationRequest()],
+    containerRekeys: [createContainerMutationRequest()],
   };
 
-  expect(isBlobV2AttachmentDetachRequest(validRequest)).toBe(true);
+  expect(isBlobAttachmentDetachRequest(validRequest)).toBe(true);
   expect(
-    isBlobV2AttachmentDetachRequest({
+    isBlobAttachmentDetachRequest({
       ...validRequest,
       authorizingContainerPaths: [{ containerId: "container-1" }],
     }),
   ).toBe(false);
   expect(
-    isBlobV2AttachmentDetachRequest({
+    isBlobAttachmentDetachRequest({
       ...validRequest,
       containerRekeys: [{ event: { eventType: "container.rekey" } }],
     }),
   ).toBe(false);
-  expect(isBlobV2AttachmentDetachRequest(null)).toBe(false);
+  expect(isBlobAttachmentDetachRequest(null)).toBe(false);
 });
 
-function createDocumentV2ContentKeyBundle(overrides = {}) {
+function createDocumentContentKeyBundle(overrides = {}) {
   return {
     contentKeyEpoch: 1,
     linkSetManifestHash: "document-link-set-hash",
@@ -395,24 +395,24 @@ function createDocumentV2ContentKeyBundle(overrides = {}) {
   };
 }
 
-test("isDocumentV2ContentKeyBundleRequest", () => {
+test("isDocumentContentKeyBundleRequest", () => {
   expect(
-    isDocumentV2ContentKeyBundleRequest(createDocumentV2ContentKeyBundle()),
+    isDocumentContentKeyBundleRequest(createDocumentContentKeyBundle()),
   ).toBe(true);
   expect(
-    isDocumentV2ContentKeyBundleRequest(
-      createDocumentV2ContentKeyBundle({ contentKeyEpoch: 0 }),
+    isDocumentContentKeyBundleRequest(
+      createDocumentContentKeyBundle({ contentKeyEpoch: 0 }),
     ),
   ).toBe(false);
   expect(
-    isDocumentV2ContentKeyBundleRequest(
-      createDocumentV2ContentKeyBundle({ targets: [{ wrappedKey: "" }] }),
+    isDocumentContentKeyBundleRequest(
+      createDocumentContentKeyBundle({ targets: [{ wrappedKey: "" }] }),
     ),
   ).toBe(false);
-  expect(isDocumentV2ContentKeyBundleRequest(null)).toBe(false);
+  expect(isDocumentContentKeyBundleRequest(null)).toBe(false);
 });
 
-test("isDocumentV2CreateRequest", () => {
+test("isDocumentCreateRequest", () => {
   const validRequest = {
     event: { eventType: "document.link" },
     body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
@@ -421,35 +421,35 @@ test("isDocumentV2CreateRequest", () => {
     previousManifest: null,
     targetContainerPath: [{ containerId: "container-1" }],
     authorizingContainerPaths: [[{ containerId: "container-1" }]],
-    containerRekeys: [createContainerV2MutationRequest()],
-    contentKeyBundle: createDocumentV2ContentKeyBundle(),
+    containerRekeys: [createContainerMutationRequest()],
+    contentKeyBundle: createDocumentContentKeyBundle(),
   };
 
-  expect(isDocumentV2CreateRequest(validRequest)).toBe(true);
+  expect(isDocumentCreateRequest(validRequest)).toBe(true);
   expect(
-    isDocumentV2CreateRequest({
+    isDocumentCreateRequest({
       ...validRequest,
       expectedManifestHash: "",
     }),
   ).toBe(false);
   expect(
-    isDocumentV2CreateRequest({
+    isDocumentCreateRequest({
       ...validRequest,
-      contentKeyBundle: createDocumentV2ContentKeyBundle({
+      contentKeyBundle: createDocumentContentKeyBundle({
         targetHash: "",
       }),
     }),
   ).toBe(false);
   expect(
-    isDocumentV2CreateRequest({
+    isDocumentCreateRequest({
       ...validRequest,
       containerRekeys: [{ event: { eventType: "container.rekey" } }],
     }),
   ).toBe(false);
-  expect(isDocumentV2CreateRequest(null)).toBe(false);
+  expect(isDocumentCreateRequest(null)).toBe(false);
 });
 
-test("isDocumentV2LinkSetMutationRequest", () => {
+test("isDocumentLinkSetMutationRequest", () => {
   const validRequest = {
     event: { eventType: "document.link" },
     body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
@@ -457,48 +457,48 @@ test("isDocumentV2LinkSetMutationRequest", () => {
     manifest: { objectType: "document", objectId: "doc-1" },
     previousManifest: {
       event: { eventId: "event-1" },
-      manifest: { version: 2 },
+      manifest: { version: 1 },
       manifestHash: "previous-manifest-hash",
       state: { documentId: "doc-1" },
     },
     targetContainerPath: [{ containerId: "container-1" }],
     authorizingContainerPaths: [[{ containerId: "container-1" }]],
-    containerRekeys: [createContainerV2MutationRequest()],
-    contentKeyBundle: createDocumentV2ContentKeyBundle(),
+    containerRekeys: [createContainerMutationRequest()],
+    contentKeyBundle: createDocumentContentKeyBundle(),
   };
 
-  expect(isDocumentV2LinkSetMutationRequest(validRequest)).toBe(true);
+  expect(isDocumentLinkSetMutationRequest(validRequest)).toBe(true);
   expect(
-    isDocumentV2LinkSetMutationRequest({
+    isDocumentLinkSetMutationRequest({
       ...validRequest,
       previousManifest: null,
     }),
   ).toBe(false);
   expect(
-    isDocumentV2LinkSetMutationRequest({
+    isDocumentLinkSetMutationRequest({
       ...validRequest,
       targetContainerPath: undefined,
     }),
   ).toBe(false);
   expect(
-    isDocumentV2LinkSetMutationRequest({
+    isDocumentLinkSetMutationRequest({
       ...validRequest,
       authorizingContainerPaths: [{ containerId: "container-1" }],
     }),
   ).toBe(false);
   expect(
-    isDocumentV2LinkSetMutationRequest({
+    isDocumentLinkSetMutationRequest({
       ...validRequest,
       containerRekeys: [{ event: { eventType: "container.rekey" } }],
     }),
   ).toBe(false);
-  expect(isDocumentV2LinkSetMutationRequest(null)).toBe(false);
+  expect(isDocumentLinkSetMutationRequest(null)).toBe(false);
 });
 
-test("isDocumentV2SyncRequest", () => {
+test("isDocumentSyncRequest", () => {
   const documentManifest = {
     event: { eventId: "event-1" },
-    manifest: { version: 2 },
+    manifest: { version: 1 },
     manifestHash: "document-link-set-hash",
     state: { documentId: "document-1" },
   };
@@ -507,13 +507,13 @@ test("isDocumentV2SyncRequest", () => {
       [
         {
           event: { eventId: "container-event-1" },
-          manifest: { version: 2 },
+          manifest: { version: 1 },
           manifestHash: "container-manifest-hash",
           state: { containerId: "container-1" },
         },
       ],
     ],
-    containerRekeys: [createContainerV2MutationRequest()],
+    containerRekeys: [createContainerMutationRequest()],
     contentKeyEpoch: 1,
     documentManifest,
     expectedLinkSetManifestHash: "document-link-set-hash",
@@ -533,21 +533,21 @@ test("isDocumentV2SyncRequest", () => {
     ],
   };
 
-  expect(isDocumentV2SyncRequest(validRequest)).toBe(true);
+  expect(isDocumentSyncRequest(validRequest)).toBe(true);
   expect(
-    isDocumentV2SyncRequest({
+    isDocumentSyncRequest({
       ...validRequest,
       documentManifest: undefined,
     }),
   ).toBe(false);
   expect(
-    isDocumentV2SyncRequest({
+    isDocumentSyncRequest({
       ...validRequest,
       authorizingContainerPaths: undefined,
     }),
   ).toBe(false);
   expect(
-    isDocumentV2SyncRequest({
+    isDocumentSyncRequest({
       ...validRequest,
       documentManifest: undefined,
       authorizingContainerPaths: undefined,
@@ -556,7 +556,7 @@ test("isDocumentV2SyncRequest", () => {
     }),
   ).toBe(true);
   expect(
-    isDocumentV2SyncRequest({
+    isDocumentSyncRequest({
       ...validRequest,
       documentManifest: undefined,
       authorizingContainerPaths: undefined,
@@ -564,22 +564,22 @@ test("isDocumentV2SyncRequest", () => {
     }),
   ).toBe(false);
   expect(
-    isDocumentV2SyncRequest({
+    isDocumentSyncRequest({
       ...validRequest,
       minLsn: "not-an-lsn",
     }),
   ).toBe(false);
   expect(
-    isDocumentV2SyncRequest({
+    isDocumentSyncRequest({
       ...validRequest,
       outgoingUpdates: [{ id: "update-1" }],
     }),
   ).toBe(false);
   expect(
-    isDocumentV2SyncRequest({
+    isDocumentSyncRequest({
       ...validRequest,
       containerRekeys: [{ event: { eventType: "container.rekey" } }],
     }),
   ).toBe(false);
-  expect(isDocumentV2SyncRequest(null)).toBe(false);
+  expect(isDocumentSyncRequest(null)).toBe(false);
 });

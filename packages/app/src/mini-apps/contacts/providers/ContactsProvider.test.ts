@@ -9,19 +9,19 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
-  DocumentV2CreateRequest,
-  DocumentV2SyncRequest,
+  DocumentCreateRequest,
+  DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
-  ContainerV2WriterProjectionResponse,
-  DocumentV2CreateResponse,
-  DocumentV2SyncResponse,
+  ContainerWriterProjectionResponse,
+  DocumentCreateResponse,
+  DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import {
-  assertAccessEventV2,
-  assertWriteHeaderV2,
-} from "../../../../test/helpers/keyingV2Assertions";
+  assertAccessEvent,
+  assertWriteHeader,
+} from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import type {
   DocumentRecord,
@@ -46,9 +46,9 @@ function createUnavailableContactsApiClient(
   userIdToImport?: string,
 ): ContactsRuntime["apiClient"] {
   return createMockApiClient({
-    createDocumentV2: async () => null,
-    getContainerV2WriterProjection: async () => null,
-    getDocumentV2WriterProjection: async () => null,
+    createDocument: async () => null,
+    getContainerWriterProjection: async () => null,
+    getDocumentWriterProjection: async () => null,
     getEncapsulationKey: async (userId: string) => {
       if (userId !== userIdToImport) {
         return null;
@@ -61,27 +61,27 @@ function createUnavailableContactsApiClient(
         userId,
       };
     },
-    syncDocumentV2: async () => null,
+    syncDocument: async () => null,
   });
 }
 
-async function contactV2FixtureHash(label: string): Promise<string> {
-  return toFingerprint(new TextEncoder().encode(`contacts-v2:${label}`));
+async function contactFixtureHash(label: string): Promise<string> {
+  return toFingerprint(new TextEncoder().encode(`contacts:${label}`));
 }
 
-async function createContactV2ContainerProjection(input: {
+async function createContactContainerProjection(input: {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
   userId: string;
-}): Promise<ContainerV2WriterProjectionResponse> {
-  const manifestHash = await contactV2FixtureHash(
+}): Promise<ContainerWriterProjectionResponse> {
+  const manifestHash = await contactFixtureHash(
     `${input.containerId}:manifest`,
   );
-  const eventHash = await contactV2FixtureHash(`${input.containerId}:event`);
-  const keyEpochHash = await contactV2FixtureHash(
+  const eventHash = await contactFixtureHash(`${input.containerId}:event`);
+  const keyEpochHash = await contactFixtureHash(
     `${input.containerId}:key-epoch`,
   );
-  const keyTargetHash = await contactV2FixtureHash(
+  const keyTargetHash = await contactFixtureHash(
     `${input.containerId}:key-target`,
   );
   const containerKeyEpochId = `${input.containerId}-key-epoch-1`;
@@ -90,7 +90,7 @@ async function createContactV2ContainerProjection(input: {
     input.encapsulationPublicKey,
   ]);
   if (!recipient) {
-    throw new Error("Expected V2 contact fixture recipient wrap.");
+    throw new Error("Expected contact fixture recipient wrap.");
   }
 
   return {
@@ -143,13 +143,13 @@ async function createContactV2ContainerProjection(input: {
   };
 }
 
-async function createContactV2CreateResponse(
-  request: DocumentV2CreateRequest,
-): Promise<DocumentV2CreateResponse> {
+async function createContactCreateResponse(
+  request: DocumentCreateRequest,
+): Promise<DocumentCreateResponse> {
   const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
   const documentId = String(Reflect.get(manifest, "objectId"));
-  const event = assertAccessEventV2(request.event, "document create event");
+  const event = assertAccessEvent(request.event, "document create event");
   const eventHash = await computeAccessEventHash(event);
   const linkedContainerId = String(Reflect.get(body, "containerId"));
   const targets = request.contentKeyBundle.targets.map((target) => ({
@@ -167,7 +167,7 @@ async function createContactV2CreateResponse(
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
-        version: 2,
+        version: 1,
         documentId,
         organizationId: String(Reflect.get(manifest, "organizationId")),
         epoch: Number(Reflect.get(manifest, "epoch")),
@@ -198,14 +198,14 @@ async function createContactV2CreateResponse(
   };
 }
 
-async function createContactV2SyncResponse(input: {
-  request: DocumentV2SyncRequest;
-  storedDocument: DocumentV2CreateResponse;
+async function createContactSyncResponse(input: {
+  request: DocumentSyncRequest;
+  storedDocument: DocumentCreateResponse;
   commitLsn: string;
-}): Promise<DocumentV2SyncResponse> {
+}): Promise<DocumentSyncResponse> {
   const updates = await Promise.all(
     input.request.outgoingUpdates.map(async (update) => {
-      const writeHeader = assertWriteHeaderV2(
+      const writeHeader = assertWriteHeader(
         update.writeHeader,
         "document sync write header",
       );
@@ -237,7 +237,7 @@ async function createContactV2SyncResponse(input: {
   };
 }
 
-interface ContactV2RuntimePatch {
+interface ContactRuntimePatch {
   apiClient: ContactsRuntime["apiClient"];
   organizationId: string;
   signingFingerprint: string;
@@ -245,23 +245,23 @@ interface ContactV2RuntimePatch {
   userId: string;
 }
 
-async function createContactV2RuntimePatch(input: {
+async function createContactRuntimePatch(input: {
   containerId?: string;
   createCalls?: Array<{ linkedContainerIds: string[] }>;
   encapsulationKeyPair: NonNullable<ContactsRuntime["encapsulationKeyPair"]>;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
-}): Promise<ContactV2RuntimePatch> {
+}): Promise<ContactRuntimePatch> {
   const containerId = input.containerId ?? "root-container";
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
-  let projectionPromise: Promise<ContainerV2WriterProjectionResponse> | null =
+  let projectionPromise: Promise<ContainerWriterProjectionResponse> | null =
     null;
-  let storedDocument: DocumentV2CreateResponse | null = null;
+  let storedDocument: DocumentCreateResponse | null = null;
   let syncCount = 0;
   const getProjection = () => {
-    projectionPromise ??= createContactV2ContainerProjection({
+    projectionPromise ??= createContactContainerProjection({
       containerId,
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
       userId: "user-1",
@@ -277,17 +277,17 @@ async function createContactV2RuntimePatch(input: {
         signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
-      createDocumentV2: async (request) => {
+      createDocument: async (request) => {
         input.createCalls?.push({
           linkedContainerIds: request.contentKeyBundle.targets.map(
             (target) => target.containerId,
           ),
         });
-        storedDocument = await createContactV2CreateResponse(request);
+        storedDocument = await createContactCreateResponse(request);
         return storedDocument;
       },
-      getContainerV2WriterProjection: () => getProjection(),
-      getDocumentV2WriterProjection: async () => {
+      getContainerWriterProjection: () => getProjection(),
+      getDocumentWriterProjection: async () => {
         if (!storedDocument) {
           return null;
         }
@@ -299,7 +299,7 @@ async function createContactV2RuntimePatch(input: {
           documentManifest: storedDocument.accessManifest,
         };
       },
-      syncDocumentV2: async (_documentId, request) => {
+      syncDocument: async (_documentId, request) => {
         if (!storedDocument) {
           return null;
         }
@@ -308,7 +308,7 @@ async function createContactV2RuntimePatch(input: {
           outgoingUpdateCount: request.outgoingUpdates.length,
         });
         syncCount += 1;
-        return createContactV2SyncResponse({
+        return createContactSyncResponse({
           request,
           storedDocument,
           commitLsn: syncCount === 1 ? "0/10" : "0/20",
@@ -435,13 +435,13 @@ async function createSyncRuntime(
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
 ): Promise<ContactsRuntime> {
-  const v2Patch = await createContactV2RuntimePatch({
+  const patch = await createContactRuntimePatch({
     encapsulationKeyPair,
     ...(options.createCalls ? { createCalls: options.createCalls } : {}),
     ...(options.syncCalls ? { syncCalls: options.syncCalls } : {}),
   });
   return {
-    apiClient: v2Patch.apiClient,
+    apiClient: patch.apiClient,
     containerId: "root-container",
     dbStatus: "ready",
     domainScope: {},
@@ -451,10 +451,10 @@ async function createSyncRuntime(
     isAuthenticated: true,
     log: () => {},
     online: true,
-    organizationId: v2Patch.organizationId,
-    signingFingerprint: v2Patch.signingFingerprint,
-    signingKeyPair: v2Patch.signingKeyPair,
-    userId: v2Patch.userId,
+    organizationId: patch.organizationId,
+    signingFingerprint: patch.signingFingerprint,
+    signingKeyPair: patch.signingKeyPair,
+    userId: patch.userId,
   };
 }
 
@@ -529,7 +529,7 @@ test("contacts store reloads persisted address book entries", async () => {
   });
 });
 
-test("contacts store creates and syncs a contact document through V2", async () => {
+test("contacts store creates and syncs a contact document", async () => {
   const persistence = createContactsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const createCalls: Array<{ linkedContainerIds: string[] }> = [];
@@ -559,18 +559,18 @@ test("contacts store creates and syncs a contact document through V2", async () 
       persistence.getPendingUpdates("peer-user-1").length === 0 &&
       typeof persistence.getContact("peer-user-1")?.record?.documentId ===
         "string",
-    "Contact document was not synced through V2.",
+    "Contact document was not synced.",
   );
 
   const record = persistence.getContact("peer-user-1")?.record;
   expect(createCalls).toEqual([{ linkedContainerIds: ["root-container"] }]);
   expect(syncCalls).toEqual([{ minLsn: null, outgoingUpdateCount: 1 }]);
-  expect(record?.v2ContentKeyBundle).toBeString();
-  expect(record?.v2DocumentKekTargets).toBeString();
-  expect(record?.v2DocumentManifestBundle).toBeString();
+  expect(record?.contentKeyBundle).toBeString();
+  expect(record?.documentKekTargets).toBeString();
+  expect(record?.documentManifestBundle).toBeString();
 });
 
-test("contacts store keeps contact updates on V2 without recipient fanout", async () => {
+test("contacts store keeps contact updates without recipient fanout", async () => {
   const persistence = createContactsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const createCalls: Array<{ linkedContainerIds: string[] }> = [];
@@ -610,7 +610,7 @@ test("contacts store keeps contact updates on V2 without recipient fanout", asyn
       createCalls.length === 1 &&
       syncCalls.length === 1 &&
       persistence.getPendingUpdates("peer-user-1").length === 0,
-    "Initial contact V2 sync did not complete.",
+    "Initial contact sync did not complete.",
   );
 
   importedEncapsulationPublicKey = "peer-user-1-key-2";
@@ -621,7 +621,7 @@ test("contacts store keeps contact updates on V2 without recipient fanout", asyn
       createCalls.length === 1 &&
       syncCalls.length === 2 &&
       persistence.getPendingUpdates("peer-user-1").length === 0,
-    "Follow-up contact V2 sync did not complete.",
+    "Follow-up contact sync did not complete.",
   );
 
   expect(syncCalls).toEqual([

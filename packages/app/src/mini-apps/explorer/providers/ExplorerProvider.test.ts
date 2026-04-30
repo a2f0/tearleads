@@ -10,24 +10,24 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
-  ContainerV2MutationRequest,
-  DocumentV2CreateRequest,
-  DocumentV2SyncRequest,
+  ContainerMutationRequest,
+  DocumentCreateRequest,
+  DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
-  ContainerV2MutationResponse,
-  ContainerV2WriterProjectionResponse,
-  DocumentV2CreateResponse,
-  DocumentV2SyncResponse,
-  DocumentV2WriterProjectionResponse,
+  ContainerMutationResponse,
+  ContainerWriterProjectionResponse,
+  DocumentCreateResponse,
+  DocumentSyncResponse,
+  DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import {
-  assertAccessEventV2,
-  assertContainerKeyEpochV2,
-  assertWriteHeaderV2,
-} from "../../../../test/helpers/keyingV2Assertions";
+  assertAccessEvent,
+  assertContainerKeyEpoch,
+  assertWriteHeader,
+} from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import {
   createInitializedContainerMetadataDocument,
@@ -35,11 +35,11 @@ import {
   loadContainers,
   saveContainer,
 } from "../../../data/containers";
-import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
+import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
 import {
-  buildMaterializedDocumentV2CreatePlan,
-  persistedDocumentV2CreateStateFromResponse,
-} from "../../../data/documents/documentV2Runtime";
+  buildMaterializedDocumentCreatePlan,
+  persistedDocumentCreateStateFromResponse,
+} from "../../../data/documents/documentRuntime";
 import {
   ensureDocumentTables,
   saveDocumentRecord,
@@ -58,27 +58,27 @@ type ListedContainer = NonNullable<
   Awaited<ReturnType<TestRuntime["apiClient"]["listContainers"]>>
 >[number];
 
-async function explorerMetadataV2FixtureHash(label: string): Promise<string> {
-  return toFingerprint(new TextEncoder().encode(`explorer-v2:${label}`));
+async function explorerMetadataFixtureHash(label: string): Promise<string> {
+  return toFingerprint(new TextEncoder().encode(`explorer:${label}`));
 }
 
-async function createExplorerMetadataV2ContainerProjection(input: {
+async function createExplorerMetadataContainerProjection(input: {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
   organizationId: string;
-  parentProjection?: ContainerV2WriterProjectionResponse;
+  parentProjection?: ContainerWriterProjectionResponse;
   userId: string;
-}): Promise<ContainerV2WriterProjectionResponse> {
-  const manifestHash = await explorerMetadataV2FixtureHash(
+}): Promise<ContainerWriterProjectionResponse> {
+  const manifestHash = await explorerMetadataFixtureHash(
     `${input.containerId}:manifest`,
   );
-  const eventHash = await explorerMetadataV2FixtureHash(
+  const eventHash = await explorerMetadataFixtureHash(
     `${input.containerId}:event`,
   );
-  const keyEpochHash = await explorerMetadataV2FixtureHash(
+  const keyEpochHash = await explorerMetadataFixtureHash(
     `${input.containerId}:key-epoch`,
   );
-  const keyTargetHash = await explorerMetadataV2FixtureHash(
+  const keyTargetHash = await explorerMetadataFixtureHash(
     `${input.containerId}:key-target`,
   );
   const parentManifest = input.parentProjection?.path.at(-1) ?? null;
@@ -97,23 +97,23 @@ async function createExplorerMetadataV2ContainerProjection(input: {
     input.encapsulationPublicKey,
   ]);
   if (!recipient) {
-    throw new Error("Expected V2 explorer metadata fixture recipient wrap.");
+    throw new Error("Expected explorer metadata fixture recipient wrap.");
   }
 
   const bundle = {
     event: { event: {}, body: {}, eventHash },
     manifest: {
-      version: 2,
+      version: 1,
       objectKind: "container",
       objectId: input.containerId,
       organizationId: input.organizationId,
       epoch: 1,
       previousManifestHash: null,
       eventHash,
-      structuralHash: await explorerMetadataV2FixtureHash(
+      structuralHash: await explorerMetadataFixtureHash(
         `${input.containerId}:structural`,
       ),
-      grantRoot: await explorerMetadataV2FixtureHash(
+      grantRoot: await explorerMetadataFixtureHash(
         `${input.containerId}:grant-root`,
       ),
       referencedPrincipalHeads: [],
@@ -121,7 +121,7 @@ async function createExplorerMetadataV2ContainerProjection(input: {
     },
     manifestHash,
     state: {
-      version: 2,
+      version: 1,
       containerId: input.containerId,
       organizationId: input.organizationId,
       epoch: 1,
@@ -181,13 +181,13 @@ async function createExplorerMetadataV2ContainerProjection(input: {
   };
 }
 
-async function createExplorerMetadataV2CreateResponse(
-  request: DocumentV2CreateRequest,
-): Promise<DocumentV2CreateResponse> {
+async function createExplorerMetadataCreateResponse(
+  request: DocumentCreateRequest,
+): Promise<DocumentCreateResponse> {
   const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
   const documentId = String(Reflect.get(manifest, "objectId"));
-  const event = assertAccessEventV2(request.event, "metadata document event");
+  const event = assertAccessEvent(request.event, "metadata document event");
   const eventHash = await computeAccessEventHash(event);
   const linkedContainerId = String(Reflect.get(body, "containerId"));
   const targets = request.contentKeyBundle.targets.map((target) => ({
@@ -205,7 +205,7 @@ async function createExplorerMetadataV2CreateResponse(
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
-        version: 2,
+        version: 1,
         documentId,
         organizationId: String(Reflect.get(manifest, "organizationId")),
         epoch: Number(Reflect.get(manifest, "epoch")),
@@ -236,14 +236,14 @@ async function createExplorerMetadataV2CreateResponse(
   };
 }
 
-async function createExplorerMetadataV2SyncResponse(input: {
+async function createExplorerMetadataSyncResponse(input: {
   commitLsn: string;
-  request: DocumentV2SyncRequest;
-  storedDocument: DocumentV2CreateResponse;
-}): Promise<DocumentV2SyncResponse> {
+  request: DocumentSyncRequest;
+  storedDocument: DocumentCreateResponse;
+}): Promise<DocumentSyncResponse> {
   const updates = await Promise.all(
     input.request.outgoingUpdates.map(async (update) => {
-      const writeHeader = assertWriteHeaderV2(
+      const writeHeader = assertWriteHeader(
         update.writeHeader,
         "metadata sync write header",
       );
@@ -287,16 +287,16 @@ function readRequestString(
   return value;
 }
 
-async function createExplorerContainerV2MutationResponse(
-  request: ContainerV2MutationRequest,
-): Promise<ContainerV2MutationResponse> {
+async function createExplorerContainerMutationResponse(
+  request: ContainerMutationRequest,
+): Promise<ContainerMutationResponse> {
   const body = request.body as Record<string, unknown>;
   const manifest = request.manifest as Record<string, unknown>;
-  const keyEpoch = assertContainerKeyEpochV2(
+  const keyEpoch = assertContainerKeyEpoch(
     request.keyEpoch,
     "container mutation key epoch",
   );
-  const event = assertAccessEventV2(request.event, "container mutation event");
+  const event = assertAccessEvent(request.event, "container mutation event");
   const eventHash = await computeAccessEventHash(event);
   const previousState = request.previousManifest?.state ?? null;
   const containerId = readRequestString(manifest, "objectId");
@@ -342,7 +342,7 @@ async function createExplorerContainerV2MutationResponse(
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
-        version: 2,
+        version: 1,
         containerId,
         organizationId,
         epoch: Number(Reflect.get(manifest, "epoch")),
@@ -376,8 +376,8 @@ async function createExplorerContainerV2MutationResponse(
   };
 }
 
-function createExplorerContainerV2ApiHarness(
-  initialProjections: readonly ContainerV2WriterProjectionResponse[],
+function createExplorerContainerApiHarness(
+  initialProjections: readonly ContainerWriterProjectionResponse[],
 ) {
   const projections = new Map(
     initialProjections.map((projection) => [
@@ -409,9 +409,8 @@ function createExplorerContainerV2ApiHarness(
 
   return {
     apiClient: createMockApiClient({
-      createContainerV2: async (request: ContainerV2MutationRequest) => {
-        const response =
-          await createExplorerContainerV2MutationResponse(request);
+      createContainer: async (request: ContainerMutationRequest) => {
+        const response = await createExplorerContainerMutationResponse(request);
         const parentProjection = projections.get(response.parentId ?? "");
         if (!parentProjection) {
           return null;
@@ -440,8 +439,8 @@ function createExplorerContainerV2ApiHarness(
         });
         return response;
       },
-      createDocumentV2: async (request: DocumentV2CreateRequest) => {
-        const response = await createExplorerMetadataV2CreateResponse(request);
+      createDocument: async (request: DocumentCreateRequest) => {
+        const response = await createExplorerMetadataCreateResponse(request);
         documentCreateCalls.push({
           containerId: readRequestString(
             request.body as Record<string, unknown>,
@@ -451,14 +450,13 @@ function createExplorerContainerV2ApiHarness(
         });
         return response;
       },
-      getContainerV2WriterProjection: async (containerId: string) =>
+      getContainerWriterProjection: async (containerId: string) =>
         projections.get(containerId) ?? null,
-      shareContainerV2: async (
+      shareContainer: async (
         containerId: string,
-        request: ContainerV2MutationRequest,
+        request: ContainerMutationRequest,
       ) => {
-        const response =
-          await createExplorerContainerV2MutationResponse(request);
+        const response = await createExplorerContainerMutationResponse(request);
         const previousProjection = projections.get(containerId);
         if (!previousProjection) {
           return null;
@@ -491,12 +489,11 @@ function createExplorerContainerV2ApiHarness(
         });
         return response;
       },
-      moveContainerV2: async (
+      moveContainer: async (
         containerId: string,
-        request: ContainerV2MutationRequest,
+        request: ContainerMutationRequest,
       ) => {
-        const response =
-          await createExplorerContainerV2MutationResponse(request);
+        const response = await createExplorerContainerMutationResponse(request);
         const destinationProjection = response.parentId
           ? projections.get(response.parentId)
           : null;
@@ -532,7 +529,7 @@ function createExplorerContainerV2ApiHarness(
   };
 }
 
-async function createExplorerMetadataV2Fixture(input: {
+async function createExplorerMetadataFixture(input: {
   containerId: string;
   documentId: string;
   encapsulationKeyPair: NonNullable<TestRuntime["encapsulationKeyPair"]>;
@@ -546,18 +543,16 @@ async function createExplorerMetadataV2Fixture(input: {
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
-  const containerProjection = await createExplorerMetadataV2ContainerProjection(
-    {
-      containerId: input.containerId,
-      encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
-      organizationId,
-      userId,
-    },
-  );
-  const materializedPlan = await buildMaterializedDocumentV2CreatePlan({
+  const containerProjection = await createExplorerMetadataContainerProjection({
+    containerId: input.containerId,
+    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+    organizationId,
+    userId,
+  });
+  const materializedPlan = await buildMaterializedDocumentCreatePlan({
     author: {
       organizationId,
-      signerDeviceId: createDocumentV2SignerDeviceId(signingFingerprint),
+      signerDeviceId: createDocumentSignerDeviceId(signingFingerprint),
       signerKeyFingerprint: signingFingerprint,
       signerPrivateKey: signingKeyPair.signingPrivateKey,
       signerUserId: userId,
@@ -568,11 +563,11 @@ async function createExplorerMetadataV2Fixture(input: {
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: input.encapsulationKeyPair.secretKey,
   });
-  const storedDocument = await createExplorerMetadataV2CreateResponse(
+  const storedDocument = await createExplorerMetadataCreateResponse(
     materializedPlan.plan.request,
   );
   let syncCallCount = 0;
-  const writerProjection: DocumentV2WriterProjectionResponse = {
+  const writerProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [containerProjection],
     contentKeyBundle: storedDocument.contentKeyBundle,
     documentId: storedDocument.id,
@@ -596,11 +591,11 @@ async function createExplorerMetadataV2Fixture(input: {
           userId,
         };
       },
-      getDocumentV2WriterProjection: async (documentId: string) =>
+      getDocumentWriterProjection: async (documentId: string) =>
         documentId === storedDocument.id ? writerProjection : null,
-      syncDocumentV2: async (
+      syncDocument: async (
         documentId: string,
-        request: DocumentV2SyncRequest,
+        request: DocumentSyncRequest,
       ) => {
         if (documentId !== storedDocument.id) {
           return null;
@@ -612,7 +607,7 @@ async function createExplorerMetadataV2Fixture(input: {
           outgoingUpdateCount: request.outgoingUpdates.length,
         });
 
-        return createExplorerMetadataV2SyncResponse({
+        return createExplorerMetadataSyncResponse({
           commitLsn: syncCallCount === 1 ? "0/10" : "0/20",
           request,
           storedDocument,
@@ -620,7 +615,7 @@ async function createExplorerMetadataV2Fixture(input: {
       },
     }),
     organizationId,
-    persistedState: persistedDocumentV2CreateStateFromResponse(
+    persistedState: persistedDocumentCreateStateFromResponse(
       materializedPlan.plan,
       storedDocument,
     ),
@@ -636,19 +631,19 @@ async function createSqlRuntime(): Promise<TestRuntime> {
   return {
     ...runtimeBase,
     apiClient: createMockApiClient({
-      bindBlobAttachmentV2: async () => null,
-      createContainerV2: async () => null,
-      createDocumentV2: async () => null,
+      bindBlobAttachment: async () => null,
+      createContainer: async () => null,
+      createDocument: async () => null,
       getBlob: async () => null,
-      getContainerV2WriterProjection: async () => null,
-      getDocumentV2WriterProjection: async () => null,
+      getContainerWriterProjection: async () => null,
+      getDocumentWriterProjection: async () => null,
       getEncapsulationKey: async () => null,
       listContainers: async () => [],
       listDocumentAttachments: async () => null,
-      moveContainerV2: async () => null,
-      shareContainerV2: async () => null,
+      moveContainer: async () => null,
+      shareContainer: async () => null,
       stageBlob: async () => null,
-      syncDocumentV2: async () => null,
+      syncDocument: async () => null,
     }),
   };
 }
@@ -846,8 +841,8 @@ test("explorer store creates authenticated child containers through the API befo
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
-  const v2Harness = createExplorerContainerV2ApiHarness([
-    await createExplorerMetadataV2ContainerProjection({
+  const harness = createExplorerContainerApiHarness([
+    await createExplorerMetadataContainerProjection({
       containerId: "root-container",
       encapsulationPublicKey: localKeyPair.publicKey,
       organizationId: "org-1",
@@ -863,7 +858,7 @@ test("explorer store creates authenticated child containers through the API befo
   runtime.userId = "user-1";
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
-    ...v2Harness.apiClient,
+    ...harness.apiClient,
     listContainers: async () => [],
   });
   try {
@@ -912,7 +907,7 @@ test("explorer store creates authenticated child containers through the API befo
       throw new Error("Expected createChild to return a new container node.");
     }
 
-    expect(v2Harness.containerCreateCalls).toEqual([
+    expect(harness.containerCreateCalls).toEqual([
       {
         containerId: childNode.id,
         metadataDocumentId: childNode.id,
@@ -920,7 +915,7 @@ test("explorer store creates authenticated child containers through the API befo
         wrapRecipientKinds: ["container"],
       },
     ]);
-    expect(v2Harness.documentCreateCalls).toEqual([
+    expect(harness.documentCreateCalls).toEqual([
       {
         containerId: childNode.id,
         documentId: childNode.id,
@@ -939,11 +934,11 @@ test("explorer store creates authenticated child containers through the API befo
     expect(childNode.parentId).toBe("root-container");
     const pendingRows = await runtime.execSql(
       `
-        SELECT COUNT(*) AS count
-        FROM document_pending_updates
-        WHERE app_kind = 'container-metadata'
-          AND local_id = :containerId
-      `,
+ SELECT COUNT(*) AS count
+ FROM document_pending_updates
+ WHERE app_kind = 'container-metadata'
+ AND local_id = :containerId
+ `,
       {
         ":containerId": childNode.id,
       },
@@ -1008,11 +1003,11 @@ test("explorer store queues authenticated child create when parent has no remote
 
     const pendingUpdateRows = await runtime.execSql(
       `
-        SELECT COUNT(*) AS count
-        FROM document_pending_updates
-        WHERE app_kind = 'container-metadata'
-          AND local_id = :containerId
-      `,
+ SELECT COUNT(*) AS count
+ FROM document_pending_updates
+ WHERE app_kind = 'container-metadata'
+ AND local_id = :containerId
+ `,
       {
         ":containerId": childNode.id,
       },
@@ -1094,8 +1089,8 @@ test("explorer sync creates queued local containers parent before child", async 
     const signingFingerprint = await toFingerprint(
       signingKeyPair.signingPublicKey,
     );
-    const v2Harness = createExplorerContainerV2ApiHarness([
-      await createExplorerMetadataV2ContainerProjection({
+    const harness = createExplorerContainerApiHarness([
+      await createExplorerMetadataContainerProjection({
         containerId: "root-container",
         encapsulationPublicKey: localKeyPair.publicKey,
         organizationId: "org-1",
@@ -1126,7 +1121,7 @@ test("explorer sync creates queued local containers parent before child", async 
       userId: "user-1",
       apiClient: createMockApiClient({
         ...runtime.apiClient,
-        ...v2Harness.apiClient,
+        ...harness.apiClient,
         listContainers: async () => Array.from(remoteContainers.values()),
       }),
     };
@@ -1135,14 +1130,14 @@ test("explorer sync creates queued local containers parent before child", async 
 
     await waitForCondition(
       () =>
-        v2Harness.containerCreateCalls.length === 3 &&
-        v2Harness.documentCreateCalls.length === 3,
+        harness.containerCreateCalls.length === 3 &&
+        harness.documentCreateCalls.length === 3,
       `Queued local containers were not synced.\ncreateContainerCalls=${JSON.stringify(
-        v2Harness.containerCreateCalls,
+        harness.containerCreateCalls,
       )}`,
     );
 
-    expect(v2Harness.containerCreateCalls).toEqual([
+    expect(harness.containerCreateCalls).toEqual([
       {
         containerId: parentNode.id,
         metadataDocumentId: parentNode.id,
@@ -1162,7 +1157,7 @@ test("explorer sync creates queued local containers parent before child", async 
         wrapRecipientKinds: ["container"],
       },
     ]);
-    expect(v2Harness.documentCreateCalls).toEqual([
+    expect(harness.documentCreateCalls).toEqual([
       {
         containerId: parentNode.id,
         documentId: parentNode.id,
@@ -1203,7 +1198,7 @@ test("explorer sync creates queued local containers parent before child", async 
   }
 });
 
-test("explorer store creates a V2 child under a writable shared root through the parent KEK", async () => {
+test("explorer store creates a child under a writable shared root through the parent KEK", async () => {
   const runtime = await createSqlRuntime();
   const cachedPrincipalReferences: Array<
     ReadonlyArray<{
@@ -1219,8 +1214,8 @@ test("explorer store creates a V2 child under a writable shared root through the
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
-  const v2Harness = createExplorerContainerV2ApiHarness([
-    await createExplorerMetadataV2ContainerProjection({
+  const harness = createExplorerContainerApiHarness([
+    await createExplorerMetadataContainerProjection({
       containerId: "shared-root-container",
       encapsulationPublicKey: localKeyPair.publicKey,
       organizationId: "org-2",
@@ -1240,7 +1235,7 @@ test("explorer store creates a V2 child under a writable shared root through the
   };
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
-    ...v2Harness.apiClient,
+    ...harness.apiClient,
     listContainers: async () => [
       {
         id: "shared-root-container",
@@ -1279,7 +1274,7 @@ test("explorer store creates a V2 child under a writable shared root through the
       throw new Error("Expected createChild to return a new container node.");
     }
 
-    expect(v2Harness.containerCreateCalls).toEqual([
+    expect(harness.containerCreateCalls).toEqual([
       {
         containerId: childNode.id,
         metadataDocumentId: childNode.id,
@@ -1287,7 +1282,7 @@ test("explorer store creates a V2 child under a writable shared root through the
         wrapRecipientKinds: ["container"],
       },
     ]);
-    expect(v2Harness.documentCreateCalls).toEqual([
+    expect(harness.documentCreateCalls).toEqual([
       {
         containerId: childNode.id,
         documentId: childNode.id,
@@ -1314,34 +1309,34 @@ test("explorer store moves an authenticated child container through the API and 
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
-  const rootProjection = await createExplorerMetadataV2ContainerProjection({
+  const rootProjection = await createExplorerMetadataContainerProjection({
     containerId: "root-container",
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
     userId: "user-1",
   });
-  const parentAProjection = await createExplorerMetadataV2ContainerProjection({
+  const parentAProjection = await createExplorerMetadataContainerProjection({
     containerId: "parent-a",
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
     parentProjection: rootProjection,
     userId: "user-1",
   });
-  const parentBProjection = await createExplorerMetadataV2ContainerProjection({
+  const parentBProjection = await createExplorerMetadataContainerProjection({
     containerId: "parent-b",
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
     parentProjection: rootProjection,
     userId: "user-1",
   });
-  const childProjection = await createExplorerMetadataV2ContainerProjection({
+  const childProjection = await createExplorerMetadataContainerProjection({
     containerId: "child-container",
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
     parentProjection: parentAProjection,
     userId: "user-1",
   });
-  const v2Harness = createExplorerContainerV2ApiHarness([
+  const harness = createExplorerContainerApiHarness([
     rootProjection,
     parentAProjection,
     parentBProjection,
@@ -1391,10 +1386,10 @@ test("explorer store moves an authenticated child container through the API and 
   runtime.userId = "user-1";
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
-    ...v2Harness.apiClient,
+    ...harness.apiClient,
     listContainers: async () => remoteContainers,
-    moveContainerV2: async (containerId, request) => {
-      const response = await v2Harness.apiClient.moveContainerV2(
+    moveContainer: async (containerId, request) => {
+      const response = await harness.apiClient.moveContainer(
         containerId,
         request,
       );
@@ -1446,7 +1441,7 @@ test("explorer store moves an authenticated child container through the API and 
       "Explorer store did not update the moved container parent.",
     );
 
-    expect(v2Harness.containerMoveCalls).toEqual([
+    expect(harness.containerMoveCalls).toEqual([
       {
         containerId: "child-container",
         parentId: "parent-b",
@@ -1474,17 +1469,15 @@ test("explorer store shares an authenticated container without reseeding metadat
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
-  const containerProjection = await createExplorerMetadataV2ContainerProjection(
-    {
-      containerId: "child-container",
-      encapsulationPublicKey: localKeyPair.publicKey,
-      organizationId: "org-1",
-      userId: "user-1",
-    },
-  );
-  const v2Harness = createExplorerContainerV2ApiHarness([containerProjection]);
+  const containerProjection = await createExplorerMetadataContainerProjection({
+    containerId: "child-container",
+    encapsulationPublicKey: localKeyPair.publicKey,
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+  const harness = createExplorerContainerApiHarness([containerProjection]);
   let writerProjectionCallCount = 0;
-  let v2SyncCallCount = 0;
+  let syncCallCount = 0;
 
   runtime.isAuthenticated = true;
   runtime.online = true;
@@ -1495,7 +1488,7 @@ test("explorer store shares an authenticated container without reseeding metadat
   runtime.userId = "user-1";
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
-    ...v2Harness.apiClient,
+    ...harness.apiClient,
     getEncapsulationKey: async (requestedUserId: string) => {
       if (requestedUserId !== "550e8400-e29b-41d4-a716-446655440000") {
         return null;
@@ -1508,13 +1501,13 @@ test("explorer store shares an authenticated container without reseeding metadat
         userId: requestedUserId,
       };
     },
-    getDocumentV2WriterProjection: async () => {
+    getDocumentWriterProjection: async () => {
       writerProjectionCallCount += 1;
       return null;
     },
     listContainers: async () => [],
-    syncDocumentV2: async () => {
-      v2SyncCallCount += 1;
+    syncDocument: async () => {
+      syncCallCount += 1;
       return null;
     },
   });
@@ -1558,9 +1551,9 @@ test("explorer store shares an authenticated container without reseeding metadat
         documentId: "metadata-document-1",
         id: "child-container",
         loroSnapshot: bytesToBase64(initialUpdate),
-        v2ContentKeyBundle: "stale-content-key-bundle",
-        v2DocumentKekTargets: "stale-kek-targets",
-        v2DocumentManifestBundle: "stale-manifest-bundle",
+        contentKeyBundle: "stale-content-key-bundle",
+        documentKekTargets: "stale-kek-targets",
+        documentManifestBundle: "stale-manifest-bundle",
       },
       new Date("2026-04-09T12:00:00.000Z").toISOString(),
     );
@@ -1575,7 +1568,7 @@ test("explorer store shares an authenticated container without reseeding metadat
     );
 
     writerProjectionCallCount = 0;
-    v2SyncCallCount = 0;
+    syncCallCount = 0;
     const shared = await createdStore.shareWithUser(
       "child-container",
       "550e8400-e29b-41d4-a716-446655440000",
@@ -1586,24 +1579,24 @@ test("explorer store shares an authenticated container without reseeding metadat
     await waitForCondition(async () => {
       const rows = await runtime.execSql(
         `
-          SELECT
-            v2_content_key_bundle,
-            v2_document_kek_targets,
-            v2_document_manifest_bundle
-          FROM documents
-          WHERE app_kind = 'container-metadata'
-            AND local_id = 'child-container'
-        `,
+ SELECT
+ content_key_bundle,
+ document_kek_targets,
+ document_manifest_bundle
+ FROM documents
+ WHERE app_kind = 'container-metadata'
+ AND local_id = 'child-container'
+ `,
       );
       return (
         writerProjectionCallCount > 0 &&
-        readSqlRowValue(rows[0] ?? {}, "v2_content_key_bundle") === null &&
-        readSqlRowValue(rows[0] ?? {}, "v2_document_kek_targets") === null &&
-        readSqlRowValue(rows[0] ?? {}, "v2_document_manifest_bundle") === null
+        readSqlRowValue(rows[0] ?? {}, "content_key_bundle") === null &&
+        readSqlRowValue(rows[0] ?? {}, "document_kek_targets") === null &&
+        readSqlRowValue(rows[0] ?? {}, "document_manifest_bundle") === null
       );
     }, "Explorer store did not clear stale metadata security state after share.");
 
-    expect(v2SyncCallCount).toBe(0);
+    expect(syncCallCount).toBe(0);
     expect(
       createdStore
         .getSnapshot()
@@ -1613,7 +1606,7 @@ test("explorer store shares an authenticated container without reseeding metadat
         ),
     ).toBe(true);
 
-    expect(v2Harness.containerShareCalls).toEqual([
+    expect(harness.containerShareCalls).toEqual([
       {
         accessLevel: "write",
         containerId: "child-container",
@@ -1638,7 +1631,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
     outgoingUpdateCount: number;
   }> = [];
   let store: ReturnType<typeof createExplorerStore> | null = null;
-  const v2Fixture = await createExplorerMetadataV2Fixture({
+  const fixture = await createExplorerMetadataFixture({
     containerId: "child-container",
     documentId: "metadata-document-1",
     encapsulationKeyPair: localKeyPair,
@@ -1649,13 +1642,13 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
-  runtime.organizationId = v2Fixture.organizationId;
-  runtime.signingFingerprint = v2Fixture.signingFingerprint;
-  runtime.signingKeyPair = v2Fixture.signingKeyPair;
-  runtime.userId = v2Fixture.userId;
+  runtime.organizationId = fixture.organizationId;
+  runtime.signingFingerprint = fixture.signingFingerprint;
+  runtime.signingKeyPair = fixture.signingKeyPair;
+  runtime.userId = fixture.userId;
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
-    ...v2Fixture.apiClient,
+    ...fixture.apiClient,
     listContainers: async () => [],
   });
 
@@ -1692,7 +1685,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
         localId: "child-container",
       },
       {
-        ...v2Fixture.persistedState,
+        ...fixture.persistedState,
         accessEpoch: 1,
         accessStateHash: "metadata-access-state-hash-1",
         documentId: "metadata-document-1",
@@ -1717,16 +1710,16 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       "Initial metadata sync did not complete.",
     );
 
-    await createdStore.renameContainer("child-container", "Docs v2");
+    await createdStore.renameContainer("child-container", "Docs updated");
 
     await waitForCondition(async () => {
       const pendingRows = await runtime.execSql(
         `
-            SELECT COUNT(*) AS count
-            FROM document_pending_updates
-            WHERE app_kind = 'container-metadata'
-              AND local_id = 'child-container'
-          `,
+ SELECT COUNT(*) AS count
+ FROM document_pending_updates
+ WHERE app_kind = 'container-metadata'
+ AND local_id = 'child-container'
+ `,
       );
       const pendingCount = Number(
         readSqlRowValue(pendingRows[0] ?? {}, "count") ?? 0,
@@ -1741,15 +1734,15 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
 
     const documentRows = await runtime.execSql(
       `
-        SELECT
-          last_commit_lsn,
-          v2_content_key_bundle,
-          v2_document_kek_targets,
-          v2_document_manifest_bundle
-        FROM documents
-        WHERE app_kind = 'container-metadata'
-          AND local_id = 'child-container'
-      `,
+ SELECT
+ last_commit_lsn,
+ content_key_bundle,
+ document_kek_targets,
+ document_manifest_bundle
+ FROM documents
+ WHERE app_kind = 'container-metadata'
+ AND local_id = 'child-container'
+ `,
     );
     expect(syncCalls.some((call) => call.minLsn === null)).toBe(true);
     expect(syncCalls.some((call) => call.minLsn === "0/10")).toBe(true);
@@ -1757,13 +1750,13 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       "0/20",
     );
     expect(
-      readSqlRowValue(documentRows[0] ?? {}, "v2_content_key_bundle"),
+      readSqlRowValue(documentRows[0] ?? {}, "content_key_bundle"),
     ).toBeString();
     expect(
-      readSqlRowValue(documentRows[0] ?? {}, "v2_document_kek_targets"),
+      readSqlRowValue(documentRows[0] ?? {}, "document_kek_targets"),
     ).toBeString();
     expect(
-      readSqlRowValue(documentRows[0] ?? {}, "v2_document_manifest_bundle"),
+      readSqlRowValue(documentRows[0] ?? {}, "document_manifest_bundle"),
     ).toBeString();
   } finally {
     if (store) {

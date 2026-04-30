@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
 import {
-  isBlobV2AttachmentBindResponse,
-  isBlobV2AttachmentDetachResponse,
+  isBlobAttachmentBindResponse,
+  isBlobAttachmentDetachResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
-  isContainerV2WriterProjectionResponse,
+  isContainerWriterProjectionResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
-  isDocumentV2CreateResponse,
-  isDocumentV2LinkSetMutationResponse,
-  isDocumentV2SyncResponse,
-  isDocumentV2WriterProjectionResponse,
+  isDocumentCreateResponse,
+  isDocumentLinkSetMutationResponse,
+  isDocumentSyncResponse,
+  isDocumentWriterProjectionResponse,
   isHealthResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
@@ -37,7 +37,7 @@ test("isPublicKeyResponse", () => {
       rootMetadataDocumentId: "doc-root",
       rootMetadataAccessEpoch: 1,
       rootMetadataAccessStateHash: "root-access-state-hash",
-      rootMetadataDocumentV2: createDocumentV2CreateResponse(),
+      rootMetadataDocument: createDocumentCreateResponse(),
       challenge: "deadbeef",
     }),
   ).toBe(true);
@@ -93,7 +93,7 @@ test("isStageBlobResponse", () => {
   expect(isStageBlobResponse(null)).toBe(false);
 });
 
-function createBlobV2ContentKeyBundleResponse(overrides = {}) {
+function createBlobContentKeyBundleResponse(overrides = {}) {
   return {
     blobId: "550e8400-e29b-41d4-a716-446655440001",
     contentKeyEpoch: 1,
@@ -114,7 +114,7 @@ function createBlobV2ContentKeyBundleResponse(overrides = {}) {
   };
 }
 
-function createBlobV2KekTargetsResponse(overrides = {}) {
+function createBlobKekTargetsResponse(overrides = {}) {
   return {
     blobId: "550e8400-e29b-41d4-a716-446655440001",
     organizationId: "550e8400-e29b-41d4-a716-446655440005",
@@ -129,50 +129,50 @@ function createBlobV2KekTargetsResponse(overrides = {}) {
   };
 }
 
-test("isBlobV2AttachmentBindResponse", () => {
+test("isBlobAttachmentBindResponse", () => {
   const validResponse = {
     bindingId: "550e8400-e29b-41d4-a716-446655440002",
     blobId: "550e8400-e29b-41d4-a716-446655440001",
     documentId: "550e8400-e29b-41d4-a716-446655440003",
     slotId: "slot-a",
-    contentKeyBundle: createBlobV2ContentKeyBundleResponse(),
-    blobKekTargets: createBlobV2KekTargetsResponse(),
+    contentKeyBundle: createBlobContentKeyBundleResponse(),
+    blobKekTargets: createBlobKekTargetsResponse(),
     writeHeaderHash: "write-header-hash",
   };
 
-  expect(isBlobV2AttachmentBindResponse(validResponse)).toBe(true);
+  expect(isBlobAttachmentBindResponse(validResponse)).toBe(true);
   expect(
-    isBlobV2AttachmentBindResponse({
+    isBlobAttachmentBindResponse({
       ...validResponse,
-      blobKekTargets: createBlobV2KekTargetsResponse({
+      blobKekTargets: createBlobKekTargetsResponse({
         activeBindingIds: [123],
       }),
     }),
   ).toBe(false);
   expect(
-    isBlobV2AttachmentBindResponse({
+    isBlobAttachmentBindResponse({
       ...validResponse,
-      contentKeyBundle: createBlobV2ContentKeyBundleResponse({
+      contentKeyBundle: createBlobContentKeyBundleResponse({
         contentKeyEpoch: 0,
       }),
     }),
   ).toBe(false);
-  expect(isBlobV2AttachmentBindResponse(null)).toBe(false);
+  expect(isBlobAttachmentBindResponse(null)).toBe(false);
 });
 
-test("isBlobV2AttachmentDetachResponse", () => {
+test("isBlobAttachmentDetachResponse", () => {
   expect(
-    isBlobV2AttachmentDetachResponse({
+    isBlobAttachmentDetachResponse({
       bindingId: "550e8400-e29b-41d4-a716-446655440002",
       blobId: "550e8400-e29b-41d4-a716-446655440001",
       documentId: "550e8400-e29b-41d4-a716-446655440003",
       slotId: "slot-a",
     }),
   ).toBe(true);
-  expect(isBlobV2AttachmentDetachResponse({ bindingId: "binding-1" })).toBe(
+  expect(isBlobAttachmentDetachResponse({ bindingId: "binding-1" })).toBe(
     false,
   );
-  expect(isBlobV2AttachmentDetachResponse(null)).toBe(false);
+  expect(isBlobAttachmentDetachResponse(null)).toBe(false);
 });
 
 test("isListContainersResponse", () => {
@@ -189,7 +189,7 @@ test("isListContainersResponse", () => {
           {
             principalType: "organization",
             principalId: "org-123",
-            version: 2,
+            version: 1,
             keyEpoch: 1,
             stateHash: "state-hash",
           },
@@ -380,7 +380,7 @@ test("isPrincipalPolicyBundleResponse", () => {
   expect(isPrincipalPolicyBundleResponse(null)).toBe(false);
 });
 
-function createDocumentV2ContentKeyBundleResponse(overrides = {}) {
+function createDocumentContentKeyBundleResponse(overrides = {}) {
   return {
     documentId: "550e8400-e29b-41d4-a716-446655440001",
     contentKeyEpoch: 1,
@@ -400,7 +400,7 @@ function createDocumentV2ContentKeyBundleResponse(overrides = {}) {
   };
 }
 
-function createDocumentV2KekTargetsResponse(overrides = {}) {
+function createDocumentKekTargetsResponse(overrides = {}) {
   return {
     documentId: "550e8400-e29b-41d4-a716-446655440001",
     linkSetManifestHash: "document-link-set-hash",
@@ -412,18 +412,18 @@ function createDocumentV2KekTargetsResponse(overrides = {}) {
   };
 }
 
-function createDocumentV2CreateResponse(overrides = {}) {
+function createDocumentCreateResponse(overrides = {}) {
   return {
     id: "550e8400-e29b-41d4-a716-446655440001",
     createdAt: new Date().toISOString(),
-    accessManifest: createDocumentV2ManifestBundleResponse(),
-    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
-    documentKekTargets: createDocumentV2KekTargetsResponse(),
+    accessManifest: createDocumentManifestBundleResponse(),
+    contentKeyBundle: createDocumentContentKeyBundleResponse(),
+    documentKekTargets: createDocumentKekTargetsResponse(),
     ...overrides,
   };
 }
 
-function createDocumentV2ManifestBundleResponse(overrides = {}) {
+function createDocumentManifestBundleResponse(overrides = {}) {
   return {
     event: {
       event: { eventType: "document.link" },
@@ -437,7 +437,7 @@ function createDocumentV2ManifestBundleResponse(overrides = {}) {
   };
 }
 
-function createContainerV2KekResponse(overrides = {}) {
+function createContainerKekResponse(overrides = {}) {
   return {
     containerId: "550e8400-e29b-41d4-a716-446655440000",
     accessManifestHash: "container-manifest-hash",
@@ -453,7 +453,7 @@ function createContainerV2KekResponse(overrides = {}) {
   };
 }
 
-function createContainerV2WriterProjectionResponse(overrides = {}) {
+function createContainerWriterProjectionResponse(overrides = {}) {
   return {
     containerId: "550e8400-e29b-41d4-a716-446655440000",
     organizationId: "550e8400-e29b-41d4-a716-446655440099",
@@ -469,69 +469,69 @@ function createContainerV2WriterProjectionResponse(overrides = {}) {
         state: { containerId: "550e8400-e29b-41d4-a716-446655440000" },
       },
     ],
-    containerKeks: [createContainerV2KekResponse()],
+    containerKeks: [createContainerKekResponse()],
     ...overrides,
   };
 }
 
-test("isDocumentV2CreateResponse", () => {
-  const validResponse = createDocumentV2CreateResponse();
+test("isDocumentCreateResponse", () => {
+  const validResponse = createDocumentCreateResponse();
 
-  expect(isDocumentV2CreateResponse(validResponse)).toBe(true);
+  expect(isDocumentCreateResponse(validResponse)).toBe(true);
   expect(
-    isDocumentV2CreateResponse({
+    isDocumentCreateResponse({
       ...validResponse,
-      accessManifest: createDocumentV2ManifestBundleResponse({
+      accessManifest: createDocumentManifestBundleResponse({
         manifestHash: "",
       }),
     }),
   ).toBe(false);
   expect(
-    isDocumentV2CreateResponse({
+    isDocumentCreateResponse({
       ...validResponse,
-      contentKeyBundle: createDocumentV2ContentKeyBundleResponse({
+      contentKeyBundle: createDocumentContentKeyBundleResponse({
         contentKeyEpoch: 0,
       }),
     }),
   ).toBe(false);
-  expect(isDocumentV2CreateResponse(null)).toBe(false);
+  expect(isDocumentCreateResponse(null)).toBe(false);
 });
 
-test("isDocumentV2LinkSetMutationResponse", () => {
+test("isDocumentLinkSetMutationResponse", () => {
   const validResponse = {
     id: "550e8400-e29b-41d4-a716-446655440001",
-    accessManifest: createDocumentV2ManifestBundleResponse(),
-    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
-    documentKekTargets: createDocumentV2KekTargetsResponse(),
+    accessManifest: createDocumentManifestBundleResponse(),
+    contentKeyBundle: createDocumentContentKeyBundleResponse(),
+    documentKekTargets: createDocumentKekTargetsResponse(),
   };
 
-  expect(isDocumentV2LinkSetMutationResponse(validResponse)).toBe(true);
+  expect(isDocumentLinkSetMutationResponse(validResponse)).toBe(true);
   expect(
-    isDocumentV2LinkSetMutationResponse({
+    isDocumentLinkSetMutationResponse({
       ...validResponse,
-      accessManifest: createDocumentV2ManifestBundleResponse({
+      accessManifest: createDocumentManifestBundleResponse({
         manifestHash: "",
       }),
     }),
   ).toBe(false);
   expect(
-    isDocumentV2LinkSetMutationResponse({
+    isDocumentLinkSetMutationResponse({
       ...validResponse,
-      contentKeyBundle: createDocumentV2ContentKeyBundleResponse({
+      contentKeyBundle: createDocumentContentKeyBundleResponse({
         targetHash: "",
       }),
     }),
   ).toBe(false);
-  expect(isDocumentV2LinkSetMutationResponse(null)).toBe(false);
+  expect(isDocumentLinkSetMutationResponse(null)).toBe(false);
 });
 
-test("isDocumentV2SyncResponse", () => {
+test("isDocumentSyncResponse", () => {
   const validResponse = {
     acceptedOutgoingUpdateIds: ["update-1"],
     commitLsn: null,
-    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
+    contentKeyBundle: createDocumentContentKeyBundleResponse(),
     documentId: "550e8400-e29b-41d4-a716-446655440001",
-    documentKekTargets: createDocumentV2KekTargetsResponse(),
+    documentKekTargets: createDocumentKekTargetsResponse(),
     missingUpdateEpochs: ["current_epoch"],
     updates: [
       {
@@ -549,82 +549,82 @@ test("isDocumentV2SyncResponse", () => {
     ],
   };
 
-  expect(isDocumentV2SyncResponse(validResponse)).toBe(true);
+  expect(isDocumentSyncResponse(validResponse)).toBe(true);
   expect(
-    isDocumentV2SyncResponse({
+    isDocumentSyncResponse({
       ...validResponse,
       missingUpdateEpochs: ["unknown_epoch"],
     }),
   ).toBe(false);
   expect(
-    isDocumentV2SyncResponse({
+    isDocumentSyncResponse({
       ...validResponse,
       commitLsn: 123,
     }),
   ).toBe(false);
   expect(
-    isDocumentV2SyncResponse({
+    isDocumentSyncResponse({
       ...validResponse,
       updates: [{ id: "update-2" }],
     }),
   ).toBe(false);
-  expect(isDocumentV2SyncResponse(null)).toBe(false);
+  expect(isDocumentSyncResponse(null)).toBe(false);
 });
 
-test("isContainerV2WriterProjectionResponse", () => {
-  const validResponse = createContainerV2WriterProjectionResponse();
+test("isContainerWriterProjectionResponse", () => {
+  const validResponse = createContainerWriterProjectionResponse();
 
-  expect(isContainerV2WriterProjectionResponse(validResponse)).toBe(true);
+  expect(isContainerWriterProjectionResponse(validResponse)).toBe(true);
   expect(
-    isContainerV2WriterProjectionResponse({
+    isContainerWriterProjectionResponse({
       ...validResponse,
       path: [{ manifestHash: "" }],
     }),
   ).toBe(false);
   expect(
-    isContainerV2WriterProjectionResponse({
+    isContainerWriterProjectionResponse({
       ...validResponse,
       containerKeks: [],
     }),
   ).toBe(false);
   expect(
-    isContainerV2WriterProjectionResponse({
+    isContainerWriterProjectionResponse({
       ...validResponse,
-      containerKeks: [createContainerV2KekResponse({ containerKeyEpoch: 0 })],
+      containerKeks: [createContainerKekResponse({ containerKeyEpoch: 0 })],
     }),
   ).toBe(false);
-  expect(isContainerV2WriterProjectionResponse(null)).toBe(false);
+  expect(isContainerWriterProjectionResponse(null)).toBe(false);
 });
 
-test("isDocumentV2WriterProjectionResponse", () => {
+test("isDocumentWriterProjectionResponse", () => {
   const validResponse = {
     documentId: "550e8400-e29b-41d4-a716-446655440001",
-    documentManifest: createDocumentV2ManifestBundleResponse(),
-    documentKekTargets: createDocumentV2KekTargetsResponse(),
-    contentKeyBundle: createDocumentV2ContentKeyBundleResponse(),
-    authorizingContainerPaths: [createContainerV2WriterProjectionResponse()],
+    documentManifest: createDocumentManifestBundleResponse(),
+    documentKekTargets: createDocumentKekTargetsResponse(),
+    contentKeyBundle: createDocumentContentKeyBundleResponse(),
+    authorizingContainerPaths: [createContainerWriterProjectionResponse()],
   };
 
-  expect(isDocumentV2WriterProjectionResponse(validResponse)).toBe(true);
+  expect(isDocumentWriterProjectionResponse(validResponse)).toBe(true);
   expect(
-    isDocumentV2WriterProjectionResponse({
+    isDocumentWriterProjectionResponse({
       ...validResponse,
       authorizingContainerPaths: [{ containerId: "" }],
     }),
   ).toBe(false);
   expect(
-    isDocumentV2WriterProjectionResponse({
+    isDocumentWriterProjectionResponse({
       ...validResponse,
       authorizingContainerPaths: [],
     }),
   ).toBe(false);
   expect(
-    isDocumentV2WriterProjectionResponse({
+    isDocumentWriterProjectionResponse({
       ...validResponse,
-      contentKeyBundle: createDocumentV2ContentKeyBundleResponse({
+      contentKeyBundle: createDocumentContentKeyBundleResponse({
         targetHash: "",
       }),
     }),
   ).toBe(false);
-  expect(isDocumentV2WriterProjectionResponse(null)).toBe(false);
+  expect(isDocumentWriterProjectionResponse(null)).toBe(false);
 });

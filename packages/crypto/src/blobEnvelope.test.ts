@@ -20,7 +20,7 @@ test("blob envelopes round-trip through the shared wire format", async () => {
   const serialized = serializeBlobEnvelope(envelope);
   const header = parseBlobEnvelopeHeader(serialized);
 
-  expect(serialized.startsWith("tearleads.blob.v2\n")).toBe(true);
+  expect(serialized.startsWith("tearleads.blob.v1\n")).toBe(true);
   expect(
     header.recipients.map((recipient) => recipient.keyFingerprint),
   ).toEqual(envelope.recipients.map((recipient) => recipient.keyFingerprint));
@@ -44,7 +44,7 @@ test("blob envelope headers can be read without ciphertext JSON parsing", () => 
     ],
   };
   const encryptedBytes = [
-    "tearleads.blob.v2",
+    "tearleads.blob.v1",
     JSON.stringify(header),
     "x".repeat(1024 * 1024),
   ].join("\n");

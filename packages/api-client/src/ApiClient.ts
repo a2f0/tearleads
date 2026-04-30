@@ -1,10 +1,10 @@
 import type {
-  BlobV2AttachmentBindRequest,
-  BlobV2AttachmentDetachRequest,
-  ContainerV2MutationRequest,
-  DocumentV2CreateRequest,
-  DocumentV2LinkSetMutationRequest,
-  DocumentV2SyncRequest,
+  BlobAttachmentBindRequest,
+  BlobAttachmentDetachRequest,
+  ContainerMutationRequest,
+  DocumentCreateRequest,
+  DocumentLinkSetMutationRequest,
+  DocumentSyncRequest,
   StageBlobRequest,
 } from "@tearleads/validators/request";
 import {
@@ -13,28 +13,28 @@ import {
   getEncapsulationKey,
 } from "./routes/auth";
 import {
-  bindBlobAttachmentV2,
-  detachBlobAttachmentV2,
+  bindBlobAttachment,
+  detachBlobAttachment,
   getBlob,
   stageBlob,
 } from "./routes/blobs";
 import {
-  createContainerV2,
-  getContainerV2WriterProjection,
+  createContainer,
+  getContainerWriterProjection,
   listContainerDocuments,
   listContainers,
-  moveContainerV2,
-  rekeyContainerV2,
-  revokeContainerV2,
-  shareContainerV2,
+  moveContainer,
+  rekeyContainer,
+  revokeContainer,
+  shareContainer,
 } from "./routes/containers";
 import {
-  createDocumentV2,
-  getDocumentV2WriterProjection,
-  linkDocumentV2,
+  createDocument,
+  getDocumentWriterProjection,
+  linkDocument,
   listDocumentAttachments,
-  syncDocumentV2,
-  unlinkDocumentV2,
+  syncDocument,
+  unlinkDocument,
 } from "./routes/documents";
 import { getHealth } from "./routes/health";
 import { getCurrentPrincipalPolicy } from "./routes/principals";
@@ -186,8 +186,8 @@ export class ApiClient {
     signingPublicKey: Uint8Array,
     encapsulationPublicKey: Uint8Array,
     initialOrganizationPolicy: Parameters<typeof postPublicKey>[6],
-    initialRootContainerV2: Parameters<typeof postPublicKey>[7],
-    initialRootMetadataDocumentV2: Parameters<typeof postPublicKey>[8],
+    initialRootContainer: Parameters<typeof postPublicKey>[7],
+    initialRootMetadataDocument: Parameters<typeof postPublicKey>[8],
   ) {
     return postPublicKey(
       this.request,
@@ -197,8 +197,8 @@ export class ApiClient {
       signingPublicKey,
       encapsulationPublicKey,
       initialOrganizationPolicy,
-      initialRootContainerV2,
-      initialRootMetadataDocumentV2,
+      initialRootContainer,
+      initialRootMetadataDocument,
     );
   }
 
@@ -230,40 +230,40 @@ export class ApiClient {
     return getCurrentPrincipalPolicy(this.request, principalType, principalId);
   }
 
-  createDocumentV2(input: DocumentV2CreateRequest) {
-    return createDocumentV2(this.request, input);
+  createDocument(input: DocumentCreateRequest) {
+    return createDocument(this.request, input);
   }
 
-  getContainerV2WriterProjection(containerId: string) {
-    return getContainerV2WriterProjection(this.request, containerId);
+  getContainerWriterProjection(containerId: string) {
+    return getContainerWriterProjection(this.request, containerId);
   }
 
-  createContainerV2(input: ContainerV2MutationRequest) {
-    return createContainerV2(this.request, input);
+  createContainer(input: ContainerMutationRequest) {
+    return createContainer(this.request, input);
   }
 
-  shareContainerV2(containerId: string, input: ContainerV2MutationRequest) {
-    return shareContainerV2(this.request, containerId, input);
+  shareContainer(containerId: string, input: ContainerMutationRequest) {
+    return shareContainer(this.request, containerId, input);
   }
 
-  revokeContainerV2(containerId: string, input: ContainerV2MutationRequest) {
-    return revokeContainerV2(this.request, containerId, input);
+  revokeContainer(containerId: string, input: ContainerMutationRequest) {
+    return revokeContainer(this.request, containerId, input);
   }
 
-  rekeyContainerV2(containerId: string, input: ContainerV2MutationRequest) {
-    return rekeyContainerV2(this.request, containerId, input);
+  rekeyContainer(containerId: string, input: ContainerMutationRequest) {
+    return rekeyContainer(this.request, containerId, input);
   }
 
-  moveContainerV2(containerId: string, input: ContainerV2MutationRequest) {
-    return moveContainerV2(this.request, containerId, input);
+  moveContainer(containerId: string, input: ContainerMutationRequest) {
+    return moveContainer(this.request, containerId, input);
   }
 
-  getDocumentV2WriterProjection(documentId: string) {
-    return getDocumentV2WriterProjection(this.request, documentId);
+  getDocumentWriterProjection(documentId: string) {
+    return getDocumentWriterProjection(this.request, documentId);
   }
 
-  linkDocumentV2(documentId: string, input: DocumentV2LinkSetMutationRequest) {
-    return linkDocumentV2(this.request, documentId, input);
+  linkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
+    return linkDocument(this.request, documentId, input);
   }
 
   listContainers() {
@@ -274,15 +274,12 @@ export class ApiClient {
     return listContainerDocuments(this.request, containerId);
   }
 
-  unlinkDocumentV2(
-    documentId: string,
-    input: DocumentV2LinkSetMutationRequest,
-  ) {
-    return unlinkDocumentV2(this.request, documentId, input);
+  unlinkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
+    return unlinkDocument(this.request, documentId, input);
   }
 
-  syncDocumentV2(documentId: string, input: DocumentV2SyncRequest) {
-    return syncDocumentV2(this.request, documentId, input);
+  syncDocument(documentId: string, input: DocumentSyncRequest) {
+    return syncDocument(this.request, documentId, input);
   }
 
   stageBlob(input: StageBlobRequest) {
@@ -293,16 +290,16 @@ export class ApiClient {
     return getBlob(this.request, blobId);
   }
 
-  bindBlobAttachmentV2(blobId: string, input: BlobV2AttachmentBindRequest) {
-    return bindBlobAttachmentV2(this.request, blobId, input);
+  bindBlobAttachment(blobId: string, input: BlobAttachmentBindRequest) {
+    return bindBlobAttachment(this.request, blobId, input);
   }
 
-  detachBlobAttachmentV2(
+  detachBlobAttachment(
     blobId: string,
     bindingId: string,
-    input: BlobV2AttachmentDetachRequest,
+    input: BlobAttachmentDetachRequest,
   ) {
-    return detachBlobAttachmentV2(this.request, blobId, bindingId, input);
+    return detachBlobAttachment(this.request, blobId, bindingId, input);
   }
 
   listDocumentAttachments(documentId: string) {

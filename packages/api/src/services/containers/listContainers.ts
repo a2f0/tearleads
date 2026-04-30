@@ -8,12 +8,12 @@ import {
   principalStates,
 } from "../../schema";
 import {
-  collectReferencedPrincipalsFromContainerV2Access,
-  KeyingV2ReadAccessError,
-  resolveReadableContainerV2Access,
-} from "../keyingV2ReadAccess";
+  collectReferencedPrincipalsFromContainerAccess,
+  KeyingReadAccessError,
+  resolveReadableContainerAccess,
+} from "../keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
-import { createContainerV2WriterProjectionContext } from "./v2WriterProjection";
+import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface AccessibleContainerRow {
   id: string;
@@ -52,7 +52,7 @@ function readOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-async function listAccessibleV2ContainersForUser(
+async function listAccessibleContainersForUser(
   runtime: ApiServiceRuntime,
   userId: string,
 ): Promise<AccessibleContainerRow[]> {
@@ -72,8 +72,8 @@ async function listAccessibleV2ContainersForUser(
       from current_principal_states cps
       inner join ${principalMembershipProjection} pmp
         on pmp.principal_type = cps.principal_type
-       and pmp.principal_id = cps.principal_id
-       and pmp.state_hash = cps.state_hash
+        and pmp.principal_id = cps.principal_id
+        and pmp.state_hash = cps.state_hash
       where
         pmp.member_principal_type = ${"user"}
         and pmp.member_principal_id = ${userId}
@@ -84,11 +84,11 @@ async function listAccessibleV2ContainersForUser(
       from current_principal_states cps
       inner join ${principalMembershipProjection} pmp
         on pmp.principal_type = cps.principal_type
-       and pmp.principal_id = cps.principal_id
-       and pmp.state_hash = cps.state_hash
+        and pmp.principal_id = cps.principal_id
+        and pmp.state_hash = cps.state_hash
       inner join reachable_principals rp
         on pmp.member_principal_type = rp.principal_type
-       and pmp.member_principal_id = rp.principal_id
+        and pmp.member_principal_id = rp.principal_id
     ),
     current_container_manifests as (
       select
@@ -101,7 +101,7 @@ async function listAccessibleV2ContainersForUser(
       from ${containers} c
       inner join ${accessManifestHeads} h
         on h.object_kind = ${"container"}
-       and h.object_id = c.id::text
+        and h.object_id = c.id::text
       inner join ${accessManifests} m
         on m.manifest_hash = h.manifest_hash
     ),
@@ -113,7 +113,7 @@ async function listAccessibleV2ContainersForUser(
       ) as direct_grant
       left join reachable_principals rp
         on direct_grant->>'subjectType' = rp.principal_type
-       and direct_grant->>'subjectId' = rp.principal_id
+        and direct_grant->>'subjectId' = rp.principal_id
       where
         (
           direct_grant->>'subjectType' = ${"user"}
@@ -145,9 +145,7 @@ async function listAccessibleV2ContainersForUser(
 
   for (const row of result.rows) {
     if (!isAccessibleContainerRow(row)) {
-      throw new Error(
-        "Unexpected row shape from accessible V2 containers query",
-      );
+      throw new Error("Unexpected row shape from accessible containers query");
     }
 
     const metadataAccessEpoch = readOptionalNumber(
@@ -173,30 +171,27 @@ export async function listContainers(
   runtime: ApiServiceRuntime,
   userId: string,
 ): Promise<ListContainersResponse> {
-  const containerRows = await listAccessibleV2ContainersForUser(
-    runtime,
-    userId,
-  );
+  const containerRows = await listAccessibleContainersForUser(runtime, userId);
 
   const visibleContainers: ListContainersResponse = [];
-  const accessContext = createContainerV2WriterProjectionContext(runtime.db);
+  const accessContext = createContainerWriterProjectionContext(runtime.db);
 
   for (const containerRow of containerRows) {
     if (!containerRow.metadataDocumentId) {
       continue;
     }
 
-    const v2MetadataAccessEpoch = containerRow.metadataAccessEpoch;
-    const v2MetadataAccessStateHash = containerRow.metadataAccessStateHash;
-    if (v2MetadataAccessEpoch === undefined || !v2MetadataAccessStateHash) {
+    const MetadataAccessEpoch = containerRow.metadataAccessEpoch;
+    const MetadataAccessStateHash = containerRow.metadataAccessStateHash;
+    if (MetadataAccessEpoch === undefined || !MetadataAccessStateHash) {
       continue;
     }
 
     let verifiedAccess:
-      | Awaited<ReturnType<typeof resolveReadableContainerV2Access>>
+      | Awaited<ReturnType<typeof resolveReadableContainerAccess>>
       | undefined;
     try {
-      verifiedAccess = await resolveReadableContainerV2Access({
+      verifiedAccess = await resolveReadableContainerAccess({
         containerId: containerRow.id,
         context: accessContext,
         executor: runtime.db,
@@ -204,7 +199,7 @@ export async function listContainers(
       });
     } catch (error) {
       if (
-        error instanceof KeyingV2ReadAccessError &&
+        error instanceof KeyingReadAccessError &&
         (error.status === 403 || error.status === 404 || error.status === 409)
       ) {
         continue;
@@ -214,11 +209,11 @@ export async function listContainers(
 
     visibleContainers.push({
       id: containerRow.id,
-      metadataAccessEpoch: v2MetadataAccessEpoch,
-      metadataAccessStateHash: v2MetadataAccessStateHash,
+      metadataAccessEpoch: MetadataAccessEpoch,
+      metadataAccessStateHash: MetadataAccessStateHash,
       metadataDocumentId: containerRow.metadataDocumentId,
       metadataReferencedPrincipals:
-        collectReferencedPrincipalsFromContainerV2Access([verifiedAccess]),
+        collectReferencedPrincipalsFromContainerAccess([verifiedAccess]),
       organizationId: containerRow.organizationId,
       parentId: containerRow.parentId,
     });

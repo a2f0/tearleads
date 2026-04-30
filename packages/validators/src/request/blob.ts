@@ -5,8 +5,8 @@ import {
   hasStringProperty,
 } from "../util";
 import {
-  type ContainerV2MutationRequest,
-  isOptionalContainerV2MutationRequestArray,
+  type ContainerMutationRequest,
+  isOptionalContainerMutationRequestArray,
 } from "./container";
 
 export interface StageBlobRequest {
@@ -15,14 +15,14 @@ export interface StageBlobRequest {
   sha256: string;
 }
 
-export interface BlobV2ManifestBundleRequest {
+export interface BlobManifestBundleRequest {
   event: Record<string, unknown>;
   manifest: Record<string, unknown>;
   manifestHash: string;
   state: Record<string, unknown>;
 }
 
-export interface BlobV2ContentKeyTargetEnvelopeRequest {
+export interface BlobContentKeyTargetEnvelopeRequest {
   bindingId: string;
   documentId: string;
   containerId: string;
@@ -33,33 +33,33 @@ export interface BlobV2ContentKeyTargetEnvelopeRequest {
   wrappingMetadata: Record<string, unknown>;
 }
 
-export interface BlobV2ContentKeyBundleRequest {
+export interface BlobContentKeyBundleRequest {
   contentKeyEpoch: number;
   targetHash: string;
-  targets: BlobV2ContentKeyTargetEnvelopeRequest[];
+  targets: BlobContentKeyTargetEnvelopeRequest[];
 }
 
-export interface BlobV2StagedBlobRequest {
+export interface BlobStagedBlobRequest {
   stageId: string;
   writeHeader: Record<string, unknown>;
 }
 
-export interface BlobV2AttachmentBindRequest {
+export interface BlobAttachmentBindRequest {
   event: Record<string, unknown>;
   body: unknown;
-  documentManifest: BlobV2ManifestBundleRequest;
+  documentManifest: BlobManifestBundleRequest;
   authorizingContainerPaths: Record<string, unknown>[][];
-  containerRekeys?: ContainerV2MutationRequest[];
-  contentKeyBundle: BlobV2ContentKeyBundleRequest;
-  stagedBlob?: BlobV2StagedBlobRequest;
+  containerRekeys?: ContainerMutationRequest[];
+  contentKeyBundle: BlobContentKeyBundleRequest;
+  stagedBlob?: BlobStagedBlobRequest;
 }
 
-export interface BlobV2AttachmentDetachRequest {
+export interface BlobAttachmentDetachRequest {
   event: Record<string, unknown>;
   body: unknown;
-  documentManifest: BlobV2ManifestBundleRequest;
+  documentManifest: BlobManifestBundleRequest;
   authorizingContainerPaths: Record<string, unknown>[][];
-  containerRekeys?: ContainerV2MutationRequest[];
+  containerRekeys?: ContainerMutationRequest[];
 }
 
 export function isStageBlobRequest(value: unknown): value is StageBlobRequest {
@@ -95,9 +95,9 @@ function hasPositiveNumberProperty<Key extends string>(
   );
 }
 
-function isBlobV2ManifestBundleRequest(
+function isBlobManifestBundleRequest(
   value: unknown,
-): value is BlobV2ManifestBundleRequest {
+): value is BlobManifestBundleRequest {
   const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
   const manifest = isPlainObject(value)
     ? Reflect.get(value, "manifest")
@@ -114,9 +114,9 @@ function isBlobV2ManifestBundleRequest(
   );
 }
 
-function isBlobV2ContentKeyTargetEnvelopeRequest(
+function isBlobContentKeyTargetEnvelopeRequest(
   value: unknown,
-): value is BlobV2ContentKeyTargetEnvelopeRequest {
+): value is BlobContentKeyTargetEnvelopeRequest {
   const wrappingMetadata = isPlainObject(value)
     ? Reflect.get(value, "wrappingMetadata")
     : undefined;
@@ -140,22 +140,22 @@ function isBlobV2ContentKeyTargetEnvelopeRequest(
   );
 }
 
-function isBlobV2ContentKeyBundleRequest(
+function isBlobContentKeyBundleRequest(
   value: unknown,
-): value is BlobV2ContentKeyBundleRequest {
+): value is BlobContentKeyBundleRequest {
   return (
     isPlainObject(value) &&
     hasPositiveNumberProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "targetHash") &&
     value.targetHash.length > 0 &&
     hasArrayProperty(value, "targets") &&
-    value.targets.every(isBlobV2ContentKeyTargetEnvelopeRequest)
+    value.targets.every(isBlobContentKeyTargetEnvelopeRequest)
   );
 }
 
-function isBlobV2StagedBlobRequest(
+function isBlobStagedBlobRequest(
   value: unknown,
-): value is BlobV2StagedBlobRequest {
+): value is BlobStagedBlobRequest {
   const writeHeader = isPlainObject(value)
     ? Reflect.get(value, "writeHeader")
     : undefined;
@@ -168,9 +168,9 @@ function isBlobV2StagedBlobRequest(
   );
 }
 
-export function isBlobV2AttachmentBindRequest(
+export function isBlobAttachmentBindRequest(
   value: unknown,
-): value is BlobV2AttachmentBindRequest {
+): value is BlobAttachmentBindRequest {
   const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
   const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
   const documentManifest = isPlainObject(value)
@@ -194,17 +194,17 @@ export function isBlobV2AttachmentBindRequest(
     isPlainObject(event) &&
     Reflect.has(value, "body") &&
     body !== undefined &&
-    isBlobV2ManifestBundleRequest(documentManifest) &&
+    isBlobManifestBundleRequest(documentManifest) &&
     isRecordArrayArray(authorizingContainerPaths) &&
-    isOptionalContainerV2MutationRequestArray(containerRekeys) &&
-    isBlobV2ContentKeyBundleRequest(contentKeyBundle) &&
-    (stagedBlob === undefined || isBlobV2StagedBlobRequest(stagedBlob))
+    isOptionalContainerMutationRequestArray(containerRekeys) &&
+    isBlobContentKeyBundleRequest(contentKeyBundle) &&
+    (stagedBlob === undefined || isBlobStagedBlobRequest(stagedBlob))
   );
 }
 
-export function isBlobV2AttachmentDetachRequest(
+export function isBlobAttachmentDetachRequest(
   value: unknown,
-): value is BlobV2AttachmentDetachRequest {
+): value is BlobAttachmentDetachRequest {
   const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
   const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
   const documentManifest = isPlainObject(value)
@@ -222,8 +222,8 @@ export function isBlobV2AttachmentDetachRequest(
     isPlainObject(event) &&
     Reflect.has(value, "body") &&
     body !== undefined &&
-    isBlobV2ManifestBundleRequest(documentManifest) &&
+    isBlobManifestBundleRequest(documentManifest) &&
     isRecordArrayArray(authorizingContainerPaths) &&
-    isOptionalContainerV2MutationRequestArray(containerRekeys)
+    isOptionalContainerMutationRequestArray(containerRekeys)
   );
 }

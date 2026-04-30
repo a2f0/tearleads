@@ -7,13 +7,13 @@ import {
   isUuidV4String,
 } from "../util";
 import {
-  type ContainerV2MutationRequest,
-  isContainerV2MutationRequest,
+  type ContainerMutationRequest,
+  isContainerMutationRequest,
 } from "./container";
 import {
-  type DocumentV2CreateRequest,
-  isDocumentV2CreateRequest,
-} from "./documentV2";
+  type DocumentCreateRequest,
+  isDocumentCreateRequest,
+} from "./document";
 import {
   isPrincipalMemberEnvelopeRequest,
   isPrincipalProjectionMemberRequest,
@@ -37,16 +37,16 @@ export interface PublicKeyRequest {
     projection: PrincipalProjectionMemberRequest[];
     memberEnvelopes: PrincipalMemberEnvelopeRequest[];
   };
-  initialRootContainerV2: ContainerV2MutationRequest;
-  initialRootMetadataDocumentV2: DocumentV2CreateRequest;
+  initialRootContainer: ContainerMutationRequest;
+  initialRootMetadataDocument: DocumentCreateRequest;
 }
 
 export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
-  const initialRootContainerV2 = isPlainObject(value)
-    ? Reflect.get(value, "initialRootContainerV2")
+  const initialRootContainer = isPlainObject(value)
+    ? Reflect.get(value, "initialRootContainer")
     : undefined;
-  const initialRootMetadataDocumentV2 = isPlainObject(value)
-    ? Reflect.get(value, "initialRootMetadataDocumentV2")
+  const initialRootMetadataDocument = isPlainObject(value)
+    ? Reflect.get(value, "initialRootMetadataDocument")
     : undefined;
 
   return (
@@ -76,7 +76,7 @@ export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
     value.initialOrganizationPolicy.memberEnvelopes.every(
       isPrincipalMemberEnvelopeRequest,
     ) &&
-    isContainerV2MutationRequest(initialRootContainerV2) &&
-    isDocumentV2CreateRequest(initialRootMetadataDocumentV2)
+    isContainerMutationRequest(initialRootContainer) &&
+    isDocumentCreateRequest(initialRootMetadataDocument)
   );
 }

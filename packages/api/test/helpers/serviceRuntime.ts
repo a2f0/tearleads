@@ -11,7 +11,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import { db as defaultDb } from "../../src/adapters/postgres";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
-import { createRegistrationV2Bootstrap } from "./registrationV2";
+import { createRegistrationBootstrap } from "./registration";
 
 export function createServiceTestRuntime(
   db: ApiServiceRuntime["db"] = defaultDb,
@@ -65,7 +65,7 @@ export async function createPublicKeyRequest(
   if (!organizationMemberEnvelope) {
     throw new Error("Failed to wrap organization key for test user");
   }
-  const rootBootstrap = await createRegistrationV2Bootstrap({
+  const rootBootstrap = await createRegistrationBootstrap({
     encapsulationPublicKey: user.kem.publicKey,
     organizationId,
     rootContainerId,
@@ -121,8 +121,8 @@ export async function createPublicKeyRequest(
         },
       ],
     },
-    initialRootContainerV2: rootBootstrap.initialRootContainerV2,
-    initialRootMetadataDocumentV2: rootBootstrap.initialRootMetadataDocumentV2,
+    initialRootContainer: rootBootstrap.initialRootContainer,
+    initialRootMetadataDocument: rootBootstrap.initialRootMetadataDocument,
   };
 }
 

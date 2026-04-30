@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
 import {
-  type AccessEventTypeV2,
-  type AccessManifestV2,
-  CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+  type AccessEventType,
+  type AccessManifest,
+  CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventBodyHash,
   computeAccessManifestHash,
   computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
-  computeKeyingV2DomainHash,
+  computeKeyingDomainHash,
   deriveDocumentLinkSetManifest,
   generateSigningSeedAndKeyPair,
-  type KeyingV2CanonicalJson,
+  type KeyingCanonicalJson,
   signAccessEvent,
   toFingerprint,
   type VerifiedAccessEvent,
@@ -18,7 +18,7 @@ import {
   type VerifiedDocumentLinkSetManifest,
   verifyAccessManifest,
   verifySignedAccessEvent,
-  type WriteHeaderV2,
+  type WriteHeader,
 } from "@tearleads/crypto";
 import { db } from "../adapters/postgres";
 import { containerKeyEpochs } from "../schema";
@@ -33,7 +33,7 @@ import {
 import { resolveCurrentDocumentKekTargets } from "./documentKekTargets";
 
 async function hashOf(label: string): Promise<string> {
-  return computeKeyingV2DomainHash("tearleads.keying-v2.access-event-body", {
+  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
     label,
   });
 }
@@ -41,7 +41,7 @@ async function hashOf(label: string): Promise<string> {
 async function createVerifiedEvent(input: {
   readonly body: Record<string, unknown>;
   readonly dependencyManifestHashes?: readonly string[];
-  readonly eventType: AccessEventTypeV2;
+  readonly eventType: AccessEventType;
   readonly objectId: string;
   readonly objectKind: "container" | "document";
   readonly organizationId: string;
@@ -50,7 +50,7 @@ async function createVerifiedEvent(input: {
   const signing = generateSigningSeedAndKeyPair();
   const event = await signAccessEvent(
     {
-      version: 2,
+      version: 1,
       eventId: crypto.randomUUID(),
       eventType: input.eventType,
       objectKind: input.objectKind,
@@ -59,7 +59,7 @@ async function createVerifiedEvent(input: {
       previousManifestHash: input.previousManifestHash ?? null,
       dependencyManifestHashes: [...(input.dependencyManifestHashes ?? [])],
       bodyHash: await computeAccessEventBodyHash(
-        input.body as KeyingV2CanonicalJson,
+        input.body as KeyingCanonicalJson,
       ),
       signerUserId: crypto.randomUUID(),
       signerDeviceId: "device-1",
@@ -69,7 +69,7 @@ async function createVerifiedEvent(input: {
     signing.signingPrivateKey,
   );
   const verifiedEvent = await verifySignedAccessEvent({
-    body: input.body as KeyingV2CanonicalJson,
+    body: input.body as KeyingCanonicalJson,
     event,
     signerPublicKey: signing.signingPublicKey,
   });
@@ -109,8 +109,8 @@ async function createVerifiedContainerManifest(input: {
     organizationId: input.organizationId,
     previousManifestHash: input.previousManifestHash ?? null,
   });
-  const manifest: AccessManifestV2 = {
-    version: 2,
+  const manifest: AccessManifest = {
+    version: 1,
     objectKind: "container",
     objectId: input.containerId,
     organizationId: input.organizationId,
@@ -137,7 +137,7 @@ async function createVerifiedContainerManifest(input: {
   return {
     ...verifiedManifest.value,
     state: {
-      version: 2,
+      version: 1,
       containerId: input.containerId,
       organizationId: input.organizationId,
       epoch: input.epoch ?? 1,
@@ -175,7 +175,7 @@ async function createVerifiedDocumentLinkSetManifest(input: {
     previousManifestHash: input.previousManifestHash ?? null,
   });
   const state = {
-    version: 2 as const,
+    version: 1 as const,
     documentId: input.documentId,
     organizationId: input.organizationId,
     epoch: input.epoch ?? 1,
@@ -482,23 +482,23 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
   const organizationId = crypto.randomUUID();
   const contentRecordId = "33333333-3333-4333-8333-333333333333";
   const nonceDomainHash = await computeContentRecordNonceDomainHash({
-    version: 2,
+    version: 1,
     organizationId,
     objectKind: "document",
     objectId: documentId,
     contentKeyEpoch: 1,
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId,
   });
-  const header: WriteHeaderV2 = {
-    version: 2,
+  const header: WriteHeader = {
+    version: 1,
     organizationId,
     objectKind: "document",
     objectId: documentId,
     accessManifestHash: await hashOf("write-header-manifest"),
     contentKeyEpoch: 1,
     targetHash: await hashOf("write-header-targets"),
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId,
     nonceDomainHash,
     metadataHash: await hashOf("write-header-metadata"),
@@ -560,16 +560,16 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
 
   const secondUpdateId = crypto.randomUUID();
   const secondContentRecordId = "66666666-6666-4666-8666-666666666666";
-  const secondHeader: WriteHeaderV2 = {
+  const secondHeader: WriteHeader = {
     ...header,
     contentRecordId: secondContentRecordId,
     nonceDomainHash: await computeContentRecordNonceDomainHash({
-      version: 2,
+      version: 1,
       organizationId,
       objectKind: "document",
       objectId: documentId,
       contentKeyEpoch: 1,
-      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
       contentRecordId: secondContentRecordId,
     }),
     metadataHash: await hashOf("write-header-second-metadata"),
@@ -599,23 +599,23 @@ test("storeDocumentContentWriteHeader rejects reused content record domains", as
   const organizationId = crypto.randomUUID();
   const contentRecordId = "44444444-4444-4444-8444-444444444444";
   const nonceDomainHash = await computeContentRecordNonceDomainHash({
-    version: 2,
+    version: 1,
     organizationId,
     objectKind: "document",
     objectId: documentId,
     contentKeyEpoch: 1,
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId,
   });
-  const header: WriteHeaderV2 = {
-    version: 2,
+  const header: WriteHeader = {
+    version: 1,
     organizationId,
     objectKind: "document",
     objectId: documentId,
     accessManifestHash: await hashOf("record-domain-manifest"),
     contentKeyEpoch: 1,
     targetHash: await hashOf("record-domain-targets"),
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId,
     nonceDomainHash,
     metadataHash: await hashOf("record-domain-metadata"),

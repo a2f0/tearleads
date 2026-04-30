@@ -16,12 +16,12 @@ interface RegistrationBootstrapInput {
   rootMetadataDocumentId: string;
   rootMetadataInitialUpdate: Uint8Array;
   rootMetadataSnapshot: string;
-  rootMetadataV2State: Pick<
+  rootMetadataState: Pick<
     DocumentRecord,
     | "documentId"
-    | "v2ContentKeyBundle"
-    | "v2DocumentKekTargets"
-    | "v2DocumentManifestBundle"
+    | "contentKeyBundle"
+    | "documentKekTargets"
+    | "documentManifestBundle"
   >;
   organizationId: string;
   userId: string;
@@ -48,11 +48,10 @@ export async function persistRegistrationBootstrap(
       id: input.containerId,
       lastCommitLsn: null,
       loroSnapshot: input.rootMetadataSnapshot,
-      v2ContentKeyBundle: input.rootMetadataV2State.v2ContentKeyBundle ?? null,
-      v2DocumentKekTargets:
-        input.rootMetadataV2State.v2DocumentKekTargets ?? null,
-      v2DocumentManifestBundle:
-        input.rootMetadataV2State.v2DocumentManifestBundle ?? null,
+      contentKeyBundle: input.rootMetadataState.contentKeyBundle ?? null,
+      documentKekTargets: input.rootMetadataState.documentKekTargets ?? null,
+      documentManifestBundle:
+        input.rootMetadataState.documentManifestBundle ?? null,
     };
     await sqlExplorerPersistence.saveContainer(
       lockedExecSql,
@@ -77,15 +76,15 @@ export async function persistRegistrationBootstrap(
     }
     await lockedExecSql(
       `
-        INSERT INTO address_book_projection (
-          address_book_id, user_id, encapsulation_public_key, is_self, updated_at
-        )
-        VALUES (:addressBookId, :userId, :encapsulationPublicKey, 1, :updatedAt)
-        ON CONFLICT(address_book_id, user_id) DO UPDATE SET
-          encapsulation_public_key = excluded.encapsulation_public_key,
-          is_self = 1,
-          updated_at = excluded.updated_at
-      `,
+ INSERT INTO address_book_projection (
+ address_book_id, user_id, encapsulation_public_key, is_self, updated_at
+ )
+ VALUES (:addressBookId, :userId, :encapsulationPublicKey, 1, :updatedAt)
+ ON CONFLICT(address_book_id, user_id) DO UPDATE SET
+ encapsulation_public_key = excluded.encapsulation_public_key,
+ is_self = 1,
+ updated_at = excluded.updated_at
+ `,
       {
         ":addressBookId": DEFAULT_ADDRESS_BOOK_ID,
         ":userId": input.userId,

@@ -21,12 +21,12 @@ import {
   runSqlTransaction,
   type SqlTableSchema,
 } from "../persistence/sqlSchema";
+import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "./documentConstants";
 import {
   deriveStoredDocumentKind,
   deriveStoredDocumentTitle,
   type StoredDocumentKind,
 } from "./documentKinds";
-import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "./documentV2Constants";
 
 export type { PendingUpdateRecord } from "../persistence/documentPersistence";
 
@@ -157,44 +157,44 @@ const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   {
     name: "document_projection",
     createSql: `
-      CREATE TABLE IF NOT EXISTS document_projection (
-        local_id TEXT PRIMARY KEY,
-        document_id TEXT,
-        container_id TEXT,
-        text TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `,
+ CREATE TABLE IF NOT EXISTS document_projection (
+ local_id TEXT PRIMARY KEY,
+ document_id TEXT,
+ container_id TEXT,
+ text TEXT NOT NULL,
+ updated_at TEXT NOT NULL
+ )
+ `,
   },
   {
     name: "document_pending_attachments",
     createSql: `
-      CREATE TABLE IF NOT EXISTS document_pending_attachments (
-        local_id TEXT NOT NULL,
-        slot_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        mime_type TEXT,
-        storage_key TEXT NOT NULL,
-        byte_length INTEGER NOT NULL,
-        created_at TEXT NOT NULL,
-        PRIMARY KEY (local_id, slot_id)
-      )
-    `,
+ CREATE TABLE IF NOT EXISTS document_pending_attachments (
+ local_id TEXT NOT NULL,
+ slot_id TEXT NOT NULL,
+ name TEXT NOT NULL,
+ mime_type TEXT,
+ storage_key TEXT NOT NULL,
+ byte_length INTEGER NOT NULL,
+ created_at TEXT NOT NULL,
+ PRIMARY KEY (local_id, slot_id)
+ )
+ `,
   },
   {
     name: "document_attachment_blob_projection",
     createSql: `
-      CREATE TABLE IF NOT EXISTS document_attachment_blob_projection (
-        local_id TEXT NOT NULL,
-        slot_id TEXT NOT NULL,
-        blob_id TEXT,
-        storage_key TEXT NOT NULL,
-        mime_type TEXT,
-        byte_length INTEGER NOT NULL,
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (local_id, slot_id)
-      )
-    `,
+ CREATE TABLE IF NOT EXISTS document_attachment_blob_projection (
+ local_id TEXT NOT NULL,
+ slot_id TEXT NOT NULL,
+ blob_id TEXT,
+ storage_key TEXT NOT NULL,
+ mime_type TEXT,
+ byte_length INTEGER NOT NULL,
+ updated_at TEXT NOT NULL,
+ PRIMARY KEY (local_id, slot_id)
+ )
+ `,
   },
 ];
 
@@ -307,9 +307,9 @@ function resolvePersistedDocumentRuntimeState(
 ): Pick<
   StoredDocumentRecord,
   | "lastCommitLsn"
-  | "v2ContentKeyBundle"
-  | "v2DocumentKekTargets"
-  | "v2DocumentManifestBundle"
+  | "contentKeyBundle"
+  | "documentKekTargets"
+  | "documentManifestBundle"
 > {
   const documentIdChanged = existingDocument?.documentId !== input.documentId;
   const securityContextChanged = didPersistedDocumentSecurityContextChange(
@@ -321,15 +321,15 @@ function resolvePersistedDocumentRuntimeState(
     lastCommitLsn: documentIdChanged
       ? null
       : (existingDocument?.lastCommitLsn ?? null),
-    v2ContentKeyBundle: securityContextChanged
+    contentKeyBundle: securityContextChanged
       ? null
-      : (existingDocument?.v2ContentKeyBundle ?? null),
-    v2DocumentKekTargets: securityContextChanged
+      : (existingDocument?.contentKeyBundle ?? null),
+    documentKekTargets: securityContextChanged
       ? null
-      : (existingDocument?.v2DocumentKekTargets ?? null),
-    v2DocumentManifestBundle: securityContextChanged
+      : (existingDocument?.documentKekTargets ?? null),
+    documentManifestBundle: securityContextChanged
       ? null
-      : (existingDocument?.v2DocumentManifestBundle ?? null),
+      : (existingDocument?.documentManifestBundle ?? null),
   };
 }
 
@@ -457,11 +457,11 @@ async function relinkPersistedDocumentWithExec(
 
   const updatedAtRows = await execSql(
     `
-      SELECT updated_at
-      FROM document_projection
-      WHERE local_id = :localId
-      LIMIT 1
-    `,
+ SELECT updated_at
+ FROM document_projection
+ WHERE local_id = :localId
+ LIMIT 1
+ `,
     {
       ":localId": input.localId,
     },
@@ -515,20 +515,20 @@ export async function listDocumentsByContainerIds(
 
   const rows = await execSql(
     `
-      SELECT
-        projection.local_id,
-        projection.document_id,
-        projection.container_id,
-        projection.text,
-        projection.updated_at,
-        persisted.access_state_hash
-      FROM document_projection projection
-      LEFT JOIN documents persisted
-        ON persisted.app_kind = :appKind
-       AND persisted.local_id = projection.local_id
-      WHERE projection.container_id IN (${placeholders.join(", ")})
-      ORDER BY projection.updated_at DESC, projection.local_id DESC
-    `,
+ SELECT
+ projection.local_id,
+ projection.document_id,
+ projection.container_id,
+ projection.text,
+ projection.updated_at,
+ persisted.access_state_hash
+ FROM document_projection projection
+ LEFT JOIN documents persisted
+ ON persisted.app_kind = :appKind
+ AND persisted.local_id = projection.local_id
+ WHERE projection.container_id IN (${placeholders.join(", ")})
+ ORDER BY projection.updated_at DESC, projection.local_id DESC
+ `,
     {
       ...bind,
       ":appKind": DOCUMENTS_APP_KIND,
@@ -582,20 +582,20 @@ async function listDocumentsByContainerIdsOrDocumentIds(
 
   const rows = await execSql(
     `
-      SELECT
-        projection.local_id,
-        projection.document_id,
-        projection.container_id,
-        projection.text,
-        projection.updated_at,
-        persisted.access_state_hash
-      FROM document_projection projection
-      LEFT JOIN documents persisted
-        ON persisted.app_kind = :appKind
-       AND persisted.local_id = projection.local_id
-      WHERE ${filters.join(" OR ")}
-      ORDER BY projection.updated_at DESC, projection.local_id DESC
-    `,
+ SELECT
+ projection.local_id,
+ projection.document_id,
+ projection.container_id,
+ projection.text,
+ projection.updated_at,
+ persisted.access_state_hash
+ FROM document_projection projection
+ LEFT JOIN documents persisted
+ ON persisted.app_kind = :appKind
+ AND persisted.local_id = projection.local_id
+ WHERE ${filters.join(" OR ")}
+ ORDER BY projection.updated_at DESC, projection.local_id DESC
+ `,
     bind,
   );
 
@@ -620,19 +620,19 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async listDocuments(execSql) {
     const rows = await execSql(
       `
-        SELECT
-          projection.local_id,
-          projection.document_id,
-          projection.container_id,
-          projection.text,
-          projection.updated_at,
-          persisted.access_state_hash
-        FROM document_projection projection
-        LEFT JOIN documents persisted
-          ON persisted.app_kind = :appKind
-         AND persisted.local_id = projection.local_id
-        ORDER BY projection.updated_at DESC, projection.local_id DESC
-      `,
+ SELECT
+ projection.local_id,
+ projection.document_id,
+ projection.container_id,
+ projection.text,
+ projection.updated_at,
+ persisted.access_state_hash
+ FROM document_projection projection
+ LEFT JOIN documents persisted
+ ON persisted.app_kind = :appKind
+ AND persisted.local_id = projection.local_id
+ ORDER BY projection.updated_at DESC, projection.local_id DESC
+ `,
       {
         ":appKind": DOCUMENTS_APP_KIND,
       },
@@ -654,13 +654,13 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       loadDocumentRecord(execSql, getDocumentScope(localId)),
       execSql(
         `
-          SELECT
-            text,
-            container_id
-          FROM document_projection
-          WHERE local_id = :localId
-          LIMIT 1
-        `,
+ SELECT
+ text,
+ container_id
+ FROM document_projection
+ WHERE local_id = :localId
+ LIMIT 1
+ `,
         {
           ":localId": localId,
         },
@@ -684,13 +684,13 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
           loadDocumentRecord(lockedExecSql, getDocumentScope(document.id)),
           lockedExecSql(
             `
-              SELECT
-                text,
-                updated_at
-              FROM document_projection
-              WHERE local_id = :localId
-              LIMIT 1
-            `,
+ SELECT
+ text,
+ updated_at
+ FROM document_projection
+ WHERE local_id = :localId
+ LIMIT 1
+ `,
             {
               ":localId": document.id,
             },
@@ -720,26 +720,26 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         );
         await lockedExecSql(
           `
-            INSERT INTO document_projection (
-              local_id,
-              document_id,
-              container_id,
-              text,
-              updated_at
-            )
-            VALUES (
-              :localId,
-              :documentId,
-              :containerId,
-              :text,
-              :updatedAt
-            )
-            ON CONFLICT(local_id) DO UPDATE SET
-              document_id = excluded.document_id,
-              container_id = excluded.container_id,
-              text = excluded.text,
-              updated_at = excluded.updated_at
-          `,
+ INSERT INTO document_projection (
+ local_id,
+ document_id,
+ container_id,
+ text,
+ updated_at
+ )
+ VALUES (
+ :localId,
+ :documentId,
+ :containerId,
+ :text,
+ :updatedAt
+ )
+ ON CONFLICT(local_id) DO UPDATE SET
+ document_id = excluded.document_id,
+ container_id = excluded.container_id,
+ text = excluded.text,
+ updated_at = excluded.updated_at
+ `,
           {
             ":localId": document.id,
             ":documentId": document.documentId,
@@ -773,17 +773,17 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async listPendingAttachments(execSql, localId) {
     const rows = await execSql(
       `
-        SELECT
-          local_id,
-          slot_id,
-          name,
-          mime_type,
-          storage_key,
-          byte_length
-        FROM document_pending_attachments
-        WHERE local_id = :localId
-        ORDER BY created_at, slot_id
-      `,
+ SELECT
+ local_id,
+ slot_id,
+ name,
+ mime_type,
+ storage_key,
+ byte_length
+ FROM document_pending_attachments
+ WHERE local_id = :localId
+ ORDER BY created_at, slot_id
+ `,
       {
         ":localId": localId,
       },
@@ -801,16 +801,16 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async listLocalAttachments(execSql, localId) {
     const rows = await execSql(
       `
-        SELECT
-          local_id,
-          slot_id,
-          blob_id,
-          storage_key,
-          mime_type,
-          byte_length
-        FROM document_attachment_blob_projection
-        WHERE local_id = :localId
-      `,
+ SELECT
+ local_id,
+ slot_id,
+ blob_id,
+ storage_key,
+ mime_type,
+ byte_length
+ FROM document_attachment_blob_projection
+ WHERE local_id = :localId
+ `,
       {
         ":localId": localId,
       },
@@ -840,31 +840,31 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          INSERT INTO document_attachment_blob_projection (
-            local_id,
-            slot_id,
-            blob_id,
-            storage_key,
-            mime_type,
-            byte_length,
-            updated_at
-          )
-          VALUES (
-            :localId,
-            :slotId,
-            :blobId,
-            :storageKey,
-            :mimeType,
-            :byteLength,
-            :updatedAt
-          )
-          ON CONFLICT(local_id, slot_id) DO UPDATE SET
-            blob_id = excluded.blob_id,
-            storage_key = excluded.storage_key,
-            mime_type = excluded.mime_type,
-            byte_length = excluded.byte_length,
-            updated_at = excluded.updated_at
-        `,
+ INSERT INTO document_attachment_blob_projection (
+ local_id,
+ slot_id,
+ blob_id,
+ storage_key,
+ mime_type,
+ byte_length,
+ updated_at
+ )
+ VALUES (
+ :localId,
+ :slotId,
+ :blobId,
+ :storageKey,
+ :mimeType,
+ :byteLength,
+ :updatedAt
+ )
+ ON CONFLICT(local_id, slot_id) DO UPDATE SET
+ blob_id = excluded.blob_id,
+ storage_key = excluded.storage_key,
+ mime_type = excluded.mime_type,
+ byte_length = excluded.byte_length,
+ updated_at = excluded.updated_at
+ `,
         {
           ":localId": attachment.localId,
           ":slotId": attachment.slotId,
@@ -883,30 +883,30 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          INSERT INTO document_pending_attachments (
-            local_id,
-            slot_id,
-            name,
-            mime_type,
-            storage_key,
-            byte_length,
-            created_at
-          )
-          VALUES (
-            :localId,
-            :slotId,
-            :name,
-            :mimeType,
-            :storageKey,
-            :byteLength,
-            :createdAt
-          )
-          ON CONFLICT(local_id, slot_id) DO UPDATE SET
-            name = excluded.name,
-            mime_type = excluded.mime_type,
-            storage_key = excluded.storage_key,
-            byte_length = excluded.byte_length
-        `,
+ INSERT INTO document_pending_attachments (
+ local_id,
+ slot_id,
+ name,
+ mime_type,
+ storage_key,
+ byte_length,
+ created_at
+ )
+ VALUES (
+ :localId,
+ :slotId,
+ :name,
+ :mimeType,
+ :storageKey,
+ :byteLength,
+ :createdAt
+ )
+ ON CONFLICT(local_id, slot_id) DO UPDATE SET
+ name = excluded.name,
+ mime_type = excluded.mime_type,
+ storage_key = excluded.storage_key,
+ byte_length = excluded.byte_length
+ `,
         {
           ":localId": attachment.localId,
           ":slotId": attachment.slotId,
@@ -936,9 +936,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          DELETE FROM document_pending_attachments
-          WHERE local_id = :localId AND slot_id = :slotId AND storage_key = :storageKey
-        `,
+ DELETE FROM document_pending_attachments
+ WHERE local_id = :localId AND slot_id = :slotId AND storage_key = :storageKey
+ `,
         {
           ":localId": localId,
           ":slotId": slotId,
@@ -951,9 +951,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          DELETE FROM document_pending_attachments
-          WHERE local_id = :localId
-        `,
+ DELETE FROM document_pending_attachments
+ WHERE local_id = :localId
+ `,
         {
           ":localId": localId,
         },

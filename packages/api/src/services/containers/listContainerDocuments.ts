@@ -7,10 +7,10 @@ import {
   documents,
 } from "../../schema";
 import {
-  collectReferencedPrincipalsFromContainerV2Access,
-  KeyingV2ReadAccessError,
-  resolveReadableContainerV2Access,
-} from "../keyingV2ReadAccess";
+  collectReferencedPrincipalsFromContainerAccess,
+  KeyingReadAccessError,
+  resolveReadableContainerAccess,
+} from "../keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 export class ListContainerDocumentsError extends Error {
@@ -28,13 +28,13 @@ async function requireReadableContainer(
   userId: string,
 ) {
   try {
-    return await resolveReadableContainerV2Access({
+    return await resolveReadableContainerAccess({
       containerId,
       executor: runtime.db,
       userId,
     });
   } catch (error) {
-    if (error instanceof KeyingV2ReadAccessError) {
+    if (error instanceof KeyingReadAccessError) {
       throw new ListContainerDocumentsError(error.message, error.status);
     }
     throw error;
@@ -150,9 +150,9 @@ export async function listContainerDocuments(
       runtime,
       documentRows.map((row) => row.manifestHash),
     );
-  const referencedPrincipals = collectReferencedPrincipalsFromContainerV2Access(
-    [containerAccess],
-  );
+  const referencedPrincipals = collectReferencedPrincipalsFromContainerAccess([
+    containerAccess,
+  ]);
 
   const responseBody: ListContainerDocumentsResponse = [];
 

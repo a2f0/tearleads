@@ -9,7 +9,7 @@ Core rules:
 - Raw Loro sync should cover encrypted CRDT document state.
 - Blob attach and detach should **not** exist only inside encrypted Loro diffs.
 - Attachment metadata must remain server-indexable so we can support staging,
-  permission changes, orphan cleanup, and future branch-aware reachability.
+ permission changes, orphan cleanup, and future branch-aware reachability.
 
 In other words, document sync is not a single protocol surface. It has three
 adjacent planes:
@@ -22,71 +22,71 @@ The server must remain plaintext-blind for document content.
 
 ## Protocol Shape
 
-The document plane uses signed Keying V2 mutation routes.
+The document plane uses signed Keying mutation routes.
 
 Document write routes:
 
-- `POST /v2/documents`
-  - creates a document link-set manifest and initial content-key bundle
-  - request shape: `DocumentV2CreateRequest`
-  - key fields: signed `event`, event `body`, `expectedManifestHash`,
-    `manifest`, optional `previousManifest`, optional `targetContainerPath`,
-    optional `authorizingContainerPaths`, optional signed `containerRekeys[]`,
-    and required `contentKeyBundle`
-  - response shape: `DocumentV2CreateResponse`
-- `POST /v2/documents/:documentId/link`
-- `POST /v2/documents/:documentId/unlink`
-  - advances the signed document link-set manifest
-  - request shape: `DocumentV2LinkSetMutationRequest`
-  - key fields: signed `event`, event `body`, `expectedManifestHash`,
-    `manifest`, required `previousManifest`, `targetContainerPath`,
-    `authorizingContainerPaths`, optional signed `containerRekeys[]`, and
-    required `contentKeyBundle`
-  - response shape: `DocumentV2LinkSetMutationResponse`
-- `POST /v2/documents/:documentId/sync`
-  - syncs encrypted Loro updates against the current signed link-set manifest
-    and current derived KEK targets
-  - request shape: `DocumentV2SyncRequest`
-  - key fields: optional `contentKeyBundle`, optional signed
-    `containerRekeys[]`, `contentKeyEpoch`, optional `documentManifest`,
-    `expectedLinkSetManifestHash`, `expectedTargetHash`, optional
-    `authorizingContainerPaths`, `localVersionVector`, optional `minLsn`, and
-    `outgoingUpdates[]`
-  - each outgoing update includes `id`, encrypted `encryptedData`, visible
-    `partialStartVersionVector`, visible `partialEndVersionVector`, optional
-    `sourceVersionVector`, optional `checkpointKind`, and a signed
-    `writeHeader`
-  - response shape: `DocumentV2SyncResponse`
-  - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
-    `contentKeyBundle`, `documentId`, `documentKekTargets`,
-    `missingUpdateEpochs[]` (`prior_epoch` / `current_epoch`), and encrypted
-    `updates[]`
-  - each returned update includes its stored `accessEpoch`, visible causal
-    metadata, signed `writeHeader`, and `writeHeaderHash`
+- `POST /documents`
+ - creates a document link-set manifest and initial content-key bundle
+ - request shape: `DocumentCreateRequest`
+ - key fields: signed `event`, event `body`, `expectedManifestHash`,
+ `manifest`, optional `previousManifest`, optional `targetContainerPath`,
+ optional `authorizingContainerPaths`, optional signed `containerRekeys[]`,
+ and required `contentKeyBundle`
+ - response shape: `DocumentCreateResponse`
+- `POST /documents/:documentId/link`
+- `POST /documents/:documentId/unlink`
+ - advances the signed document link-set manifest
+ - request shape: `DocumentLinkSetMutationRequest`
+ - key fields: signed `event`, event `body`, `expectedManifestHash`,
+ `manifest`, required `previousManifest`, `targetContainerPath`,
+ `authorizingContainerPaths`, optional signed `containerRekeys[]`, and
+ required `contentKeyBundle`
+ - response shape: `DocumentLinkSetMutationResponse`
+- `POST /documents/:documentId/sync`
+ - syncs encrypted Loro updates against the current signed link-set manifest
+ and current derived KEK targets
+ - request shape: `DocumentSyncRequest`
+ - key fields: optional `contentKeyBundle`, optional signed
+ `containerRekeys[]`, `contentKeyEpoch`, optional `documentManifest`,
+ `expectedLinkSetManifestHash`, `expectedTargetHash`, optional
+ `authorizingContainerPaths`, `localVersionVector`, optional `minLsn`, and
+ `outgoingUpdates[]`
+ - each outgoing update includes `id`, encrypted `encryptedData`, visible
+ `partialStartVersionVector`, visible `partialEndVersionVector`, optional
+ `sourceVersionVector`, optional `checkpointKind`, and a signed
+ `writeHeader`
+ - response shape: `DocumentSyncResponse`
+ - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
+ `contentKeyBundle`, `documentId`, `documentKekTargets`,
+ `missingUpdateEpochs[]` (`prior_epoch` / `current_epoch`), and encrypted
+ `updates[]`
+ - each returned update includes its stored `accessEpoch`, visible causal
+ metadata, signed `writeHeader`, and `writeHeaderHash`
 
 Attachment write routes:
 
 - `POST /blobs/stage`
-  - stores temporary encrypted blob bytes
-  - request shape: `StageBlobRequest`
-- `POST /v2/blobs/:blobId/attachment-bindings`
-  - binds or same-slot replaces a blob attachment through signed
-    `attachment.bind`
-  - request shape: `BlobV2AttachmentBindRequest`
-  - key fields: signed event/body, verified document manifest,
-    `authorizingContainerPaths`, optional signed `containerRekeys[]`, blob
-    `contentKeyBundle`, and optional staged blob plus signed blob `writeHeader`
-- `POST /v2/blobs/:blobId/attachment-bindings/:bindingId/detach`
-  - detaches a blob attachment through signed `attachment.detach`
-  - request shape: `BlobV2AttachmentDetachRequest`
+ - stores temporary encrypted blob bytes
+ - request shape: `StageBlobRequest`
+- `POST /blobs/:blobId/attachment-bindings`
+ - binds or same-slot replaces a blob attachment through signed
+ `attachment.bind`
+ - request shape: `BlobAttachmentBindRequest`
+ - key fields: signed event/body, verified document manifest,
+ `authorizingContainerPaths`, optional signed `containerRekeys[]`, blob
+ `contentKeyBundle`, and optional staged blob plus signed blob `writeHeader`
+- `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
+ - detaches a blob attachment through signed `attachment.detach`
+ - request shape: `BlobAttachmentDetachRequest`
 
-Access write routes are the signed `/v2/containers` mutation family:
+Access write routes are the signed `/containers` mutation family:
 
-- `POST /v2/containers`
-- `POST /v2/containers/:containerId/share`
-- `POST /v2/containers/:containerId/revoke`
-- `POST /v2/containers/:containerId/rekey`
-- `POST /v2/containers/:containerId/move`
+- `POST /containers`
+- `POST /containers/:containerId/share`
+- `POST /containers/:containerId/revoke`
+- `POST /containers/:containerId/rekey`
+- `POST /containers/:containerId/move`
 
 For the full HTTP surface, see
 [api-architecture.md](./api-architecture.md#http-protocol-surface).
@@ -118,75 +118,75 @@ material.
 Implemented behavior:
 
 - each encrypted Loro update carries:
-  - an inline `accessEpoch`
-  - AES-GCM ciphertext encrypted with the current document DEK
+ - an inline `accessEpoch`
+ - AES-GCM ciphertext encrypted with the current document DEK
 - sync responses also expose each returned update's stored `accessEpoch`, plus
-  a `missingUpdateEpochs[]` summary so clients can distinguish prior-epoch
-  updates needed for rotate rebasing from current-epoch updates after a
-  completed rotate
+ a `missingUpdateEpochs[]` summary so clients can distinguish prior-epoch
+ updates needed for rotate rebasing from current-epoch updates after a
+ completed rotate
 - clients group all returned updates by `accessEpoch` before decryption, so
-  cold syncs and multi-epoch catch-up can attempt every returned epoch with the
-  best available current or previous bundle material instead of silently
-  dropping intermediate epochs
+ cold syncs and multi-epoch catch-up can attempt every returned epoch with the
+ best available current or previous bundle material instead of silently
+ dropping intermediate epochs
 - accepted current-epoch sync writes return a `commitLsn`, and the server
-  materializes per-peer `document_update_spans` from each update's visible
-  partial version-vector metadata in the same transaction as the encrypted
-  `document_updates` row
-- the current document content-key bundle is materialized in V2
-  `document_content_key_targets` rows with required wrapped-key material
-- blob content-key bundles are materialized in V2 `blob_content_key_targets`
-  rows, and container KEK sharing is materialized in `container_key_wraps`
-- `POST /auth/register` and signed `/v2/containers` mutations seed initial
-  metadata document bundles atomically
+ materializes per-peer `document_update_spans` from each update's visible
+ partial version-vector metadata in the same transaction as the encrypted
+ `document_updates` row
+- the current document content-key bundle is materialized in
+ `document_content_key_targets` rows with required wrapped-key material
+- blob content-key bundles are materialized in `blob_content_key_targets`
+ rows, and container KEK sharing is materialized in `container_key_wraps`
+- `POST /auth/register` and signed `/containers` mutations seed initial
+ metadata document bundles atomically
 - committed blob envelopes carry real
-  wrapped-key material that the API can persist for blob objects when the blob
-  recipient set matches current access
+ wrapped-key material that the API can persist for blob objects when the blob
+ recipient set matches current access
 - blob envelopes use a header-delimited wire format so recipient metadata
-  can be read without JSON-parsing the ciphertext body
+ can be read without JSON-parsing the ciphertext body
 - committed attachments update current blob recipient wraps in place
-  for additive access growth, and `GET /blobs/:blobId` serves the current
-  wrapped-recipient header from sidecar metadata without creating a new blob
-  row
-- access-sensitive create and structural mutation routes are signed V2 routes:
-  - `POST /v2/documents`
-  - `POST /v2/documents/:documentId/link`
-  - `POST /v2/documents/:documentId/unlink`
-  - signed `/v2/containers` mutations
+ for additive access growth, and `GET /blobs/:blobId` serves the current
+ wrapped-recipient header from sidecar metadata without creating a new blob
+ row
+- access-sensitive create and structural mutation routes are signed routes:
+ - `POST /documents`
+ - `POST /documents/:documentId/link`
+ - `POST /documents/:documentId/unlink`
+ - signed `/containers` mutations
 - those routes verify signed manifests and current derived targets before
-  accepting key material or writes
-- the app explorer drives signed V2 container mutations directly for
-  container writes and uses `link` + `unlink` to move a note between containers
-  without creating a new document object; it also exposes direct note
-  link/detach controls in note detail and can locally switch which linked
-  container is treated as the active note projection
+ accepting key material or writes
+- the app explorer drives signed container mutations directly for
+ container writes and uses `link` + `unlink` to move a note between containers
+ without creating a new document object; it also exposes direct note
+ link/detach controls in note detail and can locally switch which linked
+ container is treated as the active note projection
 - additive document epoch changes reuse the current document DEK by
-  materializing a current-epoch key-target bundle; notes and contacts preserve
-  pending Loro updates and retry them under the new epoch instead of replacing
-  them with a full baseline
+ materializing a current-epoch key-target bundle; notes and contacts preserve
+ pending Loro updates and retry them under the new epoch instead of replacing
+ them with a full baseline
 - note attachment rewrap-only work commits blob key-target updates
-  without sending an unrelated Loro baseline
+ without sending an unrelated Loro baseline
 - note clients with pending local attachment drafts for an existing remote
-  document may first issue a no-outgoing V2 document sync probe, so completed
-  target changes are visible before the signed blob attachment bind/detach
-  mutation
+ document may first issue a no-outgoing document sync probe, so completed
+ target changes are visible before the signed blob attachment bind/detach
+ mutation
 
 Limitations:
 
 - document/blob bundle material consumes cached principal policy bundles
-  and can target current group/org keys, but managed grants require current
-  signed policy state to remain usable; missing policy state fails closed
-  instead of degrading to expanded user recipients
+ and can target current group/org keys, but managed grants require current
+ signed policy state to remain usable; missing policy state fails closed
+ instead of degrading to expanded user recipients
 - container/document discovery and Loro create/sync responses expose
-  `referencedPrincipals[]` summaries so clients can discover and cache the
-  current signed group/org policy states that back those principal recipients
+ `referencedPrincipals[]` summaries so clients can discover and cache the
+ current signed group/org policy states that back those principal recipients
 - the app explorer renders linked document projections beneath each
-  linked container, exposes document link/unlink management, and can switch
-  which linked container is locally active
+ linked container, exposes document link/unlink management, and can switch
+ which linked container is locally active
 - subtractive rotation for document epochs uses the fresh-baseline path with
-  source-frontier validation; durable audit/history hardening remains separate
-  work
+ source-frontier validation; durable audit/history hardening remains separate
+ work
 - encrypted Loro updates do not expose `referencedSlotIds[]`; adding a visible
-  slot-reference proof or another explicit protocol extension is future work
+ slot-reference proof or another explicit protocol extension is future work
 
 For the access-plane model, see
 [access-plane.md](./access-plane.md).
@@ -256,27 +256,27 @@ updates.
 Objects:
 
 - `blob_object`
-  - immutable encrypted blob bytes in object storage
+ - immutable encrypted blob bytes in object storage
 - `blob_stage`
-  - temporary staged upload owned by one actor and expiring automatically
+ - temporary staged upload owned by one actor and expiring automatically
 - `note_attachment`
-  - logical attachment record keyed to a note
+ - logical attachment record keyed to a note
 - `attachment_binding`
-  - server-visible binding from attachment record to blob object; this model keeps
-    detached bindings only as transient replacement metadata and prunes them
-    with unreachable blobs
+ - server-visible binding from attachment record to blob object; this model keeps
+ detached bindings only as transient replacement metadata and prunes them
+ with unreachable blobs
 
 For the attachment/blob retention decision, see
 [attachment-retention.md](./attachment-retention.md). Historical attachment
 bytes, signed tombstones, and attachment manifests are audit/history
-concepts, not part of the live V2 attachment binding contract.
+concepts, not part of the live attachment binding contract.
 
 For the access-plane model, the important semantic is:
 
 - blobs are first-class encrypted objects
 - blobs may be attached to multiple documents
 - a blob's effective recipients are derived from the union of the principals of
-  the documents that currently reference it
+ the documents that currently reference it
 
 So attach and detach are not only indexing operations. They are also
 security-relevant graph mutations that may require blob content-key epoch
@@ -285,18 +285,18 @@ changes and wrapped-key bundle changes for the blob object.
 Logical operations:
 
 - `POST /blobs/stage`
-- `POST /v2/blobs/:blobId/attachment-bindings`
-- `POST /v2/blobs/:blobId/attachment-bindings/:bindingId/detach`
+- `POST /blobs/:blobId/attachment-bindings`
+- `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
 
 Implementation objects:
 
 - `blob_stages`
-  - temporary encrypted upload bytes keyed by `stageId`
+ - temporary encrypted upload bytes keyed by `stageId`
 - `attachment_bindings`
-  - document-visible attachment state keyed by opaque `slotId`
-  - `detached_at IS NULL` means the binding is currently active
-  - detached rows are transient and may be pruned when blob GC removes the
-    now-unreachable blob they referenced
+ - document-visible attachment state keyed by opaque `slotId`
+ - `detached_at IS NULL` means the binding is currently active
+ - detached rows are transient and may be pruned when blob GC removes the
+ now-unreachable blob they referenced
 
 This means blob reachability is derived from active attachment bindings.
 
@@ -325,18 +325,18 @@ The contract separates encrypted document sync from server-visible signed
 attachment binding mutations:
 
 1. `POST /blobs/stage`
-2. `POST /v2/blobs/:blobId/attachment-bindings`
-3. `POST /v2/blobs/:blobId/attachment-bindings/:bindingId/detach`
-4. `POST /v2/documents/:documentId/sync` for the encrypted Loro update that
-   makes the attachment visible in note content
+2. `POST /blobs/:blobId/attachment-bindings`
+3. `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
+4. `POST /documents/:documentId/sync` for the encrypted Loro update that
+ makes the attachment visible in note content
 
 For an existing remote document, clients may probe
-`POST /v2/documents/:documentId/sync` with no outgoing updates before
+`POST /documents/:documentId/sync` with no outgoing updates before
 committing a pending local attachment draft. That probe refreshes the current
 signed document manifest, content-key bundle, and target state before the
 attachment mutation.
 
-The V2 blob binding route validates:
+The blob binding route validates:
 
 - signed `attachment.bind` event and body
 - expected blob id, document id, slot id, and previous binding id
@@ -347,7 +347,7 @@ The V2 blob binding route validates:
 - blob content-key bundle against current derived blob KEK targets
 - signed staged blob write header when bytes are promoted
 
-The V2 blob detach route validates:
+The blob detach route validates:
 
 - signed `attachment.detach` event and body
 - expected blob id, document id, slot id, and binding id
@@ -355,12 +355,12 @@ The V2 blob detach route validates:
 - authorizing container paths and referenced principal policy state
 - optional signed container rekeys
 
-If a V2 attachment mutation succeeds:
+If a attachment mutation succeeds:
 
 - staged blobs are promoted to committed blob objects when supplied
 - requested binding replacements/detaches are persisted
 - detached bindings, blob content-key material, and blob bytes are pruned when
-  no active binding references the blob after the mutation
+ no active binding references the blob after the mutation
 - affected blob key targets are recomputed and persisted
 
 Because encrypted Loro updates do not expose `referencedSlotIds[]`, the server
@@ -377,9 +377,9 @@ Reason:
 
 - a new binding id does not exist until the atomic commit lands
 - the client can know and reference a stable opaque slot before the server
-  generates the replacement binding
+ generates the replacement binding
 - semantic labels such as `front` and `back` remain client-local, while the
-  server only sees opaque attachment identities
+ server only sees opaque attachment identities
 
 ## Loro And Attachments
 
@@ -401,7 +401,7 @@ So the answer to "does attach/detach get wired into the Loro protocol?" is:
 - not as the only source of truth
 - only as a client-visible reference inside note content if useful
 - authoritative attach/detach state should live beside Loro, not inside opaque
-  encrypted diffs alone
+ encrypted diffs alone
 
 One practical consequence is:
 
@@ -439,13 +439,13 @@ Prefer server-authoritative reachability derived from:
 Blob states:
 
 - staged only
-  - can expire and be abandoned automatically
+ - can expire and be abandoned automatically
 - attached
-  - live and reachable
+ - live and reachable
 - detached but still referenced elsewhere
-  - not orphaned
+ - not orphaned
 - detached and unreachable from all live metadata roots
-  - GC eligible after grace period
+ - GC eligible after grace period
 
 If there is no branching yet, treat every object as living on a single
 implicit branch, usually `main`.
@@ -467,9 +467,9 @@ The protocol should fail closed:
 
 - attachment commit is checked against current permission state
 - attachment commit includes the `accessEpoch` the client thought it was
-  targeting
+ targeting
 - server rejects commit if that epoch is stale or if the caller no longer has
-  write permission
+ write permission
 
 Future writes then use a new epoch and new key-target envelopes.
 
@@ -504,7 +504,7 @@ Loro causal metadata does not, by itself, solve database replication lag.
 ### Slice 3: access and epochs
 
 - define `accessEpoch`
-- define V2 key-target updates for notes and attachments
+- define key-target updates for notes and attachments
 - document non-retroactive revocation limits
 
 ### Slice 4: GC and reachability
@@ -519,7 +519,7 @@ For the original implementation:
 
 - keep `packages/loro` focused on the document-plane protocol
 - keep attachment lifecycle adjacent to, but separate from, the raw Loro sync
-  handshake
+ handshake
 - do not require server-side indexing of encrypted Loro diffs to manage blobs
 
 That keeps the document-plane protocol coherent while leaving room for a larger

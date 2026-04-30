@@ -1,8 +1,8 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
 
-const ENCRYPTED_BLOB_FORMAT_V2 = "tearleads.blob.v2";
-const ENCRYPTED_BLOB_PREFIX_V2 = `${ENCRYPTED_BLOB_FORMAT_V2}\n`;
+const ENCRYPTED_BLOB_FORMAT = "tearleads.blob.v1";
+const ENCRYPTED_BLOB_PREFIX = `${ENCRYPTED_BLOB_FORMAT}\n`;
 
 export interface SerializedBlobRecipientEntry {
   keyFingerprint: string;
@@ -66,11 +66,11 @@ function decodeRecipients(
   }));
 }
 
-function parseV2WireParts(encryptedBytes: string): {
+function parseWireParts(encryptedBytes: string): {
   header: SerializedBlobEnvelopeHeader;
   ciphertext: string;
 } {
-  const headerStart = ENCRYPTED_BLOB_PREFIX_V2.length;
+  const headerStart = ENCRYPTED_BLOB_PREFIX.length;
   const headerEnd = encryptedBytes.indexOf("\n", headerStart);
 
   if (headerEnd < 0) {
@@ -93,7 +93,7 @@ function parseV2WireParts(encryptedBytes: string): {
 
 export function serializeBlobEnvelope(envelope: EncryptedEnvelope): string {
   return [
-    ENCRYPTED_BLOB_FORMAT_V2,
+    ENCRYPTED_BLOB_FORMAT,
     JSON.stringify({
       iv: bytesToBase64(envelope.iv),
       recipients: encodeRecipients(envelope.recipients),
@@ -105,19 +105,19 @@ export function serializeBlobEnvelope(envelope: EncryptedEnvelope): string {
 export function parseBlobEnvelopeHeader(
   encryptedBytes: string,
 ): SerializedBlobEnvelopeHeader {
-  if (!encryptedBytes.startsWith(ENCRYPTED_BLOB_PREFIX_V2)) {
+  if (!encryptedBytes.startsWith(ENCRYPTED_BLOB_PREFIX)) {
     throw new Error("Invalid encrypted blob envelope");
   }
 
-  return parseV2WireParts(encryptedBytes).header;
+  return parseWireParts(encryptedBytes).header;
 }
 
 export function parseBlobEnvelope(encryptedBytes: string): EncryptedEnvelope {
-  if (!encryptedBytes.startsWith(ENCRYPTED_BLOB_PREFIX_V2)) {
+  if (!encryptedBytes.startsWith(ENCRYPTED_BLOB_PREFIX)) {
     throw new Error("Invalid encrypted blob envelope");
   }
 
-  const { header, ciphertext } = parseV2WireParts(encryptedBytes);
+  const { header, ciphertext } = parseWireParts(encryptedBytes);
 
   return {
     iv: base64ToBytes(header.iv),

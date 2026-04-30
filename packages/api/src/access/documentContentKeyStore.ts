@@ -1,10 +1,10 @@
 import {
   computeDocumentContentKeyTargetHash,
-  type DocumentContentKeyTargetV2,
-  type KeyingV2CanonicalJson,
-  KeyingV2VerificationError,
-  serializeKeyingV2CanonicalJson,
-  type WriteHeaderV2,
+  type DocumentContentKeyTarget,
+  type KeyingCanonicalJson,
+  KeyingVerificationError,
+  serializeKeyingCanonicalJson,
+  type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
@@ -25,9 +25,9 @@ type CurrentDocumentKekTargets = Awaited<
 >;
 
 export interface DocumentContentKeyTargetEnvelope
-  extends DocumentContentKeyTargetV2 {
+  extends DocumentContentKeyTarget {
   readonly wrappedKey: string;
-  readonly wrappingMetadata: KeyingV2CanonicalJson;
+  readonly wrappingMetadata: KeyingCanonicalJson;
 }
 
 interface StoredDocumentContentKeyBundle {
@@ -62,22 +62,21 @@ export class DocumentContentKeyBundleError extends Error {
 }
 
 function canonicalJsonEquals(
-  left: KeyingV2CanonicalJson,
-  right: KeyingV2CanonicalJson,
+  left: KeyingCanonicalJson,
+  right: KeyingCanonicalJson,
 ): boolean {
   return (
-    serializeKeyingV2CanonicalJson(left) ===
-    serializeKeyingV2CanonicalJson(right)
+    serializeKeyingCanonicalJson(left) === serializeKeyingCanonicalJson(right)
   );
 }
 
-function targetKey(target: Pick<DocumentContentKeyTargetV2, "containerId">) {
+function targetKey(target: Pick<DocumentContentKeyTarget, "containerId">) {
   return target.containerId;
 }
 
 function toTargetFields(
   envelope: DocumentContentKeyTargetEnvelope,
-): DocumentContentKeyTargetV2 {
+): DocumentContentKeyTarget {
   return {
     containerId: envelope.containerId,
     containerManifestHash: envelope.containerManifestHash,
@@ -95,8 +94,8 @@ function sortTargetEnvelopes(
 }
 
 function targetFieldsEqual(
-  left: DocumentContentKeyTargetV2,
-  right: DocumentContentKeyTargetV2,
+  left: DocumentContentKeyTarget,
+  right: DocumentContentKeyTarget,
 ): boolean {
   return (
     left.containerId === right.containerId &&
@@ -171,13 +170,13 @@ function assertWrappedMaterialPresent(
 }
 
 function expectedTargetMap(
-  targets: readonly DocumentContentKeyTargetV2[],
-): Map<string, DocumentContentKeyTargetV2> {
+  targets: readonly DocumentContentKeyTarget[],
+): Map<string, DocumentContentKeyTarget> {
   return new Map(targets.map((target) => [targetKey(target), target]));
 }
 
 function currentTargetsContainPreviousBundle(input: {
-  readonly currentTargets: readonly DocumentContentKeyTargetV2[];
+  readonly currentTargets: readonly DocumentContentKeyTarget[];
   readonly previousTargets: readonly DocumentContentKeyTargetEnvelope[];
 }): boolean {
   const currentTargetByContainerId = expectedTargetMap(input.currentTargets);
@@ -241,7 +240,7 @@ async function assertTargetHashMatches(input: {
     if (error instanceof DocumentContentKeyBundleError) {
       throw error;
     }
-    if (error instanceof KeyingV2VerificationError) {
+    if (error instanceof KeyingVerificationError) {
       throw new DocumentContentKeyBundleError(error.message, 409);
     }
     throw error;
@@ -748,7 +747,7 @@ export async function requireCurrentDocumentContentKeyBundle(input: {
 export async function storeDocumentContentWriteHeader(
   input: {
     readonly documentId: string;
-    readonly header: WriteHeaderV2;
+    readonly header: WriteHeader;
     readonly headerHash: string;
     readonly updateId: string;
   },
@@ -803,7 +802,7 @@ export async function storeDocumentContentWriteHeader(
 export async function listDocumentContentWriteHeaders(
   updateIds: readonly string[],
   executor: DocumentContentKeyExecutor = db,
-): Promise<Map<string, { header: WriteHeaderV2; headerHash: string }>> {
+): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
   const uniqueUpdateIds = [...new Set(updateIds)];
   if (uniqueUpdateIds.length === 0) {
     return new Map();

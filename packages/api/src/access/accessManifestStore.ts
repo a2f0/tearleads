@@ -1,15 +1,15 @@
 import type {
-  AccessManifestV2,
-  AccessObjectKindV2,
+  AccessManifest,
+  AccessObjectKind,
   AnyVerifiedAccessManifest,
-  ContainerAccessManifestStateV2,
-  DocumentLinkSetManifestStateV2,
-  KeyingV2CanonicalJson,
-  ReferencedPrincipalHeadV2,
+  ContainerAccessManifestState,
+  DocumentLinkSetManifestState,
+  KeyingCanonicalJson,
+  ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
-import { serializeKeyingV2CanonicalJson } from "@tearleads/crypto";
+import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
@@ -22,7 +22,7 @@ import {
 } from "../schema";
 
 /**
- * V2 access projection tables are derived cache only.
+ * access projection tables are derived cache only.
  *
  * Callers must verify signed access events and manifests with the crypto
  * package before trusting any row returned here for authorization decisions.
@@ -31,7 +31,7 @@ import {
 type AccessManifestStoreExecutor = DatabaseExecutor;
 
 interface StoredAccessManifestHead {
-  readonly objectKind: AccessObjectKindV2;
+  readonly objectKind: AccessObjectKind;
   readonly objectId: string;
   readonly organizationId: string;
   readonly epoch: number;
@@ -41,16 +41,16 @@ interface StoredAccessManifestHead {
 
 interface StoredAccessEventDependencyProjection {
   readonly eventHash: string;
-  readonly objectKind: AccessObjectKindV2;
+  readonly objectKind: AccessObjectKind;
   readonly objectId: string;
   readonly dependencyManifestHash: string;
   readonly dependencyIndex: number;
 }
 
 interface StoredAccessManifestPrincipalHeadProjection
-  extends ReferencedPrincipalHeadV2 {
+  extends ReferencedPrincipalHead {
   readonly manifestHash: string;
-  readonly objectKind: AccessObjectKindV2;
+  readonly objectKind: AccessObjectKind;
   readonly objectId: string;
 }
 
@@ -66,9 +66,9 @@ interface StoreVerifiedAccessManifestInput {
 
 interface StoredAccessManifestBundle {
   readonly event: VerifiedAccessEvent;
-  readonly manifest: AccessManifestV2;
+  readonly manifest: AccessManifest;
   readonly manifestHash: string;
-  readonly state: KeyingV2CanonicalJson;
+  readonly state: KeyingCanonicalJson;
 }
 
 function accessEventDependencyHashes(event: VerifiedAccessEvent): string[] {
@@ -77,15 +77,15 @@ function accessEventDependencyHashes(event: VerifiedAccessEvent): string[] {
 
 function accessManifestReferencedHeads(
   manifest: AnyVerifiedAccessManifest,
-): ReferencedPrincipalHeadV2[] {
+): ReferencedPrincipalHead[] {
   return manifest.manifest.referencedPrincipalHeads.map((principalHead) => ({
     ...principalHead,
   }));
 }
 
 function containerDirectGrantsCanonicalJson(
-  directGrants: ContainerAccessManifestStateV2["directGrants"],
-): KeyingV2CanonicalJson {
+  directGrants: ContainerAccessManifestState["directGrants"],
+): KeyingCanonicalJson {
   return directGrants.map((grant) => ({
     accessLevel: grant.accessLevel,
     subjectId: grant.subjectId,
@@ -94,8 +94,8 @@ function containerDirectGrantsCanonicalJson(
 }
 
 function containerAccessManifestStateCanonicalJson(
-  state: ContainerAccessManifestStateV2,
-): KeyingV2CanonicalJson {
+  state: ContainerAccessManifestState,
+): KeyingCanonicalJson {
   return {
     version: state.version,
     containerId: state.containerId,
@@ -115,8 +115,8 @@ function containerAccessManifestStateCanonicalJson(
 }
 
 function documentLinkSetStateCanonicalJson(
-  state: DocumentLinkSetManifestStateV2,
-): KeyingV2CanonicalJson {
+  state: DocumentLinkSetManifestState,
+): KeyingCanonicalJson {
   return {
     version: state.version,
     documentId: state.documentId,
@@ -134,7 +134,7 @@ function unrecognizedAccessManifestState(state: never): never {
 
 function accessManifestState(
   manifest: AnyVerifiedAccessManifest,
-): KeyingV2CanonicalJson {
+): KeyingCanonicalJson {
   if (!("state" in manifest)) {
     return {};
   }
@@ -171,8 +171,8 @@ function documentLinkSetState(
 }
 
 function referencedPrincipalHeadsCanonicalJson(
-  principalHeads: readonly ReferencedPrincipalHeadV2[],
-): KeyingV2CanonicalJson {
+  principalHeads: readonly ReferencedPrincipalHead[],
+): KeyingCanonicalJson {
   return principalHeads.map((principalHead) => ({
     principalType: principalHead.principalType,
     principalId: principalHead.principalId,
@@ -184,12 +184,11 @@ function referencedPrincipalHeadsCanonicalJson(
 }
 
 function canonicalJsonMatches(
-  left: KeyingV2CanonicalJson,
-  right: KeyingV2CanonicalJson,
+  left: KeyingCanonicalJson,
+  right: KeyingCanonicalJson,
 ): boolean {
   return (
-    serializeKeyingV2CanonicalJson(left) ===
-    serializeKeyingV2CanonicalJson(right)
+    serializeKeyingCanonicalJson(left) === serializeKeyingCanonicalJson(right)
   );
 }
 
@@ -368,7 +367,7 @@ async function ensureStoredAccessManifestMatches(
     ) ||
     storedManifest.keyTargetHash !== manifest.keyTargetHash ||
     !canonicalJsonMatches(
-      storedManifest.state as KeyingV2CanonicalJson,
+      storedManifest.state as KeyingCanonicalJson,
       accessManifestState(verifiedManifest),
     )
   ) {
@@ -381,7 +380,7 @@ function toStoredAccessEvent(
 ): VerifiedAccessEvent {
   return {
     event: {
-      version: row.version as 2,
+      version: row.version as 1,
       eventId: row.eventId,
       eventType: row.eventType,
       objectKind: row.objectKind,
@@ -399,16 +398,16 @@ function toStoredAccessEvent(
       signedAt: row.signedAt.toISOString(),
       signature: row.signature,
     },
-    body: row.body as KeyingV2CanonicalJson,
+    body: row.body as KeyingCanonicalJson,
     eventHash: row.eventHash,
   } as VerifiedAccessEvent;
 }
 
 function toStoredAccessManifest(
   row: typeof accessManifests.$inferSelect,
-): AccessManifestV2 {
+): AccessManifest {
   return {
-    version: row.version as 2,
+    version: row.version as 1,
     objectKind: row.objectKind,
     objectId: row.objectId,
     organizationId: row.organizationId,
@@ -417,7 +416,7 @@ function toStoredAccessManifest(
     eventHash: row.eventHash,
     structuralHash: row.structuralHash,
     grantRoot: row.grantRoot,
-    referencedPrincipalHeads: readJsonArray<ReferencedPrincipalHeadV2>(
+    referencedPrincipalHeads: readJsonArray<ReferencedPrincipalHead>(
       row.referencedPrincipalHeads,
       "access manifest referenced principal heads",
     ),
@@ -479,7 +478,7 @@ export async function getAccessManifestBundle(
     event: toStoredAccessEvent(event),
     manifest: toStoredAccessManifest(manifest),
     manifestHash: manifest.manifestHash,
-    state: manifest.state as KeyingV2CanonicalJson,
+    state: manifest.state as KeyingCanonicalJson,
   };
 }
 
@@ -524,7 +523,7 @@ async function regenerateAccessManifestPrincipalProjection(
       ),
     );
 
-  const referencedPrincipalHeads = readJsonArray<ReferencedPrincipalHeadV2>(
+  const referencedPrincipalHeads = readJsonArray<ReferencedPrincipalHead>(
     manifest.referencedPrincipalHeads,
     "access manifest principal projection source",
   );
@@ -597,7 +596,7 @@ export async function regenerateAccessManifestProjections(
 }
 
 async function loadCurrentAccessManifestHead(
-  objectKind: AccessObjectKindV2,
+  objectKind: AccessObjectKind,
   objectId: string,
   executor: AccessManifestStoreExecutor,
 ): Promise<StoredAccessManifestHead | null> {
@@ -696,7 +695,7 @@ export async function storeVerifiedAccessManifest(
 }
 
 export async function getCurrentAccessManifestHead(
-  objectKind: AccessObjectKindV2,
+  objectKind: AccessObjectKind,
   objectId: string,
   executor: AccessManifestStoreExecutor = db,
 ): Promise<StoredAccessManifestHead | null> {
@@ -704,7 +703,7 @@ export async function getCurrentAccessManifestHead(
 }
 
 export async function getCurrentAccessManifestHeads(
-  objectKind: AccessObjectKindV2,
+  objectKind: AccessObjectKind,
   objectIds: readonly string[],
   executor: AccessManifestStoreExecutor = db,
 ): Promise<Map<string, StoredAccessManifestHead>> {

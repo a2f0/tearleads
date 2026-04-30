@@ -1,4 +1,4 @@
-import type { ContainerKekTargetV2 } from "@tearleads/crypto";
+import type { ContainerKekTarget } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import { accessManifestHeads, accessManifests } from "../schema";
@@ -42,23 +42,20 @@ function readContainerManifestTarget(input: {
 }): Pick<ContainerManifestTarget, "containerKeyEpochId" | "parentContainerId"> {
   if (!isRecord(input.state)) {
     throw new ContainerKekTargetError(
-      "Container V2 manifest state is invalid",
+      "Container manifest state is invalid",
       409,
     );
   }
 
   const state = input.state as ContainerManifestStateProjection;
-  if (state.version !== 2 || state.containerId !== input.containerId) {
-    throw new ContainerKekTargetError(
-      "Container V2 manifest state mismatch",
-      409,
-    );
+  if (state.version !== 1 || state.containerId !== input.containerId) {
+    throw new ContainerKekTargetError("Container manifest state mismatch", 409);
   }
 
   const containerKeyEpochId = state.containerKeyEpochId;
   if (typeof containerKeyEpochId !== "string" || !containerKeyEpochId) {
     throw new ContainerKekTargetError(
-      "Container V2 manifest has no current KEK epoch",
+      "Container manifest has no current KEK epoch",
       409,
     );
   }
@@ -66,7 +63,7 @@ function readContainerManifestTarget(input: {
   const parentContainerId = readNullableString(state.parentContainerId);
   if (parentContainerId === null && state.parentContainerId !== null) {
     throw new ContainerKekTargetError(
-      "Container V2 manifest parent is invalid",
+      "Container manifest parent is invalid",
       409,
     );
   }
@@ -173,13 +170,13 @@ async function loadCurrentContainerManifestTargetClosure(input: {
     }
     if (row.cycleDetected) {
       throw new ContainerKekTargetError(
-        `Container V2 parent cycle detected at container ${row.id}`,
+        `Container parent cycle detected at container ${row.id}`,
         409,
       );
     }
     if (row.objectKind !== "container" || row.objectId !== row.id) {
       throw new ContainerKekTargetError(
-        "Container V2 manifest bundle mismatch",
+        "Container manifest bundle mismatch",
         409,
       );
     }
@@ -208,7 +205,7 @@ function getContainerKeyEpoch(
   const keyEpoch = keyEpochById.get(target.containerKeyEpochId);
   if (!keyEpoch) {
     throw new ContainerKekTargetError(
-      `Container V2 KEK epoch missing for container ${target.containerId}`,
+      `Container KEK epoch missing for container ${target.containerId}`,
       409,
     );
   }
@@ -217,7 +214,7 @@ function getContainerKeyEpoch(
     keyEpoch.accessManifestHash !== target.containerManifestHash
   ) {
     throw new ContainerKekTargetError(
-      `Container V2 KEK epoch is stale for container ${target.containerId}`,
+      `Container KEK epoch is stale for container ${target.containerId}`,
       409,
     );
   }
@@ -235,7 +232,7 @@ function assertContainerKekParentEdgesCurrent(input: {
     if (target.parentContainerId === null) {
       if (keyEpoch.parentContainerKeyEpochId !== null) {
         throw new ContainerKekTargetError(
-          `Container V2 KEK parent edge is stale for container ${target.containerId}`,
+          `Container KEK parent edge is stale for container ${target.containerId}`,
           409,
         );
       }
@@ -247,7 +244,7 @@ function assertContainerKekParentEdgesCurrent(input: {
     );
     if (!parentTarget) {
       throw new ContainerKekTargetError(
-        `Container V2 KEK parent target is missing for container ${target.containerId} (parent: ${target.parentContainerId})`,
+        `Container KEK parent target is missing for container ${target.containerId} (parent: ${target.parentContainerId})`,
         409,
       );
     }
@@ -260,7 +257,7 @@ function assertContainerKekParentEdgesCurrent(input: {
       keyEpoch.parentContainerKeyEpochId !== parentTarget.containerKeyEpochId
     ) {
       throw new ContainerKekTargetError(
-        `Container V2 KEK parent edge is stale for container ${target.containerId}`,
+        `Container KEK parent edge is stale for container ${target.containerId}`,
         409,
       );
     }
@@ -270,7 +267,7 @@ function assertContainerKekParentEdgesCurrent(input: {
 export async function resolveCurrentContainerKekTargets(
   containerIds: readonly string[],
   executor: ContainerKekTargetExecutor = db,
-): Promise<Map<string, ContainerKekTargetV2>> {
+): Promise<Map<string, ContainerKekTarget>> {
   const uniqueContainerIds = [...new Set(containerIds)].sort();
 
   if (uniqueContainerIds.length === 0) {
@@ -294,7 +291,7 @@ export async function resolveCurrentContainerKekTargets(
       const target = targetByContainerId.get(containerId);
       if (!target) {
         throw new ContainerKekTargetError(
-          "Container V2 manifest head missing",
+          "Container manifest head missing",
           409,
         );
       }

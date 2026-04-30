@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import {
-  type AttachmentBindAccessEventBodyV2,
-  type AttachmentDetachAccessEventBodyV2,
+  type AttachmentBindAccessEventBody,
+  type AttachmentDetachAccessEventBody,
   computeAccessEventBodyHash,
-  computeKeyingV2DomainHash,
-  type KeyingV2CanonicalJson,
+  computeKeyingDomainHash,
+  type KeyingCanonicalJson,
   type VerifiedAccessEvent,
   type VerifiedAttachmentBinding,
   type VerifiedAttachmentDetach,
@@ -18,20 +18,20 @@ import {
 } from "./attachmentBindingStore";
 
 async function hashOf(label: string): Promise<string> {
-  return computeKeyingV2DomainHash("tearleads.keying-v2.access-event-body", {
+  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
     label,
   });
 }
 
 async function verifiedAttachmentEvent(
-  body: AttachmentBindAccessEventBodyV2 | AttachmentDetachAccessEventBodyV2,
+  body: AttachmentBindAccessEventBody | AttachmentDetachAccessEventBody,
   organizationId: string,
 ): Promise<VerifiedAccessEvent> {
   const eventHash = await hashOf(`${body.eventType}:${body.bindingId}:event`);
 
   return {
     event: {
-      version: 2,
+      version: 1,
       eventId: crypto.randomUUID(),
       eventType: body.eventType,
       objectKind: "blob",
@@ -40,7 +40,7 @@ async function verifiedAttachmentEvent(
       previousManifestHash: null,
       dependencyManifestHashes: [body.documentManifestHash],
       bodyHash: await computeAccessEventBodyHash(
-        body as unknown as KeyingV2CanonicalJson,
+        body as unknown as KeyingCanonicalJson,
       ),
       signerUserId: crypto.randomUUID(),
       signerDeviceId: "device-1",
@@ -48,7 +48,7 @@ async function verifiedAttachmentEvent(
       signedAt: new Date().toISOString(),
       signature: `signature:${eventHash}`,
     },
-    body: body as unknown as KeyingV2CanonicalJson,
+    body: body as unknown as KeyingCanonicalJson,
     eventHash,
   } as unknown as VerifiedAccessEvent;
 }
@@ -59,7 +59,7 @@ test("storeVerifiedAttachmentBinding projects signed bind and detach events", as
   const blobId = crypto.randomUUID();
   const documentId = crypto.randomUUID();
   const documentManifestHash = await hashOf(`${documentId}:manifest`);
-  const body: AttachmentBindAccessEventBodyV2 = {
+  const body: AttachmentBindAccessEventBody = {
     eventType: "attachment.bind",
     bindingId,
     blobId,
@@ -93,7 +93,7 @@ test("storeVerifiedAttachmentBinding projects signed bind and detach events", as
     id: bindingId,
   });
 
-  const detachBody: AttachmentDetachAccessEventBodyV2 = {
+  const detachBody: AttachmentDetachAccessEventBody = {
     eventType: "attachment.detach",
     bindingId,
     blobId,

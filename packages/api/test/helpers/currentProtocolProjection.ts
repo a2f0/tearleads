@@ -32,7 +32,7 @@ export async function createCurrentDocumentProjection(input: {
   const epoch = input.epoch ?? 1;
   const eventHash = `test-document-event:${crypto.randomUUID()}`;
   const state = {
-    version: 2,
+    version: 1,
     documentId: document.id,
     organizationId: input.organizationId,
     epoch,
@@ -57,7 +57,7 @@ export async function createCurrentDocumentProjection(input: {
     signerDeviceId: "test-device",
     signerKeyFingerprint: input.createdByFingerprint,
     signerUserId: "test-user",
-    version: 2,
+    version: 1,
   });
   await db.insert(accessManifests).values({
     epoch,
@@ -72,7 +72,7 @@ export async function createCurrentDocumentProjection(input: {
     referencedPrincipalHeads: [],
     state,
     structuralHash: "test-structural",
-    version: 2,
+    version: 1,
   });
   await db.insert(accessManifestHeads).values({
     epoch,

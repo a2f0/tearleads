@@ -23,8 +23,8 @@ A single use case can touch more than one plane. For example:
 
 - `shareContainer` is mostly access-plane work
 - `createContainer` touches access plane and metadata-document setup
-- signed V2 document/blob mutations span document, attachment, and access
-  planes
+- signed document/blob mutations span document, attachment, and access
+ planes
 
 Protocol planes are a domain model, not a source-tree layout rule.
 
@@ -38,21 +38,21 @@ Write surfaces:
 
 | Capability | Route | Validator |
 | --- | --- | --- |
-| Register identity and bootstrap root V2 state | `POST /auth/register` | `PublicKeyRequest` |
+| Register identity and bootstrap root state | `POST /auth/register` | `PublicKeyRequest` |
 | Store principal policy state | `PUT /principals/:principalType/:principalId/state` | `PutPrincipalStateRequest` |
 | Store principal member envelopes | `PUT /principals/:principalType/:principalId/member-envelopes` | `PutPrincipalMemberEnvelopesRequest` |
-| Create container | `POST /v2/containers` | `ContainerV2MutationRequest` |
-| Share container | `POST /v2/containers/:containerId/share` | `ContainerV2MutationRequest` |
-| Revoke container grant | `POST /v2/containers/:containerId/revoke` | `ContainerV2MutationRequest` |
-| Rekey container | `POST /v2/containers/:containerId/rekey` | `ContainerV2MutationRequest` |
-| Move container | `POST /v2/containers/:containerId/move` | `ContainerV2MutationRequest` |
-| Create document | `POST /v2/documents` | `DocumentV2CreateRequest` |
-| Link document to container | `POST /v2/documents/:documentId/link` | `DocumentV2LinkSetMutationRequest` |
-| Unlink document from container | `POST /v2/documents/:documentId/unlink` | `DocumentV2LinkSetMutationRequest` |
-| Sync encrypted Loro updates | `POST /v2/documents/:documentId/sync` | `DocumentV2SyncRequest` |
+| Create container | `POST /containers` | `ContainerMutationRequest` |
+| Share container | `POST /containers/:containerId/share` | `ContainerMutationRequest` |
+| Revoke container grant | `POST /containers/:containerId/revoke` | `ContainerMutationRequest` |
+| Rekey container | `POST /containers/:containerId/rekey` | `ContainerMutationRequest` |
+| Move container | `POST /containers/:containerId/move` | `ContainerMutationRequest` |
+| Create document | `POST /documents` | `DocumentCreateRequest` |
+| Link document to container | `POST /documents/:documentId/link` | `DocumentLinkSetMutationRequest` |
+| Unlink document from container | `POST /documents/:documentId/unlink` | `DocumentLinkSetMutationRequest` |
+| Sync encrypted Loro updates | `POST /documents/:documentId/sync` | `DocumentSyncRequest` |
 | Stage encrypted blob bytes | `POST /blobs/stage` | `StageBlobRequest` |
-| Bind or replace blob attachment | `POST /v2/blobs/:blobId/attachment-bindings` | `BlobV2AttachmentBindRequest` |
-| Detach blob attachment | `POST /v2/blobs/:blobId/attachment-bindings/:bindingId/detach` | `BlobV2AttachmentDetachRequest` |
+| Bind or replace blob attachment | `POST /blobs/:blobId/attachment-bindings` | `BlobAttachmentBindRequest` |
+| Detach blob attachment | `POST /blobs/:blobId/attachment-bindings/:bindingId/detach` | `BlobAttachmentDetachRequest` |
 
 Read surfaces:
 
@@ -60,14 +60,14 @@ Read surfaces:
 | --- | --- |
 | List containers | `GET /containers` |
 | List container documents | `GET /containers/:containerId/documents` |
-| Get container writer projection | `GET /v2/containers/:containerId/writer-projection` |
-| Get document writer projection | `GET /v2/documents/:documentId/writer-projection` |
+| Get container writer projection | `GET /containers/:containerId/writer-projection` |
+| Get document writer projection | `GET /documents/:documentId/writer-projection` |
 | List active document attachments | `GET /documents/:documentId/attachments` |
 | Get committed blob bytes | `GET /blobs/:blobId` |
 | Get principal policy bundle | `GET /principals/:principalType/:principalId/policy` |
 | Get user key material | `GET /auth/encapsulation-key/:userId` |
 
-The document sync request names signed V2 fields:
+The document sync request names signed fields:
 `contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
 optional `contentKeyBundle`, optional `containerRekeys`, optional
 `documentManifest`, optional `authorizingContainerPaths`, `localVersionVector`,
@@ -84,11 +84,11 @@ The API is organized in layers like this:
 These are the top-level process and app bindings.
 
 - `packages/api/src/index.ts`
-  - server entrypoint
-  - owns the HTTP server binding and websocket upgrade handling
+ - server entrypoint
+ - owns the HTTP server binding and websocket upgrade handling
 - `packages/api/src/routeApp.ts`
-  - reusable HTTP app
-  - owns route registration, but not the outer server process
+ - reusable HTTP app
+ - owns route registration, but not the outer server process
 
 This split allows in-process callers, especially tests, to use the HTTP app
 without importing the full server entrypoint and its runtime side effects.
@@ -188,7 +188,7 @@ This boundary exists so that:
 Rule:
 
 - if a use case is important enough to test from app UI through MSW, it must
-  live in a service module, not only in a route body
+ live in a service module, not only in a route body
 
 ## Service Coverage
 
@@ -198,10 +198,10 @@ The service layer covers these route-backed capabilities:
 - blob staging and blob reads
 - container creation, listing, sharing, movement, and document listing
 - container metadata document creation for auth registration and container
-  creation
-- V2 document creation, sync storage, and writer projection
+ creation
+- document creation, sync storage, and writer projection
 - document attachment listing
-- V2 blob staging, attachment binding, and detach mutations
+- blob staging, attachment binding, and detach mutations
 - document link and unlink mutations
 - principal policy read and write operations
 
@@ -237,14 +237,14 @@ maps service errors to HTTP responses, while the service owns blob-read
 authorization, committed blob lookup, current key-target projection,
 and digest recalculation through the injected runtime database.
 
-Document creation and sync writes are implemented by signed V2 mutation
-services. The V2 document route validates request shape and maps service
-errors to HTTP responses; `documentV2Mutations` owns manifest verification,
+Document creation and sync writes are implemented by signed mutation
+services. The document route validates request shape and maps service
+errors to HTTP responses; `documentMutations` owns manifest verification,
 content-key target validation, write-header verification, and update storage.
-The neutral `documentUpdateStore` owns causally-missing update reads for V2
+The neutral `documentUpdateStore` owns causally-missing update reads for
 sync responses.
 
-Blob attachment mutations are implemented by signed V2 blob routes. They own
+Blob attachment mutations are implemented by signed blob routes. They own
 server-visible attachment binding changes, staged blob promotion, blob
 key-target validation, and blob reachability cleanup.
 
@@ -301,13 +301,13 @@ Rules:
 1. Hono route files stay thin.
 2. Services accept validated arguments, not `Context`.
 3. Services depend on explicit runtime interfaces, not hidden globals where
-   practical.
+ practical.
 4. Domain helpers model access/document/attachment logic and remain reusable.
 5. Infrastructure adapters do not own business policy.
 6. App-side integration tests call shared service logic or `routeApp`,
-   not import the full server entrypoint.
+ not import the full server entrypoint.
 7. Protocol planes can cross service boundaries, but transport concerns do
-   not leak downward.
+ not leak downward.
 
 ## Follow-up Work
 
