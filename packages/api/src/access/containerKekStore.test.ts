@@ -5,11 +5,14 @@ import type {
   ContainerKeyEpochV2,
   ContainerKeyWrapV2,
   ContainerUserRecipientKeyV2,
+  ReferencedPrincipalHeadV2,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeKeyingV2DomainHash,
+  derivePrincipalRecipientKeyEpochId,
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
@@ -35,6 +38,7 @@ async function createContainerManifestFixture(input: {
   readonly epoch?: number;
   readonly organizationId?: string;
   readonly previousManifestHash?: string | null;
+  readonly referencedPrincipalHeads?: readonly ReferencedPrincipalHeadV2[];
   readonly salt?: string;
 }): Promise<VerifiedContainerAccessManifest> {
   const organizationId = input.organizationId ?? crypto.randomUUID();
@@ -51,7 +55,7 @@ async function createContainerManifestFixture(input: {
     eventHash,
     structuralHash: await fixtureHash(`${input.containerId}:structural`),
     grantRoot: await fixtureHash(`${input.containerId}:grant-root`),
-    referencedPrincipalHeads: [],
+    referencedPrincipalHeads: [...(input.referencedPrincipalHeads ?? [])],
     keyTargetHash: await fixtureHash(`${input.containerId}:key-target`),
   };
   const manifestHash = await fixtureHash(
@@ -79,7 +83,7 @@ async function createContainerManifestFixture(input: {
       metadataDocumentId: `${input.containerId}-metadata-document`,
       containerKeyEpochId: input.containerKeyEpochId,
       directGrants: [...input.directGrants],
-      referencedPrincipalHeads: [],
+      referencedPrincipalHeads: [...(input.referencedPrincipalHeads ?? [])],
     },
   } as unknown as VerifiedContainerAccessManifest;
 }
@@ -112,18 +116,62 @@ async function createContainerKeyWrap(input: {
   readonly recipientId: string;
   readonly recipientKeyEpochId: string;
   readonly recipientKeyFingerprint: string;
+  readonly recipientKind?: ContainerKeyWrapV2["recipientKind"];
   readonly wrapManifestHash: string;
 }): Promise<ContainerKeyWrapV2> {
   return {
     containerKeyEpochId: input.containerKeyEpochId,
-    recipientKind: "user",
+    recipientKind: input.recipientKind ?? "user",
     recipientId: input.recipientId,
     recipientKeyEpochId: input.recipientKeyEpochId,
     recipientKeyFingerprint: input.recipientKeyFingerprint,
-    kemCipherText: `kem:${await fixtureHash(`${input.recipientId}:kem`)}`,
-    wrappedKey: `wrapped:${await fixtureHash(`${input.recipientId}:wrapped`)}`,
+    kemCipherText: `kem:${await fixtureHash(
+      `${input.recipientId}:${input.recipientKeyEpochId}:kem`,
+    )}`,
+    wrappedKey: `wrapped:${await fixtureHash(
+      `${input.recipientId}:${input.recipientKeyEpochId}:wrapped`,
+    )}`,
     wrapManifestHash: input.wrapManifestHash,
   };
+}
+
+async function principalHeadFixture(input: {
+  readonly keyEpoch: number;
+  readonly principalId: string;
+  readonly version: number;
+}): Promise<ReferencedPrincipalHeadV2> {
+  return {
+    principalType: "group",
+    principalId: input.principalId,
+    version: input.version,
+    keyEpoch: input.keyEpoch,
+    stateHash: await fixtureHash(`${input.principalId}:state:${input.version}`),
+    keyFingerprint: await fixtureHash(
+      `${input.principalId}:key:${input.keyEpoch}`,
+    ),
+  };
+}
+
+function principalPolicyFixture(
+  head: ReferencedPrincipalHeadV2,
+): VerifiedPrincipalPolicy {
+  return {
+    principalType: head.principalType,
+    principalId: head.principalId,
+    version: head.version,
+    keyEpoch: head.keyEpoch,
+    stateHash: head.stateHash,
+    state: {
+      keyFingerprint: head.keyFingerprint,
+    },
+    projection: [],
+    checkpoint: {
+      principalType: head.principalType,
+      principalId: head.principalId,
+      version: head.version,
+      stateHash: head.stateHash,
+    },
+  } as unknown as VerifiedPrincipalPolicy;
 }
 
 test("container KEK store persists additive wraps and resolves verified state", async () => {
@@ -222,6 +270,116 @@ test("container KEK store persists additive wraps and resolves verified state", 
   ).resolves.toMatchObject({
     containerKeyEpochId,
     containerKeyEpoch: 1,
+  });
+});
+
+test("container KEK store replaces stale same-epoch principal wraps", async () => {
+  const containerId = crypto.randomUUID();
+  const containerKeyEpochId = crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
+  const groupId = crypto.randomUUID();
+  const initialGroupHead = await principalHeadFixture({
+    principalId: groupId,
+    version: 1,
+    keyEpoch: 1,
+  });
+  const rotatedGroupHead = await principalHeadFixture({
+    principalId: groupId,
+    version: 2,
+    keyEpoch: 2,
+  });
+  const grant: ContainerDirectGrantV2 = {
+    subjectType: "group",
+    subjectId: groupId,
+    accessLevel: "read",
+  };
+  const originalManifest = await createContainerManifestFixture({
+    containerId,
+    containerKeyEpochId,
+    organizationId,
+    directGrants: [grant],
+    referencedPrincipalHeads: [initialGroupHead],
+    salt: "principal-wrap-original",
+  });
+  const currentManifest = await createContainerManifestFixture({
+    containerId,
+    containerKeyEpochId,
+    organizationId,
+    directGrants: [grant],
+    epoch: 2,
+    previousManifestHash: originalManifest.manifestHash,
+    referencedPrincipalHeads: [rotatedGroupHead],
+    salt: "principal-wrap-current",
+  });
+  const keyEpoch = await createContainerKeyEpochFixture({
+    manifest: currentManifest,
+    createdByManifest: originalManifest,
+    keyEpoch: 1,
+  });
+  const initialWrap = await createContainerKeyWrap({
+    containerKeyEpochId,
+    recipientKind: "group",
+    recipientId: groupId,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(initialGroupHead),
+    recipientKeyFingerprint: initialGroupHead.keyFingerprint,
+    wrapManifestHash: originalManifest.manifestHash,
+  });
+  const rotatedWrap = await createContainerKeyWrap({
+    containerKeyEpochId,
+    recipientKind: "group",
+    recipientId: groupId,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(rotatedGroupHead),
+    recipientKeyFingerprint: rotatedGroupHead.keyFingerprint,
+    wrapManifestHash: currentManifest.manifestHash,
+  });
+  const initialState = await verifyContainerKekState({
+    containerManifest: originalManifest,
+    keyEpoch,
+    principalPolicies: [principalPolicyFixture(initialGroupHead)],
+    wraps: [initialWrap],
+  });
+  const currentState = await verifyContainerKekState({
+    containerManifest: currentManifest,
+    containerManifestHistory: [originalManifest],
+    keyEpoch,
+    principalPolicies: [principalPolicyFixture(rotatedGroupHead)],
+    wraps: [rotatedWrap],
+  });
+
+  expect(initialState.ok).toBe(true);
+  expect(currentState.ok).toBe(true);
+  if (!initialState.ok || !currentState.ok) {
+    throw new Error("Expected fixture states to verify");
+  }
+
+  await storeVerifiedContainerKekState({ verifiedState: initialState.value });
+  await storeVerifiedContainerKekState({ verifiedState: currentState.value });
+
+  await expect(listContainerKeyWraps(containerKeyEpochId)).resolves.toEqual([
+    expect.objectContaining({
+      recipientKind: "group",
+      recipientId: groupId,
+      recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(rotatedGroupHead),
+      recipientKeyFingerprint: rotatedGroupHead.keyFingerprint,
+    }),
+  ]);
+  await expect(
+    resolveStoredContainerKekState({
+      containerManifest: currentManifest,
+      containerManifestHistory: [originalManifest],
+      principalPolicies: [principalPolicyFixture(rotatedGroupHead)],
+    }),
+  ).resolves.toMatchObject({
+    containerKeyEpochId,
+    recipientTargets: [
+      {
+        recipientKind: "group",
+        recipientId: groupId,
+        recipientKeyEpochId:
+          derivePrincipalRecipientKeyEpochId(rotatedGroupHead),
+        recipientKeyFingerprint: rotatedGroupHead.keyFingerprint,
+      },
+    ],
   });
 });
 
