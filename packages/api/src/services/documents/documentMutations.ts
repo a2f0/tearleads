@@ -55,7 +55,7 @@ import {
 import {
   DocumentContentKeyBundleError,
   listDocumentContentWriteHeaders,
-  requireCurrentDocumentContentKeyBundle,
+  requireAndRefreshCurrentDocumentContentKeyBundle,
   type StoredDocumentContentKeyBundleWithTargets,
   type DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,
   storeDocumentContentKeyBundle,
@@ -1815,7 +1815,7 @@ async function syncDocumentTransaction(input: {
         ),
         input.tx,
       )
-    : await requireCurrentDocumentContentKeyBundle({
+    : await requireAndRefreshCurrentDocumentContentKeyBundle({
         documentId: input.documentId,
         contentKeyEpoch: input.request.contentKeyEpoch,
         expectedLinkSetManifestHash: input.request.expectedLinkSetManifestHash,

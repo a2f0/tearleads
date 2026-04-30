@@ -6,6 +6,7 @@ import {
   type ContainerDirectGrant,
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
+  type ContainerKeyWrap,
   type ContainerUserRecipientKey,
   computeAccessEventBodyHash,
   computeAccessEventHash,
@@ -693,6 +694,108 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
       recipientKeyFingerprint: peerUserRecipientKey.recipientKeyFingerprint,
     },
   ]);
+});
+
+test("shareRemoteContainer replaces stale wraps when re-sharing a user", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const existingUserId = "user-2";
+  const oldRecipientKeyPair = generateKemSeedAndKeyPair();
+  const newRecipientKeyPair = generateKemSeedAndKeyPair();
+  const oldRecipientKeyEpochId = `user:${existingUserId}:encapsulation:old`;
+  const existingWrap = await createUserContainerWrap({
+    containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+    containerKek: parent.parentContainerKek,
+    publicKey: oldRecipientKeyPair.publicKey,
+    recipientKeyEpochId: oldRecipientKeyEpochId,
+    userId: existingUserId,
+    wrapManifestHash: parent.parentKekState.accessManifestHash,
+  });
+  const previousManifest = parent.projection.path[0];
+  const previousKek = parent.projection.containerKeks[0];
+  if (!previousManifest || !previousKek) {
+    throw new Error("Expected parent projection");
+  }
+  const previousState =
+    previousManifest.state as unknown as ContainerAccessManifestState;
+  const projectionWithExistingShare: ContainerWriterProjectionResponse = {
+    ...parent.projection,
+    path: [
+      {
+        ...previousManifest,
+        state: {
+          ...previousState,
+          directGrants: [
+            ...previousState.directGrants,
+            {
+              accessLevel: "read",
+              subjectId: existingUserId,
+              subjectType: "user",
+            },
+          ],
+        },
+      },
+    ],
+    containerKeks: [
+      {
+        ...previousKek,
+        recipientTargets: [
+          ...previousKek.recipientTargets,
+          {
+            recipientKind: "user",
+            recipientId: existingUserId,
+            recipientKeyEpochId: oldRecipientKeyEpochId,
+            recipientKeyFingerprint: existingWrap.recipientKeyFingerprint,
+          },
+        ],
+        wraps: [...previousKek.wraps, existingWrap],
+      },
+    ],
+  };
+  const submittedRequests: ContainerMutationRequest[] = [];
+
+  const shared = await shareRemoteContainer({
+    accessLevel: "write",
+    apiClient: {
+      getContainerWriterProjection: async () => projectionWithExistingShare,
+      shareContainer: async (_containerId, request) => {
+        submittedRequests.push(request);
+        return createMutationResponseFromRequest(request);
+      },
+    },
+    author,
+    containerId: parent.projection.containerId,
+    recipientEncapsulationPublicKey: newRecipientKeyPair.publicKey,
+    recipientUserId: existingUserId,
+    signedAt: SIGNED_AT,
+    targetSecretKey: parent.secretKey,
+  });
+
+  expect(shared).not.toBeNull();
+  const submittedRequest = submittedRequests[0];
+  if (!submittedRequest) {
+    throw new Error("Expected submitted share request");
+  }
+  const submittedWraps =
+    submittedRequest.wraps as unknown as ContainerKeyWrap[];
+  const existingUserWraps = submittedWraps.filter(
+    (wrap) =>
+      wrap.recipientKind === "user" && wrap.recipientId === existingUserId,
+  );
+  expect(existingUserWraps).toHaveLength(1);
+  expect(existingUserWraps[0]?.recipientKeyEpochId).not.toBe(
+    oldRecipientKeyEpochId,
+  );
+  expect(submittedWraps).not.toContainEqual(
+    expect.objectContaining({
+      recipientId: existingUserId,
+      recipientKeyEpochId: oldRecipientKeyEpochId,
+    }),
+  );
+  expect(submittedWraps).toHaveLength(previousKek.wraps.length + 1);
 });
 
 test("createRemoteContainer fetches the parent projection and submits the materialized mutation", async () => {

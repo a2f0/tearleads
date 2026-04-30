@@ -1125,8 +1125,7 @@ function replaceContainerWrap(
       (wrap) =>
         !(
           wrap.recipientKind === nextWrap.recipientKind &&
-          wrap.recipientId === nextWrap.recipientId &&
-          wrap.recipientKeyEpochId === nextWrap.recipientKeyEpochId
+          wrap.recipientId === nextWrap.recipientId
         ),
     ),
     nextWrap,

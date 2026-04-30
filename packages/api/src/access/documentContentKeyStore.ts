@@ -788,7 +788,13 @@ export async function storeDocumentContentKeyBundle(
   );
 }
 
-export async function requireCurrentDocumentContentKeyBundle(input: {
+/**
+ * Mutation-path helper for document sync. It validates the request against the
+ * current KEK targets and persists a same-epoch metadata refresh when an
+ * existing bundle can be losslessly carried forward. Read-only projections use
+ * getLatestCurrentDocumentContentKeyBundle instead.
+ */
+export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
   readonly documentId: string;
   readonly contentKeyEpoch: number;
   readonly expectedLinkSetManifestHash: string;

@@ -29,7 +29,7 @@ import {
   type DocumentContentKeyTargetEnvelope,
   getLatestCurrentDocumentContentKeyBundle,
   listDocumentContentWriteHeaders,
-  requireCurrentDocumentContentKeyBundle,
+  requireAndRefreshCurrentDocumentContentKeyBundle,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,
 } from "./documentContentKeyStore";
@@ -487,15 +487,16 @@ test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targ
     targets: refreshedEnvelopes,
   });
 
-  const readOnlyBundle = await requireCurrentDocumentContentKeyBundle({
-    documentId: setup.documentId,
-    contentKeyEpoch: 1,
-    expectedLinkSetManifestHash: refreshedTargets.linkSetManifestHash,
-    expectedTargetHash: refreshedTargets.documentKeyTargetHash,
-  });
+  const refreshedBundle =
+    await requireAndRefreshCurrentDocumentContentKeyBundle({
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      expectedLinkSetManifestHash: refreshedTargets.linkSetManifestHash,
+      expectedTargetHash: refreshedTargets.documentKeyTargetHash,
+    });
 
-  expect(readOnlyBundle.contentKeyEpoch).toBe(1);
-  expect(readOnlyBundle.targets).toEqual(refreshedEnvelopes);
+  expect(refreshedBundle.contentKeyEpoch).toBe(1);
+  expect(refreshedBundle.targets).toEqual(refreshedEnvelopes);
 
   const stored = await storeDocumentContentKeyBundle({
     documentId: setup.documentId,

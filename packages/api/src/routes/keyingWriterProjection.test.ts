@@ -985,6 +985,26 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
   expect(shareResponse.status).toBe(200);
   const shared = await shareResponse.json();
   expect(isContainerMutationResponse(shared)).toBe(true);
+  const [storedBundleBeforeProjection] = await db
+    .select({
+      linkSetManifestHash: documentContentKeyEpochs.linkSetManifestHash,
+      targetHash: documentContentKeyEpochs.targetHash,
+    })
+    .from(documentContentKeyEpochs)
+    .where(
+      and(
+        eq(documentContentKeyEpochs.documentId, created.id),
+        eq(
+          documentContentKeyEpochs.contentKeyEpoch,
+          created.contentKeyBundle.contentKeyEpoch,
+        ),
+      ),
+    )
+    .limit(1);
+  invariant(storedBundleBeforeProjection, "expected content-key bundle row");
+  expect(storedBundleBeforeProjection.targetHash).toBe(
+    created.contentKeyBundle.targetHash,
+  );
 
   const projectionResponse = await routeApp.request(
     `/documents/${created.id}/writer-projection`,
@@ -1004,6 +1024,9 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
   expect(projection.documentKekTargets.documentKeyTargetHash).toBe(
     projection.contentKeyBundle.targetHash,
   );
+  expect(projection.contentKeyBundle.targetHash).not.toBe(
+    storedBundleBeforeProjection.targetHash,
+  );
   expect(projection.documentKekTargets.linkedContainerManifestHashes).toEqual([
     shared.manifestHead.manifestHash,
   ]);
@@ -1014,6 +1037,24 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
     },
   ]);
   expect(projection.authorizingContainerPaths).toHaveLength(1);
+
+  const [storedBundleAfterProjection] = await db
+    .select({
+      linkSetManifestHash: documentContentKeyEpochs.linkSetManifestHash,
+      targetHash: documentContentKeyEpochs.targetHash,
+    })
+    .from(documentContentKeyEpochs)
+    .where(
+      and(
+        eq(documentContentKeyEpochs.documentId, created.id),
+        eq(
+          documentContentKeyEpochs.contentKeyEpoch,
+          created.contentKeyBundle.contentKeyEpoch,
+        ),
+      ),
+    )
+    .limit(1);
+  expect(storedBundleAfterProjection).toEqual(storedBundleBeforeProjection);
 });
 
 test("GET /documents/:documentId/writer-projection rejects tampered content-key targets", async () => {
