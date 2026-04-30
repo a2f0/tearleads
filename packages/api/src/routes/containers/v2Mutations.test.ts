@@ -86,8 +86,8 @@ interface DownstreamContentKeyRowCounts {
 }
 
 interface SeededDownstreamContentKeyRows {
-  readonly blobContentKeyEpochId: string;
-  readonly documentContentKeyEpochId: string;
+  readonly blobId: string;
+  readonly documentId: string;
 }
 
 async function getRootContainerForUser(
@@ -985,29 +985,33 @@ async function countDownstreamContentKeyRows(
     db
       .select({ id: blobContentKeyEpochs.id })
       .from(blobContentKeyEpochs)
-      .where(eq(blobContentKeyEpochs.id, seeded.blobContentKeyEpochId)),
+      .where(eq(blobContentKeyEpochs.blobId, seeded.blobId)),
     db
       .select({ id: blobContentKeyTargets.id })
       .from(blobContentKeyTargets)
-      .where(
+      .innerJoin(
+        blobContentKeyEpochs,
         eq(
           blobContentKeyTargets.blobContentKeyEpochId,
-          seeded.blobContentKeyEpochId,
+          blobContentKeyEpochs.id,
         ),
-      ),
+      )
+      .where(eq(blobContentKeyEpochs.blobId, seeded.blobId)),
     db
       .select({ id: documentContentKeyEpochs.id })
       .from(documentContentKeyEpochs)
-      .where(eq(documentContentKeyEpochs.id, seeded.documentContentKeyEpochId)),
+      .where(eq(documentContentKeyEpochs.documentId, seeded.documentId)),
     db
       .select({ id: documentContentKeyTargets.id })
       .from(documentContentKeyTargets)
-      .where(
+      .innerJoin(
+        documentContentKeyEpochs,
         eq(
           documentContentKeyTargets.documentContentKeyEpochId,
-          seeded.documentContentKeyEpochId,
+          documentContentKeyEpochs.id,
         ),
-      ),
+      )
+      .where(eq(documentContentKeyEpochs.documentId, seeded.documentId)),
   ]);
 
   return {
@@ -1098,8 +1102,8 @@ async function seedDownstreamContentKeyRows(input: {
   });
 
   return {
-    blobContentKeyEpochId: blobContentKeyEpoch.id,
-    documentContentKeyEpochId: documentContentKeyEpoch.id,
+    blobId,
+    documentId,
   };
 }
 
