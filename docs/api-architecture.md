@@ -28,6 +28,60 @@ A single use case can touch more than one plane. For example:
 
 Protocol planes are a domain model, not a source-tree layout rule.
 
+## Current HTTP Protocol Surface
+
+The executable route and validator shapes are defined by `packages/api/src/routes`
+and `packages/validators/src`. Documentation should treat those files as the
+source of truth.
+
+Current write surfaces:
+
+| Capability | Route | Validator |
+| --- | --- | --- |
+| Register identity and bootstrap root V2 state | `POST /auth/register` | `PublicKeyRequest` |
+| Store principal policy state | `PUT /principals/:principalType/:principalId/state` | `PutPrincipalStateRequest` |
+| Store principal member envelopes | `PUT /principals/:principalType/:principalId/member-envelopes` | `PutPrincipalMemberEnvelopesRequest` |
+| Create container | `POST /v2/containers` | `ContainerV2MutationRequest` |
+| Share container | `POST /v2/containers/:containerId/share` | `ContainerV2MutationRequest` |
+| Revoke container grant | `POST /v2/containers/:containerId/revoke` | `ContainerV2MutationRequest` |
+| Rekey container | `POST /v2/containers/:containerId/rekey` | `ContainerV2MutationRequest` |
+| Move container | `POST /v2/containers/:containerId/move` | `ContainerV2MutationRequest` |
+| Create document | `POST /v2/documents` | `DocumentV2CreateRequest` |
+| Link document to container | `POST /v2/documents/:documentId/link` | `DocumentV2LinkSetMutationRequest` |
+| Unlink document from container | `POST /v2/documents/:documentId/unlink` | `DocumentV2LinkSetMutationRequest` |
+| Sync encrypted Loro updates | `POST /v2/documents/:documentId/sync` | `DocumentV2SyncRequest` |
+| Stage encrypted blob bytes | `POST /blobs/stage` | `StageBlobRequest` |
+| Bind or replace blob attachment | `POST /v2/blobs/:blobId/attachment-bindings` | `BlobV2AttachmentBindRequest` |
+| Detach blob attachment | `POST /v2/blobs/:blobId/attachment-bindings/:bindingId/detach` | `BlobV2AttachmentDetachRequest` |
+
+Current read surfaces:
+
+| Capability | Route |
+| --- | --- |
+| List containers | `GET /containers` |
+| List container documents | `GET /containers/:containerId/documents` |
+| Get container writer projection | `GET /v2/containers/:containerId/writer-projection` |
+| Get document writer projection | `GET /v2/documents/:documentId/writer-projection` |
+| List active document attachments | `GET /documents/:documentId/attachments` |
+| Get committed blob bytes | `GET /blobs/:blobId` |
+| Get principal policy bundle | `GET /principals/:principalType/:principalId/policy` |
+| Get user key material | `GET /auth/encapsulation-key/:userId` |
+
+Retired surfaces that should not be described as current protocol:
+
+- `POST /documents`
+- `POST /documents/:documentId/sync`
+- `POST /documents/:documentId/commit-change`
+- legacy `POST /containers` and non-`/v2` container mutation routes
+
+The current document sync request names signed V2 fields:
+`contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
+optional `contentKeyBundle`, optional `containerRekeys`, optional
+`documentManifest`, optional `authorizingContainerPaths`, `localVersionVector`,
+optional `minLsn`, and `outgoingUpdates[]` with per-update `writeHeader`.
+Responses return `acceptedOutgoingUpdateIds`, `commitLsn`, `contentKeyBundle`,
+`documentKekTargets`, `missingUpdateEpochs`, and encrypted `updates[]`.
+
 ## Code Layers
 
 The API is organized in layers like this:

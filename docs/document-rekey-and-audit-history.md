@@ -2,8 +2,9 @@
 
 > Status: mixed historical/current design note. The V1 direct-recipient
 > `commit-change` service and sync store have been removed; current document
-> writes flow through signed Keying V2 mutations, while durable audit rows are
-> still verified by the audit-history verifier described here.
+> writes flow through signed Keying V2 mutations. The audit schema, append
+> helpers, checkpoint helper, and audit-history verifier exist, but live V2
+> document/blob mutation paths do not yet call those helpers.
 
 This document defines implemented behavior and the target model for document
 rekey, fresh-baseline generation, offline merge handling, and tamper-evident
@@ -28,20 +29,20 @@ expected to use the new epoch's DEK.
 
 ### Rewrap Reuses The Current DEK
 
-When the server classifies a document epoch transition as `rewrap`, the client
-keeps using the prior document DEK, materializes a current-epoch recipient
-bundle for the expanded recipient set, and retries any local pending Loro
-updates under the new epoch.
+When a current V2 target change is additive, the client can keep using the
+prior document DEK, materialize a current-epoch content-key bundle for the
+expanded target set, and retry any local pending Loro updates under the new
+epoch.
 
 This is the additive-access path. It should not require a fresh baseline solely
 because the access epoch changed.
 
 ### Rotate Means Fresh Baseline For Future Writes
 
-When the server classifies a document epoch transition as `rotate`, the client
-does not try to reuse the previous epoch's document DEK. Instead, a retained
-client clears stale pending encrypted updates and resends a fresh baseline under
-the new DEK.
+When access shrinks or otherwise invalidates the prior document DEK for future
+writes, the client does not try to reuse the previous epoch's document DEK.
+Instead, a retained client clears stale pending encrypted updates and resends a
+fresh baseline under the new DEK.
 
 Distinction:
 
@@ -53,10 +54,10 @@ Distinction:
 
 Current blob GC is based on active attachment reachability, not historical
 document replay. If a blob is no longer referenced by any active
-`attachment_bindings`, commit-change prunes the blob row, blob access epochs,
-blob key-target rows, and detached binding rows for that blob. If another
-active binding still references the same blob, those rows remain live until the
-final active binding is retired.
+`attachment_bindings`, V2 attachment bind/detach cleanup may prune the blob row,
+blob access epochs, blob key-target rows, and detached binding rows for that
+blob. If another active binding still references the same blob, those rows
+remain live until the final active binding is retired.
 
 Historical attachment bytes are therefore not durable. Detached bindings are
 transient replacement metadata, not an attachment audit log.
@@ -66,6 +67,22 @@ retention properties.
 
 The attachment/blob retention policy is defined in
 [attachment-retention.md](./attachment-retention.md).
+
+### Audit Storage Exists But Is Not Live-Wired
+
+The current codebase has history-side tables and services for:
+
+- append-only `document_audit_entries`
+- typed `document_update_audit_events`
+- `document_audit_checkpoints`
+- `blob_audit_objects`
+- typed `document_attachment_audit_events`
+- `verifyDocumentAuditHistory(...)`
+
+Those helpers are covered by service tests, but the signed V2 document sync and
+signed V2 blob attachment mutation services do not yet write audit rows during
+normal application writes. Treat live write-path wiring as future work, not as
+an implemented product guarantee.
 
 ## Target Rekey / Rebaseline Model
 
@@ -242,7 +259,7 @@ For that reason, the better design is:
 - compact baseline for current sync
 - separate tamper-evident history log
 
-## Proposed Implementation Decomposition
+## Implementation Decomposition
 
 The current code already has clear live-state seams:
 
@@ -259,7 +276,7 @@ of trying to reinterpret live GC tables as durable history.
 
 ### Phase 1: Audit Model And Storage Boundary
 
-Write the concrete design and schema boundary for the audit layer.
+Status: implemented at schema/helper level.
 
 Deliverables:
 
@@ -269,8 +286,8 @@ Deliverables:
 - historical access-material model for old epochs if historical replay needs
   old wrapped keys
 
-This phase should answer naming and storage questions before we start writing
-dual-path persistence code into the sync and `commit-change` paths.
+This phase answered the storage boundary. Live write-path wiring remains
+separate work for the signed V2 document and blob mutation paths.
 
 ### Phase 2: Baseline Checkpoints Commit To History
 
@@ -286,7 +303,7 @@ Those records should include metadata such as:
 - author or device identity for the checkpoint write
 
 This phase now targets the signed V2 write path. The old direct-recipient
-sync-store and commit-change services that originally hosted this validation
+sync-store and `commit-change` services that originally hosted this validation
 have been removed.
 
 ### Phase 3: Tamper-Evident Document Update Ledger
@@ -346,18 +363,19 @@ write-side audit model.
 
 ## Next Slice
 
-The next concrete step should be Phase 1:
+The next concrete step is live write-path wiring:
 
-- write the schema/design note for the audit tables and checkpoint model
-- decide whether signatures are per-user, per-device, or both
-- decide whether historical blob retention keeps old bytes, tombstones only, or
-  retained manifests plus a retention window
-- decide whether historical replay is in scope for the first implementation or
-  explicitly deferred
-
-Once those answers exist, the first implementation PR should be baseline
-checkpoint persistence, because it is the smallest write-path change that makes
-the later audit ledger verifiable.
+- call `appendDocumentUpdateAuditEntries(...)` from the signed
+  `/v2/documents/:documentId/sync` transaction for newly accepted updates
+- call `maybeWriteDocumentAuditCheckpoint(...)` for accepted updates marked
+  `fresh_baseline` or `rotate_baseline`
+- call `appendDocumentAttachmentAuditEntries(...)` from signed V2 blob
+  bind/detach transactions before live blob pruning can remove metadata needed
+  for `blob_audit_objects`
+- preserve idempotency for retried document updates and retried attachment
+  events
+- add route/service coverage that proves normal V2 writes populate the audit
+  tables, not only the audit helper tests
 
 ## Phase 1 Concrete Design
 
@@ -404,7 +422,7 @@ mixed live-and-history store.
 
 ### History-Side Schema
 
-The audit layer should add four new tables and keep one future table family
+The audit layer has five history-side tables and keeps one future table family
 explicitly deferred.
 
 #### `document_audit_entries`
@@ -467,6 +485,7 @@ Suggested columns:
 
 - `id UUID PRIMARY KEY`
 - `document_id UUID NOT NULL`
+- `sequence BIGINT GENERATED ALWAYS AS IDENTITY`
 - `baseline_update_id UUID NOT NULL`
 - `checkpoint_kind TEXT NOT NULL`
 - `source_version_vector TEXT NOT NULL`
@@ -484,20 +503,20 @@ Required indexes and constraints:
 
 - unique `(baseline_update_id)`
 - unique `(document_id, checkpoint_hash)`
+- index `(document_id, sequence)`
 - index on `(document_id, created_at)`
 
 These rows are not the live baseline payload. They are durable checkpoint
 metadata that says which audit head a baseline claims to cover.
 
-The first implementation should only write these rows for updates that are
-explicitly marked as baselines. That requires an explicit
-baseline/checkpoint marker in the write contract instead of inferring baseline
-writes from version-vector shape alone.
+The current write contract already has explicit baseline markers on outgoing
+updates: `checkpointKind: "fresh_baseline" | "rotate_baseline"` plus
+`sourceVersionVector`. Checkpoint rows should only be written for updates with
+that explicit marker.
 
-Because the current sync-store append interface only receives
-`authorFingerprint`, the write path also needs to thread `authorUserId`
-through sync so checkpoint and audit rows can record both the stable actor
-principal and the authenticated key fingerprint used for the write.
+The signed V2 sync route has the authenticated `userId` and session
+fingerprint available at the service boundary, so live wiring should record
+both `actorUserId` and `actorFingerprint`.
 
 #### `blob_audit_objects`
 
@@ -564,7 +583,7 @@ key-target tables should remain live-only.
 
 ### Verification Model
 
-The first implementation should verify history with:
+The current verifier checks history with:
 
 - append-only `document_audit_entries`
 - deterministic `entry_hash` over canonical event payload plus
@@ -589,7 +608,8 @@ The first implementation does **not** promise:
   table
 - historical wrapped-DEK or key-target retention for old epochs
 
-Instead, the first implementation promises:
+Once the live write paths call the audit helpers, the first audit layer will
+promise:
 
 - durable history of accepted document writes
 - durable history of attachment/blob events
@@ -601,7 +621,10 @@ boundaries rather than turning it into a full historical replay product.
 
 ### Write-Path Boundaries
 
-#### `POST /documents/:documentId/sync`
+This section describes the target live wiring. It is not current behavior until
+the V2 mutation services call the audit helpers.
+
+#### `POST /v2/documents/:documentId/sync`
 
 When new current-epoch updates are accepted:
 
@@ -612,23 +635,21 @@ When new current-epoch updates are accepted:
   `document_audit_checkpoints` row
 
 The sync path should stay idempotent by keying audit-update rows to
-`live_update_id`. It should also be extended to pass `authorUserId` alongside
-the current `authorFingerprint`.
+`live_update_id`.
 
-#### `POST /documents/:documentId/commit-change`
+#### V2 blob attachment bind/detach
 
-When structural attachment changes are accepted:
+When structural attachment changes are accepted through
+`POST /v2/blobs/:blobId/attachment-bindings` or
+`POST /v2/blobs/:blobId/attachment-bindings/:bindingId/detach`:
 
 - keep mutating `attachment_bindings`, blob access rows, and live blobs exactly
   as today
-- before `pruneUnreachableAttachmentBlobs(...)` deletes live rows, write:
+- before live pruning deletes rows needed for audit metadata, write:
   - `blob_audit_objects` rows for newly referenced blobs
   - one `document_audit_entries` row plus one
     `document_attachment_audit_events` row per committed attach / replace /
     detach / rewrap event
-- if `commit-change` also accepts an explicitly marked baseline update, write
-  the matching `document_update_audit_events` and
-  `document_audit_checkpoints` rows in the same transaction
 
 Live GC must never delete from history-side tables.
 
