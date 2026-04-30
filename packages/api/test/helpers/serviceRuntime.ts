@@ -102,7 +102,7 @@ export async function createPublicKeyRequest(
         user.signing.signingPrivateKey,
       ),
       encryptedPayload: {
-        cipherSuite: "aes-256-gcm-v1",
+        cipherSuite: "aes-256-gcm",
         ciphertext: organizationPayloadCiphertext,
         ciphertextHash: await computePrincipalStatePayloadCiphertextHash(
           organizationPayloadCiphertext,

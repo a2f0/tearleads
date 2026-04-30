@@ -26,7 +26,7 @@ import {
 import { resolveCurrentBlobKekTargets } from "./blobKekTargets";
 
 async function hashOf(label: string): Promise<string> {
-  return computeKeyingV2DomainHash("tearleads.keying-v2.access-event-body.v1", {
+  return computeKeyingV2DomainHash("tearleads.keying-v2.access-event-body", {
     label,
   });
 }

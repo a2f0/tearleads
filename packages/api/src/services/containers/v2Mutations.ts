@@ -434,7 +434,7 @@ function readPrincipalPolicyState(
   if (!isManagedPrincipalKind(principalType)) {
     throw mutationShapeError(`${label}.principalType is invalid`);
   }
-  if (membershipMode !== "projection_v1") {
+  if (membershipMode !== "projection") {
     throw mutationShapeError(`${label}.membershipMode is invalid`);
   }
 

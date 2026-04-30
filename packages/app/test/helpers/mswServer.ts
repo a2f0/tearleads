@@ -160,7 +160,7 @@ function isDocumentV2ContentKeyTargetEnvelopeResponse(
   );
 }
 
-function createFallbackRootMetadataDocumentV2Response(
+function createSyntheticRootMetadataDocumentV2Response(
   rootMetadataDocumentId: string,
 ): PublicKeyResponse["rootMetadataDocumentV2"] {
   const rootContainerId = crypto.randomUUID();
@@ -212,7 +212,7 @@ async function createRootMetadataDocumentV2Response(
   requestBody: unknown,
 ): Promise<PublicKeyResponse["rootMetadataDocumentV2"]> {
   if (!isRecord(requestBody)) {
-    return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
+    return createSyntheticRootMetadataDocumentV2Response(crypto.randomUUID());
   }
 
   const documentRequest = Reflect.get(
@@ -220,7 +220,7 @@ async function createRootMetadataDocumentV2Response(
     "initialRootMetadataDocumentV2",
   );
   if (!isRecord(documentRequest)) {
-    return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
+    return createSyntheticRootMetadataDocumentV2Response(crypto.randomUUID());
   }
 
   const event = Reflect.get(documentRequest, "event");
@@ -233,7 +233,7 @@ async function createRootMetadataDocumentV2Response(
     !isRecord(manifest) ||
     !isRecord(contentKeyBundle)
   ) {
-    return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
+    return createSyntheticRootMetadataDocumentV2Response(crypto.randomUUID());
   }
 
   const containerId = Reflect.get(body, "containerId");
@@ -252,7 +252,7 @@ async function createRootMetadataDocumentV2Response(
     typeof contentKeyEpoch !== "number" ||
     targets.length === 0
   ) {
-    return createFallbackRootMetadataDocumentV2Response(crypto.randomUUID());
+    return createSyntheticRootMetadataDocumentV2Response(crypto.randomUUID());
   }
 
   const documentId = event.objectId;

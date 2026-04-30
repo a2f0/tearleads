@@ -126,7 +126,7 @@ function isContentObjectKind(value: unknown): value is ContentObjectKindV2 {
 function isContentRecordEncryptionSuite(
   value: unknown,
 ): value is ContentRecordEncryptionSuiteV2 {
-  return value === "aes-256-gcm-hkdf-sha256-record-key-v1";
+  return value === "aes-256-gcm-hkdf-sha256-record-key";
 }
 
 function mapVerificationStatus(

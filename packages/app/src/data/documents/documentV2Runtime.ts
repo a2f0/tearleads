@@ -57,19 +57,19 @@ import type { ExecSql } from "../persistence/sqlSchema";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../principalPolicyCrypto";
 
 const DOCUMENT_V2_CONTENT_KEY_WRAP_SUITE =
-  "tearleads.document-v2.content-key-wrap.aes-256-gcm-container-kek.v1";
+  "tearleads.document-v2.content-key-wrap.aes-256-gcm-container-kek";
 const DOCUMENT_V2_ENCRYPTED_LORO_UPDATE_FORMAT =
-  "tearleads.document-v2.loro-update.v1";
+  "tearleads.document-v2.loro-update";
 const DOCUMENT_V2_CONTENT_RECORD_KEY_INFO_DOMAIN =
-  "tearleads.document-v2.content-record-key-info.v1";
+  "tearleads.document-v2.content-record-key-info";
 const DOCUMENT_V2_CONTENT_RECORD_AAD_DOMAIN =
-  "tearleads.document-v2.content-record-aad.v1";
+  "tearleads.document-v2.content-record-aad";
 const DOCUMENT_V2_CONTENT_RECORD_METADATA_HASH_DOMAIN =
-  "tearleads.document-v2.content-record-metadata.v1";
+  "tearleads.document-v2.content-record-metadata";
 const DOCUMENT_V2_CONTENT_RECORD_CIPHERTEXT_HASH_DOMAIN =
-  "tearleads.document-v2.content-record-ciphertext.v1";
+  "tearleads.document-v2.content-record-ciphertext";
 const DOCUMENT_V2_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
-  new TextEncoder().encode("tearleads.document-v2.content-record-hkdf-salt.v1");
+  new TextEncoder().encode("tearleads.document-v2.content-record-hkdf-salt");
 const DOCUMENT_V2_CONTENT_RECORD_IV: Uint8Array<ArrayBuffer> = new Uint8Array(
   12,
 );
@@ -1930,7 +1930,7 @@ function documentV2ContentRecordMetadata(input: {
   updateId: string;
 }): KeyingV2CanonicalJson {
   return {
-    version: 1,
+    version: 2,
     recordKind: "loro_update",
     documentId: input.documentId,
     updateId: input.updateId,
@@ -2099,7 +2099,7 @@ async function encryptDocumentV2PendingUpdate(input: {
   );
   const encryptedData = serializeKeyingV2CanonicalJson({
     format: DOCUMENT_V2_ENCRYPTED_LORO_UPDATE_FORMAT,
-    version: 1,
+    version: 2,
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId,
@@ -2142,7 +2142,7 @@ function parseDocumentV2EncryptedUpdate(
     throw new Error("Document V2 encrypted update format is invalid");
   }
   if (
-    readRecordNumber(value, "version", "Document V2 encrypted update") !== 1
+    readRecordNumber(value, "version", "Document V2 encrypted update") !== 2
   ) {
     throw new Error("Document V2 encrypted update version is invalid");
   }

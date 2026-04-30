@@ -6,7 +6,7 @@ import {
   parseDriverLicenseDocument,
 } from "./documentKinds";
 
-test("driver's license parsing remains forward-compatible for newer versions", () => {
+test("driver's license parsing accepts newer payload versions", () => {
   const text = JSON.stringify({
     expirationDate: "2030-05-01",
     kind: "drivers_license",
@@ -22,7 +22,7 @@ test("driver's license parsing remains forward-compatible for newer versions", (
   expect(deriveStoredDocumentTitle(text)).toBe("Driver's License D1234567");
 });
 
-test("unsupported driver's license payloads keep a structured fallback title", () => {
+test("unsupported driver's license payloads keep a structured title", () => {
   const text = JSON.stringify({
     expirationDate: "2030-05-01",
     kind: "drivers_license",
@@ -35,7 +35,7 @@ test("unsupported driver's license payloads keep a structured fallback title", (
   expect(deriveStoredDocumentTitle(text)).toBe("Unsupported driver's license");
 });
 
-test("credit card parsing remains forward-compatible for newer versions", () => {
+test("credit card parsing accepts newer payload versions", () => {
   const text = JSON.stringify({
     cardNumber: "4111 1111 1111 1234",
     cvvCode: "123",
@@ -55,7 +55,7 @@ test("credit card parsing remains forward-compatible for newer versions", () => 
   expect(deriveStoredDocumentTitle(text)).toBe("Credit Card ending in 1234");
 });
 
-test("unsupported credit card payloads keep a structured fallback title", () => {
+test("unsupported credit card payloads keep a structured title", () => {
   const text = JSON.stringify({
     cardNumber: "4111 1111 1111 1234",
     cvvCode: "123",

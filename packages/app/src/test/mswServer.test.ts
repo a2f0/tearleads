@@ -112,7 +112,7 @@ async function registerIdentity(
           signingPrivateKey,
         ),
         encryptedPayload: {
-          cipherSuite: "aes-256-gcm-v1",
+          cipherSuite: "aes-256-gcm",
           ciphertext: payloadCiphertext,
           ciphertextHash:
             await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),

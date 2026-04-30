@@ -21,13 +21,13 @@ export function buildDocumentsByContainerId(
     const linkedContainerIds = documentSummary.documentId
       ? linkedContainerIdsByDocumentId.get(documentSummary.documentId)
       : undefined;
-    const fallbackContainerIds = documentSummary.containerId
+    const defaultContainerIds = documentSummary.containerId
       ? [documentSummary.containerId]
       : [];
     const candidateContainerIds =
       linkedContainerIds !== undefined && linkedContainerIds.length > 0
         ? linkedContainerIds
-        : fallbackContainerIds;
+        : defaultContainerIds;
 
     if (candidateContainerIds.length === 0) {
       continue;

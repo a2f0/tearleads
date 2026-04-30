@@ -22,7 +22,7 @@ export interface PrincipalStateRequest {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  membershipMode: "projection_v1";
+  membershipMode: "projection";
   membershipRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;
@@ -34,7 +34,7 @@ export interface PrincipalStateRequest {
 }
 
 export interface PrincipalStateEncryptedPayloadRequest {
-  cipherSuite: "aes-256-gcm-v1";
+  cipherSuite: "aes-256-gcm";
   ciphertext: string;
   ciphertextHash: string;
 }
@@ -105,7 +105,7 @@ export function isPrincipalStateRequest(
     hasStringProperty(value, "encapsulationPublicKey") &&
     hasStringProperty(value, "keyFingerprint") &&
     hasStringProperty(value, "membershipMode") &&
-    value.membershipMode === "projection_v1" &&
+    value.membershipMode === "projection" &&
     hasStringProperty(value, "membershipRoot") &&
     hasStringProperty(value, "projectionRoot") &&
     hasStringProperty(value, "payloadCiphertextHash") &&
@@ -126,7 +126,7 @@ export function isPrincipalStateEncryptedPayloadRequest(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "cipherSuite") &&
-    value.cipherSuite === "aes-256-gcm-v1" &&
+    value.cipherSuite === "aes-256-gcm" &&
     hasStringProperty(value, "ciphertext") &&
     hasStringProperty(value, "ciphertextHash")
   );

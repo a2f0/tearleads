@@ -15,7 +15,7 @@ export interface PrincipalStateResponse {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  membershipMode: "projection_v1";
+  membershipMode: "projection";
   membershipRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;
@@ -38,7 +38,7 @@ export interface PrincipalStatePayloadResponse {
   principalType: "group" | "organization";
   principalId: string;
   stateHash: string;
-  cipherSuite: "aes-256-gcm-v1";
+  cipherSuite: "aes-256-gcm";
   ciphertext: string;
   ciphertextHash: string;
   createdAt: string;
@@ -140,7 +140,7 @@ export function isPrincipalStateResponse(
     hasStringProperty(value, "encapsulationPublicKey") &&
     hasStringProperty(value, "keyFingerprint") &&
     hasStringProperty(value, "membershipMode") &&
-    value.membershipMode === "projection_v1" &&
+    value.membershipMode === "projection" &&
     hasStringProperty(value, "membershipRoot") &&
     hasStringProperty(value, "projectionRoot") &&
     hasStringProperty(value, "payloadCiphertextHash") &&
@@ -166,7 +166,7 @@ export function isPrincipalStatePayloadResponse(
     hasStringProperty(value, "principalId") &&
     hasStringProperty(value, "stateHash") &&
     hasStringProperty(value, "cipherSuite") &&
-    value.cipherSuite === "aes-256-gcm-v1" &&
+    value.cipherSuite === "aes-256-gcm" &&
     hasStringProperty(value, "ciphertext") &&
     hasStringProperty(value, "ciphertextHash") &&
     hasStringProperty(value, "createdAt")

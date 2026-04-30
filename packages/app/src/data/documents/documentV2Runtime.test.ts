@@ -1629,9 +1629,7 @@ test("buildMaterializedDocumentV2SyncPlan unwraps the V2 content key and encrypt
   }
   expect(update.checkpointKind).toBe("rotate_baseline");
   expect(update.sourceVersionVector).toBe("rotate-frontier");
-  expect(update.encryptedData).toContain(
-    "tearleads.document-v2.loro-update.v1",
-  );
+  expect(update.encryptedData).toContain("tearleads.document-v2.loro-update");
   expect(update.encryptedData).not.toContain("materialized update");
 
   const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
@@ -1692,7 +1690,7 @@ test("decryptDocumentV2SyncUpdates verifies and decrypts V2 content records", as
       updates: response.updates.map((update) => ({
         ...update,
         encryptedData: update.encryptedData.replace(
-          "tearleads.document-v2.loro-update.v1",
+          "tearleads.document-v2.loro-update",
           "tearleads.document-v2.loro-update.invalid",
         ),
       })),
