@@ -34,6 +34,7 @@ import {
   type ContainerV2MutationResponse,
   type DocumentV2CreateResponse,
   type DocumentV2LinkSetMutationResponse,
+  type DocumentV2WriterProjectionResponse,
   isContainerV2MutationResponse,
   isContainerV2WriterProjectionResponse,
   isDocumentV2CreateResponse,
@@ -974,6 +975,66 @@ test("POST /v2/documents/:documentId/link advances a signed link-set manifest", 
     .where(eq(documentContainerLinks.documentId, createdDocument.id));
   expect(rows.map((row) => row.containerId).sort()).toEqual(
     [root.kekState.containerId, child.containerId].sort(),
+  );
+});
+
+test("GET /v2/documents/:documentId/writer-projection returns multi-linked container paths", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const child = await createV2ChildContainer({ parent: root, signer: owner });
+  const createdDocument = await createDocumentV2({ owner, root });
+  const linkResponse = await routeApp.request(
+    `/v2/documents/${createdDocument.id}/link`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        await buildDocumentV2LinkRequest({
+          child,
+          createdDocument,
+          owner,
+          root,
+        }),
+      ),
+    },
+  );
+  expect(linkResponse.status).toBe(200);
+  const linked = await linkResponse.json();
+  expect(isDocumentV2LinkSetMutationResponse(linked)).toBe(true);
+
+  const projectionResponse = await routeApp.request(
+    `/v2/documents/${createdDocument.id}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(projectionResponse.status).toBe(200);
+  const projection = await projectionResponse.json();
+  expect(isDocumentV2WriterProjectionResponse(projection)).toBe(true);
+  const writerProjection = projection as DocumentV2WriterProjectionResponse;
+  expect(writerProjection.documentKekTargets.targets).toHaveLength(2);
+  const pathsByContainerId = new Map(
+    writerProjection.authorizingContainerPaths.map((path) => [
+      path.containerId,
+      path.path.map((entry) => entry.manifestHash),
+    ]),
+  );
+  expect(pathsByContainerId).toEqual(
+    new Map([
+      [root.kekState.containerId, [root.bundle.manifestHash]],
+      [
+        child.containerId,
+        [root.bundle.manifestHash, child.accessManifest.manifestHash],
+      ],
+    ]),
   );
 });
 
