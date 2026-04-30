@@ -51,6 +51,7 @@
       },
       "devDependencies": {
         "@types/bun": "catalog:",
+        "msw": "catalog:testing",
       },
     },
     "packages/app": {
@@ -198,6 +199,7 @@
     "testing": {
       "@happy-dom/global-registrator": "20.8.4",
       "@testing-library/react": "16.3.2",
+      "msw": "2.12.14",
     },
   },
   "packages": {
