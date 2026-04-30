@@ -1,18 +1,13 @@
 import { expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
+import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
-import { initializeDocumentAccess } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
-import {
-  attachmentBindings,
-  blobs,
-  documentContainerLinks,
-  documents,
-} from "../../schema";
+import { attachmentBindings, blobs } from "../../schema";
 import {
   ListDocumentAttachmentsError,
   listDocumentAttachments,
@@ -21,25 +16,13 @@ import {
 async function createReadableDocument(input: {
   containerId: string;
   createdByFingerprint: string;
+  organizationId: string;
 }) {
-  const [document] = await db
-    .insert(documents)
-    .values({
-      createdByFingerprint: input.createdByFingerprint,
-    })
-    .returning({ id: documents.id });
-
-  if (!document) {
-    throw new Error("Failed to create service test document");
-  }
-
-  await db.insert(documentContainerLinks).values({
-    containerId: input.containerId,
-    documentId: document.id,
+  return createCurrentDocumentProjection({
+    containerIds: [input.containerId],
+    createdByFingerprint: input.createdByFingerprint,
+    organizationId: input.organizationId,
   });
-  await initializeDocumentAccess(document.id, db);
-
-  return document;
 }
 
 async function createBlob() {
@@ -78,6 +61,7 @@ test("listDocumentAttachments returns active attachment bindings for readable do
   const document = await createReadableDocument({
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+    organizationId: registration.organizationId,
   });
   const activeBlob = await createBlob();
   const detachedBlob = await createBlob();
@@ -125,6 +109,7 @@ test("listDocumentAttachments reports not-found and forbidden cases", async () =
   const document = await createReadableDocument({
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+    organizationId: registration.organizationId,
   });
 
   const missing = await expectListDocumentAttachmentsError(

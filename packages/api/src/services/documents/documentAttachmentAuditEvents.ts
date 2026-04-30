@@ -30,7 +30,7 @@ function serializeAttachmentAuditHashField(name: string, value: string) {
 
 function buildDocumentAttachmentAuditEntryHashPayload(input: {
   accessEpoch: number;
-  accessFingerprint: string;
+  accessManifestHash: string;
   accessStateHash?: string | null;
   action: DocumentAttachmentAuditAction;
   actorFingerprint: string;
@@ -50,8 +50,8 @@ function buildDocumentAttachmentAuditEntryHashPayload(input: {
     serializeAttachmentAuditHashField("eventType", input.eventType),
     serializeAttachmentAuditHashField("accessEpoch", String(input.accessEpoch)),
     serializeAttachmentAuditHashField(
-      "accessFingerprint",
-      input.accessFingerprint,
+      "accessManifestHash",
+      input.accessManifestHash,
     ),
   ];
   if (input.accessStateHash !== null && input.accessStateHash !== undefined) {
@@ -91,7 +91,7 @@ function buildDocumentAttachmentAuditEntryHashPayload(input: {
 
 export async function computeDocumentAttachmentAuditEntryHash(input: {
   accessEpoch: number;
-  accessFingerprint: string;
+  accessManifestHash: string;
   accessStateHash?: string | null;
   action: DocumentAttachmentAuditAction;
   actorFingerprint: string;
@@ -182,7 +182,7 @@ export async function appendDocumentAttachmentAuditEntries(
   executor: DatabaseExecutor,
   input: {
     accessEpoch: number;
-    accessFingerprint: string;
+    accessManifestHash: string;
     accessStateHash: string | null;
     actorFingerprint: string;
     actorUserId: string;
@@ -223,7 +223,7 @@ export async function appendDocumentAttachmentAuditEntries(
     const auditEntryId = crypto.randomUUID();
     const entryHash = await computeDocumentAttachmentAuditEntryHash({
       accessEpoch: input.accessEpoch,
-      accessFingerprint: input.accessFingerprint,
+      accessManifestHash: input.accessManifestHash,
       accessStateHash: input.accessStateHash,
       action: event.action,
       actorFingerprint: input.actorFingerprint,
@@ -241,7 +241,7 @@ export async function appendDocumentAttachmentAuditEntries(
     auditEntries.push({
       id: auditEntryId,
       accessEpoch: input.accessEpoch,
-      accessFingerprint: input.accessFingerprint,
+      accessManifestHash: input.accessManifestHash,
       accessStateHash: input.accessStateHash,
       actorFingerprint: input.actorFingerprint,
       actorUserId: input.actorUserId,

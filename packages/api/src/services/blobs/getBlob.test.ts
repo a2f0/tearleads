@@ -5,40 +5,27 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
-import { attachBlobToDocument } from "../../access/blobAccess";
-import { initializeDocumentAccess } from "../../access/documentAccess";
 import { db } from "../../adapters/postgres";
-import { blobs, documentContainerLinks, documents } from "../../schema";
+import { attachmentBindings, blobs } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
 import { GetBlobError, getBlob } from "./getBlob";
 
 async function createReadableDocument(input: {
   containerId: string;
   createdByFingerprint: string;
+  organizationId: string;
 }) {
-  const [document] = await db
-    .insert(documents)
-    .values({
-      createdByFingerprint: input.createdByFingerprint,
-    })
-    .returning({ id: documents.id });
-
-  if (!document) {
-    throw new Error("Failed to create service test document");
-  }
-
-  await db.insert(documentContainerLinks).values({
-    containerId: input.containerId,
-    documentId: document.id,
+  return createCurrentDocumentProjection({
+    containerIds: [input.containerId],
+    createdByFingerprint: input.createdByFingerprint,
+    organizationId: input.organizationId,
   });
-  await initializeDocumentAccess(document.id, db);
-
-  return document;
 }
 
 async function createCommittedBlob(input: {
@@ -59,7 +46,11 @@ async function createCommittedBlob(input: {
     throw new Error("Failed to create service test blob");
   }
 
-  await attachBlobToDocument(blob.id, input.documentId, "service-slot");
+  await db.insert(attachmentBindings).values({
+    blobId: blob.id,
+    documentId: input.documentId,
+    slotId: "service-slot",
+  });
 
   return blob;
 }
@@ -94,6 +85,7 @@ test("getBlob returns committed blob bytes for readable blobs", async () => {
   const document = await createReadableDocument({
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+    organizationId: registration.organizationId,
   });
   const encryptedBytes = await createEncryptedBlobBytes("service-blob-bytes", [
     bytesToBase64(user.kem.publicKey),
@@ -123,6 +115,7 @@ test("getBlob reports not-found and forbidden cases", async () => {
   const document = await createReadableDocument({
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+    organizationId: registration.organizationId,
   });
   const blob = await createCommittedBlob({
     documentId: document.id,

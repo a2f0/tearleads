@@ -1,30 +1,22 @@
 import type { ListContainerDocumentsResponse } from "@tearleads/validators/response";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
-  canReadContainerAccess,
-  resolveContainerAccessState,
-} from "../../access/containerAccess";
-import {
-  canReadDocumentAccess,
-  resolveDocumentAccessStates,
-} from "../../access/documentAccess";
-import {
+  accessManifestDocumentLinkProjection,
+  accessManifestHeads,
   containerMetadataDocuments,
-  containers,
-  documentContainerLinks,
   documents,
 } from "../../schema";
-import { uniqueSortedStrings } from "../../utils/array";
-import type { ApiServiceRuntime } from "../runtime";
 import {
-  ContainerV2WriterProjectionError,
-  resolveContainerV2WriterProjection,
-} from "./v2WriterProjection";
+  collectReferencedPrincipalsFromContainerV2Access,
+  KeyingV2ReadAccessError,
+  resolveReadableContainerV2Access,
+} from "../keyingV2ReadAccess";
+import type { ApiServiceRuntime } from "../runtime";
 
 export class ListContainerDocumentsError extends Error {
   constructor(
     message: string,
-    readonly status: 403 | 404,
+    readonly status: 403 | 404 | 409,
   ) {
     super(message);
   }
@@ -35,126 +27,108 @@ async function requireReadableContainer(
   containerId: string,
   userId: string,
 ) {
-  const [container] = await runtime.db
-    .select({ id: containers.id })
-    .from(containers)
-    .where(eq(containers.id, containerId))
-    .limit(1);
-
-  if (!container) {
-    throw new ListContainerDocumentsError("Container not found", 404);
-  }
-
-  const containerAccess = await resolveContainerAccessState(
-    containerId,
-    runtime.db,
-  );
-  if (containerAccess && canReadContainerAccess(containerAccess, userId)) {
-    return;
-  }
-
   try {
-    await resolveContainerV2WriterProjection({
+    return await resolveReadableContainerV2Access({
       containerId,
       executor: runtime.db,
       userId,
     });
-    return;
   } catch (error) {
-    if (
-      !(
-        error instanceof ContainerV2WriterProjectionError &&
-        error.status === 403
-      )
-    ) {
-      throw error;
+    if (error instanceof KeyingV2ReadAccessError) {
+      throw new ListContainerDocumentsError(error.message, error.status);
     }
+    throw error;
   }
-
-  throw new ListContainerDocumentsError("Forbidden", 403);
 }
 
-async function loadContainerDocumentIds(
+async function loadCurrentContainerDocumentRows(
   runtime: ApiServiceRuntime,
   containerId: string,
-): Promise<string[]> {
-  const [metadataDocument] = await runtime.db
-    .select({ documentId: containerMetadataDocuments.documentId })
-    .from(containerMetadataDocuments)
-    .where(eq(containerMetadataDocuments.containerId, containerId))
-    .limit(1);
-  const metadataDocumentId = metadataDocument
-    ? String(metadataDocument.documentId)
-    : null;
-
-  const linkedDocumentIdRows = await runtime.db
+): Promise<
+  {
+    createdAt: Date;
+    documentId: string;
+    manifestHash: string;
+    manifestEpoch: number;
+  }[]
+> {
+  return runtime.db
     .select({
-      documentId: documentContainerLinks.documentId,
+      createdAt: documents.createdAt,
+      documentId: accessManifestHeads.objectId,
+      manifestHash: accessManifestHeads.manifestHash,
+      manifestEpoch: accessManifestHeads.epoch,
     })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.containerId, containerId));
-
-  return uniqueSortedStrings(
-    linkedDocumentIdRows
-      .map((row) => row.documentId)
-      .filter((documentId) => documentId !== metadataDocumentId),
-  );
+    .from(accessManifestHeads)
+    .innerJoin(
+      accessManifestDocumentLinkProjection,
+      and(
+        eq(
+          accessManifestDocumentLinkProjection.manifestHash,
+          accessManifestHeads.manifestHash,
+        ),
+        eq(accessManifestDocumentLinkProjection.containerId, containerId),
+      ),
+    )
+    .innerJoin(
+      documents,
+      sql`${documents.id}::text = ${accessManifestHeads.objectId}`,
+    )
+    .leftJoin(
+      containerMetadataDocuments,
+      eq(containerMetadataDocuments.documentId, documents.id),
+    )
+    .where(
+      and(
+        eq(accessManifestHeads.objectKind, "document"),
+        isNull(containerMetadataDocuments.documentId),
+      ),
+    )
+    .orderBy(desc(documents.createdAt), accessManifestHeads.objectId);
 }
 
-async function loadCreatedAtByDocumentId(
+async function loadLinkedContainerIdsByManifestHash(
   runtime: ApiServiceRuntime,
-  documentIds: ReadonlyArray<string>,
-) {
-  const documentRows =
-    documentIds.length === 0
-      ? []
-      : await runtime.db
-          .select({
-            createdAt: documents.createdAt,
-            documentId: documents.id,
-          })
-          .from(documents)
-          .where(inArray(documents.id, documentIds))
-          .orderBy(desc(documents.createdAt));
-
-  return new Map(documentRows.map((row) => [row.documentId, row.createdAt]));
-}
-
-async function loadLinkedContainerIdsByDocumentId(
-  runtime: ApiServiceRuntime,
-  documentIds: ReadonlyArray<string>,
+  manifestHashes: ReadonlyArray<string>,
 ) {
   const linkedContainerRows =
-    documentIds.length === 0
+    manifestHashes.length === 0
       ? []
       : await runtime.db
           .select({
-            containerId: documentContainerLinks.containerId,
-            documentId: documentContainerLinks.documentId,
+            containerId: accessManifestDocumentLinkProjection.containerId,
+            manifestHash: accessManifestDocumentLinkProjection.manifestHash,
           })
-          .from(documentContainerLinks)
-          .where(inArray(documentContainerLinks.documentId, documentIds));
-  const linkedContainerIdsByDocumentId = new Map<string, string[]>();
+          .from(accessManifestDocumentLinkProjection)
+          .where(
+            inArray(
+              accessManifestDocumentLinkProjection.manifestHash,
+              manifestHashes,
+            ),
+          );
+  const linkedContainerIdsByManifestHash = new Map<string, string[]>();
 
-  for (const documentId of documentIds) {
-    linkedContainerIdsByDocumentId.set(documentId, []);
+  for (const manifestHash of manifestHashes) {
+    linkedContainerIdsByManifestHash.set(manifestHash, []);
   }
 
   for (const row of linkedContainerRows) {
-    linkedContainerIdsByDocumentId.get(row.documentId)?.push(row.containerId);
+    linkedContainerIdsByManifestHash
+      .get(row.manifestHash)
+      ?.push(row.containerId);
   }
 
   for (const [
-    documentId,
+    manifestHash,
     linkedContainerIds,
-  ] of linkedContainerIdsByDocumentId) {
-    linkedContainerIdsByDocumentId.set(
-      documentId,
-      uniqueSortedStrings(linkedContainerIds),
+  ] of linkedContainerIdsByManifestHash) {
+    linkedContainerIdsByManifestHash.set(
+      manifestHash,
+      [...new Set(linkedContainerIds)].sort(),
     );
   }
 
-  return linkedContainerIdsByDocumentId;
+  return linkedContainerIdsByManifestHash;
 }
 
 export async function listContainerDocuments(
@@ -162,37 +136,35 @@ export async function listContainerDocuments(
   containerId: string,
   userId: string,
 ): Promise<ListContainerDocumentsResponse> {
-  await requireReadableContainer(runtime, containerId, userId);
-
-  const documentIds = await loadContainerDocumentIds(runtime, containerId);
-  const createdAtByDocumentId = await loadCreatedAtByDocumentId(
+  const containerAccess = await requireReadableContainer(
     runtime,
-    documentIds,
+    containerId,
+    userId,
   );
-  const accessStateByDocumentId = await resolveDocumentAccessStates(
-    documentIds,
-    runtime.db,
+  const documentRows = await loadCurrentContainerDocumentRows(
+    runtime,
+    containerId,
   );
-  const linkedContainerIdsByDocumentId =
-    await loadLinkedContainerIdsByDocumentId(runtime, documentIds);
+  const linkedContainerIdsByManifestHash =
+    await loadLinkedContainerIdsByManifestHash(
+      runtime,
+      documentRows.map((row) => row.manifestHash),
+    );
+  const referencedPrincipals = collectReferencedPrincipalsFromContainerV2Access(
+    [containerAccess],
+  );
 
   const responseBody: ListContainerDocumentsResponse = [];
 
-  for (const documentId of documentIds) {
-    const accessState = accessStateByDocumentId.get(documentId);
-    if (!accessState || !canReadDocumentAccess(accessState, userId)) {
-      continue;
-    }
-
+  for (const documentRow of documentRows) {
     responseBody.push({
-      createdAt:
-        createdAtByDocumentId.get(documentId)?.toISOString() ??
-        new Date(0).toISOString(),
-      currentAccessEpoch: accessState.currentAccessEpoch,
-      currentAccessStateHash: accessState.accessStateHash,
-      id: documentId,
-      linkedContainerIds: linkedContainerIdsByDocumentId.get(documentId) ?? [],
-      referencedPrincipals: accessState.referencedPrincipals,
+      createdAt: documentRow.createdAt.toISOString(),
+      currentAccessEpoch: documentRow.manifestEpoch,
+      currentAccessStateHash: documentRow.manifestHash,
+      id: documentRow.documentId,
+      linkedContainerIds:
+        linkedContainerIdsByManifestHash.get(documentRow.manifestHash) ?? [],
+      referencedPrincipals,
     });
   }
 

@@ -209,8 +209,8 @@ The `logout` route remains route-local. It composes `requireAuth` and
 `destroySession` directly and does not orchestrate application-service logic.
 
 Container list and container document listing pass their injected runtime
-executor through the access helpers they call, so in-process callers do not
-fall back to the global database adapter inside those service paths.
+executor through the access helpers they call, so in-process callers use the
+same injected database adapter inside those service paths.
 
 Auth challenge and verify services return service-level success results and
 typed service errors. Their routes own the HTTP status and response-body

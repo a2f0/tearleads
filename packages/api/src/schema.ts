@@ -238,26 +238,6 @@ export const principalMemberEnvelopes = pgTable(
   ],
 );
 
-export const objectAccessGrants = pgTable("object_access_grants", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  objectType: text("object_type").notNull(),
-  objectId: text("object_id").notNull(),
-  subjectType: text("subject_type").notNull(),
-  subjectId: text("subject_id").notNull(),
-  accessLevel: text("access_level").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const objectAccessEpochs = pgTable("object_access_epochs", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  objectType: text("object_type").notNull(),
-  objectId: text("object_id").notNull(),
-  epoch: integer("epoch").notNull(),
-  accessFingerprint: text("access_fingerprint").notNull(),
-  accessStateHash: text("access_state_hash"),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 export const accessEvents = pgTable(
   "access_events",
   {
@@ -697,7 +677,7 @@ export const documentAuditCheckpoints = pgTable(
     previousCheckpointHash: text("previous_checkpoint_hash"),
     checkpointHash: text("checkpoint_hash").notNull(),
     accessEpoch: integer("access_epoch").notNull(),
-    accessFingerprint: text("access_fingerprint").notNull(),
+    accessManifestHash: text("access_manifest_hash").notNull(),
     accessStateHash: text("access_state_hash"),
     actorUserId: uuid("actor_user_id").notNull(),
     actorFingerprint: text("actor_fingerprint").notNull(),
@@ -729,7 +709,7 @@ export const documentAuditEntries = pgTable(
       .notNull(),
     eventType: text("event_type").notNull(),
     accessEpoch: integer("access_epoch").notNull(),
-    accessFingerprint: text("access_fingerprint").notNull(),
+    accessManifestHash: text("access_manifest_hash").notNull(),
     accessStateHash: text("access_state_hash"),
     actorUserId: uuid("actor_user_id").notNull(),
     actorFingerprint: text("actor_fingerprint").notNull(),

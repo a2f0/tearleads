@@ -260,8 +260,8 @@ The current code already has clear live-state seams:
 - encrypted live document updates live in `document_updates`
 - causal sync indexing lives in `document_update_spans`
 - live blob reachability lives in `attachment_bindings`
-- current access-plane material lives in `object_access_epochs` and V2
-  key-target tables
+- access-plane material lives in signed access manifest heads and key-target
+  tables
 - live blob bytes live in `blobs`
 
 Those tables should remain optimized for current sync and current access state.
@@ -331,12 +331,8 @@ If historical replay or historical attachment download is a product
 requirement, keep historical wrapped-key material separate from the current
 access-plane rows.
 
-That likely means:
-
-- current `object_access_epochs` and V2 key-target tables remain the canonical
-  live-access tables
-- history-specific bundle or envelope storage persists the material needed to
-  verify or decrypt retained historical objects
+That likely means history-specific bundle or envelope storage persists the
+material needed to verify or decrypt retained historical objects.
 
 This should not overload the current access-plane tables with mixed live and
 historical semantics.
@@ -379,7 +375,7 @@ This section resolves the Phase 1 storage boundary.
   - `document_updates`
   - `document_update_spans`
   - `attachment_bindings`
-  - `object_access_epochs`
+  - `access_manifest_heads`
   - V2 key-target tables
   - `blobs`
 - add separate history-side persistence rather than keeping detached live rows
@@ -393,7 +389,7 @@ This section resolves the Phase 1 storage boundary.
   server in the first implementation
 - because historical replay is deferred, do not add historical wrapped-key or
   key-target tables in the first implementation
-- instead, snapshot `accessEpoch`, `accessFingerprint`, and
+- instead, snapshot `accessEpoch`, `accessManifestHash`, and
   `accessStateHash` into audit records so the audit layer can prove which
   access state a write was accepted under
 
@@ -404,7 +400,7 @@ The current tables keep their current meanings:
 - `document_updates` remains the live sync store for encrypted Loro updates
 - `document_update_spans` remains the causal-sync index
 - `attachment_bindings` remains the live projection of current attachment slots
-- `object_access_epochs` and V2 key-target tables remain the canonical current
+- `access_manifest_heads` and V2 key-target tables remain the canonical
   access-plane rows
 - `blobs` remains the live blob-byte store and can continue to be pruned when
   the final active binding disappears
@@ -428,7 +424,7 @@ Suggested columns:
 - `sequence BIGINT GENERATED ALWAYS AS IDENTITY`
 - `event_type TEXT NOT NULL`
 - `access_epoch INTEGER NOT NULL`
-- `access_fingerprint TEXT NOT NULL`
+- `access_manifest_hash TEXT NOT NULL`
 - `access_state_hash TEXT`
 - `actor_user_id UUID NOT NULL`
 - `actor_fingerprint TEXT NOT NULL`
@@ -485,7 +481,7 @@ Suggested columns:
 - `previous_checkpoint_hash TEXT`
 - `checkpoint_hash TEXT NOT NULL`
 - `access_epoch INTEGER NOT NULL`
-- `access_fingerprint TEXT NOT NULL`
+- `access_manifest_hash TEXT NOT NULL`
 - `access_state_hash TEXT`
 - `actor_user_id UUID NOT NULL`
 - `actor_fingerprint TEXT NOT NULL`
@@ -566,12 +562,11 @@ The first implementation should not add history-side wrapped-key tables yet.
 If later work needs server-side historical replay or historical blob download,
 add dedicated history-side tables such as:
 
-- `audit_object_access_epochs`
 - audit key-target tables
 
 Those future tables should be keyed by history objects or audit checkpoints,
-not by the current live object rows. The current `object_access_epochs` and V2
-key-target tables should remain live-only.
+not by the live object rows. Signed access manifest heads and key-target tables
+should remain live-only.
 
 ### Verification Model
 

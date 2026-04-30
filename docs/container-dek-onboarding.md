@@ -18,7 +18,6 @@ After registration, every user has:
 - a default organization
 - a root container for that organization
 - a signed V2 root container manifest and container KEK wrap
-- an access grant and epoch for the root container access projection
 - an initialized V2 root metadata document with content-key targets
 - a local "me" contact and persisted root container in SQLite
 
@@ -59,17 +58,16 @@ This avoids a circular foreign key between organizations and containers.
 
 ### Server Side (atomic transaction)
 
-The register endpoint creates the identity, organization, root container, root
-container access, and root metadata document rows in one transaction:
+The register endpoint creates the identity, organization, root container,
+signed root access manifest, and root metadata document rows in one
+transaction:
 
 1. Insert organization (name: `"Personal"`).
 2. Insert container (`organization_id = org.id`, `parent_id = NULL`).
 3. Insert user (`default_organization_id = org.id`).
 4. Store the initial organization policy.
-5. Insert object access grant (`objectType: "container"`, `accessLevel: "admin"`).
-6. Insert object access epoch (`epoch: 1`).
-7. Verify and store the V2 root container manifest and KEK state.
-8. Verify and store the V2 root metadata document manifest, content-key
+5. Verify and store the V2 root container manifest and KEK state.
+6. Verify and store the V2 root metadata document manifest, content-key
    targets, and initial encrypted update.
 
 If the user's fingerprint already exists, the transaction rolls back and the
@@ -239,5 +237,4 @@ distributed before the shrink.
 For the broader hierarchy direction, see:
 
 - `docs/access-plane.md`
-- `docs/access-fingerprint.md`
 - `docs/loro-e2ee-sync-protocol.md`

@@ -56,6 +56,7 @@ import {
 import type { ApiServiceRuntime } from "../runtime";
 
 type ContainerV2WriterProjectionStatus = 403 | 404 | 409;
+const MAX_CONTAINER_PATH_DEPTH = 100;
 
 export class ContainerV2WriterProjectionError extends Error {
   constructor(
@@ -71,6 +72,13 @@ interface ContainerPathRow {
   readonly id: string;
   readonly organizationId: string;
   readonly parentId: string | null;
+}
+
+export interface ContainerV2AccessProjection {
+  readonly accessLevel: ContainerAccessLevelV2;
+  readonly path: ContainerV2ManifestBundleResponse[];
+  readonly principalPolicies: VerifiedPrincipalPolicy[];
+  readonly verifiedPath: VerifiedContainerAccessManifest[];
 }
 
 export interface ContainerV2WriterProjectionContext {
@@ -265,6 +273,21 @@ function isContainerGrantSubjectType(
   value: unknown,
 ): value is ContainerGrantSubjectTypeV2 {
   return value === "group" || value === "organization" || value === "user";
+}
+
+function isAccessLevelAtLeast(
+  accessLevel: ContainerAccessLevelV2 | null,
+  minimumAccessLevel: ContainerAccessLevelV2,
+): accessLevel is ContainerAccessLevelV2 {
+  if (accessLevel === null) {
+    return false;
+  }
+
+  if (accessLevel === "admin" || accessLevel === minimumAccessLevel) {
+    return true;
+  }
+
+  return minimumAccessLevel === "read" && accessLevel === "write";
 }
 
 function readContainerDirectGrant(
@@ -516,6 +539,12 @@ async function loadContainerPath(
   let currentContainerId: string | null = containerId;
 
   while (currentContainerId !== null) {
+    if (path.length >= MAX_CONTAINER_PATH_DEPTH) {
+      throw new ContainerV2WriterProjectionError(
+        "Container path exceeds maximum depth",
+        409,
+      );
+    }
     if (seenContainerIds.has(currentContainerId)) {
       throw new ContainerV2WriterProjectionError(
         "Container path contains a cycle",
@@ -838,6 +867,43 @@ export async function resolveContainerV2WriterProjection(input: {
 }): Promise<ContainerV2WriterProjectionResponse> {
   const context =
     input.context ?? createContainerV2WriterProjectionContext(input.executor);
+  const access = await resolveContainerV2AccessProjection({
+    ...input,
+    context,
+    minimumAccessLevel: "write",
+  });
+
+  const containerKekStates: VerifiedContainerKekState[] = [];
+  for (const manifest of access.verifiedPath) {
+    containerKekStates.push(
+      await loadContainerKekState(context, manifest, {
+        parentKekState: containerKekStates.at(-1) ?? null,
+        principalPolicies: access.principalPolicies,
+      }),
+    );
+  }
+  const targetManifest = access.verifiedPath.at(-1);
+  if (!targetManifest) {
+    throw new ContainerV2WriterProjectionError("Container not found", 404);
+  }
+
+  return {
+    containerId: input.containerId,
+    organizationId: targetManifest.state.organizationId,
+    path: access.path,
+    containerKeks: containerKekStates.map(containerKekResponse),
+  };
+}
+
+export async function resolveContainerV2AccessProjection(input: {
+  readonly context?: ContainerV2WriterProjectionContext;
+  readonly containerId: string;
+  readonly executor: DatabaseExecutor;
+  readonly minimumAccessLevel: ContainerAccessLevelV2;
+  readonly userId: string;
+}): Promise<ContainerV2AccessProjection> {
+  const context =
+    input.context ?? createContainerV2WriterProjectionContext(input.executor);
   const pathRows = await loadContainerPath(context, input.containerId);
   const path = await Promise.all(
     pathRows.map((row) => loadCurrentContainerManifestBundle(context, row.id)),
@@ -861,29 +927,15 @@ export async function resolveContainerV2WriterProjection(input: {
     userId: input.userId,
   });
 
-  if (accessLevel !== "write" && accessLevel !== "admin") {
+  if (!isAccessLevelAtLeast(accessLevel, input.minimumAccessLevel)) {
     throw new ContainerV2WriterProjectionError("Forbidden", 403);
   }
 
-  const containerKekStates: VerifiedContainerKekState[] = [];
-  for (const manifest of verifiedPath) {
-    containerKekStates.push(
-      await loadContainerKekState(context, manifest, {
-        parentKekState: containerKekStates.at(-1) ?? null,
-        principalPolicies,
-      }),
-    );
-  }
-  const targetManifest = verifiedPath.at(-1);
-  if (!targetManifest) {
-    throw new ContainerV2WriterProjectionError("Container not found", 404);
-  }
-
   return {
-    containerId: input.containerId,
-    organizationId: targetManifest.state.organizationId,
+    accessLevel,
     path,
-    containerKeks: containerKekStates.map(containerKekResponse),
+    principalPolicies,
+    verifiedPath,
   };
 }
 

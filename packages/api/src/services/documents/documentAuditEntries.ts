@@ -34,7 +34,7 @@ function serializeAuditEntryHashField(name: string, value: string) {
 
 function buildDocumentUpdateAuditEntryHashPayload(input: {
   accessEpoch: number;
-  accessFingerprint: string;
+  accessManifestHash: string;
   accessStateHash?: string | null;
   actorFingerprint: string;
   actorUserId: string;
@@ -52,7 +52,10 @@ function buildDocumentUpdateAuditEntryHashPayload(input: {
     serializeAuditEntryHashField("documentId", input.documentId),
     serializeAuditEntryHashField("eventType", input.eventType),
     serializeAuditEntryHashField("accessEpoch", String(input.accessEpoch)),
-    serializeAuditEntryHashField("accessFingerprint", input.accessFingerprint),
+    serializeAuditEntryHashField(
+      "accessManifestHash",
+      input.accessManifestHash,
+    ),
   ];
   if (input.accessStateHash !== null && input.accessStateHash !== undefined) {
     fields.push(
@@ -93,7 +96,7 @@ function buildDocumentUpdateAuditEntryHashPayload(input: {
 
 export async function computeDocumentUpdateAuditEntryHash(input: {
   accessEpoch: number;
-  accessFingerprint: string;
+  accessManifestHash: string;
   accessStateHash?: string | null;
   actorFingerprint: string;
   actorUserId: string;
@@ -118,7 +121,7 @@ export async function appendDocumentUpdateAuditEntries(
   executor: DatabaseExecutor,
   input: {
     accessEpoch: number;
-    accessFingerprint: string;
+    accessManifestHash: string;
     accessStateHash: string | null;
     actorFingerprint: string;
     actorUserId: string;
@@ -163,7 +166,7 @@ export async function appendDocumentUpdateAuditEntries(
   for (const update of updatesWithMetadata) {
     const entryHash = await computeDocumentUpdateAuditEntryHash({
       accessEpoch: input.accessEpoch,
-      accessFingerprint: input.accessFingerprint,
+      accessManifestHash: input.accessManifestHash,
       accessStateHash: input.accessStateHash,
       actorFingerprint: input.actorFingerprint,
       actorUserId: input.actorUserId,
@@ -182,7 +185,7 @@ export async function appendDocumentUpdateAuditEntries(
       documentId: input.documentId,
       eventType: DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE,
       accessEpoch: input.accessEpoch,
-      accessFingerprint: input.accessFingerprint,
+      accessManifestHash: input.accessManifestHash,
       accessStateHash: input.accessStateHash,
       actorUserId: input.actorUserId,
       actorFingerprint: input.actorFingerprint,

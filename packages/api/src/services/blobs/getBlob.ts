@@ -1,10 +1,10 @@
 import type { BlobResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import {
-  canReadBlobAccess,
-  resolveBlobAccessState,
-} from "../../access/blobAccess";
 import { blobs } from "../../schema";
+import {
+  KeyingV2ReadAccessError,
+  resolveReadableBlobV2Access,
+} from "../keyingV2ReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface GetBlobInput {
@@ -15,7 +15,7 @@ interface GetBlobInput {
 export class GetBlobError extends Error {
   constructor(
     message: string,
-    readonly status: 403 | 404,
+    readonly status: 403 | 404 | 409,
   ) {
     super(message);
   }
@@ -25,13 +25,17 @@ export async function getBlob(
   runtime: ApiServiceRuntime,
   input: GetBlobInput,
 ): Promise<BlobResponse> {
-  const access = await resolveBlobAccessState(input.blobId, runtime.db);
-  if (!access) {
-    throw new GetBlobError("Blob not found", 404);
-  }
-
-  if (!canReadBlobAccess(access, input.userId)) {
-    throw new GetBlobError("Forbidden", 403);
+  try {
+    await resolveReadableBlobV2Access({
+      blobId: input.blobId,
+      executor: runtime.db,
+      userId: input.userId,
+    });
+  } catch (error) {
+    if (error instanceof KeyingV2ReadAccessError) {
+      throw new GetBlobError(error.message, error.status);
+    }
+    throw error;
   }
 
   const [row] = await runtime.db

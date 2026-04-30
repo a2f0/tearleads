@@ -1,38 +1,24 @@
 import { expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
+import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
-import { initializeDocumentAccess } from "../../access/documentAccess";
-import { db } from "../../adapters/postgres";
-import { documentContainerLinks, documents } from "../../schema";
 import { listContainerDocuments } from "./listContainerDocuments";
 import { listContainers } from "./listContainers";
 
 async function createLinkedDocument(input: {
   containerId: string;
   createdByFingerprint: string;
+  organizationId: string;
 }) {
-  const [document] = await db
-    .insert(documents)
-    .values({
-      createdByFingerprint: input.createdByFingerprint,
-    })
-    .returning({ id: documents.id });
-
-  if (!document) {
-    throw new Error("Failed to create service test document");
-  }
-
-  await db.insert(documentContainerLinks).values({
-    containerId: input.containerId,
-    documentId: document.id,
+  return createCurrentDocumentProjection({
+    containerIds: [input.containerId],
+    createdByFingerprint: input.createdByFingerprint,
+    organizationId: input.organizationId,
   });
-  await initializeDocumentAccess(document.id, db);
-
-  return document;
 }
 
 test("listContainers passes its runtime executor into metadata access resolution", async () => {
@@ -46,7 +32,7 @@ test("listContainers passes its runtime executor into metadata access resolution
   expect(containers.map((container) => container.id)).toContain(
     registration.rootContainerId,
   );
-  expect(recording.calls.get("select") ?? 0).toBeGreaterThan(0);
+  expect(recording.calls.get("execute") ?? 0).toBeGreaterThan(0);
 });
 
 test("listContainerDocuments passes its runtime executor into access resolution", async () => {
@@ -54,6 +40,7 @@ test("listContainerDocuments passes its runtime executor into access resolution"
   const document = await createLinkedDocument({
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+    organizationId: registration.organizationId,
   });
   const recording = createRecordingDb();
   const listedDocuments = await listContainerDocuments(
@@ -65,5 +52,5 @@ test("listContainerDocuments passes its runtime executor into access resolution"
   expect(listedDocuments.map((listedDocument) => listedDocument.id)).toContain(
     document.id,
   );
-  expect(recording.calls.get("execute") ?? 0).toBeGreaterThan(0);
+  expect(recording.calls.get("select") ?? 0).toBeGreaterThan(0);
 });

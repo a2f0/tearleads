@@ -16,7 +16,7 @@ function serializeCheckpointHashField(name: string, value: string) {
 
 function buildCheckpointHashPayload(input: {
   accessEpoch: number;
-  accessFingerprint: string;
+  accessManifestHash: string;
   accessStateHash?: string | null;
   actorFingerprint: string;
   actorUserId: string;
@@ -44,7 +44,10 @@ function buildCheckpointHashPayload(input: {
       input.previousCheckpointHash ?? "",
     ),
     serializeCheckpointHashField("accessEpoch", String(input.accessEpoch)),
-    serializeCheckpointHashField("accessFingerprint", input.accessFingerprint),
+    serializeCheckpointHashField(
+      "accessManifestHash",
+      input.accessManifestHash,
+    ),
   ];
   if (input.accessStateHash !== null && input.accessStateHash !== undefined) {
     fields.push(
@@ -60,7 +63,7 @@ function buildCheckpointHashPayload(input: {
 
 export async function computeDocumentAuditCheckpointHash(input: {
   accessEpoch: number;
-  accessFingerprint: string;
+  accessManifestHash: string;
   accessStateHash?: string | null;
   actorFingerprint: string;
   actorUserId: string;
@@ -78,7 +81,7 @@ export async function maybeWriteDocumentAuditCheckpoint(
   executor: DatabaseExecutor,
   input: {
     accessEpoch: number;
-    accessFingerprint: string;
+    accessManifestHash: string;
     accessStateHash: string | null;
     actorFingerprint: string;
     actorUserId: string;
@@ -124,7 +127,7 @@ export async function maybeWriteDocumentAuditCheckpoint(
   const coveredAuditEntryHash = input.coveredAuditEntryHash;
   const checkpointHash = await computeDocumentAuditCheckpointHash({
     accessEpoch: input.accessEpoch,
-    accessFingerprint: input.accessFingerprint,
+    accessManifestHash: input.accessManifestHash,
     accessStateHash: input.accessStateHash,
     actorFingerprint: input.actorFingerprint,
     actorUserId: input.actorUserId,
@@ -145,7 +148,7 @@ export async function maybeWriteDocumentAuditCheckpoint(
     previousCheckpointHash,
     checkpointHash,
     accessEpoch: input.accessEpoch,
-    accessFingerprint: input.accessFingerprint,
+    accessManifestHash: input.accessManifestHash,
     accessStateHash: input.accessStateHash,
     actorUserId: input.actorUserId,
     actorFingerprint: input.actorFingerprint,

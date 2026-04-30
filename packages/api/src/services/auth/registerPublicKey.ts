@@ -13,21 +13,14 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
-import {
-  computeAccessFingerprint,
-  computeAccessStateHash,
-} from "../../access/accessFingerprint";
 import { storeVerifiedAccessManifest } from "../../access/accessManifestStore";
 import { storeVerifiedContainerKekState } from "../../access/containerKekStore";
 import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/principalMemberEnvelopes";
 import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
-import { toUserPrincipalFingerprintRecipient } from "../../access/recipientPrincipals";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
   containerMetadataDocuments,
   containers,
-  objectAccessEpochs,
-  objectAccessGrants,
   organizations,
   users,
 } from "../../schema";
@@ -46,7 +39,6 @@ import {
 } from "../keyingV2ProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 
-const CONTAINER_OBJECT_TYPE = "container";
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTER_DUPLICATE_FINGERPRINT";
 
 export class RegisterPublicKeyError extends Error {
@@ -504,64 +496,6 @@ async function storeInitialRootContainerV2(
   };
 }
 
-async function writeInitialRootContainerAccess(
-  tx: DatabaseTransaction,
-  input: {
-    containerId: string;
-    encapsulationFingerprint: string;
-    userId: string;
-  },
-) {
-  await tx.insert(objectAccessGrants).values({
-    objectType: CONTAINER_OBJECT_TYPE,
-    objectId: input.containerId,
-    subjectType: "user",
-    subjectId: input.userId,
-    accessLevel: "admin",
-  });
-
-  await tx.insert(objectAccessEpochs).values({
-    objectType: CONTAINER_OBJECT_TYPE,
-    objectId: input.containerId,
-    epoch: 1,
-    accessFingerprint: await computeAccessFingerprint({
-      objectType: CONTAINER_OBJECT_TYPE,
-      ancestorContainerIds: [input.containerId],
-      containerId: input.containerId,
-      grants: [
-        {
-          objectId: input.containerId,
-          subjectType: "user",
-          subjectId: input.userId,
-          accessLevel: "admin",
-        },
-      ],
-      recipients: [
-        toUserPrincipalFingerprintRecipient({
-          userId: input.userId,
-          accessLevel: "admin",
-          keyFingerprint: input.encapsulationFingerprint,
-        }),
-      ],
-    }),
-    accessStateHash: await computeAccessStateHash({
-      objectType: CONTAINER_OBJECT_TYPE,
-      ancestorContainerIds: [input.containerId],
-      containerId: input.containerId,
-      grants: [
-        {
-          objectId: input.containerId,
-          subjectType: "user",
-          subjectId: input.userId,
-          accessLevel: "admin",
-        },
-      ],
-      referencedPrincipals: [],
-    }),
-    updatedAt: new Date(),
-  });
-}
-
 function readInitialRootMetadataDocumentV2Id(input: PublicKeyRequest): string {
   const event = input.initialRootMetadataDocumentV2.event;
   const documentId = Reflect.get(event, "objectId");
@@ -649,11 +583,6 @@ async function runRegisterPublicKeyTransaction(
       signingKeyBytes,
     });
     await storeInitialOrganizationPolicy(tx, input);
-    await writeInitialRootContainerAccess(tx, {
-      containerId: container.id,
-      encapsulationFingerprint,
-      userId: user.id,
-    });
     const rootMetadata = await storeInitialRootContainerV2(
       tx,
       input,
