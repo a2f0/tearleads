@@ -21,6 +21,7 @@ import {
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   signAccessEvent,
+  toFingerprint,
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
@@ -198,6 +199,18 @@ function toContainerKeyWrap(
     kemCipherText: wrap.kemCipherText,
     wrappedKey: wrap.wrappedKey,
     wrapManifestHash: wrap.wrapManifestHash,
+  };
+}
+
+async function userRecipientKey(
+  user: TestUser,
+): Promise<ContainerUserRecipientKey> {
+  const recipientKeyFingerprint = await toFingerprint(user.kem.publicKey);
+
+  return {
+    userId: user.userId,
+    recipientKeyEpochId: `user:${user.userId}:encapsulation:${recipientKeyFingerprint}`,
+    recipientKeyFingerprint,
   };
 }
 
@@ -450,6 +463,80 @@ async function createDocument(input: {
   const created = await createResponse.json();
   expect(isDocumentCreateResponse(created)).toBe(true);
   return created as DocumentCreateResponse;
+}
+
+async function buildRootGrantRequest(input: {
+  readonly previous: ContainerManifestBundle;
+  readonly previousKekState: VerifiedContainerKekState;
+  readonly recipient: TestUser;
+  readonly signer: TestUser;
+}): Promise<ContainerMutationRequest> {
+  const previous = asVerifiedContainerManifest(input.previous);
+  const signerKey = await userRecipientKey(input.signer);
+  const recipientKey = await userRecipientKey(input.recipient);
+  const grant = {
+    subjectType: "user" as const,
+    subjectId: input.recipient.userId,
+    accessLevel: "write" as const,
+  };
+  const body: ContainerAccessEventBody = {
+    eventType: "container.grant",
+    containerKeyEpochId: previous.state.containerKeyEpochId,
+    grant,
+    referencedPrincipalHead: null,
+  };
+  const event = await createSignedAccessEvent({
+    body,
+    dependencyManifestHashes: [input.previous.manifestHash],
+    objectId: previous.state.containerId,
+    objectKind: "container",
+    organizationId: previous.state.organizationId,
+    previousManifestHash: input.previous.manifestHash,
+    signer: input.signer,
+  });
+  const bundle = await createContainerManifestBundle(
+    {
+      ...previous.state,
+      epoch: previous.state.epoch + 1,
+      previousManifestHash: input.previous.manifestHash,
+      eventHash: event.eventHash,
+      directGrants: [...previous.state.directGrants, grant],
+    },
+    event,
+  );
+  const wraps = [
+    ...(input.previousKekState.wraps as readonly ContainerKeyWrap[]),
+    {
+      containerKeyEpochId: input.previousKekState.containerKeyEpochId,
+      recipientKind: "user" as const,
+      recipientId: recipientKey.userId,
+      recipientKeyEpochId: recipientKey.recipientKeyEpochId,
+      recipientKeyFingerprint: recipientKey.recipientKeyFingerprint,
+      kemCipherText: `kem:${input.previousKekState.containerKeyEpochId}:${recipientKey.userId}`,
+      wrappedKey: `wrapped:${input.previousKekState.containerKeyEpochId}:${recipientKey.userId}`,
+      wrapManifestHash: bundle.manifestHash,
+    },
+  ];
+
+  return {
+    event: event.event as unknown as Record<string, unknown>,
+    body: body as unknown,
+    expectedManifestHash: bundle.manifestHash,
+    manifest: bundle.manifest,
+    previousManifest: input.previous,
+    previousContainerPath: [input.previous],
+    containerManifestHistory: [input.previous],
+    keyEpoch: input.previousKekState.keyEpoch as unknown as Record<
+      string,
+      unknown
+    >,
+    wraps: wraps as unknown as Record<string, unknown>[],
+    parentKekState: null,
+    userRecipientKeys: [
+      signerKey as unknown as Record<string, unknown>,
+      recipientKey as unknown as Record<string, unknown>,
+    ],
+  };
 }
 
 test("POST /documents rejects malformed signed event records", async () => {
@@ -865,6 +952,67 @@ test("GET /documents/:documentId/writer-projection returns document targets and 
   expect(projection.contentKeyBundle.targetHash).toBe(
     created.contentKeyBundle.targetHash,
   );
+  expect(projection.authorizingContainerPaths).toHaveLength(1);
+});
+
+test("GET /documents/:documentId/writer-projection refreshes same-epoch root share targets", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const recipient = createTestUser();
+  await registerUser(recipient);
+  await authenticate(recipient);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const shareRequest = await buildRootGrantRequest({
+    previous: root.bundle,
+    previousKekState: root.kekState,
+    recipient,
+    signer: owner,
+  });
+  const shareResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(shareRequest),
+    },
+  );
+
+  expect(shareResponse.status).toBe(200);
+  const shared = await shareResponse.json();
+  expect(isContainerMutationResponse(shared)).toBe(true);
+
+  const projectionResponse = await routeApp.request(
+    `/documents/${created.id}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${recipient.token}`,
+      },
+    },
+  );
+
+  expect(projectionResponse.status).toBe(200);
+  const projection = await projectionResponse.json();
+  expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
+  expect(projection.contentKeyBundle.contentKeyEpoch).toBe(
+    created.contentKeyBundle.contentKeyEpoch,
+  );
+  expect(projection.documentKekTargets.documentKeyTargetHash).toBe(
+    projection.contentKeyBundle.targetHash,
+  );
+  expect(projection.documentKekTargets.linkedContainerManifestHashes).toEqual([
+    shared.manifestHead.manifestHash,
+  ]);
+  expect(projection.contentKeyBundle.targets).toEqual([
+    {
+      ...created.contentKeyBundle.targets[0],
+      containerManifestHash: shared.manifestHead.manifestHash,
+    },
+  ]);
   expect(projection.authorizingContainerPaths).toHaveLength(1);
 });
 

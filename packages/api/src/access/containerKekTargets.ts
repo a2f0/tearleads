@@ -209,10 +209,7 @@ function getContainerKeyEpoch(
       409,
     );
   }
-  if (
-    keyEpoch.containerId !== target.containerId ||
-    keyEpoch.accessManifestHash !== target.containerManifestHash
-  ) {
+  if (keyEpoch.containerId !== target.containerId) {
     throw new ContainerKekTargetError(
       `Container KEK epoch is stale for container ${target.containerId}`,
       409,
