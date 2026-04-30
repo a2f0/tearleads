@@ -54,6 +54,7 @@ import {
   DocumentContentKeyBundleError,
   listDocumentContentWriteHeaders,
   requireCurrentDocumentContentKeyBundle,
+  type StoredDocumentContentKeyBundleWithTargets,
   type DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,
@@ -985,7 +986,7 @@ function assertSyncContentKeyBundleMatchesRequest(
 }
 
 function toContentKeyBundleResponse(
-  bundle: Awaited<ReturnType<typeof storeDocumentContentKeyBundle>>,
+  bundle: StoredDocumentContentKeyBundleWithTargets,
 ): DocumentV2ContentKeyBundleResponse {
   return {
     documentId: bundle.documentId,
@@ -1265,16 +1266,11 @@ export async function createDocumentV2WithExecutor(input: {
       { verifiedManifest: manifest },
       input.executor,
     );
-
     const contentKeyBundle = await storeDocumentContentKeyBundle(
       toStoredContentKeyBundleInput(
         manifest.state.documentId,
         input.request.contentKeyBundle,
       ),
-      input.executor,
-    );
-    const currentTargets = await resolveCurrentDocumentKekTargets(
-      manifest.state.documentId,
       input.executor,
     );
 
@@ -1283,7 +1279,9 @@ export async function createDocumentV2WithExecutor(input: {
       createdAt: document.createdAt.toISOString(),
       accessManifest: documentManifestBundleRecord(manifest),
       contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
-      documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
+      documentKekTargets: toDocumentKekTargetsResponse(
+        contentKeyBundle.currentTargets,
+      ),
     };
   } catch (error) {
     const mutationError = toMutationError(error);
@@ -1357,16 +1355,14 @@ async function mutateDocumentV2LinkSetWithExecutor(input: {
       ),
       input.executor,
     );
-    const currentTargets = await resolveCurrentDocumentKekTargets(
-      input.documentId,
-      input.executor,
-    );
 
     return {
       id: input.documentId,
       accessManifest: documentManifestBundleRecord(manifest),
       contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
-      documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
+      documentKekTargets: toDocumentKekTargetsResponse(
+        contentKeyBundle.currentTargets,
+      ),
     };
   } catch (error) {
     const mutationError = toMutationError(error);

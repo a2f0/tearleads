@@ -298,6 +298,12 @@ test("storeDocumentContentKeyBundle stores one canonical bundle for current targ
   });
 
   expect(stored.targets).toEqual(envelopes);
+  expect(stored.currentTargets.documentKeyTargetHash).toBe(
+    currentTargets.documentKeyTargetHash,
+  );
+  expect(stored.currentTargets.linkSetManifestHash).toBe(
+    currentTargets.linkSetManifestHash,
+  );
 
   await expect(
     storeDocumentContentKeyBundle({

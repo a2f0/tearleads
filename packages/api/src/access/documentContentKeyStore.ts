@@ -38,6 +38,11 @@ interface StoredDocumentContentKeyBundle {
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }
 
+export interface StoredDocumentContentKeyBundleWithTargets
+  extends StoredDocumentContentKeyBundle {
+  readonly currentTargets: CurrentDocumentKekTargets;
+}
+
 interface StoreDocumentContentKeyBundleInput {
   readonly documentId: string;
   readonly contentKeyEpoch: number;
@@ -610,7 +615,7 @@ async function refreshExistingBundleMetadata(input: {
 export async function storeDocumentContentKeyBundle(
   input: StoreDocumentContentKeyBundleInput,
   executor: DocumentContentKeyExecutor = db,
-): Promise<StoredDocumentContentKeyBundle> {
+): Promise<StoredDocumentContentKeyBundleWithTargets> {
   if (executor === db) {
     return db.transaction((tx) => storeDocumentContentKeyBundle(input, tx));
   }
@@ -639,17 +644,32 @@ export async function storeDocumentContentKeyBundle(
     input.contentKeyEpoch,
     executor,
   );
+  // Return the target snapshot that was validated immediately before the
+  // content-key write. Callers can reuse it for response/write-header
+  // assembly without performing a second full KEK-target walk, while the store
+  // remains the only authority that decides whether the write targets are
+  // current.
+  const withCurrentTargets = (
+    bundle: StoredDocumentContentKeyBundle,
+  ): StoredDocumentContentKeyBundleWithTargets => ({
+    ...bundle,
+    currentTargets,
+  });
 
   if (!existingBundle) {
-    return createDocumentContentKeyBundle(input, executor);
+    return withCurrentTargets(
+      await createDocumentContentKeyBundle(input, executor),
+    );
   }
 
   if (targetEnvelopeBundlesEqual(existingBundle.targets, input.targets)) {
-    return refreshExistingBundleMetadata({
-      existingBundle,
-      nextBundle: input,
-      executor,
-    });
+    return withCurrentTargets(
+      await refreshExistingBundleMetadata({
+        existingBundle,
+        nextBundle: input,
+        executor,
+      }),
+    );
   }
 
   if (
@@ -657,11 +677,13 @@ export async function storeDocumentContentKeyBundle(
     input.contentKeyEpoch === latestBundle.contentKeyEpoch &&
     latestTargetsStillCurrent
   ) {
-    return addDocumentContentKeyTargetsToExistingBundle({
-      existingBundle,
-      nextBundle: input,
-      executor,
-    });
+    return withCurrentTargets(
+      await addDocumentContentKeyTargetsToExistingBundle({
+        existingBundle,
+        nextBundle: input,
+        executor,
+      }),
+    );
   }
 
   throw new DocumentContentKeyBundleError(
@@ -676,7 +698,7 @@ export async function requireCurrentDocumentContentKeyBundle(input: {
   readonly expectedLinkSetManifestHash: string;
   readonly expectedTargetHash: string;
   readonly executor?: DocumentContentKeyExecutor;
-}): Promise<StoredDocumentContentKeyBundle> {
+}): Promise<StoredDocumentContentKeyBundleWithTargets> {
   const executor = input.executor ?? db;
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   const currentTargets = await assertDocumentKekTargetsCurrent(
@@ -717,7 +739,10 @@ export async function requireCurrentDocumentContentKeyBundle(input: {
   }
   assertTargetsMatchCurrent({ currentTargets, targets: bundle.targets });
 
-  return bundle;
+  return {
+    ...bundle,
+    currentTargets,
+  };
 }
 
 export async function storeDocumentContentWriteHeader(

@@ -39,12 +39,13 @@ import {
 import {
   BlobContentKeyBundleError,
   type BlobContentKeyTargetEnvelope,
+  type StoredBlobContentKeyBundleWithTargets,
   storeBlobContentKeyBundle,
   storeBlobContentWriteHeader,
 } from "../../access/blobContentKeyStore";
 import {
   BlobKekTargetError,
-  resolveCurrentBlobKekTargets,
+  type resolveCurrentBlobKekTargets,
 } from "../../access/blobKekTargets";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import { attachmentBindings, blobStages, blobs, documents } from "../../schema";
@@ -749,9 +750,7 @@ async function detachActiveSlotBinding(input: {
 function toBindResponse(input: {
   readonly binding: VerifiedAttachmentBinding;
   readonly blobId: string;
-  readonly contentKeyBundle: Awaited<
-    ReturnType<typeof storeBlobContentKeyBundle>
-  >;
+  readonly contentKeyBundle: StoredBlobContentKeyBundleWithTargets;
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentBlobKekTargets>
   >;
@@ -855,10 +854,6 @@ export async function bindBlobAttachmentV2(
       });
       await detachActiveSlotBinding({ activeBinding, executor: tx });
       await storeVerifiedAttachmentBinding(verifiedBinding.value, tx);
-      const currentTargets = await resolveCurrentBlobKekTargets(
-        input.blobId,
-        tx,
-      );
       const contentKeyBundle = await storeBlobContentKeyBundle(
         toStoredContentKeyBundleInput(
           input.blobId,
@@ -866,6 +861,7 @@ export async function bindBlobAttachmentV2(
         ),
         tx,
       );
+      const currentTargets = contentKeyBundle.currentTargets;
       const writeHeaderHash = await verifyAndStoreStagedBlobWriteHeader({
         blobId: input.blobId,
         blobKekTargets: currentTargets,
