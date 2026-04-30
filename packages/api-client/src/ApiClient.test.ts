@@ -1,11 +1,49 @@
-import { expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type {
   ContainerV2MutationRequest,
   DocumentV2CreateRequest,
   DocumentV2LinkSetMutationRequest,
   DocumentV2SyncRequest,
 } from "@tearleads/validators/request";
+import { HttpResponse, http } from "msw";
+import { setupServer } from "msw/node";
 import { ApiClient } from "./ApiClient";
+
+const apiBaseUrl = "http://api.test";
+const server = setupServer();
+
+interface CapturedHttpCall {
+  readonly authorization: string | null;
+  readonly body: string | null;
+  readonly contentType: string | null;
+  readonly method: string;
+  readonly url: string;
+}
+
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: "error" });
+});
+
+afterEach(() => {
+  server.resetHandlers();
+});
+
+afterAll(() => {
+  server.close();
+});
+
+async function captureHttpCall(request: Request): Promise<CapturedHttpCall> {
+  return {
+    authorization: request.headers.get("authorization"),
+    body:
+      request.method === "GET" || request.method === "HEAD"
+        ? null
+        : await request.clone().text(),
+    contentType: request.headers.get("content-type"),
+    method: request.method,
+    url: request.url,
+  };
+}
 
 function createContainerV2MutationRequest(): ContainerV2MutationRequest {
   return {
@@ -190,70 +228,55 @@ function createDocumentV2SyncResponse() {
 }
 
 test("includes authorization header after authentication", async () => {
-  const originalFetch = globalThis.fetch;
-  const calls: RequestInit[] = [];
-  const fetchMock = Object.assign(
-    async (
-      _input: RequestInfo | URL,
-      init?: RequestInit,
-    ): Promise<Response> => {
-      calls.push(init ?? {});
-      return new Response(JSON.stringify({ message: "ok" }));
-    },
-    { preconnect: originalFetch.preconnect },
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(`${apiBaseUrl}/`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+      return HttpResponse.json({ message: "ok" });
+    }),
   );
-  globalThis.fetch = fetchMock;
 
-  const client = new ApiClient("http://api.test");
+  const client = new ApiClient(apiBaseUrl);
   client.setAuthToken("abc");
 
   await client.getHealth();
 
-  expect(calls[0]?.headers).toEqual({
-    "Content-Type": "application/json",
-    Authorization: "Bearer abc",
-  });
-
-  globalThis.fetch = originalFetch;
+  const call = calls[0];
+  expect(call).toBeDefined();
+  if (!call) {
+    throw new Error("expected getHealth HTTP call");
+  }
+  expect(call.authorization).toBe("Bearer abc");
+  expect(call.contentType).toBe("application/json");
 });
 
 test("returns null on network error", async () => {
-  const originalFetch = globalThis.fetch;
-  const fetchMock = Object.assign(
-    async (
-      _input: RequestInfo | URL,
-      _init?: RequestInit,
-    ): Promise<Response> => {
-      throw new Error("offline");
-    },
-    { preconnect: originalFetch.preconnect },
+  server.use(
+    http.get(`${apiBaseUrl}/`, () => {
+      return HttpResponse.error();
+    }),
   );
-  globalThis.fetch = fetchMock;
 
-  const client = new ApiClient("http://api.test");
+  const client = new ApiClient(apiBaseUrl);
   expect(await client.getHealth()).toBeNull();
-  globalThis.fetch = originalFetch;
 });
 
 test("includes backend error details in onError output for non-2xx responses", async () => {
-  const originalFetch = globalThis.fetch;
-  const fetchMock = Object.assign(
-    async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
-      new Response(
-        JSON.stringify({
+  server.use(
+    http.post(`${apiBaseUrl}/v2/containers/:containerId/share`, () => {
+      return HttpResponse.json(
+        {
           error: "Stale container manifest",
-        }),
+        },
         {
           status: 409,
           statusText: "Conflict",
-          headers: { "Content-Type": "application/json" },
         },
-      ),
-    { preconnect: originalFetch.preconnect },
+      );
+    }),
   );
-  globalThis.fetch = fetchMock;
 
-  const client = new ApiClient("http://api.test");
+  const client = new ApiClient(apiBaseUrl);
   const errors: string[] = [];
   client.setOnError((message) => {
     errors.push(message);
@@ -268,184 +291,133 @@ test("includes backend error details in onError output for non-2xx responses", a
   expect(errors).toEqual([
     "POST /v2/containers/container-1/share: 409 Conflict: Stale container manifest",
   ]);
-
-  globalThis.fetch = originalFetch;
 });
 
 test("posts signed V2 container mutations to the V2 route namespace", async () => {
-  const originalFetch = globalThis.fetch;
-  const calls: Array<{
-    input: RequestInfo | URL;
-    init: RequestInit | undefined;
-  }> = [];
-  const fetchMock = Object.assign(
-    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      calls.push({ input, init });
-      return new Response(JSON.stringify(createContainerV2MutationResponse()), {
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-    { preconnect: originalFetch.preconnect },
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.all(`${apiBaseUrl}/*`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+      return HttpResponse.json(createContainerV2MutationResponse());
+    }),
   );
-  globalThis.fetch = fetchMock;
 
-  try {
-    const client = new ApiClient("http://api.test");
-    const mutation = createContainerV2MutationRequest();
+  const client = new ApiClient(apiBaseUrl);
+  const mutation = createContainerV2MutationRequest();
 
-    expect(await client.createContainerV2(mutation)).not.toBeNull();
-    expect(
-      await client.shareContainerV2("container-1", mutation),
-    ).not.toBeNull();
-    expect(
-      await client.revokeContainerV2("container-1", mutation),
-    ).not.toBeNull();
-    expect(
-      await client.rekeyContainerV2("container-1", mutation),
-    ).not.toBeNull();
-    expect(
-      await client.moveContainerV2("container-1", mutation),
-    ).not.toBeNull();
+  expect(await client.createContainerV2(mutation)).not.toBeNull();
+  expect(await client.shareContainerV2("container-1", mutation)).not.toBeNull();
+  expect(
+    await client.revokeContainerV2("container-1", mutation),
+  ).not.toBeNull();
+  expect(await client.rekeyContainerV2("container-1", mutation)).not.toBeNull();
+  expect(await client.moveContainerV2("container-1", mutation)).not.toBeNull();
 
-    expect(
-      calls.map((call) => ({
-        body: call.init?.body,
-        input: String(call.input),
-        method: call.init?.method,
-      })),
-    ).toEqual([
-      {
-        body: JSON.stringify(mutation),
-        input: "http://api.test/v2/containers",
-        method: "POST",
-      },
-      {
-        body: JSON.stringify(mutation),
-        input: "http://api.test/v2/containers/container-1/share",
-        method: "POST",
-      },
-      {
-        body: JSON.stringify(mutation),
-        input: "http://api.test/v2/containers/container-1/revoke",
-        method: "POST",
-      },
-      {
-        body: JSON.stringify(mutation),
-        input: "http://api.test/v2/containers/container-1/rekey",
-        method: "POST",
-      },
-      {
-        body: JSON.stringify(mutation),
-        input: "http://api.test/v2/containers/container-1/move",
-        method: "POST",
-      },
-    ]);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: JSON.stringify(mutation),
+      input: `${apiBaseUrl}/v2/containers`,
+      method: "POST",
+    },
+    {
+      body: JSON.stringify(mutation),
+      input: `${apiBaseUrl}/v2/containers/container-1/share`,
+      method: "POST",
+    },
+    {
+      body: JSON.stringify(mutation),
+      input: `${apiBaseUrl}/v2/containers/container-1/revoke`,
+      method: "POST",
+    },
+    {
+      body: JSON.stringify(mutation),
+      input: `${apiBaseUrl}/v2/containers/container-1/rekey`,
+      method: "POST",
+    },
+    {
+      body: JSON.stringify(mutation),
+      input: `${apiBaseUrl}/v2/containers/container-1/move`,
+      method: "POST",
+    },
+  ]);
 });
 
 test("posts signed V2 document link-set mutations to the V2 route namespace", async () => {
-  const originalFetch = globalThis.fetch;
-  const calls: Array<{
-    input: RequestInfo | URL;
-    init: RequestInit | undefined;
-  }> = [];
-  const fetchMock = Object.assign(
-    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      calls.push({ input, init });
-      return new Response(
-        JSON.stringify(createDocumentV2LinkSetMutationResponse()),
-        {
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    },
-    { preconnect: originalFetch.preconnect },
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.all(`${apiBaseUrl}/*`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+      return HttpResponse.json(createDocumentV2LinkSetMutationResponse());
+    }),
   );
-  globalThis.fetch = fetchMock;
 
-  try {
-    const client = new ApiClient("http://api.test");
-    const mutation = createDocumentV2LinkSetMutationRequest();
+  const client = new ApiClient(apiBaseUrl);
+  const mutation = createDocumentV2LinkSetMutationRequest();
 
-    expect(await client.linkDocumentV2("document-1", mutation)).not.toBeNull();
-    expect(
-      await client.unlinkDocumentV2("document-1", mutation),
-    ).not.toBeNull();
+  expect(await client.linkDocumentV2("document-1", mutation)).not.toBeNull();
+  expect(await client.unlinkDocumentV2("document-1", mutation)).not.toBeNull();
 
-    expect(
-      calls.map((call) => ({
-        body: call.init?.body,
-        input: String(call.input),
-        method: call.init?.method,
-      })),
-    ).toEqual([
-      {
-        body: JSON.stringify(mutation),
-        input: "http://api.test/v2/documents/document-1/link",
-        method: "POST",
-      },
-      {
-        body: JSON.stringify(mutation),
-        input: "http://api.test/v2/documents/document-1/unlink",
-        method: "POST",
-      },
-    ]);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: JSON.stringify(mutation),
+      input: `${apiBaseUrl}/v2/documents/document-1/link`,
+      method: "POST",
+    },
+    {
+      body: JSON.stringify(mutation),
+      input: `${apiBaseUrl}/v2/documents/document-1/unlink`,
+      method: "POST",
+    },
+  ]);
 });
 
 test("posts signed V2 document create and sync mutations to the V2 route namespace", async () => {
-  const originalFetch = globalThis.fetch;
-  const calls: Array<{
-    input: RequestInfo | URL;
-    init: RequestInit | undefined;
-  }> = [];
-  const fetchMock = Object.assign(
-    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      calls.push({ input, init });
-      const body = String(input).endsWith("/sync")
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.all(`${apiBaseUrl}/*`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+      const body = request.url.endsWith("/sync")
         ? createDocumentV2SyncResponse()
         : createDocumentV2CreateResponse();
-      return new Response(JSON.stringify(body), {
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-    { preconnect: originalFetch.preconnect },
+      return HttpResponse.json(body);
+    }),
   );
-  globalThis.fetch = fetchMock;
 
-  try {
-    const client = new ApiClient("http://api.test");
-    const createRequest = createDocumentV2CreateRequest();
-    const syncRequest = createDocumentV2SyncRequest();
+  const client = new ApiClient(apiBaseUrl);
+  const createRequest = createDocumentV2CreateRequest();
+  const syncRequest = createDocumentV2SyncRequest();
 
-    expect(await client.createDocumentV2(createRequest)).not.toBeNull();
-    expect(
-      await client.syncDocumentV2("document-1", syncRequest),
-    ).not.toBeNull();
+  expect(await client.createDocumentV2(createRequest)).not.toBeNull();
+  expect(await client.syncDocumentV2("document-1", syncRequest)).not.toBeNull();
 
-    expect(
-      calls.map((call) => ({
-        body: call.init?.body,
-        input: String(call.input),
-        method: call.init?.method,
-      })),
-    ).toEqual([
-      {
-        body: JSON.stringify(createRequest),
-        input: "http://api.test/v2/documents",
-        method: "POST",
-      },
-      {
-        body: JSON.stringify(syncRequest),
-        input: "http://api.test/v2/documents/document-1/sync",
-        method: "POST",
-      },
-    ]);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: JSON.stringify(createRequest),
+      input: `${apiBaseUrl}/v2/documents`,
+      method: "POST",
+    },
+    {
+      body: JSON.stringify(syncRequest),
+      input: `${apiBaseUrl}/v2/documents/document-1/sync`,
+      method: "POST",
+    },
+  ]);
 });
