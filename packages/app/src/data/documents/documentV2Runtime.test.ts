@@ -1629,9 +1629,7 @@ test("buildMaterializedDocumentV2SyncPlan unwraps the V2 content key and encrypt
   }
   expect(update.checkpointKind).toBe("rotate_baseline");
   expect(update.sourceVersionVector).toBe("rotate-frontier");
-  expect(update.encryptedData).toContain(
-    "tearleads.document-v2.loro-update.v1",
-  );
+  expect(update.encryptedData).toContain("tearleads.document-v2.loro-update");
   expect(update.encryptedData).not.toContain("materialized update");
 
   const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
@@ -1692,12 +1690,30 @@ test("decryptDocumentV2SyncUpdates verifies and decrypts V2 content records", as
       updates: response.updates.map((update) => ({
         ...update,
         encryptedData: update.encryptedData.replace(
-          "tearleads.document-v2.loro-update.v1",
+          "tearleads.document-v2.loro-update",
           "tearleads.document-v2.loro-update.invalid",
         ),
       })),
     }),
   ).rejects.toThrow("format is invalid");
+
+  await expect(
+    decryptDocumentV2SyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: response.updates.map((update) => ({
+        ...update,
+        encryptedData: JSON.stringify({
+          ...(JSON.parse(update.encryptedData) as Record<string, unknown>),
+          version: 1,
+        }),
+      })),
+    }),
+  ).rejects.toThrow(
+    "Document V2 encrypted update version 1 is invalid; expected 2",
+  );
 });
 
 test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and returned write headers", async () => {

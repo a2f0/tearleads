@@ -146,7 +146,7 @@ function requestExplorerSync(state: ExplorerSyncState) {
   state.syncLane?.requestSync();
 }
 
-export function getFallbackContainerName(parentId: string | null): string {
+export function getDefaultContainerName(parentId: string | null): string {
   return parentId === null ? "/" : "Untitled";
 }
 
@@ -358,7 +358,7 @@ async function upsertRemoteContainerState(
       organizationId: remoteContainer.organizationId,
       parentId: remoteContainer.parentId,
       metadataDocumentId: remoteContainer.metadataDocumentId,
-      name: getFallbackContainerName(remoteContainer.parentId),
+      name: getDefaultContainerName(remoteContainer.parentId),
       icon: null,
     },
     doc,
@@ -477,7 +477,7 @@ async function initializeExplorerStore(input: {
       importUpdates(doc, [base64ToBytes(nextRecord.loroSnapshot)]);
       const metadata = readContainerMetadataValue(
         doc,
-        getFallbackContainerName(container.parentId),
+        getDefaultContainerName(container.parentId),
       );
       nextContainer = {
         ...container,

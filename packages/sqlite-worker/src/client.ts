@@ -11,7 +11,7 @@ export interface DatabaseWorkerClient {
   destroy(): void;
 }
 
-function toError(value: unknown, fallbackMessage: string): Error {
+function toError(value: unknown, defaultMessage: string): Error {
   if (value instanceof Error) {
     return value;
   }
@@ -20,7 +20,7 @@ function toError(value: unknown, fallbackMessage: string): Error {
     return new Error(value);
   }
 
-  return new Error(fallbackMessage);
+  return new Error(defaultMessage);
 }
 
 function rejectPendingRequests(

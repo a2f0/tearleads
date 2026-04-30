@@ -19,17 +19,17 @@ function getSelectedDocumentLinkedContainerIds(params: {
     return [];
   }
 
-  const fallbackContainerIds =
+  const defaultContainerIds =
     selectedDocument.containerId === null ? [] : [selectedDocument.containerId];
   if (!selectedDocument.documentId) {
-    return fallbackContainerIds;
+    return defaultContainerIds;
   }
 
   const linkedContainerIds =
     linkedContainerIdsByDocumentId.get(selectedDocument.documentId) ?? [];
   return linkedContainerIds.length > 0
     ? linkedContainerIds
-    : fallbackContainerIds;
+    : defaultContainerIds;
 }
 
 function useSelectedDocumentTargetOptions(params: {

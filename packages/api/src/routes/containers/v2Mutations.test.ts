@@ -129,10 +129,12 @@ async function registerAndAuthenticate(user: TestUser): Promise<void> {
 async function userRecipientKey(
   user: TestUser,
 ): Promise<ContainerUserRecipientKeyV2> {
+  const recipientKeyFingerprint = await toFingerprint(user.kem.publicKey);
+
   return {
     userId: user.userId,
-    recipientKeyEpochId: `user:${user.userId}:encapsulation:v1`,
-    recipientKeyFingerprint: await toFingerprint(user.kem.publicKey),
+    recipientKeyEpochId: `user:${user.userId}:encapsulation:${recipientKeyFingerprint}`,
+    recipientKeyFingerprint,
   };
 }
 
@@ -1324,7 +1326,9 @@ test("POST /v2/containers/:containerId/share stores signed grants", async () => 
     {
       recipientKind: "user",
       recipientId: recipient.userId,
-      recipientKeyEpochId: `user:${recipient.userId}:encapsulation:v1`,
+      recipientKeyEpochId: `user:${recipient.userId}:encapsulation:${await toFingerprint(
+        recipient.kem.publicKey,
+      )}`,
       recipientKeyFingerprint: await toFingerprint(recipient.kem.publicKey),
     },
   ]);

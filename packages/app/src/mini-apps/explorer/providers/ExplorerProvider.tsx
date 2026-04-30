@@ -36,7 +36,7 @@ import {
   type ExplorerRuntime,
   type ExplorerSyncAgent,
   type ExplorerSyncState,
-  getFallbackContainerName,
+  getDefaultContainerName,
   moveRemoteExplorerContainerV2,
   shareRemoteExplorerContainerV2,
 } from "./explorerSyncAgent";
@@ -240,7 +240,7 @@ async function persistContainerState(
     documentIdChanged || nextAccessEpoch !== containerState.record.accessEpoch;
   const metadata = readContainerMetadataValue(
     containerState.doc,
-    getFallbackContainerName(containerState.container.parentId),
+    getDefaultContainerName(containerState.container.parentId),
   );
   const nextContainer: ContainerRecord = {
     ...containerState.container,

@@ -112,7 +112,7 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
     await computePrincipalStateHash(signedState.state),
   );
   expect(storedState.memberCount).toBe(2);
-  expect(storedState.membershipMode).toBe("projection_v1");
+  expect(storedState.membershipMode).toBe("projection");
 
   const currentState = await getCurrentPrincipalState("group", principalId);
   expect(currentState?.stateHash).toBe(storedState.stateHash);
@@ -285,7 +285,7 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      membershipMode: "projection_v1",
+      membershipMode: "projection",
       membershipRoot: await computePrincipalMembershipRoot([
         { principalType: "user", principalId: signer.signerUserId },
       ]),
@@ -304,7 +304,7 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
     storeVerifiedPrincipalState({
       state,
       encryptedPayload: {
-        cipherSuite: "aes-256-gcm-v1",
+        cipherSuite: "aes-256-gcm",
         ciphertext: payloadCiphertext,
         ciphertextHash: state.payloadCiphertextHash,
       },
@@ -520,19 +520,19 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const firstPrincipalId = crypto.randomUUID();
   const secondPrincipalId = crypto.randomUUID();
-  const firstKemV1 = generateKemSeedAndKeyPair();
-  const firstKemV2 = generateKemSeedAndKeyPair();
+  const firstKemInitial = generateKemSeedAndKeyPair();
+  const firstKemCurrent = generateKemSeedAndKeyPair();
   const secondKem = generateKemSeedAndKeyPair();
 
-  const firstStateV1 = await signPrincipalState(
+  const firstStateInitial = await signPrincipalState(
     {
       principalType: "group",
       principalId: firstPrincipalId,
       version: 1,
       prevStateHash: null,
       keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(firstKemV1.publicKey),
-      keyFingerprint: await toFingerprint(firstKemV1.publicKey),
+      encapsulationPublicKey: bytesToBase64(firstKemInitial.publicKey),
+      keyFingerprint: await toFingerprint(firstKemInitial.publicKey),
       members: [{ principalType: "user", principalId: signer.signerUserId }],
       projection: [
         {
@@ -546,7 +546,8 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
     },
     signingPrivateKey,
   );
-  const storedFirstStateV1 = await storeVerifiedPrincipalState(firstStateV1);
+  const storedFirstStateInitial =
+    await storeVerifiedPrincipalState(firstStateInitial);
 
   await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -554,10 +555,10 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
         principalType: "group",
         principalId: firstPrincipalId,
         version: 2,
-        prevStateHash: storedFirstStateV1.stateHash,
+        prevStateHash: storedFirstStateInitial.stateHash,
         keyEpoch: 2,
-        encapsulationPublicKey: bytesToBase64(firstKemV2.publicKey),
-        keyFingerprint: await toFingerprint(firstKemV2.publicKey),
+        encapsulationPublicKey: bytesToBase64(firstKemCurrent.publicKey),
+        keyFingerprint: await toFingerprint(firstKemCurrent.publicKey),
         members: [{ principalType: "user", principalId: signer.signerUserId }],
         projection: [
           {
@@ -606,7 +607,7 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
 
   expect(epochKeys.get(firstPrincipalId)?.epoch).toBe(2);
   expect(epochKeys.get(firstPrincipalId)?.keyFingerprint).toBe(
-    await toFingerprint(firstKemV2.publicKey),
+    await toFingerprint(firstKemCurrent.publicKey),
   );
   expect(epochKeys.get(secondPrincipalId)?.epoch).toBe(1);
   expect(epochKeys.get(secondPrincipalId)?.keyFingerprint).toBe(
@@ -620,19 +621,19 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const firstPrincipalId = crypto.randomUUID();
   const secondPrincipalId = crypto.randomUUID();
-  const firstKemV1 = generateKemSeedAndKeyPair();
-  const firstKemV2 = generateKemSeedAndKeyPair();
+  const firstKemInitial = generateKemSeedAndKeyPair();
+  const firstKemCurrent = generateKemSeedAndKeyPair();
   const secondKem = generateKemSeedAndKeyPair();
 
-  const firstStateV1 = await signPrincipalState(
+  const firstStateInitial = await signPrincipalState(
     {
       principalType: "organization",
       principalId: firstPrincipalId,
       version: 1,
       prevStateHash: null,
       keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(firstKemV1.publicKey),
-      keyFingerprint: await toFingerprint(firstKemV1.publicKey),
+      encapsulationPublicKey: bytesToBase64(firstKemInitial.publicKey),
+      keyFingerprint: await toFingerprint(firstKemInitial.publicKey),
       members: [{ principalType: "user", principalId: signer.signerUserId }],
       projection: [
         {
@@ -646,7 +647,8 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
     },
     signingPrivateKey,
   );
-  const storedFirstStateV1 = await storeVerifiedPrincipalState(firstStateV1);
+  const storedFirstStateInitial =
+    await storeVerifiedPrincipalState(firstStateInitial);
 
   await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -654,10 +656,10 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
         principalType: "organization",
         principalId: firstPrincipalId,
         version: 2,
-        prevStateHash: storedFirstStateV1.stateHash,
+        prevStateHash: storedFirstStateInitial.stateHash,
         keyEpoch: 2,
-        encapsulationPublicKey: bytesToBase64(firstKemV2.publicKey),
-        keyFingerprint: await toFingerprint(firstKemV2.publicKey),
+        encapsulationPublicKey: bytesToBase64(firstKemCurrent.publicKey),
+        keyFingerprint: await toFingerprint(firstKemCurrent.publicKey),
         members: [{ principalType: "user", principalId: signer.signerUserId }],
         projection: [
           {

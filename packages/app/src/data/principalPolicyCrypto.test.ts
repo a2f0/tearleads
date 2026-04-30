@@ -110,7 +110,7 @@ async function createPrincipalPolicyBundle(input: {
       principalType: "group",
       principalId: input.principalId,
       stateHash,
-      cipherSuite: "aes-256-gcm-v1",
+      cipherSuite: "aes-256-gcm",
       ciphertext: payloadCiphertext,
       ciphertextHash: signedState.payloadCiphertextHash,
       createdAt: input.signedAt,

@@ -35,7 +35,7 @@ export function toPrincipalStateResponse(state: {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  membershipMode: "projection_v1";
+  membershipMode: "projection";
   membershipRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;
@@ -73,7 +73,7 @@ export function toPrincipalStatePayloadResponse(input: {
   principalType: "group" | "organization";
   principalId: string;
   stateHash: string;
-  cipherSuite: "aes-256-gcm-v1";
+  cipherSuite: "aes-256-gcm";
   ciphertext: string;
   ciphertextHash: string;
   createdAt: Date;

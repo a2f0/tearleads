@@ -87,7 +87,7 @@ function expectVerificationError<T>(
 }
 
 async function fixtureHash(label: string): Promise<string> {
-  return computeKeyingV2DomainHash("tearleads.keying-v2.access-event-body.v1", {
+  return computeKeyingV2DomainHash("tearleads.keying-v2.access-event-body", {
     fixture: label,
   });
 }
@@ -793,7 +793,7 @@ test("verifySignedAccessEvent rejects tampered bodies and wrong domain hashes", 
   expectVerificationError(tamperedBodyResult, "hash_mismatch");
 
   const wrongDomainBodyHash = await computeKeyingV2DomainHash(
-    "tearleads.keying-v2.document-content-key-targets.v1",
+    "tearleads.keying-v2.document-content-key-targets",
     [{ action: "grant" }],
   );
   const wrongDomainFixture = await createSignedContainerEvent({

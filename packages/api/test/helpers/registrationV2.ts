@@ -36,7 +36,7 @@ import type {
 import type { ContainerV2WriterProjectionResponse } from "@tearleads/validators/response";
 
 const DOCUMENT_V2_CONTENT_KEY_WRAP_SUITE =
-  "tearleads.document-v2.content-key-wrap.aes-256-gcm-container-kek.v1";
+  "tearleads.document-v2.content-key-wrap.aes-256-gcm-container-kek";
 const REGISTER_V2_SIGNED_AT = "2026-04-07T00:00:00.000Z";
 
 interface RegistrationV2BootstrapInput {

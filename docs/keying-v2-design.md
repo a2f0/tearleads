@@ -487,7 +487,7 @@ preferred rule is:
    same object/content-key epoch.
 
 The initial V2 suite is
-`aes-256-gcm-hkdf-sha256-record-key-v1`. A content writer supplies a UUIDv4
+`aes-256-gcm-hkdf-sha256-record-key`. A content writer supplies a UUIDv4
 `contentRecordId`, commits the suite in the signed write header, and commits a
 `nonceDomainHash` over the protocol version, organization id, object kind,
 object id, content-key epoch, suite, and `contentRecordId`. The content record

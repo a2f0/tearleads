@@ -86,7 +86,7 @@ function toStoredPrincipalState(row: {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  membershipMode: "projection_v1";
+  membershipMode: "projection";
   membershipRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;

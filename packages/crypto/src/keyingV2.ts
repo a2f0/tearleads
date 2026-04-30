@@ -42,28 +42,28 @@ type KeyingV2CanonicalPayload<T> = T extends CanonicalJsonPrimitive
       : never;
 
 export type KeyingV2HashDomain =
-  | "tearleads.keying-v2.access-event-body.v1"
-  | "tearleads.keying-v2.access-event-signing.v1"
-  | "tearleads.keying-v2.access-event.v1"
-  | "tearleads.keying-v2.access-manifest.v1"
-  | "tearleads.keying-v2.blob-access-manifest.v1"
-  | "tearleads.keying-v2.blob-content-key-targets.v1"
-  | "tearleads.keying-v2.content-record-nonce-domain.v1"
-  | "tearleads.keying-v2.container-access-direct-grants.v1"
-  | "tearleads.keying-v2.container-access-key-target.v1"
-  | "tearleads.keying-v2.container-access-structural.v1"
-  | "tearleads.keying-v2.container-key-epoch.v1"
-  | "tearleads.keying-v2.container-kek-recipient-targets.v1"
-  | "tearleads.keying-v2.document-content-key-targets.v1"
-  | "tearleads.keying-v2.document-link-set-grants.v1"
-  | "tearleads.keying-v2.document-link-set-key-target.v1"
-  | "tearleads.keying-v2.document-link-set-structural.v1"
-  | "tearleads.keying-v2.transparency-empty-tree.v1"
-  | "tearleads.keying-v2.transparency-leaf.v1"
-  | "tearleads.keying-v2.transparency-node.v1"
-  | "tearleads.keying-v2.transparency-tree-head-signing.v1"
-  | "tearleads.keying-v2.write-header-signing.v1"
-  | "tearleads.keying-v2.write-header.v1";
+  | "tearleads.keying-v2.access-event-body"
+  | "tearleads.keying-v2.access-event-signing"
+  | "tearleads.keying-v2.access-event"
+  | "tearleads.keying-v2.access-manifest"
+  | "tearleads.keying-v2.blob-access-manifest"
+  | "tearleads.keying-v2.blob-content-key-targets"
+  | "tearleads.keying-v2.content-record-nonce-domain"
+  | "tearleads.keying-v2.container-access-direct-grants"
+  | "tearleads.keying-v2.container-access-key-target"
+  | "tearleads.keying-v2.container-access-structural"
+  | "tearleads.keying-v2.container-key-epoch"
+  | "tearleads.keying-v2.container-kek-recipient-targets"
+  | "tearleads.keying-v2.document-content-key-targets"
+  | "tearleads.keying-v2.document-link-set-grants"
+  | "tearleads.keying-v2.document-link-set-key-target"
+  | "tearleads.keying-v2.document-link-set-structural"
+  | "tearleads.keying-v2.transparency-empty-tree"
+  | "tearleads.keying-v2.transparency-leaf"
+  | "tearleads.keying-v2.transparency-node"
+  | "tearleads.keying-v2.transparency-tree-head-signing"
+  | "tearleads.keying-v2.write-header-signing"
+  | "tearleads.keying-v2.write-header";
 
 export type AccessEventTypeV2 =
   | "attachment.bind"
@@ -87,7 +87,7 @@ export type ContentObjectKindV2 = "blob" | "document";
 export type ContainerAccessLevelV2 = "admin" | "read" | "write";
 export type ContainerGrantSubjectTypeV2 = "group" | "organization" | "user";
 export const CONTENT_RECORD_ENCRYPTION_SUITE_V2 =
-  "aes-256-gcm-hkdf-sha256-record-key-v1" as const;
+  "aes-256-gcm-hkdf-sha256-record-key" as const;
 export type ContentRecordEncryptionSuiteV2 =
   typeof CONTENT_RECORD_ENCRYPTION_SUITE_V2;
 
@@ -1951,14 +1951,14 @@ export async function computeTransparencyLeafHash(
     normalizeTransparencyLeaf(leaf);
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.transparency-leaf.v1",
+    "tearleads.keying-v2.transparency-leaf",
     payload,
   );
 }
 
 async function computeTransparencyEmptyTreeHash(): Promise<string> {
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.transparency-empty-tree.v1",
+    "tearleads.keying-v2.transparency-empty-tree",
     { version: 2 },
   );
 }
@@ -1967,7 +1967,7 @@ async function computeTransparencyNodeHash(
   leftHash: string,
   rightHash: string,
 ): Promise<string> {
-  return computeKeyingV2DomainHash("tearleads.keying-v2.transparency-node.v1", {
+  return computeKeyingV2DomainHash("tearleads.keying-v2.transparency-node", {
     leftHash,
     rightHash,
     version: 2,
@@ -2224,7 +2224,7 @@ function transparencyTreeHeadSigningBytes(
     normalizeUnsignedTransparencyTreeHead(treeHead);
 
   return encodeDomainPayload(
-    "tearleads.keying-v2.transparency-tree-head-signing.v1",
+    "tearleads.keying-v2.transparency-tree-head-signing",
     payload,
   );
 }
@@ -3568,7 +3568,7 @@ function unsignedAccessEventPayload(
 
 function accessEventSigningBytes(event: UnsignedAccessEventV2): Uint8Array {
   return encodeDomainPayload(
-    "tearleads.keying-v2.access-event-signing.v1",
+    "tearleads.keying-v2.access-event-signing",
     unsignedAccessEventPayload(event),
   );
 }
@@ -3595,7 +3595,7 @@ export async function computeAccessEventBodyHash(
   body: KeyingV2CanonicalJson,
 ): Promise<string> {
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.access-event-body.v1",
+    "tearleads.keying-v2.access-event-body",
     body,
   );
 }
@@ -3622,10 +3622,7 @@ export async function computeAccessEventHash(
   const payload: KeyingV2CanonicalPayload<AccessEventV2> =
     normalizeAccessEvent(event);
 
-  return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.access-event.v1",
-    payload,
-  );
+  return computeKeyingV2DomainHash("tearleads.keying-v2.access-event", payload);
 }
 
 export async function verifySignedAccessEvent({
@@ -3817,7 +3814,7 @@ export async function computeAccessManifestHash(
     normalizeAccessManifest(manifest);
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.access-manifest.v1",
+    "tearleads.keying-v2.access-manifest",
     payload,
   );
 }
@@ -4228,7 +4225,7 @@ export async function computeContainerAccessStructuralHash(
   > = normalizeContainerAccessStructuralState(structural);
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.container-access-structural.v1",
+    "tearleads.keying-v2.container-access-structural",
     payload,
   );
 }
@@ -4240,7 +4237,7 @@ export async function computeContainerDirectGrantRoot(
     normalizeContainerDirectGrants(grants);
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.container-access-direct-grants.v1",
+    "tearleads.keying-v2.container-access-direct-grants",
     payload,
   );
 }
@@ -4252,7 +4249,7 @@ export async function computeContainerAccessKeyTargetHash(
     normalizeContainerAccessKeyState(keyState);
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.container-access-key-target.v1",
+    "tearleads.keying-v2.container-access-key-target",
     payload,
   );
 }
@@ -5213,21 +5210,21 @@ export async function computeDocumentLinkSetStructuralHash(
     normalizeDocumentLinkSetStructural(structural);
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.document-link-set-structural.v1",
+    "tearleads.keying-v2.document-link-set-structural",
     payload,
   );
 }
 
 export async function computeDocumentLinkSetGrantRoot(): Promise<string> {
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.document-link-set-grants.v1",
+    "tearleads.keying-v2.document-link-set-grants",
     { grants: [] },
   );
 }
 
 export async function computeDocumentLinkSetKeyTargetHash(): Promise<string> {
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.document-link-set-key-target.v1",
+    "tearleads.keying-v2.document-link-set-key-target",
     { targetMode: "current-linked-container-keks" },
   );
 }
@@ -6368,7 +6365,7 @@ export async function computeContainerKeyEpochHash(
     normalizeContainerKeyEpoch(keyEpoch);
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.container-key-epoch.v1",
+    "tearleads.keying-v2.container-key-epoch",
     payload,
   );
 }
@@ -7033,7 +7030,7 @@ export async function computeContainerKekRecipientTargetHash(
   > = normalizedTargets;
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.container-kek-recipient-targets.v1",
+    "tearleads.keying-v2.container-kek-recipient-targets",
     payload,
   );
 }
@@ -7053,7 +7050,7 @@ export async function computeDocumentContentKeyTargetHash(
   > = normalizedTargets;
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.document-content-key-targets.v1",
+    "tearleads.keying-v2.document-content-key-targets",
     payload,
   );
 }
@@ -7494,7 +7491,7 @@ export async function computeBlobContentKeyTargetHash(
     normalizedTargets;
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.blob-content-key-targets.v1",
+    "tearleads.keying-v2.blob-content-key-targets",
     payload,
   );
 }
@@ -7584,7 +7581,7 @@ export async function computeBlobAccessManifestHash(
     normalizeBlobAccessManifest(manifest);
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.blob-access-manifest.v1",
+    "tearleads.keying-v2.blob-access-manifest",
     payload,
   );
 }
@@ -7778,7 +7775,7 @@ export async function computeContentRecordNonceDomainHash(
     normalizeContentRecordNonceDomain(domain);
 
   return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.content-record-nonce-domain.v1",
+    "tearleads.keying-v2.content-record-nonce-domain",
     payload,
   );
 }
@@ -7802,7 +7799,7 @@ async function assertWriteHeaderNonceDomainHash(
 
 function writeHeaderSigningBytes(header: UnsignedWriteHeaderV2): Uint8Array {
   return encodeDomainPayload(
-    "tearleads.keying-v2.write-header-signing.v1",
+    "tearleads.keying-v2.write-header-signing",
     unsignedWriteHeaderPayload(header),
   );
 }
@@ -7851,10 +7848,7 @@ export async function computeWriteHeaderHash(
   const payload: KeyingV2CanonicalPayload<WriteHeaderV2> =
     normalizeWriteHeader(header);
 
-  return computeKeyingV2DomainHash(
-    "tearleads.keying-v2.write-header.v1",
-    payload,
-  );
+  return computeKeyingV2DomainHash("tearleads.keying-v2.write-header", payload);
 }
 
 function assertDocumentWriteHeaderAuthorization(input: {

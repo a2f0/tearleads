@@ -129,9 +129,9 @@ server-authored. Sharing to any managed `group` or `organization` principal
 requires current signed principal state; otherwise managed principal access
 fails closed with a missing-policy-state conflict.
 
-Nested groups are compatible with this model but can be deferred. If added,
-they are expanded transitively from current projection rows before computing
-effective recipients, referenced principal states, or access-state hashes.
+Nested groups fit this model but can be deferred. If added, they are expanded
+transitively from current projection rows before computing effective
+recipients, referenced principal states, or access-state hashes.
 
 ### Object Grants
 
@@ -548,7 +548,7 @@ interface SignedPrincipalState {
   keyEpoch: number;
   encapsulationPublicKey: string;
   keyFingerprint: string;
-  membershipMode: "projection_v1";
+  membershipMode: "projection";
   membershipRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;

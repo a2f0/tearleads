@@ -90,7 +90,7 @@ export async function signPrincipalStateBundle(
   return {
     state,
     encryptedPayload: {
-      cipherSuite: "aes-256-gcm-v1",
+      cipherSuite: "aes-256-gcm",
       ciphertext: input.payloadCiphertext,
       ciphertextHash: state.payloadCiphertextHash,
     },

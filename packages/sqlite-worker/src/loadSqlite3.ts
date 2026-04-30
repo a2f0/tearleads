@@ -24,7 +24,7 @@ function runWithBunFetchLock<T>(operation: () => Promise<T>): Promise<T> {
     const previousFetch = globalThis.fetch;
     // The generated SQLite/Emscripten loader calls bare fetch() while loading
     // sqlite3.wasm. In Bun, temporarily routing that global fetch call through
-    // Bun.fetch keeps WASM loading compatible without patching generated files.
+    // Bun.fetch keeps WASM loading working without patching generated files.
     globalThis.fetch = bunFetch;
 
     try {

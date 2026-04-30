@@ -1359,6 +1359,20 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   const tamperedEncryptedBytes = JSON.parse(blob.encryptedBytes) as {
     contentKeyBundle: { targets: Record<string, unknown>[] };
   };
+  await expect(
+    decryptDocumentAttachmentBlobV2({
+      encryptedBytes: JSON.stringify({
+        ...tamperedEncryptedBytes,
+        version: 1,
+      }),
+      expectedBindingId: bindingId,
+      expectedBlobId: blobId,
+      execSql: runtime.execSql,
+      targetSecretKey: encapsulationKeyPair.secretKey,
+      writerProjection,
+    }),
+  ).rejects.toThrow("Blob V2 encrypted bytes version 1 is invalid; expected 2");
+
   const [firstTarget, ...remainingTargets] =
     tamperedEncryptedBytes.contentKeyBundle.targets;
   if (!firstTarget) {

@@ -44,16 +44,16 @@ import {
 } from "./documentV2Runtime";
 
 const BLOB_V2_CONTENT_KEY_WRAP_SUITE =
-  "tearleads.blob-v2.content-key-wrap.aes-256-gcm-container-kek.v1";
-const BLOB_V2_ENCRYPTED_BYTES_FORMAT = "tearleads.blob-v2.bytes.v1";
+  "tearleads.blob-v2.content-key-wrap.aes-256-gcm-container-kek";
+const BLOB_V2_ENCRYPTED_BYTES_FORMAT = "tearleads.blob-v2.bytes";
 const BLOB_V2_CONTENT_RECORD_KEY_INFO_DOMAIN =
-  "tearleads.blob-v2.content-record-key-info.v1";
+  "tearleads.blob-v2.content-record-key-info";
 const BLOB_V2_CONTENT_RECORD_AAD_DOMAIN =
-  "tearleads.blob-v2.content-record-aad.v1";
+  "tearleads.blob-v2.content-record-aad";
 const BLOB_V2_CONTENT_RECORD_METADATA_HASH_DOMAIN =
-  "tearleads.blob-v2.content-record-metadata.v1";
+  "tearleads.blob-v2.content-record-metadata";
 const BLOB_V2_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
-  new TextEncoder().encode("tearleads.blob-v2.content-record-hkdf-salt.v1");
+  new TextEncoder().encode("tearleads.blob-v2.content-record-hkdf-salt");
 const BLOB_V2_CONTENT_RECORD_IV: Uint8Array<ArrayBuffer> = new Uint8Array(12);
 const BLOB_V2_ENCRYPTED_BYTES_KEYS = new Set([
   "blobId",
@@ -419,7 +419,7 @@ async function blobContentMetadataHash(input: {
       serializeKeyingV2CanonicalJson({
         domain: BLOB_V2_CONTENT_RECORD_METADATA_HASH_DOMAIN,
         payload: {
-          version: 1,
+          version: 2,
           recordKind: "blob_bytes",
           blobId: input.blobId,
           byteLength: input.byteLength,
@@ -583,7 +583,7 @@ async function encryptBlobBytes(input: {
   );
   const encryptedBytes = serializeKeyingV2CanonicalJson({
     format: BLOB_V2_ENCRYPTED_BYTES_FORMAT,
-    version: 1,
+    version: 2,
     blobId: input.blobId,
     byteLength: input.bytes.byteLength,
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
@@ -680,8 +680,11 @@ function parseBlobV2EncryptedBytes(
   ) {
     throw new Error("Blob V2 encrypted bytes format is invalid");
   }
-  if (readRecordNumber(value, "version", "Blob V2 encrypted bytes") !== 1) {
-    throw new Error("Blob V2 encrypted bytes version is invalid");
+  const version = readRecordNumber(value, "version", "Blob V2 encrypted bytes");
+  if (version !== 2) {
+    throw new Error(
+      `Blob V2 encrypted bytes version ${version} is invalid; expected 2`,
+    );
   }
   if (
     readRecordString(value, "encryptionSuite", "Blob V2 encrypted bytes") !==

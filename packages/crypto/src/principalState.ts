@@ -9,8 +9,8 @@ const TEXT_DECODER = new TextDecoder();
 export type ManagedRecipientPrincipalType = "group" | "organization";
 export type PrincipalStateMemberType = "user" | "group";
 export type PrincipalProjectionRole = "member" | "admin";
-export type PrincipalStateMembershipMode = "projection_v1";
-export type PrincipalStatePayloadCipherSuite = "aes-256-gcm-v1";
+export type PrincipalStateMembershipMode = "projection";
+export type PrincipalStatePayloadCipherSuite = "aes-256-gcm";
 
 export interface PrincipalStateMember {
   principalType: PrincipalStateMemberType;
@@ -260,7 +260,7 @@ function toUnsignedPrincipalState(
 function isMembershipMode(
   value: string,
 ): value is PrincipalStateMembershipMode {
-  return value === "projection_v1";
+  return value === "projection";
 }
 
 function validatePrincipalStateIdentityFields(state: PrincipalStateLike): void {
@@ -481,7 +481,7 @@ export async function buildPrincipalStateSigningInput(
     keyEpoch: input.keyEpoch,
     encapsulationPublicKey: input.encapsulationPublicKey,
     keyFingerprint: input.keyFingerprint,
-    membershipMode: "projection_v1",
+    membershipMode: "projection",
     membershipRoot: await computePrincipalMembershipRoot(input.members),
     projectionRoot: await computePrincipalProjectionRoot(input.projection),
     payloadCiphertextHash: await computePrincipalStatePayloadCiphertextHash(

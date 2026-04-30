@@ -32,7 +32,7 @@ export async function createInitializedContainerMetadataDocument(
 
 export function readContainerMetadataValue(
   doc: ContainerMetadataDocument,
-  fallbackName: string,
+  defaultName: string,
 ): ContainerMetadataValue {
   const metadata = doc.getMap("container");
   const storedName = metadata.get("name");
@@ -46,7 +46,7 @@ export function readContainerMetadataValue(
     name:
       typeof storedName === "string" && storedName.trim().length > 0
         ? storedName
-        : fallbackName,
+        : defaultName,
   };
 }
 
