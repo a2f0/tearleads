@@ -20,8 +20,9 @@ import {
   verifySignedAccessEvent,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
 import { db } from "../adapters/postgres";
-import { containerKeyEpochs } from "../schema";
+import { accessManifests, containerKeyEpochs } from "../schema";
 import { storeVerifiedAccessManifest } from "./accessManifestStore";
 import {
   DocumentContentKeyBundleError,
@@ -209,13 +210,23 @@ async function insertContainerKeyEpoch(input: {
   readonly keyEpochId: string;
   readonly manifestHash: string;
 }) {
+  const [manifest] = await db
+    .select({ eventHash: accessManifests.eventHash })
+    .from(accessManifests)
+    .where(eq(accessManifests.manifestHash, input.manifestHash))
+    .limit(1);
+
+  if (!manifest) {
+    throw new Error("Expected stored access manifest for key epoch");
+  }
+
   await db.insert(containerKeyEpochs).values({
     id: input.keyEpochId,
     containerId: input.containerId,
     keyEpoch: 1,
     accessManifestHash: input.manifestHash,
     parentContainerKeyEpochId: null,
-    createdByEventHash: await hashOf(`${input.keyEpochId}:event`),
+    createdByEventHash: manifest.eventHash,
     createdByManifestHash: input.manifestHash,
   });
 }

@@ -17,8 +17,9 @@ import {
   verifyAccessManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
 import { db } from "../adapters/postgres";
-import { containerKeyEpochs } from "../schema";
+import { accessManifests, containerKeyEpochs } from "../schema";
 import { storeVerifiedAccessManifest } from "./accessManifestStore";
 import {
   assertDocumentKekTargetsCurrent,
@@ -202,13 +203,23 @@ async function insertContainerKeyEpoch(input: {
   readonly manifestHash: string;
   readonly parentContainerKeyEpochId?: string | null;
 }) {
+  const [manifest] = await db
+    .select({ eventHash: accessManifests.eventHash })
+    .from(accessManifests)
+    .where(eq(accessManifests.manifestHash, input.manifestHash))
+    .limit(1);
+
+  if (!manifest) {
+    throw new Error("Expected stored access manifest for key epoch");
+  }
+
   await db.insert(containerKeyEpochs).values({
     id: input.keyEpochId,
     containerId: input.containerId,
     keyEpoch: input.keyEpoch ?? 1,
     accessManifestHash: input.manifestHash,
     parentContainerKeyEpochId: input.parentContainerKeyEpochId ?? null,
-    createdByEventHash: await hashOf(`${input.keyEpochId}:event`),
+    createdByEventHash: manifest.eventHash,
     createdByManifestHash: input.manifestHash,
   });
 }
@@ -318,6 +329,52 @@ test("resolveCurrentDocumentKekTargets uses the container manifest key epoch", a
       containerKeyEpoch: 1,
     },
   ]);
+});
+
+test("resolveCurrentDocumentKekTargets rejects key epochs bound outside current same-epoch history", async () => {
+  const organizationId = crypto.randomUUID();
+  const documentId = crypto.randomUUID();
+  const containerId = crypto.randomUUID();
+  const initialKeyEpochId = `${containerId}:key-epoch-1`;
+  const currentKeyEpochId = `${containerId}:key-epoch-2`;
+  const initialContainer = await createVerifiedContainerManifest({
+    containerId,
+    containerKeyEpochId: initialKeyEpochId,
+    organizationId,
+    salt: "initial-key-epoch",
+  });
+  const currentContainer = await createVerifiedContainerManifest({
+    containerId,
+    containerKeyEpochId: currentKeyEpochId,
+    epoch: 2,
+    organizationId,
+    previousManifestHash: initialContainer.manifestHash,
+    salt: "current-key-epoch",
+  });
+  await storeVerifiedAccessManifest({ verifiedManifest: initialContainer });
+  await storeVerifiedAccessManifest({ verifiedManifest: currentContainer });
+  await insertContainerKeyEpoch({
+    containerId,
+    keyEpoch: 2,
+    keyEpochId: currentKeyEpochId,
+    manifestHash: initialContainer.manifestHash,
+  });
+  const documentManifest = await createVerifiedDocumentLinkSetManifest({
+    containerManifestHashes: [currentContainer.manifestHash],
+    documentId,
+    linkedContainerIds: [containerId],
+    organizationId,
+  });
+  await storeVerifiedAccessManifest({
+    verifiedManifest: documentManifest,
+  });
+
+  await expect(resolveCurrentDocumentKekTargets(documentId)).rejects.toEqual(
+    new DocumentKekTargetError(
+      `Container KEK epoch is stale for container ${containerId}`,
+      409,
+    ),
+  );
 });
 
 test("resolveCurrentDocumentKekTargets rejects linked containers with stale parent KEK edges", async () => {
