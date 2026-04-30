@@ -62,8 +62,8 @@ The current access and policy handshake has these layers:
 4. Direct member envelopes for a principal are stored separately but must
    target the current principal state exactly. The API rejects missing,
    extra, or fingerprint-mismatched direct member envelopes.
-5. Object access changes are represented as signed V2 access events and derived
-   access manifests. Manifests bind the object, organization, epoch,
+5. Access changes are represented as signed V2 access events and derived access
+   manifests. Manifests bind the object, organization, epoch,
    predecessor hash, event hash, structural hash, grant root, referenced
    principal heads, and key-target hash.
 6. App clients fetch referenced principal policy bundles, verify them, and
@@ -164,16 +164,16 @@ members.
 
 ### Managed Grants Fail Closed
 
-Group and organization object grants now require a current signed principal
-state. If a managed principal grant cannot be resolved to current signed state,
-recipient resolution fails rather than degrading to unsigned expanded users.
+Group and organization grants require a current signed principal state. If a
+managed principal grant cannot be resolved to current signed state, recipient
+resolution fails rather than degrading to unsigned expanded users.
 
 This prevents unsigned group or organization membership rows from being enough
 to create crypto recipients.
 
-### Signed Object Access Manifests
+### Signed Access Manifests
 
-V2 access manifests are deterministic, signed commitments to the object access
+V2 access manifests are deterministic, signed commitments to the access
 state used for key derivation:
 
 - container manifests include container identity, parent edge, metadata
@@ -242,10 +242,10 @@ pinned key, an out-of-band identity check, or a key-transparency mechanism.
 
 ### Projection Rows Are Not A Security Boundary
 
-Group and organization policy state is signed. Object access grants are now
-represented by signed access events and derived access manifests in the V2
-verifier. Projection rows such as effective grants, access fingerprints,
-recipient summaries, and target caches remain indexing aids only.
+Group and organization policy state is signed. Access grants are represented by
+signed access events and derived access manifests in the V2 verifier. Projection
+rows such as manifest heads, principal-head projections, document-link
+projections, and target caches remain indexing aids only.
 
 If the API process is compromised, it may still return a self-consistent
 projection view. Honest V2 clients must derive encryption targets from verified

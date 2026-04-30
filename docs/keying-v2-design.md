@@ -42,7 +42,7 @@ replay remain future hardening work.
 V2 has four distinct planes:
 
 1. Identity and principal policy.
-2. Signed object access manifests.
+2. Signed access manifests.
 3. Container KEK key delivery.
 4. Content-object encryption for documents and blobs.
 
@@ -696,7 +696,6 @@ Core server tables:
 
 Projection/cache tables include:
 
-- `object_access_grants` and `object_access_epochs`
 - `access_event_dependency_projection`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`

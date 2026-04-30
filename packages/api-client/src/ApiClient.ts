@@ -121,7 +121,7 @@ export class ApiClient {
         return `: ${parsed.error.trim()}`;
       }
     } catch {
-      // Fall back to the raw response body when the error payload is not JSON.
+      // Use the raw response body when the error payload is not JSON.
     }
 
     return `: ${responseText}`;

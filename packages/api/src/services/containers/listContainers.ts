@@ -1,19 +1,12 @@
 import type { ListContainersResponse } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import {
-  canReadDocumentAccess,
-  resolveDocumentAccessStates,
-} from "../../access/documentAccess";
-import {
   accessManifestHeads,
   accessManifests,
-  containerMetadataDocuments,
   containers,
-  objectAccessGrants,
   principalMembershipProjection,
   principalStates,
 } from "../../schema";
-import { uniqueSortedStrings } from "../../utils/array";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface AccessibleContainerRow {
@@ -90,101 +83,6 @@ function normalizeReferencedPrincipals(value: unknown) {
       },
     ];
   });
-}
-
-async function listAccessibleContainersForUser(
-  runtime: ApiServiceRuntime,
-  userId: string,
-): Promise<AccessibleContainerRow[]> {
-  const result = await runtime.db.execute(sql`
-    with recursive current_principal_states as (
-      select distinct on (principal_type, principal_id)
-        principal_type,
-        principal_id,
-        state_hash
-      from ${principalStates}
-      order by principal_type asc, principal_id asc, version desc
-    ),
-    reachable_principals as (
-      select
-        cps.principal_type,
-        cps.principal_id
-      from current_principal_states cps
-      inner join ${principalMembershipProjection} pmp
-        on pmp.principal_type = cps.principal_type
-       and pmp.principal_id = cps.principal_id
-       and pmp.state_hash = cps.state_hash
-      where
-        pmp.member_principal_type = ${"user"}
-        and pmp.member_principal_id = ${userId}
-      union
-      select
-        cps.principal_type,
-        cps.principal_id
-      from current_principal_states cps
-      inner join ${principalMembershipProjection} pmp
-        on pmp.principal_type = cps.principal_type
-       and pmp.principal_id = cps.principal_id
-       and pmp.state_hash = cps.state_hash
-      inner join reachable_principals rp
-        on pmp.member_principal_type = rp.principal_type
-       and pmp.member_principal_id = rp.principal_id
-    ),
-    seed_containers as (
-      select distinct
-        c.id,
-        c.organization_id,
-        c.parent_id
-      from ${containers} c
-      inner join ${objectAccessGrants} g
-        on g.object_type = ${"container"}
-       and g.object_id = c.id::text
-      left join reachable_principals rp
-        on g.subject_type = rp.principal_type
-       and g.subject_id = rp.principal_id
-      where
-        (g.subject_type = ${"user"} and g.subject_id = ${userId})
-        or rp.principal_id is not null
-    ),
-    accessible_containers as (
-      select
-        seed.id,
-        seed.organization_id,
-        seed.parent_id
-      from seed_containers seed
-      union
-      select
-        child.id,
-        child.organization_id,
-        child.parent_id
-      from ${containers} child
-      inner join accessible_containers parent on child.parent_id = parent.id
-    )
-    select
-      accessible.id::text as "id",
-      cmd.document_id::text as "metadataDocumentId",
-      accessible.organization_id::text as "organizationId",
-      accessible.parent_id::text as "parentId"
-    from accessible_containers accessible
-    left join ${containerMetadataDocuments} cmd
-      on cmd.container_id = accessible.id
-    order by
-      accessible.organization_id asc,
-      accessible.parent_id asc nulls first,
-      accessible.id asc
-  `);
-
-  const accessibleContainers: AccessibleContainerRow[] = [];
-
-  for (const row of result.rows) {
-    if (!isAccessibleContainerRow(row)) {
-      throw new Error("Unexpected row shape from accessible_containers query");
-    }
-
-    accessibleContainers.push(row);
-  }
-
-  return accessibleContainers;
 }
 
 async function listAccessibleV2ContainersForUser(
@@ -314,28 +212,9 @@ export async function listContainers(
   runtime: ApiServiceRuntime,
   userId: string,
 ): Promise<ListContainersResponse> {
-  const containerRowsById = new Map<string, AccessibleContainerRow>();
-  for (const containerRow of await listAccessibleContainersForUser(
+  const containerRows = await listAccessibleV2ContainersForUser(
     runtime,
     userId,
-  )) {
-    containerRowsById.set(containerRow.id, containerRow);
-  }
-  for (const containerRow of await listAccessibleV2ContainersForUser(
-    runtime,
-    userId,
-  )) {
-    containerRowsById.set(containerRow.id, containerRow);
-  }
-  const containerRows = [...containerRowsById.values()];
-  const metadataDocumentIds = uniqueSortedStrings(
-    containerRows.flatMap((containerRow) =>
-      containerRow.metadataDocumentId ? [containerRow.metadataDocumentId] : [],
-    ),
-  );
-  const metadataAccessStateByDocumentId = await resolveDocumentAccessStates(
-    metadataDocumentIds,
-    runtime.db,
   );
 
   const visibleContainers: ListContainersResponse = [];
@@ -345,33 +224,20 @@ export async function listContainers(
       continue;
     }
 
-    const metadataAccess = metadataAccessStateByDocumentId.get(
-      containerRow.metadataDocumentId,
-    );
     const v2MetadataAccessEpoch = containerRow.metadataAccessEpoch;
     const v2MetadataAccessStateHash = containerRow.metadataAccessStateHash;
-    if (
-      !metadataAccess &&
-      (v2MetadataAccessEpoch === undefined || !v2MetadataAccessStateHash)
-    ) {
-      continue;
-    }
-    if (metadataAccess && !canReadDocumentAccess(metadataAccess, userId)) {
+    if (v2MetadataAccessEpoch === undefined || !v2MetadataAccessStateHash) {
       continue;
     }
 
     visibleContainers.push({
       id: containerRow.id,
-      metadataAccessEpoch:
-        v2MetadataAccessEpoch ?? metadataAccess?.currentAccessEpoch ?? 1,
-      metadataAccessStateHash:
-        v2MetadataAccessStateHash ?? metadataAccess?.accessStateHash ?? "",
+      metadataAccessEpoch: v2MetadataAccessEpoch,
+      metadataAccessStateHash: v2MetadataAccessStateHash,
       metadataDocumentId: containerRow.metadataDocumentId,
-      metadataReferencedPrincipals:
-        metadataAccess?.referencedPrincipals ??
-        normalizeReferencedPrincipals(
-          containerRow.metadataReferencedPrincipals,
-        ),
+      metadataReferencedPrincipals: normalizeReferencedPrincipals(
+        containerRow.metadataReferencedPrincipals,
+      ),
       organizationId: containerRow.organizationId,
       parentId: containerRow.parentId,
     });

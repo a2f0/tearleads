@@ -1,13 +1,14 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createDocumentFixture } from "../../../test/helpers/documentFixture";
+import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
-import { attachmentBindings, blobs } from "../../schema";
+import { attachmentBindings, blobs, containers } from "../../schema";
 
 const alice = createTestUser();
 
@@ -36,9 +37,17 @@ async function createStagedBlobInput(encryptedBytes: string) {
 }
 
 async function createAliceDocumentFixture() {
-  return createDocumentFixture({
+  const [container] = await db
+    .select({ organizationId: containers.organizationId })
+    .from(containers)
+    .where(eq(containers.id, alice.rootContainerId))
+    .limit(1);
+  invariant(container, "expected Alice root container");
+
+  return createCurrentDocumentProjection({
+    containerIds: [alice.rootContainerId],
     createdByFingerprint: alice.fingerprint,
-    linkedContainerIds: [alice.rootContainerId],
+    organizationId: container.organizationId,
   });
 }
 

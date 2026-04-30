@@ -16,7 +16,7 @@ import { appendDocumentUpdateAuditEntries } from "./documentAuditEntries";
 import { verifyDocumentAuditHistory } from "./verifyDocumentAuditHistory";
 
 const ACCESS_EPOCH = 1;
-const ACCESS_FINGERPRINT = "audit-history-access-fingerprint";
+const ACCESS_MANIFEST_HASH = "audit-history-access-manifest";
 const ACCESS_STATE_HASH = "audit-history-access-state-hash";
 const ACTOR_FINGERPRINT = "audit-history-actor-fingerprint";
 
@@ -46,7 +46,7 @@ async function createDocumentWithAuditHistory() {
 
   await appendDocumentAttachmentAuditEntries(db, {
     accessEpoch: ACCESS_EPOCH,
-    accessFingerprint: ACCESS_FINGERPRINT,
+    accessManifestHash: ACCESS_MANIFEST_HASH,
     accessStateHash: ACCESS_STATE_HASH,
     actorFingerprint: ACTOR_FINGERPRINT,
     actorUserId,
@@ -73,7 +73,7 @@ async function createDocumentWithAuditHistory() {
   } as const;
   const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(db, {
     accessEpoch: ACCESS_EPOCH,
-    accessFingerprint: ACCESS_FINGERPRINT,
+    accessManifestHash: ACCESS_MANIFEST_HASH,
     accessStateHash: ACCESS_STATE_HASH,
     actorFingerprint: ACTOR_FINGERPRINT,
     actorUserId,
@@ -89,7 +89,7 @@ async function createDocumentWithAuditHistory() {
 
   await maybeWriteDocumentAuditCheckpoint(db, {
     accessEpoch: ACCESS_EPOCH,
-    accessFingerprint: ACCESS_FINGERPRINT,
+    accessManifestHash: ACCESS_MANIFEST_HASH,
     accessStateHash: ACCESS_STATE_HASH,
     actorFingerprint: ACTOR_FINGERPRINT,
     actorUserId,

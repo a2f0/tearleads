@@ -1,10 +1,10 @@
 import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
-import {
-  canReadDocumentAccess,
-  resolveDocumentAccessState,
-} from "../../access/documentAccess";
 import { attachmentBindings } from "../../schema";
+import {
+  KeyingV2ReadAccessError,
+  resolveReadableDocumentV2Access,
+} from "../keyingV2ReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface ListDocumentAttachmentsInput {
@@ -15,7 +15,7 @@ interface ListDocumentAttachmentsInput {
 export class ListDocumentAttachmentsError extends Error {
   constructor(
     message: string,
-    readonly status: 403 | 404,
+    readonly status: 403 | 404 | 409,
   ) {
     super(message);
   }
@@ -25,13 +25,17 @@ export async function listDocumentAttachments(
   runtime: ApiServiceRuntime,
   input: ListDocumentAttachmentsInput,
 ): Promise<ListDocumentAttachmentsResponse> {
-  const access = await resolveDocumentAccessState(input.documentId, runtime.db);
-  if (!access) {
-    throw new ListDocumentAttachmentsError("Document not found", 404);
-  }
-
-  if (!canReadDocumentAccess(access, input.userId)) {
-    throw new ListDocumentAttachmentsError("Forbidden", 403);
+  try {
+    await resolveReadableDocumentV2Access({
+      documentId: input.documentId,
+      executor: runtime.db,
+      userId: input.userId,
+    });
+  } catch (error) {
+    if (error instanceof KeyingV2ReadAccessError) {
+      throw new ListDocumentAttachmentsError(error.message, error.status);
+    }
+    throw error;
   }
 
   const rows = await runtime.db

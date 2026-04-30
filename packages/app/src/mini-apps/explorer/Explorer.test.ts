@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type { DocumentSummary } from "../../data/documents/documentsPersistence";
 import { buildDocumentsByContainerId } from "./Explorer";
 
-test("buildDocumentsByContainerId falls back to the document container when document links are not projected yet", () => {
+test("buildDocumentsByContainerId uses the document container while document links are not projected yet", () => {
   const documentSummaries: DocumentSummary[] = [
     {
       id: "note-1",

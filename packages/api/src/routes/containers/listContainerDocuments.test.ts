@@ -1,106 +1,41 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { toFingerprint } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createContainerFixture } from "../../../test/helpers/containerFixture";
-import { createDocumentFixture } from "../../../test/helpers/documentFixture";
-import {
-  createPrincipalStateSigner,
-  createProjectionWithAdminSigner,
-  signPrincipalStateBundle,
-} from "../../../test/helpers/principalState";
+import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { grantContainerAccess } from "../../access/containerAccess";
-import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { containers, groups, users } from "../../schema";
+import { containers } from "../../schema";
 
-const PRINCIPAL_STATE_BASE_TIME_MS = Date.UTC(2000, 0, 1, 0, 0, 0);
-
-function principalStateSignedAt(offsetMinutes: number): string {
-  return new Date(
-    PRINCIPAL_STATE_BASE_TIME_MS + offsetMinutes * 60 * 1000,
-  ).toISOString();
-}
-
-async function getRootContainerIdForUser(userId: string): Promise<string> {
-  const [user] = await db
-    .select({
-      defaultOrganizationId: users.defaultOrganizationId,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  invariant(user, "expected user row");
-
-  const [rootContainer] = await db
-    .select({
-      id: containers.id,
-    })
+async function getContainerOrganizationId(containerId: string) {
+  const [container] = await db
+    .select({ organizationId: containers.organizationId })
     .from(containers)
-    .where(eq(containers.organizationId, user.defaultOrganizationId))
+    .where(eq(containers.id, containerId))
     .limit(1);
 
-  invariant(rootContainer, "expected root container row");
-  return rootContainer.id;
+  invariant(container, "expected container row");
+  return container.organizationId;
 }
 
-async function storeCurrentGroupState(
-  groupId: string,
-  memberUserIds: string[],
-): Promise<{ encapsulationPublicKey: string }> {
-  const principalKem = generateKemSeedAndKeyPair();
-  const signer = await createPrincipalStateSigner();
-  const encapsulationPublicKey = bytesToBase64(principalKem.publicKey);
-  const members = memberUserIds.map((userId) => ({
-    principalType: "user" as const,
-    principalId: userId,
-  }));
-  const projection = createProjectionWithAdminSigner(
-    signer.signerUserId,
-    members,
-  );
-
-  await storeVerifiedPrincipalState(
-    await signPrincipalStateBundle({
-      principalType: "group",
-      principalId: groupId,
-      version: 1,
-      prevStateHash: null,
-      keyEpoch: 1,
-      encapsulationPublicKey,
-      keyFingerprint: await toFingerprint(principalKem.publicKey),
-      members,
-      projection,
-      payloadCiphertext: JSON.stringify({ members: projection }),
-      signedAt: principalStateSignedAt(20),
-      signerUserId: signer.signerUserId,
-      signerUserKeyFingerprint: signer.signerUserKeyFingerprint,
-      signingPrivateKey: signer.signingPrivateKey,
-    }),
-  );
-
-  return { encapsulationPublicKey };
-}
-
-test("GET /containers/:containerId/documents lists readable non-metadata documents for the container", async () => {
+test("GET /containers/:containerId/documents lists current manifest-linked documents", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
 
-  const rootContainerId = await getRootContainerIdForUser(owner.userId);
-  const createdDocument = await createDocumentFixture({
-    createdByFingerprint: owner.fingerprint,
-    linkedContainerIds: [rootContainerId],
+  const createdDocument = await createCurrentDocumentProjection({
+    containerIds: [owner.rootContainerId],
+    createdByFingerprint: await toFingerprint(owner.signing.signingPublicKey),
+    epoch: 2,
+    manifestHash: `document-manifest:${crypto.randomUUID()}`,
+    organizationId: await getContainerOrganizationId(owner.rootContainerId),
   });
 
   const response = await routeApp.request(
-    `/containers/${rootContainerId}/documents`,
+    `/containers/${owner.rootContainerId}/documents`,
     {
       method: "GET",
       headers: {
@@ -110,151 +45,35 @@ test("GET /containers/:containerId/documents lists readable non-metadata documen
   );
 
   expect(response.status).toBe(200);
-  const listedDocuments = await response.json();
-  expect(listedDocuments).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        id: createdDocument.id,
-        linkedContainerIds: [rootContainerId],
-      }),
-    ]),
-  );
-  expect(listedDocuments).toHaveLength(1);
+  expect(await response.json()).toEqual([
+    expect.objectContaining({
+      currentAccessEpoch: 2,
+      currentAccessStateHash: createdDocument.manifestHash,
+      id: createdDocument.id,
+      linkedContainerIds: [owner.rootContainerId],
+    }),
+  ]);
 });
 
-test("GET /containers/:containerId/documents returns documents for directly shared containers", async () => {
+test("GET /containers/:containerId/documents rejects users without manifest access", async () => {
   const owner = createTestUser();
+  const otherUser = createTestUser();
+
   await registerUser(owner);
   await authenticate(owner);
-
-  const recipient = createTestUser();
-  await registerUser(recipient);
-  await authenticate(recipient);
-
-  const ownerRootId = await getRootContainerIdForUser(owner.userId);
-  const sharedContainerId = crypto.randomUUID();
-
-  await createContainerFixture({
-    id: sharedContainerId,
-    parentId: ownerRootId,
-  });
-
-  const createdDocument = await createDocumentFixture({
-    createdByFingerprint: owner.fingerprint,
-    linkedContainerIds: [sharedContainerId],
-  });
-
-  await grantContainerAccess({
-    accessLevel: "read",
-    containerId: sharedContainerId,
-    subjectId: recipient.userId,
-    subjectType: "user",
-  });
+  await registerUser(otherUser);
+  await authenticate(otherUser);
 
   const response = await routeApp.request(
-    `/containers/${sharedContainerId}/documents`,
+    `/containers/${owner.rootContainerId}/documents`,
     {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${recipient.token}`,
+        Authorization: `Bearer ${otherUser.token}`,
       },
     },
   );
 
-  expect(response.status).toBe(200);
-  const listedDocuments = await response.json();
-  expect(listedDocuments).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        id: createdDocument.id,
-        linkedContainerIds: [sharedContainerId],
-      }),
-    ]),
-  );
-});
-
-test("GET /containers/:containerId/documents includes referenced principal policies when access comes from a group grant", async () => {
-  const owner = createTestUser();
-  const recipient = createTestUser();
-
-  await registerUser(owner);
-  await registerUser(recipient);
-  await authenticate(owner);
-  await authenticate(recipient);
-
-  const ownerRootId = await getRootContainerIdForUser(owner.userId);
-  const sharedContainerId = crypto.randomUUID();
-
-  await createContainerFixture({
-    id: sharedContainerId,
-    parentId: ownerRootId,
-  });
-
-  const [ownerRow] = await db
-    .select({
-      defaultOrganizationId: users.defaultOrganizationId,
-    })
-    .from(users)
-    .where(eq(users.id, owner.userId))
-    .limit(1);
-  invariant(ownerRow, "expected owner row");
-
-  const [group] = await db
-    .insert(groups)
-    .values({
-      organizationId: ownerRow.defaultOrganizationId,
-      name: "Reviewers",
-    })
-    .returning({ id: groups.id });
-  invariant(group, "expected group");
-
-  await storeCurrentGroupState(group.id, [recipient.userId]);
-
-  const createdDocument = await createDocumentFixture({
-    createdByFingerprint: owner.fingerprint,
-    linkedContainerIds: [sharedContainerId],
-  });
-
-  await grantContainerAccess({
-    accessLevel: "read",
-    containerId: sharedContainerId,
-    subjectId: group.id,
-    subjectType: "group",
-  });
-
-  const response = await routeApp.request(
-    `/containers/${sharedContainerId}/documents`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${recipient.token}`,
-      },
-    },
-  );
-
-  expect(response.status).toBe(200);
-  const listedDocuments = await response.json();
-  expect(listedDocuments).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        id: createdDocument.id,
-        linkedContainerIds: [sharedContainerId],
-        referencedPrincipals: [
-          expect.objectContaining({
-            principalType: "group",
-            principalId: group.id,
-            version: 1,
-            keyEpoch: 1,
-          }),
-        ],
-      }),
-    ]),
-  );
-  expect(listedDocuments).toEqual(
-    expect.not.arrayContaining([
-      expect.objectContaining({
-        recipientEncapsulationPublicKeys: expect.anything(),
-      }),
-    ]),
-  );
+  expect(response.status).toBe(403);
+  expect(await response.json()).toEqual({ error: "Forbidden" });
 });

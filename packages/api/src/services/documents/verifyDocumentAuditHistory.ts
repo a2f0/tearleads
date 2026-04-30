@@ -30,7 +30,7 @@ interface VerifyDocumentAuditHistoryResult {
 
 interface AuditEntryRow {
   accessEpoch: number;
-  accessFingerprint: string;
+  accessManifestHash: string;
   accessStateHash: string | null;
   actorFingerprint: string;
   actorUserId: string;
@@ -65,7 +65,7 @@ interface AttachmentAuditEventRow {
 
 interface CheckpointRow {
   accessEpoch: number;
-  accessFingerprint: string;
+  accessManifestHash: string;
   accessStateHash: string | null;
   actorFingerprint: string;
   actorUserId: string;
@@ -85,7 +85,7 @@ async function listAuditEntries(
   return executor
     .select({
       accessEpoch: documentAuditEntries.accessEpoch,
-      accessFingerprint: documentAuditEntries.accessFingerprint,
+      accessManifestHash: documentAuditEntries.accessManifestHash,
       accessStateHash: documentAuditEntries.accessStateHash,
       actorFingerprint: documentAuditEntries.actorFingerprint,
       actorUserId: documentAuditEntries.actorUserId,
@@ -156,7 +156,7 @@ async function listCheckpoints(
   return executor
     .select({
       accessEpoch: documentAuditCheckpoints.accessEpoch,
-      accessFingerprint: documentAuditCheckpoints.accessFingerprint,
+      accessManifestHash: documentAuditCheckpoints.accessManifestHash,
       accessStateHash: documentAuditCheckpoints.accessStateHash,
       actorFingerprint: documentAuditCheckpoints.actorFingerprint,
       actorUserId: documentAuditCheckpoints.actorUserId,
@@ -209,7 +209,7 @@ async function verifyDocumentUpdateEntry(input: {
 
   const expectedEntryHash = await computeDocumentUpdateAuditEntryHash({
     accessEpoch: input.entry.accessEpoch,
-    accessFingerprint: input.entry.accessFingerprint,
+    accessManifestHash: input.entry.accessManifestHash,
     accessStateHash: input.entry.accessStateHash,
     actorFingerprint: input.entry.actorFingerprint,
     actorUserId: input.entry.actorUserId,
@@ -253,7 +253,7 @@ async function verifyAttachmentEntry(input: {
 
   const expectedEntryHash = await computeDocumentAttachmentAuditEntryHash({
     accessEpoch: input.entry.accessEpoch,
-    accessFingerprint: input.entry.accessFingerprint,
+    accessManifestHash: input.entry.accessManifestHash,
     accessStateHash: input.entry.accessStateHash,
     action: attachmentEvent.action,
     actorFingerprint: input.entry.actorFingerprint,
@@ -397,7 +397,7 @@ async function verifyCheckpoint(input: {
 
   const expectedCheckpointHash = await computeDocumentAuditCheckpointHash({
     accessEpoch: input.checkpoint.accessEpoch,
-    accessFingerprint: input.checkpoint.accessFingerprint,
+    accessManifestHash: input.checkpoint.accessManifestHash,
     accessStateHash: input.checkpoint.accessStateHash,
     actorFingerprint: input.checkpoint.actorFingerprint,
     actorUserId: input.checkpoint.actorUserId,

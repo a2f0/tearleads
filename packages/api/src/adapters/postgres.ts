@@ -104,24 +104,6 @@ await client.exec(`
     wrapped_key TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
-  CREATE TABLE IF NOT EXISTS object_access_grants (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    object_type TEXT NOT NULL,
-    object_id TEXT NOT NULL,
-    subject_type TEXT NOT NULL,
-    subject_id TEXT NOT NULL,
-    access_level TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now()
-  );
-  CREATE TABLE IF NOT EXISTS object_access_epochs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    object_type TEXT NOT NULL,
-    object_id TEXT NOT NULL,
-    epoch INTEGER NOT NULL,
-    access_fingerprint TEXT NOT NULL,
-    access_state_hash TEXT,
-    updated_at TIMESTAMP NOT NULL DEFAULT now()
-  );
   CREATE TABLE IF NOT EXISTS access_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     version INTEGER NOT NULL,
@@ -310,7 +292,7 @@ await client.exec(`
     previous_checkpoint_hash TEXT,
     checkpoint_hash TEXT NOT NULL,
     access_epoch INTEGER NOT NULL,
-    access_fingerprint TEXT NOT NULL,
+    access_manifest_hash TEXT NOT NULL,
     access_state_hash TEXT,
     actor_user_id UUID NOT NULL,
     actor_fingerprint TEXT NOT NULL,
@@ -322,7 +304,7 @@ await client.exec(`
     sequence BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
     event_type TEXT NOT NULL,
     access_epoch INTEGER NOT NULL,
-    access_fingerprint TEXT NOT NULL,
+    access_manifest_hash TEXT NOT NULL,
     access_state_hash TEXT,
     actor_user_id UUID NOT NULL,
     actor_fingerprint TEXT NOT NULL,
@@ -421,12 +403,6 @@ await client.exec(`
       member_principal_type,
       member_principal_id
     );
-  CREATE INDEX IF NOT EXISTS object_access_grants_object_idx
-    ON object_access_grants (object_type, object_id);
-  CREATE INDEX IF NOT EXISTS object_access_epochs_object_idx
-    ON object_access_epochs (object_type, object_id);
-  CREATE UNIQUE INDEX IF NOT EXISTS object_access_epochs_object_epoch_idx
-    ON object_access_epochs (object_type, object_id, epoch);
   CREATE UNIQUE INDEX IF NOT EXISTS access_events_event_id_idx
     ON access_events (event_id);
   CREATE UNIQUE INDEX IF NOT EXISTS access_events_event_hash_idx
