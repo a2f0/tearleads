@@ -158,7 +158,14 @@ async function createExplorerMetadataContainerProjection(input: {
     keyEpochHash,
     keyTargetHash,
     parentContainerKeyEpochId: parentKek?.containerKeyEpochId ?? null,
-    recipientTargets: [{}],
+    recipientTargets: [
+      {
+        recipientKind: "user",
+        recipientId: input.userId,
+        recipientKeyEpochId: `user:${input.userId}:epoch-1`,
+        recipientKeyFingerprint: recipient.keyFingerprint,
+      },
+    ],
     wraps: [
       {
         containerKeyEpochId,
@@ -328,6 +335,12 @@ async function createExplorerContainerMutationResponse(
   if (eventType === "container.grant") {
     directGrants.push(Reflect.get(body, "grant"));
   }
+  const recipientTargets = request.wraps.map((wrap) => ({
+    recipientKind: Reflect.get(wrap, "recipientKind"),
+    recipientId: Reflect.get(wrap, "recipientId"),
+    recipientKeyEpochId: Reflect.get(wrap, "recipientKeyEpochId"),
+    recipientKeyFingerprint: Reflect.get(wrap, "recipientKeyFingerprint"),
+  }));
 
   return {
     containerId,
@@ -369,7 +382,7 @@ async function createExplorerContainerMutationResponse(
       keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
       keyTargetHash: "test-container-key-target-hash",
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-      recipientTargets: [],
+      recipientTargets,
       wraps: request.wraps,
     },
     referencedPrincipalHeads: [],

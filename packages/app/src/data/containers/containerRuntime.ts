@@ -136,7 +136,7 @@ interface ContainerSharePlan {
   recipientTarget: ContainerKekRecipientTarget;
   request: ContainerMutationRequest;
   state: ContainerAccessManifestState;
-  userRecipientKey: ContainerUserRecipientKey;
+  userRecipientKeys: ContainerUserRecipientKey[];
   wraps: ContainerKeyWrap[];
 }
 
@@ -1086,7 +1086,7 @@ function buildContainerShareRequest(input: {
   parentKek: ContainerKekResponse | null;
   previousManifest: ContainerManifestBundle;
   previousProjection: ContainerWriterProjectionResponse;
-  userRecipientKey: ContainerUserRecipientKey;
+  userRecipientKeys: readonly ContainerUserRecipientKey[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {
@@ -1110,7 +1110,7 @@ function buildContainerShareRequest(input: {
             "Container share parent KEK state",
           ),
     userRecipientKeys: readCanonicalRecords(
-      [input.userRecipientKey],
+      input.userRecipientKeys,
       "Container share user recipient keys",
     ),
   };
@@ -1147,7 +1147,7 @@ function buildContainerSharePlanResult(input: {
   recipientTarget: ContainerKekRecipientTarget;
   state: ContainerAccessManifestState;
   targetKek: ContainerKekResponse;
-  userRecipientKey: ContainerUserRecipientKey;
+  userRecipientKeys: ContainerUserRecipientKey[];
   wraps: ContainerKeyWrap[];
 }): MaterializedContainerSharePlan {
   const keyEpoch = readContainerKeyEpoch(
@@ -1174,15 +1174,97 @@ function buildContainerSharePlanResult(input: {
       parentKek: getParentKekForTarget(input.previousProjection),
       previousManifest: input.previousManifest,
       previousProjection: input.previousProjection,
-      userRecipientKey: input.userRecipientKey,
+      userRecipientKeys: input.userRecipientKeys,
       wraps: input.wraps,
     }),
     state: input.state,
-    userRecipientKey: input.userRecipientKey,
+    userRecipientKeys: input.userRecipientKeys,
     wraps: input.wraps,
   };
 
   return { containerKey: input.containerKey, plan };
+}
+
+function readContainerKekRecipientTarget(
+  value: unknown,
+  label: string,
+): ContainerKekRecipientTarget {
+  const record = readCanonicalRecord(value, label);
+  const recipientKind = readRecordValue(record, "recipientKind");
+  if (!isKekRecipientKind(recipientKind)) {
+    throw new Error(`${label}.recipientKind is invalid`);
+  }
+
+  return {
+    recipientKind,
+    recipientId: readRecordString(record, "recipientId", label),
+    recipientKeyEpochId: readRecordString(record, "recipientKeyEpochId", label),
+    recipientKeyFingerprint: readRecordString(
+      record,
+      "recipientKeyFingerprint",
+      label,
+    ),
+  };
+}
+
+function readContainerKekRecipientTargets(
+  value: unknown,
+  label: string,
+): ContainerKekRecipientTarget[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return value.map((target, index) =>
+    readContainerKekRecipientTarget(target, `${label}[${index}]`),
+  );
+}
+
+function collectShareUserRecipientKeys(input: {
+  newUserRecipientKey: ContainerUserRecipientKey;
+  state: ContainerAccessManifestState;
+  targetKek: ContainerKekResponse;
+}): ContainerUserRecipientKey[] {
+  const directUserIds = new Set(
+    input.state.directGrants.flatMap((grant) =>
+      grant.subjectType === "user" ? [grant.subjectId] : [],
+    ),
+  );
+  const userRecipientKeyByUserId = new Map<string, ContainerUserRecipientKey>();
+
+  for (const target of readContainerKekRecipientTargets(
+    input.targetKek.recipientTargets,
+    "Container share target KEK recipient targets",
+  )) {
+    if (
+      target.recipientKind !== "user" ||
+      !directUserIds.has(target.recipientId)
+    ) {
+      continue;
+    }
+    userRecipientKeyByUserId.set(target.recipientId, {
+      userId: target.recipientId,
+      recipientKeyEpochId: target.recipientKeyEpochId,
+      recipientKeyFingerprint: target.recipientKeyFingerprint,
+    });
+  }
+
+  userRecipientKeyByUserId.set(
+    input.newUserRecipientKey.userId,
+    input.newUserRecipientKey,
+  );
+
+  const missingUserId = [...directUserIds].find(
+    (userId) => !userRecipientKeyByUserId.has(userId),
+  );
+  if (missingUserId) {
+    throw new Error(
+      `Container share recipient key is missing for direct user grant ${missingUserId}`,
+    );
+  }
+
+  return [...userRecipientKeyByUserId.values()].sort((left, right) =>
+    left.userId.localeCompare(right.userId),
+  );
 }
 
 async function buildMaterializedContainerSharePlan(input: {
@@ -1246,6 +1328,11 @@ async function buildMaterializedContainerSharePlan(input: {
       recipientEncapsulationPublicKey: input.recipientEncapsulationPublicKey,
       userId: input.recipientUserId,
     });
+  const userRecipientKeys = collectShareUserRecipientKeys({
+    newUserRecipientKey: userRecipientKey,
+    state,
+    targetKek: target.kek,
+  });
   const previousWraps = readContainerKeyWraps(
     target.kek.wraps,
     "Container share previous wraps",
@@ -1264,7 +1351,7 @@ async function buildMaterializedContainerSharePlan(input: {
     previousProjection: input.previousProjection,
     state,
     targetKek: target.kek,
-    userRecipientKey,
+    userRecipientKeys,
     wraps: replaceContainerWrap(previousWraps, wrap),
   });
 }

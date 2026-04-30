@@ -209,6 +209,64 @@ async function createChildContainer(pane: HTMLElement, name: string) {
   });
 }
 
+async function createNoteWithAttachment(pane: HTMLElement) {
+  await interact(() => {
+    fireEvent.click(getExplorerSidebarItem(pane, "/"));
+  });
+  const newNoteButton = await within(pane).findByRole("button", {
+    name: "New Note",
+  });
+  await interact(() => {
+    fireEvent.click(newNoteButton);
+  });
+
+  const editor = await within(pane).findByRole("textbox", {
+    name: /Notes editor/u,
+  });
+  await waitFor(() => {
+    const attachButton = within(pane).getByRole("button", {
+      name: "Attach File",
+    });
+    invariant(
+      attachButton instanceof HTMLButtonElement,
+      "Expected attach button.",
+    );
+    expect(attachButton.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.change(editor, {
+      target: { value: "Peer one note with attachment" },
+    });
+  });
+
+  const fileInput = pane.querySelector<HTMLInputElement>(
+    "input.notes-file-input",
+  );
+  invariant(fileInput, "Expected notes file input.");
+  const attachment = new File(["peer one attachment"], "peer-one.png", {
+    type: "image/png",
+  });
+  await interact(() => {
+    fireEvent.change(fileInput, {
+      target: { files: [attachment] },
+    });
+  });
+
+  await waitFor(() => {
+    expect(within(pane).getByText("peer-one.png")).toBeTruthy();
+  });
+
+  const backButton = within(pane).getByRole("button", {
+    name: "Back to Container",
+  });
+  await interact(() => {
+    fireEvent.click(backButton);
+  });
+  await waitFor(() => {
+    expect(within(pane).getByRole("button", { name: "New Note" })).toBeTruthy();
+  });
+}
+
 async function shareContainerWithPeer(pane: HTMLElement, name: string) {
   await interact(() => {
     fireEvent.contextMenu(getExplorerSidebarItem(pane, name), {
@@ -397,6 +455,33 @@ test(
     await selectPeerSharedContainer(rightPane, "Shared");
 
     expect(listExplorerContainerItems(rightPane).length).toBeGreaterThan(1);
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual panes can share an owner-granted root container after note attachments",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+
+    await waitForDualPaneProvisioning(leftPane, rightPane);
+
+    await openExplorer(leftPane);
+    await openExplorer(rightPane);
+
+    await createNoteWithAttachment(leftPane);
+    await shareContainerWithPeer(leftPane, "/");
+
+    const shareRequest = listProxiedApiRequests()
+      .filter(
+        (request) =>
+          request.method === "POST" && request.url.endsWith("/share"),
+      )
+      .at(-1);
+    expect(shareRequest?.status).toBe(200);
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
 );
