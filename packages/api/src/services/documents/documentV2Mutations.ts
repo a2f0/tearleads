@@ -77,6 +77,7 @@ import {
 } from "../containers/v2Mutations";
 import {
   ContainerV2WriterProjectionError,
+  createContainerV2WriterProjectionContext,
   resolveContainerV2WriterProjection,
 } from "../containers/v2WriterProjection";
 import {
@@ -1421,12 +1422,17 @@ async function ensureWritableDocumentV2(input: {
   readonly executor: DatabaseExecutor;
   readonly userId: string;
 }): Promise<void> {
+  const containerProjectionContext = createContainerV2WriterProjectionContext(
+    input.executor,
+  );
+
   for (const containerId of new Set(
     input.currentTargets.targets.map((target) => target.containerId),
   )) {
     try {
       await resolveContainerV2WriterProjection({
         containerId,
+        context: containerProjectionContext,
         executor: input.executor,
         userId: input.userId,
       });
