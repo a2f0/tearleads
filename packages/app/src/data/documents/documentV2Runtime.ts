@@ -260,7 +260,6 @@ interface BuildDocumentV2SyncPlanInput {
   documentId?: string | undefined;
   documentKekTargets: DocumentV2SyncResponse["documentKekTargets"];
   documentManifest: DocumentV2CreateResponse["accessManifest"];
-  includeContentKeyBundle?: boolean | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentV2SyncPreparedUpdate[] | undefined;
@@ -2485,7 +2484,6 @@ async function prepareDocumentV2OutgoingUpdates(input: {
 export async function buildMaterializedDocumentV2SyncPlan(input: {
   author: DocumentV2CreateAuthor;
   execSql?: ExecSql | undefined;
-  includeContentKeyBundle?: boolean | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
@@ -2523,7 +2521,6 @@ export async function buildMaterializedDocumentV2SyncPlan(input: {
     documentId,
     documentKekTargets: input.writerProjection.documentKekTargets,
     documentManifest: input.writerProjection.documentManifest,
-    includeContentKeyBundle: input.includeContentKeyBundle,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates,
@@ -2841,8 +2838,12 @@ export async function buildDocumentV2SyncPlan(
       }),
     ),
   );
+  // Writes always carry the verified current content-key bundle so the server
+  // can validate and materialize the current wrapping material in the same
+  // request. Read-only syncs omit it because they do not update server state.
+  const shouldIncludeContentKeyBundle = outgoingUpdates.length > 0;
   const request: DocumentV2SyncRequest = {
-    ...(input.includeContentKeyBundle === true
+    ...(shouldIncludeContentKeyBundle
       ? {
           contentKeyBundle: contentKeyBundleForSyncRequest(
             input.contentKeyBundle,
@@ -3195,7 +3196,6 @@ export async function syncRemoteDocumentV2(input: {
   author: DocumentV2CreateAuthor;
   documentId: string;
   execSql?: ExecSql | undefined;
-  includeContentKeyBundle?: boolean | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
@@ -3213,7 +3213,6 @@ export async function syncRemoteDocumentV2(input: {
   const materializedPlan = await buildMaterializedDocumentV2SyncPlan({
     author: input.author,
     execSql: input.execSql,
-    includeContentKeyBundle: input.includeContentKeyBundle,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     pendingUpdates: input.pendingUpdates,

@@ -1444,6 +1444,9 @@ test("buildDocumentV2SyncPlan signs document write headers with the current V2 a
   expect(plan.request.documentManifest?.manifestHash).toBe(
     createResponse.accessManifest.manifestHash,
   );
+  expect(plan.request.contentKeyBundle?.targetHash).toBe(
+    createResponse.contentKeyBundle.targetHash,
+  );
   expect(
     Reflect.get(
       plan.request.authorizingContainerPaths?.[0]?.[0] ?? {},
@@ -1480,14 +1483,13 @@ test("buildDocumentV2SyncPlan signs document write headers with the current V2 a
   expect(verified.ok).toBe(true);
 });
 
-test("buildDocumentV2SyncPlan omits write authorization proof fields for read-only probes", async () => {
+test("buildDocumentV2SyncPlan omits write-only fields for read-only syncs", async () => {
   const { author, createResponse } = await createSyncFixture();
   const plan = await buildDocumentV2SyncPlan({
     author,
     contentKeyBundle: createResponse.contentKeyBundle,
     documentKekTargets: createResponse.documentKekTargets,
     documentManifest: createResponse.accessManifest,
-    includeContentKeyBundle: true,
     localVersionVector: "{}",
   });
 
@@ -1495,9 +1497,7 @@ test("buildDocumentV2SyncPlan omits write authorization proof fields for read-on
   expect(plan.request.outgoingUpdates).toEqual([]);
   expect(plan.request.documentManifest).toBeUndefined();
   expect(plan.request.authorizingContainerPaths).toBeUndefined();
-  expect(plan.request.contentKeyBundle?.targetHash).toBe(
-    createResponse.contentKeyBundle.targetHash,
-  );
+  expect(plan.request.contentKeyBundle).toBeUndefined();
 });
 
 test("buildDocumentV2SyncPlan rejects manifest bundles whose state does not derive the manifest", async () => {
