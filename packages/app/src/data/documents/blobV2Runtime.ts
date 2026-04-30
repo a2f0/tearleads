@@ -907,18 +907,15 @@ async function assertBlobAttachmentBindResponseTargets(input: {
     ),
   );
   const expectedTargets = sortBlobTargets(input.targets);
-  const responseTargetHash =
-    await computeBlobContentKeyTargetHash(responseTargets);
   if (
-    responseTargetHash !== input.targetHash ||
     serializeCanonical(
       responseTargets,
       "Blob V2 attachment bind response KEK targets",
     ) !==
-      serializeCanonical(
-        expectedTargets,
-        "Blob V2 attachment bind request KEK targets",
-      )
+    serializeCanonical(
+      expectedTargets,
+      "Blob V2 attachment bind request KEK targets",
+    )
   ) {
     throw new Error("Blob V2 attachment bind response KEK targets mismatch");
   }
