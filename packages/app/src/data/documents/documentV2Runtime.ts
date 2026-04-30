@@ -260,6 +260,11 @@ interface BuildDocumentV2SyncPlanInput {
   documentId?: string | undefined;
   documentKekTargets: DocumentV2SyncResponse["documentKekTargets"];
   documentManifest: DocumentV2CreateResponse["accessManifest"];
+  /**
+   * `undefined` keeps the write-path default of sending the verified current
+   * bundle with outgoing writes. Use `false` only for explicit probe-style
+   * requests that must avoid touching the server-side bundle.
+   */
   includeContentKeyBundle?: boolean | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
@@ -2841,8 +2846,11 @@ export async function buildDocumentV2SyncPlan(
       }),
     ),
   );
+  const shouldIncludeContentKeyBundle =
+    input.includeContentKeyBundle === true ||
+    (input.includeContentKeyBundle !== false && outgoingUpdates.length > 0);
   const request: DocumentV2SyncRequest = {
-    ...(input.includeContentKeyBundle === true
+    ...(shouldIncludeContentKeyBundle
       ? {
           contentKeyBundle: contentKeyBundleForSyncRequest(
             input.contentKeyBundle,
