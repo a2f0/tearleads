@@ -54,8 +54,15 @@ import {
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
 import {
+  attachmentBindings,
+  blobContentKeyEpochs,
+  blobContentKeyTargets,
+  blobs,
   containerMetadataDocuments,
   containers,
+  documentContainerLinks,
+  documentContentKeyEpochs,
+  documentContentKeyTargets,
   documents,
   users,
 } from "../../schema";
@@ -69,6 +76,18 @@ interface StoredV2ContainerFixture {
   readonly bundle: ContainerV2ManifestBundle;
   readonly kekState: VerifiedContainerKekState;
   readonly userKey?: ContainerUserRecipientKeyV2;
+}
+
+interface DownstreamContentKeyRowCounts {
+  readonly blobContentKeyEpochs: number;
+  readonly blobContentKeyTargets: number;
+  readonly documentContentKeyEpochs: number;
+  readonly documentContentKeyTargets: number;
+}
+
+interface SeededDownstreamContentKeyRows {
+  readonly blobContentKeyEpochId: string;
+  readonly documentContentKeyEpochId: string;
 }
 
 async function getRootContainerForUser(
@@ -954,6 +973,136 @@ async function createV2Child(input: {
   );
 }
 
+async function countDownstreamContentKeyRows(
+  seeded: SeededDownstreamContentKeyRows,
+): Promise<DownstreamContentKeyRowCounts> {
+  const [
+    blobContentKeyEpochRows,
+    blobContentKeyTargetRows,
+    documentContentKeyEpochRows,
+    documentContentKeyTargetRows,
+  ] = await Promise.all([
+    db
+      .select({ id: blobContentKeyEpochs.id })
+      .from(blobContentKeyEpochs)
+      .where(eq(blobContentKeyEpochs.id, seeded.blobContentKeyEpochId)),
+    db
+      .select({ id: blobContentKeyTargets.id })
+      .from(blobContentKeyTargets)
+      .where(
+        eq(
+          blobContentKeyTargets.blobContentKeyEpochId,
+          seeded.blobContentKeyEpochId,
+        ),
+      ),
+    db
+      .select({ id: documentContentKeyEpochs.id })
+      .from(documentContentKeyEpochs)
+      .where(eq(documentContentKeyEpochs.id, seeded.documentContentKeyEpochId)),
+    db
+      .select({ id: documentContentKeyTargets.id })
+      .from(documentContentKeyTargets)
+      .where(
+        eq(
+          documentContentKeyTargets.documentContentKeyEpochId,
+          seeded.documentContentKeyEpochId,
+        ),
+      ),
+  ]);
+
+  return {
+    blobContentKeyEpochs: blobContentKeyEpochRows.length,
+    blobContentKeyTargets: blobContentKeyTargetRows.length,
+    documentContentKeyEpochs: documentContentKeyEpochRows.length,
+    documentContentKeyTargets: documentContentKeyTargetRows.length,
+  };
+}
+
+async function seedDownstreamContentKeyRows(input: {
+  readonly containerId: string;
+  readonly containerKeyEpoch: number;
+  readonly containerKeyEpochId: string;
+  readonly containerManifestHash: string;
+  readonly owner: TestUser;
+}): Promise<SeededDownstreamContentKeyRows> {
+  const documentId = crypto.randomUUID();
+  const documentLinkSetManifestHash = `document-link-set:${documentId}`;
+  await db.insert(documents).values({
+    id: documentId,
+    createdByFingerprint: input.owner.fingerprint,
+  });
+  await db.insert(documentContainerLinks).values({
+    documentId,
+    containerId: input.containerId,
+  });
+
+  const [documentContentKeyEpoch] = await db
+    .insert(documentContentKeyEpochs)
+    .values({
+      documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: documentLinkSetManifestHash,
+      targetHash: `document-targets:${documentId}`,
+    })
+    .returning({ id: documentContentKeyEpochs.id });
+  invariant(
+    documentContentKeyEpoch,
+    "expected seeded document content key epoch",
+  );
+  await db.insert(documentContentKeyTargets).values({
+    documentContentKeyEpochId: documentContentKeyEpoch.id,
+    containerId: input.containerId,
+    containerManifestHash: input.containerManifestHash,
+    containerKeyEpochId: input.containerKeyEpochId,
+    containerKeyEpoch: input.containerKeyEpoch,
+    wrappedKey: `wrapped-document-key:${documentId}`,
+    wrappingMetadata: { alg: "test-wrap" },
+  });
+
+  const blobId = crypto.randomUUID();
+  const bindingId = crypto.randomUUID();
+  await db.insert(blobs).values({
+    id: blobId,
+    storageKey: `blob:${blobId}`,
+    encryptedBytes: "encrypted-blob-bytes",
+    sha256: `sha256:${blobId}`,
+    byteLength: 20,
+  });
+  await db.insert(attachmentBindings).values({
+    id: bindingId,
+    documentId,
+    slotId: "seeded-slot",
+    blobId,
+    documentManifestHash: documentLinkSetManifestHash,
+  });
+
+  const [blobContentKeyEpoch] = await db
+    .insert(blobContentKeyEpochs)
+    .values({
+      blobId,
+      contentKeyEpoch: 1,
+      targetHash: `blob-targets:${blobId}`,
+    })
+    .returning({ id: blobContentKeyEpochs.id });
+  invariant(blobContentKeyEpoch, "expected seeded blob content key epoch");
+  await db.insert(blobContentKeyTargets).values({
+    blobContentKeyEpochId: blobContentKeyEpoch.id,
+    bindingId,
+    documentId,
+    containerId: input.containerId,
+    containerManifestHash: input.containerManifestHash,
+    containerKeyEpochId: input.containerKeyEpochId,
+    containerKeyEpoch: input.containerKeyEpoch,
+    wrappedKey: `wrapped-blob-key:${blobId}`,
+    wrappingMetadata: { alg: "test-wrap" },
+  });
+
+  return {
+    blobContentKeyEpochId: blobContentKeyEpoch.id,
+    documentContentKeyEpochId: documentContentKeyEpoch.id,
+  };
+}
+
 test("POST /v2/containers materializes the signed metadata document binding", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
@@ -1175,6 +1324,94 @@ test("POST /v2/containers/:containerId/share stores signed grants", async () => 
       recipientKeyFingerprint: await toFingerprint(recipient.kem.publicKey),
     },
   ]);
+});
+
+test("POST /v2/containers/:containerId/share avoids downstream content-key fanout for additive grants", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+
+  const root = await bootstrapRootV2(owner);
+  const created = await createV2Child({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const createdBundle = accessManifestFromResponse(created);
+  const createdKek = kekStateFromResponse(created);
+  const seededContentKeyRows = await seedDownstreamContentKeyRows({
+    containerId: created.containerId,
+    containerKeyEpoch: createdKek.containerKeyEpoch,
+    containerKeyEpochId: createdKek.containerKeyEpochId,
+    containerManifestHash: createdBundle.manifestHash,
+    owner,
+  });
+  const baselineCounts =
+    await countDownstreamContentKeyRows(seededContentKeyRows);
+  expect(baselineCounts).toEqual({
+    blobContentKeyEpochs: 1,
+    blobContentKeyTargets: 1,
+    documentContentKeyEpochs: 1,
+    documentContentKeyTargets: 1,
+  });
+  const userGrantRequest = await buildGrantRequest({
+    parentKekState: root.kekState,
+    previous: createdBundle,
+    previousContainerPath: [root.bundle, createdBundle],
+    previousKekState: createdKek,
+    recipient,
+    signer: owner,
+  });
+
+  const sharedToUser = await expectV2MutationSuccess(
+    await postV2Mutation({
+      path: `/v2/containers/${created.containerId}/share`,
+      request: userGrantRequest,
+      token: owner.token,
+    }),
+  );
+
+  expect(await countDownstreamContentKeyRows(seededContentKeyRows)).toEqual(
+    baselineCounts,
+  );
+  expect(sharedToUser.containerKek.containerKeyEpochId).toBe(
+    createdKek.containerKeyEpochId,
+  );
+
+  const userSharedBundle = accessManifestFromResponse(sharedToUser);
+  const recipientKey = await userRecipientKey(recipient);
+  const groupPrincipalId = crypto.randomUUID();
+  const group = await putGroupPrincipalPolicy({
+    actor: owner,
+    principalId: groupPrincipalId,
+  });
+  const groupGrantRequest = await buildGroupGrantRequest({
+    containerManifestHistory: [createdBundle, userSharedBundle],
+    parentKekState: root.kekState,
+    previous: userSharedBundle,
+    previousContainerPath: [root.bundle, userSharedBundle],
+    previousKekState: kekStateFromResponse(sharedToUser),
+    principalPolicy: group.policy,
+    principalReference: group.reference,
+    signer: owner,
+    userRecipientKeys: [recipientKey],
+  });
+
+  const sharedToGroup = await expectV2MutationSuccess(
+    await postV2Mutation({
+      path: `/v2/containers/${created.containerId}/share`,
+      request: groupGrantRequest,
+      token: owner.token,
+    }),
+  );
+
+  expect(await countDownstreamContentKeyRows(seededContentKeyRows)).toEqual(
+    baselineCounts,
+  );
+  expect(sharedToGroup.containerKek.containerKeyEpochId).toBe(
+    createdKek.containerKeyEpochId,
+  );
 });
 
 test("POST /v2/containers/:containerId/share stores group KEK targets and rejects stale group policy", async () => {
