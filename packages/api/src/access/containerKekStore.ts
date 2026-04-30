@@ -259,10 +259,11 @@ async function deleteStaleContainerKeyWraps(
     await listContainerKeyWraps(containerKeyEpochId, executor)
   ).filter((wrap) => !currentWrapKeys.has(containerKeyWrapConflictKey(wrap)));
 
-  for (const wrap of staleWraps) {
+  const staleWrapIds = staleWraps.map((wrap) => wrap.id);
+  if (staleWrapIds.length > 0) {
     await executor
       .delete(containerKeyWraps)
-      .where(containerKeyWrapConflictWhere(wrap));
+      .where(inArray(containerKeyWraps.id, staleWrapIds));
   }
 }
 
