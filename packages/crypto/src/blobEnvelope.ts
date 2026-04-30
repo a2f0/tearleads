@@ -1,8 +1,16 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { ML_KEM1024_CIPHERTEXT_BYTES } from "./encapsulation/generateKeyPair";
 import type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
+import { AES_GCM_IV_BYTES, AES_GCM_TAG_BYTES } from "./symmetric";
 
 const ENCRYPTED_BLOB_FORMAT = "tearleads.blob.v1";
 const ENCRYPTED_BLOB_PREFIX = `${ENCRYPTED_BLOB_FORMAT}\n`;
+const SERIALIZED_BLOB_RECIPIENT_KEYS = [
+  "kemCipherText",
+  "keyFingerprint",
+  "wrappedKey",
+] as const;
+const SERIALIZED_BLOB_HEADER_KEYS = ["iv", "recipients"] as const;
 
 export interface SerializedBlobRecipientEntry {
   keyFingerprint: string;
@@ -15,34 +23,70 @@ export interface SerializedBlobEnvelopeHeader {
   recipients: SerializedBlobRecipientEntry[];
 }
 
+type SerializedBlobRecipientRecord = Partial<
+  Record<keyof SerializedBlobRecipientEntry, unknown>
+> &
+  Record<string, unknown>;
+
+type SerializedBlobEnvelopeHeaderRecord = Partial<
+  Record<keyof SerializedBlobEnvelopeHeader, unknown>
+> &
+  Record<string, unknown>;
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const actualKeys = Object.keys(value).sort();
+  const expectedKeys = [...keys].sort();
+  return (
+    actualKeys.length === expectedKeys.length &&
+    actualKeys.every((key, index) => key === expectedKeys[index])
+  );
+}
+
 function isSerializedBlobRecipientEntry(
   value: unknown,
 ): value is SerializedBlobRecipientEntry {
+  const record =
+    typeof value === "object" && value !== null && !Array.isArray(value)
+      ? (value as SerializedBlobRecipientRecord)
+      : null;
+
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "keyFingerprint" in value &&
-    typeof value.keyFingerprint === "string" &&
-    "kemCipherText" in value &&
-    typeof value.kemCipherText === "string" &&
-    "wrappedKey" in value &&
-    typeof value.wrappedKey === "string"
+    record !== null &&
+    hasExactKeys(record, SERIALIZED_BLOB_RECIPIENT_KEYS) &&
+    typeof record.keyFingerprint === "string" &&
+    /^[0-9a-f]{64}$/.test(record.keyFingerprint) &&
+    typeof record.kemCipherText === "string" &&
+    typeof record.wrappedKey === "string"
   );
 }
 
 function isSerializedBlobEnvelopeHeader(
   value: unknown,
 ): value is SerializedBlobEnvelopeHeader {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "iv" in value &&
-    typeof value.iv === "string" &&
-    "recipients" in value &&
-    Array.isArray(value.recipients) &&
-    value.recipients.every((recipient) =>
+  const record =
+    typeof value === "object" && value !== null && !Array.isArray(value)
+      ? (value as SerializedBlobEnvelopeHeaderRecord)
+      : null;
+  if (
+    record === null ||
+    !hasExactKeys(record, SERIALIZED_BLOB_HEADER_KEYS) ||
+    typeof record.iv !== "string" ||
+    !Array.isArray(record.recipients) ||
+    record.recipients.length === 0 ||
+    !record.recipients.every((recipient) =>
       isSerializedBlobRecipientEntry(recipient),
     )
+  ) {
+    return false;
+  }
+
+  const recipients = record.recipients as SerializedBlobRecipientEntry[];
+  return (
+    new Set(recipients.map((recipient) => recipient.keyFingerprint)).size ===
+    recipients.length
   );
 }
 
@@ -77,9 +121,12 @@ function parseWireParts(encryptedBytes: string): {
     throw new Error("Invalid encrypted blob envelope");
   }
 
-  const parsedHeader: unknown = JSON.parse(
-    encryptedBytes.slice(headerStart, headerEnd),
-  );
+  let parsedHeader: unknown;
+  try {
+    parsedHeader = JSON.parse(encryptedBytes.slice(headerStart, headerEnd));
+  } catch {
+    throw new Error("Invalid encrypted blob envelope");
+  }
 
   if (!isSerializedBlobEnvelopeHeader(parsedHeader)) {
     throw new Error("Invalid encrypted blob envelope");
@@ -119,9 +166,32 @@ export function parseBlobEnvelope(encryptedBytes: string): EncryptedEnvelope {
 
   const { header, ciphertext } = parseWireParts(encryptedBytes);
 
-  return {
-    iv: base64ToBytes(header.iv),
-    ciphertext: base64ToBytes(ciphertext),
-    recipients: decodeRecipients(header.recipients),
-  };
+  let envelope: EncryptedEnvelope;
+  try {
+    envelope = {
+      iv: base64ToBytes(header.iv),
+      ciphertext: base64ToBytes(ciphertext),
+      recipients: decodeRecipients(header.recipients),
+    };
+  } catch {
+    throw new Error("Invalid encrypted blob envelope");
+  }
+
+  if (envelope.iv.length !== AES_GCM_IV_BYTES) {
+    throw new Error("Invalid encrypted blob envelope");
+  }
+  if (envelope.ciphertext.length < AES_GCM_TAG_BYTES) {
+    throw new Error("Invalid encrypted blob envelope");
+  }
+  for (const recipient of envelope.recipients) {
+    if (
+      recipient.kemCipherText.length !== ML_KEM1024_CIPHERTEXT_BYTES ||
+      recipient.wrappedKey.length < AES_GCM_TAG_BYTES ||
+      !/^[0-9a-f]{64}$/.test(recipient.keyFingerprint)
+    ) {
+      throw new Error("Invalid encrypted blob envelope");
+    }
+  }
+
+  return envelope;
 }

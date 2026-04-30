@@ -1,4 +1,4 @@
-import { hexToBytes, sign } from "@tearleads/crypto";
+import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
 import {
   isChallengeResponse,
   isVerifyResponse,
@@ -28,7 +28,10 @@ export async function authenticateWithChallenge(
   secretKey: Uint8Array,
   challengeHex: string,
 ) {
-  const signed = sign(hexToBytes(challengeHex), secretKey);
+  const signed = sign(
+    authChallengeSigningBytes({ challengeHex, fingerprint }),
+    secretKey,
+  );
   const response = await request(
     "/auth/verify",
     isVerifyResponse,

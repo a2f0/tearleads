@@ -1,3 +1,4 @@
+import { AES_256_KEY_BYTES, AES_GCM_IV_BYTES } from "../symmetric";
 import type { EncryptedEnvelope } from "./types";
 import { wrapDekForRecipients } from "./wrapDek";
 
@@ -9,8 +10,8 @@ export async function encryptForRecipients(
   plaintext: Uint8Array,
   recipientPublicKeys: Uint8Array[],
 ): Promise<EncryptedEnvelope> {
-  const payloadKey = crypto.getRandomValues(new Uint8Array(32));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const payloadKey = crypto.getRandomValues(new Uint8Array(AES_256_KEY_BYTES));
+  const iv = crypto.getRandomValues(new Uint8Array(AES_GCM_IV_BYTES));
 
   const aesKey = await crypto.subtle.importKey(
     "raw",

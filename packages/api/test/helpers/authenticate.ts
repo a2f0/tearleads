@@ -1,5 +1,5 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
-import { hexToBytes, sign } from "@tearleads/crypto";
+import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
 import invariant from "invariant";
 import { requestChallenge, submitVerify } from "./api";
 
@@ -8,7 +8,10 @@ async function authenticateWithChallenge(
   challengeHex: string,
 ): Promise<void> {
   const signature = sign(
-    hexToBytes(challengeHex),
+    authChallengeSigningBytes({
+      challengeHex,
+      fingerprint: user.fingerprint,
+    }),
     user.signing.signingPrivateKey,
   );
   const res = await submitVerify(user.fingerprint, signature);

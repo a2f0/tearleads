@@ -7,12 +7,22 @@ export {
   parseBlobEnvelopeHeader,
   serializeBlobEnvelope,
 } from "./blobEnvelope";
-export { CHALLENGE_TTL_SECONDS, generateChallenge } from "./challenge";
+export {
+  AUTH_CHALLENGE_BYTES,
+  AUTH_CHALLENGE_HEX_LENGTH,
+  authChallengeSigningBytes,
+  CHALLENGE_TTL_SECONDS,
+  generateChallenge,
+} from "./challenge";
 export { decryptAsRecipient } from "./encapsulation/decryptAsRecipient";
 export { encryptForRecipients } from "./encapsulation/encryptForRecipients";
 export {
   generateKemKeyPair,
   generateKemSeedAndKeyPair,
+  ML_KEM1024_CIPHERTEXT_BYTES,
+  ML_KEM1024_PUBLIC_KEY_BYTES,
+  ML_KEM1024_SECRET_KEY_BYTES,
+  ML_KEM1024_SEED_BYTES,
 } from "./encapsulation/generateKeyPair";
 export type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
 export { unwrapDek } from "./encapsulation/unwrapDek";
@@ -56,6 +66,7 @@ export type {
   DeriveDocumentKekTargetsInput,
   DocumentAccessEventBody,
   DocumentContentKeyTarget,
+  DocumentContentRecordMetadataInput,
   DocumentLinkAccessEventBody,
   DocumentLinkSetManifestState,
   DocumentLinkSetStructural,
@@ -133,6 +144,8 @@ export {
   computeContainerKeyEpochHash,
   computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
+  computeDocumentContentRecordCiphertextHash,
+  computeDocumentContentRecordMetadataHash,
   computeDocumentLinkSetGrantRoot,
   computeDocumentLinkSetKeyTargetHash,
   computeDocumentLinkSetStructuralHash,
@@ -148,6 +161,7 @@ export {
   deriveDocumentKekTargets,
   deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
+  documentContentRecordMetadata,
   getPrincipalPolicyTransitionMismatchReason,
   identityStateTransparencyLeaf,
   KeyingVerificationError,
@@ -206,8 +220,17 @@ export {
 export {
   generateSigningKeyPair,
   generateSigningSeedAndKeyPair,
+  ML_DSA87_PUBLIC_KEY_BYTES,
+  ML_DSA87_SECRET_KEY_BYTES,
+  ML_DSA87_SIGNATURE_BYTES,
 } from "./signing/generateKeyPair";
 export { sign } from "./signing/sign";
 export { verify } from "./signing/verify";
 export type { SymmetricCiphertext } from "./symmetric";
-export { decryptWithDek, encryptWithDek } from "./symmetric";
+export {
+  AES_256_KEY_BYTES,
+  AES_GCM_IV_BYTES,
+  AES_GCM_TAG_BYTES,
+  decryptWithDek,
+  encryptWithDek,
+} from "./symmetric";

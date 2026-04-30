@@ -57,3 +57,15 @@ test("envelope has one recipient entry per public key", async () => {
     plaintext,
   );
 });
+
+test("encryptForRecipients rejects missing or duplicate recipients", async () => {
+  const alice = generateKemSeedAndKeyPair();
+  const plaintext = new TextEncoder().encode("recipient checks");
+
+  await expect(encryptForRecipients(plaintext, [])).rejects.toThrow(
+    "At least one recipient public key is required",
+  );
+  await expect(
+    encryptForRecipients(plaintext, [alice.publicKey, alice.publicKey]),
+  ).rejects.toThrow("Recipient public keys must be unique");
+});

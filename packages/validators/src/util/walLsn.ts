@@ -3,15 +3,11 @@ function invalidWalLsn(label?: string): never {
 }
 
 function parseWalLsnSegment(segment: string | undefined, label?: string) {
-  if (!segment) {
+  if (!segment || !/^[0-9A-Fa-f]{1,8}$/.test(segment)) {
     invalidWalLsn(label);
   }
 
-  try {
-    return BigInt(`0x${segment}`);
-  } catch {
-    invalidWalLsn(label);
-  }
+  return BigInt(`0x${segment}`);
 }
 
 export function parseWalLsn(value: string, label?: string): bigint {

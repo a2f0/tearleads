@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
 import {
+  ML_DSA87_PUBLIC_KEY_BYTES,
+  ML_DSA87_SIGNATURE_BYTES,
+  ML_KEM1024_PUBLIC_KEY_BYTES,
+} from "../util";
+import {
   isBlobAttachmentBindRequest,
   isBlobAttachmentDetachRequest,
   isChallengeRequest,
@@ -13,6 +18,20 @@ import {
   isStageBlobRequest,
   isVerifyRequest,
 } from "./index";
+
+const VALID_FINGERPRINT = "a".repeat(64);
+const VALID_SIGNING_PUBLIC_KEY = Array.from(
+  { length: ML_DSA87_PUBLIC_KEY_BYTES },
+  (_, index) => index % 256,
+);
+const VALID_ENCAPSULATION_PUBLIC_KEY = Array.from(
+  { length: ML_KEM1024_PUBLIC_KEY_BYTES },
+  (_, index) => index % 256,
+);
+const VALID_SIGNATURE = Array.from(
+  { length: ML_DSA87_SIGNATURE_BYTES },
+  (_, index) => index % 256,
+);
 
 test("isPublicKeyRequest", () => {
   const userId = "550e8400-e29b-41d4-a716-446655440001";
@@ -62,8 +81,8 @@ test("isPublicKeyRequest", () => {
     userId,
     organizationId,
     rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
-    signingPublicKey: [1, 2, 3],
-    encapsulationPublicKey: [4, 5, 6],
+    signingPublicKey: VALID_SIGNING_PUBLIC_KEY,
+    encapsulationPublicKey: VALID_ENCAPSULATION_PUBLIC_KEY,
     initialOrganizationPolicy: validInitialOrganizationPolicy,
     initialRootContainer: {
       event: { eventType: "container.create" },
@@ -103,11 +122,11 @@ test("isPublicKeyRequest", () => {
         encapsulationPublicKey: [],
       }),
     ),
-  ).toBe(true);
+  ).toBe(false);
   expect(
     isPublicKeyRequest({
-      signingPublicKey: [1, 2, 3],
-      encapsulationPublicKey: [4, 5, 6],
+      signingPublicKey: VALID_SIGNING_PUBLIC_KEY,
+      encapsulationPublicKey: VALID_ENCAPSULATION_PUBLIC_KEY,
     }),
   ).toBe(false);
   expect(
@@ -129,16 +148,27 @@ test("isPublicKeyRequest", () => {
 });
 
 test("isChallengeRequest", () => {
-  expect(isChallengeRequest({ fingerprint: "abc" })).toBe(true);
+  expect(isChallengeRequest({ fingerprint: VALID_FINGERPRINT })).toBe(true);
+  expect(isChallengeRequest({ fingerprint: "abc" })).toBe(false);
   expect(isChallengeRequest({ fingerprint: 123 })).toBe(false);
   expect(isChallengeRequest({})).toBe(false);
   expect(isChallengeRequest(null)).toBe(false);
 });
 
 test("isVerifyRequest", () => {
-  expect(isVerifyRequest({ fingerprint: "abc", signature: [1, 2] })).toBe(true);
-  expect(isVerifyRequest({ fingerprint: "abc", signature: [] })).toBe(true);
-  expect(isVerifyRequest({ fingerprint: "abc" })).toBe(false);
+  expect(
+    isVerifyRequest({
+      fingerprint: VALID_FINGERPRINT,
+      signature: VALID_SIGNATURE,
+    }),
+  ).toBe(true);
+  expect(isVerifyRequest({ fingerprint: "abc", signature: [1, 2] })).toBe(
+    false,
+  );
+  expect(
+    isVerifyRequest({ fingerprint: VALID_FINGERPRINT, signature: [] }),
+  ).toBe(false);
+  expect(isVerifyRequest({ fingerprint: VALID_FINGERPRINT })).toBe(false);
   expect(isVerifyRequest({ signature: [1, 2] })).toBe(false);
   expect(isVerifyRequest(null)).toBe(false);
 });
@@ -502,6 +532,15 @@ test("isDocumentSyncRequest", () => {
     manifestHash: "document-link-set-hash",
     state: { documentId: "document-1" },
   };
+  const validOutgoingUpdate = {
+    checkpointKind: "fresh_baseline" as const,
+    id: "550e8400-e29b-41d4-a716-446655440111",
+    encryptedData: "ciphertext",
+    partialStartVersionVector: "{}",
+    partialEndVersionVector: '{"actor":1}',
+    sourceVersionVector: "{}",
+    writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
+  };
   const validRequest = {
     authorizingContainerPaths: [
       [
@@ -520,17 +559,7 @@ test("isDocumentSyncRequest", () => {
     expectedTargetHash: "target-hash",
     localVersionVector: null,
     minLsn: "0/16B6C50",
-    outgoingUpdates: [
-      {
-        checkpointKind: "fresh_baseline",
-        id: "update-1",
-        encryptedData: "ciphertext",
-        partialStartVersionVector: "{}",
-        partialEndVersionVector: '{"actor":1}',
-        sourceVersionVector: "{}",
-        writeHeader: { updateId: "update-1" },
-      },
-    ],
+    outgoingUpdates: [validOutgoingUpdate],
   };
 
   expect(isDocumentSyncRequest(validRequest)).toBe(true);
@@ -572,7 +601,13 @@ test("isDocumentSyncRequest", () => {
   expect(
     isDocumentSyncRequest({
       ...validRequest,
-      outgoingUpdates: [{ id: "update-1" }],
+      outgoingUpdates: [{ id: "550e8400-e29b-41d4-a716-446655440111" }],
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentSyncRequest({
+      ...validRequest,
+      outgoingUpdates: [validOutgoingUpdate, validOutgoingUpdate],
     }),
   ).toBe(false);
   expect(

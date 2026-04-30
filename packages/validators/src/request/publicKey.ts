@@ -1,10 +1,12 @@
-import { isNumberArray } from "../isNumberArray";
 import { isPlainObject } from "../isPlainObject";
 import {
   hasArrayProperty,
   hasObjectProperty,
   hasStringProperty,
+  isByteArrayOfLength,
   isUuidV4String,
+  ML_DSA87_PUBLIC_KEY_BYTES,
+  ML_KEM1024_PUBLIC_KEY_BYTES,
 } from "../util";
 import {
   type ContainerMutationRequest,
@@ -58,9 +60,12 @@ export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
     hasStringProperty(value, "rootContainerId") &&
     isUuidV4String(value.rootContainerId) &&
     hasArrayProperty(value, "signingPublicKey") &&
-    isNumberArray(value.signingPublicKey) &&
+    isByteArrayOfLength(value.signingPublicKey, ML_DSA87_PUBLIC_KEY_BYTES) &&
     hasArrayProperty(value, "encapsulationPublicKey") &&
-    isNumberArray(value.encapsulationPublicKey) &&
+    isByteArrayOfLength(
+      value.encapsulationPublicKey,
+      ML_KEM1024_PUBLIC_KEY_BYTES,
+    ) &&
     hasObjectProperty(value, "initialOrganizationPolicy") &&
     hasObjectProperty(value.initialOrganizationPolicy, "state") &&
     isPrincipalStateRequest(value.initialOrganizationPolicy.state) &&

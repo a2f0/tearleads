@@ -1,5 +1,9 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasNumberProperty, hasStringProperty } from "../util";
+import {
+  hasNumberProperty,
+  hasStringProperty,
+  isAuthChallengeHexString,
+} from "../util";
 import {
   type DocumentCreateResponse,
   isDocumentCreateResponse,
@@ -31,6 +35,7 @@ export function isPublicKeyResponse(
     hasStringProperty(value, "rootMetadataAccessStateHash") &&
     value.rootMetadataAccessStateHash.length > 0 &&
     isDocumentCreateResponse(Reflect.get(value, "rootMetadataDocument")) &&
-    hasStringProperty(value, "challenge")
+    hasStringProperty(value, "challenge") &&
+    isAuthChallengeHexString(value.challenge)
   );
 }

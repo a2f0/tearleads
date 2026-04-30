@@ -37,7 +37,7 @@ test("blob envelope headers can be read without ciphertext JSON parsing", () => 
     iv: "aGVhZGVyLW9ubHktaXY=",
     recipients: [
       {
-        keyFingerprint: "fp_01",
+        keyFingerprint: "a".repeat(64),
         kemCipherText: "a2VtLWNpcGhlcnRleHQ=",
         wrappedKey: "d3JhcHBlZC1rZXk=",
       },
@@ -63,6 +63,24 @@ test("blob envelopes without the shared wire-format header are rejected", () => 
     "Invalid encrypted blob envelope",
   );
   expect(() => parseBlobEnvelope(encryptedBytes)).toThrow(
+    "Invalid encrypted blob envelope",
+  );
+});
+
+test("blob envelope parser rejects duplicate recipients", async () => {
+  const alice = generateKemSeedAndKeyPair();
+  const plaintext = new TextEncoder().encode("shared blob bytes");
+  const envelope = await encryptForRecipients(plaintext, [alice.publicKey]);
+  const recipient = envelope.recipients.at(0);
+  if (!recipient) {
+    throw new Error("Expected encrypted blob recipient");
+  }
+  const serialized = serializeBlobEnvelope({
+    ...envelope,
+    recipients: [recipient, recipient],
+  });
+
+  expect(() => parseBlobEnvelope(serialized)).toThrow(
     "Invalid encrypted blob envelope",
   );
 });
