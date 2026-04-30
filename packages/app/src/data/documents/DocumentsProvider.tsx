@@ -1012,6 +1012,7 @@ async function hydrateMissingAttachmentBlob(
 
   const decryptedBytes = await decryptDocumentAttachmentBlobV2({
     encryptedBytes: blob.encryptedBytes,
+    expectedBindingId: binding.bindingId,
     expectedBlobId: binding.blobId,
     execSql: state.runtime.execSql,
     targetSecretKey: encapsulationKeyPair.secretKey,
