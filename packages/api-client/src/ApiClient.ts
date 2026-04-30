@@ -8,6 +8,10 @@ import type {
   StageBlobRequest,
 } from "@tearleads/validators/request";
 import {
+  type DocumentSyncResponse,
+  isDocumentSyncResponse,
+} from "@tearleads/validators/response";
+import {
   authenticate,
   authenticateWithChallenge,
   getEncapsulationKey,
@@ -39,7 +43,14 @@ import {
 import { getHealth } from "./routes/health";
 import { getCurrentPrincipalPolicy } from "./routes/principals";
 import { postPublicKey } from "./routes/register";
-import type { HttpMethod, RequestFn } from "./types";
+import type {
+  HttpMethod,
+  RequestFailure,
+  RequestFailureKind,
+  RequestFn,
+  RequestResult,
+  RequestResultOptions,
+} from "./types";
 
 function bindPrototypeMethods(instance: object, prototype: object): void {
   const instanceRecord = instance as Record<string, unknown>;
@@ -133,8 +144,49 @@ export class ApiClient {
     method: HttpMethod,
     body?: string,
   ): Promise<T | null> {
+    const result = await this.makeRequestResult(path, validator, method, body);
+    return result.ok ? result.data : null;
+  }
+
+  private requestFailure(input: {
+    kind: RequestFailureKind;
+    message: string;
+    method: HttpMethod;
+    path: string;
+    reportErrors: boolean;
+    status: number | null;
+    statusText: string;
+  }): RequestFailure {
+    const failure: RequestFailure = {
+      kind: input.kind,
+      message: input.message,
+      method: input.method,
+      ok: false,
+      path: input.path,
+      report: () => {
+        this.onError?.(input.message);
+      },
+      status: input.status,
+      statusText: input.statusText,
+    };
+
+    if (input.reportErrors) {
+      failure.report();
+    }
+
+    return failure;
+  }
+
+  private async makeRequestResult<T>(
+    path: string,
+    validator: (value: unknown) => value is T,
+    method: HttpMethod,
+    body?: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<T>> {
+    const reportErrors = options.reportErrors ?? true;
     const init: RequestInit = { method, headers: this.buildHeaders() };
-    if (body) {
+    if (body !== undefined) {
       init.body = body;
     }
 
@@ -143,19 +195,31 @@ export class ApiClient {
       response = await fetch(`${this.baseUrl}${path}`, init);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      this.onError?.(`${method} ${path}: ${message}`);
       this.onNetworkError?.();
-      return null;
+      return this.requestFailure({
+        kind: "network",
+        message: `${method} ${path}: ${message}`,
+        method,
+        path,
+        reportErrors,
+        status: null,
+        statusText: "",
+      });
     }
 
     this.onNetworkSuccess?.();
 
     if (!response.ok) {
       const detail = await this.describeErrorResponse(response);
-      this.onError?.(
-        `${method} ${path}: ${response.status} ${response.statusText}${detail}`,
-      );
-      return null;
+      return this.requestFailure({
+        kind: "http",
+        message: `${method} ${path}: ${response.status} ${response.statusText}${detail}`,
+        method,
+        path,
+        reportErrors,
+        status: response.status,
+        statusText: response.statusText,
+      });
     }
 
     let data: unknown;
@@ -163,16 +227,30 @@ export class ApiClient {
       data = await response.json();
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      this.onError?.(`${method} ${path}: failed to parse JSON: ${message}`);
-      return null;
+      return this.requestFailure({
+        kind: "json",
+        message: `${method} ${path}: failed to parse JSON: ${message}`,
+        method,
+        path,
+        reportErrors,
+        status: response.status,
+        statusText: response.statusText,
+      });
     }
 
     if (!validator(data)) {
-      this.onError?.(`Invalid response shape for ${path}`);
-      return null;
+      return this.requestFailure({
+        kind: "shape",
+        message: `Invalid response shape for ${path}`,
+        method,
+        path,
+        reportErrors,
+        status: response.status,
+        statusText: response.statusText,
+      });
     }
 
-    return data;
+    return { data, ok: true };
   }
 
   getHealth() {
@@ -280,6 +358,20 @@ export class ApiClient {
 
   syncDocument(documentId: string, input: DocumentSyncRequest) {
     return syncDocument(this.request, documentId, input);
+  }
+
+  syncDocumentResult(
+    documentId: string,
+    input: DocumentSyncRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<DocumentSyncResponse>> {
+    return this.makeRequestResult(
+      `/documents/${documentId}/sync`,
+      isDocumentSyncResponse,
+      "POST",
+      JSON.stringify(input),
+      options,
+    );
   }
 
   stageBlob(input: StageBlobRequest) {

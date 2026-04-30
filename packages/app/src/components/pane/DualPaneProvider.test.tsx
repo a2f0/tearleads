@@ -29,6 +29,10 @@ import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";
 
 const DUAL_PANE_TEST_TIMEOUT_MS = 10_000;
+const POST_SHARE_SYNC_SETTLE_MS = 1_500;
+const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
+
+type ProxiedApiRequest = ReturnType<typeof listProxiedApiRequests>[number];
 
 afterEach(async () => {
   cleanup();
@@ -285,18 +289,134 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
     fireEvent.click(shareButton);
   });
 
-  const summarizeRequests = () =>
-    listProxiedApiRequests()
-      .map(
-        (request) =>
-          `${request.method} ${request.status} ${request.url}\nauthorization=${request.authorization ?? "null"}\nrequest=${request.requestBody ?? "null"}\nresponse=${request.responseBody}`,
-      )
-      .join("\n");
-
   await waitForCondition(
     () => screen.queryByRole("dialog") === null,
-    `Container share did not finish.\nrequests=\n${summarizeRequests()}\npane=${pane.textContent ?? ""}`,
+    `Container share did not finish.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
+}
+
+function requestPath(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
+}
+
+function summarizeRequestBody(body: string | null): string {
+  return body === null ? "null" : `<${body.length} chars>`;
+}
+
+function truncateText(text: string): string {
+  return text.length <= MAX_REQUEST_SUMMARY_BODY_LENGTH
+    ? text
+    : `${text.slice(0, MAX_REQUEST_SUMMARY_BODY_LENGTH)}... <${text.length} chars>`;
+}
+
+function summarizeProxiedApiRequests(
+  requests: readonly ProxiedApiRequest[] = listProxiedApiRequests(),
+): string {
+  return requests
+    .map(
+      (request) =>
+        `${request.method} ${request.status} ${requestPath(request.url)} request=${summarizeRequestBody(request.requestBody)} response=${truncateText(request.responseBody)}`,
+    )
+    .join("\n");
+}
+
+function isRetryableDocumentSyncStaleFailure(
+  request: ProxiedApiRequest,
+): boolean {
+  return (
+    request.method === "POST" &&
+    request.status === 409 &&
+    /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)) &&
+    (request.responseBody.includes("Document KEK targets are stale") ||
+      request.responseBody.includes("Document content-key bundle is stale") ||
+      (request.responseBody.includes("authorizingContainerPaths") &&
+        request.responseBody.includes("is stale")) ||
+      (request.responseBody.includes("targetContainerPath") &&
+        request.responseBody.includes("is stale")))
+  );
+}
+
+function hasLaterSuccessfulRetry(
+  requests: readonly ProxiedApiRequest[],
+  failedRequestIndex: number,
+): boolean {
+  const failedRequest = requests[failedRequestIndex];
+  if (!failedRequest) {
+    return false;
+  }
+
+  return requests
+    .slice(failedRequestIndex + 1)
+    .some(
+      (request) =>
+        request.method === failedRequest.method &&
+        request.url === failedRequest.url &&
+        request.status >= 200 &&
+        request.status < 400,
+    );
+}
+
+function listUnresolvedPostShareFailures(
+  requests: readonly ProxiedApiRequest[],
+): ProxiedApiRequest[] {
+  return requests.filter((request, index) => {
+    if (request.status < 400) {
+      return false;
+    }
+    if (
+      isRetryableDocumentSyncStaleFailure(request) &&
+      hasLaterSuccessfulRetry(requests, index)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function listPaneErrorLines(panes: readonly HTMLElement[]): string[] {
+  return panes.flatMap((pane) => {
+    const text = pane.textContent ?? "";
+    return text
+      .split(/(?=\[\d{1,2}:\d{2}:\d{2})/u)
+      .filter((line) => line.includes("ERROR:"))
+      .map(truncateText);
+  });
+}
+
+async function waitForNoPostShareSyncFailures(
+  panes: readonly HTMLElement[],
+  requestStartIndex: number,
+) {
+  const startedAt = Date.now();
+  let unresolvedFailures: readonly ProxiedApiRequest[] = [];
+  while (Date.now() - startedAt < POST_SHARE_SYNC_SETTLE_MS) {
+    const postShareRequests = listProxiedApiRequests().slice(requestStartIndex);
+    const paneErrors = listPaneErrorLines(panes);
+    unresolvedFailures = listUnresolvedPostShareFailures(postShareRequests);
+
+    expect(
+      unresolvedFailures.filter(
+        (request) => !isRetryableDocumentSyncStaleFailure(request),
+      ),
+      `Unexpected post-share API failures.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+    ).toEqual([]);
+    expect(
+      paneErrors,
+      `Unexpected post-share pane errors.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+    ).toEqual([]);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  expect(
+    unresolvedFailures,
+    `Unresolved post-share sync failures.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
+  ).toEqual([]);
 }
 
 async function selectContainerAndReadId(
@@ -473,7 +593,12 @@ test(
     await openExplorer(rightPane);
 
     await createNoteWithAttachment(leftPane);
+    const postShareRequestStartIndex = listProxiedApiRequests().length;
     await shareContainerWithPeer(leftPane, "/");
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postShareRequestStartIndex,
+    );
 
     const shareRequest = listProxiedApiRequests()
       .filter(

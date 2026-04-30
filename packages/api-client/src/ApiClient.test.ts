@@ -317,6 +317,49 @@ test("includes backend error details in onError output for non-2xx responses", a
   ]);
 });
 
+test("returns document sync failures without reporting when requested", async () => {
+  server.use(
+    http.post(`${apiBaseUrl}/documents/:documentId/sync`, () => {
+      return HttpResponse.json(
+        {
+          error: "Document KEK targets are stale",
+        },
+        {
+          status: 409,
+          statusText: "Conflict",
+        },
+      );
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const errors: string[] = [];
+  client.setOnError((message) => {
+    errors.push(message);
+  });
+
+  const result = await client.syncDocumentResult(
+    "document-1",
+    createDocumentSyncRequest(),
+    { reportErrors: false },
+  );
+
+  expect(result.ok).toBe(false);
+  expect(errors).toEqual([]);
+  if (result.ok) {
+    throw new Error("Expected document sync result failure");
+  }
+  expect(result.status).toBe(409);
+  expect(result.message).toBe(
+    "POST /documents/document-1/sync: 409 Conflict: Document KEK targets are stale",
+  );
+
+  result.report();
+  expect(errors).toEqual([
+    "POST /documents/document-1/sync: 409 Conflict: Document KEK targets are stale",
+  ]);
+});
+
 test("posts signed container mutations to the route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(

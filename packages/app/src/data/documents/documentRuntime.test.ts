@@ -1319,6 +1319,36 @@ async function createMaterializedSyncFixture() {
   };
 }
 
+function advanceProjectionRootManifest(
+  projection: ContainerWriterProjectionResponse,
+  manifestHash: string,
+): ContainerWriterProjectionResponse {
+  return {
+    ...projection,
+    path: projection.path.map((bundle, index) =>
+      index === 0
+        ? {
+            ...bundle,
+            manifestHash,
+          }
+        : bundle,
+    ),
+    containerKeks: projection.containerKeks.map((kek, index) =>
+      index === 0
+        ? {
+            ...kek,
+            accessManifestHash: manifestHash,
+            keyEpoch: {
+              ...kek.keyEpoch,
+              accessManifestHash: manifestHash,
+              createdByManifestHash: manifestHash,
+            },
+          }
+        : kek,
+    ),
+  };
+}
+
 async function createPreparedUpdate(
   overrides: {
     checkpointKind?: "fresh_baseline" | "rotate_baseline" | undefined;
@@ -1905,4 +1935,91 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
   expect(
     new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("materialized update");
+});
+
+test("syncRemoteDocument replans once after a stale document sync conflict", async () => {
+  const { author, projection, secretKey, signingPublicKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const freshRootManifestHash = await fixtureHash(
+    "root-container-manifest-after-share",
+  );
+  const freshProjection = advanceProjectionRootManifest(
+    projection,
+    freshRootManifestHash,
+  );
+  const freshWriterProjection: DocumentWriterProjectionResponse = {
+    ...writerProjection,
+    authorizingContainerPaths: [freshProjection],
+  };
+  const submittedRequests: DocumentSyncRequest[] = [];
+  const reportedErrors: string[] = [];
+  let projectionRequestCount = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async (documentId) => {
+        if (documentId !== writerProjection.documentId) {
+          return null;
+        }
+
+        projectionRequestCount += 1;
+        return projectionRequestCount === 1
+          ? writerProjection
+          : freshWriterProjection;
+      },
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle sync retries");
+      },
+      syncDocumentResult: async (documentId, request) => {
+        submittedRequests.push(request);
+
+        if (submittedRequests.length === 1) {
+          const message = `POST /documents/${documentId}/sync: 409 Conflict: authorizingContainerPaths[0][0] is stale`;
+          return {
+            message,
+            ok: false,
+            report: () => {
+              reportedErrors.push(message);
+            },
+            status: 409,
+          };
+        }
+
+        const materialized = await buildMaterializedDocumentSyncPlan({
+          author,
+          localVersionVector: null,
+          pendingUpdates: [createPendingUpdateRecord()],
+          targetSecretKey: secretKey,
+          writerProjection: freshWriterProjection,
+        });
+        return {
+          data: await createSyncResponse({
+            ...materialized.plan,
+            documentId,
+            request,
+          }),
+          ok: true,
+        };
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    targetSecretKey: secretKey,
+    writerPublicKeysByFingerprint: new Map([
+      [author.signerKeyFingerprint, signingPublicKey],
+    ]),
+  });
+
+  expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
+  expect(projectionRequestCount).toBe(2);
+  expect(submittedRequests).toHaveLength(2);
+  expect(reportedErrors).toEqual([]);
+  expect(
+    Reflect.get(
+      submittedRequests[1]?.authorizingContainerPaths?.[0]?.[0] ?? {},
+      "manifestHash",
+    ),
+  ).toBe(freshRootManifestHash);
 });

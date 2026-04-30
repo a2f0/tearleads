@@ -828,10 +828,31 @@ export async function requireCurrentDocumentContentKeyBundle(input: {
     bundle.linkSetManifestHash !== input.expectedLinkSetManifestHash ||
     bundle.targetHash !== input.expectedTargetHash
   ) {
-    throw new DocumentContentKeyBundleError(
-      "Document content-key bundle is stale",
-      409,
-    );
+    const refreshedBundle = refreshedBundleForCurrentTargets({
+      bundle,
+      currentTargets,
+    });
+    if (!refreshedBundle) {
+      throw new DocumentContentKeyBundleError(
+        "Document content-key bundle is stale",
+        409,
+      );
+    }
+
+    const storedBundle = await addDocumentContentKeyTargetsToExistingBundle({
+      existingBundle: bundle,
+      nextBundle: refreshedBundle,
+      executor,
+    });
+    assertTargetsMatchCurrent({
+      currentTargets,
+      targets: storedBundle.targets,
+    });
+
+    return {
+      ...storedBundle,
+      currentTargets,
+    };
   }
   assertTargetsMatchCurrent({ currentTargets, targets: bundle.targets });
 
