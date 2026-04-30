@@ -1696,6 +1696,24 @@ test("decryptDocumentV2SyncUpdates verifies and decrypts V2 content records", as
       })),
     }),
   ).rejects.toThrow("format is invalid");
+
+  await expect(
+    decryptDocumentV2SyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: response.updates.map((update) => ({
+        ...update,
+        encryptedData: JSON.stringify({
+          ...(JSON.parse(update.encryptedData) as Record<string, unknown>),
+          version: 1,
+        }),
+      })),
+    }),
+  ).rejects.toThrow(
+    "Document V2 encrypted update version 1 is invalid; expected 2",
+  );
 });
 
 test("persistedDocumentV2SyncStateFromResponse verifies accepted writes and returned write headers", async () => {

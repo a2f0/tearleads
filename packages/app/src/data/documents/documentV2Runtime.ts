@@ -2141,10 +2141,15 @@ function parseDocumentV2EncryptedUpdate(
   ) {
     throw new Error("Document V2 encrypted update format is invalid");
   }
-  if (
-    readRecordNumber(value, "version", "Document V2 encrypted update") !== 2
-  ) {
-    throw new Error("Document V2 encrypted update version is invalid");
+  const version = readRecordNumber(
+    value,
+    "version",
+    "Document V2 encrypted update",
+  );
+  if (version !== 2) {
+    throw new Error(
+      `Document V2 encrypted update version ${version} is invalid; expected 2`,
+    );
   }
   if (
     readRecordString(

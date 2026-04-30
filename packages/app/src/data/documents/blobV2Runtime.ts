@@ -680,8 +680,11 @@ function parseBlobV2EncryptedBytes(
   ) {
     throw new Error("Blob V2 encrypted bytes format is invalid");
   }
-  if (readRecordNumber(value, "version", "Blob V2 encrypted bytes") !== 2) {
-    throw new Error("Blob V2 encrypted bytes version is invalid");
+  const version = readRecordNumber(value, "version", "Blob V2 encrypted bytes");
+  if (version !== 2) {
+    throw new Error(
+      `Blob V2 encrypted bytes version ${version} is invalid; expected 2`,
+    );
   }
   if (
     readRecordString(value, "encryptionSuite", "Blob V2 encrypted bytes") !==
