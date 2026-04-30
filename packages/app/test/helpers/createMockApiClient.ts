@@ -26,6 +26,7 @@ export function createMockApiClient(
     listDocumentAttachments: async () => null,
     moveContainerV2: async () => null,
     postPublicKey: async () => null,
+    rekeyContainerV2: async () => null,
     revokeContainerV2: async () => null,
     shareContainerV2: async () => null,
     stageBlob: async () => null,

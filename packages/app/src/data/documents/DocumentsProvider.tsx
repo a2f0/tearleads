@@ -925,16 +925,8 @@ async function hydrateMissingAttachmentBlob(
     return;
   }
 
-  const attachmentApi = state.runtime.apiClient;
-  if (!attachmentApi) {
-    state.runtime.log(
-      `Documents: cannot hydrate V2 blob ${binding.blobId} without the V2 attachment API.`,
-    );
-    return;
-  }
-
   const writerProjection =
-    await attachmentApi.getDocumentV2WriterProjection(documentId);
+    await state.runtime.apiClient.getDocumentV2WriterProjection(documentId);
   if (!writerProjection) {
     state.runtime.log(
       `Documents: cannot hydrate V2 blob ${binding.blobId} without a writer projection.`,
