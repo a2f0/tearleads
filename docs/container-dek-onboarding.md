@@ -1,4 +1,4 @@
-# Container DEK Onboarding
+# Keying V2 Onboarding
 
 ## Summary
 
@@ -21,7 +21,7 @@ After registration, every user has:
 - an initialized V2 root metadata document with content-key targets
 - a local "me" contact and persisted root container in SQLite
 
-The server never sees the plaintext DEK.
+The server never sees plaintext container KEKs or document/blob content keys.
 
 ## Containers
 
