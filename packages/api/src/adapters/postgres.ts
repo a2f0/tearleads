@@ -159,8 +159,6 @@ await client.exec(`
     state JSONB NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
-  ALTER TABLE access_manifests
-    ADD COLUMN IF NOT EXISTS state JSONB NOT NULL DEFAULT '{}'::jsonb;
   CREATE TABLE IF NOT EXISTS access_manifest_heads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     object_kind TEXT NOT NULL,
@@ -332,10 +330,6 @@ await client.exec(`
     entry_hash TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
-  ALTER TABLE document_audit_checkpoints
-    ADD COLUMN IF NOT EXISTS access_state_hash TEXT;
-  ALTER TABLE document_audit_entries
-    ADD COLUMN IF NOT EXISTS access_state_hash TEXT;
   CREATE TABLE IF NOT EXISTS document_update_audit_events (
     audit_entry_id UUID PRIMARY KEY REFERENCES document_audit_entries(id),
     live_update_id UUID NOT NULL UNIQUE,
@@ -393,10 +387,6 @@ await client.exec(`
     detached_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
-  ALTER TABLE attachment_bindings
-    ADD COLUMN IF NOT EXISTS attachment_event_hash TEXT;
-  ALTER TABLE attachment_bindings
-    ADD COLUMN IF NOT EXISTS document_manifest_hash TEXT;
   CREATE INDEX IF NOT EXISTS principal_states_principal_idx
     ON principal_states (principal_type, principal_id);
   CREATE UNIQUE INDEX IF NOT EXISTS principal_states_principal_version_idx

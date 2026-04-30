@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
 import {
   parseBlobEnvelope,
   parseBlobEnvelopeHeader,
@@ -53,25 +52,17 @@ test("blob envelope headers can be read without ciphertext JSON parsing", () => 
   expect(parseBlobEnvelopeHeader(encryptedBytes)).toEqual(header);
 });
 
-test("legacy v1 blob envelopes are rejected", async () => {
-  const alice = generateKemSeedAndKeyPair();
-  const plaintext = new TextEncoder().encode("legacy blob bytes");
-  const envelope = await encryptForRecipients(plaintext, [alice.publicKey]);
-  const legacyEncryptedBytes = JSON.stringify({
-    format: "tearleads.blob.v1",
-    iv: bytesToBase64(envelope.iv),
-    ciphertext: bytesToBase64(envelope.ciphertext),
-    recipients: envelope.recipients.map((recipient) => ({
-      keyFingerprint: recipient.keyFingerprint,
-      kemCipherText: bytesToBase64(recipient.kemCipherText),
-      wrappedKey: bytesToBase64(recipient.wrappedKey),
-    })),
+test("blob envelopes without the shared wire-format header are rejected", () => {
+  const encryptedBytes = JSON.stringify({
+    iv: "aXY=",
+    ciphertext: "Y2lwaGVydGV4dA==",
+    recipients: [],
   });
 
-  expect(() => parseBlobEnvelopeHeader(legacyEncryptedBytes)).toThrow(
+  expect(() => parseBlobEnvelopeHeader(encryptedBytes)).toThrow(
     "Invalid encrypted blob envelope",
   );
-  expect(() => parseBlobEnvelope(legacyEncryptedBytes)).toThrow(
+  expect(() => parseBlobEnvelope(encryptedBytes)).toThrow(
     "Invalid encrypted blob envelope",
   );
 });

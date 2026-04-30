@@ -1,11 +1,5 @@
 # Loro E2EE Sync Protocol
 
-> Status: mixed current V2 shape and historical V1 background. The
-> direct-recipient `/documents`, `/documents/:documentId/sync`,
-> `/documents/:documentId/commit-change`, and legacy container mutation write
-> APIs have been retired in favor of signed Keying V2 document/blob/container
-> mutation routes.
-
 ## Summary
 
 This document defines the Loro-native E2EE sync protocol boundary.
@@ -26,11 +20,9 @@ adjacent planes:
 
 The server must remain plaintext-blind for document content.
 
-## Current V2 Protocol Shape
+## Protocol Shape
 
-The current document plane uses signed Keying V2 mutation routes. The retired
-direct-recipient `/documents` and `/documents/:documentId/sync` routes are not
-mounted.
+The document plane uses signed Keying V2 mutation routes.
 
 Document write routes:
 
@@ -96,8 +88,8 @@ Access write routes are the signed `/v2/containers` mutation family:
 - `POST /v2/containers/:containerId/rekey`
 - `POST /v2/containers/:containerId/move`
 
-For the full current HTTP surface, see
-[api-architecture.md](./api-architecture.md#current-http-protocol-surface).
+For the full HTTP surface, see
+[api-architecture.md](./api-architecture.md#http-protocol-surface).
 
 The server does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
@@ -193,10 +185,8 @@ Limitations:
 - subtractive rotation for document epochs uses the fresh-baseline path with
   source-frontier validation; durable audit/history hardening remains separate
   work
-- the old `commit-change` invariant that one server-side mutation can prove a
-  Loro update references only active attachment slots is not present in the
-  current encrypted V2 sync request shape; adding a visible slot-reference
-  proof or a new atomic commit surface is future work
+- encrypted Loro updates do not expose `referencedSlotIds[]`; adding a visible
+  slot-reference proof or another explicit protocol extension is future work
 
 For the access-plane model, see
 [access-plane.md](./access-plane.md).
@@ -308,8 +298,7 @@ Implementation objects:
   - detached rows are transient and may be pruned when blob GC removes the
     now-unreachable blob they referenced
 
-This means blob reachability is derived from active attachment bindings, not
-from an older generic doc/blob link table.
+This means blob reachability is derived from active attachment bindings.
 
 ### 3. Access Plane
 
@@ -332,8 +321,8 @@ ciphertext is re-encrypted.
 
 ## Attachment Semantics
 
-The current implemented contract separates encrypted document sync from
-server-visible signed attachment binding mutations:
+The contract separates encrypted document sync from server-visible signed
+attachment binding mutations:
 
 1. `POST /blobs/stage`
 2. `POST /v2/blobs/:blobId/attachment-bindings`
@@ -374,11 +363,10 @@ If a V2 attachment mutation succeeds:
   active binding references the blob after the mutation
 - affected blob key targets are recomputed and persisted
 
-The old atomic `commit-change` invariant remains a known gap in the current
-shape: because encrypted Loro updates do not expose `referencedSlotIds[]`, the
-server cannot prove that a document update references only active attachment
-slots. Solving that requires a visible slot-reference proof, a new atomic
-commit surface, or another explicit protocol extension.
+Because encrypted Loro updates do not expose `referencedSlotIds[]`, the server
+cannot prove that a document update references only active attachment slots.
+Solving that requires a visible slot-reference proof or another explicit
+protocol extension.
 
 ### Why `slotId` Instead Of `bindingId`
 

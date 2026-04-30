@@ -28,13 +28,13 @@ A single use case can touch more than one plane. For example:
 
 Protocol planes are a domain model, not a source-tree layout rule.
 
-## Current HTTP Protocol Surface
+## HTTP Protocol Surface
 
 The executable route and validator shapes are defined by `packages/api/src/routes`
 and `packages/validators/src`. Documentation should treat those files as the
 source of truth.
 
-Current write surfaces:
+Write surfaces:
 
 | Capability | Route | Validator |
 | --- | --- | --- |
@@ -54,7 +54,7 @@ Current write surfaces:
 | Bind or replace blob attachment | `POST /v2/blobs/:blobId/attachment-bindings` | `BlobV2AttachmentBindRequest` |
 | Detach blob attachment | `POST /v2/blobs/:blobId/attachment-bindings/:bindingId/detach` | `BlobV2AttachmentDetachRequest` |
 
-Current read surfaces:
+Read surfaces:
 
 | Capability | Route |
 | --- | --- |
@@ -67,14 +67,7 @@ Current read surfaces:
 | Get principal policy bundle | `GET /principals/:principalType/:principalId/policy` |
 | Get user key material | `GET /auth/encapsulation-key/:userId` |
 
-Retired surfaces that should not be described as current protocol:
-
-- `POST /documents`
-- `POST /documents/:documentId/sync`
-- `POST /documents/:documentId/commit-change`
-- legacy `POST /containers` and non-`/v2` container mutation routes
-
-The current document sync request names signed V2 fields:
+The document sync request names signed V2 fields:
 `contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
 optional `contentKeyBundle`, optional `containerRekeys`, optional
 `documentManifest`, optional `authorizingContainerPaths`, `localVersionVector`,
@@ -251,10 +244,9 @@ content-key target validation, write-header verification, and update storage.
 The neutral `documentUpdateStore` owns causally-missing update reads for V2
 sync responses.
 
-The old direct-recipient `createLoroRouter` and
-`/documents/:documentId/commit-change` adapters have been retired. Blob
-attachment mutations now use signed V2 blob routes instead of the deleted
-document commit/change service.
+Blob attachment mutations are implemented by signed V2 blob routes. They own
+server-visible attachment binding changes, staged blob promotion, blob
+key-target validation, and blob reachability cleanup.
 
 ## Why `routeApp` Exists
 
@@ -319,6 +311,5 @@ Rules:
 
 ## Follow-up Work
 
-The route extraction work is complete. New work in this area belongs in
-separate follow-up issues rather than a standing migration list in this
-document.
+New work in this area belongs in focused follow-up issues rather than a
+standing task list in this document.
