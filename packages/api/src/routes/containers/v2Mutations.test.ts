@@ -8,19 +8,27 @@ import type {
   ContainerUserRecipientKeyV2,
   KekRecipientKindV2,
   KeyingV2CanonicalJson,
+  PrincipalProjectionMember,
+  PrincipalStateMember,
+  ReferencedPrincipalHeadV2,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
+  computePrincipalStateHash,
   deriveContainerAccessManifest,
+  derivePrincipalRecipientKeyEpochId,
+  generateKemSeedAndKeyPair,
   signAccessEvent,
   toFingerprint,
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   ContainerV2ManifestBundle,
   ContainerV2MutationRequest,
@@ -28,10 +36,15 @@ import type {
 import {
   type ContainerV2MutationResponse,
   isContainerV2MutationResponse,
+  isPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  createProjectionWithAdminSigner,
+  signPrincipalStateBundle,
+} from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getAccessManifestBundle } from "../../access/accessManifestStore";
 import {
@@ -246,6 +259,111 @@ async function verifyKekState(input: {
   }
 
   return verified.value;
+}
+
+async function putGroupPrincipalPolicy(input: {
+  readonly actor: TestUser;
+  readonly keyEpoch?: number;
+  readonly members?: readonly PrincipalStateMember[];
+  readonly prevStateHash?: string | null;
+  readonly principalId: string;
+  readonly principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
+  readonly projection?: readonly PrincipalProjectionMember[];
+  readonly signedAt?: string;
+  readonly version?: number;
+}): Promise<{
+  readonly policy: VerifiedPrincipalPolicy;
+  readonly reference: ReferencedPrincipalHeadV2;
+  readonly stateHash: string;
+}> {
+  const principalKem = input.principalKem ?? generateKemSeedAndKeyPair();
+  const members = [
+    ...(input.members ?? [
+      { principalType: "user" as const, principalId: input.actor.userId },
+    ]),
+  ];
+  const projection = [
+    ...(input.projection ??
+      createProjectionWithAdminSigner(input.actor.userId, members)),
+  ];
+  const signedState = await signPrincipalStateBundle({
+    principalType: "group",
+    principalId: input.principalId,
+    version: input.version ?? 1,
+    prevStateHash: input.prevStateHash ?? null,
+    keyEpoch: input.keyEpoch ?? 1,
+    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+    keyFingerprint: await toFingerprint(principalKem.publicKey),
+    members,
+    projection,
+    payloadCiphertext: bytesToBase64(
+      new TextEncoder().encode(JSON.stringify({ members: projection })),
+    ),
+    signedAt:
+      input.signedAt ?? new Date("2026-04-30T00:00:00.000Z").toISOString(),
+    signerUserId: input.actor.userId,
+    signerUserKeyFingerprint: input.actor.fingerprint,
+    signingPrivateKey: input.actor.signing.signingPrivateKey,
+  });
+  const response = await routeApp.request(
+    `/principals/group/${input.principalId}/state`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${input.actor.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+      }),
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const storedState = await response.json();
+  invariant(
+    isPrincipalStateResponse(storedState),
+    "expected principal state response",
+  );
+
+  const stateHash = await computePrincipalStateHash(signedState.state);
+  expect(storedState.stateHash).toBe(stateHash);
+
+  const policyState = {
+    ...signedState.state,
+    stateHash,
+  };
+  const reference: ReferencedPrincipalHeadV2 = {
+    principalType: "group",
+    principalId: input.principalId,
+    version: policyState.version,
+    keyEpoch: policyState.keyEpoch,
+    stateHash,
+    keyFingerprint: policyState.keyFingerprint,
+  };
+  const policy = {
+    principalType: "group",
+    principalId: input.principalId,
+    version: policyState.version,
+    keyEpoch: policyState.keyEpoch,
+    stateHash,
+    state: policyState,
+    projection: signedState.projection,
+    checkpoint: {
+      principalType: "group",
+      principalId: input.principalId,
+      version: policyState.version,
+      stateHash,
+    },
+  } as VerifiedPrincipalPolicy;
+
+  return {
+    policy,
+    reference,
+    stateHash,
+  };
 }
 
 function toStoredContainerKeyEpochV2(
@@ -463,6 +581,88 @@ async function buildGrantRequest(input: {
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [recipientKey as unknown as Record<string, unknown>],
+  };
+}
+
+async function buildGroupGrantRequest(input: {
+  readonly parentKekState: VerifiedContainerKekState;
+  readonly previous: ContainerV2ManifestBundle;
+  readonly previousContainerPath: readonly ContainerV2ManifestBundle[];
+  readonly previousKekState: VerifiedContainerKekState;
+  readonly principalPolicy: VerifiedPrincipalPolicy;
+  readonly principalReference: ReferencedPrincipalHeadV2;
+  readonly signer: TestUser;
+}): Promise<ContainerV2MutationRequest> {
+  const previous = asVerifiedContainerManifest(input.previous);
+  const grant = {
+    subjectType: "group" as const,
+    subjectId: input.principalReference.principalId,
+    accessLevel: "read" as const,
+  };
+  const body: ContainerAccessEventBodyV2 = {
+    eventType: "container.grant",
+    containerKeyEpochId: previous.state.containerKeyEpochId,
+    grant,
+    referencedPrincipalHead: input.principalReference,
+  };
+  const event = await createSignedContainerEvent({
+    body,
+    dependencyManifestHashes: [
+      ...new Set(
+        input.previousContainerPath.map((manifest) => manifest.manifestHash),
+      ),
+    ],
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: input.previous.manifestHash,
+    signer: input.signer,
+  });
+  const bundle = await createManifestBundle(
+    {
+      ...previous.state,
+      epoch: previous.state.epoch + 1,
+      previousManifestHash: input.previous.manifestHash,
+      eventHash: event.eventHash,
+      directGrants: [...previous.state.directGrants, grant],
+      referencedPrincipalHeads: [
+        ...previous.state.referencedPrincipalHeads,
+        input.principalReference,
+      ],
+    },
+    event,
+  );
+  const wraps = [
+    ...(input.previousKekState.wraps as readonly ContainerKeyWrapV2[]),
+    createContainerKeyWrap({
+      containerKeyEpochId: input.previousKekState.containerKeyEpochId,
+      recipientKind: "group",
+      recipientId: input.principalReference.principalId,
+      recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
+        input.principalReference,
+      ),
+      recipientKeyFingerprint: input.principalReference.keyFingerprint,
+      wrapManifestHash: bundle.manifestHash,
+    }),
+  ];
+
+  return {
+    event: event.event as unknown as Record<string, unknown>,
+    body: body as unknown,
+    expectedManifestHash: bundle.manifestHash,
+    manifest: bundle.manifest,
+    previousManifest: input.previous,
+    previousContainerPath: [...input.previousContainerPath],
+    containerManifestHistory: [input.previous],
+    principalPolicies: [
+      input.principalPolicy as unknown as Record<string, unknown>,
+    ],
+    keyEpoch: input.previousKekState.keyEpoch as unknown as Record<
+      string,
+      unknown
+    >,
+    wraps: wraps as unknown as Record<string, unknown>[],
+    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    userRecipientKeys: [],
   };
 }
 
@@ -954,6 +1154,107 @@ test("POST /v2/containers/:containerId/share stores signed grants", async () => 
       recipientKeyFingerprint: await toFingerprint(recipient.kem.publicKey),
     },
   ]);
+});
+
+test("POST /v2/containers/:containerId/share stores group KEK targets and rejects stale group policy", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+
+  const root = await bootstrapRootV2(owner);
+  const created = await createV2Child({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const groupPrincipalId = crypto.randomUUID();
+  const initialGroup = await putGroupPrincipalPolicy({
+    actor: owner,
+    principalId: groupPrincipalId,
+  });
+  const groupGrantRequest = await buildGroupGrantRequest({
+    parentKekState: root.kekState,
+    previous: accessManifestFromResponse(created),
+    previousContainerPath: [root.bundle, accessManifestFromResponse(created)],
+    previousKekState: kekStateFromResponse(created),
+    principalPolicy: initialGroup.policy,
+    principalReference: initialGroup.reference,
+    signer: owner,
+  });
+
+  const shared = await expectV2MutationSuccess(
+    await postV2Mutation({
+      path: `/v2/containers/${created.containerId}/share`,
+      request: groupGrantRequest,
+      token: owner.token,
+    }),
+  );
+
+  expect(shared.containerKek.containerKeyEpochId).toBe(
+    created.containerKek.containerKeyEpochId,
+  );
+  expect(shared.referencedPrincipalHeads).toEqual([
+    {
+      principalType: "group",
+      principalId: groupPrincipalId,
+      version: initialGroup.reference.version,
+      keyEpoch: initialGroup.reference.keyEpoch,
+      stateHash: initialGroup.reference.stateHash,
+      keyFingerprint: initialGroup.reference.keyFingerprint,
+    },
+  ]);
+  expect(shared.containerKek.recipientTargets).toEqual([
+    {
+      recipientKind: "container",
+      recipientId: root.kekState.containerId,
+      recipientKeyEpochId: root.kekState.containerKeyEpochId,
+      recipientKeyFingerprint: root.kekState.keyEpochHash,
+    },
+    {
+      recipientKind: "group",
+      recipientId: groupPrincipalId,
+      recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
+        initialGroup.reference,
+      ),
+      recipientKeyFingerprint: initialGroup.reference.keyFingerprint,
+    },
+  ]);
+
+  await putGroupPrincipalPolicy({
+    actor: owner,
+    keyEpoch: 2,
+    prevStateHash: initialGroup.stateHash,
+    principalId: groupPrincipalId,
+    principalKem: generateKemSeedAndKeyPair(),
+    signedAt: "2026-04-30T00:01:00.000Z",
+    version: 2,
+  });
+  const secondChild = await createV2Child({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const staleGroupGrantRequest = await buildGroupGrantRequest({
+    parentKekState: root.kekState,
+    previous: accessManifestFromResponse(secondChild),
+    previousContainerPath: [
+      root.bundle,
+      accessManifestFromResponse(secondChild),
+    ],
+    previousKekState: kekStateFromResponse(secondChild),
+    principalPolicy: initialGroup.policy,
+    principalReference: initialGroup.reference,
+    signer: owner,
+  });
+  const staleResponse = await postV2Mutation({
+    path: `/v2/containers/${secondChild.containerId}/share`,
+    request: staleGroupGrantRequest,
+    token: owner.token,
+  });
+
+  expect(staleResponse.status).toBe(409);
+  expect(await staleResponse.json()).toEqual({
+    error: "Principal policy is stale",
+  });
 });
 
 test("POST /v2/containers/:containerId/revoke advances the KEK epoch", async () => {
