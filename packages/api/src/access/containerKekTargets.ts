@@ -113,52 +113,52 @@ async function loadCurrentContainerManifestTargetClosure(input: {
   // single database round trip while still failing closed if any parent head is
   // missing, stale, malformed, or cyclic.
   const result = await input.executor.execute(sql`
- with recursive ancestor_path as (
- select
- h.object_id,
- h.manifest_hash,
- m.object_kind,
- m.object_id as manifest_object_id,
- m.state,
- array[h.object_id] as visited_ids,
- false as cycle_detected,
- 0 as depth
- from ${accessManifestHeads} h
- inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
- where h.object_kind = 'container'
- and h.object_id in (${sql.join(
-   seedContainerIds.map((containerId) => sql`${containerId}`),
-   sql`, `,
- )})
- union all
- select
- h.object_id,
- h.manifest_hash,
- m.object_kind,
- m.object_id as manifest_object_id,
- m.state,
- ap.visited_ids || h.object_id,
- h.object_id = any(ap.visited_ids) as cycle_detected,
- ap.depth + 1
- from ancestor_path ap
- inner join ${accessManifestHeads} h
- on h.object_kind = 'container'
- and h.object_id = ap.state->>'parentContainerId'
- inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
- where not ap.cycle_detected
- and ap.depth < 100
- and ap.state->>'parentContainerId' is not null
- )
- select
- object_id as "id",
- manifest_hash as "manifestHash",
- object_kind as "objectKind",
- manifest_object_id as "objectId",
- state as "state",
- cycle_detected as "cycleDetected"
- from ancestor_path
- order by object_id asc
- `);
+    with recursive ancestor_path as (
+      select
+        h.object_id,
+        h.manifest_hash,
+        m.object_kind,
+        m.object_id as manifest_object_id,
+        m.state,
+        array[h.object_id] as visited_ids,
+        false as cycle_detected,
+        0 as depth
+      from ${accessManifestHeads} h
+      inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
+      where h.object_kind = 'container'
+        and h.object_id in (${sql.join(
+          seedContainerIds.map((containerId) => sql`${containerId}`),
+          sql`, `,
+        )})
+      union all
+      select
+        h.object_id,
+        h.manifest_hash,
+        m.object_kind,
+        m.object_id as manifest_object_id,
+        m.state,
+        ap.visited_ids || h.object_id,
+        h.object_id = any(ap.visited_ids) as cycle_detected,
+        ap.depth + 1
+      from ancestor_path ap
+      inner join ${accessManifestHeads} h
+        on h.object_kind = 'container'
+        and h.object_id = ap.state->>'parentContainerId'
+      inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
+      where not ap.cycle_detected
+        and ap.depth < 100
+        and ap.state->>'parentContainerId' is not null
+    )
+    select
+      object_id as "id",
+      manifest_hash as "manifestHash",
+      object_kind as "objectKind",
+      manifest_object_id as "objectId",
+      state as "state",
+      cycle_detected as "cycleDetected"
+    from ancestor_path
+    order by object_id asc
+  `);
   const targetByContainerId = new Map<string, ContainerManifestTarget>();
 
   for (const row of result.rows) {
