@@ -46,6 +46,18 @@ export function revokeContainerV2(
   );
 }
 
+export function rekeyContainerV2(
+  request: RequestFn,
+  containerId: string,
+  input: ContainerV2MutationRequest,
+) {
+  return postContainerV2Mutation(
+    request,
+    `/v2/containers/${containerId}/rekey`,
+    input,
+  );
+}
+
 export function moveContainerV2(
   request: RequestFn,
   containerId: string,

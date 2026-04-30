@@ -54,6 +54,7 @@ import {
   DocumentContentKeyBundleError,
   listDocumentContentWriteHeaders,
   requireCurrentDocumentContentKeyBundle,
+  type StoredDocumentContentKeyBundleWithTargets,
   type DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,
@@ -72,7 +73,12 @@ import {
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
 import {
+  applyContainerV2Rekeys,
+  ContainerV2MutationError,
+} from "../containers/v2Mutations";
+import {
   ContainerV2WriterProjectionError,
+  createContainerV2WriterProjectionContext,
   resolveContainerV2WriterProjection,
 } from "../containers/v2WriterProjection";
 import {
@@ -621,6 +627,10 @@ function toMutationError(error: unknown): DocumentV2MutationError | null {
     return new DocumentV2MutationError(error.message, error.status);
   }
 
+  if (error instanceof ContainerV2MutationError) {
+    return new DocumentV2MutationError(error.message, error.status);
+  }
+
   if (error instanceof KeyingV2VerificationError) {
     return new DocumentV2MutationError(
       error.message,
@@ -947,6 +957,17 @@ function toStoredContentKeyBundleInput(
 function assertSyncContentKeyBundleMatchesRequest(
   request: DocumentV2SyncRequest,
 ): void {
+  if (
+    request.containerRekeys &&
+    request.containerRekeys.length > 0 &&
+    request.outgoingUpdates.length === 0
+  ) {
+    throw new DocumentV2MutationError(
+      "Container rekeys require outgoing document writes",
+      400,
+    );
+  }
+
   if (!request.contentKeyBundle) {
     return;
   }
@@ -965,7 +986,7 @@ function assertSyncContentKeyBundleMatchesRequest(
 }
 
 function toContentKeyBundleResponse(
-  bundle: Awaited<ReturnType<typeof storeDocumentContentKeyBundle>>,
+  bundle: StoredDocumentContentKeyBundleWithTargets,
 ): DocumentV2ContentKeyBundleResponse {
   return {
     documentId: bundle.documentId,
@@ -1207,6 +1228,15 @@ export async function createDocumentV2WithExecutor(input: {
       fingerprint: input.fingerprint,
       userId: input.userId,
     });
+    // Optional rekeys are key maintenance, not document authorization. Apply
+    // them before path/target validation so this write may reference the new
+    // container head that it just committed in the same transaction.
+    await applyContainerV2Rekeys({
+      executor: input.executor,
+      fingerprint: input.fingerprint,
+      requests: input.request.containerRekeys,
+      userId: input.userId,
+    });
     const manifest = await verifyDocumentManifestFromRequest({
       event,
       executor: input.executor,
@@ -1236,16 +1266,11 @@ export async function createDocumentV2WithExecutor(input: {
       { verifiedManifest: manifest },
       input.executor,
     );
-
     const contentKeyBundle = await storeDocumentContentKeyBundle(
       toStoredContentKeyBundleInput(
         manifest.state.documentId,
         input.request.contentKeyBundle,
       ),
-      input.executor,
-    );
-    const currentTargets = await resolveCurrentDocumentKekTargets(
-      manifest.state.documentId,
       input.executor,
     );
 
@@ -1254,7 +1279,9 @@ export async function createDocumentV2WithExecutor(input: {
       createdAt: document.createdAt.toISOString(),
       accessManifest: documentManifestBundleRecord(manifest),
       contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
-      documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
+      documentKekTargets: toDocumentKekTargetsResponse(
+        contentKeyBundle.currentTargets,
+      ),
     };
   } catch (error) {
     const mutationError = toMutationError(error);
@@ -1285,6 +1312,14 @@ async function mutateDocumentV2LinkSetWithExecutor(input: {
       expectedEventType: input.eventType,
       executor: input.executor,
       fingerprint: input.fingerprint,
+      userId: input.userId,
+    });
+    // See createDocumentV2WithExecutor: rekeys must land before current path
+    // validation so callers can recover from stale KEK material in one write.
+    await applyContainerV2Rekeys({
+      executor: input.executor,
+      fingerprint: input.fingerprint,
+      requests: input.request.containerRekeys,
       userId: input.userId,
     });
     const previousManifest = await assertDocumentManifestBundleConsistent(
@@ -1320,16 +1355,14 @@ async function mutateDocumentV2LinkSetWithExecutor(input: {
       ),
       input.executor,
     );
-    const currentTargets = await resolveCurrentDocumentKekTargets(
-      input.documentId,
-      input.executor,
-    );
 
     return {
       id: input.documentId,
       accessManifest: documentManifestBundleRecord(manifest),
       contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
-      documentKekTargets: toDocumentKekTargetsResponse(currentTargets),
+      documentKekTargets: toDocumentKekTargetsResponse(
+        contentKeyBundle.currentTargets,
+      ),
     };
   } catch (error) {
     const mutationError = toMutationError(error);
@@ -1385,12 +1418,17 @@ async function ensureWritableDocumentV2(input: {
   readonly executor: DatabaseExecutor;
   readonly userId: string;
 }): Promise<void> {
+  const containerProjectionContext = createContainerV2WriterProjectionContext(
+    input.executor,
+  );
+
   for (const containerId of new Set(
     input.currentTargets.targets.map((target) => target.containerId),
   )) {
     try {
       await resolveContainerV2WriterProjection({
         containerId,
+        context: containerProjectionContext,
         executor: input.executor,
         userId: input.userId,
       });
@@ -1682,6 +1720,15 @@ async function syncDocumentV2Transaction(input: {
     executor: input.tx,
   });
   assertSyncContentKeyBundleMatchesRequest(input.request);
+  // Run signed container.rekey payloads before resolving document KEK targets;
+  // content-key validation then compares the write against the updated target
+  // set, while transaction rollback keeps failed writes from publishing rekeys.
+  await applyContainerV2Rekeys({
+    executor: input.tx,
+    fingerprint: input.fingerprint,
+    requests: input.request.containerRekeys,
+    userId: input.userId,
+  });
   const currentTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,
     input.tx,

@@ -1,13 +1,11 @@
 import { expect, test } from "bun:test";
 import {
-  type AccessEventV2,
   computeAccessEventHash,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-  type WriteHeaderV2,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -21,17 +19,27 @@ import type {
   StageBlobRequest,
 } from "@tearleads/validators/request";
 import type {
+  BlobV2AttachmentBindResponse,
   ContainerV2WriterProjectionResponse,
   DocumentV2CreateResponse,
   DocumentV2SyncResponse,
 } from "@tearleads/validators/response";
 import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
+import {
+  assertAccessEventV2,
+  assertOptionalWriteHeaderV2,
+  assertWriteHeaderV2,
+} from "../../../../test/helpers/keyingV2Assertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { createMemoryBlobStore } from "../../../data/blobs";
-import { decryptDocumentAttachmentBlobV2 } from "../../../data/documents/blobV2Runtime";
+import { type BlobBytes, createMemoryBlobStore } from "../../../data/blobs";
+import {
+  decryptDocumentAttachmentBlobV2,
+  uploadDocumentAttachmentV2,
+} from "../../../data/documents/blobV2Runtime";
 import { subscribeToPersistedDocuments } from "../../../data/documents/DocumentsProvider";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentsPersistence";
+import { createRemoteDocumentV2 } from "../../../data/documents/documentV2Runtime";
 import { createEmptyDriverLicenseDocument } from "../../../document-types/drivers-license/driverLicenseDocument";
 import type {
   LocalAttachmentRecord,
@@ -185,9 +193,8 @@ async function createNoteV2CreateResponse(
   const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
   const documentId = String(Reflect.get(manifest, "objectId"));
-  const eventHash = await computeAccessEventHash(
-    request.event as unknown as AccessEventV2,
-  );
+  const event = assertAccessEventV2(request.event, "document create event");
+  const eventHash = await computeAccessEventHash(event);
   const linkedContainerId = String(Reflect.get(body, "containerId"));
   const targets = request.contentKeyBundle.targets.map((target) => ({
     containerId: target.containerId,
@@ -200,7 +207,7 @@ async function createNoteV2CreateResponse(
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     accessManifest: {
-      event: { event: request.event, body, eventHash },
+      event: { event, body, eventHash },
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
@@ -242,7 +249,10 @@ async function createNoteV2SyncResponse(input: {
 }): Promise<DocumentV2SyncResponse> {
   const updates = await Promise.all(
     input.request.outgoingUpdates.map(async (update) => {
-      const writeHeader = update.writeHeader as unknown as WriteHeaderV2;
+      const writeHeader = assertWriteHeaderV2(
+        update.writeHeader,
+        "document sync write header",
+      );
       return {
         accessEpoch: 1,
         id: update.id,
@@ -283,9 +293,10 @@ async function createNoteV2AttachmentBindResponse(input: {
   const bindingId = String(Reflect.get(body, "bindingId"));
   const documentId = String(Reflect.get(body, "documentId"));
   const slotId = String(Reflect.get(body, "slotId"));
-  const writeHeader = input.request.stagedBlob?.writeHeader as unknown as
-    | WriteHeaderV2
-    | undefined;
+  const writeHeader = assertOptionalWriteHeaderV2(
+    input.request.stagedBlob?.writeHeader,
+    "staged blob write header",
+  );
   const targets = input.request.contentKeyBundle.targets.map((target) => ({
     bindingId: target.bindingId,
     documentId: target.documentId,
@@ -363,6 +374,9 @@ async function createNoteV2RuntimePatch(input: {
     blobId: string,
     request: BlobV2AttachmentBindRequest,
   ) => Promise<void> | void;
+  mapBindBlobAttachmentV2Response?: (
+    response: BlobV2AttachmentBindResponse,
+  ) => BlobV2AttachmentBindResponse;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }): Promise<NoteV2RuntimePatch> {
   const containerId = input.containerId ?? "root-container";
@@ -411,10 +425,13 @@ async function createNoteV2RuntimePatch(input: {
           return null;
         }
         await input.onBindBlobAttachmentV2?.(blobId, request);
-        const response = await createNoteV2AttachmentBindResponse({
+        const responseFixture = await createNoteV2AttachmentBindResponse({
           blobId,
           request,
         });
+        const response =
+          input.mapBindBlobAttachmentV2Response?.(responseFixture) ??
+          responseFixture;
         input.attachmentBinds?.push({ blobId, request });
         attachments.push({
           bindingId: response.bindingId,
@@ -1313,8 +1330,12 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   if (!blob || !writerProjection) {
     throw new Error("Expected uploaded blob and writer projection fixtures.");
   }
+  const bindingId = String(
+    Reflect.get(attachmentBinds[0]?.request.body ?? {}, "bindingId"),
+  );
   const decryptedBytes = await decryptDocumentAttachmentBlobV2({
     encryptedBytes: blob.encryptedBytes,
+    expectedBindingId: bindingId,
     expectedBlobId: blobId,
     execSql: runtime.execSql,
     targetSecretKey: encapsulationKeyPair.secretKey,
@@ -1323,6 +1344,100 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   expect(new TextDecoder().decode(decryptedBytes)).toBe(
     "remote attachment bytes",
   );
+
+  await expect(
+    decryptDocumentAttachmentBlobV2({
+      encryptedBytes: blob.encryptedBytes,
+      expectedBindingId: "wrong-binding-id",
+      expectedBlobId: blobId,
+      execSql: runtime.execSql,
+      targetSecretKey: encapsulationKeyPair.secretKey,
+      writerProjection,
+    }),
+  ).rejects.toThrow("missing attachment target");
+
+  const tamperedEncryptedBytes = JSON.parse(blob.encryptedBytes) as {
+    contentKeyBundle: { targets: Record<string, unknown>[] };
+  };
+  const [firstTarget, ...remainingTargets] =
+    tamperedEncryptedBytes.contentKeyBundle.targets;
+  if (!firstTarget) {
+    throw new Error("Expected uploaded blob content-key target.");
+  }
+  await expect(
+    decryptDocumentAttachmentBlobV2({
+      encryptedBytes: JSON.stringify({
+        ...tamperedEncryptedBytes,
+        contentKeyBundle: {
+          ...tamperedEncryptedBytes.contentKeyBundle,
+          targets: [
+            {
+              ...firstTarget,
+              containerKeyEpochId: "tampered-container-key-epoch",
+            },
+            ...remainingTargets,
+          ],
+        },
+      }),
+      expectedBindingId: bindingId,
+      expectedBlobId: blobId,
+      execSql: runtime.execSql,
+      targetSecretKey: encapsulationKeyPair.secretKey,
+      writerProjection,
+    }),
+  ).rejects.toThrow("target hash is not canonical");
+});
+
+test("uploadDocumentAttachmentV2 rejects bind responses with tampered target material", async () => {
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const runtimePatch = await createNoteV2RuntimePatch({
+    encapsulationKeyPair,
+    mapBindBlobAttachmentV2Response: (response) => ({
+      ...response,
+      contentKeyBundle: {
+        ...response.contentKeyBundle,
+        targets: response.contentKeyBundle.targets.map((target, index) =>
+          index === 0
+            ? {
+                ...target,
+                wrappedKey: "tampered-wrapped-key",
+              }
+            : target,
+        ),
+      },
+    }),
+  });
+  const author = {
+    organizationId: runtimePatch.organizationId,
+    signerDeviceId: "test-device-1",
+    signerKeyFingerprint: runtimePatch.signingFingerprint,
+    signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
+    signerUserId: runtimePatch.userId,
+  };
+  const created = await createRemoteDocumentV2({
+    apiClient: runtimePatch.apiClient,
+    author,
+    containerId: "root-container",
+    documentId: "document-attachment-response-verification",
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  if (!created) {
+    throw new Error("Expected remote document fixture.");
+  }
+
+  await expect(
+    uploadDocumentAttachmentV2({
+      apiClient: runtimePatch.apiClient,
+      author,
+      bytes: new TextEncoder().encode("tampered response bytes") as BlobBytes,
+      documentId: created.documentId,
+      expectedBindingId: null,
+      signedAt: "2026-04-27T00:00:01.000Z",
+      slotId: "tampered-response-slot",
+      targetSecretKey: encapsulationKeyPair.secretKey,
+    }),
+  ).rejects.toThrow("content-key bundle mismatch");
 });
 
 test("notes store preserves a replacement queued during V2 attachment upload", async () => {

@@ -27,6 +27,7 @@ import {
   type WriteHeaderV2,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
   DocumentV2ContentKeyTargetEnvelope,
   DocumentV2CreateRequest,
@@ -42,6 +43,12 @@ import type {
   DocumentV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
+import {
+  readCanonicalJson,
+  readCanonicalRecord,
+  readCanonicalRecordPaths,
+  readCanonicalRecords,
+} from "../keyingV2CanonicalJson";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -253,7 +260,6 @@ interface BuildDocumentV2SyncPlanInput {
   documentId?: string | undefined;
   documentKekTargets: DocumentV2SyncResponse["documentKekTargets"];
   documentManifest: DocumentV2CreateResponse["accessManifest"];
-  includeContentKeyBundle?: boolean | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentV2SyncPreparedUpdate[] | undefined;
@@ -319,15 +325,6 @@ interface UnwrappedContainerKek {
   keyMaterial: Uint8Array;
 }
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
 function readRecordString(
   record: Record<string, unknown>,
   key: string,
@@ -368,119 +365,6 @@ function readStringArray(value: unknown, label: string): string[] {
   }
 
   return [...value];
-}
-
-interface CanonicalJsonFrame {
-  leave?: object;
-  value?: unknown;
-}
-
-function isCanonicalJsonScalar(value: unknown): boolean {
-  return (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean" ||
-    (typeof value === "number" && Number.isFinite(value))
-  );
-}
-
-function pushCanonicalJsonChildren(
-  value: unknown,
-  active: WeakSet<object>,
-  pending: CanonicalJsonFrame[],
-): boolean {
-  if (Array.isArray(value)) {
-    if (active.has(value)) {
-      return false;
-    }
-    active.add(value);
-    pending.push({ leave: value });
-    for (let index = 0; index < value.length; index += 1) {
-      if (!(index in value)) {
-        return false;
-      }
-      pending.push({ value: value[index] });
-    }
-    return true;
-  }
-
-  if (!isPlainRecord(value)) {
-    return false;
-  }
-  if (active.has(value)) {
-    return false;
-  }
-  active.add(value);
-  pending.push({ leave: value });
-  for (const key of Object.keys(value)) {
-    pending.push({ value: Reflect.get(value, key) });
-  }
-  return true;
-}
-
-function isCanonicalJson(value: unknown): value is KeyingV2CanonicalJson {
-  const pending: CanonicalJsonFrame[] = [{ value }];
-  const active = new WeakSet<object>();
-
-  while (pending.length > 0) {
-    const frame = pending.pop();
-    if (!frame) {
-      break;
-    }
-    if (frame.leave) {
-      active.delete(frame.leave);
-      continue;
-    }
-
-    const item = frame.value;
-    if (isCanonicalJsonScalar(item)) {
-      continue;
-    }
-    if (!pushCanonicalJsonChildren(item, active, pending)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function readCanonicalJson(
-  value: unknown,
-  label: string,
-): KeyingV2CanonicalJson {
-  if (!isCanonicalJson(value)) {
-    throw new Error(`${label} must be canonical JSON`);
-  }
-  return value;
-}
-
-function readCanonicalRecord(
-  value: unknown,
-  label: string,
-): Record<string, unknown> {
-  if (!isPlainRecord(value)) {
-    throw new Error(`${label} must be an object`);
-  }
-  readCanonicalJson(value, label);
-  return value;
-}
-
-function readCanonicalRecords(
-  values: readonly unknown[],
-  label: string,
-): Record<string, unknown>[] {
-  return values.map((value, index) =>
-    readCanonicalRecord(value, `${label}[${index}]`),
-  );
-}
-
-function readCanonicalRecordPaths(
-  paths: readonly (readonly unknown[])[],
-  label: string,
-): Record<string, unknown>[][] {
-  return paths.map((path, index) =>
-    readCanonicalRecords(path, `${label}[${index}]`),
-  );
 }
 
 function isAccessEventTypeV2(
@@ -1406,6 +1290,123 @@ function currentDocumentV2Targets(
   return targets;
 }
 
+function assertSortedStringsEqual(
+  left: readonly string[],
+  right: readonly string[],
+  message: string,
+): void {
+  if (
+    left.length !== right.length ||
+    left.some((value, index) => value !== right[index])
+  ) {
+    throw new Error(message);
+  }
+}
+
+function assertAuthorizingContainerPathsMatchDocumentTargets(input: {
+  targets: readonly DocumentContentKeyTargetV2[];
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): void {
+  if (input.writerProjection.authorizingContainerPaths.length === 0) {
+    throw new Error(
+      "Document V2 writer projection authorization paths missing",
+    );
+  }
+
+  const targetKeys = new Set(input.targets.map(targetKey));
+  for (const [
+    index,
+    projection,
+  ] of input.writerProjection.authorizingContainerPaths.entries()) {
+    let projectionTarget: DocumentContentKeyTargetV2;
+    try {
+      projectionTarget = deriveDocumentV2TargetFromProjection(projection);
+    } catch (error) {
+      throw new Error(
+        `Document V2 writer projection authorization path[${index}] is invalid: ${errorMessage(error)}`,
+      );
+    }
+
+    if (targetKeys.has(targetKey(projectionTarget))) {
+      continue;
+    }
+
+    // Bind server-supplied KEK paths to committed document targets before
+    // using any unwrapped path KEK for document content-key material.
+    throw new Error(
+      `Document V2 writer projection authorization path[${index}] is not a document target`,
+    );
+  }
+}
+
+export async function assertDocumentV2WriterProjectionConsistent(
+  writerProjection: DocumentV2WriterProjectionResponse,
+): Promise<DocumentContentKeyTargetV2[]> {
+  const manifestIdentity = await assertDocumentV2ManifestBundleConsistent({
+    bundle: writerProjection.documentManifest,
+    label: "Document V2 writer projection manifest",
+  });
+  const { documentId } = manifestIdentity;
+  if (
+    writerProjection.documentId !== documentId ||
+    writerProjection.documentKekTargets.documentId !== documentId ||
+    writerProjection.contentKeyBundle.documentId !== documentId
+  ) {
+    throw new Error("Document V2 writer projection document id mismatch");
+  }
+  const { manifestHash } = writerProjection.documentManifest;
+  if (
+    writerProjection.documentKekTargets.linkSetManifestHash !== manifestHash ||
+    writerProjection.contentKeyBundle.linkSetManifestHash !== manifestHash
+  ) {
+    throw new Error("Document V2 writer projection link manifest mismatch");
+  }
+  if (
+    writerProjection.documentKekTargets.documentKeyTargetHash !==
+    writerProjection.contentKeyBundle.targetHash
+  ) {
+    throw new Error("Document V2 writer projection target hash mismatch");
+  }
+
+  const targets = currentDocumentV2Targets(writerProjection);
+  const canonicalTargetHash =
+    await computeDocumentContentKeyTargetHash(targets);
+  if (
+    canonicalTargetHash !==
+    writerProjection.documentKekTargets.documentKeyTargetHash
+  ) {
+    throw new Error(
+      "Document V2 writer projection target hash is not canonical",
+    );
+  }
+
+  assertSortedStringsEqual(
+    uniqueSortedStrings(targets.map((target) => target.containerId)),
+    readLinkedContainerIdsFromDocumentManifest(writerProjection),
+    "Document V2 writer projection targets do not match linked containers",
+  );
+  assertSortedStringsEqual(
+    uniqueSortedStrings(
+      writerProjection.documentKekTargets.linkedContainerManifestHashes,
+    ),
+    uniqueSortedStrings(targets.map((target) => target.containerManifestHash)),
+    "Document V2 writer projection target manifest summary mismatch",
+  );
+  assertSortedStringsEqual(
+    uniqueSortedStrings(
+      writerProjection.documentKekTargets.linkedContainerKeyEpochIds,
+    ),
+    uniqueSortedStrings(targets.map((target) => target.containerKeyEpochId)),
+    "Document V2 writer projection target KEK summary mismatch",
+  );
+  assertAuthorizingContainerPathsMatchDocumentTargets({
+    targets,
+    writerProjection,
+  });
+
+  return targets;
+}
+
 function deriveDocumentV2LinkSetTargetState(input: {
   operation: DocumentV2LinkSetMutationOperation;
   targetContainerProjection: ContainerV2WriterProjectionResponse;
@@ -1692,6 +1693,7 @@ export async function buildMaterializedDocumentV2LinkSetMutationPlan(input: {
   targetSecretKey: Uint8Array;
   writerProjection: DocumentV2WriterProjectionResponse;
 }): Promise<MaterializedDocumentV2LinkSetMutationPlan> {
+  await assertDocumentV2WriterProjectionConsistent(input.writerProjection);
   const targetState = deriveDocumentV2LinkSetTargetState({
     operation: input.operation,
     targetContainerProjection: input.targetContainerProjection,
@@ -2482,7 +2484,6 @@ async function prepareDocumentV2OutgoingUpdates(input: {
 export async function buildMaterializedDocumentV2SyncPlan(input: {
   author: DocumentV2CreateAuthor;
   execSql?: ExecSql | undefined;
-  includeContentKeyBundle?: boolean | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
@@ -2490,6 +2491,7 @@ export async function buildMaterializedDocumentV2SyncPlan(input: {
   targetSecretKey: Uint8Array;
   writerProjection: DocumentV2WriterProjectionResponse;
 }): Promise<MaterializedDocumentV2SyncPlan> {
+  await assertDocumentV2WriterProjectionConsistent(input.writerProjection);
   const contentKey = await unwrapDocumentV2ContentKeyFromWriterProjection({
     execSql: input.execSql,
     secretKey: input.targetSecretKey,
@@ -2519,7 +2521,6 @@ export async function buildMaterializedDocumentV2SyncPlan(input: {
     documentId,
     documentKekTargets: input.writerProjection.documentKekTargets,
     documentManifest: input.writerProjection.documentManifest,
-    includeContentKeyBundle: input.includeContentKeyBundle,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates,
@@ -2837,8 +2838,12 @@ export async function buildDocumentV2SyncPlan(
       }),
     ),
   );
+  // Writes always carry the verified current content-key bundle so the server
+  // can validate and materialize the current wrapping material in the same
+  // request. Read-only syncs omit it because they do not update server state.
+  const shouldIncludeContentKeyBundle = outgoingUpdates.length > 0;
   const request: DocumentV2SyncRequest = {
-    ...(input.includeContentKeyBundle === true
+    ...(shouldIncludeContentKeyBundle
       ? {
           contentKeyBundle: contentKeyBundleForSyncRequest(
             input.contentKeyBundle,
@@ -3191,7 +3196,6 @@ export async function syncRemoteDocumentV2(input: {
   author: DocumentV2CreateAuthor;
   documentId: string;
   execSql?: ExecSql | undefined;
-  includeContentKeyBundle?: boolean | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
@@ -3209,7 +3213,6 @@ export async function syncRemoteDocumentV2(input: {
   const materializedPlan = await buildMaterializedDocumentV2SyncPlan({
     author: input.author,
     execSql: input.execSql,
-    includeContentKeyBundle: input.includeContentKeyBundle,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     pendingUpdates: input.pendingUpdates,

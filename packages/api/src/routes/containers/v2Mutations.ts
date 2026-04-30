@@ -106,6 +106,12 @@ export function createContainerV2MutationsRoute({
   });
   addContainerV2MutationRoute({
     ...routeDeps,
+    expectedEventType: "container.rekey",
+    getExpectedContainerId: (c) => c.req.param("containerId"),
+    path: "/v2/containers/:containerId/rekey",
+  });
+  addContainerV2MutationRoute({
+    ...routeDeps,
     expectedEventType: "container.move",
     getExpectedContainerId: (c) => c.req.param("containerId"),
     path: "/v2/containers/:containerId/move",

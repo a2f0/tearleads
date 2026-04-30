@@ -7,23 +7,24 @@ import type {
   ContainerKekRecipientTargetV2,
   ContainerKeyEpochV2,
   ContainerKeyWrapV2,
+  ContainerUserRecipientKeyV2,
   KeyingV2CanonicalJson,
   ReferencedPrincipalHeadV2,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
+  VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
-  computeContainerKekRecipientTargetHash,
-  computeContainerKeyEpochHash,
   resolveContainerPathUserAccessLevel,
+  verifyContainerKekState,
 } from "@tearleads/crypto";
 import type {
   ContainerV2KekResponse,
   ContainerV2ManifestBundleResponse,
   ContainerV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
@@ -33,7 +34,7 @@ import {
   listContainerKeyWraps,
 } from "../../access/containerKekStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
-import { containers } from "../../schema";
+import { containers, users } from "../../schema";
 import {
   loadPrincipalPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,
@@ -70,6 +71,132 @@ interface ContainerPathRow {
   readonly id: string;
   readonly organizationId: string;
   readonly parentId: string | null;
+}
+
+export interface ContainerV2WriterProjectionContext {
+  readonly containerKekStateByCacheKey: Map<
+    string,
+    Promise<VerifiedContainerKekState>
+  >;
+  readonly containerPathRowById: Map<string, Promise<ContainerPathRow>>;
+  readonly executor: DatabaseExecutor;
+  readonly currentManifestBundleByContainerId: Map<
+    string,
+    Promise<ContainerV2ManifestBundleResponse>
+  >;
+  readonly manifestBundleByHash: Map<
+    string,
+    Promise<ContainerV2ManifestBundleResponse>
+  >;
+}
+
+export function createContainerV2WriterProjectionContext(
+  executor: DatabaseExecutor,
+): ContainerV2WriterProjectionContext {
+  return {
+    containerKekStateByCacheKey: new Map(),
+    containerPathRowById: new Map(),
+    executor,
+    currentManifestBundleByContainerId: new Map(),
+    manifestBundleByHash: new Map(),
+  };
+}
+
+async function cachedProjectionValue<K, V>(
+  cache: Map<K, Promise<V>>,
+  key: K,
+  load: () => Promise<V>,
+): Promise<V> {
+  const cachedValue = cache.get(key);
+  if (cachedValue) {
+    return cachedValue;
+  }
+
+  const loadedValue = load();
+  cache.set(key, loadedValue);
+
+  try {
+    return await loadedValue;
+  } catch (error) {
+    if (cache.get(key) === loadedValue) {
+      cache.delete(key);
+    }
+    throw error;
+  }
+}
+
+function principalPolicyReferenceCacheKey(
+  principalHead: ReferencedPrincipalHeadV2,
+): string {
+  return [
+    principalHead.principalType,
+    principalHead.principalId,
+    principalHead.version,
+    principalHead.keyEpoch,
+    principalHead.stateHash,
+    principalHead.keyFingerprint,
+  ].join(":");
+}
+
+function principalPolicyMatchesReference(input: {
+  readonly policy: VerifiedPrincipalPolicy;
+  readonly reference: ReferencedPrincipalHeadV2;
+}): boolean {
+  return (
+    input.policy.principalType === input.reference.principalType &&
+    input.policy.principalId === input.reference.principalId &&
+    input.policy.version === input.reference.version &&
+    input.policy.keyEpoch === input.reference.keyEpoch &&
+    input.policy.stateHash === input.reference.stateHash &&
+    input.policy.state.keyFingerprint === input.reference.keyFingerprint
+  );
+}
+
+function principalPolicyCacheKey(input: {
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}): string {
+  return input.manifest.state.referencedPrincipalHeads
+    .map((principalHead) => {
+      const referenceKey = principalPolicyReferenceCacheKey(principalHead);
+      const matchingPolicy = input.principalPolicies.find((policy) =>
+        principalPolicyMatchesReference({
+          policy,
+          reference: principalHead,
+        }),
+      );
+
+      return matchingPolicy ? referenceKey : `missing:${referenceKey}`;
+    })
+    .sort()
+    .join("|");
+}
+
+function containerKekStateCacheKey(input: {
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly parentKekState: VerifiedContainerKekState | null;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}): string {
+  // KEK verification depends on the signed manifest, the parent KEK edge, and
+  // the exact referenced principal policy heads. Include all three so a cache
+  // hit cannot hide stale parent key material or a missing policy proof.
+  const parentKey = input.parentKekState
+    ? [
+        input.parentKekState.containerId,
+        input.parentKekState.accessManifestHash,
+        input.parentKekState.containerKeyEpochId,
+        input.parentKekState.keyEpochHash,
+      ].join(":")
+    : "root";
+
+  return [
+    input.manifest.manifestHash,
+    parentKey,
+    principalPolicyCacheKey({
+      manifest: input.manifest,
+      principalPolicies: input.principalPolicies,
+    }),
+  ].join("||");
 }
 
 function projectionError(message: string): ContainerV2WriterProjectionError {
@@ -313,17 +440,6 @@ function readContainerAccessState(
   };
 }
 
-function containerKeyWrapTarget(
-  wrap: ContainerKeyWrapV2,
-): ContainerKekRecipientTargetV2 {
-  return {
-    recipientKind: wrap.recipientKind,
-    recipientId: wrap.recipientId,
-    recipientKeyEpochId: wrap.recipientKeyEpochId,
-    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-  };
-}
-
 function stripContainerKeyEpoch(
   keyEpoch: ContainerKeyEpochV2,
 ): ContainerKeyEpochV2 {
@@ -392,7 +508,7 @@ function containerKekRecipientTargetRecord(
 }
 
 async function loadContainerPath(
-  executor: DatabaseExecutor,
+  context: ContainerV2WriterProjectionContext,
   containerId: string,
 ): Promise<ContainerPathRow[]> {
   const path: ContainerPathRow[] = [];
@@ -408,20 +524,7 @@ async function loadContainerPath(
     }
     seenContainerIds.add(currentContainerId);
 
-    const [row] = await executor
-      .select({
-        id: containers.id,
-        organizationId: containers.organizationId,
-        parentId: containers.parentId,
-      })
-      .from(containers)
-      .where(eq(containers.id, currentContainerId))
-      .limit(1);
-
-    if (!row) {
-      throw new ContainerV2WriterProjectionError("Container not found", 404);
-    }
-
+    const row = await loadContainerPathRow(context, currentContainerId);
     path.push(row);
     currentContainerId = row.parentId;
   }
@@ -429,42 +532,228 @@ async function loadContainerPath(
   return path.reverse();
 }
 
-async function loadCurrentContainerManifestBundle(
-  executor: DatabaseExecutor,
+async function loadContainerPathRow(
+  context: ContainerV2WriterProjectionContext,
   containerId: string,
-): Promise<ContainerV2ManifestBundleResponse> {
-  const head = await getCurrentAccessManifestHead(
-    "container",
+): Promise<ContainerPathRow> {
+  return cachedProjectionValue(
+    context.containerPathRowById,
     containerId,
-    executor,
+    async () => {
+      const [row] = await context.executor
+        .select({
+          id: containers.id,
+          organizationId: containers.organizationId,
+          parentId: containers.parentId,
+        })
+        .from(containers)
+        .where(eq(containers.id, containerId))
+        .limit(1);
+
+      if (!row) {
+        throw new ContainerV2WriterProjectionError("Container not found", 404);
+      }
+
+      return row;
+    },
   );
-  if (!head) {
-    throw new ContainerV2WriterProjectionError(
-      "Container V2 manifest head missing",
-      409,
-    );
-  }
-
-  const bundle = await getAccessManifestBundle(head.manifestHash, executor);
-  if (!bundle || bundle.manifest.objectKind !== "container") {
-    throw new ContainerV2WriterProjectionError(
-      "Container V2 manifest bundle missing",
-      409,
-    );
-  }
-
-  return toManifestBundleResponse({
-    event: bundle.event,
-    manifest: bundle.manifest,
-    manifestHash: bundle.manifestHash,
-    state: bundle.state,
-  });
 }
 
-async function loadContainerKekResponse(
-  executor: DatabaseExecutor,
+async function loadCurrentContainerManifestBundle(
+  context: ContainerV2WriterProjectionContext,
+  containerId: string,
+): Promise<ContainerV2ManifestBundleResponse> {
+  // The cache is intentionally scoped to one projection transaction. That keeps
+  // repeated shared ancestors consistent within the response without reusing
+  // current-head or authorization material across requests.
+  return cachedProjectionValue(
+    context.currentManifestBundleByContainerId,
+    containerId,
+    async () => {
+      const head = await getCurrentAccessManifestHead(
+        "container",
+        containerId,
+        context.executor,
+      );
+      if (!head) {
+        throw new ContainerV2WriterProjectionError(
+          "Container V2 manifest head missing",
+          409,
+        );
+      }
+
+      return loadContainerManifestBundleByHash(context, head.manifestHash);
+    },
+  );
+}
+
+async function loadContainerManifestBundleByHash(
+  context: ContainerV2WriterProjectionContext,
+  manifestHash: string,
+): Promise<ContainerV2ManifestBundleResponse> {
+  return cachedProjectionValue(
+    context.manifestBundleByHash,
+    manifestHash,
+    async () => {
+      const bundle = await getAccessManifestBundle(
+        manifestHash,
+        context.executor,
+      );
+      if (!bundle || bundle.manifest.objectKind !== "container") {
+        throw new ContainerV2WriterProjectionError(
+          "Container V2 manifest bundle missing",
+          409,
+        );
+      }
+
+      return toManifestBundleResponse({
+        event: bundle.event,
+        manifest: bundle.manifest,
+        manifestHash: bundle.manifestHash,
+        state: bundle.state,
+      });
+    },
+  );
+}
+
+async function loadContainerKekManifestHistory(input: {
+  readonly context: ContainerV2WriterProjectionContext;
+  readonly currentManifest: VerifiedContainerAccessManifest;
+  readonly keyEpoch: ContainerKeyEpochV2;
+  readonly wraps: readonly ContainerKeyWrapV2[];
+}): Promise<VerifiedContainerAccessManifest[]> {
+  const historyHashes = new Set([
+    input.keyEpoch.accessManifestHash,
+    input.keyEpoch.createdByManifestHash,
+    ...input.wraps.map((wrap) => wrap.wrapManifestHash),
+  ]);
+  historyHashes.delete(input.currentManifest.manifestHash);
+
+  const history: VerifiedContainerAccessManifest[] = [];
+  for (const manifestHash of [...historyHashes].sort()) {
+    history.push(
+      toVerifiedContainerManifest(
+        await loadContainerManifestBundleByHash(input.context, manifestHash),
+      ),
+    );
+  }
+
+  return history;
+}
+
+function collectDirectUserGrantIds(
   manifest: VerifiedContainerAccessManifest,
-): Promise<ContainerV2KekResponse> {
+): string[] {
+  return [
+    ...new Set(
+      manifest.state.directGrants
+        .filter((grant) => grant.subjectType === "user")
+        .map((grant) => grant.subjectId),
+    ),
+  ].sort();
+}
+
+function userRecipientKeyFromWrap(
+  wrap: ContainerKeyWrapV2,
+): ContainerUserRecipientKeyV2 {
+  return {
+    userId: wrap.recipientId,
+    recipientKeyEpochId: wrap.recipientKeyEpochId,
+    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+  };
+}
+
+async function loadUserRecipientKeysForContainerKek(input: {
+  readonly executor: DatabaseExecutor;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly wraps: readonly ContainerKeyWrapV2[];
+}): Promise<ContainerUserRecipientKeyV2[]> {
+  const userIds = collectDirectUserGrantIds(input.manifest);
+  if (userIds.length === 0) {
+    return [];
+  }
+
+  const userIdSet = new Set(userIds);
+  const keyByUserId = new Map<string, ContainerUserRecipientKeyV2>();
+  for (const wrap of input.wraps) {
+    if (wrap.recipientKind !== "user" || !userIdSet.has(wrap.recipientId)) {
+      continue;
+    }
+
+    if (keyByUserId.has(wrap.recipientId)) {
+      throw new ContainerV2WriterProjectionError(
+        "Container V2 KEK user recipient key is ambiguous",
+        409,
+      );
+    }
+    keyByUserId.set(wrap.recipientId, userRecipientKeyFromWrap(wrap));
+  }
+
+  const storedUsers = await input.executor
+    .select({
+      encapsulationKeyFingerprint: users.encapsulationKeyFingerprint,
+      id: users.id,
+    })
+    .from(users)
+    .where(inArray(users.id, userIds));
+  const storedUserById = new Map(storedUsers.map((user) => [user.id, user]));
+  const userRecipientKeys: ContainerUserRecipientKeyV2[] = [];
+
+  for (const userId of userIds) {
+    const userRecipientKey = keyByUserId.get(userId);
+    const storedUser = storedUserById.get(userId);
+    if (!userRecipientKey || !storedUser) {
+      throw new ContainerV2WriterProjectionError(
+        "Container V2 KEK user recipient key missing",
+        409,
+      );
+    }
+    if (
+      userRecipientKey.recipientKeyFingerprint !==
+      storedUser.encapsulationKeyFingerprint
+    ) {
+      throw new ContainerV2WriterProjectionError(
+        "Container V2 KEK user recipient key is stale",
+        409,
+      );
+    }
+    userRecipientKeys.push(userRecipientKey);
+  }
+
+  return userRecipientKeys;
+}
+
+async function loadContainerKekState(
+  context: ContainerV2WriterProjectionContext,
+  manifest: VerifiedContainerAccessManifest,
+  input: {
+    readonly parentKekState: VerifiedContainerKekState | null;
+    readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  },
+): Promise<VerifiedContainerKekState> {
+  return cachedProjectionValue(
+    context.containerKekStateByCacheKey,
+    containerKekStateCacheKey({
+      manifest,
+      parentKekState: input.parentKekState,
+      principalPolicies: input.principalPolicies,
+    }),
+    async () =>
+      loadUncachedContainerKekState(context, manifest, {
+        parentKekState: input.parentKekState,
+        principalPolicies: input.principalPolicies,
+      }),
+  );
+}
+
+async function loadUncachedContainerKekState(
+  context: ContainerV2WriterProjectionContext,
+  manifest: VerifiedContainerAccessManifest,
+  input: {
+    readonly parentKekState: VerifiedContainerKekState | null;
+    readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  },
+): Promise<VerifiedContainerKekState> {
   const containerKeyEpochId = manifest.state.containerKeyEpochId;
   if (!containerKeyEpochId) {
     throw new ContainerV2WriterProjectionError(
@@ -475,7 +764,7 @@ async function loadContainerKekResponse(
 
   const storedKeyEpoch = await getContainerKeyEpochById(
     containerKeyEpochId,
-    executor,
+    context.executor,
   );
   if (!storedKeyEpoch) {
     throw new ContainerV2WriterProjectionError(
@@ -492,41 +781,72 @@ async function loadContainerKekResponse(
 
   const keyEpoch = stripContainerKeyEpoch(storedKeyEpoch);
   const wraps = (
-    await listContainerKeyWraps(containerKeyEpochId, executor)
+    await listContainerKeyWraps(containerKeyEpochId, context.executor)
   ).map(stripContainerKeyWrap);
-  const recipientTargets = wraps.map(containerKeyWrapTarget);
+  const containerManifestHistory = await loadContainerKekManifestHistory({
+    context,
+    currentManifest: manifest,
+    keyEpoch,
+    wraps,
+  });
+  const userRecipientKeys = await loadUserRecipientKeysForContainerKek({
+    executor: context.executor,
+    manifest,
+    wraps,
+  });
+  const verified = await verifyContainerKekState({
+    containerManifest: manifest,
+    containerManifestHistory,
+    keyEpoch,
+    parentKekState: input.parentKekState,
+    principalPolicies: input.principalPolicies,
+    userRecipientKeys,
+    wraps,
+  });
 
+  if (!verified.ok) {
+    throw new ContainerV2WriterProjectionError(verified.error.message, 409);
+  }
+
+  return verified.value;
+}
+
+function containerKekResponse(
+  kekState: VerifiedContainerKekState,
+): ContainerV2KekResponse {
   return {
-    containerId: manifest.state.containerId,
-    accessManifestHash: manifest.manifestHash,
-    containerKeyEpochId,
-    containerKeyEpoch: keyEpoch.keyEpoch,
-    keyEpoch: containerKeyEpochRecord(keyEpoch),
-    keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-    keyTargetHash:
-      await computeContainerKekRecipientTargetHash(recipientTargets),
-    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    recipientTargets: recipientTargets.map(containerKekRecipientTargetRecord),
-    wraps: wraps.map(containerKeyWrapRecord),
+    containerId: kekState.containerId,
+    accessManifestHash: kekState.accessManifestHash,
+    containerKeyEpochId: kekState.containerKeyEpochId,
+    containerKeyEpoch: kekState.containerKeyEpoch,
+    keyEpoch: containerKeyEpochRecord(kekState.keyEpoch),
+    keyEpochHash: kekState.keyEpochHash,
+    keyTargetHash: kekState.keyTargetHash,
+    parentContainerKeyEpochId: kekState.parentContainerKeyEpochId,
+    recipientTargets: kekState.recipientTargets.map(
+      containerKekRecipientTargetRecord,
+    ),
+    wraps: kekState.wraps.map(containerKeyWrapRecord),
   };
 }
 
 export async function resolveContainerV2WriterProjection(input: {
+  readonly context?: ContainerV2WriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseExecutor;
   readonly userId: string;
 }): Promise<ContainerV2WriterProjectionResponse> {
-  const pathRows = await loadContainerPath(input.executor, input.containerId);
+  const context =
+    input.context ?? createContainerV2WriterProjectionContext(input.executor);
+  const pathRows = await loadContainerPath(context, input.containerId);
   const path = await Promise.all(
-    pathRows.map((row) =>
-      loadCurrentContainerManifestBundle(input.executor, row.id),
-    ),
+    pathRows.map((row) => loadCurrentContainerManifestBundle(context, row.id)),
   );
   const verifiedPath = path.map(toVerifiedContainerManifest);
   let principalPolicies: VerifiedPrincipalPolicy[];
   try {
     principalPolicies = await loadPrincipalPoliciesForContainerPaths(
-      input.executor,
+      context.executor,
       [verifiedPath],
     );
   } catch (error) {
@@ -545,11 +865,15 @@ export async function resolveContainerV2WriterProjection(input: {
     throw new ContainerV2WriterProjectionError("Forbidden", 403);
   }
 
-  const containerKeks = await Promise.all(
-    verifiedPath.map((manifest) =>
-      loadContainerKekResponse(input.executor, manifest),
-    ),
-  );
+  const containerKekStates: VerifiedContainerKekState[] = [];
+  for (const manifest of verifiedPath) {
+    containerKekStates.push(
+      await loadContainerKekState(context, manifest, {
+        parentKekState: containerKekStates.at(-1) ?? null,
+        principalPolicies,
+      }),
+    );
+  }
   const targetManifest = verifiedPath.at(-1);
   if (!targetManifest) {
     throw new ContainerV2WriterProjectionError("Container not found", 404);
@@ -559,7 +883,7 @@ export async function resolveContainerV2WriterProjection(input: {
     containerId: input.containerId,
     organizationId: targetManifest.state.organizationId,
     path,
-    containerKeks,
+    containerKeks: containerKekStates.map(containerKekResponse),
   };
 }
 
@@ -573,6 +897,7 @@ export async function getContainerV2WriterProjection(
   return runtime.db.transaction((tx) =>
     resolveContainerV2WriterProjection({
       containerId: input.containerId,
+      context: createContainerV2WriterProjectionContext(tx),
       executor: tx,
       userId: input.userId,
     }),

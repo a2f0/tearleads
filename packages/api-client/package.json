@@ -16,6 +16,7 @@
     "@tearleads/validators": "workspace:*"
   },
   "devDependencies": {
-    "@types/bun": "catalog:"
+    "@types/bun": "catalog:",
+    "msw": "catalog:testing"
   }
 }

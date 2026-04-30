@@ -3,6 +3,7 @@ import {
   type AccessEventV2,
   CONTENT_RECORD_ENCRYPTION_SUITE_V2,
   computeAccessEventHash,
+  computeDocumentContentKeyTargetHash,
   computeWriteHeaderHash,
   encryptWithDek,
   generateKemSeedAndKeyPair,
@@ -972,6 +973,165 @@ test("buildMaterializedDocumentV2LinkSetMutationPlan adds links without rotating
   );
 });
 
+test("buildMaterializedDocumentV2LinkSetMutationPlan rejects split writer projection target hashes", async () => {
+  const { author } = await createAuthor();
+  const { projection, rootContainerKek, secretKey } =
+    await createWrappedProjection();
+  const { projection: siblingProjection } = await createSiblingProjection({
+    baseProjection: projection,
+    rootContainerKek,
+  });
+  const created = await buildMaterializedDocumentV2CreatePlan({
+    author,
+    containerProjection: projection,
+    documentId: "document-link-set-split-projection",
+    targetSecretKey: secretKey,
+  });
+  const createdResponse = createResponse(created.plan);
+  const splitTargetHash = await fixtureHash("split-writer-projection-target");
+
+  await expect(
+    buildMaterializedDocumentV2LinkSetMutationPlan({
+      author,
+      operation: "link",
+      targetContainerProjection: siblingProjection,
+      targetSecretKey: secretKey,
+      writerProjection: {
+        authorizingContainerPaths: [projection],
+        contentKeyBundle: {
+          ...createdResponse.contentKeyBundle,
+          targetHash: splitTargetHash,
+        },
+        documentId: createdResponse.id,
+        documentKekTargets: {
+          ...createdResponse.documentKekTargets,
+          documentKeyTargetHash: splitTargetHash,
+        },
+        documentManifest: createdResponse.accessManifest,
+      },
+    }),
+  ).rejects.toThrow("writer projection target hash is not canonical");
+});
+
+test("buildMaterializedDocumentV2SyncPlan rejects authorizing paths outside the document targets", async () => {
+  const { author } = await createAuthor();
+  const { projection, rootContainerKek, secretKey } =
+    await createWrappedProjection();
+  const { projection: siblingProjection } = await createSiblingProjection({
+    baseProjection: projection,
+    rootContainerKek,
+  });
+  const contentKey = crypto.getRandomValues(new Uint8Array(32));
+  const created = await buildMaterializedDocumentV2CreatePlan({
+    author,
+    containerProjection: projection,
+    contentKey,
+    documentId: "document-sync-forged-authorization-path",
+    targetSecretKey: secretKey,
+  });
+  const createdResponse = createResponse(created.plan);
+  const writerProjection: DocumentV2WriterProjectionResponse = {
+    authorizingContainerPaths: [projection],
+    contentKeyBundle: createdResponse.contentKeyBundle,
+    documentId: createdResponse.id,
+    documentKekTargets: createdResponse.documentKekTargets,
+    documentManifest: createdResponse.accessManifest,
+  };
+  const linked = await buildMaterializedDocumentV2LinkSetMutationPlan({
+    author,
+    operation: "link",
+    targetContainerProjection: siblingProjection,
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const childTarget = getOnlyTarget(projection);
+  const siblingEnvelope = linked.plan.request.contentKeyBundle.targets.find(
+    (target) => target.containerId === siblingProjection.containerId,
+  );
+  if (!siblingEnvelope) {
+    throw new Error("Expected sibling content-key envelope fixture");
+  }
+
+  const forgedEnvelope = {
+    ...siblingEnvelope,
+    containerId: childTarget.containerId,
+    containerManifestHash: childTarget.containerManifestHash,
+  };
+  const forgedTarget = {
+    containerId: forgedEnvelope.containerId,
+    containerManifestHash: forgedEnvelope.containerManifestHash,
+    containerKeyEpochId: forgedEnvelope.containerKeyEpochId,
+    containerKeyEpoch: forgedEnvelope.containerKeyEpoch,
+  };
+  const forgedTargetHash = await computeDocumentContentKeyTargetHash([
+    forgedTarget,
+  ]);
+
+  await expect(
+    buildMaterializedDocumentV2SyncPlan({
+      author,
+      localVersionVector: null,
+      pendingUpdates: [createPendingUpdateRecord()],
+      targetSecretKey: secretKey,
+      writerProjection: {
+        authorizingContainerPaths: [siblingProjection],
+        contentKeyBundle: {
+          ...createdResponse.contentKeyBundle,
+          targetHash: forgedTargetHash,
+          targets: [forgedEnvelope],
+        },
+        documentId: createdResponse.id,
+        documentKekTargets: {
+          ...createdResponse.documentKekTargets,
+          documentKeyTargetHash: forgedTargetHash,
+          linkedContainerKeyEpochIds: [forgedTarget.containerKeyEpochId],
+          linkedContainerManifestHashes: [forgedTarget.containerManifestHash],
+          targets: [forgedTarget],
+        },
+        documentManifest: createdResponse.accessManifest,
+      },
+    }),
+  ).rejects.toThrow("authorization path[0] is not a document target");
+});
+
+test("buildMaterializedDocumentV2SyncPlan names malformed authorizing path indexes", async () => {
+  const { author, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const sourceProjection = writerProjection.authorizingContainerPaths[0];
+  if (!sourceProjection) {
+    throw new Error("Expected authorizing path fixture");
+  }
+  const leafIndex = sourceProjection.path.length - 1;
+  const malformedProjection: ContainerV2WriterProjectionResponse = {
+    ...sourceProjection,
+    path: sourceProjection.path.map((bundle, index) =>
+      index === leafIndex
+        ? {
+            ...bundle,
+            state: {
+              ...bundle.state,
+              containerId: "wrong-authorizing-path-container",
+            },
+          }
+        : bundle,
+    ),
+  };
+
+  await expect(
+    buildMaterializedDocumentV2SyncPlan({
+      author,
+      localVersionVector: null,
+      targetSecretKey: secretKey,
+      writerProjection: {
+        ...writerProjection,
+        authorizingContainerPaths: [malformedProjection],
+      },
+    }),
+  ).rejects.toThrow(
+    "authorization path[0] is invalid: Container writer projection target path is inconsistent",
+  );
+});
+
 test("buildMaterializedDocumentV2LinkSetMutationPlan names inaccessible remaining KEKs during unlink", async () => {
   const { author } = await createAuthor();
   const { projection, rootContainerKek, secretKey } =
@@ -1284,6 +1444,9 @@ test("buildDocumentV2SyncPlan signs document write headers with the current V2 a
   expect(plan.request.documentManifest?.manifestHash).toBe(
     createResponse.accessManifest.manifestHash,
   );
+  expect(plan.request.contentKeyBundle?.targetHash).toBe(
+    createResponse.contentKeyBundle.targetHash,
+  );
   expect(
     Reflect.get(
       plan.request.authorizingContainerPaths?.[0]?.[0] ?? {},
@@ -1320,14 +1483,13 @@ test("buildDocumentV2SyncPlan signs document write headers with the current V2 a
   expect(verified.ok).toBe(true);
 });
 
-test("buildDocumentV2SyncPlan omits write authorization proof fields for read-only probes", async () => {
+test("buildDocumentV2SyncPlan omits write-only fields for read-only syncs", async () => {
   const { author, createResponse } = await createSyncFixture();
   const plan = await buildDocumentV2SyncPlan({
     author,
     contentKeyBundle: createResponse.contentKeyBundle,
     documentKekTargets: createResponse.documentKekTargets,
     documentManifest: createResponse.accessManifest,
-    includeContentKeyBundle: true,
     localVersionVector: "{}",
   });
 
@@ -1335,9 +1497,7 @@ test("buildDocumentV2SyncPlan omits write authorization proof fields for read-on
   expect(plan.request.outgoingUpdates).toEqual([]);
   expect(plan.request.documentManifest).toBeUndefined();
   expect(plan.request.authorizingContainerPaths).toBeUndefined();
-  expect(plan.request.contentKeyBundle?.targetHash).toBe(
-    createResponse.contentKeyBundle.targetHash,
-  );
+  expect(plan.request.contentKeyBundle).toBeUndefined();
 });
 
 test("buildDocumentV2SyncPlan rejects manifest bundles whose state does not derive the manifest", async () => {

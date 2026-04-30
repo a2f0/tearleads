@@ -24,6 +24,7 @@ import {
   listContainerDocuments,
   listContainers,
   moveContainerV2,
+  rekeyContainerV2,
   revokeContainerV2,
   shareContainerV2,
 } from "./routes/containers";
@@ -247,6 +248,10 @@ export class ApiClient {
 
   revokeContainerV2(containerId: string, input: ContainerV2MutationRequest) {
     return revokeContainerV2(this.request, containerId, input);
+  }
+
+  rekeyContainerV2(containerId: string, input: ContainerV2MutationRequest) {
+    return rekeyContainerV2(this.request, containerId, input);
   }
 
   moveContainerV2(containerId: string, input: ContainerV2MutationRequest) {

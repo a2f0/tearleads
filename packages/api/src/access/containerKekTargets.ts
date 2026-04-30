@@ -1,8 +1,7 @@
 import type { ContainerKekTargetV2 } from "@tearleads/crypto";
-import { inArray } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
-import { accessManifests } from "../schema";
-import { getCurrentAccessManifestHeads } from "./accessManifestStore";
+import { accessManifestHeads, accessManifests } from "../schema";
 import { getContainerKeyEpochsById } from "./containerKekStore";
 
 type ContainerKekTargetExecutor = DatabaseExecutor;
@@ -26,13 +25,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 interface ContainerManifestStateProjection {
   readonly containerId?: unknown;
   readonly containerKeyEpochId?: unknown;
+  readonly parentContainerId?: unknown;
   readonly version?: unknown;
 }
 
-function readContainerKeyEpochId(input: {
+function readNullableString(value: unknown): string | null {
+  if (value === null) {
+    return null;
+  }
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function readContainerManifestTarget(input: {
   readonly containerId: string;
   readonly state: unknown;
-}): string {
+}): Pick<ContainerManifestTarget, "containerKeyEpochId" | "parentContainerId"> {
   if (!isRecord(input.state)) {
     throw new ContainerKekTargetError(
       "Container V2 manifest state is invalid",
@@ -56,77 +63,208 @@ function readContainerKeyEpochId(input: {
     );
   }
 
-  return containerKeyEpochId;
+  const parentContainerId = readNullableString(state.parentContainerId);
+  if (parentContainerId === null && state.parentContainerId !== null) {
+    throw new ContainerKekTargetError(
+      "Container V2 manifest parent is invalid",
+      409,
+    );
+  }
+
+  return { containerKeyEpochId, parentContainerId };
 }
 
 type ContainerManifestTarget = {
   readonly containerId: string;
   readonly containerKeyEpochId: string;
   readonly containerManifestHash: string;
+  readonly parentContainerId: string | null;
 };
 
-type CurrentContainerHeadMap = Awaited<
-  ReturnType<typeof getCurrentAccessManifestHeads>
->;
+interface ContainerAncestorClosureRow {
+  readonly cycleDetected: boolean;
+  readonly id: string;
+  readonly manifestHash: string;
+  readonly objectId: string;
+  readonly objectKind: string;
+  readonly state: unknown;
+}
 
-async function loadCurrentContainerManifestTargets(input: {
-  readonly containerHeadById: CurrentContainerHeadMap;
+function isContainerAncestorClosureRow(
+  value: unknown,
+): value is ContainerAncestorClosureRow {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "cycleDetected") === "boolean" &&
+    typeof Reflect.get(value, "id") === "string" &&
+    typeof Reflect.get(value, "manifestHash") === "string" &&
+    typeof Reflect.get(value, "objectId") === "string" &&
+    typeof Reflect.get(value, "objectKind") === "string"
+  );
+}
+
+async function loadCurrentContainerManifestTargetClosure(input: {
   readonly containerIds: readonly string[];
   readonly executor: ContainerKekTargetExecutor;
-}): Promise<ContainerManifestTarget[]> {
-  const manifestHashes = input.containerIds.map((containerId) => {
-    const head = input.containerHeadById.get(containerId);
-    if (!head) {
+}): Promise<Map<string, ContainerManifestTarget>> {
+  const seedContainerIds = [...new Set(input.containerIds)].sort();
+  // Validate the full ancestor chain from the signed current manifest heads.
+  // The KEK parent edge is part of that signed state, so relying on structural
+  // container rows here would let the write guard drift from the cryptographic
+  // material it is meant to protect. A recursive CTE keeps deep hierarchies to a
+  // single database round trip while still failing closed if any parent head is
+  // missing, stale, malformed, or cyclic.
+  const result = await input.executor.execute(sql`
+    with recursive ancestor_path as (
+      select
+        h.object_id,
+        h.manifest_hash,
+        m.object_kind,
+        m.object_id as manifest_object_id,
+        m.state,
+        array[h.object_id] as visited_ids,
+        false as cycle_detected,
+        0 as depth
+      from ${accessManifestHeads} h
+      inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
+      where h.object_kind = 'container'
+        and h.object_id in (${sql.join(
+          seedContainerIds.map((containerId) => sql`${containerId}`),
+          sql`, `,
+        )})
+      union all
+      select
+        h.object_id,
+        h.manifest_hash,
+        m.object_kind,
+        m.object_id as manifest_object_id,
+        m.state,
+        ap.visited_ids || h.object_id,
+        h.object_id = any(ap.visited_ids) as cycle_detected,
+        ap.depth + 1
+      from ancestor_path ap
+      inner join ${accessManifestHeads} h
+        on h.object_kind = 'container'
+        and h.object_id = ap.state->>'parentContainerId'
+      inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
+      where not ap.cycle_detected
+        and ap.depth < 100
+        and ap.state->>'parentContainerId' is not null
+    )
+    select
+      object_id as "id",
+      manifest_hash as "manifestHash",
+      object_kind as "objectKind",
+      manifest_object_id as "objectId",
+      state as "state",
+      cycle_detected as "cycleDetected"
+    from ancestor_path
+    order by object_id asc
+  `);
+  const targetByContainerId = new Map<string, ContainerManifestTarget>();
+
+  for (const row of result.rows) {
+    if (!isContainerAncestorClosureRow(row)) {
       throw new ContainerKekTargetError(
-        "Container V2 manifest head missing",
+        "Unexpected row shape from container ancestor KEK closure",
         409,
       );
     }
-    return head.manifestHash;
-  });
-  const manifestRows = await input.executor
-    .select({
-      manifestHash: accessManifests.manifestHash,
-      objectId: accessManifests.objectId,
-      objectKind: accessManifests.objectKind,
-      state: accessManifests.state,
-    })
-    .from(accessManifests)
-    .where(inArray(accessManifests.manifestHash, manifestHashes));
-  const manifestByHash = new Map(
-    manifestRows.map((row) => [row.manifestHash, row]),
-  );
-
-  return input.containerIds.map((containerId) => {
-    const head = input.containerHeadById.get(containerId);
-    if (!head) {
+    if (row.cycleDetected) {
       throw new ContainerKekTargetError(
-        "Container V2 manifest head missing",
+        `Container V2 parent cycle detected at container ${row.id}`,
         409,
       );
     }
-
-    const manifest = manifestByHash.get(head.manifestHash);
-    if (
-      !manifest ||
-      manifest.objectKind !== "container" ||
-      manifest.objectId !== containerId
-    ) {
+    if (row.objectKind !== "container" || row.objectId !== row.id) {
       throw new ContainerKekTargetError(
         "Container V2 manifest bundle mismatch",
         409,
       );
     }
+    if (targetByContainerId.has(row.id)) {
+      continue;
+    }
+    const target = readContainerManifestTarget({
+      containerId: row.id,
+      state: row.state,
+    });
+    targetByContainerId.set(row.id, {
+      containerId: row.id,
+      containerManifestHash: row.manifestHash,
+      containerKeyEpochId: target.containerKeyEpochId,
+      parentContainerId: target.parentContainerId,
+    });
+  }
 
-    return {
-      containerId,
-      containerManifestHash: head.manifestHash,
-      containerKeyEpochId: readContainerKeyEpochId({
-        containerId,
-        state: manifest.state,
-      }),
-    };
-  });
+  return targetByContainerId;
+}
+
+function getContainerKeyEpoch(
+  target: ContainerManifestTarget,
+  keyEpochById: Awaited<ReturnType<typeof getContainerKeyEpochsById>>,
+) {
+  const keyEpoch = keyEpochById.get(target.containerKeyEpochId);
+  if (!keyEpoch) {
+    throw new ContainerKekTargetError(
+      `Container V2 KEK epoch missing for container ${target.containerId}`,
+      409,
+    );
+  }
+  if (
+    keyEpoch.containerId !== target.containerId ||
+    keyEpoch.accessManifestHash !== target.containerManifestHash
+  ) {
+    throw new ContainerKekTargetError(
+      `Container V2 KEK epoch is stale for container ${target.containerId}`,
+      409,
+    );
+  }
+
+  return keyEpoch;
+}
+
+function assertContainerKekParentEdgesCurrent(input: {
+  readonly keyEpochById: Awaited<ReturnType<typeof getContainerKeyEpochsById>>;
+  readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
+}): void {
+  for (const target of input.targetByContainerId.values()) {
+    const keyEpoch = getContainerKeyEpoch(target, input.keyEpochById);
+
+    if (target.parentContainerId === null) {
+      if (keyEpoch.parentContainerKeyEpochId !== null) {
+        throw new ContainerKekTargetError(
+          `Container V2 KEK parent edge is stale for container ${target.containerId}`,
+          409,
+        );
+      }
+      continue;
+    }
+
+    const parentTarget = input.targetByContainerId.get(
+      target.parentContainerId,
+    );
+    if (!parentTarget) {
+      throw new ContainerKekTargetError(
+        `Container V2 KEK parent target is missing for container ${target.containerId} (parent: ${target.parentContainerId})`,
+        409,
+      );
+    }
+
+    // Future document/blob writes must not keep using a descendant KEK that is
+    // still reachable through an older ancestor KEK. The writer projection route
+    // intentionally remains available so an authorized client can materialize a
+    // signed container.rekey repair before retrying the content write.
+    if (
+      keyEpoch.parentContainerKeyEpochId !== parentTarget.containerKeyEpochId
+    ) {
+      throw new ContainerKekTargetError(
+        `Container V2 KEK parent edge is stale for container ${target.containerId}`,
+        409,
+      );
+    }
+  }
 }
 
 export async function resolveCurrentContainerKekTargets(
@@ -139,37 +277,28 @@ export async function resolveCurrentContainerKekTargets(
     return new Map();
   }
 
-  const containerHeadById = await getCurrentAccessManifestHeads(
-    "container",
-    uniqueContainerIds,
-    executor,
-  );
-  const manifestTargets = await loadCurrentContainerManifestTargets({
-    containerHeadById,
+  const targetByContainerId = await loadCurrentContainerManifestTargetClosure({
     containerIds: uniqueContainerIds,
     executor,
   });
   const keyEpochById = await getContainerKeyEpochsById(
-    manifestTargets.map((target) => target.containerKeyEpochId),
+    [...targetByContainerId.values()].map(
+      (target) => target.containerKeyEpochId,
+    ),
     executor,
   );
+  assertContainerKekParentEdgesCurrent({ keyEpochById, targetByContainerId });
 
   return new Map(
-    manifestTargets.map((target) => {
-      const keyEpoch = keyEpochById.get(target.containerKeyEpochId);
-      if (!keyEpoch) {
+    uniqueContainerIds.map((containerId) => {
+      const target = targetByContainerId.get(containerId);
+      if (!target) {
         throw new ContainerKekTargetError(
-          "Container V2 KEK epoch missing",
+          "Container V2 manifest head missing",
           409,
         );
       }
-
-      if (keyEpoch.containerId !== target.containerId) {
-        throw new ContainerKekTargetError(
-          "Container V2 KEK epoch is stale",
-          409,
-        );
-      }
+      const keyEpoch = getContainerKeyEpoch(target, keyEpochById);
 
       return [
         target.containerId,

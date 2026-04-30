@@ -34,6 +34,7 @@ import {
   type ContainerV2MutationResponse,
   type DocumentV2CreateResponse,
   type DocumentV2LinkSetMutationResponse,
+  type DocumentV2WriterProjectionResponse,
   isContainerV2MutationResponse,
   isContainerV2WriterProjectionResponse,
   isDocumentV2CreateResponse,
@@ -43,6 +44,7 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
+import { buildRootContainerV2RekeyMutation } from "../../test/helpers/containerV2Rekey";
 import { registerUser } from "../../test/helpers/registerUser";
 import { getAccessManifestBundle } from "../access/accessManifestStore";
 import {
@@ -53,8 +55,11 @@ import { db } from "../adapters/postgres";
 import { routeApp } from "../routeApp";
 import {
   accessManifests,
+  containerKeyEpochs,
   containers,
   documentContainerLinks,
+  documentContentKeyEpochs,
+  documentContentKeyTargets,
   users,
 } from "../schema";
 
@@ -473,6 +478,46 @@ test("POST /v2/documents rejects malformed V2 signed event records", async () =>
   });
 });
 
+test("POST /v2/documents applies optional container rekeys before target validation", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const rootRekey = await buildRootContainerV2RekeyMutation({
+    previous: root,
+    signer: owner,
+  });
+  const request = await createDocumentV2Request({
+    owner,
+    root: {
+      bundle: rootRekey.bundle,
+      kekState: rootRekey.kekState,
+    },
+  });
+  request.containerRekeys = [rootRekey.request];
+
+  const response = await routeApp.request("/v2/documents", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  expect(response.status).toBe(200);
+  const created = await response.json();
+  expect(isDocumentV2CreateResponse(created)).toBe(true);
+  expect(created.documentKekTargets.linkedContainerKeyEpochIds).toEqual([
+    rootRekey.kekState.containerKeyEpochId,
+  ]);
+
+  const currentRootEpoch = await getCurrentContainerKeyEpoch(
+    root.kekState.containerId,
+  );
+  expect(currentRootEpoch?.id).toBe(rootRekey.kekState.containerKeyEpochId);
+});
+
 async function buildDocumentV2LinkRequest(input: {
   readonly child: ContainerV2MutationResponse;
   readonly createdDocument: Awaited<ReturnType<typeof createDocumentV2>>;
@@ -682,6 +727,34 @@ test("GET /v2/containers/:containerId/writer-projection returns signed path and 
   );
 });
 
+test("GET /v2/containers/:containerId/writer-projection verifies inherited parent KEK edges", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const child = await createV2ChildContainer({ parent: root, signer: owner });
+
+  const response = await routeApp.request(
+    `/v2/containers/${child.containerId}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(isContainerV2WriterProjectionResponse(body)).toBe(true);
+  expect(
+    body.path.map((entry: { manifestHash: string }) => entry.manifestHash),
+  ).toEqual([root.bundle.manifestHash, child.accessManifest.manifestHash]);
+  expect(body.containerKeks).toHaveLength(2);
+  expect(body.containerKeks[1].parentContainerKeyEpochId).toBe(
+    root.kekState.containerKeyEpochId,
+  );
+});
+
 test("GET /v2/containers/:containerId/writer-projection rejects users without V2 write access", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
@@ -731,6 +804,31 @@ test("GET /v2/containers/:containerId/writer-projection rejects malformed stored
   expect(response.status).toBe(409);
 });
 
+test("GET /v2/containers/:containerId/writer-projection rejects tampered stored KEK state", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+
+  await db
+    .update(containerKeyEpochs)
+    .set({
+      accessManifestHash: "0".repeat(64),
+    })
+    .where(eq(containerKeyEpochs.id, root.kekState.containerKeyEpochId));
+
+  const response = await routeApp.request(
+    `/v2/containers/${root.kekState.containerId}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(response.status).toBe(409);
+});
+
 test("GET /v2/documents/:documentId/writer-projection returns document targets and authorizing paths", async () => {
   const owner = createTestUser();
   await registerUser(owner);
@@ -767,6 +865,43 @@ test("GET /v2/documents/:documentId/writer-projection returns document targets a
     created.contentKeyBundle.targetHash,
   );
   expect(projection.authorizingContainerPaths).toHaveLength(1);
+});
+
+test("GET /v2/documents/:documentId/writer-projection rejects tampered content-key targets", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const created = await createDocumentV2({ owner, root });
+  const [contentKeyEpoch] = await db
+    .select({ id: documentContentKeyEpochs.id })
+    .from(documentContentKeyEpochs)
+    .where(eq(documentContentKeyEpochs.documentId, created.id))
+    .limit(1);
+  invariant(contentKeyEpoch, "expected document content-key epoch");
+
+  await db
+    .update(documentContentKeyTargets)
+    .set({
+      containerKeyEpochId: "tampered-container-key-epoch",
+    })
+    .where(
+      eq(
+        documentContentKeyTargets.documentContentKeyEpochId,
+        contentKeyEpoch.id,
+      ),
+    );
+
+  const projectionResponse = await routeApp.request(
+    `/v2/documents/${created.id}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(projectionResponse.status).toBe(409);
 });
 
 test("GET /v2/documents/:documentId/writer-projection rejects malformed stored document V2 state", async () => {
@@ -840,6 +975,66 @@ test("POST /v2/documents/:documentId/link advances a signed link-set manifest", 
     .where(eq(documentContainerLinks.documentId, createdDocument.id));
   expect(rows.map((row) => row.containerId).sort()).toEqual(
     [root.kekState.containerId, child.containerId].sort(),
+  );
+});
+
+test("GET /v2/documents/:documentId/writer-projection returns multi-linked container paths", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRootV2(owner);
+  const child = await createV2ChildContainer({ parent: root, signer: owner });
+  const createdDocument = await createDocumentV2({ owner, root });
+  const linkResponse = await routeApp.request(
+    `/v2/documents/${createdDocument.id}/link`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        await buildDocumentV2LinkRequest({
+          child,
+          createdDocument,
+          owner,
+          root,
+        }),
+      ),
+    },
+  );
+  expect(linkResponse.status).toBe(200);
+  const linked = await linkResponse.json();
+  expect(isDocumentV2LinkSetMutationResponse(linked)).toBe(true);
+
+  const projectionResponse = await routeApp.request(
+    `/v2/documents/${createdDocument.id}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(projectionResponse.status).toBe(200);
+  const projection = await projectionResponse.json();
+  expect(isDocumentV2WriterProjectionResponse(projection)).toBe(true);
+  const writerProjection = projection as DocumentV2WriterProjectionResponse;
+  expect(writerProjection.documentKekTargets.targets).toHaveLength(2);
+  const pathsByContainerId = new Map(
+    writerProjection.authorizingContainerPaths.map((path) => [
+      path.containerId,
+      path.path.map((entry) => entry.manifestHash),
+    ]),
+  );
+  expect(pathsByContainerId).toEqual(
+    new Map([
+      [root.kekState.containerId, [root.bundle.manifestHash]],
+      [
+        child.containerId,
+        [root.bundle.manifestHash, child.accessManifest.manifestHash],
+      ],
+    ]),
   );
 });
 

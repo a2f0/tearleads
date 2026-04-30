@@ -16,13 +16,16 @@ import {
   getCurrentAccessManifestHead,
 } from "../../access/accessManifestStore";
 import {
+  DocumentContentKeyBundleError,
   type DocumentContentKeyTargetEnvelope,
-  getLatestDocumentContentKeyBundle,
+  getLatestCurrentDocumentContentKeyBundle,
 } from "../../access/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../../access/documentKekTargets";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
+  type ContainerV2WriterProjectionContext,
   ContainerV2WriterProjectionError,
+  createContainerV2WriterProjectionContext,
   resolveContainerV2WriterProjection,
 } from "../containers/v2WriterProjection";
 import {
@@ -217,6 +220,7 @@ async function loadCurrentDocumentManifestBundle(
 
 async function resolveAuthorizingContainerPaths(input: {
   readonly containerIds: readonly string[];
+  readonly context: ContainerV2WriterProjectionContext;
   readonly executor: DatabaseExecutor;
   readonly userId: string;
 }) {
@@ -228,6 +232,7 @@ async function resolveAuthorizingContainerPaths(input: {
         try {
           return await resolveContainerV2WriterProjection({
             containerId,
+            context: input.context,
             executor: input.executor,
             userId: input.userId,
           });
@@ -265,16 +270,35 @@ async function resolveDocumentWriterProjection(input: {
     input.documentId,
   );
   const documentState = readDocumentLinkSetState(documentManifest.state);
-  const [documentKekTargets, contentKeyBundle, authorizingContainerPaths] =
-    await Promise.all([
-      resolveCurrentDocumentKekTargets(input.documentId, input.executor),
-      getLatestDocumentContentKeyBundle(input.documentId, input.executor),
-      resolveAuthorizingContainerPaths({
-        containerIds: documentState.linkedContainerIds,
-        executor: input.executor,
-        userId: input.userId,
-      }),
-    ]);
+  const containerProjectionContext = createContainerV2WriterProjectionContext(
+    input.executor,
+  );
+  const [documentKekTargets, authorizingContainerPaths] = await Promise.all([
+    resolveCurrentDocumentKekTargets(input.documentId, input.executor),
+    resolveAuthorizingContainerPaths({
+      containerIds: documentState.linkedContainerIds,
+      context: containerProjectionContext,
+      executor: input.executor,
+      userId: input.userId,
+    }),
+  ]);
+  let contentKeyBundle: Awaited<
+    ReturnType<typeof getLatestCurrentDocumentContentKeyBundle>
+  >;
+  try {
+    contentKeyBundle = await getLatestCurrentDocumentContentKeyBundle(
+      {
+        currentTargets: documentKekTargets,
+        documentId: input.documentId,
+      },
+      input.executor,
+    );
+  } catch (error) {
+    if (error instanceof DocumentContentKeyBundleError) {
+      throw new DocumentV2WriterProjectionError(error.message, 409);
+    }
+    throw error;
+  }
 
   if (!contentKeyBundle) {
     throw new DocumentV2WriterProjectionError(

@@ -80,6 +80,8 @@ async function createVerifiedContainerManifest(input: {
   readonly containerId: string;
   readonly epoch?: number;
   readonly organizationId: string;
+  readonly parentContainerId?: string | null;
+  readonly parentManifestHash?: string | null;
   readonly previousManifestHash?: string | null;
   readonly salt: string;
 }): Promise<VerifiedContainerAccessManifest> {
@@ -137,8 +139,8 @@ async function createVerifiedContainerManifest(input: {
       epoch: input.epoch ?? 1,
       previousManifestHash: input.previousManifestHash ?? null,
       eventHash: event.eventHash,
-      parentContainerId: null,
-      parentManifestHash: null,
+      parentContainerId: input.parentContainerId ?? null,
+      parentManifestHash: input.parentManifestHash ?? null,
       metadataDocumentId: `${input.containerId}:metadata`,
       containerKeyEpochId,
       directGrants: [],
@@ -198,13 +200,14 @@ async function insertContainerKeyEpoch(input: {
   readonly keyEpoch?: number;
   readonly keyEpochId: string;
   readonly manifestHash: string;
+  readonly parentContainerKeyEpochId?: string | null;
 }) {
   await db.insert(containerKeyEpochs).values({
     id: input.keyEpochId,
     containerId: input.containerId,
     keyEpoch: input.keyEpoch ?? 1,
     accessManifestHash: input.manifestHash,
-    parentContainerKeyEpochId: null,
+    parentContainerKeyEpochId: input.parentContainerKeyEpochId ?? null,
     createdByEventHash: await hashOf(`${input.keyEpochId}:event`),
     createdByManifestHash: input.manifestHash,
   });
@@ -315,6 +318,107 @@ test("resolveCurrentDocumentKekTargets uses the container manifest key epoch", a
       containerKeyEpoch: 1,
     },
   ]);
+});
+
+test("resolveCurrentDocumentKekTargets rejects linked containers with stale parent KEK edges", async () => {
+  const organizationId = crypto.randomUUID();
+  const documentId = crypto.randomUUID();
+  const rootContainerId = crypto.randomUUID();
+  const childContainerId = crypto.randomUUID();
+  const rootKeyEpochId = `${rootContainerId}:key-epoch-1`;
+  const childKeyEpochId = `${childContainerId}:key-epoch-1`;
+  const root = await createVerifiedContainerManifest({
+    containerId: rootContainerId,
+    containerKeyEpochId: rootKeyEpochId,
+    organizationId,
+    salt: "root",
+  });
+  const child = await createVerifiedContainerManifest({
+    containerId: childContainerId,
+    containerKeyEpochId: childKeyEpochId,
+    organizationId,
+    parentContainerId: rootContainerId,
+    parentManifestHash: root.manifestHash,
+    salt: "child",
+  });
+  await storeVerifiedAccessManifest({ verifiedManifest: root });
+  await storeVerifiedAccessManifest({ verifiedManifest: child });
+  await insertContainerKeyEpoch({
+    containerId: rootContainerId,
+    keyEpochId: rootKeyEpochId,
+    manifestHash: root.manifestHash,
+  });
+  await insertContainerKeyEpoch({
+    containerId: childContainerId,
+    keyEpochId: childKeyEpochId,
+    manifestHash: child.manifestHash,
+    parentContainerKeyEpochId: rootKeyEpochId,
+  });
+  const documentManifest = await createVerifiedDocumentLinkSetManifest({
+    containerManifestHashes: [child.manifestHash],
+    documentId,
+    linkedContainerIds: [childContainerId],
+    organizationId,
+  });
+  await storeVerifiedAccessManifest({
+    verifiedManifest: documentManifest,
+  });
+
+  await expect(resolveCurrentDocumentKekTargets(documentId)).resolves.toEqual(
+    expect.objectContaining({
+      linkedContainerKeyEpochIds: [childKeyEpochId],
+    }),
+  );
+
+  const rotatedRootKeyEpochId = `${rootContainerId}:key-epoch-2`;
+  const rotatedRoot = await createVerifiedContainerManifest({
+    containerId: rootContainerId,
+    containerKeyEpochId: rotatedRootKeyEpochId,
+    epoch: 2,
+    organizationId,
+    previousManifestHash: root.manifestHash,
+    salt: "root-rotated",
+  });
+  await storeVerifiedAccessManifest({ verifiedManifest: rotatedRoot });
+  await insertContainerKeyEpoch({
+    containerId: rootContainerId,
+    keyEpoch: 2,
+    keyEpochId: rotatedRootKeyEpochId,
+    manifestHash: rotatedRoot.manifestHash,
+  });
+
+  await expect(resolveCurrentDocumentKekTargets(documentId)).rejects.toEqual(
+    new DocumentKekTargetError(
+      `Container V2 KEK parent edge is stale for container ${childContainerId}`,
+      409,
+    ),
+  );
+
+  const rotatedChildKeyEpochId = `${childContainerId}:key-epoch-2`;
+  const rotatedChild = await createVerifiedContainerManifest({
+    containerId: childContainerId,
+    containerKeyEpochId: rotatedChildKeyEpochId,
+    epoch: 2,
+    organizationId,
+    parentContainerId: rootContainerId,
+    parentManifestHash: rotatedRoot.manifestHash,
+    previousManifestHash: child.manifestHash,
+    salt: "child-rotated",
+  });
+  await storeVerifiedAccessManifest({ verifiedManifest: rotatedChild });
+  await insertContainerKeyEpoch({
+    containerId: childContainerId,
+    keyEpoch: 2,
+    keyEpochId: rotatedChildKeyEpochId,
+    manifestHash: rotatedChild.manifestHash,
+    parentContainerKeyEpochId: rotatedRootKeyEpochId,
+  });
+
+  await expect(resolveCurrentDocumentKekTargets(documentId)).resolves.toEqual(
+    expect.objectContaining({
+      linkedContainerKeyEpochIds: [rotatedChildKeyEpochId],
+    }),
+  );
 });
 
 test("assertDocumentKekTargetsCurrent rejects stale target hashes", async () => {

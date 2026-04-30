@@ -28,6 +28,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
   ContainerV2MutationRequest,
   DocumentV2CreateRequest,
@@ -85,6 +86,76 @@ interface RootContainerV2CreateArtifacts {
   wraps: ContainerKeyWrapV2[];
 }
 
+function isCanonicalJson(value: unknown): value is KeyingV2CanonicalJson {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  if (Array.isArray(value)) {
+    // Array.prototype.every skips holes; fixture wire records must reject
+    // sparse arrays before JSON serialization can coerce holes to null.
+    for (let index = 0; index < value.length; index += 1) {
+      if (!Object.hasOwn(value, index) || !isCanonicalJson(value[index])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return Object.values(value).every(
+    (item) => item !== undefined && isCanonicalJson(item),
+  );
+}
+
+function toWireJson(value: unknown, label: string): KeyingV2CanonicalJson {
+  if (!isCanonicalJson(value)) {
+    throw new Error(`${label} fixture is not canonical JSON`);
+  }
+
+  const serialized = JSON.stringify(value);
+  if (typeof serialized !== "string") {
+    throw new Error(`${label} fixture cannot be serialized to JSON`);
+  }
+
+  const parsed: unknown = JSON.parse(serialized);
+  if (!isCanonicalJson(parsed)) {
+    throw new Error(`${label} fixture did not round-trip as canonical JSON`);
+  }
+
+  return parsed;
+}
+
+function toWireRecord(value: unknown, label: string): Record<string, unknown> {
+  const parsed = toWireJson(value, label);
+  if (!isPlainObject(parsed)) {
+    throw new Error(`${label} fixture must serialize to a JSON object`);
+  }
+
+  return parsed;
+}
+
+function toWireRecords(
+  values: readonly unknown[],
+  label: string,
+): Record<string, unknown>[] {
+  return values.map((value, index) =>
+    toWireRecord(value, `${label}[${index}]`),
+  );
+}
+
 function createSignerDeviceId(signingFingerprint: string): string {
   return `signing-key:${signingFingerprint}`;
 }
@@ -102,7 +173,7 @@ async function signRegistrationV2Event(
     previousManifestHash: input.previousManifestHash,
     dependencyManifestHashes: [...(input.dependencyManifestHashes ?? [])],
     bodyHash: await computeAccessEventBodyHash(
-      input.body as unknown as KeyingV2CanonicalJson,
+      toWireJson(input.body, `${input.eventType} event body`),
     ),
     signerUserId: input.signerUserId,
     signerDeviceId: input.signerDeviceId,
@@ -172,13 +243,13 @@ function rootContainerProjectionFromArtifacts(
     path: [
       {
         event: {
-          event: artifacts.event as unknown as Record<string, unknown>,
-          body: artifacts.body as unknown as Record<string, unknown>,
+          event: toWireRecord(artifacts.event, "root container event"),
+          body: toWireRecord(artifacts.body, "root container event body"),
           eventHash: artifacts.eventHash,
         },
-        manifest: artifacts.manifest as unknown as Record<string, unknown>,
+        manifest: toWireRecord(artifacts.manifest, "root container manifest"),
         manifestHash: artifacts.manifestHash,
-        state: artifacts.state as unknown as Record<string, unknown>,
+        state: toWireRecord(artifacts.state, "root container state"),
       },
     ],
     containerKeks: [
@@ -187,16 +258,15 @@ function rootContainerProjectionFromArtifacts(
         accessManifestHash: artifacts.manifestHash,
         containerKeyEpochId: artifacts.containerKeyEpochId,
         containerKeyEpoch: artifacts.keyEpoch.keyEpoch,
-        keyEpoch: artifacts.keyEpoch as unknown as Record<string, unknown>,
+        keyEpoch: toWireRecord(artifacts.keyEpoch, "root container key epoch"),
         keyEpochHash: artifacts.keyEpochHash,
         keyTargetHash: artifacts.keyTargetHash,
         parentContainerKeyEpochId: null,
-        recipientTargets: artifacts.recipientTargets.map(
-          (target) => target as unknown as Record<string, unknown>,
+        recipientTargets: toWireRecords(
+          artifacts.recipientTargets,
+          "root container recipient targets",
         ),
-        wraps: artifacts.wraps.map(
-          (wrap) => wrap as unknown as Record<string, unknown>,
-        ),
+        wraps: toWireRecords(artifacts.wraps, "root container wraps"),
       },
     ],
   };
@@ -293,18 +363,19 @@ async function createRootContainerV2Artifacts(input: {
     metadataDocumentId: input.rootMetadataDocumentId,
     recipientTargets,
     request: {
-      event: event as unknown as Record<string, unknown>,
-      body: body as unknown as Record<string, unknown>,
+      event: toWireRecord(event, "root container request event"),
+      body: toWireRecord(body, "root container request body"),
       expectedManifestHash: manifestHash,
-      manifest: manifest as unknown as Record<string, unknown>,
+      manifest: toWireRecord(manifest, "root container request manifest"),
       previousManifest: null,
       parentContainerPath: [],
       principalPolicies: [],
-      keyEpoch: keyEpoch as unknown as Record<string, unknown>,
-      wraps: [wrap as unknown as Record<string, unknown>],
-      userRecipientKeys: [
-        userRecipientKey as unknown as Record<string, unknown>,
-      ],
+      keyEpoch: toWireRecord(keyEpoch, "root container request key epoch"),
+      wraps: toWireRecords([wrap], "root container request wraps"),
+      userRecipientKeys: toWireRecords(
+        [userRecipientKey],
+        "root container request user recipient keys",
+      ),
     },
     state,
     wraps: [wrap],
@@ -369,13 +440,14 @@ async function createRootMetadataDocumentV2Request(input: {
   );
 
   return {
-    event: event as unknown as Record<string, unknown>,
-    body: body as unknown as Record<string, unknown>,
+    event: toWireRecord(event, "root metadata document request event"),
+    body: toWireRecord(body, "root metadata document request body"),
     expectedManifestHash: manifestHash,
-    manifest: manifest as unknown as Record<string, unknown>,
+    manifest: toWireRecord(manifest, "root metadata document request manifest"),
     previousManifest: null,
-    targetContainerPath: input.containerProjection.path.map(
-      (bundle) => bundle as unknown as Record<string, unknown>,
+    targetContainerPath: toWireRecords(
+      input.containerProjection.path,
+      "root metadata document target container path",
     ),
     contentKeyBundle: {
       contentKeyEpoch: 1,
