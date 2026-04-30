@@ -250,6 +250,30 @@ test("includes authorization header after authentication", async () => {
   expect(call.contentType).toBe("application/json");
 });
 
+test("allows public methods to be called after destructuring", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(`${apiBaseUrl}/`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+      return HttpResponse.json({ message: "ok" });
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const { getHealth, setAuthToken } = client;
+
+  setAuthToken("abc");
+  await getHealth();
+
+  const call = calls[0];
+  expect(call).toBeDefined();
+  if (!call) {
+    throw new Error("expected destructured getHealth HTTP call");
+  }
+  expect(call.authorization).toBe("Bearer abc");
+  expect(call.contentType).toBe("application/json");
+});
+
 test("returns null on network error", async () => {
   server.use(
     http.get(`${apiBaseUrl}/`, () => {

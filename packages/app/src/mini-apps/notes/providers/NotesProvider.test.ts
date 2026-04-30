@@ -24,6 +24,7 @@ import type {
   DocumentV2CreateResponse,
   DocumentV2SyncResponse,
 } from "@tearleads/validators/response";
+import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import {
   assertAccessEventV2,
@@ -90,7 +91,7 @@ function createListedContainers(
 function createUnavailableNotesApiClient(
   containerId = "root-container",
 ): NotesRuntime["apiClient"] {
-  return {
+  return createMockApiClient({
     bindBlobAttachmentV2: async () => null,
     createDocumentV2: async () => null,
     getBlob: async () => null,
@@ -101,7 +102,7 @@ function createUnavailableNotesApiClient(
     listDocumentAttachments: async () => null,
     stageBlob: async () => null,
     syncDocumentV2: async () => null,
-  };
+  });
 }
 
 async function noteV2FixtureHash(label: string): Promise<string> {
@@ -411,7 +412,7 @@ async function createNoteV2RuntimePatch(input: {
   };
 
   return {
-    apiClient: {
+    apiClient: createMockApiClient({
       createDocumentV2: async (request) => {
         storedDocument = await createNoteV2CreateResponse(request);
         return storedDocument;
@@ -500,7 +501,7 @@ async function createNoteV2RuntimePatch(input: {
           commitLsn: syncCount === 1 ? "0/10" : "0/20",
         });
       },
-    },
+    }),
     organizationId: "organization-1",
     signingFingerprint,
     signingKeyPair,

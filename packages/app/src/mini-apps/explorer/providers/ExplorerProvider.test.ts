@@ -21,6 +21,7 @@ import type {
   DocumentV2SyncResponse,
   DocumentV2WriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import {
   assertAccessEventV2,
@@ -407,7 +408,7 @@ function createExplorerContainerV2ApiHarness(
   }> = [];
 
   return {
-    apiClient: {
+    apiClient: createMockApiClient({
       createContainerV2: async (request: ContainerV2MutationRequest) => {
         const response =
           await createExplorerContainerV2MutationResponse(request);
@@ -522,7 +523,7 @@ function createExplorerContainerV2ApiHarness(
         });
         return response;
       },
-    },
+    }),
     containerCreateCalls,
     documentCreateCalls,
     containerMoveCalls,
@@ -580,7 +581,7 @@ async function createExplorerMetadataV2Fixture(input: {
   };
 
   return {
-    apiClient: {
+    apiClient: createMockApiClient({
       getEncapsulationKey: async (requestedUserId: string) => {
         if (requestedUserId !== userId) {
           return null;
@@ -617,7 +618,7 @@ async function createExplorerMetadataV2Fixture(input: {
           storedDocument,
         });
       },
-    },
+    }),
     organizationId,
     persistedState: persistedDocumentV2CreateStateFromResponse(
       materializedPlan.plan,
@@ -634,7 +635,7 @@ async function createSqlRuntime(): Promise<TestRuntime> {
 
   return {
     ...runtimeBase,
-    apiClient: {
+    apiClient: createMockApiClient({
       bindBlobAttachmentV2: async () => null,
       createContainerV2: async () => null,
       createDocumentV2: async () => null,
@@ -648,7 +649,7 @@ async function createSqlRuntime(): Promise<TestRuntime> {
       shareContainerV2: async () => null,
       stageBlob: async () => null,
       syncDocumentV2: async () => null,
-    },
+    }),
   };
 }
 
@@ -860,11 +861,11 @@ test("explorer store creates authenticated child containers through the API befo
   runtime.signingFingerprint = signingFingerprint;
   runtime.signingKeyPair = signingKeyPair;
   runtime.userId = "user-1";
-  runtime.apiClient = {
+  runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...v2Harness.apiClient,
     listContainers: async () => [],
-  };
+  });
   try {
     await ensureContainerTables(runtime.execSql);
     await ensureDocumentTables(runtime.execSql);
@@ -961,10 +962,10 @@ test("explorer store queues authenticated child create when parent has no remote
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
-  runtime.apiClient = {
+  runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     listContainers: async () => [],
-  };
+  });
 
   try {
     await ensureContainerTables(runtime.execSql);
@@ -1123,11 +1124,11 @@ test("explorer sync creates queued local containers parent before child", async 
       signingFingerprint,
       signingKeyPair,
       userId: "user-1",
-      apiClient: {
+      apiClient: createMockApiClient({
         ...runtime.apiClient,
         ...v2Harness.apiClient,
         listContainers: async () => Array.from(remoteContainers.values()),
-      },
+      }),
     };
 
     createdStore.updateRuntime(authenticatedRuntime);
@@ -1237,7 +1238,7 @@ test("explorer store creates a V2 child under a writable shared root through the
   runtime.cacheReferencedPrincipalPolicies = async (references) => {
     cachedPrincipalReferences.push(references ?? []);
   };
-  runtime.apiClient = {
+  runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...v2Harness.apiClient,
     listContainers: async () => [
@@ -1259,7 +1260,7 @@ test("explorer store creates a V2 child under a writable shared root through the
         parentId: null,
       },
     ],
-  };
+  });
 
   try {
     const store = createExplorerStore(runtime);
@@ -1388,7 +1389,7 @@ test("explorer store moves an authenticated child container through the API and 
   runtime.signingFingerprint = signingFingerprint;
   runtime.signingKeyPair = signingKeyPair;
   runtime.userId = "user-1";
-  runtime.apiClient = {
+  runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...v2Harness.apiClient,
     listContainers: async () => remoteContainers,
@@ -1417,7 +1418,7 @@ test("explorer store moves an authenticated child container through the API and 
       }
       return response;
     },
-  };
+  });
 
   try {
     const store = createExplorerStore(runtime);
@@ -1492,7 +1493,7 @@ test("explorer store shares an authenticated container without reseeding legacy 
   runtime.signingFingerprint = signingFingerprint;
   runtime.signingKeyPair = signingKeyPair;
   runtime.userId = "user-1";
-  runtime.apiClient = {
+  runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...v2Harness.apiClient,
     getEncapsulationKey: async (requestedUserId: string) => {
@@ -1516,7 +1517,7 @@ test("explorer store shares an authenticated container without reseeding legacy 
       v2SyncCallCount += 1;
       return null;
     },
-  };
+  });
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
   try {
@@ -1652,11 +1653,11 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
   runtime.signingFingerprint = v2Fixture.signingFingerprint;
   runtime.signingKeyPair = v2Fixture.signingKeyPair;
   runtime.userId = v2Fixture.userId;
-  runtime.apiClient = {
+  runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...v2Fixture.apiClient,
     listContainers: async () => [],
-  };
+  });
 
   try {
     await ensureContainerTables(runtime.execSql);
@@ -1781,7 +1782,7 @@ test("explorer store refreshes remote containers on demand after initialization"
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
-  runtime.apiClient = {
+  runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     listContainers: async () => {
       listContainersCalls += 1;
@@ -1801,7 +1802,7 @@ test("explorer store refreshes remote containers on demand after initialization"
         },
       ];
     },
-  };
+  });
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
   try {

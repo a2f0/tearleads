@@ -49,13 +49,6 @@ type ContactsAppData = ReturnType<typeof useAppData>;
 type EncapsulationKeyPair = NonNullable<
   ContactsRuntime["encapsulationKeyPair"]
 >;
-type ContactsRuntimeV2Api = Pick<
-  ContactsAppData["apiClient"],
-  | "createDocumentV2"
-  | "getContainerV2WriterProjection"
-  | "getDocumentV2WriterProjection"
-  | "syncDocumentV2"
->;
 
 interface ContactState {
   doc: ContactsDocument;
@@ -76,8 +69,7 @@ interface ContactsSnapshot {
 }
 
 export interface ContactsRuntime {
-  apiClient: Pick<ContactsAppData["apiClient"], "getEncapsulationKey"> &
-    ContactsRuntimeV2Api;
+  apiClient: ContactsAppData["apiClient"];
   containerId: ContactsAppData["containerId"];
   dbStatus: ContactsAppData["dbStatus"];
   domainScope: ContactsAppData["domainScope"];
@@ -462,19 +454,6 @@ function resolveContactsV2Author(
   };
 }
 
-function resolveContactsV2Api(runtime: ContactsRuntime): ContactsRuntimeV2Api {
-  const { apiClient } = runtime;
-
-  return {
-    createDocumentV2: apiClient.createDocumentV2.bind(apiClient),
-    getContainerV2WriterProjection:
-      apiClient.getContainerV2WriterProjection.bind(apiClient),
-    getDocumentV2WriterProjection:
-      apiClient.getDocumentV2WriterProjection.bind(apiClient),
-    syncDocumentV2: apiClient.syncDocumentV2.bind(apiClient),
-  };
-}
-
 async function resolveContactWriterPublicKeys(
   state: ContactsStoreState,
   contact: ContactState,
@@ -534,7 +513,7 @@ async function ensureContactDocumentForSync(
     }
 
     const author = resolveContactsV2Author(state.runtime);
-    const apiClient = resolveContactsV2Api(state.runtime);
+    const { apiClient } = state.runtime;
     if (!author) {
       state.runtime.log(
         "Contacts: skipped V2 remote create because the V2 writer context is unavailable.",
@@ -622,7 +601,7 @@ async function syncSingleContact(
   }
 
   const author = resolveContactsV2Author(state.runtime);
-  const apiClient = resolveContactsV2Api(state.runtime);
+  const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
       "Contacts: skipped V2 sync because the V2 writer context is unavailable.",

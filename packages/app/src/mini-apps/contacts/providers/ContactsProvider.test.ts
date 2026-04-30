@@ -17,6 +17,7 @@ import type {
   DocumentV2CreateResponse,
   DocumentV2SyncResponse,
 } from "@tearleads/validators/response";
+import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import {
   assertAccessEventV2,
   assertWriteHeaderV2,
@@ -44,7 +45,7 @@ interface StoredContactState {
 function createUnavailableContactsApiClient(
   userIdToImport?: string,
 ): ContactsRuntime["apiClient"] {
-  return {
+  return createMockApiClient({
     createDocumentV2: async () => null,
     getContainerV2WriterProjection: async () => null,
     getDocumentV2WriterProjection: async () => null,
@@ -61,7 +62,7 @@ function createUnavailableContactsApiClient(
       };
     },
     syncDocumentV2: async () => null,
-  };
+  });
 }
 
 async function contactV2FixtureHash(label: string): Promise<string> {
@@ -269,7 +270,7 @@ async function createContactV2RuntimePatch(input: {
   };
 
   return {
-    apiClient: {
+    apiClient: createMockApiClient({
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: `${userId}-key`,
         signingKeyFingerprint: `${userId}-signing-fingerprint`,
@@ -313,7 +314,7 @@ async function createContactV2RuntimePatch(input: {
           commitLsn: syncCount === 1 ? "0/10" : "0/20",
         });
       },
-    },
+    }),
     organizationId: "organization-1",
     signingFingerprint,
     signingKeyPair,
@@ -584,7 +585,7 @@ test("contacts store keeps contact updates on V2 without recipient fanout", asyn
   });
   const instrumentedRuntime: ContactsRuntime = {
     ...runtime,
-    apiClient: {
+    apiClient: createMockApiClient({
       ...runtime.apiClient,
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: importedEncapsulationPublicKey,
@@ -592,7 +593,7 @@ test("contacts store keeps contact updates on V2 without recipient fanout", asyn
         signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
-    },
+    }),
   };
   const store = createContactsStore(instrumentedRuntime, persistence);
 
@@ -643,7 +644,7 @@ test("contacts store persists commitLsn and reuses it as minLsn on the next sync
   const runtime = await createSyncRuntime(encapsulationKeyPair, { syncCalls });
   const instrumentedRuntime: ContactsRuntime = {
     ...runtime,
-    apiClient: {
+    apiClient: createMockApiClient({
       ...runtime.apiClient,
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: importedEncapsulationPublicKey,
@@ -651,7 +652,7 @@ test("contacts store persists commitLsn and reuses it as minLsn on the next sync
         signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
-    },
+    }),
   };
   const store = createContactsStore(instrumentedRuntime, persistence);
 
