@@ -260,6 +260,12 @@ test("storeBlobContentKeyBundle stores exact active binding targets", async () =
     targets: envelopes,
   });
   expect(stored.targets).toEqual(envelopes);
+  expect(stored.currentTargets.blobKeyTargetHash).toBe(
+    currentTargets.blobKeyTargetHash,
+  );
+  expect(stored.currentTargets.blobAccessManifestHash).toBe(
+    currentTargets.blobAccessManifestHash,
+  );
 
   const omittedTargets = envelopes.slice(0, 1);
   await expect(

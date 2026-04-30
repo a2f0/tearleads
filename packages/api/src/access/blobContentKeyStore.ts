@@ -36,6 +36,11 @@ interface StoredBlobContentKeyBundle {
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
 }
 
+interface StoredBlobContentKeyBundleWithTargets
+  extends StoredBlobContentKeyBundle {
+  readonly currentTargets: CurrentBlobKekTargets;
+}
+
 interface StoreBlobContentKeyBundleInput {
   readonly blobId: string;
   readonly contentKeyEpoch: number;
@@ -557,7 +562,7 @@ async function refreshExistingBundleMetadata(input: {
 export async function storeBlobContentKeyBundle(
   input: StoreBlobContentKeyBundleInput,
   executor: BlobContentKeyExecutor = db,
-): Promise<StoredBlobContentKeyBundle> {
+): Promise<StoredBlobContentKeyBundleWithTargets> {
   if (executor === db) {
     return db.transaction((tx) => storeBlobContentKeyBundle(input, tx));
   }
@@ -585,24 +590,40 @@ export async function storeBlobContentKeyBundle(
     input.contentKeyEpoch,
     executor,
   );
+  // The store's validation pass is the authoritative current-target check.
+  // Returning that verified snapshot lets the mutation service assemble the
+  // response and write-header proof without resolving blob targets twice in
+  // the same transaction.
+  const withCurrentTargets = (
+    bundle: StoredBlobContentKeyBundle,
+  ): StoredBlobContentKeyBundleWithTargets => ({
+    ...bundle,
+    currentTargets,
+  });
 
   if (!existingBundle) {
-    return createBlobContentKeyBundle(input, executor);
+    return withCurrentTargets(
+      await createBlobContentKeyBundle(input, executor),
+    );
   }
 
   if (targetEnvelopeBundlesEqual(existingBundle.targets, input.targets)) {
-    return refreshExistingBundleMetadata({
+    return withCurrentTargets(
+      await refreshExistingBundleMetadata({
+        existingBundle,
+        nextBundle: input,
+        executor,
+      }),
+    );
+  }
+
+  return withCurrentTargets(
+    await addBlobContentKeyTargetsToExistingBundle({
       existingBundle,
       nextBundle: input,
       executor,
-    });
-  }
-
-  return addBlobContentKeyTargetsToExistingBundle({
-    existingBundle,
-    nextBundle: input,
-    executor,
-  });
+    }),
+  );
 }
 
 export async function storeBlobContentWriteHeader(
