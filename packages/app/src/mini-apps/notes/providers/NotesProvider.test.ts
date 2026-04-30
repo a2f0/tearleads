@@ -19,6 +19,7 @@ import type {
   StageBlobRequest,
 } from "@tearleads/validators/request";
 import type {
+  BlobV2AttachmentBindResponse,
   ContainerV2WriterProjectionResponse,
   DocumentV2CreateResponse,
   DocumentV2SyncResponse,
@@ -30,10 +31,14 @@ import {
   assertWriteHeaderV2,
 } from "../../../../test/helpers/keyingV2Assertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { createMemoryBlobStore } from "../../../data/blobs";
-import { decryptDocumentAttachmentBlobV2 } from "../../../data/documents/blobV2Runtime";
+import { type BlobBytes, createMemoryBlobStore } from "../../../data/blobs";
+import {
+  decryptDocumentAttachmentBlobV2,
+  uploadDocumentAttachmentV2,
+} from "../../../data/documents/blobV2Runtime";
 import { subscribeToPersistedDocuments } from "../../../data/documents/DocumentsProvider";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentsPersistence";
+import { createRemoteDocumentV2 } from "../../../data/documents/documentV2Runtime";
 import { createEmptyDriverLicenseDocument } from "../../../document-types/drivers-license/driverLicenseDocument";
 import type {
   LocalAttachmentRecord,
@@ -368,6 +373,9 @@ async function createNoteV2RuntimePatch(input: {
     blobId: string,
     request: BlobV2AttachmentBindRequest,
   ) => Promise<void> | void;
+  mapBindBlobAttachmentV2Response?: (
+    response: BlobV2AttachmentBindResponse,
+  ) => BlobV2AttachmentBindResponse;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }): Promise<NoteV2RuntimePatch> {
   const containerId = input.containerId ?? "root-container";
@@ -416,10 +424,13 @@ async function createNoteV2RuntimePatch(input: {
           return null;
         }
         await input.onBindBlobAttachmentV2?.(blobId, request);
-        const response = await createNoteV2AttachmentBindResponse({
+        const responseFixture = await createNoteV2AttachmentBindResponse({
           blobId,
           request,
         });
+        const response =
+          input.mapBindBlobAttachmentV2Response?.(responseFixture) ??
+          responseFixture;
         input.attachmentBinds?.push({ blobId, request });
         attachments.push({
           bindingId: response.bindingId,
@@ -1374,6 +1385,58 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
       writerProjection,
     }),
   ).rejects.toThrow("target hash is not canonical");
+});
+
+test("uploadDocumentAttachmentV2 rejects bind responses with tampered target material", async () => {
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const runtimePatch = await createNoteV2RuntimePatch({
+    encapsulationKeyPair,
+    mapBindBlobAttachmentV2Response: (response) => ({
+      ...response,
+      contentKeyBundle: {
+        ...response.contentKeyBundle,
+        targets: response.contentKeyBundle.targets.map((target, index) =>
+          index === 0
+            ? {
+                ...target,
+                wrappedKey: "tampered-wrapped-key",
+              }
+            : target,
+        ),
+      },
+    }),
+  });
+  const author = {
+    organizationId: runtimePatch.organizationId,
+    signerDeviceId: "test-device-1",
+    signerKeyFingerprint: runtimePatch.signingFingerprint,
+    signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
+    signerUserId: runtimePatch.userId,
+  };
+  const created = await createRemoteDocumentV2({
+    apiClient: runtimePatch.apiClient,
+    author,
+    containerId: "root-container",
+    documentId: "document-attachment-response-verification",
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  if (!created) {
+    throw new Error("Expected remote document fixture.");
+  }
+
+  await expect(
+    uploadDocumentAttachmentV2({
+      apiClient: runtimePatch.apiClient,
+      author,
+      bytes: new TextEncoder().encode("tampered response bytes") as BlobBytes,
+      documentId: created.documentId,
+      expectedBindingId: null,
+      signedAt: "2026-04-27T00:00:01.000Z",
+      slotId: "tampered-response-slot",
+      targetSecretKey: encapsulationKeyPair.secretKey,
+    }),
+  ).rejects.toThrow("content-key bundle mismatch");
 });
 
 test("notes store preserves a replacement queued during V2 attachment upload", async () => {

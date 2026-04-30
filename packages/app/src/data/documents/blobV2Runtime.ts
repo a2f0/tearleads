@@ -232,6 +232,10 @@ function sortBlobTargets<T extends BlobContentKeyTarget>(
   );
 }
 
+function serializeCanonical(value: unknown, label: string): string {
+  return serializeKeyingV2CanonicalJson(readCanonicalJson(value, label));
+}
+
 function readDocumentManifestIdentity(
   writerProjection: DocumentV2WriterProjectionResponse,
 ): DocumentManifestIdentity {
@@ -803,6 +807,24 @@ function contentKeyTargetReference(
   };
 }
 
+function readBlobKekTarget(
+  value: Record<string, unknown>,
+  label: string,
+): BlobContentKeyTarget {
+  return {
+    bindingId: readRecordString(value, "bindingId", label),
+    documentId: readRecordString(value, "documentId", label),
+    containerId: readRecordString(value, "containerId", label),
+    containerManifestHash: readRecordString(
+      value,
+      "containerManifestHash",
+      label,
+    ),
+    containerKeyEpochId: readRecordString(value, "containerKeyEpochId", label),
+    containerKeyEpoch: readRecordNumber(value, "containerKeyEpoch", label),
+  };
+}
+
 async function assertBlobContentKeyBundleTargetHash(
   bundle: BlobV2ContentKeyBundleRequest,
 ): Promise<void> {
@@ -812,6 +834,120 @@ async function assertBlobContentKeyBundleTargetHash(
   if (targetHash !== bundle.targetHash) {
     throw new Error("Blob V2 content-key target hash is not canonical");
   }
+}
+
+function normalizedBlobContentKeyBundle(
+  bundle: BlobV2ContentKeyBundleRequest,
+): BlobV2ContentKeyBundleRequest {
+  return {
+    contentKeyEpoch: bundle.contentKeyEpoch,
+    targetHash: bundle.targetHash,
+    targets: sortBlobTargets(bundle.targets),
+  };
+}
+
+function assertStringSetsEqual(input: {
+  actual: readonly string[];
+  expected: readonly string[];
+  message: string;
+}): void {
+  const actual = uniqueSortedStrings(input.actual);
+  const expected = uniqueSortedStrings(input.expected);
+  if (
+    actual.length !== expected.length ||
+    actual.some((value, index) => value !== expected[index])
+  ) {
+    throw new Error(input.message);
+  }
+}
+
+async function assertBlobAttachmentBindResponseTargets(input: {
+  bindingId: string;
+  blobId: string;
+  contentKeyBundle: BlobV2ContentKeyBundleRequest;
+  manifestIdentity: DocumentManifestIdentity;
+  response: BlobV2AttachmentBindResponse;
+  targetHash: string;
+  targets: readonly BlobContentKeyTarget[];
+}): Promise<void> {
+  // The bind route echoes key material that the client will persist and use for
+  // future decrypts. Treat it as untrusted until it canonically matches the
+  // request-derived targets and summaries.
+  if (input.response.contentKeyBundle.blobId !== input.blobId) {
+    throw new Error("Blob V2 attachment bind response blob id mismatch");
+  }
+
+  const responseContentKeyBundle = normalizedBlobContentKeyBundle({
+    contentKeyEpoch: input.response.contentKeyBundle.contentKeyEpoch,
+    targetHash: input.response.contentKeyBundle.targetHash,
+    targets: input.response.contentKeyBundle.targets,
+  });
+  await assertBlobContentKeyBundleTargetHash(responseContentKeyBundle);
+  if (
+    serializeCanonical(
+      responseContentKeyBundle,
+      "Blob V2 attachment bind response content-key bundle",
+    ) !==
+    serializeCanonical(
+      normalizedBlobContentKeyBundle(input.contentKeyBundle),
+      "Blob V2 attachment bind request content-key bundle",
+    )
+  ) {
+    throw new Error(
+      "Blob V2 attachment bind response content-key bundle mismatch",
+    );
+  }
+
+  const responseTargets = sortBlobTargets(
+    input.response.blobKekTargets.targets.map((target, index) =>
+      readBlobKekTarget(
+        target,
+        `Blob V2 attachment bind response KEK target[${index}]`,
+      ),
+    ),
+  );
+  const expectedTargets = sortBlobTargets(input.targets);
+  if (
+    serializeCanonical(
+      responseTargets,
+      "Blob V2 attachment bind response KEK targets",
+    ) !==
+    serializeCanonical(
+      expectedTargets,
+      "Blob V2 attachment bind request KEK targets",
+    )
+  ) {
+    throw new Error("Blob V2 attachment bind response KEK targets mismatch");
+  }
+
+  if (
+    input.response.blobKekTargets.blobId !== input.blobId ||
+    input.response.blobKekTargets.organizationId !==
+      input.manifestIdentity.organizationId ||
+    input.response.blobKekTargets.blobKeyTargetHash !== input.targetHash
+  ) {
+    throw new Error("Blob V2 attachment bind response KEK summary mismatch");
+  }
+  assertStringSetsEqual({
+    actual: input.response.blobKekTargets.activeBindingIds,
+    expected: [input.bindingId],
+    message: "Blob V2 attachment bind response active bindings mismatch",
+  });
+  assertStringSetsEqual({
+    actual: input.response.blobKekTargets.documentManifestHashes,
+    expected: [input.manifestIdentity.manifestHash],
+    message: "Blob V2 attachment bind response document manifests mismatch",
+  });
+  assertStringSetsEqual({
+    actual: input.response.blobKekTargets.linkedContainerManifestHashes,
+    expected: expectedTargets.map((target) => target.containerManifestHash),
+    message: "Blob V2 attachment bind response container manifests mismatch",
+  });
+  assertStringSetsEqual({
+    actual: input.response.blobKekTargets.linkedContainerKeyEpochIds,
+    expected: expectedTargets.map((target) => target.containerKeyEpochId),
+    message: "Blob V2 attachment bind response container KEKs mismatch",
+  });
 }
 
 export async function decryptDocumentAttachmentBlobV2({
@@ -1075,29 +1211,32 @@ async function signBlobAttachmentWriteHeader(input: {
   };
 }
 
-function assertBlobAttachmentBindResponse(input: {
+async function assertBlobAttachmentBindResponse(input: {
   bindingId: string;
   blobAccessManifestHash: string;
   blobId: string;
+  contentKeyBundle: BlobV2ContentKeyBundleRequest;
   documentId: string;
+  manifestIdentity: DocumentManifestIdentity;
   response: BlobV2AttachmentBindResponse;
   slotId: string;
   targetHash: string;
+  targets: readonly BlobContentKeyTarget[];
   writeHeaderHash: string;
-}): void {
+}): Promise<void> {
   if (
     input.response.blobId !== input.blobId ||
     input.response.bindingId !== input.bindingId ||
     input.response.documentId !== input.documentId ||
     input.response.slotId !== input.slotId ||
-    input.response.contentKeyBundle.targetHash !== input.targetHash ||
-    input.response.blobKekTargets.blobKeyTargetHash !== input.targetHash ||
     input.response.blobKekTargets.blobAccessManifestHash !==
       input.blobAccessManifestHash ||
     input.response.writeHeaderHash !== input.writeHeaderHash
   ) {
     throw new Error("Blob V2 attachment bind response did not match request");
   }
+
+  await assertBlobAttachmentBindResponseTargets(input);
 }
 
 function blobAttachmentStagedBlobRequest(
@@ -1195,14 +1334,17 @@ export async function uploadDocumentAttachmentV2({
     return null;
   }
 
-  assertBlobAttachmentBindResponse({
+  await assertBlobAttachmentBindResponse({
     bindingId,
     blobAccessManifestHash: material.blobAccessManifestHash,
     blobId,
+    contentKeyBundle: material.contentKeyBundle,
     documentId,
+    manifestIdentity: material.manifestIdentity,
     response,
     slotId,
     targetHash: material.targetHash,
+    targets: material.targets,
     writeHeaderHash,
   });
 
