@@ -1483,32 +1483,13 @@ test("buildDocumentV2SyncPlan signs document write headers with the current V2 a
   expect(verified.ok).toBe(true);
 });
 
-test("buildDocumentV2SyncPlan can explicitly omit content-key bundles for write probes", async () => {
-  const { author, createResponse, projection } = await createSyncFixture();
-  const plan = await buildDocumentV2SyncPlan({
-    author,
-    authorizingContainerPaths: [projectionPathRecords(projection)],
-    contentKeyBundle: createResponse.contentKeyBundle,
-    documentKekTargets: createResponse.documentKekTargets,
-    documentManifest: createResponse.accessManifest,
-    includeContentKeyBundle: false,
-    localVersionVector: null,
-    outgoingUpdates: [await createPreparedUpdate()],
-  });
-
-  expect(isDocumentV2SyncRequest(plan.request)).toBe(true);
-  expect(plan.request.outgoingUpdates).toHaveLength(1);
-  expect(plan.request.contentKeyBundle).toBeUndefined();
-});
-
-test("buildDocumentV2SyncPlan omits write authorization proof fields for read-only probes", async () => {
+test("buildDocumentV2SyncPlan omits write-only fields for read-only syncs", async () => {
   const { author, createResponse } = await createSyncFixture();
   const plan = await buildDocumentV2SyncPlan({
     author,
     contentKeyBundle: createResponse.contentKeyBundle,
     documentKekTargets: createResponse.documentKekTargets,
     documentManifest: createResponse.accessManifest,
-    includeContentKeyBundle: true,
     localVersionVector: "{}",
   });
 
@@ -1516,9 +1497,7 @@ test("buildDocumentV2SyncPlan omits write authorization proof fields for read-on
   expect(plan.request.outgoingUpdates).toEqual([]);
   expect(plan.request.documentManifest).toBeUndefined();
   expect(plan.request.authorizingContainerPaths).toBeUndefined();
-  expect(plan.request.contentKeyBundle?.targetHash).toBe(
-    createResponse.contentKeyBundle.targetHash,
-  );
+  expect(plan.request.contentKeyBundle).toBeUndefined();
 });
 
 test("buildDocumentV2SyncPlan rejects manifest bundles whose state does not derive the manifest", async () => {
