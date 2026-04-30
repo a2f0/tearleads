@@ -1,7 +1,7 @@
 import type {
-  PrincipalPolicySignedStateV2,
+  PrincipalPolicySignedState,
   PrincipalProjectionMember,
-  ReferencedPrincipalHeadV2,
+  ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
@@ -44,8 +44,8 @@ function projectionMemberFromStored(
 
 function collectReferencedPrincipalHeads(
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
-): ReferencedPrincipalHeadV2[] {
-  const headsByReference = new Map<string, ReferencedPrincipalHeadV2>();
+): ReferencedPrincipalHead[] {
+  const headsByReference = new Map<string, ReferencedPrincipalHead>();
 
   for (const path of paths) {
     for (const manifest of path) {
@@ -113,7 +113,7 @@ async function principalPolicyFromStored(input: {
     version: input.state.version,
     keyEpoch: input.state.keyEpoch,
     stateHash: input.state.stateHash,
-    state: input.state as PrincipalPolicySignedStateV2,
+    state: input.state as PrincipalPolicySignedState,
     projection,
     checkpoint: {
       principalType: input.state.principalType,

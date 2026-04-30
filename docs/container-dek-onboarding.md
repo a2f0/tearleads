@@ -1,4 +1,4 @@
-# Keying V2 Onboarding
+# Keying Onboarding
 
 ## Summary
 
@@ -17,8 +17,8 @@ After registration, every user has:
 
 - a default organization
 - a root container for that organization
-- a signed V2 root container manifest and container KEK wrap
-- an initialized V2 root metadata document with content-key targets
+- a signed root container manifest and container KEK wrap
+- an initialized root metadata document with content-key targets
 - a local "me" contact and persisted root container in SQLite
 
 The server never sees plaintext container KEKs or document/blob content keys.
@@ -38,7 +38,7 @@ organization:
 
 ```sql
 CREATE UNIQUE INDEX containers_org_root_idx
-  ON containers (organization_id) WHERE parent_id IS NULL;
+ ON containers (organization_id) WHERE parent_id IS NULL;
 ```
 
 This avoids a circular foreign key between organizations and containers.
@@ -50,10 +50,10 @@ This avoids a circular foreign key between organizations and containers.
 1. Generate signing and encapsulation key pairs (already existed).
 2. Create the initial organization policy and member envelope.
 3. Create the initial root metadata Loro update locally.
-4. Build and sign the V2 root container create request, including the initial
-   container KEK epoch and wrap for the registering user.
-5. Build and sign the V2 root metadata document create request, wrapping its
-   content key to the root container KEK target.
+4. Build and sign the root container create request, including the initial
+ container KEK epoch and wrap for the registering user.
+5. Build and sign the root metadata document create request, wrapping its
+ content key to the root container KEK target.
 6. Send all material in a single `POST /auth/register`.
 
 ### Server Side (atomic transaction)
@@ -66,9 +66,9 @@ transaction:
 2. Insert container (`organization_id = org.id`, `parent_id = NULL`).
 3. Insert user (`default_organization_id = org.id`).
 4. Store the initial organization policy.
-5. Verify and store the V2 root container manifest and KEK state.
-6. Verify and store the V2 root metadata document manifest, content-key
-   targets, and initial encrypted update.
+5. Verify and store the root container manifest and KEK state.
+6. Verify and store the root metadata document manifest, content-key
+ targets, and initial encrypted update.
 
 If the user's fingerprint already exists, the transaction rolls back and the
 endpoint returns 409.
@@ -84,7 +84,7 @@ The response includes `userId`, `organizationId`, `rootContainerId`,
 3. Persist a "me" contact in `address_book_projection` with `is_self = 1`.
 4. Authenticate using the challenge.
 
-The root metadata content key is recovered through the V2 document content-key
+The root metadata content key is recovered through the document content-key
 target bundle and root container KEK state.
 
 ## Crypto Functions
@@ -95,8 +95,8 @@ Wraps an existing DEK for one or more recipients without encrypting a payload.
 
 ```ts
 async function wrapDekForRecipients(
-  dek: Uint8Array,
-  recipientPublicKeys: Uint8Array[],
+ dek: Uint8Array,
+ recipientPublicKeys: Uint8Array[],
 ): Promise<RecipientEntry[]>
 ```
 
@@ -118,8 +118,8 @@ Recovers a DEK from a set of recipient entries using a secret key.
 
 ```ts
 async function unwrapDek(
-  recipients: RecipientEntry[],
-  secretKey: Uint8Array,
+ recipients: RecipientEntry[],
+ secretKey: Uint8Array,
 ): Promise<Uint8Array>
 ```
 
@@ -132,14 +132,14 @@ ML-KEM-1024, and decrypts the wrapped key via AES-256-GCM.
 
 ```ts
 interface PublicKeyRequest {
-  userId: string;
-  organizationId: string;
-  rootContainerId: string;
-  signingPublicKey: number[];
-  encapsulationPublicKey: number[];
-  initialOrganizationPolicy: InitialOrganizationPolicyRequest;
-  initialRootContainerV2: ContainerV2MutationRequest;
-  initialRootMetadataDocumentV2: DocumentV2CreateRequest;
+ userId: string;
+ organizationId: string;
+ rootContainerId: string;
+ signingPublicKey: number[];
+ encapsulationPublicKey: number[];
+ initialOrganizationPolicy: InitialOrganizationPolicyRequest;
+ initialRootContainer: ContainerMutationRequest;
+ initialRootMetadataDocument: DocumentCreateRequest;
 }
 ```
 
@@ -147,15 +147,15 @@ interface PublicKeyRequest {
 
 ```ts
 interface PublicKeyResponse {
-  message: string;
-  userId: string;
-  organizationId: string;
-  rootContainerId: string;
-  rootMetadataDocumentId: string;
-  rootMetadataAccessEpoch: number;
-  rootMetadataAccessStateHash: string;
-  rootMetadataDocumentV2: DocumentV2CreateResponse;
-  challenge: string;
+ message: string;
+ userId: string;
+ organizationId: string;
+ rootContainerId: string;
+ rootMetadataDocumentId: string;
+ rootMetadataAccessEpoch: number;
+ rootMetadataAccessStateHash: string;
+ rootMetadataDocument: DocumentCreateResponse;
+ challenge: string;
 }
 ```
 
@@ -165,10 +165,10 @@ interface PublicKeyResponse {
 
 ```sql
 CREATE TABLE IF NOT EXISTS containers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL,
-  parent_id UUID,
-  created_at TIMESTAMP NOT NULL DEFAULT now()
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ organization_id UUID NOT NULL,
+ parent_id UUID,
+ created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 ```
 
@@ -176,13 +176,13 @@ CREATE TABLE IF NOT EXISTS containers (
 
 ```sql
 CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  fingerprint TEXT NOT NULL UNIQUE,
-  signing_public_key TEXT NOT NULL,
-  encapsulation_public_key TEXT NOT NULL,
-  encapsulation_key_fingerprint TEXT NOT NULL,
-  default_organization_id UUID NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT now()
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ fingerprint TEXT NOT NULL UNIQUE,
+ signing_public_key TEXT NOT NULL,
+ encapsulation_public_key TEXT NOT NULL,
+ encapsulation_key_fingerprint TEXT NOT NULL,
+ default_organization_id UUID NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 ```
 
@@ -190,11 +190,11 @@ CREATE TABLE IF NOT EXISTS users (
 
 ```sql
 CREATE TABLE containers (
-  id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  parent_id TEXT,
-  metadata_document_id TEXT,
-  updated_at TEXT NOT NULL
+ id TEXT PRIMARY KEY,
+ organization_id TEXT NOT NULL,
+ parent_id TEXT,
+ metadata_document_id TEXT,
+ updated_at TEXT NOT NULL
 );
 ```
 
@@ -202,16 +202,16 @@ CREATE TABLE containers (
 
 ```sql
 CREATE TABLE address_book_projection (
-  address_book_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
-  encapsulation_public_key TEXT NOT NULL,
-  is_self INTEGER NOT NULL DEFAULT 0,
-  updated_at TEXT NOT NULL,
-  PRIMARY KEY (address_book_id, user_id)
+ address_book_id TEXT NOT NULL,
+ user_id TEXT NOT NULL,
+ encapsulation_public_key TEXT NOT NULL,
+ is_self INTEGER NOT NULL DEFAULT 0,
+ updated_at TEXT NOT NULL,
+ PRIMARY KEY (address_book_id, user_id)
 );
 
 CREATE UNIQUE INDEX address_book_projection_self_idx
-  ON address_book_projection (address_book_id) WHERE is_self = 1;
+ ON address_book_projection (address_book_id) WHERE is_self = 1;
 ```
 
 The partial unique index enforces at most one self-contact per address book at
@@ -224,10 +224,10 @@ state and selected container KEK epochs:
 
 1. Org admin publishes a signed principal state update and derived projection.
 2. Principal member envelopes wrap the organization/group key to the new
-   member.
+ member.
 3. Container grants update signed container access manifests.
 4. Additive container access can add container KEK wraps for the new principal
-   without rewriting descendant document/blob content-key targets.
+ without rewriting descendant document/blob content-key targets.
 5. Document/blob writes continue to target current container KEK epochs.
 
 Subtractive access changes create new container KEK epochs for future writes.

@@ -6,7 +6,7 @@ import {
   saveDocumentRecord,
 } from "./documentPersistence";
 
-test("document records persist V2 runtime columns", async () => {
+test("document records persist runtime columns", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-persistence-test",
   );
@@ -27,18 +27,18 @@ test("document records persist V2 runtime columns", async () => {
         id: "local-document-1",
         lastCommitLsn: "0/10",
         loroSnapshot: "snapshot-1",
-        v2ContentKeyBundle: JSON.stringify({
+        contentKeyBundle: JSON.stringify({
           contentKeyEpoch: 1,
           linkSetManifestHash: "document-manifest-hash-1",
         }),
-        v2DocumentKekTargets: JSON.stringify([
+        documentKekTargets: JSON.stringify([
           {
             containerId: "container-1",
             containerKeyEpoch: 1,
             containerManifestHash: "container-manifest-hash-1",
           },
         ]),
-        v2DocumentManifestBundle: JSON.stringify({
+        documentManifestBundle: JSON.stringify({
           eventHash: "event-hash-1",
           manifestHash: "document-manifest-hash-1",
         }),
@@ -58,18 +58,18 @@ test("document records persist V2 runtime columns", async () => {
       id: "local-document-1",
       lastCommitLsn: "0/10",
       loroSnapshot: "snapshot-1",
-      v2ContentKeyBundle: JSON.stringify({
+      contentKeyBundle: JSON.stringify({
         contentKeyEpoch: 1,
         linkSetManifestHash: "document-manifest-hash-1",
       }),
-      v2DocumentKekTargets: JSON.stringify([
+      documentKekTargets: JSON.stringify([
         {
           containerId: "container-1",
           containerKeyEpoch: 1,
           containerManifestHash: "container-manifest-hash-1",
         },
       ]),
-      v2DocumentManifestBundle: JSON.stringify({
+      documentManifestBundle: JSON.stringify({
         eventHash: "event-hash-1",
         manifestHash: "document-manifest-hash-1",
       }),

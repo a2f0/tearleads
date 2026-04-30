@@ -1,9 +1,9 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type {
-  ContainerV2MutationRequest,
-  DocumentV2CreateRequest,
-  DocumentV2LinkSetMutationRequest,
-  DocumentV2SyncRequest,
+  ContainerMutationRequest,
+  DocumentCreateRequest,
+  DocumentLinkSetMutationRequest,
+  DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
@@ -45,7 +45,7 @@ async function captureHttpCall(request: Request): Promise<CapturedHttpCall> {
   };
 }
 
-function createContainerV2MutationRequest(): ContainerV2MutationRequest {
+function createContainerMutationRequest(): ContainerMutationRequest {
   return {
     event: { eventType: "container.create" },
     body: { eventType: "container.create" },
@@ -56,7 +56,7 @@ function createContainerV2MutationRequest(): ContainerV2MutationRequest {
   };
 }
 
-function createContainerV2MutationResponse() {
+function createContainerMutationResponse() {
   return {
     containerId: "container-1",
     organizationId: "organization-1",
@@ -91,7 +91,7 @@ function createContainerV2MutationResponse() {
   };
 }
 
-function createDocumentV2LinkSetMutationRequest(): DocumentV2LinkSetMutationRequest {
+function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationRequest {
   return {
     event: { eventType: "document.link" },
     body: { eventType: "document.link" },
@@ -123,7 +123,7 @@ function createDocumentV2LinkSetMutationRequest(): DocumentV2LinkSetMutationRequ
   };
 }
 
-function createDocumentV2LinkSetMutationResponse() {
+function createDocumentLinkSetMutationResponse() {
   return {
     id: "document-1",
     accessManifest: {
@@ -170,7 +170,7 @@ function createDocumentV2LinkSetMutationResponse() {
   };
 }
 
-function createDocumentV2CreateRequest(): DocumentV2CreateRequest {
+function createDocumentCreateRequest(): DocumentCreateRequest {
   return {
     event: { eventType: "document.link" },
     body: { eventType: "document.link" },
@@ -196,14 +196,14 @@ function createDocumentV2CreateRequest(): DocumentV2CreateRequest {
   };
 }
 
-function createDocumentV2CreateResponse() {
+function createDocumentCreateResponse() {
   return {
-    ...createDocumentV2LinkSetMutationResponse(),
+    ...createDocumentLinkSetMutationResponse(),
     createdAt: "2026-04-28T00:00:00.000Z",
   };
 }
 
-function createDocumentV2SyncRequest(): DocumentV2SyncRequest {
+function createDocumentSyncRequest(): DocumentSyncRequest {
   return {
     contentKeyEpoch: 1,
     expectedLinkSetManifestHash: "document-manifest-hash",
@@ -213,8 +213,8 @@ function createDocumentV2SyncRequest(): DocumentV2SyncRequest {
   };
 }
 
-function createDocumentV2SyncResponse() {
-  const mutationResponse = createDocumentV2LinkSetMutationResponse();
+function createDocumentSyncResponse() {
+  const mutationResponse = createDocumentLinkSetMutationResponse();
 
   return {
     acceptedOutgoingUpdateIds: [],
@@ -287,7 +287,7 @@ test("returns null on network error", async () => {
 
 test("includes backend error details in onError output for non-2xx responses", async () => {
   server.use(
-    http.post(`${apiBaseUrl}/v2/containers/:containerId/share`, () => {
+    http.post(`${apiBaseUrl}/containers/:containerId/share`, () => {
       return HttpResponse.json(
         {
           error: "Stale container manifest",
@@ -307,35 +307,33 @@ test("includes backend error details in onError output for non-2xx responses", a
   });
 
   expect(
-    await client.shareContainerV2(
+    await client.shareContainer(
       "container-1",
-      createContainerV2MutationRequest(),
+      createContainerMutationRequest(),
     ),
   ).toBeNull();
   expect(errors).toEqual([
-    "POST /v2/containers/container-1/share: 409 Conflict: Stale container manifest",
+    "POST /containers/container-1/share: 409 Conflict: Stale container manifest",
   ]);
 });
 
-test("posts signed V2 container mutations to the V2 route namespace", async () => {
+test("posts signed container mutations to the route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
     http.all(`${apiBaseUrl}/*`, async ({ request }) => {
       calls.push(await captureHttpCall(request));
-      return HttpResponse.json(createContainerV2MutationResponse());
+      return HttpResponse.json(createContainerMutationResponse());
     }),
   );
 
   const client = new ApiClient(apiBaseUrl);
-  const mutation = createContainerV2MutationRequest();
+  const mutation = createContainerMutationRequest();
 
-  expect(await client.createContainerV2(mutation)).not.toBeNull();
-  expect(await client.shareContainerV2("container-1", mutation)).not.toBeNull();
-  expect(
-    await client.revokeContainerV2("container-1", mutation),
-  ).not.toBeNull();
-  expect(await client.rekeyContainerV2("container-1", mutation)).not.toBeNull();
-  expect(await client.moveContainerV2("container-1", mutation)).not.toBeNull();
+  expect(await client.createContainer(mutation)).not.toBeNull();
+  expect(await client.shareContainer("container-1", mutation)).not.toBeNull();
+  expect(await client.revokeContainer("container-1", mutation)).not.toBeNull();
+  expect(await client.rekeyContainer("container-1", mutation)).not.toBeNull();
+  expect(await client.moveContainer("container-1", mutation)).not.toBeNull();
 
   expect(
     calls.map((call) => ({
@@ -346,46 +344,46 @@ test("posts signed V2 container mutations to the V2 route namespace", async () =
   ).toEqual([
     {
       body: JSON.stringify(mutation),
-      input: `${apiBaseUrl}/v2/containers`,
+      input: `${apiBaseUrl}/containers`,
       method: "POST",
     },
     {
       body: JSON.stringify(mutation),
-      input: `${apiBaseUrl}/v2/containers/container-1/share`,
+      input: `${apiBaseUrl}/containers/container-1/share`,
       method: "POST",
     },
     {
       body: JSON.stringify(mutation),
-      input: `${apiBaseUrl}/v2/containers/container-1/revoke`,
+      input: `${apiBaseUrl}/containers/container-1/revoke`,
       method: "POST",
     },
     {
       body: JSON.stringify(mutation),
-      input: `${apiBaseUrl}/v2/containers/container-1/rekey`,
+      input: `${apiBaseUrl}/containers/container-1/rekey`,
       method: "POST",
     },
     {
       body: JSON.stringify(mutation),
-      input: `${apiBaseUrl}/v2/containers/container-1/move`,
+      input: `${apiBaseUrl}/containers/container-1/move`,
       method: "POST",
     },
   ]);
 });
 
-test("posts signed V2 document link-set mutations to the V2 route namespace", async () => {
+test("posts signed document link-set mutations to the route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
     http.all(`${apiBaseUrl}/*`, async ({ request }) => {
       calls.push(await captureHttpCall(request));
-      return HttpResponse.json(createDocumentV2LinkSetMutationResponse());
+      return HttpResponse.json(createDocumentLinkSetMutationResponse());
     }),
   );
 
   const client = new ApiClient(apiBaseUrl);
-  const mutation = createDocumentV2LinkSetMutationRequest();
+  const mutation = createDocumentLinkSetMutationRequest();
 
-  expect(await client.linkDocumentV2("document-1", mutation)).not.toBeNull();
-  expect(await client.unlinkDocumentV2("document-1", mutation)).not.toBeNull();
+  expect(await client.linkDocument("document-1", mutation)).not.toBeNull();
+  expect(await client.unlinkDocument("document-1", mutation)).not.toBeNull();
 
   expect(
     calls.map((call) => ({
@@ -396,35 +394,35 @@ test("posts signed V2 document link-set mutations to the V2 route namespace", as
   ).toEqual([
     {
       body: JSON.stringify(mutation),
-      input: `${apiBaseUrl}/v2/documents/document-1/link`,
+      input: `${apiBaseUrl}/documents/document-1/link`,
       method: "POST",
     },
     {
       body: JSON.stringify(mutation),
-      input: `${apiBaseUrl}/v2/documents/document-1/unlink`,
+      input: `${apiBaseUrl}/documents/document-1/unlink`,
       method: "POST",
     },
   ]);
 });
 
-test("posts signed V2 document create and sync mutations to the V2 route namespace", async () => {
+test("posts signed document create and sync mutations to the route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
     http.all(`${apiBaseUrl}/*`, async ({ request }) => {
       calls.push(await captureHttpCall(request));
       const body = request.url.endsWith("/sync")
-        ? createDocumentV2SyncResponse()
-        : createDocumentV2CreateResponse();
+        ? createDocumentSyncResponse()
+        : createDocumentCreateResponse();
       return HttpResponse.json(body);
     }),
   );
 
   const client = new ApiClient(apiBaseUrl);
-  const createRequest = createDocumentV2CreateRequest();
-  const syncRequest = createDocumentV2SyncRequest();
+  const createRequest = createDocumentCreateRequest();
+  const syncRequest = createDocumentSyncRequest();
 
-  expect(await client.createDocumentV2(createRequest)).not.toBeNull();
-  expect(await client.syncDocumentV2("document-1", syncRequest)).not.toBeNull();
+  expect(await client.createDocument(createRequest)).not.toBeNull();
+  expect(await client.syncDocument("document-1", syncRequest)).not.toBeNull();
 
   expect(
     calls.map((call) => ({
@@ -435,12 +433,12 @@ test("posts signed V2 document create and sync mutations to the V2 route namespa
   ).toEqual([
     {
       body: JSON.stringify(createRequest),
-      input: `${apiBaseUrl}/v2/documents`,
+      input: `${apiBaseUrl}/documents`,
       method: "POST",
     },
     {
       body: JSON.stringify(syncRequest),
-      input: `${apiBaseUrl}/v2/documents/document-1/sync`,
+      input: `${apiBaseUrl}/documents/document-1/sync`,
       method: "POST",
     },
   ]);

@@ -1,26 +1,26 @@
 import { isPlainObject } from "../isPlainObject";
 import { hasStringProperty } from "../util";
 
-export interface ContainerV2ManifestBundle {
+export interface ContainerManifestBundle {
   event: Record<string, unknown>;
   manifest: Record<string, unknown>;
   manifestHash: string;
   state: Record<string, unknown>;
 }
 
-export interface ContainerV2MutationRequest {
+export interface ContainerMutationRequest {
   event: Record<string, unknown>;
   body: unknown;
   expectedManifestHash: string;
   manifest: Record<string, unknown>;
-  previousManifest?: ContainerV2ManifestBundle | null;
-  previousContainerPath?: ContainerV2ManifestBundle[];
-  parentContainerPath?: ContainerV2ManifestBundle[];
-  destinationParentContainerPath?: ContainerV2ManifestBundle[];
+  previousManifest?: ContainerManifestBundle | null;
+  previousContainerPath?: ContainerManifestBundle[];
+  parentContainerPath?: ContainerManifestBundle[];
+  destinationParentContainerPath?: ContainerManifestBundle[];
   principalPolicies?: Record<string, unknown>[];
   keyEpoch: Record<string, unknown>;
   wraps: Record<string, unknown>[];
-  containerManifestHistory?: ContainerV2ManifestBundle[];
+  containerManifestHistory?: ContainerManifestBundle[];
   parentKekState?: Record<string, unknown> | null;
   userRecipientKeys?: Record<string, unknown>[];
 }
@@ -35,9 +35,9 @@ function isOptionalRecordArray(
   return value === undefined || isRecordArray(value);
 }
 
-function isContainerV2ManifestBundle(
+function isContainerManifestBundle(
   value: unknown,
-): value is ContainerV2ManifestBundle {
+): value is ContainerManifestBundle {
   const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
   const manifest = isPlainObject(value)
     ? Reflect.get(value, "manifest")
@@ -54,16 +54,16 @@ function isContainerV2ManifestBundle(
   );
 }
 
-function isContainerV2ManifestBundleArray(
+function isContainerManifestBundleArray(
   value: unknown,
-): value is ContainerV2ManifestBundle[] {
-  return Array.isArray(value) && value.every(isContainerV2ManifestBundle);
+): value is ContainerManifestBundle[] {
+  return Array.isArray(value) && value.every(isContainerManifestBundle);
 }
 
-function isOptionalContainerV2ManifestBundleArray(
+function isOptionalContainerManifestBundleArray(
   value: unknown,
-): value is ContainerV2ManifestBundle[] | undefined {
-  return value === undefined || isContainerV2ManifestBundleArray(value);
+): value is ContainerManifestBundle[] | undefined {
+  return value === undefined || isContainerManifestBundleArray(value);
 }
 
 function isOptionalParentKekState(
@@ -72,9 +72,9 @@ function isOptionalParentKekState(
   return value === undefined || value === null || isPlainObject(value);
 }
 
-export function isContainerV2MutationRequest(
+export function isContainerMutationRequest(
   value: unknown,
-): value is ContainerV2MutationRequest {
+): value is ContainerMutationRequest {
   const previousManifest = isPlainObject(value)
     ? Reflect.get(value, "previousManifest")
     : undefined;
@@ -119,24 +119,24 @@ export function isContainerV2MutationRequest(
     isPlainObject(manifest) &&
     (previousManifest === undefined ||
       previousManifest === null ||
-      isContainerV2ManifestBundle(previousManifest)) &&
-    isOptionalContainerV2ManifestBundleArray(previousContainerPath) &&
-    isOptionalContainerV2ManifestBundleArray(parentContainerPath) &&
-    isOptionalContainerV2ManifestBundleArray(destinationParentContainerPath) &&
+      isContainerManifestBundle(previousManifest)) &&
+    isOptionalContainerManifestBundleArray(previousContainerPath) &&
+    isOptionalContainerManifestBundleArray(parentContainerPath) &&
+    isOptionalContainerManifestBundleArray(destinationParentContainerPath) &&
     isOptionalRecordArray(principalPolicies) &&
     isPlainObject(keyEpoch) &&
     isRecordArray(wraps) &&
-    isOptionalContainerV2ManifestBundleArray(containerManifestHistory) &&
+    isOptionalContainerManifestBundleArray(containerManifestHistory) &&
     isOptionalParentKekState(parentKekState) &&
     isOptionalRecordArray(userRecipientKeys)
   );
 }
 
-export function isOptionalContainerV2MutationRequestArray(
+export function isOptionalContainerMutationRequestArray(
   value: unknown,
-): value is ContainerV2MutationRequest[] | undefined {
+): value is ContainerMutationRequest[] | undefined {
   return (
     value === undefined ||
-    (Array.isArray(value) && value.every(isContainerV2MutationRequest))
+    (Array.isArray(value) && value.every(isContainerMutationRequest))
   );
 }

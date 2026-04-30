@@ -1,12 +1,12 @@
 import { useCallback } from "react";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/containers";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
-import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
-import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
+import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
 import {
-  type RelinkRemoteDocumentV2Result,
-  relinkRemoteDocumentV2,
-} from "../../../data/documents/documentV2Runtime";
+  type RelinkRemoteDocumentResult,
+  relinkRemoteDocument,
+} from "../../../data/documents/documentRuntime";
+import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
 import { getDocumentByLocalId } from "../documentSummaries";
 import {
   createExplorerDocumentsRuntime,
@@ -38,10 +38,10 @@ function getMovedDocumentContainerId(
   return linkedContainerIds[0] ?? null;
 }
 
-function resolveExplorerDocumentV2MutationContext(
+function resolveExplorerDocumentMutationContext(
   appData: ExplorerDocumentsRuntimeAppData,
 ): {
-  author: Parameters<typeof relinkRemoteDocumentV2>[0]["author"];
+  author: Parameters<typeof relinkRemoteDocument>[0]["author"];
   targetSecretKey: Uint8Array;
 } | null {
   if (
@@ -52,7 +52,7 @@ function resolveExplorerDocumentV2MutationContext(
     !appData.userId
   ) {
     appData.log(
-      "Explorer: V2 document mutation skipped because the local key context is unavailable",
+      "Explorer: document mutation skipped because the local key context is unavailable",
     );
     return null;
   }
@@ -60,9 +60,7 @@ function resolveExplorerDocumentV2MutationContext(
   return {
     author: {
       organizationId: appData.organizationId,
-      signerDeviceId: createDocumentV2SignerDeviceId(
-        appData.signingFingerprint,
-      ),
+      signerDeviceId: createDocumentSignerDeviceId(appData.signingFingerprint),
       signerKeyFingerprint: appData.signingFingerprint,
       signerPrivateKey: appData.signingKeyPair.signingPrivateKey,
       signerUserId: appData.userId,
@@ -89,16 +87,16 @@ async function mutateExplorerDocumentLinkSet(params: {
   noteId: string;
   operation: "link" | "unlink";
   targetContainerId: string;
-}): Promise<RelinkRemoteDocumentV2Result | null> {
+}): Promise<RelinkRemoteDocumentResult | null> {
   const { appData, documentId, noteId, operation, targetContainerId } = params;
-  const mutationContext = resolveExplorerDocumentV2MutationContext(appData);
+  const mutationContext = resolveExplorerDocumentMutationContext(appData);
   if (!mutationContext) {
     return null;
   }
 
-  let result: RelinkRemoteDocumentV2Result | null;
+  let result: RelinkRemoteDocumentResult | null;
   try {
-    result = await relinkRemoteDocumentV2({
+    result = await relinkRemoteDocument({
       apiClient: appData.apiClient,
       author: mutationContext.author,
       documentId,
@@ -129,7 +127,7 @@ async function mutateExplorerDocumentLinkSet(params: {
 }
 
 function explorerDocumentMoveResult(input: {
-  document: RelinkRemoteDocumentV2Result;
+  document: RelinkRemoteDocumentResult;
   nextContainerId: string;
   queueBaselineAfterRelink?: boolean;
   status: MoveExplorerDocumentStatus;
@@ -142,7 +140,7 @@ function explorerDocumentMoveResult(input: {
     queueBaselineAfterRelink:
       input.queueBaselineAfterRelink ?? input.document.contentKeyRotated,
     status: input.status,
-    v2State: input.document.persistedState,
+    remoteState: input.document.persistedState,
   };
 }
 
@@ -275,7 +273,7 @@ async function relinkExplorerNoteLocally(params: {
   queueBaselineAfterRelink?: boolean;
   requestSync: boolean;
   targetContainerId: string;
-  v2State?: RelinkRemoteDocumentV2Result["persistedState"] | undefined;
+  remoteState?: RelinkRemoteDocumentResult["persistedState"] | undefined;
 }) {
   const {
     accessEpoch,
@@ -287,7 +285,7 @@ async function relinkExplorerNoteLocally(params: {
     queueBaselineAfterRelink,
     requestSync,
     targetContainerId,
-    v2State,
+    remoteState,
   } = params;
   const documentId = note.documentId;
   if (!documentId) {
@@ -298,7 +296,7 @@ async function relinkExplorerNoteLocally(params: {
     accessEpoch,
     ...(accessStateHash === undefined ? {} : { accessStateHash }),
     containerId: targetContainerId,
-    ...v2State,
+    ...remoteState,
     documentId,
     localId: note.id,
     queueBaselineAfterRelink,
@@ -329,7 +327,7 @@ async function relinkExplorerNoteAfterStructuralMutation(params: {
   note: DocumentSummary;
   queueBaselineAfterRelink?: boolean;
   targetContainerId: string;
-  v2State?: RelinkRemoteDocumentV2Result["persistedState"] | undefined;
+  remoteState?: RelinkRemoteDocumentResult["persistedState"] | undefined;
 }) {
   return relinkExplorerNoteLocally({
     ...params,
@@ -390,7 +388,7 @@ async function moveExplorerNote(params: {
     note,
     queueBaselineAfterRelink: movedDocument.queueBaselineAfterRelink,
     targetContainerId: nextContainerId,
-    v2State: movedDocument.v2State,
+    remoteState: movedDocument.remoteState,
   });
   if (!movedNote) {
     return { linksChanged: true, note: null };
@@ -456,7 +454,7 @@ async function linkExplorerNote(params: {
     note,
     queueBaselineAfterRelink: linkedDocument.contentKeyRotated,
     targetContainerId: note.containerId,
-    v2State: linkedDocument.persistedState,
+    remoteState: linkedDocument.persistedState,
   });
   if (!linkedNote) {
     return null;
@@ -526,7 +524,7 @@ async function unlinkExplorerLinkedNote(params: {
     note,
     queueBaselineAfterRelink: unlinkedDocument.contentKeyRotated,
     targetContainerId: nextContainerId,
-    v2State: unlinkedDocument.persistedState,
+    remoteState: unlinkedDocument.persistedState,
   });
   if (!unlinkedNote) {
     return null;

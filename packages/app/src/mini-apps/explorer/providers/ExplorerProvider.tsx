@@ -31,14 +31,14 @@ import {
   type ContainerMetadataDocument,
   type ContainerState,
   createExplorerSyncAgent,
-  createRemoteExplorerContainerV2,
+  createRemoteExplorerContainer,
   type ExplorerContainerPatch,
   type ExplorerRuntime,
   type ExplorerSyncAgent,
   type ExplorerSyncState,
   getDefaultContainerName,
-  moveRemoteExplorerContainerV2,
-  shareRemoteExplorerContainerV2,
+  moveRemoteExplorerContainer,
+  shareRemoteExplorerContainer,
 } from "./explorerSyncAgent";
 
 interface ExplorerContextValue {
@@ -208,9 +208,9 @@ function resetExplorerStore(state: ExplorerStoreState) {
 type NullableExplorerDocumentField =
   | "accessStateHash"
   | "lastCommitLsn"
-  | "v2ContentKeyBundle"
-  | "v2DocumentKekTargets"
-  | "v2DocumentManifestBundle";
+  | "contentKeyBundle"
+  | "documentKekTargets"
+  | "documentManifestBundle";
 
 function resolveNullableExplorerDocumentField(
   patch: Partial<ExplorerContainerPatch>,
@@ -272,22 +272,22 @@ async function persistContainerState(
       containerState.record.lastCommitLsn,
       documentIdChanged,
     ),
-    v2ContentKeyBundle: resolveNullableExplorerDocumentField(
+    contentKeyBundle: resolveNullableExplorerDocumentField(
       patch,
-      "v2ContentKeyBundle",
-      containerState.record.v2ContentKeyBundle,
+      "contentKeyBundle",
+      containerState.record.contentKeyBundle,
       securityContextChanged,
     ),
-    v2DocumentKekTargets: resolveNullableExplorerDocumentField(
+    documentKekTargets: resolveNullableExplorerDocumentField(
       patch,
-      "v2DocumentKekTargets",
-      containerState.record.v2DocumentKekTargets,
+      "documentKekTargets",
+      containerState.record.documentKekTargets,
       securityContextChanged,
     ),
-    v2DocumentManifestBundle: resolveNullableExplorerDocumentField(
+    documentManifestBundle: resolveNullableExplorerDocumentField(
       patch,
-      "v2DocumentManifestBundle",
-      containerState.record.v2DocumentManifestBundle,
+      "documentManifestBundle",
+      containerState.record.documentManifestBundle,
       securityContextChanged,
     ),
   };
@@ -313,7 +313,7 @@ async function buildRemoteChildContainerState(
   doc: ContainerMetadataDocument,
   initialRecord: DocumentRecord,
 ) {
-  const created = await createRemoteExplorerContainerV2({
+  const created = await createRemoteExplorerContainer({
     containerId: childId,
     parentContainerId: parentState.container.id,
     runtime: state.runtime,
@@ -439,7 +439,7 @@ async function createChildContainer(
 
   if (
     !resolvedChildState.record.documentId ||
-    resolvedChildState.record.v2ContentKeyBundle
+    resolvedChildState.record.contentKeyBundle
   ) {
     await syncAgent.enqueuePendingContainerUpdate(
       resolvedChildState.container.id,
@@ -552,7 +552,7 @@ async function shareExplorerContainerWithUser(
     return null;
   }
 
-  const shared = await shareRemoteExplorerContainerV2({
+  const shared = await shareRemoteExplorerContainer({
     accessLevel: "write",
     containerId,
     recipientUserId: userId,
@@ -571,9 +571,9 @@ async function shareExplorerContainerWithUser(
     accessStateHash: shared.accessManifestHash,
     documentId: shared.metadataDocumentId,
     metadataDocumentId: shared.metadataDocumentId,
-    v2ContentKeyBundle: null,
-    v2DocumentKekTargets: null,
-    v2DocumentManifestBundle: null,
+    contentKeyBundle: null,
+    documentKekTargets: null,
+    documentManifestBundle: null,
   });
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
@@ -610,7 +610,7 @@ async function moveExplorerContainer(
     return null;
   }
 
-  const moved = await moveRemoteExplorerContainerV2({
+  const moved = await moveRemoteExplorerContainer({
     containerId,
     parentContainerId: parentId,
     runtime: state.runtime,

@@ -1,17 +1,17 @@
 import type {
-  AccessEventTypeV2,
-  AccessObjectKindV2,
-  ContentRecordEncryptionSuiteV2,
-  KekRecipientKindV2,
-  KeyingV2CanonicalJson,
-  ManagedPrincipalKindV2,
+  AccessEventType,
+  AccessObjectKind,
+  ContentRecordEncryptionSuite,
+  KekRecipientKind,
+  KeyingCanonicalJson,
+  ManagedPrincipalKind,
   ManagedRecipientPrincipalType,
   PrincipalProjectionRole,
   PrincipalStateMembershipMode,
   PrincipalStateMemberType,
   PrincipalStatePayloadCipherSuite,
-  ReferencedPrincipalHeadV2,
-  WriteHeaderV2,
+  ReferencedPrincipalHead,
+  WriteHeader,
 } from "@tearleads/crypto";
 import {
   documents,
@@ -244,8 +244,8 @@ export const accessEvents = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     version: integer("version").notNull(),
     eventId: text("event_id").notNull(),
-    eventType: text("event_type").$type<AccessEventTypeV2>().notNull(),
-    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    eventType: text("event_type").$type<AccessEventType>().notNull(),
+    objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
     objectId: text("object_id").notNull(),
     organizationId: text("organization_id").notNull(),
     previousManifestHash: text("previous_manifest_hash"),
@@ -253,7 +253,7 @@ export const accessEvents = pgTable(
       .$type<string[]>()
       .notNull(),
     bodyHash: text("body_hash").notNull(),
-    body: jsonb("body").$type<KeyingV2CanonicalJson>().notNull(),
+    body: jsonb("body").$type<KeyingCanonicalJson>().notNull(),
     eventHash: text("event_hash").notNull(),
     signerUserId: text("signer_user_id").notNull(),
     signerDeviceId: text("signer_device_id").notNull(),
@@ -278,7 +278,7 @@ export const accessManifests = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     version: integer("version").notNull(),
-    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
     objectId: text("object_id").notNull(),
     organizationId: text("organization_id").notNull(),
     epoch: integer("epoch").notNull(),
@@ -287,11 +287,11 @@ export const accessManifests = pgTable(
     structuralHash: text("structural_hash").notNull(),
     grantRoot: text("grant_root").notNull(),
     referencedPrincipalHeads: jsonb("referenced_principal_heads")
-      .$type<ReferencedPrincipalHeadV2[]>()
+      .$type<ReferencedPrincipalHead[]>()
       .notNull(),
     keyTargetHash: text("key_target_hash").notNull(),
     manifestHash: text("manifest_hash").notNull(),
-    state: jsonb("state").$type<KeyingV2CanonicalJson>().notNull(),
+    state: jsonb("state").$type<KeyingCanonicalJson>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -310,7 +310,7 @@ export const accessManifestHeads = pgTable(
   "access_manifest_heads",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
     objectId: text("object_id").notNull(),
     organizationId: text("organization_id").notNull(),
     epoch: integer("epoch").notNull(),
@@ -358,7 +358,7 @@ export const containerKeyWraps = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     containerKeyEpochId: text("container_key_epoch_id").notNull(),
-    recipientKind: text("recipient_kind").$type<KekRecipientKindV2>().notNull(),
+    recipientKind: text("recipient_kind").$type<KekRecipientKind>().notNull(),
     recipientId: text("recipient_id").notNull(),
     recipientKeyEpochId: text("recipient_key_epoch_id").notNull(),
     recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
@@ -389,7 +389,7 @@ export const accessEventDependencyProjection = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     eventHash: text("event_hash").notNull(),
-    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
     objectId: text("object_id").notNull(),
     dependencyManifestHash: text("dependency_manifest_hash").notNull(),
     dependencyIndex: integer("dependency_index").notNull(),
@@ -413,10 +413,10 @@ export const accessManifestPrincipalHeadProjection = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     manifestHash: text("manifest_hash").notNull(),
-    objectKind: text("object_kind").$type<AccessObjectKindV2>().notNull(),
+    objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
     objectId: text("object_id").notNull(),
     principalType: text("principal_type")
-      .$type<ManagedPrincipalKindV2>()
+      .$type<ManagedPrincipalKind>()
       .notNull(),
     principalId: text("principal_id").notNull(),
     version: integer("version").notNull(),
@@ -496,7 +496,7 @@ export const documentContentKeyTargets = pgTable(
     containerKeyEpoch: integer("container_key_epoch").notNull(),
     wrappedKey: text("wrapped_key").notNull(),
     wrappingMetadata: jsonb("wrapping_metadata")
-      .$type<KeyingV2CanonicalJson>()
+      .$type<KeyingCanonicalJson>()
       .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -524,12 +524,12 @@ export const documentContentWriteHeaders = pgTable(
     accessManifestHash: text("access_manifest_hash").notNull(),
     targetHash: text("target_hash").notNull(),
     encryptionSuite: text("encryption_suite")
-      .$type<ContentRecordEncryptionSuiteV2>()
+      .$type<ContentRecordEncryptionSuite>()
       .notNull(),
     contentRecordId: text("content_record_id").notNull(),
     nonceDomainHash: text("nonce_domain_hash").notNull(),
     headerHash: text("header_hash").notNull(),
-    header: jsonb("header").$type<WriteHeaderV2>().notNull(),
+    header: jsonb("header").$type<WriteHeader>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -588,7 +588,7 @@ export const blobContentKeyTargets = pgTable(
     containerKeyEpoch: integer("container_key_epoch").notNull(),
     wrappedKey: text("wrapped_key").notNull(),
     wrappingMetadata: jsonb("wrapping_metadata")
-      .$type<KeyingV2CanonicalJson>()
+      .$type<KeyingCanonicalJson>()
       .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -617,12 +617,12 @@ export const blobContentWriteHeaders = pgTable(
     accessManifestHash: text("access_manifest_hash").notNull(),
     targetHash: text("target_hash").notNull(),
     encryptionSuite: text("encryption_suite")
-      .$type<ContentRecordEncryptionSuiteV2>()
+      .$type<ContentRecordEncryptionSuite>()
       .notNull(),
     contentRecordId: text("content_record_id").notNull(),
     nonceDomainHash: text("nonce_domain_hash").notNull(),
     headerHash: text("header_hash").notNull(),
-    header: jsonb("header").$type<WriteHeaderV2>().notNull(),
+    header: jsonb("header").$type<WriteHeader>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

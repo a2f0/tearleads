@@ -19,14 +19,14 @@ substitute identity keys on first contact.
 The practical confidentiality guarantee today is:
 
 - The server cannot decrypt encrypted content without recipient private keys or
-  unwrapped DEKs.
+ unwrapped DEKs.
 - The server cannot forge a valid signed group or organization policy state
-  unless it controls an authorized policy signer key, can substitute the signer
-  identity key trusted by the client, or can make the client accept invalid
-  policy state.
-- The server cannot make an honest V2 client accept object grants or recipient
-  targets that are not justified by signed access manifests and verified
-  principal policy heads.
+ unless it controls an authorized policy signer key, can substitute the signer
+ identity key trusted by the client, or can make the client accept invalid
+ policy state.
+- The server cannot make an honest client accept object grants or recipient
+ targets that are not justified by signed access manifests and verified
+ principal policy heads.
 
 ## Threat Model Assumptions
 
@@ -37,7 +37,7 @@ The current guarantees assume:
 - Cryptographic primitives hold.
 - Clients do not intentionally ignore policy validation failures.
 - Server-side API and database code may be malicious, compromised, stale, or
-  inconsistent.
+ inconsistent.
 
 The guarantees are relative to the authenticity of registered user identity
 keys. Today, signer public keys are fetched from the server by `userId` and
@@ -50,31 +50,31 @@ identity proof.
 The current access and policy handshake has these layers:
 
 1. User registration stores the user's signing key, encapsulation key, personal
-   organization, root container, root metadata state, and the initial signed
-   organization policy inside one registration transaction.
+ organization, root container, root metadata state, and the initial signed
+ organization policy inside one registration transaction.
 2. The initial organization policy must be version `1`, must target the new
-   organization, must be signed by the registering user, and must project only
-   the registering user as admin.
+ organization, must be signed by the registering user, and must project only
+ the registering user as admin.
 3. Later group and organization policy states are signed principal states. The
-   server verifies the signature, state hash, projection root, encrypted payload
-   hash, member count, previous-state link, and admin-signer rule before
-   storing them.
+ server verifies the signature, state hash, projection root, encrypted payload
+ hash, member count, previous-state link, and admin-signer rule before
+ storing them.
 4. Direct member envelopes for a principal are stored separately but must
-   target the current principal state exactly. The API rejects missing,
-   extra, or fingerprint-mismatched direct member envelopes.
-5. Access changes are represented as signed V2 access events and derived access
-   manifests. Manifests bind the object, organization, epoch,
-   predecessor hash, event hash, structural hash, grant root, referenced
-   principal heads, and key-target hash.
+ target the current principal state exactly. The API rejects missing,
+ extra, or fingerprint-mismatched direct member envelopes.
+5. Access changes are represented as signed access events and derived access
+ manifests. Manifests bind the object, organization, epoch,
+ predecessor hash, event hash, structural hash, grant root, referenced
+ principal heads, and key-target hash.
 6. App clients fetch referenced principal policy bundles, verify them, and
-   cache only bundles whose signed state chain matches the object reference.
+ cache only bundles whose signed state chain matches the object reference.
 7. App clients unwrap group or organization addressed object envelopes only
-   through verified cached principal policies, valid member envelopes, and
-   signed access manifests.
+ through verified cached principal policies, valid member envelopes, and
+ signed access manifests.
 8. Writes commit to the verified access manifest hash and derived recipient
-   target hash so stale or forged access views fail verification.
+ target hash so stale or forged access views fail verification.
 9. The shared crypto verifier exposes local checkpoint checks for identity
-   state heads, principal policy heads, and access manifest heads.
+ state heads, principal policy heads, and access manifest heads.
 
 ## Guarantees We Currently Have
 
@@ -116,7 +116,7 @@ The signer rule is enforced against signed projection state:
 
 - For an initial state, the signer must be an admin in that initial projection.
 - For a successor state, the signer must be an admin in the previous signed
-  projection.
+ projection.
 
 This prevents the API from authorizing a policy transition merely by editing
 current projection rows. A successor must chain from the previous signed state
@@ -173,16 +173,16 @@ to create crypto recipients.
 
 ### Signed Access Manifests
 
-V2 access manifests are deterministic, signed commitments to the access
+ access manifests are deterministic, signed commitments to the access
 state used for key derivation:
 
 - container manifests include container identity, parent edge, metadata
-  document identity, direct grants, referenced principal heads, predecessor
-  hash, and key target hash
+ document identity, direct grants, referenced principal heads, predecessor
+ hash, and key target hash
 - document link-set manifests include document identity, linked containers,
-  predecessor hash, and key target hash
+ predecessor hash, and key target hash
 - attachment, document, and blob key targets are derived from verified
-  manifests rather than API-provided recipient lists
+ manifests rather than API-provided recipient lists
 
 Clients should commit writes to the verified manifest hash and derived target
 hash. Projection hashes may still be useful cache keys, but they are not the
@@ -211,7 +211,7 @@ The server can:
 - show different valid policy heads to different clients
 - return projection rows that do not match the signed access manifests
 - substitute signer or recipient public keys before a client has any trusted
-  binding for those identities
+ binding for those identities
 
 The current validation turns many tampering attempts into fail-closed behavior,
 but it is not a global transparency system unless clients also pin or witness
@@ -243,12 +243,12 @@ pinned key, an out-of-band identity check, or a key-transparency mechanism.
 ### Projection Rows Are Not A Security Boundary
 
 Group and organization policy state is signed. Access grants are represented by
-signed access events and derived access manifests in the V2 verifier. Projection
+signed access events and derived access manifests in the verifier. Projection
 rows such as manifest heads, principal-head projections, document-link
 projections, and target caches remain indexing aids only.
 
 If the API process is compromised, it may still return a self-consistent
-projection view. Honest V2 clients must derive encryption targets from verified
+projection view. Honest clients must derive encryption targets from verified
 manifests and verified principal policies, not from projection rows. A client
 that accepts projection rows as authority can still be tricked into encrypting
 to the wrong recipient set.
@@ -316,11 +316,11 @@ version/hash or checks an external transparency source.
 ### Forged Object Grant View
 
 If the server changes projection rows and recomputes projection hashes, an
-honest V2 client should reject the view unless the signed access manifest,
+honest client should reject the view unless the signed access manifest,
 event, referenced principal policies, predecessor checkpoint, and derived
 target hash all verify.
 
-Result: detected and fail closed for clients that require the V2 verifier
+Result: detected and fail closed for clients that require the verifier
 outputs before encrypting. Clients that trust projection rows directly remain
 outside this guarantee.
 
@@ -335,31 +335,31 @@ Result: not reliably detected without prior trust in the identity key binding.
 ## Current Invariant Summary
 
 - Signed principal policy state is the authority for group and organization
-  crypto membership.
+ crypto membership.
 - Unsigned group or organization membership rows are not sufficient to create
-  managed-principal crypto recipients.
+ managed-principal crypto recipients.
 - Principal state transitions must be signed by an admin from the previous
-  signed projection, except the initial state, whose signer must be admin in
-  the initial projection.
+ signed projection, except the initial state, whose signer must be admin in
+ the initial projection.
 - Principal policy bundles fetched by the app are verified before caching and
-  skipped on validation failure.
+ skipped on validation failure.
 - Principal member envelopes must match the current direct signed projection.
 - Post-removal confidentiality requires principal key rotation; the current
-  system records key epochs but does not enforce rotation semantics.
+ system records key epochs but does not enforce rotation semantics.
 - Signed access manifests are the authority for object grant and document-link
-  state used by V2 key derivation.
+ state used by key derivation.
 - Object writes commit to the verified access manifest hash and derived target
-  hash.
+ hash.
 - Local checkpoints can detect replayed older identity, principal policy, and
-  access manifest heads after a client has seen newer state.
+ access manifest heads after a client has seen newer state.
 - First-contact key substitution, withholding, and split views without a
-  pinned checkpoint, witness, or gossip peer remain outside the current
-  guarantee boundary.
+ pinned checkpoint, witness, or gossip peer remain outside the current
+ guarantee boundary.
 
 ## Direction For Stronger Guarantees
 
 The next hardening layer is adoption: every API response and app workflow that
-drives encryption should require the signed V2 manifest, verified referenced
+drives encryption should require the signed manifest, verified referenced
 principal policies, local checkpoint comparison, and derived target hash before
 encrypting or decrypting.
 

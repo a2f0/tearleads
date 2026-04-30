@@ -1,5 +1,5 @@
 import {
-  type BlobContentKeyTargetV2,
+  type BlobContentKeyTarget,
   computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
@@ -34,14 +34,14 @@ interface ResolvedBlobKekTargets {
   readonly documentManifestHashes: readonly string[];
   readonly linkedContainerManifestHashes: readonly string[];
   readonly linkedContainerKeyEpochIds: readonly string[];
-  readonly targets: readonly BlobContentKeyTargetV2[];
+  readonly targets: readonly BlobContentKeyTarget[];
   readonly blobKeyTargetHash: string;
   readonly blobAccessManifestHash: string;
 }
 
 interface AssertBlobKekTargetsCurrentInput {
   readonly blobId: string;
-  readonly expectedTargets?: readonly BlobContentKeyTargetV2[];
+  readonly expectedTargets?: readonly BlobContentKeyTarget[];
   readonly expectedTargetHash?: string;
 }
 
@@ -53,7 +53,7 @@ function uniqueSortedStrings(values: readonly string[]): string[] {
   return [...new Set(values)].sort(compareStrings);
 }
 
-function blobTargetKey(target: BlobContentKeyTargetV2): string {
+function blobTargetKey(target: BlobContentKeyTarget): string {
   return [
     target.bindingId,
     target.documentId,
@@ -63,14 +63,14 @@ function blobTargetKey(target: BlobContentKeyTargetV2): string {
 }
 
 function sortBlobTargets(
-  targets: readonly BlobContentKeyTargetV2[],
-): BlobContentKeyTargetV2[] {
+  targets: readonly BlobContentKeyTarget[],
+): BlobContentKeyTarget[] {
   return [...targets].sort((left, right) =>
     compareStrings(blobTargetKey(left), blobTargetKey(right)),
   );
 }
 
-async function listActiveV2AttachmentBindings(
+async function listActiveAttachmentBindings(
   blobId: string,
   executor: BlobKekTargetExecutor,
 ) {
@@ -92,8 +92,8 @@ async function listActiveV2AttachmentBindings(
     .orderBy(asc(attachmentBindings.id));
 }
 
-type ActiveV2AttachmentBinding = Awaited<
-  ReturnType<typeof listActiveV2AttachmentBindings>
+type ActiveAttachmentBinding = Awaited<
+  ReturnType<typeof listActiveAttachmentBindings>
 >[number];
 type AccessManifestHeadMap = Awaited<
   ReturnType<typeof getCurrentAccessManifestHeads>
@@ -122,19 +122,17 @@ function groupDocumentLinksByManifestHash(
   return linkRowsByManifestHash;
 }
 
-function assertBindingHasSignedV2Event(
-  binding: ActiveV2AttachmentBinding,
-): void {
+function assertBindingHasSignedEvent(binding: ActiveAttachmentBinding): void {
   if (!binding.attachmentEventHash || !binding.documentManifestHash) {
     throw new BlobKekTargetError(
-      "Blob attachment binding is missing a signed V2 attachment event",
+      "Blob attachment binding is missing a signed attachment event",
       409,
     );
   }
 }
 
 function documentManifestHashesForBindings(input: {
-  readonly activeBindings: readonly ActiveV2AttachmentBinding[];
+  readonly activeBindings: readonly ActiveAttachmentBinding[];
   readonly documentHeadById: AccessManifestHeadMap;
 }): {
   readonly documentManifestHashes: string[];
@@ -184,7 +182,7 @@ function documentManifestHashesForBindings(input: {
 }
 
 async function loadBatchedBlobKekTargetState(input: {
-  readonly activeBindings: readonly ActiveV2AttachmentBinding[];
+  readonly activeBindings: readonly ActiveAttachmentBinding[];
   readonly executor: BlobKekTargetExecutor;
 }): Promise<{
   readonly containerTargetById: ContainerKekTargetMap;
@@ -194,7 +192,7 @@ async function loadBatchedBlobKekTargetState(input: {
   readonly organizationId: string;
 }> {
   const documentIds = input.activeBindings.map((binding) => {
-    assertBindingHasSignedV2Event(binding);
+    assertBindingHasSignedEvent(binding);
     return binding.documentId;
   });
   const documentHeadById = await getCurrentAccessManifestHeads(
@@ -238,10 +236,10 @@ async function loadBatchedBlobKekTargetState(input: {
 }
 
 function deriveTargetsForBinding(input: {
-  readonly binding: ActiveV2AttachmentBinding;
+  readonly binding: ActiveAttachmentBinding;
   readonly containerTargetById: ContainerKekTargetMap;
   readonly documentLinkRows: DocumentLinkRows;
-}): BlobContentKeyTargetV2[] {
+}): BlobContentKeyTarget[] {
   if (input.documentLinkRows.length === 0) {
     throw new BlobKekTargetError(
       "Document link-set manifest has no linked containers",
@@ -268,11 +266,11 @@ function deriveTargetsForBinding(input: {
 }
 
 function deriveTargetsForBindings(input: {
-  readonly activeBindings: readonly ActiveV2AttachmentBinding[];
+  readonly activeBindings: readonly ActiveAttachmentBinding[];
   readonly containerTargetById: ContainerKekTargetMap;
   readonly documentManifestHashesByDocumentId: ReadonlyMap<string, string>;
   readonly linkRowsByManifestHash: ReadonlyMap<string, DocumentLinkRows>;
-}): BlobContentKeyTargetV2[] {
+}): BlobContentKeyTarget[] {
   return input.activeBindings.flatMap((binding) => {
     const documentManifestHash = input.documentManifestHashesByDocumentId.get(
       binding.documentId,
@@ -297,7 +295,7 @@ export async function resolveCurrentBlobKekTargets(
   blobId: string,
   executor: BlobKekTargetExecutor = db,
 ): Promise<ResolvedBlobKekTargets> {
-  const activeBindings = await listActiveV2AttachmentBindings(blobId, executor);
+  const activeBindings = await listActiveAttachmentBindings(blobId, executor);
   if (activeBindings.length === 0) {
     throw new BlobKekTargetError("Blob has no active attachment bindings", 404);
   }
@@ -334,7 +332,7 @@ export async function resolveCurrentBlobKekTargets(
     targets: sortedTargets,
     blobKeyTargetHash,
     blobAccessManifestHash: await computeBlobAccessManifestHash({
-      version: 2,
+      version: 1,
       blobId,
       organizationId: targetState.organizationId,
       activeBindingIds,

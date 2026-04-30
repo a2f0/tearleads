@@ -1,8 +1,4 @@
-import {
-  bytesToHex,
-  toFingerprint,
-  type WriteHeaderV2,
-} from "@tearleads/crypto";
+import { bytesToHex, toFingerprint, type WriteHeader } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
@@ -34,9 +30,13 @@ import {
   type SyncLane,
 } from "../sync/syncCoordinator";
 import {
-  decryptDocumentAttachmentBlobV2,
-  uploadDocumentAttachmentV2,
-} from "./blobV2Runtime";
+  decryptDocumentAttachmentBlob,
+  uploadDocumentAttachment,
+} from "./blobRuntime";
+import {
+  createDocumentSignerDeviceId,
+  DEFAULT_DOCUMENT_ACCESS_EPOCH,
+} from "./documentConstants";
 import {
   addDocumentAttachments,
   type DocumentAttachment,
@@ -44,6 +44,11 @@ import {
   getDocumentAttachments,
   sameDocumentAttachments,
 } from "./documentContent";
+import {
+  createRemoteDocument,
+  type DocumentCreateAuthor,
+  syncRemoteDocument,
+} from "./documentRuntime";
 import {
   DOCUMENTS_APP_KIND,
   type StoredDocumentRecord as DocumentRecord,
@@ -57,26 +62,17 @@ import {
   type RelinkPersistedDocumentInput,
   sqlDocumentsPersistence,
 } from "./documentsPersistence";
-import {
-  createDocumentV2SignerDeviceId,
-  DEFAULT_DOCUMENT_ACCESS_EPOCH,
-} from "./documentV2Constants";
-import {
-  createRemoteDocumentV2,
-  type DocumentV2CreateAuthor,
-  syncRemoteDocumentV2,
-} from "./documentV2Runtime";
 
 type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 type DocumentAppData = ReturnType<typeof useAppData>;
 type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["encapsulationKeyPair"]
 >;
-type DocumentAttachmentRuntimeV2Api = Pick<
+type DocumentAttachmentRuntimeApi = Pick<
   DocumentAppData["apiClient"],
-  "bindBlobAttachmentV2" | "getDocumentV2WriterProjection" | "stageBlob"
+  "bindBlobAttachment" | "getDocumentWriterProjection" | "stageBlob"
 >;
-type ResolvedDocumentAttachmentRuntimeV2Api = DocumentAttachmentRuntimeV2Api &
+type ResolvedDocumentAttachmentRuntimeApi = DocumentAttachmentRuntimeApi &
   Pick<DocumentAppData["apiClient"], "listDocumentAttachments">;
 type DocumentAttachmentBinding = NonNullable<
   Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
@@ -91,7 +87,7 @@ interface PersistedDocumentRecord {
 }
 interface DocumentSyncAttempt {
   outgoingUpdateCount: number;
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocumentV2>>>;
+  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
 }
 const DEFAULT_LOCAL_DOCUMENT_ID = "default";
 export const DEFAULT_DOCUMENT_ID = DEFAULT_LOCAL_DOCUMENT_ID;
@@ -196,9 +192,9 @@ type PersistedDocumentListener = (document: DocumentSummary) => void;
 
 interface DocumentStoreRelinkInput extends RelinkPersistedDocumentInput {
   queueBaselineAfterRelink?: boolean | undefined;
-  v2ContentKeyBundle?: string | null | undefined;
-  v2DocumentKekTargets?: string | null | undefined;
-  v2DocumentManifestBundle?: string | null | undefined;
+  contentKeyBundle?: string | null | undefined;
+  documentKekTargets?: string | null | undefined;
+  documentManifestBundle?: string | null | undefined;
 }
 
 interface DocumentStoreRegistry {
@@ -496,9 +492,9 @@ function canAttachFiles(state: DocumentStoreState): boolean {
   );
 }
 
-function resolveDocumentV2Author(
+function resolveDocumentAuthor(
   runtime: DocumentsRuntime,
-): DocumentV2CreateAuthor | null {
+): DocumentCreateAuthor | null {
   if (
     !runtime.organizationId ||
     !runtime.signingFingerprint ||
@@ -510,7 +506,7 @@ function resolveDocumentV2Author(
 
   return {
     organizationId: runtime.organizationId,
-    signerDeviceId: createDocumentV2SignerDeviceId(runtime.signingFingerprint),
+    signerDeviceId: createDocumentSignerDeviceId(runtime.signingFingerprint),
     signerKeyFingerprint: runtime.signingFingerprint,
     signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
     signerUserId: runtime.userId,
@@ -522,7 +518,7 @@ function createDocumentWriterPublicKeyResolver(state: DocumentStoreState) {
 
   return async (input: {
     authorFingerprint: string;
-    header: WriteHeaderV2;
+    header: WriteHeader;
   }): Promise<Uint8Array | null> => {
     const { authorFingerprint, header } = input;
     if (header.writerKeyFingerprint !== authorFingerprint) {
@@ -679,9 +675,9 @@ async function saveDocumentRecord(
 type NullableDocumentRuntimeField =
   | "accessStateHash"
   | "lastCommitLsn"
-  | "v2ContentKeyBundle"
-  | "v2DocumentKekTargets"
-  | "v2DocumentManifestBundle";
+  | "contentKeyBundle"
+  | "documentKekTargets"
+  | "documentManifestBundle";
 
 function resolveNullableDocumentRuntimeField(
   patch: Partial<DocumentRecord>,
@@ -733,22 +729,22 @@ async function persistDocument(
       state.record?.lastCommitLsn,
       documentIdChanged,
     ),
-    v2ContentKeyBundle: resolveNullableDocumentRuntimeField(
+    contentKeyBundle: resolveNullableDocumentRuntimeField(
       patch,
-      "v2ContentKeyBundle",
-      state.record?.v2ContentKeyBundle,
+      "contentKeyBundle",
+      state.record?.contentKeyBundle,
       securityContextChanged,
     ),
-    v2DocumentKekTargets: resolveNullableDocumentRuntimeField(
+    documentKekTargets: resolveNullableDocumentRuntimeField(
       patch,
-      "v2DocumentKekTargets",
-      state.record?.v2DocumentKekTargets,
+      "documentKekTargets",
+      state.record?.documentKekTargets,
       securityContextChanged,
     ),
-    v2DocumentManifestBundle: resolveNullableDocumentRuntimeField(
+    documentManifestBundle: resolveNullableDocumentRuntimeField(
       patch,
-      "v2DocumentManifestBundle",
-      state.record?.v2DocumentManifestBundle,
+      "documentManifestBundle",
+      state.record?.documentManifestBundle,
       securityContextChanged,
     ),
   };
@@ -775,16 +771,16 @@ async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  const author = resolveDocumentV2Author(state.runtime);
+  const author = resolveDocumentAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
-      "Documents: skipped V2 remote create because the V2 writer context is unavailable.",
+      "Documents: skipped remote create because the writer context is unavailable.",
     );
     return nextRecord;
   }
 
-  const created = await createRemoteDocumentV2({
+  const created = await createRemoteDocument({
     apiClient,
     author,
     containerId: state.runtime.containerId,
@@ -926,15 +922,15 @@ async function hydrateMissingAttachmentBlob(
   }
 
   const writerProjection =
-    await state.runtime.apiClient.getDocumentV2WriterProjection(documentId);
+    await state.runtime.apiClient.getDocumentWriterProjection(documentId);
   if (!writerProjection) {
     state.runtime.log(
-      `Documents: cannot hydrate V2 blob ${binding.blobId} without a writer projection.`,
+      `Documents: cannot hydrate blob ${binding.blobId} without a writer projection.`,
     );
     return;
   }
 
-  const decryptedBytes = await decryptDocumentAttachmentBlobV2({
+  const decryptedBytes = await decryptDocumentAttachmentBlob({
     encryptedBytes: blob.encryptedBytes,
     expectedBindingId: binding.bindingId,
     expectedBlobId: binding.blobId,
@@ -1092,9 +1088,9 @@ async function initializeDocumentStore(
       accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
       accessStateHash: null,
       lastCommitLsn: null,
-      v2ContentKeyBundle: null,
-      v2DocumentKekTargets: null,
-      v2DocumentManifestBundle: null,
+      contentKeyBundle: null,
+      documentKekTargets: null,
+      documentManifestBundle: null,
     };
     await saveDocumentRecord(state, created);
     if (state.initialText.length > 0) {
@@ -1200,14 +1196,14 @@ async function relinkDocumentStore(
     containerId: input.containerId,
     documentId: input.documentId,
   };
-  if (input.v2ContentKeyBundle !== undefined) {
-    patch.v2ContentKeyBundle = input.v2ContentKeyBundle;
+  if (input.contentKeyBundle !== undefined) {
+    patch.contentKeyBundle = input.contentKeyBundle;
   }
-  if (input.v2DocumentKekTargets !== undefined) {
-    patch.v2DocumentKekTargets = input.v2DocumentKekTargets;
+  if (input.documentKekTargets !== undefined) {
+    patch.documentKekTargets = input.documentKekTargets;
   }
-  if (input.v2DocumentManifestBundle !== undefined) {
-    patch.v2DocumentManifestBundle = input.v2DocumentManifestBundle;
+  if (input.documentManifestBundle !== undefined) {
+    patch.documentManifestBundle = input.documentManifestBundle;
   }
 
   const { record: nextRecord, updatedAt } = await persistDocument(
@@ -1240,7 +1236,7 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.online &&
     state.runtime.isAuthenticated &&
     state.runtime.encapsulationKeyPair !== null &&
-    resolveDocumentV2Author(state.runtime) !== null
+    resolveDocumentAuthor(state.runtime) !== null
   );
 }
 
@@ -1269,11 +1265,11 @@ async function syncPendingAttachments(
   }
   const remoteDocumentId = currentRecord.documentId;
 
-  const author = resolveDocumentV2Author(state.runtime);
+  const author = resolveDocumentAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
-      "Documents: skipped V2 attachment upload because the V2 writer context is unavailable.",
+      "Documents: skipped attachment upload because the writer context is unavailable.",
     );
     return { completed: false, nextRecord: currentRecord };
   }
@@ -1360,8 +1356,8 @@ async function ensureRemoteDocumentForAttachmentSync(
 
 async function syncPendingAttachmentUpload(input: {
   activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
-  apiClient: ResolvedDocumentAttachmentRuntimeV2Api;
-  author: DocumentV2CreateAuthor;
+  apiClient: ResolvedDocumentAttachmentRuntimeApi;
+  author: DocumentCreateAuthor;
   encapsulationKeyPair: EncapsulationKeyPair;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
@@ -1378,7 +1374,7 @@ async function syncPendingAttachmentUpload(input: {
     return false;
   }
 
-  const uploaded = await uploadDocumentAttachmentV2({
+  const uploaded = await uploadDocumentAttachment({
     apiClient: input.apiClient,
     author: input.author,
     bytes,
@@ -1429,16 +1425,16 @@ async function requestDocumentSync(
     return null;
   }
 
-  const author = resolveDocumentV2Author(state.runtime);
+  const author = resolveDocumentAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
-      "Documents: skipped V2 sync because the V2 writer context is unavailable.",
+      "Documents: skipped sync because the writer context is unavailable.",
     );
     return null;
   }
 
-  const synced = await syncRemoteDocumentV2({
+  const synced = await syncRemoteDocument({
     apiClient,
     author,
     documentId: currentRecord.documentId,
@@ -1469,16 +1465,16 @@ async function requestDocumentSyncProbe(
     return null;
   }
 
-  const author = resolveDocumentV2Author(state.runtime);
+  const author = resolveDocumentAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
-      "Documents: skipped V2 sync probe because the V2 writer context is unavailable.",
+      "Documents: skipped sync probe because the writer context is unavailable.",
     );
     return null;
   }
 
-  const synced = await syncRemoteDocumentV2({
+  const synced = await syncRemoteDocument({
     apiClient,
     author,
     documentId: currentRecord.documentId,

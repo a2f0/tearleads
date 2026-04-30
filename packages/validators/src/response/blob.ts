@@ -24,7 +24,7 @@ export interface BlobResponse {
   sha256: string;
 }
 
-export interface BlobV2KekTargetsResponse {
+export interface BlobKekTargetsResponse {
   blobId: string;
   organizationId: string;
   activeBindingIds: string[];
@@ -36,7 +36,7 @@ export interface BlobV2KekTargetsResponse {
   blobAccessManifestHash: string;
 }
 
-export interface BlobV2ContentKeyTargetEnvelopeResponse {
+export interface BlobContentKeyTargetEnvelopeResponse {
   bindingId: string;
   documentId: string;
   containerId: string;
@@ -47,24 +47,24 @@ export interface BlobV2ContentKeyTargetEnvelopeResponse {
   wrappingMetadata: Record<string, unknown>;
 }
 
-export interface BlobV2ContentKeyBundleResponse {
+export interface BlobContentKeyBundleResponse {
   blobId: string;
   contentKeyEpoch: number;
   targetHash: string;
-  targets: BlobV2ContentKeyTargetEnvelopeResponse[];
+  targets: BlobContentKeyTargetEnvelopeResponse[];
 }
 
-export interface BlobV2AttachmentBindResponse {
+export interface BlobAttachmentBindResponse {
   bindingId: string;
   blobId: string;
   documentId: string;
   slotId: string;
-  contentKeyBundle: BlobV2ContentKeyBundleResponse;
-  blobKekTargets: BlobV2KekTargetsResponse;
+  contentKeyBundle: BlobContentKeyBundleResponse;
+  blobKekTargets: BlobKekTargetsResponse;
   writeHeaderHash?: string;
 }
 
-export interface BlobV2AttachmentDetachResponse {
+export interface BlobAttachmentDetachResponse {
   bindingId: string;
   blobId: string;
   documentId: string;
@@ -131,9 +131,9 @@ function hasPositiveNumberProperty<Key extends string>(
   );
 }
 
-function isBlobV2KekTargetsResponse(
+function isBlobKekTargetsResponse(
   value: unknown,
-): value is BlobV2KekTargetsResponse {
+): value is BlobKekTargetsResponse {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "blobId") &&
@@ -153,9 +153,9 @@ function isBlobV2KekTargetsResponse(
   );
 }
 
-function isBlobV2ContentKeyTargetEnvelopeResponse(
+function isBlobContentKeyTargetEnvelopeResponse(
   value: unknown,
-): value is BlobV2ContentKeyTargetEnvelopeResponse {
+): value is BlobContentKeyTargetEnvelopeResponse {
   const wrappingMetadata = isPlainObject(value)
     ? Reflect.get(value, "wrappingMetadata")
     : undefined;
@@ -173,22 +173,22 @@ function isBlobV2ContentKeyTargetEnvelopeResponse(
   );
 }
 
-function isBlobV2ContentKeyBundleResponse(
+function isBlobContentKeyBundleResponse(
   value: unknown,
-): value is BlobV2ContentKeyBundleResponse {
+): value is BlobContentKeyBundleResponse {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "blobId") &&
     hasPositiveNumberProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "targetHash") &&
     hasArrayProperty(value, "targets") &&
-    value.targets.every(isBlobV2ContentKeyTargetEnvelopeResponse)
+    value.targets.every(isBlobContentKeyTargetEnvelopeResponse)
   );
 }
 
-export function isBlobV2AttachmentBindResponse(
+export function isBlobAttachmentBindResponse(
   value: unknown,
-): value is BlobV2AttachmentBindResponse {
+): value is BlobAttachmentBindResponse {
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
     : undefined;
@@ -205,16 +205,16 @@ export function isBlobV2AttachmentBindResponse(
     hasStringProperty(value, "blobId") &&
     hasStringProperty(value, "documentId") &&
     hasStringProperty(value, "slotId") &&
-    isBlobV2ContentKeyBundleResponse(contentKeyBundle) &&
-    isBlobV2KekTargetsResponse(blobKekTargets) &&
+    isBlobContentKeyBundleResponse(contentKeyBundle) &&
+    isBlobKekTargetsResponse(blobKekTargets) &&
     (writeHeaderHash === undefined ||
       hasStringProperty(value, "writeHeaderHash"))
   );
 }
 
-export function isBlobV2AttachmentDetachResponse(
+export function isBlobAttachmentDetachResponse(
   value: unknown,
-): value is BlobV2AttachmentDetachResponse {
+): value is BlobAttachmentDetachResponse {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "bindingId") &&

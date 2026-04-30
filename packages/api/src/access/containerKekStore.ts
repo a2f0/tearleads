@@ -1,7 +1,7 @@
 import type {
-  ContainerKeyEpochV2,
-  ContainerKeyWrapV2,
-  ContainerUserRecipientKeyV2,
+  ContainerKeyEpoch,
+  ContainerKeyWrap,
+  ContainerUserRecipientKey,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
@@ -13,11 +13,11 @@ import { containerKeyEpochs, containerKeyWraps } from "../schema";
 
 type ContainerKekStoreExecutor = DatabaseExecutor;
 
-interface StoredContainerKeyEpoch extends ContainerKeyEpochV2 {
+interface StoredContainerKeyEpoch extends ContainerKeyEpoch {
   readonly createdAt: Date;
 }
 
-interface StoredContainerKeyWrap extends ContainerKeyWrapV2 {
+interface StoredContainerKeyWrap extends ContainerKeyWrap {
   readonly id: string;
   readonly createdAt: Date;
 }
@@ -31,7 +31,7 @@ interface ResolveStoredContainerKekStateInput {
   readonly containerManifestHistory?: readonly VerifiedContainerAccessManifest[];
   readonly parentKekState?: VerifiedContainerKekState | null;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
-  readonly userRecipientKeys?: readonly ContainerUserRecipientKeyV2[];
+  readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
 }
 
 function toStoredContainerKeyEpoch(
@@ -68,7 +68,7 @@ function toStoredContainerKeyWrap(
 
 function toContainerKeyEpoch(
   storedEpoch: StoredContainerKeyEpoch,
-): ContainerKeyEpochV2 {
+): ContainerKeyEpoch {
   return {
     id: storedEpoch.id,
     containerId: storedEpoch.containerId,
@@ -82,7 +82,7 @@ function toContainerKeyEpoch(
 
 function toContainerKeyWrap(
   storedWrap: StoredContainerKeyWrap,
-): ContainerKeyWrapV2 {
+): ContainerKeyWrap {
   return {
     containerKeyEpochId: storedWrap.containerKeyEpochId,
     recipientKind: storedWrap.recipientKind,
@@ -95,7 +95,7 @@ function toContainerKeyWrap(
   };
 }
 
-function containerKeyWrapConflictWhere(wrap: ContainerKeyWrapV2) {
+function containerKeyWrapConflictWhere(wrap: ContainerKeyWrap) {
   return and(
     eq(containerKeyWraps.containerKeyEpochId, wrap.containerKeyEpochId),
     eq(containerKeyWraps.recipientKind, wrap.recipientKind),
@@ -106,7 +106,7 @@ function containerKeyWrapConflictWhere(wrap: ContainerKeyWrapV2) {
 
 interface ContainerKeyWrapConflictTarget {
   readonly containerKeyEpochId: string;
-  readonly recipientKind: ContainerKeyWrapV2["recipientKind"];
+  readonly recipientKind: ContainerKeyWrap["recipientKind"];
   readonly recipientId: string;
   readonly recipientKeyEpochId: string;
 }
@@ -123,7 +123,7 @@ function containerKeyWrapConflictKey(
 }
 
 async function ensureStoredContainerKeyEpochMatches(
-  keyEpoch: ContainerKeyEpochV2,
+  keyEpoch: ContainerKeyEpoch,
   executor: ContainerKekStoreExecutor,
 ): Promise<void> {
   const storedEpoch = await getContainerKeyEpochById(keyEpoch.id, executor);
@@ -146,7 +146,7 @@ async function ensureStoredContainerKeyEpochMatches(
 }
 
 async function ensureStoredContainerKeyWrapMatches(
-  wrap: ContainerKeyWrapV2,
+  wrap: ContainerKeyWrap,
   executor: ContainerKekStoreExecutor,
 ): Promise<void> {
   const [storedWrap] = await executor
@@ -170,7 +170,7 @@ async function ensureStoredContainerKeyWrapMatches(
 }
 
 async function insertContainerKeyEpoch(
-  keyEpoch: ContainerKeyEpochV2,
+  keyEpoch: ContainerKeyEpoch,
   executor: ContainerKekStoreExecutor,
 ): Promise<void> {
   const [insertedEpoch] = await executor
@@ -193,7 +193,7 @@ async function insertContainerKeyEpoch(
 }
 
 async function insertContainerKeyWraps(
-  wraps: readonly ContainerKeyWrapV2[],
+  wraps: readonly ContainerKeyWrap[],
   executor: ContainerKekStoreExecutor,
 ): Promise<void> {
   if (wraps.length === 0) {
@@ -246,7 +246,7 @@ async function insertContainerKeyWraps(
 
 async function deleteStaleContainerKeyWraps(
   containerKeyEpochId: string,
-  currentWraps: readonly ContainerKeyWrapV2[],
+  currentWraps: readonly ContainerKeyWrap[],
   executor: ContainerKekStoreExecutor,
 ): Promise<void> {
   // The verifier treats the wrap set as exact for the current KEK state. When a

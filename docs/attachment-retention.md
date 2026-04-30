@@ -10,15 +10,15 @@ The server retains attachment blob bytes, blob content-key epochs, and blob
 content-key target rows only while at least one active `attachment_bindings` row
 references that blob.
 
-When a signed V2 attachment mutation deactivates an attachment binding through
+When a signed attachment mutation deactivates an attachment binding through
 `attachment.detach` or a same-slot `attachment.bind` replacement:
 
 - the old binding is marked detached during the atomic mutation
 - if another active binding still references the old blob, the blob and its
-  content-key material remain live
+ content-key material remain live
 - if no active binding references the old blob, the server prunes the blob row,
-  blob content-key epochs, blob content-key target rows, and detached binding
-  rows for that blob
+ blob content-key epochs, blob content-key target rows, and detached binding
+ rows for that blob
 
 Detached attachment bindings are transient replacement metadata. They are not a
 historical attachment log, tombstone store, audit manifest, or recovery index.
@@ -31,16 +31,16 @@ durable attachment history.
 Consequences:
 
 - current note attachments remain downloadable while active bindings reference
-  their blobs
+ their blobs
 - replacing or detaching an attachment can make the old blob bytes unavailable
-  from the server once no active binding references them
+ from the server once no active binding references them
 - historical document updates may still contain encrypted metadata that once
-  referenced an old attachment slot, but the system does not guarantee that the
-  old blob bytes remain fetchable for historical replay
+ referenced an old attachment slot, but the system does not guarantee that the
+ old blob bytes remain fetchable for historical replay
 - retained clients may still have local blob bytes in their local cache, but
-  that is not a server retention guarantee
+ that is not a server retention guarantee
 - fresh-client bootstrap is expected to use the current live baseline and live
-  attachments, not reconstruct every historical attachment version
+ attachments, not reconstruct every historical attachment version
 
 ## Rationale
 
@@ -55,7 +55,7 @@ Useful historical attachment retention needs a separate design for:
 - how historical blob bytes are encrypted after access shrink
 - whether retained-but-revoked users can keep reading old attachment versions
 - how historical attachment records relate to document update history and
-  baseline checkpoints
+ baseline checkpoints
 
 Those choices are larger than blob reachability GC and should not be introduced
 implicitly by keeping detached binding rows indefinitely.
@@ -82,7 +82,7 @@ That audit/history layer should align with
 - audit/history records are append-only and tamper-evident
 - baseline checkpoints commit to the history they include
 - attachment history explicitly states whether old blob bytes, tombstones, or
-  manifests are retained
+ manifests are retained
 
-The audit/history schema and verifier exist, but normal signed V2 attachment
+The audit/history schema and verifier exist, but normal signed attachment
 mutations do not yet populate those audit tables.

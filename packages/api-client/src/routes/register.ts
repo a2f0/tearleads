@@ -1,5 +1,5 @@
 import type {
-  DocumentV2CreateRequest,
+  DocumentCreateRequest,
   PublicKeyRequest,
 } from "@tearleads/validators/request";
 import { isPublicKeyResponse } from "@tearleads/validators/response";
@@ -13,8 +13,8 @@ export function postPublicKey(
   signingPublicKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
   initialOrganizationPolicy: PublicKeyRequest["initialOrganizationPolicy"],
-  initialRootContainerV2: PublicKeyRequest["initialRootContainerV2"],
-  initialRootMetadataDocumentV2: DocumentV2CreateRequest,
+  initialRootContainer: PublicKeyRequest["initialRootContainer"],
+  initialRootMetadataDocument: DocumentCreateRequest,
 ) {
   return request(
     "/auth/register",
@@ -27,8 +27,8 @@ export function postPublicKey(
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
       initialOrganizationPolicy,
-      initialRootContainerV2,
-      initialRootMetadataDocumentV2,
+      initialRootContainer,
+      initialRootMetadataDocument,
     }),
   );
 }

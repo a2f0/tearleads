@@ -12,15 +12,15 @@ import { useCallback } from "react";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import {
-  buildRootContainerV2CreatePlan,
+  buildRootContainerCreatePlan,
   createInitializedContainerMetadataDocument,
-  rootContainerV2WriterProjectionFromCreatePlan,
+  rootContainerWriterProjectionFromCreatePlan,
 } from "../data/containers";
-import { createDocumentV2SignerDeviceId } from "../data/documents/documentV2Constants";
+import { createDocumentSignerDeviceId } from "../data/documents/documentConstants";
 import {
-  buildMaterializedDocumentV2CreatePlan,
-  persistedDocumentV2CreateStateFromResponse,
-} from "../data/documents/documentV2Runtime";
+  buildMaterializedDocumentCreatePlan,
+  persistedDocumentCreateStateFromResponse,
+} from "../data/documents/documentRuntime";
 import { createExecSql } from "../data/persistence/sqlSchema";
 import { persistRegistrationBootstrap } from "../data/registrationBootstrapPersistence";
 import { useDatabase } from "../db/DatabaseProvider";
@@ -37,8 +37,8 @@ interface InitialRootMetadataBootstrap {
   metadataDocumentId: string;
 }
 
-type InitialRootMetadataDocumentV2 = Awaited<
-  ReturnType<typeof buildMaterializedDocumentV2CreatePlan>
+type InitialRootMetadataDocument = Awaited<
+  ReturnType<typeof buildMaterializedDocumentCreatePlan>
 >;
 
 async function createInitialOrganizationPolicy(input: {
@@ -138,7 +138,7 @@ async function persistLocalRegistrationState(
   encapsulationPublicKey: Uint8Array,
   response: PublicKeyResponse,
   bootstrap: InitialRootMetadataBootstrap,
-  rootMetadataDocumentV2: InitialRootMetadataDocumentV2,
+  rootMetadataDocument: InitialRootMetadataDocument,
   log: (message: string) => void,
 ) {
   if (!dbClient) {
@@ -155,9 +155,9 @@ async function persistLocalRegistrationState(
       rootMetadataDocumentId: response.rootMetadataDocumentId,
       rootMetadataInitialUpdate: bootstrap.initialUpdate,
       rootMetadataSnapshot: bytesToBase64(bootstrap.initialUpdate),
-      rootMetadataV2State: persistedDocumentV2CreateStateFromResponse(
-        rootMetadataDocumentV2.plan,
-        response.rootMetadataDocumentV2,
+      rootMetadataState: persistedDocumentCreateStateFromResponse(
+        rootMetadataDocument.plan,
+        response.rootMetadataDocument,
       ),
       userId: response.userId,
     });
@@ -197,21 +197,21 @@ async function registerIdentity(input: {
   );
   const author = {
     organizationId,
-    signerDeviceId: createDocumentV2SignerDeviceId(signingFingerprint),
+    signerDeviceId: createDocumentSignerDeviceId(signingFingerprint),
     signerKeyFingerprint: signingFingerprint,
     signerPrivateKey: input.signingKeyPair.signingPrivateKey,
     signerUserId: newUserId,
   };
-  const rootContainerV2 = await buildRootContainerV2CreatePlan({
+  const rootContainer = await buildRootContainerCreatePlan({
     author,
     containerId: input.containerId,
     metadataDocumentId: bootstrap.metadataDocumentId,
     recipientEncapsulationPublicKey: input.encapsulationKeyPair.publicKey,
   });
-  const rootMetadataDocumentV2 = await buildMaterializedDocumentV2CreatePlan({
+  const rootMetadataDocument = await buildMaterializedDocumentCreatePlan({
     author,
-    containerProjection: rootContainerV2WriterProjectionFromCreatePlan(
-      rootContainerV2.plan,
+    containerProjection: rootContainerWriterProjectionFromCreatePlan(
+      rootContainer.plan,
     ),
     documentId: bootstrap.metadataDocumentId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
@@ -224,8 +224,8 @@ async function registerIdentity(input: {
     input.signingKeyPair.signingPublicKey,
     input.encapsulationKeyPair.publicKey,
     initialOrganizationPolicy,
-    rootContainerV2.plan.request,
-    rootMetadataDocumentV2.plan.request,
+    rootContainer.plan.request,
+    rootMetadataDocument.plan.request,
   );
   if (!response) {
     return false;
@@ -240,7 +240,7 @@ async function registerIdentity(input: {
     input.encapsulationKeyPair.publicKey,
     response,
     bootstrap,
-    rootMetadataDocumentV2,
+    rootMetadataDocument,
     input.log,
   );
 

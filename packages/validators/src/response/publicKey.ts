@@ -1,9 +1,9 @@
 import { isPlainObject } from "../isPlainObject";
 import { hasNumberProperty, hasStringProperty } from "../util";
 import {
-  type DocumentV2CreateResponse,
-  isDocumentV2CreateResponse,
-} from "./documentV2";
+  type DocumentCreateResponse,
+  isDocumentCreateResponse,
+} from "./documentMutation";
 
 export interface PublicKeyResponse {
   message: string;
@@ -13,7 +13,7 @@ export interface PublicKeyResponse {
   rootMetadataDocumentId: string;
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
-  rootMetadataDocumentV2: DocumentV2CreateResponse;
+  rootMetadataDocument: DocumentCreateResponse;
   challenge: string;
 }
 
@@ -30,7 +30,7 @@ export function isPublicKeyResponse(
     hasNumberProperty(value, "rootMetadataAccessEpoch") &&
     hasStringProperty(value, "rootMetadataAccessStateHash") &&
     value.rootMetadataAccessStateHash.length > 0 &&
-    isDocumentV2CreateResponse(Reflect.get(value, "rootMetadataDocumentV2")) &&
+    isDocumentCreateResponse(Reflect.get(value, "rootMetadataDocument")) &&
     hasStringProperty(value, "challenge")
   );
 }

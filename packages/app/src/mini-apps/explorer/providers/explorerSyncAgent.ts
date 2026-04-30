@@ -11,10 +11,10 @@ import type { BlobStore } from "../../../data/blobs";
 import {
   type ContainerRecord,
   createContainerMetadataDocument,
-  createRemoteContainerV2,
-  moveRemoteContainerV2,
+  createRemoteContainer,
+  moveRemoteContainer,
   readContainerMetadataValue,
-  shareRemoteContainerV2,
+  shareRemoteContainer,
   sqlDocumentContainerProjectionPersistence,
   writeContainerMetadataValue,
 } from "../../../data/containers";
@@ -23,13 +23,13 @@ import {
   isDocumentUpdateCreatedEvent,
 } from "../../../data/documentSync";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
-import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
-import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
+import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
 import {
-  createRemoteDocumentV2,
-  type DocumentV2CreateAuthor,
-  syncRemoteDocumentV2,
-} from "../../../data/documents/documentV2Runtime";
+  createRemoteDocument,
+  type DocumentCreateAuthor,
+  syncRemoteDocument,
+} from "../../../data/documents/documentRuntime";
+import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -56,7 +56,7 @@ type ListedRemoteContainer = NonNullable<
 
 interface ContainerMetadataSyncAttempt {
   outgoingUpdateCount: number;
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocumentV2>>>;
+  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
 }
 
 export interface ExplorerRuntime {
@@ -94,9 +94,9 @@ export interface ExplorerContainerPatch {
   name: string;
   organizationId: string;
   parentId: string | null;
-  v2ContentKeyBundle: string | null;
-  v2DocumentKekTargets: string | null;
-  v2DocumentManifestBundle: string | null;
+  contentKeyBundle: string | null;
+  documentKekTargets: string | null;
+  documentManifestBundle: string | null;
 }
 
 export interface ExplorerSyncState {
@@ -369,9 +369,9 @@ async function upsertRemoteContainerState(
       id: remoteContainer.id,
       lastCommitLsn: null,
       loroSnapshot: initialSnapshot,
-      v2ContentKeyBundle: null,
-      v2DocumentKekTargets: null,
-      v2DocumentManifestBundle: null,
+      contentKeyBundle: null,
+      documentKekTargets: null,
+      documentManifestBundle: null,
     },
   };
 
@@ -502,9 +502,9 @@ async function initializeExplorerStore(input: {
         id: container.id,
         lastCommitLsn: null,
         loroSnapshot: bytesToBase64(initialUpdate),
-        v2ContentKeyBundle: null,
-        v2DocumentKekTargets: null,
-        v2DocumentManifestBundle: null,
+        contentKeyBundle: null,
+        documentKekTargets: null,
+        documentManifestBundle: null,
       };
       await state.persistence.saveContainer(
         state.runtime.execSql,
@@ -573,9 +573,9 @@ function ensureExplorerStoreInitialized(input: {
   });
 }
 
-function resolveExplorerV2Author(
+function resolveExplorerAuthor(
   runtime: ExplorerRuntime,
-): DocumentV2CreateAuthor | null {
+): DocumentCreateAuthor | null {
   if (
     !runtime.organizationId ||
     !runtime.signingFingerprint ||
@@ -587,14 +587,14 @@ function resolveExplorerV2Author(
 
   return {
     organizationId: runtime.organizationId,
-    signerDeviceId: createDocumentV2SignerDeviceId(runtime.signingFingerprint),
+    signerDeviceId: createDocumentSignerDeviceId(runtime.signingFingerprint),
     signerKeyFingerprint: runtime.signingFingerprint,
     signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
     signerUserId: runtime.userId,
   };
 }
 
-export async function createRemoteExplorerContainerV2(input: {
+export async function createRemoteExplorerContainer(input: {
   containerId: string;
   parentContainerId: string;
   runtime: ExplorerRuntime;
@@ -607,22 +607,22 @@ export async function createRemoteExplorerContainerV2(input: {
   persistedMetadataState: Pick<
     DocumentRecord,
     | "documentId"
-    | "v2ContentKeyBundle"
-    | "v2DocumentKekTargets"
-    | "v2DocumentManifestBundle"
+    | "contentKeyBundle"
+    | "documentKekTargets"
+    | "documentManifestBundle"
   >;
 } | null> {
-  const author = resolveExplorerV2Author(input.runtime);
+  const author = resolveExplorerAuthor(input.runtime);
   const { apiClient } = input.runtime;
   const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !parentSecretKey) {
     input.runtime.log(
-      "Explorer: skipped V2 container create because the V2 writer context is unavailable.",
+      "Explorer: skipped container create because the writer context is unavailable.",
     );
     return null;
   }
 
-  const createdContainer = await createRemoteContainerV2({
+  const createdContainer = await createRemoteContainer({
     apiClient,
     author,
     containerId: input.containerId,
@@ -635,7 +635,7 @@ export async function createRemoteExplorerContainerV2(input: {
     return null;
   }
 
-  const createdMetadataDocument = await createRemoteDocumentV2({
+  const createdMetadataDocument = await createRemoteDocument({
     apiClient,
     author,
     containerId: createdContainer.containerId,
@@ -670,13 +670,13 @@ function readMutationMetadataDocumentId(input: {
     typeof metadataDocumentId !== "string" ||
     metadataDocumentId.length === 0
   ) {
-    throw new Error("Container V2 mutation response is missing metadata state");
+    throw new Error("Container mutation response is missing metadata state");
   }
 
   return metadataDocumentId;
 }
 
-function referencedPrincipalHeadsFromV2Response(input: {
+function referencedPrincipalHeadsFromResponse(input: {
   response: { referencedPrincipalHeads: readonly Record<string, unknown>[] };
 }): ReferencedPrincipalStateResponse[] {
   return input.response.referencedPrincipalHeads.flatMap((head) => {
@@ -708,7 +708,7 @@ function referencedPrincipalHeadsFromV2Response(input: {
   });
 }
 
-export async function shareRemoteExplorerContainerV2(input: {
+export async function shareRemoteExplorerContainer(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
   recipientUserId: string;
@@ -718,15 +718,15 @@ export async function shareRemoteExplorerContainerV2(input: {
   accessEpoch: number;
   metadataDocumentId: string;
   referencedPrincipalHeads: ReturnType<
-    typeof referencedPrincipalHeadsFromV2Response
+    typeof referencedPrincipalHeadsFromResponse
   >;
 } | null> {
-  const author = resolveExplorerV2Author(input.runtime);
+  const author = resolveExplorerAuthor(input.runtime);
   const { apiClient } = input.runtime;
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
     input.runtime.log(
-      "Explorer: skipped V2 container share because the V2 writer context is unavailable.",
+      "Explorer: skipped container share because the writer context is unavailable.",
     );
     return null;
   }
@@ -738,7 +738,7 @@ export async function shareRemoteExplorerContainerV2(input: {
     return null;
   }
 
-  const shared = await shareRemoteContainerV2({
+  const shared = await shareRemoteContainer({
     accessLevel: input.accessLevel,
     apiClient,
     author,
@@ -760,28 +760,28 @@ export async function shareRemoteExplorerContainerV2(input: {
     metadataDocumentId: readMutationMetadataDocumentId({
       response: shared.response,
     }),
-    referencedPrincipalHeads: referencedPrincipalHeadsFromV2Response({
+    referencedPrincipalHeads: referencedPrincipalHeadsFromResponse({
       response: shared.response,
     }),
   };
 }
 
-export async function moveRemoteExplorerContainerV2(input: {
+export async function moveRemoteExplorerContainer(input: {
   containerId: string;
   parentContainerId: string;
   runtime: ExplorerRuntime;
 }): Promise<ExplorerRemoteContainer | null> {
-  const author = resolveExplorerV2Author(input.runtime);
+  const author = resolveExplorerAuthor(input.runtime);
   const { apiClient } = input.runtime;
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
     input.runtime.log(
-      "Explorer: skipped V2 container move because the V2 writer context is unavailable.",
+      "Explorer: skipped container move because the writer context is unavailable.",
     );
     return null;
   }
 
-  const moved = await moveRemoteContainerV2({
+  const moved = await moveRemoteContainer({
     apiClient,
     author,
     containerId: input.containerId,
@@ -802,7 +802,7 @@ export async function moveRemoteExplorerContainerV2(input: {
     }),
     metadataAccessEpoch: moved.response.manifestHead.epoch,
     metadataAccessStateHash: moved.response.manifestHead.manifestHash,
-    metadataReferencedPrincipals: referencedPrincipalHeadsFromV2Response({
+    metadataReferencedPrincipals: referencedPrincipalHeadsFromResponse({
       response: moved.response,
     }),
   };
@@ -860,7 +860,7 @@ function createExplorerWriterPublicKeyResolver(state: ExplorerSyncState) {
 async function applySyncedContainerUpdates(input: {
   containerState: ContainerState;
   state: ExplorerSyncState;
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocumentV2>>>;
+  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
 }) {
   const { containerState, state, synced } = input;
 
@@ -893,16 +893,16 @@ async function requestContainerMetadataSync(
     containerState.container.id,
   );
 
-  const author = resolveExplorerV2Author(state.runtime);
+  const author = resolveExplorerAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
-      "Explorer: skipped V2 metadata sync because the V2 writer context is unavailable.",
+      "Explorer: skipped metadata sync because the writer context is unavailable.",
     );
     return null;
   }
 
-  const synced = await syncRemoteDocumentV2({
+  const synced = await syncRemoteDocument({
     apiClient,
     author,
     documentId,
@@ -915,12 +915,12 @@ async function requestContainerMetadataSync(
   }).catch((error: unknown) => {
     if (
       error instanceof Error &&
-      (error.message === "Document V2 content key could not be unwrapped" ||
-        error.message === "Document V2 sync target hash mismatch" ||
-        error.message === "Document V2 sync content-key targets mismatch")
+      (error.message === "Document content key could not be unwrapped" ||
+        error.message === "Document sync target hash mismatch" ||
+        error.message === "Document sync content-key targets mismatch")
     ) {
       state.runtime.log(
-        `Explorer: deferred metadata sync for ${containerState.container.id} because its V2 content-key targets are stale.`,
+        `Explorer: deferred metadata sync for ${containerState.container.id} because its content-key targets are stale.`,
       );
       return null;
     }
@@ -1006,7 +1006,7 @@ async function markCreateIntentAlreadySynced(input: {
 
 async function persistCreatedContainerFromIntent(input: {
   created: NonNullable<
-    Awaited<ReturnType<typeof createRemoteExplorerContainerV2>>
+    Awaited<ReturnType<typeof createRemoteExplorerContainer>>
   >;
   host: ExplorerSyncHost;
   state: ExplorerSyncState;
@@ -1070,7 +1070,7 @@ async function tryCreateRemoteContainerFromIntent(input: {
   if (!hasRemoteMetadataState(parentState)) {
     return "blocked";
   }
-  const created = await createRemoteExplorerContainerV2({
+  const created = await createRemoteExplorerContainer({
     containerId: containerState.container.id,
     parentContainerId: parentState.container.id,
     runtime: state.runtime,
@@ -1080,7 +1080,7 @@ async function tryCreateRemoteContainerFromIntent(input: {
     await state.persistence.recordCreateIntentError(
       state.runtime.execSql,
       intent.containerId,
-      "Remote V2 container create was rejected or unavailable",
+      "Remote container create was rejected or unavailable",
     );
     return "failed";
   }

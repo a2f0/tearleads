@@ -2,9 +2,9 @@ import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/resp
 import { and, eq, isNull } from "drizzle-orm";
 import { attachmentBindings } from "../../schema";
 import {
-  KeyingV2ReadAccessError,
-  resolveReadableDocumentV2Access,
-} from "../keyingV2ReadAccess";
+  KeyingReadAccessError,
+  resolveReadableDocumentAccess,
+} from "../keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface ListDocumentAttachmentsInput {
@@ -26,13 +26,13 @@ export async function listDocumentAttachments(
   input: ListDocumentAttachmentsInput,
 ): Promise<ListDocumentAttachmentsResponse> {
   try {
-    await resolveReadableDocumentV2Access({
+    await resolveReadableDocumentAccess({
       documentId: input.documentId,
       executor: runtime.db,
       userId: input.userId,
     });
   } catch (error) {
-    if (error instanceof KeyingV2ReadAccessError) {
+    if (error instanceof KeyingReadAccessError) {
       throw new ListDocumentAttachmentsError(error.message, error.status);
     }
     throw error;

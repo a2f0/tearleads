@@ -1,7 +1,7 @@
 import { afterAll } from "bun:test";
-import { type AccessEventV2, computeAccessEventHash } from "@tearleads/crypto";
+import { type AccessEvent, computeAccessEventHash } from "@tearleads/crypto";
 import type {
-  DocumentV2ContentKeyTargetEnvelopeResponse,
+  DocumentContentKeyTargetEnvelopeResponse,
   EncapsulationKeyResponse,
   ListContainersResponse,
   PublicKeyResponse,
@@ -89,9 +89,7 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isNonEmptyString);
 }
 
-function isAccessEventTypeV2(
-  value: unknown,
-): value is AccessEventV2["eventType"] {
+function isAccessEventType(value: unknown): value is AccessEvent["eventType"] {
   return (
     value === "attachment.bind" ||
     value === "attachment.detach" ||
@@ -105,13 +103,13 @@ function isAccessEventTypeV2(
   );
 }
 
-function isAccessObjectKindV2(
+function isAccessObjectKind(
   value: unknown,
-): value is AccessEventV2["objectKind"] {
+): value is AccessEvent["objectKind"] {
   return value === "blob" || value === "container" || value === "document";
 }
 
-function isAccessEventV2(value: unknown): value is AccessEventV2 {
+function isAccessEvent(value: unknown): value is AccessEvent {
   if (!isRecord(value)) {
     return false;
   }
@@ -123,10 +121,10 @@ function isAccessEventV2(value: unknown): value is AccessEventV2 {
   const previousManifestHash = Reflect.get(value, "previousManifestHash");
 
   return (
-    Reflect.get(value, "version") === 2 &&
+    Reflect.get(value, "version") === 1 &&
     isNonEmptyString(Reflect.get(value, "eventId")) &&
-    isAccessEventTypeV2(Reflect.get(value, "eventType")) &&
-    isAccessObjectKindV2(Reflect.get(value, "objectKind")) &&
+    isAccessEventType(Reflect.get(value, "eventType")) &&
+    isAccessObjectKind(Reflect.get(value, "objectKind")) &&
     isNonEmptyString(Reflect.get(value, "objectId")) &&
     isNonEmptyString(Reflect.get(value, "organizationId")) &&
     (previousManifestHash === null || isHashString(previousManifestHash)) &&
@@ -141,9 +139,9 @@ function isAccessEventV2(value: unknown): value is AccessEventV2 {
   );
 }
 
-function isDocumentV2ContentKeyTargetEnvelopeResponse(
+function isDocumentContentKeyTargetEnvelopeResponse(
   value: unknown,
-): value is DocumentV2ContentKeyTargetEnvelopeResponse {
+): value is DocumentContentKeyTargetEnvelopeResponse {
   if (!isRecord(value)) {
     return false;
   }
@@ -160,9 +158,9 @@ function isDocumentV2ContentKeyTargetEnvelopeResponse(
   );
 }
 
-function createSyntheticRootMetadataDocumentV2Response(
+function createSyntheticRootMetadataDocumentResponse(
   rootMetadataDocumentId: string,
-): PublicKeyResponse["rootMetadataDocumentV2"] {
+): PublicKeyResponse["rootMetadataDocument"] {
   const rootContainerId = crypto.randomUUID();
   const manifestHash = randomHex(32);
   const targetHash = randomHex(32);
@@ -208,19 +206,19 @@ function createSyntheticRootMetadataDocumentV2Response(
   };
 }
 
-async function createRootMetadataDocumentV2Response(
+async function createRootMetadataDocumentResponse(
   requestBody: unknown,
-): Promise<PublicKeyResponse["rootMetadataDocumentV2"]> {
+): Promise<PublicKeyResponse["rootMetadataDocument"]> {
   if (!isRecord(requestBody)) {
-    return createSyntheticRootMetadataDocumentV2Response(crypto.randomUUID());
+    return createSyntheticRootMetadataDocumentResponse(crypto.randomUUID());
   }
 
   const documentRequest = Reflect.get(
     requestBody,
-    "initialRootMetadataDocumentV2",
+    "initialRootMetadataDocument",
   );
   if (!isRecord(documentRequest)) {
-    return createSyntheticRootMetadataDocumentV2Response(crypto.randomUUID());
+    return createSyntheticRootMetadataDocumentResponse(crypto.randomUUID());
   }
 
   const event = Reflect.get(documentRequest, "event");
@@ -233,7 +231,7 @@ async function createRootMetadataDocumentV2Response(
     !isRecord(manifest) ||
     !isRecord(contentKeyBundle)
   ) {
-    return createSyntheticRootMetadataDocumentV2Response(crypto.randomUUID());
+    return createSyntheticRootMetadataDocumentResponse(crypto.randomUUID());
   }
 
   const containerId = Reflect.get(body, "containerId");
@@ -242,17 +240,17 @@ async function createRootMetadataDocumentV2Response(
   const contentKeyEpoch = Reflect.get(contentKeyBundle, "contentKeyEpoch");
   const rawTargets = Reflect.get(contentKeyBundle, "targets");
   const targets = Array.isArray(rawTargets)
-    ? rawTargets.filter(isDocumentV2ContentKeyTargetEnvelopeResponse)
+    ? rawTargets.filter(isDocumentContentKeyTargetEnvelopeResponse)
     : [];
   if (
-    !isAccessEventV2(event) ||
+    !isAccessEvent(event) ||
     typeof containerId !== "string" ||
     typeof manifestHash !== "string" ||
     typeof targetHash !== "string" ||
     typeof contentKeyEpoch !== "number" ||
     targets.length === 0
   ) {
-    return createSyntheticRootMetadataDocumentV2Response(crypto.randomUUID());
+    return createSyntheticRootMetadataDocumentResponse(crypto.randomUUID());
   }
 
   const documentId = event.objectId;
@@ -277,7 +275,7 @@ async function createRootMetadataDocumentV2Response(
       manifest,
       manifestHash,
       state: {
-        version: 2,
+        version: 1,
         documentId,
         organizationId,
         epoch: 1,
@@ -314,9 +312,9 @@ const server = setupServer(
   }),
   http.post("http://localhost:3001/auth/register", async ({ request }) => {
     const requestBody = await request.json().catch(() => null);
-    const rootMetadataDocumentV2 =
-      await createRootMetadataDocumentV2Response(requestBody);
-    const rootMetadataDocumentId = rootMetadataDocumentV2.id;
+    const rootMetadataDocument =
+      await createRootMetadataDocumentResponse(requestBody);
+    const rootMetadataDocumentId = rootMetadataDocument.id;
     const rootContainerId = isRecord(requestBody)
       ? Reflect.get(requestBody, "rootContainerId")
       : null;
@@ -332,7 +330,7 @@ const server = setupServer(
       rootMetadataDocumentId,
       rootMetadataAccessEpoch: 1,
       rootMetadataAccessStateHash: randomHex(32),
-      rootMetadataDocumentV2,
+      rootMetadataDocument,
       challenge: randomHex(32),
     });
   }),
@@ -346,7 +344,7 @@ const server = setupServer(
     return HttpResponse.json<ListContainersResponse>([]);
   }),
   http.get(
-    "http://localhost:3001/v2/containers/:containerId/writer-projection",
+    "http://localhost:3001/containers/:containerId/writer-projection",
     () => {
       return HttpResponse.json({ error: "Not Found" }, { status: 404 });
     },

@@ -13,33 +13,33 @@ import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { createLargeText } from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
-  BlobV2AttachmentBindRequest,
-  DocumentV2CreateRequest,
-  DocumentV2SyncRequest,
+  BlobAttachmentBindRequest,
+  DocumentCreateRequest,
+  DocumentSyncRequest,
   StageBlobRequest,
 } from "@tearleads/validators/request";
 import type {
-  BlobV2AttachmentBindResponse,
-  ContainerV2WriterProjectionResponse,
-  DocumentV2CreateResponse,
-  DocumentV2SyncResponse,
+  BlobAttachmentBindResponse,
+  ContainerWriterProjectionResponse,
+  DocumentCreateResponse,
+  DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import {
-  assertAccessEventV2,
-  assertOptionalWriteHeaderV2,
-  assertWriteHeaderV2,
-} from "../../../../test/helpers/keyingV2Assertions";
+  assertAccessEvent,
+  assertOptionalWriteHeader,
+  assertWriteHeader,
+} from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { type BlobBytes, createMemoryBlobStore } from "../../../data/blobs";
 import {
-  decryptDocumentAttachmentBlobV2,
-  uploadDocumentAttachmentV2,
-} from "../../../data/documents/blobV2Runtime";
+  decryptDocumentAttachmentBlob,
+  uploadDocumentAttachment,
+} from "../../../data/documents/blobRuntime";
 import { subscribeToPersistedDocuments } from "../../../data/documents/DocumentsProvider";
+import { createRemoteDocument } from "../../../data/documents/documentRuntime";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentsPersistence";
-import { createRemoteDocumentV2 } from "../../../data/documents/documentV2Runtime";
 import { createEmptyDriverLicenseDocument } from "../../../document-types/drivers-license/driverLicenseDocument";
 import type {
   LocalAttachmentRecord,
@@ -92,21 +92,21 @@ function createUnavailableNotesApiClient(
   containerId = "root-container",
 ): NotesRuntime["apiClient"] {
   return createMockApiClient({
-    bindBlobAttachmentV2: async () => null,
-    createDocumentV2: async () => null,
+    bindBlobAttachment: async () => null,
+    createDocument: async () => null,
     getBlob: async () => null,
     getEncapsulationKey: async () => null,
-    getContainerV2WriterProjection: async () => null,
-    getDocumentV2WriterProjection: async () => null,
+    getContainerWriterProjection: async () => null,
+    getDocumentWriterProjection: async () => null,
     listContainers: async () => createListedContainers(containerId),
     listDocumentAttachments: async () => null,
     stageBlob: async () => null,
-    syncDocumentV2: async () => null,
+    syncDocument: async () => null,
   });
 }
 
-async function noteV2FixtureHash(label: string): Promise<string> {
-  return toFingerprint(new TextEncoder().encode(`notes-v2:${label}`));
+async function noteFixtureHash(label: string): Promise<string> {
+  return toFingerprint(new TextEncoder().encode(`notes:${label}`));
 }
 
 async function createPersistedNoteSnapshot(text: string): Promise<string> {
@@ -115,17 +115,15 @@ async function createPersistedNoteSnapshot(text: string): Promise<string> {
   return bytesToBase64(exportAllUpdates(doc));
 }
 
-async function createNoteV2ContainerProjection(input: {
+async function createNoteContainerProjection(input: {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
   userId: string;
-}): Promise<ContainerV2WriterProjectionResponse> {
-  const manifestHash = await noteV2FixtureHash(`${input.containerId}:manifest`);
-  const eventHash = await noteV2FixtureHash(`${input.containerId}:event`);
-  const keyEpochHash = await noteV2FixtureHash(
-    `${input.containerId}:key-epoch`,
-  );
-  const keyTargetHash = await noteV2FixtureHash(
+}): Promise<ContainerWriterProjectionResponse> {
+  const manifestHash = await noteFixtureHash(`${input.containerId}:manifest`);
+  const eventHash = await noteFixtureHash(`${input.containerId}:event`);
+  const keyEpochHash = await noteFixtureHash(`${input.containerId}:key-epoch`);
+  const keyTargetHash = await noteFixtureHash(
     `${input.containerId}:key-target`,
   );
   const containerKeyEpochId = `${input.containerId}-key-epoch-1`;
@@ -134,7 +132,7 @@ async function createNoteV2ContainerProjection(input: {
     input.encapsulationPublicKey,
   ]);
   if (!recipient) {
-    throw new Error("Expected V2 note fixture recipient wrap.");
+    throw new Error("Expected note fixture recipient wrap.");
   }
 
   return {
@@ -187,13 +185,13 @@ async function createNoteV2ContainerProjection(input: {
   };
 }
 
-async function createNoteV2CreateResponse(
-  request: DocumentV2CreateRequest,
-): Promise<DocumentV2CreateResponse> {
+async function createNoteCreateResponse(
+  request: DocumentCreateRequest,
+): Promise<DocumentCreateResponse> {
   const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
   const documentId = String(Reflect.get(manifest, "objectId"));
-  const event = assertAccessEventV2(request.event, "document create event");
+  const event = assertAccessEvent(request.event, "document create event");
   const eventHash = await computeAccessEventHash(event);
   const linkedContainerId = String(Reflect.get(body, "containerId"));
   const targets = request.contentKeyBundle.targets.map((target) => ({
@@ -211,7 +209,7 @@ async function createNoteV2CreateResponse(
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
-        version: 2,
+        version: 1,
         documentId,
         organizationId: String(Reflect.get(manifest, "organizationId")),
         epoch: Number(Reflect.get(manifest, "epoch")),
@@ -242,14 +240,14 @@ async function createNoteV2CreateResponse(
   };
 }
 
-async function createNoteV2SyncResponse(input: {
-  request: DocumentV2SyncRequest;
-  storedDocument: DocumentV2CreateResponse;
+async function createNoteSyncResponse(input: {
+  request: DocumentSyncRequest;
+  storedDocument: DocumentCreateResponse;
   commitLsn: string;
-}): Promise<DocumentV2SyncResponse> {
+}): Promise<DocumentSyncResponse> {
   const updates = await Promise.all(
     input.request.outgoingUpdates.map(async (update) => {
-      const writeHeader = assertWriteHeaderV2(
+      const writeHeader = assertWriteHeader(
         update.writeHeader,
         "document sync write header",
       );
@@ -285,15 +283,15 @@ function uniqueSortedStrings(values: readonly string[]): string[] {
   return [...new Set(values)].sort();
 }
 
-async function createNoteV2AttachmentBindResponse(input: {
+async function createNoteAttachmentBindResponse(input: {
   blobId: string;
-  request: BlobV2AttachmentBindRequest;
+  request: BlobAttachmentBindRequest;
 }) {
   const body = input.request.body as Record<string, unknown>;
   const bindingId = String(Reflect.get(body, "bindingId"));
   const documentId = String(Reflect.get(body, "documentId"));
   const slotId = String(Reflect.get(body, "slotId"));
-  const writeHeader = assertOptionalWriteHeaderV2(
+  const writeHeader = assertOptionalWriteHeader(
     input.request.stagedBlob?.writeHeader,
     "staged blob write header",
   );
@@ -333,7 +331,7 @@ async function createNoteV2AttachmentBindResponse(input: {
       targets,
       blobKeyTargetHash: input.request.contentKeyBundle.targetHash,
       blobAccessManifestHash: await computeBlobAccessManifestHash({
-        version: 2,
+        version: 1,
         blobId: input.blobId,
         organizationId: String(
           Reflect.get(input.request.documentManifest.state, "organizationId"),
@@ -355,7 +353,7 @@ async function createNoteV2AttachmentBindResponse(input: {
   };
 }
 
-interface NoteV2RuntimePatch {
+interface NoteRuntimePatch {
   apiClient: NotesRuntime["apiClient"];
   organizationId: string;
   signingFingerprint: string;
@@ -363,31 +361,31 @@ interface NoteV2RuntimePatch {
   userId: string;
 }
 
-async function createNoteV2RuntimePatch(input: {
+async function createNoteRuntimePatch(input: {
   attachmentBinds?: Array<{
     blobId: string;
-    request: BlobV2AttachmentBindRequest;
+    request: BlobAttachmentBindRequest;
   }>;
   containerId?: string;
   encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>;
-  onBindBlobAttachmentV2?: (
+  onBindBlobAttachment?: (
     blobId: string,
-    request: BlobV2AttachmentBindRequest,
+    request: BlobAttachmentBindRequest,
   ) => Promise<void> | void;
-  mapBindBlobAttachmentV2Response?: (
-    response: BlobV2AttachmentBindResponse,
-  ) => BlobV2AttachmentBindResponse;
+  mapBindBlobAttachmentResponse?: (
+    response: BlobAttachmentBindResponse,
+  ) => BlobAttachmentBindResponse;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
-}): Promise<NoteV2RuntimePatch> {
+}): Promise<NoteRuntimePatch> {
   const containerId = input.containerId ?? "root-container";
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
-  let projectionPromise: Promise<ContainerV2WriterProjectionResponse> | null =
+  let projectionPromise: Promise<ContainerWriterProjectionResponse> | null =
     null;
   let stageCount = 0;
-  let storedDocument: DocumentV2CreateResponse | null = null;
+  let storedDocument: DocumentCreateResponse | null = null;
   let syncCount = 0;
   const attachments: Array<{
     bindingId: string;
@@ -403,7 +401,7 @@ async function createNoteV2RuntimePatch(input: {
     }
   >();
   const getProjection = () => {
-    projectionPromise ??= createNoteV2ContainerProjection({
+    projectionPromise ??= createNoteContainerProjection({
       containerId,
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
       userId: "user-1",
@@ -413,24 +411,24 @@ async function createNoteV2RuntimePatch(input: {
 
   return {
     apiClient: createMockApiClient({
-      createDocumentV2: async (request) => {
-        storedDocument = await createNoteV2CreateResponse(request);
+      createDocument: async (request) => {
+        storedDocument = await createNoteCreateResponse(request);
         return storedDocument;
       },
-      bindBlobAttachmentV2: async (blobId, request) => {
+      bindBlobAttachment: async (blobId, request) => {
         const stagedBlob = request.stagedBlob
           ? stagedBlobs.get(request.stagedBlob.stageId)
           : null;
         if (request.stagedBlob && !stagedBlob) {
           return null;
         }
-        await input.onBindBlobAttachmentV2?.(blobId, request);
-        const responseFixture = await createNoteV2AttachmentBindResponse({
+        await input.onBindBlobAttachment?.(blobId, request);
+        const responseFixture = await createNoteAttachmentBindResponse({
           blobId,
           request,
         });
         const response =
-          input.mapBindBlobAttachmentV2Response?.(responseFixture) ??
+          input.mapBindBlobAttachmentResponse?.(responseFixture) ??
           responseFixture;
         input.attachmentBinds?.push({ blobId, request });
         attachments.push({
@@ -462,8 +460,8 @@ async function createNoteV2RuntimePatch(input: {
               userId,
             }
           : null,
-      getContainerV2WriterProjection: () => getProjection(),
-      getDocumentV2WriterProjection: async () => {
+      getContainerWriterProjection: () => getProjection(),
+      getDocumentWriterProjection: async () => {
         if (!storedDocument) {
           return null;
         }
@@ -486,7 +484,7 @@ async function createNoteV2RuntimePatch(input: {
           expiresAt: "2026-04-27T00:05:00.000Z",
         };
       },
-      syncDocumentV2: async (_documentId, request) => {
+      syncDocument: async (_documentId, request) => {
         if (!storedDocument) {
           return null;
         }
@@ -495,7 +493,7 @@ async function createNoteV2RuntimePatch(input: {
           outgoingUpdateCount: request.outgoingUpdates.length,
         });
         syncCount += 1;
-        return createNoteV2SyncResponse({
+        return createNoteSyncResponse({
           request,
           storedDocument,
           commitLsn: syncCount === 1 ? "0/10" : "0/20",
@@ -767,28 +765,28 @@ async function createSyncRuntime(
   options: {
     attachmentBinds?: Array<{
       blobId: string;
-      request: BlobV2AttachmentBindRequest;
+      request: BlobAttachmentBindRequest;
     }>;
-    onBindBlobAttachmentV2?: (
+    onBindBlobAttachment?: (
       blobId: string,
-      request: BlobV2AttachmentBindRequest,
+      request: BlobAttachmentBindRequest,
     ) => Promise<void> | void;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
 ): Promise<NotesRuntime> {
-  const v2Patch = await createNoteV2RuntimePatch({
+  const patch = await createNoteRuntimePatch({
     containerId,
     encapsulationKeyPair,
     ...(options.attachmentBinds
       ? { attachmentBinds: options.attachmentBinds }
       : {}),
-    ...(options.onBindBlobAttachmentV2
-      ? { onBindBlobAttachmentV2: options.onBindBlobAttachmentV2 }
+    ...(options.onBindBlobAttachment
+      ? { onBindBlobAttachment: options.onBindBlobAttachment }
       : {}),
     ...(options.syncCalls ? { syncCalls: options.syncCalls } : {}),
   });
   return {
-    apiClient: v2Patch.apiClient,
+    apiClient: patch.apiClient,
     blobStore: createMemoryBlobStore(),
     cacheReferencedPrincipalPolicies: async () => {},
     containerId,
@@ -800,10 +798,10 @@ async function createSyncRuntime(
     isAuthenticated: true,
     log: () => {},
     online: true,
-    organizationId: v2Patch.organizationId,
-    signingFingerprint: v2Patch.signingFingerprint,
-    signingKeyPair: v2Patch.signingKeyPair,
-    userId: v2Patch.userId,
+    organizationId: patch.organizationId,
+    signingFingerprint: patch.signingFingerprint,
+    signingKeyPair: patch.signingKeyPair,
+    userId: patch.userId,
   };
 }
 
@@ -835,10 +833,10 @@ async function waitForStoredDocumentText(
   await waitForCondition(async () => {
     const rows = await runtime.execSql(
       `
-        SELECT text
-        FROM document_projection
-        WHERE local_id = :localId
-      `,
+ SELECT text
+ FROM document_projection
+ WHERE local_id = :localId
+ `,
       {
         ":localId": localId,
       },
@@ -865,19 +863,19 @@ async function createSqlRuntime(): Promise<
 test("primeNotesStore reuses a synced remote note across different local ids", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const v2Patch = await createNoteV2RuntimePatch({
+  const patch = await createNoteRuntimePatch({
     encapsulationKeyPair,
   });
   const runtime: NotesRuntime & { close: () => void } = {
     ...runtimeBase,
-    apiClient: v2Patch.apiClient,
+    apiClient: patch.apiClient,
     encapsulationKeyPair,
     isAuthenticated: true,
     online: true,
-    organizationId: v2Patch.organizationId,
-    signingFingerprint: v2Patch.signingFingerprint,
-    signingKeyPair: v2Patch.signingKeyPair,
-    userId: v2Patch.userId,
+    organizationId: patch.organizationId,
+    signingFingerprint: patch.signingFingerprint,
+    signingKeyPair: patch.signingKeyPair,
+    userId: patch.userId,
   };
 
   try {
@@ -919,19 +917,19 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
 test("primeNotesStore collapses live duplicate note facades after remote identity resolves", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const v2Patch = await createNoteV2RuntimePatch({
+  const patch = await createNoteRuntimePatch({
     encapsulationKeyPair,
   });
   const runtime: NotesRuntime & { close: () => void } = {
     ...runtimeBase,
-    apiClient: v2Patch.apiClient,
+    apiClient: patch.apiClient,
     encapsulationKeyPair,
     isAuthenticated: true,
     online: true,
-    organizationId: v2Patch.organizationId,
-    signingFingerprint: v2Patch.signingFingerprint,
-    signingKeyPair: v2Patch.signingKeyPair,
-    userId: v2Patch.userId,
+    organizationId: patch.organizationId,
+    signingFingerprint: patch.signingFingerprint,
+    signingKeyPair: patch.signingKeyPair,
+    userId: patch.userId,
   };
 
   try {
@@ -1108,14 +1106,14 @@ test("notes store creates a document linked to the configured container", async 
       persistence.getState().pendingUpdates.length === 0 &&
       persistence.getState().note?.documentId !== null &&
       persistence.getState().note?.containerId === "shared-container" &&
-      persistence.getState().note?.v2ContentKeyBundle !== null &&
-      persistence.getState().note?.v2DocumentKekTargets !== null &&
-      persistence.getState().note?.v2DocumentManifestBundle !== null,
+      persistence.getState().note?.contentKeyBundle !== null &&
+      persistence.getState().note?.documentKekTargets !== null &&
+      persistence.getState().note?.documentManifestBundle !== null,
     "Container-scoped note did not create and sync its document.",
   );
 });
 
-test("notes store clears V2 document state when access epoch changes", async () => {
+test("notes store clears document state when access epoch changes", async () => {
   const persistence = createNotesPersistence();
   const runtime = createRuntime();
 
@@ -1128,9 +1126,9 @@ test("notes store clears V2 document state when access epoch changes", async () 
     lastCommitLsn: "0/10",
     loroSnapshot: await createPersistedNoteSnapshot("Existing note"),
     text: "Existing note",
-    v2ContentKeyBundle: "stale-content-key-bundle",
-    v2DocumentKekTargets: "stale-kek-targets",
-    v2DocumentManifestBundle: "stale-manifest-bundle",
+    contentKeyBundle: "stale-content-key-bundle",
+    documentKekTargets: "stale-kek-targets",
+    documentManifestBundle: "stale-manifest-bundle",
   });
 
   const store = createNotesStore("epoch-note", runtime, persistence);
@@ -1162,9 +1160,9 @@ test("notes store clears V2 document state when access epoch changes", async () 
     containerId: "container-b",
     documentId: "remote-document",
     lastCommitLsn: "0/10",
-    v2ContentKeyBundle: null,
-    v2DocumentKekTargets: null,
-    v2DocumentManifestBundle: null,
+    contentKeyBundle: null,
+    documentKekTargets: null,
+    documentManifestBundle: null,
   });
 });
 
@@ -1257,12 +1255,12 @@ test("notes store attaches files locally without authentication or network", asy
   );
 });
 
-test("notes store uploads attachment bytes through V2 signed bindings", async () => {
+test("notes store uploads attachment bytes with signed bindings", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const attachmentBinds: Array<{
     blobId: string;
-    request: BlobV2AttachmentBindRequest;
+    request: BlobAttachmentBindRequest;
   }> = [];
   const logs: string[] = [];
   const syncCalls: Array<{
@@ -1276,12 +1274,12 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
     })),
     log: (message) => logs.push(message),
   };
-  const store = createNotesStore("v2-attachment-upload", runtime, persistence);
+  const store = createNotesStore("attachment-upload", runtime, persistence);
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "V2 attachment upload note store did not become ready.",
+    "Attachment upload note store did not become ready.",
   );
 
   store.attachFiles([
@@ -1297,7 +1295,7 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
       persistence.getState().pendingAttachments.length === 0 &&
       persistence.getState().pendingUpdates.length === 0 &&
       typeof persistence.getState().localAttachments[0]?.blobId === "string",
-    "Pending attachment was not uploaded and synced through V2.",
+    "Pending attachment was not uploaded and synced.",
   );
 
   expect(store.getSnapshot().attachments).toHaveLength(1);
@@ -1315,7 +1313,7 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   });
   expect(syncCalls.some((call) => call.outgoingUpdateCount === 1)).toBe(true);
   expect(logs).not.toContain(
-    "Documents: attachment upload sync is waiting for V2 attachment bindings.",
+    "Documents: attachment upload sync is waiting for attachment bindings.",
   );
 
   const blobId = persistence.getState().localAttachments[0]?.blobId;
@@ -1325,7 +1323,7 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   }
   const [blob, writerProjection] = await Promise.all([
     runtime.apiClient.getBlob(blobId),
-    runtime.apiClient.getDocumentV2WriterProjection?.(documentId),
+    runtime.apiClient.getDocumentWriterProjection?.(documentId),
   ]);
   if (!blob || !writerProjection) {
     throw new Error("Expected uploaded blob and writer projection fixtures.");
@@ -1333,7 +1331,7 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   const bindingId = String(
     Reflect.get(attachmentBinds[0]?.request.body ?? {}, "bindingId"),
   );
-  const decryptedBytes = await decryptDocumentAttachmentBlobV2({
+  const decryptedBytes = await decryptDocumentAttachmentBlob({
     encryptedBytes: blob.encryptedBytes,
     expectedBindingId: bindingId,
     expectedBlobId: blobId,
@@ -1346,7 +1344,7 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   );
 
   await expect(
-    decryptDocumentAttachmentBlobV2({
+    decryptDocumentAttachmentBlob({
       encryptedBytes: blob.encryptedBytes,
       expectedBindingId: "wrong-binding-id",
       expectedBlobId: blobId,
@@ -1360,10 +1358,10 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
     contentKeyBundle: { targets: Record<string, unknown>[] };
   };
   await expect(
-    decryptDocumentAttachmentBlobV2({
+    decryptDocumentAttachmentBlob({
       encryptedBytes: JSON.stringify({
         ...tamperedEncryptedBytes,
-        version: 1,
+        version: 2,
       }),
       expectedBindingId: bindingId,
       expectedBlobId: blobId,
@@ -1371,7 +1369,7 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
       targetSecretKey: encapsulationKeyPair.secretKey,
       writerProjection,
     }),
-  ).rejects.toThrow("Blob V2 encrypted bytes version 1 is invalid; expected 2");
+  ).rejects.toThrow("Blob encrypted bytes version 2 is invalid; expected 1");
 
   const [firstTarget, ...remainingTargets] =
     tamperedEncryptedBytes.contentKeyBundle.targets;
@@ -1379,7 +1377,7 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
     throw new Error("Expected uploaded blob content-key target.");
   }
   await expect(
-    decryptDocumentAttachmentBlobV2({
+    decryptDocumentAttachmentBlob({
       encryptedBytes: JSON.stringify({
         ...tamperedEncryptedBytes,
         contentKeyBundle: {
@@ -1402,11 +1400,11 @@ test("notes store uploads attachment bytes through V2 signed bindings", async ()
   ).rejects.toThrow("target hash is not canonical");
 });
 
-test("uploadDocumentAttachmentV2 rejects bind responses with tampered target material", async () => {
+test("uploadDocumentAttachment rejects bind responses with tampered target material", async () => {
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtimePatch = await createNoteV2RuntimePatch({
+  const runtimePatch = await createNoteRuntimePatch({
     encapsulationKeyPair,
-    mapBindBlobAttachmentV2Response: (response) => ({
+    mapBindBlobAttachmentResponse: (response) => ({
       ...response,
       contentKeyBundle: {
         ...response.contentKeyBundle,
@@ -1428,7 +1426,7 @@ test("uploadDocumentAttachmentV2 rejects bind responses with tampered target mat
     signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
     signerUserId: runtimePatch.userId,
   };
-  const created = await createRemoteDocumentV2({
+  const created = await createRemoteDocument({
     apiClient: runtimePatch.apiClient,
     author,
     containerId: "root-container",
@@ -1441,7 +1439,7 @@ test("uploadDocumentAttachmentV2 rejects bind responses with tampered target mat
   }
 
   await expect(
-    uploadDocumentAttachmentV2({
+    uploadDocumentAttachment({
       apiClient: runtimePatch.apiClient,
       author,
       bytes: new TextEncoder().encode("tampered response bytes") as BlobBytes,
@@ -1454,12 +1452,12 @@ test("uploadDocumentAttachmentV2 rejects bind responses with tampered target mat
   ).rejects.toThrow("content-key bundle mismatch");
 });
 
-test("notes store preserves a replacement queued during V2 attachment upload", async () => {
+test("notes store preserves a replacement queued during attachment upload", async () => {
   const persistence = createNotesPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const attachmentBinds: Array<{
     blobId: string;
-    request: BlobV2AttachmentBindRequest;
+    request: BlobAttachmentBindRequest;
   }> = [];
   let replacementQueued = false;
   let store: ReturnType<typeof createNotesStore>;
@@ -1468,7 +1466,7 @@ test("notes store preserves a replacement queued during V2 attachment upload", a
     "shared-container",
     {
       attachmentBinds,
-      onBindBlobAttachmentV2: async () => {
+      onBindBlobAttachment: async () => {
         if (replacementQueued) {
           return;
         }
@@ -1499,12 +1497,12 @@ test("notes store preserves a replacement queued during V2 attachment upload", a
       },
     },
   );
-  store = createNotesStore("v2-attachment-replacement", runtime, persistence);
+  store = createNotesStore("attachment-replacement", runtime, persistence);
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "V2 attachment replacement note store did not become ready.",
+    "Attachment replacement note store did not become ready.",
   );
 
   store.attachFiles([
@@ -1656,12 +1654,12 @@ test("large note edits remain a single pending update row before sync", async ()
     await waitForCondition(async () => {
       const pendingRows = await runtime.execSql(
         `
-          SELECT
-            id,
-            length(update_data) AS update_data_length
-        FROM document_pending_updates
-        WHERE app_kind = :appKind AND local_id = :localId
-      `,
+ SELECT
+ id,
+ length(update_data) AS update_data_length
+ FROM document_pending_updates
+ WHERE app_kind = :appKind AND local_id = :localId
+ `,
         {
           ":appKind": DOCUMENTS_APP_KIND,
           ":localId": noteId,
@@ -1670,10 +1668,10 @@ test("large note edits remain a single pending update row before sync", async ()
 
       const projectionRows = await runtime.execSql(
         `
-          SELECT length(text) AS text_length
-          FROM document_projection
-          WHERE local_id = :localId
-        `,
+ SELECT length(text) AS text_length
+ FROM document_projection
+ WHERE local_id = :localId
+ `,
         {
           ":localId": noteId,
         },
@@ -1692,14 +1690,14 @@ test("large note edits remain a single pending update row before sync", async ()
 
     const pendingRows = await runtime.execSql(
       `
-        SELECT
-          id,
-          length(update_data) AS update_data_length,
-          partial_start_version_vector,
-          partial_end_version_vector
-        FROM document_pending_updates
-        WHERE app_kind = :appKind AND local_id = :localId
-      `,
+ SELECT
+ id,
+ length(update_data) AS update_data_length,
+ partial_start_version_vector,
+ partial_end_version_vector
+ FROM document_pending_updates
+ WHERE app_kind = :appKind AND local_id = :localId
+ `,
       {
         ":appKind": DOCUMENTS_APP_KIND,
         ":localId": noteId,

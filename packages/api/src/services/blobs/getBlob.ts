@@ -2,9 +2,9 @@ import type { BlobResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { blobs } from "../../schema";
 import {
-  KeyingV2ReadAccessError,
-  resolveReadableBlobV2Access,
-} from "../keyingV2ReadAccess";
+  KeyingReadAccessError,
+  resolveReadableBlobAccess,
+} from "../keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface GetBlobInput {
@@ -26,13 +26,13 @@ export async function getBlob(
   input: GetBlobInput,
 ): Promise<BlobResponse> {
   try {
-    await resolveReadableBlobV2Access({
+    await resolveReadableBlobAccess({
       blobId: input.blobId,
       executor: runtime.db,
       userId: input.userId,
     });
   } catch (error) {
-    if (error instanceof KeyingV2ReadAccessError) {
+    if (error instanceof KeyingReadAccessError) {
       throw new GetBlobError(error.message, error.status);
     }
     throw error;

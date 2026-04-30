@@ -13,9 +13,9 @@ export interface DocumentRecord {
   accessEpoch: number;
   accessStateHash?: string | null;
   lastCommitLsn?: string | null;
-  v2ContentKeyBundle?: string | null;
-  v2DocumentKekTargets?: string | null;
-  v2DocumentManifestBundle?: string | null;
+  contentKeyBundle?: string | null;
+  documentKekTargets?: string | null;
+  documentManifestBundle?: string | null;
 }
 
 export interface PendingUpdateFields {
@@ -38,36 +38,36 @@ const documentTables: ReadonlyArray<SqlTableSchema> = [
   {
     name: "documents",
     createSql: `
-      CREATE TABLE IF NOT EXISTS documents (
-        app_kind TEXT NOT NULL,
-        local_id TEXT NOT NULL,
-        document_id TEXT,
-        loro_snapshot TEXT NOT NULL,
-        access_epoch INTEGER NOT NULL DEFAULT 1,
-        access_state_hash TEXT,
-        last_commit_lsn TEXT,
-        v2_document_manifest_bundle TEXT,
-        v2_content_key_bundle TEXT,
-        v2_document_kek_targets TEXT,
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (app_kind, local_id)
-      )
-    `,
+ CREATE TABLE IF NOT EXISTS documents (
+ app_kind TEXT NOT NULL,
+ local_id TEXT NOT NULL,
+ document_id TEXT,
+ loro_snapshot TEXT NOT NULL,
+ access_epoch INTEGER NOT NULL DEFAULT 1,
+ access_state_hash TEXT,
+ last_commit_lsn TEXT,
+ document_manifest_bundle TEXT,
+ content_key_bundle TEXT,
+ document_kek_targets TEXT,
+ updated_at TEXT NOT NULL,
+ PRIMARY KEY (app_kind, local_id)
+ )
+ `,
   },
   {
     name: "document_pending_updates",
     createSql: `
-      CREATE TABLE IF NOT EXISTS document_pending_updates (
-        id TEXT PRIMARY KEY,
-        app_kind TEXT NOT NULL,
-        local_id TEXT NOT NULL,
-        update_data TEXT NOT NULL,
-        partial_start_version_vector TEXT NOT NULL,
-        partial_end_version_vector TEXT NOT NULL,
-        source_version_vector TEXT,
-        created_at TEXT NOT NULL
-      )
-    `,
+ CREATE TABLE IF NOT EXISTS document_pending_updates (
+ id TEXT PRIMARY KEY,
+ app_kind TEXT NOT NULL,
+ local_id TEXT NOT NULL,
+ update_data TEXT NOT NULL,
+ partial_start_version_vector TEXT NOT NULL,
+ partial_end_version_vector TEXT NOT NULL,
+ source_version_vector TEXT,
+ created_at TEXT NOT NULL
+ )
+ `,
   },
 ];
 
@@ -93,11 +93,11 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
   const accessEpoch = readSqlRowValue(row, "access_epoch");
   const accessStateHash = readSqlRowValue(row, "access_state_hash");
   const lastCommitLsn = readSqlRowValue(row, "last_commit_lsn");
-  const v2ContentKeyBundle = readSqlRowValue(row, "v2_content_key_bundle");
-  const v2DocumentKekTargets = readSqlRowValue(row, "v2_document_kek_targets");
-  const v2DocumentManifestBundle = readSqlRowValue(
+  const contentKeyBundle = readSqlRowValue(row, "content_key_bundle");
+  const documentKekTargets = readSqlRowValue(row, "document_kek_targets");
+  const documentManifestBundle = readSqlRowValue(
     row,
-    "v2_document_manifest_bundle",
+    "document_manifest_bundle",
   );
 
   const record: DocumentRecord = {
@@ -109,19 +109,18 @@ export function parseDocumentRecord(row: SqlRow): DocumentRecord {
       lastCommitLsn === null || lastCommitLsn === undefined
         ? null
         : String(lastCommitLsn),
-    v2ContentKeyBundle:
-      v2ContentKeyBundle === null || v2ContentKeyBundle === undefined
+    contentKeyBundle:
+      contentKeyBundle === null || contentKeyBundle === undefined
         ? null
-        : String(v2ContentKeyBundle),
-    v2DocumentKekTargets:
-      v2DocumentKekTargets === null || v2DocumentKekTargets === undefined
+        : String(contentKeyBundle),
+    documentKekTargets:
+      documentKekTargets === null || documentKekTargets === undefined
         ? null
-        : String(v2DocumentKekTargets),
-    v2DocumentManifestBundle:
-      v2DocumentManifestBundle === null ||
-      v2DocumentManifestBundle === undefined
+        : String(documentKekTargets),
+    documentManifestBundle:
+      documentManifestBundle === null || documentManifestBundle === undefined
         ? null
-        : String(v2DocumentManifestBundle),
+        : String(documentManifestBundle),
   };
 
   if (accessStateHash !== null && accessStateHash !== undefined) {
@@ -162,20 +161,20 @@ export async function loadDocumentRecord(
 ): Promise<DocumentRecord | null> {
   const rows = await execSql(
     `
-      SELECT
-        local_id AS id,
-        document_id,
-        loro_snapshot,
-        access_epoch,
-        access_state_hash,
-        last_commit_lsn,
-        v2_document_manifest_bundle,
-        v2_content_key_bundle,
-        v2_document_kek_targets
-      FROM documents
-      WHERE app_kind = :appKind AND local_id = :localId
-      LIMIT 1
-    `,
+ SELECT
+ local_id AS id,
+ document_id,
+ loro_snapshot,
+ access_epoch,
+ access_state_hash,
+ last_commit_lsn,
+ document_manifest_bundle,
+ content_key_bundle,
+ document_kek_targets
+ FROM documents
+ WHERE app_kind = :appKind AND local_id = :localId
+ LIMIT 1
+ `,
     getScopeBind(scope),
   );
 
@@ -189,11 +188,11 @@ export async function findLocalIdByDocumentId(
 ): Promise<string | null> {
   const rows = await execSql(
     `
-      SELECT local_id
-      FROM documents
-      WHERE app_kind = :appKind AND document_id = :documentId
-      LIMIT 1
-    `,
+ SELECT local_id
+ FROM documents
+ WHERE app_kind = :appKind AND document_id = :documentId
+ LIMIT 1
+ `,
     {
       ":appKind": appKind,
       ":documentId": documentId,
@@ -213,44 +212,44 @@ export async function saveDocumentRecord(
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await lockedExecSql(
       `
-        INSERT INTO documents (
-          app_kind,
-          local_id,
-          document_id,
-          loro_snapshot,
-          access_epoch,
-          access_state_hash,
-          last_commit_lsn,
-          v2_document_manifest_bundle,
-          v2_content_key_bundle,
-          v2_document_kek_targets,
-          updated_at
-        )
-        VALUES (
-          :appKind,
-          :localId,
-          :documentId,
-          :loroSnapshot,
-          :accessEpoch,
-          :accessStateHash,
-          :lastCommitLsn,
-          :v2DocumentManifestBundle,
-          :v2ContentKeyBundle,
-          :v2DocumentKekTargets,
-          :updatedAt
-        )
-        ON CONFLICT(app_kind, local_id) DO UPDATE SET
-          document_id = excluded.document_id,
-          loro_snapshot = excluded.loro_snapshot,
-          access_epoch = excluded.access_epoch,
-          access_state_hash = excluded.access_state_hash,
-          last_commit_lsn = excluded.last_commit_lsn,
-          v2_document_manifest_bundle =
-            excluded.v2_document_manifest_bundle,
-          v2_content_key_bundle = excluded.v2_content_key_bundle,
-          v2_document_kek_targets = excluded.v2_document_kek_targets,
-          updated_at = excluded.updated_at
-      `,
+ INSERT INTO documents (
+ app_kind,
+ local_id,
+ document_id,
+ loro_snapshot,
+ access_epoch,
+ access_state_hash,
+ last_commit_lsn,
+ document_manifest_bundle,
+ content_key_bundle,
+ document_kek_targets,
+ updated_at
+ )
+ VALUES (
+ :appKind,
+ :localId,
+ :documentId,
+ :loroSnapshot,
+ :accessEpoch,
+ :accessStateHash,
+ :lastCommitLsn,
+ :documentManifestBundle,
+ :contentKeyBundle,
+ :documentKekTargets,
+ :updatedAt
+ )
+ ON CONFLICT(app_kind, local_id) DO UPDATE SET
+ document_id = excluded.document_id,
+ loro_snapshot = excluded.loro_snapshot,
+ access_epoch = excluded.access_epoch,
+ access_state_hash = excluded.access_state_hash,
+ last_commit_lsn = excluded.last_commit_lsn,
+ document_manifest_bundle =
+ excluded.document_manifest_bundle,
+ content_key_bundle = excluded.content_key_bundle,
+ document_kek_targets = excluded.document_kek_targets,
+ updated_at = excluded.updated_at
+ `,
       {
         ...getScopeBind(scope),
         ":documentId": record.documentId,
@@ -258,9 +257,9 @@ export async function saveDocumentRecord(
         ":accessEpoch": record.accessEpoch,
         ":accessStateHash": record.accessStateHash ?? null,
         ":lastCommitLsn": record.lastCommitLsn ?? null,
-        ":v2ContentKeyBundle": record.v2ContentKeyBundle ?? null,
-        ":v2DocumentKekTargets": record.v2DocumentKekTargets ?? null,
-        ":v2DocumentManifestBundle": record.v2DocumentManifestBundle ?? null,
+        ":contentKeyBundle": record.contentKeyBundle ?? null,
+        ":documentKekTargets": record.documentKekTargets ?? null,
+        ":documentManifestBundle": record.documentManifestBundle ?? null,
         ":updatedAt": updatedAt,
       },
     );
@@ -274,9 +273,9 @@ export async function deleteDocumentRecord(
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await lockedExecSql(
       `
-        DELETE FROM documents
-        WHERE app_kind = :appKind AND local_id = :localId
-      `,
+ DELETE FROM documents
+ WHERE app_kind = :appKind AND local_id = :localId
+ `,
       getScopeBind(scope),
     );
   });
@@ -288,14 +287,14 @@ export async function listDocumentPendingUpdates(
 ): Promise<PendingUpdateRecord[]> {
   const rows = await execSql(
     `
-      SELECT id, update_data
-        , partial_start_version_vector
-        , partial_end_version_vector
-        , source_version_vector
-      FROM document_pending_updates
-      WHERE app_kind = :appKind AND local_id = :localId
-      ORDER BY created_at ASC
-    `,
+ SELECT id, update_data
+ , partial_start_version_vector
+ , partial_end_version_vector
+ , source_version_vector
+ FROM document_pending_updates
+ WHERE app_kind = :appKind AND local_id = :localId
+ ORDER BY created_at ASC
+ `,
     getScopeBind(scope),
   );
 
@@ -310,27 +309,27 @@ export async function enqueueDocumentPendingUpdate(
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await lockedExecSql(
       `
-        INSERT INTO document_pending_updates (
-          id,
-          app_kind,
-          local_id,
-          update_data,
-          partial_start_version_vector,
-          partial_end_version_vector,
-          source_version_vector,
-          created_at
-        )
-        VALUES (
-          :id,
-          :appKind,
-          :localId,
-          :updateData,
-          :partialStartVersionVector,
-          :partialEndVersionVector,
-          :sourceVersionVector,
-          :createdAt
-        )
-      `,
+ INSERT INTO document_pending_updates (
+ id,
+ app_kind,
+ local_id,
+ update_data,
+ partial_start_version_vector,
+ partial_end_version_vector,
+ source_version_vector,
+ created_at
+ )
+ VALUES (
+ :id,
+ :appKind,
+ :localId,
+ :updateData,
+ :partialStartVersionVector,
+ :partialEndVersionVector,
+ :sourceVersionVector,
+ :createdAt
+ )
+ `,
       {
         ...getScopeBind(scope),
         ":id": crypto.randomUUID(),
@@ -351,9 +350,9 @@ export async function deleteDocumentPendingUpdate(
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await lockedExecSql(
       `
-        DELETE FROM document_pending_updates
-        WHERE id = :id
-      `,
+ DELETE FROM document_pending_updates
+ WHERE id = :id
+ `,
       {
         ":id": id,
       },
@@ -368,9 +367,9 @@ export async function deleteDocumentPendingUpdates(
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await lockedExecSql(
       `
-        DELETE FROM document_pending_updates
-        WHERE app_kind = :appKind AND local_id = :localId
-      `,
+ DELETE FROM document_pending_updates
+ WHERE app_kind = :appKind AND local_id = :localId
+ `,
       getScopeBind(scope),
     );
   });

@@ -9,10 +9,10 @@ import {
   sqlNotesPersistence,
 } from "./notesPersistence";
 
-const emptyV2DocumentState = {
-  v2ContentKeyBundle: null,
-  v2DocumentKekTargets: null,
-  v2DocumentManifestBundle: null,
+const emptyDocumentState = {
+  contentKeyBundle: null,
+  documentKekTargets: null,
+  documentManifestBundle: null,
 };
 
 test("concurrent note saves are serialized on a shared SQLite connection", async () => {
@@ -52,7 +52,7 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
       text: "second",
       loroSnapshot: "snapshot-2",
       accessEpoch: 2,
-      ...emptyV2DocumentState,
+      ...emptyDocumentState,
     });
   } finally {
     close();
@@ -108,7 +108,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
-      ...emptyV2DocumentState,
+      ...emptyDocumentState,
     });
 
     await expect(
@@ -119,7 +119,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
   }
 });
 
-test("upsertDiscoveredNote preserves V2 document state for the same remote document id", async () => {
+test("upsertDiscoveredNote preserves document state for the same remote document id", async () => {
   const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
@@ -136,14 +136,14 @@ test("upsertDiscoveredNote preserves V2 document state for the same remote docum
         lastCommitLsn: "0/10",
         loroSnapshot: "snapshot-1",
         text: "Existing local note",
-        v2ContentKeyBundle: JSON.stringify({
+        contentKeyBundle: JSON.stringify({
           contentKeyEpoch: 1,
           linkSetManifestHash: "document-manifest-hash-1",
         }),
-        v2DocumentKekTargets: JSON.stringify({
+        documentKekTargets: JSON.stringify({
           documentKeyTargetHash: "document-target-hash-1",
         }),
-        v2DocumentManifestBundle: JSON.stringify({
+        documentManifestBundle: JSON.stringify({
           manifestHash: "document-manifest-hash-1",
         }),
       },
@@ -166,14 +166,14 @@ test("upsertDiscoveredNote preserves V2 document state for the same remote docum
       accessStateHash: "access-state-hash-1",
       documentId: "remote-document",
       lastCommitLsn: "0/10",
-      v2ContentKeyBundle: JSON.stringify({
+      contentKeyBundle: JSON.stringify({
         contentKeyEpoch: 1,
         linkSetManifestHash: "document-manifest-hash-1",
       }),
-      v2DocumentKekTargets: JSON.stringify({
+      documentKekTargets: JSON.stringify({
         documentKeyTargetHash: "document-target-hash-1",
       }),
-      v2DocumentManifestBundle: JSON.stringify({
+      documentManifestBundle: JSON.stringify({
         manifestHash: "document-manifest-hash-1",
       }),
     });
@@ -182,7 +182,7 @@ test("upsertDiscoveredNote preserves V2 document state for the same remote docum
   }
 });
 
-test("relinkPersistedNote clears V2 document state for a different remote document id", async () => {
+test("relinkPersistedNote clears document state for a different remote document id", async () => {
   const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
@@ -196,13 +196,13 @@ test("relinkPersistedNote clears V2 document state for a different remote docume
       lastCommitLsn: "0/10",
       loroSnapshot: "snapshot-1",
       text: "Existing local note",
-      v2ContentKeyBundle: JSON.stringify({
+      contentKeyBundle: JSON.stringify({
         contentKeyEpoch: 1,
       }),
-      v2DocumentKekTargets: JSON.stringify({
+      documentKekTargets: JSON.stringify({
         documentKeyTargetHash: "document-target-hash-1",
       }),
-      v2DocumentManifestBundle: JSON.stringify({
+      documentManifestBundle: JSON.stringify({
         manifestHash: "document-manifest-hash-1",
       }),
     });
@@ -223,9 +223,9 @@ test("relinkPersistedNote clears V2 document state for a different remote docume
       documentId: "remote-document-b",
       lastCommitLsn: null,
     });
-    expect(note?.v2ContentKeyBundle).toBeNull();
-    expect(note?.v2DocumentKekTargets).toBeNull();
-    expect(note?.v2DocumentManifestBundle).toBeNull();
+    expect(note?.contentKeyBundle).toBeNull();
+    expect(note?.documentKekTargets).toBeNull();
+    expect(note?.documentManifestBundle).toBeNull();
   } finally {
     close();
   }
@@ -280,7 +280,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
-      ...emptyV2DocumentState,
+      ...emptyDocumentState,
     });
   } finally {
     close();
@@ -304,9 +304,9 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
         text: "Existing local note",
         loroSnapshot: "snapshot-1",
         accessEpoch: 2,
-        v2ContentKeyBundle: "stale-content-key-bundle",
-        v2DocumentKekTargets: "stale-kek-targets",
-        v2DocumentManifestBundle: "stale-manifest-bundle",
+        contentKeyBundle: "stale-content-key-bundle",
+        documentKekTargets: "stale-kek-targets",
+        documentManifestBundle: "stale-manifest-bundle",
       },
       {
         updatedAt: "2026-04-05T02:00:00.000Z",
@@ -343,7 +343,7 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
       text: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
-      ...emptyV2DocumentState,
+      ...emptyDocumentState,
     });
     expect(reloadedNote?.accessStateHash ?? null).toBeNull();
   } finally {

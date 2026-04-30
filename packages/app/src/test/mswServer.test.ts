@@ -17,11 +17,11 @@ import {
   useTestApiAppHandlers,
 } from "../../test/helpers/mswServer";
 import {
-  buildRootContainerV2CreatePlan,
-  rootContainerV2WriterProjectionFromCreatePlan,
-} from "../data/containers/containerV2Runtime";
-import { createDocumentV2SignerDeviceId } from "../data/documents/documentV2Constants";
-import { buildMaterializedDocumentV2CreatePlan } from "../data/documents/documentV2Runtime";
+  buildRootContainerCreatePlan,
+  rootContainerWriterProjectionFromCreatePlan,
+} from "../data/containers/containerRuntime";
+import { createDocumentSignerDeviceId } from "../data/documents/documentConstants";
+import { buildMaterializedDocumentCreatePlan } from "../data/documents/documentRuntime";
 
 const apiBaseUrl = "http://localhost:3001";
 
@@ -59,24 +59,24 @@ async function registerIdentity(
     organizationMemberEnvelope,
     "Expected organization member envelope.",
   );
-  const v2Author = {
+  const author = {
     organizationId,
-    signerDeviceId: createDocumentV2SignerDeviceId(signingFingerprint),
+    signerDeviceId: createDocumentSignerDeviceId(signingFingerprint),
     signerKeyFingerprint: signingFingerprint,
     signerPrivateKey: signingPrivateKey,
     signerUserId: userId,
   };
-  const rootContainerV2 = await buildRootContainerV2CreatePlan({
-    author: v2Author,
+  const rootContainer = await buildRootContainerCreatePlan({
+    author: author,
     containerId: rootContainerId,
     metadataDocumentId: rootMetadataDocumentId,
     recipientEncapsulationPublicKey: encapsulationPublicKey,
     signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
   });
-  const rootMetadataDocumentV2 = await buildMaterializedDocumentV2CreatePlan({
-    author: v2Author,
-    containerProjection: rootContainerV2WriterProjectionFromCreatePlan(
-      rootContainerV2.plan,
+  const rootMetadataDocument = await buildMaterializedDocumentCreatePlan({
+    author: author,
+    containerProjection: rootContainerWriterProjectionFromCreatePlan(
+      rootContainer.plan,
     ),
     documentId: rootMetadataDocumentId,
     signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
@@ -130,8 +130,8 @@ async function registerIdentity(
           },
         ],
       },
-      initialRootContainerV2: rootContainerV2.plan.request,
-      initialRootMetadataDocumentV2: rootMetadataDocumentV2.plan.request,
+      initialRootContainer: rootContainer.plan.request,
+      initialRootMetadataDocument: rootMetadataDocument.plan.request,
     }),
   });
 

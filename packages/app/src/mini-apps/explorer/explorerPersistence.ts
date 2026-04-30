@@ -161,24 +161,24 @@ function parseContainerCreateIntentRecord(
 
 async function ensureContainerCreateIntentTable(execSql: ExecSql) {
   await execSql(`
-    CREATE TABLE IF NOT EXISTS container_create_intents (
-      id TEXT PRIMARY KEY,
-      container_id TEXT NOT NULL UNIQUE,
-      parent_container_id TEXT NOT NULL,
-      intent_type TEXT NOT NULL,
-      sync_status TEXT NOT NULL,
-      remote_container_id TEXT,
-      remote_metadata_document_id TEXT,
-      remote_metadata_access_state_hash TEXT,
-      last_error TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
+ CREATE TABLE IF NOT EXISTS container_create_intents (
+ id TEXT PRIMARY KEY,
+ container_id TEXT NOT NULL UNIQUE,
+ parent_container_id TEXT NOT NULL,
+ intent_type TEXT NOT NULL,
+ sync_status TEXT NOT NULL,
+ remote_container_id TEXT,
+ remote_metadata_document_id TEXT,
+ remote_metadata_access_state_hash TEXT,
+ last_error TEXT,
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL
+ )
+ `);
   await execSql(`
-    CREATE INDEX IF NOT EXISTS container_create_intents_status_created_idx
-      ON container_create_intents (sync_status, created_at)
-  `);
+ CREATE INDEX IF NOT EXISTS container_create_intents_status_created_idx
+ ON container_create_intents (sync_status, created_at)
+ `);
 }
 
 async function saveContainerRows(input: {
@@ -190,26 +190,26 @@ async function saveContainerRows(input: {
 
   await execSql(
     `
-      INSERT INTO containers (
-        id,
-        organization_id,
-        parent_id,
-        metadata_document_id,
-        updated_at
-      )
-      VALUES (
-        :id,
-        :organizationId,
-        :parentId,
-        :metadataDocumentId,
-        :updatedAt
-      )
-      ON CONFLICT(id) DO UPDATE SET
-        organization_id = excluded.organization_id,
-        parent_id = excluded.parent_id,
-        metadata_document_id = excluded.metadata_document_id,
-        updated_at = excluded.updated_at
-    `,
+ INSERT INTO containers (
+ id,
+ organization_id,
+ parent_id,
+ metadata_document_id,
+ updated_at
+ )
+ VALUES (
+ :id,
+ :organizationId,
+ :parentId,
+ :metadataDocumentId,
+ :updatedAt
+ )
+ ON CONFLICT(id) DO UPDATE SET
+ organization_id = excluded.organization_id,
+ parent_id = excluded.parent_id,
+ metadata_document_id = excluded.metadata_document_id,
+ updated_at = excluded.updated_at
+ `,
     {
       ":id": container.id,
       ":organizationId": container.organizationId,
@@ -221,23 +221,23 @@ async function saveContainerRows(input: {
 
   await execSql(
     `
-      INSERT INTO container_projection (
-        container_id,
-        display_name,
-        icon,
-        updated_at
-      )
-      VALUES (
-        :id,
-        :name,
-        :icon,
-        :updatedAt
-      )
-      ON CONFLICT(container_id) DO UPDATE SET
-        display_name = excluded.display_name,
-        icon = excluded.icon,
-        updated_at = excluded.updated_at
-    `,
+ INSERT INTO container_projection (
+ container_id,
+ display_name,
+ icon,
+ updated_at
+ )
+ VALUES (
+ :id,
+ :name,
+ :icon,
+ :updatedAt
+ )
+ ON CONFLICT(container_id) DO UPDATE SET
+ display_name = excluded.display_name,
+ icon = excluded.icon,
+ updated_at = excluded.updated_at
+ `,
     {
       ":id": container.id,
       ":name": container.name,
@@ -256,44 +256,44 @@ async function saveContainerMetadataRecord(input: {
   const { containerId, execSql, record, updatedAt } = input;
   await execSql(
     `
-      INSERT INTO documents (
-        app_kind,
-        local_id,
-        document_id,
-        loro_snapshot,
-        access_epoch,
-        access_state_hash,
-        last_commit_lsn,
-        v2_document_manifest_bundle,
-        v2_content_key_bundle,
-        v2_document_kek_targets,
-        updated_at
-      )
-      VALUES (
-        :appKind,
-        :localId,
-        :documentId,
-        :loroSnapshot,
-        :accessEpoch,
-        :accessStateHash,
-        :lastCommitLsn,
-        :v2DocumentManifestBundle,
-        :v2ContentKeyBundle,
-        :v2DocumentKekTargets,
-        :updatedAt
-      )
-      ON CONFLICT(app_kind, local_id) DO UPDATE SET
-        document_id = excluded.document_id,
-        loro_snapshot = excluded.loro_snapshot,
-        access_epoch = excluded.access_epoch,
-        access_state_hash = excluded.access_state_hash,
-        last_commit_lsn = excluded.last_commit_lsn,
-        v2_document_manifest_bundle =
-          excluded.v2_document_manifest_bundle,
-        v2_content_key_bundle = excluded.v2_content_key_bundle,
-        v2_document_kek_targets = excluded.v2_document_kek_targets,
-        updated_at = excluded.updated_at
-    `,
+ INSERT INTO documents (
+ app_kind,
+ local_id,
+ document_id,
+ loro_snapshot,
+ access_epoch,
+ access_state_hash,
+ last_commit_lsn,
+ document_manifest_bundle,
+ content_key_bundle,
+ document_kek_targets,
+ updated_at
+ )
+ VALUES (
+ :appKind,
+ :localId,
+ :documentId,
+ :loroSnapshot,
+ :accessEpoch,
+ :accessStateHash,
+ :lastCommitLsn,
+ :documentManifestBundle,
+ :contentKeyBundle,
+ :documentKekTargets,
+ :updatedAt
+ )
+ ON CONFLICT(app_kind, local_id) DO UPDATE SET
+ document_id = excluded.document_id,
+ loro_snapshot = excluded.loro_snapshot,
+ access_epoch = excluded.access_epoch,
+ access_state_hash = excluded.access_state_hash,
+ last_commit_lsn = excluded.last_commit_lsn,
+ document_manifest_bundle =
+ excluded.document_manifest_bundle,
+ content_key_bundle = excluded.content_key_bundle,
+ document_kek_targets = excluded.document_kek_targets,
+ updated_at = excluded.updated_at
+ `,
     {
       ":accessEpoch": record.accessEpoch,
       ":accessStateHash": record.accessStateHash ?? null,
@@ -302,9 +302,9 @@ async function saveContainerMetadataRecord(input: {
       ":lastCommitLsn": record.lastCommitLsn ?? null,
       ":localId": containerId,
       ":loroSnapshot": record.loroSnapshot,
-      ":v2ContentKeyBundle": record.v2ContentKeyBundle ?? null,
-      ":v2DocumentKekTargets": record.v2DocumentKekTargets ?? null,
-      ":v2DocumentManifestBundle": record.v2DocumentManifestBundle ?? null,
+      ":contentKeyBundle": record.contentKeyBundle ?? null,
+      ":documentKekTargets": record.documentKekTargets ?? null,
+      ":documentManifestBundle": record.documentManifestBundle ?? null,
       ":updatedAt": updatedAt,
     },
   );
@@ -319,42 +319,42 @@ async function saveContainerCreateIntent(input: {
   const { containerId, createIntent, execSql, updatedAt } = input;
   await execSql(
     `
-      INSERT INTO container_create_intents (
-        id,
-        container_id,
-        parent_container_id,
-        intent_type,
-        sync_status,
-        remote_container_id,
-        remote_metadata_document_id,
-        remote_metadata_access_state_hash,
-        last_error,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        :id,
-        :containerId,
-        :parentContainerId,
-        :intentType,
-        'pending',
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        :updatedAt,
-        :updatedAt
-      )
-      ON CONFLICT(container_id) DO UPDATE SET
-        parent_container_id = excluded.parent_container_id,
-        intent_type = excluded.intent_type,
-        sync_status = 'pending',
-        remote_container_id = NULL,
-        remote_metadata_document_id = NULL,
-        remote_metadata_access_state_hash = NULL,
-        last_error = NULL,
-        updated_at = excluded.updated_at
-    `,
+ INSERT INTO container_create_intents (
+ id,
+ container_id,
+ parent_container_id,
+ intent_type,
+ sync_status,
+ remote_container_id,
+ remote_metadata_document_id,
+ remote_metadata_access_state_hash,
+ last_error,
+ created_at,
+ updated_at
+ )
+ VALUES (
+ :id,
+ :containerId,
+ :parentContainerId,
+ :intentType,
+ 'pending',
+ NULL,
+ NULL,
+ NULL,
+ NULL,
+ :updatedAt,
+ :updatedAt
+ )
+ ON CONFLICT(container_id) DO UPDATE SET
+ parent_container_id = excluded.parent_container_id,
+ intent_type = excluded.intent_type,
+ sync_status = 'pending',
+ remote_container_id = NULL,
+ remote_metadata_document_id = NULL,
+ remote_metadata_access_state_hash = NULL,
+ last_error = NULL,
+ updated_at = excluded.updated_at
+ `,
     {
       ":containerId": containerId,
       ":id": createIntent.id ?? crypto.randomUUID(),
@@ -370,9 +370,9 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          DELETE FROM container_create_intents
-          WHERE container_id = :containerId
-        `,
+ DELETE FROM container_create_intents
+ WHERE container_id = :containerId
+ `,
         {
           ":containerId": containerId,
         },
@@ -425,23 +425,23 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
   },
   async listPendingCreateIntents(execSql) {
     const rows = await execSql(`
-      SELECT
-        id,
-        container_id,
-        parent_container_id,
-        intent_type,
-        sync_status,
-        remote_container_id,
-        remote_metadata_document_id,
-        remote_metadata_access_state_hash,
-        last_error,
-        created_at,
-        updated_at
-      FROM container_create_intents
-      WHERE sync_status = 'pending'
-        AND intent_type = 'container.create'
-      ORDER BY created_at ASC
-    `);
+ SELECT
+ id,
+ container_id,
+ parent_container_id,
+ intent_type,
+ sync_status,
+ remote_container_id,
+ remote_metadata_document_id,
+ remote_metadata_access_state_hash,
+ last_error,
+ created_at,
+ updated_at
+ FROM container_create_intents
+ WHERE sync_status = 'pending'
+ AND intent_type = 'container.create'
+ ORDER BY created_at ASC
+ `);
 
     return rows.map((row) => parseContainerCreateIntentRecord(row));
   },
@@ -449,14 +449,14 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          UPDATE container_create_intents
-          SET
-            last_error = :lastError,
-            updated_at = :updatedAt
-          WHERE container_id = :containerId
-            AND sync_status = 'pending'
-            AND intent_type = 'container.create'
-        `,
+ UPDATE container_create_intents
+ SET
+ last_error = :lastError,
+ updated_at = :updatedAt
+ WHERE container_id = :containerId
+ AND sync_status = 'pending'
+ AND intent_type = 'container.create'
+ `,
         {
           ":containerId": containerId,
           ":lastError": message,
@@ -516,17 +516,17 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await lockedExecSql(
         `
-          UPDATE container_create_intents
-          SET
-            sync_status = 'synced',
-            remote_container_id = :remoteContainerId,
-            remote_metadata_document_id = :remoteMetadataDocumentId,
-            remote_metadata_access_state_hash = :remoteMetadataAccessStateHash,
-            last_error = NULL,
-            updated_at = :updatedAt
-          WHERE container_id = :containerId
-            AND intent_type = 'container.create'
-        `,
+ UPDATE container_create_intents
+ SET
+ sync_status = 'synced',
+ remote_container_id = :remoteContainerId,
+ remote_metadata_document_id = :remoteMetadataDocumentId,
+ remote_metadata_access_state_hash = :remoteMetadataAccessStateHash,
+ last_error = NULL,
+ updated_at = :updatedAt
+ WHERE container_id = :containerId
+ AND intent_type = 'container.create'
+ `,
         {
           ":containerId": input.containerId,
           ":remoteContainerId": input.remoteContainerId,

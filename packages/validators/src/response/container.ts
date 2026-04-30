@@ -10,14 +10,14 @@ import {
   type ReferencedPrincipalStateResponse,
 } from "./principal";
 
-export interface ContainerV2ManifestBundleResponse {
+export interface ContainerManifestBundleResponse {
   event: Record<string, unknown>;
   manifest: Record<string, unknown>;
   manifestHash: string;
   state: Record<string, unknown>;
 }
 
-export interface ContainerV2KekResponse {
+export interface ContainerKekResponse {
   containerId: string;
   accessManifestHash: string;
   containerKeyEpochId: string;
@@ -30,7 +30,7 @@ export interface ContainerV2KekResponse {
   wraps: Record<string, unknown>[];
 }
 
-export interface ContainerV2MutationResponse {
+export interface ContainerMutationResponse {
   containerId: string;
   organizationId: string;
   parentId: string | null;
@@ -38,16 +38,16 @@ export interface ContainerV2MutationResponse {
     epoch: number;
     manifestHash: string;
   };
-  accessManifest: ContainerV2ManifestBundleResponse;
-  containerKek: ContainerV2KekResponse;
+  accessManifest: ContainerManifestBundleResponse;
+  containerKek: ContainerKekResponse;
   referencedPrincipalHeads: Record<string, unknown>[];
 }
 
-export interface ContainerV2WriterProjectionResponse {
+export interface ContainerWriterProjectionResponse {
   containerId: string;
   organizationId: string;
-  path: ContainerV2ManifestBundleResponse[];
-  containerKeks: ContainerV2KekResponse[];
+  path: ContainerManifestBundleResponse[];
+  containerKeks: ContainerKekResponse[];
 }
 
 export interface ContainerSummary {
@@ -113,9 +113,9 @@ function isAccessEventBundleResponse(
   );
 }
 
-function isContainerV2ManifestBundleResponse(
+function isContainerManifestBundleResponse(
   value: unknown,
-): value is ContainerV2ManifestBundleResponse {
+): value is ContainerManifestBundleResponse {
   const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
   const manifest = isPlainObject(value)
     ? Reflect.get(value, "manifest")
@@ -132,9 +132,7 @@ function isContainerV2ManifestBundleResponse(
   );
 }
 
-function isContainerV2KekResponse(
-  value: unknown,
-): value is ContainerV2KekResponse {
+function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
   const keyEpoch = isPlainObject(value)
     ? Reflect.get(value, "keyEpoch")
     : undefined;
@@ -166,9 +164,9 @@ function isContainerV2KekResponse(
   );
 }
 
-export function isContainerV2MutationResponse(
+export function isContainerMutationResponse(
   value: unknown,
-): value is ContainerV2MutationResponse {
+): value is ContainerMutationResponse {
   const manifestHead = isPlainObject(value)
     ? Reflect.get(value, "manifestHead")
     : undefined;
@@ -190,24 +188,24 @@ export function isContainerV2MutationResponse(
     isPlainObject(manifestHead) &&
     hasNumberProperty(manifestHead, "epoch") &&
     hasStringProperty(manifestHead, "manifestHash") &&
-    isContainerV2ManifestBundleResponse(accessManifest) &&
-    isContainerV2KekResponse(containerKek) &&
+    isContainerManifestBundleResponse(accessManifest) &&
+    isContainerKekResponse(containerKek) &&
     isRecordArray(referencedPrincipalHeads)
   );
 }
 
-export function isContainerV2WriterProjectionResponse(
+export function isContainerWriterProjectionResponse(
   value: unknown,
-): value is ContainerV2WriterProjectionResponse {
+): value is ContainerWriterProjectionResponse {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "containerId") &&
     hasStringProperty(value, "organizationId") &&
     hasArrayProperty(value, "path") &&
     value.path.length > 0 &&
-    value.path.every(isContainerV2ManifestBundleResponse) &&
+    value.path.every(isContainerManifestBundleResponse) &&
     hasArrayProperty(value, "containerKeks") &&
     value.containerKeks.length === value.path.length &&
-    value.containerKeks.every(isContainerV2KekResponse)
+    value.containerKeks.every(isContainerKekResponse)
   );
 }

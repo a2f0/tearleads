@@ -67,15 +67,15 @@ const addressBookProjectionTables: ReadonlyArray<SqlTableSchema> = [
   {
     name: "address_book_projection",
     createSql: `
-      CREATE TABLE IF NOT EXISTS address_book_projection (
-        address_book_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        encapsulation_public_key TEXT NOT NULL,
-        is_self INTEGER NOT NULL DEFAULT 0,
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (address_book_id, user_id)
-      )
-    `,
+ CREATE TABLE IF NOT EXISTS address_book_projection (
+ address_book_id TEXT NOT NULL,
+ user_id TEXT NOT NULL,
+ encapsulation_public_key TEXT NOT NULL,
+ is_self INTEGER NOT NULL DEFAULT 0,
+ updated_at TEXT NOT NULL,
+ PRIMARY KEY (address_book_id, user_id)
+ )
+ `,
   },
 ];
 
@@ -119,34 +119,34 @@ export const sqlContactsPersistence: ContactsPersistence = {
       await ensureDocumentTables(lockedExecSql);
       await ensureSqlTables(lockedExecSql, addressBookProjectionTables);
       await lockedExecSql(`
-        CREATE UNIQUE INDEX IF NOT EXISTS address_book_projection_self_idx
-          ON address_book_projection (address_book_id) WHERE is_self = 1
-      `);
+ CREATE UNIQUE INDEX IF NOT EXISTS address_book_projection_self_idx
+ ON address_book_projection (address_book_id) WHERE is_self = 1
+ `);
     });
   },
   async loadContacts(execSql, addressBookId) {
     const rows = await execSql(
       `
-        SELECT
-          projection.user_id,
-          projection.encapsulation_public_key,
-          projection.is_self,
-          documents.local_id AS id,
-          documents.document_id,
-          documents.loro_snapshot,
-          documents.access_epoch,
-          documents.access_state_hash,
-          documents.last_commit_lsn,
-          documents.v2_document_manifest_bundle,
-          documents.v2_content_key_bundle,
-          documents.v2_document_kek_targets
-        FROM address_book_projection AS projection
-        LEFT JOIN documents
-          ON documents.app_kind = :appKind
-         AND documents.local_id = projection.user_id
-        WHERE projection.address_book_id = :addressBookId
-        ORDER BY projection.user_id COLLATE NOCASE ASC
-      `,
+ SELECT
+ projection.user_id,
+ projection.encapsulation_public_key,
+ projection.is_self,
+ documents.local_id AS id,
+ documents.document_id,
+ documents.loro_snapshot,
+ documents.access_epoch,
+ documents.access_state_hash,
+ documents.last_commit_lsn,
+ documents.document_manifest_bundle,
+ documents.content_key_bundle,
+ documents.document_kek_targets
+ FROM address_book_projection AS projection
+ LEFT JOIN documents
+ ON documents.app_kind = :appKind
+ AND documents.local_id = projection.user_id
+ WHERE projection.address_book_id = :addressBookId
+ ORDER BY projection.user_id COLLATE NOCASE ASC
+ `,
       {
         ":appKind": CONTACTS_APP_KIND,
         ":addressBookId": addressBookId,
@@ -171,25 +171,25 @@ export const sqlContactsPersistence: ContactsPersistence = {
         );
         await lockedExecSql(
           `
-            INSERT INTO address_book_projection (
-              address_book_id,
-              user_id,
-              encapsulation_public_key,
-              is_self,
-              updated_at
-            )
-            VALUES (
-              :addressBookId,
-              :userId,
-              :encapsulationPublicKey,
-              :isSelf,
-              :updatedAt
-            )
-            ON CONFLICT(address_book_id, user_id) DO UPDATE SET
-              encapsulation_public_key = excluded.encapsulation_public_key,
-              is_self = excluded.is_self,
-              updated_at = excluded.updated_at
-          `,
+ INSERT INTO address_book_projection (
+ address_book_id,
+ user_id,
+ encapsulation_public_key,
+ is_self,
+ updated_at
+ )
+ VALUES (
+ :addressBookId,
+ :userId,
+ :encapsulationPublicKey,
+ :isSelf,
+ :updatedAt
+ )
+ ON CONFLICT(address_book_id, user_id) DO UPDATE SET
+ encapsulation_public_key = excluded.encapsulation_public_key,
+ is_self = excluded.is_self,
+ updated_at = excluded.updated_at
+ `,
           {
             ":addressBookId": addressBookId,
             ":userId": entry.userId,
@@ -206,10 +206,10 @@ export const sqlContactsPersistence: ContactsPersistence = {
       await runSqlTransaction(lockedExecSql, async () => {
         await lockedExecSql(
           `
-            DELETE FROM address_book_projection
-            WHERE address_book_id = :addressBookId
-              AND user_id = :userId
-          `,
+ DELETE FROM address_book_projection
+ WHERE address_book_id = :addressBookId
+ AND user_id = :userId
+ `,
           {
             ":addressBookId": addressBookId,
             ":userId": userId,

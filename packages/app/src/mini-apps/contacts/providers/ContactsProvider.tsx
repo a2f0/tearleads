@@ -21,12 +21,12 @@ import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
 } from "../../../data/documentSync";
-import { createDocumentV2SignerDeviceId } from "../../../data/documents/documentV2Constants";
+import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
 import {
-  createRemoteDocumentV2,
-  type DocumentV2CreateAuthor,
-  syncRemoteDocumentV2,
-} from "../../../data/documents/documentV2Runtime";
+  createRemoteDocument,
+  type DocumentCreateAuthor,
+  syncRemoteDocument,
+} from "../../../data/documents/documentRuntime";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -221,9 +221,9 @@ async function createContactDocument() {
 
 type NullableContactRuntimeField =
   | "lastCommitLsn"
-  | "v2ContentKeyBundle"
-  | "v2DocumentKekTargets"
-  | "v2DocumentManifestBundle";
+  | "contentKeyBundle"
+  | "documentKekTargets"
+  | "documentManifestBundle";
 
 function resolveNullableContactRuntimeField(
   patch: Partial<DocumentRecord>,
@@ -260,22 +260,22 @@ async function persistContact(
       contact.record.lastCommitLsn,
       documentIdChanged,
     ),
-    v2ContentKeyBundle: resolveNullableContactRuntimeField(
+    contentKeyBundle: resolveNullableContactRuntimeField(
       patch,
-      "v2ContentKeyBundle",
-      contact.record.v2ContentKeyBundle,
+      "contentKeyBundle",
+      contact.record.contentKeyBundle,
       documentIdChanged,
     ),
-    v2DocumentKekTargets: resolveNullableContactRuntimeField(
+    documentKekTargets: resolveNullableContactRuntimeField(
       patch,
-      "v2DocumentKekTargets",
-      contact.record.v2DocumentKekTargets,
+      "documentKekTargets",
+      contact.record.documentKekTargets,
       documentIdChanged,
     ),
-    v2DocumentManifestBundle: resolveNullableContactRuntimeField(
+    documentManifestBundle: resolveNullableContactRuntimeField(
       patch,
-      "v2DocumentManifestBundle",
-      contact.record.v2DocumentManifestBundle,
+      "documentManifestBundle",
+      contact.record.documentManifestBundle,
       documentIdChanged,
     ),
   };
@@ -352,9 +352,9 @@ async function initializeStoredContact(
       accessEpoch: 1,
       accessStateHash: null,
       lastCommitLsn: null,
-      v2ContentKeyBundle: null,
-      v2DocumentKekTargets: null,
-      v2DocumentManifestBundle: null,
+      contentKeyBundle: null,
+      documentKekTargets: null,
+      documentManifestBundle: null,
     };
     await state.persistence.saveContact(
       state.runtime.execSql,
@@ -433,9 +433,9 @@ async function waitForContactsInitialization(
   }
 }
 
-function resolveContactsV2Author(
+function resolveContactsAuthor(
   runtime: ContactsRuntime,
-): DocumentV2CreateAuthor | null {
+): DocumentCreateAuthor | null {
   if (
     !runtime.organizationId ||
     !runtime.signingFingerprint ||
@@ -447,7 +447,7 @@ function resolveContactsV2Author(
 
   return {
     organizationId: runtime.organizationId,
-    signerDeviceId: createDocumentV2SignerDeviceId(runtime.signingFingerprint),
+    signerDeviceId: createDocumentSignerDeviceId(runtime.signingFingerprint),
     signerKeyFingerprint: runtime.signingFingerprint,
     signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
     signerUserId: runtime.userId,
@@ -457,11 +457,11 @@ function resolveContactsV2Author(
 async function resolveContactWriterPublicKeys(
   state: ContactsStoreState,
   contact: ContactState,
-  author: DocumentV2CreateAuthor,
+  author: DocumentCreateAuthor,
 ): Promise<Map<string, Uint8Array>> {
   const { signingKeyPair } = state.runtime;
   if (!signingKeyPair) {
-    throw new Error("Contacts V2 writer public key is unavailable.");
+    throw new Error("Contacts writer public key is unavailable.");
   }
 
   const writerPublicKeysByFingerprint = new Map<string, Uint8Array>([
@@ -512,16 +512,16 @@ async function ensureContactDocumentForSync(
       return null;
     }
 
-    const author = resolveContactsV2Author(state.runtime);
+    const author = resolveContactsAuthor(state.runtime);
     const { apiClient } = state.runtime;
     if (!author) {
       state.runtime.log(
-        "Contacts: skipped V2 remote create because the V2 writer context is unavailable.",
+        "Contacts: skipped remote create because the writer context is unavailable.",
       );
       return null;
     }
 
-    const created = await createRemoteDocumentV2({
+    const created = await createRemoteDocument({
       apiClient,
       author,
       containerId: state.runtime.containerId,
@@ -548,7 +548,7 @@ async function ensureContactDocumentForSync(
 async function applySyncedContactUpdates(
   state: ContactsStoreState,
   contact: ContactState,
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocumentV2>>>,
+  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>,
   outgoingUpdateCount: number,
 ) {
   for (const acceptedOutgoingUpdateId of synced.response
@@ -600,16 +600,16 @@ async function syncSingleContact(
     return;
   }
 
-  const author = resolveContactsV2Author(state.runtime);
+  const author = resolveContactsAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
-      "Contacts: skipped V2 sync because the V2 writer context is unavailable.",
+      "Contacts: skipped sync because the writer context is unavailable.",
     );
     return;
   }
 
-  const synced = await syncRemoteDocumentV2({
+  const synced = await syncRemoteDocument({
     apiClient,
     author,
     documentId,
@@ -723,9 +723,9 @@ async function importContactEntry(
         accessEpoch: 1,
         accessStateHash: null,
         lastCommitLsn: null,
-        v2ContentKeyBundle: null,
-        v2DocumentKekTargets: null,
-        v2DocumentManifestBundle: null,
+        contentKeyBundle: null,
+        documentKekTargets: null,
+        documentManifestBundle: null,
       },
     };
 

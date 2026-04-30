@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import {
-  type AccessManifestV2,
+  type AccessManifest,
   computeAccessEventBodyHash,
   computeAccessManifestHash,
   generateSigningSeedAndKeyPair,
@@ -34,7 +34,7 @@ async function createVerifiedAccessManifest(input: {
   objectId?: string;
   organizationId?: string;
   previousManifestHash?: string | null;
-  referencedPrincipalHeads?: AccessManifestV2["referencedPrincipalHeads"];
+  referencedPrincipalHeads?: AccessManifest["referencedPrincipalHeads"];
   salt?: string;
 }): Promise<VerifiedAccessManifest> {
   const objectId = input.objectId ?? crypto.randomUUID();
@@ -50,7 +50,7 @@ async function createVerifiedAccessManifest(input: {
   };
   const event = await signAccessEvent(
     {
-      version: 2,
+      version: 1,
       eventId: crypto.randomUUID(),
       eventType: "container.grant",
       objectKind: "container",
@@ -76,8 +76,8 @@ async function createVerifiedAccessManifest(input: {
     throw verifiedEvent.error;
   }
 
-  const manifest: AccessManifestV2 = {
-    version: 2,
+  const manifest: AccessManifest = {
+    version: 1,
     objectKind: "container",
     objectId,
     organizationId,
@@ -174,7 +174,7 @@ test("access manifest projections can be regenerated from stored event and manif
       {
         principalType: "organization",
         principalId: crypto.randomUUID(),
-        version: 2,
+        version: 1,
         keyEpoch: 3,
         stateHash: hashOf("3"),
         keyFingerprint: hashOf("4"),

@@ -1,6 +1,6 @@
 import {
   computeDocumentContentKeyTargetHash,
-  type DocumentContentKeyTargetV2,
+  type DocumentContentKeyTarget,
 } from "@tearleads/crypto";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
 import {
@@ -31,13 +31,13 @@ interface ResolvedDocumentKekTargets {
   readonly linkSetManifestHash: string;
   readonly linkedContainerManifestHashes: readonly string[];
   readonly linkedContainerKeyEpochIds: readonly string[];
-  readonly targets: readonly DocumentContentKeyTargetV2[];
+  readonly targets: readonly DocumentContentKeyTarget[];
   readonly documentKeyTargetHash: string;
 }
 
 interface AssertDocumentKekTargetsCurrentInput {
   readonly documentId: string;
-  readonly expectedTargets?: readonly DocumentContentKeyTargetV2[];
+  readonly expectedTargets?: readonly DocumentContentKeyTarget[];
   readonly expectedTargetHash?: string;
 }
 
@@ -64,7 +64,7 @@ async function loadDocumentLinkSetHead(
 async function resolveLinkedContainerKekTargets(
   linkedContainerIds: readonly string[],
   executor: DocumentKekTargetExecutor,
-): Promise<ReadonlyMap<string, DocumentContentKeyTargetV2>> {
+): Promise<ReadonlyMap<string, DocumentContentKeyTarget>> {
   try {
     return await resolveCurrentContainerKekTargets(
       linkedContainerIds,
@@ -100,7 +100,7 @@ export async function resolveCurrentDocumentKekTargets(
     linkedContainerIds,
     executor,
   );
-  const targets: DocumentContentKeyTargetV2[] = [];
+  const targets: DocumentContentKeyTarget[] = [];
 
   for (const containerId of linkedContainerIds) {
     const target = containerTargetById.get(containerId);

@@ -11,7 +11,7 @@ import {
   hasStringProperty,
 } from "@tearleads/validators/util";
 
-const ENCRYPTED_UPDATE_FORMAT = "tearleads.loro.update.v2";
+const ENCRYPTED_UPDATE_FORMAT = "tearleads.loro.update.v1";
 
 export interface SerializedEncryptedUpdate {
   format: typeof ENCRYPTED_UPDATE_FORMAT;

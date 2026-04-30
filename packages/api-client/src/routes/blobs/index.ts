@@ -1,3 +1,3 @@
 export { getBlob } from "./get";
+export { bindBlobAttachment, detachBlobAttachment } from "./mutations";
 export { stageBlob } from "./stage";
-export { bindBlobAttachmentV2, detachBlobAttachmentV2 } from "./v2Mutations";

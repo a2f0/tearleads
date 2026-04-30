@@ -1,10 +1,10 @@
 import {
-  type BlobContentKeyTargetV2,
+  type BlobContentKeyTarget,
   computeBlobContentKeyTargetHash,
-  type KeyingV2CanonicalJson,
-  KeyingV2VerificationError,
-  serializeKeyingV2CanonicalJson,
-  type WriteHeaderV2,
+  type KeyingCanonicalJson,
+  KeyingVerificationError,
+  serializeKeyingCanonicalJson,
+  type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../adapters/postgres";
@@ -24,9 +24,9 @@ type CurrentBlobKekTargets = Awaited<
   ReturnType<typeof resolveCurrentBlobKekTargets>
 >;
 
-export interface BlobContentKeyTargetEnvelope extends BlobContentKeyTargetV2 {
+export interface BlobContentKeyTargetEnvelope extends BlobContentKeyTarget {
   readonly wrappedKey: string;
-  readonly wrappingMetadata: KeyingV2CanonicalJson;
+  readonly wrappingMetadata: KeyingCanonicalJson;
 }
 
 interface StoredBlobContentKeyBundle {
@@ -63,18 +63,17 @@ function compareStrings(left: string, right: string): number {
 }
 
 function canonicalJsonEquals(
-  left: KeyingV2CanonicalJson,
-  right: KeyingV2CanonicalJson,
+  left: KeyingCanonicalJson,
+  right: KeyingCanonicalJson,
 ): boolean {
   return (
-    serializeKeyingV2CanonicalJson(left) ===
-    serializeKeyingV2CanonicalJson(right)
+    serializeKeyingCanonicalJson(left) === serializeKeyingCanonicalJson(right)
   );
 }
 
 function targetKey(
   target: Pick<
-    BlobContentKeyTargetV2,
+    BlobContentKeyTarget,
     "bindingId" | "containerId" | "documentId"
   >,
 ) {
@@ -83,7 +82,7 @@ function targetKey(
 
 function toTargetFields(
   envelope: BlobContentKeyTargetEnvelope,
-): BlobContentKeyTargetV2 {
+): BlobContentKeyTarget {
   return {
     bindingId: envelope.bindingId,
     documentId: envelope.documentId,
@@ -103,8 +102,8 @@ function sortTargetEnvelopes(
 }
 
 function targetFieldsEqual(
-  left: BlobContentKeyTargetV2,
-  right: BlobContentKeyTargetV2,
+  left: BlobContentKeyTarget,
+  right: BlobContentKeyTarget,
 ): boolean {
   return (
     left.bindingId === right.bindingId &&
@@ -181,13 +180,13 @@ function assertWrappedMaterialPresent(
 }
 
 function expectedTargetMap(
-  targets: readonly BlobContentKeyTargetV2[],
-): Map<string, BlobContentKeyTargetV2> {
+  targets: readonly BlobContentKeyTarget[],
+): Map<string, BlobContentKeyTarget> {
   return new Map(targets.map((target) => [targetKey(target), target]));
 }
 
 function currentTargetsContainPreviousBundle(input: {
-  readonly currentTargets: readonly BlobContentKeyTargetV2[];
+  readonly currentTargets: readonly BlobContentKeyTarget[];
   readonly previousTargets: readonly BlobContentKeyTargetEnvelope[];
 }): boolean {
   const currentTargetByKey = expectedTargetMap(input.currentTargets);
@@ -247,7 +246,7 @@ async function assertTargetHashMatches(input: {
     if (error instanceof BlobContentKeyBundleError) {
       throw error;
     }
-    if (error instanceof KeyingV2VerificationError) {
+    if (error instanceof KeyingVerificationError) {
       throw new BlobContentKeyBundleError(error.message, 409);
     }
     throw error;
@@ -629,7 +628,7 @@ export async function storeBlobContentKeyBundle(
 export async function storeBlobContentWriteHeader(
   input: {
     readonly blobId: string;
-    readonly header: WriteHeaderV2;
+    readonly header: WriteHeader;
     readonly headerHash: string;
     readonly recordId: string;
   },
@@ -682,7 +681,7 @@ export async function storeBlobContentWriteHeader(
 export async function listBlobContentWriteHeaders(
   recordIds: readonly string[],
   executor: BlobContentKeyExecutor = db,
-): Promise<Map<string, { header: WriteHeaderV2; headerHash: string }>> {
+): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
   const uniqueRecordIds = [...new Set(recordIds)];
   if (uniqueRecordIds.length === 0) {
     return new Map();

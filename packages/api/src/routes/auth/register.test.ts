@@ -166,7 +166,7 @@ test("POST /auth/register rejects initial org policies that do not bootstrap the
   });
 });
 
-test("POST /auth/register rejects malformed initial root container V2 event records", async () => {
+test("POST /auth/register rejects malformed initial root container event records", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
@@ -182,10 +182,10 @@ test("POST /auth/register rejects malformed initial root container V2 event reco
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       ...body,
-      initialRootContainerV2: {
-        ...body.initialRootContainerV2,
+      initialRootContainer: {
+        ...body.initialRootContainer,
         event: {
-          ...body.initialRootContainerV2.event,
+          ...body.initialRootContainer.event,
           version: "2",
         },
       },
@@ -194,11 +194,11 @@ test("POST /auth/register rejects malformed initial root container V2 event reco
 
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({
-    error: "Initial root container V2 event.version is invalid",
+    error: "Initial root container event.version is invalid",
   });
 });
 
-test("POST /auth/register rejects malformed initial root container V2 KEK records", async () => {
+test("POST /auth/register rejects malformed initial root container KEK records", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
@@ -214,10 +214,10 @@ test("POST /auth/register rejects malformed initial root container V2 KEK record
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       ...body,
-      initialRootContainerV2: {
-        ...body.initialRootContainerV2,
+      initialRootContainer: {
+        ...body.initialRootContainer,
         keyEpoch: {
-          ...body.initialRootContainerV2.keyEpoch,
+          ...body.initialRootContainer.keyEpoch,
           keyEpoch: "1",
         },
       },
@@ -226,11 +226,11 @@ test("POST /auth/register rejects malformed initial root container V2 KEK record
 
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({
-    error: "Initial root container V2 key epoch.keyEpoch is invalid",
+    error: "Initial root container key epoch.keyEpoch is invalid",
   });
 });
 
-test("POST /auth/register provisions V2 root metadata", async () => {
+test("POST /auth/register provisions root metadata", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
@@ -242,8 +242,8 @@ test("POST /auth/register provisions V2 root metadata", async () => {
   );
   expect(response.status).toBe(200);
   const body = await response.json();
-  expect(body.rootMetadataDocumentV2.id).toBe(body.rootMetadataDocumentId);
-  expect(body.rootMetadataDocumentV2.contentKeyBundle.documentId).toBe(
+  expect(body.rootMetadataDocument.id).toBe(body.rootMetadataDocumentId);
+  expect(body.rootMetadataDocument.contentKeyBundle.documentId).toBe(
     body.rootMetadataDocumentId,
   );
 

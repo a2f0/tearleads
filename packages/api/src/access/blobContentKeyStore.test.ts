@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import {
-  CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+  CONTENT_RECORD_ENCRYPTION_SUITE,
   computeBlobContentKeyTargetHash,
   computeContentRecordNonceDomainHash,
-  computeKeyingV2DomainHash,
-  type WriteHeaderV2,
+  computeKeyingDomainHash,
+  type WriteHeader,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../adapters/postgres";
@@ -26,7 +26,7 @@ import {
 import { resolveCurrentBlobKekTargets } from "./blobKekTargets";
 
 async function hashOf(label: string): Promise<string> {
-  return computeKeyingV2DomainHash("tearleads.keying-v2.access-event-body", {
+  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
     label,
   });
 }
@@ -41,7 +41,7 @@ async function ensureContainerHead(input: {
   await db
     .insert(accessEvents)
     .values({
-      version: 2,
+      version: 1,
       eventId: `${input.containerId}:event-id`,
       eventType: "container.create",
       objectKind: "container",
@@ -62,7 +62,7 @@ async function ensureContainerHead(input: {
   await db
     .insert(accessManifests)
     .values({
-      version: 2,
+      version: 1,
       objectKind: "container",
       objectId: input.containerId,
       organizationId: input.organizationId,
@@ -75,7 +75,7 @@ async function ensureContainerHead(input: {
       keyTargetHash: await hashOf(`${input.containerId}:key-target`),
       manifestHash,
       state: {
-        version: 2,
+        version: 1,
         containerId: input.containerId,
         organizationId: input.organizationId,
         epoch: 1,
@@ -198,28 +198,28 @@ async function createBlobWriteHeader(input: {
   readonly metadataSalt: string;
   readonly organizationId: string;
   readonly nonceDomainHash?: string;
-}): Promise<WriteHeaderV2> {
+}): Promise<WriteHeader> {
   const nonceDomainHash =
     input.nonceDomainHash ??
     (await computeContentRecordNonceDomainHash({
-      version: 2,
+      version: 1,
       organizationId: input.organizationId,
       objectKind: "blob",
       objectId: input.blobId,
       contentKeyEpoch: 1,
-      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
       contentRecordId: input.contentRecordId,
     }));
 
   return {
-    version: 2,
+    version: 1,
     organizationId: input.organizationId,
     objectKind: "blob",
     objectId: input.blobId,
     accessManifestHash: await hashOf(`${input.metadataSalt}:manifest`),
     contentKeyEpoch: 1,
     targetHash: await hashOf(`${input.metadataSalt}:targets`),
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE_V2,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId: input.contentRecordId,
     nonceDomainHash,
     metadataHash: await hashOf(`${input.metadataSalt}:metadata`),
