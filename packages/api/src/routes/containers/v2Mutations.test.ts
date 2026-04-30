@@ -585,15 +585,30 @@ async function buildGrantRequest(input: {
 }
 
 async function buildGroupGrantRequest(input: {
+  readonly containerManifestHistory?: readonly ContainerV2ManifestBundle[];
   readonly parentKekState: VerifiedContainerKekState;
   readonly previous: ContainerV2ManifestBundle;
   readonly previousContainerPath: readonly ContainerV2ManifestBundle[];
   readonly previousKekState: VerifiedContainerKekState;
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly principalPolicy: VerifiedPrincipalPolicy;
   readonly principalReference: ReferencedPrincipalHeadV2;
   readonly signer: TestUser;
+  readonly userRecipientKeys?: readonly ContainerUserRecipientKeyV2[];
 }): Promise<ContainerV2MutationRequest> {
   const previous = asVerifiedContainerManifest(input.previous);
+  const principalPolicies = [
+    ...(input.principalPolicies ?? []),
+    input.principalPolicy,
+  ].filter(
+    (policy, index, policies) =>
+      policies.findIndex(
+        (candidate) =>
+          candidate.principalType === policy.principalType &&
+          candidate.principalId === policy.principalId &&
+          candidate.stateHash === policy.stateHash,
+      ) === index,
+  );
   const grant = {
     subjectType: "group" as const,
     subjectId: input.principalReference.principalId,
@@ -652,17 +667,23 @@ async function buildGroupGrantRequest(input: {
     manifest: bundle.manifest,
     previousManifest: input.previous,
     previousContainerPath: [...input.previousContainerPath],
-    containerManifestHistory: [input.previous],
-    principalPolicies: [
-      input.principalPolicy as unknown as Record<string, unknown>,
+    containerManifestHistory: [
+      ...(input.containerManifestHistory ?? [input.previous]),
     ],
+    principalPolicies: principalPolicies as unknown as Record<
+      string,
+      unknown
+    >[],
     keyEpoch: input.previousKekState.keyEpoch as unknown as Record<
       string,
       unknown
     >,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
-    userRecipientKeys: [],
+    userRecipientKeys: (input.userRecipientKeys ?? []) as unknown as Record<
+      string,
+      unknown
+    >[],
   };
 }
 
@@ -1159,6 +1180,8 @@ test("POST /v2/containers/:containerId/share stores signed grants", async () => 
 test("POST /v2/containers/:containerId/share stores group KEK targets and rejects stale group policy", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
+  const directRecipient = createTestUser();
+  await registerAndAuthenticate(directRecipient);
 
   const root = await bootstrapRootV2(owner);
   const created = await createV2Child({
@@ -1166,19 +1189,40 @@ test("POST /v2/containers/:containerId/share stores group KEK targets and reject
     parentKekState: root.kekState,
     signer: owner,
   });
+  const createdBundle = accessManifestFromResponse(created);
+  const directRecipientKey = await userRecipientKey(directRecipient);
+  const userGrantRequest = await buildGrantRequest({
+    parentKekState: root.kekState,
+    previous: createdBundle,
+    previousContainerPath: [root.bundle, createdBundle],
+    previousKekState: kekStateFromResponse(created),
+    recipient: directRecipient,
+    signer: owner,
+  });
+  const userShared = await expectV2MutationSuccess(
+    await postV2Mutation({
+      path: `/v2/containers/${created.containerId}/share`,
+      request: userGrantRequest,
+      token: owner.token,
+    }),
+  );
+  const userSharedBundle = accessManifestFromResponse(userShared);
+
   const groupPrincipalId = crypto.randomUUID();
   const initialGroup = await putGroupPrincipalPolicy({
     actor: owner,
     principalId: groupPrincipalId,
   });
   const groupGrantRequest = await buildGroupGrantRequest({
+    containerManifestHistory: [createdBundle, userSharedBundle],
     parentKekState: root.kekState,
-    previous: accessManifestFromResponse(created),
-    previousContainerPath: [root.bundle, accessManifestFromResponse(created)],
-    previousKekState: kekStateFromResponse(created),
+    previous: userSharedBundle,
+    previousContainerPath: [root.bundle, userSharedBundle],
+    previousKekState: kekStateFromResponse(userShared),
     principalPolicy: initialGroup.policy,
     principalReference: initialGroup.reference,
     signer: owner,
+    userRecipientKeys: [directRecipientKey],
   });
 
   const shared = await expectV2MutationSuccess(
@@ -1190,7 +1234,7 @@ test("POST /v2/containers/:containerId/share stores group KEK targets and reject
   );
 
   expect(shared.containerKek.containerKeyEpochId).toBe(
-    created.containerKek.containerKeyEpochId,
+    userShared.containerKek.containerKeyEpochId,
   );
   expect(shared.referencedPrincipalHeads).toEqual([
     {
@@ -1217,7 +1261,60 @@ test("POST /v2/containers/:containerId/share stores group KEK targets and reject
       ),
       recipientKeyFingerprint: initialGroup.reference.keyFingerprint,
     },
+    {
+      recipientKind: "user",
+      recipientId: directRecipient.userId,
+      recipientKeyEpochId: directRecipientKey.recipientKeyEpochId,
+      recipientKeyFingerprint: directRecipientKey.recipientKeyFingerprint,
+    },
   ]);
+
+  const secondGroupPrincipalId = crypto.randomUUID();
+  const secondGroup = await putGroupPrincipalPolicy({
+    actor: owner,
+    principalId: secondGroupPrincipalId,
+    signedAt: "2026-04-30T00:00:30.000Z",
+  });
+  const sharedBundle = accessManifestFromResponse(shared);
+  const secondGroupGrantRequest = await buildGroupGrantRequest({
+    containerManifestHistory: [createdBundle, userSharedBundle, sharedBundle],
+    parentKekState: root.kekState,
+    previous: sharedBundle,
+    previousContainerPath: [root.bundle, sharedBundle],
+    previousKekState: kekStateFromResponse(shared),
+    principalPolicies: [initialGroup.policy],
+    principalPolicy: secondGroup.policy,
+    principalReference: secondGroup.reference,
+    signer: owner,
+    userRecipientKeys: [directRecipientKey],
+  });
+  const secondGroupShared = await expectV2MutationSuccess(
+    await postV2Mutation({
+      path: `/v2/containers/${created.containerId}/share`,
+      request: secondGroupGrantRequest,
+      token: owner.token,
+    }),
+  );
+  expect(secondGroupShared.containerKek.containerKeyEpochId).toBe(
+    shared.containerKek.containerKeyEpochId,
+  );
+  expect(secondGroupShared.containerKek.recipientTargets).toHaveLength(4);
+  expect(secondGroupShared.containerKek.recipientTargets).toContainEqual({
+    recipientKind: "group",
+    recipientId: groupPrincipalId,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
+      initialGroup.reference,
+    ),
+    recipientKeyFingerprint: initialGroup.reference.keyFingerprint,
+  });
+  expect(secondGroupShared.containerKek.recipientTargets).toContainEqual({
+    recipientKind: "group",
+    recipientId: secondGroupPrincipalId,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
+      secondGroup.reference,
+    ),
+    recipientKeyFingerprint: secondGroup.reference.keyFingerprint,
+  });
 
   await putGroupPrincipalPolicy({
     actor: owner,
