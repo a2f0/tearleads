@@ -1319,7 +1319,15 @@ function assertAuthorizingContainerPathsMatchDocumentTargets(input: {
     index,
     projection,
   ] of input.writerProjection.authorizingContainerPaths.entries()) {
-    const projectionTarget = deriveDocumentV2TargetFromProjection(projection);
+    let projectionTarget: DocumentContentKeyTargetV2;
+    try {
+      projectionTarget = deriveDocumentV2TargetFromProjection(projection);
+    } catch (error) {
+      throw new Error(
+        `Document V2 writer projection authorization path[${index}] is invalid: ${errorMessage(error)}`,
+      );
+    }
+
     if (targetKeys.has(targetKey(projectionTarget))) {
       continue;
     }

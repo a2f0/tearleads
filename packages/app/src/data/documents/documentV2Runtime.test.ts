@@ -1094,6 +1094,44 @@ test("buildMaterializedDocumentV2SyncPlan rejects authorizing paths outside the 
   ).rejects.toThrow("authorization path[0] is not a document target");
 });
 
+test("buildMaterializedDocumentV2SyncPlan names malformed authorizing path indexes", async () => {
+  const { author, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const sourceProjection = writerProjection.authorizingContainerPaths[0];
+  if (!sourceProjection) {
+    throw new Error("Expected authorizing path fixture");
+  }
+  const leafIndex = sourceProjection.path.length - 1;
+  const malformedProjection: ContainerV2WriterProjectionResponse = {
+    ...sourceProjection,
+    path: sourceProjection.path.map((bundle, index) =>
+      index === leafIndex
+        ? {
+            ...bundle,
+            state: {
+              ...bundle.state,
+              containerId: "wrong-authorizing-path-container",
+            },
+          }
+        : bundle,
+    ),
+  };
+
+  await expect(
+    buildMaterializedDocumentV2SyncPlan({
+      author,
+      localVersionVector: null,
+      targetSecretKey: secretKey,
+      writerProjection: {
+        ...writerProjection,
+        authorizingContainerPaths: [malformedProjection],
+      },
+    }),
+  ).rejects.toThrow(
+    "authorization path[0] is invalid: Container writer projection target path is inconsistent",
+  );
+});
+
 test("buildMaterializedDocumentV2LinkSetMutationPlan names inaccessible remaining KEKs during unlink", async () => {
   const { author } = await createAuthor();
   const { projection, rootContainerKek, secretKey } =
