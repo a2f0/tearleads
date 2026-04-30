@@ -1466,7 +1466,7 @@ test("explorer store moves an authenticated child container through the API and 
   }
 });
 
-test("explorer store shares an authenticated container without reseeding legacy metadata envelopes", async () => {
+test("explorer store shares an authenticated container without reseeding metadata envelopes", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const peerKeyPair = generateKemSeedAndKeyPair();

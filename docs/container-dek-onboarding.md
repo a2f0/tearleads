@@ -1,9 +1,4 @@
-# Historical Container DEK Onboarding
-
-> Status: historical V1 design note. Registration no longer accepts
-> `wrappedDekEnvelope`, and the legacy `object_recipient_envelopes` table has
-> been removed. The current greenfield registration bootstrap submits signed V2
-> root container KEK state and a signed V2 root metadata document create request.
+# Container DEK Onboarding
 
 ## Summary
 
@@ -12,8 +7,7 @@ request. The client generates cryptographic material locally, the server creates
 the relational structure atomically, and the client persists the result to local
 SQLite.
 
-This document originally described the bootstrap step for the root container
-direct-recipient DEK path. The current key hierarchy is:
+The key hierarchy is:
 
 - containers have signed access manifests and KEK epochs
 - document content keys wrap to current linked container KEK targets
@@ -93,8 +87,7 @@ The response includes `userId`, `organizationId`, `rootContainerId`,
 4. Authenticate using the challenge.
 
 The root metadata content key is recovered through the V2 document content-key
-target bundle and root container KEK state. There is no registration-time V1
-root container DEK envelope.
+target bundle and root container KEK state.
 
 ## Crypto Functions
 
@@ -229,7 +222,7 @@ the database level.
 ## Adding Users To An Organization
 
 Adding a user to an organization means they may need access to signed principal
-state and selected container KEK epochs. The current V2 direction is:
+state and selected container KEK epochs:
 
 1. Org admin publishes a signed principal state update and derived projection.
 2. Principal member envelopes wrap the organization/group key to the new

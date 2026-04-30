@@ -1,12 +1,5 @@
 # Keying V2 Design
 
-> Status: mixed current design and future hardening notes. The signed V2
-> access-event, access-manifest, container KEK, document content-key, blob
-> content-key, principal-policy, write-header, and local checkpoint primitives
-> exist in code. Transparency deployment, first-contact identity trust, full
-> client adoption of every verifier path, and historical replay remain future
-> hardening work.
-
 This document describes the access and key-delivery model. It incorporates the
 direction from:
 
@@ -15,9 +8,14 @@ direction from:
 - `docs/security-guarantees.md`, especially the gaps around unsigned object
   grants, rollback, split views, and first-contact identity keys
 
-The design intentionally does not preserve V1 wire compatibility. Current HTTP
-routes use the `/v2` signed mutation surface summarized in
-[api-architecture.md](./api-architecture.md#current-http-protocol-surface).
+HTTP routes use the `/v2` signed mutation surface summarized in
+[api-architecture.md](./api-architecture.md#http-protocol-surface).
+
+The signed V2 access-event, access-manifest, container KEK, document
+content-key, blob content-key, principal-policy, write-header, and local
+checkpoint primitives exist in code. Transparency deployment, first-contact
+identity trust, full client adoption of every verifier path, and historical
+replay remain future hardening work.
 
 ## Goals
 
@@ -67,8 +65,8 @@ confidentiality failures.
 
 ## Identity And Principal Policy
 
-Principal policy keeps the current signed group/organization model, but V2
-tightens two rules.
+Principal policy uses the signed group/organization model and tightens two
+rules.
 
 First, any principal transition that removes a reader, demotes a role that can
 read, removes a nested group, disables a member, or changes a member key in a
@@ -90,9 +88,8 @@ object keying algorithm can fully fix that by itself.
 
 ## Signed Access Manifests
 
-The biggest V1 gap is that object grants are API-authored. In V2, every
-security-relevant graph mutation is represented by a signed access event and a
-derived access manifest.
+Every security-relevant graph mutation is represented by a signed access event
+and a derived access manifest.
 
 Protected manifest scopes:
 
@@ -274,7 +271,7 @@ sets.
 
 ## Authorization Rules
 
-Use stricter rules than V1:
+Use these rules:
 
 - `container.create`: signer must have write access to the parent container.
 - `container.grant` / `container.revoke`: signer must have admin access to the
@@ -502,8 +499,8 @@ plaintexts.
 
 For additive changes, the document content key may be reused and wrapped to a
 new target if the target set only grows. For shrink, future writes require a
-new document content-key epoch and a fresh baseline, preserving the V1
-forward-only revocation model.
+new document content-key epoch and a fresh baseline. Revocation remains
+forward-only unless old ciphertext is re-encrypted.
 
 ## Blob Content Keys
 
@@ -678,7 +675,7 @@ remain availability failures. Clients fail closed.
 
 ## Storage State And Direction
 
-Current core server tables:
+Core server tables:
 
 - `principal_states`
 - `principal_state_payloads`
@@ -697,9 +694,9 @@ Current core server tables:
 - `blob_content_key_targets`
 - `blob_content_write_headers`
 
-Current projection/cache tables include:
+Projection/cache tables include:
 
-- legacy `object_access_grants` and `object_access_epochs`
+- `object_access_grants` and `object_access_epochs`
 - `access_event_dependency_projection`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
@@ -774,8 +771,6 @@ Implemented slices:
 6. Signed document link/unlink manifests and multi-container target validation.
 7. V2 blob attachment binding/detach with blob KEK targets and staged blob
    write headers.
-8. Removal of the V1 direct-recipient document and `commit-change` write
-   surfaces.
 
 Remaining slices:
 

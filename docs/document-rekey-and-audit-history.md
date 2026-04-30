@@ -1,11 +1,5 @@
 # Document Rekey, Rebaselines, And Audit History
 
-> Status: mixed historical/current design note. The V1 direct-recipient
-> `commit-change` service and sync store have been removed; current document
-> writes flow through signed Keying V2 mutations. The audit schema, append
-> helpers, checkpoint helper, and audit-history verifier exist, but live V2
-> document/blob mutation paths do not yet call those helpers.
-
 This document defines implemented behavior and the target model for document
 rekey, fresh-baseline generation, offline merge handling, and tamper-evident
 document history.
@@ -52,12 +46,12 @@ Distinction:
 
 ### Blob History Is Live-Only
 
-Current blob GC is based on active attachment reachability, not historical
-document replay. If a blob is no longer referenced by any active
+Blob GC is based on active attachment reachability, not historical document
+replay. If a blob is no longer referenced by any active
 `attachment_bindings`, V2 attachment bind/detach cleanup may prune the blob row,
 blob access epochs, blob key-target rows, and detached binding rows for that
 blob. If another active binding still references the same blob, those rows
-remain live until the final active binding is retired.
+remain live until the final active binding is deactivated.
 
 Historical attachment bytes are therefore not durable. Detached bindings are
 transient replacement metadata, not an attachment audit log.
@@ -70,7 +64,7 @@ The attachment/blob retention policy is defined in
 
 ### Audit Storage Exists But Is Not Live-Wired
 
-The current codebase has history-side tables and services for:
+The codebase has history-side tables and services for:
 
 - append-only `document_audit_entries`
 - typed `document_update_audit_events`
@@ -302,9 +296,7 @@ Those records should include metadata such as:
 - last included audit entry hash or history-root hash
 - author or device identity for the checkpoint write
 
-This phase now targets the signed V2 write path. The old direct-recipient
-sync-store and `commit-change` services that originally hosted this validation
-have been removed.
+This phase targets the signed V2 write path.
 
 ### Phase 3: Tamper-Evident Document Update Ledger
 

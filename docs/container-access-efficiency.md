@@ -1,9 +1,5 @@
 # Container Access Efficiency
 
-> Status: historical recipient-expansion notes. The current write path uses
-> Keying V2 container KEK targets for document/blob key delivery rather than
-> per-object recipient-envelope fanout.
-
 This document describes the runtime characteristics of
 `packages/api/src/access/containerAccess.ts`, especially the recipient
 expansion path discussed in PR review feedback.
@@ -51,26 +47,15 @@ In practice, the dominant terms are usually:
 - per-recipient fingerprint generation
 - final sort of the effective recipient set
 
-## Why This Is Better Than The Earlier Version
+## Expansion Strategy
 
-The earlier implementation loaded grants and membership rows separately, then
-expanded organization and group grants with nested loops in application code.
-That produced an `O(G * M)` scan in the worst case, where `M` was the number of
-membership rows under consideration.
-
-The implementation removes that nested-loop expansion from TypeScript by
-delegating recipient expansion to SQL joins in `loadGrantedRecipients(...)`.
-That changes the application-side expansion step from repeated grant-to-
-membership scans to a single pass over the returned recipient rows.
-
-So the key improvement is:
-
-- before: `O(G * M)` application-side expansion
-- after SQL expansion: `O(R)` application-side processing
+The implementation delegates recipient expansion to SQL joins in
+`loadGrantedRecipients(...)`, then processes the returned recipient rows once in
+the API layer.
 
 This does not mean the database work is free. It means the expensive
-grant-to-membership cross-product is no longer implemented as explicit nested
-loops in the API layer.
+grant-to-membership cross-product belongs to the query plan rather than
+explicit nested loops in the API layer.
 
 ## Notes And Limits
 

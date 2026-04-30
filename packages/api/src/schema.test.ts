@@ -64,8 +64,6 @@ test("V2 access manifest schema creates tables and indexes", async () => {
         as "accessManifestPrincipalHeadProjection",
       to_regclass('access_manifest_document_link_projection') is not null
         as "accessManifestDocumentLinkProjection",
-      to_regclass('object_recipient_envelopes') is null
-        as "legacyObjectRecipientEnvelopesRemoved",
       to_regclass('document_content_key_epochs') is not null
         as "documentContentKeyEpochs",
       to_regclass('document_content_key_targets') is not null
@@ -169,7 +167,6 @@ test("V2 access manifest schema creates tables and indexes", async () => {
     accessEventDependencyProjection: true,
     accessManifestDocumentLinkProjection: true,
     accessManifestPrincipalHeadProjection: true,
-    legacyObjectRecipientEnvelopesRemoved: true,
     documentContentKeyEpochs: true,
     documentContentKeyTargets: true,
     documentContentWriteHeaders: true,
