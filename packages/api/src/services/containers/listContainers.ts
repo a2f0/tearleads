@@ -7,14 +7,19 @@ import {
   principalMembershipProjection,
   principalStates,
 } from "../../schema";
+import {
+  collectReferencedPrincipalsFromContainerV2Access,
+  KeyingV2ReadAccessError,
+  resolveReadableContainerV2Access,
+} from "../keyingV2ReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
+import { createContainerV2WriterProjectionContext } from "./v2WriterProjection";
 
 interface AccessibleContainerRow {
   id: string;
   metadataAccessEpoch?: number;
   metadataAccessStateHash?: string;
   metadataDocumentId: string | null;
-  metadataReferencedPrincipals?: unknown;
   organizationId: string;
   parentId: string | null;
 }
@@ -45,44 +50,6 @@ function readOptionalNumber(value: unknown): number | undefined {
 
 function readOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function normalizeReferencedPrincipals(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return [];
-    }
-
-    const principalType = Reflect.get(entry, "principalType");
-    const principalId = Reflect.get(entry, "principalId");
-    const version = Reflect.get(entry, "version");
-    const keyEpoch = Reflect.get(entry, "keyEpoch");
-    const stateHash = Reflect.get(entry, "stateHash");
-
-    if (
-      (principalType !== "group" && principalType !== "organization") ||
-      typeof principalId !== "string" ||
-      !Number.isInteger(version) ||
-      !Number.isInteger(keyEpoch) ||
-      typeof stateHash !== "string"
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        principalType,
-        principalId,
-        version: version as number,
-        keyEpoch: keyEpoch as number,
-        stateHash,
-      },
-    ];
-  });
 }
 
 async function listAccessibleV2ContainersForUser(
@@ -130,8 +97,7 @@ async function listAccessibleV2ContainersForUser(
         c.parent_id,
         h.epoch,
         h.manifest_hash,
-        m.state,
-        m.referenced_principal_heads
+        m.state
       from ${containers} c
       inner join ${accessManifestHeads} h
         on h.object_kind = ${"container"}
@@ -168,8 +134,7 @@ async function listAccessibleV2ContainersForUser(
       accessible.organization_id::text as "organizationId",
       accessible.parent_id::text as "parentId",
       accessible.epoch::int as "metadataAccessEpoch",
-      accessible.manifest_hash::text as "metadataAccessStateHash",
-      accessible.referenced_principal_heads as "metadataReferencedPrincipals"
+      accessible.manifest_hash::text as "metadataAccessStateHash"
     from accessible_containers accessible
     order by
       accessible.id asc,
@@ -198,10 +163,6 @@ async function listAccessibleV2ContainersForUser(
       ...(metadataAccessStateHash === undefined
         ? {}
         : { metadataAccessStateHash }),
-      metadataReferencedPrincipals: Reflect.get(
-        row,
-        "metadataReferencedPrincipals",
-      ),
     });
   }
 
@@ -218,6 +179,7 @@ export async function listContainers(
   );
 
   const visibleContainers: ListContainersResponse = [];
+  const accessContext = createContainerV2WriterProjectionContext(runtime.db);
 
   for (const containerRow of containerRows) {
     if (!containerRow.metadataDocumentId) {
@@ -230,14 +192,33 @@ export async function listContainers(
       continue;
     }
 
+    let verifiedAccess:
+      | Awaited<ReturnType<typeof resolveReadableContainerV2Access>>
+      | undefined;
+    try {
+      verifiedAccess = await resolveReadableContainerV2Access({
+        containerId: containerRow.id,
+        context: accessContext,
+        executor: runtime.db,
+        userId,
+      });
+    } catch (error) {
+      if (
+        error instanceof KeyingV2ReadAccessError &&
+        (error.status === 403 || error.status === 404 || error.status === 409)
+      ) {
+        continue;
+      }
+      throw error;
+    }
+
     visibleContainers.push({
       id: containerRow.id,
       metadataAccessEpoch: v2MetadataAccessEpoch,
       metadataAccessStateHash: v2MetadataAccessStateHash,
       metadataDocumentId: containerRow.metadataDocumentId,
-      metadataReferencedPrincipals: normalizeReferencedPrincipals(
-        containerRow.metadataReferencedPrincipals,
-      ),
+      metadataReferencedPrincipals:
+        collectReferencedPrincipalsFromContainerV2Access([verifiedAccess]),
       organizationId: containerRow.organizationId,
       parentId: containerRow.parentId,
     });

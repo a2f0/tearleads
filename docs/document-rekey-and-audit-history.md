@@ -49,9 +49,9 @@ Distinction:
 Blob GC is based on active attachment reachability, not historical document
 replay. If a blob is no longer referenced by any active
 `attachment_bindings`, V2 attachment bind/detach cleanup may prune the blob row,
-blob access epochs, blob key-target rows, and detached binding rows for that
-blob. If another active binding still references the same blob, those rows
-remain live until the final active binding is deactivated.
+blob content-key epochs, blob content-key target rows, and detached binding rows
+for that blob. If another active binding still references the same blob, those
+rows remain live until the final active binding is deactivated.
 
 Historical attachment bytes are therefore not durable. Detached bindings are
 transient replacement metadata, not an attachment audit log.
@@ -319,7 +319,7 @@ Record immutable attachment-history events for:
 - attach
 - replace / same-slot rebind
 - detach
-- blob rewrap or epoch transitions if historical blob access needs them
+- blob rewrap or epoch transitions if historical blob key access needs them
 
 `attachment_bindings` should remain the live projection of current bindings.
 Detached bindings should not become the history mechanism. Historical manifests,
@@ -630,8 +630,8 @@ When structural attachment changes are accepted through
 `POST /v2/blobs/:blobId/attachment-bindings` or
 `POST /v2/blobs/:blobId/attachment-bindings/:bindingId/detach`:
 
-- keep mutating `attachment_bindings`, blob access rows, and live blobs exactly
-  as today
+- keep mutating `attachment_bindings`, blob content-key rows, and live blobs
+  exactly as today
 - before live pruning deletes rows needed for audit metadata, write:
   - `blob_audit_objects` rows for newly referenced blobs
   - one `document_audit_entries` row plus one

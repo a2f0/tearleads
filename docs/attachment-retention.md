@@ -6,8 +6,8 @@ This document defines attachment/blob retention semantics for the access plane.
 
 Attachment/blob retention is live-only.
 
-The server retains attachment blob bytes, blob access epochs, and blob
-key-target rows only while at least one active `attachment_bindings` row
+The server retains attachment blob bytes, blob content-key epochs, and blob
+content-key target rows only while at least one active `attachment_bindings` row
 references that blob.
 
 When a signed V2 attachment mutation deactivates an attachment binding through
@@ -15,10 +15,10 @@ When a signed V2 attachment mutation deactivates an attachment binding through
 
 - the old binding is marked detached during the atomic mutation
 - if another active binding still references the old blob, the blob and its
-  access material remain live
+  content-key material remain live
 - if no active binding references the old blob, the server prunes the blob row,
-  blob access epochs, blob key-target rows, and detached binding rows for that
-  blob
+  blob content-key epochs, blob content-key target rows, and detached binding
+  rows for that blob
 
 Detached attachment bindings are transient replacement metadata. They are not a
 historical attachment log, tombstone store, audit manifest, or recovery index.

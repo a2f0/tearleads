@@ -279,8 +279,8 @@ For the access-plane model, the important semantic is:
   the documents that currently reference it
 
 So attach and detach are not only indexing operations. They are also
-security-relevant graph mutations that may require access-epoch bumps and
-wrapped-key bundle changes for the blob object.
+security-relevant graph mutations that may require blob content-key epoch
+changes and wrapped-key bundle changes for the blob object.
 
 Logical operations:
 
@@ -359,8 +359,8 @@ If a V2 attachment mutation succeeds:
 
 - staged blobs are promoted to committed blob objects when supplied
 - requested binding replacements/detaches are persisted
-- detached bindings, blob access material, and blob bytes are pruned when no
-  active binding references the blob after the mutation
+- detached bindings, blob content-key material, and blob bytes are pruned when
+  no active binding references the blob after the mutation
 - affected blob key targets are recomputed and persisted
 
 Because encrypted Loro updates do not expose `referencedSlotIds[]`, the server
