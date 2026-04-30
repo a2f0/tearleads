@@ -1304,6 +1304,42 @@ function assertSortedStringsEqual(
   }
 }
 
+function assertAuthorizingContainerPathsMatchDocumentTargets(input: {
+  targets: readonly DocumentContentKeyTargetV2[];
+  writerProjection: DocumentV2WriterProjectionResponse;
+}): void {
+  if (input.writerProjection.authorizingContainerPaths.length === 0) {
+    throw new Error(
+      "Document V2 writer projection authorization paths missing",
+    );
+  }
+
+  const targetKeys = new Set(input.targets.map(targetKey));
+  for (const [
+    index,
+    projection,
+  ] of input.writerProjection.authorizingContainerPaths.entries()) {
+    let projectionTarget: DocumentContentKeyTargetV2;
+    try {
+      projectionTarget = deriveDocumentV2TargetFromProjection(projection);
+    } catch (error) {
+      throw new Error(
+        `Document V2 writer projection authorization path[${index}] is invalid: ${errorMessage(error)}`,
+      );
+    }
+
+    if (targetKeys.has(targetKey(projectionTarget))) {
+      continue;
+    }
+
+    // Bind server-supplied KEK paths to committed document targets before
+    // using any unwrapped path KEK for document content-key material.
+    throw new Error(
+      `Document V2 writer projection authorization path[${index}] is not a document target`,
+    );
+  }
+}
+
 export async function assertDocumentV2WriterProjectionConsistent(
   writerProjection: DocumentV2WriterProjectionResponse,
 ): Promise<DocumentContentKeyTargetV2[]> {
@@ -1364,6 +1400,10 @@ export async function assertDocumentV2WriterProjectionConsistent(
     uniqueSortedStrings(targets.map((target) => target.containerKeyEpochId)),
     "Document V2 writer projection target KEK summary mismatch",
   );
+  assertAuthorizingContainerPathsMatchDocumentTargets({
+    targets,
+    writerProjection,
+  });
 
   return targets;
 }
