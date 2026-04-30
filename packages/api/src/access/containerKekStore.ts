@@ -244,6 +244,28 @@ async function insertContainerKeyWraps(
   }
 }
 
+async function deleteStaleContainerKeyWraps(
+  containerKeyEpochId: string,
+  currentWraps: readonly ContainerKeyWrapV2[],
+  executor: ContainerKekStoreExecutor,
+): Promise<void> {
+  // The verifier treats the wrap set as exact for the current KEK state. When a
+  // principal target is replaced on the same container KEK epoch, stale wraps
+  // must stop being served from the current projection.
+  const currentWrapKeys = new Set(
+    currentWraps.map(containerKeyWrapConflictKey),
+  );
+  const staleWraps = (
+    await listContainerKeyWraps(containerKeyEpochId, executor)
+  ).filter((wrap) => !currentWrapKeys.has(containerKeyWrapConflictKey(wrap)));
+
+  for (const wrap of staleWraps) {
+    await executor
+      .delete(containerKeyWraps)
+      .where(containerKeyWrapConflictWhere(wrap));
+  }
+}
+
 export async function storeVerifiedContainerKekState(
   input: StoreVerifiedContainerKekStateInput,
   executor: ContainerKekStoreExecutor = db,
@@ -255,6 +277,11 @@ export async function storeVerifiedContainerKekState(
   }
 
   await insertContainerKeyEpoch(input.verifiedState.keyEpoch, executor);
+  await deleteStaleContainerKeyWraps(
+    input.verifiedState.containerKeyEpochId,
+    input.verifiedState.wraps,
+    executor,
+  );
   await insertContainerKeyWraps(input.verifiedState.wraps, executor);
 
   return input.verifiedState;
