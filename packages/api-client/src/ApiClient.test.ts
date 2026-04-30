@@ -251,34 +251,27 @@ test("includes authorization header after authentication", async () => {
 });
 
 test("allows public methods to be called after destructuring", async () => {
-  const originalFetch = globalThis.fetch;
-  const calls: RequestInit[] = [];
-  const fetchMock = Object.assign(
-    async (
-      _input: RequestInfo | URL,
-      init?: RequestInit,
-    ): Promise<Response> => {
-      calls.push(init ?? {});
-      return new Response(JSON.stringify({ message: "ok" }));
-    },
-    { preconnect: originalFetch.preconnect },
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(`${apiBaseUrl}/`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+      return HttpResponse.json({ message: "ok" });
+    }),
   );
-  globalThis.fetch = fetchMock;
 
-  try {
-    const client = new ApiClient("http://api.test");
-    const { getHealth, setAuthToken } = client;
+  const client = new ApiClient(apiBaseUrl);
+  const { getHealth, setAuthToken } = client;
 
-    setAuthToken("abc");
-    await getHealth();
+  setAuthToken("abc");
+  await getHealth();
 
-    expect(calls[0]?.headers).toEqual({
-      "Content-Type": "application/json",
-      Authorization: "Bearer abc",
-    });
-  } finally {
-    globalThis.fetch = originalFetch;
+  const call = calls[0];
+  expect(call).toBeDefined();
+  if (!call) {
+    throw new Error("expected destructured getHealth HTTP call");
   }
+  expect(call.authorization).toBe("Bearer abc");
+  expect(call.contentType).toBe("application/json");
 });
 
 test("returns null on network error", async () => {
