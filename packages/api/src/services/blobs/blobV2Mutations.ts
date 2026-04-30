@@ -39,6 +39,7 @@ import {
 import {
   BlobContentKeyBundleError,
   type BlobContentKeyTargetEnvelope,
+  type StoredBlobContentKeyBundleWithTargets,
   storeBlobContentKeyBundle,
   storeBlobContentWriteHeader,
 } from "../../access/blobContentKeyStore";
@@ -749,9 +750,7 @@ async function detachActiveSlotBinding(input: {
 function toBindResponse(input: {
   readonly binding: VerifiedAttachmentBinding;
   readonly blobId: string;
-  readonly contentKeyBundle: Awaited<
-    ReturnType<typeof storeBlobContentKeyBundle>
-  >;
+  readonly contentKeyBundle: StoredBlobContentKeyBundleWithTargets;
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentBlobKekTargets>
   >;

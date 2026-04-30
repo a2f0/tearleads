@@ -38,7 +38,7 @@ interface StoredDocumentContentKeyBundle {
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }
 
-interface StoredDocumentContentKeyBundleWithTargets
+export interface StoredDocumentContentKeyBundleWithTargets
   extends StoredDocumentContentKeyBundle {
   readonly currentTargets: CurrentDocumentKekTargets;
 }

@@ -36,7 +36,7 @@ interface StoredBlobContentKeyBundle {
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
 }
 
-interface StoredBlobContentKeyBundleWithTargets
+export interface StoredBlobContentKeyBundleWithTargets
   extends StoredBlobContentKeyBundle {
   readonly currentTargets: CurrentBlobKekTargets;
 }

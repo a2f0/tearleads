@@ -54,6 +54,7 @@ import {
   DocumentContentKeyBundleError,
   listDocumentContentWriteHeaders,
   requireCurrentDocumentContentKeyBundle,
+  type StoredDocumentContentKeyBundleWithTargets,
   type DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,
@@ -985,7 +986,7 @@ function assertSyncContentKeyBundleMatchesRequest(
 }
 
 function toContentKeyBundleResponse(
-  bundle: Awaited<ReturnType<typeof storeDocumentContentKeyBundle>>,
+  bundle: StoredDocumentContentKeyBundleWithTargets,
 ): DocumentV2ContentKeyBundleResponse {
   return {
     documentId: bundle.documentId,
