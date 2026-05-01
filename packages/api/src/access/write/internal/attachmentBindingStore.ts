@@ -2,7 +2,7 @@ import type {
   VerifiedAttachmentBinding,
   VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import { attachmentBindings } from "../../../schema";
 import { storeVerifiedAccessEvent } from "../../shared/internal/accessManifestStore";
@@ -122,7 +122,7 @@ export async function storeVerifiedAttachmentDetach(
 
   const [detachedRow] = await executor
     .update(attachmentBindings)
-    .set({ detachedAt: new Date() })
+    .set({ detachedAt: sql`now()` })
     .where(
       and(
         eq(attachmentBindings.id, detach.bindingId),

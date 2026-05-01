@@ -29,11 +29,11 @@ The dependency direction is enforced by `bun run lint:architecture`.
 
 ## Current Scope
 
-Container and document mutation implementations live under `workflows/`. The
-container writer-projection resolver also lives here because document writes use
-it inside their transaction to prove write access. The public service facades
-remain under `services/` so route imports stay stable while transaction
-implementations live behind the workflow boundary.
+Container, document, and blob attachment mutation implementations live under
+`workflows/`. The container writer-projection resolver also lives here because
+document and blob writes use it inside their transaction to prove write access.
+The public service facades remain under `services/` so route imports stay
+stable while transaction implementations live behind the workflow boundary.
 
 Document storage, sync, and audit helpers that are not route-facing services
 live under `../documents/`. Workflows may compose those helpers with access
