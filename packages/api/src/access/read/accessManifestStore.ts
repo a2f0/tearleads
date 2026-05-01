@@ -3,4 +3,4 @@ export {
   getCurrentAccessManifestHead,
   listAccessEventDependencyProjection,
   listAccessManifestPrincipalHeadProjection,
-} from "../internal/accessManifestStore";
+} from "../shared/internal/accessManifestStore";

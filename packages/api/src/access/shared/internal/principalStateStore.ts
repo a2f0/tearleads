@@ -14,15 +14,15 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../adapters/postgres";
+import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import {
   principalEpochKeys,
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
   users,
-} from "../../schema";
-import { uniqueSortedStrings } from "../../utils/array";
+} from "../../../schema";
+import { uniqueSortedStrings } from "../../../utils/array";
 
 type PrincipalStateExecutor = DatabaseExecutor;
 

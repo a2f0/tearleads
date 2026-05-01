@@ -2,4 +2,4 @@ export {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
-} from "../internal/documentKekTargets";
+} from "./internal/documentKekTargets";

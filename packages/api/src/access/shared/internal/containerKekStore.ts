@@ -8,8 +8,8 @@ import type {
 } from "@tearleads/crypto";
 import { verifyContainerKekState } from "@tearleads/crypto";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../adapters/postgres";
-import { containerKeyEpochs, containerKeyWraps } from "../../schema";
+import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import { containerKeyEpochs, containerKeyWraps } from "../../../schema";
 
 type ContainerKekStoreExecutor = DatabaseExecutor;
 

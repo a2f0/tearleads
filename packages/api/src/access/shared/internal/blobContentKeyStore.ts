@@ -7,17 +7,17 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../adapters/postgres";
+import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import {
   blobContentKeyEpochs,
   blobContentKeyTargets,
   blobContentWriteHeaders,
-} from "../../schema";
+} from "../../../schema";
 import {
   assertBlobKekTargetsCurrent,
   BlobKekTargetError,
   type resolveCurrentBlobKekTargets,
-} from "./blobKekTargets";
+} from "../../read/internal/blobKekTargets";
 
 type BlobContentKeyExecutor = DatabaseExecutor;
 type CurrentBlobKekTargets = Awaited<

@@ -3,9 +3,9 @@ import type {
   VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
 import { and, eq, isNull } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../adapters/postgres";
-import { attachmentBindings } from "../../schema";
-import { storeVerifiedAccessEvent } from "./accessManifestStore";
+import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import { attachmentBindings } from "../../../schema";
+import { storeVerifiedAccessEvent } from "../../shared/internal/accessManifestStore";
 
 type AttachmentBindingStoreExecutor = DatabaseExecutor;
 

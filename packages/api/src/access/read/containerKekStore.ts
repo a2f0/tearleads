@@ -3,4 +3,4 @@ export {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
   resolveStoredContainerKekState,
-} from "../internal/containerKekStore";
+} from "../shared/internal/containerKekStore";

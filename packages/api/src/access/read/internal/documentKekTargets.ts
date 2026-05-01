@@ -2,11 +2,11 @@ import {
   computeDocumentContentKeyTargetHash,
   type DocumentContentKeyTarget,
 } from "@tearleads/crypto";
-import { type DatabaseExecutor, db } from "../../adapters/postgres";
+import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import {
   getCurrentAccessManifestHead,
   listAccessManifestDocumentLinkProjection,
-} from "./accessManifestStore";
+} from "../../shared/internal/accessManifestStore";
 import {
   ContainerKekTargetError,
   resolveCurrentContainerKekTargets,

@@ -3,8 +3,8 @@ import type {
   PrincipalStateMemberType,
 } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../adapters/postgres";
-import { principalMemberEnvelopes, users } from "../../schema";
+import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import { principalMemberEnvelopes, users } from "../../../schema";
 import {
   getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,

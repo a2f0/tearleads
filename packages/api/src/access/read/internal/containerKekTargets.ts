@@ -1,8 +1,8 @@
 import type { ContainerKekTarget } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../adapters/postgres";
-import { accessManifestHeads, accessManifests } from "../../schema";
-import { getContainerKeyEpochsById } from "./containerKekStore";
+import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import { accessManifestHeads, accessManifests } from "../../../schema";
+import { getContainerKeyEpochsById } from "../../shared/internal/containerKekStore";
 
 type ContainerKekTargetExecutor = DatabaseExecutor;
 
