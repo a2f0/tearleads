@@ -1,4 +1,14 @@
 export {
+  type AccessEventBundleWireResponse,
+  type AccessManifestBundleWire,
+  type AccessManifestBundleWireResponse,
+  isAccessEventBundleWireResponse,
+  isAccessManifestBundleWire,
+  isAccessManifestBundleWireArray,
+  isAccessManifestBundleWireResponse,
+  isOptionalAccessManifestBundleWireArray,
+} from "./accessManifestBundle";
+export {
   isSerializedKeyEnvelope,
   isSerializedKeyEnvelopeArray,
   type SerializedKeyEnvelope,
@@ -6,13 +16,21 @@ export {
 export {
   hasArrayProperty,
   hasBooleanProperty,
+  hasNonEmptyStringProperty,
   hasNullableNumberProperty,
   hasNullableStringProperty,
   hasNumberProperty,
   hasObjectProperty,
   hasOptionalStringProperty,
+  hasPositiveIntegerProperty,
   hasPropertyValue,
   hasStringProperty,
+  isNonEmptyStringArray,
+  isOptionalRecordArray,
+  isOptionalRecordArrayArray,
+  isRecordArray,
+  isRecordArrayArray,
+  isStringArray,
 } from "./properties";
 export {
   AUTH_CHALLENGE_HEX_LENGTH,

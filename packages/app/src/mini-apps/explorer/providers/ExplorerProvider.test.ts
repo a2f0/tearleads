@@ -16,12 +16,14 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
+  AccessManifestBundleWireResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { isAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import { createContainerWriterProjectionFixture } from "../../../../test/helpers/createContainerWriterProjectionFixture";
 import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
@@ -101,7 +103,7 @@ async function createExplorerMetadataCreateResponse(
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     accessManifest: {
-      event: { event, body, eventHash },
+      event: { event: { ...event }, body, eventHash },
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
@@ -242,6 +244,9 @@ async function createExplorerContainerMutationResponse(
     "manifestHash" in request.previousManifest
       ? request.previousManifest
       : null;
+  const previousManifestResponse = previousManifest
+    ? requireAccessManifestBundleWireResponse(previousManifest)
+    : null;
 
   return {
     containerId,
@@ -252,7 +257,7 @@ async function createExplorerContainerMutationResponse(
       manifestHash: request.expectedManifestHash,
     },
     accessManifest: {
-      event: { event, body, eventHash },
+      event: { event: { ...event }, body, eventHash },
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
@@ -284,8 +289,8 @@ async function createExplorerContainerMutationResponse(
       keyTargetHash:
         await computeContainerKekRecipientTargetHash(recipientTargets),
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-      ...(previousManifest
-        ? { containerManifestHistory: [previousManifest] }
+      ...(previousManifestResponse
+        ? { containerManifestHistory: [previousManifestResponse] }
         : {}),
       recipientTargets: recipientTargets as unknown as Record<
         string,
@@ -295,6 +300,15 @@ async function createExplorerContainerMutationResponse(
     },
     referencedPrincipalHeads: [],
   };
+}
+
+function requireAccessManifestBundleWireResponse(
+  value: unknown,
+): AccessManifestBundleWireResponse {
+  if (!isAccessManifestBundleWireResponse(value)) {
+    throw new Error("Expected previous manifest response bundle");
+  }
+  return value;
 }
 
 function createExplorerContainerApiHarness(

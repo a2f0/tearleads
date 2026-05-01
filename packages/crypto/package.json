@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@tearleads/encoding": "workspace:*",
-    "@tearleads/validators": "workspace:*",
     "@noble/post-quantum": "0.5.4"
   },
   "devDependencies": {

@@ -1,3 +1,5 @@
+import { isPlainObject } from "../isPlainObject";
+
 export function hasStringProperty<Key extends string>(
   value: Record<string, unknown>,
   key: Key,
@@ -10,6 +12,17 @@ export function hasNumberProperty<Key extends string>(
   key: Key,
 ): value is Record<string, unknown> & Record<Key, number> {
   return typeof value[key] === "number";
+}
+
+export function hasPositiveIntegerProperty<Key extends string>(
+  value: Record<string, unknown>,
+  key: Key,
+): value is Record<string, unknown> & Record<Key, number> {
+  return (
+    hasNumberProperty(value, key) &&
+    Number.isInteger(value[key]) &&
+    value[key] > 0
+  );
 }
 
 export function hasBooleanProperty<Key extends string>(
@@ -31,6 +44,13 @@ export function hasOptionalStringProperty<Key extends string>(
   key: Key,
 ): value is Record<string, unknown> & Record<Key, string | undefined> {
   return value[key] === undefined || typeof value[key] === "string";
+}
+
+export function hasNonEmptyStringProperty<Key extends string>(
+  value: Record<string, unknown>,
+  key: Key,
+): value is Record<string, unknown> & Record<Key, string> {
+  return hasStringProperty(value, key) && value[key].length > 0;
 }
 
 export function hasNullableStringProperty<Key extends string>(
@@ -61,4 +81,42 @@ export function hasPropertyValue<Key extends string, ExactValue>(
   expected: ExactValue,
 ): value is Record<string, unknown> & Record<Key, ExactValue> {
   return value[key] === expected;
+}
+
+export function isRecordArray(
+  value: unknown,
+): value is Record<string, unknown>[] {
+  return Array.isArray(value) && value.every(isPlainObject);
+}
+
+export function isRecordArrayArray(
+  value: unknown,
+): value is Record<string, unknown>[][] {
+  return Array.isArray(value) && value.every(isRecordArray);
+}
+
+export function isOptionalRecordArray(
+  value: unknown,
+): value is Record<string, unknown>[] | undefined {
+  return value === undefined || isRecordArray(value);
+}
+
+export function isOptionalRecordArrayArray(
+  value: unknown,
+): value is Record<string, unknown>[][] | undefined {
+  return value === undefined || isRecordArrayArray(value);
+}
+
+export function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((entry) => typeof entry === "string")
+  );
+}
+
+export function isNonEmptyStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((entry) => typeof entry === "string" && entry.length > 0)
+  );
 }

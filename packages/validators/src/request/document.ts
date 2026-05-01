@@ -1,8 +1,14 @@
 import { isPlainObject } from "../isPlainObject";
 import {
+  type AccessManifestBundleWire,
   hasArrayProperty,
-  hasNumberProperty,
+  hasPositiveIntegerProperty,
   hasStringProperty,
+  isAccessManifestBundleWire,
+  isOptionalRecordArray,
+  isOptionalRecordArrayArray,
+  isRecordArray,
+  isRecordArrayArray,
   isUuidV4String,
   isWalLsnString,
 } from "../util";
@@ -11,12 +17,7 @@ import {
   isOptionalContainerMutationRequestArray,
 } from "./container";
 
-export interface DocumentManifestBundle {
-  event: Record<string, unknown>;
-  manifest: Record<string, unknown>;
-  manifestHash: string;
-  state: Record<string, unknown>;
-}
+export interface DocumentManifestBundle extends AccessManifestBundleWire {}
 
 export interface DocumentContentKeyTargetEnvelope {
   containerId: string;
@@ -81,60 +82,8 @@ export interface DocumentSyncRequest {
   outgoingUpdates: DocumentOutgoingUpdate[];
 }
 
-function isRecordArray(value: unknown): value is Record<string, unknown>[] {
-  return Array.isArray(value) && value.every(isPlainObject);
-}
-
-function isRecordArrayArray(
-  value: unknown,
-): value is Record<string, unknown>[][] {
-  return Array.isArray(value) && value.every(isRecordArray);
-}
-
-function isOptionalRecordArray(
-  value: unknown,
-): value is Record<string, unknown>[] | undefined {
-  return value === undefined || isRecordArray(value);
-}
-
-function isOptionalRecordArrayArray(
-  value: unknown,
-): value is Record<string, unknown>[][] | undefined {
-  return value === undefined || isRecordArrayArray(value);
-}
-
-function hasPositiveNumberProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, number> {
-  return (
-    hasNumberProperty(value, key) &&
-    Number.isInteger(value[key]) &&
-    value[key] > 0
-  );
-}
-
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
-}
-
-function isDocumentManifestBundle(
-  value: unknown,
-): value is DocumentManifestBundle {
-  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
-  const manifest = isPlainObject(value)
-    ? Reflect.get(value, "manifest")
-    : undefined;
-  const state = isPlainObject(value) ? Reflect.get(value, "state") : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isPlainObject(event) &&
-    isPlainObject(manifest) &&
-    hasStringProperty(value, "manifestHash") &&
-    value.manifestHash.length > 0 &&
-    isPlainObject(state)
-  );
 }
 
 function isDocumentContentKeyTargetEnvelope(
@@ -152,7 +101,7 @@ function isDocumentContentKeyTargetEnvelope(
     value.containerManifestHash.length > 0 &&
     hasStringProperty(value, "containerKeyEpochId") &&
     value.containerKeyEpochId.length > 0 &&
-    hasPositiveNumberProperty(value, "containerKeyEpoch") &&
+    hasPositiveIntegerProperty(value, "containerKeyEpoch") &&
     hasStringProperty(value, "wrappedKey") &&
     value.wrappedKey.length > 0 &&
     isPlainObject(wrappingMetadata)
@@ -164,7 +113,7 @@ export function isDocumentContentKeyBundleRequest(
 ): value is DocumentContentKeyBundleRequest {
   return (
     isPlainObject(value) &&
-    hasPositiveNumberProperty(value, "contentKeyEpoch") &&
+    hasPositiveIntegerProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "linkSetManifestHash") &&
     value.linkSetManifestHash.length > 0 &&
     hasStringProperty(value, "targetHash") &&
@@ -240,7 +189,7 @@ export function isDocumentCreateRequest(
     isPlainObject(manifest) &&
     (previousManifest === undefined ||
       previousManifest === null ||
-      isDocumentManifestBundle(previousManifest)) &&
+      isAccessManifestBundleWire(previousManifest)) &&
     isOptionalRecordArray(targetContainerPath) &&
     isOptionalRecordArrayArray(authorizingContainerPaths) &&
     isOptionalContainerMutationRequestArray(containerRekeys) &&
@@ -280,7 +229,7 @@ export function isDocumentLinkSetMutationRequest(
     hasStringProperty(value, "expectedManifestHash") &&
     value.expectedManifestHash.length > 0 &&
     isPlainObject(manifest) &&
-    isDocumentManifestBundle(previousManifest) &&
+    isAccessManifestBundleWire(previousManifest) &&
     isRecordArray(targetContainerPath) &&
     isRecordArrayArray(authorizingContainerPaths) &&
     isOptionalContainerMutationRequestArray(containerRekeys) &&
@@ -327,8 +276,8 @@ export function isDocumentSyncRequest(
       isDocumentContentKeyBundleRequest(contentKeyBundle)) &&
     (documentManifest === undefined
       ? !hasOutgoingUpdates
-      : isDocumentManifestBundle(documentManifest)) &&
-    hasPositiveNumberProperty(value, "contentKeyEpoch") &&
+      : isAccessManifestBundleWire(documentManifest)) &&
+    hasPositiveIntegerProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "expectedLinkSetManifestHash") &&
     value.expectedLinkSetManifestHash.length > 0 &&
     hasStringProperty(value, "expectedTargetHash") &&

@@ -1,3 +1,4 @@
+export type { AccessManifestBundleWireResponse } from "../util";
 export {
   type ChallengeErrorResponse,
   type ChallengeResponse,
@@ -26,7 +27,6 @@ export {
 } from "./blob";
 export {
   type ContainerKekResponse,
-  type ContainerManifestBundleResponse,
   type ContainerMutationResponse,
   type ContainerSummary,
   type ContainerWriterProjectionResponse,
@@ -46,7 +46,6 @@ export {
   type DocumentCreateResponse,
   type DocumentKekTargetsResponse,
   type DocumentLinkSetMutationResponse,
-  type DocumentManifestBundleResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
   isDocumentCreateResponse,

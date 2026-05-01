@@ -1,8 +1,10 @@
 import { isPlainObject } from "../isPlainObject";
 import {
   hasArrayProperty,
-  hasNumberProperty,
+  hasPositiveIntegerProperty,
   hasStringProperty,
+  isRecordArray,
+  isStringArray,
 } from "../util";
 
 export interface StageBlobResponse {
@@ -110,27 +112,6 @@ export function isBlobResponse(value: unknown): value is BlobResponse {
   );
 }
 
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((entry) => typeof entry === "string")
-  );
-}
-
-function isRecordArray(value: unknown): value is Record<string, unknown>[] {
-  return Array.isArray(value) && value.every(isPlainObject);
-}
-
-function hasPositiveNumberProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, number> {
-  return (
-    hasNumberProperty(value, key) &&
-    Number.isInteger(value[key]) &&
-    value[key] > 0
-  );
-}
-
 function isBlobKekTargetsResponse(
   value: unknown,
 ): value is BlobKekTargetsResponse {
@@ -167,7 +148,7 @@ function isBlobContentKeyTargetEnvelopeResponse(
     hasStringProperty(value, "containerId") &&
     hasStringProperty(value, "containerManifestHash") &&
     hasStringProperty(value, "containerKeyEpochId") &&
-    hasPositiveNumberProperty(value, "containerKeyEpoch") &&
+    hasPositiveIntegerProperty(value, "containerKeyEpoch") &&
     hasStringProperty(value, "wrappedKey") &&
     isPlainObject(wrappingMetadata)
   );
@@ -179,7 +160,7 @@ function isBlobContentKeyBundleResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "blobId") &&
-    hasPositiveNumberProperty(value, "contentKeyEpoch") &&
+    hasPositiveIntegerProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "targetHash") &&
     hasArrayProperty(value, "targets") &&
     value.targets.every(isBlobContentKeyTargetEnvelopeResponse)

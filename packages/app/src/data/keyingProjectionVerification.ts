@@ -18,7 +18,7 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type {
-  ContainerManifestBundleResponse,
+  AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
   EncapsulationKeyResponse,
 } from "@tearleads/validators/response";
@@ -424,8 +424,8 @@ function assertCanonicalEqual(input: {
 }
 
 function addBundleByHash(
-  bundlesByHash: Map<string, ContainerManifestBundleResponse>,
-  bundle: ContainerManifestBundleResponse,
+  bundlesByHash: Map<string, AccessManifestBundleWireResponse>,
+  bundle: AccessManifestBundleWireResponse,
   label: string,
 ): void {
   const existing = bundlesByHash.get(bundle.manifestHash);
@@ -445,7 +445,7 @@ function addBundleByHash(
 }
 
 async function verifyAccessEventBundle(input: {
-  readonly bundle: ContainerManifestBundleResponse;
+  readonly bundle: AccessManifestBundleWireResponse;
   readonly label: string;
   readonly resolveUserKey: ProjectionUserKeyResolver;
 }) {
@@ -489,8 +489,8 @@ async function verifyAccessEventBundle(input: {
 }
 
 async function verifyContainerManifestBundle(input: {
-  readonly bundle: ContainerManifestBundleResponse;
-  readonly bundlesByHash: ReadonlyMap<string, ContainerManifestBundleResponse>;
+  readonly bundle: AccessManifestBundleWireResponse;
+  readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -543,7 +543,7 @@ async function verifyContainerManifestBundle(input: {
 }
 
 async function verifyPreviousContainerManifest(input: {
-  readonly bundlesByHash: ReadonlyMap<string, ContainerManifestBundleResponse>;
+  readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
   readonly previousManifestHash: string;
@@ -690,7 +690,7 @@ export async function verifyContainerWriterProjection(input: {
     );
   }
 
-  const bundlesByHash = new Map<string, ContainerManifestBundleResponse>();
+  const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const [index, bundle] of input.projection.path.entries()) {
     addBundleByHash(
       bundlesByHash,

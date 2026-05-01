@@ -5,10 +5,10 @@ import type {
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
 import type {
+  AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
   DocumentContentKeyBundleResponse,
   DocumentKekTargetsResponse,
-  DocumentManifestBundleResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { DocumentContentKeyBundleError } from "../../access/errors/documentContentKeyStore";
@@ -105,12 +105,12 @@ const readValue = readProjectionValue;
 const accessManifestRecord = projectionAccessManifestRecord;
 const verifiedAccessEventRecord = projectionVerifiedAccessEventRecord;
 
-function toDocumentManifestBundleResponse(input: {
+function toAccessManifestBundleWireResponse(input: {
   readonly event: VerifiedAccessEvent;
   readonly manifest: AccessManifest;
   readonly manifestHash: string;
   readonly state: KeyingCanonicalJson;
-}): DocumentManifestBundleResponse {
+}): AccessManifestBundleWireResponse {
   return {
     event: verifiedAccessEventRecord(input.event),
     manifest: accessManifestRecord(input.manifest),
@@ -192,7 +192,7 @@ function readDocumentLinkSetState(
 async function loadCurrentDocumentManifestBundle(
   executor: DatabaseExecutor,
   documentId: string,
-): Promise<DocumentManifestBundleResponse> {
+): Promise<AccessManifestBundleWireResponse> {
   const head = await getCurrentAccessManifestHead(
     "document",
     documentId,
@@ -213,7 +213,7 @@ async function loadCurrentDocumentManifestBundle(
     );
   }
 
-  return toDocumentManifestBundleResponse({
+  return toAccessManifestBundleWireResponse({
     event: bundle.event,
     manifest: bundle.manifest,
     manifestHash: bundle.manifestHash,

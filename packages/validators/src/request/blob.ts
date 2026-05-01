@@ -1,8 +1,12 @@
 import { isPlainObject } from "../isPlainObject";
 import {
+  type AccessManifestBundleWire,
   hasArrayProperty,
   hasNumberProperty,
+  hasPositiveIntegerProperty,
   hasStringProperty,
+  isAccessManifestBundleWire,
+  isRecordArrayArray,
 } from "../util";
 import {
   type ContainerMutationRequest,
@@ -15,12 +19,7 @@ export interface StageBlobRequest {
   sha256: string;
 }
 
-export interface BlobManifestBundleRequest {
-  event: Record<string, unknown>;
-  manifest: Record<string, unknown>;
-  manifestHash: string;
-  state: Record<string, unknown>;
-}
+export interface BlobManifestBundleRequest extends AccessManifestBundleWire {}
 
 export interface BlobContentKeyTargetEnvelopeRequest {
   bindingId: string;
@@ -74,46 +73,6 @@ export function isStageBlobRequest(value: unknown): value is StageBlobRequest {
   );
 }
 
-function isRecordArray(value: unknown): value is Record<string, unknown>[] {
-  return Array.isArray(value) && value.every(isPlainObject);
-}
-
-function isRecordArrayArray(
-  value: unknown,
-): value is Record<string, unknown>[][] {
-  return Array.isArray(value) && value.every(isRecordArray);
-}
-
-function hasPositiveNumberProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, number> {
-  return (
-    hasNumberProperty(value, key) &&
-    Number.isInteger(value[key]) &&
-    value[key] > 0
-  );
-}
-
-function isBlobManifestBundleRequest(
-  value: unknown,
-): value is BlobManifestBundleRequest {
-  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
-  const manifest = isPlainObject(value)
-    ? Reflect.get(value, "manifest")
-    : undefined;
-  const state = isPlainObject(value) ? Reflect.get(value, "state") : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isPlainObject(event) &&
-    isPlainObject(manifest) &&
-    hasStringProperty(value, "manifestHash") &&
-    value.manifestHash.length > 0 &&
-    isPlainObject(state)
-  );
-}
-
 function isBlobContentKeyTargetEnvelopeRequest(
   value: unknown,
 ): value is BlobContentKeyTargetEnvelopeRequest {
@@ -133,7 +92,7 @@ function isBlobContentKeyTargetEnvelopeRequest(
     value.containerManifestHash.length > 0 &&
     hasStringProperty(value, "containerKeyEpochId") &&
     value.containerKeyEpochId.length > 0 &&
-    hasPositiveNumberProperty(value, "containerKeyEpoch") &&
+    hasPositiveIntegerProperty(value, "containerKeyEpoch") &&
     hasStringProperty(value, "wrappedKey") &&
     value.wrappedKey.length > 0 &&
     isPlainObject(wrappingMetadata)
@@ -145,7 +104,7 @@ function isBlobContentKeyBundleRequest(
 ): value is BlobContentKeyBundleRequest {
   return (
     isPlainObject(value) &&
-    hasPositiveNumberProperty(value, "contentKeyEpoch") &&
+    hasPositiveIntegerProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "targetHash") &&
     value.targetHash.length > 0 &&
     hasArrayProperty(value, "targets") &&
@@ -194,7 +153,7 @@ export function isBlobAttachmentBindRequest(
     isPlainObject(event) &&
     Reflect.has(value, "body") &&
     body !== undefined &&
-    isBlobManifestBundleRequest(documentManifest) &&
+    isAccessManifestBundleWire(documentManifest) &&
     isRecordArrayArray(authorizingContainerPaths) &&
     isOptionalContainerMutationRequestArray(containerRekeys) &&
     isBlobContentKeyBundleRequest(contentKeyBundle) &&
@@ -222,7 +181,7 @@ export function isBlobAttachmentDetachRequest(
     isPlainObject(event) &&
     Reflect.has(value, "body") &&
     body !== undefined &&
-    isBlobManifestBundleRequest(documentManifest) &&
+    isAccessManifestBundleWire(documentManifest) &&
     isRecordArrayArray(authorizingContainerPaths) &&
     isOptionalContainerMutationRequestArray(containerRekeys)
   );

@@ -7,6 +7,7 @@ import type {
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
 
 type ProjectionErrorFactory = (message: string) => Error;
 
@@ -208,7 +209,7 @@ function accessEventRecord(event: AccessEvent): Record<string, unknown> {
 
 export function projectionVerifiedAccessEventRecord(
   event: VerifiedAccessEvent,
-): Record<string, unknown> {
+): AccessEventBundleWireResponse {
   return {
     event: accessEventRecord(event.event),
     body: event.body,

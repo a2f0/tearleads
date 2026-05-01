@@ -102,7 +102,7 @@ async function createContactCreateResponse(
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     accessManifest: {
-      event: { event, body, eventHash },
+      event: { event: { ...event }, body, eventHash },
       manifest,
       manifestHash: request.expectedManifestHash,
       state: {
