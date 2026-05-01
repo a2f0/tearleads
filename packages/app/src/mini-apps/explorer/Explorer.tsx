@@ -1,6 +1,6 @@
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
-import { useAppData } from "../../data/AppDataProvider";
+import { useAppData } from "../../providers/data/AppDataProvider";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerModel } from "./hooks/useExplorerModel";

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { useAppData } from "../../../data/AppDataProvider";
 import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
+import type { useAppData } from "../../../providers/data/AppDataProvider";
 import {
   buildDocumentsByContainerId,
   type DocumentContainerProjection,

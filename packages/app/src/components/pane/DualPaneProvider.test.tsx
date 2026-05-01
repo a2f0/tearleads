@@ -19,11 +19,11 @@ import {
   wsUrl,
 } from "../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import { useDatabase } from "../../db/DatabaseProvider";
 import { AppHostConfig } from "../../host/AppHostConfig";
-import { useIdentity } from "../../identity/IdentityProvider";
 import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
+import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
+import { useDatabase } from "../../providers/db/DatabaseProvider";
+import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";

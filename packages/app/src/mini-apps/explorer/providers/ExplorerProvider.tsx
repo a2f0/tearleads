@@ -12,7 +12,6 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { useAppData } from "../../../data/AppDataProvider";
 import {
   type ContainerRecord,
   createInitializedContainerMetadataDocument,
@@ -22,6 +21,7 @@ import {
 import { requestDomainDocumentSync } from "../../../data/documents/DocumentsProvider";
 import type { DocumentRecord } from "../../../data/persistence/documentPersistence";
 import { didRegainSyncPrerequisites } from "../../../data/sync/syncCoordinator";
+import { useAppData } from "../../../providers/data/AppDataProvider";
 import {
   type ExplorerPersistence,
   sqlExplorerPersistence,

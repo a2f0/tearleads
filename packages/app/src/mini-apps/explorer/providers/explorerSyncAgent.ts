@@ -6,7 +6,6 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import type { useAppData } from "../../../data/AppDataProvider";
 import type { BlobStore } from "../../../data/blobs";
 import {
   type ContainerRecord,
@@ -41,6 +40,7 @@ import {
   isDestroyedDatabaseClientError,
   type SyncLane,
 } from "../../../data/sync/syncCoordinator";
+import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type {
   ContainerCreateIntentRecord,
   ExplorerPersistence,

@@ -1,15 +1,15 @@
 import type { PropsWithChildren } from "react";
-import { ApiClientProvider } from "../../api/ApiClientProvider";
-import { NetworkStateProvider } from "../../api/NetworkStateProvider";
-import { CryptoSessionProvider } from "../../crypto/CryptoSessionProvider";
-import { AppDataProvider } from "../../data/AppDataProvider";
-import { BlobProvider } from "../../data/blobs";
-import { DatabaseProvider } from "../../db/DatabaseProvider";
-import { EventsProvider } from "../../events/EventsProvider";
 import type { AppHostConfig } from "../../host/AppHostConfig";
-import { AppHostConfigProvider } from "../../host/AppHostConfigProvider";
-import { IdentityProvider } from "../../identity/IdentityProvider";
-import { LogProvider } from "../../logging/LogProvider";
+import { ApiClientProvider } from "../../providers/api/ApiClientProvider";
+import { NetworkStateProvider } from "../../providers/api/NetworkStateProvider";
+import { BlobProvider } from "../../providers/blobs/BlobProvider";
+import { CryptoSessionProvider } from "../../providers/crypto/CryptoSessionProvider";
+import { AppDataProvider } from "../../providers/data/AppDataProvider";
+import { DatabaseProvider } from "../../providers/db/DatabaseProvider";
+import { EventsProvider } from "../../providers/events/EventsProvider";
+import { AppHostConfigProvider } from "../../providers/host/AppHostConfigProvider";
+import { IdentityProvider } from "../../providers/identity/IdentityProvider";
+import { LogProvider } from "../../providers/logging/LogProvider";
 
 interface PaneProviderProps extends PropsWithChildren {
   hostConfig: AppHostConfig;

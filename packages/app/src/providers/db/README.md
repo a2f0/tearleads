@@ -1,4 +1,4 @@
-# DB Folder
+# DB Provider
 
 - `DatabaseProvider.tsx` owns the React-facing database lifecycle and exposes the active worker client through context.
 - SQLite runtime and worker-thread plumbing live in `@tearleads/sqlite-worker`.

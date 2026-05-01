@@ -1,4 +1,4 @@
-import type { AppDataContextValue } from "../../data/AppDataProvider";
+import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 
 type ExplorerDocumentRuntime = Parameters<
   typeof import("../../data/documents/DocumentsProvider").primeDocumentStore

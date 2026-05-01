@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useLog } from "../../logging/LogProvider";
+import { useLog } from "../../providers/logging/LogProvider";
 import {
   type DocumentAttachmentUpload,
   readDocumentAttachmentUpload,

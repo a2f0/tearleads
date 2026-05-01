@@ -1,5 +1,5 @@
 import { createContext, type PropsWithChildren, useContext } from "react";
-import type { AppHostConfig } from "./AppHostConfig";
+import type { AppHostConfig } from "../../host/AppHostConfig";
 
 const AppHostConfigContext = createContext<AppHostConfig | null>(null);
 
