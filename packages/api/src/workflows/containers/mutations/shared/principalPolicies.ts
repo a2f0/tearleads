@@ -37,20 +37,6 @@ function principalProjectionStateKey(input: {
   return `${input.principalId}:${input.stateHash}`;
 }
 
-function assertPrincipalPolicyShape(policy: VerifiedPrincipalPolicy): void {
-  if (
-    typeof policy.principalType !== "string" ||
-    typeof policy.principalId !== "string" ||
-    typeof policy.version !== "number" ||
-    typeof policy.keyEpoch !== "number" ||
-    typeof policy.stateHash !== "string" ||
-    typeof policy.state?.keyFingerprint !== "string" ||
-    !Array.isArray(policy.projection)
-  ) {
-    throw new ContainerMutationError("Invalid principal policy", 400);
-  }
-}
-
 interface PrincipalPolicyArtifacts {
   readonly currentStateByPolicyKey: Map<string, StoredPrincipalState>;
   readonly projectionByPolicyKey: Map<
@@ -149,10 +135,6 @@ export async function assertPrincipalPoliciesCurrent(
   executor: DatabaseExecutor,
   principalPolicies: readonly VerifiedPrincipalPolicy[],
 ): Promise<void> {
-  for (const policy of principalPolicies) {
-    assertPrincipalPolicyShape(policy);
-  }
-
   const artifacts = await loadPrincipalPolicyArtifacts(
     executor,
     principalPolicies,

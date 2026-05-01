@@ -28,51 +28,66 @@ export async function mutateContainerWithExecutor(
     manifestHeadByContainerId: new Map(),
   };
 
-  await assertCurrentContainerPath(
+  const previousContainerPath = await assertCurrentContainerPath(
     context,
     input.request.previousContainerPath,
     "previousContainerPath",
   );
-  await assertCurrentContainerPath(
+  const parentContainerPath = await assertCurrentContainerPath(
     context,
     input.request.parentContainerPath,
     "parentContainerPath",
   );
-  await assertCurrentContainerPath(
+  const destinationParentContainerPath = await assertCurrentContainerPath(
     context,
     input.request.destinationParentContainerPath,
     "destinationParentContainerPath",
   );
-  await assertHistoricalContainerManifestsConsistent(
-    input.request.containerManifestHistory,
-  );
-  if (input.request.previousManifest) {
-    const previousManifest = await assertContainerManifestBundleConsistent(
-      input.request.previousManifest,
-      "previousManifest",
+  const containerManifestHistory =
+    await assertHistoricalContainerManifestsConsistent(
+      input.request.containerManifestHistory,
     );
+  const previousManifest =
+    input.request.previousManifest === undefined ||
+    input.request.previousManifest === null
+      ? null
+      : await assertContainerManifestBundleConsistent(
+          input.request.previousManifest,
+          "previousManifest",
+        );
+
+  if (previousManifest) {
     await assertManifestHeadCurrent(
       context,
       previousManifest,
       "previousManifest",
     );
   }
-  await assertPrincipalPoliciesCurrent(
-    context.executor,
-    principalPoliciesFromRequest(input.request),
-  );
+  const principalPolicies = principalPoliciesFromRequest(input.request);
+  await assertPrincipalPoliciesCurrent(context.executor, principalPolicies);
 
   const event = await verifyMutationEvent(context.executor, input);
   assertAccessEventDependenciesMatchRequest(input.request, event);
   const manifest = await verifyContainerManifestFromRequest(
     input.request,
     event,
+    {
+      destinationParentContainerPath,
+      parentContainerPath,
+      previousContainerPath,
+      previousManifest,
+      principalPolicies,
+    },
   );
   await assertMutationHeadCanAdvance(context, manifest);
   const kekState = await verifyContainerKekFromRequest(
     context.executor,
     input.request,
     manifest,
+    {
+      containerManifestHistory,
+      principalPolicies,
+    },
   );
 
   return persistVerifiedMutation(context, manifest, kekState);

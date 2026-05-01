@@ -1,7 +1,10 @@
 import type {
+  ContainerKeyEpoch,
+  ContainerKeyWrap,
   ContainerUserRecipientKey,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeContainerKeyEpochHash,
@@ -13,15 +16,20 @@ import { getCurrentContainerKeyEpoch } from "../../../../access/read/containerKe
 import type { DatabaseExecutor } from "../../../../adapters/postgres";
 import { users } from "../../../../schema";
 import { ContainerMutationError } from "../errors";
-import { readVerifiedContainerManifestArray } from "./accessManifestRecords";
 import {
   readContainerKeyEpoch,
   readContainerKeyWraps,
   readVerifiedContainerKekState,
   userRecipientKeysFromRequest,
 } from "./containerKekRecords";
-import { principalPoliciesFromRequest } from "./principalPolicyRecords";
 import { canonicalJsonEquals, toContainerKeyEpoch } from "./util";
+
+interface VerifyContainerKekFromRequestArtifacts {
+  readonly containerManifestHistory?:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}
 
 async function assertUserRecipientKeysCurrent(
   executor: DatabaseExecutor,
@@ -29,16 +37,6 @@ async function assertUserRecipientKeysCurrent(
 ): Promise<void> {
   if (userRecipientKeys.length === 0) {
     return;
-  }
-
-  for (const key of userRecipientKeys) {
-    if (
-      typeof key.userId !== "string" ||
-      typeof key.recipientKeyEpochId !== "string" ||
-      typeof key.recipientKeyFingerprint !== "string"
-    ) {
-      throw new ContainerMutationError("Invalid user recipient key", 400);
-    }
   }
 
   const userIds = [...new Set(userRecipientKeys.map((key) => key.userId))];
@@ -114,6 +112,7 @@ export async function verifyContainerKekFromRequest(
   executor: DatabaseExecutor,
   request: ContainerMutationRequest,
   manifest: VerifiedContainerAccessManifest,
+  artifacts: VerifyContainerKekFromRequestArtifacts,
 ): Promise<VerifiedContainerKekState> {
   const userRecipientKeys = userRecipientKeysFromRequest(request);
   const parentKekState =
@@ -124,19 +123,23 @@ export async function verifyContainerKekFromRequest(
   await assertUserRecipientKeysCurrent(executor, userRecipientKeys);
   await assertParentKekStateCurrent(executor, manifest, parentKekState);
 
-  const containerManifestHistory = readVerifiedContainerManifestArray(
-    request.containerManifestHistory,
-    "containerManifestHistory",
+  const keyEpoch: ContainerKeyEpoch = readContainerKeyEpoch(
+    request.keyEpoch,
+    "keyEpoch",
+  );
+  const wraps: ContainerKeyWrap[] = readContainerKeyWraps(
+    request.wraps,
+    "wraps",
   );
   const result = await verifyContainerKekState({
     containerManifest: manifest,
-    keyEpoch: readContainerKeyEpoch(request.keyEpoch, "keyEpoch"),
+    keyEpoch,
     parentKekState,
-    principalPolicies: principalPoliciesFromRequest(request),
+    principalPolicies: artifacts.principalPolicies,
     userRecipientKeys,
-    wraps: readContainerKeyWraps(request.wraps, "wraps"),
-    ...(containerManifestHistory !== undefined
-      ? { containerManifestHistory }
+    wraps,
+    ...(artifacts.containerManifestHistory !== undefined
+      ? { containerManifestHistory: artifacts.containerManifestHistory }
       : {}),
   });
 

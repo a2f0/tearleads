@@ -1,6 +1,7 @@
 import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
@@ -15,12 +16,22 @@ import { getCurrentAccessManifestHead } from "../../../../access/read/accessMani
 import { readProjectionAccessManifest } from "../../../../keyingProjectionRecords";
 import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { ContainerMutationContext } from "../types";
-import {
-  readVerifiedContainerManifest,
-  readVerifiedContainerManifestArray,
-} from "./accessManifestRecords";
-import { principalPoliciesFromRequest } from "./principalPolicyRecords";
+import { readVerifiedContainerManifest } from "./accessManifestRecords";
 import { canonicalJsonEquals } from "./util";
+
+interface VerifyContainerManifestFromRequestArtifacts {
+  readonly destinationParentContainerPath?:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly parentContainerPath?:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly previousContainerPath?:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly previousManifest: VerifiedContainerAccessManifest | null;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}
 
 export async function assertContainerManifestBundleConsistent(
   bundle: ContainerManifestBundle,
@@ -129,7 +140,7 @@ export async function assertCurrentContainerPath(
   context: ContainerMutationContext,
   bundles: readonly ContainerManifestBundle[] | undefined,
   label: string,
-): Promise<void> {
+): Promise<VerifiedContainerAccessManifest[] | undefined> {
   if (bundles === undefined) {
     return;
   }
@@ -145,21 +156,26 @@ export async function assertCurrentContainerPath(
   }
 
   assertContainerPathEdges(path, label);
+  return path;
 }
 
 export async function assertHistoricalContainerManifestsConsistent(
   bundles: readonly ContainerManifestBundle[] | undefined,
-): Promise<void> {
+): Promise<VerifiedContainerAccessManifest[] | undefined> {
   if (bundles === undefined) {
     return;
   }
 
+  const manifests: VerifiedContainerAccessManifest[] = [];
   for (const [index, bundle] of bundles.entries()) {
-    await assertContainerManifestBundleConsistent(
-      bundle,
-      `containerManifestHistory[${index}]`,
+    manifests.push(
+      await assertContainerManifestBundleConsistent(
+        bundle,
+        `containerManifestHistory[${index}]`,
+      ),
     );
   }
+  return manifests;
 }
 
 export async function assertMutationHeadCanAdvance(
@@ -193,19 +209,8 @@ export async function assertMutationHeadCanAdvance(
 export async function verifyContainerManifestFromRequest(
   request: ContainerMutationRequest,
   event: VerifiedAccessEvent,
+  artifacts: VerifyContainerManifestFromRequestArtifacts,
 ): Promise<VerifiedContainerAccessManifest> {
-  const destinationParentContainerPath = readVerifiedContainerManifestArray(
-    request.destinationParentContainerPath,
-    "destinationParentContainerPath",
-  );
-  const parentContainerPath = readVerifiedContainerManifestArray(
-    request.parentContainerPath,
-    "parentContainerPath",
-  );
-  const previousContainerPath = readVerifiedContainerManifestArray(
-    request.previousContainerPath,
-    "previousContainerPath",
-  );
   const result = await verifyContainerAccessManifest({
     event,
     expectedManifestHash: request.expectedManifestHash,
@@ -214,21 +219,20 @@ export async function verifyContainerManifestFromRequest(
       "Container mutation manifest",
       mutationShapeError,
     ),
-    previousManifest:
-      request.previousManifest === undefined
-        ? null
-        : request.previousManifest === null
-          ? null
-          : readVerifiedContainerManifest(
-              request.previousManifest,
-              "previousManifest",
-            ),
-    principalPolicies: principalPoliciesFromRequest(request),
-    ...(destinationParentContainerPath !== undefined
-      ? { destinationParentContainerPath }
+    previousManifest: artifacts.previousManifest,
+    principalPolicies: artifacts.principalPolicies,
+    ...(artifacts.destinationParentContainerPath !== undefined
+      ? {
+          destinationParentContainerPath:
+            artifacts.destinationParentContainerPath,
+        }
       : {}),
-    ...(parentContainerPath !== undefined ? { parentContainerPath } : {}),
-    ...(previousContainerPath !== undefined ? { previousContainerPath } : {}),
+    ...(artifacts.parentContainerPath !== undefined
+      ? { parentContainerPath: artifacts.parentContainerPath }
+      : {}),
+    ...(artifacts.previousContainerPath !== undefined
+      ? { previousContainerPath: artifacts.previousContainerPath }
+      : {}),
   });
 
   if (!result.ok) {

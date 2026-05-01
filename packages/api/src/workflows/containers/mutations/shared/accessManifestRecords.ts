@@ -221,12 +221,3 @@ export function readVerifiedContainerManifest(
 
   return verified as VerifiedContainerAccessManifest;
 }
-
-export function readVerifiedContainerManifestArray(
-  bundles: readonly ContainerManifestBundle[] | undefined,
-  label: string,
-): VerifiedContainerAccessManifest[] | undefined {
-  return bundles?.map((bundle, index) =>
-    readVerifiedContainerManifest(bundle, `${label}[${index}]`),
-  );
-}
