@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test";
 import {
+  type ContainerKekRecipientTarget,
   computeAccessEventHash,
+  computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computeWriteHeaderHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-  wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
@@ -21,6 +22,7 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { createContainerWriterProjectionFixture } from "../../../../test/helpers/createContainerWriterProjectionFixture";
 import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import {
@@ -58,134 +60,25 @@ type ListedContainer = NonNullable<
   Awaited<ReturnType<TestRuntime["apiClient"]["listContainers"]>>
 >[number];
 
-async function explorerMetadataFixtureHash(label: string): Promise<string> {
-  return toFingerprint(new TextEncoder().encode(`explorer:${label}`));
-}
-
 async function createExplorerMetadataContainerProjection(input: {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
   organizationId: string;
   parentProjection?: ContainerWriterProjectionResponse;
+  signerKeyFingerprint: string;
+  signerPrivateKey: Uint8Array;
   userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
-  const manifestHash = await explorerMetadataFixtureHash(
-    `${input.containerId}:manifest`,
-  );
-  const eventHash = await explorerMetadataFixtureHash(
-    `${input.containerId}:event`,
-  );
-  const keyEpochHash = await explorerMetadataFixtureHash(
-    `${input.containerId}:key-epoch`,
-  );
-  const keyTargetHash = await explorerMetadataFixtureHash(
-    `${input.containerId}:key-target`,
-  );
-  const parentManifest = input.parentProjection?.path.at(-1) ?? null;
-  const parentKek = input.parentProjection?.containerKeks.at(-1) ?? null;
-  const parentManifestContainerId = parentManifest
-    ? Reflect.get(parentManifest.state, "containerId")
-    : undefined;
-  const parentContainerId =
-    typeof parentManifestContainerId === "string"
-      ? parentManifestContainerId
-      : null;
-  const parentManifestHash = parentManifest?.manifestHash ?? null;
-  const containerKeyEpochId = `${input.containerId}-key-epoch-1`;
-  const containerKek = crypto.getRandomValues(new Uint8Array(32));
-  const [recipient] = await wrapDekForRecipients(containerKek, [
-    input.encapsulationPublicKey,
-  ]);
-  if (!recipient) {
-    throw new Error("Expected explorer metadata fixture recipient wrap.");
-  }
-
-  const bundle = {
-    event: { event: {}, body: {}, eventHash },
-    manifest: {
-      version: 1,
-      objectKind: "container",
-      objectId: input.containerId,
-      organizationId: input.organizationId,
-      epoch: 1,
-      previousManifestHash: null,
-      eventHash,
-      structuralHash: await explorerMetadataFixtureHash(
-        `${input.containerId}:structural`,
-      ),
-      grantRoot: await explorerMetadataFixtureHash(
-        `${input.containerId}:grant-root`,
-      ),
-      referencedPrincipalHeads: [],
-      keyTargetHash,
-    },
-    manifestHash,
-    state: {
-      version: 1,
-      containerId: input.containerId,
-      organizationId: input.organizationId,
-      epoch: 1,
-      previousManifestHash: null,
-      eventHash,
-      parentContainerId,
-      parentManifestHash,
-      metadataDocumentId: `${input.containerId}-metadata-document`,
-      containerKeyEpochId,
-      directGrants: [
-        {
-          subjectType: "user",
-          subjectId: input.userId,
-          accessLevel: "admin",
-        },
-      ],
-      referencedPrincipalHeads: [],
-    },
-  };
-  const kek = {
+  return createContainerWriterProjectionFixture({
     containerId: input.containerId,
-    accessManifestHash: manifestHash,
-    containerKeyEpochId,
-    containerKeyEpoch: 1,
-    keyEpoch: {
-      id: containerKeyEpochId,
-      containerId: input.containerId,
-      keyEpoch: 1,
-      accessManifestHash: manifestHash,
-      parentContainerKeyEpochId: parentKek?.containerKeyEpochId ?? null,
-      createdByEventHash: eventHash,
-      createdByManifestHash: manifestHash,
-    },
-    keyEpochHash,
-    keyTargetHash,
-    parentContainerKeyEpochId: parentKek?.containerKeyEpochId ?? null,
-    recipientTargets: [
-      {
-        recipientKind: "user",
-        recipientId: input.userId,
-        recipientKeyEpochId: `user:${input.userId}:epoch-1`,
-        recipientKeyFingerprint: recipient.keyFingerprint,
-      },
-    ],
-    wraps: [
-      {
-        containerKeyEpochId,
-        recipientKind: "user",
-        recipientId: input.userId,
-        recipientKeyEpochId: `user:${input.userId}:epoch-1`,
-        recipientKeyFingerprint: recipient.keyFingerprint,
-        kemCipherText: bytesToBase64(recipient.kemCipherText),
-        wrappedKey: bytesToBase64(recipient.wrappedKey),
-        wrapManifestHash: manifestHash,
-      },
-    ],
-  };
-
-  return {
-    containerId: input.containerId,
+    encapsulationPublicKey: input.encapsulationPublicKey,
+    metadataDocumentId: `${input.containerId}-metadata-document`,
     organizationId: input.organizationId,
-    path: [...(input.parentProjection?.path ?? []), bundle],
-    containerKeks: [...(input.parentProjection?.containerKeks ?? []), kek],
-  };
+    parentProjection: input.parentProjection,
+    signerKeyFingerprint: input.signerKeyFingerprint,
+    signerPrivateKey: input.signerPrivateKey,
+    userId: input.userId,
+  });
 }
 
 async function createExplorerMetadataCreateResponse(
@@ -335,12 +228,20 @@ async function createExplorerContainerMutationResponse(
   if (eventType === "container.grant") {
     directGrants.push(Reflect.get(body, "grant"));
   }
-  const recipientTargets = request.wraps.map((wrap) => ({
-    recipientKind: Reflect.get(wrap, "recipientKind"),
-    recipientId: Reflect.get(wrap, "recipientId"),
-    recipientKeyEpochId: Reflect.get(wrap, "recipientKeyEpochId"),
-    recipientKeyFingerprint: Reflect.get(wrap, "recipientKeyFingerprint"),
-  }));
+  const recipientTargets: ContainerKekRecipientTarget[] = request.wraps.map(
+    (wrap) => ({
+      recipientKind: Reflect.get(wrap, "recipientKind"),
+      recipientId: Reflect.get(wrap, "recipientId"),
+      recipientKeyEpochId: Reflect.get(wrap, "recipientKeyEpochId"),
+      recipientKeyFingerprint: Reflect.get(wrap, "recipientKeyFingerprint"),
+    }),
+  ) as ContainerKekRecipientTarget[];
+  const previousManifest =
+    request.previousManifest &&
+    typeof request.previousManifest === "object" &&
+    "manifestHash" in request.previousManifest
+      ? request.previousManifest
+      : null;
 
   return {
     containerId,
@@ -380,9 +281,16 @@ async function createExplorerContainerMutationResponse(
       containerKeyEpoch: keyEpoch.keyEpoch,
       keyEpoch: request.keyEpoch,
       keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-      keyTargetHash: "test-container-key-target-hash",
+      keyTargetHash:
+        await computeContainerKekRecipientTargetHash(recipientTargets),
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-      recipientTargets,
+      ...(previousManifest
+        ? { containerManifestHistory: [previousManifest] }
+        : {}),
+      recipientTargets: recipientTargets as unknown as Record<
+        string,
+        unknown
+      >[],
       wraps: request.wraps,
     },
     referencedPrincipalHeads: [],
@@ -560,6 +468,8 @@ async function createExplorerMetadataFixture(input: {
     containerId: input.containerId,
     encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
     organizationId,
+    signerKeyFingerprint: signingFingerprint,
+    signerPrivateKey: signingKeyPair.signingPrivateKey,
     userId,
   });
   const materializedPlan = await buildMaterializedDocumentCreatePlan({
@@ -859,6 +769,8 @@ test("explorer store creates authenticated child containers through the API befo
       containerId: "root-container",
       encapsulationPublicKey: localKeyPair.publicKey,
       organizationId: "org-1",
+      signerKeyFingerprint: signingFingerprint,
+      signerPrivateKey: signingKeyPair.signingPrivateKey,
       userId: "user-1",
     }),
   ]);
@@ -1107,6 +1019,8 @@ test("explorer sync creates queued local containers parent before child", async 
         containerId: "root-container",
         encapsulationPublicKey: localKeyPair.publicKey,
         organizationId: "org-1",
+        signerKeyFingerprint: signingFingerprint,
+        signerPrivateKey: signingKeyPair.signingPrivateKey,
         userId: "user-1",
       }),
     ]);
@@ -1232,6 +1146,8 @@ test("explorer store creates a child under a writable shared root through the pa
       containerId: "shared-root-container",
       encapsulationPublicKey: localKeyPair.publicKey,
       organizationId: "org-2",
+      signerKeyFingerprint: signingFingerprint,
+      signerPrivateKey: signingKeyPair.signingPrivateKey,
       userId: "user-1",
     }),
   ]);
@@ -1326,6 +1242,8 @@ test("explorer store moves an authenticated child container through the API and 
     containerId: "root-container",
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
+    signerKeyFingerprint: signingFingerprint,
+    signerPrivateKey: signingKeyPair.signingPrivateKey,
     userId: "user-1",
   });
   const parentAProjection = await createExplorerMetadataContainerProjection({
@@ -1333,6 +1251,8 @@ test("explorer store moves an authenticated child container through the API and 
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
     parentProjection: rootProjection,
+    signerKeyFingerprint: signingFingerprint,
+    signerPrivateKey: signingKeyPair.signingPrivateKey,
     userId: "user-1",
   });
   const parentBProjection = await createExplorerMetadataContainerProjection({
@@ -1340,6 +1260,8 @@ test("explorer store moves an authenticated child container through the API and 
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
     parentProjection: rootProjection,
+    signerKeyFingerprint: signingFingerprint,
+    signerPrivateKey: signingKeyPair.signingPrivateKey,
     userId: "user-1",
   });
   const childProjection = await createExplorerMetadataContainerProjection({
@@ -1347,6 +1269,8 @@ test("explorer store moves an authenticated child container through the API and 
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
     parentProjection: parentAProjection,
+    signerKeyFingerprint: signingFingerprint,
+    signerPrivateKey: signingKeyPair.signingPrivateKey,
     userId: "user-1",
   });
   const harness = createExplorerContainerApiHarness([
@@ -1486,6 +1410,8 @@ test("explorer store shares an authenticated container without reseeding metadat
     containerId: "child-container",
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
+    signerKeyFingerprint: signingFingerprint,
+    signerPrivateKey: signingKeyPair.signingPrivateKey,
     userId: "user-1",
   });
   const harness = createExplorerContainerApiHarness([containerProjection]);

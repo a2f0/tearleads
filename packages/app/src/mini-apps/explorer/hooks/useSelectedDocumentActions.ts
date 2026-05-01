@@ -7,6 +7,7 @@ import {
   relinkRemoteDocument,
 } from "../../../data/documents/documentRuntime";
 import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
+import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { getDocumentByLocalId } from "../documentSummaries";
 import {
   createExplorerDocumentsRuntime,
@@ -102,6 +103,10 @@ async function mutateExplorerDocumentLinkSet(params: {
       documentId,
       execSql: appData.execSql,
       operation,
+      resolveProjectionUserKey: createProjectionUserKeyResolver(
+        appData,
+        "Explorer",
+      ),
       targetContainerId,
       targetSecretKey: mutationContext.targetSecretKey,
     });

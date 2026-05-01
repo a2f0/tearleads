@@ -50,6 +50,10 @@ import {
   readCanonicalRecordPaths,
   readCanonicalRecords,
 } from "../keyingCanonicalJson";
+import {
+  type ProjectionUserKeyResolver,
+  verifyContainerWriterProjection,
+} from "../keyingProjectionVerification";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -880,12 +884,19 @@ async function unwrapContainerKekFromParentWrap(input: {
 export async function unwrapContainerKekPath(input: {
   execSql?: ExecSql | undefined;
   projection: ContainerWriterProjectionResponse;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   secretKey: Uint8Array;
 }): Promise<ReadonlyMap<string, Uint8Array>> {
   if (input.projection.path.length !== input.projection.containerKeks.length) {
     throw new Error(
       "Container writer projection path and KEKs are inconsistent",
     );
+  }
+  if (input.resolveProjectionUserKey) {
+    await verifyContainerWriterProjection({
+      projection: input.projection,
+      resolveUserKey: input.resolveProjectionUserKey,
+    });
   }
 
   const keksByEpochId = new Map<string, UnwrappedContainerKek>();
@@ -961,12 +972,14 @@ async function wrapDocumentContentKeyForCreate(input: {
   contentKey: Uint8Array;
   execSql?: ExecSql | undefined;
   projection: ContainerWriterProjectionResponse;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   secretKey: Uint8Array;
 }): Promise<DocumentContentKeyTargetEnvelope[]> {
   const target = getOnlyDocumentCreateTarget(input.projection);
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.projection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.secretKey,
   });
   const targetKek = keksByEpochId.get(target.containerKeyEpochId);
@@ -1150,6 +1163,7 @@ export async function buildMaterializedDocumentCreatePlan(input: {
   documentId?: string | undefined;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<MaterializedDocumentCreatePlan> {
@@ -1162,6 +1176,7 @@ export async function buildMaterializedDocumentCreatePlan(input: {
     contentKey,
     execSql: input.execSql,
     projection: input.containerProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.targetSecretKey,
   });
   const plan = await buildDocumentCreatePlan({
@@ -1191,6 +1206,7 @@ export async function createRemoteDocument(input: {
   documentId?: string | undefined;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<CreateRemoteDocumentResult | null> {
@@ -1208,6 +1224,7 @@ export async function createRemoteDocument(input: {
     documentId: input.documentId,
     eventId: input.eventId,
     execSql: input.execSql,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
   });
@@ -1701,6 +1718,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(input: {
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
   operation: DocumentLinkSetMutationOperation;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   targetContainerProjection: ContainerWriterProjectionResponse;
   targetSecretKey: Uint8Array;
@@ -1714,6 +1732,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(input: {
   });
   const currentContentKey = await unwrapDocumentContentKeyFromWriterProjection({
     execSql: input.execSql,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
   });
@@ -1734,6 +1753,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(input: {
             keksByEpochId: await unwrapContainerKekPath({
               execSql: input.execSql,
               projection: input.targetContainerProjection,
+              resolveProjectionUserKey: input.resolveProjectionUserKey,
               secretKey: input.targetSecretKey,
             }),
             targets: [targetState.target],
@@ -1743,6 +1763,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(input: {
           contentKey,
           keksByEpochId: await collectContainerKeksForDocumentSync({
             execSql: input.execSql,
+            resolveProjectionUserKey: input.resolveProjectionUserKey,
             secretKey: input.targetSecretKey,
             writerProjection: input.writerProjection,
           }),
@@ -1865,6 +1886,7 @@ export async function relinkRemoteDocument(input: {
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
   operation: DocumentLinkSetMutationOperation;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   targetContainerId: string;
   targetSecretKey: Uint8Array;
@@ -1883,6 +1905,7 @@ export async function relinkRemoteDocument(input: {
     eventId: input.eventId,
     execSql: input.execSql,
     operation: input.operation,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetContainerProjection,
     targetSecretKey: input.targetSecretKey,
@@ -2312,6 +2335,7 @@ function assertEqualBytes(
 
 async function collectContainerKeksForDocumentSync(input: {
   execSql?: ExecSql | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   secretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<ReadonlyMap<string, Uint8Array>> {
@@ -2323,6 +2347,7 @@ async function collectContainerKeksForDocumentSync(input: {
       projectionKeks = await unwrapContainerKekPath({
         execSql: input.execSql,
         projection,
+        resolveProjectionUserKey: input.resolveProjectionUserKey,
         secretKey: input.secretKey,
       });
     } catch (error) {
@@ -2349,6 +2374,7 @@ async function collectContainerKeksForDocumentSync(input: {
 
 async function unwrapDocumentContentKeyFromWriterProjection(input: {
   execSql?: ExecSql | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   secretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<Uint8Array> {
@@ -2446,6 +2472,7 @@ export async function buildMaterializedDocumentSyncPlan(input: {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
@@ -2453,6 +2480,7 @@ export async function buildMaterializedDocumentSyncPlan(input: {
   await assertDocumentWriterProjectionConsistent(input.writerProjection);
   const contentKey = await unwrapDocumentContentKeyFromWriterProjection({
     execSql: input.execSql,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
   });
@@ -3223,6 +3251,7 @@ export async function syncRemoteDocument(input: {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
@@ -3243,6 +3272,7 @@ export async function syncRemoteDocument(input: {
       localVersionVector: input.localVersionVector,
       minLsn: input.minLsn,
       pendingUpdates: input.pendingUpdates,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
       signedAt: input.signedAt,
       targetSecretKey: input.targetSecretKey,
       writerProjection,

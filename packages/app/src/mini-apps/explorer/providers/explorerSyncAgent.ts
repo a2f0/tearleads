@@ -30,6 +30,7 @@ import {
   syncRemoteDocument,
 } from "../../../data/documents/documentRuntime";
 import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
+import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -630,6 +631,10 @@ export async function createRemoteExplorerContainer(input: {
     metadataDocumentId: input.containerId,
     parentContainerId: input.parentContainerId,
     parentSecretKey,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      input.runtime,
+      "Explorer",
+    ),
   });
   if (!createdContainer) {
     return null;
@@ -641,6 +646,10 @@ export async function createRemoteExplorerContainer(input: {
     containerId: createdContainer.containerId,
     documentId: createdContainer.metadataDocumentId,
     execSql: input.runtime.execSql,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      input.runtime,
+      "Explorer",
+    ),
     targetSecretKey: parentSecretKey,
   });
   if (!createdMetadataDocument) {
@@ -748,6 +757,10 @@ export async function shareRemoteExplorerContainer(input: {
       recipientKey.encapsulationPublicKey,
     ),
     recipientUserId: input.recipientUserId,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      input.runtime,
+      "Explorer",
+    ),
     targetSecretKey,
   });
   if (!shared) {
@@ -787,6 +800,10 @@ export async function moveRemoteExplorerContainer(input: {
     containerId: input.containerId,
     destinationParentContainerId: input.parentContainerId,
     execSql: input.runtime.execSql,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      input.runtime,
+      "Explorer",
+    ),
     targetSecretKey,
   });
   if (!moved) {
@@ -910,6 +927,10 @@ async function requestContainerMetadataSync(
     localVersionVector: encodeVersionVector(containerState.doc),
     minLsn: containerState.record.lastCommitLsn ?? undefined,
     pendingUpdates,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      state.runtime,
+      "Explorer",
+    ),
     resolveWriterPublicKey: createExplorerWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
   }).catch((error: unknown) => {

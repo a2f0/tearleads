@@ -23,6 +23,7 @@ import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
 } from "../documentSync";
+import { createProjectionUserKeyResolver } from "../keyingProjectionVerification";
 import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
@@ -785,6 +786,10 @@ async function ensureRemoteDocument(
     author,
     containerId: state.runtime.containerId,
     execSql: state.runtime.execSql,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      state.runtime,
+      "Documents",
+    ),
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
   if (!created) {
@@ -935,6 +940,10 @@ async function hydrateMissingAttachmentBlob(
     expectedBindingId: binding.bindingId,
     expectedBlobId: binding.blobId,
     execSql: state.runtime.execSql,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      state.runtime,
+      "Documents",
+    ),
     targetSecretKey: encapsulationKeyPair.secretKey,
     writerProjection,
   });
@@ -1383,6 +1392,10 @@ async function syncPendingAttachmentUpload(input: {
     expectedBindingId:
       input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
       null,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      state.runtime,
+      "Documents",
+    ),
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
   });
@@ -1442,6 +1455,10 @@ async function requestDocumentSync(
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      state.runtime,
+      "Documents",
+    ),
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -1482,6 +1499,10 @@ async function requestDocumentSyncProbe(
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates: [],
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      state.runtime,
+      "Documents",
+    ),
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
   });

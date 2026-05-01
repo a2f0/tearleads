@@ -26,6 +26,7 @@ export interface ContainerKekResponse {
   keyEpochHash: string;
   keyTargetHash: string;
   parentContainerKeyEpochId: string | null;
+  containerManifestHistory?: ContainerManifestBundleResponse[];
   recipientTargets: Record<string, unknown>[];
   wraps: Record<string, unknown>[];
 }
@@ -136,6 +137,9 @@ function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
   const keyEpoch = isPlainObject(value)
     ? Reflect.get(value, "keyEpoch")
     : undefined;
+  const containerManifestHistory = isPlainObject(value)
+    ? Reflect.get(value, "containerManifestHistory")
+    : undefined;
   const recipientTargets = isPlainObject(value)
     ? Reflect.get(value, "recipientTargets")
     : undefined;
@@ -157,6 +161,9 @@ function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
     hasStringProperty(value, "keyTargetHash") &&
     value.keyTargetHash.length > 0 &&
     hasNullableStringProperty(value, "parentContainerKeyEpochId") &&
+    (containerManifestHistory === undefined ||
+      (Array.isArray(containerManifestHistory) &&
+        containerManifestHistory.every(isContainerManifestBundleResponse))) &&
     isRecordArray(recipientTargets) &&
     recipientTargets.length > 0 &&
     isRecordArray(wraps) &&

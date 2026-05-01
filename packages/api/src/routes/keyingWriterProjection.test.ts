@@ -604,6 +604,23 @@ test("POST /documents applies optional container rekeys before target validation
     root.kekState.containerId,
   );
   expect(currentRootEpoch?.id).toBe(rootRekey.kekState.containerKeyEpochId);
+
+  const projectionResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+  expect(projectionResponse.status).toBe(200);
+  const projection = await projectionResponse.json();
+  expect(isContainerWriterProjectionResponse(projection)).toBe(true);
+  expect(
+    projection.containerKeks[0]?.containerManifestHistory?.map(
+      (entry: { manifestHash: string }) => entry.manifestHash,
+    ),
+  ).toEqual([root.bundle.manifestHash]);
 });
 
 async function buildDocumentLinkRequest(input: {
@@ -1037,6 +1054,11 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
     },
   ]);
   expect(projection.authorizingContainerPaths).toHaveLength(1);
+  expect(
+    projection.authorizingContainerPaths[0]?.containerKeks[0]?.containerManifestHistory?.map(
+      (entry: { manifestHash: string }) => entry.manifestHash,
+    ),
+  ).toEqual([root.bundle.manifestHash]);
 
   const [storedBundleAfterProjection] = await db
     .select({

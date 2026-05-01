@@ -20,6 +20,7 @@ import {
   type KeyingCanonicalJson,
   signAccessEvent,
   toFingerprint,
+  type VerifiedAccessEvent,
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
   verifyContainerAccessManifest,
@@ -36,6 +37,7 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { unwrapContainerKekPath } from "../documents/documentRuntime";
 import {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,
@@ -134,7 +136,9 @@ async function createContainerManifestFixture(input: {
   eventId: string;
   metadataDocumentId: string;
   organizationId: string;
+  referencedPrincipalHeads?: ContainerAccessManifestState["referencedPrincipalHeads"];
 }): Promise<VerifiedContainerAccessManifest> {
+  const referencedPrincipalHeads = input.referencedPrincipalHeads ?? [];
   const body: ContainerCreateAccessEventBody = {
     eventType: "container.create",
     parentContainerId: null,
@@ -142,7 +146,7 @@ async function createContainerManifestFixture(input: {
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId: input.containerKeyEpochId,
     directGrants: [...input.directGrants],
-    referencedPrincipalHeads: [],
+    referencedPrincipalHeads: [...referencedPrincipalHeads],
   };
   const { event, eventHash } = await signContainerEvent({
     body,
@@ -163,20 +167,28 @@ async function createContainerManifestFixture(input: {
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId: input.containerKeyEpochId,
     directGrants: [...input.directGrants],
-    referencedPrincipalHeads: [],
+    referencedPrincipalHeads: [...referencedPrincipalHeads],
   };
   const manifest = await deriveContainerAccessManifest(state);
-
-  return {
+  const manifestHash = await computeAccessManifestHash(manifest);
+  const verified = await verifyContainerAccessManifest({
     event: {
       event,
-      body,
+      body: body as unknown as KeyingCanonicalJson,
       eventHash,
-    },
+    } as VerifiedAccessEvent,
+    expectedManifestHash: manifestHash,
     manifest,
-    manifestHash: await computeAccessManifestHash(manifest),
-    state,
-  } as unknown as VerifiedContainerAccessManifest;
+    parentContainerPath: [],
+    previousManifest: null,
+    principalPolicies: [],
+  });
+  expect(verified.ok).toBe(true);
+  if (!verified.ok) {
+    throw verified.error;
+  }
+
+  return verified.value;
 }
 
 async function createUserContainerWrap(input: {
@@ -207,17 +219,23 @@ async function createUserContainerWrap(input: {
 }
 
 async function createParentProjection(): Promise<{
+  author: ContainerMutationAuthor;
+  encapsulationPublicKey: Uint8Array;
   parentContainerKek: Uint8Array;
   parentKekState: VerifiedContainerKekState;
   projection: ContainerWriterProjectionResponse;
   secretKey: Uint8Array;
+  signingPublicKey: Uint8Array;
   userId: string;
 }> {
   const userId = "user-1";
   const organizationId = "organization-1";
   const containerId = "parent-container";
   const containerKeyEpochId = "parent-container-key-epoch-1";
-  const { author } = await createAuthor({ organizationId, userId });
+  const { author, signingPublicKey } = await createAuthor({
+    organizationId,
+    userId,
+  });
   const parentManifest = await createContainerManifestFixture({
     author,
     containerId,
@@ -235,7 +253,8 @@ async function createParentProjection(): Promise<{
   });
   const keyPair = generateKemSeedAndKeyPair();
   const parentContainerKek = crypto.getRandomValues(new Uint8Array(32));
-  const recipientKeyEpochId = `user:${userId}:epoch-1`;
+  const recipientKeyFingerprint = await toFingerprint(keyPair.publicKey);
+  const recipientKeyEpochId = `user:${userId}:encapsulation:${recipientKeyFingerprint}`;
   const wrap = await createUserContainerWrap({
     containerKeyEpochId,
     containerKek: parentContainerKek,
@@ -277,6 +296,8 @@ async function createParentProjection(): Promise<{
   } as unknown as VerifiedContainerKekState;
 
   return {
+    author,
+    encapsulationPublicKey: keyPair.publicKey,
     parentContainerKek,
     parentKekState,
     projection: {
@@ -290,6 +311,7 @@ async function createParentProjection(): Promise<{
       ],
     },
     secretKey: keyPair.secretKey,
+    signingPublicKey,
     userId,
   };
 }
@@ -796,6 +818,123 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
     }),
   );
   expect(submittedWraps).toHaveLength(previousKek.wraps.length + 1);
+});
+
+test("unwrapContainerKekPath verifies signed projection events before unwrap", async () => {
+  const parent = await createParentProjection();
+  const tamperedProjection = structuredClone(parent.projection);
+  const event = Reflect.get(tamperedProjection.path[0]?.event ?? {}, "event");
+  if (!event || typeof event !== "object") {
+    throw new Error("Expected projection event");
+  }
+  Reflect.set(event, "signature", bytesToBase64(new Uint8Array(64)));
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: tamperedProjection,
+      resolveProjectionUserKey: async (userId) =>
+        userId === parent.userId
+          ? {
+              encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingPublicKey: parent.signingPublicKey,
+              userId,
+            }
+          : null,
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("signature");
+});
+
+test("unwrapContainerKekPath rejects projection wraps not justified by the manifest", async () => {
+  const parent = await createParentProjection();
+  const attackerUserId = "attacker-user";
+  const attackerKeyPair = generateKemSeedAndKeyPair();
+  const attackerFingerprint = await toFingerprint(attackerKeyPair.publicKey);
+  const attackerWrap = await createUserContainerWrap({
+    containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+    containerKek: parent.parentContainerKek,
+    publicKey: attackerKeyPair.publicKey,
+    recipientKeyEpochId: `user:${attackerUserId}:encapsulation:${attackerFingerprint}`,
+    userId: attackerUserId,
+    wrapManifestHash: parent.parentKekState.accessManifestHash,
+  });
+  const tamperedProjection = structuredClone(parent.projection);
+  const kek = tamperedProjection.containerKeks[0];
+  if (!kek) {
+    throw new Error("Expected projection KEK");
+  }
+  kek.wraps = [...kek.wraps, attackerWrap];
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: tamperedProjection,
+      resolveProjectionUserKey: async (userId) =>
+        userId === parent.userId
+          ? {
+              encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingPublicKey: parent.signingPublicKey,
+              userId,
+            }
+          : null,
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("KEK verification failed");
+});
+
+test("unwrapContainerKekPath fails closed for managed-principal KEK projections", async () => {
+  const parent = await createParentProjection();
+  const groupHead = {
+    principalType: "group" as const,
+    principalId: "group-1",
+    version: 1,
+    keyEpoch: 1,
+    stateHash: await toFingerprint(new TextEncoder().encode("group-state-1")),
+    keyFingerprint: await toFingerprint(
+      new TextEncoder().encode("group-key-1"),
+    ),
+  };
+  const managedManifest = await createContainerManifestFixture({
+    author: parent.author,
+    containerId: parent.parentKekState.containerId,
+    containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: parent.userId,
+        accessLevel: "admin",
+      },
+      {
+        subjectType: "group",
+        subjectId: groupHead.principalId,
+        accessLevel: "write",
+      },
+    ],
+    eventId: "managed-parent-container-event-1",
+    metadataDocumentId: "parent-container-metadata-document",
+    organizationId: parent.projection.organizationId,
+    referencedPrincipalHeads: [groupHead],
+  });
+  const managedProjection: ContainerWriterProjectionResponse = {
+    ...parent.projection,
+    path: [
+      managedManifest as unknown as ContainerWriterProjectionResponse["path"][number],
+    ],
+  };
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: managedProjection,
+      resolveProjectionUserKey: async (userId) =>
+        userId === parent.userId
+          ? {
+              encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingPublicKey: parent.signingPublicKey,
+              userId,
+            }
+          : null,
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("managed principal grants");
 });
 
 test("createRemoteContainer fetches the parent projection and submits the materialized mutation", async () => {

@@ -39,6 +39,7 @@ import {
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../keyingCanonicalJson";
+import type { ProjectionUserKeyResolver } from "../keyingProjectionVerification";
 import type { ExecSql } from "../persistence/sqlSchema";
 
 export interface ContainerMutationAuthor {
@@ -1274,6 +1275,7 @@ async function buildMaterializedContainerSharePlan(input: {
   previousProjection: ContainerWriterProjectionResponse;
   recipientEncapsulationPublicKey: Uint8Array;
   recipientUserId: string;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<MaterializedContainerSharePlan> {
@@ -1313,6 +1315,7 @@ async function buildMaterializedContainerSharePlan(input: {
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.previousProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.targetSecretKey,
   });
   const containerKey = keksByEpochId.get(target.kek.containerKeyEpochId);
@@ -1364,6 +1367,7 @@ export async function shareRemoteContainer(input: {
   execSql?: ExecSql | undefined;
   recipientEncapsulationPublicKey: Uint8Array;
   recipientUserId: string;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<{
@@ -1386,6 +1390,7 @@ export async function shareRemoteContainer(input: {
     previousProjection,
     recipientEncapsulationPublicKey: input.recipientEncapsulationPublicKey,
     recipientUserId: input.recipientUserId,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
   });
@@ -1470,6 +1475,7 @@ async function unwrapMoveContainerKeys(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
   execSql?: ExecSql | undefined;
   previousProjection: ContainerWriterProjectionResponse;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   sourceKek: ContainerKekResponse;
   targetSecretKey: Uint8Array;
 }): Promise<{
@@ -1479,6 +1485,7 @@ async function unwrapMoveContainerKeys(input: {
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.previousProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.targetSecretKey,
   });
   const containerKey = keksByEpochId.get(input.sourceKek.containerKeyEpochId);
@@ -1489,6 +1496,7 @@ async function unwrapMoveContainerKeys(input: {
   const destinationKeksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.destinationParentProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.targetSecretKey,
   });
   const destinationParentKey = destinationKeksByEpochId.get(
@@ -1556,6 +1564,7 @@ async function buildMaterializedContainerMovePlan(input: {
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
   previousProjection: ContainerWriterProjectionResponse;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<MaterializedContainerMovePlan> {
@@ -1602,6 +1611,7 @@ async function buildMaterializedContainerMovePlan(input: {
     destinationParentProjection: input.destinationParentProjection,
     execSql: input.execSql,
     previousProjection: input.previousProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     sourceKek: source.kek,
     targetSecretKey: input.targetSecretKey,
   });
@@ -1648,6 +1658,7 @@ export async function moveRemoteContainer(input: {
   destinationParentContainerId: string;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<{
@@ -1671,6 +1682,7 @@ export async function moveRemoteContainer(input: {
     execSql: input.execSql,
     previousProjection,
     destinationParentProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
   });
@@ -1793,6 +1805,7 @@ export async function buildMaterializedContainerCreatePlan(input: {
   metadataDocumentId?: string | undefined;
   parentProjection: ContainerWriterProjectionResponse;
   parentSecretKey: Uint8Array;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
 }): Promise<MaterializedContainerCreatePlan> {
   const containerKey =
@@ -1802,6 +1815,7 @@ export async function buildMaterializedContainerCreatePlan(input: {
   const parentKeksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.parentProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.parentSecretKey,
   });
   const parentKekMaterial = parentKeksByEpochId.get(
@@ -1840,6 +1854,7 @@ export async function createRemoteContainer(input: {
   metadataDocumentId?: string | undefined;
   parentContainerId: string;
   parentSecretKey: Uint8Array;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
 }): Promise<CreateRemoteContainerResult | null> {
   const parentProjection = await input.apiClient.getContainerWriterProjection(
@@ -1859,6 +1874,7 @@ export async function createRemoteContainer(input: {
     metadataDocumentId: input.metadataDocumentId,
     parentProjection,
     parentSecretKey: input.parentSecretKey,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
   });
   const response = await input.apiClient.createContainer(
