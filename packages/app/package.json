@@ -18,6 +18,7 @@
     "@tearleads/loro": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "@tearleads/validators": "workspace:*",
+    "drizzle-orm": "0.45.1",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },

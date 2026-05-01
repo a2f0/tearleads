@@ -16,8 +16,10 @@ import {
   type PendingUpdateFields,
   type PendingUpdateRecord,
 } from "../../data/persistence/documentPersistence";
+import { containerCreateIntentTables } from "../../data/persistence/schema";
 import {
   type ExecSql,
+  ensureSqlTables,
   readSqlRowValue,
   runSerializedSqlMutation,
   runSqlTransaction,
@@ -157,28 +159,6 @@ function parseContainerCreateIntentRecord(
     createdAt: String(createdAt ?? ""),
     updatedAt: String(updatedAt ?? ""),
   };
-}
-
-async function ensureContainerCreateIntentTable(execSql: ExecSql) {
-  await execSql(`
- CREATE TABLE IF NOT EXISTS container_create_intents (
- id TEXT PRIMARY KEY,
- container_id TEXT NOT NULL UNIQUE,
- parent_container_id TEXT NOT NULL,
- intent_type TEXT NOT NULL,
- sync_status TEXT NOT NULL,
- remote_container_id TEXT,
- remote_metadata_document_id TEXT,
- remote_metadata_access_state_hash TEXT,
- last_error TEXT,
- created_at TEXT NOT NULL,
- updated_at TEXT NOT NULL
- )
- `);
-  await execSql(`
- CREATE INDEX IF NOT EXISTS container_create_intents_status_created_idx
- ON container_create_intents (sync_status, created_at)
- `);
 }
 
 async function saveContainerRows(input: {
@@ -405,7 +385,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await ensureContainerTables(lockedExecSql);
       await ensureDocumentTables(lockedExecSql);
-      await ensureContainerCreateIntentTable(lockedExecSql);
+      await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
     });
   },
   async enqueuePendingUpdate(execSql, input) {

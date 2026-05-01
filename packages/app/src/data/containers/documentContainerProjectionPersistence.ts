@@ -1,25 +1,11 @@
+import { documentContainerProjectionTables } from "../persistence/schema";
 import {
   type ExecSql,
   ensureSqlTables,
   readSqlRowValue,
   runSerializedSqlMutation,
   runSqlTransaction,
-  type SqlTableSchema,
 } from "../persistence/sqlSchema";
-
-const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> = [
-  {
-    name: "document_container_projection",
-    createSql: `
-      CREATE TABLE IF NOT EXISTS document_container_projection (
-        document_id TEXT NOT NULL,
-        container_id TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (document_id, container_id)
-      )
-    `,
-  },
-];
 
 interface DocumentContainerProjectionPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;
