@@ -50,3 +50,10 @@ The access dependency direction is enforced by `bun run lint:architecture`.
 
 Shared public errors live under `errors/` when an error can be thrown by both
 read and write APIs.
+
+## Test Layout
+
+Access tests live under `test/read/` and `test/write/` based on the public API
+surface primarily under test. The tests may still use the opposite side for
+setup or verification, so they stay under `test/` instead of the production
+`read/` and `write/` directories.

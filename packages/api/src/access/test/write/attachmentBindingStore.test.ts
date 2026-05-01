@@ -10,12 +10,12 @@ import {
   type VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../adapters/postgres";
-import { attachmentBindings } from "../schema";
+import { db } from "../../../adapters/postgres";
+import { attachmentBindings } from "../../../schema";
 import {
   storeVerifiedAttachmentBinding,
   storeVerifiedAttachmentDetach,
-} from "./write/attachmentBindingStore";
+} from "../../write/attachmentBindingStore";
 
 async function hashOf(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {

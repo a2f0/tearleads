@@ -18,14 +18,14 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../adapters/postgres";
-import { accessManifests, containerKeyEpochs } from "../schema";
+import { db } from "../../../adapters/postgres";
+import { accessManifests, containerKeyEpochs } from "../../../schema";
 import {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
-} from "./read/documentKekTargets";
-import { storeVerifiedAccessManifest } from "./write/accessManifestStore";
+} from "../../read/documentKekTargets";
+import { storeVerifiedAccessManifest } from "../../write/accessManifestStore";
 
 async function hashOf(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {

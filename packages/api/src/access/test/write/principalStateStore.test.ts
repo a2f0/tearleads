@@ -10,9 +10,9 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { signPrincipalStateBundle } from "../../test/helpers/principalState";
-import { db } from "../adapters/postgres";
-import { users } from "../schema";
+import { signPrincipalStateBundle } from "../../../../test/helpers/principalState";
+import { db } from "../../../adapters/postgres";
+import { users } from "../../../schema";
 import {
   getCurrentPrincipalEpochKey,
   getCurrentPrincipalEpochKeys,
@@ -21,8 +21,8 @@ import {
   getPrincipalStatesForReferences,
   listPrincipalProjectionMembersForStates,
   principalStateReferenceKey,
-} from "./read/principalStateStore";
-import { storeVerifiedPrincipalState } from "./write/principalStateStore";
+} from "../../read/principalStateStore";
+import { storeVerifiedPrincipalState } from "../../write/principalStateStore";
 
 async function createPrincipalStateSigner(
   signingPublicKey: Uint8Array,

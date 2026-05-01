@@ -11,20 +11,20 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../adapters/postgres";
+import { db } from "../../../adapters/postgres";
 import {
   accessEventDependencyProjection,
   accessManifestPrincipalHeadProjection,
-} from "../schema";
+} from "../../../schema";
 import {
   getCurrentAccessManifestHead,
   listAccessEventDependencyProjection,
   listAccessManifestPrincipalHeadProjection,
-} from "./read/accessManifestStore";
+} from "../../read/accessManifestStore";
 import {
   regenerateAccessManifestProjections,
   storeVerifiedAccessManifest,
-} from "./write/accessManifestStore";
+} from "../../write/accessManifestStore";
 
 function hashOf(char: string): string {
   return char.repeat(64);
