@@ -287,6 +287,22 @@ interface SyncRemoteDocumentResult {
   writerProjection: DocumentWriterProjectionResponse;
 }
 
+interface DocumentSyncSubmitFailure {
+  readonly message: string;
+  readonly ok: false;
+  readonly report: () => void;
+  readonly status: number | null;
+}
+
+interface DocumentSyncSubmitSuccess {
+  readonly ok: true;
+  readonly response: DocumentSyncResponse;
+}
+
+type DocumentSyncSubmitResult =
+  | DocumentSyncSubmitFailure
+  | DocumentSyncSubmitSuccess;
+
 interface DocumentSyncApi {
   getDocumentWriterProjection(
     documentId: string,
@@ -295,6 +311,17 @@ interface DocumentSyncApi {
     documentId: string,
     input: DocumentSyncRequest,
   ): Promise<DocumentSyncResponse | null>;
+  syncDocumentResult?(
+    documentId: string,
+    input: DocumentSyncRequest,
+    options?: { readonly reportErrors?: boolean | undefined },
+  ): Promise<
+    | {
+        readonly data: DocumentSyncResponse;
+        readonly ok: true;
+      }
+    | DocumentSyncSubmitFailure
+  >;
 }
 
 type DocumentWriterPublicKeyResolver = (input: {
@@ -2845,7 +2872,7 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
     "Document sync response write header",
   );
   await assertDocumentSyncResponseUpdateHashes({ header, update });
-  assertDocumentSyncResponseWriteHeaderFields({ plan, update });
+  assertDocumentSyncResponseWriteHeaderFields({ header, plan, update });
   await assertDocumentSyncResponseNonceDomain({ plan, update });
   await assertDocumentSyncResponseWriteHeaderSignature({
     header,
@@ -2889,37 +2916,55 @@ async function assertDocumentSyncResponseUpdateHashes(input: {
 }
 
 function assertDocumentSyncResponseWriteHeaderFields(input: {
+  header: WriteHeader;
   plan: DocumentSyncPlan;
   update: DocumentSyncResponse["updates"][number];
 }): void {
-  const { plan, update } = input;
+  const { header, plan, update } = input;
+  const mustMatchCurrentBoundary = isAcceptedOutgoingSyncUpdate(plan, update);
+
   if (
-    readRecordNumber(update.writeHeader, "version", "write header") !== 1 ||
-    readRecordString(update.writeHeader, "objectKind", "write header") !==
-      "document" ||
-    readRecordString(update.writeHeader, "objectId", "write header") !==
-      plan.documentId ||
-    readRecordString(update.writeHeader, "organizationId", "write header") !==
-      plan.organizationId ||
-    readRecordString(
-      update.writeHeader,
-      "accessManifestHash",
-      "write header",
-    ) !== plan.expectedLinkSetManifestHash ||
-    readRecordNumber(update.writeHeader, "contentKeyEpoch", "write header") !==
-      plan.contentKeyEpoch ||
-    readRecordString(update.writeHeader, "targetHash", "write header") !==
-      plan.expectedTargetHash ||
-    readRecordString(update.writeHeader, "encryptionSuite", "write header") !==
-      CONTENT_RECORD_ENCRYPTION_SUITE ||
-    readRecordString(
-      update.writeHeader,
-      "writerKeyFingerprint",
-      "write header",
-    ) !== update.authorFingerprint
+    header.version !== 1 ||
+    header.objectKind !== "document" ||
+    header.objectId !== plan.documentId ||
+    header.organizationId !== plan.organizationId ||
+    header.contentKeyEpoch !== plan.contentKeyEpoch ||
+    header.encryptionSuite !== CONTENT_RECORD_ENCRYPTION_SUITE ||
+    header.writerKeyFingerprint !== update.authorFingerprint ||
+    (mustMatchCurrentBoundary &&
+      (header.accessManifestHash !== plan.expectedLinkSetManifestHash ||
+        header.targetHash !== plan.expectedTargetHash))
   ) {
     throw new Error("Document sync response write header mismatch");
   }
+}
+
+function isAcceptedOutgoingSyncUpdate(
+  plan: DocumentSyncPlan,
+  update: DocumentSyncResponse["updates"][number],
+): boolean {
+  return plan.request.outgoingUpdates.some(
+    (outgoingUpdate) => outgoingUpdate.id === update.id,
+  );
+}
+
+function responseWriteHeaderSignatureBoundary(input: {
+  plan: DocumentSyncPlan;
+  update: DocumentSyncResponse["updates"][number];
+}):
+  | {
+      expectedAccessManifestHash: string;
+      expectedTargetHash: string;
+    }
+  | Record<string, never> {
+  if (!isAcceptedOutgoingSyncUpdate(input.plan, input.update)) {
+    return {};
+  }
+
+  return {
+    expectedAccessManifestHash: input.plan.expectedLinkSetManifestHash,
+    expectedTargetHash: input.plan.expectedTargetHash,
+  };
 }
 
 async function assertDocumentSyncResponseNonceDomain(input: {
@@ -2976,13 +3021,12 @@ async function assertDocumentSyncResponseWriteHeaderSignature(input: {
   }
 
   const verified = await verifyWriteHeader({
-    expectedAccessManifestHash: plan.expectedLinkSetManifestHash,
+    ...responseWriteHeaderSignatureBoundary({ plan, update }),
     expectedObject: {
       objectKind: "document",
       objectId: plan.documentId,
       organizationId: plan.organizationId,
     },
-    expectedTargetHash: plan.expectedTargetHash,
     header,
     writerPublicKey,
   });
@@ -3119,6 +3163,58 @@ export async function persistedDocumentSyncStateFromResponse(
   };
 }
 
+const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
+  "Document KEK targets are stale",
+  "Document content-key bundle is stale",
+  "Document write authorization manifest does not match sync request",
+];
+
+function isRetryableDocumentSyncConflict(
+  failure: DocumentSyncSubmitFailure,
+): boolean {
+  if (failure.status !== 409) {
+    return false;
+  }
+
+  return (
+    RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES.some((message) =>
+      failure.message.includes(message),
+    ) ||
+    (failure.message.includes("authorizingContainerPaths") &&
+      failure.message.includes("is stale")) ||
+    (failure.message.includes("targetContainerPath") &&
+      failure.message.includes("is stale"))
+  );
+}
+
+async function submitDocumentSync(input: {
+  apiClient: DocumentSyncApi;
+  plan: DocumentSyncPlan;
+}): Promise<DocumentSyncSubmitResult | null> {
+  if (input.apiClient.syncDocumentResult) {
+    const result = await input.apiClient.syncDocumentResult(
+      input.plan.documentId,
+      input.plan.request,
+      { reportErrors: false },
+    );
+
+    if (result.ok) {
+      return {
+        ok: true,
+        response: result.data,
+      };
+    }
+
+    return result;
+  }
+
+  const response = await input.apiClient.syncDocument(
+    input.plan.documentId,
+    input.plan.request,
+  );
+  return response ? { ok: true, response } : null;
+}
+
 export async function syncRemoteDocument(input: {
   apiClient: DocumentSyncApi;
   author: DocumentCreateAuthor;
@@ -3132,53 +3228,69 @@ export async function syncRemoteDocument(input: {
   targetSecretKey: Uint8Array;
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<SyncRemoteDocumentResult | null> {
-  const writerProjection = await input.apiClient.getDocumentWriterProjection(
-    input.documentId,
-  );
-  if (!writerProjection) {
-    return null;
-  }
-  const materializedPlan = await buildMaterializedDocumentSyncPlan({
-    author: input.author,
-    execSql: input.execSql,
-    localVersionVector: input.localVersionVector,
-    minLsn: input.minLsn,
-    pendingUpdates: input.pendingUpdates,
-    signedAt: input.signedAt,
-    targetSecretKey: input.targetSecretKey,
-    writerProjection,
-  });
-  const plan = materializedPlan.plan;
-  const response = await input.apiClient.syncDocument(
-    plan.documentId,
-    plan.request,
-  );
-  if (!response) {
-    return null;
-  }
-  const persistedState = await persistedDocumentSyncStateFromResponse(
-    plan,
-    response,
-    {
-      resolveWriterPublicKey: input.resolveWriterPublicKey,
-      writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
-    },
-  );
+  const maxAttempts = input.apiClient.syncDocumentResult ? 2 : 1;
 
-  return {
-    contentKey: materializedPlan.contentKey,
-    decryptedUpdates: await decryptDocumentSyncUpdates({
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const writerProjection = await input.apiClient.getDocumentWriterProjection(
+      input.documentId,
+    );
+    if (!writerProjection) {
+      return null;
+    }
+    const materializedPlan = await buildMaterializedDocumentSyncPlan({
+      author: input.author,
+      execSql: input.execSql,
+      localVersionVector: input.localVersionVector,
+      minLsn: input.minLsn,
+      pendingUpdates: input.pendingUpdates,
+      signedAt: input.signedAt,
+      targetSecretKey: input.targetSecretKey,
+      writerProjection,
+    });
+    const plan = materializedPlan.plan;
+    const submitted = await submitDocumentSync({
+      apiClient: input.apiClient,
+      plan,
+    });
+    if (!submitted) {
+      return null;
+    }
+    if (!submitted.ok) {
+      if (attempt < maxAttempts && isRetryableDocumentSyncConflict(submitted)) {
+        continue;
+      }
+
+      submitted.report();
+      return null;
+    }
+
+    const response = submitted.response;
+    const persistedState = await persistedDocumentSyncStateFromResponse(
+      plan,
+      response,
+      {
+        resolveWriterPublicKey: input.resolveWriterPublicKey,
+        writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+      },
+    );
+
+    return {
       contentKey: materializedPlan.contentKey,
-      contentKeyEpoch: plan.contentKeyEpoch,
-      documentId: plan.documentId,
-      organizationId: plan.organizationId,
-      updates: response.updates,
-    }),
-    persistedState,
-    plan,
-    response,
-    writerProjection,
-  };
+      decryptedUpdates: await decryptDocumentSyncUpdates({
+        contentKey: materializedPlan.contentKey,
+        contentKeyEpoch: plan.contentKeyEpoch,
+        documentId: plan.documentId,
+        organizationId: plan.organizationId,
+        updates: response.updates,
+      }),
+      persistedState,
+      plan,
+      response,
+      writerProjection,
+    };
+  }
+
+  return null;
 }
 
 function serializeState(value: unknown): string {

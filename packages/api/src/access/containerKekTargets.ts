@@ -26,6 +26,7 @@ interface ContainerManifestStateProjection {
   readonly containerId?: unknown;
   readonly containerKeyEpochId?: unknown;
   readonly parentContainerId?: unknown;
+  readonly previousManifestHash?: unknown;
   readonly version?: unknown;
 }
 
@@ -99,6 +100,41 @@ function isContainerAncestorClosureRow(
     typeof Reflect.get(value, "objectId") === "string" &&
     typeof Reflect.get(value, "objectKind") === "string"
   );
+}
+
+interface ContainerManifestBindingHistoryRow {
+  readonly containerId: string;
+  readonly containerKeyEpochId: string;
+  readonly cycleDetected: boolean;
+  readonly eventHash: string;
+  readonly manifestHash: string;
+  readonly objectId: string;
+  readonly objectKind: string;
+  readonly previousManifestHash: string | null;
+  readonly state: unknown;
+}
+
+function isContainerManifestBindingHistoryRow(
+  value: unknown,
+): value is ContainerManifestBindingHistoryRow {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "containerId") === "string" &&
+    typeof Reflect.get(value, "containerKeyEpochId") === "string" &&
+    typeof Reflect.get(value, "cycleDetected") === "boolean" &&
+    typeof Reflect.get(value, "eventHash") === "string" &&
+    typeof Reflect.get(value, "manifestHash") === "string" &&
+    typeof Reflect.get(value, "objectId") === "string" &&
+    typeof Reflect.get(value, "objectKind") === "string" &&
+    (typeof Reflect.get(value, "previousManifestHash") === "string" ||
+      Reflect.get(value, "previousManifestHash") === null)
+  );
+}
+
+interface ContainerManifestBindingHistory {
+  readonly eventHashByManifestHash: Map<string, string>;
+  readonly manifestHashes: Set<string>;
 }
 
 async function loadCurrentContainerManifestTargetClosure(input: {
@@ -198,6 +234,174 @@ async function loadCurrentContainerManifestTargetClosure(input: {
   return targetByContainerId;
 }
 
+function assertBindingHistoryRowCurrent(input: {
+  readonly row: ContainerManifestBindingHistoryRow;
+  readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
+}): void {
+  if (input.row.cycleDetected) {
+    throw new ContainerKekTargetError(
+      `Container manifest history cycle detected at container ${input.row.containerId}`,
+      409,
+    );
+  }
+
+  const target = input.targetByContainerId.get(input.row.containerId);
+  if (!target) {
+    throw new ContainerKekTargetError(
+      "Container manifest binding history target is missing",
+      409,
+    );
+  }
+
+  if (
+    input.row.objectKind !== "container" ||
+    input.row.objectId !== input.row.containerId ||
+    input.row.containerKeyEpochId !== target.containerKeyEpochId
+  ) {
+    throw new ContainerKekTargetError(
+      "Container manifest binding history mismatch",
+      409,
+    );
+  }
+
+  const targetState = readContainerManifestTarget({
+    containerId: input.row.containerId,
+    state: input.row.state,
+  });
+  if (targetState.containerKeyEpochId !== input.row.containerKeyEpochId) {
+    throw new ContainerKekTargetError(
+      `Container KEK epoch is stale for container ${input.row.containerId}`,
+      409,
+    );
+  }
+
+  const state = input.row.state as ContainerManifestStateProjection;
+  const previousManifestHash = readNullableString(state.previousManifestHash);
+  if (
+    (previousManifestHash === null && state.previousManifestHash !== null) ||
+    previousManifestHash !== input.row.previousManifestHash
+  ) {
+    throw new ContainerKekTargetError(
+      "Container manifest history mismatch",
+      409,
+    );
+  }
+}
+
+async function loadSameEpochContainerManifestBindingHistories(input: {
+  readonly executor: ContainerKekTargetExecutor;
+  readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
+}): Promise<Map<string, ContainerManifestBindingHistory>> {
+  const targets = [...input.targetByContainerId.values()].sort((left, right) =>
+    left.containerId.localeCompare(right.containerId),
+  );
+
+  if (targets.length === 0) {
+    return new Map();
+  }
+
+  const result = await input.executor.execute(sql`
+    with recursive manifest_path as (
+      select
+        manifest_targets.container_id,
+        manifest_targets.container_key_epoch_id,
+        m.manifest_hash,
+        m.object_kind,
+        m.object_id,
+        m.event_hash,
+        m.previous_manifest_hash,
+        m.state,
+        array[m.manifest_hash] as visited_hashes,
+        false as cycle_detected,
+        0 as depth
+      from (values ${sql.join(
+        targets.map(
+          (target) =>
+            sql`(${target.containerId}, ${target.containerKeyEpochId}, ${target.containerManifestHash})`,
+        ),
+        sql`, `,
+      )}) as manifest_targets(
+        container_id,
+        container_key_epoch_id,
+        manifest_hash
+      )
+      inner join ${accessManifests} m
+        on m.manifest_hash = manifest_targets.manifest_hash
+      union all
+      select
+        mp.container_id,
+        mp.container_key_epoch_id,
+        pm.manifest_hash,
+        pm.object_kind,
+        pm.object_id,
+        pm.event_hash,
+        pm.previous_manifest_hash,
+        pm.state,
+        mp.visited_hashes || pm.manifest_hash,
+        pm.manifest_hash = any(mp.visited_hashes) as cycle_detected,
+        mp.depth + 1
+      from manifest_path mp
+      inner join ${accessManifests} pm
+        on pm.manifest_hash = mp.previous_manifest_hash
+      where not mp.cycle_detected
+        and mp.previous_manifest_hash is not null
+        and pm.object_kind = 'container'
+        and pm.object_id = mp.container_id
+        and pm.state->>'containerKeyEpochId' = mp.container_key_epoch_id
+    )
+    select
+      container_id as "containerId",
+      container_key_epoch_id as "containerKeyEpochId",
+      cycle_detected as "cycleDetected",
+      event_hash as "eventHash",
+      manifest_hash as "manifestHash",
+      object_id as "objectId",
+      object_kind as "objectKind",
+      previous_manifest_hash as "previousManifestHash",
+      state as "state"
+    from manifest_path
+    order by container_id asc, depth asc
+  `);
+  const historyByContainerId = new Map<
+    string,
+    ContainerManifestBindingHistory
+  >();
+
+  for (const row of result.rows) {
+    if (!isContainerManifestBindingHistoryRow(row)) {
+      throw new ContainerKekTargetError(
+        "Unexpected row shape from container manifest binding history",
+        409,
+      );
+    }
+
+    assertBindingHistoryRowCurrent({
+      row,
+      targetByContainerId: input.targetByContainerId,
+    });
+
+    const history = historyByContainerId.get(row.containerId) ?? {
+      eventHashByManifestHash: new Map<string, string>(),
+      manifestHashes: new Set<string>(),
+    };
+    history.manifestHashes.add(row.manifestHash);
+    history.eventHashByManifestHash.set(row.manifestHash, row.eventHash);
+    historyByContainerId.set(row.containerId, history);
+  }
+
+  for (const target of targets) {
+    const history = historyByContainerId.get(target.containerId);
+    if (!history?.manifestHashes.has(target.containerManifestHash)) {
+      throw new ContainerKekTargetError(
+        `Container KEK epoch is stale for container ${target.containerId}`,
+        409,
+      );
+    }
+  }
+
+  return historyByContainerId;
+}
+
 function getContainerKeyEpoch(
   target: ContainerManifestTarget,
   keyEpochById: Awaited<ReturnType<typeof getContainerKeyEpochsById>>,
@@ -209,10 +413,7 @@ function getContainerKeyEpoch(
       409,
     );
   }
-  if (
-    keyEpoch.containerId !== target.containerId ||
-    keyEpoch.accessManifestHash !== target.containerManifestHash
-  ) {
+  if (keyEpoch.containerId !== target.containerId) {
     throw new ContainerKekTargetError(
       `Container KEK epoch is stale for container ${target.containerId}`,
       409,
@@ -264,6 +465,32 @@ function assertContainerKekParentEdgesCurrent(input: {
   }
 }
 
+function assertContainerKekManifestBindingsCurrent(input: {
+  readonly historyByContainerId: ReadonlyMap<
+    string,
+    ContainerManifestBindingHistory
+  >;
+  readonly keyEpochById: Awaited<ReturnType<typeof getContainerKeyEpochsById>>;
+  readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
+}): void {
+  for (const target of input.targetByContainerId.values()) {
+    const keyEpoch = getContainerKeyEpoch(target, input.keyEpochById);
+    const history = input.historyByContainerId.get(target.containerId);
+
+    if (
+      !history?.manifestHashes.has(keyEpoch.accessManifestHash) ||
+      !history.manifestHashes.has(keyEpoch.createdByManifestHash) ||
+      history.eventHashByManifestHash.get(keyEpoch.createdByManifestHash) !==
+        keyEpoch.createdByEventHash
+    ) {
+      throw new ContainerKekTargetError(
+        `Container KEK epoch is stale for container ${target.containerId}`,
+        409,
+      );
+    }
+  }
+}
+
 export async function resolveCurrentContainerKekTargets(
   containerIds: readonly string[],
   executor: ContainerKekTargetExecutor = db,
@@ -285,6 +512,16 @@ export async function resolveCurrentContainerKekTargets(
     executor,
   );
   assertContainerKekParentEdgesCurrent({ keyEpochById, targetByContainerId });
+  const historyByContainerId =
+    await loadSameEpochContainerManifestBindingHistories({
+      executor,
+      targetByContainerId,
+    });
+  assertContainerKekManifestBindingsCurrent({
+    historyByContainerId,
+    keyEpochById,
+    targetByContainerId,
+  });
 
   return new Map(
     uniqueContainerIds.map((containerId) => {

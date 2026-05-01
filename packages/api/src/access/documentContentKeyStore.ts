@@ -105,12 +105,34 @@ function targetFieldsEqual(
   );
 }
 
+function targetKeyMaterialEqual(
+  left: DocumentContentKeyTarget,
+  right: DocumentContentKeyTarget,
+): boolean {
+  return (
+    left.containerId === right.containerId &&
+    left.containerKeyEpochId === right.containerKeyEpochId &&
+    left.containerKeyEpoch === right.containerKeyEpoch
+  );
+}
+
 function targetEnvelopeEqual(
   left: DocumentContentKeyTargetEnvelope,
   right: DocumentContentKeyTargetEnvelope,
 ): boolean {
   return (
     targetFieldsEqual(left, right) &&
+    left.wrappedKey === right.wrappedKey &&
+    canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
+  );
+}
+
+function targetEnvelopeMaterialEqual(
+  left: DocumentContentKeyTargetEnvelope,
+  right: DocumentContentKeyTargetEnvelope,
+): boolean {
+  return (
+    targetKeyMaterialEqual(left, right) &&
     left.wrappedKey === right.wrappedKey &&
     canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
   );
@@ -187,7 +209,7 @@ function currentTargetsContainPreviousBundle(input: {
     );
     return (
       currentTarget !== undefined &&
-      targetFieldsEqual(previousTarget, currentTarget)
+      targetKeyMaterialEqual(previousTarget, currentTarget)
     );
   });
 }
@@ -338,6 +360,48 @@ async function getLatestDocumentContentKeyBundle(
   return row ? toStoredBundle(row, executor) : null;
 }
 
+function refreshedBundleForCurrentTargets(input: {
+  readonly bundle: StoredDocumentContentKeyBundle;
+  readonly currentTargets: CurrentDocumentKekTargets;
+}): StoredDocumentContentKeyBundle | null {
+  const previousEnvelopeByContainerId = new Map(
+    input.bundle.targets.map((target) => [target.containerId, target]),
+  );
+
+  if (
+    previousEnvelopeByContainerId.size !== input.currentTargets.targets.length
+  ) {
+    return null;
+  }
+
+  const targets: DocumentContentKeyTargetEnvelope[] = [];
+  for (const currentTarget of input.currentTargets.targets) {
+    const previousEnvelope = previousEnvelopeByContainerId.get(
+      currentTarget.containerId,
+    );
+
+    if (
+      !previousEnvelope ||
+      !targetKeyMaterialEqual(previousEnvelope, currentTarget)
+    ) {
+      return null;
+    }
+
+    targets.push({
+      ...currentTarget,
+      wrappedKey: previousEnvelope.wrappedKey,
+      wrappingMetadata: previousEnvelope.wrappingMetadata,
+    });
+  }
+
+  return {
+    ...input.bundle,
+    linkSetManifestHash: input.currentTargets.linkSetManifestHash,
+    targetHash: input.currentTargets.documentKeyTargetHash,
+    targets: sortTargetEnvelopes(targets),
+  };
+}
+
 export async function getLatestCurrentDocumentContentKeyBundle(
   input: {
     readonly currentTargets: CurrentDocumentKekTargets;
@@ -357,6 +421,18 @@ export async function getLatestCurrentDocumentContentKeyBundle(
     bundle.linkSetManifestHash !== input.currentTargets.linkSetManifestHash ||
     bundle.targetHash !== input.currentTargets.documentKeyTargetHash
   ) {
+    const refreshedBundle = refreshedBundleForCurrentTargets({
+      bundle,
+      currentTargets: input.currentTargets,
+    });
+    if (refreshedBundle) {
+      assertTargetsMatchCurrent({
+        currentTargets: input.currentTargets,
+        targets: refreshedBundle.targets,
+      });
+      return refreshedBundle;
+    }
+
     throw new DocumentContentKeyBundleError(
       "Document content-key bundle is stale",
       409,
@@ -466,7 +542,7 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
 
   for (const target of input.existingBundle.targets) {
     const nextTarget = nextByContainerId.get(target.containerId);
-    if (!nextTarget || !targetEnvelopeEqual(target, nextTarget)) {
+    if (!nextTarget || !targetEnvelopeMaterialEqual(target, nextTarget)) {
       throw new DocumentContentKeyBundleError(
         "Document content-key bundle conflict",
         409,
@@ -477,6 +553,10 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
   const newTargets = input.nextBundle.targets.filter(
     (target) => !existingByContainerId.has(target.containerId),
   );
+  const refreshedTargets = input.nextBundle.targets.filter((target) => {
+    const existing = existingByContainerId.get(target.containerId);
+    return existing !== undefined && !targetEnvelopeEqual(existing, target);
+  });
   const epochRow = await loadDocumentContentKeyEpochRow(
     input.nextBundle.documentId,
     input.nextBundle.contentKeyEpoch,
@@ -502,6 +582,23 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
     executor: input.executor,
     targets: newTargets,
   });
+  for (const target of refreshedTargets) {
+    await input.executor
+      .update(documentContentKeyTargets)
+      .set({
+        containerManifestHash: target.containerManifestHash,
+        containerKeyEpochId: target.containerKeyEpochId,
+        containerKeyEpoch: target.containerKeyEpoch,
+        wrappedKey: target.wrappedKey,
+        wrappingMetadata: target.wrappingMetadata,
+      })
+      .where(
+        and(
+          eq(documentContentKeyTargets.documentContentKeyEpochId, epochRow.id),
+          eq(documentContentKeyTargets.containerId, target.containerId),
+        ),
+      );
+  }
 
   const updatedRow = await loadDocumentContentKeyEpochRow(
     input.nextBundle.documentId,
@@ -691,7 +788,13 @@ export async function storeDocumentContentKeyBundle(
   );
 }
 
-export async function requireCurrentDocumentContentKeyBundle(input: {
+/**
+ * Mutation-path helper for document sync. It validates the request against the
+ * current KEK targets and persists a same-epoch metadata refresh when an
+ * existing bundle can be losslessly carried forward. Read-only projections use
+ * getLatestCurrentDocumentContentKeyBundle instead.
+ */
+export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
   readonly documentId: string;
   readonly contentKeyEpoch: number;
   readonly expectedLinkSetManifestHash: string;
@@ -731,10 +834,31 @@ export async function requireCurrentDocumentContentKeyBundle(input: {
     bundle.linkSetManifestHash !== input.expectedLinkSetManifestHash ||
     bundle.targetHash !== input.expectedTargetHash
   ) {
-    throw new DocumentContentKeyBundleError(
-      "Document content-key bundle is stale",
-      409,
-    );
+    const refreshedBundle = refreshedBundleForCurrentTargets({
+      bundle,
+      currentTargets,
+    });
+    if (!refreshedBundle) {
+      throw new DocumentContentKeyBundleError(
+        "Document content-key bundle is stale",
+        409,
+      );
+    }
+
+    const storedBundle = await addDocumentContentKeyTargetsToExistingBundle({
+      existingBundle: bundle,
+      nextBundle: refreshedBundle,
+      executor,
+    });
+    assertTargetsMatchCurrent({
+      currentTargets,
+      targets: storedBundle.targets,
+    });
+
+    return {
+      ...storedBundle,
+      currentTargets,
+    };
   }
   assertTargetsMatchCurrent({ currentTargets, targets: bundle.targets });
 

@@ -20,13 +20,16 @@ import {
   verifySignedAccessEvent,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
 import { db } from "../adapters/postgres";
-import { containerKeyEpochs } from "../schema";
+import { accessManifests, containerKeyEpochs } from "../schema";
 import { storeVerifiedAccessManifest } from "./accessManifestStore";
 import {
   DocumentContentKeyBundleError,
   type DocumentContentKeyTargetEnvelope,
+  getLatestCurrentDocumentContentKeyBundle,
   listDocumentContentWriteHeaders,
+  requireAndRefreshCurrentDocumentContentKeyBundle,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,
 } from "./documentContentKeyStore";
@@ -207,13 +210,23 @@ async function insertContainerKeyEpoch(input: {
   readonly keyEpochId: string;
   readonly manifestHash: string;
 }) {
+  const [manifest] = await db
+    .select({ eventHash: accessManifests.eventHash })
+    .from(accessManifests)
+    .where(eq(accessManifests.manifestHash, input.manifestHash))
+    .limit(1);
+
+  if (!manifest) {
+    throw new Error("Expected stored access manifest for key epoch");
+  }
+
   await db.insert(containerKeyEpochs).values({
     id: input.keyEpochId,
     containerId: input.containerId,
     keyEpoch: 1,
     accessManifestHash: input.manifestHash,
     parentContainerKeyEpochId: null,
-    createdByEventHash: await hashOf(`${input.keyEpochId}:event`),
+    createdByEventHash: manifest.eventHash,
     createdByManifestHash: input.manifestHash,
   });
 }
@@ -419,6 +432,82 @@ test("storeDocumentContentKeyBundle allows additive target growth on the same co
 
   expect(stored.contentKeyEpoch).toBe(1);
   expect(stored.targets).toEqual(expandedEnvelopes);
+});
+
+test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targets", async () => {
+  const setup = await setupDocumentTargets(1);
+  const initialTargets = await resolveCurrentDocumentKekTargets(
+    setup.documentId,
+  );
+  const initialEnvelopes = targetEnvelopes(initialTargets);
+  await storeDocumentContentKeyBundle({
+    documentId: setup.documentId,
+    contentKeyEpoch: 1,
+    linkSetManifestHash: initialTargets.linkSetManifestHash,
+    targetHash: initialTargets.documentKeyTargetHash,
+    targets: initialEnvelopes,
+  });
+  const advancedContainer = await createVerifiedContainerManifest({
+    containerId: setup.firstContainerId,
+    containerKeyEpochId: `${setup.firstContainerId}:key-epoch-1`,
+    epoch: 2,
+    organizationId: setup.organizationId,
+    previousManifestHash: setup.firstContainer.manifestHash,
+    salt: "first-additive-share",
+  });
+  await storeVerifiedAccessManifest({ verifiedManifest: advancedContainer });
+  const refreshedTargets = await resolveCurrentDocumentKekTargets(
+    setup.documentId,
+  );
+  const refreshedEnvelopes = refreshedTargets.targets.map((target) => {
+    const existing = initialEnvelopes.find(
+      (envelope) => envelope.containerId === target.containerId,
+    );
+    if (!existing) {
+      throw new Error("Expected existing target envelope");
+    }
+    return {
+      ...target,
+      wrappedKey: existing.wrappedKey,
+      wrappingMetadata: existing.wrappingMetadata,
+    };
+  });
+
+  expect(refreshedTargets.targets[0]?.containerManifestHash).toBe(
+    advancedContainer.manifestHash,
+  );
+  await expect(
+    getLatestCurrentDocumentContentKeyBundle({
+      currentTargets: refreshedTargets,
+      documentId: setup.documentId,
+    }),
+  ).resolves.toMatchObject({
+    linkSetManifestHash: refreshedTargets.linkSetManifestHash,
+    targetHash: refreshedTargets.documentKeyTargetHash,
+    targets: refreshedEnvelopes,
+  });
+
+  const refreshedBundle =
+    await requireAndRefreshCurrentDocumentContentKeyBundle({
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      expectedLinkSetManifestHash: refreshedTargets.linkSetManifestHash,
+      expectedTargetHash: refreshedTargets.documentKeyTargetHash,
+    });
+
+  expect(refreshedBundle.contentKeyEpoch).toBe(1);
+  expect(refreshedBundle.targets).toEqual(refreshedEnvelopes);
+
+  const stored = await storeDocumentContentKeyBundle({
+    documentId: setup.documentId,
+    contentKeyEpoch: 1,
+    linkSetManifestHash: refreshedTargets.linkSetManifestHash,
+    targetHash: refreshedTargets.documentKeyTargetHash,
+    targets: refreshedEnvelopes,
+  });
+
+  expect(stored.contentKeyEpoch).toBe(1);
+  expect(stored.targets).toEqual(refreshedEnvelopes);
 });
 
 test("storeDocumentContentKeyBundle requires a new content key epoch after target shrink", async () => {

@@ -3,12 +3,16 @@ import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventHash,
+  computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
+  computeDocumentContentRecordCiphertextHash,
+  computeDocumentContentRecordMetadataHash,
   computeWriteHeaderHash,
   encryptWithDek,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   type KeyingCanonicalJson,
+  signWriteHeader,
   toFingerprint,
   verifySignedAccessEvent,
   verifyWriteHeader,
@@ -1319,6 +1323,36 @@ async function createMaterializedSyncFixture() {
   };
 }
 
+function advanceProjectionRootManifest(
+  projection: ContainerWriterProjectionResponse,
+  manifestHash: string,
+): ContainerWriterProjectionResponse {
+  return {
+    ...projection,
+    path: projection.path.map((bundle, index) =>
+      index === 0
+        ? {
+            ...bundle,
+            manifestHash,
+          }
+        : bundle,
+    ),
+    containerKeks: projection.containerKeks.map((kek, index) =>
+      index === 0
+        ? {
+            ...kek,
+            accessManifestHash: manifestHash,
+            keyEpoch: {
+              ...kek.keyEpoch,
+              accessManifestHash: manifestHash,
+              createdByManifestHash: manifestHash,
+            },
+          }
+        : kek,
+    ),
+  };
+}
+
 async function createPreparedUpdate(
   overrides: {
     checkpointKind?: "fresh_baseline" | "rotate_baseline" | undefined;
@@ -1417,6 +1451,62 @@ async function createSyncResponse(
     missingUpdateEpochs: updates.length === 0 ? [] : ["current_epoch"],
     updates,
     ...overrides,
+  };
+}
+
+async function createSignedSyncResponseUpdate(input: {
+  accessManifestHash: string;
+  author: DocumentCreateAuthor;
+  id?: string | undefined;
+  plan: Awaited<ReturnType<typeof buildDocumentSyncPlan>>;
+  targetHash: string;
+}): Promise<DocumentSyncResponse["updates"][number]> {
+  const id = input.id ?? "550e8400-e29b-41d4-a716-446655440555";
+  const encryptedData = "historical encrypted update";
+  const partialStartVersionVector = "{}";
+  const partialEndVersionVector = '{"actor":3}';
+  const nonceDomain = {
+    version: 1 as const,
+    organizationId: input.plan.organizationId,
+    objectKind: "document" as const,
+    objectId: input.plan.documentId,
+    contentKeyEpoch: input.plan.contentKeyEpoch,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    contentRecordId: id,
+  };
+  const writeHeader = await signWriteHeader(
+    {
+      ...nonceDomain,
+      accessManifestHash: input.accessManifestHash,
+      targetHash: input.targetHash,
+      nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
+      metadataHash: await computeDocumentContentRecordMetadataHash({
+        documentId: input.plan.documentId,
+        partialEndVersionVector,
+        partialStartVersionVector,
+        updateId: id,
+      }),
+      ciphertextHash:
+        await computeDocumentContentRecordCiphertextHash(encryptedData),
+      writerUserId: input.author.signerUserId,
+      writerDeviceId: input.author.signerDeviceId,
+      writerKeyFingerprint: input.author.signerKeyFingerprint,
+      signedAt: "2026-04-27T00:00:00.000Z",
+    },
+    input.author.signerPrivateKey,
+  );
+
+  return {
+    accessEpoch: 1,
+    id,
+    documentId: input.plan.documentId,
+    authorFingerprint: input.author.signerKeyFingerprint,
+    encryptedData,
+    partialStartVersionVector,
+    partialEndVersionVector,
+    createdAt: "2026-04-27T00:00:00.000Z",
+    writeHeader: writeHeader as unknown as Record<string, unknown>,
+    writeHeaderHash: await computeWriteHeaderHash(writeHeader),
   };
 }
 
@@ -1729,18 +1819,80 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
   });
   const plan = materialized.plan;
   const response = await createSyncResponse(plan);
+  const writerPublicKeysByFingerprint = new Map([
+    [author.signerKeyFingerprint, signingPublicKey],
+  ]);
 
   await expect(
     persistedDocumentSyncStateFromResponse(plan, response, {
-      writerPublicKeysByFingerprint: new Map([
-        [author.signerKeyFingerprint, signingPublicKey],
-      ]),
+      writerPublicKeysByFingerprint,
     }),
   ).resolves.toEqual({
     documentId: plan.documentId,
     contentKeyBundle: JSON.stringify(response.contentKeyBundle),
     documentKekTargets: JSON.stringify(response.documentKekTargets),
     documentManifestBundle: JSON.stringify(plan.documentManifest),
+  });
+
+  const acceptedUpdate = plan.request.outgoingUpdates[0];
+  if (!acceptedUpdate) {
+    throw new Error("Expected outgoing update fixture.");
+  }
+  const staleAcceptedUpdate = await createSignedSyncResponseUpdate({
+    accessManifestHash: await fixtureHash("stale-accepted-access-manifest"),
+    author,
+    id: acceptedUpdate.id,
+    plan,
+    targetHash: await fixtureHash("stale-accepted-target-hash"),
+  });
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      await createSyncResponse(plan, {
+        updates: [staleAcceptedUpdate],
+      }),
+      {
+        writerPublicKeysByFingerprint,
+      },
+    ),
+  ).rejects.toThrow("write header mismatch");
+
+  const readOnlyMaterialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const historicalUpdate = await createSignedSyncResponseUpdate({
+    accessManifestHash: await fixtureHash("historical-access-manifest"),
+    author,
+    plan: readOnlyMaterialized.plan,
+    targetHash: await fixtureHash("historical-target-hash"),
+  });
+  const historicalResponse = await createSyncResponse(
+    readOnlyMaterialized.plan,
+    {
+      missingUpdateEpochs: ["current_epoch"],
+      updates: [historicalUpdate],
+    },
+  );
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      readOnlyMaterialized.plan,
+      historicalResponse,
+      {
+        writerPublicKeysByFingerprint,
+      },
+    ),
+  ).resolves.toEqual({
+    documentId: readOnlyMaterialized.plan.documentId,
+    contentKeyBundle: JSON.stringify(historicalResponse.contentKeyBundle),
+    documentKekTargets: JSON.stringify(historicalResponse.documentKekTargets),
+    documentManifestBundle: JSON.stringify(
+      readOnlyMaterialized.plan.documentManifest,
+    ),
   });
 
   await expect(
@@ -1905,4 +2057,91 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
   expect(
     new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("materialized update");
+});
+
+test("syncRemoteDocument replans once after a stale document sync conflict", async () => {
+  const { author, projection, secretKey, signingPublicKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const freshRootManifestHash = await fixtureHash(
+    "root-container-manifest-after-share",
+  );
+  const freshProjection = advanceProjectionRootManifest(
+    projection,
+    freshRootManifestHash,
+  );
+  const freshWriterProjection: DocumentWriterProjectionResponse = {
+    ...writerProjection,
+    authorizingContainerPaths: [freshProjection],
+  };
+  const submittedRequests: DocumentSyncRequest[] = [];
+  const reportedErrors: string[] = [];
+  let projectionRequestCount = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async (documentId) => {
+        if (documentId !== writerProjection.documentId) {
+          return null;
+        }
+
+        projectionRequestCount += 1;
+        return projectionRequestCount === 1
+          ? writerProjection
+          : freshWriterProjection;
+      },
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle sync retries");
+      },
+      syncDocumentResult: async (documentId, request) => {
+        submittedRequests.push(request);
+
+        if (submittedRequests.length === 1) {
+          const message = `POST /documents/${documentId}/sync: 409 Conflict: authorizingContainerPaths[0][0] is stale`;
+          return {
+            message,
+            ok: false,
+            report: () => {
+              reportedErrors.push(message);
+            },
+            status: 409,
+          };
+        }
+
+        const materialized = await buildMaterializedDocumentSyncPlan({
+          author,
+          localVersionVector: null,
+          pendingUpdates: [createPendingUpdateRecord()],
+          targetSecretKey: secretKey,
+          writerProjection: freshWriterProjection,
+        });
+        return {
+          data: await createSyncResponse({
+            ...materialized.plan,
+            documentId,
+            request,
+          }),
+          ok: true,
+        };
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    targetSecretKey: secretKey,
+    writerPublicKeysByFingerprint: new Map([
+      [author.signerKeyFingerprint, signingPublicKey],
+    ]),
+  });
+
+  expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
+  expect(projectionRequestCount).toBe(2);
+  expect(submittedRequests).toHaveLength(2);
+  expect(reportedErrors).toEqual([]);
+  expect(
+    Reflect.get(
+      submittedRequests[1]?.authorizingContainerPaths?.[0]?.[0] ?? {},
+      "manifestHash",
+    ),
+  ).toBe(freshRootManifestHash);
 });

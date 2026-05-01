@@ -6,6 +6,8 @@ import {
   type ContainerDirectGrant,
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
+  type ContainerKeyWrap,
+  type ContainerUserRecipientKey,
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
@@ -562,6 +564,238 @@ test("shareRemoteContainer rejects malformed projected container state before se
     }),
   ).rejects.toThrow("directGrants must be an array");
   expect(shareCalled).toBe(false);
+});
+
+test("shareRemoteContainer includes existing direct user recipient keys", async () => {
+  const parent = await createParentProjection();
+  const { author, signingPublicKey } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const recipientKeyPair = generateKemSeedAndKeyPair();
+  const submittedRequests: ContainerMutationRequest[] = [];
+
+  const shared = await shareRemoteContainer({
+    accessLevel: "write",
+    apiClient: {
+      getContainerWriterProjection: async () => parent.projection,
+      shareContainer: async (_containerId, request) => {
+        submittedRequests.push(request);
+        const event = request.event as unknown as AccessEvent;
+        const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpoch;
+        const previousKek = parent.projection.containerKeks[0];
+        if (!previousKek) {
+          throw new Error("Expected parent projection KEK");
+        }
+
+        return {
+          containerId: parent.projection.containerId,
+          organizationId: parent.projection.organizationId,
+          parentId: null,
+          manifestHead: {
+            epoch: 2,
+            manifestHash: request.expectedManifestHash,
+          },
+          accessManifest: {
+            event: {
+              event: request.event,
+              body: request.body,
+              eventHash: await computeAccessEventHash(event),
+            },
+            manifest: request.manifest,
+            manifestHash: request.expectedManifestHash,
+            state: {},
+          },
+          containerKek: {
+            ...previousKek,
+            accessManifestHash: request.expectedManifestHash,
+            keyEpoch: request.keyEpoch,
+            keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
+            wraps: request.wraps,
+          },
+          referencedPrincipalHeads: [],
+        };
+      },
+    },
+    author,
+    containerId: parent.projection.containerId,
+    recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
+    recipientUserId: "user-2",
+    signedAt: SIGNED_AT,
+    targetSecretKey: parent.secretKey,
+  });
+
+  expect(shared).not.toBeNull();
+  if (!shared) {
+    throw new Error("Expected share result");
+  }
+  const submittedRequest = submittedRequests[0];
+  if (!submittedRequest) {
+    throw new Error("Expected submitted share request");
+  }
+  const submittedUserRecipientKeys =
+    submittedRequest.userRecipientKeys as unknown as ContainerUserRecipientKey[];
+  expect(submittedUserRecipientKeys.map((key) => key.userId)).toEqual([
+    "user-1",
+    "user-2",
+  ]);
+
+  const verifiedEvent = await verifySignedAccessEvent({
+    body: shared.plan.body as unknown as KeyingCanonicalJson,
+    event: shared.plan.event,
+    signerPublicKey: signingPublicKey,
+  });
+  expect(verifiedEvent.ok).toBe(true);
+  if (!verifiedEvent.ok) {
+    throw verifiedEvent.error;
+  }
+
+  const previousManifest = parent.projection
+    .path[0] as unknown as VerifiedContainerAccessManifest;
+  const verifiedManifest = await verifyContainerAccessManifest({
+    event: verifiedEvent.value,
+    expectedManifestHash: shared.plan.manifestHash,
+    manifest: shared.plan.manifest,
+    previousManifest,
+    previousContainerPath: [previousManifest],
+  });
+  expect(verifiedManifest.ok).toBe(true);
+  if (!verifiedManifest.ok) {
+    throw verifiedManifest.error;
+  }
+
+  const verifiedKek = await verifyContainerKekState({
+    containerManifest: verifiedManifest.value,
+    containerManifestHistory: [previousManifest],
+    keyEpoch: shared.plan.keyEpoch,
+    userRecipientKeys: submittedUserRecipientKeys,
+    wraps: shared.plan.wraps,
+  });
+  expect(verifiedKek.ok).toBe(true);
+  if (!verifiedKek.ok) {
+    throw verifiedKek.error;
+  }
+  const ownerUserRecipientKey = submittedUserRecipientKeys[0];
+  const peerUserRecipientKey = submittedUserRecipientKeys[1];
+  if (!ownerUserRecipientKey || !peerUserRecipientKey) {
+    throw new Error("Expected owner and peer recipient keys");
+  }
+  expect(verifiedKek.value.recipientTargets).toEqual([
+    {
+      recipientKind: "user",
+      recipientId: "user-1",
+      recipientKeyEpochId: ownerUserRecipientKey.recipientKeyEpochId,
+      recipientKeyFingerprint: ownerUserRecipientKey.recipientKeyFingerprint,
+    },
+    {
+      recipientKind: "user",
+      recipientId: "user-2",
+      recipientKeyEpochId: peerUserRecipientKey.recipientKeyEpochId,
+      recipientKeyFingerprint: peerUserRecipientKey.recipientKeyFingerprint,
+    },
+  ]);
+});
+
+test("shareRemoteContainer replaces stale wraps when re-sharing a user", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const existingUserId = "user-2";
+  const oldRecipientKeyPair = generateKemSeedAndKeyPair();
+  const newRecipientKeyPair = generateKemSeedAndKeyPair();
+  const oldRecipientKeyEpochId = `user:${existingUserId}:encapsulation:old`;
+  const existingWrap = await createUserContainerWrap({
+    containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+    containerKek: parent.parentContainerKek,
+    publicKey: oldRecipientKeyPair.publicKey,
+    recipientKeyEpochId: oldRecipientKeyEpochId,
+    userId: existingUserId,
+    wrapManifestHash: parent.parentKekState.accessManifestHash,
+  });
+  const previousManifest = parent.projection.path[0];
+  const previousKek = parent.projection.containerKeks[0];
+  if (!previousManifest || !previousKek) {
+    throw new Error("Expected parent projection");
+  }
+  const previousState =
+    previousManifest.state as unknown as ContainerAccessManifestState;
+  const projectionWithExistingShare: ContainerWriterProjectionResponse = {
+    ...parent.projection,
+    path: [
+      {
+        ...previousManifest,
+        state: {
+          ...previousState,
+          directGrants: [
+            ...previousState.directGrants,
+            {
+              accessLevel: "read",
+              subjectId: existingUserId,
+              subjectType: "user",
+            },
+          ],
+        },
+      },
+    ],
+    containerKeks: [
+      {
+        ...previousKek,
+        recipientTargets: [
+          ...previousKek.recipientTargets,
+          {
+            recipientKind: "user",
+            recipientId: existingUserId,
+            recipientKeyEpochId: oldRecipientKeyEpochId,
+            recipientKeyFingerprint: existingWrap.recipientKeyFingerprint,
+          },
+        ],
+        wraps: [...previousKek.wraps, existingWrap],
+      },
+    ],
+  };
+  const submittedRequests: ContainerMutationRequest[] = [];
+
+  const shared = await shareRemoteContainer({
+    accessLevel: "write",
+    apiClient: {
+      getContainerWriterProjection: async () => projectionWithExistingShare,
+      shareContainer: async (_containerId, request) => {
+        submittedRequests.push(request);
+        return createMutationResponseFromRequest(request);
+      },
+    },
+    author,
+    containerId: parent.projection.containerId,
+    recipientEncapsulationPublicKey: newRecipientKeyPair.publicKey,
+    recipientUserId: existingUserId,
+    signedAt: SIGNED_AT,
+    targetSecretKey: parent.secretKey,
+  });
+
+  expect(shared).not.toBeNull();
+  const submittedRequest = submittedRequests[0];
+  if (!submittedRequest) {
+    throw new Error("Expected submitted share request");
+  }
+  const submittedWraps =
+    submittedRequest.wraps as unknown as ContainerKeyWrap[];
+  const existingUserWraps = submittedWraps.filter(
+    (wrap) =>
+      wrap.recipientKind === "user" && wrap.recipientId === existingUserId,
+  );
+  expect(existingUserWraps).toHaveLength(1);
+  expect(existingUserWraps[0]?.recipientKeyEpochId).not.toBe(
+    oldRecipientKeyEpochId,
+  );
+  expect(submittedWraps).not.toContainEqual(
+    expect.objectContaining({
+      recipientId: existingUserId,
+      recipientKeyEpochId: oldRecipientKeyEpochId,
+    }),
+  );
+  expect(submittedWraps).toHaveLength(previousKek.wraps.length + 1);
 });
 
 test("createRemoteContainer fetches the parent projection and submits the materialized mutation", async () => {

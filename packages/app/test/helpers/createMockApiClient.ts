@@ -35,5 +35,27 @@ export function createMockApiClient(
     ...overrides,
   } satisfies Partial<PublicApiClient>);
 
+  if (!overrides.syncDocumentResult) {
+    apiClient.syncDocumentResult = async (documentId, input) => {
+      const data = await apiClient.syncDocument(documentId, input);
+      if (data) {
+        return { data, ok: true };
+      }
+
+      const path = `/documents/${documentId}/sync`;
+      const message = `POST ${path}: mock syncDocument returned null`;
+      return {
+        kind: "network",
+        message,
+        method: "POST",
+        ok: false,
+        path,
+        report: () => {},
+        status: null,
+        statusText: "",
+      };
+    };
+  }
+
   return apiClient;
 }

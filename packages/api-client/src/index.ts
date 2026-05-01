@@ -1,2 +1,10 @@
 export { ApiClient } from "./ApiClient";
-export type { HttpMethod, RequestFn } from "./types";
+export type {
+  HttpMethod,
+  RequestFailure,
+  RequestFailureKind,
+  RequestFn,
+  RequestResult,
+  RequestResultOptions,
+  RequestSuccess,
+} from "./types";
