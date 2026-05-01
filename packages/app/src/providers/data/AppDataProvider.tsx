@@ -6,16 +6,16 @@ import {
   useContext,
   useMemo,
 } from "react";
+import { createExecSql, type ExecSql } from "../../data/persistence/sqlSchema";
+import { cacheReferencedPrincipalPolicies } from "../../data/principalPolicySync";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useNetworkState } from "../api/NetworkStateProvider";
+import { useBlobStore } from "../blobs/BlobProvider";
 import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useEvents } from "../events/EventsProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
-import { useBlobStore } from "./blobs";
-import { createExecSql, type ExecSql } from "./persistence/sqlSchema";
-import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
 
 export interface AppDataContextValue {
   apiClient: ReturnType<typeof useApiClient>;

@@ -9,8 +9,6 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { useCallback } from "react";
-import { useApiClient } from "../api/ApiClientProvider";
-import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import {
   buildRootContainerCreatePlan,
   createInitializedContainerMetadataDocument,
@@ -23,9 +21,11 @@ import {
 } from "../data/documents/documentRuntime";
 import { createExecSql } from "../data/persistence/sqlSchema";
 import { persistRegistrationBootstrap } from "../data/registrationBootstrapPersistence";
-import { useDatabase } from "../db/DatabaseProvider";
-import { useLog } from "../logging/LogProvider";
-import { useIdentity } from "./IdentityProvider";
+import { useApiClient } from "../providers/api/ApiClientProvider";
+import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
+import { useDatabase } from "../providers/db/DatabaseProvider";
+import { useIdentity } from "../providers/identity/IdentityProvider";
+import { useLog } from "../providers/logging/LogProvider";
 
 interface RegisterCurrentIdentityResult {
   canRegisterCurrentIdentity: boolean;

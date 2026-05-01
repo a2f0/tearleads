@@ -16,7 +16,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { useAppData } from "../AppDataProvider";
+import { useAppData } from "../../providers/data/AppDataProvider";
 import type { BlobBytes, BlobStore } from "../blobs";
 import { getScopedPeerSeed } from "../crdtPeerSeed";
 import {

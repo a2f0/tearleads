@@ -1,9 +1,9 @@
 import { isUserEvent } from "@tearleads/validators/event";
-import { useNetworkState } from "../../api/NetworkStateProvider";
-import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import { useDatabase } from "../../db/DatabaseProvider";
-import { useEvents } from "../../events/EventsProvider";
-import { useIdentity } from "../../identity/IdentityProvider";
+import { useNetworkState } from "../../providers/api/NetworkStateProvider";
+import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
+import { useDatabase } from "../../providers/db/DatabaseProvider";
+import { useEvents } from "../../providers/events/EventsProvider";
+import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { usePeerUserId } from "./DualPaneProvider";
 
 export function PaneStatus() {

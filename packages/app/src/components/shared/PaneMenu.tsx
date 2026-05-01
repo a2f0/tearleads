@@ -1,7 +1,7 @@
-import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import { useDatabase } from "../../db/DatabaseProvider";
-import { useIdentity } from "../../identity/IdentityProvider";
 import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
+import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
+import { useDatabase } from "../../providers/db/DatabaseProvider";
+import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 

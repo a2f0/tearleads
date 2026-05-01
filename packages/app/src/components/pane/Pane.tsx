@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
-import { useCryptoSession } from "../../crypto/CryptoSessionProvider";
-import { useIdentity } from "../../identity/IdentityProvider";
 import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
 import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
 import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
+import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
+import { useIdentity } from "../../providers/identity/IdentityProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";

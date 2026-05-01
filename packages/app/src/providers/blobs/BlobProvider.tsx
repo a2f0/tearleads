@@ -4,10 +4,10 @@ import {
   useContext,
   useMemo,
 } from "react";
-import { useIdentity } from "../../identity/IdentityProvider";
-import { createBlobStore } from "./createBlobStore";
-import { createMemoryBlobStore } from "./memoryBlobStore";
-import type { BlobStore } from "./types";
+import { createBlobStore } from "../../data/blobs/createBlobStore";
+import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
+import type { BlobStore } from "../../data/blobs/types";
+import { useIdentity } from "../identity/IdentityProvider";
 
 const BlobContext = createContext<BlobStore | null>(null);
 

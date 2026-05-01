@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo } from "react";
-import { useAppData } from "../../data/AppDataProvider";
 import { useDocument } from "../../data/documents/DocumentsProvider";
 import type { CreditCardDocumentFields } from "../../data/documents/documentKinds";
 import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
+import { useAppData } from "../../providers/data/AppDataProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,

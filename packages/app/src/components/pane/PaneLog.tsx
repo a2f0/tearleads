@@ -1,4 +1,4 @@
-import { useLog } from "../../logging/LogProvider";
+import { useLog } from "../../providers/logging/LogProvider";
 
 function formatTimestamp(ts: number): string {
   const d = new Date(ts);

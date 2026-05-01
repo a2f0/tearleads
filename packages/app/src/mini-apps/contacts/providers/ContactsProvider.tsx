@@ -15,7 +15,6 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { useAppData } from "../../../data/AppDataProvider";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
 import {
   createPendingUpdateFields,
@@ -39,6 +38,7 @@ import {
   isDestroyedDatabaseClientError,
   type SyncLane,
 } from "../../../data/sync/syncCoordinator";
+import { useAppData } from "../../../providers/data/AppDataProvider";
 import {
   type ContactsPersistence,
   sqlContactsPersistence,

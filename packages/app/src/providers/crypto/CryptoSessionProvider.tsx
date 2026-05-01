@@ -9,13 +9,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { useApiClient } from "../api/ApiClientProvider";
 import {
   ensureContainerTables,
   loadContainers,
   saveContainer,
-} from "../data/containers";
-import { createExecSql } from "../data/persistence/sqlSchema";
+} from "../../data/containers";
+import { createExecSql } from "../../data/persistence/sqlSchema";
+import { useApiClient } from "../api/ApiClientProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
