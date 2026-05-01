@@ -16,6 +16,7 @@ interface ExecSqlClientLike {
 export interface SqlTableSchema {
   name: string;
   createSql: string;
+  indexes?: ReadonlyArray<string>;
 }
 
 // Tracks the active serialized mutation chain for each canonical SQL executor
@@ -107,6 +108,9 @@ export async function ensureSqlTables(
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     for (const table of tables) {
       await lockedExecSql(table.createSql);
+      for (const indexSql of table.indexes ?? []) {
+        await lockedExecSql(indexSql);
+      }
     }
   });
 }

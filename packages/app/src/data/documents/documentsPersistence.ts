@@ -12,6 +12,7 @@ import {
   type PendingUpdateRecord,
   saveDocumentRecord,
 } from "../persistence/documentPersistence";
+import { documentProjectionTables } from "../persistence/schema";
 import type { SqlRow } from "../persistence/sqlSchema";
 import {
   type ExecSql,
@@ -19,7 +20,6 @@ import {
   readSqlRowValue,
   runSerializedSqlMutation,
   runSqlTransaction,
-  type SqlTableSchema,
 } from "../persistence/sqlSchema";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "./documentConstants";
 import {
@@ -152,51 +152,6 @@ export interface DocumentsPersistence {
 }
 
 export const DOCUMENTS_APP_KIND = "documents";
-
-const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
-  {
-    name: "document_projection",
-    createSql: `
- CREATE TABLE IF NOT EXISTS document_projection (
- local_id TEXT PRIMARY KEY,
- document_id TEXT,
- container_id TEXT,
- text TEXT NOT NULL,
- updated_at TEXT NOT NULL
- )
- `,
-  },
-  {
-    name: "document_pending_attachments",
-    createSql: `
- CREATE TABLE IF NOT EXISTS document_pending_attachments (
- local_id TEXT NOT NULL,
- slot_id TEXT NOT NULL,
- name TEXT NOT NULL,
- mime_type TEXT,
- storage_key TEXT NOT NULL,
- byte_length INTEGER NOT NULL,
- created_at TEXT NOT NULL,
- PRIMARY KEY (local_id, slot_id)
- )
- `,
-  },
-  {
-    name: "document_attachment_blob_projection",
-    createSql: `
- CREATE TABLE IF NOT EXISTS document_attachment_blob_projection (
- local_id TEXT NOT NULL,
- slot_id TEXT NOT NULL,
- blob_id TEXT,
- storage_key TEXT NOT NULL,
- mime_type TEXT,
- byte_length INTEGER NOT NULL,
- updated_at TEXT NOT NULL,
- PRIMARY KEY (local_id, slot_id)
- )
- `,
-  },
-];
 
 function getDocumentScope(localId: string): DocumentScope {
   return {

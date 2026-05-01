@@ -1,3 +1,4 @@
+import { containerTables } from "../persistence/schema";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -5,7 +6,6 @@ import {
   runSerializedSqlMutation,
   runSqlTransaction,
   type SqlRow,
-  type SqlTableSchema,
 } from "../persistence/sqlSchema";
 
 export interface ContainerRecord {
@@ -16,32 +16,6 @@ export interface ContainerRecord {
   name: string;
   icon: string | null;
 }
-
-const containerTables: ReadonlyArray<SqlTableSchema> = [
-  {
-    name: "containers",
-    createSql: `
-      CREATE TABLE IF NOT EXISTS containers (
-        id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
-        parent_id TEXT,
-        metadata_document_id TEXT,
-        updated_at TEXT NOT NULL
-      )
-    `,
-  },
-  {
-    name: "container_projection",
-    createSql: `
-      CREATE TABLE IF NOT EXISTS container_projection (
-        container_id TEXT PRIMARY KEY,
-        display_name TEXT,
-        icon TEXT,
-        updated_at TEXT NOT NULL
-      )
-    `,
-  },
-];
 
 export async function ensureContainerTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, containerTables);

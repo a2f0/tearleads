@@ -12,6 +12,7 @@ import {
   parseDocumentRecord,
   saveDocumentRecord,
 } from "../../data/persistence/documentPersistence";
+import { addressBookProjectionTables } from "../../data/persistence/schema";
 import type { SqlRow } from "../../data/persistence/sqlSchema";
 import {
   type ExecSql,
@@ -19,7 +20,6 @@ import {
   readSqlRowValue,
   runSerializedSqlMutation,
   runSqlTransaction,
-  type SqlTableSchema,
 } from "../../data/persistence/sqlSchema";
 import type { AddressBookEntry } from "./types";
 
@@ -63,22 +63,6 @@ export interface ContactsPersistence {
 
 const CONTACTS_APP_KIND = "contacts";
 
-const addressBookProjectionTables: ReadonlyArray<SqlTableSchema> = [
-  {
-    name: "address_book_projection",
-    createSql: `
- CREATE TABLE IF NOT EXISTS address_book_projection (
- address_book_id TEXT NOT NULL,
- user_id TEXT NOT NULL,
- encapsulation_public_key TEXT NOT NULL,
- is_self INTEGER NOT NULL DEFAULT 0,
- updated_at TEXT NOT NULL,
- PRIMARY KEY (address_book_id, user_id)
- )
- `,
-  },
-];
-
 function getContactScope(userId: string): DocumentScope {
   return {
     appKind: CONTACTS_APP_KIND,
@@ -118,10 +102,6 @@ export const sqlContactsPersistence: ContactsPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await ensureDocumentTables(lockedExecSql);
       await ensureSqlTables(lockedExecSql, addressBookProjectionTables);
-      await lockedExecSql(`
- CREATE UNIQUE INDEX IF NOT EXISTS address_book_projection_self_idx
- ON address_book_projection (address_book_id) WHERE is_self = 1
- `);
     });
   },
   async loadContacts(execSql, addressBookId) {

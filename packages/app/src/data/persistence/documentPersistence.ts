@@ -1,9 +1,10 @@
+import { documentTables } from "./schema";
 import type { SqlRow } from "./sqlSchema";
 import {
   type ExecSql,
+  ensureSqlTables,
   readSqlRowValue,
   runSerializedSqlMutation,
-  type SqlTableSchema,
 } from "./sqlSchema";
 
 export interface DocumentRecord {
@@ -34,43 +35,6 @@ export interface DocumentScope {
   localId: string;
 }
 
-const documentTables: ReadonlyArray<SqlTableSchema> = [
-  {
-    name: "documents",
-    createSql: `
- CREATE TABLE IF NOT EXISTS documents (
- app_kind TEXT NOT NULL,
- local_id TEXT NOT NULL,
- document_id TEXT,
- loro_snapshot TEXT NOT NULL,
- access_epoch INTEGER NOT NULL DEFAULT 1,
- access_state_hash TEXT,
- last_commit_lsn TEXT,
- document_manifest_bundle TEXT,
- content_key_bundle TEXT,
- document_kek_targets TEXT,
- updated_at TEXT NOT NULL,
- PRIMARY KEY (app_kind, local_id)
- )
- `,
-  },
-  {
-    name: "document_pending_updates",
-    createSql: `
- CREATE TABLE IF NOT EXISTS document_pending_updates (
- id TEXT PRIMARY KEY,
- app_kind TEXT NOT NULL,
- local_id TEXT NOT NULL,
- update_data TEXT NOT NULL,
- partial_start_version_vector TEXT NOT NULL,
- partial_end_version_vector TEXT NOT NULL,
- source_version_vector TEXT,
- created_at TEXT NOT NULL
- )
- `,
-  },
-];
-
 function getScopeBind(scope: DocumentScope) {
   return {
     ":appKind": scope.appKind,
@@ -79,11 +43,7 @@ function getScopeBind(scope: DocumentScope) {
 }
 
 export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
-  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    for (const table of documentTables) {
-      await lockedExecSql(table.createSql);
-    }
-  });
+  await ensureSqlTables(execSql, documentTables);
 }
 
 export function parseDocumentRecord(row: SqlRow): DocumentRecord {

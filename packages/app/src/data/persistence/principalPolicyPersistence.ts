@@ -3,13 +3,13 @@ import type {
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { principalPolicyTables } from "./schema";
 import type { SqlRow } from "./sqlSchema";
 import {
   type ExecSql,
   ensureSqlTables,
   readSqlRowValue,
   runSerializedSqlMutation,
-  type SqlTableSchema,
 } from "./sqlSchema";
 
 interface PrincipalPolicyRow {
@@ -22,26 +22,6 @@ interface PrincipalPolicyRow {
   currentMemberEnvelopesJson: string;
   previousStatesJson: string;
 }
-
-const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
-  {
-    name: "principal_policies",
-    createSql: `
-      CREATE TABLE IF NOT EXISTS principal_policies (
-        principal_type TEXT NOT NULL,
-        principal_id TEXT NOT NULL,
-        state_hash TEXT NOT NULL,
-        current_state_json TEXT NOT NULL,
-        current_payload_json TEXT NOT NULL,
-        current_projection_json TEXT NOT NULL,
-        current_member_envelopes_json TEXT NOT NULL,
-        previous_states_json TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (principal_type, principal_id)
-      )
-    `,
-  },
-];
 
 function isManagedPrincipalType(
   value: string,
