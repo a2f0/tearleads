@@ -21,21 +21,21 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../adapters/postgres";
-import { accessManifests, containerKeyEpochs } from "../schema";
-import { DocumentContentKeyBundleError } from "./errors/documentContentKeyStore";
+import { db } from "../../../adapters/postgres";
+import { accessManifests, containerKeyEpochs } from "../../../schema";
+import { DocumentContentKeyBundleError } from "../../errors/documentContentKeyStore";
 import {
   type DocumentContentKeyTargetEnvelope,
   getLatestCurrentDocumentContentKeyBundle,
   listDocumentContentWriteHeaders,
-} from "./read/documentContentKeyStore";
-import { resolveCurrentDocumentKekTargets } from "./read/documentKekTargets";
-import { storeVerifiedAccessManifest } from "./write/accessManifestStore";
+} from "../../read/documentContentKeyStore";
+import { resolveCurrentDocumentKekTargets } from "../../read/documentKekTargets";
+import { storeVerifiedAccessManifest } from "../../write/accessManifestStore";
 import {
   requireAndRefreshCurrentDocumentContentKeyBundle,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,
-} from "./write/documentContentKeyStore";
+} from "../../write/documentContentKeyStore";
 
 async function hashOf(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {
