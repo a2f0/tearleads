@@ -67,6 +67,22 @@ import {
 } from "../../access/write/documentContentKeyStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
+  projectionAccessManifestRecord,
+  projectionVerifiedAccessEventRecord,
+  readProjectionAccessEvent,
+  readProjectionAccessManifest,
+  readProjectionNullableString,
+  readProjectionPlainRecord,
+  readProjectionPositiveInteger,
+  readProjectionRecord,
+  readProjectionReferencedPrincipalHeads,
+  readProjectionString,
+  readProjectionStringArray,
+  readProjectionValue,
+  readProjectionVerifiedAccessEvent,
+  readProjectionVersion,
+} from "../../keyingProjectionRecords";
+import {
   containerMetadataDocuments,
   documentContainerLinks,
   documents,
@@ -83,22 +99,6 @@ import {
   createContainerWriterProjectionContext,
   resolveContainerWriterProjection,
 } from "../containers/writerProjection";
-import {
-  projectionAccessManifestRecord,
-  projectionVerifiedAccessEventRecord,
-  readProjectionAccessEvent,
-  readProjectionAccessManifest,
-  readProjectionNullableString,
-  readProjectionPlainRecord,
-  readProjectionPositiveInteger,
-  readProjectionRecord,
-  readProjectionReferencedPrincipalHeads,
-  readProjectionString,
-  readProjectionStringArray,
-  readProjectionValue,
-  readProjectionVerifiedAccessEvent,
-  readProjectionVersion,
-} from "../keyingProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 import { readCurrentCommitLsn } from "./commitLsn";
 import { documentAuditAccessFromManifest } from "./documentAuditAccess";

@@ -24,6 +24,8 @@ Routes should generally call service/workflow functions, not compose these
 modules directly. A workflow owns the atomic operation and decides which reads
 and writes must commit or roll back together.
 
+Workflow conventions live in `../workflows/README.md`.
+
 ## Implementation Layout
 
 The public API surface lives at `read/*.ts` and `write/*.ts`. New callers

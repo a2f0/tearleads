@@ -19,6 +19,15 @@ import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/write/princ
 import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
+  readProjectionAccessEvent,
+  readProjectionAccessManifest,
+  readProjectionNullableString,
+  readProjectionPlainRecord,
+  readProjectionPositiveInteger,
+  readProjectionString,
+  readProjectionValue,
+} from "../../keyingProjectionRecords";
+import {
   containerMetadataDocuments,
   containers,
   organizations,
@@ -28,15 +37,6 @@ import {
   createDocumentWithExecutor,
   DocumentMutationError,
 } from "../documents/documentMutations";
-import {
-  readProjectionAccessEvent,
-  readProjectionAccessManifest,
-  readProjectionNullableString,
-  readProjectionPlainRecord,
-  readProjectionPositiveInteger,
-  readProjectionString,
-  readProjectionValue,
-} from "../keyingProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTER_DUPLICATE_FINGERPRINT";

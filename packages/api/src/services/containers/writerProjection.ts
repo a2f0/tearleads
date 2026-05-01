@@ -34,11 +34,6 @@ import {
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
-import { containers, users } from "../../schema";
-import {
-  loadPrincipalPoliciesForContainerPaths,
-  PrincipalPolicyProjectionError,
-} from "../documents/principalPolicyProjection";
 import {
   projectionAccessManifestRecord,
   projectionVerifiedAccessEventRecord,
@@ -52,7 +47,12 @@ import {
   readProjectionValue,
   readProjectionVerifiedAccessEvent,
   readProjectionVersion,
-} from "../keyingProjectionRecords";
+} from "../../keyingProjectionRecords";
+import { containers, users } from "../../schema";
+import {
+  loadPrincipalPoliciesForContainerPaths,
+  PrincipalPolicyProjectionError,
+} from "../documents/principalPolicyProjection";
 import type { ApiServiceRuntime } from "../runtime";
 
 type ContainerWriterProjectionStatus = 403 | 404 | 409;

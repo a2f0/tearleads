@@ -9,14 +9,6 @@ import {
   getCurrentAccessManifestHead,
 } from "../access/read/accessManifestStore";
 import type { DatabaseExecutor } from "../adapters/postgres";
-import { attachmentBindings } from "../schema";
-import {
-  type ContainerAccessProjection,
-  type ContainerWriterProjectionContext,
-  ContainerWriterProjectionError,
-  createContainerWriterProjectionContext,
-  resolveContainerAccessProjection,
-} from "./containers/writerProjection";
 import {
   readProjectionNullableString,
   readProjectionPlainRecord,
@@ -25,7 +17,15 @@ import {
   readProjectionStringArray,
   readProjectionValue,
   readProjectionVersion,
-} from "./keyingProjectionRecords";
+} from "../keyingProjectionRecords";
+import { attachmentBindings } from "../schema";
+import {
+  type ContainerAccessProjection,
+  type ContainerWriterProjectionContext,
+  ContainerWriterProjectionError,
+  createContainerWriterProjectionContext,
+  resolveContainerAccessProjection,
+} from "./containers/writerProjection";
 
 export class KeyingReadAccessError extends Error {
   constructor(

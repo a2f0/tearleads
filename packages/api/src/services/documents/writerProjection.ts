@@ -26,12 +26,6 @@ import {
 } from "../../access/read/documentKekTargets";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
-  type ContainerWriterProjectionContext,
-  ContainerWriterProjectionError,
-  createContainerWriterProjectionContext,
-  resolveContainerWriterProjection,
-} from "../containers/writerProjection";
-import {
   projectionAccessManifestRecord,
   projectionVerifiedAccessEventRecord,
   readProjectionNullableString,
@@ -42,7 +36,13 @@ import {
   readProjectionStringArray,
   readProjectionValue,
   readProjectionVersion,
-} from "../keyingProjectionRecords";
+} from "../../keyingProjectionRecords";
+import {
+  type ContainerWriterProjectionContext,
+  ContainerWriterProjectionError,
+  createContainerWriterProjectionContext,
+  resolveContainerWriterProjection,
+} from "../containers/writerProjection";
 import type { ApiServiceRuntime } from "../runtime";
 
 type DocumentWriterProjectionStatus = 403 | 404 | 409;
