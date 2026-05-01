@@ -15,21 +15,33 @@ import type {
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
 import {
+  CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventBodyHash,
   computeAccessManifestHash,
+  computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
+  computeDocumentContentRecordCiphertextHash,
+  computeDocumentContentRecordMetadataHash,
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   signAccessEvent,
+  signWriteHeader,
   toFingerprint,
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import {
+  createDocument as createLoroDocument,
+  encodeVersionVector,
+  exportUpdatesSince,
+  getUpdateVersionVectors,
+} from "@tearleads/loro";
 import type {
   ContainerManifestBundle,
   ContainerMutationRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
+  DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
@@ -40,6 +52,7 @@ import {
   isContainerWriterProjectionResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
+  isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
@@ -59,11 +72,15 @@ import {
   accessManifests,
   containerKeyEpochs,
   containers,
+  documentAuditCheckpoints,
+  documentAuditEntries,
   documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
+  documentUpdateAuditEvents,
   users,
 } from "../schema";
+import { verifyDocumentAuditHistory } from "../services/documents/verifyDocumentAuditHistory";
 
 interface RootContainerFixture {
   readonly id: string;
@@ -463,6 +480,112 @@ async function createDocument(input: {
   const created = await createResponse.json();
   expect(isDocumentCreateResponse(created)).toBe(true);
   return created as DocumentCreateResponse;
+}
+
+async function createSignedDocumentSyncRequest(input: {
+  readonly created: DocumentCreateResponse;
+  readonly owner: TestUser;
+  readonly root: StoredRootFixture;
+}): Promise<{
+  readonly request: DocumentSyncRequest;
+  readonly updateId: string;
+}> {
+  const updateId = crypto.randomUUID();
+  const document = await createLoroDocument(`sync-audit-${updateId}`);
+  const partialStartVersionVector = encodeVersionVector(document);
+  document.getText("text").update(`sync audit update ${updateId}`);
+  const updateBytes = exportUpdatesSince(document, partialStartVersionVector);
+  const vectors = getUpdateVersionVectors(updateBytes);
+  const encryptedData = `encrypted-sync-audit-update:${updateId}`;
+  const organizationId = String(
+    Reflect.get(input.created.accessManifest.state, "organizationId"),
+  );
+  const writeHeader = await signWriteHeader(
+    {
+      version: 1,
+      organizationId,
+      objectKind: "document",
+      objectId: input.created.id,
+      accessManifestHash: input.created.contentKeyBundle.linkSetManifestHash,
+      contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
+      targetHash: input.created.contentKeyBundle.targetHash,
+      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+      contentRecordId: updateId,
+      nonceDomainHash: await computeContentRecordNonceDomainHash({
+        version: 1,
+        organizationId,
+        objectKind: "document",
+        objectId: input.created.id,
+        contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
+        encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+        contentRecordId: updateId,
+      }),
+      metadataHash: await computeDocumentContentRecordMetadataHash({
+        documentId: input.created.id,
+        partialEndVersionVector: vectors.partialEndVersionVector,
+        partialStartVersionVector: vectors.partialStartVersionVector,
+        updateId,
+      }),
+      ciphertextHash:
+        await computeDocumentContentRecordCiphertextHash(encryptedData),
+      writerUserId: input.owner.userId,
+      writerDeviceId: "test-device",
+      writerKeyFingerprint: input.owner.fingerprint,
+      signedAt: "2026-04-27T12:00:00.000Z",
+    },
+    input.owner.signing.signingPrivateKey,
+  );
+
+  return {
+    updateId,
+    request: {
+      contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
+      documentManifest: input.created.accessManifest,
+      expectedLinkSetManifestHash:
+        input.created.contentKeyBundle.linkSetManifestHash,
+      expectedTargetHash: input.created.contentKeyBundle.targetHash,
+      authorizingContainerPaths: [
+        [input.root.bundle as unknown as Record<string, unknown>],
+      ],
+      localVersionVector: null,
+      outgoingUpdates: [
+        {
+          checkpointKind: "fresh_baseline",
+          encryptedData,
+          id: updateId,
+          partialStartVersionVector: vectors.partialStartVersionVector,
+          partialEndVersionVector: vectors.partialEndVersionVector,
+          sourceVersionVector: partialStartVersionVector,
+          writeHeader: writeHeader as unknown as Record<string, unknown>,
+        },
+      ],
+    },
+  };
+}
+
+async function countDocumentAuditRows(documentId: string, updateId: string) {
+  const [auditEntries, updateEvents, checkpoints] = await Promise.all([
+    db
+      .select({
+        entryHash: documentAuditEntries.entryHash,
+        id: documentAuditEntries.id,
+      })
+      .from(documentAuditEntries)
+      .where(eq(documentAuditEntries.documentId, documentId)),
+    db
+      .select({ liveUpdateId: documentUpdateAuditEvents.liveUpdateId })
+      .from(documentUpdateAuditEvents)
+      .where(eq(documentUpdateAuditEvents.liveUpdateId, updateId)),
+    db
+      .select({
+        baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
+        coveredAuditEntryHash: documentAuditCheckpoints.coveredAuditEntryHash,
+      })
+      .from(documentAuditCheckpoints)
+      .where(eq(documentAuditCheckpoints.baselineUpdateId, updateId)),
+  ]);
+
+  return { auditEntries, checkpoints, updateEvents };
 }
 
 async function buildRootGrantRequest(input: {
@@ -970,6 +1093,68 @@ test("GET /documents/:documentId/writer-projection returns document targets and 
     created.contentKeyBundle.targetHash,
   );
   expect(projection.authorizingContainerPaths).toHaveLength(1);
+});
+
+test("POST /documents/:documentId/sync writes audit rows for accepted live updates", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request, updateId } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+
+  const syncResponse = await routeApp.request(`/documents/${created.id}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+  expect(syncResponse.status).toBe(200);
+  const synced = await syncResponse.json();
+  expect(isDocumentSyncResponse(synced)).toBe(true);
+  expect(synced.acceptedOutgoingUpdateIds).toEqual([updateId]);
+
+  const retryResponse = await routeApp.request(
+    `/documents/${created.id}/sync`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  expect(retryResponse.status).toBe(200);
+  const retried = await retryResponse.json();
+  expect(isDocumentSyncResponse(retried)).toBe(true);
+  expect(retried.acceptedOutgoingUpdateIds).toEqual([updateId]);
+
+  const { auditEntries, checkpoints, updateEvents } =
+    await countDocumentAuditRows(created.id, updateId);
+  expect(auditEntries).toHaveLength(1);
+  expect(updateEvents).toEqual([{ liveUpdateId: updateId }]);
+  expect(checkpoints).toHaveLength(1);
+  expect(checkpoints[0]?.coveredAuditEntryHash).toBe(
+    auditEntries[0]?.entryHash,
+  );
+
+  const auditHistory = await verifyDocumentAuditHistory(db, {
+    documentId: created.id,
+  });
+  expect(auditHistory).toMatchObject({
+    attachmentEventCount: 0,
+    auditEntryCount: 1,
+    checkpointCount: 1,
+    isValid: true,
+    updateEventCount: 1,
+  });
 });
 
 test("GET /documents/:documentId/writer-projection refreshes same-epoch root share targets", async () => {

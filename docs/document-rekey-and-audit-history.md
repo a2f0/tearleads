@@ -270,7 +270,7 @@ of trying to reinterpret live GC tables as durable history.
 
 ### Phase 1: Audit Model And Storage Boundary
 
-Status: implemented at schema/helper level.
+Status: implemented for schema/helpers and the current signed write paths.
 
 Deliverables:
 
@@ -280,8 +280,11 @@ Deliverables:
 - historical access-material model for old epochs if historical replay needs
  old wrapped keys
 
-This phase answered the storage boundary. Live write-path wiring remains
-separate work for the signed document and blob mutation paths.
+This phase answered the storage boundary. The signed document sync path now
+appends audit entries for newly accepted live updates and writes checkpoint
+rows for accepted baseline updates. Signed blob attachment bind, same-slot
+replace, and detach paths append attachment audit events and ensure
+`blob_audit_objects` coverage for referenced live blobs.
 
 ### Phase 2: Baseline Checkpoints Commit To History
 
@@ -349,21 +352,21 @@ Only after the write-side model is stable should we add read paths such as:
 Fresh-client historical replay is a later slice. It should not block the core
 write-side audit model.
 
-## Next Slice
+## Live Write-Path Wiring
 
-The next concrete step is live write-path wiring:
+The current live write-path wiring:
 
-- call `appendDocumentUpdateAuditEntries(...)` from the signed
+- calls `appendDocumentUpdateAuditEntries(...)` from the signed
  `/documents/:documentId/sync` transaction for newly accepted updates
-- call `maybeWriteDocumentAuditCheckpoint(...)` for accepted updates marked
+- calls `maybeWriteDocumentAuditCheckpoint(...)` for accepted updates marked
  `fresh_baseline` or `rotate_baseline`
-- call `appendDocumentAttachmentAuditEntries(...)` from signed blob
- bind/detach transactions before live blob pruning can remove metadata needed
- for `blob_audit_objects`
-- preserve idempotency for retried document updates and retried attachment
- events
-- add route/service coverage that proves normal writes populate the audit
- tables, not only the audit helper tests
+- calls `appendDocumentAttachmentAuditEntries(...)` from signed blob
+ bind/replace/detach transactions before live blob pruning can remove
+ metadata needed for `blob_audit_objects`
+- preserves audit idempotency for retried document sync updates by appending
+ audit rows only for updates newly accepted into `document_updates`
+- has route/service coverage proving normal writes populate the audit tables,
+ not only direct audit-helper tests
 
 ## Phase 1 Concrete Design
 
@@ -503,8 +506,8 @@ updates: `checkpointKind: "fresh_baseline" | "rotate_baseline"` plus
 that explicit marker.
 
 The signed sync route has the authenticated `userId` and session
-fingerprint available at the service boundary, so live wiring should record
-both `actorUserId` and `actorFingerprint`.
+fingerprint available at the service boundary, so live wiring records both
+`actorUserId` and `actorFingerprint`.
 
 #### `blob_audit_objects`
 

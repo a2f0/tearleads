@@ -6,6 +6,7 @@ import type {
   ContentRecordEncryptionSuite,
   KeyingCanonicalJson,
   VerifiedAttachmentBinding,
+  VerifiedAttachmentDetach,
   VerifiedBlobKekTargets,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
@@ -53,6 +54,8 @@ import {
   applyContainerRekeys,
   ContainerMutationError,
 } from "../containers/mutations";
+import { appendDocumentAttachmentAuditEntries } from "../documents/documentAttachmentAuditEvents";
+import { documentAuditAccessFromManifest } from "../documents/documentAuditAccess";
 import {
   assertCurrentContainerPathGroups,
   assertDocumentManifestBundleConsistent,
@@ -744,6 +747,61 @@ async function detachActiveSlotBinding(input: {
     .where(eq(attachmentBindings.id, input.activeBinding.id));
 }
 
+async function appendAttachmentAuditEvent(input: {
+  readonly activeBinding: ActiveAttachmentBindingRow | null;
+  readonly binding: VerifiedAttachmentBinding;
+  readonly executor: DatabaseExecutor;
+  readonly fingerprint: string;
+  readonly manifest: VerifiedDocumentLinkSetManifest;
+  readonly userId: string;
+}): Promise<void> {
+  const auditAccess = await documentAuditAccessFromManifest(input.manifest);
+
+  await appendDocumentAttachmentAuditEntries(input.executor, {
+    ...auditAccess,
+    actorFingerprint: input.fingerprint,
+    actorUserId: input.userId,
+    documentId: input.binding.documentId,
+    events: [
+      {
+        action: input.activeBinding ? "replace" : "attach",
+        bindingId: input.binding.bindingId,
+        blobId: input.binding.blobId,
+        previousBindingId: input.activeBinding?.id ?? null,
+        previousBlobId: input.activeBinding?.blobId ?? null,
+        slotId: input.binding.slotId,
+      },
+    ],
+  });
+}
+
+async function appendAttachmentDetachAuditEvent(input: {
+  readonly detach: VerifiedAttachmentDetach;
+  readonly executor: DatabaseExecutor;
+  readonly fingerprint: string;
+  readonly manifest: VerifiedDocumentLinkSetManifest;
+  readonly userId: string;
+}): Promise<void> {
+  const auditAccess = await documentAuditAccessFromManifest(input.manifest);
+
+  await appendDocumentAttachmentAuditEntries(input.executor, {
+    ...auditAccess,
+    actorFingerprint: input.fingerprint,
+    actorUserId: input.userId,
+    documentId: input.detach.documentId,
+    events: [
+      {
+        action: "detach",
+        bindingId: input.detach.bindingId,
+        blobId: input.detach.blobId,
+        previousBindingId: null,
+        previousBlobId: null,
+        slotId: input.detach.slotId,
+      },
+    ],
+  });
+}
+
 function toBindResponse(input: {
   readonly binding: VerifiedAttachmentBinding;
   readonly blobId: string;
@@ -869,6 +927,14 @@ export async function bindBlobAttachment(
         stagedBlob,
         userId: input.userId,
       });
+      await appendAttachmentAuditEvent({
+        activeBinding,
+        binding: verifiedBinding.value,
+        executor: tx,
+        fingerprint: input.fingerprint,
+        manifest: proof.documentManifest,
+        userId: input.userId,
+      });
 
       return toBindResponse({
         binding: verifiedBinding.value,
@@ -948,6 +1014,13 @@ export async function detachBlobAttachment(
       }
 
       await storeVerifiedAttachmentDetach(verifiedDetach.value, tx);
+      await appendAttachmentDetachAuditEvent({
+        detach: verifiedDetach.value,
+        executor: tx,
+        fingerprint: input.fingerprint,
+        manifest: proof.documentManifest,
+        userId: input.userId,
+      });
 
       return {
         bindingId: verifiedDetach.value.bindingId,

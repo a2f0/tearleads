@@ -101,6 +101,9 @@ import {
 } from "../keyingProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 import { readCurrentCommitLsn } from "./commitLsn";
+import { documentAuditAccessFromManifest } from "./documentAuditAccess";
+import { maybeWriteDocumentAuditCheckpoint } from "./documentAuditCheckpoints";
+import { appendDocumentUpdateAuditEntries } from "./documentAuditEntries";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
   DocumentUpdateReadError,
@@ -146,6 +149,8 @@ interface MutateDocumentLinkSetInput {
 
 interface AppendDocumentUpdatesInput {
   readonly accessEpoch: number;
+  readonly accessManifestHash: string;
+  readonly accessStateHash: string | null;
   readonly documentId: string;
   readonly executor: DatabaseExecutor;
   readonly fingerprint: string;
@@ -1586,9 +1591,9 @@ async function insertNewDocumentUpdates(input: {
   readonly executor: DatabaseExecutor;
   readonly fingerprint: string;
   readonly updates: readonly DocumentOutgoingUpdate[];
-}): Promise<void> {
+}): Promise<ReadonlySet<string>> {
   if (input.updates.length === 0) {
-    return;
+    return new Set<string>();
   }
 
   const insertedRows = await input.executor
@@ -1610,6 +1615,82 @@ async function insertNewDocumentUpdates(input: {
     documentId: input.documentId,
     updates: input.updates.filter((update) => insertedUpdateIds.has(update.id)),
   });
+
+  return insertedUpdateIds;
+}
+
+async function appendAuditEntriesForNewDocumentUpdates(input: {
+  readonly accessEpoch: number;
+  readonly accessManifestHash: string;
+  readonly accessStateHash: string | null;
+  readonly documentId: string;
+  readonly executor: DatabaseExecutor;
+  readonly fingerprint: string;
+  readonly updates: readonly DocumentOutgoingUpdate[];
+  readonly userId: string;
+}): Promise<void> {
+  if (input.updates.length === 0) {
+    return;
+  }
+
+  const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(
+    input.executor,
+    {
+      accessEpoch: input.accessEpoch,
+      accessManifestHash: input.accessManifestHash,
+      accessStateHash: input.accessStateHash,
+      actorFingerprint: input.fingerprint,
+      actorUserId: input.userId,
+      documentId: input.documentId,
+      updates: input.updates,
+    },
+  );
+
+  for (const update of input.updates) {
+    const coveredAuditEntryHash = auditEntryHashByUpdateId.get(update.id);
+    if (update.checkpointKind) {
+      if (!coveredAuditEntryHash) {
+        throw new Error(
+          `Missing audit entry hash for checkpoint update ${update.id}`,
+        );
+      }
+      await maybeWriteDocumentAuditCheckpoint(input.executor, {
+        accessEpoch: input.accessEpoch,
+        accessManifestHash: input.accessManifestHash,
+        accessStateHash: input.accessStateHash,
+        actorFingerprint: input.fingerprint,
+        actorUserId: input.userId,
+        checkpointUpdate: update,
+        coveredAuditEntryHash,
+        documentId: input.documentId,
+      });
+    }
+  }
+}
+
+async function loadExistingDocumentUpdateRows(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseExecutor;
+  readonly updateIds: readonly string[];
+}) {
+  const existingRows = await input.executor
+    .select({
+      documentId: documentUpdates.documentId,
+      encryptedData: documentUpdates.encryptedData,
+      id: documentUpdates.id,
+      partialEndVersionVector: documentUpdates.partialEndVersionVector,
+      partialStartVersionVector: documentUpdates.partialStartVersionVector,
+    })
+    .from(documentUpdates)
+    .where(inArray(documentUpdates.id, input.updateIds));
+
+  for (const row of existingRows) {
+    if (row.documentId !== input.documentId) {
+      throw new DocumentMutationError("Document update id conflict", 409);
+    }
+  }
+
+  return existingRows;
 }
 
 async function appendDocumentUpdates(
@@ -1622,21 +1703,11 @@ async function appendDocumentUpdates(
   const updateIds = uniqueSortedStrings(
     input.request.outgoingUpdates.map((update) => update.id),
   );
-  const existingRows = await input.executor
-    .select({
-      documentId: documentUpdates.documentId,
-      encryptedData: documentUpdates.encryptedData,
-      id: documentUpdates.id,
-      partialEndVersionVector: documentUpdates.partialEndVersionVector,
-      partialStartVersionVector: documentUpdates.partialStartVersionVector,
-    })
-    .from(documentUpdates)
-    .where(inArray(documentUpdates.id, updateIds));
-  for (const row of existingRows) {
-    if (row.documentId !== input.documentId) {
-      throw new DocumentMutationError("Document update id conflict", 409);
-    }
-  }
+  const existingRows = await loadExistingDocumentUpdateRows({
+    documentId: input.documentId,
+    executor: input.executor,
+    updateIds,
+  });
   const existingRowsById = new Map(existingRows.map((row) => [row.id, row]));
   const acceptedUpdateIds = new Set(existingRowsById.keys());
   const acceptedHeaderHashes = new Map(
@@ -1690,12 +1761,22 @@ async function appendDocumentUpdates(
     newUpdates.push(update);
   }
 
-  await insertNewDocumentUpdates({
+  const insertedUpdateIds = await insertNewDocumentUpdates({
     accessEpoch: input.accessEpoch,
     documentId: input.documentId,
     executor: input.executor,
     fingerprint: input.fingerprint,
     updates: newUpdates,
+  });
+  await appendAuditEntriesForNewDocumentUpdates({
+    accessEpoch: input.accessEpoch,
+    accessManifestHash: input.accessManifestHash,
+    accessStateHash: input.accessStateHash,
+    documentId: input.documentId,
+    executor: input.executor,
+    fingerprint: input.fingerprint,
+    updates: newUpdates.filter((update) => insertedUpdateIds.has(update.id)),
+    userId: input.userId,
   });
 
   return acceptedOutgoingUpdateIds(
@@ -1822,8 +1903,17 @@ async function syncDocumentTransaction(input: {
         expectedTargetHash: input.request.expectedTargetHash,
         executor: input.tx,
       });
+  const auditAccess = writeAuthorization
+    ? await documentAuditAccessFromManifest(writeAuthorization.documentManifest)
+    : {
+        accessEpoch: currentTargets.linkSetEpoch,
+        accessManifestHash: currentTargets.linkSetManifestHash,
+        accessStateHash: null,
+      };
   const acceptedOutgoingUpdateIds = await appendDocumentUpdates({
-    accessEpoch: currentTargets.linkSetEpoch,
+    accessEpoch: auditAccess.accessEpoch,
+    accessManifestHash: auditAccess.accessManifestHash,
+    accessStateHash: auditAccess.accessStateHash,
     documentId: input.documentId,
     executor: input.tx,
     fingerprint: input.fingerprint,

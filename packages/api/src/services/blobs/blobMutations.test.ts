@@ -31,7 +31,7 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
@@ -46,11 +46,15 @@ import {
 import { db } from "../../adapters/postgres";
 import {
   attachmentBindings,
+  blobAuditObjects,
   containers,
+  documentAttachmentAuditEvents,
+  documentAuditEntries,
   documentContainerLinks,
   documents,
   users,
 } from "../../schema";
+import { verifyDocumentAuditHistory } from "../documents/verifyDocumentAuditHistory";
 import {
   BlobMutationError,
   bindBlobAttachment,
@@ -636,6 +640,70 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
     (await loadAttachmentBinding(replacementBind.verifiedBinding.bindingId))
       ?.detachedAt,
   ).toBeInstanceOf(Date);
+
+  const attachmentAuditEvents = await db
+    .select({
+      action: documentAttachmentAuditEvents.action,
+      bindingId: documentAttachmentAuditEvents.bindingId,
+      blobId: documentAttachmentAuditEvents.blobId,
+      previousBindingId: documentAttachmentAuditEvents.previousBindingId,
+      previousBlobId: documentAttachmentAuditEvents.previousBlobId,
+      slotId: documentAttachmentAuditEvents.slotId,
+    })
+    .from(documentAttachmentAuditEvents)
+    .innerJoin(
+      documentAuditEntries,
+      eq(documentAuditEntries.id, documentAttachmentAuditEvents.auditEntryId),
+    )
+    .where(
+      eq(documentAuditEntries.documentId, document.bundle.state.documentId),
+    )
+    .orderBy(documentAuditEntries.sequence);
+  expect(attachmentAuditEvents).toEqual([
+    {
+      action: "attach",
+      bindingId: firstBind.verifiedBinding.bindingId,
+      blobId: firstBlobId,
+      previousBindingId: null,
+      previousBlobId: null,
+      slotId: "slot-a",
+    },
+    {
+      action: "replace",
+      bindingId: replacementBind.verifiedBinding.bindingId,
+      blobId: replacementBlobId,
+      previousBindingId: firstBind.verifiedBinding.bindingId,
+      previousBlobId: firstBlobId,
+      slotId: "slot-a",
+    },
+    {
+      action: "detach",
+      bindingId: replacementBind.verifiedBinding.bindingId,
+      blobId: replacementBlobId,
+      previousBindingId: null,
+      previousBlobId: null,
+      slotId: "slot-a",
+    },
+  ]);
+
+  const auditedBlobs = await db
+    .select({ blobId: blobAuditObjects.blobId })
+    .from(blobAuditObjects)
+    .where(inArray(blobAuditObjects.blobId, [firstBlobId, replacementBlobId]));
+  expect(new Set(auditedBlobs.map((blob) => blob.blobId))).toEqual(
+    new Set([firstBlobId, replacementBlobId]),
+  );
+
+  const auditHistory = await verifyDocumentAuditHistory(db, {
+    documentId: document.bundle.state.documentId,
+  });
+  expect(auditHistory).toMatchObject({
+    attachmentEventCount: 3,
+    auditEntryCount: 3,
+    checkpointCount: 0,
+    isValid: true,
+    updateEventCount: 0,
+  });
 });
 
 test("bindBlobAttachment applies optional container rekeys before target validation", async () => {
