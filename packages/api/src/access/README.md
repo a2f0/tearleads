@@ -46,5 +46,7 @@ Allowed dependency direction:
 - `write/internal/` may depend on `read/internal/` and `shared/internal/`
 - `shared/internal/` must not depend on `read/internal/` or `write/internal/`
 
+The access dependency direction is enforced by `bun run lint:architecture`.
+
 Shared public errors live under `errors/` when an error can be thrown by both
 read and write APIs.
