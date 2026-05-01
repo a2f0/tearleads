@@ -1,9 +1,14 @@
 import { isPlainObject } from "../isPlainObject";
 import {
+  type AccessManifestBundleWire,
   hasArrayProperty,
   hasNullableStringProperty,
-  hasNumberProperty,
+  hasPositiveIntegerProperty,
   hasStringProperty,
+  isAccessManifestBundleWireResponse,
+  isNonEmptyStringArray,
+  isRecordArray,
+  isStringArray,
 } from "../util";
 import {
   type ContainerWriterProjectionResponse,
@@ -36,12 +41,8 @@ export interface DocumentContentKeyBundleResponse {
   targets: DocumentContentKeyTargetEnvelopeResponse[];
 }
 
-export interface DocumentManifestBundleResponse {
-  event: Record<string, unknown>;
-  manifest: Record<string, unknown>;
-  manifestHash: string;
-  state: Record<string, unknown>;
-}
+export interface DocumentManifestBundleResponse
+  extends AccessManifestBundleWire {}
 
 export interface DocumentCreateResponse {
   id: string;
@@ -89,74 +90,8 @@ export interface DocumentWriterProjectionResponse {
   authorizingContainerPaths: ContainerWriterProjectionResponse[];
 }
 
-function isRecordArray(value: unknown): value is Record<string, unknown>[] {
-  return Array.isArray(value) && value.every(isPlainObject);
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((entry) => typeof entry === "string")
-  );
-}
-
-function isNonEmptyStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) &&
-    value.length > 0 &&
-    value.every((entry) => typeof entry === "string" && entry.length > 0)
-  );
-}
-
 function isMissingUpdateEpoch(value: unknown) {
   return value === "prior_epoch" || value === "current_epoch";
-}
-
-function hasPositiveNumberProperty<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): value is Record<string, unknown> & Record<Key, number> {
-  return (
-    hasNumberProperty(value, key) &&
-    Number.isInteger(value[key]) &&
-    value[key] > 0
-  );
-}
-
-function isAccessEventBundleResponse(
-  value: unknown,
-): value is Record<string, unknown> {
-  const signedEvent = isPlainObject(value)
-    ? Reflect.get(value, "event")
-    : undefined;
-  const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isPlainObject(signedEvent) &&
-    Reflect.has(value, "body") &&
-    body !== undefined &&
-    hasStringProperty(value, "eventHash") &&
-    value.eventHash.length > 0
-  );
-}
-
-function isDocumentManifestBundleResponse(
-  value: unknown,
-): value is DocumentManifestBundleResponse {
-  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
-  const manifest = isPlainObject(value)
-    ? Reflect.get(value, "manifest")
-    : undefined;
-  const state = isPlainObject(value) ? Reflect.get(value, "state") : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isAccessEventBundleResponse(event) &&
-    isPlainObject(manifest) &&
-    hasStringProperty(value, "manifestHash") &&
-    value.manifestHash.length > 0 &&
-    isPlainObject(state)
-  );
 }
 
 function isDocumentContentKeyTargetEnvelopeResponse(
@@ -174,7 +109,7 @@ function isDocumentContentKeyTargetEnvelopeResponse(
     value.containerManifestHash.length > 0 &&
     hasStringProperty(value, "containerKeyEpochId") &&
     value.containerKeyEpochId.length > 0 &&
-    hasPositiveNumberProperty(value, "containerKeyEpoch") &&
+    hasPositiveIntegerProperty(value, "containerKeyEpoch") &&
     hasStringProperty(value, "wrappedKey") &&
     value.wrappedKey.length > 0 &&
     isPlainObject(wrappingMetadata)
@@ -207,7 +142,7 @@ function isDocumentContentKeyBundleResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "documentId") &&
-    hasPositiveNumberProperty(value, "contentKeyEpoch") &&
+    hasPositiveIntegerProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "linkSetManifestHash") &&
     value.linkSetManifestHash.length > 0 &&
     hasStringProperty(value, "targetHash") &&
@@ -227,7 +162,7 @@ function isDocumentSyncUpdateResponse(
 
   return (
     isPlainObject(value) &&
-    hasPositiveNumberProperty(value, "accessEpoch") &&
+    hasPositiveIntegerProperty(value, "accessEpoch") &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "documentId") &&
     hasStringProperty(value, "authorFingerprint") &&
@@ -258,7 +193,7 @@ export function isDocumentCreateResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "createdAt") &&
-    isDocumentManifestBundleResponse(accessManifest) &&
+    isAccessManifestBundleWireResponse(accessManifest) &&
     isDocumentContentKeyBundleResponse(contentKeyBundle) &&
     isDocumentKekTargetsResponse(documentKekTargets)
   );
@@ -280,7 +215,7 @@ export function isDocumentLinkSetMutationResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
-    isDocumentManifestBundleResponse(accessManifest) &&
+    isAccessManifestBundleWireResponse(accessManifest) &&
     isDocumentContentKeyBundleResponse(contentKeyBundle) &&
     isDocumentKekTargetsResponse(documentKekTargets)
   );
@@ -327,7 +262,7 @@ export function isDocumentWriterProjectionResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "documentId") &&
-    isDocumentManifestBundleResponse(documentManifest) &&
+    isAccessManifestBundleWireResponse(documentManifest) &&
     isDocumentKekTargetsResponse(documentKekTargets) &&
     isDocumentContentKeyBundleResponse(contentKeyBundle) &&
     hasArrayProperty(value, "authorizingContainerPaths") &&

@@ -127,7 +127,6 @@
       "dependencies": {
         "@noble/post-quantum": "0.5.4",
         "@tearleads/encoding": "workspace:*",
-        "@tearleads/validators": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",

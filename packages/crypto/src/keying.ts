@@ -1,6 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toFingerprint } from "./fingerprint";
+import { isPlainObject } from "./plainObject";
 import type {
   PrincipalProjectionMember,
   PrincipalStatePayloadCipherSuite,

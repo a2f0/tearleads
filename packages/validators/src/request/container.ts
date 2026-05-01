@@ -1,12 +1,14 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasStringProperty } from "../util";
+import {
+  type AccessManifestBundleWire,
+  hasStringProperty,
+  isAccessManifestBundleWire,
+  isOptionalAccessManifestBundleWireArray,
+  isOptionalRecordArray,
+  isRecordArray,
+} from "../util";
 
-export interface ContainerManifestBundle {
-  event: Record<string, unknown>;
-  manifest: Record<string, unknown>;
-  manifestHash: string;
-  state: Record<string, unknown>;
-}
+export interface ContainerManifestBundle extends AccessManifestBundleWire {}
 
 export interface ContainerMutationRequest {
   event: Record<string, unknown>;
@@ -23,47 +25,6 @@ export interface ContainerMutationRequest {
   containerManifestHistory?: ContainerManifestBundle[];
   parentKekState?: Record<string, unknown> | null;
   userRecipientKeys?: Record<string, unknown>[];
-}
-
-function isRecordArray(value: unknown): value is Record<string, unknown>[] {
-  return Array.isArray(value) && value.every(isPlainObject);
-}
-
-function isOptionalRecordArray(
-  value: unknown,
-): value is Record<string, unknown>[] | undefined {
-  return value === undefined || isRecordArray(value);
-}
-
-function isContainerManifestBundle(
-  value: unknown,
-): value is ContainerManifestBundle {
-  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
-  const manifest = isPlainObject(value)
-    ? Reflect.get(value, "manifest")
-    : undefined;
-  const state = isPlainObject(value) ? Reflect.get(value, "state") : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isPlainObject(event) &&
-    isPlainObject(manifest) &&
-    hasStringProperty(value, "manifestHash") &&
-    value.manifestHash.length > 0 &&
-    isPlainObject(state)
-  );
-}
-
-function isContainerManifestBundleArray(
-  value: unknown,
-): value is ContainerManifestBundle[] {
-  return Array.isArray(value) && value.every(isContainerManifestBundle);
-}
-
-function isOptionalContainerManifestBundleArray(
-  value: unknown,
-): value is ContainerManifestBundle[] | undefined {
-  return value === undefined || isContainerManifestBundleArray(value);
 }
 
 function isOptionalParentKekState(
@@ -119,14 +80,14 @@ export function isContainerMutationRequest(
     isPlainObject(manifest) &&
     (previousManifest === undefined ||
       previousManifest === null ||
-      isContainerManifestBundle(previousManifest)) &&
-    isOptionalContainerManifestBundleArray(previousContainerPath) &&
-    isOptionalContainerManifestBundleArray(parentContainerPath) &&
-    isOptionalContainerManifestBundleArray(destinationParentContainerPath) &&
+      isAccessManifestBundleWire(previousManifest)) &&
+    isOptionalAccessManifestBundleWireArray(previousContainerPath) &&
+    isOptionalAccessManifestBundleWireArray(parentContainerPath) &&
+    isOptionalAccessManifestBundleWireArray(destinationParentContainerPath) &&
     isOptionalRecordArray(principalPolicies) &&
     isPlainObject(keyEpoch) &&
     isRecordArray(wraps) &&
-    isOptionalContainerManifestBundleArray(containerManifestHistory) &&
+    isOptionalAccessManifestBundleWireArray(containerManifestHistory) &&
     isOptionalParentKekState(parentKekState) &&
     isOptionalRecordArray(userRecipientKeys)
   );
