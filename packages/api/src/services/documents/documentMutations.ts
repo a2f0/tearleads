@@ -40,11 +40,11 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
+  AccessManifestBundleWireResponse,
   DocumentContentKeyBundleResponse,
   DocumentCreateResponse,
   DocumentKekTargetsResponse,
   DocumentLinkSetMutationResponse,
-  DocumentManifestBundleResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { eq, inArray } from "drizzle-orm";
@@ -482,7 +482,7 @@ function readDocumentManifestEvent(
 
 function documentManifestBundleRecord(
   manifest: VerifiedDocumentLinkSetManifest,
-): DocumentManifestBundleResponse {
+): AccessManifestBundleWireResponse {
   return {
     event: projectionVerifiedAccessEventRecord(manifest.event),
     manifest: projectionAccessManifestRecord(manifest.manifest),

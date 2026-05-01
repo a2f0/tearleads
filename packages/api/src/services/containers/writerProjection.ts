@@ -20,8 +20,8 @@ import {
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import type {
+  AccessManifestBundleWireResponse,
   ContainerKekResponse,
-  ContainerManifestBundleResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { eq, inArray } from "drizzle-orm";
@@ -76,7 +76,7 @@ interface ContainerPathRow {
 
 export interface ContainerAccessProjection {
   readonly accessLevel: ContainerAccessLevel;
-  readonly path: ContainerManifestBundleResponse[];
+  readonly path: AccessManifestBundleWireResponse[];
   readonly principalPolicies: VerifiedPrincipalPolicy[];
   readonly verifiedPath: VerifiedContainerAccessManifest[];
 }
@@ -90,21 +90,21 @@ export interface ContainerWriterProjectionContext {
   readonly executor: DatabaseExecutor;
   readonly currentManifestBundleByContainerId: Map<
     string,
-    Promise<ContainerManifestBundleResponse>
+    Promise<AccessManifestBundleWireResponse>
   >;
   readonly manifestBundleByHash: Map<
     string,
-    Promise<ContainerManifestBundleResponse>
+    Promise<AccessManifestBundleWireResponse>
   >;
 }
 
 interface ContainerKekManifestHistory {
-  readonly bundles: ContainerManifestBundleResponse[];
+  readonly bundles: AccessManifestBundleWireResponse[];
   readonly verified: VerifiedContainerAccessManifest[];
 }
 
 interface ContainerKekProjection {
-  readonly manifestHistory: ContainerManifestBundleResponse[];
+  readonly manifestHistory: AccessManifestBundleWireResponse[];
   readonly state: VerifiedContainerKekState;
 }
 
@@ -419,7 +419,7 @@ function toManifestBundleResponse(input: {
   readonly manifest: AccessManifest;
   readonly manifestHash: string;
   readonly state: KeyingCanonicalJson;
-}): ContainerManifestBundleResponse {
+}): AccessManifestBundleWireResponse {
   return {
     event: verifiedAccessEventRecord(input.event),
     manifest: accessManifestRecord(input.manifest),
@@ -429,7 +429,7 @@ function toManifestBundleResponse(input: {
 }
 
 function toVerifiedContainerManifest(
-  bundle: ContainerManifestBundleResponse,
+  bundle: AccessManifestBundleWireResponse,
 ): VerifiedContainerAccessManifest {
   const manifest = readAccessManifest(bundle.manifest, "Container manifest");
   return {
@@ -444,7 +444,7 @@ function toVerifiedContainerManifest(
 }
 
 function readContainerAccessState(
-  bundle: ContainerManifestBundleResponse,
+  bundle: AccessManifestBundleWireResponse,
 ): ContainerAccessManifestState {
   const record = readPlainRecord(bundle.state, "Container manifest state");
   const manifest = readAccessManifest(bundle.manifest, "Container manifest");
@@ -595,7 +595,7 @@ async function loadContainerPathRow(
 async function loadCurrentContainerManifestBundle(
   context: ContainerWriterProjectionContext,
   containerId: string,
-): Promise<ContainerManifestBundleResponse> {
+): Promise<AccessManifestBundleWireResponse> {
   // The cache is intentionally scoped to one projection transaction. That keeps
   // repeated shared ancestors consistent within the response without reusing
   // current-head or authorization material across requests.
@@ -623,7 +623,7 @@ async function loadCurrentContainerManifestBundle(
 async function loadContainerManifestBundleByHash(
   context: ContainerWriterProjectionContext,
   manifestHash: string,
-): Promise<ContainerManifestBundleResponse> {
+): Promise<AccessManifestBundleWireResponse> {
   return cachedProjectionValue(
     context.manifestBundleByHash,
     manifestHash,
@@ -671,7 +671,7 @@ async function loadContainerKekManifestHistory(input: {
     enqueue(wrap.wrapManifestHash);
   }
 
-  const bundles: ContainerManifestBundleResponse[] = [];
+  const bundles: AccessManifestBundleWireResponse[] = [];
   const verified: VerifiedContainerAccessManifest[] = [];
   while (pendingHashes.size > 0) {
     const next = pendingHashes.values().next();

@@ -1,6 +1,6 @@
 import { isPlainObject } from "../isPlainObject";
 import {
-  type AccessManifestBundleWire,
+  type AccessManifestBundleWireResponse,
   hasArrayProperty,
   hasNullableStringProperty,
   hasNumberProperty,
@@ -13,9 +13,6 @@ import {
   type ReferencedPrincipalStateResponse,
 } from "./principal";
 
-export interface ContainerManifestBundleResponse
-  extends AccessManifestBundleWire {}
-
 export interface ContainerKekResponse {
   containerId: string;
   accessManifestHash: string;
@@ -25,7 +22,7 @@ export interface ContainerKekResponse {
   keyEpochHash: string;
   keyTargetHash: string;
   parentContainerKeyEpochId: string | null;
-  containerManifestHistory?: ContainerManifestBundleResponse[];
+  containerManifestHistory?: AccessManifestBundleWireResponse[];
   recipientTargets: Record<string, unknown>[];
   wraps: Record<string, unknown>[];
 }
@@ -38,7 +35,7 @@ export interface ContainerMutationResponse {
     epoch: number;
     manifestHash: string;
   };
-  accessManifest: ContainerManifestBundleResponse;
+  accessManifest: AccessManifestBundleWireResponse;
   containerKek: ContainerKekResponse;
   referencedPrincipalHeads: Record<string, unknown>[];
 }
@@ -46,7 +43,7 @@ export interface ContainerMutationResponse {
 export interface ContainerWriterProjectionResponse {
   containerId: string;
   organizationId: string;
-  path: ContainerManifestBundleResponse[];
+  path: AccessManifestBundleWireResponse[];
   containerKeks: ContainerKekResponse[];
 }
 

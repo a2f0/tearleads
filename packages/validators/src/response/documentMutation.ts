@@ -1,6 +1,6 @@
 import { isPlainObject } from "../isPlainObject";
 import {
-  type AccessManifestBundleWire,
+  type AccessManifestBundleWireResponse,
   hasArrayProperty,
   hasNullableStringProperty,
   hasPositiveIntegerProperty,
@@ -41,20 +41,17 @@ export interface DocumentContentKeyBundleResponse {
   targets: DocumentContentKeyTargetEnvelopeResponse[];
 }
 
-export interface DocumentManifestBundleResponse
-  extends AccessManifestBundleWire {}
-
 export interface DocumentCreateResponse {
   id: string;
   createdAt: string;
-  accessManifest: DocumentManifestBundleResponse;
+  accessManifest: AccessManifestBundleWireResponse;
   contentKeyBundle: DocumentContentKeyBundleResponse;
   documentKekTargets: DocumentKekTargetsResponse;
 }
 
 export interface DocumentLinkSetMutationResponse {
   id: string;
-  accessManifest: DocumentManifestBundleResponse;
+  accessManifest: AccessManifestBundleWireResponse;
   contentKeyBundle: DocumentContentKeyBundleResponse;
   documentKekTargets: DocumentKekTargetsResponse;
 }
@@ -84,7 +81,7 @@ export interface DocumentSyncResponse {
 
 export interface DocumentWriterProjectionResponse {
   documentId: string;
-  documentManifest: DocumentManifestBundleResponse;
+  documentManifest: AccessManifestBundleWireResponse;
   documentKekTargets: DocumentKekTargetsResponse;
   contentKeyBundle: DocumentContentKeyBundleResponse;
   authorizingContainerPaths: ContainerWriterProjectionResponse[];

@@ -1,5 +1,7 @@
 export {
+  type AccessEventBundleWireResponse,
   type AccessManifestBundleWire,
+  type AccessManifestBundleWireResponse,
   isAccessEventBundleWireResponse,
   isAccessManifestBundleWire,
   isAccessManifestBundleWireArray,

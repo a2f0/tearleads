@@ -8,9 +8,20 @@ export interface AccessManifestBundleWire {
   state: Record<string, unknown>;
 }
 
+export interface AccessEventBundleWireResponse extends Record<string, unknown> {
+  body: unknown;
+  event: Record<string, unknown>;
+  eventHash: string;
+}
+
+export interface AccessManifestBundleWireResponse
+  extends AccessManifestBundleWire {
+  event: AccessEventBundleWireResponse;
+}
+
 export function isAccessEventBundleWireResponse(
   value: unknown,
-): value is Record<string, unknown> {
+): value is AccessEventBundleWireResponse {
   const signedEvent = isPlainObject(value)
     ? Reflect.get(value, "event")
     : undefined;
@@ -57,7 +68,7 @@ export function isOptionalAccessManifestBundleWireArray(
 
 export function isAccessManifestBundleWireResponse(
   value: unknown,
-): value is AccessManifestBundleWire {
+): value is AccessManifestBundleWireResponse {
   const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
   const manifest = isPlainObject(value)
     ? Reflect.get(value, "manifest")
