@@ -22,11 +22,9 @@ import {
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
-import { storeVerifiedAccessManifest } from "../../access/accessManifestStore";
-import {
-  type StoredPrincipalState,
-  storeVerifiedPrincipalState,
-} from "../../access/principalStateStore";
+import type { StoredPrincipalState } from "../../access/read/principalStateStore";
+import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
+import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import { db } from "../../adapters/postgres";
 import { containers, organizations, users } from "../../schema";
 import { listContainers } from "./listContainers";

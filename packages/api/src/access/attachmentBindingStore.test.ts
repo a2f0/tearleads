@@ -15,7 +15,7 @@ import { attachmentBindings } from "../schema";
 import {
   storeVerifiedAttachmentBinding,
   storeVerifiedAttachmentDetach,
-} from "./attachmentBindingStore";
+} from "./write/attachmentBindingStore";
 
 async function hashOf(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {

@@ -4,8 +4,8 @@ import {
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../adapters/postgres";
-import { attachmentBindings } from "../schema";
+import { type DatabaseExecutor, db } from "../../adapters/postgres";
+import { attachmentBindings } from "../../schema";
 import {
   getCurrentAccessManifestHeads,
   listAccessManifestDocumentLinkProjections,

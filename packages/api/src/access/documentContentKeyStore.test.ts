@@ -23,17 +23,19 @@ import {
 import { eq } from "drizzle-orm";
 import { db } from "../adapters/postgres";
 import { accessManifests, containerKeyEpochs } from "../schema";
-import { storeVerifiedAccessManifest } from "./accessManifestStore";
+import { DocumentContentKeyBundleError } from "./errors/documentContentKeyStore";
 import {
-  DocumentContentKeyBundleError,
   type DocumentContentKeyTargetEnvelope,
   getLatestCurrentDocumentContentKeyBundle,
   listDocumentContentWriteHeaders,
+} from "./read/documentContentKeyStore";
+import { resolveCurrentDocumentKekTargets } from "./read/documentKekTargets";
+import { storeVerifiedAccessManifest } from "./write/accessManifestStore";
+import {
   requireAndRefreshCurrentDocumentContentKeyBundle,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,
-} from "./documentContentKeyStore";
-import { resolveCurrentDocumentKekTargets } from "./documentKekTargets";
+} from "./write/documentContentKeyStore";
 
 async function hashOf(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {

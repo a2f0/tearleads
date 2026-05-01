@@ -6,7 +6,7 @@ import {
   type PrincipalStateMember,
   signPrincipalState,
 } from "@tearleads/crypto";
-import type { PrincipalStateBundleInput } from "../../src/access/principalStateStore";
+import type { PrincipalStateBundleInput } from "../../src/access/write/principalStateStore";
 
 export function createProjectionWithAdminSigner(
   signerUserId: string,

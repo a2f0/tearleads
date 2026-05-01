@@ -1,12 +1,12 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { listCurrentPrincipalMemberEnvelopes } from "../../access/principalMemberEnvelopes";
+import { listCurrentPrincipalMemberEnvelopes } from "../../access/read/principalMemberEnvelopes";
 import {
   getCurrentPrincipalState,
   getCurrentPrincipalStatePayload,
   listCurrentPrincipalProjectionMembers,
   listPrincipalStateHistory,
   type StoredPrincipalProjectionMember,
-} from "../../access/principalStateStore";
+} from "../../access/read/principalStateStore";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   PrincipalPolicyError,

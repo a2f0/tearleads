@@ -1,6 +1,6 @@
 import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
 import type { PrincipalStateResponse } from "@tearleads/validators/response";
-import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
+import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import type { ApiServiceRuntime } from "../runtime";
 import { PrincipalPolicyError, toPrincipalStateResponse } from "./shared";
 
