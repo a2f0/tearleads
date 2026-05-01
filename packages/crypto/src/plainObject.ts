@@ -1,3 +1,5 @@
+// TODO: Consolidate with the validators implementation if a neutral shared
+// package becomes justified for cross-package structural helpers.
 export function isPlainObject(
   value: unknown,
 ): value is Record<string, unknown> {
