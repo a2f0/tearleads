@@ -2921,9 +2921,7 @@ function assertDocumentSyncResponseWriteHeaderFields(input: {
   update: DocumentSyncResponse["updates"][number];
 }): void {
   const { header, plan, update } = input;
-  const mustMatchCurrentBoundary = input.plan.request.outgoingUpdates.some(
-    (outgoingUpdate) => outgoingUpdate.id === input.update.id,
-  );
+  const mustMatchCurrentBoundary = isAcceptedOutgoingSyncUpdate(plan, update);
 
   if (
     header.version !== 1 ||
@@ -2941,6 +2939,15 @@ function assertDocumentSyncResponseWriteHeaderFields(input: {
   }
 }
 
+function isAcceptedOutgoingSyncUpdate(
+  plan: DocumentSyncPlan,
+  update: DocumentSyncResponse["updates"][number],
+): boolean {
+  return plan.request.outgoingUpdates.some(
+    (outgoingUpdate) => outgoingUpdate.id === update.id,
+  );
+}
+
 function responseWriteHeaderSignatureBoundary(input: {
   plan: DocumentSyncPlan;
   update: DocumentSyncResponse["updates"][number];
@@ -2950,11 +2957,7 @@ function responseWriteHeaderSignatureBoundary(input: {
       expectedTargetHash: string;
     }
   | Record<string, never> {
-  const isAcceptedOutgoingUpdate = input.plan.request.outgoingUpdates.some(
-    (outgoingUpdate) => outgoingUpdate.id === input.update.id,
-  );
-
-  if (!isAcceptedOutgoingUpdate) {
+  if (!isAcceptedOutgoingSyncUpdate(input.plan, input.update)) {
     return {};
   }
 

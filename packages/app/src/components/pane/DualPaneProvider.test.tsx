@@ -32,6 +32,11 @@ const DUAL_PANE_TEST_TIMEOUT_MS = 10_000;
 const POST_SHARE_SYNC_SETTLE_MS = 1_500;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
+const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
+  "Document KEK targets are stale",
+  "Document content-key bundle is stale",
+  "Document write authorization manifest does not match sync request",
+] as const;
 
 type ProxiedApiRequest = ReturnType<typeof listProxiedApiRequests>[number];
 
@@ -328,16 +333,18 @@ function summarizeProxiedApiRequests(
 function isRetryableDocumentSyncStaleFailure(
   request: ProxiedApiRequest,
 ): boolean {
+  const responseBody = request.responseBody;
   return (
     request.method === "POST" &&
     request.status === 409 &&
     /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)) &&
-    (request.responseBody.includes("Document KEK targets are stale") ||
-      request.responseBody.includes("Document content-key bundle is stale") ||
-      (request.responseBody.includes("authorizingContainerPaths") &&
-        request.responseBody.includes("is stale")) ||
-      (request.responseBody.includes("targetContainerPath") &&
-        request.responseBody.includes("is stale")))
+    (RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES.some((message) =>
+      responseBody.includes(message),
+    ) ||
+      (responseBody.includes("authorizingContainerPaths") &&
+        responseBody.includes("is stale")) ||
+      (responseBody.includes("targetContainerPath") &&
+        responseBody.includes("is stale")))
   );
 }
 
@@ -421,7 +428,7 @@ async function waitForNoPostShareSyncFailures(
 }
 
 async function clickExplorerRefresh(pane: HTMLElement) {
-  await waitFor(() => {
+  const getRefreshButton = () => {
     const refreshButton = within(pane).getByRole("button", {
       name: "Refresh",
     });
@@ -429,26 +436,21 @@ async function clickExplorerRefresh(pane: HTMLElement) {
       refreshButton instanceof HTMLButtonElement,
       "Expected explorer refresh button.",
     );
-    expect(refreshButton.disabled).toBe(false);
+    return refreshButton;
+  };
+
+  await waitFor(() => {
+    expect(getRefreshButton().disabled).toBe(false);
   });
 
-  const refreshButton = within(pane).getByRole("button", {
-    name: "Refresh",
-  });
-  invariant(
-    refreshButton instanceof HTMLButtonElement,
-    "Expected explorer refresh button.",
-  );
   await interact(() => {
-    fireEvent.click(refreshButton);
+    fireEvent.click(getRefreshButton());
   });
 }
 
 async function waitForSharedNoteVisible(pane: HTMLElement) {
   await waitForCondition(
-    () =>
-      getExplorerSidebarItemsByName(pane, SHARED_NOTE_TITLE).length > 0 ||
-      pane.textContent?.includes(SHARED_NOTE_TITLE) === true,
+    () => getExplorerSidebarItemsByName(pane, SHARED_NOTE_TITLE).length > 0,
     `Peer did not discover shared note "${SHARED_NOTE_TITLE}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
 }

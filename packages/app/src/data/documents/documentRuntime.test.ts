@@ -1819,12 +1819,13 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
   });
   const plan = materialized.plan;
   const response = await createSyncResponse(plan);
+  const writerPublicKeysByFingerprint = new Map([
+    [author.signerKeyFingerprint, signingPublicKey],
+  ]);
 
   await expect(
     persistedDocumentSyncStateFromResponse(plan, response, {
-      writerPublicKeysByFingerprint: new Map([
-        [author.signerKeyFingerprint, signingPublicKey],
-      ]),
+      writerPublicKeysByFingerprint,
     }),
   ).resolves.toEqual({
     documentId: plan.documentId,
@@ -1851,9 +1852,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
         updates: [staleAcceptedUpdate],
       }),
       {
-        writerPublicKeysByFingerprint: new Map([
-          [author.signerKeyFingerprint, signingPublicKey],
-        ]),
+        writerPublicKeysByFingerprint,
       },
     ),
   ).rejects.toThrow("write header mismatch");
@@ -1884,9 +1883,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
       readOnlyMaterialized.plan,
       historicalResponse,
       {
-        writerPublicKeysByFingerprint: new Map([
-          [author.signerKeyFingerprint, signingPublicKey],
-        ]),
+        writerPublicKeysByFingerprint,
       },
     ),
   ).resolves.toEqual({
