@@ -2872,7 +2872,7 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
     "Document sync response write header",
   );
   await assertDocumentSyncResponseUpdateHashes({ header, update });
-  assertDocumentSyncResponseWriteHeaderFields({ plan, update });
+  assertDocumentSyncResponseWriteHeaderFields({ header, plan, update });
   await assertDocumentSyncResponseNonceDomain({ plan, update });
   await assertDocumentSyncResponseWriteHeaderSignature({
     header,
@@ -2916,37 +2916,52 @@ async function assertDocumentSyncResponseUpdateHashes(input: {
 }
 
 function assertDocumentSyncResponseWriteHeaderFields(input: {
+  header: WriteHeader;
   plan: DocumentSyncPlan;
   update: DocumentSyncResponse["updates"][number];
 }): void {
-  const { plan, update } = input;
+  const { header, plan, update } = input;
+  const mustMatchCurrentBoundary = input.plan.request.outgoingUpdates.some(
+    (outgoingUpdate) => outgoingUpdate.id === input.update.id,
+  );
+
   if (
-    readRecordNumber(update.writeHeader, "version", "write header") !== 1 ||
-    readRecordString(update.writeHeader, "objectKind", "write header") !==
-      "document" ||
-    readRecordString(update.writeHeader, "objectId", "write header") !==
-      plan.documentId ||
-    readRecordString(update.writeHeader, "organizationId", "write header") !==
-      plan.organizationId ||
-    readRecordString(
-      update.writeHeader,
-      "accessManifestHash",
-      "write header",
-    ) !== plan.expectedLinkSetManifestHash ||
-    readRecordNumber(update.writeHeader, "contentKeyEpoch", "write header") !==
-      plan.contentKeyEpoch ||
-    readRecordString(update.writeHeader, "targetHash", "write header") !==
-      plan.expectedTargetHash ||
-    readRecordString(update.writeHeader, "encryptionSuite", "write header") !==
-      CONTENT_RECORD_ENCRYPTION_SUITE ||
-    readRecordString(
-      update.writeHeader,
-      "writerKeyFingerprint",
-      "write header",
-    ) !== update.authorFingerprint
+    header.version !== 1 ||
+    header.objectKind !== "document" ||
+    header.objectId !== plan.documentId ||
+    header.organizationId !== plan.organizationId ||
+    header.contentKeyEpoch !== plan.contentKeyEpoch ||
+    header.encryptionSuite !== CONTENT_RECORD_ENCRYPTION_SUITE ||
+    header.writerKeyFingerprint !== update.authorFingerprint ||
+    (mustMatchCurrentBoundary &&
+      (header.accessManifestHash !== plan.expectedLinkSetManifestHash ||
+        header.targetHash !== plan.expectedTargetHash))
   ) {
     throw new Error("Document sync response write header mismatch");
   }
+}
+
+function responseWriteHeaderSignatureBoundary(input: {
+  plan: DocumentSyncPlan;
+  update: DocumentSyncResponse["updates"][number];
+}):
+  | {
+      expectedAccessManifestHash: string;
+      expectedTargetHash: string;
+    }
+  | Record<string, never> {
+  const isAcceptedOutgoingUpdate = input.plan.request.outgoingUpdates.some(
+    (outgoingUpdate) => outgoingUpdate.id === input.update.id,
+  );
+
+  if (!isAcceptedOutgoingUpdate) {
+    return {};
+  }
+
+  return {
+    expectedAccessManifestHash: input.plan.expectedLinkSetManifestHash,
+    expectedTargetHash: input.plan.expectedTargetHash,
+  };
 }
 
 async function assertDocumentSyncResponseNonceDomain(input: {
@@ -3003,13 +3018,12 @@ async function assertDocumentSyncResponseWriteHeaderSignature(input: {
   }
 
   const verified = await verifyWriteHeader({
-    expectedAccessManifestHash: plan.expectedLinkSetManifestHash,
+    ...responseWriteHeaderSignatureBoundary({ plan, update }),
     expectedObject: {
       objectKind: "document",
       objectId: plan.documentId,
       organizationId: plan.organizationId,
     },
-    expectedTargetHash: plan.expectedTargetHash,
     header,
     writerPublicKey,
   });

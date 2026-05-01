@@ -3,12 +3,16 @@ import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventHash,
+  computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
+  computeDocumentContentRecordCiphertextHash,
+  computeDocumentContentRecordMetadataHash,
   computeWriteHeaderHash,
   encryptWithDek,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   type KeyingCanonicalJson,
+  signWriteHeader,
   toFingerprint,
   verifySignedAccessEvent,
   verifyWriteHeader,
@@ -1450,6 +1454,62 @@ async function createSyncResponse(
   };
 }
 
+async function createSignedSyncResponseUpdate(input: {
+  accessManifestHash: string;
+  author: DocumentCreateAuthor;
+  id?: string | undefined;
+  plan: Awaited<ReturnType<typeof buildDocumentSyncPlan>>;
+  targetHash: string;
+}): Promise<DocumentSyncResponse["updates"][number]> {
+  const id = input.id ?? "550e8400-e29b-41d4-a716-446655440555";
+  const encryptedData = "historical encrypted update";
+  const partialStartVersionVector = "{}";
+  const partialEndVersionVector = '{"actor":3}';
+  const nonceDomain = {
+    version: 1 as const,
+    organizationId: input.plan.organizationId,
+    objectKind: "document" as const,
+    objectId: input.plan.documentId,
+    contentKeyEpoch: input.plan.contentKeyEpoch,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    contentRecordId: id,
+  };
+  const writeHeader = await signWriteHeader(
+    {
+      ...nonceDomain,
+      accessManifestHash: input.accessManifestHash,
+      targetHash: input.targetHash,
+      nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
+      metadataHash: await computeDocumentContentRecordMetadataHash({
+        documentId: input.plan.documentId,
+        partialEndVersionVector,
+        partialStartVersionVector,
+        updateId: id,
+      }),
+      ciphertextHash:
+        await computeDocumentContentRecordCiphertextHash(encryptedData),
+      writerUserId: input.author.signerUserId,
+      writerDeviceId: input.author.signerDeviceId,
+      writerKeyFingerprint: input.author.signerKeyFingerprint,
+      signedAt: "2026-04-27T00:00:00.000Z",
+    },
+    input.author.signerPrivateKey,
+  );
+
+  return {
+    accessEpoch: 1,
+    id,
+    documentId: input.plan.documentId,
+    authorFingerprint: input.author.signerKeyFingerprint,
+    encryptedData,
+    partialStartVersionVector,
+    partialEndVersionVector,
+    createdAt: "2026-04-27T00:00:00.000Z",
+    writeHeader: writeHeader as unknown as Record<string, unknown>,
+    writeHeaderHash: await computeWriteHeaderHash(writeHeader),
+  };
+}
+
 test("buildDocumentSyncPlan signs document write headers with the current access boundary", async () => {
   const { author, createResponse, projection, signingPublicKey } =
     await createSyncFixture();
@@ -1771,6 +1831,71 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
     contentKeyBundle: JSON.stringify(response.contentKeyBundle),
     documentKekTargets: JSON.stringify(response.documentKekTargets),
     documentManifestBundle: JSON.stringify(plan.documentManifest),
+  });
+
+  const acceptedUpdate = plan.request.outgoingUpdates[0];
+  if (!acceptedUpdate) {
+    throw new Error("Expected outgoing update fixture.");
+  }
+  const staleAcceptedUpdate = await createSignedSyncResponseUpdate({
+    accessManifestHash: await fixtureHash("stale-accepted-access-manifest"),
+    author,
+    id: acceptedUpdate.id,
+    plan,
+    targetHash: await fixtureHash("stale-accepted-target-hash"),
+  });
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      await createSyncResponse(plan, {
+        updates: [staleAcceptedUpdate],
+      }),
+      {
+        writerPublicKeysByFingerprint: new Map([
+          [author.signerKeyFingerprint, signingPublicKey],
+        ]),
+      },
+    ),
+  ).rejects.toThrow("write header mismatch");
+
+  const readOnlyMaterialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const historicalUpdate = await createSignedSyncResponseUpdate({
+    accessManifestHash: await fixtureHash("historical-access-manifest"),
+    author,
+    plan: readOnlyMaterialized.plan,
+    targetHash: await fixtureHash("historical-target-hash"),
+  });
+  const historicalResponse = await createSyncResponse(
+    readOnlyMaterialized.plan,
+    {
+      missingUpdateEpochs: ["current_epoch"],
+      updates: [historicalUpdate],
+    },
+  );
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      readOnlyMaterialized.plan,
+      historicalResponse,
+      {
+        writerPublicKeysByFingerprint: new Map([
+          [author.signerKeyFingerprint, signingPublicKey],
+        ]),
+      },
+    ),
+  ).resolves.toEqual({
+    documentId: readOnlyMaterialized.plan.documentId,
+    contentKeyBundle: JSON.stringify(historicalResponse.contentKeyBundle),
+    documentKekTargets: JSON.stringify(historicalResponse.documentKekTargets),
+    documentManifestBundle: JSON.stringify(
+      readOnlyMaterialized.plan.documentManifest,
+    ),
   });
 
   await expect(

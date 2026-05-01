@@ -31,6 +31,7 @@ import { PaneProvider } from "./PaneProvider";
 const DUAL_PANE_TEST_TIMEOUT_MS = 10_000;
 const POST_SHARE_SYNC_SETTLE_MS = 1_500;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
+const SHARED_NOTE_TITLE = "Peer one note with attachment";
 
 type ProxiedApiRequest = ReturnType<typeof listProxiedApiRequests>[number];
 
@@ -239,7 +240,7 @@ async function createNoteWithAttachment(pane: HTMLElement) {
   });
   await interact(() => {
     fireEvent.change(editor, {
-      target: { value: "Peer one note with attachment" },
+      target: { value: SHARED_NOTE_TITLE },
     });
   });
 
@@ -417,6 +418,39 @@ async function waitForNoPostShareSyncFailures(
     unresolvedFailures,
     `Unresolved post-share sync failures.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
   ).toEqual([]);
+}
+
+async function clickExplorerRefresh(pane: HTMLElement) {
+  await waitFor(() => {
+    const refreshButton = within(pane).getByRole("button", {
+      name: "Refresh",
+    });
+    invariant(
+      refreshButton instanceof HTMLButtonElement,
+      "Expected explorer refresh button.",
+    );
+    expect(refreshButton.disabled).toBe(false);
+  });
+
+  const refreshButton = within(pane).getByRole("button", {
+    name: "Refresh",
+  });
+  invariant(
+    refreshButton instanceof HTMLButtonElement,
+    "Expected explorer refresh button.",
+  );
+  await interact(() => {
+    fireEvent.click(refreshButton);
+  });
+}
+
+async function waitForSharedNoteVisible(pane: HTMLElement) {
+  await waitForCondition(
+    () =>
+      getExplorerSidebarItemsByName(pane, SHARED_NOTE_TITLE).length > 0 ||
+      pane.textContent?.includes(SHARED_NOTE_TITLE) === true,
+    `Peer did not discover shared note "${SHARED_NOTE_TITLE}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+  );
 }
 
 async function selectContainerAndReadId(
@@ -598,6 +632,13 @@ test(
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       postShareRequestStartIndex,
+    );
+    const postRefreshRequestStartIndex = listProxiedApiRequests().length;
+    await clickExplorerRefresh(rightPane);
+    await waitForSharedNoteVisible(rightPane);
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postRefreshRequestStartIndex,
     );
 
     const shareRequest = listProxiedApiRequests()
