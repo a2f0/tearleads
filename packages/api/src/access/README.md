@@ -29,20 +29,22 @@ and writes must commit or roll back together.
 The public API surface lives at `read/*.ts` and `write/*.ts`. New callers
 should import from those modules, not from implementation directories.
 
-Read-only implementation details live under `read/internal/`. Write-only
-implementation details live under `write/internal/`.
+Read-only implementation details may live under `read/internal/` when they are
+not consumed by write paths. Write-only implementation details live under
+`write/internal/`.
 
 Implementation that is still used by both public sides lives under
 `shared/internal/`. In practice, the larger stores remain shared because their
 read and write paths still share types, canonicalization helpers, and
-transaction-scoped validation.
+transaction-scoped validation. The KEK target resolvers also live there because
+write paths use them to validate current targets before persisting content-key
+state.
 
 Allowed dependency direction:
 
 - `read/internal/` may depend on `shared/internal/`
 - `write/internal/` may depend on `read/internal/` and `shared/internal/`
-- `shared/internal/` may depend on `read/internal/` for current-state
-  validation, but not on `write/internal/`
+- `shared/internal/` must not depend on `read/internal/` or `write/internal/`
 
 Shared public errors live under `errors/` when an error can be thrown by both
 read and write APIs.

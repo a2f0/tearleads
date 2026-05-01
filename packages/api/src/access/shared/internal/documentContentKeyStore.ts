@@ -18,7 +18,7 @@ import {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,
   type resolveCurrentDocumentKekTargets,
-} from "../../read/internal/documentKekTargets";
+} from "./documentKekTargets";
 
 type DocumentContentKeyExecutor = DatabaseExecutor;
 type CurrentDocumentKekTargets = Awaited<

@@ -9,7 +9,7 @@ import { attachmentBindings } from "../../../schema";
 import {
   getCurrentAccessManifestHeads,
   listAccessManifestDocumentLinkProjections,
-} from "../../shared/internal/accessManifestStore";
+} from "./accessManifestStore";
 import {
   ContainerKekTargetError,
   resolveCurrentContainerKekTargets,

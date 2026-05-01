@@ -6,7 +6,7 @@ import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import {
   getCurrentAccessManifestHead,
   listAccessManifestDocumentLinkProjection,
-} from "../../shared/internal/accessManifestStore";
+} from "./accessManifestStore";
 import {
   ContainerKekTargetError,
   resolveCurrentContainerKekTargets,

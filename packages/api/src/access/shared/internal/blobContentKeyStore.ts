@@ -17,7 +17,7 @@ import {
   assertBlobKekTargetsCurrent,
   BlobKekTargetError,
   type resolveCurrentBlobKekTargets,
-} from "../../read/internal/blobKekTargets";
+} from "./blobKekTargets";
 
 type BlobContentKeyExecutor = DatabaseExecutor;
 type CurrentBlobKekTargets = Awaited<

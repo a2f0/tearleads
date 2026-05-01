@@ -1,4 +1,4 @@
 export {
   BlobKekTargetError,
   resolveCurrentBlobKekTargets,
-} from "./internal/blobKekTargets";
+} from "../shared/internal/blobKekTargets";
