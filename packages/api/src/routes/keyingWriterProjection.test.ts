@@ -66,6 +66,7 @@ import {
   listContainerKeyWraps,
 } from "../access/read/containerKekStore";
 import { db } from "../adapters/postgres";
+import { verifyDocumentAuditHistory } from "../documents/verifyDocumentAuditHistory";
 import { routeApp } from "../routeApp";
 import {
   accessManifestDocumentLinkProjection,
@@ -80,7 +81,6 @@ import {
   documentUpdateAuditEvents,
   users,
 } from "../schema";
-import { verifyDocumentAuditHistory } from "../services/documents/verifyDocumentAuditHistory";
 
 interface RootContainerFixture {
   readonly id: string;

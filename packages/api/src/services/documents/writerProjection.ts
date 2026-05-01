@@ -42,7 +42,7 @@ import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
   resolveContainerWriterProjection,
-} from "../containers/writerProjection";
+} from "../../workflows/containers/writerProjection";
 import type { ApiServiceRuntime } from "../runtime";
 
 type DocumentWriterProjectionStatus = 403 | 404 | 409;

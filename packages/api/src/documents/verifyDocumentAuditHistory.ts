@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { DatabaseExecutor } from "../../adapters/postgres";
+import type { DatabaseExecutor } from "../adapters/postgres";
 import {
   type BlobAuditRetentionMode,
   type DocumentAttachmentAuditAction,
@@ -7,7 +7,7 @@ import {
   documentAuditCheckpoints,
   documentAuditEntries,
   documentUpdateAuditEvents,
-} from "../../schema";
+} from "../schema";
 import {
   computeDocumentAttachmentAuditEntryHash,
   DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT,

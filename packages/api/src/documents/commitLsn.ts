@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import type { DatabaseExecutor } from "../../adapters/postgres";
+import type { DatabaseExecutor } from "../adapters/postgres";
 
 export async function readCurrentCommitLsn(
   executor: DatabaseExecutor,

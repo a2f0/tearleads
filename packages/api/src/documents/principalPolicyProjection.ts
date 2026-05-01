@@ -13,8 +13,8 @@ import {
   principalStateReferenceKey,
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
-} from "../../access/read/principalStateStore";
-import type { DatabaseExecutor } from "../../adapters/postgres";
+} from "../access/read/principalStateStore";
+import type { DatabaseExecutor } from "../adapters/postgres";
 
 export class PrincipalPolicyProjectionError extends Error {
   readonly status = 409;

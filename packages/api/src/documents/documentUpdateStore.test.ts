@@ -6,8 +6,8 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
-import { db } from "../../adapters/postgres";
-import { documents, documentUpdates } from "../../schema";
+import { db } from "../adapters/postgres";
+import { documents, documentUpdates } from "../schema";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
   DocumentUpdateReadError,

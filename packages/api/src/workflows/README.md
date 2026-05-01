@@ -1,7 +1,7 @@
 # API Workflows
 
-Workflows are transaction-scoped write orchestration for API operations that
-must commit or roll back as one unit.
+Workflows are transaction-scoped orchestration for API operations that need a
+single database executor across composed access-plane reads and writes.
 
 They sit between route-facing services and low-level access stores:
 
@@ -10,8 +10,8 @@ routes -> services -> workflows -> access/read + access/write
 ```
 
 Services keep request/session/runtime concerns at the API boundary. Workflows
-own the atomic database operation and pass the same transaction executor through
-all access-plane reads and writes they compose.
+own the database operation and pass the same transaction executor through all
+access-plane reads and writes they compose.
 
 ## Rules
 
@@ -29,6 +29,12 @@ The dependency direction is enforced by `bun run lint:architecture`.
 
 ## Current Scope
 
-`containers/mutations.ts` is the first extracted workflow. The public service
-facade remains at `services/containers/mutations.ts` so route imports stay
-stable while the transaction implementation lives under `workflows/`.
+Container and document mutation implementations live under `workflows/`. The
+container writer-projection resolver also lives here because document writes use
+it inside their transaction to prove write access. The public service facades
+remain under `services/` so route imports stay stable while transaction
+implementations live behind the workflow boundary.
+
+Document storage, sync, and audit helpers that are not route-facing services
+live under `../documents/`. Workflows may compose those helpers with access
+read/write APIs inside a single transaction.

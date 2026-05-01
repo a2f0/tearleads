@@ -36,7 +36,7 @@ import {
 import {
   createDocumentWithExecutor,
   DocumentMutationError,
-} from "../documents/documentMutations";
+} from "../../workflows/documents/mutations";
 import type { ApiServiceRuntime } from "../runtime";
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTER_DUPLICATE_FINGERPRINT";

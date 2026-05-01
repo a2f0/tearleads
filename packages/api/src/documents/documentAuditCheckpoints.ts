@@ -1,8 +1,8 @@
 import type { DocumentCheckpointKind } from "@tearleads/loro/shared";
 import { desc, eq } from "drizzle-orm";
-import type { DatabaseExecutor } from "../../adapters/postgres";
-import { documentAuditCheckpoints, documents } from "../../schema";
-import { sha256Hex } from "../../utils/sha256";
+import type { DatabaseExecutor } from "../adapters/postgres";
+import { documentAuditCheckpoints, documents } from "../schema";
+import { sha256Hex } from "../utils/sha256";
 
 interface CheckpointInput {
   checkpointKind?: DocumentCheckpointKind | undefined;

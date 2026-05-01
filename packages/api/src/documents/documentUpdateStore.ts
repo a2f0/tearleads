@@ -2,8 +2,8 @@ import { decodeVersionVector } from "@tearleads/loro";
 import type { DocumentUpdateRecord } from "@tearleads/loro/server";
 import { parseWalLsn } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
-import type { DatabaseExecutor } from "../../adapters/postgres";
-import { documentUpdateSpans, documentUpdates } from "../../schema";
+import type { DatabaseExecutor } from "../adapters/postgres";
+import { documentUpdateSpans, documentUpdates } from "../schema";
 import { readCurrentCommitLsn } from "./commitLsn";
 
 type DocumentUpdateExecutor = DatabaseExecutor;

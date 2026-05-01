@@ -42,6 +42,7 @@ import {
 } from "../../access/read/containerKekStore";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
 import { db } from "../../adapters/postgres";
+import { verifyDocumentAuditHistory } from "../../documents/verifyDocumentAuditHistory";
 import {
   attachmentBindings,
   blobAuditObjects,
@@ -52,7 +53,6 @@ import {
   documents,
   users,
 } from "../../schema";
-import { verifyDocumentAuditHistory } from "../documents/verifyDocumentAuditHistory";
 import {
   BlobMutationError,
   bindBlobAttachment,
