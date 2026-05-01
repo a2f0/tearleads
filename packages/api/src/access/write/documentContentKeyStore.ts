@@ -1,5 +1,4 @@
 export {
-  DocumentContentKeyBundleError,
   requireAndRefreshCurrentDocumentContentKeyBundle,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,

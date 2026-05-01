@@ -26,3 +26,6 @@ and writes must commit or roll back together.
 
 The `internal/` modules hold shared implementation details for the public
 read/write APIs. New callers should import from `read/` or `write/`.
+
+Shared public errors live under `errors/` when an error can be thrown by both
+read and write APIs.
