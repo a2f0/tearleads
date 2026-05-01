@@ -13,10 +13,10 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
-import { storeVerifiedAccessManifest } from "../../access/accessManifestStore";
-import { storeVerifiedContainerKekState } from "../../access/containerKekStore";
-import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/principalMemberEnvelopes";
-import { storeVerifiedPrincipalState } from "../../access/principalStateStore";
+import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
+import { storeVerifiedContainerKekState } from "../../access/write/containerKekStore";
+import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/write/principalMemberEnvelopes";
+import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
   containerMetadataDocuments,

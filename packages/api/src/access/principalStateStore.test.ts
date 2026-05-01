@@ -21,8 +21,8 @@ import {
   getPrincipalStatesForReferences,
   listPrincipalProjectionMembersForStates,
   principalStateReferenceKey,
-  storeVerifiedPrincipalState,
-} from "./principalStateStore";
+} from "./read/principalStateStore";
+import { storeVerifiedPrincipalState } from "./write/principalStateStore";
 
 async function createPrincipalStateSigner(
   signingPublicKey: Uint8Array,

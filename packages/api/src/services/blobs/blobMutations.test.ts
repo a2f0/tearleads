@@ -35,14 +35,12 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
-import {
-  getAccessManifestBundle,
-  storeVerifiedAccessManifest,
-} from "../../access/accessManifestStore";
+import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
-} from "../../access/containerKekStore";
+} from "../../access/read/containerKekStore";
+import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
 import { db } from "../../adapters/postgres";
 import {
   attachmentBindings,

@@ -28,11 +28,11 @@ import { eq, inArray } from "drizzle-orm";
 import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
-} from "../../access/accessManifestStore";
+} from "../../access/read/accessManifestStore";
 import {
   getContainerKeyEpochById,
   listContainerKeyWraps,
-} from "../../access/containerKekStore";
+} from "../../access/read/containerKekStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import { containers, users } from "../../schema";
 import {

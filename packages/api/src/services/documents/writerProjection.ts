@@ -14,16 +14,16 @@ import type {
 import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
-} from "../../access/accessManifestStore";
+} from "../../access/read/accessManifestStore";
 import {
   DocumentContentKeyBundleError,
   type DocumentContentKeyTargetEnvelope,
   getLatestCurrentDocumentContentKeyBundle,
-} from "../../access/documentContentKeyStore";
+} from "../../access/read/documentContentKeyStore";
 import {
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
-} from "../../access/documentKekTargets";
+} from "../../access/read/documentKekTargets";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
   type ContainerWriterProjectionContext,

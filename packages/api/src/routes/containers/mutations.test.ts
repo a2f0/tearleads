@@ -46,11 +46,11 @@ import {
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { getAccessManifestBundle } from "../../access/accessManifestStore";
+import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
-} from "../../access/containerKekStore";
+} from "../../access/read/containerKekStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
 import {

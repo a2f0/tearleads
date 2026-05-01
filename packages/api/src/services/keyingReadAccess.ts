@@ -7,7 +7,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
-} from "../access/accessManifestStore";
+} from "../access/read/accessManifestStore";
 import type { DatabaseExecutor } from "../adapters/postgres";
 import { attachmentBindings } from "../schema";
 import {

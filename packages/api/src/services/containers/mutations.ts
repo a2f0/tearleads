@@ -37,20 +37,16 @@ import type {
 } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { eq, inArray } from "drizzle-orm";
-import {
-  getCurrentAccessManifestHead,
-  storeVerifiedAccessManifest,
-} from "../../access/accessManifestStore";
-import {
-  getCurrentContainerKeyEpoch,
-  storeVerifiedContainerKekState,
-} from "../../access/containerKekStore";
+import { getCurrentAccessManifestHead } from "../../access/read/accessManifestStore";
+import { getCurrentContainerKeyEpoch } from "../../access/read/containerKekStore";
 import {
   getCurrentPrincipalStates,
   listPrincipalProjectionMembersForStates,
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
-} from "../../access/principalStateStore";
+} from "../../access/read/principalStateStore";
+import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
+import { storeVerifiedContainerKekState } from "../../access/write/containerKekStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
   containerMetadataDocuments,

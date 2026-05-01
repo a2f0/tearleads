@@ -32,22 +32,24 @@ import type {
   BlobKekTargetsResponse,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
-import { getCurrentAccessManifestHead } from "../../access/accessManifestStore";
-import {
-  storeVerifiedAttachmentBinding,
-  storeVerifiedAttachmentDetach,
-} from "../../access/attachmentBindingStore";
-import {
-  BlobContentKeyBundleError,
-  type BlobContentKeyTargetEnvelope,
-  type StoredBlobContentKeyBundleWithTargets,
-  storeBlobContentKeyBundle,
-  storeBlobContentWriteHeader,
-} from "../../access/blobContentKeyStore";
+import { getCurrentAccessManifestHead } from "../../access/read/accessManifestStore";
+import type {
+  BlobContentKeyTargetEnvelope,
+  StoredBlobContentKeyBundleWithTargets,
+} from "../../access/read/blobContentKeyStore";
 import {
   BlobKekTargetError,
   type resolveCurrentBlobKekTargets,
-} from "../../access/blobKekTargets";
+} from "../../access/read/blobKekTargets";
+import {
+  storeVerifiedAttachmentBinding,
+  storeVerifiedAttachmentDetach,
+} from "../../access/write/attachmentBindingStore";
+import {
+  BlobContentKeyBundleError,
+  storeBlobContentKeyBundle,
+  storeBlobContentWriteHeader,
+} from "../../access/write/blobContentKeyStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import { attachmentBindings, blobStages, blobs, documents } from "../../schema";
 import {

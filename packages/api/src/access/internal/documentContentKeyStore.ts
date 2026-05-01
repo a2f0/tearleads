@@ -7,12 +7,12 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../adapters/postgres";
+import { type DatabaseExecutor, db } from "../../adapters/postgres";
 import {
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
-} from "../schema";
+} from "../../schema";
 import {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,

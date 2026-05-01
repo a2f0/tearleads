@@ -20,12 +20,12 @@ import {
 import { eq } from "drizzle-orm";
 import { db } from "../adapters/postgres";
 import { accessManifests, containerKeyEpochs } from "../schema";
-import { storeVerifiedAccessManifest } from "./accessManifestStore";
 import {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
-} from "./documentKekTargets";
+} from "./read/documentKekTargets";
+import { storeVerifiedAccessManifest } from "./write/accessManifestStore";
 
 async function hashOf(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {

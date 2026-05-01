@@ -22,8 +22,8 @@ import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
   resolveStoredContainerKekState,
-  storeVerifiedContainerKekState,
-} from "./containerKekStore";
+} from "./read/containerKekStore";
+import { storeVerifiedContainerKekState } from "./write/containerKekStore";
 
 async function fixtureHash(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {

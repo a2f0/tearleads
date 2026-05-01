@@ -17,13 +17,15 @@ import {
   containerKeyEpochs,
 } from "../schema";
 import {
-  BlobContentKeyBundleError,
   type BlobContentKeyTargetEnvelope,
   listBlobContentWriteHeaders,
+} from "./read/blobContentKeyStore";
+import { resolveCurrentBlobKekTargets } from "./read/blobKekTargets";
+import {
+  BlobContentKeyBundleError,
   storeBlobContentKeyBundle,
   storeBlobContentWriteHeader,
-} from "./blobContentKeyStore";
-import { resolveCurrentBlobKekTargets } from "./blobKekTargets";
+} from "./write/blobContentKeyStore";
 
 async function hashOf(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {

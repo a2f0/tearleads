@@ -11,7 +11,7 @@ import type {
 } from "@tearleads/crypto";
 import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../adapters/postgres";
+import { type DatabaseExecutor, db } from "../../adapters/postgres";
 import {
   accessEventDependencyProjection,
   accessEvents,
@@ -19,7 +19,7 @@ import {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-} from "../schema";
+} from "../../schema";
 
 /**
  * access projection tables are derived cache only.

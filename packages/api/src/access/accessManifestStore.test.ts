@@ -20,9 +20,11 @@ import {
   getCurrentAccessManifestHead,
   listAccessEventDependencyProjection,
   listAccessManifestPrincipalHeadProjection,
+} from "./read/accessManifestStore";
+import {
   regenerateAccessManifestProjections,
   storeVerifiedAccessManifest,
-} from "./accessManifestStore";
+} from "./write/accessManifestStore";
 
 function hashOf(char: string): string {
   return char.repeat(64);

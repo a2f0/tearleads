@@ -13,7 +13,7 @@ import {
   principalStateReferenceKey,
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
-} from "../../access/principalStateStore";
+} from "../../access/read/principalStateStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 
 export class PrincipalPolicyProjectionError extends Error {

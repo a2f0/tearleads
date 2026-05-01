@@ -1,7 +1,7 @@
 import type { PutPrincipalMemberEnvelopesRequest } from "@tearleads/validators/request";
 import type { CurrentPrincipalMemberEnvelopesResponse } from "@tearleads/validators/response";
-import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/principalMemberEnvelopes";
-import { getCurrentPrincipalState } from "../../access/principalStateStore";
+import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
+import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/write/principalMemberEnvelopes";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   PrincipalPolicyError,

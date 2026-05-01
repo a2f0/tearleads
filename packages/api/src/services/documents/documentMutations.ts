@@ -48,23 +48,23 @@ import type {
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { eq, inArray } from "drizzle-orm";
+import { getCurrentAccessManifestHead } from "../../access/read/accessManifestStore";
 import {
-  getCurrentAccessManifestHead,
-  storeVerifiedAccessManifest,
-} from "../../access/accessManifestStore";
-import {
-  DocumentContentKeyBundleError,
   listDocumentContentWriteHeaders,
-  requireAndRefreshCurrentDocumentContentKeyBundle,
   type StoredDocumentContentKeyBundleWithTargets,
   type DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,
-  storeDocumentContentKeyBundle,
-  storeDocumentContentWriteHeader,
-} from "../../access/documentContentKeyStore";
+} from "../../access/read/documentContentKeyStore";
 import {
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
-} from "../../access/documentKekTargets";
+} from "../../access/read/documentKekTargets";
+import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
+import {
+  DocumentContentKeyBundleError,
+  requireAndRefreshCurrentDocumentContentKeyBundle,
+  storeDocumentContentKeyBundle,
+  storeDocumentContentWriteHeader,
+} from "../../access/write/documentContentKeyStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
 import {
   containerMetadataDocuments,

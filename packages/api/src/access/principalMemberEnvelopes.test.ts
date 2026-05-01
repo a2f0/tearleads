@@ -12,9 +12,9 @@ import { users } from "../schema";
 import {
   listCurrentPrincipalMemberEnvelopes,
   listCurrentPrincipalMemberRecipients,
-  replaceCurrentPrincipalMemberEnvelopes,
-} from "./principalMemberEnvelopes";
-import { storeVerifiedPrincipalState } from "./principalStateStore";
+} from "./read/principalMemberEnvelopes";
+import { replaceCurrentPrincipalMemberEnvelopes } from "./write/principalMemberEnvelopes";
+import { storeVerifiedPrincipalState } from "./write/principalStateStore";
 
 async function insertUserWithRecipientKey(
   userId: string,
