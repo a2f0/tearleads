@@ -36,6 +36,7 @@ import {
   readCanonicalRecord,
   readCanonicalRecordPaths,
 } from "../keyingCanonicalJson";
+import type { ProjectionUserKeyResolver } from "../keyingProjectionVerification";
 import type { ExecSql } from "../persistence/sqlSchema";
 import {
   assertDocumentWriterProjectionConsistent,
@@ -137,6 +138,7 @@ interface UploadDocumentAttachmentInput {
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
   expectedBindingId: string | null;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   signedAt?: string | undefined;
   slotId: string;
   targetSecretKey: Uint8Array;
@@ -158,6 +160,7 @@ interface DecryptDocumentAttachmentBlobInput {
   expectedBindingId: string;
   expectedBlobId: string;
   execSql?: ExecSql | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   targetSecretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }
@@ -302,6 +305,7 @@ function deriveBlobTargetsFromDocumentProjection(input: {
 
 async function collectContainerKeks(input: {
   execSql?: ExecSql | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   secretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<ReadonlyMap<string, Uint8Array>> {
@@ -311,6 +315,7 @@ async function collectContainerKeks(input: {
     const projectionKeks = await unwrapContainerKekPath({
       execSql: input.execSql,
       projection,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
       secretKey: input.secretKey,
     });
 
@@ -337,12 +342,14 @@ async function collectContainerKeks(input: {
 async function wrapBlobContentKey(input: {
   contentKey: Uint8Array;
   execSql?: ExecSql | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   secretKey: Uint8Array;
   targets: readonly BlobContentKeyTarget[];
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<BlobContentKeyTargetEnvelopeRequest[]> {
   const keksByEpochId = await collectContainerKeks({
     execSql: input.execSql,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.secretKey,
     writerProjection: input.writerProjection,
   });
@@ -738,11 +745,13 @@ async function unwrapBlobContentKey(input: {
   encrypted: BlobEncryptedBytesRecord;
   execSql?: ExecSql | undefined;
   expectedBindingId: string;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   secretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<Uint8Array> {
   const keksByEpochId = await collectContainerKeks({
     execSql: input.execSql,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.secretKey,
     writerProjection: input.writerProjection,
   });
@@ -945,6 +954,7 @@ export async function decryptDocumentAttachmentBlob({
   expectedBindingId,
   expectedBlobId,
   execSql,
+  resolveProjectionUserKey,
   targetSecretKey,
   writerProjection,
 }: DecryptDocumentAttachmentBlobInput): Promise<BlobBytes> {
@@ -993,6 +1003,7 @@ export async function decryptDocumentAttachmentBlob({
     encrypted,
     execSql,
     expectedBindingId,
+    resolveProjectionUserKey,
     secretKey: targetSecretKey,
     writerProjection,
   });
@@ -1040,6 +1051,7 @@ async function buildBlobAttachmentMaterial(input: {
   contentKeyEpoch: number;
   documentId: string;
   execSql?: ExecSql | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<BlobAttachmentMaterial | null> {
   const writerProjection = await input.apiClient.getDocumentWriterProjection(
@@ -1067,6 +1079,7 @@ async function buildBlobAttachmentMaterial(input: {
     targets: await wrapBlobContentKey({
       contentKey: input.contentKey,
       execSql: input.execSql,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
       secretKey: input.targetSecretKey,
       targets,
       writerProjection,
@@ -1252,6 +1265,7 @@ export async function uploadDocumentAttachment({
   eventId = crypto.randomUUID(),
   execSql,
   expectedBindingId,
+  resolveProjectionUserKey,
   signedAt = new Date().toISOString(),
   slotId,
   targetSecretKey,
@@ -1269,6 +1283,7 @@ export async function uploadDocumentAttachment({
     contentKeyEpoch,
     documentId,
     execSql,
+    resolveProjectionUserKey,
     targetSecretKey,
   });
   if (!material) {

@@ -84,7 +84,7 @@ export interface ContainerAccessProjection {
 export interface ContainerWriterProjectionContext {
   readonly containerKekStateByCacheKey: Map<
     string,
-    Promise<VerifiedContainerKekState>
+    Promise<ContainerKekProjection>
   >;
   readonly containerPathRowById: Map<string, Promise<ContainerPathRow>>;
   readonly executor: DatabaseExecutor;
@@ -96,6 +96,16 @@ export interface ContainerWriterProjectionContext {
     string,
     Promise<ContainerManifestBundleResponse>
   >;
+}
+
+interface ContainerKekManifestHistory {
+  readonly bundles: ContainerManifestBundleResponse[];
+  readonly verified: VerifiedContainerAccessManifest[];
+}
+
+interface ContainerKekProjection {
+  readonly manifestHistory: ContainerManifestBundleResponse[];
+  readonly state: VerifiedContainerKekState;
 }
 
 export function createContainerWriterProjectionContext(
@@ -644,24 +654,45 @@ async function loadContainerKekManifestHistory(input: {
   readonly currentManifest: VerifiedContainerAccessManifest;
   readonly keyEpoch: ContainerKeyEpoch;
   readonly wraps: readonly ContainerKeyWrap[];
-}): Promise<VerifiedContainerAccessManifest[]> {
-  const historyHashes = new Set([
-    input.keyEpoch.accessManifestHash,
-    input.keyEpoch.createdByManifestHash,
-    ...input.wraps.map((wrap) => wrap.wrapManifestHash),
-  ]);
-  historyHashes.delete(input.currentManifest.manifestHash);
+}): Promise<ContainerKekManifestHistory> {
+  const pendingHashes = new Set<string>();
+  const visitedHashes = new Set([input.currentManifest.manifestHash]);
+  const enqueue = (manifestHash: string | null): void => {
+    if (!manifestHash || visitedHashes.has(manifestHash)) {
+      return;
+    }
+    pendingHashes.add(manifestHash);
+  };
 
-  const history: VerifiedContainerAccessManifest[] = [];
-  for (const manifestHash of [...historyHashes].sort()) {
-    history.push(
-      toVerifiedContainerManifest(
-        await loadContainerManifestBundleByHash(input.context, manifestHash),
-      ),
-    );
+  enqueue(input.currentManifest.manifest.previousManifestHash);
+  enqueue(input.keyEpoch.accessManifestHash);
+  enqueue(input.keyEpoch.createdByManifestHash);
+  for (const wrap of input.wraps) {
+    enqueue(wrap.wrapManifestHash);
   }
 
-  return history;
+  const bundles: ContainerManifestBundleResponse[] = [];
+  const verified: VerifiedContainerAccessManifest[] = [];
+  while (pendingHashes.size > 0) {
+    const next = pendingHashes.values().next();
+    if (next.done) {
+      break;
+    }
+    const manifestHash = next.value;
+    pendingHashes.delete(manifestHash);
+    visitedHashes.add(manifestHash);
+
+    const bundle = await loadContainerManifestBundleByHash(
+      input.context,
+      manifestHash,
+    );
+    const verifiedManifest = toVerifiedContainerManifest(bundle);
+    bundles.push(bundle);
+    verified.push(verifiedManifest);
+    enqueue(verifiedManifest.manifest.previousManifestHash);
+  }
+
+  return { bundles, verified };
 }
 
 function collectDirectUserGrantIds(
@@ -753,7 +784,7 @@ async function loadContainerKekState(
     readonly parentKekState: VerifiedContainerKekState | null;
     readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
   },
-): Promise<VerifiedContainerKekState> {
+): Promise<ContainerKekProjection> {
   return cachedProjectionValue(
     context.containerKekStateByCacheKey,
     containerKekStateCacheKey({
@@ -776,7 +807,7 @@ async function loadUncachedContainerKekState(
     readonly parentKekState: VerifiedContainerKekState | null;
     readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
   },
-): Promise<VerifiedContainerKekState> {
+): Promise<ContainerKekProjection> {
   const containerKeyEpochId = manifest.state.containerKeyEpochId;
   if (!containerKeyEpochId) {
     throw new ContainerWriterProjectionError(
@@ -819,7 +850,7 @@ async function loadUncachedContainerKekState(
   });
   const verified = await verifyContainerKekState({
     containerManifest: manifest,
-    containerManifestHistory,
+    containerManifestHistory: containerManifestHistory.verified,
     keyEpoch,
     parentKekState: input.parentKekState,
     principalPolicies: input.principalPolicies,
@@ -831,12 +862,16 @@ async function loadUncachedContainerKekState(
     throw new ContainerWriterProjectionError(verified.error.message, 409);
   }
 
-  return verified.value;
+  return {
+    manifestHistory: containerManifestHistory.bundles,
+    state: verified.value,
+  };
 }
 
 function containerKekResponse(
-  kekState: VerifiedContainerKekState,
+  projection: ContainerKekProjection,
 ): ContainerKekResponse {
+  const kekState = projection.state;
   return {
     containerId: kekState.containerId,
     accessManifestHash: kekState.accessManifestHash,
@@ -846,6 +881,7 @@ function containerKekResponse(
     keyEpochHash: kekState.keyEpochHash,
     keyTargetHash: kekState.keyTargetHash,
     parentContainerKeyEpochId: kekState.parentContainerKeyEpochId,
+    containerManifestHistory: projection.manifestHistory,
     recipientTargets: kekState.recipientTargets.map(
       containerKekRecipientTargetRecord,
     ),
@@ -867,11 +903,11 @@ export async function resolveContainerWriterProjection(input: {
     minimumAccessLevel: "write",
   });
 
-  const containerKekStates: VerifiedContainerKekState[] = [];
+  const containerKekStates: ContainerKekProjection[] = [];
   for (const manifest of access.verifiedPath) {
     containerKekStates.push(
       await loadContainerKekState(context, manifest, {
-        parentKekState: containerKekStates.at(-1) ?? null,
+        parentKekState: containerKekStates.at(-1)?.state ?? null,
         principalPolicies: access.principalPolicies,
       }),
     );

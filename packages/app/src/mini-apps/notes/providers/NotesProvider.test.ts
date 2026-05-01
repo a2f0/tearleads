@@ -6,7 +6,6 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-  wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
@@ -24,6 +23,7 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
+import { createContainerWriterProjectionFixture } from "../../../../test/helpers/createContainerWriterProjectionFixture";
 import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import {
@@ -105,10 +105,6 @@ function createUnavailableNotesApiClient(
   });
 }
 
-async function noteFixtureHash(label: string): Promise<string> {
-  return toFingerprint(new TextEncoder().encode(`notes:${label}`));
-}
-
 async function createPersistedNoteSnapshot(text: string): Promise<string> {
   const doc = await createDocument("persisted-note-fixture");
   doc.getText("text").update(text);
@@ -118,71 +114,18 @@ async function createPersistedNoteSnapshot(text: string): Promise<string> {
 async function createNoteContainerProjection(input: {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
+  signerKeyFingerprint: string;
+  signerPrivateKey: Uint8Array;
   userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
-  const manifestHash = await noteFixtureHash(`${input.containerId}:manifest`);
-  const eventHash = await noteFixtureHash(`${input.containerId}:event`);
-  const keyEpochHash = await noteFixtureHash(`${input.containerId}:key-epoch`);
-  const keyTargetHash = await noteFixtureHash(
-    `${input.containerId}:key-target`,
-  );
-  const containerKeyEpochId = `${input.containerId}-key-epoch-1`;
-  const containerKek = crypto.getRandomValues(new Uint8Array(32));
-  const [recipient] = await wrapDekForRecipients(containerKek, [
-    input.encapsulationPublicKey,
-  ]);
-  if (!recipient) {
-    throw new Error("Expected note fixture recipient wrap.");
-  }
-
-  return {
+  return createContainerWriterProjectionFixture({
     containerId: input.containerId,
+    encapsulationPublicKey: input.encapsulationPublicKey,
     organizationId: "organization-1",
-    path: [
-      {
-        event: { event: {}, body: {}, eventHash },
-        manifest: {},
-        manifestHash,
-        state: {
-          containerId: input.containerId,
-          organizationId: "organization-1",
-        },
-      },
-    ],
-    containerKeks: [
-      {
-        containerId: input.containerId,
-        accessManifestHash: manifestHash,
-        containerKeyEpochId,
-        containerKeyEpoch: 1,
-        keyEpoch: {
-          id: containerKeyEpochId,
-          containerId: input.containerId,
-          keyEpoch: 1,
-          accessManifestHash: manifestHash,
-          parentContainerKeyEpochId: null,
-          createdByEventHash: eventHash,
-          createdByManifestHash: manifestHash,
-        },
-        keyEpochHash,
-        keyTargetHash,
-        parentContainerKeyEpochId: null,
-        recipientTargets: [{}],
-        wraps: [
-          {
-            containerKeyEpochId,
-            recipientKind: "user",
-            recipientId: input.userId,
-            recipientKeyEpochId: `user:${input.userId}:epoch-1`,
-            recipientKeyFingerprint: recipient.keyFingerprint,
-            kemCipherText: bytesToBase64(recipient.kemCipherText),
-            wrappedKey: bytesToBase64(recipient.wrappedKey),
-            wrapManifestHash: manifestHash,
-          },
-        ],
-      },
-    ],
-  };
+    signerKeyFingerprint: input.signerKeyFingerprint,
+    signerPrivateKey: input.signerPrivateKey,
+    userId: input.userId,
+  });
 }
 
 async function createNoteCreateResponse(
@@ -404,6 +347,8 @@ async function createNoteRuntimePatch(input: {
     projectionPromise ??= createNoteContainerProjection({
       containerId,
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+      signerKeyFingerprint: signingFingerprint,
+      signerPrivateKey: signingKeyPair.signingPrivateKey,
       userId: "user-1",
     });
     return projectionPromise;

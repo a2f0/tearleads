@@ -27,6 +27,7 @@ import {
   type DocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../../data/documents/documentRuntime";
+import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -526,6 +527,10 @@ async function ensureContactDocumentForSync(
       author,
       containerId: state.runtime.containerId,
       execSql: state.runtime.execSql,
+      resolveProjectionUserKey: createProjectionUserKeyResolver(
+        state.runtime,
+        "Contacts",
+      ),
       targetSecretKey: encapsulationKeyPair.secretKey,
     });
     if (!created) {
@@ -617,6 +622,10 @@ async function syncSingleContact(
     localVersionVector: encodeVersionVector(contact.doc),
     minLsn: contact.record.lastCommitLsn ?? undefined,
     pendingUpdates,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      state.runtime,
+      "Contacts",
+    ),
     targetSecretKey: encapsulationKeyPair.secretKey,
     writerPublicKeysByFingerprint: await resolveContactWriterPublicKeys(
       state,
