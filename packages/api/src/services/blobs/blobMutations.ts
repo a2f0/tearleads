@@ -51,6 +51,15 @@ import {
   storeBlobContentWriteHeader,
 } from "../../access/write/blobContentKeyStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
+import {
+  readProjectionAccessEvent,
+  readProjectionPlainRecord,
+  readProjectionPositiveInteger,
+  readProjectionRecord,
+  readProjectionString,
+  readProjectionValue,
+  readProjectionVersion,
+} from "../../keyingProjectionRecords";
 import { attachmentBindings, blobStages, blobs, documents } from "../../schema";
 import {
   applyContainerRekeys,
@@ -68,15 +77,6 @@ import {
   loadPrincipalPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,
 } from "../documents/principalPolicyProjection";
-import {
-  readProjectionAccessEvent,
-  readProjectionPlainRecord,
-  readProjectionPositiveInteger,
-  readProjectionRecord,
-  readProjectionString,
-  readProjectionValue,
-  readProjectionVersion,
-} from "../keyingProjectionRecords";
 import type { ApiServiceRuntime } from "../runtime";
 
 type BlobMutationStatus = 400 | 403 | 404 | 409 | 503;
