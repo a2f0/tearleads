@@ -2,4 +2,4 @@ export {
   BlobContentKeyBundleError,
   storeBlobContentKeyBundle,
   storeBlobContentWriteHeader,
-} from "../internal/blobContentKeyStore";
+} from "../shared/internal/blobContentKeyStore";

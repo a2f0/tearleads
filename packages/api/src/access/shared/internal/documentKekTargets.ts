@@ -2,7 +2,7 @@ import {
   computeDocumentContentKeyTargetHash,
   type DocumentContentKeyTarget,
 } from "@tearleads/crypto";
-import { type DatabaseExecutor, db } from "../../adapters/postgres";
+import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import {
   getCurrentAccessManifestHead,
   listAccessManifestDocumentLinkProjection,

@@ -2,7 +2,7 @@ export type {
   PrincipalStateReference,
   StoredPrincipalProjectionMember,
   StoredPrincipalState,
-} from "../internal/principalStateStore";
+} from "../shared/internal/principalStateStore";
 export {
   getCurrentPrincipalEpochKey,
   getCurrentPrincipalEpochKeys,
@@ -14,4 +14,4 @@ export {
   listPrincipalProjectionMembersForStates,
   listPrincipalStateHistory,
   principalStateReferenceKey,
-} from "../internal/principalStateStore";
+} from "../shared/internal/principalStateStore";

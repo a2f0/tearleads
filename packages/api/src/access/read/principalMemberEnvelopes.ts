@@ -1,4 +1,4 @@
 export {
   listCurrentPrincipalMemberEnvelopes,
   listCurrentPrincipalMemberRecipients,
-} from "../internal/principalMemberEnvelopes";
+} from "../shared/internal/principalMemberEnvelopes";

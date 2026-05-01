@@ -40,6 +40,8 @@ bun run knip
 echo "Checking for circular imports..."
 bun run madge --circular --extensions ts,tsx packages/
 
+echo "Checking architecture boundaries..."
+bun run lint:architecture
 
 echo "Checking file names..."
 bun run lint:files
