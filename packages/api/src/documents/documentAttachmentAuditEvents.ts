@@ -1,5 +1,5 @@
 import { desc, eq, inArray } from "drizzle-orm";
-import type { DatabaseExecutor } from "../../adapters/postgres";
+import type { DatabaseExecutor } from "../adapters/postgres";
 import {
   type BlobAuditRetentionMode,
   blobAuditObjects,
@@ -8,9 +8,9 @@ import {
   documentAttachmentAuditEvents,
   documentAuditEntries,
   documents,
-} from "../../schema";
-import { uniqueSortedStrings } from "../../utils/array";
-import { sha256Hex } from "../../utils/sha256";
+} from "../schema";
+import { uniqueSortedStrings } from "../utils/array";
+import { sha256Hex } from "../utils/sha256";
 
 export const DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT = "attachment_event";
 const BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY: BlobAuditRetentionMode = "live_only";

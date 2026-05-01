@@ -51,6 +51,12 @@ import {
   storeBlobContentWriteHeader,
 } from "../../access/write/blobContentKeyStore";
 import type { DatabaseExecutor } from "../../adapters/postgres";
+import { appendDocumentAttachmentAuditEntries } from "../../documents/documentAttachmentAuditEvents";
+import { documentAuditAccessFromManifest } from "../../documents/documentAuditAccess";
+import {
+  loadPrincipalPoliciesForContainerPaths,
+  PrincipalPolicyProjectionError,
+} from "../../documents/principalPolicyProjection";
 import {
   readProjectionAccessEvent,
   readProjectionPlainRecord,
@@ -62,21 +68,15 @@ import {
 } from "../../keyingProjectionRecords";
 import { attachmentBindings, blobStages, blobs, documents } from "../../schema";
 import {
-  applyContainerRekeys,
-  ContainerMutationError,
-} from "../containers/mutations";
-import { appendDocumentAttachmentAuditEntries } from "../documents/documentAttachmentAuditEvents";
-import { documentAuditAccessFromManifest } from "../documents/documentAuditAccess";
-import {
   assertCurrentContainerPathGroups,
   assertDocumentManifestBundleConsistent,
   DocumentMutationError,
   loadSignerPublicKey,
-} from "../documents/documentMutations";
+} from "../../workflows/documents/mutations";
 import {
-  loadPrincipalPoliciesForContainerPaths,
-  PrincipalPolicyProjectionError,
-} from "../documents/principalPolicyProjection";
+  applyContainerRekeys,
+  ContainerMutationError,
+} from "../containers/mutations";
 import type { ApiServiceRuntime } from "../runtime";
 
 type BlobMutationStatus = 400 | 403 | 404 | 409 | 503;

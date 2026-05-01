@@ -3,7 +3,7 @@ import type {
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
-import { sha256Hex } from "../../utils/sha256";
+import { sha256Hex } from "../utils/sha256";
 
 function documentLinkSetStateAuditRecord(
   state: VerifiedDocumentLinkSetManifest["state"],

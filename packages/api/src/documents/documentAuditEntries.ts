@@ -1,11 +1,11 @@
 import { desc, eq } from "drizzle-orm";
-import type { DatabaseExecutor } from "../../adapters/postgres";
+import type { DatabaseExecutor } from "../adapters/postgres";
 import {
   documentAuditEntries,
   documents,
   documentUpdateAuditEvents,
-} from "../../schema";
-import { sha256Hex } from "../../utils/sha256";
+} from "../schema";
+import { sha256Hex } from "../utils/sha256";
 
 const textEncoder = new TextEncoder();
 export const DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE = "loro_update";

@@ -1,6 +1,6 @@
 import { listVersionVectorSpans } from "@tearleads/loro";
-import type { DatabaseExecutor } from "../../adapters/postgres";
-import { documentUpdateSpans } from "../../schema";
+import type { DatabaseExecutor } from "../adapters/postgres";
+import { documentUpdateSpans } from "../schema";
 
 interface DocumentUpdateSpanSource {
   id: string;

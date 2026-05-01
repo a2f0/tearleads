@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { db } from "../../adapters/postgres";
+import { db } from "../adapters/postgres";
 import {
   blobs,
   documentAttachmentAuditEvents,
@@ -8,8 +8,8 @@ import {
   documentAuditEntries,
   documents,
   documentUpdateAuditEvents,
-} from "../../schema";
-import { sha256Hex } from "../../utils/sha256";
+} from "../schema";
+import { sha256Hex } from "../utils/sha256";
 import { appendDocumentAttachmentAuditEntries } from "./documentAttachmentAuditEvents";
 import { maybeWriteDocumentAuditCheckpoint } from "./documentAuditCheckpoints";
 import { appendDocumentUpdateAuditEntries } from "./documentAuditEntries";
