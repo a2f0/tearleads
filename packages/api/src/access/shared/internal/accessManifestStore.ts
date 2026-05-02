@@ -28,8 +28,6 @@ import {
  * package before trusting any row returned here for authorization decisions.
  */
 
-type AccessManifestStoreExecutor = DatabaseExecutor;
-
 interface StoredAccessManifestHead {
   readonly objectKind: AccessObjectKind;
   readonly objectId: string;
@@ -215,7 +213,7 @@ function toStoredAccessManifestHead(
 
 async function insertAccessEvent(
   verifiedEvent: VerifiedAccessEvent,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   const event = verifiedEvent.event;
 
@@ -249,7 +247,7 @@ async function insertAccessEvent(
 
 export async function storeVerifiedAccessEvent(
   verifiedEvent: VerifiedAccessEvent,
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<VerifiedAccessEvent> {
   if (executor === db) {
     return db.transaction((tx) => storeVerifiedAccessEvent(verifiedEvent, tx));
@@ -261,7 +259,7 @@ export async function storeVerifiedAccessEvent(
 
 async function ensureStoredAccessEventMatches(
   verifiedEvent: VerifiedAccessEvent,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   const [storedEvent] = await executor
     .select()
@@ -300,7 +298,7 @@ async function ensureStoredAccessEventMatches(
 
 async function insertAccessManifest(
   verifiedManifest: AnyVerifiedAccessManifest,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<boolean> {
   const manifest = verifiedManifest.manifest;
 
@@ -334,7 +332,7 @@ async function insertAccessManifest(
 
 async function ensureStoredAccessManifestMatches(
   verifiedManifest: AnyVerifiedAccessManifest,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   const [storedManifest] = await executor
     .select()
@@ -426,7 +424,7 @@ function toStoredAccessManifest(
 
 async function loadAccessManifestRow(
   manifestHash: string,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<typeof accessManifests.$inferSelect> {
   const [manifest] = await executor
     .select()
@@ -443,7 +441,7 @@ async function loadAccessManifestRow(
 
 async function loadAccessEventRow(
   eventHash: string,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<typeof accessEvents.$inferSelect> {
   const [event] = await executor
     .select()
@@ -460,7 +458,7 @@ async function loadAccessEventRow(
 
 export async function getAccessManifestBundle(
   manifestHash: string,
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredAccessManifestBundle | null> {
   const [manifest] = await executor
     .select()
@@ -484,7 +482,7 @@ export async function getAccessManifestBundle(
 
 async function regenerateAccessEventDependencyProjection(
   event: typeof accessEvents.$inferSelect,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   await executor
     .delete(accessEventDependencyProjection)
@@ -512,7 +510,7 @@ async function regenerateAccessEventDependencyProjection(
 
 async function regenerateAccessManifestPrincipalProjection(
   manifest: typeof accessManifests.$inferSelect,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   await executor
     .delete(accessManifestPrincipalHeadProjection)
@@ -549,7 +547,7 @@ async function regenerateAccessManifestPrincipalProjection(
 
 async function replaceAccessManifestDocumentLinkProjection(
   verifiedManifest: AnyVerifiedAccessManifest,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   const state = documentLinkSetState(verifiedManifest);
   if (!state) {
@@ -580,7 +578,7 @@ async function replaceAccessManifestDocumentLinkProjection(
 
 export async function regenerateAccessManifestProjections(
   manifestHash: string,
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<void> {
   if (executor === db) {
     return db.transaction(async (tx) =>
@@ -598,7 +596,7 @@ export async function regenerateAccessManifestProjections(
 async function loadCurrentAccessManifestHead(
   objectKind: AccessObjectKind,
   objectId: string,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<StoredAccessManifestHead | null> {
   const [head] = await executor
     .select()
@@ -616,7 +614,7 @@ async function loadCurrentAccessManifestHead(
 
 async function advanceAccessManifestHead(
   verifiedManifest: AnyVerifiedAccessManifest,
-  executor: AccessManifestStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<StoredAccessManifestHead> {
   const manifest = verifiedManifest.manifest;
 
@@ -667,7 +665,7 @@ async function advanceAccessManifestHead(
 
 export async function storeVerifiedAccessManifest(
   input: StoreVerifiedAccessManifestInput,
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredAccessManifestHead> {
   if (executor === db) {
     return db.transaction(async (tx) => storeVerifiedAccessManifest(input, tx));
@@ -697,7 +695,7 @@ export async function storeVerifiedAccessManifest(
 export async function getCurrentAccessManifestHead(
   objectKind: AccessObjectKind,
   objectId: string,
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredAccessManifestHead | null> {
   return loadCurrentAccessManifestHead(objectKind, objectId, executor);
 }
@@ -705,7 +703,7 @@ export async function getCurrentAccessManifestHead(
 export async function getCurrentAccessManifestHeads(
   objectKind: AccessObjectKind,
   objectIds: readonly string[],
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<Map<string, StoredAccessManifestHead>> {
   const uniqueObjectIds = [...new Set(objectIds)].sort();
 
@@ -730,7 +728,7 @@ export async function getCurrentAccessManifestHeads(
 
 export async function listAccessEventDependencyProjection(
   eventHash: string,
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredAccessEventDependencyProjection[]> {
   return executor
     .select({
@@ -748,7 +746,7 @@ export async function listAccessEventDependencyProjection(
 
 export async function listAccessManifestPrincipalHeadProjection(
   manifestHash: string,
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredAccessManifestPrincipalHeadProjection[]> {
   return executor
     .select({
@@ -772,7 +770,7 @@ export async function listAccessManifestPrincipalHeadProjection(
 
 export async function listAccessManifestDocumentLinkProjection(
   manifestHash: string,
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredAccessManifestDocumentLinkProjection[]> {
   return executor
     .select({
@@ -787,7 +785,7 @@ export async function listAccessManifestDocumentLinkProjection(
 
 export async function listAccessManifestDocumentLinkProjections(
   manifestHashes: readonly string[],
-  executor: AccessManifestStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredAccessManifestDocumentLinkProjection[]> {
   const uniqueManifestHashes = [...new Set(manifestHashes)].sort();
 

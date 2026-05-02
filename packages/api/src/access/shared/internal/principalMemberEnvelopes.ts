@@ -11,8 +11,6 @@ import {
   listCurrentPrincipalProjectionMembers,
 } from "./principalStateStore";
 
-type PrincipalMemberEnvelopeExecutor = DatabaseExecutor;
-
 interface PrincipalMemberRecipient {
   memberPrincipalType: PrincipalStateMemberType;
   memberPrincipalId: string;
@@ -45,7 +43,7 @@ function memberRecipientKey(input: {
 
 async function loadUserMemberRecipients(
   userIds: string[],
-  executor: PrincipalMemberEnvelopeExecutor,
+  executor: DatabaseExecutor,
 ): Promise<Map<string, PrincipalMemberRecipient>> {
   if (userIds.length === 0) {
     return new Map();
@@ -77,7 +75,7 @@ async function loadUserMemberRecipients(
 async function loadCurrentPrincipalMemberRecipientsForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: PrincipalMemberEnvelopeExecutor,
+  executor: DatabaseExecutor,
 ): Promise<{
   stateHash: string;
   epoch: number;
@@ -161,7 +159,7 @@ async function listPrincipalMemberEnvelopesForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,
-  executor: PrincipalMemberEnvelopeExecutor,
+  executor: DatabaseExecutor,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
   const rows = await executor
     .select({
@@ -195,7 +193,7 @@ async function listPrincipalMemberEnvelopesForState(
 export async function listCurrentPrincipalMemberRecipients(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: PrincipalMemberEnvelopeExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<PrincipalMemberRecipient[]> {
   const { recipients } = await loadCurrentPrincipalMemberRecipientsForState(
     principalType,
@@ -209,7 +207,7 @@ export async function listCurrentPrincipalMemberRecipients(
 export async function listCurrentPrincipalMemberEnvelopes(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: PrincipalMemberEnvelopeExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
   const currentState = await getCurrentPrincipalState(
     principalType,
@@ -236,7 +234,7 @@ export async function replaceCurrentPrincipalMemberEnvelopes(
     stateHash: string;
     envelopes: PrincipalMemberEnvelopeInput[];
   },
-  executor: PrincipalMemberEnvelopeExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
   if (executor === db) {
     return db.transaction(async (tx) =>

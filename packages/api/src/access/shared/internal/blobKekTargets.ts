@@ -15,8 +15,6 @@ import {
   resolveCurrentContainerKekTargets,
 } from "./containerKekTargets";
 
-type BlobKekTargetExecutor = DatabaseExecutor;
-
 export class BlobKekTargetError extends Error {
   constructor(
     message: string,
@@ -72,7 +70,7 @@ function sortBlobTargets(
 
 async function listActiveAttachmentBindings(
   blobId: string,
-  executor: BlobKekTargetExecutor,
+  executor: DatabaseExecutor,
 ) {
   return executor
     .select({
@@ -183,7 +181,7 @@ function documentManifestHashesForBindings(input: {
 
 async function loadBatchedBlobKekTargetState(input: {
   readonly activeBindings: readonly ActiveAttachmentBinding[];
-  readonly executor: BlobKekTargetExecutor;
+  readonly executor: DatabaseExecutor;
 }): Promise<{
   readonly containerTargetById: ContainerKekTargetMap;
   readonly documentManifestHashes: readonly string[];
@@ -293,7 +291,7 @@ function deriveTargetsForBindings(input: {
 
 export async function resolveCurrentBlobKekTargets(
   blobId: string,
-  executor: BlobKekTargetExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<ResolvedBlobKekTargets> {
   const activeBindings = await listActiveAttachmentBindings(blobId, executor);
   if (activeBindings.length === 0) {
@@ -346,7 +344,7 @@ export async function resolveCurrentBlobKekTargets(
 
 export async function assertBlobKekTargetsCurrent(
   input: AssertBlobKekTargetsCurrentInput,
-  executor: BlobKekTargetExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<ResolvedBlobKekTargets> {
   const currentTargets = await resolveCurrentBlobKekTargets(
     input.blobId,
