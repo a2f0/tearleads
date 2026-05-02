@@ -263,6 +263,50 @@ export const principalStatePayloads = pgTable(
   ],
 );
 
+/**
+ * Queryable membership and role projection for signed principal states.
+ *
+ * The signed principal state header stores a `projectionRoot`: a canonical hash
+ * of the normalized projection members. This table stores the rows behind that
+ * root so the server can answer authorization questions without decrypting the
+ * private policy payload. On write, the submitted projection is hashed and must
+ * match `principalStates.projectionRoot`; after insertion, the stored rows are
+ * compared back to the submitted projection to make retries idempotent and
+ * detect conflicts.
+ *
+ * A projection row says that, for one exact principal state hash, a direct
+ * member principal has a role. It is historical rather than mutable: successor
+ * principal states write new rows under a new `stateHash`, and callers use the
+ * current state's hash when they need current membership.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain identity is the tuple
+ *   `(principalType, principalId, stateHash, memberPrincipalType,
+ *   memberPrincipalId)`.
+ * - `principalType`: Managed principal kind whose state owns this projection,
+ *   currently `organization` or `group`.
+ * - `principalId`: Stable id of the managed principal whose members are being
+ *   projected.
+ * - `stateHash`: Content address of the signed principal state header this
+ *   projection belongs to. This joins the rows to `principalStates` and scopes
+ *   membership to a specific historical version.
+ * - `memberPrincipalType`: Kind of direct member in the projection, currently
+ *   `user` or `group`.
+ * - `memberPrincipalId`: Stable id of the direct member principal.
+ * - `role`: Authorization role for that member in this principal state,
+ *   currently `member` or `admin`. Admin membership authorizes signing
+ *   successor principal states.
+ * - `createdAt`: Server-side insertion timestamp. It is not part of the signed
+ *   projection root.
+ *
+ * Indexes:
+ * - `(principalType, principalId)` supports loading current or historical
+ *   projection rows for a principal.
+ * - `(principalType, principalId, stateHash, memberPrincipalType,
+ *   memberPrincipalId)` is unique so a state cannot contain duplicate rows for
+ *   the same direct member. The role is intentionally not part of the unique
+ *   key; a replay that changes only `role` is a projection conflict.
+ */
 export const principalMembershipProjection = pgTable(
   "principal_membership_projection",
   {
