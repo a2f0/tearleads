@@ -84,5 +84,6 @@ That audit/history layer should align with
 - attachment history explicitly states whether old blob bytes, tombstones, or
  manifests are retained
 
-The audit/history schema and verifier exist, but normal signed attachment
-mutations do not yet populate those audit tables.
+The audit/history schema and verifier exist, and normal signed attachment
+mutations append attachment audit rows before live blob pruning can remove
+metadata needed by `blob_audit_objects`.

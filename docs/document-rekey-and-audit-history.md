@@ -62,7 +62,7 @@ retention properties.
 The attachment/blob retention policy is defined in
 [attachment-retention.md](./attachment-retention.md).
 
-### Audit Storage Exists But Is Not Live-Wired
+### Audit Storage Is Live-Wired For Writes
 
 The codebase has history-side tables and services for:
 
@@ -73,10 +73,10 @@ The codebase has history-side tables and services for:
 - typed `document_attachment_audit_events`
 - `verifyDocumentAuditHistory(...)`
 
-Those helpers are covered by service tests, but the signed document sync and
-signed blob attachment mutation services do not yet write audit rows during
-normal application writes. Treat live write-path wiring as future work, not as
-an implemented product guarantee.
+Those helpers are covered by service tests and are also wired into normal
+application writes. Signed document sync appends audit rows for newly accepted
+updates and signed blob attachment mutations append attachment audit rows before
+live blob pruning can remove metadata needed by `blob_audit_objects`.
 
 ## Target Rekey / Rebaseline Model
 
