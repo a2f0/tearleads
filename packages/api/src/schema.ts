@@ -191,6 +191,49 @@ export const principalStates = pgTable(
   ],
 );
 
+/**
+ * Encrypted payloads for signed principal state versions.
+ *
+ * `principalStates` stores only the signed public header: hashes, signer
+ * identity, key epoch, and projection commitments. This table stores the
+ * encrypted private payload for that same state. The server does not interpret
+ * the plaintext; it only verifies that the ciphertext hash matches both this
+ * row and the `payloadCiphertextHash` signed into the corresponding
+ * `principalStates` row.
+ *
+ * There is one payload row per principal state hash. Storing it separately keeps
+ * principal-state history queryable by public header fields while allowing
+ * clients to retrieve the encrypted policy payload when reconstructing a
+ * principal policy bundle.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain lookups use
+ *   `(principalType, principalId, stateHash)`.
+ * - `principalType`: Managed principal kind, currently `organization` or
+ *   `group`. Matches `principalStates.principalType`.
+ * - `principalId`: Stable id of the managed principal whose encrypted policy
+ *   payload this is. Matches `principalStates.principalId`.
+ * - `stateHash`: Content address of the signed principal state header this
+ *   payload belongs to. This joins the payload back to `principalStates` and is
+ *   the value referenced by manifests and policy bundles.
+ * - `cipherSuite`: Symmetric encryption scheme used by the client for the
+ *   payload ciphertext. Only `aes-256-gcm` is currently supported.
+ * - `ciphertext`: The encrypted principal policy payload. The server stores and
+ *   returns it opaquely; clients with the appropriate principal/member key
+ *   material decrypt it.
+ * - `ciphertextHash`: Hash of `ciphertext`. On write, this is recomputed and
+ *   must match both the submitted payload hash and the signed
+ *   `principalStates.payloadCiphertextHash`.
+ * - `createdAt`: Server-side insertion timestamp. It is not part of the signed
+ *   principal state header or payload hash.
+ *
+ * Indexes:
+ * - `(principalType, principalId)` supports listing or loading payloads for a
+ *   principal's state history.
+ * - `(principalType, principalId, stateHash)` is unique because a state hash has
+ *   exactly one encrypted payload. Replays must provide byte-for-byte matching
+ *   payload data.
+ */
 export const principalStatePayloads = pgTable(
   "principal_state_payloads",
   {
