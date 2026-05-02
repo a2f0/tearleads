@@ -15,6 +15,7 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computeDocumentContentKeyTargetHash,
+  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   type DocumentContentKeyTarget,
   type DocumentLinkAccessEventBody,
   type DocumentLinkSetManifestState,
@@ -35,8 +36,6 @@ import type {
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 
-const DOCUMENT_CONTENT_KEY_WRAP_SUITE =
-  "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
 const REGISTER_SIGNED_AT = "2026-04-07T00:00:00.000Z";
 
 interface RegistrationBootstrapInput {

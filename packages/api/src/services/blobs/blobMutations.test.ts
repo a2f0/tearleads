@@ -750,6 +750,57 @@ test("bindBlobAttachment applies optional container rekeys before target validat
   );
 });
 
+test("bindBlobAttachment rolls back optional rekeys when blob write validation fails", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const container = await bootstrapRoot(owner);
+  const rekey = await buildRootContainerRekeyMutation({
+    previous: container,
+    signer: owner,
+  });
+  const document = await createDocumentFixture({
+    container: rekey.container,
+    owner,
+  });
+  const blobId = crypto.randomUUID();
+  const bind = await buildBindRequest({
+    blobId,
+    container: rekey.container,
+    document,
+    expectedBindingId: null,
+    owner,
+    slotId: "preview",
+    stagedBlob: await stageEncryptedBlob({
+      encryptedBytes: "rollback-rekey-bytes",
+      owner,
+    }),
+  });
+  bind.request.containerRekeys = [rekey.request];
+  if (!bind.request.stagedBlob) {
+    throw new Error("Expected staged blob request");
+  }
+  bind.request.stagedBlob.writeHeader = {
+    ...bind.request.stagedBlob.writeHeader,
+    version: 2,
+  };
+
+  await expect(
+    bindBlobAttachment(runtime, {
+      blobId,
+      fingerprint: owner.fingerprint,
+      request: bind.request,
+      userId: owner.userId,
+    }),
+  ).rejects.toMatchObject({
+    status: 400,
+  });
+  const currentRootEpoch = await getCurrentContainerKeyEpoch(
+    container.kekState.containerId,
+    db,
+  );
+  expect(currentRootEpoch?.id).toBe(container.kekState.containerKeyEpochId);
+});
+
 test("bindBlobAttachment rejects malformed signed event records", async () => {
   const owner = createTestUser();
   await registerOnly(owner);

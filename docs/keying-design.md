@@ -506,6 +506,25 @@ new target if the target set only grows. For shrink, future writes require a
 new document content-key epoch and a fresh baseline. Revocation remains
 forward-only unless old ciphertext is re-encrypted.
 
+### Content-Key And KEK Wrapping Suites
+
+Content-key and KEK wraps do not use the content-record HKDF suite. The current
+wrap suite identifiers are:
+
+- document content-key to container KEK:
+  `tearleads.document.content-key-wrap.aes-256-gcm-container-kek`
+- blob content-key to container KEK:
+  `tearleads.blob.content-key-wrap.aes-256-gcm-container-kek`
+- container KEK to user or managed-principal key:
+  `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`
+- container KEK to parent-container KEK:
+  `tearleads.container-kek-wrap.aes-256-gcm-parent-kek`
+
+Document and blob content-key target envelopes carry `wrappingMetadata.suite`
+and an AES-GCM IV. Container KEK wraps are an existing wire format without a
+separate suite field: `recipientKind` selects the user/managed-principal
+ML-KEM wrap path or the parent-container AES-GCM wrap path.
+
 ## Blob Content Keys
 
 Blob targets derive from the union of active signed attachment bindings.

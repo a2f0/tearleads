@@ -2,6 +2,7 @@ import {
   type AccessEvent,
   type AttachmentBindAccessEventBody,
   assertAesGcmIv,
+  BLOB_CONTENT_KEY_WRAP_SUITE,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventBodyHash,
   computeBlobAccessManifestHash,
@@ -49,8 +50,6 @@ import {
   unwrapContainerKekPath,
 } from "./documentRuntime";
 
-const BLOB_CONTENT_KEY_WRAP_SUITE =
-  "tearleads.blob.content-key-wrap.aes-256-gcm-container-kek";
 const BLOB_ENCRYPTED_BYTES_FORMAT = "tearleads.blob.bytes";
 const BLOB_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.blob.content-record-key-info";

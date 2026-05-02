@@ -88,6 +88,14 @@ export const CONTENT_RECORD_ENCRYPTION_SUITE =
   "aes-256-gcm-hkdf-sha256-record-key" as const;
 export type ContentRecordEncryptionSuite =
   typeof CONTENT_RECORD_ENCRYPTION_SUITE;
+export const DOCUMENT_CONTENT_KEY_WRAP_SUITE =
+  "tearleads.document.content-key-wrap.aes-256-gcm-container-kek" as const;
+export const BLOB_CONTENT_KEY_WRAP_SUITE =
+  "tearleads.blob.content-key-wrap.aes-256-gcm-container-kek" as const;
+export const CONTAINER_KEK_USER_WRAP_SUITE =
+  "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm" as const;
+export const CONTAINER_KEK_PARENT_WRAP_SUITE =
+  "tearleads.container-kek-wrap.aes-256-gcm-parent-kek" as const;
 
 export interface UnsignedAccessEvent {
   version: 1;
