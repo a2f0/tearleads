@@ -338,6 +338,45 @@ export const principalMembershipProjection = pgTable(
   ],
 );
 
+/**
+ * Recipient key material for managed principal key epochs.
+ *
+ * A principal state has a `keyEpoch`, `encapsulationPublicKey`, and
+ * `keyFingerprint`. This table indexes that key material by principal and
+ * epoch so other systems can encrypt to the principal as a recipient. For
+ * example, a group member envelope can target a nested group by looking up the
+ * nested group's current principal epoch key.
+ *
+ * Key epochs are historical and monotonic. Additive policy changes may reuse an
+ * existing epoch and key material; membership shrink or key material changes
+ * require a new epoch. Replays for an existing epoch must provide matching key
+ * material.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain identity is
+ *   `(principalType, principalId, epoch)`.
+ * - `principalType`: Managed principal kind whose recipient key this is,
+ *   currently `organization` or `group`.
+ * - `principalId`: Stable id of the managed principal.
+ * - `epoch`: Principal key epoch. Current recipient lookup uses the highest
+ *   epoch for the principal.
+ * - `introducedByStateHash`: State hash of the first signed principal state
+ *   that introduced this epoch. If later state versions reuse the same epoch,
+ *   this remains pointed at the original introducing state.
+ * - `encapsulationPublicKey`: Public KEM key for this principal epoch.
+ * - `keyFingerprint`: Fingerprint of `encapsulationPublicKey`; copied from the
+ *   verified signed state and used by writers to confirm they wrapped to the
+ *   expected recipient key.
+ * - `createdAt`: Server-side insertion timestamp. It is not part of the signed
+ *   principal state or key fingerprint.
+ *
+ * Indexes:
+ * - `(principalType, principalId)` supports current-key lookup by ordering
+ *   epochs descending.
+ * - `(principalType, principalId, epoch)` is unique because each epoch has one
+ *   accepted key. A replay for the same epoch must match the stored key
+ *   material.
+ */
 export const principalEpochKeys = pgTable(
   "principal_epoch_keys",
   {
@@ -365,6 +404,53 @@ export const principalEpochKeys = pgTable(
   ],
 );
 
+/**
+ * Wrapped principal key material for the current direct members of a principal.
+ *
+ * Principal state defines who the direct members are, and
+ * `principalMembershipProjection` makes that membership queryable. This table
+ * stores the encrypted key envelopes that let each direct member open the
+ * managed principal's current key material. User members use their row in
+ * `users` as the recipient key source; group members use their current
+ * `principalEpochKeys` row.
+ *
+ * Envelopes are scoped to an exact `stateHash`. Replacing envelopes verifies
+ * that the requested state is still current, that every current direct member
+ * is covered exactly once, and that each submitted `memberKeyFingerprint`
+ * matches the expected recipient key. This lets clients refresh wrapping
+ * material without changing the signed principal state.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain identity is
+ *   `(principalType, principalId, stateHash, memberPrincipalType,
+ *   memberPrincipalId)`.
+ * - `principalType`: Managed principal kind whose key material is wrapped,
+ *   currently `organization` or `group`.
+ * - `principalId`: Stable id of the managed principal whose key is being
+ *   distributed.
+ * - `stateHash`: Current principal state hash these envelopes target. The row
+ *   set must match the direct members projected for this state.
+ * - `epoch`: Principal key epoch being wrapped. This is the owning principal's
+ *   epoch, not the member recipient's epoch.
+ * - `memberPrincipalType`: Direct member recipient kind, currently `user` or
+ *   `group`.
+ * - `memberPrincipalId`: Stable id of the direct member recipient.
+ * - `memberKeyFingerprint`: Recipient key fingerprint used for this envelope.
+ *   For users this is `users.encapsulationKeyFingerprint`; for groups this is
+ *   the group's current `principalEpochKeys.keyFingerprint`.
+ * - `kemCipherText`: KEM ciphertext/capsule produced while encrypting to the
+ *   member recipient key.
+ * - `wrappedKey`: Encrypted principal key material for the member recipient.
+ * - `createdAt`: Server-side insertion timestamp. It is not signed policy
+ *   state.
+ *
+ * Indexes:
+ * - `(principalType, principalId)` supports loading current envelopes after the
+ *   current state hash is resolved.
+ * - `(principalType, principalId, stateHash, memberPrincipalType,
+ *   memberPrincipalId)` is unique so one state has at most one envelope per
+ *   direct member.
+ */
 export const principalMemberEnvelopes = pgTable(
   "principal_member_envelopes",
   {
@@ -399,6 +485,59 @@ export const principalMemberEnvelopes = pgTable(
   ],
 );
 
+/**
+ * Signed access events that drive access manifest history.
+ *
+ * An access event is the signed action record for a container/document access
+ * mutation: create, grant/share, revoke, rekey, move, document link, document
+ * unlink, and related access changes. The event header is signed by a user key,
+ * the event body is stored alongside it, and `bodyHash` binds that body to the
+ * signed header. Verified events are content-addressed by `eventHash`; access
+ * manifests reference that hash in their own signed state.
+ *
+ * This table is append-only in practice. Inserts are idempotent by `eventHash`:
+ * replaying the same verified event is accepted, while conflicting data for an
+ * existing hash is rejected by the store.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain identity is `eventHash`;
+ *   `eventId` is also unique as a client-generated event identifier.
+ * - `version`: Access event wire format version.
+ * - `eventId`: Client-generated stable event id. It prevents reusing one
+ *   logical event id for different content.
+ * - `eventType`: Kind of access mutation represented by the event.
+ * - `objectKind`: Kind of object the event mutates, for example `container` or
+ *   `document`.
+ * - `objectId`: Stable id of the object being mutated.
+ * - `organizationId`: Organization boundary for the mutated object.
+ * - `previousManifestHash`: Previous access manifest hash for successor
+ *   events, or `null` for initial/create events.
+ * - `dependencyManifestHashes`: Signed manifest dependencies needed to verify
+ *   the event in context, such as parent/container path manifests or other
+ *   authorization dependencies. The dependency projection table expands this
+ *   JSON array for indexed lookups.
+ * - `bodyHash`: Hash of `body`; included in the signed event header.
+ * - `body`: Canonical JSON event body. The server stores it so it can return
+ *   complete event/manifest bundles and regenerate projections.
+ * - `eventHash`: Hash of the normalized signed event header. This is the stable
+ *   content address referenced by `accessManifests.eventHash`.
+ * - `signerUserId`: User id that signed the event.
+ * - `signerDeviceId`: Client/device id included in the signed event header.
+ * - `signerKeyFingerprint`: User signing key fingerprint used to verify
+ *   `signature`.
+ * - `signature`: Signature over the normalized unsigned event header.
+ * - `signedAt`: Client-supplied timestamp included in the signed event header.
+ * - `createdAt`: Server-side insertion timestamp. It is not part of the signed
+ *   event or `eventHash`.
+ *
+ * Indexes:
+ * - `eventId` is unique to reject accidental reuse of a client event id.
+ * - `eventHash` is unique because it is the content address for verified
+ *   events.
+ * - `(objectKind, objectId)` supports object-history and projection queries.
+ * - `(signerUserId, signerKeyFingerprint)` supports signer-oriented audits or
+ *   lookups.
+ */
 export const accessEvents = pgTable(
   "access_events",
   {
