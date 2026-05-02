@@ -4,8 +4,6 @@ import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import { accessManifestHeads, accessManifests } from "../../../schema";
 import { getContainerKeyEpochsById } from "./containerKekStore";
 
-type ContainerKekTargetExecutor = DatabaseExecutor;
-
 type ContainerKekTargetStatus = 404 | 409;
 
 export class ContainerKekTargetError extends Error {
@@ -139,7 +137,7 @@ interface ContainerManifestBindingHistory {
 
 async function loadCurrentContainerManifestTargetClosure(input: {
   readonly containerIds: readonly string[];
-  readonly executor: ContainerKekTargetExecutor;
+  readonly executor: DatabaseExecutor;
 }): Promise<Map<string, ContainerManifestTarget>> {
   const seedContainerIds = [...new Set(input.containerIds)].sort();
   // Validate the full ancestor chain from the signed current manifest heads.
@@ -289,7 +287,7 @@ function assertBindingHistoryRowCurrent(input: {
 }
 
 async function loadSameEpochContainerManifestBindingHistories(input: {
-  readonly executor: ContainerKekTargetExecutor;
+  readonly executor: DatabaseExecutor;
   readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
 }): Promise<Map<string, ContainerManifestBindingHistory>> {
   const targets = [...input.targetByContainerId.values()].sort((left, right) =>
@@ -493,7 +491,7 @@ function assertContainerKekManifestBindingsCurrent(input: {
 
 export async function resolveCurrentContainerKekTargets(
   containerIds: readonly string[],
-  executor: ContainerKekTargetExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<Map<string, ContainerKekTarget>> {
   const uniqueContainerIds = [...new Set(containerIds)].sort();
 

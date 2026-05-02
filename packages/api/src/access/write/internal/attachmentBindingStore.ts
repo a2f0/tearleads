@@ -7,8 +7,6 @@ import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import { attachmentBindings } from "../../../schema";
 import { storeVerifiedAccessEvent } from "../../shared/internal/accessManifestStore";
 
-type AttachmentBindingStoreExecutor = DatabaseExecutor;
-
 class AttachmentBindingProjectionError extends Error {
   constructor(
     message: string,
@@ -40,7 +38,7 @@ function assertStoredBindingMatches(input: {
 
 async function loadAttachmentBindingRow(
   bindingId: string,
-  executor: AttachmentBindingStoreExecutor,
+  executor: DatabaseExecutor,
 ) {
   const [row] = await executor
     .select()
@@ -53,7 +51,7 @@ async function loadAttachmentBindingRow(
 
 export async function storeVerifiedAttachmentBinding(
   binding: VerifiedAttachmentBinding,
-  executor: AttachmentBindingStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<typeof attachmentBindings.$inferSelect> {
   if (executor === db) {
     return db.transaction((tx) => storeVerifiedAttachmentBinding(binding, tx));
@@ -90,7 +88,7 @@ export async function storeVerifiedAttachmentBinding(
 
 export async function storeVerifiedAttachmentDetach(
   detach: VerifiedAttachmentDetach,
-  executor: AttachmentBindingStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<typeof attachmentBindings.$inferSelect> {
   if (executor === db) {
     return db.transaction((tx) => storeVerifiedAttachmentDetach(detach, tx));

@@ -25,7 +25,6 @@ import {
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   KeyingVerificationError,
-  serializeKeyingCanonicalJson,
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
   verifyWriteHeader,
@@ -48,7 +47,6 @@ import type {
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { eq, inArray } from "drizzle-orm";
-import { DocumentContentKeyBundleError } from "../../access/errors/documentContentKeyStore";
 import { getCurrentAccessManifestHead } from "../../access/read/accessManifestStore";
 import {
   listDocumentContentWriteHeaders,
@@ -61,6 +59,7 @@ import {
 } from "../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
 import {
+  DocumentContentKeyBundleError,
   requireAndRefreshCurrentDocumentContentKeyBundle,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,
@@ -106,6 +105,7 @@ import {
   users,
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
+import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import {
   applyContainerRekeys,
   ContainerMutationError,
@@ -583,13 +583,6 @@ function writeHeaderRecord(header: WriteHeader): Record<string, unknown> {
     signedAt: header.signedAt,
     signature: header.signature,
   };
-}
-
-function canonicalJsonEquals(left: unknown, right: unknown): boolean {
-  return (
-    serializeKeyingCanonicalJson(left as KeyingCanonicalJson) ===
-    serializeKeyingCanonicalJson(right as KeyingCanonicalJson)
-  );
 }
 
 function mapVerificationStatus(

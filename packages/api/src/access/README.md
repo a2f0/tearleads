@@ -50,8 +50,9 @@ Allowed dependency direction:
 
 The access dependency direction is enforced by `bun run lint:architecture`.
 
-Shared public errors live under `errors/` when an error can be thrown by both
-read and write APIs.
+Implementation-specific errors live beside the implementation that throws them.
+If callers need to handle one, re-export it from the relevant public
+`read/*.ts` or `write/*.ts` module.
 
 ## Test Layout
 

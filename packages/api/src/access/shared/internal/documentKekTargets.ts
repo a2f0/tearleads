@@ -12,8 +12,6 @@ import {
   resolveCurrentContainerKekTargets,
 } from "./containerKekTargets";
 
-type DocumentKekTargetExecutor = DatabaseExecutor;
-
 export class DocumentKekTargetError extends Error {
   constructor(
     message: string,
@@ -43,7 +41,7 @@ interface AssertDocumentKekTargetsCurrentInput {
 
 async function loadDocumentLinkSetHead(
   documentId: string,
-  executor: DocumentKekTargetExecutor,
+  executor: DatabaseExecutor,
 ) {
   const head = await getCurrentAccessManifestHead(
     "document",
@@ -63,7 +61,7 @@ async function loadDocumentLinkSetHead(
 
 async function resolveLinkedContainerKekTargets(
   linkedContainerIds: readonly string[],
-  executor: DocumentKekTargetExecutor,
+  executor: DatabaseExecutor,
 ): Promise<ReadonlyMap<string, DocumentContentKeyTarget>> {
   try {
     return await resolveCurrentContainerKekTargets(
@@ -80,7 +78,7 @@ async function resolveLinkedContainerKekTargets(
 
 export async function resolveCurrentDocumentKekTargets(
   documentId: string,
-  executor: DocumentKekTargetExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<ResolvedDocumentKekTargets> {
   const linkSetHead = await loadDocumentLinkSetHead(documentId, executor);
   const linkRows = await listAccessManifestDocumentLinkProjection(
@@ -136,7 +134,7 @@ export async function resolveCurrentDocumentKekTargets(
 
 export async function assertDocumentKekTargetsCurrent(
   input: AssertDocumentKekTargetsCurrentInput,
-  executor: DocumentKekTargetExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<ResolvedDocumentKekTargets> {
   const currentTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,

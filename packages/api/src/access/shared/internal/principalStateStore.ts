@@ -24,8 +24,6 @@ import {
 } from "../../../schema";
 import { uniqueSortedStrings } from "../../../utils/array";
 
-type PrincipalStateExecutor = DatabaseExecutor;
-
 export interface StoredPrincipalState extends SignedPrincipalState {
   stateHash: string;
   createdAt: Date;
@@ -190,7 +188,7 @@ async function getPrincipalStateByVersion(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   version: number,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalState | null> {
   const [row] = await executor
     .select({
@@ -234,7 +232,7 @@ async function getPrincipalEpochKeyByEpoch(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   epoch: number,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalEpochKey | null> {
   const [row] = await executor
     .select({
@@ -263,7 +261,7 @@ async function getPrincipalStatePayloadForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalStatePayload | null> {
   const [row] = await executor
     .select({
@@ -292,7 +290,7 @@ async function listProjectionMembersForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalProjectionMember[]> {
   const rows = await executor
     .select({
@@ -346,7 +344,7 @@ export function principalStateReferenceKey(input: {
 
 export async function getPrincipalStatesForReferences(
   references: readonly PrincipalStateReference[],
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<Map<string, StoredPrincipalState>> {
   const statesByReference = new Map<string, StoredPrincipalState>();
   const uniqueReferences = new Map(
@@ -425,7 +423,7 @@ export async function getPrincipalStatesForReferences(
 export async function listPrincipalProjectionMembersForStates(
   principalType: ManagedRecipientPrincipalType,
   states: readonly Pick<StoredPrincipalState, "principalId" | "stateHash">[],
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<Map<string, StoredPrincipalProjectionMember[]>> {
   const uniquePrincipalIds = uniqueSortedStrings(
     states.map((state) => state.principalId),
@@ -485,7 +483,7 @@ export async function listPrincipalProjectionMembersForStates(
 
 async function loadPrincipalStateSigner(
   state: SignedPrincipalState,
-  executor: PrincipalStateExecutor,
+  executor: DatabaseExecutor,
 ): Promise<{ signingPublicKey: Uint8Array; userId: string }> {
   const [signer] = await executor
     .select({
@@ -531,7 +529,7 @@ function projectionIncludesAdminUser(
 async function validatePrincipalStateChain(
   state: SignedPrincipalState,
   stateHash: string,
-  executor: PrincipalStateExecutor,
+  executor: DatabaseExecutor,
 ): Promise<StoredPrincipalState | null> {
   const currentState = await getCurrentPrincipalState(
     state.principalType,
@@ -567,7 +565,7 @@ async function validatePrincipalStateSignerAuthorization(input: {
   currentState: StoredPrincipalState | null;
   normalizedInput: PrincipalStateBundleInput;
   signerUserId: string;
-  executor: PrincipalStateExecutor;
+  executor: DatabaseExecutor;
 }): Promise<StoredPrincipalProjectionMember[] | null> {
   if (!input.currentState) {
     if (
@@ -656,7 +654,7 @@ async function insertPrincipalStateRow(input: {
   normalizedInput: PrincipalStateBundleInput;
   stateHash: string;
   signedAt: Date;
-  executor: PrincipalStateExecutor;
+  executor: DatabaseExecutor;
 }): Promise<void> {
   await input.executor
     .insert(principalStates)
@@ -693,7 +691,7 @@ async function insertPrincipalStateRow(input: {
 async function ensureStoredPrincipalStateMatches(input: {
   normalizedInput: PrincipalStateBundleInput;
   stateHash: string;
-  executor: PrincipalStateExecutor;
+  executor: DatabaseExecutor;
 }): Promise<StoredPrincipalState> {
   const storedState = await getPrincipalStateByVersion(
     input.normalizedInput.state.principalType,
@@ -716,7 +714,7 @@ async function ensureStoredPrincipalStateMatches(input: {
 async function insertPrincipalStatePayloadRow(input: {
   normalizedInput: PrincipalStateBundleInput;
   stateHash: string;
-  executor: PrincipalStateExecutor;
+  executor: DatabaseExecutor;
 }): Promise<void> {
   await input.executor
     .insert(principalStatePayloads)
@@ -740,7 +738,7 @@ async function insertPrincipalStatePayloadRow(input: {
 async function ensureStoredPrincipalPayloadMatches(input: {
   normalizedInput: PrincipalStateBundleInput;
   stateHash: string;
-  executor: PrincipalStateExecutor;
+  executor: DatabaseExecutor;
 }): Promise<void> {
   const storedPayload = await getPrincipalStatePayloadForState(
     input.normalizedInput.state.principalType,
@@ -766,7 +764,7 @@ async function ensureStoredPrincipalPayloadMatches(input: {
 async function insertPrincipalProjectionRows(input: {
   normalizedInput: PrincipalStateBundleInput;
   stateHash: string;
-  executor: PrincipalStateExecutor;
+  executor: DatabaseExecutor;
 }): Promise<void> {
   if (input.normalizedInput.projection.length === 0) {
     return;
@@ -798,7 +796,7 @@ async function insertPrincipalProjectionRows(input: {
 async function ensureStoredPrincipalProjectionMatches(input: {
   normalizedInput: PrincipalStateBundleInput;
   stateHash: string;
-  executor: PrincipalStateExecutor;
+  executor: DatabaseExecutor;
 }): Promise<void> {
   const storedProjection = await listProjectionMembersForState(
     input.normalizedInput.state.principalType,
@@ -824,7 +822,7 @@ async function ensureStoredPrincipalProjectionMatches(input: {
 async function insertPrincipalEpochKeyRow(input: {
   normalizedInput: PrincipalStateBundleInput;
   stateHash: string;
-  executor: PrincipalStateExecutor;
+  executor: DatabaseExecutor;
 }): Promise<void> {
   await input.executor
     .insert(principalEpochKeys)
@@ -849,7 +847,7 @@ async function insertPrincipalEpochKeyRow(input: {
 async function ensureStoredPrincipalEpochKeyMatches(input: {
   normalizedInput: PrincipalStateBundleInput;
   stateHash: string;
-  executor: PrincipalStateExecutor;
+  executor: DatabaseExecutor;
 }): Promise<void> {
   const storedEpochKey = await getPrincipalEpochKeyByEpoch(
     input.normalizedInput.state.principalType,
@@ -873,7 +871,7 @@ async function ensureStoredPrincipalEpochKeyMatches(input: {
 
 export async function storeVerifiedPrincipalState(
   input: PrincipalStateBundleInput,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalState> {
   if (executor === db) {
     return db.transaction(async (tx) => storeVerifiedPrincipalState(input, tx));
@@ -966,7 +964,7 @@ export async function storeVerifiedPrincipalState(
 export async function getCurrentPrincipalState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalState | null> {
   const [row] = await executor
     .select({
@@ -1009,7 +1007,7 @@ export async function getCurrentPrincipalState(
 export async function getCurrentPrincipalStates(
   principalType: ManagedRecipientPrincipalType,
   principalIds: string[],
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<Map<string, StoredPrincipalState>> {
   const uniquePrincipalIds = uniqueSortedStrings(principalIds);
 
@@ -1066,7 +1064,7 @@ export async function getCurrentPrincipalStates(
 export async function listPrincipalStateHistory(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalStateChainEntry[]> {
   const rows = await executor
     .select({
@@ -1119,7 +1117,7 @@ export async function listPrincipalStateHistory(
 export async function getCurrentPrincipalStatePayload(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalStatePayload | null> {
   const currentState = await getCurrentPrincipalState(
     principalType,
@@ -1142,7 +1140,7 @@ export async function getCurrentPrincipalStatePayload(
 export async function listCurrentPrincipalProjectionMembers(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalProjectionMember[]> {
   const currentState = await getCurrentPrincipalState(
     principalType,
@@ -1165,7 +1163,7 @@ export async function listCurrentPrincipalProjectionMembers(
 export async function getCurrentPrincipalEpochKey(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredPrincipalEpochKey | null> {
   const [row] = await executor
     .select({
@@ -1193,7 +1191,7 @@ export async function getCurrentPrincipalEpochKey(
 export async function getCurrentPrincipalEpochKeys(
   principalType: ManagedRecipientPrincipalType,
   principalIds: string[],
-  executor: PrincipalStateExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<Map<string, StoredPrincipalEpochKey>> {
   const uniquePrincipalIds = uniqueSortedStrings(principalIds);
 

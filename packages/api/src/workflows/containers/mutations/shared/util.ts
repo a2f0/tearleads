@@ -1,16 +1,6 @@
-import type { ContainerKeyEpoch, KeyingCanonicalJson } from "@tearleads/crypto";
-import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
+import type { ContainerKeyEpoch } from "@tearleads/crypto";
 
-export function canonicalJsonEquals(left: unknown, right: unknown): boolean {
-  if (left === right) {
-    return true;
-  }
-
-  return (
-    serializeKeyingCanonicalJson(left as KeyingCanonicalJson) ===
-    serializeKeyingCanonicalJson(right as KeyingCanonicalJson)
-  );
-}
+export { canonicalJsonEquals } from "../../../../utils/canonicalJson";
 
 export function toContainerKeyEpoch(
   keyEpoch: ContainerKeyEpoch & { readonly createdAt?: Date },

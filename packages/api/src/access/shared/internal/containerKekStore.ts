@@ -11,8 +11,6 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import { containerKeyEpochs, containerKeyWraps } from "../../../schema";
 
-type ContainerKekStoreExecutor = DatabaseExecutor;
-
 interface StoredContainerKeyEpoch extends ContainerKeyEpoch {
   readonly createdAt: Date;
 }
@@ -124,7 +122,7 @@ function containerKeyWrapConflictKey(
 
 async function ensureStoredContainerKeyEpochMatches(
   keyEpoch: ContainerKeyEpoch,
-  executor: ContainerKekStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   const storedEpoch = await getContainerKeyEpochById(keyEpoch.id, executor);
 
@@ -147,7 +145,7 @@ async function ensureStoredContainerKeyEpochMatches(
 
 async function ensureStoredContainerKeyWrapMatches(
   wrap: ContainerKeyWrap,
-  executor: ContainerKekStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   const [storedWrap] = await executor
     .select()
@@ -171,7 +169,7 @@ async function ensureStoredContainerKeyWrapMatches(
 
 async function insertContainerKeyEpoch(
   keyEpoch: ContainerKeyEpoch,
-  executor: ContainerKekStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   const [insertedEpoch] = await executor
     .insert(containerKeyEpochs)
@@ -194,7 +192,7 @@ async function insertContainerKeyEpoch(
 
 async function insertContainerKeyWraps(
   wraps: readonly ContainerKeyWrap[],
-  executor: ContainerKekStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   if (wraps.length === 0) {
     return;
@@ -247,7 +245,7 @@ async function insertContainerKeyWraps(
 async function deleteStaleContainerKeyWraps(
   containerKeyEpochId: string,
   currentWraps: readonly ContainerKeyWrap[],
-  executor: ContainerKekStoreExecutor,
+  executor: DatabaseExecutor,
 ): Promise<void> {
   // The verifier treats the wrap set as exact for the current KEK state. When a
   // principal target is replaced on the same container KEK epoch, stale wraps
@@ -269,7 +267,7 @@ async function deleteStaleContainerKeyWraps(
 
 export async function storeVerifiedContainerKekState(
   input: StoreVerifiedContainerKekStateInput,
-  executor: ContainerKekStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<VerifiedContainerKekState> {
   if (executor === db) {
     return db.transaction(async (tx) =>
@@ -290,7 +288,7 @@ export async function storeVerifiedContainerKekState(
 
 export async function getContainerKeyEpochById(
   containerKeyEpochId: string,
-  executor: ContainerKekStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredContainerKeyEpoch | null> {
   const [keyEpoch] = await executor
     .select()
@@ -303,7 +301,7 @@ export async function getContainerKeyEpochById(
 
 export async function getContainerKeyEpochsById(
   containerKeyEpochIds: readonly string[],
-  executor: ContainerKekStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<Map<string, StoredContainerKeyEpoch>> {
   const uniqueContainerKeyEpochIds = [...new Set(containerKeyEpochIds)].sort();
 
@@ -321,7 +319,7 @@ export async function getContainerKeyEpochsById(
 
 export async function getCurrentContainerKeyEpoch(
   containerId: string,
-  executor: ContainerKekStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredContainerKeyEpoch | null> {
   const [keyEpoch] = await executor
     .select()
@@ -335,7 +333,7 @@ export async function getCurrentContainerKeyEpoch(
 
 export async function listContainerKeyWraps(
   containerKeyEpochId: string,
-  executor: ContainerKekStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredContainerKeyWrap[]> {
   const wraps = await executor
     .select()
@@ -352,7 +350,7 @@ export async function listContainerKeyWraps(
 
 export async function resolveStoredContainerKekState(
   input: ResolveStoredContainerKekStateInput,
-  executor: ContainerKekStoreExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<VerifiedContainerKekState> {
   const containerKeyEpochId = input.containerManifest.state.containerKeyEpochId;
   if (!containerKeyEpochId) {

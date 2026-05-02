@@ -11,12 +11,12 @@ import type {
   DocumentKekTargetsResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { DocumentContentKeyBundleError } from "../../access/errors/documentContentKeyStore";
 import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
 } from "../../access/read/accessManifestStore";
 import {
+  DocumentContentKeyBundleError,
   type DocumentContentKeyTargetEnvelope,
   getLatestCurrentDocumentContentKeyBundle,
 } from "../../access/read/documentContentKeyStore";

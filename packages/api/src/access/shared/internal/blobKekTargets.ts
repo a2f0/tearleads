@@ -6,6 +6,7 @@ import {
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import { attachmentBindings } from "../../../schema";
+import { compareStrings } from "../../../utils/array";
 import {
   getCurrentAccessManifestHeads,
   listAccessManifestDocumentLinkProjections,
@@ -14,8 +15,6 @@ import {
   ContainerKekTargetError,
   resolveCurrentContainerKekTargets,
 } from "./containerKekTargets";
-
-type BlobKekTargetExecutor = DatabaseExecutor;
 
 export class BlobKekTargetError extends Error {
   constructor(
@@ -45,10 +44,6 @@ interface AssertBlobKekTargetsCurrentInput {
   readonly expectedTargetHash?: string;
 }
 
-function compareStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
 function uniqueSortedStrings(values: readonly string[]): string[] {
   return [...new Set(values)].sort(compareStrings);
 }
@@ -72,7 +67,7 @@ function sortBlobTargets(
 
 async function listActiveAttachmentBindings(
   blobId: string,
-  executor: BlobKekTargetExecutor,
+  executor: DatabaseExecutor,
 ) {
   return executor
     .select({
@@ -183,7 +178,7 @@ function documentManifestHashesForBindings(input: {
 
 async function loadBatchedBlobKekTargetState(input: {
   readonly activeBindings: readonly ActiveAttachmentBinding[];
-  readonly executor: BlobKekTargetExecutor;
+  readonly executor: DatabaseExecutor;
 }): Promise<{
   readonly containerTargetById: ContainerKekTargetMap;
   readonly documentManifestHashes: readonly string[];
@@ -293,7 +288,7 @@ function deriveTargetsForBindings(input: {
 
 export async function resolveCurrentBlobKekTargets(
   blobId: string,
-  executor: BlobKekTargetExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<ResolvedBlobKekTargets> {
   const activeBindings = await listActiveAttachmentBindings(blobId, executor);
   if (activeBindings.length === 0) {
@@ -346,7 +341,7 @@ export async function resolveCurrentBlobKekTargets(
 
 export async function assertBlobKekTargetsCurrent(
   input: AssertBlobKekTargetsCurrentInput,
-  executor: BlobKekTargetExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<ResolvedBlobKekTargets> {
   const currentTargets = await resolveCurrentBlobKekTargets(
     input.blobId,

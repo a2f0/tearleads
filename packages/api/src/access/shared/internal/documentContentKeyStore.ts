@@ -3,7 +3,6 @@ import {
   type DocumentContentKeyTarget,
   type KeyingCanonicalJson,
   KeyingVerificationError,
-  serializeKeyingCanonicalJson,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -13,14 +12,14 @@ import {
   documentContentKeyTargets,
   documentContentWriteHeaders,
 } from "../../../schema";
-import { DocumentContentKeyBundleError } from "../../errors/documentContentKeyStore";
+import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,
   type resolveCurrentDocumentKekTargets,
 } from "./documentKekTargets";
+import { targetEnvelopeBundlesEqual } from "./targetEnvelopeBundles";
 
-type DocumentContentKeyExecutor = DatabaseExecutor;
 type CurrentDocumentKekTargets = Awaited<
   ReturnType<typeof resolveCurrentDocumentKekTargets>
 >;
@@ -52,13 +51,14 @@ interface StoreDocumentContentKeyBundleInput {
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }
 
-function canonicalJsonEquals(
-  left: KeyingCanonicalJson,
-  right: KeyingCanonicalJson,
-): boolean {
-  return (
-    serializeKeyingCanonicalJson(left) === serializeKeyingCanonicalJson(right)
-  );
+export class DocumentContentKeyBundleError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 404 | 409,
+  ) {
+    super(message);
+    this.name = "DocumentContentKeyBundleError";
+  }
 }
 
 function targetKey(target: Pick<DocumentContentKeyTarget, "containerId">) {
@@ -126,25 +126,6 @@ function targetEnvelopeMaterialEqual(
     targetKeyMaterialEqual(left, right) &&
     left.wrappedKey === right.wrappedKey &&
     canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
-  );
-}
-
-function targetEnvelopeBundlesEqual(
-  left: readonly DocumentContentKeyTargetEnvelope[],
-  right: readonly DocumentContentKeyTargetEnvelope[],
-): boolean {
-  const sortedLeft = sortTargetEnvelopes(left);
-  const sortedRight = sortTargetEnvelopes(right);
-
-  return (
-    sortedLeft.length === sortedRight.length &&
-    sortedLeft.every((leftTarget, index) => {
-      const rightTarget = sortedRight[index];
-      return (
-        rightTarget !== undefined &&
-        targetEnvelopeEqual(leftTarget, rightTarget)
-      );
-    })
   );
 }
 
@@ -263,7 +244,7 @@ async function assertTargetHashMatches(input: {
 async function loadDocumentContentKeyEpochRow(
   documentId: string,
   contentKeyEpoch: number,
-  executor: DocumentContentKeyExecutor,
+  executor: DatabaseExecutor,
 ) {
   const [row] = await executor
     .select()
@@ -281,7 +262,7 @@ async function loadDocumentContentKeyEpochRow(
 
 async function loadLatestDocumentContentKeyEpochRow(
   documentId: string,
-  executor: DocumentContentKeyExecutor,
+  executor: DatabaseExecutor,
 ) {
   const [row] = await executor
     .select()
@@ -295,7 +276,7 @@ async function loadLatestDocumentContentKeyEpochRow(
 
 async function listDocumentContentKeyTargetRows(
   documentContentKeyEpochId: string,
-  executor: DocumentContentKeyExecutor,
+  executor: DatabaseExecutor,
 ): Promise<DocumentContentKeyTargetEnvelope[]> {
   const rows = await executor
     .select({
@@ -319,7 +300,7 @@ async function listDocumentContentKeyTargetRows(
 
 async function toStoredBundle(
   row: typeof documentContentKeyEpochs.$inferSelect,
-  executor: DocumentContentKeyExecutor,
+  executor: DatabaseExecutor,
 ): Promise<StoredDocumentContentKeyBundle> {
   return {
     documentId: row.documentId,
@@ -333,7 +314,7 @@ async function toStoredBundle(
 async function getDocumentContentKeyBundle(
   documentId: string,
   contentKeyEpoch: number,
-  executor: DocumentContentKeyExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const row = await loadDocumentContentKeyEpochRow(
     documentId,
@@ -345,7 +326,7 @@ async function getDocumentContentKeyBundle(
 
 async function getLatestDocumentContentKeyBundle(
   documentId: string,
-  executor: DocumentContentKeyExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const row = await loadLatestDocumentContentKeyEpochRow(documentId, executor);
   return row ? toStoredBundle(row, executor) : null;
@@ -398,7 +379,7 @@ export async function getLatestCurrentDocumentContentKeyBundle(
     readonly currentTargets: CurrentDocumentKekTargets;
     readonly documentId: string;
   },
-  executor: DocumentContentKeyExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const bundle = await getLatestDocumentContentKeyBundle(
     input.documentId,
@@ -439,7 +420,7 @@ export async function getLatestCurrentDocumentContentKeyBundle(
 
 async function insertDocumentContentKeyTargets(input: {
   readonly documentContentKeyEpochId: string;
-  readonly executor: DocumentContentKeyExecutor;
+  readonly executor: DatabaseExecutor;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }) {
   if (input.targets.length === 0) {
@@ -469,7 +450,7 @@ async function insertDocumentContentKeyTargets(input: {
 
 async function createDocumentContentKeyBundle(
   input: StoreDocumentContentKeyBundleInput,
-  executor: DocumentContentKeyExecutor,
+  executor: DatabaseExecutor,
 ): Promise<StoredDocumentContentKeyBundle> {
   const [row] = await executor
     .insert(documentContentKeyEpochs)
@@ -509,7 +490,14 @@ async function createDocumentContentKeyBundle(
   });
 
   const storedBundle = await toStoredBundle(epochRow, executor);
-  if (!targetEnvelopeBundlesEqual(storedBundle.targets, input.targets)) {
+  if (
+    !targetEnvelopeBundlesEqual(
+      storedBundle.targets,
+      input.targets,
+      sortTargetEnvelopes,
+      targetEnvelopeEqual,
+    )
+  ) {
     throw new DocumentContentKeyBundleError(
       "Document content-key bundle conflict",
       409,
@@ -522,7 +510,7 @@ async function createDocumentContentKeyBundle(
 async function addDocumentContentKeyTargetsToExistingBundle(input: {
   readonly existingBundle: StoredDocumentContentKeyBundle;
   readonly nextBundle: StoreDocumentContentKeyBundleInput;
-  readonly executor: DocumentContentKeyExecutor;
+  readonly executor: DatabaseExecutor;
 }): Promise<StoredDocumentContentKeyBundle> {
   const existingByContainerId = new Map(
     input.existingBundle.targets.map((target) => [target.containerId, target]),
@@ -608,7 +596,7 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
 
 async function validateCurrentTargetsForBundle(
   input: StoreDocumentContentKeyBundleInput,
-  executor: DocumentContentKeyExecutor,
+  executor: DatabaseExecutor,
 ): Promise<CurrentDocumentKekTargets> {
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   await assertTargetHashMatches(input);
@@ -667,7 +655,7 @@ function assertContentKeyEpochCanBeStored(input: {
 async function refreshExistingBundleMetadata(input: {
   readonly existingBundle: StoredDocumentContentKeyBundle;
   readonly nextBundle: StoreDocumentContentKeyBundleInput;
-  readonly executor: DocumentContentKeyExecutor;
+  readonly executor: DatabaseExecutor;
 }): Promise<StoredDocumentContentKeyBundle> {
   if (
     input.existingBundle.targetHash !== input.nextBundle.targetHash ||
@@ -701,7 +689,7 @@ async function refreshExistingBundleMetadata(input: {
 
 export async function storeDocumentContentKeyBundle(
   input: StoreDocumentContentKeyBundleInput,
-  executor: DocumentContentKeyExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<StoredDocumentContentKeyBundleWithTargets> {
   if (executor === db) {
     return db.transaction((tx) => storeDocumentContentKeyBundle(input, tx));
@@ -749,7 +737,14 @@ export async function storeDocumentContentKeyBundle(
     );
   }
 
-  if (targetEnvelopeBundlesEqual(existingBundle.targets, input.targets)) {
+  if (
+    targetEnvelopeBundlesEqual(
+      existingBundle.targets,
+      input.targets,
+      sortTargetEnvelopes,
+      targetEnvelopeEqual,
+    )
+  ) {
     return withCurrentTargets(
       await refreshExistingBundleMetadata({
         existingBundle,
@@ -790,7 +785,7 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
   readonly contentKeyEpoch: number;
   readonly expectedLinkSetManifestHash: string;
   readonly expectedTargetHash: string;
-  readonly executor?: DocumentContentKeyExecutor;
+  readonly executor?: DatabaseExecutor;
 }): Promise<StoredDocumentContentKeyBundleWithTargets> {
   const executor = input.executor ?? db;
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
@@ -866,7 +861,7 @@ export async function storeDocumentContentWriteHeader(
     readonly headerHash: string;
     readonly updateId: string;
   },
-  executor: DocumentContentKeyExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<void> {
   if (
     input.header.objectKind !== "document" ||
@@ -916,7 +911,7 @@ export async function storeDocumentContentWriteHeader(
 
 export async function listDocumentContentWriteHeaders(
   updateIds: readonly string[],
-  executor: DocumentContentKeyExecutor = db,
+  executor: DatabaseExecutor = db,
 ): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
   const uniqueUpdateIds = [...new Set(updateIds)];
   if (uniqueUpdateIds.length === 0) {

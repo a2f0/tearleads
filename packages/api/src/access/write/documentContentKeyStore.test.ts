@@ -23,7 +23,6 @@ import {
 import { eq } from "drizzle-orm";
 import { db } from "../../adapters/postgres";
 import { accessManifests, containerKeyEpochs } from "../../schema";
-import { DocumentContentKeyBundleError } from "../errors/documentContentKeyStore";
 import {
   type DocumentContentKeyTargetEnvelope,
   getLatestCurrentDocumentContentKeyBundle,
@@ -32,6 +31,7 @@ import {
 import { resolveCurrentDocumentKekTargets } from "../read/documentKekTargets";
 import { storeVerifiedAccessManifest } from "./accessManifestStore";
 import {
+  DocumentContentKeyBundleError,
   requireAndRefreshCurrentDocumentContentKeyBundle,
   storeDocumentContentKeyBundle,
   storeDocumentContentWriteHeader,

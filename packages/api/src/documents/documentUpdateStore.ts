@@ -6,8 +6,6 @@ import type { DatabaseExecutor } from "../adapters/postgres";
 import { documentUpdateSpans, documentUpdates } from "../schema";
 import { readCurrentCommitLsn } from "./commitLsn";
 
-type DocumentUpdateExecutor = DatabaseExecutor;
-
 interface SqlNamedColumn {
   name: string;
 }
@@ -106,7 +104,7 @@ function buildClientFrontierJson(localVersionVector: string | null): string {
 }
 
 async function assertMinLsnSatisfied(
-  executor: DocumentUpdateExecutor,
+  executor: DatabaseExecutor,
   minLsn: string | undefined,
 ): Promise<void> {
   if (!minLsn) {
@@ -123,7 +121,7 @@ async function assertMinLsnSatisfied(
 }
 
 export async function listMissingDocumentUpdates(
-  executor: DocumentUpdateExecutor,
+  executor: DatabaseExecutor,
   input: {
     documentId: string;
     localVersionVector: string | null;
