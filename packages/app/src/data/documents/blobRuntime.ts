@@ -972,7 +972,9 @@ export async function decryptDocumentAttachmentBlob({
   }
   await assertBlobContentKeyBundleTargetHash(encrypted.contentKeyBundle);
 
-  await assertDocumentWriterProjectionConsistent(writerProjection);
+  await assertDocumentWriterProjectionConsistent(writerProjection, {
+    resolveProjectionUserKey,
+  });
   const { documentId, organizationId } =
     readDocumentManifestIdentity(writerProjection);
   const expectedNonceDomainHash = await computeContentRecordNonceDomainHash({
@@ -1060,7 +1062,9 @@ async function buildBlobAttachmentMaterial(input: {
     return null;
   }
 
-  await assertDocumentWriterProjectionConsistent(writerProjection);
+  await assertDocumentWriterProjectionConsistent(writerProjection, {
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+  });
   const manifestIdentity = readDocumentManifestIdentity(writerProjection);
   if (manifestIdentity.documentId !== input.documentId) {
     throw new Error("Blob attachment writer projection targets wrong document");

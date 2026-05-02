@@ -35,6 +35,7 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
   buildDocumentCreatePlan,
   buildDocumentSyncPlan,
@@ -1745,6 +1746,160 @@ test("buildMaterializedDocumentSyncPlan unwraps the content key and encrypts pen
     writerPublicKey: signingPublicKey,
   });
   expect(verified.ok).toBe(true);
+});
+
+test("buildMaterializedDocumentSyncPlan rejects document writer projections with bad signatures", async () => {
+  const { author, signingPublicKey } = await createAuthor();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "verified-container",
+    encapsulationPublicKey: encapsulationKeyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const materializedCreate = await buildMaterializedDocumentCreatePlan({
+    author,
+    containerProjection: projection,
+    contentKey: crypto.getRandomValues(new Uint8Array(32)),
+    documentId: "550e8400-e29b-41d4-a716-446655440099",
+    eventId: "event-bad-document-signature",
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  const response = createResponse(materializedCreate.plan);
+  const writerProjection: DocumentWriterProjectionResponse = {
+    documentId: response.id,
+    documentManifest: response.accessManifest,
+    documentKekTargets: response.documentKekTargets,
+    contentKeyBundle: response.contentKeyBundle,
+    authorizingContainerPaths: [projection],
+  };
+  const signedEvent = writerProjection.documentManifest.event
+    .event as unknown as AccessEvent;
+  const signature = signedEvent.signature;
+  if (typeof signature !== "string" || signature.length === 0) {
+    throw new Error("Expected signed document event fixture");
+  }
+
+  await expect(
+    buildMaterializedDocumentSyncPlan({
+      author,
+      localVersionVector: null,
+      pendingUpdates: [createPendingUpdateRecord()],
+      resolveProjectionUserKey: async (userId) =>
+        userId === author.signerUserId
+          ? {
+              encapsulationPublicKey: encapsulationKeyPair.publicKey,
+              signingPublicKey,
+              userId,
+            }
+          : null,
+      targetSecretKey: encapsulationKeyPair.secretKey,
+      writerProjection: {
+        ...writerProjection,
+        documentManifest: {
+          ...writerProjection.documentManifest,
+          event: {
+            ...writerProjection.documentManifest.event,
+            event: {
+              ...signedEvent,
+              signature: `${signature.slice(0, -1)}${
+                signature.endsWith("A") ? "B" : "A"
+              }`,
+            },
+          },
+        },
+      },
+    }),
+  ).rejects.toThrow("Document writer projection signature verification failed");
+});
+
+test("buildMaterializedDocumentSyncPlan verifies linked document manifest history", async () => {
+  const { author, signingPublicKey } = await createAuthor();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const rootProjection = await createContainerWriterProjectionFixture({
+    containerId: "verified-root-container",
+    encapsulationPublicKey: encapsulationKeyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const childProjection = await createContainerWriterProjectionFixture({
+    containerId: "verified-child-container",
+    encapsulationPublicKey: encapsulationKeyPair.publicKey,
+    organizationId: author.organizationId,
+    parentProjection: rootProjection,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const materializedCreate = await buildMaterializedDocumentCreatePlan({
+    author,
+    containerProjection: rootProjection,
+    contentKey: crypto.getRandomValues(new Uint8Array(32)),
+    documentId: "550e8400-e29b-41d4-a716-446655440098",
+    eventId: "event-verified-document-history",
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  const createdResponse = createResponse(materializedCreate.plan);
+  const initialWriterProjection: DocumentWriterProjectionResponse = {
+    documentId: createdResponse.id,
+    documentManifest: createdResponse.accessManifest,
+    documentKekTargets: createdResponse.documentKekTargets,
+    contentKeyBundle: createdResponse.contentKeyBundle,
+    authorizingContainerPaths: [rootProjection],
+  };
+  const linked = await buildMaterializedDocumentLinkSetMutationPlan({
+    author,
+    operation: "link",
+    targetContainerProjection: childProjection,
+    targetSecretKey: encapsulationKeyPair.secretKey,
+    writerProjection: initialWriterProjection,
+  });
+  const linkResponse = await createLinkSetResponseFromRequest(
+    createdResponse.id,
+    linked.plan.request,
+  );
+  const resolveProjectionUserKey = async (userId: string) =>
+    userId === author.signerUserId
+      ? {
+          encapsulationPublicKey: encapsulationKeyPair.publicKey,
+          signingPublicKey,
+          userId,
+        }
+      : null;
+
+  const syncPlan = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    resolveProjectionUserKey,
+    targetSecretKey: encapsulationKeyPair.secretKey,
+    writerProjection: {
+      documentId: linkResponse.id,
+      documentManifest: linkResponse.accessManifest,
+      documentManifestHistory: [createdResponse.accessManifest],
+      documentManifestContainerPaths: [
+        rootProjection.path,
+        childProjection.path,
+      ],
+      documentContainerManifestHistory: [
+        ...rootProjection.path,
+        ...childProjection.path,
+      ],
+      documentKekTargets: linkResponse.documentKekTargets,
+      contentKeyBundle: linkResponse.contentKeyBundle,
+      authorizingContainerPaths: [rootProjection, childProjection],
+    },
+  });
+
+  expect(syncPlan.plan.documentManifest.manifestHash).toBe(
+    linkResponse.accessManifest.manifestHash,
+  );
 });
 
 test("buildMaterializedDocumentSyncPlan uses a fresh IV for same-domain re-encryption", async () => {

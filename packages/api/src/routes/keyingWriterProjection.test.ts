@@ -1449,6 +1449,27 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
   const projection = await projectionResponse.json();
   expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
   const writerProjection = projection as DocumentWriterProjectionResponse;
+  expect(
+    writerProjection.documentManifestHistory?.map(
+      (bundle) => bundle.manifestHash,
+    ),
+  ).toEqual([createdDocument.accessManifest.manifestHash]);
+  expect(
+    new Map(
+      writerProjection.documentManifestContainerPaths?.map((path) => [
+        path.at(-1)?.manifestHash,
+        path.map((bundle) => bundle.manifestHash),
+      ]),
+    ),
+  ).toEqual(
+    new Map([
+      [root.bundle.manifestHash, [root.bundle.manifestHash]],
+      [
+        child.accessManifest.manifestHash,
+        [root.bundle.manifestHash, child.accessManifest.manifestHash],
+      ],
+    ]),
+  );
   expect(writerProjection.documentKekTargets.targets).toHaveLength(2);
   const pathsByContainerId = new Map(
     writerProjection.authorizingContainerPaths.map((path) => [
