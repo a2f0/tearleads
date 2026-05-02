@@ -78,6 +78,74 @@ export const groups = pgTable("groups", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/**
+ * Signed state history for managed recipient principals.
+ *
+ * A managed recipient principal is currently either an `organization` or a
+ * `group`. Users have their own key rows in `users`; this table is for
+ * principals whose membership and encryption key material are themselves
+ * managed by signed policy state.
+ *
+ * Each row stores the signed, public header for one principal state version.
+ * The encrypted policy payload is stored separately in
+ * `principalStatePayloads`, the queryable membership/role projection is stored
+ * in `principalMembershipProjection`, and the active recipient key material is
+ * indexed in `principalEpochKeys`. Those companion tables are addressed by the
+ * same `(principalType, principalId, stateHash)` identity.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain logic uses the principal
+ *   identity and `stateHash`; this is only a row identifier.
+ * - `principalType`: Managed principal kind, currently `organization` or
+ *   `group`.
+ * - `principalId`: The stable id of the organization/group whose policy this
+ *   state describes. This is text because the signed crypto payload models
+ *   principal ids as strings.
+ * - `version`: Monotonic signed version for this principal. Version `1` must
+ *   have `prevStateHash = null`; later versions must point to the previous
+ *   current state's hash.
+ * - `prevStateHash`: Hash-chain pointer to the previous signed state header,
+ *   or `null` for the initial state.
+ * - `keyEpoch`: Principal wrapping-key epoch referenced by this state. It may
+ *   stay the same for additive policy changes, but cannot decrease; key
+ *   material changes and membership shrink require a new epoch.
+ * - `encapsulationPublicKey`: Public KEM key for the principal at `keyEpoch`.
+ *   Members encrypt/rewrap principal key material to this public key.
+ * - `keyFingerprint`: Fingerprint of `encapsulationPublicKey`; verified before
+ *   storage and copied into `principalEpochKeys` for recipient lookup.
+ * - `membershipMode`: How direct members are represented. Only `projection` is
+ *   currently supported.
+ * - `membershipRoot`: Canonical hash of the normalized direct member list that
+ *   was signed by the principal state.
+ * - `projectionRoot`: Canonical hash of the normalized query projection
+ *   entries, including member roles. It must match
+ *   `principalMembershipProjection` rows for this `stateHash`.
+ * - `payloadCiphertextHash`: Hash of the encrypted policy payload ciphertext in
+ *   `principalStatePayloads`; binds the private payload to the signed header.
+ * - `memberCount`: Number of projected members signed into this state. Used as
+ *   a cheap consistency check against `principalMembershipProjection`.
+ * - `stateHash`: Hash of the normalized unsigned state header. This excludes
+ *   `signature` and is the stable content address used by manifests, payload
+ *   rows, projection rows, and epoch-key rows.
+ * - `signedAt`: Client-supplied timestamp included in the signed header.
+ * - `signerUserId`: User who signed this state. Initial states require this
+ *   user to be an admin in the new projection; successor states require the
+ *   user to have been an admin in the previous projection.
+ * - `signerUserKeyFingerprint`: Signing key fingerprint for `signerUserId`.
+ *   The stored user signing key is loaded by this fingerprint before verifying
+ *   `signature`.
+ * - `signature`: Signature over the normalized unsigned state header.
+ * - `createdAt`: Server-side insertion timestamp; not part of the signed
+ *   header or `stateHash`.
+ *
+ * Indexes:
+ * - `(principalType, principalId)` supports loading a principal's state
+ *   history and current state.
+ * - `(principalType, principalId, version)` is unique so a version cannot be
+ *   reused for conflicting state.
+ * - `(principalType, principalId, stateHash)` is unique because state hashes are
+ *   the content-addressed references used by the rest of the access system.
+ */
 export const principalStates = pgTable(
   "principal_states",
   {
