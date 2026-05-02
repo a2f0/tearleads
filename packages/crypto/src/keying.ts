@@ -1,4 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isSha256HexString } from "@tearleads/validators/util";
 import { toFingerprint } from "./fingerprint";
 import { isPlainObject } from "./plainObject";
 import type {
@@ -6413,9 +6414,12 @@ export async function computeContainerKekMaterialId(input: {
 }
 
 export function isContainerKekMaterialId(value: string): boolean {
-  return (
-    value.startsWith(CONTAINER_KEK_MATERIAL_ID_PREFIX) &&
-    value.length === CONTAINER_KEK_MATERIAL_ID_PREFIX.length + 64
+  if (!value.startsWith(CONTAINER_KEK_MATERIAL_ID_PREFIX)) {
+    return false;
+  }
+
+  return isSha256HexString(
+    value.slice(CONTAINER_KEK_MATERIAL_ID_PREFIX.length),
   );
 }
 

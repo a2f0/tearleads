@@ -128,6 +128,11 @@ test("container KEK material ids commit to context and key material", async () =
   expect(id.startsWith(CONTAINER_KEK_MATERIAL_ID_PREFIX)).toBe(true);
   expect(isContainerKekMaterialId(id)).toBe(true);
   expect(
+    isContainerKekMaterialId(
+      `${CONTAINER_KEK_MATERIAL_ID_PREFIX}${"g".repeat(64)}`,
+    ),
+  ).toBe(false);
+  expect(
     await computeContainerKekMaterialId({
       containerId: "container-1",
       keyEpoch: 2,
