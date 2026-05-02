@@ -13,6 +13,7 @@ import {
   computeDocumentContentRecordMetadataHash,
   computeWriteHeaderHash,
   createAesGcmIv,
+  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   type DocumentContentKeyTarget,
   type DocumentLinkAccessEventBody,
   type DocumentLinkSetManifestState,
@@ -65,8 +66,6 @@ import type {
 import type { ExecSql } from "../persistence/sqlSchema";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../principalPolicyCrypto";
 
-const DOCUMENT_CONTENT_KEY_WRAP_SUITE =
-  "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
 const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT = "tearleads.document.loro-update";
 const DOCUMENT_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.document.content-record-key-info";

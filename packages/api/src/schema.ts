@@ -875,8 +875,10 @@ export const containerKeyEpochs = pgTable(
  *   referenced principal head.
  * - `recipientKeyFingerprint`: Fingerprint of the recipient public key used for
  *   verification.
- * - `kemCipherText`: KEM ciphertext/capsule produced while encrypting to the
- *   recipient.
+ * - `kemCipherText`: KEM ciphertext/capsule for principal recipients, or the
+ *   AES-GCM IV for parent-container recipients. Principal wraps use
+ *   `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`; parent-container
+ *   wraps use `tearleads.container-kek-wrap.aes-256-gcm-parent-kek`.
  * - `wrappedKey`: Encrypted container KEK material for this recipient.
  * - `wrapManifestHash`: Access manifest hash whose current target set
  *   authorized this wrap.
@@ -1158,7 +1160,9 @@ export const documentContentKeyEpochs = pgTable(
  *   `containerKeyEpochId`.
  * - `wrappedKey`: Document content key encrypted/wrapped for the container KEK.
  * - `wrappingMetadata`: Canonical metadata needed by the client to unwrap
- *   `wrappedKey`.
+ *   `wrappedKey`; current clients use suite
+ *   `tearleads.document.content-key-wrap.aes-256-gcm-container-kek` with an
+ *   AES-GCM IV.
  * - `createdAt`: Server-side insertion timestamp for the target row.
  *
  * Indexes:
@@ -1344,7 +1348,9 @@ export const blobContentKeyEpochs = pgTable(
  *   `containerKeyEpochId`.
  * - `wrappedKey`: Blob content key encrypted/wrapped for the container KEK.
  * - `wrappingMetadata`: Canonical metadata needed by the client to unwrap
- *   `wrappedKey`.
+ *   `wrappedKey`; current clients use suite
+ *   `tearleads.blob.content-key-wrap.aes-256-gcm-container-kek` with an
+ *   AES-GCM IV.
  * - `createdAt`: Server-side insertion timestamp for the target row.
  *
  * Indexes:

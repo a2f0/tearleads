@@ -131,6 +131,9 @@ export type {
 } from "./keying";
 export {
   accessManifestTransparencyLeaf,
+  BLOB_CONTENT_KEY_WRAP_SUITE,
+  CONTAINER_KEK_PARENT_WRAP_SUITE,
+  CONTAINER_KEK_USER_WRAP_SUITE,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventBodyHash,
   computeAccessEventHash,
@@ -155,6 +158,7 @@ export {
   computeWriteHeaderHash,
   createTransparencyConsistencyProof,
   createTransparencyInclusionProof,
+  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   deriveBlobKekTargets,
   deriveContainerAccessManifest,
   deriveContainerKekRecipientTargets,

@@ -351,6 +351,14 @@ The blob binding route validates:
 - blob content-key bundle against current derived blob KEK targets
 - signed staged blob write header when bytes are promoted
 
+Blob staged bytes and document updates use the content-record encryption suite
+`aes-256-gcm-hkdf-sha256-record-key`. Document content-key targets use
+`tearleads.document.content-key-wrap.aes-256-gcm-container-kek`, and blob
+content-key targets use
+`tearleads.blob.content-key-wrap.aes-256-gcm-container-kek`; those wrap suites
+are direct AES-GCM under a verified container KEK and are separate from the
+HKDF content-record suite.
+
 The blob detach route validates:
 
 - signed `attachment.detach` event and body

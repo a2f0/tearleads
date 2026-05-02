@@ -194,6 +194,12 @@ Encrypted document, blob, and metadata content remains confidential from a
 server that only has stored ciphertext and wrapped keys. The server needs a
 recipient private key, a principal secret key, or an object DEK to decrypt.
 
+The content-record suite `aes-256-gcm-hkdf-sha256-record-key` applies only to
+document and blob payload records. Document and blob content-key wraps use
+explicit `tearleads.*.content-key-wrap.aes-256-gcm-container-kek` suites, while
+container KEK wraps use either ML-KEM-1024 plus AES-GCM for principal
+recipients or AES-GCM under the parent container KEK.
+
 When clients use verified principal policy bundles, a forged group or
 organization policy state should fail closed before the client unwraps a
 principal-addressed object envelope.

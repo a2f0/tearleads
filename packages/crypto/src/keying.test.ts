@@ -37,6 +37,9 @@ import type {
 } from "./keying";
 import {
   accessManifestTransparencyLeaf,
+  BLOB_CONTENT_KEY_WRAP_SUITE,
+  CONTAINER_KEK_PARENT_WRAP_SUITE,
+  CONTAINER_KEK_USER_WRAP_SUITE,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventBodyHash,
   computeAccessManifestHash,
@@ -51,6 +54,7 @@ import {
   computeWriteHeaderHash,
   createTransparencyConsistencyProof,
   createTransparencyInclusionProof,
+  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   deriveBlobKekTargets,
   deriveContainerAccessManifest,
   deriveDocumentKekTargets,
@@ -91,6 +95,24 @@ async function fixtureHash(label: string): Promise<string> {
     fixture: label,
   });
 }
+
+test("suite identifiers distinguish content records from key wrapping", () => {
+  expect(CONTENT_RECORD_ENCRYPTION_SUITE).toBe(
+    "aes-256-gcm-hkdf-sha256-record-key",
+  );
+  expect(DOCUMENT_CONTENT_KEY_WRAP_SUITE).toBe(
+    "tearleads.document.content-key-wrap.aes-256-gcm-container-kek",
+  );
+  expect(BLOB_CONTENT_KEY_WRAP_SUITE).toBe(
+    "tearleads.blob.content-key-wrap.aes-256-gcm-container-kek",
+  );
+  expect(CONTAINER_KEK_USER_WRAP_SUITE).toBe(
+    "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm",
+  );
+  expect(CONTAINER_KEK_PARENT_WRAP_SUITE).toBe(
+    "tearleads.container-kek-wrap.aes-256-gcm-parent-kek",
+  );
+});
 
 async function createSignedContainerEvent(input: {
   readonly body?: { readonly [key: string]: string };
