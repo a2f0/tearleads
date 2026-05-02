@@ -16,14 +16,14 @@ import {
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../../../adapters/postgres";
-import { containerKeyWraps } from "../../../schema";
+import { db } from "../../adapters/postgres";
+import { containerKeyWraps } from "../../schema";
 import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
   resolveStoredContainerKekState,
-} from "../../read/containerKekStore";
-import { storeVerifiedContainerKekState } from "../../write/containerKekStore";
+} from "../read/containerKekStore";
+import { storeVerifiedContainerKekState } from "./containerKekStore";
 
 async function fixtureHash(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {
