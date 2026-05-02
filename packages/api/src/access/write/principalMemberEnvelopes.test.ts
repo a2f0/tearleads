@@ -6,15 +6,15 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { signPrincipalStateBundle } from "../../../../test/helpers/principalState";
-import { db } from "../../../adapters/postgres";
-import { users } from "../../../schema";
+import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
+import { db } from "../../adapters/postgres";
+import { users } from "../../schema";
 import {
   listCurrentPrincipalMemberEnvelopes,
   listCurrentPrincipalMemberRecipients,
-} from "../../read/principalMemberEnvelopes";
-import { replaceCurrentPrincipalMemberEnvelopes } from "../../write/principalMemberEnvelopes";
-import { storeVerifiedPrincipalState } from "../../write/principalStateStore";
+} from "../read/principalMemberEnvelopes";
+import { replaceCurrentPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
+import { storeVerifiedPrincipalState } from "./principalStateStore";
 
 async function insertUserWithRecipientKey(
   userId: string,

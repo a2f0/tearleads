@@ -7,7 +7,7 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../../../adapters/postgres";
+import { db } from "../../adapters/postgres";
 import {
   accessEvents,
   accessManifestDocumentLinkProjection,
@@ -15,17 +15,17 @@ import {
   accessManifests,
   attachmentBindings,
   containerKeyEpochs,
-} from "../../../schema";
+} from "../../schema";
 import {
   type BlobContentKeyTargetEnvelope,
   listBlobContentWriteHeaders,
-} from "../../read/blobContentKeyStore";
-import { resolveCurrentBlobKekTargets } from "../../read/blobKekTargets";
+} from "../read/blobContentKeyStore";
+import { resolveCurrentBlobKekTargets } from "../read/blobKekTargets";
 import {
   BlobContentKeyBundleError,
   storeBlobContentKeyBundle,
   storeBlobContentWriteHeader,
-} from "../../write/blobContentKeyStore";
+} from "./blobContentKeyStore";
 
 async function hashOf(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {

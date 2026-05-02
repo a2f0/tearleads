@@ -55,7 +55,6 @@ read and write APIs.
 
 ## Test Layout
 
-Access tests live under `test/read/` and `test/write/` based on the public API
-surface primarily under test. The tests may still use the opposite side for
-setup or verification, so they stay under `test/` instead of the production
-`read/` and `write/` directories.
+Access tests live alongside the public API surface primarily under test:
+`read/*.test.ts` for read APIs and `write/*.test.ts` for write APIs. The tests
+may still use the opposite side for setup or verification.
