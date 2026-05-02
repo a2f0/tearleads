@@ -13,7 +13,6 @@ import {
   documentContentKeyTargets,
   documentContentWriteHeaders,
 } from "../../../schema";
-import { DocumentContentKeyBundleError } from "../../errors/documentContentKeyStore";
 import {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,
@@ -50,6 +49,16 @@ interface StoreDocumentContentKeyBundleInput {
   readonly linkSetManifestHash: string;
   readonly targetHash: string;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
+}
+
+export class DocumentContentKeyBundleError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 404 | 409,
+  ) {
+    super(message);
+    this.name = "DocumentContentKeyBundleError";
+  }
 }
 
 function canonicalJsonEquals(
