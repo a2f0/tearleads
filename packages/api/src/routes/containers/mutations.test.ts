@@ -420,11 +420,14 @@ function toStoredContainerKeyWrap(
 
 async function bootstrapRoot(owner: TestUser): Promise<StoredContainerFixture> {
   const rootContainer = await getRootContainerForUser(owner.userId);
-  const storedKeyEpoch = await getCurrentContainerKeyEpoch(rootContainer.id);
+  const storedKeyEpoch = await getCurrentContainerKeyEpoch(
+    rootContainer.id,
+    db,
+  );
   const keyEpoch = toStoredContainerKeyEpoch(storedKeyEpoch);
-  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash);
+  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash, db);
   invariant(bundle, "expected registered root container manifest");
-  const wraps = (await listContainerKeyWraps(keyEpoch.id)).map(
+  const wraps = (await listContainerKeyWraps(keyEpoch.id, db)).map(
     toStoredContainerKeyWrap,
   );
   const ownerWrap = wraps.find(

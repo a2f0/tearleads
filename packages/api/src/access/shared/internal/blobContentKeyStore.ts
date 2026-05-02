@@ -6,11 +6,10 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import {
-  type ApiDatabase,
-  type DatabaseSession,
-  type DatabaseTransaction,
-  db,
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
 } from "../../../adapters/postgres";
 import {
   blobContentKeyEpochs,
@@ -298,7 +297,7 @@ async function toStoredBundle(
 async function getBlobContentKeyBundle(
   blobId: string,
   contentKeyEpoch: number,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredBlobContentKeyBundle | null> {
   const row = await loadBlobContentKeyEpochRow(
     blobId,
@@ -310,7 +309,7 @@ async function getBlobContentKeyBundle(
 
 async function getLatestBlobContentKeyBundle(
   blobId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredBlobContentKeyBundle | null> {
   const row = await loadLatestBlobContentKeyEpochRow(blobId, executor);
   return row ? toStoredBundle(row, executor) : null;
@@ -541,7 +540,7 @@ async function refreshExistingBundleMetadata(input: {
 
 export async function storeBlobContentKeyBundle(
   input: StoreBlobContentKeyBundleInput,
-  database: ApiDatabase = db,
+  database: ApiDatabase,
 ): Promise<StoredBlobContentKeyBundleWithTargets> {
   return database.transaction((tx) =>
     storeBlobContentKeyBundleInTransaction(input, tx),
@@ -625,7 +624,7 @@ export async function storeBlobContentWriteHeader(
     readonly headerHash: string;
     readonly recordId: string;
   },
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<void> {
   if (
     input.header.objectKind !== "blob" ||
@@ -673,7 +672,7 @@ export async function storeBlobContentWriteHeader(
 
 export async function listBlobContentWriteHeaders(
   recordIds: readonly string[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
   const uniqueRecordIds = [...new Set(recordIds)];
   if (uniqueRecordIds.length === 0) {

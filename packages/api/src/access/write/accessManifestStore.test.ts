@@ -121,7 +121,7 @@ test("storeVerifiedAccessManifest persists event, manifest, head, and derived pr
     referencedPrincipalHeads: [referencedPrincipalHead],
   });
 
-  const head = await storeVerifiedAccessManifest({ verifiedManifest });
+  const head = await storeVerifiedAccessManifest({ verifiedManifest }, db);
 
   expect(head).toMatchObject({
     objectKind: "container",
@@ -134,13 +134,14 @@ test("storeVerifiedAccessManifest persists event, manifest, head, and derived pr
     getCurrentAccessManifestHead(
       "container",
       verifiedManifest.manifest.objectId,
+      db,
     ),
   ).resolves.toMatchObject({
     epoch: 1,
     manifestHash: verifiedManifest.manifestHash,
   });
   await expect(
-    listAccessEventDependencyProjection(verifiedManifest.event.eventHash),
+    listAccessEventDependencyProjection(verifiedManifest.event.eventHash, db),
   ).resolves.toEqual([
     {
       eventHash: verifiedManifest.event.eventHash,
@@ -158,7 +159,10 @@ test("storeVerifiedAccessManifest persists event, manifest, head, and derived pr
     },
   ]);
   await expect(
-    listAccessManifestPrincipalHeadProjection(verifiedManifest.manifestHash),
+    listAccessManifestPrincipalHeadProjection(
+      verifiedManifest.manifestHash,
+      db,
+    ),
   ).resolves.toEqual([
     {
       manifestHash: verifiedManifest.manifestHash,
@@ -183,7 +187,7 @@ test("access manifest projections can be regenerated from stored event and manif
       },
     ],
   });
-  await storeVerifiedAccessManifest({ verifiedManifest });
+  await storeVerifiedAccessManifest({ verifiedManifest }, db);
 
   await db
     .delete(accessEventDependencyProjection)
@@ -203,19 +207,25 @@ test("access manifest projections can be regenerated from stored event and manif
     );
 
   await expect(
-    listAccessEventDependencyProjection(verifiedManifest.event.eventHash),
+    listAccessEventDependencyProjection(verifiedManifest.event.eventHash, db),
   ).resolves.toEqual([]);
   await expect(
-    listAccessManifestPrincipalHeadProjection(verifiedManifest.manifestHash),
+    listAccessManifestPrincipalHeadProjection(
+      verifiedManifest.manifestHash,
+      db,
+    ),
   ).resolves.toEqual([]);
 
-  await regenerateAccessManifestProjections(verifiedManifest.manifestHash);
+  await regenerateAccessManifestProjections(verifiedManifest.manifestHash, db);
 
   await expect(
-    listAccessEventDependencyProjection(verifiedManifest.event.eventHash),
+    listAccessEventDependencyProjection(verifiedManifest.event.eventHash, db),
   ).resolves.toHaveLength(1);
   await expect(
-    listAccessManifestPrincipalHeadProjection(verifiedManifest.manifestHash),
+    listAccessManifestPrincipalHeadProjection(
+      verifiedManifest.manifestHash,
+      db,
+    ),
   ).resolves.toHaveLength(1);
 });
 
@@ -233,13 +243,13 @@ test("access manifest uniqueness rejects two hashes for the same object epoch", 
     salt: "second",
   });
 
-  await storeVerifiedAccessManifest({ verifiedManifest: firstManifest });
+  await storeVerifiedAccessManifest({ verifiedManifest: firstManifest }, db);
 
   await expect(
-    storeVerifiedAccessManifest({ verifiedManifest: conflictingManifest }),
+    storeVerifiedAccessManifest({ verifiedManifest: conflictingManifest }, db),
   ).rejects.toThrow();
   await expect(
-    getCurrentAccessManifestHead("container", objectId),
+    getCurrentAccessManifestHead("container", objectId, db),
   ).resolves.toMatchObject({
     epoch: 1,
     manifestHash: firstManifest.manifestHash,
@@ -261,12 +271,12 @@ test("access manifest current head advances monotonically", async () => {
     previousManifestHash: firstManifest.manifestHash,
   });
 
-  await storeVerifiedAccessManifest({ verifiedManifest: firstManifest });
-  await storeVerifiedAccessManifest({ verifiedManifest: secondManifest });
-  await storeVerifiedAccessManifest({ verifiedManifest: firstManifest });
+  await storeVerifiedAccessManifest({ verifiedManifest: firstManifest }, db);
+  await storeVerifiedAccessManifest({ verifiedManifest: secondManifest }, db);
+  await storeVerifiedAccessManifest({ verifiedManifest: firstManifest }, db);
 
   await expect(
-    getCurrentAccessManifestHead("container", objectId),
+    getCurrentAccessManifestHead("container", objectId, db),
   ).resolves.toMatchObject({
     epoch: 2,
     manifestHash: secondManifest.manifestHash,

@@ -6,11 +6,10 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import {
-  type ApiDatabase,
-  type DatabaseSession,
-  type DatabaseTransaction,
-  db,
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
 } from "../../../adapters/postgres";
 import {
   documentContentKeyEpochs,
@@ -319,7 +318,7 @@ async function toStoredBundle(
 async function getDocumentContentKeyBundle(
   documentId: string,
   contentKeyEpoch: number,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const row = await loadDocumentContentKeyEpochRow(
     documentId,
@@ -331,7 +330,7 @@ async function getDocumentContentKeyBundle(
 
 async function getLatestDocumentContentKeyBundle(
   documentId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const row = await loadLatestDocumentContentKeyEpochRow(documentId, executor);
   return row ? toStoredBundle(row, executor) : null;
@@ -384,7 +383,7 @@ export async function getLatestCurrentDocumentContentKeyBundle(
     readonly currentTargets: CurrentDocumentKekTargets;
     readonly documentId: string;
   },
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const bundle = await getLatestDocumentContentKeyBundle(
     input.documentId,
@@ -694,7 +693,7 @@ async function refreshExistingBundleMetadata(input: {
 
 export async function storeDocumentContentKeyBundle(
   input: StoreDocumentContentKeyBundleInput,
-  database: ApiDatabase = db,
+  database: ApiDatabase,
 ): Promise<StoredDocumentContentKeyBundleWithTargets> {
   return database.transaction((tx) =>
     storeDocumentContentKeyBundleInTransaction(input, tx),
@@ -795,9 +794,9 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
   readonly contentKeyEpoch: number;
   readonly expectedLinkSetManifestHash: string;
   readonly expectedTargetHash: string;
-  readonly executor?: DatabaseSession;
+  readonly executor: DatabaseSession;
 }): Promise<StoredDocumentContentKeyBundleWithTargets> {
-  const executor = input.executor ?? db;
+  const { executor } = input;
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   const currentTargets = await assertDocumentKekTargetsCurrent(
     {
@@ -871,7 +870,7 @@ export async function storeDocumentContentWriteHeader(
     readonly headerHash: string;
     readonly updateId: string;
   },
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<void> {
   if (
     input.header.objectKind !== "document" ||
@@ -921,7 +920,7 @@ export async function storeDocumentContentWriteHeader(
 
 export async function listDocumentContentWriteHeaders(
   updateIds: readonly string[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
   const uniqueUpdateIds = [...new Set(updateIds)];
   if (uniqueUpdateIds.length === 0) {

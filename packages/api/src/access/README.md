@@ -19,8 +19,10 @@ state. They are low-level stores, not route-level business workflows.
 Read APIs and lower-level helpers accept `DatabaseSession` when they need to run
 SQL but do not own the transaction boundary. It exposes the statement methods
 shared by the root database and active transactions, but not `.transaction()`.
-Write APIs expose database wrappers for standalone calls and `*InTransaction`
-variants when a workflow already owns an open `DatabaseTransaction`.
+Callers pass the root database or active transaction explicitly; these helpers
+do not default to the singleton database. Write APIs expose database wrappers
+for standalone calls and `*InTransaction` variants when a workflow already owns
+an open `DatabaseTransaction`.
 
 Routes should generally call service/workflow functions, not compose these
 modules directly. A workflow owns the atomic operation and decides which reads

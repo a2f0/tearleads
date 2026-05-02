@@ -250,23 +250,29 @@ test("container KEK store persists additive wraps and resolves verified state", 
     throw verifiedState.error;
   }
 
-  await storeVerifiedContainerKekState({ verifiedState: verifiedState.value });
+  await storeVerifiedContainerKekState(
+    { verifiedState: verifiedState.value },
+    db,
+  );
 
   await expect(
-    listContainerKeyWraps(containerKeyEpochId),
+    listContainerKeyWraps(containerKeyEpochId, db),
   ).resolves.toHaveLength(2);
-  await expect(getCurrentContainerKeyEpoch(containerId)).resolves.toMatchObject(
-    {
-      id: containerKeyEpochId,
-      keyEpoch: 1,
-    },
-  );
   await expect(
-    resolveStoredContainerKekState({
-      containerManifest: currentManifest,
-      containerManifestHistory: [originalManifest],
-      userRecipientKeys: [aliceKey, bobKey],
-    }),
+    getCurrentContainerKeyEpoch(containerId, db),
+  ).resolves.toMatchObject({
+    id: containerKeyEpochId,
+    keyEpoch: 1,
+  });
+  await expect(
+    resolveStoredContainerKekState(
+      {
+        containerManifest: currentManifest,
+        containerManifestHistory: [originalManifest],
+        userRecipientKeys: [aliceKey, bobKey],
+      },
+      db,
+    ),
   ).resolves.toMatchObject({
     containerKeyEpochId,
     containerKeyEpoch: 1,
@@ -352,23 +358,35 @@ test("container KEK store replaces stale same-epoch principal wraps", async () =
     throw new Error("Expected fixture states to verify");
   }
 
-  await storeVerifiedContainerKekState({ verifiedState: initialState.value });
-  await storeVerifiedContainerKekState({ verifiedState: currentState.value });
+  await storeVerifiedContainerKekState(
+    { verifiedState: initialState.value },
+    db,
+  );
+  await storeVerifiedContainerKekState(
+    { verifiedState: currentState.value },
+    db,
+  );
 
-  await expect(listContainerKeyWraps(containerKeyEpochId)).resolves.toEqual([
-    expect.objectContaining({
-      recipientKind: "group",
-      recipientId: groupId,
-      recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(rotatedGroupHead),
-      recipientKeyFingerprint: rotatedGroupHead.keyFingerprint,
-    }),
-  ]);
+  await expect(listContainerKeyWraps(containerKeyEpochId, db)).resolves.toEqual(
+    [
+      expect.objectContaining({
+        recipientKind: "group",
+        recipientId: groupId,
+        recipientKeyEpochId:
+          derivePrincipalRecipientKeyEpochId(rotatedGroupHead),
+        recipientKeyFingerprint: rotatedGroupHead.keyFingerprint,
+      }),
+    ],
+  );
   await expect(
-    resolveStoredContainerKekState({
-      containerManifest: currentManifest,
-      containerManifestHistory: [originalManifest],
-      principalPolicies: [principalPolicyFixture(rotatedGroupHead)],
-    }),
+    resolveStoredContainerKekState(
+      {
+        containerManifest: currentManifest,
+        containerManifestHistory: [originalManifest],
+        principalPolicies: [principalPolicyFixture(rotatedGroupHead)],
+      },
+      db,
+    ),
   ).resolves.toMatchObject({
     containerKeyEpochId,
     recipientTargets: [
@@ -427,17 +445,23 @@ test("container KEK resolver rejects tampered stored wrap fingerprints", async (
     throw verifiedState.error;
   }
 
-  await storeVerifiedContainerKekState({ verifiedState: verifiedState.value });
+  await storeVerifiedContainerKekState(
+    { verifiedState: verifiedState.value },
+    db,
+  );
   await db
     .update(containerKeyWraps)
     .set({ recipientKeyFingerprint: await fixtureHash("forged-key") })
     .where(eq(containerKeyWraps.containerKeyEpochId, containerKeyEpochId));
 
   await expect(
-    resolveStoredContainerKekState({
-      containerManifest: manifest,
-      userRecipientKeys: [aliceKey],
-    }),
+    resolveStoredContainerKekState(
+      {
+        containerManifest: manifest,
+        userRecipientKeys: [aliceKey],
+      },
+      db,
+    ),
   ).rejects.toMatchObject({ code: "hash_mismatch" });
 });
 
@@ -539,15 +563,15 @@ test("container KEK store advances current epoch after revoke rekey", async () =
     throw new Error("Expected fixture states to verify");
   }
 
-  await storeVerifiedContainerKekState({ verifiedState: oldState.value });
-  await storeVerifiedContainerKekState({ verifiedState: newState.value });
+  await storeVerifiedContainerKekState({ verifiedState: oldState.value }, db);
+  await storeVerifiedContainerKekState({ verifiedState: newState.value }, db);
 
-  await expect(getCurrentContainerKeyEpoch(containerId)).resolves.toMatchObject(
-    {
-      id: newKeyEpochId,
-      keyEpoch: 2,
-    },
-  );
+  await expect(
+    getCurrentContainerKeyEpoch(containerId, db),
+  ).resolves.toMatchObject({
+    id: newKeyEpochId,
+    keyEpoch: 2,
+  });
   await expect(
     verifyContainerKekState({
       containerManifest: currentManifest,

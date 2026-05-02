@@ -222,13 +222,13 @@ function toContainerKeyWrap(
 async function bootstrapRoot(owner: TestUser): Promise<StoredContainerFixture> {
   const rootContainer = await getRootContainerForUser(owner.userId);
   const keyEpoch = toContainerKeyEpoch(
-    await getCurrentContainerKeyEpoch(rootContainer.id),
+    await getCurrentContainerKeyEpoch(rootContainer.id, db),
   );
-  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash);
+  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash, db);
   if (!bundle) {
     throw new Error("Expected registered root container manifest");
   }
-  const wraps = (await listContainerKeyWraps(keyEpoch.id)).map(
+  const wraps = (await listContainerKeyWraps(keyEpoch.id, db)).map(
     toContainerKeyWrap,
   );
   const ownerWrap = wraps.find(
@@ -310,7 +310,7 @@ async function createDocumentFixture(input: {
     documentId,
     containerId: input.container.bundle.state.containerId,
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: verified.value });
+  await storeVerifiedAccessManifest({ verifiedManifest: verified.value }, db);
 
   return { bundle: verified.value };
 }
@@ -743,6 +743,7 @@ test("bindBlobAttachment applies optional container rekeys before target validat
   ]);
   const currentRootEpoch = await getCurrentContainerKeyEpoch(
     container.kekState.containerId,
+    db,
   );
   expect(currentRootEpoch?.id).toBe(
     rekey.container.kekState.containerKeyEpochId,

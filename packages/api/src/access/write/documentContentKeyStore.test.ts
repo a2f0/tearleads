@@ -260,8 +260,8 @@ async function setupDocumentTargets(linkedContainerCount: 1 | 2) {
     salt: "second",
   });
 
-  await storeVerifiedAccessManifest({ verifiedManifest: firstContainer });
-  await storeVerifiedAccessManifest({ verifiedManifest: secondContainer });
+  await storeVerifiedAccessManifest({ verifiedManifest: firstContainer }, db);
+  await storeVerifiedAccessManifest({ verifiedManifest: secondContainer }, db);
   await insertContainerKeyEpoch({
     containerId: firstContainerId,
     keyEpochId: `${firstContainerId}:key-epoch-1`,
@@ -287,7 +287,7 @@ async function setupDocumentTargets(linkedContainerCount: 1 | 2) {
     linkedContainerIds,
     organizationId,
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: documentManifest });
+  await storeVerifiedAccessManifest({ verifiedManifest: documentManifest }, db);
 
   return {
     documentId,
@@ -302,15 +302,18 @@ async function setupDocumentTargets(linkedContainerCount: 1 | 2) {
 
 test("storeDocumentContentKeyBundle stores one canonical bundle for current targets", async () => {
   const { documentId } = await setupDocumentTargets(2);
-  const currentTargets = await resolveCurrentDocumentKekTargets(documentId);
+  const currentTargets = await resolveCurrentDocumentKekTargets(documentId, db);
   const envelopes = targetEnvelopes(currentTargets);
-  const stored = await storeDocumentContentKeyBundle({
-    documentId,
-    contentKeyEpoch: 1,
-    linkSetManifestHash: currentTargets.linkSetManifestHash,
-    targetHash: currentTargets.documentKeyTargetHash,
-    targets: envelopes,
-  });
+  const stored = await storeDocumentContentKeyBundle(
+    {
+      documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: currentTargets.linkSetManifestHash,
+      targetHash: currentTargets.documentKeyTargetHash,
+      targets: envelopes,
+    },
+    db,
+  );
 
   expect(stored.targets).toEqual(envelopes);
   expect(stored.currentTargets.documentKeyTargetHash).toBe(
@@ -321,13 +324,16 @@ test("storeDocumentContentKeyBundle stores one canonical bundle for current targ
   );
 
   await expect(
-    storeDocumentContentKeyBundle({
-      documentId,
-      contentKeyEpoch: 1,
-      linkSetManifestHash: currentTargets.linkSetManifestHash,
-      targetHash: currentTargets.documentKeyTargetHash,
-      targets: targetEnvelopes(currentTargets, "different-material"),
-    }),
+    storeDocumentContentKeyBundle(
+      {
+        documentId,
+        contentKeyEpoch: 1,
+        linkSetManifestHash: currentTargets.linkSetManifestHash,
+        targetHash: currentTargets.documentKeyTargetHash,
+        targets: targetEnvelopes(currentTargets, "different-material"),
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError(
       "Document content-key bundle conflict",
@@ -338,7 +344,7 @@ test("storeDocumentContentKeyBundle stores one canonical bundle for current targ
 
 test("storeDocumentContentKeyBundle rejects missing extra duplicate and stale targets", async () => {
   const { documentId } = await setupDocumentTargets(2);
-  const currentTargets = await resolveCurrentDocumentKekTargets(documentId);
+  const currentTargets = await resolveCurrentDocumentKekTargets(documentId, db);
   const envelopes = targetEnvelopes(currentTargets);
   const firstEnvelope = envelopes[0];
   if (!firstEnvelope) {
@@ -360,24 +366,30 @@ test("storeDocumentContentKeyBundle rejects missing extra duplicate and stale ta
 
   for (const targets of [missingTarget, extraTarget, duplicateTarget]) {
     await expect(
-      storeDocumentContentKeyBundle({
-        documentId,
-        contentKeyEpoch: 1,
-        linkSetManifestHash: currentTargets.linkSetManifestHash,
-        targetHash: currentTargets.documentKeyTargetHash,
-        targets,
-      }),
+      storeDocumentContentKeyBundle(
+        {
+          documentId,
+          contentKeyEpoch: 1,
+          linkSetManifestHash: currentTargets.linkSetManifestHash,
+          targetHash: currentTargets.documentKeyTargetHash,
+          targets,
+        },
+        db,
+      ),
     ).rejects.toBeInstanceOf(DocumentContentKeyBundleError);
   }
 
   await expect(
-    storeDocumentContentKeyBundle({
-      documentId,
-      contentKeyEpoch: 1,
-      linkSetManifestHash: currentTargets.linkSetManifestHash,
-      targetHash: staleTargetHash,
-      targets: missingTarget,
-    }),
+    storeDocumentContentKeyBundle(
+      {
+        documentId,
+        contentKeyEpoch: 1,
+        linkSetManifestHash: currentTargets.linkSetManifestHash,
+        targetHash: staleTargetHash,
+        targets: missingTarget,
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError("Document KEK targets are stale", 409),
   );
@@ -387,15 +399,19 @@ test("storeDocumentContentKeyBundle allows additive target growth on the same co
   const setup = await setupDocumentTargets(1);
   const initialTargets = await resolveCurrentDocumentKekTargets(
     setup.documentId,
+    db,
   );
   const initialEnvelopes = targetEnvelopes(initialTargets);
-  await storeDocumentContentKeyBundle({
-    documentId: setup.documentId,
-    contentKeyEpoch: 1,
-    linkSetManifestHash: initialTargets.linkSetManifestHash,
-    targetHash: initialTargets.documentKeyTargetHash,
-    targets: initialEnvelopes,
-  });
+  await storeDocumentContentKeyBundle(
+    {
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: initialTargets.linkSetManifestHash,
+      targetHash: initialTargets.documentKeyTargetHash,
+      targets: initialEnvelopes,
+    },
+    db,
+  );
   const expandedManifest = await createVerifiedDocumentLinkSetManifest({
     containerManifestHashes: [
       setup.firstContainer.manifestHash,
@@ -407,9 +423,10 @@ test("storeDocumentContentKeyBundle allows additive target growth on the same co
     organizationId: setup.organizationId,
     previousManifestHash: setup.documentManifest.manifestHash,
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: expandedManifest });
+  await storeVerifiedAccessManifest({ verifiedManifest: expandedManifest }, db);
   const expandedTargets = await resolveCurrentDocumentKekTargets(
     setup.documentId,
+    db,
   );
   const expandedEnvelopes = expandedTargets.targets.map((target) => {
     const existing = initialEnvelopes.find(
@@ -424,13 +441,16 @@ test("storeDocumentContentKeyBundle allows additive target growth on the same co
     );
   });
 
-  const stored = await storeDocumentContentKeyBundle({
-    documentId: setup.documentId,
-    contentKeyEpoch: 1,
-    linkSetManifestHash: expandedTargets.linkSetManifestHash,
-    targetHash: expandedTargets.documentKeyTargetHash,
-    targets: expandedEnvelopes,
-  });
+  const stored = await storeDocumentContentKeyBundle(
+    {
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: expandedTargets.linkSetManifestHash,
+      targetHash: expandedTargets.documentKeyTargetHash,
+      targets: expandedEnvelopes,
+    },
+    db,
+  );
 
   expect(stored.contentKeyEpoch).toBe(1);
   expect(stored.targets).toEqual(expandedEnvelopes);
@@ -440,15 +460,19 @@ test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targ
   const setup = await setupDocumentTargets(1);
   const initialTargets = await resolveCurrentDocumentKekTargets(
     setup.documentId,
+    db,
   );
   const initialEnvelopes = targetEnvelopes(initialTargets);
-  await storeDocumentContentKeyBundle({
-    documentId: setup.documentId,
-    contentKeyEpoch: 1,
-    linkSetManifestHash: initialTargets.linkSetManifestHash,
-    targetHash: initialTargets.documentKeyTargetHash,
-    targets: initialEnvelopes,
-  });
+  await storeDocumentContentKeyBundle(
+    {
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: initialTargets.linkSetManifestHash,
+      targetHash: initialTargets.documentKeyTargetHash,
+      targets: initialEnvelopes,
+    },
+    db,
+  );
   const advancedContainer = await createVerifiedContainerManifest({
     containerId: setup.firstContainerId,
     containerKeyEpochId: `${setup.firstContainerId}:key-epoch-1`,
@@ -457,9 +481,13 @@ test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targ
     previousManifestHash: setup.firstContainer.manifestHash,
     salt: "first-additive-share",
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: advancedContainer });
+  await storeVerifiedAccessManifest(
+    { verifiedManifest: advancedContainer },
+    db,
+  );
   const refreshedTargets = await resolveCurrentDocumentKekTargets(
     setup.documentId,
+    db,
   );
   const refreshedEnvelopes = refreshedTargets.targets.map((target) => {
     const existing = initialEnvelopes.find(
@@ -479,10 +507,13 @@ test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targ
     advancedContainer.manifestHash,
   );
   await expect(
-    getLatestCurrentDocumentContentKeyBundle({
-      currentTargets: refreshedTargets,
-      documentId: setup.documentId,
-    }),
+    getLatestCurrentDocumentContentKeyBundle(
+      {
+        currentTargets: refreshedTargets,
+        documentId: setup.documentId,
+      },
+      db,
+    ),
   ).resolves.toMatchObject({
     linkSetManifestHash: refreshedTargets.linkSetManifestHash,
     targetHash: refreshedTargets.documentKeyTargetHash,
@@ -495,18 +526,22 @@ test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targ
       contentKeyEpoch: 1,
       expectedLinkSetManifestHash: refreshedTargets.linkSetManifestHash,
       expectedTargetHash: refreshedTargets.documentKeyTargetHash,
+      executor: db,
     });
 
   expect(refreshedBundle.contentKeyEpoch).toBe(1);
   expect(refreshedBundle.targets).toEqual(refreshedEnvelopes);
 
-  const stored = await storeDocumentContentKeyBundle({
-    documentId: setup.documentId,
-    contentKeyEpoch: 1,
-    linkSetManifestHash: refreshedTargets.linkSetManifestHash,
-    targetHash: refreshedTargets.documentKeyTargetHash,
-    targets: refreshedEnvelopes,
-  });
+  const stored = await storeDocumentContentKeyBundle(
+    {
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: refreshedTargets.linkSetManifestHash,
+      targetHash: refreshedTargets.documentKeyTargetHash,
+      targets: refreshedEnvelopes,
+    },
+    db,
+  );
 
   expect(stored.contentKeyEpoch).toBe(1);
   expect(stored.targets).toEqual(refreshedEnvelopes);
@@ -516,14 +551,18 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after targe
   const setup = await setupDocumentTargets(2);
   const initialTargets = await resolveCurrentDocumentKekTargets(
     setup.documentId,
+    db,
   );
-  await storeDocumentContentKeyBundle({
-    documentId: setup.documentId,
-    contentKeyEpoch: 1,
-    linkSetManifestHash: initialTargets.linkSetManifestHash,
-    targetHash: initialTargets.documentKeyTargetHash,
-    targets: targetEnvelopes(initialTargets),
-  });
+  await storeDocumentContentKeyBundle(
+    {
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: initialTargets.linkSetManifestHash,
+      targetHash: initialTargets.documentKeyTargetHash,
+      targets: targetEnvelopes(initialTargets),
+    },
+    db,
+  );
   const shrunkManifest = await createVerifiedDocumentLinkSetManifest({
     containerManifestHashes: [setup.firstContainer.manifestHash],
     documentId: setup.documentId,
@@ -532,20 +571,24 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after targe
     organizationId: setup.organizationId,
     previousManifestHash: setup.documentManifest.manifestHash,
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: shrunkManifest });
+  await storeVerifiedAccessManifest({ verifiedManifest: shrunkManifest }, db);
   const shrunkTargets = await resolveCurrentDocumentKekTargets(
     setup.documentId,
+    db,
   );
   const shrunkEnvelopes = targetEnvelopes(shrunkTargets, "rotated");
 
   await expect(
-    storeDocumentContentKeyBundle({
-      documentId: setup.documentId,
-      contentKeyEpoch: 1,
-      linkSetManifestHash: shrunkTargets.linkSetManifestHash,
-      targetHash: shrunkTargets.documentKeyTargetHash,
-      targets: shrunkEnvelopes,
-    }),
+    storeDocumentContentKeyBundle(
+      {
+        documentId: setup.documentId,
+        contentKeyEpoch: 1,
+        linkSetManifestHash: shrunkTargets.linkSetManifestHash,
+        targetHash: shrunkTargets.documentKeyTargetHash,
+        targets: shrunkEnvelopes,
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError(
       "Document content key epoch must rotate after target shrink",
@@ -554,13 +597,16 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after targe
   );
 
   await expect(
-    storeDocumentContentKeyBundle({
-      documentId: setup.documentId,
-      contentKeyEpoch: 2,
-      linkSetManifestHash: shrunkTargets.linkSetManifestHash,
-      targetHash: shrunkTargets.documentKeyTargetHash,
-      targets: shrunkEnvelopes,
-    }),
+    storeDocumentContentKeyBundle(
+      {
+        documentId: setup.documentId,
+        contentKeyEpoch: 2,
+        linkSetManifestHash: shrunkTargets.linkSetManifestHash,
+        targetHash: shrunkTargets.documentKeyTargetHash,
+        targets: shrunkEnvelopes,
+      },
+      db,
+    ),
   ).resolves.toMatchObject({
     contentKeyEpoch: 2,
     targets: shrunkEnvelopes,
@@ -602,46 +648,61 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
   };
   const headerHash = await hashOf("write-header");
 
-  await storeDocumentContentWriteHeader({
-    documentId,
-    header,
-    headerHash,
-    updateId,
-  });
-  await storeDocumentContentWriteHeader({
-    documentId,
-    header,
-    headerHash,
-    updateId,
-  });
-
-  await expect(
-    storeDocumentContentWriteHeader({
-      documentId,
-      header,
-      headerHash: await hashOf("write-header-conflict"),
-      updateId,
-    }),
-  ).rejects.toMatchObject(
-    new DocumentContentKeyBundleError("Document write header conflict", 409),
-  );
-  await expect(
-    storeDocumentContentWriteHeader({
+  await storeDocumentContentWriteHeader(
+    {
       documentId,
       header,
       headerHash,
-      updateId: crypto.randomUUID(),
-    }),
+      updateId,
+    },
+    db,
+  );
+  await storeDocumentContentWriteHeader(
+    {
+      documentId,
+      header,
+      headerHash,
+      updateId,
+    },
+    db,
+  );
+
+  await expect(
+    storeDocumentContentWriteHeader(
+      {
+        documentId,
+        header,
+        headerHash: await hashOf("write-header-conflict"),
+        updateId,
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError("Document write header conflict", 409),
   );
   await expect(
-    storeDocumentContentWriteHeader({
-      documentId,
-      header: { ...header, objectKind: "blob" },
-      headerHash: await hashOf("write-header-wrong-object"),
-      updateId: crypto.randomUUID(),
-    }),
+    storeDocumentContentWriteHeader(
+      {
+        documentId,
+        header,
+        headerHash,
+        updateId: crypto.randomUUID(),
+      },
+      db,
+    ),
+  ).rejects.toMatchObject(
+    new DocumentContentKeyBundleError("Document write header conflict", 409),
+  );
+  await expect(
+    storeDocumentContentWriteHeader(
+      {
+        documentId,
+        header: { ...header, objectKind: "blob" },
+        headerHash: await hashOf("write-header-wrong-object"),
+        updateId: crypto.randomUUID(),
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError(
       "Document write header does not match document",
@@ -668,15 +729,18 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
     signature: "signature-2",
   };
   const secondHeaderHash = await hashOf("write-header-second");
-  await storeDocumentContentWriteHeader({
-    documentId,
-    header: secondHeader,
-    headerHash: secondHeaderHash,
-    updateId: secondUpdateId,
-  });
+  await storeDocumentContentWriteHeader(
+    {
+      documentId,
+      header: secondHeader,
+      headerHash: secondHeaderHash,
+      updateId: secondUpdateId,
+    },
+    db,
+  );
 
   expect(
-    await listDocumentContentWriteHeaders([updateId, secondUpdateId]),
+    await listDocumentContentWriteHeaders([updateId, secondUpdateId], db),
   ).toEqual(
     new Map([
       [updateId, { header, headerHash }],
@@ -718,42 +782,51 @@ test("storeDocumentContentWriteHeader rejects reused content record domains", as
     signature: "signature",
   };
 
-  await storeDocumentContentWriteHeader({
-    documentId,
-    header,
-    headerHash: await hashOf("record-domain-header"),
-    updateId: crypto.randomUUID(),
-  });
+  await storeDocumentContentWriteHeader(
+    {
+      documentId,
+      header,
+      headerHash: await hashOf("record-domain-header"),
+      updateId: crypto.randomUUID(),
+    },
+    db,
+  );
 
   await expect(
-    storeDocumentContentWriteHeader({
-      documentId,
-      header: {
-        ...header,
-        metadataHash: await hashOf("duplicate-record-metadata"),
-        ciphertextHash: await hashOf("duplicate-record-ciphertext"),
-        signature: "signature-2",
+    storeDocumentContentWriteHeader(
+      {
+        documentId,
+        header: {
+          ...header,
+          metadataHash: await hashOf("duplicate-record-metadata"),
+          ciphertextHash: await hashOf("duplicate-record-ciphertext"),
+          signature: "signature-2",
+        },
+        headerHash: await hashOf("duplicate-record-header"),
+        updateId: crypto.randomUUID(),
       },
-      headerHash: await hashOf("duplicate-record-header"),
-      updateId: crypto.randomUUID(),
-    }),
+      db,
+    ),
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError("Document write header conflict", 409),
   );
 
   await expect(
-    storeDocumentContentWriteHeader({
-      documentId,
-      header: {
-        ...header,
-        contentRecordId: "55555555-5555-4555-8555-555555555555",
-        metadataHash: await hashOf("duplicate-domain-metadata"),
-        ciphertextHash: await hashOf("duplicate-domain-ciphertext"),
-        signature: "signature-3",
+    storeDocumentContentWriteHeader(
+      {
+        documentId,
+        header: {
+          ...header,
+          contentRecordId: "55555555-5555-4555-8555-555555555555",
+          metadataHash: await hashOf("duplicate-domain-metadata"),
+          ciphertextHash: await hashOf("duplicate-domain-ciphertext"),
+          signature: "signature-3",
+        },
+        headerHash: await hashOf("duplicate-domain-header"),
+        updateId: crypto.randomUUID(),
       },
-      headerHash: await hashOf("duplicate-domain-header"),
-      updateId: crypto.randomUUID(),
-    }),
+      db,
+    ),
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError("Document write header conflict", 409),
   );
