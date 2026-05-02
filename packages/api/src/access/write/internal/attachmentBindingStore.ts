@@ -3,11 +3,10 @@ import type {
   VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import {
-  type ApiDatabase,
-  type DatabaseSession,
-  type DatabaseTransaction,
-  db,
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
 } from "../../../adapters/postgres";
 import { attachmentBindings } from "../../../schema";
 import { storeVerifiedAccessEventInTransaction } from "../../shared/internal/accessManifestStore";
@@ -56,7 +55,7 @@ async function loadAttachmentBindingRow(
 
 export async function storeVerifiedAttachmentBinding(
   binding: VerifiedAttachmentBinding,
-  database: ApiDatabase = db,
+  database: ApiDatabase,
 ): Promise<typeof attachmentBindings.$inferSelect> {
   return database.transaction((tx) =>
     storeVerifiedAttachmentBindingInTransaction(binding, tx),
@@ -98,7 +97,7 @@ export async function storeVerifiedAttachmentBindingInTransaction(
 
 export async function storeVerifiedAttachmentDetach(
   detach: VerifiedAttachmentDetach,
-  database: ApiDatabase = db,
+  database: ApiDatabase,
 ): Promise<typeof attachmentBindings.$inferSelect> {
   return database.transaction((tx) =>
     storeVerifiedAttachmentDetachInTransaction(detach, tx),

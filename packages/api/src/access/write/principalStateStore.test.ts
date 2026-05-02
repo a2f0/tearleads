@@ -106,7 +106,7 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
     signingPrivateKey,
   );
 
-  const storedState = await storeVerifiedPrincipalState(signedState);
+  const storedState = await storeVerifiedPrincipalState(signedState, db);
 
   expect(storedState.stateHash).toBe(
     await computePrincipalStateHash(signedState.state),
@@ -114,19 +114,20 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
   expect(storedState.memberCount).toBe(2);
   expect(storedState.membershipMode).toBe("projection");
 
-  const currentState = await getCurrentPrincipalState("group", principalId);
+  const currentState = await getCurrentPrincipalState("group", principalId, db);
   expect(currentState?.stateHash).toBe(storedState.stateHash);
   expect(currentState?.keyEpoch).toBe(1);
 
   const currentEpochKey = await getCurrentPrincipalEpochKey(
     "group",
     principalId,
+    db,
   );
   expect(currentEpochKey?.epoch).toBe(1);
   expect(currentEpochKey?.introducedByStateHash).toBe(storedState.stateHash);
   expect(currentEpochKey?.keyFingerprint).toBe(await toFingerprint(publicKey));
 
-  const repeatedState = await storeVerifiedPrincipalState(signedState);
+  const repeatedState = await storeVerifiedPrincipalState(signedState, db);
   expect(repeatedState.stateHash).toBe(storedState.stateHash);
 });
 
@@ -165,7 +166,7 @@ test("storeVerifiedPrincipalState rejects invalid signatures", async () => {
     signingPrivateKey,
   );
 
-  await expect(storeVerifiedPrincipalState(signedState)).rejects.toThrow(
+  await expect(storeVerifiedPrincipalState(signedState, db)).rejects.toThrow(
     "Invalid principal state signature",
   );
 });
@@ -200,17 +201,20 @@ test("storeVerifiedPrincipalState rejects projection roots that do not match the
   );
 
   await expect(
-    storeVerifiedPrincipalState({
-      ...signedState,
-      projection: [
-        ...signedState.projection,
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: crypto.randomUUID(),
-          role: "member",
-        },
-      ],
-    }),
+    storeVerifiedPrincipalState(
+      {
+        ...signedState,
+        projection: [
+          ...signedState.projection,
+          {
+            memberPrincipalType: "user",
+            memberPrincipalId: crypto.randomUUID(),
+            role: "member",
+          },
+        ],
+      },
+      db,
+    ),
   ).rejects.toThrow("Principal state projectionRoot does not match projection");
 });
 
@@ -248,15 +252,20 @@ test("storeVerifiedPrincipalState rejects encrypted payloads that do not match t
   });
 
   await expect(
-    storeVerifiedPrincipalState({
-      ...signedState,
-      encryptedPayload: {
-        ...signedState.encryptedPayload,
-        ciphertext: tamperedCiphertext,
-        ciphertextHash:
-          await computePrincipalStatePayloadCiphertextHash(tamperedCiphertext),
+    storeVerifiedPrincipalState(
+      {
+        ...signedState,
+        encryptedPayload: {
+          ...signedState.encryptedPayload,
+          ciphertext: tamperedCiphertext,
+          ciphertextHash:
+            await computePrincipalStatePayloadCiphertextHash(
+              tamperedCiphertext,
+            ),
+        },
       },
-    }),
+      db,
+    ),
   ).rejects.toThrow(
     "Principal state payloadCiphertextHash does not match encrypted payload",
   );
@@ -301,15 +310,18 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
   );
 
   await expect(
-    storeVerifiedPrincipalState({
-      state,
-      encryptedPayload: {
-        cipherSuite: "aes-256-gcm",
-        ciphertext: payloadCiphertext,
-        ciphertextHash: state.payloadCiphertextHash,
+    storeVerifiedPrincipalState(
+      {
+        state,
+        encryptedPayload: {
+          cipherSuite: "aes-256-gcm",
+          ciphertext: payloadCiphertext,
+          ciphertextHash: state.payloadCiphertextHash,
+        },
+        projection,
       },
-      projection,
-    }),
+      db,
+    ),
   ).rejects.toThrow("Principal state memberCount does not match projection");
 });
 
@@ -350,7 +362,10 @@ test("storeVerifiedPrincipalState rejects successor states signed by non-admins"
     },
     signingPrivateKey,
   );
-  const storedInitialState = await storeVerifiedPrincipalState(initialState);
+  const storedInitialState = await storeVerifiedPrincipalState(
+    initialState,
+    db,
+  );
   const successorState = await signPrincipalState(
     {
       principalType: "group",
@@ -376,7 +391,7 @@ test("storeVerifiedPrincipalState rejects successor states signed by non-admins"
     outsiderSigningPrivateKey,
   );
 
-  await expect(storeVerifiedPrincipalState(successorState)).rejects.toThrow(
+  await expect(storeVerifiedPrincipalState(successorState, db)).rejects.toThrow(
     "Principal state signer must be an admin",
   );
 });
@@ -411,6 +426,7 @@ test("storeVerifiedPrincipalState rejects same-version state hash conflicts", as
       },
       signingPrivateKey,
     ),
+    db,
   );
 
   await expect(
@@ -439,6 +455,7 @@ test("storeVerifiedPrincipalState rejects same-version state hash conflicts", as
         },
         signingPrivateKey,
       ),
+      db,
     ),
   ).rejects.toThrow("Principal state version conflict");
 });
@@ -480,6 +497,7 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
       },
       signingPrivateKey,
     ),
+    db,
   );
 
   await expect(
@@ -508,6 +526,7 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
         },
         signingPrivateKey,
       ),
+      db,
     ),
   ).rejects.toThrow(
     "Principal policy shrink requires a new key epoch and key material",
@@ -546,8 +565,10 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
     },
     signingPrivateKey,
   );
-  const storedFirstStateInitial =
-    await storeVerifiedPrincipalState(firstStateInitial);
+  const storedFirstStateInitial = await storeVerifiedPrincipalState(
+    firstStateInitial,
+    db,
+  );
 
   await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -572,6 +593,7 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
       },
       signingPrivateKey,
     ),
+    db,
   );
 
   await storeVerifiedPrincipalState(
@@ -597,13 +619,14 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
       },
       signingPrivateKey,
     ),
+    db,
   );
 
-  const epochKeys = await getCurrentPrincipalEpochKeys("group", [
-    secondPrincipalId,
-    firstPrincipalId,
-    firstPrincipalId,
-  ]);
+  const epochKeys = await getCurrentPrincipalEpochKeys(
+    "group",
+    [secondPrincipalId, firstPrincipalId, firstPrincipalId],
+    db,
+  );
 
   expect(epochKeys.get(firstPrincipalId)?.epoch).toBe(2);
   expect(epochKeys.get(firstPrincipalId)?.keyFingerprint).toBe(
@@ -647,8 +670,10 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
     },
     signingPrivateKey,
   );
-  const storedFirstStateInitial =
-    await storeVerifiedPrincipalState(firstStateInitial);
+  const storedFirstStateInitial = await storeVerifiedPrincipalState(
+    firstStateInitial,
+    db,
+  );
 
   await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -673,6 +698,7 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
       },
       signingPrivateKey,
     ),
+    db,
   );
 
   await storeVerifiedPrincipalState(
@@ -698,13 +724,14 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
       },
       signingPrivateKey,
     ),
+    db,
   );
 
-  const currentStates = await getCurrentPrincipalStates("organization", [
-    secondPrincipalId,
-    firstPrincipalId,
-    firstPrincipalId,
-  ]);
+  const currentStates = await getCurrentPrincipalStates(
+    "organization",
+    [secondPrincipalId, firstPrincipalId, firstPrincipalId],
+    db,
+  );
 
   expect(currentStates.get(firstPrincipalId)?.version).toBe(2);
   expect(currentStates.get(firstPrincipalId)?.keyEpoch).toBe(2);
@@ -743,6 +770,7 @@ test("getPrincipalStatesForReferences batches exact historical state lookup by r
       },
       signingPrivateKey,
     ),
+    db,
   );
   const secondState = await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -767,13 +795,13 @@ test("getPrincipalStatesForReferences batches exact historical state lookup by r
       },
       signingPrivateKey,
     ),
+    db,
   );
 
-  const states = await getPrincipalStatesForReferences([
-    firstState,
-    secondState,
-    firstState,
-  ]);
+  const states = await getPrincipalStatesForReferences(
+    [firstState, secondState, firstState],
+    db,
+  );
 
   expect(states.get(principalStateReferenceKey(firstState))?.version).toBe(1);
   expect(states.get(principalStateReferenceKey(firstState))?.stateHash).toBe(
@@ -838,6 +866,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
       },
       signingPrivateKey,
     ),
+    db,
   );
   const secondState = await storeVerifiedPrincipalState(
     await signPrincipalState(
@@ -859,13 +888,14 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
       },
       signingPrivateKey,
     ),
+    db,
   );
 
-  const projections = await listPrincipalProjectionMembersForStates("group", [
-    secondState,
-    firstState,
-    firstState,
-  ]);
+  const projections = await listPrincipalProjectionMembersForStates(
+    "group",
+    [secondState, firstState, firstState],
+    db,
+  );
 
   const firstKey = `${firstPrincipalId}:${firstState.stateHash}`;
   const secondKey = `${secondPrincipalId}:${secondState.stateHash}`;

@@ -252,15 +252,18 @@ test("storeBlobContentKeyBundle stores exact active binding targets", async () =
     documentManifestHash: manifestHash,
     slotId: "slot-a",
   });
-  const currentTargets = await resolveCurrentBlobKekTargets(blobId);
+  const currentTargets = await resolveCurrentBlobKekTargets(blobId, db);
   const envelopes = targetEnvelopes(currentTargets);
 
-  const stored = await storeBlobContentKeyBundle({
-    blobId,
-    contentKeyEpoch: 1,
-    targetHash: currentTargets.blobKeyTargetHash,
-    targets: envelopes,
-  });
+  const stored = await storeBlobContentKeyBundle(
+    {
+      blobId,
+      contentKeyEpoch: 1,
+      targetHash: currentTargets.blobKeyTargetHash,
+      targets: envelopes,
+    },
+    db,
+  );
   expect(stored.targets).toEqual(envelopes);
   expect(stored.currentTargets.blobKeyTargetHash).toBe(
     currentTargets.blobKeyTargetHash,
@@ -271,30 +274,36 @@ test("storeBlobContentKeyBundle stores exact active binding targets", async () =
 
   const omittedTargets = envelopes.slice(0, 1);
   await expect(
-    storeBlobContentKeyBundle({
-      blobId,
-      contentKeyEpoch: 1,
-      targetHash: currentTargets.blobKeyTargetHash,
-      targets: omittedTargets,
-    }),
+    storeBlobContentKeyBundle(
+      {
+        blobId,
+        contentKeyEpoch: 1,
+        targetHash: currentTargets.blobKeyTargetHash,
+        targets: omittedTargets,
+      },
+      db,
+    ),
   ).rejects.toBeInstanceOf(BlobContentKeyBundleError);
 
   await expect(
-    storeBlobContentKeyBundle({
-      blobId,
-      contentKeyEpoch: 1,
-      targetHash: await computeBlobContentKeyTargetHash(
-        omittedTargets.map((target) => ({
-          bindingId: target.bindingId,
-          documentId: target.documentId,
-          containerId: target.containerId,
-          containerManifestHash: target.containerManifestHash,
-          containerKeyEpochId: target.containerKeyEpochId,
-          containerKeyEpoch: target.containerKeyEpoch,
-        })),
-      ),
-      targets: omittedTargets,
-    }),
+    storeBlobContentKeyBundle(
+      {
+        blobId,
+        contentKeyEpoch: 1,
+        targetHash: await computeBlobContentKeyTargetHash(
+          omittedTargets.map((target) => ({
+            bindingId: target.bindingId,
+            documentId: target.documentId,
+            containerId: target.containerId,
+            containerManifestHash: target.containerManifestHash,
+            containerKeyEpochId: target.containerKeyEpochId,
+            containerKeyEpoch: target.containerKeyEpoch,
+          })),
+        ),
+        targets: omittedTargets,
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError("Blob KEK targets are stale", 409),
   );
@@ -329,7 +338,7 @@ test("resolveCurrentBlobKekTargets uses the container manifest key epoch", async
     slotId: "slot-a",
   });
 
-  const currentTargets = await resolveCurrentBlobKekTargets(blobId);
+  const currentTargets = await resolveCurrentBlobKekTargets(blobId, db);
 
   expect(currentTargets.targets).toEqual([
     {
@@ -369,14 +378,17 @@ test("storeBlobContentKeyBundle allows additive growth but rejects shrink", asyn
     documentManifestHash: firstManifestHash,
     slotId: "slot-a",
   });
-  const initialTargets = await resolveCurrentBlobKekTargets(blobId);
+  const initialTargets = await resolveCurrentBlobKekTargets(blobId, db);
   const initialEnvelopes = targetEnvelopes(initialTargets);
-  await storeBlobContentKeyBundle({
-    blobId,
-    contentKeyEpoch: 1,
-    targetHash: initialTargets.blobKeyTargetHash,
-    targets: initialEnvelopes,
-  });
+  await storeBlobContentKeyBundle(
+    {
+      blobId,
+      contentKeyEpoch: 1,
+      targetHash: initialTargets.blobKeyTargetHash,
+      targets: initialEnvelopes,
+    },
+    db,
+  );
 
   await attachBlob({
     bindingId: secondBindingId,
@@ -385,7 +397,7 @@ test("storeBlobContentKeyBundle allows additive growth but rejects shrink", asyn
     documentManifestHash: secondManifestHash,
     slotId: "slot-b",
   });
-  const expandedTargets = await resolveCurrentBlobKekTargets(blobId);
+  const expandedTargets = await resolveCurrentBlobKekTargets(blobId, db);
   const expandedEnvelopes = expandedTargets.targets.map((target) => {
     const existing = initialEnvelopes.find(
       (envelope) =>
@@ -402,12 +414,15 @@ test("storeBlobContentKeyBundle allows additive growth but rejects shrink", asyn
     );
   });
 
-  const expanded = await storeBlobContentKeyBundle({
-    blobId,
-    contentKeyEpoch: 1,
-    targetHash: expandedTargets.blobKeyTargetHash,
-    targets: expandedEnvelopes,
-  });
+  const expanded = await storeBlobContentKeyBundle(
+    {
+      blobId,
+      contentKeyEpoch: 1,
+      targetHash: expandedTargets.blobKeyTargetHash,
+      targets: expandedEnvelopes,
+    },
+    db,
+  );
   expect(expanded.contentKeyEpoch).toBe(1);
   expect(expanded.targets).toEqual(expandedEnvelopes);
 
@@ -415,14 +430,17 @@ test("storeBlobContentKeyBundle allows additive growth but rejects shrink", asyn
     .update(attachmentBindings)
     .set({ detachedAt: new Date() })
     .where(eq(attachmentBindings.id, secondBindingId));
-  const shrunkTargets = await resolveCurrentBlobKekTargets(blobId);
+  const shrunkTargets = await resolveCurrentBlobKekTargets(blobId, db);
   await expect(
-    storeBlobContentKeyBundle({
-      blobId,
-      contentKeyEpoch: 1,
-      targetHash: shrunkTargets.blobKeyTargetHash,
-      targets: targetEnvelopes(shrunkTargets, "shrunk"),
-    }),
+    storeBlobContentKeyBundle(
+      {
+        blobId,
+        contentKeyEpoch: 1,
+        targetHash: shrunkTargets.blobKeyTargetHash,
+        targets: targetEnvelopes(shrunkTargets, "shrunk"),
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError(
       "Blob content-key targets shrank; replace the blob",
@@ -443,56 +461,74 @@ test("storeBlobContentWriteHeader stores canonical headers by record id", async 
   });
   const headerHash = await hashOf("blob-write-header");
 
-  await storeBlobContentWriteHeader({
-    blobId,
-    header,
-    headerHash,
-    recordId,
-  });
-  await storeBlobContentWriteHeader({
-    blobId,
-    header,
-    headerHash,
-    recordId,
-  });
-
-  await expect(
-    storeBlobContentWriteHeader({
-      blobId,
-      header,
-      headerHash: await hashOf("blob-write-header-conflict"),
-      recordId,
-    }),
-  ).rejects.toMatchObject(
-    new BlobContentKeyBundleError("Blob write header conflict", 409),
-  );
-  await expect(
-    storeBlobContentWriteHeader({
+  await storeBlobContentWriteHeader(
+    {
       blobId,
       header,
       headerHash,
-      recordId: crypto.randomUUID(),
-    }),
+      recordId,
+    },
+    db,
+  );
+  await storeBlobContentWriteHeader(
+    {
+      blobId,
+      header,
+      headerHash,
+      recordId,
+    },
+    db,
+  );
+
+  await expect(
+    storeBlobContentWriteHeader(
+      {
+        blobId,
+        header,
+        headerHash: await hashOf("blob-write-header-conflict"),
+        recordId,
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError("Blob write header conflict", 409),
   );
   await expect(
-    storeBlobContentWriteHeader({
-      blobId,
-      header: { ...header, objectKind: "document" },
-      headerHash: await hashOf("blob-write-header-wrong-object"),
-      recordId: crypto.randomUUID(),
-    }),
+    storeBlobContentWriteHeader(
+      {
+        blobId,
+        header,
+        headerHash,
+        recordId: crypto.randomUUID(),
+      },
+      db,
+    ),
+  ).rejects.toMatchObject(
+    new BlobContentKeyBundleError("Blob write header conflict", 409),
+  );
+  await expect(
+    storeBlobContentWriteHeader(
+      {
+        blobId,
+        header: { ...header, objectKind: "document" },
+        headerHash: await hashOf("blob-write-header-wrong-object"),
+        recordId: crypto.randomUUID(),
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError("Blob write header does not match blob", 409),
   );
   await expect(
-    storeBlobContentWriteHeader({
-      blobId,
-      header: { ...header, contentKeyEpoch: 2 },
-      headerHash: await hashOf("blob-write-header-unsupported-epoch"),
-      recordId: crypto.randomUUID(),
-    }),
+    storeBlobContentWriteHeader(
+      {
+        blobId,
+        header: { ...header, contentKeyEpoch: 2 },
+        headerHash: await hashOf("blob-write-header-unsupported-epoch"),
+        recordId: crypto.randomUUID(),
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError(
       "Blob content key epoch must be 1; replace the blob after target shrink",
@@ -508,14 +544,19 @@ test("storeBlobContentWriteHeader stores canonical headers by record id", async 
     organizationId,
   });
   const secondHeaderHash = await hashOf("blob-write-header-second");
-  await storeBlobContentWriteHeader({
-    blobId,
-    header: secondHeader,
-    headerHash: secondHeaderHash,
-    recordId: secondRecordId,
-  });
+  await storeBlobContentWriteHeader(
+    {
+      blobId,
+      header: secondHeader,
+      headerHash: secondHeaderHash,
+      recordId: secondRecordId,
+    },
+    db,
+  );
 
-  expect(await listBlobContentWriteHeaders([recordId, secondRecordId])).toEqual(
+  expect(
+    await listBlobContentWriteHeaders([recordId, secondRecordId], db),
+  ).toEqual(
     new Map([
       [recordId, { header, headerHash }],
       [secondRecordId, { header: secondHeader, headerHash: secondHeaderHash }],
@@ -534,42 +575,51 @@ test("storeBlobContentWriteHeader rejects reused content record domains", async 
     organizationId,
   });
 
-  await storeBlobContentWriteHeader({
-    blobId,
-    header,
-    headerHash: await hashOf("blob-record-domain-header"),
-    recordId: crypto.randomUUID(),
-  });
+  await storeBlobContentWriteHeader(
+    {
+      blobId,
+      header,
+      headerHash: await hashOf("blob-record-domain-header"),
+      recordId: crypto.randomUUID(),
+    },
+    db,
+  );
 
   await expect(
-    storeBlobContentWriteHeader({
-      blobId,
-      header: {
-        ...header,
-        metadataHash: await hashOf("blob-duplicate-record-metadata"),
-        ciphertextHash: await hashOf("blob-duplicate-record-ciphertext"),
-        signature: "blob-signature-2",
+    storeBlobContentWriteHeader(
+      {
+        blobId,
+        header: {
+          ...header,
+          metadataHash: await hashOf("blob-duplicate-record-metadata"),
+          ciphertextHash: await hashOf("blob-duplicate-record-ciphertext"),
+          signature: "blob-signature-2",
+        },
+        headerHash: await hashOf("blob-duplicate-record-header"),
+        recordId: crypto.randomUUID(),
       },
-      headerHash: await hashOf("blob-duplicate-record-header"),
-      recordId: crypto.randomUUID(),
-    }),
+      db,
+    ),
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError("Blob write header conflict", 409),
   );
 
   await expect(
-    storeBlobContentWriteHeader({
-      blobId,
-      header: {
-        ...header,
-        contentRecordId: "88888888-8888-4888-8888-888888888888",
-        metadataHash: await hashOf("blob-duplicate-domain-metadata"),
-        ciphertextHash: await hashOf("blob-duplicate-domain-ciphertext"),
-        signature: "blob-signature-3",
+    storeBlobContentWriteHeader(
+      {
+        blobId,
+        header: {
+          ...header,
+          contentRecordId: "88888888-8888-4888-8888-888888888888",
+          metadataHash: await hashOf("blob-duplicate-domain-metadata"),
+          ciphertextHash: await hashOf("blob-duplicate-domain-ciphertext"),
+          signature: "blob-signature-3",
+        },
+        headerHash: await hashOf("blob-duplicate-domain-header"),
+        recordId: crypto.randomUUID(),
       },
-      headerHash: await hashOf("blob-duplicate-domain-header"),
-      recordId: crypto.randomUUID(),
-    }),
+      db,
+    ),
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError("Blob write header conflict", 409),
   );

@@ -14,11 +14,10 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import {
-  type ApiDatabase,
-  type DatabaseSession,
-  type DatabaseTransaction,
-  db,
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
 } from "../../../adapters/postgres";
 import {
   principalEpochKeys,
@@ -193,7 +192,7 @@ async function getPrincipalStateByVersion(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   version: number,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalState | null> {
   const [row] = await executor
     .select({
@@ -237,7 +236,7 @@ async function getPrincipalEpochKeyByEpoch(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   epoch: number,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalEpochKey | null> {
   const [row] = await executor
     .select({
@@ -266,7 +265,7 @@ async function getPrincipalStatePayloadForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalStatePayload | null> {
   const [row] = await executor
     .select({
@@ -295,7 +294,7 @@ async function listProjectionMembersForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalProjectionMember[]> {
   const rows = await executor
     .select({
@@ -349,7 +348,7 @@ export function principalStateReferenceKey(input: {
 
 export async function getPrincipalStatesForReferences(
   references: readonly PrincipalStateReference[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<Map<string, StoredPrincipalState>> {
   const statesByReference = new Map<string, StoredPrincipalState>();
   const uniqueReferences = new Map(
@@ -428,7 +427,7 @@ export async function getPrincipalStatesForReferences(
 export async function listPrincipalProjectionMembersForStates(
   principalType: ManagedRecipientPrincipalType,
   states: readonly Pick<StoredPrincipalState, "principalId" | "stateHash">[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<Map<string, StoredPrincipalProjectionMember[]>> {
   const uniquePrincipalIds = uniqueSortedStrings(
     states.map((state) => state.principalId),
@@ -876,7 +875,7 @@ async function ensureStoredPrincipalEpochKeyMatches(input: {
 
 export async function storeVerifiedPrincipalState(
   input: PrincipalStateBundleInput,
-  database: ApiDatabase = db,
+  database: ApiDatabase,
 ): Promise<StoredPrincipalState> {
   return database.transaction((tx) =>
     storeVerifiedPrincipalStateInTransaction(input, tx),
@@ -974,7 +973,7 @@ export async function storeVerifiedPrincipalStateInTransaction(
 export async function getCurrentPrincipalState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalState | null> {
   const [row] = await executor
     .select({
@@ -1017,7 +1016,7 @@ export async function getCurrentPrincipalState(
 export async function getCurrentPrincipalStates(
   principalType: ManagedRecipientPrincipalType,
   principalIds: string[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<Map<string, StoredPrincipalState>> {
   const uniquePrincipalIds = uniqueSortedStrings(principalIds);
 
@@ -1074,7 +1073,7 @@ export async function getCurrentPrincipalStates(
 export async function listPrincipalStateHistory(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalStateChainEntry[]> {
   const rows = await executor
     .select({
@@ -1127,7 +1126,7 @@ export async function listPrincipalStateHistory(
 export async function getCurrentPrincipalStatePayload(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalStatePayload | null> {
   const currentState = await getCurrentPrincipalState(
     principalType,
@@ -1150,7 +1149,7 @@ export async function getCurrentPrincipalStatePayload(
 export async function listCurrentPrincipalProjectionMembers(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalProjectionMember[]> {
   const currentState = await getCurrentPrincipalState(
     principalType,
@@ -1173,7 +1172,7 @@ export async function listCurrentPrincipalProjectionMembers(
 export async function getCurrentPrincipalEpochKey(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalEpochKey | null> {
   const [row] = await executor
     .select({
@@ -1201,7 +1200,7 @@ export async function getCurrentPrincipalEpochKey(
 export async function getCurrentPrincipalEpochKeys(
   principalType: ManagedRecipientPrincipalType,
   principalIds: string[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<Map<string, StoredPrincipalEpochKey>> {
   const uniquePrincipalIds = uniqueSortedStrings(principalIds);
 

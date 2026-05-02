@@ -1,6 +1,6 @@
 import type { ContainerKekTarget } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
-import { type DatabaseSession, db } from "../../../adapters/postgres";
+import type { DatabaseSession } from "../../../adapters/postgres";
 import { accessManifestHeads, accessManifests } from "../../../schema";
 import { getContainerKeyEpochsById } from "./containerKekStore";
 
@@ -491,7 +491,7 @@ function assertContainerKekManifestBindingsCurrent(input: {
 
 export async function resolveCurrentContainerKekTargets(
   containerIds: readonly string[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<Map<string, ContainerKekTarget>> {
   const uniqueContainerIds = [...new Set(containerIds)].sort();
 

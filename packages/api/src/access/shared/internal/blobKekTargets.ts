@@ -4,7 +4,7 @@ import {
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { type DatabaseSession, db } from "../../../adapters/postgres";
+import type { DatabaseSession } from "../../../adapters/postgres";
 import { attachmentBindings } from "../../../schema";
 import { compareStrings } from "../../../utils/array";
 import {
@@ -288,7 +288,7 @@ function deriveTargetsForBindings(input: {
 
 export async function resolveCurrentBlobKekTargets(
   blobId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<ResolvedBlobKekTargets> {
   const activeBindings = await listActiveAttachmentBindings(blobId, executor);
   if (activeBindings.length === 0) {
@@ -341,7 +341,7 @@ export async function resolveCurrentBlobKekTargets(
 
 export async function assertBlobKekTargetsCurrent(
   input: AssertBlobKekTargetsCurrentInput,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<ResolvedBlobKekTargets> {
   const currentTargets = await resolveCurrentBlobKekTargets(
     input.blobId,

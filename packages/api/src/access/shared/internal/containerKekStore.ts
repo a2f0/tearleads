@@ -8,11 +8,10 @@ import type {
 } from "@tearleads/crypto";
 import { verifyContainerKekState } from "@tearleads/crypto";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import {
-  type ApiDatabase,
-  type DatabaseSession,
-  type DatabaseTransaction,
-  db,
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
 } from "../../../adapters/postgres";
 import { containerKeyEpochs, containerKeyWraps } from "../../../schema";
 
@@ -272,7 +271,7 @@ async function deleteStaleContainerKeyWraps(
 
 export async function storeVerifiedContainerKekState(
   input: StoreVerifiedContainerKekStateInput,
-  database: ApiDatabase = db,
+  database: ApiDatabase,
 ): Promise<VerifiedContainerKekState> {
   return database.transaction((tx) =>
     storeVerifiedContainerKekStateInTransaction(input, tx),
@@ -296,7 +295,7 @@ export async function storeVerifiedContainerKekStateInTransaction(
 
 export async function getContainerKeyEpochById(
   containerKeyEpochId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredContainerKeyEpoch | null> {
   const [keyEpoch] = await executor
     .select()
@@ -309,7 +308,7 @@ export async function getContainerKeyEpochById(
 
 export async function getContainerKeyEpochsById(
   containerKeyEpochIds: readonly string[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<Map<string, StoredContainerKeyEpoch>> {
   const uniqueContainerKeyEpochIds = [...new Set(containerKeyEpochIds)].sort();
 
@@ -327,7 +326,7 @@ export async function getContainerKeyEpochsById(
 
 export async function getCurrentContainerKeyEpoch(
   containerId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredContainerKeyEpoch | null> {
   const [keyEpoch] = await executor
     .select()
@@ -341,7 +340,7 @@ export async function getCurrentContainerKeyEpoch(
 
 export async function listContainerKeyWraps(
   containerKeyEpochId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredContainerKeyWrap[]> {
   const wraps = await executor
     .select()
@@ -358,7 +357,7 @@ export async function listContainerKeyWraps(
 
 export async function resolveStoredContainerKekState(
   input: ResolveStoredContainerKekStateInput,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<VerifiedContainerKekState> {
   const containerKeyEpochId = input.containerManifest.state.containerKeyEpochId;
   if (!containerKeyEpochId) {

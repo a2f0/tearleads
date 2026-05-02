@@ -79,7 +79,7 @@ test("storeVerifiedAttachmentBinding projects signed bind and detach events", as
     body,
   } as unknown as VerifiedAttachmentBinding;
 
-  const stored = await storeVerifiedAttachmentBinding(binding);
+  const stored = await storeVerifiedAttachmentBinding(binding, db);
   expect(stored).toMatchObject({
     id: bindingId,
     blobId,
@@ -89,7 +89,9 @@ test("storeVerifiedAttachmentBinding projects signed bind and detach events", as
     documentManifestHash,
   });
 
-  await expect(storeVerifiedAttachmentBinding(binding)).resolves.toMatchObject({
+  await expect(
+    storeVerifiedAttachmentBinding(binding, db),
+  ).resolves.toMatchObject({
     id: bindingId,
   });
 
@@ -112,7 +114,7 @@ test("storeVerifiedAttachmentBinding projects signed bind and detach events", as
     body: detachBody,
   } as unknown as VerifiedAttachmentDetach;
 
-  await storeVerifiedAttachmentDetach(detach);
+  await storeVerifiedAttachmentDetach(detach, db);
 
   const [row] = await db
     .select({ detachedAt: attachmentBindings.detachedAt })

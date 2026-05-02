@@ -2,7 +2,7 @@ import {
   computeDocumentContentKeyTargetHash,
   type DocumentContentKeyTarget,
 } from "@tearleads/crypto";
-import { type DatabaseSession, db } from "../../../adapters/postgres";
+import type { DatabaseSession } from "../../../adapters/postgres";
 import {
   getCurrentAccessManifestHead,
   listAccessManifestDocumentLinkProjection,
@@ -78,7 +78,7 @@ async function resolveLinkedContainerKekTargets(
 
 export async function resolveCurrentDocumentKekTargets(
   documentId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<ResolvedDocumentKekTargets> {
   const linkSetHead = await loadDocumentLinkSetHead(documentId, executor);
   const linkRows = await listAccessManifestDocumentLinkProjection(
@@ -134,7 +134,7 @@ export async function resolveCurrentDocumentKekTargets(
 
 export async function assertDocumentKekTargetsCurrent(
   input: AssertDocumentKekTargetsCurrentInput,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<ResolvedDocumentKekTargets> {
   const currentTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,

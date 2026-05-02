@@ -109,6 +109,7 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
       signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       signingPrivateKey,
     }),
+    db,
   );
 
   const groupMembers = [
@@ -150,11 +151,13 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
       signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       signingPrivateKey,
     }),
+    db,
   );
 
   const currentRecipients = await listCurrentPrincipalMemberRecipients(
     "group",
     groupPrincipalId,
+    db,
   );
   const wrappedSecretEntries = await wrapDekForRecipients(
     crypto.getRandomValues(new Uint8Array(64)),
@@ -163,12 +166,18 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
     ),
   );
 
-  const storedEnvelopes = await replaceCurrentPrincipalMemberEnvelopes({
-    principalType: "group",
-    principalId: groupPrincipalId,
-    stateHash: storedState.stateHash,
-    envelopes: toMemberEnvelopeInputs(currentRecipients, wrappedSecretEntries),
-  });
+  const storedEnvelopes = await replaceCurrentPrincipalMemberEnvelopes(
+    {
+      principalType: "group",
+      principalId: groupPrincipalId,
+      stateHash: storedState.stateHash,
+      envelopes: toMemberEnvelopeInputs(
+        currentRecipients,
+        wrappedSecretEntries,
+      ),
+    },
+    db,
+  );
 
   expect(
     storedEnvelopes.map((envelope) => ({
@@ -198,6 +207,7 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
   const currentStoredEnvelopes = await listCurrentPrincipalMemberEnvelopes(
     "group",
     groupPrincipalId,
+    db,
   );
   expect(currentStoredEnvelopes).toHaveLength(2);
 });
@@ -249,6 +259,7 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
       signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       signingPrivateKey,
     }),
+    db,
   );
 
   const nextMembers = [
@@ -290,11 +301,13 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
       signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
       signingPrivateKey,
     }),
+    db,
   );
 
   const currentRecipients = await listCurrentPrincipalMemberRecipients(
     "group",
     groupPrincipalId,
+    db,
   );
   const wrappedSecretEntries = await wrapDekForRecipients(
     crypto.getRandomValues(new Uint8Array(64)),
@@ -304,15 +317,18 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
   );
 
   await expect(
-    replaceCurrentPrincipalMemberEnvelopes({
-      principalType: "group",
-      principalId: groupPrincipalId,
-      stateHash: initialState.stateHash,
-      envelopes: toMemberEnvelopeInputs(
-        currentRecipients,
-        wrappedSecretEntries,
-      ),
-    }),
+    replaceCurrentPrincipalMemberEnvelopes(
+      {
+        principalType: "group",
+        principalId: groupPrincipalId,
+        stateHash: initialState.stateHash,
+        envelopes: toMemberEnvelopeInputs(
+          currentRecipients,
+          wrappedSecretEntries,
+        ),
+      },
+      db,
+    ),
   ).rejects.toThrow("Principal member envelopes must target the current state");
 
   expect(nextState.keyEpoch).toBe(1);

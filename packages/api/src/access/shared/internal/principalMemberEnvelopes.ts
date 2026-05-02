@@ -3,11 +3,10 @@ import type {
   PrincipalStateMemberType,
 } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import {
-  type ApiDatabase,
-  type DatabaseSession,
-  type DatabaseTransaction,
-  db,
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
 } from "../../../adapters/postgres";
 import { principalMemberEnvelopes, users } from "../../../schema";
 import {
@@ -198,7 +197,7 @@ async function listPrincipalMemberEnvelopesForState(
 export async function listCurrentPrincipalMemberRecipients(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<PrincipalMemberRecipient[]> {
   const { recipients } = await loadCurrentPrincipalMemberRecipientsForState(
     principalType,
@@ -212,7 +211,7 @@ export async function listCurrentPrincipalMemberRecipients(
 export async function listCurrentPrincipalMemberEnvelopes(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
   const currentState = await getCurrentPrincipalState(
     principalType,
@@ -239,7 +238,7 @@ export async function replaceCurrentPrincipalMemberEnvelopes(
     stateHash: string;
     envelopes: PrincipalMemberEnvelopeInput[];
   },
-  database: ApiDatabase = db,
+  database: ApiDatabase,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
   return database.transaction((tx) =>
     replaceCurrentPrincipalMemberEnvelopesInTransaction(input, tx),

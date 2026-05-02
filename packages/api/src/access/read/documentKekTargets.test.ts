@@ -239,8 +239,8 @@ test("resolveCurrentDocumentKekTargets derives targets from linked container hea
     organizationId,
     salt: "second",
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: firstContainer });
-  await storeVerifiedAccessManifest({ verifiedManifest: secondContainer });
+  await storeVerifiedAccessManifest({ verifiedManifest: firstContainer }, db);
+  await storeVerifiedAccessManifest({ verifiedManifest: secondContainer }, db);
   await insertContainerKeyEpoch({
     containerId: firstContainerId,
     keyEpochId: `${firstContainerId}:key-epoch-1`,
@@ -260,11 +260,14 @@ test("resolveCurrentDocumentKekTargets derives targets from linked container hea
     linkedContainerIds: [secondContainerId, firstContainerId],
     organizationId,
   });
-  await storeVerifiedAccessManifest({
-    verifiedManifest: documentManifest,
-  });
+  await storeVerifiedAccessManifest(
+    {
+      verifiedManifest: documentManifest,
+    },
+    db,
+  );
 
-  const targets = await resolveCurrentDocumentKekTargets(documentId);
+  const targets = await resolveCurrentDocumentKekTargets(documentId, db);
   const expectedTargets = [
     {
       containerId: firstContainerId,
@@ -297,7 +300,7 @@ test("resolveCurrentDocumentKekTargets uses the container manifest key epoch", a
     salt: "manifest-key-epoch",
   });
   const manifestKeyEpochId = `${containerId}:key-epoch-1`;
-  await storeVerifiedAccessManifest({ verifiedManifest: container });
+  await storeVerifiedAccessManifest({ verifiedManifest: container }, db);
   await insertContainerKeyEpoch({
     containerId,
     keyEpochId: manifestKeyEpochId,
@@ -315,11 +318,14 @@ test("resolveCurrentDocumentKekTargets uses the container manifest key epoch", a
     linkedContainerIds: [containerId],
     organizationId,
   });
-  await storeVerifiedAccessManifest({
-    verifiedManifest: documentManifest,
-  });
+  await storeVerifiedAccessManifest(
+    {
+      verifiedManifest: documentManifest,
+    },
+    db,
+  );
 
-  const targets = await resolveCurrentDocumentKekTargets(documentId);
+  const targets = await resolveCurrentDocumentKekTargets(documentId, db);
 
   expect(targets.targets).toEqual([
     {
@@ -351,8 +357,8 @@ test("resolveCurrentDocumentKekTargets rejects key epochs bound outside current 
     previousManifestHash: initialContainer.manifestHash,
     salt: "current-key-epoch",
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: initialContainer });
-  await storeVerifiedAccessManifest({ verifiedManifest: currentContainer });
+  await storeVerifiedAccessManifest({ verifiedManifest: initialContainer }, db);
+  await storeVerifiedAccessManifest({ verifiedManifest: currentContainer }, db);
   await insertContainerKeyEpoch({
     containerId,
     keyEpoch: 2,
@@ -365,11 +371,16 @@ test("resolveCurrentDocumentKekTargets rejects key epochs bound outside current 
     linkedContainerIds: [containerId],
     organizationId,
   });
-  await storeVerifiedAccessManifest({
-    verifiedManifest: documentManifest,
-  });
+  await storeVerifiedAccessManifest(
+    {
+      verifiedManifest: documentManifest,
+    },
+    db,
+  );
 
-  await expect(resolveCurrentDocumentKekTargets(documentId)).rejects.toEqual(
+  await expect(
+    resolveCurrentDocumentKekTargets(documentId, db),
+  ).rejects.toEqual(
     new DocumentKekTargetError(
       `Container KEK epoch is stale for container ${containerId}`,
       409,
@@ -398,8 +409,8 @@ test("resolveCurrentDocumentKekTargets rejects linked containers with stale pare
     parentManifestHash: root.manifestHash,
     salt: "child",
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: root });
-  await storeVerifiedAccessManifest({ verifiedManifest: child });
+  await storeVerifiedAccessManifest({ verifiedManifest: root }, db);
+  await storeVerifiedAccessManifest({ verifiedManifest: child }, db);
   await insertContainerKeyEpoch({
     containerId: rootContainerId,
     keyEpochId: rootKeyEpochId,
@@ -417,11 +428,16 @@ test("resolveCurrentDocumentKekTargets rejects linked containers with stale pare
     linkedContainerIds: [childContainerId],
     organizationId,
   });
-  await storeVerifiedAccessManifest({
-    verifiedManifest: documentManifest,
-  });
+  await storeVerifiedAccessManifest(
+    {
+      verifiedManifest: documentManifest,
+    },
+    db,
+  );
 
-  await expect(resolveCurrentDocumentKekTargets(documentId)).resolves.toEqual(
+  await expect(
+    resolveCurrentDocumentKekTargets(documentId, db),
+  ).resolves.toEqual(
     expect.objectContaining({
       linkedContainerKeyEpochIds: [childKeyEpochId],
     }),
@@ -436,7 +452,7 @@ test("resolveCurrentDocumentKekTargets rejects linked containers with stale pare
     previousManifestHash: root.manifestHash,
     salt: "root-rotated",
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: rotatedRoot });
+  await storeVerifiedAccessManifest({ verifiedManifest: rotatedRoot }, db);
   await insertContainerKeyEpoch({
     containerId: rootContainerId,
     keyEpoch: 2,
@@ -444,7 +460,9 @@ test("resolveCurrentDocumentKekTargets rejects linked containers with stale pare
     manifestHash: rotatedRoot.manifestHash,
   });
 
-  await expect(resolveCurrentDocumentKekTargets(documentId)).rejects.toEqual(
+  await expect(
+    resolveCurrentDocumentKekTargets(documentId, db),
+  ).rejects.toEqual(
     new DocumentKekTargetError(
       `Container KEK parent edge is stale for container ${childContainerId}`,
       409,
@@ -462,7 +480,7 @@ test("resolveCurrentDocumentKekTargets rejects linked containers with stale pare
     previousManifestHash: child.manifestHash,
     salt: "child-rotated",
   });
-  await storeVerifiedAccessManifest({ verifiedManifest: rotatedChild });
+  await storeVerifiedAccessManifest({ verifiedManifest: rotatedChild }, db);
   await insertContainerKeyEpoch({
     containerId: childContainerId,
     keyEpoch: 2,
@@ -471,7 +489,9 @@ test("resolveCurrentDocumentKekTargets rejects linked containers with stale pare
     parentContainerKeyEpochId: rotatedRootKeyEpochId,
   });
 
-  await expect(resolveCurrentDocumentKekTargets(documentId)).resolves.toEqual(
+  await expect(
+    resolveCurrentDocumentKekTargets(documentId, db),
+  ).resolves.toEqual(
     expect.objectContaining({
       linkedContainerKeyEpochIds: [rotatedChildKeyEpochId],
     }),
@@ -487,9 +507,12 @@ test("assertDocumentKekTargetsCurrent rejects stale target hashes", async () => 
     organizationId,
     salt: "initial",
   });
-  await storeVerifiedAccessManifest({
-    verifiedManifest: firstContainerManifest,
-  });
+  await storeVerifiedAccessManifest(
+    {
+      verifiedManifest: firstContainerManifest,
+    },
+    db,
+  );
   await insertContainerKeyEpoch({
     containerId,
     keyEpochId: `${containerId}:key-epoch-1`,
@@ -501,10 +524,13 @@ test("assertDocumentKekTargetsCurrent rejects stale target hashes", async () => 
     linkedContainerIds: [containerId],
     organizationId,
   });
-  await storeVerifiedAccessManifest({
-    verifiedManifest: documentManifest,
-  });
-  const oldTargets = await resolveCurrentDocumentKekTargets(documentId);
+  await storeVerifiedAccessManifest(
+    {
+      verifiedManifest: documentManifest,
+    },
+    db,
+  );
+  const oldTargets = await resolveCurrentDocumentKekTargets(documentId, db);
   const nextContainerManifest = await createVerifiedContainerManifest({
     containerId,
     epoch: 2,
@@ -512,15 +538,21 @@ test("assertDocumentKekTargetsCurrent rejects stale target hashes", async () => 
     previousManifestHash: firstContainerManifest.manifestHash,
     salt: "next",
   });
-  await storeVerifiedAccessManifest({
-    verifiedManifest: nextContainerManifest,
-  });
+  await storeVerifiedAccessManifest(
+    {
+      verifiedManifest: nextContainerManifest,
+    },
+    db,
+  );
 
   await expect(
-    assertDocumentKekTargetsCurrent({
-      documentId,
-      expectedTargetHash: oldTargets.documentKeyTargetHash,
-    }),
+    assertDocumentKekTargetsCurrent(
+      {
+        documentId,
+        expectedTargetHash: oldTargets.documentKeyTargetHash,
+      },
+      db,
+    ),
   ).rejects.toMatchObject(
     new DocumentKekTargetError("Document KEK targets are stale", 409),
   );

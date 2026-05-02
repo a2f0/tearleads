@@ -233,11 +233,14 @@ async function userRecipientKey(
 
 async function bootstrapRoot(owner: TestUser): Promise<StoredRootFixture> {
   const rootContainer = await getRootContainerForUser(owner.userId);
-  const storedKeyEpoch = await getCurrentContainerKeyEpoch(rootContainer.id);
+  const storedKeyEpoch = await getCurrentContainerKeyEpoch(
+    rootContainer.id,
+    db,
+  );
   const keyEpoch = toContainerKeyEpoch(storedKeyEpoch);
-  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash);
+  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash, db);
   invariant(bundle, "expected registered root container manifest");
-  const wraps = (await listContainerKeyWraps(keyEpoch.id)).map(
+  const wraps = (await listContainerKeyWraps(keyEpoch.id, db)).map(
     toContainerKeyWrap,
   );
   const ownerWrap = wraps.find(
@@ -725,6 +728,7 @@ test("POST /documents applies optional container rekeys before target validation
 
   const currentRootEpoch = await getCurrentContainerKeyEpoch(
     root.kekState.containerId,
+    db,
   );
   expect(currentRootEpoch?.id).toBe(rootRekey.kekState.containerKeyEpochId);
 

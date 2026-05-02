@@ -10,11 +10,10 @@ import type {
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
-import {
-  type ApiDatabase,
-  type DatabaseSession,
-  type DatabaseTransaction,
-  db,
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
 } from "../../../adapters/postgres";
 import {
   accessEventDependencyProjection,
@@ -450,7 +449,7 @@ async function loadAccessEventRow(
 
 export async function getAccessManifestBundle(
   manifestHash: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredAccessManifestBundle | null> {
   const [manifest] = await executor
     .select()
@@ -570,7 +569,7 @@ async function replaceAccessManifestDocumentLinkProjection(
 
 export async function regenerateAccessManifestProjections(
   manifestHash: string,
-  database: ApiDatabase = db,
+  database: ApiDatabase,
 ): Promise<void> {
   return database.transaction((tx) =>
     regenerateAccessManifestProjectionsInTransaction(manifestHash, tx),
@@ -660,7 +659,7 @@ async function advanceAccessManifestHead(
 
 export async function storeVerifiedAccessManifest(
   input: StoreVerifiedAccessManifestInput,
-  database: ApiDatabase = db,
+  database: ApiDatabase,
 ): Promise<StoredAccessManifestHead> {
   return database.transaction((tx) =>
     storeVerifiedAccessManifestInTransaction(input, tx),
@@ -692,7 +691,7 @@ export async function storeVerifiedAccessManifestInTransaction(
 export async function getCurrentAccessManifestHead(
   objectKind: AccessObjectKind,
   objectId: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredAccessManifestHead | null> {
   return loadCurrentAccessManifestHead(objectKind, objectId, executor);
 }
@@ -700,7 +699,7 @@ export async function getCurrentAccessManifestHead(
 export async function getCurrentAccessManifestHeads(
   objectKind: AccessObjectKind,
   objectIds: readonly string[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<Map<string, StoredAccessManifestHead>> {
   const uniqueObjectIds = [...new Set(objectIds)].sort();
 
@@ -725,7 +724,7 @@ export async function getCurrentAccessManifestHeads(
 
 export async function listAccessEventDependencyProjection(
   eventHash: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredAccessEventDependencyProjection[]> {
   return executor
     .select({
@@ -743,7 +742,7 @@ export async function listAccessEventDependencyProjection(
 
 export async function listAccessManifestPrincipalHeadProjection(
   manifestHash: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredAccessManifestPrincipalHeadProjection[]> {
   return executor
     .select({
@@ -767,7 +766,7 @@ export async function listAccessManifestPrincipalHeadProjection(
 
 export async function listAccessManifestDocumentLinkProjection(
   manifestHash: string,
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredAccessManifestDocumentLinkProjection[]> {
   return executor
     .select({
@@ -782,7 +781,7 @@ export async function listAccessManifestDocumentLinkProjection(
 
 export async function listAccessManifestDocumentLinkProjections(
   manifestHashes: readonly string[],
-  executor: DatabaseSession = db,
+  executor: DatabaseSession,
 ): Promise<StoredAccessManifestDocumentLinkProjection[]> {
   const uniqueManifestHashes = [...new Set(manifestHashes)].sort();
 
