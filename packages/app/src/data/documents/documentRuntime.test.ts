@@ -60,6 +60,13 @@ interface DeepNonCanonicalRecord {
   notJson?: undefined;
 }
 
+interface ContentRecordFields {
+  ciphertext?: unknown;
+  contentRecordId?: unknown;
+  iv?: unknown;
+  nonceDomainHash?: unknown;
+}
+
 function createDeepNonCanonicalRecord(depth: number): DeepNonCanonicalRecord {
   const root: DeepNonCanonicalRecord = {};
   let cursor = root;
@@ -1738,6 +1745,49 @@ test("buildMaterializedDocumentSyncPlan unwraps the content key and encrypts pen
     writerPublicKey: signingPublicKey,
   });
   expect(verified.ok).toBe(true);
+});
+
+test("buildMaterializedDocumentSyncPlan uses a fresh IV for same-domain re-encryption", async () => {
+  const { author, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const sharedUpdate = createPendingUpdateRecord({
+    updateData: bytesToBase64(new TextEncoder().encode("first payload")),
+  });
+  const first = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [sharedUpdate],
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const second = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [
+      {
+        ...sharedUpdate,
+        updateData: bytesToBase64(new TextEncoder().encode("second payload")),
+      },
+    ],
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const firstRecord = JSON.parse(
+    first.plan.request.outgoingUpdates[0]?.encryptedData ?? "{}",
+  ) as ContentRecordFields;
+  const secondRecord = JSON.parse(
+    second.plan.request.outgoingUpdates[0]?.encryptedData ?? "{}",
+  ) as ContentRecordFields;
+
+  expect(firstRecord.contentRecordId).toBe(sharedUpdate.id);
+  expect(secondRecord.contentRecordId).toBe(sharedUpdate.id);
+  expect(firstRecord.nonceDomainHash).toBe(secondRecord.nonceDomainHash);
+  expect(firstRecord.iv).not.toBe(bytesToBase64(new Uint8Array(12)));
+  expect(secondRecord.iv).not.toBe(bytesToBase64(new Uint8Array(12)));
+  expect(firstRecord.iv).not.toBe(secondRecord.iv);
+  expect(firstRecord.ciphertext).not.toBe(secondRecord.ciphertext);
 });
 
 test("decryptDocumentSyncUpdates verifies and decrypts content records", async () => {

@@ -478,12 +478,14 @@ preferred rule is:
 1. assign a globally unique, high-entropy `contentRecordId` for each encrypted
  update, baseline, blob version, or replacement object, such as a UUIDv4 or
  another identifier with at least 128 bits of CSPRNG randomness;
-2. derive a per-record AEAD key or nonce with domain-separated HKDF inputs that
- include protocol version, organization id, object kind, object id,
- content-key epoch, encryption suite, and `contentRecordId`;
-3. include the same fields as AEAD additional authenticated data;
-4. commit those fields in the signed write header;
-5. reject duplicate `contentRecordId` or duplicate derived nonce domains for the
+2. derive a per-record AEAD key with domain-separated HKDF inputs that include
+ protocol version, organization id, object kind, object id, content-key epoch,
+ encryption suite, and `contentRecordId`;
+3. generate a fresh 96-bit AES-GCM IV for every encryption attempt and commit
+ it in the encrypted record bytes covered by the signed `ciphertextHash`;
+4. include the derivation-domain fields as AEAD additional authenticated data;
+5. commit those fields in the signed write header;
+6. reject duplicate `contentRecordId` or duplicate derived nonce domains for the
  same object/content-key epoch.
 
 The initial suite is
@@ -491,11 +493,13 @@ The initial suite is
 `contentRecordId`, commits the suite in the signed write header, and commits a
 `nonceDomainHash` over the protocol version, organization id, object kind,
 object id, content-key epoch, suite, and `contentRecordId`. The content record
-domain is the input to per-record key/nonce derivation, and storage enforces
-uniqueness for both `contentRecordId` and `nonceDomainHash` within the same
-object/content-key epoch. The invariant cannot vary: honest concurrent writers
-must be unable to reuse the same AEAD key/nonce pair for two different
-plaintexts.
+domain is the input to per-record key derivation, and the encrypted record
+carries a fresh random AES-GCM IV. Storage enforces uniqueness for both
+`contentRecordId` and `nonceDomainHash` within the same object/content-key
+epoch, while the random IV keeps accidental same-domain re-encryption from
+reusing the same AEAD key/nonce pair before the duplicate write reaches server
+storage. The invariant cannot vary: honest concurrent writers must be unable to
+reuse the same AEAD key/nonce pair for two different plaintexts.
 
 For additive changes, the document content key may be reused and wrapped to a
 new target if the target set only grows. For shrink, future writes require a

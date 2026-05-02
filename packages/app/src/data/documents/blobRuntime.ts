@@ -1,12 +1,14 @@
 import {
   type AccessEvent,
   type AttachmentBindAccessEventBody,
+  assertAesGcmIv,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventBodyHash,
   computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
   computeContentRecordNonceDomainHash,
   computeWriteHeaderHash,
+  createAesGcmIv,
   decryptWithDek,
   encryptWithDek,
   type KeyingCanonicalJson,
@@ -54,7 +56,6 @@ const BLOB_CONTENT_RECORD_METADATA_HASH_DOMAIN =
   "tearleads.blob.content-record-metadata";
 const BLOB_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
   new TextEncoder().encode("tearleads.blob.content-record-hkdf-salt");
-const BLOB_CONTENT_RECORD_IV: Uint8Array<ArrayBuffer> = new Uint8Array(12);
 const BLOB_ENCRYPTED_BYTES_KEYS = new Set([
   "blobId",
   "byteLength",
@@ -99,6 +100,7 @@ interface BlobEncryptedBytesRecord {
   contentKeyBundle: BlobContentKeyBundleRequest;
   contentKeyEpoch: number;
   contentRecordId: string;
+  iv: Uint8Array;
   metadataHash: string;
   nonceDomainHash: string;
   targetHash: string;
@@ -567,11 +569,12 @@ async function encryptBlobBytes(input: {
     organizationId: input.organizationId,
     usage: "encrypt",
   });
+  const iv = createAesGcmIv();
   const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt(
       {
         name: "AES-GCM",
-        iv: BLOB_CONTENT_RECORD_IV,
+        iv,
         additionalData: contentRecordAdditionalDataBytes({
           blobId: input.blobId,
           contentKeyEpoch,
@@ -600,7 +603,7 @@ async function encryptBlobBytes(input: {
       input.contentKeyBundle,
       "Blob encrypted bytes content-key bundle",
     ),
-    iv: bytesToBase64(BLOB_CONTENT_RECORD_IV),
+    iv: bytesToBase64(iv),
     ciphertext: bytesToBase64(ciphertext),
   });
 
@@ -700,12 +703,7 @@ function parseBlobEncryptedBytes(
   const iv = base64ToBytes(
     readRecordString(value, "iv", "Blob encrypted bytes"),
   );
-  if (
-    iv.byteLength !== BLOB_CONTENT_RECORD_IV.byteLength ||
-    iv.some((byte, index) => byte !== BLOB_CONTENT_RECORD_IV[index])
-  ) {
-    throw new Error("Blob encrypted bytes IV is invalid");
-  }
+  assertAesGcmIv(iv, "Blob encrypted bytes IV is invalid");
 
   return {
     blobId: readRecordString(value, "blobId", "Blob encrypted bytes"),
@@ -726,6 +724,7 @@ function parseBlobEncryptedBytes(
       "contentRecordId",
       "Blob encrypted bytes",
     ),
+    iv,
     metadataHash: readRecordString(
       value,
       "metadataHash",
@@ -1020,7 +1019,7 @@ export async function decryptDocumentAttachmentBlob({
     await crypto.subtle.decrypt(
       {
         name: "AES-GCM",
-        iv: BLOB_CONTENT_RECORD_IV,
+        iv: asWebCryptoBytes(encrypted.iv),
         additionalData: contentRecordAdditionalDataBytes({
           blobId: expectedBlobId,
           contentKeyEpoch: encrypted.contentKeyEpoch,

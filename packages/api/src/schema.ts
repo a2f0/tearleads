@@ -63,7 +63,8 @@ export type DocumentAttachmentAuditAction =
  * - `createdAt`: Server-side registration timestamp.
  *
  * Indexes:
- * - `fingerprint` is unique so one signing key fingerprint maps to one user.
+ * - `users_fingerprint_unique` enforces one signing key fingerprint per user
+ *   and gives auth challenge verification an indexed `fingerprint` lookup.
  */
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),

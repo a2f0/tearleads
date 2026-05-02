@@ -1,6 +1,7 @@
 import {
   type AccessEvent,
   type AccessManifest,
+  assertAesGcmIv,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   type ContainerKeyWrap,
   computeAccessEventBodyHash,
@@ -11,6 +12,7 @@ import {
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
   computeWriteHeaderHash,
+  createAesGcmIv,
   type DocumentContentKeyTarget,
   type DocumentLinkAccessEventBody,
   type DocumentLinkSetManifestState,
@@ -70,7 +72,6 @@ const DOCUMENT_CONTENT_RECORD_AAD_DOMAIN =
   "tearleads.document.content-record-aad";
 const DOCUMENT_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
   new TextEncoder().encode("tearleads.document.content-record-hkdf-salt");
-const DOCUMENT_CONTENT_RECORD_IV: Uint8Array<ArrayBuffer> = new Uint8Array(12);
 const DOCUMENT_ENCRYPTED_UPDATE_KEYS = new Set([
   "ciphertext",
   "contentKeyEpoch",
@@ -2059,11 +2060,12 @@ async function encryptDocumentPendingUpdate(input: {
     organizationId: input.organizationId,
     usage: "encrypt",
   });
+  const iv = createAesGcmIv();
   const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt(
       {
         name: "AES-GCM",
-        iv: DOCUMENT_CONTENT_RECORD_IV,
+        iv,
         additionalData: contentRecordAdditionalDataBytes({
           contentKeyEpoch: input.contentKeyEpoch,
           contentRecordId,
@@ -2085,7 +2087,7 @@ async function encryptDocumentPendingUpdate(input: {
     contentRecordId,
     nonceDomainHash,
     metadataHash,
-    iv: bytesToBase64(DOCUMENT_CONTENT_RECORD_IV),
+    iv: bytesToBase64(iv),
     ciphertext: bytesToBase64(ciphertext),
   });
 
@@ -2141,11 +2143,7 @@ function parseDocumentEncryptedUpdate(
   const iv = base64ToBytes(
     readRecordString(value, "iv", "Document encrypted update"),
   );
-  assertEqualBytes(
-    iv,
-    DOCUMENT_CONTENT_RECORD_IV,
-    "Document encrypted update IV is invalid",
-  );
+  assertAesGcmIv(iv, "Document encrypted update IV is invalid");
 
   return {
     ciphertext: base64ToBytes(

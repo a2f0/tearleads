@@ -120,6 +120,8 @@ Implemented behavior:
 - each encrypted Loro update carries:
  - an inline `accessEpoch`
  - AES-GCM ciphertext encrypted with the current document DEK
+ - a fresh per-record AES-GCM IV committed by the encrypted bytes and signed
+   write-header ciphertext hash
 - sync responses also expose each returned update's stored `accessEpoch`, plus
  a `missingUpdateEpochs[]` summary so clients can distinguish prior-epoch
  updates needed for rotate rebasing from current-epoch updates after a
@@ -344,6 +346,8 @@ The blob binding route validates:
 - authorizing container paths and referenced principal policy state
 - optional signed container rekeys
 - staged blob ownership/expiry when a staged blob is supplied
+- staged encrypted blob bytes carry a fresh per-record AES-GCM IV committed by
+ the staged object hash and signed blob write header
 - blob content-key bundle against current derived blob KEK targets
 - signed staged blob write header when bytes are promoted
 
