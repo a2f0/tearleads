@@ -14,6 +14,7 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeContainerKekMaterialId,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   deriveContainerAccessManifest,
@@ -88,6 +89,15 @@ interface ContainerCreatePlan {
 interface MaterializedContainerCreatePlan {
   containerKey: Uint8Array;
   plan: ContainerCreatePlan;
+}
+
+interface ContainerCreatePlanContext extends BuildContainerCreatePlanInput {
+  containerId: string;
+  containerKeyEpochId: string;
+  eventId: string;
+  metadataDocumentId: string;
+  parent: ParentContainerCreateContext;
+  signedAt: string;
 }
 
 interface ContainerCreateApi {
@@ -167,6 +177,18 @@ interface ContainerMovePlan {
 interface MaterializedContainerMovePlan {
   containerKey: Uint8Array;
   plan: ContainerMovePlan;
+}
+
+interface BuildMaterializedContainerMovePlanInput {
+  author: ContainerMutationAuthor;
+  containerKeyEpochId?: string | undefined;
+  destinationParentProjection: ContainerWriterProjectionResponse;
+  eventId?: string | undefined;
+  execSql?: ExecSql | undefined;
+  previousProjection: ContainerWriterProjectionResponse;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
 }
 
 interface ParentContainerCreateContext {
@@ -911,6 +933,22 @@ function buildRootContainerCreateBody(input: {
   };
 }
 
+async function resolveContainerKekEpochId(input: {
+  containerId: string;
+  keyEpoch: number;
+  keyMaterial: Uint8Array;
+  override?: string | undefined;
+}): Promise<string> {
+  return (
+    input.override ??
+    (await computeContainerKekMaterialId({
+      containerId: input.containerId,
+      keyEpoch: input.keyEpoch,
+      keyMaterial: input.keyMaterial,
+    }))
+  );
+}
+
 export async function buildRootContainerCreatePlan(input: {
   author: ContainerMutationAuthor;
   containerId: string;
@@ -927,7 +965,12 @@ export async function buildRootContainerCreatePlan(input: {
     throw new Error("Container KEK material must be 32 bytes");
   }
 
-  const containerKeyEpochId = input.containerKeyEpochId ?? crypto.randomUUID();
+  const containerKeyEpochId = await resolveContainerKekEpochId({
+    containerId: input.containerId,
+    keyEpoch: 1,
+    keyMaterial: containerKey,
+    override: input.containerKeyEpochId,
+  });
   const body = buildRootContainerCreateBody({
     author: input.author,
     containerKeyEpochId,
@@ -1518,6 +1561,29 @@ async function unwrapMoveContainerKeys(input: {
   return { containerKey, destinationParentKey };
 }
 
+function assertContainerMoveOrganizations(input: {
+  authorOrganizationId: string;
+  destinationState: ContainerAccessManifestState;
+  previousState: ContainerAccessManifestState;
+}): void {
+  if (input.previousState.organizationId !== input.authorOrganizationId) {
+    throw new Error("Container move author organization mismatch");
+  }
+  if (input.destinationState.organizationId !== input.authorOrganizationId) {
+    throw new Error("Container move destination organization mismatch");
+  }
+}
+
+function containerMoveDependencyManifestHashes(input: {
+  destinationParentProjection: ContainerWriterProjectionResponse;
+  previousProjection: ContainerWriterProjectionResponse;
+}): string[] {
+  return [
+    ...uniqueSortedManifestHashes(input.previousProjection.path),
+    ...uniqueSortedManifestHashes(input.destinationParentProjection.path),
+  ];
+}
+
 function buildContainerMovePlanResult(input: {
   body: ContainerMoveAccessEventBody;
   containerId: string;
@@ -1564,31 +1630,37 @@ function buildContainerMovePlanResult(input: {
   return { containerKey: input.containerKey, plan };
 }
 
-async function buildMaterializedContainerMovePlan(input: {
-  author: ContainerMutationAuthor;
-  containerKeyEpochId?: string | undefined;
-  destinationParentProjection: ContainerWriterProjectionResponse;
-  eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
-  previousProjection: ContainerWriterProjectionResponse;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  signedAt?: string | undefined;
-  targetSecretKey: Uint8Array;
-}): Promise<MaterializedContainerMovePlan> {
+async function buildMaterializedContainerMovePlan(
+  input: BuildMaterializedContainerMovePlanInput,
+): Promise<MaterializedContainerMovePlan> {
   const source = getTargetContainerContext(input.previousProjection);
   const destinationParent = getTargetContainerContext(
     input.destinationParentProjection,
   );
   const previousState = readContainerState(source.manifest);
   const destinationState = readContainerState(destinationParent.manifest);
-  if (previousState.organizationId !== input.author.organizationId) {
-    throw new Error("Container move author organization mismatch");
-  }
-  if (destinationState.organizationId !== input.author.organizationId) {
-    throw new Error("Container move destination organization mismatch");
-  }
+  assertContainerMoveOrganizations({
+    authorOrganizationId: input.author.organizationId,
+    destinationState,
+    previousState,
+  });
 
-  const containerKeyEpochId = input.containerKeyEpochId ?? crypto.randomUUID();
+  const { containerKey, destinationParentKey } = await unwrapMoveContainerKeys({
+    destinationParentKek: destinationParent.kek,
+    destinationParentProjection: input.destinationParentProjection,
+    execSql: input.execSql,
+    previousProjection: input.previousProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    sourceKek: source.kek,
+    targetSecretKey: input.targetSecretKey,
+  });
+  const nextContainerKeyEpoch = source.kek.containerKeyEpoch + 1;
+  const containerKeyEpochId = await resolveContainerKekEpochId({
+    containerId: previousState.containerId,
+    keyEpoch: nextContainerKeyEpoch,
+    keyMaterial: containerKey,
+    override: input.containerKeyEpochId,
+  });
   const body: ContainerMoveAccessEventBody = {
     eventType: "container.move",
     parentContainerId: destinationState.containerId,
@@ -1599,10 +1671,7 @@ async function buildMaterializedContainerMovePlan(input: {
     author: input.author,
     body,
     containerId: previousState.containerId,
-    dependencyManifestHashes: [
-      ...uniqueSortedManifestHashes(input.previousProjection.path),
-      ...uniqueSortedManifestHashes(input.destinationParentProjection.path),
-    ],
+    dependencyManifestHashes: containerMoveDependencyManifestHashes(input),
     eventId: input.eventId ?? crypto.randomUUID(),
     previousManifestHash: source.manifest.manifestHash,
     signedAt: input.signedAt ?? new Date().toISOString(),
@@ -1613,15 +1682,6 @@ async function buildMaterializedContainerMovePlan(input: {
     eventHash,
     previousManifest: source.manifest,
   });
-  const { containerKey, destinationParentKey } = await unwrapMoveContainerKeys({
-    destinationParentKek: destinationParent.kek,
-    destinationParentProjection: input.destinationParentProjection,
-    execSql: input.execSql,
-    previousProjection: input.previousProjection,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-    sourceKek: source.kek,
-    targetSecretKey: input.targetSecretKey,
-  });
   const keyEpoch = buildContainerCreateKeyEpoch({
     containerId: previousState.containerId,
     containerKeyEpochId,
@@ -1629,7 +1689,7 @@ async function buildMaterializedContainerMovePlan(input: {
     manifestHash,
     parentContainerKeyEpochId: destinationParent.kek.containerKeyEpochId,
   });
-  keyEpoch.keyEpoch = source.kek.containerKeyEpoch + 1;
+  keyEpoch.keyEpoch = nextContainerKeyEpoch;
   const wraps = [
     await wrapContainerKeyToParent({
       containerKey,
@@ -1712,74 +1772,83 @@ export async function moveRemoteContainer(input: {
   };
 }
 
-export async function buildContainerCreatePlan({
-  author,
-  containerId = crypto.randomUUID(),
-  containerKey,
-  containerKeyEpochId = crypto.randomUUID(),
-  eventId = crypto.randomUUID(),
-  metadataDocumentId = crypto.randomUUID(),
-  parentKekMaterial,
-  parentProjection,
-  signedAt = new Date().toISOString(),
-}: BuildContainerCreatePlanInput): Promise<ContainerCreatePlan> {
-  assertContainerCreatePlanInput({
-    author,
-    containerKey,
-    parentKekMaterial,
-    parentProjection,
-  });
-  const parent = getParentCreateContext(parentProjection);
+async function resolveContainerCreatePlanContext(
+  input: BuildContainerCreatePlanInput,
+): Promise<ContainerCreatePlanContext> {
+  assertContainerCreatePlanInput(input);
+  const containerId = input.containerId ?? crypto.randomUUID();
+
+  return {
+    ...input,
+    containerId,
+    containerKeyEpochId: await resolveContainerKekEpochId({
+      containerId,
+      keyEpoch: 1,
+      keyMaterial: input.containerKey,
+      override: input.containerKeyEpochId,
+    }),
+    eventId: input.eventId ?? crypto.randomUUID(),
+    metadataDocumentId: input.metadataDocumentId ?? crypto.randomUUID(),
+    parent: getParentCreateContext(input.parentProjection),
+    signedAt: input.signedAt ?? new Date().toISOString(),
+  };
+}
+
+export async function buildContainerCreatePlan(
+  input: BuildContainerCreatePlanInput,
+): Promise<ContainerCreatePlan> {
+  const context = await resolveContainerCreatePlanContext(input);
+  const parentContainerId = context.parentProjection.containerId;
+  const parentManifestHash = context.parent.manifest.manifestHash;
   const body = buildContainerCreateBody({
-    containerKeyEpochId,
-    metadataDocumentId,
-    parentContainerId: parentProjection.containerId,
-    parentManifestHash: parent.manifest.manifestHash,
+    containerKeyEpochId: context.containerKeyEpochId,
+    metadataDocumentId: context.metadataDocumentId,
+    parentContainerId,
+    parentManifestHash,
   });
   const { event, eventHash } = await signContainerCreateEvent({
-    author,
+    author: context.author,
     body,
-    containerId,
-    eventId,
-    parentPath: parentProjection.path,
-    signedAt,
+    containerId: context.containerId,
+    eventId: context.eventId,
+    parentPath: context.parentProjection.path,
+    signedAt: context.signedAt,
   });
   const { manifest, manifestHash, state } = await deriveContainerCreateManifest(
     {
-      author,
-      containerId,
-      containerKeyEpochId,
+      author: context.author,
+      containerId: context.containerId,
+      containerKeyEpochId: context.containerKeyEpochId,
       eventHash,
-      metadataDocumentId,
-      parentContainerId: parentProjection.containerId,
-      parentManifestHash: parent.manifest.manifestHash,
+      metadataDocumentId: context.metadataDocumentId,
+      parentContainerId,
+      parentManifestHash,
     },
   );
   const keyEpoch = buildContainerCreateKeyEpoch({
-    containerId,
-    containerKeyEpochId,
+    containerId: context.containerId,
+    containerKeyEpochId: context.containerKeyEpochId,
     eventHash,
     manifestHash,
-    parentContainerKeyEpochId: parent.kek.containerKeyEpochId,
+    parentContainerKeyEpochId: context.parent.kek.containerKeyEpochId,
   });
-  const recipientTargets = buildParentRecipientTargets(parent.kek);
+  const recipientTargets = buildParentRecipientTargets(context.parent.kek);
   const keyTargetHash =
     await computeContainerKekRecipientTargetHash(recipientTargets);
   const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
   const wraps = [
     await wrapContainerKeyToParent({
-      containerKey,
-      containerKeyEpochId,
+      containerKey: context.containerKey,
+      containerKeyEpochId: context.containerKeyEpochId,
       manifestHash,
-      parentKek: parent.kek,
-      parentKekMaterial,
+      parentKek: context.parent.kek,
+      parentKekMaterial: context.parentKekMaterial,
     }),
   ];
-
   return {
     body,
-    containerId,
-    containerKeyEpochId,
+    containerId: context.containerId,
+    containerKeyEpochId: context.containerKeyEpochId,
     event,
     eventHash,
     keyEpoch,
@@ -1787,9 +1856,9 @@ export async function buildContainerCreatePlan({
     keyTargetHash,
     manifest,
     manifestHash,
-    metadataDocumentId,
-    parentContainerId: parentProjection.containerId,
-    parentManifestHash: parent.manifest.manifestHash,
+    metadataDocumentId: context.metadataDocumentId,
+    parentContainerId,
+    parentManifestHash,
     recipientTargets,
     request: buildContainerCreateRequest({
       body,
@@ -1797,8 +1866,8 @@ export async function buildContainerCreatePlan({
       keyEpoch,
       manifest,
       manifestHash,
-      parentKek: parent.kek,
-      parentProjection,
+      parentKek: context.parent.kek,
+      parentProjection: context.parentProjection,
       wraps,
     }),
     state,

@@ -15,6 +15,7 @@ import type {
   VerifiedDocumentLinkSetManifest,
   WriteHeader,
 } from "@tearleads/crypto";
+import { CONTENT_RECORD_ENCRYPTION_SUITE } from "@tearleads/crypto";
 import type {
   DocumentContentKeyBundleRequest,
   DocumentContentKeyTargetEnvelope,
@@ -66,7 +67,7 @@ function isContentObjectKind(value: unknown): value is ContentObjectKind {
 function isContentRecordEncryptionSuite(
   value: unknown,
 ): value is ContentRecordEncryptionSuite {
-  return value === "aes-256-gcm-hkdf-sha256-record-key";
+  return value === CONTENT_RECORD_ENCRYPTION_SUITE;
 }
 
 function readContainerDirectGrant(

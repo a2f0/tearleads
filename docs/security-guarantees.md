@@ -200,6 +200,12 @@ explicit `tearleads.*.content-key-wrap.aes-256-gcm-container-kek` suites, while
 container KEK wraps use either ML-KEM-1024 plus AES-GCM for principal
 recipients or AES-GCM under the parent container KEK.
 
+For app-created container KEK epochs with a
+`tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the
+decrypted KEK material matches the signed epoch id before using that KEK to wrap
+document or blob content keys. Legacy non-prefixed KEK epoch ids remain
+readable, but only prefixed ids carry this material commitment.
+
 When clients use verified principal policy bundles, a forged group or
 organization policy state should fail closed before the client unwraps a
 principal-addressed object envelope.

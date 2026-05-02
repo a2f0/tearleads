@@ -132,6 +132,7 @@ export type {
 export {
   accessManifestTransparencyLeaf,
   BLOB_CONTENT_KEY_WRAP_SUITE,
+  CONTAINER_KEK_MATERIAL_ID_PREFIX,
   CONTAINER_KEK_PARENT_WRAP_SUITE,
   CONTAINER_KEK_USER_WRAP_SUITE,
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -143,6 +144,7 @@ export {
   computeContainerAccessKeyTargetHash,
   computeContainerAccessStructuralHash,
   computeContainerDirectGrantRoot,
+  computeContainerKekMaterialId,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computeContentRecordNonceDomainHash,
@@ -168,6 +170,7 @@ export {
   documentContentRecordMetadata,
   getPrincipalPolicyTransitionMismatchReason,
   identityStateTransparencyLeaf,
+  isContainerKekMaterialId,
   KeyingVerificationError,
   normalizeAttachmentAccessEventBody,
   normalizeContainerAccessEventBody,

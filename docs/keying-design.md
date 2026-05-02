@@ -336,6 +336,14 @@ type ContainerKeyEpoch = {
 };
 ```
 
+New app-created KEK epochs use ids of the form
+`tearleads.container-kek.v1.sha256:<hash>`, where the hash commits to the
+container id, numeric KEK epoch, and plaintext 32-byte KEK material. The signed
+container manifest commits to this id through `containerKeyEpochId`, so clients
+that can unwrap the KEK reject a projection if the decrypted material does not
+match the committed id. Legacy non-prefixed ids remain readable but do not carry
+this material commitment.
+
 ### Container Key Wrap Row
 
 ```ts
@@ -354,6 +362,8 @@ type ContainerKeyWrap = {
 The `wrapManifestHash` binds the wrap to the manifest that justified it. A
 client rejects wraps whose recipient key epoch, principal policy head, parent
 container key epoch, or manifest hash does not match the verified graph.
+For committed KEK epoch ids, the client also rejects wraps that decrypt to
+different KEK material than the signed epoch id commits to.
 
 ## Additive Versus Subtractive Changes
 
@@ -384,7 +394,9 @@ the event only advances the KEK epoch for the already-verified manifest and
 wraps the new KEK to the exact current targets. Admin rights are still required
 for grant, revoke, and move events. The API can coordinate the transaction and
 validate targets, but it cannot synthesize wrapped key material because it does
-not know the plaintext KEK.
+not know the plaintext KEK. For committed KEK epoch ids, a client that unwraps
+server-supplied replacement material rejects it unless the material hashes back
+to the id signed in the manifest.
 
 If no retained authorized client can unwrap the old container KEK and create
 the new wraps, the subtree needs admin-assisted recovery or a fresh-content
