@@ -25,12 +25,14 @@ export async function insertDocumentAndLinks(input: {
     throw new DocumentMutationError("Failed to create document", 409);
   }
 
-  await input.executor.insert(documentContainerLinks).values(
-    input.manifest.state.linkedContainerIds.map((containerId) => ({
-      documentId: input.manifest.state.documentId,
-      containerId,
-    })),
-  );
+  if (input.manifest.state.linkedContainerIds.length > 0) {
+    await input.executor.insert(documentContainerLinks).values(
+      input.manifest.state.linkedContainerIds.map((containerId) => ({
+        documentId: input.manifest.state.documentId,
+        containerId,
+      })),
+    );
+  }
 
   return inserted;
 }
@@ -107,12 +109,14 @@ export async function replaceDocumentContainerLinks(input: {
     .delete(documentContainerLinks)
     .where(eq(documentContainerLinks.documentId, input.documentId));
 
-  await input.executor.insert(documentContainerLinks).values(
-    input.linkedContainerIds.map((containerId) => ({
-      documentId: input.documentId,
-      containerId,
-    })),
-  );
+  if (input.linkedContainerIds.length > 0) {
+    await input.executor.insert(documentContainerLinks).values(
+      input.linkedContainerIds.map((containerId) => ({
+        documentId: input.documentId,
+        containerId,
+      })),
+    );
+  }
 }
 
 export async function ensureDocumentExists(input: {

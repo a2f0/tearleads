@@ -18,7 +18,7 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
+import { getCurrentAccessManifestHeads } from "../../../../access/read/accessManifestStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
 import type {
   DatabaseSession,
@@ -176,18 +176,23 @@ async function assertCurrentContainerPath(
       bundle,
       `${label}[${index}]`,
     );
-    const head = await getCurrentAccessManifestHead(
-      "container",
-      manifest.state.containerId,
-      executor,
-    );
+    path.push(manifest);
+  }
+
+  const heads = await getCurrentAccessManifestHeads(
+    "container",
+    path.map((manifest) => manifest.state.containerId),
+    executor,
+  );
+
+  for (const [index, manifest] of path.entries()) {
+    const head = heads.get(manifest.state.containerId);
     if (!head) {
       throw new DocumentMutationError(`${label}[${index}] head missing`, 404);
     }
     if (head.manifestHash !== manifest.manifestHash) {
       throw new DocumentMutationError(`${label}[${index}] is stale`, 409);
     }
-    path.push(manifest);
   }
 
   return path;

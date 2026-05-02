@@ -31,6 +31,7 @@ import { insertDocumentUpdateSpans } from "../../../documents/documentUpdateSpan
 import { listMissingDocumentUpdates } from "../../../documents/documentUpdateStore";
 import { documentUpdates } from "../../../schema";
 import { uniqueSortedStrings } from "../../../utils/array";
+import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
   ContainerWriterProjectionError,
@@ -226,6 +227,45 @@ function acceptedOutgoingUpdateIds(
     .map((update) => update.id);
 }
 
+function assertDuplicateOutgoingUpdateMatches(
+  first: DocumentOutgoingUpdate,
+  next: DocumentOutgoingUpdate,
+): void {
+  if (
+    first.encryptedData === next.encryptedData &&
+    first.partialStartVersionVector === next.partialStartVersionVector &&
+    first.partialEndVersionVector === next.partialEndVersionVector &&
+    (first.sourceVersionVector ?? null) ===
+      (next.sourceVersionVector ?? null) &&
+    (first.checkpointKind ?? null) === (next.checkpointKind ?? null) &&
+    canonicalJsonEquals(first.writeHeader, next.writeHeader)
+  ) {
+    return;
+  }
+
+  throw new DocumentMutationError("Document update id conflict", 409);
+}
+
+function uniqueOutgoingUpdates(
+  updates: readonly DocumentOutgoingUpdate[],
+): DocumentOutgoingUpdate[] {
+  const uniqueUpdates: DocumentOutgoingUpdate[] = [];
+  const updateById = new Map<string, DocumentOutgoingUpdate>();
+
+  for (const update of updates) {
+    const existing = updateById.get(update.id);
+    if (!existing) {
+      updateById.set(update.id, update);
+      uniqueUpdates.push(update);
+      continue;
+    }
+
+    assertDuplicateOutgoingUpdateMatches(existing, update);
+  }
+
+  return uniqueUpdates;
+}
+
 async function insertNewDocumentUpdates(input: {
   readonly accessEpoch: number;
   readonly documentId: string;
@@ -341,8 +381,9 @@ async function appendDocumentUpdates(
     return [];
   }
 
+  const outgoingUpdates = uniqueOutgoingUpdates(input.request.outgoingUpdates);
   const updateIds = uniqueSortedStrings(
-    input.request.outgoingUpdates.map((update) => update.id),
+    outgoingUpdates.map((update) => update.id),
   );
   const existingRows = await loadExistingDocumentUpdateRows({
     documentId: input.documentId,
@@ -351,17 +392,13 @@ async function appendDocumentUpdates(
   });
   const existingRowsById = new Map(existingRows.map((row) => [row.id, row]));
   const acceptedUpdateIds = new Set(existingRowsById.keys());
-  const acceptedHeaderHashes = new Map(
-    (
-      await listDocumentContentWriteHeaders(
-        [...acceptedUpdateIds],
-        input.executor,
-      )
-    ).entries(),
+  const acceptedHeaderHashes = await listDocumentContentWriteHeaders(
+    [...acceptedUpdateIds],
+    input.executor,
   );
   const newUpdates: DocumentOutgoingUpdate[] = [];
 
-  for (const update of input.request.outgoingUpdates) {
+  for (const update of outgoingUpdates) {
     const acceptedHeaderHash = acceptedHeaderHashes.get(update.id)?.headerHash;
     if (acceptedUpdateIds.has(update.id)) {
       await assertRetryUpdateMatchesAcceptedContent({
@@ -420,10 +457,7 @@ async function appendDocumentUpdates(
     userId: input.userId,
   });
 
-  return acceptedOutgoingUpdateIds(
-    input.request.outgoingUpdates,
-    acceptedUpdateIds,
-  );
+  return acceptedOutgoingUpdateIds(outgoingUpdates, acceptedUpdateIds);
 }
 
 async function listMissingUpdates(input: {
@@ -564,12 +598,23 @@ async function syncDocumentTransaction(input: {
     userId: input.userId,
     writeAuthorization,
   });
+  const missingUpdateRecords = await listMissingUpdates({
+    documentId: input.documentId,
+    executor: input.tx,
+    localVersionVector: input.request.localVersionVector,
+    minLsn: input.request.minLsn,
+  });
+  const missingUpdates = await attachWriteHeadersToUpdates({
+    executor: input.tx,
+    updates: missingUpdateRecords,
+  });
 
   return {
     accessEpoch: currentTargets.linkSetEpoch,
     acceptedOutgoingUpdateIds,
     contentKeyBundle,
     currentTargets,
+    missingUpdates,
   };
 }
 
@@ -589,17 +634,6 @@ export async function runDocumentSyncWorkflow(
         userId: input.userId,
       }),
     );
-    const missingUpdateRecords = await listMissingUpdates({
-      documentId: input.documentId,
-      executor: db,
-      localVersionVector: input.request.localVersionVector,
-      minLsn: input.request.minLsn,
-    });
-    const missingUpdates = await attachWriteHeadersToUpdates({
-      executor: db,
-      updates: missingUpdateRecords,
-    });
-
     return {
       acceptedOutgoingUpdateIds: transactionResult.acceptedOutgoingUpdateIds,
       commitLsn: await readCurrentCommitLsn(db),
@@ -611,10 +645,10 @@ export async function runDocumentSyncWorkflow(
         transactionResult.currentTargets,
       ),
       missingUpdateEpochs: getMissingUpdateEpochs(
-        missingUpdates,
+        transactionResult.missingUpdates,
         transactionResult.accessEpoch,
       ),
-      updates: missingUpdates,
+      updates: transactionResult.missingUpdates,
     };
   } catch (error) {
     const mutationError = toMutationError(error);
