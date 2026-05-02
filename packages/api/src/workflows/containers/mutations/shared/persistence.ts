@@ -4,9 +4,9 @@ import type {
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { storeVerifiedAccessManifest } from "../../../../access/write/accessManifestStore";
-import { storeVerifiedContainerKekState } from "../../../../access/write/containerKekStore";
-import type { DatabaseExecutor } from "../../../../adapters/postgres";
+import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
+import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";
+import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import {
   projectionAccessManifestRecord,
   projectionVerifiedAccessEventRecord,
@@ -33,7 +33,7 @@ import {
 } from "./containerKekRecords";
 
 async function loadContainerRow(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   containerId: string,
 ): Promise<StoredContainerRow | null> {
   const [row] = await executor
@@ -50,7 +50,7 @@ async function loadContainerRow(
 }
 
 async function assertMetadataDocumentAvailable(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   metadataDocumentId: string,
 ): Promise<void> {
   const [existingMetadataDocument] = await executor
@@ -67,7 +67,7 @@ async function assertMetadataDocumentAvailable(
 }
 
 async function insertContainerMetadataBinding(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   state: VerifiedContainerAccessState,
 ): Promise<void> {
   const [metadataBinding] = await executor
@@ -87,7 +87,7 @@ async function insertContainerMetadataBinding(
 }
 
 async function persistCreatedContainerStructure(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   state: VerifiedContainerAccessState,
 ): Promise<void> {
   if (!state.parentContainerId) {
@@ -126,7 +126,7 @@ async function persistCreatedContainerStructure(
 }
 
 async function persistContainerStructure(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   manifest: VerifiedContainerAccessManifest,
 ): Promise<void> {
   const state = manifest.state;
@@ -194,7 +194,10 @@ export async function persistVerifiedMutation(
   await persistContainerStructure(executor, manifest);
 
   const manifestHead = await runConflictBoundary(() =>
-    storeVerifiedAccessManifest({ verifiedManifest: manifest }, executor),
+    storeVerifiedAccessManifestInTransaction(
+      { verifiedManifest: manifest },
+      executor,
+    ),
   );
   if (manifestHead.manifestHash !== manifest.manifestHash) {
     throw new ContainerMutationError("Container manifest head is stale", 409);
@@ -205,7 +208,10 @@ export async function persistVerifiedMutation(
   );
 
   const storedKekState = await runConflictBoundary(() =>
-    storeVerifiedContainerKekState({ verifiedState: kekState }, executor),
+    storeVerifiedContainerKekStateInTransaction(
+      { verifiedState: kekState },
+      executor,
+    ),
   );
 
   return {

@@ -8,7 +8,7 @@ import {
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../../../access/read/principalStateStore";
-import type { DatabaseExecutor } from "../../../../adapters/postgres";
+import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import { ContainerMutationError } from "../errors";
 
 function projectionMemberKey(
@@ -46,7 +46,7 @@ interface PrincipalPolicyArtifacts {
 }
 
 async function loadPrincipalPolicyArtifacts(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   principalPolicies: readonly VerifiedPrincipalPolicy[],
 ): Promise<PrincipalPolicyArtifacts> {
   const currentStateByPolicyKey = new Map<string, StoredPrincipalState>();
@@ -132,7 +132,7 @@ function assertPrincipalPolicyProjectionCurrent(
 }
 
 export async function assertPrincipalPoliciesCurrent(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   principalPolicies: readonly VerifiedPrincipalPolicy[],
 ): Promise<void> {
   const artifacts = await loadPrincipalPolicyArtifacts(

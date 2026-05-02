@@ -1,5 +1,5 @@
 import { desc, eq, inArray } from "drizzle-orm";
-import type { DatabaseExecutor } from "../adapters/postgres";
+import type { DatabaseSession } from "../adapters/postgres";
 import {
   type BlobAuditRetentionMode,
   blobAuditObjects,
@@ -126,7 +126,7 @@ function listAttachmentEventBlobIds(
 }
 
 async function ensureBlobAuditObjects(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   blobIds: string[],
 ): Promise<void> {
   const uniqueBlobIds = uniqueSortedStrings(blobIds);
@@ -179,7 +179,7 @@ async function ensureBlobAuditObjects(
 }
 
 export async function appendDocumentAttachmentAuditEntries(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   input: {
     accessEpoch: number;
     accessManifestHash: string;

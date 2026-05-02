@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
-import type { DatabaseExecutor } from "../adapters/postgres";
+import type { DatabaseSession } from "../adapters/postgres";
 
 export async function readCurrentCommitLsn(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<string> {
   const result = await executor.execute(
     sql`select pg_current_wal_lsn()::text as "commitLsn"`,

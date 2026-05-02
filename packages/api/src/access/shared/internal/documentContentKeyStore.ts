@@ -6,7 +6,12 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import {
+  type ApiDatabase,
+  type DatabaseSession,
+  type DatabaseTransaction,
+  db,
+} from "../../../adapters/postgres";
 import {
   documentContentKeyEpochs,
   documentContentKeyTargets,
@@ -244,7 +249,7 @@ async function assertTargetHashMatches(input: {
 async function loadDocumentContentKeyEpochRow(
   documentId: string,
   contentKeyEpoch: number,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ) {
   const [row] = await executor
     .select()
@@ -262,7 +267,7 @@ async function loadDocumentContentKeyEpochRow(
 
 async function loadLatestDocumentContentKeyEpochRow(
   documentId: string,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ) {
   const [row] = await executor
     .select()
@@ -276,7 +281,7 @@ async function loadLatestDocumentContentKeyEpochRow(
 
 async function listDocumentContentKeyTargetRows(
   documentContentKeyEpochId: string,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<DocumentContentKeyTargetEnvelope[]> {
   const rows = await executor
     .select({
@@ -300,7 +305,7 @@ async function listDocumentContentKeyTargetRows(
 
 async function toStoredBundle(
   row: typeof documentContentKeyEpochs.$inferSelect,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<StoredDocumentContentKeyBundle> {
   return {
     documentId: row.documentId,
@@ -314,7 +319,7 @@ async function toStoredBundle(
 async function getDocumentContentKeyBundle(
   documentId: string,
   contentKeyEpoch: number,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const row = await loadDocumentContentKeyEpochRow(
     documentId,
@@ -326,7 +331,7 @@ async function getDocumentContentKeyBundle(
 
 async function getLatestDocumentContentKeyBundle(
   documentId: string,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const row = await loadLatestDocumentContentKeyEpochRow(documentId, executor);
   return row ? toStoredBundle(row, executor) : null;
@@ -379,7 +384,7 @@ export async function getLatestCurrentDocumentContentKeyBundle(
     readonly currentTargets: CurrentDocumentKekTargets;
     readonly documentId: string;
   },
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<StoredDocumentContentKeyBundle | null> {
   const bundle = await getLatestDocumentContentKeyBundle(
     input.documentId,
@@ -420,7 +425,7 @@ export async function getLatestCurrentDocumentContentKeyBundle(
 
 async function insertDocumentContentKeyTargets(input: {
   readonly documentContentKeyEpochId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }) {
   if (input.targets.length === 0) {
@@ -450,7 +455,7 @@ async function insertDocumentContentKeyTargets(input: {
 
 async function createDocumentContentKeyBundle(
   input: StoreDocumentContentKeyBundleInput,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<StoredDocumentContentKeyBundle> {
   const [row] = await executor
     .insert(documentContentKeyEpochs)
@@ -510,7 +515,7 @@ async function createDocumentContentKeyBundle(
 async function addDocumentContentKeyTargetsToExistingBundle(input: {
   readonly existingBundle: StoredDocumentContentKeyBundle;
   readonly nextBundle: StoreDocumentContentKeyBundleInput;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
 }): Promise<StoredDocumentContentKeyBundle> {
   const existingByContainerId = new Map(
     input.existingBundle.targets.map((target) => [target.containerId, target]),
@@ -596,7 +601,7 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
 
 async function validateCurrentTargetsForBundle(
   input: StoreDocumentContentKeyBundleInput,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<CurrentDocumentKekTargets> {
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   await assertTargetHashMatches(input);
@@ -655,7 +660,7 @@ function assertContentKeyEpochCanBeStored(input: {
 async function refreshExistingBundleMetadata(input: {
   readonly existingBundle: StoredDocumentContentKeyBundle;
   readonly nextBundle: StoreDocumentContentKeyBundleInput;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
 }): Promise<StoredDocumentContentKeyBundle> {
   if (
     input.existingBundle.targetHash !== input.nextBundle.targetHash ||
@@ -689,12 +694,17 @@ async function refreshExistingBundleMetadata(input: {
 
 export async function storeDocumentContentKeyBundle(
   input: StoreDocumentContentKeyBundleInput,
-  executor: DatabaseExecutor = db,
+  database: ApiDatabase = db,
 ): Promise<StoredDocumentContentKeyBundleWithTargets> {
-  if (executor === db) {
-    return db.transaction((tx) => storeDocumentContentKeyBundle(input, tx));
-  }
+  return database.transaction((tx) =>
+    storeDocumentContentKeyBundleInTransaction(input, tx),
+  );
+}
 
+export async function storeDocumentContentKeyBundleInTransaction(
+  input: StoreDocumentContentKeyBundleInput,
+  executor: DatabaseTransaction,
+): Promise<StoredDocumentContentKeyBundleWithTargets> {
   const currentTargets = await validateCurrentTargetsForBundle(input, executor);
   const latestBundle = await getLatestDocumentContentKeyBundle(
     input.documentId,
@@ -785,7 +795,7 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
   readonly contentKeyEpoch: number;
   readonly expectedLinkSetManifestHash: string;
   readonly expectedTargetHash: string;
-  readonly executor?: DatabaseExecutor;
+  readonly executor?: DatabaseSession;
 }): Promise<StoredDocumentContentKeyBundleWithTargets> {
   const executor = input.executor ?? db;
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
@@ -861,7 +871,7 @@ export async function storeDocumentContentWriteHeader(
     readonly headerHash: string;
     readonly updateId: string;
   },
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<void> {
   if (
     input.header.objectKind !== "document" ||
@@ -911,7 +921,7 @@ export async function storeDocumentContentWriteHeader(
 
 export async function listDocumentContentWriteHeaders(
   updateIds: readonly string[],
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
   const uniqueUpdateIds = [...new Set(updateIds)];
   if (uniqueUpdateIds.length === 0) {

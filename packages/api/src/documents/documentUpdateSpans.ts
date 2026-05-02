@@ -1,5 +1,5 @@
 import { listVersionVectorSpans } from "@tearleads/loro";
-import type { DatabaseExecutor } from "../adapters/postgres";
+import type { DatabaseSession } from "../adapters/postgres";
 import { documentUpdateSpans } from "../schema";
 
 interface DocumentUpdateSpanSource {
@@ -9,7 +9,7 @@ interface DocumentUpdateSpanSource {
 }
 
 export async function insertDocumentUpdateSpans(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   input: {
     documentId: string;
     updates: ReadonlyArray<DocumentUpdateSpanSource>;

@@ -14,7 +14,7 @@ import {
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../access/read/principalStateStore";
-import type { DatabaseExecutor } from "../adapters/postgres";
+import type { DatabaseSession } from "../adapters/postgres";
 
 export class PrincipalPolicyProjectionError extends Error {
   readonly status = 409;
@@ -125,7 +125,7 @@ async function principalPolicyFromStored(input: {
 }
 
 export async function loadPrincipalPoliciesForContainerPaths(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
 ): Promise<VerifiedPrincipalPolicy[]> {
   const referencedPrincipalHeads = collectReferencedPrincipalHeads(paths);

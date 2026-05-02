@@ -2,7 +2,7 @@ import {
   computeDocumentContentKeyTargetHash,
   type DocumentContentKeyTarget,
 } from "@tearleads/crypto";
-import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import { type DatabaseSession, db } from "../../../adapters/postgres";
 import {
   getCurrentAccessManifestHead,
   listAccessManifestDocumentLinkProjection,
@@ -41,7 +41,7 @@ interface AssertDocumentKekTargetsCurrentInput {
 
 async function loadDocumentLinkSetHead(
   documentId: string,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ) {
   const head = await getCurrentAccessManifestHead(
     "document",
@@ -61,7 +61,7 @@ async function loadDocumentLinkSetHead(
 
 async function resolveLinkedContainerKekTargets(
   linkedContainerIds: readonly string[],
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<ReadonlyMap<string, DocumentContentKeyTarget>> {
   try {
     return await resolveCurrentContainerKekTargets(
@@ -78,7 +78,7 @@ async function resolveLinkedContainerKekTargets(
 
 export async function resolveCurrentDocumentKekTargets(
   documentId: string,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<ResolvedDocumentKekTargets> {
   const linkSetHead = await loadDocumentLinkSetHead(documentId, executor);
   const linkRows = await listAccessManifestDocumentLinkProjection(
@@ -134,7 +134,7 @@ export async function resolveCurrentDocumentKekTargets(
 
 export async function assertDocumentKekTargetsCurrent(
   input: AssertDocumentKekTargetsCurrentInput,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<ResolvedDocumentKekTargets> {
   const currentTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,

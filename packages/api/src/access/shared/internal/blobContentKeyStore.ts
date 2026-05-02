@@ -6,7 +6,12 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import {
+  type ApiDatabase,
+  type DatabaseSession,
+  type DatabaseTransaction,
+  db,
+} from "../../../adapters/postgres";
 import {
   blobContentKeyEpochs,
   blobContentKeyTargets,
@@ -225,7 +230,7 @@ async function assertTargetHashMatches(input: {
 async function loadBlobContentKeyEpochRow(
   blobId: string,
   contentKeyEpoch: number,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ) {
   const [row] = await executor
     .select()
@@ -243,7 +248,7 @@ async function loadBlobContentKeyEpochRow(
 
 async function loadLatestBlobContentKeyEpochRow(
   blobId: string,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ) {
   const [row] = await executor
     .select()
@@ -257,7 +262,7 @@ async function loadLatestBlobContentKeyEpochRow(
 
 async function listBlobContentKeyTargetRows(
   blobContentKeyEpochId: string,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<BlobContentKeyTargetEnvelope[]> {
   const rows = await executor
     .select({
@@ -280,7 +285,7 @@ async function listBlobContentKeyTargetRows(
 
 async function toStoredBundle(
   row: typeof blobContentKeyEpochs.$inferSelect,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<StoredBlobContentKeyBundle> {
   return {
     blobId: row.blobId,
@@ -293,7 +298,7 @@ async function toStoredBundle(
 async function getBlobContentKeyBundle(
   blobId: string,
   contentKeyEpoch: number,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<StoredBlobContentKeyBundle | null> {
   const row = await loadBlobContentKeyEpochRow(
     blobId,
@@ -305,7 +310,7 @@ async function getBlobContentKeyBundle(
 
 async function getLatestBlobContentKeyBundle(
   blobId: string,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<StoredBlobContentKeyBundle | null> {
   const row = await loadLatestBlobContentKeyEpochRow(blobId, executor);
   return row ? toStoredBundle(row, executor) : null;
@@ -313,7 +318,7 @@ async function getLatestBlobContentKeyBundle(
 
 async function insertBlobContentKeyTargets(input: {
   readonly blobContentKeyEpochId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
 }) {
   if (input.targets.length === 0) {
@@ -347,7 +352,7 @@ async function insertBlobContentKeyTargets(input: {
 
 async function createBlobContentKeyBundle(
   input: StoreBlobContentKeyBundleInput,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<StoredBlobContentKeyBundle> {
   const [row] = await executor
     .insert(blobContentKeyEpochs)
@@ -406,7 +411,7 @@ async function createBlobContentKeyBundle(
 async function addBlobContentKeyTargetsToExistingBundle(input: {
   readonly existingBundle: StoredBlobContentKeyBundle;
   readonly nextBundle: StoreBlobContentKeyBundleInput;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
 }): Promise<StoredBlobContentKeyBundle> {
   const existingByTargetKey = new Map(
     input.existingBundle.targets.map((target) => [targetKey(target), target]),
@@ -470,7 +475,7 @@ async function addBlobContentKeyTargetsToExistingBundle(input: {
 
 async function validateCurrentTargetsForBundle(
   input: StoreBlobContentKeyBundleInput,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<CurrentBlobKekTargets> {
   ensureContentKeyEpoch(input.contentKeyEpoch);
   await assertTargetHashMatches(input);
@@ -508,7 +513,7 @@ function assertContentKeyBundleCanBeStored(input: {
 async function refreshExistingBundleMetadata(input: {
   readonly existingBundle: StoredBlobContentKeyBundle;
   readonly nextBundle: StoreBlobContentKeyBundleInput;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
 }): Promise<StoredBlobContentKeyBundle> {
   if (input.existingBundle.targetHash !== input.nextBundle.targetHash) {
     await input.executor
@@ -536,12 +541,17 @@ async function refreshExistingBundleMetadata(input: {
 
 export async function storeBlobContentKeyBundle(
   input: StoreBlobContentKeyBundleInput,
-  executor: DatabaseExecutor = db,
+  database: ApiDatabase = db,
 ): Promise<StoredBlobContentKeyBundleWithTargets> {
-  if (executor === db) {
-    return db.transaction((tx) => storeBlobContentKeyBundle(input, tx));
-  }
+  return database.transaction((tx) =>
+    storeBlobContentKeyBundleInTransaction(input, tx),
+  );
+}
 
+export async function storeBlobContentKeyBundleInTransaction(
+  input: StoreBlobContentKeyBundleInput,
+  executor: DatabaseTransaction,
+): Promise<StoredBlobContentKeyBundleWithTargets> {
   const currentTargets = await validateCurrentTargetsForBundle(input, executor);
   const latestBundle = await getLatestBlobContentKeyBundle(
     input.blobId,
@@ -615,7 +625,7 @@ export async function storeBlobContentWriteHeader(
     readonly headerHash: string;
     readonly recordId: string;
   },
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<void> {
   if (
     input.header.objectKind !== "blob" ||
@@ -663,7 +673,7 @@ export async function storeBlobContentWriteHeader(
 
 export async function listBlobContentWriteHeaders(
   recordIds: readonly string[],
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
   const uniqueRecordIds = [...new Set(recordIds)];
   if (uniqueRecordIds.length === 0) {

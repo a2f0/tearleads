@@ -8,7 +8,7 @@ import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
 } from "../access/read/accessManifestStore";
-import type { DatabaseExecutor } from "../adapters/postgres";
+import type { DatabaseSession } from "../adapters/postgres";
 import {
   readProjectionNullableString,
   readProjectionPlainRecord,
@@ -150,7 +150,7 @@ function readDocumentLinkSetState(
 
 async function loadCurrentDocumentLinkSet(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
 }): Promise<{
   readonly manifestHash: string;
   readonly state: DocumentLinkSetManifestState;
@@ -181,7 +181,7 @@ async function loadCurrentDocumentLinkSet(input: {
 export async function resolveReadableContainerAccess(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<ContainerAccessProjection> {
   try {
@@ -203,7 +203,7 @@ export async function resolveReadableContainerAccess(input: {
 export async function resolveReadableDocumentAccess(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<DocumentReadAccess> {
   const linkSet = await loadCurrentDocumentLinkSet(input);
@@ -249,7 +249,7 @@ export async function resolveReadableDocumentAccess(input: {
 
 async function listActiveBlobDocumentIds(input: {
   readonly blobId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
 }): Promise<string[]> {
   const rows = await input.executor
     .select({ documentId: attachmentBindings.documentId })
@@ -266,7 +266,7 @@ async function listActiveBlobDocumentIds(input: {
 
 export async function resolveReadableBlobAccess(input: {
   readonly blobId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<void> {
   const documentIds = await listActiveBlobDocumentIds(input);

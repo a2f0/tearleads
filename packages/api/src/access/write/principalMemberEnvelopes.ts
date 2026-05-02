@@ -1,1 +1,4 @@
-export { replaceCurrentPrincipalMemberEnvelopes } from "../shared/internal/principalMemberEnvelopes";
+export {
+  replaceCurrentPrincipalMemberEnvelopes,
+  replaceCurrentPrincipalMemberEnvelopesInTransaction,
+} from "../shared/internal/principalMemberEnvelopes";

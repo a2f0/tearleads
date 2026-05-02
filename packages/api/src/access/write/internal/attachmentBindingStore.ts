@@ -3,9 +3,14 @@ import type {
   VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import {
+  type ApiDatabase,
+  type DatabaseSession,
+  type DatabaseTransaction,
+  db,
+} from "../../../adapters/postgres";
 import { attachmentBindings } from "../../../schema";
-import { storeVerifiedAccessEvent } from "../../shared/internal/accessManifestStore";
+import { storeVerifiedAccessEventInTransaction } from "../../shared/internal/accessManifestStore";
 
 class AttachmentBindingProjectionError extends Error {
   constructor(
@@ -38,7 +43,7 @@ function assertStoredBindingMatches(input: {
 
 async function loadAttachmentBindingRow(
   bindingId: string,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ) {
   const [row] = await executor
     .select()
@@ -51,13 +56,18 @@ async function loadAttachmentBindingRow(
 
 export async function storeVerifiedAttachmentBinding(
   binding: VerifiedAttachmentBinding,
-  executor: DatabaseExecutor = db,
+  database: ApiDatabase = db,
 ): Promise<typeof attachmentBindings.$inferSelect> {
-  if (executor === db) {
-    return db.transaction((tx) => storeVerifiedAttachmentBinding(binding, tx));
-  }
+  return database.transaction((tx) =>
+    storeVerifiedAttachmentBindingInTransaction(binding, tx),
+  );
+}
 
-  await storeVerifiedAccessEvent(binding.event, executor);
+export async function storeVerifiedAttachmentBindingInTransaction(
+  binding: VerifiedAttachmentBinding,
+  executor: DatabaseTransaction,
+): Promise<typeof attachmentBindings.$inferSelect> {
+  await storeVerifiedAccessEventInTransaction(binding.event, executor);
   const [insertedRow] = await executor
     .insert(attachmentBindings)
     .values({
@@ -88,13 +98,18 @@ export async function storeVerifiedAttachmentBinding(
 
 export async function storeVerifiedAttachmentDetach(
   detach: VerifiedAttachmentDetach,
-  executor: DatabaseExecutor = db,
+  database: ApiDatabase = db,
 ): Promise<typeof attachmentBindings.$inferSelect> {
-  if (executor === db) {
-    return db.transaction((tx) => storeVerifiedAttachmentDetach(detach, tx));
-  }
+  return database.transaction((tx) =>
+    storeVerifiedAttachmentDetachInTransaction(detach, tx),
+  );
+}
 
-  await storeVerifiedAccessEvent(detach.event, executor);
+export async function storeVerifiedAttachmentDetachInTransaction(
+  detach: VerifiedAttachmentDetach,
+  executor: DatabaseTransaction,
+): Promise<typeof attachmentBindings.$inferSelect> {
+  await storeVerifiedAccessEventInTransaction(detach.event, executor);
   const row = await loadAttachmentBindingRow(detach.bindingId, executor);
   if (!row) {
     throw new AttachmentBindingProjectionError(

@@ -5,12 +5,12 @@ import type {
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
 import type {
-  db as apiDatabase,
-  DatabaseExecutor,
+  ApiDatabase,
+  DatabaseTransaction,
 } from "../../../adapters/postgres";
 
+export type { ApiDatabase };
 export type ContainerMutationStatus = 400 | 403 | 404 | 409;
-export type ApiDatabase = typeof apiDatabase;
 
 export interface MutateContainerInput {
   readonly expectedContainerId?: string;
@@ -22,7 +22,7 @@ export interface MutateContainerInput {
 
 export interface MutateContainerWithExecutorInput extends MutateContainerInput {
   readonly context?: ContainerMutationContext;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
 }
 
 export type ContainerMutationHandlerInput = Omit<
@@ -51,6 +51,6 @@ export type CurrentAccessManifestHead = Awaited<
 >;
 
 export interface ContainerMutationContext {
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly manifestHeadByContainerId: Map<string, CurrentAccessManifestHead>;
 }

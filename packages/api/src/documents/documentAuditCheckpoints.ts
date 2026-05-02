@@ -1,6 +1,6 @@
 import type { DocumentCheckpointKind } from "@tearleads/loro/shared";
 import { desc, eq } from "drizzle-orm";
-import type { DatabaseExecutor } from "../adapters/postgres";
+import type { DatabaseSession } from "../adapters/postgres";
 import { documentAuditCheckpoints, documents } from "../schema";
 import { sha256Hex } from "../utils/sha256";
 
@@ -78,7 +78,7 @@ export async function computeDocumentAuditCheckpointHash(input: {
 }
 
 export async function maybeWriteDocumentAuditCheckpoint(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   input: {
     accessEpoch: number;
     accessManifestHash: string;

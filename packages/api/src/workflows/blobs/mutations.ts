@@ -42,18 +42,15 @@ import {
   type resolveCurrentBlobKekTargets,
 } from "../../access/read/blobKekTargets";
 import {
-  storeVerifiedAttachmentBinding,
-  storeVerifiedAttachmentDetach,
+  storeVerifiedAttachmentBindingInTransaction,
+  storeVerifiedAttachmentDetachInTransaction,
 } from "../../access/write/attachmentBindingStore";
 import {
   BlobContentKeyBundleError,
-  storeBlobContentKeyBundle,
+  storeBlobContentKeyBundleInTransaction,
   storeBlobContentWriteHeader,
 } from "../../access/write/blobContentKeyStore";
-import type {
-  db as apiDatabase,
-  DatabaseExecutor,
-} from "../../adapters/postgres";
+import type { ApiDatabase, DatabaseTransaction } from "../../adapters/postgres";
 import { appendDocumentAttachmentAuditEntries } from "../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../documents/documentAuditAccess";
 import {
@@ -82,7 +79,6 @@ import {
 } from "../documents/mutations";
 
 type BlobMutationStatus = 400 | 403 | 404 | 409 | 503;
-type ApiDatabase = typeof apiDatabase;
 
 export class BlobMutationError extends Error {
   constructor(
@@ -381,7 +377,7 @@ function assertAttachmentEventSession(input: {
 
 async function assertDocumentManifestCurrent(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedDocumentLinkSetManifest;
 }): Promise<void> {
   if (
@@ -419,7 +415,7 @@ async function assertDocumentManifestCurrent(input: {
 
 async function verifyAttachmentAuthorizationProof(input: {
   readonly bodyDocumentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
 }): Promise<AttachmentAuthorizationProof> {
   const [documentManifest, authorizingContainerPaths] = await Promise.all([
@@ -460,7 +456,7 @@ async function verifyAttachmentAuthorizationProof(input: {
 
 async function loadActiveAttachmentBindingsForSlot(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly slotId: string;
 }) {
   return input.executor
@@ -483,7 +479,7 @@ async function loadActiveAttachmentBindingsForSlot(input: {
 
 async function requireSingleActiveAttachmentBindingForSlot(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly slotId: string;
 }): Promise<ActiveAttachmentBindingRow | null> {
   const rows = await loadActiveAttachmentBindingsForSlot(input);
@@ -499,7 +495,7 @@ async function requireSingleActiveAttachmentBindingForSlot(input: {
 
 async function loadActiveAttachmentBindingById(input: {
   readonly bindingId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
 }) {
   const [binding] = await input.executor
     .select({
@@ -523,7 +519,7 @@ async function loadActiveAttachmentBindingById(input: {
 
 async function ensureBlobExists(input: {
   readonly blobId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
 }): Promise<void> {
   const [blob] = await input.executor
     .select({ id: blobs.id })
@@ -537,7 +533,7 @@ async function ensureBlobExists(input: {
 
 async function promoteStagedBlobIfPresent(input: {
   readonly blobId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly request: BlobAttachmentBindRequest;
   readonly userId: string;
 }): Promise<{ readonly sha256: string } | null> {
@@ -675,7 +671,7 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
   readonly signingPublicKey: Uint8Array;
   readonly stagedBlob: { readonly sha256: string } | null;
   readonly userId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
 }): Promise<string | undefined> {
   if (!input.request.stagedBlob) {
     return undefined;
@@ -740,7 +736,7 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
 
 async function detachActiveSlotBinding(input: {
   readonly activeBinding: ActiveAttachmentBindingRow | null;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
 }): Promise<void> {
   if (!input.activeBinding) {
     return;
@@ -755,7 +751,7 @@ async function detachActiveSlotBinding(input: {
 async function appendAttachmentAuditEvent(input: {
   readonly activeBinding: ActiveAttachmentBindingRow | null;
   readonly binding: VerifiedAttachmentBinding;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly manifest: VerifiedDocumentLinkSetManifest;
   readonly userId: string;
@@ -782,7 +778,7 @@ async function appendAttachmentAuditEvent(input: {
 
 async function appendAttachmentDetachAuditEvent(input: {
   readonly detach: VerifiedAttachmentDetach;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly manifest: VerifiedDocumentLinkSetManifest;
   readonly userId: string;
@@ -830,7 +826,7 @@ function toBindResponse(input: {
 }
 
 async function applyAttachmentContainerRekeys(input: {
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
   readonly userId: string;
@@ -863,92 +859,96 @@ function readBindRequestSession(input: BindBlobAttachmentInput) {
   return { bindBody, event };
 }
 
+async function bindBlobAttachmentTransaction(
+  input: BindBlobAttachmentInput,
+  tx: DatabaseTransaction,
+): Promise<BlobAttachmentBindResponse> {
+  const { bindBody, event } = readBindRequestSession(input);
+  await applyAttachmentContainerRekeys({
+    executor: tx,
+    fingerprint: input.fingerprint,
+    request: input.request,
+    userId: input.userId,
+  });
+  const [signingPublicKey, proof] = await Promise.all([
+    loadSignerPublicKey(tx, input),
+    verifyAttachmentAuthorizationProof({
+      bodyDocumentId: bindBody.documentId,
+      executor: tx,
+      request: input.request,
+    }),
+  ]);
+  const activeBinding = await requireSingleActiveAttachmentBindingForSlot({
+    documentId: bindBody.documentId,
+    executor: tx,
+    slotId: bindBody.slotId,
+  });
+  const verifiedBinding = await verifyAttachmentBindingEvent({
+    authorizingContainerPaths: proof.authorizingContainerPaths,
+    body: input.request.body as KeyingCanonicalJson,
+    documentManifest: proof.documentManifest,
+    event,
+    expectedBindingId: bindBody.bindingId,
+    expectedBlobId: input.blobId,
+    expectedDocumentId: bindBody.documentId,
+    expectedDocumentManifestHash: proof.documentManifest.manifestHash,
+    expectedPreviousBindingId: activeBinding?.id ?? null,
+    principalPolicies: proof.principalPolicies,
+    signerPublicKey: signingPublicKey,
+  });
+  if (!verifiedBinding.ok) {
+    throw verifiedBinding.error;
+  }
+
+  const stagedBlob = await promoteStagedBlobIfPresent({
+    blobId: input.blobId,
+    executor: tx,
+    request: input.request,
+    userId: input.userId,
+  });
+  await detachActiveSlotBinding({ activeBinding, executor: tx });
+  await storeVerifiedAttachmentBindingInTransaction(verifiedBinding.value, tx);
+  const contentKeyBundle = await storeBlobContentKeyBundleInTransaction(
+    toStoredContentKeyBundleInput(input.blobId, input.request.contentKeyBundle),
+    tx,
+  );
+  const currentTargets = contentKeyBundle.currentTargets;
+  const writeHeaderHash = await verifyAndStoreStagedBlobWriteHeader({
+    blobId: input.blobId,
+    blobKekTargets: currentTargets,
+    executor: tx,
+    proof,
+    request: input.request,
+    signingPublicKey,
+    stagedBlob,
+    userId: input.userId,
+  });
+  await appendAttachmentAuditEvent({
+    activeBinding,
+    binding: verifiedBinding.value,
+    executor: tx,
+    fingerprint: input.fingerprint,
+    manifest: proof.documentManifest,
+    userId: input.userId,
+  });
+
+  return toBindResponse({
+    binding: verifiedBinding.value,
+    blobId: input.blobId,
+    contentKeyBundle,
+    currentTargets,
+    writeHeaderHash,
+  });
+}
+
 export async function runBindBlobAttachmentWorkflow(
   db: ApiDatabase,
   input: BindBlobAttachmentInput,
 ): Promise<BlobAttachmentBindResponse> {
   try {
-    return await db.transaction(async (tx) => {
-      const { bindBody, event } = readBindRequestSession(input);
-      await applyAttachmentContainerRekeys({
-        executor: tx,
-        fingerprint: input.fingerprint,
-        request: input.request,
-        userId: input.userId,
-      });
-      const [signingPublicKey, proof] = await Promise.all([
-        loadSignerPublicKey(tx, input),
-        verifyAttachmentAuthorizationProof({
-          bodyDocumentId: bindBody.documentId,
-          executor: tx,
-          request: input.request,
-        }),
-      ]);
-      const activeBinding = await requireSingleActiveAttachmentBindingForSlot({
-        documentId: bindBody.documentId,
-        executor: tx,
-        slotId: bindBody.slotId,
-      });
-      const verifiedBinding = await verifyAttachmentBindingEvent({
-        authorizingContainerPaths: proof.authorizingContainerPaths,
-        body: input.request.body as KeyingCanonicalJson,
-        documentManifest: proof.documentManifest,
-        event,
-        expectedBindingId: bindBody.bindingId,
-        expectedBlobId: input.blobId,
-        expectedDocumentId: bindBody.documentId,
-        expectedDocumentManifestHash: proof.documentManifest.manifestHash,
-        expectedPreviousBindingId: activeBinding?.id ?? null,
-        principalPolicies: proof.principalPolicies,
-        signerPublicKey: signingPublicKey,
-      });
-      if (!verifiedBinding.ok) {
-        throw verifiedBinding.error;
-      }
-
-      const stagedBlob = await promoteStagedBlobIfPresent({
-        blobId: input.blobId,
-        executor: tx,
-        request: input.request,
-        userId: input.userId,
-      });
-      await detachActiveSlotBinding({ activeBinding, executor: tx });
-      await storeVerifiedAttachmentBinding(verifiedBinding.value, tx);
-      const contentKeyBundle = await storeBlobContentKeyBundle(
-        toStoredContentKeyBundleInput(
-          input.blobId,
-          input.request.contentKeyBundle,
-        ),
-        tx,
-      );
-      const currentTargets = contentKeyBundle.currentTargets;
-      const writeHeaderHash = await verifyAndStoreStagedBlobWriteHeader({
-        blobId: input.blobId,
-        blobKekTargets: currentTargets,
-        executor: tx,
-        proof,
-        request: input.request,
-        signingPublicKey,
-        stagedBlob,
-        userId: input.userId,
-      });
-      await appendAttachmentAuditEvent({
-        activeBinding,
-        binding: verifiedBinding.value,
-        executor: tx,
-        fingerprint: input.fingerprint,
-        manifest: proof.documentManifest,
-        userId: input.userId,
-      });
-
-      return toBindResponse({
-        binding: verifiedBinding.value,
-        blobId: input.blobId,
-        contentKeyBundle,
-        currentTargets,
-        writeHeaderHash,
-      });
-    });
+    return await db.transaction((tx) =>
+      bindBlobAttachmentTransaction(input, tx),
+    );
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {
@@ -1018,7 +1018,10 @@ export async function runDetachBlobAttachmentWorkflow(
         throw verifiedDetach.error;
       }
 
-      await storeVerifiedAttachmentDetach(verifiedDetach.value, tx);
+      await storeVerifiedAttachmentDetachInTransaction(
+        verifiedDetach.value,
+        tx,
+      );
       await appendAttachmentDetachAuditEvent({
         detach: verifiedDetach.value,
         executor: tx,
