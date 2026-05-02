@@ -802,8 +802,16 @@ test("buildMaterializedDocumentCreatePlan wraps the content key to the target co
 });
 
 test("createRemoteDocument submits the materialized request and persists the verified response", async () => {
-  const { author } = await createAuthor();
-  const { projection, secretKey } = await createWrappedProjection();
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "remote-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
   const submittedRequests: DocumentCreateRequest[] = [];
   const created = await createRemoteDocument({
     apiClient: {
@@ -818,8 +826,16 @@ test("createRemoteDocument submits the materialized request and persists the ver
     containerId: projection.containerId,
     documentId: "document-remote",
     eventId: "event-remote",
+    resolveProjectionUserKey: async (userId) =>
+      userId === author.signerUserId
+        ? {
+            encapsulationPublicKey: keyPair.publicKey,
+            signingPublicKey,
+            userId,
+          }
+        : null,
     signedAt: "2026-04-27T00:00:00.000Z",
-    targetSecretKey: secretKey,
+    targetSecretKey: keyPair.secretKey,
   });
 
   expect(created?.documentId).toBe("document-remote");
@@ -1207,18 +1223,39 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
 });
 
 test("relinkRemoteDocument submits a verified signed link-set mutation", async () => {
-  const { author } = await createAuthor();
-  const { projection, rootContainerKek, secretKey } =
-    await createWrappedProjection();
-  const { projection: siblingProjection } = await createSiblingProjection({
-    baseProjection: projection,
-    rootContainerKek,
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "remote-link-root-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
   });
+  const siblingProjection = await createContainerWriterProjectionFixture({
+    containerId: "remote-link-sibling-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    parentProjection: projection,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const resolveProjectionUserKey = async (userId: string) =>
+    userId === author.signerUserId
+      ? {
+          encapsulationPublicKey: keyPair.publicKey,
+          signingPublicKey,
+          userId,
+        }
+      : null;
   const created = await buildMaterializedDocumentCreatePlan({
     author,
     containerProjection: projection,
     documentId: "document-remote-link",
-    targetSecretKey: secretKey,
+    resolveProjectionUserKey,
+    targetSecretKey: keyPair.secretKey,
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
@@ -1249,8 +1286,9 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
     author,
     documentId: writerProjection.documentId,
     operation: "link",
+    resolveProjectionUserKey,
     targetContainerId: siblingProjection.containerId,
-    targetSecretKey: secretKey,
+    targetSecretKey: keyPair.secretKey,
   });
 
   expect(submittedRequests).toHaveLength(1);
@@ -1298,8 +1336,23 @@ async function createSyncFixture() {
 
 async function createMaterializedSyncFixture() {
   const { author, signingPublicKey } = await createAuthor();
-  const { childContainerKek, projection, secretKey } =
-    await createWrappedProjection();
+  const keyPair = generateKemSeedAndKeyPair();
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "materialized-sync-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const resolveProjectionUserKey = async (userId: string) =>
+    userId === author.signerUserId
+      ? {
+          encapsulationPublicKey: keyPair.publicKey,
+          signingPublicKey,
+          userId,
+        }
+      : null;
   const contentKey = crypto.getRandomValues(new Uint8Array(32));
   const materializedCreate = await buildMaterializedDocumentCreatePlan({
     author,
@@ -1307,8 +1360,9 @@ async function createMaterializedSyncFixture() {
     contentKey,
     documentId: "550e8400-e29b-41d4-a716-446655440010",
     eventId: "event-materialized-sync",
+    resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
-    targetSecretKey: secretKey,
+    targetSecretKey: keyPair.secretKey,
   });
   const response = createResponse(materializedCreate.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
@@ -1321,43 +1375,13 @@ async function createMaterializedSyncFixture() {
 
   return {
     author,
-    childContainerKek,
     contentKey,
     createResponse: response,
     projection,
-    secretKey,
+    resolveProjectionUserKey,
+    secretKey: keyPair.secretKey,
     signingPublicKey,
     writerProjection,
-  };
-}
-
-function advanceProjectionRootManifest(
-  projection: ContainerWriterProjectionResponse,
-  manifestHash: string,
-): ContainerWriterProjectionResponse {
-  return {
-    ...projection,
-    path: projection.path.map((bundle, index) =>
-      index === 0
-        ? {
-            ...bundle,
-            manifestHash,
-          }
-        : bundle,
-    ),
-    containerKeks: projection.containerKeks.map((kek, index) =>
-      index === 0
-        ? {
-            ...kek,
-            accessManifestHash: manifestHash,
-            keyEpoch: {
-              ...kek.keyEpoch,
-              accessManifestHash: manifestHash,
-              createdByManifestHash: manifestHash,
-            },
-          }
-        : kek,
-    ),
   };
 }
 
@@ -2220,8 +2244,13 @@ test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", as
 });
 
 test("syncRemoteDocument submits a signed sync request and persists the verified response", async () => {
-  const { author, secretKey, signingPublicKey, writerProjection } =
-    await createMaterializedSyncFixture();
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
   const submittedRequests: DocumentSyncRequest[] = [];
   const synced = await syncRemoteDocument({
     apiClient: {
@@ -2233,6 +2262,7 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
           author,
           localVersionVector: null,
           pendingUpdates: [],
+          resolveProjectionUserKey,
           targetSecretKey: secretKey,
           writerProjection,
         });
@@ -2247,6 +2277,7 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
     documentId: writerProjection.documentId,
     localVersionVector: null,
     pendingUpdates: [createPendingUpdateRecord()],
+    resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
     writerPublicKeysByFingerprint: new Map([
@@ -2265,19 +2296,14 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
 });
 
 test("syncRemoteDocument replans once after a stale document sync conflict", async () => {
-  const { author, projection, secretKey, signingPublicKey, writerProjection } =
-    await createMaterializedSyncFixture();
-  const freshRootManifestHash = await fixtureHash(
-    "root-container-manifest-after-share",
-  );
-  const freshProjection = advanceProjectionRootManifest(
+  const {
+    author,
     projection,
-    freshRootManifestHash,
-  );
-  const freshWriterProjection: DocumentWriterProjectionResponse = {
-    ...writerProjection,
-    authorizingContainerPaths: [freshProjection],
-  };
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
   const submittedRequests: DocumentSyncRequest[] = [];
   const reportedErrors: string[] = [];
   let projectionRequestCount = 0;
@@ -2290,9 +2316,7 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
         }
 
         projectionRequestCount += 1;
-        return projectionRequestCount === 1
-          ? writerProjection
-          : freshWriterProjection;
+        return writerProjection;
       },
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle sync retries");
@@ -2316,8 +2340,9 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
           author,
           localVersionVector: null,
           pendingUpdates: [createPendingUpdateRecord()],
+          resolveProjectionUserKey,
           targetSecretKey: secretKey,
-          writerProjection: freshWriterProjection,
+          writerProjection,
         });
         return {
           data: await createSyncResponse({
@@ -2333,6 +2358,7 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
     documentId: writerProjection.documentId,
     localVersionVector: null,
     pendingUpdates: [createPendingUpdateRecord()],
+    resolveProjectionUserKey,
     targetSecretKey: secretKey,
     writerPublicKeysByFingerprint: new Map([
       [author.signerKeyFingerprint, signingPublicKey],
@@ -2348,5 +2374,5 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
       submittedRequests[1]?.authorizingContainerPaths?.[0]?.[0] ?? {},
       "manifestHash",
     ),
-  ).toBe(freshRootManifestHash);
+  ).toBe(projection.path[0]?.manifestHash);
 });

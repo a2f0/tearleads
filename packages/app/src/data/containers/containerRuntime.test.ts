@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type AccessEvent,
+  type ContainerAccessLevel,
   type ContainerAccessManifestState,
   type ContainerCreateAccessEventBody,
   type ContainerDirectGrant,
@@ -218,7 +219,14 @@ async function createUserContainerWrap(input: {
   };
 }
 
-async function createParentProjection(): Promise<{
+async function createParentProjection(input?: {
+  existingUserRecipient?: {
+    accessLevel: ContainerAccessLevel;
+    publicKey: Uint8Array;
+    recipientKeyEpochId: string;
+    userId: string;
+  };
+}): Promise<{
   author: ContainerMutationAuthor;
   encapsulationPublicKey: Uint8Array;
   parentContainerKek: Uint8Array;
@@ -246,6 +254,15 @@ async function createParentProjection(): Promise<{
         subjectId: userId,
         accessLevel: "admin",
       },
+      ...(input?.existingUserRecipient
+        ? [
+            {
+              subjectType: "user" as const,
+              subjectId: input.existingUserRecipient.userId,
+              accessLevel: input.existingUserRecipient.accessLevel,
+            },
+          ]
+        : []),
     ],
     eventId: "parent-container-event-1",
     metadataDocumentId: "parent-container-metadata-document",
@@ -280,6 +297,24 @@ async function createParentProjection(): Promise<{
       recipientKeyFingerprint: wrap.recipientKeyFingerprint,
     },
   ];
+  const wraps = [wrap];
+  if (input?.existingUserRecipient) {
+    const existingWrap = await createUserContainerWrap({
+      containerKeyEpochId,
+      containerKek: parentContainerKek,
+      publicKey: input.existingUserRecipient.publicKey,
+      recipientKeyEpochId: input.existingUserRecipient.recipientKeyEpochId,
+      userId: input.existingUserRecipient.userId,
+      wrapManifestHash: parentManifest.manifestHash,
+    });
+    recipientTargets.push({
+      recipientKind: "user",
+      recipientId: input.existingUserRecipient.userId,
+      recipientKeyEpochId: input.existingUserRecipient.recipientKeyEpochId,
+      recipientKeyFingerprint: existingWrap.recipientKeyFingerprint,
+    });
+    wraps.push(existingWrap);
+  }
   const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
   const parentKekState = {
     containerId,
@@ -292,7 +327,7 @@ async function createParentProjection(): Promise<{
       await computeContainerKekRecipientTargetHash(recipientTargets),
     parentContainerKeyEpochId: null,
     recipientTargets,
-    wraps: [wrap],
+    wraps,
   } as unknown as VerifiedContainerKekState;
 
   return {
@@ -314,6 +349,19 @@ async function createParentProjection(): Promise<{
     signingPublicKey,
     userId,
   };
+}
+
+function createParentProjectionUserKeyResolver(
+  parent: Awaited<ReturnType<typeof createParentProjection>>,
+) {
+  return async (userId: string) =>
+    userId === parent.userId
+      ? {
+          encapsulationPublicKey: parent.encapsulationPublicKey,
+          signingPublicKey: parent.signingPublicKey,
+          userId,
+        }
+      : null;
 }
 
 async function createMutationResponseFromRequest(
@@ -582,6 +630,7 @@ test("shareRemoteContainer rejects malformed projected container state before se
       containerId: parent.projection.containerId,
       recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
       recipientUserId: "user-2",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("directGrants must be an array");
@@ -643,6 +692,7 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
     containerId: parent.projection.containerId,
     recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
     recipientUserId: "user-2",
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     signedAt: SIGNED_AT,
     targetSecretKey: parent.secretKey,
   });
@@ -719,64 +769,43 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
 });
 
 test("shareRemoteContainer replaces stale wraps when re-sharing a user", async () => {
-  const parent = await createParentProjection();
+  const existingUserId = "user-2";
+  const oldRecipientKeyPair = generateKemSeedAndKeyPair();
+  const newRecipientKeyPair = generateKemSeedAndKeyPair();
+  const oldRecipientKeyEpochId = `user:${existingUserId}:encapsulation:${await toFingerprint(oldRecipientKeyPair.publicKey)}`;
+  const parent = await createParentProjection({
+    existingUserRecipient: {
+      accessLevel: "read",
+      publicKey: oldRecipientKeyPair.publicKey,
+      recipientKeyEpochId: oldRecipientKeyEpochId,
+      userId: existingUserId,
+    },
+  });
   const { author } = await createAuthor({
     organizationId: parent.projection.organizationId,
     userId: parent.userId,
   });
-  const existingUserId = "user-2";
-  const oldRecipientKeyPair = generateKemSeedAndKeyPair();
-  const newRecipientKeyPair = generateKemSeedAndKeyPair();
-  const oldRecipientKeyEpochId = `user:${existingUserId}:encapsulation:old`;
-  const existingWrap = await createUserContainerWrap({
-    containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
-    containerKek: parent.parentContainerKek,
-    publicKey: oldRecipientKeyPair.publicKey,
-    recipientKeyEpochId: oldRecipientKeyEpochId,
-    userId: existingUserId,
-    wrapManifestHash: parent.parentKekState.accessManifestHash,
-  });
-  const previousManifest = parent.projection.path[0];
   const previousKek = parent.projection.containerKeks[0];
-  if (!previousManifest || !previousKek) {
-    throw new Error("Expected parent projection");
+  if (!previousKek) {
+    throw new Error("Expected parent projection KEK");
   }
-  const previousState =
-    previousManifest.state as unknown as ContainerAccessManifestState;
-  const projectionWithExistingShare: ContainerWriterProjectionResponse = {
-    ...parent.projection,
-    path: [
-      {
-        ...previousManifest,
-        state: {
-          ...previousState,
-          directGrants: [
-            ...previousState.directGrants,
-            {
-              accessLevel: "read",
-              subjectId: existingUserId,
-              subjectType: "user",
-            },
-          ],
-        },
-      },
-    ],
-    containerKeks: [
-      {
-        ...previousKek,
-        recipientTargets: [
-          ...previousKek.recipientTargets,
-          {
-            recipientKind: "user",
-            recipientId: existingUserId,
-            recipientKeyEpochId: oldRecipientKeyEpochId,
-            recipientKeyFingerprint: existingWrap.recipientKeyFingerprint,
-          },
-        ],
-        wraps: [...previousKek.wraps, existingWrap],
-      },
-    ],
-  };
+  const existingWrap = previousKek.wraps.find(
+    (wrap) =>
+      Reflect.get(wrap, "recipientKind") === "user" &&
+      Reflect.get(wrap, "recipientId") === existingUserId,
+  );
+  if (!existingWrap) {
+    throw new Error("Expected existing user wrap");
+  }
+  const existingRecipientTarget = previousKek.recipientTargets.find(
+    (target) =>
+      Reflect.get(target, "recipientKind") === "user" &&
+      Reflect.get(target, "recipientId") === existingUserId,
+  );
+  if (!existingRecipientTarget) {
+    throw new Error("Expected existing user recipient target");
+  }
+  const projectionWithExistingShare = parent.projection;
   const submittedRequests: ContainerMutationRequest[] = [];
 
   const shared = await shareRemoteContainer({
@@ -792,6 +821,24 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
     containerId: parent.projection.containerId,
     recipientEncapsulationPublicKey: newRecipientKeyPair.publicKey,
     recipientUserId: existingUserId,
+    resolveProjectionUserKey: async (userId) => {
+      if (userId === parent.userId) {
+        return {
+          encapsulationPublicKey: parent.encapsulationPublicKey,
+          signingPublicKey: parent.signingPublicKey,
+          userId,
+        };
+      }
+      if (userId === existingUserId) {
+        return {
+          encapsulationPublicKey: oldRecipientKeyPair.publicKey,
+          signingPublicKey: parent.signingPublicKey,
+          userId,
+        };
+      }
+
+      return null;
+    },
     signedAt: SIGNED_AT,
     targetSecretKey: parent.secretKey,
   });
@@ -817,7 +864,7 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
       recipientKeyEpochId: oldRecipientKeyEpochId,
     }),
   );
-  expect(submittedWraps).toHaveLength(previousKek.wraps.length + 1);
+  expect(submittedWraps).toHaveLength(previousKek.wraps.length);
 });
 
 test("unwrapContainerKekPath verifies signed projection events before unwrap", async () => {
@@ -961,6 +1008,7 @@ test("createRemoteContainer fetches the parent projection and submits the materi
     metadataDocumentId: "remote-child-container-metadata-document",
     parentContainerId: parent.projection.containerId,
     parentSecretKey: parent.secretKey,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     signedAt: SIGNED_AT,
   });
 

@@ -22,6 +22,7 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentSyncResponse,
+  DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { createContainerWriterProjectionFixture } from "../../../../test/helpers/createContainerWriterProjectionFixture";
 import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
@@ -40,6 +41,7 @@ import {
 import { subscribeToPersistedDocuments } from "../../../data/documents/DocumentsProvider";
 import { createRemoteDocument } from "../../../data/documents/documentRuntime";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentsPersistence";
+import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { createEmptyDriverLicenseDocument } from "../../../document-types/drivers-license/driverLicenseDocument";
 import type {
   LocalAttachmentRecord,
@@ -311,6 +313,10 @@ interface NoteRuntimePatch {
   userId: string;
 }
 
+function createNoteProjectionUserKeyResolver(runtimePatch: NoteRuntimePatch) {
+  return createProjectionUserKeyResolver(runtimePatch, "NotesProvider test");
+}
+
 async function createNoteRuntimePatch(input: {
   attachmentBinds?: Array<{
     blobId: string;
@@ -325,6 +331,9 @@ async function createNoteRuntimePatch(input: {
   mapBindBlobAttachmentResponse?: (
     response: BlobAttachmentBindResponse,
   ) => BlobAttachmentBindResponse;
+  mapDocumentWriterProjectionResponse?: (
+    response: DocumentWriterProjectionResponse,
+  ) => DocumentWriterProjectionResponse;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }): Promise<NoteRuntimePatch> {
   const containerId = input.containerId ?? "root-container";
@@ -417,13 +426,16 @@ async function createNoteRuntimePatch(input: {
         if (!storedDocument) {
           return null;
         }
-        return {
+        const projection = {
           authorizingContainerPaths: [await getProjection()],
           contentKeyBundle: storedDocument.contentKeyBundle,
           documentId: storedDocument.id,
           documentKekTargets: storedDocument.documentKekTargets,
           documentManifest: storedDocument.accessManifest,
         };
+        return (
+          input.mapDocumentWriterProjectionResponse?.(projection) ?? projection
+        );
       },
       listContainers: async () => createListedContainers(containerId),
       listDocumentAttachments: async () => attachments,
@@ -1280,6 +1292,10 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
   if (!blob || !writerProjection) {
     throw new Error("Expected uploaded blob and writer projection fixtures.");
   }
+  const resolveProjectionUserKey = createProjectionUserKeyResolver(
+    runtime,
+    "NotesProvider test",
+  );
   const bindingId = String(
     Reflect.get(attachmentBinds[0]?.request.body ?? {}, "bindingId"),
   );
@@ -1288,6 +1304,7 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
     expectedBindingId: bindingId,
     expectedBlobId: blobId,
     execSql: runtime.execSql,
+    resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
     writerProjection,
   });
@@ -1301,6 +1318,7 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
       expectedBindingId: "wrong-binding-id",
       expectedBlobId: blobId,
       execSql: runtime.execSql,
+      resolveProjectionUserKey,
       targetSecretKey: encapsulationKeyPair.secretKey,
       writerProjection,
     }),
@@ -1318,6 +1336,7 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
       expectedBindingId: bindingId,
       expectedBlobId: blobId,
       execSql: runtime.execSql,
+      resolveProjectionUserKey,
       targetSecretKey: encapsulationKeyPair.secretKey,
       writerProjection,
     }),
@@ -1346,6 +1365,7 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
       expectedBindingId: bindingId,
       expectedBlobId: blobId,
       execSql: runtime.execSql,
+      resolveProjectionUserKey,
       targetSecretKey: encapsulationKeyPair.secretKey,
       writerProjection,
     }),
@@ -1378,11 +1398,14 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
     signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
     signerUserId: runtimePatch.userId,
   };
+  const resolveProjectionUserKey =
+    createNoteProjectionUserKeyResolver(runtimePatch);
   const created = await createRemoteDocument({
     apiClient: runtimePatch.apiClient,
     author,
     containerId: "root-container",
     documentId: "document-attachment-response-verification",
+    resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -1397,11 +1420,75 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
       bytes: new TextEncoder().encode("tampered response bytes") as BlobBytes,
       documentId: created.documentId,
       expectedBindingId: null,
+      resolveProjectionUserKey,
       signedAt: "2026-04-27T00:00:01.000Z",
       slotId: "tampered-response-slot",
       targetSecretKey: encapsulationKeyPair.secretKey,
     }),
   ).rejects.toThrow("content-key bundle mismatch");
+});
+
+test("uploadDocumentAttachment rejects document writer projections with bad signatures", async () => {
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const runtimePatch = await createNoteRuntimePatch({
+    encapsulationKeyPair,
+    mapDocumentWriterProjectionResponse: (projection) => {
+      const tamperedProjection = structuredClone(projection);
+      const signedEvent = Reflect.get(
+        tamperedProjection.documentManifest.event,
+        "event",
+      );
+      if (!isPlainObject(signedEvent)) {
+        throw new Error("Expected signed document event fixture.");
+      }
+      const signature = Reflect.get(signedEvent, "signature");
+      if (typeof signature !== "string" || signature.length === 0) {
+        throw new Error("Expected signed document signature fixture.");
+      }
+      Reflect.set(
+        signedEvent,
+        "signature",
+        `${signature.slice(0, -1)}${signature.endsWith("A") ? "B" : "A"}`,
+      );
+
+      return tamperedProjection;
+    },
+  });
+  const author = {
+    organizationId: runtimePatch.organizationId,
+    signerDeviceId: "test-device-1",
+    signerKeyFingerprint: runtimePatch.signingFingerprint,
+    signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
+    signerUserId: runtimePatch.userId,
+  };
+  const resolveProjectionUserKey =
+    createNoteProjectionUserKeyResolver(runtimePatch);
+  const created = await createRemoteDocument({
+    apiClient: runtimePatch.apiClient,
+    author,
+    containerId: "root-container",
+    documentId: "document-attachment-bad-projection-signature",
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  if (!created) {
+    throw new Error("Expected remote document fixture.");
+  }
+
+  await expect(
+    uploadDocumentAttachment({
+      apiClient: runtimePatch.apiClient,
+      author,
+      bytes: new TextEncoder().encode("bad projection bytes") as BlobBytes,
+      documentId: created.documentId,
+      expectedBindingId: null,
+      resolveProjectionUserKey,
+      signedAt: "2026-04-27T00:00:01.000Z",
+      slotId: "bad-projection-slot",
+      targetSecretKey: encapsulationKeyPair.secretKey,
+    }),
+  ).rejects.toThrow("Document writer projection signature verification failed");
 });
 
 test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryption", async () => {
@@ -1414,11 +1501,14 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
     signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
     signerUserId: runtimePatch.userId,
   };
+  const resolveProjectionUserKey =
+    createNoteProjectionUserKeyResolver(runtimePatch);
   const created = await createRemoteDocument({
     apiClient: runtimePatch.apiClient,
     author,
     containerId: "root-container",
     documentId: "document-attachment-fresh-iv",
+    resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -1438,6 +1528,7 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
     contentKey,
     documentId: created.documentId,
     expectedBindingId: null,
+    resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:01.000Z",
     slotId: "fresh-iv-slot",
     targetSecretKey: encapsulationKeyPair.secretKey,
@@ -1451,6 +1542,7 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
     contentKey,
     documentId: created.documentId,
     expectedBindingId: null,
+    resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:02.000Z",
     slotId: "fresh-iv-slot",
     targetSecretKey: encapsulationKeyPair.secretKey,

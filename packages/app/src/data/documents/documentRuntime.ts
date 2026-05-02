@@ -54,6 +54,7 @@ import {
 } from "../keyingCanonicalJson";
 import {
   type ProjectionUserKeyResolver,
+  requireProjectionUserKeyResolver,
   verifyContainerWriterProjection,
   verifyDocumentWriterProjection,
 } from "../keyingProjectionVerification";
@@ -1208,10 +1209,14 @@ export async function createRemoteDocument(input: {
   documentId?: string | undefined;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<CreateRemoteDocumentResult | null> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote document create",
+  );
   const containerProjection =
     await input.apiClient.getContainerWriterProjection(input.containerId);
   if (!containerProjection) {
@@ -1226,7 +1231,7 @@ export async function createRemoteDocument(input: {
     documentId: input.documentId,
     eventId: input.eventId,
     execSql: input.execSql,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
   });
@@ -1900,11 +1905,15 @@ export async function relinkRemoteDocument(input: {
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
   operation: DocumentLinkSetMutationOperation;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetContainerId: string;
   targetSecretKey: Uint8Array;
 }): Promise<RelinkRemoteDocumentResult | null> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote document link-set mutation",
+  );
   const [writerProjection, targetContainerProjection] = await Promise.all([
     input.apiClient.getDocumentWriterProjection(input.documentId),
     input.apiClient.getContainerWriterProjection(input.targetContainerId),
@@ -1919,7 +1928,7 @@ export async function relinkRemoteDocument(input: {
     eventId: input.eventId,
     execSql: input.execSql,
     operation: input.operation,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetContainerProjection,
     targetSecretKey: input.targetSecretKey,
@@ -3264,12 +3273,16 @@ export async function syncRemoteDocument(input: {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<SyncRemoteDocumentResult | null> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote document sync",
+  );
   const maxAttempts = input.apiClient.syncDocumentResult ? 2 : 1;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -3285,7 +3298,7 @@ export async function syncRemoteDocument(input: {
       localVersionVector: input.localVersionVector,
       minLsn: input.minLsn,
       pendingUpdates: input.pendingUpdates,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      resolveProjectionUserKey,
       signedAt: input.signedAt,
       targetSecretKey: input.targetSecretKey,
       writerProjection,
