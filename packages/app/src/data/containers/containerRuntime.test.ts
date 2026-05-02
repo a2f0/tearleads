@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type AccessEvent,
+  CONTAINER_KEK_MATERIAL_ID_PREFIX,
   type ContainerAccessLevel,
   type ContainerAccessManifestState,
   type ContainerCreateAccessEventBody,
@@ -12,6 +13,7 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeContainerKekMaterialId,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   decryptWithDek,
@@ -239,7 +241,13 @@ async function createParentProjection(input?: {
   const userId = "user-1";
   const organizationId = "organization-1";
   const containerId = "parent-container";
-  const containerKeyEpochId = "parent-container-key-epoch-1";
+  const keyPair = generateKemSeedAndKeyPair();
+  const parentContainerKek = crypto.getRandomValues(new Uint8Array(32));
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId,
+    keyEpoch: 1,
+    keyMaterial: parentContainerKek,
+  });
   const { author, signingPublicKey } = await createAuthor({
     organizationId,
     userId,
@@ -268,8 +276,6 @@ async function createParentProjection(input?: {
     metadataDocumentId: "parent-container-metadata-document",
     organizationId,
   });
-  const keyPair = generateKemSeedAndKeyPair();
-  const parentContainerKek = crypto.getRandomValues(new Uint8Array(32));
   const recipientKeyFingerprint = await toFingerprint(keyPair.publicKey);
   const recipientKeyEpochId = `user:${userId}:encapsulation:${recipientKeyFingerprint}`;
   const wrap = await createUserContainerWrap({
@@ -501,6 +507,38 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
   expect(Array.from(unwrappedChildKek)).toEqual(Array.from(containerKey));
   expect(verifiedKek.value.keyTargetHash).toBe(plan.keyTargetHash);
   expect(verifiedKek.value.keyEpochHash).toBe(plan.keyEpochHash);
+});
+
+test("buildMaterializedContainerCreatePlan commits generated KEK epoch ids to material", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const containerId = "committed-child-container";
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const materialized = await buildMaterializedContainerCreatePlan({
+    author,
+    containerId,
+    containerKey,
+    eventId: "committed-child-container-event",
+    parentProjection: parent.projection,
+    parentSecretKey: parent.secretKey,
+    signedAt: SIGNED_AT,
+  });
+
+  expect(materialized.plan.containerKeyEpochId).toBe(
+    await computeContainerKekMaterialId({
+      containerId,
+      keyEpoch: 1,
+      keyMaterial: containerKey,
+    }),
+  );
+  expect(
+    materialized.plan.containerKeyEpochId.startsWith(
+      CONTAINER_KEK_MATERIAL_ID_PREFIX,
+    ),
+  ).toBe(true);
 });
 
 test("buildContainerCreatePlan rejects stale parent projections and wrong organization authors", async () => {
@@ -926,6 +964,42 @@ test("unwrapContainerKekPath rejects projection wraps not justified by the manif
       secretKey: parent.secretKey,
     }),
   ).rejects.toThrow("KEK verification failed");
+});
+
+test("unwrapContainerKekPath rejects substituted material for committed KEK ids", async () => {
+  const parent = await createParentProjection();
+  const target = parent.parentKekState.recipientTargets.find(
+    (candidate) =>
+      candidate.recipientKind === "user" &&
+      candidate.recipientId === parent.userId,
+  );
+  if (!target) {
+    throw new Error("Expected parent user recipient target");
+  }
+
+  const substituteKek = crypto.getRandomValues(new Uint8Array(32));
+  const substituteWrap = await createUserContainerWrap({
+    containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+    containerKek: substituteKek,
+    publicKey: parent.encapsulationPublicKey,
+    recipientKeyEpochId: target.recipientKeyEpochId,
+    userId: parent.userId,
+    wrapManifestHash: parent.parentKekState.accessManifestHash,
+  });
+  const tamperedProjection = structuredClone(parent.projection);
+  const kek = tamperedProjection.containerKeks[0];
+  if (!kek) {
+    throw new Error("Expected projection KEK");
+  }
+  kek.wraps = [substituteWrap];
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: tamperedProjection,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("KEK material does not match committed epoch id");
 });
 
 test("unwrapContainerKekPath fails closed for managed-principal KEK projections", async () => {

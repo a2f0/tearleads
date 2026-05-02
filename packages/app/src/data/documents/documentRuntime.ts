@@ -7,6 +7,7 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeContainerKekMaterialId,
   computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
   computeDocumentContentRecordCiphertextHash,
@@ -21,6 +22,7 @@ import {
   decryptWithDek,
   deriveDocumentLinkSetManifest,
   encryptWithDek,
+  isContainerKekMaterialId,
   type KeyingCanonicalJson,
   serializeKeyingCanonicalJson,
   signAccessEvent,
@@ -883,6 +885,27 @@ async function unwrapContainerKekFromParentWrap(input: {
   );
 }
 
+async function assertUnwrappedContainerKekMatchesMaterialId(input: {
+  index: number;
+  keyMaterial: Uint8Array;
+  kek: ContainerWriterProjectionResponse["containerKeks"][number];
+}): Promise<void> {
+  if (!isContainerKekMaterialId(input.kek.containerKeyEpochId)) {
+    return;
+  }
+
+  const expectedId = await computeContainerKekMaterialId({
+    containerId: input.kek.containerId,
+    keyEpoch: input.kek.containerKeyEpoch,
+    keyMaterial: input.keyMaterial,
+  });
+  if (expectedId !== input.kek.containerKeyEpochId) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} KEK material does not match committed epoch id`,
+    );
+  }
+}
+
 export async function unwrapContainerKekPath(input: {
   execSql?: ExecSql | undefined;
   projection: ContainerWriterProjectionResponse;
@@ -940,6 +963,11 @@ export async function unwrapContainerKekPath(input: {
     if (!unwrapped) {
       continue;
     }
+    await assertUnwrappedContainerKekMatchesMaterialId({
+      index,
+      kek,
+      keyMaterial: unwrapped,
+    });
     keksByEpochId.set(kek.containerKeyEpochId, {
       containerId: kek.containerId,
       keyEpochHash: kek.keyEpochHash,

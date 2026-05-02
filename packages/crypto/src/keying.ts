@@ -55,6 +55,7 @@ export type KeyingHashDomain =
   | "tearleads.keying.container-access-key-target"
   | "tearleads.keying.container-access-structural"
   | "tearleads.keying.container-key-epoch"
+  | "tearleads.keying.container-kek-material-id"
   | "tearleads.keying.container-kek-recipient-targets"
   | "tearleads.keying.document-content-key-targets"
   | "tearleads.keying.document-link-set-grants"
@@ -96,6 +97,8 @@ export const CONTAINER_KEK_USER_WRAP_SUITE =
   "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm" as const;
 export const CONTAINER_KEK_PARENT_WRAP_SUITE =
   "tearleads.container-kek-wrap.aes-256-gcm-parent-kek" as const;
+export const CONTAINER_KEK_MATERIAL_ID_PREFIX =
+  "tearleads.container-kek.v1.sha256:" as const;
 
 export interface UnsignedAccessEvent {
   version: 1;
@@ -6385,6 +6388,34 @@ export async function computeContainerKeyEpochHash(
   return computeKeyingDomainHash(
     "tearleads.keying.container-key-epoch",
     payload,
+  );
+}
+
+export async function computeContainerKekMaterialId(input: {
+  readonly containerId: string;
+  readonly keyEpoch: number;
+  readonly keyMaterial: Uint8Array;
+}): Promise<`${typeof CONTAINER_KEK_MATERIAL_ID_PREFIX}${string}`> {
+  if (input.keyMaterial.byteLength !== 32) {
+    throw new Error("Container KEK material must be 32 bytes");
+  }
+
+  const materialHash = await computeKeyingDomainHash(
+    "tearleads.keying.container-kek-material-id",
+    {
+      version: 1,
+      containerId: input.containerId,
+      keyEpoch: input.keyEpoch,
+      keyMaterial: bytesToBase64(input.keyMaterial),
+    },
+  );
+  return `${CONTAINER_KEK_MATERIAL_ID_PREFIX}${materialHash}`;
+}
+
+export function isContainerKekMaterialId(value: string): boolean {
+  return (
+    value.startsWith(CONTAINER_KEK_MATERIAL_ID_PREFIX) &&
+    value.length === CONTAINER_KEK_MATERIAL_ID_PREFIX.length + 64
   );
 }
 

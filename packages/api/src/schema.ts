@@ -809,7 +809,9 @@ export const accessManifestHeads = pgTable(
  *
  * Columns:
  * - `id`: Crypto-level container key epoch id. This is the primary key and is
- *   referenced by content-key target rows.
+ *   referenced by content-key target rows. New app-created ids may use the
+ *   `tearleads.container-kek.v1.sha256:<hash>` format, which lets clients
+ *   verify unwrapped KEK material against the signed epoch id.
  * - `containerId`: Container whose KEK this epoch belongs to.
  * - `keyEpoch`: Monotonic numeric key epoch for the container.
  * - `accessManifestHash`: Container access manifest hash that this KEK state

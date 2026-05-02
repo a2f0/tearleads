@@ -38,6 +38,7 @@ import type {
 import {
   accessManifestTransparencyLeaf,
   BLOB_CONTENT_KEY_WRAP_SUITE,
+  CONTAINER_KEK_MATERIAL_ID_PREFIX,
   CONTAINER_KEK_PARENT_WRAP_SUITE,
   CONTAINER_KEK_USER_WRAP_SUITE,
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -45,6 +46,7 @@ import {
   computeAccessManifestHash,
   computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
+  computeContainerKekMaterialId,
   computeContainerKekRecipientTargetHash,
   computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
@@ -61,6 +63,7 @@ import {
   deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
   identityStateTransparencyLeaf,
+  isContainerKekMaterialId,
   serializeKeyingCanonicalJson,
   signAccessEvent,
   signTransparencyTreeHead,
@@ -112,6 +115,33 @@ test("suite identifiers distinguish content records from key wrapping", () => {
   expect(CONTAINER_KEK_PARENT_WRAP_SUITE).toBe(
     "tearleads.container-kek-wrap.aes-256-gcm-parent-kek",
   );
+});
+
+test("container KEK material ids commit to context and key material", async () => {
+  const keyMaterial = new Uint8Array(32).fill(7);
+  const id = await computeContainerKekMaterialId({
+    containerId: "container-1",
+    keyEpoch: 1,
+    keyMaterial,
+  });
+
+  expect(id.startsWith(CONTAINER_KEK_MATERIAL_ID_PREFIX)).toBe(true);
+  expect(isContainerKekMaterialId(id)).toBe(true);
+  expect(
+    await computeContainerKekMaterialId({
+      containerId: "container-1",
+      keyEpoch: 2,
+      keyMaterial,
+    }),
+  ).not.toBe(id);
+  expect(
+    await computeContainerKekMaterialId({
+      containerId: "container-1",
+      keyEpoch: 1,
+      keyMaterial: new Uint8Array(32).fill(8),
+    }),
+  ).not.toBe(id);
+  expect(isContainerKekMaterialId("legacy-container-key-epoch")).toBe(false);
 });
 
 async function createSignedContainerEvent(input: {
