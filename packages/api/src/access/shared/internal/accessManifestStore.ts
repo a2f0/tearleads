@@ -9,7 +9,6 @@ import type {
   VerifiedAccessEvent,
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
-import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import {
@@ -20,6 +19,7 @@ import {
   accessManifestPrincipalHeadProjection,
   accessManifests,
 } from "../../../schema";
+import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 
 /**
  * access projection tables are derived cache only.
@@ -181,15 +181,6 @@ function referencedPrincipalHeadsCanonicalJson(
   }));
 }
 
-function canonicalJsonMatches(
-  left: KeyingCanonicalJson,
-  right: KeyingCanonicalJson,
-): boolean {
-  return (
-    serializeKeyingCanonicalJson(left) === serializeKeyingCanonicalJson(right)
-  );
-}
-
 function readJsonArray<T>(value: unknown, label: string): T[] {
   if (!Array.isArray(value)) {
     throw new Error(`${label} is not an array`);
@@ -280,12 +271,12 @@ async function ensureStoredAccessEventMatches(
     storedEvent.objectId !== event.objectId ||
     storedEvent.organizationId !== event.organizationId ||
     storedEvent.previousManifestHash !== event.previousManifestHash ||
-    !canonicalJsonMatches(
+    !canonicalJsonEquals(
       storedEvent.dependencyManifestHashes,
       accessEventDependencyHashes(verifiedEvent),
     ) ||
     storedEvent.bodyHash !== event.bodyHash ||
-    !canonicalJsonMatches(storedEvent.body, verifiedEvent.body) ||
+    !canonicalJsonEquals(storedEvent.body, verifiedEvent.body) ||
     storedEvent.signerUserId !== event.signerUserId ||
     storedEvent.signerDeviceId !== event.signerDeviceId ||
     storedEvent.signerKeyFingerprint !== event.signerKeyFingerprint ||
@@ -355,7 +346,7 @@ async function ensureStoredAccessManifestMatches(
     storedManifest.eventHash !== manifest.eventHash ||
     storedManifest.structuralHash !== manifest.structuralHash ||
     storedManifest.grantRoot !== manifest.grantRoot ||
-    !canonicalJsonMatches(
+    !canonicalJsonEquals(
       referencedPrincipalHeadsCanonicalJson(
         storedManifest.referencedPrincipalHeads,
       ),
@@ -364,7 +355,7 @@ async function ensureStoredAccessManifestMatches(
       ),
     ) ||
     storedManifest.keyTargetHash !== manifest.keyTargetHash ||
-    !canonicalJsonMatches(
+    !canonicalJsonEquals(
       storedManifest.state as KeyingCanonicalJson,
       accessManifestState(verifiedManifest),
     )

@@ -3,7 +3,6 @@ import {
   type DocumentContentKeyTarget,
   type KeyingCanonicalJson,
   KeyingVerificationError,
-  serializeKeyingCanonicalJson,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -13,11 +12,13 @@ import {
   documentContentKeyTargets,
   documentContentWriteHeaders,
 } from "../../../schema";
+import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,
   type resolveCurrentDocumentKekTargets,
 } from "./documentKekTargets";
+import { targetEnvelopeBundlesEqual } from "./targetEnvelopeBundles";
 
 type CurrentDocumentKekTargets = Awaited<
   ReturnType<typeof resolveCurrentDocumentKekTargets>
@@ -58,15 +59,6 @@ export class DocumentContentKeyBundleError extends Error {
     super(message);
     this.name = "DocumentContentKeyBundleError";
   }
-}
-
-function canonicalJsonEquals(
-  left: KeyingCanonicalJson,
-  right: KeyingCanonicalJson,
-): boolean {
-  return (
-    serializeKeyingCanonicalJson(left) === serializeKeyingCanonicalJson(right)
-  );
 }
 
 function targetKey(target: Pick<DocumentContentKeyTarget, "containerId">) {
@@ -134,25 +126,6 @@ function targetEnvelopeMaterialEqual(
     targetKeyMaterialEqual(left, right) &&
     left.wrappedKey === right.wrappedKey &&
     canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
-  );
-}
-
-function targetEnvelopeBundlesEqual(
-  left: readonly DocumentContentKeyTargetEnvelope[],
-  right: readonly DocumentContentKeyTargetEnvelope[],
-): boolean {
-  const sortedLeft = sortTargetEnvelopes(left);
-  const sortedRight = sortTargetEnvelopes(right);
-
-  return (
-    sortedLeft.length === sortedRight.length &&
-    sortedLeft.every((leftTarget, index) => {
-      const rightTarget = sortedRight[index];
-      return (
-        rightTarget !== undefined &&
-        targetEnvelopeEqual(leftTarget, rightTarget)
-      );
-    })
   );
 }
 
@@ -517,7 +490,14 @@ async function createDocumentContentKeyBundle(
   });
 
   const storedBundle = await toStoredBundle(epochRow, executor);
-  if (!targetEnvelopeBundlesEqual(storedBundle.targets, input.targets)) {
+  if (
+    !targetEnvelopeBundlesEqual(
+      storedBundle.targets,
+      input.targets,
+      sortTargetEnvelopes,
+      targetEnvelopeEqual,
+    )
+  ) {
     throw new DocumentContentKeyBundleError(
       "Document content-key bundle conflict",
       409,
@@ -757,7 +737,14 @@ export async function storeDocumentContentKeyBundle(
     );
   }
 
-  if (targetEnvelopeBundlesEqual(existingBundle.targets, input.targets)) {
+  if (
+    targetEnvelopeBundlesEqual(
+      existingBundle.targets,
+      input.targets,
+      sortTargetEnvelopes,
+      targetEnvelopeEqual,
+    )
+  ) {
     return withCurrentTargets(
       await refreshExistingBundleMetadata({
         existingBundle,

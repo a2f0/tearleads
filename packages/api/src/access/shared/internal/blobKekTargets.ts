@@ -6,6 +6,7 @@ import {
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { type DatabaseExecutor, db } from "../../../adapters/postgres";
 import { attachmentBindings } from "../../../schema";
+import { compareStrings } from "../../../utils/array";
 import {
   getCurrentAccessManifestHeads,
   listAccessManifestDocumentLinkProjections,
@@ -41,10 +42,6 @@ interface AssertBlobKekTargetsCurrentInput {
   readonly blobId: string;
   readonly expectedTargets?: readonly BlobContentKeyTarget[];
   readonly expectedTargetHash?: string;
-}
-
-function compareStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function uniqueSortedStrings(values: readonly string[]): string[] {

@@ -25,7 +25,6 @@ import {
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   KeyingVerificationError,
-  serializeKeyingCanonicalJson,
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
   verifyWriteHeader,
@@ -106,6 +105,7 @@ import {
   users,
 } from "../../schema";
 import { uniqueSortedStrings } from "../../utils/array";
+import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import {
   applyContainerRekeys,
   ContainerMutationError,
@@ -583,13 +583,6 @@ function writeHeaderRecord(header: WriteHeader): Record<string, unknown> {
     signedAt: header.signedAt,
     signature: header.signature,
   };
-}
-
-function canonicalJsonEquals(left: unknown, right: unknown): boolean {
-  return (
-    serializeKeyingCanonicalJson(left as KeyingCanonicalJson) ===
-    serializeKeyingCanonicalJson(right as KeyingCanonicalJson)
-  );
 }
 
 function mapVerificationStatus(

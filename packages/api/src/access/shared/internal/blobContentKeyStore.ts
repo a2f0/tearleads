@@ -3,7 +3,6 @@ import {
   computeBlobContentKeyTargetHash,
   type KeyingCanonicalJson,
   KeyingVerificationError,
-  serializeKeyingCanonicalJson,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -13,11 +12,14 @@ import {
   blobContentKeyTargets,
   blobContentWriteHeaders,
 } from "../../../schema";
+import { compareStrings } from "../../../utils/array";
+import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import {
   assertBlobKekTargetsCurrent,
   BlobKekTargetError,
   type resolveCurrentBlobKekTargets,
 } from "./blobKekTargets";
+import { targetEnvelopeBundlesEqual } from "./targetEnvelopeBundles";
 
 type CurrentBlobKekTargets = Awaited<
   ReturnType<typeof resolveCurrentBlobKekTargets>
@@ -55,19 +57,6 @@ export class BlobContentKeyBundleError extends Error {
     super(message);
     this.name = "BlobContentKeyBundleError";
   }
-}
-
-function compareStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
-function canonicalJsonEquals(
-  left: KeyingCanonicalJson,
-  right: KeyingCanonicalJson,
-): boolean {
-  return (
-    serializeKeyingCanonicalJson(left) === serializeKeyingCanonicalJson(right)
-  );
 }
 
 function targetKey(
@@ -122,25 +111,6 @@ function targetEnvelopeEqual(
     targetFieldsEqual(left, right) &&
     left.wrappedKey === right.wrappedKey &&
     canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
-  );
-}
-
-function targetEnvelopeBundlesEqual(
-  left: readonly BlobContentKeyTargetEnvelope[],
-  right: readonly BlobContentKeyTargetEnvelope[],
-): boolean {
-  const sortedLeft = sortTargetEnvelopes(left);
-  const sortedRight = sortTargetEnvelopes(right);
-
-  return (
-    sortedLeft.length === sortedRight.length &&
-    sortedLeft.every((leftTarget, index) => {
-      const rightTarget = sortedRight[index];
-      return (
-        rightTarget !== undefined &&
-        targetEnvelopeEqual(leftTarget, rightTarget)
-      );
-    })
   );
 }
 
@@ -416,7 +386,14 @@ async function createBlobContentKeyBundle(
   });
 
   const storedBundle = await toStoredBundle(epochRow, executor);
-  if (!targetEnvelopeBundlesEqual(storedBundle.targets, input.targets)) {
+  if (
+    !targetEnvelopeBundlesEqual(
+      storedBundle.targets,
+      input.targets,
+      sortTargetEnvelopes,
+      targetEnvelopeEqual,
+    )
+  ) {
     throw new BlobContentKeyBundleError(
       "Blob content-key bundle conflict",
       409,
@@ -605,7 +582,14 @@ export async function storeBlobContentKeyBundle(
     );
   }
 
-  if (targetEnvelopeBundlesEqual(existingBundle.targets, input.targets)) {
+  if (
+    targetEnvelopeBundlesEqual(
+      existingBundle.targets,
+      input.targets,
+      sortTargetEnvelopes,
+      targetEnvelopeEqual,
+    )
+  ) {
     return withCurrentTargets(
       await refreshExistingBundleMetadata({
         existingBundle,
