@@ -39,7 +39,10 @@ import {
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../keyingCanonicalJson";
-import type { ProjectionUserKeyResolver } from "../keyingProjectionVerification";
+import {
+  type ProjectionUserKeyResolver,
+  requireProjectionUserKeyResolver,
+} from "../keyingProjectionVerification";
 import type { ExecSql } from "../persistence/sqlSchema";
 
 export interface ContainerMutationAuthor {
@@ -1367,7 +1370,7 @@ export async function shareRemoteContainer(input: {
   execSql?: ExecSql | undefined;
   recipientEncapsulationPublicKey: Uint8Array;
   recipientUserId: string;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<{
@@ -1375,6 +1378,10 @@ export async function shareRemoteContainer(input: {
   plan: ContainerSharePlan;
   response: ContainerMutationResponse;
 } | null> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote container share",
+  );
   const previousProjection = await input.apiClient.getContainerWriterProjection(
     input.containerId,
   );
@@ -1390,7 +1397,7 @@ export async function shareRemoteContainer(input: {
     previousProjection,
     recipientEncapsulationPublicKey: input.recipientEncapsulationPublicKey,
     recipientUserId: input.recipientUserId,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
   });
@@ -1658,7 +1665,7 @@ export async function moveRemoteContainer(input: {
   destinationParentContainerId: string;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<{
@@ -1666,6 +1673,10 @@ export async function moveRemoteContainer(input: {
   plan: ContainerMovePlan;
   response: ContainerMutationResponse;
 } | null> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote container move",
+  );
   const [previousProjection, destinationParentProjection] = await Promise.all([
     input.apiClient.getContainerWriterProjection(input.containerId),
     input.apiClient.getContainerWriterProjection(
@@ -1682,7 +1693,7 @@ export async function moveRemoteContainer(input: {
     execSql: input.execSql,
     previousProjection,
     destinationParentProjection,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
   });
@@ -1854,9 +1865,13 @@ export async function createRemoteContainer(input: {
   metadataDocumentId?: string | undefined;
   parentContainerId: string;
   parentSecretKey: Uint8Array;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
 }): Promise<CreateRemoteContainerResult | null> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote container create",
+  );
   const parentProjection = await input.apiClient.getContainerWriterProjection(
     input.parentContainerId,
   );
@@ -1874,7 +1889,7 @@ export async function createRemoteContainer(input: {
     metadataDocumentId: input.metadataDocumentId,
     parentProjection,
     parentSecretKey: input.parentSecretKey,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveProjectionUserKey,
     signedAt: input.signedAt,
   });
   const response = await input.apiClient.createContainer(

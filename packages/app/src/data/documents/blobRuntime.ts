@@ -38,7 +38,10 @@ import {
   readCanonicalRecord,
   readCanonicalRecordPaths,
 } from "../keyingCanonicalJson";
-import type { ProjectionUserKeyResolver } from "../keyingProjectionVerification";
+import {
+  type ProjectionUserKeyResolver,
+  requireProjectionUserKeyResolver,
+} from "../keyingProjectionVerification";
 import type { ExecSql } from "../persistence/sqlSchema";
 import {
   assertDocumentWriterProjectionConsistent,
@@ -140,7 +143,7 @@ interface UploadDocumentAttachmentInput {
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
   expectedBindingId: string | null;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;
   targetSecretKey: Uint8Array;
@@ -162,7 +165,7 @@ interface DecryptDocumentAttachmentBlobInput {
   expectedBindingId: string;
   expectedBlobId: string;
   execSql?: ExecSql | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   targetSecretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }
@@ -957,6 +960,10 @@ export async function decryptDocumentAttachmentBlob({
   targetSecretKey,
   writerProjection,
 }: DecryptDocumentAttachmentBlobInput): Promise<BlobBytes> {
+  const requiredResolveProjectionUserKey = requireProjectionUserKeyResolver(
+    resolveProjectionUserKey,
+    "Document attachment blob decrypt",
+  );
   const encrypted = parseBlobEncryptedBytes(encryptedBytes);
   if (
     encrypted.blobId !== expectedBlobId ||
@@ -973,7 +980,7 @@ export async function decryptDocumentAttachmentBlob({
   await assertBlobContentKeyBundleTargetHash(encrypted.contentKeyBundle);
 
   await assertDocumentWriterProjectionConsistent(writerProjection, {
-    resolveProjectionUserKey,
+    resolveProjectionUserKey: requiredResolveProjectionUserKey,
   });
   const { documentId, organizationId } =
     readDocumentManifestIdentity(writerProjection);
@@ -1004,7 +1011,7 @@ export async function decryptDocumentAttachmentBlob({
     encrypted,
     execSql,
     expectedBindingId,
-    resolveProjectionUserKey,
+    resolveProjectionUserKey: requiredResolveProjectionUserKey,
     secretKey: targetSecretKey,
     writerProjection,
   });
@@ -1256,6 +1263,28 @@ function blobAttachmentStagedBlobRequest(
   };
 }
 
+function blobAttachmentBindRequest(input: {
+  body: AttachmentBindAccessEventBody;
+  event: AccessEvent;
+  material: BlobAttachmentMaterial;
+  stageId: string;
+  writeHeader: WriteHeader;
+}): BlobAttachmentBindRequest {
+  return {
+    event: readCanonicalRecord(input.event, "Blob attachment bind event"),
+    body: readCanonicalRecord(input.body, "Blob attachment bind body"),
+    documentManifest: input.material.writerProjection.documentManifest,
+    authorizingContainerPaths: authorizingContainerPathRecords(
+      input.material.writerProjection,
+    ),
+    contentKeyBundle: input.material.contentKeyBundle,
+    stagedBlob: blobAttachmentStagedBlobRequest(
+      input.stageId,
+      input.writeHeader,
+    ),
+  };
+}
+
 export async function uploadDocumentAttachment({
   apiClient,
   author,
@@ -1286,7 +1315,10 @@ export async function uploadDocumentAttachment({
     contentKeyEpoch,
     documentId,
     execSql,
-    resolveProjectionUserKey,
+    resolveProjectionUserKey: requireProjectionUserKeyResolver(
+      resolveProjectionUserKey,
+      "Document attachment upload",
+    ),
     targetSecretKey,
   });
   if (!material) {
@@ -1325,16 +1357,13 @@ export async function uploadDocumentAttachment({
     return null;
   }
 
-  const request: BlobAttachmentBindRequest = {
-    event: readCanonicalRecord(event, "Blob attachment bind event"),
-    body: readCanonicalRecord(body, "Blob attachment bind body"),
-    documentManifest: material.writerProjection.documentManifest,
-    authorizingContainerPaths: authorizingContainerPathRecords(
-      material.writerProjection,
-    ),
-    contentKeyBundle: material.contentKeyBundle,
-    stagedBlob: blobAttachmentStagedBlobRequest(stage.stageId, writeHeader),
-  };
+  const request = blobAttachmentBindRequest({
+    body,
+    event,
+    material,
+    stageId: stage.stageId,
+    writeHeader,
+  });
   const response = await apiClient.bindBlobAttachment(blobId, request);
   if (!response) {
     return null;

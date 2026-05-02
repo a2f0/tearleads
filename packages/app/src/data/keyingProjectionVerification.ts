@@ -39,6 +39,17 @@ export type ProjectionUserKeyResolver = (
   userId: string,
 ) => Promise<ProjectionUserKey | null>;
 
+export function requireProjectionUserKeyResolver(
+  resolveProjectionUserKey: ProjectionUserKeyResolver | null | undefined,
+  label: string,
+): ProjectionUserKeyResolver {
+  if (!resolveProjectionUserKey) {
+    throw new Error(`${label} requires projection key verification`);
+  }
+
+  return resolveProjectionUserKey;
+}
+
 interface ProjectionUserKeyRuntime {
   readonly apiClient: {
     getEncapsulationKey(
