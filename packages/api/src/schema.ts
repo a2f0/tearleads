@@ -573,6 +573,68 @@ export const accessEvents = pgTable(
   ],
 );
 
+/**
+ * Content-addressed access manifests for containers and document link sets.
+ *
+ * An access manifest is the verified access state produced from an
+ * `accessEvents` row. It is the durable history for an access-controlled
+ * object: each epoch commits the object identity, previous manifest link,
+ * originating event, structural state, direct grant state, referenced principal
+ * policy heads, and access-key target state. The crypto layer derives
+ * `manifestHash` from the normalized manifest fields; the store persists the
+ * object-specific verifier `state` alongside those fields so APIs can return
+ * complete manifest bundles without re-deriving state from event bodies.
+ *
+ * This table is append-only in practice. Inserts are idempotent by
+ * `manifestHash`: replaying the same verified manifest is accepted, while
+ * conflicting data for an existing hash is rejected. Separate projection tables
+ * expand dependencies such as referenced principal heads and document link-set
+ * container membership for indexed reads.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain identity is `manifestHash`.
+ * - `version`: Access manifest wire format version.
+ * - `objectKind`: Kind of object whose access state this manifest describes,
+ *   currently container or document link-set access state.
+ * - `objectId`: Stable id of the object whose access state this manifest
+ *   describes.
+ * - `organizationId`: Organization boundary for the object.
+ * - `epoch`: Monotonic access-manifest version for this object. One object can
+ *   have only one accepted manifest per epoch.
+ * - `previousManifestHash`: Previous manifest in the object's hash chain, or
+ *   `null` for the initial manifest.
+ * - `eventHash`: Hash of the signed access event that produced this manifest.
+ *   It joins to `accessEvents.eventHash`.
+ * - `structuralHash`: Hash of object-specific structural state. For containers
+ *   this includes parent/metadata fields; for document link sets this includes
+ *   linked container ids.
+ * - `grantRoot`: Hash commitment for direct access grants. Container manifests
+ *   commit their direct grants here; document link-set manifests currently use
+ *   the empty document-link-set grant root.
+ * - `referencedPrincipalHeads`: Principal policy heads that were verified and
+ *   committed while deriving this manifest. These heads are expanded into
+ *   `accessManifestPrincipalHeadProjection`.
+ * - `keyTargetHash`: Hash commitment for access-key target state. Container
+ *   manifests commit the container key epoch; document link-set manifests
+ *   commit the "current linked container KEKs" target mode.
+ * - `manifestHash`: Content hash of the normalized access manifest. This is the
+ *   stable reference used by current heads, dependencies, content-key bundles,
+ *   and API manifest bundles.
+ * - `state`: Object-specific verified state used to rehydrate a complete
+ *   container/document manifest bundle. It is checked for consistency on
+ *   replay but is not the generic access manifest itself.
+ * - `createdAt`: Server-side insertion timestamp. It is not part of the
+ *   manifest hash.
+ *
+ * Indexes:
+ * - `manifestHash` is unique because it is the content address.
+ * - `eventHash` is unique because one verified access event produces one
+ *   accepted manifest.
+ * - `(objectKind, objectId, epoch)` is unique so an object cannot fork at the
+ *   same epoch.
+ * - `(objectKind, objectId)` supports object-history and current-head
+ *   validation queries.
+ */
 export const accessManifests = pgTable(
   "access_manifests",
   {
@@ -606,6 +668,36 @@ export const accessManifests = pgTable(
   ],
 );
 
+/**
+ * Current access manifest pointer for each access-controlled object.
+ *
+ * `accessManifests` stores the full append-only history. This table stores the
+ * current head for each `(objectKind, objectId)` so callers can validate stale
+ * writes and resolve current access state without scanning history.
+ *
+ * Head advancement is monotonic by `epoch`: storing a manifest with a higher
+ * epoch updates the head, replaying the same epoch/hash is idempotent, and a
+ * different manifest hash for the same epoch is treated as a conflict. Older
+ * epochs do not move the head backward.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain identity is
+ *   `(objectKind, objectId)`.
+ * - `objectKind`: Kind of object whose current access head this row tracks.
+ * - `objectId`: Stable id of the object whose current access head this row
+ *   tracks.
+ * - `organizationId`: Organization boundary copied from the current manifest.
+ * - `epoch`: Epoch of the current access manifest.
+ * - `manifestHash`: Current manifest hash for the object. Joins to
+ *   `accessManifests.manifestHash`.
+ * - `updatedAt`: Server-side timestamp for the latest head write.
+ *
+ * Indexes:
+ * - `(objectKind, objectId)` is unique because each object has one current
+ *   access head.
+ * - `manifestHash` supports reverse lookups from a manifest to the current-head
+ *   rows that reference it.
+ */
 export const accessManifestHeads = pgTable(
   "access_manifest_heads",
   {
