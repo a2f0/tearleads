@@ -1,5 +1,6 @@
 export {
   getAccessManifestBundle,
+  getAccessManifestBundles,
   getCurrentAccessManifestHead,
   getCurrentAccessManifestHeads,
   listAccessEventDependencyProjection,

@@ -524,6 +524,11 @@ async function verifyContainerManifestBundle(input: {
 }): Promise<VerifiedContainerAccessManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
+    assertContainerParentPathMatches({
+      label: input.label,
+      parentPath: input.parentPath,
+      verifiedManifest: cached,
+    });
     return cached;
   }
 
@@ -566,6 +571,20 @@ async function verifyContainerManifestBundle(input: {
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
 
   return verified.value;
+}
+
+function assertContainerParentPathMatches(input: {
+  readonly label: string;
+  readonly parentPath: readonly VerifiedContainerAccessManifest[];
+  readonly verifiedManifest: VerifiedContainerAccessManifest;
+}): void {
+  const actualParentManifestHash =
+    input.parentPath.at(-1)?.manifestHash ?? null;
+  if (
+    actualParentManifestHash !== input.verifiedManifest.state.parentManifestHash
+  ) {
+    throw new Error(`${input.label} parent path mismatch`);
+  }
 }
 
 async function verifyPreviousContainerManifest(input: {
@@ -733,6 +752,9 @@ async function verifyContainerManifestPath(input: {
 export async function verifyContainerWriterProjection(input: {
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly verifiedByHash?:
+    | Map<string, VerifiedContainerAccessManifest>
+    | undefined;
 }): Promise<VerifiedContainerAccessManifest[]> {
   if (input.projection.path.length !== input.projection.containerKeks.length) {
     throw new Error(
@@ -760,7 +782,8 @@ export async function verifyContainerWriterProjection(input: {
     }
   }
 
-  const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
+  const verifiedByHash =
+    input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
   const verifiedPath = await verifyContainerManifestPath({
     bundlesByHash,
     label: "Container writer projection path",
@@ -880,6 +903,7 @@ async function verifyProjectionContainerPaths(input: {
     const path = await verifyContainerWriterProjection({
       projection,
       resolveUserKey: input.resolveUserKey,
+      verifiedByHash,
     });
     const leaf = path.at(-1);
     if (leaf) {
@@ -908,28 +932,24 @@ async function verifyProjectionContainerPaths(input: {
   return containerPathByManifestHash;
 }
 
-async function verifyPreviousDocumentManifest(input: {
-  readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
-  readonly containerPathByManifestHash: ReadonlyMap<
-    string,
-    readonly VerifiedContainerAccessManifest[]
-  >;
+function previousDocumentManifestFromCache(input: {
+  readonly event: Awaited<ReturnType<typeof verifyAccessEventBundle>>;
   readonly label: string;
-  readonly previousManifestHash: string;
-  readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
-}): Promise<VerifiedDocumentLinkSetManifest> {
-  const previousBundle = input.bundlesByHash.get(input.previousManifestHash);
-  if (!previousBundle) {
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedDocumentLinkSetManifest>;
+}): VerifiedDocumentLinkSetManifest | null {
+  const previousManifestHash = input.event.event.previousManifestHash;
+  if (previousManifestHash === null) {
+    return null;
+  }
+
+  const previousManifest = input.verifiedByHash.get(previousManifestHash);
+  if (!previousManifest) {
     throw new Error(
-      `${input.label} previous manifest ${input.previousManifestHash} is missing`,
+      `${input.label} previous manifest ${previousManifestHash} is missing`,
     );
   }
 
-  return verifyDocumentManifestBundle({
-    ...input,
-    bundle: previousBundle,
-  });
+  return previousManifest;
 }
 
 async function verifyDocumentManifestBundle(input: {
@@ -953,13 +973,11 @@ async function verifyDocumentManifestBundle(input: {
     input.bundle.manifest,
     `${input.label} manifest`,
   );
-  const previousManifest =
-    event.event.previousManifestHash === null
-      ? null
-      : await verifyPreviousDocumentManifest({
-          ...input,
-          previousManifestHash: event.event.previousManifestHash,
-        });
+  const previousManifest = previousDocumentManifestFromCache({
+    event,
+    label: input.label,
+    verifiedByHash: input.verifiedByHash,
+  });
   const body = readDocumentAccessEventBody(
     event.body,
     `${input.label} event body`,
@@ -1010,14 +1028,31 @@ export async function verifyDocumentWriterProjection(input: {
     input.projection.documentManifest,
     "Document writer projection manifest",
   );
-  for (const [index, bundle] of (
-    input.projection.documentManifestHistory ?? []
-  ).entries()) {
+  const history = input.projection.documentManifestHistory ?? [];
+  for (const [index, bundle] of history.entries()) {
     addBundleByHash(
       bundlesByHash,
       bundle,
       `Document writer projection manifest history[${index}]`,
     );
+  }
+
+  const verifiedByHash = new Map<string, VerifiedDocumentLinkSetManifest>();
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const bundle = history[index];
+    if (!bundle) {
+      throw new Error(
+        `Document writer projection manifest history[${index}] is missing`,
+      );
+    }
+    await verifyDocumentManifestBundle({
+      bundle,
+      bundlesByHash,
+      containerPathByManifestHash,
+      label: `Document writer projection manifest history[${index}]`,
+      resolveUserKey: input.resolveUserKey,
+      verifiedByHash,
+    });
   }
 
   return verifyDocumentManifestBundle({
@@ -1026,6 +1061,6 @@ export async function verifyDocumentWriterProjection(input: {
     containerPathByManifestHash,
     label: "Document writer projection",
     resolveUserKey: input.resolveUserKey,
-    verifiedByHash: new Map<string, VerifiedDocumentLinkSetManifest>(),
+    verifiedByHash,
   });
 }

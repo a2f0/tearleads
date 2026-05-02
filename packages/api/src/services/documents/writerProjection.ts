@@ -13,6 +13,7 @@ import type {
 } from "@tearleads/validators/response";
 import {
   getAccessManifestBundle,
+  getAccessManifestBundles,
   getCurrentAccessManifestHead,
 } from "../../access/read/accessManifestStore";
 import {
@@ -258,6 +259,56 @@ async function loadProjectionManifestBundleByHash(
   return loaded;
 }
 
+async function loadProjectionManifestBundlesByHash(input: {
+  readonly executor: DatabaseSession;
+  readonly manifestHashes: readonly string[];
+  readonly cache: Map<string, LoadedProjectionManifestBundle>;
+}): Promise<LoadedProjectionManifestBundle[]> {
+  const uniqueManifestHashes = [...new Set(input.manifestHashes)].sort();
+  const missingManifestHashes = uniqueManifestHashes.filter(
+    (manifestHash) => !input.cache.has(manifestHash),
+  );
+  if (missingManifestHashes.length > 0) {
+    const bundles = await getAccessManifestBundles(
+      missingManifestHashes,
+      input.executor,
+    );
+    for (const manifestHash of missingManifestHashes) {
+      const bundle = bundles.get(manifestHash);
+      if (!bundle) {
+        throw new DocumentWriterProjectionError(
+          "Access manifest dependency missing",
+          409,
+        );
+      }
+
+      input.cache.set(manifestHash, {
+        bundle: toAccessManifestBundleWireResponse({
+          event: bundle.event,
+          manifest: bundle.manifest,
+          manifestHash: bundle.manifestHash,
+          state: bundle.state,
+        }),
+        objectKind: bundle.manifest.objectKind,
+      });
+    }
+  }
+
+  const loadedBundles: LoadedProjectionManifestBundle[] = [];
+  for (const manifestHash of uniqueManifestHashes) {
+    const loaded = input.cache.get(manifestHash);
+    if (!loaded) {
+      throw new DocumentWriterProjectionError(
+        "Access manifest dependency missing",
+        409,
+      );
+    }
+    loadedBundles.push(loaded);
+  }
+
+  return loadedBundles;
+}
+
 function readManifestPreviousManifestHash(
   bundle: AccessManifestBundleWireResponse,
   label: string,
@@ -290,6 +341,24 @@ function readEventDependencyManifestHashes(
     readValue(event, "dependencyManifestHashes"),
     `${label} event dependencyManifestHashes`,
   );
+}
+
+function collectDocumentDependencyManifestHashes(
+  bundles: readonly AccessManifestBundleWireResponse[],
+): string[] {
+  const manifestHashes = new Set<string>();
+  for (const [index, bundle] of bundles.entries()) {
+    for (const manifestHash of readEventDependencyManifestHashes(
+      bundle,
+      index === 0
+        ? "Document writer projection manifest"
+        : `Document writer projection manifest history[${index - 1}]`,
+    )) {
+      manifestHashes.add(manifestHash);
+    }
+  }
+
+  return [...manifestHashes].sort();
 }
 
 async function loadDocumentManifestHistory(input: {
@@ -453,26 +522,22 @@ async function loadDocumentContainerDependencyMaterial(input: {
     manifestCache: input.manifestCache,
     walkedContainerPredecessors: new Set<string>(),
   };
-
-  for (const bundle of [
+  const documentBundles = [
     input.documentManifest,
     ...input.documentManifestHistory,
-  ]) {
-    for (const dependencyManifestHash of readEventDependencyManifestHashes(
-      bundle,
-      "Document writer projection manifest",
-    )) {
-      const dependency = await loadProjectionManifestBundleByHash(
-        input.executor,
-        dependencyManifestHash,
-        input.manifestCache,
-      );
-      if (dependency.objectKind === "container") {
-        await loadContainerDependencyPath({
-          leafManifestHash: dependencyManifestHash,
-          state,
-        });
-      }
+  ];
+  const dependencies = await loadProjectionManifestBundlesByHash({
+    cache: input.manifestCache,
+    executor: input.executor,
+    manifestHashes: collectDocumentDependencyManifestHashes(documentBundles),
+  });
+
+  for (const dependency of dependencies) {
+    if (dependency.objectKind === "container") {
+      await loadContainerDependencyPath({
+        leafManifestHash: dependency.bundle.manifestHash,
+        state,
+      });
     }
   }
 
