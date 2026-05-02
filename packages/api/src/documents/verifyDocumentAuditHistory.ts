@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { DatabaseExecutor } from "../adapters/postgres";
+import type { DatabaseSession } from "../adapters/postgres";
 import {
   type BlobAuditRetentionMode,
   type DocumentAttachmentAuditAction,
@@ -79,7 +79,7 @@ interface CheckpointRow {
 }
 
 async function listAuditEntries(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   documentId: string,
 ): Promise<AuditEntryRow[]> {
   return executor
@@ -102,7 +102,7 @@ async function listAuditEntries(
 }
 
 async function listUpdateAuditEvents(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   documentId: string,
 ): Promise<UpdateAuditEventRow[]> {
   return executor
@@ -127,7 +127,7 @@ async function listUpdateAuditEvents(
 }
 
 async function listAttachmentAuditEvents(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   documentId: string,
 ): Promise<AttachmentAuditEventRow[]> {
   return executor
@@ -150,7 +150,7 @@ async function listAttachmentAuditEvents(
 }
 
 async function listCheckpoints(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   documentId: string,
 ): Promise<CheckpointRow[]> {
   return executor
@@ -442,7 +442,7 @@ async function verifyCheckpoints(input: {
 }
 
 export async function verifyDocumentAuditHistory(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   input: { documentId: string },
 ): Promise<VerifyDocumentAuditHistoryResult> {
   const errors: string[] = [];

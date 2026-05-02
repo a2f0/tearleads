@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import type { DatabaseExecutor } from "../adapters/postgres";
+import type { DatabaseSession } from "../adapters/postgres";
 import {
   documentAuditEntries,
   documents,
@@ -118,7 +118,7 @@ export async function computeDocumentUpdateAuditEntryHash(input: {
 }
 
 export async function appendDocumentUpdateAuditEntries(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   input: {
     accessEpoch: number;
     accessManifestHash: string;

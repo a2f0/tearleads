@@ -13,10 +13,10 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
-import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
-import { storeVerifiedContainerKekState } from "../../access/write/containerKekStore";
-import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/write/principalMemberEnvelopes";
-import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
+import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
+import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
+import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
+import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
   readProjectionAccessEvent,
@@ -200,7 +200,7 @@ async function storeInitialOrganizationPolicy(
   tx: DatabaseTransaction,
   input: PublicKeyRequest,
 ) {
-  const storedState = await storeVerifiedPrincipalState(
+  const storedState = await storeVerifiedPrincipalStateInTransaction(
     {
       state: input.initialOrganizationPolicy.state,
       encryptedPayload: input.initialOrganizationPolicy.encryptedPayload,
@@ -209,7 +209,7 @@ async function storeInitialOrganizationPolicy(
     tx,
   );
 
-  await replaceCurrentPrincipalMemberEnvelopes(
+  await replaceCurrentPrincipalMemberEnvelopesInTransaction(
     {
       principalType: "organization",
       principalId: input.organizationId,
@@ -483,8 +483,14 @@ async function storeInitialRootContainer(
     }),
   );
 
-  await storeVerifiedAccessManifest({ verifiedManifest: manifest }, tx);
-  await storeVerifiedContainerKekState({ verifiedState: kekState }, tx);
+  await storeVerifiedAccessManifestInTransaction(
+    { verifiedManifest: manifest },
+    tx,
+  );
+  await storeVerifiedContainerKekStateInTransaction(
+    { verifiedState: kekState },
+    tx,
+  );
   return {
     metadataAccessEpoch: manifest.state.epoch,
     metadataAccessStateHash: manifest.manifestHash,

@@ -1,1 +1,4 @@
-export { storeVerifiedContainerKekState } from "../shared/internal/containerKekStore";
+export {
+  storeVerifiedContainerKekState,
+  storeVerifiedContainerKekStateInTransaction,
+} from "../shared/internal/containerKekStore";

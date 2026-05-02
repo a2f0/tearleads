@@ -3,7 +3,12 @@ import type {
   PrincipalStateMemberType,
 } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import {
+  type ApiDatabase,
+  type DatabaseSession,
+  type DatabaseTransaction,
+  db,
+} from "../../../adapters/postgres";
 import { principalMemberEnvelopes, users } from "../../../schema";
 import {
   getCurrentPrincipalEpochKeys,
@@ -43,7 +48,7 @@ function memberRecipientKey(input: {
 
 async function loadUserMemberRecipients(
   userIds: string[],
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<Map<string, PrincipalMemberRecipient>> {
   if (userIds.length === 0) {
     return new Map();
@@ -75,7 +80,7 @@ async function loadUserMemberRecipients(
 async function loadCurrentPrincipalMemberRecipientsForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<{
   stateHash: string;
   epoch: number;
@@ -159,7 +164,7 @@ async function listPrincipalMemberEnvelopesForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
   const rows = await executor
     .select({
@@ -193,7 +198,7 @@ async function listPrincipalMemberEnvelopesForState(
 export async function listCurrentPrincipalMemberRecipients(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<PrincipalMemberRecipient[]> {
   const { recipients } = await loadCurrentPrincipalMemberRecipientsForState(
     principalType,
@@ -207,7 +212,7 @@ export async function listCurrentPrincipalMemberRecipients(
 export async function listCurrentPrincipalMemberEnvelopes(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
   const currentState = await getCurrentPrincipalState(
     principalType,
@@ -234,14 +239,22 @@ export async function replaceCurrentPrincipalMemberEnvelopes(
     stateHash: string;
     envelopes: PrincipalMemberEnvelopeInput[];
   },
-  executor: DatabaseExecutor = db,
+  database: ApiDatabase = db,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
-  if (executor === db) {
-    return db.transaction(async (tx) =>
-      replaceCurrentPrincipalMemberEnvelopes(input, tx),
-    );
-  }
+  return database.transaction((tx) =>
+    replaceCurrentPrincipalMemberEnvelopesInTransaction(input, tx),
+  );
+}
 
+export async function replaceCurrentPrincipalMemberEnvelopesInTransaction(
+  input: {
+    principalType: ManagedRecipientPrincipalType;
+    principalId: string;
+    stateHash: string;
+    envelopes: PrincipalMemberEnvelopeInput[];
+  },
+  executor: DatabaseTransaction,
+): Promise<StoredPrincipalMemberEnvelope[]> {
   const { stateHash, epoch, recipients } =
     await loadCurrentPrincipalMemberRecipientsForState(
       input.principalType,

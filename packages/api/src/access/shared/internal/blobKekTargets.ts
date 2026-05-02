@@ -4,7 +4,7 @@ import {
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { type DatabaseExecutor, db } from "../../../adapters/postgres";
+import { type DatabaseSession, db } from "../../../adapters/postgres";
 import { attachmentBindings } from "../../../schema";
 import { compareStrings } from "../../../utils/array";
 import {
@@ -67,7 +67,7 @@ function sortBlobTargets(
 
 async function listActiveAttachmentBindings(
   blobId: string,
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ) {
   return executor
     .select({
@@ -178,7 +178,7 @@ function documentManifestHashesForBindings(input: {
 
 async function loadBatchedBlobKekTargetState(input: {
   readonly activeBindings: readonly ActiveAttachmentBinding[];
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
 }): Promise<{
   readonly containerTargetById: ContainerKekTargetMap;
   readonly documentManifestHashes: readonly string[];
@@ -288,7 +288,7 @@ function deriveTargetsForBindings(input: {
 
 export async function resolveCurrentBlobKekTargets(
   blobId: string,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<ResolvedBlobKekTargets> {
   const activeBindings = await listActiveAttachmentBindings(blobId, executor);
   if (activeBindings.length === 0) {
@@ -341,7 +341,7 @@ export async function resolveCurrentBlobKekTargets(
 
 export async function assertBlobKekTargetsCurrent(
   input: AssertBlobKekTargetsCurrentInput,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseSession = db,
 ): Promise<ResolvedBlobKekTargets> {
   const currentTargets = await resolveCurrentBlobKekTargets(
     input.blobId,

@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "db:generate": "drizzle-kit generate",
     "dev": "bun --hot src/index.ts",
     "start": "bun src/index.ts",
     "test": "bun test src"
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@tearleads/bob-and-alice": "workspace:*",
-    "@types/bun": "catalog:"
+    "@types/bun": "catalog:",
+    "drizzle-kit": "0.31.10"
   }
 }

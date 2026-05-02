@@ -11,6 +11,7 @@ ignore:
   - "**/dist"
   - "**/build"
   - "**/.turbo"
+  - packages/api/drizzle/meta/_journal.json
   - target
   - playwright-report
   - test-results

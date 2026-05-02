@@ -7,14 +7,14 @@ import { verifySignedAccessEvent } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import type { DatabaseExecutor } from "../../../../adapters/postgres";
+import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import { readProjectionAccessEvent } from "../../../../keyingProjectionRecords";
 import { users } from "../../../../schema";
 import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { MutateContainerInput } from "../types";
 
 async function loadSignerPublicKey(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   input: {
     readonly fingerprint: string;
     readonly userId: string;
@@ -37,7 +37,7 @@ async function loadSignerPublicKey(
 }
 
 export async function verifyMutationEvent(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   input: MutateContainerInput,
 ): Promise<VerifiedAccessEvent> {
   const event = readProjectionAccessEvent(

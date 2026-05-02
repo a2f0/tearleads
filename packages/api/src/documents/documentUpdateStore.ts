@@ -2,7 +2,7 @@ import { decodeVersionVector } from "@tearleads/loro";
 import type { DocumentUpdateRecord } from "@tearleads/loro/server";
 import { parseWalLsn } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
-import type { DatabaseExecutor } from "../adapters/postgres";
+import type { DatabaseSession } from "../adapters/postgres";
 import { documentUpdateSpans, documentUpdates } from "../schema";
 import { readCurrentCommitLsn } from "./commitLsn";
 
@@ -104,7 +104,7 @@ function buildClientFrontierJson(localVersionVector: string | null): string {
 }
 
 async function assertMinLsnSatisfied(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   minLsn: string | undefined,
 ): Promise<void> {
   if (!minLsn) {
@@ -121,7 +121,7 @@ async function assertMinLsnSatisfied(
 }
 
 export async function listMissingDocumentUpdates(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   input: {
     documentId: string;
     localVersionVector: string | null;

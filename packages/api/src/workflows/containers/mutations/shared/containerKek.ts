@@ -13,7 +13,7 @@ import {
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { inArray } from "drizzle-orm";
 import { getCurrentContainerKeyEpoch } from "../../../../access/read/containerKekStore";
-import type { DatabaseExecutor } from "../../../../adapters/postgres";
+import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import { users } from "../../../../schema";
 import { ContainerMutationError } from "../errors";
 import {
@@ -32,7 +32,7 @@ interface VerifyContainerKekFromRequestArtifacts {
 }
 
 async function assertUserRecipientKeysCurrent(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   userRecipientKeys: readonly ContainerUserRecipientKey[],
 ): Promise<void> {
   if (userRecipientKeys.length === 0) {
@@ -67,7 +67,7 @@ async function assertUserRecipientKeysCurrent(
 }
 
 async function assertParentKekStateCurrent(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   manifest: VerifiedContainerAccessManifest,
   parentKekState: VerifiedContainerKekState | null,
 ): Promise<void> {
@@ -109,7 +109,7 @@ async function assertParentKekStateCurrent(
 }
 
 export async function verifyContainerKekFromRequest(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   request: ContainerMutationRequest,
   manifest: VerifiedContainerAccessManifest,
   artifacts: VerifyContainerKekFromRequestArtifacts,

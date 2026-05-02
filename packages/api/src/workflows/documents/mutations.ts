@@ -57,16 +57,17 @@ import {
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
 } from "../../access/read/documentKekTargets";
-import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
+import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import {
   DocumentContentKeyBundleError,
   requireAndRefreshCurrentDocumentContentKeyBundle,
-  storeDocumentContentKeyBundle,
+  storeDocumentContentKeyBundleInTransaction,
   storeDocumentContentWriteHeader,
 } from "../../access/write/documentContentKeyStore";
 import type {
-  db as apiDatabase,
-  DatabaseExecutor,
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
 } from "../../adapters/postgres";
 import { readCurrentCommitLsn } from "../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../documents/documentAuditAccess";
@@ -117,8 +118,6 @@ import {
 } from "../containers/writerProjection";
 
 type DocumentMutationStatus = 400 | 403 | 404 | 409 | 503;
-type ApiDatabase = typeof apiDatabase;
-
 export class DocumentMutationError extends Error {
   constructor(
     message: string,
@@ -155,7 +154,7 @@ interface AppendDocumentUpdatesInput {
   readonly accessManifestHash: string;
   readonly accessStateHash: string | null;
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly organizationId: string;
   readonly request: DocumentSyncRequest;
@@ -643,7 +642,7 @@ function toMutationError(error: unknown): DocumentMutationError | null {
 }
 
 export async function loadSignerPublicKey(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   input: {
     readonly fingerprint: string;
     readonly userId: string;
@@ -667,7 +666,7 @@ export async function loadSignerPublicKey(
 
 async function verifyDocumentEvent(input: {
   readonly body: unknown;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly expectedDocumentId?: string;
   readonly expectedEventType?: "document.link" | "document.unlink";
   readonly event: Record<string, unknown>;
@@ -765,7 +764,7 @@ export async function assertDocumentManifestBundleConsistent(
 }
 
 async function assertCurrentContainerPath(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   bundles: readonly unknown[] | undefined,
   label: string,
 ): Promise<VerifiedContainerAccessManifest[] | undefined> {
@@ -797,7 +796,7 @@ async function assertCurrentContainerPath(
 }
 
 export async function assertCurrentContainerPathGroups(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   groups: readonly (readonly unknown[])[] | undefined,
   label: string,
 ): Promise<VerifiedContainerAccessManifest[][] | undefined> {
@@ -821,7 +820,7 @@ export async function assertCurrentContainerPathGroups(
 
 async function verifyDocumentManifestFromRequest(input: {
   readonly event: VerifiedAccessEvent;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly request: DocumentCreateRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const [targetContainerPath, authorizingContainerPaths] = await Promise.all([
@@ -875,7 +874,7 @@ async function verifyDocumentManifestFromRequest(input: {
 
 async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
   readonly event: VerifiedAccessEvent;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly request: DocumentLinkSetMutationRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const [targetContainerPath, authorizingContainerPaths, previousManifest] =
@@ -1027,7 +1026,7 @@ async function verifySyncWriteAuthorizationProof(input: {
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
 }): Promise<DocumentWriteAuthorizationProof | null> {
   if (input.request.outgoingUpdates.length === 0) {
@@ -1088,7 +1087,7 @@ async function verifySyncWriteAuthorizationProof(input: {
 
 async function insertDocumentAndLinks(input: {
   readonly createdByFingerprint: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedDocumentLinkSetManifest;
 }) {
   const [inserted] = await input.executor
@@ -1113,7 +1112,7 @@ async function insertDocumentAndLinks(input: {
 }
 
 async function assertCreateCanAdvanceDocumentHead(
-  executor: DatabaseExecutor,
+  executor: DatabaseTransaction,
   documentId: string,
 ): Promise<void> {
   const head = await getCurrentAccessManifestHead(
@@ -1128,7 +1127,7 @@ async function assertCreateCanAdvanceDocumentHead(
 
 async function assertDocumentLinkSetCanAdvance(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedDocumentLinkSetManifest;
   readonly previousManifest: VerifiedDocumentLinkSetManifest;
 }): Promise<void> {
@@ -1154,7 +1153,7 @@ async function assertDocumentLinkSetCanAdvance(input: {
 
 async function assertDocumentCanRelink(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
 }): Promise<void> {
   await ensureDocumentExists({
     documentId: input.documentId,
@@ -1177,7 +1176,7 @@ async function assertDocumentCanRelink(input: {
 
 async function replaceDocumentContainerLinks(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly linkedContainerIds: readonly string[];
 }): Promise<void> {
   await input.executor
@@ -1215,7 +1214,7 @@ export async function runCreateDocumentWorkflow(
 }
 
 export async function createDocumentWithExecutor(input: {
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly request: DocumentCreateRequest;
   readonly userId: string;
@@ -1263,11 +1262,11 @@ export async function createDocumentWithExecutor(input: {
       executor: input.executor,
       manifest,
     });
-    await storeVerifiedAccessManifest(
+    await storeVerifiedAccessManifestInTransaction(
       { verifiedManifest: manifest },
       input.executor,
     );
-    const contentKeyBundle = await storeDocumentContentKeyBundle(
+    const contentKeyBundle = await storeDocumentContentKeyBundleInTransaction(
       toStoredContentKeyBundleInput(
         manifest.state.documentId,
         input.request.contentKeyBundle,
@@ -1296,7 +1295,7 @@ export async function createDocumentWithExecutor(input: {
 async function mutateDocumentLinkSetWithExecutor(input: {
   readonly documentId: string;
   readonly eventType: "document.link" | "document.unlink";
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly request: DocumentLinkSetMutationRequest;
   readonly userId: string;
@@ -1339,7 +1338,7 @@ async function mutateDocumentLinkSetWithExecutor(input: {
       manifest,
       previousManifest,
     });
-    await storeVerifiedAccessManifest(
+    await storeVerifiedAccessManifestInTransaction(
       { verifiedManifest: manifest },
       input.executor,
     );
@@ -1349,7 +1348,7 @@ async function mutateDocumentLinkSetWithExecutor(input: {
       linkedContainerIds: manifest.state.linkedContainerIds,
     });
 
-    const contentKeyBundle = await storeDocumentContentKeyBundle(
+    const contentKeyBundle = await storeDocumentContentKeyBundleInTransaction(
       toStoredContentKeyBundleInput(
         input.documentId,
         input.request.contentKeyBundle,
@@ -1400,7 +1399,7 @@ export async function runDocumentLinkSetMutationWorkflow(
 
 async function ensureDocumentExists(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
 }): Promise<void> {
   const [document] = await input.executor
     .select({ id: documents.id })
@@ -1416,7 +1415,7 @@ async function ensureWritableDocument(input: {
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly userId: string;
 }): Promise<void> {
   const containerProjectionContext = createContainerWriterProjectionContext(
@@ -1584,7 +1583,7 @@ function acceptedOutgoingUpdateIds(
 async function insertNewDocumentUpdates(input: {
   readonly accessEpoch: number;
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly updates: readonly DocumentOutgoingUpdate[];
 }): Promise<ReadonlySet<string>> {
@@ -1620,7 +1619,7 @@ async function appendAuditEntriesForNewDocumentUpdates(input: {
   readonly accessManifestHash: string;
   readonly accessStateHash: string | null;
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly updates: readonly DocumentOutgoingUpdate[];
   readonly userId: string;
@@ -1666,7 +1665,7 @@ async function appendAuditEntriesForNewDocumentUpdates(input: {
 
 async function loadExistingDocumentUpdateRows(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseTransaction;
   readonly updateIds: readonly string[];
 }) {
   const existingRows = await input.executor
@@ -1783,7 +1782,7 @@ async function appendDocumentUpdates(
 
 async function listMissingUpdates(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly localVersionVector: string | null;
   readonly minLsn?: string | undefined;
 }) {
@@ -1813,7 +1812,7 @@ function toSyncUpdate(
 }
 
 async function attachWriteHeadersToUpdates(input: {
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly updates: Awaited<ReturnType<typeof listMissingUpdates>>;
 }) {
   const writeHeadersByUpdateId = await listDocumentContentWriteHeaders(
@@ -1852,7 +1851,7 @@ async function syncDocumentTransaction(input: {
   readonly fingerprint: string;
   readonly request: DocumentSyncRequest;
   readonly signingPublicKey: Uint8Array;
-  readonly tx: DatabaseExecutor;
+  readonly tx: DatabaseTransaction;
   readonly userId: string;
 }) {
   await ensureDocumentExists({
@@ -1885,7 +1884,7 @@ async function syncDocumentTransaction(input: {
     request: input.request,
   });
   const contentKeyBundle = input.request.contentKeyBundle
-    ? await storeDocumentContentKeyBundle(
+    ? await storeDocumentContentKeyBundleInTransaction(
         toStoredContentKeyBundleInput(
           input.documentId,
           input.request.contentKeyBundle,

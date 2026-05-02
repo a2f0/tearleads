@@ -24,7 +24,7 @@ import {
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
 } from "../../access/read/documentKekTargets";
-import type { DatabaseExecutor } from "../../adapters/postgres";
+import type { DatabaseSession } from "../../adapters/postgres";
 import {
   projectionAccessManifestRecord,
   projectionVerifiedAccessEventRecord,
@@ -190,7 +190,7 @@ function readDocumentLinkSetState(
 }
 
 async function loadCurrentDocumentManifestBundle(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
   documentId: string,
 ): Promise<AccessManifestBundleWireResponse> {
   const head = await getCurrentAccessManifestHead(
@@ -224,7 +224,7 @@ async function loadCurrentDocumentManifestBundle(
 async function resolveAuthorizingContainerPaths(input: {
   readonly containerIds: readonly string[];
   readonly context: ContainerWriterProjectionContext;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly userId: string;
 }) {
   const results = await Promise.all(
@@ -265,7 +265,7 @@ async function resolveAuthorizingContainerPaths(input: {
 
 async function resolveDocumentWriterProjection(input: {
   readonly documentId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<DocumentWriterProjectionResponse> {
   const documentManifest = await loadCurrentDocumentManifestBundle(

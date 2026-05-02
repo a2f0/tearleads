@@ -18,6 +18,7 @@ import {
   documentUpdateSpans,
   documentUpdates,
 } from "@tearleads/loro/server";
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -62,7 +63,12 @@ export const containers = pgTable(
     parentId: uuid("parent_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("containers_parent_id_idx").on(table.parentId)],
+  (table) => [
+    uniqueIndex("containers_org_root_idx")
+      .on(table.organizationId)
+      .where(sql`${table.parentId} is null`),
+    index("containers_parent_id_idx").on(table.parentId),
+  ],
 );
 
 export const groups = pgTable("groups", {
@@ -646,12 +652,22 @@ export const blobContentWriteHeaders = pgTable(
   ],
 );
 
-export const documentContainerLinks = pgTable("document_container_links", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  documentId: text("document_id").notNull(),
-  containerId: uuid("container_id").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const documentContainerLinks = pgTable(
+  "document_container_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    documentId: text("document_id").notNull(),
+    containerId: uuid("container_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("document_container_links_document_container_idx").on(
+      table.documentId,
+      table.containerId,
+    ),
+    index("document_container_links_container_idx").on(table.containerId),
+  ],
+);
 
 export const containerMetadataDocuments = pgTable(
   "container_metadata_documents",
@@ -814,12 +830,17 @@ export const attachmentBindings = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    index("attachment_bindings_document_idx").on(table.documentId),
+    index("attachment_bindings_blob_idx").on(table.blobId),
     index("attachment_bindings_previous_binding_id_idx").on(
       table.previousBindingId,
     ),
     index("attachment_bindings_attachment_event_hash_idx").on(
       table.attachmentEventHash,
     ),
+    uniqueIndex("attachment_bindings_document_slot_active_idx")
+      .on(table.documentId, table.slotId)
+      .where(sql`${table.detachedAt} is null`),
   ],
 );
 

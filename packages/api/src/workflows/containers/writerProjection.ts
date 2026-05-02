@@ -33,10 +33,7 @@ import {
   getContainerKeyEpochById,
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
-import type {
-  db as apiDatabase,
-  DatabaseExecutor,
-} from "../../adapters/postgres";
+import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
 import {
   loadPrincipalPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,
@@ -58,7 +55,6 @@ import {
 import { containers, users } from "../../schema";
 
 type ContainerWriterProjectionStatus = 403 | 404 | 409;
-type ApiDatabase = typeof apiDatabase;
 const MAX_CONTAINER_PATH_DEPTH = 100;
 
 export class ContainerWriterProjectionError extends Error {
@@ -90,7 +86,7 @@ export interface ContainerWriterProjectionContext {
     Promise<ContainerKekProjection>
   >;
   readonly containerPathRowById: Map<string, Promise<ContainerPathRow>>;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly currentManifestBundleByContainerId: Map<
     string,
     Promise<AccessManifestBundleWireResponse>
@@ -112,7 +108,7 @@ interface ContainerKekProjection {
 }
 
 export function createContainerWriterProjectionContext(
-  executor: DatabaseExecutor,
+  executor: DatabaseSession,
 ): ContainerWriterProjectionContext {
   return {
     containerKekStateByCacheKey: new Map(),
@@ -721,7 +717,7 @@ function userRecipientKeyFromWrap(
 }
 
 async function loadUserRecipientKeysForContainerKek(input: {
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly manifest: VerifiedContainerAccessManifest;
   readonly wraps: readonly ContainerKeyWrap[];
 }): Promise<ContainerUserRecipientKey[]> {
@@ -895,7 +891,7 @@ function containerKekResponse(
 export async function resolveContainerWriterProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
   const context =
@@ -931,7 +927,7 @@ export async function resolveContainerWriterProjection(input: {
 export async function resolveContainerAccessProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
-  readonly executor: DatabaseExecutor;
+  readonly executor: DatabaseSession;
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly userId: string;
 }): Promise<ContainerAccessProjection> {
