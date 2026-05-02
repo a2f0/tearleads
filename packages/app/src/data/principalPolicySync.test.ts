@@ -659,7 +659,7 @@ test("principal policy sync skips bundles whose projection does not match the si
     });
 
     expect(logs).toContain(
-      "Principal policy cache: skipped group:group-1: computed projection root does not match chain entry state projection root",
+      "Principal policy cache: skipped group:group-1: principal policy projection root does not match projection",
     );
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
@@ -698,7 +698,7 @@ test("principal policy sync skips successor bundles signed by non-admins", async
     });
 
     expect(logs).toContain(
-      "Principal policy cache: skipped group:group-1: state signer is not an admin in previous projection",
+      "Principal policy cache: skipped group:group-1: principal policy state signer is not an admin in previous projection",
     );
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
