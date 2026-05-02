@@ -185,8 +185,8 @@ Limitations:
  linked container, exposes document link/unlink management, and can switch
  which linked container is locally active
 - subtractive rotation for document epochs uses the fresh-baseline path with
- source-frontier validation; durable audit/history hardening remains separate
- work
+ source-frontier validation; durable audit rows are written on live sync and
+ attachment writes, while export/verification surfaces remain separate work
 - encrypted Loro updates do not expose `referencedSlotIds[]`; adding a visible
  slot-reference proof or another explicit protocol extension is future work
 
