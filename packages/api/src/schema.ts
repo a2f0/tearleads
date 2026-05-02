@@ -39,6 +39,32 @@ export type DocumentAttachmentAuditAction =
   | "detach"
   | "rewrap";
 
+/**
+ * Registered human users and their long-lived public key material.
+ *
+ * A user row is created during public-key registration. The access workflows
+ * load this table to verify signatures, encrypt user-recipient envelopes, and
+ * resolve the user's default personal organization/root container context.
+ * Private keys never live in this table; only public keys and fingerprints are
+ * stored.
+ *
+ * Columns:
+ * - `id`: Stable server-side user id.
+ * - `fingerprint`: Unique signing key fingerprint used by authentication and
+ *   signature verification.
+ * - `signingPublicKey`: Public signing key bytes, base64 encoded.
+ * - `encapsulationPublicKey`: Public KEM/encapsulation key bytes, base64
+ *   encoded. Writers use this when wrapping material directly to the user.
+ * - `encapsulationKeyFingerprint`: Fingerprint of `encapsulationPublicKey`.
+ *   Recipient-envelope verification compares submitted fingerprints to this
+ *   value.
+ * - `defaultOrganizationId`: Personal/default organization created during
+ *   registration and used as the user's initial organization boundary.
+ * - `createdAt`: Server-side registration timestamp.
+ *
+ * Indexes:
+ * - `fingerprint` is unique so one signing key fingerprint maps to one user.
+ */
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   fingerprint: text("fingerprint").notNull().unique(),
@@ -49,12 +75,47 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/**
+ * Organization catalog rows.
+ *
+ * Organizations define the top-level ownership boundary for containers,
+ * documents, manifests, and keying state. Registration creates a personal
+ * organization named `Personal`; the signed principal-state tables carry the
+ * organization's access policy and recipient key history.
+ *
+ * Columns:
+ * - `id`: Stable organization id. Container and access-manifest rows copy this
+ *   id as their organization boundary.
+ * - `name`: Human-readable organization name.
+ * - `createdAt`: Server-side insertion timestamp.
+ */
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/**
+ * Materialized container tree structure.
+ *
+ * This table stores only the mutable structural shape needed for container
+ * listing and parent-child checks. Authorization, grants, metadata-document
+ * pointers, and KEK target state are verified from signed access manifests and
+ * their projection tables.
+ *
+ * Columns:
+ * - `id`: Stable container id.
+ * - `organizationId`: Organization boundary for the container. Parent and child
+ *   containers must stay within the same organization.
+ * - `parentId`: Parent container id, or `null` for the organization's root
+ *   container.
+ * - `createdAt`: Server-side insertion timestamp.
+ *
+ * Indexes:
+ * - `organizationId where parentId is null` is unique so an organization has
+ *   one root container.
+ * - `parentId` supports child-container listing and move validation.
+ */
 export const containers = pgTable(
   "containers",
   {
@@ -71,6 +132,21 @@ export const containers = pgTable(
   ],
 );
 
+/**
+ * Basic group catalog rows.
+ *
+ * Groups are managed recipient principals. This table keeps the lightweight
+ * group identity/name record; signed group membership, roles, and key material
+ * live in `principalStates`, `principalMembershipProjection`, and
+ * `principalEpochKeys`.
+ *
+ * Columns:
+ * - `id`: Stable group id.
+ * - `organizationId`: Organization that owns the group, when the group is
+ *   organization-scoped.
+ * - `name`: Human-readable group name.
+ * - `createdAt`: Server-side insertion timestamp.
+ */
 export const groups = pgTable("groups", {
   id: uuid("id").defaultRandom().primaryKey(),
   organizationId: uuid("organization_id"),
@@ -718,6 +794,39 @@ export const accessManifestHeads = pgTable(
   ],
 );
 
+/**
+ * Container key-encryption-key epochs.
+ *
+ * A container KEK epoch represents the key material used to wrap document/blob
+ * content keys for a container at a particular access-manifest state. The row
+ * stores the verified container key-epoch header; the encrypted recipient
+ * envelopes for that epoch live in `containerKeyWraps`.
+ *
+ * Key epochs are monotonic per container. Additive access changes may keep the
+ * same epoch and refresh wraps, while revokes, rekeys, parent-key changes, or
+ * other changes that require new key material advance the epoch.
+ *
+ * Columns:
+ * - `id`: Crypto-level container key epoch id. This is the primary key and is
+ *   referenced by content-key target rows.
+ * - `containerId`: Container whose KEK this epoch belongs to.
+ * - `keyEpoch`: Monotonic numeric key epoch for the container.
+ * - `accessManifestHash`: Container access manifest hash that this KEK state
+ *   was verified against.
+ * - `parentContainerKeyEpochId`: Parent container KEK epoch inherited by this
+ *   container, or `null` for root containers.
+ * - `createdByEventHash`: Access event hash that introduced this KEK state.
+ * - `createdByManifestHash`: Access manifest hash produced by that event.
+ * - `createdAt`: Server-side insertion timestamp.
+ *
+ * Indexes:
+ * - `(containerId, keyEpoch)` is unique because a container can have one
+ *   accepted KEK row per epoch.
+ * - `containerId` supports current epoch lookup by ordering `keyEpoch`
+ *   descending.
+ * - `accessManifestHash` supports loading the KEK state for a manifest.
+ * - `parentContainerKeyEpochId` supports inherited-key edge validation.
+ */
 export const containerKeyEpochs = pgTable(
   "container_key_epochs",
   {
@@ -745,6 +854,41 @@ export const containerKeyEpochs = pgTable(
   ],
 );
 
+/**
+ * Recipient envelopes for a container KEK epoch.
+ *
+ * Each row stores one encrypted wrap of a container KEK to a recipient
+ * principal. User recipients are backed by `users`; managed recipients such as
+ * organizations and groups are backed by `principalEpochKeys`. The verifier
+ * treats the wrap set for a current KEK state as exact, so stale rows are
+ * removed when a same-epoch recipient target is replaced.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key.
+ * - `containerKeyEpochId`: Container KEK epoch whose key material is wrapped.
+ * - `recipientKind`: Recipient principal kind for the envelope.
+ * - `recipientId`: Stable id of the recipient principal.
+ * - `recipientKeyEpochId`: Recipient key epoch identifier used to encrypt the
+ *   wrap. User recipient records supply this value and are checked by
+ *   fingerprint; managed principal recipient ids are derived from their
+ *   referenced principal head.
+ * - `recipientKeyFingerprint`: Fingerprint of the recipient public key used for
+ *   verification.
+ * - `kemCipherText`: KEM ciphertext/capsule produced while encrypting to the
+ *   recipient.
+ * - `wrappedKey`: Encrypted container KEK material for this recipient.
+ * - `wrapManifestHash`: Access manifest hash whose current target set
+ *   authorized this wrap.
+ * - `createdAt`: Server-side insertion timestamp.
+ *
+ * Indexes:
+ * - `(containerKeyEpochId, recipientKind, recipientId,
+ *   recipientKeyEpochId)` is unique so one recipient key has one wrap for an
+ *   epoch.
+ * - `containerKeyEpochId` supports loading the full wrap set for an epoch.
+ * - `(recipientKind, recipientId)` supports recipient-oriented lookup.
+ * - `wrapManifestHash` supports diagnostics and manifest-based queries.
+ */
 export const containerKeyWraps = pgTable(
   "container_key_wraps",
   {
@@ -775,7 +919,30 @@ export const containerKeyWraps = pgTable(
   ],
 );
 
-// Derived cache only. Access decisions must verify the source event/manifest.
+/**
+ * Indexed dependency hashes for signed access events.
+ *
+ * This is a derived cache. The source of authority is
+ * `accessEvents.dependencyManifestHashes`, and authorization must verify the
+ * signed event/manifest bundle rather than trusting projection rows alone.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key.
+ * - `eventHash`: Access event whose dependency array this row expands.
+ * - `objectKind`: Object kind copied from the event for scoped lookup.
+ * - `objectId`: Object id copied from the event for scoped lookup.
+ * - `dependencyManifestHash`: One dependency manifest hash referenced by the
+ *   event.
+ * - `dependencyIndex`: Position of the dependency in the signed dependency
+ *   array, preserving deterministic order for bundle reconstruction.
+ * - `createdAt`: Server-side projection timestamp.
+ *
+ * Indexes:
+ * - `eventHash` supports regenerating and loading dependencies for an event.
+ * - `dependencyManifestHash` supports reverse dependency lookup.
+ * - `(eventHash, dependencyManifestHash)` is unique so one dependency appears
+ *   once per event.
+ */
 export const accessEventDependencyProjection = pgTable(
   "access_event_dependency_projection",
   {
@@ -799,7 +966,34 @@ export const accessEventDependencyProjection = pgTable(
   ],
 );
 
-// Derived cache only. Access decisions must verify the source event/manifest.
+/**
+ * Indexed referenced-principal heads for an access manifest.
+ *
+ * This is a derived cache over `accessManifests.referencedPrincipalHeads`.
+ * Container/document access verification still checks the signed source
+ * manifest and the referenced principal policy heads. The projection exists so
+ * reads can find manifests involving a principal without scanning JSON.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key.
+ * - `manifestHash`: Access manifest whose principal-head array this row
+ *   expands.
+ * - `objectKind`: Object kind copied from the manifest.
+ * - `objectId`: Object id copied from the manifest.
+ * - `principalType`: Referenced managed principal kind.
+ * - `principalId`: Referenced principal id.
+ * - `version`: Principal state version committed by the manifest.
+ * - `keyEpoch`: Principal key epoch committed by the manifest.
+ * - `stateHash`: Principal state hash committed by the manifest.
+ * - `keyFingerprint`: Principal key fingerprint committed by the manifest.
+ * - `createdAt`: Server-side projection timestamp.
+ *
+ * Indexes:
+ * - `manifestHash` supports loading all principal heads for a manifest.
+ * - `(principalType, principalId)` supports principal-oriented lookup.
+ * - `(manifestHash, principalType, principalId)` is unique because a manifest
+ *   references one current head per principal.
+ */
 export const accessManifestPrincipalHeadProjection = pgTable(
   "access_manifest_principal_head_projection",
   {
@@ -833,7 +1027,28 @@ export const accessManifestPrincipalHeadProjection = pgTable(
   ],
 );
 
-// Derived cache only. Document link authority is the signed document manifest.
+/**
+ * Indexed document-to-container links committed by a document manifest.
+ *
+ * This is a derived cache. The signed document link-set manifest is the source
+ * of authority for document links; this projection lets services list documents
+ * in a container and resolve current blob/document KEK targets efficiently.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key.
+ * - `manifestHash`: Document link-set access manifest whose linked-container
+ *   set this row expands.
+ * - `documentId`: Document described by the link-set manifest.
+ * - `containerId`: Linked container id from the manifest state.
+ * - `createdAt`: Server-side projection timestamp.
+ *
+ * Indexes:
+ * - `manifestHash` supports loading the full link set for a manifest.
+ * - `documentId` supports document-oriented link queries.
+ * - `containerId` supports listing manifest-linked documents in a container.
+ * - `(manifestHash, containerId)` is unique because one manifest links a
+ *   container at most once.
+ */
 export const accessManifestDocumentLinkProjection = pgTable(
   "access_manifest_document_link_projection",
   {
@@ -854,6 +1069,44 @@ export const accessManifestDocumentLinkProjection = pgTable(
   ],
 );
 
+/**
+ * Content-key epochs for encrypted document update payloads.
+ *
+ * A document content-key bundle says which symmetric content key epoch writers
+ * should use for document updates, and which current container KEK targets can
+ * unwrap that content key. The epoch row stores the bundle-level metadata:
+ * document id, content-key epoch, the document link-set manifest that authorized
+ * the target set, and the hash of the target set.
+ *
+ * Content-key epochs are monotonic per document. The latest epoch can be
+ * refreshed when the same key material is still current, including additive
+ * target growth or same-epoch manifest refreshes. If the current target set
+ * shrinks, callers must rotate to a new content-key epoch so removed recipients
+ * cannot keep using the old document content key.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Target rows reference this id.
+ *   Domain identity is `(documentId, contentKeyEpoch)`.
+ * - `documentId`: Stable id of the document whose encrypted update content key
+ *   this bundle describes.
+ * - `contentKeyEpoch`: Positive integer document content-key epoch. Write
+ *   headers for document updates include this value.
+ * - `linkSetManifestHash`: Current document link-set manifest hash that was
+ *   validated when this bundle was stored. It binds the content key to the
+ *   document's current linked-container state.
+ * - `targetHash`: Hash of the normalized target rows in
+ *   `documentContentKeyTargets`. Write headers include this hash so ciphertexts
+ *   are bound to the exact recipient target set.
+ * - `createdAt`: Server-side insertion timestamp for the epoch row.
+ * - `updatedAt`: Server-side timestamp for metadata refreshes, such as
+ *   same-epoch target growth or link-set manifest refresh.
+ *
+ * Indexes:
+ * - `(documentId, contentKeyEpoch)` is unique because a document can have only
+ *   one accepted bundle for an epoch.
+ * - `documentId` supports latest-bundle lookup by ordering epochs descending.
+ * - `targetHash` supports target-hash based validation and diagnostics.
+ */
 export const documentContentKeyEpochs = pgTable(
   "document_content_key_epochs",
   {
@@ -875,6 +1128,45 @@ export const documentContentKeyEpochs = pgTable(
   ],
 );
 
+/**
+ * Recipient target envelopes for one document content-key epoch.
+ *
+ * Each row stores the document content key wrapped for one linked container's
+ * current container KEK. The target fields are validated against the current
+ * document KEK targets derived from the signed document link-set manifest and
+ * current linked container manifests. The set of target fields hashes to the
+ * parent epoch row's `targetHash`; `wrappedKey` and `wrappingMetadata` are the
+ * encrypted material needed by clients to open the document content key.
+ *
+ * The table stores one target per linked container for each content-key epoch.
+ * Same-epoch refreshes may update an existing container target when the
+ * container manifest advances without changing the underlying key material, or
+ * insert newly added containers when target growth is additive.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain identity is
+ *   `(documentContentKeyEpochId, containerId)`.
+ * - `documentContentKeyEpochId`: Parent content-key epoch row. This scopes the
+ *   target to one document and content-key epoch.
+ * - `containerId`: Linked container recipient for this target.
+ * - `containerManifestHash`: Current container access manifest hash used when
+ *   deriving the target.
+ * - `containerKeyEpochId`: Container KEK epoch id that wraps this document
+ *   content key.
+ * - `containerKeyEpoch`: Numeric container KEK epoch corresponding to
+ *   `containerKeyEpochId`.
+ * - `wrappedKey`: Document content key encrypted/wrapped for the container KEK.
+ * - `wrappingMetadata`: Canonical metadata needed by the client to unwrap
+ *   `wrappedKey`.
+ * - `createdAt`: Server-side insertion timestamp for the target row.
+ *
+ * Indexes:
+ * - `documentContentKeyEpochId` supports loading the full target set for an
+ *   epoch.
+ * - `containerKeyEpochId` supports reverse lookups by container KEK material.
+ * - `(documentContentKeyEpochId, containerId)` is unique so an epoch has at
+ *   most one target envelope per linked container.
+ */
 export const documentContentKeyTargets = pgTable(
   "document_content_key_targets",
   {
@@ -906,6 +1198,42 @@ export const documentContentKeyTargets = pgTable(
   ],
 );
 
+/**
+ * Verified write headers for encrypted document updates.
+ *
+ * Loro update bytes are stored in the imported `documentUpdates` table, while
+ * this table stores the keying write header that authorizes and describes the
+ * ciphertext. The header binds an update to a document, content-key epoch,
+ * access manifest, target set, encryption suite, content record id, nonce
+ * domain, writer, and ciphertext hash. Replays for the same `updateId` are
+ * accepted only when the computed `headerHash` matches the stored value.
+ *
+ * Columns:
+ * - `updateId`: Primary key matching the live document update id.
+ * - `documentId`: Document whose encrypted update this header describes.
+ * - `organizationId`: Organization boundary from the verified header.
+ * - `contentKeyEpoch`: Document content-key epoch used for the update.
+ * - `accessManifestHash`: Document access manifest hash verified for the
+ *   write.
+ * - `targetHash`: Document content-key target hash verified for the write.
+ * - `encryptionSuite`: Content-record encryption suite used by the client.
+ * - `contentRecordId`: Client content record id inside the header. For
+ *   document updates this is unique within `(documentId, contentKeyEpoch)`.
+ * - `nonceDomainHash`: Nonce-domain commitment; uniqueness prevents reusing a
+ *   nonce domain within the same document content-key epoch.
+ * - `headerHash`: Hash of the canonical write header.
+ * - `header`: Full canonical write header JSON returned with sync results.
+ * - `createdAt`: Server-side insertion timestamp.
+ *
+ * Indexes:
+ * - `(documentId, contentKeyEpoch)` supports epoch-scoped document sync and
+ *   diagnostics.
+ * - `headerHash` is unique because it content-addresses the write header.
+ * - `(documentId, contentKeyEpoch, contentRecordId)` prevents duplicate content
+ *   record ids for an epoch.
+ * - `(documentId, contentKeyEpoch, nonceDomainHash)` prevents nonce-domain
+ *   reuse for an epoch.
+ */
 export const documentContentWriteHeaders = pgTable(
   "document_content_write_headers",
   {
@@ -945,6 +1273,32 @@ export const documentContentWriteHeaders = pgTable(
   ],
 );
 
+/**
+ * Content-key epochs for encrypted blob payloads.
+ *
+ * A blob content-key bundle says which symmetric content key protects a blob
+ * and which current attachment/container KEK targets can unwrap it. Blobs are
+ * immutable in this model, so the store currently accepts only content key
+ * epoch `1`; if targets shrink, callers replace the blob instead of rotating
+ * its content key in place.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Target rows reference this id.
+ *   Domain identity is `(blobId, contentKeyEpoch)`.
+ * - `blobId`: Blob whose encrypted content key this bundle describes.
+ * - `contentKeyEpoch`: Blob content-key epoch. Currently must be `1`.
+ * - `targetHash`: Hash of the normalized target rows in
+ *   `blobContentKeyTargets`.
+ * - `createdAt`: Server-side insertion timestamp for the epoch row.
+ * - `updatedAt`: Server-side timestamp for target-hash refreshes, such as
+ *   additive attachment target growth.
+ *
+ * Indexes:
+ * - `(blobId, contentKeyEpoch)` is unique because a blob can have one accepted
+ *   bundle per epoch.
+ * - `blobId` supports latest-bundle lookup by ordering epochs descending.
+ * - `targetHash` supports target-hash based validation and diagnostics.
+ */
 export const blobContentKeyEpochs = pgTable(
   "blob_content_key_epochs",
   {
@@ -965,6 +1319,41 @@ export const blobContentKeyEpochs = pgTable(
   ],
 );
 
+/**
+ * Recipient target envelopes for one blob content-key epoch.
+ *
+ * Each row stores the blob content key wrapped for one active attachment target:
+ * a binding, the document that owns that binding, and one linked container KEK
+ * reached through that document's current link-set manifest. The target fields
+ * hash to the parent epoch row's `targetHash`; `wrappedKey` and
+ * `wrappingMetadata` are encrypted material needed by clients.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Domain identity is
+ *   `(blobContentKeyEpochId, bindingId, documentId, containerId)`.
+ * - `blobContentKeyEpochId`: Parent blob content-key epoch row.
+ * - `bindingId`: Active attachment binding that makes this blob reachable.
+ * - `documentId`: Document containing the attachment binding.
+ * - `containerId`: Linked container recipient for this target.
+ * - `containerManifestHash`: Current container access manifest hash used when
+ *   deriving the target.
+ * - `containerKeyEpochId`: Container KEK epoch id that wraps this blob content
+ *   key.
+ * - `containerKeyEpoch`: Numeric container KEK epoch corresponding to
+ *   `containerKeyEpochId`.
+ * - `wrappedKey`: Blob content key encrypted/wrapped for the container KEK.
+ * - `wrappingMetadata`: Canonical metadata needed by the client to unwrap
+ *   `wrappedKey`.
+ * - `createdAt`: Server-side insertion timestamp for the target row.
+ *
+ * Indexes:
+ * - `blobContentKeyEpochId` supports loading the full target set for an epoch.
+ * - `bindingId` supports attachment-binding oriented fanout and diagnostics.
+ * - `containerKeyEpochId` supports reverse lookups by container KEK material.
+ * - `(blobContentKeyEpochId, bindingId, documentId, containerId)` is unique so
+ *   an epoch has at most one envelope for each binding/document/container
+ *   target.
+ */
 export const blobContentKeyTargets = pgTable(
   "blob_content_key_targets",
   {
@@ -999,6 +1388,40 @@ export const blobContentKeyTargets = pgTable(
   ],
 );
 
+/**
+ * Verified write headers for encrypted blob payload records.
+ *
+ * Committed encrypted blob bytes live in `blobs`; this table stores the keying
+ * write header that authorizes and describes those bytes. Blob writes currently
+ * use content-key epoch `1` and store one header per blob record. Replays for
+ * the same `recordId` are accepted only when `headerHash` matches.
+ *
+ * Columns:
+ * - `recordId`: Primary key for the blob content record. Staged blob promotion
+ *   uses the blob id as the record id.
+ * - `blobId`: Blob whose encrypted payload this header describes.
+ * - `organizationId`: Organization boundary from the verified header.
+ * - `contentKeyEpoch`: Blob content-key epoch used for the payload.
+ * - `accessManifestHash`: Blob access manifest hash verified for the write.
+ * - `targetHash`: Blob content-key target hash verified for the write.
+ * - `encryptionSuite`: Content-record encryption suite used by the client.
+ * - `contentRecordId`: Client content record id inside the header. For blob
+ *   payloads this is unique within `(blobId, contentKeyEpoch)`.
+ * - `nonceDomainHash`: Nonce-domain commitment; uniqueness prevents nonce
+ *   domain reuse within the same blob content-key epoch.
+ * - `headerHash`: Hash of the canonical write header.
+ * - `header`: Full canonical write header JSON.
+ * - `createdAt`: Server-side insertion timestamp.
+ *
+ * Indexes:
+ * - `(blobId, contentKeyEpoch)` supports epoch-scoped blob lookup and
+ *   diagnostics.
+ * - `headerHash` is unique because it content-addresses the write header.
+ * - `(blobId, contentKeyEpoch, contentRecordId)` prevents duplicate content
+ *   record ids for an epoch.
+ * - `(blobId, contentKeyEpoch, nonceDomainHash)` prevents nonce-domain reuse
+ *   for an epoch.
+ */
 export const blobContentWriteHeaders = pgTable(
   "blob_content_write_headers",
   {
@@ -1038,6 +1461,26 @@ export const blobContentWriteHeaders = pgTable(
   ],
 );
 
+/**
+ * Current materialized document-to-container links.
+ *
+ * Document link authority comes from signed document link-set manifests and the
+ * per-manifest projection in `accessManifestDocumentLinkProjection`. This table
+ * stores the current link set for the document row itself so document workflows
+ * can update the structural projection by deleting and reinserting the current
+ * linked containers.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key.
+ * - `documentId`: Document whose current linked containers are projected.
+ * - `containerId`: Currently linked container id.
+ * - `createdAt`: Server-side insertion timestamp for the projected link row.
+ *
+ * Indexes:
+ * - `(documentId, containerId)` is unique so a document links a container at
+ *   most once in the current projection.
+ * - `containerId` supports container-oriented document listing.
+ */
 export const documentContainerLinks = pgTable(
   "document_container_links",
   {
@@ -1055,6 +1498,22 @@ export const documentContainerLinks = pgTable(
   ],
 );
 
+/**
+ * One-to-one container metadata document bindings.
+ *
+ * Every created container can have a metadata document that describes
+ * user-facing container metadata through the regular encrypted document path.
+ * Metadata documents cannot be structurally relinked as normal documents, so
+ * this binding lets document mutation workflows reject relinks for metadata
+ * documents.
+ *
+ * Columns:
+ * - `containerId`: Container whose metadata document this row binds. This is
+ *   the primary key because a container has one metadata document.
+ * - `documentId`: Metadata document id. It is unique so one document cannot be
+ *   reused as metadata for multiple containers.
+ * - `createdAt`: Server-side insertion timestamp.
+ */
 export const containerMetadataDocuments = pgTable(
   "container_metadata_documents",
   {
@@ -1064,6 +1523,47 @@ export const containerMetadataDocuments = pgTable(
   },
 );
 
+/**
+ * Hash-chained checkpoint records for document audit history.
+ *
+ * Document update sync can mark selected Loro updates as checkpoints. A
+ * checkpoint records the baseline update id, source version vector, the latest
+ * covered audit entry hash, the previous checkpoint hash, and the access state
+ * under which the checkpoint was written. The computed `checkpointHash` chains
+ * those fields for later audit-history verification.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key.
+ * - `documentId`: Document whose audit checkpoint this row describes.
+ * - `sequence`: Database-generated monotonic sequence used to order
+ *   checkpoints. Queries scope the ordering by `documentId`.
+ * - `baselineUpdateId`: Live document update id that carries the checkpoint
+ *   baseline. Unique so the same update cannot create multiple checkpoints.
+ * - `checkpointKind`: Loro checkpoint kind supplied by the update metadata.
+ * - `sourceVersionVector`: Loro source version vector covered by the
+ *   checkpoint.
+ * - `coveredAuditEntryHash`: Latest document audit entry hash covered by this
+ *   checkpoint, or `null` when no entry was covered.
+ * - `previousCheckpointHash`: Previous checkpoint hash for the document, or
+ *   `null` for the first checkpoint.
+ * - `checkpointHash`: Hash over the checkpoint fields and previous checkpoint
+ *   pointer.
+ * - `accessEpoch`: Access manifest epoch active when the checkpoint was
+ *   written.
+ * - `accessManifestHash`: Access manifest hash active when the checkpoint was
+ *   written.
+ * - `accessStateHash`: Optional object-specific access state hash included in
+ *   the checkpoint hash when present.
+ * - `actorUserId`: User who wrote the checkpoint update.
+ * - `actorFingerprint`: Signing key fingerprint for `actorUserId`.
+ * - `createdAt`: Server-side insertion timestamp.
+ *
+ * Indexes:
+ * - `(documentId, sequence)` supports ordered checkpoint verification.
+ * - `(documentId, checkpointHash)` is unique so one document cannot store
+ *   conflicting rows for the same checkpoint hash.
+ * - `(documentId, createdAt)` supports time-oriented audit lookup.
+ */
 export const documentAuditCheckpoints = pgTable(
   "document_audit_checkpoints",
   {
@@ -1101,6 +1601,42 @@ export const documentAuditCheckpoints = pgTable(
   ],
 );
 
+/**
+ * Hash-chained document audit entries.
+ *
+ * This table stores the common audit envelope for auditable document actions.
+ * Event-specific details live in companion tables such as
+ * `documentUpdateAuditEvents` and `documentAttachmentAuditEvents`. The
+ * `entryHash` commits the common fields, the event-specific fields, and the
+ * previous entry hash so verifiers can replay the document's audit chain.
+ *
+ * Columns:
+ * - `id`: Surrogate database primary key. Companion event tables reference this
+ *   id as their primary key.
+ * - `documentId`: Document whose audit history this row belongs to.
+ * - `sequence`: Database-generated monotonic sequence used to order entries.
+ *   Queries scope the ordering by `documentId`.
+ * - `eventType`: Audit event family, for example `loro_update` or
+ *   `attachment_event`.
+ * - `accessEpoch`: Access manifest epoch active when the event was written.
+ * - `accessManifestHash`: Access manifest hash active when the event was
+ *   written.
+ * - `accessStateHash`: Optional object-specific access state hash included in
+ *   the entry hash when present.
+ * - `actorUserId`: User who performed the audited action.
+ * - `actorFingerprint`: Signing key fingerprint for `actorUserId`.
+ * - `prevEntryHash`: Previous audit entry hash for the document, or `null` for
+ *   the first entry.
+ * - `entryHash`: Hash over the common fields, event-specific fields, and
+ *   previous entry pointer.
+ * - `createdAt`: Server-side insertion timestamp.
+ *
+ * Indexes:
+ * - `(documentId, sequence)` is unique and supports ordered audit replay.
+ * - `(documentId, entryHash)` is unique so a document stores one row per audit
+ *   hash.
+ * - `(documentId, createdAt)` supports time-oriented audit lookup.
+ */
 export const documentAuditEntries = pgTable(
   "document_audit_entries",
   {
@@ -1135,6 +1671,27 @@ export const documentAuditEntries = pgTable(
   ],
 );
 
+/**
+ * Event-specific audit details for encrypted document updates.
+ *
+ * The common audit envelope lives in `documentAuditEntries` with event type
+ * `loro_update`. This table adds the live update id, Loro version-vector
+ * boundaries, and ciphertext digest metadata needed to verify the update audit
+ * hash and correlate audit history with stored document updates.
+ *
+ * Columns:
+ * - `auditEntryId`: Primary key and foreign key to the common audit entry.
+ * - `liveUpdateId`: Id of the live document update row. Unique so one update is
+ *   audited once.
+ * - `partialStartVersionVector`: Loro version vector before applying the
+ *   partial update.
+ * - `partialEndVersionVector`: Loro version vector after applying the partial
+ *   update.
+ * - `sourceVersionVector`: Optional source version vector supplied by the
+ *   client.
+ * - `encryptedUpdateSha256`: SHA-256 digest of the encrypted update payload.
+ * - `encryptedUpdateByteLength`: Byte length of the encrypted update payload.
+ */
 export const documentUpdateAuditEvents = pgTable(
   "document_update_audit_events",
   {
@@ -1152,6 +1709,26 @@ export const documentUpdateAuditEvents = pgTable(
   },
 );
 
+/**
+ * Blob metadata retained for document attachment audit history.
+ *
+ * Attachment audit entries may need to reference blobs after the live blob
+ * lifecycle changes. This table stores immutable audit metadata for each
+ * referenced blob: digest, byte length, live storage key if the live object is
+ * still present, and retention/pruning state for historical bytes.
+ *
+ * Columns:
+ * - `blobId`: Primary key matching the committed blob id.
+ * - `sha256`: SHA-256 digest of the encrypted blob bytes.
+ * - `byteLength`: Byte length of the encrypted blob bytes.
+ * - `liveStorageKey`: Storage key for the live blob object when available.
+ * - `retentionMode`: Retention policy for the audited blob metadata. Currently
+ *   only `live_only` is supported.
+ * - `historicalBytesRetained`: Whether historical encrypted bytes are retained
+ *   outside the live blob object.
+ * - `prunedAt`: Timestamp when historical bytes were pruned, if applicable.
+ * - `createdAt`: Server-side insertion timestamp.
+ */
 export const blobAuditObjects = pgTable("blob_audit_objects", {
   blobId: uuid("blob_id").primaryKey(),
   sha256: text("sha256").notNull(),
@@ -1165,6 +1742,26 @@ export const blobAuditObjects = pgTable("blob_audit_objects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/**
+ * Event-specific audit details for document attachment changes.
+ *
+ * The common audit envelope lives in `documentAuditEntries` with event type
+ * `attachment_event`. This table adds the attachment slot, binding/blob ids,
+ * prior binding/blob ids for replacements or detaches, and the blob retention
+ * mode committed into the audit hash.
+ *
+ * Columns:
+ * - `auditEntryId`: Primary key and foreign key to the common audit entry.
+ * - `action`: Attachment action, currently `attach`, `replace`, `detach`, or
+ *   `rewrap`.
+ * - `slotId`: Logical attachment slot within the document.
+ * - `bindingId`: New/current attachment binding id, when the action creates or
+ *   references one.
+ * - `previousBindingId`: Previous binding id for replacement or detach flows.
+ * - `blobId`: New/current blob id for attach or replace flows.
+ * - `previousBlobId`: Previous blob id for replacement or detach flows.
+ * - `retentionMode`: Blob audit retention mode committed into the entry hash.
+ */
 export const documentAttachmentAuditEvents = pgTable(
   "document_attachment_audit_events",
   {
@@ -1183,6 +1780,23 @@ export const documentAttachmentAuditEvents = pgTable(
   },
 );
 
+/**
+ * Committed encrypted blob payloads.
+ *
+ * A blob row stores encrypted bytes after a staged upload has been promoted by
+ * an authorized attachment mutation. Access to bytes is checked through current
+ * attachment bindings and document/container access before the row is returned.
+ *
+ * Columns:
+ * - `id`: Stable blob id.
+ * - `storageKey`: Storage key for the encrypted bytes. The current
+ *   implementation stores bytes in this table and uses the promoted stage id as
+ *   the storage key.
+ * - `encryptedBytes`: Encrypted blob payload bytes encoded as a string.
+ * - `sha256`: SHA-256 digest of `encryptedBytes`.
+ * - `byteLength`: Byte length of `encryptedBytes`.
+ * - `createdAt`: Server-side promotion timestamp.
+ */
 export const blobs = pgTable("blobs", {
   id: uuid("id").defaultRandom().primaryKey(),
   storageKey: text("storage_key").notNull(),
@@ -1192,6 +1806,23 @@ export const blobs = pgTable("blobs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/**
+ * Temporary encrypted blob uploads awaiting attachment mutation.
+ *
+ * Staging lets a user upload encrypted bytes and receive a stage id before the
+ * authorized attachment mutation promotes those bytes into `blobs`. Promotion
+ * requires the same owner user, a non-expired stage, and matching blob write
+ * header/ciphertext hash. Promoted stages are deleted.
+ *
+ * Columns:
+ * - `id`: Stage id returned to the client.
+ * - `ownerUserId`: User who created the stage and is allowed to promote it.
+ * - `encryptedBytes`: Encrypted blob payload bytes encoded as a string.
+ * - `sha256`: SHA-256 digest of `encryptedBytes`.
+ * - `byteLength`: Byte length of `encryptedBytes`.
+ * - `expiresAt`: Expiration timestamp after which promotion is rejected.
+ * - `createdAt`: Server-side staging timestamp.
+ */
 export const blobStages = pgTable("blob_stages", {
   id: uuid("id").defaultRandom().primaryKey(),
   ownerUserId: uuid("owner_user_id").notNull(),
@@ -1202,6 +1833,37 @@ export const blobStages = pgTable("blob_stages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/**
+ * Materialized attachment bindings between documents, slots, and blobs.
+ *
+ * Attachment bindings are written from verified attachment access events. A
+ * binding attaches a blob to one logical document slot; replacing a slot points
+ * at the previous binding, and detaching marks the active binding with
+ * `detachedAt`. The partial unique index enforces one active binding per
+ * document slot.
+ *
+ * Columns:
+ * - `id`: Stable attachment binding id.
+ * - `documentId`: Document that owns the attachment slot.
+ * - `slotId`: Logical attachment slot within the document.
+ * - `blobId`: Blob attached to the slot.
+ * - `previousBindingId`: Previous binding in the slot chain for replacement
+ *   flows, or `null` for the first binding.
+ * - `attachmentEventHash`: Access event hash that created this binding.
+ * - `documentManifestHash`: Document link-set manifest hash verified for the
+ *   binding.
+ * - `detachedAt`: Timestamp when this binding was detached, or `null` while it
+ *   is active.
+ * - `createdAt`: Server-side insertion timestamp.
+ *
+ * Indexes:
+ * - `documentId` supports document attachment listing.
+ * - `blobId` supports resolving documents that currently expose a blob.
+ * - `previousBindingId` supports slot-chain diagnostics.
+ * - `attachmentEventHash` supports access-event correlation.
+ * - `(documentId, slotId) where detachedAt is null` is unique so one document
+ *   slot has at most one active binding.
+ */
 export const attachmentBindings = pgTable(
   "attachment_bindings",
   {
