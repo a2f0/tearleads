@@ -7,19 +7,24 @@ import {
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  type DocumentLinkAccessEventBody,
+  type DocumentUnlinkAccessEventBody,
   type KeyingCanonicalJson,
   serializeKeyingCanonicalJson,
   toFingerprint,
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
+  type VerifiedDocumentLinkSetManifest,
   verifyContainerAccessManifest,
   verifyContainerKekState,
+  verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
+  DocumentWriterProjectionResponse,
   EncapsulationKeyResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "./keyingCanonicalJson";
@@ -406,6 +411,27 @@ function readContainerKekRecipientTarget(
   };
 }
 
+function readDocumentAccessEventBody(
+  value: unknown,
+  label: string,
+): DocumentLinkAccessEventBody | DocumentUnlinkAccessEventBody {
+  const record = readCanonicalRecord(value, label);
+  const eventType = readRecordValue(record, "eventType", label);
+  if (eventType !== "document.link" && eventType !== "document.unlink") {
+    throw new Error(`${label}.eventType is invalid`);
+  }
+
+  return {
+    eventType,
+    containerId: readRecordString(record, "containerId", label),
+    containerManifestHash: readRecordString(
+      record,
+      "containerManifestHash",
+      label,
+    ),
+  };
+}
+
 function canonicalString(value: unknown, label: string): string {
   return serializeKeyingCanonicalJson(readCanonicalJson(value, label));
 }
@@ -439,7 +465,7 @@ function addBundleByHash(
     canonicalString(bundle, `${label} duplicate`)
   ) {
     throw new Error(
-      `Container writer projection has equivocal manifest bundle ${bundle.manifestHash}`,
+      `Writer projection has equivocal manifest bundle ${bundle.manifestHash}`,
     );
   }
 }
@@ -498,6 +524,11 @@ async function verifyContainerManifestBundle(input: {
 }): Promise<VerifiedContainerAccessManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
+    assertContainerParentPathMatches({
+      label: input.label,
+      parentPath: input.parentPath,
+      verifiedManifest: cached,
+    });
     return cached;
   }
 
@@ -540,6 +571,20 @@ async function verifyContainerManifestBundle(input: {
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
 
   return verified.value;
+}
+
+function assertContainerParentPathMatches(input: {
+  readonly label: string;
+  readonly parentPath: readonly VerifiedContainerAccessManifest[];
+  readonly verifiedManifest: VerifiedContainerAccessManifest;
+}): void {
+  const actualParentManifestHash =
+    input.parentPath.at(-1)?.manifestHash ?? null;
+  if (
+    actualParentManifestHash !== input.verifiedManifest.state.parentManifestHash
+  ) {
+    throw new Error(`${input.label} parent path mismatch`);
+  }
 }
 
 async function verifyPreviousContainerManifest(input: {
@@ -680,10 +725,37 @@ async function verifyContainerKekProjection(input: {
   return verified.value;
 }
 
+async function verifyContainerManifestPath(input: {
+  readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
+  readonly label: string;
+  readonly path: readonly AccessManifestBundleWireResponse[];
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+}): Promise<VerifiedContainerAccessManifest[]> {
+  const verifiedPath: VerifiedContainerAccessManifest[] = [];
+  for (const [index, bundle] of input.path.entries()) {
+    verifiedPath.push(
+      await verifyContainerManifestBundle({
+        bundle,
+        bundlesByHash: input.bundlesByHash,
+        label: `${input.label}[${index}]`,
+        parentPath: verifiedPath,
+        resolveUserKey: input.resolveUserKey,
+        verifiedByHash: input.verifiedByHash,
+      }),
+    );
+  }
+
+  return verifiedPath;
+}
+
 export async function verifyContainerWriterProjection(input: {
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
-}): Promise<void> {
+  readonly verifiedByHash?:
+    | Map<string, VerifiedContainerAccessManifest>
+    | undefined;
+}): Promise<VerifiedContainerAccessManifest[]> {
   if (input.projection.path.length !== input.projection.containerKeks.length) {
     throw new Error(
       "Container writer projection path and KEKs are inconsistent",
@@ -710,20 +782,15 @@ export async function verifyContainerWriterProjection(input: {
     }
   }
 
-  const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
-  const verifiedPath: VerifiedContainerAccessManifest[] = [];
-  for (const [index, bundle] of input.projection.path.entries()) {
-    verifiedPath.push(
-      await verifyContainerManifestBundle({
-        bundle,
-        bundlesByHash,
-        label: `Container writer projection path[${index}]`,
-        parentPath: verifiedPath,
-        resolveUserKey: input.resolveUserKey,
-        verifiedByHash,
-      }),
-    );
-  }
+  const verifiedByHash =
+    input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
+  const verifiedPath = await verifyContainerManifestPath({
+    bundlesByHash,
+    label: "Container writer projection path",
+    path: input.projection.path,
+    resolveUserKey: input.resolveUserKey,
+    verifiedByHash,
+  });
 
   const verifiedKekStates: VerifiedContainerKekState[] = [];
   for (const [index, kek] of input.projection.containerKeks.entries()) {
@@ -757,4 +824,243 @@ export async function verifyContainerWriterProjection(input: {
     });
     verifiedKekStates.push(verifiedKekState);
   }
+
+  return verifiedPath;
+}
+
+function addContainerWriterProjectionBundles(
+  bundlesByHash: Map<string, AccessManifestBundleWireResponse>,
+  projection: ContainerWriterProjectionResponse,
+  label: string,
+): void {
+  for (const [index, bundle] of projection.path.entries()) {
+    addBundleByHash(bundlesByHash, bundle, `${label} path[${index}]`);
+  }
+  for (const [kekIndex, kek] of projection.containerKeks.entries()) {
+    for (const [historyIndex, bundle] of (
+      kek.containerManifestHistory ?? []
+    ).entries()) {
+      addBundleByHash(
+        bundlesByHash,
+        bundle,
+        `${label} KEK[${kekIndex}] history[${historyIndex}]`,
+      );
+    }
+  }
+}
+
+function readDocumentProjectionContainerPaths(
+  projection: DocumentWriterProjectionResponse,
+): AccessManifestBundleWireResponse[][] {
+  return [
+    ...(projection.documentManifestContainerPaths ?? []),
+    ...projection.authorizingContainerPaths.map((path) => path.path),
+  ];
+}
+
+async function verifyProjectionContainerPaths(input: {
+  readonly projection: DocumentWriterProjectionResponse;
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+}): Promise<Map<string, VerifiedContainerAccessManifest[]>> {
+  const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
+  for (const [
+    index,
+    projection,
+  ] of input.projection.authorizingContainerPaths.entries()) {
+    addContainerWriterProjectionBundles(
+      bundlesByHash,
+      projection,
+      `Document writer projection authorizing path[${index}]`,
+    );
+  }
+  for (const [index, path] of readDocumentProjectionContainerPaths(
+    input.projection,
+  ).entries()) {
+    for (const [pathIndex, bundle] of path.entries()) {
+      addBundleByHash(
+        bundlesByHash,
+        bundle,
+        `Document writer projection dependency path[${index}][${pathIndex}]`,
+      );
+    }
+  }
+  for (const [index, bundle] of (
+    input.projection.documentContainerManifestHistory ?? []
+  ).entries()) {
+    addBundleByHash(
+      bundlesByHash,
+      bundle,
+      `Document writer projection container history[${index}]`,
+    );
+  }
+
+  const containerPathByManifestHash = new Map<
+    string,
+    VerifiedContainerAccessManifest[]
+  >();
+  const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
+  for (const projection of input.projection.authorizingContainerPaths) {
+    const path = await verifyContainerWriterProjection({
+      projection,
+      resolveUserKey: input.resolveUserKey,
+      verifiedByHash,
+    });
+    const leaf = path.at(-1);
+    if (leaf) {
+      containerPathByManifestHash.set(leaf.manifestHash, path);
+    }
+    for (const manifest of path) {
+      verifiedByHash.set(manifest.manifestHash, manifest);
+    }
+  }
+  for (const [index, path] of readDocumentProjectionContainerPaths(
+    input.projection,
+  ).entries()) {
+    const verifiedPath = await verifyContainerManifestPath({
+      bundlesByHash,
+      label: `Document writer projection dependency path[${index}]`,
+      path,
+      resolveUserKey: input.resolveUserKey,
+      verifiedByHash,
+    });
+    const leaf = verifiedPath.at(-1);
+    if (leaf) {
+      containerPathByManifestHash.set(leaf.manifestHash, verifiedPath);
+    }
+  }
+
+  return containerPathByManifestHash;
+}
+
+function previousDocumentManifestFromCache(input: {
+  readonly event: Awaited<ReturnType<typeof verifyAccessEventBundle>>;
+  readonly label: string;
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedDocumentLinkSetManifest>;
+}): VerifiedDocumentLinkSetManifest | null {
+  const previousManifestHash = input.event.event.previousManifestHash;
+  if (previousManifestHash === null) {
+    return null;
+  }
+
+  const previousManifest = input.verifiedByHash.get(previousManifestHash);
+  if (!previousManifest) {
+    throw new Error(
+      `${input.label} previous manifest ${previousManifestHash} is missing`,
+    );
+  }
+
+  return previousManifest;
+}
+
+async function verifyDocumentManifestBundle(input: {
+  readonly bundle: AccessManifestBundleWireResponse;
+  readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
+  readonly containerPathByManifestHash: ReadonlyMap<
+    string,
+    readonly VerifiedContainerAccessManifest[]
+  >;
+  readonly label: string;
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
+}): Promise<VerifiedDocumentLinkSetManifest> {
+  const cached = input.verifiedByHash.get(input.bundle.manifestHash);
+  if (cached) {
+    return cached;
+  }
+
+  const event = await verifyAccessEventBundle(input);
+  const manifest = readAccessManifest(
+    input.bundle.manifest,
+    `${input.label} manifest`,
+  );
+  const previousManifest = previousDocumentManifestFromCache({
+    event,
+    label: input.label,
+    verifiedByHash: input.verifiedByHash,
+  });
+  const body = readDocumentAccessEventBody(
+    event.body,
+    `${input.label} event body`,
+  );
+  const dependencyContainerPaths = event.event.dependencyManifestHashes
+    .map((manifestHash) => input.containerPathByManifestHash.get(manifestHash))
+    .filter(
+      (path): path is readonly VerifiedContainerAccessManifest[] =>
+        path !== undefined,
+    )
+    .map((path) => [...path]);
+
+  const targetContainerPath = input.containerPathByManifestHash.get(
+    body.containerManifestHash,
+  );
+  const verified = await verifyDocumentLinkSetManifest({
+    authorizingContainerPaths: dependencyContainerPaths,
+    event,
+    expectedManifestHash: input.bundle.manifestHash,
+    manifest,
+    previousManifest,
+    principalPolicies: [],
+    ...(targetContainerPath ? { targetContainerPath } : {}),
+  });
+  if (!verified.ok) {
+    throw new Error(`${input.label} manifest verification failed`);
+  }
+
+  assertCanonicalEqual({
+    actual: input.bundle.state,
+    expected: verified.value.state as unknown as KeyingCanonicalJson,
+    label: `${input.label} state`,
+  });
+  input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
+
+  return verified.value;
+}
+
+export async function verifyDocumentWriterProjection(input: {
+  readonly projection: DocumentWriterProjectionResponse;
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+}): Promise<VerifiedDocumentLinkSetManifest> {
+  const containerPathByManifestHash =
+    await verifyProjectionContainerPaths(input);
+  const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
+  addBundleByHash(
+    bundlesByHash,
+    input.projection.documentManifest,
+    "Document writer projection manifest",
+  );
+  const history = input.projection.documentManifestHistory ?? [];
+  for (const [index, bundle] of history.entries()) {
+    addBundleByHash(
+      bundlesByHash,
+      bundle,
+      `Document writer projection manifest history[${index}]`,
+    );
+  }
+
+  const verifiedByHash = new Map<string, VerifiedDocumentLinkSetManifest>();
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const bundle = history[index];
+    if (!bundle) {
+      throw new Error(
+        `Document writer projection manifest history[${index}] is missing`,
+      );
+    }
+    await verifyDocumentManifestBundle({
+      bundle,
+      bundlesByHash,
+      containerPathByManifestHash,
+      label: `Document writer projection manifest history[${index}]`,
+      resolveUserKey: input.resolveUserKey,
+      verifiedByHash,
+    });
+  }
+
+  return verifyDocumentManifestBundle({
+    bundle: input.projection.documentManifest,
+    bundlesByHash,
+    containerPathByManifestHash,
+    label: "Document writer projection",
+    resolveUserKey: input.resolveUserKey,
+    verifiedByHash,
+  });
 }

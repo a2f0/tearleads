@@ -471,6 +471,51 @@ export async function getAccessManifestBundle(
   };
 }
 
+export async function getAccessManifestBundles(
+  manifestHashes: readonly string[],
+  executor: DatabaseSession,
+): Promise<Map<string, StoredAccessManifestBundle>> {
+  const uniqueManifestHashes = [...new Set(manifestHashes)].sort();
+  if (uniqueManifestHashes.length === 0) {
+    return new Map<string, StoredAccessManifestBundle>();
+  }
+
+  const manifests = await executor
+    .select()
+    .from(accessManifests)
+    .where(inArray(accessManifests.manifestHash, uniqueManifestHashes));
+  if (manifests.length === 0) {
+    return new Map<string, StoredAccessManifestBundle>();
+  }
+
+  const events = await executor
+    .select()
+    .from(accessEvents)
+    .where(
+      inArray(
+        accessEvents.eventHash,
+        [...new Set(manifests.map((manifest) => manifest.eventHash))].sort(),
+      ),
+    );
+  const eventByHash = new Map(events.map((event) => [event.eventHash, event]));
+  const bundles = new Map<string, StoredAccessManifestBundle>();
+  for (const manifest of manifests) {
+    const event = eventByHash.get(manifest.eventHash);
+    if (!event) {
+      throw new Error("Access event not found");
+    }
+
+    bundles.set(manifest.manifestHash, {
+      event: toStoredAccessEvent(event),
+      manifest: toStoredAccessManifest(manifest),
+      manifestHash: manifest.manifestHash,
+      state: manifest.state as KeyingCanonicalJson,
+    });
+  }
+
+  return bundles;
+}
+
 async function regenerateAccessEventDependencyProjection(
   event: typeof accessEvents.$inferSelect,
   executor: DatabaseSession,

@@ -55,6 +55,7 @@ import {
 import {
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
+  verifyDocumentWriterProjection,
 } from "../keyingProjectionVerification";
 import type {
   DocumentRecord,
@@ -1374,7 +1375,17 @@ function assertAuthorizingContainerPathsMatchDocumentTargets(input: {
 
 export async function assertDocumentWriterProjectionConsistent(
   writerProjection: DocumentWriterProjectionResponse,
+  input: {
+    readonly resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  } = {},
 ): Promise<DocumentContentKeyTarget[]> {
+  if (input.resolveProjectionUserKey) {
+    await verifyDocumentWriterProjection({
+      projection: writerProjection,
+      resolveUserKey: input.resolveProjectionUserKey,
+    });
+  }
+
   const manifestIdentity = await assertDocumentManifestBundleConsistent({
     bundle: writerProjection.documentManifest,
     label: "Document writer projection manifest",
@@ -1725,7 +1736,9 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(input: {
   targetSecretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<MaterializedDocumentLinkSetMutationPlan> {
-  await assertDocumentWriterProjectionConsistent(input.writerProjection);
+  await assertDocumentWriterProjectionConsistent(input.writerProjection, {
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+  });
   const targetState = deriveDocumentLinkSetTargetState({
     operation: input.operation,
     targetContainerProjection: input.targetContainerProjection,
@@ -2475,7 +2488,9 @@ export async function buildMaterializedDocumentSyncPlan(input: {
   targetSecretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<MaterializedDocumentSyncPlan> {
-  await assertDocumentWriterProjectionConsistent(input.writerProjection);
+  await assertDocumentWriterProjectionConsistent(input.writerProjection, {
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+  });
   const contentKey = await unwrapDocumentContentKeyFromWriterProjection({
     execSql: input.execSql,
     resolveProjectionUserKey: input.resolveProjectionUserKey,

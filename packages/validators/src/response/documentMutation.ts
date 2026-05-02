@@ -82,6 +82,9 @@ export interface DocumentSyncResponse {
 export interface DocumentWriterProjectionResponse {
   documentId: string;
   documentManifest: AccessManifestBundleWireResponse;
+  documentManifestHistory?: AccessManifestBundleWireResponse[];
+  documentManifestContainerPaths?: AccessManifestBundleWireResponse[][];
+  documentContainerManifestHistory?: AccessManifestBundleWireResponse[];
   documentKekTargets: DocumentKekTargetsResponse;
   contentKeyBundle: DocumentContentKeyBundleResponse;
   authorizingContainerPaths: ContainerWriterProjectionResponse[];
@@ -255,11 +258,35 @@ export function isDocumentWriterProjectionResponse(
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
     : undefined;
+  const documentManifestHistory = isPlainObject(value)
+    ? Reflect.get(value, "documentManifestHistory")
+    : undefined;
+  const documentManifestContainerPaths = isPlainObject(value)
+    ? Reflect.get(value, "documentManifestContainerPaths")
+    : undefined;
+  const documentContainerManifestHistory = isPlainObject(value)
+    ? Reflect.get(value, "documentContainerManifestHistory")
+    : undefined;
 
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "documentId") &&
     isAccessManifestBundleWireResponse(documentManifest) &&
+    (documentManifestHistory === undefined ||
+      (Array.isArray(documentManifestHistory) &&
+        documentManifestHistory.every(isAccessManifestBundleWireResponse))) &&
+    (documentManifestContainerPaths === undefined ||
+      (Array.isArray(documentManifestContainerPaths) &&
+        documentManifestContainerPaths.every(
+          (path) =>
+            Array.isArray(path) &&
+            path.every(isAccessManifestBundleWireResponse),
+        ))) &&
+    (documentContainerManifestHistory === undefined ||
+      (Array.isArray(documentContainerManifestHistory) &&
+        documentContainerManifestHistory.every(
+          isAccessManifestBundleWireResponse,
+        ))) &&
     isDocumentKekTargetsResponse(documentKekTargets) &&
     isDocumentContentKeyBundleResponse(contentKeyBundle) &&
     hasArrayProperty(value, "authorizingContainerPaths") &&
