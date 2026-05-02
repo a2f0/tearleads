@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { decryptWithDek, encryptWithDek } from "./symmetric";
+import {
+  assertAesGcmIv,
+  createAesGcmIv,
+  decryptWithDek,
+  encryptWithDek,
+} from "./symmetric";
 
 test("encryptWithDek and decryptWithDek round-trip plaintext", async () => {
   const dek = crypto.getRandomValues(new Uint8Array(32));
@@ -36,4 +41,12 @@ test("symmetric helpers reject malformed key and IV sizes", async () => {
       dek,
     ),
   ).rejects.toThrow("AES-GCM IV must be 12 bytes");
+});
+
+test("AES-GCM IV helpers generate and validate 96-bit IVs", () => {
+  const iv = createAesGcmIv();
+
+  expect(iv).toHaveLength(12);
+  expect(() => assertAesGcmIv(iv)).not.toThrow();
+  expect(() => assertAesGcmIv(new Uint8Array(8), "bad IV")).toThrow("bad IV");
 });

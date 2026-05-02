@@ -64,6 +64,13 @@ interface StoredNotesState {
   pendingUpdates: PendingUpdateRecord[];
 }
 
+interface ContentRecordFields {
+  ciphertext?: unknown;
+  contentRecordId?: unknown;
+  iv?: unknown;
+  nonceDomainHash?: unknown;
+}
+
 interface PendingUpdateLengthRow {
   update_data_length: number | string | null;
 }
@@ -1395,6 +1402,72 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
       targetSecretKey: encapsulationKeyPair.secretKey,
     }),
   ).rejects.toThrow("content-key bundle mismatch");
+});
+
+test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryption", async () => {
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const runtimePatch = await createNoteRuntimePatch({ encapsulationKeyPair });
+  const author = {
+    organizationId: runtimePatch.organizationId,
+    signerDeviceId: "test-device-1",
+    signerKeyFingerprint: runtimePatch.signingFingerprint,
+    signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
+    signerUserId: runtimePatch.userId,
+  };
+  const created = await createRemoteDocument({
+    apiClient: runtimePatch.apiClient,
+    author,
+    containerId: "root-container",
+    documentId: "document-attachment-fresh-iv",
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  if (!created) {
+    throw new Error("Expected remote document fixture.");
+  }
+
+  const blobId = "550e8400-e29b-41d4-a716-446655440551";
+  const bindingId = "550e8400-e29b-41d4-a716-446655440552";
+  const contentKey = new Uint8Array(32).fill(7);
+  const first = await uploadDocumentAttachment({
+    apiClient: runtimePatch.apiClient,
+    author,
+    bindingId,
+    blobId,
+    bytes: new TextEncoder().encode("first blob payload") as BlobBytes,
+    contentKey,
+    documentId: created.documentId,
+    expectedBindingId: null,
+    signedAt: "2026-04-27T00:00:01.000Z",
+    slotId: "fresh-iv-slot",
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  const second = await uploadDocumentAttachment({
+    apiClient: runtimePatch.apiClient,
+    author,
+    bindingId,
+    blobId,
+    bytes: new TextEncoder().encode("second blob payload") as BlobBytes,
+    contentKey,
+    documentId: created.documentId,
+    expectedBindingId: null,
+    signedAt: "2026-04-27T00:00:02.000Z",
+    slotId: "fresh-iv-slot",
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  if (!first || !second) {
+    throw new Error("Expected uploaded blob fixtures.");
+  }
+  const firstRecord = JSON.parse(first.encryptedBytes) as ContentRecordFields;
+  const secondRecord = JSON.parse(second.encryptedBytes) as ContentRecordFields;
+
+  expect(firstRecord.contentRecordId).toBe(blobId);
+  expect(secondRecord.contentRecordId).toBe(blobId);
+  expect(firstRecord.nonceDomainHash).toBe(secondRecord.nonceDomainHash);
+  expect(firstRecord.iv).not.toBe(bytesToBase64(new Uint8Array(12)));
+  expect(secondRecord.iv).not.toBe(bytesToBase64(new Uint8Array(12)));
+  expect(firstRecord.iv).not.toBe(secondRecord.iv);
+  expect(firstRecord.ciphertext).not.toBe(secondRecord.ciphertext);
 });
 
 test("notes store preserves a replacement queued during attachment upload", async () => {

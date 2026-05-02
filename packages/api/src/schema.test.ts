@@ -76,6 +76,8 @@ test(" access manifest schema creates tables and indexes", async () => {
  as "blobContentKeyTargets",
  to_regclass('blob_content_write_headers') is not null
  as "blobContentWriteHeaders",
+ to_regclass('users_fingerprint_unique') is not null
+ as "usersFingerprintUniqueIndex",
  to_regclass('access_events_event_hash_idx') is not null
  as "accessEventsEventHashIndex",
  to_regclass('access_manifests_object_epoch_idx') is not null
@@ -173,6 +175,7 @@ test(" access manifest schema creates tables and indexes", async () => {
     blobContentKeyEpochs: true,
     blobContentKeyTargets: true,
     blobContentWriteHeaders: true,
+    usersFingerprintUniqueIndex: true,
     accessEventsEventHashIndex: true,
     accessManifestsObjectEpochIndex: true,
     accessManifestHeadsObjectIndex: true,

@@ -2,10 +2,12 @@ import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   authChallengeSigningBytes,
+  generateSigningSeedAndKeyPair,
   hexToBytes,
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createPublicKeyRequest,
   createServiceTestRuntime,
@@ -96,6 +98,67 @@ test("verifyChallenge rejects raw challenge signatures without the auth domain",
   );
 
   expect(error.reason).toBe("invalid_signature");
+});
+
+test("verifyChallenge uses the canonical database signing key when redis drifts", async () => {
+  const { fingerprint, runtime, user } = await registerAuthServiceUser();
+  const staleKeys = generateSigningSeedAndKeyPair();
+  await runtime.keyValueStore.set(
+    fingerprint,
+    bytesToBase64(staleKeys.signingPublicKey),
+  );
+  const { challenge } = await createChallenge(runtime, { fingerprint });
+  const staleSignature = sign(
+    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    staleKeys.signingPrivateKey,
+  );
+
+  const staleError = await expectVerifyChallengeError(
+    verifyChallenge(runtime, {
+      fingerprint,
+      signature: Array.from(staleSignature),
+    }),
+  );
+  expect(staleError.reason).toBe("invalid_signature");
+
+  const nextChallenge = await createChallenge(runtime, { fingerprint });
+  const canonicalSignature = sign(
+    authChallengeSigningBytes({
+      challengeHex: nextChallenge.challenge,
+      fingerprint,
+    }),
+    user.signing.signingPrivateKey,
+  );
+
+  const result = await verifyChallenge(runtime, {
+    fingerprint,
+    signature: Array.from(canonicalSignature),
+  });
+  expect(result.token).toBe("test-session");
+});
+
+test("verifyChallenge rejects challenges backed only by stale redis keys", async () => {
+  const runtime = createServiceTestRuntime();
+  const staleKeys = generateSigningSeedAndKeyPair();
+  const fingerprint = await toFingerprint(staleKeys.signingPublicKey);
+  await runtime.keyValueStore.set(
+    fingerprint,
+    bytesToBase64(staleKeys.signingPublicKey),
+  );
+  const { challenge } = await createChallenge(runtime, { fingerprint });
+  const signature = sign(
+    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    staleKeys.signingPrivateKey,
+  );
+
+  const error = await expectVerifyChallengeError(
+    verifyChallenge(runtime, {
+      fingerprint,
+      signature: Array.from(signature),
+    }),
+  );
+
+  expect(error.reason).toBe("unknown_fingerprint");
 });
 
 test("verifyChallenge throws service errors for auth failures", async () => {

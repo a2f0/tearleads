@@ -177,14 +177,20 @@ CREATE TABLE IF NOT EXISTS containers (
 ```sql
 CREATE TABLE IF NOT EXISTS users (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
- fingerprint TEXT NOT NULL UNIQUE,
+ fingerprint TEXT NOT NULL,
  signing_public_key TEXT NOT NULL,
  encapsulation_public_key TEXT NOT NULL,
  encapsulation_key_fingerprint TEXT NOT NULL,
  default_organization_id UUID NOT NULL,
- created_at TIMESTAMP NOT NULL DEFAULT now()
+ created_at TIMESTAMP NOT NULL DEFAULT now(),
+ CONSTRAINT users_fingerprint_unique UNIQUE (fingerprint)
 );
 ```
+
+`users_fingerprint_unique` is the auth lookup path for
+`verifyChallenge(fingerprint, signature)`: PostgreSQL backs the unique
+constraint with a btree index, so each challenge verification can load the
+canonical signing key by fingerprint without scanning `users`.
 
 ### Local SQLite: `containers`
 

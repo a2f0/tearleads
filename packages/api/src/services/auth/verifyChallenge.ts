@@ -1,4 +1,8 @@
-import { authChallengeSigningBytes, verify } from "@tearleads/crypto";
+import {
+  authChallengeSigningBytes,
+  toFingerprint,
+  verify,
+} from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import { users } from "../../schema";
@@ -43,27 +47,8 @@ export async function verifyChallenge(
 
   await runtime.keyValueStore.del(`challenge:${input.fingerprint}`);
 
-  const storedKey = await runtime.keyValueStore.get(input.fingerprint);
-  if (!storedKey) {
-    throw new VerifyChallengeError(
-      "Unknown fingerprint",
-      "unknown_fingerprint",
-    );
-  }
-
-  const publicKey = base64ToBytes(storedKey);
-  const challengeBytes = authChallengeSigningBytes({
-    challengeHex,
-    fingerprint: input.fingerprint,
-  });
-  const signatureBytes = new Uint8Array(input.signature);
-
-  if (!verify(signatureBytes, challengeBytes, publicKey)) {
-    throw new VerifyChallengeError("Invalid signature", "invalid_signature");
-  }
-
   const [user] = await runtime.db
-    .select({ id: users.id })
+    .select({ id: users.id, signingPublicKey: users.signingPublicKey })
     .from(users)
     .where(eq(users.fingerprint, input.fingerprint))
     .limit(1);
@@ -73,6 +58,26 @@ export async function verifyChallenge(
       "Unknown fingerprint",
       "unknown_fingerprint",
     );
+  }
+
+  const publicKey = base64ToBytes(user.signingPublicKey);
+  // Defense in depth: the query matches the fingerprint column, but auth should
+  // fail closed if stored signing key material ever drifts from that binding.
+  if ((await toFingerprint(publicKey)) !== input.fingerprint) {
+    throw new VerifyChallengeError(
+      "Unknown fingerprint",
+      "unknown_fingerprint",
+    );
+  }
+
+  const challengeBytes = authChallengeSigningBytes({
+    challengeHex,
+    fingerprint: input.fingerprint,
+  });
+  const signatureBytes = new Uint8Array(input.signature);
+
+  if (!verify(signatureBytes, challengeBytes, publicKey)) {
+    throw new VerifyChallengeError("Invalid signature", "invalid_signature");
   }
 
   const token = await runtime.sessionTokenIssuer.createSession({

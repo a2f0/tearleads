@@ -231,6 +231,8 @@ export {
   AES_256_KEY_BYTES,
   AES_GCM_IV_BYTES,
   AES_GCM_TAG_BYTES,
+  assertAesGcmIv,
+  createAesGcmIv,
   decryptWithDek,
   encryptWithDek,
 } from "./symmetric";
