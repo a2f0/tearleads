@@ -1,7 +1,66 @@
 import { expect, test } from "bun:test";
-import { eq, sql } from "drizzle-orm";
+import type {
+  KeyingCanonicalJson,
+  ReferencedPrincipalHead,
+  WriteHeader,
+} from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
 import { db } from "./adapters/postgres";
-import { documentUpdateSpans } from "./schema";
+import {
+  accessEventDependencyProjection,
+  accessEvents,
+  accessManifestDocumentLinkProjection,
+  accessManifestHeads,
+  accessManifestPrincipalHeadProjection,
+  accessManifests,
+  blobContentKeyEpochs,
+  blobContentKeyTargets,
+  blobContentWriteHeaders,
+  containerKeyEpochs,
+  containerKeyWraps,
+  documentContentKeyEpochs,
+  documentContentKeyTargets,
+  documentContentWriteHeaders,
+  documentUpdateSpans,
+} from "./schema";
+
+const contentRecordEncryptionSuite = "aes-256-gcm-hkdf-sha256-record-key";
+
+function fixtureHash(label: string) {
+  return `schema-test:${label}:${crypto.randomUUID()}`;
+}
+
+function createWriteHeader(input: {
+  readonly accessManifestHash: string;
+  readonly contentKeyEpoch: number;
+  readonly contentRecordId: string;
+  readonly nonceDomainHash: string;
+  readonly objectId: string;
+  readonly objectKind: "blob" | "document";
+  readonly organizationId: string;
+  readonly targetHash: string;
+  readonly writerUserId: string;
+}): WriteHeader {
+  return {
+    version: 1,
+    organizationId: input.organizationId,
+    objectKind: input.objectKind,
+    objectId: input.objectId,
+    accessManifestHash: input.accessManifestHash,
+    contentKeyEpoch: input.contentKeyEpoch,
+    targetHash: input.targetHash,
+    encryptionSuite: contentRecordEncryptionSuite,
+    contentRecordId: input.contentRecordId,
+    nonceDomainHash: input.nonceDomainHash,
+    metadataHash: fixtureHash(`${input.objectKind}:metadata`),
+    ciphertextHash: fixtureHash(`${input.objectKind}:ciphertext`),
+    writerUserId: input.writerUserId,
+    writerDeviceId: "schema-test-device",
+    writerKeyFingerprint: fixtureHash(`${input.objectKind}:writer-key`),
+    signedAt: new Date().toISOString(),
+    signature: fixtureHash(`${input.objectKind}:signature`),
+  };
+}
 
 test("document_update_spans stores visible causal index rows", async () => {
   const documentId = crypto.randomUUID();
@@ -48,157 +107,401 @@ test("document_update_spans stores visible causal index rows", async () => {
   ]);
 });
 
-test(" access manifest schema creates tables and indexes", async () => {
-  const result = await db.execute(sql`
- select
- to_regclass('access_events') is not null as "accessEvents",
- to_regclass('access_manifests') is not null as "accessManifests",
- to_regclass('access_manifest_heads') is not null as "accessManifestHeads",
- to_regclass('container_key_epochs') is not null
- as "containerKeyEpochs",
- to_regclass('container_key_wraps') is not null
- as "containerKeyWraps",
- to_regclass('access_event_dependency_projection') is not null
- as "accessEventDependencyProjection",
- to_regclass('access_manifest_principal_head_projection') is not null
- as "accessManifestPrincipalHeadProjection",
- to_regclass('access_manifest_document_link_projection') is not null
- as "accessManifestDocumentLinkProjection",
- to_regclass('document_content_key_epochs') is not null
- as "documentContentKeyEpochs",
- to_regclass('document_content_key_targets') is not null
- as "documentContentKeyTargets",
- to_regclass('document_content_write_headers') is not null
- as "documentContentWriteHeaders",
- to_regclass('blob_content_key_epochs') is not null
- as "blobContentKeyEpochs",
- to_regclass('blob_content_key_targets') is not null
- as "blobContentKeyTargets",
- to_regclass('blob_content_write_headers') is not null
- as "blobContentWriteHeaders",
- to_regclass('users_fingerprint_unique') is not null
- as "usersFingerprintUniqueIndex",
- to_regclass('access_events_event_hash_idx') is not null
- as "accessEventsEventHashIndex",
- to_regclass('access_manifests_object_epoch_idx') is not null
- as "accessManifestsObjectEpochIndex",
- to_regclass('access_manifest_heads_object_idx') is not null
- as "accessManifestHeadsObjectIndex",
- to_regclass('container_key_epochs_container_epoch_idx') is not null
- as "containerKeyEpochsContainerEpochIndex",
- to_regclass('container_key_wraps_epoch_recipient_idx') is not null
- as "containerKeyWrapsEpochRecipientIndex",
- to_regclass('access_manifest_document_link_unique_idx') is not null
- as "accessManifestDocumentLinkUniqueIndex",
- to_regclass('document_content_key_epochs_document_epoch_idx') is not null
- as "documentContentKeyEpochsDocumentEpochIndex",
- to_regclass('document_content_key_targets_epoch_container_idx') is not null
- as "documentContentKeyTargetsEpochContainerIndex",
- to_regclass('document_content_write_headers_header_hash_idx') is not null
- as "documentContentWriteHeadersHeaderHashIndex",
- to_regclass('document_content_write_headers_content_record_idx') is not null
- as "documentContentWriteHeadersContentRecordIndex",
- to_regclass('document_content_write_headers_nonce_domain_idx') is not null
- as "documentContentWriteHeadersNonceDomainIndex",
- to_regclass('blob_content_key_epochs_blob_epoch_idx') is not null
- as "blobContentKeyEpochsBlobEpochIndex",
- to_regclass('blob_content_key_targets_epoch_binding_container_idx') is not null
- as "blobContentKeyTargetsEpochBindingContainerIndex",
- to_regclass('blob_content_write_headers_header_hash_idx') is not null
- as "blobContentWriteHeadersHeaderHashIndex",
- to_regclass('blob_content_write_headers_content_record_idx') is not null
- as "blobContentWriteHeadersContentRecordIndex",
- to_regclass('blob_content_write_headers_nonce_domain_idx') is not null
- as "blobContentWriteHeadersNonceDomainIndex",
- (
- select data_type
- from information_schema.columns
- where table_name = 'access_events'
- and column_name = 'dependency_manifest_hashes'
- ) = 'jsonb' as "accessEventsDependenciesJsonb",
- (
- select data_type
- from information_schema.columns
- where table_name = 'access_events'
- and column_name = 'body'
- ) = 'jsonb' as "accessEventsBodyJsonb",
- (
- select data_type
- from information_schema.columns
- where table_name = 'access_manifests'
- and column_name = 'referenced_principal_heads'
- ) = 'jsonb' as "accessManifestsPrincipalHeadsJsonb",
- (
- select data_type
- from information_schema.columns
- where table_name = 'access_manifests'
- and column_name = 'state'
- ) = 'jsonb' as "accessManifestsStateJsonb",
- (
- select data_type
- from information_schema.columns
- where table_name = 'document_content_key_targets'
- and column_name = 'wrapping_metadata'
- ) = 'jsonb' as "documentContentKeyTargetsMetadataJsonb",
- (
- select data_type
- from information_schema.columns
- where table_name = 'document_content_write_headers'
- and column_name = 'header'
- ) = 'jsonb' as "documentContentWriteHeadersHeaderJsonb",
- (
- select data_type
- from information_schema.columns
- where table_name = 'blob_content_key_targets'
- and column_name = 'wrapping_metadata'
- ) = 'jsonb' as "blobContentKeyTargetsMetadataJsonb",
- (
- select data_type
- from information_schema.columns
- where table_name = 'blob_content_write_headers'
- and column_name = 'header'
- ) = 'jsonb' as "blobContentWriteHeadersHeaderJsonb"
- `);
-
-  expect(result.rows[0]).toEqual({
-    accessEvents: true,
-    accessManifests: true,
-    accessManifestHeads: true,
-    containerKeyEpochs: true,
-    containerKeyWraps: true,
-    accessEventDependencyProjection: true,
-    accessManifestDocumentLinkProjection: true,
-    accessManifestPrincipalHeadProjection: true,
-    documentContentKeyEpochs: true,
-    documentContentKeyTargets: true,
-    documentContentWriteHeaders: true,
-    blobContentKeyEpochs: true,
-    blobContentKeyTargets: true,
-    blobContentWriteHeaders: true,
-    usersFingerprintUniqueIndex: true,
-    accessEventsEventHashIndex: true,
-    accessManifestsObjectEpochIndex: true,
-    accessManifestHeadsObjectIndex: true,
-    containerKeyEpochsContainerEpochIndex: true,
-    containerKeyWrapsEpochRecipientIndex: true,
-    accessManifestDocumentLinkUniqueIndex: true,
-    documentContentKeyEpochsDocumentEpochIndex: true,
-    documentContentKeyTargetsEpochContainerIndex: true,
-    documentContentWriteHeadersHeaderHashIndex: true,
-    documentContentWriteHeadersContentRecordIndex: true,
-    documentContentWriteHeadersNonceDomainIndex: true,
-    blobContentKeyEpochsBlobEpochIndex: true,
-    blobContentKeyTargetsEpochBindingContainerIndex: true,
-    blobContentWriteHeadersHeaderHashIndex: true,
-    blobContentWriteHeadersContentRecordIndex: true,
-    blobContentWriteHeadersNonceDomainIndex: true,
-    accessEventsDependenciesJsonb: true,
-    accessEventsBodyJsonb: true,
-    accessManifestsPrincipalHeadsJsonb: true,
-    accessManifestsStateJsonb: true,
-    documentContentKeyTargetsMetadataJsonb: true,
-    documentContentWriteHeadersHeaderJsonb: true,
-    blobContentKeyTargetsMetadataJsonb: true,
-    blobContentWriteHeadersHeaderJsonb: true,
+test("access manifest schema stores critical rows through Drizzle", async () => {
+  const organizationId = crypto.randomUUID();
+  const containerId = crypto.randomUUID();
+  const documentId = crypto.randomUUID();
+  const blobId = crypto.randomUUID();
+  const bindingId = crypto.randomUUID();
+  const writerUserId = crypto.randomUUID();
+  const eventHash = fixtureHash("event");
+  const eventId = crypto.randomUUID();
+  const dependencyManifestHash = fixtureHash("dependency-manifest");
+  const containerManifestHash = fixtureHash("container-manifest");
+  const documentManifestHash = fixtureHash("document-manifest");
+  const blobManifestHash = fixtureHash("blob-manifest");
+  const containerKeyEpochId = fixtureHash("container-key-epoch");
+  const documentTargetHash = fixtureHash("document-target");
+  const blobTargetHash = fixtureHash("blob-target");
+  const principalHead = {
+    principalType: "group",
+    principalId: crypto.randomUUID(),
+    version: 1,
+    keyEpoch: 1,
+    stateHash: fixtureHash("principal-state"),
+    keyFingerprint: fixtureHash("principal-key"),
+  } satisfies ReferencedPrincipalHead;
+  const eventBody = {
+    eventType: "container.create",
+    containerKeyEpochId,
+    directGrants: [],
+    metadataDocumentId: documentId,
+    parentContainerId: null,
+    parentManifestHash: null,
+    referencedPrincipalHeads: [principalHead],
+  } satisfies KeyingCanonicalJson;
+  const manifestState = {
+    version: 1,
+    containerId,
+    organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash,
+    directGrants: [],
+    referencedPrincipalHeads: [principalHead],
+    containerKeyEpochId,
+    metadataDocumentId: documentId,
+    parentContainerId: null,
+    parentManifestHash: null,
+  } satisfies KeyingCanonicalJson;
+  const wrapMetadata = {
+    suite: "schema-test-wrap",
+    iv: fixtureHash("wrap-iv"),
+  } satisfies KeyingCanonicalJson;
+  const documentContentEpochId = crypto.randomUUID();
+  const blobContentEpochId = crypto.randomUUID();
+  const documentContentRecordId = fixtureHash("document-content-record");
+  const blobContentRecordId = fixtureHash("blob-content-record");
+  const documentNonceDomainHash = fixtureHash("document-nonce-domain");
+  const blobNonceDomainHash = fixtureHash("blob-nonce-domain");
+  const eventSignedAt = new Date("2026-05-03T16:00:00.000Z");
+  const documentHeader = createWriteHeader({
+    accessManifestHash: documentManifestHash,
+    contentKeyEpoch: 1,
+    contentRecordId: documentContentRecordId,
+    nonceDomainHash: documentNonceDomainHash,
+    objectId: documentId,
+    objectKind: "document",
+    organizationId,
+    targetHash: documentTargetHash,
+    writerUserId,
   });
+  const blobHeader = createWriteHeader({
+    accessManifestHash: blobManifestHash,
+    contentKeyEpoch: 1,
+    contentRecordId: blobContentRecordId,
+    nonceDomainHash: blobNonceDomainHash,
+    objectId: blobId,
+    objectKind: "blob",
+    organizationId,
+    targetHash: blobTargetHash,
+    writerUserId,
+  });
+
+  await db.insert(accessEvents).values({
+    version: 1,
+    eventId,
+    eventType: "container.create",
+    objectKind: "container",
+    objectId: containerId,
+    organizationId,
+    previousManifestHash: null,
+    dependencyManifestHashes: [dependencyManifestHash],
+    bodyHash: fixtureHash("body"),
+    body: eventBody,
+    eventHash,
+    signerUserId: writerUserId,
+    signerDeviceId: "schema-test-device",
+    signerKeyFingerprint: fixtureHash("signer-key"),
+    signature: fixtureHash("event-signature"),
+    signedAt: eventSignedAt,
+  });
+  await db.insert(accessEventDependencyProjection).values({
+    eventHash,
+    objectKind: "container",
+    objectId: containerId,
+    dependencyManifestHash,
+    dependencyIndex: 0,
+  });
+  await db.insert(accessManifests).values({
+    version: 1,
+    objectKind: "container",
+    objectId: containerId,
+    organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash,
+    structuralHash: fixtureHash("structural"),
+    grantRoot: fixtureHash("grant-root"),
+    referencedPrincipalHeads: [principalHead],
+    keyTargetHash: fixtureHash("key-target"),
+    manifestHash: containerManifestHash,
+    state: manifestState,
+  });
+  await db.insert(accessManifestHeads).values({
+    objectKind: "container",
+    objectId: containerId,
+    organizationId,
+    epoch: 1,
+    manifestHash: containerManifestHash,
+  });
+  await db.insert(accessManifestPrincipalHeadProjection).values({
+    manifestHash: containerManifestHash,
+    objectKind: "container",
+    objectId: containerId,
+    principalType: principalHead.principalType,
+    principalId: principalHead.principalId,
+    version: principalHead.version,
+    keyEpoch: principalHead.keyEpoch,
+    stateHash: principalHead.stateHash,
+    keyFingerprint: principalHead.keyFingerprint,
+  });
+  await db.insert(accessManifestDocumentLinkProjection).values({
+    manifestHash: documentManifestHash,
+    documentId,
+    containerId,
+  });
+  await db.insert(containerKeyEpochs).values({
+    id: containerKeyEpochId,
+    containerId,
+    keyEpoch: 1,
+    accessManifestHash: containerManifestHash,
+    parentContainerKeyEpochId: null,
+    createdByEventHash: eventHash,
+    createdByManifestHash: containerManifestHash,
+  });
+  await db.insert(containerKeyWraps).values({
+    containerKeyEpochId,
+    recipientKind: "user",
+    recipientId: writerUserId,
+    recipientKeyEpochId: fixtureHash("recipient-key-epoch"),
+    recipientKeyFingerprint: fixtureHash("recipient-key-fingerprint"),
+    kemCipherText: fixtureHash("kem-cipher-text"),
+    wrappedKey: fixtureHash("container-wrapped-key"),
+    wrapManifestHash: containerManifestHash,
+  });
+  await db.insert(documentContentKeyEpochs).values({
+    id: documentContentEpochId,
+    documentId,
+    contentKeyEpoch: 1,
+    linkSetManifestHash: documentManifestHash,
+    targetHash: documentTargetHash,
+  });
+  await db.insert(documentContentKeyTargets).values({
+    documentContentKeyEpochId: documentContentEpochId,
+    containerId,
+    containerManifestHash,
+    containerKeyEpochId,
+    containerKeyEpoch: 1,
+    wrappedKey: fixtureHash("document-wrapped-key"),
+    wrappingMetadata: wrapMetadata,
+  });
+  await db.insert(documentContentWriteHeaders).values({
+    updateId: crypto.randomUUID(),
+    documentId,
+    organizationId,
+    contentKeyEpoch: 1,
+    accessManifestHash: documentManifestHash,
+    targetHash: documentTargetHash,
+    encryptionSuite: contentRecordEncryptionSuite,
+    contentRecordId: documentContentRecordId,
+    nonceDomainHash: documentNonceDomainHash,
+    headerHash: fixtureHash("document-header"),
+    header: documentHeader,
+  });
+  await db.insert(blobContentKeyEpochs).values({
+    id: blobContentEpochId,
+    blobId,
+    contentKeyEpoch: 1,
+    targetHash: blobTargetHash,
+  });
+  await db.insert(blobContentKeyTargets).values({
+    blobContentKeyEpochId: blobContentEpochId,
+    bindingId,
+    documentId,
+    containerId,
+    containerManifestHash,
+    containerKeyEpochId,
+    containerKeyEpoch: 1,
+    wrappedKey: fixtureHash("blob-wrapped-key"),
+    wrappingMetadata: wrapMetadata,
+  });
+  await db.insert(blobContentWriteHeaders).values({
+    recordId: crypto.randomUUID(),
+    blobId,
+    organizationId,
+    contentKeyEpoch: 1,
+    accessManifestHash: blobManifestHash,
+    targetHash: blobTargetHash,
+    encryptionSuite: contentRecordEncryptionSuite,
+    contentRecordId: blobContentRecordId,
+    nonceDomainHash: blobNonceDomainHash,
+    headerHash: fixtureHash("blob-header"),
+    header: blobHeader,
+  });
+
+  const storedEvents = await db
+    .select({
+      body: accessEvents.body,
+      dependencyManifestHashes: accessEvents.dependencyManifestHashes,
+      eventHash: accessEvents.eventHash,
+      signedAt: accessEvents.signedAt,
+    })
+    .from(accessEvents)
+    .where(eq(accessEvents.eventHash, eventHash));
+  expect(storedEvents).toEqual([
+    {
+      body: eventBody,
+      dependencyManifestHashes: [dependencyManifestHash],
+      eventHash,
+      signedAt: eventSignedAt,
+    },
+  ]);
+
+  const storedManifests = await db
+    .select({
+      manifestHash: accessManifests.manifestHash,
+      referencedPrincipalHeads: accessManifests.referencedPrincipalHeads,
+      state: accessManifests.state,
+    })
+    .from(accessManifests)
+    .where(eq(accessManifests.manifestHash, containerManifestHash));
+  expect(storedManifests).toEqual([
+    {
+      manifestHash: containerManifestHash,
+      referencedPrincipalHeads: [principalHead],
+      state: manifestState,
+    },
+  ]);
+
+  expect(
+    await db
+      .select({
+        dependencyManifestHash:
+          accessEventDependencyProjection.dependencyManifestHash,
+        eventHash: accessEventDependencyProjection.eventHash,
+      })
+      .from(accessEventDependencyProjection)
+      .where(eq(accessEventDependencyProjection.eventHash, eventHash)),
+  ).toEqual([{ dependencyManifestHash, eventHash }]);
+  expect(
+    await db
+      .select({
+        manifestHash: accessManifestHeads.manifestHash,
+        objectId: accessManifestHeads.objectId,
+      })
+      .from(accessManifestHeads)
+      .where(eq(accessManifestHeads.objectId, containerId)),
+  ).toEqual([{ manifestHash: containerManifestHash, objectId: containerId }]);
+  expect(
+    await db
+      .select({
+        manifestHash: accessManifestPrincipalHeadProjection.manifestHash,
+        principalId: accessManifestPrincipalHeadProjection.principalId,
+      })
+      .from(accessManifestPrincipalHeadProjection)
+      .where(
+        eq(
+          accessManifestPrincipalHeadProjection.manifestHash,
+          containerManifestHash,
+        ),
+      ),
+  ).toEqual([
+    {
+      manifestHash: containerManifestHash,
+      principalId: principalHead.principalId,
+    },
+  ]);
+  expect(
+    await db
+      .select({
+        containerId: accessManifestDocumentLinkProjection.containerId,
+        documentId: accessManifestDocumentLinkProjection.documentId,
+      })
+      .from(accessManifestDocumentLinkProjection)
+      .where(
+        eq(
+          accessManifestDocumentLinkProjection.manifestHash,
+          documentManifestHash,
+        ),
+      ),
+  ).toEqual([{ containerId, documentId }]);
+  expect(
+    await db
+      .select({
+        accessManifestHash: containerKeyEpochs.accessManifestHash,
+        id: containerKeyEpochs.id,
+      })
+      .from(containerKeyEpochs)
+      .where(eq(containerKeyEpochs.id, containerKeyEpochId)),
+  ).toEqual([
+    { accessManifestHash: containerManifestHash, id: containerKeyEpochId },
+  ]);
+  expect(
+    await db
+      .select({
+        containerKeyEpochId: containerKeyWraps.containerKeyEpochId,
+        recipientId: containerKeyWraps.recipientId,
+      })
+      .from(containerKeyWraps)
+      .where(eq(containerKeyWraps.containerKeyEpochId, containerKeyEpochId)),
+  ).toEqual([{ containerKeyEpochId, recipientId: writerUserId }]);
+  expect(
+    await db
+      .select({
+        documentId: documentContentKeyEpochs.documentId,
+        targetHash: documentContentKeyEpochs.targetHash,
+      })
+      .from(documentContentKeyEpochs)
+      .where(eq(documentContentKeyEpochs.id, documentContentEpochId)),
+  ).toEqual([{ documentId, targetHash: documentTargetHash }]);
+  expect(
+    await db
+      .select({
+        containerKeyEpochId: documentContentKeyTargets.containerKeyEpochId,
+        wrappingMetadata: documentContentKeyTargets.wrappingMetadata,
+      })
+      .from(documentContentKeyTargets)
+      .where(
+        eq(
+          documentContentKeyTargets.documentContentKeyEpochId,
+          documentContentEpochId,
+        ),
+      ),
+  ).toEqual([{ containerKeyEpochId, wrappingMetadata: wrapMetadata }]);
+  expect(
+    await db
+      .select({
+        contentRecordId: documentContentWriteHeaders.contentRecordId,
+        header: documentContentWriteHeaders.header,
+      })
+      .from(documentContentWriteHeaders)
+      .where(
+        eq(
+          documentContentWriteHeaders.contentRecordId,
+          documentContentRecordId,
+        ),
+      ),
+  ).toEqual([
+    { contentRecordId: documentContentRecordId, header: documentHeader },
+  ]);
+  expect(
+    await db
+      .select({
+        blobId: blobContentKeyEpochs.blobId,
+        targetHash: blobContentKeyEpochs.targetHash,
+      })
+      .from(blobContentKeyEpochs)
+      .where(eq(blobContentKeyEpochs.id, blobContentEpochId)),
+  ).toEqual([{ blobId, targetHash: blobTargetHash }]);
+  expect(
+    await db
+      .select({
+        bindingId: blobContentKeyTargets.bindingId,
+        wrappingMetadata: blobContentKeyTargets.wrappingMetadata,
+      })
+      .from(blobContentKeyTargets)
+      .where(
+        eq(blobContentKeyTargets.blobContentKeyEpochId, blobContentEpochId),
+      ),
+  ).toEqual([{ bindingId, wrappingMetadata: wrapMetadata }]);
+  expect(
+    await db
+      .select({
+        contentRecordId: blobContentWriteHeaders.contentRecordId,
+        header: blobContentWriteHeaders.header,
+      })
+      .from(blobContentWriteHeaders)
+      .where(eq(blobContentWriteHeaders.contentRecordId, blobContentRecordId)),
+  ).toEqual([{ contentRecordId: blobContentRecordId, header: blobHeader }]);
 });
