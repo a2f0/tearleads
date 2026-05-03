@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type AccessEvent,
+  BLOB_CONTENT_KEY_WRAP_SUITE,
   CONTAINER_KEK_MATERIAL_ID_PREFIX,
   type ContainerAccessEventBody,
   type ContainerAccessLevel,
@@ -15,9 +16,11 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeBlobAccessManifestHash,
   computeContainerKekMaterialId,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  computeWriteHeaderHash,
   decryptWithDek,
   deriveContainerAccessManifest,
   generateKemSeedAndKeyPair,
@@ -31,6 +34,7 @@ import {
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifySignedAccessEvent,
+  type WriteHeader,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -41,7 +45,10 @@ import {
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
+  DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import type { BlobBytes } from "../blobs";
+import { uploadDocumentAttachment } from "../documents/blobRuntime";
 import {
   buildMaterializedDocumentCreatePlan,
   unwrapContainerKekPath,
@@ -1230,7 +1237,7 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
     author: parent.author,
     containerProjection: revokedProjection,
     contentKey,
-    documentId: "document-after-revoke",
+    documentId: "550e8400-e29b-41d4-a716-446655440700",
     eventId: "document-after-revoke-event",
     resolveProjectionUserKey,
     signedAt: SIGNED_AT,
@@ -1259,6 +1266,164 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
       containerKek: previousContainerKek,
       envelope: targetEnvelope,
     }),
+  ).rejects.toThrow();
+
+  const documentWriterProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [revokedProjection],
+    contentKeyBundle: {
+      documentId: createdDocument.plan.documentId,
+      contentKeyEpoch:
+        createdDocument.plan.request.contentKeyBundle.contentKeyEpoch,
+      linkSetManifestHash:
+        createdDocument.plan.request.contentKeyBundle.linkSetManifestHash,
+      targetHash: createdDocument.plan.request.contentKeyBundle.targetHash,
+      targets: [...createdDocument.plan.request.contentKeyBundle.targets],
+    },
+    documentId: createdDocument.plan.documentId,
+    documentKekTargets: {
+      documentId: createdDocument.plan.documentId,
+      linkSetManifestHash: createdDocument.plan.manifestHash,
+      linkedContainerManifestHashes: createdDocument.plan.targets.map(
+        (target) => target.containerManifestHash,
+      ),
+      linkedContainerKeyEpochIds: createdDocument.plan.targets.map(
+        (target) => target.containerKeyEpochId,
+      ),
+      targets: createdDocument.plan.targets.map((target) => ({ ...target })),
+      documentKeyTargetHash: createdDocument.plan.targetHash,
+    },
+    documentManifest: {
+      event: {
+        event: createdDocument.plan.event as unknown as Record<string, unknown>,
+        body: createdDocument.plan.body as unknown as Record<string, unknown>,
+        eventHash: createdDocument.plan.eventHash,
+      },
+      manifest: createdDocument.plan.manifest as unknown as Record<
+        string,
+        unknown
+      >,
+      manifestHash: createdDocument.plan.manifestHash,
+      state: createdDocument.plan.state as unknown as Record<string, unknown>,
+    },
+  };
+  const blobId = "550e8400-e29b-41d4-a716-446655440701";
+  const bindingId = "550e8400-e29b-41d4-a716-446655440702";
+  const slotId = "preview-after-revoke";
+  const blobContentKey = crypto.getRandomValues(new Uint8Array(32));
+  const uploadedBlob = await uploadDocumentAttachment({
+    apiClient: {
+      bindBlobAttachment: async (_blobId, request) => {
+        const targets = request.contentKeyBundle.targets;
+        const linkedContainerManifestHashes = [
+          ...new Set(targets.map((target) => target.containerManifestHash)),
+        ].sort();
+        const linkedContainerKeyEpochIds = [
+          ...new Set(targets.map((target) => target.containerKeyEpochId)),
+        ].sort();
+        if (!request.stagedBlob) {
+          throw new Error("Expected staged blob request");
+        }
+        const blobAccessManifestHash = await computeBlobAccessManifestHash({
+          version: 1,
+          blobId,
+          organizationId: parent.projection.organizationId,
+          activeBindingIds: [bindingId],
+          documentManifestHashes: [createdDocument.plan.manifestHash],
+          linkedContainerManifestHashes,
+          linkedContainerKeyEpochIds,
+          blobKeyTargetHash: request.contentKeyBundle.targetHash,
+        });
+
+        return {
+          bindingId,
+          blobId,
+          documentId: createdDocument.plan.documentId,
+          slotId,
+          contentKeyBundle: {
+            blobId,
+            ...request.contentKeyBundle,
+          },
+          blobKekTargets: {
+            blobId,
+            organizationId: parent.projection.organizationId,
+            activeBindingIds: [bindingId],
+            documentManifestHashes: [createdDocument.plan.manifestHash],
+            linkedContainerManifestHashes,
+            linkedContainerKeyEpochIds,
+            targets: targets.map((target) => ({ ...target })),
+            blobKeyTargetHash: request.contentKeyBundle.targetHash,
+            blobAccessManifestHash,
+          },
+          writeHeaderHash: await computeWriteHeaderHash(
+            request.stagedBlob.writeHeader as unknown as WriteHeader,
+          ),
+        };
+      },
+      getDocumentWriterProjection: async (documentId) =>
+        documentId === createdDocument.plan.documentId
+          ? documentWriterProjection
+          : null,
+      stageBlob: async () => ({
+        stageId: "stage-blob-after-revoke",
+        expiresAt: "2026-04-28T13:00:00.000Z",
+      }),
+    },
+    author: parent.author,
+    bindingId,
+    blobId,
+    bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
+    contentKey: blobContentKey,
+    documentId: createdDocument.plan.documentId,
+    expectedBindingId: null,
+    resolveProjectionUserKey,
+    signedAt: SIGNED_AT,
+    slotId,
+    targetSecretKey: parent.secretKey,
+  });
+  if (!uploadedBlob) {
+    throw new Error("Expected blob attachment upload");
+  }
+  const [blobTargetEnvelope] = uploadedBlob.request.contentKeyBundle.targets;
+  if (!blobTargetEnvelope) {
+    throw new Error("Expected blob content-key target");
+  }
+  const blobWrappingMetadata = blobTargetEnvelope.wrappingMetadata;
+  if (
+    !blobWrappingMetadata ||
+    typeof blobWrappingMetadata !== "object" ||
+    Array.isArray(blobWrappingMetadata)
+  ) {
+    throw new Error("Expected blob wrapping metadata");
+  }
+  const blobWrapSuite = Reflect.get(blobWrappingMetadata, "suite");
+  const blobWrapIv = Reflect.get(blobWrappingMetadata, "iv");
+  expect(blobWrapSuite).toBe(BLOB_CONTENT_KEY_WRAP_SUITE);
+  if (typeof blobWrapIv !== "string" || blobWrapIv.length === 0) {
+    throw new Error("Expected blob wrapping IV");
+  }
+  expect(blobTargetEnvelope).toEqual(
+    expect.objectContaining({
+      containerManifestHash: revokedManifest.manifestHash,
+      containerKeyEpoch: 2,
+      containerKeyEpochId: rotatedContainerKeyEpochId,
+    }),
+  );
+  const ownerBlobContentKey = await decryptWithDek(
+    {
+      iv: base64ToBytes(blobWrapIv),
+      ciphertext: base64ToBytes(blobTargetEnvelope.wrappedKey),
+    },
+    rotatedContainerKek,
+  );
+  expect(Array.from(ownerBlobContentKey)).toEqual(Array.from(blobContentKey));
+  await expect(
+    decryptWithDek(
+      {
+        iv: base64ToBytes(blobWrapIv),
+        ciphertext: base64ToBytes(blobTargetEnvelope.wrappedKey),
+      },
+      previousContainerKek,
+    ),
   ).rejects.toThrow();
 });
 
