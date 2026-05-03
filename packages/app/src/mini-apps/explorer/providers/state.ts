@@ -5,6 +5,27 @@ import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
 import type { ExplorerSnapshot, ExplorerStoreState } from "./types";
 import { getSnapshotNodes } from "./utils";
 
+function areSnapshotNodesEqual(
+  left: ReadonlyArray<ContainerNode>,
+  right: ReadonlyArray<ContainerNode>,
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftNode, index) => {
+    const rightNode = right[index];
+    return (
+      rightNode !== undefined &&
+      leftNode.id === rightNode.id &&
+      leftNode.kind === rightNode.kind &&
+      leftNode.name === rightNode.name &&
+      leftNode.organizationId === rightNode.organizationId &&
+      leftNode.parentId === rightNode.parentId
+    );
+  });
+}
+
 export function createExplorerStoreState(
   initialRuntime: ExplorerRuntime,
   persistence: ExplorerPersistence,
@@ -39,7 +60,7 @@ function setExplorerSnapshot(
 ) {
   if (
     next.ready === state.snapshot.ready &&
-    next.nodes === state.snapshot.nodes
+    areSnapshotNodesEqual(next.nodes, state.snapshot.nodes)
   ) {
     return;
   }

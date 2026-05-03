@@ -55,6 +55,11 @@ import {
   createExplorerSyncAgent,
   type ExplorerSyncState,
 } from "./explorerSyncAgent";
+import {
+  createExplorerStoreState,
+  subscribeToExplorerStore,
+  updateExplorerSnapshot,
+} from "./state";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void };
@@ -680,6 +685,55 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
     expect(
       secondStore.getSnapshot().nodes.some((node) => node.id === childNode.id),
     ).toBe(false);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("explorer snapshot update skips notifications when node contents are unchanged", async () => {
+  const runtime = await createSqlRuntime();
+
+  try {
+    const state = createExplorerStoreState(runtime, sqlExplorerPersistence);
+    const { doc } = await createInitializedContainerMetadataDocument(
+      "root-container",
+      {
+        icon: null,
+        name: "/",
+      },
+    );
+    state.containersById.set("root-container", {
+      container: {
+        id: "root-container",
+        organizationId: "org-1",
+        parentId: null,
+        metadataDocumentId: null,
+        name: "/",
+        icon: null,
+      },
+      doc,
+      record: {
+        id: "root-container",
+        documentId: null,
+        loroSnapshot: "",
+        accessEpoch: 1,
+      },
+    });
+
+    let notificationCount = 0;
+    const unsubscribe = subscribeToExplorerStore(state, () => {
+      notificationCount += 1;
+    });
+
+    updateExplorerSnapshot(state);
+    expect(notificationCount).toBe(1);
+
+    const readySnapshot = state.snapshot;
+    updateExplorerSnapshot(state);
+    expect(notificationCount).toBe(1);
+    expect(state.snapshot).toBe(readySnapshot);
+
+    unsubscribe();
   } finally {
     runtime.close();
   }
