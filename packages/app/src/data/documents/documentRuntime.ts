@@ -88,6 +88,50 @@ const DOCUMENT_ENCRYPTED_UPDATE_KEYS = new Set([
 ]);
 const TEXT_ENCODER = new TextEncoder();
 
+export type ProjectionVerificationOptions =
+  | {
+      readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
+      readonly trustedLocalProjection?: boolean | undefined;
+    }
+  | {
+      readonly resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+      readonly trustedLocalProjection: true;
+    };
+
+function resolveProjectionVerifier(
+  input: ProjectionVerificationOptions,
+  label: string,
+): ProjectionUserKeyResolver | null {
+  if (input.resolveProjectionUserKey) {
+    return requireProjectionUserKeyResolver(
+      input.resolveProjectionUserKey,
+      label,
+    );
+  }
+  if (input.trustedLocalProjection === true) {
+    return null;
+  }
+
+  throw new Error(
+    `${label} requires projection key verification or an explicitly trusted local projection`,
+  );
+}
+
+export function projectionVerificationOptions(
+  input: ProjectionVerificationOptions,
+): ProjectionVerificationOptions {
+  if (input.resolveProjectionUserKey) {
+    return { resolveProjectionUserKey: input.resolveProjectionUserKey };
+  }
+  if (input.trustedLocalProjection === true) {
+    return { trustedLocalProjection: true };
+  }
+
+  throw new Error(
+    "Projection use requires key verification or an explicitly trusted local projection",
+  );
+}
+
 export interface DocumentCreateAuthor {
   organizationId: string;
   signerDeviceId: string;
@@ -906,21 +950,26 @@ async function assertUnwrappedContainerKekMatchesMaterialId(input: {
   }
 }
 
-export async function unwrapContainerKekPath(input: {
-  execSql?: ExecSql | undefined;
-  projection: ContainerWriterProjectionResponse;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  secretKey: Uint8Array;
-}): Promise<ReadonlyMap<string, Uint8Array>> {
+export async function unwrapContainerKekPath(
+  input: {
+    execSql?: ExecSql | undefined;
+    projection: ContainerWriterProjectionResponse;
+    secretKey: Uint8Array;
+  } & ProjectionVerificationOptions,
+): Promise<ReadonlyMap<string, Uint8Array>> {
   if (input.projection.path.length !== input.projection.containerKeks.length) {
     throw new Error(
       "Container writer projection path and KEKs are inconsistent",
     );
   }
-  if (input.resolveProjectionUserKey) {
+  const resolveProjectionUserKey = resolveProjectionVerifier(
+    input,
+    "Container KEK unwrap",
+  );
+  if (resolveProjectionUserKey) {
     await verifyContainerWriterProjection({
       projection: input.projection,
-      resolveUserKey: input.resolveProjectionUserKey,
+      resolveUserKey: resolveProjectionUserKey,
     });
   }
 
@@ -998,19 +1047,20 @@ function getOnlyDocumentCreateTarget(
   return target;
 }
 
-async function wrapDocumentContentKeyForCreate(input: {
-  contentKey: Uint8Array;
-  execSql?: ExecSql | undefined;
-  projection: ContainerWriterProjectionResponse;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  secretKey: Uint8Array;
-}): Promise<DocumentContentKeyTargetEnvelope[]> {
+async function wrapDocumentContentKeyForCreate(
+  input: {
+    contentKey: Uint8Array;
+    execSql?: ExecSql | undefined;
+    projection: ContainerWriterProjectionResponse;
+    secretKey: Uint8Array;
+  } & ProjectionVerificationOptions,
+): Promise<DocumentContentKeyTargetEnvelope[]> {
   const target = getOnlyDocumentCreateTarget(input.projection);
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.projection,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.secretKey,
+    ...projectionVerificationOptions(input),
   });
   const targetKek = keksByEpochId.get(target.containerKeyEpochId);
   if (!targetKek) {
@@ -1185,18 +1235,19 @@ export async function buildDocumentCreatePlan({
   };
 }
 
-export async function buildMaterializedDocumentCreatePlan(input: {
-  author: DocumentCreateAuthor;
-  containerProjection: ContainerWriterProjectionResponse;
-  contentKey?: Uint8Array | undefined;
-  contentKeyEpoch?: number | undefined;
-  documentId?: string | undefined;
-  eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  signedAt?: string | undefined;
-  targetSecretKey: Uint8Array;
-}): Promise<MaterializedDocumentCreatePlan> {
+export async function buildMaterializedDocumentCreatePlan(
+  input: {
+    author: DocumentCreateAuthor;
+    containerProjection: ContainerWriterProjectionResponse;
+    contentKey?: Uint8Array | undefined;
+    contentKeyEpoch?: number | undefined;
+    documentId?: string | undefined;
+    eventId?: string | undefined;
+    execSql?: ExecSql | undefined;
+    signedAt?: string | undefined;
+    targetSecretKey: Uint8Array;
+  } & ProjectionVerificationOptions,
+): Promise<MaterializedDocumentCreatePlan> {
   const contentKey =
     input.contentKey ?? crypto.getRandomValues(new Uint8Array(32));
   if (contentKey.byteLength !== 32) {
@@ -1206,8 +1257,8 @@ export async function buildMaterializedDocumentCreatePlan(input: {
     contentKey,
     execSql: input.execSql,
     projection: input.containerProjection,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.targetSecretKey,
+    ...projectionVerificationOptions(input),
   });
   const plan = await buildDocumentCreatePlan({
     author: input.author,
@@ -1407,14 +1458,16 @@ function assertAuthorizingContainerPathsMatchDocumentTargets(input: {
 
 export async function assertDocumentWriterProjectionConsistent(
   writerProjection: DocumentWriterProjectionResponse,
-  input: {
-    readonly resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  } = {},
+  input: ProjectionVerificationOptions,
 ): Promise<DocumentContentKeyTarget[]> {
-  if (input.resolveProjectionUserKey) {
+  const resolveProjectionUserKey = resolveProjectionVerifier(
+    input,
+    "Document writer projection",
+  );
+  if (resolveProjectionUserKey) {
     await verifyDocumentWriterProjection({
       projection: writerProjection,
-      resolveUserKey: input.resolveProjectionUserKey,
+      resolveUserKey: resolveProjectionUserKey,
     });
   }
 
@@ -1756,20 +1809,21 @@ async function buildDocumentLinkSetMutationPlan({
   };
 }
 
-export async function buildMaterializedDocumentLinkSetMutationPlan(input: {
-  author: DocumentCreateAuthor;
-  contentKey?: Uint8Array | undefined;
-  eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
-  operation: DocumentLinkSetMutationOperation;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  signedAt?: string | undefined;
-  targetContainerProjection: ContainerWriterProjectionResponse;
-  targetSecretKey: Uint8Array;
-  writerProjection: DocumentWriterProjectionResponse;
-}): Promise<MaterializedDocumentLinkSetMutationPlan> {
+export async function buildMaterializedDocumentLinkSetMutationPlan(
+  input: {
+    author: DocumentCreateAuthor;
+    contentKey?: Uint8Array | undefined;
+    eventId?: string | undefined;
+    execSql?: ExecSql | undefined;
+    operation: DocumentLinkSetMutationOperation;
+    signedAt?: string | undefined;
+    targetContainerProjection: ContainerWriterProjectionResponse;
+    targetSecretKey: Uint8Array;
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<MaterializedDocumentLinkSetMutationPlan> {
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    ...projectionVerificationOptions(input),
   });
   const targetState = deriveDocumentLinkSetTargetState({
     operation: input.operation,
@@ -1778,7 +1832,6 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(input: {
   });
   const currentContentKey = await unwrapDocumentContentKeyFromWriterProjection({
     execSql: input.execSql,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
   });
@@ -1799,8 +1852,8 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(input: {
             keksByEpochId: await unwrapContainerKekPath({
               execSql: input.execSql,
               projection: input.targetContainerProjection,
-              resolveProjectionUserKey: input.resolveProjectionUserKey,
               secretKey: input.targetSecretKey,
+              ...projectionVerificationOptions(input),
             }),
             targets: [targetState.target],
           })),
@@ -1809,7 +1862,6 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(input: {
           contentKey,
           keksByEpochId: await collectContainerKeksForDocumentSync({
             execSql: input.execSql,
-            resolveProjectionUserKey: input.resolveProjectionUserKey,
             secretKey: input.targetSecretKey,
             writerProjection: input.writerProjection,
           }),
@@ -2382,20 +2434,21 @@ function assertEqualBytes(
 
 async function collectContainerKeksForDocumentSync(input: {
   execSql?: ExecSql | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   secretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<ReadonlyMap<string, Uint8Array>> {
   const keksByEpochId = new Map<string, Uint8Array>();
 
+  // Caller must have already run assertDocumentWriterProjectionConsistent.
+  // The authorizing paths are part of that verified writer projection.
   for (const projection of input.writerProjection.authorizingContainerPaths) {
     let projectionKeks: ReadonlyMap<string, Uint8Array>;
     try {
       projectionKeks = await unwrapContainerKekPath({
         execSql: input.execSql,
         projection,
-        resolveProjectionUserKey: input.resolveProjectionUserKey,
         secretKey: input.secretKey,
+        trustedLocalProjection: true,
       });
     } catch (error) {
       throw new Error(
@@ -2421,7 +2474,6 @@ async function collectContainerKeksForDocumentSync(input: {
 
 async function unwrapDocumentContentKeyFromWriterProjection(input: {
   execSql?: ExecSql | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
   secretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<Uint8Array> {
@@ -2513,23 +2565,23 @@ async function prepareDocumentOutgoingUpdates(input: {
   );
 }
 
-export async function buildMaterializedDocumentSyncPlan(input: {
-  author: DocumentCreateAuthor;
-  execSql?: ExecSql | undefined;
-  localVersionVector: string | null;
-  minLsn?: string | undefined;
-  pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  signedAt?: string | undefined;
-  targetSecretKey: Uint8Array;
-  writerProjection: DocumentWriterProjectionResponse;
-}): Promise<MaterializedDocumentSyncPlan> {
+export async function buildMaterializedDocumentSyncPlan(
+  input: {
+    author: DocumentCreateAuthor;
+    execSql?: ExecSql | undefined;
+    localVersionVector: string | null;
+    minLsn?: string | undefined;
+    pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+    signedAt?: string | undefined;
+    targetSecretKey: Uint8Array;
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<MaterializedDocumentSyncPlan> {
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    ...projectionVerificationOptions(input),
   });
   const contentKey = await unwrapDocumentContentKeyFromWriterProjection({
     execSql: input.execSql,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
   });

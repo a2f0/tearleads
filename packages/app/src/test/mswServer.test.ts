@@ -81,6 +81,7 @@ async function registerIdentity(
     documentId: rootMetadataDocumentId,
     signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
     targetSecretKey: encapsulationSecretKey,
+    trustedLocalProjection: true,
   });
 
   const response = await fetch(`${apiBaseUrl}/auth/register`, {

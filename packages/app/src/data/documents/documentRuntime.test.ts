@@ -719,9 +719,17 @@ test("unwrapContainerKekPath follows parent KEK edges to the leaf", async () => 
     rootContainerKeyEpochId,
     secretKey,
   } = await createWrappedProjection();
+  await expect(
+    unwrapContainerKekPath({
+      projection,
+      secretKey,
+    } as Parameters<typeof unwrapContainerKekPath>[0]),
+  ).rejects.toThrow("requires projection key verification");
+
   const unwrapped = await unwrapContainerKekPath({
     projection,
     secretKey,
+    trustedLocalProjection: true,
   });
 
   expect(Array.from(unwrapped.get(rootContainerKeyEpochId) ?? [])).toEqual(
@@ -742,6 +750,7 @@ test("unwrapContainerKekPath follows parent KEK edges to the leaf", async () => 
         containerKeks: [childKek],
       },
       secretKey,
+      trustedLocalProjection: true,
     }),
   ).rejects.toThrow("inconsistent");
 
@@ -761,6 +770,7 @@ test("unwrapContainerKekPath follows parent KEK edges to the leaf", async () => 
         ],
       },
       secretKey,
+      trustedLocalProjection: true,
     }),
   ).rejects.toThrow("could not be unwrapped");
 });
@@ -778,6 +788,7 @@ test("buildMaterializedDocumentCreatePlan wraps the content key to the target co
     eventId: "event-materialized",
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
   });
   const [targetEnvelope] = materialized.plan.request.contentKeyBundle.targets;
   if (!targetEnvelope) {
@@ -924,6 +935,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
     contentKey,
     documentId: "document-link-set",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
@@ -940,6 +952,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
     signedAt: "2026-04-27T00:00:00.000Z",
     targetContainerProjection: siblingProjection,
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
   expect(isDocumentLinkSetMutationRequest(linked.plan.request)).toBe(true);
@@ -981,6 +994,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
     signedAt: "2026-04-27T00:00:01.000Z",
     targetContainerProjection: projection,
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection: {
       authorizingContainerPaths: [projection, siblingProjection],
       contentKeyBundle: linkResponse.contentKeyBundle,
@@ -1024,6 +1038,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan rejects split writer projecti
     containerProjection: projection,
     documentId: "document-link-set-split-projection",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
   });
   const createdResponse = createResponse(created.plan);
   const splitTargetHash = await fixtureHash("split-writer-projection-target");
@@ -1034,6 +1049,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan rejects split writer projecti
       operation: "link",
       targetContainerProjection: siblingProjection,
       targetSecretKey: secretKey,
+      trustedLocalProjection: true,
       writerProjection: {
         authorizingContainerPaths: [projection],
         contentKeyBundle: {
@@ -1066,6 +1082,7 @@ test("buildMaterializedDocumentSyncPlan rejects authorizing paths outside the do
     contentKey,
     documentId: "document-sync-forged-authorization-path",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
@@ -1080,6 +1097,7 @@ test("buildMaterializedDocumentSyncPlan rejects authorizing paths outside the do
     operation: "link",
     targetContainerProjection: siblingProjection,
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
   const childTarget = getOnlyTarget(projection);
@@ -1111,6 +1129,7 @@ test("buildMaterializedDocumentSyncPlan rejects authorizing paths outside the do
       localVersionVector: null,
       pendingUpdates: [createPendingUpdateRecord()],
       targetSecretKey: secretKey,
+      trustedLocalProjection: true,
       writerProjection: {
         authorizingContainerPaths: [siblingProjection],
         contentKeyBundle: {
@@ -1160,6 +1179,7 @@ test("buildMaterializedDocumentSyncPlan names malformed authorizing path indexes
       author,
       localVersionVector: null,
       targetSecretKey: secretKey,
+      trustedLocalProjection: true,
       writerProjection: {
         ...writerProjection,
         authorizingContainerPaths: [malformedProjection],
@@ -1184,6 +1204,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
     containerProjection: projection,
     documentId: "document-link-set-missing-kek",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
@@ -1198,6 +1219,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
     operation: "link",
     targetContainerProjection: siblingProjection,
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
   const linkResponse = await createLinkSetResponseFromRequest(
@@ -1219,6 +1241,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
       operation: "unlink",
       targetContainerProjection: projection,
       targetSecretKey: secretKey,
+      trustedLocalProjection: true,
       writerProjection: {
         authorizingContainerPaths: [projection, inaccessibleSiblingProjection],
         contentKeyBundle: linkResponse.contentKeyBundle,
@@ -1750,6 +1773,7 @@ test("buildMaterializedDocumentSyncPlan unwraps the content key and encrypts pen
     ],
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
 
@@ -1799,6 +1823,14 @@ test("buildMaterializedDocumentSyncPlan rejects document writer projections with
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     documentId: "550e8400-e29b-41d4-a716-446655440099",
     eventId: "event-bad-document-signature",
+    resolveProjectionUserKey: async (userId) =>
+      userId === author.signerUserId
+        ? {
+            encapsulationPublicKey: encapsulationKeyPair.publicKey,
+            signingPublicKey,
+            userId,
+          }
+        : null,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -2017,6 +2049,7 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
     eventId: "event-verified-document-history",
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: encapsulationKeyPair.secretKey,
+    trustedLocalProjection: true,
   });
   const createdResponse = createResponse(materializedCreate.plan);
   const initialWriterProjection: DocumentWriterProjectionResponse = {
@@ -2031,6 +2064,7 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
     operation: "link",
     targetContainerProjection: childProjection,
     targetSecretKey: encapsulationKeyPair.secretKey,
+    trustedLocalProjection: true,
     writerProjection: initialWriterProjection,
   });
   const linkResponse = await createLinkSetResponseFromRequest(
@@ -2087,6 +2121,7 @@ test("buildMaterializedDocumentSyncPlan uses a fresh IV for same-domain re-encry
     pendingUpdates: [sharedUpdate],
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
   const second = await buildMaterializedDocumentSyncPlan({
@@ -2100,6 +2135,7 @@ test("buildMaterializedDocumentSyncPlan uses a fresh IV for same-domain re-encry
     ],
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
   const firstRecord = JSON.parse(
@@ -2131,6 +2167,7 @@ test("decryptDocumentSyncUpdates verifies and decrypts content records", async (
     ],
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
   const response = await createSyncResponse(materialized.plan);
@@ -2193,6 +2230,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
     pendingUpdates: [createPendingUpdateRecord()],
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
   const plan = materialized.plan;
@@ -2240,6 +2278,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
     localVersionVector: null,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
   const historicalUpdate = await createSignedSyncResponseUpdate({
@@ -2334,6 +2373,7 @@ test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", as
     pendingUpdates: [createPendingUpdateRecord()],
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
+    trustedLocalProjection: true,
     writerProjection,
   });
   const plan = materialized.plan;

@@ -215,6 +215,7 @@ async function registerIdentity(input: {
     ),
     documentId: bootstrap.metadataDocumentId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
+    trustedLocalProjection: true,
   });
 
   const response = await input.apiClient.postPublicKey(
