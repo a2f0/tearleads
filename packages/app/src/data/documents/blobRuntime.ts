@@ -47,6 +47,8 @@ import type { ExecSql } from "../persistence/sqlSchema";
 import {
   assertDocumentWriterProjectionConsistent,
   type DocumentCreateAuthor,
+  type ProjectionVerificationOptions,
+  projectionVerificationOptions,
   unwrapContainerKekPath,
 } from "./documentRuntime";
 
@@ -307,20 +309,21 @@ function deriveBlobTargetsFromDocumentProjection(input: {
   );
 }
 
-async function collectContainerKeks(input: {
-  execSql?: ExecSql | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  secretKey: Uint8Array;
-  writerProjection: DocumentWriterProjectionResponse;
-}): Promise<ReadonlyMap<string, Uint8Array>> {
+async function collectContainerKeks(
+  input: {
+    execSql?: ExecSql | undefined;
+    secretKey: Uint8Array;
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<ReadonlyMap<string, Uint8Array>> {
   const keksByEpochId = new Map<string, Uint8Array>();
 
   for (const projection of input.writerProjection.authorizingContainerPaths) {
     const projectionKeks = await unwrapContainerKekPath({
       execSql: input.execSql,
       projection,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
       secretKey: input.secretKey,
+      ...projectionVerificationOptions(input),
     });
 
     for (const [containerKeyEpochId, keyMaterial] of projectionKeks) {
@@ -343,19 +346,20 @@ async function collectContainerKeks(input: {
   return keksByEpochId;
 }
 
-async function wrapBlobContentKey(input: {
-  contentKey: Uint8Array;
-  execSql?: ExecSql | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  secretKey: Uint8Array;
-  targets: readonly BlobContentKeyTarget[];
-  writerProjection: DocumentWriterProjectionResponse;
-}): Promise<BlobContentKeyTargetEnvelopeRequest[]> {
+async function wrapBlobContentKey(
+  input: {
+    contentKey: Uint8Array;
+    execSql?: ExecSql | undefined;
+    secretKey: Uint8Array;
+    targets: readonly BlobContentKeyTarget[];
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<BlobContentKeyTargetEnvelopeRequest[]> {
   const keksByEpochId = await collectContainerKeks({
     execSql: input.execSql,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.secretKey,
     writerProjection: input.writerProjection,
+    ...projectionVerificationOptions(input),
   });
 
   return Promise.all(
@@ -741,20 +745,21 @@ function parseBlobEncryptedBytes(
   };
 }
 
-async function unwrapBlobContentKey(input: {
-  documentId: string;
-  encrypted: BlobEncryptedBytesRecord;
-  execSql?: ExecSql | undefined;
-  expectedBindingId: string;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  secretKey: Uint8Array;
-  writerProjection: DocumentWriterProjectionResponse;
-}): Promise<Uint8Array> {
+async function unwrapBlobContentKey(
+  input: {
+    documentId: string;
+    encrypted: BlobEncryptedBytesRecord;
+    execSql?: ExecSql | undefined;
+    expectedBindingId: string;
+    secretKey: Uint8Array;
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<Uint8Array> {
   const keksByEpochId = await collectContainerKeks({
     execSql: input.execSql,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: input.secretKey,
     writerProjection: input.writerProjection,
+    ...projectionVerificationOptions(input),
   });
   let contentKey: Uint8Array | null = null;
   const attachmentTargets = input.encrypted.contentKeyBundle.targets.filter(
@@ -1049,18 +1054,19 @@ export async function decryptDocumentAttachmentBlob({
   return decrypted as BlobBytes;
 }
 
-async function buildBlobAttachmentMaterial(input: {
-  apiClient: BlobAttachmentApi;
-  bindingId: string;
-  blobId: string;
-  bytes: BlobBytes;
-  contentKey: Uint8Array;
-  contentKeyEpoch: number;
-  documentId: string;
-  execSql?: ExecSql | undefined;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-  targetSecretKey: Uint8Array;
-}): Promise<BlobAttachmentMaterial | null> {
+async function buildBlobAttachmentMaterial(
+  input: {
+    apiClient: BlobAttachmentApi;
+    bindingId: string;
+    blobId: string;
+    bytes: BlobBytes;
+    contentKey: Uint8Array;
+    contentKeyEpoch: number;
+    documentId: string;
+    execSql?: ExecSql | undefined;
+    targetSecretKey: Uint8Array;
+  } & ProjectionVerificationOptions,
+): Promise<BlobAttachmentMaterial | null> {
   const writerProjection = await input.apiClient.getDocumentWriterProjection(
     input.documentId,
   );
@@ -1069,7 +1075,7 @@ async function buildBlobAttachmentMaterial(input: {
   }
 
   await assertDocumentWriterProjectionConsistent(writerProjection, {
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    ...projectionVerificationOptions(input),
   });
   const manifestIdentity = readDocumentManifestIdentity(writerProjection);
   if (manifestIdentity.documentId !== input.documentId) {
@@ -1088,10 +1094,10 @@ async function buildBlobAttachmentMaterial(input: {
     targets: await wrapBlobContentKey({
       contentKey: input.contentKey,
       execSql: input.execSql,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
       secretKey: input.targetSecretKey,
       targets,
       writerProjection,
+      ...projectionVerificationOptions(input),
     }),
   };
   const encrypted = await encryptBlobBytes({

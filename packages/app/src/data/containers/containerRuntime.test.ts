@@ -512,6 +512,7 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
     parentProjection: parent.projection,
     parentSecretKey: parent.secretKey,
     signedAt: SIGNED_AT,
+    trustedLocalProjection: true,
   });
   const { plan } = materialized;
   const parentManifestHash = parent.projection.path[0]?.manifestHash;
@@ -609,6 +610,7 @@ test("buildMaterializedContainerCreatePlan commits generated KEK epoch ids to ma
     parentProjection: parent.projection,
     parentSecretKey: parent.secretKey,
     signedAt: SIGNED_AT,
+    trustedLocalProjection: true,
   });
 
   expect(materialized.plan.containerKeyEpochId).toBe(
@@ -690,6 +692,7 @@ test("buildMaterializedContainerCreatePlan rejects non-canonical parent path rec
         })),
       },
       parentSecretKey: parent.secretKey,
+      trustedLocalProjection: true,
     }),
   ).rejects.toThrow("must be canonical JSON");
 });
@@ -716,6 +719,7 @@ test("buildMaterializedContainerCreatePlan rejects deeply nested non-canonical p
         })),
       },
       parentSecretKey: parent.secretKey,
+      trustedLocalProjection: true,
     }),
   ).rejects.toThrow("must be canonical JSON");
 });

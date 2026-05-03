@@ -499,6 +499,7 @@ async function createExplorerMetadataFixture(input: {
     execSql: input.execSql,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: input.encapsulationKeyPair.secretKey,
+    trustedLocalProjection: true,
   });
   const storedDocument = await createExplorerMetadataCreateResponse(
     materializedPlan.plan.request,
