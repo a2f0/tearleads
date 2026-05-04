@@ -99,6 +99,30 @@ test("app database runtime maps Drizzle select rows from array mode", async () =
   }
 });
 
+test("app database runtime reuses its Drizzle database for serialized mutations", async () => {
+  const runtime = createAppDatabaseRuntime({
+    exec: async () => ({ rows: [] }),
+  });
+
+  await runtime.runMutation((db) => {
+    expect(db).toBe(runtime.db);
+  });
+});
+
+test("app database runtime maps undefined Drizzle params to null", async () => {
+  const binds: unknown[] = [];
+  const runtime = createAppDatabaseRuntime({
+    exec: async (options) => {
+      binds.push(options.bind);
+      return { rows: [] };
+    },
+  });
+
+  await runtime.db.run(sql`select ${sql.param(undefined)}`);
+
+  expect(binds).toEqual([[null]]);
+});
+
 test("app database runtime serializes Drizzle transactions", async () => {
   const statements: string[] = [];
   const runtime = createAppDatabaseRuntime({

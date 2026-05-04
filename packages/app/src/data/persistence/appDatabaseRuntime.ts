@@ -32,11 +32,11 @@ export interface AppDatabaseRuntime {
 const runtimeByExecSql = new WeakMap<ExecSql, AppDatabaseRuntime>();
 
 function toSqlRowValue(value: unknown): SqlRowValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number"
-  ) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
     return value;
   }
 
@@ -47,11 +47,11 @@ function toSqlRowValue(value: unknown): SqlRowValue {
   throw new Error(`Unsupported SQLite bind value: ${String(value)}`);
 }
 
-function createRemoteCallback(execSql: ExecSql): RemoteCallback {
+function createRemoteCallback(getExecSql: () => ExecSql): RemoteCallback {
   type RemoteResult = Awaited<ReturnType<RemoteCallback>>;
 
   return async (sql, params, method) => {
-    const rows = await execSql(sql, params.map(toSqlRowValue), {
+    const rows = await getExecSql()(sql, params.map(toSqlRowValue), {
       rowMode: "array",
     });
 
@@ -63,22 +63,39 @@ function createRemoteCallback(execSql: ExecSql): RemoteCallback {
   };
 }
 
-function createAppSQLiteDatabase(execSql: ExecSql): AppSQLiteDatabase {
-  return drizzle(createRemoteCallback(execSql), { schema: appSQLiteSchema });
+function createAppSQLiteDatabase(getExecSql: () => ExecSql): AppSQLiteDatabase {
+  return drizzle(createRemoteCallback(getExecSql), { schema: appSQLiteSchema });
 }
 
 function createRuntimeForExecSql(execSql: ExecSql): AppDatabaseRuntime {
+  let activeExecSql = execSql;
+  const db = createAppSQLiteDatabase(() => activeExecSql);
+
+  async function withActiveExecSql<T>(
+    nextExecSql: ExecSql,
+    operation: () => Promise<T> | T,
+  ): Promise<T> {
+    const previousExecSql = activeExecSql;
+    activeExecSql = nextExecSql;
+
+    try {
+      return await operation();
+    } finally {
+      activeExecSql = previousExecSql;
+    }
+  }
+
   const runtime: AppDatabaseRuntime = {
-    db: createAppSQLiteDatabase(execSql),
+    db,
     execSql,
     runMutation(operation) {
       return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-        operation(getAppDatabaseRuntime(lockedExecSql).db),
+        withActiveExecSql(lockedExecSql, () => operation(db)),
       );
     },
     transaction(operation) {
       return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-        getAppDatabaseRuntime(lockedExecSql).db.transaction(operation),
+        withActiveExecSql(lockedExecSql, () => db.transaction(operation)),
       );
     },
   };

@@ -78,7 +78,7 @@ export function execDatabaseStatement(
   options: DatabaseWorkerExecOptions,
 ): SqliteRow[] {
   if (options.rowMode === "array") {
-    const rows: never[][] = [];
+    const rows: SqliteArrayRow[] = [];
 
     db.exec(options.sql, {
       ...(options.bind !== undefined ? { bind: options.bind } : {}),
@@ -86,10 +86,10 @@ export function execDatabaseStatement(
       resultRows: rows,
     });
 
-    return rows as SqliteArrayRow[];
+    return rows;
   }
 
-  const rows: Record<string, never>[] = [];
+  const rows: SqliteObjectRow[] = [];
 
   db.exec(options.sql, {
     ...(options.bind !== undefined ? { bind: options.bind } : {}),
@@ -97,5 +97,5 @@ export function execDatabaseStatement(
     resultRows: rows,
   });
 
-  return rows as SqliteObjectRow[];
+  return rows;
 }
