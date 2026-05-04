@@ -7,16 +7,22 @@ import {
   computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
-import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
+import type {
+  BlobAttachmentBindRequest,
+  BlobContentKeyBundleRequest,
+} from "@tearleads/validators/request";
+import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../../blobs";
 import { readCanonicalRecord } from "../../../keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../../keyingProjectionVerification";
+import type { ExecSql } from "../../../persistence/sqlSchema";
 import {
   assertDocumentWriterProjectionConsistent,
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
 } from "../../documentRuntime";
 import { uniqueSortedStrings } from "../../shared/readers";
+import type { DocumentCreateAuthor } from "../../shared/types";
 import { encryptBlobBytes } from "../shared/crypto";
 import {
   signBlobAttachmentEvent,
@@ -45,7 +51,7 @@ async function buildBlobAttachmentMaterial(
     contentKey: Uint8Array;
     contentKeyEpoch: number;
     documentId: string;
-    execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+    execSql?: ExecSql | undefined;
     targetSecretKey: Uint8Array;
   } & ProjectionVerificationOptions,
 ): Promise<BlobAttachmentMaterial | null> {
@@ -118,9 +124,7 @@ async function buildBlobAttachmentMaterial(
 function blobAttachmentStagedBlobRequest(
   stageId: string,
   writeHeader: WriteHeader,
-): NonNullable<
-  import("@tearleads/validators/request").BlobAttachmentBindRequest["stagedBlob"]
-> {
+): NonNullable<BlobAttachmentBindRequest["stagedBlob"]> {
   return {
     stageId,
     writeHeader: readCanonicalRecord(
@@ -136,7 +140,7 @@ function blobAttachmentBindRequest(input: {
   material: BlobAttachmentMaterial;
   stageId: string;
   writeHeader: WriteHeader;
-}): import("@tearleads/validators/request").BlobAttachmentBindRequest {
+}): BlobAttachmentBindRequest {
   return {
     event: readCanonicalRecord(input.event, "Blob attachment bind event"),
     body: readCanonicalRecord(input.body, "Blob attachment bind body"),
@@ -154,7 +158,7 @@ function blobAttachmentBindRequest(input: {
 
 async function stageAndBindBlobAttachment(input: {
   apiClient: BlobAttachmentApi;
-  author: import("../../shared/types").DocumentCreateAuthor;
+  author: DocumentCreateAuthor;
   bindingId: string;
   blobId: string;
   contentKeyEpoch: number;
@@ -166,8 +170,8 @@ async function stageAndBindBlobAttachment(input: {
   slotId: string;
 }): Promise<{
   encryptedBytes: string;
-  request: import("@tearleads/validators/request").BlobAttachmentBindRequest;
-  response: import("@tearleads/validators/response").BlobAttachmentBindResponse;
+  request: BlobAttachmentBindRequest;
+  response: BlobAttachmentBindResponse;
   sha256: string;
   byteLength: number;
   writeHeader: WriteHeader;

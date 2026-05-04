@@ -8,6 +8,7 @@ import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObj
 import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { readCanonicalRecordPaths } from "../../../keyingCanonicalJson";
+import type { ExecSql } from "../../../persistence/sqlSchema";
 import type { ProjectionVerificationOptions } from "../../documentRuntime";
 import { unwrapContainerKekPath } from "../../shared/projection";
 import { assertEqualBytes } from "../../shared/readers";
@@ -31,7 +32,7 @@ export function deriveBlobTargetsFromDocumentProjection(input: {
 
 async function collectContainerKeks(
   input: {
-    execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+    execSql?: ExecSql | undefined;
     secretKey: Uint8Array;
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
@@ -66,7 +67,7 @@ async function collectContainerKeks(
 export async function wrapBlobContentKey(
   input: {
     contentKey: Uint8Array;
-    execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+    execSql?: ExecSql | undefined;
     secretKey: Uint8Array;
     targets: readonly BlobContentKeyTarget[];
     writerProjection: DocumentWriterProjectionResponse;
@@ -141,7 +142,7 @@ export async function unwrapBlobContentKey(
   input: {
     documentId: string;
     encrypted: BlobEncryptedBytesRecord;
-    execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+    execSql?: ExecSql | undefined;
     expectedBindingId: string;
     secretKey: Uint8Array;
     writerProjection: DocumentWriterProjectionResponse;

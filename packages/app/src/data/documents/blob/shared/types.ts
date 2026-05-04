@@ -1,3 +1,4 @@
+import type { WriteHeader } from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobContentKeyBundleRequest,
@@ -121,7 +122,7 @@ export interface UploadDocumentAttachmentResult {
   response: BlobAttachmentBindResponse;
   sha256: string;
   byteLength: number;
-  writeHeader: import("@tearleads/crypto").WriteHeader;
+  writeHeader: WriteHeader;
   writeHeaderHash: string;
 }
 

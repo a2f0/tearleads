@@ -1,5 +1,9 @@
 import type {
+  AccessEvent,
+  AccessManifest,
   ContainerAccessManifestState,
+  ContainerKeyEpoch,
+  ContainerKeyWrap,
   ContainerMoveAccessEventBody,
 } from "@tearleads/crypto";
 import {
@@ -12,9 +16,11 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
+  ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
+  type ProjectionVerificationOptions,
   projectionVerificationOptions,
   unwrapContainerKekPath,
 } from "../../../documents/documentRuntime";
@@ -26,6 +32,7 @@ import {
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../../keyingProjectionVerification";
+import type { ExecSql } from "../../../persistence/sqlSchema";
 import {
   buildContainerCreateKeyEpoch,
   resolveContainerKekEpochId,
@@ -76,13 +83,13 @@ function buildContainerMoveRequest(input: {
   body: ContainerMoveAccessEventBody;
   destinationParentKek: ContainerKekResponse;
   destinationParentProjection: ContainerWriterProjectionResponse;
-  event: import("@tearleads/crypto").AccessEvent;
-  keyEpoch: import("@tearleads/crypto").ContainerKeyEpoch;
-  manifest: import("@tearleads/crypto").AccessManifest;
+  event: AccessEvent;
+  keyEpoch: ContainerKeyEpoch;
+  manifest: AccessManifest;
   manifestHash: string;
   previousManifest: ContainerManifestBundle;
   previousProjection: ContainerWriterProjectionResponse;
-  wraps: readonly import("@tearleads/crypto").ContainerKeyWrap[];
+  wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {
     event: readCanonicalRecord(input.event, "Container move event"),
@@ -111,11 +118,11 @@ async function unwrapMoveContainerKeys(
   input: {
     destinationParentKek: ContainerKekResponse;
     destinationParentProjection: ContainerWriterProjectionResponse;
-    execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+    execSql?: ExecSql | undefined;
     previousProjection: ContainerWriterProjectionResponse;
     sourceKek: ContainerKekResponse;
     targetSecretKey: Uint8Array;
-  } & import("../../../documents/documentRuntime").ProjectionVerificationOptions,
+  } & ProjectionVerificationOptions,
 ): Promise<{
   containerKey: Uint8Array;
   destinationParentKey: Uint8Array;
@@ -179,15 +186,15 @@ function buildContainerMovePlanResult(input: {
   containerKeyEpochId: string;
   destinationParentKek: ContainerKekResponse;
   destinationParentProjection: ContainerWriterProjectionResponse;
-  event: import("@tearleads/crypto").AccessEvent;
+  event: AccessEvent;
   eventHash: string;
-  keyEpoch: import("@tearleads/crypto").ContainerKeyEpoch;
-  manifest: import("@tearleads/crypto").AccessManifest;
+  keyEpoch: ContainerKeyEpoch;
+  manifest: AccessManifest;
   manifestHash: string;
   previousManifest: ContainerManifestBundle;
   previousProjection: ContainerWriterProjectionResponse;
   state: ContainerAccessManifestState;
-  wraps: import("@tearleads/crypto").ContainerKeyWrap[];
+  wraps: ContainerKeyWrap[];
 }): MaterializedContainerMovePlan {
   const plan: ContainerMovePlan = {
     body: input.body,
@@ -220,7 +227,7 @@ function buildContainerMovePlanResult(input: {
 
 async function buildMaterializedContainerMovePlan(
   input: BuildMaterializedContainerMovePlanInput &
-    import("../../../documents/documentRuntime").ProjectionVerificationOptions,
+    ProjectionVerificationOptions,
 ): Promise<MaterializedContainerMovePlan> {
   const source = getTargetContainerContext(input.previousProjection);
   const destinationParent = getTargetContainerContext(
@@ -313,14 +320,14 @@ export async function moveRemoteContainer(input: {
   containerId: string;
   destinationParentContainerId: string;
   eventId?: string | undefined;
-  execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+  execSql?: ExecSql | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
 }): Promise<{
   containerKey: Uint8Array;
   plan: ContainerMovePlan;
-  response: import("@tearleads/validators/response").ContainerMutationResponse;
+  response: ContainerMutationResponse;
 } | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,

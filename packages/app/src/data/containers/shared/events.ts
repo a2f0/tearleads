@@ -2,6 +2,7 @@ import {
   type ContainerAccessManifestState,
   type ContainerCreateAccessEventBody,
   type ContainerGrantAccessEventBody,
+  type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerMoveAccessEventBody,
   computeAccessEventBodyHash,
@@ -12,6 +13,10 @@ import {
   signAccessEvent,
   type UnsignedAccessEvent,
 } from "@tearleads/crypto";
+import type {
+  ContainerKekResponse,
+  ContainerWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { readCanonicalJson } from "../../keyingCanonicalJson";
 import { uniqueSortedManifestHashes } from "./projection";
 import type {
@@ -43,7 +48,7 @@ export async function signContainerCreateEvent(input: {
   body: ContainerCreateAccessEventBody;
   containerId: string;
   eventId: string;
-  parentPath: import("@tearleads/validators/response").ContainerWriterProjectionResponse["path"];
+  parentPath: ContainerWriterProjectionResponse["path"];
   signedAt: string;
 }): Promise<Pick<ContainerCreatePlan, "event" | "eventHash">> {
   const bodyHash = await computeAccessEventBodyHash(
@@ -168,8 +173,8 @@ export function buildContainerCreateKeyEpoch(input: {
 }
 
 export function buildParentRecipientTargets(
-  parentKek: import("@tearleads/validators/response").ContainerKekResponse,
-): import("@tearleads/crypto").ContainerKekRecipientTarget[] {
+  parentKek: ContainerKekResponse,
+): ContainerKekRecipientTarget[] {
   return [
     {
       recipientKind: "container",
