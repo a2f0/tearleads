@@ -4,7 +4,7 @@ import { blobs } from "../../schema";
 import {
   KeyingReadAccessError,
   resolveReadableBlobAccess,
-} from "../keyingReadAccess";
+} from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface GetBlobInput {

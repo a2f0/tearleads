@@ -4,7 +4,7 @@ import { attachmentBindings } from "../../schema";
 import {
   KeyingReadAccessError,
   resolveReadableDocumentAccess,
-} from "../keyingReadAccess";
+} from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface ListDocumentAttachmentsInput {

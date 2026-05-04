@@ -11,7 +11,7 @@ import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,
   resolveReadableContainerAccess,
-} from "../keyingReadAccess";
+} from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
