@@ -1,5 +1,5 @@
 import { db } from "../adapters/postgres";
-import { del, get, set } from "../adapters/redis";
+import { del, get, getdel, set } from "../adapters/redis";
 import { publish } from "../adapters/redisPubSub";
 import { createSession } from "../middleware/session";
 import type { SessionData } from "../validators/session";
@@ -7,6 +7,7 @@ import type { SessionData } from "../validators/session";
 export interface KeyValueStore {
   del: (key: string) => Promise<void>;
   get: (key: string) => Promise<string | null>;
+  getdel: (key: string) => Promise<string | null>;
   set: (key: string, value: string, ttlSeconds?: number) => Promise<void>;
 }
 
@@ -28,6 +29,6 @@ export interface ApiServiceRuntime {
 export const defaultApiServiceRuntime: ApiServiceRuntime = {
   db,
   eventPublisher: { publish },
-  keyValueStore: { del, get, set },
+  keyValueStore: { del, get, getdel, set },
   sessionTokenIssuer: { createSession },
 };

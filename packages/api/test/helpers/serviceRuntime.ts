@@ -28,6 +28,11 @@ export function createServiceTestRuntime(
         values.delete(key);
       },
       get: async (key) => values.get(key) ?? null,
+      getdel: async (key) => {
+        const value = values.get(key) ?? null;
+        values.delete(key);
+        return value;
+      },
       set: async (key, value) => {
         values.set(key, value);
       },

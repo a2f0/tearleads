@@ -35,7 +35,7 @@ export async function verifyChallenge(
   runtime: ApiServiceRuntime,
   input: VerifyChallengeInput,
 ): Promise<VerifyChallengeResult> {
-  const challengeHex = await runtime.keyValueStore.get(
+  const challengeHex = await runtime.keyValueStore.getdel(
     `challenge:${input.fingerprint}`,
   );
   if (!challengeHex) {
@@ -44,8 +44,6 @@ export async function verifyChallenge(
       "challenge_not_found",
     );
   }
-
-  await runtime.keyValueStore.del(`challenge:${input.fingerprint}`);
 
   const [user] = await runtime.db
     .select({ id: users.id, signingPublicKey: users.signingPublicKey })
