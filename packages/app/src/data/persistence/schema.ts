@@ -188,7 +188,7 @@ export const principalPolicies = sqliteTable(
   ],
 );
 
-const containers = sqliteTable(
+export const containers = sqliteTable(
   "containers",
   {
     id: text("id"),
@@ -200,7 +200,7 @@ const containers = sqliteTable(
   (table) => [primaryKey({ columns: [table.id] })],
 );
 
-const containerProjection = sqliteTable(
+export const containerProjection = sqliteTable(
   "container_projection",
   {
     containerId: text("container_id"),
@@ -211,7 +211,7 @@ const containerProjection = sqliteTable(
   (table) => [primaryKey({ columns: [table.containerId] })],
 );
 
-const documentContainerProjection = sqliteTable(
+export const documentContainerProjection = sqliteTable(
   "document_container_projection",
   {
     documentId: text("document_id").notNull(),
@@ -221,7 +221,7 @@ const documentContainerProjection = sqliteTable(
   (table) => [primaryKey({ columns: [table.documentId, table.containerId] })],
 );
 
-const documentProjection = sqliteTable(
+export const documentProjection = sqliteTable(
   "document_projection",
   {
     localId: text("local_id"),
@@ -233,7 +233,7 @@ const documentProjection = sqliteTable(
   (table) => [primaryKey({ columns: [table.localId] })],
 );
 
-const documentPendingAttachments = sqliteTable(
+export const documentPendingAttachments = sqliteTable(
   "document_pending_attachments",
   {
     localId: text("local_id").notNull(),
@@ -247,7 +247,7 @@ const documentPendingAttachments = sqliteTable(
   (table) => [primaryKey({ columns: [table.localId, table.slotId] })],
 );
 
-const documentAttachmentBlobProjection = sqliteTable(
+export const documentAttachmentBlobProjection = sqliteTable(
   "document_attachment_blob_projection",
   {
     localId: text("local_id").notNull(),
@@ -261,7 +261,7 @@ const documentAttachmentBlobProjection = sqliteTable(
   (table) => [primaryKey({ columns: [table.localId, table.slotId] })],
 );
 
-const addressBookProjection = sqliteTable(
+export const addressBookProjection = sqliteTable(
   "address_book_projection",
   {
     addressBookId: text("address_book_id").notNull(),
@@ -278,7 +278,7 @@ const addressBookProjection = sqliteTable(
   ],
 );
 
-const containerCreateIntents = sqliteTable(
+export const containerCreateIntents = sqliteTable(
   "container_create_intents",
   {
     id: text("id"),

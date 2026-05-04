@@ -49,13 +49,6 @@ const serializedSqlExecs = new WeakSet<ExecSql>();
 // connection share the same serialized mutation queue.
 const clientExecSqls = new WeakMap<ExecSqlClientLike, ExecSql>();
 
-export function readSqlRowValue(
-  row: SqlRow,
-  key: string,
-): SqlRowValue | undefined {
-  return row[key];
-}
-
 export function createExecSql(client: ExecSqlClientLike): ExecSql {
   const existingExecSql = clientExecSqls.get(client);
   if (existingExecSql) {
@@ -149,25 +142,4 @@ export async function ensureSqlTables(
       }
     }
   });
-}
-
-export async function runSqlTransaction<T>(
-  execSql: ExecSql,
-  operation: () => Promise<T>,
-): Promise<T> {
-  await execSql("BEGIN");
-
-  try {
-    const result = await operation();
-    await execSql("COMMIT");
-    return result;
-  } catch (error) {
-    try {
-      await execSql("ROLLBACK");
-    } catch {
-      // Ignore rollback errors so callers see the original failure.
-    }
-
-    throw error;
-  }
 }

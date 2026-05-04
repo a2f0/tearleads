@@ -1,8 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { getAppDatabaseRuntime } from "./appDatabaseRuntime";
 import { documentPendingUpdates, documents, documentTables } from "./schema";
-import type { SqlRow } from "./sqlSchema";
-import { type ExecSql, ensureSqlTables, readSqlRowValue } from "./sqlSchema";
+import { type ExecSql, ensureSqlTables } from "./sqlSchema";
 
 export interface DocumentRecord {
   id: string;
@@ -36,51 +35,7 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, documentTables);
 }
 
-export function parseDocumentRecord(row: SqlRow): DocumentRecord {
-  const id = readSqlRowValue(row, "id");
-  const documentId = readSqlRowValue(row, "document_id");
-  const loroSnapshot = readSqlRowValue(row, "loro_snapshot");
-  const accessEpoch = readSqlRowValue(row, "access_epoch");
-  const accessStateHash = readSqlRowValue(row, "access_state_hash");
-  const lastCommitLsn = readSqlRowValue(row, "last_commit_lsn");
-  const contentKeyBundle = readSqlRowValue(row, "content_key_bundle");
-  const documentKekTargets = readSqlRowValue(row, "document_kek_targets");
-  const documentManifestBundle = readSqlRowValue(
-    row,
-    "document_manifest_bundle",
-  );
-
-  const record: DocumentRecord = {
-    id: String(id ?? ""),
-    documentId: documentId === null ? null : String(documentId),
-    loroSnapshot: String(loroSnapshot ?? ""),
-    accessEpoch: typeof accessEpoch === "number" ? accessEpoch : 1,
-    lastCommitLsn:
-      lastCommitLsn === null || lastCommitLsn === undefined
-        ? null
-        : String(lastCommitLsn),
-    contentKeyBundle:
-      contentKeyBundle === null || contentKeyBundle === undefined
-        ? null
-        : String(contentKeyBundle),
-    documentKekTargets:
-      documentKekTargets === null || documentKekTargets === undefined
-        ? null
-        : String(documentKekTargets),
-    documentManifestBundle:
-      documentManifestBundle === null || documentManifestBundle === undefined
-        ? null
-        : String(documentManifestBundle),
-  };
-
-  if (accessStateHash !== null && accessStateHash !== undefined) {
-    record.accessStateHash = String(accessStateHash);
-  }
-
-  return record;
-}
-
-interface SelectedDocumentRecordRow {
+export interface SelectedDocumentRecordRow {
   id: string;
   documentId: string | null;
   loroSnapshot: string;
@@ -92,7 +47,7 @@ interface SelectedDocumentRecordRow {
   documentManifestBundle: string | null;
 }
 
-function mapSelectedDocumentRecord(
+export function mapSelectedDocumentRecord(
   row: SelectedDocumentRecordRow,
 ): DocumentRecord {
   const record: DocumentRecord = {

@@ -1,3 +1,5 @@
+import { and, asc, eq, sql } from "drizzle-orm";
+import { getAppDatabaseRuntime } from "../../data/persistence/appDatabaseRuntime";
 import {
   type DocumentRecord,
   type DocumentScope,
@@ -7,19 +9,21 @@ import {
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   listDocumentPendingUpdates,
+  mapSelectedDocumentRecord,
   type PendingUpdateFields,
   type PendingUpdateRecord,
-  parseDocumentRecord,
+  type SelectedDocumentRecordRow,
   saveDocumentRecord,
 } from "../../data/persistence/documentPersistence";
-import { addressBookProjectionTables } from "../../data/persistence/schema";
-import type { SqlRow } from "../../data/persistence/sqlSchema";
+import {
+  addressBookProjection,
+  addressBookProjectionTables,
+  documents,
+} from "../../data/persistence/schema";
 import {
   type ExecSql,
   ensureSqlTables,
-  readSqlRowValue,
   runSerializedSqlMutation,
-  runSqlTransaction,
 } from "../../data/persistence/sqlSchema";
 import type { AddressBookEntry } from "./types";
 
@@ -70,30 +74,45 @@ function getContactScope(userId: string): DocumentScope {
   };
 }
 
-function parseAddressBookEntry(row: SqlRow): AddressBookEntry {
-  const userId = readSqlRowValue(row, "user_id");
-  const encapsulationPublicKey = readSqlRowValue(
-    row,
-    "encapsulation_public_key",
-  );
-  const isSelf = readSqlRowValue(row, "is_self");
+type NullableSelectedDocumentRecordRow = {
+  [Key in keyof SelectedDocumentRecordRow]:
+    | SelectedDocumentRecordRow[Key]
+    | null;
+};
 
+interface SelectedStoredContact extends NullableSelectedDocumentRecordRow {
+  userId: string;
+  encapsulationPublicKey: string;
+  isSelf: number;
+}
+
+function mapAddressBookEntry(row: SelectedStoredContact): AddressBookEntry {
   return {
-    userId: String(userId ?? ""),
-    encapsulationPublicKey: String(encapsulationPublicKey ?? ""),
-    isSelf: isSelf === 1,
+    userId: row.userId,
+    encapsulationPublicKey: row.encapsulationPublicKey,
+    isSelf: row.isSelf === 1,
   };
 }
 
-function parseStoredContact(row: SqlRow): StoredContact {
-  const id = readSqlRowValue(row, "id");
+function mapStoredContact(row: SelectedStoredContact): StoredContact {
+  const record: DocumentRecord | null =
+    row.id === null
+      ? null
+      : mapSelectedDocumentRecord({
+          id: row.id,
+          documentId: row.documentId,
+          loroSnapshot: row.loroSnapshot ?? "",
+          accessEpoch: row.accessEpoch ?? 1,
+          accessStateHash: row.accessStateHash,
+          lastCommitLsn: row.lastCommitLsn,
+          documentManifestBundle: row.documentManifestBundle,
+          contentKeyBundle: row.contentKeyBundle,
+          documentKekTargets: row.documentKekTargets,
+        });
 
   return {
-    entry: parseAddressBookEntry(row),
-    record:
-      id === null || typeof id === "undefined"
-        ? null
-        : parseDocumentRecord(row),
+    entry: mapAddressBookEntry(row),
+    record,
   };
 }
 
@@ -105,41 +124,40 @@ export const sqlContactsPersistence: ContactsPersistence = {
     });
   },
   async loadContacts(execSql, addressBookId) {
-    const rows = await execSql(
-      `
- SELECT
- projection.user_id,
- projection.encapsulation_public_key,
- projection.is_self,
- documents.local_id AS id,
- documents.document_id,
- documents.loro_snapshot,
- documents.access_epoch,
- documents.access_state_hash,
- documents.last_commit_lsn,
- documents.document_manifest_bundle,
- documents.content_key_bundle,
- documents.document_kek_targets
- FROM address_book_projection AS projection
- LEFT JOIN documents
- ON documents.app_kind = :appKind
- AND documents.local_id = projection.user_id
- WHERE projection.address_book_id = :addressBookId
- ORDER BY projection.user_id COLLATE NOCASE ASC
- `,
-      {
-        ":appKind": CONTACTS_APP_KIND,
-        ":addressBookId": addressBookId,
-      },
-    );
+    const { db } = getAppDatabaseRuntime(execSql);
+    const rows = await db
+      .select({
+        userId: addressBookProjection.userId,
+        encapsulationPublicKey: addressBookProjection.encapsulationPublicKey,
+        isSelf: addressBookProjection.isSelf,
+        id: documents.localId,
+        documentId: documents.documentId,
+        loroSnapshot: documents.loroSnapshot,
+        accessEpoch: documents.accessEpoch,
+        accessStateHash: documents.accessStateHash,
+        lastCommitLsn: documents.lastCommitLsn,
+        documentManifestBundle: documents.documentManifestBundle,
+        contentKeyBundle: documents.contentKeyBundle,
+        documentKekTargets: documents.documentKekTargets,
+      })
+      .from(addressBookProjection)
+      .leftJoin(
+        documents,
+        and(
+          eq(documents.appKind, CONTACTS_APP_KIND),
+          eq(documents.localId, addressBookProjection.userId),
+        ),
+      )
+      .where(eq(addressBookProjection.addressBookId, addressBookId))
+      .orderBy(asc(sql`${addressBookProjection.userId} COLLATE NOCASE`));
 
-    return rows.map((row) => parseStoredContact(row));
+    return rows.map((row) => mapStoredContact(row));
   },
   async saveContact(execSql, addressBookId, record, entry) {
     const updatedAt = new Date().toISOString();
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await runSqlTransaction(lockedExecSql, async () => {
+      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         await saveDocumentRecord(
           lockedExecSql,
           getContactScope(entry.userId),
@@ -149,52 +167,43 @@ export const sqlContactsPersistence: ContactsPersistence = {
           },
           updatedAt,
         );
-        await lockedExecSql(
-          `
- INSERT INTO address_book_projection (
- address_book_id,
- user_id,
- encapsulation_public_key,
- is_self,
- updated_at
- )
- VALUES (
- :addressBookId,
- :userId,
- :encapsulationPublicKey,
- :isSelf,
- :updatedAt
- )
- ON CONFLICT(address_book_id, user_id) DO UPDATE SET
- encapsulation_public_key = excluded.encapsulation_public_key,
- is_self = excluded.is_self,
- updated_at = excluded.updated_at
- `,
-          {
-            ":addressBookId": addressBookId,
-            ":userId": entry.userId,
-            ":encapsulationPublicKey": entry.encapsulationPublicKey,
-            ":isSelf": entry.isSelf ? 1 : 0,
-            ":updatedAt": updatedAt,
-          },
-        );
+        const projectionRow = {
+          addressBookId,
+          userId: entry.userId,
+          encapsulationPublicKey: entry.encapsulationPublicKey,
+          isSelf: entry.isSelf ? 1 : 0,
+          updatedAt,
+        };
+        await tx
+          .insert(addressBookProjection)
+          .values(projectionRow)
+          .onConflictDoUpdate({
+            target: [
+              addressBookProjection.addressBookId,
+              addressBookProjection.userId,
+            ],
+            set: {
+              encapsulationPublicKey: projectionRow.encapsulationPublicKey,
+              isSelf: projectionRow.isSelf,
+              updatedAt: projectionRow.updatedAt,
+            },
+          })
+          .run();
       });
     });
   },
   async deleteContact(execSql, addressBookId, userId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await runSqlTransaction(lockedExecSql, async () => {
-        await lockedExecSql(
-          `
- DELETE FROM address_book_projection
- WHERE address_book_id = :addressBookId
- AND user_id = :userId
- `,
-          {
-            ":addressBookId": addressBookId,
-            ":userId": userId,
-          },
-        );
+      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+        await tx
+          .delete(addressBookProjection)
+          .where(
+            and(
+              eq(addressBookProjection.addressBookId, addressBookId),
+              eq(addressBookProjection.userId, userId),
+            ),
+          )
+          .run();
         await deleteDocumentRecord(lockedExecSql, getContactScope(userId));
         await deleteDocumentPendingUpdates(
           lockedExecSql,

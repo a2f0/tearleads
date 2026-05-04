@@ -1,3 +1,5 @@
+import { and, desc, eq, inArray, or, type SQL } from "drizzle-orm";
+import { getAppDatabaseRuntime } from "../persistence/appDatabaseRuntime";
 import {
   type DocumentRecord as BaseDocumentRecord,
   type DocumentScope,
@@ -12,14 +14,17 @@ import {
   type PendingUpdateRecord,
   saveDocumentRecord,
 } from "../persistence/documentPersistence";
-import { documentProjectionTables } from "../persistence/schema";
-import type { SqlRow } from "../persistence/sqlSchema";
+import {
+  documentAttachmentBlobProjection,
+  documentPendingAttachments,
+  documentProjection,
+  documentProjectionTables,
+  documents,
+} from "../persistence/schema";
 import {
   type ExecSql,
   ensureSqlTables,
-  readSqlRowValue,
   runSerializedSqlMutation,
-  runSqlTransaction,
 } from "../persistence/sqlSchema";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "./documentConstants";
 import {
@@ -160,62 +165,89 @@ function getDocumentScope(localId: string): DocumentScope {
   };
 }
 
-function parseProjectionText(row: SqlRow | undefined): string {
-  const text = row ? readSqlRowValue(row, "text") : null;
-  return String(text ?? "");
+interface SelectedDocumentProjection {
+  localId: string | null;
+  documentId: string | null;
+  containerId: string | null;
+  text: string;
+  updatedAt: string;
+  accessStateHash: string | null;
 }
 
-function parseProjectionContainerId(row: SqlRow | undefined): string | null {
-  const containerId = row ? readSqlRowValue(row, "container_id") : null;
-  return containerId === null || containerId === undefined
-    ? null
-    : String(containerId);
+interface SelectedDocumentProjectionDetail {
+  text: string;
+  containerId: string | null;
 }
 
-function parseProjectionDocumentId(row: SqlRow | undefined): string | null {
-  const documentId = row ? readSqlRowValue(row, "document_id") : null;
-  return documentId === null || documentId === undefined
-    ? null
-    : String(documentId);
+interface SelectedDocumentProjectionTimestamp {
+  text?: string;
+  updatedAt: string;
 }
 
-function parseProjectionUpdatedAt(row: SqlRow | undefined): string {
-  const updatedAt = row ? readSqlRowValue(row, "updated_at") : null;
-  return String(updatedAt ?? "");
+interface SelectedPendingAttachment {
+  localId: string;
+  slotId: string;
+  name: string;
+  mimeType: string | null;
+  storageKey: string;
+  byteLength: number;
 }
 
-function parseProjectionAccessStateHash(
-  row: SqlRow | undefined,
+interface SelectedLocalAttachment {
+  localId: string;
+  slotId: string;
+  blobId: string | null;
+  storageKey: string;
+  mimeType: string | null;
+  byteLength: number;
+}
+
+function mapDocumentSummary(row: SelectedDocumentProjection): DocumentSummary {
+  return {
+    accessStateHash: row.accessStateHash,
+    id: String(row.localId ?? ""),
+    containerId: row.containerId,
+    documentKind: derivePersistedDocumentKind(row.text),
+    documentId: row.documentId,
+    title: derivePersistedDocumentTitle(row.text),
+    updatedAt: row.updatedAt,
+  };
+}
+
+function getProjectionText(
+  row:
+    | SelectedDocumentProjectionDetail
+    | SelectedDocumentProjectionTimestamp
+    | undefined,
+): string {
+  return row?.text ?? "";
+}
+
+function getProjectionContainerId(
+  row: SelectedDocumentProjectionDetail | undefined,
 ): string | null {
-  const accessStateHash = row
-    ? readSqlRowValue(row, "access_state_hash")
-    : null;
-  return accessStateHash === null || accessStateHash === undefined
-    ? null
-    : String(accessStateHash);
+  return row?.containerId ?? null;
 }
 
-function parsePendingAttachmentMimeType(
-  row: SqlRow | undefined,
-): string | null {
-  const mimeType = row ? readSqlRowValue(row, "mime_type") : null;
-  return mimeType === null || mimeType === undefined ? null : String(mimeType);
+function getProjectionUpdatedAt(
+  row: SelectedDocumentProjectionTimestamp | undefined,
+): string {
+  return row?.updatedAt ?? "";
 }
 
-function parsePendingAttachmentByteLength(row: SqlRow | undefined): number {
-  const byteLength = row ? readSqlRowValue(row, "byte_length") : null;
-  return Number(byteLength ?? 0);
-}
+const documentSummarySelection = {
+  localId: documentProjection.localId,
+  documentId: documentProjection.documentId,
+  containerId: documentProjection.containerId,
+  text: documentProjection.text,
+  updatedAt: documentProjection.updatedAt,
+  accessStateHash: documents.accessStateHash,
+};
 
-function parseStorageKey(row: SqlRow | undefined): string {
-  const storageKey = row ? readSqlRowValue(row, "storage_key") : null;
-  return String(storageKey ?? "");
-}
-
-function parseBlobId(row: SqlRow | undefined): string | null {
-  const blobId = row ? readSqlRowValue(row, "blob_id") : null;
-  return blobId === null || blobId === undefined ? null : String(blobId);
-}
+const documentSummaryJoin = and(
+  eq(documents.appKind, DOCUMENTS_APP_KIND),
+  eq(documents.localId, documentProjection.localId),
+);
 
 function derivePersistedDocumentTitle(text: string): string {
   return deriveStoredDocumentTitle(text);
@@ -410,17 +442,12 @@ async function relinkPersistedDocumentWithExec(
 
   await sqlDocumentsPersistence.saveDocument(execSql, nextDocument);
 
-  const updatedAtRows = await execSql(
-    `
- SELECT updated_at
- FROM document_projection
- WHERE local_id = :localId
- LIMIT 1
- `,
-    {
-      ":localId": input.localId,
-    },
-  );
+  const { db } = getAppDatabaseRuntime(execSql);
+  const updatedAtRows = await db
+    .select({ updatedAt: documentProjection.updatedAt })
+    .from(documentProjection)
+    .where(eq(documentProjection.localId, input.localId))
+    .limit(1);
 
   return {
     accessStateHash: nextDocument.accessStateHash ?? null,
@@ -429,7 +456,7 @@ async function relinkPersistedDocumentWithExec(
     documentKind: derivePersistedDocumentKind(nextDocument.text),
     documentId: nextDocument.documentId,
     title: derivePersistedDocumentTitle(nextDocument.text),
-    updatedAt: parseProjectionUpdatedAt(updatedAtRows[0]),
+    updatedAt: getProjectionUpdatedAt(updatedAtRows[0]),
   };
 }
 
@@ -461,44 +488,18 @@ export async function listDocumentsByContainerIds(
     return [];
   }
 
-  const bind: Record<string, string> = {};
-  const placeholders = uniqueContainerIds.map((containerId, index) => {
-    const key = `:containerId${index}`;
-    bind[key] = containerId;
-    return key;
-  });
+  const { db } = getAppDatabaseRuntime(execSql);
+  const rows = await db
+    .select(documentSummarySelection)
+    .from(documentProjection)
+    .leftJoin(documents, documentSummaryJoin)
+    .where(inArray(documentProjection.containerId, uniqueContainerIds))
+    .orderBy(
+      desc(documentProjection.updatedAt),
+      desc(documentProjection.localId),
+    );
 
-  const rows = await execSql(
-    `
- SELECT
- projection.local_id,
- projection.document_id,
- projection.container_id,
- projection.text,
- projection.updated_at,
- persisted.access_state_hash
- FROM document_projection projection
- LEFT JOIN documents persisted
- ON persisted.app_kind = :appKind
- AND persisted.local_id = projection.local_id
- WHERE projection.container_id IN (${placeholders.join(", ")})
- ORDER BY projection.updated_at DESC, projection.local_id DESC
- `,
-    {
-      ...bind,
-      ":appKind": DOCUMENTS_APP_KIND,
-    },
-  );
-
-  return rows.map((row) => ({
-    accessStateHash: parseProjectionAccessStateHash(row),
-    id: String(readSqlRowValue(row, "local_id") ?? ""),
-    containerId: parseProjectionContainerId(row),
-    documentKind: derivePersistedDocumentKind(parseProjectionText(row)),
-    documentId: parseProjectionDocumentId(row),
-    title: derivePersistedDocumentTitle(parseProjectionText(row)),
-    updatedAt: parseProjectionUpdatedAt(row),
-  }));
+  return rows.map(mapDocumentSummary);
 }
 
 async function listDocumentsByContainerIdsOrDocumentIds(
@@ -514,55 +515,28 @@ async function listDocumentsByContainerIdsOrDocumentIds(
     return [];
   }
 
-  const bind: Record<string, string> = {};
-  bind[":appKind"] = DOCUMENTS_APP_KIND;
-  const filters: string[] = [];
+  const filters: SQL[] = [];
   if (uniqueContainerIds.length > 0) {
-    const placeholders = uniqueContainerIds.map((containerId, index) => {
-      const key = `:containerId${index}`;
-      bind[key] = containerId;
-      return key;
-    });
-    filters.push(`projection.container_id IN (${placeholders.join(", ")})`);
+    filters.push(inArray(documentProjection.containerId, uniqueContainerIds));
   }
 
   if (uniqueDocumentIds.length > 0) {
-    const placeholders = uniqueDocumentIds.map((documentId, index) => {
-      const key = `:documentId${index}`;
-      bind[key] = documentId;
-      return key;
-    });
-    filters.push(`projection.document_id IN (${placeholders.join(", ")})`);
+    filters.push(inArray(documentProjection.documentId, uniqueDocumentIds));
   }
 
-  const rows = await execSql(
-    `
- SELECT
- projection.local_id,
- projection.document_id,
- projection.container_id,
- projection.text,
- projection.updated_at,
- persisted.access_state_hash
- FROM document_projection projection
- LEFT JOIN documents persisted
- ON persisted.app_kind = :appKind
- AND persisted.local_id = projection.local_id
- WHERE ${filters.join(" OR ")}
- ORDER BY projection.updated_at DESC, projection.local_id DESC
- `,
-    bind,
-  );
+  const whereCondition = filters.length === 1 ? filters[0] : or(...filters);
+  const { db } = getAppDatabaseRuntime(execSql);
+  const rows = await db
+    .select(documentSummarySelection)
+    .from(documentProjection)
+    .leftJoin(documents, documentSummaryJoin)
+    .where(whereCondition)
+    .orderBy(
+      desc(documentProjection.updatedAt),
+      desc(documentProjection.localId),
+    );
 
-  return rows.map((row) => ({
-    accessStateHash: parseProjectionAccessStateHash(row),
-    id: String(readSqlRowValue(row, "local_id") ?? ""),
-    containerId: parseProjectionContainerId(row),
-    documentKind: derivePersistedDocumentKind(parseProjectionText(row)),
-    documentId: parseProjectionDocumentId(row),
-    title: derivePersistedDocumentTitle(parseProjectionText(row)),
-    updatedAt: parseProjectionUpdatedAt(row),
-  }));
+  return rows.map(mapDocumentSummary);
 }
 
 const sqlStoredDocumentsPersistence: DocumentsPersistence = {
@@ -573,53 +547,31 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     });
   },
   async listDocuments(execSql) {
-    const rows = await execSql(
-      `
- SELECT
- projection.local_id,
- projection.document_id,
- projection.container_id,
- projection.text,
- projection.updated_at,
- persisted.access_state_hash
- FROM document_projection projection
- LEFT JOIN documents persisted
- ON persisted.app_kind = :appKind
- AND persisted.local_id = projection.local_id
- ORDER BY projection.updated_at DESC, projection.local_id DESC
- `,
-      {
-        ":appKind": DOCUMENTS_APP_KIND,
-      },
-    );
+    const { db } = getAppDatabaseRuntime(execSql);
+    const rows = await db
+      .select(documentSummarySelection)
+      .from(documentProjection)
+      .leftJoin(documents, documentSummaryJoin)
+      .orderBy(
+        desc(documentProjection.updatedAt),
+        desc(documentProjection.localId),
+      );
 
-    return rows.map((row) => ({
-      accessStateHash: parseProjectionAccessStateHash(row),
-      id: String(readSqlRowValue(row, "local_id") ?? ""),
-      containerId: parseProjectionContainerId(row),
-      documentKind: derivePersistedDocumentKind(parseProjectionText(row)),
-      documentId: parseProjectionDocumentId(row),
-      title: derivePersistedDocumentTitle(parseProjectionText(row)),
-      updatedAt: parseProjectionUpdatedAt(row),
-    }));
+    return rows.map(mapDocumentSummary);
   },
   listDocumentsByContainerIdsOrDocumentIds,
   async loadDocument(execSql, localId) {
+    const { db } = getAppDatabaseRuntime(execSql);
     const [documentRecord, projectionRows] = await Promise.all([
       loadDocumentRecord(execSql, getDocumentScope(localId)),
-      execSql(
-        `
- SELECT
- text,
- container_id
- FROM document_projection
- WHERE local_id = :localId
- LIMIT 1
- `,
-        {
-          ":localId": localId,
-        },
-      ),
+      db
+        .select({
+          text: documentProjection.text,
+          containerId: documentProjection.containerId,
+        })
+        .from(documentProjection)
+        .where(eq(documentProjection.localId, localId))
+        .limit(1),
     ]);
 
     if (!documentRecord) {
@@ -628,28 +580,23 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
 
     return {
       ...documentRecord,
-      containerId: parseProjectionContainerId(projectionRows[0]),
-      text: parseProjectionText(projectionRows[0]),
+      containerId: getProjectionContainerId(projectionRows[0]),
+      text: getProjectionText(projectionRows[0]),
     };
   },
   async saveDocument(execSql, document, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-      runSqlTransaction(lockedExecSql, async () => {
+      getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         const [existingRecord, projectionRows] = await Promise.all([
           loadDocumentRecord(lockedExecSql, getDocumentScope(document.id)),
-          lockedExecSql(
-            `
- SELECT
- text,
- updated_at
- FROM document_projection
- WHERE local_id = :localId
- LIMIT 1
- `,
-            {
-              ":localId": document.id,
-            },
-          ),
+          tx
+            .select({
+              text: documentProjection.text,
+              updatedAt: documentProjection.updatedAt,
+            })
+            .from(documentProjection)
+            .where(eq(documentProjection.localId, document.id))
+            .limit(1),
         ]);
         const existingProjection = projectionRows[0];
         const updatedAt =
@@ -658,13 +605,13 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
             existingRecord
               ? {
                   loroSnapshot: existingRecord.loroSnapshot,
-                  text: parseProjectionText(existingProjection),
+                  text: getProjectionText(existingProjection),
                 }
               : null,
             document,
           )
             ? new Date().toISOString()
-            : parseProjectionUpdatedAt(existingProjection) ||
+            : getProjectionUpdatedAt(existingProjection) ||
               new Date().toISOString());
 
         await saveDocumentRecord(
@@ -673,36 +620,21 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
           document,
           updatedAt,
         );
-        await lockedExecSql(
-          `
- INSERT INTO document_projection (
- local_id,
- document_id,
- container_id,
- text,
- updated_at
- )
- VALUES (
- :localId,
- :documentId,
- :containerId,
- :text,
- :updatedAt
- )
- ON CONFLICT(local_id) DO UPDATE SET
- document_id = excluded.document_id,
- container_id = excluded.container_id,
- text = excluded.text,
- updated_at = excluded.updated_at
- `,
-          {
-            ":localId": document.id,
-            ":documentId": document.documentId,
-            ":containerId": document.containerId,
-            ":text": document.text,
-            ":updatedAt": updatedAt,
-          },
-        );
+        const projectionRow = {
+          localId: document.id,
+          documentId: document.documentId,
+          containerId: document.containerId,
+          text: document.text,
+          updatedAt,
+        };
+        await tx
+          .insert(documentProjection)
+          .values(projectionRow)
+          .onConflictDoUpdate({
+            target: documentProjection.localId,
+            set: projectionRow,
+          })
+          .run();
 
         return updatedAt;
       }),
@@ -726,58 +658,53 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     return listDocumentPendingUpdates(execSql, getDocumentScope(localId));
   },
   async listPendingAttachments(execSql, localId) {
-    const rows = await execSql(
-      `
- SELECT
- local_id,
- slot_id,
- name,
- mime_type,
- storage_key,
- byte_length
- FROM document_pending_attachments
- WHERE local_id = :localId
- ORDER BY created_at, slot_id
- `,
-      {
-        ":localId": localId,
-      },
-    );
+    const { db } = getAppDatabaseRuntime(execSql);
+    const rows = await db
+      .select({
+        localId: documentPendingAttachments.localId,
+        slotId: documentPendingAttachments.slotId,
+        name: documentPendingAttachments.name,
+        mimeType: documentPendingAttachments.mimeType,
+        storageKey: documentPendingAttachments.storageKey,
+        byteLength: documentPendingAttachments.byteLength,
+      })
+      .from(documentPendingAttachments)
+      .where(eq(documentPendingAttachments.localId, localId))
+      .orderBy(
+        documentPendingAttachments.createdAt,
+        documentPendingAttachments.slotId,
+      );
 
-    return rows.map((row) => ({
-      byteLength: parsePendingAttachmentByteLength(row),
-      localId: String(readSqlRowValue(row, "local_id") ?? ""),
-      mimeType: parsePendingAttachmentMimeType(row),
-      name: String(readSqlRowValue(row, "name") ?? ""),
-      slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
-      storageKey: parseStorageKey(row),
+    return rows.map((row: SelectedPendingAttachment) => ({
+      byteLength: row.byteLength,
+      localId: row.localId,
+      mimeType: row.mimeType,
+      name: row.name,
+      slotId: row.slotId,
+      storageKey: row.storageKey,
     }));
   },
   async listLocalAttachments(execSql, localId) {
-    const rows = await execSql(
-      `
- SELECT
- local_id,
- slot_id,
- blob_id,
- storage_key,
- mime_type,
- byte_length
- FROM document_attachment_blob_projection
- WHERE local_id = :localId
- `,
-      {
-        ":localId": localId,
-      },
-    );
+    const { db } = getAppDatabaseRuntime(execSql);
+    const rows = await db
+      .select({
+        localId: documentAttachmentBlobProjection.localId,
+        slotId: documentAttachmentBlobProjection.slotId,
+        blobId: documentAttachmentBlobProjection.blobId,
+        storageKey: documentAttachmentBlobProjection.storageKey,
+        mimeType: documentAttachmentBlobProjection.mimeType,
+        byteLength: documentAttachmentBlobProjection.byteLength,
+      })
+      .from(documentAttachmentBlobProjection)
+      .where(eq(documentAttachmentBlobProjection.localId, localId));
 
-    return rows.map((row) => ({
-      blobId: parseBlobId(row),
-      byteLength: parsePendingAttachmentByteLength(row),
-      localId: String(readSqlRowValue(row, "local_id") ?? ""),
-      mimeType: parsePendingAttachmentMimeType(row),
-      slotId: String(readSqlRowValue(row, "slot_id") ?? ""),
-      storageKey: parseStorageKey(row),
+    return rows.map((row: SelectedLocalAttachment) => ({
+      blobId: row.blobId,
+      byteLength: row.byteLength,
+      localId: row.localId,
+      mimeType: row.mimeType,
+      slotId: row.slotId,
+      storageKey: row.storageKey,
     }));
   },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
@@ -792,86 +719,58 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async saveLocalAttachment(execSql, attachment) {
     const updatedAt = new Date().toISOString();
 
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
- INSERT INTO document_attachment_blob_projection (
- local_id,
- slot_id,
- blob_id,
- storage_key,
- mime_type,
- byte_length,
- updated_at
- )
- VALUES (
- :localId,
- :slotId,
- :blobId,
- :storageKey,
- :mimeType,
- :byteLength,
- :updatedAt
- )
- ON CONFLICT(local_id, slot_id) DO UPDATE SET
- blob_id = excluded.blob_id,
- storage_key = excluded.storage_key,
- mime_type = excluded.mime_type,
- byte_length = excluded.byte_length,
- updated_at = excluded.updated_at
- `,
-        {
-          ":localId": attachment.localId,
-          ":slotId": attachment.slotId,
-          ":blobId": attachment.blobId,
-          ":storageKey": attachment.storageKey,
-          ":mimeType": attachment.mimeType,
-          ":byteLength": attachment.byteLength,
-          ":updatedAt": updatedAt,
-        },
-      );
+    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+      const attachmentRow = {
+        localId: attachment.localId,
+        slotId: attachment.slotId,
+        blobId: attachment.blobId,
+        storageKey: attachment.storageKey,
+        mimeType: attachment.mimeType,
+        byteLength: attachment.byteLength,
+        updatedAt,
+      };
+      await db
+        .insert(documentAttachmentBlobProjection)
+        .values(attachmentRow)
+        .onConflictDoUpdate({
+          target: [
+            documentAttachmentBlobProjection.localId,
+            documentAttachmentBlobProjection.slotId,
+          ],
+          set: attachmentRow,
+        })
+        .run();
     });
   },
   async savePendingAttachment(execSql, attachment) {
     const createdAt = new Date().toISOString();
 
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
- INSERT INTO document_pending_attachments (
- local_id,
- slot_id,
- name,
- mime_type,
- storage_key,
- byte_length,
- created_at
- )
- VALUES (
- :localId,
- :slotId,
- :name,
- :mimeType,
- :storageKey,
- :byteLength,
- :createdAt
- )
- ON CONFLICT(local_id, slot_id) DO UPDATE SET
- name = excluded.name,
- mime_type = excluded.mime_type,
- storage_key = excluded.storage_key,
- byte_length = excluded.byte_length
- `,
-        {
-          ":localId": attachment.localId,
-          ":slotId": attachment.slotId,
-          ":name": attachment.name,
-          ":mimeType": attachment.mimeType,
-          ":storageKey": attachment.storageKey,
-          ":byteLength": attachment.byteLength,
-          ":createdAt": createdAt,
-        },
-      );
+    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+      const attachmentRow = {
+        localId: attachment.localId,
+        slotId: attachment.slotId,
+        name: attachment.name,
+        mimeType: attachment.mimeType,
+        storageKey: attachment.storageKey,
+        byteLength: attachment.byteLength,
+        createdAt,
+      };
+      await db
+        .insert(documentPendingAttachments)
+        .values(attachmentRow)
+        .onConflictDoUpdate({
+          target: [
+            documentPendingAttachments.localId,
+            documentPendingAttachments.slotId,
+          ],
+          set: {
+            name: attachmentRow.name,
+            mimeType: attachmentRow.mimeType,
+            storageKey: attachmentRow.storageKey,
+            byteLength: attachmentRow.byteLength,
+          },
+        })
+        .run();
     });
   },
   async deletePendingUpdate(execSql, id) {
@@ -888,31 +787,25 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     });
   },
   async deletePendingAttachment(execSql, localId, slotId, storageKey) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
- DELETE FROM document_pending_attachments
- WHERE local_id = :localId AND slot_id = :slotId AND storage_key = :storageKey
- `,
-        {
-          ":localId": localId,
-          ":slotId": slotId,
-          ":storageKey": storageKey,
-        },
-      );
+    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+      await db
+        .delete(documentPendingAttachments)
+        .where(
+          and(
+            eq(documentPendingAttachments.localId, localId),
+            eq(documentPendingAttachments.slotId, slotId),
+            eq(documentPendingAttachments.storageKey, storageKey),
+          ),
+        )
+        .run();
     });
   },
   async deletePendingAttachments(execSql, localId) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
- DELETE FROM document_pending_attachments
- WHERE local_id = :localId
- `,
-        {
-          ":localId": localId,
-        },
-      );
+    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+      await db
+        .delete(documentPendingAttachments)
+        .where(eq(documentPendingAttachments.localId, localId))
+        .run();
     });
   },
 };

@@ -48,7 +48,6 @@ import {
   ensureDocumentTables,
   saveDocumentRecord,
 } from "../../../data/persistence/documentPersistence";
-import { readSqlRowValue } from "../../../data/persistence/sqlSchema";
 import { sqlExplorerPersistence } from "../explorerPersistence";
 import { createExplorerStore } from "./ExplorerProvider";
 import {
@@ -66,6 +65,13 @@ type TestRuntime = ExplorerRuntime & { close: () => void };
 type ListedContainer = NonNullable<
   Awaited<ReturnType<TestRuntime["apiClient"]["listContainers"]>>
 >[number];
+
+function readSqlRowValue(
+  row: Record<string, string | number | null>,
+  key: string,
+): string | number | null | undefined {
+  return row[key];
+}
 
 async function createExplorerMetadataContainerProjection(input: {
   containerId: string;
