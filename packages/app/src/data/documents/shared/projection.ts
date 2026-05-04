@@ -569,7 +569,9 @@ export async function unwrapDocumentContentKeyFromWriterProjection(input: {
   }
 
   if (!contentKey) {
-    throw new Error("Document content key could not be unwrapped");
+    throw new Error(
+      `Document content key could not be unwrapped from any of ${input.writerProjection.contentKeyBundle.targets.length} target(s)`,
+    );
   }
   if (contentKey.byteLength !== 32) {
     throw new Error("Document content key must be 32 bytes");
