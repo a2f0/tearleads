@@ -18,13 +18,13 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { BlobBytes } from "../blobs";
-import { uploadDocumentAttachment } from "../documents/blobRuntime";
+import type { BlobBytes } from "../../blobs";
+import { uploadDocumentAttachment } from "../../documents/blobRuntime";
 import {
   buildMaterializedDocumentCreatePlan,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
-} from "../documents/documentRuntime";
+} from "../../documents/documentRuntime";
 import {
   createContainerManifestFixture,
   createContainerRevokeManifestFixture,
@@ -32,7 +32,7 @@ import {
   createParentProjectionUserKeyResolver,
   createUserContainerWrap,
   SIGNED_AT,
-} from "./test-helpers";
+} from "../test-helpers";
 
 test("unwrapContainerKekPath verifies signed projection events before unwrap", async () => {
   const parent = await createParentProjection();
