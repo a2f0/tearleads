@@ -413,36 +413,31 @@ function createInMemoryKeyValueStore(): TestApiKeyValueStore {
     { expiresAt: number | null; value: string }
   >();
 
+  const getNonExpired = (key: string): string | null => {
+    const entry = entries.get(key);
+    if (!entry) {
+      return null;
+    }
+
+    if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      entries.delete(key);
+      return null;
+    }
+
+    return entry.value;
+  };
+
   return {
     del: async (key: string) => {
       entries.delete(key);
     },
-    get: async (key: string) => {
-      const entry = entries.get(key);
-      if (!entry) {
-        return null;
-      }
-
-      if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
-        entries.delete(key);
-        return null;
-      }
-
-      return entry.value;
-    },
+    get: async (key: string) => getNonExpired(key),
     getdel: async (key: string) => {
-      const entry = entries.get(key);
-      if (!entry) {
-        return null;
-      }
-
-      if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      const value = getNonExpired(key);
+      if (value !== null) {
         entries.delete(key);
-        return null;
       }
-
-      entries.delete(key);
-      return entry.value;
+      return value;
     },
     set: async (key: string, value: string, ttlSeconds?: number) => {
       entries.set(key, {
