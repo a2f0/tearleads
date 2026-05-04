@@ -1,8 +1,8 @@
+import { Notes } from "../../mini-apps/notes/Notes";
 import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
-} from "../../data/documents/DocumentsProvider";
-import { Notes } from "../../mini-apps/notes/Notes";
+} from "../../stores/documents/DocumentsProvider";
 import type { DocumentTypeAppProps } from "../types";
 
 export function NoteDocumentApp({

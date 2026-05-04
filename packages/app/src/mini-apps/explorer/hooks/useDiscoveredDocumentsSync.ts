@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import {
   type DocumentSummary,
   upsertDiscoveredDocuments,
 } from "../../../data/persistence/documents/documentsPersistence";
 import type { AppDataContextValue } from "../../../providers/data/AppDataProvider";
+import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
 import {
   discoverContainerDocuments,
   hasUndiscoveredDocumentUpdateEvent,

@@ -14,8 +14,8 @@ components/hooks -> providers/stores -> workflows -> persistence + shared helper
 
 - UI components, document-type components, and mini-app hooks render state and
   collect user intent.
-- Providers and store modules own React context, subscriptions, sync scheduling,
-  state machines, and event fanout.
+- Store modules under `../stores/` own React context, subscriptions, sync
+  scheduling, state machines, and event fanout.
 - Workflows under `../workflows/` own multi-step app operations that compose API
   calls, local persistence, key/projection verification, and transaction
   boundaries.

@@ -6,9 +6,9 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import type { ExplorerPersistence } from "../../../data/persistence/explorer/explorerPersistence";
-import { sqlExplorerPersistence } from "../../../data/persistence/explorer/explorerPersistence";
-import { useAppData } from "../../../providers/data/AppDataProvider";
+import type { ExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
+import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
+import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   createExplorerSyncAgent,
   type ExplorerRuntime,

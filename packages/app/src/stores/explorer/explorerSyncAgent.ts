@@ -6,47 +6,47 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import type { BlobStore } from "../../../data/blobs";
+import type { BlobStore } from "../../data/blobs";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../../data/containers";
+} from "../../data/containers";
 import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
-} from "../../../data/documentSync";
-import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
-import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
-import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+} from "../../data/documentSync";
+import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
+import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
-} from "../../../data/persistence/documentPersistence";
-import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+} from "../../data/persistence/documentPersistence";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type {
   ContainerCreateIntentRecord,
   ExplorerPersistence,
-} from "../../../data/persistence/explorer/explorerPersistence";
-import type { ExecSql } from "../../../data/persistence/sqlSchema";
+} from "../../data/persistence/explorer/explorerPersistence";
+import type { ExecSql } from "../../data/persistence/sqlSchema";
 import {
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
   type SyncLane,
-} from "../../../data/sync/syncCoordinator";
-import type { useAppData } from "../../../providers/data/AppDataProvider";
+} from "../../data/sync/syncCoordinator";
+import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
   createRemoteContainer,
   moveRemoteContainer,
   shareRemoteContainer,
-} from "../../../workflows/containers";
+} from "../../workflows/containers";
 import {
   createRemoteDocument,
   type DocumentCreateAuthor,
   syncRemoteDocument,
-} from "../../../workflows/documents";
+} from "../../workflows/documents";
+import { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
 

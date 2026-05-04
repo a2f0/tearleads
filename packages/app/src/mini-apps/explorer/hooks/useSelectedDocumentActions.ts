@@ -1,9 +1,9 @@
 import { useCallback } from "react";
-import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
+import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
 import {
   type RelinkRemoteDocumentResult,
   relinkRemoteDocument,

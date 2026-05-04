@@ -1,5 +1,8 @@
+import {
+  DEFAULT_NOTE_ID,
+  NotesProvider,
+} from "../../stores/notes/NotesProvider";
 import { Notes } from "./Notes";
-import { DEFAULT_NOTE_ID, NotesProvider } from "./providers/NotesProvider";
 
 interface NotesAppProps {
   noteId?: string;

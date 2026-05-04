@@ -1,5 +1,5 @@
 import { createMemoryBlobStore } from "../../src/data/blobs";
-import type { DocumentsRuntime } from "../../src/data/documents/DocumentsProvider";
+import type { DocumentsRuntime } from "../../src/stores/documents/DocumentsProvider";
 import { createTestExecSql } from "./createTestExecSql";
 
 type SharedSqlRuntimeBase = Omit<DocumentsRuntime, "apiClient" | "containerId">;

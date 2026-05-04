@@ -8,10 +8,10 @@ import {
   createInitializedContainerMetadataDocument,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../../data/containers";
-import { requestDomainDocumentSync } from "../../../data/documents/DocumentsProvider";
-import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
-import type { DocumentRecord } from "../../../data/persistence/documentPersistence";
+} from "../../data/containers";
+import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
+import type { DocumentRecord } from "../../data/persistence/documentPersistence";
+import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import {
   type ContainerMetadataDocument,
   type ContainerState,

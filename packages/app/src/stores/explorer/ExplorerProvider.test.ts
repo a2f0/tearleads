@@ -24,31 +24,31 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { isAccessManifestBundleWireResponse } from "@tearleads/validators/util";
-import { createContainerWriterProjectionFixture } from "../../../../test/helpers/createContainerWriterProjectionFixture";
-import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
-import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
+import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
+import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
+import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import {
   assertAccessEvent,
   assertContainerKeyEpoch,
   assertWriteHeader,
-} from "../../../../test/helpers/keyingAssertions";
-import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { createInitializedContainerMetadataDocument } from "../../../data/containers";
-import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
+} from "../../../test/helpers/keyingAssertions";
+import { waitForCondition } from "../../../test/helpers/waitForCondition";
+import { createInitializedContainerMetadataDocument } from "../../data/containers";
+import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
 import {
   ensureContainerTables,
   loadContainers,
   saveContainer,
-} from "../../../data/persistence/containers/containerPersistence";
+} from "../../data/persistence/containers/containerPersistence";
 import {
   ensureDocumentTables,
   saveDocumentRecord,
-} from "../../../data/persistence/documentPersistence";
-import { sqlExplorerPersistence } from "../../../data/persistence/explorer/explorerPersistence";
+} from "../../data/persistence/documentPersistence";
+import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import {
   buildMaterializedDocumentCreatePlan,
   persistedDocumentCreateStateFromResponse,
-} from "../../../workflows/documents";
+} from "../../workflows/documents";
 import { createExplorerStore } from "./ExplorerProvider";
 import {
   createExplorerSyncAgent,
