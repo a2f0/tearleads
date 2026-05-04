@@ -1,5 +1,5 @@
+import type { ExplorerPersistence } from "../../../data/persistence/explorer/explorerPersistence";
 import { didRegainSyncPrerequisites } from "../../../data/sync/syncCoordinator";
-import type { ExplorerPersistence } from "../explorerPersistence";
 import type { ContainerNode } from "../types";
 import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
 import type { ExplorerSnapshot, ExplorerStoreState } from "./types";

@@ -9,10 +9,12 @@ import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { readCanonicalRecordPaths } from "../../../keyingCanonicalJson";
 import type { ExecSql } from "../../../persistence/sqlSchema";
-import type { ProjectionVerificationOptions } from "../../documentRuntime";
 import { unwrapContainerKekPath } from "../../shared/projection";
 import { assertEqualBytes } from "../../shared/readers";
-import { projectionVerificationOptions } from "../../shared/types";
+import {
+  type ProjectionVerificationOptions,
+  projectionVerificationOptions,
+} from "../../shared/types";
 import { normalizeDocumentTarget, sortBlobTargets } from "./readers";
 import type { BlobContentKeyTarget, BlobEncryptedBytesRecord } from "./types";
 

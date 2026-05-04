@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/containers";
 import { subscribeToPersistedDocuments } from "../../../data/documents/DocumentsProvider";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import {
   type DocumentSummary,
   sqlDocumentsPersistence,
-} from "../../../data/documents/documentsPersistence";
+} from "../../../data/persistence/documents/documentsPersistence";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import {
   mergeDocumentSummaryLists,

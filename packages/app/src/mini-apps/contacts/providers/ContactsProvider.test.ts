@@ -24,13 +24,13 @@ import {
 } from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import type {
+  ContactPendingUpdateInsert,
+  ContactsPersistence,
+} from "../../../data/persistence/contacts/contactsPersistence";
+import type {
   DocumentRecord,
   PendingUpdateRecord,
 } from "../../../data/persistence/documentPersistence";
-import type {
-  ContactPendingUpdateInsert,
-  ContactsPersistence,
-} from "../contactsPersistence";
 import { type ContactsRuntime, createContactsStore } from "./ContactsProvider";
 
 interface StoredContactState {

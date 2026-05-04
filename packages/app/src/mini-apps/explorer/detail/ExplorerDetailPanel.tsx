@@ -3,7 +3,7 @@ import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "../../../data/documents/documentKinds";
-import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
+import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
 import {
   DOCUMENT_TYPE_DEFINITIONS,
   getDocumentTypeDefinition,

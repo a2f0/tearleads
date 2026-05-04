@@ -13,7 +13,7 @@ import {
   ensureContainerTables,
   loadContainers,
   saveContainer,
-} from "../../data/containers";
+} from "../../data/persistence/containers/containerPersistence";
 import { createExecSql } from "../../data/persistence/sqlSchema";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useDatabase } from "../db/DatabaseProvider";

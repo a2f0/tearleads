@@ -1,13 +1,13 @@
 import { useCallback } from "react";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/containers";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
+import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
 import {
   type RelinkRemoteDocumentResult,
   relinkRemoteDocument,
-} from "../../../data/documents/documentRuntime";
-import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
-import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+} from "../../../workflows/documents";
 import { getDocumentByLocalId } from "../documentSummaries";
 import {
   createExplorerDocumentsRuntime,

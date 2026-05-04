@@ -17,6 +17,15 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import {
+  decryptDocumentAttachmentBlob,
+  uploadDocumentAttachment,
+} from "../../workflows/blobs";
+import {
+  createRemoteDocument,
+  type DocumentCreateAuthor,
+  syncRemoteDocument,
+} from "../../workflows/documents";
 import type { BlobBytes, BlobStore } from "../blobs";
 import { getScopedPeerSeed } from "../crdtPeerSeed";
 import {
@@ -24,32 +33,6 @@ import {
   isDocumentUpdateCreatedEvent,
 } from "../documentSync";
 import { createProjectionUserKeyResolver } from "../keyingProjectionVerification";
-import {
-  didRegainSyncPrerequisites,
-  getOrCreateDomainSyncCoordinator,
-  isDestroyedDatabaseClientError,
-  type SyncLane,
-} from "../sync/syncCoordinator";
-import {
-  decryptDocumentAttachmentBlob,
-  uploadDocumentAttachment,
-} from "./blobRuntime";
-import {
-  createDocumentSignerDeviceId,
-  DEFAULT_DOCUMENT_ACCESS_EPOCH,
-} from "./documentConstants";
-import {
-  addDocumentAttachments,
-  type DocumentAttachment,
-  ensureDocumentAttachmentStructure,
-  getDocumentAttachments,
-  sameDocumentAttachments,
-} from "./documentContent";
-import {
-  createRemoteDocument,
-  type DocumentCreateAuthor,
-  syncRemoteDocument,
-} from "./documentRuntime";
 import {
   DOCUMENTS_APP_KIND,
   type StoredDocumentRecord as DocumentRecord,
@@ -62,7 +45,24 @@ import {
   type PendingUpdateRecord,
   type RelinkPersistedDocumentInput,
   sqlDocumentsPersistence,
-} from "./documentsPersistence";
+} from "../persistence/documents/documentsPersistence";
+import {
+  didRegainSyncPrerequisites,
+  getOrCreateDomainSyncCoordinator,
+  isDestroyedDatabaseClientError,
+  type SyncLane,
+} from "../sync/syncCoordinator";
+import {
+  createDocumentSignerDeviceId,
+  DEFAULT_DOCUMENT_ACCESS_EPOCH,
+} from "./documentConstants";
+import {
+  addDocumentAttachments,
+  type DocumentAttachment,
+  ensureDocumentAttachmentStructure,
+  getDocumentAttachments,
+  sameDocumentAttachments,
+} from "./documentContent";
 
 type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 type DocumentAppData = ReturnType<typeof useAppData>;

@@ -8,13 +8,8 @@ import {
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { BlobStore } from "../../../data/blobs";
 import {
-  type ContainerRecord,
   createContainerMetadataDocument,
-  createRemoteContainer,
-  moveRemoteContainer,
   readContainerMetadataValue,
-  shareRemoteContainer,
-  sqlDocumentContainerProjectionPersistence,
   writeContainerMetadataValue,
 } from "../../../data/containers";
 import {
@@ -23,17 +18,18 @@ import {
 } from "../../../data/documentSync";
 import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
-import {
-  createRemoteDocument,
-  type DocumentCreateAuthor,
-  syncRemoteDocument,
-} from "../../../data/documents/documentRuntime";
-import { sqlDocumentsPersistence } from "../../../data/documents/documentsPersistence";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
 } from "../../../data/persistence/documentPersistence";
+import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import type {
+  ContainerCreateIntentRecord,
+  ExplorerPersistence,
+} from "../../../data/persistence/explorer/explorerPersistence";
 import type { ExecSql } from "../../../data/persistence/sqlSchema";
 import {
   getOrCreateDomainSyncCoordinator,
@@ -41,10 +37,16 @@ import {
   type SyncLane,
 } from "../../../data/sync/syncCoordinator";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
-import type {
-  ContainerCreateIntentRecord,
-  ExplorerPersistence,
-} from "../explorerPersistence";
+import {
+  createRemoteContainer,
+  moveRemoteContainer,
+  shareRemoteContainer,
+} from "../../../workflows/containers";
+import {
+  createRemoteDocument,
+  type DocumentCreateAuthor,
+  syncRemoteDocument,
+} from "../../../workflows/documents";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
 

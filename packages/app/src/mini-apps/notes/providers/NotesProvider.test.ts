@@ -34,15 +34,9 @@ import {
 } from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { type BlobBytes, createMemoryBlobStore } from "../../../data/blobs";
-import {
-  decryptDocumentAttachmentBlob,
-  uploadDocumentAttachment,
-} from "../../../data/documents/blobRuntime";
 import { subscribeToPersistedDocuments } from "../../../data/documents/DocumentsProvider";
-import { createRemoteDocument } from "../../../data/documents/documentRuntime";
-import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentsPersistence";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { createEmptyDriverLicenseDocument } from "../../../document-types/drivers-license/driverLicenseDocument";
+import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/documentsPersistence";
 import type {
   LocalAttachmentRecord,
   NoteRecord,
@@ -51,7 +45,13 @@ import type {
   PendingAttachmentRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
-} from "../notesPersistence";
+} from "../../../data/persistence/notes/notesPersistence";
+import { createEmptyDriverLicenseDocument } from "../../../document-types/drivers-license/driverLicenseDocument";
+import {
+  decryptDocumentAttachmentBlob,
+  uploadDocumentAttachment,
+} from "../../../workflows/blobs";
+import { createRemoteDocument } from "../../../workflows/documents";
 import {
   createNotesStore,
   type NotesRuntime,

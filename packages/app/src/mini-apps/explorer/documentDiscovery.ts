@@ -3,7 +3,7 @@ import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../data/documents/documentsPersistence";
+} from "../../data/persistence/documents/documentsPersistence";
 
 interface ExplorerListedDocument {
   createdAt: string;

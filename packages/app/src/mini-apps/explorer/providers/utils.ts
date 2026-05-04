@@ -1,4 +1,4 @@
-import type { ContainerRecord } from "../../../data/containers";
+import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
 import type { ContainerNode } from "../types";
 import type {
   ContainerState,

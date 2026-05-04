@@ -3,7 +3,7 @@ import { cruise } from "dependency-cruiser";
 
 import dependencyCruiserConfig from "../dependency-cruiser.config";
 
-const architectureEntryPoints = ["packages/api/src"];
+const architectureEntryPoints = ["packages/api/src", "packages/app/src"];
 
 function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
   const { options = {}, ...ruleSet } = config;

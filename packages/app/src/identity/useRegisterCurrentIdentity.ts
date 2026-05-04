@@ -9,23 +9,23 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { PublicKeyRequest } from "@tearleads/validators/request";
 import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { useCallback } from "react";
-import {
-  buildRootContainerCreatePlan,
-  createInitializedContainerMetadataDocument,
-  rootContainerWriterProjectionFromCreatePlan,
-} from "../data/containers";
+import { createInitializedContainerMetadataDocument } from "../data/containers";
 import { createDocumentSignerDeviceId } from "../data/documents/documentConstants";
-import {
-  buildMaterializedDocumentCreatePlan,
-  persistedDocumentCreateStateFromResponse,
-} from "../data/documents/documentRuntime";
 import { createExecSql } from "../data/persistence/sqlSchema";
-import { persistRegistrationBootstrap } from "../data/registrationBootstrapPersistence";
 import { useApiClient } from "../providers/api/ApiClientProvider";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLog } from "../providers/logging/LogProvider";
+import {
+  buildRootContainerCreatePlan,
+  rootContainerWriterProjectionFromCreatePlan,
+} from "../workflows/containers";
+import {
+  buildMaterializedDocumentCreatePlan,
+  persistedDocumentCreateStateFromResponse,
+} from "../workflows/documents";
+import { persistRegistrationBootstrap } from "../workflows/registration/persistRegistrationBootstrap";
 
 interface RegisterCurrentIdentityResult {
   canRegisterCurrentIdentity: boolean;
