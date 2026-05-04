@@ -15,13 +15,12 @@ export interface ExecSql {
     bind: SqlBind | undefined,
     options: { rowMode: "array" },
   ): Promise<SqlArrayRow[]>;
+  (
+    sql: string,
+    bind?: SqlBind,
+    options?: { rowMode?: SqlRowMode },
+  ): Promise<Array<SqlRow | SqlArrayRow>>;
 }
-
-type ExecSqlImplementation = (
-  sql: string,
-  bind?: SqlBind,
-  options?: { rowMode?: SqlRowMode },
-) => Promise<Array<SqlRow | SqlArrayRow>>;
 
 export interface ExecSqlClientLike {
   exec(options: {
@@ -49,24 +48,54 @@ const serializedSqlExecs = new WeakSet<ExecSql>();
 // connection share the same serialized mutation queue.
 const clientExecSqls = new WeakMap<ExecSqlClientLike, ExecSql>();
 
+function defineExecSql(
+  run: (
+    sql: string,
+    bind?: SqlBind,
+    options?: { rowMode?: SqlRowMode },
+  ) => Promise<Array<SqlRow | SqlArrayRow>>,
+): ExecSql {
+  function execSql(
+    sql: string,
+    bind?: SqlBind,
+    options?: { rowMode?: "object" },
+  ): Promise<SqlRow[]>;
+  function execSql(
+    sql: string,
+    bind: SqlBind | undefined,
+    options: { rowMode: "array" },
+  ): Promise<SqlArrayRow[]>;
+  function execSql(
+    sql: string,
+    bind?: SqlBind,
+    options?: { rowMode?: SqlRowMode },
+  ): Promise<Array<SqlRow | SqlArrayRow>>;
+  async function execSql(
+    sql: string,
+    bind?: SqlBind,
+    options?: { rowMode?: SqlRowMode },
+  ): Promise<Array<SqlRow | SqlArrayRow>> {
+    return run(sql, bind, options);
+  }
+
+  return execSql;
+}
+
 export function createExecSql(client: ExecSqlClientLike): ExecSql {
   const existingExecSql = clientExecSqls.get(client);
   if (existingExecSql) {
     return existingExecSql;
   }
 
-  const execSql = (async (
-    sql: string,
-    bind?: SqlBind,
-    options?: { rowMode?: SqlRowMode },
-  ) => {
+  const execSql = defineExecSql(async (sql, bind, options) => {
     const result = await client.exec({
       sql,
       ...(bind !== undefined ? { bind } : {}),
       ...(options?.rowMode ? { rowMode: options.rowMode } : {}),
     });
     return result.rows;
-  }) as ExecSqlImplementation as ExecSql;
+  });
+
   clientExecSqls.set(client, execSql);
   return execSql;
 }
@@ -80,18 +109,7 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
     return execSql;
   }
 
-  const execSqlImplementation = execSql as ExecSqlImplementation;
-  const serializedExecSql = (async (
-    sql: string,
-    bind?: SqlBind,
-    options?: { rowMode?: SqlRowMode },
-  ) =>
-    execSqlImplementation(
-      sql,
-      bind,
-      options,
-    )) as ExecSqlImplementation as ExecSql;
-
+  const serializedExecSql = defineExecSql(execSql);
   serializedSqlExecs.add(serializedExecSql);
   return serializedExecSql;
 }
