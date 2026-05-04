@@ -11,10 +11,12 @@ import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request"
 import type { BlobBytes } from "../../../blobs";
 import { readCanonicalRecord } from "../../../keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../../keyingProjectionVerification";
-import { assertDocumentWriterProjectionConsistent } from "../../actions/linkSet";
-import type { ProjectionVerificationOptions } from "../../documentRuntime";
+import {
+  assertDocumentWriterProjectionConsistent,
+  type ProjectionVerificationOptions,
+  projectionVerificationOptions,
+} from "../../documentRuntime";
 import { uniqueSortedStrings } from "../../shared/readers";
-import { projectionVerificationOptions } from "../../shared/types";
 import { encryptBlobBytes } from "../shared/crypto";
 import {
   signBlobAttachmentEvent,

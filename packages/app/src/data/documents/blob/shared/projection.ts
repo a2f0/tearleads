@@ -10,6 +10,7 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import { readCanonicalRecordPaths } from "../../../keyingCanonicalJson";
 import type { ProjectionVerificationOptions } from "../../documentRuntime";
 import { unwrapContainerKekPath } from "../../shared/projection";
+import { assertEqualBytes } from "../../shared/readers";
 import { projectionVerificationOptions } from "../../shared/types";
 import { normalizeDocumentTarget, sortBlobTargets } from "./readers";
 import type { BlobContentKeyTarget, BlobEncryptedBytesRecord } from "./types";
@@ -48,14 +49,11 @@ async function collectContainerKeks(
     for (const [containerKeyEpochId, keyMaterial] of projectionKeks) {
       const existing = keksByEpochId.get(containerKeyEpochId);
       if (existing) {
-        if (
-          existing.byteLength !== keyMaterial.byteLength ||
-          existing.some((byte, index) => byte !== keyMaterial[index])
-        ) {
-          throw new Error(
-            "Blob writer projection contains conflicting container KEKs",
-          );
-        }
+        assertEqualBytes(
+          existing,
+          keyMaterial,
+          "Blob writer projection contains conflicting container KEKs",
+        );
         continue;
       }
       keksByEpochId.set(containerKeyEpochId, keyMaterial);
@@ -176,12 +174,11 @@ export async function unwrapBlobContentKey(
       envelope,
     });
     if (contentKey) {
-      if (
-        contentKey.byteLength !== unwrapped.byteLength ||
-        contentKey.some((byte, index) => byte !== unwrapped[index])
-      ) {
-        throw new Error("Blob content-key targets unwrap to conflicting keys");
-      }
+      assertEqualBytes(
+        contentKey,
+        unwrapped,
+        "Blob content-key targets unwrap to conflicting keys",
+      );
       continue;
     }
     contentKey = unwrapped;

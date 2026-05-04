@@ -424,10 +424,13 @@ export function assertEqualBytes(
   right: Uint8Array,
   message: string,
 ): void {
-  if (
-    left.byteLength !== right.byteLength ||
-    left.some((byte, index) => byte !== right[index])
-  ) {
+  let mismatch = left.byteLength ^ right.byteLength;
+  const length = Math.max(left.byteLength, right.byteLength);
+  for (let index = 0; index < length; index += 1) {
+    mismatch |= (left[index] ?? 0) ^ (right[index] ?? 0);
+  }
+
+  if (mismatch !== 0) {
     throw new Error(message);
   }
 }
