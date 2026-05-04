@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../data/documents/documentsPersistence";
+} from "../../data/persistence/documents/documentsPersistence";
 import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,

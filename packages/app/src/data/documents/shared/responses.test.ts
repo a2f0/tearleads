@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { buildMaterializedDocumentSyncPlan } from "../actions/sync";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
 import {
   createAuthor,
   createMaterializedSyncFixture,

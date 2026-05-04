@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../data/documents/documentsPersistence";
+import type { DocumentSummary } from "../../data/persistence/documents/documentsPersistence";
 
 function areDocumentSummariesEqualForExplorerMerge(
   left: DocumentSummary,

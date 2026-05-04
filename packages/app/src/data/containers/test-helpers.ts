@@ -33,7 +33,7 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { ContainerMutationAuthor } from "./containerRuntime";
+import type { ContainerMutationAuthor } from "../../workflows/containers";
 
 export const SIGNED_AT = "2026-04-28T12:00:00.000Z";
 

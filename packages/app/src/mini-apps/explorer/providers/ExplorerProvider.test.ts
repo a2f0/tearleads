@@ -33,22 +33,22 @@ import {
   assertWriteHeader,
 } from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { createInitializedContainerMetadataDocument } from "../../../data/containers";
+import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
 import {
-  createInitializedContainerMetadataDocument,
   ensureContainerTables,
   loadContainers,
   saveContainer,
-} from "../../../data/containers";
-import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
-import {
-  buildMaterializedDocumentCreatePlan,
-  persistedDocumentCreateStateFromResponse,
-} from "../../../data/documents/documentRuntime";
+} from "../../../data/persistence/containers/containerPersistence";
 import {
   ensureDocumentTables,
   saveDocumentRecord,
 } from "../../../data/persistence/documentPersistence";
-import { sqlExplorerPersistence } from "../explorerPersistence";
+import { sqlExplorerPersistence } from "../../../data/persistence/explorer/explorerPersistence";
+import {
+  buildMaterializedDocumentCreatePlan,
+  persistedDocumentCreateStateFromResponse,
+} from "../../../workflows/documents";
 import { createExplorerStore } from "./ExplorerProvider";
 import {
   createExplorerSyncAgent,

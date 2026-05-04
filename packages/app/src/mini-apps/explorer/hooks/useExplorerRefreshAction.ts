@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import {
   type DocumentSummary,
   upsertDiscoveredDocuments,
-} from "../../../data/documents/documentsPersistence";
+} from "../../../data/persistence/documents/documentsPersistence";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import { discoverAllContainerDocuments } from "../documentDiscovery";
 import { isDestroyedDatabaseWorkerError } from "../explorerRuntime";

@@ -18,13 +18,13 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { BlobBytes } from "../../blobs";
-import { uploadDocumentAttachment } from "../../documents/blobRuntime";
+import { uploadDocumentAttachment } from "../../../workflows/blobs";
 import {
   buildMaterializedDocumentCreatePlan,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
-} from "../../documents/documentRuntime";
+} from "../../../workflows/documents";
+import type { BlobBytes } from "../../blobs";
 import {
   createContainerManifestFixture,
   createContainerRevokeManifestFixture,

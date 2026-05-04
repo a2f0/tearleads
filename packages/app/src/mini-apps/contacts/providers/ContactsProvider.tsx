@@ -21,12 +21,11 @@ import {
   isDocumentUpdateCreatedEvent,
 } from "../../../data/documentSync";
 import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
-import {
-  createRemoteDocument,
-  type DocumentCreateAuthor,
-  syncRemoteDocument,
-} from "../../../data/documents/documentRuntime";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import {
+  type ContactsPersistence,
+  sqlContactsPersistence,
+} from "../../../data/persistence/contacts/contactsPersistence";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -40,9 +39,10 @@ import {
 } from "../../../data/sync/syncCoordinator";
 import { useAppData } from "../../../providers/data/AppDataProvider";
 import {
-  type ContactsPersistence,
-  sqlContactsPersistence,
-} from "../contactsPersistence";
+  createRemoteDocument,
+  type DocumentCreateAuthor,
+  syncRemoteDocument,
+} from "../../../workflows/documents";
 import type { AddressBookEntry } from "../types";
 
 type ContactsDocument = Awaited<ReturnType<typeof createDocument>>;

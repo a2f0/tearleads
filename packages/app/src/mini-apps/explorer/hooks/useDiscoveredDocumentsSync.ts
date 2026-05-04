@@ -3,7 +3,7 @@ import { primeDocumentStore } from "../../../data/documents/DocumentsProvider";
 import {
   type DocumentSummary,
   upsertDiscoveredDocuments,
-} from "../../../data/documents/documentsPersistence";
+} from "../../../data/persistence/documents/documentsPersistence";
 import type { AppDataContextValue } from "../../../providers/data/AppDataProvider";
 import {
   discoverContainerDocuments,

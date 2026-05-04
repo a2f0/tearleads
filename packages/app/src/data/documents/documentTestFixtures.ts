@@ -27,8 +27,8 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
-import { buildMaterializedDocumentCreatePlan } from "./actions/create";
-import type { buildDocumentSyncPlan } from "./actions/sync";
+import { buildMaterializedDocumentCreatePlan } from "../../workflows/documents/create";
+import type { buildDocumentSyncPlan } from "../../workflows/documents/sync";
 import { buildDocumentCreatePlan } from "./shared/events";
 import { deriveDocumentCreateTargets } from "./shared/projection";
 import type { DocumentCreateAuthor, DocumentCreatePlan } from "./shared/types";

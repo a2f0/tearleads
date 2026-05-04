@@ -16,12 +16,12 @@ import {
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../test/helpers/mswServer";
+import { createDocumentSignerDeviceId } from "../data/documents/documentConstants";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
-} from "../data/containers/containerRuntime";
-import { createDocumentSignerDeviceId } from "../data/documents/documentConstants";
-import { buildMaterializedDocumentCreatePlan } from "../data/documents/documentRuntime";
+} from "../workflows/containers";
+import { buildMaterializedDocumentCreatePlan } from "../workflows/documents";
 
 const apiBaseUrl = "http://localhost:3001";
 

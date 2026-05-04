@@ -1,5 +1,27 @@
 import type { IConfiguration } from "dependency-cruiser";
 
+const appPersistence = "^packages/app/src/data/persistence/";
+const appWorkflows = "^packages/app/src/workflows/";
+const appSharedHelpers =
+  "^packages/app/src/data/(containers|documents)(/blob)?/shared/";
+const appUiAndProviders = [
+  "^packages/app/src/components/",
+  "^packages/app/src/data/documents/DocumentsProvider\\.tsx$",
+  "^packages/app/src/document-types/",
+  "^packages/app/src/identity/",
+  "^packages/app/src/mini-apps/[^/]+/(context-menu|detail|hooks|modal|providers)/",
+  "^packages/app/src/mini-apps/[^/]+/[^/]+(?:App)?\\.tsx$",
+  "^packages/app/src/providers/",
+];
+const appUiWithoutStores = [
+  "^packages/app/src/components/",
+  "^packages/app/src/document-types/",
+  "^packages/app/src/mini-apps/[^/]+/(context-menu|detail|hooks|modal)/",
+  "^packages/app/src/mini-apps/[^/]+/[^/]+(?:App)?\\.tsx$",
+];
+const appSqliteInternals =
+  "^packages/app/src/data/persistence/(appDatabaseRuntime|documentPersistence|schema|sqlSchema)";
+
 const dependencyCruiserConfig = {
   forbidden: [
     {
@@ -102,9 +124,66 @@ const dependencyCruiserConfig = {
         path: "^packages/api/src/(routes|services)/",
       },
     },
+    {
+      name: "app-persistence-does-not-depend-on-ui-or-workflows",
+      severity: "error",
+      comment:
+        "App persistence modules are low-level SQLite stores and must not depend on React, providers, hooks, UI, or workflow modules.",
+      from: {
+        path: appPersistence,
+        pathNot: "\\.test\\.[tj]sx?$",
+      },
+      to: {
+        path: [...appUiAndProviders, appWorkflows],
+        preCompilationOnly: false,
+      },
+    },
+    {
+      name: "app-workflows-do-not-depend-on-ui-or-providers",
+      severity: "error",
+      comment:
+        "App workflows own multi-step local/remote orchestration below providers and must not depend back on React UI or provider modules.",
+      from: {
+        path: appWorkflows,
+        pathNot: "\\.test\\.[tj]sx?$",
+      },
+      to: {
+        path: appUiAndProviders,
+        preCompilationOnly: false,
+      },
+    },
+    {
+      name: "app-shared-helpers-stay-layer-neutral",
+      severity: "error",
+      comment:
+        "Document and container shared helpers are used by workflows and stores, so they must not depend on workflows, providers, hooks, or UI.",
+      from: {
+        path: appSharedHelpers,
+        pathNot: "\\.test\\.[tj]sx?$",
+      },
+      to: {
+        path: [...appUiAndProviders, appWorkflows],
+        preCompilationOnly: false,
+      },
+    },
+    {
+      name: "app-ui-does-not-import-sqlite-internals",
+      severity: "error",
+      comment:
+        "Production app UI and mini-app hooks should not import core SQLite runtime/schema internals directly.",
+      from: {
+        path: appUiWithoutStores,
+        pathNot: "\\.test\\.[tj]sx?$",
+      },
+      to: {
+        path: appSqliteInternals,
+        preCompilationOnly: false,
+      },
+    },
   ],
   options: {
-    includeOnly: "^packages/api/src/",
+    includeOnly: "^packages/(api|app)/src/",
+    tsPreCompilationDeps: "specify",
   },
 } satisfies IConfiguration;
 

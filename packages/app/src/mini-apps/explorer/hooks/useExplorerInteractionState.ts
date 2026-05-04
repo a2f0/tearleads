@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/containers";
-import type { DocumentSummary } from "../../../data/documents/documentsPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import { useDiscoveredDocumentsSync } from "./useDiscoveredDocumentsSync";

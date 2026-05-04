@@ -5,12 +5,12 @@ import {
   exportUpdatesSince,
 } from "@tearleads/loro";
 import {
-  type ContainerRecord,
   createInitializedContainerMetadataDocument,
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../../data/containers";
 import { requestDomainDocumentSync } from "../../../data/documents/DocumentsProvider";
+import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
 import type { DocumentRecord } from "../../../data/persistence/documentPersistence";
 import {
   type ContainerMetadataDocument,

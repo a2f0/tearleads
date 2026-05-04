@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { buildMaterializedDocumentSyncPlan } from "../actions/sync";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
