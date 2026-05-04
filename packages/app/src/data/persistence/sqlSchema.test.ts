@@ -8,10 +8,12 @@ import {
 } from "./sqlSchema";
 
 function createLoggingExecSql(log: string[]): ExecSql {
-  return (async (sql: string, _bind?: SqlBind): Promise<SqlRow[]> => {
-    log.push(sql);
-    return [];
-  }) as ExecSql;
+  return createExecSql({
+    exec: async ({ sql }) => {
+      log.push(sql);
+      return { rows: [] };
+    },
+  });
 }
 
 test("serialized mutations continue after a queued mutation fails", async () => {
