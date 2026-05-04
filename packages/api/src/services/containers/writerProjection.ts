@@ -2,14 +2,9 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import { runContainerWriterProjectionWorkflow } from "../../workflows/containers/writerProjection";
 import type { ApiServiceRuntime } from "../runtime";
 
-export type {
-  ContainerAccessProjection,
-  ContainerWriterProjectionContext,
-} from "../../workflows/containers/writerProjection";
 export {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
-  resolveContainerAccessProjection,
 } from "../../workflows/containers/writerProjection";
 
 export async function getContainerWriterProjection(

@@ -24,9 +24,25 @@ do not default to the singleton database. Write APIs expose database wrappers
 for standalone calls and `*InTransaction` variants when a workflow already owns
 an open `DatabaseTransaction`.
 
-Routes should generally call service/workflow functions, not compose these
-modules directly. A workflow owns the atomic operation and decides which reads
-and writes must commit or roll back together.
+## Workflow Callers
+
+Production callers should reach access modules through `workflows/`, with
+route-facing `services/` acting as the stable API boundary:
+
+```text
+routes -> services -> workflows -> access/read + access/write
+```
+
+Workflows are the production layer allowed to compose `access/read` and
+`access/write` calls directly. A workflow owns the atomic operation, opens the
+transaction when one is required, and passes the same root database or active
+transaction executor through every access read and write that must observe the
+same state.
+
+Services should keep request/session/runtime concerns at the edge and delegate
+access-plane orchestration to workflow functions. Routes should call services,
+not access modules directly. Tests may still import access APIs for setup and
+verification.
 
 Workflow conventions live in `../workflows/README.md`.
 

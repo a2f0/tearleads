@@ -10,7 +10,7 @@ import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,
   resolveReadableContainerAccess,
-} from "../keyingReadAccess";
+} from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 export class ListContainerDocumentsError extends Error {

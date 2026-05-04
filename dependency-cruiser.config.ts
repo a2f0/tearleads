@@ -30,21 +30,60 @@ const dependencyCruiserConfig = {
       name: "access-does-not-depend-on-services-or-workflows",
       severity: "error",
       comment:
-        "Access APIs are low-level stores/resolvers and must not call route-facing services or transaction workflows.",
+        "Access APIs are low-level stores/resolvers and must not call routes, route-facing services, or transaction workflows.",
       from: {
         path: "^packages/api/src/access/",
       },
       to: {
-        path: "^packages/api/src/(services|workflows)/",
+        path: "^packages/api/src/(routes|services|workflows)/",
+      },
+    },
+    {
+      name: "non-access-code-uses-public-access-apis",
+      severity: "error",
+      comment:
+        "Code outside access/ should import the public access/read and access/write modules, not implementation internals.",
+      from: {
+        path: "^packages/api/src/",
+        pathNot: "^packages/api/src/access/",
+      },
+      to: {
+        path: "^packages/api/src/access/(shared|read/internal|write/internal)/",
       },
     },
     {
       name: "routes-do-not-compose-access-directly",
       severity: "error",
       comment:
-        "Production routes should call services/workflows instead of composing access read/write modules directly.",
+        "Production routes should call services instead of composing access read/write modules directly.",
       from: {
         path: "^packages/api/src/routes/",
+        pathNot: "\\.test\\.ts$",
+      },
+      to: {
+        path: "^packages/api/src/access/",
+      },
+    },
+    {
+      name: "routes-do-not-call-workflows-directly",
+      severity: "error",
+      comment:
+        "Production routes should call service facades; services own runtime concerns and delegate transaction orchestration to workflows.",
+      from: {
+        path: "^packages/api/src/routes/",
+        pathNot: "\\.test\\.ts$",
+      },
+      to: {
+        path: "^packages/api/src/workflows/",
+      },
+    },
+    {
+      name: "services-do-not-compose-access-directly",
+      severity: "error",
+      comment:
+        "Production services should delegate access-plane reads and writes to workflows instead of importing access modules directly.",
+      from: {
+        path: "^packages/api/src/services/",
         pathNot: "\\.test\\.ts$",
       },
       to: {

@@ -19,8 +19,10 @@ access-plane reads and writes they compose.
 - A workflow may import schema, adapters, validators, crypto helpers, and
   package-neutral API utilities.
 - A workflow must not import from `routes/` or `services/`.
-- Production routes should call services or workflows, not compose `access/`
-  modules directly.
+- Production routes should call services, not workflows or `access/` modules
+  directly.
+- Production services should call workflows for access-plane orchestration, not
+  compose `access/` modules directly.
 - Multi-step writes that touch access manifests, KEK state, content-key bundles,
   attachment bindings, or principal state should live here instead of opening
   ad hoc transactions in routes.
@@ -29,11 +31,12 @@ The dependency direction is enforced by `bun run lint:architecture`.
 
 ## Current Scope
 
-Container, document, and blob attachment mutation implementations live under
-`workflows/`. The container writer-projection resolver also lives here because
-document and blob writes use it inside their transaction to prove write access.
-The public service facades remain under `services/` so route imports stay
-stable while transaction implementations live behind the workflow boundary.
+Container, document, blob attachment, auth registration, principal policy, and
+keying read-access implementations live under `workflows/`. The container and
+document writer-projection resolvers also live here because document and blob
+writes use them inside their transaction to prove access. The public service
+facades remain under `services/` so route imports stay stable while access-plane
+orchestration lives behind the workflow boundary.
 
 Document storage, sync, and audit helpers that are not route-facing services
 live under `../documents/`. Workflows may compose those helpers with access
