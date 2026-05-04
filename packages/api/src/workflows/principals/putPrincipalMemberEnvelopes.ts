@@ -1,7 +1,7 @@
 import type { PutPrincipalMemberEnvelopesRequest } from "@tearleads/validators/request";
 import type { CurrentPrincipalMemberEnvelopesResponse } from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
-import { replaceCurrentPrincipalMemberEnvelopes } from "../../access/write/principalMemberEnvelopes";
+import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import type { ApiDatabase } from "../../adapters/postgres";
 import {
   PrincipalPolicyError,
@@ -77,46 +77,49 @@ export async function runPutPrincipalMemberEnvelopesWorkflow(
   db: ApiDatabase,
   input: PutPrincipalMemberEnvelopesInput,
 ): Promise<CurrentPrincipalMemberEnvelopesResponse> {
-  const currentState = await getCurrentPrincipalState(
-    input.principalType,
-    input.principalId,
-    db,
-  );
-
-  if (!currentState) {
-    throw new PrincipalPolicyError("Principal state not found", 404);
-  }
-
-  try {
-    const storedEnvelopes = await replaceCurrentPrincipalMemberEnvelopes(
-      {
-        principalType: input.principalType,
-        principalId: input.principalId,
-        stateHash: input.stateHash,
-        envelopes: input.envelopes.map((envelope) => ({
-          memberPrincipalType: envelope.memberPrincipalType,
-          memberPrincipalId: envelope.memberPrincipalId,
-          memberKeyFingerprint: envelope.memberKeyFingerprint,
-          kemCipherText: envelope.kemCipherText,
-          wrappedKey: envelope.wrappedKey,
-        })),
-      },
-      db,
+  return db.transaction(async (tx) => {
+    const currentState = await getCurrentPrincipalState(
+      input.principalType,
+      input.principalId,
+      tx,
     );
 
-    return toCurrentPrincipalMemberEnvelopesResponse({
-      principalType: input.principalType,
-      principalId: input.principalId,
-      stateHash: currentState.stateHash,
-      epoch: currentState.keyEpoch,
-      envelopes: storedEnvelopes,
-    });
-  } catch (error) {
-    const principalPolicyError = toPrincipalMemberEnvelopeError(error);
-    if (principalPolicyError) {
-      throw principalPolicyError;
+    if (!currentState) {
+      throw new PrincipalPolicyError("Principal state not found", 404);
     }
 
-    throw error;
-  }
+    try {
+      const storedEnvelopes =
+        await replaceCurrentPrincipalMemberEnvelopesInTransaction(
+          {
+            principalType: input.principalType,
+            principalId: input.principalId,
+            stateHash: input.stateHash,
+            envelopes: input.envelopes.map((envelope) => ({
+              memberPrincipalType: envelope.memberPrincipalType,
+              memberPrincipalId: envelope.memberPrincipalId,
+              memberKeyFingerprint: envelope.memberKeyFingerprint,
+              kemCipherText: envelope.kemCipherText,
+              wrappedKey: envelope.wrappedKey,
+            })),
+          },
+          tx,
+        );
+
+      return toCurrentPrincipalMemberEnvelopesResponse({
+        principalType: input.principalType,
+        principalId: input.principalId,
+        stateHash: currentState.stateHash,
+        epoch: currentState.keyEpoch,
+        envelopes: storedEnvelopes,
+      });
+    } catch (error) {
+      const principalPolicyError = toPrincipalMemberEnvelopeError(error);
+      if (principalPolicyError) {
+        throw principalPolicyError;
+      }
+
+      throw error;
+    }
+  });
 }

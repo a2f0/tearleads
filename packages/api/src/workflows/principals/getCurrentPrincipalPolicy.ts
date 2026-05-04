@@ -7,7 +7,7 @@ import {
   listPrincipalStateHistory,
   type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
-import type { DatabaseSession } from "../../adapters/postgres";
+import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
 import {
   PrincipalPolicyError,
   toCurrentPrincipalMemberEnvelopesResponse,
@@ -25,7 +25,7 @@ function toProjectionResponse(
   }));
 }
 
-export async function runGetCurrentPrincipalPolicyWorkflow(
+async function getCurrentPrincipalPolicyWithExecutor(
   executor: DatabaseSession,
   principalType: "group" | "organization",
   principalId: string,
@@ -82,4 +82,14 @@ export async function runGetCurrentPrincipalPolicyWorkflow(
         projection: toProjectionResponse(entry.projection),
       })),
   };
+}
+
+export async function runGetCurrentPrincipalPolicyWorkflow(
+  db: ApiDatabase,
+  principalType: "group" | "organization",
+  principalId: string,
+): Promise<PrincipalPolicyBundleResponse> {
+  return db.transaction((tx) =>
+    getCurrentPrincipalPolicyWithExecutor(tx, principalType, principalId),
+  );
 }

@@ -1,6 +1,6 @@
 import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
 import type { PrincipalStateResponse } from "@tearleads/validators/response";
-import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
+import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
 import type { ApiDatabase } from "../../adapters/postgres";
 import { PrincipalPolicyError, toPrincipalStateResponse } from "./shared";
 
@@ -79,38 +79,40 @@ export async function runPutPrincipalStateWorkflow(
   }
 
   try {
-    const storedState = await storeVerifiedPrincipalState(
-      {
-        state: {
-          principalType: input.state.principalType,
-          principalId: input.state.principalId,
-          version: input.state.version,
-          prevStateHash: input.state.prevStateHash,
-          keyEpoch: input.state.keyEpoch,
-          encapsulationPublicKey: input.state.encapsulationPublicKey,
-          keyFingerprint: input.state.keyFingerprint,
-          membershipMode: input.state.membershipMode,
-          membershipRoot: input.state.membershipRoot,
-          projectionRoot: input.state.projectionRoot,
-          payloadCiphertextHash: input.state.payloadCiphertextHash,
-          memberCount: input.state.memberCount,
-          signedAt: input.state.signedAt,
-          signerUserId: input.state.signerUserId,
-          signerUserKeyFingerprint: input.state.signerUserKeyFingerprint,
-          signature: input.state.signature,
+    const storedState = await db.transaction((tx) =>
+      storeVerifiedPrincipalStateInTransaction(
+        {
+          state: {
+            principalType: input.state.principalType,
+            principalId: input.state.principalId,
+            version: input.state.version,
+            prevStateHash: input.state.prevStateHash,
+            keyEpoch: input.state.keyEpoch,
+            encapsulationPublicKey: input.state.encapsulationPublicKey,
+            keyFingerprint: input.state.keyFingerprint,
+            membershipMode: input.state.membershipMode,
+            membershipRoot: input.state.membershipRoot,
+            projectionRoot: input.state.projectionRoot,
+            payloadCiphertextHash: input.state.payloadCiphertextHash,
+            memberCount: input.state.memberCount,
+            signedAt: input.state.signedAt,
+            signerUserId: input.state.signerUserId,
+            signerUserKeyFingerprint: input.state.signerUserKeyFingerprint,
+            signature: input.state.signature,
+          },
+          encryptedPayload: {
+            cipherSuite: input.encryptedPayload.cipherSuite,
+            ciphertext: input.encryptedPayload.ciphertext,
+            ciphertextHash: input.encryptedPayload.ciphertextHash,
+          },
+          projection: input.projection.map((member) => ({
+            memberPrincipalType: member.memberPrincipalType,
+            memberPrincipalId: member.memberPrincipalId,
+            role: member.role,
+          })),
         },
-        encryptedPayload: {
-          cipherSuite: input.encryptedPayload.cipherSuite,
-          ciphertext: input.encryptedPayload.ciphertext,
-          ciphertextHash: input.encryptedPayload.ciphertextHash,
-        },
-        projection: input.projection.map((member) => ({
-          memberPrincipalType: member.memberPrincipalType,
-          memberPrincipalId: member.memberPrincipalId,
-          role: member.role,
-        })),
-      },
-      db,
+        tx,
+      ),
     );
 
     return toPrincipalStateResponse(storedState);
