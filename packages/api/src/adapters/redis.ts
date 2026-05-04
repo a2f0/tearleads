@@ -58,6 +58,11 @@ export async function set(
   }
 }
 
+export async function getdel(key: string): Promise<string | null> {
+  const activeClient = await ensureClient();
+  return activeClient.getDel(key);
+}
+
 export async function del(key: string): Promise<void> {
   const activeClient = await ensureClient();
   await activeClient.del(key);

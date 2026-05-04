@@ -31,6 +31,7 @@ interface AppTestProcessState {
 interface TestApiKeyValueStore {
   del: (key: string) => Promise<void>;
   get: (key: string) => Promise<string | null>;
+  getdel: (key: string) => Promise<string | null>;
   set: (key: string, value: string, ttlSeconds?: number) => Promise<void>;
 }
 
@@ -427,6 +428,20 @@ function createInMemoryKeyValueStore(): TestApiKeyValueStore {
         return null;
       }
 
+      return entry.value;
+    },
+    getdel: async (key: string) => {
+      const entry = entries.get(key);
+      if (!entry) {
+        return null;
+      }
+
+      if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+        entries.delete(key);
+        return null;
+      }
+
+      entries.delete(key);
       return entry.value;
     },
     set: async (key: string, value: string, ttlSeconds?: number) => {
