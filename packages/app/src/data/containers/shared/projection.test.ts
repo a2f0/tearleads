@@ -1,0 +1,530 @@
+import { expect, test } from "bun:test";
+import {
+  BLOB_CONTENT_KEY_WRAP_SUITE,
+  type ContainerKeyEpoch,
+  computeBlobAccessManifestHash,
+  computeContainerKekMaterialId,
+  computeWriteHeaderHash,
+  decryptWithDek,
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+  type VerifiedContainerAccessManifest,
+  verifyContainerKekState,
+  type WriteHeader,
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import type {
+  ContainerWriterProjectionResponse,
+  DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
+import type { BlobBytes } from "../../blobs";
+import { uploadDocumentAttachment } from "../../documents/blobRuntime";
+import {
+  buildMaterializedDocumentCreatePlan,
+  unwrapContainerKekPath,
+  unwrapDocumentContentKeyTarget,
+} from "../../documents/documentRuntime";
+import {
+  createContainerManifestFixture,
+  createContainerRevokeManifestFixture,
+  createParentProjection,
+  createParentProjectionUserKeyResolver,
+  createUserContainerWrap,
+  SIGNED_AT,
+} from "../test-helpers";
+
+test("unwrapContainerKekPath verifies signed projection events before unwrap", async () => {
+  const parent = await createParentProjection();
+  const tamperedProjection = structuredClone(parent.projection);
+  const event = Reflect.get(tamperedProjection.path[0]?.event ?? {}, "event");
+  if (!event || typeof event !== "object") {
+    throw new Error("Expected projection event");
+  }
+  Reflect.set(event, "signature", bytesToBase64(new Uint8Array(64)));
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: tamperedProjection,
+      resolveProjectionUserKey: async (userId) =>
+        userId === parent.userId
+          ? {
+              encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingPublicKey: parent.signingPublicKey,
+              userId,
+            }
+          : null,
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("signature");
+});
+
+test("unwrapContainerKekPath rejects projection wraps not justified by the manifest", async () => {
+  const parent = await createParentProjection();
+  const attackerUserId = "attacker-user";
+  const attackerKeyPair = generateKemSeedAndKeyPair();
+  const attackerFingerprint = await toFingerprint(attackerKeyPair.publicKey);
+  const attackerWrap = await createUserContainerWrap({
+    containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+    containerKek: parent.parentContainerKek,
+    publicKey: attackerKeyPair.publicKey,
+    recipientKeyEpochId: `user:${attackerUserId}:encapsulation:${attackerFingerprint}`,
+    userId: attackerUserId,
+    wrapManifestHash: parent.parentKekState.accessManifestHash,
+  });
+  const tamperedProjection = structuredClone(parent.projection);
+  const kek = tamperedProjection.containerKeks[0];
+  if (!kek) {
+    throw new Error("Expected projection KEK");
+  }
+  kek.wraps = [...kek.wraps, attackerWrap];
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: tamperedProjection,
+      resolveProjectionUserKey: async (userId) =>
+        userId === parent.userId
+          ? {
+              encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingPublicKey: parent.signingPublicKey,
+              userId,
+            }
+          : null,
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("KEK verification failed");
+});
+
+test("unwrapContainerKekPath rejects substituted material for committed KEK ids", async () => {
+  const parent = await createParentProjection();
+  const target = parent.parentKekState.recipientTargets.find(
+    (candidate) =>
+      candidate.recipientKind === "user" &&
+      candidate.recipientId === parent.userId,
+  );
+  if (!target) {
+    throw new Error("Expected parent user recipient target");
+  }
+
+  const substituteKek = crypto.getRandomValues(new Uint8Array(32));
+  const substituteWrap = await createUserContainerWrap({
+    containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+    containerKek: substituteKek,
+    publicKey: parent.encapsulationPublicKey,
+    recipientKeyEpochId: target.recipientKeyEpochId,
+    userId: parent.userId,
+    wrapManifestHash: parent.parentKekState.accessManifestHash,
+  });
+  const tamperedProjection = structuredClone(parent.projection);
+  const kek = tamperedProjection.containerKeks[0];
+  if (!kek) {
+    throw new Error("Expected projection KEK");
+  }
+  kek.wraps = [substituteWrap];
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: tamperedProjection,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("KEK material does not match committed epoch id");
+});
+
+test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", async () => {
+  const revokedUserId = "user-2";
+  const revokedKeyPair = generateKemSeedAndKeyPair();
+  const revokedSigning = generateSigningSeedAndKeyPair();
+  const revokedRecipientKeyFingerprint = await toFingerprint(
+    revokedKeyPair.publicKey,
+  );
+  const revokedRecipientKeyEpochId = `user:${revokedUserId}:encapsulation:${revokedRecipientKeyFingerprint}`;
+  const parent = await createParentProjection({
+    existingUserRecipient: {
+      accessLevel: "write",
+      publicKey: revokedKeyPair.publicKey,
+      recipientKeyEpochId: revokedRecipientKeyEpochId,
+      userId: revokedUserId,
+    },
+  });
+  const resolveProjectionUserKey = async (userId: string) => {
+    if (userId === parent.userId) {
+      return {
+        encapsulationPublicKey: parent.encapsulationPublicKey,
+        signingPublicKey: parent.signingPublicKey,
+        userId,
+      };
+    }
+    if (userId === revokedUserId) {
+      return {
+        encapsulationPublicKey: revokedKeyPair.publicKey,
+        signingPublicKey: revokedSigning.signingPublicKey,
+        userId,
+      };
+    }
+
+    return null;
+  };
+
+  const revokedUserPreviousKeks = await unwrapContainerKekPath({
+    projection: parent.projection,
+    resolveProjectionUserKey,
+    secretKey: revokedKeyPair.secretKey,
+  });
+  const previousContainerKek = revokedUserPreviousKeks.get(
+    parent.parentKekState.containerKeyEpochId,
+  );
+  if (!previousContainerKek) {
+    throw new Error("Expected revoked user to unwrap the pre-revocation KEK");
+  }
+
+  const previousManifest = parent.projection
+    .path[0] as unknown as VerifiedContainerAccessManifest;
+  const rotatedContainerKek = crypto.getRandomValues(new Uint8Array(32));
+  const rotatedContainerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: parent.parentKekState.containerId,
+    keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
+    keyMaterial: rotatedContainerKek,
+  });
+  const revokedManifest = await createContainerRevokeManifestFixture({
+    author: parent.author,
+    containerId: parent.parentKekState.containerId,
+    containerKeyEpochId: rotatedContainerKeyEpochId,
+    eventId: "parent-container-revoke-event-2",
+    organizationId: parent.projection.organizationId,
+    previousManifest,
+    subjectId: revokedUserId,
+    subjectType: "user",
+  });
+  const ownerRecipientKeyFingerprint = await toFingerprint(
+    parent.encapsulationPublicKey,
+  );
+  const ownerRecipientKeyEpochId = `user:${parent.userId}:encapsulation:${ownerRecipientKeyFingerprint}`;
+  const ownerWrap = await createUserContainerWrap({
+    containerKeyEpochId: rotatedContainerKeyEpochId,
+    containerKek: rotatedContainerKek,
+    publicKey: parent.encapsulationPublicKey,
+    recipientKeyEpochId: ownerRecipientKeyEpochId,
+    userId: parent.userId,
+    wrapManifestHash: revokedManifest.manifestHash,
+  });
+  const rotatedKeyEpoch: ContainerKeyEpoch = {
+    id: rotatedContainerKeyEpochId,
+    containerId: parent.parentKekState.containerId,
+    keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
+    accessManifestHash: revokedManifest.manifestHash,
+    parentContainerKeyEpochId: null,
+    createdByEventHash: revokedManifest.event.eventHash,
+    createdByManifestHash: revokedManifest.manifestHash,
+  };
+  const verifiedRotatedKek = await verifyContainerKekState({
+    containerManifest: revokedManifest,
+    keyEpoch: rotatedKeyEpoch,
+    userRecipientKeys: [
+      {
+        recipientKeyEpochId: ownerWrap.recipientKeyEpochId,
+        recipientKeyFingerprint: ownerWrap.recipientKeyFingerprint,
+        userId: parent.userId,
+      },
+    ],
+    wraps: [ownerWrap],
+  });
+  expect(verifiedRotatedKek.ok).toBe(true);
+  if (!verifiedRotatedKek.ok) {
+    throw verifiedRotatedKek.error;
+  }
+  const rotatedKekState = verifiedRotatedKek.value;
+  const revokedProjection: ContainerWriterProjectionResponse = {
+    containerId: parent.projection.containerId,
+    organizationId: parent.projection.organizationId,
+    path: [
+      revokedManifest as unknown as ContainerWriterProjectionResponse["path"][number],
+    ],
+    containerKeks: [
+      {
+        ...(rotatedKekState as unknown as ContainerWriterProjectionResponse["containerKeks"][number]),
+        containerManifestHistory: [
+          previousManifest as unknown as ContainerWriterProjectionResponse["path"][number],
+        ],
+      },
+    ],
+  };
+
+  expect(revokedManifest.state.directGrants).toEqual([
+    {
+      subjectType: "user",
+      subjectId: parent.userId,
+      accessLevel: "admin",
+    },
+  ]);
+  expect(
+    rotatedKekState.recipientTargets.map((target) => target.recipientId),
+  ).toEqual([parent.userId]);
+  const ownerRotatedKeks = await unwrapContainerKekPath({
+    projection: revokedProjection,
+    resolveProjectionUserKey,
+    secretKey: parent.secretKey,
+  });
+  expect(
+    Array.from(ownerRotatedKeks.get(rotatedContainerKeyEpochId) ?? []),
+  ).toEqual(Array.from(rotatedContainerKek));
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: revokedProjection,
+      resolveProjectionUserKey,
+      secretKey: revokedKeyPair.secretKey,
+    }),
+  ).rejects.toThrow("could not be unwrapped");
+
+  const contentKey = crypto.getRandomValues(new Uint8Array(32));
+  const createdDocument = await buildMaterializedDocumentCreatePlan({
+    author: parent.author,
+    containerProjection: revokedProjection,
+    contentKey,
+    documentId: "550e8400-e29b-41d4-a716-446655440700",
+    eventId: "document-after-revoke-event",
+    resolveProjectionUserKey,
+    signedAt: SIGNED_AT,
+    targetSecretKey: parent.secretKey,
+  });
+  const [targetEnvelope] =
+    createdDocument.plan.request.contentKeyBundle.targets;
+  if (!targetEnvelope) {
+    throw new Error("Expected document content-key target");
+  }
+  expect(createdDocument.plan.targets).toEqual([
+    {
+      containerId: parent.projection.containerId,
+      containerManifestHash: revokedManifest.manifestHash,
+      containerKeyEpoch: 2,
+      containerKeyEpochId: rotatedContainerKeyEpochId,
+    },
+  ]);
+  const ownerContentKey = await unwrapDocumentContentKeyTarget({
+    containerKek: rotatedContainerKek,
+    envelope: targetEnvelope,
+  });
+  expect(Array.from(ownerContentKey)).toEqual(Array.from(contentKey));
+  await expect(
+    unwrapDocumentContentKeyTarget({
+      containerKek: previousContainerKek,
+      envelope: targetEnvelope,
+    }),
+  ).rejects.toThrow();
+
+  const documentWriterProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [revokedProjection],
+    contentKeyBundle: {
+      documentId: createdDocument.plan.documentId,
+      contentKeyEpoch:
+        createdDocument.plan.request.contentKeyBundle.contentKeyEpoch,
+      linkSetManifestHash:
+        createdDocument.plan.request.contentKeyBundle.linkSetManifestHash,
+      targetHash: createdDocument.plan.request.contentKeyBundle.targetHash,
+      targets: [...createdDocument.plan.request.contentKeyBundle.targets],
+    },
+    documentId: createdDocument.plan.documentId,
+    documentKekTargets: {
+      documentId: createdDocument.plan.documentId,
+      linkSetManifestHash: createdDocument.plan.manifestHash,
+      linkedContainerManifestHashes: createdDocument.plan.targets.map(
+        (target) => target.containerManifestHash,
+      ),
+      linkedContainerKeyEpochIds: createdDocument.plan.targets.map(
+        (target) => target.containerKeyEpochId,
+      ),
+      targets: createdDocument.plan.targets.map((target) => ({ ...target })),
+      documentKeyTargetHash: createdDocument.plan.targetHash,
+    },
+    documentManifest: {
+      event: {
+        event: createdDocument.plan.event as unknown as Record<string, unknown>,
+        body: createdDocument.plan.body as unknown as Record<string, unknown>,
+        eventHash: createdDocument.plan.eventHash,
+      },
+      manifest: createdDocument.plan.manifest as unknown as Record<
+        string,
+        unknown
+      >,
+      manifestHash: createdDocument.plan.manifestHash,
+      state: createdDocument.plan.state as unknown as Record<string, unknown>,
+    },
+  };
+  const blobId = "550e8400-e29b-41d4-a716-446655440701";
+  const bindingId = "550e8400-e29b-41d4-a716-446655440702";
+  const slotId = "preview-after-revoke";
+  const blobContentKey = crypto.getRandomValues(new Uint8Array(32));
+  const uploadedBlob = await uploadDocumentAttachment({
+    apiClient: {
+      bindBlobAttachment: async (_blobId, request) => {
+        const targets = request.contentKeyBundle.targets;
+        const linkedContainerManifestHashes = [
+          ...new Set(targets.map((target) => target.containerManifestHash)),
+        ].sort();
+        const linkedContainerKeyEpochIds = [
+          ...new Set(targets.map((target) => target.containerKeyEpochId)),
+        ].sort();
+        if (!request.stagedBlob) {
+          throw new Error("Expected staged blob request");
+        }
+        const blobAccessManifestHash = await computeBlobAccessManifestHash({
+          version: 1,
+          blobId,
+          organizationId: parent.projection.organizationId,
+          activeBindingIds: [bindingId],
+          documentManifestHashes: [createdDocument.plan.manifestHash],
+          linkedContainerManifestHashes,
+          linkedContainerKeyEpochIds,
+          blobKeyTargetHash: request.contentKeyBundle.targetHash,
+        });
+        const writeHeaderHash = await computeWriteHeaderHash(
+          request.stagedBlob.writeHeader as unknown as WriteHeader,
+        );
+
+        return {
+          bindingId,
+          blobId,
+          documentId: createdDocument.plan.documentId,
+          slotId,
+          contentKeyBundle: {
+            blobId,
+            ...request.contentKeyBundle,
+          },
+          blobKekTargets: {
+            blobId,
+            organizationId: parent.projection.organizationId,
+            activeBindingIds: [bindingId],
+            documentManifestHashes: [createdDocument.plan.manifestHash],
+            linkedContainerManifestHashes,
+            linkedContainerKeyEpochIds,
+            targets: targets.map((target) => ({ ...target })),
+            blobKeyTargetHash: request.contentKeyBundle.targetHash,
+            blobAccessManifestHash,
+          },
+          writeHeaderHash,
+        };
+      },
+      getDocumentWriterProjection: async (documentId) =>
+        documentId === createdDocument.plan.documentId
+          ? documentWriterProjection
+          : null,
+      stageBlob: async () => ({
+        stageId: "stage-blob-after-revoke",
+        expiresAt: "2026-04-28T13:00:00.000Z",
+      }),
+    },
+    author: parent.author,
+    bindingId,
+    blobId,
+    bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
+    contentKey: blobContentKey,
+    documentId: createdDocument.plan.documentId,
+    expectedBindingId: null,
+    resolveProjectionUserKey,
+    signedAt: SIGNED_AT,
+    slotId,
+    targetSecretKey: parent.secretKey,
+  });
+  if (!uploadedBlob) {
+    throw new Error("Expected blob attachment upload");
+  }
+  const [blobTargetEnvelope] = uploadedBlob.request.contentKeyBundle.targets;
+  if (!blobTargetEnvelope) {
+    throw new Error("Expected blob content-key target");
+  }
+  const blobWrappingMetadata = blobTargetEnvelope.wrappingMetadata;
+  if (
+    !blobWrappingMetadata ||
+    typeof blobWrappingMetadata !== "object" ||
+    Array.isArray(blobWrappingMetadata)
+  ) {
+    throw new Error("Expected blob wrapping metadata");
+  }
+  const blobWrapSuite = Reflect.get(blobWrappingMetadata, "suite");
+  const blobWrapIv = Reflect.get(blobWrappingMetadata, "iv");
+  expect(blobWrapSuite).toBe(BLOB_CONTENT_KEY_WRAP_SUITE);
+  if (typeof blobWrapIv !== "string" || blobWrapIv.length === 0) {
+    throw new Error("Expected blob wrapping IV");
+  }
+  expect(blobTargetEnvelope).toEqual(
+    expect.objectContaining({
+      containerManifestHash: revokedManifest.manifestHash,
+      containerKeyEpoch: 2,
+      containerKeyEpochId: rotatedContainerKeyEpochId,
+    }),
+  );
+  const ownerBlobContentKey = await decryptWithDek(
+    {
+      iv: base64ToBytes(blobWrapIv),
+      ciphertext: base64ToBytes(blobTargetEnvelope.wrappedKey),
+    },
+    rotatedContainerKek,
+  );
+  expect(Array.from(ownerBlobContentKey)).toEqual(Array.from(blobContentKey));
+  await expect(
+    decryptWithDek(
+      {
+        iv: base64ToBytes(blobWrapIv),
+        ciphertext: base64ToBytes(blobTargetEnvelope.wrappedKey),
+      },
+      previousContainerKek,
+    ),
+  ).rejects.toThrow();
+});
+
+test("unwrapContainerKekPath fails closed for managed-principal KEK projections", async () => {
+  const parent = await createParentProjection();
+  const groupHead = {
+    principalType: "group" as const,
+    principalId: "group-1",
+    version: 1,
+    keyEpoch: 1,
+    stateHash: await toFingerprint(new TextEncoder().encode("group-state-1")),
+    keyFingerprint: await toFingerprint(
+      new TextEncoder().encode("group-key-1"),
+    ),
+  };
+  const managedManifest = await createContainerManifestFixture({
+    author: parent.author,
+    containerId: parent.parentKekState.containerId,
+    containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: parent.userId,
+        accessLevel: "admin",
+      },
+      {
+        subjectType: "group",
+        subjectId: groupHead.principalId,
+        accessLevel: "write",
+      },
+    ],
+    eventId: "managed-parent-container-event-1",
+    metadataDocumentId: "parent-container-metadata-document",
+    organizationId: parent.projection.organizationId,
+    referencedPrincipalHeads: [groupHead],
+  });
+  const managedProjection: ContainerWriterProjectionResponse = {
+    ...parent.projection,
+    path: [
+      managedManifest as unknown as ContainerWriterProjectionResponse["path"][number],
+    ],
+  };
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: managedProjection,
+      resolveProjectionUserKey: async (userId) =>
+        userId === parent.userId
+          ? {
+              encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingPublicKey: parent.signingPublicKey,
+              userId,
+            }
+          : null,
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("managed principal grants");
+});
