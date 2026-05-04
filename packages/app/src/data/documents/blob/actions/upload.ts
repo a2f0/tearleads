@@ -167,6 +167,7 @@ async function stageAndBindBlobAttachment(input: {
   request: import("@tearleads/validators/request").BlobAttachmentBindRequest;
   response: import("@tearleads/validators/response").BlobAttachmentBindResponse;
   sha256: string;
+  byteLength: number;
   writeHeader: WriteHeader;
   writeHeaderHash: string;
 } | null> {
@@ -192,11 +193,9 @@ async function stageAndBindBlobAttachment(input: {
     signedAt: input.signedAt,
     targetHash: input.material.targetHash,
   });
-  const TEXT_ENCODER = new TextEncoder();
   const stage = await input.apiClient.stageBlob({
     encryptedBytes: input.material.encrypted.encryptedBytes,
-    byteLength: TEXT_ENCODER.encode(input.material.encrypted.encryptedBytes)
-      .byteLength,
+    byteLength: input.material.encrypted.byteLength,
     sha256: input.material.encrypted.sha256,
   });
   if (!stage) {
@@ -237,6 +236,7 @@ async function stageAndBindBlobAttachment(input: {
     request,
     response,
     sha256: input.material.encrypted.sha256,
+    byteLength: input.material.encrypted.byteLength,
     writeHeader,
     writeHeaderHash,
   };

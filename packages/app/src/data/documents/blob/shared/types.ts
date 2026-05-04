@@ -76,6 +76,7 @@ export interface BlobEncryptedBytes {
   encryptedBytes: string;
   metadataHash: string;
   sha256: string;
+  byteLength: number;
 }
 
 export interface DocumentManifestIdentity {
@@ -119,6 +120,7 @@ export interface UploadDocumentAttachmentResult {
   request: BlobAttachmentBindRequest;
   response: BlobAttachmentBindResponse;
   sha256: string;
+  byteLength: number;
   writeHeader: import("@tearleads/crypto").WriteHeader;
   writeHeaderHash: string;
 }
