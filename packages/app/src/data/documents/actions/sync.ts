@@ -440,6 +440,8 @@ export async function syncRemoteDocument(input: {
     input.resolveProjectionUserKey,
     "Remote document sync",
   );
+  // syncDocumentResult is the canonical proxy for retry-capable API clients
+
   const maxAttempts = input.apiClient.syncDocumentResult ? 2 : 1;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {

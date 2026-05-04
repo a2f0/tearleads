@@ -567,6 +567,9 @@ export async function persistedDocumentSyncStateFromResponse(
 }
 
 // 16. RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES + isRetryableDocumentSyncConflict (EXPORT)
+// TODO: prefer structured error codes when the API adds them to 409 responses.
+// Detects retryable conflicts by matching server error-message substrings.
+
 const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
   "Document KEK targets are stale",
   "Document content-key bundle is stale",
