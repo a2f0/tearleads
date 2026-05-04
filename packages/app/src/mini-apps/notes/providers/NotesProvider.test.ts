@@ -334,6 +334,7 @@ async function createNoteRuntimePatch(input: {
   mapDocumentWriterProjectionResponse?: (
     response: DocumentWriterProjectionResponse,
   ) => DocumentWriterProjectionResponse;
+  commitLsnForSyncCount?: (syncCount: number) => string;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }): Promise<NoteRuntimePatch> {
   const containerId = input.containerId ?? "root-container";
@@ -460,7 +461,9 @@ async function createNoteRuntimePatch(input: {
         return createNoteSyncResponse({
           request,
           storedDocument,
-          commitLsn: syncCount === 1 ? "0/10" : "0/20",
+          commitLsn:
+            input.commitLsnForSyncCount?.(syncCount) ??
+            (syncCount === 1 ? "0/10" : "0/20"),
         });
       },
     }),
@@ -731,6 +734,7 @@ async function createSyncRuntime(
       blobId: string;
       request: BlobAttachmentBindRequest;
     }>;
+    commitLsnForSyncCount?: (syncCount: number) => string;
     onBindBlobAttachment?: (
       blobId: string,
       request: BlobAttachmentBindRequest,
@@ -743,6 +747,9 @@ async function createSyncRuntime(
     encapsulationKeyPair,
     ...(options.attachmentBinds
       ? { attachmentBinds: options.attachmentBinds }
+      : {}),
+    ...(options.commitLsnForSyncCount
+      ? { commitLsnForSyncCount: options.commitLsnForSyncCount }
       : {}),
     ...(options.onBindBlobAttachment
       ? { onBindBlobAttachment: options.onBindBlobAttachment }
@@ -1072,7 +1079,8 @@ test("notes store creates a document linked to the configured container", async 
       persistence.getState().note?.containerId === "shared-container" &&
       persistence.getState().note?.contentKeyBundle !== null &&
       persistence.getState().note?.documentKekTargets !== null &&
-      persistence.getState().note?.documentManifestBundle !== null,
+      persistence.getState().note?.documentManifestBundle !== null &&
+      !store.getSnapshot().syncing,
     "Container-scoped note did not create and sync its document.",
   );
 });
@@ -1828,6 +1836,65 @@ test("large note edits remain a single pending update row before sync", async ()
   } finally {
     runtime.close();
   }
+});
+
+test("notes store does not restart attachment sync for commit-lsn-only probes", async () => {
+  const persistence = createNotesPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const attachmentBinds: Array<{
+    blobId: string;
+    request: BlobAttachmentBindRequest;
+  }> = [];
+  const syncCalls: Array<{
+    minLsn: string | null;
+    outgoingUpdateCount: number;
+  }> = [];
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "shared-container",
+    {
+      attachmentBinds,
+      commitLsnForSyncCount: (syncCount) => `0/${syncCount}0`,
+      syncCalls,
+    },
+  );
+  const store = createNotesStore("attachment-probe", runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Attachment probe note store did not become ready.",
+  );
+
+  store.setText("remote attachment note");
+
+  await waitForCondition(
+    () =>
+      persistence.getState().note?.documentId !== null &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      syncCalls.length === 1,
+    "Attachment probe note was not synced before uploading.",
+  );
+
+  store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("attachment probe bytes"),
+      mimeType: "image/png",
+      name: "probe.png",
+    },
+  ]);
+
+  await waitForCondition(
+    () =>
+      attachmentBinds.length === 1 &&
+      persistence.getState().pendingAttachments.length === 0,
+    "Attachment upload was starved by commit-lsn-only sync probes.",
+    2_000,
+    10,
+  );
+
+  expect(syncCalls.some((call) => call.outgoingUpdateCount === 0)).toBe(true);
+  expect(attachmentBinds).toHaveLength(1);
 });
 
 test("notes store persists commitLsn and reuses it as minLsn on the next sync", async () => {

@@ -1625,9 +1625,9 @@ async function refreshRemoteDocumentBeforePendingAttachmentMutation(
   );
 
   return {
-    completed:
-      refreshedRecord.lastCommitLsn !== nextRecord.lastCommitLsn ||
-      syncAttempt.synced.decryptedUpdates.length > 0,
+    // A probe can advance commitLsn without delivering document changes. Keep
+    // the current pass going so pending attachment uploads are not starved.
+    completed: syncAttempt.synced.decryptedUpdates.length > 0,
     nextRecord: refreshedRecord,
   };
 }
