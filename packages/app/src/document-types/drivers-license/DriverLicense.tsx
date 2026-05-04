@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo } from "react";
-import { useDocument } from "../../data/documents/DocumentsProvider";
 import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,

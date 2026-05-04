@@ -10,7 +10,7 @@ import { Menu, type MenuPosition } from "../../components/shared/Menu";
 import { MenuItem } from "../../components/shared/MenuItem";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
-import { useContacts } from "./providers/ContactsProvider";
+import { useContacts } from "../../stores/contacts/ContactsProvider";
 import "./Contacts.css";
 
 interface ContactsContextMenuState {

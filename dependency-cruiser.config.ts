@@ -2,23 +2,24 @@ import type { IConfiguration } from "dependency-cruiser";
 
 const appPersistence = "^packages/app/src/data/persistence/";
 const appWorkflows = "^packages/app/src/workflows/";
+const appStores = "^packages/app/src/stores/";
+const appShellProviders = "^packages/app/src/providers/";
 const appSharedHelpers =
   "^packages/app/src/data/(containers|documents)(/blob)?/shared/";
-const appUiAndProviders = [
+
+// Keep app layer definitions broad and directory-shaped. If a rule needs a
+// one-off file path, move that code into a directory that exposes the layer.
+const appPresentation = [
   "^packages/app/src/components/",
-  "^packages/app/src/data/documents/DocumentsProvider\\.tsx$",
   "^packages/app/src/document-types/",
+  "^packages/app/src/mini-apps/",
+];
+const appReactRuntime = [
   "^packages/app/src/identity/",
-  "^packages/app/src/mini-apps/[^/]+/(context-menu|detail|hooks|modal|providers)/",
-  "^packages/app/src/mini-apps/[^/]+/[^/]+(?:App)?\\.tsx$",
-  "^packages/app/src/providers/",
+  appShellProviders,
+  appStores,
 ];
-const appUiWithoutStores = [
-  "^packages/app/src/components/",
-  "^packages/app/src/document-types/",
-  "^packages/app/src/mini-apps/[^/]+/(context-menu|detail|hooks|modal)/",
-  "^packages/app/src/mini-apps/[^/]+/[^/]+(?:App)?\\.tsx$",
-];
+const appUpperLayers = [...appPresentation, ...appReactRuntime];
 const appSqliteInternals =
   "^packages/app/src/data/persistence/(appDatabaseRuntime|documentPersistence|schema|sqlSchema)";
 
@@ -125,30 +126,30 @@ const dependencyCruiserConfig = {
       },
     },
     {
-      name: "app-persistence-does-not-depend-on-ui-or-workflows",
+      name: "app-persistence-does-not-depend-on-upper-layers",
       severity: "error",
       comment:
-        "App persistence modules are low-level SQLite stores and must not depend on React, providers, hooks, UI, or workflow modules.",
+        "App persistence modules are low-level SQLite stores and must not depend on React runtime, presentation, or workflow modules.",
       from: {
         path: appPersistence,
         pathNot: "\\.test\\.[tj]sx?$",
       },
       to: {
-        path: [...appUiAndProviders, appWorkflows],
+        path: [...appUpperLayers, appWorkflows],
         preCompilationOnly: false,
       },
     },
     {
-      name: "app-workflows-do-not-depend-on-ui-or-providers",
+      name: "app-workflows-do-not-depend-on-react-runtime",
       severity: "error",
       comment:
-        "App workflows own multi-step local/remote orchestration below providers and must not depend back on React UI or provider modules.",
+        "App workflows own multi-step local/remote orchestration below stores and providers, so they must not depend back on React runtime or presentation modules.",
       from: {
         path: appWorkflows,
         pathNot: "\\.test\\.[tj]sx?$",
       },
       to: {
-        path: appUiAndProviders,
+        path: appUpperLayers,
         preCompilationOnly: false,
       },
     },
@@ -162,7 +163,7 @@ const dependencyCruiserConfig = {
         pathNot: "\\.test\\.[tj]sx?$",
       },
       to: {
-        path: [...appUiAndProviders, appWorkflows],
+        path: [...appUpperLayers, appWorkflows],
         preCompilationOnly: false,
       },
     },
@@ -172,7 +173,7 @@ const dependencyCruiserConfig = {
       comment:
         "Production app UI and mini-app hooks should not import core SQLite runtime/schema internals directly.",
       from: {
-        path: appUiWithoutStores,
+        path: appPresentation,
         pathNot: "\\.test\\.[tj]sx?$",
       },
       to: {

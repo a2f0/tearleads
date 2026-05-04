@@ -24,19 +24,18 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { createContainerWriterProjectionFixture } from "../../../../test/helpers/createContainerWriterProjectionFixture";
-import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
-import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
+import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
+import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
+import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import {
   assertAccessEvent,
   assertOptionalWriteHeader,
   assertWriteHeader,
-} from "../../../../test/helpers/keyingAssertions";
-import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { type BlobBytes, createMemoryBlobStore } from "../../../data/blobs";
-import { subscribeToPersistedDocuments } from "../../../data/documents/DocumentsProvider";
-import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/documentsPersistence";
+} from "../../../test/helpers/keyingAssertions";
+import { waitForCondition } from "../../../test/helpers/waitForCondition";
+import { type BlobBytes, createMemoryBlobStore } from "../../data/blobs";
+import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
 import type {
   LocalAttachmentRecord,
   NoteRecord,
@@ -45,13 +44,14 @@ import type {
   PendingAttachmentRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
-} from "../../../data/persistence/notes/notesPersistence";
-import { createEmptyDriverLicenseDocument } from "../../../document-types/drivers-license/driverLicenseDocument";
+} from "../../data/persistence/notes/notesPersistence";
+import { createEmptyDriverLicenseDocument } from "../../document-types/drivers-license/driverLicenseDocument";
 import {
   decryptDocumentAttachmentBlob,
   uploadDocumentAttachment,
-} from "../../../workflows/blobs";
-import { createRemoteDocument } from "../../../workflows/documents";
+} from "../../workflows/blobs";
+import { createRemoteDocument } from "../../workflows/documents";
+import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
 import {
   createNotesStore,
   type NotesRuntime,

@@ -16,23 +16,24 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { useAppData } from "../../providers/data/AppDataProvider";
-import {
-  decryptDocumentAttachmentBlob,
-  uploadDocumentAttachment,
-} from "../../workflows/blobs";
-import {
-  createRemoteDocument,
-  type DocumentCreateAuthor,
-  syncRemoteDocument,
-} from "../../workflows/documents";
-import type { BlobBytes, BlobStore } from "../blobs";
-import { getScopedPeerSeed } from "../crdtPeerSeed";
+import type { BlobBytes, BlobStore } from "../../data/blobs";
+import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
-} from "../documentSync";
-import { createProjectionUserKeyResolver } from "../keyingProjectionVerification";
+} from "../../data/documentSync";
+import {
+  createDocumentSignerDeviceId,
+  DEFAULT_DOCUMENT_ACCESS_EPOCH,
+} from "../../data/documents/documentConstants";
+import {
+  addDocumentAttachments,
+  type DocumentAttachment,
+  ensureDocumentAttachmentStructure,
+  getDocumentAttachments,
+  sameDocumentAttachments,
+} from "../../data/documents/documentContent";
+import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
   DOCUMENTS_APP_KIND,
   type StoredDocumentRecord as DocumentRecord,
@@ -45,24 +46,23 @@ import {
   type PendingUpdateRecord,
   type RelinkPersistedDocumentInput,
   sqlDocumentsPersistence,
-} from "../persistence/documents/documentsPersistence";
+} from "../../data/persistence/documents/documentsPersistence";
 import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
   type SyncLane,
-} from "../sync/syncCoordinator";
+} from "../../data/sync/syncCoordinator";
+import { useAppData } from "../../providers/data/AppDataProvider";
 import {
-  createDocumentSignerDeviceId,
-  DEFAULT_DOCUMENT_ACCESS_EPOCH,
-} from "./documentConstants";
+  decryptDocumentAttachmentBlob,
+  uploadDocumentAttachment,
+} from "../../workflows/blobs";
 import {
-  addDocumentAttachments,
-  type DocumentAttachment,
-  ensureDocumentAttachmentStructure,
-  getDocumentAttachments,
-  sameDocumentAttachments,
-} from "./documentContent";
+  createRemoteDocument,
+  type DocumentCreateAuthor,
+  syncRemoteDocument,
+} from "../../workflows/documents";
 
 type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 type DocumentAppData = ReturnType<typeof useAppData>;

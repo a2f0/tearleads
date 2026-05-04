@@ -1,6 +1,6 @@
 import { type ChangeEvent, useId, useRef } from "react";
-import type { DocumentAttachmentStatus } from "../../data/documents/DocumentsProvider";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
+import type { DocumentAttachmentStatus } from "../../stores/documents/DocumentsProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
 import {
   type DocumentAttachmentSlot,

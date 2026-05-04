@@ -1,5 +1,5 @@
-import type { primeDocumentStore } from "../../data/documents/DocumentsProvider";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
+import type { primeDocumentStore } from "../../stores/documents/DocumentsProvider";
 
 type ExplorerDocumentRuntime = Parameters<typeof primeDocumentStore>[2];
 

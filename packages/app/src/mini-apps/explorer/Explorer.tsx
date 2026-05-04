@@ -1,11 +1,11 @@
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { ExplorerModalLayer } from "./modal/ExplorerModal";
-import { useExplorer } from "./providers/ExplorerProvider";
 import "./Explorer.css";
 
 export { buildDocumentsByContainerId } from "./documentProjections";

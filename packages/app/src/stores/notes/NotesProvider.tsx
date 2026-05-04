@@ -1,4 +1,6 @@
 import type { PropsWithChildren } from "react";
+import type { NotesPersistence } from "../../data/persistence/notes/notesPersistence";
+import { adaptNotesPersistence } from "../../data/persistence/notes/notesPersistence";
 import {
   createDocumentStore,
   DEFAULT_DOCUMENT_ID,
@@ -8,9 +10,7 @@ import {
   type DocumentsRuntime,
   primeDocumentStore,
   useDocument,
-} from "../../../data/documents/DocumentsProvider";
-import type { NotesPersistence } from "../../../data/persistence/notes/notesPersistence";
-import { adaptNotesPersistence } from "../../../data/persistence/notes/notesPersistence";
+} from "../documents/DocumentsProvider";
 
 export const DEFAULT_NOTE_ID = DEFAULT_DOCUMENT_ID;
 

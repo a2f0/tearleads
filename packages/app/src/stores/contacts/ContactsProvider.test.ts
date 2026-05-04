@@ -16,21 +16,21 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
-import { createContainerWriterProjectionFixture } from "../../../../test/helpers/createContainerWriterProjectionFixture";
-import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
+import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
+import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
 import {
   assertAccessEvent,
   assertWriteHeader,
-} from "../../../../test/helpers/keyingAssertions";
-import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+} from "../../../test/helpers/keyingAssertions";
+import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import type {
   ContactPendingUpdateInsert,
   ContactsPersistence,
-} from "../../../data/persistence/contacts/contactsPersistence";
+} from "../../data/persistence/contacts/contactsPersistence";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
-} from "../../../data/persistence/documentPersistence";
+} from "../../data/persistence/documentPersistence";
 import { type ContactsRuntime, createContactsStore } from "./ContactsProvider";
 
 interface StoredContactState {

@@ -15,35 +15,35 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
+import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
-} from "../../../data/documentSync";
-import { createDocumentSignerDeviceId } from "../../../data/documents/documentConstants";
-import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+} from "../../data/documentSync";
+import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
+import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
   type ContactsPersistence,
   sqlContactsPersistence,
-} from "../../../data/persistence/contacts/contactsPersistence";
+} from "../../data/persistence/contacts/contactsPersistence";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
-} from "../../../data/persistence/documentPersistence";
-import type { ExecSql } from "../../../data/persistence/sqlSchema";
+} from "../../data/persistence/documentPersistence";
+import type { ExecSql } from "../../data/persistence/sqlSchema";
 import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
   type SyncLane,
-} from "../../../data/sync/syncCoordinator";
-import { useAppData } from "../../../providers/data/AppDataProvider";
+} from "../../data/sync/syncCoordinator";
+import type { AddressBookEntry } from "../../mini-apps/contacts/types";
+import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   createRemoteDocument,
   type DocumentCreateAuthor,
   syncRemoteDocument,
-} from "../../../workflows/documents";
-import type { AddressBookEntry } from "../types";
+} from "../../workflows/documents";
 
 type ContactsDocument = Awaited<ReturnType<typeof createDocument>>;
 type ContactsAppData = ReturnType<typeof useAppData>;

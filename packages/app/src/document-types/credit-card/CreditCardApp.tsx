@@ -1,7 +1,7 @@
 import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
-} from "../../data/documents/DocumentsProvider";
+} from "../../stores/documents/DocumentsProvider";
 import type { DocumentTypeAppProps } from "../types";
 import { CreditCard } from "./CreditCard";
 import { createEmptyCreditCardDocument } from "./creditCardDocument";

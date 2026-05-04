@@ -1,4 +1,4 @@
-import type { ContainerNode } from "../types";
+import type { ContainerNode } from "../../mini-apps/explorer/types";
 import type { ExplorerRuntime, ExplorerSyncState } from "./explorerSyncAgent";
 
 export interface ExplorerContextValue {
