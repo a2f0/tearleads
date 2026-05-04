@@ -3,18 +3,15 @@ import {
   createExecSql,
   type ExecSql,
   runSerializedSqlMutation,
+  type SqlBind,
   type SqlRow,
-  type SqlRowValue,
 } from "./sqlSchema";
 
 function createLoggingExecSql(log: string[]): ExecSql {
-  return async (
-    sql: string,
-    _bind?: Record<string, SqlRowValue>,
-  ): Promise<SqlRow[]> => {
+  return (async (sql: string, _bind?: SqlBind): Promise<SqlRow[]> => {
     log.push(sql);
     return [];
-  };
+  }) as ExecSql;
 }
 
 test("serialized mutations continue after a queued mutation fails", async () => {
@@ -91,7 +88,7 @@ test("serialized mutations share a queue across adapters for the same client", a
       sql,
     }: {
       sql: string;
-      bind?: Record<string, SqlRowValue>;
+      bind?: SqlBind;
     }): Promise<{ rows: SqlRow[] }> => {
       statements.push(sql);
       return { rows: [] };

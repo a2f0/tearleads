@@ -51,6 +51,8 @@ test("exec posts query requests", async () => {
 
   void client.exec({
     sql: "SELECT 1 AS value",
+    bind: [1],
+    rowMode: "array",
   });
 
   expect(worker.messages).toEqual([
@@ -59,6 +61,8 @@ test("exec posts query requests", async () => {
       method: "exec",
       params: {
         sql: "SELECT 1 AS value",
+        bind: [1],
+        rowMode: "array",
       },
     },
   ]);

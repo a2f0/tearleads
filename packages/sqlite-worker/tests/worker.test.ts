@@ -74,6 +74,7 @@ test("worker responds to exec", async () => {
     method: "exec",
     params: {
       sql: "SELECT 1 AS value",
+      rowMode: "array",
     },
   });
 
@@ -81,7 +82,7 @@ test("worker responds to exec", async () => {
     id: 3,
     result: {
       ok: true,
-      rows: [{ value: 1 }],
+      rows: [[1]],
     },
   });
 

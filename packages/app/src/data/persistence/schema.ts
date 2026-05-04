@@ -137,7 +137,7 @@ export function defineSqlTableSchema(table: SQLiteTable): SqlTableSchema {
   };
 }
 
-const documents = sqliteTable(
+export const documents = sqliteTable(
   "documents",
   {
     appKind: text("app_kind").notNull(),
@@ -155,7 +155,7 @@ const documents = sqliteTable(
   (table) => [primaryKey({ columns: [table.appKind, table.localId] })],
 );
 
-const documentPendingUpdates = sqliteTable(
+export const documentPendingUpdates = sqliteTable(
   "document_pending_updates",
   {
     id: text("id"),
@@ -170,7 +170,7 @@ const documentPendingUpdates = sqliteTable(
   (table) => [primaryKey({ columns: [table.id] })],
 );
 
-const principalPolicies = sqliteTable(
+export const principalPolicies = sqliteTable(
   "principal_policies",
   {
     principalType: text("principal_type").notNull(),
@@ -341,3 +341,17 @@ export const appSqlTables = [
   ...addressBookProjectionTables,
   ...containerCreateIntentTables,
 ];
+
+export const appSQLiteSchema = {
+  documents,
+  documentPendingUpdates,
+  principalPolicies,
+  containers,
+  containerProjection,
+  documentContainerProjection,
+  documentProjection,
+  documentPendingAttachments,
+  documentAttachmentBlobProjection,
+  addressBookProjection,
+  containerCreateIntents,
+};
