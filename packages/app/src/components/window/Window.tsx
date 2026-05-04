@@ -64,6 +64,8 @@ interface WindowResizeState {
   startWidth: number;
   startX: number;
   startY: number;
+  borderX: number;
+  borderY: number;
 }
 
 export function Window({ windowId }: WindowProps) {
@@ -137,8 +139,8 @@ function resizeWindowWithinContainer(
       height += y;
       y = 0;
     }
-    width = Math.min(width, container.clientWidth - x);
-    height = Math.min(height, container.clientHeight - y);
+    width = Math.min(width, container.clientWidth - x - resizeState.borderX);
+    height = Math.min(height, container.clientHeight - y - resizeState.borderY);
     width = Math.max(MIN_WIDTH, width);
     height = Math.max(MIN_HEIGHT, height);
   }
@@ -252,14 +254,17 @@ function useWindowGeometry(
         return;
       }
       event.stopPropagation();
+      const el = windowRef.current;
       resizing.current = {
         corner,
         startX: event.clientX,
         startY: event.clientY,
         startLeft: position.x,
         startTop: position.y,
-        startWidth: windowRef.current.offsetWidth,
-        startHeight: windowRef.current.offsetHeight,
+        startWidth: el.clientWidth,
+        startHeight: el.clientHeight,
+        borderX: el.offsetWidth - el.clientWidth,
+        borderY: el.offsetHeight - el.clientHeight,
       };
     },
     [maximized, position, resizing, windowRef],
