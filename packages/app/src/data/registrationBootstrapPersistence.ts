@@ -2,7 +2,9 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { sqlContactsPersistence } from "../mini-apps/contacts/contactsPersistence";
 import { sqlExplorerPersistence } from "../mini-apps/explorer/explorerPersistence";
 import { createPendingUpdateFields } from "./documentSync";
+import { getAppDatabaseRuntime } from "./persistence/appDatabaseRuntime";
 import type { DocumentRecord } from "./persistence/documentPersistence";
+import { addressBookProjection } from "./persistence/schema";
 import {
   type ExecSql,
   runSerializedSqlMutation,
@@ -74,23 +76,29 @@ export async function persistRegistrationBootstrap(
         ...initialMetadataUpdate,
       });
     }
-    await lockedExecSql(
-      `
- INSERT INTO address_book_projection (
- address_book_id, user_id, encapsulation_public_key, is_self, updated_at
- )
- VALUES (:addressBookId, :userId, :encapsulationPublicKey, 1, :updatedAt)
- ON CONFLICT(address_book_id, user_id) DO UPDATE SET
- encapsulation_public_key = excluded.encapsulation_public_key,
- is_self = 1,
- updated_at = excluded.updated_at
- `,
-      {
-        ":addressBookId": DEFAULT_ADDRESS_BOOK_ID,
-        ":userId": input.userId,
-        ":encapsulationPublicKey": bytesToBase64(input.encapsulationPublicKey),
-        ":updatedAt": new Date().toISOString(),
-      },
-    );
+    const updatedAt = new Date().toISOString();
+    const projectionRow = {
+      addressBookId: DEFAULT_ADDRESS_BOOK_ID,
+      userId: input.userId,
+      encapsulationPublicKey: bytesToBase64(input.encapsulationPublicKey),
+      isSelf: 1,
+      updatedAt,
+    };
+    const { db } = getAppDatabaseRuntime(lockedExecSql);
+    await db
+      .insert(addressBookProjection)
+      .values(projectionRow)
+      .onConflictDoUpdate({
+        target: [
+          addressBookProjection.addressBookId,
+          addressBookProjection.userId,
+        ],
+        set: {
+          encapsulationPublicKey: projectionRow.encapsulationPublicKey,
+          isSelf: 1,
+          updatedAt,
+        },
+      })
+      .run();
   });
 }

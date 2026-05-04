@@ -1,9 +1,15 @@
+import { and, asc, eq } from "drizzle-orm";
 import {
   type ContainerRecord,
   deleteContainer as deleteContainerRecord,
   ensureContainerTables,
   loadContainers as loadContainerRecords,
+  saveContainerRows,
 } from "../../data/containers";
+import {
+  type AppSQLiteTransaction,
+  getAppDatabaseRuntime,
+} from "../../data/persistence/appDatabaseRuntime";
 import {
   type DocumentRecord,
   deleteDocumentPendingUpdate,
@@ -15,15 +21,16 @@ import {
   loadDocumentRecord,
   type PendingUpdateFields,
   type PendingUpdateRecord,
+  saveDocumentRecord,
 } from "../../data/persistence/documentPersistence";
-import { containerCreateIntentTables } from "../../data/persistence/schema";
+import {
+  containerCreateIntents,
+  containerCreateIntentTables,
+} from "../../data/persistence/schema";
 import {
   type ExecSql,
   ensureSqlTables,
-  readSqlRowValue,
   runSerializedSqlMutation,
-  runSqlTransaction,
-  type SqlRow,
 } from "../../data/persistence/sqlSchema";
 
 const CONTAINER_METADATA_APP_KIND = "container-metadata";
@@ -114,117 +121,35 @@ function parseCreateIntentSyncStatus(
   return value === "synced" ? "synced" : "pending";
 }
 
-function parseContainerCreateIntentRecord(
-  row: SqlRow,
-): ContainerCreateIntentRecord {
-  const id = readSqlRowValue(row, "id");
-  const containerId = readSqlRowValue(row, "container_id");
-  const parentContainerId = readSqlRowValue(row, "parent_container_id");
-  const syncStatus = readSqlRowValue(row, "sync_status");
-  const remoteContainerId = readSqlRowValue(row, "remote_container_id");
-  const remoteMetadataDocumentId = readSqlRowValue(
-    row,
-    "remote_metadata_document_id",
-  );
-  const remoteMetadataAccessStateHash = readSqlRowValue(
-    row,
-    "remote_metadata_access_state_hash",
-  );
-  const lastError = readSqlRowValue(row, "last_error");
-  const createdAt = readSqlRowValue(row, "created_at");
-  const updatedAt = readSqlRowValue(row, "updated_at");
-
-  return {
-    id: String(id ?? ""),
-    containerId: String(containerId ?? ""),
-    parentContainerId: String(parentContainerId ?? ""),
-    intentType: CONTAINER_CREATE_INTENT_TYPE,
-    syncStatus: parseCreateIntentSyncStatus(syncStatus),
-    remoteContainerId:
-      remoteContainerId === null || remoteContainerId === undefined
-        ? null
-        : String(remoteContainerId),
-    remoteMetadataDocumentId:
-      remoteMetadataDocumentId === null ||
-      remoteMetadataDocumentId === undefined
-        ? null
-        : String(remoteMetadataDocumentId),
-    remoteMetadataAccessStateHash:
-      remoteMetadataAccessStateHash === null ||
-      remoteMetadataAccessStateHash === undefined
-        ? null
-        : String(remoteMetadataAccessStateHash),
-    lastError:
-      lastError === null || lastError === undefined ? null : String(lastError),
-    createdAt: String(createdAt ?? ""),
-    updatedAt: String(updatedAt ?? ""),
-  };
+interface SelectedContainerCreateIntentRecord {
+  id: string | null;
+  containerId: string;
+  parentContainerId: string;
+  syncStatus: string;
+  remoteContainerId: string | null;
+  remoteMetadataDocumentId: string | null;
+  remoteMetadataAccessStateHash: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-async function saveContainerRows(input: {
-  execSql: ExecSql;
-  container: ContainerRecord;
-  updatedAt: string;
-}) {
-  const { container, execSql, updatedAt } = input;
-
-  await execSql(
-    `
- INSERT INTO containers (
- id,
- organization_id,
- parent_id,
- metadata_document_id,
- updated_at
- )
- VALUES (
- :id,
- :organizationId,
- :parentId,
- :metadataDocumentId,
- :updatedAt
- )
- ON CONFLICT(id) DO UPDATE SET
- organization_id = excluded.organization_id,
- parent_id = excluded.parent_id,
- metadata_document_id = excluded.metadata_document_id,
- updated_at = excluded.updated_at
- `,
-    {
-      ":id": container.id,
-      ":organizationId": container.organizationId,
-      ":parentId": container.parentId,
-      ":metadataDocumentId": container.metadataDocumentId,
-      ":updatedAt": updatedAt,
-    },
-  );
-
-  await execSql(
-    `
- INSERT INTO container_projection (
- container_id,
- display_name,
- icon,
- updated_at
- )
- VALUES (
- :id,
- :name,
- :icon,
- :updatedAt
- )
- ON CONFLICT(container_id) DO UPDATE SET
- display_name = excluded.display_name,
- icon = excluded.icon,
- updated_at = excluded.updated_at
- `,
-    {
-      ":id": container.id,
-      ":name": container.name,
-      ":icon": container.icon,
-      ":updatedAt": updatedAt,
-    },
-  );
+function mapContainerCreateIntentRecord(
+  row: SelectedContainerCreateIntentRecord,
+): ContainerCreateIntentRecord {
+  return {
+    id: String(row.id ?? ""),
+    containerId: row.containerId,
+    parentContainerId: row.parentContainerId,
+    intentType: CONTAINER_CREATE_INTENT_TYPE,
+    syncStatus: parseCreateIntentSyncStatus(row.syncStatus),
+    remoteContainerId: row.remoteContainerId,
+    remoteMetadataDocumentId: row.remoteMetadataDocumentId,
+    remoteMetadataAccessStateHash: row.remoteMetadataAccessStateHash,
+    lastError: row.lastError,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 async function saveContainerMetadataRecord(input: {
@@ -234,129 +159,63 @@ async function saveContainerMetadataRecord(input: {
   updatedAt: string;
 }) {
   const { containerId, execSql, record, updatedAt } = input;
-  await execSql(
-    `
- INSERT INTO documents (
- app_kind,
- local_id,
- document_id,
- loro_snapshot,
- access_epoch,
- access_state_hash,
- last_commit_lsn,
- document_manifest_bundle,
- content_key_bundle,
- document_kek_targets,
- updated_at
- )
- VALUES (
- :appKind,
- :localId,
- :documentId,
- :loroSnapshot,
- :accessEpoch,
- :accessStateHash,
- :lastCommitLsn,
- :documentManifestBundle,
- :contentKeyBundle,
- :documentKekTargets,
- :updatedAt
- )
- ON CONFLICT(app_kind, local_id) DO UPDATE SET
- document_id = excluded.document_id,
- loro_snapshot = excluded.loro_snapshot,
- access_epoch = excluded.access_epoch,
- access_state_hash = excluded.access_state_hash,
- last_commit_lsn = excluded.last_commit_lsn,
- document_manifest_bundle =
- excluded.document_manifest_bundle,
- content_key_bundle = excluded.content_key_bundle,
- document_kek_targets = excluded.document_kek_targets,
- updated_at = excluded.updated_at
- `,
+  await saveDocumentRecord(
+    execSql,
     {
-      ":accessEpoch": record.accessEpoch,
-      ":accessStateHash": record.accessStateHash ?? null,
-      ":appKind": CONTAINER_METADATA_APP_KIND,
-      ":documentId": record.documentId,
-      ":lastCommitLsn": record.lastCommitLsn ?? null,
-      ":localId": containerId,
-      ":loroSnapshot": record.loroSnapshot,
-      ":contentKeyBundle": record.contentKeyBundle ?? null,
-      ":documentKekTargets": record.documentKekTargets ?? null,
-      ":documentManifestBundle": record.documentManifestBundle ?? null,
-      ":updatedAt": updatedAt,
+      appKind: CONTAINER_METADATA_APP_KIND,
+      localId: containerId,
     },
+    record,
+    updatedAt,
   );
 }
 
 async function saveContainerCreateIntent(input: {
-  execSql: ExecSql;
+  tx: AppSQLiteTransaction;
   containerId: string;
   createIntent: ContainerCreateIntentInput;
   updatedAt: string;
 }) {
-  const { containerId, createIntent, execSql, updatedAt } = input;
-  await execSql(
-    `
- INSERT INTO container_create_intents (
- id,
- container_id,
- parent_container_id,
- intent_type,
- sync_status,
- remote_container_id,
- remote_metadata_document_id,
- remote_metadata_access_state_hash,
- last_error,
- created_at,
- updated_at
- )
- VALUES (
- :id,
- :containerId,
- :parentContainerId,
- :intentType,
- 'pending',
- NULL,
- NULL,
- NULL,
- NULL,
- :updatedAt,
- :updatedAt
- )
- ON CONFLICT(container_id) DO UPDATE SET
- parent_container_id = excluded.parent_container_id,
- intent_type = excluded.intent_type,
- sync_status = 'pending',
- remote_container_id = NULL,
- remote_metadata_document_id = NULL,
- remote_metadata_access_state_hash = NULL,
- last_error = NULL,
- updated_at = excluded.updated_at
- `,
-    {
-      ":containerId": containerId,
-      ":id": createIntent.id ?? crypto.randomUUID(),
-      ":intentType": CONTAINER_CREATE_INTENT_TYPE,
-      ":parentContainerId": createIntent.parentContainerId,
-      ":updatedAt": updatedAt,
-    },
-  );
+  const { containerId, createIntent, tx, updatedAt } = input;
+  await tx
+    .insert(containerCreateIntents)
+    .values({
+      id: createIntent.id ?? crypto.randomUUID(),
+      containerId,
+      parentContainerId: createIntent.parentContainerId,
+      intentType: CONTAINER_CREATE_INTENT_TYPE,
+      syncStatus: "pending",
+      remoteContainerId: null,
+      remoteMetadataDocumentId: null,
+      remoteMetadataAccessStateHash: null,
+      lastError: null,
+      createdAt: updatedAt,
+      updatedAt,
+    })
+    .onConflictDoUpdate({
+      target: containerCreateIntents.containerId,
+      set: {
+        parentContainerId: createIntent.parentContainerId,
+        intentType: CONTAINER_CREATE_INTENT_TYPE,
+        syncStatus: "pending",
+        remoteContainerId: null,
+        remoteMetadataDocumentId: null,
+        remoteMetadataAccessStateHash: null,
+        lastError: null,
+        updatedAt,
+      },
+    })
+    .run();
 }
 
 export const sqlExplorerPersistence: ExplorerPersistence = {
   async deleteContainer(execSql, containerId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
- DELETE FROM container_create_intents
- WHERE container_id = :containerId
- `,
-        {
-          ":containerId": containerId,
-        },
-      );
+      const { db } = getAppDatabaseRuntime(lockedExecSql);
+      await db
+        .delete(containerCreateIntents)
+        .where(eq(containerCreateIntents.containerId, containerId))
+        .run();
       await deleteContainerRecord(lockedExecSql, containerId);
       await deleteDocumentRecord(
         lockedExecSql,
@@ -404,45 +263,49 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     );
   },
   async listPendingCreateIntents(execSql) {
-    const rows = await execSql(`
- SELECT
- id,
- container_id,
- parent_container_id,
- intent_type,
- sync_status,
- remote_container_id,
- remote_metadata_document_id,
- remote_metadata_access_state_hash,
- last_error,
- created_at,
- updated_at
- FROM container_create_intents
- WHERE sync_status = 'pending'
- AND intent_type = 'container.create'
- ORDER BY created_at ASC
- `);
+    const { db } = getAppDatabaseRuntime(execSql);
+    const rows = await db
+      .select({
+        id: containerCreateIntents.id,
+        containerId: containerCreateIntents.containerId,
+        parentContainerId: containerCreateIntents.parentContainerId,
+        syncStatus: containerCreateIntents.syncStatus,
+        remoteContainerId: containerCreateIntents.remoteContainerId,
+        remoteMetadataDocumentId:
+          containerCreateIntents.remoteMetadataDocumentId,
+        remoteMetadataAccessStateHash:
+          containerCreateIntents.remoteMetadataAccessStateHash,
+        lastError: containerCreateIntents.lastError,
+        createdAt: containerCreateIntents.createdAt,
+        updatedAt: containerCreateIntents.updatedAt,
+      })
+      .from(containerCreateIntents)
+      .where(
+        and(
+          eq(containerCreateIntents.syncStatus, "pending"),
+          eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+        ),
+      )
+      .orderBy(asc(containerCreateIntents.createdAt));
 
-    return rows.map((row) => parseContainerCreateIntentRecord(row));
+    return rows.map((row) => mapContainerCreateIntentRecord(row));
   },
   async recordCreateIntentError(execSql, containerId, message) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
- UPDATE container_create_intents
- SET
- last_error = :lastError,
- updated_at = :updatedAt
- WHERE container_id = :containerId
- AND sync_status = 'pending'
- AND intent_type = 'container.create'
- `,
-        {
-          ":containerId": containerId,
-          ":lastError": message,
-          ":updatedAt": new Date().toISOString(),
-        },
-      );
+    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+      await db
+        .update(containerCreateIntents)
+        .set({
+          lastError: message,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(
+          and(
+            eq(containerCreateIntents.containerId, containerId),
+            eq(containerCreateIntents.syncStatus, "pending"),
+            eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+          ),
+        )
+        .run();
     });
   },
   async loadContainers(execSql) {
@@ -462,10 +325,10 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
   async saveContainer(execSql, container, record, options) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = new Date().toISOString();
-      await runSqlTransaction(lockedExecSql, async () => {
+      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         await saveContainerRows({
-          container,
-          execSql: lockedExecSql,
+          record: container,
+          tx,
           updatedAt,
         });
 
@@ -485,7 +348,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
           await saveContainerCreateIntent({
             containerId: container.id,
             createIntent: options.createIntent,
-            execSql: lockedExecSql,
+            tx,
             updatedAt,
           });
         }
@@ -493,28 +356,24 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     });
   },
   async markCreateIntentSynced(execSql, input) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await lockedExecSql(
-        `
- UPDATE container_create_intents
- SET
- sync_status = 'synced',
- remote_container_id = :remoteContainerId,
- remote_metadata_document_id = :remoteMetadataDocumentId,
- remote_metadata_access_state_hash = :remoteMetadataAccessStateHash,
- last_error = NULL,
- updated_at = :updatedAt
- WHERE container_id = :containerId
- AND intent_type = 'container.create'
- `,
-        {
-          ":containerId": input.containerId,
-          ":remoteContainerId": input.remoteContainerId,
-          ":remoteMetadataAccessStateHash": input.remoteMetadataAccessStateHash,
-          ":remoteMetadataDocumentId": input.remoteMetadataDocumentId,
-          ":updatedAt": new Date().toISOString(),
-        },
-      );
+    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+      await db
+        .update(containerCreateIntents)
+        .set({
+          syncStatus: "synced",
+          remoteContainerId: input.remoteContainerId,
+          remoteMetadataDocumentId: input.remoteMetadataDocumentId,
+          remoteMetadataAccessStateHash: input.remoteMetadataAccessStateHash,
+          lastError: null,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(
+          and(
+            eq(containerCreateIntents.containerId, input.containerId),
+            eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+          ),
+        )
+        .run();
     });
   },
 };

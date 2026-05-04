@@ -1,12 +1,14 @@
-import { containerTables } from "../persistence/schema";
+import { asc, eq, sql } from "drizzle-orm";
 import {
-  type ExecSql,
-  ensureSqlTables,
-  readSqlRowValue,
-  runSerializedSqlMutation,
-  runSqlTransaction,
-  type SqlRow,
-} from "../persistence/sqlSchema";
+  type AppSQLiteTransaction,
+  getAppDatabaseRuntime,
+} from "../persistence/appDatabaseRuntime";
+import {
+  containerProjection,
+  containers,
+  containerTables,
+} from "../persistence/schema";
+import { type ExecSql, ensureSqlTables } from "../persistence/sqlSchema";
 
 export interface ContainerRecord {
   id: string;
@@ -21,124 +23,104 @@ export async function ensureContainerTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, containerTables);
 }
 
-function parseContainerRecord(row: SqlRow): ContainerRecord {
-  const id = readSqlRowValue(row, "id");
-  const organizationId = readSqlRowValue(row, "organization_id");
-  const parentId = readSqlRowValue(row, "parent_id");
-  const metadataDocumentId = readSqlRowValue(row, "metadata_document_id");
-  const name = readSqlRowValue(row, "name");
-  const icon = readSqlRowValue(row, "icon");
+interface SelectedContainerRecord {
+  id: string | null;
+  organizationId: string;
+  parentId: string | null;
+  metadataDocumentId: string | null;
+  name: string;
+  icon: string | null;
+}
 
+function mapSelectedContainerRecord(
+  row: SelectedContainerRecord,
+): ContainerRecord {
   return {
-    id: String(id ?? ""),
-    organizationId: String(organizationId ?? ""),
-    parentId:
-      parentId === null || parentId === undefined ? null : String(parentId),
-    metadataDocumentId:
-      metadataDocumentId === null || metadataDocumentId === undefined
-        ? null
-        : String(metadataDocumentId),
-    name: String(name ?? ""),
-    icon:
-      icon === null || icon === undefined || String(icon).length === 0
-        ? null
-        : String(icon),
+    id: String(row.id ?? ""),
+    organizationId: row.organizationId,
+    parentId: row.parentId,
+    metadataDocumentId: row.metadataDocumentId,
+    name: row.name,
+    icon: row.icon && row.icon.length > 0 ? row.icon : null,
   };
+}
+
+export async function saveContainerRows(input: {
+  tx: AppSQLiteTransaction;
+  record: ContainerRecord;
+  updatedAt: string;
+}): Promise<void> {
+  const { record, tx, updatedAt } = input;
+  const containerRow = {
+    id: record.id,
+    organizationId: record.organizationId,
+    parentId: record.parentId,
+    metadataDocumentId: record.metadataDocumentId,
+    updatedAt,
+  };
+  await tx
+    .insert(containers)
+    .values(containerRow)
+    .onConflictDoUpdate({
+      target: containers.id,
+      set: containerRow,
+    })
+    .run();
+
+  const projectionRow = {
+    containerId: record.id,
+    displayName: record.name,
+    icon: record.icon,
+    updatedAt,
+  };
+  await tx
+    .insert(containerProjection)
+    .values(projectionRow)
+    .onConflictDoUpdate({
+      target: containerProjection.containerId,
+      set: projectionRow,
+    })
+    .run();
 }
 
 export async function loadContainers(
   execSql: ExecSql,
 ): Promise<ContainerRecord[]> {
-  const rows = await execSql(
-    `
-      SELECT
-        containers.id,
-        containers.organization_id,
-        containers.parent_id,
-        containers.metadata_document_id,
-        COALESCE(
-          projection.display_name,
-          CASE
-            WHEN containers.parent_id IS NULL THEN '/'
-            ELSE 'Untitled'
-          END
-        ) AS name,
-        projection.icon
-      FROM containers
-      LEFT JOIN container_projection AS projection
-        ON projection.container_id = containers.id
-      ORDER BY name COLLATE NOCASE ASC
-    `,
-  );
+  const { db } = getAppDatabaseRuntime(execSql);
+  const name = sql<string>`COALESCE(
+    ${containerProjection.displayName},
+    CASE WHEN ${containers.parentId} IS NULL THEN '/' ELSE 'Untitled' END
+  )`;
+  const rows = await db
+    .select({
+      id: containers.id,
+      organizationId: containers.organizationId,
+      parentId: containers.parentId,
+      metadataDocumentId: containers.metadataDocumentId,
+      name,
+      icon: containerProjection.icon,
+    })
+    .from(containers)
+    .leftJoin(
+      containerProjection,
+      eq(containerProjection.containerId, containers.id),
+    )
+    .orderBy(asc(sql`${name} COLLATE NOCASE`));
 
-  return rows.map((row) => parseContainerRecord(row));
+  return rows.map((row) => mapSelectedContainerRecord(row));
 }
 
 export async function saveContainer(
   execSql: ExecSql,
   record: ContainerRecord,
 ): Promise<void> {
-  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    const updatedAt = new Date().toISOString();
+  const updatedAt = new Date().toISOString();
 
-    await runSqlTransaction(lockedExecSql, async () => {
-      await lockedExecSql(
-        `
-          INSERT INTO containers (
-            id,
-            organization_id,
-            parent_id,
-            metadata_document_id,
-            updated_at
-          )
-          VALUES (
-            :id,
-            :organizationId,
-            :parentId,
-            :metadataDocumentId,
-            :updatedAt
-          )
-          ON CONFLICT(id) DO UPDATE SET
-            organization_id = excluded.organization_id,
-            parent_id = excluded.parent_id,
-            metadata_document_id = excluded.metadata_document_id,
-            updated_at = excluded.updated_at
-        `,
-        {
-          ":id": record.id,
-          ":organizationId": record.organizationId,
-          ":parentId": record.parentId,
-          ":metadataDocumentId": record.metadataDocumentId,
-          ":updatedAt": updatedAt,
-        },
-      );
-
-      await lockedExecSql(
-        `
-          INSERT INTO container_projection (
-            container_id,
-            display_name,
-            icon,
-            updated_at
-          )
-          VALUES (
-            :id,
-            :name,
-            :icon,
-            :updatedAt
-          )
-          ON CONFLICT(container_id) DO UPDATE SET
-            display_name = excluded.display_name,
-            icon = excluded.icon,
-            updated_at = excluded.updated_at
-        `,
-        {
-          ":id": record.id,
-          ":name": record.name,
-          ":icon": record.icon,
-          ":updatedAt": updatedAt,
-        },
-      );
+  await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
+    await saveContainerRows({
+      record,
+      tx,
+      updatedAt,
     });
   });
 }
@@ -147,26 +129,11 @@ export async function deleteContainer(
   execSql: ExecSql,
   id: string,
 ): Promise<void> {
-  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await runSqlTransaction(lockedExecSql, async () => {
-      await lockedExecSql(
-        `
-          DELETE FROM container_projection
-          WHERE container_id = :id
-        `,
-        {
-          ":id": id,
-        },
-      );
-      await lockedExecSql(
-        `
-          DELETE FROM containers
-          WHERE id = :id
-        `,
-        {
-          ":id": id,
-        },
-      );
-    });
+  await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
+    await tx
+      .delete(containerProjection)
+      .where(eq(containerProjection.containerId, id))
+      .run();
+    await tx.delete(containers).where(eq(containers.id, id)).run();
   });
 }

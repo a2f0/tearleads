@@ -68,3 +68,34 @@ test("listDocumentIdsByContainerIds returns unique document ids linked to contai
     close();
   }
 });
+
+test("replaceDocumentLinksBatch keeps the latest links for duplicate document ids", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-container-projection-test",
+  );
+
+  try {
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+      execSql,
+      [
+        {
+          containerIds: ["container-a"],
+          documentId: "document-1",
+        },
+        {
+          containerIds: ["container-b", "container-c"],
+          documentId: "document-1",
+        },
+      ],
+    );
+
+    await expect(
+      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
+        execSql,
+        "document-1",
+      ),
+    ).resolves.toEqual(["container-b", "container-c"]);
+  } finally {
+    close();
+  }
+});

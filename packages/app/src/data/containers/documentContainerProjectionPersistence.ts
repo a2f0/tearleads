@@ -1,11 +1,10 @@
-import { documentContainerProjectionTables } from "../persistence/schema";
+import { asc, eq, inArray } from "drizzle-orm";
+import { getAppDatabaseRuntime } from "../persistence/appDatabaseRuntime";
 import {
-  type ExecSql,
-  ensureSqlTables,
-  readSqlRowValue,
-  runSerializedSqlMutation,
-  runSqlTransaction,
-} from "../persistence/sqlSchema";
+  documentContainerProjection,
+  documentContainerProjectionTables,
+} from "../persistence/schema";
+import { type ExecSql, ensureSqlTables } from "../persistence/sqlSchema";
 
 interface DocumentContainerProjectionPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;
@@ -42,21 +41,14 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
     },
     async listLinkedContainerIds(execSql, documentId) {
       await ensureSqlTables(execSql, documentContainerProjectionTables);
-      const rows = await execSql(
-        `
-          SELECT container_id
-          FROM document_container_projection
-          WHERE document_id = :documentId
-          ORDER BY container_id ASC
-        `,
-        {
-          ":documentId": documentId,
-        },
-      );
+      const { db } = getAppDatabaseRuntime(execSql);
+      const rows = await db
+        .select({ containerId: documentContainerProjection.containerId })
+        .from(documentContainerProjection)
+        .where(eq(documentContainerProjection.documentId, documentId))
+        .orderBy(asc(documentContainerProjection.containerId));
 
-      return rows.map((row) =>
-        String(readSqlRowValue(row, "container_id") ?? ""),
-      );
+      return rows.map((row) => row.containerId);
     },
     async listLinkedContainerIdsByDocumentIds(execSql, documentIds) {
       await ensureSqlTables(execSql, documentContainerProjectionTables);
@@ -65,23 +57,20 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
         return new Map();
       }
 
-      const bind: Record<string, string> = {};
-      const placeholders = uniqueDocumentIds.map((documentId, index) => {
-        const key = `:documentId${index}`;
-        bind[key] = documentId;
-        return key;
-      });
-      const rows = await execSql(
-        `
-          SELECT
-            document_id,
-            container_id
-          FROM document_container_projection
-          WHERE document_id IN (${placeholders.join(", ")})
-          ORDER BY document_id ASC, container_id ASC
-        `,
-        bind,
-      );
+      const { db } = getAppDatabaseRuntime(execSql);
+      const rows = await db
+        .select({
+          documentId: documentContainerProjection.documentId,
+          containerId: documentContainerProjection.containerId,
+        })
+        .from(documentContainerProjection)
+        .where(
+          inArray(documentContainerProjection.documentId, uniqueDocumentIds),
+        )
+        .orderBy(
+          asc(documentContainerProjection.documentId),
+          asc(documentContainerProjection.containerId),
+        );
 
       const linkedContainerIdsByDocumentId = new Map<string, string[]>();
       for (const documentId of uniqueDocumentIds) {
@@ -89,12 +78,10 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
       }
 
       for (const row of rows) {
-        const documentId = String(readSqlRowValue(row, "document_id") ?? "");
-        const containerId = String(readSqlRowValue(row, "container_id") ?? "");
         const linkedContainerIds =
-          linkedContainerIdsByDocumentId.get(documentId) ?? [];
-        linkedContainerIds.push(containerId);
-        linkedContainerIdsByDocumentId.set(documentId, linkedContainerIds);
+          linkedContainerIdsByDocumentId.get(row.documentId) ?? [];
+        linkedContainerIds.push(row.containerId);
+        linkedContainerIdsByDocumentId.set(row.documentId, linkedContainerIds);
       }
 
       return linkedContainerIdsByDocumentId;
@@ -106,25 +93,16 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
         return [];
       }
 
-      const bind: Record<string, string> = {};
-      const placeholders = uniqueContainerIds.map((containerId, index) => {
-        const key = `:containerId${index}`;
-        bind[key] = containerId;
-        return key;
-      });
-      const rows = await execSql(
-        `
-          SELECT DISTINCT document_id
-          FROM document_container_projection
-          WHERE container_id IN (${placeholders.join(", ")})
-          ORDER BY document_id ASC
-        `,
-        bind,
-      );
+      const { db } = getAppDatabaseRuntime(execSql);
+      const rows = await db
+        .selectDistinct({ documentId: documentContainerProjection.documentId })
+        .from(documentContainerProjection)
+        .where(
+          inArray(documentContainerProjection.containerId, uniqueContainerIds),
+        )
+        .orderBy(asc(documentContainerProjection.documentId));
 
-      return rows.map((row) =>
-        String(readSqlRowValue(row, "document_id") ?? ""),
-      );
+      return rows.map((row) => row.documentId);
     },
     async replaceDocumentLinks(execSql, documentId, containerIds) {
       await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
@@ -134,47 +112,46 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
     },
     async replaceDocumentLinksBatch(execSql, inputs) {
       await ensureSqlTables(execSql, documentContainerProjectionTables);
-      await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        await runSqlTransaction(lockedExecSql, async () => {
-          for (const input of inputs) {
-            const uniqueContainerIds = Array.from(
-              new Set(input.containerIds),
-            ).sort();
-            const updatedAt = new Date().toISOString();
+      const latestContainerIdsByDocumentId = new Map<
+        string,
+        ReadonlyArray<string>
+      >();
+      for (const input of inputs) {
+        latestContainerIdsByDocumentId.set(
+          input.documentId,
+          input.containerIds,
+        );
+      }
+      const documentIds = Array.from(latestContainerIdsByDocumentId.keys());
+      if (documentIds.length === 0) {
+        return;
+      }
 
-            await lockedExecSql(
-              `
-                DELETE FROM document_container_projection
-                WHERE document_id = :documentId
-              `,
-              {
-                ":documentId": input.documentId,
-              },
-            );
+      const updatedAt = new Date().toISOString();
+      const projectionRows = Array.from(
+        latestContainerIdsByDocumentId.entries(),
+      ).flatMap(([documentId, containerIds]) =>
+        Array.from(new Set(containerIds))
+          .sort()
+          .map((containerId) => ({
+            documentId,
+            containerId,
+            updatedAt,
+          })),
+      );
 
-            for (const containerId of uniqueContainerIds) {
-              await lockedExecSql(
-                `
-                  INSERT INTO document_container_projection (
-                    document_id,
-                    container_id,
-                    updated_at
-                  )
-                  VALUES (
-                    :documentId,
-                    :containerId,
-                    :updatedAt
-                  )
-                `,
-                {
-                  ":documentId": input.documentId,
-                  ":containerId": containerId,
-                  ":updatedAt": updatedAt,
-                },
-              );
-            }
-          }
-        });
+      await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
+        await tx
+          .delete(documentContainerProjection)
+          .where(inArray(documentContainerProjection.documentId, documentIds))
+          .run();
+
+        if (projectionRows.length > 0) {
+          await tx
+            .insert(documentContainerProjection)
+            .values(projectionRows)
+            .run();
+        }
       });
     },
   };
