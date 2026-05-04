@@ -89,11 +89,18 @@ test("handleRequest returns exec rows", async () => {
         method: "exec",
         params: {
           sql: "SELECT 1 AS value",
+          bind: [1],
+          rowMode: "array",
         },
       },
       {
-        onExec() {
-          return [{ value: 1 }];
+        onExec(options) {
+          expect(options).toEqual({
+            sql: "SELECT 1 AS value",
+            bind: [1],
+            rowMode: "array",
+          });
+          return [[1]];
         },
       },
     ),
@@ -101,7 +108,7 @@ test("handleRequest returns exec rows", async () => {
     id: 3,
     result: {
       ok: true,
-      rows: [{ value: 1 }],
+      rows: [[1]],
     },
   });
 });

@@ -12,15 +12,23 @@ export interface DatabaseWorkerInitOptions {
 }
 
 export type SqliteBindValue = string | number | null;
+export type SqliteBind =
+  | Record<string, SqliteBindValue>
+  | ReadonlyArray<SqliteBindValue>;
+export type SqliteRowMode = "object" | "array";
+export type SqliteObjectRow = Record<string, SqliteBindValue>;
+export type SqliteArrayRow = SqliteBindValue[];
+export type SqliteRow = SqliteObjectRow | SqliteArrayRow;
 
 export interface DatabaseWorkerExecOptions {
   sql: string;
-  bind?: Record<string, SqliteBindValue>;
+  bind?: SqliteBind;
+  rowMode?: SqliteRowMode;
 }
 
 export interface DatabaseWorkerExecResult {
   ok: true;
-  rows: Record<string, SqliteBindValue>[];
+  rows: SqliteRow[];
 }
 
 export interface DatabaseWorkerReady {

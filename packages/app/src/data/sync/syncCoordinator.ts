@@ -112,9 +112,18 @@ export function didRegainSyncPrerequisites<TRuntime extends SyncRuntimeStatus>(
 }
 
 export function isDestroyedDatabaseClientError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.message === "Database worker client has been destroyed." ||
-      error.message === "DB has been closed.")
-  );
+  let current = error;
+
+  while (current instanceof Error) {
+    if (
+      current.message === "Database worker client has been destroyed." ||
+      current.message === "DB has been closed."
+    ) {
+      return true;
+    }
+
+    current = current.cause;
+  }
+
+  return false;
 }
