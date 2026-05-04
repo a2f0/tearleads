@@ -1,10 +1,19 @@
 import {
+  type AccessEvent,
+  type AccessManifest,
+  type ContainerCreateAccessEventBody,
+  type ContainerKeyEpoch,
+  type ContainerKeyWrap,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  ContainerKekResponse,
+  ContainerWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import {
+  type ProjectionVerificationOptions,
   projectionVerificationOptions,
   unwrapContainerKekPath,
 } from "../../../documents/documentRuntime";
@@ -14,6 +23,7 @@ import {
 } from "../../../keyingCanonicalJson";
 import type { ProjectionUserKeyResolver } from "../../../keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../../keyingProjectionVerification";
+import type { ExecSql } from "../../../persistence/sqlSchema";
 import {
   buildContainerCreateBody,
   buildContainerCreateKeyEpoch,
@@ -57,14 +67,14 @@ function assertContainerCreatePlanInput(input: {
 }
 
 function buildContainerCreateRequest(input: {
-  body: import("@tearleads/crypto").ContainerCreateAccessEventBody;
-  event: import("@tearleads/crypto").AccessEvent;
-  keyEpoch: import("@tearleads/crypto").ContainerKeyEpoch;
-  manifest: import("@tearleads/crypto").AccessManifest;
+  body: ContainerCreateAccessEventBody;
+  event: AccessEvent;
+  keyEpoch: ContainerKeyEpoch;
+  manifest: AccessManifest;
   manifestHash: string;
-  parentKek: import("@tearleads/validators/response").ContainerKekResponse;
+  parentKek: ContainerKekResponse;
   parentProjection: ContainerWriterProjectionResponse;
-  wraps: readonly import("@tearleads/crypto").ContainerKeyWrap[];
+  wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {
     event: readCanonicalRecord(input.event, "Container create event"),
@@ -196,12 +206,12 @@ export async function buildMaterializedContainerCreatePlan(
     containerKey?: Uint8Array | undefined;
     containerKeyEpochId?: string | undefined;
     eventId?: string | undefined;
-    execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+    execSql?: ExecSql | undefined;
     metadataDocumentId?: string | undefined;
     parentProjection: ContainerWriterProjectionResponse;
     parentSecretKey: Uint8Array;
     signedAt?: string | undefined;
-  } & import("../../../documents/documentRuntime").ProjectionVerificationOptions,
+  } & ProjectionVerificationOptions,
 ): Promise<MaterializedContainerCreatePlan> {
   const containerKey =
     input.containerKey ?? crypto.getRandomValues(new Uint8Array(32));
@@ -245,7 +255,7 @@ export async function createRemoteContainer(input: {
   containerKey?: Uint8Array | undefined;
   containerKeyEpochId?: string | undefined;
   eventId?: string | undefined;
-  execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+  execSql?: ExecSql | undefined;
   metadataDocumentId?: string | undefined;
   parentContainerId: string;
   parentSecretKey: Uint8Array;

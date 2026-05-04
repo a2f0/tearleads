@@ -1,10 +1,12 @@
 import {
+  type AccessEvent,
   type AccessManifest,
   type ContainerAccessLevel,
   type ContainerAccessManifestState,
   type ContainerDirectGrant,
   type ContainerGrantAccessEventBody,
   type ContainerKekRecipientTarget,
+  type ContainerKeyEpoch,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
   computeAccessManifestHash,
@@ -16,9 +18,11 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
+  ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
+  type ProjectionVerificationOptions,
   projectionVerificationOptions,
   unwrapContainerKekPath,
 } from "../../../documents/documentRuntime";
@@ -30,6 +34,7 @@ import {
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../../keyingProjectionVerification";
+import type { ExecSql } from "../../../persistence/sqlSchema";
 import { signContainerMutationEvent } from "../../shared/events";
 import {
   asContainerManifestBundle,
@@ -93,8 +98,8 @@ async function deriveContainerShareManifest(input: {
 
 function buildContainerShareRequest(input: {
   body: ContainerGrantAccessEventBody;
-  event: import("@tearleads/crypto").AccessEvent;
-  keyEpoch: import("@tearleads/crypto").ContainerKeyEpoch;
+  event: AccessEvent;
+  keyEpoch: ContainerKeyEpoch;
   manifest: AccessManifest;
   manifestHash: string;
   parentKek: ContainerKekResponse | null;
@@ -150,7 +155,7 @@ function buildContainerSharePlanResult(input: {
   body: ContainerGrantAccessEventBody;
   containerId: string;
   containerKey: Uint8Array;
-  event: import("@tearleads/crypto").AccessEvent;
+  event: AccessEvent;
   eventHash: string;
   grant: ContainerDirectGrant;
   manifest: AccessManifest;
@@ -251,13 +256,13 @@ async function buildMaterializedContainerSharePlan(
     accessLevel: ContainerAccessLevel;
     author: ContainerMutationAuthor;
     eventId?: string | undefined;
-    execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+    execSql?: ExecSql | undefined;
     previousProjection: ContainerWriterProjectionResponse;
     recipientEncapsulationPublicKey: Uint8Array;
     recipientUserId: string;
     signedAt?: string | undefined;
     targetSecretKey: Uint8Array;
-  } & import("../../../documents/documentRuntime").ProjectionVerificationOptions,
+  } & ProjectionVerificationOptions,
 ): Promise<MaterializedContainerSharePlan> {
   const target = getTargetContainerContext(input.previousProjection);
   const previousState = readContainerState(target.manifest);
@@ -344,7 +349,7 @@ export async function shareRemoteContainer(input: {
   author: ContainerMutationAuthor;
   containerId: string;
   eventId?: string | undefined;
-  execSql?: import("../../../persistence/sqlSchema").ExecSql | undefined;
+  execSql?: ExecSql | undefined;
   recipientEncapsulationPublicKey: Uint8Array;
   recipientUserId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -353,7 +358,7 @@ export async function shareRemoteContainer(input: {
 }): Promise<{
   containerKey: Uint8Array;
   plan: ContainerSharePlan;
-  response: import("@tearleads/validators/response").ContainerMutationResponse;
+  response: ContainerMutationResponse;
 } | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,

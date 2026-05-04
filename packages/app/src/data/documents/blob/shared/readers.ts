@@ -14,7 +14,11 @@ import {
   readRecordNumber,
   readRecordString,
 } from "../../shared/readers";
-import type { BlobContentKeyTarget, DocumentManifestIdentity } from "./types";
+import type {
+  BlobContentKeyTarget,
+  BlobEncryptedBytesRecord,
+  DocumentManifestIdentity,
+} from "./types";
 import {
   BLOB_ENCRYPTED_BYTES_FORMAT,
   BLOB_ENCRYPTED_BYTES_KEYS,
@@ -142,7 +146,7 @@ function readContentKeyBundle(value: unknown): BlobContentKeyBundleRequest {
 
 export function parseBlobEncryptedBytes(
   encryptedBytes: string,
-): import("./types").BlobEncryptedBytesRecord {
+): BlobEncryptedBytesRecord {
   let value: unknown;
   try {
     value = JSON.parse(encryptedBytes);

@@ -1,4 +1,8 @@
 import type {
+  AccessEvent,
+  AccessManifest,
+  ContainerCreateAccessEventBody,
+  ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
 } from "@tearleads/crypto";
@@ -32,7 +36,7 @@ function buildRootContainerCreateBody(input: {
   author: ContainerMutationAuthor;
   containerKeyEpochId: string;
   metadataDocumentId: string;
-}): import("@tearleads/crypto").ContainerCreateAccessEventBody {
+}): ContainerCreateAccessEventBody {
   return {
     ...buildContainerCreateBody({
       containerKeyEpochId: input.containerKeyEpochId,
@@ -52,7 +56,7 @@ function buildRootContainerCreateBody(input: {
 
 async function deriveRootContainerCreateManifest(input: {
   author: ContainerMutationAuthor;
-  body: import("@tearleads/crypto").ContainerCreateAccessEventBody;
+  body: ContainerCreateAccessEventBody;
   containerId: string;
   containerKeyEpochId: string;
   eventHash: string;
@@ -78,10 +82,10 @@ async function deriveRootContainerCreateManifest(input: {
 }
 
 function buildRootContainerCreateRequest(input: {
-  body: import("@tearleads/crypto").ContainerCreateAccessEventBody;
-  event: import("@tearleads/crypto").AccessEvent;
-  keyEpoch: import("@tearleads/crypto").ContainerKeyEpoch;
-  manifest: import("@tearleads/crypto").AccessManifest;
+  body: ContainerCreateAccessEventBody;
+  event: AccessEvent;
+  keyEpoch: ContainerKeyEpoch;
+  manifest: AccessManifest;
   manifestHash: string;
   userRecipientKeys: readonly ContainerUserRecipientKey[];
   wraps: readonly ContainerKeyWrap[];
