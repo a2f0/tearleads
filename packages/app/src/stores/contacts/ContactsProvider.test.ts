@@ -30,7 +30,7 @@ import type {
 import type {
   DocumentRecord,
   PendingUpdateRecord,
-} from "../../data/persistence/documentPersistence";
+} from "../../data/sqlite/documentPersistence";
 import { type ContactsRuntime, createContactsStore } from "./ContactsProvider";
 
 interface StoredContactState {

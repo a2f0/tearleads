@@ -45,7 +45,7 @@ import {
 } from "../../../data/keyingCanonicalJson";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import type { ExecSql } from "../../../data/persistence/sqlSchema";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 function assertContainerCreatePlanInput(input: {
   author: ContainerMutationAuthor;

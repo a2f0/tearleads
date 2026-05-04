@@ -6,7 +6,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { SerializedKeyEnvelope } from "@tearleads/validators/util";
 import { loadAllPrincipalPolicyBundles } from "./persistence/principalPolicyPersistence";
-import type { ExecSql } from "./persistence/sqlSchema";
+import type { ExecSql } from "./sqlite/sqlSchema";
 
 interface PrincipalPolicyResolutionContext {
   bundlesByKeyFingerprint: ReadonlyMap<

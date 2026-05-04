@@ -1,6 +1,6 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { getUpdateVersionVectors } from "@tearleads/loro";
-import type { PendingUpdateFields } from "./persistence/documentPersistence";
+import type { PendingUpdateFields } from "./sqlite/documentPersistence";
 
 interface DocumentUpdateCreatedEvent {
   type: "document_update_created";

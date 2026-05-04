@@ -2,9 +2,13 @@ import { asc, eq, sql } from "drizzle-orm";
 import {
   type AppSQLiteTransaction,
   getAppDatabaseRuntime,
-} from "../appDatabaseRuntime";
-import { containerProjection, containers, containerTables } from "../schema";
-import { type ExecSql, ensureSqlTables } from "../sqlSchema";
+} from "../../sqlite/appDatabaseRuntime";
+import {
+  containerProjection,
+  containers,
+  containerTables,
+} from "../../sqlite/schema";
+import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 export interface ContainerRecord {
   id: string;

@@ -16,7 +16,7 @@ import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "./persistence/principalPolicyPersistence";
-import type { ExecSql } from "./persistence/sqlSchema";
+import type { ExecSql } from "./sqlite/sqlSchema";
 
 interface CacheReferencedPrincipalPoliciesOptions {
   execSql: ExecSql;

@@ -29,8 +29,8 @@ import {
 import type {
   DocumentRecord,
   PendingUpdateRecord,
-} from "../../data/persistence/documentPersistence";
-import type { ExecSql } from "../../data/persistence/sqlSchema";
+} from "../../data/sqlite/documentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,

@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { AddressBookEntry } from "../../../mini-apps/contacts/types";
-import { getAppDatabaseRuntime } from "../appDatabaseRuntime";
+import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
 import {
   type DocumentRecord,
   type DocumentScope,
@@ -15,17 +15,17 @@ import {
   type PendingUpdateRecord,
   type SelectedDocumentRecordRow,
   saveDocumentRecord,
-} from "../documentPersistence";
+} from "../../sqlite/documentPersistence";
 import {
   addressBookProjection,
   addressBookProjectionTables,
   documents,
-} from "../schema";
+} from "../../sqlite/schema";
 import {
   type ExecSql,
   ensureSqlTables,
   runSerializedSqlMutation,
-} from "../sqlSchema";
+} from "../../sqlite/sqlSchema";
 
 export interface ContactPendingUpdateInsert extends PendingUpdateFields {
   userId: string;

@@ -2,8 +2,8 @@ import {
   execDatabaseStatement,
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
-import type { ExecSql } from "../../src/data/persistence/sqlSchema";
-import { createExecSql as createClientExecSql } from "../../src/data/persistence/sqlSchema";
+import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
+import { createExecSql as createClientExecSql } from "../../src/data/sqlite/sqlSchema";
 
 export async function createTestExecSql(key: string): Promise<{
   close: () => void;

@@ -35,7 +35,7 @@ import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import type { DocumentCreateAuthor } from "../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import type { ExecSql } from "../../data/persistence/sqlSchema";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   assertDocumentWriterProjectionConsistent,
   type ProjectionVerificationOptions,

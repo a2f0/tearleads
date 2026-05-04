@@ -1,9 +1,9 @@
+import type { ExecSql } from "../../sqlite/sqlSchema";
 import type * as DocumentPersistence from "../documents/documentsPersistence";
 import {
   listDocumentsByContainerIds,
   sqlDocumentsPersistence,
 } from "../documents/documentsPersistence";
-import type { ExecSql } from "../sqlSchema";
 
 export interface NoteRecord extends DocumentPersistence.StoredDocumentRecord {}
 

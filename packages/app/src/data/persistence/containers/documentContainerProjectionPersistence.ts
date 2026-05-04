@@ -1,10 +1,10 @@
 import { asc, eq, inArray } from "drizzle-orm";
-import { getAppDatabaseRuntime } from "../appDatabaseRuntime";
+import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
 import {
   documentContainerProjection,
   documentContainerProjectionTables,
-} from "../schema";
-import { type ExecSql, ensureSqlTables } from "../sqlSchema";
+} from "../../sqlite/schema";
+import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 interface DocumentContainerProjectionPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;

@@ -8,7 +8,7 @@ import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObj
 import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { readCanonicalRecordPaths } from "../../../keyingCanonicalJson";
-import type { ExecSql } from "../../../persistence/sqlSchema";
+import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { unwrapContainerKekPath } from "../../shared/projection";
 import { assertEqualBytes } from "../../shared/readers";
 import {

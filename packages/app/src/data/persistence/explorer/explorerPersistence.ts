@@ -2,14 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import {
   type AppSQLiteTransaction,
   getAppDatabaseRuntime,
-} from "../appDatabaseRuntime";
-import {
-  type ContainerRecord,
-  deleteContainer as deleteContainerRecord,
-  ensureContainerTables,
-  loadContainers as loadContainerRecords,
-  saveContainerRows,
-} from "../containers/containerPersistence";
+} from "../../sqlite/appDatabaseRuntime";
 import {
   type DocumentRecord,
   deleteDocumentPendingUpdate,
@@ -22,13 +15,23 @@ import {
   type PendingUpdateFields,
   type PendingUpdateRecord,
   saveDocumentRecord,
-} from "../documentPersistence";
-import { containerCreateIntents, containerCreateIntentTables } from "../schema";
+} from "../../sqlite/documentPersistence";
+import {
+  containerCreateIntents,
+  containerCreateIntentTables,
+} from "../../sqlite/schema";
 import {
   type ExecSql,
   ensureSqlTables,
   runSerializedSqlMutation,
-} from "../sqlSchema";
+} from "../../sqlite/sqlSchema";
+import {
+  type ContainerRecord,
+  deleteContainer as deleteContainerRecord,
+  ensureContainerTables,
+  loadContainers as loadContainerRecords,
+  saveContainerRows,
+} from "../containers/containerPersistence";
 
 const CONTAINER_METADATA_APP_KIND = "container-metadata";
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";

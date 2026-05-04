@@ -11,7 +11,7 @@ import type { PublicKeyResponse } from "@tearleads/validators/response";
 import { useCallback } from "react";
 import { createInitializedContainerMetadataDocument } from "../data/containers";
 import { createDocumentSignerDeviceId } from "../data/documents/documentConstants";
-import { createExecSql } from "../data/persistence/sqlSchema";
+import { createExecSql } from "../data/sqlite/sqlSchema";
 import { useApiClient } from "../providers/api/ApiClientProvider";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../providers/db/DatabaseProvider";

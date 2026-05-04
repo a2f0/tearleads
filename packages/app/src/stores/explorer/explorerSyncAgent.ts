@@ -20,16 +20,16 @@ import { createDocumentSignerDeviceId } from "../../data/documents/documentConst
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
-import type {
-  DocumentRecord,
-  PendingUpdateRecord,
-} from "../../data/persistence/documentPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type {
   ContainerCreateIntentRecord,
   ExplorerPersistence,
 } from "../../data/persistence/explorer/explorerPersistence";
-import type { ExecSql } from "../../data/persistence/sqlSchema";
+import type {
+  DocumentRecord,
+  PendingUpdateRecord,
+} from "../../data/sqlite/documentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,

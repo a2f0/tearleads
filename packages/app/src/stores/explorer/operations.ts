@@ -10,7 +10,7 @@ import {
   writeContainerMetadataValue,
 } from "../../data/containers";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import type { DocumentRecord } from "../../data/persistence/documentPersistence";
+import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import {
   type ContainerMetadataDocument,

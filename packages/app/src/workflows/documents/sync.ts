@@ -54,8 +54,8 @@ import {
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
-import type { PendingUpdateRecord } from "../../data/persistence/documentPersistence";
-import type { ExecSql } from "../../data/persistence/sqlSchema";
+import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 async function prepareDocumentOutgoingUpdates(input: {
   contentKey: Uint8Array;

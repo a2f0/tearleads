@@ -4,9 +4,9 @@ import type {
 } from "@tearleads/validators/response";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
-import { getAppDatabaseRuntime } from "./appDatabaseRuntime";
-import { principalPolicies, principalPolicyTables } from "./schema";
-import { type ExecSql, ensureSqlTables } from "./sqlSchema";
+import { getAppDatabaseRuntime } from "../sqlite/appDatabaseRuntime";
+import { principalPolicies, principalPolicyTables } from "../sqlite/schema";
+import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 
 interface PrincipalPolicyRow {
   principalType: "group" | "organization";

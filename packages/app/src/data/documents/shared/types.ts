@@ -23,7 +23,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../keyingProjectionVerification";
-import type { DocumentRecord } from "../../persistence/documentPersistence";
+import type { DocumentRecord } from "../../sqlite/documentPersistence";
 
 export const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT =
   "tearleads.document.loro-update";

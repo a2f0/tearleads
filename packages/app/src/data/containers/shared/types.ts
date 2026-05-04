@@ -20,7 +20,7 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { ExecSql } from "../../persistence/sqlSchema";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 
 export interface ContainerMutationAuthor {
   organizationId: string;
