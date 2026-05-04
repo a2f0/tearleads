@@ -255,16 +255,18 @@ function useWindowGeometry(
       }
       event.stopPropagation();
       const el = windowRef.current;
+      const computed = getComputedStyle(el);
+      const borderBox = computed.boxSizing === "border-box";
       resizing.current = {
         corner,
         startX: event.clientX,
         startY: event.clientY,
         startLeft: position.x,
         startTop: position.y,
-        startWidth: el.clientWidth,
-        startHeight: el.clientHeight,
-        borderX: el.offsetWidth - el.clientWidth,
-        borderY: el.offsetHeight - el.clientHeight,
+        startWidth: parseFloat(computed.width),
+        startHeight: parseFloat(computed.height),
+        borderX: borderBox ? 0 : el.offsetWidth - el.clientWidth,
+        borderY: borderBox ? 0 : el.offsetHeight - el.clientHeight,
       };
     },
     [maximized, position, resizing, windowRef],
