@@ -191,14 +191,13 @@ const appRules = [
     name: "app-presentation-does-not-import-storage-directly",
     severity: "error",
     comment:
-      "Production app presentation should go through stores or providers instead of importing persistence stores or SQLite internals directly.",
+      "Production app presentation should go through stores or providers instead of importing persistence stores or SQLite internals directly, including type-only contracts.",
     from: {
       path: appPresentation,
       pathNot: testFilesPattern,
     },
     to: {
       path: appStorageInternals,
-      preCompilationOnly: false,
     },
   },
 ] satisfies ForbiddenRules;

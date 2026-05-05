@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../data/persistence/documents/documentsPersistence";
+import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
 
 export function getDocumentByLocalId(
   documentSummaries: ReadonlyArray<DocumentSummary>,

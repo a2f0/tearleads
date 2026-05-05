@@ -1,7 +1,9 @@
+import type {
+  DiscoveredDocumentInput,
+  DocumentSummary,
+} from "../../data/documents/shared/documentSummary";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import {
-  type DiscoveredDocumentInput,
-  type DocumentSummary,
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";

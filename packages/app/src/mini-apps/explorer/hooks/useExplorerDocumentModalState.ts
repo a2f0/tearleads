@@ -1,5 +1,5 @@
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
-import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
+import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import {
   type ExplorerModalState,
   useExplorerModalController,

@@ -5,6 +5,10 @@ import {
   deriveStoredDocumentTitle,
   type StoredDocumentKind,
 } from "../../documents/documentKinds";
+import type {
+  DiscoveredDocumentInput,
+  DocumentSummary,
+} from "../../documents/shared/documentSummary";
 import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
 import {
   type DocumentRecord as BaseDocumentRecord,
@@ -40,16 +44,6 @@ export interface StoredDocumentRecord extends BaseDocumentRecord {
   text: string;
 }
 
-export interface DocumentSummary {
-  accessStateHash?: string | null;
-  id: string;
-  containerId: string | null;
-  documentKind?: StoredDocumentKind;
-  documentId: string | null;
-  title: string;
-  updatedAt: string;
-}
-
 export interface PendingUpdateInsert extends PendingUpdateFields {
   localId: string;
 }
@@ -70,15 +64,6 @@ export interface LocalAttachmentRecord {
   mimeType: string | null;
   slotId: string;
   storageKey: string;
-}
-
-export interface DiscoveredDocumentInput {
-  accessEpoch: number;
-  accessStateHash?: string | null;
-  containerId: string;
-  createdAt: string;
-  documentId: string;
-  linkedContainerIds: ReadonlyArray<string>;
 }
 
 export interface RelinkPersistedDocumentInput {

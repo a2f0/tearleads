@@ -1,6 +1,6 @@
 import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
+import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import type { DocumentSummary } from "../../data/persistence/documents/documentsPersistence";
 import {
   type RelinkRemoteDocumentResult,
   relinkRemoteDocument,
