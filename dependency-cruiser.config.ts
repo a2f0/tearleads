@@ -142,7 +142,6 @@ const appRules = [
     },
     to: {
       path: [...appUpperLayers, appLayer.workflows],
-      preCompilationOnly: false,
     },
   },
   {
@@ -156,7 +155,6 @@ const appRules = [
     },
     to: {
       path: appUpperLayers,
-      preCompilationOnly: false,
     },
   },
   {
@@ -170,7 +168,6 @@ const appRules = [
     },
     to: {
       path: [...appUpperLayers, appLayer.workflows],
-      preCompilationOnly: false,
     },
   },
   {

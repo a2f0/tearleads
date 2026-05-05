@@ -15,6 +15,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
+import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   createPendingUpdateFields,
@@ -37,7 +38,6 @@ import {
   isDestroyedDatabaseClientError,
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
-import type { AddressBookEntry } from "../../mini-apps/contacts/types";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   createRemoteDocument,
