@@ -1,8 +1,14 @@
-import type { ListContainersResponse } from "@tearleads/validators/response";
+import type {
+  ListContainersResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
-import { listContainers } from "../../services/containers/listContainers";
+import {
+  ListContainersError,
+  listContainers,
+} from "../../services/containers/listContainers";
 import type { ApiServiceRuntime } from "../../services/runtime";
 
 interface ListContainersRouteDeps {
@@ -18,11 +24,56 @@ export function createListContainersRoute({
 
   listContainersRoute.get("/containers", requireAuth, async (c) => {
     const session = c.get("session");
-
-    return c.json<ListContainersResponse>(
-      await listContainers(runtime, session.userId),
+    const limit = parseOptionalInteger(c.req.query("limit"));
+    const parentId = parseOptionalParentId(c.req.query("parentId"));
+    const watermark = parseOptionalWatermark(
+      c.req.query("watermarkUpdatedAt"),
+      c.req.query("watermarkId"),
     );
+
+    try {
+      return c.json<ListContainersResponse>(
+        await listContainers(runtime, session.userId, {
+          ...(limit === undefined ? {} : { limit }),
+          parentId,
+          ...(watermark === undefined ? {} : { watermark }),
+        }),
+      );
+    } catch (error) {
+      if (error instanceof ListContainersError) {
+        return c.json({ error: error.message }, error.status);
+      }
+
+      throw error;
+    }
   });
 
   return listContainersRoute;
+}
+
+function parseOptionalInteger(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return Number(value);
+}
+
+function parseOptionalParentId(value: string | undefined): string | null {
+  if (value === undefined || value === "null") {
+    return null;
+  }
+  return value;
+}
+
+function parseOptionalWatermark(
+  updatedAt: string | undefined,
+  id: string | undefined,
+): SyncWatermark | undefined {
+  if (updatedAt === undefined && id === undefined) {
+    return undefined;
+  }
+  return {
+    id: id ?? "",
+    updatedAt: updatedAt ?? "",
+  };
 }

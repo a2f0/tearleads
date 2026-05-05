@@ -5,7 +5,11 @@ import {
   exportAllUpdates,
   importUpdates,
 } from "@tearleads/loro";
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type {
+  ContainerSummary,
+  ReferencedPrincipalStateResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 import type { BlobStore } from "../../data/blobs";
 import {
   createContainerMetadataDocument,
@@ -53,9 +57,7 @@ type ExplorerAppData = ReturnType<typeof useAppData>;
 export type ContainerMetadataDocument = Awaited<
   ReturnType<typeof createContainerMetadataDocument>
 >;
-type ListedRemoteContainer = NonNullable<
-  Awaited<ReturnType<ExplorerRuntime["apiClient"]["listContainers"]>>
->[number];
+type ListedRemoteContainer = ContainerSummary;
 
 interface ContainerMetadataSyncAttempt {
   outgoingUpdateCount: number;
@@ -387,6 +389,62 @@ async function upsertRemoteContainerState(
   return containerState;
 }
 
+async function listAllRemoteContainers(
+  apiClient: ExplorerRuntime["apiClient"],
+): Promise<ReadonlyArray<ExplorerRemoteContainer> | null> {
+  const containers: ExplorerRemoteContainer[] = [];
+  const queuedParentIds = new Set<string>(["root"]);
+  const seenContainerIds = new Set<string>();
+  const lanes: Array<{
+    parentId: string | null;
+    watermark: SyncWatermark | null;
+  }> = [{ parentId: null, watermark: null }];
+
+  while (lanes.length > 0) {
+    const lane = lanes.shift();
+    if (!lane) {
+      break;
+    }
+
+    const response = await apiClient.listContainers({
+      parentId: lane.parentId,
+      watermark: lane.watermark,
+    });
+    if (!response) {
+      return null;
+    }
+    if (Array.isArray(response)) {
+      containers.push(...response);
+      return containers;
+    }
+    const normalizedResponse = response;
+
+    for (const container of normalizedResponse.items) {
+      if (!seenContainerIds.has(container.id)) {
+        seenContainerIds.add(container.id);
+        containers.push(container);
+      }
+
+      if (!queuedParentIds.has(container.id)) {
+        queuedParentIds.add(container.id);
+        lanes.push({ parentId: container.id, watermark: null });
+      }
+    }
+
+    if (normalizedResponse.hasMore) {
+      if (!normalizedResponse.nextWatermark) {
+        return null;
+      }
+      lanes.unshift({
+        parentId: lane.parentId,
+        watermark: normalizedResponse.nextWatermark,
+      });
+    }
+  }
+
+  return containers;
+}
+
 async function hydrateRemoteContainers(
   state: ExplorerSyncState,
   host: ExplorerSyncHost,
@@ -399,7 +457,9 @@ async function hydrateRemoteContainers(
     return;
   }
 
-  const remoteContainers = await state.runtime.apiClient.listContainers();
+  const remoteContainers = await listAllRemoteContainers(
+    state.runtime.apiClient,
+  );
   if (!remoteContainers) {
     return;
   }

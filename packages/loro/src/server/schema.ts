@@ -9,11 +9,18 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-export const documents = pgTable("documents", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  createdByFingerprint: text("created_by_fingerprint").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdByFingerprint: text("created_by_fingerprint").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("documents_updated_at_id_idx").on(table.updatedAt, table.id),
+  ],
+);
 
 export const documentUpdates = pgTable("document_updates", {
   sequence: integer("sequence").generatedAlwaysAsIdentity().primaryKey(),

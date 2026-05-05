@@ -39,7 +39,10 @@ import {
   resolveContainerWriterProjection,
 } from "../../containers/writerProjection";
 import { DocumentMutationError, toMutationError } from "./errors";
-import { ensureDocumentExists } from "./shared/documentRows";
+import {
+  ensureDocumentExists,
+  touchDocumentAndLinkedContainers,
+} from "./shared/documentRows";
 import {
   assertSyncContentKeyBundleMatchesRequest,
   readWriteHeader,
@@ -374,11 +377,19 @@ async function loadExistingDocumentUpdateRows(input: {
   return existingRows;
 }
 
+interface AppendDocumentUpdatesResult {
+  readonly acceptedOutgoingUpdateIds: string[];
+  readonly insertedUpdateIds: ReadonlySet<string>;
+}
+
 async function appendDocumentUpdates(
   input: AppendDocumentUpdatesInput,
-): Promise<string[]> {
+): Promise<AppendDocumentUpdatesResult> {
   if (input.request.outgoingUpdates.length === 0) {
-    return [];
+    return {
+      acceptedOutgoingUpdateIds: [],
+      insertedUpdateIds: new Set(),
+    };
   }
 
   const outgoingUpdates = uniqueOutgoingUpdates(input.request.outgoingUpdates);
@@ -457,7 +468,13 @@ async function appendDocumentUpdates(
     userId: input.userId,
   });
 
-  return acceptedOutgoingUpdateIds(outgoingUpdates, acceptedUpdateIds);
+  return {
+    acceptedOutgoingUpdateIds: acceptedOutgoingUpdateIds(
+      outgoingUpdates,
+      acceptedUpdateIds,
+    ),
+    insertedUpdateIds,
+  };
 }
 
 async function listMissingUpdates(input: {
@@ -585,7 +602,7 @@ async function syncDocumentTransaction(input: {
         accessManifestHash: currentTargets.linkSetManifestHash,
         accessStateHash: null,
       };
-  const acceptedOutgoingUpdateIds = await appendDocumentUpdates({
+  const appendResult = await appendDocumentUpdates({
     accessEpoch: auditAccess.accessEpoch,
     accessManifestHash: auditAccess.accessManifestHash,
     accessStateHash: auditAccess.accessStateHash,
@@ -598,6 +615,14 @@ async function syncDocumentTransaction(input: {
     userId: input.userId,
     writeAuthorization,
   });
+  if (appendResult.insertedUpdateIds.size > 0) {
+    await touchDocumentAndLinkedContainers(input.tx, {
+      documentId: input.documentId,
+      linkedContainerIds: currentTargets.targets.map(
+        (target) => target.containerId,
+      ),
+    });
+  }
   const missingUpdateRecords = await listMissingUpdates({
     documentId: input.documentId,
     executor: input.tx,
@@ -611,7 +636,7 @@ async function syncDocumentTransaction(input: {
 
   return {
     accessEpoch: currentTargets.linkSetEpoch,
-    acceptedOutgoingUpdateIds,
+    acceptedOutgoingUpdateIds: appendResult.acceptedOutgoingUpdateIds,
     contentKeyBundle,
     currentTargets,
     missingUpdates,

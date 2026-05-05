@@ -81,6 +81,7 @@ async function createRootContainer(
   const [container] = await tx
     .insert(containers)
     .values({
+      depth: 0,
       id: rootContainerId,
       organizationId,
       parentId: null,

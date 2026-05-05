@@ -12,6 +12,7 @@ import {
   isReferencedPrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
 } from "./principal";
+import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
 
 export interface ContainerKekResponse {
   containerId: string;
@@ -48,6 +49,8 @@ export interface ContainerWriterProjectionResponse {
 }
 
 export interface ContainerSummary {
+  createdAt?: string;
+  depth?: number;
   id: string;
   organizationId: string;
   parentId: string | null;
@@ -55,9 +58,23 @@ export interface ContainerSummary {
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
   metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
+  updatedAt?: string;
 }
 
-export type ListContainersResponse = ContainerSummary[];
+export interface ContainerSyncTombstone {
+  containerId: string;
+  depth: number;
+  parentId: string | null;
+  reason: "access_revoked" | "deleted";
+  updatedAt: string;
+}
+
+export interface ListContainersResponse {
+  hasMore: boolean;
+  items: ContainerSummary[];
+  nextWatermark: SyncWatermark | null;
+  tombstones: ContainerSyncTombstone[];
+}
 
 function isContainerSummary(value: unknown): value is ContainerSummary {
   const metadataReferencedPrincipals = isPlainObject(value)
@@ -69,6 +86,10 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
 
   return (
     isPlainObject(value) &&
+    hasStringProperty(value, "createdAt") &&
+    hasNumberProperty(value, "depth") &&
+    Number.isInteger(value.depth) &&
+    value.depth >= 0 &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "organizationId") &&
     hasNullableStringProperty(value, "parentId") &&
@@ -76,16 +97,48 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
     hasNumberProperty(value, "metadataAccessEpoch") &&
     typeof metadataAccessStateHash === "string" &&
     metadataAccessStateHash.length > 0 &&
+    hasStringProperty(value, "updatedAt") &&
     (metadataReferencedPrincipals === undefined ||
       (Array.isArray(metadataReferencedPrincipals) &&
         metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)))
   );
 }
 
+function isContainerSyncTombstone(
+  value: unknown,
+): value is ContainerSyncTombstone {
+  const reason = isPlainObject(value)
+    ? Reflect.get(value, "reason")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    hasNumberProperty(value, "depth") &&
+    Number.isInteger(value.depth) &&
+    value.depth >= 0 &&
+    hasNullableStringProperty(value, "parentId") &&
+    (reason === "access_revoked" || reason === "deleted") &&
+    hasStringProperty(value, "updatedAt")
+  );
+}
+
 export function isListContainersResponse(
   value: unknown,
 ): value is ListContainersResponse {
-  return Array.isArray(value) && value.every(isContainerSummary);
+  const nextWatermark = isPlainObject(value)
+    ? Reflect.get(value, "nextWatermark")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    typeof Reflect.get(value, "hasMore") === "boolean" &&
+    hasArrayProperty(value, "items") &&
+    value.items.every(isContainerSummary) &&
+    (isSyncWatermark(nextWatermark) || nextWatermark === null) &&
+    hasArrayProperty(value, "tombstones") &&
+    value.tombstones.every(isContainerSyncTombstone)
+  );
 }
 
 function isContainerKekResponse(value: unknown): value is ContainerKekResponse {

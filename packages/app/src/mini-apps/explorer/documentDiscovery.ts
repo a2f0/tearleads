@@ -1,4 +1,7 @@
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type {
+  ReferencedPrincipalStateResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type {
   DiscoveredDocumentInput,
@@ -12,11 +15,40 @@ interface ExplorerListedDocument {
   id: string;
   linkedContainerIds: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
+  updatedAt?: string;
+}
+
+interface ExplorerListContainerDocumentsResponse {
+  hasMore: boolean;
+  items: ExplorerListedDocument[];
+  nextWatermark: SyncWatermark | null;
+  tombstones: ReadonlyArray<{
+    containerId: string;
+    documentId: string;
+    updatedAt: string;
+  }>;
 }
 
 interface DocumentLinkInput {
   containerIds: ReadonlyArray<string>;
   documentId: string;
+}
+
+function normalizeListContainerDocumentsResponse(
+  response:
+    | ExplorerListContainerDocumentsResponse
+    | ReadonlyArray<ExplorerListedDocument>,
+): ExplorerListContainerDocumentsResponse {
+  if (Array.isArray(response)) {
+    return {
+      hasMore: false,
+      items: response,
+      nextWatermark: null,
+      tombstones: [],
+    };
+  }
+
+  return response as ExplorerListContainerDocumentsResponse;
 }
 
 interface DiscoverContainerDocumentsOptions {
@@ -26,13 +58,59 @@ interface DiscoverContainerDocumentsOptions {
   containerId: string;
   listContainerDocuments: (
     containerId: string,
-  ) => Promise<ReadonlyArray<ExplorerListedDocument> | null>;
+    options?: { watermark?: SyncWatermark | null },
+  ) => Promise<
+    | ExplorerListContainerDocumentsResponse
+    | ReadonlyArray<ExplorerListedDocument>
+    | null
+  >;
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<DocumentLinkInput>,
   ) => Promise<void>;
   upsertDiscoveredDocuments: (
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
+}
+
+async function listAllContainerDocuments(input: {
+  containerId: string;
+  listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
+}): Promise<ExplorerListContainerDocumentsResponse | null> {
+  const items: ExplorerListedDocument[] = [];
+  const tombstones: ExplorerListContainerDocumentsResponse["tombstones"][number][] =
+    [];
+  let watermark: SyncWatermark | null = null;
+
+  do {
+    const response = await input.listContainerDocuments(input.containerId, {
+      watermark,
+    });
+    if (!response) {
+      return null;
+    }
+    const normalizedResponse =
+      normalizeListContainerDocumentsResponse(response);
+
+    items.push(...normalizedResponse.items);
+    tombstones.push(...normalizedResponse.tombstones);
+    watermark = normalizedResponse.nextWatermark;
+
+    if (!normalizedResponse.hasMore) {
+      return {
+        hasMore: false,
+        items,
+        nextWatermark: watermark,
+        tombstones,
+      };
+    }
+  } while (watermark);
+
+  return {
+    hasMore: false,
+    items,
+    nextWatermark: watermark,
+    tombstones,
+  };
 }
 
 interface DiscoverAllContainerDocumentsOptions
@@ -58,24 +136,29 @@ export async function discoverContainerDocuments({
   replaceDocumentLinksBatch,
   upsertDiscoveredDocuments,
 }: DiscoverContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
-  const listedDocuments = await listContainerDocuments(containerId);
+  const listedDocuments = await listAllContainerDocuments({
+    containerId,
+    listContainerDocuments,
+  });
   if (!listedDocuments) {
     return null;
   }
 
   await cacheReferencedPrincipalPolicies?.(
-    listedDocuments.flatMap((document) => document.referencedPrincipals ?? []),
+    listedDocuments.items.flatMap(
+      (document) => document.referencedPrincipals ?? [],
+    ),
   );
 
   await replaceDocumentLinksBatch(
-    listedDocuments.map((document) => ({
+    listedDocuments.items.map((document) => ({
       documentId: document.id,
       containerIds: document.linkedContainerIds,
     })),
   );
 
   return upsertDiscoveredDocuments(
-    listedDocuments.map((document) => ({
+    listedDocuments.items.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
       accessStateHash: document.currentAccessStateHash,
       containerId,
@@ -99,13 +182,16 @@ export async function discoverAllContainerDocuments({
   const listedDocumentsByContainer = await Promise.all(
     uniqueContainerIds.map(async (containerId) => ({
       containerId,
-      listedDocuments: await listContainerDocuments(containerId),
+      listedDocuments: await listAllContainerDocuments({
+        containerId,
+        listContainerDocuments,
+      }),
     })),
   );
   await cacheReferencedPrincipalPolicies?.(
     listedDocumentsByContainer.flatMap(
       ({ listedDocuments }) =>
-        listedDocuments?.flatMap(
+        listedDocuments?.items.flatMap(
           (document) => document.referencedPrincipals ?? [],
         ) ?? [],
     ),
@@ -118,7 +204,7 @@ export async function discoverAllContainerDocuments({
       continue;
     }
 
-    for (const document of listedDocuments) {
+    for (const document of listedDocuments.items) {
       documentLinks.push({
         documentId: document.id,
         containerIds: document.linkedContainerIds,

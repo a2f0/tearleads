@@ -1,5 +1,11 @@
-export { listContainerDocuments } from "./listContainerDocuments";
-export { listContainers } from "./listContainers";
+export {
+  type ListContainerDocumentsOptions,
+  listContainerDocuments,
+} from "./listContainerDocuments";
+export {
+  type ListContainersOptions,
+  listContainers,
+} from "./listContainers";
 export {
   createContainer,
   moveContainer,

@@ -18,6 +18,7 @@ import type {
 import type {
   AccessManifestBundleWireResponse,
   ContainerMutationResponse,
+  ContainerSummary,
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentSyncResponse,
@@ -62,9 +63,7 @@ import {
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void };
-type ListedContainer = NonNullable<
-  Awaited<ReturnType<TestRuntime["apiClient"]["listContainers"]>>
->[number];
+type ListedContainer = ContainerSummary;
 
 function readSqlRowValue(
   row: Record<string, string | number | null>,
@@ -1785,29 +1784,51 @@ test("explorer store refreshes remote containers on demand after initialization"
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   let listContainersCalls = 0;
+  const listContainersOptions: Array<{ parentId?: string | null }> = [];
 
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
-    listContainers: async () => {
+    listContainers: async (options = {}) => {
       listContainersCalls += 1;
+      listContainersOptions.push(options);
 
       if (listContainersCalls === 1) {
         return [];
       }
 
-      return [
-        {
-          id: "shared-root-container",
-          metadataAccessEpoch: 1,
-          metadataAccessStateHash: "shared-root-access-state-hash-1",
-          metadataDocumentId: "shared-root-metadata-document",
-          organizationId: "org-2",
-          parentId: null,
-        },
-      ];
+      if (options.parentId === null || options.parentId === undefined) {
+        return {
+          hasMore: false,
+          items: [
+            {
+              createdAt: "2026-05-05T00:00:00.000Z",
+              depth: 0,
+              id: "shared-root-container",
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "shared-root-access-state-hash-1",
+              metadataDocumentId: "shared-root-metadata-document",
+              organizationId: "org-2",
+              parentId: null,
+              updatedAt: "2026-05-05T00:00:00.000Z",
+            },
+          ],
+          nextWatermark: {
+            id: "shared-root-container",
+            updatedAt: "2026-05-05T00:00:00.000Z",
+          },
+          tombstones: [],
+        };
+      }
+
+      return {
+        hasMore: false,
+        items: [],
+        nextWatermark: null,
+        tombstones: [],
+      };
     },
   });
   let store: ReturnType<typeof createExplorerStore> | null = null;
@@ -1837,6 +1858,17 @@ test("explorer store refreshes remote containers on demand after initialization"
     );
 
     expect(listContainersCalls).toBeGreaterThanOrEqual(2);
+    expect(
+      listContainersOptions.every((options) => !("depth" in options)),
+    ).toBe(true);
+    expect(
+      listContainersOptions.some((options) => options.parentId === null),
+    ).toBe(true);
+    expect(
+      listContainersOptions.some(
+        (options) => options.parentId === "shared-root-container",
+      ),
+    ).toBe(true);
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";

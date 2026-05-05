@@ -3,7 +3,7 @@ import type {
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";
 import type { DatabaseTransaction } from "../../../../adapters/postgres";
@@ -38,6 +38,7 @@ async function loadContainerRow(
 ): Promise<StoredContainerRow | null> {
   const [row] = await executor
     .select({
+      depth: containers.depth,
       id: containers.id,
       organizationId: containers.organizationId,
       parentId: containers.parentId,
@@ -107,13 +108,16 @@ async function persistCreatedContainerStructure(
   }
 
   await assertMetadataDocumentAvailable(executor, state.metadataDocumentId);
+  const updatedAt = new Date();
 
   const [inserted] = await executor
     .insert(containers)
     .values({
+      depth: parent.depth + 1,
       id: state.containerId,
       organizationId: state.organizationId,
       parentId: state.parentContainerId,
+      updatedAt,
     })
     .onConflictDoNothing({ target: containers.id })
     .returning({ id: containers.id });
@@ -123,6 +127,16 @@ async function persistCreatedContainerStructure(
   }
 
   await insertContainerMetadataBinding(executor, state);
+}
+
+async function touchContainerStructure(
+  executor: DatabaseTransaction,
+  containerId: string,
+): Promise<void> {
+  await executor
+    .update(containers)
+    .set({ updatedAt: new Date() })
+    .where(eq(containers.id, containerId));
 }
 
 async function persistContainerStructure(
@@ -146,6 +160,7 @@ async function persistContainerStructure(
   }
 
   if (manifest.event.event.eventType !== "container.move") {
+    await touchContainerStructure(executor, state.containerId);
     return;
   }
 
@@ -178,10 +193,32 @@ async function persistContainerStructure(
     );
   }
 
-  await executor
-    .update(containers)
-    .set({ parentId: state.parentContainerId })
-    .where(eq(containers.id, state.containerId));
+  const updatedAt = new Date();
+  await executor.execute(sql`
+    with recursive subtree as (
+      select
+        ${containers.id} as id,
+        ${destinationParent.depth + 1}::int as next_depth
+      from ${containers}
+      where ${containers.id} = ${state.containerId}::uuid
+      union all
+      select
+        child.id,
+        subtree.next_depth + 1
+      from ${containers} child
+      inner join subtree on child.parent_id = subtree.id
+    )
+    update ${containers} c
+    set
+      parent_id = case
+        when c.id = ${state.containerId}::uuid then ${state.parentContainerId}::uuid
+        else c.parent_id
+      end,
+      depth = subtree.next_depth,
+      updated_at = ${updatedAt}
+    from subtree
+    where c.id = subtree.id
+  `);
 }
 
 export async function persistVerifiedMutation(

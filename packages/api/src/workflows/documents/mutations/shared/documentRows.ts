@@ -1,9 +1,11 @@
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
 import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import {
+  containerDocumentSyncTombstones,
   containerMetadataDocuments,
+  containers,
   documentContainerLinks,
   documents,
 } from "../../../../schema";
@@ -14,11 +16,13 @@ export async function insertDocumentAndLinks(input: {
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedDocumentLinkSetManifest;
 }) {
+  const updatedAt = new Date();
   const [inserted] = await input.executor
     .insert(documents)
     .values({
       id: input.manifest.state.documentId,
       createdByFingerprint: input.createdByFingerprint,
+      updatedAt,
     })
     .returning();
   if (!inserted) {
@@ -33,6 +37,10 @@ export async function insertDocumentAndLinks(input: {
       })),
     );
   }
+  await touchContainers(
+    input.executor,
+    input.manifest.state.linkedContainerIds,
+  );
 
   return inserted;
 }
@@ -105,18 +113,54 @@ export async function replaceDocumentContainerLinks(input: {
   readonly executor: DatabaseTransaction;
   readonly linkedContainerIds: readonly string[];
 }): Promise<void> {
+  const previousRows = await input.executor
+    .select({ containerId: documentContainerLinks.containerId })
+    .from(documentContainerLinks)
+    .where(eq(documentContainerLinks.documentId, input.documentId));
+  const previousContainerIds = previousRows.map((row) => row.containerId);
+  const nextContainerIds = [...new Set(input.linkedContainerIds)].sort();
+  const removedContainerIds = previousContainerIds.filter(
+    (containerId) => !nextContainerIds.includes(containerId),
+  );
+  const updatedAt = new Date();
+
   await input.executor
     .delete(documentContainerLinks)
     .where(eq(documentContainerLinks.documentId, input.documentId));
 
-  if (input.linkedContainerIds.length > 0) {
+  if (nextContainerIds.length > 0) {
     await input.executor.insert(documentContainerLinks).values(
-      input.linkedContainerIds.map((containerId) => ({
+      nextContainerIds.map((containerId) => ({
         documentId: input.documentId,
         containerId,
       })),
     );
   }
+
+  if (removedContainerIds.length > 0) {
+    await input.executor
+      .insert(containerDocumentSyncTombstones)
+      .values(
+        removedContainerIds.map((containerId) => ({
+          containerId,
+          documentId: input.documentId,
+          updatedAt,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [
+          containerDocumentSyncTombstones.containerId,
+          containerDocumentSyncTombstones.documentId,
+        ],
+        set: { updatedAt },
+      });
+  }
+
+  await touchDocumentAndLinkedContainers(input.executor, {
+    documentId: input.documentId,
+    linkedContainerIds: [...previousContainerIds, ...nextContainerIds],
+    updatedAt,
+  });
 }
 
 export async function ensureDocumentExists(input: {
@@ -131,4 +175,36 @@ export async function ensureDocumentExists(input: {
   if (!document) {
     throw new DocumentMutationError("Document not found", 404);
   }
+}
+
+async function touchContainers(
+  executor: DatabaseTransaction,
+  containerIds: readonly string[],
+  updatedAt = new Date(),
+): Promise<void> {
+  const uniqueContainerIds = [...new Set(containerIds)];
+  if (uniqueContainerIds.length === 0) {
+    return;
+  }
+
+  await executor
+    .update(containers)
+    .set({ updatedAt })
+    .where(inArray(containers.id, uniqueContainerIds));
+}
+
+export async function touchDocumentAndLinkedContainers(
+  executor: DatabaseTransaction,
+  input: {
+    readonly documentId: string;
+    readonly linkedContainerIds: readonly string[];
+    readonly updatedAt?: Date;
+  },
+): Promise<void> {
+  const updatedAt = input.updatedAt ?? new Date();
+  await executor
+    .update(documents)
+    .set({ updatedAt })
+    .where(eq(documents.id, input.documentId));
+  await touchContainers(executor, input.linkedContainerIds, updatedAt);
 }

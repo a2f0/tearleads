@@ -29,6 +29,7 @@ export {
   type ContainerKekResponse,
   type ContainerMutationResponse,
   type ContainerSummary,
+  type ContainerSyncTombstone,
   type ContainerWriterProjectionResponse,
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
@@ -37,6 +38,7 @@ export {
 } from "./container";
 export {
   type ContainerDocumentSummary,
+  type ContainerDocumentSyncTombstone,
   isListContainerDocumentsResponse,
   type ListContainerDocumentsResponse,
 } from "./document";
@@ -71,3 +73,4 @@ export {
   type ReferencedPrincipalStateResponse,
 } from "./principal";
 export { isPublicKeyResponse, type PublicKeyResponse } from "./publicKey";
+export { isSyncWatermark, type SyncWatermark } from "./syncWatermark";

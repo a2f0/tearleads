@@ -183,68 +183,112 @@ test("isBlobAttachmentDetachResponse", () => {
 
 test("isListContainersResponse", () => {
   expect(
-    isListContainersResponse([
-      {
+    isListContainersResponse({
+      hasMore: false,
+      items: [
+        {
+          createdAt: new Date().toISOString(),
+          depth: 0,
+          id: "ctr-root",
+          organizationId: "org-123",
+          parentId: null,
+          metadataDocumentId: "doc-root",
+          metadataAccessEpoch: 1,
+          metadataAccessStateHash: "access-state-hash",
+          metadataReferencedPrincipals: [
+            {
+              principalType: "organization",
+              principalId: "org-123",
+              version: 1,
+              keyEpoch: 1,
+              stateHash: "state-hash",
+            },
+          ],
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      nextWatermark: {
         id: "ctr-root",
-        organizationId: "org-123",
-        parentId: null,
-        metadataDocumentId: "doc-root",
-        metadataAccessEpoch: 1,
-        metadataAccessStateHash: "access-state-hash",
-        metadataReferencedPrincipals: [
-          {
-            principalType: "organization",
-            principalId: "org-123",
-            version: 1,
-            keyEpoch: 1,
-            stateHash: "state-hash",
-          },
-        ],
+        updatedAt: new Date().toISOString(),
       },
-    ]),
+      tombstones: [
+        {
+          containerId: "ctr-removed",
+          depth: 1,
+          parentId: "ctr-root",
+          reason: "deleted",
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    }),
   ).toBe(true);
   expect(
-    isListContainersResponse([
-      {
-        id: "ctr-root",
-        organizationId: "org-123",
-        metadataDocumentId: "doc-root",
-        metadataAccessEpoch: 1,
-      },
-    ]),
+    isListContainersResponse({
+      hasMore: false,
+      items: [
+        {
+          id: "ctr-root",
+          organizationId: "org-123",
+          metadataDocumentId: "doc-root",
+          metadataAccessEpoch: 1,
+        },
+      ],
+      nextWatermark: null,
+      tombstones: [],
+    }),
   ).toBe(false);
   expect(isListContainersResponse(null)).toBe(false);
 });
 
 test("isListContainerDocumentsResponse", () => {
   expect(
-    isListContainerDocumentsResponse([
-      {
-        createdAt: new Date().toISOString(),
-        currentAccessEpoch: 2,
-        currentAccessStateHash: "access-state-hash",
+    isListContainerDocumentsResponse({
+      hasMore: false,
+      items: [
+        {
+          createdAt: new Date().toISOString(),
+          currentAccessEpoch: 2,
+          currentAccessStateHash: "access-state-hash",
+          id: "doc-123",
+          linkedContainerIds: ["ctr-root"],
+          referencedPrincipals: [
+            {
+              principalType: "group",
+              principalId: "group-123",
+              version: 1,
+              keyEpoch: 1,
+              stateHash: "state-hash",
+            },
+          ],
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      nextWatermark: {
         id: "doc-123",
-        linkedContainerIds: ["ctr-root"],
-        referencedPrincipals: [
-          {
-            principalType: "group",
-            principalId: "group-123",
-            version: 1,
-            keyEpoch: 1,
-            stateHash: "state-hash",
-          },
-        ],
+        updatedAt: new Date().toISOString(),
       },
-    ]),
+      tombstones: [
+        {
+          containerId: "ctr-root",
+          documentId: "doc-removed",
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    }),
   ).toBe(true);
   expect(
-    isListContainerDocumentsResponse([
-      {
-        currentAccessEpoch: 2,
-        id: "doc-123",
-        linkedContainerIds: ["ctr-root"],
-      },
-    ]),
+    isListContainerDocumentsResponse({
+      hasMore: false,
+      items: [
+        {
+          currentAccessEpoch: 2,
+          id: "doc-123",
+          linkedContainerIds: ["ctr-root"],
+        },
+      ],
+      nextWatermark: null,
+      tombstones: [],
+    }),
   ).toBe(false);
   expect(isListContainerDocumentsResponse(null)).toBe(false);
 });

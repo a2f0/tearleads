@@ -18,6 +18,7 @@ import type {
 import {
   accessEventDependencyProjection,
   accessEvents,
+  accessManifestContainerGrantProjection,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
@@ -165,6 +166,25 @@ function documentLinkSetState(
     !("documentId" in state) ||
     state.documentId !== manifest.manifest.objectId ||
     !Array.isArray(state.linkedContainerIds)
+  ) {
+    return null;
+  }
+
+  return state;
+}
+
+function containerManifestState(
+  manifest: AnyVerifiedAccessManifest,
+): ContainerAccessManifestState | null {
+  if (manifest.manifest.objectKind !== "container" || !("state" in manifest)) {
+    return null;
+  }
+
+  const { state } = manifest;
+  if (
+    !("containerId" in state) ||
+    state.containerId !== manifest.manifest.objectId ||
+    !Array.isArray(state.directGrants)
   ) {
     return null;
   }
@@ -581,6 +601,50 @@ async function regenerateAccessManifestPrincipalProjection(
   );
 }
 
+async function regenerateAccessManifestContainerGrantProjection(
+  manifest: typeof accessManifests.$inferSelect,
+  executor: DatabaseSession,
+): Promise<void> {
+  await executor
+    .delete(accessManifestContainerGrantProjection)
+    .where(
+      eq(
+        accessManifestContainerGrantProjection.manifestHash,
+        manifest.manifestHash,
+      ),
+    );
+
+  if (manifest.objectKind !== "container") {
+    return;
+  }
+
+  const state =
+    typeof manifest.state === "object" && manifest.state !== null
+      ? manifest.state
+      : {};
+  const directGrantValue = Reflect.get(state, "directGrants");
+  if (directGrantValue === undefined) {
+    return;
+  }
+  const directGrants = readJsonArray<
+    ContainerAccessManifestState["directGrants"][number]
+  >(directGrantValue, "access manifest container grant projection source");
+
+  if (directGrants.length === 0) {
+    return;
+  }
+
+  await executor.insert(accessManifestContainerGrantProjection).values(
+    directGrants.map((grant) => ({
+      manifestHash: manifest.manifestHash,
+      containerId: manifest.objectId,
+      accessLevel: grant.accessLevel,
+      subjectType: grant.subjectType,
+      subjectId: grant.subjectId,
+    })),
+  );
+}
+
 async function replaceAccessManifestDocumentLinkProjection(
   verifiedManifest: AnyVerifiedAccessManifest,
   executor: DatabaseSession,
@@ -612,6 +676,39 @@ async function replaceAccessManifestDocumentLinkProjection(
   );
 }
 
+async function replaceAccessManifestContainerGrantProjection(
+  verifiedManifest: AnyVerifiedAccessManifest,
+  executor: DatabaseSession,
+): Promise<void> {
+  const state = containerManifestState(verifiedManifest);
+  if (!state) {
+    return;
+  }
+
+  await executor
+    .delete(accessManifestContainerGrantProjection)
+    .where(
+      eq(
+        accessManifestContainerGrantProjection.manifestHash,
+        verifiedManifest.manifestHash,
+      ),
+    );
+
+  if (state.directGrants.length === 0) {
+    return;
+  }
+
+  await executor.insert(accessManifestContainerGrantProjection).values(
+    state.directGrants.map((grant) => ({
+      manifestHash: verifiedManifest.manifestHash,
+      containerId: state.containerId,
+      accessLevel: grant.accessLevel,
+      subjectType: grant.subjectType,
+      subjectId: grant.subjectId,
+    })),
+  );
+}
+
 export async function regenerateAccessManifestProjections(
   manifestHash: string,
   database: ApiDatabase,
@@ -630,6 +727,7 @@ async function regenerateAccessManifestProjectionsInTransaction(
 
   await regenerateAccessEventDependencyProjection(event, tx);
   await regenerateAccessManifestPrincipalProjection(manifest, tx);
+  await regenerateAccessManifestContainerGrantProjection(manifest, tx);
 }
 
 async function loadCurrentAccessManifestHead(
@@ -729,6 +827,10 @@ export async function storeVerifiedAccessManifestInTransaction(
   // Link-set membership is verifier state, so refresh it from the branded
   // manifest rather than trying to infer it from generic manifest rows.
   await replaceAccessManifestDocumentLinkProjection(input.verifiedManifest, tx);
+  await replaceAccessManifestContainerGrantProjection(
+    input.verifiedManifest,
+    tx,
+  );
 
   return advanceAccessManifestHead(input.verifiedManifest, tx);
 }

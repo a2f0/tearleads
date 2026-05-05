@@ -8,6 +8,20 @@
       "when": 1777723859691,
       "tag": "0000_fearless_mandrill",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777995467184,
+      "tag": "0001_funny_whizzer",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778003700578,
+      "tag": "0002_solid_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

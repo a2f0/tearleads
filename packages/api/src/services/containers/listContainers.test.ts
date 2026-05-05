@@ -244,5 +244,7 @@ test("listContainers filters managed grants through the manifest-referenced poli
     member.userId,
   );
 
-  expect(listed.map((container) => container.id)).not.toContain(containerId);
+  expect(listed.items.map((container) => container.id)).not.toContain(
+    containerId,
+  );
 });
