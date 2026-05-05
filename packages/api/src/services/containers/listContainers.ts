@@ -21,10 +21,12 @@ import {
   resolveReadableContainerAccess,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
+import {
+  normalizeSyncPageLimit,
+  normalizeSyncWatermark,
+  watermarkPredicate,
+} from "./syncPaging";
 import { createContainerWriterProjectionContext } from "./writerProjection";
-
-const DEFAULT_LIMIT = 100;
-const MAX_LIMIT = 500;
 
 interface AccessibleContainerRow {
   createdAt: string;
@@ -117,16 +119,6 @@ function readOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function normalizeLimit(value: number | undefined): number {
-  if (value === undefined) {
-    return DEFAULT_LIMIT;
-  }
-  if (!Number.isInteger(value) || value < 1) {
-    throw new ListContainersError("Invalid limit", 400);
-  }
-  return Math.min(value, MAX_LIMIT);
-}
-
 function normalizeParentId(value: string | null | undefined): string | null {
   if (value === undefined || value === null) {
     return null;
@@ -146,47 +138,6 @@ function parentIdPredicate(
   }
 
   return sql`${parentIdExpression}::text = ${parentId}`;
-}
-
-function normalizeWatermark(
-  value: SyncWatermark | null | undefined,
-): SyncWatermark | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (
-    typeof value.updatedAt !== "string" ||
-    value.updatedAt.length === 0 ||
-    typeof value.id !== "string" ||
-    value.id.length === 0
-  ) {
-    throw new ListContainersError("Invalid watermark", 400);
-  }
-
-  const updatedAt = new Date(value.updatedAt);
-  if (Number.isNaN(updatedAt.getTime())) {
-    throw new ListContainersError("Invalid watermark", 400);
-  }
-
-  return {
-    id: value.id,
-    updatedAt: updatedAt.toISOString(),
-  };
-}
-
-function watermarkPredicate(
-  updatedAtExpression: SQL,
-  idExpression: SQL,
-  watermark: SyncWatermark | null | undefined,
-): SQL {
-  if (!watermark) {
-    return sql``;
-  }
-
-  return sql`and (${updatedAtExpression}, ${idExpression}) > (${new Date(
-    watermark.updatedAt,
-  )}, ${watermark.id})`;
 }
 
 async function listAccessibleContainersForUser(input: {
@@ -616,9 +567,15 @@ export async function listContainers(
   userId: string,
   options: ListContainersOptions = {},
 ): Promise<ListContainersResponse> {
-  const limit = normalizeLimit(options.limit);
+  const limit = normalizeSyncPageLimit(
+    options.limit,
+    () => new ListContainersError("Invalid limit", 400),
+  );
   const parentId = normalizeParentId(options.parentId);
-  const watermark = normalizeWatermark(options.watermark);
+  const watermark = normalizeSyncWatermark(
+    options.watermark,
+    () => new ListContainersError("Invalid watermark", 400),
+  );
 
   const [containerRows, tombstoneRows] = await Promise.all([
     listAccessibleContainersForUser({

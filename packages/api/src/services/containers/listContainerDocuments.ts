@@ -4,7 +4,7 @@ import type {
   ListContainerDocumentsResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
-import { and, asc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
@@ -18,9 +18,11 @@ import {
   resolveReadableContainerAccess,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
-
-const DEFAULT_LIMIT = 100;
-const MAX_LIMIT = 500;
+import {
+  normalizeSyncPageLimit,
+  normalizeSyncWatermark,
+  watermarkPredicate,
+} from "./syncPaging";
 
 interface ListContainerDocumentsOptions {
   readonly limit?: number | undefined;
@@ -66,57 +68,6 @@ async function requireReadableContainer(
     }
     throw error;
   }
-}
-
-function normalizeLimit(value: number | undefined): number {
-  if (value === undefined) {
-    return DEFAULT_LIMIT;
-  }
-  if (!Number.isInteger(value) || value < 1) {
-    throw new ListContainerDocumentsError("Invalid limit", 400);
-  }
-  return Math.min(value, MAX_LIMIT);
-}
-
-function normalizeWatermark(
-  value: SyncWatermark | null | undefined,
-): SyncWatermark | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (
-    typeof value.updatedAt !== "string" ||
-    value.updatedAt.length === 0 ||
-    typeof value.id !== "string" ||
-    value.id.length === 0
-  ) {
-    throw new ListContainerDocumentsError("Invalid watermark", 400);
-  }
-
-  const updatedAt = new Date(value.updatedAt);
-  if (Number.isNaN(updatedAt.getTime())) {
-    throw new ListContainerDocumentsError("Invalid watermark", 400);
-  }
-
-  return {
-    id: value.id,
-    updatedAt: updatedAt.toISOString(),
-  };
-}
-
-function watermarkPredicate(
-  updatedAtExpression: SQL,
-  idExpression: SQL,
-  watermark: SyncWatermark | null | undefined,
-): SQL {
-  if (!watermark) {
-    return sql``;
-  }
-
-  return sql`and (${updatedAtExpression}, ${idExpression}) > (${new Date(
-    watermark.updatedAt,
-  )}, ${watermark.id})`;
 }
 
 async function loadCurrentContainerDocumentRows(input: {
@@ -343,8 +294,14 @@ export async function listContainerDocuments(
   userId: string,
   options: ListContainerDocumentsOptions = {},
 ): Promise<ListContainerDocumentsResponse> {
-  const limit = normalizeLimit(options.limit);
-  const watermark = normalizeWatermark(options.watermark);
+  const limit = normalizeSyncPageLimit(
+    options.limit,
+    () => new ListContainerDocumentsError("Invalid limit", 400),
+  );
+  const watermark = normalizeSyncWatermark(
+    options.watermark,
+    () => new ListContainerDocumentsError("Invalid watermark", 400),
+  );
 
   const containerAccess = await requireReadableContainer(
     runtime,
