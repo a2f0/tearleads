@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
+import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import { subscribeToPersistedDocuments } from "../../../stores/documents/DocumentsProvider";
 import { listVisibleExplorerDocumentSummaries } from "../../../stores/explorer/documentReadModel";

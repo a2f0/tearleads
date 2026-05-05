@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
+import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import {
   activateExplorerLinkedNote,
   canMutateSelectedDocument,

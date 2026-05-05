@@ -33,11 +33,11 @@ import {
   getDocumentAttachments,
   sameDocumentAttachments,
 } from "../../data/documents/documentContent";
+import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
   DOCUMENTS_APP_KIND,
   type StoredDocumentRecord as DocumentRecord,
-  type DocumentSummary,
   type DocumentsPersistence,
   deriveDocumentKind,
   deriveDocumentTitle,

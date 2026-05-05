@@ -3,7 +3,7 @@ import {
   getUntitledDocumentTitle,
   type StoredDocumentKind,
 } from "../../../data/documents/documentKinds";
-import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
+import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 
 export type OpenInlineDocument = (
   containerId: string,

@@ -1,3 +1,7 @@
+import type {
+  DiscoveredDocumentInput,
+  DocumentSummary,
+} from "../../documents/shared/documentSummary";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type * as DocumentPersistence from "../documents/documentsPersistence";
 import {
@@ -7,7 +11,7 @@ import {
 
 export interface NoteRecord extends DocumentPersistence.StoredDocumentRecord {}
 
-export interface NoteSummary extends DocumentPersistence.DocumentSummary {}
+export interface NoteSummary extends DocumentSummary {}
 
 export interface PendingUpdateInsert {
   noteId: string;
@@ -30,8 +34,7 @@ export interface LocalAttachmentRecord
   noteId: string;
 }
 
-export interface DiscoveredNoteInput
-  extends DocumentPersistence.DiscoveredDocumentInput {}
+export interface DiscoveredNoteInput extends DiscoveredDocumentInput {}
 
 export interface RelinkPersistedNoteInput
   extends Omit<DocumentPersistence.RelinkPersistedDocumentInput, "localId"> {

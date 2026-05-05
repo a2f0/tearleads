@@ -24,9 +24,10 @@ components/hooks -> providers/stores -> workflows -> persistence + sqlite + shar
   providers, UI, hooks, or workflows.
 - SQLite internals under `sqlite/` own the executor adapter, Drizzle schema
   definitions, transaction serialization, and shared table helpers.
-- Shared helpers hold pure or mostly pure projection, crypto, event, request,
-  and response validation code that workflows and stores can reuse without
-  importing provider or UI layers.
+- Shared helpers and domain read-model contracts hold pure or mostly pure
+  projection, crypto, event, request, response validation, and view-facing data
+  shapes that workflows and stores can reuse without importing provider or UI
+  layers.
 
 ## Executor Boundary
 
@@ -47,8 +48,9 @@ cleanup should be incremental and behavior-preserving.
 - Shared helper modules under document and container data domains must stay
   layer-neutral.
 - Production UI and mini-app hooks should go through stores or providers rather
-  than importing workflows, persistence stores, or `data/sqlite/` directly at
-  runtime.
+  than importing persistence stores or `data/sqlite/` directly, including for
+  type-only contracts. Runtime workflow calls should also stay behind stores or
+  providers.
 
 `bun run lint:architecture` enforces the current high-confidence subset of
 these rules for `packages/app/src` and `packages/api/src`.
