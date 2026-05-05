@@ -526,7 +526,7 @@ async function hydrateContainerParentLane(input: {
       syncLane,
     });
     if (!didAdvanceWatermark) {
-      return { hydratedCount, shouldStop: true };
+      return { hydratedCount, shouldStop: false };
     }
 
     if (!response.hasMore) {

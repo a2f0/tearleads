@@ -3,6 +3,7 @@ import type { DocumentSummary } from "../../../data/documents/shared/documentSum
 import type { AppDataContextValue } from "../../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
 import type {
+  ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
@@ -24,9 +25,14 @@ type ReplaceDocumentLinksBatch = (
   inputs: ReadonlyArray<ExplorerDocumentLinkInput>,
 ) => Promise<void>;
 
+type ApplyContainerDocumentTombstones = (
+  tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
+) => Promise<ReadonlyArray<DocumentSummary>>;
+
 export function useDiscoveredDocumentsSync(params: {
   activeContainerId: string | null;
   appData: ExplorerDiscoveryAppData;
+  applyContainerDocumentTombstones: ApplyContainerDocumentTombstones;
   documentReadModel: ExplorerDocumentReadModel;
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (
@@ -37,6 +43,7 @@ export function useDiscoveredDocumentsSync(params: {
   const {
     activeContainerId,
     appData,
+    applyContainerDocumentTombstones,
     documentReadModel,
     knownDocumentIds,
     mergeDocumentSummaries,
@@ -57,6 +64,7 @@ export function useDiscoveredDocumentsSync(params: {
       void (async () => {
         try {
           const discoveredDocumentSummaries = await discoverContainerDocuments({
+            applyContainerDocumentTombstones,
             cacheReferencedPrincipalPolicies,
             containerId,
             loadContainerDocumentWatermark: (nextContainerId) =>
@@ -92,6 +100,7 @@ export function useDiscoveredDocumentsSync(params: {
     },
     [
       apiClient,
+      applyContainerDocumentTombstones,
       cacheReferencedPrincipalPolicies,
       documentReadModel,
       mergeDocumentSummaries,

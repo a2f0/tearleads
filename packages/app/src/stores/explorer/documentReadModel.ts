@@ -10,6 +10,8 @@ import {
 } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import {
+  applyContainerDocumentTombstones,
+  type ContainerDocumentTombstoneInput,
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";
@@ -21,7 +23,13 @@ export interface ExplorerDocumentLinkInput {
   documentId: string;
 }
 
+export type ExplorerContainerDocumentTombstone =
+  ContainerDocumentTombstoneInput;
+
 export interface ExplorerDocumentReadModel {
+  applyContainerDocumentTombstones(
+    tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
+  ): Promise<ReadonlyArray<DocumentSummary>>;
   loadContainerDocumentWatermark(
     containerId: string,
   ): Promise<SyncWatermark | null>;
@@ -74,6 +82,13 @@ function listExplorerLinkedContainerIdsByDocumentIds(
     execSql,
     documentIds,
   );
+}
+
+function applyExplorerContainerDocumentTombstones(
+  execSql: ExecSql,
+  tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
+): Promise<ReadonlyArray<DocumentSummary>> {
+  return applyContainerDocumentTombstones(execSql, tombstones);
 }
 
 function loadExplorerContainerDocumentWatermark(
@@ -131,6 +146,9 @@ function createExplorerDocumentReadModel(
   execSql: ExecSql,
 ): ExplorerDocumentReadModel {
   return {
+    applyContainerDocumentTombstones(tombstones) {
+      return applyExplorerContainerDocumentTombstones(execSql, tombstones);
+    },
     loadContainerDocumentWatermark(containerId) {
       return loadExplorerContainerDocumentWatermark(execSql, containerId);
     },

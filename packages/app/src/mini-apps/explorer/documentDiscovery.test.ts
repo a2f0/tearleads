@@ -56,6 +56,7 @@ function listContainerDocumentsResponse(
 }
 
 const nullContainerDocumentWatermarks = {
+  applyContainerDocumentTombstones: async () => [],
   loadContainerDocumentWatermark: async () => null,
   saveContainerDocumentWatermark: async () => {},
 };
@@ -206,6 +207,7 @@ test("container document discovery resumes from stored watermark and advances af
   }> = [];
   const applyOrder: string[] = [];
   const discovered = await discoverContainerDocuments({
+    applyContainerDocumentTombstones: async () => [],
     containerId: "shared-container",
     loadContainerDocumentWatermark: async () => ({
       id: "old-document",
@@ -286,6 +288,7 @@ test("container document discovery does not advance watermark when local apply f
 
   await expect(
     discoverContainerDocuments({
+      applyContainerDocumentTombstones: async () => [],
       containerId: "shared-container",
       loadContainerDocumentWatermark: async () => null,
       listContainerDocuments: async () =>
@@ -312,11 +315,100 @@ test("container document discovery does not advance watermark when local apply f
   expect(saveContainerDocumentWatermarkCalls).toEqual([]);
 });
 
-test("container document discovery does not advance watermark until tombstones are applied", async () => {
+test("container document discovery applies tombstones before advancing watermark", async () => {
+  const applyOrder: string[] = [];
+  const appliedTombstones: Array<
+    ReadonlyArray<{
+      containerId: string;
+      documentId: string;
+      updatedAt: string;
+    }>
+  > = [];
+  const saveContainerDocumentWatermarkCalls: SyncWatermark[] = [];
+
+  const discovered = await discoverContainerDocuments({
+    applyContainerDocumentTombstones: async (tombstones) => {
+      applyOrder.push("apply-tombstones");
+      appliedTombstones.push(tombstones);
+      return [
+        {
+          id: "deleted-document",
+          containerId: null,
+          documentId: "deleted-document",
+          title: "Deleted document",
+          updatedAt: "2026-04-06T12:00:00.000Z",
+        },
+      ];
+    },
+    containerId: "shared-container",
+    loadContainerDocumentWatermark: async () => null,
+    listContainerDocuments: async () =>
+      listContainerDocumentsResponse([], {
+        nextWatermark: {
+          id: "deleted-document",
+          updatedAt: "2026-04-06T12:00:00.000Z",
+        },
+        tombstones: [
+          {
+            containerId: "shared-container",
+            documentId: "deleted-document",
+            updatedAt: "2026-04-06T12:00:00.000Z",
+          },
+        ],
+      }),
+    replaceDocumentLinksBatch: async () => {
+      applyOrder.push("replace-links");
+    },
+    saveContainerDocumentWatermark: async (_containerId, watermark) => {
+      applyOrder.push("save-watermark");
+      saveContainerDocumentWatermarkCalls.push(watermark);
+    },
+    upsertDiscoveredDocuments: async () => {
+      applyOrder.push("upsert-documents");
+      return [];
+    },
+  });
+
+  expect(applyOrder).toEqual([
+    "replace-links",
+    "upsert-documents",
+    "apply-tombstones",
+    "save-watermark",
+  ]);
+  expect(appliedTombstones).toEqual([
+    [
+      {
+        containerId: "shared-container",
+        documentId: "deleted-document",
+        updatedAt: "2026-04-06T12:00:00.000Z",
+      },
+    ],
+  ]);
+  expect(saveContainerDocumentWatermarkCalls).toEqual([
+    {
+      id: "deleted-document",
+      updatedAt: "2026-04-06T12:00:00.000Z",
+    },
+  ]);
+  expect(discovered).toEqual([
+    {
+      id: "deleted-document",
+      containerId: null,
+      documentId: "deleted-document",
+      title: "Deleted document",
+      updatedAt: "2026-04-06T12:00:00.000Z",
+    },
+  ]);
+});
+
+test("container document discovery does not advance watermark when tombstone apply fails", async () => {
   const saveContainerDocumentWatermarkCalls: SyncWatermark[] = [];
 
   await expect(
     discoverContainerDocuments({
+      applyContainerDocumentTombstones: async () => {
+        throw new Error("tombstone apply failed");
+      },
       containerId: "shared-container",
       loadContainerDocumentWatermark: async () => null,
       listContainerDocuments: async () =>
@@ -339,7 +431,7 @@ test("container document discovery does not advance watermark until tombstones a
       },
       upsertDiscoveredDocuments: async () => [],
     }),
-  ).resolves.toEqual([]);
+  ).rejects.toThrow("tombstone apply failed");
 
   expect(saveContainerDocumentWatermarkCalls).toEqual([]);
 });

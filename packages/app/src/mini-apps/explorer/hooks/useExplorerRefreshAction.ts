@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type {
+  ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
@@ -15,6 +16,10 @@ import { discoverAllContainerDocuments } from "../documentDiscovery";
 type ReplaceDocumentLinksBatch = (
   inputs: ReadonlyArray<ExplorerDocumentLinkInput>,
 ) => Promise<void>;
+
+type ApplyContainerDocumentTombstones = (
+  tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
+) => Promise<ReadonlyArray<DocumentSummary>>;
 
 async function listAllRemoteContainers(
   apiClient: ReturnType<typeof useAppData>["apiClient"],
@@ -72,6 +77,7 @@ export function useExplorerRefreshAction(params: {
     ReturnType<typeof useAppData>,
     "apiClient" | "cacheReferencedPrincipalPolicies"
   >;
+  applyContainerDocumentTombstones: ApplyContainerDocumentTombstones;
   documentReadModel: ExplorerDocumentReadModel;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
@@ -84,6 +90,7 @@ export function useExplorerRefreshAction(params: {
 }) {
   const {
     appData,
+    applyContainerDocumentTombstones,
     documentReadModel,
     mergeDocumentSummaries,
     primeDiscoveredDocuments,
@@ -112,6 +119,7 @@ export function useExplorerRefreshAction(params: {
       }
 
       const discoveredDocumentSummaries = await discoverAllContainerDocuments({
+        applyContainerDocumentTombstones,
         cacheReferencedPrincipalPolicies,
         containerIds: remoteContainers.map((container) => container.id),
         loadContainerDocumentWatermark: (containerId) =>
@@ -142,6 +150,7 @@ export function useExplorerRefreshAction(params: {
     }
   }, [
     apiClient,
+    applyContainerDocumentTombstones,
     cacheReferencedPrincipalPolicies,
     documentReadModel,
     mergeDocumentSummaries,
