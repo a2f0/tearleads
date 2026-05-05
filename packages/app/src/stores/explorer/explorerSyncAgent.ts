@@ -471,6 +471,8 @@ async function advanceContainerParentWatermark(input: {
 }): Promise<boolean> {
   const { response, state, syncLane } = input;
   if (response.tombstones.length > 0) {
+    // TODO(#447): apply container tombstones locally before advancing this lane.
+    // Until then, keep re-reading this lane so revokes/deletes are not skipped.
     state.runtime.log(
       "Explorer: skipped container sync watermark advance because container tombstones are not applied yet.",
     );
