@@ -29,7 +29,7 @@ test("listContainers passes its runtime executor into metadata access resolution
     registration.userId,
   );
 
-  expect(containers.map((container) => container.id)).toContain(
+  expect(containers.items.map((container) => container.id)).toContain(
     registration.rootContainerId,
   );
   expect(recording.calls.get("execute") ?? 0).toBeGreaterThan(0);
@@ -49,8 +49,8 @@ test("listContainerDocuments passes its runtime executor into access resolution"
     registration.userId,
   );
 
-  expect(listedDocuments.map((listedDocument) => listedDocument.id)).toContain(
-    document.id,
-  );
+  expect(
+    listedDocuments.items.map((listedDocument) => listedDocument.id),
+  ).toContain(document.id);
   expect(recording.calls.get("select") ?? 0).toBeGreaterThan(0);
 });

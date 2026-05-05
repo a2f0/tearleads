@@ -18,6 +18,7 @@ import type {
 import type {
   AccessManifestBundleWireResponse,
   ContainerMutationResponse,
+  ContainerSummary,
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentSyncResponse,
@@ -62,9 +63,7 @@ import {
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void };
-type ListedContainer = NonNullable<
-  Awaited<ReturnType<TestRuntime["apiClient"]["listContainers"]>>
->[number];
+type ListedContainer = ContainerSummary;
 
 function readSqlRowValue(
   row: Record<string, string | number | null>,

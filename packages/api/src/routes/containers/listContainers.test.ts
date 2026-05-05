@@ -18,17 +18,30 @@ test("GET /containers returns the manifest-backed root container for the authent
 
   expect(response.status).toBe(200);
   const listedContainers = await response.json();
-  expect(listedContainers).toEqual([
+  expect(listedContainers).toEqual({
+    hasMore: false,
+    items: [
+      expect.objectContaining({
+        depth: 0,
+        id: owner.rootContainerId,
+        parentId: null,
+        metadataAccessEpoch: 1,
+      }),
+    ],
+    nextCursor: expect.any(String),
+    tombstones: [],
+  });
+  expect(listedContainers.items).toEqual([
     expect.objectContaining({
       id: owner.rootContainerId,
-      parentId: null,
-      metadataAccessEpoch: 1,
     }),
   ]);
-  expect(listedContainers[0]?.metadataAccessStateHash).toEqual(
+  expect(listedContainers.items[0]?.metadataAccessStateHash).toEqual(
     expect.any(String),
   );
-  expect(listedContainers[0]?.metadataDocumentId).toEqual(expect.any(String));
+  expect(listedContainers.items[0]?.metadataDocumentId).toEqual(
+    expect.any(String),
+  );
 });
 
 test("GET /containers only returns containers readable through current manifests", async () => {
@@ -50,9 +63,54 @@ test("GET /containers only returns containers readable through current manifests
   expect(response.status).toBe(200);
   const listedContainers = await response.json();
   expect(
-    listedContainers.map((container: { id: string }) => container.id),
+    listedContainers.items.map((container: { id: string }) => container.id),
   ).toEqual([otherUser.rootContainerId]);
   expect(
-    listedContainers.map((container: { id: string }) => container.id),
+    listedContainers.items.map((container: { id: string }) => container.id),
   ).not.toContain(owner.rootContainerId);
+});
+
+test("GET /containers supports opaque cursor resume and rejects tampering", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const firstResponse = await routeApp.request("/containers?depth=0&limit=1", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+    },
+  });
+  expect(firstResponse.status).toBe(200);
+  const firstBody = await firstResponse.json();
+  expect(firstBody.items).toHaveLength(1);
+  expect(firstBody.nextCursor).toEqual(expect.any(String));
+
+  const secondResponse = await routeApp.request(
+    `/containers?depth=0&cursor=${encodeURIComponent(firstBody.nextCursor)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+  expect(secondResponse.status).toBe(200);
+  expect(await secondResponse.json()).toEqual({
+    hasMore: false,
+    items: [],
+    nextCursor: expect.any(String),
+    tombstones: [],
+  });
+
+  const tamperedResponse = await routeApp.request(
+    `/containers?depth=0&cursor=${encodeURIComponent(`${firstBody.nextCursor}x`)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+  expect(tamperedResponse.status).toBe(400);
 });

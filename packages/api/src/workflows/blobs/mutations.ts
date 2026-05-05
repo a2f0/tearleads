@@ -78,6 +78,7 @@ import {
   DocumentMutationError,
   loadSignerPublicKey,
 } from "../documents/mutations";
+import { touchDocumentAndLinkedContainers } from "../documents/mutations/shared/documentRows";
 
 type BlobMutationStatus = 400 | 403 | 404 | 409 | 503;
 
@@ -932,6 +933,10 @@ async function bindBlobAttachmentTransaction(
     manifest: proof.documentManifest,
     userId: input.userId,
   });
+  await touchDocumentAndLinkedContainers(tx, {
+    documentId: verifiedBinding.value.documentId,
+    linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
+  });
 
   return toBindResponse({
     binding: verifiedBinding.value,
@@ -1029,6 +1034,10 @@ export async function runDetachBlobAttachmentWorkflow(
         fingerprint: input.fingerprint,
         manifest: proof.documentManifest,
         userId: input.userId,
+      });
+      await touchDocumentAndLinkedContainers(tx, {
+        documentId: verifiedDetach.value.documentId,
+        linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
       });
 
       return {

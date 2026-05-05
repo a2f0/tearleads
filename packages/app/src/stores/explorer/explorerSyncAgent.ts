@@ -5,7 +5,10 @@ import {
   exportAllUpdates,
   importUpdates,
 } from "@tearleads/loro";
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type {
+  ContainerSummary,
+  ReferencedPrincipalStateResponse,
+} from "@tearleads/validators/response";
 import type { BlobStore } from "../../data/blobs";
 import {
   createContainerMetadataDocument,
@@ -53,9 +56,7 @@ type ExplorerAppData = ReturnType<typeof useAppData>;
 export type ContainerMetadataDocument = Awaited<
   ReturnType<typeof createContainerMetadataDocument>
 >;
-type ListedRemoteContainer = NonNullable<
-  Awaited<ReturnType<ExplorerRuntime["apiClient"]["listContainers"]>>
->[number];
+type ListedRemoteContainer = ContainerSummary;
 
 interface ContainerMetadataSyncAttempt {
   outgoingUpdateCount: number;
@@ -387,6 +388,44 @@ async function upsertRemoteContainerState(
   return containerState;
 }
 
+async function listAllRemoteContainers(
+  apiClient: ExplorerRuntime["apiClient"],
+): Promise<ReadonlyArray<ExplorerRemoteContainer> | null> {
+  const containers: ExplorerRemoteContainer[] = [];
+
+  for (let depth = 0; ; depth += 1) {
+    let cursor: string | null = null;
+    let depthChangeCount = 0;
+
+    do {
+      const response = await apiClient.listContainers({ cursor, depth });
+      if (!response) {
+        return null;
+      }
+      if (Array.isArray(response)) {
+        containers.push(...response);
+        return containers;
+      }
+      const normalizedResponse = response;
+
+      containers.push(...normalizedResponse.items);
+      depthChangeCount +=
+        normalizedResponse.items.length + normalizedResponse.tombstones.length;
+      cursor = normalizedResponse.nextCursor;
+
+      if (!normalizedResponse.hasMore) {
+        break;
+      }
+    } while (cursor);
+
+    if (depthChangeCount === 0) {
+      break;
+    }
+  }
+
+  return containers;
+}
+
 async function hydrateRemoteContainers(
   state: ExplorerSyncState,
   host: ExplorerSyncHost,
@@ -399,7 +438,9 @@ async function hydrateRemoteContainers(
     return;
   }
 
-  const remoteContainers = await state.runtime.apiClient.listContainers();
+  const remoteContainers = await listAllRemoteContainers(
+    state.runtime.apiClient,
+  );
   if (!remoteContainers) {
     return;
   }

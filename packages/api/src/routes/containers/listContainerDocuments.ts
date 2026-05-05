@@ -25,10 +25,15 @@ export function createListContainerDocumentsRoute({
     async (c) => {
       const session = c.get("session");
       const containerId = c.req.param("containerId");
+      const cursor = c.req.query("cursor");
+      const limit = parseOptionalInteger(c.req.query("limit"));
 
       try {
         return c.json<ListContainerDocumentsResponse>(
-          await listContainerDocuments(runtime, containerId, session.userId),
+          await listContainerDocuments(runtime, containerId, session.userId, {
+            ...(cursor === undefined ? {} : { cursor }),
+            ...(limit === undefined ? {} : { limit }),
+          }),
         );
       } catch (error) {
         if (error instanceof ListContainerDocumentsError) {
@@ -41,4 +46,11 @@ export function createListContainerDocumentsRoute({
   );
 
   return listContainerDocumentsRoute;
+}
+
+function parseOptionalInteger(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return Number(value);
 }

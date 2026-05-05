@@ -2,8 +2,11 @@ export const loroSql = `
   CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_by_fingerprint TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now()
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE INDEX IF NOT EXISTS documents_updated_at_id_idx
+    ON documents (updated_at, id);
   CREATE TABLE IF NOT EXISTS document_updates (
     sequence INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id UUID NOT NULL UNIQUE,

@@ -45,14 +45,19 @@ test("GET /containers/:containerId/documents lists current manifest-linked docum
   );
 
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual([
-    expect.objectContaining({
-      currentAccessEpoch: 2,
-      currentAccessStateHash: createdDocument.manifestHash,
-      id: createdDocument.id,
-      linkedContainerIds: [owner.rootContainerId],
-    }),
-  ]);
+  expect(await response.json()).toEqual({
+    hasMore: false,
+    items: [
+      expect.objectContaining({
+        currentAccessEpoch: 2,
+        currentAccessStateHash: createdDocument.manifestHash,
+        id: createdDocument.id,
+        linkedContainerIds: [owner.rootContainerId],
+      }),
+    ],
+    nextCursor: expect.any(String),
+    tombstones: [],
+  });
 });
 
 test("GET /containers/:containerId/documents rejects users without manifest access", async () => {

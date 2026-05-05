@@ -33,6 +33,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export type BlobAuditRetentionMode = "live_only";
+export type ContainerSyncTombstoneReason = "access_revoked" | "deleted";
 export type DocumentAttachmentAuditAction =
   | "attach"
   | "replace"
@@ -110,12 +111,16 @@ export const organizations = pgTable("organizations", {
  *   containers must stay within the same organization.
  * - `parentId`: Parent container id, or `null` for the organization's root
  *   container.
+ * - `depth`: Materialized distance from the root container. Roots are `0`.
  * - `createdAt`: Server-side insertion timestamp.
+ * - `updatedAt`: Server-side sync timestamp bumped when the container,
+ *   metadata document, or visible contents change.
  *
  * Indexes:
  * - `organizationId where parentId is null` is unique so an organization has
  *   one root container.
  * - `parentId` supports child-container listing and move validation.
+ * - `(organizationId, depth, updatedAt, id)` supports depth-lane sync scans.
  */
 export const containers = pgTable(
   "containers",
@@ -123,13 +128,53 @@ export const containers = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     organizationId: uuid("organization_id").notNull(),
     parentId: uuid("parent_id"),
+    depth: integer("depth").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("containers_org_root_idx")
       .on(table.organizationId)
       .where(sql`${table.parentId} is null`),
     index("containers_parent_id_idx").on(table.parentId),
+    index("containers_org_depth_updated_idx").on(
+      table.organizationId,
+      table.depth,
+      table.updatedAt,
+      table.id,
+    ),
+    index("containers_parent_depth_idx").on(table.parentId, table.depth),
+  ],
+);
+
+/**
+ * Per-user tombstones for containers that should be removed from a local sync
+ * view. This is intentionally scoped to a user because removals caused by
+ * access changes are visibility decisions, not global object deletion facts.
+ */
+export const containerSyncTombstones = pgTable(
+  "container_sync_tombstones",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    organizationId: uuid("organization_id").notNull(),
+    containerId: uuid("container_id").notNull(),
+    parentId: uuid("parent_id"),
+    depth: integer("depth").notNull(),
+    reason: text("reason").$type<ContainerSyncTombstoneReason>().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("container_sync_tombstones_user_container_idx").on(
+      table.userId,
+      table.containerId,
+    ),
+    index("container_sync_tombstones_user_depth_updated_idx").on(
+      table.userId,
+      table.depth,
+      table.updatedAt,
+      table.containerId,
+    ),
   ],
 );
 
@@ -1075,6 +1120,44 @@ export const accessManifestDocumentLinkProjection = pgTable(
 );
 
 /**
+ * Expanded direct grants for container access manifests.
+ *
+ * The signed manifest remains the source of truth. This projection gives sync
+ * and read paths an indexed way to discover current direct access seeds without
+ * scanning JSON manifest state.
+ */
+export const accessManifestContainerGrantProjection = pgTable(
+  "access_manifest_container_grant_projection",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    manifestHash: text("manifest_hash").notNull(),
+    containerId: text("container_id").notNull(),
+    accessLevel: text("access_level").notNull(),
+    subjectType: text("subject_type").notNull(),
+    subjectId: text("subject_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("access_manifest_container_grant_manifest_idx").on(
+      table.manifestHash,
+    ),
+    index("access_manifest_container_grant_subject_idx").on(
+      table.subjectType,
+      table.subjectId,
+    ),
+    index("access_manifest_container_grant_container_idx").on(
+      table.containerId,
+    ),
+    uniqueIndex("access_manifest_container_grant_unique_idx").on(
+      table.manifestHash,
+      table.subjectType,
+      table.subjectId,
+      table.accessLevel,
+    ),
+  ],
+);
+
+/**
  * Content-key epochs for encrypted document update payloads.
  *
  * A document content-key bundle says which symmetric content key epoch writers
@@ -1504,6 +1587,34 @@ export const documentContainerLinks = pgTable(
       table.containerId,
     ),
     index("document_container_links_container_idx").on(table.containerId),
+  ],
+);
+
+/**
+ * Per-container document unlink tombstones for differential document discovery.
+ *
+ * A row means the document is no longer currently linked to the container as of
+ * `updatedAt`. If the document is linked again later, the current document row
+ * will carry a newer sync timestamp and wins in client application order.
+ */
+export const containerDocumentSyncTombstones = pgTable(
+  "container_document_sync_tombstones",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    containerId: uuid("container_id").notNull(),
+    documentId: text("document_id").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("container_document_sync_tombstones_unique_idx").on(
+      table.containerId,
+      table.documentId,
+    ),
+    index("container_document_sync_tombstones_container_updated_idx").on(
+      table.containerId,
+      table.updatedAt,
+      table.documentId,
+    ),
   ],
 );
 

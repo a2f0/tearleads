@@ -25,6 +25,8 @@ import {
 import {
   createContainer,
   getContainerWriterProjection,
+  type ListContainerDocumentsOptions,
+  type ListContainersOptions,
   listContainerDocuments,
   listContainers,
   moveContainer,
@@ -344,12 +346,15 @@ export class ApiClient {
     return linkDocument(this.request, documentId, input);
   }
 
-  listContainers() {
-    return listContainers(this.request);
+  listContainers(options?: ListContainersOptions) {
+    return listContainers(this.request, options);
   }
 
-  listContainerDocuments(containerId: string) {
-    return listContainerDocuments(this.request, containerId);
+  listContainerDocuments(
+    containerId: string,
+    options?: ListContainerDocumentsOptions,
+  ) {
+    return listContainerDocuments(this.request, containerId, options);
   }
 
   unlinkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {

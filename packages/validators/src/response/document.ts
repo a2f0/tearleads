@@ -16,9 +16,21 @@ export interface ContainerDocumentSummary {
   id: string;
   linkedContainerIds: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
+  updatedAt?: string;
 }
 
-export type ListContainerDocumentsResponse = ContainerDocumentSummary[];
+export interface ContainerDocumentSyncTombstone {
+  containerId: string;
+  documentId: string;
+  updatedAt: string;
+}
+
+export interface ListContainerDocumentsResponse {
+  hasMore: boolean;
+  items: ContainerDocumentSummary[];
+  nextCursor: string | null;
+  tombstones: ContainerDocumentSyncTombstone[];
+}
 
 function isContainerDocumentSummary(
   value: unknown,
@@ -39,14 +51,38 @@ function isContainerDocumentSummary(
     hasStringProperty(value, "id") &&
     hasArrayProperty(value, "linkedContainerIds") &&
     value.linkedContainerIds.every((entry) => typeof entry === "string") &&
+    hasStringProperty(value, "updatedAt") &&
     (referencedPrincipals === undefined ||
       (Array.isArray(referencedPrincipals) &&
         referencedPrincipals.every(isReferencedPrincipalStateResponse)))
   );
 }
 
+function isContainerDocumentSyncTombstone(
+  value: unknown,
+): value is ContainerDocumentSyncTombstone {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    hasStringProperty(value, "documentId") &&
+    hasStringProperty(value, "updatedAt")
+  );
+}
+
 export function isListContainerDocumentsResponse(
   value: unknown,
 ): value is ListContainerDocumentsResponse {
-  return Array.isArray(value) && value.every(isContainerDocumentSummary);
+  const nextCursor = isPlainObject(value)
+    ? Reflect.get(value, "nextCursor")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    typeof Reflect.get(value, "hasMore") === "boolean" &&
+    hasArrayProperty(value, "items") &&
+    value.items.every(isContainerDocumentSummary) &&
+    (typeof nextCursor === "string" || nextCursor === null) &&
+    hasArrayProperty(value, "tombstones") &&
+    value.tombstones.every(isContainerDocumentSyncTombstone)
+  );
 }

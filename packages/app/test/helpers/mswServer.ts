@@ -342,7 +342,12 @@ const server = setupServer(
     });
   }),
   http.get("http://localhost:3001/containers", () => {
-    return HttpResponse.json<ListContainersResponse>([]);
+    return HttpResponse.json<ListContainersResponse>({
+      hasMore: false,
+      items: [],
+      nextCursor: null,
+      tombstones: [],
+    });
   }),
   http.get(
     "http://localhost:3001/containers/:containerId/writer-projection",

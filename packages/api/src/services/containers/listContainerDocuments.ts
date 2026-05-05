@@ -1,8 +1,13 @@
-import type { ListContainerDocumentsResponse } from "@tearleads/validators/response";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import type {
+  ContainerDocumentSummary,
+  ContainerDocumentSyncTombstone,
+  ListContainerDocumentsResponse,
+} from "@tearleads/validators/response";
+import { and, asc, eq, inArray, type SQL, sql } from "drizzle-orm";
 import {
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
+  containerDocumentSyncTombstones,
   containerMetadataDocuments,
   documents,
 } from "../../schema";
@@ -12,11 +17,41 @@ import {
   resolveReadableContainerAccess,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
+import {
+  assertContainerSyncCursorReadBarrier,
+  assertContainerSyncCursorScope,
+  ContainerSyncCursorError,
+  type ContainerSyncCursorPayload,
+  type ContainerSyncWatermark,
+  createContainerSyncCursor,
+  decodeContainerSyncCursor,
+} from "./syncCursor";
+
+const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 500;
+
+interface ListContainerDocumentsOptions {
+  readonly cursor?: string | null;
+  readonly limit?: number | undefined;
+}
+
+type ContainerDocumentRow = {
+  createdAt: Date;
+  documentId: string;
+  manifestHash: string;
+  manifestEpoch: number;
+  updatedAt: Date;
+};
+
+type ContainerDocumentTombstoneRow = {
+  documentId: string;
+  updatedAt: Date;
+};
 
 export class ListContainerDocumentsError extends Error {
   constructor(
     message: string,
-    readonly status: 403 | 404 | 409,
+    readonly status: 400 | 403 | 404 | 409 | 503,
   ) {
     super(message);
   }
@@ -41,23 +76,63 @@ async function requireReadableContainer(
   }
 }
 
-async function loadCurrentContainerDocumentRows(
-  runtime: ApiServiceRuntime,
-  containerId: string,
-): Promise<
-  {
-    createdAt: Date;
-    documentId: string;
-    manifestHash: string;
-    manifestEpoch: number;
-  }[]
-> {
-  return runtime.db
+function normalizeLimit(value: number | undefined): number {
+  if (value === undefined) {
+    return DEFAULT_LIMIT;
+  }
+  if (!Number.isInteger(value) || value < 1) {
+    throw new ListContainerDocumentsError("Invalid limit", 400);
+  }
+  return Math.min(value, MAX_LIMIT);
+}
+
+function watermarkPredicate(
+  tableAlias: string,
+  watermark: ContainerSyncWatermark | null | undefined,
+  idColumn = "id",
+): SQL {
+  if (!watermark) {
+    return sql``;
+  }
+
+  return sql`and (${sql.raw(`${tableAlias}.updated_at`)}, ${sql.raw(
+    `${tableAlias}.${idColumn}`,
+  )}::text) > (${new Date(watermark.updatedAt)}, ${watermark.id})`;
+}
+
+function validateCursor(input: {
+  cursorToken: string | null | undefined;
+  containerId: string;
+  userId: string;
+}): ContainerSyncCursorPayload | null {
+  try {
+    const cursor = decodeContainerSyncCursor(input.cursorToken);
+    assertContainerSyncCursorScope(cursor, {
+      lane: "containerDocuments",
+      scope: { containerId: input.containerId, userId: input.userId },
+    });
+    return cursor;
+  } catch (error) {
+    if (error instanceof ContainerSyncCursorError) {
+      throw new ListContainerDocumentsError(error.message, 400);
+    }
+    throw error;
+  }
+}
+
+async function loadCurrentContainerDocumentRows(input: {
+  readonly containerId: string;
+  readonly cursor: ContainerSyncCursorPayload | null;
+  readonly limit: number;
+  readonly runtime: ApiServiceRuntime;
+}): Promise<ContainerDocumentRow[]> {
+  return input.runtime.db
     .select({
       createdAt: documents.createdAt,
       documentId: accessManifestHeads.objectId,
       manifestHash: accessManifestHeads.manifestHash,
       manifestEpoch: accessManifestHeads.epoch,
+      updatedAt: documents.updatedAt,
     })
     .from(accessManifestHeads)
     .innerJoin(
@@ -67,7 +142,7 @@ async function loadCurrentContainerDocumentRows(
           accessManifestDocumentLinkProjection.manifestHash,
           accessManifestHeads.manifestHash,
         ),
-        eq(accessManifestDocumentLinkProjection.containerId, containerId),
+        eq(accessManifestDocumentLinkProjection.containerId, input.containerId),
       ),
     )
     .innerJoin(
@@ -78,13 +153,40 @@ async function loadCurrentContainerDocumentRows(
       containerMetadataDocuments,
       eq(containerMetadataDocuments.documentId, documents.id),
     )
-    .where(
-      and(
-        eq(accessManifestHeads.objectKind, "document"),
-        isNull(containerMetadataDocuments.documentId),
-      ),
+    .where(sql`
+      ${accessManifestHeads.objectKind} = ${"document"}
+      and ${containerMetadataDocuments.documentId} is null
+      ${watermarkPredicate("documents", input.cursor?.watermark)}
+    `)
+    .orderBy(asc(documents.updatedAt), asc(accessManifestHeads.objectId))
+    .limit(input.limit + 1);
+}
+
+async function loadContainerDocumentTombstoneRows(input: {
+  readonly containerId: string;
+  readonly cursor: ContainerSyncCursorPayload | null;
+  readonly limit: number;
+  readonly runtime: ApiServiceRuntime;
+}): Promise<ContainerDocumentTombstoneRow[]> {
+  return input.runtime.db
+    .select({
+      documentId: containerDocumentSyncTombstones.documentId,
+      updatedAt: containerDocumentSyncTombstones.updatedAt,
+    })
+    .from(containerDocumentSyncTombstones)
+    .where(sql`
+      ${containerDocumentSyncTombstones.containerId} = ${input.containerId}
+      ${watermarkPredicate(
+        "container_document_sync_tombstones",
+        input.cursor?.watermark,
+        "document_id",
+      )}
+    `)
+    .orderBy(
+      asc(containerDocumentSyncTombstones.updatedAt),
+      asc(containerDocumentSyncTombstones.documentId),
     )
-    .orderBy(desc(documents.createdAt), accessManifestHeads.objectId);
+    .limit(input.limit + 1);
 }
 
 async function loadLinkedContainerIdsByManifestHash(
@@ -131,42 +233,161 @@ async function loadLinkedContainerIdsByManifestHash(
   return linkedContainerIdsByManifestHash;
 }
 
-export async function listContainerDocuments(
-  runtime: ApiServiceRuntime,
-  containerId: string,
-  userId: string,
-): Promise<ListContainerDocumentsResponse> {
-  const containerAccess = await requireReadableContainer(
-    runtime,
-    containerId,
-    userId,
+function documentChangeUpdatedAt(
+  change: ContainerDocumentSummary | ContainerDocumentSyncTombstone,
+): string {
+  return change.updatedAt ?? "";
+}
+
+function documentChangeId(
+  change: ContainerDocumentSummary | ContainerDocumentSyncTombstone,
+): string {
+  return "id" in change ? change.id : change.documentId;
+}
+
+function compareDocumentChanges(
+  left: ContainerDocumentSummary | ContainerDocumentSyncTombstone,
+  right: ContainerDocumentSummary | ContainerDocumentSyncTombstone,
+): number {
+  const updatedAtOrder = documentChangeUpdatedAt(left).localeCompare(
+    documentChangeUpdatedAt(right),
   );
-  const documentRows = await loadCurrentContainerDocumentRows(
-    runtime,
-    containerId,
-  );
+  return updatedAtOrder === 0
+    ? documentChangeId(left).localeCompare(documentChangeId(right))
+    : updatedAtOrder;
+}
+
+function documentChangeWatermark(
+  change: ContainerDocumentSummary | ContainerDocumentSyncTombstone,
+): ContainerSyncWatermark {
+  return {
+    updatedAt: documentChangeUpdatedAt(change),
+    id: documentChangeId(change),
+  };
+}
+
+async function buildListContainerDocumentsResponse(input: {
+  readonly containerId: string;
+  readonly cursor: ContainerSyncCursorPayload | null;
+  readonly documentRows: readonly ContainerDocumentRow[];
+  readonly limit: number;
+  readonly referencedPrincipals: ReturnType<
+    typeof collectReferencedPrincipalsFromContainerAccess
+  >;
+  readonly runtime: ApiServiceRuntime;
+  readonly tombstoneRows: readonly ContainerDocumentTombstoneRow[];
+  readonly userId: string;
+}): Promise<ListContainerDocumentsResponse> {
   const linkedContainerIdsByManifestHash =
     await loadLinkedContainerIdsByManifestHash(
-      runtime,
-      documentRows.map((row) => row.manifestHash),
+      input.runtime,
+      input.documentRows.map((row) => row.manifestHash),
     );
-  const referencedPrincipals = collectReferencedPrincipalsFromContainerAccess([
-    containerAccess,
-  ]);
-
-  const responseBody: ListContainerDocumentsResponse = [];
-
-  for (const documentRow of documentRows) {
-    responseBody.push({
+  const items: ContainerDocumentSummary[] = input.documentRows
+    .slice(0, input.limit)
+    .map((documentRow) => ({
       createdAt: documentRow.createdAt.toISOString(),
       currentAccessEpoch: documentRow.manifestEpoch,
       currentAccessStateHash: documentRow.manifestHash,
       id: documentRow.documentId,
       linkedContainerIds:
         linkedContainerIdsByManifestHash.get(documentRow.manifestHash) ?? [],
-      referencedPrincipals,
-    });
+      referencedPrincipals: input.referencedPrincipals,
+      updatedAt: documentRow.updatedAt.toISOString(),
+    }));
+  const tombstones: ContainerDocumentSyncTombstone[] = input.tombstoneRows
+    .slice(0, input.limit)
+    .map((row) => ({
+      containerId: input.containerId,
+      documentId: row.documentId,
+      updatedAt: row.updatedAt.toISOString(),
+    }));
+  const returnedChanges = [...items, ...tombstones]
+    .sort(compareDocumentChanges)
+    .slice(0, input.limit);
+  const itemIds = new Set(
+    returnedChanges
+      .filter((change): change is ContainerDocumentSummary => "id" in change)
+      .map((change) => change.id),
+  );
+  const tombstoneIds = new Set(
+    returnedChanges
+      .filter(
+        (change): change is ContainerDocumentSyncTombstone => !("id" in change),
+      )
+      .map((change) => change.documentId),
+  );
+  const lastChange = returnedChanges.at(-1) ?? null;
+  const hasMore =
+    input.documentRows.length > input.limit ||
+    input.tombstoneRows.length > input.limit ||
+    returnedChanges.length < items.length + tombstones.length;
+  const nextWatermark =
+    lastChange === null
+      ? (input.cursor?.watermark ?? null)
+      : documentChangeWatermark(lastChange);
+
+  return {
+    hasMore,
+    items: items.filter((item) => itemIds.has(item.id)),
+    nextCursor:
+      nextWatermark === null
+        ? null
+        : await createContainerSyncCursor({
+            executor: input.runtime.db,
+            lane: "containerDocuments",
+            scope: { containerId: input.containerId, userId: input.userId },
+            watermark: nextWatermark,
+          }),
+    tombstones: tombstones.filter((tombstone) =>
+      tombstoneIds.has(tombstone.documentId),
+    ),
+  };
+}
+
+export async function listContainerDocuments(
+  runtime: ApiServiceRuntime,
+  containerId: string,
+  userId: string,
+  options: ListContainerDocumentsOptions = {},
+): Promise<ListContainerDocumentsResponse> {
+  const limit = normalizeLimit(options.limit);
+  const cursor = validateCursor({
+    containerId,
+    cursorToken: options.cursor,
+    userId,
+  });
+
+  try {
+    await assertContainerSyncCursorReadBarrier(runtime.db, cursor);
+  } catch (error) {
+    if (error instanceof ContainerSyncCursorError) {
+      throw new ListContainerDocumentsError(error.message, 503);
+    }
+    throw error;
   }
 
-  return responseBody;
+  const containerAccess = await requireReadableContainer(
+    runtime,
+    containerId,
+    userId,
+  );
+  const [documentRows, tombstoneRows] = await Promise.all([
+    loadCurrentContainerDocumentRows({ containerId, cursor, limit, runtime }),
+    loadContainerDocumentTombstoneRows({ containerId, cursor, limit, runtime }),
+  ]);
+  const referencedPrincipals = collectReferencedPrincipalsFromContainerAccess([
+    containerAccess,
+  ]);
+
+  return buildListContainerDocumentsResponse({
+    containerId,
+    cursor,
+    documentRows,
+    limit,
+    referencedPrincipals,
+    runtime,
+    tombstoneRows,
+    userId,
+  });
 }
