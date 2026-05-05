@@ -1,14 +1,14 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createPendingUpdateFields } from "../../data/documentSync";
-import { getAppDatabaseRuntime } from "../../data/persistence/appDatabaseRuntime";
 import { sqlContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
-import type { DocumentRecord } from "../../data/persistence/documentPersistence";
 import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
-import { addressBookProjection } from "../../data/persistence/schema";
+import { getAppDatabaseRuntime } from "../../data/sqlite/appDatabaseRuntime";
+import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
+import { addressBookProjection } from "../../data/sqlite/schema";
 import {
   type ExecSql,
   runSerializedSqlMutation,
-} from "../../data/persistence/sqlSchema";
+} from "../../data/sqlite/sqlSchema";
 
 interface RegistrationBootstrapInput {
   containerId: string;

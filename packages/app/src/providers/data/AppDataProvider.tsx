@@ -6,8 +6,8 @@ import {
   useContext,
   useMemo,
 } from "react";
-import { createExecSql, type ExecSql } from "../../data/persistence/sqlSchema";
 import { cacheReferencedPrincipalPolicies } from "../../data/principalPolicySync";
+import { createExecSql, type ExecSql } from "../../data/sqlite/sqlSchema";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useNetworkState } from "../api/NetworkStateProvider";
 import { useBlobStore } from "../blobs/BlobProvider";

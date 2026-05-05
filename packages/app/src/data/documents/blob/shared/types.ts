@@ -11,7 +11,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../../blobs";
 import type { ProjectionUserKeyResolver } from "../../../keyingProjectionVerification";
-import type { ExecSql } from "../../../persistence/sqlSchema";
+import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { DocumentCreateAuthor } from "../../shared/types";
 
 export const BLOB_ENCRYPTED_BYTES_FORMAT = "tearleads.blob.bytes";

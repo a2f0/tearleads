@@ -11,7 +11,7 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import type { PendingUpdateRecord } from "../../persistence/documentPersistence";
+import type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
 import {
   assertOnlyRecordKeys,
   asWebCryptoBytes,

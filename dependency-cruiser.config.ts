@@ -1,6 +1,7 @@
 import type { IConfiguration } from "dependency-cruiser";
 
 const appPersistence = "^packages/app/src/data/persistence/";
+const appSqliteInternals = "^packages/app/src/data/sqlite/";
 const appWorkflows = "^packages/app/src/workflows/";
 const appStores = "^packages/app/src/stores/";
 const appShellProviders = "^packages/app/src/providers/";
@@ -20,8 +21,7 @@ const appReactRuntime = [
   appStores,
 ];
 const appUpperLayers = [...appPresentation, ...appReactRuntime];
-const appSqliteInternals =
-  "^packages/app/src/data/persistence/(appDatabaseRuntime|documentPersistence|schema|sqlSchema)";
+const appStorageInternals = [appPersistence, appSqliteInternals];
 
 const dependencyCruiserConfig = {
   forbidden: [
@@ -126,12 +126,12 @@ const dependencyCruiserConfig = {
       },
     },
     {
-      name: "app-persistence-does-not-depend-on-upper-layers",
+      name: "app-storage-does-not-depend-on-upper-layers",
       severity: "error",
       comment:
-        "App persistence modules are low-level SQLite stores and must not depend on React runtime, presentation, or workflow modules.",
+        "App persistence modules and SQLite internals are low-level stores and must not depend on React runtime, presentation, or workflow modules.",
       from: {
-        path: appPersistence,
+        path: appStorageInternals,
         pathNot: "\\.test\\.[tj]sx?$",
       },
       to: {

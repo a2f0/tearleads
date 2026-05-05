@@ -25,8 +25,8 @@ import {
   verifyContainerWriterProjection,
   verifyDocumentWriterProjection,
 } from "../../keyingProjectionVerification";
-import type { ExecSql } from "../../persistence/sqlSchema";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   assertDocumentManifestBundleConsistent,
   assertEqualBytes,

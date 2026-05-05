@@ -5,8 +5,8 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobBytes } from "./blobs";
-import type { ExecSql } from "./persistence/sqlSchema";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
+import type { ExecSql } from "./sqlite/sqlSchema";
 
 export { serializeBlobEnvelope } from "@tearleads/crypto";
 

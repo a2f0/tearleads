@@ -14,7 +14,7 @@ import {
   loadContainers,
   saveContainer,
 } from "../../data/persistence/containers/containerPersistence";
-import { createExecSql } from "../../data/persistence/sqlSchema";
+import { createExecSql } from "../../data/sqlite/sqlSchema";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useIdentity } from "../identity/IdentityProvider";

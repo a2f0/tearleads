@@ -5,7 +5,7 @@ import {
   deriveStoredDocumentTitle,
   type StoredDocumentKind,
 } from "../../documents/documentKinds";
-import { getAppDatabaseRuntime } from "../appDatabaseRuntime";
+import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
 import {
   type DocumentRecord as BaseDocumentRecord,
   type DocumentScope,
@@ -19,21 +19,21 @@ import {
   type PendingUpdateFields,
   type PendingUpdateRecord,
   saveDocumentRecord,
-} from "../documentPersistence";
+} from "../../sqlite/documentPersistence";
 import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
   documentProjection,
   documentProjectionTables,
   documents,
-} from "../schema";
+} from "../../sqlite/schema";
 import {
   type ExecSql,
   ensureSqlTables,
   runSerializedSqlMutation,
-} from "../sqlSchema";
+} from "../../sqlite/sqlSchema";
 
-export type { PendingUpdateRecord } from "../documentPersistence";
+export type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
 
 export interface StoredDocumentRecord extends BaseDocumentRecord {
   containerId: string | null;

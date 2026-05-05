@@ -54,7 +54,7 @@ import {
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
-import type { ExecSql } from "../../../data/persistence/sqlSchema";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 function grantKey(
   grant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,

@@ -40,11 +40,11 @@ import {
   loadContainers,
   saveContainer,
 } from "../../data/persistence/containers/containerPersistence";
+import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import {
   ensureDocumentTables,
   saveDocumentRecord,
-} from "../../data/persistence/documentPersistence";
-import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
+} from "../../data/sqlite/documentPersistence";
 import {
   buildMaterializedDocumentCreatePlan,
   persistedDocumentCreateStateFromResponse,
