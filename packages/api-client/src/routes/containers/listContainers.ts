@@ -1,13 +1,10 @@
 import {
-  type ContainerSummary,
   isListContainersResponse,
   type ListContainersResponse,
   type SyncWatermark,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
 import { appendOptionalWatermark, appendQuery } from "./queryParams";
-
-type ListContainersResult = ListContainersResponse | ContainerSummary[];
 
 export interface ListContainersOptions {
   limit?: number;
@@ -28,7 +25,7 @@ export function listContainers(
     params.set("limit", String(options.limit));
   }
 
-  return request<ListContainersResult>(
+  return request<ListContainersResponse>(
     appendQuery("/containers", params),
     isListContainersResponse,
     "GET",

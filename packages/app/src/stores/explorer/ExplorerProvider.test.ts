@@ -23,6 +23,7 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
+  ListContainersResponse,
 } from "@tearleads/validators/response";
 import { isAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
@@ -64,6 +65,33 @@ import {
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void };
 type ListedContainer = ContainerSummary;
+const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
+
+function listedContainer(
+  overrides: Omit<ContainerSummary, "createdAt" | "depth" | "updatedAt"> &
+    Partial<Pick<ContainerSummary, "createdAt" | "depth" | "updatedAt">>,
+): ContainerSummary {
+  return {
+    createdAt: TEST_SYNC_TIMESTAMP,
+    depth: overrides.parentId === null ? 0 : 1,
+    updatedAt: TEST_SYNC_TIMESTAMP,
+    ...overrides,
+  };
+}
+
+function listContainersResponse(
+  items: ReadonlyArray<ContainerSummary> = [],
+): ListContainersResponse {
+  const lastItem = items.at(-1);
+  return {
+    hasMore: false,
+    items: [...items],
+    nextWatermark: lastItem
+      ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
+      : null,
+    tombstones: [],
+  };
+}
 
 function readSqlRowValue(
   row: Record<string, string | number | null>,
@@ -586,7 +614,7 @@ async function createSqlRuntime(): Promise<TestRuntime> {
       getContainerWriterProjection: async () => null,
       getDocumentWriterProjection: async () => null,
       getEncapsulationKey: async () => null,
-      listContainers: async () => [],
+      listContainers: async () => listContainersResponse(),
       listDocumentAttachments: async () => null,
       moveContainer: async () => null,
       shareContainer: async () => null,
@@ -787,40 +815,44 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
     });
 
     await Promise.all([
-      syncAgent.ingestRemoteContainer({
-        id: "container-a",
-        metadataAccessEpoch: 1,
-        metadataAccessStateHash: "container-a-access-state-hash-1",
-        metadataDocumentId: "metadata-document-a",
-        metadataReferencedPrincipals: [
-          {
-            keyEpoch: 1,
-            principalId: "group-a",
-            principalType: "group",
-            stateHash: "state-hash-a",
-            version: 1,
-          },
-        ],
-        organizationId: "org-1",
-        parentId: null,
-      }),
-      syncAgent.ingestRemoteContainer({
-        id: "container-b",
-        metadataAccessEpoch: 1,
-        metadataAccessStateHash: "container-b-access-state-hash-1",
-        metadataDocumentId: "metadata-document-b",
-        metadataReferencedPrincipals: [
-          {
-            keyEpoch: 1,
-            principalId: "group-b",
-            principalType: "group",
-            stateHash: "state-hash-b",
-            version: 1,
-          },
-        ],
-        organizationId: "org-1",
-        parentId: "container-a",
-      }),
+      syncAgent.ingestRemoteContainer(
+        listedContainer({
+          id: "container-a",
+          metadataAccessEpoch: 1,
+          metadataAccessStateHash: "container-a-access-state-hash-1",
+          metadataDocumentId: "metadata-document-a",
+          metadataReferencedPrincipals: [
+            {
+              keyEpoch: 1,
+              principalId: "group-a",
+              principalType: "group",
+              stateHash: "state-hash-a",
+              version: 1,
+            },
+          ],
+          organizationId: "org-1",
+          parentId: null,
+        }),
+      ),
+      syncAgent.ingestRemoteContainer(
+        listedContainer({
+          id: "container-b",
+          metadataAccessEpoch: 1,
+          metadataAccessStateHash: "container-b-access-state-hash-1",
+          metadataDocumentId: "metadata-document-b",
+          metadataReferencedPrincipals: [
+            {
+              keyEpoch: 1,
+              principalId: "group-b",
+              principalType: "group",
+              stateHash: "state-hash-b",
+              version: 1,
+            },
+          ],
+          organizationId: "org-1",
+          parentId: "container-a",
+        }),
+      ),
     ]);
 
     expect(snapshotUpdateCount).toBe(1);
@@ -858,7 +890,7 @@ test("explorer store creates authenticated child containers through the API befo
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...harness.apiClient,
-    listContainers: async () => [],
+    listContainers: async () => listContainersResponse(),
   });
   try {
     await ensureContainerTables(runtime.execSql);
@@ -958,7 +990,7 @@ test("explorer store queues authenticated child create when parent has no remote
   runtime.encapsulationKeyPair = localKeyPair;
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
-    listContainers: async () => [],
+    listContainers: async () => listContainersResponse(),
   });
 
   try {
@@ -1101,14 +1133,14 @@ test("explorer sync creates queued local containers parent before child", async 
     const remoteContainers = new Map<string, ListedContainer>([
       [
         "root-container",
-        {
+        listedContainer({
           id: "root-container",
           metadataAccessEpoch: 2,
           metadataAccessStateHash: "current-root-access-state-hash",
           metadataDocumentId: "root-metadata-document",
           organizationId: "org-1",
           parentId: null,
-        },
+        }),
       ],
     ]);
     const authenticatedRuntime: TestRuntime = {
@@ -1123,7 +1155,8 @@ test("explorer sync creates queued local containers parent before child", async 
       apiClient: createMockApiClient({
         ...runtime.apiClient,
         ...harness.apiClient,
-        listContainers: async () => Array.from(remoteContainers.values()),
+        listContainers: async () =>
+          listContainersResponse(Array.from(remoteContainers.values())),
       }),
     };
 
@@ -1239,25 +1272,26 @@ test("explorer store creates a child under a writable shared root through the pa
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...harness.apiClient,
-    listContainers: async () => [
-      {
-        id: "shared-root-container",
-        metadataAccessEpoch: 1,
-        metadataAccessStateHash: "shared-root-access-state-hash-1",
-        metadataDocumentId: "shared-root-metadata-document",
-        metadataReferencedPrincipals: [
-          {
-            keyEpoch: 1,
-            principalId: "group-1",
-            principalType: "group",
-            stateHash: "state-hash-1",
-            version: 1,
-          },
-        ],
-        organizationId: "org-2",
-        parentId: null,
-      },
-    ],
+    listContainers: async () =>
+      listContainersResponse([
+        listedContainer({
+          id: "shared-root-container",
+          metadataAccessEpoch: 1,
+          metadataAccessStateHash: "shared-root-access-state-hash-1",
+          metadataDocumentId: "shared-root-metadata-document",
+          metadataReferencedPrincipals: [
+            {
+              keyEpoch: 1,
+              principalId: "group-1",
+              principalType: "group",
+              stateHash: "state-hash-1",
+              version: 1,
+            },
+          ],
+          organizationId: "org-2",
+          parentId: null,
+        }),
+      ]),
   });
 
   try {
@@ -1354,38 +1388,38 @@ test("explorer store moves an authenticated child container through the API and 
     childProjection,
   ]);
   let remoteContainers = [
-    {
+    listedContainer({
       id: "root-container",
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "root-access-state-hash-1",
       metadataDocumentId: "root-metadata-document",
       organizationId: "org-1",
       parentId: null,
-    },
-    {
+    }),
+    listedContainer({
       id: "parent-a",
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "parent-a-access-state-hash-1",
       metadataDocumentId: "parent-a-metadata-document",
       organizationId: "org-1",
       parentId: "root-container",
-    },
-    {
+    }),
+    listedContainer({
       id: "parent-b",
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "parent-b-access-state-hash-1",
       metadataDocumentId: "parent-b-metadata-document",
       organizationId: "org-1",
       parentId: "root-container",
-    },
-    {
+    }),
+    listedContainer({
       id: "child-container",
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "child-access-state-hash-1",
       metadataDocumentId: "child-metadata-document",
       organizationId: "org-1",
       parentId: "parent-a",
-    },
+    }),
   ];
 
   runtime.isAuthenticated = true;
@@ -1398,7 +1432,7 @@ test("explorer store moves an authenticated child container through the API and 
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...harness.apiClient,
-    listContainers: async () => remoteContainers,
+    listContainers: async () => listContainersResponse(remoteContainers),
     moveContainer: async (containerId, request) => {
       const response = await harness.apiClient.moveContainer(
         containerId,
@@ -1518,7 +1552,7 @@ test("explorer store shares an authenticated container without reseeding metadat
       writerProjectionCallCount += 1;
       return null;
     },
-    listContainers: async () => [],
+    listContainers: async () => listContainersResponse(),
     syncDocument: async () => {
       syncCallCount += 1;
       return null;
@@ -1662,7 +1696,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...fixture.apiClient,
-    listContainers: async () => [],
+    listContainers: async () => listContainersResponse(),
   });
 
   try {
@@ -1796,7 +1830,7 @@ test("explorer store refreshes remote containers on demand after initialization"
       listContainersOptions.push(options);
 
       if (listContainersCalls === 1) {
-        return [];
+        return listContainersResponse();
       }
 
       if (options.parentId === null || options.parentId === undefined) {

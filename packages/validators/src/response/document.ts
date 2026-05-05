@@ -17,7 +17,7 @@ export interface ContainerDocumentSummary {
   id: string;
   linkedContainerIds: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
-  updatedAt?: string;
+  updatedAt: string;
 }
 
 export interface ContainerDocumentSyncTombstone {

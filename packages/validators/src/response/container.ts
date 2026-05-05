@@ -49,8 +49,8 @@ export interface ContainerWriterProjectionResponse {
 }
 
 export interface ContainerSummary {
-  createdAt?: string;
-  depth?: number;
+  createdAt: string;
+  depth: number;
   id: string;
   organizationId: string;
   parentId: string | null;
@@ -58,7 +58,7 @@ export interface ContainerSummary {
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
   metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
-  updatedAt?: string;
+  updatedAt: string;
 }
 
 export interface ContainerSyncTombstone {

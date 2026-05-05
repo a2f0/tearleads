@@ -1,15 +1,10 @@
 import {
-  type ContainerDocumentSummary,
   isListContainerDocumentsResponse,
   type ListContainerDocumentsResponse,
   type SyncWatermark,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
 import { appendOptionalWatermark, appendQuery } from "./queryParams";
-
-type ListContainerDocumentsResult =
-  | ListContainerDocumentsResponse
-  | ContainerDocumentSummary[];
 
 export interface ListContainerDocumentsOptions {
   limit?: number;
@@ -27,7 +22,7 @@ export function listContainerDocuments(
     params.set("limit", String(options.limit));
   }
 
-  return request<ListContainerDocumentsResult>(
+  return request<ListContainerDocumentsResponse>(
     appendQuery(`/containers/${containerId}/documents`, params),
     isListContainerDocumentsResponse,
     "GET",

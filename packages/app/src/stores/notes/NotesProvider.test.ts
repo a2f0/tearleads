@@ -23,6 +23,7 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
+  ListContainersResponse,
 } from "@tearleads/validators/response";
 import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
@@ -84,17 +85,26 @@ interface ProjectionLengthRow {
 function createListedContainers(
   containerId: string,
   metadataAccessStateHash = `${containerId}-access-state-hash-1`,
-) {
-  return [
-    {
-      id: containerId,
-      metadataAccessEpoch: 1,
-      metadataAccessStateHash,
-      metadataDocumentId: `metadata-${containerId}`,
-      organizationId: "org-1",
-      parentId: null,
-    },
-  ];
+): ListContainersResponse {
+  const updatedAt = "2026-05-05T00:00:00.000Z";
+  return {
+    hasMore: false,
+    items: [
+      {
+        createdAt: updatedAt,
+        depth: 0,
+        id: containerId,
+        metadataAccessEpoch: 1,
+        metadataAccessStateHash,
+        metadataDocumentId: `metadata-${containerId}`,
+        organizationId: "org-1",
+        parentId: null,
+        updatedAt,
+      },
+    ],
+    nextWatermark: { id: containerId, updatedAt },
+    tombstones: [],
+  };
 }
 
 function createUnavailableNotesApiClient(
