@@ -1,6 +1,14 @@
 import { ApiClient } from "@tearleads/api-client";
+import type { ListContainersResponse } from "@tearleads/validators/response";
 
 type PublicApiClient = Pick<ApiClient, keyof ApiClient>;
+
+const EMPTY_LIST_CONTAINERS_RESPONSE: ListContainersResponse = {
+  hasMore: false,
+  items: [],
+  nextWatermark: null,
+  tombstones: [],
+};
 
 export function createMockApiClient(
   overrides: Partial<PublicApiClient> = {},
@@ -22,7 +30,7 @@ export function createMockApiClient(
     getHealth: async () => null,
     linkDocument: async () => null,
     listContainerDocuments: async () => null,
-    listContainers: async () => [],
+    listContainers: async () => EMPTY_LIST_CONTAINERS_RESPONSE,
     listDocumentAttachments: async () => null,
     moveContainer: async () => null,
     postPublicKey: async () => null,

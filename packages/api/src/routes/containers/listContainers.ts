@@ -1,7 +1,4 @@
-import type {
-  ListContainersResponse,
-  SyncWatermark,
-} from "@tearleads/validators/response";
+import type { ListContainersResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -10,6 +7,11 @@ import {
   listContainers,
 } from "../../services/containers/listContainers";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import {
+  parseOptionalInteger,
+  parseOptionalParentId,
+  parseOptionalWatermark,
+} from "./queryParams";
 
 interface ListContainersRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -49,31 +51,4 @@ export function createListContainersRoute({
   });
 
   return listContainersRoute;
-}
-
-function parseOptionalInteger(value: string | undefined): number | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  return Number(value);
-}
-
-function parseOptionalParentId(value: string | undefined): string | null {
-  if (value === undefined || value === "null") {
-    return null;
-  }
-  return value;
-}
-
-function parseOptionalWatermark(
-  updatedAt: string | undefined,
-  id: string | undefined,
-): SyncWatermark | undefined {
-  if (updatedAt === undefined && id === undefined) {
-    return undefined;
-  }
-  return {
-    id: id ?? "",
-    updatedAt: updatedAt ?? "",
-  };
 }

@@ -57,7 +57,16 @@ type ExplorerAppData = ReturnType<typeof useAppData>;
 export type ContainerMetadataDocument = Awaited<
   ReturnType<typeof createContainerMetadataDocument>
 >;
-type ListedRemoteContainer = ContainerSummary;
+type ListedRemoteContainer = Pick<
+  ContainerSummary,
+  | "id"
+  | "metadataAccessEpoch"
+  | "metadataAccessStateHash"
+  | "metadataDocumentId"
+  | "metadataReferencedPrincipals"
+  | "organizationId"
+  | "parentId"
+>;
 
 interface ContainerMetadataSyncAttempt {
   outgoingUpdateCount: number;
@@ -413,13 +422,8 @@ async function listAllRemoteContainers(
     if (!response) {
       return null;
     }
-    if (Array.isArray(response)) {
-      containers.push(...response);
-      return containers;
-    }
-    const normalizedResponse = response;
 
-    for (const container of normalizedResponse.items) {
+    for (const container of response.items) {
       if (!seenContainerIds.has(container.id)) {
         seenContainerIds.add(container.id);
         containers.push(container);
@@ -431,13 +435,13 @@ async function listAllRemoteContainers(
       }
     }
 
-    if (normalizedResponse.hasMore) {
-      if (!normalizedResponse.nextWatermark) {
+    if (response.hasMore) {
+      if (!response.nextWatermark) {
         return null;
       }
       lanes.unshift({
         parentId: lane.parentId,
-        watermark: normalizedResponse.nextWatermark,
+        watermark: response.nextWatermark,
       });
     }
   }

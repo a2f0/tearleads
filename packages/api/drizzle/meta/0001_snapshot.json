@@ -2251,8 +2251,8 @@
           "method": "btree",
           "with": {}
         },
-        "container_sync_tombstones_user_depth_updated_idx": {
-          "name": "container_sync_tombstones_user_depth_updated_idx",
+        "container_sync_tombstones_user_parent_updated_idx": {
+          "name": "container_sync_tombstones_user_parent_updated_idx",
           "columns": [
             {
               "expression": "user_id",
@@ -2261,7 +2261,7 @@
               "nulls": "last"
             },
             {
-              "expression": "depth",
+              "expression": "parent_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2359,6 +2359,33 @@
           "columns": [
             {
               "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "containers_parent_updated_idx": {
+          "name": "containers_parent_updated_idx",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

@@ -16,6 +16,34 @@ type CapturedDiscoveredDocumentInput = Omit<
   accessStateHash: string;
 };
 
+function listContainerDocumentsResponse(
+  items: ReadonlyArray<{
+    createdAt: string;
+    currentAccessEpoch: number;
+    currentAccessStateHash: string;
+    id: string;
+    linkedContainerIds: string[];
+    referencedPrincipals?: Array<{
+      keyEpoch: number;
+      principalId: string;
+      principalType: "group" | "organization";
+      stateHash: string;
+      version: number;
+    }>;
+    updatedAt: string;
+  }>,
+) {
+  const lastItem = items.at(-1);
+  return {
+    hasMore: false,
+    items: [...items],
+    nextWatermark: lastItem
+      ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
+      : null,
+    tombstones: [],
+  };
+}
+
 function captureDiscoveredDocumentInputs(
   inputs: ReadonlyArray<DiscoveredDocumentInput>,
 ): CapturedDiscoveredDocumentInput[] {
@@ -71,24 +99,26 @@ test("unknown document update events trigger rediscovery for shared container no
       cachedPrincipalReferences.push(references);
     },
     containerId: "shared-container",
-    listContainerDocuments: async () => [
-      {
-        createdAt: "2026-04-06T12:00:00.000Z",
-        currentAccessEpoch: 1,
-        currentAccessStateHash: "access-state-hash-1",
-        id: "peer-note-document",
-        linkedContainerIds: ["shared-container"],
-        referencedPrincipals: [
-          {
-            keyEpoch: 1,
-            principalId: "group-1",
-            principalType: "group",
-            stateHash: "state-hash-1",
-            version: 1,
-          },
-        ],
-      },
-    ],
+    listContainerDocuments: async () =>
+      listContainerDocumentsResponse([
+        {
+          createdAt: "2026-04-06T12:00:00.000Z",
+          currentAccessEpoch: 1,
+          currentAccessStateHash: "access-state-hash-1",
+          id: "peer-note-document",
+          linkedContainerIds: ["shared-container"],
+          referencedPrincipals: [
+            {
+              keyEpoch: 1,
+              principalId: "group-1",
+              principalType: "group",
+              stateHash: "state-hash-1",
+              version: 1,
+            },
+          ],
+          updatedAt: "2026-04-06T12:00:00.000Z",
+        },
+      ]),
     replaceDocumentLinksBatch: async (inputs) => {
       replaceDocumentLinksBatchCalls.push(inputs);
     },
@@ -176,7 +206,7 @@ test("manual refresh can discover documents across all visible containers", asyn
     listContainerDocuments: async (containerId) => {
       listContainerDocumentsCalls.push(containerId);
       if (containerId === "container-a") {
-        return [
+        return listContainerDocumentsResponse([
           {
             createdAt: "2026-04-06T12:00:00.000Z",
             currentAccessEpoch: 1,
@@ -192,11 +222,12 @@ test("manual refresh can discover documents across all visible containers", asyn
                 version: 1,
               },
             ],
+            updatedAt: "2026-04-06T12:00:00.000Z",
           },
-        ];
+        ]);
       }
 
-      return [
+      return listContainerDocumentsResponse([
         {
           createdAt: "2026-04-06T12:05:00.000Z",
           currentAccessEpoch: 2,
@@ -212,8 +243,9 @@ test("manual refresh can discover documents across all visible containers", asyn
               version: 3,
             },
           ],
+          updatedAt: "2026-04-06T12:05:00.000Z",
         },
-      ];
+      ]);
     },
     replaceDocumentLinksBatch: async (inputs) => {
       replaceDocumentLinksBatchCalls.push(inputs);

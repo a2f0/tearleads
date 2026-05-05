@@ -15,7 +15,7 @@ interface ExplorerListedDocument {
   id: string;
   linkedContainerIds: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
-  updatedAt?: string;
+  updatedAt: string;
 }
 
 interface ExplorerListContainerDocumentsResponse {
@@ -34,23 +34,6 @@ interface DocumentLinkInput {
   documentId: string;
 }
 
-function normalizeListContainerDocumentsResponse(
-  response:
-    | ExplorerListContainerDocumentsResponse
-    | ReadonlyArray<ExplorerListedDocument>,
-): ExplorerListContainerDocumentsResponse {
-  if (Array.isArray(response)) {
-    return {
-      hasMore: false,
-      items: response,
-      nextWatermark: null,
-      tombstones: [],
-    };
-  }
-
-  return response as ExplorerListContainerDocumentsResponse;
-}
-
 interface DiscoverContainerDocumentsOptions {
   cacheReferencedPrincipalPolicies?: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
@@ -59,11 +42,7 @@ interface DiscoverContainerDocumentsOptions {
   listContainerDocuments: (
     containerId: string,
     options?: { watermark?: SyncWatermark | null },
-  ) => Promise<
-    | ExplorerListContainerDocumentsResponse
-    | ReadonlyArray<ExplorerListedDocument>
-    | null
-  >;
+  ) => Promise<ExplorerListContainerDocumentsResponse | null>;
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<DocumentLinkInput>,
   ) => Promise<void>;
@@ -88,14 +67,11 @@ async function listAllContainerDocuments(input: {
     if (!response) {
       return null;
     }
-    const normalizedResponse =
-      normalizeListContainerDocumentsResponse(response);
+    items.push(...response.items);
+    tombstones.push(...response.tombstones);
+    watermark = response.nextWatermark;
 
-    items.push(...normalizedResponse.items);
-    tombstones.push(...normalizedResponse.tombstones);
-    watermark = normalizedResponse.nextWatermark;
-
-    if (!normalizedResponse.hasMore) {
+    if (!response.hasMore) {
       return {
         hasMore: false,
         items,
