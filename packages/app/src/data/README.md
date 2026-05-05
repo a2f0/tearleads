@@ -43,10 +43,11 @@ cleanup should be incremental and behavior-preserving.
 ## Rules
 
 - `data/persistence/` and `data/sqlite/` modules must not import UI, providers,
-  hooks, or workflows at runtime.
-- `workflows/` modules must not import UI, hooks, or providers at runtime.
+  hooks, or workflows, including for type-only contracts.
+- `workflows/` modules must not import UI, hooks, or providers, including for
+  type-only contracts.
 - Shared helper modules under document and container data domains must stay
-  layer-neutral.
+  layer-neutral, including for type-only contracts.
 - Production UI and mini-app hooks should go through stores or providers rather
   than importing persistence stores or `data/sqlite/` directly, including for
   type-only contracts. Runtime workflow calls should also stay behind stores or

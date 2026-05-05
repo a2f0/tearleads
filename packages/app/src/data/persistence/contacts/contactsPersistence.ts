@@ -1,5 +1,5 @@
 import { and, asc, eq, sql } from "drizzle-orm";
-import type { AddressBookEntry } from "../../../mini-apps/contacts/types";
+import type { AddressBookEntry } from "../../contacts/addressBookEntry";
 import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
 import {
   type DocumentRecord,

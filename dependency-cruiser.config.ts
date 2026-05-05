@@ -135,42 +135,39 @@ const appRules = [
     name: "app-storage-does-not-depend-on-upper-layers",
     severity: "error",
     comment:
-      "App persistence modules and SQLite internals are low-level stores and must not depend on React runtime, presentation, or workflow modules.",
+      "App persistence modules and SQLite internals are low-level stores and must not depend on React runtime, presentation, or workflow modules, including type-only contracts.",
     from: {
       path: appStorageInternals,
       pathNot: testFilesPattern,
     },
     to: {
       path: [...appUpperLayers, appLayer.workflows],
-      preCompilationOnly: false,
     },
   },
   {
     name: "app-workflows-do-not-depend-on-react-runtime",
     severity: "error",
     comment:
-      "App workflows own multi-step local/remote orchestration below stores and providers, so they must not depend back on React runtime or presentation modules.",
+      "App workflows own multi-step local/remote orchestration below stores and providers, so they must not depend back on React runtime or presentation modules, including type-only contracts.",
     from: {
       path: appLayer.workflows,
       pathNot: testFilesPattern,
     },
     to: {
       path: appUpperLayers,
-      preCompilationOnly: false,
     },
   },
   {
     name: "app-shared-helpers-stay-layer-neutral",
     severity: "error",
     comment:
-      "Document and container shared helpers are used by workflows and stores, so they must not depend on workflows, providers, hooks, or UI.",
+      "Document and container shared helpers are used by workflows and stores, so they must not depend on workflows, providers, hooks, or UI, including type-only contracts.",
     from: {
       path: appLayer.sharedHelpers,
       pathNot: testFilesPattern,
     },
     to: {
       path: [...appUpperLayers, appLayer.workflows],
-      preCompilationOnly: false,
     },
   },
   {
