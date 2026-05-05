@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import type { primeDocumentStore } from "../documents/DocumentsProvider";
 
@@ -69,4 +70,63 @@ export function createExplorerDocumentsRuntime(
     signingKeyPair,
     userId,
   };
+}
+
+export function useExplorerDocumentsRuntimeAppData(
+  appData: ExplorerDocumentsRuntimeAppData,
+): ExplorerDocumentsRuntimeAppData {
+  const {
+    apiClient,
+    blobStore,
+    cacheReferencedPrincipalPolicies,
+    dbStatus,
+    domainScope,
+    encapsulationKeyPair,
+    events,
+    execSql,
+    isAuthenticated,
+    log,
+    online,
+    organizationId,
+    signingFingerprint,
+    signingKeyPair,
+    userId,
+  } = appData;
+
+  return useMemo(
+    () => ({
+      apiClient,
+      blobStore,
+      cacheReferencedPrincipalPolicies,
+      dbStatus,
+      domainScope,
+      encapsulationKeyPair,
+      events,
+      execSql,
+      isAuthenticated,
+      log,
+      online,
+      organizationId,
+      signingFingerprint,
+      signingKeyPair,
+      userId,
+    }),
+    [
+      apiClient,
+      blobStore,
+      cacheReferencedPrincipalPolicies,
+      dbStatus,
+      domainScope,
+      encapsulationKeyPair,
+      events,
+      execSql,
+      isAuthenticated,
+      log,
+      online,
+      organizationId,
+      signingFingerprint,
+      signingKeyPair,
+      userId,
+    ],
+  );
 }

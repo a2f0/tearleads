@@ -52,6 +52,9 @@ cleanup should be incremental and behavior-preserving.
   than importing persistence stores or `data/sqlite/` directly, including for
   type-only contracts. Runtime workflow calls should also stay behind stores or
   providers.
+- Production presentation files should not accept, pass, or import raw `ExecSql`
+  values. Bind the executor inside stores/providers and expose domain-shaped
+  actions or read models instead.
 
 `bun run lint:architecture` enforces the current high-confidence subset of
 these rules for `packages/app/src` and `packages/api/src`.

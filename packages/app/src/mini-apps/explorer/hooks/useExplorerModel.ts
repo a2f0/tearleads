@@ -1,6 +1,7 @@
 import { type ReactNode, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
+import { useExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import { buildExplorerTree } from "../ExplorerTree";
 import type {
   ExplorerDocumentMutationAction,
@@ -44,6 +45,7 @@ export function useExplorerModel(
 ): ExplorerModel {
   const { documentLinkProjectionVersion, handleDocumentLinksChanged } =
     useDocumentLinkProjectionVersion();
+  const documentReadModel = useExplorerDocumentReadModel(appData);
   const {
     knownDocumentIds,
     linkedContainerIdsByDocumentId,
@@ -55,6 +57,7 @@ export function useExplorerModel(
     setLinkedContainerIdsForDocument,
   } = useExplorerDocumentViewModel({
     appData,
+    documentReadModel,
     documentLinkProjectionVersion,
     nodes: explorer.nodes,
   });
@@ -66,6 +69,7 @@ export function useExplorerModel(
     useExplorerInteractionState({
       activeContainerId: selection.activeContainerId,
       appData,
+      documentReadModel,
       explorer,
       knownDocumentIds,
       mergeDocumentSummaries,
@@ -82,6 +86,7 @@ export function useExplorerModel(
     unlinkDocument,
   } = useExplorerPanelState({
     appData,
+    documentReadModel,
     explorer,
     linkedContainerIdsByDocumentId,
     mergeDocumentSummary,

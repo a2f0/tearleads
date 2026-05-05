@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
+import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import { getDocumentByLocalId } from "../documentSummaries";
 import {
@@ -88,6 +89,7 @@ function useSelectedDocumentTargetOptions(params: {
 
 export function useSelectedDocumentStructuralState(params: {
   appData: ExplorerDocumentsRuntimeAppData;
+  documentReadModel: ExplorerDocumentReadModel;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
@@ -102,6 +104,7 @@ export function useSelectedDocumentStructuralState(params: {
 }) {
   const {
     appData,
+    documentReadModel,
     documentSummaries,
     expandNode,
     linkedContainerIdsByDocumentId,
@@ -119,6 +122,7 @@ export function useSelectedDocumentStructuralState(params: {
   const { activateLinkedDocument, linkDocument, moveDocument, unlinkDocument } =
     useSelectedDocumentActions({
       appData,
+      documentReadModel,
       documentSummaries,
       expandNode,
       mergeDocumentSummary,

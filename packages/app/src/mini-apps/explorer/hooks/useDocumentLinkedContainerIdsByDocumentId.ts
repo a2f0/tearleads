@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
-import { listExplorerLinkedContainerIdsByDocumentIds } from "../../../stores/explorer/documentReadModel";
+import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import {
   areLinkedContainerIdMapsEqual,
@@ -10,14 +10,14 @@ import {
 
 export function useDocumentLinkedContainerIdsByDocumentId(params: {
   dbStatus: ReturnType<typeof useAppData>["dbStatus"];
+  documentReadModel: ExplorerDocumentReadModel;
   documentLinkProjectionVersion: number;
-  execSql: ReturnType<typeof useAppData>["execSql"];
   documentSummaries: ReadonlyArray<DocumentSummary>;
 }) {
   const {
     dbStatus,
+    documentReadModel,
     documentLinkProjectionVersion,
-    execSql,
     documentSummaries,
   } = params;
   const [linkedContainerIdsByDocumentId, setLinkedContainerIdsByDocumentId] =
@@ -66,8 +66,7 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
     void (async () => {
       try {
         const nextLinkedContainerIdsByDocumentId =
-          await listExplorerLinkedContainerIdsByDocumentIds(
-            execSql,
+          await documentReadModel.listLinkedContainerIdsByDocumentIds(
             requestedDocumentIds,
           );
         if (
@@ -98,8 +97,8 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
     };
   }, [
     dbStatus,
+    documentReadModel,
     documentLinkProjectionVersion,
-    execSql,
     requestedDocumentIdsKey,
   ]);
 
