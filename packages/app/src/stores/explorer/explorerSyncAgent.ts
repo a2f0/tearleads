@@ -523,25 +523,36 @@ function collectRemovedContainerIds(input: {
   tombstones: ReadonlyArray<ContainerSyncTombstone>;
 }): string[] {
   const { containersById, preservedContainerIds, tombstones } = input;
-  const removedContainerIds = new Set(
-    tombstones
-      .map((tombstone) => tombstone.containerId)
-      .filter((containerId) => !preservedContainerIds.has(containerId)),
-  );
-  let didAddDescendant = true;
+  const childIdsByParentId = new Map<string, string[]>();
+  for (const [containerId, containerState] of containersById) {
+    const parentId = containerState.container.parentId;
+    if (parentId === null) {
+      continue;
+    }
 
-  while (didAddDescendant) {
-    didAddDescendant = false;
-    for (const [containerId, containerState] of containersById) {
-      const parentId = containerState.container.parentId;
+    const childIds = childIdsByParentId.get(parentId) ?? [];
+    childIds.push(containerId);
+    childIdsByParentId.set(parentId, childIds);
+  }
+
+  const removedContainerIds = new Set<string>();
+  const pendingContainerIds = tombstones
+    .map((tombstone) => tombstone.containerId)
+    .filter((containerId) => !preservedContainerIds.has(containerId));
+
+  while (pendingContainerIds.length > 0) {
+    const containerId = pendingContainerIds.pop();
+    if (!containerId || removedContainerIds.has(containerId)) {
+      continue;
+    }
+
+    removedContainerIds.add(containerId);
+    for (const childId of childIdsByParentId.get(containerId) ?? []) {
       if (
-        !removedContainerIds.has(containerId) &&
-        !preservedContainerIds.has(containerId) &&
-        parentId !== null &&
-        removedContainerIds.has(parentId)
+        !preservedContainerIds.has(childId) &&
+        !removedContainerIds.has(childId)
       ) {
-        removedContainerIds.add(containerId);
-        didAddDescendant = true;
+        pendingContainerIds.push(childId);
       }
     }
   }
@@ -581,12 +592,12 @@ async function applyContainerTombstones(input: {
   });
   const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
 
+  await state.persistence.deleteContainers(
+    state.runtime.execSql,
+    removedContainerIds,
+    tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : undefined,
+  );
   for (const containerId of removedContainerIds) {
-    await state.persistence.deleteContainer(
-      state.runtime.execSql,
-      containerId,
-      tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : undefined,
-    );
     state.containersById.delete(containerId);
   }
 

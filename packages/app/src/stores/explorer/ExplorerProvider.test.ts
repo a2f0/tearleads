@@ -1994,6 +1994,14 @@ test("explorer sync applies container tombstones before advancing the parent wat
       name: "Archive",
       icon: null,
     });
+    await saveContainer(runtime.execSql, {
+      id: "grandchild-container",
+      organizationId: "org-1",
+      parentId: "child-container",
+      metadataDocumentId: null,
+      name: "Grandchild",
+      icon: null,
+    });
     await sqlDocumentsPersistence.saveDocument(
       runtime.execSql,
       {
@@ -2029,6 +2037,14 @@ test("explorer sync applies container tombstones before advancing the parent wat
         updatedAt: "2026-05-04T00:00:00.000Z",
       },
     );
+    await sqlContainerSyncWatermarkPersistence.saveWatermark(
+      runtime.execSql,
+      containerParentSyncLane("grandchild-container"),
+      {
+        id: "previous-grandchild-lane",
+        updatedAt: "2026-05-04T00:00:00.000Z",
+      },
+    );
 
     const createdStore = createExplorerStore(runtime);
     store = createdStore;
@@ -2056,6 +2072,11 @@ test("explorer sync applies container tombstones before advancing the parent wat
         .getSnapshot()
         .nodes.some((node) => node.id === "archive-container"),
     ).toBe(true);
+    expect(
+      createdStore
+        .getSnapshot()
+        .nodes.some((node) => node.id === "grandchild-container"),
+    ).toBe(false);
     await expect(
       sqlContainerSyncWatermarkPersistence.loadWatermark(
         runtime.execSql,
@@ -2075,6 +2096,12 @@ test("explorer sync applies container tombstones before advancing the parent wat
       sqlContainerSyncWatermarkPersistence.loadWatermark(
         runtime.execSql,
         containerDocumentsSyncLane("child-container"),
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerParentSyncLane("grandchild-container"),
       ),
     ).resolves.toBeNull();
     await expect(

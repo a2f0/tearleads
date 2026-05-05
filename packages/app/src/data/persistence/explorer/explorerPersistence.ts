@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   type AppSQLiteTransaction,
   getAppDatabaseRuntime,
@@ -7,7 +7,6 @@ import {
   type DocumentRecord,
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
-  deleteDocumentRecord,
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   listDocumentPendingUpdates,
@@ -21,8 +20,10 @@ import {
   containerCreateIntentTables,
   documentContainerProjection,
   documentContainerProjectionTables,
+  documentPendingUpdates,
   documentProjection,
   documentProjectionTables,
+  documents,
 } from "../../sqlite/schema";
 import {
   type ExecSql,
@@ -31,7 +32,7 @@ import {
 } from "../../sqlite/sqlSchema";
 import {
   type ContainerRecord,
-  deleteContainer as deleteContainerRecord,
+  deleteContainers as deleteContainerRecords,
   ensureContainerTables,
   loadContainers as loadContainerRecords,
   saveContainerRows,
@@ -71,6 +72,11 @@ export interface ExplorerPersistence {
   deleteContainer: (
     execSql: ExecSql,
     containerId: string,
+    options?: { updatedAt?: string },
+  ) => Promise<void>;
+  deleteContainers: (
+    execSql: ExecSql,
+    containerIds: ReadonlyArray<string>,
     options?: { updatedAt?: string },
   ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
@@ -231,12 +237,17 @@ async function saveContainerCreateIntent(input: {
     .run();
 }
 
-async function repairDocumentsForRemovedContainer(input: {
-  containerId: string;
+async function repairDocumentsForRemovedContainers(input: {
+  containerIds: ReadonlyArray<string>;
   execSql: ExecSql;
   updatedAt: string;
 }): Promise<void> {
-  const { containerId, execSql, updatedAt } = input;
+  const { execSql, updatedAt } = input;
+  const containerIds = Array.from(new Set(input.containerIds));
+  if (containerIds.length === 0) {
+    return;
+  }
+
   await ensureSqlTables(execSql, [
     ...documentContainerProjectionTables,
     ...documentProjectionTables,
@@ -250,31 +261,54 @@ async function repairDocumentsForRemovedContainer(input: {
         updatedAt: documentProjection.updatedAt,
       })
       .from(documentProjection)
-      .where(eq(documentProjection.containerId, containerId));
+      .where(inArray(documentProjection.containerId, containerIds));
 
     await tx
       .delete(documentContainerProjection)
-      .where(eq(documentContainerProjection.containerId, containerId))
+      .where(inArray(documentContainerProjection.containerId, containerIds))
       .run();
+
+    const documentIds = Array.from(
+      new Set(
+        selectedRows.flatMap((row) => (row.documentId ? [row.documentId] : [])),
+      ),
+    );
+    const remainingLinks =
+      documentIds.length > 0
+        ? await tx
+            .select({
+              containerId: documentContainerProjection.containerId,
+              documentId: documentContainerProjection.documentId,
+            })
+            .from(documentContainerProjection)
+            .where(inArray(documentContainerProjection.documentId, documentIds))
+            .orderBy(
+              asc(documentContainerProjection.documentId),
+              asc(documentContainerProjection.containerId),
+            )
+        : [];
+    const firstRemainingContainerIdByDocumentId = new Map<string, string>();
+    for (const link of remainingLinks) {
+      if (!firstRemainingContainerIdByDocumentId.has(link.documentId)) {
+        firstRemainingContainerIdByDocumentId.set(
+          link.documentId,
+          link.containerId,
+        );
+      }
+    }
 
     for (const row of selectedRows) {
       if (!row.localId) {
         continue;
       }
 
-      const remainingLinks = row.documentId
-        ? await tx
-            .select({ containerId: documentContainerProjection.containerId })
-            .from(documentContainerProjection)
-            .where(eq(documentContainerProjection.documentId, row.documentId))
-            .orderBy(asc(documentContainerProjection.containerId))
-            .limit(1)
-        : [];
-
       await tx
         .update(documentProjection)
         .set({
-          containerId: remainingLinks[0]?.containerId ?? null,
+          containerId: row.documentId
+            ? (firstRemainingContainerIdByDocumentId.get(row.documentId) ??
+              null)
+            : null,
           updatedAt: getLatestTimestamp(row.updatedAt, updatedAt),
         })
         .where(eq(documentProjection.localId, row.localId))
@@ -285,30 +319,52 @@ async function repairDocumentsForRemovedContainer(input: {
 
 export const sqlExplorerPersistence: ExplorerPersistence = {
   async deleteContainer(execSql, containerId, options) {
+    await sqlExplorerPersistence.deleteContainers(
+      execSql,
+      [containerId],
+      options,
+    );
+  },
+  async deleteContainers(execSql, containerIds, options) {
+    const uniqueContainerIds = Array.from(new Set(containerIds));
+    if (uniqueContainerIds.length === 0) {
+      return;
+    }
+
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = options?.updatedAt ?? new Date().toISOString();
       const { db } = getAppDatabaseRuntime(lockedExecSql);
-      await repairDocumentsForRemovedContainer({
-        containerId,
+      await repairDocumentsForRemovedContainers({
+        containerIds: uniqueContainerIds,
         execSql: lockedExecSql,
         updatedAt,
       });
       await db
         .delete(containerCreateIntents)
-        .where(eq(containerCreateIntents.containerId, containerId))
+        .where(inArray(containerCreateIntents.containerId, uniqueContainerIds))
         .run();
-      await deleteContainerRecord(lockedExecSql, containerId);
-      await deleteDocumentRecord(
-        lockedExecSql,
-        getContainerMetadataScope(containerId),
-      );
-      await deleteDocumentPendingUpdates(
-        lockedExecSql,
-        getContainerMetadataScope(containerId),
-      );
+      await deleteContainerRecords(lockedExecSql, uniqueContainerIds);
+      await db
+        .delete(documents)
+        .where(
+          and(
+            eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+            inArray(documents.localId, uniqueContainerIds),
+          ),
+        )
+        .run();
+      await db
+        .delete(documentPendingUpdates)
+        .where(
+          and(
+            eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+            inArray(documentPendingUpdates.localId, uniqueContainerIds),
+          ),
+        )
+        .run();
       await sqlContainerSyncWatermarkPersistence.deleteWatermarksForContainers(
         lockedExecSql,
-        [containerId],
+        uniqueContainerIds,
       );
     });
   },
