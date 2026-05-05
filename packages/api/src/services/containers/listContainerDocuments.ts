@@ -106,17 +106,17 @@ function normalizeWatermark(
 }
 
 function watermarkPredicate(
-  tableAlias: string,
+  updatedAtExpression: SQL,
+  idExpression: SQL,
   watermark: SyncWatermark | null | undefined,
-  idColumn = "id",
 ): SQL {
   if (!watermark) {
     return sql``;
   }
 
-  return sql`and (${sql.raw(`${tableAlias}.updated_at`)}, ${sql.raw(
-    `${tableAlias}.${idColumn}`,
-  )}::text) > (${new Date(watermark.updatedAt)}, ${watermark.id})`;
+  return sql`and (${updatedAtExpression}, ${idExpression}) > (${new Date(
+    watermark.updatedAt,
+  )}, ${watermark.id})`;
 }
 
 async function loadCurrentContainerDocumentRows(input: {
@@ -155,7 +155,11 @@ async function loadCurrentContainerDocumentRows(input: {
     .where(sql`
       ${accessManifestHeads.objectKind} = ${"document"}
       and ${containerMetadataDocuments.documentId} is null
-      ${watermarkPredicate("documents", input.watermark)}
+      ${watermarkPredicate(
+        sql`${documents.updatedAt}`,
+        sql`${accessManifestHeads.objectId}`,
+        input.watermark,
+      )}
     `)
     .orderBy(asc(documents.updatedAt), asc(accessManifestHeads.objectId))
     .limit(input.limit + 1);
@@ -176,9 +180,9 @@ async function loadContainerDocumentTombstoneRows(input: {
     .where(sql`
       ${containerDocumentSyncTombstones.containerId} = ${input.containerId}
       ${watermarkPredicate(
-        "container_document_sync_tombstones",
+        sql`${containerDocumentSyncTombstones.updatedAt}`,
+        sql`${containerDocumentSyncTombstones.documentId}`,
         input.watermark,
-        "document_id",
       )}
     `)
     .orderBy(

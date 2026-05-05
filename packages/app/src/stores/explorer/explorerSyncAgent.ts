@@ -393,36 +393,26 @@ async function listAllRemoteContainers(
   apiClient: ExplorerRuntime["apiClient"],
 ): Promise<ReadonlyArray<ExplorerRemoteContainer> | null> {
   const containers: ExplorerRemoteContainer[] = [];
+  let watermark: SyncWatermark | null = null;
 
-  for (let depth = 0; ; depth += 1) {
-    let watermark: SyncWatermark | null = null;
-    let depthChangeCount = 0;
-
-    do {
-      const response = await apiClient.listContainers({ depth, watermark });
-      if (!response) {
-        return null;
-      }
-      if (Array.isArray(response)) {
-        containers.push(...response);
-        return containers;
-      }
-      const normalizedResponse = response;
-
-      containers.push(...normalizedResponse.items);
-      depthChangeCount +=
-        normalizedResponse.items.length + normalizedResponse.tombstones.length;
-      watermark = normalizedResponse.nextWatermark;
-
-      if (!normalizedResponse.hasMore) {
-        break;
-      }
-    } while (watermark);
-
-    if (depthChangeCount === 0) {
-      break;
+  do {
+    const response = await apiClient.listContainers({ watermark });
+    if (!response) {
+      return null;
     }
-  }
+    if (Array.isArray(response)) {
+      containers.push(...response);
+      return containers;
+    }
+    const normalizedResponse = response;
+
+    containers.push(...normalizedResponse.items);
+    watermark = normalizedResponse.nextWatermark;
+
+    if (!normalizedResponse.hasMore) {
+      return containers;
+    }
+  } while (watermark);
 
   return containers;
 }

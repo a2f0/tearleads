@@ -51,6 +51,19 @@ interface ContainerTombstoneRow {
   updatedAt: string;
 }
 
+interface ContainerChangeCandidate {
+  kind: "container" | "tombstone";
+  id: string;
+  updatedAt: string;
+}
+
+interface ContainerPageSelection {
+  containerIds: Set<string>;
+  hasMore: boolean;
+  nextWatermark: SyncWatermark | null;
+  tombstoneIds: Set<string>;
+}
+
 export class ListContainersError extends Error {
   constructor(
     message: string,
@@ -113,9 +126,9 @@ function normalizeLimit(value: number | undefined): number {
   return Math.min(value, MAX_LIMIT);
 }
 
-function normalizeDepth(value: number | undefined): number {
+function normalizeDepth(value: number | undefined): number | undefined {
   if (value === undefined) {
-    return 0;
+    return undefined;
   }
   if (!Number.isInteger(value) || value < 0) {
     throw new ListContainersError("Invalid depth", 400);
@@ -151,21 +164,21 @@ function normalizeWatermark(
 }
 
 function watermarkPredicate(
-  tableAlias: string,
+  updatedAtExpression: SQL,
+  idExpression: SQL,
   watermark: SyncWatermark | null | undefined,
-  idColumn = "id",
 ): SQL {
   if (!watermark) {
     return sql``;
   }
 
-  return sql`and (${sql.raw(`${tableAlias}.updated_at`)}, ${sql.raw(
-    `${tableAlias}.${idColumn}`,
-  )}::text) > (${new Date(watermark.updatedAt)}, ${watermark.id})`;
+  return sql`and (${updatedAtExpression}, ${idExpression}) > (${new Date(
+    watermark.updatedAt,
+  )}, ${watermark.id})`;
 }
 
 async function listAccessibleContainersForUser(input: {
-  readonly depth: number;
+  readonly depth: number | undefined;
   readonly limit: number;
   readonly runtime: ApiServiceRuntime;
   readonly userId: string;
@@ -261,14 +274,18 @@ async function listAccessibleContainersForUser(input: {
       accessible.updated_at as "updatedAt",
       accessible.epoch::int as "metadataAccessEpoch",
       accessible.manifest_hash::text as "metadataAccessStateHash"
-    from deduped_accessible_containers accessible
-    where accessible.depth = ${input.depth}
-      ${watermarkPredicate("accessible", input.watermark)}
-    order by
-      accessible.updated_at asc,
-      accessible.id asc
-    limit ${input.limit + 1}
-  `);
+	    from deduped_accessible_containers accessible
+	    where ${input.depth === undefined ? sql`true` : sql`accessible.depth = ${input.depth}`}
+	      ${watermarkPredicate(
+          sql`accessible.updated_at`,
+          sql`accessible.id::text`,
+          input.watermark,
+        )}
+	    order by
+	      accessible.updated_at asc,
+	      accessible.id::text asc
+	    limit ${input.limit + 1}
+	  `);
 
   const accessibleContainers: AccessibleContainerRow[] = [];
 
@@ -300,7 +317,7 @@ async function listAccessibleContainersForUser(input: {
 }
 
 async function listContainerTombstones(input: {
-  readonly depth: number;
+  readonly depth: number | undefined;
   readonly limit: number;
   readonly runtime: ApiServiceRuntime;
   readonly userId: string;
@@ -316,17 +333,17 @@ async function listContainerTombstones(input: {
     })
     .from(containerSyncTombstones)
     .where(sql`
-      ${containerSyncTombstones.userId} = ${input.userId}
-      and ${containerSyncTombstones.depth} = ${input.depth}
-      ${watermarkPredicate(
-        "container_sync_tombstones",
-        input.watermark,
-        "container_id",
-      )}
-    `)
+	      ${containerSyncTombstones.userId} = ${input.userId}
+	      and ${input.depth === undefined ? sql`true` : sql`${containerSyncTombstones.depth} = ${input.depth}`}
+	      ${watermarkPredicate(
+          sql`${containerSyncTombstones.updatedAt}`,
+          sql`${containerSyncTombstones.containerId}::text`,
+          input.watermark,
+        )}
+	    `)
     .orderBy(
       containerSyncTombstones.updatedAt,
-      containerSyncTombstones.containerId,
+      sql`${containerSyncTombstones.containerId}::text`,
     )
     .limit(input.limit + 1);
 
@@ -339,36 +356,69 @@ async function listContainerTombstones(input: {
   }));
 }
 
-function containerChangeUpdatedAt(
-  change: ContainerSummary | ContainerSyncTombstone,
-): string {
-  return change.updatedAt ?? "";
-}
-
-function containerChangeId(
-  change: ContainerSummary | ContainerSyncTombstone,
-): string {
-  return "id" in change ? change.id : change.containerId;
-}
-
-function compareContainerChanges(
-  left: ContainerSummary | ContainerSyncTombstone,
-  right: ContainerSummary | ContainerSyncTombstone,
+function compareContainerChangeCandidates(
+  left: ContainerChangeCandidate,
+  right: ContainerChangeCandidate,
 ): number {
-  const updatedAtOrder = containerChangeUpdatedAt(left).localeCompare(
-    containerChangeUpdatedAt(right),
-  );
+  const updatedAtOrder = left.updatedAt.localeCompare(right.updatedAt);
   return updatedAtOrder === 0
-    ? containerChangeId(left).localeCompare(containerChangeId(right))
+    ? left.id.localeCompare(right.id)
     : updatedAtOrder;
 }
 
-function containerChangeWatermark(
-  change: ContainerSummary | ContainerSyncTombstone,
+function containerCandidateWatermark(
+  candidate: ContainerChangeCandidate,
 ): SyncWatermark {
   return {
-    updatedAt: containerChangeUpdatedAt(change),
-    id: containerChangeId(change),
+    id: candidate.id,
+    updatedAt: candidate.updatedAt,
+  };
+}
+
+function selectContainerPage(input: {
+  readonly containerRows: readonly AccessibleContainerRow[];
+  readonly limit: number;
+  readonly tombstoneRows: readonly ContainerTombstoneRow[];
+  readonly watermark: SyncWatermark | null;
+}): ContainerPageSelection {
+  const candidates: ContainerChangeCandidate[] = [
+    ...input.containerRows.map((row) => ({
+      id: row.id,
+      kind: "container" as const,
+      updatedAt: row.updatedAt,
+    })),
+    ...input.tombstoneRows.map((row) => ({
+      id: row.containerId,
+      kind: "tombstone" as const,
+      updatedAt: row.updatedAt,
+    })),
+  ];
+  const selectedCandidates = candidates
+    .sort(compareContainerChangeCandidates)
+    .slice(0, input.limit);
+  const selectedContainerIds = new Set(
+    selectedCandidates
+      .filter((candidate) => candidate.kind === "container")
+      .map((candidate) => candidate.id),
+  );
+  const selectedTombstoneIds = new Set(
+    selectedCandidates
+      .filter((candidate) => candidate.kind === "tombstone")
+      .map((candidate) => candidate.id),
+  );
+  const lastCandidate = selectedCandidates.at(-1) ?? null;
+
+  return {
+    containerIds: selectedContainerIds,
+    hasMore:
+      input.containerRows.length > input.limit ||
+      input.tombstoneRows.length > input.limit ||
+      selectedCandidates.length < candidates.length,
+    nextWatermark:
+      lastCandidate === null
+        ? input.watermark
+        : containerCandidateWatermark(lastCandidate),
+    tombstoneIds: selectedTombstoneIds,
   };
 }
 
@@ -432,11 +482,9 @@ async function resolveVisibleContainerSummaries(input: {
 }
 
 function buildListContainersResponse(input: {
-  readonly containerRows: readonly AccessibleContainerRow[];
-  readonly limit: number;
+  readonly pageSelection: ContainerPageSelection;
   readonly tombstoneRows: readonly ContainerTombstoneRow[];
   readonly visibleContainers: readonly ContainerSummary[];
-  readonly watermark: SyncWatermark | null;
 }): ListContainersResponse {
   const tombstones: ContainerSyncTombstone[] = input.tombstoneRows.map(
     (row) => ({
@@ -447,37 +495,15 @@ function buildListContainersResponse(input: {
       updatedAt: row.updatedAt,
     }),
   );
-  const changes = [...input.visibleContainers, ...tombstones]
-    .sort(compareContainerChanges)
-    .slice(0, input.limit);
-  const itemIds = new Set(
-    changes
-      .filter((change): change is ContainerSummary => "id" in change)
-      .map((change) => change.id),
-  );
-  const tombstoneIds = new Set(
-    changes
-      .filter((change): change is ContainerSyncTombstone => !("id" in change))
-      .map((change) => change.containerId),
-  );
-  const lastChange = changes.at(-1) ?? null;
-  const hasMore =
-    input.containerRows.length > input.limit ||
-    input.tombstoneRows.length > input.limit ||
-    changes.length < input.visibleContainers.length + tombstones.length;
-  const nextWatermark =
-    lastChange === null
-      ? input.watermark
-      : containerChangeWatermark(lastChange);
 
   return {
-    hasMore,
+    hasMore: input.pageSelection.hasMore,
     items: input.visibleContainers.filter((container) =>
-      itemIds.has(container.id),
+      input.pageSelection.containerIds.has(container.id),
     ),
-    nextWatermark,
+    nextWatermark: input.pageSelection.nextWatermark,
     tombstones: tombstones.filter((tombstone) =>
-      tombstoneIds.has(tombstone.containerId),
+      input.pageSelection.tombstoneIds.has(tombstone.containerId),
     ),
   };
 }
@@ -501,17 +527,23 @@ export async function listContainers(
     }),
     listContainerTombstones({ depth, limit, runtime, userId, watermark }),
   ]);
-  const visibleContainers = await resolveVisibleContainerSummaries({
+  const pageSelection = selectContainerPage({
     containerRows,
+    limit,
+    tombstoneRows,
+    watermark,
+  });
+  const visibleContainers = await resolveVisibleContainerSummaries({
+    containerRows: containerRows.filter((row) =>
+      pageSelection.containerIds.has(row.id),
+    ),
     runtime,
     userId,
   });
 
   return buildListContainersResponse({
-    containerRows,
-    limit,
+    pageSelection,
     tombstoneRows,
     visibleContainers,
-    watermark,
   });
 }

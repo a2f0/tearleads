@@ -1,8 +1,15 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
+import {
+  accessManifests,
+  containerSyncTombstones,
+  containers,
+} from "../../schema";
 
 test("GET /containers returns the manifest-backed root container for the authenticated user", async () => {
   const owner = createTestUser();
@@ -73,6 +80,44 @@ test("GET /containers only returns containers readable through current manifests
   ).not.toContain(owner.rootContainerId);
 });
 
+test("GET /containers without a depth filter includes accessible non-root depths", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  await db
+    .update(containers)
+    .set({ depth: 2 })
+    .where(eq(containers.id, owner.rootContainerId));
+
+  const depthResponse = await routeApp.request("/containers?depth=0", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+    },
+  });
+  expect(depthResponse.status).toBe(200);
+  expect((await depthResponse.json()).items).toEqual([]);
+
+  const allDepthResponse = await routeApp.request("/containers", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+    },
+  });
+  expect(allDepthResponse.status).toBe(200);
+  expect(await allDepthResponse.json()).toEqual(
+    expect.objectContaining({
+      items: [
+        expect.objectContaining({
+          depth: 2,
+          id: owner.rootContainerId,
+        }),
+      ],
+    }),
+  );
+});
+
 test("GET /containers supports client-owned watermark resume", async () => {
   const owner = createTestUser();
   await registerUser(owner);
@@ -119,4 +164,102 @@ test("GET /containers supports client-owned watermark resume", async () => {
     },
   );
   expect(malformedWatermarkResponse.status).toBe(400);
+});
+
+test("GET /containers advances the watermark over filtered page candidates", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const [rootContainer] = await db
+    .select({
+      organizationId: containers.organizationId,
+    })
+    .from(containers)
+    .where(eq(containers.id, owner.rootContainerId))
+    .limit(1);
+  if (!rootContainer) {
+    throw new Error("Expected registered root container");
+  }
+
+  await db
+    .update(containers)
+    .set({ updatedAt: new Date("2026-05-05T00:00:00.000Z") })
+    .where(eq(containers.id, owner.rootContainerId));
+
+  const [rootManifest] = await db
+    .select({ state: accessManifests.state })
+    .from(accessManifests)
+    .where(eq(accessManifests.objectId, owner.rootContainerId))
+    .limit(1);
+  if (!rootManifest) {
+    throw new Error("Expected registered root access manifest");
+  }
+
+  await db
+    .update(accessManifests)
+    .set({
+      state: {
+        ...(rootManifest.state as Record<string, unknown>),
+        metadataDocumentId: null,
+      },
+    })
+    .where(eq(accessManifests.objectId, owner.rootContainerId));
+
+  const tombstoneContainerId = crypto.randomUUID();
+  await db.insert(containerSyncTombstones).values({
+    containerId: tombstoneContainerId,
+    depth: 0,
+    organizationId: rootContainer.organizationId,
+    parentId: null,
+    reason: "deleted",
+    updatedAt: new Date("2026-05-05T00:00:01.000Z"),
+    userId: owner.userId,
+  });
+
+  const firstResponse = await routeApp.request("/containers?limit=1", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+    },
+  });
+  expect(firstResponse.status).toBe(200);
+  const firstBody = await firstResponse.json();
+  expect(firstBody).toEqual({
+    hasMore: true,
+    items: [],
+    nextWatermark: {
+      id: owner.rootContainerId,
+      updatedAt: "2026-05-05T00:00:00.000Z",
+    },
+    tombstones: [],
+  });
+
+  const secondResponse = await routeApp.request(
+    `/containers?limit=1&watermarkUpdatedAt=${encodeURIComponent(firstBody.nextWatermark.updatedAt)}&watermarkId=${encodeURIComponent(firstBody.nextWatermark.id)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+  expect(secondResponse.status).toBe(200);
+  expect(await secondResponse.json()).toEqual({
+    hasMore: false,
+    items: [],
+    nextWatermark: {
+      id: tombstoneContainerId,
+      updatedAt: "2026-05-05T00:00:01.000Z",
+    },
+    tombstones: [
+      {
+        containerId: tombstoneContainerId,
+        depth: 0,
+        parentId: null,
+        reason: "deleted",
+        updatedAt: "2026-05-05T00:00:01.000Z",
+      },
+    ],
+  });
 });

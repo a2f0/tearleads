@@ -1784,14 +1784,16 @@ test("explorer store refreshes remote containers on demand after initialization"
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   let listContainersCalls = 0;
+  const listContainersOptions: Array<{ depth?: number }> = [];
 
   runtime.isAuthenticated = true;
   runtime.online = true;
   runtime.encapsulationKeyPair = localKeyPair;
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
-    listContainers: async () => {
+    listContainers: async (options = {}) => {
       listContainersCalls += 1;
+      listContainersOptions.push(options);
 
       if (listContainersCalls === 1) {
         return [];
@@ -1836,6 +1838,9 @@ test("explorer store refreshes remote containers on demand after initialization"
     );
 
     expect(listContainersCalls).toBeGreaterThanOrEqual(2);
+    expect(
+      listContainersOptions.every((options) => !("depth" in options)),
+    ).toBe(true);
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";
