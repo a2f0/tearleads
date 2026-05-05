@@ -119,8 +119,10 @@ export const organizations = pgTable("organizations", {
  * Indexes:
  * - `organizationId where parentId is null` is unique so an organization has
  *   one root container.
- * - `parentId` supports child-container listing and move validation.
- * - `(organizationId, depth, updatedAt, id)` supports depth-lane sync scans.
+ * - `parentId` supports direct child lookups and move validation.
+ * - `(parentId, updatedAt, id)` supports parent-container sync lanes.
+ * - `(organizationId, depth, updatedAt, id)` keeps depth indexed for tree
+ *   traversal and depth-bounded maintenance.
  */
 export const containers = pgTable(
   "containers",
@@ -137,6 +139,11 @@ export const containers = pgTable(
       .on(table.organizationId)
       .where(sql`${table.parentId} is null`),
     index("containers_parent_id_idx").on(table.parentId),
+    index("containers_parent_updated_idx").on(
+      table.parentId,
+      table.updatedAt,
+      table.id,
+    ),
     index("containers_org_depth_updated_idx").on(
       table.organizationId,
       table.depth,
@@ -151,6 +158,9 @@ export const containers = pgTable(
  * Per-user tombstones for containers that should be removed from a local sync
  * view. This is intentionally scoped to a user because removals caused by
  * access changes are visibility decisions, not global object deletion facts.
+ *
+ * The parent-lane index mirrors the live container scan so a client can request
+ * tombstones for the same parent container watermark it uses for live rows.
  */
 export const containerSyncTombstones = pgTable(
   "container_sync_tombstones",
@@ -169,9 +179,9 @@ export const containerSyncTombstones = pgTable(
       table.userId,
       table.containerId,
     ),
-    index("container_sync_tombstones_user_depth_updated_idx").on(
+    index("container_sync_tombstones_user_parent_updated_idx").on(
       table.userId,
-      table.depth,
+      table.parentId,
       table.updatedAt,
       table.containerId,
     ),

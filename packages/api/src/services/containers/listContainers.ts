@@ -4,6 +4,7 @@ import type {
   ListContainersResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
+import { isUuidV4String } from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
 import {
   accessManifestContainerGrantProjection,
@@ -38,8 +39,8 @@ interface AccessibleContainerRow {
 }
 
 interface ListContainersOptions {
-  readonly depth?: number | undefined;
   readonly limit?: number | undefined;
+  readonly parentId?: string | null | undefined;
   readonly watermark?: SyncWatermark | null;
 }
 
@@ -126,14 +127,25 @@ function normalizeLimit(value: number | undefined): number {
   return Math.min(value, MAX_LIMIT);
 }
 
-function normalizeDepth(value: number | undefined): number | undefined {
-  if (value === undefined) {
-    return undefined;
+function normalizeParentId(value: string | null | undefined): string | null {
+  if (value === undefined || value === null) {
+    return null;
   }
-  if (!Number.isInteger(value) || value < 0) {
-    throw new ListContainersError("Invalid depth", 400);
+  if (!isUuidV4String(value)) {
+    throw new ListContainersError("Invalid parentId", 400);
   }
   return value;
+}
+
+function parentIdPredicate(
+  parentIdExpression: SQL,
+  parentId: string | null,
+): SQL {
+  if (parentId === null) {
+    return sql`${parentIdExpression} is null`;
+  }
+
+  return sql`${parentIdExpression}::text = ${parentId}`;
 }
 
 function normalizeWatermark(
@@ -178,8 +190,8 @@ function watermarkPredicate(
 }
 
 async function listAccessibleContainersForUser(input: {
-  readonly depth: number | undefined;
   readonly limit: number;
+  readonly parentId: string | null;
   readonly runtime: ApiServiceRuntime;
   readonly userId: string;
   readonly watermark: SyncWatermark | null;
@@ -218,7 +230,7 @@ async function listAccessibleContainersForUser(input: {
         on pmp.member_principal_type = rp.principal_type
         and pmp.member_principal_id = rp.principal_id
     ),
-    current_container_manifests as (
+    target_parent_path as (
       select
         c.id,
         c.organization_id,
@@ -235,12 +247,36 @@ async function listAccessibleContainersForUser(input: {
         and h.object_id = c.id::text
       inner join ${accessManifests} m
         on m.manifest_hash = h.manifest_hash
+      where ${
+        input.parentId === null
+          ? sql`false`
+          : sql`c.id::text = ${input.parentId}`
+      }
+      union all
+      select
+        parent.id,
+        parent.organization_id,
+        parent.parent_id,
+        parent.depth,
+        parent.created_at,
+        parent.updated_at,
+        h.epoch,
+        h.manifest_hash,
+        m.state
+      from ${containers} parent
+      inner join target_parent_path child
+        on child.parent_id = parent.id
+      inner join ${accessManifestHeads} h
+        on h.object_kind = ${"container"}
+        and h.object_id = parent.id::text
+      inner join ${accessManifests} m
+        on m.manifest_hash = h.manifest_hash
     ),
-    seed_containers as (
-      select distinct current_container_manifests.*
-      from current_container_manifests
+    authorized_parent as (
+      select 1
+      from target_parent_path parent
       inner join ${accessManifestContainerGrantProjection} grant_projection
-        on grant_projection.manifest_hash = current_container_manifests.manifest_hash
+        on grant_projection.manifest_hash = parent.manifest_hash
       left join reachable_principals rp
         on grant_projection.subject_type = rp.principal_type
         and grant_projection.subject_id = rp.principal_id
@@ -250,19 +286,83 @@ async function listAccessibleContainersForUser(input: {
           and grant_projection.subject_id = ${input.userId}
         )
         or rp.principal_id is not null
+      limit 1
     ),
-    accessible_containers as (
-      select * from seed_containers
-      union
-      select child.*
-      from current_container_manifests child
-      inner join accessible_containers parent on child.parent_id = parent.id
+    parent_lane_candidate_containers as (
+      select
+        c.id,
+        c.organization_id,
+        c.parent_id,
+        c.depth,
+        c.created_at,
+        c.updated_at,
+        h.epoch,
+        h.manifest_hash,
+        m.state
+      from ${containers} c
+      inner join ${accessManifestHeads} h
+        on h.object_kind = ${"container"}
+        and h.object_id = c.id::text
+      inner join ${accessManifests} m
+        on m.manifest_hash = h.manifest_hash
+      where ${parentIdPredicate(sql`c.parent_id`, input.parentId)}
     ),
-    deduped_accessible_containers as (
-      select distinct on (accessible.id)
-        accessible.*
-      from accessible_containers accessible
-      order by accessible.id asc, accessible.epoch desc
+    directly_granted_containers as (
+      select distinct on (c.id)
+        c.id,
+        c.organization_id,
+        c.parent_id,
+        c.depth,
+        c.created_at,
+        c.updated_at,
+        h.epoch,
+        h.manifest_hash,
+        m.state
+      from ${containers} c
+      inner join ${accessManifestHeads} h
+        on h.object_kind = ${"container"}
+        and h.object_id = c.id::text
+      inner join ${accessManifests} m
+        on m.manifest_hash = h.manifest_hash
+      inner join ${accessManifestContainerGrantProjection} grant_projection
+        on grant_projection.manifest_hash = h.manifest_hash
+      left join reachable_principals rp
+        on grant_projection.subject_type = rp.principal_type
+        and grant_projection.subject_id = rp.principal_id
+      where
+        (
+          grant_projection.subject_type = ${"user"}
+          and grant_projection.subject_id = ${input.userId}
+        )
+        or rp.principal_id is not null
+      order by c.id asc, h.epoch desc
+    ),
+    candidate_containers as (
+      select * from parent_lane_candidate_containers
+      union all
+      select *
+      from directly_granted_containers
+      where ${input.parentId === null ? sql`true` : sql`false`}
+    ),
+    directly_granted_candidate_containers as (
+      select distinct candidate.id
+      from candidate_containers candidate
+      inner join directly_granted_containers direct_grant
+        on direct_grant.id = candidate.id
+    ),
+    visible_candidate_containers as (
+      select distinct on (candidate.id)
+        candidate.*
+      from candidate_containers candidate
+      left join directly_granted_candidate_containers direct_grant
+        on direct_grant.id = candidate.id
+      where
+        direct_grant.id is not null
+        or (
+          ${input.parentId === null ? sql`false` : sql`true`}
+          and exists (select 1 from authorized_parent)
+        )
+      order by candidate.id asc, candidate.epoch desc
     )
     select
       accessible.id::text as "id",
@@ -274,8 +374,8 @@ async function listAccessibleContainersForUser(input: {
       accessible.updated_at as "updatedAt",
       accessible.epoch::int as "metadataAccessEpoch",
       accessible.manifest_hash::text as "metadataAccessStateHash"
-	    from deduped_accessible_containers accessible
-	    where ${input.depth === undefined ? sql`true` : sql`accessible.depth = ${input.depth}`}
+	    from visible_candidate_containers accessible
+	    where true
 	      ${watermarkPredicate(
           sql`accessible.updated_at`,
           sql`accessible.id::text`,
@@ -317,8 +417,8 @@ async function listAccessibleContainersForUser(input: {
 }
 
 async function listContainerTombstones(input: {
-  readonly depth: number | undefined;
   readonly limit: number;
+  readonly parentId: string | null;
   readonly runtime: ApiServiceRuntime;
   readonly userId: string;
   readonly watermark: SyncWatermark | null;
@@ -334,7 +434,10 @@ async function listContainerTombstones(input: {
     .from(containerSyncTombstones)
     .where(sql`
 	      ${containerSyncTombstones.userId} = ${input.userId}
-	      and ${input.depth === undefined ? sql`true` : sql`${containerSyncTombstones.depth} = ${input.depth}`}
+	      and ${parentIdPredicate(
+          sql`${containerSyncTombstones.parentId}`,
+          input.parentId,
+        )}
 	      ${watermarkPredicate(
           sql`${containerSyncTombstones.updatedAt}`,
           sql`${containerSyncTombstones.containerId}::text`,
@@ -513,19 +616,19 @@ export async function listContainers(
   userId: string,
   options: ListContainersOptions = {},
 ): Promise<ListContainersResponse> {
-  const depth = normalizeDepth(options.depth);
   const limit = normalizeLimit(options.limit);
+  const parentId = normalizeParentId(options.parentId);
   const watermark = normalizeWatermark(options.watermark);
 
   const [containerRows, tombstoneRows] = await Promise.all([
     listAccessibleContainersForUser({
-      depth,
       limit,
+      parentId,
       runtime,
       userId,
       watermark,
     }),
-    listContainerTombstones({ depth, limit, runtime, userId, watermark }),
+    listContainerTombstones({ limit, parentId, runtime, userId, watermark }),
   ]);
   const pageSelection = selectContainerPage({
     containerRows,

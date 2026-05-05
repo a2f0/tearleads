@@ -393,10 +393,23 @@ async function listAllRemoteContainers(
   apiClient: ExplorerRuntime["apiClient"],
 ): Promise<ReadonlyArray<ExplorerRemoteContainer> | null> {
   const containers: ExplorerRemoteContainer[] = [];
-  let watermark: SyncWatermark | null = null;
+  const queuedParentIds = new Set<string>(["root"]);
+  const seenContainerIds = new Set<string>();
+  const lanes: Array<{
+    parentId: string | null;
+    watermark: SyncWatermark | null;
+  }> = [{ parentId: null, watermark: null }];
 
-  do {
-    const response = await apiClient.listContainers({ watermark });
+  while (lanes.length > 0) {
+    const lane = lanes.shift();
+    if (!lane) {
+      break;
+    }
+
+    const response = await apiClient.listContainers({
+      parentId: lane.parentId,
+      watermark: lane.watermark,
+    });
     if (!response) {
       return null;
     }
@@ -406,13 +419,28 @@ async function listAllRemoteContainers(
     }
     const normalizedResponse = response;
 
-    containers.push(...normalizedResponse.items);
-    watermark = normalizedResponse.nextWatermark;
+    for (const container of normalizedResponse.items) {
+      if (!seenContainerIds.has(container.id)) {
+        seenContainerIds.add(container.id);
+        containers.push(container);
+      }
 
-    if (!normalizedResponse.hasMore) {
-      return containers;
+      if (!queuedParentIds.has(container.id)) {
+        queuedParentIds.add(container.id);
+        lanes.push({ parentId: container.id, watermark: null });
+      }
     }
-  } while (watermark);
+
+    if (normalizedResponse.hasMore) {
+      if (!normalizedResponse.nextWatermark) {
+        return null;
+      }
+      lanes.unshift({
+        parentId: lane.parentId,
+        watermark: normalizedResponse.nextWatermark,
+      });
+    }
+  }
 
   return containers;
 }

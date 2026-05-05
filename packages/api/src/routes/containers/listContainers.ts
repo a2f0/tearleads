@@ -24,8 +24,8 @@ export function createListContainersRoute({
 
   listContainersRoute.get("/containers", requireAuth, async (c) => {
     const session = c.get("session");
-    const depth = parseOptionalInteger(c.req.query("depth"));
     const limit = parseOptionalInteger(c.req.query("limit"));
+    const parentId = parseOptionalParentId(c.req.query("parentId"));
     const watermark = parseOptionalWatermark(
       c.req.query("watermarkUpdatedAt"),
       c.req.query("watermarkId"),
@@ -34,8 +34,8 @@ export function createListContainersRoute({
     try {
       return c.json<ListContainersResponse>(
         await listContainers(runtime, session.userId, {
-          ...(depth === undefined ? {} : { depth }),
           ...(limit === undefined ? {} : { limit }),
+          parentId,
           ...(watermark === undefined ? {} : { watermark }),
         }),
       );
@@ -56,6 +56,13 @@ function parseOptionalInteger(value: string | undefined): number | undefined {
     return undefined;
   }
   return Number(value);
+}
+
+function parseOptionalParentId(value: string | undefined): string | null {
+  if (value === undefined || value === "null") {
+    return null;
+  }
+  return value;
 }
 
 function parseOptionalWatermark(
