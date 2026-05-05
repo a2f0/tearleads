@@ -146,6 +146,37 @@ test("app sqlite schema creates tables and indexes", async () => {
       type: "TEXT",
     });
 
+    const containerSyncWatermarks = await readTableColumns(
+      execSql,
+      "container_sync_watermarks",
+    );
+    expect(readRecordValue(containerSyncWatermarks, "lane_kind")).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 1,
+      type: "TEXT",
+    });
+    expect(readRecordValue(containerSyncWatermarks, "lane_id")).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 2,
+      type: "TEXT",
+    });
+    expect(
+      readRecordValue(containerSyncWatermarks, "watermark_updated_at"),
+    ).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 0,
+      type: "TEXT",
+    });
+    expect(readRecordValue(containerSyncWatermarks, "watermark_id")).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 0,
+      type: "TEXT",
+    });
+
     const addressBookIndexes = await readIndexList(
       execSql,
       "address_book_projection",

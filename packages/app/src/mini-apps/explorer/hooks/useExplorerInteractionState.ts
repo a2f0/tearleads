@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type {
+  ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
@@ -36,9 +37,23 @@ export function useExplorerInteractionState(params: {
     },
     [documentReadModel, onDocumentLinksChanged],
   );
+  const applyContainerDocumentTombstones = useCallback(
+    async (tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>) => {
+      if (tombstones.length === 0) {
+        return [];
+      }
+
+      const updatedDocuments =
+        await documentReadModel.applyContainerDocumentTombstones(tombstones);
+      onDocumentLinksChanged();
+      return updatedDocuments;
+    },
+    [documentReadModel, onDocumentLinksChanged],
+  );
   const { primeDiscoveredDocuments } = useDiscoveredDocumentsSync({
     activeContainerId,
     appData,
+    applyContainerDocumentTombstones,
     documentReadModel,
     knownDocumentIds,
     mergeDocumentSummaries,
@@ -47,6 +62,7 @@ export function useExplorerInteractionState(params: {
 
   return useExplorerRefreshAction({
     appData,
+    applyContainerDocumentTombstones,
     documentReadModel,
     mergeDocumentSummaries,
     primeDiscoveredDocuments,

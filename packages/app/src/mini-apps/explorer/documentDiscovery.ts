@@ -34,11 +34,20 @@ interface DocumentLinkInput {
   documentId: string;
 }
 
+type ContainerDocumentTombstone =
+  ExplorerListContainerDocumentsResponse["tombstones"][number];
+
 interface DiscoverContainerDocumentsOptions {
+  applyContainerDocumentTombstones: (
+    tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+  ) => Promise<ReadonlyArray<DocumentSummary>>;
   cacheReferencedPrincipalPolicies?: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
   ) => Promise<void>;
   containerId: string;
+  loadContainerDocumentWatermark: (
+    containerId: string,
+  ) => Promise<SyncWatermark | null>;
   listContainerDocuments: (
     containerId: string,
     options?: { watermark?: SyncWatermark | null },
@@ -46,21 +55,31 @@ interface DiscoverContainerDocumentsOptions {
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<DocumentLinkInput>,
   ) => Promise<void>;
+  saveContainerDocumentWatermark: (
+    containerId: string,
+    watermark: SyncWatermark,
+  ) => Promise<void>;
   upsertDiscoveredDocuments: (
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
 }
 
+interface ListedContainerDocuments {
+  items: ExplorerListedDocument[];
+  nextWatermark: SyncWatermark | null;
+  tombstones: ContainerDocumentTombstone[];
+}
+
 async function listAllContainerDocuments(input: {
   containerId: string;
+  loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
   listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
-}): Promise<ExplorerListContainerDocumentsResponse | null> {
+}): Promise<ListedContainerDocuments | null> {
   const items: ExplorerListedDocument[] = [];
-  const tombstones: ExplorerListContainerDocumentsResponse["tombstones"][number][] =
-    [];
-  let watermark: SyncWatermark | null = null;
+  const tombstones: ContainerDocumentTombstone[] = [];
+  let watermark = await input.loadContainerDocumentWatermark(input.containerId);
 
-  do {
+  while (true) {
     const response = await input.listContainerDocuments(input.containerId, {
       watermark,
     });
@@ -73,20 +92,57 @@ async function listAllContainerDocuments(input: {
 
     if (!response.hasMore) {
       return {
-        hasMore: false,
         items,
         nextWatermark: watermark,
         tombstones,
       };
     }
-  } while (watermark);
 
-  return {
-    hasMore: false,
-    items,
-    nextWatermark: watermark,
-    tombstones,
-  };
+    if (!watermark) {
+      return null;
+    }
+  }
+}
+
+function getApplicableDocumentTombstones(
+  listedDocuments: ListedContainerDocuments,
+): ContainerDocumentTombstone[] {
+  const latestItemsByDocumentId = new Map<string, ExplorerListedDocument>();
+  for (const document of listedDocuments.items) {
+    const existingDocument = latestItemsByDocumentId.get(document.id);
+    if (
+      !existingDocument ||
+      existingDocument.updatedAt.localeCompare(document.updatedAt) < 0
+    ) {
+      latestItemsByDocumentId.set(document.id, document);
+    }
+  }
+
+  return listedDocuments.tombstones.filter((tombstone) => {
+    const item = latestItemsByDocumentId.get(tombstone.documentId);
+    return (
+      !item ||
+      !item.linkedContainerIds.includes(tombstone.containerId) ||
+      item.updatedAt.localeCompare(tombstone.updatedAt) < 0
+    );
+  });
+}
+
+async function saveAppliedContainerDocumentWatermark(input: {
+  containerId: string;
+  listedDocuments: ListedContainerDocuments;
+  saveContainerDocumentWatermark: DiscoverContainerDocumentsOptions["saveContainerDocumentWatermark"];
+}) {
+  const { containerId, listedDocuments, saveContainerDocumentWatermark } =
+    input;
+  if (!listedDocuments.nextWatermark) {
+    return;
+  }
+
+  await saveContainerDocumentWatermark(
+    containerId,
+    listedDocuments.nextWatermark,
+  );
 }
 
 interface DiscoverAllContainerDocumentsOptions
@@ -106,14 +162,18 @@ export function hasUndiscoveredDocumentUpdateEvent(
 }
 
 export async function discoverContainerDocuments({
+  applyContainerDocumentTombstones,
   cacheReferencedPrincipalPolicies,
   containerId,
+  loadContainerDocumentWatermark,
   listContainerDocuments,
   replaceDocumentLinksBatch,
+  saveContainerDocumentWatermark,
   upsertDiscoveredDocuments,
 }: DiscoverContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
   const listedDocuments = await listAllContainerDocuments({
     containerId,
+    loadContainerDocumentWatermark,
     listContainerDocuments,
   });
   if (!listedDocuments) {
@@ -133,7 +193,7 @@ export async function discoverContainerDocuments({
     })),
   );
 
-  return upsertDiscoveredDocuments(
+  const discoveredDocuments = await upsertDiscoveredDocuments(
     listedDocuments.items.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
       accessStateHash: document.currentAccessStateHash,
@@ -143,13 +203,27 @@ export async function discoverContainerDocuments({
       linkedContainerIds: document.linkedContainerIds,
     })),
   );
+  const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
+    getApplicableDocumentTombstones(listedDocuments),
+  );
+
+  await saveAppliedContainerDocumentWatermark({
+    containerId,
+    listedDocuments,
+    saveContainerDocumentWatermark,
+  });
+
+  return [...discoveredDocuments, ...tombstoneDocumentSummaries];
 }
 
 export async function discoverAllContainerDocuments({
+  applyContainerDocumentTombstones,
   cacheReferencedPrincipalPolicies,
   containerIds,
+  loadContainerDocumentWatermark,
   listContainerDocuments,
   replaceDocumentLinksBatch,
+  saveContainerDocumentWatermark,
   upsertDiscoveredDocuments,
 }: DiscoverAllContainerDocumentsOptions): Promise<
   ReadonlyArray<DocumentSummary>
@@ -160,6 +234,7 @@ export async function discoverAllContainerDocuments({
       containerId,
       listedDocuments: await listAllContainerDocuments({
         containerId,
+        loadContainerDocumentWatermark,
         listContainerDocuments,
       }),
     })),
@@ -198,9 +273,27 @@ export async function discoverAllContainerDocuments({
 
   await replaceDocumentLinksBatch(documentLinks);
 
-  if (discoveredDocumentInputs.length === 0) {
-    return [];
-  }
+  const discoveredDocuments =
+    discoveredDocumentInputs.length === 0
+      ? []
+      : await upsertDiscoveredDocuments(discoveredDocumentInputs);
+  const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
+    listedDocumentsByContainer.flatMap(({ listedDocuments }) =>
+      listedDocuments ? getApplicableDocumentTombstones(listedDocuments) : [],
+    ),
+  );
 
-  return upsertDiscoveredDocuments(discoveredDocumentInputs);
+  await Promise.all(
+    listedDocumentsByContainer.map(({ containerId, listedDocuments }) =>
+      listedDocuments
+        ? saveAppliedContainerDocumentWatermark({
+            containerId,
+            listedDocuments,
+            saveContainerDocumentWatermark,
+          })
+        : undefined,
+    ),
+  );
+
+  return [...discoveredDocuments, ...tombstoneDocumentSummaries];
 }
