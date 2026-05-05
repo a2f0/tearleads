@@ -1,4 +1,7 @@
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type {
+  ReferencedPrincipalStateResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type {
   DiscoveredDocumentInput,
@@ -18,7 +21,7 @@ interface ExplorerListedDocument {
 interface ExplorerListContainerDocumentsResponse {
   hasMore: boolean;
   items: ExplorerListedDocument[];
-  nextCursor: string | null;
+  nextWatermark: SyncWatermark | null;
   tombstones: ReadonlyArray<{
     containerId: string;
     documentId: string;
@@ -40,7 +43,7 @@ function normalizeListContainerDocumentsResponse(
     return {
       hasMore: false,
       items: response,
-      nextCursor: null,
+      nextWatermark: null,
       tombstones: [],
     };
   }
@@ -55,7 +58,7 @@ interface DiscoverContainerDocumentsOptions {
   containerId: string;
   listContainerDocuments: (
     containerId: string,
-    options?: { cursor?: string | null },
+    options?: { watermark?: SyncWatermark | null },
   ) => Promise<
     | ExplorerListContainerDocumentsResponse
     | ReadonlyArray<ExplorerListedDocument>
@@ -76,11 +79,11 @@ async function listAllContainerDocuments(input: {
   const items: ExplorerListedDocument[] = [];
   const tombstones: ExplorerListContainerDocumentsResponse["tombstones"][number][] =
     [];
-  let cursor: string | null = null;
+  let watermark: SyncWatermark | null = null;
 
   do {
     const response = await input.listContainerDocuments(input.containerId, {
-      cursor,
+      watermark,
     });
     if (!response) {
       return null;
@@ -90,22 +93,22 @@ async function listAllContainerDocuments(input: {
 
     items.push(...normalizedResponse.items);
     tombstones.push(...normalizedResponse.tombstones);
-    cursor = normalizedResponse.nextCursor;
+    watermark = normalizedResponse.nextWatermark;
 
     if (!normalizedResponse.hasMore) {
       return {
         hasMore: false,
         items,
-        nextCursor: cursor,
+        nextWatermark: watermark,
         tombstones,
       };
     }
-  } while (cursor);
+  } while (watermark);
 
   return {
     hasMore: false,
     items,
-    nextCursor: cursor,
+    nextWatermark: watermark,
     tombstones,
   };
 }

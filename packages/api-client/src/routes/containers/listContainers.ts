@@ -2,15 +2,16 @@ import {
   type ContainerSummary,
   isListContainersResponse,
   type ListContainersResponse,
+  type SyncWatermark,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
 
 type ListContainersResult = ListContainersResponse | ContainerSummary[];
 
 export interface ListContainersOptions {
-  cursor?: string | null;
   depth?: number;
   limit?: number;
+  watermark?: SyncWatermark | null;
 }
 
 function appendQuery(path: string, params: URLSearchParams): string {
@@ -23,8 +24,9 @@ export function listContainers(
   options: ListContainersOptions = {},
 ) {
   const params = new URLSearchParams();
-  if (options.cursor) {
-    params.set("cursor", options.cursor);
+  if (options.watermark) {
+    params.set("watermarkUpdatedAt", options.watermark.updatedAt);
+    params.set("watermarkId", options.watermark.id);
   }
   if (options.depth !== undefined) {
     params.set("depth", String(options.depth));

@@ -2,6 +2,7 @@ import type {
   ContainerDocumentSummary,
   ContainerDocumentSyncTombstone,
   ListContainerDocumentsResponse,
+  SyncWatermark,
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, type SQL, sql } from "drizzle-orm";
 import {
@@ -17,22 +18,13 @@ import {
   resolveReadableContainerAccess,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
-import {
-  assertContainerSyncCursorReadBarrier,
-  assertContainerSyncCursorScope,
-  ContainerSyncCursorError,
-  type ContainerSyncCursorPayload,
-  type ContainerSyncWatermark,
-  createContainerSyncCursor,
-  decodeContainerSyncCursor,
-} from "./syncCursor";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 
 interface ListContainerDocumentsOptions {
-  readonly cursor?: string | null;
   readonly limit?: number | undefined;
+  readonly watermark?: SyncWatermark | null;
 }
 
 type ContainerDocumentRow = {
@@ -51,7 +43,7 @@ type ContainerDocumentTombstoneRow = {
 export class ListContainerDocumentsError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 403 | 404 | 409 | 503,
+    readonly status: 400 | 403 | 404 | 409,
   ) {
     super(message);
   }
@@ -86,9 +78,36 @@ function normalizeLimit(value: number | undefined): number {
   return Math.min(value, MAX_LIMIT);
 }
 
+function normalizeWatermark(
+  value: SyncWatermark | null | undefined,
+): SyncWatermark | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (
+    typeof value.updatedAt !== "string" ||
+    value.updatedAt.length === 0 ||
+    typeof value.id !== "string" ||
+    value.id.length === 0
+  ) {
+    throw new ListContainerDocumentsError("Invalid watermark", 400);
+  }
+
+  const updatedAt = new Date(value.updatedAt);
+  if (Number.isNaN(updatedAt.getTime())) {
+    throw new ListContainerDocumentsError("Invalid watermark", 400);
+  }
+
+  return {
+    id: value.id,
+    updatedAt: updatedAt.toISOString(),
+  };
+}
+
 function watermarkPredicate(
   tableAlias: string,
-  watermark: ContainerSyncWatermark | null | undefined,
+  watermark: SyncWatermark | null | undefined,
   idColumn = "id",
 ): SQL {
   if (!watermark) {
@@ -100,31 +119,11 @@ function watermarkPredicate(
   )}::text) > (${new Date(watermark.updatedAt)}, ${watermark.id})`;
 }
 
-function validateCursor(input: {
-  cursorToken: string | null | undefined;
-  containerId: string;
-  userId: string;
-}): ContainerSyncCursorPayload | null {
-  try {
-    const cursor = decodeContainerSyncCursor(input.cursorToken);
-    assertContainerSyncCursorScope(cursor, {
-      lane: "containerDocuments",
-      scope: { containerId: input.containerId, userId: input.userId },
-    });
-    return cursor;
-  } catch (error) {
-    if (error instanceof ContainerSyncCursorError) {
-      throw new ListContainerDocumentsError(error.message, 400);
-    }
-    throw error;
-  }
-}
-
 async function loadCurrentContainerDocumentRows(input: {
   readonly containerId: string;
-  readonly cursor: ContainerSyncCursorPayload | null;
   readonly limit: number;
   readonly runtime: ApiServiceRuntime;
+  readonly watermark: SyncWatermark | null;
 }): Promise<ContainerDocumentRow[]> {
   return input.runtime.db
     .select({
@@ -156,7 +155,7 @@ async function loadCurrentContainerDocumentRows(input: {
     .where(sql`
       ${accessManifestHeads.objectKind} = ${"document"}
       and ${containerMetadataDocuments.documentId} is null
-      ${watermarkPredicate("documents", input.cursor?.watermark)}
+      ${watermarkPredicate("documents", input.watermark)}
     `)
     .orderBy(asc(documents.updatedAt), asc(accessManifestHeads.objectId))
     .limit(input.limit + 1);
@@ -164,9 +163,9 @@ async function loadCurrentContainerDocumentRows(input: {
 
 async function loadContainerDocumentTombstoneRows(input: {
   readonly containerId: string;
-  readonly cursor: ContainerSyncCursorPayload | null;
   readonly limit: number;
   readonly runtime: ApiServiceRuntime;
+  readonly watermark: SyncWatermark | null;
 }): Promise<ContainerDocumentTombstoneRow[]> {
   return input.runtime.db
     .select({
@@ -178,7 +177,7 @@ async function loadContainerDocumentTombstoneRows(input: {
       ${containerDocumentSyncTombstones.containerId} = ${input.containerId}
       ${watermarkPredicate(
         "container_document_sync_tombstones",
-        input.cursor?.watermark,
+        input.watermark,
         "document_id",
       )}
     `)
@@ -259,7 +258,7 @@ function compareDocumentChanges(
 
 function documentChangeWatermark(
   change: ContainerDocumentSummary | ContainerDocumentSyncTombstone,
-): ContainerSyncWatermark {
+): SyncWatermark {
   return {
     updatedAt: documentChangeUpdatedAt(change),
     id: documentChangeId(change),
@@ -268,7 +267,6 @@ function documentChangeWatermark(
 
 async function buildListContainerDocumentsResponse(input: {
   readonly containerId: string;
-  readonly cursor: ContainerSyncCursorPayload | null;
   readonly documentRows: readonly ContainerDocumentRow[];
   readonly limit: number;
   readonly referencedPrincipals: ReturnType<
@@ -276,7 +274,7 @@ async function buildListContainerDocumentsResponse(input: {
   >;
   readonly runtime: ApiServiceRuntime;
   readonly tombstoneRows: readonly ContainerDocumentTombstoneRow[];
-  readonly userId: string;
+  readonly watermark: SyncWatermark | null;
 }): Promise<ListContainerDocumentsResponse> {
   const linkedContainerIdsByManifestHash =
     await loadLinkedContainerIdsByManifestHash(
@@ -323,22 +321,12 @@ async function buildListContainerDocumentsResponse(input: {
     input.tombstoneRows.length > input.limit ||
     returnedChanges.length < items.length + tombstones.length;
   const nextWatermark =
-    lastChange === null
-      ? (input.cursor?.watermark ?? null)
-      : documentChangeWatermark(lastChange);
+    lastChange === null ? input.watermark : documentChangeWatermark(lastChange);
 
   return {
     hasMore,
     items: items.filter((item) => itemIds.has(item.id)),
-    nextCursor:
-      nextWatermark === null
-        ? null
-        : await createContainerSyncCursor({
-            executor: input.runtime.db,
-            lane: "containerDocuments",
-            scope: { containerId: input.containerId, userId: input.userId },
-            watermark: nextWatermark,
-          }),
+    nextWatermark,
     tombstones: tombstones.filter((tombstone) =>
       tombstoneIds.has(tombstone.documentId),
     ),
@@ -352,20 +340,7 @@ export async function listContainerDocuments(
   options: ListContainerDocumentsOptions = {},
 ): Promise<ListContainerDocumentsResponse> {
   const limit = normalizeLimit(options.limit);
-  const cursor = validateCursor({
-    containerId,
-    cursorToken: options.cursor,
-    userId,
-  });
-
-  try {
-    await assertContainerSyncCursorReadBarrier(runtime.db, cursor);
-  } catch (error) {
-    if (error instanceof ContainerSyncCursorError) {
-      throw new ListContainerDocumentsError(error.message, 503);
-    }
-    throw error;
-  }
+  const watermark = normalizeWatermark(options.watermark);
 
   const containerAccess = await requireReadableContainer(
     runtime,
@@ -373,8 +348,18 @@ export async function listContainerDocuments(
     userId,
   );
   const [documentRows, tombstoneRows] = await Promise.all([
-    loadCurrentContainerDocumentRows({ containerId, cursor, limit, runtime }),
-    loadContainerDocumentTombstoneRows({ containerId, cursor, limit, runtime }),
+    loadCurrentContainerDocumentRows({
+      containerId,
+      limit,
+      runtime,
+      watermark,
+    }),
+    loadContainerDocumentTombstoneRows({
+      containerId,
+      limit,
+      runtime,
+      watermark,
+    }),
   ]);
   const referencedPrincipals = collectReferencedPrincipalsFromContainerAccess([
     containerAccess,
@@ -382,12 +367,11 @@ export async function listContainerDocuments(
 
   return buildListContainerDocumentsResponse({
     containerId,
-    cursor,
     documentRows,
     limit,
     referencedPrincipals,
     runtime,
     tombstoneRows,
-    userId,
+    watermark,
   });
 }

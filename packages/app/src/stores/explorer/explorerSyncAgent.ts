@@ -8,6 +8,7 @@ import {
 import type {
   ContainerSummary,
   ReferencedPrincipalStateResponse,
+  SyncWatermark,
 } from "@tearleads/validators/response";
 import type { BlobStore } from "../../data/blobs";
 import {
@@ -394,11 +395,11 @@ async function listAllRemoteContainers(
   const containers: ExplorerRemoteContainer[] = [];
 
   for (let depth = 0; ; depth += 1) {
-    let cursor: string | null = null;
+    let watermark: SyncWatermark | null = null;
     let depthChangeCount = 0;
 
     do {
-      const response = await apiClient.listContainers({ cursor, depth });
+      const response = await apiClient.listContainers({ depth, watermark });
       if (!response) {
         return null;
       }
@@ -411,12 +412,12 @@ async function listAllRemoteContainers(
       containers.push(...normalizedResponse.items);
       depthChangeCount +=
         normalizedResponse.items.length + normalizedResponse.tombstones.length;
-      cursor = normalizedResponse.nextCursor;
+      watermark = normalizedResponse.nextWatermark;
 
       if (!normalizedResponse.hasMore) {
         break;
       }
-    } while (cursor);
+    } while (watermark);
 
     if (depthChangeCount === 0) {
       break;

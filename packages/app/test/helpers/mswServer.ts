@@ -345,7 +345,7 @@ const server = setupServer(
     return HttpResponse.json<ListContainersResponse>({
       hasMore: false,
       items: [],
-      nextCursor: null,
+      nextWatermark: null,
       tombstones: [],
     });
   }),

@@ -207,7 +207,10 @@ test("isListContainersResponse", () => {
           updatedAt: new Date().toISOString(),
         },
       ],
-      nextCursor: "cursor",
+      nextWatermark: {
+        id: "ctr-root",
+        updatedAt: new Date().toISOString(),
+      },
       tombstones: [
         {
           containerId: "ctr-removed",
@@ -230,7 +233,7 @@ test("isListContainersResponse", () => {
           metadataAccessEpoch: 1,
         },
       ],
-      nextCursor: null,
+      nextWatermark: null,
       tombstones: [],
     }),
   ).toBe(false);
@@ -260,7 +263,10 @@ test("isListContainerDocumentsResponse", () => {
           updatedAt: new Date().toISOString(),
         },
       ],
-      nextCursor: "cursor",
+      nextWatermark: {
+        id: "doc-123",
+        updatedAt: new Date().toISOString(),
+      },
       tombstones: [
         {
           containerId: "ctr-root",
@@ -280,7 +286,7 @@ test("isListContainerDocumentsResponse", () => {
           linkedContainerIds: ["ctr-root"],
         },
       ],
-      nextCursor: null,
+      nextWatermark: null,
       tombstones: [],
     }),
   ).toBe(false);

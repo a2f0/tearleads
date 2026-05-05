@@ -12,6 +12,7 @@ import {
   isReferencedPrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
 } from "./principal";
+import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
 
 export interface ContainerKekResponse {
   containerId: string;
@@ -71,7 +72,7 @@ export interface ContainerSyncTombstone {
 export interface ListContainersResponse {
   hasMore: boolean;
   items: ContainerSummary[];
-  nextCursor: string | null;
+  nextWatermark: SyncWatermark | null;
   tombstones: ContainerSyncTombstone[];
 }
 
@@ -125,8 +126,8 @@ function isContainerSyncTombstone(
 export function isListContainersResponse(
   value: unknown,
 ): value is ListContainersResponse {
-  const nextCursor = isPlainObject(value)
-    ? Reflect.get(value, "nextCursor")
+  const nextWatermark = isPlainObject(value)
+    ? Reflect.get(value, "nextWatermark")
     : undefined;
 
   return (
@@ -134,7 +135,7 @@ export function isListContainersResponse(
     typeof Reflect.get(value, "hasMore") === "boolean" &&
     hasArrayProperty(value, "items") &&
     value.items.every(isContainerSummary) &&
-    (typeof nextCursor === "string" || nextCursor === null) &&
+    (isSyncWatermark(nextWatermark) || nextWatermark === null) &&
     hasArrayProperty(value, "tombstones") &&
     value.tombstones.every(isContainerSyncTombstone)
   );

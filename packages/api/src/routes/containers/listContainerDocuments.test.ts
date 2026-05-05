@@ -55,7 +55,10 @@ test("GET /containers/:containerId/documents lists current manifest-linked docum
         linkedContainerIds: [owner.rootContainerId],
       }),
     ],
-    nextCursor: expect.any(String),
+    nextWatermark: {
+      id: createdDocument.id,
+      updatedAt: expect.any(String),
+    },
     tombstones: [],
   });
 });

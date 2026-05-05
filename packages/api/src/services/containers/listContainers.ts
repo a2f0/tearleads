@@ -2,6 +2,7 @@ import type {
   ContainerSummary,
   ContainerSyncTombstone,
   ListContainersResponse,
+  SyncWatermark,
 } from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
 import {
@@ -19,15 +20,6 @@ import {
   resolveReadableContainerAccess,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
-import {
-  assertContainerSyncCursorReadBarrier,
-  assertContainerSyncCursorScope,
-  ContainerSyncCursorError,
-  type ContainerSyncCursorPayload,
-  type ContainerSyncWatermark,
-  createContainerSyncCursor,
-  decodeContainerSyncCursor,
-} from "./syncCursor";
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 const DEFAULT_LIMIT = 100;
@@ -46,9 +38,9 @@ interface AccessibleContainerRow {
 }
 
 interface ListContainersOptions {
-  readonly cursor?: string | null;
   readonly depth?: number | undefined;
   readonly limit?: number | undefined;
+  readonly watermark?: SyncWatermark | null;
 }
 
 interface ContainerTombstoneRow {
@@ -62,7 +54,7 @@ interface ContainerTombstoneRow {
 export class ListContainersError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 503,
+    readonly status: 400,
   ) {
     super(message);
   }
@@ -131,9 +123,36 @@ function normalizeDepth(value: number | undefined): number {
   return value;
 }
 
+function normalizeWatermark(
+  value: SyncWatermark | null | undefined,
+): SyncWatermark | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (
+    typeof value.updatedAt !== "string" ||
+    value.updatedAt.length === 0 ||
+    typeof value.id !== "string" ||
+    value.id.length === 0
+  ) {
+    throw new ListContainersError("Invalid watermark", 400);
+  }
+
+  const updatedAt = new Date(value.updatedAt);
+  if (Number.isNaN(updatedAt.getTime())) {
+    throw new ListContainersError("Invalid watermark", 400);
+  }
+
+  return {
+    id: value.id,
+    updatedAt: updatedAt.toISOString(),
+  };
+}
+
 function watermarkPredicate(
   tableAlias: string,
-  watermark: ContainerSyncWatermark | null | undefined,
+  watermark: SyncWatermark | null | undefined,
   idColumn = "id",
 ): SQL {
   if (!watermark) {
@@ -145,32 +164,12 @@ function watermarkPredicate(
   )}::text) > (${new Date(watermark.updatedAt)}, ${watermark.id})`;
 }
 
-function validateCursor(input: {
-  cursorToken: string | null | undefined;
-  depth: number;
-  userId: string;
-}): ContainerSyncCursorPayload | null {
-  try {
-    const cursor = decodeContainerSyncCursor(input.cursorToken);
-    assertContainerSyncCursorScope(cursor, {
-      lane: "containers",
-      scope: { depth: input.depth, userId: input.userId },
-    });
-    return cursor;
-  } catch (error) {
-    if (error instanceof ContainerSyncCursorError) {
-      throw new ListContainersError(error.message, 400);
-    }
-    throw error;
-  }
-}
-
 async function listAccessibleContainersForUser(input: {
-  readonly cursor: ContainerSyncCursorPayload | null;
   readonly depth: number;
   readonly limit: number;
   readonly runtime: ApiServiceRuntime;
   readonly userId: string;
+  readonly watermark: SyncWatermark | null;
 }): Promise<AccessibleContainerRow[]> {
   const result = await input.runtime.db.execute(sql`
     with recursive current_principal_states as (
@@ -264,7 +263,7 @@ async function listAccessibleContainersForUser(input: {
       accessible.manifest_hash::text as "metadataAccessStateHash"
     from deduped_accessible_containers accessible
     where accessible.depth = ${input.depth}
-      ${watermarkPredicate("accessible", input.cursor?.watermark)}
+      ${watermarkPredicate("accessible", input.watermark)}
     order by
       accessible.updated_at asc,
       accessible.id asc
@@ -301,11 +300,11 @@ async function listAccessibleContainersForUser(input: {
 }
 
 async function listContainerTombstones(input: {
-  readonly cursor: ContainerSyncCursorPayload | null;
   readonly depth: number;
   readonly limit: number;
   readonly runtime: ApiServiceRuntime;
   readonly userId: string;
+  readonly watermark: SyncWatermark | null;
 }): Promise<ContainerTombstoneRow[]> {
   const rows = await input.runtime.db
     .select({
@@ -321,7 +320,7 @@ async function listContainerTombstones(input: {
       and ${containerSyncTombstones.depth} = ${input.depth}
       ${watermarkPredicate(
         "container_sync_tombstones",
-        input.cursor?.watermark,
+        input.watermark,
         "container_id",
       )}
     `)
@@ -366,7 +365,7 @@ function compareContainerChanges(
 
 function containerChangeWatermark(
   change: ContainerSummary | ContainerSyncTombstone,
-): ContainerSyncWatermark {
+): SyncWatermark {
   return {
     updatedAt: containerChangeUpdatedAt(change),
     id: containerChangeId(change),
@@ -432,16 +431,13 @@ async function resolveVisibleContainerSummaries(input: {
   return visibleContainers;
 }
 
-async function buildListContainersResponse(input: {
+function buildListContainersResponse(input: {
   readonly containerRows: readonly AccessibleContainerRow[];
-  readonly cursor: ContainerSyncCursorPayload | null;
-  readonly depth: number;
   readonly limit: number;
-  readonly runtime: ApiServiceRuntime;
   readonly tombstoneRows: readonly ContainerTombstoneRow[];
-  readonly userId: string;
   readonly visibleContainers: readonly ContainerSummary[];
-}): Promise<ListContainersResponse> {
+  readonly watermark: SyncWatermark | null;
+}): ListContainersResponse {
   const tombstones: ContainerSyncTombstone[] = input.tombstoneRows.map(
     (row) => ({
       containerId: row.containerId,
@@ -471,7 +467,7 @@ async function buildListContainersResponse(input: {
     changes.length < input.visibleContainers.length + tombstones.length;
   const nextWatermark =
     lastChange === null
-      ? (input.cursor?.watermark ?? null)
+      ? input.watermark
       : containerChangeWatermark(lastChange);
 
   return {
@@ -479,15 +475,7 @@ async function buildListContainersResponse(input: {
     items: input.visibleContainers.filter((container) =>
       itemIds.has(container.id),
     ),
-    nextCursor:
-      nextWatermark === null
-        ? null
-        : await createContainerSyncCursor({
-            executor: input.runtime.db,
-            lane: "containers",
-            scope: { depth: input.depth, userId: input.userId },
-            watermark: nextWatermark,
-          }),
+    nextWatermark,
     tombstones: tombstones.filter((tombstone) =>
       tombstoneIds.has(tombstone.containerId),
     ),
@@ -501,24 +489,17 @@ export async function listContainers(
 ): Promise<ListContainersResponse> {
   const depth = normalizeDepth(options.depth);
   const limit = normalizeLimit(options.limit);
-  const cursor = validateCursor({
-    cursorToken: options.cursor,
-    depth,
-    userId,
-  });
-
-  try {
-    await assertContainerSyncCursorReadBarrier(runtime.db, cursor);
-  } catch (error) {
-    if (error instanceof ContainerSyncCursorError) {
-      throw new ListContainersError(error.message, 503);
-    }
-    throw error;
-  }
+  const watermark = normalizeWatermark(options.watermark);
 
   const [containerRows, tombstoneRows] = await Promise.all([
-    listAccessibleContainersForUser({ cursor, depth, limit, runtime, userId }),
-    listContainerTombstones({ cursor, depth, limit, runtime, userId }),
+    listAccessibleContainersForUser({
+      depth,
+      limit,
+      runtime,
+      userId,
+      watermark,
+    }),
+    listContainerTombstones({ depth, limit, runtime, userId, watermark }),
   ]);
   const visibleContainers = await resolveVisibleContainerSummaries({
     containerRows,
@@ -528,12 +509,9 @@ export async function listContainers(
 
   return buildListContainersResponse({
     containerRows,
-    cursor,
-    depth,
     limit,
-    runtime,
     tombstoneRows,
-    userId,
     visibleContainers,
+    watermark,
   });
 }

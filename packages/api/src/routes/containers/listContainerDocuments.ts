@@ -1,4 +1,7 @@
-import type { ListContainerDocumentsResponse } from "@tearleads/validators/response";
+import type {
+  ListContainerDocumentsResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -25,14 +28,17 @@ export function createListContainerDocumentsRoute({
     async (c) => {
       const session = c.get("session");
       const containerId = c.req.param("containerId");
-      const cursor = c.req.query("cursor");
       const limit = parseOptionalInteger(c.req.query("limit"));
+      const watermark = parseOptionalWatermark(
+        c.req.query("watermarkUpdatedAt"),
+        c.req.query("watermarkId"),
+      );
 
       try {
         return c.json<ListContainerDocumentsResponse>(
           await listContainerDocuments(runtime, containerId, session.userId, {
-            ...(cursor === undefined ? {} : { cursor }),
             ...(limit === undefined ? {} : { limit }),
+            ...(watermark === undefined ? {} : { watermark }),
           }),
         );
       } catch (error) {
@@ -53,4 +59,17 @@ function parseOptionalInteger(value: string | undefined): number | undefined {
     return undefined;
   }
   return Number(value);
+}
+
+function parseOptionalWatermark(
+  updatedAt: string | undefined,
+  id: string | undefined,
+): SyncWatermark | undefined {
+  if (updatedAt === undefined && id === undefined) {
+    return undefined;
+  }
+  return {
+    id: id ?? "",
+    updatedAt: updatedAt ?? "",
+  };
 }

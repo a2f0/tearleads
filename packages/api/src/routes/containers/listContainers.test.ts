@@ -28,7 +28,10 @@ test("GET /containers returns the manifest-backed root container for the authent
         metadataAccessEpoch: 1,
       }),
     ],
-    nextCursor: expect.any(String),
+    nextWatermark: {
+      id: owner.rootContainerId,
+      updatedAt: expect.any(String),
+    },
     tombstones: [],
   });
   expect(listedContainers.items).toEqual([
@@ -70,7 +73,7 @@ test("GET /containers only returns containers readable through current manifests
   ).not.toContain(owner.rootContainerId);
 });
 
-test("GET /containers supports opaque cursor resume and rejects tampering", async () => {
+test("GET /containers supports client-owned watermark resume", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -84,10 +87,13 @@ test("GET /containers supports opaque cursor resume and rejects tampering", asyn
   expect(firstResponse.status).toBe(200);
   const firstBody = await firstResponse.json();
   expect(firstBody.items).toHaveLength(1);
-  expect(firstBody.nextCursor).toEqual(expect.any(String));
+  expect(firstBody.nextWatermark).toEqual({
+    id: owner.rootContainerId,
+    updatedAt: expect.any(String),
+  });
 
   const secondResponse = await routeApp.request(
-    `/containers?depth=0&cursor=${encodeURIComponent(firstBody.nextCursor)}`,
+    `/containers?depth=0&watermarkUpdatedAt=${encodeURIComponent(firstBody.nextWatermark.updatedAt)}&watermarkId=${encodeURIComponent(firstBody.nextWatermark.id)}`,
     {
       method: "GET",
       headers: {
@@ -99,12 +105,12 @@ test("GET /containers supports opaque cursor resume and rejects tampering", asyn
   expect(await secondResponse.json()).toEqual({
     hasMore: false,
     items: [],
-    nextCursor: expect.any(String),
+    nextWatermark: firstBody.nextWatermark,
     tombstones: [],
   });
 
-  const tamperedResponse = await routeApp.request(
-    `/containers?depth=0&cursor=${encodeURIComponent(`${firstBody.nextCursor}x`)}`,
+  const malformedWatermarkResponse = await routeApp.request(
+    `/containers?depth=0&watermarkUpdatedAt=not-a-date&watermarkId=${encodeURIComponent(firstBody.nextWatermark.id)}`,
     {
       method: "GET",
       headers: {
@@ -112,5 +118,5 @@ test("GET /containers supports opaque cursor resume and rejects tampering", asyn
       },
     },
   );
-  expect(tamperedResponse.status).toBe(400);
+  expect(malformedWatermarkResponse.status).toBe(400);
 });

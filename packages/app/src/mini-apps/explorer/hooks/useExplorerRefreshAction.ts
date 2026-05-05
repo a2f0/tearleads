@@ -1,4 +1,7 @@
-import type { ContainerSummary } from "@tearleads/validators/response";
+import type {
+  ContainerSummary,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 import { useCallback, useState } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
@@ -19,11 +22,11 @@ async function listAllRemoteContainers(
   const containers: ContainerSummary[] = [];
 
   for (let depth = 0; ; depth += 1) {
-    let cursor: string | null = null;
+    let watermark: SyncWatermark | null = null;
     let depthChangeCount = 0;
 
     do {
-      const response = await apiClient.listContainers({ cursor, depth });
+      const response = await apiClient.listContainers({ depth, watermark });
       if (!response) {
         return null;
       }
@@ -36,12 +39,12 @@ async function listAllRemoteContainers(
       containers.push(...normalizedResponse.items);
       depthChangeCount +=
         normalizedResponse.items.length + normalizedResponse.tombstones.length;
-      cursor = normalizedResponse.nextCursor;
+      watermark = normalizedResponse.nextWatermark;
 
       if (!normalizedResponse.hasMore) {
         break;
       }
-    } while (cursor);
+    } while (watermark);
 
     if (depthChangeCount === 0) {
       break;

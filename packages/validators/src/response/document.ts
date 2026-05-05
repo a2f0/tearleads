@@ -8,6 +8,7 @@ import {
   isReferencedPrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
 } from "./principal";
+import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
 
 export interface ContainerDocumentSummary {
   createdAt: string;
@@ -28,7 +29,7 @@ export interface ContainerDocumentSyncTombstone {
 export interface ListContainerDocumentsResponse {
   hasMore: boolean;
   items: ContainerDocumentSummary[];
-  nextCursor: string | null;
+  nextWatermark: SyncWatermark | null;
   tombstones: ContainerDocumentSyncTombstone[];
 }
 
@@ -72,8 +73,8 @@ function isContainerDocumentSyncTombstone(
 export function isListContainerDocumentsResponse(
   value: unknown,
 ): value is ListContainerDocumentsResponse {
-  const nextCursor = isPlainObject(value)
-    ? Reflect.get(value, "nextCursor")
+  const nextWatermark = isPlainObject(value)
+    ? Reflect.get(value, "nextWatermark")
     : undefined;
 
   return (
@@ -81,7 +82,7 @@ export function isListContainerDocumentsResponse(
     typeof Reflect.get(value, "hasMore") === "boolean" &&
     hasArrayProperty(value, "items") &&
     value.items.every(isContainerDocumentSummary) &&
-    (typeof nextCursor === "string" || nextCursor === null) &&
+    (isSyncWatermark(nextWatermark) || nextWatermark === null) &&
     hasArrayProperty(value, "tombstones") &&
     value.tombstones.every(isContainerDocumentSyncTombstone)
   );
