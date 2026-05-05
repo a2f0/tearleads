@@ -19,6 +19,10 @@ import {
 import {
   containerCreateIntents,
   containerCreateIntentTables,
+  documentContainerProjection,
+  documentContainerProjectionTables,
+  documentProjection,
+  documentProjectionTables,
 } from "../../sqlite/schema";
 import {
   type ExecSql,
@@ -32,6 +36,7 @@ import {
   loadContainers as loadContainerRecords,
   saveContainerRows,
 } from "../containers/containerPersistence";
+import { sqlContainerSyncWatermarkPersistence } from "../containers/containerSyncWatermarkPersistence";
 
 const CONTAINER_METADATA_APP_KIND = "container-metadata";
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
@@ -63,7 +68,11 @@ export interface StoredExplorerContainer {
 }
 
 export interface ExplorerPersistence {
-  deleteContainer: (execSql: ExecSql, containerId: string) => Promise<void>;
+  deleteContainer: (
+    execSql: ExecSql,
+    containerId: string,
+    options?: { updatedAt?: string },
+  ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   deletePendingUpdates: (
     execSql: ExecSql,
@@ -113,6 +122,20 @@ function getContainerMetadataScope(containerId: string) {
     appKind: CONTAINER_METADATA_APP_KIND,
     localId: containerId,
   };
+}
+
+function getLatestTimestamp(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): string {
+  if (!left) {
+    return right ?? new Date().toISOString();
+  }
+  if (!right) {
+    return left;
+  }
+
+  return left.localeCompare(right) >= 0 ? left : right;
 }
 
 function parseCreateIntentSyncStatus(
@@ -208,10 +231,68 @@ async function saveContainerCreateIntent(input: {
     .run();
 }
 
+async function repairDocumentsForRemovedContainer(input: {
+  containerId: string;
+  execSql: ExecSql;
+  updatedAt: string;
+}): Promise<void> {
+  const { containerId, execSql, updatedAt } = input;
+  await ensureSqlTables(execSql, [
+    ...documentContainerProjectionTables,
+    ...documentProjectionTables,
+  ]);
+
+  await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
+    const selectedRows = await tx
+      .select({
+        documentId: documentProjection.documentId,
+        localId: documentProjection.localId,
+        updatedAt: documentProjection.updatedAt,
+      })
+      .from(documentProjection)
+      .where(eq(documentProjection.containerId, containerId));
+
+    await tx
+      .delete(documentContainerProjection)
+      .where(eq(documentContainerProjection.containerId, containerId))
+      .run();
+
+    for (const row of selectedRows) {
+      if (!row.localId) {
+        continue;
+      }
+
+      const remainingLinks = row.documentId
+        ? await tx
+            .select({ containerId: documentContainerProjection.containerId })
+            .from(documentContainerProjection)
+            .where(eq(documentContainerProjection.documentId, row.documentId))
+            .orderBy(asc(documentContainerProjection.containerId))
+            .limit(1)
+        : [];
+
+      await tx
+        .update(documentProjection)
+        .set({
+          containerId: remainingLinks[0]?.containerId ?? null,
+          updatedAt: getLatestTimestamp(row.updatedAt, updatedAt),
+        })
+        .where(eq(documentProjection.localId, row.localId))
+        .run();
+    }
+  });
+}
+
 export const sqlExplorerPersistence: ExplorerPersistence = {
-  async deleteContainer(execSql, containerId) {
+  async deleteContainer(execSql, containerId, options) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const updatedAt = options?.updatedAt ?? new Date().toISOString();
       const { db } = getAppDatabaseRuntime(lockedExecSql);
+      await repairDocumentsForRemovedContainer({
+        containerId,
+        execSql: lockedExecSql,
+        updatedAt,
+      });
       await db
         .delete(containerCreateIntents)
         .where(eq(containerCreateIntents.containerId, containerId))
@@ -224,6 +305,10 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
       await deleteDocumentPendingUpdates(
         lockedExecSql,
         getContainerMetadataScope(containerId),
+      );
+      await sqlContainerSyncWatermarkPersistence.deleteWatermarksForContainers(
+        lockedExecSql,
+        [containerId],
       );
     });
   },
@@ -245,6 +330,9 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
       await ensureContainerTables(lockedExecSql);
       await ensureDocumentTables(lockedExecSql);
       await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
+      await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
+      await ensureSqlTables(lockedExecSql, documentProjectionTables);
+      await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
     });
   },
   async enqueuePendingUpdate(execSql, input) {
