@@ -1,28 +1,26 @@
 import { useCallback, useEffect, useMemo } from "react";
-import {
-  type DocumentSummary,
-  upsertDiscoveredDocuments,
-} from "../../../data/persistence/documents/documentsPersistence";
+import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
 import type { AppDataContextValue } from "../../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
 import {
-  discoverContainerDocuments,
-  hasUndiscoveredDocumentUpdateEvent,
-} from "../documentDiscovery";
+  type ExplorerDocumentLinkInput,
+  upsertDiscoveredExplorerDocuments,
+} from "../../../stores/explorer/documentReadModel";
 import {
   createExplorerDocumentsRuntime,
   type ExplorerDocumentsRuntimeAppData,
   isDestroyedDatabaseWorkerError,
-} from "../explorerRuntime";
+} from "../../../stores/explorer/documentRuntime";
+import {
+  discoverContainerDocuments,
+  hasUndiscoveredDocumentUpdateEvent,
+} from "../documentDiscovery";
 
 type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppData &
   Pick<AppDataContextValue, "events">;
 
 type ReplaceDocumentLinksBatch = (
-  inputs: ReadonlyArray<{
-    containerIds: ReadonlyArray<string>;
-    documentId: string;
-  }>,
+  inputs: ReadonlyArray<ExplorerDocumentLinkInput>,
 ) => Promise<void>;
 
 export function useDiscoveredDocumentsSync(params: {
@@ -63,7 +61,7 @@ export function useDiscoveredDocumentsSync(params: {
               apiClient.listContainerDocuments(nextContainerId),
             replaceDocumentLinksBatch,
             upsertDiscoveredDocuments: (inputs) =>
-              upsertDiscoveredDocuments(execSql, inputs),
+              upsertDiscoveredExplorerDocuments(execSql, inputs),
           });
 
           if (!discoveredDocumentSummaries || cancelled) {

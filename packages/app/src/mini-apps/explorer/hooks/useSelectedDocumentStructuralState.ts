@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
+import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import { getDocumentByLocalId } from "../documentSummaries";
-import type { ExplorerDocumentsRuntimeAppData } from "../explorerRuntime";
 import {
   createExplorerTargetLookups,
   getDocumentLinkTargetOptions,

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
+import { listExplorerLinkedContainerIdsByDocumentIds } from "../../../stores/explorer/documentReadModel";
+import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import {
   areLinkedContainerIdMapsEqual,
   getRequestedDocumentIds,
 } from "../documentSummaryUtils";
-import { isDestroyedDatabaseWorkerError } from "../explorerRuntime";
 
 export function useDocumentLinkedContainerIdsByDocumentId(params: {
   dbStatus: ReturnType<typeof useAppData>["dbStatus"];
@@ -66,7 +66,7 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
     void (async () => {
       try {
         const nextLinkedContainerIdsByDocumentId =
-          await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
+          await listExplorerLinkedContainerIdsByDocumentIds(
             execSql,
             requestedDocumentIds,
           );
