@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
-import {
-  type ExplorerDocumentLinkInput,
-  upsertDiscoveredExplorerDocuments,
+import type {
+  ExplorerDocumentLinkInput,
+  ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
 import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { discoverAllContainerDocuments } from "../documentDiscovery";
@@ -15,8 +15,9 @@ type ReplaceDocumentLinksBatch = (
 export function useExplorerRefreshAction(params: {
   appData: Pick<
     ReturnType<typeof useAppData>,
-    "apiClient" | "cacheReferencedPrincipalPolicies" | "execSql"
+    "apiClient" | "cacheReferencedPrincipalPolicies"
   >;
+  documentReadModel: ExplorerDocumentReadModel;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
@@ -28,12 +29,13 @@ export function useExplorerRefreshAction(params: {
 }) {
   const {
     appData,
+    documentReadModel,
     mergeDocumentSummaries,
     primeDiscoveredDocuments,
     replaceDocumentLinksBatch,
     refresh,
   } = params;
-  const { apiClient, cacheReferencedPrincipalPolicies, execSql } = appData;
+  const { apiClient, cacheReferencedPrincipalPolicies } = appData;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
@@ -61,7 +63,7 @@ export function useExplorerRefreshAction(params: {
           apiClient.listContainerDocuments(containerId),
         replaceDocumentLinksBatch,
         upsertDiscoveredDocuments: (inputs) =>
-          upsertDiscoveredExplorerDocuments(execSql, inputs),
+          documentReadModel.upsertDiscoveredDocuments(inputs),
       });
 
       mergeDocumentSummaries(discoveredDocumentSummaries);
@@ -79,7 +81,7 @@ export function useExplorerRefreshAction(params: {
   }, [
     apiClient,
     cacheReferencedPrincipalPolicies,
-    execSql,
+    documentReadModel,
     mergeDocumentSummaries,
     primeDiscoveredDocuments,
     replaceDocumentLinksBatch,

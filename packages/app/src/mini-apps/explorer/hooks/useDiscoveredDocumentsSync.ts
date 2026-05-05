@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { AppDataContextValue } from "../../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
-import {
-  type ExplorerDocumentLinkInput,
-  upsertDiscoveredExplorerDocuments,
+import type {
+  ExplorerDocumentLinkInput,
+  ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
 import {
   createExplorerDocumentsRuntime,
   type ExplorerDocumentsRuntimeAppData,
   isDestroyedDatabaseWorkerError,
+  useExplorerDocumentsRuntimeAppData,
 } from "../../../stores/explorer/documentRuntime";
 import {
   discoverContainerDocuments,
@@ -26,6 +27,7 @@ type ReplaceDocumentLinksBatch = (
 export function useDiscoveredDocumentsSync(params: {
   activeContainerId: string | null;
   appData: ExplorerDiscoveryAppData;
+  documentReadModel: ExplorerDocumentReadModel;
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
@@ -35,6 +37,7 @@ export function useDiscoveredDocumentsSync(params: {
   const {
     activeContainerId,
     appData,
+    documentReadModel,
     knownDocumentIds,
     mergeDocumentSummaries,
     replaceDocumentLinksBatch,
@@ -43,7 +46,6 @@ export function useDiscoveredDocumentsSync(params: {
   const {
     apiClient,
     cacheReferencedPrincipalPolicies,
-    execSql,
     isAuthenticated,
     online,
   } = appData;
@@ -61,7 +63,7 @@ export function useDiscoveredDocumentsSync(params: {
               apiClient.listContainerDocuments(nextContainerId),
             replaceDocumentLinksBatch,
             upsertDiscoveredDocuments: (inputs) =>
-              upsertDiscoveredExplorerDocuments(execSql, inputs),
+              documentReadModel.upsertDiscoveredDocuments(inputs),
           });
 
           if (!discoveredDocumentSummaries || cancelled) {
@@ -84,7 +86,7 @@ export function useDiscoveredDocumentsSync(params: {
     [
       apiClient,
       cacheReferencedPrincipalPolicies,
-      execSql,
+      documentReadModel,
       mergeDocumentSummaries,
       primeDiscoveredDocuments,
       replaceDocumentLinksBatch,
@@ -171,59 +173,7 @@ function usePrimeDiscoveredDocuments(params: {
   appData: ExplorerDiscoveryAppData;
 }) {
   const { appData } = params;
-  const {
-    apiClient,
-    blobStore,
-    cacheReferencedPrincipalPolicies,
-    dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    events,
-    execSql,
-    isAuthenticated,
-    log,
-    online,
-    organizationId,
-    signingFingerprint,
-    signingKeyPair,
-    userId,
-  } = appData;
-  const runtimeAppData = useMemo<ExplorerDocumentsRuntimeAppData>(
-    () => ({
-      apiClient,
-      blobStore,
-      cacheReferencedPrincipalPolicies,
-      dbStatus,
-      domainScope,
-      encapsulationKeyPair,
-      events,
-      execSql,
-      isAuthenticated,
-      log,
-      online,
-      organizationId,
-      signingFingerprint,
-      signingKeyPair,
-      userId,
-    }),
-    [
-      apiClient,
-      blobStore,
-      cacheReferencedPrincipalPolicies,
-      dbStatus,
-      domainScope,
-      encapsulationKeyPair,
-      events,
-      execSql,
-      isAuthenticated,
-      log,
-      online,
-      organizationId,
-      signingFingerprint,
-      signingKeyPair,
-      userId,
-    ],
-  );
+  const runtimeAppData = useExplorerDocumentsRuntimeAppData(appData);
 
   const primeDiscoveredDocuments = useCallback(
     (discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>) => {
@@ -233,7 +183,7 @@ function usePrimeDiscoveredDocuments(params: {
         }
 
         const documentStore = primeDocumentStore(
-          domainScope,
+          runtimeAppData.domainScope,
           documentSummary.id,
           createExplorerDocumentsRuntime(
             runtimeAppData,
@@ -244,7 +194,7 @@ function usePrimeDiscoveredDocuments(params: {
         documentStore.requestSync();
       }
     },
-    [domainScope, runtimeAppData],
+    [runtimeAppData],
   );
 
   return { primeDiscoveredDocuments };

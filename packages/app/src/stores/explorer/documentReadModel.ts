@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
@@ -8,13 +9,33 @@ import {
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 
 export interface ExplorerDocumentLinkInput {
   containerIds: ReadonlyArray<string>;
   documentId: string;
 }
 
-export async function listVisibleExplorerDocumentSummaries(
+export interface ExplorerDocumentReadModel {
+  listVisibleDocumentSummaries(
+    containers: ReadonlyArray<{ id: string }>,
+  ): Promise<ReadonlyArray<DocumentSummary>>;
+  listLinkedContainerIdsByDocumentIds(
+    documentIds: ReadonlyArray<string>,
+  ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
+  replaceDocumentLinks(
+    documentId: string,
+    linkedContainerIds: ReadonlyArray<string>,
+  ): Promise<void>;
+  replaceDocumentLinksBatch(
+    inputs: ReadonlyArray<ExplorerDocumentLinkInput>,
+  ): Promise<void>;
+  upsertDiscoveredDocuments(
+    inputs: ReadonlyArray<DiscoveredDocumentInput>,
+  ): Promise<ReadonlyArray<DocumentSummary>>;
+}
+
+async function listVisibleExplorerDocumentSummaries(
   execSql: ExecSql,
   containers: ReadonlyArray<{ id: string }>,
 ): Promise<ReadonlyArray<DocumentSummary>> {
@@ -33,7 +54,7 @@ export async function listVisibleExplorerDocumentSummaries(
   );
 }
 
-export function listExplorerLinkedContainerIdsByDocumentIds(
+function listExplorerLinkedContainerIdsByDocumentIds(
   execSql: ExecSql,
   documentIds: ReadonlyArray<string>,
 ): Promise<ReadonlyMap<string, ReadonlyArray<string>>> {
@@ -43,7 +64,7 @@ export function listExplorerLinkedContainerIdsByDocumentIds(
   );
 }
 
-export function replaceExplorerDocumentLinks(
+function replaceExplorerDocumentLinks(
   execSql: ExecSql,
   documentId: string,
   linkedContainerIds: ReadonlyArray<string>,
@@ -55,7 +76,7 @@ export function replaceExplorerDocumentLinks(
   );
 }
 
-export function replaceExplorerDocumentLinksBatch(
+function replaceExplorerDocumentLinksBatch(
   execSql: ExecSql,
   inputs: ReadonlyArray<ExplorerDocumentLinkInput>,
 ): Promise<void> {
@@ -65,9 +86,43 @@ export function replaceExplorerDocumentLinksBatch(
   );
 }
 
-export function upsertDiscoveredExplorerDocuments(
+function upsertDiscoveredExplorerDocuments(
   execSql: ExecSql,
   inputs: ReadonlyArray<DiscoveredDocumentInput>,
 ): Promise<ReadonlyArray<DocumentSummary>> {
   return upsertDiscoveredDocuments(execSql, inputs);
+}
+
+function createExplorerDocumentReadModel(
+  execSql: ExecSql,
+): ExplorerDocumentReadModel {
+  return {
+    listVisibleDocumentSummaries(containers) {
+      return listVisibleExplorerDocumentSummaries(execSql, containers);
+    },
+    listLinkedContainerIdsByDocumentIds(documentIds) {
+      return listExplorerLinkedContainerIdsByDocumentIds(execSql, documentIds);
+    },
+    replaceDocumentLinks(documentId, linkedContainerIds) {
+      return replaceExplorerDocumentLinks(
+        execSql,
+        documentId,
+        linkedContainerIds,
+      );
+    },
+    replaceDocumentLinksBatch(inputs) {
+      return replaceExplorerDocumentLinksBatch(execSql, inputs);
+    },
+    upsertDiscoveredDocuments(inputs) {
+      return upsertDiscoveredExplorerDocuments(execSql, inputs);
+    },
+  };
+}
+
+export function useExplorerDocumentReadModel(
+  appData: Pick<AppDataContextValue, "execSql">,
+): ExplorerDocumentReadModel {
+  const { execSql } = appData;
+
+  return useMemo(() => createExplorerDocumentReadModel(execSql), [execSql]);
 }

@@ -1,9 +1,9 @@
 import { useCallback } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
-import {
-  type ExplorerDocumentLinkInput,
-  replaceExplorerDocumentLinksBatch,
+import type {
+  ExplorerDocumentLinkInput,
+  ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import { useDiscoveredDocumentsSync } from "./useDiscoveredDocumentsSync";
@@ -12,6 +12,7 @@ import { useExplorerRefreshAction } from "./useExplorerRefreshAction";
 export function useExplorerInteractionState(params: {
   activeContainerId: string | null;
   appData: ReturnType<typeof useAppData>;
+  documentReadModel: ExplorerDocumentReadModel;
   explorer: ExplorerModelExplorer;
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (
@@ -22,6 +23,7 @@ export function useExplorerInteractionState(params: {
   const {
     activeContainerId,
     appData,
+    documentReadModel,
     explorer,
     knownDocumentIds,
     mergeDocumentSummaries,
@@ -29,14 +31,15 @@ export function useExplorerInteractionState(params: {
   } = params;
   const replaceDocumentLinksBatch = useCallback(
     async (inputs: ReadonlyArray<ExplorerDocumentLinkInput>) => {
-      await replaceExplorerDocumentLinksBatch(appData.execSql, inputs);
+      await documentReadModel.replaceDocumentLinksBatch(inputs);
       onDocumentLinksChanged();
     },
-    [appData.execSql, onDocumentLinksChanged],
+    [documentReadModel, onDocumentLinksChanged],
   );
   const { primeDiscoveredDocuments } = useDiscoveredDocumentsSync({
     activeContainerId,
     appData,
+    documentReadModel,
     knownDocumentIds,
     mergeDocumentSummaries,
     replaceDocumentLinksBatch,
@@ -44,6 +47,7 @@ export function useExplorerInteractionState(params: {
 
   return useExplorerRefreshAction({
     appData,
+    documentReadModel,
     mergeDocumentSummaries,
     primeDiscoveredDocuments,
     replaceDocumentLinksBatch,

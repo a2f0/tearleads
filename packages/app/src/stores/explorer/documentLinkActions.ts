@@ -6,7 +6,7 @@ import {
   relinkRemoteDocument,
 } from "../../workflows/documents";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
-import { replaceExplorerDocumentLinks } from "./documentReadModel";
+import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import {
   createExplorerDocumentsRuntime,
   type ExplorerDocumentsRuntimeAppData,
@@ -74,25 +74,29 @@ function resolveExplorerDocumentMutationContext(
 }
 
 async function syncExplorerDocumentLinks(
-  appData: ExplorerDocumentsRuntimeAppData,
+  documentReadModel: ExplorerDocumentReadModel,
   documentId: string,
   linkedContainerIds: ReadonlyArray<string>,
 ) {
-  await replaceExplorerDocumentLinks(
-    appData.execSql,
-    documentId,
-    linkedContainerIds,
-  );
+  await documentReadModel.replaceDocumentLinks(documentId, linkedContainerIds);
 }
 
 async function mutateExplorerDocumentLinkSet(params: {
   appData: ExplorerDocumentsRuntimeAppData;
+  documentReadModel: ExplorerDocumentReadModel;
   documentId: string;
   noteId: string;
   operation: "link" | "unlink";
   targetContainerId: string;
 }): Promise<RelinkRemoteDocumentResult | null> {
-  const { appData, documentId, noteId, operation, targetContainerId } = params;
+  const {
+    appData,
+    documentReadModel,
+    documentId,
+    noteId,
+    operation,
+    targetContainerId,
+  } = params;
   const mutationContext = resolveExplorerDocumentMutationContext(appData);
   if (!mutationContext) {
     return null;
@@ -127,7 +131,7 @@ async function mutateExplorerDocumentLinkSet(params: {
   }
 
   await syncExplorerDocumentLinks(
-    appData,
+    documentReadModel,
     documentId,
     result.linkedContainerIds,
   );
@@ -154,16 +158,18 @@ function explorerDocumentMoveResult(input: {
 
 async function moveExplorerDocument(params: {
   appData: ExplorerDocumentsRuntimeAppData;
+  documentReadModel: ExplorerDocumentReadModel;
   note: DocumentSummary;
   targetContainerId: string;
 }) {
-  const { appData, note, targetContainerId } = params;
+  const { appData, documentReadModel, note, targetContainerId } = params;
   if (!note.documentId || !note.containerId) {
     return null;
   }
 
   const linkedDocument = await mutateExplorerDocumentLinkSet({
     appData,
+    documentReadModel,
     documentId: note.documentId,
     noteId: note.id,
     operation: "link",
@@ -175,6 +181,7 @@ async function moveExplorerDocument(params: {
 
   const unlinkedDocument = await mutateExplorerDocumentLinkSet({
     appData,
+    documentReadModel,
     documentId: note.documentId,
     noteId: note.id,
     operation: "unlink",
@@ -210,10 +217,11 @@ async function moveExplorerDocument(params: {
 
 async function linkExplorerDocument(params: {
   appData: ExplorerDocumentsRuntimeAppData;
+  documentReadModel: ExplorerDocumentReadModel;
   note: DocumentSummary;
   targetContainerId: string;
 }) {
-  const { appData, note, targetContainerId } = params;
+  const { appData, documentReadModel, note, targetContainerId } = params;
   const documentId = note.documentId;
   if (!documentId) {
     return null;
@@ -221,6 +229,7 @@ async function linkExplorerDocument(params: {
 
   return mutateExplorerDocumentLinkSet({
     appData,
+    documentReadModel,
     documentId,
     noteId: note.id,
     operation: "link",
@@ -230,10 +239,11 @@ async function linkExplorerDocument(params: {
 
 async function unlinkExplorerDocument(params: {
   appData: ExplorerDocumentsRuntimeAppData;
+  documentReadModel: ExplorerDocumentReadModel;
   note: DocumentSummary;
   targetContainerId: string;
 }) {
-  const { appData, note, targetContainerId } = params;
+  const { appData, documentReadModel, note, targetContainerId } = params;
   const documentId = note.documentId;
   if (!documentId) {
     return null;
@@ -241,6 +251,7 @@ async function unlinkExplorerDocument(params: {
 
   return mutateExplorerDocumentLinkSet({
     appData,
+    documentReadModel,
     documentId,
     noteId: note.id,
     operation: "unlink",
@@ -345,6 +356,7 @@ async function relinkExplorerNoteAfterStructuralMutation(params: {
 
 export async function moveExplorerNote(params: {
   appData: ExplorerDocumentsRuntimeAppData;
+  documentReadModel: ExplorerDocumentReadModel;
   expandNode: (nodeId: string) => void;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
   note: DocumentSummary;
@@ -353,6 +365,7 @@ export async function moveExplorerNote(params: {
 }) {
   const {
     appData,
+    documentReadModel,
     expandNode,
     mergeDocumentSummary,
     note,
@@ -378,6 +391,7 @@ export async function moveExplorerNote(params: {
 
   const movedDocument = await moveExplorerDocument({
     appData,
+    documentReadModel,
     note,
     targetContainerId,
   });
@@ -415,6 +429,7 @@ export async function moveExplorerNote(params: {
 
 export async function linkExplorerNote(params: {
   appData: ExplorerDocumentsRuntimeAppData;
+  documentReadModel: ExplorerDocumentReadModel;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
   note: DocumentSummary;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
@@ -422,6 +437,7 @@ export async function linkExplorerNote(params: {
 }) {
   const {
     appData,
+    documentReadModel,
     mergeDocumentSummary,
     note,
     setLinkedContainerIdsForDocument,
@@ -442,6 +458,7 @@ export async function linkExplorerNote(params: {
 
   const linkedDocument = await linkExplorerDocument({
     appData,
+    documentReadModel,
     note,
     targetContainerId,
   });
@@ -474,6 +491,7 @@ export async function linkExplorerNote(params: {
 
 export async function unlinkExplorerLinkedNote(params: {
   appData: ExplorerDocumentsRuntimeAppData;
+  documentReadModel: ExplorerDocumentReadModel;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
   note: DocumentSummary;
   removedContainerId: string;
@@ -481,6 +499,7 @@ export async function unlinkExplorerLinkedNote(params: {
 }) {
   const {
     appData,
+    documentReadModel,
     mergeDocumentSummary,
     note,
     removedContainerId,
@@ -501,6 +520,7 @@ export async function unlinkExplorerLinkedNote(params: {
 
   const unlinkedDocument = await unlinkExplorerDocument({
     appData,
+    documentReadModel,
     note,
     targetContainerId: removedContainerId,
   });

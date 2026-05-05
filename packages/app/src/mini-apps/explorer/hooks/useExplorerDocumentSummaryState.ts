@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import { subscribeToPersistedDocuments } from "../../../stores/documents/DocumentsProvider";
-import { listVisibleExplorerDocumentSummaries } from "../../../stores/explorer/documentReadModel";
+import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import {
   mergeDocumentSummaryLists,
   mergeSingleDocumentSummaryList,
@@ -12,7 +12,7 @@ import type { ContainerNode } from "../types";
 export function useExplorerDocumentSummaryState(
   dbStatus: ReturnType<typeof useAppData>["dbStatus"],
   domainScope: ReturnType<typeof useAppData>["domainScope"],
-  execSql: ReturnType<typeof useAppData>["execSql"],
+  documentReadModel: ExplorerDocumentReadModel,
   nodes: ReadonlyArray<ContainerNode>,
 ) {
   const [documentSummaries, setDocumentSummaries] = useState<
@@ -28,10 +28,8 @@ export function useExplorerDocumentSummaryState(
     let cancelled = false;
 
     void (async () => {
-      const visibleDocuments = await listVisibleExplorerDocumentSummaries(
-        execSql,
-        nodes,
-      );
+      const visibleDocuments =
+        await documentReadModel.listVisibleDocumentSummaries(nodes);
       const validContainerIds = new Set(nodes.map((node) => node.id));
 
       if (!cancelled) {
@@ -57,7 +55,7 @@ export function useExplorerDocumentSummaryState(
     return () => {
       cancelled = true;
     };
-  }, [dbStatus, domainScope, execSql, nodes]);
+  }, [dbStatus, documentReadModel, domainScope, nodes]);
 
   const mergeDocumentSummary = useCallback((nextDocument: DocumentSummary) => {
     setDocumentSummaries((currentDocumentSummaries) =>

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
+import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import {
   buildDocumentsByContainerId,
   type DocumentContainerProjection,
@@ -15,10 +16,8 @@ import {
 } from "./useExplorerSelection";
 
 export function useExplorerDocumentViewModel(params: {
-  appData: Pick<
-    ReturnType<typeof useAppData>,
-    "dbStatus" | "domainScope" | "execSql"
-  >;
+  appData: Pick<ReturnType<typeof useAppData>, "dbStatus" | "domainScope">;
+  documentReadModel: ExplorerDocumentReadModel;
   documentLinkProjectionVersion: number;
   nodes: ReadonlyArray<ContainerNode>;
 }): {
@@ -39,19 +38,20 @@ export function useExplorerDocumentViewModel(params: {
     linkedContainerIds: ReadonlyArray<string>,
   ) => void;
 } {
-  const { appData, documentLinkProjectionVersion, nodes } = params;
+  const { appData, documentReadModel, documentLinkProjectionVersion, nodes } =
+    params;
   const { mergeDocumentSummaries, mergeDocumentSummary, documentSummaries } =
     useExplorerDocumentSummaryState(
       appData.dbStatus,
       appData.domainScope,
-      appData.execSql,
+      documentReadModel,
       nodes,
     );
   const { linkedContainerIdsByDocumentId, setLinkedContainerIdsForDocument } =
     useDocumentLinkedContainerIdsByDocumentId({
       dbStatus: appData.dbStatus,
+      documentReadModel,
       documentLinkProjectionVersion,
-      execSql: appData.execSql,
       documentSummaries,
     });
   const validContainerIds = useMemo(
