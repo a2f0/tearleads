@@ -302,6 +302,18 @@ export const containerCreateIntents = sqliteTable(
   ],
 );
 
+export const containerSyncWatermarks = sqliteTable(
+  "container_sync_watermarks",
+  {
+    laneKind: text("lane_kind").notNull(),
+    laneId: text("lane_id").notNull(),
+    watermarkUpdatedAt: text("watermark_updated_at").notNull(),
+    watermarkId: text("watermark_id").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.laneKind, table.laneId] })],
+);
+
 export const documentTables = [
   defineSqlTableSchema(documents),
   defineSqlTableSchema(documentPendingUpdates),
@@ -332,6 +344,10 @@ export const containerCreateIntentTables = [
   defineSqlTableSchema(containerCreateIntents),
 ];
 
+export const containerSyncWatermarkTables = [
+  defineSqlTableSchema(containerSyncWatermarks),
+];
+
 export const appSqlTables = [
   ...documentTables,
   ...principalPolicyTables,
@@ -340,6 +356,7 @@ export const appSqlTables = [
   ...documentProjectionTables,
   ...addressBookProjectionTables,
   ...containerCreateIntentTables,
+  ...containerSyncWatermarkTables,
 ];
 
 export const appSQLiteSchema = {
@@ -354,4 +371,5 @@ export const appSQLiteSchema = {
   documentAttachmentBlobProjection,
   addressBookProjection,
   containerCreateIntents,
+  containerSyncWatermarks,
 };

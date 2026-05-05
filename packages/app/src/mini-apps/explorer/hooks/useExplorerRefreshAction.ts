@@ -114,9 +114,16 @@ export function useExplorerRefreshAction(params: {
       const discoveredDocumentSummaries = await discoverAllContainerDocuments({
         cacheReferencedPrincipalPolicies,
         containerIds: remoteContainers.map((container) => container.id),
+        loadContainerDocumentWatermark: (containerId) =>
+          documentReadModel.loadContainerDocumentWatermark(containerId),
         listContainerDocuments: (containerId, options) =>
           apiClient.listContainerDocuments(containerId, options),
         replaceDocumentLinksBatch,
+        saveContainerDocumentWatermark: (containerId, watermark) =>
+          documentReadModel.saveContainerDocumentWatermark(
+            containerId,
+            watermark,
+          ),
         upsertDiscoveredDocuments: (inputs) =>
           documentReadModel.upsertDiscoveredDocuments(inputs),
       });

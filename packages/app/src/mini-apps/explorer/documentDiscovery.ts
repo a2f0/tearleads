@@ -39,6 +39,9 @@ interface DiscoverContainerDocumentsOptions {
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
   ) => Promise<void>;
   containerId: string;
+  loadContainerDocumentWatermark: (
+    containerId: string,
+  ) => Promise<SyncWatermark | null>;
   listContainerDocuments: (
     containerId: string,
     options?: { watermark?: SyncWatermark | null },
@@ -46,21 +49,32 @@ interface DiscoverContainerDocumentsOptions {
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<DocumentLinkInput>,
   ) => Promise<void>;
+  saveContainerDocumentWatermark: (
+    containerId: string,
+    watermark: SyncWatermark,
+  ) => Promise<void>;
   upsertDiscoveredDocuments: (
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
 }
 
+interface ListedContainerDocuments {
+  items: ExplorerListedDocument[];
+  nextWatermark: SyncWatermark | null;
+  tombstones: ExplorerListContainerDocumentsResponse["tombstones"][number][];
+}
+
 async function listAllContainerDocuments(input: {
   containerId: string;
+  loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
   listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
-}): Promise<ExplorerListContainerDocumentsResponse | null> {
+}): Promise<ListedContainerDocuments | null> {
   const items: ExplorerListedDocument[] = [];
   const tombstones: ExplorerListContainerDocumentsResponse["tombstones"][number][] =
     [];
-  let watermark: SyncWatermark | null = null;
+  let watermark = await input.loadContainerDocumentWatermark(input.containerId);
 
-  do {
+  while (true) {
     const response = await input.listContainerDocuments(input.containerId, {
       watermark,
     });
@@ -73,20 +87,33 @@ async function listAllContainerDocuments(input: {
 
     if (!response.hasMore) {
       return {
-        hasMore: false,
         items,
         nextWatermark: watermark,
         tombstones,
       };
     }
-  } while (watermark);
 
-  return {
-    hasMore: false,
-    items,
-    nextWatermark: watermark,
-    tombstones,
-  };
+    if (!watermark) {
+      return null;
+    }
+  }
+}
+
+async function saveAppliedContainerDocumentWatermark(input: {
+  containerId: string;
+  listedDocuments: ListedContainerDocuments;
+  saveContainerDocumentWatermark: DiscoverContainerDocumentsOptions["saveContainerDocumentWatermark"];
+}) {
+  const { containerId, listedDocuments, saveContainerDocumentWatermark } =
+    input;
+  if (listedDocuments.tombstones.length > 0 || !listedDocuments.nextWatermark) {
+    return;
+  }
+
+  await saveContainerDocumentWatermark(
+    containerId,
+    listedDocuments.nextWatermark,
+  );
 }
 
 interface DiscoverAllContainerDocumentsOptions
@@ -108,12 +135,15 @@ export function hasUndiscoveredDocumentUpdateEvent(
 export async function discoverContainerDocuments({
   cacheReferencedPrincipalPolicies,
   containerId,
+  loadContainerDocumentWatermark,
   listContainerDocuments,
   replaceDocumentLinksBatch,
+  saveContainerDocumentWatermark,
   upsertDiscoveredDocuments,
 }: DiscoverContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
   const listedDocuments = await listAllContainerDocuments({
     containerId,
+    loadContainerDocumentWatermark,
     listContainerDocuments,
   });
   if (!listedDocuments) {
@@ -133,7 +163,7 @@ export async function discoverContainerDocuments({
     })),
   );
 
-  return upsertDiscoveredDocuments(
+  const discoveredDocuments = await upsertDiscoveredDocuments(
     listedDocuments.items.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
       accessStateHash: document.currentAccessStateHash,
@@ -143,13 +173,23 @@ export async function discoverContainerDocuments({
       linkedContainerIds: document.linkedContainerIds,
     })),
   );
+
+  await saveAppliedContainerDocumentWatermark({
+    containerId,
+    listedDocuments,
+    saveContainerDocumentWatermark,
+  });
+
+  return discoveredDocuments;
 }
 
 export async function discoverAllContainerDocuments({
   cacheReferencedPrincipalPolicies,
   containerIds,
+  loadContainerDocumentWatermark,
   listContainerDocuments,
   replaceDocumentLinksBatch,
+  saveContainerDocumentWatermark,
   upsertDiscoveredDocuments,
 }: DiscoverAllContainerDocumentsOptions): Promise<
   ReadonlyArray<DocumentSummary>
@@ -160,6 +200,7 @@ export async function discoverAllContainerDocuments({
       containerId,
       listedDocuments: await listAllContainerDocuments({
         containerId,
+        loadContainerDocumentWatermark,
         listContainerDocuments,
       }),
     })),
@@ -198,9 +239,22 @@ export async function discoverAllContainerDocuments({
 
   await replaceDocumentLinksBatch(documentLinks);
 
-  if (discoveredDocumentInputs.length === 0) {
-    return [];
-  }
+  const discoveredDocuments =
+    discoveredDocumentInputs.length === 0
+      ? []
+      : await upsertDiscoveredDocuments(discoveredDocumentInputs);
 
-  return upsertDiscoveredDocuments(discoveredDocumentInputs);
+  await Promise.all(
+    listedDocumentsByContainer.map(({ containerId, listedDocuments }) =>
+      listedDocuments
+        ? saveAppliedContainerDocumentWatermark({
+            containerId,
+            listedDocuments,
+            saveContainerDocumentWatermark,
+          })
+        : undefined,
+    ),
+  );
+
+  return discoveredDocuments;
 }

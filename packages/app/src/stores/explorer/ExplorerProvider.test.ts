@@ -42,6 +42,10 @@ import {
   loadContainers,
   saveContainer,
 } from "../../data/persistence/containers/containerPersistence";
+import {
+  containerParentSyncLane,
+  sqlContainerSyncWatermarkPersistence,
+} from "../../data/persistence/containers/containerSyncWatermarkPersistence";
 import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import {
   ensureDocumentTables,
@@ -1903,6 +1907,15 @@ test("explorer store refreshes remote containers on demand after initialization"
         (options) => options.parentId === "shared-root-container",
       ),
     ).toBe(true);
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerParentSyncLane(null),
+      ),
+    ).resolves.toEqual({
+      id: "shared-root-container",
+      updatedAt: "2026-05-05T00:00:00.000Z",
+    });
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";

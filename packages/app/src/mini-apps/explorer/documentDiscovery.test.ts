@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { SyncWatermark } from "@tearleads/validators/response";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
@@ -32,6 +33,15 @@ function listContainerDocumentsResponse(
     }>;
     updatedAt: string;
   }>,
+  overrides: Partial<{
+    hasMore: boolean;
+    nextWatermark: SyncWatermark | null;
+    tombstones: ReadonlyArray<{
+      containerId: string;
+      documentId: string;
+      updatedAt: string;
+    }>;
+  }> = {},
 ) {
   const lastItem = items.at(-1);
   return {
@@ -41,8 +51,14 @@ function listContainerDocumentsResponse(
       ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
       : null,
     tombstones: [],
+    ...overrides,
   };
 }
+
+const nullContainerDocumentWatermarks = {
+  loadContainerDocumentWatermark: async () => null,
+  saveContainerDocumentWatermark: async () => {},
+};
 
 function captureDiscoveredDocumentInputs(
   inputs: ReadonlyArray<DiscoveredDocumentInput>,
@@ -95,6 +111,7 @@ test("unknown document update events trigger rediscovery for shared container no
   );
 
   const discovered = await discoverContainerDocuments({
+    ...nullContainerDocumentWatermarks,
     cacheReferencedPrincipalPolicies: async (references) => {
       cachedPrincipalReferences.push(references);
     },
@@ -178,6 +195,155 @@ test("unknown document update events trigger rediscovery for shared container no
   ]);
 });
 
+test("container document discovery resumes from stored watermark and advances after local apply", async () => {
+  const listContainerDocumentsCalls: Array<{
+    containerId: string;
+    watermark: SyncWatermark | null | undefined;
+  }> = [];
+  const saveContainerDocumentWatermarkCalls: Array<{
+    containerId: string;
+    watermark: SyncWatermark;
+  }> = [];
+  const applyOrder: string[] = [];
+  const discovered = await discoverContainerDocuments({
+    containerId: "shared-container",
+    loadContainerDocumentWatermark: async () => ({
+      id: "old-document",
+      updatedAt: "2026-04-06T11:00:00.000Z",
+    }),
+    listContainerDocuments: async (containerId, options) => {
+      listContainerDocumentsCalls.push({
+        containerId,
+        watermark: options?.watermark,
+      });
+
+      return listContainerDocumentsResponse([
+        {
+          createdAt: "2026-04-06T12:00:00.000Z",
+          currentAccessEpoch: 1,
+          currentAccessStateHash: "access-state-hash-1",
+          id: "peer-note-document",
+          linkedContainerIds: ["shared-container"],
+          updatedAt: "2026-04-06T12:00:00.000Z",
+        },
+      ]);
+    },
+    replaceDocumentLinksBatch: async () => {
+      applyOrder.push("replace-links");
+    },
+    saveContainerDocumentWatermark: async (containerId, watermark) => {
+      applyOrder.push("save-watermark");
+      saveContainerDocumentWatermarkCalls.push({ containerId, watermark });
+    },
+    upsertDiscoveredDocuments: async (inputs) => {
+      applyOrder.push("upsert-documents");
+      return inputs.map<DocumentSummary>((input) => ({
+        id: `document-${input.documentId}`,
+        containerId: input.containerId,
+        documentId: input.documentId,
+        title: input.documentId,
+        updatedAt: input.createdAt,
+      }));
+    },
+  });
+
+  expect(listContainerDocumentsCalls).toEqual([
+    {
+      containerId: "shared-container",
+      watermark: {
+        id: "old-document",
+        updatedAt: "2026-04-06T11:00:00.000Z",
+      },
+    },
+  ]);
+  expect(applyOrder).toEqual([
+    "replace-links",
+    "upsert-documents",
+    "save-watermark",
+  ]);
+  expect(saveContainerDocumentWatermarkCalls).toEqual([
+    {
+      containerId: "shared-container",
+      watermark: {
+        id: "peer-note-document",
+        updatedAt: "2026-04-06T12:00:00.000Z",
+      },
+    },
+  ]);
+  expect(discovered).toEqual([
+    {
+      id: "document-peer-note-document",
+      containerId: "shared-container",
+      documentId: "peer-note-document",
+      title: "peer-note-document",
+      updatedAt: "2026-04-06T12:00:00.000Z",
+    },
+  ]);
+});
+
+test("container document discovery does not advance watermark when local apply fails", async () => {
+  const saveContainerDocumentWatermarkCalls: SyncWatermark[] = [];
+
+  await expect(
+    discoverContainerDocuments({
+      containerId: "shared-container",
+      loadContainerDocumentWatermark: async () => null,
+      listContainerDocuments: async () =>
+        listContainerDocumentsResponse([
+          {
+            createdAt: "2026-04-06T12:00:00.000Z",
+            currentAccessEpoch: 1,
+            currentAccessStateHash: "access-state-hash-1",
+            id: "peer-note-document",
+            linkedContainerIds: ["shared-container"],
+            updatedAt: "2026-04-06T12:00:00.000Z",
+          },
+        ]),
+      replaceDocumentLinksBatch: async () => {},
+      saveContainerDocumentWatermark: async (_containerId, watermark) => {
+        saveContainerDocumentWatermarkCalls.push(watermark);
+      },
+      upsertDiscoveredDocuments: async () => {
+        throw new Error("upsert failed");
+      },
+    }),
+  ).rejects.toThrow("upsert failed");
+
+  expect(saveContainerDocumentWatermarkCalls).toEqual([]);
+});
+
+test("container document discovery does not advance watermark until tombstones are applied", async () => {
+  const saveContainerDocumentWatermarkCalls: SyncWatermark[] = [];
+
+  await expect(
+    discoverContainerDocuments({
+      containerId: "shared-container",
+      loadContainerDocumentWatermark: async () => null,
+      listContainerDocuments: async () =>
+        listContainerDocumentsResponse([], {
+          nextWatermark: {
+            id: "deleted-document",
+            updatedAt: "2026-04-06T12:00:00.000Z",
+          },
+          tombstones: [
+            {
+              containerId: "shared-container",
+              documentId: "deleted-document",
+              updatedAt: "2026-04-06T12:00:00.000Z",
+            },
+          ],
+        }),
+      replaceDocumentLinksBatch: async () => {},
+      saveContainerDocumentWatermark: async (_containerId, watermark) => {
+        saveContainerDocumentWatermarkCalls.push(watermark);
+      },
+      upsertDiscoveredDocuments: async () => [],
+    }),
+  ).resolves.toEqual([]);
+
+  expect(saveContainerDocumentWatermarkCalls).toEqual([]);
+});
+
 test("manual refresh can discover documents across all visible containers", async () => {
   const cachedPrincipalReferences: Array<
     ReadonlyArray<{
@@ -199,6 +365,7 @@ test("manual refresh can discover documents across all visible containers", asyn
     ReadonlyArray<CapturedDiscoveredDocumentInput>
   > = [];
   const discovered = await discoverAllContainerDocuments({
+    ...nullContainerDocumentWatermarks,
     cacheReferencedPrincipalPolicies: async (references) => {
       cachedPrincipalReferences.push(references);
     },

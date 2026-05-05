@@ -59,9 +59,16 @@ export function useDiscoveredDocumentsSync(params: {
           const discoveredDocumentSummaries = await discoverContainerDocuments({
             cacheReferencedPrincipalPolicies,
             containerId,
+            loadContainerDocumentWatermark: (nextContainerId) =>
+              documentReadModel.loadContainerDocumentWatermark(nextContainerId),
             listContainerDocuments: (nextContainerId, options) =>
               apiClient.listContainerDocuments(nextContainerId, options),
             replaceDocumentLinksBatch,
+            saveContainerDocumentWatermark: (nextContainerId, watermark) =>
+              documentReadModel.saveContainerDocumentWatermark(
+                nextContainerId,
+                watermark,
+              ),
             upsertDiscoveredDocuments: (inputs) =>
               documentReadModel.upsertDiscoveredDocuments(inputs),
           });

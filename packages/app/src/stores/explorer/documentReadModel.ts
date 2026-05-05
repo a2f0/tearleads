@@ -1,8 +1,13 @@
+import type { SyncWatermark } from "@tearleads/validators/response";
 import { useMemo } from "react";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../data/documents/shared/documentSummary";
+import {
+  containerDocumentsSyncLane,
+  sqlContainerSyncWatermarkPersistence,
+} from "../../data/persistence/containers/containerSyncWatermarkPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import {
   sqlDocumentsPersistence,
@@ -17,6 +22,9 @@ export interface ExplorerDocumentLinkInput {
 }
 
 export interface ExplorerDocumentReadModel {
+  loadContainerDocumentWatermark(
+    containerId: string,
+  ): Promise<SyncWatermark | null>;
   listVisibleDocumentSummaries(
     containers: ReadonlyArray<{ id: string }>,
   ): Promise<ReadonlyArray<DocumentSummary>>;
@@ -29,6 +37,10 @@ export interface ExplorerDocumentReadModel {
   ): Promise<void>;
   replaceDocumentLinksBatch(
     inputs: ReadonlyArray<ExplorerDocumentLinkInput>,
+  ): Promise<void>;
+  saveContainerDocumentWatermark(
+    containerId: string,
+    watermark: SyncWatermark,
   ): Promise<void>;
   upsertDiscoveredDocuments(
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
@@ -64,6 +76,16 @@ function listExplorerLinkedContainerIdsByDocumentIds(
   );
 }
 
+function loadExplorerContainerDocumentWatermark(
+  execSql: ExecSql,
+  containerId: string,
+): Promise<SyncWatermark | null> {
+  return sqlContainerSyncWatermarkPersistence.loadWatermark(
+    execSql,
+    containerDocumentsSyncLane(containerId),
+  );
+}
+
 function replaceExplorerDocumentLinks(
   execSql: ExecSql,
   documentId: string,
@@ -86,6 +108,18 @@ function replaceExplorerDocumentLinksBatch(
   );
 }
 
+function saveExplorerContainerDocumentWatermark(
+  execSql: ExecSql,
+  containerId: string,
+  watermark: SyncWatermark,
+): Promise<void> {
+  return sqlContainerSyncWatermarkPersistence.saveWatermark(
+    execSql,
+    containerDocumentsSyncLane(containerId),
+    watermark,
+  );
+}
+
 function upsertDiscoveredExplorerDocuments(
   execSql: ExecSql,
   inputs: ReadonlyArray<DiscoveredDocumentInput>,
@@ -97,6 +131,9 @@ function createExplorerDocumentReadModel(
   execSql: ExecSql,
 ): ExplorerDocumentReadModel {
   return {
+    loadContainerDocumentWatermark(containerId) {
+      return loadExplorerContainerDocumentWatermark(execSql, containerId);
+    },
     listVisibleDocumentSummaries(containers) {
       return listVisibleExplorerDocumentSummaries(execSql, containers);
     },
@@ -112,6 +149,13 @@ function createExplorerDocumentReadModel(
     },
     replaceDocumentLinksBatch(inputs) {
       return replaceExplorerDocumentLinksBatch(execSql, inputs);
+    },
+    saveContainerDocumentWatermark(containerId, watermark) {
+      return saveExplorerContainerDocumentWatermark(
+        execSql,
+        containerId,
+        watermark,
+      );
     },
     upsertDiscoveredDocuments(inputs) {
       return upsertDiscoveredExplorerDocuments(execSql, inputs);
