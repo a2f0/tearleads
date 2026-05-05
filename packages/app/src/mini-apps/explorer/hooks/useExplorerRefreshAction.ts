@@ -1,17 +1,15 @@
 import { useCallback, useState } from "react";
-import {
-  type DocumentSummary,
-  upsertDiscoveredDocuments,
-} from "../../../data/persistence/documents/documentsPersistence";
+import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
+import {
+  type ExplorerDocumentLinkInput,
+  upsertDiscoveredExplorerDocuments,
+} from "../../../stores/explorer/documentReadModel";
+import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { discoverAllContainerDocuments } from "../documentDiscovery";
-import { isDestroyedDatabaseWorkerError } from "../explorerRuntime";
 
 type ReplaceDocumentLinksBatch = (
-  inputs: ReadonlyArray<{
-    containerIds: ReadonlyArray<string>;
-    documentId: string;
-  }>,
+  inputs: ReadonlyArray<ExplorerDocumentLinkInput>,
 ) => Promise<void>;
 
 export function useExplorerRefreshAction(params: {
@@ -63,7 +61,7 @@ export function useExplorerRefreshAction(params: {
           apiClient.listContainerDocuments(containerId),
         replaceDocumentLinksBatch,
         upsertDiscoveredDocuments: (inputs) =>
-          upsertDiscoveredDocuments(execSql, inputs),
+          upsertDiscoveredExplorerDocuments(execSql, inputs),
       });
 
       mergeDocumentSummaries(discoveredDocumentSummaries);

@@ -46,7 +46,9 @@ cleanup should be incremental and behavior-preserving.
 - `workflows/` modules must not import UI, hooks, or providers at runtime.
 - Shared helper modules under document and container data domains must stay
   layer-neutral.
-- Production UI and mini-app hooks should not import `data/sqlite/` directly.
+- Production UI and mini-app hooks should go through stores or providers rather
+  than importing workflows, persistence stores, or `data/sqlite/` directly at
+  runtime.
 
 `bun run lint:architecture` enforces the current high-confidence subset of
 these rules for `packages/app/src` and `packages/api/src`.

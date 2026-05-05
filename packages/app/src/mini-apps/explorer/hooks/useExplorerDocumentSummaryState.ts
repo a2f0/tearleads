@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
-import {
-  type DocumentSummary,
-  sqlDocumentsPersistence,
-} from "../../../data/persistence/documents/documentsPersistence";
+import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import { subscribeToPersistedDocuments } from "../../../stores/documents/DocumentsProvider";
+import { listVisibleExplorerDocumentSummaries } from "../../../stores/explorer/documentReadModel";
 import {
   mergeDocumentSummaryLists,
   mergeSingleDocumentSummaryList,
@@ -31,16 +28,11 @@ export function useExplorerDocumentSummaryState(
     let cancelled = false;
 
     void (async () => {
-      await sqlDocumentContainerProjectionPersistence.ensureSchema(execSql);
-      await sqlDocumentsPersistence.ensureSchema(execSql);
-      const storedDocuments =
-        await sqlDocumentsPersistence.listDocuments(execSql);
-      const validContainerIds = new Set(nodes.map((node) => node.id));
-      const visibleDocuments = storedDocuments.filter(
-        (documentSummary) =>
-          documentSummary.containerId &&
-          validContainerIds.has(documentSummary.containerId),
+      const visibleDocuments = await listVisibleExplorerDocumentSummaries(
+        execSql,
+        nodes,
       );
+      const validContainerIds = new Set(nodes.map((node) => node.id));
 
       if (!cancelled) {
         setDocumentSummaries((currentDocumentSummaries) => {

@@ -214,9 +214,10 @@ async function createChildContainer(pane: HTMLElement, name: string) {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
   });
 
-  await waitFor(() => {
-    expect(getExplorerSidebarItem(pane, name)).toBeTruthy();
-  });
+  await waitForCondition(
+    () => getExplorerSidebarItemsByName(pane, name).length > 0,
+    `Child container "${name}" was not created.`,
+  );
 }
 
 async function createNoteWithAttachment(pane: HTMLElement) {

@@ -1,7 +1,10 @@
 import { useCallback } from "react";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { DocumentSummary } from "../../../data/persistence/documents/documentsPersistence";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
+import {
+  type ExplorerDocumentLinkInput,
+  replaceExplorerDocumentLinksBatch,
+} from "../../../stores/explorer/documentReadModel";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import { useDiscoveredDocumentsSync } from "./useDiscoveredDocumentsSync";
 import { useExplorerRefreshAction } from "./useExplorerRefreshAction";
@@ -25,16 +28,8 @@ export function useExplorerInteractionState(params: {
     onDocumentLinksChanged,
   } = params;
   const replaceDocumentLinksBatch = useCallback(
-    async (
-      inputs: ReadonlyArray<{
-        containerIds: ReadonlyArray<string>;
-        documentId: string;
-      }>,
-    ) => {
-      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-        appData.execSql,
-        inputs,
-      );
+    async (inputs: ReadonlyArray<ExplorerDocumentLinkInput>) => {
+      await replaceExplorerDocumentLinksBatch(appData.execSql, inputs);
       onDocumentLinksChanged();
     },
     [appData.execSql, onDocumentLinksChanged],
