@@ -495,6 +495,24 @@ async function persistAccessRevocationTombstones(input: {
     });
 }
 
+function previousContainerPathDepth(input: {
+  readonly previousContainerPath: readonly VerifiedContainerAccessManifest[];
+  readonly previousManifest: VerifiedContainerAccessManifest;
+}): number {
+  const previousLeaf = input.previousContainerPath.at(-1);
+  if (
+    !previousLeaf ||
+    previousLeaf.manifestHash !== input.previousManifest.manifestHash
+  ) {
+    throw new ContainerMutationError(
+      "container move previous path is invalid",
+      409,
+    );
+  }
+
+  return input.previousContainerPath.length - 1;
+}
+
 async function persistMoveAccessLossTombstones(input: {
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
@@ -530,7 +548,10 @@ async function persistMoveAccessLossTombstones(input: {
   }
 
   const rowUpdates = {
-    depth: previousContainerPath.length - 1,
+    depth: previousContainerPathDepth({
+      previousContainerPath,
+      previousManifest,
+    }),
     organizationId: manifest.state.organizationId,
     parentId: previousManifest.state.parentContainerId,
     reason: "access_revoked" as const,
