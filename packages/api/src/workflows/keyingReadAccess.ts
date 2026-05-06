@@ -21,10 +21,12 @@ import {
 import { attachmentBindings } from "../schema";
 import {
   type ContainerAccessProjection,
+  type ContainerAccessProjectionResult,
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
   resolveContainerAccessProjection,
+  resolveContainerAccessProjectionBatch,
 } from "./containers/writerProjection";
 
 export class KeyingReadAccessError extends Error {
@@ -45,8 +47,24 @@ interface DocumentReadAccess {
   readonly referencedPrincipals: ReferencedPrincipalStateResponse[];
 }
 
+type ReadableContainerAccessResult =
+  | {
+      readonly status: "fulfilled";
+      readonly value: ContainerAccessProjection;
+    }
+  | {
+      readonly reason: KeyingReadAccessError;
+      readonly status: "rejected";
+    };
+
 function readAccessError(message: string): KeyingReadAccessError {
   return new KeyingReadAccessError(message, 409);
+}
+
+function toKeyingReadAccessError(
+  error: ContainerWriterProjectionError,
+): KeyingReadAccessError {
+  return new KeyingReadAccessError(error.message, error.status);
 }
 
 function referencedPrincipalKey(
@@ -194,10 +212,45 @@ export async function resolveReadableContainerAccess(input: {
     });
   } catch (error) {
     if (error instanceof ContainerWriterProjectionError) {
-      throw new KeyingReadAccessError(error.message, error.status);
+      throw toKeyingReadAccessError(error);
     }
     throw error;
   }
+}
+
+function toReadableContainerAccessResult(
+  result: ContainerAccessProjectionResult,
+): ReadableContainerAccessResult {
+  if (result.status === "fulfilled") {
+    return result;
+  }
+
+  return {
+    reason: toKeyingReadAccessError(result.reason),
+    status: "rejected",
+  };
+}
+
+export async function resolveReadableContainerAccessBatch(input: {
+  readonly context?: ContainerWriterProjectionContext;
+  readonly containerIds: readonly string[];
+  readonly executor: DatabaseSession;
+  readonly userId: string;
+}): Promise<Map<string, ReadableContainerAccessResult>> {
+  const results = await resolveContainerAccessProjectionBatch({
+    containerIds: input.containerIds,
+    executor: input.executor,
+    minimumAccessLevel: "read",
+    userId: input.userId,
+    ...(input.context ? { context: input.context } : {}),
+  });
+
+  return new Map(
+    Array.from(results, ([containerId, result]) => [
+      containerId,
+      toReadableContainerAccessResult(result),
+    ]),
+  );
 }
 
 export async function resolveReadableDocumentAccess(input: {

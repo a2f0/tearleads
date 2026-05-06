@@ -80,6 +80,16 @@ export interface ContainerAccessProjection {
   readonly verifiedPath: VerifiedContainerAccessManifest[];
 }
 
+export type ContainerAccessProjectionResult =
+  | {
+      readonly status: "fulfilled";
+      readonly value: ContainerAccessProjection;
+    }
+  | {
+      readonly reason: ContainerWriterProjectionError;
+      readonly status: "rejected";
+    };
+
 export interface ContainerWriterProjectionContext {
   readonly containerKekStateByCacheKey: Map<
     string,
@@ -105,6 +115,11 @@ interface ContainerKekManifestHistory {
 interface ContainerKekProjection {
   readonly manifestHistory: AccessManifestBundleWireResponse[];
   readonly state: VerifiedContainerKekState;
+}
+
+interface ContainerAccessPath {
+  readonly path: AccessManifestBundleWireResponse[];
+  readonly verifiedPath: VerifiedContainerAccessManifest[];
 }
 
 export function createContainerWriterProjectionContext(
@@ -152,6 +167,19 @@ function principalPolicyReferenceCacheKey(
     principalHead.keyEpoch,
     principalHead.stateHash,
     principalHead.keyFingerprint,
+  ].join(":");
+}
+
+function verifiedPrincipalPolicyReferenceCacheKey(
+  policy: VerifiedPrincipalPolicy,
+): string {
+  return [
+    policy.principalType,
+    policy.principalId,
+    policy.version,
+    policy.keyEpoch,
+    policy.stateHash,
+    policy.state.keyFingerprint,
   ].join(":");
 }
 
@@ -648,6 +676,84 @@ async function loadContainerManifestBundleByHash(
   );
 }
 
+async function loadContainerAccessPath(
+  context: ContainerWriterProjectionContext,
+  containerId: string,
+): Promise<ContainerAccessPath> {
+  const pathRows = await loadContainerPath(context, containerId);
+  const path = await Promise.all(
+    pathRows.map((row) => loadCurrentContainerManifestBundle(context, row.id)),
+  );
+
+  return {
+    path,
+    verifiedPath: path.map(toVerifiedContainerManifest),
+  };
+}
+
+async function loadPrincipalPoliciesForAccessPaths(
+  executor: DatabaseSession,
+  paths: readonly (readonly VerifiedContainerAccessManifest[])[],
+): Promise<VerifiedPrincipalPolicy[]> {
+  try {
+    return await loadPrincipalPoliciesForContainerPaths(executor, paths);
+  } catch (error) {
+    if (error instanceof PrincipalPolicyProjectionError) {
+      throw new ContainerWriterProjectionError(error.message, error.status);
+    }
+    throw error;
+  }
+}
+
+function buildContainerAccessProjection(input: {
+  readonly accessPath: ContainerAccessPath;
+  readonly minimumAccessLevel: ContainerAccessLevel;
+  readonly principalPolicies: VerifiedPrincipalPolicy[];
+  readonly userId: string;
+}): ContainerAccessProjection {
+  const accessLevel = resolveContainerPathUserAccessLevel({
+    path: input.accessPath.verifiedPath,
+    principalPolicies: input.principalPolicies,
+    userId: input.userId,
+  });
+
+  if (!isAccessLevelAtLeast(accessLevel, input.minimumAccessLevel)) {
+    throw new ContainerWriterProjectionError("Forbidden", 403);
+  }
+
+  return {
+    accessLevel,
+    path: input.accessPath.path,
+    principalPolicies: input.principalPolicies,
+    verifiedPath: input.accessPath.verifiedPath,
+  };
+}
+
+function asContainerWriterProjectionError(
+  error: unknown,
+): ContainerWriterProjectionError | null {
+  return error instanceof ContainerWriterProjectionError ? error : null;
+}
+
+function principalPoliciesForAccessPath(
+  principalPoliciesByReference: ReadonlyMap<string, VerifiedPrincipalPolicy>,
+  accessPath: ContainerAccessPath,
+): VerifiedPrincipalPolicy[] {
+  const policiesByReference = new Map<string, VerifiedPrincipalPolicy>();
+
+  for (const manifest of accessPath.verifiedPath) {
+    for (const reference of manifest.state.referencedPrincipalHeads) {
+      const referenceKey = principalPolicyReferenceCacheKey(reference);
+      const policy = principalPoliciesByReference.get(referenceKey);
+      if (policy) {
+        policiesByReference.set(referenceKey, policy);
+      }
+    }
+  }
+
+  return Array.from(policiesByReference.values());
+}
+
 async function loadContainerKekManifestHistory(input: {
   readonly context: ContainerWriterProjectionContext;
   readonly currentManifest: VerifiedContainerAccessManifest;
@@ -933,39 +1039,123 @@ export async function resolveContainerAccessProjection(input: {
 }): Promise<ContainerAccessProjection> {
   const context =
     input.context ?? createContainerWriterProjectionContext(input.executor);
-  const pathRows = await loadContainerPath(context, input.containerId);
-  const path = await Promise.all(
-    pathRows.map((row) => loadCurrentContainerManifestBundle(context, row.id)),
+  const accessPath = await loadContainerAccessPath(context, input.containerId);
+  const principalPolicies = await loadPrincipalPoliciesForAccessPaths(
+    context.executor,
+    [accessPath.verifiedPath],
   );
-  const verifiedPath = path.map(toVerifiedContainerManifest);
-  let principalPolicies: VerifiedPrincipalPolicy[];
-  try {
-    principalPolicies = await loadPrincipalPoliciesForContainerPaths(
-      context.executor,
-      [verifiedPath],
-    );
-  } catch (error) {
-    if (error instanceof PrincipalPolicyProjectionError) {
-      throw new ContainerWriterProjectionError(error.message, error.status);
-    }
-    throw error;
-  }
-  const accessLevel = resolveContainerPathUserAccessLevel({
-    path: verifiedPath,
+
+  return buildContainerAccessProjection({
+    accessPath,
+    minimumAccessLevel: input.minimumAccessLevel,
     principalPolicies,
     userId: input.userId,
   });
+}
 
-  if (!isAccessLevelAtLeast(accessLevel, input.minimumAccessLevel)) {
-    throw new ContainerWriterProjectionError("Forbidden", 403);
+export async function resolveContainerAccessProjectionBatch(input: {
+  readonly context?: ContainerWriterProjectionContext;
+  readonly containerIds: readonly string[];
+  readonly executor: DatabaseSession;
+  readonly minimumAccessLevel: ContainerAccessLevel;
+  readonly userId: string;
+}): Promise<Map<string, ContainerAccessProjectionResult>> {
+  const context =
+    input.context ?? createContainerWriterProjectionContext(input.executor);
+  const containerIds = [...new Set(input.containerIds)].sort();
+  const results = new Map<string, ContainerAccessProjectionResult>();
+  const accessPaths = new Map<string, ContainerAccessPath>();
+
+  const pathResults = await Promise.all(
+    containerIds.map(async (containerId) => {
+      try {
+        return {
+          accessPath: await loadContainerAccessPath(context, containerId),
+          containerId,
+        };
+      } catch (error) {
+        const projectionError = asContainerWriterProjectionError(error);
+        if (projectionError) {
+          return { containerId, error: projectionError };
+        }
+        throw error;
+      }
+    }),
+  );
+
+  for (const pathResult of pathResults) {
+    if ("error" in pathResult) {
+      results.set(pathResult.containerId, {
+        reason: pathResult.error,
+        status: "rejected",
+      });
+      continue;
+    }
+
+    accessPaths.set(pathResult.containerId, pathResult.accessPath);
   }
 
-  return {
-    accessLevel,
-    path,
-    principalPolicies,
-    verifiedPath,
-  };
+  let sharedPrincipalPolicies: VerifiedPrincipalPolicy[] | null = null;
+  let sharedPrincipalPoliciesByReference: Map<
+    string,
+    VerifiedPrincipalPolicy
+  > | null = null;
+  if (accessPaths.size > 0) {
+    try {
+      sharedPrincipalPolicies = await loadPrincipalPoliciesForAccessPaths(
+        context.executor,
+        Array.from(
+          accessPaths.values(),
+          (accessPath) => accessPath.verifiedPath,
+        ),
+      );
+      sharedPrincipalPoliciesByReference = new Map(
+        sharedPrincipalPolicies.map((policy) => [
+          verifiedPrincipalPolicyReferenceCacheKey(policy),
+          policy,
+        ]),
+      );
+    } catch (error) {
+      const projectionError = asContainerWriterProjectionError(error);
+      if (!projectionError) {
+        throw error;
+      }
+    }
+  }
+
+  for (const [containerId, accessPath] of accessPaths) {
+    try {
+      const principalPolicies = sharedPrincipalPoliciesByReference
+        ? principalPoliciesForAccessPath(
+            sharedPrincipalPoliciesByReference,
+            accessPath,
+          )
+        : await loadPrincipalPoliciesForAccessPaths(context.executor, [
+            accessPath.verifiedPath,
+          ]);
+      results.set(containerId, {
+        status: "fulfilled",
+        value: buildContainerAccessProjection({
+          accessPath,
+          minimumAccessLevel: input.minimumAccessLevel,
+          principalPolicies,
+          userId: input.userId,
+        }),
+      });
+    } catch (error) {
+      const projectionError = asContainerWriterProjectionError(error);
+      if (projectionError) {
+        results.set(containerId, {
+          reason: projectionError,
+          status: "rejected",
+        });
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return results;
 }
 
 export async function runContainerWriterProjectionWorkflow(

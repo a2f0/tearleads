@@ -116,11 +116,14 @@ async function storeGroupPolicy(input: {
   return storeVerifiedPrincipalState(bundle, db);
 }
 
-async function storeContainerWithReferencedGroup(input: {
+async function storeContainerManifest(input: {
   containerId: string;
-  groupReference: ReferencedPrincipalHead;
+  directGrants: ContainerCreateAccessEventBody["directGrants"];
   metadataDocumentId: string;
   organizationId: string;
+  parentContainerId?: string | null;
+  parentManifestHash?: string | null;
+  referencedPrincipalHeads: ReferencedPrincipalHead[];
   signerKeyFingerprint: string;
   signerPrivateKey: Uint8Array;
   signerUserId: string;
@@ -128,18 +131,12 @@ async function storeContainerWithReferencedGroup(input: {
   const containerKeyEpochId = crypto.randomUUID();
   const body: ContainerCreateAccessEventBody = {
     eventType: "container.create",
-    parentContainerId: null,
-    parentManifestHash: null,
+    parentContainerId: input.parentContainerId ?? null,
+    parentManifestHash: input.parentManifestHash ?? null,
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId,
-    directGrants: [
-      {
-        accessLevel: "read",
-        subjectType: "group",
-        subjectId: input.groupReference.principalId,
-      },
-    ],
-    referencedPrincipalHeads: [input.groupReference],
+    directGrants: input.directGrants,
+    referencedPrincipalHeads: input.referencedPrincipalHeads,
   };
   const { event, eventHash } = await signContainerEvent({
     body,
@@ -156,8 +153,8 @@ async function storeContainerWithReferencedGroup(input: {
     epoch: 1,
     previousManifestHash: null,
     eventHash,
-    parentContainerId: null,
-    parentManifestHash: null,
+    parentContainerId: input.parentContainerId ?? null,
+    parentManifestHash: input.parentManifestHash ?? null,
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId,
     directGrants: body.directGrants,
@@ -177,6 +174,53 @@ async function storeContainerWithReferencedGroup(input: {
   } as VerifiedContainerAccessManifest;
 
   await storeVerifiedAccessManifest({ verifiedManifest }, db);
+  return manifestHash;
+}
+
+function storeContainerWithReferencedGroup(input: {
+  containerId: string;
+  groupReference: ReferencedPrincipalHead;
+  metadataDocumentId: string;
+  organizationId: string;
+  signerKeyFingerprint: string;
+  signerPrivateKey: Uint8Array;
+  signerUserId: string;
+}) {
+  return storeContainerManifest({
+    ...input,
+    directGrants: [
+      {
+        accessLevel: "read",
+        subjectType: "group",
+        subjectId: input.groupReference.principalId,
+      },
+    ],
+    referencedPrincipalHeads: [input.groupReference],
+  });
+}
+
+async function storeContainerWithDirectUserGrant(input: {
+  containerId: string;
+  grantedUserId: string;
+  metadataDocumentId: string;
+  organizationId: string;
+  parentContainerId?: string | null;
+  parentManifestHash?: string | null;
+  signerKeyFingerprint: string;
+  signerPrivateKey: Uint8Array;
+  signerUserId: string;
+}) {
+  await storeContainerManifest({
+    ...input,
+    directGrants: [
+      {
+        accessLevel: "read",
+        subjectType: "user",
+        subjectId: input.grantedUserId,
+      },
+    ],
+    referencedPrincipalHeads: [],
+  });
 }
 
 test("listContainers filters managed grants through the manifest-referenced policy head", async () => {
@@ -247,4 +291,93 @@ test("listContainers filters managed grants through the manifest-referenced poli
   expect(listed.items.map((container) => container.id)).not.toContain(
     containerId,
   );
+});
+
+test("listContainers keeps valid containers when a sibling candidate has a stale managed grant", async () => {
+  const owner = createTestUser();
+  const member = createTestUser();
+  owner.userId = crypto.randomUUID();
+  member.userId = crypto.randomUUID();
+  owner.fingerprint = await toFingerprint(owner.signing.signingPublicKey);
+
+  const organizationId = crypto.randomUUID();
+  const staleContainerId = crypto.randomUUID();
+  const readableContainerId = crypto.randomUUID();
+  const groupId = crypto.randomUUID();
+
+  await db.insert(organizations).values({
+    id: organizationId,
+    name: "Mixed Batch Manifest Reference Test",
+  });
+  await db.insert(users).values({
+    id: owner.userId,
+    fingerprint: owner.fingerprint,
+    signingPublicKey: bytesToBase64(owner.signing.signingPublicKey),
+    encapsulationPublicKey: bytesToBase64(owner.kem.publicKey),
+    encapsulationKeyFingerprint: await toFingerprint(owner.kem.publicKey),
+    defaultOrganizationId: organizationId,
+  });
+  await db.insert(containers).values([
+    {
+      id: staleContainerId,
+      organizationId,
+      parentId: null,
+    },
+    {
+      id: readableContainerId,
+      organizationId,
+      parentId: staleContainerId,
+      depth: 1,
+    },
+  ]);
+
+  const originalGroupPolicy = await storeGroupPolicy({
+    groupId,
+    keyEpoch: 1,
+    members: [],
+    previousStateHash: null,
+    signerKeyFingerprint: owner.fingerprint,
+    signerPrivateKey: owner.signing.signingPrivateKey,
+    signerUserId: owner.userId,
+    version: 1,
+  });
+  await storeGroupPolicy({
+    groupId,
+    keyEpoch: 2,
+    members: [{ principalType: "user", principalId: member.userId }],
+    previousStateHash: originalGroupPolicy.stateHash,
+    signerKeyFingerprint: owner.fingerprint,
+    signerPrivateKey: owner.signing.signingPrivateKey,
+    signerUserId: owner.userId,
+    version: 2,
+  });
+  const staleManifestHash = await storeContainerWithReferencedGroup({
+    containerId: staleContainerId,
+    groupReference: principalReference(originalGroupPolicy),
+    metadataDocumentId: crypto.randomUUID(),
+    organizationId,
+    signerKeyFingerprint: owner.fingerprint,
+    signerPrivateKey: owner.signing.signingPrivateKey,
+    signerUserId: owner.userId,
+  });
+  await storeContainerWithDirectUserGrant({
+    containerId: readableContainerId,
+    grantedUserId: member.userId,
+    metadataDocumentId: crypto.randomUUID(),
+    organizationId,
+    parentContainerId: staleContainerId,
+    parentManifestHash: staleManifestHash,
+    signerKeyFingerprint: owner.fingerprint,
+    signerPrivateKey: owner.signing.signingPrivateKey,
+    signerUserId: owner.userId,
+  });
+
+  const listed = await listContainers(
+    createServiceTestRuntime(),
+    member.userId,
+  );
+  const listedContainerIds = listed.items.map((container) => container.id);
+
+  expect(listedContainerIds).toContain(readableContainerId);
+  expect(listedContainerIds).not.toContain(staleContainerId);
 });
