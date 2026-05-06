@@ -722,12 +722,22 @@ function takeContainerParentLaneBatch(input: {
   state: ExplorerSyncState;
 }): ContainerParentHydrationLane[] {
   const { lanes, state } = input;
-  return lanes
-    .splice(0, CONTAINER_PARENT_HYDRATION_CONCURRENCY)
-    .filter(
-      (lane) =>
-        lane.parentId === null || state.containersById.has(lane.parentId),
-    );
+  const batch: ContainerParentHydrationLane[] = [];
+
+  while (
+    lanes.length > 0 &&
+    batch.length < CONTAINER_PARENT_HYDRATION_CONCURRENCY
+  ) {
+    const lane = lanes.shift();
+    if (
+      lane &&
+      (lane.parentId === null || state.containersById.has(lane.parentId))
+    ) {
+      batch.push(lane);
+    }
+  }
+
+  return batch;
 }
 
 function isFetchedContainerParentLanePage(
