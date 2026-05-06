@@ -70,6 +70,8 @@ interface ListedContainerDocuments {
   tombstones: ContainerDocumentTombstone[];
 }
 
+const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
+
 async function listAllContainerDocuments(input: {
   containerId: string;
   loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
@@ -150,6 +152,62 @@ interface DiscoverAllContainerDocumentsOptions
   containerIds: ReadonlyArray<string>;
 }
 
+async function listContainerDocumentLanes(input: {
+  containerIds: ReadonlyArray<string>;
+  loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
+  listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
+}): Promise<
+  Array<{
+    containerId: string;
+    listedDocuments: ListedContainerDocuments | null;
+  }>
+> {
+  const {
+    containerIds,
+    loadContainerDocumentWatermark,
+    listContainerDocuments,
+  } = input;
+  const listedDocumentsByContainer: Array<{
+    containerId: string;
+    listedDocuments: ListedContainerDocuments | null;
+  }> = [];
+  let nextContainerIndex = 0;
+
+  async function worker() {
+    while (nextContainerIndex < containerIds.length) {
+      const containerIndex = nextContainerIndex;
+      nextContainerIndex += 1;
+      const containerId = containerIds[containerIndex];
+      if (!containerId) {
+        throw new Error("Container document discovery received an empty lane");
+      }
+
+      listedDocumentsByContainer[containerIndex] = {
+        containerId,
+        listedDocuments: await listAllContainerDocuments({
+          containerId,
+          loadContainerDocumentWatermark,
+          listContainerDocuments,
+        }),
+      };
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      {
+        length: Math.min(
+          CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY,
+          containerIds.length,
+        ),
+      },
+      () => worker(),
+    ),
+  );
+
+  return listedDocumentsByContainer;
+}
+
 export function hasUndiscoveredDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
   knownDocumentIds: ReadonlySet<string>,
@@ -228,17 +286,15 @@ export async function discoverAllContainerDocuments({
 }: DiscoverAllContainerDocumentsOptions): Promise<
   ReadonlyArray<DocumentSummary>
 > {
-  const uniqueContainerIds = Array.from(new Set(containerIds));
-  const listedDocumentsByContainer = await Promise.all(
-    uniqueContainerIds.map(async (containerId) => ({
-      containerId,
-      listedDocuments: await listAllContainerDocuments({
-        containerId,
-        loadContainerDocumentWatermark,
-        listContainerDocuments,
-      }),
-    })),
+  const uniqueContainerIds = Array.from(new Set(containerIds)).filter(
+    (containerId): containerId is string =>
+      typeof containerId === "string" && containerId.length > 0,
   );
+  const listedDocumentsByContainer = await listContainerDocumentLanes({
+    containerIds: uniqueContainerIds,
+    loadContainerDocumentWatermark,
+    listContainerDocuments,
+  });
   await cacheReferencedPrincipalPolicies?.(
     listedDocumentsByContainer.flatMap(
       ({ listedDocuments }) =>

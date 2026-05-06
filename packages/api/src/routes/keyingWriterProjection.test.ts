@@ -55,7 +55,7 @@ import {
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../test/helpers/containerRekey";
@@ -71,6 +71,7 @@ import { routeApp } from "../routeApp";
 import {
   accessManifestDocumentLinkProjection,
   accessManifests,
+  containerDocumentSyncTombstones,
   containerKeyEpochs,
   containers,
   documentAuditCheckpoints,
@@ -78,6 +79,7 @@ import {
   documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
+  documents,
   documentUpdateAuditEvents,
   users,
 } from "../schema";
@@ -1603,6 +1605,17 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
   expect(linkResponse.status).toBe(200);
   const linkedDocument = await linkResponse.json();
   expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
+  const preUnlinkUpdatedAt = new Date("2026-05-05T00:00:00.000Z");
+  await db
+    .update(documents)
+    .set({ updatedAt: preUnlinkUpdatedAt })
+    .where(eq(documents.id, createdDocument.id));
+  await db
+    .update(containers)
+    .set({ updatedAt: preUnlinkUpdatedAt })
+    .where(
+      inArray(containers.id, [root.kekState.containerId, child.containerId]),
+    );
 
   const unlinkRequest = await buildDocumentUnlinkRequest({
     child,
@@ -1644,6 +1657,51 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
   expect(rows.map((row) => row.containerId)).toEqual([
     root.kekState.containerId,
   ]);
+
+  const [documentRow] = await db
+    .select({ updatedAt: documents.updatedAt })
+    .from(documents)
+    .where(eq(documents.id, createdDocument.id))
+    .limit(1);
+  const touchedContainerRows = await db
+    .select({
+      id: containers.id,
+      updatedAt: containers.updatedAt,
+    })
+    .from(containers)
+    .where(
+      inArray(containers.id, [root.kekState.containerId, child.containerId]),
+    );
+  const [tombstoneRow] = await db
+    .select({
+      containerId: containerDocumentSyncTombstones.containerId,
+      documentId: containerDocumentSyncTombstones.documentId,
+      updatedAt: containerDocumentSyncTombstones.updatedAt,
+    })
+    .from(containerDocumentSyncTombstones)
+    .where(
+      and(
+        eq(containerDocumentSyncTombstones.containerId, child.containerId),
+        eq(containerDocumentSyncTombstones.documentId, createdDocument.id),
+      ),
+    )
+    .limit(1);
+  invariant(documentRow, "expected touched document row");
+  const unlinkUpdatedAt = documentRow.updatedAt.toISOString();
+  expect(unlinkUpdatedAt).not.toBe(preUnlinkUpdatedAt.toISOString());
+  expect(
+    touchedContainerRows.map((row) => [row.id, row.updatedAt.toISOString()]),
+  ).toEqual(
+    expect.arrayContaining([
+      [root.kekState.containerId, unlinkUpdatedAt],
+      [child.containerId, unlinkUpdatedAt],
+    ]),
+  );
+  expect(tombstoneRow).toEqual({
+    containerId: child.containerId,
+    documentId: createdDocument.id,
+    updatedAt: documentRow.updatedAt,
+  });
 });
 
 test("POST /documents/:documentId/unlink rejects removing the final signed link", async () => {

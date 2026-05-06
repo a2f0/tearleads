@@ -1,4 +1,5 @@
 import type {
+  ContainerDirectGrant,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
@@ -16,6 +17,8 @@ import {
   containerSyncTombstones,
   containers,
   documents,
+  principalMembershipProjection,
+  principalStates,
 } from "../../../../schema";
 import {
   KeyingReadAccessError,
@@ -240,26 +243,138 @@ async function persistContainerStructure(
   };
 }
 
-function directUserGrantIds(
-  manifest: VerifiedContainerAccessManifest,
-): Set<string> {
-  return new Set(
-    manifest.state.directGrants.flatMap((grant) =>
-      grant.subjectType === "user" ? [grant.subjectId] : [],
-    ),
+function directGrantKey(
+  grant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
+): string {
+  return `${grant.subjectType}:${grant.subjectId}`;
+}
+
+function removedDirectGrants(input: {
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly previousManifest: VerifiedContainerAccessManifest;
+}): ContainerDirectGrant[] {
+  const nextGrantKeys = new Set(
+    input.manifest.state.directGrants.map(directGrantKey),
+  );
+
+  return input.previousManifest.state.directGrants.filter(
+    (grant) => !nextGrantKeys.has(directGrantKey(grant)),
   );
 }
 
-function removedDirectUserGrantIds(input: {
+function referencedPrincipalHeadForGrant(input: {
+  readonly grant: ContainerDirectGrant;
+  readonly manifest: VerifiedContainerAccessManifest;
+}) {
+  const { grant, manifest } = input;
+  if (grant.subjectType === "user") {
+    return null;
+  }
+
+  return (
+    manifest.state.referencedPrincipalHeads.find(
+      (principalHead) =>
+        principalHead.principalType === grant.subjectType &&
+        principalHead.principalId === grant.subjectId,
+    ) ?? null
+  );
+}
+
+function isManagedGrantUserRow(
+  value: unknown,
+): value is { readonly userId: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "userId") === "string"
+  );
+}
+
+async function userIdsForManagedGrant(input: {
+  readonly executor: DatabaseTransaction;
+  readonly grant: ContainerDirectGrant;
+  readonly previousManifest: VerifiedContainerAccessManifest;
+}): Promise<string[]> {
+  const referencedPrincipalHead = referencedPrincipalHeadForGrant({
+    grant: input.grant,
+    manifest: input.previousManifest,
+  });
+  if (!referencedPrincipalHead) {
+    return [];
+  }
+
+  const result = await input.executor.execute(sql`
+    with recursive current_principal_states as (
+      select distinct on (principal_type, principal_id)
+        principal_type,
+        principal_id,
+        state_hash
+      from ${principalStates}
+      order by principal_type asc, principal_id asc, version desc
+    ),
+    reachable_members as (
+      select
+        ${principalMembershipProjection.memberPrincipalType} as member_principal_type,
+        ${principalMembershipProjection.memberPrincipalId} as member_principal_id
+      from ${principalMembershipProjection}
+      where
+        ${principalMembershipProjection.principalType} = ${referencedPrincipalHead.principalType}
+        and ${principalMembershipProjection.principalId} = ${referencedPrincipalHead.principalId}
+        and ${principalMembershipProjection.stateHash} = ${referencedPrincipalHead.stateHash}
+      union
+      select
+        nested_members.member_principal_type,
+        nested_members.member_principal_id
+      from reachable_members reachable
+      inner join current_principal_states nested_state
+        on nested_state.principal_type = reachable.member_principal_type
+        and nested_state.principal_id = reachable.member_principal_id
+      inner join ${principalMembershipProjection} nested_members
+        on nested_members.principal_type = nested_state.principal_type
+        and nested_members.principal_id = nested_state.principal_id
+        and nested_members.state_hash = nested_state.state_hash
+      where reachable.member_principal_type <> ${"user"}
+    )
+    select distinct member_principal_id as "userId"
+    from reachable_members
+    where member_principal_type = ${"user"}
+  `);
+  const userIds: string[] = [];
+
+  for (const row of result.rows) {
+    if (!isManagedGrantUserRow(row)) {
+      throw new Error("Unexpected row shape from managed grant user query");
+    }
+
+    userIds.push(row.userId);
+  }
+
+  return userIds;
+}
+
+async function removedGrantUserIds(input: {
+  readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
   readonly previousManifest: VerifiedContainerAccessManifest;
-}): string[] {
-  const previousUserIds = directUserGrantIds(input.previousManifest);
-  const nextUserIds = directUserGrantIds(input.manifest);
+}): Promise<string[]> {
+  const userIds = new Set<string>();
 
-  return Array.from(previousUserIds).filter(
-    (userId) => !nextUserIds.has(userId),
-  );
+  for (const grant of removedDirectGrants(input)) {
+    if (grant.subjectType === "user") {
+      userIds.add(grant.subjectId);
+      continue;
+    }
+
+    for (const userId of await userIdsForManagedGrant({
+      executor: input.executor,
+      grant,
+      previousManifest: input.previousManifest,
+    })) {
+      userIds.add(userId);
+    }
+  }
+
+  return Array.from(userIds);
 }
 
 async function directUserIdsWithoutReadableContainerAccess(input: {
@@ -309,7 +424,8 @@ async function persistAccessRevocationTombstones(input: {
     return;
   }
 
-  const removedUserIds = removedDirectUserGrantIds({
+  const removedUserIds = await removedGrantUserIds({
+    executor,
     manifest,
     previousManifest,
   });
