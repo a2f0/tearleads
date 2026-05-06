@@ -1,9 +1,10 @@
 import type {
+  ContainerDirectGrant,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";
 import type { DatabaseTransaction } from "../../../../adapters/postgres";
@@ -16,6 +17,7 @@ import {
   containerSyncTombstones,
   containers,
   documents,
+  principalMembershipProjection,
 } from "../../../../schema";
 import {
   KeyingReadAccessError,
@@ -240,26 +242,103 @@ async function persistContainerStructure(
   };
 }
 
-function directUserGrantIds(
-  manifest: VerifiedContainerAccessManifest,
-): Set<string> {
-  return new Set(
-    manifest.state.directGrants.flatMap((grant) =>
-      grant.subjectType === "user" ? [grant.subjectId] : [],
-    ),
+function directGrantKey(
+  grant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
+): string {
+  return `${grant.subjectType}:${grant.subjectId}`;
+}
+
+function removedDirectGrants(input: {
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly previousManifest: VerifiedContainerAccessManifest;
+}): ContainerDirectGrant[] {
+  const nextGrantKeys = new Set(
+    input.manifest.state.directGrants.map(directGrantKey),
+  );
+
+  return input.previousManifest.state.directGrants.filter(
+    (grant) => !nextGrantKeys.has(directGrantKey(grant)),
   );
 }
 
-function removedDirectUserGrantIds(input: {
+function referencedPrincipalHeadForGrant(input: {
+  readonly grant: ContainerDirectGrant;
+  readonly manifest: VerifiedContainerAccessManifest;
+}) {
+  const { grant, manifest } = input;
+  if (grant.subjectType === "user") {
+    return null;
+  }
+
+  return (
+    manifest.state.referencedPrincipalHeads.find(
+      (principalHead) =>
+        principalHead.principalType === grant.subjectType &&
+        principalHead.principalId === grant.subjectId,
+    ) ?? null
+  );
+}
+
+async function userIdsForManagedGrant(input: {
+  readonly executor: DatabaseTransaction;
+  readonly grant: ContainerDirectGrant;
+  readonly previousManifest: VerifiedContainerAccessManifest;
+}): Promise<string[]> {
+  const referencedPrincipalHead = referencedPrincipalHeadForGrant({
+    grant: input.grant,
+    manifest: input.previousManifest,
+  });
+  if (!referencedPrincipalHead) {
+    return [];
+  }
+
+  const rows = await input.executor
+    .select({ userId: principalMembershipProjection.memberPrincipalId })
+    .from(principalMembershipProjection)
+    .where(
+      and(
+        eq(
+          principalMembershipProjection.principalType,
+          referencedPrincipalHead.principalType,
+        ),
+        eq(
+          principalMembershipProjection.principalId,
+          referencedPrincipalHead.principalId,
+        ),
+        eq(
+          principalMembershipProjection.stateHash,
+          referencedPrincipalHead.stateHash,
+        ),
+        eq(principalMembershipProjection.memberPrincipalType, "user"),
+      ),
+    );
+
+  return rows.map((row) => row.userId);
+}
+
+async function removedGrantUserIds(input: {
+  readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
   readonly previousManifest: VerifiedContainerAccessManifest;
-}): string[] {
-  const previousUserIds = directUserGrantIds(input.previousManifest);
-  const nextUserIds = directUserGrantIds(input.manifest);
+}): Promise<string[]> {
+  const userIds = new Set<string>();
 
-  return Array.from(previousUserIds).filter(
-    (userId) => !nextUserIds.has(userId),
-  );
+  for (const grant of removedDirectGrants(input)) {
+    if (grant.subjectType === "user") {
+      userIds.add(grant.subjectId);
+      continue;
+    }
+
+    for (const userId of await userIdsForManagedGrant({
+      executor: input.executor,
+      grant,
+      previousManifest: input.previousManifest,
+    })) {
+      userIds.add(userId);
+    }
+  }
+
+  return Array.from(userIds);
 }
 
 async function directUserIdsWithoutReadableContainerAccess(input: {
@@ -309,7 +388,8 @@ async function persistAccessRevocationTombstones(input: {
     return;
   }
 
-  const removedUserIds = removedDirectUserGrantIds({
+  const removedUserIds = await removedGrantUserIds({
+    executor,
     manifest,
     previousManifest,
   });

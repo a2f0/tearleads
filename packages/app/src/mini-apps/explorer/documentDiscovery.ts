@@ -70,6 +70,8 @@ interface ListedContainerDocuments {
   tombstones: ContainerDocumentTombstone[];
 }
 
+const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
+
 async function listAllContainerDocuments(input: {
   containerId: string;
   loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
@@ -148,6 +150,62 @@ async function saveAppliedContainerDocumentWatermark(input: {
 interface DiscoverAllContainerDocumentsOptions
   extends Omit<DiscoverContainerDocumentsOptions, "containerId"> {
   containerIds: ReadonlyArray<string>;
+}
+
+async function listContainerDocumentLanes(input: {
+  containerIds: ReadonlyArray<string>;
+  loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
+  listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
+}): Promise<
+  Array<{
+    containerId: string;
+    listedDocuments: ListedContainerDocuments | null;
+  }>
+> {
+  const {
+    containerIds,
+    loadContainerDocumentWatermark,
+    listContainerDocuments,
+  } = input;
+  const listedDocumentsByContainer: Array<{
+    containerId: string;
+    listedDocuments: ListedContainerDocuments | null;
+  }> = [];
+  let nextContainerIndex = 0;
+
+  async function worker() {
+    while (nextContainerIndex < containerIds.length) {
+      const containerIndex = nextContainerIndex;
+      nextContainerIndex += 1;
+      const containerId = containerIds[containerIndex];
+      if (!containerId) {
+        continue;
+      }
+
+      listedDocumentsByContainer[containerIndex] = {
+        containerId,
+        listedDocuments: await listAllContainerDocuments({
+          containerId,
+          loadContainerDocumentWatermark,
+          listContainerDocuments,
+        }),
+      };
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      {
+        length: Math.min(
+          CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY,
+          containerIds.length,
+        ),
+      },
+      () => worker(),
+    ),
+  );
+
+  return listedDocumentsByContainer;
 }
 
 export function hasUndiscoveredDocumentUpdateEvent(
@@ -229,16 +287,11 @@ export async function discoverAllContainerDocuments({
   ReadonlyArray<DocumentSummary>
 > {
   const uniqueContainerIds = Array.from(new Set(containerIds));
-  const listedDocumentsByContainer = await Promise.all(
-    uniqueContainerIds.map(async (containerId) => ({
-      containerId,
-      listedDocuments: await listAllContainerDocuments({
-        containerId,
-        loadContainerDocumentWatermark,
-        listContainerDocuments,
-      }),
-    })),
-  );
+  const listedDocumentsByContainer = await listContainerDocumentLanes({
+    containerIds: uniqueContainerIds,
+    loadContainerDocumentWatermark,
+    listContainerDocuments,
+  });
   await cacheReferencedPrincipalPolicies?.(
     listedDocumentsByContainer.flatMap(
       ({ listedDocuments }) =>

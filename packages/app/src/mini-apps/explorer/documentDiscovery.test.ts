@@ -590,3 +590,39 @@ test("manual refresh can discover documents across all visible containers", asyn
     },
   ]);
 });
+
+test("manual refresh limits concurrent container document lane fetches", async () => {
+  const containerIds = Array.from(
+    { length: 9 },
+    (_, index) => `container-${index}`,
+  );
+  const listContainerDocumentsCalls: string[] = [];
+  let activeListContainerDocumentsCalls = 0;
+  let maxActiveListContainerDocumentsCalls = 0;
+
+  await discoverAllContainerDocuments({
+    ...nullContainerDocumentWatermarks,
+    containerIds,
+    listContainerDocuments: async (containerId) => {
+      listContainerDocumentsCalls.push(containerId);
+      activeListContainerDocumentsCalls += 1;
+      maxActiveListContainerDocumentsCalls = Math.max(
+        maxActiveListContainerDocumentsCalls,
+        activeListContainerDocumentsCalls,
+      );
+
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        return listContainerDocumentsResponse([]);
+      } finally {
+        activeListContainerDocumentsCalls -= 1;
+      }
+    },
+    replaceDocumentLinksBatch: async () => {},
+    upsertDiscoveredDocuments: async () => [],
+  });
+
+  expect(new Set(listContainerDocumentsCalls)).toEqual(new Set(containerIds));
+  expect(maxActiveListContainerDocumentsCalls).toBeGreaterThan(1);
+  expect(maxActiveListContainerDocumentsCalls).toBeLessThanOrEqual(4);
+});
