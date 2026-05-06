@@ -293,11 +293,11 @@ function isManagedGrantUserRow(
 async function userIdsForManagedGrant(input: {
   readonly executor: DatabaseTransaction;
   readonly grant: ContainerDirectGrant;
-  readonly previousManifest: VerifiedContainerAccessManifest;
+  readonly manifest: VerifiedContainerAccessManifest;
 }): Promise<string[]> {
   const referencedPrincipalHead = referencedPrincipalHeadForGrant({
     grant: input.grant,
-    manifest: input.previousManifest,
+    manifest: input.manifest,
   });
   if (!referencedPrincipalHead) {
     return [];
@@ -352,6 +352,18 @@ async function userIdsForManagedGrant(input: {
   return userIds;
 }
 
+async function userIdsForGrant(input: {
+  readonly executor: DatabaseTransaction;
+  readonly grant: ContainerDirectGrant;
+  readonly manifest: VerifiedContainerAccessManifest;
+}): Promise<string[]> {
+  if (input.grant.subjectType === "user") {
+    return [input.grant.subjectId];
+  }
+
+  return userIdsForManagedGrant(input);
+}
+
 async function removedGrantUserIds(input: {
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
@@ -360,17 +372,33 @@ async function removedGrantUserIds(input: {
   const userIds = new Set<string>();
 
   for (const grant of removedDirectGrants(input)) {
-    if (grant.subjectType === "user") {
-      userIds.add(grant.subjectId);
-      continue;
-    }
-
-    for (const userId of await userIdsForManagedGrant({
+    for (const userId of await userIdsForGrant({
       executor: input.executor,
       grant,
-      previousManifest: input.previousManifest,
+      manifest: input.previousManifest,
     })) {
       userIds.add(userId);
+    }
+  }
+
+  return Array.from(userIds);
+}
+
+async function userIdsWithReadableAccessThroughPath(input: {
+  readonly executor: DatabaseTransaction;
+  readonly path: readonly VerifiedContainerAccessManifest[];
+}): Promise<string[]> {
+  const userIds = new Set<string>();
+
+  for (const manifest of input.path) {
+    for (const grant of manifest.state.directGrants) {
+      for (const userId of await userIdsForGrant({
+        executor: input.executor,
+        grant,
+        manifest,
+      })) {
+        userIds.add(userId);
+      }
     }
   }
 
@@ -467,11 +495,71 @@ async function persistAccessRevocationTombstones(input: {
     });
 }
 
+async function persistMoveAccessLossTombstones(input: {
+  readonly executor: DatabaseTransaction;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly previousContainerPath: readonly VerifiedContainerAccessManifest[];
+  readonly previousManifest: VerifiedContainerAccessManifest | null;
+  readonly updatedAt: Date;
+}): Promise<void> {
+  const { executor, manifest, previousContainerPath, previousManifest } = input;
+  if (
+    manifest.event.event.eventType !== "container.move" ||
+    previousManifest === null
+  ) {
+    return;
+  }
+
+  const previouslyReadableUserIds = await userIdsWithReadableAccessThroughPath({
+    executor,
+    path: previousContainerPath,
+  });
+  if (previouslyReadableUserIds.length === 0) {
+    return;
+  }
+
+  const inaccessibleUserIds = await directUserIdsWithoutReadableContainerAccess(
+    {
+      containerId: manifest.state.containerId,
+      executor,
+      userIds: previouslyReadableUserIds,
+    },
+  );
+  if (inaccessibleUserIds.length === 0) {
+    return;
+  }
+
+  const rowUpdates = {
+    depth: previousContainerPath.length - 1,
+    organizationId: manifest.state.organizationId,
+    parentId: previousManifest.state.parentContainerId,
+    reason: "access_revoked" as const,
+    updatedAt: input.updatedAt,
+  };
+  await executor
+    .insert(containerSyncTombstones)
+    .values(
+      inaccessibleUserIds.map((userId) => ({
+        ...rowUpdates,
+        containerId: manifest.state.containerId,
+        userId,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [
+        containerSyncTombstones.userId,
+        containerSyncTombstones.containerId,
+      ],
+      set: rowUpdates,
+    });
+}
+
 export async function persistVerifiedMutation(
   context: ContainerMutationContext,
   manifest: VerifiedContainerAccessManifest,
   kekState: VerifiedContainerKekState,
   previousManifest: VerifiedContainerAccessManifest | null,
+  previousContainerPath?: readonly VerifiedContainerAccessManifest[],
 ): Promise<ContainerMutationResponse> {
   const { executor } = context;
   const updatedAt = new Date();
@@ -501,6 +589,15 @@ export async function persistVerifiedMutation(
     previousManifest,
     updatedAt,
   });
+  if (previousContainerPath) {
+    await persistMoveAccessLossTombstones({
+      executor,
+      manifest,
+      previousContainerPath,
+      previousManifest,
+      updatedAt,
+    });
+  }
 
   const storedKekState = await runConflictBoundary(() =>
     storeVerifiedContainerKekStateInTransaction(
