@@ -138,9 +138,11 @@ type ListedRemoteContainersResponse = NonNullable<
 >;
 type ListedRemoteContainerPageItem =
   ListedRemoteContainersResponse["items"][number];
+const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
 
 interface ContainerParentHydrationLane {
   parentId: string | null;
+  watermark?: ListedRemoteContainersResponse["nextWatermark"];
 }
 
 type QueueContainerParentLane = (parentId: string | null) => void;
@@ -621,96 +623,184 @@ async function advanceContainerParentWatermark(input: {
   return true;
 }
 
-async function hydrateContainerParentLane(input: {
-  host: ExplorerSyncHost;
+interface FetchedContainerParentLanePage {
   lane: ContainerParentHydrationLane;
+  response: ListedRemoteContainersResponse;
+  syncLane: ReturnType<typeof containerParentSyncLane>;
+}
+
+function canHydrateRemoteContainers(state: ExplorerSyncState): boolean {
+  return (
+    state.runtime.isAuthenticated &&
+    state.runtime.online &&
+    state.runtime.dbStatus === "ready"
+  );
+}
+
+async function fetchContainerParentLanePage(input: {
+  lane: ContainerParentHydrationLane;
+  state: ExplorerSyncState;
+}): Promise<FetchedContainerParentLanePage | null> {
+  const { lane, state } = input;
+  const syncLane = containerParentSyncLane(lane.parentId);
+  const watermark =
+    lane.watermark === undefined
+      ? await sqlContainerSyncWatermarkPersistence.loadWatermark(
+          state.runtime.execSql,
+          syncLane,
+        )
+      : lane.watermark;
+  const response = await state.runtime.apiClient.listContainers({
+    parentId: lane.parentId,
+    watermark,
+  });
+
+  return response ? { lane, response, syncLane } : null;
+}
+
+async function applyContainerParentLanePage(input: {
+  fetchedPage: FetchedContainerParentLanePage;
+  host: ExplorerSyncHost;
+  queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
   state: ExplorerSyncState;
 }): Promise<{ changedCount: number; shouldStop: boolean }> {
-  const { host, lane, queueParentLane, seenContainerIds, state } = input;
-  const syncLane = containerParentSyncLane(lane.parentId);
-  let watermark = await sqlContainerSyncWatermarkPersistence.loadWatermark(
-    state.runtime.execSql,
-    syncLane,
-  );
+  const {
+    fetchedPage,
+    host,
+    queueContinuationLane,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  } = input;
+  const { lane, response, syncLane } = fetchedPage;
   let changedCount = 0;
 
-  while (true) {
-    const response = await state.runtime.apiClient.listContainers({
-      parentId: lane.parentId,
-      watermark,
-    });
-    if (!response) {
-      return { changedCount, shouldStop: true };
-    }
+  const remoteContainerItems = getApplicableRemoteContainerItems(response);
+  changedCount += await applyContainerTombstones({
+    preservedContainerIds: new Set(
+      remoteContainerItems.map((container) => container.id),
+    ),
+    response,
+    state,
+  });
 
-    const remoteContainerItems = getApplicableRemoteContainerItems(response);
-    changedCount += await applyContainerTombstones({
-      preservedContainerIds: new Set(
-        remoteContainerItems.map((container) => container.id),
-      ),
-      response,
-      state,
-    });
+  changedCount += await applyRemoteContainerPage({
+    host,
+    items: remoteContainerItems,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  });
 
-    changedCount += await applyRemoteContainerPage({
-      host,
-      items: remoteContainerItems,
-      queueParentLane,
-      seenContainerIds,
-      state,
-    });
-
-    const didAdvanceWatermark = await advanceContainerParentWatermark({
-      response,
-      state,
-      syncLane,
-    });
-    if (!didAdvanceWatermark) {
-      return { changedCount, shouldStop: false };
-    }
-
-    if (!response.hasMore) {
-      return { changedCount, shouldStop: false };
-    }
-    if (!response.nextWatermark) {
-      return { changedCount, shouldStop: true };
-    }
-    watermark = response.nextWatermark;
+  const didAdvanceWatermark = await advanceContainerParentWatermark({
+    response,
+    state,
+    syncLane,
+  });
+  if (!didAdvanceWatermark) {
+    return { changedCount, shouldStop: false };
   }
+
+  if (!response.hasMore) {
+    return { changedCount, shouldStop: false };
+  }
+  if (!response.nextWatermark) {
+    return { changedCount, shouldStop: true };
+  }
+
+  queueContinuationLane({
+    parentId: lane.parentId,
+    watermark: response.nextWatermark,
+  });
+  return { changedCount, shouldStop: false };
 }
 
-async function hydrateRemoteContainers(
-  state: ExplorerSyncState,
-  host: ExplorerSyncHost,
-): Promise<void> {
-  if (
-    !state.runtime.isAuthenticated ||
-    !state.runtime.online ||
-    state.runtime.dbStatus !== "ready"
+function takeContainerParentLaneBatch(input: {
+  lanes: ContainerParentHydrationLane[];
+  state: ExplorerSyncState;
+}): ContainerParentHydrationLane[] {
+  const { lanes, state } = input;
+  const batch: ContainerParentHydrationLane[] = [];
+
+  while (
+    lanes.length > 0 &&
+    batch.length < CONTAINER_PARENT_HYDRATION_CONCURRENCY
   ) {
-    return;
+    const lane = lanes.shift();
+    if (
+      lane &&
+      (lane.parentId === null || state.containersById.has(lane.parentId))
+    ) {
+      batch.push(lane);
+    }
   }
 
-  const seenContainerIds = new Set<string>();
-  let changedCount = 0;
-  const { lanes, queueParentLane } = createContainerParentHydrationQueue(
-    state.containersById.keys(),
+  return batch;
+}
+
+function isFetchedContainerParentLanePage(
+  fetchedPage: FetchedContainerParentLanePage | null,
+): fetchedPage is FetchedContainerParentLanePage {
+  return fetchedPage !== null;
+}
+
+async function fetchContainerParentLaneBatch(input: {
+  batch: ReadonlyArray<ContainerParentHydrationLane>;
+  state: ExplorerSyncState;
+}): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
+  const { batch, state } = input;
+  const fetchedPages = await Promise.all(
+    batch.map((lane) => fetchContainerParentLanePage({ lane, state })),
   );
 
-  while (lanes.length > 0) {
-    const lane = lanes.shift();
-    if (!lane) {
-      break;
+  return fetchedPages.every(isFetchedContainerParentLanePage)
+    ? fetchedPages
+    : null;
+}
+
+function canApplyFetchedContainerParentLanePage(input: {
+  fetchedPage: FetchedContainerParentLanePage;
+  state: ExplorerSyncState;
+}): boolean {
+  const { fetchedPage, state } = input;
+  return (
+    fetchedPage.lane.parentId === null ||
+    state.containersById.has(fetchedPage.lane.parentId)
+  );
+}
+
+async function applyContainerParentLaneBatch(input: {
+  fetchedPages: ReadonlyArray<FetchedContainerParentLanePage>;
+  host: ExplorerSyncHost;
+  lanes: ContainerParentHydrationLane[];
+  queueParentLane: QueueContainerParentLane;
+  seenContainerIds: Set<string>;
+  state: ExplorerSyncState;
+}): Promise<{ changedCount: number; shouldStop: boolean }> {
+  const {
+    fetchedPages,
+    host,
+    lanes,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  } = input;
+  let changedCount = 0;
+
+  for (const fetchedPage of fetchedPages) {
+    if (!canHydrateRemoteContainers(state)) {
+      return { changedCount, shouldStop: true };
     }
-    if (lane.parentId !== null && !state.containersById.has(lane.parentId)) {
+    if (!canApplyFetchedContainerParentLanePage({ fetchedPage, state })) {
       continue;
     }
 
-    const result = await hydrateContainerParentLane({
+    const result = await applyContainerParentLanePage({
+      fetchedPage,
       host,
-      lane,
+      queueContinuationLane: (lane) => lanes.push(lane),
       queueParentLane,
       seenContainerIds,
       state,
@@ -718,9 +808,75 @@ async function hydrateRemoteContainers(
     changedCount += result.changedCount;
 
     if (result.shouldStop) {
-      break;
+      return { changedCount, shouldStop: true };
     }
   }
+
+  return { changedCount, shouldStop: false };
+}
+
+async function hydrateContainerParentLanes(input: {
+  host: ExplorerSyncHost;
+  lanes: ContainerParentHydrationLane[];
+  queueParentLane: QueueContainerParentLane;
+  seenContainerIds: Set<string>;
+  state: ExplorerSyncState;
+}): Promise<{ changedCount: number; shouldStop: boolean }> {
+  const { host, lanes, queueParentLane, seenContainerIds, state } = input;
+  let changedCount = 0;
+
+  while (lanes.length > 0) {
+    if (!canHydrateRemoteContainers(state)) {
+      return { changedCount, shouldStop: true };
+    }
+
+    const batch = takeContainerParentLaneBatch({ lanes, state });
+    if (batch.length === 0) {
+      continue;
+    }
+
+    const fetchedPages = await fetchContainerParentLaneBatch({ batch, state });
+    if (!fetchedPages) {
+      return { changedCount, shouldStop: true };
+    }
+
+    const result = await applyContainerParentLaneBatch({
+      fetchedPages,
+      host,
+      lanes,
+      queueParentLane,
+      seenContainerIds,
+      state,
+    });
+    changedCount += result.changedCount;
+
+    if (result.shouldStop) {
+      return { changedCount, shouldStop: true };
+    }
+  }
+
+  return { changedCount, shouldStop: false };
+}
+
+async function hydrateRemoteContainers(
+  state: ExplorerSyncState,
+  host: ExplorerSyncHost,
+): Promise<void> {
+  if (!canHydrateRemoteContainers(state)) {
+    return;
+  }
+
+  const seenContainerIds = new Set<string>();
+  const { lanes, queueParentLane } = createContainerParentHydrationQueue(
+    state.containersById.keys(),
+  );
+  const { changedCount } = await hydrateContainerParentLanes({
+    host,
+    lanes,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  });
 
   if (changedCount > 0) {
     host.updateSnapshot();

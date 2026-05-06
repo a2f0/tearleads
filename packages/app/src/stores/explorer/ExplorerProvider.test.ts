@@ -1928,6 +1928,236 @@ test("explorer store refreshes remote containers on demand after initialization"
   }
 });
 
+test("explorer sync hydrates container parent lanes concurrently", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  let activeListContainerCalls = 0;
+  let maxActiveListContainerCalls = 0;
+  const requestedParentIds: Array<string | null | undefined> = [];
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = localKeyPair;
+  runtime.apiClient = createMockApiClient({
+    ...runtime.apiClient,
+    listContainers: async (options = {}) => {
+      requestedParentIds.push(options.parentId);
+      activeListContainerCalls += 1;
+      maxActiveListContainerCalls = Math.max(
+        maxActiveListContainerCalls,
+        activeListContainerCalls,
+      );
+
+      try {
+        await new Promise((resolve) => {
+          setTimeout(
+            resolve,
+            options.parentId === "parent-a" || options.parentId === "parent-b"
+              ? 50
+              : 0,
+          );
+        });
+
+        if (options.parentId === null || options.parentId === undefined) {
+          return listContainersResponse([
+            listedContainer({
+              id: "parent-a",
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "parent-a-access-state-hash-1",
+              metadataDocumentId: "parent-a-metadata-document",
+              organizationId: "org-1",
+              parentId: null,
+            }),
+            listedContainer({
+              id: "parent-b",
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "parent-b-access-state-hash-1",
+              metadataDocumentId: "parent-b-metadata-document",
+              organizationId: "org-1",
+              parentId: null,
+            }),
+          ]);
+        }
+
+        return listContainersResponse();
+      } finally {
+        activeListContainerCalls -= 1;
+      }
+    },
+  });
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  try {
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () =>
+        maxActiveListContainerCalls > 1 &&
+        requestedParentIds.includes("parent-a") &&
+        requestedParentIds.includes("parent-b") &&
+        createdStore
+          .getSnapshot()
+          .nodes.some((node) => node.id === "parent-a") &&
+        createdStore.getSnapshot().nodes.some((node) => node.id === "parent-b"),
+      "Explorer sync did not hydrate sibling parent lanes concurrently.",
+    );
+
+    expect(maxActiveListContainerCalls).toBeGreaterThan(1);
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
+test("explorer sync retries failed parent lane batches without advancing their watermarks", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  let parentAFetchCount = 0;
+  let parentBFetchCount = 0;
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = localKeyPair;
+  runtime.apiClient = createMockApiClient({
+    ...runtime.apiClient,
+    listContainers: async (options = {}) => {
+      await Promise.resolve();
+
+      if (options.parentId === null || options.parentId === undefined) {
+        return options.watermark
+          ? listContainersResponse()
+          : listContainersResponse([
+              listedContainer({
+                id: "parent-a",
+                metadataAccessEpoch: 1,
+                metadataAccessStateHash: "parent-a-access-state-hash-1",
+                metadataDocumentId: "parent-a-metadata-document",
+                organizationId: "org-1",
+                parentId: null,
+              }),
+              listedContainer({
+                id: "parent-b",
+                metadataAccessEpoch: 1,
+                metadataAccessStateHash: "parent-b-access-state-hash-1",
+                metadataDocumentId: "parent-b-metadata-document",
+                organizationId: "org-1",
+                parentId: null,
+              }),
+            ]);
+      }
+
+      if (options.parentId === "parent-a") {
+        parentAFetchCount += 1;
+        if (parentAFetchCount === 1) {
+          return null;
+        }
+
+        return listContainersResponse([
+          listedContainer({
+            id: "child-a",
+            metadataAccessEpoch: 1,
+            metadataAccessStateHash: "child-a-access-state-hash-1",
+            metadataDocumentId: "child-a-metadata-document",
+            organizationId: "org-1",
+            parentId: "parent-a",
+          }),
+        ]);
+      }
+
+      if (options.parentId === "parent-b") {
+        parentBFetchCount += 1;
+        return listContainersResponse([
+          listedContainer({
+            id: "child-b",
+            metadataAccessEpoch: 1,
+            metadataAccessStateHash: "child-b-access-state-hash-1",
+            metadataDocumentId: "child-b-metadata-document",
+            organizationId: "org-1",
+            parentId: "parent-b",
+          }),
+        ]);
+      }
+
+      return listContainersResponse();
+    },
+  });
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  try {
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () =>
+        parentAFetchCount === 1 &&
+        parentBFetchCount === 1 &&
+        createdStore
+          .getSnapshot()
+          .nodes.some((node) => node.id === "parent-a") &&
+        createdStore
+          .getSnapshot()
+          .nodes.some((node) => node.id === "parent-b") &&
+        !createdStore.getSnapshot().nodes.some((node) => node.id === "child-b"),
+      "Explorer sync did not stop the failed parent lane batch.",
+    );
+
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerParentSyncLane("parent-a"),
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerParentSyncLane("parent-b"),
+      ),
+    ).resolves.toBeNull();
+
+    await expect(createdStore.refresh()).resolves.toBe(true);
+
+    await waitForCondition(
+      () =>
+        createdStore
+          .getSnapshot()
+          .nodes.some((node) => node.id === "child-a") &&
+        createdStore.getSnapshot().nodes.some((node) => node.id === "child-b"),
+      "Explorer sync did not retry the failed parent lane batch.",
+    );
+
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerParentSyncLane("parent-a"),
+      ),
+    ).resolves.toEqual({
+      id: "child-a",
+      updatedAt: TEST_SYNC_TIMESTAMP,
+    });
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerParentSyncLane("parent-b"),
+      ),
+    ).resolves.toEqual({
+      id: "child-b",
+      updatedAt: TEST_SYNC_TIMESTAMP,
+    });
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
 test("explorer sync applies container tombstones before advancing the parent watermark", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
@@ -1938,6 +2168,19 @@ test("explorer sync applies container tombstones before advancing the parent wat
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     listContainers: async (options = {}) => {
+      if (options.parentId === "child-container") {
+        return listContainersResponse([
+          listedContainer({
+            id: "grandchild-container",
+            metadataAccessEpoch: 1,
+            metadataAccessStateHash: "grandchild-access-state-hash-1",
+            metadataDocumentId: "grandchild-metadata-document",
+            organizationId: "org-1",
+            parentId: "child-container",
+          }),
+        ]);
+      }
+
       if (options.parentId === "root-container") {
         return {
           hasMore: false,
