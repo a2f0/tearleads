@@ -1112,6 +1112,15 @@ test("POST /documents/:documentId/sync writes audit rows for accepted live updat
     owner,
     root,
   });
+  const preSyncUpdatedAt = new Date("2026-05-05T00:00:00.000Z");
+  await db
+    .update(documents)
+    .set({ updatedAt: preSyncUpdatedAt })
+    .where(eq(documents.id, created.id));
+  await db
+    .update(containers)
+    .set({ updatedAt: preSyncUpdatedAt })
+    .where(eq(containers.id, root.kekState.containerId));
 
   const syncResponse = await routeApp.request(`/documents/${created.id}/sync`, {
     method: "POST",
@@ -1125,6 +1134,24 @@ test("POST /documents/:documentId/sync writes audit rows for accepted live updat
   const synced = await syncResponse.json();
   expect(isDocumentSyncResponse(synced)).toBe(true);
   expect(synced.acceptedOutgoingUpdateIds).toEqual([updateId]);
+  const [syncedDocumentRow] = await db
+    .select({ updatedAt: documents.updatedAt })
+    .from(documents)
+    .where(eq(documents.id, created.id))
+    .limit(1);
+  const [syncedContainerRow] = await db
+    .select({ updatedAt: containers.updatedAt })
+    .from(containers)
+    .where(eq(containers.id, root.kekState.containerId))
+    .limit(1);
+  invariant(syncedDocumentRow, "expected synced document row");
+  invariant(syncedContainerRow, "expected synced container row");
+  expect(syncedDocumentRow.updatedAt.toISOString()).not.toBe(
+    preSyncUpdatedAt.toISOString(),
+  );
+  expect(syncedContainerRow.updatedAt.toISOString()).toBe(
+    syncedDocumentRow.updatedAt.toISOString(),
+  );
 
   const retryResponse = await routeApp.request(
     `/documents/${created.id}/sync`,

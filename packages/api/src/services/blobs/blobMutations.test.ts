@@ -554,11 +554,55 @@ async function loadAttachmentBinding(bindingId: string) {
   return row ?? null;
 }
 
+async function loadDocumentAndContainerUpdatedAt(input: {
+  readonly containerId: string;
+  readonly documentId: string;
+}): Promise<{
+  readonly containerUpdatedAt: Date;
+  readonly documentUpdatedAt: Date;
+}> {
+  const [documentRow] = await db
+    .select({ updatedAt: documents.updatedAt })
+    .from(documents)
+    .where(eq(documents.id, input.documentId))
+    .limit(1);
+  const [containerRow] = await db
+    .select({ updatedAt: containers.updatedAt })
+    .from(containers)
+    .where(eq(containers.id, input.containerId))
+    .limit(1);
+  if (!documentRow || !containerRow) {
+    throw new Error("Expected document and container sync rows");
+  }
+
+  return {
+    containerUpdatedAt: containerRow.updatedAt,
+    documentUpdatedAt: documentRow.updatedAt,
+  };
+}
+
+async function setDocumentAndContainerUpdatedAt(input: {
+  readonly containerId: string;
+  readonly documentId: string;
+  readonly updatedAt: Date;
+}): Promise<void> {
+  await db
+    .update(documents)
+    .set({ updatedAt: input.updatedAt })
+    .where(eq(documents.id, input.documentId));
+  await db
+    .update(containers)
+    .set({ updatedAt: input.updatedAt })
+    .where(eq(containers.id, input.containerId));
+}
+
 test("bindBlobAttachment attaches, replaces, and detaches signed bindings", async () => {
   const owner = createTestUser();
   await registerOnly(owner);
   const container = await bootstrapRoot(owner);
   const document = await createDocumentFixture({ container, owner });
+  const documentId = document.bundle.state.documentId;
+  const containerId = container.bundle.state.containerId;
 
   const firstBlobId = crypto.randomUUID();
   const firstStage = await stageEncryptedBlob({
@@ -574,6 +618,12 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
     slotId: "slot-a",
     stagedBlob: firstStage,
   });
+  const preBindUpdatedAt = new Date("2026-05-05T00:00:00.000Z");
+  await setDocumentAndContainerUpdatedAt({
+    containerId,
+    documentId,
+    updatedAt: preBindUpdatedAt,
+  });
   const firstResponse = await bindBlobAttachment(runtime, {
     blobId: firstBlobId,
     fingerprint: owner.fingerprint,
@@ -585,6 +635,16 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
   expect(firstResponse.blobKekTargets.activeBindingIds).toEqual([
     firstBind.verifiedBinding.bindingId,
   ]);
+  const afterBindTimestamps = await loadDocumentAndContainerUpdatedAt({
+    containerId,
+    documentId,
+  });
+  expect(afterBindTimestamps.documentUpdatedAt.toISOString()).not.toBe(
+    preBindUpdatedAt.toISOString(),
+  );
+  expect(afterBindTimestamps.containerUpdatedAt.toISOString()).toBe(
+    afterBindTimestamps.documentUpdatedAt.toISOString(),
+  );
 
   const replacementBlobId = crypto.randomUUID();
   const replacementStage = await stageEncryptedBlob({
@@ -618,6 +678,12 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
       ?.detachedAt,
   ).toBeNull();
 
+  const preDetachUpdatedAt = new Date("2026-05-05T00:05:00.000Z");
+  await setDocumentAndContainerUpdatedAt({
+    containerId,
+    documentId,
+    updatedAt: preDetachUpdatedAt,
+  });
   const detachRequest = await buildDetachRequest({
     binding: replacementBind.verifiedBinding,
     container,
@@ -638,6 +704,16 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
     (await loadAttachmentBinding(replacementBind.verifiedBinding.bindingId))
       ?.detachedAt,
   ).toBeInstanceOf(Date);
+  const afterDetachTimestamps = await loadDocumentAndContainerUpdatedAt({
+    containerId,
+    documentId,
+  });
+  expect(afterDetachTimestamps.documentUpdatedAt.toISOString()).not.toBe(
+    preDetachUpdatedAt.toISOString(),
+  );
+  expect(afterDetachTimestamps.containerUpdatedAt.toISOString()).toBe(
+    afterDetachTimestamps.documentUpdatedAt.toISOString(),
+  );
 
   const attachmentAuditEvents = await db
     .select({
