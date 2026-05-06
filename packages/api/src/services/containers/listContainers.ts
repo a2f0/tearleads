@@ -140,6 +140,17 @@ function parentIdPredicate(
   return sql`${parentIdExpression}::text = ${parentId}`;
 }
 
+function tombstoneParentIdPredicate(parentId: string | null): SQL {
+  if (parentId === null) {
+    return sql`(
+      ${containerSyncTombstones.parentId} is null
+      or ${containerSyncTombstones.rootDiscoveryVisible} = true
+    )`;
+  }
+
+  return parentIdPredicate(sql`${containerSyncTombstones.parentId}`, parentId);
+}
+
 async function listAccessibleContainersForUser(input: {
   readonly limit: number;
   readonly parentId: string | null;
@@ -385,10 +396,7 @@ async function listContainerTombstones(input: {
     .from(containerSyncTombstones)
     .where(sql`
 	      ${containerSyncTombstones.userId} = ${input.userId}
-	      and ${parentIdPredicate(
-          sql`${containerSyncTombstones.parentId}`,
-          input.parentId,
-        )}
+	      and ${tombstoneParentIdPredicate(input.parentId)}
 	      ${watermarkPredicate(
           sql`${containerSyncTombstones.updatedAt}`,
           sql`${containerSyncTombstones.containerId}::text`,

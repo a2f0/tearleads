@@ -15,6 +15,13 @@
       "when": 1777995467184,
       "tag": "0001_funny_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778086571828,
+      "tag": "0002_mysterious_carnage",
+      "breakpoints": true
     }
   ]
 }

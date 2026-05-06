@@ -1,5 +1,10 @@
-import { sql } from "drizzle-orm";
-import type { StoredPrincipalState } from "../../access/read/principalStateStore";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import {
+  getCurrentPrincipalStates,
+  listPrincipalProjectionMembersForStates,
+  type StoredPrincipalProjectionMember,
+  type StoredPrincipalState,
+} from "../../access/read/principalStateStore";
 import type { DatabaseTransaction } from "../../adapters/postgres";
 import {
   accessManifestContainerGrantProjection,
@@ -7,8 +12,36 @@ import {
   containerSyncTombstones,
   containers,
   principalMembershipProjection,
-  principalStates,
 } from "../../schema";
+
+type ManagedPrincipalType = StoredPrincipalState["principalType"];
+type PrincipalMemberType =
+  StoredPrincipalProjectionMember["memberPrincipalType"];
+
+interface PrincipalReference {
+  readonly principalId: string;
+  readonly principalType: ManagedPrincipalType;
+}
+
+interface ParentPrincipalMembership {
+  readonly memberPrincipalId: string;
+  readonly principalId: string;
+  readonly principalType: ManagedPrincipalType;
+  readonly stateHash: string;
+}
+
+interface ContainerRow {
+  readonly containerId: string;
+  readonly depth: number;
+  readonly organizationId: string;
+  readonly parentId: string | null;
+}
+
+interface ContainerGrantRow {
+  readonly containerId: string;
+  readonly subjectId: string;
+  readonly subjectType: string;
+}
 
 interface PrincipalPolicyAccessLossRow {
   readonly containerId: string;
@@ -18,26 +51,611 @@ interface PrincipalPolicyAccessLossRow {
   readonly userId: string;
 }
 
-function isPrincipalPolicyAccessLossRow(
-  value: unknown,
-): value is PrincipalPolicyAccessLossRow {
-  if (typeof value !== "object" || value === null) {
-    return false;
+function principalKey(principal: PrincipalReference): string {
+  return `${principal.principalType}:${principal.principalId}`;
+}
+
+function projectionStateKey(input: {
+  readonly principalId: string;
+  readonly stateHash: string;
+}): string {
+  return `${input.principalId}:${input.stateHash}`;
+}
+
+function uniqueSortedStrings(values: Iterable<string>): string[] {
+  return [...new Set(values)].sort();
+}
+
+function toPrincipalReference(
+  state: Pick<StoredPrincipalState, "principalId" | "principalType">,
+): PrincipalReference {
+  return {
+    principalId: state.principalId,
+    principalType: state.principalType,
+  };
+}
+
+function principalMemberTypeForPrincipal(
+  principalType: ManagedPrincipalType,
+): PrincipalMemberType | null {
+  return principalType === "group" ? "group" : null;
+}
+
+async function loadProjectionMembersByState(input: {
+  readonly executor: DatabaseTransaction;
+  readonly states: readonly StoredPrincipalState[];
+}): Promise<Map<string, StoredPrincipalProjectionMember[]>> {
+  const projectionByState = new Map<
+    string,
+    StoredPrincipalProjectionMember[]
+  >();
+
+  for (const state of input.states) {
+    projectionByState.set(projectionStateKey(state), []);
   }
 
-  const containerId = Reflect.get(value, "containerId");
-  const depth = Reflect.get(value, "depth");
-  const organizationId = Reflect.get(value, "organizationId");
-  const parentId = Reflect.get(value, "parentId");
-  const userId = Reflect.get(value, "userId");
+  for (const principalType of [
+    ...new Set(input.states.map((state) => state.principalType)),
+  ]) {
+    const statesForType = input.states.filter(
+      (state) => state.principalType === principalType,
+    );
+    const projections = await listPrincipalProjectionMembersForStates(
+      principalType,
+      statesForType,
+      input.executor,
+    );
 
-  return (
-    typeof containerId === "string" &&
-    Number.isInteger(depth) &&
-    typeof organizationId === "string" &&
-    (typeof parentId === "string" || parentId === null) &&
-    typeof userId === "string"
+    for (const [stateKey, members] of projections) {
+      projectionByState.set(stateKey, members);
+    }
+  }
+
+  return projectionByState;
+}
+
+async function loadCurrentStatesByReference(input: {
+  readonly executor: DatabaseTransaction;
+  readonly principals: Iterable<PrincipalReference>;
+}): Promise<Map<string, StoredPrincipalState>> {
+  const principalsByType = new Map<ManagedPrincipalType, Set<string>>();
+
+  for (const principal of input.principals) {
+    const principalIds =
+      principalsByType.get(principal.principalType) ?? new Set<string>();
+    principalIds.add(principal.principalId);
+    principalsByType.set(principal.principalType, principalIds);
+  }
+
+  const statesByKey = new Map<string, StoredPrincipalState>();
+  for (const [principalType, principalIds] of principalsByType) {
+    const currentStates = await getCurrentPrincipalStates(
+      principalType,
+      uniqueSortedStrings(principalIds),
+      input.executor,
+    );
+
+    for (const state of currentStates.values()) {
+      statesByKey.set(principalKey(state), state);
+    }
+  }
+
+  return statesByKey;
+}
+
+async function reachableUserIdsFromPrincipalState(input: {
+  readonly executor: DatabaseTransaction;
+  readonly state: StoredPrincipalState;
+}): Promise<Set<string>> {
+  const userIds = new Set<string>();
+  const visitedPrincipalKeys = new Set([principalKey(input.state)]);
+  let frontier: StoredPrincipalState[] = [input.state];
+
+  while (frontier.length > 0) {
+    const projectionsByState = await loadProjectionMembersByState({
+      executor: input.executor,
+      states: frontier,
+    });
+    const nextGroupIds = new Set<string>();
+
+    for (const state of frontier) {
+      for (const member of projectionsByState.get(projectionStateKey(state)) ??
+        []) {
+        if (member.memberPrincipalType === "user") {
+          userIds.add(member.memberPrincipalId);
+          continue;
+        }
+
+        const key = principalKey({
+          principalType: "group",
+          principalId: member.memberPrincipalId,
+        });
+        if (!visitedPrincipalKeys.has(key)) {
+          nextGroupIds.add(member.memberPrincipalId);
+        }
+      }
+    }
+
+    const nextStates = await getCurrentPrincipalStates(
+      "group",
+      uniqueSortedStrings(nextGroupIds),
+      input.executor,
+    );
+    frontier = [];
+    for (const state of nextStates.values()) {
+      const key = principalKey(state);
+      if (visitedPrincipalKeys.has(key)) {
+        continue;
+      }
+      visitedPrincipalKeys.add(key);
+      frontier.push(state);
+    }
+  }
+
+  return userIds;
+}
+
+async function listParentPrincipalMemberships(input: {
+  readonly executor: DatabaseTransaction;
+  readonly memberPrincipalIds: Iterable<string>;
+  readonly memberPrincipalType: PrincipalMemberType;
+}): Promise<ParentPrincipalMembership[]> {
+  const memberPrincipalIds = uniqueSortedStrings(input.memberPrincipalIds);
+  if (memberPrincipalIds.length === 0) {
+    return [];
+  }
+
+  return input.executor
+    .select({
+      memberPrincipalId: principalMembershipProjection.memberPrincipalId,
+      principalType: principalMembershipProjection.principalType,
+      principalId: principalMembershipProjection.principalId,
+      stateHash: principalMembershipProjection.stateHash,
+    })
+    .from(principalMembershipProjection)
+    .where(
+      and(
+        eq(
+          principalMembershipProjection.memberPrincipalType,
+          input.memberPrincipalType,
+        ),
+        inArray(
+          principalMembershipProjection.memberPrincipalId,
+          memberPrincipalIds,
+        ),
+      ),
+    );
+}
+
+async function listCurrentParentPrincipalMemberships(input: {
+  readonly executor: DatabaseTransaction;
+  readonly memberPrincipalIds: Iterable<string>;
+  readonly memberPrincipalType: PrincipalMemberType;
+}): Promise<ParentPrincipalMembership[]> {
+  const membershipRows = await listParentPrincipalMemberships(input);
+  const currentStates = await loadCurrentStatesByReference({
+    executor: input.executor,
+    principals: membershipRows.map((row) => ({
+      principalType: row.principalType,
+      principalId: row.principalId,
+    })),
+  });
+
+  return membershipRows.filter(
+    (row) => currentStates.get(principalKey(row))?.stateHash === row.stateHash,
   );
+}
+
+async function collectCurrentAncestorPrincipals(input: {
+  readonly executor: DatabaseTransaction;
+  readonly seedPrincipals: readonly PrincipalReference[];
+}): Promise<Map<string, PrincipalReference>> {
+  const principalsByKey = new Map<string, PrincipalReference>();
+  let frontier = [...input.seedPrincipals];
+
+  for (const principal of frontier) {
+    principalsByKey.set(principalKey(principal), principal);
+  }
+
+  while (frontier.length > 0) {
+    const memberIdsByType = new Map<PrincipalMemberType, Set<string>>();
+    for (const principal of frontier) {
+      const memberType = principalMemberTypeForPrincipal(
+        principal.principalType,
+      );
+      if (!memberType) {
+        continue;
+      }
+
+      const memberIds = memberIdsByType.get(memberType) ?? new Set<string>();
+      memberIds.add(principal.principalId);
+      memberIdsByType.set(memberType, memberIds);
+    }
+
+    const nextFrontier: PrincipalReference[] = [];
+    for (const [memberPrincipalType, memberPrincipalIds] of memberIdsByType) {
+      const parentMemberships = await listCurrentParentPrincipalMemberships({
+        executor: input.executor,
+        memberPrincipalType,
+        memberPrincipalIds,
+      });
+
+      for (const membership of parentMemberships) {
+        const principal = {
+          principalType: membership.principalType,
+          principalId: membership.principalId,
+        };
+        const key = principalKey(principal);
+        if (principalsByKey.has(key)) {
+          continue;
+        }
+        principalsByKey.set(key, principal);
+        nextFrontier.push(principal);
+      }
+    }
+
+    frontier = nextFrontier;
+  }
+
+  return principalsByKey;
+}
+
+async function collectCurrentPrincipalsForUsers(input: {
+  readonly executor: DatabaseTransaction;
+  readonly userIds: readonly string[];
+}): Promise<Map<string, Map<string, PrincipalReference>>> {
+  const principalsByUserId = new Map<string, Map<string, PrincipalReference>>();
+  for (const userId of input.userIds) {
+    principalsByUserId.set(userId, new Map());
+  }
+
+  let frontier = (
+    await listCurrentParentPrincipalMemberships({
+      executor: input.executor,
+      memberPrincipalType: "user",
+      memberPrincipalIds: input.userIds,
+    })
+  ).map((membership) => ({
+    userId: membership.memberPrincipalId,
+    principal: {
+      principalType: membership.principalType,
+      principalId: membership.principalId,
+    },
+  }));
+
+  while (frontier.length > 0) {
+    const nextFrontier: typeof frontier = [];
+    const groupIds = new Set<string>();
+    const frontierByGroupId = new Map<string, typeof frontier>();
+
+    for (const item of frontier) {
+      const userPrincipals = principalsByUserId.get(item.userId);
+      if (!userPrincipals) {
+        continue;
+      }
+
+      const key = principalKey(item.principal);
+      if (userPrincipals.has(key)) {
+        continue;
+      }
+      userPrincipals.set(key, item.principal);
+
+      const memberType = principalMemberTypeForPrincipal(
+        item.principal.principalType,
+      );
+      if (!memberType) {
+        continue;
+      }
+
+      groupIds.add(item.principal.principalId);
+      const groupFrontier =
+        frontierByGroupId.get(item.principal.principalId) ?? [];
+      groupFrontier.push(item);
+      frontierByGroupId.set(item.principal.principalId, groupFrontier);
+    }
+
+    const parentMemberships = await listCurrentParentPrincipalMemberships({
+      executor: input.executor,
+      memberPrincipalType: "group",
+      memberPrincipalIds: groupIds,
+    });
+
+    for (const membership of parentMemberships) {
+      const childFrontier =
+        frontierByGroupId.get(membership.memberPrincipalId) ?? [];
+      for (const child of childFrontier) {
+        nextFrontier.push({
+          userId: child.userId,
+          principal: {
+            principalType: membership.principalType,
+            principalId: membership.principalId,
+          },
+        });
+      }
+    }
+
+    frontier = nextFrontier;
+  }
+
+  return principalsByUserId;
+}
+
+async function loadContainerRowsByIds(input: {
+  readonly containerIds: Iterable<string>;
+  readonly executor: DatabaseTransaction;
+}): Promise<Map<string, ContainerRow>> {
+  const containerIds = uniqueSortedStrings(input.containerIds);
+  if (containerIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await input.executor
+    .select({
+      containerId: containers.id,
+      organizationId: containers.organizationId,
+      parentId: containers.parentId,
+      depth: containers.depth,
+    })
+    .from(containers)
+    .where(inArray(containers.id, containerIds));
+
+  return new Map(rows.map((row) => [row.containerId, row]));
+}
+
+async function loadCandidateContainersForPrincipals(input: {
+  readonly executor: DatabaseTransaction;
+  readonly principals: Iterable<PrincipalReference>;
+}): Promise<ContainerRow[]> {
+  const subjectIdsByType = new Map<string, Set<string>>();
+  for (const principal of input.principals) {
+    const subjectIds =
+      subjectIdsByType.get(principal.principalType) ?? new Set<string>();
+    subjectIds.add(principal.principalId);
+    subjectIdsByType.set(principal.principalType, subjectIds);
+  }
+
+  const containerIds = new Set<string>();
+  for (const [subjectType, subjectIds] of subjectIdsByType) {
+    const ids = uniqueSortedStrings(subjectIds);
+    if (ids.length === 0) {
+      continue;
+    }
+
+    const rows = await input.executor
+      .select({
+        containerId: accessManifestContainerGrantProjection.containerId,
+      })
+      .from(accessManifestContainerGrantProjection)
+      .innerJoin(
+        accessManifestHeads,
+        and(
+          eq(accessManifestHeads.objectKind, "container"),
+          eq(
+            accessManifestHeads.objectId,
+            accessManifestContainerGrantProjection.containerId,
+          ),
+          eq(
+            accessManifestHeads.manifestHash,
+            accessManifestContainerGrantProjection.manifestHash,
+          ),
+        ),
+      )
+      .where(
+        and(
+          eq(accessManifestContainerGrantProjection.subjectType, subjectType),
+          inArray(accessManifestContainerGrantProjection.subjectId, ids),
+        ),
+      );
+
+    for (const row of rows) {
+      containerIds.add(row.containerId);
+    }
+  }
+
+  const containersById = await loadContainerRowsByIds({
+    containerIds,
+    executor: input.executor,
+  });
+  return [...containersById.values()].sort((left, right) =>
+    left.containerId.localeCompare(right.containerId),
+  );
+}
+
+async function loadContainerPathIdsByContainerId(input: {
+  readonly containerIds: readonly string[];
+  readonly executor: DatabaseTransaction;
+}): Promise<Map<string, Set<string>>> {
+  const rowsById = new Map<string, ContainerRow>();
+  let frontier = uniqueSortedStrings(input.containerIds);
+
+  while (frontier.length > 0) {
+    const unloadedIds = frontier.filter((id) => !rowsById.has(id));
+    if (unloadedIds.length === 0) {
+      break;
+    }
+
+    const loadedRows = await loadContainerRowsByIds({
+      containerIds: unloadedIds,
+      executor: input.executor,
+    });
+    const nextFrontier = new Set<string>();
+
+    for (const row of loadedRows.values()) {
+      rowsById.set(row.containerId, row);
+      if (row.parentId && !rowsById.has(row.parentId)) {
+        nextFrontier.add(row.parentId);
+      }
+    }
+
+    frontier = uniqueSortedStrings(nextFrontier);
+  }
+
+  const pathIdsByContainerId = new Map<string, Set<string>>();
+  for (const containerId of input.containerIds) {
+    const pathIds = new Set<string>();
+    const visitedIds = new Set<string>();
+    let currentId: string | null = containerId;
+
+    while (currentId && !visitedIds.has(currentId)) {
+      visitedIds.add(currentId);
+      const row = rowsById.get(currentId);
+      if (!row) {
+        break;
+      }
+      pathIds.add(currentId);
+      currentId = row.parentId;
+    }
+
+    pathIdsByContainerId.set(containerId, pathIds);
+  }
+
+  return pathIdsByContainerId;
+}
+
+async function loadCurrentGrantsByContainerId(input: {
+  readonly containerIds: Iterable<string>;
+  readonly executor: DatabaseTransaction;
+}): Promise<Map<string, ContainerGrantRow[]>> {
+  const containerIds = uniqueSortedStrings(input.containerIds);
+  if (containerIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await input.executor
+    .select({
+      containerId: accessManifestHeads.objectId,
+      subjectType: accessManifestContainerGrantProjection.subjectType,
+      subjectId: accessManifestContainerGrantProjection.subjectId,
+    })
+    .from(accessManifestHeads)
+    .innerJoin(
+      accessManifestContainerGrantProjection,
+      and(
+        eq(
+          accessManifestContainerGrantProjection.manifestHash,
+          accessManifestHeads.manifestHash,
+        ),
+        eq(
+          accessManifestContainerGrantProjection.containerId,
+          accessManifestHeads.objectId,
+        ),
+      ),
+    )
+    .where(
+      and(
+        eq(accessManifestHeads.objectKind, "container"),
+        inArray(accessManifestHeads.objectId, containerIds),
+      ),
+    );
+
+  const grantsByContainerId = new Map<string, ContainerGrantRow[]>();
+  for (const row of rows) {
+    const grants = grantsByContainerId.get(row.containerId) ?? [];
+    grants.push(row);
+    grantsByContainerId.set(row.containerId, grants);
+  }
+
+  return grantsByContainerId;
+}
+
+function userRetainsAccessThroughPath(input: {
+  readonly grantsByContainerId: ReadonlyMap<
+    string,
+    readonly ContainerGrantRow[]
+  >;
+  readonly pathContainerIds: Iterable<string>;
+  readonly userId: string;
+  readonly userPrincipals: ReadonlyMap<string, PrincipalReference>;
+}): boolean {
+  for (const containerId of input.pathContainerIds) {
+    for (const grant of input.grantsByContainerId.get(containerId) ?? []) {
+      if (grant.subjectType === "user" && grant.subjectId === input.userId) {
+        return true;
+      }
+      if (input.userPrincipals.has(`${grant.subjectType}:${grant.subjectId}`)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+async function buildPrincipalPolicyAccessLossRows(input: {
+  readonly currentState: StoredPrincipalState;
+  readonly executor: DatabaseTransaction;
+  readonly previousState: StoredPrincipalState;
+}): Promise<PrincipalPolicyAccessLossRow[]> {
+  const previousUserIds = await reachableUserIdsFromPrincipalState({
+    executor: input.executor,
+    state: input.previousState,
+  });
+  const currentUserIds = await reachableUserIdsFromPrincipalState({
+    executor: input.executor,
+    state: input.currentState,
+  });
+  const removedUserIds = uniqueSortedStrings(
+    [...previousUserIds].filter((userId) => !currentUserIds.has(userId)),
+  );
+  if (removedUserIds.length === 0) {
+    return [];
+  }
+
+  const affectedPrincipals = await collectCurrentAncestorPrincipals({
+    executor: input.executor,
+    seedPrincipals: [toPrincipalReference(input.currentState)],
+  });
+  const candidateContainers = await loadCandidateContainersForPrincipals({
+    executor: input.executor,
+    principals: affectedPrincipals.values(),
+  });
+  if (candidateContainers.length === 0) {
+    return [];
+  }
+
+  const currentPrincipalsByUser = await collectCurrentPrincipalsForUsers({
+    executor: input.executor,
+    userIds: removedUserIds,
+  });
+  const pathIdsByContainerId = await loadContainerPathIdsByContainerId({
+    containerIds: candidateContainers.map((container) => container.containerId),
+    executor: input.executor,
+  });
+  const grantsByContainerId = await loadCurrentGrantsByContainerId({
+    containerIds: new Set(
+      [...pathIdsByContainerId.values()].flatMap((pathIds) => [...pathIds]),
+    ),
+    executor: input.executor,
+  });
+  const rows: PrincipalPolicyAccessLossRow[] = [];
+
+  for (const userId of removedUserIds) {
+    const userPrincipals = currentPrincipalsByUser.get(userId) ?? new Map();
+    for (const container of candidateContainers) {
+      const pathIds =
+        pathIdsByContainerId.get(container.containerId) ?? new Set<string>();
+      if (
+        userRetainsAccessThroughPath({
+          grantsByContainerId,
+          pathContainerIds: pathIds,
+          userId,
+          userPrincipals,
+        })
+      ) {
+        continue;
+      }
+
+      rows.push({
+        containerId: container.containerId,
+        depth: container.depth,
+        organizationId: container.organizationId,
+        parentId: container.parentId,
+        userId,
+      });
+    }
+  }
+
+  return rows;
 }
 
 export async function persistPrincipalPolicyAccessLossTombstones(input: {
@@ -51,235 +669,18 @@ export async function persistPrincipalPolicyAccessLossTombstones(input: {
     return;
   }
 
-  const result = await executor.execute(sql`
-    with recursive
-    previous_reachable_members as (
-      select
-        ${principalMembershipProjection.memberPrincipalType} as member_principal_type,
-        ${principalMembershipProjection.memberPrincipalId} as member_principal_id
-      from ${principalMembershipProjection}
-      where
-        ${principalMembershipProjection.principalType} = ${previousState.principalType}
-        and ${principalMembershipProjection.principalId} = ${previousState.principalId}
-        and ${principalMembershipProjection.stateHash} = ${previousState.stateHash}
-      union
-      select
-        nested_members.member_principal_type,
-        nested_members.member_principal_id
-      from previous_reachable_members reachable
-      inner join ${principalStates} nested_state
-        on nested_state.principal_type = reachable.member_principal_type
-        and nested_state.principal_id = reachable.member_principal_id
-        and not exists (
-          select 1
-          from ${principalStates} newer_state
-          where
-            newer_state.principal_type = nested_state.principal_type
-            and newer_state.principal_id = nested_state.principal_id
-            and newer_state.version > nested_state.version
-        )
-      inner join ${principalMembershipProjection} nested_members
-        on nested_members.principal_type = nested_state.principal_type
-        and nested_members.principal_id = nested_state.principal_id
-        and nested_members.state_hash = nested_state.state_hash
-      where reachable.member_principal_type <> ${"user"}
-    ),
-    current_reachable_members as (
-      select
-        ${principalMembershipProjection.memberPrincipalType} as member_principal_type,
-        ${principalMembershipProjection.memberPrincipalId} as member_principal_id
-      from ${principalMembershipProjection}
-      where
-        ${principalMembershipProjection.principalType} = ${currentState.principalType}
-        and ${principalMembershipProjection.principalId} = ${currentState.principalId}
-        and ${principalMembershipProjection.stateHash} = ${currentState.stateHash}
-      union
-      select
-        nested_members.member_principal_type,
-        nested_members.member_principal_id
-      from current_reachable_members reachable
-      inner join ${principalStates} nested_state
-        on nested_state.principal_type = reachable.member_principal_type
-        and nested_state.principal_id = reachable.member_principal_id
-        and not exists (
-          select 1
-          from ${principalStates} newer_state
-          where
-            newer_state.principal_type = nested_state.principal_type
-            and newer_state.principal_id = nested_state.principal_id
-            and newer_state.version > nested_state.version
-        )
-      inner join ${principalMembershipProjection} nested_members
-        on nested_members.principal_type = nested_state.principal_type
-        and nested_members.principal_id = nested_state.principal_id
-        and nested_members.state_hash = nested_state.state_hash
-      where reachable.member_principal_type <> ${"user"}
-    ),
-    removed_users as (
-      select member_principal_id as user_id
-      from previous_reachable_members
-      where member_principal_type = ${"user"}
-      except
-      select member_principal_id as user_id
-      from current_reachable_members
-      where member_principal_type = ${"user"}
-    ),
-    affected_principals as (
-      select
-        ${currentState.principalType}::text as principal_type,
-        ${currentState.principalId}::text as principal_id
-      union
-      select
-        parent_state.principal_type,
-        parent_state.principal_id
-      from affected_principals affected
-      inner join ${principalMembershipProjection} parent_members
-        on parent_members.member_principal_type = affected.principal_type
-        and parent_members.member_principal_id = affected.principal_id
-      inner join ${principalStates} parent_state
-        on parent_state.principal_type = parent_members.principal_type
-        and parent_state.principal_id = parent_members.principal_id
-        and parent_state.state_hash = parent_members.state_hash
-        and not exists (
-          select 1
-          from ${principalStates} newer_state
-          where
-            newer_state.principal_type = parent_state.principal_type
-            and newer_state.principal_id = parent_state.principal_id
-            and newer_state.version > parent_state.version
-        )
-    ),
-    candidate_containers as (
-      select distinct
-        c.id::text as container_id,
-        c.organization_id::text as organization_id,
-        c.parent_id::text as parent_id,
-        c.depth::int as depth
-      from affected_principals affected
-      inner join ${accessManifestContainerGrantProjection} grant_projection
-        on grant_projection.subject_type = affected.principal_type
-        and grant_projection.subject_id = affected.principal_id
-      inner join ${accessManifestHeads} head
-        on head.object_kind = ${"container"}
-        and head.object_id = grant_projection.container_id
-        and head.manifest_hash = grant_projection.manifest_hash
-      inner join ${containers} c
-        on c.id::text = grant_projection.container_id
-    ),
-    user_current_principals as (
-      select
-        removed_users.user_id,
-        direct_state.principal_type,
-        direct_state.principal_id
-      from removed_users
-      inner join ${principalMembershipProjection} direct_members
-        on direct_members.member_principal_type = ${"user"}
-        and direct_members.member_principal_id = removed_users.user_id
-      inner join ${principalStates} direct_state
-        on direct_state.principal_type = direct_members.principal_type
-        and direct_state.principal_id = direct_members.principal_id
-        and direct_state.state_hash = direct_members.state_hash
-        and not exists (
-          select 1
-          from ${principalStates} newer_state
-          where
-            newer_state.principal_type = direct_state.principal_type
-            and newer_state.principal_id = direct_state.principal_id
-            and newer_state.version > direct_state.version
-        )
-      union
-      select
-        reachable.user_id,
-        parent_state.principal_type,
-        parent_state.principal_id
-      from user_current_principals reachable
-      inner join ${principalMembershipProjection} parent_members
-        on parent_members.member_principal_type = reachable.principal_type
-        and parent_members.member_principal_id = reachable.principal_id
-      inner join ${principalStates} parent_state
-        on parent_state.principal_type = parent_members.principal_type
-        and parent_state.principal_id = parent_members.principal_id
-        and parent_state.state_hash = parent_members.state_hash
-        and not exists (
-          select 1
-          from ${principalStates} newer_state
-          where
-            newer_state.principal_type = parent_state.principal_type
-            and newer_state.principal_id = parent_state.principal_id
-            and newer_state.version > parent_state.version
-        )
-    ),
-    candidate_paths as (
-      select
-        candidate.container_id as candidate_container_id,
-        c.id as path_container_id,
-        c.parent_id
-      from candidate_containers candidate
-      inner join ${containers} c
-        on c.id::text = candidate.container_id
-      union all
-      select
-        path.candidate_container_id,
-        parent.id as path_container_id,
-        parent.parent_id
-      from candidate_paths path
-      inner join ${containers} parent
-        on parent.id = path.parent_id
-    ),
-    current_access_pairs as (
-      select distinct
-        removed_users.user_id,
-        path.candidate_container_id
-      from removed_users
-      inner join candidate_paths path on true
-      inner join ${accessManifestHeads} head
-        on head.object_kind = ${"container"}
-        and head.object_id = path.path_container_id::text
-      inner join ${accessManifestContainerGrantProjection} grant_projection
-        on grant_projection.manifest_hash = head.manifest_hash
-      left join user_current_principals reachable
-        on reachable.user_id = removed_users.user_id
-        and reachable.principal_type = grant_projection.subject_type
-        and reachable.principal_id = grant_projection.subject_id
-      where
-        (
-          grant_projection.subject_type = ${"user"}
-          and grant_projection.subject_id = removed_users.user_id
-        )
-        or reachable.principal_id is not null
-    )
-    select
-      removed_users.user_id as "userId",
-      candidate.container_id as "containerId",
-      candidate.organization_id as "organizationId",
-      null::text as "parentId",
-      candidate.depth as "depth"
-    from removed_users
-    cross join candidate_containers candidate
-    where not exists (
-      select 1
-      from current_access_pairs access_pair
-      where
-        access_pair.user_id = removed_users.user_id
-        and access_pair.candidate_container_id = candidate.container_id
-    )
-    order by removed_users.user_id asc, candidate.container_id asc
-  `);
-
-  const rows: PrincipalPolicyAccessLossRow[] = [];
-  for (const row of result.rows) {
-    if (!isPrincipalPolicyAccessLossRow(row)) {
-      throw new Error("Unexpected row shape from principal access-loss query");
-    }
-    rows.push(row);
-  }
-
+  const rows = await buildPrincipalPolicyAccessLossRows({
+    currentState,
+    executor,
+    previousState,
+  });
   if (rows.length === 0) {
     return;
   }
 
   const rowUpdates = {
     reason: "access_revoked" as const,
+    rootDiscoveryVisible: true,
     updatedAt,
   };
   await executor
@@ -299,6 +700,11 @@ export async function persistPrincipalPolicyAccessLossTombstones(input: {
         containerSyncTombstones.userId,
         containerSyncTombstones.containerId,
       ],
-      set: rowUpdates,
+      set: {
+        ...rowUpdates,
+        depth: sql`excluded.depth`,
+        organizationId: sql`excluded.organization_id`,
+        parentId: sql`excluded.parent_id`,
+      },
     });
 }
