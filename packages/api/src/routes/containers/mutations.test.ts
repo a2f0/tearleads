@@ -2814,6 +2814,8 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();
   await registerAndAuthenticate(recipient);
+  const groupMember = createTestUser();
+  await registerAndAuthenticate(groupMember);
 
   const root = await bootstrapRoot(owner);
   const child = await createChild({
@@ -2837,6 +2839,36 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
     }),
   );
 
+  const recipientKey = await userRecipientKey(recipient);
+  const groupPrincipalId = crypto.randomUUID();
+  const group = await putGroupPrincipalPolicy({
+    actor: groupMember,
+    members: [{ principalType: "user", principalId: groupMember.userId }],
+    principalId: groupPrincipalId,
+  });
+  const sharedChildBundle = accessManifestFromResponse(sharedChild);
+  const groupShareRequest = await buildGroupGrantRequest({
+    containerManifestHistory: [
+      accessManifestFromResponse(child),
+      sharedChildBundle,
+    ],
+    parentKekState: root.kekState,
+    previous: sharedChildBundle,
+    previousContainerPath: [root.bundle, sharedChildBundle],
+    previousKekState: kekStateFromResponse(sharedChild),
+    principalPolicy: group.policy,
+    principalReference: group.reference,
+    signer: owner,
+    userRecipientKeys: [recipientKey],
+  });
+  const groupSharedChild = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${child.containerId}/share`,
+      request: groupShareRequest,
+      token: owner.token,
+    }),
+  );
+
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,
   });
@@ -2844,24 +2876,33 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
   const recipientBaseline = await recipientBaselineResponse.json();
   expect(
     recipientBaseline.items.map((container: { id: string }) => container.id),
-  ).toContain(sharedChild.containerId);
+  ).toContain(groupSharedChild.containerId);
+
+  const groupMemberBaselineResponse = await listRootContainers({
+    token: groupMember.token,
+  });
+  expect(groupMemberBaselineResponse.status).toBe(200);
+  const groupMemberBaseline = await groupMemberBaselineResponse.json();
+  expect(
+    groupMemberBaseline.items.map((container: { id: string }) => container.id),
+  ).toContain(groupSharedChild.containerId);
 
   const deleteResponse = await deleteContainerForUser({
-    containerId: sharedChild.containerId,
+    containerId: groupSharedChild.containerId,
     token: owner.token,
   });
   expect(deleteResponse.status).toBe(200);
   const deleteBody = await deleteResponse.json();
   expect(isContainerDeleteResponse(deleteBody)).toBe(true);
   expect(deleteBody).toEqual({
-    containerId: sharedChild.containerId,
+    containerId: groupSharedChild.containerId,
     deletedAt: expect.any(String),
   });
 
   const liveRows = await db
     .select({ id: containers.id })
     .from(containers)
-    .where(eq(containers.id, sharedChild.containerId));
+    .where(eq(containers.id, groupSharedChild.containerId));
   expect(liveRows).toEqual([]);
 
   const tombstoneRows = await db
@@ -2873,22 +2914,31 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
       userId: containerSyncTombstones.userId,
     })
     .from(containerSyncTombstones)
-    .where(eq(containerSyncTombstones.containerId, sharedChild.containerId));
+    .where(
+      eq(containerSyncTombstones.containerId, groupSharedChild.containerId),
+    );
   expect(tombstoneRows).toEqual(
     expect.arrayContaining([
       {
-        containerId: sharedChild.containerId,
+        containerId: groupSharedChild.containerId,
         parentId: root.kekState.containerId,
         reason: "deleted",
         rootDiscoveryVisible: false,
         userId: owner.userId,
       },
       {
-        containerId: sharedChild.containerId,
+        containerId: groupSharedChild.containerId,
         parentId: root.kekState.containerId,
         reason: "deleted",
         rootDiscoveryVisible: true,
         userId: recipient.userId,
+      },
+      {
+        containerId: groupSharedChild.containerId,
+        parentId: root.kekState.containerId,
+        reason: "deleted",
+        rootDiscoveryVisible: true,
+        userId: groupMember.userId,
       },
     ]),
   );
@@ -2902,7 +2952,24 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
   expect(recipientDelta.items).toEqual([]);
   expect(recipientDelta.tombstones).toEqual([
     {
-      containerId: sharedChild.containerId,
+      containerId: groupSharedChild.containerId,
+      depth: 1,
+      parentId: root.kekState.containerId,
+      reason: "deleted",
+      updatedAt: expect.any(String),
+    },
+  ]);
+
+  const groupMemberDeltaResponse = await listRootContainers({
+    token: groupMember.token,
+    watermark: groupMemberBaseline.nextWatermark,
+  });
+  expect(groupMemberDeltaResponse.status).toBe(200);
+  const groupMemberDelta = await groupMemberDeltaResponse.json();
+  expect(groupMemberDelta.items).toEqual([]);
+  expect(groupMemberDelta.tombstones).toEqual([
+    {
+      containerId: groupSharedChild.containerId,
       depth: 1,
       parentId: root.kekState.containerId,
       reason: "deleted",

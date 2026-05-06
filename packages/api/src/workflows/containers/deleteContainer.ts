@@ -2,7 +2,7 @@ import type { ContainerDeleteResponse } from "@tearleads/validators/response";
 import { and, eq, sql } from "drizzle-orm";
 import type { ApiDatabase, DatabaseTransaction } from "../../adapters/postgres";
 import { containerSyncTombstones, containers } from "../../schema";
-import { userIdsWithReadableAccessThroughPath } from "./containerPathUsers";
+import { userIdsByContainerPath } from "./containerPathUsers";
 import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
@@ -161,7 +161,7 @@ async function deleteContainerWithExecutor(input: {
 
   const container = await loadContainerForDelete(input);
   const updatedAt = new Date();
-  const visibleUserIds = await userIdsWithReadableAccessThroughPath({
+  const visibleUserIds = await userIdsByContainerPath({
     executor: input.executor,
     path: access.verifiedPath,
   });
@@ -170,10 +170,8 @@ async function deleteContainerWithExecutor(input: {
     throw new DeleteContainerError("Container not found", 404);
   }
   const rootDiscoveryUserIds = new Set(
-    await userIdsWithReadableAccessThroughPath({
-      executor: input.executor,
-      path: [targetManifest],
-    }),
+    visibleUserIds.userIdsByContainerId.get(targetManifest.state.containerId) ??
+      [],
   );
 
   await persistDeletedContainerTombstones({
@@ -181,7 +179,7 @@ async function deleteContainerWithExecutor(input: {
     executor: input.executor,
     rootDiscoveryUserIds,
     updatedAt,
-    userIds: [...visibleUserIds, input.userId],
+    userIds: [...visibleUserIds.allUserIds, input.userId],
   });
   await deleteLeafContainerRow(input);
 
