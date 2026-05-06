@@ -1845,6 +1845,179 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
   });
 });
 
+test("PUT /principals/group/:principalId/state emits tombstones for removed group members", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+
+  const root = await bootstrapRoot(owner);
+  const created = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const createdBundle = accessManifestFromResponse(created);
+  const groupPrincipalId = crypto.randomUUID();
+  const group = await putGroupPrincipalPolicy({
+    actor: owner,
+    members: [{ principalType: "user", principalId: recipient.userId }],
+    principalId: groupPrincipalId,
+  });
+  const groupGrantRequest = await buildGroupGrantRequest({
+    parentKekState: root.kekState,
+    previous: createdBundle,
+    previousContainerPath: [root.bundle, createdBundle],
+    previousKekState: kekStateFromResponse(created),
+    principalPolicy: group.policy,
+    principalReference: group.reference,
+    signer: owner,
+  });
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${created.containerId}/share`,
+      request: groupGrantRequest,
+      token: owner.token,
+    }),
+  );
+
+  const recipientBaselineResponse = await listRootContainers({
+    token: recipient.token,
+  });
+  expect(recipientBaselineResponse.status).toBe(200);
+  const recipientBaseline = await recipientBaselineResponse.json();
+  expect(
+    recipientBaseline.items.map((container: { id: string }) => container.id),
+  ).toContain(created.containerId);
+  expect(recipientBaseline.nextWatermark).toEqual({
+    id: created.containerId,
+    updatedAt: expect.any(String),
+  });
+
+  await putGroupPrincipalPolicy({
+    actor: owner,
+    keyEpoch: 2,
+    members: [{ principalType: "user", principalId: owner.userId }],
+    prevStateHash: group.stateHash,
+    principalId: groupPrincipalId,
+    principalKem: generateKemSeedAndKeyPair(),
+    signedAt: "2026-04-30T00:02:00.000Z",
+    version: 2,
+  });
+
+  const recipientDeltaResponse = await listRootContainers({
+    token: recipient.token,
+    watermark: recipientBaseline.nextWatermark,
+  });
+  expect(recipientDeltaResponse.status).toBe(200);
+  const recipientDelta = await recipientDeltaResponse.json();
+  expect(
+    recipientDelta.items.map((container: { id: string }) => container.id),
+  ).not.toContain(created.containerId);
+  expect(recipientDelta.tombstones).toEqual([
+    {
+      containerId: created.containerId,
+      depth: 1,
+      parentId: null,
+      reason: "access_revoked",
+      updatedAt: expect.any(String),
+    },
+  ]);
+  expect(recipientDelta.nextWatermark).toEqual({
+    id: created.containerId,
+    updatedAt: recipientDelta.tombstones[0].updatedAt,
+  });
+});
+
+test("PUT /principals/group/:principalId/state skips tombstones while direct access remains", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+
+  const root = await bootstrapRoot(owner);
+  const created = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const createdBundle = accessManifestFromResponse(created);
+  const directShareRequest = await buildGrantRequest({
+    parentKekState: root.kekState,
+    previous: createdBundle,
+    previousContainerPath: [root.bundle, createdBundle],
+    previousKekState: kekStateFromResponse(created),
+    recipient,
+    signer: owner,
+  });
+  const directShared = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${created.containerId}/share`,
+      request: directShareRequest,
+      token: owner.token,
+    }),
+  );
+  const recipientKey = await userRecipientKey(recipient);
+  const groupPrincipalId = crypto.randomUUID();
+  const group = await putGroupPrincipalPolicy({
+    actor: owner,
+    members: [{ principalType: "user", principalId: recipient.userId }],
+    principalId: groupPrincipalId,
+  });
+  const directSharedBundle = accessManifestFromResponse(directShared);
+  const groupGrantRequest = await buildGroupGrantRequest({
+    containerManifestHistory: [createdBundle, directSharedBundle],
+    parentKekState: root.kekState,
+    previous: directSharedBundle,
+    previousContainerPath: [root.bundle, directSharedBundle],
+    previousKekState: kekStateFromResponse(directShared),
+    principalPolicy: group.policy,
+    principalReference: group.reference,
+    signer: owner,
+    userRecipientKeys: [recipientKey],
+  });
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${created.containerId}/share`,
+      request: groupGrantRequest,
+      token: owner.token,
+    }),
+  );
+
+  const recipientBaselineResponse = await listRootContainers({
+    token: recipient.token,
+  });
+  expect(recipientBaselineResponse.status).toBe(200);
+  const recipientBaseline = await recipientBaselineResponse.json();
+  expect(
+    recipientBaseline.items.map((container: { id: string }) => container.id),
+  ).toContain(created.containerId);
+  expect(recipientBaseline.nextWatermark).toEqual({
+    id: created.containerId,
+    updatedAt: expect.any(String),
+  });
+
+  await putGroupPrincipalPolicy({
+    actor: owner,
+    keyEpoch: 2,
+    members: [{ principalType: "user", principalId: owner.userId }],
+    prevStateHash: group.stateHash,
+    principalId: groupPrincipalId,
+    principalKem: generateKemSeedAndKeyPair(),
+    signedAt: "2026-04-30T00:03:00.000Z",
+    version: 2,
+  });
+
+  const recipientDeltaResponse = await listRootContainers({
+    token: recipient.token,
+    watermark: recipientBaseline.nextWatermark,
+  });
+  expect(recipientDeltaResponse.status).toBe(200);
+  const recipientDelta = await recipientDeltaResponse.json();
+  expect(recipientDelta.tombstones).toEqual([]);
+  expect(recipientDelta.nextWatermark).toEqual(recipientBaseline.nextWatermark);
+});
+
 test("POST /containers/:containerId/revoke emits tombstones for nested group grant members", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);

@@ -1,7 +1,9 @@
 import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
 import type { PrincipalStateResponse } from "@tearleads/validators/response";
+import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
 import type { ApiDatabase } from "../../adapters/postgres";
+import { persistPrincipalPolicyAccessLossTombstones } from "./accessLossTombstones";
 import { PrincipalPolicyError, toPrincipalStateResponse } from "./shared";
 
 export interface PutPrincipalStateInput extends PutPrincipalStateRequest {
@@ -79,8 +81,13 @@ export async function runPutPrincipalStateWorkflow(
   }
 
   try {
-    const storedState = await db.transaction((tx) =>
-      storeVerifiedPrincipalStateInTransaction(
+    const storedState = await db.transaction(async (tx) => {
+      const previousState = await getCurrentPrincipalState(
+        input.state.principalType,
+        input.state.principalId,
+        tx,
+      );
+      const nextState = await storeVerifiedPrincipalStateInTransaction(
         {
           state: {
             principalType: input.state.principalType,
@@ -112,8 +119,16 @@ export async function runPutPrincipalStateWorkflow(
           })),
         },
         tx,
-      ),
-    );
+      );
+      await persistPrincipalPolicyAccessLossTombstones({
+        currentState: nextState,
+        executor: tx,
+        previousState,
+        updatedAt: new Date(),
+      });
+
+      return nextState;
+    });
 
     return toPrincipalStateResponse(storedState);
   } catch (error) {
