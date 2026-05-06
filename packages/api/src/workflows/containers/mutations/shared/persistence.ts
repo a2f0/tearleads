@@ -96,7 +96,8 @@ async function insertContainerMetadataBinding(
 async function persistCreatedContainerStructure(
   executor: DatabaseTransaction,
   state: VerifiedContainerAccessState,
-): Promise<void> {
+  updatedAt: Date,
+): Promise<StoredContainerRow> {
   if (!state.parentContainerId) {
     throw new ContainerMutationError("container create requires a parent", 400);
   }
@@ -114,7 +115,6 @@ async function persistCreatedContainerStructure(
   }
 
   await assertMetadataDocumentAvailable(executor, state.metadataDocumentId);
-  const updatedAt = new Date();
 
   const [inserted] = await executor
     .insert(containers)
@@ -133,27 +133,35 @@ async function persistCreatedContainerStructure(
   }
 
   await insertContainerMetadataBinding(executor, state);
+
+  return {
+    depth: parent.depth + 1,
+    id: state.containerId,
+    organizationId: state.organizationId,
+    parentId: state.parentContainerId,
+  };
 }
 
 async function touchContainerStructure(
   executor: DatabaseTransaction,
   containerId: string,
+  updatedAt: Date,
 ): Promise<void> {
   await executor
     .update(containers)
-    .set({ updatedAt: new Date() })
+    .set({ updatedAt })
     .where(eq(containers.id, containerId));
 }
 
 async function persistContainerStructure(
   executor: DatabaseTransaction,
   manifest: VerifiedContainerAccessManifest,
-): Promise<void> {
+  updatedAt: Date,
+): Promise<StoredContainerRow> {
   const state = manifest.state;
 
   if (manifest.event.event.eventType === "container.create") {
-    await persistCreatedContainerStructure(executor, state);
-    return;
+    return persistCreatedContainerStructure(executor, state, updatedAt);
   }
 
   const container = await loadContainerRow(executor, state.containerId);
@@ -166,8 +174,8 @@ async function persistContainerStructure(
   }
 
   if (manifest.event.event.eventType !== "container.move") {
-    await touchContainerStructure(executor, state.containerId);
-    return;
+    await touchContainerStructure(executor, state.containerId, updatedAt);
+    return container;
   }
 
   if (!container.parentId) {
@@ -199,7 +207,6 @@ async function persistContainerStructure(
     );
   }
 
-  const updatedAt = new Date();
   await executor.execute(sql`
     with recursive subtree as (
       select
@@ -225,6 +232,12 @@ async function persistContainerStructure(
     from subtree
     where c.id = subtree.id
   `);
+
+  return {
+    ...container,
+    depth: destinationParent.depth + 1,
+    parentId: state.parentContainerId,
+  };
 }
 
 function directUserGrantIds(
@@ -282,11 +295,13 @@ async function directUserIdsWithoutReadableContainerAccess(input: {
 }
 
 async function persistAccessRevocationTombstones(input: {
+  readonly container: StoredContainerRow;
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
   readonly previousManifest: VerifiedContainerAccessManifest | null;
+  readonly updatedAt: Date;
 }): Promise<void> {
-  const { executor, manifest, previousManifest } = input;
+  const { container, executor, manifest, previousManifest, updatedAt } = input;
   if (
     manifest.event.event.eventType !== "container.revoke" ||
     previousManifest === null
@@ -311,15 +326,6 @@ async function persistAccessRevocationTombstones(input: {
     return;
   }
 
-  const container = await loadContainerRow(
-    executor,
-    manifest.state.containerId,
-  );
-  if (!container) {
-    throw new ContainerMutationError("Container not found", 404);
-  }
-
-  const updatedAt = new Date();
   const rowUpdates = {
     depth: container.depth,
     organizationId: manifest.state.organizationId,
@@ -352,8 +358,13 @@ export async function persistVerifiedMutation(
   previousManifest: VerifiedContainerAccessManifest | null,
 ): Promise<ContainerMutationResponse> {
   const { executor } = context;
+  const updatedAt = new Date();
 
-  await persistContainerStructure(executor, manifest);
+  const container = await persistContainerStructure(
+    executor,
+    manifest,
+    updatedAt,
+  );
   const manifestHead = await runConflictBoundary(() =>
     storeVerifiedAccessManifestInTransaction(
       { verifiedManifest: manifest },
@@ -368,9 +379,11 @@ export async function persistVerifiedMutation(
     manifestHead,
   );
   await persistAccessRevocationTombstones({
+    container,
     executor,
     manifest,
     previousManifest,
+    updatedAt,
   });
 
   const storedKekState = await runConflictBoundary(() =>
