@@ -18,7 +18,7 @@ import {
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,
-  resolveReadableContainerAccess,
+  resolveReadableContainerAccessBatch,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 import {
@@ -485,47 +485,43 @@ async function resolveVisibleContainerSummaries(input: {
   const accessContext = createContainerWriterProjectionContext(
     input.runtime.db,
   );
+  const candidateRows = input.containerRows.filter(
+    (
+      containerRow,
+    ): containerRow is AccessibleContainerRow & {
+      metadataAccessEpoch: number;
+      metadataAccessStateHash: string;
+      metadataDocumentId: string;
+    } =>
+      containerRow.metadataDocumentId !== null &&
+      containerRow.metadataAccessEpoch !== undefined &&
+      !!containerRow.metadataAccessStateHash,
+  );
+  const accessResults = await resolveReadableContainerAccessBatch({
+    containerIds: candidateRows.map((containerRow) => containerRow.id),
+    context: accessContext,
+    executor: input.runtime.db,
+    userId: input.userId,
+  });
 
-  for (const containerRow of input.containerRows) {
-    if (!containerRow.metadataDocumentId) {
-      continue;
-    }
-
-    const metadataAccessEpoch = containerRow.metadataAccessEpoch;
-    const metadataAccessStateHash = containerRow.metadataAccessStateHash;
-    if (metadataAccessEpoch === undefined || !metadataAccessStateHash) {
-      continue;
-    }
-
-    let verifiedAccess:
-      | Awaited<ReturnType<typeof resolveReadableContainerAccess>>
-      | undefined;
-    try {
-      verifiedAccess = await resolveReadableContainerAccess({
-        containerId: containerRow.id,
-        context: accessContext,
-        executor: input.runtime.db,
-        userId: input.userId,
-      });
-    } catch (error) {
-      if (
-        error instanceof KeyingReadAccessError &&
-        (error.status === 403 || error.status === 404 || error.status === 409)
-      ) {
+  for (const containerRow of candidateRows) {
+    const accessResult = accessResults.get(containerRow.id);
+    if (!accessResult || accessResult.status === "rejected") {
+      if (accessResult?.reason instanceof KeyingReadAccessError) {
         continue;
       }
-      throw error;
+      throw new Error("Readable container access batch omitted a candidate");
     }
 
     visibleContainers.push({
       createdAt: containerRow.createdAt,
       depth: containerRow.depth,
       id: containerRow.id,
-      metadataAccessEpoch,
-      metadataAccessStateHash,
+      metadataAccessEpoch: containerRow.metadataAccessEpoch,
+      metadataAccessStateHash: containerRow.metadataAccessStateHash,
       metadataDocumentId: containerRow.metadataDocumentId,
       metadataReferencedPrincipals:
-        collectReferencedPrincipalsFromContainerAccess([verifiedAccess]),
+        collectReferencedPrincipalsFromContainerAccess([accessResult.value]),
       organizationId: containerRow.organizationId,
       parentId: containerRow.parentId,
       updatedAt: containerRow.updatedAt,
