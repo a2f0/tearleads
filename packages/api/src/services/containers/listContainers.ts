@@ -142,8 +142,10 @@ function parentIdPredicate(
 
 function tombstoneParentIdPredicate(parentId: string | null): SQL {
   if (parentId === null) {
-    // Root discovery also carries directly granted non-root removals.
-    return sql`true`;
+    return sql`(
+      ${containerSyncTombstones.parentId} is null
+      or ${containerSyncTombstones.rootDiscoveryVisible} = true
+    )`;
   }
 
   return parentIdPredicate(sql`${containerSyncTombstones.parentId}`, parentId);

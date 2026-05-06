@@ -475,6 +475,7 @@ async function persistAccessRevocationTombstones(input: {
     organizationId: manifest.state.organizationId,
     parentId: container.parentId,
     reason: "access_revoked" as const,
+    rootDiscoveryVisible: true,
     updatedAt,
   };
   await executor
@@ -491,7 +492,10 @@ async function persistAccessRevocationTombstones(input: {
         containerSyncTombstones.userId,
         containerSyncTombstones.containerId,
       ],
-      set: rowUpdates,
+      set: {
+        ...rowUpdates,
+        rootDiscoveryVisible: sql`${containerSyncTombstones.rootDiscoveryVisible} or excluded.root_discovery_visible`,
+      },
     });
 }
 
@@ -555,6 +559,7 @@ async function persistMoveAccessLossTombstones(input: {
     organizationId: manifest.state.organizationId,
     parentId: previousManifest.state.parentContainerId,
     reason: "access_revoked" as const,
+    rootDiscoveryVisible: false,
     updatedAt: input.updatedAt,
   };
   await executor
@@ -571,7 +576,10 @@ async function persistMoveAccessLossTombstones(input: {
         containerSyncTombstones.userId,
         containerSyncTombstones.containerId,
       ],
-      set: rowUpdates,
+      set: {
+        ...rowUpdates,
+        rootDiscoveryVisible: sql`${containerSyncTombstones.rootDiscoveryVisible} or excluded.root_discovery_visible`,
+      },
     });
 }
 

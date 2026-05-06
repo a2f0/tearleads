@@ -160,7 +160,10 @@ export const containers = pgTable(
  * access changes are visibility decisions, not global object deletion facts.
  *
  * The parent-lane index mirrors the live container scan so a client can request
- * tombstones for the same parent container watermark it uses for live rows.
+ * tombstones for the same parent container watermark it uses for live rows. A
+ * separate root-discovery marker covers directly granted non-root containers,
+ * which are discoverable from root even though their stored `parentId` is the
+ * real parent lane.
  */
 export const containerSyncTombstones = pgTable(
   "container_sync_tombstones",
@@ -172,6 +175,9 @@ export const containerSyncTombstones = pgTable(
     parentId: uuid("parent_id"),
     depth: integer("depth").notNull(),
     reason: text("reason").$type<ContainerSyncTombstoneReason>().notNull(),
+    rootDiscoveryVisible: boolean("root_discovery_visible")
+      .default(false)
+      .notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
@@ -182,6 +188,12 @@ export const containerSyncTombstones = pgTable(
     index("container_sync_tombstones_user_parent_updated_idx").on(
       table.userId,
       table.parentId,
+      table.updatedAt,
+      table.containerId,
+    ),
+    index("container_sync_tombstones_user_root_updated_idx").on(
+      table.userId,
+      table.rootDiscoveryVisible,
       table.updatedAt,
       table.containerId,
     ),

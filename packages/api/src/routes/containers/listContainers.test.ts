@@ -542,15 +542,29 @@ test("GET /containers exposes non-root tombstones from root discovery and parent
   }
 
   const tombstoneContainerId = crypto.randomUUID();
-  await db.insert(containerSyncTombstones).values({
-    containerId: tombstoneContainerId,
-    depth: 1,
-    organizationId: rootContainer.organizationId,
-    parentId: owner.rootContainerId,
-    reason: "access_revoked",
-    updatedAt: new Date("2026-05-05T00:00:01.000Z"),
-    userId: owner.userId,
-  });
+  const parentOnlyTombstoneContainerId = crypto.randomUUID();
+  await db.insert(containerSyncTombstones).values([
+    {
+      containerId: tombstoneContainerId,
+      depth: 1,
+      organizationId: rootContainer.organizationId,
+      parentId: owner.rootContainerId,
+      reason: "access_revoked",
+      rootDiscoveryVisible: true,
+      updatedAt: new Date("2026-05-05T00:00:01.000Z"),
+      userId: owner.userId,
+    },
+    {
+      containerId: parentOnlyTombstoneContainerId,
+      depth: 1,
+      organizationId: rootContainer.organizationId,
+      parentId: owner.rootContainerId,
+      reason: "access_revoked",
+      rootDiscoveryVisible: false,
+      updatedAt: new Date("2026-05-05T00:00:02.000Z"),
+      userId: owner.userId,
+    },
+  ]);
 
   const rootLaneResponse = await routeApp.request("/containers?parentId=null", {
     method: "GET",
@@ -559,12 +573,20 @@ test("GET /containers exposes non-root tombstones from root discovery and parent
     },
   });
   expect(rootLaneResponse.status).toBe(200);
-  expect((await rootLaneResponse.json()).tombstones).toContainEqual({
+  const rootLaneBody = await rootLaneResponse.json();
+  expect(rootLaneBody.tombstones).toContainEqual({
     containerId: tombstoneContainerId,
     depth: 1,
     parentId: owner.rootContainerId,
     reason: "access_revoked",
     updatedAt: "2026-05-05T00:00:01.000Z",
+  });
+  expect(rootLaneBody.tombstones).not.toContainEqual({
+    containerId: parentOnlyTombstoneContainerId,
+    depth: 1,
+    parentId: owner.rootContainerId,
+    reason: "access_revoked",
+    updatedAt: "2026-05-05T00:00:02.000Z",
   });
 
   const parentLaneResponse = await routeApp.request(
@@ -577,11 +599,19 @@ test("GET /containers exposes non-root tombstones from root discovery and parent
     },
   );
   expect(parentLaneResponse.status).toBe(200);
-  expect((await parentLaneResponse.json()).tombstones).toContainEqual({
+  const parentLaneBody = await parentLaneResponse.json();
+  expect(parentLaneBody.tombstones).toContainEqual({
     containerId: tombstoneContainerId,
     depth: 1,
     parentId: owner.rootContainerId,
     reason: "access_revoked",
     updatedAt: "2026-05-05T00:00:01.000Z",
+  });
+  expect(parentLaneBody.tombstones).toContainEqual({
+    containerId: parentOnlyTombstoneContainerId,
+    depth: 1,
+    parentId: owner.rootContainerId,
+    reason: "access_revoked",
+    updatedAt: "2026-05-05T00:00:02.000Z",
   });
 });

@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,
   listPrincipalProjectionMembersForStates,
@@ -680,6 +680,7 @@ export async function persistPrincipalPolicyAccessLossTombstones(input: {
 
   const rowUpdates = {
     reason: "access_revoked" as const,
+    rootDiscoveryVisible: true,
     updatedAt,
   };
   await executor
@@ -699,6 +700,11 @@ export async function persistPrincipalPolicyAccessLossTombstones(input: {
         containerSyncTombstones.userId,
         containerSyncTombstones.containerId,
       ],
-      set: rowUpdates,
+      set: {
+        ...rowUpdates,
+        depth: sql`excluded.depth`,
+        organizationId: sql`excluded.organization_id`,
+        parentId: sql`excluded.parent_id`,
+      },
     });
 }
