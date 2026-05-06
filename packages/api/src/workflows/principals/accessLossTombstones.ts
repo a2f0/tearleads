@@ -430,7 +430,10 @@ async function loadCandidateContainersForPrincipals(input: {
         accessManifestHeads,
         and(
           eq(accessManifestHeads.objectKind, "container"),
-          sql`${accessManifestHeads.objectId} = ${accessManifestContainerGrantProjection.containerId}::text`,
+          eq(
+            accessManifestHeads.objectId,
+            accessManifestContainerGrantProjection.containerId,
+          ),
           eq(
             accessManifestHeads.manifestHash,
             accessManifestContainerGrantProjection.manifestHash,
@@ -532,7 +535,10 @@ async function loadCurrentGrantsByContainerId(input: {
           accessManifestContainerGrantProjection.manifestHash,
           accessManifestHeads.manifestHash,
         ),
-        sql`${accessManifestContainerGrantProjection.containerId}::text = ${accessManifestHeads.objectId}`,
+        eq(
+          accessManifestContainerGrantProjection.containerId,
+          accessManifestHeads.objectId,
+        ),
       ),
     )
     .where(

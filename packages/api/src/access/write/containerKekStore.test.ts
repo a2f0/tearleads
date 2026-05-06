@@ -178,6 +178,8 @@ test("container KEK store persists additive wraps and resolves verified state", 
   const containerId = crypto.randomUUID();
   const containerKeyEpochId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
+  const aliceUserId = crypto.randomUUID();
+  const bobUserId = crypto.randomUUID();
   const originalManifest = await createContainerManifestFixture({
     containerId,
     containerKeyEpochId,
@@ -185,7 +187,7 @@ test("container KEK store persists additive wraps and resolves verified state", 
     directGrants: [
       {
         subjectType: "user",
-        subjectId: "alice",
+        subjectId: aliceUserId,
         accessLevel: "read",
       },
     ],
@@ -199,7 +201,7 @@ test("container KEK store persists additive wraps and resolves verified state", 
       ...originalManifest.state.directGrants,
       {
         subjectType: "user",
-        subjectId: "bob",
+        subjectId: bobUserId,
         accessLevel: "read",
       },
     ],
@@ -208,12 +210,12 @@ test("container KEK store persists additive wraps and resolves verified state", 
     salt: "additive-current",
   });
   const aliceKey: ContainerUserRecipientKey = {
-    userId: "alice",
+    userId: aliceUserId,
     recipientKeyEpochId: "alice-key-epoch-1",
     recipientKeyFingerprint: await fixtureHash("alice-key"),
   };
   const bobKey: ContainerUserRecipientKey = {
-    userId: "bob",
+    userId: bobUserId,
     recipientKeyEpochId: "bob-key-epoch-1",
     recipientKeyFingerprint: await fixtureHash("bob-key"),
   };
@@ -230,14 +232,14 @@ test("container KEK store persists additive wraps and resolves verified state", 
     wraps: [
       await createContainerKeyWrap({
         containerKeyEpochId,
-        recipientId: "alice",
+        recipientId: aliceUserId,
         recipientKeyEpochId: aliceKey.recipientKeyEpochId,
         recipientKeyFingerprint: aliceKey.recipientKeyFingerprint,
         wrapManifestHash: originalManifest.manifestHash,
       }),
       await createContainerKeyWrap({
         containerKeyEpochId,
-        recipientId: "bob",
+        recipientId: bobUserId,
         recipientKeyEpochId: bobKey.recipientKeyEpochId,
         recipientKeyFingerprint: bobKey.recipientKeyFingerprint,
         wrapManifestHash: currentManifest.manifestHash,
@@ -404,20 +406,21 @@ test("container KEK store replaces stale same-epoch principal wraps", async () =
 test("container KEK resolver rejects tampered stored wrap fingerprints", async () => {
   const containerId = crypto.randomUUID();
   const containerKeyEpochId = crypto.randomUUID();
+  const aliceUserId = crypto.randomUUID();
   const manifest = await createContainerManifestFixture({
     containerId,
     containerKeyEpochId,
     directGrants: [
       {
         subjectType: "user",
-        subjectId: "alice",
+        subjectId: aliceUserId,
         accessLevel: "read",
       },
     ],
     salt: "tamper",
   });
   const aliceKey: ContainerUserRecipientKey = {
-    userId: "alice",
+    userId: aliceUserId,
     recipientKeyEpochId: "alice-key-epoch-1",
     recipientKeyFingerprint: await fixtureHash("alice-key"),
   };
@@ -432,7 +435,7 @@ test("container KEK resolver rejects tampered stored wrap fingerprints", async (
     wraps: [
       await createContainerKeyWrap({
         containerKeyEpochId,
-        recipientId: "alice",
+        recipientId: aliceUserId,
         recipientKeyEpochId: aliceKey.recipientKeyEpochId,
         recipientKeyFingerprint: aliceKey.recipientKeyFingerprint,
         wrapManifestHash: manifest.manifestHash,
@@ -470,6 +473,8 @@ test("container KEK store advances current epoch after revoke rekey", async () =
   const organizationId = crypto.randomUUID();
   const oldKeyEpochId = crypto.randomUUID();
   const newKeyEpochId = crypto.randomUUID();
+  const adminUserId = crypto.randomUUID();
+  const removedUserId = crypto.randomUUID();
   const previousManifest = await createContainerManifestFixture({
     containerId,
     containerKeyEpochId: oldKeyEpochId,
@@ -477,12 +482,12 @@ test("container KEK store advances current epoch after revoke rekey", async () =
     directGrants: [
       {
         subjectType: "user",
-        subjectId: "admin",
+        subjectId: adminUserId,
         accessLevel: "admin",
       },
       {
         subjectType: "user",
-        subjectId: "removed",
+        subjectId: removedUserId,
         accessLevel: "read",
       },
     ],
@@ -497,19 +502,19 @@ test("container KEK store advances current epoch after revoke rekey", async () =
     directGrants: [
       {
         subjectType: "user",
-        subjectId: "admin",
+        subjectId: adminUserId,
         accessLevel: "admin",
       },
     ],
     salt: "revoke-current",
   });
   const adminKey: ContainerUserRecipientKey = {
-    userId: "admin",
+    userId: adminUserId,
     recipientKeyEpochId: "admin-key-epoch-1",
     recipientKeyFingerprint: await fixtureHash("admin-key"),
   };
   const removedKey: ContainerUserRecipientKey = {
-    userId: "removed",
+    userId: removedUserId,
     recipientKeyEpochId: "removed-key-epoch-1",
     recipientKeyFingerprint: await fixtureHash("removed-key"),
   };
@@ -528,14 +533,14 @@ test("container KEK store advances current epoch after revoke rekey", async () =
     wraps: [
       await createContainerKeyWrap({
         containerKeyEpochId: oldKeyEpochId,
-        recipientId: "admin",
+        recipientId: adminUserId,
         recipientKeyEpochId: adminKey.recipientKeyEpochId,
         recipientKeyFingerprint: adminKey.recipientKeyFingerprint,
         wrapManifestHash: previousManifest.manifestHash,
       }),
       await createContainerKeyWrap({
         containerKeyEpochId: oldKeyEpochId,
-        recipientId: "removed",
+        recipientId: removedUserId,
         recipientKeyEpochId: removedKey.recipientKeyEpochId,
         recipientKeyFingerprint: removedKey.recipientKeyFingerprint,
         wrapManifestHash: previousManifest.manifestHash,
@@ -549,7 +554,7 @@ test("container KEK store advances current epoch after revoke rekey", async () =
     wraps: [
       await createContainerKeyWrap({
         containerKeyEpochId: newKeyEpochId,
-        recipientId: "admin",
+        recipientId: adminUserId,
         recipientKeyEpochId: adminKey.recipientKeyEpochId,
         recipientKeyFingerprint: adminKey.recipientKeyFingerprint,
         wrapManifestHash: currentManifest.manifestHash,

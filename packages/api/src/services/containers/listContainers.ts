@@ -137,7 +137,7 @@ function parentIdPredicate(
     return sql`${parentIdExpression} is null`;
   }
 
-  return sql`${parentIdExpression}::text = ${parentId}`;
+  return sql`${parentIdExpression} = ${parentId}`;
 }
 
 function tombstoneParentIdPredicate(parentId: string | null): SQL {
@@ -206,13 +206,11 @@ async function listAccessibleContainersForUser(input: {
       from ${containers} c
       inner join ${accessManifestHeads} h
         on h.object_kind = ${"container"}
-        and h.object_id = c.id::text
+        and h.object_id = c.id
       inner join ${accessManifests} m
         on m.manifest_hash = h.manifest_hash
       where ${
-        input.parentId === null
-          ? sql`false`
-          : sql`c.id::text = ${input.parentId}`
+        input.parentId === null ? sql`false` : sql`c.id = ${input.parentId}`
       }
       union all
       select
@@ -230,7 +228,7 @@ async function listAccessibleContainersForUser(input: {
         on child.parent_id = parent.id
       inner join ${accessManifestHeads} h
         on h.object_kind = ${"container"}
-        and h.object_id = parent.id::text
+        and h.object_id = parent.id
       inner join ${accessManifests} m
         on m.manifest_hash = h.manifest_hash
     ),
@@ -264,7 +262,7 @@ async function listAccessibleContainersForUser(input: {
       from ${containers} c
       inner join ${accessManifestHeads} h
         on h.object_kind = ${"container"}
-        and h.object_id = c.id::text
+        and h.object_id = c.id
       inner join ${accessManifests} m
         on m.manifest_hash = h.manifest_hash
       where ${parentIdPredicate(sql`c.parent_id`, input.parentId)}
@@ -283,7 +281,7 @@ async function listAccessibleContainersForUser(input: {
       from ${containers} c
       inner join ${accessManifestHeads} h
         on h.object_kind = ${"container"}
-        and h.object_id = c.id::text
+        and h.object_id = c.id
       inner join ${accessManifests} m
         on m.manifest_hash = h.manifest_hash
       inner join ${accessManifestContainerGrantProjection} grant_projection

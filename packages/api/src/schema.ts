@@ -243,8 +243,7 @@ export const groups = pgTable("groups", {
  * - `principalType`: Managed principal kind, currently `organization` or
  *   `group`.
  * - `principalId`: The stable id of the organization/group whose policy this
- *   state describes. This is text because the signed crypto payload models
- *   principal ids as strings.
+ *   state describes.
  * - `version`: Monotonic signed version for this principal. Version `1` must
  *   have `prevStateHash = null`; later versions must point to the previous
  *   current state's hash.
@@ -297,7 +296,7 @@ export const principalStates = pgTable(
     principalType: text("principal_type")
       .$type<ManagedRecipientPrincipalType>()
       .notNull(),
-    principalId: text("principal_id").notNull(),
+    principalId: uuid("principal_id").notNull(),
     version: integer("version").notNull(),
     prevStateHash: text("prev_state_hash"),
     keyEpoch: integer("key_epoch").notNull(),
@@ -385,7 +384,7 @@ export const principalStatePayloads = pgTable(
     principalType: text("principal_type")
       .$type<ManagedRecipientPrincipalType>()
       .notNull(),
-    principalId: text("principal_id").notNull(),
+    principalId: uuid("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
     cipherSuite: text("cipher_suite")
       .$type<PrincipalStatePayloadCipherSuite>()
@@ -458,12 +457,12 @@ export const principalMembershipProjection = pgTable(
     principalType: text("principal_type")
       .$type<ManagedRecipientPrincipalType>()
       .notNull(),
-    principalId: text("principal_id").notNull(),
+    principalId: uuid("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
     memberPrincipalType: text("member_principal_type")
       .$type<PrincipalStateMemberType>()
       .notNull(),
-    memberPrincipalId: text("member_principal_id").notNull(),
+    memberPrincipalId: uuid("member_principal_id").notNull(),
     role: text("role").$type<PrincipalProjectionRole>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -528,7 +527,7 @@ export const principalEpochKeys = pgTable(
     principalType: text("principal_type")
       .$type<ManagedRecipientPrincipalType>()
       .notNull(),
-    principalId: text("principal_id").notNull(),
+    principalId: uuid("principal_id").notNull(),
     epoch: integer("epoch").notNull(),
     introducedByStateHash: text("introduced_by_state_hash").notNull(),
     encapsulationPublicKey: text("encapsulation_public_key").notNull(),
@@ -602,13 +601,13 @@ export const principalMemberEnvelopes = pgTable(
     principalType: text("principal_type")
       .$type<ManagedRecipientPrincipalType>()
       .notNull(),
-    principalId: text("principal_id").notNull(),
+    principalId: uuid("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
     epoch: integer("epoch").notNull(),
     memberPrincipalType: text("member_principal_type")
       .$type<PrincipalStateMemberType>()
       .notNull(),
-    memberPrincipalId: text("member_principal_id").notNull(),
+    memberPrincipalId: uuid("member_principal_id").notNull(),
     memberKeyFingerprint: text("member_key_fingerprint").notNull(),
     kemCipherText: text("kem_cipher_text").notNull(),
     wrappedKey: text("wrapped_key").notNull(),
@@ -690,8 +689,8 @@ export const accessEvents = pgTable(
     eventId: text("event_id").notNull(),
     eventType: text("event_type").$type<AccessEventType>().notNull(),
     objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
-    objectId: text("object_id").notNull(),
-    organizationId: text("organization_id").notNull(),
+    objectId: uuid("object_id").notNull(),
+    organizationId: uuid("organization_id").notNull(),
     previousManifestHash: text("previous_manifest_hash"),
     dependencyManifestHashes: jsonb("dependency_manifest_hashes")
       .$type<string[]>()
@@ -699,7 +698,7 @@ export const accessEvents = pgTable(
     bodyHash: text("body_hash").notNull(),
     body: jsonb("body").$type<KeyingCanonicalJson>().notNull(),
     eventHash: text("event_hash").notNull(),
-    signerUserId: text("signer_user_id").notNull(),
+    signerUserId: uuid("signer_user_id").notNull(),
     signerDeviceId: text("signer_device_id").notNull(),
     signerKeyFingerprint: text("signer_key_fingerprint").notNull(),
     signature: text("signature").notNull(),
@@ -785,8 +784,8 @@ export const accessManifests = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     version: integer("version").notNull(),
     objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
-    objectId: text("object_id").notNull(),
-    organizationId: text("organization_id").notNull(),
+    objectId: uuid("object_id").notNull(),
+    organizationId: uuid("organization_id").notNull(),
     epoch: integer("epoch").notNull(),
     previousManifestHash: text("previous_manifest_hash"),
     eventHash: text("event_hash").notNull(),
@@ -847,8 +846,8 @@ export const accessManifestHeads = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
-    objectId: text("object_id").notNull(),
-    organizationId: text("organization_id").notNull(),
+    objectId: uuid("object_id").notNull(),
+    organizationId: uuid("organization_id").notNull(),
     epoch: integer("epoch").notNull(),
     manifestHash: text("manifest_hash").notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -901,7 +900,7 @@ export const containerKeyEpochs = pgTable(
   "container_key_epochs",
   {
     id: text("id").primaryKey(),
-    containerId: text("container_id").notNull(),
+    containerId: uuid("container_id").notNull(),
     keyEpoch: integer("key_epoch").notNull(),
     accessManifestHash: text("access_manifest_hash").notNull(),
     parentContainerKeyEpochId: text("parent_container_key_epoch_id"),
@@ -967,7 +966,7 @@ export const containerKeyWraps = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     containerKeyEpochId: text("container_key_epoch_id").notNull(),
     recipientKind: text("recipient_kind").$type<KekRecipientKind>().notNull(),
-    recipientId: text("recipient_id").notNull(),
+    recipientId: uuid("recipient_id").notNull(),
     recipientKeyEpochId: text("recipient_key_epoch_id").notNull(),
     recipientKeyFingerprint: text("recipient_key_fingerprint").notNull(),
     kemCipherText: text("kem_cipher_text").notNull(),
@@ -1021,7 +1020,7 @@ export const accessEventDependencyProjection = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     eventHash: text("event_hash").notNull(),
     objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
-    objectId: text("object_id").notNull(),
+    objectId: uuid("object_id").notNull(),
     dependencyManifestHash: text("dependency_manifest_hash").notNull(),
     dependencyIndex: integer("dependency_index").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1072,11 +1071,11 @@ export const accessManifestPrincipalHeadProjection = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     manifestHash: text("manifest_hash").notNull(),
     objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
-    objectId: text("object_id").notNull(),
+    objectId: uuid("object_id").notNull(),
     principalType: text("principal_type")
       .$type<ManagedPrincipalKind>()
       .notNull(),
-    principalId: text("principal_id").notNull(),
+    principalId: uuid("principal_id").notNull(),
     version: integer("version").notNull(),
     keyEpoch: integer("key_epoch").notNull(),
     stateHash: text("state_hash").notNull(),
@@ -1126,7 +1125,7 @@ export const accessManifestDocumentLinkProjection = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     manifestHash: text("manifest_hash").notNull(),
-    documentId: text("document_id").notNull(),
+    documentId: uuid("document_id").notNull(),
     containerId: uuid("container_id").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -1156,7 +1155,7 @@ export const accessManifestContainerGrantProjection = pgTable(
     containerId: uuid("container_id").notNull(),
     accessLevel: text("access_level").notNull(),
     subjectType: text("subject_type").notNull(),
-    subjectId: text("subject_id").notNull(),
+    subjectId: uuid("subject_id").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -1221,7 +1220,7 @@ export const documentContentKeyEpochs = pgTable(
   "document_content_key_epochs",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    documentId: text("document_id").notNull(),
+    documentId: uuid("document_id").notNull(),
     contentKeyEpoch: integer("content_key_epoch").notNull(),
     linkSetManifestHash: text("link_set_manifest_hash").notNull(),
     targetHash: text("target_hash").notNull(),
@@ -1286,7 +1285,7 @@ export const documentContentKeyTargets = pgTable(
     documentContentKeyEpochId: uuid("document_content_key_epoch_id")
       .notNull()
       .references(() => documentContentKeyEpochs.id),
-    containerId: text("container_id").notNull(),
+    containerId: uuid("container_id").notNull(),
     containerManifestHash: text("container_manifest_hash").notNull(),
     containerKeyEpochId: text("container_key_epoch_id").notNull(),
     containerKeyEpoch: integer("container_key_epoch").notNull(),
@@ -1350,8 +1349,8 @@ export const documentContentWriteHeaders = pgTable(
   "document_content_write_headers",
   {
     updateId: uuid("update_id").primaryKey(),
-    documentId: text("document_id").notNull(),
-    organizationId: text("organization_id").notNull(),
+    documentId: uuid("document_id").notNull(),
+    organizationId: uuid("organization_id").notNull(),
     contentKeyEpoch: integer("content_key_epoch").notNull(),
     accessManifestHash: text("access_manifest_hash").notNull(),
     targetHash: text("target_hash").notNull(),
@@ -1476,8 +1475,8 @@ export const blobContentKeyTargets = pgTable(
       .notNull()
       .references(() => blobContentKeyEpochs.id),
     bindingId: uuid("binding_id").notNull(),
-    documentId: text("document_id").notNull(),
-    containerId: text("container_id").notNull(),
+    documentId: uuid("document_id").notNull(),
+    containerId: uuid("container_id").notNull(),
     containerManifestHash: text("container_manifest_hash").notNull(),
     containerKeyEpochId: text("container_key_epoch_id").notNull(),
     containerKeyEpoch: integer("container_key_epoch").notNull(),
@@ -1541,7 +1540,7 @@ export const blobContentWriteHeaders = pgTable(
   {
     recordId: uuid("record_id").primaryKey(),
     blobId: uuid("blob_id").notNull(),
-    organizationId: text("organization_id").notNull(),
+    organizationId: uuid("organization_id").notNull(),
     contentKeyEpoch: integer("content_key_epoch").notNull(),
     accessManifestHash: text("access_manifest_hash").notNull(),
     targetHash: text("target_hash").notNull(),
@@ -1599,7 +1598,7 @@ export const documentContainerLinks = pgTable(
   "document_container_links",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    documentId: text("document_id").notNull(),
+    documentId: uuid("document_id").notNull(),
     containerId: uuid("container_id").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -1624,7 +1623,7 @@ export const containerDocumentSyncTombstones = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     containerId: uuid("container_id").notNull(),
-    documentId: text("document_id").notNull(),
+    documentId: uuid("document_id").notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
@@ -2010,7 +2009,7 @@ export const attachmentBindings = pgTable(
   "attachment_bindings",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    documentId: text("document_id").notNull(),
+    documentId: uuid("document_id").notNull(),
     slotId: text("slot_id").notNull(),
     blobId: uuid("blob_id").notNull(),
     previousBindingId: uuid("previous_binding_id"),

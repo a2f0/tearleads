@@ -1,5 +1,5 @@
 {
-  "id": "9bb37a5c-6608-49c2-95e0-e71c0cc70da5",
+  "id": "1c36ebc2-541f-43f1-84d9-6fb97f04a6ef",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -29,7 +29,7 @@
         },
         "object_id": {
           "name": "object_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -150,13 +150,13 @@
         },
         "object_id": {
           "name": "object_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "organization_id": {
           "name": "organization_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -192,7 +192,7 @@
         },
         "signer_user_id": {
           "name": "signer_user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -346,7 +346,7 @@
         },
         "subject_id": {
           "name": "subject_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -470,7 +470,7 @@
         },
         "document_id": {
           "name": "document_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -582,13 +582,13 @@
         },
         "object_id": {
           "name": "object_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "organization_id": {
           "name": "organization_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -682,7 +682,7 @@
         },
         "object_id": {
           "name": "object_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -694,7 +694,7 @@
         },
         "principal_id": {
           "name": "principal_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -827,13 +827,13 @@
         },
         "object_id": {
           "name": "object_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "organization_id": {
           "name": "organization_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -999,7 +999,7 @@
         },
         "document_id": {
           "name": "document_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1329,13 +1329,13 @@
         },
         "document_id": {
           "name": "document_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "container_id": {
           "name": "container_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1492,7 +1492,7 @@
         },
         "organization_id": {
           "name": "organization_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1778,7 +1778,7 @@
         },
         "document_id": {
           "name": "document_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1859,7 +1859,7 @@
         },
         "container_id": {
           "name": "container_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -2001,7 +2001,7 @@
         },
         "recipient_id": {
           "name": "recipient_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -2930,7 +2930,7 @@
         },
         "document_id": {
           "name": "document_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -3006,7 +3006,7 @@
         },
         "document_id": {
           "name": "document_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -3122,7 +3122,7 @@
         },
         "container_id": {
           "name": "container_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -3246,13 +3246,13 @@
         },
         "document_id": {
           "name": "document_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "organization_id": {
           "name": "organization_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -3812,7 +3812,7 @@
         },
         "principal_id": {
           "name": "principal_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -3924,7 +3924,7 @@
         },
         "principal_id": {
           "name": "principal_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -3948,7 +3948,7 @@
         },
         "member_principal_id": {
           "name": "member_principal_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -4066,7 +4066,7 @@
         },
         "principal_id": {
           "name": "principal_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -4084,7 +4084,7 @@
         },
         "member_principal_id": {
           "name": "member_principal_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -4190,7 +4190,7 @@
         },
         "principal_id": {
           "name": "principal_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -4302,7 +4302,7 @@
         },
         "principal_id": {
           "name": "principal_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },

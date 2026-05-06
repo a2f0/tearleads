@@ -2,7 +2,7 @@ CREATE TABLE "access_event_dependency_projection" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"event_hash" text NOT NULL,
 	"object_kind" text NOT NULL,
-	"object_id" text NOT NULL,
+	"object_id" uuid NOT NULL,
 	"dependency_manifest_hash" text NOT NULL,
 	"dependency_index" integer NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
@@ -14,14 +14,14 @@ CREATE TABLE "access_events" (
 	"event_id" text NOT NULL,
 	"event_type" text NOT NULL,
 	"object_kind" text NOT NULL,
-	"object_id" text NOT NULL,
-	"organization_id" text NOT NULL,
+	"object_id" uuid NOT NULL,
+	"organization_id" uuid NOT NULL,
 	"previous_manifest_hash" text,
 	"dependency_manifest_hashes" jsonb NOT NULL,
 	"body_hash" text NOT NULL,
 	"body" jsonb NOT NULL,
 	"event_hash" text NOT NULL,
-	"signer_user_id" text NOT NULL,
+	"signer_user_id" uuid NOT NULL,
 	"signer_device_id" text NOT NULL,
 	"signer_key_fingerprint" text NOT NULL,
 	"signature" text NOT NULL,
@@ -35,14 +35,14 @@ CREATE TABLE "access_manifest_container_grant_projection" (
 	"container_id" uuid NOT NULL,
 	"access_level" text NOT NULL,
 	"subject_type" text NOT NULL,
-	"subject_id" text NOT NULL,
+	"subject_id" uuid NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "access_manifest_document_link_projection" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"manifest_hash" text NOT NULL,
-	"document_id" text NOT NULL,
+	"document_id" uuid NOT NULL,
 	"container_id" uuid NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -50,8 +50,8 @@ CREATE TABLE "access_manifest_document_link_projection" (
 CREATE TABLE "access_manifest_heads" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"object_kind" text NOT NULL,
-	"object_id" text NOT NULL,
-	"organization_id" text NOT NULL,
+	"object_id" uuid NOT NULL,
+	"organization_id" uuid NOT NULL,
 	"epoch" integer NOT NULL,
 	"manifest_hash" text NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
@@ -61,9 +61,9 @@ CREATE TABLE "access_manifest_principal_head_projection" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"manifest_hash" text NOT NULL,
 	"object_kind" text NOT NULL,
-	"object_id" text NOT NULL,
+	"object_id" uuid NOT NULL,
 	"principal_type" text NOT NULL,
-	"principal_id" text NOT NULL,
+	"principal_id" uuid NOT NULL,
 	"version" integer NOT NULL,
 	"key_epoch" integer NOT NULL,
 	"state_hash" text NOT NULL,
@@ -75,8 +75,8 @@ CREATE TABLE "access_manifests" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"version" integer NOT NULL,
 	"object_kind" text NOT NULL,
-	"object_id" text NOT NULL,
-	"organization_id" text NOT NULL,
+	"object_id" uuid NOT NULL,
+	"organization_id" uuid NOT NULL,
 	"epoch" integer NOT NULL,
 	"previous_manifest_hash" text,
 	"event_hash" text NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE "access_manifests" (
 --> statement-breakpoint
 CREATE TABLE "attachment_bindings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"document_id" text NOT NULL,
+	"document_id" uuid NOT NULL,
 	"slot_id" text NOT NULL,
 	"blob_id" uuid NOT NULL,
 	"previous_binding_id" uuid,
@@ -125,8 +125,8 @@ CREATE TABLE "blob_content_key_targets" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"blob_content_key_epoch_id" uuid NOT NULL,
 	"binding_id" uuid NOT NULL,
-	"document_id" text NOT NULL,
-	"container_id" text NOT NULL,
+	"document_id" uuid NOT NULL,
+	"container_id" uuid NOT NULL,
 	"container_manifest_hash" text NOT NULL,
 	"container_key_epoch_id" text NOT NULL,
 	"container_key_epoch" integer NOT NULL,
@@ -138,7 +138,7 @@ CREATE TABLE "blob_content_key_targets" (
 CREATE TABLE "blob_content_write_headers" (
 	"record_id" uuid PRIMARY KEY NOT NULL,
 	"blob_id" uuid NOT NULL,
-	"organization_id" text NOT NULL,
+	"organization_id" uuid NOT NULL,
 	"content_key_epoch" integer NOT NULL,
 	"access_manifest_hash" text NOT NULL,
 	"target_hash" text NOT NULL,
@@ -172,13 +172,13 @@ CREATE TABLE "blobs" (
 CREATE TABLE "container_document_sync_tombstones" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"container_id" uuid NOT NULL,
-	"document_id" text NOT NULL,
+	"document_id" uuid NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "container_key_epochs" (
 	"id" text PRIMARY KEY NOT NULL,
-	"container_id" text NOT NULL,
+	"container_id" uuid NOT NULL,
 	"key_epoch" integer NOT NULL,
 	"access_manifest_hash" text NOT NULL,
 	"parent_container_key_epoch_id" text,
@@ -191,7 +191,7 @@ CREATE TABLE "container_key_wraps" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"container_key_epoch_id" text NOT NULL,
 	"recipient_kind" text NOT NULL,
-	"recipient_id" text NOT NULL,
+	"recipient_id" uuid NOT NULL,
 	"recipient_key_epoch_id" text NOT NULL,
 	"recipient_key_fingerprint" text NOT NULL,
 	"kem_cipher_text" text NOT NULL,
@@ -275,14 +275,14 @@ CREATE TABLE "document_audit_entries" (
 --> statement-breakpoint
 CREATE TABLE "document_container_links" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"document_id" text NOT NULL,
+	"document_id" uuid NOT NULL,
 	"container_id" uuid NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "document_content_key_epochs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"document_id" text NOT NULL,
+	"document_id" uuid NOT NULL,
 	"content_key_epoch" integer NOT NULL,
 	"link_set_manifest_hash" text NOT NULL,
 	"target_hash" text NOT NULL,
@@ -293,7 +293,7 @@ CREATE TABLE "document_content_key_epochs" (
 CREATE TABLE "document_content_key_targets" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"document_content_key_epoch_id" uuid NOT NULL,
-	"container_id" text NOT NULL,
+	"container_id" uuid NOT NULL,
 	"container_manifest_hash" text NOT NULL,
 	"container_key_epoch_id" text NOT NULL,
 	"container_key_epoch" integer NOT NULL,
@@ -304,8 +304,8 @@ CREATE TABLE "document_content_key_targets" (
 --> statement-breakpoint
 CREATE TABLE "document_content_write_headers" (
 	"update_id" uuid PRIMARY KEY NOT NULL,
-	"document_id" text NOT NULL,
-	"organization_id" text NOT NULL,
+	"document_id" uuid NOT NULL,
+	"organization_id" uuid NOT NULL,
 	"content_key_epoch" integer NOT NULL,
 	"access_manifest_hash" text NOT NULL,
 	"target_hash" text NOT NULL,
@@ -372,7 +372,7 @@ CREATE TABLE "organizations" (
 CREATE TABLE "principal_epoch_keys" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
-	"principal_id" text NOT NULL,
+	"principal_id" uuid NOT NULL,
 	"epoch" integer NOT NULL,
 	"introduced_by_state_hash" text NOT NULL,
 	"encapsulation_public_key" text NOT NULL,
@@ -383,11 +383,11 @@ CREATE TABLE "principal_epoch_keys" (
 CREATE TABLE "principal_member_envelopes" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
-	"principal_id" text NOT NULL,
+	"principal_id" uuid NOT NULL,
 	"state_hash" text NOT NULL,
 	"epoch" integer NOT NULL,
 	"member_principal_type" text NOT NULL,
-	"member_principal_id" text NOT NULL,
+	"member_principal_id" uuid NOT NULL,
 	"member_key_fingerprint" text NOT NULL,
 	"kem_cipher_text" text NOT NULL,
 	"wrapped_key" text NOT NULL,
@@ -397,10 +397,10 @@ CREATE TABLE "principal_member_envelopes" (
 CREATE TABLE "principal_membership_projection" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
-	"principal_id" text NOT NULL,
+	"principal_id" uuid NOT NULL,
 	"state_hash" text NOT NULL,
 	"member_principal_type" text NOT NULL,
-	"member_principal_id" text NOT NULL,
+	"member_principal_id" uuid NOT NULL,
 	"role" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -408,7 +408,7 @@ CREATE TABLE "principal_membership_projection" (
 CREATE TABLE "principal_state_payloads" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
-	"principal_id" text NOT NULL,
+	"principal_id" uuid NOT NULL,
 	"state_hash" text NOT NULL,
 	"cipher_suite" text NOT NULL,
 	"ciphertext" text NOT NULL,
@@ -419,7 +419,7 @@ CREATE TABLE "principal_state_payloads" (
 CREATE TABLE "principal_states" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
-	"principal_id" text NOT NULL,
+	"principal_id" uuid NOT NULL,
 	"version" integer NOT NULL,
 	"prev_state_hash" text,
 	"key_epoch" integer NOT NULL,

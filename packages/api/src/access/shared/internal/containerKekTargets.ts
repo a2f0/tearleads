@@ -177,7 +177,7 @@ async function loadCurrentContainerManifestTargetClosure(input: {
       from ancestor_path ap
       inner join ${accessManifestHeads} h
         on h.object_kind = 'container'
-        and h.object_id = ap.state->>'parentContainerId'
+        and h.object_id = (ap.state->>'parentContainerId')::uuid
       inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
       where not ap.cycle_detected
         and ap.depth < 100
@@ -301,7 +301,7 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
   const result = await input.executor.execute(sql`
     with recursive manifest_path as (
       select
-        manifest_targets.container_id,
+        manifest_targets.container_id::uuid as container_id,
         manifest_targets.container_key_epoch_id,
         m.manifest_hash,
         m.object_kind,

@@ -14,6 +14,7 @@ export async function createCurrentDocumentProjection(input: {
   readonly epoch?: number;
   readonly manifestHash?: string;
   readonly organizationId: string;
+  readonly signerUserId?: string;
 }) {
   const [document] = await db
     .insert(documents)
@@ -56,7 +57,7 @@ export async function createCurrentDocumentProjection(input: {
     signedAt: new Date(),
     signerDeviceId: "test-device",
     signerKeyFingerprint: input.createdByFingerprint,
-    signerUserId: "test-user",
+    signerUserId: input.signerUserId ?? crypto.randomUUID(),
     version: 1,
   });
   await db.insert(accessManifests).values({

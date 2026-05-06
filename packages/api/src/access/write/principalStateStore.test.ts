@@ -65,6 +65,8 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
     generateSigningSeedAndKeyPair();
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const principalId = crypto.randomUUID();
+  const bobUserId = crypto.randomUUID();
+  const nestedGroupId = crypto.randomUUID();
   const signedState = await signPrincipalState(
     {
       principalType: "group",
@@ -81,11 +83,11 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
         },
         {
           principalType: "user",
-          principalId: "bob",
+          principalId: bobUserId,
         },
         {
           principalType: "group",
-          principalId: "nested-group",
+          principalId: nestedGroupId,
         },
       ],
       projection: [
@@ -96,7 +98,7 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
         },
         {
           memberPrincipalType: "group",
-          memberPrincipalId: "nested-group",
+          memberPrincipalId: nestedGroupId,
           role: "member",
         },
       ],
@@ -466,6 +468,7 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const { publicKey } = generateKemSeedAndKeyPair();
   const principalId = crypto.randomUUID();
+  const removedUserId = crypto.randomUUID();
   const initialState = await storeVerifiedPrincipalState(
     await signPrincipalState(
       {
@@ -478,7 +481,7 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
         keyFingerprint: await toFingerprint(publicKey),
         members: [
           { principalType: "user", principalId: signer.signerUserId },
-          { principalType: "user", principalId: "removed-user" },
+          { principalType: "user", principalId: removedUserId },
         ],
         projection: [
           {
@@ -488,7 +491,7 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
           },
           {
             memberPrincipalType: "user",
-            memberPrincipalId: "removed-user",
+            memberPrincipalId: removedUserId,
             role: "member",
           },
         ],
@@ -819,6 +822,8 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const firstPrincipalId = crypto.randomUUID();
   const secondPrincipalId = crypto.randomUUID();
+  const firstMemberId = crypto.randomUUID();
+  const nestedGroupId = crypto.randomUUID();
   const firstKem = generateKemSeedAndKeyPair();
   const secondKem = generateKemSeedAndKeyPair();
   const firstProjection = [
@@ -829,7 +834,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
     },
     {
       memberPrincipalType: "user" as const,
-      memberPrincipalId: "first-member",
+      memberPrincipalId: firstMemberId,
       role: "member" as const,
     },
   ];
@@ -841,7 +846,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
     },
     {
       memberPrincipalType: "group" as const,
-      memberPrincipalId: "nested-group",
+      memberPrincipalId: nestedGroupId,
       role: "member" as const,
     },
   ];
@@ -858,7 +863,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
         keyFingerprint: await toFingerprint(firstKem.publicKey),
         members: [
           { principalType: "user", principalId: signer.signerUserId },
-          { principalType: "user", principalId: "first-member" },
+          { principalType: "user", principalId: firstMemberId },
         ],
         projection: firstProjection,
         signedAt: new Date("2026-04-07T16:00:00.000Z").toISOString(),
@@ -880,7 +885,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
         keyFingerprint: await toFingerprint(secondKem.publicKey),
         members: [
           { principalType: "user", principalId: signer.signerUserId },
-          { principalType: "group", principalId: "nested-group" },
+          { principalType: "group", principalId: nestedGroupId },
         ],
         projection: secondProjection,
         signedAt: new Date("2026-04-07T16:05:00.000Z").toISOString(),
@@ -908,7 +913,10 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
       )
       .sort(),
   ).toEqual(
-    ["user:first-member:member", `user:${signer.signerUserId}:admin`].sort(),
+    [
+      `user:${firstMemberId}:member`,
+      `user:${signer.signerUserId}:admin`,
+    ].sort(),
   );
   expect(
     projections
@@ -919,6 +927,9 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
       )
       .sort(),
   ).toEqual(
-    ["group:nested-group:member", `user:${signer.signerUserId}:admin`].sort(),
+    [
+      `group:${nestedGroupId}:member`,
+      `user:${signer.signerUserId}:admin`,
+    ].sort(),
   );
 });
