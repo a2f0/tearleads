@@ -460,11 +460,13 @@ async function buildCreateRequest(input: {
   readonly containerId: string;
   readonly dependencyManifestHashesOverride?: readonly string[];
   readonly parent: ContainerManifestBundle;
+  readonly parentContainerPath?: readonly ContainerManifestBundle[];
   readonly parentKekState: VerifiedContainerKekState;
   readonly parentManifestHashOverride?: string;
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
   const parent = asVerifiedContainerManifest(input.parent);
+  const parentContainerPath = input.parentContainerPath ?? [input.parent];
   const containerKeyEpochId = crypto.randomUUID();
   const parentManifestHash =
     input.parentManifestHashOverride ?? input.parent.manifestHash;
@@ -481,7 +483,7 @@ async function buildCreateRequest(input: {
   const event = await createSignedContainerEvent({
     body,
     dependencyManifestHashes: input.dependencyManifestHashesOverride ?? [
-      input.parent.manifestHash,
+      ...new Set(parentContainerPath.map((manifest) => manifest.manifestHash)),
     ],
     objectId: input.containerId,
     organizationId: parent.state.organizationId,
@@ -527,7 +529,7 @@ async function buildCreateRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    parentContainerPath: [input.parent],
+    parentContainerPath: [...parentContainerPath],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
@@ -947,6 +949,35 @@ async function postMutation(input: {
   });
 }
 
+async function listRootContainers(input: {
+  readonly token: string;
+  readonly watermark?: { id: string; updatedAt: string } | null;
+}): Promise<Response> {
+  return listContainersForUser({ ...input, parentId: null });
+}
+
+async function listContainersForUser(input: {
+  readonly parentId?: string | null;
+  readonly token: string;
+  readonly watermark?: { id: string; updatedAt: string } | null;
+}): Promise<Response> {
+  const searchParams = new URLSearchParams();
+  if (input.parentId !== undefined) {
+    searchParams.set("parentId", input.parentId ?? "null");
+  }
+  if (input.watermark) {
+    searchParams.set("watermarkUpdatedAt", input.watermark.updatedAt);
+    searchParams.set("watermarkId", input.watermark.id);
+  }
+
+  return routeApp.request(`/containers?${searchParams}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${input.token}`,
+    },
+  });
+}
+
 async function expectMutationSuccess(
   response: Response,
 ): Promise<ContainerMutationResponse> {
@@ -959,12 +990,16 @@ async function expectMutationSuccess(
 async function createChild(input: {
   readonly containerId?: string;
   readonly parent: ContainerManifestBundle;
+  readonly parentContainerPath?: readonly ContainerManifestBundle[];
   readonly parentKekState: VerifiedContainerKekState;
   readonly signer: TestUser;
 }): Promise<ContainerMutationResponse> {
   const request = await buildCreateRequest({
     containerId: input.containerId ?? crypto.randomUUID(),
     parent: input.parent,
+    ...(input.parentContainerPath === undefined
+      ? {}
+      : { parentContainerPath: input.parentContainerPath }),
     parentKekState: input.parentKekState,
     signer: input.signer,
   });
@@ -1629,6 +1664,19 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
       token: owner.token,
     }),
   );
+  const recipientBaselineResponse = await listRootContainers({
+    token: recipient.token,
+  });
+  expect(recipientBaselineResponse.status).toBe(200);
+  const recipientBaseline = await recipientBaselineResponse.json();
+  expect(
+    recipientBaseline.items.map((container: { id: string }) => container.id),
+  ).toContain(created.containerId);
+  expect(recipientBaseline.nextWatermark).toEqual({
+    id: created.containerId,
+    updatedAt: expect.any(String),
+  });
+
   const sharedBundle = accessManifestFromResponse(shared);
   const revokeRequest = await buildRevokeRequest({
     parentKekState: root.kekState,
@@ -1647,6 +1695,29 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
     }),
   );
 
+  const recipientDeltaResponse = await listRootContainers({
+    token: recipient.token,
+    watermark: recipientBaseline.nextWatermark,
+  });
+  expect(recipientDeltaResponse.status).toBe(200);
+  const recipientDelta = await recipientDeltaResponse.json();
+  expect(
+    recipientDelta.items.map((container: { id: string }) => container.id),
+  ).not.toContain(created.containerId);
+  expect(recipientDelta.tombstones).toEqual([
+    {
+      containerId: created.containerId,
+      depth: 1,
+      parentId: null,
+      reason: "access_revoked",
+      updatedAt: expect.any(String),
+    },
+  ]);
+  expect(recipientDelta.nextWatermark).toEqual({
+    id: created.containerId,
+    updatedAt: recipientDelta.tombstones[0].updatedAt,
+  });
+
   expect(revoked.manifestHead.epoch).toBe(3);
   expect(revoked.containerKek.containerKeyEpoch).toBe(2);
   expect(revoked.containerKek.containerKeyEpochId).not.toBe(
@@ -1660,6 +1731,117 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
       recipientKeyFingerprint: root.kekState.keyEpochHash,
     },
   ]);
+});
+
+test("POST /containers/:containerId/revoke skips tombstones while access remains inherited", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+
+  const root = await bootstrapRoot(owner);
+  const child = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const childShareRequest = await buildGrantRequest({
+    parentKekState: root.kekState,
+    previous: accessManifestFromResponse(child),
+    previousContainerPath: [root.bundle, accessManifestFromResponse(child)],
+    previousKekState: kekStateFromResponse(child),
+    recipient,
+    signer: owner,
+  });
+  const sharedChild = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${child.containerId}/share`,
+      request: childShareRequest,
+      token: owner.token,
+    }),
+  );
+  const sharedChildBundle = accessManifestFromResponse(sharedChild);
+  const sharedChildKekState = kekStateFromResponse(sharedChild);
+  const grandchild = await createChild({
+    parent: sharedChildBundle,
+    parentContainerPath: [root.bundle, sharedChildBundle],
+    parentKekState: sharedChildKekState,
+    signer: owner,
+  });
+  const grandchildShareRequest = await buildGrantRequest({
+    parentKekState: sharedChildKekState,
+    previous: accessManifestFromResponse(grandchild),
+    previousContainerPath: [
+      root.bundle,
+      sharedChildBundle,
+      accessManifestFromResponse(grandchild),
+    ],
+    previousKekState: kekStateFromResponse(grandchild),
+    recipient,
+    signer: owner,
+  });
+  const sharedGrandchild = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${grandchild.containerId}/share`,
+      request: grandchildShareRequest,
+      token: owner.token,
+    }),
+  );
+
+  const recipientBaselineResponse = await listRootContainers({
+    token: recipient.token,
+  });
+  expect(recipientBaselineResponse.status).toBe(200);
+  const recipientBaseline = await recipientBaselineResponse.json();
+  expect(
+    recipientBaseline.items.map((container: { id: string }) => container.id),
+  ).toEqual(
+    expect.arrayContaining([child.containerId, grandchild.containerId]),
+  );
+  expect(recipientBaseline.nextWatermark).not.toBeNull();
+
+  const sharedGrandchildBundle = accessManifestFromResponse(sharedGrandchild);
+  const revokeRequest = await buildRevokeRequest({
+    parentKekState: sharedChildKekState,
+    previous: sharedGrandchildBundle,
+    previousContainerPath: [
+      root.bundle,
+      sharedChildBundle,
+      sharedGrandchildBundle,
+    ],
+    previousKekState: kekStateFromResponse(sharedGrandchild),
+    revokedUser: recipient,
+    signer: owner,
+  });
+
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${grandchild.containerId}/revoke`,
+      request: revokeRequest,
+      token: owner.token,
+    }),
+  );
+
+  const recipientRootDeltaResponse = await listRootContainers({
+    token: recipient.token,
+    watermark: recipientBaseline.nextWatermark,
+  });
+  expect(recipientRootDeltaResponse.status).toBe(200);
+  const recipientRootDelta = await recipientRootDeltaResponse.json();
+  expect(recipientRootDelta.tombstones).toEqual([]);
+  expect(recipientRootDelta.nextWatermark).toEqual(
+    recipientBaseline.nextWatermark,
+  );
+
+  const recipientChildLaneResponse = await listContainersForUser({
+    parentId: child.containerId,
+    token: recipient.token,
+  });
+  expect(recipientChildLaneResponse.status).toBe(200);
+  const recipientChildLane = await recipientChildLaneResponse.json();
+  expect(
+    recipientChildLane.items.map((container: { id: string }) => container.id),
+  ).toContain(grandchild.containerId);
 });
 
 test("POST /containers/:containerId/rekey materializes a writer KEK rotation", async () => {
