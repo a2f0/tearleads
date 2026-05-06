@@ -2328,3 +2328,105 @@ test("POST /containers/:containerId/move validates destination manifest heads", 
   expect(movedSourceUpdatedAt).toBe(movedGrandchildUpdatedAt);
   expect(movedSourceUpdatedAt).not.toBe(preMoveUpdatedAt.toISOString());
 });
+
+test("POST /containers/:containerId/move emits tombstones when inherited access is lost", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+
+  const root = await bootstrapRoot(owner);
+  const oldParent = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const oldParentShareRequest = await buildGrantRequest({
+    parentKekState: root.kekState,
+    previous: accessManifestFromResponse(oldParent),
+    previousContainerPath: [root.bundle, accessManifestFromResponse(oldParent)],
+    previousKekState: kekStateFromResponse(oldParent),
+    recipient,
+    signer: owner,
+  });
+  const sharedOldParent = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${oldParent.containerId}/share`,
+      request: oldParentShareRequest,
+      token: owner.token,
+    }),
+  );
+  const sharedOldParentBundle = accessManifestFromResponse(sharedOldParent);
+  const sharedOldParentKekState = kekStateFromResponse(sharedOldParent);
+  const source = await createChild({
+    parent: sharedOldParentBundle,
+    parentContainerPath: [root.bundle, sharedOldParentBundle],
+    parentKekState: sharedOldParentKekState,
+    signer: owner,
+  });
+  const destination = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+
+  const recipientBaselineResponse = await listContainersForUser({
+    parentId: oldParent.containerId,
+    token: recipient.token,
+  });
+  expect(recipientBaselineResponse.status).toBe(200);
+  const recipientBaseline = await recipientBaselineResponse.json();
+  expect(
+    recipientBaseline.items.map((container: { id: string }) => container.id),
+  ).toContain(source.containerId);
+  expect(recipientBaseline.nextWatermark).toEqual({
+    id: source.containerId,
+    updatedAt: expect.any(String),
+  });
+
+  const sourceBundle = accessManifestFromResponse(source);
+  const moveRequest = await buildMoveRequest({
+    destinationParent: accessManifestFromResponse(destination),
+    destinationParentKekState: kekStateFromResponse(destination),
+    destinationParentPath: [
+      root.bundle,
+      accessManifestFromResponse(destination),
+    ],
+    previous: sourceBundle,
+    previousContainerPath: [root.bundle, sharedOldParentBundle, sourceBundle],
+    previousKekState: kekStateFromResponse(source),
+    signer: owner,
+  });
+
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${source.containerId}/move`,
+      request: moveRequest,
+      token: owner.token,
+    }),
+  );
+
+  const recipientDeltaResponse = await listContainersForUser({
+    parentId: oldParent.containerId,
+    token: recipient.token,
+    watermark: recipientBaseline.nextWatermark,
+  });
+  expect(recipientDeltaResponse.status).toBe(200);
+  const recipientDelta = await recipientDeltaResponse.json();
+  expect(
+    recipientDelta.items.map((container: { id: string }) => container.id),
+  ).not.toContain(source.containerId);
+  expect(recipientDelta.tombstones).toEqual([
+    {
+      containerId: source.containerId,
+      depth: 2,
+      parentId: oldParent.containerId,
+      reason: "access_revoked",
+      updatedAt: expect.any(String),
+    },
+  ]);
+  expect(recipientDelta.nextWatermark).toEqual({
+    id: source.containerId,
+    updatedAt: recipientDelta.tombstones[0].updatedAt,
+  });
+});

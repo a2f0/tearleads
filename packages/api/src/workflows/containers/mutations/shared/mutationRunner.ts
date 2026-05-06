@@ -90,5 +90,11 @@ export async function mutateContainerWithExecutor(
     },
   );
 
-  return persistVerifiedMutation(context, manifest, kekState, previousManifest);
+  return persistVerifiedMutation(
+    context,
+    manifest,
+    kekState,
+    previousManifest,
+    previousContainerPath,
+  );
 }
