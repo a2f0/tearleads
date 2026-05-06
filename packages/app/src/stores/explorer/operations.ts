@@ -278,6 +278,24 @@ export async function deleteExplorerContainer(
     return null;
   }
 
+  const isRemoteContainer =
+    typeof existingState.record.documentId === "string" &&
+    existingState.record.documentId.length > 0;
+  if (isRemoteContainer) {
+    if (!state.runtime.isAuthenticated || !state.runtime.online) {
+      return null;
+    }
+
+    const deleteResult = await state.runtime.apiClient.deleteContainerResult(
+      existingState.container.id,
+      { reportErrors: false },
+    );
+    if (!deleteResult.ok && deleteResult.status !== 404) {
+      deleteResult.report();
+      return null;
+    }
+  }
+
   const deletedNode = toContainerNode(existingState.container);
   await state.persistence.deleteContainer(
     state.runtime.execSql,

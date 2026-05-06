@@ -41,6 +41,11 @@ export interface ContainerMutationResponse {
   referencedPrincipalHeads: Record<string, unknown>[];
 }
 
+export interface ContainerDeleteResponse {
+  containerId: string;
+  deletedAt: string;
+}
+
 export interface ContainerWriterProjectionResponse {
   containerId: string;
   organizationId: string;
@@ -206,6 +211,16 @@ export function isContainerMutationResponse(
     isAccessManifestBundleWireResponse(accessManifest) &&
     isContainerKekResponse(containerKek) &&
     isRecordArray(referencedPrincipalHeads)
+  );
+}
+
+export function isContainerDeleteResponse(
+  value: unknown,
+): value is ContainerDeleteResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    hasStringProperty(value, "deletedAt")
   );
 }
 

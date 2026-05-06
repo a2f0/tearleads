@@ -38,6 +38,7 @@ import type {
 } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
+  isContainerDeleteResponse,
   isContainerMutationResponse,
   isPrincipalStateResponse,
 } from "@tearleads/validators/response";
@@ -964,6 +965,18 @@ async function postMutation(input: {
       Authorization: `Bearer ${input.token}`,
     },
     body: JSON.stringify(input.request),
+  });
+}
+
+async function deleteContainerForUser(input: {
+  readonly containerId: string;
+  readonly token: string;
+}): Promise<Response> {
+  return routeApp.request(`/containers/${input.containerId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${input.token}`,
+    },
   });
 }
 
@@ -2794,4 +2807,238 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     id: source.containerId,
     updatedAt: recipientDelta.tombstones[0].updatedAt,
   });
+});
+
+test("DELETE /containers/:containerId removes a leaf and emits deleted tombstones", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+  const groupMember = createTestUser();
+  await registerAndAuthenticate(groupMember);
+
+  const root = await bootstrapRoot(owner);
+  const child = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const childShareRequest = await buildGrantRequest({
+    parentKekState: root.kekState,
+    previous: accessManifestFromResponse(child),
+    previousContainerPath: [root.bundle, accessManifestFromResponse(child)],
+    previousKekState: kekStateFromResponse(child),
+    recipient,
+    signer: owner,
+  });
+  const sharedChild = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${child.containerId}/share`,
+      request: childShareRequest,
+      token: owner.token,
+    }),
+  );
+
+  const recipientKey = await userRecipientKey(recipient);
+  const groupPrincipalId = crypto.randomUUID();
+  const group = await putGroupPrincipalPolicy({
+    actor: groupMember,
+    members: [{ principalType: "user", principalId: groupMember.userId }],
+    principalId: groupPrincipalId,
+  });
+  const sharedChildBundle = accessManifestFromResponse(sharedChild);
+  const groupShareRequest = await buildGroupGrantRequest({
+    containerManifestHistory: [
+      accessManifestFromResponse(child),
+      sharedChildBundle,
+    ],
+    parentKekState: root.kekState,
+    previous: sharedChildBundle,
+    previousContainerPath: [root.bundle, sharedChildBundle],
+    previousKekState: kekStateFromResponse(sharedChild),
+    principalPolicy: group.policy,
+    principalReference: group.reference,
+    signer: owner,
+    userRecipientKeys: [recipientKey],
+  });
+  const groupSharedChild = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${child.containerId}/share`,
+      request: groupShareRequest,
+      token: owner.token,
+    }),
+  );
+
+  const recipientBaselineResponse = await listRootContainers({
+    token: recipient.token,
+  });
+  expect(recipientBaselineResponse.status).toBe(200);
+  const recipientBaseline = await recipientBaselineResponse.json();
+  expect(
+    recipientBaseline.items.map((container: { id: string }) => container.id),
+  ).toContain(groupSharedChild.containerId);
+
+  const groupMemberBaselineResponse = await listRootContainers({
+    token: groupMember.token,
+  });
+  expect(groupMemberBaselineResponse.status).toBe(200);
+  const groupMemberBaseline = await groupMemberBaselineResponse.json();
+  expect(
+    groupMemberBaseline.items.map((container: { id: string }) => container.id),
+  ).toContain(groupSharedChild.containerId);
+
+  const deleteResponse = await deleteContainerForUser({
+    containerId: groupSharedChild.containerId,
+    token: owner.token,
+  });
+  expect(deleteResponse.status).toBe(200);
+  const deleteBody = await deleteResponse.json();
+  expect(isContainerDeleteResponse(deleteBody)).toBe(true);
+  expect(deleteBody).toEqual({
+    containerId: groupSharedChild.containerId,
+    deletedAt: expect.any(String),
+  });
+
+  const liveRows = await db
+    .select({ id: containers.id })
+    .from(containers)
+    .where(eq(containers.id, groupSharedChild.containerId));
+  expect(liveRows).toEqual([]);
+
+  const tombstoneRows = await db
+    .select({
+      containerId: containerSyncTombstones.containerId,
+      parentId: containerSyncTombstones.parentId,
+      reason: containerSyncTombstones.reason,
+      rootDiscoveryVisible: containerSyncTombstones.rootDiscoveryVisible,
+      userId: containerSyncTombstones.userId,
+    })
+    .from(containerSyncTombstones)
+    .where(
+      eq(containerSyncTombstones.containerId, groupSharedChild.containerId),
+    );
+  expect(tombstoneRows).toEqual(
+    expect.arrayContaining([
+      {
+        containerId: groupSharedChild.containerId,
+        parentId: root.kekState.containerId,
+        reason: "deleted",
+        rootDiscoveryVisible: false,
+        userId: owner.userId,
+      },
+      {
+        containerId: groupSharedChild.containerId,
+        parentId: root.kekState.containerId,
+        reason: "deleted",
+        rootDiscoveryVisible: true,
+        userId: recipient.userId,
+      },
+      {
+        containerId: groupSharedChild.containerId,
+        parentId: root.kekState.containerId,
+        reason: "deleted",
+        rootDiscoveryVisible: true,
+        userId: groupMember.userId,
+      },
+    ]),
+  );
+
+  const recipientDeltaResponse = await listRootContainers({
+    token: recipient.token,
+    watermark: recipientBaseline.nextWatermark,
+  });
+  expect(recipientDeltaResponse.status).toBe(200);
+  const recipientDelta = await recipientDeltaResponse.json();
+  expect(recipientDelta.items).toEqual([]);
+  expect(recipientDelta.tombstones).toEqual([
+    {
+      containerId: groupSharedChild.containerId,
+      depth: 1,
+      parentId: root.kekState.containerId,
+      reason: "deleted",
+      updatedAt: expect.any(String),
+    },
+  ]);
+
+  const groupMemberDeltaResponse = await listRootContainers({
+    token: groupMember.token,
+    watermark: groupMemberBaseline.nextWatermark,
+  });
+  expect(groupMemberDeltaResponse.status).toBe(200);
+  const groupMemberDelta = await groupMemberDeltaResponse.json();
+  expect(groupMemberDelta.items).toEqual([]);
+  expect(groupMemberDelta.tombstones).toEqual([
+    {
+      containerId: groupSharedChild.containerId,
+      depth: 1,
+      parentId: root.kekState.containerId,
+      reason: "deleted",
+      updatedAt: expect.any(String),
+    },
+  ]);
+});
+
+test("DELETE /containers/:containerId rejects roots, child-bearing containers, and non-admin users", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+
+  const root = await bootstrapRoot(owner);
+  const parent = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const child = await createChild({
+    parent: accessManifestFromResponse(parent),
+    parentContainerPath: [root.bundle, accessManifestFromResponse(parent)],
+    parentKekState: kekStateFromResponse(parent),
+    signer: owner,
+  });
+  const childShareRequest = await buildGrantRequest({
+    parentKekState: kekStateFromResponse(parent),
+    previous: accessManifestFromResponse(child),
+    previousContainerPath: [
+      root.bundle,
+      accessManifestFromResponse(parent),
+      accessManifestFromResponse(child),
+    ],
+    previousKekState: kekStateFromResponse(child),
+    recipient,
+    signer: owner,
+  });
+  const sharedChild = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${child.containerId}/share`,
+      request: childShareRequest,
+      token: owner.token,
+    }),
+  );
+
+  const rootDelete = await deleteContainerForUser({
+    containerId: root.kekState.containerId,
+    token: owner.token,
+  });
+  expect(rootDelete.status).toBe(400);
+
+  const parentDelete = await deleteContainerForUser({
+    containerId: parent.containerId,
+    token: owner.token,
+  });
+  expect(parentDelete.status).toBe(409);
+
+  const recipientDelete = await deleteContainerForUser({
+    containerId: sharedChild.containerId,
+    token: recipient.token,
+  });
+  expect(recipientDelete.status).toBe(403);
+
+  const liveRows = await db
+    .select({ id: containers.id })
+    .from(containers)
+    .where(inArray(containers.id, [parent.containerId, child.containerId]));
+  expect(liveRows.map((row) => row.id).sort()).toEqual(
+    [parent.containerId, child.containerId].sort(),
+  );
 });

@@ -8,7 +8,9 @@ import type {
   StageBlobRequest,
 } from "@tearleads/validators/request";
 import {
+  type ContainerDeleteResponse,
   type DocumentSyncResponse,
+  isContainerDeleteResponse,
   isDocumentSyncResponse,
 } from "@tearleads/validators/response";
 import {
@@ -24,6 +26,7 @@ import {
 } from "./routes/blobs";
 import {
   createContainer,
+  deleteContainer,
   getContainerWriterProjection,
   type ListContainerDocumentsOptions,
   type ListContainersOptions,
@@ -336,6 +339,23 @@ export class ApiClient {
 
   moveContainer(containerId: string, input: ContainerMutationRequest) {
     return moveContainer(this.request, containerId, input);
+  }
+
+  deleteContainer(containerId: string) {
+    return deleteContainer(this.request, containerId);
+  }
+
+  deleteContainerResult(
+    containerId: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerDeleteResponse>> {
+    return this.makeRequestResult(
+      `/containers/${containerId}`,
+      isContainerDeleteResponse,
+      "DELETE",
+      undefined,
+      options,
+    );
   }
 
   getDocumentWriterProjection(documentId: string) {

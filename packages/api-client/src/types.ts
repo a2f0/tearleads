@@ -1,4 +1,4 @@
-export type HttpMethod = "GET" | "POST";
+export type HttpMethod = "DELETE" | "GET" | "POST";
 
 export type RequestFn = <T>(
   path: string,

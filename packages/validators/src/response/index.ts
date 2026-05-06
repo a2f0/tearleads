@@ -26,11 +26,13 @@ export {
   type StageBlobResponse,
 } from "./blob";
 export {
+  type ContainerDeleteResponse,
   type ContainerKekResponse,
   type ContainerMutationResponse,
   type ContainerSummary,
   type ContainerSyncTombstone,
   type ContainerWriterProjectionResponse,
+  isContainerDeleteResponse,
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isListContainersResponse,

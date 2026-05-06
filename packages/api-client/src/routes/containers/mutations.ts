@@ -1,5 +1,8 @@
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import { isContainerMutationResponse } from "@tearleads/validators/response";
+import {
+  isContainerDeleteResponse,
+  isContainerMutationResponse,
+} from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
 
 function postContainerMutation(
@@ -67,5 +70,13 @@ export function moveContainer(
     request,
     `/containers/${containerId}/move`,
     input,
+  );
+}
+
+export function deleteContainer(request: RequestFn, containerId: string) {
+  return request(
+    `/containers/${containerId}`,
+    isContainerDeleteResponse,
+    "DELETE",
   );
 }
