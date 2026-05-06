@@ -840,6 +840,73 @@ test("explorer store keeps remote containers local when API delete fails", async
   }
 });
 
+test("explorer store removes local remote containers when API delete returns 404", async () => {
+  const runtime = await createSqlRuntime();
+  const deletedContainerIds: string[] = [];
+
+  try {
+    runtime.isAuthenticated = true;
+    runtime.online = true;
+    runtime.apiClient = createMockApiClient({
+      deleteContainerResult: async (containerId: string) => {
+        deletedContainerIds.push(containerId);
+        return {
+          kind: "http",
+          message: `DELETE /containers/${containerId}: 404 Not Found`,
+          method: "DELETE",
+          ok: false,
+          path: `/containers/${containerId}`,
+          report: () => {},
+          status: 404,
+          statusText: "Not Found",
+        };
+      },
+      listContainers: async () => listContainersResponse(),
+    });
+
+    await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: "root-metadata-document",
+      name: "/",
+      icon: null,
+    });
+    await saveContainer(runtime.execSql, {
+      id: "remote-child",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: "remote-child-metadata-document",
+      name: "Remote",
+      icon: null,
+    });
+
+    const store = createExplorerStore(runtime);
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    const deleted = await store.deleteContainer("remote-child");
+    expect(deleted).toBe(true);
+    expect(deletedContainerIds).toEqual(["remote-child"]);
+    expect(
+      store.getSnapshot().nodes.some((node) => node.id === "remote-child"),
+    ).toBe(false);
+
+    const remainingContainers = await loadContainers(runtime.execSql);
+    expect(remainingContainers.map((container) => container.id)).toEqual([
+      "root-container",
+    ]);
+  } finally {
+    runtime.close();
+  }
+});
+
 test("explorer snapshot update skips notifications when node contents are unchanged", async () => {
   const runtime = await createSqlRuntime();
 

@@ -22,6 +22,16 @@ export function createMockApiClient(
     createContainer: async () => null,
     createDocument: async () => null,
     deleteContainer: async () => null,
+    deleteContainerResult: async () => ({
+      kind: "network",
+      message: "mock deleteContainerResult returned null",
+      method: "DELETE",
+      ok: false,
+      path: "/containers/mock",
+      report: () => {},
+      status: null,
+      statusText: "",
+    }),
     detachBlobAttachment: async () => null,
     getBlob: async () => null,
     getContainerWriterProjection: async () => null,
@@ -43,6 +53,28 @@ export function createMockApiClient(
     unlinkDocument: async () => null,
     ...overrides,
   } satisfies Partial<PublicApiClient>);
+
+  if (!overrides.deleteContainerResult) {
+    apiClient.deleteContainerResult = async (containerId) => {
+      const data = await apiClient.deleteContainer(containerId);
+      if (data) {
+        return { data, ok: true };
+      }
+
+      const path = `/containers/${containerId}`;
+      const message = `DELETE ${path}: mock deleteContainer returned null`;
+      return {
+        kind: "network",
+        message,
+        method: "DELETE",
+        ok: false,
+        path,
+        report: () => {},
+        status: null,
+        statusText: "",
+      };
+    };
+  }
 
   if (!overrides.syncDocumentResult) {
     apiClient.syncDocumentResult = async (documentId, input) => {

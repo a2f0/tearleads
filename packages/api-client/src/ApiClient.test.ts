@@ -449,6 +449,42 @@ test("deletes containers through the route namespace", async () => {
   ]);
 });
 
+test("returns container delete failures without reporting when requested", async () => {
+  server.use(
+    http.delete(`${apiBaseUrl}/containers/:containerId`, () => {
+      return HttpResponse.json(
+        {
+          error: "Container not found",
+        },
+        {
+          status: 404,
+          statusText: "Not Found",
+        },
+      );
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const errors: string[] = [];
+  client.setOnError((message) => {
+    errors.push(message);
+  });
+
+  const result = await client.deleteContainerResult("container-1", {
+    reportErrors: false,
+  });
+
+  expect(result.ok).toBe(false);
+  expect(errors).toEqual([]);
+  if (result.ok) {
+    throw new Error("Expected container delete result failure");
+  }
+  expect(result.status).toBe(404);
+  expect(result.message).toBe(
+    "DELETE /containers/container-1: 404 Not Found: Container not found",
+  );
+});
+
 test("posts signed document link-set mutations to the route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
