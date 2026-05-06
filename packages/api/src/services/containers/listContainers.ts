@@ -336,18 +336,18 @@ async function listAccessibleContainersForUser(input: {
       accessible.updated_at as "updatedAt",
       accessible.epoch::int as "metadataAccessEpoch",
       accessible.manifest_hash::text as "metadataAccessStateHash"
-	    from visible_candidate_containers accessible
-	    where true
-	      ${watermarkPredicate(
-          sql`accessible.updated_at`,
-          sql`accessible.id::text`,
-          input.watermark,
-        )}
-	    order by
-	      accessible.updated_at asc,
-	      accessible.id::text asc
-	    limit ${input.limit + 1}
-	  `);
+    from visible_candidate_containers accessible
+    where true
+      ${watermarkPredicate(
+        sql`accessible.updated_at`,
+        sql`accessible.id::text`,
+        input.watermark,
+      )}
+    order by
+      accessible.updated_at asc,
+      accessible.id::text asc
+    limit ${input.limit + 1}
+  `);
 
   const accessibleContainers: AccessibleContainerRow[] = [];
 
@@ -395,14 +395,14 @@ async function listContainerTombstones(input: {
     })
     .from(containerSyncTombstones)
     .where(sql`
-	      ${containerSyncTombstones.userId} = ${input.userId}
-	      and ${tombstoneParentIdPredicate(input.parentId)}
-	      ${watermarkPredicate(
-          sql`${containerSyncTombstones.updatedAt}`,
-          sql`${containerSyncTombstones.containerId}::text`,
-          input.watermark,
-        )}
-	    `)
+      ${containerSyncTombstones.userId} = ${input.userId}
+      and ${tombstoneParentIdPredicate(input.parentId)}
+      ${watermarkPredicate(
+        sql`${containerSyncTombstones.updatedAt}`,
+        sql`${containerSyncTombstones.containerId}::text`,
+        input.watermark,
+      )}
+    `)
     .orderBy(
       containerSyncTombstones.updatedAt,
       sql`${containerSyncTombstones.containerId}::text`,
