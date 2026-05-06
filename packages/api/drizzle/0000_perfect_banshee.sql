@@ -32,7 +32,7 @@ CREATE TABLE "access_events" (
 CREATE TABLE "access_manifest_container_grant_projection" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"manifest_hash" text NOT NULL,
-	"container_id" text NOT NULL,
+	"container_id" uuid NOT NULL,
 	"access_level" text NOT NULL,
 	"subject_type" text NOT NULL,
 	"subject_id" text NOT NULL,

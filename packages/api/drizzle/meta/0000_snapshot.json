@@ -1,5 +1,5 @@
 {
-  "id": "c211b84e-b616-410d-ae5e-b0ca9c3148c3",
+  "id": "53e08f5f-09c0-4aed-962a-1cb25f2f501b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -328,7 +328,7 @@
         },
         "container_id": {
           "name": "container_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },

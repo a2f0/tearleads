@@ -1153,7 +1153,7 @@ export const accessManifestContainerGrantProjection = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     manifestHash: text("manifest_hash").notNull(),
-    containerId: text("container_id").notNull(),
+    containerId: uuid("container_id").notNull(),
     accessLevel: text("access_level").notNull(),
     subjectType: text("subject_type").notNull(),
     subjectId: text("subject_id").notNull(),
