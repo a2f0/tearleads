@@ -103,7 +103,7 @@ async function userIdsForManagedGrantReferences(input: {
       values ${sql.join(
         references.map(
           (reference) =>
-            sql`(${reference.principalType}, ${reference.principalId}, ${reference.stateHash})`,
+            sql`(${reference.principalType}, ${reference.principalId}::uuid, ${reference.stateHash})`,
         ),
         sql`, `,
       )}

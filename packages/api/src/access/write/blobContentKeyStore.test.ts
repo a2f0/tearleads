@@ -54,7 +54,7 @@ async function ensureContainerHead(input: {
       bodyHash: await hashOf(`${input.containerId}:body`),
       body: {},
       eventHash,
-      signerUserId: `${input.containerId}:user`,
+      signerUserId: crypto.randomUUID(),
       signerDeviceId: "device-1",
       signerKeyFingerprint: await hashOf(`${input.containerId}:signer`),
       signature: `${input.containerId}:signature`,

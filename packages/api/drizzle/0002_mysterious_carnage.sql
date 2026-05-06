@@ -1,2 +1,0 @@
-ALTER TABLE "container_sync_tombstones" ADD COLUMN "root_discovery_visible" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-CREATE INDEX "container_sync_tombstones_user_root_updated_idx" ON "container_sync_tombstones" USING btree ("user_id","root_discovery_visible","updated_at","container_id");

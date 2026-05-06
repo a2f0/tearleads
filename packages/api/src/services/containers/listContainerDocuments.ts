@@ -95,10 +95,7 @@ async function loadCurrentContainerDocumentRows(input: {
         eq(accessManifestDocumentLinkProjection.containerId, input.containerId),
       ),
     )
-    .innerJoin(
-      documents,
-      sql`${documents.id}::text = ${accessManifestHeads.objectId}`,
-    )
+    .innerJoin(documents, eq(documents.id, accessManifestHeads.objectId))
     .leftJoin(
       containerMetadataDocuments,
       eq(containerMetadataDocuments.documentId, documents.id),
@@ -108,7 +105,7 @@ async function loadCurrentContainerDocumentRows(input: {
       and ${containerMetadataDocuments.documentId} is null
       ${watermarkPredicate(
         sql`${documents.updatedAt}`,
-        sql`${accessManifestHeads.objectId}`,
+        sql`${accessManifestHeads.objectId}::text`,
         input.watermark,
       )}
     `)
@@ -132,7 +129,7 @@ async function loadContainerDocumentTombstoneRows(input: {
       ${containerDocumentSyncTombstones.containerId} = ${input.containerId}
       ${watermarkPredicate(
         sql`${containerDocumentSyncTombstones.updatedAt}`,
-        sql`${containerDocumentSyncTombstones.documentId}`,
+        sql`${containerDocumentSyncTombstones.documentId}::text`,
         input.watermark,
       )}
     `)

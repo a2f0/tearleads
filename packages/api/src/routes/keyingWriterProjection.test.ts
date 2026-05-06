@@ -1349,7 +1349,7 @@ test("GET /documents/:documentId/writer-projection rejects stale document KEK ta
   const created = await createDocument({ owner, root });
 
   await db.insert(accessManifestDocumentLinkProjection).values({
-    containerId: "missing-container",
+    containerId: crypto.randomUUID(),
     documentId: created.id,
     manifestHash: created.accessManifest.manifestHash,
   });
