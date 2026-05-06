@@ -10,7 +10,6 @@ import {
 } from "./documentMutation";
 
 export interface PublicKeyResponse {
-  message: string;
   userId: string;
   organizationId: string;
   rootContainerId: string;
@@ -26,7 +25,6 @@ export function isPublicKeyResponse(
 ): value is PublicKeyResponse {
   return (
     isPlainObject(value) &&
-    hasStringProperty(value, "message") &&
     hasStringProperty(value, "userId") &&
     hasStringProperty(value, "organizationId") &&
     hasStringProperty(value, "rootContainerId") &&

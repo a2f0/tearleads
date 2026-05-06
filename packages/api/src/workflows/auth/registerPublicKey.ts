@@ -314,9 +314,6 @@ function readContainerUserRecipientKeys(
   value: unknown,
   label: string,
 ): ContainerUserRecipientKey[] {
-  if (value === undefined) {
-    return [];
-  }
   if (!Array.isArray(value)) {
     throw registerShapeError(`${label} is invalid`);
   }
