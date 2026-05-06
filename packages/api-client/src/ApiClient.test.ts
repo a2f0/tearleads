@@ -91,6 +91,13 @@ function createContainerMutationResponse() {
   };
 }
 
+function createContainerDeleteResponse() {
+  return {
+    containerId: "container-1",
+    deletedAt: "2026-05-06T18:00:00.000Z",
+  };
+}
+
 function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationRequest {
   return {
     event: { eventType: "document.link" },
@@ -409,6 +416,35 @@ test("posts signed container mutations to the route namespace", async () => {
       body: JSON.stringify(mutation),
       input: `${apiBaseUrl}/containers/container-1/move`,
       method: "POST",
+    },
+  ]);
+});
+
+test("deletes containers through the route namespace", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.all(`${apiBaseUrl}/*`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+      return HttpResponse.json(createContainerDeleteResponse());
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+
+  expect(await client.deleteContainer("container-1")).toEqual(
+    createContainerDeleteResponse(),
+  );
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: "",
+      input: `${apiBaseUrl}/containers/container-1`,
+      method: "DELETE",
     },
   ]);
 });

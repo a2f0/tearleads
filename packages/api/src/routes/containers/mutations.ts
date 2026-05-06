@@ -3,11 +3,18 @@ import {
   type ContainerMutationRequest,
   isContainerMutationRequest,
 } from "@tearleads/validators/request";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import type {
+  ContainerDeleteResponse,
+  ContainerMutationResponse,
+} from "@tearleads/validators/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
+import {
+  DeleteContainerError,
+  deleteContainer,
+} from "../../services/containers/deleteContainer";
 import {
   ContainerMutationError,
   mutateContainer,
@@ -114,6 +121,24 @@ export function createContainerMutationsRoute({
     expectedEventType: "container.move",
     getExpectedContainerId: (c) => c.req.param("containerId"),
     path: "/containers/:containerId/move",
+  });
+  route.delete("/containers/:containerId", requireAuth, async (c) => {
+    const session = c.get("session");
+
+    try {
+      return c.json<ContainerDeleteResponse>(
+        await deleteContainer(runtime, {
+          containerId: c.req.param("containerId"),
+          userId: session.userId,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof DeleteContainerError) {
+        return c.json({ error: error.message }, error.status);
+      }
+
+      throw error;
+    }
   });
 
   return route;

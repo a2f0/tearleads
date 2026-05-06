@@ -617,6 +617,7 @@ async function createSqlRuntime(): Promise<TestRuntime> {
       bindBlobAttachment: async () => null,
       createContainer: async () => null,
       createDocument: async () => null,
+      deleteContainer: async () => null,
       getBlob: async () => null,
       getContainerWriterProjection: async () => null,
       getDocumentWriterProjection: async () => null,
@@ -725,6 +726,115 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
     expect(
       secondStore.getSnapshot().nodes.some((node) => node.id === childNode.id),
     ).toBe(false);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("explorer store deletes remote leaf containers through the API", async () => {
+  const runtime = await createSqlRuntime();
+  const deletedContainerIds: string[] = [];
+
+  try {
+    runtime.isAuthenticated = true;
+    runtime.online = true;
+    runtime.apiClient = createMockApiClient({
+      deleteContainer: async (containerId: string) => {
+        deletedContainerIds.push(containerId);
+        return {
+          containerId,
+          deletedAt: "2026-05-06T18:00:00.000Z",
+        };
+      },
+      listContainers: async () => listContainersResponse(),
+    });
+
+    await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: "root-metadata-document",
+      name: "/",
+      icon: null,
+    });
+    await saveContainer(runtime.execSql, {
+      id: "remote-child",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: "remote-child-metadata-document",
+      name: "Remote",
+      icon: null,
+    });
+
+    const store = createExplorerStore(runtime);
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    const deleted = await store.deleteContainer("remote-child");
+    expect(deleted).toBe(true);
+    expect(deletedContainerIds).toEqual(["remote-child"]);
+    expect(
+      store.getSnapshot().nodes.some((node) => node.id === "remote-child"),
+    ).toBe(false);
+
+    const remainingContainers = await loadContainers(runtime.execSql);
+    expect(remainingContainers.map((container) => container.id)).toEqual([
+      "root-container",
+    ]);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("explorer store keeps remote containers local when API delete fails", async () => {
+  const runtime = await createSqlRuntime();
+
+  try {
+    runtime.isAuthenticated = true;
+    runtime.online = true;
+    runtime.apiClient = createMockApiClient({
+      deleteContainer: async () => null,
+      listContainers: async () => listContainersResponse(),
+    });
+
+    await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: "root-metadata-document",
+      name: "/",
+      icon: null,
+    });
+    await saveContainer(runtime.execSql, {
+      id: "remote-child",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: "remote-child-metadata-document",
+      name: "Remote",
+      icon: null,
+    });
+
+    const store = createExplorerStore(runtime);
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    const deleted = await store.deleteContainer("remote-child");
+    expect(deleted).toBe(false);
+    expect(
+      store.getSnapshot().nodes.some((node) => node.id === "remote-child"),
+    ).toBe(true);
   } finally {
     runtime.close();
   }

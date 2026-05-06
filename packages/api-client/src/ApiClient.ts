@@ -24,6 +24,7 @@ import {
 } from "./routes/blobs";
 import {
   createContainer,
+  deleteContainer,
   getContainerWriterProjection,
   type ListContainerDocumentsOptions,
   type ListContainersOptions,
@@ -336,6 +337,10 @@ export class ApiClient {
 
   moveContainer(containerId: string, input: ContainerMutationRequest) {
     return moveContainer(this.request, containerId, input);
+  }
+
+  deleteContainer(containerId: string) {
+    return deleteContainer(this.request, containerId);
   }
 
   getDocumentWriterProjection(documentId: string) {

@@ -21,6 +21,7 @@ export function createMockApiClient(
     bindBlobAttachment: async () => null,
     createContainer: async () => null,
     createDocument: async () => null,
+    deleteContainer: async () => null,
     detachBlobAttachment: async () => null,
     getBlob: async () => null,
     getContainerWriterProjection: async () => null,

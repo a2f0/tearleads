@@ -8,6 +8,7 @@ export {
 } from "./listContainers";
 export {
   createContainer,
+  deleteContainer,
   moveContainer,
   rekeyContainer,
   revokeContainer,

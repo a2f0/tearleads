@@ -4,6 +4,7 @@ import {
   isBlobAttachmentDetachResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
+  isContainerDeleteResponse,
   isContainerWriterProjectionResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isDocumentCreateResponse,
@@ -238,6 +239,17 @@ test("isListContainersResponse", () => {
     }),
   ).toBe(false);
   expect(isListContainersResponse(null)).toBe(false);
+});
+
+test("isContainerDeleteResponse", () => {
+  expect(
+    isContainerDeleteResponse({
+      containerId: "ctr-removed",
+      deletedAt: new Date().toISOString(),
+    }),
+  ).toBe(true);
+  expect(isContainerDeleteResponse({ containerId: "ctr-removed" })).toBe(false);
+  expect(isContainerDeleteResponse(null)).toBe(false);
 });
 
 test("isListContainerDocumentsResponse", () => {
