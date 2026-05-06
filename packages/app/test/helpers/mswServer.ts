@@ -321,7 +321,6 @@ const server = setupServer(
       : null;
 
     return HttpResponse.json<PublicKeyResponse>({
-      message: "ok",
       userId: crypto.randomUUID(),
       organizationId: crypto.randomUUID(),
       rootContainerId:

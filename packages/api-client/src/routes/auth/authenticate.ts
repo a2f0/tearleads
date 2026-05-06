@@ -1,8 +1,5 @@
 import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
-import {
-  isChallengeResponse,
-  isVerifyResponse,
-} from "@tearleads/validators/response";
+import { isVerifyResponse } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
 import { getChallenge } from "./challenge";
 
@@ -12,7 +9,7 @@ export async function authenticate(
   secretKey: Uint8Array,
 ) {
   const challenge = await getChallenge(request, fingerprint);
-  if (!isChallengeResponse(challenge)) return null;
+  if (!challenge) return null;
 
   return authenticateWithChallenge(
     request,
@@ -39,5 +36,5 @@ export async function authenticateWithChallenge(
     JSON.stringify({ fingerprint, signature: Array.from(signed) }),
   );
 
-  return response?.authenticated ? (response.token ?? null) : null;
+  return response?.authenticated ? response.token : null;
 }

@@ -61,7 +61,6 @@ export async function registerPublicKey(
   });
 
   return {
-    message: "ok",
     userId: result.userId,
     organizationId: result.organizationId,
     rootContainerId: result.rootContainerId,

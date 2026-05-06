@@ -1,11 +1,15 @@
 import { isPlainObject } from "../../isPlainObject";
 import { hasBooleanProperty, hasOptionalStringProperty } from "../../util";
 
-export interface VerifyResponse {
-  authenticated: boolean;
-  token?: string;
-  error?: string;
-}
+export type VerifyResponse =
+  | {
+      authenticated: true;
+      token: string;
+    }
+  | {
+      authenticated: false;
+      error?: string;
+    };
 
 export function isVerifyResponse(value: unknown): value is VerifyResponse {
   if (

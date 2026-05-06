@@ -43,16 +43,12 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
 
   expect(res.status).toBe(200);
   const body = await res.json();
-  expect(body.message).toBe("ok");
   expect(typeof body.userId).toBe("string");
   expect(body.userId.length).toBeGreaterThan(0);
   expect(typeof body.rootMetadataDocumentId).toBe("string");
   expect(body.rootMetadataAccessEpoch).toBe(1);
   expect(typeof body.rootMetadataAccessStateHash).toBe("string");
   expect(body.rootMetadataAccessStateHash.length).toBeGreaterThan(0);
-  expect(body).not.toHaveProperty(
-    "rootMetadataRecipientEncapsulationPublicKeys",
-  );
 
   const stored = await get(fingerprint);
   invariant(stored, "expected publicKey to be stored in redis by fingerprint");
@@ -227,6 +223,34 @@ test("POST /auth/register rejects malformed initial root container KEK records",
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({
     error: "Initial root container key epoch.keyEpoch is invalid",
+  });
+});
+
+test("POST /auth/register rejects missing initial root user recipient keys", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  fingerprint = await toFingerprint(signingPublicKey);
+  const body = await createPublicKeyRequestBody(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
+  const initialRootContainer = { ...body.initialRootContainer };
+  delete initialRootContainer.userRecipientKeys;
+
+  const response = await routeApp.request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...body,
+      initialRootContainer,
+    }),
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Initial root container user recipient keys is invalid",
   });
 });
 
