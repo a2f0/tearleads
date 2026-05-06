@@ -1,5 +1,5 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
 import {
   containerSyncWatermarks,
@@ -49,10 +49,7 @@ function laneKey(lane: ContainerSyncWatermarkLane): {
     case CONTAINER_PARENT_LANE:
       return {
         laneKind: lane.kind,
-        laneId:
-          lane.parentId === null
-            ? ROOT_CONTAINER_PARENT_LANE_ID
-            : `${CONTAINER_PARENT_LANE_ID_PREFIX}${lane.parentId}`,
+        laneId: containerParentLaneId(lane.parentId),
       };
     case CONTAINER_DOCUMENTS_LANE:
       return {
@@ -60,6 +57,12 @@ function laneKey(lane: ContainerSyncWatermarkLane): {
         laneId: lane.containerId,
       };
   }
+}
+
+function containerParentLaneId(parentId: string | null): string {
+  return parentId === null
+    ? ROOT_CONTAINER_PARENT_LANE_ID
+    : `${CONTAINER_PARENT_LANE_ID_PREFIX}${parentId}`;
 }
 
 function mapSelectedWatermark(
@@ -129,6 +132,39 @@ export const sqlContainerSyncWatermarkPersistence = {
           ],
           set: row,
         })
+        .run();
+    });
+  },
+
+  async deleteWatermarksForContainers(
+    execSql: ExecSql,
+    containerIds: ReadonlyArray<string>,
+  ): Promise<void> {
+    const uniqueContainerIds = Array.from(new Set(containerIds));
+    if (uniqueContainerIds.length === 0) {
+      return;
+    }
+
+    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
+    const parentLaneIds = uniqueContainerIds.map((containerId) =>
+      containerParentLaneId(containerId),
+    );
+
+    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+      await db
+        .delete(containerSyncWatermarks)
+        .where(
+          or(
+            and(
+              eq(containerSyncWatermarks.laneKind, CONTAINER_PARENT_LANE),
+              inArray(containerSyncWatermarks.laneId, parentLaneIds),
+            ),
+            and(
+              eq(containerSyncWatermarks.laneKind, CONTAINER_DOCUMENTS_LANE),
+              inArray(containerSyncWatermarks.laneId, uniqueContainerIds),
+            ),
+          ),
+        )
         .run();
     });
   },

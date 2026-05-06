@@ -1,4 +1,4 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, eq, inArray, sql } from "drizzle-orm";
 import {
   type AppSQLiteTransaction,
   getAppDatabaseRuntime,
@@ -125,15 +125,20 @@ export async function saveContainer(
   });
 }
 
-export async function deleteContainer(
+export async function deleteContainers(
   execSql: ExecSql,
-  id: string,
+  ids: ReadonlyArray<string>,
 ): Promise<void> {
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length === 0) {
+    return;
+  }
+
   await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
     await tx
       .delete(containerProjection)
-      .where(eq(containerProjection.containerId, id))
+      .where(inArray(containerProjection.containerId, uniqueIds))
       .run();
-    await tx.delete(containers).where(eq(containers.id, id)).run();
+    await tx.delete(containers).where(inArray(containers.id, uniqueIds)).run();
   });
 }

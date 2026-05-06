@@ -43,9 +43,12 @@ import {
   saveContainer,
 } from "../../data/persistence/containers/containerPersistence";
 import {
+  containerDocumentsSyncLane,
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import {
   ensureDocumentTables,
@@ -1916,6 +1919,203 @@ test("explorer store refreshes remote containers on demand after initialization"
       id: "shared-root-container",
       updatedAt: "2026-05-05T00:00:00.000Z",
     });
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
+test("explorer sync applies container tombstones before advancing the parent watermark", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = localKeyPair;
+  runtime.apiClient = createMockApiClient({
+    ...runtime.apiClient,
+    listContainers: async (options = {}) => {
+      if (options.parentId === "root-container") {
+        return {
+          hasMore: false,
+          items: [],
+          nextWatermark: {
+            id: "child-container",
+            updatedAt: "2026-05-05T00:00:02.000Z",
+          },
+          tombstones: [
+            {
+              containerId: "child-container",
+              depth: 1,
+              parentId: "root-container",
+              reason: "access_revoked",
+              updatedAt: "2026-05-05T00:00:02.000Z",
+            },
+          ],
+        };
+      }
+
+      return listContainersResponse();
+    },
+  });
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  try {
+    await sqlExplorerPersistence.ensureSchema(runtime.execSql);
+    await sqlDocumentsPersistence.ensureSchema(runtime.execSql);
+    await sqlDocumentContainerProjectionPersistence.ensureSchema(
+      runtime.execSql,
+    );
+
+    await saveContainer(runtime.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: null,
+      name: "/",
+      icon: null,
+    });
+    await saveContainer(runtime.execSql, {
+      id: "child-container",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: null,
+      name: "Child",
+      icon: null,
+    });
+    await saveContainer(runtime.execSql, {
+      id: "archive-container",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: null,
+      name: "Archive",
+      icon: null,
+    });
+    await saveContainer(runtime.execSql, {
+      id: "grandchild-container",
+      organizationId: "org-1",
+      parentId: "child-container",
+      metadataDocumentId: null,
+      name: "Grandchild",
+      icon: null,
+    });
+    await sqlDocumentsPersistence.saveDocument(
+      runtime.execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: "document-access-state-hash-1",
+        containerId: "child-container",
+        documentId: "remote-document",
+        id: "local-document",
+        lastCommitLsn: null,
+        loroSnapshot: "",
+        text: "Shared document",
+      },
+      { updatedAt: "2026-05-05T00:00:00.000Z" },
+    );
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      runtime.execSql,
+      "remote-document",
+      ["archive-container", "child-container"],
+    );
+    await sqlContainerSyncWatermarkPersistence.saveWatermark(
+      runtime.execSql,
+      containerParentSyncLane("child-container"),
+      {
+        id: "previous-child-lane",
+        updatedAt: "2026-05-04T00:00:00.000Z",
+      },
+    );
+    await sqlContainerSyncWatermarkPersistence.saveWatermark(
+      runtime.execSql,
+      containerDocumentsSyncLane("child-container"),
+      {
+        id: "previous-document-lane",
+        updatedAt: "2026-05-04T00:00:00.000Z",
+      },
+    );
+    await sqlContainerSyncWatermarkPersistence.saveWatermark(
+      runtime.execSql,
+      containerParentSyncLane("grandchild-container"),
+      {
+        id: "previous-grandchild-lane",
+        updatedAt: "2026-05-04T00:00:00.000Z",
+      },
+    );
+
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () =>
+        createdStore.getSnapshot().ready &&
+        createdStore
+          .getSnapshot()
+          .nodes.some((node) => node.id === "archive-container") &&
+        !createdStore
+          .getSnapshot()
+          .nodes.some((node) => node.id === "child-container"),
+      "Explorer sync did not apply the container tombstone.",
+    );
+
+    expect(
+      createdStore
+        .getSnapshot()
+        .nodes.some((node) => node.id === "root-container"),
+    ).toBe(true);
+    expect(
+      createdStore
+        .getSnapshot()
+        .nodes.some((node) => node.id === "archive-container"),
+    ).toBe(true);
+    expect(
+      createdStore
+        .getSnapshot()
+        .nodes.some((node) => node.id === "grandchild-container"),
+    ).toBe(false);
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerParentSyncLane("root-container"),
+      ),
+    ).resolves.toEqual({
+      id: "child-container",
+      updatedAt: "2026-05-05T00:00:02.000Z",
+    });
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerParentSyncLane("child-container"),
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerDocumentsSyncLane("child-container"),
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(
+        runtime.execSql,
+        containerParentSyncLane("grandchild-container"),
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
+        runtime.execSql,
+        "remote-document",
+      ),
+    ).resolves.toEqual(["archive-container"]);
+
+    const repairedDocument = await sqlDocumentsPersistence.loadDocument(
+      runtime.execSql,
+      "local-document",
+    );
+    expect(repairedDocument?.containerId).toBe("archive-container");
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";
