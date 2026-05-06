@@ -649,7 +649,7 @@ async function buildPrincipalPolicyAccessLossRows(input: {
         containerId: container.containerId,
         depth: container.depth,
         organizationId: container.organizationId,
-        parentId: null,
+        parentId: container.parentId,
         userId,
       });
     }

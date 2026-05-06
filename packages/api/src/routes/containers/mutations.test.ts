@@ -1726,7 +1726,7 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
     {
       containerId: created.containerId,
       depth: 1,
-      parentId: null,
+      parentId: root.kekState.containerId,
       reason: "access_revoked",
       updatedAt: expect.any(String),
     },
@@ -1834,13 +1834,26 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
     {
       containerId: created.containerId,
       depth: 1,
-      parentId: null,
+      parentId: root.kekState.containerId,
       reason: "access_revoked",
       updatedAt: expect.any(String),
     },
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
     id: created.containerId,
+    updatedAt: recipientDelta.tombstones[0].updatedAt,
+  });
+
+  const recipientParentLaneResponse = await listContainersForUser({
+    parentId: root.kekState.containerId,
+    token: recipient.token,
+  });
+  expect(recipientParentLaneResponse.status).toBe(200);
+  expect((await recipientParentLaneResponse.json()).tombstones).toContainEqual({
+    containerId: created.containerId,
+    depth: 1,
+    parentId: root.kekState.containerId,
+    reason: "access_revoked",
     updatedAt: recipientDelta.tombstones[0].updatedAt,
   });
 });
@@ -1918,13 +1931,26 @@ test("PUT /principals/group/:principalId/state emits tombstones for removed grou
     {
       containerId: created.containerId,
       depth: 1,
-      parentId: null,
+      parentId: root.kekState.containerId,
       reason: "access_revoked",
       updatedAt: expect.any(String),
     },
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
     id: created.containerId,
+    updatedAt: recipientDelta.tombstones[0].updatedAt,
+  });
+
+  const recipientParentLaneResponse = await listContainersForUser({
+    parentId: root.kekState.containerId,
+    token: recipient.token,
+  });
+  expect(recipientParentLaneResponse.status).toBe(200);
+  expect((await recipientParentLaneResponse.json()).tombstones).toContainEqual({
+    containerId: created.containerId,
+    depth: 1,
+    parentId: root.kekState.containerId,
+    reason: "access_revoked",
     updatedAt: recipientDelta.tombstones[0].updatedAt,
   });
 });
@@ -2103,7 +2129,7 @@ test("POST /containers/:containerId/revoke emits tombstones for nested group gra
     {
       containerId: created.containerId,
       depth: 1,
-      parentId: null,
+      parentId: root.kekState.containerId,
       reason: "access_revoked",
       updatedAt: expect.any(Date),
       userId: recipient.userId,
@@ -2186,7 +2212,7 @@ test("PUT /principals/group/:principalId/state emits tombstones for removed nest
     {
       containerId: created.containerId,
       depth: 1,
-      parentId: null,
+      parentId: root.kekState.containerId,
       reason: "access_revoked",
       updatedAt: expect.any(Date),
       userId: recipient.userId,
@@ -2269,7 +2295,7 @@ test("PUT /principals/group/:principalId/state emits tombstones for ancestor gro
     {
       containerId: created.containerId,
       depth: 1,
-      parentId: null,
+      parentId: root.kekState.containerId,
       reason: "access_revoked",
       updatedAt: expect.any(Date),
       userId: recipient.userId,

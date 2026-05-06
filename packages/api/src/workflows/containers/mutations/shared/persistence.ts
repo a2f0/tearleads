@@ -473,7 +473,7 @@ async function persistAccessRevocationTombstones(input: {
   const rowUpdates = {
     depth: container.depth,
     organizationId: manifest.state.organizationId,
-    parentId: null,
+    parentId: container.parentId,
     reason: "access_revoked" as const,
     updatedAt,
   };

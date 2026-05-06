@@ -526,3 +526,62 @@ test("GET /containers advances the watermark over filtered page candidates", asy
     ],
   });
 });
+
+test("GET /containers exposes non-root tombstones from root discovery and parent lanes", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const [rootContainer] = await db
+    .select({ organizationId: containers.organizationId })
+    .from(containers)
+    .where(eq(containers.id, owner.rootContainerId))
+    .limit(1);
+  if (!rootContainer) {
+    throw new Error("Expected registered root container");
+  }
+
+  const tombstoneContainerId = crypto.randomUUID();
+  await db.insert(containerSyncTombstones).values({
+    containerId: tombstoneContainerId,
+    depth: 1,
+    organizationId: rootContainer.organizationId,
+    parentId: owner.rootContainerId,
+    reason: "access_revoked",
+    updatedAt: new Date("2026-05-05T00:00:01.000Z"),
+    userId: owner.userId,
+  });
+
+  const rootLaneResponse = await routeApp.request("/containers?parentId=null", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+    },
+  });
+  expect(rootLaneResponse.status).toBe(200);
+  expect((await rootLaneResponse.json()).tombstones).toContainEqual({
+    containerId: tombstoneContainerId,
+    depth: 1,
+    parentId: owner.rootContainerId,
+    reason: "access_revoked",
+    updatedAt: "2026-05-05T00:00:01.000Z",
+  });
+
+  const parentLaneResponse = await routeApp.request(
+    `/containers?parentId=${owner.rootContainerId}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+  expect(parentLaneResponse.status).toBe(200);
+  expect((await parentLaneResponse.json()).tombstones).toContainEqual({
+    containerId: tombstoneContainerId,
+    depth: 1,
+    parentId: owner.rootContainerId,
+    reason: "access_revoked",
+    updatedAt: "2026-05-05T00:00:01.000Z",
+  });
+});
