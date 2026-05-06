@@ -1127,7 +1127,7 @@ export const accessManifestDocumentLinkProjection = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     manifestHash: text("manifest_hash").notNull(),
     documentId: text("document_id").notNull(),
-    containerId: text("container_id").notNull(),
+    containerId: uuid("container_id").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

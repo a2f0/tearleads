@@ -43,7 +43,7 @@ CREATE TABLE "access_manifest_document_link_projection" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"manifest_hash" text NOT NULL,
 	"document_id" text NOT NULL,
-	"container_id" text NOT NULL,
+	"container_id" uuid NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
