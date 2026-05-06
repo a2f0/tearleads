@@ -52,28 +52,102 @@ export async function persistPrincipalPolicyAccessLossTombstones(input: {
   }
 
   const result = await executor.execute(sql`
-    with recursive current_principal_states as (
-      select distinct on (principal_type, principal_id)
-        principal_type,
-        principal_id,
-        state_hash
-      from ${principalStates}
-      order by principal_type asc, principal_id asc, version desc
+    with recursive
+    previous_reachable_members as (
+      select
+        ${principalMembershipProjection.memberPrincipalType} as member_principal_type,
+        ${principalMembershipProjection.memberPrincipalId} as member_principal_id
+      from ${principalMembershipProjection}
+      where
+        ${principalMembershipProjection.principalType} = ${previousState.principalType}
+        and ${principalMembershipProjection.principalId} = ${previousState.principalId}
+        and ${principalMembershipProjection.stateHash} = ${previousState.stateHash}
+      union
+      select
+        nested_members.member_principal_type,
+        nested_members.member_principal_id
+      from previous_reachable_members reachable
+      inner join ${principalStates} nested_state
+        on nested_state.principal_type = reachable.member_principal_type
+        and nested_state.principal_id = reachable.member_principal_id
+        and not exists (
+          select 1
+          from ${principalStates} newer_state
+          where
+            newer_state.principal_type = nested_state.principal_type
+            and newer_state.principal_id = nested_state.principal_id
+            and newer_state.version > nested_state.version
+        )
+      inner join ${principalMembershipProjection} nested_members
+        on nested_members.principal_type = nested_state.principal_type
+        and nested_members.principal_id = nested_state.principal_id
+        and nested_members.state_hash = nested_state.state_hash
+      where reachable.member_principal_type <> ${"user"}
+    ),
+    current_reachable_members as (
+      select
+        ${principalMembershipProjection.memberPrincipalType} as member_principal_type,
+        ${principalMembershipProjection.memberPrincipalId} as member_principal_id
+      from ${principalMembershipProjection}
+      where
+        ${principalMembershipProjection.principalType} = ${currentState.principalType}
+        and ${principalMembershipProjection.principalId} = ${currentState.principalId}
+        and ${principalMembershipProjection.stateHash} = ${currentState.stateHash}
+      union
+      select
+        nested_members.member_principal_type,
+        nested_members.member_principal_id
+      from current_reachable_members reachable
+      inner join ${principalStates} nested_state
+        on nested_state.principal_type = reachable.member_principal_type
+        and nested_state.principal_id = reachable.member_principal_id
+        and not exists (
+          select 1
+          from ${principalStates} newer_state
+          where
+            newer_state.principal_type = nested_state.principal_type
+            and newer_state.principal_id = nested_state.principal_id
+            and newer_state.version > nested_state.version
+        )
+      inner join ${principalMembershipProjection} nested_members
+        on nested_members.principal_type = nested_state.principal_type
+        and nested_members.principal_id = nested_state.principal_id
+        and nested_members.state_hash = nested_state.state_hash
+      where reachable.member_principal_type <> ${"user"}
     ),
     removed_users as (
       select member_principal_id as user_id
-      from ${principalMembershipProjection}
+      from previous_reachable_members
       where member_principal_type = ${"user"}
-        and ${principalMembershipProjection.principalType} = ${previousState.principalType}
-        and ${principalMembershipProjection.principalId} = ${previousState.principalId}
-        and ${principalMembershipProjection.stateHash} = ${previousState.stateHash}
       except
       select member_principal_id as user_id
-      from ${principalMembershipProjection}
+      from current_reachable_members
       where member_principal_type = ${"user"}
-        and ${principalMembershipProjection.principalType} = ${currentState.principalType}
-        and ${principalMembershipProjection.principalId} = ${currentState.principalId}
-        and ${principalMembershipProjection.stateHash} = ${currentState.stateHash}
+    ),
+    affected_principals as (
+      select
+        ${currentState.principalType}::text as principal_type,
+        ${currentState.principalId}::text as principal_id
+      union
+      select
+        parent_state.principal_type,
+        parent_state.principal_id
+      from affected_principals affected
+      inner join ${principalMembershipProjection} parent_members
+        on parent_members.member_principal_type = affected.principal_type
+        and parent_members.member_principal_id = affected.principal_id
+      inner join ${principalStates} parent_state
+        on parent_state.principal_type = parent_members.principal_type
+        and parent_state.principal_id = parent_members.principal_id
+        and parent_state.state_hash = parent_members.state_hash
+        and not exists (
+          select 1
+          from ${principalStates} newer_state
+          where
+            newer_state.principal_type = parent_state.principal_type
+            and newer_state.principal_id = parent_state.principal_id
+            and newer_state.version > parent_state.version
+        )
     ),
     candidate_containers as (
       select distinct
@@ -81,30 +155,59 @@ export async function persistPrincipalPolicyAccessLossTombstones(input: {
         c.organization_id::text as organization_id,
         c.parent_id::text as parent_id,
         c.depth::int as depth
-      from ${accessManifestContainerGrantProjection} grant_projection
+      from affected_principals affected
+      inner join ${accessManifestContainerGrantProjection} grant_projection
+        on grant_projection.subject_type = affected.principal_type
+        and grant_projection.subject_id = affected.principal_id
       inner join ${accessManifestHeads} head
         on head.object_kind = ${"container"}
         and head.object_id = grant_projection.container_id
         and head.manifest_hash = grant_projection.manifest_hash
       inner join ${containers} c
         on c.id::text = grant_projection.container_id
-      where
-        grant_projection.subject_type = ${currentState.principalType}
-        and grant_projection.subject_id = ${currentState.principalId}
     ),
     user_current_principals as (
       select
         removed_users.user_id,
-        current_state.principal_type,
-        current_state.principal_id
+        direct_state.principal_type,
+        direct_state.principal_id
       from removed_users
       inner join ${principalMembershipProjection} direct_members
         on direct_members.member_principal_type = ${"user"}
         and direct_members.member_principal_id = removed_users.user_id
-      inner join current_principal_states current_state
-        on current_state.principal_type = direct_members.principal_type
-        and current_state.principal_id = direct_members.principal_id
-        and current_state.state_hash = direct_members.state_hash
+      inner join ${principalStates} direct_state
+        on direct_state.principal_type = direct_members.principal_type
+        and direct_state.principal_id = direct_members.principal_id
+        and direct_state.state_hash = direct_members.state_hash
+        and not exists (
+          select 1
+          from ${principalStates} newer_state
+          where
+            newer_state.principal_type = direct_state.principal_type
+            and newer_state.principal_id = direct_state.principal_id
+            and newer_state.version > direct_state.version
+        )
+      union
+      select
+        reachable.user_id,
+        parent_state.principal_type,
+        parent_state.principal_id
+      from user_current_principals reachable
+      inner join ${principalMembershipProjection} parent_members
+        on parent_members.member_principal_type = reachable.principal_type
+        and parent_members.member_principal_id = reachable.principal_id
+      inner join ${principalStates} parent_state
+        on parent_state.principal_type = parent_members.principal_type
+        and parent_state.principal_id = parent_members.principal_id
+        and parent_state.state_hash = parent_members.state_hash
+        and not exists (
+          select 1
+          from ${principalStates} newer_state
+          where
+            newer_state.principal_type = parent_state.principal_type
+            and newer_state.principal_id = parent_state.principal_id
+            and newer_state.version > parent_state.version
+        )
     ),
     candidate_paths as (
       select
