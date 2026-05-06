@@ -179,7 +179,7 @@ async function listContainerDocumentLanes(input: {
       nextContainerIndex += 1;
       const containerId = containerIds[containerIndex];
       if (!containerId) {
-        continue;
+        throw new Error("Container document discovery received an empty lane");
       }
 
       listedDocumentsByContainer[containerIndex] = {
@@ -286,7 +286,10 @@ export async function discoverAllContainerDocuments({
 }: DiscoverAllContainerDocumentsOptions): Promise<
   ReadonlyArray<DocumentSummary>
 > {
-  const uniqueContainerIds = Array.from(new Set(containerIds));
+  const uniqueContainerIds = Array.from(new Set(containerIds)).filter(
+    (containerId): containerId is string =>
+      typeof containerId === "string" && containerId.length > 0,
+  );
   const listedDocumentsByContainer = await listContainerDocumentLanes({
     containerIds: uniqueContainerIds,
     loadContainerDocumentWatermark,

@@ -591,6 +591,23 @@ test("manual refresh can discover documents across all visible containers", asyn
   ]);
 });
 
+test("manual refresh ignores empty container ids", async () => {
+  const listContainerDocumentsCalls: string[] = [];
+
+  await discoverAllContainerDocuments({
+    ...nullContainerDocumentWatermarks,
+    containerIds: ["", "container-a", "container-a"],
+    listContainerDocuments: async (containerId) => {
+      listContainerDocumentsCalls.push(containerId);
+      return listContainerDocumentsResponse([]);
+    },
+    replaceDocumentLinksBatch: async () => {},
+    upsertDiscoveredDocuments: async () => [],
+  });
+
+  expect(listContainerDocumentsCalls).toEqual(["container-a"]);
+});
+
 test("manual refresh limits concurrent container document lane fetches", async () => {
   const containerIds = Array.from(
     { length: 9 },

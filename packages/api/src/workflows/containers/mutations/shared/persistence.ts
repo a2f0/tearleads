@@ -4,7 +4,7 @@ import type {
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";
 import type { DatabaseTransaction } from "../../../../adapters/postgres";
@@ -18,6 +18,7 @@ import {
   containers,
   documents,
   principalMembershipProjection,
+  principalStates,
 } from "../../../../schema";
 import {
   KeyingReadAccessError,
@@ -279,6 +280,16 @@ function referencedPrincipalHeadForGrant(input: {
   );
 }
 
+function isManagedGrantUserRow(
+  value: unknown,
+): value is { readonly userId: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "userId") === "string"
+  );
+}
+
 async function userIdsForManagedGrant(input: {
   readonly executor: DatabaseTransaction;
   readonly grant: ContainerDirectGrant;
@@ -292,28 +303,53 @@ async function userIdsForManagedGrant(input: {
     return [];
   }
 
-  const rows = await input.executor
-    .select({ userId: principalMembershipProjection.memberPrincipalId })
-    .from(principalMembershipProjection)
-    .where(
-      and(
-        eq(
-          principalMembershipProjection.principalType,
-          referencedPrincipalHead.principalType,
-        ),
-        eq(
-          principalMembershipProjection.principalId,
-          referencedPrincipalHead.principalId,
-        ),
-        eq(
-          principalMembershipProjection.stateHash,
-          referencedPrincipalHead.stateHash,
-        ),
-        eq(principalMembershipProjection.memberPrincipalType, "user"),
-      ),
-    );
+  const result = await input.executor.execute(sql`
+    with recursive current_principal_states as (
+      select distinct on (principal_type, principal_id)
+        principal_type,
+        principal_id,
+        state_hash
+      from ${principalStates}
+      order by principal_type asc, principal_id asc, version desc
+    ),
+    reachable_members as (
+      select
+        ${principalMembershipProjection.memberPrincipalType} as member_principal_type,
+        ${principalMembershipProjection.memberPrincipalId} as member_principal_id
+      from ${principalMembershipProjection}
+      where
+        ${principalMembershipProjection.principalType} = ${referencedPrincipalHead.principalType}
+        and ${principalMembershipProjection.principalId} = ${referencedPrincipalHead.principalId}
+        and ${principalMembershipProjection.stateHash} = ${referencedPrincipalHead.stateHash}
+      union
+      select
+        nested_members.member_principal_type,
+        nested_members.member_principal_id
+      from reachable_members reachable
+      inner join current_principal_states nested_state
+        on nested_state.principal_type = reachable.member_principal_type
+        and nested_state.principal_id = reachable.member_principal_id
+      inner join ${principalMembershipProjection} nested_members
+        on nested_members.principal_type = nested_state.principal_type
+        and nested_members.principal_id = nested_state.principal_id
+        and nested_members.state_hash = nested_state.state_hash
+      where reachable.member_principal_type <> ${"user"}
+    )
+    select distinct member_principal_id as "userId"
+    from reachable_members
+    where member_principal_type = ${"user"}
+  `);
+  const userIds: string[] = [];
 
-  return rows.map((row) => row.userId);
+  for (const row of result.rows) {
+    if (!isManagedGrantUserRow(row)) {
+      throw new Error("Unexpected row shape from managed grant user query");
+    }
+
+    userIds.push(row.userId);
+  }
+
+  return userIds;
 }
 
 async function removedGrantUserIds(input: {
