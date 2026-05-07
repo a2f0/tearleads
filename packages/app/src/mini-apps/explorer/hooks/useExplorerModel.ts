@@ -86,7 +86,6 @@ export function useExplorerModel(
     unlinkDocument,
   } = useExplorerPanelState({
     appData,
-    documentReadModel,
     explorer,
     linkedContainerIdsByDocumentId,
     mergeDocumentSummary,

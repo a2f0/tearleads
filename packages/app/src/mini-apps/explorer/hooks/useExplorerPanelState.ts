@@ -1,7 +1,6 @@
 import type { MouseEvent, ReactNode } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
-import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import {
   type ContextMenuState,
@@ -55,7 +54,6 @@ export interface ExplorerPanelState {
 
 export function useExplorerPanelState(params: {
   appData: ReturnType<typeof useAppData>;
-  documentReadModel: ExplorerDocumentReadModel;
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
@@ -76,7 +74,6 @@ export function useExplorerPanelState(params: {
 }): ExplorerPanelState {
   const {
     appData,
-    documentReadModel,
     explorer,
     linkedContainerIdsByDocumentId,
     mergeDocumentSummary,
@@ -96,7 +93,6 @@ export function useExplorerPanelState(params: {
   );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentsAppData,
-    documentReadModel,
     expandNode: selection.expandNode,
     linkedContainerIdsByDocumentId,
     mergeDocumentSummary,

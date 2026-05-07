@@ -1,4 +1,5 @@
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type RelinkRemoteDocumentResult,
@@ -54,8 +55,9 @@ export async function relinkRemoteExplorerDocument(input: {
     return null;
   }
 
+  let result: RelinkRemoteDocumentResult | null;
   try {
-    const result = await relinkRemoteDocument({
+    result = await relinkRemoteDocument({
       apiClient: runtime.apiClient,
       author,
       documentId,
@@ -71,12 +73,18 @@ export async function relinkRemoteExplorerDocument(input: {
       );
       return null;
     }
-
-    return result;
   } catch (error) {
     runtime.log(
       `Explorer: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${error instanceof Error ? error.message : String(error)}`,
     );
     return null;
   }
+
+  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+    runtime.execSql,
+    documentId,
+    result.linkedContainerIds,
+  );
+
+  return result;
 }
