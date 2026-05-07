@@ -7,6 +7,11 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
+import {
+  type ContactDocument,
+  getContactEntryValue,
+  setContactEntryValue,
+} from "../../data/contacts/contactDocument";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   createPendingUpdateFields,
@@ -20,10 +25,7 @@ import {
   type ContactsPersistence,
   sqlContactsPersistence,
 } from "../../data/persistence/contacts/contactsPersistence";
-import type {
-  DocumentRecord,
-  PendingUpdateRecord,
-} from "../../data/sqlite/documentPersistence";
+import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
@@ -31,21 +33,13 @@ import {
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 import {
-  createRemoteContactDocument,
-  syncRemoteContactDocument,
+  persistContactDocumentState,
+  syncContactDocument,
 } from "../../workflows/contacts";
 import type { ContactsRuntime, ContactsSnapshot, ContactsStore } from "./types";
 
-type ContactsDocument = Awaited<ReturnType<typeof createDocument>>;
-type EncapsulationKeyPair = NonNullable<
-  ContactsRuntime["encapsulationKeyPair"]
->;
-type ContactRemoteSyncAttempt = NonNullable<
-  Awaited<ReturnType<typeof syncRemoteContactDocument>>
->;
-
 interface ContactState {
-  doc: ContactsDocument;
+  doc: ContactDocument;
   entry: AddressBookEntry;
   record: DocumentRecord;
 }
@@ -59,30 +53,6 @@ function sortEntries(
   return [...entries].sort((left, right) =>
     left.userId.localeCompare(right.userId),
   );
-}
-
-function getEntryValue(
-  userId: string,
-  doc: ContactsDocument,
-  isSelf = false,
-): AddressBookEntry | null {
-  const encapsulationPublicKey = doc
-    .getMap("contact")
-    .get("encapsulationPublicKey");
-
-  return typeof encapsulationPublicKey === "string"
-    ? {
-        userId,
-        encapsulationPublicKey,
-        isSelf,
-      }
-    : null;
-}
-
-function setEntryValue(doc: ContactsDocument, entry: AddressBookEntry) {
-  const map = doc.getMap("contact");
-  map.set("userId", entry.userId);
-  map.set("encapsulationPublicKey", entry.encapsulationPublicKey);
 }
 
 function getSnapshotEntries(
@@ -193,86 +163,24 @@ async function createContactDocument() {
   return createDocument(getScopedPeerSeed("contacts"));
 }
 
-type NullableContactRuntimeField =
-  | "lastCommitLsn"
-  | "contentKeyBundle"
-  | "documentKekTargets"
-  | "documentManifestBundle";
-
-function resolveNullableContactRuntimeField(
-  patch: Partial<DocumentRecord>,
-  key: NullableContactRuntimeField,
-  currentValue: string | null | undefined,
-  resetWhenUnpatched = false,
-): string | null {
-  if (Object.hasOwn(patch, key)) {
-    return patch[key] ?? null;
-  }
-
-  return resetWhenUnpatched ? null : (currentValue ?? null);
-}
-
 async function persistContact(
   state: ContactsStoreState,
   contact: ContactState,
   patch: Partial<DocumentRecord> = {},
 ): Promise<DocumentRecord> {
-  const currentDocumentId = contact.record.documentId ?? null;
-  const nextDocumentId = patch.documentId ?? currentDocumentId;
-  const documentIdChanged = nextDocumentId !== currentDocumentId;
-  const nextRecord: DocumentRecord = {
-    id: contact.entry.userId,
-    documentId: nextDocumentId,
-    loroSnapshot:
-      patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(contact.doc)),
-    accessEpoch: patch.accessEpoch ?? contact.record.accessEpoch ?? 1,
-    accessStateHash:
-      patch.accessStateHash ?? contact.record.accessStateHash ?? null,
-    lastCommitLsn: resolveNullableContactRuntimeField(
-      patch,
-      "lastCommitLsn",
-      contact.record.lastCommitLsn,
-      documentIdChanged,
-    ),
-    contentKeyBundle: resolveNullableContactRuntimeField(
-      patch,
-      "contentKeyBundle",
-      contact.record.contentKeyBundle,
-      documentIdChanged,
-    ),
-    documentKekTargets: resolveNullableContactRuntimeField(
-      patch,
-      "documentKekTargets",
-      contact.record.documentKekTargets,
-      documentIdChanged,
-    ),
-    documentManifestBundle: resolveNullableContactRuntimeField(
-      patch,
-      "documentManifestBundle",
-      contact.record.documentManifestBundle,
-      documentIdChanged,
-    ),
-  };
-
-  await state.persistence.saveContact(
-    state.runtime.execSql,
-    ADDRESS_BOOK_ID,
-    nextRecord,
-    contact.entry,
-  );
+  const nextRecord = await persistContactDocumentState({
+    addressBookId: ADDRESS_BOOK_ID,
+    contact,
+    execSql: state.runtime.execSql,
+    patch,
+    persistence: state.persistence,
+  });
   contact.record = nextRecord;
   setContactsSnapshot(state, {
     entries: getSnapshotEntries(state.contactsByUserId),
     ready: true,
   });
   return nextRecord;
-}
-
-async function listPendingUpdates(
-  state: ContactsStoreState,
-  userId: string,
-): Promise<PendingUpdateRecord[]> {
-  return state.persistence.listPendingUpdates(state.runtime.execSql, userId);
 }
 
 async function enqueuePendingUpdate(
@@ -295,10 +203,6 @@ async function enqueuePendingUpdate(
   });
 }
 
-async function deletePendingUpdate(state: ContactsStoreState, id: string) {
-  await state.persistence.deletePendingUpdate(state.runtime.execSql, id);
-}
-
 async function initializeStoredContact(
   state: ContactsStoreState,
   storedContact: Awaited<
@@ -311,12 +215,12 @@ async function initializeStoredContact(
 
   if (record?.loroSnapshot) {
     importUpdates(nextDoc, [base64ToBytes(record.loroSnapshot)]);
-    const docEntry = getEntryValue(entry.userId, nextDoc, entry.isSelf);
+    const docEntry = getContactEntryValue(entry.userId, nextDoc, entry.isSelf);
     if (docEntry) {
       entry = docEntry;
     }
   } else {
-    setEntryValue(nextDoc, entry);
+    setContactEntryValue(nextDoc, entry);
     const initialUpdate = exportAllUpdates(nextDoc);
     await enqueuePendingUpdate(state, entry.userId, initialUpdate);
     record = {
@@ -407,112 +311,33 @@ async function waitForContactsInitialization(
   }
 }
 
-async function ensureContactDocumentForSync(
-  state: ContactsStoreState,
-  contact: ContactState,
-  pendingUpdates: PendingUpdateRecord[],
-  encapsulationKeyPair: EncapsulationKeyPair,
-) {
-  let documentId = contact.record.documentId;
-
-  if (!documentId && pendingUpdates.length > 0) {
-    if (!state.runtime.containerId) {
-      return null;
-    }
-
-    const created = await createRemoteContactDocument({
-      resolveProjectionUserKey: state.resolveProjectionUserKey,
-      runtime: state.runtime,
-      targetSecretKey: encapsulationKeyPair.secretKey,
-    });
-    if (!created) {
-      return null;
-    }
-
-    documentId = created.documentId;
-    await persistContact(state, contact, {
-      ...created.persistedState,
-      documentId,
-    });
-    state.runtime.log(
-      `Created contact document: ${created.documentId} (${contact.entry.userId})`,
-    );
-  }
-
-  return documentId;
-}
-
-async function applySyncedContactUpdates(
-  state: ContactsStoreState,
-  contact: ContactState,
-  syncAttempt: ContactRemoteSyncAttempt,
-) {
-  const { outgoingUpdateCount, synced } = syncAttempt;
-
-  for (const acceptedOutgoingUpdateId of synced.response
-    .acceptedOutgoingUpdateIds) {
-    await deletePendingUpdate(state, acceptedOutgoingUpdateId);
-  }
-
-  if (synced.decryptedUpdates.length > 0) {
-    importUpdates(
-      contact.doc,
-      synced.decryptedUpdates.map((update) => update.updateData),
-    );
-    const updatedEntry = getEntryValue(
-      contact.entry.userId,
-      contact.doc,
-      contact.entry.isSelf,
-    );
-    if (updatedEntry) {
-      contact.entry = updatedEntry;
-    }
-  }
-
-  await persistContact(state, contact, {
-    ...synced.persistedState,
-    lastCommitLsn:
-      synced.response.commitLsn ?? contact.record.lastCommitLsn ?? null,
-  });
-
-  if (outgoingUpdateCount > synced.response.acceptedOutgoingUpdateIds.length) {
-    requestContactsSync(state);
-  }
-}
-
 async function syncSingleContact(
   state: ContactsStoreState,
   contact: ContactState,
-  userId: string,
-  encapsulationKeyPair: EncapsulationKeyPair,
+  targetSecretKey: Uint8Array,
 ) {
-  const pendingUpdates = await listPendingUpdates(state, userId);
-  const documentId = await ensureContactDocumentForSync(
-    state,
+  const syncedContact = await syncContactDocument({
+    addressBookId: ADDRESS_BOOK_ID,
     contact,
-    pendingUpdates,
-    encapsulationKeyPair,
-  );
-
-  if (!documentId) {
-    return;
-  }
-
-  const syncAttempt = await syncRemoteContactDocument({
-    contactEntry: contact.entry,
-    documentId,
-    lastCommitLsn: contact.record.lastCommitLsn,
-    localVersionVector: encodeVersionVector(contact.doc),
-    pendingUpdates,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
-    targetSecretKey: encapsulationKeyPair.secretKey,
+    persistence: state.persistence,
+    targetSecretKey,
   });
-  if (!syncAttempt) {
+  if (!syncedContact) {
     return;
   }
 
-  await applySyncedContactUpdates(state, contact, syncAttempt);
+  contact.entry = syncedContact.entry;
+  contact.record = syncedContact.record;
+  setContactsSnapshot(state, {
+    entries: getSnapshotEntries(state.contactsByUserId),
+    ready: true,
+  });
+
+  if (syncedContact.shouldRequestFollowupSync) {
+    requestContactsSync(state);
+  }
 }
 
 async function runContactsSyncIteration(state: ContactsStoreState) {
@@ -536,7 +361,7 @@ async function runContactsSyncIteration(state: ContactsStoreState) {
       continue;
     }
 
-    await syncSingleContact(state, contact, userId, encapsulationKeyPair);
+    await syncSingleContact(state, contact, encapsulationKeyPair.secretKey);
   }
 }
 
@@ -590,7 +415,7 @@ async function importContactEntry(
 
   if (!existingContact) {
     const nextDoc = await createContactDocument();
-    setEntryValue(nextDoc, entry);
+    setContactEntryValue(nextDoc, entry);
     const initialUpdate = exportAllUpdates(nextDoc);
     const nextContact: ContactState = {
       doc: nextDoc,
@@ -613,7 +438,7 @@ async function importContactEntry(
     await persistContact(state, nextContact);
   } else {
     const previousVersion = encodeVersionVector(existingContact.doc);
-    setEntryValue(existingContact.doc, entry);
+    setContactEntryValue(existingContact.doc, entry);
     existingContact.entry = entry;
     await enqueuePendingUpdate(
       state,

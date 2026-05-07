@@ -1,10 +1,12 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { AddressBookEntry } from "../../contacts/addressBookEntry";
-import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
+import {
+  type AppSQLiteTransaction,
+  getAppDatabaseRuntime,
+} from "../../sqlite/appDatabaseRuntime";
 import {
   type DocumentRecord,
   type DocumentScope,
-  deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
   enqueueDocumentPendingUpdate,
@@ -14,11 +16,11 @@ import {
   type PendingUpdateFields,
   type PendingUpdateRecord,
   type SelectedDocumentRecordRow,
-  saveDocumentRecord,
 } from "../../sqlite/documentPersistence";
 import {
   addressBookProjection,
   addressBookProjectionTables,
+  documentPendingUpdates,
   documents,
 } from "../../sqlite/schema";
 import {
@@ -48,6 +50,13 @@ export interface ContactsPersistence {
     record: DocumentRecord,
     entry: AddressBookEntry,
   ) => Promise<void>;
+  saveContactAndDeletePendingUpdates: (
+    execSql: ExecSql,
+    addressBookId: string,
+    record: DocumentRecord,
+    entry: AddressBookEntry,
+    pendingUpdateIds: readonly string[],
+  ) => Promise<void>;
   deleteContact: (
     execSql: ExecSql,
     addressBookId: string,
@@ -61,7 +70,6 @@ export interface ContactsPersistence {
     execSql: ExecSql,
     pendingUpdate: ContactPendingUpdateInsert,
   ) => Promise<void>;
-  deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   deletePendingUpdates: (execSql: ExecSql, userId: string) => Promise<void>;
 }
 
@@ -116,6 +124,59 @@ function mapStoredContact(row: SelectedStoredContact): StoredContact {
   };
 }
 
+async function saveContactRows(
+  tx: AppSQLiteTransaction,
+  addressBookId: string,
+  record: DocumentRecord,
+  entry: AddressBookEntry,
+  updatedAt: string,
+) {
+  const documentRow = {
+    appKind: CONTACTS_APP_KIND,
+    localId: entry.userId,
+    documentId: record.documentId,
+    loroSnapshot: record.loroSnapshot,
+    accessEpoch: record.accessEpoch,
+    accessStateHash: record.accessStateHash ?? null,
+    lastCommitLsn: record.lastCommitLsn ?? null,
+    documentManifestBundle: record.documentManifestBundle ?? null,
+    contentKeyBundle: record.contentKeyBundle ?? null,
+    documentKekTargets: record.documentKekTargets ?? null,
+    updatedAt,
+  };
+  await tx
+    .insert(documents)
+    .values(documentRow)
+    .onConflictDoUpdate({
+      target: [documents.appKind, documents.localId],
+      set: documentRow,
+    })
+    .run();
+
+  const projectionRow = {
+    addressBookId,
+    userId: entry.userId,
+    encapsulationPublicKey: entry.encapsulationPublicKey,
+    isSelf: entry.isSelf ? 1 : 0,
+    updatedAt,
+  };
+  await tx
+    .insert(addressBookProjection)
+    .values(projectionRow)
+    .onConflictDoUpdate({
+      target: [
+        addressBookProjection.addressBookId,
+        addressBookProjection.userId,
+      ],
+      set: {
+        encapsulationPublicKey: projectionRow.encapsulationPublicKey,
+        isSelf: projectionRow.isSelf,
+        updatedAt: projectionRow.updatedAt,
+      },
+    })
+    .run();
+}
+
 export const sqlContactsPersistence: ContactsPersistence = {
   async ensureSchema(execSql) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
@@ -158,37 +219,55 @@ export const sqlContactsPersistence: ContactsPersistence = {
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        await saveDocumentRecord(
-          lockedExecSql,
-          getContactScope(entry.userId),
+        await saveContactRows(
+          tx,
+          addressBookId,
           {
             ...record,
             id: entry.userId,
           },
+          entry,
           updatedAt,
         );
-        const projectionRow = {
+      });
+    });
+  },
+  async saveContactAndDeletePendingUpdates(
+    execSql,
+    addressBookId,
+    record,
+    entry,
+    pendingUpdateIds,
+  ) {
+    const updatedAt = new Date().toISOString();
+    const contactScope = getContactScope(entry.userId);
+    const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
+
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+        if (uniquePendingUpdateIds.length > 0) {
+          await tx
+            .delete(documentPendingUpdates)
+            .where(
+              and(
+                eq(documentPendingUpdates.appKind, contactScope.appKind),
+                eq(documentPendingUpdates.localId, contactScope.localId),
+                inArray(documentPendingUpdates.id, uniquePendingUpdateIds),
+              ),
+            )
+            .run();
+        }
+
+        await saveContactRows(
+          tx,
           addressBookId,
-          userId: entry.userId,
-          encapsulationPublicKey: entry.encapsulationPublicKey,
-          isSelf: entry.isSelf ? 1 : 0,
+          {
+            ...record,
+            id: entry.userId,
+          },
+          entry,
           updatedAt,
-        };
-        await tx
-          .insert(addressBookProjection)
-          .values(projectionRow)
-          .onConflictDoUpdate({
-            target: [
-              addressBookProjection.addressBookId,
-              addressBookProjection.userId,
-            ],
-            set: {
-              encapsulationPublicKey: projectionRow.encapsulationPublicKey,
-              isSelf: projectionRow.isSelf,
-              updatedAt: projectionRow.updatedAt,
-            },
-          })
-          .run();
+        );
       });
     });
   },
@@ -222,11 +301,6 @@ export const sqlContactsPersistence: ContactsPersistence = {
         getContactScope(pendingUpdate.userId),
         pendingUpdate,
       );
-    });
-  },
-  async deletePendingUpdate(execSql, id) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await deleteDocumentPendingUpdate(lockedExecSql, id);
     });
   },
   async deletePendingUpdates(execSql, userId) {
