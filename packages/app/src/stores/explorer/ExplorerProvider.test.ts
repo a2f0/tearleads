@@ -1055,6 +1055,99 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
   }
 });
 
+test("explorer sync skips pending metadata updates for containers without document ids", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  let listPendingCreateIntentCalls = 0;
+  let listPendingUpdateCalls = 0;
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.encapsulationKeyPair = localKeyPair;
+
+  try {
+    const persistence = {
+      ...sqlExplorerPersistence,
+      listPendingCreateIntents: async () => {
+        listPendingCreateIntentCalls += 1;
+        return [];
+      },
+      listPendingUpdates: async () => {
+        listPendingUpdateCalls += 1;
+        return [];
+      },
+    };
+    const { doc } = await createInitializedContainerMetadataDocument(
+      "local-container",
+      {
+        icon: null,
+        name: "Local",
+      },
+    );
+    const state: ExplorerSyncState = {
+      containersById: new Map([
+        [
+          "local-container",
+          {
+            container: {
+              id: "local-container",
+              organizationId: "org-1",
+              parentId: null,
+              metadataDocumentId: null,
+              name: "Local",
+              icon: null,
+            },
+            doc,
+            record: {
+              accessEpoch: 1,
+              accessStateHash: null,
+              documentId: null,
+              id: "local-container",
+              lastCommitLsn: null,
+              loroSnapshot: "",
+              contentKeyBundle: null,
+              documentKekTargets: null,
+              documentManifestBundle: null,
+            },
+          },
+        ],
+      ]),
+      initializePromise: null,
+      initialized: true,
+      lastEventCount: 0,
+      persistence,
+      remoteHydrationPromise: null,
+      resolveProjectionUserKey: createProjectionUserKeyResolver(
+        runtime,
+        "ExplorerProvider test",
+      ),
+      runtime,
+      snapshot: {
+        ready: true,
+      },
+      syncLane: null,
+    };
+    const syncAgent = createExplorerSyncAgent({
+      host: {
+        persistContainerState: async (containerState) => containerState.record,
+        updateSnapshot: () => undefined,
+      },
+      state,
+    });
+
+    syncAgent.scheduleSync();
+    await waitForCondition(
+      () => listPendingCreateIntentCalls > 0,
+      "Explorer sync did not run.",
+    );
+    await Promise.resolve();
+
+    expect(listPendingUpdateCalls).toBe(0);
+  } finally {
+    runtime.close();
+  }
+});
+
 test("explorer store creates authenticated child containers through the API before persisting locally", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
