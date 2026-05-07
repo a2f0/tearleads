@@ -1,10 +1,6 @@
-import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import {
-  type RelinkRemoteDocumentResult,
-  relinkRemoteDocument,
-} from "../../workflows/documents";
+import type { RelinkRemoteDocumentResult } from "../../workflows/documents";
+import { relinkRemoteExplorerDocument } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import {
@@ -42,37 +38,6 @@ function getMovedDocumentContainerId(
   return linkedContainerIds[0] ?? null;
 }
 
-function resolveExplorerDocumentMutationContext(
-  appData: ExplorerDocumentsRuntimeAppData,
-): {
-  author: Parameters<typeof relinkRemoteDocument>[0]["author"];
-  targetSecretKey: Uint8Array;
-} | null {
-  if (
-    !appData.encapsulationKeyPair ||
-    !appData.organizationId ||
-    !appData.signingFingerprint ||
-    !appData.signingKeyPair ||
-    !appData.userId
-  ) {
-    appData.log(
-      "Explorer: document mutation skipped because the local key context is unavailable",
-    );
-    return null;
-  }
-
-  return {
-    author: {
-      organizationId: appData.organizationId,
-      signerDeviceId: createDocumentSignerDeviceId(appData.signingFingerprint),
-      signerKeyFingerprint: appData.signingFingerprint,
-      signerPrivateKey: appData.signingKeyPair.signingPrivateKey,
-      signerUserId: appData.userId,
-    },
-    targetSecretKey: appData.encapsulationKeyPair.secretKey,
-  };
-}
-
 async function syncExplorerDocumentLinks(
   documentReadModel: ExplorerDocumentReadModel,
   documentId: string,
@@ -97,36 +62,15 @@ async function mutateExplorerDocumentLinkSet(params: {
     operation,
     targetContainerId,
   } = params;
-  const mutationContext = resolveExplorerDocumentMutationContext(appData);
-  if (!mutationContext) {
-    return null;
-  }
-
-  let result: RelinkRemoteDocumentResult | null;
-  try {
-    result = await relinkRemoteDocument({
-      apiClient: appData.apiClient,
-      author: mutationContext.author,
-      documentId,
-      execSql: appData.execSql,
-      operation,
-      resolveProjectionUserKey: createProjectionUserKeyResolver(
-        appData,
-        "Explorer",
-      ),
-      targetContainerId,
-      targetSecretKey: mutationContext.targetSecretKey,
-    });
-  } catch (error) {
-    appData.log(
-      `Explorer: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return null;
-  }
+  const result = await relinkRemoteExplorerDocument({
+    documentId,
+    noteId,
+    operation,
+    resolveProjectionUserKey: appData.resolveProjectionUserKey,
+    runtime: appData,
+    targetContainerId,
+  });
   if (!result) {
-    appData.log(
-      `Explorer: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}`,
-    );
     return null;
   }
 
