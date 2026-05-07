@@ -1064,13 +1064,23 @@ async function syncPendingAttachmentUpload(input: {
   return true;
 }
 
-async function requestDocumentSync(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  currentRecord: DocumentRecord,
-  pendingUpdates: PendingUpdateRecord[],
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<DocumentSyncAttempt | null> {
+async function requestRemoteDocumentSync(input: {
+  currentDoc: DocumentState;
+  currentRecord: DocumentRecord;
+  encapsulationKeyPair: EncapsulationKeyPair;
+  pendingUpdates: PendingUpdateRecord[];
+  state: DocumentStoreState;
+  unavailableWriterLogMessage: string;
+}): Promise<DocumentSyncAttempt | null> {
+  const {
+    currentDoc,
+    currentRecord,
+    encapsulationKeyPair,
+    pendingUpdates,
+    state,
+    unavailableWriterLogMessage,
+  } = input;
+
   if (!currentRecord.documentId) {
     return null;
   }
@@ -1078,9 +1088,7 @@ async function requestDocumentSync(
   const author = resolveDocumentCreateAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
-    state.runtime.log(
-      "Documents: skipped sync because the writer context is unavailable.",
-    );
+    state.runtime.log(unavailableWriterLogMessage);
     return null;
   }
 
@@ -1106,51 +1114,6 @@ async function requestDocumentSync(
 
   return {
     outgoingUpdateCount: pendingUpdates.length,
-    synced,
-  };
-}
-
-async function requestDocumentSyncProbe(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  currentRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<DocumentSyncAttempt | null> {
-  if (!currentRecord.documentId) {
-    return null;
-  }
-
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  const { apiClient } = state.runtime;
-  if (!author) {
-    state.runtime.log(
-      "Documents: skipped sync probe because the writer context is unavailable.",
-    );
-    return null;
-  }
-
-  const synced = await syncRemoteDocument({
-    apiClient,
-    author,
-    documentId: currentRecord.documentId,
-    execSql: state.runtime.execSql,
-    localVersionVector: encodeVersionVector(currentDoc),
-    minLsn: currentRecord.lastCommitLsn ?? undefined,
-    pendingUpdates: [],
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-      logPrefix: "Documents",
-      runtime: state.runtime,
-      writerKeyLabel: "writer key",
-    }),
-    targetSecretKey: encapsulationKeyPair.secretKey,
-  });
-  if (!synced) {
-    return null;
-  }
-
-  return {
-    outgoingUpdateCount: 0,
     synced,
   };
 }
@@ -1224,13 +1187,15 @@ async function syncDocumentState(
     return nextRecord;
   }
 
-  const syncAttempt = await requestDocumentSync(
+  const syncAttempt = await requestRemoteDocumentSync({
     state,
     currentDoc,
-    nextRemoteRecord,
+    currentRecord: nextRemoteRecord,
     pendingUpdates,
     encapsulationKeyPair,
-  );
+    unavailableWriterLogMessage:
+      "Documents: skipped sync because the writer context is unavailable.",
+  });
   if (!syncAttempt) {
     return nextRemoteRecord;
   }
@@ -1248,12 +1213,15 @@ async function refreshRemoteDocumentBeforePendingAttachmentMutation(
     return { completed: false, nextRecord };
   }
 
-  const syncAttempt = await requestDocumentSyncProbe(
+  const syncAttempt = await requestRemoteDocumentSync({
     state,
     currentDoc,
-    nextRecord,
+    currentRecord: nextRecord,
     encapsulationKeyPair,
-  );
+    pendingUpdates: [],
+    unavailableWriterLogMessage:
+      "Documents: skipped sync probe because the writer context is unavailable.",
+  });
   if (!syncAttempt) {
     return { completed: false, nextRecord };
   }
