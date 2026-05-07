@@ -561,18 +561,23 @@ async function loadDocumentAndContainerUpdatedAt(input: {
   readonly containerUpdatedAt: Date;
   readonly documentUpdatedAt: Date;
 }> {
-  const [documentRow] = await db
-    .select({ updatedAt: documents.updatedAt })
-    .from(documents)
-    .where(eq(documents.id, input.documentId))
-    .limit(1);
-  const [containerRow] = await db
-    .select({ updatedAt: containers.updatedAt })
-    .from(containers)
-    .where(eq(containers.id, input.containerId))
-    .limit(1);
-  if (!documentRow || !containerRow) {
-    throw new Error("Expected document and container sync rows");
+  const [[documentRow], [containerRow]] = await Promise.all([
+    db
+      .select({ updatedAt: documents.updatedAt })
+      .from(documents)
+      .where(eq(documents.id, input.documentId))
+      .limit(1),
+    db
+      .select({ updatedAt: containers.updatedAt })
+      .from(containers)
+      .where(eq(containers.id, input.containerId))
+      .limit(1),
+  ]);
+  if (!documentRow) {
+    throw new Error(`Expected document sync row for ${input.documentId}`);
+  }
+  if (!containerRow) {
+    throw new Error(`Expected container sync row for ${input.containerId}`);
   }
 
   return {
@@ -586,14 +591,16 @@ async function setDocumentAndContainerUpdatedAt(input: {
   readonly documentId: string;
   readonly updatedAt: Date;
 }): Promise<void> {
-  await db
-    .update(documents)
-    .set({ updatedAt: input.updatedAt })
-    .where(eq(documents.id, input.documentId));
-  await db
-    .update(containers)
-    .set({ updatedAt: input.updatedAt })
-    .where(eq(containers.id, input.containerId));
+  await Promise.all([
+    db
+      .update(documents)
+      .set({ updatedAt: input.updatedAt })
+      .where(eq(documents.id, input.documentId)),
+    db
+      .update(containers)
+      .set({ updatedAt: input.updatedAt })
+      .where(eq(containers.id, input.containerId)),
+  ]);
 }
 
 test("bindBlobAttachment attaches, replaces, and detaches signed bindings", async () => {
