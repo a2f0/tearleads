@@ -292,6 +292,33 @@ function createContactsPersistence(): ContactsPersistence & {
   const contacts = new Map<string, StoredContactState>();
   const pendingUpdatesByUserId = new Map<string, PendingUpdateRecord[]>();
 
+  const saveContact = (
+    nextRecord: DocumentRecord,
+    entry: StoredContactState["entry"],
+  ) => {
+    contacts.set(entry.userId, {
+      entry: { ...entry },
+      record: nextRecord,
+    });
+  };
+
+  const deletePendingUpdateIds = (ids: ReadonlySet<string>) => {
+    for (const [userId, pendingUpdates] of pendingUpdatesByUserId) {
+      const nextPendingUpdates = pendingUpdates.filter(
+        (pendingUpdate) => !ids.has(pendingUpdate.id),
+      );
+      if (nextPendingUpdates.length === pendingUpdates.length) {
+        continue;
+      }
+
+      if (nextPendingUpdates.length === 0) {
+        pendingUpdatesByUserId.delete(userId);
+      } else {
+        pendingUpdatesByUserId.set(userId, nextPendingUpdates);
+      }
+    }
+  };
+
   return {
     async ensureSchema() {},
     getContact(userId) {
@@ -313,10 +340,17 @@ function createContactsPersistence(): ContactsPersistence & {
       }));
     },
     async saveContact(_execSql, _addressBookId, nextRecord, entry) {
-      contacts.set(entry.userId, {
-        entry: { ...entry },
-        record: nextRecord,
-      });
+      saveContact(nextRecord, entry);
+    },
+    async saveContactAndDeletePendingUpdates(
+      _execSql,
+      _addressBookId,
+      nextRecord,
+      entry,
+      pendingUpdateIds,
+    ) {
+      deletePendingUpdateIds(new Set(pendingUpdateIds));
+      saveContact(nextRecord, entry);
     },
     async deleteContact(_execSql, _addressBookId, userId) {
       contacts.delete(userId);
@@ -341,22 +375,6 @@ function createContactsPersistence(): ContactsPersistence & {
         ...(pendingUpdatesByUserId.get(pendingUpdate.userId) ?? []),
         nextPendingUpdate,
       ]);
-    },
-    async deletePendingUpdate(_execSql, id) {
-      for (const [userId, pendingUpdates] of pendingUpdatesByUserId) {
-        const nextPendingUpdates = pendingUpdates.filter(
-          (pendingUpdate) => pendingUpdate.id !== id,
-        );
-        if (nextPendingUpdates.length === pendingUpdates.length) {
-          continue;
-        }
-
-        if (nextPendingUpdates.length === 0) {
-          pendingUpdatesByUserId.delete(userId);
-        } else {
-          pendingUpdatesByUserId.set(userId, nextPendingUpdates);
-        }
-      }
     },
     async deletePendingUpdates(_execSql, userId) {
       pendingUpdatesByUserId.delete(userId);

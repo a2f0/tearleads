@@ -1,4 +1,4 @@
 export {
-  createRemoteContactDocument,
-  syncRemoteContactDocument,
+  persistContactDocumentState,
+  syncContactDocument,
 } from "./sync";
