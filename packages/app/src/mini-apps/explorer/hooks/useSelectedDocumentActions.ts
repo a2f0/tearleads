@@ -9,13 +9,11 @@ import {
   type SetLinkedContainerIdsForDocument,
   unlinkExplorerLinkedNote,
 } from "../../../stores/explorer/documentLinkActions";
-import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import { getDocumentByLocalId } from "../documentSummaries";
 
 function useMoveDocumentAction(params: {
   appData: ExplorerDocumentsRuntimeAppData;
-  documentReadModel: ExplorerDocumentReadModel;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
@@ -24,7 +22,6 @@ function useMoveDocumentAction(params: {
 }) {
   const {
     appData,
-    documentReadModel,
     documentSummaries,
     expandNode,
     mergeDocumentSummary,
@@ -45,7 +42,6 @@ function useMoveDocumentAction(params: {
 
       const moveResult = await moveExplorerNote({
         appData,
-        documentReadModel,
         expandNode,
         mergeDocumentSummary,
         note: existingDocument,
@@ -60,7 +56,6 @@ function useMoveDocumentAction(params: {
     },
     [
       appData,
-      documentReadModel,
       documentSummaries,
       expandNode,
       mergeDocumentSummary,
@@ -72,7 +67,6 @@ function useMoveDocumentAction(params: {
 
 function useLinkDocumentAction(params: {
   appData: ExplorerDocumentsRuntimeAppData;
-  documentReadModel: ExplorerDocumentReadModel;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
   onDocumentLinksChanged: () => void;
@@ -80,7 +74,6 @@ function useLinkDocumentAction(params: {
 }) {
   const {
     appData,
-    documentReadModel,
     documentSummaries,
     mergeDocumentSummary,
     onDocumentLinksChanged,
@@ -100,7 +93,6 @@ function useLinkDocumentAction(params: {
 
       const linkedNote = await linkExplorerNote({
         appData,
-        documentReadModel,
         mergeDocumentSummary,
         note: existingDocument,
         setLinkedContainerIdsForDocument,
@@ -114,7 +106,6 @@ function useLinkDocumentAction(params: {
     },
     [
       appData,
-      documentReadModel,
       documentSummaries,
       mergeDocumentSummary,
       onDocumentLinksChanged,
@@ -125,7 +116,6 @@ function useLinkDocumentAction(params: {
 
 function useUnlinkDocumentAction(params: {
   appData: ExplorerDocumentsRuntimeAppData;
-  documentReadModel: ExplorerDocumentReadModel;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
   onDocumentLinksChanged: () => void;
@@ -133,7 +123,6 @@ function useUnlinkDocumentAction(params: {
 }) {
   const {
     appData,
-    documentReadModel,
     documentSummaries,
     mergeDocumentSummary,
     onDocumentLinksChanged,
@@ -153,7 +142,6 @@ function useUnlinkDocumentAction(params: {
 
       const unlinkedNote = await unlinkExplorerLinkedNote({
         appData,
-        documentReadModel,
         mergeDocumentSummary,
         note: existingDocument,
         removedContainerId,
@@ -167,7 +155,6 @@ function useUnlinkDocumentAction(params: {
     },
     [
       appData,
-      documentReadModel,
       documentSummaries,
       mergeDocumentSummary,
       onDocumentLinksChanged,
@@ -207,7 +194,6 @@ function useActivateLinkedDocumentAction(params: {
 
 export function useSelectedDocumentActions(params: {
   appData: ExplorerDocumentsRuntimeAppData;
-  documentReadModel: ExplorerDocumentReadModel;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
@@ -216,7 +202,6 @@ export function useSelectedDocumentActions(params: {
 }) {
   const {
     appData,
-    documentReadModel,
     documentSummaries,
     expandNode,
     mergeDocumentSummary,
@@ -226,7 +211,6 @@ export function useSelectedDocumentActions(params: {
 
   const moveDocument = useMoveDocumentAction({
     appData,
-    documentReadModel,
     documentSummaries,
     expandNode,
     mergeDocumentSummary,
@@ -240,7 +224,6 @@ export function useSelectedDocumentActions(params: {
   });
   const linkDocument = useLinkDocumentAction({
     appData,
-    documentReadModel,
     documentSummaries,
     mergeDocumentSummary,
     onDocumentLinksChanged,
@@ -248,7 +231,6 @@ export function useSelectedDocumentActions(params: {
   });
   const unlinkDocument = useUnlinkDocumentAction({
     appData,
-    documentReadModel,
     documentSummaries,
     mergeDocumentSummary,
     onDocumentLinksChanged,

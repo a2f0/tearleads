@@ -1,4 +1,5 @@
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type RelinkRemoteDocumentResult,
@@ -71,6 +72,12 @@ export async function relinkRemoteExplorerDocument(input: {
       );
       return null;
     }
+
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      runtime.execSql,
+      documentId,
+      result.linkedContainerIds,
+    );
 
     return result;
   } catch (error) {
