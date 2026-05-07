@@ -29,6 +29,16 @@ interface ExplorerListContainerDocumentsResponse {
   }>;
 }
 
+interface ExplorerListedContainer {
+  id: string;
+}
+
+interface ExplorerListContainersResponse {
+  hasMore: boolean;
+  items: ExplorerListedContainer[];
+  nextWatermark: SyncWatermark | null;
+}
+
 interface DocumentLinkInput {
   containerIds: ReadonlyArray<string>;
   documentId: string;
@@ -70,6 +80,12 @@ interface ListedContainerDocuments {
   tombstones: ContainerDocumentTombstone[];
 }
 
+interface ContainerParentDiscoveryLane {
+  parentId: string | null;
+  watermark: SyncWatermark | null;
+}
+
+const CONTAINER_PARENT_DISCOVERY_CONCURRENCY = 4;
 const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
 
 async function listAllContainerDocuments(input: {
@@ -217,6 +233,71 @@ export function hasUndiscoveredDocumentUpdateEvent(
       isDocumentUpdateCreatedEvent(event) &&
       !knownDocumentIds.has(event.documentId),
   );
+}
+
+export async function listAllRemoteExplorerContainerIds(
+  listContainers: (options: {
+    parentId: string | null;
+    watermark?: SyncWatermark | null;
+  }) => Promise<ExplorerListContainersResponse | null>,
+): Promise<ReadonlyArray<string> | null> {
+  const containerIds: string[] = [];
+  const queuedParentIds = new Set<string | null>();
+  const seenContainerIds = new Set<string>();
+  const lanes: ContainerParentDiscoveryLane[] = [];
+  const queueParentLane = (parentId: string | null) => {
+    if (queuedParentIds.has(parentId)) {
+      return;
+    }
+
+    queuedParentIds.add(parentId);
+    lanes.push({ parentId, watermark: null });
+  };
+
+  queueParentLane(null);
+
+  while (lanes.length > 0) {
+    const laneBatch = lanes.splice(0, CONTAINER_PARENT_DISCOVERY_CONCURRENCY);
+    const listedLanes = await Promise.all(
+      laneBatch.map(async (lane) => ({
+        lane,
+        response: await listContainers({
+          parentId: lane.parentId,
+          watermark: lane.watermark,
+        }),
+      })),
+    );
+    const continuationLanes: ContainerParentDiscoveryLane[] = [];
+
+    for (const { lane, response } of listedLanes) {
+      if (!response) {
+        return null;
+      }
+
+      for (const container of response.items) {
+        if (!seenContainerIds.has(container.id)) {
+          seenContainerIds.add(container.id);
+          containerIds.push(container.id);
+        }
+
+        queueParentLane(container.id);
+      }
+
+      if (response.hasMore) {
+        if (!response.nextWatermark) {
+          return null;
+        }
+        continuationLanes.push({
+          parentId: lane.parentId,
+          watermark: response.nextWatermark,
+        });
+      }
+    }
+
+    lanes.unshift(...continuationLanes);
+  }
+
+  return containerIds;
 }
 
 export async function discoverContainerDocuments({

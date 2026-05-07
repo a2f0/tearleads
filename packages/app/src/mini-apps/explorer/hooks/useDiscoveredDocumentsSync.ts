@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { AppDataContextValue } from "../../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
+import {
+  discoverContainerDocuments,
+  hasUndiscoveredDocumentUpdateEvent,
+} from "../../../stores/explorer/documentDiscovery";
 import type {
   ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
@@ -13,10 +17,6 @@ import {
   isDestroyedDatabaseWorkerError,
   useExplorerDocumentsRuntimeAppData,
 } from "../../../stores/explorer/documentRuntime";
-import {
-  discoverContainerDocuments,
-  hasUndiscoveredDocumentUpdateEvent,
-} from "../documentDiscovery";
 
 type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput &
   Pick<AppDataContextValue, "events">;
