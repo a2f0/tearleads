@@ -55,9 +55,8 @@ export async function relinkRemoteExplorerDocument(input: {
     return null;
   }
 
-  let result: RelinkRemoteDocumentResult | null;
   try {
-    result = await relinkRemoteDocument({
+    const result = await relinkRemoteDocument({
       apiClient: runtime.apiClient,
       author,
       documentId,
@@ -73,18 +72,18 @@ export async function relinkRemoteExplorerDocument(input: {
       );
       return null;
     }
+
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      runtime.execSql,
+      documentId,
+      result.linkedContainerIds,
+    );
+
+    return result;
   } catch (error) {
     runtime.log(
       `Explorer: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${error instanceof Error ? error.message : String(error)}`,
     );
     return null;
   }
-
-  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-    runtime.execSql,
-    documentId,
-    result.linkedContainerIds,
-  );
-
-  return result;
 }
