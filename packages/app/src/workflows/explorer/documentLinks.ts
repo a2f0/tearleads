@@ -37,7 +37,14 @@ export async function relinkRemoteExplorerDocument(input: {
   runtime: ExplorerDocumentLinkRuntime;
   targetContainerId: string;
 }): Promise<RelinkRemoteDocumentResult | null> {
-  const { documentId, noteId, operation, runtime, targetContainerId } = input;
+  const {
+    documentId,
+    noteId,
+    operation,
+    resolveProjectionUserKey,
+    runtime,
+    targetContainerId,
+  } = input;
   const author = resolveDocumentCreateAuthor(runtime);
   const targetSecretKey = runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
@@ -54,7 +61,7 @@ export async function relinkRemoteExplorerDocument(input: {
       documentId,
       execSql: runtime.execSql,
       operation,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      resolveProjectionUserKey,
       targetContainerId,
       targetSecretKey,
     });
