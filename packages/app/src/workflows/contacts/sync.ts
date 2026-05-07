@@ -64,7 +64,7 @@ interface ContactRemoteSyncAttempt {
   synced: ContactRemoteSyncResult;
 }
 
-interface ContactDocumentState {
+export interface ContactDocumentState {
   doc: ContactDocument;
   entry: AddressBookEntry;
   record: DocumentRecord;

@@ -1,22 +1,5 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import {
-  createDocument,
-  encodeVersionVector,
-  exportAllUpdates,
-  exportUpdatesSince,
-  importUpdates,
-} from "@tearleads/loro";
 import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
-import {
-  type ContactDocument,
-  getContactEntryValue,
-  setContactEntryValue,
-} from "../../data/contacts/contactDocument";
-import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
-import {
-  createPendingUpdateFields,
-  isDocumentUpdateCreatedEvent,
-} from "../../data/documentSync";
+import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import {
   createProjectionUserKeyResolver,
   type ProjectionUserKeyResolver,
@@ -25,7 +8,6 @@ import {
   type ContactsPersistence,
   sqlContactsPersistence,
 } from "../../data/persistence/contacts/contactsPersistence";
-import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
@@ -33,16 +15,15 @@ import {
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 import {
-  persistContactDocumentState,
+  type ContactDocumentState,
+  deleteContactEntry,
+  loadStoredContactDocumentStates,
+  persistImportedContactEntry,
   syncContactDocument,
 } from "../../workflows/contacts";
 import type { ContactsRuntime, ContactsSnapshot, ContactsStore } from "./types";
 
-interface ContactState {
-  doc: ContactDocument;
-  entry: AddressBookEntry;
-  record: DocumentRecord;
-}
+type ContactState = ContactDocumentState;
 
 const ADDRESS_BOOK_ID = "default";
 const contactsStoresByScope = new WeakMap<object, ContactsStore>();
@@ -159,96 +140,6 @@ function requestContactsSync(state: ContactsStoreState) {
   state.syncLane?.requestSync();
 }
 
-async function createContactDocument() {
-  return createDocument(getScopedPeerSeed("contacts"));
-}
-
-async function persistContact(
-  state: ContactsStoreState,
-  contact: ContactState,
-  patch: Partial<DocumentRecord> = {},
-): Promise<DocumentRecord> {
-  const nextRecord = await persistContactDocumentState({
-    addressBookId: ADDRESS_BOOK_ID,
-    contact,
-    execSql: state.runtime.execSql,
-    patch,
-    persistence: state.persistence,
-  });
-  contact.record = nextRecord;
-  setContactsSnapshot(state, {
-    entries: getSnapshotEntries(state.contactsByUserId),
-    ready: true,
-  });
-  return nextRecord;
-}
-
-async function enqueuePendingUpdate(
-  state: ContactsStoreState,
-  userId: string,
-  update: Uint8Array,
-  sourceVersionVector?: string | null,
-) {
-  const pendingUpdateFields = createPendingUpdateFields(
-    update,
-    sourceVersionVector,
-  );
-  if (!pendingUpdateFields) {
-    return;
-  }
-
-  await state.persistence.enqueuePendingUpdate(state.runtime.execSql, {
-    userId,
-    ...pendingUpdateFields,
-  });
-}
-
-async function initializeStoredContact(
-  state: ContactsStoreState,
-  storedContact: Awaited<
-    ReturnType<ContactsPersistence["loadContacts"]>
-  >[number],
-) {
-  const nextDoc = await createContactDocument();
-  let entry = storedContact.entry;
-  let record = storedContact.record;
-
-  if (record?.loroSnapshot) {
-    importUpdates(nextDoc, [base64ToBytes(record.loroSnapshot)]);
-    const docEntry = getContactEntryValue(entry.userId, nextDoc, entry.isSelf);
-    if (docEntry) {
-      entry = docEntry;
-    }
-  } else {
-    setContactEntryValue(nextDoc, entry);
-    const initialUpdate = exportAllUpdates(nextDoc);
-    await enqueuePendingUpdate(state, entry.userId, initialUpdate);
-    record = {
-      id: entry.userId,
-      documentId: null,
-      loroSnapshot: bytesToBase64(initialUpdate),
-      accessEpoch: 1,
-      accessStateHash: null,
-      lastCommitLsn: null,
-      contentKeyBundle: null,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-    };
-    await state.persistence.saveContact(
-      state.runtime.execSql,
-      ADDRESS_BOOK_ID,
-      record,
-      entry,
-    );
-  }
-
-  state.contactsByUserId.set(entry.userId, {
-    doc: nextDoc,
-    entry,
-    record,
-  });
-}
-
 async function initializeContactsStore(
   state: ContactsStoreState,
   scheduleSync: () => void,
@@ -257,14 +148,14 @@ async function initializeContactsStore(
     return;
   }
 
-  await state.persistence.ensureSchema(state.runtime.execSql);
-  const storedContacts = await state.persistence.loadContacts(
-    state.runtime.execSql,
-    ADDRESS_BOOK_ID,
-  );
+  const storedContacts = await loadStoredContactDocumentStates({
+    addressBookId: ADDRESS_BOOK_ID,
+    execSql: state.runtime.execSql,
+    persistence: state.persistence,
+  });
 
   for (const storedContact of storedContacts) {
-    await initializeStoredContact(state, storedContact);
+    state.contactsByUserId.set(storedContact.entry.userId, storedContact);
   }
 
   state.initialized = true;
@@ -413,41 +304,22 @@ async function importContactEntry(
     return;
   }
 
-  if (!existingContact) {
-    const nextDoc = await createContactDocument();
-    setContactEntryValue(nextDoc, entry);
-    const initialUpdate = exportAllUpdates(nextDoc);
-    const nextContact: ContactState = {
-      doc: nextDoc,
-      entry,
-      record: {
-        id: entry.userId,
-        documentId: null,
-        loroSnapshot: bytesToBase64(initialUpdate),
-        accessEpoch: 1,
-        accessStateHash: null,
-        lastCommitLsn: null,
-        contentKeyBundle: null,
-        documentKekTargets: null,
-        documentManifestBundle: null,
-      },
-    };
-
-    await enqueuePendingUpdate(state, entry.userId, initialUpdate);
-    state.contactsByUserId.set(entry.userId, nextContact);
-    await persistContact(state, nextContact);
-  } else {
-    const previousVersion = encodeVersionVector(existingContact.doc);
-    setContactEntryValue(existingContact.doc, entry);
-    existingContact.entry = entry;
-    await enqueuePendingUpdate(
-      state,
-      entry.userId,
-      exportUpdatesSince(existingContact.doc, previousVersion),
-    );
-    await persistContact(state, existingContact);
+  const imported = await persistImportedContactEntry({
+    addressBookId: ADDRESS_BOOK_ID,
+    entry,
+    execSql: state.runtime.execSql,
+    existingContact,
+    persistence: state.persistence,
+  });
+  if (!imported.changed) {
+    return;
   }
 
+  state.contactsByUserId.set(entry.userId, imported.contact);
+  setContactsSnapshot(state, {
+    entries: getSnapshotEntries(state.contactsByUserId),
+    ready: true,
+  });
   scheduleSync();
   state.runtime.log("Peer key imported");
 }
@@ -501,11 +373,12 @@ async function removeKeyFromRuntime(
       }
 
       state.contactsByUserId.delete(userId);
-      await state.persistence.deleteContact(
-        state.runtime.execSql,
-        ADDRESS_BOOK_ID,
+      await deleteContactEntry({
+        addressBookId: ADDRESS_BOOK_ID,
+        execSql: state.runtime.execSql,
+        persistence: state.persistence,
         userId,
-      );
+      });
       setContactsSnapshot(state, {
         entries: getSnapshotEntries(state.contactsByUserId),
         ready: true,
