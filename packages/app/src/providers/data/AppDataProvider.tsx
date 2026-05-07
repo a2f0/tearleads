@@ -33,6 +33,7 @@ export interface AppDataContextValue {
   execSql: ExecSql;
   isAuthenticated: boolean;
   log: ReturnType<typeof useLog>["log"];
+  logError: ReturnType<typeof useLog>["logError"];
   online: boolean;
   organizationId: ReturnType<typeof useCryptoSession>["organizationId"];
   signingFingerprint: ReturnType<typeof useIdentity>["signingFingerprint"];
@@ -55,7 +56,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const { encapsulationKeyPair, signingFingerprint, signingKeyPair } =
     useIdentity();
   const { events } = useEvents();
-  const { log } = useLog();
+  const { log, logError } = useLog();
   const domainScope = useMemo(() => ({}), [dbId, signingFingerprint]);
 
   const execSql = useMemo(
@@ -94,6 +95,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       execSql,
       isAuthenticated,
       log,
+      logError,
       online,
       organizationId,
       signingFingerprint,
@@ -114,6 +116,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       execSql,
       isAuthenticated,
       log,
+      logError,
       online,
       organizationId,
       signingFingerprint,
