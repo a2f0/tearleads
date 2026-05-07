@@ -19,5 +19,6 @@ export {
   buildMaterializedDocumentLinkSetMutationPlan,
   relinkRemoteDocument,
 } from "./linkSet";
+export { persistDocumentState } from "./persistence";
 export { syncRemoteDocument } from "./sync";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";
