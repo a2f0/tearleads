@@ -11,6 +11,7 @@ import type {
 import type { BlobStore } from "../../data/blobs";
 import {
   createContainerMetadataDocument,
+  getDefaultContainerName,
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers";
@@ -43,7 +44,9 @@ import {
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
   createRemoteExplorerContainer,
+  type ExplorerContainerMetadataPatch,
   type ExplorerMetadataSyncAttempt,
+  persistExplorerContainerMetadataState,
   syncRemoteExplorerContainerMetadata,
 } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
@@ -86,22 +89,6 @@ export interface ContainerState {
   container: ContainerRecord;
   doc: ContainerMetadataDocument;
   record: DocumentRecord;
-}
-
-export interface ExplorerContainerPatch {
-  accessEpoch: number;
-  accessStateHash: string | null;
-  documentId: string | null;
-  icon: string | null;
-  lastCommitLsn: string | null;
-  metadataDocumentId: string | null;
-  loroSnapshot: string;
-  name: string;
-  organizationId: string;
-  parentId: string | null;
-  contentKeyBundle: string | null;
-  documentKekTargets: string | null;
-  documentManifestBundle: string | null;
 }
 
 export interface ExplorerSyncState {
@@ -156,7 +143,7 @@ export interface ExplorerSyncAgent {
 interface ExplorerSyncHost {
   persistContainerState: (
     containerState: ContainerState,
-    patch?: Partial<ExplorerContainerPatch>,
+    patch?: Partial<ExplorerContainerMetadataPatch>,
     updateView?: boolean,
   ) => Promise<DocumentRecord>;
   updateSnapshot: () => void;
@@ -164,10 +151,6 @@ interface ExplorerSyncHost {
 
 function requestExplorerSync(state: ExplorerSyncState) {
   state.syncLane?.requestSync();
-}
-
-export function getDefaultContainerName(parentId: string | null): string {
-  return parentId === null ? "/" : "Untitled";
 }
 
 function buildNotesRuntime(state: ExplorerSyncState, containerId: string) {
@@ -338,13 +321,6 @@ async function enqueuePendingContainerUpdate(
     containerId,
     ...pendingUpdateFields,
   });
-}
-
-async function deletePendingContainerUpdate(
-  state: ExplorerSyncState,
-  id: string,
-) {
-  await state.persistence.deletePendingUpdate(state.runtime.execSql, id);
 }
 
 async function upsertRemoteContainerState(
@@ -1030,15 +1006,9 @@ function ensureExplorerStoreInitialized(input: {
 
 async function applySyncedContainerUpdates(input: {
   containerState: ContainerState;
-  state: ExplorerSyncState;
   synced: ExplorerMetadataSyncAttempt["synced"];
 }) {
-  const { containerState, state, synced } = input;
-
-  for (const acceptedOutgoingUpdateId of synced.response
-    .acceptedOutgoingUpdateIds) {
-    await deletePendingContainerUpdate(state, acceptedOutgoingUpdateId);
-  }
+  const { containerState, synced } = input;
 
   if (synced.decryptedUpdates.length > 0) {
     importUpdates(
@@ -1095,17 +1065,27 @@ async function syncSingleContainerMetadata(input: {
 
   await applySyncedContainerUpdates({
     containerState,
-    state,
     synced,
   });
 
-  await host.persistContainerState(containerState, {
-    ...synced.persistedState,
-    documentId: containerState.record.documentId,
-    lastCommitLsn:
-      synced.response.commitLsn ?? containerState.record.lastCommitLsn ?? null,
-    metadataDocumentId: containerState.record.documentId,
+  const persisted = await persistExplorerContainerMetadataState({
+    acceptedPendingUpdateIds: synced.response.acceptedOutgoingUpdateIds,
+    execSql: state.runtime.execSql,
+    metadataState: containerState,
+    patch: {
+      ...synced.persistedState,
+      documentId: containerState.record.documentId,
+      lastCommitLsn:
+        synced.response.commitLsn ??
+        containerState.record.lastCommitLsn ??
+        null,
+      metadataDocumentId: containerState.record.documentId,
+    },
+    persistence: state.persistence,
   });
+  containerState.container = persisted.container;
+  containerState.record = persisted.record;
+  host.updateSnapshot();
 
   if (outgoingUpdateCount > synced.response.acceptedOutgoingUpdateIds.length) {
     requestExplorerSync(state);

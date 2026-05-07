@@ -1,5 +1,17 @@
+import { bytesToBase64 } from "@tearleads/encoding";
+import { exportAllUpdates } from "@tearleads/loro";
+import {
+  type ContainerMetadataDocument,
+  getDefaultContainerName,
+  readContainerMetadataValue,
+} from "../../data/containers";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
+import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
+import type { ExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
+import type {
+  DocumentRecord,
+  PendingUpdateRecord,
+} from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createDocumentWriterPublicKeyResolver,
@@ -39,6 +51,40 @@ export interface ExplorerMetadataSyncAttempt {
   synced: ExplorerMetadataSyncResult;
 }
 
+interface ExplorerContainerMetadataState {
+  container: ContainerRecord;
+  doc: ContainerMetadataDocument;
+  record: DocumentRecord;
+}
+
+export interface ExplorerContainerMetadataPatch {
+  accessEpoch: number;
+  accessStateHash: string | null;
+  documentId: string | null;
+  icon: string | null;
+  lastCommitLsn: string | null;
+  metadataDocumentId: string | null;
+  loroSnapshot: string;
+  name: string;
+  organizationId: string;
+  parentId: string | null;
+  contentKeyBundle: string | null;
+  documentKekTargets: string | null;
+  documentManifestBundle: string | null;
+}
+
+interface PersistedExplorerContainerMetadataState {
+  container: ContainerRecord;
+  record: DocumentRecord;
+}
+
+type NullableExplorerDocumentField =
+  | "accessStateHash"
+  | "lastCommitLsn"
+  | "contentKeyBundle"
+  | "documentKekTargets"
+  | "documentManifestBundle";
+
 function isStaleExplorerMetadataSecurityStateError(error: unknown): boolean {
   return (
     error instanceof Error &&
@@ -46,6 +92,106 @@ function isStaleExplorerMetadataSecurityStateError(error: unknown): boolean {
       error.message === "Document sync target hash mismatch" ||
       error.message === "Document sync content-key targets mismatch")
   );
+}
+
+function resolveNullableExplorerDocumentField(
+  patch: Partial<ExplorerContainerMetadataPatch>,
+  key: NullableExplorerDocumentField,
+  currentValue: string | null | undefined,
+  resetWhenUnpatched = false,
+): string | null {
+  if (Object.hasOwn(patch, key)) {
+    return patch[key] ?? null;
+  }
+
+  return resetWhenUnpatched ? null : (currentValue ?? null);
+}
+
+export async function persistExplorerContainerMetadataState(input: {
+  acceptedPendingUpdateIds?: readonly string[] | undefined;
+  execSql: ExecSql;
+  metadataState: ExplorerContainerMetadataState;
+  patch?: Partial<ExplorerContainerMetadataPatch> | undefined;
+  persistence: ExplorerPersistence;
+}): Promise<PersistedExplorerContainerMetadataState> {
+  const { acceptedPendingUpdateIds, execSql, metadataState, persistence } =
+    input;
+  const patch = input.patch ?? {};
+  const currentDocumentId = metadataState.record.documentId ?? null;
+  const nextDocumentId = patch.documentId ?? currentDocumentId;
+  const documentIdChanged = nextDocumentId !== currentDocumentId;
+  const nextAccessEpoch = patch.accessEpoch ?? metadataState.record.accessEpoch;
+  const securityContextChanged =
+    documentIdChanged || nextAccessEpoch !== metadataState.record.accessEpoch;
+  const metadata = readContainerMetadataValue(
+    metadataState.doc,
+    getDefaultContainerName(metadataState.container.parentId),
+  );
+  const nextContainer: ContainerRecord = {
+    ...metadataState.container,
+    organizationId:
+      patch.organizationId ?? metadataState.container.organizationId,
+    parentId: patch.parentId ?? metadataState.container.parentId,
+    metadataDocumentId:
+      patch.metadataDocumentId ??
+      patch.documentId ??
+      metadataState.container.metadataDocumentId,
+    name: patch.name ?? metadata.name,
+    icon: patch.icon ?? metadata.icon,
+  };
+  const nextRecord: DocumentRecord = {
+    id: metadataState.container.id,
+    documentId: nextDocumentId,
+    loroSnapshot:
+      patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(metadataState.doc)),
+    accessEpoch: nextAccessEpoch,
+    accessStateHash: resolveNullableExplorerDocumentField(
+      patch,
+      "accessStateHash",
+      metadataState.record.accessStateHash,
+      securityContextChanged,
+    ),
+    lastCommitLsn: resolveNullableExplorerDocumentField(
+      patch,
+      "lastCommitLsn",
+      metadataState.record.lastCommitLsn,
+      documentIdChanged,
+    ),
+    contentKeyBundle: resolveNullableExplorerDocumentField(
+      patch,
+      "contentKeyBundle",
+      metadataState.record.contentKeyBundle,
+      securityContextChanged,
+    ),
+    documentKekTargets: resolveNullableExplorerDocumentField(
+      patch,
+      "documentKekTargets",
+      metadataState.record.documentKekTargets,
+      securityContextChanged,
+    ),
+    documentManifestBundle: resolveNullableExplorerDocumentField(
+      patch,
+      "documentManifestBundle",
+      metadataState.record.documentManifestBundle,
+      securityContextChanged,
+    ),
+  };
+
+  if (acceptedPendingUpdateIds && acceptedPendingUpdateIds.length > 0) {
+    await persistence.saveContainerAndDeletePendingUpdates(
+      execSql,
+      nextContainer,
+      nextRecord,
+      acceptedPendingUpdateIds,
+    );
+  } else {
+    await persistence.saveContainer(execSql, nextContainer, nextRecord);
+  }
+
+  return {
+    container: nextContainer,
+    record: nextRecord,
+  };
 }
 
 export async function syncRemoteExplorerContainerMetadata(input: {

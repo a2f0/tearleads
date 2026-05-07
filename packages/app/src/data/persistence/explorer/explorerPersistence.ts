@@ -5,7 +5,6 @@ import {
 } from "../../sqlite/appDatabaseRuntime";
 import {
   type DocumentRecord,
-  deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
@@ -13,7 +12,6 @@ import {
   loadDocumentRecord,
   type PendingUpdateFields,
   type PendingUpdateRecord,
-  saveDocumentRecord,
 } from "../../sqlite/documentPersistence";
 import {
   containerCreateIntents,
@@ -79,7 +77,6 @@ export interface ExplorerPersistence {
     containerIds: ReadonlyArray<string>,
     options?: { updatedAt?: string },
   ) => Promise<void>;
-  deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   deletePendingUpdates: (
     execSql: ExecSql,
     containerId: string,
@@ -111,6 +108,12 @@ export interface ExplorerPersistence {
     options?: {
       createIntent?: ContainerCreateIntentInput;
     },
+  ) => Promise<void>;
+  saveContainerAndDeletePendingUpdates: (
+    execSql: ExecSql,
+    container: ContainerRecord,
+    record: DocumentRecord,
+    pendingUpdateIds: readonly string[],
   ) => Promise<void>;
   markCreateIntentSynced: (
     execSql: ExecSql,
@@ -182,21 +185,70 @@ function mapContainerCreateIntentRecord(
 }
 
 async function saveContainerMetadataRecord(input: {
-  execSql: ExecSql;
   containerId: string;
   record: DocumentRecord;
+  tx: AppSQLiteTransaction;
   updatedAt: string;
 }) {
-  const { containerId, execSql, record, updatedAt } = input;
-  await saveDocumentRecord(
-    execSql,
-    {
-      appKind: CONTAINER_METADATA_APP_KIND,
-      localId: containerId,
-    },
-    record,
+  const { containerId, record, tx, updatedAt } = input;
+  const nextRow = {
+    appKind: CONTAINER_METADATA_APP_KIND,
+    localId: containerId,
+    documentId: record.documentId,
+    loroSnapshot: record.loroSnapshot,
+    accessEpoch: record.accessEpoch,
+    accessStateHash: record.accessStateHash ?? null,
+    lastCommitLsn: record.lastCommitLsn ?? null,
+    documentManifestBundle: record.documentManifestBundle ?? null,
+    contentKeyBundle: record.contentKeyBundle ?? null,
+    documentKekTargets: record.documentKekTargets ?? null,
     updatedAt,
-  );
+  };
+
+  await tx
+    .insert(documents)
+    .values(nextRow)
+    .onConflictDoUpdate({
+      target: [documents.appKind, documents.localId],
+      set: nextRow,
+    })
+    .run();
+}
+
+async function saveExplorerContainerRows(input: {
+  container: ContainerRecord;
+  createIntent?: ContainerCreateIntentInput | undefined;
+  record: DocumentRecord | null;
+  tx: AppSQLiteTransaction;
+  updatedAt: string;
+}) {
+  const { container, createIntent, record, tx, updatedAt } = input;
+  await saveContainerRows({
+    record: container,
+    tx,
+    updatedAt,
+  });
+
+  if (record) {
+    await saveContainerMetadataRecord({
+      containerId: container.id,
+      record: {
+        ...record,
+        id: container.id,
+      },
+      tx,
+      updatedAt,
+    });
+  }
+
+  if (createIntent) {
+    await saveContainerCreateIntent({
+      containerId: container.id,
+      createIntent,
+      tx,
+      updatedAt,
+    });
+  }
 }
 
 async function saveContainerCreateIntent(input: {
@@ -368,11 +420,6 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
       );
     });
   },
-  async deletePendingUpdate(execSql, id) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await deleteDocumentPendingUpdate(lockedExecSql, id);
-    });
-  },
   async deletePendingUpdates(execSql, containerId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await deleteDocumentPendingUpdates(
@@ -470,32 +517,46 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = new Date().toISOString();
       await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        await saveContainerRows({
-          record: container,
+        await saveExplorerContainerRows({
+          container,
+          createIntent: options?.createIntent,
+          record,
           tx,
           updatedAt,
         });
+      });
+    });
+  },
+  async saveContainerAndDeletePendingUpdates(
+    execSql,
+    container,
+    record,
+    pendingUpdateIds,
+  ) {
+    const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
 
-        if (record) {
-          await saveContainerMetadataRecord({
-            containerId: container.id,
-            execSql: lockedExecSql,
-            record: {
-              ...record,
-              id: container.id,
-            },
-            updatedAt,
-          });
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const updatedAt = new Date().toISOString();
+      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+        if (uniquePendingUpdateIds.length > 0) {
+          await tx
+            .delete(documentPendingUpdates)
+            .where(
+              and(
+                eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+                eq(documentPendingUpdates.localId, container.id),
+                inArray(documentPendingUpdates.id, uniquePendingUpdateIds),
+              ),
+            )
+            .run();
         }
 
-        if (options?.createIntent) {
-          await saveContainerCreateIntent({
-            containerId: container.id,
-            createIntent: options.createIntent,
-            tx,
-            updatedAt,
-          });
-        }
+        await saveExplorerContainerRows({
+          container,
+          record,
+          tx,
+          updatedAt,
+        });
       });
     });
   },

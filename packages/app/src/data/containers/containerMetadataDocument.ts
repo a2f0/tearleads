@@ -6,7 +6,13 @@ interface ContainerMetadataValue {
   name: string;
 }
 
-type ContainerMetadataDocument = Awaited<ReturnType<typeof createDocument>>;
+export type ContainerMetadataDocument = Awaited<
+  ReturnType<typeof createDocument>
+>;
+
+export function getDefaultContainerName(parentId: string | null): string {
+  return parentId === null ? "/" : "Untitled";
+}
 
 export async function createContainerMetadataDocument(
   containerId: string,
