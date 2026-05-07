@@ -11,16 +11,18 @@ import {
 } from "../../data/containers";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
+import {
+  createRemoteExplorerContainer,
+  moveRemoteExplorerContainer,
+  shareRemoteExplorerContainer,
+} from "../../workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import {
   type ContainerMetadataDocument,
   type ContainerState,
-  createRemoteExplorerContainer,
   type ExplorerContainerPatch,
   type ExplorerSyncAgent,
   getDefaultContainerName,
-  moveRemoteExplorerContainer,
-  shareRemoteExplorerContainer,
 } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";
 import type { ExplorerStoreState } from "./types";

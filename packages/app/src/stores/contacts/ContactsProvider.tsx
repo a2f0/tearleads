@@ -1,4 +1,3 @@
-import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
@@ -21,8 +20,6 @@ import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
 } from "../../data/documentSync";
-import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
   type ContactsPersistence,
   sqlContactsPersistence,
@@ -40,15 +37,17 @@ import {
 } from "../../data/sync/syncCoordinator";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
-  createRemoteDocument,
-  type DocumentCreateAuthor,
-  syncRemoteDocument,
-} from "../../workflows/documents";
+  createRemoteContactDocument,
+  syncRemoteContactDocument,
+} from "../../workflows/contacts";
 
 type ContactsDocument = Awaited<ReturnType<typeof createDocument>>;
 type ContactsAppData = ReturnType<typeof useAppData>;
 type EncapsulationKeyPair = NonNullable<
   ContactsRuntime["encapsulationKeyPair"]
+>;
+type ContactRemoteSyncAttempt = NonNullable<
+  Awaited<ReturnType<typeof syncRemoteContactDocument>>
 >;
 
 interface ContactState {
@@ -434,72 +433,6 @@ async function waitForContactsInitialization(
   }
 }
 
-function resolveContactsAuthor(
-  runtime: ContactsRuntime,
-): DocumentCreateAuthor | null {
-  if (
-    !runtime.organizationId ||
-    !runtime.signingFingerprint ||
-    !runtime.signingKeyPair ||
-    !runtime.userId
-  ) {
-    return null;
-  }
-
-  return {
-    organizationId: runtime.organizationId,
-    signerDeviceId: createDocumentSignerDeviceId(runtime.signingFingerprint),
-    signerKeyFingerprint: runtime.signingFingerprint,
-    signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
-    signerUserId: runtime.userId,
-  };
-}
-
-async function resolveContactWriterPublicKeys(
-  state: ContactsStoreState,
-  contact: ContactState,
-  author: DocumentCreateAuthor,
-): Promise<Map<string, Uint8Array>> {
-  const { signingKeyPair } = state.runtime;
-  if (!signingKeyPair) {
-    throw new Error("Contacts writer public key is unavailable.");
-  }
-
-  const writerPublicKeysByFingerprint = new Map<string, Uint8Array>([
-    [author.signerKeyFingerprint, signingKeyPair.signingPublicKey],
-  ]);
-
-  if (contact.entry.userId === state.runtime.userId) {
-    return writerPublicKeysByFingerprint;
-  }
-
-  const response = await state.runtime.apiClient.getEncapsulationKey(
-    contact.entry.userId,
-  );
-  if (!response) {
-    return writerPublicKeysByFingerprint;
-  }
-
-  try {
-    const signingPublicKey = base64ToBytes(response.signingPublicKey);
-    const signingKeyFingerprint = await toFingerprint(signingPublicKey);
-    if (signingKeyFingerprint !== response.signingKeyFingerprint) {
-      state.runtime.log(
-        `Contacts (${contact.entry.userId}): skipped peer writer key because the signing fingerprint does not match the public key.`,
-      );
-      return writerPublicKeysByFingerprint;
-    }
-
-    writerPublicKeysByFingerprint.set(signingKeyFingerprint, signingPublicKey);
-  } catch {
-    state.runtime.log(
-      `Contacts (${contact.entry.userId}): skipped peer writer key because it could not be decoded.`,
-    );
-  }
-
-  return writerPublicKeysByFingerprint;
-}
-
 async function ensureContactDocumentForSync(
   state: ContactsStoreState,
   contact: ContactState,
@@ -513,24 +446,8 @@ async function ensureContactDocumentForSync(
       return null;
     }
 
-    const author = resolveContactsAuthor(state.runtime);
-    const { apiClient } = state.runtime;
-    if (!author) {
-      state.runtime.log(
-        "Contacts: skipped remote create because the writer context is unavailable.",
-      );
-      return null;
-    }
-
-    const created = await createRemoteDocument({
-      apiClient,
-      author,
-      containerId: state.runtime.containerId,
-      execSql: state.runtime.execSql,
-      resolveProjectionUserKey: createProjectionUserKeyResolver(
-        state.runtime,
-        "Contacts",
-      ),
+    const created = await createRemoteContactDocument({
+      runtime: state.runtime,
       targetSecretKey: encapsulationKeyPair.secretKey,
     });
     if (!created) {
@@ -553,9 +470,10 @@ async function ensureContactDocumentForSync(
 async function applySyncedContactUpdates(
   state: ContactsStoreState,
   contact: ContactState,
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>,
-  outgoingUpdateCount: number,
+  syncAttempt: ContactRemoteSyncAttempt,
 ) {
+  const { outgoingUpdateCount, synced } = syncAttempt;
+
   for (const acceptedOutgoingUpdateId of synced.response
     .acceptedOutgoingUpdateIds) {
     await deletePendingUpdate(state, acceptedOutgoingUpdateId);
@@ -605,44 +523,20 @@ async function syncSingleContact(
     return;
   }
 
-  const author = resolveContactsAuthor(state.runtime);
-  const { apiClient } = state.runtime;
-  if (!author) {
-    state.runtime.log(
-      "Contacts: skipped sync because the writer context is unavailable.",
-    );
-    return;
-  }
-
-  const synced = await syncRemoteDocument({
-    apiClient,
-    author,
+  const syncAttempt = await syncRemoteContactDocument({
+    contactEntry: contact.entry,
     documentId,
-    execSql: state.runtime.execSql,
+    lastCommitLsn: contact.record.lastCommitLsn,
     localVersionVector: encodeVersionVector(contact.doc),
-    minLsn: contact.record.lastCommitLsn ?? undefined,
     pendingUpdates,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      state.runtime,
-      "Contacts",
-    ),
+    runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
-    writerPublicKeysByFingerprint: await resolveContactWriterPublicKeys(
-      state,
-      contact,
-      author,
-    ),
   });
-  if (!synced) {
+  if (!syncAttempt) {
     return;
   }
 
-  await applySyncedContactUpdates(
-    state,
-    contact,
-    synced,
-    pendingUpdates.length,
-  );
+  await applySyncedContactUpdates(state, contact, syncAttempt);
 }
 
 async function runContactsSyncIteration(state: ContactsStoreState) {
