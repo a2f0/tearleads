@@ -8,6 +8,7 @@ export {
   type ExplorerRemoteDocumentPersistedState,
   linkRemoteExplorerDocument,
   moveRemoteExplorerDocument,
+  resolveActiveExplorerDocumentContainerId,
   unlinkRemoteExplorerDocument,
 } from "./documentLinks";
 export {

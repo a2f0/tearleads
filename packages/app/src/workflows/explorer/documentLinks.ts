@@ -46,7 +46,7 @@ interface MoveRemoteExplorerDocumentResult {
 
 export type { ExplorerRemoteDocumentPersistedState };
 
-function resolveActiveExplorerDocumentContainerId(
+export function resolveActiveExplorerDocumentContainerId(
   linkedContainerIds: ReadonlyArray<string>,
   preferredContainerId: string,
 ): string | null {

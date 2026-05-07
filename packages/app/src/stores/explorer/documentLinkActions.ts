@@ -3,6 +3,7 @@ import {
   type ExplorerRemoteDocumentPersistedState,
   linkRemoteExplorerDocument,
   moveRemoteExplorerDocument,
+  resolveActiveExplorerDocumentContainerId,
   unlinkRemoteExplorerDocument,
 } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
@@ -27,17 +28,6 @@ export function canMutateSelectedDocument(
   return (
     appData.dbStatus === "ready" && appData.isAuthenticated && appData.online
   );
-}
-
-function resolveActiveContainerIdAfterUnlink(
-  linkedContainerIds: ReadonlyArray<string>,
-  preferredContainerId: string,
-): string | null {
-  if (linkedContainerIds.includes(preferredContainerId)) {
-    return preferredContainerId;
-  }
-
-  return linkedContainerIds[0] ?? null;
 }
 
 async function primeExplorerDocumentStoreForStructuralMutation(params: {
@@ -311,7 +301,7 @@ export async function unlinkExplorerLinkedNote(params: {
     unlinkedDocument.linkedContainerIds,
   );
 
-  const nextContainerId = resolveActiveContainerIdAfterUnlink(
+  const nextContainerId = resolveActiveExplorerDocumentContainerId(
     unlinkedDocument.linkedContainerIds,
     note.containerId,
   );
