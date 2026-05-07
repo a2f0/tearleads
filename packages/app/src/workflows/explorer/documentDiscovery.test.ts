@@ -253,8 +253,8 @@ test("container document discovery resumes from stored watermark and advances af
     },
   ]);
   expect(applyOrder).toEqual([
-    "replace-links",
     "upsert-documents",
+    "replace-links",
     "save-watermark",
   ]);
   expect(saveContainerDocumentWatermarkCalls).toEqual([
@@ -364,8 +364,8 @@ test("container document discovery applies tombstones before advancing watermark
   });
 
   expect(applyOrder).toEqual([
-    "replace-links",
     "upsert-documents",
+    "replace-links",
     "apply-tombstones",
     "save-watermark",
   ]);
@@ -435,6 +435,7 @@ test("manual refresh can discover documents across all visible containers", asyn
     ReadonlyArray<ReferencedPrincipalStateResponse>
   > = [];
   const listContainerDocumentsCalls: string[] = [];
+  const applyOrder: string[] = [];
   const replaceDocumentLinksBatchCalls: Array<
     ReadonlyArray<{
       containerIds: ReadonlyArray<string>;
@@ -497,9 +498,11 @@ test("manual refresh can discover documents across all visible containers", asyn
       ]);
     },
     replaceDocumentLinksBatch: async (inputs) => {
+      applyOrder.push("replace-links");
       replaceDocumentLinksBatchCalls.push(inputs);
     },
     upsertDiscoveredDocuments: async (inputs) => {
+      applyOrder.push("upsert-documents");
       const capturedInputs = captureDiscoveredDocumentInputs(inputs);
       upsertDiscoveredDocumentsCalls.push(capturedInputs);
       return capturedInputs.map<DocumentSummary>((input) => ({
@@ -513,6 +516,7 @@ test("manual refresh can discover documents across all visible containers", asyn
   });
 
   expect(listContainerDocumentsCalls).toEqual(["container-a", "container-b"]);
+  expect(applyOrder).toEqual(["upsert-documents", "replace-links"]);
   expect(replaceDocumentLinksBatchCalls).toEqual([
     [
       {

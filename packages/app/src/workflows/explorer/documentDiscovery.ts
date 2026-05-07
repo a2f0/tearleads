@@ -325,13 +325,6 @@ export async function discoverContainerDocuments({
     ),
   );
 
-  await replaceDocumentLinksBatch(
-    listedDocuments.items.map((document) => ({
-      documentId: document.id,
-      containerIds: document.linkedContainerIds,
-    })),
-  );
-
   const discoveredDocuments = await upsertDiscoveredDocuments(
     listedDocuments.items.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
@@ -342,6 +335,14 @@ export async function discoverContainerDocuments({
       linkedContainerIds: document.linkedContainerIds,
     })),
   );
+
+  await replaceDocumentLinksBatch(
+    listedDocuments.items.map((document) => ({
+      documentId: document.id,
+      containerIds: document.linkedContainerIds,
+    })),
+  );
+
   const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
     getApplicableDocumentTombstones(listedDocuments),
   );
@@ -408,12 +409,13 @@ export async function discoverAllContainerDocuments({
     }
   }
 
-  await replaceDocumentLinksBatch(documentLinks);
-
   const discoveredDocuments =
     discoveredDocumentInputs.length === 0
       ? []
       : await upsertDiscoveredDocuments(discoveredDocumentInputs);
+
+  await replaceDocumentLinksBatch(documentLinks);
+
   const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
     listedDocumentsByContainer.flatMap(({ listedDocuments }) =>
       listedDocuments ? getApplicableDocumentTombstones(listedDocuments) : [],
