@@ -74,7 +74,7 @@ function readContainerDirectGrants(
 
 export function referencedPrincipalHeadRecord(
   principalHead: ReferencedPrincipalHead,
-): Record<string, unknown> {
+) {
   return {
     principalType: principalHead.principalType,
     principalId: principalHead.principalId,

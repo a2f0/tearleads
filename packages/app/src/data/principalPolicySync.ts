@@ -75,6 +75,10 @@ function getBundleReferenceMismatchReason(
     return "bundle state hash does not match referenced principal";
   }
 
+  if (bundle.currentState.keyFingerprint !== reference.keyFingerprint) {
+    return "bundle key fingerprint does not match referenced principal";
+  }
+
   if (
     bundle.currentMemberEnvelopes.principalType !== reference.principalType ||
     bundle.currentMemberEnvelopes.principalId !== reference.principalId
@@ -265,10 +269,7 @@ async function validatePrincipalPolicyBundle(
 
   const verified = await verifyPrincipalPolicyBundle({
     bundle: bundle as PrincipalPolicyBundle,
-    expectedReference: {
-      ...reference,
-      keyFingerprint: bundle.currentState.keyFingerprint,
-    },
+    expectedReference: reference,
     localCheckpoint: principalPolicyCheckpoint(cachedBundle),
     signerPublicKeys: signerPublicKeys.signerPublicKeys,
   });

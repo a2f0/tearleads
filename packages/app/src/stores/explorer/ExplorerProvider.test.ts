@@ -24,6 +24,7 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
   ListContainersResponse,
+  ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { isAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
@@ -1013,6 +1014,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
           metadataReferencedPrincipals: [
             {
               keyEpoch: 1,
+              keyFingerprint: "key-fingerprint-a",
               principalId: "group-a",
               principalType: "group",
               stateHash: "state-hash-a",
@@ -1032,6 +1034,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
           metadataReferencedPrincipals: [
             {
               keyEpoch: 1,
+              keyFingerprint: "key-fingerprint-b",
               principalId: "group-b",
               principalType: "group",
               stateHash: "state-hash-b",
@@ -1424,13 +1427,7 @@ test("explorer sync creates queued local containers parent before child", async 
 test("explorer store creates a child under a writable shared root through the parent KEK", async () => {
   const runtime = await createSqlRuntime();
   const cachedPrincipalReferences: Array<
-    ReadonlyArray<{
-      keyEpoch: number;
-      principalId: string;
-      principalType: "group" | "organization";
-      stateHash: string;
-      version: number;
-    }>
+    ReadonlyArray<ReferencedPrincipalStateResponse>
   > = [];
   const localKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -1471,6 +1468,7 @@ test("explorer store creates a child under a writable shared root through the pa
           metadataReferencedPrincipals: [
             {
               keyEpoch: 1,
+              keyFingerprint: "key-fingerprint-1",
               principalId: "group-1",
               principalType: "group",
               stateHash: "state-hash-1",
@@ -1517,6 +1515,7 @@ test("explorer store creates a child under a writable shared root through the pa
     expect(cachedPrincipalReferences).toContainEqual([
       {
         keyEpoch: 1,
+        keyFingerprint: "key-fingerprint-1",
         principalId: "group-1",
         principalType: "group",
         stateHash: "state-hash-1",

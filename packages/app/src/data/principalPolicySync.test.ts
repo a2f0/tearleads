@@ -11,6 +11,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
+  ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { createTestExecSql } from "../../test/helpers/createTestExecSql";
 import {
@@ -398,6 +399,19 @@ async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promise<{
   };
 }
 
+function referencedPrincipalStateFromBundle(
+  bundle: PrincipalPolicyBundleResponse,
+): ReferencedPrincipalStateResponse {
+  return {
+    principalType: bundle.currentState.principalType,
+    principalId: bundle.currentState.principalId,
+    version: bundle.currentState.version,
+    keyEpoch: bundle.currentState.keyEpoch,
+    stateHash: bundle.currentState.stateHash,
+    keyFingerprint: bundle.currentState.keyFingerprint,
+  };
+}
+
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
@@ -414,15 +428,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
         return bundle;
       },
       getEncapsulationKey: async () => signerKeyResponse,
-      references: [
-        {
-          principalType: "group",
-          principalId: "group-1",
-          version: bundle.currentState.version,
-          keyEpoch: bundle.currentState.keyEpoch,
-          stateHash: bundle.currentState.stateHash,
-        },
-      ],
+      references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
     await expect(
@@ -439,15 +445,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
         return bundle;
       },
       getEncapsulationKey: async () => signerKeyResponse,
-      references: [
-        {
-          principalType: "group",
-          principalId: "group-1",
-          version: bundle.currentState.version,
-          keyEpoch: bundle.currentState.keyEpoch,
-          stateHash: bundle.currentState.stateHash,
-        },
-      ],
+      references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
     expect(getCurrentPrincipalPolicyCallCount).toBe(1);
@@ -471,15 +469,7 @@ test("principal policy sync verifies successor state from the fetched chain when
       getCurrentPrincipalPolicy: async () => bundle,
       getEncapsulationKey: async () => signerKeyResponse,
       log: (message) => logs.push(message),
-      references: [
-        {
-          principalType: "group",
-          principalId: "group-1",
-          version: bundle.currentState.version,
-          keyEpoch: bundle.currentState.keyEpoch,
-          stateHash: bundle.currentState.stateHash,
-        },
-      ],
+      references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
     expect(logs).toEqual([]);
@@ -508,15 +498,7 @@ test("principal policy sync skips shrinking successors that reuse the key epoch"
       getCurrentPrincipalPolicy: async () => bundle,
       getEncapsulationKey: async () => signerKeyResponse,
       log: (message) => logs.push(message),
-      references: [
-        {
-          principalType: "group",
-          principalId: "group-1",
-          version: bundle.currentState.version,
-          keyEpoch: bundle.currentState.keyEpoch,
-          stateHash: bundle.currentState.stateHash,
-        },
-      ],
+      references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
     expect(logs).toContain(
@@ -552,15 +534,7 @@ test("principal policy sync skips rollbacks against the cached checkpoint", asyn
       getCurrentPrincipalPolicy: async () => olderBundle,
       getEncapsulationKey: async () => signerKeyResponse,
       log: (message) => logs.push(message),
-      references: [
-        {
-          principalType: "group",
-          principalId: "group-1",
-          version: olderBundle.currentState.version,
-          keyEpoch: olderBundle.currentState.keyEpoch,
-          stateHash: olderBundle.currentState.stateHash,
-        },
-      ],
+      references: [referencedPrincipalStateFromBundle(olderBundle)],
     });
 
     expect(logs).toContain(
@@ -595,15 +569,7 @@ test("principal policy sync skips same-version conflicts against the cached chec
       getCurrentPrincipalPolicy: async () => conflictingBundle,
       getEncapsulationKey: async () => null,
       log: (message) => logs.push(message),
-      references: [
-        {
-          principalType: "group",
-          principalId: "group-1",
-          version: conflictingBundle.currentState.version,
-          keyEpoch: conflictingBundle.currentState.keyEpoch,
-          stateHash: conflictingBundle.currentState.stateHash,
-        },
-      ],
+      references: [referencedPrincipalStateFromBundle(conflictingBundle)],
     });
 
     expect(logs).toContain(
@@ -647,15 +613,7 @@ test("principal policy sync skips bundles whose projection does not match the si
       getCurrentPrincipalPolicy: async () => tamperedBundle,
       getEncapsulationKey: async () => signerKeyResponse,
       log: (message) => logs.push(message),
-      references: [
-        {
-          principalType: "group",
-          principalId: "group-1",
-          version: bundle.currentState.version,
-          keyEpoch: bundle.currentState.keyEpoch,
-          stateHash: bundle.currentState.stateHash,
-        },
-      ],
+      references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
     expect(logs).toContain(
@@ -686,15 +644,7 @@ test("principal policy sync skips successor bundles signed by non-admins", async
       getEncapsulationKey: async (userId) =>
         signerKeyResponses.get(userId) ?? null,
       log: (message) => logs.push(message),
-      references: [
-        {
-          principalType: "group",
-          principalId: "group-1",
-          version: bundle.currentState.version,
-          keyEpoch: bundle.currentState.keyEpoch,
-          stateHash: bundle.currentState.stateHash,
-        },
-      ],
+      references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
     expect(logs).toContain(
@@ -724,15 +674,7 @@ test("principal policy sync skips bundles when the signer key does not match", a
         ...signerKeyResponse,
         signingKeyFingerprint: "mismatched-fingerprint",
       }),
-      references: [
-        {
-          principalType: "group",
-          principalId: "group-1",
-          version: bundle.currentState.version,
-          keyEpoch: bundle.currentState.keyEpoch,
-          stateHash: bundle.currentState.stateHash,
-        },
-      ],
+      references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
     await expect(

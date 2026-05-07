@@ -66,6 +66,7 @@ export interface ReferencedPrincipalStateResponse {
   version: number;
   keyEpoch: number;
   stateHash: string;
+  keyFingerprint: string;
 }
 
 export interface PrincipalPolicyStateChainEntryResponse {
@@ -198,7 +199,8 @@ export function isReferencedPrincipalStateResponse(
     hasStringProperty(value, "principalId") &&
     hasNumberProperty(value, "version") &&
     hasNumberProperty(value, "keyEpoch") &&
-    hasStringProperty(value, "stateHash")
+    hasStringProperty(value, "stateHash") &&
+    hasStringProperty(value, "keyFingerprint")
   );
 }
 

@@ -99,21 +99,27 @@ function readMutationMetadataDocumentId(input: {
 }
 
 function referencedPrincipalHeadsFromResponse(input: {
-  response: { referencedPrincipalHeads: readonly Record<string, unknown>[] };
+  response: { referencedPrincipalHeads: readonly unknown[] };
 }): ReferencedPrincipalStateResponse[] {
   return input.response.referencedPrincipalHeads.flatMap((head) => {
+    if (typeof head !== "object" || head === null) {
+      return [];
+    }
+
     const principalType = Reflect.get(head, "principalType");
     const principalId = Reflect.get(head, "principalId");
     const version = Reflect.get(head, "version");
     const keyEpoch = Reflect.get(head, "keyEpoch");
     const stateHash = Reflect.get(head, "stateHash");
+    const keyFingerprint = Reflect.get(head, "keyFingerprint");
 
     if (
       (principalType !== "group" && principalType !== "organization") ||
       typeof principalId !== "string" ||
       !Number.isInteger(version) ||
       !Number.isInteger(keyEpoch) ||
-      typeof stateHash !== "string"
+      typeof stateHash !== "string" ||
+      typeof keyFingerprint !== "string"
     ) {
       return [];
     }
@@ -125,6 +131,7 @@ function referencedPrincipalHeadsFromResponse(input: {
         version: version as number,
         keyEpoch: keyEpoch as number,
         stateHash,
+        keyFingerprint,
       },
     ];
   });

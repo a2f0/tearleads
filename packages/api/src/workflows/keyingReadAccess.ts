@@ -76,6 +76,7 @@ function referencedPrincipalKey(
     reference.version,
     reference.keyEpoch,
     reference.stateHash,
+    reference.keyFingerprint,
   ].join(":");
 }
 
@@ -88,6 +89,7 @@ function toReferencedPrincipalStateResponse(
     version: reference.version,
     keyEpoch: reference.keyEpoch,
     stateHash: reference.stateHash,
+    keyFingerprint: reference.keyFingerprint,
   };
 }
 
