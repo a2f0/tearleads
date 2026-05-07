@@ -587,8 +587,95 @@ test("manual refresh can discover documents across all visible containers", asyn
   ]);
 });
 
+test("manual refresh deduplicates principal references and document link replacements", async () => {
+  const referencedPrincipal: ReferencedPrincipalStateResponse = {
+    keyEpoch: 1,
+    keyFingerprint: "shared-key-fingerprint",
+    principalId: "shared-group",
+    principalType: "group",
+    stateHash: "shared-state-hash",
+    version: 1,
+  };
+  const cachedPrincipalReferences: Array<
+    ReadonlyArray<ReferencedPrincipalStateResponse>
+  > = [];
+  const replaceDocumentLinksBatchCalls: Array<
+    ReadonlyArray<{
+      containerIds: ReadonlyArray<string>;
+      documentId: string;
+    }>
+  > = [];
+  const upsertDiscoveredDocumentsCalls: Array<
+    ReadonlyArray<CapturedDiscoveredDocumentInput>
+  > = [];
+
+  await discoverAllContainerDocuments({
+    ...nullContainerDocumentWatermarks,
+    cacheReferencedPrincipalPolicies: async (references) => {
+      cachedPrincipalReferences.push(references);
+    },
+    containerIds: ["container-a", "container-b"],
+    listContainerDocuments: async () =>
+      listContainerDocumentsResponse([
+        {
+          createdAt: "2026-04-06T12:00:00.000Z",
+          currentAccessEpoch: 1,
+          currentAccessStateHash: "shared-access-state-hash",
+          id: "shared-document",
+          linkedContainerIds: ["container-a", "container-b"],
+          referencedPrincipals: [referencedPrincipal],
+          updatedAt: "2026-04-06T12:00:00.000Z",
+        },
+      ]),
+    replaceDocumentLinksBatch: async (inputs) => {
+      replaceDocumentLinksBatchCalls.push(inputs);
+    },
+    upsertDiscoveredDocuments: async (inputs) => {
+      const capturedInputs = captureDiscoveredDocumentInputs(inputs);
+      upsertDiscoveredDocumentsCalls.push(capturedInputs);
+      return [];
+    },
+  });
+
+  expect(cachedPrincipalReferences).toEqual([[referencedPrincipal]]);
+  expect(replaceDocumentLinksBatchCalls).toEqual([
+    [
+      {
+        containerIds: ["container-a", "container-b"],
+        documentId: "shared-document",
+      },
+    ],
+  ]);
+  expect(upsertDiscoveredDocumentsCalls).toEqual([
+    [
+      {
+        accessEpoch: 1,
+        accessStateHash: "shared-access-state-hash",
+        containerId: "container-a",
+        createdAt: "2026-04-06T12:00:00.000Z",
+        documentId: "shared-document",
+        linkedContainerIds: ["container-a", "container-b"],
+      },
+      {
+        accessEpoch: 1,
+        accessStateHash: "shared-access-state-hash",
+        containerId: "container-b",
+        createdAt: "2026-04-06T12:00:00.000Z",
+        documentId: "shared-document",
+        linkedContainerIds: ["container-a", "container-b"],
+      },
+    ],
+  ]);
+});
+
 test("manual refresh ignores empty container ids", async () => {
   const listContainerDocumentsCalls: string[] = [];
+  const replaceDocumentLinksBatchCalls: Array<
+    ReadonlyArray<{
+      containerIds: ReadonlyArray<string>;
+      documentId: string;
+    }>
+  > = [];
 
   await discoverAllContainerDocuments({
     ...nullContainerDocumentWatermarks,
@@ -597,11 +684,14 @@ test("manual refresh ignores empty container ids", async () => {
       listContainerDocumentsCalls.push(containerId);
       return listContainerDocumentsResponse([]);
     },
-    replaceDocumentLinksBatch: async () => {},
+    replaceDocumentLinksBatch: async (inputs) => {
+      replaceDocumentLinksBatchCalls.push(inputs);
+    },
     upsertDiscoveredDocuments: async () => [],
   });
 
   expect(listContainerDocumentsCalls).toEqual(["container-a"]);
+  expect(replaceDocumentLinksBatchCalls).toEqual([]);
 });
 
 test("manual refresh lists remote container ids across paged parent lanes", async () => {

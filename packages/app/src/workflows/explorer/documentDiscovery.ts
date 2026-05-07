@@ -88,6 +88,31 @@ interface ContainerParentDiscoveryLane {
 const CONTAINER_PARENT_DISCOVERY_CONCURRENCY = 4;
 const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
 
+function getReferencedPrincipalStateKey(
+  reference: ReferencedPrincipalStateResponse,
+): string {
+  return JSON.stringify([
+    reference.principalType,
+    reference.principalId,
+    reference.version,
+    reference.keyEpoch,
+    reference.keyFingerprint,
+    reference.stateHash,
+  ]);
+}
+
+function uniqueReferencedPrincipalStates(
+  references: ReadonlyArray<ReferencedPrincipalStateResponse>,
+): ReferencedPrincipalStateResponse[] {
+  const referencesByState = new Map<string, ReferencedPrincipalStateResponse>();
+
+  for (const reference of references) {
+    referencesByState.set(getReferencedPrincipalStateKey(reference), reference);
+  }
+
+  return Array.from(referencesByState.values());
+}
+
 async function listAllContainerDocuments(input: {
   containerId: string;
   loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
@@ -320,8 +345,10 @@ export async function discoverContainerDocuments({
   }
 
   await cacheReferencedPrincipalPolicies?.(
-    listedDocuments.items.flatMap(
-      (document) => document.referencedPrincipals ?? [],
+    uniqueReferencedPrincipalStates(
+      listedDocuments.items.flatMap(
+        (document) => document.referencedPrincipals ?? [],
+      ),
     ),
   );
 
@@ -378,14 +405,16 @@ export async function discoverAllContainerDocuments({
     listContainerDocuments,
   });
   await cacheReferencedPrincipalPolicies?.(
-    listedDocumentsByContainer.flatMap(
-      ({ listedDocuments }) =>
-        listedDocuments?.items.flatMap(
-          (document) => document.referencedPrincipals ?? [],
-        ) ?? [],
+    uniqueReferencedPrincipalStates(
+      listedDocumentsByContainer.flatMap(
+        ({ listedDocuments }) =>
+          listedDocuments?.items.flatMap(
+            (document) => document.referencedPrincipals ?? [],
+          ) ?? [],
+      ),
     ),
   );
-  const documentLinks: DocumentLinkInput[] = [];
+  const documentLinksByDocumentId = new Map<string, ReadonlyArray<string>>();
   const discoveredDocumentInputs: DiscoveredDocumentInput[] = [];
 
   for (const { containerId, listedDocuments } of listedDocumentsByContainer) {
@@ -394,10 +423,7 @@ export async function discoverAllContainerDocuments({
     }
 
     for (const document of listedDocuments.items) {
-      documentLinks.push({
-        documentId: document.id,
-        containerIds: document.linkedContainerIds,
-      });
+      documentLinksByDocumentId.set(document.id, document.linkedContainerIds);
       discoveredDocumentInputs.push({
         accessEpoch: document.currentAccessEpoch,
         accessStateHash: document.currentAccessStateHash,
@@ -414,7 +440,17 @@ export async function discoverAllContainerDocuments({
       ? []
       : await upsertDiscoveredDocuments(discoveredDocumentInputs);
 
-  await replaceDocumentLinksBatch(documentLinks);
+  if (documentLinksByDocumentId.size > 0) {
+    await replaceDocumentLinksBatch(
+      Array.from(
+        documentLinksByDocumentId,
+        ([documentId, containerIds]): DocumentLinkInput => ({
+          documentId,
+          containerIds,
+        }),
+      ),
+    );
+  }
 
   const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
     listedDocumentsByContainer.flatMap(({ listedDocuments }) =>
