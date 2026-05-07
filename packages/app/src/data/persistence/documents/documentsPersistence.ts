@@ -23,15 +23,16 @@ import {
   findLocalIdByDocumentId,
   listDocumentPendingUpdates,
   loadDocumentRecord,
+  mapSelectedDocumentRecord,
   type PendingUpdateFields,
   type PendingUpdateRecord,
-  saveDocumentRecord,
 } from "../../sqlite/documentPersistence";
 import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
   documentContainerProjectionTables,
   documentPendingAttachments,
+  documentPendingUpdates,
   documentProjection,
   documentProjectionTables,
   documents,
@@ -102,6 +103,14 @@ export interface DocumentsPersistence {
   saveDocument: (
     execSql: ExecSql,
     document: StoredDocumentRecord,
+    options?: {
+      updatedAt?: string;
+    },
+  ) => Promise<string>;
+  saveDocumentAndDeletePendingUpdates: (
+    execSql: ExecSql,
+    document: StoredDocumentRecord,
+    pendingUpdateIds: readonly string[],
     options?: {
       updatedAt?: string;
     },
@@ -229,6 +238,126 @@ function getProjectionUpdatedAt(
   row: SelectedDocumentProjectionTimestamp | undefined,
 ): string {
   return row?.updatedAt ?? "";
+}
+
+async function loadDocumentRecordInTransaction(input: {
+  localId: string;
+  tx: AppSQLiteTransaction;
+}): Promise<BaseDocumentRecord | null> {
+  const { localId, tx } = input;
+  const rows = await tx
+    .select({
+      id: documents.localId,
+      documentId: documents.documentId,
+      loroSnapshot: documents.loroSnapshot,
+      accessEpoch: documents.accessEpoch,
+      accessStateHash: documents.accessStateHash,
+      lastCommitLsn: documents.lastCommitLsn,
+      documentManifestBundle: documents.documentManifestBundle,
+      contentKeyBundle: documents.contentKeyBundle,
+      documentKekTargets: documents.documentKekTargets,
+    })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.appKind, DOCUMENTS_APP_KIND),
+        eq(documents.localId, localId),
+      ),
+    )
+    .limit(1);
+
+  return rows[0] ? mapSelectedDocumentRecord(rows[0]) : null;
+}
+
+function toDocumentRecordRow(input: {
+  document: StoredDocumentRecord;
+  updatedAt: string;
+}) {
+  const { document, updatedAt } = input;
+  return {
+    appKind: DOCUMENTS_APP_KIND,
+    localId: document.id,
+    documentId: document.documentId,
+    loroSnapshot: document.loroSnapshot,
+    accessEpoch: document.accessEpoch,
+    accessStateHash: document.accessStateHash ?? null,
+    lastCommitLsn: document.lastCommitLsn ?? null,
+    documentManifestBundle: document.documentManifestBundle ?? null,
+    contentKeyBundle: document.contentKeyBundle ?? null,
+    documentKekTargets: document.documentKekTargets ?? null,
+    updatedAt,
+  };
+}
+
+async function saveDocumentRows(input: {
+  document: StoredDocumentRecord;
+  tx: AppSQLiteTransaction;
+  updatedAt: string;
+}) {
+  const { document, tx, updatedAt } = input;
+  const documentRow = toDocumentRecordRow({ document, updatedAt });
+  await tx
+    .insert(documents)
+    .values(documentRow)
+    .onConflictDoUpdate({
+      target: [documents.appKind, documents.localId],
+      set: documentRow,
+    })
+    .run();
+
+  const projectionRow = {
+    localId: document.id,
+    documentId: document.documentId,
+    containerId: document.containerId,
+    text: document.text,
+    updatedAt,
+  };
+  await tx
+    .insert(documentProjection)
+    .values(projectionRow)
+    .onConflictDoUpdate({
+      target: documentProjection.localId,
+      set: projectionRow,
+    })
+    .run();
+}
+
+async function resolveDocumentSaveTimestamp(input: {
+  document: StoredDocumentRecord;
+  options?: { updatedAt?: string } | undefined;
+  tx: AppSQLiteTransaction;
+}): Promise<string> {
+  const { document, options, tx } = input;
+  if (options?.updatedAt) {
+    return options.updatedAt;
+  }
+
+  const [existingRecord, projectionRows] = await Promise.all([
+    loadDocumentRecordInTransaction({
+      localId: document.id,
+      tx,
+    }),
+    tx
+      .select({
+        text: documentProjection.text,
+        updatedAt: documentProjection.updatedAt,
+      })
+      .from(documentProjection)
+      .where(eq(documentProjection.localId, document.id))
+      .limit(1),
+  ]);
+  const existingProjection = projectionRows[0];
+  return didStoredDocumentContentChange(
+    existingRecord
+      ? {
+          loroSnapshot: existingRecord.loroSnapshot,
+          text: getProjectionText(existingProjection),
+        }
+      : null,
+    document,
+  )
+    ? new Date().toISOString()
+    : getProjectionUpdatedAt(existingProjection) || new Date().toISOString();
 }
 
 function getLatestTimestamp(
@@ -777,54 +906,53 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async saveDocument(execSql, document, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
       getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        const [existingRecord, projectionRows] = await Promise.all([
-          loadDocumentRecord(lockedExecSql, getDocumentScope(document.id)),
-          tx
-            .select({
-              text: documentProjection.text,
-              updatedAt: documentProjection.updatedAt,
-            })
-            .from(documentProjection)
-            .where(eq(documentProjection.localId, document.id))
-            .limit(1),
-        ]);
-        const existingProjection = projectionRows[0];
-        const updatedAt =
-          options?.updatedAt ??
-          (didStoredDocumentContentChange(
-            existingRecord
-              ? {
-                  loroSnapshot: existingRecord.loroSnapshot,
-                  text: getProjectionText(existingProjection),
-                }
-              : null,
-            document,
-          )
-            ? new Date().toISOString()
-            : getProjectionUpdatedAt(existingProjection) ||
-              new Date().toISOString());
-
-        await saveDocumentRecord(
-          lockedExecSql,
-          getDocumentScope(document.id),
+        const updatedAt = await resolveDocumentSaveTimestamp({
           document,
+          options,
+          tx,
+        });
+        await saveDocumentRows({
+          document,
+          tx,
           updatedAt,
-        );
-        const projectionRow = {
-          localId: document.id,
-          documentId: document.documentId,
-          containerId: document.containerId,
-          text: document.text,
+        });
+
+        return updatedAt;
+      }),
+    );
+  },
+  async saveDocumentAndDeletePendingUpdates(
+    execSql,
+    document,
+    pendingUpdateIds,
+    options,
+  ) {
+    const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
+
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
+      getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+        const updatedAt = await resolveDocumentSaveTimestamp({
+          document,
+          options,
+          tx,
+        });
+        if (uniquePendingUpdateIds.length > 0) {
+          await tx
+            .delete(documentPendingUpdates)
+            .where(
+              and(
+                eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
+                eq(documentPendingUpdates.localId, document.id),
+                inArray(documentPendingUpdates.id, uniquePendingUpdateIds),
+              ),
+            )
+            .run();
+        }
+        await saveDocumentRows({
+          document,
+          tx,
           updatedAt,
-        };
-        await tx
-          .insert(documentProjection)
-          .values(projectionRow)
-          .onConflictDoUpdate({
-            target: documentProjection.localId,
-            set: projectionRow,
-          })
-          .run();
+        });
 
         return updatedAt;
       }),
