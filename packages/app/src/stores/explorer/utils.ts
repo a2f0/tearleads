@@ -1,10 +1,6 @@
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ContainerNode } from "../../mini-apps/explorer/types";
-import type {
-  ContainerState,
-  ExplorerContainerPatch,
-} from "./explorerSyncAgent";
-import type { NullableExplorerDocumentField } from "./types";
+import type { ContainerState } from "./explorerSyncAgent";
 
 export function toContainerNode(container: ContainerRecord): ContainerNode {
   return {
@@ -51,17 +47,4 @@ export function getSnapshotNodes(
       sensitivity: "base",
     }),
   );
-}
-
-export function resolveNullableExplorerDocumentField(
-  patch: Partial<ExplorerContainerPatch>,
-  key: NullableExplorerDocumentField,
-  currentValue: string | null | undefined,
-  resetWhenUnpatched = false,
-): string | null {
-  if (Object.hasOwn(patch, key)) {
-    return patch[key] ?? null;
-  }
-
-  return resetWhenUnpatched ? null : (currentValue ?? null);
 }

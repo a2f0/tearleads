@@ -52,10 +52,3 @@ export interface ExplorerStoreState extends ExplorerSyncState {
   snapshot: ExplorerSnapshot;
   writeChain: Promise<ContainerNode | null>;
 }
-
-export type NullableExplorerDocumentField =
-  | "accessStateHash"
-  | "lastCommitLsn"
-  | "contentKeyBundle"
-  | "documentKekTargets"
-  | "documentManifestBundle";

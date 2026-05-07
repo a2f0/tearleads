@@ -1,116 +1,46 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  encodeVersionVector,
-  exportAllUpdates,
-  exportUpdatesSince,
-} from "@tearleads/loro";
+import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
 import {
   createInitializedContainerMetadataDocument,
-  readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers";
-import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import {
   createRemoteExplorerContainer,
   deleteRemoteExplorerContainer,
+  type ExplorerContainerMetadataPatch,
   moveRemoteExplorerContainer,
+  persistExplorerContainerMetadataState,
   shareRemoteExplorerContainer,
 } from "../../workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
-import {
-  type ContainerMetadataDocument,
-  type ContainerState,
-  type ExplorerContainerPatch,
-  type ExplorerSyncAgent,
-  getDefaultContainerName,
+import type {
+  ContainerMetadataDocument,
+  ContainerState,
+  ExplorerSyncAgent,
 } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";
 import type { ExplorerStoreState } from "./types";
-import {
-  isContainerInSubtree,
-  resolveNullableExplorerDocumentField,
-  toContainerNode,
-} from "./utils";
+import { isContainerInSubtree, toContainerNode } from "./utils";
 
 export async function persistContainerState(
   state: ExplorerStoreState,
   containerState: ContainerState,
-  patch: Partial<ExplorerContainerPatch> = {},
+  patch: Partial<ExplorerContainerMetadataPatch> = {},
   updateView = true,
 ): Promise<DocumentRecord> {
-  const currentDocumentId = containerState.record.documentId ?? null;
-  const nextDocumentId = patch.documentId ?? currentDocumentId;
-  const documentIdChanged = nextDocumentId !== currentDocumentId;
-  const nextAccessEpoch =
-    patch.accessEpoch ?? containerState.record.accessEpoch;
-  const securityContextChanged =
-    documentIdChanged || nextAccessEpoch !== containerState.record.accessEpoch;
-  const metadata = readContainerMetadataValue(
-    containerState.doc,
-    getDefaultContainerName(containerState.container.parentId),
-  );
-  const nextContainer: ContainerRecord = {
-    ...containerState.container,
-    organizationId:
-      patch.organizationId ?? containerState.container.organizationId,
-    parentId: patch.parentId ?? containerState.container.parentId,
-    metadataDocumentId:
-      patch.metadataDocumentId ??
-      patch.documentId ??
-      containerState.container.metadataDocumentId,
-    name: patch.name ?? metadata.name,
-    icon: patch.icon ?? metadata.icon,
-  };
-  const nextRecord: DocumentRecord = {
-    id: containerState.container.id,
-    documentId: nextDocumentId,
-    loroSnapshot:
-      patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(containerState.doc)),
-    accessEpoch: nextAccessEpoch,
-    accessStateHash: resolveNullableExplorerDocumentField(
-      patch,
-      "accessStateHash",
-      containerState.record.accessStateHash,
-      securityContextChanged,
-    ),
-    lastCommitLsn: resolveNullableExplorerDocumentField(
-      patch,
-      "lastCommitLsn",
-      containerState.record.lastCommitLsn,
-      documentIdChanged,
-    ),
-    contentKeyBundle: resolveNullableExplorerDocumentField(
-      patch,
-      "contentKeyBundle",
-      containerState.record.contentKeyBundle,
-      securityContextChanged,
-    ),
-    documentKekTargets: resolveNullableExplorerDocumentField(
-      patch,
-      "documentKekTargets",
-      containerState.record.documentKekTargets,
-      securityContextChanged,
-    ),
-    documentManifestBundle: resolveNullableExplorerDocumentField(
-      patch,
-      "documentManifestBundle",
-      containerState.record.documentManifestBundle,
-      securityContextChanged,
-    ),
-  };
-
-  await state.persistence.saveContainer(
-    state.runtime.execSql,
-    nextContainer,
-    nextRecord,
-  );
-  containerState.container = nextContainer;
-  containerState.record = nextRecord;
+  const persisted = await persistExplorerContainerMetadataState({
+    execSql: state.runtime.execSql,
+    metadataState: containerState,
+    patch,
+    persistence: state.persistence,
+  });
+  containerState.container = persisted.container;
+  containerState.record = persisted.record;
   if (updateView) {
     updateExplorerSnapshot(state);
   }
-  return nextRecord;
+  return persisted.record;
 }
 
 async function buildRemoteChildContainerState(
