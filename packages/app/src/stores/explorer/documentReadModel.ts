@@ -55,6 +55,11 @@ export interface ExplorerDocumentReadModel {
   ): Promise<ReadonlyArray<DocumentSummary>>;
 }
 
+interface ExplorerSharedDocumentSummaries {
+  documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+}
+
 async function listVisibleExplorerDocumentSummaries(
   execSql: ExecSql,
   containers: ReadonlyArray<{ id: string }>,
@@ -72,6 +77,40 @@ async function listVisibleExplorerDocumentSummaries(
       documentSummary.containerId &&
       validContainerIds.has(documentSummary.containerId),
   );
+}
+
+export async function listExplorerDocumentsForContainerSubtree(
+  execSql: ExecSql,
+  containerIds: ReadonlyArray<string>,
+): Promise<ExplorerSharedDocumentSummaries> {
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+  const linkedDocumentIds =
+    await sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
+      execSql,
+      containerIds,
+    );
+  const documentSummaries =
+    await sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
+      execSql,
+      {
+        containerIds,
+        documentIds: linkedDocumentIds,
+      },
+    );
+  const documentIds = Array.from(
+    new Set(
+      documentSummaries.flatMap((documentSummary) =>
+        documentSummary.documentId ? [documentSummary.documentId] : [],
+      ),
+    ),
+  );
+  const linkedContainerIdsByDocumentId =
+    await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
+      execSql,
+      documentIds,
+    );
+
+  return { documentSummaries, linkedContainerIdsByDocumentId };
 }
 
 function listExplorerLinkedContainerIdsByDocumentIds(

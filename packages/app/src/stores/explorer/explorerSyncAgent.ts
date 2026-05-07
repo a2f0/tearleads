@@ -25,8 +25,6 @@ import {
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
-import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type {
   ContainerCreateIntentRecord,
   ExplorerPersistence,
@@ -50,6 +48,8 @@ import {
   syncRemoteExplorerContainerMetadata,
 } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
+import { listExplorerDocumentsForContainerSubtree } from "./documentReadModel";
+import { createExplorerDocumentsRuntime } from "./documentRuntime";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
 
@@ -153,29 +153,6 @@ function requestExplorerSync(state: ExplorerSyncState) {
   state.syncLane?.requestSync();
 }
 
-function buildNotesRuntime(state: ExplorerSyncState, containerId: string) {
-  const { apiClient } = state.runtime;
-  return {
-    apiClient,
-    blobStore: state.runtime.blobStore,
-    cacheReferencedPrincipalPolicies:
-      state.runtime.cacheReferencedPrincipalPolicies,
-    containerId,
-    dbStatus: state.runtime.dbStatus,
-    domainScope: state.runtime.domainScope,
-    encapsulationKeyPair: state.runtime.encapsulationKeyPair,
-    events: state.runtime.events,
-    execSql: state.runtime.execSql,
-    isAuthenticated: state.runtime.isAuthenticated,
-    log: state.runtime.log,
-    online: state.runtime.online,
-    organizationId: state.runtime.organizationId ?? null,
-    signingFingerprint: state.runtime.signingFingerprint ?? null,
-    signingKeyPair: state.runtime.signingKeyPair ?? null,
-    userId: state.runtime.userId ?? null,
-  };
-}
-
 function resolveSharedDocumentRuntimeContainerId(params: {
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   documentSummary: {
@@ -245,32 +222,11 @@ async function primeDocumentsForSharedSubtree(
     return;
   }
 
-  await sqlDocumentsPersistence.ensureSchema(state.runtime.execSql);
   const sharedContainerIdList = Array.from(sharedContainerIds);
-  const sharedDocumentIds =
-    await sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
+  const { documentSummaries, linkedContainerIdsByDocumentId } =
+    await listExplorerDocumentsForContainerSubtree(
       state.runtime.execSql,
       sharedContainerIdList,
-    );
-  const documentSummaries =
-    await sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
-      state.runtime.execSql,
-      {
-        containerIds: sharedContainerIdList,
-        documentIds: sharedDocumentIds,
-      },
-    );
-  const documentIds = Array.from(
-    new Set(
-      documentSummaries.flatMap((documentSummary) =>
-        documentSummary.documentId ? [documentSummary.documentId] : [],
-      ),
-    ),
-  );
-  const linkedContainerIdsByDocumentId =
-    await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
-      state.runtime.execSql,
-      documentIds,
     );
 
   for (const documentSummary of documentSummaries) {
@@ -286,7 +242,17 @@ async function primeDocumentsForSharedSubtree(
     const documentStore = primeDocumentStore(
       state.runtime.domainScope,
       documentSummary.id,
-      buildNotesRuntime(state, runtimeContainerId),
+      createExplorerDocumentsRuntime(
+        {
+          ...state.runtime,
+          organizationId: state.runtime.organizationId ?? null,
+          resolveProjectionUserKey: state.resolveProjectionUserKey,
+          signingFingerprint: state.runtime.signingFingerprint ?? null,
+          signingKeyPair: state.runtime.signingKeyPair ?? null,
+          userId: state.runtime.userId ?? null,
+        },
+        runtimeContainerId,
+      ),
       documentSummary.documentId,
     );
     documentStore.requestSync();
