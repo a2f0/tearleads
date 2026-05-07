@@ -615,14 +615,14 @@ test("manual refresh deduplicates principal references and document link replace
       cachedPrincipalReferences.push(references);
     },
     containerIds: ["container-a", "container-b"],
-    listContainerDocuments: async () =>
+    listContainerDocuments: async (containerId) =>
       listContainerDocumentsResponse([
         {
           createdAt: "2026-04-06T12:00:00.000Z",
           currentAccessEpoch: 1,
           currentAccessStateHash: "shared-access-state-hash",
           id: "shared-document",
-          linkedContainerIds: ["container-a", "container-b"],
+          linkedContainerIds: [containerId],
           referencedPrincipals: [referencedPrincipal],
           updatedAt: "2026-04-06T12:00:00.000Z",
         },
@@ -654,7 +654,7 @@ test("manual refresh deduplicates principal references and document link replace
         containerId: "container-a",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "shared-document",
-        linkedContainerIds: ["container-a", "container-b"],
+        linkedContainerIds: ["container-a"],
       },
       {
         accessEpoch: 1,
@@ -662,7 +662,7 @@ test("manual refresh deduplicates principal references and document link replace
         containerId: "container-b",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "shared-document",
-        linkedContainerIds: ["container-a", "container-b"],
+        linkedContainerIds: ["container-b"],
       },
     ],
   ]);

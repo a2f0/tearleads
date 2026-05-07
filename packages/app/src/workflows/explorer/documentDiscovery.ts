@@ -414,7 +414,7 @@ export async function discoverAllContainerDocuments({
       ),
     ),
   );
-  const documentLinksByDocumentId = new Map<string, ReadonlyArray<string>>();
+  const documentLinksByDocumentId = new Map<string, Set<string>>();
   const discoveredDocumentInputs: DiscoveredDocumentInput[] = [];
 
   for (const { containerId, listedDocuments } of listedDocumentsByContainer) {
@@ -423,7 +423,13 @@ export async function discoverAllContainerDocuments({
     }
 
     for (const document of listedDocuments.items) {
-      documentLinksByDocumentId.set(document.id, document.linkedContainerIds);
+      const linkedContainerIds =
+        documentLinksByDocumentId.get(document.id) ?? new Set<string>();
+      linkedContainerIds.add(containerId);
+      for (const linkedContainerId of document.linkedContainerIds) {
+        linkedContainerIds.add(linkedContainerId);
+      }
+      documentLinksByDocumentId.set(document.id, linkedContainerIds);
       discoveredDocumentInputs.push({
         accessEpoch: document.currentAccessEpoch,
         accessStateHash: document.currentAccessStateHash,
@@ -446,7 +452,7 @@ export async function discoverAllContainerDocuments({
         documentLinksByDocumentId,
         ([documentId, containerIds]): DocumentLinkInput => ({
           documentId,
-          containerIds,
+          containerIds: Array.from(containerIds).sort(),
         }),
       ),
     );
