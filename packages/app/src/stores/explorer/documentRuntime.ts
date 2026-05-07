@@ -1,10 +1,14 @@
 import { useMemo } from "react";
+import {
+  createProjectionUserKeyResolver,
+  type ProjectionUserKeyResolver,
+} from "../../data/keyingProjectionVerification";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import type { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerDocumentRuntime = Parameters<typeof primeDocumentStore>[2];
 
-export type ExplorerDocumentsRuntimeAppData = Pick<
+export type ExplorerDocumentsRuntimeAppDataInput = Pick<
   AppDataContextValue,
   | "apiClient"
   | "blobStore"
@@ -22,6 +26,11 @@ export type ExplorerDocumentsRuntimeAppData = Pick<
   | "signingKeyPair"
   | "userId"
 >;
+
+export type ExplorerDocumentsRuntimeAppData =
+  ExplorerDocumentsRuntimeAppDataInput & {
+    resolveProjectionUserKey: ProjectionUserKeyResolver;
+  };
 
 export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
   return (
@@ -73,7 +82,7 @@ export function createExplorerDocumentsRuntime(
 }
 
 export function useExplorerDocumentsRuntimeAppData(
-  appData: ExplorerDocumentsRuntimeAppData,
+  appData: ExplorerDocumentsRuntimeAppDataInput,
 ): ExplorerDocumentsRuntimeAppData {
   const {
     apiClient,
@@ -92,6 +101,28 @@ export function useExplorerDocumentsRuntimeAppData(
     signingKeyPair,
     userId,
   } = appData;
+  const resolveProjectionUserKey = useMemo(
+    () =>
+      createProjectionUserKeyResolver(
+        {
+          apiClient,
+          encapsulationKeyPair,
+          log,
+          signingFingerprint,
+          signingKeyPair,
+          userId,
+        },
+        "Explorer documents",
+      ),
+    [
+      apiClient,
+      encapsulationKeyPair,
+      log,
+      signingFingerprint,
+      signingKeyPair,
+      userId,
+    ],
+  );
 
   return useMemo(
     () => ({
@@ -110,6 +141,7 @@ export function useExplorerDocumentsRuntimeAppData(
       signingFingerprint,
       signingKeyPair,
       userId,
+      resolveProjectionUserKey,
     }),
     [
       apiClient,
@@ -127,6 +159,7 @@ export function useExplorerDocumentsRuntimeAppData(
       signingFingerprint,
       signingKeyPair,
       userId,
+      resolveProjectionUserKey,
     ],
   );
 }

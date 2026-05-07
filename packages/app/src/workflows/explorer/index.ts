@@ -3,3 +3,4 @@ export {
   moveRemoteExplorerContainer,
   shareRemoteExplorerContainer,
 } from "./containers";
+export { relinkRemoteExplorerDocument } from "./documentLinks";

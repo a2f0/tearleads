@@ -9,7 +9,7 @@ import type {
 } from "../../../stores/explorer/documentReadModel";
 import {
   createExplorerDocumentsRuntime,
-  type ExplorerDocumentsRuntimeAppData,
+  type ExplorerDocumentsRuntimeAppDataInput,
   isDestroyedDatabaseWorkerError,
   useExplorerDocumentsRuntimeAppData,
 } from "../../../stores/explorer/documentRuntime";
@@ -18,7 +18,7 @@ import {
   hasUndiscoveredDocumentUpdateEvent,
 } from "../documentDiscovery";
 
-type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppData &
+type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput &
   Pick<AppDataContextValue, "events">;
 
 type ReplaceDocumentLinksBatch = (

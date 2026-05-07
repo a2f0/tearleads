@@ -2,6 +2,7 @@ import type { MouseEvent, ReactNode } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import {
   type ContextMenuState,
   useExplorerContextMenu,
@@ -88,12 +89,13 @@ export function useExplorerPanelState(params: {
     setSidebar,
     treeEntries,
   } = params;
+  const explorerDocumentsAppData = useExplorerDocumentsRuntimeAppData(appData);
   const contextMenuState = useExplorerContextMenu(
     explorer.nodes,
     selection.setSelectedId,
   );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
-    appData,
+    appData: explorerDocumentsAppData,
     documentReadModel,
     expandNode: selection.expandNode,
     linkedContainerIdsByDocumentId,
