@@ -2,7 +2,7 @@ import type {
   ContainerSummary,
   SyncWatermark,
 } from "@tearleads/validators/response";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type {
@@ -100,12 +100,17 @@ export function useExplorerRefreshAction(params: {
   const { apiClient, cacheReferencedPrincipalPolicies } = appData;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const refreshPromiseRef = useRef<Promise<boolean> | null>(null);
 
-  const handleRefresh = useCallback(async (): Promise<boolean> => {
+  const handleRefresh = useCallback((): Promise<boolean> => {
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
+
     setRefreshError(null);
     setIsRefreshing(true);
 
-    try {
+    const refreshPromise = (async (): Promise<boolean> => {
       const refreshed = await refresh();
       if (!refreshed) {
         setRefreshError("Refresh unavailable.");
@@ -139,15 +144,23 @@ export function useExplorerRefreshAction(params: {
       mergeDocumentSummaries(discoveredDocumentSummaries);
       primeDiscoveredDocuments(discoveredDocumentSummaries);
       return true;
-    } catch (error: unknown) {
-      if (!isDestroyedDatabaseWorkerError(error)) {
-        console.error("Failed to refresh explorer:", error);
-        setRefreshError("Failed to refresh explorer.");
-      }
-      return false;
-    } finally {
-      setIsRefreshing(false);
-    }
+    })()
+      .catch((error: unknown) => {
+        if (!isDestroyedDatabaseWorkerError(error)) {
+          console.error("Failed to refresh explorer:", error);
+          setRefreshError("Failed to refresh explorer.");
+        }
+        return false;
+      })
+      .finally(() => {
+        if (refreshPromiseRef.current === refreshPromise) {
+          refreshPromiseRef.current = null;
+          setIsRefreshing(false);
+        }
+      });
+
+    refreshPromiseRef.current = refreshPromise;
+    return refreshPromise;
   }, [
     apiClient,
     applyContainerDocumentTombstones,
