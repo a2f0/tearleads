@@ -46,6 +46,7 @@ import type {
   PendingUpdateInsert,
   PendingUpdateRecord,
 } from "../../data/persistence/notes/notesPersistence";
+import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import { createEmptyDriverLicenseDocument } from "../../document-types/drivers-license/driverLicenseDocument";
 import {
   decryptDocumentAttachmentBlob,
@@ -1006,6 +1007,55 @@ test("domain-scoped persisted document subscriptions fan out to multiple listene
     unsubscribeFirst();
     unsubscribeSecond();
   }
+});
+
+test("notes store re-registers sync lane when runtime domain scope changes", async () => {
+  const persistence = createNotesPersistence();
+  const firstRuntime = createRuntime();
+  const secondRuntime: NotesRuntime = {
+    ...firstRuntime,
+    domainScope: {},
+  };
+  const store = createNotesStore(
+    "domain-scope-note",
+    firstRuntime,
+    persistence,
+  );
+  store.updateRuntime(firstRuntime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Notes store did not become ready before the domain scope changed.",
+  );
+
+  store.updateRuntime(secondRuntime);
+
+  let oldDomainSyncRequested = false;
+  let nextDomainSyncRequested = false;
+  getOrCreateDomainSyncCoordinator(firstRuntime.domainScope).registerLane(
+    "documents:domain-scope-note",
+    {
+      run: async () => {
+        oldDomainSyncRequested = true;
+      },
+    },
+  );
+  getOrCreateDomainSyncCoordinator(secondRuntime.domainScope).registerLane(
+    "documents:domain-scope-note",
+    {
+      run: async () => {
+        nextDomainSyncRequested = true;
+      },
+    },
+  );
+
+  store.requestSync();
+
+  await waitForCondition(
+    () => nextDomainSyncRequested,
+    "Notes store did not request sync through the updated domain scope.",
+  );
+  expect(oldDomainSyncRequested).toBe(false);
 });
 
 test("notes store reloads persisted note text and pending updates", async () => {
