@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import type { SyncWatermark } from "@tearleads/validators/response";
+import type {
+  ReferencedPrincipalStateResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
@@ -24,13 +27,7 @@ function listContainerDocumentsResponse(
     currentAccessStateHash: string;
     id: string;
     linkedContainerIds: string[];
-    referencedPrincipals?: Array<{
-      keyEpoch: number;
-      principalId: string;
-      principalType: "group" | "organization";
-      stateHash: string;
-      version: number;
-    }>;
+    referencedPrincipals?: ReferencedPrincipalStateResponse[];
     updatedAt: string;
   }>,
   overrides: Partial<{
@@ -81,13 +78,7 @@ function captureDiscoveredDocumentInputs(
 
 test("unknown document update events trigger rediscovery for shared container notes", async () => {
   const cachedPrincipalReferences: Array<
-    ReadonlyArray<{
-      keyEpoch: number;
-      principalId: string;
-      principalType: "group" | "organization";
-      stateHash: string;
-      version: number;
-    }>
+    ReadonlyArray<ReferencedPrincipalStateResponse>
   > = [];
   const replaceDocumentLinksBatchCalls: Array<
     ReadonlyArray<{
@@ -128,6 +119,7 @@ test("unknown document update events trigger rediscovery for shared container no
           referencedPrincipals: [
             {
               keyEpoch: 1,
+              keyFingerprint: "key-fingerprint-1",
               principalId: "group-1",
               principalType: "group",
               stateHash: "state-hash-1",
@@ -178,6 +170,7 @@ test("unknown document update events trigger rediscovery for shared container no
     [
       {
         keyEpoch: 1,
+        keyFingerprint: "key-fingerprint-1",
         principalId: "group-1",
         principalType: "group",
         stateHash: "state-hash-1",
@@ -438,13 +431,7 @@ test("container document discovery does not advance watermark when tombstone app
 
 test("manual refresh can discover documents across all visible containers", async () => {
   const cachedPrincipalReferences: Array<
-    ReadonlyArray<{
-      keyEpoch: number;
-      principalId: string;
-      principalType: "group" | "organization";
-      stateHash: string;
-      version: number;
-    }>
+    ReadonlyArray<ReferencedPrincipalStateResponse>
   > = [];
   const listContainerDocumentsCalls: string[] = [];
   const replaceDocumentLinksBatchCalls: Array<
@@ -475,6 +462,7 @@ test("manual refresh can discover documents across all visible containers", asyn
             referencedPrincipals: [
               {
                 keyEpoch: 1,
+                keyFingerprint: "key-fingerprint-a",
                 principalId: "group-a",
                 principalType: "group",
                 stateHash: "state-hash-a",
@@ -496,6 +484,7 @@ test("manual refresh can discover documents across all visible containers", asyn
           referencedPrincipals: [
             {
               keyEpoch: 2,
+              keyFingerprint: "key-fingerprint-b",
               principalId: "organization-b",
               principalType: "organization",
               stateHash: "state-hash-b",
@@ -559,6 +548,7 @@ test("manual refresh can discover documents across all visible containers", asyn
     [
       {
         keyEpoch: 1,
+        keyFingerprint: "key-fingerprint-a",
         principalId: "group-a",
         principalType: "group",
         stateHash: "state-hash-a",
@@ -566,6 +556,7 @@ test("manual refresh can discover documents across all visible containers", asyn
       },
       {
         keyEpoch: 2,
+        keyFingerprint: "key-fingerprint-b",
         principalId: "organization-b",
         principalType: "organization",
         stateHash: "state-hash-b",

@@ -8,7 +8,6 @@ import {
 import type {
   ContainerSummary,
   ContainerSyncTombstone,
-  ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import type { BlobStore } from "../../data/blobs";
 import {
@@ -20,8 +19,7 @@ import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
 } from "../../data/documentSync";
-import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import {
   containerParentSyncLane,
@@ -45,15 +43,10 @@ import {
 } from "../../data/sync/syncCoordinator";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
-  createRemoteContainer,
-  moveRemoteContainer,
-  shareRemoteContainer,
-} from "../../workflows/containers";
-import {
-  createRemoteDocument,
-  type DocumentCreateAuthor,
+  resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../workflows/documents";
+import { createRemoteExplorerContainer } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
@@ -124,6 +117,7 @@ export interface ExplorerSyncState {
   lastEventCount: number;
   persistence: ExplorerPersistence;
   remoteHydrationPromise: Promise<void> | null;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ExplorerRuntime;
   snapshot: {
     ready: boolean;
@@ -1040,257 +1034,6 @@ function ensureExplorerStoreInitialized(input: {
   });
 }
 
-function resolveExplorerAuthor(
-  runtime: ExplorerRuntime,
-): DocumentCreateAuthor | null {
-  if (
-    !runtime.organizationId ||
-    !runtime.signingFingerprint ||
-    !runtime.signingKeyPair ||
-    !runtime.userId
-  ) {
-    return null;
-  }
-
-  return {
-    organizationId: runtime.organizationId,
-    signerDeviceId: createDocumentSignerDeviceId(runtime.signingFingerprint),
-    signerKeyFingerprint: runtime.signingFingerprint,
-    signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
-    signerUserId: runtime.userId,
-  };
-}
-
-export async function createRemoteExplorerContainer(input: {
-  containerId: string;
-  parentContainerId: string;
-  runtime: ExplorerRuntime;
-}): Promise<{
-  accessManifestHash: string;
-  containerId: string;
-  metadataDocumentId: string;
-  organizationId: string;
-  parentId: string | null;
-  persistedMetadataState: Pick<
-    DocumentRecord,
-    | "documentId"
-    | "contentKeyBundle"
-    | "documentKekTargets"
-    | "documentManifestBundle"
-  >;
-} | null> {
-  const author = resolveExplorerAuthor(input.runtime);
-  const { apiClient } = input.runtime;
-  const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
-  if (!author || !parentSecretKey) {
-    input.runtime.log(
-      "Explorer: skipped container create because the writer context is unavailable.",
-    );
-    return null;
-  }
-
-  const createdContainer = await createRemoteContainer({
-    apiClient,
-    author,
-    containerId: input.containerId,
-    execSql: input.runtime.execSql,
-    metadataDocumentId: input.containerId,
-    parentContainerId: input.parentContainerId,
-    parentSecretKey,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      input.runtime,
-      "Explorer",
-    ),
-  });
-  if (!createdContainer) {
-    return null;
-  }
-
-  const createdMetadataDocument = await createRemoteDocument({
-    apiClient,
-    author,
-    containerId: createdContainer.containerId,
-    documentId: createdContainer.metadataDocumentId,
-    execSql: input.runtime.execSql,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      input.runtime,
-      "Explorer",
-    ),
-    targetSecretKey: parentSecretKey,
-  });
-  if (!createdMetadataDocument) {
-    return null;
-  }
-
-  return {
-    accessManifestHash: createdContainer.response.manifestHead.manifestHash,
-    containerId: createdContainer.containerId,
-    metadataDocumentId: createdMetadataDocument.documentId,
-    organizationId: createdContainer.response.organizationId,
-    parentId: createdContainer.response.parentId,
-    persistedMetadataState: createdMetadataDocument.persistedState,
-  };
-}
-
-function readMutationMetadataDocumentId(input: {
-  response: {
-    accessManifest: { state: Record<string, unknown> };
-  };
-}): string {
-  const metadataDocumentId = Reflect.get(
-    input.response.accessManifest.state,
-    "metadataDocumentId",
-  );
-  if (
-    typeof metadataDocumentId !== "string" ||
-    metadataDocumentId.length === 0
-  ) {
-    throw new Error("Container mutation response is missing metadata state");
-  }
-
-  return metadataDocumentId;
-}
-
-function referencedPrincipalHeadsFromResponse(input: {
-  response: { referencedPrincipalHeads: readonly Record<string, unknown>[] };
-}): ReferencedPrincipalStateResponse[] {
-  return input.response.referencedPrincipalHeads.flatMap((head) => {
-    const principalType = Reflect.get(head, "principalType");
-    const principalId = Reflect.get(head, "principalId");
-    const version = Reflect.get(head, "version");
-    const keyEpoch = Reflect.get(head, "keyEpoch");
-    const stateHash = Reflect.get(head, "stateHash");
-
-    if (
-      (principalType !== "group" && principalType !== "organization") ||
-      typeof principalId !== "string" ||
-      !Number.isInteger(version) ||
-      !Number.isInteger(keyEpoch) ||
-      typeof stateHash !== "string"
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        principalType,
-        principalId,
-        version: version as number,
-        keyEpoch: keyEpoch as number,
-        stateHash,
-      },
-    ];
-  });
-}
-
-export async function shareRemoteExplorerContainer(input: {
-  accessLevel: "read" | "write" | "admin";
-  containerId: string;
-  recipientUserId: string;
-  runtime: ExplorerRuntime;
-}): Promise<{
-  accessManifestHash: string;
-  accessEpoch: number;
-  metadataDocumentId: string;
-  referencedPrincipalHeads: ReturnType<
-    typeof referencedPrincipalHeadsFromResponse
-  >;
-} | null> {
-  const author = resolveExplorerAuthor(input.runtime);
-  const { apiClient } = input.runtime;
-  const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
-  if (!author || !targetSecretKey) {
-    input.runtime.log(
-      "Explorer: skipped container share because the writer context is unavailable.",
-    );
-    return null;
-  }
-
-  const recipientKey = await input.runtime.apiClient.getEncapsulationKey(
-    input.recipientUserId,
-  );
-  if (!recipientKey) {
-    return null;
-  }
-
-  const shared = await shareRemoteContainer({
-    accessLevel: input.accessLevel,
-    apiClient,
-    author,
-    containerId: input.containerId,
-    execSql: input.runtime.execSql,
-    recipientEncapsulationPublicKey: base64ToBytes(
-      recipientKey.encapsulationPublicKey,
-    ),
-    recipientUserId: input.recipientUserId,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      input.runtime,
-      "Explorer",
-    ),
-    targetSecretKey,
-  });
-  if (!shared) {
-    return null;
-  }
-
-  return {
-    accessManifestHash: shared.response.manifestHead.manifestHash,
-    accessEpoch: shared.response.manifestHead.epoch,
-    metadataDocumentId: readMutationMetadataDocumentId({
-      response: shared.response,
-    }),
-    referencedPrincipalHeads: referencedPrincipalHeadsFromResponse({
-      response: shared.response,
-    }),
-  };
-}
-
-export async function moveRemoteExplorerContainer(input: {
-  containerId: string;
-  parentContainerId: string;
-  runtime: ExplorerRuntime;
-}): Promise<ExplorerRemoteContainer | null> {
-  const author = resolveExplorerAuthor(input.runtime);
-  const { apiClient } = input.runtime;
-  const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
-  if (!author || !targetSecretKey) {
-    input.runtime.log(
-      "Explorer: skipped container move because the writer context is unavailable.",
-    );
-    return null;
-  }
-
-  const moved = await moveRemoteContainer({
-    apiClient,
-    author,
-    containerId: input.containerId,
-    destinationParentContainerId: input.parentContainerId,
-    execSql: input.runtime.execSql,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      input.runtime,
-      "Explorer",
-    ),
-    targetSecretKey,
-  });
-  if (!moved) {
-    return null;
-  }
-
-  return {
-    id: moved.response.containerId,
-    organizationId: moved.response.organizationId,
-    parentId: moved.response.parentId,
-    metadataDocumentId: readMutationMetadataDocumentId({
-      response: moved.response,
-    }),
-    metadataAccessEpoch: moved.response.manifestHead.epoch,
-    metadataAccessStateHash: moved.response.manifestHead.manifestHash,
-    metadataReferencedPrincipals: referencedPrincipalHeadsFromResponse({
-      response: moved.response,
-    }),
-  };
-}
-
 function createExplorerWriterPublicKeyResolver(state: ExplorerSyncState) {
   const cache = new Map<string, Promise<Uint8Array | null>>();
 
@@ -1376,7 +1119,7 @@ async function requestContainerMetadataSync(
     containerState.container.id,
   );
 
-  const author = resolveExplorerAuthor(state.runtime);
+  const author = resolveDocumentCreateAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
@@ -1393,10 +1136,7 @@ async function requestContainerMetadataSync(
     localVersionVector: encodeVersionVector(containerState.doc),
     minLsn: containerState.record.lastCommitLsn ?? undefined,
     pendingUpdates,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      state.runtime,
-      "Explorer",
-    ),
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createExplorerWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
   }).catch((error: unknown) => {
@@ -1560,6 +1300,7 @@ async function tryCreateRemoteContainerFromIntent(input: {
   const created = await createRemoteExplorerContainer({
     containerId: containerState.container.id,
     parentContainerId: parentState.container.id,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
 

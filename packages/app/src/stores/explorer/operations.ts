@@ -11,16 +11,18 @@ import {
 } from "../../data/containers";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
+import {
+  createRemoteExplorerContainer,
+  moveRemoteExplorerContainer,
+  shareRemoteExplorerContainer,
+} from "../../workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import {
   type ContainerMetadataDocument,
   type ContainerState,
-  createRemoteExplorerContainer,
   type ExplorerContainerPatch,
   type ExplorerSyncAgent,
   getDefaultContainerName,
-  moveRemoteExplorerContainer,
-  shareRemoteExplorerContainer,
 } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";
 import type { ExplorerStoreState } from "./types";
@@ -121,6 +123,7 @@ async function buildRemoteChildContainerState(
   const created = await createRemoteExplorerContainer({
     containerId: childId,
     parentContainerId: parentState.container.id,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
 
@@ -379,6 +382,7 @@ export async function shareExplorerContainerWithUser(
     accessLevel: "write",
     containerId,
     recipientUserId: userId,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
 
@@ -436,6 +440,7 @@ export async function moveExplorerContainer(
   const moved = await moveRemoteExplorerContainer({
     containerId,
     parentContainerId: parentId,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
   if (!moved) {

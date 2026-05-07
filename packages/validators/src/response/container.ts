@@ -38,7 +38,7 @@ export interface ContainerMutationResponse {
   };
   accessManifest: AccessManifestBundleWireResponse;
   containerKek: ContainerKekResponse;
-  referencedPrincipalHeads: Record<string, unknown>[];
+  referencedPrincipalHeads: ReferencedPrincipalStateResponse[];
 }
 
 export interface ContainerDeleteResponse {
@@ -210,7 +210,8 @@ export function isContainerMutationResponse(
     hasStringProperty(manifestHead, "manifestHash") &&
     isAccessManifestBundleWireResponse(accessManifest) &&
     isContainerKekResponse(containerKek) &&
-    isRecordArray(referencedPrincipalHeads)
+    Array.isArray(referencedPrincipalHeads) &&
+    referencedPrincipalHeads.every(isReferencedPrincipalStateResponse)
   );
 }
 
