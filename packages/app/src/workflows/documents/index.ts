@@ -20,3 +20,4 @@ export {
   relinkRemoteDocument,
 } from "./linkSet";
 export { syncRemoteDocument } from "./sync";
+export { createDocumentWriterPublicKeyResolver } from "./writerKeys";
