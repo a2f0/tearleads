@@ -22,10 +22,7 @@ import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
 } from "../../data/documentSync";
-import {
-  createDocumentSignerDeviceId,
-  DEFAULT_DOCUMENT_ACCESS_EPOCH,
-} from "../../data/documents/documentConstants";
+import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import {
   addDocumentAttachments,
   type DocumentAttachment,
@@ -34,7 +31,10 @@ import {
   sameDocumentAttachments,
 } from "../../data/documents/documentContent";
 import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import {
+  createProjectionUserKeyResolver,
+  type ProjectionUserKeyResolver,
+} from "../../data/keyingProjectionVerification";
 import {
   DOCUMENTS_APP_KIND,
   type StoredDocumentRecord as DocumentRecord,
@@ -61,6 +61,7 @@ import {
 import {
   createRemoteDocument,
   type DocumentCreateAuthor,
+  resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../workflows/documents";
 
@@ -392,6 +393,7 @@ interface DocumentStoreState {
   pendingAttachments: PendingAttachmentRecord[];
   persistence: DocumentsPersistence;
   record: DocumentRecord | null;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
   syncLane: SyncLane | null;
@@ -418,6 +420,10 @@ function createDocumentStoreState(
     pendingAttachments: [],
     persistence,
     record: null,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      initialRuntime,
+      "Documents",
+    ),
     runtime: initialRuntime,
     snapshot: {
       attachments: [],
@@ -491,27 +497,6 @@ function canAttachFiles(state: DocumentStoreState): boolean {
   return (
     state.runtime.dbStatus === "ready" && !!state.runtime.encapsulationKeyPair
   );
-}
-
-function resolveDocumentAuthor(
-  runtime: DocumentsRuntime,
-): DocumentCreateAuthor | null {
-  if (
-    !runtime.organizationId ||
-    !runtime.signingFingerprint ||
-    !runtime.signingKeyPair ||
-    !runtime.userId
-  ) {
-    return null;
-  }
-
-  return {
-    organizationId: runtime.organizationId,
-    signerDeviceId: createDocumentSignerDeviceId(runtime.signingFingerprint),
-    signerKeyFingerprint: runtime.signingFingerprint,
-    signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
-    signerUserId: runtime.userId,
-  };
 }
 
 function createDocumentWriterPublicKeyResolver(state: DocumentStoreState) {
@@ -772,7 +757,7 @@ async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  const author = resolveDocumentAuthor(state.runtime);
+  const author = resolveDocumentCreateAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
@@ -786,10 +771,7 @@ async function ensureRemoteDocument(
     author,
     containerId: state.runtime.containerId,
     execSql: state.runtime.execSql,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      state.runtime,
-      "Documents",
-    ),
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
   if (!created) {
@@ -940,10 +922,7 @@ async function hydrateMissingAttachmentBlob(
     expectedBindingId: binding.bindingId,
     expectedBlobId: binding.blobId,
     execSql: state.runtime.execSql,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      state.runtime,
-      "Documents",
-    ),
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
     writerProjection,
   });
@@ -1245,7 +1224,7 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.online &&
     state.runtime.isAuthenticated &&
     state.runtime.encapsulationKeyPair !== null &&
-    resolveDocumentAuthor(state.runtime) !== null
+    resolveDocumentCreateAuthor(state.runtime) !== null
   );
 }
 
@@ -1274,7 +1253,7 @@ async function syncPendingAttachments(
   }
   const remoteDocumentId = currentRecord.documentId;
 
-  const author = resolveDocumentAuthor(state.runtime);
+  const author = resolveDocumentCreateAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
@@ -1392,10 +1371,7 @@ async function syncPendingAttachmentUpload(input: {
     expectedBindingId:
       input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
       null,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      state.runtime,
-      "Documents",
-    ),
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
   });
@@ -1438,7 +1414,7 @@ async function requestDocumentSync(
     return null;
   }
 
-  const author = resolveDocumentAuthor(state.runtime);
+  const author = resolveDocumentCreateAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
@@ -1455,10 +1431,7 @@ async function requestDocumentSync(
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      state.runtime,
-      "Documents",
-    ),
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -1482,7 +1455,7 @@ async function requestDocumentSyncProbe(
     return null;
   }
 
-  const author = resolveDocumentAuthor(state.runtime);
+  const author = resolveDocumentCreateAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
@@ -1499,10 +1472,7 @@ async function requestDocumentSyncProbe(
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates: [],
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      state.runtime,
-      "Documents",
-    ),
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -1982,12 +1952,33 @@ function subscribeToDocumentStore(
   };
 }
 
+function didDocumentProjectionResolverContextChange(
+  previousRuntime: DocumentsRuntime,
+  nextRuntime: DocumentsRuntime,
+): boolean {
+  return (
+    previousRuntime.apiClient !== nextRuntime.apiClient ||
+    previousRuntime.encapsulationKeyPair !== nextRuntime.encapsulationKeyPair ||
+    previousRuntime.signingFingerprint !== nextRuntime.signingFingerprint ||
+    previousRuntime.signingKeyPair !== nextRuntime.signingKeyPair ||
+    previousRuntime.userId !== nextRuntime.userId
+  );
+}
+
 function updateDocumentStoreRuntime(
   state: DocumentStoreState,
   nextRuntime: DocumentsRuntime,
   scheduleSync: () => void,
 ) {
   const previousRuntime = state.runtime;
+  if (
+    didDocumentProjectionResolverContextChange(previousRuntime, nextRuntime)
+  ) {
+    state.resolveProjectionUserKey = createProjectionUserKeyResolver(
+      nextRuntime,
+      "Documents",
+    );
+  }
   state.runtime = nextRuntime;
 
   if (nextRuntime.dbStatus !== "ready") {
