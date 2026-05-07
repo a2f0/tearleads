@@ -5,6 +5,12 @@ export {
   shareRemoteExplorerContainer,
 } from "./containers";
 export {
+  discoverAllContainerDocuments,
+  discoverContainerDocuments,
+  hasUndiscoveredDocumentUpdateEvent,
+  listAllRemoteExplorerContainerIds,
+} from "./documentDiscovery";
+export {
   type ExplorerRemoteDocumentPersistedState,
   linkRemoteExplorerDocument,
   moveRemoteExplorerDocument,
