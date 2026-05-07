@@ -321,6 +321,8 @@ async function saveDocumentRecord(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
 ): Promise<PersistedDocumentRecord> {
+  const documentIdChanged =
+    (state.record?.documentId ?? null) !== nextRecord.documentId;
   const updatedAt = await state.persistence.saveDocument(
     state.runtime.execSql,
     nextRecord,
@@ -335,11 +337,13 @@ async function saveDocumentRecord(
     title: deriveDocumentTitle(nextRecord.text),
     updatedAt,
   };
-  registerDocumentStoreIdentity(
-    state.runtime.domainScope,
-    nextRecord.id,
-    nextRecord.documentId,
-  );
+  if (documentIdChanged) {
+    registerDocumentStoreIdentity(
+      state.runtime.domainScope,
+      nextRecord.id,
+      nextRecord.documentId,
+    );
+  }
   emitPersistedDocument(state.runtime.domainScope, persistedDocument);
   return {
     record: nextRecord,
@@ -1630,6 +1634,8 @@ function updateDocumentStoreRuntime(
   scheduleSync: () => void,
 ) {
   const previousRuntime = state.runtime;
+  const domainScopeChanged =
+    previousRuntime.domainScope !== nextRuntime.domainScope;
   if (
     didDocumentProjectionResolverContextChange(previousRuntime, nextRuntime)
   ) {
@@ -1639,6 +1645,9 @@ function updateDocumentStoreRuntime(
     );
   }
   state.runtime = nextRuntime;
+  if (domainScopeChanged) {
+    state.syncLane = registerDocumentSyncLane(state);
+  }
 
   if (nextRuntime.dbStatus !== "ready") {
     if (state.snapshot.ready || state.initialized || state.initializePromise) {
@@ -1660,6 +1669,18 @@ function updateDocumentStoreRuntime(
   }
 }
 
+function registerDocumentSyncLane(state: DocumentStoreState): SyncLane {
+  return getOrCreateDomainSyncCoordinator(
+    state.runtime.domainScope,
+  ).registerLane(`documents:${state.localId}`, {
+    onUnexpectedError: (error) => {
+      console.error("Failed to sync documents:", error);
+    },
+    run: () => runScheduledSyncLoop(state),
+    shouldIgnoreError: isDestroyedDatabaseClientError,
+  });
+}
+
 function createBackingDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
@@ -1674,15 +1695,7 @@ function createBackingDocumentStore(
     initialDocumentId,
     initialText,
   );
-  state.syncLane = getOrCreateDomainSyncCoordinator(
-    initialRuntime.domainScope,
-  ).registerLane(`documents:${localId}`, {
-    onUnexpectedError: (error) => {
-      console.error("Failed to sync documents:", error);
-    },
-    run: () => runScheduledSyncLoop(state),
-    shouldIgnoreError: isDestroyedDatabaseClientError,
-  });
+  state.syncLane = registerDocumentSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
 
   return {
