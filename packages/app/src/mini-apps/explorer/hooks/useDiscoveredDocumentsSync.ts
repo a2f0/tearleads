@@ -64,13 +64,12 @@ function useContainerDiscoveryPromiseFactory(params: {
       }
 
       const nextPromise = discoverContainerDocuments({
+        apiClient,
         applyContainerDocumentTombstones,
         cacheReferencedPrincipalPolicies,
         containerId,
         loadContainerDocumentWatermark: (nextContainerId) =>
           documentReadModel.loadContainerDocumentWatermark(nextContainerId),
-        listContainerDocuments: (nextContainerId, options) =>
-          apiClient.listContainerDocuments(nextContainerId, options),
         replaceDocumentLinksBatch,
         saveContainerDocumentWatermark: (nextContainerId, watermark) =>
           documentReadModel.saveContainerDocumentWatermark(

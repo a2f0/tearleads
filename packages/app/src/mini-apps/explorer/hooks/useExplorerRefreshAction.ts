@@ -65,22 +65,20 @@ export function useExplorerRefreshAction(params: {
         return false;
       }
 
-      const remoteContainerIds = await listAllRemoteExplorerContainerIds(
-        (options) => apiClient.listContainers(options),
-      );
+      const remoteContainerIds =
+        await listAllRemoteExplorerContainerIds(apiClient);
       if (!remoteContainerIds) {
         setRefreshError("Failed to refresh documents.");
         return false;
       }
 
       const discoveredDocumentSummaries = await discoverAllContainerDocuments({
+        apiClient,
         applyContainerDocumentTombstones,
         cacheReferencedPrincipalPolicies,
         containerIds: remoteContainerIds,
         loadContainerDocumentWatermark: (containerId) =>
           documentReadModel.loadContainerDocumentWatermark(containerId),
-        listContainerDocuments: (containerId, options) =>
-          apiClient.listContainerDocuments(containerId, options),
         replaceDocumentLinksBatch,
         saveContainerDocumentWatermark: (containerId, watermark) =>
           documentReadModel.saveContainerDocumentWatermark(
