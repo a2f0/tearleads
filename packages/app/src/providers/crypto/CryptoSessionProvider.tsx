@@ -9,12 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  ensureContainerTables,
-  loadContainers,
-  saveContainer,
-} from "../../data/persistence/containers/containerPersistence";
-import { createExecSql } from "../../data/sqlite/sqlSchema";
+import { bootstrapRootContainer } from "../../workflows/registration/bootstrapRootContainer";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useIdentity } from "../identity/IdentityProvider";
@@ -52,37 +47,6 @@ function resetCryptoSessionState(
   setStoredAuthToken(null);
   setIsAuthenticated(false);
   apiClient.setAuthToken(null);
-}
-
-async function bootstrapRootContainer(
-  dbClient: NonNullable<ReturnType<typeof useDatabase>["client"]>,
-) {
-  const execSql = createExecSql(dbClient);
-
-  await ensureContainerTables(execSql);
-  const containers = await loadContainers(execSql);
-  const root = containers.find((container) => container.parentId === null);
-
-  if (root) {
-    return {
-      containerId: root.id,
-      created: false,
-    };
-  }
-
-  const containerId = crypto.randomUUID();
-  await saveContainer(execSql, {
-    id: containerId,
-    organizationId: "",
-    parentId: null,
-    metadataDocumentId: null,
-    name: "/",
-    icon: null,
-  });
-  return {
-    containerId,
-    created: true,
-  };
 }
 
 async function authenticateCurrentIdentity(
