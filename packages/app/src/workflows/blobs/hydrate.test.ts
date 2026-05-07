@@ -165,6 +165,51 @@ test("hydrateDocumentAttachmentBlobs downloads and decrypts remote attachment by
   );
 });
 
+test("hydrateDocumentAttachmentBlobs reuses one writer projection for matched attachments", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  const secondAttachment: DocumentAttachment = {
+    ...fixture.attachment,
+    slotId: "preview-copy",
+  };
+  let writerProjectionCalls = 0;
+
+  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
+    apiClient: {
+      getBlob: async (blobId) => ({
+        blobId,
+        encryptedBytes: fixture.stagedBlob.encryptedBytes,
+        sha256: fixture.stagedBlob.sha256,
+      }),
+      getDocumentWriterProjection: async () => {
+        writerProjectionCalls += 1;
+        return fixture.writerProjection;
+      },
+      listDocumentAttachments: async () => [
+        {
+          bindingId: fixture.bindingId,
+          blobId: fixture.blobId,
+          slotId: fixture.attachment.slotId,
+        },
+        {
+          bindingId: fixture.bindingId,
+          blobId: fixture.blobId,
+          slotId: secondAttachment.slotId,
+        },
+      ],
+    },
+    attachments: [fixture.attachment, secondAttachment],
+    documentId: fixture.writerProjection.documentId,
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    targetSecretKey: fixture.secretKey,
+  });
+
+  expect(writerProjectionCalls).toBe(1);
+  expect(hydratedBlobs?.map((blob) => blob.attachment.slotId)).toEqual([
+    fixture.attachment.slotId,
+    secondAttachment.slotId,
+  ]);
+});
+
 test("hydrateDocumentAttachmentBlobs skips blobs with a digest mismatch", async () => {
   const fixture = await createUploadedAttachmentFixture();
   const logs: string[] = [];

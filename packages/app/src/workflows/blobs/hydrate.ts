@@ -38,6 +38,16 @@ interface DocumentAttachmentHydrationContext {
   targetSecretKey: Uint8Array;
 }
 
+interface DocumentAttachmentHydrationTarget {
+  attachment: DocumentAttachment;
+  binding: BlobAttachmentSummary;
+}
+
+interface LoadedDocumentAttachmentBlob
+  extends DocumentAttachmentHydrationTarget {
+  blob: BlobResponse;
+}
+
 const TEXT_ENCODER = new TextEncoder();
 
 async function hasExpectedBlobSha256(blob: BlobResponse): Promise<boolean> {
@@ -51,13 +61,19 @@ async function hasExpectedBlobSha256(blob: BlobResponse): Promise<boolean> {
   return bytesToHex(blobDigest) === blob.sha256;
 }
 
-async function hydrateDocumentAttachmentBlob(
+function isLoadedDocumentAttachmentBlob(
+  loaded: LoadedDocumentAttachmentBlob | null,
+): loaded is LoadedDocumentAttachmentBlob {
+  return loaded !== null;
+}
+
+async function loadDocumentAttachmentBlob(
   input: DocumentAttachmentHydrationContext & {
     attachment: DocumentAttachment;
     binding: BlobAttachmentSummary;
   },
-): Promise<HydratedDocumentAttachmentBlob | null> {
-  const { apiClient, binding, documentId, log } = input;
+): Promise<LoadedDocumentAttachmentBlob | null> {
+  const { apiClient, binding, log } = input;
   const logPrefix = input.logPrefix ?? "Documents";
   const blob = await apiClient.getBlob(binding.blobId);
   if (!blob) {
@@ -71,30 +87,35 @@ async function hydrateDocumentAttachmentBlob(
     return null;
   }
 
-  const writerProjection =
-    await apiClient.getDocumentWriterProjection(documentId);
-  if (!writerProjection) {
-    log?.(
-      `${logPrefix}: cannot hydrate blob ${binding.blobId} without a writer projection.`,
-    );
-    return null;
-  }
-
-  const bytes = await decryptDocumentAttachmentBlob({
-    encryptedBytes: blob.encryptedBytes,
-    expectedBindingId: binding.bindingId,
-    expectedBlobId: binding.blobId,
-    execSql: input.execSql,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-    targetSecretKey: input.targetSecretKey,
-    writerProjection,
-  });
-
   return {
     attachment: input.attachment,
     binding,
+    blob,
+  };
+}
+
+async function decryptLoadedDocumentAttachmentBlob(
+  input: DocumentAttachmentHydrationContext & {
+    loaded: LoadedDocumentAttachmentBlob;
+    writerProjection: DocumentWriterProjectionResponse;
+  },
+): Promise<HydratedDocumentAttachmentBlob> {
+  const { blob } = input.loaded;
+  const bytes = await decryptDocumentAttachmentBlob({
+    encryptedBytes: blob.encryptedBytes,
+    expectedBindingId: input.loaded.binding.bindingId,
+    expectedBlobId: input.loaded.binding.blobId,
+    execSql: input.execSql,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    targetSecretKey: input.targetSecretKey,
+    writerProjection: input.writerProjection,
+  });
+
+  return {
+    attachment: input.loaded.attachment,
+    binding: input.loaded.binding,
     bytes,
-    storageKey: `blob-${binding.blobId}`,
+    storageKey: `blob-${input.loaded.binding.blobId}`,
   };
 }
 
@@ -113,23 +134,47 @@ export async function hydrateDocumentAttachmentBlobs(
   const bindingBySlotId = new Map(
     attachmentBindings.map((binding) => [binding.slotId, binding]),
   );
-  const hydratedBlobs: HydratedDocumentAttachmentBlob[] = [];
-
-  for (const attachment of input.attachments) {
-    const binding = bindingBySlotId.get(attachment.slotId);
-    if (!binding) {
-      continue;
-    }
-
-    const hydrated = await hydrateDocumentAttachmentBlob({
-      ...input,
-      attachment,
-      binding,
+  const hydrationTargets: DocumentAttachmentHydrationTarget[] =
+    input.attachments.flatMap((attachment) => {
+      const binding = bindingBySlotId.get(attachment.slotId);
+      return binding ? [{ attachment, binding }] : [];
     });
-    if (hydrated) {
-      hydratedBlobs.push(hydrated);
-    }
+  if (hydrationTargets.length === 0) {
+    return [];
   }
 
-  return hydratedBlobs;
+  const loadedBlobs = (
+    await Promise.all(
+      hydrationTargets.map((target) =>
+        loadDocumentAttachmentBlob({
+          ...input,
+          ...target,
+        }),
+      ),
+    )
+  ).filter(isLoadedDocumentAttachmentBlob);
+  if (loadedBlobs.length === 0) {
+    return [];
+  }
+
+  const writerProjection = await input.apiClient.getDocumentWriterProjection(
+    input.documentId,
+  );
+  if (!writerProjection) {
+    const logPrefix = input.logPrefix ?? "Documents";
+    input.log?.(
+      `${logPrefix}: cannot hydrate attachments for document ${input.documentId} without a writer projection.`,
+    );
+    return [];
+  }
+
+  return Promise.all(
+    loadedBlobs.map((loaded) =>
+      decryptLoadedDocumentAttachmentBlob({
+        ...input,
+        loaded,
+        writerProjection,
+      }),
+    ),
+  );
 }

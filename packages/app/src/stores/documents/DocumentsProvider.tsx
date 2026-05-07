@@ -793,13 +793,33 @@ async function saveLocalAttachmentRecord(
   attachment: LocalAttachmentRecord,
   currentDoc: DocumentState | null = state.doc,
 ) {
-  await state.persistence.saveLocalAttachment(
-    state.runtime.execSql,
-    attachment,
-  );
+  await saveLocalAttachmentRecords(state, [attachment], currentDoc);
+}
+
+async function saveLocalAttachmentRecords(
+  state: DocumentStoreState,
+  attachments: ReadonlyArray<LocalAttachmentRecord>,
+  currentDoc: DocumentState | null = state.doc,
+) {
+  if (attachments.length === 0) {
+    return;
+  }
+
+  for (const attachment of attachments) {
+    await state.persistence.saveLocalAttachment(
+      state.runtime.execSql,
+      attachment,
+    );
+  }
+
   state.attachmentStorageKeyBySlotId = {
     ...state.attachmentStorageKeyBySlotId,
-    [attachment.slotId]: attachment.storageKey,
+    ...Object.fromEntries(
+      attachments.map((attachment) => [
+        attachment.slotId,
+        attachment.storageKey,
+      ]),
+    ),
   };
 
   if (currentDoc) {
@@ -857,24 +877,23 @@ async function hydrateAttachmentBlobs(
     return;
   }
 
+  const localAttachmentRecords: LocalAttachmentRecord[] = [];
   for (const hydratedBlob of hydratedBlobs) {
     await state.runtime.blobStore.writeBytes(
       hydratedBlob.storageKey,
       hydratedBlob.bytes,
     );
-    await saveLocalAttachmentRecord(
-      state,
-      {
-        blobId: hydratedBlob.binding.blobId,
-        byteLength: hydratedBlob.attachment.byteLength,
-        localId: state.localId,
-        mimeType: hydratedBlob.attachment.mimeType,
-        slotId: hydratedBlob.attachment.slotId,
-        storageKey: hydratedBlob.storageKey,
-      },
-      currentDoc,
-    );
+    localAttachmentRecords.push({
+      blobId: hydratedBlob.binding.blobId,
+      byteLength: hydratedBlob.attachment.byteLength,
+      localId: state.localId,
+      mimeType: hydratedBlob.attachment.mimeType,
+      slotId: hydratedBlob.attachment.slotId,
+      storageKey: hydratedBlob.storageKey,
+    });
   }
+
+  await saveLocalAttachmentRecords(state, localAttachmentRecords, currentDoc);
 }
 
 function upsertPendingAttachments(
