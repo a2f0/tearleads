@@ -6,6 +6,81 @@ import {
   sqlDocumentsPersistence,
 } from "./documentsPersistence";
 
+test("saveDocumentAndDeletePendingUpdates saves document rows and clears accepted updates", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-sync-save-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+      localId: "local-document-1",
+      partialEndVersionVector: "end-1",
+      partialStartVersionVector: "start-1",
+      sourceVersionVector: null,
+      updateData: "update-1",
+    });
+    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+      localId: "local-document-1",
+      partialEndVersionVector: "end-2",
+      partialStartVersionVector: "start-2",
+      sourceVersionVector: null,
+      updateData: "update-2",
+    });
+    const pendingUpdates = await sqlDocumentsPersistence.listPendingUpdates(
+      execSql,
+      "local-document-1",
+    );
+    const acceptedUpdate = pendingUpdates[0];
+    const retainedUpdate = pendingUpdates[1];
+    if (!acceptedUpdate || !retainedUpdate) {
+      throw new Error("Expected two pending updates to be enqueued.");
+    }
+
+    await expect(
+      sqlDocumentsPersistence.saveDocumentAndDeletePendingUpdates(
+        execSql,
+        {
+          accessEpoch: 2,
+          accessStateHash: "access-state-hash-2",
+          containerId: "container-1",
+          documentId: "remote-document-1",
+          documentKekTargets: "document-kek-targets-2",
+          documentManifestBundle: "document-manifest-bundle-2",
+          contentKeyBundle: "content-key-bundle-2",
+          id: "local-document-1",
+          lastCommitLsn: "0/16B6C50",
+          loroSnapshot: "snapshot-2",
+          text: "Saved text",
+        },
+        [acceptedUpdate.id, acceptedUpdate.id, "missing"],
+        { updatedAt: "2026-05-07T00:00:00.000Z" },
+      ),
+    ).resolves.toBe("2026-05-07T00:00:00.000Z");
+
+    await expect(
+      sqlDocumentsPersistence.listPendingUpdates(execSql, "local-document-1"),
+    ).resolves.toEqual([retainedUpdate]);
+    await expect(
+      sqlDocumentsPersistence.loadDocument(execSql, "local-document-1"),
+    ).resolves.toMatchObject({
+      accessEpoch: 2,
+      accessStateHash: "access-state-hash-2",
+      containerId: "container-1",
+      documentId: "remote-document-1",
+      documentKekTargets: "document-kek-targets-2",
+      documentManifestBundle: "document-manifest-bundle-2",
+      contentKeyBundle: "content-key-bundle-2",
+      id: "local-document-1",
+      lastCommitLsn: "0/16B6C50",
+      loroSnapshot: "snapshot-2",
+      text: "Saved text",
+    });
+  } finally {
+    close();
+  }
+});
+
 test("container document tombstones remove links and repair selected container", async () => {
   const { close, execSql } = await createTestExecSql(
     "documents-persistence-test",

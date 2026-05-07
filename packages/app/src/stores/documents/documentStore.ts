@@ -98,6 +98,9 @@ interface PersistedDocumentRecord {
   record: DocumentRecord;
   updatedAt: string;
 }
+interface SaveDocumentRecordOptions {
+  acceptedPendingUpdateIds?: readonly string[] | undefined;
+}
 interface DocumentSyncAttempt {
   outgoingUpdateCount: number;
   synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
@@ -320,13 +323,19 @@ async function createStoredDocument() {
 async function saveDocumentRecord(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
+  options: SaveDocumentRecordOptions = {},
 ): Promise<PersistedDocumentRecord> {
   const documentIdChanged =
     (state.record?.documentId ?? null) !== nextRecord.documentId;
-  const updatedAt = await state.persistence.saveDocument(
-    state.runtime.execSql,
-    nextRecord,
-  );
+  const acceptedPendingUpdateIds = options.acceptedPendingUpdateIds ?? [];
+  const updatedAt =
+    acceptedPendingUpdateIds.length > 0
+      ? await state.persistence.saveDocumentAndDeletePendingUpdates(
+          state.runtime.execSql,
+          nextRecord,
+          acceptedPendingUpdateIds,
+        )
+      : await state.persistence.saveDocument(state.runtime.execSql, nextRecord);
   state.record = nextRecord;
   const persistedDocument = {
     accessStateHash: nextRecord.accessStateHash ?? null,
@@ -375,6 +384,7 @@ async function persistDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord> = {},
+  options: SaveDocumentRecordOptions = {},
 ): Promise<PersistedDocumentRecord> {
   const currentDocumentId = state.record?.documentId ?? null;
   const nextDocumentId = patch.documentId ?? currentDocumentId;
@@ -428,7 +438,7 @@ async function persistDocument(
     ),
   };
 
-  const persistedRecord = await saveDocumentRecord(state, nextRecord);
+  const persistedRecord = await saveDocumentRecord(state, nextRecord, options);
   setReadySnapshot(state, currentDoc, state.snapshot.syncing, nextRecord.text);
   return persistedRecord;
 }
@@ -522,10 +532,6 @@ async function enqueuePendingUpdate(
     localId: state.localId,
     ...pendingUpdateFields,
   });
-}
-
-async function deletePendingUpdate(state: DocumentStoreState, id: string) {
-  await state.persistence.deletePendingUpdate(state.runtime.execSql, id);
 }
 
 async function deletePendingAttachment(
@@ -1174,18 +1180,20 @@ async function finalizeDocumentSync(
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
 
-  for (const acceptedOutgoingUpdateId of synced.response
-    .acceptedOutgoingUpdateIds) {
-    await deletePendingUpdate(state, acceptedOutgoingUpdateId);
-  }
-
   await applyIncomingSyncedUpdates(state, currentDoc, syncAttempt);
 
-  const { record: nextRecord } = await persistDocument(state, currentDoc, {
-    ...synced.persistedState,
-    lastCommitLsn:
-      synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
-  });
+  const { record: nextRecord } = await persistDocument(
+    state,
+    currentDoc,
+    {
+      ...synced.persistedState,
+      lastCommitLsn:
+        synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
+    },
+    {
+      acceptedPendingUpdateIds: synced.response.acceptedOutgoingUpdateIds,
+    },
+  );
 
   if (
     syncAttempt.outgoingUpdateCount >

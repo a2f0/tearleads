@@ -59,6 +59,14 @@ export interface NotesPersistence {
       updatedAt?: string;
     },
   ) => Promise<string>;
+  saveNoteAndDeletePendingUpdates: (
+    execSql: ExecSql,
+    note: NoteRecord,
+    pendingUpdateIds: readonly string[],
+    options?: {
+      updatedAt?: string;
+    },
+  ) => Promise<string>;
   upsertDiscoveredNote: (
     execSql: ExecSql,
     input: DiscoveredNoteInput,
@@ -178,6 +186,7 @@ function createAdaptedPersistenceReadMethods(
   | "listDocumentsByContainerIdsOrDocumentIds"
   | "loadDocument"
   | "saveDocument"
+  | "saveDocumentAndDeletePendingUpdates"
   | "upsertDiscoveredDocument"
   | "relinkPersistedDocument"
 > {
@@ -199,6 +208,19 @@ function createAdaptedPersistenceReadMethods(
     },
     saveDocument(execSql, document, options) {
       return notesPersistence.saveNote(execSql, document, options);
+    },
+    saveDocumentAndDeletePendingUpdates(
+      execSql,
+      document,
+      pendingUpdateIds,
+      options,
+    ) {
+      return notesPersistence.saveNoteAndDeletePendingUpdates(
+        execSql,
+        document,
+        pendingUpdateIds,
+        options,
+      );
     },
     upsertDiscoveredDocument(execSql, input) {
       return notesPersistence.upsertDiscoveredNote(execSql, input);
@@ -318,6 +340,14 @@ export const sqlNotesPersistence: NotesPersistence = {
   },
   saveNote(execSql, note, options) {
     return sqlDocumentsPersistence.saveDocument(execSql, note, options);
+  },
+  saveNoteAndDeletePendingUpdates(execSql, note, pendingUpdateIds, options) {
+    return sqlDocumentsPersistence.saveDocumentAndDeletePendingUpdates(
+      execSql,
+      note,
+      pendingUpdateIds,
+      options,
+    );
   },
   upsertDiscoveredNote(execSql, input) {
     return sqlDocumentsPersistence.upsertDiscoveredDocument(execSql, input);

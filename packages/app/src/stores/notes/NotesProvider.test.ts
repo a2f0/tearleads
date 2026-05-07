@@ -609,6 +609,18 @@ function createNotesPersistence(): NotesPersistence & {
       note = nextNote;
       return "2026-04-06T00:00:00.000Z";
     },
+    async saveNoteAndDeletePendingUpdates(
+      _execSql,
+      nextNote,
+      pendingUpdateIds,
+    ) {
+      const acceptedPendingUpdateIds = new Set(pendingUpdateIds);
+      note = nextNote;
+      pendingUpdates = pendingUpdates.filter(
+        (pendingUpdate) => !acceptedPendingUpdateIds.has(pendingUpdate.id),
+      );
+      return "2026-04-06T00:00:00.000Z";
+    },
     async upsertDiscoveredNote(_execSql, input) {
       const nextNote = {
         accessEpoch: input.accessEpoch,
