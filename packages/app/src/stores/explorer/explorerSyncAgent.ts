@@ -1053,6 +1053,11 @@ async function requestContainerMetadataSync(
   containerState: ContainerState,
   encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>,
 ): Promise<ExplorerMetadataSyncAttempt | null> {
+  const { documentId } = containerState.record;
+  if (!documentId) {
+    return null;
+  }
+
   const pendingUpdates = await listPendingContainerUpdates(
     state,
     containerState.container.id,
@@ -1060,7 +1065,7 @@ async function requestContainerMetadataSync(
 
   return syncRemoteExplorerContainerMetadata({
     containerId: containerState.container.id,
-    documentId: containerState.record.documentId,
+    documentId,
     lastCommitLsn: containerState.record.lastCommitLsn,
     localVersionVector: encodeVersionVector(containerState.doc),
     pendingUpdates,
