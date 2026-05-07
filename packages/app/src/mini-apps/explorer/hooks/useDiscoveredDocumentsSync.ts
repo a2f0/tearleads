@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { AppDataContextValue } from "../../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
@@ -29,6 +29,76 @@ type ApplyContainerDocumentTombstones = (
   tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
 ) => Promise<ReadonlyArray<DocumentSummary>>;
 
+type DiscoveryPromise = Promise<ReadonlyArray<DocumentSummary> | null>;
+
+function useContainerDiscoveryPromiseFactory(params: {
+  apiClient: ExplorerDiscoveryAppData["apiClient"];
+  applyContainerDocumentTombstones: ApplyContainerDocumentTombstones;
+  cacheReferencedPrincipalPolicies: ExplorerDiscoveryAppData["cacheReferencedPrincipalPolicies"];
+  documentReadModel: ExplorerDocumentReadModel;
+  replaceDocumentLinksBatch: ReplaceDocumentLinksBatch;
+}) {
+  const {
+    apiClient,
+    applyContainerDocumentTombstones,
+    cacheReferencedPrincipalPolicies,
+    documentReadModel,
+    replaceDocumentLinksBatch,
+  } = params;
+  const discoveryPromisesByContainerId = useMemo(
+    () => new Map<string, DiscoveryPromise>(),
+    [
+      apiClient,
+      applyContainerDocumentTombstones,
+      cacheReferencedPrincipalPolicies,
+      documentReadModel,
+      replaceDocumentLinksBatch,
+    ],
+  );
+
+  return useCallback(
+    (containerId: string): DiscoveryPromise => {
+      const currentPromise = discoveryPromisesByContainerId.get(containerId);
+      if (currentPromise) {
+        return currentPromise;
+      }
+
+      const nextPromise = discoverContainerDocuments({
+        applyContainerDocumentTombstones,
+        cacheReferencedPrincipalPolicies,
+        containerId,
+        loadContainerDocumentWatermark: (nextContainerId) =>
+          documentReadModel.loadContainerDocumentWatermark(nextContainerId),
+        listContainerDocuments: (nextContainerId, options) =>
+          apiClient.listContainerDocuments(nextContainerId, options),
+        replaceDocumentLinksBatch,
+        saveContainerDocumentWatermark: (nextContainerId, watermark) =>
+          documentReadModel.saveContainerDocumentWatermark(
+            nextContainerId,
+            watermark,
+          ),
+        upsertDiscoveredDocuments: (inputs) =>
+          documentReadModel.upsertDiscoveredDocuments(inputs),
+      }).finally(() => {
+        if (discoveryPromisesByContainerId.get(containerId) === nextPromise) {
+          discoveryPromisesByContainerId.delete(containerId);
+        }
+      });
+
+      discoveryPromisesByContainerId.set(containerId, nextPromise);
+      return nextPromise;
+    },
+    [
+      apiClient,
+      applyContainerDocumentTombstones,
+      cacheReferencedPrincipalPolicies,
+      discoveryPromisesByContainerId,
+      documentReadModel,
+      replaceDocumentLinksBatch,
+    ],
+  );
+}
+
 export function useDiscoveredDocumentsSync(params: {
   activeContainerId: string | null;
   appData: ExplorerDiscoveryAppData;
@@ -57,56 +127,38 @@ export function useDiscoveredDocumentsSync(params: {
     online,
   } = appData;
 
+  const getDiscoveryPromise = useContainerDiscoveryPromiseFactory({
+    apiClient,
+    applyContainerDocumentTombstones,
+    cacheReferencedPrincipalPolicies,
+    documentReadModel,
+    replaceDocumentLinksBatch,
+  });
+
   const discoverDocumentsForContainer = useCallback(
     (containerId: string) => {
       let cancelled = false;
 
-      void (async () => {
-        try {
-          const discoveredDocumentSummaries = await discoverContainerDocuments({
-            applyContainerDocumentTombstones,
-            cacheReferencedPrincipalPolicies,
-            containerId,
-            loadContainerDocumentWatermark: (nextContainerId) =>
-              documentReadModel.loadContainerDocumentWatermark(nextContainerId),
-            listContainerDocuments: (nextContainerId, options) =>
-              apiClient.listContainerDocuments(nextContainerId, options),
-            replaceDocumentLinksBatch,
-            saveContainerDocumentWatermark: (nextContainerId, watermark) =>
-              documentReadModel.saveContainerDocumentWatermark(
-                nextContainerId,
-                watermark,
-              ),
-            upsertDiscoveredDocuments: (inputs) =>
-              documentReadModel.upsertDiscoveredDocuments(inputs),
-          });
-
+      void getDiscoveryPromise(containerId)
+        .then((discoveredDocumentSummaries) => {
           if (!discoveredDocumentSummaries || cancelled) {
             return;
           }
 
           mergeDocumentSummaries(discoveredDocumentSummaries);
           primeDiscoveredDocuments(discoveredDocumentSummaries);
-        } catch (error: unknown) {
+        })
+        .catch((error: unknown) => {
           if (!isDestroyedDatabaseWorkerError(error)) {
             throw error;
           }
-        }
-      })();
+        });
 
       return () => {
         cancelled = true;
       };
     },
-    [
-      apiClient,
-      applyContainerDocumentTombstones,
-      cacheReferencedPrincipalPolicies,
-      documentReadModel,
-      mergeDocumentSummaries,
-      primeDiscoveredDocuments,
-      replaceDocumentLinksBatch,
-    ],
+    [getDiscoveryPromise, mergeDocumentSummaries, primeDiscoveredDocuments],
   );
 
   useContainerDiscoveryEffects({
