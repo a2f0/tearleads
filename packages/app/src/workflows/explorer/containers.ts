@@ -300,7 +300,7 @@ export async function moveRemoteExplorerContainer(input: {
 
 export async function deleteRemoteExplorerContainer(input: {
   containerId: string;
-  runtime: Pick<ExplorerContainerWorkflowRuntime, "apiClient">;
+  runtime: ExplorerContainerWorkflowRuntime;
 }): Promise<boolean> {
   const deleteResult = await input.runtime.apiClient.deleteContainerResult(
     input.containerId,
