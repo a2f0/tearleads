@@ -1,6 +1,10 @@
 import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
-import type { RelinkRemoteDocumentResult } from "../../workflows/documents";
-import { relinkRemoteExplorerDocument } from "../../workflows/explorer";
+import {
+  type ExplorerRemoteDocumentPersistedState,
+  linkRemoteExplorerDocument,
+  moveRemoteExplorerDocument,
+  unlinkRemoteExplorerDocument,
+} from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
   createExplorerDocumentsRuntime,
@@ -16,7 +20,6 @@ export type SetLinkedContainerIdsForDocument = (
 ) => void;
 
 type ExplorerDocumentStore = ReturnType<typeof primeDocumentStore>;
-type MoveExplorerDocumentStatus = "complete" | "partial";
 
 export function canMutateSelectedDocument(
   appData: ExplorerDocumentsRuntimeAppData,
@@ -26,7 +29,7 @@ export function canMutateSelectedDocument(
   );
 }
 
-function getMovedDocumentContainerId(
+function resolveActiveContainerIdAfterUnlink(
   linkedContainerIds: ReadonlyArray<string>,
   preferredContainerId: string,
 ): string | null {
@@ -35,138 +38,6 @@ function getMovedDocumentContainerId(
   }
 
   return linkedContainerIds[0] ?? null;
-}
-
-async function mutateExplorerDocumentLinkSet(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
-  documentId: string;
-  noteId: string;
-  operation: "link" | "unlink";
-  targetContainerId: string;
-}): Promise<RelinkRemoteDocumentResult | null> {
-  const { appData, documentId, noteId, operation, targetContainerId } = params;
-  return relinkRemoteExplorerDocument({
-    documentId,
-    noteId,
-    operation,
-    resolveProjectionUserKey: appData.resolveProjectionUserKey,
-    runtime: appData,
-    targetContainerId,
-  });
-}
-
-function explorerDocumentMoveResult(input: {
-  document: RelinkRemoteDocumentResult;
-  nextContainerId: string;
-  queueBaselineAfterRelink?: boolean;
-  status: MoveExplorerDocumentStatus;
-}) {
-  return {
-    accessEpoch: input.document.plan.state.epoch,
-    accessStateHash: input.document.response.accessManifest.manifestHash,
-    linkedContainerIds: input.document.linkedContainerIds,
-    nextContainerId: input.nextContainerId,
-    queueBaselineAfterRelink:
-      input.queueBaselineAfterRelink ?? input.document.contentKeyRotated,
-    status: input.status,
-    remoteState: input.document.persistedState,
-  };
-}
-
-async function moveExplorerDocument(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
-  note: DocumentSummary;
-  targetContainerId: string;
-}) {
-  const { appData, note, targetContainerId } = params;
-  if (!note.documentId || !note.containerId) {
-    return null;
-  }
-
-  const linkedDocument = await mutateExplorerDocumentLinkSet({
-    appData,
-    documentId: note.documentId,
-    noteId: note.id,
-    operation: "link",
-    targetContainerId,
-  });
-  if (!linkedDocument) {
-    return null;
-  }
-
-  const unlinkedDocument = await mutateExplorerDocumentLinkSet({
-    appData,
-    documentId: note.documentId,
-    noteId: note.id,
-    operation: "unlink",
-    targetContainerId: note.containerId,
-  });
-  if (!unlinkedDocument) {
-    appData.log(
-      `Explorer: note ${note.id} was linked to ${targetContainerId} but failed to unlink from ${note.containerId}`,
-    );
-    return explorerDocumentMoveResult({
-      document: linkedDocument,
-      nextContainerId: targetContainerId,
-      status: "partial",
-    });
-  }
-
-  const nextContainerId = getMovedDocumentContainerId(
-    unlinkedDocument.linkedContainerIds,
-    targetContainerId,
-  );
-  if (!nextContainerId) {
-    return null;
-  }
-
-  return explorerDocumentMoveResult({
-    document: unlinkedDocument,
-    nextContainerId,
-    queueBaselineAfterRelink:
-      linkedDocument.contentKeyRotated || unlinkedDocument.contentKeyRotated,
-    status: "complete",
-  });
-}
-
-async function linkExplorerDocument(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
-  note: DocumentSummary;
-  targetContainerId: string;
-}) {
-  const { appData, note, targetContainerId } = params;
-  const documentId = note.documentId;
-  if (!documentId) {
-    return null;
-  }
-
-  return mutateExplorerDocumentLinkSet({
-    appData,
-    documentId,
-    noteId: note.id,
-    operation: "link",
-    targetContainerId,
-  });
-}
-
-async function unlinkExplorerDocument(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
-  note: DocumentSummary;
-  targetContainerId: string;
-}) {
-  const { appData, note, targetContainerId } = params;
-  const documentId = note.documentId;
-  if (!documentId) {
-    return null;
-  }
-
-  return mutateExplorerDocumentLinkSet({
-    appData,
-    documentId,
-    noteId: note.id,
-    operation: "unlink",
-    targetContainerId,
-  });
 }
 
 async function primeExplorerDocumentStoreForStructuralMutation(params: {
@@ -202,7 +73,7 @@ async function relinkExplorerNoteLocally(params: {
   queueBaselineAfterRelink?: boolean;
   requestSync: boolean;
   targetContainerId: string;
-  remoteState?: RelinkRemoteDocumentResult["persistedState"] | undefined;
+  remoteState?: ExplorerRemoteDocumentPersistedState | undefined;
 }) {
   const {
     accessEpoch,
@@ -256,7 +127,7 @@ async function relinkExplorerNoteAfterStructuralMutation(params: {
   note: DocumentSummary;
   queueBaselineAfterRelink?: boolean;
   targetContainerId: string;
-  remoteState?: RelinkRemoteDocumentResult["persistedState"] | undefined;
+  remoteState?: ExplorerRemoteDocumentPersistedState | undefined;
 }) {
   return relinkExplorerNoteLocally({
     ...params,
@@ -297,9 +168,12 @@ export async function moveExplorerNote(params: {
     return { linksChanged: false, note: null };
   }
 
-  const movedDocument = await moveExplorerDocument({
-    appData,
-    note,
+  const movedDocument = await moveRemoteExplorerDocument({
+    currentContainerId: note.containerId,
+    documentId: note.documentId,
+    noteId: note.id,
+    resolveProjectionUserKey: appData.resolveProjectionUserKey,
+    runtime: appData,
     targetContainerId,
   });
   if (!movedDocument) {
@@ -361,9 +235,11 @@ export async function linkExplorerNote(params: {
     return null;
   }
 
-  const linkedDocument = await linkExplorerDocument({
-    appData,
-    note,
+  const linkedDocument = await linkRemoteExplorerDocument({
+    documentId: note.documentId,
+    noteId: note.id,
+    resolveProjectionUserKey: appData.resolveProjectionUserKey,
+    runtime: appData,
     targetContainerId,
   });
   if (!linkedDocument) {
@@ -420,9 +296,11 @@ export async function unlinkExplorerLinkedNote(params: {
     return null;
   }
 
-  const unlinkedDocument = await unlinkExplorerDocument({
-    appData,
-    note,
+  const unlinkedDocument = await unlinkRemoteExplorerDocument({
+    documentId: note.documentId,
+    noteId: note.id,
+    resolveProjectionUserKey: appData.resolveProjectionUserKey,
+    runtime: appData,
     targetContainerId: removedContainerId,
   });
   if (!unlinkedDocument) {
@@ -433,7 +311,7 @@ export async function unlinkExplorerLinkedNote(params: {
     unlinkedDocument.linkedContainerIds,
   );
 
-  const nextContainerId = getMovedDocumentContainerId(
+  const nextContainerId = resolveActiveContainerIdAfterUnlink(
     unlinkedDocument.linkedContainerIds,
     note.containerId,
   );
