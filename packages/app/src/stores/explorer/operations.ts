@@ -13,6 +13,7 @@ import type { ContainerRecord } from "../../data/persistence/containers/containe
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import {
   createRemoteExplorerContainer,
+  deleteRemoteExplorerContainer,
   moveRemoteExplorerContainer,
   shareRemoteExplorerContainer,
 } from "../../workflows/explorer";
@@ -289,12 +290,11 @@ export async function deleteExplorerContainer(
       return null;
     }
 
-    const deleteResult = await state.runtime.apiClient.deleteContainerResult(
-      existingState.container.id,
-      { reportErrors: false },
-    );
-    if (!deleteResult.ok && deleteResult.status !== 404) {
-      deleteResult.report();
+    const deletedRemoteContainer = await deleteRemoteExplorerContainer({
+      containerId: existingState.container.id,
+      runtime: state.runtime,
+    });
+    if (!deletedRemoteContainer) {
       return null;
     }
   }

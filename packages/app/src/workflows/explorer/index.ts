@@ -1,5 +1,6 @@
 export {
   createRemoteExplorerContainer,
+  deleteRemoteExplorerContainer,
   moveRemoteExplorerContainer,
   shareRemoteExplorerContainer,
 } from "./containers";

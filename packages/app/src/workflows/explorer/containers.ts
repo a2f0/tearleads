@@ -22,6 +22,17 @@ type ExplorerContainerWorkflowApi = Parameters<
   Parameters<typeof shareRemoteContainer>[0]["apiClient"] &
   Parameters<typeof moveRemoteContainer>[0]["apiClient"] &
   Parameters<typeof createRemoteDocument>[0]["apiClient"] & {
+    deleteContainerResult(
+      containerId: string,
+      options?: { reportErrors?: boolean },
+    ): Promise<
+      | { ok: true }
+      | {
+          ok: false;
+          report: () => void;
+          status: number | null;
+        }
+    >;
     getEncapsulationKey(
       userId: string,
     ): Promise<EncapsulationKeyResponse | null>;
@@ -285,4 +296,20 @@ export async function moveRemoteExplorerContainer(input: {
       response: moved.response,
     }),
   };
+}
+
+export async function deleteRemoteExplorerContainer(input: {
+  containerId: string;
+  runtime: Pick<ExplorerContainerWorkflowRuntime, "apiClient">;
+}): Promise<boolean> {
+  const deleteResult = await input.runtime.apiClient.deleteContainerResult(
+    input.containerId,
+    { reportErrors: false },
+  );
+  if (!deleteResult.ok && deleteResult.status !== 404) {
+    deleteResult.report();
+    return false;
+  }
+
+  return true;
 }
