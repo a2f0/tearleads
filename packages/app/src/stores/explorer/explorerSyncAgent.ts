@@ -42,11 +42,10 @@ import {
 } from "../../data/sync/syncCoordinator";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
-  createDocumentWriterPublicKeyResolver,
-  resolveDocumentCreateAuthor,
-  syncRemoteDocument,
-} from "../../workflows/documents";
-import { createRemoteExplorerContainer } from "../../workflows/explorer";
+  createRemoteExplorerContainer,
+  type ExplorerMetadataSyncAttempt,
+  syncRemoteExplorerContainerMetadata,
+} from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
@@ -64,11 +63,6 @@ type ListedRemoteContainer = Pick<
   | "organizationId"
   | "parentId"
 >;
-
-interface ContainerMetadataSyncAttempt {
-  outgoingUpdateCount: number;
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
-}
 
 export interface ExplorerRuntime {
   apiClient: ExplorerAppData["apiClient"];
@@ -1037,7 +1031,7 @@ function ensureExplorerStoreInitialized(input: {
 async function applySyncedContainerUpdates(input: {
   containerState: ContainerState;
   state: ExplorerSyncState;
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
+  synced: ExplorerMetadataSyncAttempt["synced"];
 }) {
   const { containerState, state, synced } = input;
 
@@ -1058,66 +1052,22 @@ async function requestContainerMetadataSync(
   state: ExplorerSyncState,
   containerState: ContainerState,
   encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>,
-): Promise<ContainerMetadataSyncAttempt | null> {
-  const documentId = containerState.record.documentId;
-
-  if (!documentId) {
-    return null;
-  }
-
+): Promise<ExplorerMetadataSyncAttempt | null> {
   const pendingUpdates = await listPendingContainerUpdates(
     state,
     containerState.container.id,
   );
 
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  const { apiClient } = state.runtime;
-  if (!author) {
-    state.runtime.log(
-      "Explorer: skipped metadata sync because the writer context is unavailable.",
-    );
-    return null;
-  }
-
-  const synced = await syncRemoteDocument({
-    apiClient,
-    author,
-    documentId,
-    execSql: state.runtime.execSql,
+  return syncRemoteExplorerContainerMetadata({
+    containerId: containerState.container.id,
+    documentId: containerState.record.documentId,
+    lastCommitLsn: containerState.record.lastCommitLsn,
     localVersionVector: encodeVersionVector(containerState.doc),
-    minLsn: containerState.record.lastCommitLsn ?? undefined,
     pendingUpdates,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-      includeLocalSigningKey: false,
-      logPrefix: "Explorer",
-      runtime: state.runtime,
-      writerKeyLabel: "metadata writer key",
-    }),
+    runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
-  }).catch((error: unknown) => {
-    if (
-      error instanceof Error &&
-      (error.message === "Document content key could not be unwrapped" ||
-        error.message === "Document sync target hash mismatch" ||
-        error.message === "Document sync content-key targets mismatch")
-    ) {
-      state.runtime.log(
-        `Explorer: deferred metadata sync for ${containerState.container.id} because its content-key targets are stale.`,
-      );
-      return null;
-    }
-
-    throw error;
   });
-  if (!synced) {
-    return null;
-  }
-
-  return {
-    outgoingUpdateCount: pendingUpdates.length,
-    synced,
-  };
 }
 
 async function syncSingleContainerMetadata(input: {
