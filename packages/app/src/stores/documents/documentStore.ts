@@ -50,6 +50,7 @@ import {
   createDocumentWriterPublicKeyResolver,
   createRemoteDocument,
   type DocumentCreateAuthor,
+  persistDocumentState,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../workflows/documents";
@@ -322,21 +323,23 @@ async function createStoredDocument() {
 
 async function saveDocumentRecord(
   state: DocumentStoreState,
-  nextRecord: DocumentRecord,
+  currentDoc: DocumentState,
+  patch: Partial<DocumentRecord> = {},
   options: SaveDocumentRecordOptions = {},
 ): Promise<PersistedDocumentRecord> {
-  const documentIdChanged =
-    (state.record?.documentId ?? null) !== nextRecord.documentId;
-  const acceptedPendingUpdateIds = options.acceptedPendingUpdateIds ?? [];
-  const updatedAt =
-    acceptedPendingUpdateIds.length > 0
-      ? await state.persistence.saveDocumentAndDeletePendingUpdates(
-          state.runtime.execSql,
-          nextRecord,
-          acceptedPendingUpdateIds,
-        )
-      : await state.persistence.saveDocument(state.runtime.execSql, nextRecord);
-  state.record = nextRecord;
+  const previousDocumentId = state.record?.documentId ?? null;
+  const persistedDocumentState = await persistDocumentState({
+    acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
+    containerId: state.runtime.containerId,
+    currentDoc,
+    currentRecord: state.record,
+    execSql: state.runtime.execSql,
+    localId: state.localId,
+    patch,
+    persistence: state.persistence,
+  });
+  const { record: nextRecord, updatedAt } = persistedDocumentState;
+  state.record = persistedDocumentState.record;
   const persistedDocument = {
     accessStateHash: nextRecord.accessStateHash ?? null,
     id: nextRecord.id,
@@ -346,7 +349,7 @@ async function saveDocumentRecord(
     title: deriveDocumentTitle(nextRecord.text),
     updatedAt,
   };
-  if (documentIdChanged) {
+  if (previousDocumentId !== nextRecord.documentId) {
     registerDocumentStoreIdentity(
       state.runtime.domainScope,
       nextRecord.id,
@@ -360,86 +363,24 @@ async function saveDocumentRecord(
   };
 }
 
-type NullableDocumentRuntimeField =
-  | "accessStateHash"
-  | "lastCommitLsn"
-  | "contentKeyBundle"
-  | "documentKekTargets"
-  | "documentManifestBundle";
-
-function resolveNullableDocumentRuntimeField(
-  patch: Partial<DocumentRecord>,
-  key: NullableDocumentRuntimeField,
-  currentValue: string | null | undefined,
-  resetWhenUnpatched = false,
-): string | null {
-  if (Object.hasOwn(patch, key)) {
-    return patch[key] ?? null;
-  }
-
-  return resetWhenUnpatched ? null : (currentValue ?? null);
-}
-
 async function persistDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord> = {},
   options: SaveDocumentRecordOptions = {},
 ): Promise<PersistedDocumentRecord> {
-  const currentDocumentId = state.record?.documentId ?? null;
-  const nextDocumentId = patch.documentId ?? currentDocumentId;
-  const documentIdChanged = nextDocumentId !== currentDocumentId;
-  const currentAccessEpoch =
-    state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
-  const nextAccessEpoch = patch.accessEpoch ?? currentAccessEpoch;
-  const securityContextChanged =
-    documentIdChanged || nextAccessEpoch !== currentAccessEpoch;
-  const nextRecord: DocumentRecord = {
-    id: state.record?.id ?? state.localId,
-    containerId:
-      patch.containerId ??
-      state.record?.containerId ??
-      state.runtime.containerId ??
-      null,
-    documentId: nextDocumentId,
-    text: patch.text ?? getTextValue(currentDoc),
-    loroSnapshot:
-      patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
-    accessEpoch: nextAccessEpoch,
-    accessStateHash: resolveNullableDocumentRuntimeField(
-      patch,
-      "accessStateHash",
-      state.record?.accessStateHash,
-      securityContextChanged,
-    ),
-    lastCommitLsn: resolveNullableDocumentRuntimeField(
-      patch,
-      "lastCommitLsn",
-      state.record?.lastCommitLsn,
-      documentIdChanged,
-    ),
-    contentKeyBundle: resolveNullableDocumentRuntimeField(
-      patch,
-      "contentKeyBundle",
-      state.record?.contentKeyBundle,
-      securityContextChanged,
-    ),
-    documentKekTargets: resolveNullableDocumentRuntimeField(
-      patch,
-      "documentKekTargets",
-      state.record?.documentKekTargets,
-      securityContextChanged,
-    ),
-    documentManifestBundle: resolveNullableDocumentRuntimeField(
-      patch,
-      "documentManifestBundle",
-      state.record?.documentManifestBundle,
-      securityContextChanged,
-    ),
-  };
-
-  const persistedRecord = await saveDocumentRecord(state, nextRecord, options);
-  setReadySnapshot(state, currentDoc, state.snapshot.syncing, nextRecord.text);
+  const persistedRecord = await saveDocumentRecord(
+    state,
+    currentDoc,
+    patch,
+    options,
+  );
+  setReadySnapshot(
+    state,
+    currentDoc,
+    state.snapshot.syncing,
+    persistedRecord.record.text,
+  );
   return persistedRecord;
 }
 
@@ -741,7 +682,7 @@ async function initializeDocumentStore(
       documentKekTargets: null,
       documentManifestBundle: null,
     };
-    await saveDocumentRecord(state, created);
+    await saveDocumentRecord(state, nextDoc, created);
     if (state.initialText.length > 0) {
       await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
     }
