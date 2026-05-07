@@ -587,7 +587,7 @@ test("manual refresh can discover documents across all visible containers", asyn
   ]);
 });
 
-test("manual refresh deduplicates principal references and document link replacements", async () => {
+test("manual refresh deduplicates principal references and document inputs", async () => {
   const referencedPrincipal: ReferencedPrincipalStateResponse = {
     keyEpoch: 1,
     keyFingerprint: "shared-key-fingerprint",
@@ -654,15 +654,7 @@ test("manual refresh deduplicates principal references and document link replace
         containerId: "container-a",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "shared-document",
-        linkedContainerIds: ["container-a"],
-      },
-      {
-        accessEpoch: 1,
-        accessStateHash: "shared-access-state-hash",
-        containerId: "container-b",
-        createdAt: "2026-04-06T12:00:00.000Z",
-        documentId: "shared-document",
-        linkedContainerIds: ["container-b"],
+        linkedContainerIds: ["container-a", "container-b"],
       },
     ],
   ]);

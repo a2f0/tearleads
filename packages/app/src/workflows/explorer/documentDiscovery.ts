@@ -85,6 +85,11 @@ interface ContainerParentDiscoveryLane {
   watermark: SyncWatermark | null;
 }
 
+interface ListedContainerDocumentsLane {
+  containerId: string;
+  listedDocuments: ListedContainerDocuments | null;
+}
+
 const CONTAINER_PARENT_DISCOVERY_CONCURRENCY = 4;
 const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
 
@@ -111,6 +116,79 @@ function uniqueReferencedPrincipalStates(
   }
 
   return Array.from(referencesByState.values());
+}
+
+function uniqueSortedStrings(values: Iterable<string>): string[] {
+  return Array.from(new Set(values)).sort();
+}
+
+function mergeDiscoveredDocumentInputs(
+  current: DiscoveredDocumentInput,
+  next: DiscoveredDocumentInput,
+): DiscoveredDocumentInput {
+  const accessStateHash =
+    next.accessEpoch >= current.accessEpoch
+      ? next.accessStateHash
+      : current.accessStateHash;
+
+  return {
+    accessEpoch: Math.max(current.accessEpoch, next.accessEpoch),
+    ...(accessStateHash === undefined ? {} : { accessStateHash }),
+    containerId: current.containerId,
+    createdAt:
+      current.createdAt.localeCompare(next.createdAt) <= 0
+        ? current.createdAt
+        : next.createdAt,
+    documentId: current.documentId,
+    linkedContainerIds: uniqueSortedStrings([
+      current.containerId,
+      next.containerId,
+      ...current.linkedContainerIds,
+      ...next.linkedContainerIds,
+    ]),
+  };
+}
+
+function collectDiscoveredDocumentInputs(
+  listedDocumentsByContainer: ReadonlyArray<ListedContainerDocumentsLane>,
+): DiscoveredDocumentInput[] {
+  const discoveredDocumentInputsByDocumentId = new Map<
+    string,
+    DiscoveredDocumentInput
+  >();
+
+  for (const { containerId, listedDocuments } of listedDocumentsByContainer) {
+    if (!listedDocuments) {
+      continue;
+    }
+
+    for (const document of listedDocuments.items) {
+      const discoveredDocumentInput: DiscoveredDocumentInput = {
+        accessEpoch: document.currentAccessEpoch,
+        accessStateHash: document.currentAccessStateHash,
+        containerId,
+        createdAt: document.createdAt,
+        documentId: document.id,
+        linkedContainerIds: uniqueSortedStrings([
+          containerId,
+          ...document.linkedContainerIds,
+        ]),
+      };
+      const currentDiscoveredDocumentInput =
+        discoveredDocumentInputsByDocumentId.get(document.id);
+      discoveredDocumentInputsByDocumentId.set(
+        document.id,
+        currentDiscoveredDocumentInput
+          ? mergeDiscoveredDocumentInputs(
+              currentDiscoveredDocumentInput,
+              discoveredDocumentInput,
+            )
+          : discoveredDocumentInput,
+      );
+    }
+  }
+
+  return Array.from(discoveredDocumentInputsByDocumentId.values());
 }
 
 async function listAllContainerDocuments(input: {
@@ -197,21 +275,13 @@ async function listContainerDocumentLanes(input: {
   containerIds: ReadonlyArray<string>;
   loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
   listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
-}): Promise<
-  Array<{
-    containerId: string;
-    listedDocuments: ListedContainerDocuments | null;
-  }>
-> {
+}): Promise<ListedContainerDocumentsLane[]> {
   const {
     containerIds,
     loadContainerDocumentWatermark,
     listContainerDocuments,
   } = input;
-  const listedDocumentsByContainer: Array<{
-    containerId: string;
-    listedDocuments: ListedContainerDocuments | null;
-  }> = [];
+  const listedDocumentsByContainer: ListedContainerDocumentsLane[] = [];
   let nextContainerIndex = 0;
 
   async function worker() {
@@ -414,47 +484,20 @@ export async function discoverAllContainerDocuments({
       ),
     ),
   );
-  const documentLinksByDocumentId = new Map<string, Set<string>>();
-  const discoveredDocumentInputs: DiscoveredDocumentInput[] = [];
-
-  for (const { containerId, listedDocuments } of listedDocumentsByContainer) {
-    if (!listedDocuments) {
-      continue;
-    }
-
-    for (const document of listedDocuments.items) {
-      const linkedContainerIds =
-        documentLinksByDocumentId.get(document.id) ?? new Set<string>();
-      linkedContainerIds.add(containerId);
-      for (const linkedContainerId of document.linkedContainerIds) {
-        linkedContainerIds.add(linkedContainerId);
-      }
-      documentLinksByDocumentId.set(document.id, linkedContainerIds);
-      discoveredDocumentInputs.push({
-        accessEpoch: document.currentAccessEpoch,
-        accessStateHash: document.currentAccessStateHash,
-        containerId,
-        createdAt: document.createdAt,
-        documentId: document.id,
-        linkedContainerIds: document.linkedContainerIds,
-      });
-    }
-  }
-
+  const discoveredDocumentInputs = collectDiscoveredDocumentInputs(
+    listedDocumentsByContainer,
+  );
   const discoveredDocuments =
     discoveredDocumentInputs.length === 0
       ? []
       : await upsertDiscoveredDocuments(discoveredDocumentInputs);
 
-  if (documentLinksByDocumentId.size > 0) {
+  if (discoveredDocumentInputs.length > 0) {
     await replaceDocumentLinksBatch(
-      Array.from(
-        documentLinksByDocumentId,
-        ([documentId, containerIds]): DocumentLinkInput => ({
-          documentId,
-          containerIds: Array.from(containerIds).sort(),
-        }),
-      ),
+      discoveredDocumentInputs.map((input) => ({
+        documentId: input.documentId,
+        containerIds: input.linkedContainerIds,
+      })),
     );
   }
 
