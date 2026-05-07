@@ -29,6 +29,16 @@ interface ExplorerListContainerDocumentsResponse {
   }>;
 }
 
+interface ExplorerListedContainer {
+  id: string;
+}
+
+interface ExplorerListContainersResponse {
+  hasMore: boolean;
+  items: ExplorerListedContainer[];
+  nextWatermark: SyncWatermark | null;
+}
+
 interface DocumentLinkInput {
   containerIds: ReadonlyArray<string>;
   documentId: string;
@@ -217,6 +227,60 @@ export function hasUndiscoveredDocumentUpdateEvent(
       isDocumentUpdateCreatedEvent(event) &&
       !knownDocumentIds.has(event.documentId),
   );
+}
+
+export async function listAllRemoteExplorerContainerIds(
+  listContainers: (options: {
+    parentId: string | null;
+    watermark?: SyncWatermark | null;
+  }) => Promise<ExplorerListContainersResponse | null>,
+): Promise<ReadonlyArray<string> | null> {
+  const containerIds: string[] = [];
+  const queuedParentIds = new Set<string>(["root"]);
+  const seenContainerIds = new Set<string>();
+  const lanes: Array<{
+    parentId: string | null;
+    watermark: SyncWatermark | null;
+  }> = [{ parentId: null, watermark: null }];
+
+  while (lanes.length > 0) {
+    const lane = lanes.shift();
+    if (!lane) {
+      break;
+    }
+
+    const response = await listContainers({
+      parentId: lane.parentId,
+      watermark: lane.watermark,
+    });
+    if (!response) {
+      return null;
+    }
+
+    for (const container of response.items) {
+      if (!seenContainerIds.has(container.id)) {
+        seenContainerIds.add(container.id);
+        containerIds.push(container.id);
+      }
+
+      if (!queuedParentIds.has(container.id)) {
+        queuedParentIds.add(container.id);
+        lanes.push({ parentId: container.id, watermark: null });
+      }
+    }
+
+    if (response.hasMore) {
+      if (!response.nextWatermark) {
+        return null;
+      }
+      lanes.unshift({
+        parentId: lane.parentId,
+        watermark: response.nextWatermark,
+      });
+    }
+  }
+
+  return containerIds;
 }
 
 export async function discoverContainerDocuments({

@@ -1,17 +1,16 @@
-import type {
-  ContainerSummary,
-  SyncWatermark,
-} from "@tearleads/validators/response";
 import { useCallback, useRef, useState } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
+import {
+  discoverAllContainerDocuments,
+  listAllRemoteExplorerContainerIds,
+} from "../../../stores/explorer/documentDiscovery";
 import type {
   ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
 import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
-import { discoverAllContainerDocuments } from "../documentDiscovery";
 
 type ReplaceDocumentLinksBatch = (
   inputs: ReadonlyArray<ExplorerDocumentLinkInput>,
@@ -20,57 +19,6 @@ type ReplaceDocumentLinksBatch = (
 type ApplyContainerDocumentTombstones = (
   tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
 ) => Promise<ReadonlyArray<DocumentSummary>>;
-
-async function listAllRemoteContainers(
-  apiClient: ReturnType<typeof useAppData>["apiClient"],
-): Promise<ReadonlyArray<ContainerSummary> | null> {
-  const containers: ContainerSummary[] = [];
-  const queuedParentIds = new Set<string>(["root"]);
-  const seenContainerIds = new Set<string>();
-  const lanes: Array<{
-    parentId: string | null;
-    watermark: SyncWatermark | null;
-  }> = [{ parentId: null, watermark: null }];
-
-  while (lanes.length > 0) {
-    const lane = lanes.shift();
-    if (!lane) {
-      break;
-    }
-
-    const response = await apiClient.listContainers({
-      parentId: lane.parentId,
-      watermark: lane.watermark,
-    });
-    if (!response) {
-      return null;
-    }
-
-    for (const container of response.items) {
-      if (!seenContainerIds.has(container.id)) {
-        seenContainerIds.add(container.id);
-        containers.push(container);
-      }
-
-      if (!queuedParentIds.has(container.id)) {
-        queuedParentIds.add(container.id);
-        lanes.push({ parentId: container.id, watermark: null });
-      }
-    }
-
-    if (response.hasMore) {
-      if (!response.nextWatermark) {
-        return null;
-      }
-      lanes.unshift({
-        parentId: lane.parentId,
-        watermark: response.nextWatermark,
-      });
-    }
-  }
-
-  return containers;
-}
 
 export function useExplorerRefreshAction(params: {
   appData: Pick<
@@ -117,8 +65,10 @@ export function useExplorerRefreshAction(params: {
         return false;
       }
 
-      const remoteContainers = await listAllRemoteContainers(apiClient);
-      if (!remoteContainers) {
+      const remoteContainerIds = await listAllRemoteExplorerContainerIds(
+        (options) => apiClient.listContainers(options),
+      );
+      if (!remoteContainerIds) {
         setRefreshError("Failed to refresh documents.");
         return false;
       }
@@ -126,7 +76,7 @@ export function useExplorerRefreshAction(params: {
       const discoveredDocumentSummaries = await discoverAllContainerDocuments({
         applyContainerDocumentTombstones,
         cacheReferencedPrincipalPolicies,
-        containerIds: remoteContainers.map((container) => container.id),
+        containerIds: remoteContainerIds,
         loadContainerDocumentWatermark: (containerId) =>
           documentReadModel.loadContainerDocumentWatermark(containerId),
         listContainerDocuments: (containerId, options) =>

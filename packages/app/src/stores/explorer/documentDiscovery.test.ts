@@ -11,6 +11,7 @@ import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
   hasUndiscoveredDocumentUpdateEvent,
+  listAllRemoteExplorerContainerIds,
 } from "./documentDiscovery";
 
 type CapturedDiscoveredDocumentInput = Omit<
@@ -597,6 +598,83 @@ test("manual refresh ignores empty container ids", async () => {
   });
 
   expect(listContainerDocumentsCalls).toEqual(["container-a"]);
+});
+
+test("manual refresh lists remote container ids across paged parent lanes", async () => {
+  const firstRootWatermark = {
+    id: "root-page-1",
+    updatedAt: "2026-04-06T12:00:00.000Z",
+  };
+  const listContainersCalls: Array<{
+    parentId: string | null;
+    watermark?: SyncWatermark | null;
+  }> = [];
+
+  const containerIds = await listAllRemoteExplorerContainerIds(
+    async (options) => {
+      listContainersCalls.push(options);
+
+      if (options.parentId === null && !options.watermark) {
+        return {
+          hasMore: true,
+          items: [{ id: "container-a" }],
+          nextWatermark: firstRootWatermark,
+        };
+      }
+
+      if (
+        options.parentId === null &&
+        options.watermark?.id === firstRootWatermark.id
+      ) {
+        return {
+          hasMore: false,
+          items: [{ id: "container-b" }],
+          nextWatermark: null,
+        };
+      }
+
+      if (options.parentId === "container-a") {
+        return {
+          hasMore: false,
+          items: [{ id: "container-a-child" }],
+          nextWatermark: null,
+        };
+      }
+
+      return {
+        hasMore: false,
+        items: [],
+        nextWatermark: null,
+      };
+    },
+  );
+
+  expect(containerIds).toEqual([
+    "container-a",
+    "container-b",
+    "container-a-child",
+  ]);
+  expect(listContainersCalls).toEqual([
+    { parentId: null, watermark: null },
+    { parentId: null, watermark: firstRootWatermark },
+    { parentId: "container-a", watermark: null },
+    { parentId: "container-b", watermark: null },
+    { parentId: "container-a-child", watermark: null },
+  ]);
+});
+
+test("manual refresh container listing stops on unavailable pages", async () => {
+  await expect(
+    listAllRemoteExplorerContainerIds(async () => null),
+  ).resolves.toBeNull();
+
+  await expect(
+    listAllRemoteExplorerContainerIds(async () => ({
+      hasMore: true,
+      items: [{ id: "container-a" }],
+      nextWatermark: null,
+    })),
+  ).resolves.toBeNull();
 });
 
 test("manual refresh limits concurrent container document lane fetches", async () => {
