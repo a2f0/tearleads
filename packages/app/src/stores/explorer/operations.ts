@@ -8,9 +8,11 @@ import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import {
   createRemoteExplorerContainer,
   deleteRemoteExplorerContainer,
+  deleteSingleExplorerContainer,
   type ExplorerContainerMetadataPatch,
   moveRemoteExplorerContainer,
   persistExplorerContainerMetadataState,
+  saveExplorerContainer,
   shareRemoteExplorerContainer,
 } from "../../workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
@@ -169,8 +171,9 @@ export async function createChildContainer(
       ? { parentContainerId: resolvedChildState.container.parentId }
       : undefined;
 
-  await state.persistence.saveContainer(
+  await saveExplorerContainer(
     state.runtime.execSql,
+    state.persistence,
     resolvedChildState.container,
     resolvedChildState.record,
     createIntent ? { createIntent } : undefined,
@@ -230,8 +233,9 @@ export async function deleteExplorerContainer(
   }
 
   const deletedNode = toContainerNode(existingState.container);
-  await state.persistence.deleteContainer(
+  await deleteSingleExplorerContainer(
     state.runtime.execSql,
+    state.persistence,
     existingState.container.id,
   );
   state.containersById.delete(existingState.container.id);
