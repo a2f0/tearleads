@@ -26,6 +26,7 @@ export interface ContactsRuntime {
   execSql: ExecSql;
   isAuthenticated: ContactsAppData["isAuthenticated"];
   log: ContactsAppData["log"];
+  logError: ContactsAppData["logError"];
   online: ContactsAppData["online"];
   organizationId?: ContactsAppData["organizationId"];
   signingFingerprint?: ContactsAppData["signingFingerprint"];

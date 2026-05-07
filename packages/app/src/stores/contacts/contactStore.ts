@@ -653,7 +653,7 @@ async function importKeyFromRuntime(
     .catch(() => undefined)
     .then(() => importContactEntry(state, entry, scheduleSync))
     .catch((error: unknown) => {
-      console.error("Failed to persist contact:", error);
+      state.runtime.logError("Failed to persist contact", error);
     });
   await state.writeChain;
 }
@@ -688,7 +688,7 @@ async function removeKeyFromRuntime(
       state.runtime.log("Peer key removed");
     })
     .catch((error: unknown) => {
-      console.error("Failed to remove contact:", error);
+      state.runtime.logError("Failed to remove contact", error);
     });
   await state.writeChain;
 }

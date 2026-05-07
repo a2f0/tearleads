@@ -375,6 +375,7 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
     execSql: async () => [],
     isAuthenticated: false,
     log: () => {},
+    logError: () => {},
     online: false,
   };
 }
@@ -401,6 +402,7 @@ async function createSyncRuntime(
     execSql: async () => [],
     isAuthenticated: true,
     log: () => {},
+    logError: () => {},
     online: true,
     organizationId: patch.organizationId,
     signingFingerprint: patch.signingFingerprint,
