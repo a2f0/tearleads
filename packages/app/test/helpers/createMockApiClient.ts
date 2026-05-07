@@ -44,7 +44,7 @@ export function createMockApiClient(
     listContainers: async () => EMPTY_LIST_CONTAINERS_RESPONSE,
     listDocumentAttachments: async () => null,
     moveContainer: async () => null,
-    postPublicKey: async () => null,
+    registerUser: async () => null,
     rekeyContainer: async () => null,
     revokeContainer: async () => null,
     shareContainer: async () => null,

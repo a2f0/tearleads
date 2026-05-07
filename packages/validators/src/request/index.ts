@@ -44,4 +44,7 @@ export {
   type PutPrincipalMemberEnvelopesRequest,
   type PutPrincipalStateRequest,
 } from "./principal";
-export { isPublicKeyRequest, type PublicKeyRequest } from "./publicKey";
+export {
+  isRegistrationRequest,
+  type RegistrationRequest,
+} from "./registration";

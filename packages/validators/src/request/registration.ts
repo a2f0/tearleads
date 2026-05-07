@@ -27,7 +27,7 @@ import {
   type PrincipalStateRequest,
 } from "./principal";
 
-export interface PublicKeyRequest {
+export interface RegistrationRequest {
   userId: string;
   organizationId: string;
   rootContainerId: string;
@@ -43,7 +43,9 @@ export interface PublicKeyRequest {
   initialRootMetadataDocument: DocumentCreateRequest;
 }
 
-export function isPublicKeyRequest(value: unknown): value is PublicKeyRequest {
+export function isRegistrationRequest(
+  value: unknown,
+): value is RegistrationRequest {
   const initialRootContainer = isPlainObject(value)
     ? Reflect.get(value, "initialRootContainer")
     : undefined;

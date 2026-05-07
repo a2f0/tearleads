@@ -8,7 +8,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { PublicKeyRequest } from "@tearleads/validators/request";
+import type { RegistrationRequest } from "@tearleads/validators/request";
 import { db as defaultDb } from "../../src/adapters/postgres";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
 import { createRegistrationBootstrap } from "./registration";
@@ -43,9 +43,9 @@ export function createServiceTestRuntime(
   };
 }
 
-export async function createPublicKeyRequest(
+export async function createRegistrationRequest(
   user: TestUser,
-): Promise<PublicKeyRequest> {
+): Promise<RegistrationRequest> {
   const userId = user.userId || crypto.randomUUID();
   const organizationId = crypto.randomUUID();
   const rootContainerId = crypto.randomUUID();

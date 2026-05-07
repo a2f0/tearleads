@@ -1,24 +1,24 @@
 import type {
   DocumentCreateRequest,
-  PublicKeyRequest,
+  RegistrationRequest,
 } from "@tearleads/validators/request";
-import { isPublicKeyResponse } from "@tearleads/validators/response";
+import { isRegistrationResponse } from "@tearleads/validators/response";
 import type { RequestFn } from "../types";
 
-export function postPublicKey(
+export function postRegistration(
   request: RequestFn,
   userId: string,
   organizationId: string,
   rootContainerId: string,
   signingPublicKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
-  initialOrganizationPolicy: PublicKeyRequest["initialOrganizationPolicy"],
-  initialRootContainer: PublicKeyRequest["initialRootContainer"],
+  initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
+  initialRootContainer: RegistrationRequest["initialRootContainer"],
   initialRootMetadataDocument: DocumentCreateRequest,
 ) {
   return request(
     "/auth/register",
-    isPublicKeyResponse,
+    isRegistrationResponse,
     "POST",
     JSON.stringify({
       userId,

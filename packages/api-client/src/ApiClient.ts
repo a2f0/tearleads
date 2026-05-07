@@ -47,7 +47,7 @@ import {
 } from "./routes/documents";
 import { getHealth } from "./routes/health";
 import { getCurrentPrincipalPolicy } from "./routes/principals";
-import { postPublicKey } from "./routes/register";
+import { postRegistration } from "./routes/register";
 import type {
   HttpMethod,
   RequestFailure,
@@ -262,17 +262,17 @@ export class ApiClient {
     return getHealth(this.request);
   }
 
-  postPublicKey(
+  registerUser(
     userId: string,
     organizationId: string,
     rootContainerId: string,
     signingPublicKey: Uint8Array,
     encapsulationPublicKey: Uint8Array,
-    initialOrganizationPolicy: Parameters<typeof postPublicKey>[6],
-    initialRootContainer: Parameters<typeof postPublicKey>[7],
-    initialRootMetadataDocument: Parameters<typeof postPublicKey>[8],
+    initialOrganizationPolicy: Parameters<typeof postRegistration>[6],
+    initialRootContainer: Parameters<typeof postRegistration>[7],
+    initialRootMetadataDocument: Parameters<typeof postRegistration>[8],
   ) {
-    return postPublicKey(
+    return postRegistration(
       this.request,
       userId,
       organizationId,

@@ -12,9 +12,9 @@ import {
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
   isDocumentSyncRequest,
-  isPublicKeyRequest,
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
+  isRegistrationRequest,
   isStageBlobRequest,
   isVerifyRequest,
 } from "./index";
@@ -33,7 +33,7 @@ const VALID_SIGNATURE = Array.from(
   (_, index) => index % 256,
 );
 
-test("isPublicKeyRequest", () => {
+test("isRegistrationRequest", () => {
   const userId = "550e8400-e29b-41d4-a716-446655440001";
   const organizationId = "550e8400-e29b-41d4-a716-446655440002";
   const validInitialOrganizationPolicy = {
@@ -107,16 +107,16 @@ test("isPublicKeyRequest", () => {
     ...overrides,
   });
 
-  expect(isPublicKeyRequest(createValidRequest())).toBe(true);
+  expect(isRegistrationRequest(createValidRequest())).toBe(true);
   expect(
-    isPublicKeyRequest(
+    isRegistrationRequest(
       createValidRequest({
         rootContainerId: "not-a-uuid",
       }),
     ),
   ).toBe(false);
   expect(
-    isPublicKeyRequest(
+    isRegistrationRequest(
       createValidRequest({
         signingPublicKey: [],
         encapsulationPublicKey: [],
@@ -124,27 +124,27 @@ test("isPublicKeyRequest", () => {
     ),
   ).toBe(false);
   expect(
-    isPublicKeyRequest({
+    isRegistrationRequest({
       signingPublicKey: VALID_SIGNING_PUBLIC_KEY,
       encapsulationPublicKey: VALID_ENCAPSULATION_PUBLIC_KEY,
     }),
   ).toBe(false);
   expect(
-    isPublicKeyRequest({
+    isRegistrationRequest({
       signingPublicKey: "not-array",
       encapsulationPublicKey: [1],
     }),
   ).toBe(false);
   expect(
-    isPublicKeyRequest({
+    isRegistrationRequest({
       signingPublicKey: [1],
       encapsulationPublicKey: ["a"],
     }),
   ).toBe(false);
-  expect(isPublicKeyRequest({ signingPublicKey: [1] })).toBe(false);
-  expect(isPublicKeyRequest({ encapsulationPublicKey: [1] })).toBe(false);
-  expect(isPublicKeyRequest({})).toBe(false);
-  expect(isPublicKeyRequest(null)).toBe(false);
+  expect(isRegistrationRequest({ signingPublicKey: [1] })).toBe(false);
+  expect(isRegistrationRequest({ encapsulationPublicKey: [1] })).toBe(false);
+  expect(isRegistrationRequest({})).toBe(false);
+  expect(isRegistrationRequest(null)).toBe(false);
 });
 
 test("isChallengeRequest", () => {

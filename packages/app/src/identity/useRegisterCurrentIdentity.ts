@@ -6,8 +6,8 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { PublicKeyRequest } from "@tearleads/validators/request";
-import type { PublicKeyResponse } from "@tearleads/validators/response";
+import type { RegistrationRequest } from "@tearleads/validators/request";
+import type { RegistrationResponse } from "@tearleads/validators/response";
 import { useCallback } from "react";
 import { createInitializedContainerMetadataDocument } from "../data/containers";
 import { createDocumentSignerDeviceId } from "../data/documents/documentConstants";
@@ -46,7 +46,7 @@ async function createInitialOrganizationPolicy(input: {
   signingPrivateKey: Uint8Array;
   signingPublicKey: Uint8Array;
   userId: string;
-}): Promise<PublicKeyRequest["initialOrganizationPolicy"]> {
+}): Promise<RegistrationRequest["initialOrganizationPolicy"]> {
   const organizationKem = generateKemSeedAndKeyPair();
   const signerUserKeyFingerprint = await toFingerprint(input.signingPublicKey);
   const userEncapsulationKeyFingerprint = await toFingerprint(
@@ -135,7 +135,7 @@ async function persistLocalRegistrationState(
   dbClient: ReturnType<typeof useDatabase>["client"],
   containerId: string,
   encapsulationPublicKey: Uint8Array,
-  response: PublicKeyResponse,
+  response: RegistrationResponse,
   bootstrap: InitialRootMetadataBootstrap,
   rootMetadataDocument: InitialRootMetadataDocument,
   log: (message: string) => void,
@@ -179,7 +179,7 @@ async function registerIdentity(input: {
   setUserId: (userId: string | null) => void;
   signingKeyPair: NonNullable<ReturnType<typeof useIdentity>["signingKeyPair"]>;
 }): Promise<boolean> {
-  input.log("Uploading public key...");
+  input.log("Registering identity...");
 
   const bootstrap = await createInitialRootMetadataBootstrap(input.containerId);
   const newUserId = crypto.randomUUID();
@@ -217,7 +217,7 @@ async function registerIdentity(input: {
     trustedLocalProjection: true,
   });
 
-  const response = await input.apiClient.postPublicKey(
+  const response = await input.apiClient.registerUser(
     newUserId,
     organizationId,
     input.containerId,

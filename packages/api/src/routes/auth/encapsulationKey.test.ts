@@ -10,8 +10,8 @@ import invariant from "invariant";
 import {
   fetchEncapsulationKey,
   requestChallenge,
+  submitRegistration,
   submitVerify,
-  uploadKey,
 } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
 
@@ -39,9 +39,9 @@ async function authenticate(): Promise<string> {
   return body.token;
 }
 
-test("setup: register key", async () => {
+test("setup: register user", async () => {
   fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  const res = await uploadKey(
+  const res = await submitRegistration(
     signingKeys.signingPublicKey,
     signingKeys.signingPrivateKey,
     kemKeys.publicKey,

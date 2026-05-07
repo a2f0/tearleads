@@ -6,7 +6,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { PublicKeyRequest } from "@tearleads/validators/request";
+import type { RegistrationRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
 import { createRegistrationBootstrap } from "../registration";
 
@@ -16,7 +16,7 @@ async function createInitialOrganizationPolicy(input: {
   signingPrivateKey: Uint8Array;
   signingPublicKey: Uint8Array;
   userId: string;
-}): Promise<PublicKeyRequest["initialOrganizationPolicy"]> {
+}): Promise<RegistrationRequest["initialOrganizationPolicy"]> {
   const organizationKem = generateKemSeedAndKeyPair();
   const projection = [
     {
@@ -75,7 +75,7 @@ async function createInitialOrganizationPolicy(input: {
   };
 }
 
-export async function uploadKey(
+export async function submitRegistration(
   signingPublicKey: Uint8Array,
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
@@ -84,7 +84,7 @@ export async function uploadKey(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(
-      await createPublicKeyRequestBody(
+      await createRegistrationRequestBody(
         signingPublicKey,
         signingPrivateKey,
         encapsulationPublicKey,
@@ -93,11 +93,11 @@ export async function uploadKey(
   });
 }
 
-export async function createPublicKeyRequestBody(
+export async function createRegistrationRequestBody(
   signingPublicKey: Uint8Array,
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
-): Promise<PublicKeyRequest> {
+): Promise<RegistrationRequest> {
   const userId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
   const rootContainerId = crypto.randomUUID();

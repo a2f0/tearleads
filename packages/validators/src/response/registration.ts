@@ -9,7 +9,7 @@ import {
   isDocumentCreateResponse,
 } from "./documentMutation";
 
-export interface PublicKeyResponse {
+export interface RegistrationResponse {
   userId: string;
   organizationId: string;
   rootContainerId: string;
@@ -20,9 +20,9 @@ export interface PublicKeyResponse {
   challenge: string;
 }
 
-export function isPublicKeyResponse(
+export function isRegistrationResponse(
   value: unknown,
-): value is PublicKeyResponse {
+): value is RegistrationResponse {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "userId") &&

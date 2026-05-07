@@ -1,17 +1,17 @@
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
-import { registerPublicKey } from "../../src/services/auth/registerPublicKey";
+import { registerUser } from "../../src/services/auth/registration";
 import {
-  createPublicKeyRequest,
+  createRegistrationRequest,
   createServiceTestRuntime,
 } from "./serviceRuntime";
 
 export async function registerServiceUser() {
   const runtime = createServiceTestRuntime();
   const user = createTestUser();
-  const registration = await registerPublicKey(
+  const registration = await registerUser(
     runtime,
-    await createPublicKeyRequest(user),
+    await createRegistrationRequest(user),
   );
   const fingerprint = await toFingerprint(user.signing.signingPublicKey);
 

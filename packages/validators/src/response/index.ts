@@ -74,5 +74,8 @@ export {
   type PrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
 } from "./principal";
-export { isPublicKeyResponse, type PublicKeyResponse } from "./publicKey";
+export {
+  isRegistrationResponse,
+  type RegistrationResponse,
+} from "./registration";
 export { isSyncWatermark, type SyncWatermark } from "./syncWatermark";

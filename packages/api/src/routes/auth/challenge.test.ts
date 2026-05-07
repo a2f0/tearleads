@@ -5,7 +5,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import invariant from "invariant";
-import { requestChallenge, uploadKey } from "../../../test/helpers/api";
+import {
+  requestChallenge,
+  submitRegistration,
+} from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
 
 const signingKeys = generateSigningSeedAndKeyPair();
@@ -19,7 +22,7 @@ afterAll(async () => {
 
 test("returns a challenge for a known fingerprint", async () => {
   fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  await uploadKey(
+  await submitRegistration(
     signingKeys.signingPublicKey,
     signingKeys.signingPrivateKey,
     kemKeys.publicKey,
