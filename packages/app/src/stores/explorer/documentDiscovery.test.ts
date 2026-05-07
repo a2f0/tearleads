@@ -617,7 +617,7 @@ test("manual refresh lists remote container ids across paged parent lanes", asyn
       if (options.parentId === null && !options.watermark) {
         return {
           hasMore: true,
-          items: [{ id: "container-a" }],
+          items: [{ id: "root" }, { id: "container-a" }],
           nextWatermark: firstRootWatermark,
         };
       }
@@ -629,6 +629,14 @@ test("manual refresh lists remote container ids across paged parent lanes", asyn
         return {
           hasMore: false,
           items: [{ id: "container-b" }],
+          nextWatermark: null,
+        };
+      }
+
+      if (options.parentId === "root") {
+        return {
+          hasMore: false,
+          items: [{ id: "root-child" }],
           nextWatermark: null,
         };
       }
@@ -650,15 +658,19 @@ test("manual refresh lists remote container ids across paged parent lanes", asyn
   );
 
   expect(containerIds).toEqual([
+    "root",
     "container-a",
     "container-b",
+    "root-child",
     "container-a-child",
   ]);
   expect(listContainersCalls).toEqual([
     { parentId: null, watermark: null },
     { parentId: null, watermark: firstRootWatermark },
+    { parentId: "root", watermark: null },
     { parentId: "container-a", watermark: null },
     { parentId: "container-b", watermark: null },
+    { parentId: "root-child", watermark: null },
     { parentId: "container-a-child", watermark: null },
   ]);
 });
@@ -711,4 +723,54 @@ test("manual refresh limits concurrent container document lane fetches", async (
   expect(new Set(listContainerDocumentsCalls)).toEqual(new Set(containerIds));
   expect(maxActiveListContainerDocumentsCalls).toBeGreaterThan(1);
   expect(maxActiveListContainerDocumentsCalls).toBeLessThanOrEqual(4);
+});
+
+test("manual refresh limits concurrent container parent lane fetches", async () => {
+  const childContainerIds = Array.from(
+    { length: 9 },
+    (_, index) => `container-${index}`,
+  );
+  const listContainersCalls: Array<{
+    parentId: string | null;
+    watermark?: SyncWatermark | null;
+  }> = [];
+  let activeListContainersCalls = 0;
+  let maxActiveListContainersCalls = 0;
+
+  const containerIds = await listAllRemoteExplorerContainerIds(
+    async (options) => {
+      listContainersCalls.push(options);
+      activeListContainersCalls += 1;
+      maxActiveListContainersCalls = Math.max(
+        maxActiveListContainersCalls,
+        activeListContainersCalls,
+      );
+
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        if (options.parentId === null) {
+          return {
+            hasMore: false,
+            items: childContainerIds.map((id) => ({ id })),
+            nextWatermark: null,
+          };
+        }
+
+        return {
+          hasMore: false,
+          items: [],
+          nextWatermark: null,
+        };
+      } finally {
+        activeListContainersCalls -= 1;
+      }
+    },
+  );
+
+  expect(containerIds).toEqual(childContainerIds);
+  expect(new Set(listContainersCalls.map(({ parentId }) => parentId))).toEqual(
+    new Set([null, ...childContainerIds]),
+  );
+  expect(maxActiveListContainersCalls).toBeGreaterThan(1);
+  expect(maxActiveListContainersCalls).toBeLessThanOrEqual(4);
 });
