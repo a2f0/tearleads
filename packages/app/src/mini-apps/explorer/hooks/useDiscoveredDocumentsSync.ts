@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import type { AppDataContextValue } from "../../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
@@ -45,14 +45,20 @@ function useContainerDiscoveryPromiseFactory(params: {
     documentReadModel,
     replaceDocumentLinksBatch,
   } = params;
-  const discoveryPromisesByContainerIdRef = useRef(
-    new Map<string, DiscoveryPromise>(),
+  const discoveryPromisesByContainerId = useMemo(
+    () => new Map<string, DiscoveryPromise>(),
+    [
+      apiClient,
+      applyContainerDocumentTombstones,
+      cacheReferencedPrincipalPolicies,
+      documentReadModel,
+      replaceDocumentLinksBatch,
+    ],
   );
 
   return useCallback(
     (containerId: string): DiscoveryPromise => {
-      const currentPromise =
-        discoveryPromisesByContainerIdRef.current.get(containerId);
+      const currentPromise = discoveryPromisesByContainerId.get(containerId);
       if (currentPromise) {
         return currentPromise;
       }
@@ -74,21 +80,19 @@ function useContainerDiscoveryPromiseFactory(params: {
         upsertDiscoveredDocuments: (inputs) =>
           documentReadModel.upsertDiscoveredDocuments(inputs),
       }).finally(() => {
-        if (
-          discoveryPromisesByContainerIdRef.current.get(containerId) ===
-          nextPromise
-        ) {
-          discoveryPromisesByContainerIdRef.current.delete(containerId);
+        if (discoveryPromisesByContainerId.get(containerId) === nextPromise) {
+          discoveryPromisesByContainerId.delete(containerId);
         }
       });
 
-      discoveryPromisesByContainerIdRef.current.set(containerId, nextPromise);
+      discoveryPromisesByContainerId.set(containerId, nextPromise);
       return nextPromise;
     },
     [
       apiClient,
       applyContainerDocumentTombstones,
       cacheReferencedPrincipalPolicies,
+      discoveryPromisesByContainerId,
       documentReadModel,
       replaceDocumentLinksBatch,
     ],

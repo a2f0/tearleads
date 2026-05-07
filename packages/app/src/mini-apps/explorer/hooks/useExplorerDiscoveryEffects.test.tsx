@@ -89,6 +89,10 @@ test("container document discovery reuses an in-flight run for repeated effect t
   const mergeDocumentSummaries = (
     _nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => undefined;
+  const applyContainerDocumentTombstones = async () => [];
+  const replaceDocumentLinksBatch = async () => {
+    replaceDocumentLinksCallCount += 1;
+  };
   const remoteUpdateEvents = [
     {
       documentId: "remote-doc-1",
@@ -109,13 +113,11 @@ test("container document discovery reuses an in-flight run for repeated effect t
           ...baseAppData,
           events,
         },
-        applyContainerDocumentTombstones: async () => [],
+        applyContainerDocumentTombstones,
         documentReadModel,
         knownDocumentIds: new Set(),
         mergeDocumentSummaries,
-        replaceDocumentLinksBatch: async () => {
-          replaceDocumentLinksCallCount += 1;
-        },
+        replaceDocumentLinksBatch,
       }),
     {
       initialProps: {
@@ -136,6 +138,98 @@ test("container document discovery reuses an in-flight run for repeated effect t
 
   await waitFor(() => {
     expect(replaceDocumentLinksCallCount).toBe(1);
+  });
+});
+
+test("container document discovery starts a new run when discovery dependencies change", async () => {
+  const firstListedDocuments = createDeferred<ListContainerDocumentsResponse>();
+  const secondListedDocuments =
+    createDeferred<ListContainerDocumentsResponse>();
+  let firstListContainerDocumentsCallCount = 0;
+  let secondListContainerDocumentsCallCount = 0;
+  let replaceDocumentLinksCallCount = 0;
+  const documentReadModel = createDocumentReadModel();
+  const baseAppData = {
+    blobStore: {},
+    cacheReferencedPrincipalPolicies: async () => undefined,
+    dbStatus: "ready",
+    domainScope: {},
+    encapsulationKeyPair: null,
+    events: [],
+    execSql: async () => {
+      throw new Error("execSql should not be used by this test.");
+    },
+    isAuthenticated: true,
+    log: () => undefined,
+    online: true,
+    organizationId: null,
+    signingFingerprint: null,
+    signingKeyPair: null,
+    userId: null,
+  } as unknown as Omit<
+    UseDiscoveredDocumentsSyncParams["appData"],
+    "apiClient"
+  >;
+  const mergeDocumentSummaries = (
+    _nextDocuments: ReadonlyArray<DocumentSummary>,
+  ) => undefined;
+  const applyContainerDocumentTombstones = async () => [];
+  const replaceDocumentLinksBatch = async () => {
+    replaceDocumentLinksCallCount += 1;
+  };
+  const createAppData = (
+    listContainerDocuments: UseDiscoveredDocumentsSyncParams["appData"]["apiClient"]["listContainerDocuments"],
+  ): UseDiscoveredDocumentsSyncParams["appData"] =>
+    ({
+      ...baseAppData,
+      apiClient: {
+        listContainerDocuments,
+      },
+    }) as UseDiscoveredDocumentsSyncParams["appData"];
+
+  const view = renderHook(
+    ({ appData }: { appData: UseDiscoveredDocumentsSyncParams["appData"] }) =>
+      useDiscoveredDocumentsSync({
+        activeContainerId: "container-1",
+        appData,
+        applyContainerDocumentTombstones,
+        documentReadModel,
+        knownDocumentIds: new Set(),
+        mergeDocumentSummaries,
+        replaceDocumentLinksBatch,
+      }),
+    {
+      initialProps: {
+        appData: createAppData(() => {
+          firstListContainerDocumentsCallCount += 1;
+          return firstListedDocuments.promise;
+        }),
+      },
+      wrapper: StrictMode,
+    },
+  );
+
+  await waitFor(() => {
+    expect(firstListContainerDocumentsCallCount).toBe(1);
+  });
+
+  view.rerender({
+    appData: createAppData(() => {
+      secondListContainerDocumentsCallCount += 1;
+      return secondListedDocuments.promise;
+    }),
+  });
+
+  await waitFor(() => {
+    expect(secondListContainerDocumentsCallCount).toBe(1);
+  });
+  expect(firstListContainerDocumentsCallCount).toBe(1);
+
+  firstListedDocuments.resolve(createEmptyListContainerDocumentsResponse());
+  secondListedDocuments.resolve(createEmptyListContainerDocumentsResponse());
+
+  await waitFor(() => {
+    expect(replaceDocumentLinksCallCount).toBe(2);
   });
 });
 
