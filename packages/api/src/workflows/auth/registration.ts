@@ -33,7 +33,7 @@ import {
   DocumentMutationError,
 } from "../documents/mutations";
 
-const DUPLICATE_FINGERPRINT_ERROR = "REGISTER_DUPLICATE_FINGERPRINT";
+const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
 
 export class RegistrationError extends Error {
   constructor(
