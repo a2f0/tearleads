@@ -43,7 +43,7 @@ export type DocumentAttachmentAuditAction =
 /**
  * Registered human users and their long-lived public key material.
  *
- * A user row is created during public-key registration. The access workflows
+ * A user row is created during user registration. The access workflows
  * load this table to verify signatures, encrypt user-recipient envelopes, and
  * resolve the user's default personal organization/root container context.
  * Private keys never live in this table; only public keys and fingerprints are

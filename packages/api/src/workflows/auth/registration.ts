@@ -7,7 +7,7 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { PublicKeyRequest } from "@tearleads/validators/request";
+import type { RegistrationRequest } from "@tearleads/validators/request";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
@@ -33,9 +33,9 @@ import {
   DocumentMutationError,
 } from "../documents/mutations";
 
-const DUPLICATE_FINGERPRINT_ERROR = "REGISTER_DUPLICATE_FINGERPRINT";
+const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
 
-export class RegisterPublicKeyError extends Error {
+export class RegistrationError extends Error {
   constructor(
     message: string,
     readonly status: 400 | 403 | 404 | 409 | 503,
@@ -44,8 +44,8 @@ export class RegisterPublicKeyError extends Error {
   }
 }
 
-function registerShapeError(message: string): RegisterPublicKeyError {
-  return new RegisterPublicKeyError(message, 400);
+function registerShapeError(message: string): RegistrationError {
+  return new RegistrationError(message, 400);
 }
 
 function isKekRecipientKind(
@@ -123,7 +123,7 @@ async function createRegisteredUser(
 }
 
 function validateInitialOrganizationPolicyInput(
-  input: PublicKeyRequest,
+  input: RegistrationRequest,
   signingFingerprint: string,
   encapsulationFingerprint: string,
 ) {
@@ -134,7 +134,7 @@ function validateInitialOrganizationPolicyInput(
     state.principalType !== "organization" ||
     state.principalId !== input.organizationId
   ) {
-    throw new RegisterPublicKeyError(
+    throw new RegistrationError(
       "initialOrganizationPolicy state must target the registered organization",
       400,
     );
@@ -144,7 +144,7 @@ function validateInitialOrganizationPolicyInput(
     state.signerUserId !== input.userId ||
     state.signerUserKeyFingerprint !== signingFingerprint
   ) {
-    throw new RegisterPublicKeyError(
+    throw new RegistrationError(
       "initialOrganizationPolicy signer must match the registering user",
       400,
     );
@@ -155,7 +155,7 @@ function validateInitialOrganizationPolicyInput(
     state.prevStateHash !== null ||
     state.keyEpoch !== 1
   ) {
-    throw new RegisterPublicKeyError(
+    throw new RegistrationError(
       "initialOrganizationPolicy state must be the first organization state",
       400,
     );
@@ -170,7 +170,7 @@ function validateInitialOrganizationPolicyInput(
     onlyProjectionMember.role !== "admin" ||
     state.memberCount !== 1
   ) {
-    throw new RegisterPublicKeyError(
+    throw new RegistrationError(
       "initialOrganizationPolicy projection must contain the registering user as sole admin",
       400,
     );
@@ -184,7 +184,7 @@ function validateInitialOrganizationPolicyInput(
     onlyMemberEnvelope.memberPrincipalId !== input.userId ||
     onlyMemberEnvelope.memberKeyFingerprint !== encapsulationFingerprint
   ) {
-    throw new RegisterPublicKeyError(
+    throw new RegistrationError(
       "initialOrganizationPolicy member envelope must wrap the registering user",
       400,
     );
@@ -193,7 +193,7 @@ function validateInitialOrganizationPolicyInput(
 
 async function storeInitialOrganizationPolicy(
   tx: DatabaseTransaction,
-  input: PublicKeyRequest,
+  input: RegistrationRequest,
 ) {
   const storedState = await storeVerifiedPrincipalStateInTransaction(
     {
@@ -216,7 +216,7 @@ async function storeInitialOrganizationPolicy(
 }
 
 function readInitialRootContainerMetadataDocumentId(
-  input: PublicKeyRequest,
+  input: RegistrationRequest,
 ): string {
   const body = input.initialRootContainer.body;
   const metadataDocumentId =
@@ -238,7 +238,7 @@ function requireRootVerification<T>(
     return result.value;
   }
 
-  throw new RegisterPublicKeyError(result.error.message, 400);
+  throw new RegistrationError(result.error.message, 400);
 }
 
 function readContainerKeyEpoch(
@@ -392,7 +392,7 @@ function readContainerKeyWraps(
 
 async function storeInitialRootContainer(
   tx: DatabaseTransaction,
-  input: PublicKeyRequest,
+  input: RegistrationRequest,
   fingerprint: string,
 ): Promise<{
   metadataAccessEpoch: number;
@@ -424,7 +424,7 @@ async function storeInitialRootContainer(
     event.event.signerUserId !== input.userId ||
     event.event.signerKeyFingerprint !== fingerprint
   ) {
-    throw new RegisterPublicKeyError(
+    throw new RegistrationError(
       "Initial root container event does not match registration",
       400,
     );
@@ -451,7 +451,7 @@ async function storeInitialRootContainer(
     manifest.state.parentManifestHash !== null ||
     manifest.state.metadataDocumentId !== metadataDocumentId
   ) {
-    throw new RegisterPublicKeyError(
+    throw new RegistrationError(
       "Initial root container manifest does not match registration",
       400,
     );
@@ -490,7 +490,7 @@ async function storeInitialRootContainer(
   };
 }
 
-function readInitialRootMetadataDocumentId(input: PublicKeyRequest): string {
+function readInitialRootMetadataDocumentId(input: RegistrationRequest): string {
   const event = input.initialRootMetadataDocument.event;
   const documentId = Reflect.get(event, "objectId");
 
@@ -501,7 +501,7 @@ function readInitialRootMetadataDocumentId(input: PublicKeyRequest): string {
 
 async function createInitialRootMetadataDocument(
   tx: DatabaseTransaction,
-  input: PublicKeyRequest,
+  input: RegistrationRequest,
   fingerprint: string,
   rootMetadata: {
     metadataDocumentId: string;
@@ -509,7 +509,7 @@ async function createInitialRootMetadataDocument(
 ) {
   const requestDocumentId = readInitialRootMetadataDocumentId(input);
   if (requestDocumentId !== rootMetadata.metadataDocumentId) {
-    throw new RegisterPublicKeyError(
+    throw new RegistrationError(
       "Initial root metadata document does not match root container metadata",
       400,
     );
@@ -522,7 +522,7 @@ async function createInitialRootMetadataDocument(
     userId: input.userId,
   });
   if (created.id !== rootMetadata.metadataDocumentId) {
-    throw new RegisterPublicKeyError(
+    throw new RegistrationError(
       "Initial root metadata response does not match root container metadata",
       400,
     );
@@ -536,9 +536,9 @@ async function createInitialRootMetadataDocument(
   return created;
 }
 
-async function runRegisterPublicKeyTransaction(
+async function runRegistrationTransaction(
   db: ApiDatabase,
-  input: PublicKeyRequest,
+  input: RegistrationRequest,
   fingerprint: string,
   encapsulationFingerprint: string,
   signingKeyBytes: Uint8Array,
@@ -586,7 +586,7 @@ async function runRegisterPublicKeyTransaction(
 
 function toRegisterPrincipalPolicyError(
   error: unknown,
-): RegisterPublicKeyError | null {
+): RegistrationError | null {
   if (!(error instanceof Error)) {
     return null;
   }
@@ -598,19 +598,19 @@ function toRegisterPrincipalPolicyError(
     error.message.startsWith("Principal member envelopes") ||
     error.message === "Principal epoch key conflict"
   ) {
-    return new RegisterPublicKeyError(error.message, 400);
+    return new RegistrationError(error.message, 400);
   }
 
   if (error instanceof DocumentMutationError) {
-    return new RegisterPublicKeyError(error.message, error.status);
+    return new RegistrationError(error.message, error.status);
   }
 
   return null;
 }
 
-export async function runRegisterPublicKeyWorkflow(
+export async function runRegistrationWorkflow(
   db: ApiDatabase,
-  input: PublicKeyRequest,
+  input: RegistrationRequest,
   keyMaterial: {
     readonly encapsulationFingerprint: string;
     readonly encapsulationKeyBytes: Uint8Array;
@@ -623,9 +623,9 @@ export async function runRegisterPublicKeyWorkflow(
     keyMaterial.fingerprint,
     keyMaterial.encapsulationFingerprint,
   );
-  let result: Awaited<ReturnType<typeof runRegisterPublicKeyTransaction>>;
+  let result: Awaited<ReturnType<typeof runRegistrationTransaction>>;
   try {
-    result = await runRegisterPublicKeyTransaction(
+    result = await runRegistrationTransaction(
       db,
       input,
       keyMaterial.fingerprint,
@@ -643,7 +643,9 @@ export async function runRegisterPublicKeyWorkflow(
   return result;
 }
 
-export function isDuplicateRegisterFingerprintError(error: unknown): boolean {
+export function isDuplicateRegistrationFingerprintError(
+  error: unknown,
+): boolean {
   return (
     error instanceof Error && error.message === DUPLICATE_FINGERPRINT_ERROR
   );

@@ -4,7 +4,7 @@ import type {
   DocumentContentKeyTargetEnvelopeResponse,
   EncapsulationKeyResponse,
   ListContainersResponse,
-  PublicKeyResponse,
+  RegistrationResponse,
   VerifyResponse,
 } from "@tearleads/validators/response";
 import { HttpResponse, http, ws } from "msw";
@@ -161,7 +161,7 @@ function isDocumentContentKeyTargetEnvelopeResponse(
 
 function createSyntheticRootMetadataDocumentResponse(
   rootMetadataDocumentId: string,
-): PublicKeyResponse["rootMetadataDocument"] {
+): RegistrationResponse["rootMetadataDocument"] {
   const rootContainerId = crypto.randomUUID();
   const manifestHash = randomHex(32);
   const targetHash = randomHex(32);
@@ -209,7 +209,7 @@ function createSyntheticRootMetadataDocumentResponse(
 
 async function createRootMetadataDocumentResponse(
   requestBody: unknown,
-): Promise<PublicKeyResponse["rootMetadataDocument"]> {
+): Promise<RegistrationResponse["rootMetadataDocument"]> {
   if (!isRecord(requestBody)) {
     return createSyntheticRootMetadataDocumentResponse(crypto.randomUUID());
   }
@@ -320,7 +320,7 @@ const server = setupServer(
       ? Reflect.get(requestBody, "rootContainerId")
       : null;
 
-    return HttpResponse.json<PublicKeyResponse>({
+    return HttpResponse.json<RegistrationResponse>({
       userId: crypto.randomUUID(),
       organizationId: crypto.randomUUID(),
       rootContainerId:

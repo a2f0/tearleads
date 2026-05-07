@@ -10,8 +10,8 @@ import {
 import invariant from "invariant";
 import {
   requestChallenge,
+  submitRegistration,
   submitVerify,
-  uploadKey,
 } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
 
@@ -26,7 +26,7 @@ afterAll(async () => {
 
 test("authenticates with a valid signature", async () => {
   fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  await uploadKey(
+  await submitRegistration(
     signingKeys.signingPublicKey,
     signingKeys.signingPrivateKey,
     kemKeys.publicKey,

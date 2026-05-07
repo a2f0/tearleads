@@ -9,17 +9,17 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
-  createPublicKeyRequest,
+  createRegistrationRequest,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
 import { CreateChallengeError, createChallenge } from "./createChallenge";
-import { registerPublicKey } from "./registerPublicKey";
+import { registerUser } from "./registration";
 import { VerifyChallengeError, verifyChallenge } from "./verifyChallenge";
 
 async function registerAuthServiceUser() {
   const runtime = createServiceTestRuntime();
   const user = createTestUser();
-  await registerPublicKey(runtime, await createPublicKeyRequest(user));
+  await registerUser(runtime, await createRegistrationRequest(user));
   const fingerprint = await toFingerprint(user.signing.signingPublicKey);
 
   return { fingerprint, runtime, user };

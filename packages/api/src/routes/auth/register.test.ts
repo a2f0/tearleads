@@ -8,8 +8,8 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
-  createPublicKeyRequestBody,
-  uploadKey,
+  createRegistrationRequestBody,
+  submitRegistration,
 } from "../../../test/helpers/api";
 import { db } from "../../adapters/postgres";
 import { del, get } from "../../adapters/redis";
@@ -39,7 +39,11 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
   const keyArray = Array.from(signingPublicKey);
   fingerprint = await toFingerprint(signingPublicKey);
 
-  const res = await uploadKey(signingPublicKey, signingPrivateKey, publicKey);
+  const res = await submitRegistration(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
 
   expect(res.status).toBe(200);
   const body = await res.json();
@@ -63,7 +67,11 @@ test("POST /auth/register creates a user in postgres", async () => {
   const encapsulationFingerprint = await toFingerprint(publicKey);
   fingerprint = await toFingerprint(signingPublicKey);
 
-  const res = await uploadKey(signingPublicKey, signingPrivateKey, publicKey);
+  const res = await submitRegistration(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
   expect(res.status).toBe(200);
   const body = await res.json();
 
@@ -81,10 +89,14 @@ test("POST /auth/register returns 409 when key already exists", async () => {
   const { publicKey } = generateKemSeedAndKeyPair();
   fingerprint = await toFingerprint(signingPublicKey);
 
-  const first = await uploadKey(signingPublicKey, signingPrivateKey, publicKey);
+  const first = await submitRegistration(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
   expect(first.status).toBe(200);
 
-  const second = await uploadKey(
+  const second = await submitRegistration(
     signingPublicKey,
     signingPrivateKey,
     publicKey,
@@ -106,7 +118,11 @@ test("POST /auth/register rolls back organization and container rows on duplicat
   const organizationsBefore = await countOrganizations();
   const containersBefore = await countContainers();
 
-  const first = await uploadKey(signingPublicKey, signingPrivateKey, publicKey);
+  const first = await submitRegistration(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
   expect(first.status).toBe(200);
 
   const organizationsAfterFirst = await countOrganizations();
@@ -114,7 +130,7 @@ test("POST /auth/register rolls back organization and container rows on duplicat
   expect(organizationsAfterFirst).toBe(organizationsBefore + 1);
   expect(containersAfterFirst).toBe(containersBefore + 1);
 
-  const second = await uploadKey(
+  const second = await submitRegistration(
     signingPublicKey,
     signingPrivateKey,
     publicKey,
@@ -130,7 +146,7 @@ test("POST /auth/register rejects initial org policies that do not bootstrap the
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   fingerprint = await toFingerprint(signingPublicKey);
-  const body = await createPublicKeyRequestBody(
+  const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
     publicKey,
@@ -167,7 +183,7 @@ test("POST /auth/register rejects malformed initial root container event records
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   fingerprint = await toFingerprint(signingPublicKey);
-  const body = await createPublicKeyRequestBody(
+  const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
     publicKey,
@@ -199,7 +215,7 @@ test("POST /auth/register rejects malformed initial root container KEK records",
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   fingerprint = await toFingerprint(signingPublicKey);
-  const body = await createPublicKeyRequestBody(
+  const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
     publicKey,
@@ -231,7 +247,7 @@ test("POST /auth/register rejects missing initial root user recipient keys", asy
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
   fingerprint = await toFingerprint(signingPublicKey);
-  const body = await createPublicKeyRequestBody(
+  const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
     publicKey,
@@ -259,7 +275,7 @@ test("POST /auth/register provisions root metadata", async () => {
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
 
-  const response = await uploadKey(
+  const response = await submitRegistration(
     signingPublicKey,
     signingPrivateKey,
     publicKey,

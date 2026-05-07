@@ -5,16 +5,16 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { PublicKeyRequest } from "@tearleads/validators/request";
-import type { PublicKeyResponse } from "@tearleads/validators/response";
+import type { RegistrationRequest } from "@tearleads/validators/request";
+import type { RegistrationResponse } from "@tearleads/validators/response";
 import {
-  isDuplicateRegisterFingerprintError,
-  RegisterPublicKeyError,
-  runRegisterPublicKeyWorkflow,
-} from "../../workflows/auth/registerPublicKey";
+  isDuplicateRegistrationFingerprintError,
+  RegistrationError,
+  runRegistrationWorkflow,
+} from "../../workflows/auth/registration";
 import type { ApiServiceRuntime } from "../runtime";
 
-export { isDuplicateRegisterFingerprintError, RegisterPublicKeyError };
+export { isDuplicateRegistrationFingerprintError, RegistrationError };
 
 async function issueRegistrationChallenge(
   runtime: ApiServiceRuntime,
@@ -33,16 +33,16 @@ async function issueRegistrationChallenge(
   return challengeHex;
 }
 
-export async function registerPublicKey(
+export async function registerUser(
   runtime: ApiServiceRuntime,
-  input: PublicKeyRequest,
-): Promise<PublicKeyResponse> {
+  input: RegistrationRequest,
+): Promise<RegistrationResponse> {
   const signingKeyBytes = new Uint8Array(input.signingPublicKey);
   const encapsulationKeyBytes = new Uint8Array(input.encapsulationPublicKey);
   const fingerprint = await toFingerprint(signingKeyBytes);
   const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
 
-  const result = await runRegisterPublicKeyWorkflow(runtime.db, input, {
+  const result = await runRegistrationWorkflow(runtime.db, input, {
     encapsulationFingerprint,
     encapsulationKeyBytes,
     fingerprint,

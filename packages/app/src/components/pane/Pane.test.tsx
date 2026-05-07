@@ -1,7 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { createModuleDatabaseRuntime } from "@tearleads/sqlite-worker/runtime";
-import { isPublicKeyResponse } from "@tearleads/validators/response";
+import { isRegistrationResponse } from "@tearleads/validators/response";
 import {
   cleanup,
   fireEvent,
@@ -89,8 +89,8 @@ async function generateIdentityAndWaitForDb(
   });
 }
 
-test("displays userId after uploading public key", async () => {
-  const spy = spyOn(ApiClient.prototype, "postPublicKey");
+test("displays userId after registration", async () => {
+  const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
 
   expect(view.getByText(/userId: none/)).toBeTruthy();
@@ -109,7 +109,7 @@ test("displays userId after uploading public key", async () => {
   const spyResult = spy.mock.results[0];
   invariant(spyResult, "spy has no results");
   const result = await spyResult.value;
-  if (!isPublicKeyResponse(result)) throw new Error("invalid response");
+  if (!isRegistrationResponse(result)) throw new Error("invalid response");
   const { userId } = result;
 
   await waitFor(() => {
@@ -124,7 +124,7 @@ test("displays userId after uploading public key", async () => {
 });
 
 test("userId resets to none when key pair is destroyed", async () => {
-  const spy = spyOn(ApiClient.prototype, "postPublicKey");
+  const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
@@ -141,7 +141,7 @@ test("userId resets to none when key pair is destroyed", async () => {
   const spyResult = spy.mock.results[0];
   invariant(spyResult, "spy has no results");
   const result = await spyResult.value;
-  if (!isPublicKeyResponse(result)) throw new Error("invalid response");
+  if (!isRegistrationResponse(result)) throw new Error("invalid response");
   const { userId } = result;
 
   await waitFor(() => {
@@ -209,7 +209,7 @@ test("notes windows in the same pane share live note state", async () => {
 });
 
 test("contacts windows in the same pane share live address book state", async () => {
-  const spy = spyOn(ApiClient.prototype, "postPublicKey");
+  const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);

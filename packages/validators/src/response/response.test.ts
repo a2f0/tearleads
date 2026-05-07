@@ -16,7 +16,7 @@ import {
   isListContainersResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
-  isPublicKeyResponse,
+  isRegistrationResponse,
   isStageBlobResponse,
   isVerifyResponse,
 } from "./index";
@@ -30,9 +30,9 @@ test("isHealthResponse", () => {
   expect(isHealthResponse(null)).toBe(false);
 });
 
-test("isPublicKeyResponse", () => {
+test("isRegistrationResponse", () => {
   expect(
-    isPublicKeyResponse({
+    isRegistrationResponse({
       userId: "abc-123",
       organizationId: "org-456",
       rootContainerId: "ctr-789",
@@ -44,13 +44,13 @@ test("isPublicKeyResponse", () => {
     }),
   ).toBe(true);
   expect(
-    isPublicKeyResponse({
+    isRegistrationResponse({
       userId: "abc-123",
       challenge: VALID_CHALLENGE,
     }),
   ).toBe(false);
-  expect(isPublicKeyResponse({})).toBe(false);
-  expect(isPublicKeyResponse(null)).toBe(false);
+  expect(isRegistrationResponse({})).toBe(false);
+  expect(isRegistrationResponse(null)).toBe(false);
 });
 
 test("isChallengeResponse", () => {

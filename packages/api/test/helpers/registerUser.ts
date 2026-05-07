@@ -1,23 +1,23 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
-import { isPublicKeyResponse } from "@tearleads/validators/response";
+import { isRegistrationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
-import { uploadKey } from "./api";
+import { submitRegistration } from "./api";
 
 export async function registerUser(user: TestUser): Promise<string> {
   user.fingerprint = await toFingerprint(user.signing.signingPublicKey);
 
-  const res = await uploadKey(
+  const res = await submitRegistration(
     user.signing.signingPublicKey,
     user.signing.signingPrivateKey,
     user.kem.publicKey,
   );
   if (res.status !== 200) {
-    throw new Error(`uploadKey failed with status ${res.status}`);
+    throw new Error(`submitRegistration failed with status ${res.status}`);
   }
 
   const body = await res.json();
-  invariant(isPublicKeyResponse(body), "expected register response");
+  invariant(isRegistrationResponse(body), "expected register response");
   user.userId = body.userId;
   user.rootContainerId = body.rootContainerId;
   return body.challenge;
