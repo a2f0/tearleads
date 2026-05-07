@@ -1,4 +1,3 @@
-import { bytesToHex, toFingerprint, type WriteHeader } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
@@ -55,10 +54,11 @@ import {
 } from "../../data/sync/syncCoordinator";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
-  decryptDocumentAttachmentBlob,
+  hydrateDocumentAttachmentBlobs,
   uploadDocumentAttachment,
 } from "../../workflows/blobs";
 import {
+  createDocumentWriterPublicKeyResolver,
   createRemoteDocument,
   type DocumentCreateAuthor,
   resolveDocumentCreateAuthor,
@@ -499,66 +499,6 @@ function canAttachFiles(state: DocumentStoreState): boolean {
   );
 }
 
-function createDocumentWriterPublicKeyResolver(state: DocumentStoreState) {
-  const cache = new Map<string, Promise<Uint8Array | null>>();
-
-  return async (input: {
-    authorFingerprint: string;
-    header: WriteHeader;
-  }): Promise<Uint8Array | null> => {
-    const { authorFingerprint, header } = input;
-    if (header.writerKeyFingerprint !== authorFingerprint) {
-      return null;
-    }
-
-    const localSigningPublicKey =
-      state.runtime.signingKeyPair?.signingPublicKey;
-    if (header.writerUserId === state.runtime.userId && localSigningPublicKey) {
-      const localFingerprint =
-        state.runtime.signingFingerprint ??
-        (await toFingerprint(localSigningPublicKey));
-      return localFingerprint === authorFingerprint
-        ? localSigningPublicKey
-        : null;
-    }
-
-    const cacheKey = `${header.writerUserId}:${authorFingerprint}`;
-    let cached = cache.get(cacheKey);
-    if (!cached) {
-      cached = state.runtime.apiClient
-        .getEncapsulationKey(header.writerUserId)
-        .then(async (response) => {
-          if (!response) {
-            return null;
-          }
-
-          const signingPublicKey = base64ToBytes(response.signingPublicKey);
-          const signingKeyFingerprint = await toFingerprint(signingPublicKey);
-          if (
-            signingKeyFingerprint !== response.signingKeyFingerprint ||
-            signingKeyFingerprint !== authorFingerprint
-          ) {
-            state.runtime.log(
-              `Documents: skipped writer key for ${header.writerUserId} because the signing fingerprint does not match the public key.`,
-            );
-            return null;
-          }
-
-          return signingPublicKey;
-        })
-        .catch(() => {
-          state.runtime.log(
-            `Documents: skipped writer key for ${header.writerUserId} because it could not be loaded.`,
-          );
-          return null;
-        });
-      cache.set(cacheKey, cached);
-    }
-
-    return cached;
-  };
-}
-
 function getSnapshotAttachments(
   state: DocumentStoreState,
   currentDoc: DocumentState | null = state.doc,
@@ -881,67 +821,6 @@ function listAttachmentsMissingLocalBytes(
   );
 }
 
-async function hydrateMissingAttachmentBlob(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  attachment: DocumentAttachment,
-  binding: DocumentAttachmentBinding,
-  documentId: string,
-  encapsulationKeyPair: EncapsulationKeyPair,
-) {
-  const blob = await state.runtime.apiClient.getBlob(binding.blobId);
-  if (!blob) {
-    return;
-  }
-
-  const blobDigest = new Uint8Array(
-    await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(blob.encryptedBytes),
-    ),
-  );
-  const blobSha256 = bytesToHex(blobDigest);
-  if (blobSha256 !== blob.sha256) {
-    state.runtime.log(
-      `Documents: blob ${binding.blobId} sha256 mismatch during hydration.`,
-    );
-    return;
-  }
-
-  const writerProjection =
-    await state.runtime.apiClient.getDocumentWriterProjection(documentId);
-  if (!writerProjection) {
-    state.runtime.log(
-      `Documents: cannot hydrate blob ${binding.blobId} without a writer projection.`,
-    );
-    return;
-  }
-
-  const decryptedBytes = await decryptDocumentAttachmentBlob({
-    encryptedBytes: blob.encryptedBytes,
-    expectedBindingId: binding.bindingId,
-    expectedBlobId: binding.blobId,
-    execSql: state.runtime.execSql,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    targetSecretKey: encapsulationKeyPair.secretKey,
-    writerProjection,
-  });
-  const storageKey = `blob-${binding.blobId}`;
-  await state.runtime.blobStore.writeBytes(storageKey, decryptedBytes);
-  await saveLocalAttachmentRecord(
-    state,
-    {
-      blobId: binding.blobId,
-      byteLength: attachment.byteLength,
-      localId: state.localId,
-      mimeType: attachment.mimeType,
-      slotId: attachment.slotId,
-      storageKey,
-    },
-    currentDoc,
-  );
-}
-
 async function hydrateAttachmentBlobs(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -965,31 +844,35 @@ async function hydrateAttachmentBlobs(
     return;
   }
 
-  const attachmentBindings =
-    await state.runtime.apiClient.listDocumentAttachments(
-      currentRecord.documentId,
-    );
-  if (!attachmentBindings) {
+  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
+    apiClient: state.runtime.apiClient,
+    attachments: attachmentsMissingLocalBytes,
+    documentId: currentRecord.documentId,
+    execSql: state.runtime.execSql,
+    log: state.runtime.log,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  if (!hydratedBlobs) {
     return;
   }
 
-  const bindingBySlotId = new Map(
-    attachmentBindings.map((binding) => [binding.slotId, binding]),
-  );
-
-  for (const attachment of attachmentsMissingLocalBytes) {
-    const binding = bindingBySlotId.get(attachment.slotId);
-    if (!binding) {
-      continue;
-    }
-
-    await hydrateMissingAttachmentBlob(
+  for (const hydratedBlob of hydratedBlobs) {
+    await state.runtime.blobStore.writeBytes(
+      hydratedBlob.storageKey,
+      hydratedBlob.bytes,
+    );
+    await saveLocalAttachmentRecord(
       state,
+      {
+        blobId: hydratedBlob.binding.blobId,
+        byteLength: hydratedBlob.attachment.byteLength,
+        localId: state.localId,
+        mimeType: hydratedBlob.attachment.mimeType,
+        slotId: hydratedBlob.attachment.slotId,
+        storageKey: hydratedBlob.storageKey,
+      },
       currentDoc,
-      attachment,
-      binding,
-      currentRecord.documentId,
-      encapsulationKeyPair,
     );
   }
 }
@@ -1432,7 +1315,11 @@ async function requestDocumentSync(
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver(state),
+    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
+      logPrefix: "Documents",
+      runtime: state.runtime,
+      writerKeyLabel: "writer key",
+    }),
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
   if (!synced) {
@@ -1473,7 +1360,11 @@ async function requestDocumentSyncProbe(
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates: [],
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver(state),
+    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
+      logPrefix: "Documents",
+      runtime: state.runtime,
+      writerKeyLabel: "writer key",
+    }),
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
   if (!synced) {

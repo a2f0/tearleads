@@ -1,4 +1,3 @@
-import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   encodeVersionVector,
@@ -43,6 +42,7 @@ import {
 } from "../../data/sync/syncCoordinator";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
+  createDocumentWriterPublicKeyResolver,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../workflows/documents";
@@ -1034,55 +1034,6 @@ function ensureExplorerStoreInitialized(input: {
   });
 }
 
-function createExplorerWriterPublicKeyResolver(state: ExplorerSyncState) {
-  const cache = new Map<string, Promise<Uint8Array | null>>();
-
-  return async (input: {
-    authorFingerprint: string;
-    header: { writerKeyFingerprint: string; writerUserId: string };
-  }): Promise<Uint8Array | null> => {
-    const { authorFingerprint, header } = input;
-    if (header.writerKeyFingerprint !== authorFingerprint) {
-      return null;
-    }
-
-    const cacheKey = `${header.writerUserId}:${authorFingerprint}`;
-    let cached = cache.get(cacheKey);
-    if (!cached) {
-      cached = state.runtime.apiClient
-        .getEncapsulationKey(header.writerUserId)
-        .then(async (response) => {
-          if (!response) {
-            return null;
-          }
-
-          const signingPublicKey = base64ToBytes(response.signingPublicKey);
-          const signingKeyFingerprint = await toFingerprint(signingPublicKey);
-          if (
-            signingKeyFingerprint !== response.signingKeyFingerprint ||
-            signingKeyFingerprint !== authorFingerprint
-          ) {
-            state.runtime.log(
-              `Explorer: skipped metadata writer key for ${header.writerUserId} because the signing fingerprint does not match the public key.`,
-            );
-            return null;
-          }
-
-          return signingPublicKey;
-        })
-        .catch(() => {
-          state.runtime.log(
-            `Explorer: skipped metadata writer key for ${header.writerUserId} because it could not be loaded.`,
-          );
-          return null;
-        });
-      cache.set(cacheKey, cached);
-    }
-
-    return cached;
-  };
-}
-
 async function applySyncedContainerUpdates(input: {
   containerState: ContainerState;
   state: ExplorerSyncState;
@@ -1137,7 +1088,12 @@ async function requestContainerMetadataSync(
     minLsn: containerState.record.lastCommitLsn ?? undefined,
     pendingUpdates,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    resolveWriterPublicKey: createExplorerWriterPublicKeyResolver(state),
+    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
+      includeLocalSigningKey: false,
+      logPrefix: "Explorer",
+      runtime: state.runtime,
+      writerKeyLabel: "metadata writer key",
+    }),
     targetSecretKey: encapsulationKeyPair.secretKey,
   }).catch((error: unknown) => {
     if (
