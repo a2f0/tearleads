@@ -6,7 +6,9 @@ import { getAppDatabaseRuntime } from "../../data/sqlite/appDatabaseRuntime";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import { addressBookProjection } from "../../data/sqlite/schema";
 import {
+  createExecSql,
   type ExecSql,
+  type ExecSqlClientLike,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 
@@ -36,7 +38,7 @@ const DEFAULT_ADDRESS_BOOK_ID = "default";
  * successful registration so the explorer and contacts apps can initialize
  * from SQLite on first login.
  */
-export async function persistRegistrationBootstrap(
+async function persistRegistrationBootstrapFromExecSql(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
 ): Promise<void> {
@@ -101,4 +103,11 @@ export async function persistRegistrationBootstrap(
       })
       .run();
   });
+}
+
+export async function persistRegistrationBootstrap(
+  client: ExecSqlClientLike,
+  input: RegistrationBootstrapInput,
+): Promise<void> {
+  await persistRegistrationBootstrapFromExecSql(createExecSql(client), input);
 }
