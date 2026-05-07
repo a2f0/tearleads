@@ -2,13 +2,13 @@ import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
 import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
-import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createRemoteDocument,
   type DocumentCreateAuthor,
+  resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../documents";
 
@@ -51,27 +51,6 @@ interface ContactRemoteSyncAttempt {
   synced: ContactRemoteSyncResult;
 }
 
-function resolveContactAuthor(
-  runtime: ContactDocumentSyncRuntime,
-): DocumentCreateAuthor | null {
-  if (
-    !runtime.organizationId ||
-    !runtime.signingFingerprint ||
-    !runtime.signingKeyPair ||
-    !runtime.userId
-  ) {
-    return null;
-  }
-
-  return {
-    organizationId: runtime.organizationId,
-    signerDeviceId: createDocumentSignerDeviceId(runtime.signingFingerprint),
-    signerKeyFingerprint: runtime.signingFingerprint,
-    signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
-    signerUserId: runtime.userId,
-  };
-}
-
 async function resolveContactWriterPublicKeys(
   runtime: ContactDocumentSyncRuntime,
   contactEntry: AddressBookEntry,
@@ -100,9 +79,12 @@ async function resolveContactWriterPublicKeys(
   try {
     const signingPublicKey = base64ToBytes(response.signingPublicKey);
     const signingKeyFingerprint = await toFingerprint(signingPublicKey);
-    if (signingKeyFingerprint !== response.signingKeyFingerprint) {
+    if (
+      response.userId !== contactEntry.userId ||
+      signingKeyFingerprint !== response.signingKeyFingerprint
+    ) {
       runtime.log(
-        `Contacts (${contactEntry.userId}): skipped peer writer key because the signing fingerprint does not match the public key.`,
+        `Contacts (${contactEntry.userId}): skipped peer writer key because the response is inconsistent.`,
       );
       return writerPublicKeysByFingerprint;
     }
@@ -118,15 +100,16 @@ async function resolveContactWriterPublicKeys(
 }
 
 export async function createRemoteContactDocument(input: {
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContactDocumentSyncRuntime;
   targetSecretKey: Uint8Array;
 }): Promise<ContactRemoteCreateResult | null> {
-  const { runtime, targetSecretKey } = input;
+  const { resolveProjectionUserKey, runtime, targetSecretKey } = input;
   if (!runtime.containerId) {
     return null;
   }
 
-  const author = resolveContactAuthor(runtime);
+  const author = resolveDocumentCreateAuthor(runtime);
   if (!author) {
     runtime.log(
       "Contacts: skipped remote create because the writer context is unavailable.",
@@ -139,10 +122,7 @@ export async function createRemoteContactDocument(input: {
     author,
     containerId: runtime.containerId,
     execSql: runtime.execSql,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      runtime,
-      "Contacts",
-    ),
+    resolveProjectionUserKey,
     targetSecretKey,
   });
 }
@@ -153,6 +133,7 @@ export async function syncRemoteContactDocument(input: {
   lastCommitLsn?: string | null | undefined;
   localVersionVector: string | null;
   pendingUpdates: readonly PendingUpdateRecord[];
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContactDocumentSyncRuntime;
   targetSecretKey: Uint8Array;
 }): Promise<ContactRemoteSyncAttempt | null> {
@@ -162,10 +143,11 @@ export async function syncRemoteContactDocument(input: {
     lastCommitLsn,
     localVersionVector,
     pendingUpdates,
+    resolveProjectionUserKey,
     runtime,
     targetSecretKey,
   } = input;
-  const author = resolveContactAuthor(runtime);
+  const author = resolveDocumentCreateAuthor(runtime);
   if (!author) {
     runtime.log(
       "Contacts: skipped sync because the writer context is unavailable.",
@@ -181,10 +163,7 @@ export async function syncRemoteContactDocument(input: {
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
     pendingUpdates,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      runtime,
-      "Contacts",
-    ),
+    resolveProjectionUserKey,
     targetSecretKey,
     writerPublicKeysByFingerprint: await resolveContactWriterPublicKeys(
       runtime,

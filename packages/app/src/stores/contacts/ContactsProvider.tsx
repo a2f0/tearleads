@@ -21,6 +21,10 @@ import {
   isDocumentUpdateCreatedEvent,
 } from "../../data/documentSync";
 import {
+  createProjectionUserKeyResolver,
+  type ProjectionUserKeyResolver,
+} from "../../data/keyingProjectionVerification";
+import {
   type ContactsPersistence,
   sqlContactsPersistence,
 } from "../../data/persistence/contacts/contactsPersistence";
@@ -144,6 +148,7 @@ interface ContactsStoreState {
   lastEventCount: number;
   listeners: Set<() => void>;
   persistence: ContactsPersistence;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContactsRuntime;
   snapshot: ContactsSnapshot;
   syncLane: SyncLane | null;
@@ -161,6 +166,10 @@ function createContactsStoreState(
     lastEventCount: 0,
     listeners: new Set(),
     persistence,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      initialRuntime,
+      "Contacts",
+    ),
     runtime: initialRuntime,
     snapshot: {
       entries: [],
@@ -169,6 +178,19 @@ function createContactsStoreState(
     syncLane: null,
     writeChain: Promise.resolve(),
   };
+}
+
+function didContactsProjectionResolverContextChange(
+  previousRuntime: ContactsRuntime,
+  nextRuntime: ContactsRuntime,
+): boolean {
+  return (
+    previousRuntime.apiClient !== nextRuntime.apiClient ||
+    previousRuntime.encapsulationKeyPair !== nextRuntime.encapsulationKeyPair ||
+    previousRuntime.signingFingerprint !== nextRuntime.signingFingerprint ||
+    previousRuntime.signingKeyPair !== nextRuntime.signingKeyPair ||
+    previousRuntime.userId !== nextRuntime.userId
+  );
 }
 
 function emitContactsStore(state: ContactsStoreState) {
@@ -447,6 +469,7 @@ async function ensureContactDocumentForSync(
     }
 
     const created = await createRemoteContactDocument({
+      resolveProjectionUserKey: state.resolveProjectionUserKey,
       runtime: state.runtime,
       targetSecretKey: encapsulationKeyPair.secretKey,
     });
@@ -529,6 +552,7 @@ async function syncSingleContact(
     lastCommitLsn: contact.record.lastCommitLsn,
     localVersionVector: encodeVersionVector(contact.doc),
     pendingUpdates,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -723,6 +747,14 @@ function updateContactsStoreRuntime(
   scheduleSync: () => void,
 ) {
   const previousRuntime = state.runtime;
+  if (
+    didContactsProjectionResolverContextChange(previousRuntime, nextRuntime)
+  ) {
+    state.resolveProjectionUserKey = createProjectionUserKeyResolver(
+      nextRuntime,
+      "Contacts",
+    );
+  }
   state.runtime = nextRuntime;
 
   if (nextRuntime.dbStatus !== "ready") {

@@ -10,6 +10,7 @@ export type {
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
 export { projectionVerificationOptions } from "../../data/documents/shared/types";
+export { resolveDocumentCreateAuthor } from "./author";
 export {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,

@@ -19,7 +19,7 @@ import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
 } from "../../data/documentSync";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import {
   containerParentSyncLane,
@@ -42,11 +42,11 @@ import {
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 import type { useAppData } from "../../providers/data/AppDataProvider";
-import { syncRemoteDocument } from "../../workflows/documents";
 import {
-  createRemoteExplorerContainer,
-  resolveExplorerWorkflowAuthor,
-} from "../../workflows/explorer";
+  resolveDocumentCreateAuthor,
+  syncRemoteDocument,
+} from "../../workflows/documents";
+import { createRemoteExplorerContainer } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
@@ -117,6 +117,7 @@ export interface ExplorerSyncState {
   lastEventCount: number;
   persistence: ExplorerPersistence;
   remoteHydrationPromise: Promise<void> | null;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ExplorerRuntime;
   snapshot: {
     ready: boolean;
@@ -1118,7 +1119,7 @@ async function requestContainerMetadataSync(
     containerState.container.id,
   );
 
-  const author = resolveExplorerWorkflowAuthor(state.runtime);
+  const author = resolveDocumentCreateAuthor(state.runtime);
   const { apiClient } = state.runtime;
   if (!author) {
     state.runtime.log(
@@ -1135,10 +1136,7 @@ async function requestContainerMetadataSync(
     localVersionVector: encodeVersionVector(containerState.doc),
     minLsn: containerState.record.lastCommitLsn ?? undefined,
     pendingUpdates,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      state.runtime,
-      "Explorer",
-    ),
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createExplorerWriterPublicKeyResolver(state),
     targetSecretKey: encapsulationKeyPair.secretKey,
   }).catch((error: unknown) => {
@@ -1302,6 +1300,7 @@ async function tryCreateRemoteContainerFromIntent(input: {
   const created = await createRemoteExplorerContainer({
     containerId: containerState.container.id,
     parentContainerId: parentState.container.id,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
 

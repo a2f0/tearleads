@@ -3,8 +3,7 @@ import type {
   EncapsulationKeyResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -12,7 +11,10 @@ import {
   moveRemoteContainer,
   shareRemoteContainer,
 } from "../containers";
-import { createRemoteDocument, type DocumentCreateAuthor } from "../documents";
+import {
+  createRemoteDocument,
+  resolveDocumentCreateAuthor,
+} from "../documents";
 
 type ExplorerContainerWorkflowApi = Parameters<
   typeof createRemoteContainer
@@ -77,27 +79,6 @@ interface RemoteExplorerContainer {
   parentId: string | null;
 }
 
-export function resolveExplorerWorkflowAuthor(
-  runtime: ExplorerContainerWorkflowRuntime,
-): DocumentCreateAuthor | null {
-  if (
-    !runtime.organizationId ||
-    !runtime.signingFingerprint ||
-    !runtime.signingKeyPair ||
-    !runtime.userId
-  ) {
-    return null;
-  }
-
-  return {
-    organizationId: runtime.organizationId,
-    signerDeviceId: createDocumentSignerDeviceId(runtime.signingFingerprint),
-    signerKeyFingerprint: runtime.signingFingerprint,
-    signerPrivateKey: runtime.signingKeyPair.signingPrivateKey,
-    signerUserId: runtime.userId,
-  };
-}
-
 function readMutationMetadataDocumentId(input: {
   response: {
     accessManifest: { state: Record<string, unknown> };
@@ -152,9 +133,10 @@ function referencedPrincipalHeadsFromResponse(input: {
 export async function createRemoteExplorerContainer(input: {
   containerId: string;
   parentContainerId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ExplorerContainerWorkflowRuntime;
 }): Promise<CreatedExplorerContainer | null> {
-  const author = resolveExplorerWorkflowAuthor(input.runtime);
+  const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
   const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !parentSecretKey) {
@@ -172,10 +154,7 @@ export async function createRemoteExplorerContainer(input: {
     metadataDocumentId: input.containerId,
     parentContainerId: input.parentContainerId,
     parentSecretKey,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      input.runtime,
-      "Explorer",
-    ),
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
   if (!createdContainer) {
     return null;
@@ -187,10 +166,7 @@ export async function createRemoteExplorerContainer(input: {
     containerId: createdContainer.containerId,
     documentId: createdContainer.metadataDocumentId,
     execSql: input.runtime.execSql,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      input.runtime,
-      "Explorer",
-    ),
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey: parentSecretKey,
   });
   if (!createdMetadataDocument) {
@@ -211,9 +187,10 @@ export async function shareRemoteExplorerContainer(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
   recipientUserId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ExplorerContainerWorkflowRuntime;
 }): Promise<SharedExplorerContainer | null> {
-  const author = resolveExplorerWorkflowAuthor(input.runtime);
+  const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
@@ -240,10 +217,7 @@ export async function shareRemoteExplorerContainer(input: {
       recipientKey.encapsulationPublicKey,
     ),
     recipientUserId: input.recipientUserId,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      input.runtime,
-      "Explorer",
-    ),
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey,
   });
   if (!shared) {
@@ -265,9 +239,10 @@ export async function shareRemoteExplorerContainer(input: {
 export async function moveRemoteExplorerContainer(input: {
   containerId: string;
   parentContainerId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ExplorerContainerWorkflowRuntime;
 }): Promise<RemoteExplorerContainer | null> {
-  const author = resolveExplorerWorkflowAuthor(input.runtime);
+  const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
@@ -283,10 +258,7 @@ export async function moveRemoteExplorerContainer(input: {
     containerId: input.containerId,
     destinationParentContainerId: input.parentContainerId,
     execSql: input.runtime.execSql,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      input.runtime,
-      "Explorer",
-    ),
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey,
   });
   if (!moved) {

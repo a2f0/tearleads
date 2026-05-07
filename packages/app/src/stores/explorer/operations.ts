@@ -123,6 +123,7 @@ async function buildRemoteChildContainerState(
   const created = await createRemoteExplorerContainer({
     containerId: childId,
     parentContainerId: parentState.container.id,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
 
@@ -381,6 +382,7 @@ export async function shareExplorerContainerWithUser(
     accessLevel: "write",
     containerId,
     recipientUserId: userId,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
 
@@ -438,6 +440,7 @@ export async function moveExplorerContainer(
   const moved = await moveRemoteExplorerContainer({
     containerId,
     parentContainerId: parentId,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
   if (!moved) {

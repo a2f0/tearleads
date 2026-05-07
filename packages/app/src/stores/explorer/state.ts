@@ -1,3 +1,4 @@
+import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import { didRegainSyncPrerequisites } from "../../data/sync/syncCoordinator";
 import type { ContainerNode } from "../../mini-apps/explorer/types";
@@ -38,6 +39,10 @@ export function createExplorerStoreState(
     listeners: new Set(),
     persistence,
     remoteHydrationPromise: null,
+    resolveProjectionUserKey: createProjectionUserKeyResolver(
+      initialRuntime,
+      "Explorer",
+    ),
     runtime: initialRuntime,
     snapshot: {
       nodes: [],
@@ -46,6 +51,19 @@ export function createExplorerStoreState(
     syncLane: null,
     writeChain: Promise.resolve<ContainerNode | null>(null),
   };
+}
+
+function didExplorerProjectionResolverContextChange(
+  previousRuntime: ExplorerRuntime,
+  nextRuntime: ExplorerRuntime,
+): boolean {
+  return (
+    previousRuntime.apiClient !== nextRuntime.apiClient ||
+    previousRuntime.encapsulationKeyPair !== nextRuntime.encapsulationKeyPair ||
+    previousRuntime.signingFingerprint !== nextRuntime.signingFingerprint ||
+    previousRuntime.signingKeyPair !== nextRuntime.signingKeyPair ||
+    previousRuntime.userId !== nextRuntime.userId
+  );
 }
 
 function emitExplorerStore(state: ExplorerStoreState) {
@@ -102,6 +120,14 @@ export function updateExplorerStoreRuntime(
   syncAgent: ExplorerSyncAgent,
 ) {
   const previousRuntime = state.runtime;
+  if (
+    didExplorerProjectionResolverContextChange(previousRuntime, nextRuntime)
+  ) {
+    state.resolveProjectionUserKey = createProjectionUserKeyResolver(
+      nextRuntime,
+      "Explorer",
+    );
+  }
   state.runtime = nextRuntime;
 
   if (nextRuntime.dbStatus !== "ready") {

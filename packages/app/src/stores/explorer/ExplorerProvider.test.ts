@@ -37,6 +37,7 @@ import {
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createInitializedContainerMetadataDocument } from "../../data/containers";
 import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
+import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
   ensureContainerTables,
   loadContainers,
@@ -975,6 +976,10 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
       lastEventCount: 0,
       persistence: sqlExplorerPersistence,
       remoteHydrationPromise: null,
+      resolveProjectionUserKey: createProjectionUserKeyResolver(
+        runtime,
+        "ExplorerProvider test",
+      ),
       runtime,
       snapshot: {
         ready: true,
