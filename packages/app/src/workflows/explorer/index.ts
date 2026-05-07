@@ -4,7 +4,13 @@ export {
   moveRemoteExplorerContainer,
   shareRemoteExplorerContainer,
 } from "./containers";
-export { relinkRemoteExplorerDocument } from "./documentLinks";
+export {
+  type ExplorerRemoteDocumentPersistedState,
+  linkRemoteExplorerDocument,
+  moveRemoteExplorerDocument,
+  resolveActiveExplorerDocumentContainerId,
+  unlinkRemoteExplorerDocument,
+} from "./documentLinks";
 export {
   type ExplorerContainerMetadataPatch,
   type ExplorerMetadataSyncAttempt,

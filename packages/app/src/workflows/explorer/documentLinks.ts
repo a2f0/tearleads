@@ -13,6 +13,8 @@ type ExplorerDocumentLinkApi = Parameters<
 type ExplorerDocumentLinkOperation = Parameters<
   typeof relinkRemoteDocument
 >[0]["operation"];
+type ExplorerRemoteDocumentPersistedState =
+  RelinkRemoteDocumentResult["persistedState"];
 
 interface ExplorerDocumentLinkRuntime {
   apiClient: ExplorerDocumentLinkApi;
@@ -28,6 +30,49 @@ interface ExplorerDocumentLinkRuntime {
     | null
     | undefined;
   userId?: string | null;
+}
+
+type MoveRemoteExplorerDocumentStatus = "complete" | "partial";
+
+interface MoveRemoteExplorerDocumentResult {
+  accessEpoch: number;
+  accessStateHash: string;
+  linkedContainerIds: readonly string[];
+  nextContainerId: string;
+  queueBaselineAfterRelink: boolean;
+  remoteState: ExplorerRemoteDocumentPersistedState;
+  status: MoveRemoteExplorerDocumentStatus;
+}
+
+export type { ExplorerRemoteDocumentPersistedState };
+
+export function resolveActiveExplorerDocumentContainerId(
+  linkedContainerIds: ReadonlyArray<string>,
+  preferredContainerId: string,
+): string | null {
+  if (linkedContainerIds.includes(preferredContainerId)) {
+    return preferredContainerId;
+  }
+
+  return linkedContainerIds[0] ?? null;
+}
+
+function explorerDocumentMoveResult(input: {
+  document: RelinkRemoteDocumentResult;
+  nextContainerId: string;
+  queueBaselineAfterRelink?: boolean;
+  status: MoveRemoteExplorerDocumentStatus;
+}): MoveRemoteExplorerDocumentResult {
+  return {
+    accessEpoch: input.document.plan.state.epoch,
+    accessStateHash: input.document.response.accessManifest.manifestHash,
+    linkedContainerIds: input.document.linkedContainerIds,
+    nextContainerId: input.nextContainerId,
+    queueBaselineAfterRelink:
+      input.queueBaselineAfterRelink ?? input.document.contentKeyRotated,
+    remoteState: input.document.persistedState,
+    status: input.status,
+  };
 }
 
 export async function relinkRemoteExplorerDocument(input: {
@@ -86,4 +131,92 @@ export async function relinkRemoteExplorerDocument(input: {
     );
     return null;
   }
+}
+
+export async function linkRemoteExplorerDocument(input: {
+  documentId: string;
+  noteId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ExplorerDocumentLinkRuntime;
+  targetContainerId: string;
+}): Promise<RelinkRemoteDocumentResult | null> {
+  return relinkRemoteExplorerDocument({
+    ...input,
+    operation: "link",
+  });
+}
+
+export async function unlinkRemoteExplorerDocument(input: {
+  documentId: string;
+  noteId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ExplorerDocumentLinkRuntime;
+  targetContainerId: string;
+}): Promise<RelinkRemoteDocumentResult | null> {
+  return relinkRemoteExplorerDocument({
+    ...input,
+    operation: "unlink",
+  });
+}
+
+export async function moveRemoteExplorerDocument(input: {
+  currentContainerId: string;
+  documentId: string;
+  noteId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ExplorerDocumentLinkRuntime;
+  targetContainerId: string;
+}): Promise<MoveRemoteExplorerDocumentResult | null> {
+  const {
+    currentContainerId,
+    documentId,
+    noteId,
+    resolveProjectionUserKey,
+    runtime,
+    targetContainerId,
+  } = input;
+  const linkedDocument = await linkRemoteExplorerDocument({
+    documentId,
+    noteId,
+    resolveProjectionUserKey,
+    runtime,
+    targetContainerId,
+  });
+  if (!linkedDocument) {
+    return null;
+  }
+
+  const unlinkedDocument = await unlinkRemoteExplorerDocument({
+    documentId,
+    noteId,
+    resolveProjectionUserKey,
+    runtime,
+    targetContainerId: currentContainerId,
+  });
+  if (!unlinkedDocument) {
+    runtime.log(
+      `Explorer: note ${noteId} was linked to ${targetContainerId} but failed to unlink from ${currentContainerId}`,
+    );
+    return explorerDocumentMoveResult({
+      document: linkedDocument,
+      nextContainerId: targetContainerId,
+      status: "partial",
+    });
+  }
+
+  const nextContainerId = resolveActiveExplorerDocumentContainerId(
+    unlinkedDocument.linkedContainerIds,
+    targetContainerId,
+  );
+  if (!nextContainerId) {
+    return null;
+  }
+
+  return explorerDocumentMoveResult({
+    document: unlinkedDocument,
+    nextContainerId,
+    queueBaselineAfterRelink:
+      linkedDocument.contentKeyRotated || unlinkedDocument.contentKeyRotated,
+    status: "complete",
+  });
 }
