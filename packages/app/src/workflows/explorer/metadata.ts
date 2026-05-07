@@ -1,4 +1,3 @@
-import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -10,9 +9,10 @@ import {
 
 type ExplorerMetadataSyncApi = Parameters<
   typeof syncRemoteDocument
->[0]["apiClient"] & {
-  getEncapsulationKey(userId: string): Promise<EncapsulationKeyResponse | null>;
-};
+>[0]["apiClient"] &
+  Parameters<
+    typeof createDocumentWriterPublicKeyResolver
+  >[0]["runtime"]["apiClient"];
 
 interface ExplorerMetadataSyncRuntime {
   apiClient: ExplorerMetadataSyncApi;
