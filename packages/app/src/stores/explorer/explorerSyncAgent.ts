@@ -41,6 +41,7 @@ import {
   type ExplorerMetadataSyncAttempt,
   enqueuePendingExplorerContainerUpdate,
   initializeExplorerSchema,
+  listExplorerDocumentsForContainerSubtree,
   listPendingExplorerContainerCreateIntents,
   listPendingExplorerContainerUpdates,
   loadContainerParentSyncWatermark,
@@ -53,7 +54,6 @@ import {
   syncRemoteExplorerContainerMetadata,
 } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
-import { listExplorerDocumentsForContainerSubtree } from "./documentReadModel";
 import { createExplorerDocumentsRuntime } from "./documentRuntime";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;

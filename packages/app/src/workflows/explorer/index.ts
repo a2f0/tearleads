@@ -33,6 +33,13 @@ export {
   unlinkRemoteExplorerDocument,
 } from "./documentLinks";
 export {
+  createExplorerDocumentReadModel,
+  type ExplorerContainerDocumentTombstone,
+  type ExplorerDocumentLinkInput,
+  type ExplorerDocumentReadModel,
+  listExplorerDocumentsForContainerSubtree,
+} from "./documentReadModel";
+export {
   type ExplorerContainerMetadataPatch,
   type ExplorerMetadataSyncAttempt,
   persistExplorerContainerMetadataState,
