@@ -5,10 +5,6 @@ import {
   type ProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
 import {
-  type ContactsPersistence,
-  sqlContactsPersistence,
-} from "../../data/persistence/contacts/contactsPersistence";
-import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
@@ -16,6 +12,8 @@ import {
 } from "../../data/sync/syncCoordinator";
 import {
   type ContactDocumentState,
+  type ContactsPersistence,
+  defaultContactsPersistence,
   deleteContactEntry,
   loadStoredContactDocumentStates,
   persistImportedContactEntry,
@@ -439,7 +437,7 @@ function subscribeToContactsStore(
 
 export function createContactsStore(
   initialRuntime: ContactsRuntime,
-  persistence: ContactsPersistence = sqlContactsPersistence,
+  persistence: ContactsPersistence = defaultContactsPersistence,
 ): ContactsStore {
   const state = createContactsStoreState(initialRuntime, persistence);
   state.syncLane = getOrCreateDomainSyncCoordinator(
