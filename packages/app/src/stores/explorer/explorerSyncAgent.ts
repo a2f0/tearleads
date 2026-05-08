@@ -4,10 +4,6 @@ import {
   exportAllUpdates,
   importUpdates,
 } from "@tearleads/loro";
-import type {
-  ContainerSummary,
-  ContainerSyncTombstone,
-} from "@tearleads/validators/response";
 import type { BlobStore } from "../../data/blobs";
 import {
   createContainerMetadataDocument,
@@ -25,48 +21,35 @@ import {
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
   type ContainerCreateIntentRecord,
-  type ContainerRecord,
-  createExplorerContainerParentSyncLane,
   createRemoteExplorerContainer,
-  deleteExplorerContainers,
-  type ExplorerContainerMetadataPatch,
-  type ExplorerDocumentRecord,
+  type ExplorerContainerMetadataDocument,
+  type ExplorerContainerState,
   type ExplorerMetadataSyncAttempt,
   type ExplorerPendingUpdateRecord,
   type ExplorerPersistence,
+  type ExplorerRemoteContainer,
+  type ExplorerRemoteContainerHydrationHost,
   enqueuePendingExplorerContainerUpdate,
+  hydrateRemoteExplorerContainers,
   initializeExplorerSchema,
   listExplorerDocumentsForContainerSubtree,
   listPendingExplorerContainerCreateIntents,
   listPendingExplorerContainerUpdates,
-  loadContainerParentSyncWatermark,
   loadStoredExplorerContainers,
   markExplorerContainerCreateIntentSynced,
   persistExplorerContainerMetadataState,
   recordExplorerContainerCreateIntentError,
   type StoredExplorerContainer,
-  saveContainerParentSyncWatermark,
   saveExplorerContainer,
   syncRemoteExplorerContainerMetadata,
+  upsertRemoteExplorerContainerState,
 } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import { createExplorerDocumentsRuntime } from "./documentRuntime";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
 
-export type ContainerMetadataDocument = Awaited<
-  ReturnType<typeof createContainerMetadataDocument>
->;
-type ListedRemoteContainer = Pick<
-  ContainerSummary,
-  | "id"
-  | "metadataAccessEpoch"
-  | "metadataAccessStateHash"
-  | "metadataDocumentId"
-  | "metadataReferencedPrincipals"
-  | "organizationId"
-  | "parentId"
->;
+export type ContainerMetadataDocument = ExplorerContainerMetadataDocument;
 
 export interface ExplorerRuntime {
   apiClient: ExplorerAppData["apiClient"];
@@ -86,11 +69,7 @@ export interface ExplorerRuntime {
   userId?: ExplorerAppData["userId"];
 }
 
-export interface ContainerState {
-  container: ContainerRecord;
-  doc: ContainerMetadataDocument;
-  record: ExplorerDocumentRecord;
-}
+export type ContainerState = ExplorerContainerState;
 
 export interface ExplorerSyncState {
   containersById: Map<string, ContainerState>;
@@ -106,22 +85,6 @@ export interface ExplorerSyncState {
   };
   syncLane: SyncLane | null;
 }
-
-export type ExplorerRemoteContainer = ListedRemoteContainer;
-
-type ListedRemoteContainersResponse = NonNullable<
-  Awaited<ReturnType<ExplorerRuntime["apiClient"]["listContainers"]>>
->;
-type ListedRemoteContainerPageItem =
-  ListedRemoteContainersResponse["items"][number];
-const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
-
-interface ContainerParentHydrationLane {
-  parentId: string | null;
-  watermark?: ListedRemoteContainersResponse["nextWatermark"];
-}
-
-type QueueContainerParentLane = (parentId: string | null) => void;
 
 export interface ExplorerSyncAgent {
   enqueuePendingContainerUpdate: (
@@ -141,14 +104,7 @@ export interface ExplorerSyncAgent {
   scheduleSync: () => void;
 }
 
-interface ExplorerSyncHost {
-  persistContainerState: (
-    containerState: ContainerState,
-    patch?: Partial<ExplorerContainerMetadataPatch>,
-    updateView?: boolean,
-  ) => Promise<ExplorerDocumentRecord>;
-  updateSnapshot: () => void;
-}
+type ExplorerSyncHost = ExplorerRemoteContainerHydrationHost;
 
 function requestExplorerSync(state: ExplorerSyncState) {
   state.syncLane?.requestSync();
@@ -288,532 +244,6 @@ async function enqueuePendingContainerUpdate(
   );
 }
 
-async function upsertRemoteContainerState(
-  state: ExplorerSyncState,
-  host: ExplorerSyncHost,
-  remoteContainer: ExplorerRemoteContainer,
-): Promise<ContainerState> {
-  const existingState = state.containersById.get(remoteContainer.id);
-
-  if (existingState) {
-    await host.persistContainerState(
-      existingState,
-      {
-        accessEpoch: remoteContainer.metadataAccessEpoch,
-        accessStateHash: remoteContainer.metadataAccessStateHash,
-        documentId: remoteContainer.metadataDocumentId,
-        metadataDocumentId: remoteContainer.metadataDocumentId,
-        organizationId: remoteContainer.organizationId,
-        parentId: remoteContainer.parentId,
-      },
-      false,
-    );
-    return existingState;
-  }
-
-  const doc = await createContainerMetadataDocument(remoteContainer.id);
-  const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
-  const containerState: ContainerState = {
-    container: {
-      id: remoteContainer.id,
-      organizationId: remoteContainer.organizationId,
-      parentId: remoteContainer.parentId,
-      metadataDocumentId: remoteContainer.metadataDocumentId,
-      name: getDefaultContainerName(remoteContainer.parentId),
-      icon: null,
-    },
-    doc,
-    record: {
-      accessEpoch: remoteContainer.metadataAccessEpoch,
-      accessStateHash: remoteContainer.metadataAccessStateHash,
-      documentId: remoteContainer.metadataDocumentId,
-      id: remoteContainer.id,
-      lastCommitLsn: null,
-      loroSnapshot: initialSnapshot,
-      contentKeyBundle: null,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-    },
-  };
-
-  await saveExplorerContainer(
-    state.runtime.execSql,
-    state.persistence,
-    containerState.container,
-    containerState.record,
-  );
-  state.containersById.set(remoteContainer.id, containerState);
-  return containerState;
-}
-
-function createContainerParentHydrationQueue(containerIds: Iterable<string>): {
-  lanes: ContainerParentHydrationLane[];
-  queueParentLane: QueueContainerParentLane;
-} {
-  const queuedParentIds = new Set<string>();
-  const lanes: ContainerParentHydrationLane[] = [];
-  const queueParentLane = (parentId: string | null) => {
-    const laneKey = parentId === null ? "root" : `container:${parentId}`;
-    if (queuedParentIds.has(laneKey)) {
-      return;
-    }
-
-    queuedParentIds.add(laneKey);
-    lanes.push({ parentId });
-  };
-
-  queueParentLane(null);
-  for (const containerId of containerIds) {
-    queueParentLane(containerId);
-  }
-
-  return { lanes, queueParentLane };
-}
-
-async function applyRemoteContainerPage(input: {
-  host: ExplorerSyncHost;
-  items: ReadonlyArray<ListedRemoteContainerPageItem>;
-  queueParentLane: QueueContainerParentLane;
-  seenContainerIds: Set<string>;
-  state: ExplorerSyncState;
-}): Promise<number> {
-  const { host, items, queueParentLane, seenContainerIds, state } = input;
-  let hydratedCount = 0;
-
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    items.flatMap(
-      (remoteContainer) => remoteContainer.metadataReferencedPrincipals ?? [],
-    ),
-  );
-
-  for (const container of items) {
-    if (!seenContainerIds.has(container.id)) {
-      seenContainerIds.add(container.id);
-      await upsertRemoteContainerState(state, host, container);
-      hydratedCount += 1;
-    }
-
-    queueParentLane(container.id);
-  }
-
-  return hydratedCount;
-}
-
-function latestContainerItemsById(
-  items: ReadonlyArray<ListedRemoteContainerPageItem>,
-): Map<string, ListedRemoteContainerPageItem> {
-  const latestItems = new Map<string, ListedRemoteContainerPageItem>();
-  for (const item of items) {
-    const current = latestItems.get(item.id);
-    if (!current || current.updatedAt.localeCompare(item.updatedAt) < 0) {
-      latestItems.set(item.id, item);
-    }
-  }
-
-  return latestItems;
-}
-
-function latestContainerTombstonesById(
-  tombstones: ReadonlyArray<ContainerSyncTombstone>,
-): Map<string, ContainerSyncTombstone> {
-  const latestTombstones = new Map<string, ContainerSyncTombstone>();
-  for (const tombstone of tombstones) {
-    const current = latestTombstones.get(tombstone.containerId);
-    if (!current || current.updatedAt.localeCompare(tombstone.updatedAt) < 0) {
-      latestTombstones.set(tombstone.containerId, tombstone);
-    }
-  }
-
-  return latestTombstones;
-}
-
-function getApplicableContainerTombstones(
-  response: ListedRemoteContainersResponse,
-): ContainerSyncTombstone[] {
-  const latestItems = latestContainerItemsById(response.items);
-  return Array.from(
-    latestContainerTombstonesById(response.tombstones).values(),
-  ).filter((tombstone) => {
-    const item = latestItems.get(tombstone.containerId);
-    return !item || item.updatedAt.localeCompare(tombstone.updatedAt) < 0;
-  });
-}
-
-function getApplicableRemoteContainerItems(
-  response: ListedRemoteContainersResponse,
-): ListedRemoteContainerPageItem[] {
-  const latestTombstones = latestContainerTombstonesById(response.tombstones);
-  return response.items.filter((item) => {
-    const tombstone = latestTombstones.get(item.id);
-    return !tombstone || tombstone.updatedAt.localeCompare(item.updatedAt) <= 0;
-  });
-}
-
-function collectRemovedContainerIds(input: {
-  containersById: ReadonlyMap<string, ContainerState>;
-  preservedContainerIds: ReadonlySet<string>;
-  tombstones: ReadonlyArray<ContainerSyncTombstone>;
-}): string[] {
-  const { containersById, preservedContainerIds, tombstones } = input;
-  const childIdsByParentId = new Map<string, string[]>();
-  for (const [containerId, containerState] of containersById) {
-    const parentId = containerState.container.parentId;
-    if (parentId === null) {
-      continue;
-    }
-
-    const childIds = childIdsByParentId.get(parentId) ?? [];
-    childIds.push(containerId);
-    childIdsByParentId.set(parentId, childIds);
-  }
-
-  const removedContainerIds = new Set<string>();
-  const pendingContainerIds = tombstones
-    .map((tombstone) => tombstone.containerId)
-    .filter((containerId) => !preservedContainerIds.has(containerId));
-
-  while (pendingContainerIds.length > 0) {
-    const containerId = pendingContainerIds.pop();
-    if (!containerId || removedContainerIds.has(containerId)) {
-      continue;
-    }
-
-    removedContainerIds.add(containerId);
-    for (const childId of childIdsByParentId.get(containerId) ?? []) {
-      if (
-        !preservedContainerIds.has(childId) &&
-        !removedContainerIds.has(childId)
-      ) {
-        pendingContainerIds.push(childId);
-      }
-    }
-  }
-
-  return Array.from(removedContainerIds).filter((containerId) =>
-    containersById.has(containerId),
-  );
-}
-
-function getLatestContainerTombstoneUpdatedAt(
-  tombstones: ReadonlyArray<ContainerSyncTombstone>,
-): string | undefined {
-  return tombstones.reduce<string | undefined>(
-    (latestUpdatedAt, tombstone) =>
-      !latestUpdatedAt || latestUpdatedAt.localeCompare(tombstone.updatedAt) < 0
-        ? tombstone.updatedAt
-        : latestUpdatedAt,
-    undefined,
-  );
-}
-
-async function applyContainerTombstones(input: {
-  preservedContainerIds: ReadonlySet<string>;
-  response: ListedRemoteContainersResponse;
-  state: ExplorerSyncState;
-}): Promise<number> {
-  const { preservedContainerIds, response, state } = input;
-  const tombstones = getApplicableContainerTombstones(response);
-  if (tombstones.length === 0) {
-    return 0;
-  }
-
-  const removedContainerIds = collectRemovedContainerIds({
-    containersById: state.containersById,
-    preservedContainerIds,
-    tombstones,
-  });
-  const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
-
-  await deleteExplorerContainers(
-    state.runtime.execSql,
-    state.persistence,
-    removedContainerIds,
-    tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : undefined,
-  );
-  for (const containerId of removedContainerIds) {
-    state.containersById.delete(containerId);
-  }
-
-  return removedContainerIds.length;
-}
-
-async function advanceContainerParentWatermark(input: {
-  response: ListedRemoteContainersResponse;
-  state: ExplorerSyncState;
-  syncLane: ReturnType<typeof createExplorerContainerParentSyncLane>;
-}): Promise<boolean> {
-  const { response, state, syncLane } = input;
-  if (response.nextWatermark) {
-    await saveContainerParentSyncWatermark(
-      state.runtime.execSql,
-      syncLane,
-      response.nextWatermark,
-    );
-  }
-
-  return true;
-}
-
-interface FetchedContainerParentLanePage {
-  lane: ContainerParentHydrationLane;
-  response: ListedRemoteContainersResponse;
-  syncLane: ReturnType<typeof createExplorerContainerParentSyncLane>;
-}
-
-function canHydrateRemoteContainers(state: ExplorerSyncState): boolean {
-  return (
-    state.runtime.isAuthenticated &&
-    state.runtime.online &&
-    state.runtime.dbStatus === "ready"
-  );
-}
-
-async function fetchContainerParentLanePage(input: {
-  lane: ContainerParentHydrationLane;
-  state: ExplorerSyncState;
-}): Promise<FetchedContainerParentLanePage | null> {
-  const { lane, state } = input;
-  const syncLane = createExplorerContainerParentSyncLane(lane.parentId);
-  const watermark =
-    lane.watermark === undefined
-      ? await loadContainerParentSyncWatermark(state.runtime.execSql, syncLane)
-      : lane.watermark;
-  const response = await state.runtime.apiClient.listContainers({
-    parentId: lane.parentId,
-    watermark,
-  });
-
-  return response ? { lane, response, syncLane } : null;
-}
-
-async function applyContainerParentLanePage(input: {
-  fetchedPage: FetchedContainerParentLanePage;
-  host: ExplorerSyncHost;
-  queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
-  queueParentLane: QueueContainerParentLane;
-  seenContainerIds: Set<string>;
-  state: ExplorerSyncState;
-}): Promise<{ changedCount: number; shouldStop: boolean }> {
-  const {
-    fetchedPage,
-    host,
-    queueContinuationLane,
-    queueParentLane,
-    seenContainerIds,
-    state,
-  } = input;
-  const { lane, response, syncLane } = fetchedPage;
-  let changedCount = 0;
-
-  const remoteContainerItems = getApplicableRemoteContainerItems(response);
-  changedCount += await applyContainerTombstones({
-    preservedContainerIds: new Set(
-      remoteContainerItems.map((container) => container.id),
-    ),
-    response,
-    state,
-  });
-
-  changedCount += await applyRemoteContainerPage({
-    host,
-    items: remoteContainerItems,
-    queueParentLane,
-    seenContainerIds,
-    state,
-  });
-
-  const didAdvanceWatermark = await advanceContainerParentWatermark({
-    response,
-    state,
-    syncLane,
-  });
-  if (!didAdvanceWatermark) {
-    return { changedCount, shouldStop: false };
-  }
-
-  if (!response.hasMore) {
-    return { changedCount, shouldStop: false };
-  }
-  if (!response.nextWatermark) {
-    return { changedCount, shouldStop: true };
-  }
-
-  queueContinuationLane({
-    parentId: lane.parentId,
-    watermark: response.nextWatermark,
-  });
-  return { changedCount, shouldStop: false };
-}
-
-function takeContainerParentLaneBatch(input: {
-  lanes: ContainerParentHydrationLane[];
-  state: ExplorerSyncState;
-}): ContainerParentHydrationLane[] {
-  const { lanes, state } = input;
-  const batch: ContainerParentHydrationLane[] = [];
-
-  while (
-    lanes.length > 0 &&
-    batch.length < CONTAINER_PARENT_HYDRATION_CONCURRENCY
-  ) {
-    const lane = lanes.shift();
-    if (
-      lane &&
-      (lane.parentId === null || state.containersById.has(lane.parentId))
-    ) {
-      batch.push(lane);
-    }
-  }
-
-  return batch;
-}
-
-function isFetchedContainerParentLanePage(
-  fetchedPage: FetchedContainerParentLanePage | null,
-): fetchedPage is FetchedContainerParentLanePage {
-  return fetchedPage !== null;
-}
-
-async function fetchContainerParentLaneBatch(input: {
-  batch: ReadonlyArray<ContainerParentHydrationLane>;
-  state: ExplorerSyncState;
-}): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
-  const { batch, state } = input;
-  const fetchedPages = await Promise.all(
-    batch.map((lane) => fetchContainerParentLanePage({ lane, state })),
-  );
-
-  return fetchedPages.every(isFetchedContainerParentLanePage)
-    ? fetchedPages
-    : null;
-}
-
-function canApplyFetchedContainerParentLanePage(input: {
-  fetchedPage: FetchedContainerParentLanePage;
-  state: ExplorerSyncState;
-}): boolean {
-  const { fetchedPage, state } = input;
-  return (
-    fetchedPage.lane.parentId === null ||
-    state.containersById.has(fetchedPage.lane.parentId)
-  );
-}
-
-async function applyContainerParentLaneBatch(input: {
-  fetchedPages: ReadonlyArray<FetchedContainerParentLanePage>;
-  host: ExplorerSyncHost;
-  lanes: ContainerParentHydrationLane[];
-  queueParentLane: QueueContainerParentLane;
-  seenContainerIds: Set<string>;
-  state: ExplorerSyncState;
-}): Promise<{ changedCount: number; shouldStop: boolean }> {
-  const {
-    fetchedPages,
-    host,
-    lanes,
-    queueParentLane,
-    seenContainerIds,
-    state,
-  } = input;
-  let changedCount = 0;
-
-  for (const fetchedPage of fetchedPages) {
-    if (!canHydrateRemoteContainers(state)) {
-      return { changedCount, shouldStop: true };
-    }
-    if (!canApplyFetchedContainerParentLanePage({ fetchedPage, state })) {
-      continue;
-    }
-
-    const result = await applyContainerParentLanePage({
-      fetchedPage,
-      host,
-      queueContinuationLane: (lane) => lanes.push(lane),
-      queueParentLane,
-      seenContainerIds,
-      state,
-    });
-    changedCount += result.changedCount;
-
-    if (result.shouldStop) {
-      return { changedCount, shouldStop: true };
-    }
-  }
-
-  return { changedCount, shouldStop: false };
-}
-
-async function hydrateContainerParentLanes(input: {
-  host: ExplorerSyncHost;
-  lanes: ContainerParentHydrationLane[];
-  queueParentLane: QueueContainerParentLane;
-  seenContainerIds: Set<string>;
-  state: ExplorerSyncState;
-}): Promise<{ changedCount: number; shouldStop: boolean }> {
-  const { host, lanes, queueParentLane, seenContainerIds, state } = input;
-  let changedCount = 0;
-
-  while (lanes.length > 0) {
-    if (!canHydrateRemoteContainers(state)) {
-      return { changedCount, shouldStop: true };
-    }
-
-    const batch = takeContainerParentLaneBatch({ lanes, state });
-    if (batch.length === 0) {
-      continue;
-    }
-
-    const fetchedPages = await fetchContainerParentLaneBatch({ batch, state });
-    if (!fetchedPages) {
-      return { changedCount, shouldStop: true };
-    }
-
-    const result = await applyContainerParentLaneBatch({
-      fetchedPages,
-      host,
-      lanes,
-      queueParentLane,
-      seenContainerIds,
-      state,
-    });
-    changedCount += result.changedCount;
-
-    if (result.shouldStop) {
-      return { changedCount, shouldStop: true };
-    }
-  }
-
-  return { changedCount, shouldStop: false };
-}
-
-async function hydrateRemoteContainers(
-  state: ExplorerSyncState,
-  host: ExplorerSyncHost,
-): Promise<void> {
-  if (!canHydrateRemoteContainers(state)) {
-    return;
-  }
-
-  const seenContainerIds = new Set<string>();
-  const { lanes, queueParentLane } = createContainerParentHydrationQueue(
-    state.containersById.keys(),
-  );
-  const { changedCount } = await hydrateContainerParentLanes({
-    host,
-    lanes,
-    queueParentLane,
-    seenContainerIds,
-    state,
-  });
-
-  if (changedCount > 0) {
-    host.updateSnapshot();
-    state.runtime.log(
-      `Explorer: applied ${changedCount} remote container change(s)`,
-    );
-  }
-}
-
 function requestRemoteHydration(input: {
   host: ExplorerSyncHost;
   scheduleSync: () => void;
@@ -824,7 +254,10 @@ function requestRemoteHydration(input: {
     return state.remoteHydrationPromise;
   }
 
-  state.remoteHydrationPromise = hydrateRemoteContainers(state, host)
+  state.remoteHydrationPromise = hydrateRemoteExplorerContainers({
+    host,
+    state,
+  })
     .catch((error: unknown) => {
       if (isDestroyedDatabaseClientError(error)) {
         return;
@@ -932,7 +365,7 @@ async function initializeExplorerStore(input: {
   );
 
   if (state.runtime.isAuthenticated && state.runtime.online) {
-    await hydrateRemoteContainers(state, host);
+    await hydrateRemoteExplorerContainers({ host, state });
   }
 
   if (
@@ -1312,11 +745,11 @@ function createRemoteContainerIngestor(input: {
           );
 
           for (const queuedRemoteContainer of queuedRemoteContainers) {
-            await upsertRemoteContainerState(
-              state,
+            await upsertRemoteExplorerContainerState({
               host,
-              queuedRemoteContainer,
-            );
+              remoteContainer: queuedRemoteContainer,
+              state,
+            });
           }
 
           host.updateSnapshot();

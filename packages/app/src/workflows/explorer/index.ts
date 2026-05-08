@@ -1,9 +1,7 @@
 export {
   type ContainerCreateIntentRecord,
   type ContainerRecord,
-  createExplorerContainerParentSyncLane,
   defaultExplorerPersistence,
-  deleteExplorerContainers,
   deleteSingleExplorerContainer,
   type ExplorerDocumentRecord,
   type ExplorerPendingUpdateRecord,
@@ -12,12 +10,10 @@ export {
   initializeExplorerSchema,
   listPendingExplorerContainerCreateIntents,
   listPendingExplorerContainerUpdates,
-  loadContainerParentSyncWatermark,
   loadStoredExplorerContainers,
   markExplorerContainerCreateIntentSynced,
   recordExplorerContainerCreateIntentError,
   type StoredExplorerContainer,
-  saveContainerParentSyncWatermark,
   saveExplorerContainer,
 } from "./containerPersistence";
 export {
@@ -52,3 +48,11 @@ export {
   persistExplorerContainerMetadataState,
   syncRemoteExplorerContainerMetadata,
 } from "./metadata";
+export {
+  type ExplorerContainerMetadataDocument,
+  type ExplorerContainerState,
+  type ExplorerRemoteContainer,
+  type ExplorerRemoteContainerHydrationHost,
+  hydrateRemoteExplorerContainers,
+  upsertRemoteExplorerContainerState,
+} from "./remoteHydration";
