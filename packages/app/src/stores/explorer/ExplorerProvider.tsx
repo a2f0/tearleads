@@ -6,9 +6,11 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import type { ExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
-import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import {
+  defaultExplorerPersistence,
+  type ExplorerPersistence,
+} from "../../workflows/explorer";
 import {
   createExplorerSyncAgent,
   type ExplorerRuntime,
@@ -34,7 +36,7 @@ const ExplorerContext = createContext<ExplorerStore | null>(null);
 
 export function createExplorerStore(
   initialRuntime: ExplorerRuntime,
-  persistence: ExplorerPersistence = sqlExplorerPersistence,
+  persistence: ExplorerPersistence = defaultExplorerPersistence,
 ): ExplorerStore {
   const state = createExplorerStoreState(initialRuntime, persistence);
   const syncAgent = createExplorerSyncAgent({

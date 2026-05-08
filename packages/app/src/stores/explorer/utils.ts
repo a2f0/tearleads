@@ -1,5 +1,5 @@
-import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ContainerNode } from "../../mini-apps/explorer/types";
+import type { ContainerRecord } from "../../workflows/explorer";
 import type { ContainerState } from "./explorerSyncAgent";
 
 export function toContainerNode(container: ContainerRecord): ContainerNode {
