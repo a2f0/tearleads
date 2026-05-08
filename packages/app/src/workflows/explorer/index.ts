@@ -5,6 +5,8 @@ export {
   defaultExplorerPersistence,
   deleteExplorerContainers,
   deleteSingleExplorerContainer,
+  type ExplorerDocumentRecord,
+  type ExplorerPendingUpdateRecord,
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdate,
   initializeExplorerSchema,

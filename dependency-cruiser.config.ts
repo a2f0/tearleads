@@ -27,6 +27,8 @@ const appReactRuntime = [
 const appUpperLayers = [...appPresentation, ...appReactRuntime];
 const appStorageInternals = [appLayer.persistence, appLayer.sqlite];
 const testFilesPattern = "\\.test\\.[tj]sx?$";
+const appRootSqlProvider =
+  "^packages/app/src/providers/data/AppDataProvider\\.tsx$";
 
 const apiRules = [
   {
@@ -208,6 +210,19 @@ const appRules = [
     },
     to: {
       path: appLayer.persistence,
+    },
+  },
+  {
+    name: "app-react-runtime-does-not-import-sqlite-directly",
+    severity: "error",
+    comment:
+      "Production app providers, identity runtime, and stores should not import SQLite internals directly; the root app data provider owns executor construction.",
+    from: {
+      path: appReactRuntime,
+      pathNot: `${testFilesPattern}|${appRootSqlProvider}`,
+    },
+    to: {
+      path: appLayer.sqlite,
     },
   },
 ] satisfies ForbiddenRules;

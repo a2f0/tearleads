@@ -17,11 +17,6 @@ import {
 } from "../../data/containers";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import type {
-  DocumentRecord,
-  PendingUpdateRecord,
-} from "../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
@@ -35,7 +30,9 @@ import {
   createRemoteExplorerContainer,
   deleteExplorerContainers,
   type ExplorerContainerMetadataPatch,
+  type ExplorerDocumentRecord,
   type ExplorerMetadataSyncAttempt,
+  type ExplorerPendingUpdateRecord,
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdate,
   initializeExplorerSchema,
@@ -79,7 +76,7 @@ export interface ExplorerRuntime {
   domainScope: ExplorerAppData["domainScope"];
   encapsulationKeyPair: ExplorerAppData["encapsulationKeyPair"];
   events: ExplorerAppData["events"];
-  execSql: ExecSql;
+  execSql: ExplorerAppData["execSql"];
   isAuthenticated: ExplorerAppData["isAuthenticated"];
   log: ExplorerAppData["log"];
   online: ExplorerAppData["online"];
@@ -92,7 +89,7 @@ export interface ExplorerRuntime {
 export interface ContainerState {
   container: ContainerRecord;
   doc: ContainerMetadataDocument;
-  record: DocumentRecord;
+  record: ExplorerDocumentRecord;
 }
 
 export interface ExplorerSyncState {
@@ -149,7 +146,7 @@ interface ExplorerSyncHost {
     containerState: ContainerState,
     patch?: Partial<ExplorerContainerMetadataPatch>,
     updateView?: boolean,
-  ) => Promise<DocumentRecord>;
+  ) => Promise<ExplorerDocumentRecord>;
   updateSnapshot: () => void;
 }
 
@@ -266,7 +263,7 @@ async function primeDocumentsForSharedSubtree(
 async function listPendingContainerUpdates(
   state: ExplorerSyncState,
   containerId: string,
-): Promise<PendingUpdateRecord[]> {
+): Promise<ExplorerPendingUpdateRecord[]> {
   return listPendingExplorerContainerUpdates(
     state.runtime.execSql,
     state.persistence,
