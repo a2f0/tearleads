@@ -113,6 +113,8 @@ test("app sqlite schema creates tables and indexes", async () => {
     expect(indexNames).toEqual([
       "address_book_projection_self_idx",
       "container_create_intents_status_created_idx",
+      "document_pending_updates_scope_created_idx",
+      "documents_app_document_idx",
     ]);
 
     const documents = await readTableColumns(execSql, "documents");
@@ -145,6 +147,37 @@ test("app sqlite schema creates tables and indexes", async () => {
       pk: 1,
       type: "TEXT",
     });
+
+    const documentIndexes = await readIndexList(execSql, "documents");
+    expect(
+      readRecordValue(documentIndexes, "documents_app_document_idx"),
+    ).toEqual({
+      partial: 1,
+      unique: 0,
+    });
+    expect(
+      await readIndexColumns(execSql, "documents_app_document_idx"),
+    ).toEqual(["app_kind", "document_id"]);
+
+    const pendingUpdateIndexes = await readIndexList(
+      execSql,
+      "document_pending_updates",
+    );
+    expect(
+      readRecordValue(
+        pendingUpdateIndexes,
+        "document_pending_updates_scope_created_idx",
+      ),
+    ).toEqual({
+      partial: 0,
+      unique: 0,
+    });
+    expect(
+      await readIndexColumns(
+        execSql,
+        "document_pending_updates_scope_created_idx",
+      ),
+    ).toEqual(["app_kind", "local_id", "created_at"]);
 
     const containerSyncWatermarks = await readTableColumns(
       execSql,
