@@ -54,7 +54,7 @@ export function mapDocumentSummary(
 ): DocumentSummary {
   return {
     accessStateHash: row.accessStateHash,
-    id: String(row.localId ?? ""),
+    id: row.localId ?? "",
     containerId: row.containerId,
     documentKind: deriveDocumentKind(row.text),
     documentId: row.documentId,

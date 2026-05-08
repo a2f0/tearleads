@@ -73,7 +73,7 @@ export async function saveDocumentRows(input: {
   document: StoredDocumentRecord;
   tx: AppSQLiteTransaction;
   updatedAt: string;
-}) {
+}): Promise<void> {
   const { document, tx, updatedAt } = input;
   const documentRow = toDocumentRecordRow({ document, updatedAt });
   await tx
@@ -138,6 +138,7 @@ export async function resolveDocumentSaveTimestamp(input: {
       .limit(1),
   ]);
   const existingProjection = projectionRows[0];
+  const now = new Date().toISOString();
   return didStoredDocumentContentChange(
     existingRecord
       ? {
@@ -147,6 +148,6 @@ export async function resolveDocumentSaveTimestamp(input: {
       : null,
     document,
   )
-    ? new Date().toISOString()
-    : getProjectionUpdatedAt(existingProjection) || new Date().toISOString();
+    ? now
+    : getProjectionUpdatedAt(existingProjection) || now;
 }
