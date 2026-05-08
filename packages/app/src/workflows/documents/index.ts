@@ -20,11 +20,21 @@ export {
   relinkRemoteDocument,
 } from "./linkSet";
 export {
+  DOCUMENTS_APP_KIND,
+  type DocumentRecord,
+  type DocumentsPersistence,
+  defaultDocumentsPersistence,
   deletePendingDocumentAttachment,
+  deriveDocumentKind,
+  deriveDocumentTitle,
   enqueuePendingDocumentUpdate,
+  type LocalAttachmentRecord,
   listPendingDocumentUpdates,
   loadPersistedDocumentStoreState,
+  type PendingAttachmentRecord,
+  type PendingUpdateRecord,
   persistDocumentState,
+  type RelinkPersistedDocumentInput,
   saveLocalDocumentAttachments,
   savePendingDocumentAttachment,
 } from "./persistence";

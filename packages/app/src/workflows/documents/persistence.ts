@@ -3,13 +3,28 @@ import { exportAllUpdates, getTextValue } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import type {
-  StoredDocumentRecord as DocumentRecord,
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
   PendingUpdateRecord,
+  StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+
+export type {
+  DocumentsPersistence,
+  LocalAttachmentRecord,
+  PendingAttachmentRecord,
+  PendingUpdateRecord,
+  RelinkPersistedDocumentInput,
+  StoredDocumentRecord as DocumentRecord,
+} from "../../data/persistence/documents/documentsPersistence";
+export {
+  DOCUMENTS_APP_KIND,
+  deriveDocumentKind,
+  deriveDocumentTitle,
+  sqlDocumentsPersistence as defaultDocumentsPersistence,
+} from "../../data/persistence/documents/documentsPersistence";
 
 type DocumentContentState = Parameters<typeof exportAllUpdates>[0];
 type NullableDocumentRuntimeField =
@@ -20,18 +35,18 @@ type NullableDocumentRuntimeField =
   | "documentManifestBundle";
 
 interface PersistedDocumentState {
-  record: DocumentRecord;
+  record: StoredDocumentRecord;
   updatedAt: string;
 }
 
 interface LoadedPersistedDocumentStoreState {
-  document: DocumentRecord | null;
+  document: StoredDocumentRecord | null;
   localAttachments: LocalAttachmentRecord[];
   pendingAttachments: PendingAttachmentRecord[];
 }
 
 function resolveNullableDocumentRuntimeField(
-  patch: Partial<DocumentRecord>,
+  patch: Partial<StoredDocumentRecord>,
   key: NullableDocumentRuntimeField,
   currentValue: string | null | undefined,
   resetWhenUnpatched = false,
@@ -47,10 +62,10 @@ export async function persistDocumentState(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   containerId?: string | null | undefined;
   currentDoc: DocumentContentState;
-  currentRecord: DocumentRecord | null;
+  currentRecord: StoredDocumentRecord | null;
   execSql: ExecSql;
   localId: string;
-  patch?: Partial<DocumentRecord> | undefined;
+  patch?: Partial<StoredDocumentRecord> | undefined;
   persistence: DocumentsPersistence;
 }): Promise<PersistedDocumentState> {
   const { currentDoc, currentRecord, execSql, localId, persistence } = input;
@@ -64,7 +79,7 @@ export async function persistDocumentState(input: {
   const nextAccessEpoch = patch.accessEpoch ?? currentAccessEpoch;
   const securityContextChanged =
     documentIdChanged || nextAccessEpoch !== currentAccessEpoch;
-  const nextRecord: DocumentRecord = {
+  const nextRecord: StoredDocumentRecord = {
     id: currentRecord?.id ?? localId,
     containerId:
       patch.containerId ??
