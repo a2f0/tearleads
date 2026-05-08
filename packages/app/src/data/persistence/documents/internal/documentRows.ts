@@ -1,0 +1,153 @@
+import { and, eq } from "drizzle-orm";
+import type { AppSQLiteTransaction } from "../../../sqlite/appDatabaseRuntime";
+import {
+  type DocumentRecord as BaseDocumentRecord,
+  type DocumentScope,
+  mapSelectedDocumentRecord,
+} from "../../../sqlite/documentPersistence";
+import { documentProjection, documents } from "../../../sqlite/schema";
+import type { StoredDocumentRecord } from "../types";
+import { DOCUMENTS_APP_KIND } from "./constants";
+import {
+  getProjectionText,
+  getProjectionUpdatedAt,
+} from "./documentProjectionRows";
+
+export function getDocumentScope(localId: string): DocumentScope {
+  return {
+    appKind: DOCUMENTS_APP_KIND,
+    localId,
+  };
+}
+
+async function loadDocumentRecordInTransaction(input: {
+  localId: string;
+  tx: AppSQLiteTransaction;
+}): Promise<BaseDocumentRecord | null> {
+  const { localId, tx } = input;
+  const rows = await tx
+    .select({
+      id: documents.localId,
+      documentId: documents.documentId,
+      loroSnapshot: documents.loroSnapshot,
+      accessEpoch: documents.accessEpoch,
+      accessStateHash: documents.accessStateHash,
+      lastCommitLsn: documents.lastCommitLsn,
+      documentManifestBundle: documents.documentManifestBundle,
+      contentKeyBundle: documents.contentKeyBundle,
+      documentKekTargets: documents.documentKekTargets,
+    })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.appKind, DOCUMENTS_APP_KIND),
+        eq(documents.localId, localId),
+      ),
+    )
+    .limit(1);
+
+  return rows[0] ? mapSelectedDocumentRecord(rows[0]) : null;
+}
+
+function toDocumentRecordRow(input: {
+  document: StoredDocumentRecord;
+  updatedAt: string;
+}) {
+  const { document, updatedAt } = input;
+  return {
+    appKind: DOCUMENTS_APP_KIND,
+    localId: document.id,
+    documentId: document.documentId,
+    loroSnapshot: document.loroSnapshot,
+    accessEpoch: document.accessEpoch,
+    accessStateHash: document.accessStateHash ?? null,
+    lastCommitLsn: document.lastCommitLsn ?? null,
+    documentManifestBundle: document.documentManifestBundle ?? null,
+    contentKeyBundle: document.contentKeyBundle ?? null,
+    documentKekTargets: document.documentKekTargets ?? null,
+    updatedAt,
+  };
+}
+
+export async function saveDocumentRows(input: {
+  document: StoredDocumentRecord;
+  tx: AppSQLiteTransaction;
+  updatedAt: string;
+}): Promise<void> {
+  const { document, tx, updatedAt } = input;
+  const documentRow = toDocumentRecordRow({ document, updatedAt });
+  await tx
+    .insert(documents)
+    .values(documentRow)
+    .onConflictDoUpdate({
+      target: [documents.appKind, documents.localId],
+      set: documentRow,
+    })
+    .run();
+
+  const projectionRow = {
+    localId: document.id,
+    documentId: document.documentId,
+    containerId: document.containerId,
+    text: document.text,
+    updatedAt,
+  };
+  await tx
+    .insert(documentProjection)
+    .values(projectionRow)
+    .onConflictDoUpdate({
+      target: documentProjection.localId,
+      set: projectionRow,
+    })
+    .run();
+}
+
+function didStoredDocumentContentChange(
+  existing: Pick<StoredDocumentRecord, "loroSnapshot" | "text"> | null,
+  next: Pick<StoredDocumentRecord, "loroSnapshot" | "text">,
+): boolean {
+  return (
+    existing === null ||
+    existing.loroSnapshot !== next.loroSnapshot ||
+    existing.text !== next.text
+  );
+}
+
+export async function resolveDocumentSaveTimestamp(input: {
+  document: StoredDocumentRecord;
+  options?: { updatedAt?: string } | undefined;
+  tx: AppSQLiteTransaction;
+}): Promise<string> {
+  const { document, options, tx } = input;
+  if (options?.updatedAt) {
+    return options.updatedAt;
+  }
+
+  const [existingRecord, projectionRows] = await Promise.all([
+    loadDocumentRecordInTransaction({
+      localId: document.id,
+      tx,
+    }),
+    tx
+      .select({
+        text: documentProjection.text,
+        updatedAt: documentProjection.updatedAt,
+      })
+      .from(documentProjection)
+      .where(eq(documentProjection.localId, document.id))
+      .limit(1),
+  ]);
+  const existingProjection = projectionRows[0];
+  const now = new Date().toISOString();
+  return didStoredDocumentContentChange(
+    existingRecord
+      ? {
+          loroSnapshot: existingRecord.loroSnapshot,
+          text: getProjectionText(existingProjection),
+        }
+      : null,
+    document,
+  )
+    ? now
+    : getProjectionUpdatedAt(existingProjection) || now;
+}
