@@ -10,7 +10,11 @@ import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import type { ContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { persistImportedContactEntry } from "./localState";
+import { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "./constants";
+import {
+  loadContactDocumentStates,
+  persistImportedContactEntry,
+} from "./localState";
 import type { ContactDocumentState } from "./sync";
 
 const execSql: ExecSql = async () => [];
@@ -92,4 +96,50 @@ test("persistImportedContactEntry leaves existing state unchanged when persisten
   expect(existingContact.record.loroSnapshot).toBe(
     bytesToBase64(initialUpdate),
   );
+});
+
+test("loadContactDocumentStates binds the default address book to the runtime executor", async () => {
+  const calls: Array<{
+    addressBookId: string;
+    execSql: ExecSql;
+  }> = [];
+  const persistence: ContactsPersistence = {
+    async ensureSchema(receivedExecSql) {
+      calls.push({
+        addressBookId: "ensure",
+        execSql: receivedExecSql,
+      });
+    },
+    async loadContacts(receivedExecSql, addressBookId) {
+      calls.push({
+        addressBookId,
+        execSql: receivedExecSql,
+      });
+      return [];
+    },
+    async saveContact() {},
+    async saveContactAndDeletePendingUpdates() {},
+    async deleteContact() {},
+    async listPendingUpdates() {
+      return [];
+    },
+    async enqueuePendingUpdate() {},
+    async deletePendingUpdates() {},
+  };
+
+  await loadContactDocumentStates({
+    persistence,
+    runtime: { execSql },
+  });
+
+  expect(calls).toEqual([
+    {
+      addressBookId: "ensure",
+      execSql,
+    },
+    {
+      addressBookId: DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
+      execSql,
+    },
+  ]);
 });

@@ -41,7 +41,7 @@ type ContactDocumentSyncApi = Parameters<
     ): Promise<EncapsulationKeyResponse | null>;
   };
 
-interface ContactDocumentSyncRuntime {
+export interface ContactDocumentSyncRuntime {
   apiClient: ContactDocumentSyncApi;
   containerId?: string | null;
   encapsulationKeyPair?: { publicKey: Uint8Array } | null;

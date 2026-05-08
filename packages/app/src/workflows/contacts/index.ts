@@ -1,7 +1,9 @@
+export { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "./constants";
 export {
-  deleteContactEntry,
-  loadStoredContactDocumentStates,
-  persistImportedContactEntry,
+  type ContactLocalStateRuntime,
+  deleteContactEntryFromRuntime,
+  loadContactDocumentStates,
+  persistImportedContactEntryFromRuntime,
 } from "./localState";
 export {
   type ContactsPersistence,

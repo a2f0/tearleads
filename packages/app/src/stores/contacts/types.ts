@@ -1,5 +1,6 @@
 import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
+import type { ContactLocalStateRuntime } from "../../workflows/contacts";
 
 type ContactsAppData = AppDataContextValue;
 
@@ -15,14 +16,13 @@ export interface ContactsSnapshot {
   ready: boolean;
 }
 
-export interface ContactsRuntime {
+export interface ContactsRuntime extends ContactLocalStateRuntime {
   apiClient: ContactsAppData["apiClient"];
   containerId: ContactsAppData["containerId"];
   dbStatus: ContactsAppData["dbStatus"];
   domainScope: ContactsAppData["domainScope"];
   encapsulationKeyPair: ContactsAppData["encapsulationKeyPair"];
   events: ContactsAppData["events"];
-  execSql: ContactsAppData["execSql"];
   isAuthenticated: ContactsAppData["isAuthenticated"];
   log: ContactsAppData["log"];
   logError: ContactsAppData["logError"];

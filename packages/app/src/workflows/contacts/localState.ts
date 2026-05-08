@@ -17,13 +17,26 @@ import { createPendingUpdateFields } from "../../data/documentSync";
 import type { ContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { type ContactDocumentState, persistContactDocumentState } from "./sync";
+import { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "./constants";
+import {
+  type ContactDocumentState,
+  type ContactDocumentSyncRuntime,
+  persistContactDocumentState,
+} from "./sync";
 
 const CONTACTS_PEER_SEED_SCOPE = "contacts";
 
 type StoredContact = Awaited<
   ReturnType<ContactsPersistence["loadContacts"]>
 >[number];
+export type ContactLocalStateRuntime = Pick<
+  ContactDocumentSyncRuntime,
+  "execSql"
+>;
+
+function resolveContactsAddressBookId(addressBookId?: string | null) {
+  return addressBookId ?? DEFAULT_CONTACTS_ADDRESS_BOOK_ID;
+}
 
 async function createContactDocument() {
   return createDocument(getScopedPeerSeed(CONTACTS_PEER_SEED_SCOPE));
@@ -124,7 +137,7 @@ async function hydrateStoredContactState(input: {
   };
 }
 
-export async function loadStoredContactDocumentStates(input: {
+async function loadStoredContactDocumentStates(input: {
   addressBookId: string;
   execSql: ExecSql;
   persistence: ContactsPersistence;
@@ -143,6 +156,18 @@ export async function loadStoredContactDocumentStates(input: {
       }),
     ),
   );
+}
+
+export function loadContactDocumentStates(input: {
+  addressBookId?: string | null;
+  persistence: ContactsPersistence;
+  runtime: ContactLocalStateRuntime;
+}): Promise<ContactDocumentState[]> {
+  return loadStoredContactDocumentStates({
+    addressBookId: resolveContactsAddressBookId(input.addressBookId),
+    execSql: input.runtime.execSql,
+    persistence: input.persistence,
+  });
 }
 
 export async function persistImportedContactEntry(input: {
@@ -216,7 +241,23 @@ export async function persistImportedContactEntry(input: {
   return { changed: true, contact: nextContact };
 }
 
-export async function deleteContactEntry(input: {
+export function persistImportedContactEntryFromRuntime(input: {
+  addressBookId?: string | null;
+  entry: AddressBookEntry;
+  existingContact?: ContactDocumentState | null | undefined;
+  persistence: ContactsPersistence;
+  runtime: ContactLocalStateRuntime;
+}): Promise<{ changed: boolean; contact: ContactDocumentState }> {
+  return persistImportedContactEntry({
+    addressBookId: resolveContactsAddressBookId(input.addressBookId),
+    entry: input.entry,
+    execSql: input.runtime.execSql,
+    existingContact: input.existingContact,
+    persistence: input.persistence,
+  });
+}
+
+async function deleteContactEntry(input: {
   addressBookId: string;
   execSql: ExecSql;
   persistence: ContactsPersistence;
@@ -227,4 +268,18 @@ export async function deleteContactEntry(input: {
     input.addressBookId,
     input.userId,
   );
+}
+
+export function deleteContactEntryFromRuntime(input: {
+  addressBookId?: string | null;
+  persistence: ContactsPersistence;
+  runtime: ContactLocalStateRuntime;
+  userId: string;
+}): Promise<void> {
+  return deleteContactEntry({
+    addressBookId: resolveContactsAddressBookId(input.addressBookId),
+    execSql: input.runtime.execSql,
+    persistence: input.persistence,
+    userId: input.userId,
+  });
 }

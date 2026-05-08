@@ -13,17 +13,17 @@ import {
 import {
   type ContactDocumentState,
   type ContactsPersistence,
+  DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
   defaultContactsPersistence,
-  deleteContactEntry,
-  loadStoredContactDocumentStates,
-  persistImportedContactEntry,
+  deleteContactEntryFromRuntime,
+  loadContactDocumentStates,
+  persistImportedContactEntryFromRuntime,
   syncContactDocument,
 } from "../../workflows/contacts";
 import type { ContactsRuntime, ContactsSnapshot, ContactsStore } from "./types";
 
 type ContactState = ContactDocumentState;
 
-const ADDRESS_BOOK_ID = "default";
 const contactsStoresByScope = new WeakMap<object, ContactsStore>();
 
 function sortEntries(
@@ -146,10 +146,9 @@ async function initializeContactsStore(
     return;
   }
 
-  const storedContacts = await loadStoredContactDocumentStates({
-    addressBookId: ADDRESS_BOOK_ID,
-    execSql: state.runtime.execSql,
+  const storedContacts = await loadContactDocumentStates({
     persistence: state.persistence,
+    runtime: state.runtime,
   });
 
   for (const storedContact of storedContacts) {
@@ -206,7 +205,7 @@ async function syncSingleContact(
   targetSecretKey: Uint8Array,
 ) {
   const syncedContact = await syncContactDocument({
-    addressBookId: ADDRESS_BOOK_ID,
+    addressBookId: DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
     contact,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
@@ -302,12 +301,11 @@ async function importContactEntry(
     return;
   }
 
-  const imported = await persistImportedContactEntry({
-    addressBookId: ADDRESS_BOOK_ID,
+  const imported = await persistImportedContactEntryFromRuntime({
     entry,
-    execSql: state.runtime.execSql,
     existingContact,
     persistence: state.persistence,
+    runtime: state.runtime,
   });
   if (!imported.changed) {
     return;
@@ -371,10 +369,9 @@ async function removeKeyFromRuntime(
       }
 
       state.contactsByUserId.delete(userId);
-      await deleteContactEntry({
-        addressBookId: ADDRESS_BOOK_ID,
-        execSql: state.runtime.execSql,
+      await deleteContactEntryFromRuntime({
         persistence: state.persistence,
+        runtime: state.runtime,
         userId,
       });
       setContactsSnapshot(state, {
