@@ -110,13 +110,16 @@ export async function loadLocalExplorerContainerStates(input: {
     persistence,
   );
 
-  return Promise.all(
-    storedContainers.map((storedContainer) =>
-      hydrateStoredExplorerContainerState({
+  const containerStates: ExplorerContainerState[] = [];
+  for (const storedContainer of storedContainers) {
+    containerStates.push(
+      await hydrateStoredExplorerContainerState({
         execSql: runtime.execSql,
         persistence,
         storedContainer,
       }),
-    ),
-  );
+    );
+  }
+
+  return containerStates;
 }
