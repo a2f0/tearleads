@@ -286,7 +286,7 @@ async function enqueuePendingContainerUpdate(
     state.persistence,
     {
       containerId,
-      sourceVersionVector: sourceVersionVector ?? null,
+      ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
       update,
     },
   );
