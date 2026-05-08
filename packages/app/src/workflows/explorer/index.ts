@@ -7,13 +7,10 @@ export {
   type ExplorerPendingUpdateRecord,
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdate,
-  initializeExplorerSchema,
   listPendingExplorerContainerCreateIntents,
   listPendingExplorerContainerUpdates,
-  loadStoredExplorerContainers,
   markExplorerContainerCreateIntentSynced,
   recordExplorerContainerCreateIntentError,
-  type StoredExplorerContainer,
   saveExplorerContainer,
 } from "./containerPersistence";
 export {
@@ -42,6 +39,7 @@ export {
   type ExplorerDocumentReadModel,
   listExplorerDocumentsForContainerSubtree,
 } from "./documentReadModel";
+export { loadLocalExplorerContainerStates } from "./localState";
 export {
   type ExplorerContainerMetadataPatch,
   type ExplorerMetadataSyncAttempt,

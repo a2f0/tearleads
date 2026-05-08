@@ -1,16 +1,5 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import {
-  encodeVersionVector,
-  exportAllUpdates,
-  importUpdates,
-} from "@tearleads/loro";
+import { encodeVersionVector, importUpdates } from "@tearleads/loro";
 import type { BlobStore } from "../../data/blobs";
-import {
-  createContainerMetadataDocument,
-  getDefaultContainerName,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../data/containers";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
@@ -31,16 +20,13 @@ import {
   type ExplorerRemoteContainerHydrationHost,
   enqueuePendingExplorerContainerUpdate,
   hydrateRemoteExplorerContainers,
-  initializeExplorerSchema,
   listExplorerDocumentsForContainerSubtree,
   listPendingExplorerContainerCreateIntents,
   listPendingExplorerContainerUpdates,
-  loadStoredExplorerContainers,
+  loadLocalExplorerContainerStates,
   markExplorerContainerCreateIntentSynced,
   persistExplorerContainerMetadataState,
   recordExplorerContainerCreateIntentError,
-  type StoredExplorerContainer,
-  saveExplorerContainer,
   syncRemoteExplorerContainerMetadata,
   upsertRemoteExplorerContainerState,
 } from "../../workflows/explorer";
@@ -290,70 +276,13 @@ async function initializeExplorerStore(input: {
     return;
   }
 
-  await initializeExplorerSchema(state.runtime.execSql, state.persistence);
-  const storedContainers: ReadonlyArray<StoredExplorerContainer> =
-    await loadStoredExplorerContainers(
-      state.runtime.execSql,
-      state.persistence,
-    );
+  const localContainerStates = await loadLocalExplorerContainerStates({
+    persistence: state.persistence,
+    runtime: state.runtime,
+  });
 
-  for (const storedContainer of storedContainers) {
-    const { container } = storedContainer;
-    const doc = await createContainerMetadataDocument(container.id);
-    let nextContainer = container;
-    let nextRecord = storedContainer.record;
-
-    if (nextRecord?.loroSnapshot) {
-      importUpdates(doc, [base64ToBytes(nextRecord.loroSnapshot)]);
-      const metadata = readContainerMetadataValue(
-        doc,
-        getDefaultContainerName(container.parentId),
-      );
-      nextContainer = {
-        ...container,
-        icon: metadata.icon,
-        name: metadata.name,
-      };
-      await saveExplorerContainer(
-        state.runtime.execSql,
-        state.persistence,
-        nextContainer,
-        nextRecord,
-      );
-    } else {
-      writeContainerMetadataValue(doc, {
-        icon: container.icon,
-        name: container.name,
-      });
-      const initialUpdate = exportAllUpdates(doc);
-      nextRecord = {
-        accessEpoch: 1,
-        accessStateHash: null,
-        documentId: container.metadataDocumentId,
-        id: container.id,
-        lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(initialUpdate),
-        contentKeyBundle: null,
-        documentKekTargets: null,
-        documentManifestBundle: null,
-      };
-      await saveExplorerContainer(
-        state.runtime.execSql,
-        state.persistence,
-        nextContainer,
-        nextRecord,
-      );
-
-      if (!container.metadataDocumentId) {
-        await enqueuePendingContainerUpdate(state, container.id, initialUpdate);
-      }
-    }
-
-    state.containersById.set(container.id, {
-      container: nextContainer,
-      doc,
-      record: nextRecord,
-    });
+  for (const containerState of localContainerStates) {
+    state.containersById.set(containerState.container.id, containerState);
   }
 
   state.initialized = true;
