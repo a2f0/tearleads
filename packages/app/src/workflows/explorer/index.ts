@@ -14,6 +14,7 @@ export {
   loadStoredExplorerContainers,
   markExplorerContainerCreateIntentSynced,
   recordExplorerContainerCreateIntentError,
+  type StoredExplorerContainer,
   saveContainerParentSyncWatermark,
   saveExplorerContainer,
 } from "./containerPersistence";

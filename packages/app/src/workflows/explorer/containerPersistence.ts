@@ -20,6 +20,7 @@ export type { ContainerRecord } from "../../data/persistence/containers/containe
 export type {
   ContainerCreateIntentRecord,
   ExplorerPersistence,
+  StoredExplorerContainer,
 } from "../../data/persistence/explorer/explorerPersistence";
 export { sqlExplorerPersistence as defaultExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 

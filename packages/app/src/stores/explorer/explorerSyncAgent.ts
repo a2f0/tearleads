@@ -47,6 +47,7 @@ import {
   markExplorerContainerCreateIntentSynced,
   persistExplorerContainerMetadataState,
   recordExplorerContainerCreateIntentError,
+  type StoredExplorerContainer,
   saveContainerParentSyncWatermark,
   saveExplorerContainer,
   syncRemoteExplorerContainerMetadata,
@@ -860,10 +861,11 @@ async function initializeExplorerStore(input: {
   }
 
   await initializeExplorerSchema(state.runtime.execSql, state.persistence);
-  const storedContainers = await loadStoredExplorerContainers(
-    state.runtime.execSql,
-    state.persistence,
-  );
+  const storedContainers: ReadonlyArray<StoredExplorerContainer> =
+    await loadStoredExplorerContainers(
+      state.runtime.execSql,
+      state.persistence,
+    );
 
   for (const storedContainer of storedContainers) {
     const { container } = storedContainer;
