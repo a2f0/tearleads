@@ -62,18 +62,14 @@ async function listVisibleExplorerDocumentSummaries(
   execSql: ExecSql,
   containers: ReadonlyArray<{ id: string }>,
 ): Promise<ReadonlyArray<DocumentSummary>> {
-  await sqlDocumentContainerProjectionPersistence.ensureSchema(execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
 
-  const storedDocuments = await sqlDocumentsPersistence.listDocuments(execSql);
-  const validContainerIds = new Set(
-    containers.map((container) => container.id),
-  );
-
-  return storedDocuments.filter(
-    (documentSummary) =>
-      documentSummary.containerId &&
-      validContainerIds.has(documentSummary.containerId),
+  return sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
+    execSql,
+    {
+      containerIds: containers.map((container) => container.id),
+      documentIds: [],
+    },
   );
 }
 
