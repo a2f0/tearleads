@@ -1,1 +1,5 @@
-export { adaptNotesPersistence, type NotesPersistence } from "./persistence";
+export {
+  adaptNotesPersistence,
+  defaultNotesPersistence,
+  type NotesPersistence,
+} from "./persistence";
