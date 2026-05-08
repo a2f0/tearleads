@@ -15,16 +15,9 @@ import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers";
-import {
-  createPendingUpdateFields,
-  isDocumentUpdateCreatedEvent,
-} from "../../data/documentSync";
+import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import {
-  containerParentSyncLane,
-  sqlContainerSyncWatermarkPersistence,
-} from "../../data/persistence/containers/containerSyncWatermarkPersistence";
 import type {
   ContainerCreateIntentRecord,
   ExplorerPersistence,
@@ -41,10 +34,22 @@ import {
 } from "../../data/sync/syncCoordinator";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
+  createExplorerContainerParentSyncLane,
   createRemoteExplorerContainer,
+  deleteExplorerContainers,
   type ExplorerContainerMetadataPatch,
   type ExplorerMetadataSyncAttempt,
+  enqueuePendingExplorerContainerUpdate,
+  initializeExplorerSchema,
+  listPendingExplorerContainerCreateIntents,
+  listPendingExplorerContainerUpdates,
+  loadContainerParentSyncWatermark,
+  loadStoredExplorerContainers,
+  markExplorerContainerCreateIntentSynced,
   persistExplorerContainerMetadataState,
+  recordExplorerContainerCreateIntentError,
+  saveContainerParentSyncWatermark,
+  saveExplorerContainer,
   syncRemoteExplorerContainerMetadata,
 } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
@@ -263,8 +268,9 @@ async function listPendingContainerUpdates(
   state: ExplorerSyncState,
   containerId: string,
 ): Promise<PendingUpdateRecord[]> {
-  return state.persistence.listPendingUpdates(
+  return listPendingExplorerContainerUpdates(
     state.runtime.execSql,
+    state.persistence,
     containerId,
   );
 }
@@ -275,18 +281,15 @@ async function enqueuePendingContainerUpdate(
   update: Uint8Array,
   sourceVersionVector?: string | null,
 ) {
-  const pendingUpdateFields = createPendingUpdateFields(
-    update,
-    sourceVersionVector,
+  await enqueuePendingExplorerContainerUpdate(
+    state.runtime.execSql,
+    state.persistence,
+    {
+      containerId,
+      ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
+      update,
+    },
   );
-  if (!pendingUpdateFields) {
-    return;
-  }
-
-  await state.persistence.enqueuePendingUpdate(state.runtime.execSql, {
-    containerId,
-    ...pendingUpdateFields,
-  });
 }
 
 async function upsertRemoteContainerState(
@@ -337,8 +340,9 @@ async function upsertRemoteContainerState(
     },
   };
 
-  await state.persistence.saveContainer(
+  await saveExplorerContainer(
     state.runtime.execSql,
+    state.persistence,
     containerState.container,
     containerState.record,
   );
@@ -524,8 +528,9 @@ async function applyContainerTombstones(input: {
   });
   const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
 
-  await state.persistence.deleteContainers(
+  await deleteExplorerContainers(
     state.runtime.execSql,
+    state.persistence,
     removedContainerIds,
     tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : undefined,
   );
@@ -539,11 +544,11 @@ async function applyContainerTombstones(input: {
 async function advanceContainerParentWatermark(input: {
   response: ListedRemoteContainersResponse;
   state: ExplorerSyncState;
-  syncLane: ReturnType<typeof containerParentSyncLane>;
+  syncLane: ReturnType<typeof createExplorerContainerParentSyncLane>;
 }): Promise<boolean> {
   const { response, state, syncLane } = input;
   if (response.nextWatermark) {
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
+    await saveContainerParentSyncWatermark(
       state.runtime.execSql,
       syncLane,
       response.nextWatermark,
@@ -556,7 +561,7 @@ async function advanceContainerParentWatermark(input: {
 interface FetchedContainerParentLanePage {
   lane: ContainerParentHydrationLane;
   response: ListedRemoteContainersResponse;
-  syncLane: ReturnType<typeof containerParentSyncLane>;
+  syncLane: ReturnType<typeof createExplorerContainerParentSyncLane>;
 }
 
 function canHydrateRemoteContainers(state: ExplorerSyncState): boolean {
@@ -572,13 +577,10 @@ async function fetchContainerParentLanePage(input: {
   state: ExplorerSyncState;
 }): Promise<FetchedContainerParentLanePage | null> {
   const { lane, state } = input;
-  const syncLane = containerParentSyncLane(lane.parentId);
+  const syncLane = createExplorerContainerParentSyncLane(lane.parentId);
   const watermark =
     lane.watermark === undefined
-      ? await sqlContainerSyncWatermarkPersistence.loadWatermark(
-          state.runtime.execSql,
-          syncLane,
-        )
+      ? await loadContainerParentSyncWatermark(state.runtime.execSql, syncLane)
       : lane.watermark;
   const response = await state.runtime.apiClient.listContainers({
     parentId: lane.parentId,
@@ -859,9 +861,10 @@ async function initializeExplorerStore(input: {
     return;
   }
 
-  await state.persistence.ensureSchema(state.runtime.execSql);
-  const storedContainers = await state.persistence.loadContainers(
+  await initializeExplorerSchema(state.runtime.execSql, state.persistence);
+  const storedContainers = await loadStoredExplorerContainers(
     state.runtime.execSql,
+    state.persistence,
   );
 
   for (const storedContainer of storedContainers) {
@@ -881,8 +884,9 @@ async function initializeExplorerStore(input: {
         icon: metadata.icon,
         name: metadata.name,
       };
-      await state.persistence.saveContainer(
+      await saveExplorerContainer(
         state.runtime.execSql,
+        state.persistence,
         nextContainer,
         nextRecord,
       );
@@ -903,8 +907,9 @@ async function initializeExplorerStore(input: {
         documentKekTargets: null,
         documentManifestBundle: null,
       };
-      await state.persistence.saveContainer(
+      await saveExplorerContainer(
         state.runtime.execSql,
+        state.persistence,
         nextContainer,
         nextRecord,
       );
@@ -1080,12 +1085,16 @@ async function markCreateIntentAlreadySynced(input: {
     return;
   }
 
-  await state.persistence.markCreateIntentSynced(state.runtime.execSql, {
-    containerId: intent.containerId,
-    remoteContainerId: containerState.container.id,
-    remoteMetadataAccessStateHash,
-    remoteMetadataDocumentId,
-  });
+  await markExplorerContainerCreateIntentSynced(
+    state.runtime.execSql,
+    state.persistence,
+    {
+      containerId: intent.containerId,
+      remoteContainerId: containerState.container.id,
+      remoteMetadataAccessStateHash,
+      remoteMetadataDocumentId,
+    },
+  );
 }
 
 async function persistCreatedContainerFromIntent(input: {
@@ -1120,12 +1129,16 @@ async function persistCreatedContainerFromIntent(input: {
     parentId: created.parentId,
   };
 
-  await state.persistence.markCreateIntentSynced(state.runtime.execSql, {
-    containerId: containerState.container.id,
-    remoteContainerId: created.containerId,
-    remoteMetadataAccessStateHash: created.accessManifestHash,
-    remoteMetadataDocumentId: created.metadataDocumentId,
-  });
+  await markExplorerContainerCreateIntentSynced(
+    state.runtime.execSql,
+    state.persistence,
+    {
+      containerId: containerState.container.id,
+      remoteContainerId: created.containerId,
+      remoteMetadataAccessStateHash: created.accessManifestHash,
+      remoteMetadataDocumentId: created.metadataDocumentId,
+    },
+  );
 }
 
 async function tryCreateRemoteContainerFromIntent(input: {
@@ -1138,8 +1151,9 @@ async function tryCreateRemoteContainerFromIntent(input: {
   const parentState = state.containersById.get(intent.parentContainerId);
 
   if (!containerState || !parentState) {
-    await state.persistence.recordCreateIntentError(
+    await recordExplorerContainerCreateIntentError(
       state.runtime.execSql,
+      state.persistence,
       intent.containerId,
       "Container create intent references a missing local container",
     );
@@ -1162,8 +1176,9 @@ async function tryCreateRemoteContainerFromIntent(input: {
   });
 
   if (!created) {
-    await state.persistence.recordCreateIntentError(
+    await recordExplorerContainerCreateIntentError(
       state.runtime.execSql,
+      state.persistence,
       intent.containerId,
       "Remote container create was rejected or unavailable",
     );
@@ -1187,8 +1202,9 @@ async function syncPendingContainerCreateIntents(input: {
   state: ExplorerSyncState;
 }): Promise<number> {
   const { host, state } = input;
-  const pendingIntents = await state.persistence.listPendingCreateIntents(
+  const pendingIntents = await listPendingExplorerContainerCreateIntents(
     state.runtime.execSql,
+    state.persistence,
   );
   const remainingContainerIds = new Set(
     pendingIntents.map((intent) => intent.containerId),

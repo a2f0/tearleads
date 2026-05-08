@@ -1,4 +1,19 @@
 export {
+  createExplorerContainerParentSyncLane,
+  deleteExplorerContainers,
+  deleteSingleExplorerContainer,
+  enqueuePendingExplorerContainerUpdate,
+  initializeExplorerSchema,
+  listPendingExplorerContainerCreateIntents,
+  listPendingExplorerContainerUpdates,
+  loadContainerParentSyncWatermark,
+  loadStoredExplorerContainers,
+  markExplorerContainerCreateIntentSynced,
+  recordExplorerContainerCreateIntentError,
+  saveContainerParentSyncWatermark,
+  saveExplorerContainer,
+} from "./containerPersistence";
+export {
   createRemoteExplorerContainer,
   deleteRemoteExplorerContainer,
   moveRemoteExplorerContainer,
