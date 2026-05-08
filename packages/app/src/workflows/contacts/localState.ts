@@ -29,7 +29,10 @@ const CONTACTS_PEER_SEED_SCOPE = "contacts";
 type StoredContact = Awaited<
   ReturnType<ContactsPersistence["loadContacts"]>
 >[number];
-type ContactLocalStateRuntime = Pick<ContactDocumentSyncRuntime, "execSql">;
+export type ContactLocalStateRuntime = Pick<
+  ContactDocumentSyncRuntime,
+  "execSql"
+>;
 
 function resolveContactsAddressBookId(addressBookId?: string | null) {
   return addressBookId ?? DEFAULT_CONTACTS_ADDRESS_BOOK_ID;
@@ -272,7 +275,7 @@ export function deleteContactEntryFromRuntime(input: {
   persistence: ContactsPersistence;
   runtime: ContactLocalStateRuntime;
   userId: string;
-}) {
+}): Promise<void> {
   return deleteContactEntry({
     addressBookId: resolveContactsAddressBookId(input.addressBookId),
     execSql: input.runtime.execSql,
