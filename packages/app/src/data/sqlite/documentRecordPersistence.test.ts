@@ -8,7 +8,7 @@ import {
 
 test("document records persist runtime columns", async () => {
   const { close, execSql } = await createTestExecSql(
-    "document-persistence-test",
+    "document-record-persistence-test",
   );
 
   try {
