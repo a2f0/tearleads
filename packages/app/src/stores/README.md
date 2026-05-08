@@ -12,5 +12,5 @@ components/document-types/mini-apps -> stores/providers -> workflows -> data
 Store modules may consume pane runtime providers through `AppDataProvider`, call
 workflows, use workflow-exposed persistence adapters, expose read-model/action
 helpers for presentation hooks, and export factory functions for tests. They
-should not import low-level `data/persistence/` modules directly or own screen
-composition and feature presentation.
+should not import low-level `data/persistence/` or `data/sqlite/` modules
+directly or own screen composition and feature presentation.

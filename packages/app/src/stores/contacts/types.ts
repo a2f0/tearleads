@@ -1,5 +1,4 @@
 import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 
 type ContactsAppData = AppDataContextValue;
@@ -23,7 +22,7 @@ export interface ContactsRuntime {
   domainScope: ContactsAppData["domainScope"];
   encapsulationKeyPair: ContactsAppData["encapsulationKeyPair"];
   events: ContactsAppData["events"];
-  execSql: ExecSql;
+  execSql: ContactsAppData["execSql"];
   isAuthenticated: ContactsAppData["isAuthenticated"];
   log: ContactsAppData["log"];
   logError: ContactsAppData["logError"];

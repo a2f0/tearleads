@@ -4,12 +4,12 @@ import {
   createInitializedContainerMetadataDocument,
   writeContainerMetadataValue,
 } from "../../data/containers";
-import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import {
   createRemoteExplorerContainer,
   deleteRemoteExplorerContainer,
   deleteSingleExplorerContainer,
   type ExplorerContainerMetadataPatch,
+  type ExplorerDocumentRecord,
   moveRemoteExplorerContainer,
   persistExplorerContainerMetadataState,
   saveExplorerContainer,
@@ -30,7 +30,7 @@ export async function persistContainerState(
   containerState: ContainerState,
   patch: Partial<ExplorerContainerMetadataPatch> = {},
   updateView = true,
-): Promise<DocumentRecord> {
+): Promise<ExplorerDocumentRecord> {
   const persisted = await persistExplorerContainerMetadataState({
     execSql: state.runtime.execSql,
     metadataState: containerState,
@@ -51,7 +51,7 @@ async function buildRemoteChildContainerState(
   childId: string,
   trimmedName: string,
   doc: ContainerMetadataDocument,
-  initialRecord: DocumentRecord,
+  initialRecord: ExplorerDocumentRecord,
 ) {
   const created = await createRemoteExplorerContainer({
     containerId: childId,
@@ -88,7 +88,7 @@ function buildLocalChildContainerState(
   childId: string,
   trimmedName: string,
   doc: ContainerMetadataDocument,
-  initialRecord: DocumentRecord,
+  initialRecord: ExplorerDocumentRecord,
 ): ContainerState {
   return {
     container: {
@@ -130,7 +130,7 @@ export async function createChildContainer(
       icon: null,
       name: trimmedName,
     });
-  const initialRecord: DocumentRecord = {
+  const initialRecord: ExplorerDocumentRecord = {
     accessEpoch: 1,
     accessStateHash: null,
     documentId: null,
