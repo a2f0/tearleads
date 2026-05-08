@@ -197,6 +197,19 @@ const appRules = [
       path: appStorageInternals,
     },
   },
+  {
+    name: "app-react-runtime-does-not-import-persistence-directly",
+    severity: "error",
+    comment:
+      "Production app providers, identity runtime, and stores should consume domain workflow facades instead of importing low-level persistence stores directly, including type-only contracts.",
+    from: {
+      path: appReactRuntime,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appLayer.persistence,
+    },
+  },
 ] satisfies ForbiddenRules;
 
 const dependencyCruiserConfig = {

@@ -52,6 +52,10 @@ cleanup should be incremental and behavior-preserving.
   than importing persistence stores or `data/sqlite/` directly, including for
   type-only contracts. Runtime workflow calls should also stay behind stores or
   providers.
+- Production stores, providers, and identity runtime should consume domain
+  workflow facades rather than importing `data/persistence/` directly. Tests may
+  still use low-level persistence stores for fixtures and characterization
+  checks.
 - Production presentation files should not accept, pass, or import raw `ExecSql`
   values. Bind the executor inside stores/providers and expose domain-shaped
   actions or read models instead.
