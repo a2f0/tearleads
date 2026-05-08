@@ -23,17 +23,6 @@ import {
   type ProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
 import {
-  DOCUMENTS_APP_KIND,
-  type StoredDocumentRecord as DocumentRecord,
-  type DocumentsPersistence,
-  deriveDocumentKind,
-  deriveDocumentTitle,
-  type LocalAttachmentRecord,
-  type PendingAttachmentRecord,
-  type PendingUpdateRecord,
-  sqlDocumentsPersistence,
-} from "../../data/persistence/documents/documentsPersistence";
-import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
@@ -46,11 +35,20 @@ import {
 import {
   createDocumentWriterPublicKeyResolver,
   createRemoteDocument,
+  DOCUMENTS_APP_KIND,
   type DocumentCreateAuthor,
+  type DocumentRecord,
+  type DocumentsPersistence,
+  defaultDocumentsPersistence,
   deletePendingDocumentAttachment,
+  deriveDocumentKind,
+  deriveDocumentTitle,
   enqueuePendingDocumentUpdate,
+  type LocalAttachmentRecord,
   listPendingDocumentUpdates,
   loadPersistedDocumentStoreState,
+  type PendingAttachmentRecord,
+  type PendingUpdateRecord,
   persistDocumentState,
   resolveDocumentCreateAuthor,
   saveLocalDocumentAttachments,
@@ -1584,7 +1582,7 @@ function registerDocumentSyncLane(state: DocumentStoreState): SyncLane {
 function createBackingDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
-  persistence: DocumentsPersistence = sqlDocumentsPersistence,
+  persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
 ): DocumentStore {
@@ -1620,7 +1618,7 @@ function createBackingDocumentStore(
 function createRegisteredDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
-  persistence: DocumentsPersistence = sqlDocumentsPersistence,
+  persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
 ): DocumentStoreFacade {
@@ -1638,7 +1636,7 @@ function createRegisteredDocumentStore(
 export function createDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
-  persistence: DocumentsPersistence = sqlDocumentsPersistence,
+  persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
 ): DocumentStore {
@@ -1675,7 +1673,7 @@ export function getOrCreateDocumentStore(
   const nextStore = createRegisteredDocumentStore(
     localId,
     runtime,
-    sqlDocumentsPersistence,
+    defaultDocumentsPersistence,
     initialDocumentId,
     initialText,
   );

@@ -2,14 +2,29 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates, getTextValue } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
-import type {
-  StoredDocumentRecord as DocumentRecord,
+import {
+  DOCUMENTS_APP_KIND,
+  type StoredDocumentRecord as DocumentRecord,
+  type DocumentsPersistence,
+  deriveDocumentKind,
+  deriveDocumentTitle,
+  type LocalAttachmentRecord,
+  type PendingAttachmentRecord,
+  type PendingUpdateRecord,
+  sqlDocumentsPersistence,
+} from "../../data/persistence/documents/documentsPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+
+export { DOCUMENTS_APP_KIND, deriveDocumentKind, deriveDocumentTitle };
+export const defaultDocumentsPersistence = sqlDocumentsPersistence;
+export type {
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
   PendingUpdateRecord,
+  RelinkPersistedDocumentInput,
+  StoredDocumentRecord as DocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 type DocumentContentState = Parameters<typeof exportAllUpdates>[0];
 type NullableDocumentRuntimeField =

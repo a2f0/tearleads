@@ -1,8 +1,8 @@
 import type { BlobBytes, BlobStore } from "../../data/blobs";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
-import type { RelinkPersistedDocumentInput } from "../../data/persistence/documents/documentsPersistence";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
+import type { RelinkPersistedDocumentInput } from "../../workflows/documents";
 
 type DocumentAppData = AppDataContextValue;
 
