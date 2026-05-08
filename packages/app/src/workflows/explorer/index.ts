@@ -1,7 +1,11 @@
 export {
+  type ContainerCreateIntentRecord,
+  type ContainerRecord,
   createExplorerContainerParentSyncLane,
+  defaultExplorerPersistence,
   deleteExplorerContainers,
   deleteSingleExplorerContainer,
+  type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdate,
   initializeExplorerSchema,
   listPendingExplorerContainerCreateIntents,

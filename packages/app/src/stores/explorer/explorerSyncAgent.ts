@@ -17,11 +17,6 @@ import {
 } from "../../data/containers";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import type {
-  ContainerCreateIntentRecord,
-  ExplorerPersistence,
-} from "../../data/persistence/explorer/explorerPersistence";
 import type {
   DocumentRecord,
   PendingUpdateRecord,
@@ -34,11 +29,14 @@ import {
 } from "../../data/sync/syncCoordinator";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
+  type ContainerCreateIntentRecord,
+  type ContainerRecord,
   createExplorerContainerParentSyncLane,
   createRemoteExplorerContainer,
   deleteExplorerContainers,
   type ExplorerContainerMetadataPatch,
   type ExplorerMetadataSyncAttempt,
+  type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdate,
   initializeExplorerSchema,
   listExplorerDocumentsForContainerSubtree,

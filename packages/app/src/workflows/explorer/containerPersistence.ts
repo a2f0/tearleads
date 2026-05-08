@@ -16,6 +16,13 @@ import type {
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
+export type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
+export type {
+  ContainerCreateIntentRecord,
+  ExplorerPersistence,
+} from "../../data/persistence/explorer/explorerPersistence";
+export { sqlExplorerPersistence as defaultExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
+
 interface ExplorerContainerCreateIntentSyncInput {
   containerId: string;
   remoteContainerId: string;

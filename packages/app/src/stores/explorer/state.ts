@@ -1,7 +1,7 @@
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import type { ExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import { didRegainSyncPrerequisites } from "../../data/sync/syncCoordinator";
 import type { ContainerNode } from "../../mini-apps/explorer/types";
+import type { ExplorerPersistence } from "../../workflows/explorer";
 import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
 import type { ExplorerSnapshot, ExplorerStoreState } from "./types";
 import { getSnapshotNodes } from "./utils";
