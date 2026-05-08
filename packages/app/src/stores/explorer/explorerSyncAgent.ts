@@ -34,6 +34,7 @@ import {
 } from "../../data/sync/syncCoordinator";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
+  createExplorerContainerParentSyncLane,
   createRemoteExplorerContainer,
   deleteExplorerContainers,
   type ExplorerContainerMetadataPatch,
@@ -543,7 +544,7 @@ async function applyContainerTombstones(input: {
 async function advanceContainerParentWatermark(input: {
   response: ListedRemoteContainersResponse;
   state: ExplorerSyncState;
-  syncLane: { kind: "container_parent"; parentId: string | null };
+  syncLane: ReturnType<typeof createExplorerContainerParentSyncLane>;
 }): Promise<boolean> {
   const { response, state, syncLane } = input;
   if (response.nextWatermark) {
@@ -560,7 +561,7 @@ async function advanceContainerParentWatermark(input: {
 interface FetchedContainerParentLanePage {
   lane: ContainerParentHydrationLane;
   response: ListedRemoteContainersResponse;
-  syncLane: { kind: "container_parent"; parentId: string | null };
+  syncLane: ReturnType<typeof createExplorerContainerParentSyncLane>;
 }
 
 function canHydrateRemoteContainers(state: ExplorerSyncState): boolean {
@@ -576,10 +577,7 @@ async function fetchContainerParentLanePage(input: {
   state: ExplorerSyncState;
 }): Promise<FetchedContainerParentLanePage | null> {
   const { lane, state } = input;
-  const syncLane = {
-    kind: "container_parent" as const,
-    parentId: lane.parentId,
-  };
+  const syncLane = createExplorerContainerParentSyncLane(lane.parentId);
   const watermark =
     lane.watermark === undefined
       ? await loadContainerParentSyncWatermark(state.runtime.execSql, syncLane)

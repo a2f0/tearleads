@@ -1,8 +1,8 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { getUpdateVersionVectors } from "@tearleads/loro";
+import type { SyncWatermark } from "@tearleads/validators/response";
+import { createPendingUpdateFields } from "../../data/documentSync";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import {
-  type containerParentSyncLane,
+  containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
 import type {
@@ -12,7 +12,7 @@ import type {
 } from "../../data/persistence/explorer/explorerPersistence";
 import type {
   DocumentRecord,
-  PendingUpdateFields,
+  PendingUpdateRecord,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -24,25 +24,6 @@ interface ExplorerContainerCreateIntentSyncInput {
 }
 
 type ContainerSyncWatermarkLane = ReturnType<typeof containerParentSyncLane>;
-
-function createPendingUpdateFields(
-  update: Uint8Array,
-  sourceVersionVector?: string | null,
-): PendingUpdateFields | null {
-  if (update.byteLength === 0) {
-    return null;
-  }
-
-  const { partialEndVersionVector, partialStartVersionVector } =
-    getUpdateVersionVectors(update);
-
-  return {
-    updateData: bytesToBase64(update),
-    partialStartVersionVector,
-    partialEndVersionVector,
-    sourceVersionVector: sourceVersionVector ?? null,
-  };
-}
 
 export async function initializeExplorerSchema(
   execSql: ExecSql,
@@ -92,7 +73,7 @@ export async function listPendingExplorerContainerUpdates(
   execSql: ExecSql,
   persistence: ExplorerPersistence,
   containerId: string,
-) {
+): Promise<PendingUpdateRecord[]> {
   return persistence.listPendingUpdates(execSql, containerId);
 }
 
@@ -143,17 +124,23 @@ export async function recordExplorerContainerCreateIntentError(
   await persistence.recordCreateIntentError(execSql, containerId, message);
 }
 
+export function createExplorerContainerParentSyncLane(
+  parentId: string | null,
+): ContainerSyncWatermarkLane {
+  return containerParentSyncLane(parentId);
+}
+
 export async function loadContainerParentSyncWatermark(
   execSql: ExecSql,
   syncLane: ContainerSyncWatermarkLane,
-) {
+): Promise<SyncWatermark | null> {
   return sqlContainerSyncWatermarkPersistence.loadWatermark(execSql, syncLane);
 }
 
 export async function saveContainerParentSyncWatermark(
   execSql: ExecSql,
   syncLane: ContainerSyncWatermarkLane,
-  watermark: { id: string; updatedAt: string },
+  watermark: SyncWatermark,
 ): Promise<void> {
   await sqlContainerSyncWatermarkPersistence.saveWatermark(
     execSql,

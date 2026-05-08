@@ -1,4 +1,5 @@
 export {
+  createExplorerContainerParentSyncLane,
   deleteExplorerContainers,
   deleteSingleExplorerContainer,
   enqueuePendingExplorerContainerUpdate,
