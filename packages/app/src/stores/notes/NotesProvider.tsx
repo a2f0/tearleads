@@ -1,6 +1,8 @@
 import type { PropsWithChildren } from "react";
-import type { NotesPersistence } from "../../data/persistence/notes/notesPersistence";
-import { adaptNotesPersistence } from "../../data/persistence/notes/notesPersistence";
+import {
+  adaptNotesPersistence,
+  type NotesPersistence,
+} from "../../workflows/notes";
 import {
   createDocumentStore,
   DEFAULT_DOCUMENT_ID,
