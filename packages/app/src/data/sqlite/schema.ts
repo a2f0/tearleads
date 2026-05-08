@@ -152,7 +152,12 @@ export const documents = sqliteTable(
     documentKekTargets: text("document_kek_targets"),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [primaryKey({ columns: [table.appKind, table.localId] })],
+  (table) => [
+    primaryKey({ columns: [table.appKind, table.localId] }),
+    index("documents_app_document_idx")
+      .on(table.appKind, table.documentId)
+      .where(sql`${table.documentId} IS NOT NULL`),
+  ],
 );
 
 export const documentPendingUpdates = sqliteTable(
@@ -167,7 +172,14 @@ export const documentPendingUpdates = sqliteTable(
     sourceVersionVector: text("source_version_vector"),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [primaryKey({ columns: [table.id] })],
+  (table) => [
+    primaryKey({ columns: [table.id] }),
+    index("document_pending_updates_scope_created_idx").on(
+      table.appKind,
+      table.localId,
+      table.createdAt,
+    ),
+  ],
 );
 
 export const principalPolicies = sqliteTable(

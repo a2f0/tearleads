@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { getAppDatabaseRuntime } from "./appDatabaseRuntime";
 import type {
   DocumentScope,
@@ -42,7 +42,7 @@ export async function listDocumentPendingUpdates(
         eq(documentPendingUpdates.localId, scope.localId),
       ),
     )
-    .orderBy(asc(documentPendingUpdates.createdAt));
+    .orderBy(asc(documentPendingUpdates.createdAt), asc(sql`rowid`));
 
   return rows.map(mapSelectedPendingUpdate);
 }
