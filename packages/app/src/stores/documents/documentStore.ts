@@ -453,7 +453,7 @@ async function enqueuePendingUpdate(
     execSql: state.runtime.execSql,
     localId: state.localId,
     persistence: state.persistence,
-    sourceVersionVector,
+    ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
     update,
   });
 }

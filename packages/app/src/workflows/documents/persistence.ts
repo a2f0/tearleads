@@ -155,7 +155,7 @@ export async function enqueuePendingDocumentUpdate(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
-  sourceVersionVector?: string | null | undefined;
+  sourceVersionVector?: string | null;
   update: Uint8Array;
 }): Promise<void> {
   const pendingUpdateFields = createPendingUpdateFields(
@@ -172,25 +172,13 @@ export async function enqueuePendingDocumentUpdate(input: {
   });
 }
 
-async function saveLocalDocumentAttachment(input: {
-  attachment: LocalAttachmentRecord;
-  execSql: ExecSql;
-  persistence: DocumentsPersistence;
-}): Promise<void> {
-  await input.persistence.saveLocalAttachment(input.execSql, input.attachment);
-}
-
 export async function saveLocalDocumentAttachments(input: {
   attachments: ReadonlyArray<LocalAttachmentRecord>;
   execSql: ExecSql;
   persistence: DocumentsPersistence;
 }): Promise<void> {
   for (const attachment of input.attachments) {
-    await saveLocalDocumentAttachment({
-      attachment,
-      execSql: input.execSql,
-      persistence: input.persistence,
-    });
+    await input.persistence.saveLocalAttachment(input.execSql, attachment);
   }
 }
 
