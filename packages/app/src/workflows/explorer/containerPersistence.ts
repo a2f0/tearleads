@@ -23,10 +23,7 @@ export type {
   StoredExplorerContainer,
 } from "../../data/persistence/explorer/explorerPersistence";
 export { sqlExplorerPersistence as defaultExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
-export type {
-  DocumentRecord as ExplorerDocumentRecord,
-  PendingUpdateRecord as ExplorerPendingUpdateRecord,
-} from "../../data/sqlite/documentPersistence";
+export type { DocumentRecord as ExplorerDocumentRecord } from "../../data/sqlite/documentPersistence";
 
 interface ExplorerContainerCreateIntentSyncInput {
   containerId: string;

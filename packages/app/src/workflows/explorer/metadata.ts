@@ -1,5 +1,9 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { exportAllUpdates } from "@tearleads/loro";
+import {
+  encodeVersionVector,
+  exportAllUpdates,
+  importUpdates,
+} from "@tearleads/loro";
 import {
   type ContainerMetadataDocument,
   getDefaultContainerName,
@@ -18,6 +22,7 @@ import {
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../documents";
+import { listPendingExplorerContainerUpdates } from "./containerPersistence";
 
 type ExplorerMetadataSyncApi = Parameters<
   typeof syncRemoteDocument
@@ -46,7 +51,7 @@ type ExplorerMetadataSyncResult = NonNullable<
   Awaited<ReturnType<typeof syncRemoteDocument>>
 >;
 
-export interface ExplorerMetadataSyncAttempt {
+interface ExplorerMetadataSyncAttempt {
   outgoingUpdateCount: number;
   synced: ExplorerMetadataSyncResult;
 }
@@ -76,6 +81,11 @@ export interface ExplorerContainerMetadataPatch {
 interface PersistedExplorerContainerMetadataState {
   container: ContainerRecord;
   record: DocumentRecord;
+}
+
+interface SyncedExplorerContainerMetadataState
+  extends PersistedExplorerContainerMetadataState {
+  shouldRequestFollowupSync: boolean;
 }
 
 type NullableExplorerDocumentField =
@@ -194,7 +204,7 @@ export async function persistExplorerContainerMetadataState(input: {
   };
 }
 
-export async function syncRemoteExplorerContainerMetadata(input: {
+async function syncRemoteExplorerContainerMetadata(input: {
   containerId: string;
   documentId: string | null;
   lastCommitLsn?: string | null | undefined;
@@ -260,5 +270,72 @@ export async function syncRemoteExplorerContainerMetadata(input: {
   return {
     outgoingUpdateCount: pendingUpdates.length,
     synced,
+  };
+}
+
+export async function syncExplorerContainerMetadataState(input: {
+  metadataState: ExplorerContainerMetadataState;
+  persistence: ExplorerPersistence;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ExplorerMetadataSyncRuntime;
+  targetSecretKey: Uint8Array;
+}): Promise<SyncedExplorerContainerMetadataState | null> {
+  const {
+    metadataState,
+    persistence,
+    resolveProjectionUserKey,
+    runtime,
+    targetSecretKey,
+  } = input;
+  const { documentId } = metadataState.record;
+  if (!documentId) {
+    return null;
+  }
+
+  const pendingUpdates = await listPendingExplorerContainerUpdates(
+    runtime.execSql,
+    persistence,
+    metadataState.container.id,
+  );
+  const syncAttempt = await syncRemoteExplorerContainerMetadata({
+    containerId: metadataState.container.id,
+    documentId,
+    lastCommitLsn: metadataState.record.lastCommitLsn,
+    localVersionVector: encodeVersionVector(metadataState.doc),
+    pendingUpdates,
+    resolveProjectionUserKey,
+    runtime,
+    targetSecretKey,
+  });
+  if (!syncAttempt) {
+    return null;
+  }
+
+  const { outgoingUpdateCount, synced } = syncAttempt;
+  if (synced.decryptedUpdates.length > 0) {
+    importUpdates(
+      metadataState.doc,
+      synced.decryptedUpdates.map((update) => update.updateData),
+    );
+  }
+
+  const persisted = await persistExplorerContainerMetadataState({
+    acceptedPendingUpdateIds: synced.response.acceptedOutgoingUpdateIds,
+    execSql: runtime.execSql,
+    metadataState,
+    patch: {
+      ...synced.persistedState,
+      documentId,
+      lastCommitLsn:
+        synced.response.commitLsn ?? metadataState.record.lastCommitLsn ?? null,
+      metadataDocumentId: documentId,
+    },
+    persistence,
+  });
+
+  return {
+    ...persisted,
+    shouldRequestFollowupSync:
+      outgoingUpdateCount > synced.response.acceptedOutgoingUpdateIds.length,
   };
 }
