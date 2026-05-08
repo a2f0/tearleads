@@ -19,6 +19,14 @@ export {
   buildMaterializedDocumentLinkSetMutationPlan,
   relinkRemoteDocument,
 } from "./linkSet";
-export { persistDocumentState } from "./persistence";
+export {
+  deletePendingDocumentAttachment,
+  enqueuePendingDocumentUpdate,
+  listPendingDocumentUpdates,
+  loadPersistedDocumentStoreState,
+  persistDocumentState,
+  saveLocalDocumentAttachments,
+  savePendingDocumentAttachment,
+} from "./persistence";
 export { syncRemoteDocument } from "./sync";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";

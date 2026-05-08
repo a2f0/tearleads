@@ -1,9 +1,13 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates, getTextValue } from "@tearleads/loro";
+import { createPendingUpdateFields } from "../../data/documentSync";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import type {
   StoredDocumentRecord as DocumentRecord,
   DocumentsPersistence,
+  LocalAttachmentRecord,
+  PendingAttachmentRecord,
+  PendingUpdateRecord,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -18,6 +22,12 @@ type NullableDocumentRuntimeField =
 interface PersistedDocumentState {
   record: DocumentRecord;
   updatedAt: string;
+}
+
+interface LoadedPersistedDocumentStoreState {
+  document: DocumentRecord | null;
+  localAttachments: LocalAttachmentRecord[];
+  pendingAttachments: PendingAttachmentRecord[];
 }
 
 function resolveNullableDocumentRuntimeField(
@@ -111,4 +121,101 @@ export async function persistDocumentState(input: {
     record: nextRecord,
     updatedAt,
   };
+}
+
+export async function loadPersistedDocumentStoreState(input: {
+  execSql: ExecSql;
+  localId: string;
+  persistence: DocumentsPersistence;
+}): Promise<LoadedPersistedDocumentStoreState> {
+  const { execSql, localId, persistence } = input;
+  await persistence.ensureSchema(execSql);
+  const [document, pendingAttachments, localAttachments] = await Promise.all([
+    persistence.loadDocument(execSql, localId),
+    persistence.listPendingAttachments(execSql, localId),
+    persistence.listLocalAttachments(execSql, localId),
+  ]);
+
+  return {
+    document,
+    localAttachments,
+    pendingAttachments,
+  };
+}
+
+export async function listPendingDocumentUpdates(input: {
+  execSql: ExecSql;
+  localId: string;
+  persistence: DocumentsPersistence;
+}): Promise<PendingUpdateRecord[]> {
+  return input.persistence.listPendingUpdates(input.execSql, input.localId);
+}
+
+export async function enqueuePendingDocumentUpdate(input: {
+  execSql: ExecSql;
+  localId: string;
+  persistence: DocumentsPersistence;
+  sourceVersionVector?: string | null | undefined;
+  update: Uint8Array;
+}): Promise<void> {
+  const pendingUpdateFields = createPendingUpdateFields(
+    input.update,
+    input.sourceVersionVector,
+  );
+  if (!pendingUpdateFields) {
+    return;
+  }
+
+  await input.persistence.enqueuePendingUpdate(input.execSql, {
+    localId: input.localId,
+    ...pendingUpdateFields,
+  });
+}
+
+async function saveLocalDocumentAttachment(input: {
+  attachment: LocalAttachmentRecord;
+  execSql: ExecSql;
+  persistence: DocumentsPersistence;
+}): Promise<void> {
+  await input.persistence.saveLocalAttachment(input.execSql, input.attachment);
+}
+
+export async function saveLocalDocumentAttachments(input: {
+  attachments: ReadonlyArray<LocalAttachmentRecord>;
+  execSql: ExecSql;
+  persistence: DocumentsPersistence;
+}): Promise<void> {
+  for (const attachment of input.attachments) {
+    await saveLocalDocumentAttachment({
+      attachment,
+      execSql: input.execSql,
+      persistence: input.persistence,
+    });
+  }
+}
+
+export async function savePendingDocumentAttachment(input: {
+  attachment: PendingAttachmentRecord;
+  execSql: ExecSql;
+  persistence: DocumentsPersistence;
+}): Promise<void> {
+  await input.persistence.savePendingAttachment(
+    input.execSql,
+    input.attachment,
+  );
+}
+
+export async function deletePendingDocumentAttachment(input: {
+  execSql: ExecSql;
+  localId: string;
+  persistence: DocumentsPersistence;
+  slotId: string;
+  storageKey: string;
+}): Promise<void> {
+  await input.persistence.deletePendingAttachment(
+    input.execSql,
+    input.localId,
+    input.slotId,
+    input.storageKey,
+  );
 }

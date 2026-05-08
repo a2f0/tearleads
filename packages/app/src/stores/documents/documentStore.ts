@@ -8,10 +8,7 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
-import {
-  createPendingUpdateFields,
-  isDocumentUpdateCreatedEvent,
-} from "../../data/documentSync";
+import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import {
   addDocumentAttachments,
@@ -50,8 +47,14 @@ import {
   createDocumentWriterPublicKeyResolver,
   createRemoteDocument,
   type DocumentCreateAuthor,
+  deletePendingDocumentAttachment,
+  enqueuePendingDocumentUpdate,
+  listPendingDocumentUpdates,
+  loadPersistedDocumentStoreState,
   persistDocumentState,
   resolveDocumentCreateAuthor,
+  saveLocalDocumentAttachments,
+  savePendingDocumentAttachment,
   syncRemoteDocument,
 } from "../../workflows/documents";
 import {
@@ -434,26 +437,11 @@ async function ensureRemoteDocument(
 async function listPendingUpdates(
   state: DocumentStoreState,
 ): Promise<PendingUpdateRecord[]> {
-  return state.persistence.listPendingUpdates(
-    state.runtime.execSql,
-    state.localId,
-  );
-}
-
-async function listPendingAttachmentRecords(
-  state: DocumentStoreState,
-): Promise<PendingAttachmentRecord[]> {
-  return state.persistence.listPendingAttachments(
-    state.runtime.execSql,
-    state.localId,
-  );
-}
-
-async function listLocalAttachmentRecords(state: DocumentStoreState) {
-  return state.persistence.listLocalAttachments(
-    state.runtime.execSql,
-    state.localId,
-  );
+  return listPendingDocumentUpdates({
+    execSql: state.runtime.execSql,
+    localId: state.localId,
+    persistence: state.persistence,
+  });
 }
 
 async function enqueuePendingUpdate(
@@ -461,17 +449,12 @@ async function enqueuePendingUpdate(
   update: Uint8Array,
   sourceVersionVector?: string | null,
 ) {
-  const pendingUpdateFields = createPendingUpdateFields(
-    update,
-    sourceVersionVector,
-  );
-  if (!pendingUpdateFields) {
-    return;
-  }
-
-  await state.persistence.enqueuePendingUpdate(state.runtime.execSql, {
+  await enqueuePendingDocumentUpdate({
+    execSql: state.runtime.execSql,
     localId: state.localId,
-    ...pendingUpdateFields,
+    persistence: state.persistence,
+    sourceVersionVector,
+    update,
   });
 }
 
@@ -480,12 +463,13 @@ async function deletePendingAttachment(
   slotId: string,
   storageKey: string,
 ) {
-  await state.persistence.deletePendingAttachment(
-    state.runtime.execSql,
-    state.localId,
+  await deletePendingDocumentAttachment({
+    execSql: state.runtime.execSql,
+    localId: state.localId,
+    persistence: state.persistence,
     slotId,
     storageKey,
-  );
+  });
 }
 
 async function saveLocalAttachmentRecord(
@@ -505,12 +489,11 @@ async function saveLocalAttachmentRecords(
     return;
   }
 
-  for (const attachment of attachments) {
-    await state.persistence.saveLocalAttachment(
-      state.runtime.execSql,
-      attachment,
-    );
-  }
+  await saveLocalDocumentAttachments({
+    attachments,
+    execSql: state.runtime.execSql,
+    persistence: state.persistence,
+  });
 
   state.attachmentStorageKeyBySlotId = {
     ...state.attachmentStorageKeyBySlotId,
@@ -624,10 +607,11 @@ async function queuePendingAttachmentUpload(
     slotId: attachment.slotId,
     storageKey,
   };
-  await state.persistence.savePendingAttachment(
-    state.runtime.execSql,
-    pendingAttachment,
-  );
+  await savePendingDocumentAttachment({
+    attachment: pendingAttachment,
+    execSql: state.runtime.execSql,
+    persistence: state.persistence,
+  });
   upsertPendingAttachments(state, [pendingAttachment]);
   return pendingAttachment;
 }
@@ -640,23 +624,21 @@ async function initializeDocumentStore(
     return;
   }
 
-  await state.persistence.ensureSchema(state.runtime.execSql);
-
   const nextDoc = await createStoredDocument();
-  const [existing, loadedPendingAttachments, localAttachments] =
-    await Promise.all([
-      state.persistence.loadDocument(state.runtime.execSql, state.localId),
-      listPendingAttachmentRecords(state),
-      listLocalAttachmentRecords(state),
-    ]);
-  state.pendingAttachments = loadedPendingAttachments;
+  const persistedState = await loadPersistedDocumentStoreState({
+    execSql: state.runtime.execSql,
+    localId: state.localId,
+    persistence: state.persistence,
+  });
+  state.pendingAttachments = persistedState.pendingAttachments;
   state.attachmentStorageKeyBySlotId = Object.fromEntries(
-    localAttachments.map((attachment) => [
+    persistedState.localAttachments.map((attachment) => [
       attachment.slotId,
       attachment.storageKey,
     ]),
   );
 
+  const existing = persistedState.document;
   if (existing) {
     if (existing.loroSnapshot.length > 0) {
       importUpdates(nextDoc, [base64ToBytes(existing.loroSnapshot)]);
@@ -1333,10 +1315,11 @@ async function persistPendingAttachments(
       slotId: pendingAttachment.slotId,
       storageKey: pendingAttachment.storageKey,
     });
-    await state.persistence.savePendingAttachment(
-      state.runtime.execSql,
-      pendingAttachment,
-    );
+    await savePendingDocumentAttachment({
+      attachment: pendingAttachment,
+      execSql: state.runtime.execSql,
+      persistence: state.persistence,
+    });
   }
 }
 
