@@ -1,0 +1,745 @@
+import { bytesToBase64 } from "@tearleads/encoding";
+import { exportAllUpdates } from "@tearleads/loro";
+import type {
+  ContainerSummary,
+  ContainerSyncTombstone,
+  ListContainersResponse,
+  ReferencedPrincipalStateResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
+import {
+  createContainerMetadataDocument,
+  getDefaultContainerName,
+} from "../../data/containers";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ContainerRecord,
+  createExplorerContainerParentSyncLane,
+  deleteExplorerContainers,
+  type ExplorerDocumentRecord,
+  type ExplorerPersistence,
+  loadContainerParentSyncWatermark,
+  saveContainerParentSyncWatermark,
+  saveExplorerContainer,
+} from "./containerPersistence";
+import type { ExplorerContainerMetadataPatch } from "./metadata";
+
+type ListedRemoteContainerPageItem = ListContainersResponse["items"][number];
+type ContainerChildIndex = Map<string, Set<string>>;
+type QueueContainerParentLane = (parentId: string | null) => void;
+
+const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
+
+export type ExplorerContainerMetadataDocument = Awaited<
+  ReturnType<typeof createContainerMetadataDocument>
+>;
+export type ExplorerRemoteContainer = Pick<
+  ContainerSummary,
+  | "id"
+  | "metadataAccessEpoch"
+  | "metadataAccessStateHash"
+  | "metadataDocumentId"
+  | "metadataReferencedPrincipals"
+  | "organizationId"
+  | "parentId"
+>;
+
+export interface ExplorerContainerState {
+  container: ContainerRecord;
+  doc: ExplorerContainerMetadataDocument;
+  record: ExplorerDocumentRecord;
+}
+
+interface ExplorerRemoteContainerHydrationApi {
+  listContainers(options?: {
+    limit?: number;
+    parentId?: string | null;
+    watermark?: SyncWatermark | null;
+  }): Promise<ListContainersResponse | null>;
+}
+
+interface ExplorerRemoteContainerHydrationRuntime {
+  apiClient: ExplorerRemoteContainerHydrationApi;
+  cacheReferencedPrincipalPolicies: (
+    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
+  ) => Promise<void>;
+  dbStatus: string;
+  execSql: ExecSql;
+  isAuthenticated: boolean;
+  log: (message: string) => void;
+  online: boolean;
+}
+
+interface ExplorerRemoteContainerHydrationState {
+  containersById: Map<string, ExplorerContainerState>;
+  persistence: ExplorerPersistence;
+  runtime: ExplorerRemoteContainerHydrationRuntime;
+}
+
+export interface ExplorerRemoteContainerHydrationHost {
+  persistContainerState: (
+    containerState: ExplorerContainerState,
+    patch?: Partial<ExplorerContainerMetadataPatch>,
+    updateView?: boolean,
+  ) => Promise<ExplorerDocumentRecord>;
+  updateSnapshot: () => void;
+}
+
+interface ContainerParentHydrationLane {
+  parentId: string | null;
+  watermark?: ListContainersResponse["nextWatermark"];
+}
+
+interface FetchedContainerParentLanePage {
+  lane: ContainerParentHydrationLane;
+  response: ListContainersResponse;
+  syncLane: ReturnType<typeof createExplorerContainerParentSyncLane>;
+}
+
+function addIndexedContainerChild(
+  childIdsByParentId: ContainerChildIndex,
+  containerId: string,
+  parentId: string | null,
+) {
+  if (parentId === null) {
+    return;
+  }
+
+  const childIds = childIdsByParentId.get(parentId) ?? new Set<string>();
+  childIds.add(containerId);
+  childIdsByParentId.set(parentId, childIds);
+}
+
+function removeIndexedContainerChild(
+  childIdsByParentId: ContainerChildIndex,
+  containerId: string,
+  parentId: string | null,
+) {
+  if (parentId === null) {
+    return;
+  }
+
+  const childIds = childIdsByParentId.get(parentId);
+  if (!childIds) {
+    return;
+  }
+
+  childIds.delete(containerId);
+  if (childIds.size === 0) {
+    childIdsByParentId.delete(parentId);
+  }
+}
+
+function moveIndexedContainerChild(
+  childIdsByParentId: ContainerChildIndex | undefined,
+  containerId: string,
+  previousParentId: string | null,
+  nextParentId: string | null,
+) {
+  if (!childIdsByParentId || previousParentId === nextParentId) {
+    return;
+  }
+
+  removeIndexedContainerChild(
+    childIdsByParentId,
+    containerId,
+    previousParentId,
+  );
+  addIndexedContainerChild(childIdsByParentId, containerId, nextParentId);
+}
+
+function createContainerChildIndex(
+  containersById: ReadonlyMap<string, ExplorerContainerState>,
+): ContainerChildIndex {
+  const childIdsByParentId: ContainerChildIndex = new Map();
+
+  for (const [containerId, containerState] of containersById) {
+    addIndexedContainerChild(
+      childIdsByParentId,
+      containerId,
+      containerState.container.parentId,
+    );
+  }
+
+  return childIdsByParentId;
+}
+
+export async function upsertRemoteExplorerContainerState(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  host: ExplorerRemoteContainerHydrationHost;
+  remoteContainer: ExplorerRemoteContainer;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<ExplorerContainerState> {
+  const { childIdsByParentId, host, remoteContainer, state } = input;
+  const existingState = state.containersById.get(remoteContainer.id);
+
+  if (existingState) {
+    const previousParentId = existingState.container.parentId;
+    existingState.record = await host.persistContainerState(
+      existingState,
+      {
+        accessEpoch: remoteContainer.metadataAccessEpoch,
+        accessStateHash: remoteContainer.metadataAccessStateHash,
+        documentId: remoteContainer.metadataDocumentId,
+        metadataDocumentId: remoteContainer.metadataDocumentId,
+        organizationId: remoteContainer.organizationId,
+        parentId: remoteContainer.parentId,
+      },
+      false,
+    );
+    existingState.container = {
+      ...existingState.container,
+      metadataDocumentId: remoteContainer.metadataDocumentId,
+      organizationId: remoteContainer.organizationId,
+      parentId: remoteContainer.parentId,
+    };
+    moveIndexedContainerChild(
+      childIdsByParentId,
+      remoteContainer.id,
+      previousParentId,
+      existingState.container.parentId,
+    );
+    return existingState;
+  }
+
+  const doc = await createContainerMetadataDocument(remoteContainer.id);
+  const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
+  const containerState: ExplorerContainerState = {
+    container: {
+      id: remoteContainer.id,
+      organizationId: remoteContainer.organizationId,
+      parentId: remoteContainer.parentId,
+      metadataDocumentId: remoteContainer.metadataDocumentId,
+      name: getDefaultContainerName(remoteContainer.parentId),
+      icon: null,
+    },
+    doc,
+    record: {
+      accessEpoch: remoteContainer.metadataAccessEpoch,
+      accessStateHash: remoteContainer.metadataAccessStateHash,
+      documentId: remoteContainer.metadataDocumentId,
+      id: remoteContainer.id,
+      lastCommitLsn: null,
+      loroSnapshot: initialSnapshot,
+      contentKeyBundle: null,
+      documentKekTargets: null,
+      documentManifestBundle: null,
+    },
+  };
+
+  await saveExplorerContainer(
+    state.runtime.execSql,
+    state.persistence,
+    containerState.container,
+    containerState.record,
+  );
+  state.containersById.set(remoteContainer.id, containerState);
+  if (childIdsByParentId) {
+    addIndexedContainerChild(
+      childIdsByParentId,
+      remoteContainer.id,
+      remoteContainer.parentId,
+    );
+  }
+  return containerState;
+}
+
+function createContainerParentHydrationQueue(containerIds: Iterable<string>): {
+  lanes: ContainerParentHydrationLane[];
+  queueParentLane: QueueContainerParentLane;
+} {
+  const queuedParentIds = new Set<string>();
+  const lanes: ContainerParentHydrationLane[] = [];
+  const queueParentLane = (parentId: string | null) => {
+    const laneKey = parentId === null ? "root" : `container:${parentId}`;
+    if (queuedParentIds.has(laneKey)) {
+      return;
+    }
+
+    queuedParentIds.add(laneKey);
+    lanes.push({ parentId });
+  };
+
+  queueParentLane(null);
+  for (const containerId of containerIds) {
+    queueParentLane(containerId);
+  }
+
+  return { lanes, queueParentLane };
+}
+
+async function applyRemoteContainerPage(input: {
+  childIdsByParentId: ContainerChildIndex;
+  host: ExplorerRemoteContainerHydrationHost;
+  items: ReadonlyArray<ListedRemoteContainerPageItem>;
+  queueParentLane: QueueContainerParentLane;
+  seenContainerIds: Set<string>;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<number> {
+  const {
+    childIdsByParentId,
+    host,
+    items,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  } = input;
+  let hydratedCount = 0;
+
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    items.flatMap(
+      (remoteContainer) => remoteContainer.metadataReferencedPrincipals ?? [],
+    ),
+  );
+
+  for (const container of items) {
+    if (!seenContainerIds.has(container.id)) {
+      seenContainerIds.add(container.id);
+      await upsertRemoteExplorerContainerState({
+        childIdsByParentId,
+        host,
+        remoteContainer: container,
+        state,
+      });
+      hydratedCount += 1;
+    }
+
+    queueParentLane(container.id);
+  }
+
+  return hydratedCount;
+}
+
+function latestContainerItemsById(
+  items: ReadonlyArray<ListedRemoteContainerPageItem>,
+): Map<string, ListedRemoteContainerPageItem> {
+  const latestItems = new Map<string, ListedRemoteContainerPageItem>();
+  for (const item of items) {
+    const current = latestItems.get(item.id);
+    if (!current || current.updatedAt < item.updatedAt) {
+      latestItems.set(item.id, item);
+    }
+  }
+
+  return latestItems;
+}
+
+function latestContainerTombstonesById(
+  tombstones: ReadonlyArray<ContainerSyncTombstone>,
+): Map<string, ContainerSyncTombstone> {
+  const latestTombstones = new Map<string, ContainerSyncTombstone>();
+  for (const tombstone of tombstones) {
+    const current = latestTombstones.get(tombstone.containerId);
+    if (!current || current.updatedAt < tombstone.updatedAt) {
+      latestTombstones.set(tombstone.containerId, tombstone);
+    }
+  }
+
+  return latestTombstones;
+}
+
+function getApplicableContainerTombstones(
+  response: ListContainersResponse,
+): ContainerSyncTombstone[] {
+  const latestItems = latestContainerItemsById(response.items);
+  return Array.from(
+    latestContainerTombstonesById(response.tombstones).values(),
+  ).filter((tombstone) => {
+    const item = latestItems.get(tombstone.containerId);
+    return !item || item.updatedAt < tombstone.updatedAt;
+  });
+}
+
+function getApplicableRemoteContainerItems(
+  response: ListContainersResponse,
+): ListedRemoteContainerPageItem[] {
+  const latestTombstones = latestContainerTombstonesById(response.tombstones);
+  return response.items.filter((item) => {
+    const tombstone = latestTombstones.get(item.id);
+    return !tombstone || tombstone.updatedAt <= item.updatedAt;
+  });
+}
+
+function collectRemovedContainerIds(input: {
+  childIdsByParentId: ContainerChildIndex;
+  containersById: ReadonlyMap<string, ExplorerContainerState>;
+  preservedContainerIds: ReadonlySet<string>;
+  tombstones: ReadonlyArray<ContainerSyncTombstone>;
+}): string[] {
+  const {
+    childIdsByParentId,
+    containersById,
+    preservedContainerIds,
+    tombstones,
+  } = input;
+  const removedContainerIds = new Set<string>();
+  const pendingContainerIds: string[] = [];
+
+  for (const tombstone of tombstones) {
+    if (!preservedContainerIds.has(tombstone.containerId)) {
+      pendingContainerIds.push(tombstone.containerId);
+    }
+  }
+
+  while (pendingContainerIds.length > 0) {
+    const containerId = pendingContainerIds.pop();
+    if (!containerId || removedContainerIds.has(containerId)) {
+      continue;
+    }
+
+    removedContainerIds.add(containerId);
+    for (const childId of childIdsByParentId.get(containerId) ?? []) {
+      if (
+        !preservedContainerIds.has(childId) &&
+        !removedContainerIds.has(childId)
+      ) {
+        pendingContainerIds.push(childId);
+      }
+    }
+  }
+
+  return Array.from(removedContainerIds).filter((containerId) =>
+    containersById.has(containerId),
+  );
+}
+
+function getLatestContainerTombstoneUpdatedAt(
+  tombstones: ReadonlyArray<ContainerSyncTombstone>,
+): string | undefined {
+  return tombstones.reduce<string | undefined>(
+    (latestUpdatedAt, tombstone) =>
+      !latestUpdatedAt || latestUpdatedAt < tombstone.updatedAt
+        ? tombstone.updatedAt
+        : latestUpdatedAt,
+    undefined,
+  );
+}
+
+async function applyContainerTombstones(input: {
+  childIdsByParentId: ContainerChildIndex;
+  preservedContainerIds: ReadonlySet<string>;
+  response: ListContainersResponse;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<number> {
+  const { childIdsByParentId, preservedContainerIds, response, state } = input;
+  const tombstones = getApplicableContainerTombstones(response);
+  if (tombstones.length === 0) {
+    return 0;
+  }
+
+  const removedContainerIds = collectRemovedContainerIds({
+    childIdsByParentId,
+    containersById: state.containersById,
+    preservedContainerIds,
+    tombstones,
+  });
+  const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
+
+  await deleteExplorerContainers(
+    state.runtime.execSql,
+    state.persistence,
+    removedContainerIds,
+    tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : undefined,
+  );
+  for (const containerId of removedContainerIds) {
+    const parentId =
+      state.containersById.get(containerId)?.container.parentId ?? null;
+    removeIndexedContainerChild(childIdsByParentId, containerId, parentId);
+    childIdsByParentId.delete(containerId);
+    state.containersById.delete(containerId);
+  }
+
+  return removedContainerIds.length;
+}
+
+async function advanceContainerParentWatermark(input: {
+  response: ListContainersResponse;
+  state: ExplorerRemoteContainerHydrationState;
+  syncLane: ReturnType<typeof createExplorerContainerParentSyncLane>;
+}): Promise<boolean> {
+  const { response, state, syncLane } = input;
+  if (response.nextWatermark) {
+    await saveContainerParentSyncWatermark(
+      state.runtime.execSql,
+      syncLane,
+      response.nextWatermark,
+    );
+  }
+
+  return true;
+}
+
+function canHydrateRemoteContainers(
+  state: ExplorerRemoteContainerHydrationState,
+): boolean {
+  return (
+    state.runtime.isAuthenticated &&
+    state.runtime.online &&
+    state.runtime.dbStatus === "ready"
+  );
+}
+
+async function fetchContainerParentLanePage(input: {
+  lane: ContainerParentHydrationLane;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<FetchedContainerParentLanePage | null> {
+  const { lane, state } = input;
+  const syncLane = createExplorerContainerParentSyncLane(lane.parentId);
+  const watermark =
+    lane.watermark === undefined
+      ? await loadContainerParentSyncWatermark(state.runtime.execSql, syncLane)
+      : lane.watermark;
+  const response = await state.runtime.apiClient.listContainers({
+    parentId: lane.parentId,
+    watermark,
+  });
+
+  return response ? { lane, response, syncLane } : null;
+}
+
+async function applyContainerParentLanePage(input: {
+  childIdsByParentId: ContainerChildIndex;
+  fetchedPage: FetchedContainerParentLanePage;
+  host: ExplorerRemoteContainerHydrationHost;
+  queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
+  queueParentLane: QueueContainerParentLane;
+  seenContainerIds: Set<string>;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<{ changedCount: number; shouldStop: boolean }> {
+  const {
+    childIdsByParentId,
+    fetchedPage,
+    host,
+    queueContinuationLane,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  } = input;
+  const { lane, response, syncLane } = fetchedPage;
+  let changedCount = 0;
+
+  const remoteContainerItems = getApplicableRemoteContainerItems(response);
+  changedCount += await applyContainerTombstones({
+    childIdsByParentId,
+    preservedContainerIds: new Set(
+      remoteContainerItems.map((container) => container.id),
+    ),
+    response,
+    state,
+  });
+
+  changedCount += await applyRemoteContainerPage({
+    childIdsByParentId,
+    host,
+    items: remoteContainerItems,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  });
+
+  const didAdvanceWatermark = await advanceContainerParentWatermark({
+    response,
+    state,
+    syncLane,
+  });
+  if (!didAdvanceWatermark) {
+    return { changedCount, shouldStop: false };
+  }
+
+  if (!response.hasMore) {
+    return { changedCount, shouldStop: false };
+  }
+  if (!response.nextWatermark) {
+    return { changedCount, shouldStop: true };
+  }
+
+  queueContinuationLane({
+    parentId: lane.parentId,
+    watermark: response.nextWatermark,
+  });
+  return { changedCount, shouldStop: false };
+}
+
+function takeContainerParentLaneBatch(input: {
+  lanes: ContainerParentHydrationLane[];
+  state: ExplorerRemoteContainerHydrationState;
+}): ContainerParentHydrationLane[] {
+  const { lanes, state } = input;
+  const batch: ContainerParentHydrationLane[] = [];
+
+  while (
+    lanes.length > 0 &&
+    batch.length < CONTAINER_PARENT_HYDRATION_CONCURRENCY
+  ) {
+    const lane = lanes.shift();
+    if (
+      lane &&
+      (lane.parentId === null || state.containersById.has(lane.parentId))
+    ) {
+      batch.push(lane);
+    }
+  }
+
+  return batch;
+}
+
+function isFetchedContainerParentLanePage(
+  fetchedPage: FetchedContainerParentLanePage | null,
+): fetchedPage is FetchedContainerParentLanePage {
+  return fetchedPage !== null;
+}
+
+async function fetchContainerParentLaneBatch(input: {
+  batch: ReadonlyArray<ContainerParentHydrationLane>;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
+  const { batch, state } = input;
+  const fetchedPages = await Promise.all(
+    batch.map((lane) => fetchContainerParentLanePage({ lane, state })),
+  );
+
+  return fetchedPages.every(isFetchedContainerParentLanePage)
+    ? fetchedPages
+    : null;
+}
+
+function canApplyFetchedContainerParentLanePage(input: {
+  fetchedPage: FetchedContainerParentLanePage;
+  state: ExplorerRemoteContainerHydrationState;
+}): boolean {
+  const { fetchedPage, state } = input;
+  return (
+    fetchedPage.lane.parentId === null ||
+    state.containersById.has(fetchedPage.lane.parentId)
+  );
+}
+
+async function applyContainerParentLaneBatch(input: {
+  childIdsByParentId: ContainerChildIndex;
+  fetchedPages: ReadonlyArray<FetchedContainerParentLanePage>;
+  host: ExplorerRemoteContainerHydrationHost;
+  lanes: ContainerParentHydrationLane[];
+  queueParentLane: QueueContainerParentLane;
+  seenContainerIds: Set<string>;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<{ changedCount: number; shouldStop: boolean }> {
+  const {
+    childIdsByParentId,
+    fetchedPages,
+    host,
+    lanes,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  } = input;
+  let changedCount = 0;
+
+  for (const fetchedPage of fetchedPages) {
+    if (!canHydrateRemoteContainers(state)) {
+      return { changedCount, shouldStop: true };
+    }
+    if (!canApplyFetchedContainerParentLanePage({ fetchedPage, state })) {
+      continue;
+    }
+
+    const result = await applyContainerParentLanePage({
+      childIdsByParentId,
+      fetchedPage,
+      host,
+      queueContinuationLane: (lane) => lanes.push(lane),
+      queueParentLane,
+      seenContainerIds,
+      state,
+    });
+    changedCount += result.changedCount;
+
+    if (result.shouldStop) {
+      return { changedCount, shouldStop: true };
+    }
+  }
+
+  return { changedCount, shouldStop: false };
+}
+
+async function hydrateContainerParentLanes(input: {
+  childIdsByParentId: ContainerChildIndex;
+  host: ExplorerRemoteContainerHydrationHost;
+  lanes: ContainerParentHydrationLane[];
+  queueParentLane: QueueContainerParentLane;
+  seenContainerIds: Set<string>;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<{ changedCount: number; shouldStop: boolean }> {
+  const {
+    childIdsByParentId,
+    host,
+    lanes,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  } = input;
+  let changedCount = 0;
+
+  while (lanes.length > 0) {
+    if (!canHydrateRemoteContainers(state)) {
+      return { changedCount, shouldStop: true };
+    }
+
+    const batch = takeContainerParentLaneBatch({ lanes, state });
+    if (batch.length === 0) {
+      continue;
+    }
+
+    const fetchedPages = await fetchContainerParentLaneBatch({ batch, state });
+    if (!fetchedPages) {
+      return { changedCount, shouldStop: true };
+    }
+
+    const result = await applyContainerParentLaneBatch({
+      childIdsByParentId,
+      fetchedPages,
+      host,
+      lanes,
+      queueParentLane,
+      seenContainerIds,
+      state,
+    });
+    changedCount += result.changedCount;
+
+    if (result.shouldStop) {
+      return { changedCount, shouldStop: true };
+    }
+  }
+
+  return { changedCount, shouldStop: false };
+}
+
+export async function hydrateRemoteExplorerContainers(input: {
+  host: ExplorerRemoteContainerHydrationHost;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<void> {
+  const { host, state } = input;
+  if (!canHydrateRemoteContainers(state)) {
+    return;
+  }
+
+  const seenContainerIds = new Set<string>();
+  const childIdsByParentId = createContainerChildIndex(state.containersById);
+  const { lanes, queueParentLane } = createContainerParentHydrationQueue(
+    state.containersById.keys(),
+  );
+  const { changedCount } = await hydrateContainerParentLanes({
+    childIdsByParentId,
+    host,
+    lanes,
+    queueParentLane,
+    seenContainerIds,
+    state,
+  });
+
+  if (changedCount > 0) {
+    host.updateSnapshot();
+    state.runtime.log(
+      `Explorer: applied ${changedCount} remote container change(s)`,
+    );
+  }
+}
