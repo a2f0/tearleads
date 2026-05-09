@@ -284,7 +284,10 @@ export async function createExplorerChildContainer(input: {
   const initialRecord: DocumentRecord = {
     accessEpoch: 1,
     accessStateHash: null,
+    contentKeyBundle: null,
     documentId: null,
+    documentKekTargets: null,
+    documentManifestBundle: null,
     id: childId,
     lastCommitLsn: null,
     loroSnapshot: bytesToBase64(initialUpdate),
