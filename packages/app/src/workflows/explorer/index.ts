@@ -41,10 +41,10 @@ export {
   syncExplorerContainerMetadataState,
 } from "./metadata";
 export {
+  createRemoteExplorerContainerIngestor,
   type ExplorerContainerMetadataDocument,
   type ExplorerContainerState,
   type ExplorerRemoteContainer,
   type ExplorerRemoteContainerHydrationHost,
   hydrateRemoteExplorerContainers,
-  upsertRemoteExplorerContainerState,
 } from "./remoteHydration";

@@ -27,6 +27,7 @@ import type { ExplorerContainerMetadataPatch } from "./metadata";
 type ListedRemoteContainerPageItem = ListContainersResponse["items"][number];
 type ContainerChildIndex = Map<string, Set<string>>;
 type QueueContainerParentLane = (parentId: string | null) => void;
+type RemoteContainerIngestQueue = Map<string, ExplorerRemoteContainer>;
 
 const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
 
@@ -164,7 +165,7 @@ function createContainerChildIndex(
   return childIdsByParentId;
 }
 
-export async function upsertRemoteExplorerContainerState(input: {
+async function upsertRemoteExplorerContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   host: ExplorerRemoteContainerHydrationHost;
   remoteContainer: ExplorerRemoteContainer;
@@ -242,6 +243,120 @@ export async function upsertRemoteExplorerContainerState(input: {
     );
   }
   return containerState;
+}
+
+function isCurrentQueuedRemoteContainer(
+  queue: RemoteContainerIngestQueue,
+  remoteContainer: ExplorerRemoteContainer,
+): boolean {
+  return queue.get(remoteContainer.id) === remoteContainer;
+}
+
+async function cacheQueuedRemoteContainerPrincipals(input: {
+  queuedRemoteContainers: ReadonlyArray<ExplorerRemoteContainer>;
+  state: ExplorerRemoteContainerHydrationState;
+}) {
+  const { queuedRemoteContainers, state } = input;
+  await state.runtime.cacheReferencedPrincipalPolicies(
+    queuedRemoteContainers.flatMap(
+      (queuedRemoteContainer) =>
+        queuedRemoteContainer.metadataReferencedPrincipals ?? [],
+    ),
+  );
+}
+
+async function upsertQueuedRemoteContainer(input: {
+  host: ExplorerRemoteContainerHydrationHost;
+  queue: RemoteContainerIngestQueue;
+  queuedRemoteContainer: ExplorerRemoteContainer;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<boolean> {
+  const { host, queue, queuedRemoteContainer, state } = input;
+  if (!isCurrentQueuedRemoteContainer(queue, queuedRemoteContainer)) {
+    return false;
+  }
+
+  await upsertRemoteExplorerContainerState({
+    host,
+    remoteContainer: queuedRemoteContainer,
+    state,
+  });
+  if (isCurrentQueuedRemoteContainer(queue, queuedRemoteContainer)) {
+    queue.delete(queuedRemoteContainer.id);
+  }
+  return true;
+}
+
+async function drainRemoteExplorerContainerIngestQueue(input: {
+  host: ExplorerRemoteContainerHydrationHost;
+  queue: RemoteContainerIngestQueue;
+  state: ExplorerRemoteContainerHydrationState;
+}) {
+  const { host, queue, state } = input;
+  let shouldUpdateSnapshot = false;
+
+  try {
+    while (queue.size > 0) {
+      const queuedRemoteContainers = Array.from(queue.values());
+      await cacheQueuedRemoteContainerPrincipals({
+        queuedRemoteContainers,
+        state,
+      });
+
+      for (const queuedRemoteContainer of queuedRemoteContainers) {
+        shouldUpdateSnapshot =
+          (await upsertQueuedRemoteContainer({
+            host,
+            queue,
+            queuedRemoteContainer,
+            state,
+          })) || shouldUpdateSnapshot;
+      }
+
+      if (shouldUpdateSnapshot) {
+        host.updateSnapshot();
+        shouldUpdateSnapshot = false;
+      }
+    }
+  } catch (error) {
+    if (shouldUpdateSnapshot) {
+      host.updateSnapshot();
+    }
+    throw error;
+  }
+}
+
+export function createRemoteExplorerContainerIngestor(input: {
+  host: ExplorerRemoteContainerHydrationHost;
+  state: ExplorerRemoteContainerHydrationState;
+}): (remoteContainer: ExplorerRemoteContainer) => Promise<void> {
+  const { host, state } = input;
+  const pendingRemoteContainersById: RemoteContainerIngestQueue = new Map();
+  let ingestRemoteContainersPromise: Promise<void> | null = null;
+
+  return async (remoteContainer: ExplorerRemoteContainer) => {
+    pendingRemoteContainersById.set(remoteContainer.id, remoteContainer);
+
+    if (ingestRemoteContainersPromise) {
+      return ingestRemoteContainersPromise;
+    }
+
+    ingestRemoteContainersPromise = (async () => {
+      await Promise.resolve();
+
+      try {
+        await drainRemoteExplorerContainerIngestQueue({
+          host,
+          queue: pendingRemoteContainersById,
+          state,
+        });
+      } finally {
+        ingestRemoteContainersPromise = null;
+      }
+    })();
+
+    return ingestRemoteContainersPromise;
+  };
 }
 
 function createContainerParentHydrationQueue(containerIds: Iterable<string>): {
