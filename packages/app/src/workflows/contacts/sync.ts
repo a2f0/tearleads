@@ -18,6 +18,7 @@ import type {
   PendingUpdateRecord,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { isDestroyedDatabaseClientError } from "../../data/sync/syncCoordinator";
 import {
   createRemoteDocument,
   type DocumentCreateAuthor,
@@ -59,6 +60,15 @@ export interface ContactDocumentSyncRuntime {
   userId?: string | null;
 }
 
+interface ContactDocumentSyncBatchRuntime extends ContactDocumentSyncRuntime {
+  encapsulationKeyPair?: {
+    publicKey: Uint8Array;
+    secretKey: Uint8Array;
+  } | null;
+  isAuthenticated: boolean;
+  online: boolean;
+}
+
 interface ContactRemoteSyncAttempt {
   outgoingUpdateCount: number;
   synced: ContactRemoteSyncResult;
@@ -82,6 +92,11 @@ interface SyncedContactDocument {
   shouldRequestFollowupSync: boolean;
 }
 
+interface ContactDocumentSyncBatchResult {
+  syncedContactCount: number;
+  shouldRequestFollowupSync: boolean;
+}
+
 function resolveNullableContactRuntimeField(
   patch: Partial<DocumentRecord>,
   key: NullableContactRuntimeField,
@@ -93,6 +108,10 @@ function resolveNullableContactRuntimeField(
   }
 
   return resetWhenUnpatched ? null : (currentValue ?? null);
+}
+
+function contactSyncErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export async function persistContactDocumentState(input: {
@@ -347,7 +366,7 @@ async function ensureContactDocumentForSync(input: {
   return nextRecord;
 }
 
-export async function syncContactDocument(input: {
+async function syncContactDocument(input: {
   addressBookId: string;
   contact: ContactDocumentState;
   persistence: ContactsPersistence;
@@ -439,4 +458,68 @@ export async function syncContactDocument(input: {
       syncAttempt.outgoingUpdateCount >
       syncAttempt.synced.response.acceptedOutgoingUpdateIds.length,
   };
+}
+
+export async function syncContactDocuments(input: {
+  addressBookId: string;
+  contacts: Iterable<ContactDocumentState>;
+  persistence: ContactsPersistence;
+  ready: boolean;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ContactDocumentSyncBatchRuntime;
+}): Promise<ContactDocumentSyncBatchResult> {
+  const {
+    addressBookId,
+    contacts,
+    persistence,
+    ready,
+    resolveProjectionUserKey,
+    runtime,
+  } = input;
+  const result: ContactDocumentSyncBatchResult = {
+    syncedContactCount: 0,
+    shouldRequestFollowupSync: false,
+  };
+
+  if (
+    !ready ||
+    !runtime.online ||
+    !runtime.isAuthenticated ||
+    !runtime.encapsulationKeyPair
+  ) {
+    return result;
+  }
+
+  for (const contact of contacts) {
+    try {
+      const syncedContact = await syncContactDocument({
+        addressBookId,
+        contact,
+        persistence,
+        resolveProjectionUserKey,
+        runtime,
+        targetSecretKey: runtime.encapsulationKeyPair.secretKey,
+      });
+      if (!syncedContact) {
+        continue;
+      }
+
+      contact.entry = syncedContact.entry;
+      contact.record = syncedContact.record;
+      result.syncedContactCount += 1;
+      result.shouldRequestFollowupSync =
+        result.shouldRequestFollowupSync ||
+        syncedContact.shouldRequestFollowupSync;
+    } catch (error) {
+      if (isDestroyedDatabaseClientError(error)) {
+        throw error;
+      }
+
+      runtime.log(
+        `Contacts (${contact.entry.userId}): sync failed: ${contactSyncErrorMessage(error)}`,
+      );
+    }
+  }
+
+  return result;
 }

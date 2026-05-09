@@ -19,7 +19,7 @@ import {
   loadContactDocumentStates,
   persistContactKeyEntryFromRuntime,
   removeContactKeyFromRuntime,
-  syncContactDocument,
+  syncContactDocuments,
 } from "../../workflows/contacts";
 import type { ContactsRuntime, ContactsSnapshot, ContactsStore } from "./types";
 
@@ -200,57 +200,24 @@ async function waitForContactsInitialization(
   }
 }
 
-async function syncSingleContact(
-  state: ContactsStoreState,
-  contact: ContactState,
-  targetSecretKey: Uint8Array,
-) {
-  const syncedContact = await syncContactDocument({
+async function runContactsSyncIteration(state: ContactsStoreState) {
+  const result = await syncContactDocuments({
     addressBookId: DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
-    contact,
+    contacts: Array.from(state.contactsByUserId.values()),
+    persistence: state.persistence,
+    ready: state.snapshot.ready,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
-    persistence: state.persistence,
-    targetSecretKey,
   });
-  if (!syncedContact) {
-    return;
+  if (result.syncedContactCount > 0) {
+    setContactsSnapshot(state, {
+      entries: getSnapshotEntries(state.contactsByUserId),
+      ready: true,
+    });
   }
 
-  contact.entry = syncedContact.entry;
-  contact.record = syncedContact.record;
-  setContactsSnapshot(state, {
-    entries: getSnapshotEntries(state.contactsByUserId),
-    ready: true,
-  });
-
-  if (syncedContact.shouldRequestFollowupSync) {
+  if (result.shouldRequestFollowupSync) {
     requestContactsSync(state);
-  }
-}
-
-async function runContactsSyncIteration(state: ContactsStoreState) {
-  if (
-    !state.snapshot.ready ||
-    !state.runtime.online ||
-    !state.runtime.isAuthenticated ||
-    !state.runtime.encapsulationKeyPair
-  ) {
-    return;
-  }
-
-  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
-  if (!encapsulationKeyPair) {
-    return;
-  }
-
-  for (const userId of Array.from(state.contactsByUserId.keys())) {
-    const contact = state.contactsByUserId.get(userId);
-    if (!contact) {
-      continue;
-    }
-
-    await syncSingleContact(state, contact, encapsulationKeyPair.secretKey);
   }
 }
 
