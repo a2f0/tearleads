@@ -38,9 +38,17 @@ import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVer
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   assertDocumentWriterProjectionConsistent,
+  type DocumentAuthorRuntime,
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
+  resolveDocumentCreateAuthor,
 } from "../documents";
+
+export type DocumentAttachmentUploadRuntime = DocumentAuthorRuntime & {
+  apiClient: BlobAttachmentApi;
+  execSql?: ExecSql | undefined;
+  log: (message: string) => void;
+};
 
 async function buildBlobAttachmentMaterial(
   input: {
@@ -310,4 +318,45 @@ export async function uploadDocumentAttachment({
     bindingId,
     ...result,
   };
+}
+
+export async function uploadDocumentAttachmentFromRuntime(input: {
+  blobId?: string | undefined;
+  bindingId?: string | undefined;
+  bytes: BlobBytes;
+  contentKey?: Uint8Array | undefined;
+  contentKeyEpoch?: number | undefined;
+  documentId: string;
+  eventId?: string | undefined;
+  expectedBindingId: string | null;
+  resolveProjectionUserKey: UploadDocumentAttachmentInput["resolveProjectionUserKey"];
+  runtime: DocumentAttachmentUploadRuntime;
+  signedAt?: string | undefined;
+  slotId: string;
+  targetSecretKey: Uint8Array;
+  unavailableWriterLogMessage: string;
+}): Promise<UploadDocumentAttachmentResult | null> {
+  const author = resolveDocumentCreateAuthor(input.runtime);
+  if (!author) {
+    input.runtime.log(input.unavailableWriterLogMessage);
+    return null;
+  }
+
+  return uploadDocumentAttachment({
+    apiClient: input.runtime.apiClient,
+    author,
+    blobId: input.blobId,
+    bindingId: input.bindingId,
+    bytes: input.bytes,
+    contentKey: input.contentKey,
+    contentKeyEpoch: input.contentKeyEpoch,
+    documentId: input.documentId,
+    eventId: input.eventId,
+    execSql: input.runtime.execSql,
+    expectedBindingId: input.expectedBindingId,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    signedAt: input.signedAt,
+    slotId: input.slotId,
+    targetSecretKey: input.targetSecretKey,
+  });
 }

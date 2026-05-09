@@ -8,7 +8,11 @@ import {
 } from "@tearleads/crypto";
 import type { BlobBytes } from "../../data/blobs";
 import { createMaterializedSyncFixture } from "../../data/documents/documentTestFixtures";
-import { uploadDocumentAttachment } from "./index";
+import {
+  type DocumentAttachmentUploadRuntime,
+  uploadDocumentAttachment,
+  uploadDocumentAttachmentFromRuntime,
+} from "./index";
 
 test("uploadDocumentAttachment wraps blob keys with the blob content-key suite", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -102,6 +106,134 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
         suite: BLOB_CONTENT_KEY_WRAP_SUITE,
       }),
     }),
+  ]);
+});
+
+test("uploadDocumentAttachmentFromRuntime resolves the author from runtime", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const blobId = "550e8400-e29b-41d4-a716-446655440558";
+  const bindingId = "550e8400-e29b-41d4-a716-446655440559";
+  const slotId = "preview";
+  const submittedRequests: unknown[] = [];
+  const runtime: DocumentAttachmentUploadRuntime = {
+    apiClient: {
+      bindBlobAttachment: async (_blobId, request) => {
+        const targets = request.contentKeyBundle.targets;
+        const linkedContainerManifestHashes = [
+          ...new Set(targets.map((target) => target.containerManifestHash)),
+        ].sort();
+        const linkedContainerKeyEpochIds = [
+          ...new Set(targets.map((target) => target.containerKeyEpochId)),
+        ].sort();
+        const blobAccessManifestHash = await computeBlobAccessManifestHash({
+          version: 1,
+          blobId,
+          organizationId: author.organizationId,
+          activeBindingIds: [bindingId],
+          documentManifestHashes: [
+            writerProjection.documentManifest.manifestHash,
+          ],
+          linkedContainerManifestHashes,
+          linkedContainerKeyEpochIds,
+          blobKeyTargetHash: request.contentKeyBundle.targetHash,
+        });
+        if (!request.stagedBlob) {
+          throw new Error("Expected staged blob request");
+        }
+        submittedRequests.push(request);
+        return {
+          bindingId,
+          blobId,
+          documentId: writerProjection.documentId,
+          slotId,
+          contentKeyBundle: {
+            blobId,
+            ...request.contentKeyBundle,
+          },
+          blobKekTargets: {
+            blobId,
+            organizationId: author.organizationId,
+            activeBindingIds: [bindingId],
+            documentManifestHashes: [
+              writerProjection.documentManifest.manifestHash,
+            ],
+            linkedContainerManifestHashes,
+            linkedContainerKeyEpochIds,
+            targets: targets.map((target) => ({ ...target })),
+            blobKeyTargetHash: request.contentKeyBundle.targetHash,
+            blobAccessManifestHash,
+          },
+          writeHeaderHash: await computeWriteHeaderHash(
+            request.stagedBlob.writeHeader as unknown as WriteHeader,
+          ),
+        };
+      },
+      getDocumentWriterProjection: async () => writerProjection,
+      stageBlob: async () => ({
+        stageId: "stage-runtime-upload",
+        expiresAt: "2026-04-27T01:00:00.000Z",
+      }),
+    },
+    log: () => undefined,
+    organizationId: author.organizationId,
+    signingFingerprint: author.signerKeyFingerprint,
+    signingKeyPair: {
+      signingPrivateKey: author.signerPrivateKey,
+    },
+    userId: author.signerUserId,
+  };
+
+  const uploaded = await uploadDocumentAttachmentFromRuntime({
+    bindingId,
+    blobId,
+    bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
+    documentId: writerProjection.documentId,
+    expectedBindingId: null,
+    resolveProjectionUserKey,
+    runtime,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    slotId,
+    targetSecretKey: secretKey,
+    unavailableWriterLogMessage:
+      "Documents: skipped attachment upload because the writer context is unavailable.",
+  });
+
+  expect(submittedRequests).toHaveLength(1);
+  expect(uploaded?.blobId).toBe(blobId);
+  expect(uploaded?.bindingId).toBe(bindingId);
+});
+
+test("uploadDocumentAttachmentFromRuntime logs when writer context is unavailable", async () => {
+  const logs: string[] = [];
+  const uploaded = await uploadDocumentAttachmentFromRuntime({
+    bytes: new Uint8Array([1]) as BlobBytes,
+    documentId: "document-1",
+    expectedBindingId: null,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      apiClient: {
+        bindBlobAttachment: async () => {
+          throw new Error("Expected missing author to skip upload");
+        },
+        getDocumentWriterProjection: async () => {
+          throw new Error("Expected missing author to skip upload");
+        },
+        stageBlob: async () => {
+          throw new Error("Expected missing author to skip upload");
+        },
+      },
+      log: (message) => logs.push(message),
+    },
+    slotId: "preview",
+    targetSecretKey: new Uint8Array(),
+    unavailableWriterLogMessage:
+      "Documents: skipped attachment upload because the writer context is unavailable.",
+  });
+
+  expect(uploaded).toBeNull();
+  expect(logs).toEqual([
+    "Documents: skipped attachment upload because the writer context is unavailable.",
   ]);
 });
 
