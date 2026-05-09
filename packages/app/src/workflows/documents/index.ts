@@ -38,5 +38,5 @@ export {
   saveLocalDocumentAttachments,
   savePendingDocumentAttachment,
 } from "./persistence";
-export { syncRemoteDocument } from "./sync";
+export { syncRemoteDocument, syncRemoteDocumentFromRuntime } from "./sync";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";

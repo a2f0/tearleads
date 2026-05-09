@@ -33,7 +33,6 @@ import {
   uploadDocumentAttachment,
 } from "../../workflows/blobs";
 import {
-  createDocumentWriterPublicKeyResolver,
   createRemoteDocument,
   DOCUMENTS_APP_KIND,
   type DocumentCreateAuthor,
@@ -53,7 +52,7 @@ import {
   resolveDocumentCreateAuthor,
   saveLocalDocumentAttachments,
   savePendingDocumentAttachment,
-  syncRemoteDocument,
+  syncRemoteDocumentFromRuntime,
 } from "../../workflows/documents";
 import {
   createDocumentStoreFacade,
@@ -103,10 +102,9 @@ interface PersistedDocumentRecord {
 interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
 }
-interface DocumentSyncAttempt {
-  outgoingUpdateCount: number;
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
-}
+type DocumentSyncAttempt = NonNullable<
+  Awaited<ReturnType<typeof syncRemoteDocumentFromRuntime>>
+>;
 
 function sameAttachmentStorageKeys(
   left: Readonly<Record<string, string>>,
@@ -1002,41 +1000,16 @@ async function requestRemoteDocumentSync(input: {
     unavailableWriterLogMessage,
   } = input;
 
-  if (!currentRecord.documentId) {
-    return null;
-  }
-
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  const { apiClient } = state.runtime;
-  if (!author) {
-    state.runtime.log(unavailableWriterLogMessage);
-    return null;
-  }
-
-  const synced = await syncRemoteDocument({
-    apiClient,
-    author,
+  return syncRemoteDocumentFromRuntime({
     documentId: currentRecord.documentId,
-    execSql: state.runtime.execSql,
+    lastCommitLsn: currentRecord.lastCommitLsn,
     localVersionVector: encodeVersionVector(currentDoc),
-    minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-      logPrefix: "Documents",
-      runtime: state.runtime,
-      writerKeyLabel: "writer key",
-    }),
+    runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
+    unavailableWriterLogMessage,
   });
-  if (!synced) {
-    return null;
-  }
-
-  return {
-    outgoingUpdateCount: pendingUpdates.length,
-    synced,
-  };
 }
 
 async function applyIncomingSyncedUpdates(
