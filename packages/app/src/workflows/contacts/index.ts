@@ -14,5 +14,6 @@ export {
 } from "./persistence";
 export {
   type ContactDocumentState,
+  hasContactDocumentUpdateEvent,
   syncContactDocuments,
 } from "./sync";
