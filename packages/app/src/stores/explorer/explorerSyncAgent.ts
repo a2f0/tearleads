@@ -8,8 +8,6 @@ import {
 } from "../../data/sync/syncCoordinator";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
-  type ContainerCreateIntentRecord,
-  createRemoteExplorerContainer,
   type ExplorerContainerMetadataDocument,
   type ExplorerContainerState,
   type ExplorerPersistence,
@@ -18,11 +16,9 @@ import {
   enqueuePendingExplorerContainerUpdate,
   hydrateRemoteExplorerContainers,
   listExplorerDocumentsForContainerSubtree,
-  listPendingExplorerContainerCreateIntents,
   loadLocalExplorerContainerStates,
-  markExplorerContainerCreateIntentSynced,
-  recordExplorerContainerCreateIntentError,
   syncExplorerContainerMetadataState,
+  syncPendingExplorerContainerCreateIntents,
   upsertRemoteExplorerContainerState,
 } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
@@ -345,190 +341,6 @@ async function syncSingleContainerMetadata(input: {
   }
 }
 
-function hasRemoteMetadataState(containerState: ContainerState): boolean {
-  return (
-    typeof containerState.record.documentId === "string" &&
-    containerState.record.documentId.length > 0 &&
-    typeof containerState.record.accessStateHash === "string" &&
-    containerState.record.accessStateHash.length > 0
-  );
-}
-
-async function markCreateIntentAlreadySynced(input: {
-  intent: ContainerCreateIntentRecord;
-  state: ExplorerSyncState;
-  containerState: ContainerState;
-}) {
-  const { containerState, intent, state } = input;
-  const remoteMetadataDocumentId = containerState.record.documentId;
-  const remoteMetadataAccessStateHash = containerState.record.accessStateHash;
-
-  if (!remoteMetadataDocumentId || !remoteMetadataAccessStateHash) {
-    return;
-  }
-
-  await markExplorerContainerCreateIntentSynced(
-    state.runtime.execSql,
-    state.persistence,
-    {
-      containerId: intent.containerId,
-      remoteContainerId: containerState.container.id,
-      remoteMetadataAccessStateHash,
-      remoteMetadataDocumentId,
-    },
-  );
-}
-
-async function persistCreatedContainerFromIntent(input: {
-  created: NonNullable<
-    Awaited<ReturnType<typeof createRemoteExplorerContainer>>
-  >;
-  host: ExplorerSyncHost;
-  state: ExplorerSyncState;
-  containerState: ContainerState;
-}) {
-  const { containerState, created, host, state } = input;
-
-  const nextRecord = await host.persistContainerState(
-    containerState,
-    {
-      accessEpoch: 1,
-      accessStateHash: created.accessManifestHash,
-      lastCommitLsn: null,
-      metadataDocumentId: created.metadataDocumentId,
-      organizationId: created.organizationId,
-      parentId: created.parentId,
-      ...created.persistedMetadataState,
-    },
-    false,
-  );
-
-  containerState.record = nextRecord;
-  containerState.container = {
-    ...containerState.container,
-    metadataDocumentId: created.metadataDocumentId,
-    organizationId: created.organizationId,
-    parentId: created.parentId,
-  };
-
-  await markExplorerContainerCreateIntentSynced(
-    state.runtime.execSql,
-    state.persistence,
-    {
-      containerId: containerState.container.id,
-      remoteContainerId: created.containerId,
-      remoteMetadataAccessStateHash: created.accessManifestHash,
-      remoteMetadataDocumentId: created.metadataDocumentId,
-    },
-  );
-}
-
-async function tryCreateRemoteContainerFromIntent(input: {
-  host: ExplorerSyncHost;
-  intent: ContainerCreateIntentRecord;
-  state: ExplorerSyncState;
-}): Promise<"created" | "blocked" | "failed"> {
-  const { host, intent, state } = input;
-  const containerState = state.containersById.get(intent.containerId);
-  const parentState = state.containersById.get(intent.parentContainerId);
-
-  if (!containerState || !parentState) {
-    await recordExplorerContainerCreateIntentError(
-      state.runtime.execSql,
-      state.persistence,
-      intent.containerId,
-      "Container create intent references a missing local container",
-    );
-    return "failed";
-  }
-
-  if (hasRemoteMetadataState(containerState)) {
-    await markCreateIntentAlreadySynced({ containerState, intent, state });
-    return "created";
-  }
-
-  if (!hasRemoteMetadataState(parentState)) {
-    return "blocked";
-  }
-  const created = await createRemoteExplorerContainer({
-    containerId: containerState.container.id,
-    parentContainerId: parentState.container.id,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-  });
-
-  if (!created) {
-    await recordExplorerContainerCreateIntentError(
-      state.runtime.execSql,
-      state.persistence,
-      intent.containerId,
-      "Remote container create was rejected or unavailable",
-    );
-    return "failed";
-  }
-
-  await persistCreatedContainerFromIntent({
-    containerState,
-    created,
-    host,
-    state,
-  });
-  state.runtime.log(
-    `Explorer: synced local container create ${containerState.container.id}`,
-  );
-  return "created";
-}
-
-async function syncPendingContainerCreateIntents(input: {
-  host: ExplorerSyncHost;
-  state: ExplorerSyncState;
-}): Promise<number> {
-  const { host, state } = input;
-  const pendingIntents = await listPendingExplorerContainerCreateIntents(
-    state.runtime.execSql,
-    state.persistence,
-  );
-  const remainingContainerIds = new Set(
-    pendingIntents.map((intent) => intent.containerId),
-  );
-  const failedThisRun = new Set<string>();
-  let createdCount = 0;
-  let progressed = true;
-
-  while (progressed) {
-    progressed = false;
-
-    for (const intent of pendingIntents) {
-      if (
-        !remainingContainerIds.has(intent.containerId) ||
-        failedThisRun.has(intent.containerId)
-      ) {
-        continue;
-      }
-
-      const result = await tryCreateRemoteContainerFromIntent({
-        host,
-        intent,
-        state,
-      });
-
-      if (result === "blocked") {
-        continue;
-      }
-
-      remainingContainerIds.delete(intent.containerId);
-      progressed = result === "created" || progressed;
-      if (result === "created") {
-        createdCount += 1;
-      } else {
-        failedThisRun.add(intent.containerId);
-      }
-    }
-  }
-
-  return createdCount;
-}
-
 async function runExplorerSyncIteration(input: {
   host: ExplorerSyncHost;
   state: ExplorerSyncState;
@@ -545,10 +357,12 @@ async function runExplorerSyncIteration(input: {
     return;
   }
 
-  const createdContainerCount = await syncPendingContainerCreateIntents({
-    host,
-    state,
-  });
+  const createdContainerCount = await syncPendingExplorerContainerCreateIntents(
+    {
+      host,
+      state,
+    },
+  );
   if (createdContainerCount > 0) {
     host.updateSnapshot();
   }

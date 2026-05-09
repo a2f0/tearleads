@@ -1,14 +1,10 @@
 export {
-  type ContainerCreateIntentRecord,
   type ContainerRecord,
   defaultExplorerPersistence,
   deleteSingleExplorerContainer,
   type ExplorerDocumentRecord,
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdate,
-  listPendingExplorerContainerCreateIntents,
-  markExplorerContainerCreateIntentSynced,
-  recordExplorerContainerCreateIntentError,
   saveExplorerContainer,
 } from "./containerPersistence";
 export {
@@ -16,6 +12,7 @@ export {
   deleteRemoteExplorerContainer,
   moveRemoteExplorerContainer,
   shareRemoteExplorerContainer,
+  syncPendingExplorerContainerCreateIntents,
 } from "./containers";
 export {
   discoverAllContainerDocuments,
