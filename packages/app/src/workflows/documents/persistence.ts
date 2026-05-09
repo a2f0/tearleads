@@ -27,6 +27,9 @@ export {
 } from "../../data/persistence/documents/documentsPersistence";
 
 type DocumentContentState = Parameters<typeof exportAllUpdates>[0];
+type DocumentLocalStateRuntime = {
+  execSql: ExecSql;
+};
 type NullableDocumentRuntimeField =
   | "accessStateHash"
   | "lastCommitLsn"
@@ -58,7 +61,7 @@ function resolveNullableDocumentRuntimeField(
   return resetWhenUnpatched ? null : (currentValue ?? null);
 }
 
-export async function persistDocumentState(input: {
+async function persistDocumentState(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   containerId?: string | null | undefined;
   currentDoc: DocumentContentState;
@@ -138,7 +141,26 @@ export async function persistDocumentState(input: {
   };
 }
 
-export async function loadPersistedDocumentStoreState(input: {
+export async function persistDocumentStateFromRuntime({
+  runtime,
+  ...input
+}: {
+  acceptedPendingUpdateIds?: readonly string[] | undefined;
+  containerId?: string | null | undefined;
+  currentDoc: DocumentContentState;
+  currentRecord: StoredDocumentRecord | null;
+  localId: string;
+  patch?: Partial<StoredDocumentRecord> | undefined;
+  persistence: DocumentsPersistence;
+  runtime: DocumentLocalStateRuntime;
+}): Promise<PersistedDocumentState> {
+  return persistDocumentState({
+    ...input,
+    execSql: runtime.execSql,
+  });
+}
+
+async function loadPersistedDocumentStoreState(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -158,7 +180,21 @@ export async function loadPersistedDocumentStoreState(input: {
   };
 }
 
-export async function listPendingDocumentUpdates(input: {
+export async function loadPersistedDocumentStoreStateFromRuntime({
+  runtime,
+  ...input
+}: {
+  localId: string;
+  persistence: DocumentsPersistence;
+  runtime: DocumentLocalStateRuntime;
+}): Promise<LoadedPersistedDocumentStoreState> {
+  return loadPersistedDocumentStoreState({
+    ...input,
+    execSql: runtime.execSql,
+  });
+}
+
+async function listPendingDocumentUpdates(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -166,7 +202,21 @@ export async function listPendingDocumentUpdates(input: {
   return input.persistence.listPendingUpdates(input.execSql, input.localId);
 }
 
-export async function enqueuePendingDocumentUpdate(input: {
+export async function listPendingDocumentUpdatesFromRuntime({
+  runtime,
+  ...input
+}: {
+  localId: string;
+  persistence: DocumentsPersistence;
+  runtime: DocumentLocalStateRuntime;
+}): Promise<PendingUpdateRecord[]> {
+  return listPendingDocumentUpdates({
+    ...input,
+    execSql: runtime.execSql,
+  });
+}
+
+async function enqueuePendingDocumentUpdate(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -187,7 +237,23 @@ export async function enqueuePendingDocumentUpdate(input: {
   });
 }
 
-export async function saveLocalDocumentAttachments(input: {
+export async function enqueuePendingDocumentUpdateFromRuntime({
+  runtime,
+  ...input
+}: {
+  localId: string;
+  persistence: DocumentsPersistence;
+  runtime: DocumentLocalStateRuntime;
+  sourceVersionVector?: string | null;
+  update: Uint8Array;
+}): Promise<void> {
+  return enqueuePendingDocumentUpdate({
+    ...input,
+    execSql: runtime.execSql,
+  });
+}
+
+async function saveLocalDocumentAttachments(input: {
   attachments: ReadonlyArray<LocalAttachmentRecord>;
   execSql: ExecSql;
   persistence: DocumentsPersistence;
@@ -197,7 +263,21 @@ export async function saveLocalDocumentAttachments(input: {
   }
 }
 
-export async function savePendingDocumentAttachment(input: {
+export async function saveLocalDocumentAttachmentsFromRuntime({
+  runtime,
+  ...input
+}: {
+  attachments: ReadonlyArray<LocalAttachmentRecord>;
+  persistence: DocumentsPersistence;
+  runtime: DocumentLocalStateRuntime;
+}): Promise<void> {
+  return saveLocalDocumentAttachments({
+    ...input,
+    execSql: runtime.execSql,
+  });
+}
+
+async function savePendingDocumentAttachment(input: {
   attachment: PendingAttachmentRecord;
   execSql: ExecSql;
   persistence: DocumentsPersistence;
@@ -208,7 +288,21 @@ export async function savePendingDocumentAttachment(input: {
   );
 }
 
-export async function deletePendingDocumentAttachment(input: {
+export async function savePendingDocumentAttachmentFromRuntime({
+  runtime,
+  ...input
+}: {
+  attachment: PendingAttachmentRecord;
+  persistence: DocumentsPersistence;
+  runtime: DocumentLocalStateRuntime;
+}): Promise<void> {
+  return savePendingDocumentAttachment({
+    ...input,
+    execSql: runtime.execSql,
+  });
+}
+
+async function deletePendingDocumentAttachment(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -221,4 +315,20 @@ export async function deletePendingDocumentAttachment(input: {
     input.slotId,
     input.storageKey,
   );
+}
+
+export async function deletePendingDocumentAttachmentFromRuntime({
+  runtime,
+  ...input
+}: {
+  localId: string;
+  persistence: DocumentsPersistence;
+  runtime: DocumentLocalStateRuntime;
+  slotId: string;
+  storageKey: string;
+}): Promise<void> {
+  return deletePendingDocumentAttachment({
+    ...input,
+    execSql: runtime.execSql,
+  });
 }

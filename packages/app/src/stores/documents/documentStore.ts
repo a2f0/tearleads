@@ -38,19 +38,19 @@ import {
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
-  deletePendingDocumentAttachment,
+  deletePendingDocumentAttachmentFromRuntime,
   deriveDocumentKind,
   deriveDocumentTitle,
-  enqueuePendingDocumentUpdate,
+  enqueuePendingDocumentUpdateFromRuntime,
   type LocalAttachmentRecord,
-  listPendingDocumentUpdates,
-  loadPersistedDocumentStoreState,
+  listPendingDocumentUpdatesFromRuntime,
+  loadPersistedDocumentStoreStateFromRuntime,
   type PendingAttachmentRecord,
   type PendingUpdateRecord,
-  persistDocumentState,
+  persistDocumentStateFromRuntime,
   resolveDocumentCreateAuthor,
-  saveLocalDocumentAttachments,
-  savePendingDocumentAttachment,
+  saveLocalDocumentAttachmentsFromRuntime,
+  savePendingDocumentAttachmentFromRuntime,
   syncRemoteDocumentFromRuntime,
 } from "../../workflows/documents";
 import {
@@ -320,15 +320,15 @@ async function saveDocumentRecord(
   options: SaveDocumentRecordOptions = {},
 ): Promise<PersistedDocumentRecord> {
   const previousDocumentId = state.record?.documentId ?? null;
-  const persistedDocumentState = await persistDocumentState({
+  const persistedDocumentState = await persistDocumentStateFromRuntime({
     acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
     containerId: state.runtime.containerId,
     currentDoc,
     currentRecord: state.record,
-    execSql: state.runtime.execSql,
     localId: state.localId,
     patch,
     persistence: state.persistence,
+    runtime: state.runtime,
   });
   const { record: nextRecord, updatedAt } = persistedDocumentState;
   state.record = persistedDocumentState.record;
@@ -411,10 +411,10 @@ async function ensureRemoteDocument(
 async function listPendingUpdates(
   state: DocumentStoreState,
 ): Promise<PendingUpdateRecord[]> {
-  return listPendingDocumentUpdates({
-    execSql: state.runtime.execSql,
+  return listPendingDocumentUpdatesFromRuntime({
     localId: state.localId,
     persistence: state.persistence,
+    runtime: state.runtime,
   });
 }
 
@@ -423,10 +423,10 @@ async function enqueuePendingUpdate(
   update: Uint8Array,
   sourceVersionVector?: string | null,
 ) {
-  await enqueuePendingDocumentUpdate({
-    execSql: state.runtime.execSql,
+  await enqueuePendingDocumentUpdateFromRuntime({
     localId: state.localId,
     persistence: state.persistence,
+    runtime: state.runtime,
     ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
     update,
   });
@@ -437,10 +437,10 @@ async function deletePendingAttachment(
   slotId: string,
   storageKey: string,
 ) {
-  await deletePendingDocumentAttachment({
-    execSql: state.runtime.execSql,
+  await deletePendingDocumentAttachmentFromRuntime({
     localId: state.localId,
     persistence: state.persistence,
+    runtime: state.runtime,
     slotId,
     storageKey,
   });
@@ -463,10 +463,10 @@ async function saveLocalAttachmentRecords(
     return;
   }
 
-  await saveLocalDocumentAttachments({
+  await saveLocalDocumentAttachmentsFromRuntime({
     attachments,
-    execSql: state.runtime.execSql,
     persistence: state.persistence,
+    runtime: state.runtime,
   });
 
   state.attachmentStorageKeyBySlotId = {
@@ -579,10 +579,10 @@ async function queuePendingAttachmentUpload(
     slotId: attachment.slotId,
     storageKey,
   };
-  await savePendingDocumentAttachment({
+  await savePendingDocumentAttachmentFromRuntime({
     attachment: pendingAttachment,
-    execSql: state.runtime.execSql,
     persistence: state.persistence,
+    runtime: state.runtime,
   });
   upsertPendingAttachments(state, [pendingAttachment]);
   return pendingAttachment;
@@ -597,10 +597,10 @@ async function initializeDocumentStore(
   }
 
   const nextDoc = await createStoredDocument();
-  const persistedState = await loadPersistedDocumentStoreState({
-    execSql: state.runtime.execSql,
+  const persistedState = await loadPersistedDocumentStoreStateFromRuntime({
     localId: state.localId,
     persistence: state.persistence,
+    runtime: state.runtime,
   });
   state.pendingAttachments = persistedState.pendingAttachments;
   state.attachmentStorageKeyBySlotId = Object.fromEntries(
@@ -1249,10 +1249,10 @@ async function persistPendingAttachments(
       slotId: pendingAttachment.slotId,
       storageKey: pendingAttachment.storageKey,
     });
-    await savePendingDocumentAttachment({
+    await savePendingDocumentAttachmentFromRuntime({
       attachment: pendingAttachment,
-      execSql: state.runtime.execSql,
       persistence: state.persistence,
+      runtime: state.runtime,
     });
   }
 }
