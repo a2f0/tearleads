@@ -5,10 +5,9 @@ export {
   type ExplorerDocumentRecord,
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdate,
-  saveExplorerContainer,
 } from "./containerPersistence";
 export {
-  createRemoteExplorerContainer,
+  createExplorerChildContainer,
   deleteRemoteExplorerContainer,
   moveRemoteExplorerContainer,
   shareRemoteExplorerContainer,
@@ -42,7 +41,6 @@ export {
 } from "./metadata";
 export {
   createRemoteExplorerContainerIngestor,
-  type ExplorerContainerMetadataDocument,
   type ExplorerContainerState,
   type ExplorerRemoteContainer,
   type ExplorerRemoteContainerHydrationHost,

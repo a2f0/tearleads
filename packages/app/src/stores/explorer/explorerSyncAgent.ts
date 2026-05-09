@@ -9,7 +9,6 @@ import {
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
   createRemoteExplorerContainerIngestor,
-  type ExplorerContainerMetadataDocument,
   type ExplorerContainerState,
   type ExplorerPersistence,
   type ExplorerRemoteContainer,
@@ -25,8 +24,6 @@ import { primeDocumentStore } from "../documents/DocumentsProvider";
 import { createExplorerDocumentsRuntime } from "./documentRuntime";
 
 type ExplorerAppData = ReturnType<typeof useAppData>;
-
-export type ContainerMetadataDocument = ExplorerContainerMetadataDocument;
 
 export interface ExplorerRuntime {
   apiClient: ExplorerAppData["apiClient"];
