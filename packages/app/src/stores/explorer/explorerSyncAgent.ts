@@ -16,7 +16,7 @@ import {
   type ExplorerRemoteContainerHydrationHost,
   enqueuePendingExplorerContainerUpdate,
   hydrateRemoteExplorerContainers,
-  listExplorerDocumentsForContainerSubtree,
+  listExplorerDocumentRuntimeTargetsForContainerSubtree,
   loadLocalExplorerContainerStates,
   syncExplorerContainerMetadataState,
   syncPendingExplorerContainerCreateIntents,
@@ -87,95 +87,21 @@ function requestExplorerSync(state: ExplorerSyncState) {
   state.syncLane?.requestSync();
 }
 
-function resolveSharedDocumentRuntimeContainerId(params: {
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  documentSummary: {
-    containerId: string | null;
-    documentId: string | null;
-  };
-  sharedContainerIds: ReadonlySet<string>;
-}): string | null {
-  const {
-    linkedContainerIdsByDocumentId,
-    documentSummary,
-    sharedContainerIds,
-  } = params;
-  if (
-    documentSummary.containerId &&
-    sharedContainerIds.has(documentSummary.containerId)
-  ) {
-    return documentSummary.containerId;
-  }
-
-  if (!documentSummary.documentId) {
-    return null;
-  }
-
-  return (
-    linkedContainerIdsByDocumentId
-      .get(documentSummary.documentId)
-      ?.find((containerId) => sharedContainerIds.has(containerId)) ?? null
-  );
-}
-
-function isContainerInSubtree(
-  containersById: ReadonlyMap<string, ContainerState>,
-  containerId: string,
-  rootContainerId: string,
-): boolean {
-  let currentId: string | null = containerId;
-
-  while (currentId !== null) {
-    if (currentId === rootContainerId) {
-      return true;
-    }
-
-    currentId = containersById.get(currentId)?.container.parentId ?? null;
-  }
-
-  return false;
-}
-
 async function primeDocumentsForSharedSubtree(
   state: ExplorerSyncState,
   rootContainerId: string,
 ) {
-  const sharedContainerIds = new Set(
-    Array.from(state.containersById.values())
-      .filter((containerState) =>
-        isContainerInSubtree(
-          state.containersById,
-          containerState.container.id,
-          rootContainerId,
-        ),
-      )
-      .map((containerState) => containerState.container.id),
-  );
-
-  if (sharedContainerIds.size === 0) {
-    return;
-  }
-
-  const sharedContainerIdList = Array.from(sharedContainerIds);
-  const { documentSummaries, linkedContainerIdsByDocumentId } =
-    await listExplorerDocumentsForContainerSubtree(
-      state.runtime.execSql,
-      sharedContainerIdList,
-    );
-
-  for (const documentSummary of documentSummaries) {
-    const runtimeContainerId = resolveSharedDocumentRuntimeContainerId({
-      linkedContainerIdsByDocumentId,
-      documentSummary,
-      sharedContainerIds,
+  const runtimeTargets =
+    await listExplorerDocumentRuntimeTargetsForContainerSubtree({
+      containersById: state.containersById,
+      execSql: state.runtime.execSql,
+      rootContainerId,
     });
-    if (!runtimeContainerId) {
-      continue;
-    }
 
+  for (const runtimeTarget of runtimeTargets) {
     const documentStore = primeDocumentStore(
       state.runtime.domainScope,
-      documentSummary.id,
+      runtimeTarget.localId,
       createExplorerDocumentsRuntime(
         {
           ...state.runtime,
@@ -185,9 +111,9 @@ async function primeDocumentsForSharedSubtree(
           signingKeyPair: state.runtime.signingKeyPair ?? null,
           userId: state.runtime.userId ?? null,
         },
-        runtimeContainerId,
+        runtimeTarget.runtimeContainerId,
       ),
-      documentSummary.documentId,
+      runtimeTarget.documentId,
     );
     documentStore.requestSync();
   }
