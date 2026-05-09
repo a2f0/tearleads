@@ -33,6 +33,7 @@ import {
   buildDocumentSyncPlan,
   buildMaterializedDocumentSyncPlan,
   syncRemoteDocument,
+  syncRemoteDocumentFromRuntime,
 } from "./sync";
 
 interface ContentRecordFields {
@@ -532,6 +533,94 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
   expect(
     new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("materialized update");
+});
+
+test("syncRemoteDocumentFromRuntime resolves author and writer keys from runtime", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const submittedRequests: DocumentSyncRequest[] = [];
+  const synced = await syncRemoteDocumentFromRuntime({
+    documentId: writerProjection.documentId,
+    lastCommitLsn: null,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    resolveProjectionUserKey,
+    runtime: {
+      apiClient: {
+        getDocumentWriterProjection: async (documentId) =>
+          documentId === writerProjection.documentId ? writerProjection : null,
+        getEncapsulationKey: async () => null,
+        syncDocument: async (documentId, request) => {
+          submittedRequests.push(request);
+          const materialized = await buildMaterializedDocumentSyncPlan({
+            author,
+            localVersionVector: null,
+            pendingUpdates: [],
+            resolveProjectionUserKey,
+            targetSecretKey: secretKey,
+            writerProjection,
+          });
+          return createSyncResponse({
+            ...materialized.plan,
+            documentId,
+            request,
+          });
+        },
+      },
+      log: () => undefined,
+      organizationId: author.organizationId,
+      signingFingerprint: author.signerKeyFingerprint,
+      signingKeyPair: {
+        signingPrivateKey: author.signerPrivateKey,
+        signingPublicKey,
+      },
+      userId: author.signerUserId,
+    },
+    targetSecretKey: secretKey,
+    unavailableWriterLogMessage:
+      "Documents: skipped sync because the writer context is unavailable.",
+  });
+
+  expect(submittedRequests).toHaveLength(1);
+  expect(synced?.outgoingUpdateCount).toBe(1);
+  expect(synced?.synced.persistedState.documentId).toBe(
+    writerProjection.documentId,
+  );
+  expect(
+    new TextDecoder().decode(synced?.synced.decryptedUpdates[0]?.updateData),
+  ).toBe("materialized update");
+});
+
+test("syncRemoteDocumentFromRuntime logs when writer context is unavailable", async () => {
+  const logs: string[] = [];
+  const synced = await syncRemoteDocumentFromRuntime({
+    documentId: "document-1",
+    localVersionVector: null,
+    pendingUpdates: [],
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      apiClient: {
+        getDocumentWriterProjection: async () => {
+          throw new Error("Expected missing author to skip remote sync");
+        },
+        getEncapsulationKey: async () => null,
+        syncDocument: async () => {
+          throw new Error("Expected missing author to skip remote sync");
+        },
+      },
+      log: (message) => logs.push(message),
+    },
+    targetSecretKey: new Uint8Array(),
+    unavailableWriterLogMessage: "Documents: custom unavailable writer.",
+  });
+
+  expect(synced).toBeNull();
+  expect(logs).toEqual(["Documents: custom unavailable writer."]);
 });
 
 test("syncRemoteDocument replans once after a stale document sync conflict", async () => {
