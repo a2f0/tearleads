@@ -16,8 +16,12 @@ import {
 import {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
+  createRemoteDocumentFromRuntime,
 } from "./create";
-import { unwrapDocumentContentKeyTarget } from "./index";
+import {
+  type RemoteDocumentCreateRuntime,
+  unwrapDocumentContentKeyTarget,
+} from "./index";
 
 test("buildMaterializedDocumentCreatePlan wraps the content key to the target container KEK", async () => {
   const { author } = await createAuthor();
@@ -114,4 +118,99 @@ test("createRemoteDocument submits the materialized request and persists the ver
     documentKekTargets: JSON.stringify(created.response.documentKekTargets),
     documentManifestBundle: JSON.stringify(created.response.accessManifest),
   });
+});
+
+test("createRemoteDocumentFromRuntime resolves author and container from runtime", async () => {
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "runtime-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const submittedRequests: DocumentCreateRequest[] = [];
+  const runtime: RemoteDocumentCreateRuntime = {
+    apiClient: {
+      createDocument: async (request) => {
+        submittedRequests.push(request);
+        return createResponseFromRequest(request);
+      },
+      getContainerWriterProjection: async (containerId) =>
+        containerId === projection.containerId ? projection : null,
+    },
+    containerId: projection.containerId,
+    log: () => undefined,
+    organizationId: author.organizationId,
+    signingFingerprint: author.signerKeyFingerprint,
+    signingKeyPair: {
+      signingPrivateKey: author.signerPrivateKey,
+    },
+    userId: author.signerUserId,
+  };
+  const created = await createRemoteDocumentFromRuntime({
+    documentId: "document-runtime",
+    eventId: "event-runtime",
+    missingContainerLogMessage:
+      "Documents: cannot create a remote document without a container.",
+    resolveProjectionUserKey: async (userId) =>
+      userId === author.signerUserId
+        ? {
+            encapsulationPublicKey: keyPair.publicKey,
+            signingPublicKey,
+            userId,
+          }
+        : null,
+    runtime,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: keyPair.secretKey,
+    unavailableWriterLogMessage:
+      "Documents: skipped remote create because the writer context is unavailable.",
+  });
+
+  expect(submittedRequests).toHaveLength(1);
+  expect(created?.documentId).toBe("document-runtime");
+});
+
+test("createRemoteDocumentFromRuntime logs missing prerequisites before creating", async () => {
+  const logs: string[] = [];
+  const apiClient = {
+    createDocument: async () => {
+      throw new Error("Expected missing prerequisites to skip remote create");
+    },
+    getContainerWriterProjection: async () => {
+      throw new Error("Expected missing prerequisites to skip remote create");
+    },
+  };
+  const missingContainer = await createRemoteDocumentFromRuntime({
+    missingContainerLogMessage: "Documents: missing container.",
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      apiClient,
+      containerId: null,
+      log: (message) => logs.push(message),
+    },
+    targetSecretKey: new Uint8Array(),
+    unavailableWriterLogMessage: "Documents: missing writer.",
+  });
+  const missingWriter = await createRemoteDocumentFromRuntime({
+    missingContainerLogMessage: "Documents: missing container.",
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      apiClient,
+      containerId: "container-1",
+      log: (message) => logs.push(message),
+    },
+    targetSecretKey: new Uint8Array(),
+    unavailableWriterLogMessage: "Documents: missing writer.",
+  });
+
+  expect(missingContainer).toBeNull();
+  expect(missingWriter).toBeNull();
+  expect(logs).toEqual([
+    "Documents: missing container.",
+    "Documents: missing writer.",
+  ]);
 });
