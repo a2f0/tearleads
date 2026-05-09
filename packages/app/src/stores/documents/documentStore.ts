@@ -18,10 +18,6 @@ import {
 } from "../../data/documents/documentContent";
 import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
 import {
-  createProjectionUserKeyResolver,
-  type ProjectionUserKeyResolver,
-} from "../../data/keyingProjectionVerification";
-import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
@@ -32,14 +28,17 @@ import {
   uploadDocumentAttachmentFromRuntime,
 } from "../../workflows/blobs";
 import {
+  createDocumentProjectionUserKeyResolver,
   createRemoteDocumentFromRuntime,
   DOCUMENTS_APP_KIND,
+  type DocumentProjectionUserKeyResolver,
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
   deletePendingDocumentAttachmentFromRuntime,
   deriveDocumentKind,
   deriveDocumentTitle,
+  didDocumentProjectionKeyRuntimeChange,
   enqueuePendingDocumentUpdateFromRuntime,
   hasDocumentUpdateEvent,
   type LocalAttachmentRecord,
@@ -138,7 +137,7 @@ interface DocumentStoreState {
   pendingAttachments: PendingAttachmentRecord[];
   persistence: DocumentsPersistence;
   record: DocumentRecord | null;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
   syncLane: SyncLane | null;
@@ -165,10 +164,8 @@ function createDocumentStoreState(
     pendingAttachments: [],
     persistence,
     record: null,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      initialRuntime,
-      "Documents",
-    ),
+    resolveProjectionUserKey:
+      createDocumentProjectionUserKeyResolver(initialRuntime),
     runtime: initialRuntime,
     snapshot: {
       attachments: [],
@@ -1443,19 +1440,6 @@ function subscribeToDocumentStore(
   };
 }
 
-function didDocumentProjectionResolverContextChange(
-  previousRuntime: DocumentsRuntime,
-  nextRuntime: DocumentsRuntime,
-): boolean {
-  return (
-    previousRuntime.apiClient !== nextRuntime.apiClient ||
-    previousRuntime.encapsulationKeyPair !== nextRuntime.encapsulationKeyPair ||
-    previousRuntime.signingFingerprint !== nextRuntime.signingFingerprint ||
-    previousRuntime.signingKeyPair !== nextRuntime.signingKeyPair ||
-    previousRuntime.userId !== nextRuntime.userId
-  );
-}
-
 function updateDocumentStoreRuntime(
   state: DocumentStoreState,
   nextRuntime: DocumentsRuntime,
@@ -1464,13 +1448,9 @@ function updateDocumentStoreRuntime(
   const previousRuntime = state.runtime;
   const domainScopeChanged =
     previousRuntime.domainScope !== nextRuntime.domainScope;
-  if (
-    didDocumentProjectionResolverContextChange(previousRuntime, nextRuntime)
-  ) {
-    state.resolveProjectionUserKey = createProjectionUserKeyResolver(
-      nextRuntime,
-      "Documents",
-    );
+  if (didDocumentProjectionKeyRuntimeChange(previousRuntime, nextRuntime)) {
+    state.resolveProjectionUserKey =
+      createDocumentProjectionUserKeyResolver(nextRuntime);
   }
   state.runtime = nextRuntime;
   if (domainScopeChanged) {
