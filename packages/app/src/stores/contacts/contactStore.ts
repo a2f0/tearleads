@@ -1,5 +1,4 @@
 import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
-import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import {
   createProjectionUserKeyResolver,
   type ProjectionUserKeyResolver,
@@ -16,6 +15,7 @@ import {
   DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
   defaultContactsPersistence,
   fetchContactKeyEntryFromRuntime,
+  hasContactDocumentUpdateEvent,
   loadContactDocumentStates,
   persistContactKeyEntryFromRuntime,
   removeContactKeyFromRuntime,
@@ -229,26 +229,10 @@ function handleContactsRemoteEvents(
   state: ContactsStoreState,
   scheduleSync: () => void,
 ) {
-  const knownDocumentIds = new Set<string>();
-  for (const contact of state.contactsByUserId.values()) {
-    if (typeof contact.record.documentId === "string") {
-      knownDocumentIds.add(contact.record.documentId);
-    }
-  }
-
-  if (knownDocumentIds.size === 0) {
-    state.lastEventCount = state.runtime.events.length;
-    return;
-  }
-
   const nextEvents = state.runtime.events.slice(state.lastEventCount);
   state.lastEventCount = state.runtime.events.length;
   if (
-    nextEvents.some(
-      (event) =>
-        isDocumentUpdateCreatedEvent(event) &&
-        knownDocumentIds.has(event.documentId),
-    )
+    hasContactDocumentUpdateEvent(nextEvents, state.contactsByUserId.values())
   ) {
     scheduleSync();
   }

@@ -7,7 +7,11 @@ import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerif
 import type { ContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { type ContactDocumentState, syncContactDocuments } from "./sync";
+import {
+  type ContactDocumentState,
+  hasContactDocumentUpdateEvent,
+  syncContactDocuments,
+} from "./sync";
 
 const execSql: ExecSql = async () => [];
 const resolveProjectionUserKey: ProjectionUserKeyResolver = async () => null;
@@ -108,4 +112,66 @@ test("syncContactDocuments logs a contact failure and continues with remaining c
   expect(logMessages).toEqual([
     "Contacts (peer-user-1): sync failed: pending update read failed",
   ]);
+});
+
+test("hasContactDocumentUpdateEvent detects updates for contact remote documents", async () => {
+  const contact = await createContact("peer-user-1");
+  contact.record = {
+    ...contact.record,
+    documentId: "contact-document-1",
+  };
+
+  expect(
+    hasContactDocumentUpdateEvent(
+      [
+        {
+          documentId: "contact-document-1",
+          id: "event-1",
+          type: "document_update_created",
+        },
+      ],
+      [contact],
+    ),
+  ).toBe(true);
+  expect(
+    hasContactDocumentUpdateEvent(
+      [
+        {
+          documentId: "other-document",
+          id: "event-2",
+          type: "document_update_created",
+        },
+      ],
+      [contact],
+    ),
+  ).toBe(false);
+  expect(
+    hasContactDocumentUpdateEvent(
+      [
+        {
+          documentId: "contact-document-1",
+          id: "event-3",
+          type: "other_event",
+        },
+      ],
+      [contact],
+    ),
+  ).toBe(false);
+});
+
+test("hasContactDocumentUpdateEvent ignores contacts without remote document ids", async () => {
+  const contact = await createContact("peer-user-1");
+
+  expect(
+    hasContactDocumentUpdateEvent(
+      [
+        {
+          documentId: "contact-document-1",
+          id: "event-1",
+          type: "document_update_created",
+        },
+      ],
+      [contact],
+    ),
+  ).toBe(false);
 });

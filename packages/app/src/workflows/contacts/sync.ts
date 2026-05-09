@@ -11,6 +11,7 @@ import {
   type ContactDocument,
   getContactEntryValue,
 } from "../../data/contacts/contactDocument";
+import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import type {
@@ -78,6 +79,33 @@ export interface ContactDocumentState {
   doc: ContactDocument;
   entry: AddressBookEntry;
   record: DocumentRecord;
+}
+
+export function hasContactDocumentUpdateEvent(
+  events: ReadonlyArray<unknown>,
+  contacts: Iterable<ContactDocumentState>,
+): boolean {
+  const eventDocumentIds = new Set<string>();
+  for (const event of events) {
+    if (isDocumentUpdateCreatedEvent(event)) {
+      eventDocumentIds.add(event.documentId);
+    }
+  }
+
+  if (eventDocumentIds.size === 0) {
+    return false;
+  }
+
+  for (const contact of contacts) {
+    if (
+      typeof contact.record.documentId === "string" &&
+      eventDocumentIds.has(contact.record.documentId)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 type NullableContactRuntimeField =
