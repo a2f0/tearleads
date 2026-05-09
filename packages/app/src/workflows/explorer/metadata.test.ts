@@ -9,6 +9,7 @@ import {
   type ContainerRecord,
   type ExplorerDocumentRecord,
   type ExplorerPersistence,
+  hasExplorerMetadataDocumentUpdateEvent,
   persistExplorerContainerMetadataStateFromRuntime,
   renameExplorerContainerMetadataStateFromRuntime,
 } from "./index";
@@ -168,4 +169,71 @@ test("renameExplorerContainerMetadataStateFromRuntime queues metadata update wit
   expect(pendingUpdates[0]?.input.containerId).toBe(container.id);
   expect(savedContainers).toHaveLength(1);
   expect(savedContainers[0]?.execSql).toBe(execSql);
+});
+
+test("hasExplorerMetadataDocumentUpdateEvent detects known metadata document updates", () => {
+  const metadataState = {
+    record: createDocumentRecord({
+      documentId: "metadata-document-1",
+      id: "container-1",
+    }),
+  };
+
+  expect(
+    hasExplorerMetadataDocumentUpdateEvent(
+      [
+        {
+          documentId: "metadata-document-1",
+          id: "event-1",
+          type: "document_update_created",
+        },
+      ],
+      [metadataState],
+    ),
+  ).toBe(true);
+  expect(
+    hasExplorerMetadataDocumentUpdateEvent(
+      [
+        {
+          documentId: "other-document",
+          id: "event-2",
+          type: "document_update_created",
+        },
+      ],
+      [metadataState],
+    ),
+  ).toBe(false);
+  expect(
+    hasExplorerMetadataDocumentUpdateEvent(
+      [
+        {
+          documentId: "metadata-document-1",
+          id: "event-3",
+          type: "other_event",
+        },
+      ],
+      [metadataState],
+    ),
+  ).toBe(false);
+});
+
+test("hasExplorerMetadataDocumentUpdateEvent ignores containers without metadata document ids", () => {
+  const metadataState = {
+    record: createDocumentRecord({
+      id: "container-1",
+    }),
+  };
+
+  expect(
+    hasExplorerMetadataDocumentUpdateEvent(
+      [
+        {
+          documentId: "metadata-document-1",
+          id: "event-1",
+          type: "document_update_created",
+        },
+      ],
+      [metadataState],
+    ),
+  ).toBe(false);
 });
