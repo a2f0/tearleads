@@ -19,13 +19,13 @@ import type {
   PendingUpdateRecord,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { isDestroyedDatabaseClientError } from "../../data/sync/syncCoordinator";
 import {
   createRemoteDocument,
   type DocumentCreateAuthor,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../documents";
+import { isDestroyedContactSyncRuntimeError } from "./syncLane";
 
 type ContactRemoteCreateResult = NonNullable<
   Awaited<ReturnType<typeof createRemoteDocument>>
@@ -539,7 +539,7 @@ export async function syncContactDocuments(input: {
         result.shouldRequestFollowupSync ||
         syncedContact.shouldRequestFollowupSync;
     } catch (error) {
-      if (isDestroyedDatabaseClientError(error)) {
+      if (isDestroyedContactSyncRuntimeError(error)) {
         throw error;
       }
 
