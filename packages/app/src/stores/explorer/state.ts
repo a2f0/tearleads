@@ -1,8 +1,8 @@
-import { didRegainSyncPrerequisites } from "../../data/sync/syncCoordinator";
 import type { ContainerNode } from "../../mini-apps/explorer/types";
 import {
   createExplorerProjectionUserKeyResolver,
   didExplorerProjectionKeyRuntimeChange,
+  didRegainExplorerSyncPrerequisites,
   type ExplorerPersistence,
 } from "../../workflows/explorer";
 import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
@@ -133,7 +133,7 @@ export function updateExplorerStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    didRegainSyncPrerequisites(previousRuntime, nextRuntime)
+    didRegainExplorerSyncPrerequisites(previousRuntime, nextRuntime)
   ) {
     syncAgent.scheduleRemoteHydration();
   }
