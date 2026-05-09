@@ -6,7 +6,7 @@ import {
   moveRemoteExplorerContainer,
   persistExplorerContainerMetadataState,
   renameExplorerContainerMetadataState,
-  shareRemoteExplorerContainer,
+  shareExplorerContainerState,
 } from "../../workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
@@ -196,9 +196,10 @@ export async function shareExplorerContainerWithUser(
     return null;
   }
 
-  const shared = await shareRemoteExplorerContainer({
+  const shared = await shareExplorerContainerState({
     accessLevel: "write",
-    containerId,
+    containerState: existingState,
+    persistence: state.persistence,
     recipientUserId: userId,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
@@ -208,18 +209,9 @@ export async function shareExplorerContainerWithUser(
     return null;
   }
 
-  await state.runtime.cacheReferencedPrincipalPolicies(
-    shared.referencedPrincipalHeads,
-  );
-  await persistContainerState(state, existingState, {
-    accessEpoch: shared.accessEpoch,
-    accessStateHash: shared.accessManifestHash,
-    documentId: shared.metadataDocumentId,
-    metadataDocumentId: shared.metadataDocumentId,
-    contentKeyBundle: null,
-    documentKekTargets: null,
-    documentManifestBundle: null,
-  });
+  existingState.container = shared.container;
+  existingState.record = shared.record;
+  updateExplorerSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();
