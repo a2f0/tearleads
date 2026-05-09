@@ -71,19 +71,117 @@ interface ExplorerContainerSubtreeState {
   };
 }
 
+// Keep each IN clause below SQLite's historical 999 bind-parameter limit.
+const EXPLORER_SQL_ID_BATCH_SIZE = 500;
+
+function listExplorerSqlIdBatches(
+  values: ReadonlyArray<string>,
+): ReadonlyArray<ReadonlyArray<string>> {
+  const uniqueValues = Array.from(new Set(values));
+  const batches: string[][] = [];
+
+  for (
+    let index = 0;
+    index < uniqueValues.length;
+    index += EXPLORER_SQL_ID_BATCH_SIZE
+  ) {
+    batches.push(uniqueValues.slice(index, index + EXPLORER_SQL_ID_BATCH_SIZE));
+  }
+
+  return batches;
+}
+
+function compareExplorerDocumentSummaries(
+  left: DocumentSummary,
+  right: DocumentSummary,
+): number {
+  const updatedAtComparison = right.updatedAt.localeCompare(left.updatedAt);
+  if (updatedAtComparison !== 0) {
+    return updatedAtComparison;
+  }
+
+  return right.id.localeCompare(left.id);
+}
+
+function addExplorerDocumentSummaries(
+  documentSummariesById: Map<string, DocumentSummary>,
+  documentSummaries: ReadonlyArray<DocumentSummary>,
+): void {
+  for (const documentSummary of documentSummaries) {
+    documentSummariesById.set(documentSummary.id, documentSummary);
+  }
+}
+
+async function listExplorerDocumentIdsByContainerIds(
+  execSql: ExecSql,
+  containerIds: ReadonlyArray<string>,
+): Promise<string[]> {
+  const documentIds = new Set<string>();
+
+  for (const containerIdBatch of listExplorerSqlIdBatches(containerIds)) {
+    const batchDocumentIds =
+      await sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
+        execSql,
+        containerIdBatch,
+      );
+    for (const documentId of batchDocumentIds) {
+      documentIds.add(documentId);
+    }
+  }
+
+  return Array.from(documentIds).sort();
+}
+
+async function listExplorerDocumentSummariesByContainerIdsOrDocumentIds(
+  execSql: ExecSql,
+  input: {
+    containerIds: ReadonlyArray<string>;
+    documentIds: ReadonlyArray<string>;
+  },
+): Promise<DocumentSummary[]> {
+  const documentSummariesById = new Map<string, DocumentSummary>();
+
+  for (const containerIdBatch of listExplorerSqlIdBatches(input.containerIds)) {
+    addExplorerDocumentSummaries(
+      documentSummariesById,
+      await sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
+        execSql,
+        {
+          containerIds: containerIdBatch,
+          documentIds: [],
+        },
+      ),
+    );
+  }
+
+  for (const documentIdBatch of listExplorerSqlIdBatches(input.documentIds)) {
+    addExplorerDocumentSummaries(
+      documentSummariesById,
+      await sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
+        execSql,
+        {
+          containerIds: [],
+          documentIds: documentIdBatch,
+        },
+      ),
+    );
+  }
+
+  return Array.from(documentSummariesById.values()).sort(
+    compareExplorerDocumentSummaries,
+  );
+}
+
 async function listVisibleExplorerDocumentSummaries(
   execSql: ExecSql,
   containers: ReadonlyArray<{ id: string }>,
 ): Promise<ReadonlyArray<DocumentSummary>> {
   await sqlDocumentsPersistence.ensureSchema(execSql);
 
-  return sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
-    execSql,
-    {
-      containerIds: containers.map((container) => container.id),
-      documentIds: [],
-    },
-  );
+  return listExplorerDocumentSummariesByContainerIdsOrDocumentIds(execSql, {
+    containerIds: containers.map((container) => container.id),
+    documentIds: [],
+  });
 }
 
 async function listExplorerDocumentsForContainerSubtree(
@@ -91,19 +189,15 @@ async function listExplorerDocumentsForContainerSubtree(
   containerIds: ReadonlyArray<string>,
 ): Promise<ExplorerSharedDocumentSummaries> {
   await sqlDocumentsPersistence.ensureSchema(execSql);
-  const linkedDocumentIds =
-    await sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
-      execSql,
-      containerIds,
-    );
+  const linkedDocumentIds = await listExplorerDocumentIdsByContainerIds(
+    execSql,
+    containerIds,
+  );
   const documentSummaries =
-    await sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
-      execSql,
-      {
-        containerIds,
-        documentIds: linkedDocumentIds,
-      },
-    );
+    await listExplorerDocumentSummariesByContainerIdsOrDocumentIds(execSql, {
+      containerIds,
+      documentIds: linkedDocumentIds,
+    });
   const documentIds = Array.from(
     new Set(
       documentSummaries.flatMap((documentSummary) =>
@@ -120,37 +214,46 @@ async function listExplorerDocumentsForContainerSubtree(
   return { documentSummaries, linkedContainerIdsByDocumentId };
 }
 
-function isExplorerContainerInSubtree(
-  containersById: ReadonlyMap<string, ExplorerContainerSubtreeState>,
-  containerId: string,
-  rootContainerId: string,
-): boolean {
-  let currentId: string | null = containerId;
-
-  while (currentId !== null) {
-    if (currentId === rootContainerId) {
-      return true;
-    }
-
-    currentId = containersById.get(currentId)?.container.parentId ?? null;
-  }
-
-  return false;
-}
-
 function listExplorerContainerSubtreeIds(
   containersById: ReadonlyMap<string, ExplorerContainerSubtreeState>,
   rootContainerId: string,
 ): string[] {
-  return Array.from(containersById.values())
-    .filter((containerState) =>
-      isExplorerContainerInSubtree(
-        containersById,
-        containerState.container.id,
-        rootContainerId,
-      ),
-    )
-    .map((containerState) => containerState.container.id);
+  const childrenByParentId = new Map<string, string[]>();
+  for (const containerState of containersById.values()) {
+    const parentId = containerState.container.parentId;
+    if (parentId === null) {
+      continue;
+    }
+
+    const children = childrenByParentId.get(parentId);
+    if (children) {
+      children.push(containerState.container.id);
+    } else {
+      childrenByParentId.set(parentId, [containerState.container.id]);
+    }
+  }
+
+  const subtreeIds: string[] = [];
+  const stack = [rootContainerId];
+  const visited = new Set<string>();
+  while (stack.length > 0) {
+    const containerId = stack.pop();
+    if (containerId === undefined || visited.has(containerId)) {
+      continue;
+    }
+    visited.add(containerId);
+
+    if (containersById.has(containerId)) {
+      subtreeIds.push(containerId);
+    }
+
+    const children = childrenByParentId.get(containerId);
+    if (children) {
+      stack.push(...children);
+    }
+  }
+
+  return subtreeIds;
 }
 
 function resolveExplorerDocumentRuntimeContainerId(params: {
@@ -220,14 +323,38 @@ export async function listExplorerDocumentRuntimeTargetsForContainerSubtree(inpu
   });
 }
 
-function listExplorerLinkedContainerIdsByDocumentIds(
+async function listExplorerLinkedContainerIdsByDocumentIds(
   execSql: ExecSql,
   documentIds: ReadonlyArray<string>,
 ): Promise<ReadonlyMap<string, ReadonlyArray<string>>> {
-  return sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
-    execSql,
-    documentIds,
-  );
+  const uniqueDocumentIds = Array.from(new Set(documentIds));
+  if (uniqueDocumentIds.length === 0) {
+    return new Map();
+  }
+
+  const linkedContainerIdsByDocumentId = new Map<string, string[]>();
+  for (const documentId of uniqueDocumentIds) {
+    linkedContainerIdsByDocumentId.set(documentId, []);
+  }
+
+  for (const documentIdBatch of listExplorerSqlIdBatches(uniqueDocumentIds)) {
+    const batchLinkedContainerIdsByDocumentId =
+      await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
+        execSql,
+        documentIdBatch,
+      );
+    for (const [
+      documentId,
+      linkedContainerIds,
+    ] of batchLinkedContainerIdsByDocumentId.entries()) {
+      linkedContainerIdsByDocumentId.set(
+        documentId,
+        Array.from(linkedContainerIds),
+      );
+    }
+  }
+
+  return linkedContainerIdsByDocumentId;
 }
 
 function applyExplorerContainerDocumentTombstones(
