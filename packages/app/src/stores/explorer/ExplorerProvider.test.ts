@@ -1055,6 +1055,113 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
   }
 });
 
+test("explorer sync agent retries remote ingests after a failed batch", async () => {
+  const runtime = await createSqlRuntime();
+  let snapshotUpdateCount = 0;
+  const cachedPrincipalBatches: number[] = [];
+
+  runtime.cacheReferencedPrincipalPolicies = async (principals) => {
+    cachedPrincipalBatches.push(principals?.length ?? 0);
+    if (cachedPrincipalBatches.length === 1) {
+      throw new Error("principal cache unavailable");
+    }
+  };
+
+  try {
+    await sqlExplorerPersistence.ensureSchema(runtime.execSql);
+
+    const state: ExplorerSyncState = {
+      containersById: new Map(),
+      initializePromise: null,
+      initialized: false,
+      lastEventCount: 0,
+      persistence: sqlExplorerPersistence,
+      remoteHydrationPromise: null,
+      resolveProjectionUserKey: createProjectionUserKeyResolver(
+        runtime,
+        "ExplorerProvider test",
+      ),
+      runtime,
+      snapshot: {
+        ready: true,
+      },
+      syncLane: null,
+    };
+    const syncAgent = createExplorerSyncAgent({
+      host: {
+        persistContainerState: async (containerState) => {
+          await sqlExplorerPersistence.saveContainer(
+            runtime.execSql,
+            containerState.container,
+            containerState.record,
+          );
+          return containerState.record;
+        },
+        updateSnapshot: () => {
+          snapshotUpdateCount += 1;
+        },
+      },
+      state,
+    });
+
+    await expect(
+      syncAgent.ingestRemoteContainer(
+        listedContainer({
+          id: "container-a",
+          metadataAccessEpoch: 1,
+          metadataAccessStateHash: "container-a-access-state-hash-1",
+          metadataDocumentId: "metadata-document-a",
+          metadataReferencedPrincipals: [
+            {
+              keyEpoch: 1,
+              keyFingerprint: "key-fingerprint-a",
+              principalId: "group-a",
+              principalType: "group",
+              stateHash: "state-hash-a",
+              version: 1,
+            },
+          ],
+          organizationId: "org-1",
+          parentId: null,
+        }),
+      ),
+    ).rejects.toThrow("principal cache unavailable");
+
+    expect(snapshotUpdateCount).toBe(0);
+    expect(state.containersById.size).toBe(0);
+
+    await syncAgent.ingestRemoteContainer(
+      listedContainer({
+        id: "container-b",
+        metadataAccessEpoch: 1,
+        metadataAccessStateHash: "container-b-access-state-hash-1",
+        metadataDocumentId: "metadata-document-b",
+        metadataReferencedPrincipals: [
+          {
+            keyEpoch: 1,
+            keyFingerprint: "key-fingerprint-b",
+            principalId: "group-b",
+            principalType: "group",
+            stateHash: "state-hash-b",
+            version: 1,
+          },
+        ],
+        organizationId: "org-1",
+        parentId: "container-a",
+      }),
+    );
+
+    expect(snapshotUpdateCount).toBe(1);
+    expect(Array.from(state.containersById.keys())).toEqual([
+      "container-a",
+      "container-b",
+    ]);
+    expect(cachedPrincipalBatches).toEqual([1, 2]);
+  } finally {
+    runtime.close();
+  }
+});
+
 test("explorer sync skips pending metadata updates for containers without document ids", async () => {
   const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
