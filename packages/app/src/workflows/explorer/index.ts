@@ -9,7 +9,7 @@ export {
   createExplorerChildContainer,
   deleteExplorerContainerState,
   moveRemoteExplorerContainer,
-  shareRemoteExplorerContainer,
+  shareExplorerContainerState,
   syncPendingExplorerContainerCreateIntents,
 } from "./containers";
 export {

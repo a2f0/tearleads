@@ -25,6 +25,7 @@ import {
   recordExplorerContainerCreateIntentError,
   saveExplorerContainer,
 } from "./containerPersistence";
+import { persistExplorerContainerMetadataState } from "./metadata";
 import type {
   ExplorerContainerState,
   ExplorerRemoteContainerHydrationHost,
@@ -59,6 +60,9 @@ interface ExplorerContainerWorkflowRuntime {
     secretKey: Uint8Array;
   } | null;
   execSql: ExecSql;
+  cacheReferencedPrincipalPolicies: (
+    references: ReferencedPrincipalStateResponse[],
+  ) => Promise<void>;
   log: (message: string) => void;
   organizationId?: string | null;
   signingFingerprint?: string | null;
@@ -92,6 +96,11 @@ interface SharedExplorerContainer {
   accessManifestHash: string;
   metadataDocumentId: string;
   referencedPrincipalHeads: ReferencedPrincipalStateResponse[];
+}
+
+interface SharedExplorerContainerState {
+  container: ExplorerContainerState["container"];
+  record: ExplorerContainerState["record"];
 }
 
 interface RemoteExplorerContainer {
@@ -572,7 +581,7 @@ export async function syncPendingExplorerContainerCreateIntents(input: {
   return createdCount;
 }
 
-export async function shareRemoteExplorerContainer(input: {
+async function shareRemoteExplorerContainer(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
   recipientUserId: string;
@@ -623,6 +632,46 @@ export async function shareRemoteExplorerContainer(input: {
       response: shared.response,
     }),
   };
+}
+
+export async function shareExplorerContainerState(input: {
+  accessLevel: "read" | "write" | "admin";
+  containerState: ExplorerContainerState;
+  persistence: ExplorerPersistence;
+  recipientUserId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ExplorerContainerWorkflowRuntime;
+}): Promise<SharedExplorerContainerState | null> {
+  const shared = await shareRemoteExplorerContainer({
+    accessLevel: input.accessLevel,
+    containerId: input.containerState.container.id,
+    recipientUserId: input.recipientUserId,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    runtime: input.runtime,
+  });
+
+  if (!shared) {
+    return null;
+  }
+
+  await input.runtime.cacheReferencedPrincipalPolicies(
+    shared.referencedPrincipalHeads,
+  );
+
+  return persistExplorerContainerMetadataState({
+    execSql: input.runtime.execSql,
+    metadataState: input.containerState,
+    patch: {
+      accessEpoch: shared.accessEpoch,
+      accessStateHash: shared.accessManifestHash,
+      documentId: shared.metadataDocumentId,
+      metadataDocumentId: shared.metadataDocumentId,
+      contentKeyBundle: null,
+      documentKekTargets: null,
+      documentManifestBundle: null,
+    },
+    persistence: input.persistence,
+  });
 }
 
 export async function moveRemoteExplorerContainer(input: {
