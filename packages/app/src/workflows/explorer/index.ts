@@ -58,3 +58,9 @@ export {
   type ExplorerRemoteContainerHydrationHost,
   hydrateRemoteExplorerContainers,
 } from "./remoteHydration";
+export {
+  didRegainExplorerSyncPrerequisites,
+  type ExplorerSyncLane,
+  isDestroyedExplorerSyncRuntimeError,
+  registerExplorerSyncLane,
+} from "./syncLane";

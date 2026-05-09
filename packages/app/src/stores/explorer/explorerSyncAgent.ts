@@ -1,9 +1,4 @@
 import type { BlobStore } from "../../data/blobs";
-import {
-  getOrCreateDomainSyncCoordinator,
-  isDestroyedDatabaseClientError,
-  type SyncLane,
-} from "../../data/sync/syncCoordinator";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
   createRemoteExplorerContainerIngestor,
@@ -14,11 +9,14 @@ import {
   type ExplorerProjectionUserKeyResolver,
   type ExplorerRemoteContainer,
   type ExplorerRemoteContainerHydrationHost,
+  type ExplorerSyncLane,
   enqueuePendingExplorerContainerUpdateFromRuntime,
   hasExplorerMetadataDocumentUpdateEvent,
   hydrateRemoteExplorerContainers,
+  isDestroyedExplorerSyncRuntimeError,
   loadLocalExplorerContainerStates,
   primeExplorerDocumentsForContainerSubtree,
+  registerExplorerSyncLane,
   syncExplorerContainerMetadataState,
   syncPendingExplorerContainerCreateIntents,
 } from "../../workflows/explorer";
@@ -59,7 +57,7 @@ export interface ExplorerSyncState {
   snapshot: {
     ready: boolean;
   };
-  syncLane: SyncLane | null;
+  syncLane: ExplorerSyncLane | null;
 }
 
 export interface ExplorerSyncAgent {
@@ -161,7 +159,7 @@ function requestRemoteHydration(input: {
     state,
   })
     .catch((error: unknown) => {
-      if (isDestroyedDatabaseClientError(error)) {
+      if (isDestroyedExplorerSyncRuntimeError(error)) {
         return;
       }
 
@@ -242,7 +240,7 @@ function ensureExplorerStoreInitialized(input: {
   }).catch((error: unknown) => {
     state.initializePromise = null;
 
-    if (isDestroyedDatabaseClientError(error)) {
+    if (isDestroyedExplorerSyncRuntimeError(error)) {
       return;
     }
 
@@ -319,11 +317,9 @@ export function createExplorerSyncAgent(input: {
 }): ExplorerSyncAgent {
   const { host, state } = input;
 
-  state.syncLane = getOrCreateDomainSyncCoordinator(
-    state.runtime.domainScope,
-  ).registerLane("explorer", {
+  state.syncLane = registerExplorerSyncLane({
+    domainScope: state.runtime.domainScope,
     run: () => runExplorerSyncIteration({ host, state }),
-    shouldIgnoreError: isDestroyedDatabaseClientError,
   });
   const scheduleSync = () => requestExplorerSync(state);
   const ingestRemoteContainer = createRemoteExplorerContainerIngestor({
