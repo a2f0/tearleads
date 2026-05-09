@@ -18,12 +18,6 @@ import {
 } from "../../data/documents/documentContent";
 import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
 import {
-  didRegainSyncPrerequisites,
-  getOrCreateDomainSyncCoordinator,
-  isDestroyedDatabaseClientError,
-  type SyncLane,
-} from "../../data/sync/syncCoordinator";
-import {
   hydrateDocumentAttachmentBlobsFromRuntime,
   uploadDocumentAttachmentFromRuntime,
 } from "../../workflows/blobs";
@@ -33,20 +27,24 @@ import {
   DOCUMENTS_APP_KIND,
   type DocumentProjectionUserKeyResolver,
   type DocumentRecord,
+  type DocumentSyncLane,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
   deletePendingDocumentAttachmentFromRuntime,
   deriveDocumentKind,
   deriveDocumentTitle,
   didDocumentProjectionKeyRuntimeChange,
+  didRegainDocumentSyncPrerequisites,
   enqueuePendingDocumentUpdateFromRuntime,
   hasDocumentUpdateEvent,
+  isDestroyedDocumentSyncRuntimeError,
   type LocalAttachmentRecord,
   listPendingDocumentUpdatesFromRuntime,
   loadPersistedDocumentStoreStateFromRuntime,
   type PendingAttachmentRecord,
   type PendingUpdateRecord,
   persistDocumentStateFromRuntime,
+  registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
   saveLocalDocumentAttachmentsFromRuntime,
   savePendingDocumentAttachmentFromRuntime,
@@ -140,7 +138,7 @@ interface DocumentStoreState {
   resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
-  syncLane: SyncLane | null;
+  syncLane: DocumentSyncLane | null;
   writeChain: Promise<void>;
 }
 
@@ -662,7 +660,7 @@ function ensureDocumentStoreInitialized(
     (error: unknown) => {
       state.initializePromise = null;
 
-      if (isDestroyedDatabaseClientError(error)) {
+      if (isDestroyedDocumentSyncRuntimeError(error)) {
         return;
       }
 
@@ -693,7 +691,7 @@ async function awaitInitializationForSync(state: DocumentStoreState) {
     await state.initializePromise;
     return true;
   } catch (error) {
-    if (isDestroyedDatabaseClientError(error)) {
+    if (isDestroyedDocumentSyncRuntimeError(error)) {
       return false;
     }
 
@@ -1147,7 +1145,7 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
     await runDocumentSyncPass(state);
     return true;
   } catch (error) {
-    if (isDestroyedDatabaseClientError(error)) {
+    if (isDestroyedDocumentSyncRuntimeError(error)) {
       return false;
     }
 
@@ -1454,7 +1452,7 @@ function updateDocumentStoreRuntime(
   }
   state.runtime = nextRuntime;
   if (domainScopeChanged) {
-    state.syncLane = registerDocumentSyncLane(state);
+    state.syncLane = registerDocumentStoreSyncLane(state);
   }
 
   if (nextRuntime.dbStatus !== "ready") {
@@ -1471,21 +1469,19 @@ function updateDocumentStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    didRegainSyncPrerequisites(previousRuntime, state.runtime)
+    didRegainDocumentSyncPrerequisites(previousRuntime, state.runtime)
   ) {
     scheduleSync();
   }
 }
 
-function registerDocumentSyncLane(state: DocumentStoreState): SyncLane {
-  return getOrCreateDomainSyncCoordinator(
-    state.runtime.domainScope,
-  ).registerLane(`documents:${state.localId}`, {
-    onUnexpectedError: (error) => {
-      console.error("Failed to sync documents:", error);
-    },
+function registerDocumentStoreSyncLane(
+  state: DocumentStoreState,
+): DocumentSyncLane {
+  return registerDocumentSyncLane({
+    domainScope: state.runtime.domainScope,
+    localId: state.localId,
     run: () => runScheduledSyncLoop(state),
-    shouldIgnoreError: isDestroyedDatabaseClientError,
   });
 }
 
@@ -1503,7 +1499,7 @@ function createBackingDocumentStore(
     initialDocumentId,
     initialText,
   );
-  state.syncLane = registerDocumentSyncLane(state);
+  state.syncLane = registerDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
 
   return {

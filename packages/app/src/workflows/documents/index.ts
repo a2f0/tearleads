@@ -53,4 +53,10 @@ export {
   syncRemoteDocument,
   syncRemoteDocumentFromRuntime,
 } from "./sync";
+export {
+  type DocumentSyncLane,
+  didRegainDocumentSyncPrerequisites,
+  isDestroyedDocumentSyncRuntimeError,
+  registerDocumentSyncLane,
+} from "./syncLane";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";
