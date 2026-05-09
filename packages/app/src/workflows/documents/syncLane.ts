@@ -22,7 +22,7 @@ export function registerDocumentSyncLane(input: {
     `documents:${input.localId}`,
     {
       onUnexpectedError: (error) => {
-        console.error("Failed to sync documents:", error);
+        console.error(`Failed to sync document ${input.localId}:`, error);
       },
       run: input.run,
       shouldIgnoreError: isDestroyedDocumentSyncRuntimeError,
