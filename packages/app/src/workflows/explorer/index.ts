@@ -22,8 +22,10 @@ export {
   createExplorerDocumentReadModelFromRuntime,
   type ExplorerContainerDocumentTombstone,
   type ExplorerDocumentLinkInput,
+  type ExplorerDocumentPrimeHost,
+  type ExplorerDocumentPrimeStore,
   type ExplorerDocumentReadModel,
-  listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
+  primeExplorerDocumentsForContainerSubtree,
 } from "./documentReadModel";
 export {
   activateExplorerDocumentLinkState,

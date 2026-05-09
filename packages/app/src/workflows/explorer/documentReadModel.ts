@@ -34,6 +34,19 @@ interface ExplorerDocumentReadModelRuntime {
   execSql: ExecSql;
 }
 
+export interface ExplorerDocumentPrimeStore {
+  requestSync: () => void;
+}
+
+export interface ExplorerDocumentPrimeHost<TRuntime> {
+  createDocumentRuntime: (containerId: string) => TRuntime;
+  primeDocumentStore: (input: {
+    documentId: string | null;
+    localId: string;
+    runtime: TRuntime;
+  }) => ExplorerDocumentPrimeStore;
+}
+
 export interface ExplorerDocumentReadModel {
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
@@ -340,6 +353,41 @@ export function listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime
     ...input,
     execSql: runtime.execSql,
   });
+}
+
+export async function primeExplorerDocumentsForContainerSubtree<
+  TRuntime,
+>(input: {
+  containersById: ReadonlyMap<string, ExplorerContainerSubtreeState>;
+  host: ExplorerDocumentPrimeHost<TRuntime>;
+  rootContainerId: string;
+  runtime: ExplorerDocumentReadModelRuntime;
+}): Promise<number> {
+  const targets =
+    await listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
+      containersById: input.containersById,
+      rootContainerId: input.rootContainerId,
+      runtime: input.runtime,
+    });
+
+  const runtimesByContainerId = new Map<string, TRuntime>();
+  for (const target of targets) {
+    let runtime = runtimesByContainerId.get(target.runtimeContainerId);
+    if (runtime === undefined) {
+      runtime = input.host.createDocumentRuntime(target.runtimeContainerId);
+      runtimesByContainerId.set(target.runtimeContainerId, runtime);
+    }
+
+    input.host
+      .primeDocumentStore({
+        documentId: target.documentId,
+        localId: target.localId,
+        runtime,
+      })
+      .requestSync();
+  }
+
+  return targets.length;
 }
 
 async function listExplorerLinkedContainerIdsByDocumentIds(

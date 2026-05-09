@@ -9,14 +9,16 @@ import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
   createRemoteExplorerContainerIngestor,
   type ExplorerContainerState,
+  type ExplorerDocumentPrimeHost,
+  type ExplorerDocumentPrimeStore,
   type ExplorerPersistence,
   type ExplorerRemoteContainer,
   type ExplorerRemoteContainerHydrationHost,
   enqueuePendingExplorerContainerUpdateFromRuntime,
   hasExplorerMetadataDocumentUpdateEvent,
   hydrateRemoteExplorerContainers,
-  listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
   loadLocalExplorerContainerStates,
+  primeExplorerDocumentsForContainerSubtree,
   syncExplorerContainerMetadataState,
   syncPendingExplorerContainerCreateIntents,
 } from "../../workflows/explorer";
@@ -79,26 +81,19 @@ export interface ExplorerSyncAgent {
 }
 
 type ExplorerSyncHost = ExplorerRemoteContainerHydrationHost;
+type ExplorerPrimeDocumentRuntime = ReturnType<
+  typeof createExplorerDocumentsRuntime
+>;
 
 function requestExplorerSync(state: ExplorerSyncState) {
   state.syncLane?.requestSync();
 }
 
-async function primeDocumentsForSharedSubtree(
+function createExplorerDocumentPrimeHost(
   state: ExplorerSyncState,
-  rootContainerId: string,
-) {
-  const runtimeTargets =
-    await listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
-      containersById: state.containersById,
-      rootContainerId,
-      runtime: state.runtime,
-    });
-
-  for (const runtimeTarget of runtimeTargets) {
-    const documentStore = primeDocumentStore(
-      state.runtime.domainScope,
-      runtimeTarget.localId,
+): ExplorerDocumentPrimeHost<ExplorerPrimeDocumentRuntime> {
+  return {
+    createDocumentRuntime: (containerId) =>
       createExplorerDocumentsRuntime(
         {
           ...state.runtime,
@@ -108,12 +103,32 @@ async function primeDocumentsForSharedSubtree(
           signingKeyPair: state.runtime.signingKeyPair ?? null,
           userId: state.runtime.userId ?? null,
         },
-        runtimeTarget.runtimeContainerId,
+        containerId,
       ),
-      runtimeTarget.documentId,
-    );
-    documentStore.requestSync();
-  }
+    primeDocumentStore: ({
+      documentId,
+      localId,
+      runtime,
+    }): ExplorerDocumentPrimeStore =>
+      primeDocumentStore(
+        state.runtime.domainScope,
+        localId,
+        runtime,
+        documentId,
+      ),
+  };
+}
+
+async function primeDocumentsForSharedSubtree(
+  state: ExplorerSyncState,
+  rootContainerId: string,
+) {
+  await primeExplorerDocumentsForContainerSubtree({
+    containersById: state.containersById,
+    host: createExplorerDocumentPrimeHost(state),
+    rootContainerId,
+    runtime: state.runtime,
+  });
 }
 
 async function enqueuePendingContainerUpdate(
