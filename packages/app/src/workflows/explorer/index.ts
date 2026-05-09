@@ -1,14 +1,13 @@
 export {
   type ContainerRecord,
   defaultExplorerPersistence,
-  deleteSingleExplorerContainer,
   type ExplorerDocumentRecord,
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdate,
 } from "./containerPersistence";
 export {
   createExplorerChildContainer,
-  deleteRemoteExplorerContainer,
+  deleteExplorerContainerState,
   moveRemoteExplorerContainer,
   shareRemoteExplorerContainer,
   syncPendingExplorerContainerCreateIntents,

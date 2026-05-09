@@ -18,6 +18,7 @@ import {
 } from "../documents";
 import {
   type ContainerCreateIntentRecord,
+  deleteSingleExplorerContainer,
   type ExplorerPersistence,
   listPendingExplorerContainerCreateIntents,
   markExplorerContainerCreateIntentSynced,
@@ -668,7 +669,7 @@ export async function moveRemoteExplorerContainer(input: {
   };
 }
 
-export async function deleteRemoteExplorerContainer(input: {
+async function deleteRemoteExplorerContainer(input: {
   containerId: string;
   runtime: ExplorerContainerWorkflowRuntime;
 }): Promise<boolean> {
@@ -681,5 +682,32 @@ export async function deleteRemoteExplorerContainer(input: {
     return false;
   }
 
+  return true;
+}
+
+export async function deleteExplorerContainerState(input: {
+  containerState: ExplorerContainerState;
+  persistence: ExplorerPersistence;
+  runtime: ExplorerContainerWorkflowRuntime;
+}): Promise<boolean> {
+  const isRemoteContainer =
+    typeof input.containerState.record.documentId === "string" &&
+    input.containerState.record.documentId.length > 0;
+
+  if (isRemoteContainer) {
+    const deletedRemoteContainer = await deleteRemoteExplorerContainer({
+      containerId: input.containerState.container.id,
+      runtime: input.runtime,
+    });
+    if (!deletedRemoteContainer) {
+      return false;
+    }
+  }
+
+  await deleteSingleExplorerContainer(
+    input.runtime.execSql,
+    input.persistence,
+    input.containerState.container.id,
+  );
   return true;
 }

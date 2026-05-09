@@ -1,7 +1,6 @@
 import {
   createExplorerChildContainer,
-  deleteRemoteExplorerContainer,
-  deleteSingleExplorerContainer,
+  deleteExplorerContainerState,
   type ExplorerContainerMetadataPatch,
   type ExplorerDocumentRecord,
   moveRemoteExplorerContainer,
@@ -112,22 +111,18 @@ export async function deleteExplorerContainer(
     if (!state.runtime.isAuthenticated || !state.runtime.online) {
       return null;
     }
-
-    const deletedRemoteContainer = await deleteRemoteExplorerContainer({
-      containerId: existingState.container.id,
-      runtime: state.runtime,
-    });
-    if (!deletedRemoteContainer) {
-      return null;
-    }
   }
 
   const deletedNode = toContainerNode(existingState.container);
-  await deleteSingleExplorerContainer(
-    state.runtime.execSql,
-    state.persistence,
-    existingState.container.id,
-  );
+  const deleted = await deleteExplorerContainerState({
+    containerState: existingState,
+    persistence: state.persistence,
+    runtime: state.runtime,
+  });
+  if (!deleted) {
+    return null;
+  }
+
   state.containersById.delete(existingState.container.id);
   updateExplorerSnapshot(state);
   state.runtime.log(
