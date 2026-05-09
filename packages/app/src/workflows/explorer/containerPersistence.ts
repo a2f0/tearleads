@@ -34,6 +34,10 @@ interface ExplorerContainerCreateIntentSyncInput {
 
 type ContainerSyncWatermarkLane = ReturnType<typeof containerParentSyncLane>;
 
+interface ExplorerContainerPersistenceRuntime {
+  execSql: ExecSql;
+}
+
 export async function initializeExplorerSchema(
   execSql: ExecSql,
   persistence: ExplorerPersistence,
@@ -91,7 +95,7 @@ export async function enqueuePendingExplorerContainerUpdate(
   persistence: ExplorerPersistence,
   params: {
     containerId: string;
-    sourceVersionVector?: string | null;
+    sourceVersionVector?: string | null | undefined;
     update: Uint8Array;
   },
 ): Promise<void> {
@@ -107,6 +111,24 @@ export async function enqueuePendingExplorerContainerUpdate(
     containerId: params.containerId,
     ...pendingUpdateFields,
   });
+}
+
+export function enqueuePendingExplorerContainerUpdateFromRuntime(input: {
+  containerId: string;
+  persistence: ExplorerPersistence;
+  runtime: ExplorerContainerPersistenceRuntime;
+  sourceVersionVector?: string | null | undefined;
+  update: Uint8Array;
+}): Promise<void> {
+  return enqueuePendingExplorerContainerUpdate(
+    input.runtime.execSql,
+    input.persistence,
+    {
+      containerId: input.containerId,
+      sourceVersionVector: input.sourceVersionVector,
+      update: input.update,
+    },
+  );
 }
 
 export async function listPendingExplorerContainerCreateIntents(

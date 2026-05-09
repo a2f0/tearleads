@@ -13,9 +13,9 @@ import {
   type ExplorerPersistence,
   type ExplorerRemoteContainer,
   type ExplorerRemoteContainerHydrationHost,
-  enqueuePendingExplorerContainerUpdate,
+  enqueuePendingExplorerContainerUpdateFromRuntime,
   hydrateRemoteExplorerContainers,
-  listExplorerDocumentRuntimeTargetsForContainerSubtree,
+  listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
   loadLocalExplorerContainerStates,
   syncExplorerContainerMetadataState,
   syncPendingExplorerContainerCreateIntents,
@@ -89,10 +89,10 @@ async function primeDocumentsForSharedSubtree(
   rootContainerId: string,
 ) {
   const runtimeTargets =
-    await listExplorerDocumentRuntimeTargetsForContainerSubtree({
+    await listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
       containersById: state.containersById,
-      execSql: state.runtime.execSql,
       rootContainerId,
+      runtime: state.runtime,
     });
 
   for (const runtimeTarget of runtimeTargets) {
@@ -122,15 +122,13 @@ async function enqueuePendingContainerUpdate(
   update: Uint8Array,
   sourceVersionVector?: string | null,
 ) {
-  await enqueuePendingExplorerContainerUpdate(
-    state.runtime.execSql,
-    state.persistence,
-    {
-      containerId,
-      ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
-      update,
-    },
-  );
+  await enqueuePendingExplorerContainerUpdateFromRuntime({
+    containerId,
+    persistence: state.persistence,
+    runtime: state.runtime,
+    sourceVersionVector,
+    update,
+  });
 }
 
 function requestRemoteHydration(input: {
