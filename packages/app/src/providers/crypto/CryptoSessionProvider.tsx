@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { bootstrapRootContainer } from "../../workflows/registration/bootstrapRootContainer";
+import { bootstrapRootContainer } from "../../workflows/registration";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useIdentity } from "../identity/IdentityProvider";
