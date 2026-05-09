@@ -13,6 +13,11 @@ export {
   defaultContactsPersistence,
 } from "./persistence";
 export {
+  type ContactProjectionUserKeyResolver,
+  createContactProjectionUserKeyResolver,
+  didContactProjectionKeyRuntimeChange,
+} from "./projectionKeys";
+export {
   type ContactDocumentState,
   hasContactDocumentUpdateEvent,
   syncContactDocuments,

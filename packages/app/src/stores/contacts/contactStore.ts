@@ -1,9 +1,5 @@
 import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
 import {
-  createProjectionUserKeyResolver,
-  type ProjectionUserKeyResolver,
-} from "../../data/keyingProjectionVerification";
-import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
@@ -11,9 +7,12 @@ import {
 } from "../../data/sync/syncCoordinator";
 import {
   type ContactDocumentState,
+  type ContactProjectionUserKeyResolver,
   type ContactsPersistence,
+  createContactProjectionUserKeyResolver,
   DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
   defaultContactsPersistence,
+  didContactProjectionKeyRuntimeChange,
   fetchContactKeyEntryFromRuntime,
   hasContactDocumentUpdateEvent,
   loadContactDocumentStates,
@@ -50,7 +49,7 @@ interface ContactsStoreState {
   lastEventCount: number;
   listeners: Set<() => void>;
   persistence: ContactsPersistence;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveProjectionUserKey: ContactProjectionUserKeyResolver;
   runtime: ContactsRuntime;
   snapshot: ContactsSnapshot;
   syncLane: SyncLane | null;
@@ -68,10 +67,8 @@ function createContactsStoreState(
     lastEventCount: 0,
     listeners: new Set(),
     persistence,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      initialRuntime,
-      "Contacts",
-    ),
+    resolveProjectionUserKey:
+      createContactProjectionUserKeyResolver(initialRuntime),
     runtime: initialRuntime,
     snapshot: {
       entries: [],
@@ -80,19 +77,6 @@ function createContactsStoreState(
     syncLane: null,
     writeChain: Promise.resolve(),
   };
-}
-
-function didContactsProjectionResolverContextChange(
-  previousRuntime: ContactsRuntime,
-  nextRuntime: ContactsRuntime,
-): boolean {
-  return (
-    previousRuntime.apiClient !== nextRuntime.apiClient ||
-    previousRuntime.encapsulationKeyPair !== nextRuntime.encapsulationKeyPair ||
-    previousRuntime.signingFingerprint !== nextRuntime.signingFingerprint ||
-    previousRuntime.signingKeyPair !== nextRuntime.signingKeyPair ||
-    previousRuntime.userId !== nextRuntime.userId
-  );
 }
 
 function emitContactsStore(state: ContactsStoreState) {
@@ -326,13 +310,9 @@ function updateContactsStoreRuntime(
   scheduleSync: () => void,
 ) {
   const previousRuntime = state.runtime;
-  if (
-    didContactsProjectionResolverContextChange(previousRuntime, nextRuntime)
-  ) {
-    state.resolveProjectionUserKey = createProjectionUserKeyResolver(
-      nextRuntime,
-      "Contacts",
-    );
+  if (didContactProjectionKeyRuntimeChange(previousRuntime, nextRuntime)) {
+    state.resolveProjectionUserKey =
+      createContactProjectionUserKeyResolver(nextRuntime);
   }
   state.runtime = nextRuntime;
 
