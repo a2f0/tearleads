@@ -164,7 +164,7 @@ function createContainerChildIndex(
   return childIdsByParentId;
 }
 
-export async function upsertRemoteExplorerContainerState(input: {
+async function upsertRemoteExplorerContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   host: ExplorerRemoteContainerHydrationHost;
   remoteContainer: ExplorerRemoteContainer;
@@ -242,6 +242,58 @@ export async function upsertRemoteExplorerContainerState(input: {
     );
   }
   return containerState;
+}
+
+export function createRemoteExplorerContainerIngestor(input: {
+  host: ExplorerRemoteContainerHydrationHost;
+  state: ExplorerRemoteContainerHydrationState;
+}): (remoteContainer: ExplorerRemoteContainer) => Promise<void> {
+  const { host, state } = input;
+  const pendingRemoteContainersById = new Map<
+    string,
+    ExplorerRemoteContainer
+  >();
+  let ingestRemoteContainersPromise: Promise<void> | null = null;
+
+  return async (remoteContainer: ExplorerRemoteContainer) => {
+    pendingRemoteContainersById.set(remoteContainer.id, remoteContainer);
+
+    if (ingestRemoteContainersPromise) {
+      return ingestRemoteContainersPromise;
+    }
+
+    ingestRemoteContainersPromise = Promise.resolve()
+      .then(async () => {
+        while (pendingRemoteContainersById.size > 0) {
+          const queuedRemoteContainers = Array.from(
+            pendingRemoteContainersById.values(),
+          );
+          pendingRemoteContainersById.clear();
+
+          await state.runtime.cacheReferencedPrincipalPolicies(
+            queuedRemoteContainers.flatMap(
+              (queuedRemoteContainer) =>
+                queuedRemoteContainer.metadataReferencedPrincipals ?? [],
+            ),
+          );
+
+          for (const queuedRemoteContainer of queuedRemoteContainers) {
+            await upsertRemoteExplorerContainerState({
+              host,
+              remoteContainer: queuedRemoteContainer,
+              state,
+            });
+          }
+
+          host.updateSnapshot();
+        }
+      })
+      .finally(() => {
+        ingestRemoteContainersPromise = null;
+      });
+
+    return ingestRemoteContainersPromise;
+  };
 }
 
 function createContainerParentHydrationQueue(containerIds: Iterable<string>): {
