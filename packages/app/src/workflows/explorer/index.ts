@@ -3,7 +3,7 @@ export {
   defaultExplorerPersistence,
   type ExplorerDocumentRecord,
   type ExplorerPersistence,
-  enqueuePendingExplorerContainerUpdate,
+  enqueuePendingExplorerContainerUpdateFromRuntime,
 } from "./containerPersistence";
 export {
   createExplorerChildContainer,
@@ -26,11 +26,11 @@ export {
   unlinkRemoteExplorerDocument,
 } from "./documentLinks";
 export {
-  createExplorerDocumentReadModel,
+  createExplorerDocumentReadModelFromRuntime,
   type ExplorerContainerDocumentTombstone,
   type ExplorerDocumentLinkInput,
   type ExplorerDocumentReadModel,
-  listExplorerDocumentRuntimeTargetsForContainerSubtree,
+  listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
 } from "./documentReadModel";
 export { loadLocalExplorerContainerStates } from "./localState";
 export {

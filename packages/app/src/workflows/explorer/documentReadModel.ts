@@ -30,6 +30,10 @@ interface ExplorerDocumentRuntimeTarget {
   runtimeContainerId: string;
 }
 
+interface ExplorerDocumentReadModelRuntime {
+  execSql: ExecSql;
+}
+
 export interface ExplorerDocumentReadModel {
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
@@ -284,7 +288,7 @@ function resolveExplorerDocumentRuntimeContainerId(params: {
   );
 }
 
-export async function listExplorerDocumentRuntimeTargetsForContainerSubtree(input: {
+async function listExplorerDocumentRuntimeTargetsForContainerSubtree(input: {
   containersById: ReadonlyMap<string, ExplorerContainerSubtreeState>;
   execSql: ExecSql;
   rootContainerId: string;
@@ -320,6 +324,21 @@ export async function listExplorerDocumentRuntimeTargetsForContainerSubtree(inpu
         runtimeContainerId,
       },
     ];
+  });
+}
+
+export function listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
+  runtime,
+  ...input
+}: Omit<
+  Parameters<typeof listExplorerDocumentRuntimeTargetsForContainerSubtree>[0],
+  "execSql"
+> & {
+  runtime: ExplorerDocumentReadModelRuntime;
+}): ReturnType<typeof listExplorerDocumentRuntimeTargetsForContainerSubtree> {
+  return listExplorerDocumentRuntimeTargetsForContainerSubtree({
+    ...input,
+    execSql: runtime.execSql,
   });
 }
 
@@ -415,7 +434,7 @@ function upsertDiscoveredExplorerDocuments(
   return upsertDiscoveredDocuments(execSql, inputs);
 }
 
-export function createExplorerDocumentReadModel(
+function createExplorerDocumentReadModel(
   execSql: ExecSql,
 ): ExplorerDocumentReadModel {
   return {
@@ -452,4 +471,10 @@ export function createExplorerDocumentReadModel(
       return upsertDiscoveredExplorerDocuments(execSql, inputs);
     },
   };
+}
+
+export function createExplorerDocumentReadModelFromRuntime(
+  runtime: ExplorerDocumentReadModelRuntime,
+): ExplorerDocumentReadModel {
+  return createExplorerDocumentReadModel(runtime.execSql);
 }
