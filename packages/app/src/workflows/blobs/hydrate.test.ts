@@ -8,7 +8,9 @@ import type { BlobBytes } from "../../data/blobs";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import { createMaterializedSyncFixture } from "../../data/documents/documentTestFixtures";
 import {
+  type DocumentAttachmentHydrationRuntime,
   hydrateDocumentAttachmentBlobs,
+  hydrateDocumentAttachmentBlobsFromRuntime,
   uploadDocumentAttachment,
 } from "./index";
 
@@ -160,6 +162,43 @@ test("hydrateDocumentAttachmentBlobs downloads and decrypts remote attachment by
     slotId: fixture.attachment.slotId,
   });
   expect(hydratedBlob?.storageKey).toBe(`blob-${fixture.blobId}`);
+  expect(Array.from(hydratedBlob?.bytes ?? [])).toEqual(
+    Array.from(fixture.bytes),
+  );
+});
+
+test("hydrateDocumentAttachmentBlobsFromRuntime uses runtime APIs", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  const runtime: DocumentAttachmentHydrationRuntime = {
+    apiClient: {
+      getBlob: async (blobId) => ({
+        blobId,
+        encryptedBytes: fixture.stagedBlob.encryptedBytes,
+        sha256: fixture.stagedBlob.sha256,
+      }),
+      getDocumentWriterProjection: async () => fixture.writerProjection,
+      listDocumentAttachments: async () => [
+        {
+          bindingId: fixture.bindingId,
+          blobId: fixture.blobId,
+          slotId: fixture.attachment.slotId,
+        },
+      ],
+    },
+    log: () => undefined,
+  };
+
+  const hydratedBlobs = await hydrateDocumentAttachmentBlobsFromRuntime({
+    attachments: [fixture.attachment],
+    documentId: fixture.writerProjection.documentId,
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    runtime,
+    targetSecretKey: fixture.secretKey,
+  });
+  const [hydratedBlob] = hydratedBlobs ?? [];
+
+  expect(hydratedBlob?.attachment).toEqual(fixture.attachment);
+  expect(hydratedBlob?.binding.blobId).toBe(fixture.blobId);
   expect(Array.from(hydratedBlob?.bytes ?? [])).toEqual(
     Array.from(fixture.bytes),
   );

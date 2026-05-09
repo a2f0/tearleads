@@ -1,5 +1,9 @@
 export { decryptDocumentAttachmentBlob } from "./decrypt";
-export { hydrateDocumentAttachmentBlobs } from "./hydrate";
+export {
+  type DocumentAttachmentHydrationRuntime,
+  hydrateDocumentAttachmentBlobs,
+  hydrateDocumentAttachmentBlobsFromRuntime,
+} from "./hydrate";
 export {
   type DocumentAttachmentUploadRuntime,
   uploadDocumentAttachment,

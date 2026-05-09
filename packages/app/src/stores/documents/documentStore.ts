@@ -29,7 +29,7 @@ import {
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 import {
-  hydrateDocumentAttachmentBlobs,
+  hydrateDocumentAttachmentBlobsFromRuntime,
   uploadDocumentAttachmentFromRuntime,
 } from "../../workflows/blobs";
 import {
@@ -521,13 +521,11 @@ async function hydrateAttachmentBlobs(
     return;
   }
 
-  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: state.runtime.apiClient,
+  const hydratedBlobs = await hydrateDocumentAttachmentBlobsFromRuntime({
     attachments: attachmentsMissingLocalBytes,
     documentId: currentRecord.documentId,
-    execSql: state.runtime.execSql,
-    log: state.runtime.log,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
+    runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
   if (!hydratedBlobs) {
