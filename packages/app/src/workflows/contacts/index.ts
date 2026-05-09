@@ -22,3 +22,9 @@ export {
   hasContactDocumentUpdateEvent,
   syncContactDocuments,
 } from "./sync";
+export {
+  type ContactSyncLane,
+  didRegainContactSyncPrerequisites,
+  isDestroyedContactSyncRuntimeError,
+  registerContactSyncLane,
+} from "./syncLane";

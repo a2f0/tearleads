@@ -1,22 +1,20 @@
 import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
 import {
-  didRegainSyncPrerequisites,
-  getOrCreateDomainSyncCoordinator,
-  isDestroyedDatabaseClientError,
-  type SyncLane,
-} from "../../data/sync/syncCoordinator";
-import {
   type ContactDocumentState,
   type ContactProjectionUserKeyResolver,
+  type ContactSyncLane,
   type ContactsPersistence,
   createContactProjectionUserKeyResolver,
   DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
   defaultContactsPersistence,
   didContactProjectionKeyRuntimeChange,
+  didRegainContactSyncPrerequisites,
   fetchContactKeyEntryFromRuntime,
   hasContactDocumentUpdateEvent,
+  isDestroyedContactSyncRuntimeError,
   loadContactDocumentStates,
   persistContactKeyEntryFromRuntime,
+  registerContactSyncLane,
   removeContactKeyFromRuntime,
   syncContactDocuments,
 } from "../../workflows/contacts";
@@ -52,7 +50,7 @@ interface ContactsStoreState {
   resolveProjectionUserKey: ContactProjectionUserKeyResolver;
   runtime: ContactsRuntime;
   snapshot: ContactsSnapshot;
-  syncLane: SyncLane | null;
+  syncLane: ContactSyncLane | null;
   writeChain: Promise<void>;
 }
 
@@ -166,7 +164,7 @@ function ensureContactsInitialized(
   state.initializePromise = initializeContactsStore(state, scheduleSync).catch(
     (error: unknown) => {
       state.initializePromise = null;
-      if (isDestroyedDatabaseClientError(error)) {
+      if (isDestroyedContactSyncRuntimeError(error)) {
         return;
       }
       throw error;
@@ -330,7 +328,7 @@ function updateContactsStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    didRegainSyncPrerequisites(previousRuntime, nextRuntime)
+    didRegainContactSyncPrerequisites(previousRuntime, nextRuntime)
   ) {
     scheduleSync();
   }
@@ -351,11 +349,9 @@ export function createContactsStore(
   persistence: ContactsPersistence = defaultContactsPersistence,
 ): ContactsStore {
   const state = createContactsStoreState(initialRuntime, persistence);
-  state.syncLane = getOrCreateDomainSyncCoordinator(
-    initialRuntime.domainScope,
-  ).registerLane("contacts", {
+  state.syncLane = registerContactSyncLane({
+    domainScope: initialRuntime.domainScope,
     run: () => runContactsSyncIteration(state),
-    shouldIgnoreError: isDestroyedDatabaseClientError,
   });
   const scheduleSync = () => scheduleContactsSync(state);
 
