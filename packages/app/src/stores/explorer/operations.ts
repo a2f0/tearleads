@@ -1,5 +1,3 @@
-import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
-import { writeContainerMetadataValue } from "../../data/containers";
 import {
   createExplorerChildContainer,
   deleteRemoteExplorerContainer,
@@ -8,6 +6,7 @@ import {
   type ExplorerDocumentRecord,
   moveRemoteExplorerContainer,
   persistExplorerContainerMetadataState,
+  renameExplorerContainerMetadataState,
   shareRemoteExplorerContainer,
 } from "../../workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
@@ -161,18 +160,19 @@ export async function renameExplorerContainer(
     return toContainerNode(existingState.container);
   }
 
-  const previousVersion = encodeVersionVector(existingState.doc);
-  writeContainerMetadataValue(existingState.doc, {
-    icon: existingState.container.icon,
+  const renamed = await renameExplorerContainerMetadataState({
+    execSql: state.runtime.execSql,
+    metadataState: existingState,
     name: trimmedName,
+    persistence: state.persistence,
   });
-  const update = exportUpdatesSince(existingState.doc, previousVersion);
+  if (!renamed) {
+    return null;
+  }
 
-  await syncAgent.enqueuePendingContainerUpdate(
-    existingState.container.id,
-    update,
-  );
-  await persistContainerState(state, existingState, { name: trimmedName });
+  existingState.container = renamed.container;
+  existingState.record = renamed.record;
+  updateExplorerSnapshot(state);
   syncAgent.scheduleSync();
   state.runtime.log(`Explorer: renamed container to "${trimmedName}"`);
   return toContainerNode(existingState.container);

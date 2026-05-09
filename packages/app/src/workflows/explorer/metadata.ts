@@ -2,12 +2,14 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   encodeVersionVector,
   exportAllUpdates,
+  exportUpdatesSince,
   importUpdates,
 } from "@tearleads/loro";
 import {
   type ContainerMetadataDocument,
   getDefaultContainerName,
   readContainerMetadataValue,
+  writeContainerMetadataValue,
 } from "../../data/containers";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
@@ -22,7 +24,10 @@ import {
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../documents";
-import { listPendingExplorerContainerUpdates } from "./containerPersistence";
+import {
+  enqueuePendingExplorerContainerUpdate,
+  listPendingExplorerContainerUpdates,
+} from "./containerPersistence";
 
 type ExplorerMetadataSyncApi = Parameters<
   typeof syncRemoteDocument
@@ -202,6 +207,38 @@ export async function persistExplorerContainerMetadataState(input: {
     container: nextContainer,
     record: nextRecord,
   };
+}
+
+export async function renameExplorerContainerMetadataState(input: {
+  execSql: ExecSql;
+  metadataState: ExplorerContainerMetadataState;
+  name: string;
+  persistence: ExplorerPersistence;
+}): Promise<PersistedExplorerContainerMetadataState | null> {
+  const { execSql, metadataState, persistence } = input;
+  const trimmedName = input.name.trim();
+  if (!trimmedName) {
+    return null;
+  }
+
+  const previousVersion = encodeVersionVector(metadataState.doc);
+  writeContainerMetadataValue(metadataState.doc, {
+    icon: metadataState.container.icon,
+    name: trimmedName,
+  });
+  const update = exportUpdatesSince(metadataState.doc, previousVersion);
+
+  await enqueuePendingExplorerContainerUpdate(execSql, persistence, {
+    containerId: metadataState.container.id,
+    update,
+  });
+
+  return persistExplorerContainerMetadataState({
+    execSql,
+    metadataState,
+    patch: { name: trimmedName },
+    persistence,
+  });
 }
 
 async function syncRemoteExplorerContainerMetadata(input: {
