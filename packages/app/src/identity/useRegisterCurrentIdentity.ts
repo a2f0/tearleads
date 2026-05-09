@@ -9,8 +9,6 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { useCallback } from "react";
-import { createInitializedContainerMetadataDocument } from "../data/containers";
-import { createDocumentSignerDeviceId } from "../data/documents/documentConstants";
 import { useApiClient } from "../providers/api/ApiClientProvider";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../providers/db/DatabaseProvider";
@@ -23,17 +21,17 @@ import {
 import {
   buildMaterializedDocumentCreatePlan,
   persistedDocumentCreateStateFromResponse,
+  resolveDocumentCreateAuthor,
 } from "../workflows/documents";
-import { persistRegistrationBootstrap } from "../workflows/registration/persistRegistrationBootstrap";
+import {
+  createInitialRootMetadataBootstrap,
+  type InitialRootMetadataBootstrap,
+  persistRegistrationBootstrap,
+} from "../workflows/registration";
 
 interface RegisterCurrentIdentityResult {
   canRegisterCurrentIdentity: boolean;
   registerCurrentIdentity: () => Promise<boolean>;
-}
-
-interface InitialRootMetadataBootstrap {
-  initialUpdate: Uint8Array;
-  metadataDocumentId: string;
 }
 
 type InitialRootMetadataDocument = Awaited<
@@ -113,24 +111,6 @@ async function createInitialOrganizationPolicy(input: {
   };
 }
 
-async function createInitialRootMetadataBootstrap(
-  containerId: string,
-): Promise<InitialRootMetadataBootstrap> {
-  const metadataDocumentId = crypto.randomUUID();
-  const { initialUpdate } = await createInitializedContainerMetadataDocument(
-    containerId,
-    {
-      icon: null,
-      name: "/",
-    },
-  );
-
-  return {
-    initialUpdate,
-    metadataDocumentId,
-  };
-}
-
 async function persistLocalRegistrationState(
   dbClient: ReturnType<typeof useDatabase>["client"],
   containerId: string,
@@ -194,13 +174,18 @@ async function registerIdentity(input: {
   const signingFingerprint = await toFingerprint(
     input.signingKeyPair.signingPublicKey,
   );
-  const author = {
+  const author = resolveDocumentCreateAuthor({
     organizationId,
-    signerDeviceId: createDocumentSignerDeviceId(signingFingerprint),
-    signerKeyFingerprint: signingFingerprint,
-    signerPrivateKey: input.signingKeyPair.signingPrivateKey,
-    signerUserId: newUserId,
-  };
+    signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+    userId: newUserId,
+  });
+  if (!author) {
+    throw new Error(
+      `Registration document author context is unavailable for user ${newUserId} in organization ${organizationId}.`,
+    );
+  }
+
   const rootContainer = await buildRootContainerCreatePlan({
     author,
     containerId: input.containerId,
