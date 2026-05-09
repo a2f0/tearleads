@@ -375,7 +375,6 @@ export async function syncPendingExplorerContainerCreateIntents(input: {
   const remainingContainerIds = new Set(
     pendingIntents.map((intent) => intent.containerId),
   );
-  const failedThisRun = new Set<string>();
   let createdCount = 0;
   let progressed = true;
 
@@ -383,10 +382,7 @@ export async function syncPendingExplorerContainerCreateIntents(input: {
     progressed = false;
 
     for (const intent of pendingIntents) {
-      if (
-        !remainingContainerIds.has(intent.containerId) ||
-        failedThisRun.has(intent.containerId)
-      ) {
+      if (!remainingContainerIds.has(intent.containerId)) {
         continue;
       }
 
@@ -404,8 +400,6 @@ export async function syncPendingExplorerContainerCreateIntents(input: {
       progressed = result === "created" || progressed;
       if (result === "created") {
         createdCount += 1;
-      } else {
-        failedThisRun.add(intent.containerId);
       }
     }
   }
