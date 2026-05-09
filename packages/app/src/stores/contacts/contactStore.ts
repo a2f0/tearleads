@@ -15,9 +15,10 @@ import {
   type ContactsPersistence,
   DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
   defaultContactsPersistence,
-  deleteContactEntryFromRuntime,
+  fetchContactKeyEntryFromRuntime,
   loadContactDocumentStates,
-  persistImportedContactEntryFromRuntime,
+  persistContactKeyEntryFromRuntime,
+  removeContactKeyFromRuntime,
   syncContactDocument,
 } from "../../workflows/contacts";
 import type { ContactsRuntime, ContactsSnapshot, ContactsStore } from "./types";
@@ -286,48 +287,16 @@ function handleContactsRemoteEvents(
   }
 }
 
-async function importContactEntry(
-  state: ContactsStoreState,
-  entry: AddressBookEntry,
-  scheduleSync: () => void,
-) {
-  const existingContact = state.contactsByUserId.get(entry.userId);
-
-  if (
-    existingContact &&
-    existingContact.entry.encapsulationPublicKey ===
-      entry.encapsulationPublicKey
-  ) {
-    return;
-  }
-
-  const imported = await persistImportedContactEntryFromRuntime({
-    entry,
-    existingContact,
-    persistence: state.persistence,
-    runtime: state.runtime,
-  });
-  if (!imported.changed) {
-    return;
-  }
-
-  state.contactsByUserId.set(entry.userId, imported.contact);
-  setContactsSnapshot(state, {
-    entries: getSnapshotEntries(state.contactsByUserId),
-    ready: true,
-  });
-  scheduleSync();
-  state.runtime.log("Peer key imported");
-}
-
 async function importKeyFromRuntime(
   state: ContactsStoreState,
   userId: string,
   scheduleSync: () => void,
 ) {
-  state.runtime.log(`Importing peer key for userId: ${userId}`);
-  const response = await state.runtime.apiClient.getEncapsulationKey(userId);
-  if (!response) {
+  const entry = await fetchContactKeyEntryFromRuntime({
+    runtime: state.runtime,
+    userId,
+  });
+  if (!entry) {
     return;
   }
 
@@ -336,15 +305,30 @@ async function importKeyFromRuntime(
     return;
   }
 
-  const entry: AddressBookEntry = {
-    userId: response.userId,
-    encapsulationPublicKey: response.encapsulationPublicKey,
-    isSelf: false,
-  };
-
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(() => importContactEntry(state, entry, scheduleSync))
+    .then(async () => {
+      const existingContact = state.contactsByUserId.get(entry.userId);
+      const imported = await persistContactKeyEntryFromRuntime({
+        entry,
+        existingContact,
+        persistence: state.persistence,
+        runtime: state.runtime,
+      });
+      if (!imported.changed) {
+        return;
+      }
+
+      state.contactsByUserId.set(
+        imported.contact.entry.userId,
+        imported.contact,
+      );
+      setContactsSnapshot(state, {
+        entries: getSnapshotEntries(state.contactsByUserId),
+        ready: true,
+      });
+      scheduleSync();
+    })
     .catch((error: unknown) => {
       state.runtime.logError("Failed to persist contact", error);
     });
@@ -369,7 +353,7 @@ async function removeKeyFromRuntime(
       }
 
       state.contactsByUserId.delete(userId);
-      await deleteContactEntryFromRuntime({
+      await removeContactKeyFromRuntime({
         persistence: state.persistence,
         runtime: state.runtime,
         userId,
@@ -378,7 +362,6 @@ async function removeKeyFromRuntime(
         entries: getSnapshotEntries(state.contactsByUserId),
         ready: true,
       });
-      state.runtime.log("Peer key removed");
     })
     .catch((error: unknown) => {
       state.runtime.logError("Failed to remove contact", error);
