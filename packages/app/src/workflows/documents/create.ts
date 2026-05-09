@@ -13,6 +13,17 @@ import { projectionVerificationOptions } from "../../data/documents/shared/types
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type DocumentAuthorRuntime,
+  resolveDocumentCreateAuthor,
+} from "./author";
+
+export type RemoteDocumentCreateRuntime = DocumentAuthorRuntime & {
+  apiClient: DocumentCreateApi;
+  containerId?: string | null;
+  execSql?: ExecSql | undefined;
+  log: (message: string) => void;
+};
 
 export async function buildMaterializedDocumentCreatePlan(
   input: {
@@ -110,4 +121,43 @@ export async function createRemoteDocument(input: {
     plan: materializedPlan.plan,
     response,
   };
+}
+
+export async function createRemoteDocumentFromRuntime(input: {
+  contentKey?: Uint8Array | undefined;
+  contentKeyEpoch?: number | undefined;
+  documentId?: string | undefined;
+  eventId?: string | undefined;
+  missingContainerLogMessage: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: RemoteDocumentCreateRuntime;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+  unavailableWriterLogMessage: string;
+}): Promise<CreateRemoteDocumentResult | null> {
+  const { runtime } = input;
+  if (!runtime.containerId) {
+    runtime.log(input.missingContainerLogMessage);
+    return null;
+  }
+
+  const author = resolveDocumentCreateAuthor(runtime);
+  if (!author) {
+    runtime.log(input.unavailableWriterLogMessage);
+    return null;
+  }
+
+  return createRemoteDocument({
+    apiClient: runtime.apiClient,
+    author,
+    containerId: runtime.containerId,
+    contentKey: input.contentKey,
+    contentKeyEpoch: input.contentKeyEpoch,
+    documentId: input.documentId,
+    eventId: input.eventId,
+    execSql: runtime.execSql,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    signedAt: input.signedAt,
+    targetSecretKey: input.targetSecretKey,
+  });
 }

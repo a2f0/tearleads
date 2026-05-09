@@ -33,7 +33,7 @@ import {
   uploadDocumentAttachment,
 } from "../../workflows/blobs";
 import {
-  createRemoteDocument,
+  createRemoteDocumentFromRuntime,
   DOCUMENTS_APP_KIND,
   type DocumentCreateAuthor,
   type DocumentRecord,
@@ -393,29 +393,14 @@ async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  if (!state.runtime.containerId) {
-    state.runtime.log(
+  const created = await createRemoteDocumentFromRuntime({
+    missingContainerLogMessage:
       "Documents: cannot create a remote document without a container.",
-    );
-    return nextRecord;
-  }
-
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  const { apiClient } = state.runtime;
-  if (!author) {
-    state.runtime.log(
-      "Documents: skipped remote create because the writer context is unavailable.",
-    );
-    return nextRecord;
-  }
-
-  const created = await createRemoteDocument({
-    apiClient,
-    author,
-    containerId: state.runtime.containerId,
-    execSql: state.runtime.execSql,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
+    runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
+    unavailableWriterLogMessage:
+      "Documents: skipped remote create because the writer context is unavailable.",
   });
   if (!created) {
     return nextRecord;
