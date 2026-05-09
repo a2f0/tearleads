@@ -30,12 +30,11 @@ import {
 } from "../../data/sync/syncCoordinator";
 import {
   hydrateDocumentAttachmentBlobs,
-  uploadDocumentAttachment,
+  uploadDocumentAttachmentFromRuntime,
 } from "../../workflows/blobs";
 import {
   createRemoteDocumentFromRuntime,
   DOCUMENTS_APP_KIND,
-  type DocumentCreateAuthor,
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
@@ -82,12 +81,6 @@ type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["encapsulationKeyPair"]
 >;
-type DocumentAttachmentRuntimeApi = Pick<
-  DocumentsRuntime["apiClient"],
-  "bindBlobAttachment" | "getDocumentWriterProjection" | "stageBlob"
->;
-type ResolvedDocumentAttachmentRuntimeApi = DocumentAttachmentRuntimeApi &
-  Pick<DocumentsRuntime["apiClient"], "listDocumentAttachments">;
 type DocumentAttachmentBinding = NonNullable<
   Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
 >[number];
@@ -818,17 +811,8 @@ async function syncPendingAttachments(
   }
   const remoteDocumentId = currentRecord.documentId;
 
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  const { apiClient } = state.runtime;
-  if (!author) {
-    state.runtime.log(
-      "Documents: skipped attachment upload because the writer context is unavailable.",
-    );
-    return { completed: false, nextRecord: currentRecord };
-  }
-
   const remoteBindings =
-    await apiClient.listDocumentAttachments(remoteDocumentId);
+    await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
   if (!remoteBindings) {
     return { completed: false, nextRecord: currentRecord };
   }
@@ -841,8 +825,6 @@ async function syncPendingAttachments(
   for (const pendingAttachment of [...state.pendingAttachments]) {
     const uploaded = await syncPendingAttachmentUpload({
       activeBindingBySlotId,
-      apiClient,
-      author,
       encapsulationKeyPair,
       pendingAttachment,
       remoteDocumentId,
@@ -909,8 +891,6 @@ async function ensureRemoteDocumentForAttachmentSync(
 
 async function syncPendingAttachmentUpload(input: {
   activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
-  apiClient: ResolvedDocumentAttachmentRuntimeApi;
-  author: DocumentCreateAuthor;
   encapsulationKeyPair: EncapsulationKeyPair;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
@@ -927,18 +907,18 @@ async function syncPendingAttachmentUpload(input: {
     return false;
   }
 
-  const uploaded = await uploadDocumentAttachment({
-    apiClient: input.apiClient,
-    author: input.author,
+  const uploaded = await uploadDocumentAttachmentFromRuntime({
     bytes,
     documentId: input.remoteDocumentId,
-    execSql: state.runtime.execSql,
     expectedBindingId:
       input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
       null,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
+    runtime: state.runtime,
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
+    unavailableWriterLogMessage:
+      "Documents: skipped attachment upload because the writer context is unavailable.",
   });
   if (!uploaded) {
     return false;
