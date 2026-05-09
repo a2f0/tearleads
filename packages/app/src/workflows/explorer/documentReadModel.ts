@@ -24,6 +24,12 @@ export interface ExplorerDocumentLinkInput {
 export type ExplorerContainerDocumentTombstone =
   ContainerDocumentTombstoneInput;
 
+interface ExplorerDocumentRuntimeTarget {
+  documentId: string | null;
+  localId: string;
+  runtimeContainerId: string;
+}
+
 export interface ExplorerDocumentReadModel {
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
@@ -58,6 +64,13 @@ interface ExplorerSharedDocumentSummaries {
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
 }
 
+interface ExplorerContainerSubtreeState {
+  container: {
+    id: string;
+    parentId: string | null;
+  };
+}
+
 async function listVisibleExplorerDocumentSummaries(
   execSql: ExecSql,
   containers: ReadonlyArray<{ id: string }>,
@@ -73,7 +86,7 @@ async function listVisibleExplorerDocumentSummaries(
   );
 }
 
-export async function listExplorerDocumentsForContainerSubtree(
+async function listExplorerDocumentsForContainerSubtree(
   execSql: ExecSql,
   containerIds: ReadonlyArray<string>,
 ): Promise<ExplorerSharedDocumentSummaries> {
@@ -105,6 +118,106 @@ export async function listExplorerDocumentsForContainerSubtree(
     );
 
   return { documentSummaries, linkedContainerIdsByDocumentId };
+}
+
+function isExplorerContainerInSubtree(
+  containersById: ReadonlyMap<string, ExplorerContainerSubtreeState>,
+  containerId: string,
+  rootContainerId: string,
+): boolean {
+  let currentId: string | null = containerId;
+
+  while (currentId !== null) {
+    if (currentId === rootContainerId) {
+      return true;
+    }
+
+    currentId = containersById.get(currentId)?.container.parentId ?? null;
+  }
+
+  return false;
+}
+
+function listExplorerContainerSubtreeIds(
+  containersById: ReadonlyMap<string, ExplorerContainerSubtreeState>,
+  rootContainerId: string,
+): string[] {
+  return Array.from(containersById.values())
+    .filter((containerState) =>
+      isExplorerContainerInSubtree(
+        containersById,
+        containerState.container.id,
+        rootContainerId,
+      ),
+    )
+    .map((containerState) => containerState.container.id);
+}
+
+function resolveExplorerDocumentRuntimeContainerId(params: {
+  documentSummary: Pick<DocumentSummary, "containerId" | "documentId">;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  sharedContainerIds: ReadonlySet<string>;
+}): string | null {
+  const {
+    documentSummary,
+    linkedContainerIdsByDocumentId,
+    sharedContainerIds,
+  } = params;
+  if (
+    documentSummary.containerId &&
+    sharedContainerIds.has(documentSummary.containerId)
+  ) {
+    return documentSummary.containerId;
+  }
+
+  if (!documentSummary.documentId) {
+    return null;
+  }
+
+  return (
+    linkedContainerIdsByDocumentId
+      .get(documentSummary.documentId)
+      ?.find((containerId) => sharedContainerIds.has(containerId)) ?? null
+  );
+}
+
+export async function listExplorerDocumentRuntimeTargetsForContainerSubtree(input: {
+  containersById: ReadonlyMap<string, ExplorerContainerSubtreeState>;
+  execSql: ExecSql;
+  rootContainerId: string;
+}): Promise<ExplorerDocumentRuntimeTarget[]> {
+  const { containersById, execSql, rootContainerId } = input;
+  const sharedContainerIds = new Set(
+    listExplorerContainerSubtreeIds(containersById, rootContainerId),
+  );
+  if (sharedContainerIds.size === 0) {
+    return [];
+  }
+
+  const { documentSummaries, linkedContainerIdsByDocumentId } =
+    await listExplorerDocumentsForContainerSubtree(
+      execSql,
+      Array.from(sharedContainerIds),
+    );
+
+  return documentSummaries.flatMap((documentSummary) => {
+    const runtimeContainerId = resolveExplorerDocumentRuntimeContainerId({
+      documentSummary,
+      linkedContainerIdsByDocumentId,
+      sharedContainerIds,
+    });
+    if (!runtimeContainerId) {
+      return [];
+    }
+
+    return [
+      {
+        documentId: documentSummary.documentId,
+        localId: documentSummary.id,
+        runtimeContainerId,
+      },
+    ];
+  });
 }
 
 function listExplorerLinkedContainerIdsByDocumentIds(

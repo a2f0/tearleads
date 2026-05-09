@@ -32,7 +32,7 @@ export {
   type ExplorerContainerDocumentTombstone,
   type ExplorerDocumentLinkInput,
   type ExplorerDocumentReadModel,
-  listExplorerDocumentsForContainerSubtree,
+  listExplorerDocumentRuntimeTargetsForContainerSubtree,
 } from "./documentReadModel";
 export { loadLocalExplorerContainerStates } from "./localState";
 export {
