@@ -690,9 +690,7 @@ export async function deleteExplorerContainerState(input: {
   persistence: ExplorerPersistence;
   runtime: ExplorerContainerWorkflowRuntime;
 }): Promise<boolean> {
-  const isRemoteContainer =
-    typeof input.containerState.record.documentId === "string" &&
-    input.containerState.record.documentId.length > 0;
+  const isRemoteContainer = Boolean(input.containerState.record.documentId);
 
   if (isRemoteContainer) {
     const deletedRemoteContainer = await deleteRemoteExplorerContainer({

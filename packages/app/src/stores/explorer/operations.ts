@@ -104,9 +104,7 @@ export async function deleteExplorerContainer(
     return null;
   }
 
-  const isRemoteContainer =
-    typeof existingState.record.documentId === "string" &&
-    existingState.record.documentId.length > 0;
+  const isRemoteContainer = Boolean(existingState.record.documentId);
   if (isRemoteContainer) {
     if (!state.runtime.isAuthenticated || !state.runtime.online) {
       return null;
