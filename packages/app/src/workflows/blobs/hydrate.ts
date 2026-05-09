@@ -28,6 +28,12 @@ interface HydratedDocumentAttachmentBlob {
   storageKey: string;
 }
 
+export type DocumentAttachmentHydrationRuntime = {
+  apiClient: DocumentAttachmentHydrationApi;
+  execSql?: ExecSql | undefined;
+  log: (message: string) => void;
+};
+
 interface DocumentAttachmentHydrationContext {
   apiClient: DocumentAttachmentHydrationApi;
   documentId: string;
@@ -177,4 +183,24 @@ export async function hydrateDocumentAttachmentBlobs(
       }),
     ),
   );
+}
+
+export async function hydrateDocumentAttachmentBlobsFromRuntime(input: {
+  attachments: ReadonlyArray<DocumentAttachment>;
+  documentId: string;
+  logPrefix?: string | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: DocumentAttachmentHydrationRuntime;
+  targetSecretKey: Uint8Array;
+}): Promise<HydratedDocumentAttachmentBlob[] | null> {
+  return hydrateDocumentAttachmentBlobs({
+    apiClient: input.runtime.apiClient,
+    attachments: input.attachments,
+    documentId: input.documentId,
+    execSql: input.runtime.execSql,
+    log: input.runtime.log,
+    logPrefix: input.logPrefix,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    targetSecretKey: input.targetSecretKey,
+  });
 }
