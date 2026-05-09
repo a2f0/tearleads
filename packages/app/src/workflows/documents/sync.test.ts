@@ -32,6 +32,7 @@ import {
 import {
   buildDocumentSyncPlan,
   buildMaterializedDocumentSyncPlan,
+  hasDocumentUpdateEvent,
   syncRemoteDocument,
   syncRemoteDocumentFromRuntime,
 } from "./sync";
@@ -42,6 +43,57 @@ interface ContentRecordFields {
   iv?: unknown;
   nonceDomainHash?: unknown;
 }
+
+test("hasDocumentUpdateEvent detects matching document update events", () => {
+  expect(
+    hasDocumentUpdateEvent(
+      [
+        {
+          documentId: "document-1",
+          id: "event-1",
+          type: "document_update_created",
+        },
+      ],
+      "document-1",
+    ),
+  ).toBe(true);
+  expect(
+    hasDocumentUpdateEvent(
+      [
+        {
+          documentId: "document-2",
+          id: "event-2",
+          type: "document_update_created",
+        },
+      ],
+      "document-1",
+    ),
+  ).toBe(false);
+  expect(
+    hasDocumentUpdateEvent(
+      [
+        {
+          documentId: "document-1",
+          id: "event-3",
+          type: "other_event",
+        },
+      ],
+      "document-1",
+    ),
+  ).toBe(false);
+  expect(
+    hasDocumentUpdateEvent(
+      [
+        {
+          documentId: "document-1",
+          id: "event-4",
+          type: "document_update_created",
+        },
+      ],
+      null,
+    ),
+  ).toBe(false);
+});
 
 test("buildDocumentSyncPlan signs document write headers with the current access boundary", async () => {
   const { author, createResponse, projection, signingPublicKey } =
