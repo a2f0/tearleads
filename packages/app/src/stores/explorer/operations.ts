@@ -1,26 +1,17 @@
-import { bytesToBase64 } from "@tearleads/encoding";
 import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
+import { writeContainerMetadataValue } from "../../data/containers";
 import {
-  createInitializedContainerMetadataDocument,
-  writeContainerMetadataValue,
-} from "../../data/containers";
-import {
-  createRemoteExplorerContainer,
+  createExplorerChildContainer,
   deleteRemoteExplorerContainer,
   deleteSingleExplorerContainer,
   type ExplorerContainerMetadataPatch,
   type ExplorerDocumentRecord,
   moveRemoteExplorerContainer,
   persistExplorerContainerMetadataState,
-  saveExplorerContainer,
   shareRemoteExplorerContainer,
 } from "../../workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
-import type {
-  ContainerMetadataDocument,
-  ContainerState,
-  ExplorerSyncAgent,
-} from "./explorerSyncAgent";
+import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";
 import type { ExplorerStoreState } from "./types";
 import { isContainerInSubtree, toContainerNode } from "./utils";
@@ -45,65 +36,6 @@ export async function persistContainerState(
   return persisted.record;
 }
 
-async function buildRemoteChildContainerState(
-  state: ExplorerStoreState,
-  parentState: ContainerState,
-  childId: string,
-  trimmedName: string,
-  doc: ContainerMetadataDocument,
-  initialRecord: ExplorerDocumentRecord,
-) {
-  const created = await createRemoteExplorerContainer({
-    containerId: childId,
-    parentContainerId: parentState.container.id,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-  });
-
-  if (!created) {
-    return null;
-  }
-
-  return {
-    container: {
-      id: created.containerId,
-      organizationId: created.organizationId,
-      parentId: created.parentId,
-      metadataDocumentId: created.metadataDocumentId,
-      name: trimmedName,
-      icon: null,
-    },
-    doc,
-    record: {
-      ...initialRecord,
-      accessEpoch: 1,
-      accessStateHash: created.accessManifestHash,
-      ...created.persistedMetadataState,
-    },
-  };
-}
-
-function buildLocalChildContainerState(
-  parentState: ContainerState,
-  childId: string,
-  trimmedName: string,
-  doc: ContainerMetadataDocument,
-  initialRecord: ExplorerDocumentRecord,
-): ContainerState {
-  return {
-    container: {
-      id: childId,
-      organizationId: parentState.container.organizationId,
-      parentId: parentState.container.id,
-      metadataDocumentId: null,
-      name: trimmedName,
-      icon: null,
-    },
-    doc,
-    record: initialRecord,
-  };
-}
-
 export async function createChildContainer(
   state: ExplorerStoreState,
   syncAgent: ExplorerSyncAgent,
@@ -124,76 +56,35 @@ export async function createChildContainer(
     return null;
   }
 
-  const childId = crypto.randomUUID();
-  const { doc, initialUpdate } =
-    await createInitializedContainerMetadataDocument(childId, {
-      icon: null,
-      name: trimmedName,
-    });
-  const initialRecord: ExplorerDocumentRecord = {
-    accessEpoch: 1,
-    accessStateHash: null,
-    documentId: null,
-    id: childId,
-    lastCommitLsn: null,
-    loroSnapshot: bytesToBase64(initialUpdate),
-  };
-  const childState =
-    state.runtime.isAuthenticated && state.runtime.encapsulationKeyPair
-      ? await buildRemoteChildContainerState(
-          state,
-          parentState,
-          childId,
-          trimmedName,
-          doc,
-          initialRecord,
-        )
-      : buildLocalChildContainerState(
-          parentState,
-          childId,
-          trimmedName,
-          doc,
-          initialRecord,
-        );
+  const created = await createExplorerChildContainer({
+    createRemote:
+      state.runtime.isAuthenticated &&
+      Boolean(state.runtime.encapsulationKeyPair),
+    name: trimmedName,
+    parentState,
+    persistence: state.persistence,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    runtime: state.runtime,
+  });
+  if (!created) {
+    return null;
+  }
 
-  const resolvedChildState =
-    childState ??
-    buildLocalChildContainerState(
-      parentState,
-      childId,
-      trimmedName,
-      doc,
-      initialRecord,
-    );
-  const createIntent =
-    !resolvedChildState.record.documentId &&
-    resolvedChildState.container.parentId
-      ? { parentContainerId: resolvedChildState.container.parentId }
-      : undefined;
-
-  await saveExplorerContainer(
-    state.runtime.execSql,
-    state.persistence,
-    resolvedChildState.container,
-    resolvedChildState.record,
-    createIntent ? { createIntent } : undefined,
-  );
-
-  if (
-    !resolvedChildState.record.documentId ||
-    resolvedChildState.record.contentKeyBundle
-  ) {
+  if (created.shouldEnqueueInitialUpdate) {
     await syncAgent.enqueuePendingContainerUpdate(
-      resolvedChildState.container.id,
-      initialUpdate,
+      created.containerState.container.id,
+      created.initialUpdate,
     );
     syncAgent.scheduleSync();
   }
 
-  state.containersById.set(resolvedChildState.container.id, resolvedChildState);
+  state.containersById.set(
+    created.containerState.container.id,
+    created.containerState,
+  );
   updateExplorerSnapshot(state);
   state.runtime.log(`Explorer: created container "${trimmedName}"`);
-  return toContainerNode(resolvedChildState.container);
+  return toContainerNode(created.containerState.container);
 }
 
 export async function deleteExplorerContainer(
