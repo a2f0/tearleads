@@ -11,9 +11,15 @@ const appPresentationEntryPoints = [
   "packages/app/src/document-types",
   "packages/app/src/mini-apps",
 ];
+const appReactFreeLayerEntryPoints = [
+  "packages/app/src/data",
+  "packages/app/src/workflows",
+];
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
+const reactImportPattern =
+  /\bfrom\s+["']react(?:\/[^"']*)?["']|import\s+["']react(?:\/[^"']*)?["']/;
 
 interface SourceMatch {
   filePath: string;
@@ -59,8 +65,19 @@ async function listProductionSourceFiles(dirPath: string): Promise<string[]> {
 async function findAppPresentationSqlExecutorReferences(): Promise<
   SourceMatch[]
 > {
+  return findSourceMatches(appPresentationEntryPoints, rawSqlExecutorPattern);
+}
+
+async function findAppReactFreeLayerReferences(): Promise<SourceMatch[]> {
+  return findSourceMatches(appReactFreeLayerEntryPoints, reactImportPattern);
+}
+
+async function findSourceMatches(
+  entryPoints: ReadonlyArray<string>,
+  pattern: RegExp,
+): Promise<SourceMatch[]> {
   const sourceFiles = (
-    await Promise.all(appPresentationEntryPoints.map(listProductionSourceFiles))
+    await Promise.all(entryPoints.map(listProductionSourceFiles))
   ).flat();
   const fileMatches = await Promise.all(
     sourceFiles.map(async (filePath) => {
@@ -69,9 +86,7 @@ async function findAppPresentationSqlExecutorReferences(): Promise<
       return content
         .split("\n")
         .flatMap((line, index): SourceMatch[] =>
-          rawSqlExecutorPattern.test(line)
-            ? [{ filePath, line, lineNumber: index + 1 }]
-            : [],
+          pattern.test(line) ? [{ filePath, line, lineNumber: index + 1 }] : [],
         );
     }),
   );
@@ -95,12 +110,29 @@ function formatAppPresentationSqlExecutorReferences(
   ].join("\n");
 }
 
+function formatAppReactFreeLayerReferences(
+  matches: ReadonlyArray<SourceMatch>,
+): string {
+  if (matches.length === 0) {
+    return "";
+  }
+
+  return [
+    "error app-data-and-workflows-do-not-import-react: App data and workflow files should stay below React runtime and presentation code.",
+    ...matches.map(
+      (match) =>
+        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
+    ),
+  ].join("\n");
+}
+
 const result = await cruise(
   architectureEntryPoints,
   configToCruiseOptions(dependencyCruiserConfig),
 );
 const appPresentationSqlExecutorReferences =
   await findAppPresentationSqlExecutorReferences();
+const appReactFreeLayerReferences = await findAppReactFreeLayerReferences();
 
 if (typeof result.output === "string" && result.output.trim().length > 0) {
   const write = result.exitCode === 0 ? console.log : console.error;
@@ -115,8 +147,17 @@ if (appPresentationSqlExecutorOutput.length > 0) {
   console.error(appPresentationSqlExecutorOutput);
 }
 
+const appReactFreeLayerOutput = formatAppReactFreeLayerReferences(
+  appReactFreeLayerReferences,
+);
+if (appReactFreeLayerOutput.length > 0) {
+  console.error(appReactFreeLayerOutput);
+}
+
 process.exit(
-  result.exitCode !== 0 || appPresentationSqlExecutorReferences.length > 0
+  result.exitCode !== 0 ||
+    appPresentationSqlExecutorReferences.length > 0 ||
+    appReactFreeLayerReferences.length > 0
     ? 1
     : 0,
 );

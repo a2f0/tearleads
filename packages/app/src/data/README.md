@@ -46,6 +46,8 @@ cleanup should be incremental and behavior-preserving.
   hooks, or workflows, including for type-only contracts.
 - `workflows/` modules must not import UI, hooks, or providers, including for
   type-only contracts.
+- Production `data/` and `workflows/` files must not import React; React hooks
+  and runtime adapters belong in presentation or store/provider layers.
 - Shared helper modules under document and container data domains must stay
   layer-neutral, including for type-only contracts.
 - Production UI and mini-app hooks should go through stores or providers rather
