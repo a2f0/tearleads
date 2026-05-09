@@ -1,7 +1,10 @@
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { didRegainSyncPrerequisites } from "../../data/sync/syncCoordinator";
 import type { ContainerNode } from "../../mini-apps/explorer/types";
-import type { ExplorerPersistence } from "../../workflows/explorer";
+import {
+  createExplorerProjectionUserKeyResolver,
+  didExplorerProjectionKeyRuntimeChange,
+  type ExplorerPersistence,
+} from "../../workflows/explorer";
 import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
 import type { ExplorerSnapshot, ExplorerStoreState } from "./types";
 import { getSnapshotNodes } from "./utils";
@@ -39,10 +42,8 @@ export function createExplorerStoreState(
     listeners: new Set(),
     persistence,
     remoteHydrationPromise: null,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      initialRuntime,
-      "Explorer",
-    ),
+    resolveProjectionUserKey:
+      createExplorerProjectionUserKeyResolver(initialRuntime),
     runtime: initialRuntime,
     snapshot: {
       nodes: [],
@@ -51,19 +52,6 @@ export function createExplorerStoreState(
     syncLane: null,
     writeChain: Promise.resolve<ContainerNode | null>(null),
   };
-}
-
-function didExplorerProjectionResolverContextChange(
-  previousRuntime: ExplorerRuntime,
-  nextRuntime: ExplorerRuntime,
-): boolean {
-  return (
-    previousRuntime.apiClient !== nextRuntime.apiClient ||
-    previousRuntime.encapsulationKeyPair !== nextRuntime.encapsulationKeyPair ||
-    previousRuntime.signingFingerprint !== nextRuntime.signingFingerprint ||
-    previousRuntime.signingKeyPair !== nextRuntime.signingKeyPair ||
-    previousRuntime.userId !== nextRuntime.userId
-  );
 }
 
 function emitExplorerStore(state: ExplorerStoreState) {
@@ -120,13 +108,9 @@ export function updateExplorerStoreRuntime(
   syncAgent: ExplorerSyncAgent,
 ) {
   const previousRuntime = state.runtime;
-  if (
-    didExplorerProjectionResolverContextChange(previousRuntime, nextRuntime)
-  ) {
-    state.resolveProjectionUserKey = createProjectionUserKeyResolver(
-      nextRuntime,
-      "Explorer",
-    );
+  if (didExplorerProjectionKeyRuntimeChange(previousRuntime, nextRuntime)) {
+    state.resolveProjectionUserKey =
+      createExplorerProjectionUserKeyResolver(nextRuntime);
   }
   state.runtime = nextRuntime;
 

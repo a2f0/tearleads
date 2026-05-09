@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import {
-  createProjectionUserKeyResolver,
-  type ProjectionUserKeyResolver,
-} from "../../data/keyingProjectionVerification";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
+import {
+  createExplorerDocumentProjectionUserKeyResolver,
+  type ExplorerProjectionUserKeyResolver,
+} from "../../workflows/explorer";
 import type { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerDocumentRuntime = Parameters<typeof primeDocumentStore>[2];
@@ -29,7 +29,7 @@ export type ExplorerDocumentsRuntimeAppDataInput = Pick<
 
 export type ExplorerDocumentsRuntimeAppData =
   ExplorerDocumentsRuntimeAppDataInput & {
-    resolveProjectionUserKey: ProjectionUserKeyResolver;
+    resolveProjectionUserKey: ExplorerProjectionUserKeyResolver;
   };
 
 export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
@@ -103,17 +103,14 @@ export function useExplorerDocumentsRuntimeAppData(
   } = appData;
   const resolveProjectionUserKey = useMemo(
     () =>
-      createProjectionUserKeyResolver(
-        {
-          apiClient,
-          encapsulationKeyPair,
-          log,
-          signingFingerprint,
-          signingKeyPair,
-          userId,
-        },
-        "Explorer documents",
-      ),
+      createExplorerDocumentProjectionUserKeyResolver({
+        apiClient,
+        encapsulationKeyPair,
+        log,
+        signingFingerprint,
+        signingKeyPair,
+        userId,
+      }),
     [
       apiClient,
       encapsulationKeyPair,

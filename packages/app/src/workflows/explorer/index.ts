@@ -46,6 +46,12 @@ export {
   syncExplorerContainerMetadataState,
 } from "./metadata";
 export {
+  createExplorerDocumentProjectionUserKeyResolver,
+  createExplorerProjectionUserKeyResolver,
+  didExplorerProjectionKeyRuntimeChange,
+  type ExplorerProjectionUserKeyResolver,
+} from "./projectionKeys";
+export {
   createRemoteExplorerContainerIngestor,
   type ExplorerContainerState,
   type ExplorerRemoteContainer,
