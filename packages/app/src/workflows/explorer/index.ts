@@ -35,8 +35,8 @@ export {
 export { loadLocalExplorerContainerStates } from "./localState";
 export {
   type ExplorerContainerMetadataPatch,
-  persistExplorerContainerMetadataState,
-  renameExplorerContainerMetadataState,
+  persistExplorerContainerMetadataStateFromRuntime,
+  renameExplorerContainerMetadataStateFromRuntime,
   syncExplorerContainerMetadataState,
 } from "./metadata";
 export {

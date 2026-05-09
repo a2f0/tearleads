@@ -1,0 +1,171 @@
+import { expect, test } from "bun:test";
+import {
+  createContainerMetadataDocument,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "../../data/containers";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ContainerRecord,
+  type ExplorerDocumentRecord,
+  type ExplorerPersistence,
+  persistExplorerContainerMetadataStateFromRuntime,
+  renameExplorerContainerMetadataStateFromRuntime,
+} from "./index";
+
+const execSql: ExecSql = async () => [];
+
+type PendingUpdateInput = Parameters<
+  ExplorerPersistence["enqueuePendingUpdate"]
+>[1];
+
+function createContainerRecord(
+  input: Partial<ContainerRecord> & Pick<ContainerRecord, "id" | "parentId">,
+): ContainerRecord {
+  return {
+    icon: null,
+    metadataDocumentId: null,
+    name: "Stored container",
+    organizationId: "org-1",
+    ...input,
+  };
+}
+
+function createDocumentRecord(
+  input: Partial<ExplorerDocumentRecord> & Pick<ExplorerDocumentRecord, "id">,
+): ExplorerDocumentRecord {
+  return {
+    accessEpoch: 1,
+    accessStateHash: null,
+    contentKeyBundle: null,
+    documentId: null,
+    documentKekTargets: null,
+    documentManifestBundle: null,
+    lastCommitLsn: null,
+    loroSnapshot: "",
+    ...input,
+  };
+}
+
+function createExplorerPersistence(input: {
+  pendingUpdates?: Array<{
+    execSql: ExecSql;
+    input: PendingUpdateInput;
+  }>;
+  savedContainers?: Array<{
+    container: ContainerRecord;
+    execSql: ExecSql;
+    record: ExplorerDocumentRecord | null;
+  }>;
+}): ExplorerPersistence {
+  return {
+    async deleteContainer() {},
+    async deleteContainers() {},
+    async deletePendingUpdates() {},
+    async ensureSchema() {},
+    async enqueuePendingUpdate(receivedExecSql, pendingUpdate) {
+      input.pendingUpdates?.push({
+        execSql: receivedExecSql,
+        input: pendingUpdate,
+      });
+    },
+    async listPendingCreateIntents() {
+      return [];
+    },
+    async listPendingUpdates() {
+      return [];
+    },
+    async loadContainers() {
+      return [];
+    },
+    async markCreateIntentSynced() {},
+    async recordCreateIntentError() {},
+    async saveContainer(receivedExecSql, container, record) {
+      input.savedContainers?.push({
+        container,
+        execSql: receivedExecSql,
+        record,
+      });
+    },
+    async saveContainerAndDeletePendingUpdates() {},
+  };
+}
+
+test("persistExplorerContainerMetadataStateFromRuntime uses the runtime executor", async () => {
+  const container = createContainerRecord({
+    id: "container-1",
+    parentId: null,
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  writeContainerMetadataValue(doc, {
+    icon: "folder",
+    name: "Runtime container",
+  });
+  const record = createDocumentRecord({ id: container.id });
+  const savedContainers: Array<{
+    container: ContainerRecord;
+    execSql: ExecSql;
+    record: ExplorerDocumentRecord | null;
+  }> = [];
+
+  const persisted = await persistExplorerContainerMetadataStateFromRuntime({
+    metadataState: { container, doc, record },
+    persistence: createExplorerPersistence({ savedContainers }),
+    runtime: { execSql },
+  });
+
+  expect(savedContainers).toEqual([
+    {
+      container: persisted.container,
+      execSql,
+      record: persisted.record,
+    },
+  ]);
+  expect(persisted.container).toMatchObject({
+    icon: "folder",
+    name: "Runtime container",
+  });
+});
+
+test("renameExplorerContainerMetadataStateFromRuntime queues metadata update with the runtime executor", async () => {
+  const container = createContainerRecord({
+    id: "container-2",
+    parentId: "parent-1",
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  writeContainerMetadataValue(doc, {
+    icon: "briefcase",
+    name: "Old name",
+  });
+  const record = createDocumentRecord({ id: container.id });
+  const pendingUpdates: Array<{
+    execSql: ExecSql;
+    input: PendingUpdateInput;
+  }> = [];
+  const savedContainers: Array<{
+    container: ContainerRecord;
+    execSql: ExecSql;
+    record: ExplorerDocumentRecord | null;
+  }> = [];
+
+  const renamed = await renameExplorerContainerMetadataStateFromRuntime({
+    metadataState: { container, doc, record },
+    name: "New name",
+    persistence: createExplorerPersistence({
+      pendingUpdates,
+      savedContainers,
+    }),
+    runtime: { execSql },
+  });
+
+  expect(renamed?.container.name).toBe("New name");
+  expect(readContainerMetadataValue(doc, "Stored container")).toMatchObject({
+    icon: "briefcase",
+    name: "New name",
+  });
+  expect(pendingUpdates).toHaveLength(1);
+  expect(pendingUpdates[0]?.execSql).toBe(execSql);
+  expect(pendingUpdates[0]?.input.containerId).toBe(container.id);
+  expect(savedContainers).toHaveLength(1);
+  expect(savedContainers[0]?.execSql).toBe(execSql);
+});

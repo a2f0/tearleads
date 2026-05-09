@@ -25,7 +25,7 @@ import {
   recordExplorerContainerCreateIntentError,
   saveExplorerContainer,
 } from "./containerPersistence";
-import { persistExplorerContainerMetadataState } from "./metadata";
+import { persistExplorerContainerMetadataStateFromRuntime } from "./metadata";
 import type {
   ExplorerContainerState,
   ExplorerRemoteContainerHydrationHost,
@@ -658,8 +658,7 @@ export async function shareExplorerContainerState(input: {
     shared.referencedPrincipalHeads,
   );
 
-  const persisted = await persistExplorerContainerMetadataState({
-    execSql: input.runtime.execSql,
+  const persisted = await persistExplorerContainerMetadataStateFromRuntime({
     metadataState: input.containerState,
     patch: {
       accessEpoch: shared.accessEpoch,
@@ -671,6 +670,7 @@ export async function shareExplorerContainerState(input: {
       documentManifestBundle: null,
     },
     persistence: input.persistence,
+    runtime: input.runtime,
   });
 
   return {

@@ -4,8 +4,8 @@ import {
   type ExplorerContainerMetadataPatch,
   type ExplorerDocumentRecord,
   moveRemoteExplorerContainer,
-  persistExplorerContainerMetadataState,
-  renameExplorerContainerMetadataState,
+  persistExplorerContainerMetadataStateFromRuntime,
+  renameExplorerContainerMetadataStateFromRuntime,
   shareExplorerContainerState,
 } from "../../workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
@@ -20,11 +20,11 @@ export async function persistContainerState(
   patch: Partial<ExplorerContainerMetadataPatch> = {},
   updateView = true,
 ): Promise<ExplorerDocumentRecord> {
-  const persisted = await persistExplorerContainerMetadataState({
-    execSql: state.runtime.execSql,
+  const persisted = await persistExplorerContainerMetadataStateFromRuntime({
     metadataState: containerState,
     patch,
     persistence: state.persistence,
+    runtime: state.runtime,
   });
   containerState.container = persisted.container;
   containerState.record = persisted.record;
@@ -153,11 +153,11 @@ export async function renameExplorerContainer(
     return toContainerNode(existingState.container);
   }
 
-  const renamed = await renameExplorerContainerMetadataState({
-    execSql: state.runtime.execSql,
+  const renamed = await renameExplorerContainerMetadataStateFromRuntime({
     metadataState: existingState,
     name: trimmedName,
     persistence: state.persistence,
+    runtime: state.runtime,
   });
   if (!renamed) {
     return null;

@@ -52,6 +52,10 @@ interface ExplorerMetadataSyncRuntime {
   userId?: string | null;
 }
 
+interface ExplorerMetadataPersistenceRuntime {
+  execSql: ExecSql;
+}
+
 type ExplorerMetadataSyncResult = NonNullable<
   Awaited<ReturnType<typeof syncRemoteDocument>>
 >;
@@ -122,7 +126,7 @@ function resolveNullableExplorerDocumentField(
   return resetWhenUnpatched ? null : (currentValue ?? null);
 }
 
-export async function persistExplorerContainerMetadataState(input: {
+async function persistExplorerContainerMetadataState(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   execSql: ExecSql;
   metadataState: ExplorerContainerMetadataState;
@@ -209,7 +213,23 @@ export async function persistExplorerContainerMetadataState(input: {
   };
 }
 
-export async function renameExplorerContainerMetadataState(input: {
+export async function persistExplorerContainerMetadataStateFromRuntime({
+  runtime,
+  ...input
+}: Omit<
+  Parameters<typeof persistExplorerContainerMetadataState>[0],
+  "execSql"
+> & {
+  persistence: ExplorerPersistence;
+  runtime: ExplorerMetadataPersistenceRuntime;
+}): ReturnType<typeof persistExplorerContainerMetadataState> {
+  return persistExplorerContainerMetadataState({
+    ...input,
+    execSql: runtime.execSql,
+  });
+}
+
+async function renameExplorerContainerMetadataState(input: {
   execSql: ExecSql;
   metadataState: ExplorerContainerMetadataState;
   name: string;
@@ -242,6 +262,22 @@ export async function renameExplorerContainerMetadataState(input: {
     metadataState,
     patch: { name: trimmedName },
     persistence,
+  });
+}
+
+export async function renameExplorerContainerMetadataStateFromRuntime({
+  runtime,
+  ...input
+}: Omit<
+  Parameters<typeof renameExplorerContainerMetadataState>[0],
+  "execSql"
+> & {
+  persistence: ExplorerPersistence;
+  runtime: ExplorerMetadataPersistenceRuntime;
+}): ReturnType<typeof renameExplorerContainerMetadataState> {
+  return renameExplorerContainerMetadataState({
+    ...input,
+    execSql: runtime.execSql,
   });
 }
 
@@ -360,9 +396,8 @@ export async function syncExplorerContainerMetadataState(input: {
     );
   }
 
-  const persisted = await persistExplorerContainerMetadataState({
+  const persisted = await persistExplorerContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.response.acceptedOutgoingUpdateIds,
-    execSql: runtime.execSql,
     metadataState,
     patch: {
       ...synced.persistedState,
@@ -372,6 +407,7 @@ export async function syncExplorerContainerMetadataState(input: {
       metadataDocumentId: documentId,
     },
     persistence,
+    runtime,
   });
 
   return {
