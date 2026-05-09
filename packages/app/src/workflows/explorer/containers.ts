@@ -658,7 +658,7 @@ export async function shareExplorerContainerState(input: {
     shared.referencedPrincipalHeads,
   );
 
-  return persistExplorerContainerMetadataState({
+  const persisted = await persistExplorerContainerMetadataState({
     execSql: input.runtime.execSql,
     metadataState: input.containerState,
     patch: {
@@ -672,6 +672,11 @@ export async function shareExplorerContainerState(input: {
     },
     persistence: input.persistence,
   });
+
+  return {
+    container: persisted.container,
+    record: persisted.record,
+  };
 }
 
 export async function moveRemoteExplorerContainer(input: {
