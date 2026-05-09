@@ -1,5 +1,4 @@
 import type { BlobStore } from "../../data/blobs";
-import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
@@ -12,6 +11,7 @@ import {
   type ExplorerDocumentPrimeHost,
   type ExplorerDocumentPrimeStore,
   type ExplorerPersistence,
+  type ExplorerProjectionUserKeyResolver,
   type ExplorerRemoteContainer,
   type ExplorerRemoteContainerHydrationHost,
   enqueuePendingExplorerContainerUpdateFromRuntime,
@@ -54,7 +54,7 @@ export interface ExplorerSyncState {
   lastEventCount: number;
   persistence: ExplorerPersistence;
   remoteHydrationPromise: Promise<void> | null;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveProjectionUserKey: ExplorerProjectionUserKeyResolver;
   runtime: ExplorerRuntime;
   snapshot: {
     ready: boolean;
