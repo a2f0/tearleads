@@ -1,5 +1,4 @@
 import type { BlobStore } from "../../data/blobs";
-import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
   getOrCreateDomainSyncCoordinator,
@@ -14,6 +13,7 @@ import {
   type ExplorerRemoteContainer,
   type ExplorerRemoteContainerHydrationHost,
   enqueuePendingExplorerContainerUpdateFromRuntime,
+  hasExplorerMetadataDocumentUpdateEvent,
   hydrateRemoteExplorerContainers,
   listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
   loadLocalExplorerContainerStates,
@@ -334,26 +334,13 @@ export function createExplorerSyncAgent(input: {
     ensureInitialized: () =>
       ensureExplorerStoreInitialized({ host, scheduleSync, state }),
     handleRemoteEvents: () => {
-      const knownDocumentIds = new Set(
-        Array.from(
-          state.containersById.values(),
-          (containerState) => containerState.record.documentId,
-        ).filter((documentId) => documentId !== null),
-      );
-
-      if (knownDocumentIds.size === 0) {
-        state.lastEventCount = state.runtime.events.length;
-        return;
-      }
-
       const nextEvents = state.runtime.events.slice(state.lastEventCount);
       state.lastEventCount = state.runtime.events.length;
 
       if (
-        nextEvents.some(
-          (event) =>
-            isDocumentUpdateCreatedEvent(event) &&
-            knownDocumentIds.has(event.documentId),
+        hasExplorerMetadataDocumentUpdateEvent(
+          nextEvents,
+          state.containersById.values(),
         )
       ) {
         scheduleSync();

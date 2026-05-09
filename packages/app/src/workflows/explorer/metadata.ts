@@ -11,6 +11,7 @@ import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers";
+import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
@@ -69,6 +70,33 @@ interface ExplorerContainerMetadataState {
   container: ContainerRecord;
   doc: ContainerMetadataDocument;
   record: DocumentRecord;
+}
+
+export function hasExplorerMetadataDocumentUpdateEvent(
+  events: ReadonlyArray<unknown>,
+  metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
+): boolean {
+  const eventDocumentIds = new Set<string>();
+  for (const event of events) {
+    if (isDocumentUpdateCreatedEvent(event)) {
+      eventDocumentIds.add(event.documentId);
+    }
+  }
+
+  if (eventDocumentIds.size === 0) {
+    return false;
+  }
+
+  for (const metadataState of metadataStates) {
+    if (
+      typeof metadataState.record.documentId === "string" &&
+      eventDocumentIds.has(metadataState.record.documentId)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export interface ExplorerContainerMetadataPatch {
