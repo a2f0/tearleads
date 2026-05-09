@@ -1,4 +1,3 @@
-import { encodeVersionVector, importUpdates } from "@tearleads/loro";
 import type { BlobStore } from "../../data/blobs";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
@@ -13,8 +12,6 @@ import {
   createRemoteExplorerContainer,
   type ExplorerContainerMetadataDocument,
   type ExplorerContainerState,
-  type ExplorerMetadataSyncAttempt,
-  type ExplorerPendingUpdateRecord,
   type ExplorerPersistence,
   type ExplorerRemoteContainer,
   type ExplorerRemoteContainerHydrationHost,
@@ -22,12 +19,10 @@ import {
   hydrateRemoteExplorerContainers,
   listExplorerDocumentsForContainerSubtree,
   listPendingExplorerContainerCreateIntents,
-  listPendingExplorerContainerUpdates,
   loadLocalExplorerContainerStates,
   markExplorerContainerCreateIntentSynced,
-  persistExplorerContainerMetadataState,
   recordExplorerContainerCreateIntentError,
-  syncRemoteExplorerContainerMetadata,
+  syncExplorerContainerMetadataState,
   upsertRemoteExplorerContainerState,
 } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
@@ -202,17 +197,6 @@ async function primeDocumentsForSharedSubtree(
   }
 }
 
-async function listPendingContainerUpdates(
-  state: ExplorerSyncState,
-  containerId: string,
-): Promise<ExplorerPendingUpdateRecord[]> {
-  return listPendingExplorerContainerUpdates(
-    state.runtime.execSql,
-    state.persistence,
-    containerId,
-  );
-}
-
 async function enqueuePendingContainerUpdate(
   state: ExplorerSyncState,
   containerId: string,
@@ -334,47 +318,6 @@ function ensureExplorerStoreInitialized(input: {
   });
 }
 
-async function applySyncedContainerUpdates(input: {
-  containerState: ContainerState;
-  synced: ExplorerMetadataSyncAttempt["synced"];
-}) {
-  const { containerState, synced } = input;
-
-  if (synced.decryptedUpdates.length > 0) {
-    importUpdates(
-      containerState.doc,
-      synced.decryptedUpdates.map((update) => update.updateData),
-    );
-  }
-}
-
-async function requestContainerMetadataSync(
-  state: ExplorerSyncState,
-  containerState: ContainerState,
-  encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>,
-): Promise<ExplorerMetadataSyncAttempt | null> {
-  const { documentId } = containerState.record;
-  if (!documentId) {
-    return null;
-  }
-
-  const pendingUpdates = await listPendingContainerUpdates(
-    state,
-    containerState.container.id,
-  );
-
-  return syncRemoteExplorerContainerMetadata({
-    containerId: containerState.container.id,
-    documentId,
-    lastCommitLsn: containerState.record.lastCommitLsn,
-    localVersionVector: encodeVersionVector(containerState.doc),
-    pendingUpdates,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-    targetSecretKey: encapsulationKeyPair.secretKey,
-  });
-}
-
 async function syncSingleContainerMetadata(input: {
   host: ExplorerSyncHost;
   state: ExplorerSyncState;
@@ -382,42 +325,22 @@ async function syncSingleContainerMetadata(input: {
   encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>;
 }) {
   const { containerState, encapsulationKeyPair, host, state } = input;
-  const syncAttempt = await requestContainerMetadataSync(
-    state,
-    containerState,
-    encapsulationKeyPair,
-  );
-  if (!syncAttempt) {
+  const synced = await syncExplorerContainerMetadataState({
+    metadataState: containerState,
+    persistence: state.persistence,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    runtime: state.runtime,
+    targetSecretKey: encapsulationKeyPair.secretKey,
+  });
+  if (!synced) {
     return;
   }
 
-  const { outgoingUpdateCount, synced } = syncAttempt;
-
-  await applySyncedContainerUpdates({
-    containerState,
-    synced,
-  });
-
-  const persisted = await persistExplorerContainerMetadataState({
-    acceptedPendingUpdateIds: synced.response.acceptedOutgoingUpdateIds,
-    execSql: state.runtime.execSql,
-    metadataState: containerState,
-    patch: {
-      ...synced.persistedState,
-      documentId: containerState.record.documentId,
-      lastCommitLsn:
-        synced.response.commitLsn ??
-        containerState.record.lastCommitLsn ??
-        null,
-      metadataDocumentId: containerState.record.documentId,
-    },
-    persistence: state.persistence,
-  });
-  containerState.container = persisted.container;
-  containerState.record = persisted.record;
+  containerState.container = synced.container;
+  containerState.record = synced.record;
   host.updateSnapshot();
 
-  if (outgoingUpdateCount > synced.response.acceptedOutgoingUpdateIds.length) {
+  if (synced.shouldRequestFollowupSync) {
     requestExplorerSync(state);
   }
 }

@@ -4,11 +4,9 @@ export {
   defaultExplorerPersistence,
   deleteSingleExplorerContainer,
   type ExplorerDocumentRecord,
-  type ExplorerPendingUpdateRecord,
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdate,
   listPendingExplorerContainerCreateIntents,
-  listPendingExplorerContainerUpdates,
   markExplorerContainerCreateIntentSynced,
   recordExplorerContainerCreateIntentError,
   saveExplorerContainer,
@@ -42,9 +40,8 @@ export {
 export { loadLocalExplorerContainerStates } from "./localState";
 export {
   type ExplorerContainerMetadataPatch,
-  type ExplorerMetadataSyncAttempt,
   persistExplorerContainerMetadataState,
-  syncRemoteExplorerContainerMetadata,
+  syncExplorerContainerMetadataState,
 } from "./metadata";
 export {
   type ExplorerContainerMetadataDocument,
