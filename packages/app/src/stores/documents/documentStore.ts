@@ -8,7 +8,6 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
-import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import {
   addDocumentAttachments,
@@ -42,6 +41,7 @@ import {
   deriveDocumentKind,
   deriveDocumentTitle,
   enqueuePendingDocumentUpdateFromRuntime,
+  hasDocumentUpdateEvent,
   type LocalAttachmentRecord,
   listPendingDocumentUpdatesFromRuntime,
   loadPersistedDocumentStoreStateFromRuntime,
@@ -1183,13 +1183,7 @@ function handleDocumentRemoteEvents(
   const nextEvents = state.runtime.events.slice(state.lastEventCount);
   state.lastEventCount = state.runtime.events.length;
 
-  if (
-    nextEvents.some(
-      (event) =>
-        isDocumentUpdateCreatedEvent(event) &&
-        event.documentId === state.record?.documentId,
-    )
-  ) {
+  if (hasDocumentUpdateEvent(nextEvents, state.record?.documentId)) {
     scheduleSync();
   }
 }

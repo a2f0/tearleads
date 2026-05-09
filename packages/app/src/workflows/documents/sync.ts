@@ -14,6 +14,7 @@ import type {
   DocumentCreateResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import {
   decryptDocumentSyncUpdates,
   encryptDocumentPendingUpdate,
@@ -74,6 +75,20 @@ type RemoteDocumentSyncRuntime = DocumentAuthorRuntime &
 interface RemoteDocumentSyncAttempt {
   outgoingUpdateCount: number;
   synced: SyncRemoteDocumentResult;
+}
+
+export function hasDocumentUpdateEvent(
+  events: ReadonlyArray<unknown>,
+  documentId: string | null | undefined,
+): boolean {
+  if (!documentId) {
+    return false;
+  }
+
+  return events.some(
+    (event) =>
+      isDocumentUpdateCreatedEvent(event) && event.documentId === documentId,
+  );
 }
 
 async function prepareDocumentOutgoingUpdates(input: {

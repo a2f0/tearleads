@@ -43,5 +43,9 @@ export {
   saveLocalDocumentAttachmentsFromRuntime,
   savePendingDocumentAttachmentFromRuntime,
 } from "./persistence";
-export { syncRemoteDocument, syncRemoteDocumentFromRuntime } from "./sync";
+export {
+  hasDocumentUpdateEvent,
+  syncRemoteDocument,
+  syncRemoteDocumentFromRuntime,
+} from "./sync";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";
