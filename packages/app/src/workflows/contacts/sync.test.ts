@@ -114,6 +114,39 @@ test("syncContactDocuments logs a contact failure and continues with remaining c
   ]);
 });
 
+test("syncContactDocuments rethrows destroyed database runtime errors", async () => {
+  const logMessages: string[] = [];
+  const contact = await createContact("peer-user-1");
+  const persistence = createNoopContactsPersistence(async () => {
+    throw new Error("outer", {
+      cause: new Error("Database worker client has been destroyed."),
+    });
+  });
+
+  await expect(
+    syncContactDocuments({
+      addressBookId: "default",
+      contacts: [contact],
+      persistence,
+      ready: true,
+      resolveProjectionUserKey,
+      runtime: {
+        apiClient: createMockApiClient(),
+        containerId: "root-container",
+        encapsulationKeyPair: {
+          publicKey: new Uint8Array([1]),
+          secretKey: new Uint8Array([2]),
+        },
+        execSql,
+        isAuthenticated: true,
+        log: (message) => logMessages.push(message),
+        online: true,
+      },
+    }),
+  ).rejects.toThrow("outer");
+  expect(logMessages).toEqual([]);
+});
+
 test("hasContactDocumentUpdateEvent detects updates for contact remote documents", async () => {
   const contact = await createContact("peer-user-1");
   contact.record = {
