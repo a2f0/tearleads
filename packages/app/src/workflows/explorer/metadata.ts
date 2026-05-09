@@ -221,9 +221,13 @@ export async function renameExplorerContainerMetadataState(input: {
     return null;
   }
 
+  const metadata = readContainerMetadataValue(
+    metadataState.doc,
+    getDefaultContainerName(metadataState.container.parentId),
+  );
   const previousVersion = encodeVersionVector(metadataState.doc);
   writeContainerMetadataValue(metadataState.doc, {
-    icon: metadataState.container.icon,
+    ...metadata,
     name: trimmedName,
   });
   const update = exportUpdatesSince(metadataState.doc, previousVersion);
