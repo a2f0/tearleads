@@ -44,6 +44,11 @@ export {
   savePendingDocumentAttachmentFromRuntime,
 } from "./persistence";
 export {
+  createDocumentProjectionUserKeyResolver,
+  type DocumentProjectionUserKeyResolver,
+  didDocumentProjectionKeyRuntimeChange,
+} from "./projectionKeys";
+export {
   hasDocumentUpdateEvent,
   syncRemoteDocument,
   syncRemoteDocumentFromRuntime,
