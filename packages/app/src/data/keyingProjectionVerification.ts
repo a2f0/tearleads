@@ -145,7 +145,7 @@ export function createProjectionUserKeyResolver(
   };
 }
 
-type PrincipalPolicyCache = Map<string, VerifiedPrincipalPolicy>;
+export type PrincipalPolicyCache = Map<string, VerifiedPrincipalPolicy>;
 
 function referencedPrincipalPolicyKey(
   reference: ReferencedPrincipalHead,
@@ -963,7 +963,8 @@ export async function verifyContainerWriterProjection(input: {
 
   const verifiedByHash =
     input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
-  const principalPolicyCache = input.principalPolicyCache ?? new Map();
+  const principalPolicyCache =
+    input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const verifiedPath = await verifyContainerManifestPath({
     bundlesByHash,
     execSql: input.execSql,
@@ -1236,10 +1237,12 @@ async function verifyDocumentManifestBundle(input: {
 
 export async function verifyDocumentWriterProjection(input: {
   readonly execSql?: ExecSql | undefined;
+  readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
 }): Promise<VerifiedDocumentLinkSetManifest> {
-  const principalPolicyCache = new Map<string, VerifiedPrincipalPolicy>();
+  const principalPolicyCache =
+    input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const containerPathByManifestHash = await verifyProjectionContainerPaths({
     execSql: input.execSql,
     principalPolicyCache,

@@ -50,6 +50,7 @@ import {
 } from "../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import {
+  type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
   verifyContainerWriterProjection,
@@ -162,6 +163,7 @@ async function assertDocumentLinkSetMutationOrganizations(input: {
 async function verifyDocumentLinkSetTargetContainerProjection(
   input: {
     execSql?: ExecSql | undefined;
+    principalPolicyCache?: PrincipalPolicyCache | undefined;
     targetContainerProjection: ContainerWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<void> {
@@ -176,6 +178,7 @@ async function verifyDocumentLinkSetTargetContainerProjection(
   try {
     await verifyContainerWriterProjection({
       execSql: input.execSql,
+      principalPolicyCache: input.principalPolicyCache,
       projection: input.targetContainerProjection,
       resolveUserKey: resolveProjectionUserKey,
     });
@@ -297,12 +300,15 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
   } & ProjectionVerificationOptions,
 ): Promise<MaterializedDocumentLinkSetMutationPlan> {
   const verificationOptions = projectionVerificationOptions(input);
+  const principalPolicyCache: PrincipalPolicyCache = new Map();
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
     execSql: input.execSql,
+    principalPolicyCache,
     ...verificationOptions,
   });
   await verifyDocumentLinkSetTargetContainerProjection({
     execSql: input.execSql,
+    principalPolicyCache,
     targetContainerProjection: input.targetContainerProjection,
     ...verificationOptions,
   });
