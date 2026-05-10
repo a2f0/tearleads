@@ -28,8 +28,9 @@ components/hooks -> providers/stores -> workflows -> persistence + sqlite + shar
   Providers, stores, and presentation code should consume the blob workflow
   facade instead of importing these stores directly.
 - Contact data internals under `contacts/` own low-level address-book record
-  contracts and document serialization helpers. Stores should consume the
-  contacts workflow facade for contact read-model types.
+  contracts and document serialization helpers. Providers, stores, and
+  presentation code should consume the contacts workflow facade for contact
+  read-model types.
 - Shared helpers and domain read-model contracts hold pure or mostly pure
   projection, crypto, event, request, response validation, and view-facing data
   shapes that workflows and stores can reuse without importing provider or UI
