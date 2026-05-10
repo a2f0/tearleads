@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  type AccessEvent,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
   type WriteHeader,
@@ -9,6 +10,7 @@ import type { DocumentAttachment } from "../../data/documents/documentContent";
 import { createMaterializedSyncFixture } from "../../data/documents/documentTestFixtures";
 import {
   type DocumentAttachmentHydrationRuntime,
+  decryptDocumentAttachmentBlob,
   hydrateDocumentAttachmentBlobs,
   hydrateDocumentAttachmentBlobsFromRuntime,
   uploadDocumentAttachment,
@@ -202,6 +204,31 @@ test("hydrateDocumentAttachmentBlobsFromRuntime uses runtime APIs", async () => 
   expect(Array.from(hydratedBlob?.bytes ?? [])).toEqual(
     Array.from(fixture.bytes),
   );
+});
+
+test("decryptDocumentAttachmentBlob rejects bad writer projection signatures", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  const tamperedProjection = structuredClone(fixture.writerProjection);
+  const signedEvent = tamperedProjection.documentManifest.event
+    .event as unknown as AccessEvent;
+  const signature = signedEvent.signature;
+  if (typeof signature !== "string" || signature.length === 0) {
+    throw new Error("Expected signed document event fixture");
+  }
+  signedEvent.signature = `${signature.slice(0, -1)}${
+    signature.endsWith("A") ? "B" : "A"
+  }`;
+
+  await expect(
+    decryptDocumentAttachmentBlob({
+      encryptedBytes: fixture.stagedBlob.encryptedBytes,
+      expectedBindingId: fixture.bindingId,
+      expectedBlobId: fixture.blobId,
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      targetSecretKey: fixture.secretKey,
+      writerProjection: tamperedProjection,
+    }),
+  ).rejects.toThrow("Document writer projection signature verification failed");
 });
 
 test("hydrateDocumentAttachmentBlobs reuses one writer projection for matched attachments", async () => {
