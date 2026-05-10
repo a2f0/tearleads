@@ -6,6 +6,7 @@ const appLayer = {
   persistence: "^packages/app/src/data/persistence/",
   sqlite: "^packages/app/src/data/sqlite/",
   blobStorage: "^packages/app/src/data/blobs/",
+  contactData: "^packages/app/src/data/contacts/",
   workflows: "^packages/app/src/workflows/",
   stores: "^packages/app/src/stores/",
   shellProviders: "^packages/app/src/providers/",
@@ -30,6 +31,7 @@ const appStorageInternals = [
   appLayer.persistence,
   appLayer.sqlite,
   appLayer.blobStorage,
+  appLayer.contactData,
 ];
 const testFilesPattern = "\\.test\\.[tj]sx?$";
 const appRootSqlProvider =
@@ -142,7 +144,7 @@ const appRules = [
     name: "app-storage-does-not-depend-on-upper-layers",
     severity: "error",
     comment:
-      "App persistence modules, SQLite internals, and blob storage internals are low-level stores and must not depend on React runtime, presentation, or workflow modules, including type-only contracts.",
+      "App persistence modules, SQLite internals, blob storage internals, and contact data internals are low-level stores/helpers and must not depend on React runtime, presentation, or workflow modules, including type-only contracts.",
     from: {
       path: appStorageInternals,
       pathNot: testFilesPattern,
@@ -195,7 +197,7 @@ const appRules = [
     name: "app-presentation-does-not-import-storage-directly",
     severity: "error",
     comment:
-      "Production app presentation should go through stores or providers instead of importing persistence stores, SQLite internals, or blob storage internals directly, including type-only contracts.",
+      "Production app presentation should go through stores or providers instead of importing persistence stores, SQLite internals, blob storage internals, or contact data internals directly, including type-only contracts.",
     from: {
       path: appPresentation,
       pathNot: testFilesPattern,
@@ -241,6 +243,19 @@ const appRules = [
     },
     to: {
       path: appLayer.blobStorage,
+    },
+  },
+  {
+    name: "app-react-runtime-does-not-import-contact-data-directly",
+    severity: "error",
+    comment:
+      "Production app providers, identity runtime, and stores should consume the contacts workflow facade instead of importing contact data internals directly.",
+    from: {
+      path: appReactRuntime,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appLayer.contactData,
     },
   },
 ] satisfies ForbiddenRules;

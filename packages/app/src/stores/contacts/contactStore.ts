@@ -1,5 +1,5 @@
-import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
 import {
+  type AddressBookEntry,
   type ContactDocumentState,
   type ContactProjectionUserKeyResolver,
   type ContactSyncLane,
