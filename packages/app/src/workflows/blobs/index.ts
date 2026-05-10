@@ -5,7 +5,6 @@ export {
   hydrateDocumentAttachmentBlobsFromRuntime,
 } from "./hydrate";
 export {
-  type BlobBytes,
   type BlobStore,
   createBlobStore,
   createMemoryBlobStore,

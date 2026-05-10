@@ -2,7 +2,7 @@ import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
 } from "@tearleads/crypto";
-import type { BlobBytes } from "../../data/blobs";
+import type { BlobBytes } from "../../data/blobContracts";
 import {
   blobContentMetadataHash,
   contentRecordAdditionalDataBytes,

@@ -5,7 +5,7 @@ import type {
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
-import type { BlobBytes } from "../../data/blobs";
+import type { BlobBytes } from "../../data/blobContracts";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

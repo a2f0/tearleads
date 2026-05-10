@@ -2,11 +2,11 @@ import type {
   ListDocumentAttachmentsResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
+import type { BlobBytes, BlobStore } from "../../data/blobContracts";
 import {
   type DocumentAttachmentHydrationRuntime,
   hydrateDocumentAttachmentBlobsFromRuntime,
 } from "../blobs/hydrate";
-import type { BlobBytes, BlobStore } from "../blobs/storage";
 import {
   type DocumentAttachmentUploadRuntime,
   uploadDocumentAttachmentFromRuntime,

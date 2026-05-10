@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
+import type { BlobStore } from "../../data/blobContracts";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
-import type { BlobStore } from "../../workflows/blobs";
 
 type AttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
 type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
