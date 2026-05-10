@@ -10,14 +10,19 @@ import {
   type DocumentLinkAccessEventBody,
   type DocumentUnlinkAccessEventBody,
   type KeyingCanonicalJson,
+  type PrincipalPolicyBundle,
+  type PrincipalPolicySignerPublicKey,
+  type ReferencedPrincipalHead,
   serializeKeyingCanonicalJson,
   toFingerprint,
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
   type VerifiedDocumentLinkSetManifest,
+  type VerifiedPrincipalPolicy,
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifyDocumentLinkSetManifest,
+  verifyPrincipalPolicyBundle,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
@@ -26,8 +31,11 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
   EncapsulationKeyResponse,
+  PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "./keyingCanonicalJson";
+import { loadPrincipalPolicyBundle } from "./persistence/principalPolicyPersistence";
+import type { ExecSql } from "./sqlite/sqlSchema";
 
 export interface ProjectionUserKey {
   readonly encapsulationPublicKey: Uint8Array;
@@ -135,6 +143,141 @@ export function createProjectionUserKeyResolver(
 
     return cached;
   };
+}
+
+export type PrincipalPolicyCache = Map<string, VerifiedPrincipalPolicy>;
+
+function referencedPrincipalPolicyKey(
+  reference: ReferencedPrincipalHead,
+): string {
+  return `${reference.principalType}:${reference.principalId}:${reference.version}:${reference.stateHash}`;
+}
+
+function principalPolicyReferenceLabel(
+  reference: ReferencedPrincipalHead,
+): string {
+  return `${reference.principalType}:${reference.principalId}@${reference.version}`;
+}
+
+function principalPolicyBundleStates(
+  bundle: PrincipalPolicyBundleResponse,
+): PrincipalPolicyBundleResponse["currentState"][] {
+  return [
+    ...bundle.previousStates.map((entry) => entry.state),
+    bundle.currentState,
+  ];
+}
+
+async function collectPrincipalPolicySignerPublicKeys(input: {
+  bundle: PrincipalPolicyBundleResponse;
+  label: string;
+  resolveUserKey: ProjectionUserKeyResolver;
+}): Promise<PrincipalPolicySignerPublicKey[]> {
+  const signerPublicKeysByKey = new Map<
+    string,
+    PrincipalPolicySignerPublicKey
+  >();
+
+  for (const state of principalPolicyBundleStates(input.bundle)) {
+    const cacheKey = `${state.signerUserId}:${state.signerUserKeyFingerprint}`;
+    if (signerPublicKeysByKey.has(cacheKey)) {
+      continue;
+    }
+
+    const signerKey = await input.resolveUserKey(state.signerUserId);
+    if (!signerKey) {
+      throw new Error(
+        `${input.label} signer key could not be resolved for ${state.signerUserId}`,
+      );
+    }
+
+    const signingKeyFingerprint = await toFingerprint(
+      signerKey.signingPublicKey,
+    );
+    if (signingKeyFingerprint !== state.signerUserKeyFingerprint) {
+      throw new Error(`${input.label} signer key fingerprint mismatch`);
+    }
+
+    signerPublicKeysByKey.set(cacheKey, {
+      userId: state.signerUserId,
+      signingKeyFingerprint,
+      signingPublicKey: signerKey.signingPublicKey,
+    });
+  }
+
+  return [...signerPublicKeysByKey.values()];
+}
+
+async function verifyReferencedPrincipalPolicy(input: {
+  execSql?: ExecSql | undefined;
+  principalPolicyCache: PrincipalPolicyCache;
+  reference: ReferencedPrincipalHead;
+  resolveUserKey: ProjectionUserKeyResolver;
+}): Promise<VerifiedPrincipalPolicy> {
+  const cacheKey = referencedPrincipalPolicyKey(input.reference);
+  const cachedPolicy = input.principalPolicyCache.get(cacheKey);
+  if (cachedPolicy) {
+    return cachedPolicy;
+  }
+
+  const referenceLabel = principalPolicyReferenceLabel(input.reference);
+  if (!input.execSql) {
+    throw new Error(
+      `Principal policy ${referenceLabel} requires a verified local cache`,
+    );
+  }
+
+  const bundle = await loadPrincipalPolicyBundle(
+    input.execSql,
+    input.reference.principalType,
+    input.reference.principalId,
+  );
+  if (!bundle) {
+    throw new Error(`Principal policy ${referenceLabel} is not cached`);
+  }
+
+  const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
+    bundle,
+    label: `Principal policy ${referenceLabel}`,
+    resolveUserKey: input.resolveUserKey,
+  });
+  const verified = await verifyPrincipalPolicyBundle({
+    bundle: bundle as PrincipalPolicyBundle,
+    expectedReference: input.reference,
+    localCheckpoint: null,
+    signerPublicKeys,
+  });
+  if (!verified.ok) {
+    throw new Error(
+      `Principal policy ${referenceLabel} verification failed: ${verified.error.message}`,
+    );
+  }
+
+  input.principalPolicyCache.set(cacheKey, verified.value);
+  return verified.value;
+}
+
+async function collectReferencedPrincipalPolicies(input: {
+  execSql?: ExecSql | undefined;
+  principalPolicyCache: PrincipalPolicyCache;
+  references: readonly ReferencedPrincipalHead[];
+  resolveUserKey: ProjectionUserKeyResolver;
+}): Promise<VerifiedPrincipalPolicy[]> {
+  const uniqueReferences = new Map<string, ReferencedPrincipalHead>();
+  for (const reference of input.references) {
+    uniqueReferences.set(referencedPrincipalPolicyKey(reference), reference);
+  }
+
+  return Promise.all(
+    [...uniqueReferences.values()].map((reference) =>
+      verifyReferencedPrincipalPolicy({
+        execSql: input.execSql,
+        principalPolicyCache: input.principalPolicyCache,
+        reference,
+        resolveUserKey: input.resolveUserKey,
+      }),
+    ),
+  );
 }
 
 function readRecordString(
@@ -528,8 +671,10 @@ async function verifyAccessEventBundle(input: {
 async function verifyContainerManifestBundle(input: {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
+  readonly execSql?: ExecSql | undefined;
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
+  readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
 }): Promise<VerifiedContainerAccessManifest> {
@@ -555,6 +700,19 @@ async function verifyContainerManifestBundle(input: {
           ...input,
           previousManifestHash: event.event.previousManifestHash,
         });
+  const referencedPrincipalHeads = [
+    ...input.parentPath.flatMap(
+      (parentManifest) => parentManifest.state.referencedPrincipalHeads,
+    ),
+    ...(previousManifest?.state.referencedPrincipalHeads ?? []),
+    ...manifest.referencedPrincipalHeads,
+  ];
+  const principalPolicies = await collectReferencedPrincipalPolicies({
+    execSql: input.execSql,
+    principalPolicyCache: input.principalPolicyCache,
+    references: referencedPrincipalHeads,
+    resolveUserKey: input.resolveUserKey,
+  });
 
   const verified = await verifyContainerAccessManifest({
     destinationParentContainerPath: input.parentPath,
@@ -562,7 +720,7 @@ async function verifyContainerManifestBundle(input: {
     expectedManifestHash: input.bundle.manifestHash,
     manifest,
     parentContainerPath: input.parentPath,
-    principalPolicies: [],
+    principalPolicies,
     ...(previousManifest
       ? {
           previousContainerPath: [...input.parentPath, previousManifest],
@@ -600,8 +758,10 @@ function assertContainerParentPathMatches(input: {
 
 async function verifyPreviousContainerManifest(input: {
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
+  readonly execSql?: ExecSql | undefined;
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
+  readonly principalPolicyCache: PrincipalPolicyCache;
   readonly previousManifestHash: string;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
@@ -616,8 +776,10 @@ async function verifyPreviousContainerManifest(input: {
   return verifyContainerManifestBundle({
     bundle: previousBundle,
     bundlesByHash: input.bundlesByHash,
+    execSql: input.execSql,
     label: `${input.label} previous manifest`,
     parentPath: input.parentPath,
+    principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash: input.verifiedByHash,
   });
@@ -656,27 +818,16 @@ async function collectContainerUserRecipientKeys(input: {
   return userRecipientKeys;
 }
 
-function hasManagedPrincipalGrants(
-  containerManifest: VerifiedContainerAccessManifest,
-): boolean {
-  return containerManifest.state.directGrants.some(
-    (grant) => grant.subjectType !== "user",
-  );
-}
-
 async function verifyContainerKekProjection(input: {
+  readonly execSql?: ExecSql | undefined;
   readonly kek: ContainerWriterProjectionResponse["containerKeks"][number];
   readonly label: string;
   readonly parentKekState: VerifiedContainerKekState | null;
+  readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedManifest: VerifiedContainerAccessManifest;
   readonly verifiedManifestHistory: readonly VerifiedContainerAccessManifest[];
 }): Promise<VerifiedContainerKekState> {
-  if (hasManagedPrincipalGrants(input.verifiedManifest)) {
-    throw new Error(
-      `${input.label} contains managed principal grants, which require principal policy verification`,
-    );
-  }
   if (input.verifiedManifest.state.parentContainerId && !input.parentKekState) {
     throw new Error(`${input.label} requires verified parent KEK state`);
   }
@@ -692,12 +843,23 @@ async function verifyContainerKekProjection(input: {
     containerManifest: input.verifiedManifest,
     resolveUserKey: input.resolveUserKey,
   });
+  const principalPolicies = await collectReferencedPrincipalPolicies({
+    execSql: input.execSql,
+    principalPolicyCache: input.principalPolicyCache,
+    references: [
+      ...input.verifiedManifestHistory.flatMap(
+        (manifest) => manifest.state.referencedPrincipalHeads,
+      ),
+      ...input.verifiedManifest.state.referencedPrincipalHeads,
+    ],
+    resolveUserKey: input.resolveUserKey,
+  });
   const verified = await verifyContainerKekState({
     containerManifest: input.verifiedManifest,
     containerManifestHistory: input.verifiedManifestHistory,
     keyEpoch,
     parentKekState: input.parentKekState,
-    principalPolicies: [],
+    principalPolicies,
     userRecipientKeys,
     wraps,
   });
@@ -738,8 +900,10 @@ async function verifyContainerKekProjection(input: {
 
 async function verifyContainerManifestPath(input: {
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
+  readonly execSql?: ExecSql | undefined;
   readonly label: string;
   readonly path: readonly AccessManifestBundleWireResponse[];
+  readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
 }): Promise<VerifiedContainerAccessManifest[]> {
@@ -749,8 +913,10 @@ async function verifyContainerManifestPath(input: {
       await verifyContainerManifestBundle({
         bundle,
         bundlesByHash: input.bundlesByHash,
+        execSql: input.execSql,
         label: `${input.label}[${index}]`,
         parentPath: verifiedPath,
+        principalPolicyCache: input.principalPolicyCache,
         resolveUserKey: input.resolveUserKey,
         verifiedByHash: input.verifiedByHash,
       }),
@@ -761,6 +927,8 @@ async function verifyContainerManifestPath(input: {
 }
 
 export async function verifyContainerWriterProjection(input: {
+  readonly execSql?: ExecSql | undefined;
+  readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash?:
@@ -795,10 +963,14 @@ export async function verifyContainerWriterProjection(input: {
 
   const verifiedByHash =
     input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
+  const principalPolicyCache =
+    input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const verifiedPath = await verifyContainerManifestPath({
     bundlesByHash,
+    execSql: input.execSql,
     label: "Container writer projection path",
     path: input.projection.path,
+    principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash,
   });
@@ -817,8 +989,10 @@ export async function verifyContainerWriterProjection(input: {
         await verifyContainerManifestBundle({
           bundle,
           bundlesByHash,
+          execSql: input.execSql,
           label: `Container writer projection KEK[${index}] history[${historyIndex}]`,
           parentPath: verifiedPath.slice(0, index),
+          principalPolicyCache,
           resolveUserKey: input.resolveUserKey,
           verifiedByHash,
         }),
@@ -826,9 +1000,11 @@ export async function verifyContainerWriterProjection(input: {
     }
 
     const verifiedKekState = await verifyContainerKekProjection({
+      execSql: input.execSql,
       kek,
       label: `Container writer projection KEK[${index}]`,
       parentKekState: index > 0 ? (verifiedKekStates[index - 1] ?? null) : null,
+      principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
       verifiedManifest,
       verifiedManifestHistory,
@@ -870,6 +1046,8 @@ function readDocumentProjectionContainerPaths(
 }
 
 async function verifyProjectionContainerPaths(input: {
+  readonly execSql?: ExecSql | undefined;
+  readonly principalPolicyCache: PrincipalPolicyCache;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
 }): Promise<Map<string, VerifiedContainerAccessManifest[]>> {
@@ -912,6 +1090,8 @@ async function verifyProjectionContainerPaths(input: {
   const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   for (const projection of input.projection.authorizingContainerPaths) {
     const path = await verifyContainerWriterProjection({
+      execSql: input.execSql,
+      principalPolicyCache: input.principalPolicyCache,
       projection,
       resolveUserKey: input.resolveUserKey,
       verifiedByHash,
@@ -929,8 +1109,10 @@ async function verifyProjectionContainerPaths(input: {
   ).entries()) {
     const verifiedPath = await verifyContainerManifestPath({
       bundlesByHash,
+      execSql: input.execSql,
       label: `Document writer projection dependency path[${index}]`,
       path,
+      principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
       verifiedByHash,
     });
@@ -963,6 +1145,24 @@ function previousDocumentManifestFromCache(input: {
   return previousManifest;
 }
 
+async function collectPrincipalPoliciesForContainerPaths(input: {
+  execSql?: ExecSql | undefined;
+  paths: readonly (readonly VerifiedContainerAccessManifest[] | undefined)[];
+  principalPolicyCache: PrincipalPolicyCache;
+  resolveUserKey: ProjectionUserKeyResolver;
+}): Promise<VerifiedPrincipalPolicy[]> {
+  const referencedPrincipalHeads = input.paths.flatMap((path) =>
+    (path ?? []).flatMap((manifest) => manifest.state.referencedPrincipalHeads),
+  );
+
+  return collectReferencedPrincipalPolicies({
+    execSql: input.execSql,
+    principalPolicyCache: input.principalPolicyCache,
+    references: referencedPrincipalHeads,
+    resolveUserKey: input.resolveUserKey,
+  });
+}
+
 async function verifyDocumentManifestBundle(input: {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
@@ -970,7 +1170,9 @@ async function verifyDocumentManifestBundle(input: {
     string,
     readonly VerifiedContainerAccessManifest[]
   >;
+  readonly execSql?: ExecSql | undefined;
   readonly label: string;
+  readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
 }): Promise<VerifiedDocumentLinkSetManifest> {
@@ -1004,13 +1206,19 @@ async function verifyDocumentManifestBundle(input: {
   const targetContainerPath = input.containerPathByManifestHash.get(
     body.containerManifestHash,
   );
+  const principalPolicies = await collectPrincipalPoliciesForContainerPaths({
+    execSql: input.execSql,
+    paths: [...dependencyContainerPaths, targetContainerPath],
+    principalPolicyCache: input.principalPolicyCache,
+    resolveUserKey: input.resolveUserKey,
+  });
   const verified = await verifyDocumentLinkSetManifest({
     authorizingContainerPaths: dependencyContainerPaths,
     event,
     expectedManifestHash: input.bundle.manifestHash,
     manifest,
     previousManifest,
-    principalPolicies: [],
+    principalPolicies,
     ...(targetContainerPath ? { targetContainerPath } : {}),
   });
   if (!verified.ok) {
@@ -1028,11 +1236,19 @@ async function verifyDocumentManifestBundle(input: {
 }
 
 export async function verifyDocumentWriterProjection(input: {
+  readonly execSql?: ExecSql | undefined;
+  readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
 }): Promise<VerifiedDocumentLinkSetManifest> {
-  const containerPathByManifestHash =
-    await verifyProjectionContainerPaths(input);
+  const principalPolicyCache =
+    input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
+  const containerPathByManifestHash = await verifyProjectionContainerPaths({
+    execSql: input.execSql,
+    principalPolicyCache,
+    projection: input.projection,
+    resolveUserKey: input.resolveUserKey,
+  });
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   addBundleByHash(
     bundlesByHash,
@@ -1060,7 +1276,9 @@ export async function verifyDocumentWriterProjection(input: {
       bundle,
       bundlesByHash,
       containerPathByManifestHash,
+      execSql: input.execSql,
       label: `Document writer projection manifest history[${index}]`,
+      principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
       verifiedByHash,
     });
@@ -1070,7 +1288,9 @@ export async function verifyDocumentWriterProjection(input: {
     bundle: input.projection.documentManifest,
     bundlesByHash,
     containerPathByManifestHash,
+    execSql: input.execSql,
     label: "Document writer projection",
+    principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash,
   });

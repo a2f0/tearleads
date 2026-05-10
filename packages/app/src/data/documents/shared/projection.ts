@@ -22,6 +22,7 @@ import {
   readCanonicalRecords,
 } from "../../keyingCanonicalJson";
 import {
+  type PrincipalPolicyCache,
   verifyContainerWriterProjection,
   verifyDocumentWriterProjection,
 } from "../../keyingProjectionVerification";
@@ -106,7 +107,10 @@ function assertAuthorizingContainerPathsMatchDocumentTargets(input: {
 
 export async function assertDocumentWriterProjectionConsistent(
   writerProjection: DocumentWriterProjectionResponse,
-  input: ProjectionVerificationOptions,
+  input: ProjectionVerificationOptions & {
+    execSql?: ExecSql | undefined;
+    principalPolicyCache?: PrincipalPolicyCache | undefined;
+  },
 ): Promise<DocumentContentKeyTarget[]> {
   const resolveProjectionUserKey = resolveProjectionVerifier(
     input,
@@ -114,6 +118,8 @@ export async function assertDocumentWriterProjectionConsistent(
   );
   if (resolveProjectionUserKey) {
     await verifyDocumentWriterProjection({
+      execSql: input.execSql,
+      principalPolicyCache: input.principalPolicyCache,
       projection: writerProjection,
       resolveUserKey: resolveProjectionUserKey,
     });
@@ -319,6 +325,7 @@ export async function unwrapContainerKekPath(
   );
   if (resolveProjectionUserKey) {
     await verifyContainerWriterProjection({
+      execSql: input.execSql,
       projection: input.projection,
       resolveUserKey: resolveProjectionUserKey,
     });

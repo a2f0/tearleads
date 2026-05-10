@@ -73,6 +73,7 @@ async function buildBlobAttachmentMaterial(
   }
 
   await assertDocumentWriterProjectionConsistent(writerProjection, {
+    execSql: input.execSql,
     ...projectionVerificationOptions(input),
   });
   const manifestIdentity = readDocumentManifestIdentity(writerProjection);
