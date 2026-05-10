@@ -27,6 +27,10 @@ components/hooks -> providers/stores -> workflows -> persistence + sqlite + shar
 - Blob storage internals under `blobs/` own the OPFS/memory byte stores.
   Providers, stores, and presentation code should consume the blob workflow
   facade instead of importing these stores directly.
+- Contact data internals under `contacts/` own low-level address-book record
+  contracts and document serialization helpers. Providers, stores, and
+  presentation code should consume the contacts workflow facade for contact
+  read-model types.
 - Shared helpers and domain read-model contracts hold pure or mostly pure
   projection, crypto, event, request, response validation, and view-facing data
   shapes that workflows and stores can reuse without importing provider or UI
@@ -45,8 +49,9 @@ cleanup should be incremental and behavior-preserving.
 
 ## Rules
 
-- `data/persistence/`, `data/sqlite/`, and `data/blobs/` modules must not
-  import UI, providers, hooks, or workflows, including for type-only contracts.
+- `data/persistence/`, `data/sqlite/`, `data/blobs/`, and `data/contacts/`
+  modules must not import UI, providers, hooks, or workflows, including for
+  type-only contracts.
 - `workflows/` modules must not import UI, hooks, or providers, including for
   type-only contracts.
 - Production `data/` and `workflows/` files must not import React; React hooks
@@ -59,9 +64,10 @@ cleanup should be incremental and behavior-preserving.
   providers.
 - Production stores, providers, and identity runtime should consume domain
   workflow facades rather than importing `data/persistence/`, `data/sqlite/`,
-  or `data/blobs/` directly. The root `providers/data/AppDataProvider.tsx` is
-  the executor construction boundary. Tests may still use low-level persistence
-  stores for fixtures and characterization checks.
+  `data/blobs/`, or `data/contacts/` directly. The root
+  `providers/data/AppDataProvider.tsx` is the executor construction boundary.
+  Tests may still use low-level persistence stores for fixtures and
+  characterization checks.
 - Production presentation files should not accept, pass, or import raw `ExecSql`
   values. Bind the executor inside stores/providers and expose domain-shaped
   actions or read models instead.

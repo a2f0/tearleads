@@ -1,6 +1,8 @@
-import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
-import type { ContactLocalStateRuntime } from "../../workflows/contacts";
+import type {
+  AddressBookEntry,
+  ContactLocalStateRuntime,
+} from "../../workflows/contacts";
 
 type ContactsAppData = AppDataContextValue;
 

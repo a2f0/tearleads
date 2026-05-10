@@ -1,3 +1,4 @@
+export type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
 export { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "./constants";
 export {
   fetchContactKeyEntryFromRuntime,
