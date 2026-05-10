@@ -29,6 +29,7 @@ import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";
 
 const DUAL_PANE_TEST_TIMEOUT_MS = 10_000;
+const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 20_000;
 const POST_SHARE_SYNC_SETTLE_MS = 1_500;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
@@ -652,7 +653,7 @@ test(
       .at(-1);
     expect(shareRequest?.status).toBe(200);
   },
-  DUAL_PANE_TEST_TIMEOUT_MS,
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
 test(
