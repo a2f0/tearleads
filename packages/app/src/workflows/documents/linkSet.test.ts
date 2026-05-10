@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  type AccessEvent,
   computeDocumentContentKeyTargetHash,
   generateKemSeedAndKeyPair,
 } from "@tearleads/crypto";
@@ -448,4 +449,111 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
       linked.response,
     ),
   ).toEqual(linked.persistedState);
+});
+
+test("relinkRemoteDocument rejects bad unlink target container signatures before sending", async () => {
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "remote-unlink-root-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const siblingProjection = await createContainerWriterProjectionFixture({
+    containerId: "remote-unlink-sibling-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    parentProjection: projection,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const resolveProjectionUserKey = async (userId: string) =>
+    userId === author.signerUserId
+      ? {
+          encapsulationPublicKey: keyPair.publicKey,
+          signingPublicKey,
+          userId,
+        }
+      : null;
+  const created = await buildMaterializedDocumentCreatePlan({
+    author,
+    containerProjection: projection,
+    documentId: "document-remote-unlink",
+    resolveProjectionUserKey,
+    targetSecretKey: keyPair.secretKey,
+  });
+  const createdResponse = createResponse(created.plan);
+  const initialWriterProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [projection],
+    contentKeyBundle: createdResponse.contentKeyBundle,
+    documentId: createdResponse.id,
+    documentKekTargets: createdResponse.documentKekTargets,
+    documentManifest: createdResponse.accessManifest,
+  };
+  const linked = await buildMaterializedDocumentLinkSetMutationPlan({
+    author,
+    operation: "link",
+    resolveProjectionUserKey,
+    targetContainerProjection: siblingProjection,
+    targetSecretKey: keyPair.secretKey,
+    writerProjection: initialWriterProjection,
+  });
+  const linkResponse = await createLinkSetResponseFromRequest(
+    initialWriterProjection.documentId,
+    linked.plan.request,
+  );
+  const linkedWriterProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [projection, siblingProjection],
+    contentKeyBundle: linkResponse.contentKeyBundle,
+    documentId: linkResponse.id,
+    documentKekTargets: linkResponse.documentKekTargets,
+    documentManifest: linkResponse.accessManifest,
+    documentManifestHistory: [initialWriterProjection.documentManifest],
+  };
+  const tamperedTargetProjection = structuredClone(projection);
+  const signedEvent = tamperedTargetProjection.path[0]?.event
+    .event as unknown as AccessEvent;
+  const signature = signedEvent.signature;
+  if (typeof signature !== "string" || signature.length === 0) {
+    throw new Error("Expected signed target container event fixture");
+  }
+  signedEvent.signature = `${signature.slice(0, -1)}${
+    signature.endsWith("A") ? "B" : "A"
+  }`;
+  let unlinkCalled = false;
+
+  await expect(
+    relinkRemoteDocument({
+      apiClient: {
+        getContainerWriterProjection: async (containerId) =>
+          containerId === projection.containerId
+            ? tamperedTargetProjection
+            : null,
+        getDocumentWriterProjection: async (documentId) =>
+          documentId === linkedWriterProjection.documentId
+            ? linkedWriterProjection
+            : null,
+        linkDocument: async () => {
+          throw new Error("Unexpected link call");
+        },
+        unlinkDocument: async () => {
+          unlinkCalled = true;
+          throw new Error("Unexpected unlink call");
+        },
+      },
+      author,
+      documentId: linkedWriterProjection.documentId,
+      operation: "unlink",
+      resolveProjectionUserKey,
+      targetContainerId: projection.containerId,
+      targetSecretKey: keyPair.secretKey,
+    }),
+  ).rejects.toThrow(
+    "Document link-set target container projection verification failed",
+  );
+  expect(unlinkCalled).toBe(false);
 });
