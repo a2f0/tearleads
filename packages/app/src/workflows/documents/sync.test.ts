@@ -506,6 +506,31 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
         }
       : null;
 
+  await expect(
+    buildMaterializedDocumentSyncPlan({
+      author,
+      localVersionVector: null,
+      pendingUpdates: [createPendingUpdateRecord()],
+      resolveProjectionUserKey,
+      targetSecretKey: encapsulationKeyPair.secretKey,
+      writerProjection: {
+        documentId: linkResponse.id,
+        documentManifest: linkResponse.accessManifest,
+        documentManifestContainerPaths: [
+          rootProjection.path,
+          childProjection.path,
+        ],
+        documentContainerManifestHistory: [
+          ...rootProjection.path,
+          ...childProjection.path,
+        ],
+        documentKekTargets: linkResponse.documentKekTargets,
+        contentKeyBundle: linkResponse.contentKeyBundle,
+        authorizingContainerPaths: [rootProjection, childProjection],
+      },
+    }),
+  ).rejects.toThrow("Document writer projection previous manifest");
+
   const syncPlan = await buildMaterializedDocumentSyncPlan({
     author,
     localVersionVector: null,
