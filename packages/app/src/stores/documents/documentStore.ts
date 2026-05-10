@@ -18,37 +18,20 @@ import {
 } from "../../data/documents/documentContent";
 import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
 import {
-  hydrateDocumentAttachmentBlobsFromRuntime,
-  uploadDocumentAttachmentFromRuntime,
-} from "../../workflows/blobs";
-import {
-  createDocumentProjectionUserKeyResolver,
-  createRemoteDocumentFromRuntime,
   DOCUMENTS_APP_KIND,
   type DocumentProjectionUserKeyResolver,
   type DocumentRecord,
   type DocumentSyncLane,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
-  deletePendingDocumentAttachmentFromRuntime,
   deriveDocumentKind,
   deriveDocumentTitle,
-  didDocumentProjectionKeyRuntimeChange,
-  didRegainDocumentSyncPrerequisites,
-  enqueuePendingDocumentUpdateFromRuntime,
   hasDocumentUpdateEvent,
   isDestroyedDocumentSyncRuntimeError,
   type LocalAttachmentRecord,
-  listPendingDocumentUpdatesFromRuntime,
-  loadPersistedDocumentStoreStateFromRuntime,
   type PendingAttachmentRecord,
   type PendingUpdateRecord,
-  persistDocumentStateFromRuntime,
   registerDocumentSyncLane,
-  resolveDocumentCreateAuthor,
-  saveLocalDocumentAttachmentsFromRuntime,
-  savePendingDocumentAttachmentFromRuntime,
-  syncRemoteDocumentFromRuntime,
 } from "../../workflows/documents";
 import {
   createDocumentStoreFacade,
@@ -79,7 +62,7 @@ type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["encapsulationKeyPair"]
 >;
 type DocumentAttachmentBinding = NonNullable<
-  Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
+  Awaited<ReturnType<DocumentsRuntime["listDocumentAttachments"]>>
 >[number];
 type PendingMutationSyncResult = {
   completed: boolean;
@@ -93,7 +76,7 @@ interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
 }
 type DocumentSyncAttempt = NonNullable<
-  Awaited<ReturnType<typeof syncRemoteDocumentFromRuntime>>
+  Awaited<ReturnType<DocumentsRuntime["syncRemoteDocument"]>>
 >;
 
 function sameAttachmentStorageKeys(
@@ -162,8 +145,7 @@ function createDocumentStoreState(
     pendingAttachments: [],
     persistence,
     record: null,
-    resolveProjectionUserKey:
-      createDocumentProjectionUserKeyResolver(initialRuntime),
+    resolveProjectionUserKey: initialRuntime.createProjectionUserKeyResolver(),
     runtime: initialRuntime,
     snapshot: {
       attachments: [],
@@ -315,7 +297,7 @@ async function saveDocumentRecord(
   options: SaveDocumentRecordOptions = {},
 ): Promise<PersistedDocumentRecord> {
   const previousDocumentId = state.record?.documentId ?? null;
-  const persistedDocumentState = await persistDocumentStateFromRuntime({
+  const persistedDocumentState = await state.runtime.persistState({
     acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
     containerId: state.runtime.containerId,
     currentDoc,
@@ -323,7 +305,6 @@ async function saveDocumentRecord(
     localId: state.localId,
     patch,
     persistence: state.persistence,
-    runtime: state.runtime,
   });
   const { record: nextRecord, updatedAt } = persistedDocumentState;
   state.record = persistedDocumentState.record;
@@ -381,11 +362,10 @@ async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  const created = await createRemoteDocumentFromRuntime({
+  const created = await state.runtime.createRemoteDocument({
     missingContainerLogMessage:
       "Documents: cannot create a remote document without a container.",
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
     unavailableWriterLogMessage:
       "Documents: skipped remote create because the writer context is unavailable.",
@@ -406,10 +386,9 @@ async function ensureRemoteDocument(
 async function listPendingUpdates(
   state: DocumentStoreState,
 ): Promise<PendingUpdateRecord[]> {
-  return listPendingDocumentUpdatesFromRuntime({
+  return state.runtime.listPendingUpdates({
     localId: state.localId,
     persistence: state.persistence,
-    runtime: state.runtime,
   });
 }
 
@@ -418,10 +397,9 @@ async function enqueuePendingUpdate(
   update: Uint8Array,
   sourceVersionVector?: string | null,
 ) {
-  await enqueuePendingDocumentUpdateFromRuntime({
+  await state.runtime.enqueuePendingUpdate({
     localId: state.localId,
     persistence: state.persistence,
-    runtime: state.runtime,
     ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
     update,
   });
@@ -432,10 +410,9 @@ async function deletePendingAttachment(
   slotId: string,
   storageKey: string,
 ) {
-  await deletePendingDocumentAttachmentFromRuntime({
+  await state.runtime.deletePendingAttachment({
     localId: state.localId,
     persistence: state.persistence,
-    runtime: state.runtime,
     slotId,
     storageKey,
   });
@@ -458,10 +435,9 @@ async function saveLocalAttachmentRecords(
     return;
   }
 
-  await saveLocalDocumentAttachmentsFromRuntime({
+  await state.runtime.saveLocalAttachments({
     attachments,
     persistence: state.persistence,
-    runtime: state.runtime,
   });
 
   state.attachmentStorageKeyBySlotId = {
@@ -516,11 +492,10 @@ async function hydrateAttachmentBlobs(
     return;
   }
 
-  const hydratedBlobs = await hydrateDocumentAttachmentBlobsFromRuntime({
+  const hydratedBlobs = await state.runtime.hydrateAttachmentBlobs({
     attachments: attachmentsMissingLocalBytes,
     documentId: currentRecord.documentId,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
   if (!hydratedBlobs) {
@@ -529,7 +504,7 @@ async function hydrateAttachmentBlobs(
 
   const localAttachmentRecords: LocalAttachmentRecord[] = [];
   for (const hydratedBlob of hydratedBlobs) {
-    await state.runtime.blobStore.writeBytes(
+    await state.runtime.writeBlobBytes(
       hydratedBlob.storageKey,
       hydratedBlob.bytes,
     );
@@ -574,10 +549,9 @@ async function queuePendingAttachmentUpload(
     slotId: attachment.slotId,
     storageKey,
   };
-  await savePendingDocumentAttachmentFromRuntime({
+  await state.runtime.savePendingAttachment({
     attachment: pendingAttachment,
     persistence: state.persistence,
-    runtime: state.runtime,
   });
   upsertPendingAttachments(state, [pendingAttachment]);
   return pendingAttachment;
@@ -592,10 +566,9 @@ async function initializeDocumentStore(
   }
 
   const nextDoc = await createStoredDocument();
-  const persistedState = await loadPersistedDocumentStoreStateFromRuntime({
+  const persistedState = await state.runtime.loadPersistedStoreState({
     localId: state.localId,
     persistence: state.persistence,
-    runtime: state.runtime,
   });
   state.pendingAttachments = persistedState.pendingAttachments;
   state.attachmentStorageKeyBySlotId = Object.fromEntries(
@@ -775,7 +748,7 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.online &&
     state.runtime.isAuthenticated &&
     state.runtime.encapsulationKeyPair !== null &&
-    resolveDocumentCreateAuthor(state.runtime) !== null
+    state.runtime.resolveCreateAuthor() !== null
   );
 }
 
@@ -805,7 +778,7 @@ async function syncPendingAttachments(
   const remoteDocumentId = currentRecord.documentId;
 
   const remoteBindings =
-    await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
+    await state.runtime.listDocumentAttachments(remoteDocumentId);
   if (!remoteBindings) {
     return { completed: false, nextRecord: currentRecord };
   }
@@ -890,9 +863,7 @@ async function syncPendingAttachmentUpload(input: {
   state: DocumentStoreState;
 }): Promise<boolean> {
   const { pendingAttachment, state } = input;
-  const bytes = await state.runtime.blobStore.readBytes(
-    pendingAttachment.storageKey,
-  );
+  const bytes = await state.runtime.readBlobBytes(pendingAttachment.storageKey);
   if (!bytes) {
     state.runtime.log(
       `Documents: pending attachment ${pendingAttachment.slotId} is missing local bytes.`,
@@ -900,14 +871,13 @@ async function syncPendingAttachmentUpload(input: {
     return false;
   }
 
-  const uploaded = await uploadDocumentAttachmentFromRuntime({
+  const uploaded = await state.runtime.uploadAttachment({
     bytes,
     documentId: input.remoteDocumentId,
     expectedBindingId:
       input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
       null,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
     unavailableWriterLogMessage:
@@ -958,13 +928,12 @@ async function requestRemoteDocumentSync(input: {
     unavailableWriterLogMessage,
   } = input;
 
-  return syncRemoteDocumentFromRuntime({
+  return state.runtime.syncRemoteDocument({
     documentId: currentRecord.documentId,
     lastCommitLsn: currentRecord.lastCommitLsn,
     localVersionVector: encodeVersionVector(currentDoc),
     pendingUpdates,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
     unavailableWriterLogMessage,
   });
@@ -1226,7 +1195,7 @@ async function persistPendingAttachments(
       continue;
     }
 
-    await state.runtime.blobStore.writeBytes(
+    await state.runtime.writeBlobBytes(
       pendingAttachment.storageKey,
       sourceFile.bytes,
     );
@@ -1238,10 +1207,9 @@ async function persistPendingAttachments(
       slotId: pendingAttachment.slotId,
       storageKey: pendingAttachment.storageKey,
     });
-    await savePendingDocumentAttachmentFromRuntime({
+    await state.runtime.savePendingAttachment({
       attachment: pendingAttachment,
       persistence: state.persistence,
-      runtime: state.runtime,
     });
   }
 }
@@ -1314,7 +1282,7 @@ async function persistSlotAttachmentFile(
   }
 
   const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
-  await state.runtime.blobStore.writeBytes(storageKey, file.bytes);
+  await state.runtime.writeBlobBytes(storageKey, file.bytes);
   await saveLocalAttachmentRecord(state, {
     blobId: null,
     byteLength: replacementAttachment.byteLength,
@@ -1446,9 +1414,9 @@ function updateDocumentStoreRuntime(
   const previousRuntime = state.runtime;
   const domainScopeChanged =
     previousRuntime.domainScope !== nextRuntime.domainScope;
-  if (didDocumentProjectionKeyRuntimeChange(previousRuntime, nextRuntime)) {
+  if (nextRuntime.didProjectionKeyRuntimeChange(previousRuntime)) {
     state.resolveProjectionUserKey =
-      createDocumentProjectionUserKeyResolver(nextRuntime);
+      nextRuntime.createProjectionUserKeyResolver();
   }
   state.runtime = nextRuntime;
   if (domainScopeChanged) {
@@ -1469,7 +1437,7 @@ function updateDocumentStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    didRegainDocumentSyncPrerequisites(previousRuntime, state.runtime)
+    state.runtime.didRegainSyncPrerequisites(previousRuntime)
   ) {
     scheduleSync();
   }

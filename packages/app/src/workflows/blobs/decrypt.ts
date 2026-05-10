@@ -16,9 +16,9 @@ import {
 } from "../../data/documents/blob/shared/readers";
 import { assertBlobContentKeyBundleTargetHash } from "../../data/documents/blob/shared/responses";
 import type { DecryptDocumentAttachmentBlobInput } from "../../data/documents/blob/shared/types";
+import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { asWebCryptoBytes } from "../../data/documents/shared/readers";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import { assertDocumentWriterProjectionConsistent } from "../documents";
 
 export async function decryptDocumentAttachmentBlob({
   encryptedBytes,

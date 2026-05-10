@@ -1,10 +1,7 @@
-import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import type {
   AddressBookEntry,
-  ContactLocalStateRuntime,
+  ContactsWorkflowRuntime,
 } from "../../workflows/contacts";
-
-type ContactsAppData = AppDataContextValue;
 
 export interface ContactsContextValue {
   entries: ReadonlyArray<AddressBookEntry>;
@@ -18,22 +15,7 @@ export interface ContactsSnapshot {
   ready: boolean;
 }
 
-export interface ContactsRuntime extends ContactLocalStateRuntime {
-  apiClient: ContactsAppData["apiClient"];
-  containerId: ContactsAppData["containerId"];
-  dbStatus: ContactsAppData["dbStatus"];
-  domainScope: ContactsAppData["domainScope"];
-  encapsulationKeyPair: ContactsAppData["encapsulationKeyPair"];
-  events: ContactsAppData["events"];
-  isAuthenticated: ContactsAppData["isAuthenticated"];
-  log: ContactsAppData["log"];
-  logError: ContactsAppData["logError"];
-  online: ContactsAppData["online"];
-  organizationId?: ContactsAppData["organizationId"];
-  signingFingerprint?: ContactsAppData["signingFingerprint"];
-  signingKeyPair?: ContactsAppData["signingKeyPair"];
-  userId?: ContactsAppData["userId"];
-}
+export type ContactsRuntime = ContactsWorkflowRuntime;
 
 export interface ContactsStore {
   getSnapshot: () => ContactsSnapshot;

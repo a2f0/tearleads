@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
+import { createDocumentsWorkflowRuntime } from "../../workflows/documents";
 import {
   createExplorerDocumentProjectionUserKeyResolver,
   type ExplorerProjectionUserKeyResolver,
@@ -61,7 +62,7 @@ export function createExplorerDocumentsRuntime(
     userId,
   } = appData;
 
-  return {
+  return createDocumentsWorkflowRuntime({
     apiClient,
     blobStore,
     cacheReferencedPrincipalPolicies,
@@ -78,7 +79,7 @@ export function createExplorerDocumentsRuntime(
     signingFingerprint,
     signingKeyPair,
     userId,
-  };
+  });
 }
 
 export function useExplorerDocumentsRuntimeAppData(

@@ -1,12 +1,31 @@
 import { type BlobStore, createMemoryBlobStore } from "../../src/data/blobs";
-import type { DocumentsRuntime } from "../../src/stores/documents/DocumentsProvider";
+import type { createDocumentsWorkflowRuntime } from "../../src/workflows/documents";
 import { createTestExecSql } from "./createTestExecSql";
 
+type DocumentsWorkflowRuntimeInput = Parameters<
+  typeof createDocumentsWorkflowRuntime
+>[0];
 type SharedSqlRuntimeBase = Omit<
-  DocumentsRuntime,
-  "apiClient" | "blobStore" | "containerId"
+  DocumentsWorkflowRuntimeInput,
+  | "apiClient"
+  | "blobStore"
+  | "containerId"
+  | "dbStatus"
+  | "encapsulationKeyPair"
+  | "events"
+  | "organizationId"
+  | "signingFingerprint"
+  | "signingKeyPair"
+  | "userId"
 > & {
   blobStore: BlobStore;
+  dbStatus: "ready";
+  encapsulationKeyPair: null;
+  events: [];
+  organizationId: null;
+  signingFingerprint: null;
+  signingKeyPair: null;
+  userId: null;
 };
 
 export async function createSqlRuntimeBase(
@@ -26,5 +45,9 @@ export async function createSqlRuntimeBase(
     isAuthenticated: false,
     log: () => {},
     online: false,
+    organizationId: null,
+    signingFingerprint: null,
+    signingKeyPair: null,
+    userId: null,
   };
 }

@@ -1,32 +1,15 @@
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
-import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
-import type { BlobBytes, BlobStore } from "../../workflows/blobs";
-import type { RelinkPersistedDocumentInput } from "../../workflows/documents";
-
-type DocumentAppData = AppDataContextValue;
+import type { BlobBytes } from "../../workflows/blobs";
+import type {
+  DocumentsWorkflowRuntime,
+  RelinkPersistedDocumentInput,
+} from "../../workflows/documents";
 
 const DEFAULT_LOCAL_DOCUMENT_ID = "default";
 export const DEFAULT_DOCUMENT_ID = DEFAULT_LOCAL_DOCUMENT_ID;
 
-export interface DocumentsRuntime {
-  apiClient: DocumentAppData["apiClient"];
-  blobStore: BlobStore;
-  cacheReferencedPrincipalPolicies: DocumentAppData["cacheReferencedPrincipalPolicies"];
-  containerId: DocumentAppData["containerId"];
-  dbStatus: DocumentAppData["dbStatus"];
-  domainScope: DocumentAppData["domainScope"];
-  encapsulationKeyPair: DocumentAppData["encapsulationKeyPair"];
-  events: DocumentAppData["events"];
-  execSql: DocumentAppData["execSql"];
-  isAuthenticated: DocumentAppData["isAuthenticated"];
-  log: DocumentAppData["log"];
-  online: DocumentAppData["online"];
-  organizationId?: DocumentAppData["organizationId"];
-  signingFingerprint?: DocumentAppData["signingFingerprint"];
-  signingKeyPair?: DocumentAppData["signingKeyPair"];
-  userId?: DocumentAppData["userId"];
-}
+export type DocumentsRuntime = DocumentsWorkflowRuntime;
 
 export interface DocumentAttachmentUpload {
   bytes: BlobBytes;

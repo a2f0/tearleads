@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import { createDocumentsWorkflowRuntime } from "../../workflows/documents";
 import { getOrCreateDocumentStore } from "./documentStore";
 import {
   DEFAULT_DOCUMENT_ID,
@@ -46,26 +47,12 @@ export function DocumentsProvider({
 }: DocumentsProviderProps) {
   const appData = useAppData();
   const runtime = useMemo<DocumentsRuntime>(
-    () => ({
-      apiClient: appData.apiClient,
-      blobStore: appData.blobStore,
-      cacheReferencedPrincipalPolicies:
-        appData.cacheReferencedPrincipalPolicies,
-      containerId:
-        containerId === undefined ? appData.containerId : containerId,
-      dbStatus: appData.dbStatus,
-      domainScope: appData.domainScope,
-      encapsulationKeyPair: appData.encapsulationKeyPair,
-      events: appData.events,
-      execSql: appData.execSql,
-      isAuthenticated: appData.isAuthenticated,
-      log: appData.log,
-      online: appData.online,
-      organizationId: appData.organizationId,
-      signingFingerprint: appData.signingFingerprint,
-      signingKeyPair: appData.signingKeyPair,
-      userId: appData.userId,
-    }),
+    () =>
+      createDocumentsWorkflowRuntime({
+        ...appData,
+        containerId:
+          containerId === undefined ? appData.containerId : containerId,
+      }),
     [appData, containerId],
   );
   const store = useMemo(

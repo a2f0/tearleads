@@ -31,7 +31,10 @@ import type {
   DocumentRecord,
   PendingUpdateRecord,
 } from "../../data/sqlite/documentPersistence";
+import { createContactsWorkflowRuntime } from "../../workflows/contacts";
 import { type ContactsRuntime, createContactsStore } from "./ContactsProvider";
+
+type ContactsRuntimeInput = Parameters<typeof createContactsWorkflowRuntime>[0];
 
 interface StoredContactState {
   entry: {
@@ -44,7 +47,7 @@ interface StoredContactState {
 
 function createUnavailableContactsApiClient(
   userIdToImport?: string,
-): ContactsRuntime["apiClient"] {
+): ContactsRuntimeInput["apiClient"] {
   return createMockApiClient({
     createDocument: async () => null,
     getContainerWriterProjection: async () => null,
@@ -177,17 +180,19 @@ async function createContactSyncResponse(input: {
 }
 
 interface ContactRuntimePatch {
-  apiClient: ContactsRuntime["apiClient"];
+  apiClient: ContactsRuntimeInput["apiClient"];
   organizationId: string;
   signingFingerprint: string;
-  signingKeyPair: NonNullable<ContactsRuntime["signingKeyPair"]>;
+  signingKeyPair: NonNullable<ContactsRuntimeInput["signingKeyPair"]>;
   userId: string;
 }
 
 async function createContactRuntimePatch(input: {
   containerId?: string;
   createCalls?: Array<{ linkedContainerIds: string[] }>;
-  encapsulationKeyPair: NonNullable<ContactsRuntime["encapsulationKeyPair"]>;
+  encapsulationKeyPair: NonNullable<
+    ContactsRuntimeInput["encapsulationKeyPair"]
+  >;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }): Promise<ContactRuntimePatch> {
   const containerId = input.containerId ?? "root-container";
@@ -383,7 +388,7 @@ function createContactsPersistence(): ContactsPersistence & {
 }
 
 function createRuntime(userIdToImport?: string): ContactsRuntime {
-  return {
+  return createContactsWorkflowRuntime({
     apiClient: createUnavailableContactsApiClient(userIdToImport),
     containerId: "root-container",
     dbStatus: "ready",
@@ -395,16 +400,18 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
     log: () => {},
     logError: () => {},
     online: false,
-  };
+  });
 }
 
-async function createSyncRuntime(
-  encapsulationKeyPair: NonNullable<ContactsRuntime["encapsulationKeyPair"]>,
+async function createSyncRuntimeInput(
+  encapsulationKeyPair: NonNullable<
+    ContactsRuntimeInput["encapsulationKeyPair"]
+  >,
   options: {
     createCalls?: Array<{ linkedContainerIds: string[] }>;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
-): Promise<ContactsRuntime> {
+): Promise<ContactsRuntimeInput> {
   const patch = await createContactRuntimePatch({
     encapsulationKeyPair,
     ...(options.createCalls ? { createCalls: options.createCalls } : {}),
@@ -427,6 +434,20 @@ async function createSyncRuntime(
     signingKeyPair: patch.signingKeyPair,
     userId: patch.userId,
   };
+}
+
+async function createSyncRuntime(
+  encapsulationKeyPair: NonNullable<
+    ContactsRuntimeInput["encapsulationKeyPair"]
+  >,
+  options: {
+    createCalls?: Array<{ linkedContainerIds: string[] }>;
+    syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
+  } = {},
+): Promise<ContactsRuntime> {
+  return createContactsWorkflowRuntime(
+    await createSyncRuntimeInput(encapsulationKeyPair, options),
+  );
 }
 
 test("contacts store reloads persisted address book entries", async () => {
@@ -550,22 +571,22 @@ test("contacts store keeps contact updates without recipient fanout", async () =
     outgoingUpdateCount: number;
   }> = [];
   let importedEncapsulationPublicKey = "peer-user-1-key";
-  const runtime = await createSyncRuntime(encapsulationKeyPair, {
+  const runtimeInput = await createSyncRuntimeInput(encapsulationKeyPair, {
     createCalls,
     syncCalls,
   });
-  const instrumentedRuntime: ContactsRuntime = {
-    ...runtime,
-    apiClient: createMockApiClient({
-      ...runtime.apiClient,
+  const instrumentedRuntime = createContactsWorkflowRuntime({
+    ...runtimeInput,
+    apiClient: {
+      ...runtimeInput.apiClient,
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: importedEncapsulationPublicKey,
         signingKeyFingerprint: `${userId}-signing-fingerprint`,
         signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
-    }),
-  };
+    },
+  });
   const store = createContactsStore(instrumentedRuntime, persistence);
 
   store.updateRuntime(instrumentedRuntime);
@@ -612,19 +633,21 @@ test("contacts store persists commitLsn and reuses it as minLsn on the next sync
     outgoingUpdateCount: number;
   }> = [];
   let importedEncapsulationPublicKey = "peer-user-1-key";
-  const runtime = await createSyncRuntime(encapsulationKeyPair, { syncCalls });
-  const instrumentedRuntime: ContactsRuntime = {
-    ...runtime,
-    apiClient: createMockApiClient({
-      ...runtime.apiClient,
+  const runtimeInput = await createSyncRuntimeInput(encapsulationKeyPair, {
+    syncCalls,
+  });
+  const instrumentedRuntime = createContactsWorkflowRuntime({
+    ...runtimeInput,
+    apiClient: {
+      ...runtimeInput.apiClient,
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: importedEncapsulationPublicKey,
         signingKeyFingerprint: `${userId}-signing-fingerprint`,
         signingPublicKey: `${userId}-signing-key`,
         userId,
       }),
-    }),
-  };
+    },
+  });
   const store = createContactsStore(instrumentedRuntime, persistence);
 
   store.updateRuntime(instrumentedRuntime);
