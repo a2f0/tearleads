@@ -1,5 +1,5 @@
-import type { BlobStore } from "../../data/blobs";
 import type { useAppData } from "../../providers/data/AppDataProvider";
+import type { BlobStore } from "../../workflows/blobs";
 import {
   createRemoteExplorerContainerIngestor,
   type ExplorerContainerState,

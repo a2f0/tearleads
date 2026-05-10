@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { BlobBytes } from "../../data/blobs";
 import { useAttachmentImageUrls } from "../../document-types/shared/useAttachmentImageUrls";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
@@ -14,6 +13,7 @@ import {
   useNotes,
 } from "../../stores/notes/NotesProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
+import type { BlobBytes } from "../../workflows/blobs";
 import type { NoteAttachment } from "./noteDocument";
 import "./Notes.css";
 
