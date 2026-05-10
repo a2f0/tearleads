@@ -313,6 +313,24 @@ function createContainerKeyEpoch(input: {
   };
 }
 
+function createRootContainerKeyEpoch(input: {
+  readonly containerKeyEpochId: string;
+  readonly keyEpoch: number;
+  readonly manifest: ContainerManifestBundle;
+}): ContainerKeyEpoch {
+  const verifiedManifest = asVerifiedContainerManifest(input.manifest);
+
+  return {
+    id: input.containerKeyEpochId,
+    containerId: verifiedManifest.state.containerId,
+    keyEpoch: input.keyEpoch,
+    accessManifestHash: verifiedManifest.manifestHash,
+    parentContainerKeyEpochId: null,
+    createdByEventHash: verifiedManifest.event.eventHash,
+    createdByManifestHash: verifiedManifest.manifestHash,
+  };
+}
+
 function createContainerKeyWrap(input: {
   readonly containerKeyEpochId: string;
   readonly parentKekState: VerifiedContainerKekState;
@@ -667,6 +685,84 @@ async function buildRootGrantRequest(input: {
       signerKey as unknown as Record<string, unknown>,
       recipientKey as unknown as Record<string, unknown>,
     ],
+  };
+}
+
+async function buildRootRevokeRequest(input: {
+  readonly previous: ContainerManifestBundle;
+  readonly previousKekState: VerifiedContainerKekState;
+  readonly revokedUser: TestUser;
+  readonly signer: TestUser;
+}): Promise<ContainerMutationRequest> {
+  const previous = asVerifiedContainerManifest(input.previous);
+  const signerKey = await userRecipientKey(input.signer);
+  const containerKeyEpochId = crypto.randomUUID();
+  const body: ContainerAccessEventBody = {
+    eventType: "container.revoke",
+    containerKeyEpochId,
+    subjectType: "user",
+    subjectId: input.revokedUser.userId,
+  };
+  const event = await createSignedAccessEvent({
+    body,
+    dependencyManifestHashes: [input.previous.manifestHash],
+    objectId: previous.state.containerId,
+    objectKind: "container",
+    organizationId: previous.state.organizationId,
+    previousManifestHash: input.previous.manifestHash,
+    signer: input.signer,
+  });
+  const bundle = await createContainerManifestBundle(
+    {
+      ...previous.state,
+      epoch: previous.state.epoch + 1,
+      previousManifestHash: input.previous.manifestHash,
+      eventHash: event.eventHash,
+      containerKeyEpochId,
+      directGrants: previous.state.directGrants.filter(
+        (grant) =>
+          grant.subjectType !== "user" ||
+          grant.subjectId !== input.revokedUser.userId,
+      ),
+    },
+    event,
+  );
+  const keyEpoch = createRootContainerKeyEpoch({
+    containerKeyEpochId,
+    keyEpoch: input.previousKekState.containerKeyEpoch + 1,
+    manifest: bundle,
+  });
+  const wraps: ContainerKeyWrap[] = [
+    {
+      containerKeyEpochId,
+      recipientKind: "user",
+      recipientId: signerKey.userId,
+      recipientKeyEpochId: signerKey.recipientKeyEpochId,
+      recipientKeyFingerprint: signerKey.recipientKeyFingerprint,
+      kemCipherText: `kem:${containerKeyEpochId}:${signerKey.userId}`,
+      wrappedKey: `wrapped:${containerKeyEpochId}:${signerKey.userId}`,
+      wrapManifestHash: bundle.manifestHash,
+    },
+  ];
+  const kekState = await verifyKekState({
+    bundle,
+    keyEpoch,
+    userRecipientKeys: [signerKey],
+    wraps,
+  });
+
+  return {
+    event: event.event as unknown as Record<string, unknown>,
+    body: body as unknown,
+    expectedManifestHash: bundle.manifestHash,
+    manifest: bundle.manifest,
+    previousManifest: input.previous,
+    previousContainerPath: [input.previous],
+    containerManifestHistory: [input.previous],
+    keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    wraps: kekState.wraps as unknown as Record<string, unknown>[],
+    parentKekState: null,
+    userRecipientKeys: [signerKey as unknown as Record<string, unknown>],
   };
 }
 
@@ -1102,6 +1198,117 @@ test("GET /documents/:documentId/writer-projection returns document targets and 
     created.contentKeyBundle.targetHash,
   );
   expect(projection.authorizingContainerPaths).toHaveLength(1);
+});
+
+test("GET /documents/:documentId/writer-projection blocks revoked users after root KEK rotation", async () => {
+  const owner = createTestUser();
+  const recipient = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  await registerUser(recipient);
+  await authenticate(recipient);
+  const root = await bootstrapRoot(owner);
+  const grantRequest = await buildRootGrantRequest({
+    previous: root.bundle,
+    previousKekState: root.kekState,
+    recipient,
+    signer: owner,
+  });
+
+  const shareResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grantRequest),
+    },
+  );
+  expect(shareResponse.status).toBe(200);
+  const shared = await shareResponse.json();
+  expect(isContainerMutationResponse(shared)).toBe(true);
+
+  const recipientSharedProjectionResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${recipient.token}`,
+      },
+    },
+  );
+  expect(recipientSharedProjectionResponse.status).toBe(200);
+
+  const revokeRequest = await buildRootRevokeRequest({
+    previous: accessManifestFromContainerResponse(shared),
+    previousKekState: kekStateFromContainerResponse(shared),
+    revokedUser: recipient,
+    signer: owner,
+  });
+  const revokeResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/revoke`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(revokeRequest),
+    },
+  );
+  expect(revokeResponse.status).toBe(200);
+  const revoked = await revokeResponse.json();
+  expect(isContainerMutationResponse(revoked)).toBe(true);
+  expect(revoked.containerKek.containerKeyEpochId).not.toBe(
+    shared.containerKek.containerKeyEpochId,
+  );
+
+  const created = await createDocument({
+    owner,
+    root: {
+      bundle: accessManifestFromContainerResponse(revoked),
+      kekState: kekStateFromContainerResponse(revoked),
+    },
+  });
+  expect(created.documentKekTargets.linkedContainerKeyEpochIds).toEqual([
+    revoked.containerKek.containerKeyEpochId,
+  ]);
+  expect(created.documentKekTargets.targets).toEqual([
+    expect.objectContaining({
+      containerId: root.kekState.containerId,
+      containerKeyEpoch: revoked.containerKek.containerKeyEpoch,
+      containerKeyEpochId: revoked.containerKek.containerKeyEpochId,
+    }),
+  ]);
+
+  const ownerProjectionResponse = await routeApp.request(
+    `/documents/${created.id}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+  expect(ownerProjectionResponse.status).toBe(200);
+  const ownerProjection = await ownerProjectionResponse.json();
+  expect(isDocumentWriterProjectionResponse(ownerProjection)).toBe(true);
+  expect(ownerProjection.contentKeyBundle.targets).toEqual([
+    expect.objectContaining({
+      containerId: root.kekState.containerId,
+      containerKeyEpochId: revoked.containerKek.containerKeyEpochId,
+    }),
+  ]);
+
+  const recipientProjectionResponse = await routeApp.request(
+    `/documents/${created.id}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${recipient.token}`,
+      },
+    },
+  );
+  expect(recipientProjectionResponse.status).toBe(403);
 });
 
 test("POST /documents/:documentId/sync writes audit rows for accepted live updates", async () => {
