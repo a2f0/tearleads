@@ -1,10 +1,10 @@
 import { and, eq } from "drizzle-orm";
+import type { DocumentSummary } from "../../../documentSummary";
 import {
   deriveStoredDocumentKind,
   deriveStoredDocumentTitle,
   type StoredDocumentKind,
 } from "../../../documents/documentKinds";
-import type { DocumentSummary } from "../../../documents/shared/documentSummary";
 import { documentProjection, documents } from "../../../sqlite/schema";
 import { DOCUMENTS_APP_KIND } from "./constants";
 

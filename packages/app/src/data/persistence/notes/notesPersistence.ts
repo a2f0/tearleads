@@ -1,7 +1,7 @@
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../documents/shared/documentSummary";
+} from "../../documentSummary";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type * as DocumentPersistence from "../documents/documentsPersistence";
 import {

@@ -1,4 +1,4 @@
-import type { StoredDocumentKind } from "../documentKinds";
+import type { StoredDocumentKind } from "./documents/documentKinds";
 
 export interface DocumentSummary {
   accessStateHash?: string | null;

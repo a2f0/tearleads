@@ -1,6 +1,6 @@
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
+import type { DocumentSummary } from "../../../data/documentSummary";
 import {
   createExplorerTargetLookups,
   type ExplorerTargetLookups,

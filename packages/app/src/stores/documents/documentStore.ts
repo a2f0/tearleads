@@ -8,6 +8,7 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
+import type { DocumentSummary } from "../../data/documentSummary";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import {
   addDocumentAttachments,
@@ -16,7 +17,6 @@ import {
   getDocumentAttachments,
   sameDocumentAttachments,
 } from "../../data/documents/documentContent";
-import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
 import {
   DOCUMENTS_APP_KIND,
   type DocumentProjectionUserKeyResolver,

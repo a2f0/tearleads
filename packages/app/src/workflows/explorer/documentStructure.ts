@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
+import type { DocumentSummary } from "../../data/documentSummary";
 import type { RelinkPersistedDocumentInput } from "../documents";
 import {
   type ExplorerRemoteDocumentPersistedState,

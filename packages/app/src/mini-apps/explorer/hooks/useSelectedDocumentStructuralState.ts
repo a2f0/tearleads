@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
+import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import { getDocumentByLocalId } from "../documentSummaries";
 import {
