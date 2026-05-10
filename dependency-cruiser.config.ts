@@ -180,17 +180,16 @@ const appRules = [
     },
   },
   {
-    name: "app-presentation-does-not-call-workflows-directly",
+    name: "app-presentation-does-not-import-workflows-directly",
     severity: "error",
     comment:
-      "Production app presentation should go through stores or providers so workflow orchestration stays outside components and hooks.",
+      "Production app presentation should go through stores or providers so workflow orchestration and workflow-owned contracts stay outside components and hooks, including type-only contracts.",
     from: {
       path: appPresentation,
       pathNot: testFilesPattern,
     },
     to: {
       path: appLayer.workflows,
-      preCompilationOnly: false,
     },
   },
   {

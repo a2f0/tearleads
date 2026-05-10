@@ -4,7 +4,7 @@ import {
   parseBlobEnvelope,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { BlobBytes } from "./blobs";
+import type { BlobBytes } from "./blobContracts";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 import type { ExecSql } from "./sqlite/sqlSchema";
 

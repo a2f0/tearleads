@@ -12,7 +12,7 @@ import type {
   BlobContentKeyBundleRequest,
 } from "@tearleads/validators/request";
 import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
-import type { BlobBytes } from "../../data/blobs";
+import type { BlobBytes } from "../../data/blobContracts";
 import { encryptBlobBytes } from "../../data/documents/blob/shared/crypto";
 import {
   signBlobAttachmentEvent,

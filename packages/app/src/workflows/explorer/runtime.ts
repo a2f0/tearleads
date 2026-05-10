@@ -1,7 +1,7 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type { BlobStore } from "../../data/blobContracts";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import type { BlobStore } from "../blobs";
 import {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,

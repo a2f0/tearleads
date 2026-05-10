@@ -8,7 +8,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
-import type { BlobBytes } from "../../../blobs";
+import type { BlobBytes } from "../../../blobContracts";
 import { readCanonicalJson } from "../../../keyingCanonicalJson";
 import { asWebCryptoBytes } from "../../shared/readers";
 import type { BlobEncryptedBytes } from "./types";
