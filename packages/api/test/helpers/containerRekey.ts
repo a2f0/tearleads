@@ -139,6 +139,27 @@ function createUserKeyWraps(input: {
   }));
 }
 
+export function appendUnexpectedUserWrapToRekey(
+  request: ContainerMutationRequest,
+): void {
+  const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpoch;
+  const unexpectedUserId = "unexpected-rekey-user";
+  const unexpectedFingerprint = "0".repeat(64);
+  request.wraps = [
+    ...request.wraps,
+    {
+      containerKeyEpochId: keyEpoch.id,
+      recipientKind: "user",
+      recipientId: unexpectedUserId,
+      recipientKeyEpochId: `user:${unexpectedUserId}:encapsulation:${unexpectedFingerprint}`,
+      recipientKeyFingerprint: unexpectedFingerprint,
+      kemCipherText: `kem:${keyEpoch.id}:${unexpectedUserId}`,
+      wrappedKey: `wrapped:${keyEpoch.id}:${unexpectedUserId}`,
+      wrapManifestHash: request.expectedManifestHash,
+    },
+  ];
+}
+
 export async function buildRootContainerRekeyMutation(input: {
   readonly previous: ContainerRekeyFixture;
   readonly signer: TestUser;

@@ -58,7 +58,10 @@ import {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
-import { buildRootContainerRekeyMutation } from "../../test/helpers/containerRekey";
+import {
+  appendUnexpectedUserWrapToRekey,
+  buildRootContainerRekeyMutation,
+} from "../../test/helpers/containerRekey";
 import { registerUser } from "../../test/helpers/registerUser";
 import { getAccessManifestBundle } from "../access/read/accessManifestStore";
 import {
@@ -1221,6 +1224,44 @@ test("POST /documents/:documentId/sync rolls back optional rekeys when write val
   });
 
   expect(syncResponse.status).toBe(409);
+  const currentRootEpoch = await getCurrentContainerKeyEpoch(
+    root.kekState.containerId,
+    db,
+  );
+  expect(currentRootEpoch?.id).toBe(root.kekState.containerKeyEpochId);
+});
+
+test("POST /documents/:documentId/sync rejects invalid optional container rekeys", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const rekey = await buildRootContainerRekeyMutation({
+    previous: root,
+    signer: owner,
+  });
+  appendUnexpectedUserWrapToRekey(rekey.request);
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  request.containerRekeys = [rekey.request];
+
+  const syncResponse = await routeApp.request(`/documents/${created.id}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  expect(syncResponse.status).toBe(409);
+  expect(await syncResponse.json()).toEqual({
+    error: "container key wrap is not justified by its manifest",
+  });
   const currentRootEpoch = await getCurrentContainerKeyEpoch(
     root.kekState.containerId,
     db,

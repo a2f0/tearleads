@@ -32,7 +32,10 @@ import {
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
+import {
+  appendUnexpectedUserWrapToRekey,
+  buildRootContainerRekeyMutation,
+} from "../../../test/helpers/containerRekey";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
@@ -876,6 +879,52 @@ test("bindBlobAttachment rolls back optional rekeys when blob write validation f
     }),
   ).rejects.toMatchObject({
     status: 400,
+  });
+  const currentRootEpoch = await getCurrentContainerKeyEpoch(
+    container.kekState.containerId,
+    db,
+  );
+  expect(currentRootEpoch?.id).toBe(container.kekState.containerKeyEpochId);
+});
+
+test("bindBlobAttachment rejects invalid optional container rekeys", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const container = await bootstrapRoot(owner);
+  const rekey = await buildRootContainerRekeyMutation({
+    previous: container,
+    signer: owner,
+  });
+  appendUnexpectedUserWrapToRekey(rekey.request);
+  const document = await createDocumentFixture({
+    container: rekey.container,
+    owner,
+  });
+  const blobId = crypto.randomUUID();
+  const bind = await buildBindRequest({
+    blobId,
+    container: rekey.container,
+    document,
+    expectedBindingId: null,
+    owner,
+    slotId: "preview",
+    stagedBlob: await stageEncryptedBlob({
+      encryptedBytes: "invalid-rekey-bytes",
+      owner,
+    }),
+  });
+  bind.request.containerRekeys = [rekey.request];
+
+  await expect(
+    bindBlobAttachment(runtime, {
+      blobId,
+      fingerprint: owner.fingerprint,
+      request: bind.request,
+      userId: owner.userId,
+    }),
+  ).rejects.toMatchObject({
+    message: "container key wrap is not justified by its manifest",
+    status: 409,
   });
   const currentRootEpoch = await getCurrentContainerKeyEpoch(
     container.kekState.containerId,
