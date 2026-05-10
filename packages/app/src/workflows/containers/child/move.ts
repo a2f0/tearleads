@@ -116,16 +116,16 @@ function buildContainerMoveRequest(input: {
 
 async function unwrapMoveContainerKeys(
   input: {
-    destinationParentKek: ContainerKekResponse;
     destinationParentProjection: ContainerWriterProjectionResponse;
     execSql?: ExecSql | undefined;
     previousProjection: ContainerWriterProjectionResponse;
-    sourceKek: ContainerKekResponse;
     targetSecretKey: Uint8Array;
   } & ProjectionVerificationOptions,
 ): Promise<{
   containerKey: Uint8Array;
   destinationParentKey: Uint8Array;
+  destinationParent: ReturnType<typeof getTargetContainerContext>;
+  source: ReturnType<typeof getTargetContainerContext>;
 }> {
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
@@ -133,7 +133,8 @@ async function unwrapMoveContainerKeys(
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),
   });
-  const containerKey = keksByEpochId.get(input.sourceKek.containerKeyEpochId);
+  const source = getTargetContainerContext(input.previousProjection);
+  const containerKey = keksByEpochId.get(source.kek.containerKeyEpochId);
   if (!containerKey) {
     throw new Error("Container move source KEK could not be unwrapped");
   }
@@ -144,8 +145,11 @@ async function unwrapMoveContainerKeys(
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),
   });
+  const destinationParent = getTargetContainerContext(
+    input.destinationParentProjection,
+  );
   const destinationParentKey = destinationKeksByEpochId.get(
-    input.destinationParentKek.containerKeyEpochId,
+    destinationParent.kek.containerKeyEpochId,
   );
   if (!destinationParentKey) {
     throw new Error(
@@ -153,7 +157,7 @@ async function unwrapMoveContainerKeys(
     );
   }
 
-  return { containerKey, destinationParentKey };
+  return { containerKey, destinationParentKey, destinationParent, source };
 }
 
 function assertContainerMoveOrganizations(input: {
@@ -229,10 +233,14 @@ async function buildMaterializedContainerMovePlan(
   input: BuildMaterializedContainerMovePlanInput &
     ProjectionVerificationOptions,
 ): Promise<MaterializedContainerMovePlan> {
-  const source = getTargetContainerContext(input.previousProjection);
-  const destinationParent = getTargetContainerContext(
-    input.destinationParentProjection,
-  );
+  const { containerKey, destinationParent, destinationParentKey, source } =
+    await unwrapMoveContainerKeys({
+      destinationParentProjection: input.destinationParentProjection,
+      execSql: input.execSql,
+      previousProjection: input.previousProjection,
+      targetSecretKey: input.targetSecretKey,
+      ...projectionVerificationOptions(input),
+    });
   const previousState = readContainerState(source.manifest);
   const destinationState = readContainerState(destinationParent.manifest);
   assertContainerMoveOrganizations({
@@ -241,15 +249,6 @@ async function buildMaterializedContainerMovePlan(
     previousState,
   });
 
-  const { containerKey, destinationParentKey } = await unwrapMoveContainerKeys({
-    destinationParentKek: destinationParent.kek,
-    destinationParentProjection: input.destinationParentProjection,
-    execSql: input.execSql,
-    previousProjection: input.previousProjection,
-    sourceKek: source.kek,
-    targetSecretKey: input.targetSecretKey,
-    ...projectionVerificationOptions(input),
-  });
   const nextContainerKeyEpoch = source.kek.containerKeyEpoch + 1;
   const containerKeyEpochId = await resolveContainerKekEpochId({
     containerId: previousState.containerId,
