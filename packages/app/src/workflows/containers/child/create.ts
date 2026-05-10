@@ -216,13 +216,13 @@ export async function buildMaterializedContainerCreatePlan(
   const containerKey =
     input.containerKey ?? crypto.getRandomValues(new Uint8Array(32));
 
-  const parent = getParentCreateContext(input.parentProjection);
   const parentKeksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.parentProjection,
     secretKey: input.parentSecretKey,
     ...projectionVerificationOptions(input),
   });
+  const parent = getParentCreateContext(input.parentProjection);
   const parentKekMaterial = parentKeksByEpochId.get(
     parent.kek.containerKeyEpochId,
   );

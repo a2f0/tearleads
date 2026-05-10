@@ -264,6 +264,12 @@ async function buildMaterializedContainerSharePlan(
     targetSecretKey: Uint8Array;
   } & ProjectionVerificationOptions,
 ): Promise<MaterializedContainerSharePlan> {
+  const keksByEpochId = await unwrapContainerKekPath({
+    execSql: input.execSql,
+    projection: input.previousProjection,
+    secretKey: input.targetSecretKey,
+    ...projectionVerificationOptions(input),
+  });
   const target = getTargetContainerContext(input.previousProjection);
   const previousState = readContainerState(target.manifest);
   if (previousState.organizationId !== input.author.organizationId) {
@@ -296,12 +302,6 @@ async function buildMaterializedContainerSharePlan(
     eventHash,
     grant,
     previousManifest: target.manifest,
-  });
-  const keksByEpochId = await unwrapContainerKekPath({
-    execSql: input.execSql,
-    projection: input.previousProjection,
-    secretKey: input.targetSecretKey,
-    ...projectionVerificationOptions(input),
   });
   const containerKey = keksByEpochId.get(target.kek.containerKeyEpochId);
   if (!containerKey) {

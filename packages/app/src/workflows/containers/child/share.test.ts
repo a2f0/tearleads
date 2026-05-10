@@ -21,10 +21,11 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
+  tamperFirstProjectionEventSignature,
 } from "../../../data/containers/test-helpers";
 import { shareRemoteContainer } from "../index";
 
-test("shareRemoteContainer rejects malformed projected container state before sending", async () => {
+test("shareRemoteContainer rejects tampered projected container state before sending", async () => {
   const parent = await createParentProjection();
   const { author } = await createAuthor({
     organizationId: parent.projection.organizationId,
@@ -59,7 +60,42 @@ test("shareRemoteContainer rejects malformed projected container state before se
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
-  ).rejects.toThrow("directGrants must be an array");
+  ).rejects.toThrow("Container writer projection path[0] state mismatch");
+  expect(shareCalled).toBe(false);
+});
+
+test("shareRemoteContainer rejects bad previous projection signatures before sending", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const recipientKeyPair = generateKemSeedAndKeyPair();
+  const tamperedProjection = tamperFirstProjectionEventSignature(
+    parent.projection,
+  );
+  let shareCalled = false;
+
+  await expect(
+    shareRemoteContainer({
+      accessLevel: "read",
+      apiClient: {
+        getContainerWriterProjection: async () => tamperedProjection,
+        shareContainer: async () => {
+          shareCalled = true;
+          throw new Error("Unexpected share call");
+        },
+      },
+      author,
+      containerId: parent.projection.containerId,
+      recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
+      recipientUserId: "user-2",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      targetSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow(
+    "Container writer projection path[0] signature verification failed",
+  );
   expect(shareCalled).toBe(false);
 });
 

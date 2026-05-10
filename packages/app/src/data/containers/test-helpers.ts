@@ -430,6 +430,23 @@ export function createParentProjectionUserKeyResolver(
       : null;
 }
 
+export function tamperFirstProjectionEventSignature(
+  projection: ContainerWriterProjectionResponse,
+): ContainerWriterProjectionResponse {
+  const tamperedProjection = structuredClone(projection);
+  const signedEvent = tamperedProjection.path[0]?.event
+    .event as unknown as AccessEvent;
+  const signature = signedEvent.signature;
+  if (typeof signature !== "string" || signature.length === 0) {
+    throw new Error("Expected signed container event fixture");
+  }
+
+  signedEvent.signature = `${signature.slice(0, -1)}${
+    signature.endsWith("A") ? "B" : "A"
+  }`;
+  return tamperedProjection;
+}
+
 export async function createMutationResponseFromRequest(
   request: ContainerMutationRequest,
 ): Promise<ContainerMutationResponse> {

@@ -22,6 +22,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
+  tamperFirstProjectionEventSignature,
 } from "../../../data/containers/test-helpers";
 import {
   buildContainerCreatePlan,
@@ -295,4 +296,36 @@ test("createRemoteContainer fetches the parent projection and submits the materi
     result?.plan.manifestHash,
   );
   expect(isContainerMutationRequest(result?.plan.request)).toBe(true);
+});
+
+test("createRemoteContainer rejects bad parent projection signatures before sending", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const tamperedProjection = tamperFirstProjectionEventSignature(
+    parent.projection,
+  );
+  let createCalled = false;
+
+  await expect(
+    createRemoteContainer({
+      apiClient: {
+        getContainerWriterProjection: async () => tamperedProjection,
+        createContainer: async () => {
+          createCalled = true;
+          throw new Error("Unexpected create call");
+        },
+      },
+      author,
+      containerId: "bad-parent-signature-child",
+      parentContainerId: parent.projection.containerId,
+      parentSecretKey: parent.secretKey,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    }),
+  ).rejects.toThrow(
+    "Container writer projection path[0] signature verification failed",
+  );
+  expect(createCalled).toBe(false);
 });
