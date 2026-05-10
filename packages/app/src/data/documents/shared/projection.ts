@@ -413,13 +413,13 @@ export async function wrapDocumentContentKeyForCreate(
     secretKey: Uint8Array;
   } & ProjectionVerificationOptions,
 ): Promise<DocumentContentKeyTargetEnvelope[]> {
-  const target = getOnlyDocumentCreateTarget(input.projection);
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.projection,
     secretKey: input.secretKey,
     ...projectionVerificationOptions(input),
   });
+  const target = getOnlyDocumentCreateTarget(input.projection);
   const targetKek = keksByEpochId.get(target.containerKeyEpochId);
   if (!targetKek) {
     throw new Error("Document create target KEK could not be unwrapped");
