@@ -19,7 +19,7 @@ const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
 const reactImportPattern =
-  /\bfrom\s+["']react(?:\/[^"']*)?["']|import\s+["']react(?:\/[^"']*)?["']/;
+  /\bfrom\s*["']react(?:\/[^"']*)?["']|\bimport\s*(?:\(\s*)?["']react(?:\/[^"']*)?["']/;
 
 interface SourceMatch {
   filePath: string;
@@ -62,6 +62,15 @@ async function listProductionSourceFiles(dirPath: string): Promise<string[]> {
   return nestedFiles.flat();
 }
 
+function isCommentOnlyLine(line: string): boolean {
+  const trimmedLine = line.trimStart();
+  return (
+    trimmedLine.startsWith("//") ||
+    trimmedLine.startsWith("/*") ||
+    trimmedLine.startsWith("*")
+  );
+}
+
 async function findAppPresentationSqlExecutorReferences(): Promise<
   SourceMatch[]
 > {
@@ -83,11 +92,13 @@ async function findSourceMatches(
     sourceFiles.map(async (filePath) => {
       const content = await readFile(filePath, "utf8");
 
-      return content
-        .split("\n")
-        .flatMap((line, index): SourceMatch[] =>
-          pattern.test(line) ? [{ filePath, line, lineNumber: index + 1 }] : [],
-        );
+      return content.split("\n").flatMap((line, index): SourceMatch[] => {
+        if (isCommentOnlyLine(line) || !pattern.test(line)) {
+          return [];
+        }
+
+        return [{ filePath, line, lineNumber: index + 1 }];
+      });
     }),
   );
 
