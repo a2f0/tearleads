@@ -45,12 +45,7 @@ export {
   renameExplorerContainerMetadataStateFromRuntime,
   syncExplorerContainerMetadataState,
 } from "./metadata";
-export {
-  createExplorerDocumentProjectionUserKeyResolver,
-  createExplorerProjectionUserKeyResolver,
-  didExplorerProjectionKeyRuntimeChange,
-  type ExplorerProjectionUserKeyResolver,
-} from "./projectionKeys";
+export type { ExplorerProjectionUserKeyResolver } from "./projectionKeys";
 export {
   createRemoteExplorerContainerIngestor,
   type ExplorerContainerState,
@@ -59,7 +54,11 @@ export {
   hydrateRemoteExplorerContainers,
 } from "./remoteHydration";
 export {
-  didRegainExplorerSyncPrerequisites,
+  createExplorerWorkflowRuntime,
+  type ExplorerWorkflowRuntime,
+  type ExplorerWorkflowRuntimeInput,
+} from "./runtime";
+export {
   type ExplorerSyncLane,
   isDestroyedExplorerSyncRuntimeError,
   registerExplorerSyncLane,

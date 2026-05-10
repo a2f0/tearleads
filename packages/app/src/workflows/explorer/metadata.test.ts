@@ -13,8 +13,10 @@ import {
   persistExplorerContainerMetadataStateFromRuntime,
   renameExplorerContainerMetadataStateFromRuntime,
 } from "./index";
+import { createExplorerWorkflowSqlRuntime } from "./runtime";
 
 const execSql: ExecSql = async () => [];
+const runtime = createExplorerWorkflowSqlRuntime({ execSql });
 
 type PendingUpdateInput = Parameters<
   ExplorerPersistence["enqueuePendingUpdate"]
@@ -112,7 +114,7 @@ test("persistExplorerContainerMetadataStateFromRuntime uses the runtime executor
   const persisted = await persistExplorerContainerMetadataStateFromRuntime({
     metadataState: { container, doc, record },
     persistence: createExplorerPersistence({ savedContainers }),
-    runtime: { execSql },
+    runtime,
   });
 
   expect(savedContainers).toEqual([
@@ -156,7 +158,7 @@ test("renameExplorerContainerMetadataStateFromRuntime queues metadata update wit
       pendingUpdates,
       savedContainers,
     }),
-    runtime: { execSql },
+    runtime,
   });
 
   expect(renamed?.container.name).toBe("New name");

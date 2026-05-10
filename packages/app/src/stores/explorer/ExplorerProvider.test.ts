@@ -38,7 +38,6 @@ import {
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createInitializedContainerMetadataDocument } from "../../data/containers";
 import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
   ensureContainerTables,
   loadContainers,
@@ -56,10 +55,12 @@ import {
   ensureDocumentTables,
   saveDocumentRecord,
 } from "../../data/sqlite/documentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   buildMaterializedDocumentCreatePlan,
   persistedDocumentCreateStateFromResponse,
 } from "../../workflows/documents";
+import { createExplorerWorkflowRuntime } from "../../workflows/explorer";
 import { createExplorerStore } from "./ExplorerProvider";
 import {
   createExplorerSyncAgent,
@@ -72,7 +73,7 @@ import {
 } from "./state";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
-type TestRuntime = ExplorerRuntime & { close: () => void };
+type TestRuntime = ExplorerRuntime & { close: () => void; execSql: ExecSql };
 type ListedContainer = ContainerSummary;
 const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
 
@@ -612,8 +613,7 @@ async function createExplorerMetadataFixture(input: {
 
 async function createSqlRuntime(): Promise<TestRuntime> {
   const runtimeBase = await createSqlRuntimeBase("explorer-provider-test");
-
-  return {
+  const input = {
     ...runtimeBase,
     apiClient: createMockApiClient({
       bindBlobAttachment: async () => null,
@@ -631,6 +631,13 @@ async function createSqlRuntime(): Promise<TestRuntime> {
       stageBlob: async () => null,
       syncDocument: async () => null,
     }),
+  };
+  const runtime = createExplorerWorkflowRuntime(input);
+
+  return {
+    ...runtime,
+    close: runtimeBase.close,
+    execSql: runtimeBase.execSql,
   };
 }
 
@@ -977,10 +984,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
       lastEventCount: 0,
       persistence: sqlExplorerPersistence,
       remoteHydrationPromise: null,
-      resolveProjectionUserKey: createProjectionUserKeyResolver(
-        runtime,
-        "ExplorerProvider test",
-      ),
+      resolveProjectionUserKey: runtime.createProjectionUserKeyResolver(),
       runtime,
       snapshot: {
         ready: true,
@@ -1077,10 +1081,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
       lastEventCount: 0,
       persistence: sqlExplorerPersistence,
       remoteHydrationPromise: null,
-      resolveProjectionUserKey: createProjectionUserKeyResolver(
-        runtime,
-        "ExplorerProvider test",
-      ),
+      resolveProjectionUserKey: runtime.createProjectionUserKeyResolver(),
       runtime,
       snapshot: {
         ready: true,
@@ -1224,10 +1225,7 @@ test("explorer sync skips pending metadata updates for containers without docume
       lastEventCount: 0,
       persistence,
       remoteHydrationPromise: null,
-      resolveProjectionUserKey: createProjectionUserKeyResolver(
-        runtime,
-        "ExplorerProvider test",
-      ),
+      resolveProjectionUserKey: runtime.createProjectionUserKeyResolver(),
       runtime,
       snapshot: {
         ready: true,

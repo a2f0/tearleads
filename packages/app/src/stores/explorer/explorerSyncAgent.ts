@@ -1,5 +1,3 @@
-import type { useAppData } from "../../providers/data/AppDataProvider";
-import type { BlobStore } from "../../workflows/blobs";
 import {
   createRemoteExplorerContainerIngestor,
   type ExplorerContainerState,
@@ -10,6 +8,7 @@ import {
   type ExplorerRemoteContainer,
   type ExplorerRemoteContainerHydrationHost,
   type ExplorerSyncLane,
+  type ExplorerWorkflowRuntime,
   enqueuePendingExplorerContainerUpdateFromRuntime,
   hasExplorerMetadataDocumentUpdateEvent,
   hydrateRemoteExplorerContainers,
@@ -21,27 +20,8 @@ import {
   syncPendingExplorerContainerCreateIntents,
 } from "../../workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
-import { createExplorerDocumentsRuntime } from "./documentRuntime";
 
-type ExplorerAppData = ReturnType<typeof useAppData>;
-
-export interface ExplorerRuntime {
-  apiClient: ExplorerAppData["apiClient"];
-  blobStore: BlobStore;
-  cacheReferencedPrincipalPolicies: ExplorerAppData["cacheReferencedPrincipalPolicies"];
-  dbStatus: ExplorerAppData["dbStatus"];
-  domainScope: ExplorerAppData["domainScope"];
-  encapsulationKeyPair: ExplorerAppData["encapsulationKeyPair"];
-  events: ExplorerAppData["events"];
-  execSql: ExplorerAppData["execSql"];
-  isAuthenticated: ExplorerAppData["isAuthenticated"];
-  log: ExplorerAppData["log"];
-  online: ExplorerAppData["online"];
-  organizationId?: ExplorerAppData["organizationId"];
-  signingFingerprint?: ExplorerAppData["signingFingerprint"];
-  signingKeyPair?: ExplorerAppData["signingKeyPair"];
-  userId?: ExplorerAppData["userId"];
-}
+export type ExplorerRuntime = ExplorerWorkflowRuntime;
 
 export type ContainerState = ExplorerContainerState;
 
@@ -80,7 +60,7 @@ export interface ExplorerSyncAgent {
 
 type ExplorerSyncHost = ExplorerRemoteContainerHydrationHost;
 type ExplorerPrimeDocumentRuntime = ReturnType<
-  typeof createExplorerDocumentsRuntime
+  ExplorerRuntime["createDocumentsRuntime"]
 >;
 
 function requestExplorerSync(state: ExplorerSyncState) {
@@ -92,17 +72,7 @@ function createExplorerDocumentPrimeHost(
 ): ExplorerDocumentPrimeHost<ExplorerPrimeDocumentRuntime> {
   return {
     createDocumentRuntime: (containerId) =>
-      createExplorerDocumentsRuntime(
-        {
-          ...state.runtime,
-          organizationId: state.runtime.organizationId ?? null,
-          resolveProjectionUserKey: state.resolveProjectionUserKey,
-          signingFingerprint: state.runtime.signingFingerprint ?? null,
-          signingKeyPair: state.runtime.signingKeyPair ?? null,
-          userId: state.runtime.userId ?? null,
-        },
-        containerId,
-      ),
+      state.runtime.createDocumentsRuntime(containerId),
     primeDocumentStore: ({
       documentId,
       localId,

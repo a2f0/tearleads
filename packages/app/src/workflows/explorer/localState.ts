@@ -17,10 +17,12 @@ import {
   saveExplorerContainer,
 } from "./containerPersistence";
 import type { ExplorerContainerState } from "./remoteHydration";
+import {
+  type ExplorerWorkflowSqlRuntime,
+  getExplorerWorkflowRuntimeExecSql,
+} from "./runtime";
 
-interface ExplorerLocalStateRuntime {
-  execSql: ExecSql;
-}
+type ExplorerLocalStateRuntime = ExplorerWorkflowSqlRuntime;
 
 function createInitialExplorerContainerRecord(input: {
   container: StoredExplorerContainer["container"];
@@ -104,9 +106,10 @@ export async function loadLocalExplorerContainerStates(input: {
   runtime: ExplorerLocalStateRuntime;
 }): Promise<ReadonlyArray<ExplorerContainerState>> {
   const { persistence, runtime } = input;
-  await initializeExplorerSchema(runtime.execSql, persistence);
+  const execSql = getExplorerWorkflowRuntimeExecSql(runtime);
+  await initializeExplorerSchema(execSql, persistence);
   const storedContainers = await loadStoredExplorerContainers(
-    runtime.execSql,
+    execSql,
     persistence,
   );
 
@@ -114,7 +117,7 @@ export async function loadLocalExplorerContainerStates(input: {
   for (const storedContainer of storedContainers) {
     containerStates.push(
       await hydrateStoredExplorerContainerState({
-        execSql: runtime.execSql,
+        execSql,
         persistence,
         storedContainer,
       }),

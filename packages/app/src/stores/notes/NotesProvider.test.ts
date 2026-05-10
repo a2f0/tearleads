@@ -46,7 +46,6 @@ import type {
   PendingUpdateInsert,
   PendingUpdateRecord,
 } from "../../data/persistence/notes/notesPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import { createEmptyDriverLicenseDocument } from "../../document-types/drivers-license/driverLicenseDocument";
 import {
@@ -73,7 +72,11 @@ interface StoredNotesState {
 }
 
 type NotesRuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
-type NotesTestRuntime = NotesRuntime & { execSql: ExecSql };
+type NotesTestRuntime = NotesRuntime &
+  Pick<
+    NotesRuntimeInput,
+    "apiClient" | "blobStore" | "cacheReferencedPrincipalPolicies" | "execSql"
+  >;
 
 interface ContentRecordFields {
   ciphertext?: unknown;
@@ -117,7 +120,7 @@ function createListedContainers(
 
 function createUnavailableNotesApiClient(
   containerId = "root-container",
-): NotesRuntime["apiClient"] {
+): NotesRuntimeInput["apiClient"] {
   return createMockApiClient({
     bindBlobAttachment: async () => null,
     createDocument: async () => null,
@@ -135,8 +138,54 @@ function createUnavailableNotesApiClient(
 function createNotesTestRuntime(input: NotesRuntimeInput): NotesTestRuntime {
   return {
     ...createDocumentsWorkflowRuntime(input),
+    apiClient: input.apiClient,
+    blobStore: input.blobStore,
+    cacheReferencedPrincipalPolicies: input.cacheReferencedPrincipalPolicies,
     execSql: input.execSql,
   };
+}
+
+function cloneNotesTestRuntime(
+  runtime: NotesTestRuntime,
+  overrides: Partial<NotesRuntimeInput>,
+): NotesTestRuntime {
+  return createNotesTestRuntime({
+    apiClient: overrides.apiClient ?? runtime.apiClient,
+    blobStore: overrides.blobStore ?? runtime.blobStore,
+    cacheReferencedPrincipalPolicies:
+      overrides.cacheReferencedPrincipalPolicies ??
+      runtime.cacheReferencedPrincipalPolicies,
+    containerId:
+      (Object.hasOwn(overrides, "containerId")
+        ? overrides.containerId
+        : runtime.containerId) ?? null,
+    dbStatus: overrides.dbStatus ?? runtime.dbStatus,
+    domainScope: overrides.domainScope ?? runtime.domainScope,
+    encapsulationKeyPair: Object.hasOwn(overrides, "encapsulationKeyPair")
+      ? overrides.encapsulationKeyPair
+      : runtime.encapsulationKeyPair,
+    events: overrides.events ?? runtime.events,
+    execSql: overrides.execSql ?? runtime.execSql,
+    isAuthenticated: overrides.isAuthenticated ?? runtime.isAuthenticated,
+    log: overrides.log ?? runtime.log,
+    online: overrides.online ?? runtime.online,
+    organizationId:
+      (Object.hasOwn(overrides, "organizationId")
+        ? overrides.organizationId
+        : runtime.organizationId) ?? null,
+    signingFingerprint:
+      (Object.hasOwn(overrides, "signingFingerprint")
+        ? overrides.signingFingerprint
+        : runtime.signingFingerprint) ?? null,
+    signingKeyPair:
+      (Object.hasOwn(overrides, "signingKeyPair")
+        ? overrides.signingKeyPair
+        : runtime.signingKeyPair) ?? null,
+    userId:
+      (Object.hasOwn(overrides, "userId")
+        ? overrides.userId
+        : runtime.userId) ?? null,
+  });
 }
 
 async function createPersistedNoteSnapshot(text: string): Promise<string> {
@@ -898,8 +947,7 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
   const patch = await createNoteRuntimePatch({
     encapsulationKeyPair,
   });
-  const runtime: NotesTestRuntime & { close: () => void } = {
-    ...runtimeBase,
+  const runtime = cloneNotesTestRuntime(runtimeBase, {
     apiClient: patch.apiClient,
     encapsulationKeyPair,
     isAuthenticated: true,
@@ -908,7 +956,7 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
     signingFingerprint: patch.signingFingerprint,
     signingKeyPair: patch.signingKeyPair,
     userId: patch.userId,
-  };
+  });
 
   try {
     const firstStore = primeNotesStore(runtime.domainScope, "note-1", runtime);
@@ -952,8 +1000,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
   const patch = await createNoteRuntimePatch({
     encapsulationKeyPair,
   });
-  const runtime: NotesTestRuntime & { close: () => void } = {
-    ...runtimeBase,
+  const runtime = cloneNotesTestRuntime(runtimeBase, {
     apiClient: patch.apiClient,
     encapsulationKeyPair,
     isAuthenticated: true,
@@ -962,7 +1009,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
     signingFingerprint: patch.signingFingerprint,
     signingKeyPair: patch.signingKeyPair,
     userId: patch.userId,
-  };
+  });
 
   try {
     const firstStore = primeNotesStore(runtime.domainScope, "note-1", runtime);
@@ -1062,10 +1109,9 @@ test("domain-scoped persisted document subscriptions fan out to multiple listene
 test("notes store re-registers sync lane when runtime domain scope changes", async () => {
   const persistence = createNotesPersistence();
   const firstRuntime = createRuntime();
-  const secondRuntime: NotesTestRuntime = {
-    ...firstRuntime,
+  const secondRuntime = cloneNotesTestRuntime(firstRuntime, {
     domainScope: {},
-  };
+  });
   const store = createNotesStore(
     "domain-scope-note",
     firstRuntime,
@@ -1289,10 +1335,9 @@ test("notes store attaches files locally without authentication or network", asy
     encapsulationKeyPair,
     "offline-container",
   );
-  const offlineRuntime: NotesTestRuntime = {
-    ...runtime,
+  const offlineRuntime = cloneNotesTestRuntime(runtime, {
     blobStore,
-  };
+  });
   const store = createNotesStore(
     "offline-attachment-note",
     offlineRuntime,
@@ -1349,13 +1394,23 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
     minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
-  const runtime: NotesTestRuntime = {
-    ...(await createSyncRuntime(encapsulationKeyPair, "shared-container", {
+  const runtimeInput = await createSyncRuntime(
+    encapsulationKeyPair,
+    "shared-container",
+    {
       attachmentBinds,
       syncCalls,
-    })),
+    },
+  );
+  const runtime = createNotesTestRuntime({
+    ...runtimeInput,
+    containerId: runtimeInput.containerId ?? null,
+    organizationId: runtimeInput.organizationId ?? null,
+    signingFingerprint: runtimeInput.signingFingerprint ?? null,
+    signingKeyPair: runtimeInput.signingKeyPair ?? null,
+    userId: runtimeInput.userId ?? null,
     log: (message) => logs.push(message),
-  };
+  });
   const store = createNotesStore("attachment-upload", runtime, persistence);
   store.updateRuntime(runtime);
 

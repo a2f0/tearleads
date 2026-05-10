@@ -29,6 +29,10 @@ import {
   enqueuePendingExplorerContainerUpdate,
   listPendingExplorerContainerUpdates,
 } from "./containerPersistence";
+import {
+  type ExplorerWorkflowSqlRuntime,
+  getExplorerWorkflowRuntimeExecSql,
+} from "./runtime";
 
 type ExplorerMetadataSyncApi = Parameters<
   typeof syncRemoteDocument
@@ -37,9 +41,8 @@ type ExplorerMetadataSyncApi = Parameters<
     typeof createDocumentWriterPublicKeyResolver
   >[0]["runtime"]["apiClient"];
 
-interface ExplorerMetadataSyncRuntime {
+interface ExplorerMetadataSyncRuntime extends ExplorerWorkflowSqlRuntime {
   apiClient: ExplorerMetadataSyncApi;
-  execSql: ExecSql;
   log: (message: string) => void;
   organizationId?: string | null;
   signingFingerprint?: string | null;
@@ -53,9 +56,7 @@ interface ExplorerMetadataSyncRuntime {
   userId?: string | null;
 }
 
-interface ExplorerMetadataPersistenceRuntime {
-  execSql: ExecSql;
-}
+type ExplorerMetadataPersistenceRuntime = ExplorerWorkflowSqlRuntime;
 
 type ExplorerMetadataSyncResult = NonNullable<
   Awaited<ReturnType<typeof syncRemoteDocument>>
@@ -251,9 +252,10 @@ export async function persistExplorerContainerMetadataStateFromRuntime({
   persistence: ExplorerPersistence;
   runtime: ExplorerMetadataPersistenceRuntime;
 }): ReturnType<typeof persistExplorerContainerMetadataState> {
+  const execSql = getExplorerWorkflowRuntimeExecSql(runtime);
   return persistExplorerContainerMetadataState({
     ...input,
-    execSql: runtime.execSql,
+    execSql,
   });
 }
 
@@ -303,9 +305,10 @@ export async function renameExplorerContainerMetadataStateFromRuntime({
   persistence: ExplorerPersistence;
   runtime: ExplorerMetadataPersistenceRuntime;
 }): ReturnType<typeof renameExplorerContainerMetadataState> {
+  const execSql = getExplorerWorkflowRuntimeExecSql(runtime);
   return renameExplorerContainerMetadataState({
     ...input,
-    execSql: runtime.execSql,
+    execSql,
   });
 }
 
@@ -329,6 +332,7 @@ async function syncRemoteExplorerContainerMetadata(input: {
     runtime,
     targetSecretKey,
   } = input;
+  const execSql = getExplorerWorkflowRuntimeExecSql(runtime);
 
   if (!documentId) {
     return null;
@@ -346,7 +350,7 @@ async function syncRemoteExplorerContainerMetadata(input: {
     apiClient: runtime.apiClient,
     author,
     documentId,
-    execSql: runtime.execSql,
+    execSql,
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
     pendingUpdates,
@@ -396,9 +400,10 @@ export async function syncExplorerContainerMetadataState(input: {
   if (!documentId) {
     return null;
   }
+  const execSql = getExplorerWorkflowRuntimeExecSql(runtime);
 
   const pendingUpdates = await listPendingExplorerContainerUpdates(
-    runtime.execSql,
+    execSql,
     persistence,
     metadataState.container.id,
   );

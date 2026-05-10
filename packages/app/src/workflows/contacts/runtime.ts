@@ -79,15 +79,10 @@ function contactSyncPrerequisites(input: ContactsWorkflowRuntimeInput) {
   };
 }
 
-function requireContactsWorkflowRuntimeInput(
+function lookupContactsWorkflowRuntimeInput(
   runtime: ContactsWorkflowRuntime,
-): ContactsWorkflowRuntimeInput {
-  const input = contactsWorkflowRuntimeInputs.get(runtime);
-  if (!input) {
-    throw new Error("Contacts workflow runtime is not registered.");
-  }
-
-  return input;
+): ContactsWorkflowRuntimeInput | null {
+  return contactsWorkflowRuntimeInputs.get(runtime) ?? null;
 }
 
 export function createContactsWorkflowRuntime(
@@ -100,18 +95,21 @@ export function createContactsWorkflowRuntime(
     logError: input.logError,
     createProjectionUserKeyResolver: () =>
       createContactProjectionUserKeyResolver(input),
-    didProjectionKeyRuntimeChange: (previousRuntime) =>
-      didContactProjectionKeyRuntimeChange(
-        requireContactsWorkflowRuntimeInput(previousRuntime),
-        input,
-      ),
-    didRegainSyncPrerequisites: (previousRuntime) =>
-      didRegainContactSyncPrerequisites(
-        contactSyncPrerequisites(
-          requireContactsWorkflowRuntimeInput(previousRuntime),
-        ),
-        contactSyncPrerequisites(input),
-      ),
+    didProjectionKeyRuntimeChange: (previousRuntime) => {
+      const previousInput = lookupContactsWorkflowRuntimeInput(previousRuntime);
+      return previousInput
+        ? didContactProjectionKeyRuntimeChange(previousInput, input)
+        : true;
+    },
+    didRegainSyncPrerequisites: (previousRuntime) => {
+      const previousInput = lookupContactsWorkflowRuntimeInput(previousRuntime);
+      return previousInput
+        ? didRegainContactSyncPrerequisites(
+            contactSyncPrerequisites(previousInput),
+            contactSyncPrerequisites(input),
+          )
+        : false;
+    },
     fetchKeyEntry: (userId) =>
       fetchContactKeyEntryFromRuntime({
         runtime: input,

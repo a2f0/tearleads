@@ -1,11 +1,14 @@
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type RelinkRemoteDocumentResult,
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
 } from "../documents";
+import {
+  type ExplorerWorkflowSqlRuntime,
+  getExplorerWorkflowRuntimeExecSql,
+} from "./runtime";
 
 type ExplorerDocumentLinkApi = Parameters<
   typeof relinkRemoteDocument
@@ -16,10 +19,9 @@ type ExplorerDocumentLinkOperation = Parameters<
 type ExplorerRemoteDocumentPersistedState =
   RelinkRemoteDocumentResult["persistedState"];
 
-interface ExplorerDocumentLinkRuntime {
+interface ExplorerDocumentLinkRuntime extends ExplorerWorkflowSqlRuntime {
   apiClient: ExplorerDocumentLinkApi;
-  encapsulationKeyPair?: { secretKey: Uint8Array } | null;
-  execSql: ExecSql;
+  encapsulationKeyPair?: { secretKey: Uint8Array } | null | undefined;
   log: (message: string) => void;
   organizationId?: string | null;
   signingFingerprint?: string | null;
@@ -93,6 +95,7 @@ export async function relinkRemoteExplorerDocument(input: {
   } = input;
   const author = resolveDocumentCreateAuthor(runtime);
   const targetSecretKey = runtime.encapsulationKeyPair?.secretKey;
+  const execSql = getExplorerWorkflowRuntimeExecSql(runtime);
   if (!author || !targetSecretKey) {
     runtime.log(
       "Explorer: document mutation skipped because the local key context is unavailable",
@@ -105,7 +108,7 @@ export async function relinkRemoteExplorerDocument(input: {
       apiClient: runtime.apiClient,
       author,
       documentId,
-      execSql: runtime.execSql,
+      execSql,
       operation,
       resolveProjectionUserKey,
       targetContainerId,
@@ -119,7 +122,7 @@ export async function relinkRemoteExplorerDocument(input: {
     }
 
     await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      runtime.execSql,
+      execSql,
       documentId,
       result.linkedContainerIds,
     );

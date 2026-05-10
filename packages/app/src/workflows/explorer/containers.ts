@@ -6,7 +6,6 @@ import type {
 import { createInitializedContainerMetadataDocument } from "../../data/containers";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createRemoteContainer,
   moveRemoteContainer,
@@ -30,6 +29,10 @@ import type {
   ExplorerContainerState,
   ExplorerRemoteContainerHydrationHost,
 } from "./remoteHydration";
+import {
+  type ExplorerWorkflowSqlRuntime,
+  getExplorerWorkflowRuntimeExecSql,
+} from "./runtime";
 
 type ExplorerContainerWorkflowApi = Parameters<
   typeof createRemoteContainer
@@ -53,13 +56,15 @@ type ExplorerContainerWorkflowApi = Parameters<
     ): Promise<EncapsulationKeyResponse | null>;
   };
 
-interface ExplorerContainerWorkflowRuntime {
+interface ExplorerContainerWorkflowRuntime extends ExplorerWorkflowSqlRuntime {
   apiClient: ExplorerContainerWorkflowApi;
-  encapsulationKeyPair?: {
-    publicKey: Uint8Array;
-    secretKey: Uint8Array;
-  } | null;
-  execSql: ExecSql;
+  encapsulationKeyPair?:
+    | {
+        publicKey: Uint8Array;
+        secretKey: Uint8Array;
+      }
+    | null
+    | undefined;
   cacheReferencedPrincipalPolicies: (
     references: ReferencedPrincipalStateResponse[],
   ) => Promise<void>;
@@ -327,9 +332,10 @@ export async function createExplorerChildContainer(input: {
     !containerState.record.documentId && containerState.container.parentId
       ? { parentContainerId: containerState.container.parentId }
       : undefined;
+  const execSql = getExplorerWorkflowRuntimeExecSql(runtime);
 
   await saveExplorerContainer(
-    runtime.execSql,
+    execSql,
     persistence,
     containerState.container,
     containerState.record,
@@ -353,6 +359,7 @@ async function createRemoteExplorerContainer(input: {
 }): Promise<CreatedExplorerContainer | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
+  const execSql = getExplorerWorkflowRuntimeExecSql(input.runtime);
   const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !parentSecretKey) {
     input.runtime.log(
@@ -365,7 +372,7 @@ async function createRemoteExplorerContainer(input: {
     apiClient,
     author,
     containerId: input.containerId,
-    execSql: input.runtime.execSql,
+    execSql,
     metadataDocumentId: input.containerId,
     parentContainerId: input.parentContainerId,
     parentSecretKey,
@@ -380,7 +387,7 @@ async function createRemoteExplorerContainer(input: {
     author,
     containerId: createdContainer.containerId,
     documentId: createdContainer.metadataDocumentId,
-    execSql: input.runtime.execSql,
+    execSql,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey: parentSecretKey,
   });
@@ -421,17 +428,14 @@ async function markExplorerContainerCreateIntentAlreadySynced(input: {
   if (!remoteMetadataDocumentId || !remoteMetadataAccessStateHash) {
     return;
   }
+  const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
 
-  await markExplorerContainerCreateIntentSynced(
-    state.runtime.execSql,
-    state.persistence,
-    {
-      containerId: intent.containerId,
-      remoteContainerId: containerState.container.id,
-      remoteMetadataAccessStateHash,
-      remoteMetadataDocumentId,
-    },
-  );
+  await markExplorerContainerCreateIntentSynced(execSql, state.persistence, {
+    containerId: intent.containerId,
+    remoteContainerId: containerState.container.id,
+    remoteMetadataAccessStateHash,
+    remoteMetadataDocumentId,
+  });
 }
 
 async function persistCreatedExplorerContainerFromIntent(input: {
@@ -463,17 +467,14 @@ async function persistCreatedExplorerContainerFromIntent(input: {
     organizationId: created.organizationId,
     parentId: created.parentId,
   };
+  const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
 
-  await markExplorerContainerCreateIntentSynced(
-    state.runtime.execSql,
-    state.persistence,
-    {
-      containerId: containerState.container.id,
-      remoteContainerId: created.containerId,
-      remoteMetadataAccessStateHash: created.accessManifestHash,
-      remoteMetadataDocumentId: created.metadataDocumentId,
-    },
-  );
+  await markExplorerContainerCreateIntentSynced(execSql, state.persistence, {
+    containerId: containerState.container.id,
+    remoteContainerId: created.containerId,
+    remoteMetadataAccessStateHash: created.accessManifestHash,
+    remoteMetadataDocumentId: created.metadataDocumentId,
+  });
 }
 
 async function trySyncPendingExplorerContainerCreateIntent(input: {
@@ -486,8 +487,9 @@ async function trySyncPendingExplorerContainerCreateIntent(input: {
   const parentState = state.containersById.get(intent.parentContainerId);
 
   if (!containerState || !parentState) {
+    const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
     await recordExplorerContainerCreateIntentError(
-      state.runtime.execSql,
+      execSql,
       state.persistence,
       intent.containerId,
       "Container create intent references a missing local container",
@@ -516,8 +518,9 @@ async function trySyncPendingExplorerContainerCreateIntent(input: {
   });
 
   if (!created) {
+    const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
     await recordExplorerContainerCreateIntentError(
-      state.runtime.execSql,
+      execSql,
       state.persistence,
       intent.containerId,
       "Remote container create was rejected or unavailable",
@@ -542,8 +545,9 @@ export async function syncPendingExplorerContainerCreateIntents(input: {
   state: ExplorerContainerCreateIntentSyncState;
 }): Promise<number> {
   const { host, state } = input;
+  const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
   const pendingIntents = await listPendingExplorerContainerCreateIntents(
-    state.runtime.execSql,
+    execSql,
     state.persistence,
   );
   const remainingContainerIds = new Set(
@@ -590,6 +594,7 @@ async function shareRemoteExplorerContainer(input: {
 }): Promise<SharedExplorerContainer | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
+  const execSql = getExplorerWorkflowRuntimeExecSql(input.runtime);
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
     input.runtime.log(
@@ -610,7 +615,7 @@ async function shareRemoteExplorerContainer(input: {
     apiClient,
     author,
     containerId: input.containerId,
-    execSql: input.runtime.execSql,
+    execSql,
     recipientEncapsulationPublicKey: base64ToBytes(
       recipientKey.encapsulationPublicKey,
     ),
@@ -687,6 +692,7 @@ export async function moveRemoteExplorerContainer(input: {
 }): Promise<RemoteExplorerContainer | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
+  const execSql = getExplorerWorkflowRuntimeExecSql(input.runtime);
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
     input.runtime.log(
@@ -700,7 +706,7 @@ export async function moveRemoteExplorerContainer(input: {
     author,
     containerId: input.containerId,
     destinationParentContainerId: input.parentContainerId,
-    execSql: input.runtime.execSql,
+    execSql,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey,
   });
@@ -755,9 +761,10 @@ export async function deleteExplorerContainerState(input: {
       return false;
     }
   }
+  const execSql = getExplorerWorkflowRuntimeExecSql(input.runtime);
 
   await deleteSingleExplorerContainer(
-    input.runtime.execSql,
+    execSql,
     input.persistence,
     input.containerState.container.id,
   );

@@ -1,10 +1,5 @@
 import type { ContainerNode } from "../../mini-apps/explorer/types";
-import {
-  createExplorerProjectionUserKeyResolver,
-  didExplorerProjectionKeyRuntimeChange,
-  didRegainExplorerSyncPrerequisites,
-  type ExplorerPersistence,
-} from "../../workflows/explorer";
+import type { ExplorerPersistence } from "../../workflows/explorer";
 import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
 import type { ExplorerSnapshot, ExplorerStoreState } from "./types";
 import { getSnapshotNodes } from "./utils";
@@ -42,8 +37,7 @@ export function createExplorerStoreState(
     listeners: new Set(),
     persistence,
     remoteHydrationPromise: null,
-    resolveProjectionUserKey:
-      createExplorerProjectionUserKeyResolver(initialRuntime),
+    resolveProjectionUserKey: initialRuntime.createProjectionUserKeyResolver(),
     runtime: initialRuntime,
     snapshot: {
       nodes: [],
@@ -108,9 +102,9 @@ export function updateExplorerStoreRuntime(
   syncAgent: ExplorerSyncAgent,
 ) {
   const previousRuntime = state.runtime;
-  if (didExplorerProjectionKeyRuntimeChange(previousRuntime, nextRuntime)) {
+  if (nextRuntime.didProjectionKeyRuntimeChange(previousRuntime)) {
     state.resolveProjectionUserKey =
-      createExplorerProjectionUserKeyResolver(nextRuntime);
+      nextRuntime.createProjectionUserKeyResolver();
   }
   state.runtime = nextRuntime;
 
@@ -133,7 +127,7 @@ export function updateExplorerStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    didRegainExplorerSyncPrerequisites(previousRuntime, nextRuntime)
+    nextRuntime.didRegainSyncPrerequisites(previousRuntime)
   ) {
     syncAgent.scheduleRemoteHydration();
   }

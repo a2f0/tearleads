@@ -2,7 +2,6 @@ import type {
   ListDocumentAttachmentsResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type DocumentAttachmentHydrationRuntime,
   hydrateDocumentAttachmentBlobsFromRuntime,
@@ -95,17 +94,7 @@ type UploadDocumentAttachmentInput = Omit<
   "runtime"
 >;
 
-const documentsWorkflowRuntimeExecSql = Symbol(
-  "documentsWorkflowRuntimeExecSql",
-);
-
 export interface DocumentsWorkflowRuntime {
-  readonly [documentsWorkflowRuntimeExecSql]: ExecSql;
-  readonly apiClient: DocumentsWorkflowRuntimeInput["apiClient"];
-  readonly blobStore: BlobStore;
-  readonly cacheReferencedPrincipalPolicies: (
-    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
-  ) => Promise<void>;
   readonly containerId?: string | null | undefined;
   readonly dbStatus: string;
   readonly domainScope: object;
@@ -183,10 +172,6 @@ export interface DocumentsWorkflowRuntime {
 
 type DocumentsWorkflowRuntimeActions = Omit<
   DocumentsWorkflowRuntime,
-  | typeof documentsWorkflowRuntimeExecSql
-  | "apiClient"
-  | "blobStore"
-  | "cacheReferencedPrincipalPolicies"
   | "containerId"
   | "dbStatus"
   | "domainScope"
@@ -201,149 +186,149 @@ type DocumentsWorkflowRuntimeActions = Omit<
   | "userId"
 >;
 
-function runtimeInputFromWorkflowRuntime(
+const documentsWorkflowRuntimeInputs = new WeakMap<
+  DocumentsWorkflowRuntime,
+  DocumentsWorkflowRuntimeInput
+>();
+
+function lookupDocumentsWorkflowRuntimeInput(
   runtime: DocumentsWorkflowRuntime,
-): DocumentsWorkflowRuntimeInput {
+): DocumentsWorkflowRuntimeInput | null {
+  return documentsWorkflowRuntimeInputs.get(runtime) ?? null;
+}
+
+function documentSyncPrerequisites(input: {
+  encapsulationKeyPair?: unknown;
+  isAuthenticated: boolean;
+  online: boolean;
+}) {
   return {
-    apiClient: runtime.apiClient,
-    blobStore: runtime.blobStore,
-    cacheReferencedPrincipalPolicies: runtime.cacheReferencedPrincipalPolicies,
-    containerId: runtime.containerId ?? null,
-    dbStatus: runtime.dbStatus,
-    domainScope: runtime.domainScope,
-    encapsulationKeyPair: runtime.encapsulationKeyPair ?? null,
-    events: runtime.events,
-    execSql: runtime[documentsWorkflowRuntimeExecSql],
-    isAuthenticated: runtime.isAuthenticated,
-    log: runtime.log,
-    online: runtime.online,
-    organizationId: runtime.organizationId ?? null,
-    signingFingerprint: runtime.signingFingerprint ?? null,
-    signingKeyPair: runtime.signingKeyPair ?? null,
-    userId: runtime.userId ?? null,
+    encapsulationKeyPair: input.encapsulationKeyPair,
+    isAuthenticated: input.isAuthenticated,
+    online: input.online,
   };
 }
 
-function documentSyncPrerequisites(runtime: DocumentsWorkflowRuntime) {
+function documentProjectionRuntime(input: DocumentsWorkflowRuntimeInput) {
   return {
-    encapsulationKeyPair: runtime.encapsulationKeyPair,
-    isAuthenticated: runtime.isAuthenticated,
-    online: runtime.online,
+    apiClient: input.apiClient,
+    encapsulationKeyPair: input.encapsulationKeyPair ?? null,
+    signingFingerprint: input.signingFingerprint ?? null,
+    signingKeyPair: input.signingKeyPair ?? null,
+    userId: input.userId ?? null,
   };
 }
 
-function documentProjectionRuntime(runtime: DocumentsWorkflowRuntime) {
+function createDocumentsWorkflowRuntimeActions(
+  input: DocumentsWorkflowRuntimeInput,
+): DocumentsWorkflowRuntimeActions {
   return {
-    apiClient: runtime.apiClient,
-    encapsulationKeyPair: runtime.encapsulationKeyPair ?? null,
-    signingFingerprint: runtime.signingFingerprint ?? null,
-    signingKeyPair: runtime.signingKeyPair ?? null,
-    userId: runtime.userId ?? null,
-  };
-}
-
-function createDocumentsWorkflowRuntimeActions(): DocumentsWorkflowRuntimeActions {
-  return {
-    createRemoteDocument(this: DocumentsWorkflowRuntime, createInput) {
+    createRemoteDocument(createInput) {
       return createRemoteDocumentFromRuntime({
         ...createInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    createProjectionUserKeyResolver(this: DocumentsWorkflowRuntime) {
+    createProjectionUserKeyResolver() {
       return createDocumentProjectionUserKeyResolver(
-        documentProjectionRuntime(this),
+        documentProjectionRuntime(input),
       );
     },
-    deletePendingAttachment(this: DocumentsWorkflowRuntime, deleteInput) {
+    deletePendingAttachment(deleteInput) {
       return deletePendingDocumentAttachmentFromRuntime({
         ...deleteInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    didProjectionKeyRuntimeChange(
-      this: DocumentsWorkflowRuntime,
-      previousRuntime,
-    ) {
+    didProjectionKeyRuntimeChange(previousRuntime) {
+      const previousInput =
+        lookupDocumentsWorkflowRuntimeInput(previousRuntime);
+      if (!previousInput) {
+        return true;
+      }
+
       return didDocumentProjectionKeyRuntimeChange(
-        documentProjectionRuntime(previousRuntime),
-        documentProjectionRuntime(this),
+        documentProjectionRuntime(previousInput),
+        documentProjectionRuntime(input),
       );
     },
-    didRegainSyncPrerequisites(
-      this: DocumentsWorkflowRuntime,
-      previousRuntime,
-    ) {
+    didRegainSyncPrerequisites(previousRuntime) {
+      const previousInput =
+        lookupDocumentsWorkflowRuntimeInput(previousRuntime);
+      if (!previousInput) {
+        return false;
+      }
+
       return didRegainDocumentSyncPrerequisites(
-        documentSyncPrerequisites(previousRuntime),
-        documentSyncPrerequisites(this),
+        documentSyncPrerequisites(previousInput),
+        documentSyncPrerequisites(input),
       );
     },
-    enqueuePendingUpdate(this: DocumentsWorkflowRuntime, updateInput) {
+    enqueuePendingUpdate(updateInput) {
       return enqueuePendingDocumentUpdateFromRuntime({
         ...updateInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    hydrateAttachmentBlobs(this: DocumentsWorkflowRuntime, hydrateInput) {
+    hydrateAttachmentBlobs(hydrateInput) {
       return hydrateDocumentAttachmentBlobsFromRuntime({
         ...hydrateInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    listDocumentAttachments(this: DocumentsWorkflowRuntime, documentId) {
-      return this.apiClient.listDocumentAttachments(documentId);
+    listDocumentAttachments(documentId) {
+      return input.apiClient.listDocumentAttachments(documentId);
     },
-    listPendingUpdates(this: DocumentsWorkflowRuntime, listInput) {
+    listPendingUpdates(listInput) {
       return listPendingDocumentUpdatesFromRuntime({
         ...listInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    loadPersistedStoreState(this: DocumentsWorkflowRuntime, loadInput) {
+    loadPersistedStoreState(loadInput) {
       return loadPersistedDocumentStoreStateFromRuntime({
         ...loadInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    persistState(this: DocumentsWorkflowRuntime, persistInput) {
+    persistState(persistInput) {
       return persistDocumentStateFromRuntime({
         ...persistInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    readBlobBytes(this: DocumentsWorkflowRuntime, storageKey) {
-      return this.blobStore.readBytes(storageKey);
+    readBlobBytes(storageKey) {
+      return input.blobStore.readBytes(storageKey);
     },
-    resolveCreateAuthor(this: DocumentsWorkflowRuntime) {
-      return resolveDocumentCreateAuthor(runtimeInputFromWorkflowRuntime(this));
+    resolveCreateAuthor() {
+      return resolveDocumentCreateAuthor(input);
     },
-    saveLocalAttachments(this: DocumentsWorkflowRuntime, saveInput) {
+    saveLocalAttachments(saveInput) {
       return saveLocalDocumentAttachmentsFromRuntime({
         ...saveInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    savePendingAttachment(this: DocumentsWorkflowRuntime, saveInput) {
+    savePendingAttachment(saveInput) {
       return savePendingDocumentAttachmentFromRuntime({
         ...saveInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    syncRemoteDocument(this: DocumentsWorkflowRuntime, syncInput) {
+    syncRemoteDocument(syncInput) {
       return syncRemoteDocumentFromRuntime({
         ...syncInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    uploadAttachment(this: DocumentsWorkflowRuntime, uploadInput) {
+    uploadAttachment(uploadInput) {
       return uploadDocumentAttachmentFromRuntime({
         ...uploadInput,
-        runtime: runtimeInputFromWorkflowRuntime(this),
+        runtime: input,
       });
     },
-    writeBlobBytes(this: DocumentsWorkflowRuntime, storageKey, bytes) {
-      return this.blobStore.writeBytes(storageKey, bytes);
+    writeBlobBytes(storageKey, bytes) {
+      return input.blobStore.writeBytes(storageKey, bytes);
     },
   };
 }
@@ -352,10 +337,6 @@ export function createDocumentsWorkflowRuntime(
   input: DocumentsWorkflowRuntimeInput,
 ): DocumentsWorkflowRuntime {
   const runtime: DocumentsWorkflowRuntime = {
-    [documentsWorkflowRuntimeExecSql]: input.execSql,
-    apiClient: input.apiClient,
-    blobStore: input.blobStore,
-    cacheReferencedPrincipalPolicies: input.cacheReferencedPrincipalPolicies,
     containerId: input.containerId,
     dbStatus: input.dbStatus,
     domainScope: input.domainScope,
@@ -368,8 +349,9 @@ export function createDocumentsWorkflowRuntime(
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
     userId: input.userId,
-    ...createDocumentsWorkflowRuntimeActions(),
+    ...createDocumentsWorkflowRuntimeActions(input),
   };
+  documentsWorkflowRuntimeInputs.set(runtime, input);
 
   return runtime;
 }

@@ -1,37 +1,19 @@
 import { useMemo } from "react";
-import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
-import { createDocumentsWorkflowRuntime } from "../../workflows/documents";
 import {
-  createExplorerDocumentProjectionUserKeyResolver,
+  createExplorerWorkflowRuntime,
   type ExplorerProjectionUserKeyResolver,
+  type ExplorerWorkflowRuntime,
+  type ExplorerWorkflowRuntimeInput,
 } from "../../workflows/explorer";
 import type { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerDocumentRuntime = Parameters<typeof primeDocumentStore>[2];
 
-export type ExplorerDocumentsRuntimeAppDataInput = Pick<
-  AppDataContextValue,
-  | "apiClient"
-  | "blobStore"
-  | "cacheReferencedPrincipalPolicies"
-  | "dbStatus"
-  | "domainScope"
-  | "encapsulationKeyPair"
-  | "events"
-  | "execSql"
-  | "isAuthenticated"
-  | "log"
-  | "online"
-  | "organizationId"
-  | "signingFingerprint"
-  | "signingKeyPair"
-  | "userId"
->;
+export type ExplorerDocumentsRuntimeAppDataInput = ExplorerWorkflowRuntimeInput;
 
-export type ExplorerDocumentsRuntimeAppData =
-  ExplorerDocumentsRuntimeAppDataInput & {
-    resolveProjectionUserKey: ExplorerProjectionUserKeyResolver;
-  };
+export type ExplorerDocumentsRuntimeAppData = ExplorerWorkflowRuntime & {
+  resolveProjectionUserKey: ExplorerProjectionUserKeyResolver;
+};
 
 export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
   return (
@@ -44,120 +26,26 @@ export function createExplorerDocumentsRuntime(
   appData: ExplorerDocumentsRuntimeAppData,
   containerId: string,
 ): ExplorerDocumentRuntime {
-  const {
-    apiClient,
-    blobStore,
-    cacheReferencedPrincipalPolicies,
-    dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    events,
-    execSql,
-    isAuthenticated,
-    log,
-    online,
-    organizationId,
-    signingFingerprint,
-    signingKeyPair,
-    userId,
-  } = appData;
-
-  return createDocumentsWorkflowRuntime({
-    apiClient,
-    blobStore,
-    cacheReferencedPrincipalPolicies,
-    containerId,
-    dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    events,
-    execSql,
-    isAuthenticated,
-    log,
-    online,
-    organizationId,
-    signingFingerprint,
-    signingKeyPair,
-    userId,
-  });
+  return appData.createDocumentsRuntime(containerId);
 }
 
 export function useExplorerDocumentsRuntimeAppData(
   appData: ExplorerDocumentsRuntimeAppDataInput,
 ): ExplorerDocumentsRuntimeAppData {
-  const {
-    apiClient,
-    blobStore,
-    cacheReferencedPrincipalPolicies,
-    dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    events,
-    execSql,
-    isAuthenticated,
-    log,
-    online,
-    organizationId,
-    signingFingerprint,
-    signingKeyPair,
-    userId,
-  } = appData;
+  const runtime = useMemo(
+    () => createExplorerWorkflowRuntime(appData),
+    [appData],
+  );
   const resolveProjectionUserKey = useMemo(
-    () =>
-      createExplorerDocumentProjectionUserKeyResolver({
-        apiClient,
-        encapsulationKeyPair,
-        log,
-        signingFingerprint,
-        signingKeyPair,
-        userId,
-      }),
-    [
-      apiClient,
-      encapsulationKeyPair,
-      log,
-      signingFingerprint,
-      signingKeyPair,
-      userId,
-    ],
+    () => runtime.createDocumentProjectionUserKeyResolver(),
+    [runtime],
   );
 
   return useMemo(
     () => ({
-      apiClient,
-      blobStore,
-      cacheReferencedPrincipalPolicies,
-      dbStatus,
-      domainScope,
-      encapsulationKeyPair,
-      events,
-      execSql,
-      isAuthenticated,
-      log,
-      online,
-      organizationId,
-      signingFingerprint,
-      signingKeyPair,
-      userId,
+      ...runtime,
       resolveProjectionUserKey,
     }),
-    [
-      apiClient,
-      blobStore,
-      cacheReferencedPrincipalPolicies,
-      dbStatus,
-      domainScope,
-      encapsulationKeyPair,
-      events,
-      execSql,
-      isAuthenticated,
-      log,
-      online,
-      organizationId,
-      signingFingerprint,
-      signingKeyPair,
-      userId,
-      resolveProjectionUserKey,
-    ],
+    [runtime, resolveProjectionUserKey],
   );
 }

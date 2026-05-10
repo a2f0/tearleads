@@ -7,15 +7,16 @@ import {
   type ExplorerDocumentStructuralMutationRelinkInput,
   type ExplorerDocumentStructuralMutationRuntime,
 } from "./documentStructure";
+import { createExplorerWorkflowSqlRuntime } from "./runtime";
 
 function createRuntime(
   logs: string[] = [],
 ): ExplorerDocumentStructuralMutationRuntime {
   return {
+    ...createExplorerWorkflowSqlRuntime({ execSql: async () => [] }),
     apiClient: {} as ExplorerDocumentStructuralMutationRuntime["apiClient"],
     dbStatus: "ready",
     encapsulationKeyPair: null,
-    execSql: async () => [],
     isAuthenticated: true,
     log: (message) => {
       logs.push(message);

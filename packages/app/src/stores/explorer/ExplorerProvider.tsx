@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
+  createExplorerWorkflowRuntime,
   defaultExplorerPersistence,
   type ExplorerPersistence,
 } from "../../workflows/explorer";
@@ -108,7 +109,11 @@ function getOrCreateExplorerStore(
 }
 
 export function ExplorerProvider({ children }: PropsWithChildren) {
-  const runtime = useAppData();
+  const appData = useAppData();
+  const runtime = useMemo(
+    () => createExplorerWorkflowRuntime(appData),
+    [appData],
+  );
   const store = useMemo(
     () => getOrCreateExplorerStore(runtime.domainScope, runtime),
     [runtime.domainScope],
