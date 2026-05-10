@@ -1,23 +1,33 @@
 import { expect, test } from "bun:test";
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
+  buildPrincipalStateSigningInput,
+  type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   computeBlobAccessManifestHash,
   computeContainerKekMaterialId,
+  computeContainerKekRecipientTargetHash,
+  computeContainerKeyEpochHash,
+  computePrincipalStateHash,
   computeWriteHeaderHash,
   decryptWithDek,
+  derivePrincipalRecipientKeyEpochId,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
+  signPrincipalState,
   toFingerprint,
   type VerifiedContainerAccessManifest,
   verifyContainerKekState,
   type WriteHeader,
+  wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
+  PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 import { uploadDocumentAttachment } from "../../../workflows/blobs";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -26,6 +36,10 @@ import {
 } from "../../../workflows/documents";
 import type { BlobBytes } from "../../blobs";
 import {
+  ensurePrincipalPolicyTables,
+  savePrincipalPolicyBundle,
+} from "../../persistence/principalPolicyPersistence";
+import {
   createContainerManifestFixture,
   createContainerRevokeManifestFixture,
   createParentProjection,
@@ -33,6 +47,102 @@ import {
   createUserContainerWrap,
   SIGNED_AT,
 } from "../test-helpers";
+
+async function createGroupPrincipalPolicyBundle(input: {
+  memberRecipientPublicKeys: Array<{
+    memberPrincipalId: string;
+    memberPrincipalType: "user" | "group";
+    publicKey: Uint8Array;
+  }>;
+  members: Array<{ principalType: "user" | "group"; principalId: string }>;
+  principalId: string;
+  principalKem: {
+    publicKey: Uint8Array;
+    secretKey: Uint8Array;
+  };
+  signedAt: string;
+  signer: {
+    signerKeyFingerprint: string;
+    signerPrivateKey: Uint8Array;
+    signerUserId: string;
+  };
+}): Promise<PrincipalPolicyBundleResponse> {
+  const currentProjection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.signer.signerUserId,
+      role: "admin" as const,
+    },
+    ...input.members.map((member) => ({
+      memberPrincipalType: member.principalType,
+      memberPrincipalId: member.principalId,
+      role: "member" as const,
+    })),
+  ];
+  const payloadCiphertext = `${input.principalId}-payload`;
+  const signedState = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
+      principalType: "group",
+      principalId: input.principalId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(input.principalKem.publicKey),
+      keyFingerprint: await toFingerprint(input.principalKem.publicKey),
+      members: input.members,
+      projection: currentProjection,
+      payloadCiphertext,
+      signedAt: input.signedAt,
+      signerUserId: input.signer.signerUserId,
+      signerUserKeyFingerprint: input.signer.signerKeyFingerprint,
+    }),
+    input.signer.signerPrivateKey,
+  );
+  const stateHash = await computePrincipalStateHash(signedState);
+  const wrappedMembers = await wrapDekForRecipients(
+    input.principalKem.secretKey,
+    input.memberRecipientPublicKeys.map((recipient) => recipient.publicKey),
+  );
+
+  return {
+    currentMemberEnvelopes: {
+      principalType: "group",
+      principalId: input.principalId,
+      stateHash,
+      epoch: 1,
+      envelopes: input.memberRecipientPublicKeys.map((recipient, index) => {
+        const wrappedMember = wrappedMembers[index];
+        if (!wrappedMember) {
+          throw new Error("Expected wrapped principal member key");
+        }
+
+        return {
+          memberPrincipalType: recipient.memberPrincipalType,
+          memberPrincipalId: recipient.memberPrincipalId,
+          memberKeyFingerprint: wrappedMember.keyFingerprint,
+          kemCipherText: bytesToBase64(wrappedMember.kemCipherText),
+          wrappedKey: bytesToBase64(wrappedMember.wrappedKey),
+        };
+      }),
+    },
+    currentPayload: {
+      principalType: "group",
+      principalId: input.principalId,
+      stateHash,
+      cipherSuite: "aes-256-gcm",
+      ciphertext: payloadCiphertext,
+      ciphertextHash: signedState.payloadCiphertextHash,
+      createdAt: input.signedAt,
+    },
+    currentProjection,
+    currentState: {
+      ...signedState,
+      createdAt: input.signedAt,
+      stateHash,
+    },
+    previousStates: [],
+  };
+}
 
 test("unwrapContainerKekPath verifies signed projection events before unwrap", async () => {
   const parent = await createParentProjection();
@@ -473,6 +583,173 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
   ).rejects.toThrow();
 });
 
+test("unwrapContainerKekPath verifies cached group policies before managed-principal unwrap", async () => {
+  const parent = await createParentProjection();
+  const groupKem = generateKemSeedAndKeyPair();
+  const groupMemberKem = generateKemSeedAndKeyPair();
+  const groupMemberUserId = "group-member-user";
+  const groupBundle = await createGroupPrincipalPolicyBundle({
+    memberRecipientPublicKeys: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: groupMemberUserId,
+        publicKey: groupMemberKem.publicKey,
+      },
+    ],
+    members: [{ principalType: "user", principalId: groupMemberUserId }],
+    principalId: "group-managed-container-access",
+    principalKem: groupKem,
+    signedAt: SIGNED_AT,
+    signer: parent.author,
+  });
+  const groupHead = {
+    principalType: "group" as const,
+    principalId: groupBundle.currentState.principalId,
+    version: groupBundle.currentState.version,
+    keyEpoch: groupBundle.currentState.keyEpoch,
+    stateHash: groupBundle.currentState.stateHash,
+    keyFingerprint: groupBundle.currentState.keyFingerprint,
+  };
+  const containerId = "managed-group-container";
+  const containerKek = crypto.getRandomValues(new Uint8Array(32));
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId,
+    keyEpoch: 1,
+    keyMaterial: containerKek,
+  });
+  const manifest = await createContainerManifestFixture({
+    author: parent.author,
+    containerId,
+    containerKeyEpochId,
+    directGrants: [
+      {
+        subjectType: "group",
+        subjectId: groupHead.principalId,
+        accessLevel: "write",
+      },
+      {
+        subjectType: "user",
+        subjectId: parent.userId,
+        accessLevel: "admin",
+      },
+    ],
+    eventId: "managed-group-container-event-1",
+    metadataDocumentId: "managed-group-container-metadata-document",
+    organizationId: parent.projection.organizationId,
+    referencedPrincipalHeads: [groupHead],
+  });
+  const signerRecipientKeyFingerprint = await toFingerprint(
+    parent.encapsulationPublicKey,
+  );
+  const signerRecipientKeyEpochId = `user:${parent.userId}:encapsulation:${signerRecipientKeyFingerprint}`;
+  const signerWrap = await createUserContainerWrap({
+    containerKeyEpochId,
+    containerKek,
+    publicKey: parent.encapsulationPublicKey,
+    recipientKeyEpochId: signerRecipientKeyEpochId,
+    userId: parent.userId,
+    wrapManifestHash: manifest.manifestHash,
+  });
+  const [groupWrappedKek] = await wrapDekForRecipients(containerKek, [
+    groupKem.publicKey,
+  ]);
+  if (!groupWrappedKek) {
+    throw new Error("Expected wrapped group KEK");
+  }
+  const groupRecipientTarget: ContainerKekRecipientTarget = {
+    recipientKind: "group",
+    recipientId: groupHead.principalId,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(groupHead),
+    recipientKeyFingerprint: groupWrappedKek.keyFingerprint,
+  };
+  const userRecipientTarget: ContainerKekRecipientTarget = {
+    recipientKind: "user",
+    recipientId: parent.userId,
+    recipientKeyEpochId: signerRecipientKeyEpochId,
+    recipientKeyFingerprint: signerWrap.recipientKeyFingerprint,
+  };
+  const recipientTargets = [groupRecipientTarget, userRecipientTarget];
+  const keyEpoch: ContainerKeyEpoch = {
+    id: containerKeyEpochId,
+    containerId,
+    keyEpoch: 1,
+    accessManifestHash: manifest.manifestHash,
+    parentContainerKeyEpochId: null,
+    createdByEventHash: manifest.event.eventHash,
+    createdByManifestHash: manifest.manifestHash,
+  };
+  const projection: ContainerWriterProjectionResponse = {
+    containerId,
+    organizationId: parent.projection.organizationId,
+    path: [
+      manifest as unknown as ContainerWriterProjectionResponse["path"][number],
+    ],
+    containerKeks: [
+      {
+        accessManifestHash: manifest.manifestHash,
+        containerId,
+        containerKeyEpoch: 1,
+        containerKeyEpochId,
+        keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+        keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
+        keyTargetHash:
+          await computeContainerKekRecipientTargetHash(recipientTargets),
+        parentContainerKeyEpochId: null,
+        recipientTargets: recipientTargets as unknown as Record<
+          string,
+          unknown
+        >[],
+        wraps: [
+          signerWrap,
+          {
+            containerKeyEpochId,
+            recipientKind: "group",
+            recipientId: groupHead.principalId,
+            recipientKeyEpochId: groupRecipientTarget.recipientKeyEpochId,
+            recipientKeyFingerprint: groupWrappedKek.keyFingerprint,
+            kemCipherText: bytesToBase64(groupWrappedKek.kemCipherText),
+            wrappedKey: bytesToBase64(groupWrappedKek.wrappedKey),
+            wrapManifestHash: manifest.manifestHash,
+          },
+        ],
+      },
+    ],
+  };
+  const resolveProjectionUserKey = async (userId: string) =>
+    userId === parent.userId
+      ? {
+          encapsulationPublicKey: parent.encapsulationPublicKey,
+          signingPublicKey: parent.signingPublicKey,
+          userId,
+        }
+      : null;
+  const { close, execSql } = await createTestExecSql(
+    "managed-principal-projection-verification",
+  );
+
+  try {
+    await ensurePrincipalPolicyTables(execSql);
+    await savePrincipalPolicyBundle(
+      execSql,
+      groupBundle,
+      "2026-04-28T12:01:00.000Z",
+    );
+
+    const groupMemberKeks = await unwrapContainerKekPath({
+      execSql,
+      projection,
+      resolveProjectionUserKey,
+      secretKey: groupMemberKem.secretKey,
+    });
+
+    expect(Array.from(groupMemberKeks.get(containerKeyEpochId) ?? [])).toEqual(
+      Array.from(containerKek),
+    );
+  } finally {
+    close();
+  }
+});
+
 test("unwrapContainerKekPath fails closed for managed-principal KEK projections", async () => {
   const parent = await createParentProjection();
   const groupHead = {
@@ -526,5 +803,5 @@ test("unwrapContainerKekPath fails closed for managed-principal KEK projections"
           : null,
       secretKey: parent.secretKey,
     }),
-  ).rejects.toThrow("managed principal grants");
+  ).rejects.toThrow("requires a verified local cache");
 });

@@ -161,6 +161,7 @@ async function assertDocumentLinkSetMutationOrganizations(input: {
 
 async function verifyDocumentLinkSetTargetContainerProjection(
   input: {
+    execSql?: ExecSql | undefined;
     targetContainerProjection: ContainerWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<void> {
@@ -174,6 +175,7 @@ async function verifyDocumentLinkSetTargetContainerProjection(
 
   try {
     await verifyContainerWriterProjection({
+      execSql: input.execSql,
       projection: input.targetContainerProjection,
       resolveUserKey: resolveProjectionUserKey,
     });
@@ -295,11 +297,12 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
   } & ProjectionVerificationOptions,
 ): Promise<MaterializedDocumentLinkSetMutationPlan> {
   const verificationOptions = projectionVerificationOptions(input);
-  await assertDocumentWriterProjectionConsistent(
-    input.writerProjection,
-    verificationOptions,
-  );
+  await assertDocumentWriterProjectionConsistent(input.writerProjection, {
+    execSql: input.execSql,
+    ...verificationOptions,
+  });
   await verifyDocumentLinkSetTargetContainerProjection({
+    execSql: input.execSql,
     targetContainerProjection: input.targetContainerProjection,
     ...verificationOptions,
   });

@@ -49,6 +49,7 @@ export async function decryptDocumentAttachmentBlob({
   await assertBlobContentKeyBundleTargetHash(encrypted.contentKeyBundle);
 
   await assertDocumentWriterProjectionConsistent(writerProjection, {
+    execSql,
     resolveProjectionUserKey: requiredResolveProjectionUserKey,
   });
   const { documentId, organizationId } =

@@ -148,6 +148,7 @@ export async function buildMaterializedDocumentSyncPlan(
   } & ProjectionVerificationOptions,
 ): Promise<MaterializedDocumentSyncPlan> {
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
+    execSql: input.execSql,
     ...projectionVerificationOptions(input),
   });
   const contentKey = await unwrapDocumentContentKeyFromWriterProjection({
