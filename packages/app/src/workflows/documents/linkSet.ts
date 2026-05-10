@@ -29,6 +29,7 @@ import {
 import {
   assertDocumentManifestBundleConsistent,
   describeDocumentTargetKek,
+  errorMessage,
   sortDocumentTargets,
   targetKey,
   uniqueSortedStrings,
@@ -45,11 +46,13 @@ import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
   type RelinkRemoteDocumentResult,
+  resolveProjectionVerifier,
 } from "../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import {
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
+  verifyContainerWriterProjection,
 } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -153,6 +156,31 @@ async function assertDocumentLinkSetMutationOrganizations(input: {
     input.targetContainerProjection.organizationId
   ) {
     throw new Error("Document target container organization mismatch");
+  }
+}
+
+async function verifyDocumentLinkSetTargetContainerProjection(
+  input: {
+    targetContainerProjection: ContainerWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<void> {
+  const resolveProjectionUserKey = resolveProjectionVerifier(
+    input,
+    "Document link-set target container projection",
+  );
+  if (!resolveProjectionUserKey) {
+    return;
+  }
+
+  try {
+    await verifyContainerWriterProjection({
+      projection: input.targetContainerProjection,
+      resolveUserKey: resolveProjectionUserKey,
+    });
+  } catch (error) {
+    throw new Error(
+      `Document link-set target container projection verification failed: ${errorMessage(error)}`,
+    );
   }
 }
 
@@ -266,8 +294,14 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<MaterializedDocumentLinkSetMutationPlan> {
-  await assertDocumentWriterProjectionConsistent(input.writerProjection, {
-    ...projectionVerificationOptions(input),
+  const verificationOptions = projectionVerificationOptions(input);
+  await assertDocumentWriterProjectionConsistent(
+    input.writerProjection,
+    verificationOptions,
+  );
+  await verifyDocumentLinkSetTargetContainerProjection({
+    targetContainerProjection: input.targetContainerProjection,
+    ...verificationOptions,
   });
   const targetState = deriveDocumentLinkSetTargetState({
     operation: input.operation,
@@ -297,7 +331,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
               execSql: input.execSql,
               projection: input.targetContainerProjection,
               secretKey: input.targetSecretKey,
-              ...projectionVerificationOptions(input),
+              trustedLocalProjection: true,
             }),
             targets: [targetState.target],
           })),
