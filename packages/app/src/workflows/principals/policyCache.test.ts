@@ -13,14 +13,14 @@ import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { createTestExecSql } from "../../test/helpers/createTestExecSql";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
   loadPrincipalPolicyStateHash,
   savePrincipalPolicyBundle,
-} from "./persistence/principalPolicyPersistence";
-import { cacheReferencedPrincipalPolicies } from "./principalPolicySync";
+} from "../../data/persistence/principalPolicyPersistence";
+import { cacheReferencedPrincipalPolicies } from "./policyCache";
 
 async function createPrincipalPolicyBundle(): Promise<{
   bundle: PrincipalPolicyBundleResponse;
