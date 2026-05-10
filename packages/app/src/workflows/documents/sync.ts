@@ -155,6 +155,7 @@ export async function buildMaterializedDocumentSyncPlan(
     execSql: input.execSql,
     secretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
+    ...projectionVerificationOptions(input),
   });
   const documentId = input.writerProjection.documentId;
   const manifestIdentity = await assertDocumentManifestBundleConsistent({

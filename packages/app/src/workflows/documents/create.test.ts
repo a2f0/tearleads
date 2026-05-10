@@ -9,6 +9,11 @@ import {
 } from "@tearleads/validators/request";
 import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
+  createParentProjection,
+  createParentProjectionUserKeyResolver,
+  substituteFirstProjectionUserWrapMaterial,
+} from "../../data/containers/test-helpers";
+import {
   createAuthor,
   createResponseFromRequest,
   createWrappedProjection,
@@ -118,6 +123,37 @@ test("createRemoteDocument submits the materialized request and persists the ver
     documentKekTargets: JSON.stringify(created.response.documentKekTargets),
     documentManifestBundle: JSON.stringify(created.response.accessManifest),
   });
+});
+
+test("createRemoteDocument rejects substituted KEK material before submitting", async () => {
+  const parent = await createParentProjection();
+  const tamperedProjection = await substituteFirstProjectionUserWrapMaterial({
+    projection: parent.projection,
+    publicKey: parent.encapsulationPublicKey,
+    userId: parent.userId,
+  });
+  let createCalled = false;
+
+  await expect(
+    createRemoteDocument({
+      apiClient: {
+        createDocument: async () => {
+          createCalled = true;
+          throw new Error("Unexpected document create");
+        },
+        getContainerWriterProjection: async (containerId) =>
+          containerId === tamperedProjection.containerId
+            ? tamperedProjection
+            : null,
+      },
+      author: parent.author,
+      containerId: tamperedProjection.containerId,
+      documentId: "document-substituted-kek",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      targetSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("KEK material does not match committed epoch id");
+  expect(createCalled).toBe(false);
 });
 
 test("createRemoteDocumentFromRuntime resolves author and container from runtime", async () => {
