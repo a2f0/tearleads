@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import { createContactsWorkflowRuntime } from "../../workflows/contacts";
 import { getOrCreateContactsStore } from "./contactStore";
 import type {
   ContactsContextValue,
@@ -21,58 +22,9 @@ const ContactsContext = createContext<ContactsStore | null>(null);
 
 export function ContactsProvider({ children }: PropsWithChildren) {
   const appData = useAppData();
-  const {
-    apiClient,
-    containerId,
-    dbStatus,
-    domainScope,
-    encapsulationKeyPair,
-    events,
-    execSql,
-    isAuthenticated,
-    log,
-    logError,
-    online,
-    organizationId,
-    signingFingerprint,
-    signingKeyPair,
-    userId,
-  } = appData;
   const runtime = useMemo<ContactsRuntime>(
-    () => ({
-      apiClient,
-      containerId,
-      dbStatus,
-      domainScope,
-      encapsulationKeyPair,
-      events,
-      execSql,
-      isAuthenticated,
-      log,
-      logError,
-      online,
-      organizationId,
-      signingFingerprint,
-      signingKeyPair,
-      userId,
-    }),
-    [
-      apiClient,
-      containerId,
-      dbStatus,
-      domainScope,
-      encapsulationKeyPair,
-      events,
-      execSql,
-      isAuthenticated,
-      log,
-      logError,
-      online,
-      organizationId,
-      signingFingerprint,
-      signingKeyPair,
-      userId,
-    ],
+    () => createContactsWorkflowRuntime(appData),
+    [appData],
   );
   const store = useMemo(
     () => getOrCreateContactsStore(runtime.domainScope, runtime),

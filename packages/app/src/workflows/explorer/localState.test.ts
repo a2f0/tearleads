@@ -15,8 +15,10 @@ import type {
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { loadLocalExplorerContainerStates } from "./localState";
+import { createExplorerWorkflowSqlRuntime } from "./runtime";
 
 const execSql: ExecSql = async () => [];
+const runtime = createExplorerWorkflowSqlRuntime({ execSql });
 
 type PendingUpdateInput = Parameters<
   ExplorerPersistence["enqueuePendingUpdate"]
@@ -102,7 +104,7 @@ test("loadLocalExplorerContainerStates materializes metadata records and pending
       savedContainers,
       storedContainers: [{ container, record: null }],
     }),
-    runtime: { execSql },
+    runtime,
   });
   if (!containerState) {
     throw new Error("Expected container state to be loaded");
@@ -177,7 +179,7 @@ test("loadLocalExplorerContainerStates replays metadata snapshots into container
       savedContainers,
       storedContainers: [{ container, record }],
     }),
-    runtime: { execSql },
+    runtime,
   });
   if (!containerState) {
     throw new Error("Expected container state to be loaded");

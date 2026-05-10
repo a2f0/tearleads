@@ -185,7 +185,7 @@ test("container document discovery starts a new run when discovery dependencies 
       apiClient: {
         listContainerDocuments,
       },
-    }) as UseDiscoveredDocumentsSyncParams["appData"];
+    }) as unknown as UseDiscoveredDocumentsSyncParams["appData"];
 
   const view = renderHook(
     ({ appData }: { appData: UseDiscoveredDocumentsSyncParams["appData"] }) =>

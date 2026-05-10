@@ -7,6 +7,7 @@ import {
 import type { ExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { enqueuePendingExplorerContainerUpdateFromRuntime } from "./containerPersistence";
+import { createExplorerWorkflowSqlRuntime } from "./runtime";
 
 const execSql: ExecSql = async () => [];
 
@@ -61,7 +62,7 @@ test("enqueuePendingExplorerContainerUpdateFromRuntime uses the runtime executor
   await enqueuePendingExplorerContainerUpdateFromRuntime({
     containerId: "container-1",
     persistence: createExplorerPersistence({ pendingUpdates }),
-    runtime: { execSql },
+    runtime: createExplorerWorkflowSqlRuntime({ execSql }),
     sourceVersionVector: "version-1",
     update: exportAllUpdates(doc),
   });

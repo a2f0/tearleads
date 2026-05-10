@@ -5,13 +5,15 @@ import {
   listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
   primeExplorerDocumentsForContainerSubtree,
 } from "./documentReadModel";
+import { createExplorerWorkflowSqlRuntime } from "./runtime";
 
 test("createExplorerDocumentReadModelFromRuntime uses the runtime executor", async () => {
   const { close, execSql } = await createTestExecSql(
     "explorer-document-read-model-runtime",
   );
   try {
-    const readModel = createExplorerDocumentReadModelFromRuntime({ execSql });
+    const runtime = createExplorerWorkflowSqlRuntime({ execSql });
+    const readModel = createExplorerDocumentReadModelFromRuntime(runtime);
     const watermark = {
       id: "document-1",
       updatedAt: "2026-05-09T00:00:00.000Z",
@@ -32,7 +34,8 @@ test("listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime uses the 
     "explorer-document-runtime-targets",
   );
   try {
-    const readModel = createExplorerDocumentReadModelFromRuntime({ execSql });
+    const runtime = createExplorerWorkflowSqlRuntime({ execSql });
+    const readModel = createExplorerDocumentReadModelFromRuntime(runtime);
     await readModel.upsertDiscoveredDocuments([
       {
         accessEpoch: 1,
@@ -62,7 +65,7 @@ test("listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime uses the 
           ],
         ]),
         rootContainerId: "shared-root",
-        runtime: { execSql },
+        runtime,
       });
 
     expect(targets).toEqual([
@@ -82,7 +85,8 @@ test("primeExplorerDocumentsForContainerSubtree primes matching document stores"
     "explorer-document-subtree-prime",
   );
   try {
-    const readModel = createExplorerDocumentReadModelFromRuntime({ execSql });
+    const runtime = createExplorerWorkflowSqlRuntime({ execSql });
+    const readModel = createExplorerDocumentReadModelFromRuntime(runtime);
     await readModel.upsertDiscoveredDocuments([
       {
         accessEpoch: 1,
@@ -173,7 +177,7 @@ test("primeExplorerDocumentsForContainerSubtree primes matching document stores"
         },
       },
       rootContainerId: "shared-root",
-      runtime: { execSql },
+      runtime,
     });
 
     primedStores.sort((left, right) =>

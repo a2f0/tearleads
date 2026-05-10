@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import {
   createExplorerDocumentReadModelFromRuntime,
+  createExplorerWorkflowRuntime,
   type ExplorerDocumentReadModel,
+  type ExplorerWorkflowRuntimeInput,
 } from "../../workflows/explorer";
 
 export type {
@@ -12,10 +13,13 @@ export type {
 } from "../../workflows/explorer";
 
 export function useExplorerDocumentReadModel(
-  appData: Pick<AppDataContextValue, "execSql">,
+  appData: ExplorerWorkflowRuntimeInput,
 ): ExplorerDocumentReadModel {
   return useMemo(
-    () => createExplorerDocumentReadModelFromRuntime(appData),
-    [appData.execSql],
+    () =>
+      createExplorerDocumentReadModelFromRuntime(
+        createExplorerWorkflowRuntime(appData),
+      ),
+    [appData],
   );
 }

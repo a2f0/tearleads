@@ -31,18 +31,20 @@ import type {
   UploadDocumentAttachmentInput,
   UploadDocumentAttachmentResult,
 } from "../../data/documents/blob/shared/types";
+import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { uniqueSortedStrings } from "../../data/documents/shared/readers";
-import type { DocumentCreateAuthor } from "../../data/documents/shared/types";
+import {
+  type DocumentCreateAuthor,
+  type ProjectionVerificationOptions,
+  projectionVerificationOptions,
+} from "../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
-  assertDocumentWriterProjectionConsistent,
   type DocumentAuthorRuntime,
-  type ProjectionVerificationOptions,
-  projectionVerificationOptions,
   resolveDocumentCreateAuthor,
-} from "../documents";
+} from "../documents/author";
 
 export type DocumentAttachmentUploadRuntime = DocumentAuthorRuntime & {
   apiClient: BlobAttachmentApi;

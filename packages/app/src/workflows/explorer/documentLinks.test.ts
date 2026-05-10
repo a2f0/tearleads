@@ -15,6 +15,7 @@ import {
   moveRemoteExplorerDocument,
   relinkRemoteExplorerDocument,
 } from "./documentLinks";
+import { createExplorerWorkflowSqlRuntime } from "./runtime";
 
 test("relinkRemoteExplorerDocument persists linked container projections after a successful remote mutation", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -77,6 +78,7 @@ test("relinkRemoteExplorerDocument persists linked container projections after a
       operation: "link",
       resolveProjectionUserKey,
       runtime: {
+        ...createExplorerWorkflowSqlRuntime({ execSql }),
         apiClient: {
           getContainerWriterProjection: async (containerId) =>
             containerId === siblingProjection.containerId
@@ -95,7 +97,6 @@ test("relinkRemoteExplorerDocument persists linked container projections after a
           },
         },
         encapsulationKeyPair: { secretKey: keyPair.secretKey },
-        execSql,
         log: () => undefined,
         organizationId: author.organizationId,
         signingFingerprint: author.signerKeyFingerprint,
@@ -186,6 +187,7 @@ test("moveRemoteExplorerDocument links the target before unlinking the current c
       noteId: "explorer-note-1",
       resolveProjectionUserKey,
       runtime: {
+        ...createExplorerWorkflowSqlRuntime({ execSql }),
         apiClient: {
           getContainerWriterProjection: async (containerId) => {
             if (containerId === rootProjection.containerId) {
@@ -249,7 +251,6 @@ test("moveRemoteExplorerDocument links the target before unlinking the current c
           },
         },
         encapsulationKeyPair: { secretKey: keyPair.secretKey },
-        execSql,
         log: () => undefined,
         organizationId: author.organizationId,
         signingFingerprint: author.signerKeyFingerprint,

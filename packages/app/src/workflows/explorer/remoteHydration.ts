@@ -11,7 +11,6 @@ import {
   createContainerMetadataDocument,
   getDefaultContainerName,
 } from "../../data/containers";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerRecord,
   createExplorerContainerParentSyncLane,
@@ -23,6 +22,10 @@ import {
   saveExplorerContainer,
 } from "./containerPersistence";
 import type { ExplorerContainerMetadataPatch } from "./metadata";
+import {
+  type ExplorerWorkflowSqlRuntime,
+  getExplorerWorkflowRuntimeExecSql,
+} from "./runtime";
 
 type ListedRemoteContainerPageItem = ListContainersResponse["items"][number];
 type ContainerChildIndex = Map<string, Set<string>>;
@@ -59,13 +62,13 @@ interface ExplorerRemoteContainerHydrationApi {
   }): Promise<ListContainersResponse | null>;
 }
 
-interface ExplorerRemoteContainerHydrationRuntime {
+interface ExplorerRemoteContainerHydrationRuntime
+  extends ExplorerWorkflowSqlRuntime {
   apiClient: ExplorerRemoteContainerHydrationApi;
   cacheReferencedPrincipalPolicies: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
   dbStatus: string;
-  execSql: ExecSql;
   isAuthenticated: boolean;
   log: (message: string) => void;
   online: boolean;
@@ -205,6 +208,7 @@ async function upsertRemoteExplorerContainerState(input: {
 
   const doc = await createContainerMetadataDocument(remoteContainer.id);
   const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
+  const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
   const containerState: ExplorerContainerState = {
     container: {
       id: remoteContainer.id,
@@ -229,7 +233,7 @@ async function upsertRemoteExplorerContainerState(input: {
   };
 
   await saveExplorerContainer(
-    state.runtime.execSql,
+    execSql,
     state.persistence,
     containerState.container,
     containerState.record,
@@ -549,9 +553,10 @@ async function applyContainerTombstones(input: {
     tombstones,
   });
   const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
+  const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
 
   await deleteExplorerContainers(
-    state.runtime.execSql,
+    execSql,
     state.persistence,
     removedContainerIds,
     tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : undefined,
@@ -574,8 +579,9 @@ async function advanceContainerParentWatermark(input: {
 }): Promise<boolean> {
   const { response, state, syncLane } = input;
   if (response.nextWatermark) {
+    const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
     await saveContainerParentSyncWatermark(
-      state.runtime.execSql,
+      execSql,
       syncLane,
       response.nextWatermark,
     );
@@ -600,9 +606,10 @@ async function fetchContainerParentLanePage(input: {
 }): Promise<FetchedContainerParentLanePage | null> {
   const { lane, state } = input;
   const syncLane = createExplorerContainerParentSyncLane(lane.parentId);
+  const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
   const watermark =
     lane.watermark === undefined
-      ? await loadContainerParentSyncWatermark(state.runtime.execSql, syncLane)
+      ? await loadContainerParentSyncWatermark(execSql, syncLane)
       : lane.watermark;
   const response = await state.runtime.apiClient.listContainers({
     parentId: lane.parentId,

@@ -52,7 +52,10 @@ import {
   decryptDocumentAttachmentBlob,
   uploadDocumentAttachment,
 } from "../../workflows/blobs";
-import { createRemoteDocument } from "../../workflows/documents";
+import {
+  createDocumentsWorkflowRuntime,
+  createRemoteDocument,
+} from "../../workflows/documents";
 import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
 import {
   createNotesStore,
@@ -67,6 +70,13 @@ interface StoredNotesState {
   noteSummaries: NoteSummary[];
   pendingUpdates: PendingUpdateRecord[];
 }
+
+type NotesRuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
+type NotesTestRuntime = NotesRuntime &
+  Pick<
+    NotesRuntimeInput,
+    "apiClient" | "blobStore" | "cacheReferencedPrincipalPolicies" | "execSql"
+  >;
 
 interface ContentRecordFields {
   ciphertext?: unknown;
@@ -110,7 +120,7 @@ function createListedContainers(
 
 function createUnavailableNotesApiClient(
   containerId = "root-container",
-): NotesRuntime["apiClient"] {
+): NotesRuntimeInput["apiClient"] {
   return createMockApiClient({
     bindBlobAttachment: async () => null,
     createDocument: async () => null,
@@ -122,6 +132,59 @@ function createUnavailableNotesApiClient(
     listDocumentAttachments: async () => null,
     stageBlob: async () => null,
     syncDocument: async () => null,
+  });
+}
+
+function createNotesTestRuntime(input: NotesRuntimeInput): NotesTestRuntime {
+  return {
+    ...createDocumentsWorkflowRuntime(input),
+    apiClient: input.apiClient,
+    blobStore: input.blobStore,
+    cacheReferencedPrincipalPolicies: input.cacheReferencedPrincipalPolicies,
+    execSql: input.execSql,
+  };
+}
+
+function cloneNotesTestRuntime(
+  runtime: NotesTestRuntime,
+  overrides: Partial<NotesRuntimeInput>,
+): NotesTestRuntime {
+  return createNotesTestRuntime({
+    apiClient: overrides.apiClient ?? runtime.apiClient,
+    blobStore: overrides.blobStore ?? runtime.blobStore,
+    cacheReferencedPrincipalPolicies:
+      overrides.cacheReferencedPrincipalPolicies ??
+      runtime.cacheReferencedPrincipalPolicies,
+    containerId:
+      (Object.hasOwn(overrides, "containerId")
+        ? overrides.containerId
+        : runtime.containerId) ?? null,
+    dbStatus: overrides.dbStatus ?? runtime.dbStatus,
+    domainScope: overrides.domainScope ?? runtime.domainScope,
+    encapsulationKeyPair: Object.hasOwn(overrides, "encapsulationKeyPair")
+      ? overrides.encapsulationKeyPair
+      : runtime.encapsulationKeyPair,
+    events: overrides.events ?? runtime.events,
+    execSql: overrides.execSql ?? runtime.execSql,
+    isAuthenticated: overrides.isAuthenticated ?? runtime.isAuthenticated,
+    log: overrides.log ?? runtime.log,
+    online: overrides.online ?? runtime.online,
+    organizationId:
+      (Object.hasOwn(overrides, "organizationId")
+        ? overrides.organizationId
+        : runtime.organizationId) ?? null,
+    signingFingerprint:
+      (Object.hasOwn(overrides, "signingFingerprint")
+        ? overrides.signingFingerprint
+        : runtime.signingFingerprint) ?? null,
+    signingKeyPair:
+      (Object.hasOwn(overrides, "signingKeyPair")
+        ? overrides.signingKeyPair
+        : runtime.signingKeyPair) ?? null,
+    userId:
+      (Object.hasOwn(overrides, "userId")
+        ? overrides.userId
+        : runtime.userId) ?? null,
   });
 }
 
@@ -317,10 +380,10 @@ async function createNoteAttachmentBindResponse(input: {
 }
 
 interface NoteRuntimePatch {
-  apiClient: NotesRuntime["apiClient"];
+  apiClient: NotesRuntimeInput["apiClient"];
   organizationId: string;
   signingFingerprint: string;
-  signingKeyPair: NonNullable<NotesRuntime["signingKeyPair"]>;
+  signingKeyPair: NonNullable<NotesRuntimeInput["signingKeyPair"]>;
   userId: string;
 }
 
@@ -334,7 +397,7 @@ async function createNoteRuntimePatch(input: {
     request: BlobAttachmentBindRequest;
   }>;
   containerId?: string;
-  encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>;
+  encapsulationKeyPair: NonNullable<NotesRuntimeInput["encapsulationKeyPair"]>;
   onBindBlobAttachment?: (
     blobId: string,
     request: BlobAttachmentBindRequest,
@@ -731,8 +794,8 @@ function createNotesPersistence(): NotesPersistence & {
   };
 }
 
-function createRuntime(containerId = "root-container"): NotesRuntime {
-  return {
+function createRuntime(containerId = "root-container"): NotesTestRuntime {
+  return createNotesTestRuntime({
     apiClient: createUnavailableNotesApiClient(containerId),
     blobStore: createMemoryBlobStore(),
     cacheReferencedPrincipalPolicies: async () => {},
@@ -742,15 +805,14 @@ function createRuntime(containerId = "root-container"): NotesRuntime {
     encapsulationKeyPair: null,
     events: [],
     execSql: async () => [],
-
     isAuthenticated: false,
     log: () => {},
     online: false,
-  };
+  });
 }
 
-async function createSyncRuntime(
-  encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>,
+async function createSyncRuntimeInput(
+  encapsulationKeyPair: NonNullable<NotesRuntimeInput["encapsulationKeyPair"]>,
   containerId = "root-container",
   options: {
     attachmentBinds?: Array<{
@@ -764,7 +826,7 @@ async function createSyncRuntime(
     ) => Promise<void> | void;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
-): Promise<NotesRuntime> {
+): Promise<NotesRuntimeInput> {
   const patch = await createNoteRuntimePatch({
     containerId,
     encapsulationKeyPair,
@@ -799,11 +861,32 @@ async function createSyncRuntime(
   };
 }
 
-function createOfflineAttachmentRuntime(
-  encapsulationKeyPair: NonNullable<NotesRuntime["encapsulationKeyPair"]>,
+async function createSyncRuntime(
+  encapsulationKeyPair: NonNullable<NotesRuntimeInput["encapsulationKeyPair"]>,
   containerId = "root-container",
-): NotesRuntime {
-  return {
+  options: {
+    attachmentBinds?: Array<{
+      blobId: string;
+      request: BlobAttachmentBindRequest;
+    }>;
+    commitLsnForSyncCount?: (syncCount: number) => string;
+    onBindBlobAttachment?: (
+      blobId: string,
+      request: BlobAttachmentBindRequest,
+    ) => Promise<void> | void;
+    syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
+  } = {},
+): Promise<NotesTestRuntime> {
+  return createNotesTestRuntime(
+    await createSyncRuntimeInput(encapsulationKeyPair, containerId, options),
+  );
+}
+
+function createOfflineAttachmentRuntime(
+  encapsulationKeyPair: NonNullable<NotesRuntimeInput["encapsulationKeyPair"]>,
+  containerId = "root-container",
+): NotesTestRuntime {
+  return createNotesTestRuntime({
     apiClient: createUnavailableNotesApiClient(containerId),
     blobStore: createMemoryBlobStore(),
     cacheReferencedPrincipalPolicies: async () => {},
@@ -816,11 +899,11 @@ function createOfflineAttachmentRuntime(
     isAuthenticated: false,
     log: () => {},
     online: false,
-  };
+  });
 }
 
 async function waitForStoredDocumentText(
-  runtime: NotesRuntime,
+  runtime: NotesTestRuntime,
   localId: string,
   text: string,
 ) {
@@ -841,16 +924,20 @@ async function waitForStoredDocumentText(
 }
 
 async function createSqlRuntime(): Promise<
-  NotesRuntime & {
+  NotesTestRuntime & {
     close: () => void;
   }
 > {
   const runtimeBase = await createSqlRuntimeBase("notes-provider-test");
+  const { close, ...runtimeInputBase } = runtimeBase;
 
   return {
-    ...runtimeBase,
-    apiClient: createUnavailableNotesApiClient(),
-    containerId: "root-container",
+    ...createNotesTestRuntime({
+      ...runtimeInputBase,
+      apiClient: createUnavailableNotesApiClient(),
+      containerId: "root-container",
+    }),
+    close,
   };
 }
 
@@ -860,8 +947,7 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
   const patch = await createNoteRuntimePatch({
     encapsulationKeyPair,
   });
-  const runtime: NotesRuntime & { close: () => void } = {
-    ...runtimeBase,
+  const runtime = cloneNotesTestRuntime(runtimeBase, {
     apiClient: patch.apiClient,
     encapsulationKeyPair,
     isAuthenticated: true,
@@ -870,7 +956,7 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
     signingFingerprint: patch.signingFingerprint,
     signingKeyPair: patch.signingKeyPair,
     userId: patch.userId,
-  };
+  });
 
   try {
     const firstStore = primeNotesStore(runtime.domainScope, "note-1", runtime);
@@ -914,8 +1000,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
   const patch = await createNoteRuntimePatch({
     encapsulationKeyPair,
   });
-  const runtime: NotesRuntime & { close: () => void } = {
-    ...runtimeBase,
+  const runtime = cloneNotesTestRuntime(runtimeBase, {
     apiClient: patch.apiClient,
     encapsulationKeyPair,
     isAuthenticated: true,
@@ -924,7 +1009,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
     signingFingerprint: patch.signingFingerprint,
     signingKeyPair: patch.signingKeyPair,
     userId: patch.userId,
-  };
+  });
 
   try {
     const firstStore = primeNotesStore(runtime.domainScope, "note-1", runtime);
@@ -1024,10 +1109,9 @@ test("domain-scoped persisted document subscriptions fan out to multiple listene
 test("notes store re-registers sync lane when runtime domain scope changes", async () => {
   const persistence = createNotesPersistence();
   const firstRuntime = createRuntime();
-  const secondRuntime: NotesRuntime = {
-    ...firstRuntime,
+  const secondRuntime = cloneNotesTestRuntime(firstRuntime, {
     domainScope: {},
-  };
+  });
   const store = createNotesStore(
     "domain-scope-note",
     firstRuntime,
@@ -1251,10 +1335,9 @@ test("notes store attaches files locally without authentication or network", asy
     encapsulationKeyPair,
     "offline-container",
   );
-  const offlineRuntime: NotesRuntime = {
-    ...runtime,
+  const offlineRuntime = cloneNotesTestRuntime(runtime, {
     blobStore,
-  };
+  });
   const store = createNotesStore(
     "offline-attachment-note",
     offlineRuntime,
@@ -1311,13 +1394,23 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
     minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
-  const runtime: NotesRuntime = {
-    ...(await createSyncRuntime(encapsulationKeyPair, "shared-container", {
+  const runtimeInput = await createSyncRuntime(
+    encapsulationKeyPair,
+    "shared-container",
+    {
       attachmentBinds,
       syncCalls,
-    })),
+    },
+  );
+  const runtime = createNotesTestRuntime({
+    ...runtimeInput,
+    containerId: runtimeInput.containerId ?? null,
+    organizationId: runtimeInput.organizationId ?? null,
+    signingFingerprint: runtimeInput.signingFingerprint ?? null,
+    signingKeyPair: runtimeInput.signingKeyPair ?? null,
+    userId: runtimeInput.userId ?? null,
     log: (message) => logs.push(message),
-  };
+  });
   const store = createNotesStore("attachment-upload", runtime, persistence);
   store.updateRuntime(runtime);
 
@@ -1372,10 +1465,7 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
   if (!blob || !writerProjection) {
     throw new Error("Expected uploaded blob and writer projection fixtures.");
   }
-  const resolveProjectionUserKey = createProjectionUserKeyResolver(
-    runtime,
-    "NotesProvider test",
-  );
+  const resolveProjectionUserKey = runtime.createProjectionUserKeyResolver();
   const bindingId = String(
     Reflect.get(attachmentBinds[0]?.request.body ?? {}, "bindingId"),
   );

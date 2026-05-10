@@ -15,6 +15,10 @@ import {
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ExplorerWorkflowSqlRuntime,
+  getExplorerWorkflowRuntimeExecSql,
+} from "./runtime";
 
 export interface ExplorerDocumentLinkInput {
   containerIds: ReadonlyArray<string>;
@@ -30,9 +34,7 @@ interface ExplorerDocumentRuntimeTarget {
   runtimeContainerId: string;
 }
 
-interface ExplorerDocumentReadModelRuntime {
-  execSql: ExecSql;
-}
+type ExplorerDocumentReadModelRuntime = ExplorerWorkflowSqlRuntime;
 
 export interface ExplorerDocumentPrimeStore {
   requestSync: () => void;
@@ -349,9 +351,10 @@ export function listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime
 > & {
   runtime: ExplorerDocumentReadModelRuntime;
 }): ReturnType<typeof listExplorerDocumentRuntimeTargetsForContainerSubtree> {
+  const execSql = getExplorerWorkflowRuntimeExecSql(runtime);
   return listExplorerDocumentRuntimeTargetsForContainerSubtree({
     ...input,
-    execSql: runtime.execSql,
+    execSql,
   });
 }
 
@@ -524,5 +527,7 @@ function createExplorerDocumentReadModel(
 export function createExplorerDocumentReadModelFromRuntime(
   runtime: ExplorerDocumentReadModelRuntime,
 ): ExplorerDocumentReadModel {
-  return createExplorerDocumentReadModel(runtime.execSql);
+  return createExplorerDocumentReadModel(
+    getExplorerWorkflowRuntimeExecSql(runtime),
+  );
 }

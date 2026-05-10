@@ -1,23 +1,16 @@
 export {
-  assertDocumentWriterProjectionConsistent,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
 } from "../../data/documents/shared/projection";
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 export type {
   DocumentCreateAuthor,
-  ProjectionVerificationOptions,
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
-export { projectionVerificationOptions } from "../../data/documents/shared/types";
-export {
-  type DocumentAuthorRuntime,
-  resolveDocumentCreateAuthor,
-} from "./author";
+export { resolveDocumentCreateAuthor } from "./author";
 export {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
-  createRemoteDocumentFromRuntime,
   type RemoteDocumentCreateRuntime,
 } from "./create";
 export {
@@ -29,33 +22,26 @@ export {
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
-  deletePendingDocumentAttachmentFromRuntime,
   deriveDocumentKind,
   deriveDocumentTitle,
-  enqueuePendingDocumentUpdateFromRuntime,
   type LocalAttachmentRecord,
-  listPendingDocumentUpdatesFromRuntime,
   loadPersistedDocumentStoreStateFromRuntime,
   type PendingAttachmentRecord,
   type PendingUpdateRecord,
-  persistDocumentStateFromRuntime,
   type RelinkPersistedDocumentInput,
-  saveLocalDocumentAttachmentsFromRuntime,
   savePendingDocumentAttachmentFromRuntime,
 } from "./persistence";
+export type { DocumentProjectionUserKeyResolver } from "./projectionKeys";
 export {
-  createDocumentProjectionUserKeyResolver,
-  type DocumentProjectionUserKeyResolver,
-  didDocumentProjectionKeyRuntimeChange,
-} from "./projectionKeys";
+  createDocumentsWorkflowRuntime,
+  type DocumentsWorkflowRuntime,
+} from "./runtime";
 export {
   hasDocumentUpdateEvent,
   syncRemoteDocument,
-  syncRemoteDocumentFromRuntime,
 } from "./sync";
 export {
   type DocumentSyncLane,
-  didRegainDocumentSyncPrerequisites,
   isDestroyedDocumentSyncRuntimeError,
   registerDocumentSyncLane,
 } from "./syncLane";

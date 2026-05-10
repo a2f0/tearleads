@@ -15,6 +15,10 @@ import type {
   PendingUpdateRecord,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ExplorerWorkflowSqlRuntime,
+  getExplorerWorkflowRuntimeExecSql,
+} from "./runtime";
 
 export type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 export type {
@@ -34,9 +38,7 @@ interface ExplorerContainerCreateIntentSyncInput {
 
 type ContainerSyncWatermarkLane = ReturnType<typeof containerParentSyncLane>;
 
-interface ExplorerContainerPersistenceRuntime {
-  execSql: ExecSql;
-}
+type ExplorerContainerPersistenceRuntime = ExplorerWorkflowSqlRuntime;
 
 export async function initializeExplorerSchema(
   execSql: ExecSql,
@@ -120,15 +122,12 @@ export function enqueuePendingExplorerContainerUpdateFromRuntime(input: {
   sourceVersionVector?: string | null | undefined;
   update: Uint8Array;
 }): Promise<void> {
-  return enqueuePendingExplorerContainerUpdate(
-    input.runtime.execSql,
-    input.persistence,
-    {
-      containerId: input.containerId,
-      sourceVersionVector: input.sourceVersionVector,
-      update: input.update,
-    },
-  );
+  const execSql = getExplorerWorkflowRuntimeExecSql(input.runtime);
+  return enqueuePendingExplorerContainerUpdate(execSql, input.persistence, {
+    containerId: input.containerId,
+    sourceVersionVector: input.sourceVersionVector,
+    update: input.update,
+  });
 }
 
 export async function listPendingExplorerContainerCreateIntents(

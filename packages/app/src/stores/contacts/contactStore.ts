@@ -4,19 +4,11 @@ import {
   type ContactProjectionUserKeyResolver,
   type ContactSyncLane,
   type ContactsPersistence,
-  createContactProjectionUserKeyResolver,
   DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
   defaultContactsPersistence,
-  didContactProjectionKeyRuntimeChange,
-  didRegainContactSyncPrerequisites,
-  fetchContactKeyEntryFromRuntime,
   hasContactDocumentUpdateEvent,
   isDestroyedContactSyncRuntimeError,
-  loadContactDocumentStates,
-  persistContactKeyEntryFromRuntime,
   registerContactSyncLane,
-  removeContactKeyFromRuntime,
-  syncContactDocuments,
 } from "../../workflows/contacts";
 import type { ContactsRuntime, ContactsSnapshot, ContactsStore } from "./types";
 
@@ -65,8 +57,7 @@ function createContactsStoreState(
     lastEventCount: 0,
     listeners: new Set(),
     persistence,
-    resolveProjectionUserKey:
-      createContactProjectionUserKeyResolver(initialRuntime),
+    resolveProjectionUserKey: initialRuntime.createProjectionUserKeyResolver(),
     runtime: initialRuntime,
     snapshot: {
       entries: [],
@@ -129,9 +120,8 @@ async function initializeContactsStore(
     return;
   }
 
-  const storedContacts = await loadContactDocumentStates({
+  const storedContacts = await state.runtime.loadDocumentStates({
     persistence: state.persistence,
-    runtime: state.runtime,
   });
 
   for (const storedContact of storedContacts) {
@@ -183,13 +173,12 @@ async function waitForContactsInitialization(
 }
 
 async function runContactsSyncIteration(state: ContactsStoreState) {
-  const result = await syncContactDocuments({
+  const result = await state.runtime.syncDocuments({
     addressBookId: DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
     contacts: Array.from(state.contactsByUserId.values()),
     persistence: state.persistence,
     ready: state.snapshot.ready,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
   });
   if (result.syncedContactCount > 0) {
     setContactsSnapshot(state, {
@@ -225,10 +214,7 @@ async function importKeyFromRuntime(
   userId: string,
   scheduleSync: () => void,
 ) {
-  const entry = await fetchContactKeyEntryFromRuntime({
-    runtime: state.runtime,
-    userId,
-  });
+  const entry = await state.runtime.fetchKeyEntry(userId);
   if (!entry) {
     return;
   }
@@ -242,11 +228,10 @@ async function importKeyFromRuntime(
     .catch(() => undefined)
     .then(async () => {
       const existingContact = state.contactsByUserId.get(entry.userId);
-      const imported = await persistContactKeyEntryFromRuntime({
+      const imported = await state.runtime.persistKeyEntry({
         entry,
         existingContact,
         persistence: state.persistence,
-        runtime: state.runtime,
       });
       if (!imported.changed) {
         return;
@@ -286,9 +271,8 @@ async function removeKeyFromRuntime(
       }
 
       state.contactsByUserId.delete(userId);
-      await removeContactKeyFromRuntime({
+      await state.runtime.removeKey({
         persistence: state.persistence,
-        runtime: state.runtime,
         userId,
       });
       setContactsSnapshot(state, {
@@ -308,9 +292,9 @@ function updateContactsStoreRuntime(
   scheduleSync: () => void,
 ) {
   const previousRuntime = state.runtime;
-  if (didContactProjectionKeyRuntimeChange(previousRuntime, nextRuntime)) {
+  if (nextRuntime.didProjectionKeyRuntimeChange(previousRuntime)) {
     state.resolveProjectionUserKey =
-      createContactProjectionUserKeyResolver(nextRuntime);
+      nextRuntime.createProjectionUserKeyResolver();
   }
   state.runtime = nextRuntime;
 
@@ -328,7 +312,7 @@ function updateContactsStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    didRegainContactSyncPrerequisites(previousRuntime, nextRuntime)
+    nextRuntime.didRegainSyncPrerequisites(previousRuntime)
   ) {
     scheduleSync();
   }
