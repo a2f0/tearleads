@@ -327,6 +327,27 @@ function createContainerKeyWrap(input: {
   };
 }
 
+function appendUnexpectedUserWrapToRekey(
+  request: ContainerMutationRequest,
+): void {
+  const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpoch;
+  const unexpectedUserId = "unexpected-rekey-user";
+  const unexpectedFingerprint = "0".repeat(64);
+  request.wraps = [
+    ...request.wraps,
+    {
+      containerKeyEpochId: keyEpoch.id,
+      recipientKind: "user",
+      recipientId: unexpectedUserId,
+      recipientKeyEpochId: `user:${unexpectedUserId}:encapsulation:${unexpectedFingerprint}`,
+      recipientKeyFingerprint: unexpectedFingerprint,
+      kemCipherText: `kem:${keyEpoch.id}:${unexpectedUserId}`,
+      wrappedKey: `wrapped:${keyEpoch.id}:${unexpectedUserId}`,
+      wrapManifestHash: request.expectedManifestHash,
+    },
+  ];
+}
+
 async function createChildContainer(input: {
   readonly parent: StoredRootFixture;
   readonly signer: TestUser;
@@ -1221,6 +1242,44 @@ test("POST /documents/:documentId/sync rolls back optional rekeys when write val
   });
 
   expect(syncResponse.status).toBe(409);
+  const currentRootEpoch = await getCurrentContainerKeyEpoch(
+    root.kekState.containerId,
+    db,
+  );
+  expect(currentRootEpoch?.id).toBe(root.kekState.containerKeyEpochId);
+});
+
+test("POST /documents/:documentId/sync rejects invalid optional container rekeys", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const rekey = await buildRootContainerRekeyMutation({
+    previous: root,
+    signer: owner,
+  });
+  appendUnexpectedUserWrapToRekey(rekey.request);
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  request.containerRekeys = [rekey.request];
+
+  const syncResponse = await routeApp.request(`/documents/${created.id}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  expect(syncResponse.status).toBe(409);
+  expect(await syncResponse.json()).toEqual({
+    error: "container key wrap is not justified by its manifest",
+  });
   const currentRootEpoch = await getCurrentContainerKeyEpoch(
     root.kekState.containerId,
     db,

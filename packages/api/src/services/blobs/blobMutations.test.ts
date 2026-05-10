@@ -30,7 +30,10 @@ import {
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
+import type {
+  BlobAttachmentBindRequest,
+  ContainerMutationRequest,
+} from "@tearleads/validators/request";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -217,6 +220,27 @@ function toContainerKeyWrap(
     wrappedKey: wrap.wrappedKey,
     wrapManifestHash: wrap.wrapManifestHash,
   };
+}
+
+function appendUnexpectedUserWrapToRekey(
+  request: ContainerMutationRequest,
+): void {
+  const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpoch;
+  const unexpectedUserId = "unexpected-rekey-user";
+  const unexpectedFingerprint = "0".repeat(64);
+  request.wraps = [
+    ...request.wraps,
+    {
+      containerKeyEpochId: keyEpoch.id,
+      recipientKind: "user",
+      recipientId: unexpectedUserId,
+      recipientKeyEpochId: `user:${unexpectedUserId}:encapsulation:${unexpectedFingerprint}`,
+      recipientKeyFingerprint: unexpectedFingerprint,
+      kemCipherText: `kem:${keyEpoch.id}:${unexpectedUserId}`,
+      wrappedKey: `wrapped:${keyEpoch.id}:${unexpectedUserId}`,
+      wrapManifestHash: request.expectedManifestHash,
+    },
+  ];
 }
 
 async function bootstrapRoot(owner: TestUser): Promise<StoredContainerFixture> {
@@ -876,6 +900,52 @@ test("bindBlobAttachment rolls back optional rekeys when blob write validation f
     }),
   ).rejects.toMatchObject({
     status: 400,
+  });
+  const currentRootEpoch = await getCurrentContainerKeyEpoch(
+    container.kekState.containerId,
+    db,
+  );
+  expect(currentRootEpoch?.id).toBe(container.kekState.containerKeyEpochId);
+});
+
+test("bindBlobAttachment rejects invalid optional container rekeys", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const container = await bootstrapRoot(owner);
+  const rekey = await buildRootContainerRekeyMutation({
+    previous: container,
+    signer: owner,
+  });
+  appendUnexpectedUserWrapToRekey(rekey.request);
+  const document = await createDocumentFixture({
+    container: rekey.container,
+    owner,
+  });
+  const blobId = crypto.randomUUID();
+  const bind = await buildBindRequest({
+    blobId,
+    container: rekey.container,
+    document,
+    expectedBindingId: null,
+    owner,
+    slotId: "preview",
+    stagedBlob: await stageEncryptedBlob({
+      encryptedBytes: "invalid-rekey-bytes",
+      owner,
+    }),
+  });
+  bind.request.containerRekeys = [rekey.request];
+
+  await expect(
+    bindBlobAttachment(runtime, {
+      blobId,
+      fingerprint: owner.fingerprint,
+      request: bind.request,
+      userId: owner.userId,
+    }),
+  ).rejects.toMatchObject({
+    message: "container key wrap is not justified by its manifest",
+    status: 409,
   });
   const currentRootEpoch = await getCurrentContainerKeyEpoch(
     container.kekState.containerId,
