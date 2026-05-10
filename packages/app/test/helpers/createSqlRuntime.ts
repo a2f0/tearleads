@@ -1,8 +1,13 @@
-import { createMemoryBlobStore } from "../../src/data/blobs";
+import { type BlobStore, createMemoryBlobStore } from "../../src/data/blobs";
 import type { DocumentsRuntime } from "../../src/stores/documents/DocumentsProvider";
 import { createTestExecSql } from "./createTestExecSql";
 
-type SharedSqlRuntimeBase = Omit<DocumentsRuntime, "apiClient" | "containerId">;
+type SharedSqlRuntimeBase = Omit<
+  DocumentsRuntime,
+  "apiClient" | "blobStore" | "containerId"
+> & {
+  blobStore: BlobStore;
+};
 
 export async function createSqlRuntimeBase(
   key: string,

@@ -4,9 +4,11 @@ import {
   useContext,
   useMemo,
 } from "react";
-import { createBlobStore } from "../../data/blobs/createBlobStore";
-import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
-import type { BlobStore } from "../../data/blobs/types";
+import {
+  type BlobStore,
+  createBlobStore,
+  createMemoryBlobStore,
+} from "../../workflows/blobs";
 import { useIdentity } from "../identity/IdentityProvider";
 
 const BlobContext = createContext<BlobStore | null>(null);

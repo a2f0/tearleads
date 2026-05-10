@@ -1,6 +1,6 @@
-import type { BlobBytes } from "../../data/blobs";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import type { DocumentAttachmentStatus } from "../../stores/documents/DocumentsProvider";
+import type { BlobBytes } from "../../workflows/blobs";
 
 export interface DocumentAttachmentSlot {
   description: string;

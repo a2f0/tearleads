@@ -5,6 +5,7 @@ type ForbiddenRules = NonNullable<IConfiguration["forbidden"]>;
 const appLayer = {
   persistence: "^packages/app/src/data/persistence/",
   sqlite: "^packages/app/src/data/sqlite/",
+  blobStorage: "^packages/app/src/data/blobs/",
   workflows: "^packages/app/src/workflows/",
   stores: "^packages/app/src/stores/",
   shellProviders: "^packages/app/src/providers/",
@@ -25,7 +26,11 @@ const appReactRuntime = [
   appLayer.stores,
 ];
 const appUpperLayers = [...appPresentation, ...appReactRuntime];
-const appStorageInternals = [appLayer.persistence, appLayer.sqlite];
+const appStorageInternals = [
+  appLayer.persistence,
+  appLayer.sqlite,
+  appLayer.blobStorage,
+];
 const testFilesPattern = "\\.test\\.[tj]sx?$";
 const appRootSqlProvider =
   "^packages/app/src/providers/data/AppDataProvider\\.tsx$";
@@ -137,7 +142,7 @@ const appRules = [
     name: "app-storage-does-not-depend-on-upper-layers",
     severity: "error",
     comment:
-      "App persistence modules and SQLite internals are low-level stores and must not depend on React runtime, presentation, or workflow modules, including type-only contracts.",
+      "App persistence modules, SQLite internals, and blob storage internals are low-level stores and must not depend on React runtime, presentation, or workflow modules, including type-only contracts.",
     from: {
       path: appStorageInternals,
       pathNot: testFilesPattern,
@@ -190,7 +195,7 @@ const appRules = [
     name: "app-presentation-does-not-import-storage-directly",
     severity: "error",
     comment:
-      "Production app presentation should go through stores or providers instead of importing persistence stores or SQLite internals directly, including type-only contracts.",
+      "Production app presentation should go through stores or providers instead of importing persistence stores, SQLite internals, or blob storage internals directly, including type-only contracts.",
     from: {
       path: appPresentation,
       pathNot: testFilesPattern,
@@ -223,6 +228,19 @@ const appRules = [
     },
     to: {
       path: appLayer.sqlite,
+    },
+  },
+  {
+    name: "app-react-runtime-does-not-import-blob-storage-directly",
+    severity: "error",
+    comment:
+      "Production app providers, identity runtime, and stores should consume the blob workflow facade instead of importing blob storage internals directly.",
+    from: {
+      path: appReactRuntime,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appLayer.blobStorage,
     },
   },
 ] satisfies ForbiddenRules;
