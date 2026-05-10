@@ -2,7 +2,7 @@ import type { SyncWatermark } from "@tearleads/validators/response";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../data/documents/shared/documentSummary";
+} from "../../data/documentSummary";
 import {
   containerDocumentsSyncLane,
   sqlContainerSyncWatermarkPersistence,

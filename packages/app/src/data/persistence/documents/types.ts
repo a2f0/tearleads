@@ -1,7 +1,7 @@
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../documents/shared/documentSummary";
+} from "../../documentSummary";
 import type {
   DocumentRecord as BaseDocumentRecord,
   PendingUpdateFields,

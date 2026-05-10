@@ -2,11 +2,11 @@ import type {
   ReferencedPrincipalStateResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
-import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../data/documents/shared/documentSummary";
+} from "../../data/documentSummary";
+import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 
 interface ExplorerListedDocument {
   createdAt: string;

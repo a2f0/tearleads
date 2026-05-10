@@ -1,9 +1,9 @@
 import { and, desc, eq, inArray, or, type SQL } from "drizzle-orm";
-import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../documents/documentConstants";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../documents/shared/documentSummary";
+} from "../../documentSummary";
+import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../documents/documentConstants";
 import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
 import {
   deleteDocumentPendingUpdate,

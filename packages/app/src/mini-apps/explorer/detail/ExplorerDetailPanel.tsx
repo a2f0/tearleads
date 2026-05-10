@@ -1,9 +1,9 @@
 import { useState } from "react";
+import type { DocumentSummary } from "../../../data/documentSummary";
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "../../../data/documents/documentKinds";
-import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
 import {
   DOCUMENT_TYPE_DEFINITIONS,
   getDocumentTypeDefinition,

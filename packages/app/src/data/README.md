@@ -30,6 +30,9 @@ components/hooks -> providers/stores -> workflows -> persistence + sqlite + shar
 - Blob byte/store contracts live in `blobContracts.ts` so presentation and
   workflows can share typed attachment payloads without importing workflow
   barrels or storage internals.
+- Document summary contracts live in `documentSummary.ts` so presentation,
+  stores, workflows, and persistence can share document read-model shapes
+  without importing document shared-helper internals.
 - Contact data internals under `contacts/` own low-level address-book record
   contracts and document serialization helpers. Providers, stores, and
   presentation code should consume the contacts workflow facade for contact
@@ -64,7 +67,9 @@ cleanup should be incremental and behavior-preserving.
 - Production UI and mini-app hooks should go through stores or providers rather
   than importing persistence stores or `data/sqlite/` directly, including for
   type-only contracts. Runtime workflow calls and workflow-owned contracts
-  should also stay behind stores or providers.
+  should also stay behind stores or providers. Presentation should use neutral
+  data contracts instead of importing document/container shared-helper internals
+  directly.
 - Production stores, providers, and identity runtime should consume domain
   workflow facades rather than importing `data/persistence/`, `data/sqlite/`,
   `data/blobs/`, or `data/contacts/` directly. The root

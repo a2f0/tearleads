@@ -1,6 +1,6 @@
 import type { BlobBytes } from "../../data/blobContracts";
+import type { DocumentSummary } from "../../data/documentSummary";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
-import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
 import type {
   DocumentsWorkflowRuntime,
   RelinkPersistedDocumentInput,

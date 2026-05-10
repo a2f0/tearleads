@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
+import type { DocumentSummary } from "../../data/documentSummary";
 import { buildDocumentsByContainerId } from "./Explorer";
 
 test("buildDocumentsByContainerId uses the document container while document links are not projected yet", () => {

@@ -206,6 +206,19 @@ const appRules = [
     },
   },
   {
+    name: "app-presentation-does-not-import-domain-shared-helpers",
+    severity: "error",
+    comment:
+      "Production app presentation should use stores/providers or neutral data contracts instead of importing document/container shared helper internals directly, including type-only contracts.",
+    from: {
+      path: appPresentation,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appLayer.sharedHelpers,
+    },
+  },
+  {
     name: "app-react-runtime-does-not-import-persistence-directly",
     severity: "error",
     comment:

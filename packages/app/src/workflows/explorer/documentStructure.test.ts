@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "../../data/documents/shared/documentSummary";
+import type { DocumentSummary } from "../../data/documentSummary";
 import {
   activateExplorerDocumentLinkState,
   canMutateExplorerDocumentLink,

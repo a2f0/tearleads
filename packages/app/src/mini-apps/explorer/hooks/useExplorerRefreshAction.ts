@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { DocumentSummary } from "../../../data/documents/shared/documentSummary";
+import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import {
   discoverAllContainerDocuments,
