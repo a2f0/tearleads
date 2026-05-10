@@ -321,6 +321,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     execSql: input.execSql,
     secretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
+    ...verificationOptions,
   });
   const contentKeyRotated = input.operation === "unlink";
   const contentKey = contentKeyRotated
@@ -340,7 +341,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
               execSql: input.execSql,
               projection: input.targetContainerProjection,
               secretKey: input.targetSecretKey,
-              trustedLocalProjection: true,
+              ...verificationOptions,
             }),
             targets: [targetState.target],
           })),
@@ -351,6 +352,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
             execSql: input.execSql,
             secretKey: input.targetSecretKey,
             writerProjection: input.writerProjection,
+            ...verificationOptions,
           }),
           targets: targetState.targets,
         });

@@ -6,8 +6,18 @@ import {
   computeWriteHeaderHash,
   type WriteHeader,
 } from "@tearleads/crypto";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobs";
-import { createMaterializedSyncFixture } from "../../data/documents/documentTestFixtures";
+import {
+  createParentProjection,
+  createParentProjectionUserKeyResolver,
+  substituteFirstProjectionUserWrapMaterial,
+} from "../../data/containers/test-helpers";
+import {
+  createMaterializedSyncFixture,
+  createResponse,
+} from "../../data/documents/documentTestFixtures";
+import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import {
   type DocumentAttachmentUploadRuntime,
   uploadDocumentAttachment,
@@ -277,6 +287,64 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
       targetSecretKey: secretKey,
     }),
   ).rejects.toThrow("Document writer projection signature verification failed");
+  expect(stageCalled).toBe(false);
+  expect(bindCalled).toBe(false);
+});
+
+test("uploadDocumentAttachment rejects substituted KEK material before staging", async () => {
+  const parent = await createParentProjection();
+  const resolveProjectionUserKey =
+    createParentProjectionUserKeyResolver(parent);
+  const materializedCreate = await buildMaterializedDocumentCreatePlan({
+    author: parent.author,
+    containerProjection: parent.projection,
+    contentKey: crypto.getRandomValues(new Uint8Array(32)),
+    documentId: "550e8400-e29b-41d4-a716-446655440112",
+    eventId: "event-substituted-kek-blob",
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: parent.secretKey,
+  });
+  const response = createResponse(materializedCreate.plan);
+  const tamperedProjection = await substituteFirstProjectionUserWrapMaterial({
+    projection: parent.projection,
+    publicKey: parent.encapsulationPublicKey,
+    userId: parent.userId,
+  });
+  const writerProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [tamperedProjection],
+    contentKeyBundle: response.contentKeyBundle,
+    documentId: response.id,
+    documentKekTargets: response.documentKekTargets,
+    documentManifest: response.accessManifest,
+  };
+  let stageCalled = false;
+  let bindCalled = false;
+
+  await expect(
+    uploadDocumentAttachment({
+      apiClient: {
+        bindBlobAttachment: async () => {
+          bindCalled = true;
+          throw new Error("Unexpected bind");
+        },
+        getDocumentWriterProjection: async () => writerProjection,
+        stageBlob: async () => {
+          stageCalled = true;
+          throw new Error("Unexpected stage");
+        },
+      },
+      author: parent.author,
+      blobId: "550e8400-e29b-41d4-a716-446655440113",
+      bytes: new Uint8Array([8, 9, 10]) as BlobBytes,
+      documentId: writerProjection.documentId,
+      expectedBindingId: null,
+      resolveProjectionUserKey,
+      signedAt: "2026-04-27T00:00:00.000Z",
+      slotId: "preview",
+      targetSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("KEK material does not match committed epoch id");
   expect(stageCalled).toBe(false);
   expect(bindCalled).toBe(false);
 });

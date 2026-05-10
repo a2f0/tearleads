@@ -639,11 +639,13 @@ export function authorizingContainerPathRecords(
   );
 }
 
-export async function collectContainerKeksForDocumentSync(input: {
-  execSql?: ExecSql | undefined;
-  secretKey: Uint8Array;
-  writerProjection: DocumentWriterProjectionResponse;
-}): Promise<ReadonlyMap<string, Uint8Array>> {
+export async function collectContainerKeksForDocumentSync(
+  input: {
+    execSql?: ExecSql | undefined;
+    secretKey: Uint8Array;
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<ReadonlyMap<string, Uint8Array>> {
   const keksByEpochId = new Map<string, Uint8Array>();
 
   for (const projection of input.writerProjection.authorizingContainerPaths) {
@@ -653,7 +655,7 @@ export async function collectContainerKeksForDocumentSync(input: {
         execSql: input.execSql,
         projection,
         secretKey: input.secretKey,
-        trustedLocalProjection: true,
+        ...projectionVerificationOptions(input),
       });
     } catch (error) {
       throw new Error(
@@ -677,11 +679,13 @@ export async function collectContainerKeksForDocumentSync(input: {
   return keksByEpochId;
 }
 
-export async function unwrapDocumentContentKeyFromWriterProjection(input: {
-  execSql?: ExecSql | undefined;
-  secretKey: Uint8Array;
-  writerProjection: DocumentWriterProjectionResponse;
-}): Promise<Uint8Array> {
+export async function unwrapDocumentContentKeyFromWriterProjection(
+  input: {
+    execSql?: ExecSql | undefined;
+    secretKey: Uint8Array;
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<Uint8Array> {
   const keksByEpochId = await collectContainerKeksForDocumentSync(input);
   let contentKey: Uint8Array | null = null;
 

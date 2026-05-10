@@ -14,6 +14,11 @@ import {
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
+  createParentProjection,
+  createParentProjectionUserKeyResolver,
+  substituteFirstProjectionUserWrapMaterial,
+} from "../../data/containers/test-helpers";
+import {
   createAuthor,
   createDeepNonCanonicalRecord,
   createLinkSetResponseFromRequest,
@@ -400,6 +405,46 @@ test("buildMaterializedDocumentSyncPlan rejects document writer projections with
       },
     }),
   ).rejects.toThrow("Document writer projection signature verification failed");
+});
+
+test("buildMaterializedDocumentSyncPlan rejects substituted KEK material before encrypting updates", async () => {
+  const parent = await createParentProjection();
+  const resolveProjectionUserKey =
+    createParentProjectionUserKeyResolver(parent);
+  const materializedCreate = await buildMaterializedDocumentCreatePlan({
+    author: parent.author,
+    containerProjection: parent.projection,
+    contentKey: crypto.getRandomValues(new Uint8Array(32)),
+    documentId: "550e8400-e29b-41d4-a716-446655440111",
+    eventId: "event-substituted-kek-sync",
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: parent.secretKey,
+  });
+  const response = createResponse(materializedCreate.plan);
+  const tamperedProjection = await substituteFirstProjectionUserWrapMaterial({
+    projection: parent.projection,
+    publicKey: parent.encapsulationPublicKey,
+    userId: parent.userId,
+  });
+  const writerProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [tamperedProjection],
+    contentKeyBundle: response.contentKeyBundle,
+    documentId: response.id,
+    documentKekTargets: response.documentKekTargets,
+    documentManifest: response.accessManifest,
+  };
+
+  await expect(
+    buildMaterializedDocumentSyncPlan({
+      author: parent.author,
+      localVersionVector: null,
+      pendingUpdates: [createPendingUpdateRecord()],
+      resolveProjectionUserKey,
+      targetSecretKey: parent.secretKey,
+      writerProjection,
+    }),
+  ).rejects.toThrow("KEK material does not match committed epoch id");
 });
 
 test("buildMaterializedDocumentSyncPlan verifies linked document manifest history", async () => {

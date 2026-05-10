@@ -430,6 +430,47 @@ export function createParentProjectionUserKeyResolver(
       : null;
 }
 
+export async function substituteFirstProjectionUserWrapMaterial(input: {
+  projection: ContainerWriterProjectionResponse;
+  publicKey: Uint8Array;
+  userId: string;
+}): Promise<ContainerWriterProjectionResponse> {
+  const tamperedProjection = structuredClone(input.projection);
+  const kek = tamperedProjection.containerKeks[0];
+  if (!kek) {
+    throw new Error("Expected projection KEK fixture");
+  }
+  const target = kek.recipientTargets.find(
+    (candidate) =>
+      Reflect.get(candidate, "recipientKind") === "user" &&
+      Reflect.get(candidate, "recipientId") === input.userId,
+  );
+  if (!target) {
+    throw new Error("Expected projection user recipient target fixture");
+  }
+  const recipientKeyEpochId = Reflect.get(target, "recipientKeyEpochId");
+  if (
+    typeof recipientKeyEpochId !== "string" ||
+    recipientKeyEpochId.length === 0
+  ) {
+    throw new Error("Expected projection user recipient key epoch fixture");
+  }
+
+  const substituteWrap = await createUserContainerWrap({
+    containerKeyEpochId: kek.containerKeyEpochId,
+    containerKek: crypto.getRandomValues(new Uint8Array(32)),
+    publicKey: input.publicKey,
+    recipientKeyEpochId,
+    userId: input.userId,
+    wrapManifestHash: kek.accessManifestHash,
+  });
+  kek.wraps = [
+    substituteWrap as unknown as (typeof tamperedProjection.containerKeks)[number]["wraps"][number],
+  ];
+
+  return tamperedProjection;
+}
+
 export function tamperFirstProjectionEventSignature(
   projection: ContainerWriterProjectionResponse,
 ): ContainerWriterProjectionResponse {
