@@ -1,1 +1,4 @@
-export { cacheReferencedPrincipalPolicies } from "./policyCache";
+export {
+  type CacheReferencedPrincipalPoliciesOptions,
+  cacheReferencedPrincipalPolicies,
+} from "./policyCache";

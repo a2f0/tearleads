@@ -18,7 +18,7 @@ import {
 } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
-interface CacheReferencedPrincipalPoliciesOptions {
+export interface CacheReferencedPrincipalPoliciesOptions {
   execSql: ExecSql;
   getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
