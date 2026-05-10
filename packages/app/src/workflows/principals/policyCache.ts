@@ -15,10 +15,10 @@ import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
-} from "./persistence/principalPolicyPersistence";
-import type { ExecSql } from "./sqlite/sqlSchema";
+} from "../../data/persistence/principalPolicyPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
-interface CacheReferencedPrincipalPoliciesOptions {
+export interface CacheReferencedPrincipalPoliciesOptions {
   execSql: ExecSql;
   getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
