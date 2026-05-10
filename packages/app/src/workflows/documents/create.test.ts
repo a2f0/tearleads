@@ -12,6 +12,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
+  tamperFirstProjectionEventSignature,
 } from "../../data/containers/test-helpers";
 import {
   createAuthor,
@@ -153,6 +154,37 @@ test("createRemoteDocument rejects substituted KEK material before submitting", 
       targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("KEK material does not match committed epoch id");
+  expect(createCalled).toBe(false);
+});
+
+test("createRemoteDocument rejects bad container projection signatures before submitting", async () => {
+  const parent = await createParentProjection();
+  const tamperedProjection = tamperFirstProjectionEventSignature(
+    parent.projection,
+  );
+  let createCalled = false;
+
+  await expect(
+    createRemoteDocument({
+      apiClient: {
+        createDocument: async () => {
+          createCalled = true;
+          throw new Error("Unexpected document create");
+        },
+        getContainerWriterProjection: async (containerId) =>
+          containerId === tamperedProjection.containerId
+            ? tamperedProjection
+            : null,
+      },
+      author: parent.author,
+      containerId: tamperedProjection.containerId,
+      documentId: "document-bad-container-signature",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      targetSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow(
+    "Container writer projection path[0] signature verification failed",
+  );
   expect(createCalled).toBe(false);
 });
 
