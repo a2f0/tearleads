@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo } from "react";
-import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
@@ -8,6 +7,7 @@ import {
   StructuredDocumentField,
   StructuredDocumentFields,
 } from "../shared/StructuredDocument";
+import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
 import {
   createEmptyDriverLicenseDocument,

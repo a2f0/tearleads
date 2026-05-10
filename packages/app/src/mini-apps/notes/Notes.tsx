@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import type { BlobBytes } from "../../data/blobs";
-import { useAttachmentImageUrls } from "../../data/documents/useAttachmentImageUrls";
+import { useAttachmentImageUrls } from "../../document-types/shared/useAttachmentImageUrls";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   type NoteAttachmentStatus,
