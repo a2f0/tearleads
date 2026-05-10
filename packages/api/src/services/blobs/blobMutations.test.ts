@@ -30,12 +30,12 @@ import {
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import type {
-  BlobAttachmentBindRequest,
-  ContainerMutationRequest,
-} from "@tearleads/validators/request";
+import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
+import {
+  appendUnexpectedUserWrapToRekey,
+  buildRootContainerRekeyMutation,
+} from "../../../test/helpers/containerRekey";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
@@ -220,27 +220,6 @@ function toContainerKeyWrap(
     wrappedKey: wrap.wrappedKey,
     wrapManifestHash: wrap.wrapManifestHash,
   };
-}
-
-function appendUnexpectedUserWrapToRekey(
-  request: ContainerMutationRequest,
-): void {
-  const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpoch;
-  const unexpectedUserId = "unexpected-rekey-user";
-  const unexpectedFingerprint = "0".repeat(64);
-  request.wraps = [
-    ...request.wraps,
-    {
-      containerKeyEpochId: keyEpoch.id,
-      recipientKind: "user",
-      recipientId: unexpectedUserId,
-      recipientKeyEpochId: `user:${unexpectedUserId}:encapsulation:${unexpectedFingerprint}`,
-      recipientKeyFingerprint: unexpectedFingerprint,
-      kemCipherText: `kem:${keyEpoch.id}:${unexpectedUserId}`,
-      wrappedKey: `wrapped:${keyEpoch.id}:${unexpectedUserId}`,
-      wrapManifestHash: request.expectedManifestHash,
-    },
-  ];
 }
 
 async function bootstrapRoot(owner: TestUser): Promise<StoredContainerFixture> {

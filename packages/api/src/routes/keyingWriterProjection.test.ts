@@ -58,7 +58,10 @@ import {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
-import { buildRootContainerRekeyMutation } from "../../test/helpers/containerRekey";
+import {
+  appendUnexpectedUserWrapToRekey,
+  buildRootContainerRekeyMutation,
+} from "../../test/helpers/containerRekey";
 import { registerUser } from "../../test/helpers/registerUser";
 import { getAccessManifestBundle } from "../access/read/accessManifestStore";
 import {
@@ -325,27 +328,6 @@ function createContainerKeyWrap(input: {
     wrappedKey: `wrapped:${input.containerKeyEpochId}`,
     wrapManifestHash: input.wrapManifestHash,
   };
-}
-
-function appendUnexpectedUserWrapToRekey(
-  request: ContainerMutationRequest,
-): void {
-  const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpoch;
-  const unexpectedUserId = "unexpected-rekey-user";
-  const unexpectedFingerprint = "0".repeat(64);
-  request.wraps = [
-    ...request.wraps,
-    {
-      containerKeyEpochId: keyEpoch.id,
-      recipientKind: "user",
-      recipientId: unexpectedUserId,
-      recipientKeyEpochId: `user:${unexpectedUserId}:encapsulation:${unexpectedFingerprint}`,
-      recipientKeyFingerprint: unexpectedFingerprint,
-      kemCipherText: `kem:${keyEpoch.id}:${unexpectedUserId}`,
-      wrappedKey: `wrapped:${keyEpoch.id}:${unexpectedUserId}`,
-      wrapManifestHash: request.expectedManifestHash,
-    },
-  ];
 }
 
 async function createChildContainer(input: {
