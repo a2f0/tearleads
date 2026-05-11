@@ -274,6 +274,7 @@ test("document projection schema migrates legacy projection columns", async () =
         VALUES
           (?, ?, ?, ?, ?),
           (?, ?, ?, ?, ?),
+          (?, ?, ?, ?, ?),
           (?, ?, ?, ?, ?)
       `,
       [
@@ -291,6 +292,11 @@ test("document projection schema migrates legacy projection columns", async () =
         "legacy-cr-document",
         "container-1",
         "Carriage title\rbody",
+        "2026-05-11T00:00:00.000Z",
+        "legacy-json-local",
+        "legacy-json-document",
+        "container-1",
+        '{"kind":"credit_card","version":1}',
         "2026-05-11T00:00:00.000Z",
       ],
     );
@@ -324,6 +330,11 @@ test("document projection schema migrates legacy projection columns", async () =
         document_kind: "note",
         local_id: "legacy-crlf-local",
         title: "Windows title",
+      },
+      {
+        document_kind: "note",
+        local_id: "legacy-json-local",
+        title: '{"kind":"credit_card","version":1}',
       },
       {
         document_kind: "note",

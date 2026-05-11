@@ -166,7 +166,6 @@ async function ensureDocumentProjectionMetadataColumns(execSql: ExecSql) {
       UPDATE "document_projection"
       SET "title" = CASE
         WHEN trim("text") = '' THEN 'Untitled note'
-        WHEN ltrim("text") LIKE '{%' THEN 'Untitled note'
         ELSE COALESCE(
           NULLIF(trim(substr(
             "text",

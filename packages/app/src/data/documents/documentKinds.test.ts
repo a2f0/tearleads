@@ -6,7 +6,6 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import {
-  deriveStoredDocumentKind,
   deriveStoredDocumentTitle,
   initializeStoredDocumentKind,
   readCreditCardDocument,
@@ -78,35 +77,46 @@ test("credit card fields are stored as first-class Loro state", async () => {
   });
 });
 
-test("legacy serialized structured documents project as structured state", async () => {
-  const doc = await createDocument("legacy-structured-document");
-  doc.getText("text").update(
-    JSON.stringify({
-      cardNumber: "4111 1111 1111 1234",
-      cvvCode: "123",
-      expirationDate: "2030-05",
-      kind: "credit_card",
-      nameOnCard: "Ada Lovelace",
-      version: 1,
-    }),
-  );
+test("note text that resembles legacy JSON does not determine document kind", async () => {
+  const legacyJsonText = JSON.stringify({
+    cardNumber: "4111 1111 1111 1234",
+    cvvCode: "123",
+    expirationDate: "2030-05",
+    kind: "credit_card",
+    nameOnCard: "Ada Lovelace",
+    version: 1,
+  });
+  const doc = await createDocument("legacy-shaped-note");
+  doc.getText("text").update(legacyJsonText);
+
+  expect(readStoredDocumentState(doc)).toMatchObject({
+    documentKind: "note",
+    structuredFields: {},
+    text: legacyJsonText,
+    title: legacyJsonText,
+  });
+  expect(deriveStoredDocumentTitle(legacyJsonText)).toBe(legacyJsonText);
+});
+
+test("explicit structured metadata determines kind independently of text", async () => {
+  const doc = await createDocument("metadata-structured-document");
+  doc.getText("text").update("Plain text sidecar");
+  initializeStoredDocumentKind(doc, "credit_card");
+  writeStoredDocumentFields(doc, "credit_card", {
+    cardNumber: "4111 1111 1111 1234",
+  });
 
   expect(readStoredDocumentState(doc)).toMatchObject({
     documentKind: "credit_card",
     structuredFields: {
       cardNumber: "4111 1111 1111 1234",
-      cvvCode: "123",
-      expirationDate: "2030-05",
-      nameOnCard: "Ada Lovelace",
+      cvvCode: "",
+      expirationDate: "",
+      nameOnCard: "",
     },
+    text: "Plain text sidecar",
     title: "Credit Card ending in 1234",
   });
-  expect(deriveStoredDocumentKind(doc.getText("text").toString())).toBe(
-    "credit_card",
-  );
-  expect(deriveStoredDocumentTitle(doc.getText("text").toString())).toBe(
-    "Credit Card ending in 1234",
-  );
 });
 
 test("concurrent independent structured field edits converge", async () => {
