@@ -1,10 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 import {
-  serializeCreditCardDocument,
-  serializeDriverLicenseDocument,
-} from "../../documents/documentKinds";
-import {
   listNotesByContainerIds,
   sqlNotesPersistence,
 } from "./notesPersistence";
@@ -48,8 +44,10 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
       id: "default",
       containerId: "root-container",
       documentId: null,
+      documentKind: "note",
       lastCommitLsn: null,
       text: "second",
+      title: "second",
       loroSnapshot: "snapshot-2",
       accessEpoch: 2,
       ...emptyDocumentState,
@@ -104,8 +102,10 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
       id: "local-note",
       containerId: "shared-container",
       documentId: "remote-document",
+      documentKind: "note",
       lastCommitLsn: null,
       text: "Existing local note",
+      title: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
       ...emptyDocumentState,
@@ -276,8 +276,10 @@ test("upsertDiscoveredNote preserves the active local container when another lin
       id: "local-note",
       containerId: "container-a",
       documentId: "remote-document",
+      documentKind: "note",
       lastCommitLsn: null,
       text: "Existing local note",
+      title: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
       ...emptyDocumentState,
@@ -339,8 +341,10 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
       id: "local-note",
       containerId: "container-b",
       documentId: "remote-document",
+      documentKind: "note",
       lastCommitLsn: "0/10",
       text: "Existing local note",
+      title: "Existing local note",
       loroSnapshot: "snapshot-1",
       accessEpoch: 3,
       ...emptyDocumentState,
@@ -470,7 +474,7 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
   }
 });
 
-test("listNotes derives driver license titles and document kinds from structured text", async () => {
+test("listNotes reads driver license titles and document kinds from projection metadata", async () => {
   const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
@@ -480,10 +484,9 @@ test("listNotes derives driver license titles and document kinds from structured
       id: "drivers-license",
       containerId: "identity-container",
       documentId: "document-license",
-      text: serializeDriverLicenseDocument({
-        expirationDate: "2030-05-01",
-        licenseId: "D1234567",
-      }),
+      documentKind: "drivers_license",
+      text: "",
+      title: "Driver's License D1234567",
       loroSnapshot: "snapshot-license",
       accessEpoch: 1,
     });
@@ -504,7 +507,7 @@ test("listNotes derives driver license titles and document kinds from structured
   }
 });
 
-test("listNotes derives masked credit card titles and document kinds from structured text", async () => {
+test("listNotes reads masked credit card titles and document kinds from projection metadata", async () => {
   const { close, execSql } = await createTestExecSql("notes-persistence-test");
 
   try {
@@ -514,12 +517,9 @@ test("listNotes derives masked credit card titles and document kinds from struct
       id: "credit-card",
       containerId: "billing-container",
       documentId: "document-card",
-      text: serializeCreditCardDocument({
-        cardNumber: "4111 1111 1111 1234",
-        cvvCode: "123",
-        expirationDate: "2030-05",
-        nameOnCard: "Ada Lovelace",
-      }),
+      documentKind: "credit_card",
+      text: "",
+      title: "Credit Card ending in 1234",
       loroSnapshot: "snapshot-card",
       accessEpoch: 1,
     });

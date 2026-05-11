@@ -1,7 +1,6 @@
 import {
   type DriverLicenseDocumentFields,
-  parseDriverLicenseDocument,
-  serializeDriverLicenseDocument,
+  readDriverLicenseFieldsFromRecord,
 } from "../../data/documents/documentKinds";
 import {
   createFrontAndBackImageSlots,
@@ -17,30 +16,8 @@ export const DRIVER_LICENSE_ATTACHMENT_SLOTS: ReadonlyArray<DocumentAttachmentSl
     frontSlotId: DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID,
   });
 
-export function createEmptyDriverLicenseDocument(): string {
-  return serializeDriverLicenseDocument({
-    expirationDate: "",
-    licenseId: "",
-  });
-}
-
-export function parseDriverLicenseFields(
-  text: string,
+export function readDriverLicenseFields(
+  fields: Readonly<Record<string, unknown>>,
 ): DriverLicenseDocumentFields {
-  return (
-    parseDriverLicenseDocument(text) ?? {
-      expirationDate: "",
-      licenseId: "",
-    }
-  );
-}
-
-export function updateDriverLicenseFields(
-  currentText: string,
-  patch: Partial<DriverLicenseDocumentFields>,
-): string {
-  return serializeDriverLicenseDocument({
-    ...parseDriverLicenseFields(currentText),
-    ...patch,
-  });
+  return readDriverLicenseFieldsFromRecord(fields).fields;
 }

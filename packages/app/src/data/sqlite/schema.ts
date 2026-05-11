@@ -13,7 +13,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import type { SqlTableSchema } from "./sqlSchema";
+import type { ExecSql, SqlTableSchema } from "./sqlSchema";
 
 const sqliteDialect = new SQLiteSyncDialect();
 
@@ -137,6 +137,60 @@ export function defineSqlTableSchema(table: SQLiteTable): SqlTableSchema {
   };
 }
 
+function readSqlRowString(
+  row: Record<string, string | number | null>,
+  key: string,
+): string {
+  const value = row[key];
+  return typeof value === "string" ? value : "";
+}
+
+async function ensureDocumentProjectionMetadataColumns(execSql: ExecSql) {
+  const columns = new Set(
+    (await execSql('PRAGMA table_info("document_projection")')).map((row) =>
+      readSqlRowString(row, "name"),
+    ),
+  );
+
+  if (!columns.has("document_kind")) {
+    await execSql(
+      'ALTER TABLE "document_projection" ADD COLUMN "document_kind" TEXT NOT NULL DEFAULT \'note\'',
+    );
+  }
+
+  if (!columns.has("title")) {
+    await execSql(
+      'ALTER TABLE "document_projection" ADD COLUMN "title" TEXT NOT NULL DEFAULT \'Untitled note\'',
+    );
+    await execSql(`
+      UPDATE "document_projection"
+      SET "title" = CASE
+        WHEN trim("text") = '' THEN 'Untitled note'
+        WHEN ltrim("text") LIKE '{%' THEN 'Untitled note'
+        ELSE COALESCE(
+          NULLIF(trim(substr(
+            "text",
+            1,
+            CASE
+              WHEN instr("text", char(10)) = 0
+                AND instr("text", char(13)) = 0
+                THEN length("text")
+              WHEN instr("text", char(10)) = 0
+                THEN instr("text", char(13)) - 1
+              WHEN instr("text", char(13)) = 0
+                THEN instr("text", char(10)) - 1
+              WHEN instr("text", char(10)) < instr("text", char(13))
+                THEN instr("text", char(10)) - 1
+              ELSE instr("text", char(13)) - 1
+            END
+          )), ''),
+          'Untitled note'
+        )
+      END
+    `);
+  }
+}
+
 export const documents = sqliteTable(
   "documents",
   {
@@ -239,7 +293,13 @@ export const documentProjection = sqliteTable(
     localId: text("local_id"),
     documentId: text("document_id"),
     containerId: text("container_id"),
+    documentKind: text("document_kind", {
+      enum: ["note", "drivers_license", "credit_card"],
+    })
+      .notNull()
+      .default("note"),
     text: text("text").notNull(),
+    title: text("title").notNull().default("Untitled note"),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.localId] })],
@@ -343,7 +403,10 @@ export const documentContainerProjectionTables = [
 ];
 
 export const documentProjectionTables = [
-  defineSqlTableSchema(documentProjection),
+  {
+    ...defineSqlTableSchema(documentProjection),
+    migrations: [ensureDocumentProjectionMetadataColumns],
+  },
   defineSqlTableSchema(documentPendingAttachments),
   defineSqlTableSchema(documentAttachmentBlobProjection),
 ];

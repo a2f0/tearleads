@@ -9,7 +9,10 @@ import { documentProjection, documents } from "../../../sqlite/schema";
 import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
 import {
+  deriveDocumentTitle,
+  getProjectionDocumentKind,
   getProjectionText,
+  getProjectionTitle,
   getProjectionUpdatedAt,
 } from "./documentProjectionRows";
 
@@ -89,7 +92,9 @@ export async function saveDocumentRows(input: {
     localId: document.id,
     documentId: document.documentId,
     containerId: document.containerId,
+    documentKind: document.documentKind ?? "note",
     text: document.text,
+    title: document.title ?? deriveDocumentTitle(document.text),
     updatedAt,
   };
   await tx
@@ -103,13 +108,21 @@ export async function saveDocumentRows(input: {
 }
 
 function didStoredDocumentContentChange(
-  existing: Pick<StoredDocumentRecord, "loroSnapshot" | "text"> | null,
-  next: Pick<StoredDocumentRecord, "loroSnapshot" | "text">,
+  existing: Pick<
+    StoredDocumentRecord,
+    "documentKind" | "loroSnapshot" | "text" | "title"
+  > | null,
+  next: Pick<
+    StoredDocumentRecord,
+    "documentKind" | "loroSnapshot" | "text" | "title"
+  >,
 ): boolean {
   return (
     existing === null ||
+    existing.documentKind !== (next.documentKind ?? "note") ||
     existing.loroSnapshot !== next.loroSnapshot ||
-    existing.text !== next.text
+    existing.text !== next.text ||
+    existing.title !== (next.title ?? deriveDocumentTitle(next.text))
   );
 }
 
@@ -130,7 +143,9 @@ export async function resolveDocumentSaveTimestamp(input: {
     }),
     tx
       .select({
+        documentKind: documentProjection.documentKind,
         text: documentProjection.text,
+        title: documentProjection.title,
         updatedAt: documentProjection.updatedAt,
       })
       .from(documentProjection)
@@ -142,8 +157,10 @@ export async function resolveDocumentSaveTimestamp(input: {
   return didStoredDocumentContentChange(
     existingRecord
       ? {
+          documentKind: getProjectionDocumentKind(existingProjection),
           loroSnapshot: existingRecord.loroSnapshot,
           text: getProjectionText(existingProjection),
+          title: getProjectionTitle(existingProjection),
         }
       : null,
     document,

@@ -47,7 +47,6 @@ import type {
   PendingUpdateRecord,
 } from "../../data/persistence/notes/notesPersistence";
 import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
-import { createEmptyDriverLicenseDocument } from "../../document-types/drivers-license/driverLicenseDocument";
 import {
   decryptDocumentAttachmentBlob,
   uploadDocumentAttachment,
@@ -1172,9 +1171,13 @@ test("notes store reloads persisted note text and pending updates", async () => 
     attachmentStorageKeyBySlotId: {},
     canAttach: false,
     documentId: null,
+    documentKind: "note",
+    fieldValidationIssues: [],
     ready: true,
+    structuredFields: {},
     syncing: false,
     text: "",
+    title: "Untitled note",
   });
 
   firstStore.setText("persisted note");
@@ -1204,9 +1207,13 @@ test("notes store reloads persisted note text and pending updates", async () => 
     attachmentStorageKeyBySlotId: {},
     canAttach: false,
     documentId: null,
+    documentKind: "note",
+    fieldValidationIssues: [],
     ready: true,
+    structuredFields: {},
     syncing: false,
     text: "persisted note",
+    title: "persisted note",
   });
 });
 
@@ -1294,10 +1301,10 @@ test("notes store clears document state when access epoch changes", async () => 
   });
 });
 
-test("document store seeds initial text before first persistence", async () => {
+test("document store seeds initial note text before first persistence", async () => {
   const persistence = createNotesPersistence();
   const runtime = createRuntime();
-  const initialText = createEmptyDriverLicenseDocument();
+  const initialText = "Seeded note";
   const store = createNotesStore(
     "driver-license",
     runtime,
@@ -1319,9 +1326,13 @@ test("document store seeds initial text before first persistence", async () => {
     attachmentStorageKeyBySlotId: {},
     canAttach: false,
     documentId: null,
+    documentKind: "note",
+    fieldValidationIssues: [],
     ready: true,
+    structuredFields: {},
     syncing: false,
     text: initialText,
+    title: "Seeded note",
   });
   expect(persistence.getState().note?.text).toBe(initialText);
   expect(persistence.getState().pendingUpdates).toHaveLength(1);

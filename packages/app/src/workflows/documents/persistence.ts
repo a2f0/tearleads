@@ -2,6 +2,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates, getTextValue } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
+import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import type {
   DocumentsPersistence,
   LocalAttachmentRecord,
@@ -21,8 +22,6 @@ export type {
 } from "../../data/persistence/documents/documentsPersistence";
 export {
   DOCUMENTS_APP_KIND,
-  deriveDocumentKind,
-  deriveDocumentTitle,
   sqlDocumentsPersistence as defaultDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
 
@@ -82,6 +81,7 @@ async function persistDocumentState(input: {
   const nextAccessEpoch = patch.accessEpoch ?? currentAccessEpoch;
   const securityContextChanged =
     documentIdChanged || nextAccessEpoch !== currentAccessEpoch;
+  const documentState = readStoredDocumentState(currentDoc);
   const nextRecord: StoredDocumentRecord = {
     id: currentRecord?.id ?? localId,
     containerId:
@@ -90,7 +90,9 @@ async function persistDocumentState(input: {
       input.containerId ??
       null,
     documentId: nextDocumentId,
+    documentKind: patch.documentKind ?? documentState.documentKind,
     text: patch.text ?? getTextValue(currentDoc),
+    title: patch.title ?? documentState.title,
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
     accessEpoch: nextAccessEpoch,

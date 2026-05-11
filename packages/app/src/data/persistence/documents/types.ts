@@ -2,6 +2,7 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../documentSummary";
+import type { StoredDocumentKind } from "../../documents/documentKinds";
 import type {
   DocumentRecord as BaseDocumentRecord,
   PendingUpdateFields,
@@ -13,7 +14,9 @@ export type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
 
 export interface StoredDocumentRecord extends BaseDocumentRecord {
   containerId: string | null;
+  documentKind?: StoredDocumentKind;
   text: string;
+  title?: string;
 }
 
 export interface PendingUpdateInsert extends PendingUpdateFields {

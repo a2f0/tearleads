@@ -18,14 +18,21 @@ import {
   sameDocumentAttachments,
 } from "../../data/documents/documentContent";
 import {
+  type CreditCardDocumentFields,
+  type DriverLicenseDocumentFields,
+  initializeStoredDocumentKind,
+  projectStoredDocumentState,
+  readStoredDocumentState,
+  type StoredDocumentKind,
+  writeStoredDocumentFields,
+} from "../../data/documents/documentKinds";
+import {
   DOCUMENTS_APP_KIND,
   type DocumentProjectionUserKeyResolver,
   type DocumentRecord,
   type DocumentSyncLane,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
-  deriveDocumentKind,
-  deriveDocumentTitle,
   hasDocumentUpdateEvent,
   isDestroyedDocumentSyncRuntimeError,
   type LocalAttachmentRecord,
@@ -105,10 +112,42 @@ function sameAttachmentStatuses(
   );
 }
 
+function sameStringRecord(
+  left: Readonly<Record<string, string>>,
+  right: Readonly<Record<string, string>>,
+): boolean {
+  const leftEntries = Object.entries(left);
+  const rightEntries = Object.entries(right);
+
+  return (
+    leftEntries.length === rightEntries.length &&
+    leftEntries.every(([key, value]) => right[key] === value)
+  );
+}
+
+function sameValidationIssues(
+  left: DocumentSnapshot["fieldValidationIssues"],
+  right: DocumentSnapshot["fieldValidationIssues"],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((issue, index) => {
+      const nextIssue = right[index];
+      return (
+        nextIssue !== undefined &&
+        issue.field === nextIssue.field &&
+        issue.message === nextIssue.message &&
+        Object.is(issue.value, nextIssue.value)
+      );
+    })
+  );
+}
+
 interface DocumentStoreState {
   attachmentStorageKeyBySlotId: Record<string, string>;
   doc: DocumentState | null;
   initialDocumentId: string | null;
+  initialDocumentKind: StoredDocumentKind;
   initialText: string;
   initializePromise: Promise<void> | null;
   initialized: boolean;
@@ -131,11 +170,13 @@ function createDocumentStoreState(
   persistence: DocumentsPersistence,
   initialDocumentId: string | null,
   initialText = "",
+  initialDocumentKind: StoredDocumentKind = "note",
 ): DocumentStoreState {
   return {
     attachmentStorageKeyBySlotId: {},
     doc: null,
     initialDocumentId,
+    initialDocumentKind,
     initialText,
     initializePromise: null,
     initialized: false,
@@ -153,8 +194,12 @@ function createDocumentStoreState(
       attachmentStorageKeyBySlotId: {},
       canAttach: false,
       documentId: null,
+      documentKind: "note",
+      fieldValidationIssues: [],
       ready: false,
+      structuredFields: {},
       text: "",
+      title: "",
       syncing: false,
     },
     syncLane: null,
@@ -184,8 +229,15 @@ function setDocumentSnapshot(
     ) &&
     state.snapshot.canAttach === next.canAttach &&
     state.snapshot.documentId === next.documentId &&
+    state.snapshot.documentKind === next.documentKind &&
+    sameValidationIssues(
+      state.snapshot.fieldValidationIssues,
+      next.fieldValidationIssues,
+    ) &&
     state.snapshot.ready === next.ready &&
+    sameStringRecord(state.snapshot.structuredFields, next.structuredFields) &&
     state.snapshot.text === next.text &&
+    state.snapshot.title === next.title &&
     state.snapshot.syncing === next.syncing
   ) {
     return;
@@ -209,8 +261,12 @@ function resetDocumentStore(state: DocumentStoreState) {
     attachmentStorageKeyBySlotId: {},
     canAttach: false,
     documentId: null,
+    documentKind: "note",
+    fieldValidationIssues: [],
     ready: false,
+    structuredFields: {},
     text: "",
+    title: "",
     syncing: false,
   });
 }
@@ -266,9 +322,11 @@ function setReadySnapshot(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   syncing: boolean,
-  text = getTextValue(currentDoc),
+  textOverride?: string,
 ) {
   const attachments = getSnapshotAttachments(state, currentDoc);
+  const documentState = readStoredDocumentState(currentDoc);
+  const text = textOverride ?? documentState.text;
 
   setDocumentSnapshot(state, {
     attachments,
@@ -276,8 +334,19 @@ function setReadySnapshot(
     attachmentStorageKeyBySlotId: getAttachmentStorageKeys(state, attachments),
     canAttach: canAttachFiles(state),
     documentId: state.record?.documentId ?? null,
+    documentKind: documentState.documentKind,
+    fieldValidationIssues: documentState.fieldValidationIssues,
     ready: true,
+    structuredFields: documentState.structuredFields,
     text,
+    title:
+      textOverride === undefined
+        ? documentState.title
+        : projectStoredDocumentState({
+            documentKind: documentState.documentKind,
+            structuredFields: documentState.structuredFields,
+            text,
+          }).title,
     syncing,
   });
 }
@@ -312,9 +381,15 @@ async function saveDocumentRecord(
     accessStateHash: nextRecord.accessStateHash ?? null,
     id: nextRecord.id,
     containerId: nextRecord.containerId,
-    documentKind: deriveDocumentKind(nextRecord.text),
+    documentKind: nextRecord.documentKind ?? "note",
     documentId: nextRecord.documentId,
-    title: deriveDocumentTitle(nextRecord.text),
+    title:
+      nextRecord.title ??
+      projectStoredDocumentState({
+        documentKind: nextRecord.documentKind ?? "note",
+        structuredFields: {},
+        text: nextRecord.text,
+      }).title,
     updatedAt,
   };
   if (previousDocumentId !== nextRecord.documentId) {
@@ -587,15 +662,19 @@ async function initializeDocumentStore(
     state.record = existing;
     setReadySnapshot(state, nextDoc, false);
   } else {
+    initializeStoredDocumentKind(nextDoc, state.initialDocumentKind);
     if (state.initialText.length > 0) {
       nextDoc.getText("text").update(state.initialText);
     }
+    const initialDocumentState = readStoredDocumentState(nextDoc);
 
     const created: DocumentRecord = {
       id: state.localId,
       containerId: state.runtime.containerId ?? null,
       documentId: state.initialDocumentId,
-      text: state.initialText,
+      documentKind: initialDocumentState.documentKind,
+      text: initialDocumentState.text,
+      title: initialDocumentState.title,
       loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
       accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
       accessStateHash: null,
@@ -605,10 +684,10 @@ async function initializeDocumentStore(
       documentManifestBundle: null,
     };
     await saveDocumentRecord(state, nextDoc, created);
-    if (state.initialText.length > 0) {
+    if (state.initialText.length > 0 || state.initialDocumentKind !== "note") {
       await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
     }
-    setReadySnapshot(state, nextDoc, false, state.initialText);
+    setReadySnapshot(state, nextDoc, false);
   }
 
   state.doc = nextDoc;
@@ -649,8 +728,12 @@ function setDocumentSyncing(state: DocumentStoreState, syncing: boolean) {
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: state.snapshot.canAttach,
     documentId: state.snapshot.documentId,
+    documentKind: state.snapshot.documentKind,
+    fieldValidationIssues: state.snapshot.fieldValidationIssues,
     ready: state.snapshot.ready,
+    structuredFields: state.snapshot.structuredFields,
     text: state.snapshot.text,
+    title: state.snapshot.title,
     syncing,
   });
 }
@@ -735,8 +818,15 @@ async function relinkDocumentStore(
     accessStateHash: nextRecord.accessStateHash ?? null,
     id: nextRecord.id,
     containerId: nextRecord.containerId,
+    documentKind: nextRecord.documentKind ?? "note",
     documentId: nextRecord.documentId,
-    title: deriveDocumentTitle(nextRecord.text),
+    title:
+      nextRecord.title ??
+      projectStoredDocumentState({
+        documentKind: nextRecord.documentKind ?? "note",
+        structuredFields: {},
+        text: nextRecord.text,
+      }).title,
     updatedAt,
   };
 }
@@ -1305,8 +1395,12 @@ function refreshAttachabilitySnapshot(state: DocumentStoreState) {
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: canAttachFiles(state),
     documentId: state.snapshot.documentId,
+    documentKind: state.snapshot.documentKind,
+    fieldValidationIssues: state.snapshot.fieldValidationIssues,
     ready: state.snapshot.ready,
+    structuredFields: state.snapshot.structuredFields,
     text: state.snapshot.text,
+    title: state.snapshot.title,
     syncing: state.snapshot.syncing,
   });
 }
@@ -1363,8 +1457,16 @@ function setDocumentText(state: DocumentStoreState, value: string) {
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: state.snapshot.canAttach,
     documentId: state.snapshot.documentId,
+    documentKind: state.snapshot.documentKind,
+    fieldValidationIssues: state.snapshot.fieldValidationIssues,
     ready: state.snapshot.ready,
+    structuredFields: state.snapshot.structuredFields,
     text: value,
+    title: projectStoredDocumentState({
+      documentKind: state.snapshot.documentKind,
+      structuredFields: state.snapshot.structuredFields,
+      text: value,
+    }).title,
     syncing: state.snapshot.syncing,
   });
 
@@ -1389,6 +1491,68 @@ function setDocumentText(state: DocumentStoreState, value: string) {
     })
     .catch((error: unknown) => {
       console.error("Failed to persist document changes:", error);
+    });
+}
+
+function setDocumentStructuredFields(
+  state: DocumentStoreState,
+  kind: Exclude<StoredDocumentKind, "note">,
+  patch: Partial<DriverLicenseDocumentFields & CreditCardDocumentFields>,
+) {
+  if (!state.doc) {
+    return;
+  }
+
+  const nextStructuredFields = {
+    ...state.snapshot.structuredFields,
+    ...Object.fromEntries(
+      Object.entries(patch).filter((entry): entry is [string, string] => {
+        const value = entry[1];
+        return typeof value === "string";
+      }),
+    ),
+  };
+  const projectedState = projectStoredDocumentState({
+    documentKind: kind,
+    structuredFields: nextStructuredFields,
+    text: state.snapshot.text,
+  });
+
+  setDocumentSnapshot(state, {
+    attachments: state.snapshot.attachments,
+    attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
+    attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
+    canAttach: state.snapshot.canAttach,
+    documentId: state.snapshot.documentId,
+    documentKind: projectedState.documentKind,
+    fieldValidationIssues: projectedState.fieldValidationIssues,
+    ready: state.snapshot.ready,
+    structuredFields: projectedState.structuredFields,
+    text: state.snapshot.text,
+    title: projectedState.title,
+    syncing: state.snapshot.syncing,
+  });
+
+  state.writeChain = state.writeChain
+    .catch(() => undefined)
+    .then(async () => {
+      if (!state.doc) {
+        return;
+      }
+
+      const previousVersion = encodeVersionVector(state.doc);
+      writeStoredDocumentFields(state.doc, kind, patch);
+      const update = exportUpdatesSince(state.doc, previousVersion);
+      if (update.byteLength === 0) {
+        return;
+      }
+
+      await enqueuePendingUpdate(state, update);
+      await persistDocument(state, state.doc);
+      requestDocumentStoreSync(state);
+    })
+    .catch((error: unknown) => {
+      console.error("Failed to persist structured document changes:", error);
     });
 }
 
@@ -1456,6 +1620,7 @@ function createBackingDocumentStore(
   persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
+  initialDocumentKind: StoredDocumentKind = "note",
 ): DocumentStore {
   const state = createDocumentStoreState(
     localId,
@@ -1463,6 +1628,7 @@ function createBackingDocumentStore(
     persistence,
     initialDocumentId,
     initialText,
+    initialDocumentKind,
   );
   state.syncLane = registerDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
@@ -1478,6 +1644,8 @@ function createBackingDocumentStore(
       replaceAttachmentInDocumentStore(state, slotId, file),
     requestSync: () => scheduleSync(),
     relink: (input) => relinkDocumentStore(state, input),
+    setStructuredFields: (kind, patch) =>
+      setDocumentStructuredFields(state, kind, patch),
     setText: (value: string) => setDocumentText(state, value),
     subscribe: (listener: () => void) =>
       subscribeToDocumentStore(state, listener),
@@ -1492,6 +1660,7 @@ function createRegisteredDocumentStore(
   persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
+  initialDocumentKind: StoredDocumentKind = "note",
 ): DocumentStoreFacade {
   return createDocumentStoreFacade(
     createBackingDocumentStore(
@@ -1500,6 +1669,7 @@ function createRegisteredDocumentStore(
       persistence,
       initialDocumentId,
       initialText,
+      initialDocumentKind,
     ),
   );
 }
@@ -1510,6 +1680,7 @@ export function createDocumentStore(
   persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
+  initialDocumentKind: StoredDocumentKind = "note",
 ): DocumentStore {
   return createRegisteredDocumentStore(
     localId,
@@ -1517,6 +1688,7 @@ export function createDocumentStore(
     persistence,
     initialDocumentId,
     initialText,
+    initialDocumentKind,
   );
 }
 
@@ -1526,6 +1698,7 @@ export function getOrCreateDocumentStore(
   runtime: DocumentsRuntime,
   initialDocumentId: string | null = null,
   initialText = "",
+  initialDocumentKind: StoredDocumentKind = "note",
 ): DocumentStore {
   const registry = getOrCreateDocumentStoreRegistry(domainScope);
   const existingStore = registry.storesByKey.get(
@@ -1547,6 +1720,7 @@ export function getOrCreateDocumentStore(
     defaultDocumentsPersistence,
     initialDocumentId,
     initialText,
+    initialDocumentKind,
   );
   registerDocumentStore(domainScope, localId, nextStore, initialDocumentId);
   return nextStore;
@@ -1558,6 +1732,7 @@ export function primeDocumentStore(
   runtime: DocumentsRuntime,
   initialDocumentId: string | null = null,
   initialText = "",
+  initialDocumentKind: StoredDocumentKind = "note",
 ): DocumentStore {
   const store = getOrCreateDocumentStore(
     domainScope,
@@ -1565,6 +1740,7 @@ export function primeDocumentStore(
     runtime,
     initialDocumentId,
     initialText,
+    initialDocumentKind,
   );
   store.updateRuntime(runtime);
   return store;

@@ -4,7 +4,6 @@ import {
 } from "../../stores/documents/DocumentsProvider";
 import type { DocumentTypeAppProps } from "../types";
 import { CreditCard } from "./CreditCard";
-import { createEmptyCreditCardDocument } from "./creditCardDocument";
 
 export function CreditCardDocumentApp({
   containerId,
@@ -16,7 +15,7 @@ export function CreditCardDocumentApp({
       localId={localId}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
-      initialText={createEmptyCreditCardDocument()}
+      initialDocumentKind="credit_card"
     >
       <CreditCard />
     </DocumentsProvider>

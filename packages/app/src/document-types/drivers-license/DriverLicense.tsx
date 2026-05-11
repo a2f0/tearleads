@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from "react";
+import { useId, useMemo } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
@@ -10,10 +10,8 @@ import {
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
 import {
-  createEmptyDriverLicenseDocument,
   DRIVER_LICENSE_ATTACHMENT_SLOTS,
-  parseDriverLicenseFields,
-  updateDriverLicenseFields,
+  readDriverLicenseFields,
 } from "./driverLicenseDocument";
 
 const DRIVER_LICENSE_ATTACHMENT_COPY = {
@@ -31,11 +29,14 @@ export function DriverLicense() {
     canAttach,
     ready,
     setAttachment,
-    setText,
+    setStructuredFields,
+    structuredFields,
     syncing,
-    text,
   } = useDocument();
-  const fields = useMemo(() => parseDriverLicenseFields(text), [text]);
+  const fields = useMemo(
+    () => readDriverLicenseFields(structuredFields),
+    [structuredFields],
+  );
   const expirationDateInputId = useId();
   const licenseIdInputId = useId();
   const imageUrlBySlotId = useAttachmentImageUrls(
@@ -47,12 +48,6 @@ export function DriverLicense() {
     errorMessage: "Failed to handle driver's license attachment selection",
     setAttachment,
   });
-
-  useEffect(() => {
-    if (ready && text.trim().length === 0) {
-      setText(createEmptyDriverLicenseDocument());
-    }
-  }, [ready, setText, text]);
 
   return (
     <StructuredDocument
@@ -79,11 +74,9 @@ export function DriverLicense() {
               aria-label="Driver's license ID number"
               value={fields.licenseId}
               onChange={(event) =>
-                setText(
-                  updateDriverLicenseFields(text, {
-                    licenseId: event.target.value,
-                  }),
-                )
+                setStructuredFields("drivers_license", {
+                  licenseId: event.target.value,
+                })
               }
               placeholder={ready ? "DL-1234567" : "Loading..."}
               disabled={!ready}
@@ -99,11 +92,9 @@ export function DriverLicense() {
               type="date"
               value={fields.expirationDate}
               onChange={(event) =>
-                setText(
-                  updateDriverLicenseFields(text, {
-                    expirationDate: event.target.value,
-                  }),
-                )
+                setStructuredFields("drivers_license", {
+                  expirationDate: event.target.value,
+                })
               }
               disabled={!ready}
             />
