@@ -1,0 +1,95 @@
+import type { KeyingCanonicalJson } from "@tearleads/crypto";
+import { verifyAttachmentDetachEvent } from "@tearleads/crypto";
+import type { BlobAttachmentDetachResponse } from "@tearleads/validators/response";
+import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
+import type { ApiDatabase } from "../../../adapters/postgres";
+import { loadSignerPublicKey } from "../../documents/mutations";
+import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
+import {
+  applyAttachmentContainerRekeys,
+  readDetachRequestSession,
+  verifyAttachmentAuthorizationProof,
+} from "./authorization";
+import { toMutationError } from "./errors";
+import {
+  appendAttachmentDetachAuditEvent,
+  loadActiveAttachmentBindingById,
+} from "./persistence";
+import { BlobMutationError, type DetachBlobAttachmentInput } from "./types";
+
+export async function runDetachBlobAttachmentWorkflow(
+  db: ApiDatabase,
+  input: DetachBlobAttachmentInput,
+): Promise<BlobAttachmentDetachResponse> {
+  try {
+    return await db.transaction(async (tx) => {
+      const { detachBody, event } = readDetachRequestSession(input);
+      const activeBinding = await loadActiveAttachmentBindingById({
+        bindingId: input.bindingId,
+        executor: tx,
+      });
+      if (!activeBinding) {
+        throw new BlobMutationError("Attachment binding is not active", 409);
+      }
+
+      await applyAttachmentContainerRekeys({
+        executor: tx,
+        fingerprint: input.fingerprint,
+        request: input.request,
+        userId: input.userId,
+      });
+      const [signingPublicKey, proof] = await Promise.all([
+        loadSignerPublicKey(tx, input),
+        verifyAttachmentAuthorizationProof({
+          bodyDocumentId: detachBody.documentId,
+          executor: tx,
+          request: input.request,
+        }),
+      ]);
+      const verifiedDetach = await verifyAttachmentDetachEvent({
+        authorizingContainerPaths: proof.authorizingContainerPaths,
+        body: input.request.body as KeyingCanonicalJson,
+        documentManifest: proof.documentManifest,
+        event,
+        expectedBindingId: activeBinding.id,
+        expectedBlobId: activeBinding.blobId,
+        expectedDocumentId: activeBinding.documentId,
+        expectedDocumentManifestHash: proof.documentManifest.manifestHash,
+        principalPolicies: proof.principalPolicies,
+        signerPublicKey: signingPublicKey,
+      });
+      if (!verifiedDetach.ok) {
+        throw verifiedDetach.error;
+      }
+
+      await storeVerifiedAttachmentDetachInTransaction(
+        verifiedDetach.value,
+        tx,
+      );
+      await appendAttachmentDetachAuditEvent({
+        detach: verifiedDetach.value,
+        executor: tx,
+        fingerprint: input.fingerprint,
+        manifest: proof.documentManifest,
+        userId: input.userId,
+      });
+      await touchDocumentAndLinkedContainers(tx, {
+        documentId: verifiedDetach.value.documentId,
+        linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
+      });
+
+      return {
+        bindingId: verifiedDetach.value.bindingId,
+        blobId: verifiedDetach.value.blobId,
+        documentId: verifiedDetach.value.documentId,
+        slotId: verifiedDetach.value.slotId,
+      };
+    });
+  } catch (error) {
+    const mutationError = toMutationError(error);
+    if (mutationError) {
+      throw mutationError;
+    }
+    throw error;
+  }
+}
