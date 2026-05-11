@@ -1,0 +1,876 @@
+import type {
+  PrincipalProjectionMember,
+  PrincipalStatePayloadCipherSuite,
+  SignedPrincipalState,
+} from "../principalState";
+
+/**
+ * Keying verifier contracts are the executable security boundary.
+ *
+ * API responses are untrusted JSON until they pass these pure verifiers. Route
+ * code and app code should derive encryption targets only from branded verified
+ * values, never directly from server-authored projection rows.
+ */
+type CanonicalJsonPrimitive = boolean | number | string | null;
+
+export type KeyingCanonicalJson =
+  | CanonicalJsonPrimitive
+  | readonly KeyingCanonicalJson[]
+  | { readonly [key: string]: KeyingCanonicalJson };
+
+export type KeyingCanonicalPayload<T> = T extends CanonicalJsonPrimitive
+  ? T
+  : T extends readonly (infer Item)[]
+    ? readonly KeyingCanonicalPayload<Item>[]
+    : T extends object
+      ? { readonly [Key in keyof T]: KeyingCanonicalPayload<T[Key]> }
+      : never;
+
+export type KeyingHashDomain =
+  | "tearleads.document.content-record-ciphertext"
+  | "tearleads.document.content-record-metadata"
+  | "tearleads.keying.access-event-body"
+  | "tearleads.keying.access-event-signing"
+  | "tearleads.keying.access-event"
+  | "tearleads.keying.access-manifest"
+  | "tearleads.keying.blob-access-manifest"
+  | "tearleads.keying.blob-content-key-targets"
+  | "tearleads.keying.content-record-nonce-domain"
+  | "tearleads.keying.container-access-direct-grants"
+  | "tearleads.keying.container-access-key-target"
+  | "tearleads.keying.container-access-structural"
+  | "tearleads.keying.container-key-epoch"
+  | "tearleads.keying.container-kek-material-id"
+  | "tearleads.keying.container-kek-recipient-targets"
+  | "tearleads.keying.document-content-key-targets"
+  | "tearleads.keying.document-link-set-grants"
+  | "tearleads.keying.document-link-set-key-target"
+  | "tearleads.keying.document-link-set-structural"
+  | "tearleads.keying.transparency-empty-tree"
+  | "tearleads.keying.transparency-leaf"
+  | "tearleads.keying.transparency-node"
+  | "tearleads.keying.transparency-tree-head-signing"
+  | "tearleads.keying.write-header-signing"
+  | "tearleads.keying.write-header";
+
+export type AccessEventType =
+  | "attachment.bind"
+  | "attachment.detach"
+  | "container.create"
+  | "container.grant"
+  | "container.move"
+  | "container.rekey"
+  | "container.revoke"
+  | "document.link"
+  | "document.unlink";
+
+export type AccessObjectKind = "blob" | "container" | "document";
+export type ManagedPrincipalKind = "group" | "organization";
+export type KekRecipientKind = "container" | "group" | "organization" | "user";
+export type ContentObjectKind = "blob" | "document";
+export type ContainerAccessLevel = "admin" | "read" | "write";
+export type ContainerGrantSubjectType = "group" | "organization" | "user";
+export const CONTENT_RECORD_ENCRYPTION_SUITE =
+  "aes-256-gcm-hkdf-sha256-record-key" as const;
+export type ContentRecordEncryptionSuite =
+  typeof CONTENT_RECORD_ENCRYPTION_SUITE;
+export const DOCUMENT_CONTENT_KEY_WRAP_SUITE =
+  "tearleads.document.content-key-wrap.aes-256-gcm-container-kek" as const;
+export const BLOB_CONTENT_KEY_WRAP_SUITE =
+  "tearleads.blob.content-key-wrap.aes-256-gcm-container-kek" as const;
+export const CONTAINER_KEK_USER_WRAP_SUITE =
+  "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm" as const;
+export const CONTAINER_KEK_PARENT_WRAP_SUITE =
+  "tearleads.container-kek-wrap.aes-256-gcm-parent-kek" as const;
+export const CONTAINER_KEK_MATERIAL_ID_PREFIX =
+  "tearleads.container-kek.v1.sha256:" as const;
+
+export interface UnsignedAccessEvent {
+  version: 1;
+  eventId: string;
+  eventType: AccessEventType;
+  objectKind: AccessObjectKind;
+  objectId: string;
+  organizationId: string;
+  previousManifestHash: string | null;
+  dependencyManifestHashes: string[];
+  bodyHash: string;
+  signerUserId: string;
+  signerDeviceId: string;
+  signerKeyFingerprint: string;
+  signedAt: string;
+}
+
+export interface AccessEvent extends UnsignedAccessEvent {
+  signature: string;
+}
+
+export interface ReferencedPrincipalHead {
+  principalType: ManagedPrincipalKind;
+  principalId: string;
+  version: number;
+  keyEpoch: number;
+  stateHash: string;
+  keyFingerprint: string;
+}
+
+export interface AccessManifest {
+  version: 1;
+  objectKind: AccessObjectKind;
+  objectId: string;
+  organizationId: string;
+  epoch: number;
+  previousManifestHash: string | null;
+  eventHash: string;
+  structuralHash: string;
+  grantRoot: string;
+  referencedPrincipalHeads: ReferencedPrincipalHead[];
+  keyTargetHash: string;
+}
+
+export interface ContainerDirectGrant {
+  accessLevel: ContainerAccessLevel;
+  subjectId: string;
+  subjectType: ContainerGrantSubjectType;
+}
+
+export interface ContainerAccessStructural {
+  parentContainerId: string | null;
+  parentManifestHash: string | null;
+}
+
+export interface ContainerAccessMetadata {
+  metadataDocumentId: string;
+}
+
+export interface ContainerAccessKeyState {
+  containerKeyEpochId: string | null;
+}
+
+export interface ContainerAccessManifestState
+  extends ContainerAccessStructural,
+    ContainerAccessKeyState,
+    ContainerAccessMetadata {
+  version: 1;
+  containerId: string;
+  organizationId: string;
+  epoch: number;
+  previousManifestHash: string | null;
+  eventHash: string;
+  directGrants: ContainerDirectGrant[];
+  referencedPrincipalHeads: ReferencedPrincipalHead[];
+}
+
+export interface ContainerCreateAccessEventBody
+  extends ContainerAccessStructural,
+    ContainerAccessKeyState,
+    ContainerAccessMetadata {
+  eventType: "container.create";
+  directGrants: ContainerDirectGrant[];
+  referencedPrincipalHeads: ReferencedPrincipalHead[];
+}
+
+export interface ContainerGrantAccessEventBody extends ContainerAccessKeyState {
+  eventType: "container.grant";
+  grant: ContainerDirectGrant;
+  referencedPrincipalHead: ReferencedPrincipalHead | null;
+}
+
+export interface ContainerRevokeAccessEventBody
+  extends ContainerAccessKeyState {
+  eventType: "container.revoke";
+  subjectId: string;
+  subjectType: ContainerGrantSubjectType;
+}
+
+export interface ContainerRekeyAccessEventBody {
+  eventType: "container.rekey";
+  containerKeyEpochId: string;
+}
+
+export interface ContainerMoveAccessEventBody
+  extends ContainerAccessStructural,
+    ContainerAccessKeyState {
+  eventType: "container.move";
+}
+
+export type ContainerAccessEventBody =
+  | ContainerCreateAccessEventBody
+  | ContainerGrantAccessEventBody
+  | ContainerMoveAccessEventBody
+  | ContainerRekeyAccessEventBody
+  | ContainerRevokeAccessEventBody;
+
+export interface DocumentLinkSetStructural {
+  linkedContainerIds: string[];
+}
+
+export interface DocumentLinkSetManifestState
+  extends DocumentLinkSetStructural {
+  version: 1;
+  documentId: string;
+  organizationId: string;
+  epoch: number;
+  previousManifestHash: string | null;
+  eventHash: string;
+}
+
+export interface DocumentLinkAccessEventBody {
+  eventType: "document.link";
+  containerId: string;
+  containerManifestHash: string;
+}
+
+export interface DocumentUnlinkAccessEventBody {
+  eventType: "document.unlink";
+  containerId: string;
+  containerManifestHash: string;
+}
+
+export type DocumentAccessEventBody =
+  | DocumentLinkAccessEventBody
+  | DocumentUnlinkAccessEventBody;
+
+export interface AttachmentBindAccessEventBody {
+  eventType: "attachment.bind";
+  bindingId: string;
+  blobId: string;
+  documentId: string;
+  slotId: string;
+  expectedBindingId: string | null;
+  documentManifestHash: string;
+}
+
+export interface AttachmentDetachAccessEventBody {
+  eventType: "attachment.detach";
+  bindingId: string;
+  blobId: string;
+  documentId: string;
+  slotId: string;
+  documentManifestHash: string;
+}
+
+export type AttachmentAccessEventBody =
+  | AttachmentBindAccessEventBody
+  | AttachmentDetachAccessEventBody;
+
+export interface ContainerKekRecipientTarget {
+  recipientKind: KekRecipientKind;
+  recipientId: string;
+  recipientKeyEpochId: string;
+  recipientKeyFingerprint: string;
+}
+
+export interface ContainerKeyEpoch {
+  id: string;
+  containerId: string;
+  keyEpoch: number;
+  accessManifestHash: string;
+  parentContainerKeyEpochId: string | null;
+  createdByEventHash: string;
+  createdByManifestHash: string;
+}
+
+export interface ContainerKeyWrap {
+  containerKeyEpochId: string;
+  recipientKind: KekRecipientKind;
+  recipientId: string;
+  recipientKeyEpochId: string;
+  recipientKeyFingerprint: string;
+  kemCipherText: string;
+  wrappedKey: string;
+  wrapManifestHash: string;
+}
+
+export interface ContainerUserRecipientKey {
+  userId: string;
+  recipientKeyEpochId: string;
+  recipientKeyFingerprint: string;
+}
+
+export interface ContainerKekTarget {
+  containerId: string;
+  containerManifestHash: string;
+  containerKeyEpochId: string;
+  containerKeyEpoch: number;
+}
+
+export type DocumentContentKeyTarget = ContainerKekTarget;
+
+export interface BlobContentKeyTarget extends ContainerKekTarget {
+  bindingId: string;
+  documentId: string;
+}
+
+export interface BlobAccessManifest {
+  version: 1;
+  blobId: string;
+  organizationId: string;
+  activeBindingIds: string[];
+  documentManifestHashes: string[];
+  linkedContainerManifestHashes: string[];
+  linkedContainerKeyEpochIds: string[];
+  blobKeyTargetHash: string;
+}
+
+export interface UnsignedWriteHeader {
+  version: 1;
+  organizationId: string;
+  objectKind: ContentObjectKind;
+  objectId: string;
+  accessManifestHash: string;
+  contentKeyEpoch: number;
+  targetHash: string;
+  encryptionSuite: ContentRecordEncryptionSuite;
+  contentRecordId: string;
+  nonceDomainHash: string;
+  metadataHash: string;
+  ciphertextHash: string;
+  writerUserId: string;
+  writerDeviceId: string;
+  writerKeyFingerprint: string;
+  signedAt: string;
+}
+
+export interface WriteHeader extends UnsignedWriteHeader {
+  signature: string;
+}
+
+export interface DocumentContentRecordMetadataInput {
+  documentId: string;
+  partialEndVersionVector: string;
+  partialStartVersionVector: string;
+  updateId: string;
+}
+
+export interface ContentRecordNonceDomain {
+  version: 1;
+  organizationId: string;
+  objectKind: ContentObjectKind;
+  objectId: string;
+  contentKeyEpoch: number;
+  encryptionSuite: ContentRecordEncryptionSuite;
+  contentRecordId: string;
+}
+
+export interface IdentityStateHead {
+  identityId: string;
+  version: number;
+  stateHash: string;
+  previousStateHash: string | null;
+}
+
+export type TransparencyLeafKind =
+  | "access_manifest_head"
+  | "identity_state_head"
+  | "principal_policy_head";
+
+export interface IdentityStateTransparencyLeaf {
+  version: 1;
+  leafKind: "identity_state_head";
+  identityId: string;
+  stateVersion: number;
+  stateHash: string;
+}
+
+export interface PrincipalPolicyTransparencyLeaf {
+  version: 1;
+  leafKind: "principal_policy_head";
+  principalType: ManagedPrincipalKind;
+  principalId: string;
+  policyVersion: number;
+  keyEpoch: number;
+  stateHash: string;
+  keyFingerprint: string;
+}
+
+export interface AccessManifestTransparencyLeaf {
+  version: 1;
+  leafKind: "access_manifest_head";
+  objectKind: AccessObjectKind;
+  objectId: string;
+  organizationId: string;
+  epoch: number;
+  manifestHash: string;
+}
+
+export type TransparencyLeaf =
+  | AccessManifestTransparencyLeaf
+  | IdentityStateTransparencyLeaf
+  | PrincipalPolicyTransparencyLeaf;
+
+export interface UnsignedTransparencyTreeHead {
+  version: 1;
+  logId: string;
+  treeSize: number;
+  rootHash: string;
+  signedAt: string;
+  logKeyFingerprint: string;
+}
+
+export interface SignedTransparencyTreeHead
+  extends UnsignedTransparencyTreeHead {
+  signature: string;
+}
+
+export interface TransparencyInclusionProof {
+  version: 1;
+  treeSize: number;
+  leafIndex: number;
+  auditPath: readonly string[];
+}
+
+export interface TransparencyConsistencyProof {
+  version: 1;
+  previousTreeSize: number;
+  treeSize: number;
+  nodeHashes: readonly string[];
+}
+
+export interface TransparencyTreeCheckpoint {
+  readonly logId: string;
+  readonly treeSize: number;
+  readonly rootHash: string;
+}
+
+export type KeyingVerificationCode =
+  | "duplicate_entry"
+  | "equivocation"
+  | "hash_mismatch"
+  | "invalid_domain"
+  | "invalid_shape"
+  | "key_epoch_reuse"
+  | "missing_dependency"
+  | "object_mismatch"
+  | "rollback"
+  | "signature_mismatch"
+  | "signer_mismatch"
+  | "stale_predecessor"
+  | "unauthorized";
+
+export class KeyingVerificationError extends Error {
+  constructor(
+    readonly code: KeyingVerificationCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "KeyingVerificationError";
+  }
+}
+
+export type KeyingVerificationResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: KeyingVerificationError };
+
+declare const verifiedIdentityStateBrand: unique symbol;
+declare const verifiedPrincipalPolicyBrand: unique symbol;
+declare const verifiedAccessEventBrand: unique symbol;
+declare const verifiedAccessManifestBrand: unique symbol;
+declare const verifiedContainerAccessManifestBrand: unique symbol;
+declare const verifiedDocumentLinkSetManifestBrand: unique symbol;
+declare const verifiedDocumentKekTargetsBrand: unique symbol;
+declare const verifiedAttachmentBindingBrand: unique symbol;
+declare const verifiedAttachmentDetachBrand: unique symbol;
+declare const verifiedBlobKekTargetsBrand: unique symbol;
+declare const verifiedContainerParentEdgeBrand: unique symbol;
+declare const verifiedContainerKekStateBrand: unique symbol;
+declare const verifiedWriteHeaderBrand: unique symbol;
+declare const verifiedTransparencyTreeHeadBrand: unique symbol;
+declare const verifiedTransparencyProofBrand: unique symbol;
+
+export interface VerifiedIdentityState {
+  readonly identityId: string;
+  readonly version: number;
+  readonly stateHash: string;
+  readonly head: IdentityStateHead;
+  readonly checkpoint: IdentityStateCheckpoint;
+  readonly [verifiedIdentityStateBrand]: true;
+}
+
+export interface VerifiedPrincipalPolicy {
+  readonly principalType: ManagedPrincipalKind;
+  readonly principalId: string;
+  readonly version: number;
+  readonly keyEpoch: number;
+  readonly stateHash: string;
+  readonly state: PrincipalPolicySignedState;
+  readonly projection: PrincipalProjectionMember[];
+  readonly checkpoint: PrincipalPolicyCheckpoint;
+  readonly [verifiedPrincipalPolicyBrand]: true;
+}
+
+export interface VerifiedAccessEvent {
+  readonly event: AccessEvent;
+  readonly body: KeyingCanonicalJson;
+  readonly eventHash: string;
+  readonly [verifiedAccessEventBrand]: true;
+}
+
+export interface VerifiedAccessManifest {
+  readonly manifest: AccessManifest;
+  readonly manifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly checkpoint: AccessManifestCheckpoint;
+  readonly [verifiedAccessManifestBrand]: true;
+}
+
+export interface VerifiedContainerAccessManifest {
+  readonly manifest: AccessManifest;
+  readonly manifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly state: ContainerAccessManifestState;
+  readonly checkpoint: AccessManifestCheckpoint;
+  readonly [verifiedContainerAccessManifestBrand]: true;
+}
+
+export interface VerifiedDocumentLinkSetManifest {
+  readonly manifest: AccessManifest;
+  readonly manifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly state: DocumentLinkSetManifestState;
+  readonly checkpoint: AccessManifestCheckpoint;
+  readonly [verifiedDocumentLinkSetManifestBrand]: true;
+}
+
+export type AnyVerifiedAccessManifest =
+  | VerifiedAccessManifest
+  | VerifiedContainerAccessManifest
+  | VerifiedDocumentLinkSetManifest;
+
+export interface VerifiedDocumentKekTargets {
+  readonly documentId: string;
+  readonly linkSetManifestHash: string;
+  readonly linkedContainerManifestHashes: readonly string[];
+  readonly linkedContainerKeyEpochIds: readonly string[];
+  readonly targets: readonly DocumentContentKeyTarget[];
+  readonly documentKeyTargetHash: string;
+  readonly [verifiedDocumentKekTargetsBrand]: true;
+}
+
+export interface VerifiedAttachmentBinding {
+  readonly bindingId: string;
+  readonly blobId: string;
+  readonly documentId: string;
+  readonly slotId: string;
+  readonly documentManifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly body: AttachmentBindAccessEventBody;
+  readonly [verifiedAttachmentBindingBrand]: true;
+}
+
+export interface VerifiedAttachmentDetach {
+  readonly bindingId: string;
+  readonly blobId: string;
+  readonly documentId: string;
+  readonly slotId: string;
+  readonly documentManifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly body: AttachmentDetachAccessEventBody;
+  readonly [verifiedAttachmentDetachBrand]: true;
+}
+
+export interface VerifiedBlobKekTargets {
+  readonly blobId: string;
+  readonly organizationId: string;
+  readonly activeBindingIds: readonly string[];
+  readonly documentManifestHashes: readonly string[];
+  readonly linkedContainerManifestHashes: readonly string[];
+  readonly linkedContainerKeyEpochIds: readonly string[];
+  readonly targets: readonly BlobContentKeyTarget[];
+  readonly blobKeyTargetHash: string;
+  readonly blobAccessManifestHash: string;
+  readonly [verifiedBlobKekTargetsBrand]: true;
+}
+
+export interface VerifiedContainerParentEdge {
+  readonly childContainerId: string;
+  readonly childManifestHash: string;
+  readonly parentContainerId: string;
+  readonly parentManifestHash: string;
+  readonly [verifiedContainerParentEdgeBrand]: true;
+}
+
+export interface VerifiedContainerKekState {
+  readonly containerId: string;
+  readonly accessManifestHash: string;
+  readonly containerKeyEpochId: string;
+  readonly containerKeyEpoch: number;
+  readonly keyEpoch: ContainerKeyEpoch;
+  readonly keyEpochHash: string;
+  readonly parentContainerKeyEpochId: string | null;
+  readonly keyTargetHash: string;
+  readonly recipientTargets: readonly ContainerKekRecipientTarget[];
+  readonly wraps: readonly ContainerKeyWrap[];
+  readonly [verifiedContainerKekStateBrand]: true;
+}
+
+export interface VerifiedWriteHeader {
+  readonly header: WriteHeader;
+  readonly headerHash: string;
+  readonly nonceDomain: ContentRecordNonceDomain;
+  readonly nonceDomainHash: string;
+  readonly [verifiedWriteHeaderBrand]: true;
+}
+
+export interface VerifiedTransparencyTreeHead {
+  readonly treeHead: SignedTransparencyTreeHead;
+  readonly checkpoint: TransparencyTreeCheckpoint;
+  readonly [verifiedTransparencyTreeHeadBrand]: true;
+}
+
+export interface VerifiedTransparencyProof {
+  readonly leaf: TransparencyLeaf;
+  readonly leafHash: string;
+  readonly treeHead: VerifiedTransparencyTreeHead;
+  readonly inclusionProof: TransparencyInclusionProof;
+  readonly consistencyProof?: TransparencyConsistencyProof;
+  readonly [verifiedTransparencyProofBrand]: true;
+}
+
+interface ExpectedObject {
+  readonly objectKind: AccessObjectKind;
+  readonly objectId: string;
+}
+
+interface ExpectedWriteObject {
+  readonly objectKind: ContentObjectKind;
+  readonly objectId: string;
+  readonly organizationId?: string;
+}
+
+export interface VerifyAccessEventInput {
+  readonly event: AccessEvent;
+  readonly body: KeyingCanonicalJson;
+  readonly signerPublicKey: Uint8Array;
+}
+
+export interface VerifyAttachmentBindingEventInput
+  extends VerifyAccessEventInput {
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly expectedBindingId?: string;
+  readonly expectedBlobId?: string;
+  readonly expectedDocumentId?: string;
+  readonly expectedDocumentManifestHash?: string;
+  readonly expectedPreviousBindingId?: string | null;
+}
+
+export interface VerifyAttachmentDetachEventInput
+  extends VerifyAccessEventInput {
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly expectedBindingId?: string;
+  readonly expectedBlobId?: string;
+  readonly expectedDocumentId?: string;
+  readonly expectedDocumentManifestHash?: string;
+}
+
+export interface VerifyAccessManifestInput {
+  readonly manifest: AccessManifest;
+  readonly expectedManifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly expectedObject?: ExpectedObject;
+  readonly expectedPreviousManifestHash?: string | null;
+  readonly localCheckpoint?: AccessManifestCheckpoint | null | undefined;
+  readonly checkpointPredecessors?:
+    | readonly AnyVerifiedAccessManifest[]
+    | undefined;
+}
+
+export interface VerifyContainerAccessManifestInput {
+  readonly manifest: AccessManifest;
+  readonly expectedManifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly previousManifest?: VerifiedContainerAccessManifest | null;
+  readonly localCheckpoint?: AccessManifestCheckpoint | null | undefined;
+  readonly checkpointPredecessors?:
+    | readonly AnyVerifiedAccessManifest[]
+    | undefined;
+  readonly previousContainerPath?: readonly VerifiedContainerAccessManifest[];
+  readonly parentContainerPath?: readonly VerifiedContainerAccessManifest[];
+  readonly destinationParentContainerPath?: readonly VerifiedContainerAccessManifest[];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+}
+
+export interface VerifyContainerParentEdgeInput {
+  readonly child: VerifiedContainerAccessManifest;
+  readonly parentHistory: readonly VerifiedContainerAccessManifest[];
+}
+
+export interface VerifyDocumentLinkSetManifestInput {
+  readonly manifest: AccessManifest;
+  readonly expectedManifestHash: string;
+  readonly event: VerifiedAccessEvent;
+  readonly previousManifest?: VerifiedDocumentLinkSetManifest | null;
+  readonly localCheckpoint?: AccessManifestCheckpoint | null | undefined;
+  readonly checkpointPredecessors?:
+    | readonly AnyVerifiedAccessManifest[]
+    | undefined;
+  readonly targetContainerPath?: readonly VerifiedContainerAccessManifest[];
+  readonly authorizingContainerPaths?: readonly VerifiedContainerAccessManifest[][];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+}
+
+export interface DeriveContainerKekRecipientTargetsInput {
+  readonly containerManifest: VerifiedContainerAccessManifest;
+  readonly parentKekState?: VerifiedContainerKekState | null;
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
+}
+
+export interface VerifyContainerKekStateInput
+  extends DeriveContainerKekRecipientTargetsInput {
+  readonly keyEpoch: ContainerKeyEpoch;
+  readonly wraps: readonly ContainerKeyWrap[];
+  readonly containerManifestHistory?: readonly VerifiedContainerAccessManifest[];
+}
+
+export interface DeriveDocumentKekTargetsInput {
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly linkedContainerManifests: readonly VerifiedContainerAccessManifest[];
+  readonly containerKekStates: readonly VerifiedContainerKekState[];
+}
+
+export interface DeriveBlobKekTargetsInput {
+  readonly blobId: string;
+  readonly activeBindings: readonly VerifiedAttachmentBinding[];
+  readonly documentManifests: readonly VerifiedDocumentLinkSetManifest[];
+  readonly linkedContainerManifests: readonly VerifiedContainerAccessManifest[];
+  readonly containerKekStates: readonly VerifiedContainerKekState[];
+}
+
+export interface VerifyWriteHeaderInput {
+  readonly header: WriteHeader;
+  readonly writerPublicKey: Uint8Array;
+  readonly expectedObject?: ExpectedWriteObject;
+  readonly expectedAccessManifestHash?: string;
+  readonly expectedTargetHash?: string;
+  readonly documentAuthorization?: {
+    readonly documentManifest: VerifiedDocumentLinkSetManifest;
+    readonly documentKekTargets: VerifiedDocumentKekTargets;
+    readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
+    readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  };
+  readonly blobAuthorization?: {
+    readonly blobKekTargets: VerifiedBlobKekTargets;
+    readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
+    readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  };
+}
+
+export interface PrincipalPolicyCheckpoint {
+  readonly principalType: ManagedPrincipalKind;
+  readonly principalId: string;
+  readonly version: number;
+  readonly stateHash: string;
+}
+
+export interface IdentityStateCheckpoint {
+  readonly identityId: string;
+  readonly version: number;
+  readonly stateHash: string;
+}
+
+export interface AccessManifestCheckpoint {
+  readonly objectKind: AccessObjectKind;
+  readonly objectId: string;
+  readonly organizationId: string;
+  readonly epoch: number;
+  readonly manifestHash: string;
+}
+
+export interface KeyingLocalCheckpointStore {
+  readonly readIdentityStateCheckpoint: (
+    identityId: string,
+  ) => Promise<IdentityStateCheckpoint | null>;
+  readonly writeIdentityStateCheckpoint: (
+    checkpoint: IdentityStateCheckpoint,
+  ) => Promise<void>;
+  readonly readPrincipalPolicyCheckpoint: (
+    principalType: ManagedPrincipalKind,
+    principalId: string,
+  ) => Promise<PrincipalPolicyCheckpoint | null>;
+  readonly writePrincipalPolicyCheckpoint: (
+    checkpoint: PrincipalPolicyCheckpoint,
+  ) => Promise<void>;
+  readonly readAccessManifestCheckpoint: (
+    objectKind: AccessObjectKind,
+    organizationId: string,
+    objectId: string,
+  ) => Promise<AccessManifestCheckpoint | null>;
+  readonly writeAccessManifestCheckpoint: (
+    checkpoint: AccessManifestCheckpoint,
+  ) => Promise<void>;
+}
+
+export interface VerifyIdentityStateCheckpointInput {
+  readonly head: IdentityStateHead;
+  readonly localCheckpoint?: IdentityStateCheckpoint | null | undefined;
+  readonly checkpointPredecessors?: readonly IdentityStateHead[] | undefined;
+}
+
+export interface VerifySignedTransparencyTreeHeadInput {
+  readonly treeHead: SignedTransparencyTreeHead;
+  readonly logPublicKey: Uint8Array;
+}
+
+export interface VerifyTransparencyProofInput
+  extends VerifySignedTransparencyTreeHeadInput {
+  readonly leaf: TransparencyLeaf;
+  readonly inclusionProof: TransparencyInclusionProof;
+  readonly previousTreeHead?: SignedTransparencyTreeHead | null | undefined;
+  readonly consistencyProof?: TransparencyConsistencyProof | null | undefined;
+}
+
+export interface PrincipalPolicySignedState extends SignedPrincipalState {
+  readonly stateHash: string;
+}
+
+export interface PrincipalPolicyStateChainEntry {
+  readonly state: PrincipalPolicySignedState;
+  readonly projection: readonly PrincipalProjectionMember[];
+}
+
+export interface PrincipalPolicyPayload {
+  readonly principalType: ManagedPrincipalKind;
+  readonly principalId: string;
+  readonly stateHash: string;
+  readonly cipherSuite: PrincipalStatePayloadCipherSuite;
+  readonly ciphertext: string;
+  readonly ciphertextHash: string;
+}
+
+export interface PrincipalPolicyMemberEnvelopes {
+  readonly principalType: ManagedPrincipalKind;
+  readonly principalId: string;
+  readonly stateHash: string;
+  readonly epoch: number;
+}
+
+export interface PrincipalPolicyBundle {
+  readonly currentState: PrincipalPolicySignedState;
+  readonly currentPayload: PrincipalPolicyPayload;
+  readonly currentProjection: readonly PrincipalProjectionMember[];
+  readonly currentMemberEnvelopes?: PrincipalPolicyMemberEnvelopes;
+  readonly previousStates: readonly PrincipalPolicyStateChainEntry[];
+}
+
+export interface PrincipalPolicySignerPublicKey {
+  readonly userId: string;
+  readonly signingKeyFingerprint: string;
+  readonly signingPublicKey: Uint8Array;
+}
+
+export interface VerifyPrincipalPolicyBundleInput {
+  readonly bundle: PrincipalPolicyBundle;
+  readonly expectedReference?: ReferencedPrincipalHead;
+  readonly localCheckpoint?: PrincipalPolicyCheckpoint | null;
+  readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
+}
+
+export interface NormalizedPrincipalPolicyStateChainEntry {
+  readonly state: PrincipalPolicySignedState;
+  readonly projection: PrincipalProjectionMember[];
+}
