@@ -155,6 +155,65 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
     ),
   });
 
+  const rotatedProjection = {
+    ...writerProjection,
+    contentKeyBundle: {
+      ...writerProjection.contentKeyBundle,
+      contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
+    },
+  };
+  const rotatedMaterialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    trustedLocalProjection: true,
+    writerProjection: rotatedProjection,
+  });
+  const priorContentKeyUpdate = await createSignedSyncResponseUpdate({
+    accessManifestHash: await fixtureHash("prior-content-key-access-manifest"),
+    author,
+    contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch,
+    plan: rotatedMaterialized.plan,
+    targetHash: await fixtureHash("prior-content-key-target-hash"),
+  });
+  const priorContentKeyResponse = await createSyncResponse(
+    rotatedMaterialized.plan,
+    {
+      contentKeyBundles: [
+        writerProjection.contentKeyBundle,
+        rotatedProjection.contentKeyBundle,
+      ],
+      missingUpdateEpochs: ["current_epoch"],
+      updates: [priorContentKeyUpdate],
+    },
+  );
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      rotatedMaterialized.plan,
+      priorContentKeyResponse,
+      {
+        writerPublicKeysByFingerprint,
+      },
+    ),
+  ).resolves.toMatchObject({
+    documentId: rotatedMaterialized.plan.documentId,
+  });
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      rotatedMaterialized.plan,
+      {
+        ...priorContentKeyResponse,
+        contentKeyBundles: [rotatedProjection.contentKeyBundle],
+      },
+      {
+        writerPublicKeysByFingerprint,
+      },
+    ),
+  ).rejects.toThrow("content-key bundle missing");
+
   await expect(
     persistedDocumentSyncStateFromResponse(plan, response),
   ).rejects.toThrow("writer public key verification is required");

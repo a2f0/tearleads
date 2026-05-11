@@ -294,6 +294,7 @@ export interface SyncRemoteDocumentResult {
   persistedState: PersistedDocumentSyncState;
   plan: DocumentSyncPlan;
   response: DocumentSyncResponse;
+  settledPendingUpdateIds: readonly string[];
   writerProjection: DocumentWriterProjectionResponse;
 }
 

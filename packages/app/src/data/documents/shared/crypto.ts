@@ -17,6 +17,7 @@ import {
   asWebCryptoBytes,
   readRecordNumber,
   readRecordString,
+  readWriteHeader,
 } from "./readers";
 import {
   type DecryptedDocumentSyncUpdate,
@@ -387,22 +388,55 @@ export async function decryptDocumentSyncUpdates(input: {
   organizationId: string;
   updates: readonly DocumentSyncResponse["updates"][number][];
 }): Promise<DecryptedDocumentSyncUpdate[]> {
+  return decryptDocumentSyncUpdatesByEpoch({
+    contentKeysByEpoch: new Map([[input.contentKeyEpoch, input.contentKey]]),
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+    updates: input.updates,
+  });
+}
+
+export async function decryptDocumentSyncUpdatesByEpoch(input: {
+  contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
+  documentId: string;
+  organizationId: string;
+  updates: readonly DocumentSyncResponse["updates"][number][];
+}): Promise<DecryptedDocumentSyncUpdate[]> {
   if (input.updates.length === 0) {
     return [];
   }
-  const contentKeyMaterial = await importDocumentContentKeyMaterial(
-    input.contentKey,
-  );
+  const contentKeyMaterialByEpoch = new Map<number, Promise<CryptoKey>>();
+  const contentKeyMaterialForEpoch = (contentKeyEpoch: number) => {
+    const existing = contentKeyMaterialByEpoch.get(contentKeyEpoch);
+    if (existing) {
+      return existing;
+    }
+
+    const contentKey = input.contentKeysByEpoch.get(contentKeyEpoch);
+    if (!contentKey) {
+      throw new Error("Document content key missing for sync update epoch");
+    }
+    const imported = importDocumentContentKeyMaterial(contentKey);
+    contentKeyMaterialByEpoch.set(contentKeyEpoch, imported);
+    return imported;
+  };
 
   return Promise.all(
-    input.updates.map((update) =>
-      decryptDocumentSyncUpdate({
-        contentKeyMaterial,
-        contentKeyEpoch: input.contentKeyEpoch,
+    input.updates.map(async (update) => {
+      const header = readWriteHeader(
+        update.writeHeader,
+        "Document sync response write header",
+      );
+
+      return decryptDocumentSyncUpdate({
+        contentKeyMaterial: await contentKeyMaterialForEpoch(
+          header.contentKeyEpoch,
+        ),
+        contentKeyEpoch: header.contentKeyEpoch,
         documentId: input.documentId,
         organizationId: input.organizationId,
         update,
-      }),
-    ),
+      });
+    }),
   );
 }

@@ -462,8 +462,7 @@ async function syncContactDocument(input: {
   }
 
   const nextRecord = await persistContactDocumentState({
-    acceptedPendingUpdateIds:
-      syncAttempt.synced.response.acceptedOutgoingUpdateIds,
+    acceptedPendingUpdateIds: syncAttempt.synced.settledPendingUpdateIds,
     addressBookId,
     contact: {
       doc: contact.doc,
@@ -484,7 +483,7 @@ async function syncContactDocument(input: {
     record: nextRecord,
     shouldRequestFollowupSync:
       syncAttempt.outgoingUpdateCount >
-      syncAttempt.synced.response.acceptedOutgoingUpdateIds.length,
+      syncAttempt.synced.settledPendingUpdateIds.length,
   };
 }
 

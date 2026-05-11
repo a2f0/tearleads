@@ -27,7 +27,7 @@ import type {
   DocumentKekTargetsResponse,
 } from "@tearleads/validators/response";
 import type {
-  StoredDocumentContentKeyBundleWithTargets,
+  StoredDocumentContentKeyBundle,
   DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,
 } from "../../../../access/read/documentContentKeyStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
@@ -520,7 +520,7 @@ export function assertSyncContentKeyBundleMatchesRequest(
 }
 
 export function toContentKeyBundleResponse(
-  bundle: StoredDocumentContentKeyBundleWithTargets,
+  bundle: StoredDocumentContentKeyBundle,
 ): DocumentContentKeyBundleResponse {
   return {
     documentId: bundle.documentId,

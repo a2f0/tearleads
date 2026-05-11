@@ -250,6 +250,10 @@ function assertAcceptedOutgoingUpdateIdsMatchPlan(
 
 // 4. assertDocumentSyncResponseUpdateMatchesPlan (internal)
 async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
+  contentKeyBundlesByEpoch: ReadonlyMap<
+    number,
+    DocumentSyncResponse["contentKeyBundle"]
+  >;
   plan: DocumentSyncPlan;
   update: DocumentSyncResponse["updates"][number];
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
@@ -264,8 +268,13 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
     "Document sync response write header",
   );
   await assertDocumentSyncResponseUpdateHashes({ header, update });
+  assertDocumentSyncResponseUpdateContentKeyBundle({
+    contentKeyBundlesByEpoch: input.contentKeyBundlesByEpoch,
+    header,
+    plan,
+  });
   assertDocumentSyncResponseWriteHeaderFields({ header, plan, update });
-  await assertDocumentSyncResponseNonceDomain({ plan, update });
+  await assertDocumentSyncResponseNonceDomain({ header, plan });
   await assertDocumentSyncResponseWriteHeaderSignature({
     header,
     plan,
@@ -273,6 +282,33 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
     update,
     writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
   });
+}
+
+function assertDocumentSyncResponseUpdateContentKeyBundle(input: {
+  contentKeyBundlesByEpoch: ReadonlyMap<
+    number,
+    DocumentSyncResponse["contentKeyBundle"]
+  >;
+  header: WriteHeader;
+  plan: DocumentSyncPlan;
+}): void {
+  const { header, plan } = input;
+  if (header.contentKeyEpoch > plan.contentKeyEpoch) {
+    throw new Error(
+      "Document sync response includes a future content-key epoch",
+    );
+  }
+
+  const bundle = input.contentKeyBundlesByEpoch.get(header.contentKeyEpoch);
+  if (!bundle) {
+    throw new Error("Document sync response content-key bundle missing");
+  }
+  if (
+    bundle.documentId !== plan.documentId ||
+    bundle.contentKeyEpoch !== header.contentKeyEpoch
+  ) {
+    throw new Error("Document sync response content-key bundle mismatch");
+  }
 }
 
 // 5. assertDocumentSyncResponseUpdateHashes (internal)
@@ -322,11 +358,11 @@ function assertDocumentSyncResponseWriteHeaderFields(input: {
     header.objectKind !== "document" ||
     header.objectId !== plan.documentId ||
     header.organizationId !== plan.organizationId ||
-    header.contentKeyEpoch !== plan.contentKeyEpoch ||
     header.encryptionSuite !== CONTENT_RECORD_ENCRYPTION_SUITE ||
     header.writerKeyFingerprint !== update.authorFingerprint ||
     (mustMatchCurrentBoundary &&
-      (header.accessManifestHash !== plan.expectedLinkSetManifestHash ||
+      (header.contentKeyEpoch !== plan.contentKeyEpoch ||
+        header.accessManifestHash !== plan.expectedLinkSetManifestHash ||
         header.targetHash !== plan.expectedTargetHash))
   ) {
     throw new Error("Document sync response write header mismatch");
@@ -365,27 +401,20 @@ function responseWriteHeaderSignatureBoundary(input: {
 
 // 9. assertDocumentSyncResponseNonceDomain (internal)
 async function assertDocumentSyncResponseNonceDomain(input: {
+  header: WriteHeader;
   plan: DocumentSyncPlan;
-  update: DocumentSyncResponse["updates"][number];
 }): Promise<void> {
-  const { plan, update } = input;
+  const { header, plan } = input;
   const nonceDomainHash = await computeContentRecordNonceDomainHash({
     version: 1,
     organizationId: plan.organizationId,
     objectKind: "document",
     objectId: plan.documentId,
-    contentKeyEpoch: plan.contentKeyEpoch,
+    contentKeyEpoch: header.contentKeyEpoch,
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-    contentRecordId: readRecordString(
-      update.writeHeader,
-      "contentRecordId",
-      "write header",
-    ),
+    contentRecordId: header.contentRecordId,
   });
-  if (
-    nonceDomainHash !==
-    readRecordString(update.writeHeader, "nonceDomainHash", "write header")
-  ) {
+  if (nonceDomainHash !== header.nonceDomainHash) {
     throw new Error("Document sync response nonce domain mismatch");
   }
 }
@@ -519,6 +548,62 @@ function assertDocumentMissingUpdateEpochsMatchPlan(
   }
 }
 
+function contentKeyBundleCanonical(
+  bundle: DocumentSyncResponse["contentKeyBundle"],
+): string {
+  return serializeCanonical(bundle, "content-key bundle");
+}
+
+function documentSyncContentKeyBundlesByEpoch(
+  plan: DocumentSyncPlan,
+  response: DocumentSyncResponse,
+): ReadonlyMap<number, DocumentSyncResponse["contentKeyBundle"]> {
+  if (
+    contentKeyBundleCanonical(response.contentKeyBundle) !==
+    contentKeyBundleCanonical(plan.sourceContentKeyBundle)
+  ) {
+    throw new Error("Document sync response content-key bundle mismatch");
+  }
+
+  const bundleByEpoch = new Map<
+    number,
+    DocumentSyncResponse["contentKeyBundle"]
+  >();
+  const bundles = [
+    response.contentKeyBundle,
+    ...(response.contentKeyBundles ?? []),
+  ];
+
+  for (const bundle of bundles) {
+    if (bundle.documentId !== plan.documentId) {
+      throw new Error(
+        "Document sync response content-key bundle document mismatch",
+      );
+    }
+    if (
+      !Number.isInteger(bundle.contentKeyEpoch) ||
+      bundle.contentKeyEpoch <= 0
+    ) {
+      throw new Error(
+        "Document sync response content-key bundle epoch mismatch",
+      );
+    }
+
+    const existing = bundleByEpoch.get(bundle.contentKeyEpoch);
+    if (!existing) {
+      bundleByEpoch.set(bundle.contentKeyEpoch, bundle);
+      continue;
+    }
+    if (
+      contentKeyBundleCanonical(existing) !== contentKeyBundleCanonical(bundle)
+    ) {
+      throw new Error("Document sync response content-key bundle conflict");
+    }
+  }
+
+  return bundleByEpoch;
+}
+
 // 15. persistedDocumentSyncStateFromResponse (EXPORT)
 export async function persistedDocumentSyncStateFromResponse(
   plan: DocumentSyncPlan,
@@ -531,12 +616,10 @@ export async function persistedDocumentSyncStateFromResponse(
   if (response.documentId !== plan.documentId) {
     throw new Error("Document sync response document id mismatch");
   }
-  if (
-    serializeCanonical(response.contentKeyBundle, "content-key bundle") !==
-    serializeCanonical(plan.sourceContentKeyBundle, "content-key bundle")
-  ) {
-    throw new Error("Document sync response content-key bundle mismatch");
-  }
+  const contentKeyBundlesByEpoch = documentSyncContentKeyBundlesByEpoch(
+    plan,
+    response,
+  );
   if (
     serializeCanonical(response.documentKekTargets, "KEK targets") !==
     serializeCanonical(plan.documentKekTargets, "KEK targets")
@@ -550,6 +633,7 @@ export async function persistedDocumentSyncStateFromResponse(
   await Promise.all(
     response.updates.map((update) =>
       assertDocumentSyncResponseUpdateMatchesPlan({
+        contentKeyBundlesByEpoch,
         plan,
         resolveWriterPublicKey: options.resolveWriterPublicKey,
         update,

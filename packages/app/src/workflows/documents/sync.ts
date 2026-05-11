@@ -12,22 +12,27 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   DocumentCreateResponse,
+  DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import {
-  decryptDocumentSyncUpdates,
+  decryptDocumentSyncUpdatesByEpoch,
   encryptDocumentPendingUpdate,
   importDocumentContentKeyMaterial,
 } from "../../data/documents/shared/crypto";
 import {
   assertDocumentWriterProjectionConsistent,
   authorizingContainerPathRecords,
+  collectContainerKeksForDocumentSync,
   unwrapDocumentContentKeyFromWriterProjection,
+  unwrapDocumentContentKeyTarget,
 } from "../../data/documents/shared/projection";
 import {
   assertDocumentManifestBundleConsistent,
+  assertEqualBytes,
   normalizeDocumentKekTargetResponse,
+  readWriteHeader,
   serializeCanonical,
   sortDocumentTargets,
   targetEnvelopeReference,
@@ -135,6 +140,123 @@ async function prepareDocumentOutgoingUpdates(input: {
   );
 }
 
+function syncResponseContentKeyBundlesByEpoch(
+  response: DocumentSyncResponse,
+): ReadonlyMap<number, DocumentSyncResponse["contentKeyBundle"]> {
+  const byEpoch = new Map<number, DocumentSyncResponse["contentKeyBundle"]>();
+
+  for (const bundle of [
+    response.contentKeyBundle,
+    ...(response.contentKeyBundles ?? []),
+  ]) {
+    const existing = byEpoch.get(bundle.contentKeyEpoch);
+    if (!existing) {
+      byEpoch.set(bundle.contentKeyEpoch, bundle);
+      continue;
+    }
+    if (
+      serializeCanonical(existing, "content-key bundle") !==
+      serializeCanonical(bundle, "content-key bundle")
+    ) {
+      throw new Error("Document sync response content-key bundle conflict");
+    }
+  }
+
+  return byEpoch;
+}
+
+async function unwrapDocumentContentKeyFromBundle(input: {
+  bundle: DocumentSyncResponse["contentKeyBundle"];
+  containerKeksByEpochId: ReadonlyMap<string, Uint8Array>;
+}): Promise<Uint8Array> {
+  let contentKey: Uint8Array | null = null;
+
+  for (const envelope of input.bundle.targets) {
+    const containerKek = input.containerKeksByEpochId.get(
+      envelope.containerKeyEpochId,
+    );
+    if (!containerKek) {
+      continue;
+    }
+
+    const unwrapped = await unwrapDocumentContentKeyTarget({
+      containerKek,
+      envelope,
+    });
+    if (contentKey) {
+      assertEqualBytes(
+        contentKey,
+        unwrapped,
+        "Document sync content-key bundle unwraps to conflicting keys",
+      );
+      continue;
+    }
+    contentKey = unwrapped;
+  }
+
+  if (!contentKey) {
+    throw new Error("Document sync content-key bundle could not be unwrapped");
+  }
+  if (contentKey.byteLength !== 32) {
+    throw new Error("Document sync content key must be 32 bytes");
+  }
+
+  return contentKey;
+}
+
+async function unwrapDocumentSyncResponseContentKeys(
+  input: {
+    currentContentKey: Uint8Array;
+    currentContentKeyEpoch: number;
+    execSql?: ExecSql | undefined;
+    response: DocumentSyncResponse;
+    targetSecretKey: Uint8Array;
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<ReadonlyMap<number, Uint8Array>> {
+  const contentKeysByEpoch = new Map<number, Uint8Array>([
+    [input.currentContentKeyEpoch, input.currentContentKey],
+  ]);
+  const bundlesByEpoch = syncResponseContentKeyBundlesByEpoch(input.response);
+  const neededContentKeyEpochs = new Set(
+    input.response.updates.map(
+      (update) =>
+        readWriteHeader(
+          update.writeHeader,
+          "Document sync response write header",
+        ).contentKeyEpoch,
+    ),
+  );
+  const missingBundles = [...neededContentKeyEpochs]
+    .filter((contentKeyEpoch) => !contentKeysByEpoch.has(contentKeyEpoch))
+    .map((contentKeyEpoch) => bundlesByEpoch.get(contentKeyEpoch));
+  if (missingBundles.length === 0) {
+    return contentKeysByEpoch;
+  }
+
+  const containerKeksByEpochId = await collectContainerKeksForDocumentSync({
+    execSql: input.execSql,
+    secretKey: input.targetSecretKey,
+    writerProjection: input.writerProjection,
+    ...projectionVerificationOptions(input),
+  });
+
+  for (const bundle of missingBundles) {
+    if (!bundle) {
+      throw new Error("Document sync response content-key bundle missing");
+    }
+    contentKeysByEpoch.set(
+      bundle.contentKeyEpoch,
+      await unwrapDocumentContentKeyFromBundle({
+        bundle,
+        containerKeksByEpochId,
+      }),
+    );
+  }
+
+  return contentKeysByEpoch;
+}
+
 export async function buildMaterializedDocumentSyncPlan(
   input: {
     author: DocumentCreateAuthor;
@@ -208,6 +330,82 @@ function contentKeyBundleForSyncRequest(
       wrappedKey: target.wrappedKey,
       wrappingMetadata: target.wrappingMetadata,
     })),
+  };
+}
+
+function isRecoverableDocumentUpdateIdConflict(
+  failure: DocumentSyncSubmitFailure,
+): boolean {
+  return (
+    failure.status === 409 &&
+    failure.message.includes("Document update id conflict")
+  );
+}
+
+function settledPendingUpdateIdsFromSync(input: {
+  decryptedUpdates: readonly { id: string }[];
+  recoveryPendingUpdateIds: ReadonlySet<string>;
+  response: DocumentSyncResponse;
+}): string[] {
+  const settled = new Set(input.response.acceptedOutgoingUpdateIds);
+
+  for (const update of input.decryptedUpdates) {
+    if (input.recoveryPendingUpdateIds.has(update.id)) {
+      settled.add(update.id);
+    }
+  }
+
+  return [...settled];
+}
+
+async function syncRemoteDocumentResultFromResponse(input: {
+  execSql?: ExecSql | undefined;
+  materializedPlan: MaterializedDocumentSyncPlan;
+  recoveryPendingUpdateIds: ReadonlySet<string>;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+  response: DocumentSyncResponse;
+  targetSecretKey: Uint8Array;
+  writerProjection: DocumentWriterProjectionResponse;
+  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+}): Promise<SyncRemoteDocumentResult> {
+  const { plan } = input.materializedPlan;
+  const persistedState = await persistedDocumentSyncStateFromResponse(
+    plan,
+    input.response,
+    {
+      resolveWriterPublicKey: input.resolveWriterPublicKey,
+      writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+    },
+  );
+  const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
+    currentContentKey: input.materializedPlan.contentKey,
+    currentContentKeyEpoch: plan.contentKeyEpoch,
+    execSql: input.execSql,
+    response: input.response,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    targetSecretKey: input.targetSecretKey,
+    writerProjection: input.writerProjection,
+  });
+  const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
+    contentKeysByEpoch,
+    documentId: plan.documentId,
+    organizationId: plan.organizationId,
+    updates: input.response.updates,
+  });
+
+  return {
+    contentKey: input.materializedPlan.contentKey,
+    decryptedUpdates,
+    persistedState,
+    plan,
+    response: input.response,
+    settledPendingUpdateIds: settledPendingUpdateIdsFromSync({
+      decryptedUpdates,
+      recoveryPendingUpdateIds: input.recoveryPendingUpdateIds,
+      response: input.response,
+    }),
+    writerProjection: input.writerProjection,
   };
 }
 
@@ -478,7 +676,9 @@ export async function syncRemoteDocument(input: {
   );
   // syncDocumentResult is the canonical proxy for retry-capable API clients
 
-  const maxAttempts = input.apiClient.syncDocumentResult ? 2 : 1;
+  const maxAttempts = input.apiClient.syncDocumentResult ? 3 : 1;
+  let pendingUpdates = input.pendingUpdates ?? [];
+  let recoveryPendingUpdateIds = new Set<string>();
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const writerProjection = await input.apiClient.getDocumentWriterProjection(
@@ -492,7 +692,7 @@ export async function syncRemoteDocument(input: {
       execSql: input.execSql,
       localVersionVector: input.localVersionVector,
       minLsn: input.minLsn,
-      pendingUpdates: input.pendingUpdates,
+      pendingUpdates,
       resolveProjectionUserKey,
       signedAt: input.signedAt,
       targetSecretKey: input.targetSecretKey,
@@ -513,35 +713,35 @@ export async function syncRemoteDocument(input: {
       ) {
         continue;
       }
+      if (
+        attempt < maxAttempts &&
+        pendingUpdates.length > 0 &&
+        isRecoverableDocumentUpdateIdConflict(
+          submitted as DocumentSyncSubmitFailure,
+        )
+      ) {
+        recoveryPendingUpdateIds = new Set(
+          pendingUpdates.map((update) => update.id),
+        );
+        pendingUpdates = [];
+        continue;
+      }
 
       (submitted as DocumentSyncSubmitFailure).report();
       return null;
     }
 
-    const response = submitted.response;
-    const persistedState = await persistedDocumentSyncStateFromResponse(
-      plan,
-      response,
-      {
-        resolveWriterPublicKey: input.resolveWriterPublicKey,
-        writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
-      },
-    );
-
-    return {
-      contentKey: materializedPlan.contentKey,
-      decryptedUpdates: await decryptDocumentSyncUpdates({
-        contentKey: materializedPlan.contentKey,
-        contentKeyEpoch: plan.contentKeyEpoch,
-        documentId: plan.documentId,
-        organizationId: plan.organizationId,
-        updates: response.updates,
-      }),
-      persistedState,
-      plan,
-      response,
+    return syncRemoteDocumentResultFromResponse({
+      execSql: input.execSql,
+      materializedPlan,
+      recoveryPendingUpdateIds,
+      resolveProjectionUserKey,
+      resolveWriterPublicKey: input.resolveWriterPublicKey,
+      response: submitted.response,
+      targetSecretKey: input.targetSecretKey,
       writerProjection,
-    };
+      writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+    });
   }
 
   return null;

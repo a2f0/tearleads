@@ -430,7 +430,7 @@ export async function syncExplorerContainerMetadataState(input: {
   }
 
   const persisted = await persistExplorerContainerMetadataStateFromRuntime({
-    acceptedPendingUpdateIds: synced.response.acceptedOutgoingUpdateIds,
+    acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
     metadataState,
     patch: {
       ...synced.persistedState,
@@ -446,6 +446,6 @@ export async function syncExplorerContainerMetadataState(input: {
   return {
     ...persisted,
     shouldRequestFollowupSync:
-      outgoingUpdateCount > synced.response.acceptedOutgoingUpdateIds.length,
+      outgoingUpdateCount > synced.settledPendingUpdateIds.length,
   };
 }

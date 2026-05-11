@@ -73,6 +73,7 @@ export interface DocumentSyncResponse {
   acceptedOutgoingUpdateIds: string[];
   commitLsn: string | null;
   contentKeyBundle: DocumentContentKeyBundleResponse;
+  contentKeyBundles?: DocumentContentKeyBundleResponse[];
   documentId: string;
   documentKekTargets: DocumentKekTargetsResponse;
   missingUpdateEpochs: ("prior_epoch" | "current_epoch")[];
@@ -227,6 +228,9 @@ export function isDocumentSyncResponse(
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
     : undefined;
+  const contentKeyBundles = isPlainObject(value)
+    ? Reflect.get(value, "contentKeyBundles")
+    : undefined;
   const documentKekTargets = isPlainObject(value)
     ? Reflect.get(value, "documentKekTargets")
     : undefined;
@@ -237,6 +241,9 @@ export function isDocumentSyncResponse(
     isStringArray(value.acceptedOutgoingUpdateIds) &&
     hasNullableStringProperty(value, "commitLsn") &&
     isDocumentContentKeyBundleResponse(contentKeyBundle) &&
+    (contentKeyBundles === undefined ||
+      (Array.isArray(contentKeyBundles) &&
+        contentKeyBundles.every(isDocumentContentKeyBundleResponse))) &&
     hasStringProperty(value, "documentId") &&
     isDocumentKekTargetsResponse(documentKekTargets) &&
     hasArrayProperty(value, "missingUpdateEpochs") &&
