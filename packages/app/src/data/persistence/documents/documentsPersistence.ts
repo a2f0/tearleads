@@ -35,12 +35,13 @@ import {
 import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
 import {
-  deriveDocumentKind,
   deriveDocumentTitle,
   documentSummaryJoin,
   documentSummarySelection,
   getProjectionContainerId,
+  getProjectionDocumentKind,
   getProjectionText,
+  getProjectionTitle,
   getProjectionUpdatedAt,
   mapDocumentSummary,
 } from "./internal/documentProjectionRows";
@@ -61,10 +62,6 @@ import type {
 } from "./types";
 
 export { DOCUMENTS_APP_KIND } from "./internal/constants";
-export {
-  deriveDocumentKind,
-  deriveDocumentTitle,
-} from "./internal/documentProjectionRows";
 export type {
   ContainerDocumentTombstoneInput,
   DocumentsPersistence,
@@ -108,7 +105,9 @@ async function upsertDiscoveredDocumentWithExec(
     id: localId,
     containerId: nextContainerId,
     documentId: input.documentId,
+    documentKind: existingDocument?.documentKind ?? "note",
     text: existingDocument?.text ?? "",
+    title: existingDocument?.title ?? deriveDocumentTitle(""),
     loroSnapshot: existingDocument?.loroSnapshot ?? "",
     accessEpoch: nextAccessEpoch,
     accessStateHash: resolvePersistedAccessStateHash(existingDocument, {
@@ -136,9 +135,9 @@ async function upsertDiscoveredDocumentWithExec(
     accessStateHash: nextDocument.accessStateHash ?? null,
     id: localId,
     containerId: nextDocument.containerId,
-    documentKind: deriveDocumentKind(nextDocument.text),
+    documentKind: nextDocument.documentKind ?? "note",
     documentId: nextDocument.documentId,
-    title: deriveDocumentTitle(nextDocument.text),
+    title: nextDocument.title ?? deriveDocumentTitle(nextDocument.text),
     updatedAt,
   };
 }
@@ -188,9 +187,9 @@ async function relinkPersistedDocumentWithExec(
     accessStateHash: nextDocument.accessStateHash ?? null,
     id: nextDocument.id,
     containerId: nextDocument.containerId,
-    documentKind: deriveDocumentKind(nextDocument.text),
+    documentKind: nextDocument.documentKind ?? "note",
     documentId: nextDocument.documentId,
-    title: deriveDocumentTitle(nextDocument.text),
+    title: nextDocument.title ?? deriveDocumentTitle(nextDocument.text),
     updatedAt: getProjectionUpdatedAt(updatedAtRows[0]),
   };
 }
@@ -312,7 +311,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       loadDocumentRecord(execSql, getDocumentScope(localId)),
       db
         .select({
+          documentKind: documentProjection.documentKind,
           text: documentProjection.text,
+          title: documentProjection.title,
           containerId: documentProjection.containerId,
         })
         .from(documentProjection)
@@ -327,7 +328,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     return {
       ...documentRecord,
       containerId: getProjectionContainerId(projectionRows[0]),
+      documentKind: getProjectionDocumentKind(projectionRows[0]),
       text: getProjectionText(projectionRows[0]),
+      title: getProjectionTitle(projectionRows[0]),
     };
   },
   async saveDocument(execSql, document, options) {

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from "react";
+import { useId, useMemo } from "react";
 import type { CreditCardDocumentFields } from "../../data/documents/documentKinds";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
@@ -12,9 +12,7 @@ import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
 import {
   CREDIT_CARD_ATTACHMENT_SLOTS,
-  createEmptyCreditCardDocument,
-  parseCreditCardFields,
-  updateCreditCardFields,
+  readCreditCardFields,
 } from "./creditCardDocument";
 
 function CreditCardFields(params: {
@@ -110,11 +108,14 @@ export function CreditCard() {
     canAttach,
     ready,
     setAttachment,
-    setText,
+    setStructuredFields,
+    structuredFields,
     syncing,
-    text,
   } = useDocument();
-  const fields = useMemo(() => parseCreditCardFields(text), [text]);
+  const fields = useMemo(
+    () => readCreditCardFields(structuredFields),
+    [structuredFields],
+  );
   const inputIds = {
     cardNumber: useId(),
     cvvCode: useId(),
@@ -130,12 +131,6 @@ export function CreditCard() {
     errorMessage: "Failed to handle credit card attachment selection",
     setAttachment,
   });
-
-  useEffect(() => {
-    if (ready && text.trim().length === 0) {
-      setText(createEmptyCreditCardDocument());
-    }
-  }, [ready, setText, text]);
 
   return (
     <StructuredDocument
@@ -156,7 +151,7 @@ export function CreditCard() {
           fields={fields}
           inputIds={inputIds}
           onChange={(patch) => {
-            setText(updateCreditCardFields(text, patch));
+            setStructuredFields("credit_card", patch);
           }}
           ready={ready}
         />

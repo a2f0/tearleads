@@ -1,7 +1,6 @@
 import {
   type CreditCardDocumentFields,
-  parseCreditCardDocument,
-  serializeCreditCardDocument,
+  readCreditCardFieldsFromRecord,
 } from "../../data/documents/documentKinds";
 import {
   createFrontAndBackImageSlots,
@@ -17,32 +16,8 @@ export const CREDIT_CARD_ATTACHMENT_SLOTS: ReadonlyArray<DocumentAttachmentSlot>
     frontSlotId: CREDIT_CARD_FRONT_IMAGE_SLOT_ID,
   });
 
-export function createEmptyCreditCardDocument(): string {
-  return serializeCreditCardDocument({
-    cardNumber: "",
-    cvvCode: "",
-    expirationDate: "",
-    nameOnCard: "",
-  });
-}
-
-export function parseCreditCardFields(text: string): CreditCardDocumentFields {
-  return (
-    parseCreditCardDocument(text) ?? {
-      cardNumber: "",
-      cvvCode: "",
-      expirationDate: "",
-      nameOnCard: "",
-    }
-  );
-}
-
-export function updateCreditCardFields(
-  currentText: string,
-  patch: Partial<CreditCardDocumentFields>,
-): string {
-  return serializeCreditCardDocument({
-    ...parseCreditCardFields(currentText),
-    ...patch,
-  });
+export function readCreditCardFields(
+  fields: Readonly<Record<string, unknown>>,
+): CreditCardDocumentFields {
+  return readCreditCardFieldsFromRecord(fields).fields;
 }

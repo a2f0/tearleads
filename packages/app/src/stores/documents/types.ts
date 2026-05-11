@@ -2,6 +2,12 @@ import type { BlobBytes } from "../../data/blobContracts";
 import type { DocumentSummary } from "../../data/documentSummary";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import type {
+  CreditCardDocumentFields,
+  DocumentFieldValidationIssue,
+  DriverLicenseDocumentFields,
+  StoredDocumentKind,
+} from "../../data/documents/documentKinds";
+import type {
   DocumentsWorkflowRuntime,
   RelinkPersistedDocumentInput,
 } from "../../workflows/documents";
@@ -26,10 +32,18 @@ export interface DocumentContextValue {
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   canAttach: boolean;
   documentId: string | null;
+  documentKind: StoredDocumentKind;
+  fieldValidationIssues: ReadonlyArray<DocumentFieldValidationIssue>;
   ready: boolean;
   setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
+  setStructuredFields: (
+    kind: Exclude<StoredDocumentKind, "note">,
+    patch: Partial<DriverLicenseDocumentFields & CreditCardDocumentFields>,
+  ) => void;
+  structuredFields: Readonly<Record<string, string>>;
   text: string;
+  title: string;
   syncing: boolean;
   setText: (value: string) => void;
 }
@@ -40,8 +54,12 @@ export interface DocumentSnapshot {
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   canAttach: boolean;
   documentId: string | null;
+  documentKind: StoredDocumentKind;
+  fieldValidationIssues: ReadonlyArray<DocumentFieldValidationIssue>;
   ready: boolean;
+  structuredFields: Readonly<Record<string, string>>;
   text: string;
+  title: string;
   syncing: boolean;
 }
 
@@ -53,6 +71,10 @@ export interface DocumentStore {
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   requestSync: () => void;
   relink: (input: DocumentStoreRelinkInput) => Promise<DocumentSummary | null>;
+  setStructuredFields: (
+    kind: Exclude<StoredDocumentKind, "note">,
+    patch: Partial<DriverLicenseDocumentFields & CreditCardDocumentFields>,
+  ) => void;
   setText: (value: string) => void;
   subscribe: (listener: () => void) => () => void;
   updateRuntime: (runtime: DocumentsRuntime) => void;

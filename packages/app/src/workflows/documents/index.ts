@@ -22,8 +22,6 @@ export {
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
-  deriveDocumentKind,
-  deriveDocumentTitle,
   type LocalAttachmentRecord,
   loadPersistedDocumentStoreStateFromRuntime,
   type PendingAttachmentRecord,

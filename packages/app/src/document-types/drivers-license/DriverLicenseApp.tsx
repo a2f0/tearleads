@@ -4,7 +4,6 @@ import {
 } from "../../stores/documents/DocumentsProvider";
 import type { DocumentTypeAppProps } from "../types";
 import { DriverLicense } from "./DriverLicense";
-import { createEmptyDriverLicenseDocument } from "./driverLicenseDocument";
 
 export function DriverLicenseDocumentApp({
   containerId,
@@ -16,7 +15,7 @@ export function DriverLicenseDocumentApp({
       localId={localId}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
-      initialText={createEmptyDriverLicenseDocument()}
+      initialDocumentKind="drivers_license"
     >
       <DriverLicense />
     </DocumentsProvider>

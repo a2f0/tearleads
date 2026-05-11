@@ -6,6 +6,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
+import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { createDocumentsWorkflowRuntime } from "../../workflows/documents";
 import { getOrCreateDocumentStore } from "./documentStore";
@@ -35,6 +36,7 @@ interface DocumentsProviderProps extends PropsWithChildren {
   localId?: string;
   containerId?: string | null;
   documentId?: string | null;
+  initialDocumentKind?: StoredDocumentKind;
   initialText?: string;
 }
 
@@ -43,6 +45,7 @@ export function DocumentsProvider({
   localId = DEFAULT_DOCUMENT_ID,
   containerId,
   documentId = null,
+  initialDocumentKind = "note",
   initialText = "",
 }: DocumentsProviderProps) {
   const appData = useAppData();
@@ -63,8 +66,15 @@ export function DocumentsProvider({
         runtime,
         documentId,
         initialText,
+        initialDocumentKind,
       ),
-    [documentId, initialText, localId, runtime.domainScope],
+    [
+      documentId,
+      initialDocumentKind,
+      initialText,
+      localId,
+      runtime.domainScope,
+    ],
   );
 
   useEffect(() => {
@@ -111,10 +121,15 @@ export function useDocument(): DocumentContextValue {
       attachFiles: store.attachFiles,
       canAttach: snapshot.canAttach,
       documentId: snapshot.documentId,
+      documentKind: snapshot.documentKind,
+      fieldValidationIssues: snapshot.fieldValidationIssues,
       ready: snapshot.ready,
       setAttachment: store.setAttachment,
       replaceAttachment: store.replaceAttachment,
+      setStructuredFields: store.setStructuredFields,
+      structuredFields: snapshot.structuredFields,
       text: snapshot.text,
+      title: snapshot.title,
       syncing: snapshot.syncing,
       setText: store.setText,
     }),

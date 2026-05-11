@@ -1,3 +1,5 @@
+import type { LoroMap } from "@tearleads/loro";
+
 export type StoredDocumentKind = "note" | "drivers_license" | "credit_card";
 
 export interface DriverLicenseDocumentFields {
@@ -12,25 +14,76 @@ export interface CreditCardDocumentFields {
   nameOnCard: string;
 }
 
-interface SerializedDriverLicenseDocument extends DriverLicenseDocumentFields {
+interface LegacyDriverLicenseDocument extends DriverLicenseDocumentFields {
   kind: "drivers_license";
   version: number;
 }
 
-interface SerializedCreditCardDocument extends CreditCardDocumentFields {
+interface LegacyCreditCardDocument extends CreditCardDocumentFields {
   kind: "credit_card";
   version: number;
 }
 
-type DriverLicenseRecord = Partial<
-  Record<keyof SerializedDriverLicenseDocument, unknown>
->;
-type CreditCardRecord = Partial<
-  Record<keyof SerializedCreditCardDocument, unknown>
->;
+export interface DocumentFieldValidationIssue {
+  field: string;
+  message: string;
+  value: unknown;
+}
 
-const DRIVER_LICENSE_VERSION = 1;
-const CREDIT_CARD_VERSION = 1;
+interface ValidatedDocumentFields<TFields> {
+  fields: TFields;
+  issues: DocumentFieldValidationIssue[];
+}
+
+interface StoredDocumentState {
+  documentKind: StoredDocumentKind;
+  fieldValidationIssues: DocumentFieldValidationIssue[];
+  structuredFields: Record<string, string>;
+  text: string;
+  title: string;
+}
+
+interface StructuredDocumentMap {
+  entries: () => Array<[string, unknown]>;
+  get: (key: string) => unknown;
+  getOrCreateContainer: (
+    key: string,
+    container: LoroMap<Record<string, unknown>>,
+  ) => StructuredDocumentMap;
+  set: (key: string, value: string | number) => void;
+}
+
+interface StructuredDocumentText {
+  toString: () => string;
+}
+
+interface StructuredDocumentShape {
+  getMap: (key: string) => StructuredDocumentMap;
+  getText: (key: string) => StructuredDocumentText;
+}
+
+const DOCUMENT_METADATA_MAP_KEY = "metadata";
+const DOCUMENT_FIELDS_MAP_KEY = "fields";
+const DOCUMENT_KIND_KEY = "kind";
+const DOCUMENT_SCHEMA_VERSION_KEY = "schemaVersion";
+const STRUCTURED_DOCUMENT_SCHEMA_VERSION = 1;
+const LEGACY_DRIVER_LICENSE_VERSION = 1;
+const LEGACY_CREDIT_CARD_VERSION = 1;
+
+const DRIVER_LICENSE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
+const CREDIT_CARD_EXPIRATION_PATTERN = /^\d{4}-\d{2}$/u;
+
+function isStoredDocumentKind(value: unknown): value is StoredDocumentKind {
+  return (
+    value === "note" || value === "drivers_license" || value === "credit_card"
+  );
+}
+
+function isStructuredDocumentKind(
+  value: unknown,
+): value is Exclude<StoredDocumentKind, "note"> {
+  return value === "drivers_license" || value === "credit_card";
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -66,82 +119,120 @@ function getParsedRecordByKind<TKey extends string>(
   return record;
 }
 
-function getDriverLicenseRecord(text: string): DriverLicenseRecord | null {
-  return getParsedRecordByKind<keyof SerializedDriverLicenseDocument>(
-    parseStructuredRecord(text),
-    "drivers_license",
+function hasSupportedLegacyVersion(
+  record: { readonly version?: unknown },
+  minimumVersion: number,
+): boolean {
+  const { version } = record;
+  return (
+    typeof version === "number" &&
+    Number.isInteger(version) &&
+    version >= minimumVersion
   );
 }
 
-function getCreditCardRecord(text: string): CreditCardRecord | null {
-  return getParsedRecordByKind<keyof SerializedCreditCardDocument>(
-    parseStructuredRecord(text),
-    "credit_card",
-  );
+function getDocumentText(doc: StructuredDocumentShape): string {
+  return doc.getText("text").toString();
 }
 
-function parseDriverLicensePayloadRecord(
-  record: DriverLicenseRecord | null,
-): SerializedDriverLicenseDocument | null {
-  if (!record) {
-    return null;
+function getMetadataMap(doc: StructuredDocumentShape): StructuredDocumentMap {
+  return doc.getMap(DOCUMENT_METADATA_MAP_KEY);
+}
+
+function getFieldsMap(doc: StructuredDocumentShape): StructuredDocumentMap {
+  return doc.getMap(DOCUMENT_FIELDS_MAP_KEY);
+}
+
+function readDocumentKind(doc: StructuredDocumentShape): StoredDocumentKind {
+  const kind = getMetadataMap(doc).get(DOCUMENT_KIND_KEY);
+  return isStoredDocumentKind(kind) ? kind : "note";
+}
+
+function readStructuredFields(
+  doc: StructuredDocumentShape,
+): Record<string, unknown> {
+  return Object.fromEntries(getFieldsMap(doc).entries());
+}
+
+function readStringField(
+  source: Readonly<Record<string, unknown>>,
+  field: string,
+  issues: DocumentFieldValidationIssue[],
+): string {
+  const value = source[field];
+  if (value === undefined || value === null) {
+    return "";
   }
 
-  const version = record.version;
+  if (typeof value === "string") {
+    return value;
+  }
+
+  issues.push({
+    field,
+    message: "Expected a string value.",
+    value,
+  });
+  return "";
+}
+
+function isValidDateOnly(value: string): boolean {
+  if (!DRIVER_LICENSE_DATE_PATTERN.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
   if (
-    typeof version !== "number" ||
-    !Number.isInteger(version) ||
-    version < DRIVER_LICENSE_VERSION
+    year === undefined ||
+    month === undefined ||
+    day === undefined ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
   ) {
-    return null;
+    return false;
   }
 
-  return {
-    expirationDate:
-      typeof record.expirationDate === "string" ? record.expirationDate : "",
-    kind: "drivers_license",
-    licenseId: typeof record.licenseId === "string" ? record.licenseId : "",
-    version,
-  };
+  return day <= getDaysInMonth(year, month);
 }
 
-function parseCreditCardPayloadRecord(
-  record: CreditCardRecord | null,
-): SerializedCreditCardDocument | null {
-  if (!record) {
-    return null;
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function getDaysInMonth(year: number, month: number): number {
+  if (month === 2) {
+    return isLeapYear(year) ? 29 : 28;
   }
 
-  const version = record.version;
-  if (
-    typeof version !== "number" ||
-    !Number.isInteger(version) ||
-    version < CREDIT_CARD_VERSION
-  ) {
-    return null;
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+function isValidYearMonth(value: string): boolean {
+  if (!CREDIT_CARD_EXPIRATION_PATTERN.test(value)) {
+    return false;
   }
 
-  return {
-    cardNumber: typeof record.cardNumber === "string" ? record.cardNumber : "",
-    cvvCode: typeof record.cvvCode === "string" ? record.cvvCode : "",
-    expirationDate:
-      typeof record.expirationDate === "string" ? record.expirationDate : "",
-    kind: "credit_card",
-    nameOnCard: typeof record.nameOnCard === "string" ? record.nameOnCard : "",
-    version,
-  };
+  const month = Number(value.slice(5, 7));
+  return month >= 1 && month <= 12;
 }
 
-function parseDriverLicensePayload(
-  text: string,
-): SerializedDriverLicenseDocument | null {
-  return parseDriverLicensePayloadRecord(getDriverLicenseRecord(text));
-}
+function addFormatIssue(
+  issues: DocumentFieldValidationIssue[],
+  field: string,
+  value: string,
+  message: string,
+): void {
+  if (value.length === 0) {
+    return;
+  }
 
-function parseCreditCardPayload(
-  text: string,
-): SerializedCreditCardDocument | null {
-  return parseCreditCardPayloadRecord(getCreditCardRecord(text));
+  issues.push({
+    field,
+    message,
+    value,
+  });
 }
 
 export function getUntitledDocumentTitle(kind: StoredDocumentKind): string {
@@ -168,85 +259,115 @@ export function getStoredDocumentTypeLabel(kind: StoredDocumentKind): string {
   return "note";
 }
 
-export function deriveStoredDocumentKind(text: string): StoredDocumentKind {
-  const parsed = parseStructuredRecord(text);
+export function readDriverLicenseFieldsFromRecord(
+  source: Readonly<Record<string, unknown>>,
+): ValidatedDocumentFields<DriverLicenseDocumentFields> {
+  const issues: DocumentFieldValidationIssue[] = [];
+  const fields = {
+    expirationDate: readStringField(source, "expirationDate", issues),
+    licenseId: readStringField(source, "licenseId", issues),
+  };
+
   if (
-    getParsedRecordByKind<keyof SerializedCreditCardDocument>(
-      parsed,
-      "credit_card",
+    fields.expirationDate.length > 0 &&
+    !isValidDateOnly(fields.expirationDate)
+  ) {
+    addFormatIssue(
+      issues,
+      "expirationDate",
+      fields.expirationDate,
+      "Expected a calendar date in YYYY-MM-DD format.",
+    );
+  }
+
+  return { fields, issues };
+}
+
+export function readCreditCardFieldsFromRecord(
+  source: Readonly<Record<string, unknown>>,
+): ValidatedDocumentFields<CreditCardDocumentFields> {
+  const issues: DocumentFieldValidationIssue[] = [];
+  const fields = {
+    cardNumber: readStringField(source, "cardNumber", issues),
+    cvvCode: readStringField(source, "cvvCode", issues),
+    expirationDate: readStringField(source, "expirationDate", issues),
+    nameOnCard: readStringField(source, "nameOnCard", issues),
+  };
+
+  if (
+    fields.expirationDate.length > 0 &&
+    !isValidYearMonth(fields.expirationDate)
+  ) {
+    addFormatIssue(
+      issues,
+      "expirationDate",
+      fields.expirationDate,
+      "Expected a card expiration month in YYYY-MM format.",
+    );
+  }
+
+  return { fields, issues };
+}
+
+export function readDriverLicenseDocument(
+  doc: StructuredDocumentShape,
+): ValidatedDocumentFields<DriverLicenseDocumentFields> {
+  return readDriverLicenseFieldsFromRecord(readStructuredFields(doc));
+}
+
+export function readCreditCardDocument(
+  doc: StructuredDocumentShape,
+): ValidatedDocumentFields<CreditCardDocumentFields> {
+  return readCreditCardFieldsFromRecord(readStructuredFields(doc));
+}
+
+function deriveNoteTitle(text: string): string {
+  for (const line of text.split(/\r?\n/u)) {
+    const trimmed = line.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  return getUntitledDocumentTitle("note");
+}
+
+function readLegacyStructuredDocumentState(
+  text: string,
+): StoredDocumentState | null {
+  const parsed = parseStructuredRecord(text);
+  const creditCardRecord = getParsedRecordByKind<
+    keyof LegacyCreditCardDocument
+  >(parsed, "credit_card");
+  if (
+    creditCardRecord &&
+    hasSupportedLegacyVersion(creditCardRecord, LEGACY_CREDIT_CARD_VERSION)
+  ) {
+    return projectStoredDocumentState({
+      documentKind: "credit_card",
+      structuredFields: creditCardRecord,
+      text,
+    });
+  }
+
+  const driverLicenseRecord = getParsedRecordByKind<
+    keyof LegacyDriverLicenseDocument
+  >(parsed, "drivers_license");
+  if (
+    driverLicenseRecord &&
+    hasSupportedLegacyVersion(
+      driverLicenseRecord,
+      LEGACY_DRIVER_LICENSE_VERSION,
     )
   ) {
-    return "credit_card";
+    return projectStoredDocumentState({
+      documentKind: "drivers_license",
+      structuredFields: driverLicenseRecord,
+      text,
+    });
   }
 
-  return getParsedRecordByKind<keyof SerializedDriverLicenseDocument>(
-    parsed,
-    "drivers_license",
-  )
-    ? "drivers_license"
-    : "note";
-}
-
-export function parseDriverLicenseDocument(
-  text: string,
-): DriverLicenseDocumentFields | null {
-  const parsed = parseDriverLicensePayload(text);
-  if (!parsed) {
-    return null;
-  }
-
-  return {
-    expirationDate: parsed.expirationDate,
-    licenseId: parsed.licenseId,
-  };
-}
-
-export function parseCreditCardDocument(
-  text: string,
-): CreditCardDocumentFields | null {
-  const parsed = parseCreditCardPayload(text);
-  if (!parsed) {
-    return null;
-  }
-
-  return {
-    cardNumber: parsed.cardNumber,
-    cvvCode: parsed.cvvCode,
-    expirationDate: parsed.expirationDate,
-    nameOnCard: parsed.nameOnCard,
-  };
-}
-
-export function serializeDriverLicenseDocument(
-  fields: DriverLicenseDocumentFields,
-): string {
-  return JSON.stringify(
-    {
-      expirationDate: fields.expirationDate,
-      kind: "drivers_license",
-      licenseId: fields.licenseId,
-      version: DRIVER_LICENSE_VERSION,
-    } satisfies SerializedDriverLicenseDocument,
-    null,
-    2,
-  );
-}
-
-export function serializeCreditCardDocument(
-  fields: CreditCardDocumentFields,
-): string {
-  return JSON.stringify(
-    {
-      cardNumber: fields.cardNumber,
-      cvvCode: fields.cvvCode,
-      expirationDate: fields.expirationDate,
-      kind: "credit_card",
-      nameOnCard: fields.nameOnCard,
-      version: CREDIT_CARD_VERSION,
-    } satisfies SerializedCreditCardDocument,
-    null,
-    2,
-  );
+  return null;
 }
 
 function deriveCreditCardTitle(fields: CreditCardDocumentFields): string {
@@ -261,41 +382,109 @@ function deriveCreditCardTitle(fields: CreditCardDocumentFields): string {
     : getUntitledDocumentTitle("credit_card");
 }
 
+function deriveDriverLicenseTitle(fields: DriverLicenseDocumentFields): string {
+  const trimmedLicenseId = fields.licenseId.trim();
+  return trimmedLicenseId.length > 0
+    ? `Driver's License ${trimmedLicenseId}`
+    : getUntitledDocumentTitle("drivers_license");
+}
+
+export function deriveStoredDocumentKind(text: string): StoredDocumentKind {
+  return readLegacyStructuredDocumentState(text)?.documentKind ?? "note";
+}
+
 export function deriveStoredDocumentTitle(text: string): string {
-  const parsed = parseStructuredRecord(text);
-  const creditCardRecord = getParsedRecordByKind<
-    keyof SerializedCreditCardDocument
-  >(parsed, "credit_card");
-  const creditCard = parseCreditCardPayloadRecord(creditCardRecord);
-  if (creditCard) {
-    return deriveCreditCardTitle(creditCard);
+  return (
+    readLegacyStructuredDocumentState(text)?.title ?? deriveNoteTitle(text)
+  );
+}
+
+export function projectStoredDocumentState(input: {
+  documentKind: StoredDocumentKind;
+  structuredFields: Readonly<Record<string, unknown>>;
+  text: string;
+}): StoredDocumentState {
+  if (input.documentKind === "drivers_license") {
+    const validated = readDriverLicenseFieldsFromRecord(input.structuredFields);
+    return {
+      documentKind: input.documentKind,
+      fieldValidationIssues: validated.issues,
+      structuredFields: { ...validated.fields },
+      text: input.text,
+      title: deriveDriverLicenseTitle(validated.fields),
+    };
   }
 
-  if (creditCardRecord) {
-    return "Unsupported credit card";
+  if (input.documentKind === "credit_card") {
+    const validated = readCreditCardFieldsFromRecord(input.structuredFields);
+    return {
+      documentKind: input.documentKind,
+      fieldValidationIssues: validated.issues,
+      structuredFields: { ...validated.fields },
+      text: input.text,
+      title: deriveCreditCardTitle(validated.fields),
+    };
   }
 
-  const driverLicenseRecord = getParsedRecordByKind<
-    keyof SerializedDriverLicenseDocument
-  >(parsed, "drivers_license");
-  const driverLicense = parseDriverLicensePayloadRecord(driverLicenseRecord);
-  if (driverLicense) {
-    const trimmedLicenseId = driverLicense.licenseId.trim();
-    return trimmedLicenseId.length > 0
-      ? `Driver's License ${trimmedLicenseId}`
-      : getUntitledDocumentTitle("drivers_license");
-  }
+  return {
+    documentKind: "note",
+    fieldValidationIssues: [],
+    structuredFields: {},
+    text: input.text,
+    title: deriveNoteTitle(input.text),
+  };
+}
 
-  if (driverLicenseRecord) {
-    return "Unsupported driver's license";
-  }
-
-  for (const line of text.split(/\r?\n/u)) {
-    const trimmed = line.trim();
-    if (trimmed.length > 0) {
-      return trimmed;
+export function readStoredDocumentState(
+  doc: StructuredDocumentShape,
+): StoredDocumentState {
+  const documentKind = readDocumentKind(doc);
+  const text = getDocumentText(doc);
+  if (documentKind === "note") {
+    const legacyState = readLegacyStructuredDocumentState(text);
+    if (legacyState) {
+      return legacyState;
     }
   }
 
-  return getUntitledDocumentTitle("note");
+  const structuredFields = isStructuredDocumentKind(documentKind)
+    ? readStructuredFields(doc)
+    : {};
+
+  return projectStoredDocumentState({
+    documentKind,
+    structuredFields,
+    text,
+  });
+}
+
+export function initializeStoredDocumentKind(
+  doc: StructuredDocumentShape,
+  kind: StoredDocumentKind,
+): void {
+  if (!isStructuredDocumentKind(kind)) {
+    return;
+  }
+
+  const metadata = getMetadataMap(doc);
+  metadata.set(DOCUMENT_KIND_KEY, kind);
+  metadata.set(DOCUMENT_SCHEMA_VERSION_KEY, STRUCTURED_DOCUMENT_SCHEMA_VERSION);
+  getFieldsMap(doc);
+}
+
+export function writeStoredDocumentFields(
+  doc: StructuredDocumentShape,
+  kind: Exclude<StoredDocumentKind, "note">,
+  patch: Partial<DriverLicenseDocumentFields & CreditCardDocumentFields>,
+): void {
+  initializeStoredDocumentKind(doc, kind);
+  const fields = getFieldsMap(doc);
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) {
+      continue;
+    }
+
+    fields.set(key, value);
+  }
 }
