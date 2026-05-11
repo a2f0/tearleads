@@ -153,7 +153,8 @@ The API validates the user key fingerprints, creates the user, organization,
 root container, initial organization policy, root container KEK state, and root
 metadata document in one transaction, then returns a login challenge. The
 initial organization policy must target the new organization, be version `1`,
-use key epoch `1`, and project only the registering user as admin.
+use key epoch `1`, be signed by the registering user, and project only the
+registering user as admin.
 
 Authentication uses challenge signing:
 
@@ -335,7 +336,8 @@ For bind, the API verifies:
 - existing blob presence when no staged blob is supplied
 - blob content-key bundle matches derived blob KEK targets
 - staged blob write header matches blob id, blob access manifest hash,
- content-key epoch, target hash, staged SHA-256, and writer identity
+ content-key epoch, target hash, `ciphertextHash` matching the staged
+ SHA-256, and writer identity
 
 After verification, the API promotes staged bytes when supplied, detaches the
 previous active slot binding if present, stores the new binding, persists blob
