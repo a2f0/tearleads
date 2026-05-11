@@ -214,7 +214,7 @@ Loro content on the client." Some attachment metadata has to be visible.
 
 ### 1. Document Plane
 
-Use a Loro-native sync handshake for note document state.
+Use a Loro-native sync handshake for application document state.
 
 This plane owns:
 
@@ -222,6 +222,15 @@ This plane owns:
 - client causal state summary
 - encrypted Loro updates
 - visible sync metadata needed to route and filter updates
+
+Inside the encrypted Loro state, document kind is explicit structured state,
+not something inferred from serialized text. Notes store their body in the
+Loro `text` container. Structured document types store kind and schema metadata
+in a metadata map and typed scalar fields in first-class Loro maps, so
+independent field edits are normal CRDT map operations. Local SQLite projection
+columns such as `document_kind` and `title` are summary caches derived from
+decrypted Loro state; JSON-looking note text must remain note text and must not
+drive document kind selection.
 
 The server should not need plaintext CRDT state. It may, however, need visible
 metadata such as:

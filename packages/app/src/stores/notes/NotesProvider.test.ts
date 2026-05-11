@@ -55,7 +55,11 @@ import {
   createDocumentsWorkflowRuntime,
   createRemoteDocument,
 } from "../../workflows/documents";
-import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
+import { adaptNotesPersistence } from "../../workflows/notes";
+import {
+  createDocumentStore,
+  subscribeToPersistedDocuments,
+} from "../documents/DocumentsProvider";
 import {
   createNotesStore,
   type NotesRuntime,
@@ -1336,6 +1340,123 @@ test("document store seeds initial note text before first persistence", async ()
   });
   expect(persistence.getState().note?.text).toBe(initialText);
   expect(persistence.getState().pendingUpdates).toHaveLength(1);
+});
+
+test("document store seeds initial structured document kind before first persistence", async () => {
+  const persistence = createNotesPersistence();
+  const runtime = createRuntime();
+  const store = createDocumentStore(
+    "initial-card",
+    runtime,
+    adaptNotesPersistence(persistence),
+    null,
+    "",
+    "credit_card",
+  );
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Structured document store did not become ready.",
+  );
+
+  expect(store.getSnapshot()).toMatchObject({
+    documentKind: "credit_card",
+    fieldValidationIssues: [],
+    ready: true,
+    structuredFields: {
+      cardNumber: "",
+      cvvCode: "",
+      expirationDate: "",
+      nameOnCard: "",
+    },
+    text: "",
+    title: "Untitled credit card",
+  });
+  expect(persistence.getState().note).toMatchObject({
+    documentKind: "credit_card",
+    text: "",
+    title: "Untitled credit card",
+  });
+  expect(persistence.getState().pendingUpdates).toHaveLength(1);
+});
+
+test("document store persists structured field edits as Loro updates", async () => {
+  const persistence = createNotesPersistence();
+  const runtime = createRuntime();
+  const store = createDocumentStore(
+    "structured-card",
+    runtime,
+    adaptNotesPersistence(persistence),
+    null,
+    "",
+    "credit_card",
+  );
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Structured document store did not become ready.",
+  );
+
+  store.setStructuredFields("credit_card", {
+    cardNumber: "4111 1111 1111 1234",
+    expirationDate: "2030-05",
+  });
+
+  await waitForCondition(
+    () =>
+      persistence.getState().note?.title === "Credit Card ending in 1234" &&
+      persistence.getState().pendingUpdates.length === 2,
+    "Structured document fields were not persisted.",
+  );
+
+  expect(store.getSnapshot()).toMatchObject({
+    documentKind: "credit_card",
+    fieldValidationIssues: [],
+    structuredFields: {
+      cardNumber: "4111 1111 1111 1234",
+      cvvCode: "",
+      expirationDate: "2030-05",
+      nameOnCard: "",
+    },
+    text: "",
+    title: "Credit Card ending in 1234",
+  });
+  expect(persistence.getState().note).toMatchObject({
+    documentKind: "credit_card",
+    text: "",
+    title: "Credit Card ending in 1234",
+  });
+
+  const reloadedRuntime = createRuntime();
+  const reloadedStore = createDocumentStore(
+    "structured-card",
+    reloadedRuntime,
+    adaptNotesPersistence(persistence),
+  );
+  reloadedStore.updateRuntime(reloadedRuntime);
+
+  await waitForCondition(
+    () =>
+      reloadedStore.getSnapshot().ready &&
+      reloadedStore.getSnapshot().title === "Credit Card ending in 1234",
+    "Reloaded structured document store did not read persisted Loro fields.",
+  );
+
+  expect(reloadedStore.getSnapshot()).toMatchObject({
+    documentKind: "credit_card",
+    structuredFields: {
+      cardNumber: "4111 1111 1111 1234",
+      cvvCode: "",
+      expirationDate: "2030-05",
+      nameOnCard: "",
+    },
+    text: "",
+    title: "Credit Card ending in 1234",
+  });
 });
 
 test("notes store attaches files locally without authentication or network", async () => {

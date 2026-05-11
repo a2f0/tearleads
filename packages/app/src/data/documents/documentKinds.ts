@@ -14,16 +14,6 @@ export interface CreditCardDocumentFields {
   nameOnCard: string;
 }
 
-interface LegacyDriverLicenseDocument extends DriverLicenseDocumentFields {
-  kind: "drivers_license";
-  version: number;
-}
-
-interface LegacyCreditCardDocument extends CreditCardDocumentFields {
-  kind: "credit_card";
-  version: number;
-}
-
 export interface DocumentFieldValidationIssue {
   field: string;
   message: string;
@@ -67,8 +57,6 @@ const DOCUMENT_FIELDS_MAP_KEY = "fields";
 const DOCUMENT_KIND_KEY = "kind";
 const DOCUMENT_SCHEMA_VERSION_KEY = "schemaVersion";
 const STRUCTURED_DOCUMENT_SCHEMA_VERSION = 1;
-const LEGACY_DRIVER_LICENSE_VERSION = 1;
-const LEGACY_CREDIT_CARD_VERSION = 1;
 
 const DRIVER_LICENSE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 const CREDIT_CARD_EXPIRATION_PATTERN = /^\d{4}-\d{2}$/u;
@@ -83,52 +71,6 @@ function isStructuredDocumentKind(
   value: unknown,
 ): value is Exclude<StoredDocumentKind, "note"> {
   return value === "drivers_license" || value === "credit_card";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function parseStructuredRecord(text: string): Record<string, unknown> | null {
-  const trimmed = text.trim();
-  if (trimmed.length === 0 || !trimmed.startsWith("{")) {
-    return null;
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch {
-    return null;
-  }
-
-  return isRecord(parsed) ? parsed : null;
-}
-
-function getParsedRecordByKind<TKey extends string>(
-  parsed: Record<string, unknown> | null,
-  kind: StoredDocumentKind,
-): Partial<Record<TKey, unknown>> | null {
-  const record = parsed as
-    | ({ kind?: unknown } & Partial<Record<TKey, unknown>>)
-    | null;
-  if (!record || record.kind !== kind) {
-    return null;
-  }
-
-  return record;
-}
-
-function hasSupportedLegacyVersion(
-  record: { readonly version?: unknown },
-  minimumVersion: number,
-): boolean {
-  const { version } = record;
-  return (
-    typeof version === "number" &&
-    Number.isInteger(version) &&
-    version >= minimumVersion
-  );
 }
 
 function getDocumentText(doc: StructuredDocumentShape): string {
@@ -332,44 +274,6 @@ function deriveNoteTitle(text: string): string {
   return getUntitledDocumentTitle("note");
 }
 
-function readLegacyStructuredDocumentState(
-  text: string,
-): StoredDocumentState | null {
-  const parsed = parseStructuredRecord(text);
-  const creditCardRecord = getParsedRecordByKind<
-    keyof LegacyCreditCardDocument
-  >(parsed, "credit_card");
-  if (
-    creditCardRecord &&
-    hasSupportedLegacyVersion(creditCardRecord, LEGACY_CREDIT_CARD_VERSION)
-  ) {
-    return projectStoredDocumentState({
-      documentKind: "credit_card",
-      structuredFields: creditCardRecord,
-      text,
-    });
-  }
-
-  const driverLicenseRecord = getParsedRecordByKind<
-    keyof LegacyDriverLicenseDocument
-  >(parsed, "drivers_license");
-  if (
-    driverLicenseRecord &&
-    hasSupportedLegacyVersion(
-      driverLicenseRecord,
-      LEGACY_DRIVER_LICENSE_VERSION,
-    )
-  ) {
-    return projectStoredDocumentState({
-      documentKind: "drivers_license",
-      structuredFields: driverLicenseRecord,
-      text,
-    });
-  }
-
-  return null;
-}
-
 function deriveCreditCardTitle(fields: CreditCardDocumentFields): string {
   const digits = fields.cardNumber.replaceAll(/\D/gu, "");
   if (digits.length >= 4) {
@@ -389,14 +293,8 @@ function deriveDriverLicenseTitle(fields: DriverLicenseDocumentFields): string {
     : getUntitledDocumentTitle("drivers_license");
 }
 
-export function deriveStoredDocumentKind(text: string): StoredDocumentKind {
-  return readLegacyStructuredDocumentState(text)?.documentKind ?? "note";
-}
-
 export function deriveStoredDocumentTitle(text: string): string {
-  return (
-    readLegacyStructuredDocumentState(text)?.title ?? deriveNoteTitle(text)
-  );
+  return deriveNoteTitle(text);
 }
 
 export function projectStoredDocumentState(input: {
@@ -440,13 +338,6 @@ export function readStoredDocumentState(
 ): StoredDocumentState {
   const documentKind = readDocumentKind(doc);
   const text = getDocumentText(doc);
-  if (documentKind === "note") {
-    const legacyState = readLegacyStructuredDocumentState(text);
-    if (legacyState) {
-      return legacyState;
-    }
-  }
-
   const structuredFields = isStructuredDocumentKind(documentKind)
     ? readStructuredFields(doc)
     : {};

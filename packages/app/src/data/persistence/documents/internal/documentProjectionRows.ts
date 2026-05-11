@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { DocumentSummary } from "../../../documentSummary";
 import {
-  deriveStoredDocumentKind,
   deriveStoredDocumentTitle,
   getUntitledDocumentTitle,
   type StoredDocumentKind,
@@ -54,22 +53,14 @@ export function deriveDocumentTitle(text: string): string {
   return deriveStoredDocumentTitle(text);
 }
 
-function deriveDocumentKind(text: string): StoredDocumentKind {
-  return deriveStoredDocumentKind(text);
-}
-
 export function mapDocumentSummary(
   row: SelectedDocumentProjection,
 ): DocumentSummary {
-  const documentKind =
-    row.documentKind === "note"
-      ? deriveDocumentKind(row.text)
-      : row.documentKind;
   return {
     accessStateHash: row.accessStateHash,
     id: row.localId ?? "",
     containerId: row.containerId,
-    documentKind,
+    documentKind: row.documentKind,
     documentId: row.documentId,
     title: getProjectionTitle(row),
     updatedAt: row.updatedAt,
