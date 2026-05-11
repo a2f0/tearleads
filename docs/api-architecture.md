@@ -18,6 +18,8 @@ The protocol has three main planes:
 3. access plane
 
 These are described in [loro-e2ee-sync-protocol.md](./loro-e2ee-sync-protocol.md).
+The cross-package handshake and proof contract is specified in
+[protocol-specification.md](./protocol-specification.md).
 
 A single use case can touch more than one plane. For example:
 
@@ -38,7 +40,7 @@ Write surfaces:
 
 | Capability | Route | Validator |
 | --- | --- | --- |
-| Register identity and bootstrap root state | `POST /auth/register` | `PublicKeyRequest` |
+| Register identity and bootstrap root state | `POST /auth/register` | `RegistrationRequest` |
 | Store principal policy state | `PUT /principals/:principalType/:principalId/state` | `PutPrincipalStateRequest` |
 | Store principal member envelopes | `PUT /principals/:principalType/:principalId/member-envelopes` | `PutPrincipalMemberEnvelopesRequest` |
 | Create container | `POST /containers` | `ContainerMutationRequest` |

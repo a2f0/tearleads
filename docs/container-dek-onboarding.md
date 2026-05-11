@@ -131,7 +131,7 @@ ML-KEM-1024, and decrypts the wrapped key via AES-256-GCM.
 ### `POST /auth/register` request
 
 ```ts
-interface PublicKeyRequest {
+interface RegistrationRequest {
  userId: string;
  organizationId: string;
  rootContainerId: string;
@@ -146,8 +146,7 @@ interface PublicKeyRequest {
 ### `POST /auth/register` response
 
 ```ts
-interface PublicKeyResponse {
- message: string;
+interface RegistrationResponse {
  userId: string;
  organizationId: string;
  rootContainerId: string;

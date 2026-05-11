@@ -1,8 +1,7 @@
 # Security Guarantees
 
-This document describes the security and validation invariants the current
-system provides. It is intentionally scoped to the implemented behavior, not
-the desired future model.
+This document describes the security and validation invariants of the
+Tearleads protocol.
 
 ## Short Answer
 
@@ -12,14 +11,14 @@ authentic and the client receives the referenced policy bundle.
 
 The system does not provide a universal guarantee that an honest client can
 detect every compromised-server behavior. A compromised server can still deny
-service, omit state, replay older valid state when the client has no checkpoint,
-show split views to different clients without gossip or witnessing, or
-substitute identity keys on first contact.
+service, omit state, replay older valid state when the client has no
+checkpoint, show split views to different clients without gossip or
+witnessing, or substitute identity keys on first contact.
 
-The practical confidentiality guarantee today is:
+The confidentiality boundary is:
 
-- The server cannot decrypt encrypted content without recipient private keys or
- unwrapped DEKs.
+- The server cannot decrypt encrypted content without recipient private keys
+ or unwrapped DEKs.
 - The server cannot forge a valid signed group or organization policy state
  unless it controls an authorized policy signer key, can substitute the signer
  identity key trusted by the client, or can make the client accept invalid
@@ -28,9 +27,9 @@ The practical confidentiality guarantee today is:
  targets that are not justified by signed access manifests and verified
  principal policy heads.
 
-## Threat Model Assumptions
+## Threat Model
 
-The current guarantees assume:
+The security properties assume:
 
 - The client code is honest and runs the implemented validation paths.
 - User signing and encapsulation private keys are not compromised.
@@ -39,15 +38,15 @@ The current guarantees assume:
 - Server-side API and database code may be malicious, compromised, stale, or
  inconsistent.
 
-The guarantees are relative to the authenticity of registered user identity
-keys. Today, signer public keys are fetched from the server by `userId` and
-checked against the fingerprint embedded in the signed state. That detects
-response inconsistency, but it is not a full key-transparency or out-of-band
-identity proof.
+The properties are relative to the authenticity of registered user identity
+keys. Signer public keys are fetched from the server by `userId` and checked
+against the fingerprint embedded in signed state. That detects response
+inconsistency, but it is not a full key-transparency or out-of-band identity
+proof.
 
-## Current Handshake
+## Protocol Handshake
 
-The current access and policy handshake has these layers:
+The access and policy handshake has these layers:
 
 1. User registration stores the user's signing key, encapsulation key, personal
  organization, root container, root metadata state, and the initial signed
@@ -57,26 +56,26 @@ The current access and policy handshake has these layers:
  the registering user as admin.
 3. Later group and organization policy states are signed principal states. The
  server verifies the signature, state hash, projection root, encrypted payload
- hash, member count, previous-state link, and admin-signer rule before
- storing them.
+ hash, member count, previous-state link, and admin-signer rule before storing
+ them.
 4. Direct member envelopes for a principal are stored separately but must
- target the current principal state exactly. The API rejects missing,
- extra, or fingerprint-mismatched direct member envelopes.
+ target the active principal state exactly. The API rejects missing, extra, or
+ fingerprint-mismatched direct member envelopes.
 5. Access changes are represented as signed access events and derived access
- manifests. Manifests bind the object, organization, epoch,
- predecessor hash, event hash, structural hash, grant root, referenced
- principal heads, and key-target hash.
+ manifests. Manifests bind the object, organization, epoch, predecessor hash,
+ event hash, structural hash, grant root, referenced principal heads, and
+ key-target hash.
 6. App clients fetch referenced principal policy bundles, verify them, and
  cache only bundles whose signed state chain matches the object reference.
 7. App clients unwrap group or organization addressed object envelopes only
- through verified cached principal policies, valid member envelopes, and
- signed access manifests.
+ through verified cached principal policies, valid member envelopes, and signed
+ access manifests.
 8. Writes commit to the verified access manifest hash and derived recipient
  target hash so stale or forged access views fail verification.
 9. The shared crypto verifier exposes local checkpoint checks for identity
  state heads, principal policy heads, and access manifest heads.
 
-## Guarantees We Currently Have
+## Security Properties
 
 ### Principal Policy Integrity
 
@@ -101,10 +100,10 @@ caching a referenced policy bundle. The app also verifies the whole returned
 chain, including contiguous versions, previous-state links, per-entry
 projection roots, per-entry member counts, and per-entry signatures.
 
-The membership root is part of the signed state and signature input. The
-current API does not accept a separate member list for independent
-`membershipRoot` recomputation; the validated authorization projection is the
-signed `projectionRoot` plus the supplied projection rows.
+The membership root is part of the signed state and signature input. The API
+does not accept a separate member list for independent `membershipRoot`
+recomputation; the validated authorization projection is the signed
+`projectionRoot` plus the supplied projection rows.
 
 This means mutable projection rows are not authority by themselves. If the API
 or database changes projection rows without a matching signed state, honest
@@ -119,8 +118,8 @@ The signer rule is enforced against signed projection state:
  projection.
 
 This prevents the API from authorizing a policy transition merely by editing
-current projection rows. A successor must chain from the previous signed state
-and be signed by a user who was admin in that previous signed state.
+projection rows. A successor must chain from the previous signed state and be
+signed by a user who was admin in that previous signed state.
 
 ### Principal Payload And Projection Binding
 
@@ -129,19 +128,19 @@ state's `payloadCiphertextHash` must match the supplied encrypted payload. The
 state's `memberCount` must match the projection length.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
-tampered projection, payload, state hash, or chain link is skipped and not
-used for decryption.
+tampered projection, payload, state hash, or chain link is skipped and not used
+for decryption.
 
 ### Member Envelope Binding
 
-Principal member envelopes are required to match the current direct projection
+Principal member envelopes are required to match the active direct projection
 exactly. The API checks:
 
-- the envelope state hash equals the current principal state hash
-- the envelope epoch equals the current principal key epoch
+- the envelope state hash equals the active principal state hash
+- the envelope epoch equals the active principal key epoch
 - each direct member has exactly one envelope
 - no unknown member has an envelope
-- each envelope's recipient key fingerprint matches the current recipient key
+- each envelope's recipient key fingerprint matches the active recipient key
 
 These checks bind the stored principal secret-key envelopes to the signed
 direct member set. They do not make the server able to create valid wrapped
@@ -154,18 +153,18 @@ object references to group and organization policy state. That lets clients
 detect mismatches between an object reference and the policy/key epoch used to
 decrypt it.
 
-The current validation does not prove that every membership removal rotates
-the principal key. If a removed member previously learned the old principal
-secret key and a later state keeps the same principal key, that member can
-still decrypt future object envelopes addressed to that unchanged key. Strong
-post-removal confidentiality requires publishing a successor policy state with
-a fresh principal key epoch and fresh member envelopes for the remaining
-members.
+Validation records and checks key epochs, but membership removal only protects
+subsequent object envelopes when the principal key rotates. If a removed member
+previously learned the old principal secret key and a later state keeps the
+same principal key, that member can still decrypt later object envelopes
+addressed to that unchanged key. Strong post-removal confidentiality requires
+publishing a successor policy state with a fresh principal key epoch and fresh
+member envelopes for the remaining members.
 
 ### Managed Grants Fail Closed
 
-Group and organization grants require a current signed principal state. If a
-managed principal grant cannot be resolved to current signed state, recipient
+Group and organization grants require an active signed principal state. If a
+managed principal grant cannot be resolved to active signed state, recipient
 resolution fails rather than degrading to unsigned expanded users.
 
 This prevents unsigned group or organization membership rows from being enough
@@ -173,8 +172,8 @@ to create crypto recipients.
 
 ### Signed Access Manifests
 
- access manifests are deterministic, signed commitments to the access
-state used for key derivation:
+Access manifests are deterministic, signed commitments to the access state used
+for key derivation:
 
 - container manifests include container identity, parent edge, metadata
  document identity, direct grants, referenced principal heads, predecessor
@@ -202,15 +201,15 @@ recipients or AES-GCM under the parent container KEK.
 
 For app-created container KEK epochs with a
 `tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the
-decrypted KEK material matches the signed epoch id before using that KEK to wrap
-document or blob content keys. Legacy non-prefixed KEK epoch ids remain
+decrypted KEK material matches the signed epoch id before using that KEK to
+wrap document or blob content keys. Legacy non-prefixed KEK epoch ids remain
 readable, but only prefixed ids carry this material commitment.
 
 When clients use verified principal policy bundles, a forged group or
 organization policy state should fail closed before the client unwraps a
 principal-addressed object envelope.
 
-## What We Do Not Yet Guarantee
+## Boundaries
 
 ### No Universal Compromised-Server Detection
 
@@ -225,20 +224,19 @@ The server can:
 - substitute signer or recipient public keys before a client has any trusted
  binding for those identities
 
-The current validation turns many tampering attempts into fail-closed behavior,
-but it is not a global transparency system unless clients also pin or witness
-tree heads.
+Validation turns many tampering attempts into fail-closed behavior, but it is
+not a global transparency system unless clients also pin or witness tree heads.
 
-### Rollback And Split-View Are Not Fully Solved
+### Rollback And Split-View
 
 Principal state hash chains detect inconsistent chains. They do not, by
 themselves, prove that the returned head is the latest head.
 
 A server that has older valid signed states can replay an older valid chain
 unless the client has an independent monotonic checkpoint, highest-seen
-version/hash pin, or transparency log. The shared verifier now rejects
-rollbacks and same-version hash conflicts for identity heads, principal policy
-heads, and access manifest heads when the caller supplies the local checkpoint.
+version/hash pin, or transparency log. The shared verifier rejects rollbacks
+and same-version hash conflicts for identity heads, principal policy heads, and
+access manifest heads when the caller supplies the local checkpoint.
 
 ### First-Contact Identity-Key Substitution
 
@@ -247,10 +245,10 @@ that the returned key fingerprint matches the fingerprint embedded in signed
 policy state.
 
 That catches malformed responses. It does not, by itself, prove that the
-server gave the client the real public key for a user the client has never
-seen before. A compromised server that controls the first key lookup can
-construct a coherent fake signer identity unless clients have a previously
-pinned key, an out-of-band identity check, or a key-transparency mechanism.
+server gave the client the real public key for a user the client has never seen
+before. A compromised server that controls the first key lookup can construct a
+coherent fake signer identity unless clients have a previously pinned key, an
+out-of-band identity check, or a key-transparency mechanism.
 
 ### Projection Rows Are Not A Security Boundary
 
@@ -269,27 +267,27 @@ to the wrong recipient set.
 
 Removing a member from a signed projection does not erase keys the member
 already learned. Confidentiality after removal depends on rotating the
-principal key and rewrapping future object keys to the new epoch. The signed
-state format can represent this, but current validation does not enforce a
+principal key and rewrapping subsequent object keys to the new epoch. The
+signed state format can represent this, but validation does not enforce a
 semantic rule that removals must increase `keyEpoch`.
 
 ### Transparency Requires A Pinned View Or Witnessing
 
-The shared verifier now has signed tree-head, inclusion-proof, and consistency
+The shared verifier has signed tree-head, inclusion-proof, and consistency
 proof primitives for identity state heads, principal policy heads, and access
 manifest heads. These prove that a returned leaf is in a signed log view and
 that a newer log view extends a previous pinned tree head.
 
 They do not, by themselves, prevent withholding or first-contact split views. A
-client with no prior tree head, witness, gossip peer, or external checkpoint can
-still be shown a self-consistent signed log view that differs from another
+client with no prior tree head, witness, gossip peer, or external checkpoint
+can still be shown a self-consistent signed log view that differs from another
 client's view.
 
 ### Availability Is Out Of Scope
 
 The server can always deny service by withholding data, policy bundles,
-key-target envelopes, or key lookup responses. The current security posture is
-to fail closed when required cryptographic policy material is unavailable.
+key-target envelopes, or key lookup responses. The protocol fails closed when
+required cryptographic policy material is unavailable.
 
 ## Information-Disclosure Scenarios
 
@@ -328,13 +326,13 @@ version/hash or checks an external transparency source.
 ### Forged Object Grant View
 
 If the server changes projection rows and recomputes projection hashes, an
-honest client should reject the view unless the signed access manifest,
-event, referenced principal policies, predecessor checkpoint, and derived
-target hash all verify.
+honest client should reject the view unless the signed access manifest, event,
+referenced principal policies, predecessor checkpoint, and derived target hash
+all verify.
 
-Result: detected and fail closed for clients that require the verifier
-outputs before encrypting. Clients that trust projection rows directly remain
-outside this guarantee.
+Result: detected and fail closed for clients that require the verifier outputs
+before encrypting. Clients that trust projection rows directly remain outside
+this guarantee.
 
 ### Substituted First-Contact Signer Key
 
@@ -344,20 +342,20 @@ is internally consistent with that fake key.
 
 Result: not reliably detected without prior trust in the identity key binding.
 
-## Current Invariant Summary
+## Invariant Summary
 
 - Signed principal policy state is the authority for group and organization
  crypto membership.
 - Unsigned group or organization membership rows are not sufficient to create
  managed-principal crypto recipients.
 - Principal state transitions must be signed by an admin from the previous
- signed projection, except the initial state, whose signer must be admin in
- the initial projection.
+ signed projection, except the initial state, whose signer must be admin in the
+ initial projection.
 - Principal policy bundles fetched by the app are verified before caching and
  skipped on validation failure.
-- Principal member envelopes must match the current direct signed projection.
-- Post-removal confidentiality requires principal key rotation; the current
- system records key epochs but does not enforce rotation semantics.
+- Principal member envelopes must match the active direct signed projection.
+- Post-removal confidentiality requires principal key rotation; the protocol
+ records key epochs but does not enforce rotation semantics.
 - Signed access manifests are the authority for object grant and document-link
  state used by key derivation.
 - Object writes commit to the verified access manifest hash and derived target
@@ -365,15 +363,14 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Local checkpoints can detect replayed older identity, principal policy, and
  access manifest heads after a client has seen newer state.
 - First-contact key substitution, withholding, and split views without a
- pinned checkpoint, witness, or gossip peer remain outside the current
- guarantee boundary.
+ pinned checkpoint, witness, or gossip peer remain outside the guarantee
+ boundary.
 
-## Direction For Stronger Guarantees
+## Strengthening The Boundary
 
-The next hardening layer is adoption: every API response and app workflow that
-drives encryption should require the signed manifest, verified referenced
-principal policies, local checkpoint comparison, and derived target hash before
-encrypting or decrypting.
+Every API response and app workflow that drives encryption should require the
+signed manifest, verified referenced principal policies, local checkpoint
+comparison, and derived target hash before encrypting or decrypting.
 
 For stronger split-view resistance, clients should persist transparency tree
 checkpoints and compare signed tree heads through device sync, gossip,

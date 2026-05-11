@@ -9,7 +9,7 @@ Core rules:
 - Raw Loro sync should cover encrypted CRDT document state.
 - Blob attach and detach should **not** exist only inside encrypted Loro diffs.
 - Attachment metadata must remain server-indexable so we can support staging,
- permission changes, orphan cleanup, and future branch-aware reachability.
+ permission changes, orphan cleanup, and branch-aware reachability.
 
 In other words, document sync is not a single protocol surface. It has three
 adjacent planes:
@@ -90,6 +90,8 @@ Access write routes are the signed `/containers` mutation family:
 
 For the full HTTP surface, see
 [api-architecture.md](./api-architecture.md#http-protocol-surface).
+For the cross-package handshake, proof, blob stage, attach, and slot contract,
+see [protocol-specification.md](./protocol-specification.md).
 
 The server does not decrypt document content. It filters updates using the
 visible partial version-vector metadata supplied with each encrypted update.
@@ -115,7 +117,7 @@ when the submitted bundle matches the current derived target hash. Shrinks
 require a new content-key epoch and a baseline encrypted under fresh key
 material.
 
-Implemented behavior:
+Behavior:
 
 - each encrypted Loro update carries:
  - an inline `accessEpoch`
@@ -140,15 +142,11 @@ Implemented behavior:
  rows, and container KEK sharing is materialized in `container_key_wraps`
 - `POST /auth/register` and signed `/containers` mutations seed initial
  metadata document bundles atomically
-- committed blob envelopes carry real
- wrapped-key material that the API can persist for blob objects when the blob
- recipient set matches current access
-- blob envelopes use a header-delimited wire format so recipient metadata
- can be read without JSON-parsing the ciphertext body
-- committed attachments update current blob recipient wraps in place
- for additive access growth, and `GET /blobs/:blobId` serves the current
- wrapped-recipient header from sidecar metadata without creating a new blob
- row
+- committed blob encrypted records carry content-key bundle material that the
+ API can persist when the blob recipient set matches active access
+- committed attachments update blob content-key targets for additive access
+ growth, and `GET /blobs/:blobId` returns committed encrypted bytes plus
+ digest metadata without creating a new blob row
 - access-sensitive create and structural mutation routes are signed routes:
  - `POST /documents`
  - `POST /documents/:documentId/link`
@@ -185,10 +183,11 @@ Limitations:
  linked container, exposes document link/unlink management, and can switch
  which linked container is locally active
 - subtractive rotation for document epochs uses the fresh-baseline path with
- source-frontier validation; durable audit rows are written on live sync and
- attachment writes, while export/verification surfaces remain separate work
-- encrypted Loro updates do not expose `referencedSlotIds[]`; adding a visible
- slot-reference proof or another explicit protocol extension is future work
+ source-frontier checkpoint metadata; durable audit rows are written on live
+ sync and attachment writes, while audit export surfaces remain separate
+- encrypted Loro updates do not expose `referencedSlotIds[]`; attachment slot
+ reachability is validated through signed binding metadata rather than through
+ the encrypted Loro payload
 
 For the access-plane model, see
 [access-plane.md](./access-plane.md).
@@ -318,8 +317,8 @@ Limitation:
 
 Permission revocation is not retroactive. If a client has already received the
 relevant DEK or plaintext, removing that client from a group does not make them
-forget it. Revocation can only reliably control future access unless old
-ciphertext is re-encrypted.
+forget it. Revocation controls subsequent access unless old ciphertext is
+re-encrypted.
 
 ## Attachment Semantics
 
@@ -377,8 +376,8 @@ If a attachment mutation succeeds:
 
 Because encrypted Loro updates do not expose `referencedSlotIds[]`, the server
 cannot prove that a document update references only active attachment slots.
-Solving that requires a visible slot-reference proof or another explicit
-protocol extension.
+The authoritative server-visible attachment state is the signed binding
+metadata.
 
 ### Why `slotId` Instead Of `bindingId`
 
@@ -462,7 +461,7 @@ Blob states:
 If there is no branching yet, treat every object as living on a single
 implicit branch, usually `main`.
 
-If branching is added later, GC must consider references from all live branches
+For branch-aware retention, GC must consider references from all live branches
 or snapshots, not just the canonical head.
 
 ## Upload / Permission Change Race
@@ -483,14 +482,15 @@ The protocol should fail closed:
 - server rejects commit if that epoch is stale or if the caller no longer has
  write permission
 
-Future writes then use a new epoch and new key-target envelopes.
+Subsequent writes use a new epoch and new key-target envelopes.
 
 ## Read Replica / Consistency Guidance
 
-Near-term policy should remain explicit:
+Consistency policy:
 
 - primary reads for sync-sensitive write-after-read paths are acceptable
-- replica-safe behavior can be added later with a consistency token if needed
+- replica-safe behavior uses a consistency token when a read path is served
+ from a replica
 
 This applies to both:
 
@@ -498,42 +498,3 @@ This applies to both:
 - attachment metadata commit and lookup
 
 Loro causal metadata does not, by itself, solve database replication lag.
-
-## Historical Implementation Slices
-
-### Slice 1: document protocol
-
-- define Loro-native visible sync metadata
-- define push and pull handshake around causal state
-- keep payloads encrypted end-to-end
-
-### Slice 2: attachment protocol
-
-- define stage / commit / detach metadata contracts
-- define server-visible attachment index model
-- define ownership and expiry semantics for staged blobs
-
-### Slice 3: access and epochs
-
-- define `accessEpoch`
-- define key-target updates for notes and attachments
-- document non-retroactive revocation limits
-
-### Slice 4: GC and reachability
-
-- define orphan detection rules
-- define grace periods
-- define whether branches or snapshots are in scope yet
-
-## Historical Scope Recommendation
-
-For the original implementation:
-
-- keep `packages/loro` focused on the document-plane protocol
-- keep attachment lifecycle adjacent to, but separate from, the raw Loro sync
- handshake
-- do not require server-side indexing of encrypted Loro diffs to manage blobs
-
-That keeps the document-plane protocol coherent while leaving room for a larger
-document/attachment/access protocol that includes attachments and access
-epochs.

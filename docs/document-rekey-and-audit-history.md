@@ -1,14 +1,13 @@
 # Document Rekey, Rebaselines, And Audit History
 
-This document defines implemented behavior and the target model for document
-rekey, fresh-baseline generation, offline merge handling, and tamper-evident
-document history.
+This document defines document rekey, fresh-baseline generation, offline merge
+handling, and tamper-evident document history.
 
 It is separate from the signed group / organization policy-state design. Policy
 state protects who should have access. This document covers how document
 content and document history behave when access epochs change.
 
-## Implemented Behavior
+## Behavior
 
 ### Document Updates Are Epoch-Bound
 
@@ -18,12 +17,12 @@ content and document history behave when access epochs change.
  resolved
 
 Practically, this means a client does not replay arbitrary mixed-epoch document
-history with a single key. Once a document DEK rotates, future updates are
+history with a single key. Once a document DEK rotates, subsequent updates are
 expected to use the new epoch's DEK.
 
-### Rewrap Reuses The Current DEK
+### Rewrap Reuses The Active DEK
 
-When a current target change is additive, the client can keep using the
+When a target change is additive, the client can keep using the
 prior document DEK, materialize a current-epoch content-key bundle for the
 expanded target set, and retry any local pending Loro updates under the new
 epoch.
@@ -31,9 +30,9 @@ epoch.
 This is the additive-access path. It should not require a fresh baseline solely
 because the access epoch changed.
 
-### Rotate Means Fresh Baseline For Future Writes
+### Rotate Means Fresh Baseline For Later Writes
 
-When access shrinks or otherwise invalidates the prior document DEK for future
+When access shrinks or otherwise invalidates the prior document DEK for later
 writes, the client does not try to reuse the previous epoch's document DEK.
 Instead, a retained client clears stale pending encrypted updates and resends a
 fresh baseline under the new DEK.
@@ -41,7 +40,7 @@ fresh baseline under the new DEK.
 Distinction:
 
 - old ciphertext remains valid under the old DEK
-- future writes move to a new DEK
+- later writes move to a new DEK
 - the rotate baseline is the bridge from old readable state to new epoch state
 
 ### Blob History Is Live-Only
@@ -78,7 +77,7 @@ application writes. Signed document sync appends audit rows for newly accepted
 updates and signed blob attachment mutations append attachment audit rows before
 live blob pruning can remove metadata needed by `blob_audit_objects`.
 
-## Target Rekey / Rebaseline Model
+## Rekey / Rebaseline Model
 
 ### Any Retained Authorized Client Should Be Able To Win
 
@@ -101,28 +100,15 @@ The access change itself should advance the document `accessEpoch`.
 The winning rotate baseline does not decide the new epoch number. It populates
 content for an epoch that already exists because authorization state changed.
 
-### The Winning Baseline Should Be Frontier-Checked
+### Baselines Carry Frontier Metadata
 
-The server should not accept a rotate baseline blindly. To avoid dropping
-server-known edits, the baseline should commit to the exact source frontier it
-includes.
+Baseline updates can carry the source version vector / causal frontier used to
+build the proposed baseline. Checkpoint rows persist that source frontier so
+audit verification can inspect what history the baseline claims to cover.
 
-Acceptance rule:
-
-- the client includes the source version vector / causal frontier used to build
- the proposed baseline
-- the server accepts the rotate baseline only if that frontier still matches
- the server's latest accepted frontier for the prior epoch
-- otherwise the server returns `409`, and the client must rebuild the baseline
- against the newer state
-
-This gives the right guarantee:
-
-- the winning baseline includes all edits already accepted by the server at the
- time the baseline is accepted
-
-It does not guarantee inclusion of edits that only exist on offline clients and
-have never been uploaded.
+The server does not turn that source frontier into a compare-and-set gate on
+accepted sync updates. A retained client that loses a rotate race adopts the
+canonical bundle and re-emits from local CRDT state if needed.
 
 ### There Must Be Only One Canonical Bundle Per Epoch
 
@@ -149,11 +135,11 @@ and strand accepted updates behind the losing DEK.
 
 If a client remains authorized but was offline during the rotate:
 
-- its already-uploaded edits should be included in the first winning baseline
- if they were known to the server before the baseline was accepted
-- its local-only edits may not be included in the first winning baseline,
- because the server has not seen them yet
-- those local-only edits should still be recoverable if the client retains its
+- already-uploaded edits are recoverable from the server's encrypted update
+ stream when the client has the relevant epoch material
+- local-only edits may not be included in the first winning baseline, because
+ the server has not seen them
+- local-only edits should still be recoverable if the client retains its
  local CRDT state
 
 The correct recovery path is not "replay old encrypted pending patches." The
@@ -169,13 +155,13 @@ mergeability if the client still has the local logical state.
 
 ### Revoked Offline Clients
 
-If a client lost write access before reconnecting, future writes should be
+If a client lost write access before reconnecting, later writes should be
 rejected when it comes back online.
 
 That is not because the edits are unrepresentable. It is because those writes
-would be future writes from a principal that is no longer authorized.
+would be writes from a principal that is no longer authorized.
 
-If desired later, revoked offline edits can still be preserved as local drafts
+If desired, revoked offline edits can still be preserved as local drafts
 or forks, but they should not be accepted as canonical writes after revocation.
 
 ## Historical Replay And Fresh-Client Bootstrap
@@ -194,18 +180,19 @@ The fresh-client case is a larger feature:
 - the client would need to rematerialize current state without already having a
  local copy
 
-That bootstrapping path is not fully implemented today.
+That bootstrapping path is outside the live sync and audit boundary described
+here.
 
 ## Tamper-Evident Document History
 
-The current signed policy-state work is about tamper-evident authorization
+Signed policy-state work is about tamper-evident authorization
 inputs:
 
 - signed group / organization snapshots
 - hash-chained policy-state versions
 - signed access manifests that reference those policy states
 
-That is not yet the same thing as a tamper-evident document edit history.
+That is separate from tamper-evident document edit history.
 
 ### Audit-Layer Structure
 
@@ -238,7 +225,7 @@ That gives:
 
 - compact live sync state
 - auditability of what history the baseline claims to include
-- a stable checkpoint model for later verification
+- a stable checkpoint model for verification
 
 ### Why Not Store Full History Inside The Baseline
 
@@ -250,12 +237,12 @@ Embedding the full edit history inside each new baseline would:
 
 For that reason, the better design is:
 
-- compact baseline for current sync
+- compact baseline for live sync
 - separate tamper-evident history log
 
 ## Implementation Decomposition
 
-The current code already has clear live-state seams:
+The code has clear live-state seams:
 
 - encrypted live document updates live in `document_updates`
 - causal sync indexing lives in `document_update_spans`
@@ -264,15 +251,13 @@ The current code already has clear live-state seams:
  tables
 - live blob bytes live in `blobs`
 
-Those tables should remain optimized for current sync and current access state.
+Those tables should remain optimized for active sync and access state.
 The audit/history work should add separate history-specific persistence instead
 of trying to reinterpret live GC tables as durable history.
 
-### Phase 1: Audit Model And Storage Boundary
+### Audit Model And Storage Boundary
 
-Status: implemented for schema/helpers and the current signed write paths.
-
-Deliverables:
+The storage boundary is:
 
 - explicit split between live-state tables and history tables
 - baseline/checkpoint metadata model
@@ -280,13 +265,12 @@ Deliverables:
 - historical access-material model for old epochs if historical replay needs
  old wrapped keys
 
-This phase answered the storage boundary. The signed document sync path now
-appends audit entries for newly accepted live updates and writes checkpoint
-rows for accepted baseline updates. Signed blob attachment bind, same-slot
-replace, and detach paths append attachment audit events and ensure
-`blob_audit_objects` coverage for referenced live blobs.
+The signed document sync path appends audit entries for newly accepted live
+updates and writes checkpoint rows for accepted baseline updates. Signed blob
+attachment bind, same-slot replace, and detach paths append attachment audit
+events and ensure `blob_audit_objects` coverage for referenced live blobs.
 
-### Phase 2: Baseline Checkpoints Commit To History
+### Baseline Checkpoints Commit To History
 
 Persist explicit baseline/checkpoint records that commit to the history they
 cover.
@@ -299,9 +283,7 @@ Those records should include metadata such as:
 - last included audit entry hash or history-root hash
 - author or device identity for the checkpoint write
 
-This phase targets the signed write path.
-
-### Phase 3: Tamper-Evident Document Update Ledger
+### Tamper-Evident Document Update Ledger
 
 Record one immutable audit entry for every accepted document update.
 
@@ -313,9 +295,9 @@ That ledger should be append-only and tamper-evident, for example with:
 - access epoch and visible causal metadata
 
 The important boundary is that `document_updates` stays the live sync store,
-while the new ledger is the durable audit record.
+while the audit ledger is the durable audit record.
 
-### Phase 4: Attachment And Blob Audit History
+### Attachment And Blob Audit History
 
 Record immutable attachment-history events for:
 
@@ -324,23 +306,23 @@ Record immutable attachment-history events for:
 - detach
 - blob rewrap or epoch transitions if historical blob key access needs them
 
-`attachment_bindings` should remain the live projection of current bindings.
+`attachment_bindings` should remain the live projection of active bindings.
 Detached bindings should not become the history mechanism. Historical manifests,
-tombstones, and optional retained old blob bytes belong in the new audit layer.
+tombstones, and optional retained old blob bytes belong in the audit layer.
 
-### Phase 5: Historical Access Material
+### Historical Access Material
 
 If historical replay or historical attachment download is a product
-requirement, keep historical wrapped-key material separate from the current
+requirement, keep historical wrapped-key material separate from the live
 access-plane rows.
 
 That likely means history-specific bundle or envelope storage persists the
 material needed to verify or decrypt retained historical objects.
 
-This should not overload the current access-plane tables with mixed live and
+This should not overload the live access-plane tables with mixed live and
 historical semantics.
 
-### Phase 6: Audit Read / Verification Surfaces
+### Audit Read / Verification Surfaces
 
 Only after the write-side model is stable should we add read paths such as:
 
@@ -349,12 +331,12 @@ Only after the write-side model is stable should we add read paths such as:
 - historical attachment manifest inspection
 - optional fresh-client historical replay
 
-Fresh-client historical replay is a later slice. It should not block the core
-write-side audit model.
+Fresh-client historical replay is outside the live write path and should not
+block the core write-side audit model.
 
 ## Live Write-Path Wiring
 
-The current live write-path wiring:
+The live write-path wiring:
 
 - calls `appendDocumentUpdateAuditEntries(...)` from the signed
  `/documents/:documentId/sync` transaction for newly accepted updates
@@ -368,13 +350,13 @@ The current live write-path wiring:
 - has route/service coverage proving normal writes populate the audit tables,
  not only direct audit-helper tests
 
-## Phase 1 Concrete Design
+## Audit Storage Design
 
-This section resolves the Phase 1 storage boundary.
+This section resolves the audit storage boundary.
 
 ### Design Decisions
 
-- keep the current live-state tables live-only:
+- keep the live-state tables live-only:
  - `document_updates`
  - `document_update_spans`
  - `attachment_bindings`
@@ -383,26 +365,26 @@ This section resolves the Phase 1 storage boundary.
  - `blobs`
 - add separate history-side persistence rather than keeping detached live rows
  forever
-- make the first audit layer tamper-evident with server-persisted hash chains,
+- make the audit layer tamper-evident with server-persisted hash chains,
  not new client-side write signatures
-- if client signatures are added later, they should be per-device, not
- per-user; the current auth/session model is fingerprint-based user auth, and
- the current CRDT peer seed is not an authenticated device identity
+- if client signatures are added, they should be per-device, not per-user; the
+ auth/session model is fingerprint-based user auth, and the CRDT peer seed is
+ not an authenticated device identity
 - defer fresh-client historical replay and historical blob download from the
- server in the first implementation
+ server
 - because historical replay is deferred, do not add historical wrapped-key or
- key-target tables in the first implementation
+ key-target tables
 - instead, snapshot `accessEpoch`, `accessManifestHash`, and
  `accessStateHash` into audit records so the audit layer can prove which
  access state a write was accepted under
 
 ### Live-State Boundary
 
-The current tables keep their current meanings:
+The live tables keep their meanings:
 
 - `document_updates` remains the live sync store for encrypted Loro updates
 - `document_update_spans` remains the causal-sync index
-- `attachment_bindings` remains the live projection of current attachment slots
+- `attachment_bindings` remains the live projection of active attachment slots
 - `access_manifest_heads` and key-target tables remain the canonical
  access-plane rows
 - `blobs` remains the live blob-byte store and can continue to be pruned when
@@ -413,7 +395,7 @@ mixed live-and-history store.
 
 ### History-Side Schema
 
-The audit layer has five history-side tables and keeps one future table family
+The audit layer has five history-side tables and keeps one deferred table family
 explicitly deferred.
 
 #### `document_audit_entries`
@@ -462,10 +444,10 @@ Required indexes and constraints:
 
 - unique `(live_update_id)`
 
-This keeps the audit ledger durable even if the live sync store later adds
-compaction or pruning. The first implementation still treats `document_updates`
-as the live ciphertext store; the audit side records immutable hashes and
-visible metadata, not a second full ciphertext copy.
+This keeps the audit ledger durable even if the live sync store adds compaction
+or pruning. `document_updates` remains the live ciphertext store; the audit
+side records immutable hashes and visible metadata, not a second full
+ciphertext copy.
 
 #### `document_audit_checkpoints`
 
@@ -500,7 +482,7 @@ Required indexes and constraints:
 These rows are not the live baseline payload. They are durable checkpoint
 metadata that says which audit head a baseline claims to cover.
 
-The current write contract already has explicit baseline markers on outgoing
+The write contract has explicit baseline markers on outgoing
 updates: `checkpointKind: "fresh_baseline" | "rotate_baseline"` plus
 `sourceVersionVector`. Checkpoint rows should only be written for updates with
 that explicit marker.
@@ -555,25 +537,25 @@ This table captures the immutable attachment event stream:
 - detach
 - blob rewrap
 
-`attachment_bindings` stays the current-state projection. This table is the
+`attachment_bindings` stays the active-state projection. This table is the
 durable history.
 
 ### Explicitly Deferred Table Family
 
-The first implementation should not add history-side wrapped-key tables yet.
+The live audit layer does not add history-side wrapped-key tables.
 
-If later work needs server-side historical replay or historical blob download,
-add dedicated history-side tables such as:
+Server-side historical replay or historical blob download should use dedicated
+history-side tables such as:
 
 - audit key-target tables
 
-Those future tables should be keyed by history objects or audit checkpoints,
+Those deferred tables should be keyed by history objects or audit checkpoints,
 not by the live object rows. Signed access manifest heads and key-target tables
 should remain live-only.
 
 ### Verification Model
 
-The current verifier checks history with:
+The verifier checks history with:
 
 - append-only `document_audit_entries`
 - deterministic `entry_hash` over canonical event payload plus
@@ -583,42 +565,40 @@ The current verifier checks history with:
  `previous_checkpoint_hash`
 
 This is enough for tamper evidence without introducing a new client signature
-protocol yet.
+protocol.
 
-Future client signatures, if added, should be per-device. Per-user signatures
-would collapse multiple concurrently-authoring devices into one signer and do
-not match how CRDT authorship actually behaves.
+Client signatures, if added, should be per-device. Per-user signatures would
+collapse multiple concurrently-authoring devices into one signer and do not
+match how CRDT authorship actually behaves.
 
 ### Historical Replay Scope
 
-The first implementation does **not** promise:
+The audit layer does **not** promise:
 
 - fresh-client replay of all historical document updates from scratch
 - historical blob download after a blob has been pruned from the live `blobs`
  table
 - historical wrapped-DEK or key-target retention for old epochs
 
-Once the live write paths call the audit helpers, the first audit layer will
-promise:
+The audit layer promises:
 
 - durable history of accepted document writes
 - durable history of attachment/blob events
 - verifiable checkpoint records that commit to the history they cover
 - durable proof of historical blob metadata even after live blob pruning
 
-That keeps the first audit layer focused on verifiable history and storage
+That keeps the audit layer focused on verifiable history and storage
 boundaries rather than turning it into a full historical replay product.
 
 ### Write-Path Boundaries
 
-This section describes the target live wiring. It is not current behavior until
-the mutation services call the audit helpers.
+This section describes the live write-path wiring.
 
 #### `POST /documents/:documentId/sync`
 
-When new current-epoch updates are accepted:
+When new active-epoch updates are accepted:
 
-- keep writing `document_updates` and `document_update_spans` exactly as today
+- keep writing `document_updates` and `document_update_spans`
 - in the same transaction, write one `document_audit_entries` row and one
  `document_update_audit_events` row for each newly accepted update
 - if the update is explicitly marked as a baseline, also write one
@@ -634,7 +614,6 @@ When structural attachment changes are accepted through
 `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`:
 
 - keep mutating `attachment_bindings`, blob content-key rows, and live blobs
- exactly as today
 - before live pruning deletes rows needed for audit metadata, write:
  - `blob_audit_objects` rows for newly referenced blobs
  - one `document_audit_entries` row plus one
@@ -653,6 +632,6 @@ Live GC must never delete from history-side tables.
 - Should document updates be signed by users, devices, or both?
 - Should baseline checkpoints be individually signed, or only hash-linked into
  the audit ledger?
-- If historical document replay becomes a product requirement, should a future
+- If historical document replay becomes a product requirement, should an
  attachment-history layer retain old blob bytes, signed tombstones/manifests,
  or only live reachability state?
