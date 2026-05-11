@@ -1,11 +1,7 @@
 import { expect, test } from "bun:test";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
-import {
-  appSqlTables,
-  defineSqlTableSchema,
-  documentProjectionTables,
-} from "./schema";
+import { appSqlTables, defineSqlTableSchema } from "./schema";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -247,101 +243,6 @@ test("app sqlite schema creates tables and indexes", async () => {
         "container_create_intents_status_created_idx",
       ),
     ).toEqual(["sync_status", "created_at"]);
-  } finally {
-    close();
-  }
-});
-
-test("document projection schema migrates legacy projection columns", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "document-projection-schema-migration-test",
-  );
-
-  try {
-    await execSql(`
-      CREATE TABLE "document_projection" (
-        "local_id" TEXT PRIMARY KEY,
-        "document_id" TEXT,
-        "container_id" TEXT,
-        "text" TEXT NOT NULL,
-        "updated_at" TEXT NOT NULL
-      )
-    `);
-    await execSql(
-      `
-        INSERT INTO "document_projection"
-          ("local_id", "document_id", "container_id", "text", "updated_at")
-        VALUES
-          (?, ?, ?, ?, ?),
-          (?, ?, ?, ?, ?),
-          (?, ?, ?, ?, ?),
-          (?, ?, ?, ?, ?)
-      `,
-      [
-        "legacy-local",
-        "legacy-document",
-        "container-1",
-        "Legacy title\nbody",
-        "2026-05-11T00:00:00.000Z",
-        "legacy-crlf-local",
-        "legacy-crlf-document",
-        "container-1",
-        "Windows title\r\nbody",
-        "2026-05-11T00:00:00.000Z",
-        "legacy-cr-local",
-        "legacy-cr-document",
-        "container-1",
-        "Carriage title\rbody",
-        "2026-05-11T00:00:00.000Z",
-        "legacy-json-local",
-        "legacy-json-document",
-        "container-1",
-        '{"kind":"credit_card","version":1}',
-        "2026-05-11T00:00:00.000Z",
-      ],
-    );
-
-    await ensureSqlTables(execSql, documentProjectionTables);
-
-    const columns = await readTableColumns(execSql, "document_projection");
-    expect(readRecordValue(columns, "document_kind")).toMatchObject({
-      defaultValue: "'note'",
-      notNull: 1,
-      type: "TEXT",
-    });
-    expect(readRecordValue(columns, "title")).toMatchObject({
-      defaultValue: "'Untitled note'",
-      notNull: 1,
-      type: "TEXT",
-    });
-
-    const rows = await execSql(`
-      SELECT "local_id", "document_kind", "title"
-      FROM "document_projection"
-      ORDER BY "local_id"
-    `);
-    expect(rows).toEqual([
-      {
-        document_kind: "note",
-        local_id: "legacy-cr-local",
-        title: "Carriage title",
-      },
-      {
-        document_kind: "note",
-        local_id: "legacy-crlf-local",
-        title: "Windows title",
-      },
-      {
-        document_kind: "note",
-        local_id: "legacy-json-local",
-        title: '{"kind":"credit_card","version":1}',
-      },
-      {
-        document_kind: "note",
-        local_id: "legacy-local",
-        title: "Legacy title",
-      },
-    ]);
   } finally {
     close();
   }
