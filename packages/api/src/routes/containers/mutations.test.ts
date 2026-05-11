@@ -3028,6 +3028,24 @@ test("DELETE /containers/:containerId rejects roots, child-bearing containers, a
   });
   expect(parentDelete.status).toBe(409);
 
+  const linkedDocumentId = crypto.randomUUID();
+  await db.insert(documents).values({
+    id: linkedDocumentId,
+    createdByFingerprint: owner.fingerprint,
+  });
+  await db.insert(documentContainerLinks).values({
+    containerId: child.containerId,
+    documentId: linkedDocumentId,
+  });
+  const documentBearingDelete = await deleteContainerForUser({
+    containerId: child.containerId,
+    token: owner.token,
+  });
+  expect(documentBearingDelete.status).toBe(409);
+  await expect(documentBearingDelete.json()).resolves.toEqual({
+    error: "Container has linked documents",
+  });
+
   const recipientDelete = await deleteContainerForUser({
     containerId: sharedChild.containerId,
     token: recipient.token,
@@ -3041,4 +3059,10 @@ test("DELETE /containers/:containerId rejects roots, child-bearing containers, a
   expect(liveRows.map((row) => row.id).sort()).toEqual(
     [parent.containerId, child.containerId].sort(),
   );
+
+  const tombstoneRows = await db
+    .select({ containerId: containerSyncTombstones.containerId })
+    .from(containerSyncTombstones)
+    .where(eq(containerSyncTombstones.containerId, child.containerId));
+  expect(tombstoneRows).toEqual([]);
 });
