@@ -11,7 +11,11 @@ import type {
 } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { inArray } from "drizzle-orm";
-import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
+import {
+  getDocumentContentKeyBundle,
+  listDocumentContentWriteHeaders,
+  type StoredDocumentContentKeyBundle,
+} from "../../../access/read/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import {
   requireAndRefreshCurrentDocumentContentKeyBundle,
@@ -508,6 +512,16 @@ function toSyncUpdate(
   };
 }
 
+function toSyncUpdateWithWriteHeader(
+  update: Awaited<ReturnType<typeof listMissingUpdates>>[number],
+  writeHeader: { readonly header: WriteHeader; readonly headerHash: string },
+) {
+  return {
+    update: toSyncUpdate(update, writeHeader),
+    writeHeader: writeHeader.header,
+  };
+}
+
 async function attachWriteHeadersToUpdates(input: {
   readonly executor: DatabaseSession;
   readonly updates: Awaited<ReturnType<typeof listMissingUpdates>>;
@@ -523,8 +537,48 @@ async function attachWriteHeadersToUpdates(input: {
       throw new DocumentMutationError("Document write header missing", 409);
     }
 
-    return toSyncUpdate(update, writeHeader);
+    return toSyncUpdateWithWriteHeader(update, writeHeader);
   });
+}
+
+function uniqueContentKeyEpochs(contentKeyEpochs: Iterable<number>): number[] {
+  return [...new Set(contentKeyEpochs)].sort((left, right) => left - right);
+}
+
+async function listContentKeyBundlesForSyncResponse(input: {
+  readonly contentKeyEpochs: Iterable<number>;
+  readonly currentBundle: StoredDocumentContentKeyBundle;
+  readonly documentId: string;
+  readonly executor: DatabaseSession;
+}): Promise<StoredDocumentContentKeyBundle[]> {
+  const bundleByEpoch = new Map<number, StoredDocumentContentKeyBundle>([
+    [input.currentBundle.contentKeyEpoch, input.currentBundle],
+  ]);
+
+  for (const contentKeyEpoch of uniqueContentKeyEpochs(
+    input.contentKeyEpochs,
+  )) {
+    if (bundleByEpoch.has(contentKeyEpoch)) {
+      continue;
+    }
+
+    const bundle = await getDocumentContentKeyBundle(
+      input.documentId,
+      contentKeyEpoch,
+      input.executor,
+    );
+    if (!bundle) {
+      throw new DocumentMutationError(
+        "Document content-key bundle missing",
+        409,
+      );
+    }
+    bundleByEpoch.set(contentKeyEpoch, bundle);
+  }
+
+  return [...bundleByEpoch.values()].sort(
+    (left, right) => left.contentKeyEpoch - right.contentKeyEpoch,
+  );
 }
 
 function getMissingUpdateEpochs(
@@ -541,6 +595,94 @@ function getMissingUpdateEpochs(
   }
 
   return missingUpdateEpochs;
+}
+
+async function resolveSyncContentKeyBundle(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+}) {
+  return input.request.contentKeyBundle
+    ? storeDocumentContentKeyBundleInTransaction(
+        toStoredContentKeyBundleInput(
+          input.documentId,
+          input.request.contentKeyBundle,
+        ),
+        input.executor,
+      )
+    : requireAndRefreshCurrentDocumentContentKeyBundle({
+        documentId: input.documentId,
+        contentKeyEpoch: input.request.contentKeyEpoch,
+        expectedLinkSetManifestHash: input.request.expectedLinkSetManifestHash,
+        expectedTargetHash: input.request.expectedTargetHash,
+        executor: input.executor,
+      });
+}
+
+async function resolveSyncAuditAccess(input: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly writeAuthorization: DocumentWriteAuthorizationProof | null;
+}) {
+  return input.writeAuthorization
+    ? documentAuditAccessFromManifest(input.writeAuthorization.documentManifest)
+    : {
+        accessEpoch: input.currentTargets.linkSetEpoch,
+        accessManifestHash: input.currentTargets.linkSetManifestHash,
+        accessStateHash: null,
+      };
+}
+
+async function touchAcceptedSyncTargets(input: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly insertedUpdateIds: ReadonlySet<string>;
+}) {
+  if (input.insertedUpdateIds.size === 0) {
+    return;
+  }
+
+  await touchDocumentAndLinkedContainers(input.executor, {
+    documentId: input.documentId,
+    linkedContainerIds: input.currentTargets.targets.map(
+      (target) => target.containerId,
+    ),
+  });
+}
+
+async function listMissingSyncUpdatesWithBundles(input: {
+  readonly contentKeyBundle: StoredDocumentContentKeyBundle;
+  readonly documentId: string;
+  readonly executor: DatabaseSession;
+  readonly request: DocumentSyncRequest;
+}) {
+  const missingUpdateRecords = await listMissingUpdates({
+    documentId: input.documentId,
+    executor: input.executor,
+    localVersionVector: input.request.localVersionVector,
+    minLsn: input.request.minLsn,
+  });
+  const missingUpdateEntries = await attachWriteHeadersToUpdates({
+    executor: input.executor,
+    updates: missingUpdateRecords,
+  });
+  const contentKeyBundles = await listContentKeyBundlesForSyncResponse({
+    contentKeyEpochs: missingUpdateEntries.map(
+      (entry) => entry.writeHeader.contentKeyEpoch,
+    ),
+    currentBundle: input.contentKeyBundle,
+    documentId: input.documentId,
+    executor: input.executor,
+  });
+
+  return {
+    contentKeyBundles,
+    missingUpdates: missingUpdateEntries.map((entry) => entry.update),
+  };
 }
 
 async function syncDocumentTransaction(input: {
@@ -580,28 +722,15 @@ async function syncDocumentTransaction(input: {
     executor: input.tx,
     request: input.request,
   });
-  const contentKeyBundle = input.request.contentKeyBundle
-    ? await storeDocumentContentKeyBundleInTransaction(
-        toStoredContentKeyBundleInput(
-          input.documentId,
-          input.request.contentKeyBundle,
-        ),
-        input.tx,
-      )
-    : await requireAndRefreshCurrentDocumentContentKeyBundle({
-        documentId: input.documentId,
-        contentKeyEpoch: input.request.contentKeyEpoch,
-        expectedLinkSetManifestHash: input.request.expectedLinkSetManifestHash,
-        expectedTargetHash: input.request.expectedTargetHash,
-        executor: input.tx,
-      });
-  const auditAccess = writeAuthorization
-    ? await documentAuditAccessFromManifest(writeAuthorization.documentManifest)
-    : {
-        accessEpoch: currentTargets.linkSetEpoch,
-        accessManifestHash: currentTargets.linkSetManifestHash,
-        accessStateHash: null,
-      };
+  const contentKeyBundle = await resolveSyncContentKeyBundle({
+    documentId: input.documentId,
+    executor: input.tx,
+    request: input.request,
+  });
+  const auditAccess = await resolveSyncAuditAccess({
+    currentTargets,
+    writeAuthorization,
+  });
   const appendResult = await appendDocumentUpdates({
     accessEpoch: auditAccess.accessEpoch,
     accessManifestHash: auditAccess.accessManifestHash,
@@ -615,29 +744,25 @@ async function syncDocumentTransaction(input: {
     userId: input.userId,
     writeAuthorization,
   });
-  if (appendResult.insertedUpdateIds.size > 0) {
-    await touchDocumentAndLinkedContainers(input.tx, {
-      documentId: input.documentId,
-      linkedContainerIds: currentTargets.targets.map(
-        (target) => target.containerId,
-      ),
-    });
-  }
-  const missingUpdateRecords = await listMissingUpdates({
+  await touchAcceptedSyncTargets({
+    currentTargets,
     documentId: input.documentId,
     executor: input.tx,
-    localVersionVector: input.request.localVersionVector,
-    minLsn: input.request.minLsn,
+    insertedUpdateIds: appendResult.insertedUpdateIds,
   });
-  const missingUpdates = await attachWriteHeadersToUpdates({
-    executor: input.tx,
-    updates: missingUpdateRecords,
-  });
+  const { contentKeyBundles, missingUpdates } =
+    await listMissingSyncUpdatesWithBundles({
+      contentKeyBundle,
+      documentId: input.documentId,
+      executor: input.tx,
+      request: input.request,
+    });
 
   return {
     accessEpoch: currentTargets.linkSetEpoch,
     acceptedOutgoingUpdateIds: appendResult.acceptedOutgoingUpdateIds,
     contentKeyBundle,
+    contentKeyBundles,
     currentTargets,
     missingUpdates,
   };
@@ -664,6 +789,9 @@ export async function runDocumentSyncWorkflow(
       commitLsn: await readCurrentCommitLsn(db),
       contentKeyBundle: toContentKeyBundleResponse(
         transactionResult.contentKeyBundle,
+      ),
+      contentKeyBundles: transactionResult.contentKeyBundles.map(
+        toContentKeyBundleResponse,
       ),
       documentId: input.documentId,
       documentKekTargets: toDocumentKekTargetsResponse(

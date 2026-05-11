@@ -780,6 +780,7 @@ export async function createSyncResponse(
     ),
     commitLsn: "0/16B6C50",
     contentKeyBundle: plan.sourceContentKeyBundle,
+    contentKeyBundles: [plan.sourceContentKeyBundle],
     documentId: plan.documentId,
     documentKekTargets: plan.documentKekTargets,
     missingUpdateEpochs: updates.length === 0 ? [] : ["current_epoch"],
@@ -791,6 +792,7 @@ export async function createSyncResponse(
 export async function createSignedSyncResponseUpdate(input: {
   accessManifestHash: string;
   author: DocumentCreateAuthor;
+  contentKeyEpoch?: number | undefined;
   id?: string | undefined;
   plan: Awaited<ReturnType<typeof buildDocumentSyncPlan>>;
   targetHash: string;
@@ -799,12 +801,13 @@ export async function createSignedSyncResponseUpdate(input: {
   const encryptedData = "historical encrypted update";
   const partialStartVersionVector = "{}";
   const partialEndVersionVector = '{"actor":3}';
+  const contentKeyEpoch = input.contentKeyEpoch ?? input.plan.contentKeyEpoch;
   const nonceDomain = {
     version: 1 as const,
     organizationId: input.plan.organizationId,
     objectKind: "document" as const,
     objectId: input.plan.documentId,
-    contentKeyEpoch: input.plan.contentKeyEpoch,
+    contentKeyEpoch,
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId: id,
   };

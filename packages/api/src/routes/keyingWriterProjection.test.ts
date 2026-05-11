@@ -1404,6 +1404,103 @@ test("POST /documents/:documentId/sync writes audit rows for accepted live updat
   });
 });
 
+test("POST /documents/:documentId/sync returns content-key bundles for historical updates", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const created = await createDocument({ owner, root });
+  const { request, updateId } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+
+  const writeResponse = await routeApp.request(
+    `/documents/${created.id}/sync`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  expect(writeResponse.status).toBe(200);
+
+  const linkRequest = await buildDocumentLinkRequest({
+    child,
+    createdDocument: created,
+    owner,
+    root,
+  });
+  const linkResponse = await routeApp.request(`/documents/${created.id}/link`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(linkRequest),
+  });
+  expect(linkResponse.status).toBe(200);
+  const linkedDocument = await linkResponse.json();
+  expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
+
+  const unlinkRequest = await buildDocumentUnlinkRequest({
+    child,
+    linkedDocument,
+    owner,
+    root,
+  });
+  const unlinkResponse = await routeApp.request(
+    `/documents/${created.id}/unlink`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(unlinkRequest),
+    },
+  );
+  expect(unlinkResponse.status).toBe(200);
+  const unlinkedDocument = await unlinkResponse.json();
+  expect(isDocumentLinkSetMutationResponse(unlinkedDocument)).toBe(true);
+
+  const syncResponse = await routeApp.request(`/documents/${created.id}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contentKeyEpoch: unlinkedDocument.contentKeyBundle.contentKeyEpoch,
+      expectedLinkSetManifestHash:
+        unlinkedDocument.contentKeyBundle.linkSetManifestHash,
+      expectedTargetHash: unlinkedDocument.contentKeyBundle.targetHash,
+      localVersionVector: null,
+      outgoingUpdates: [],
+    } satisfies DocumentSyncRequest),
+  });
+
+  expect(syncResponse.status).toBe(200);
+  const synced = await syncResponse.json();
+  expect(isDocumentSyncResponse(synced)).toBe(true);
+  expect(synced.updates.map((update: { id: string }) => update.id)).toContain(
+    updateId,
+  );
+  expect(
+    synced.contentKeyBundles
+      .map((bundle: { contentKeyEpoch: number }) => bundle.contentKeyEpoch)
+      .sort((left: number, right: number) => left - right),
+  ).toEqual([
+    created.contentKeyBundle.contentKeyEpoch,
+    unlinkedDocument.contentKeyBundle.contentKeyEpoch,
+  ]);
+});
+
 test("POST /documents/:documentId/sync rolls back optional rekeys when write validation fails", async () => {
   const owner = createTestUser();
   await registerUser(owner);

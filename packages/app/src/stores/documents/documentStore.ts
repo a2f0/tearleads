@@ -975,14 +975,11 @@ async function finalizeDocumentSync(
         synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
     },
     {
-      acceptedPendingUpdateIds: synced.response.acceptedOutgoingUpdateIds,
+      acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
     },
   );
 
-  if (
-    syncAttempt.outgoingUpdateCount >
-    synced.response.acceptedOutgoingUpdateIds.length
-  ) {
+  if (syncAttempt.outgoingUpdateCount > synced.settledPendingUpdateIds.length) {
     requestDocumentStoreSync(state);
   }
 

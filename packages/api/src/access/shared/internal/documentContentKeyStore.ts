@@ -34,7 +34,7 @@ export interface DocumentContentKeyTargetEnvelope
   readonly wrappingMetadata: KeyingCanonicalJson;
 }
 
-interface StoredDocumentContentKeyBundle {
+export interface StoredDocumentContentKeyBundle {
   readonly documentId: string;
   readonly contentKeyEpoch: number;
   readonly linkSetManifestHash: string;
@@ -42,7 +42,7 @@ interface StoredDocumentContentKeyBundle {
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }
 
-export interface StoredDocumentContentKeyBundleWithTargets
+interface StoredDocumentContentKeyBundleWithTargets
   extends StoredDocumentContentKeyBundle {
   readonly currentTargets: CurrentDocumentKekTargets;
 }
@@ -315,7 +315,7 @@ async function toStoredBundle(
   };
 }
 
-async function getDocumentContentKeyBundle(
+export async function getDocumentContentKeyBundle(
   documentId: string,
   contentKeyEpoch: number,
   executor: DatabaseSession,
