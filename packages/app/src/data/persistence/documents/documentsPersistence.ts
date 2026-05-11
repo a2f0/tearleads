@@ -476,6 +476,20 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         .run();
     });
   },
+  async deleteLocalAttachment(execSql, localId, slotId, storageKey) {
+    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+      await db
+        .delete(documentAttachmentBlobProjection)
+        .where(
+          and(
+            eq(documentAttachmentBlobProjection.localId, localId),
+            eq(documentAttachmentBlobProjection.slotId, slotId),
+            eq(documentAttachmentBlobProjection.storageKey, storageKey),
+          ),
+        )
+        .run();
+    });
+  },
   async savePendingAttachment(execSql, attachment) {
     const createdAt = new Date().toISOString();
 

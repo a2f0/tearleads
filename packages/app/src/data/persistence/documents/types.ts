@@ -112,6 +112,12 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     attachment: LocalAttachmentRecord,
   ) => Promise<void>;
+  deleteLocalAttachment: (
+    execSql: ExecSql,
+    localId: string,
+    slotId: string,
+    storageKey: string,
+  ) => Promise<void>;
   savePendingAttachment: (
     execSql: ExecSql,
     attachment: PendingAttachmentRecord,

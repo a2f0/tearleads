@@ -95,6 +95,12 @@ export interface NotesPersistence {
     execSql: ExecSql,
     attachment: LocalAttachmentRecord,
   ) => Promise<void>;
+  deleteLocalAttachment: (
+    execSql: ExecSql,
+    noteId: string,
+    slotId: string,
+    storageKey: string,
+  ) => Promise<void>;
   savePendingAttachment: (
     execSql: ExecSql,
     attachment: PendingAttachmentRecord,
@@ -267,6 +273,7 @@ function createAdaptedPersistenceMutationMethods(
   DocumentPersistence.DocumentsPersistence,
   | "enqueuePendingUpdate"
   | "saveLocalAttachment"
+  | "deleteLocalAttachment"
   | "savePendingAttachment"
   | "deletePendingUpdate"
   | "deletePendingUpdates"
@@ -285,6 +292,14 @@ function createAdaptedPersistenceMutationMethods(
         ...attachment,
         noteId: localId,
       });
+    },
+    deleteLocalAttachment(execSql, localId, slotId, storageKey) {
+      return notesPersistence.deleteLocalAttachment(
+        execSql,
+        localId,
+        slotId,
+        storageKey,
+      );
     },
     savePendingAttachment(execSql, { localId, ...attachment }) {
       return notesPersistence.savePendingAttachment(execSql, {
@@ -385,6 +400,14 @@ export const sqlNotesPersistence: NotesPersistence = {
     return sqlDocumentsPersistence.saveLocalAttachment(
       execSql,
       toDocumentLocalAttachment(attachment),
+    );
+  },
+  deleteLocalAttachment(execSql, noteId, slotId, storageKey) {
+    return sqlDocumentsPersistence.deleteLocalAttachment(
+      execSql,
+      noteId,
+      slotId,
+      storageKey,
     );
   },
   savePendingAttachment(execSql, attachment) {
