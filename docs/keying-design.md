@@ -1,10 +1,9 @@
 # Keying Design
 
-This document describes the access and key-delivery model. It incorporates the
-direction from:
+This document describes the access and key-delivery model for:
 
-- #257, local-first nested container creation
-- #265 and #266, container KEK hierarchy for document/blob key delivery
+- local-first nested container creation
+- container KEK hierarchy for document/blob key delivery
 - `docs/security-guarantees.md`, especially the gaps around unsigned object
  grants, rollback, split views, and first-contact identity keys
 
@@ -13,29 +12,36 @@ HTTP routes use the signed mutation surface summarized in
 
 The signed access-event, access-manifest, container KEK, document
 content-key, blob content-key, principal-policy, write-header, and local
-checkpoint primitives exist in code. Transparency deployment, first-contact
-identity trust, full client adoption of every verifier path, and historical
-replay remain future hardening work.
+checkpoint primitives define the executable keying boundary. Transparency
+deployment, first-contact identity trust, complete verifier adoption at every
+client encryption decision, and historical replay are separate deployment
+boundaries.
 
-## Goals
+## Design Properties
 
-- Make additive sharing cheap: no per-document or per-blob recipient fanout.
-- Prevent the API from tricking honest clients into encrypting to unauthorized
- recipients.
-- Let clients verify access/key state with shared code, not UI convention.
-- Keep server-visible structure authoritative for access derivation.
-- Preserve E2EE: the server stores ciphertext and wrapped keys, not plaintext
- content keys.
-- Keep revocation honest: forward-looking unless content is re-encrypted.
-- Support local-first creation without fake server access hashes.
+- Additive sharing avoids per-document and per-blob recipient fanout.
+- Encryption targets are derived from verified signed access state, not from
+ server-provided recipient lists.
+- Access and key state are verified through shared protocol code rather than UI
+ convention.
+- Server-visible structure remains the input to access derivation.
+- End-to-end encryption is preserved: the server stores ciphertext and wrapped
+ keys, not plaintext content keys.
+- Revocation is forward-looking unless content is re-encrypted.
+- Local-first creation uses signed local intents rather than fake server access
+ hashes.
 
-## Non-Goals
+## Boundaries
 
-- Retroactive revocation of bytes or keys already distributed.
-- Hiding container/document/blob structure from the server.
-- Preventing denial of service, withholding, or delayed publication.
-- Solving first-contact identity trust without a trust root.
-- Making a public blockchain the primary authorization system.
+- The protocol does not retroactively revoke bytes or keys already
+ distributed.
+- The protocol does not hide container, document, or blob structure from the
+ server.
+- The protocol does not prevent denial of service, withholding, or delayed
+ publication.
+- First-contact identity trust requires a trust root outside mutable API rows.
+- Public blockchain anchoring is optional and is not the primary authorization
+ system.
 
 ## Core Design
 
@@ -514,14 +520,14 @@ storage. The invariant cannot vary: honest concurrent writers must be unable to
 reuse the same AEAD key/nonce pair for two different plaintexts.
 
 For additive changes, the document content key may be reused and wrapped to a
-new target if the target set only grows. For shrink, future writes require a
+new target if the target set only grows. For shrink, subsequent writes require a
 new document content-key epoch and a fresh baseline. Revocation remains
 forward-only unless old ciphertext is re-encrypted.
 
 ### Content-Key And KEK Wrapping Suites
 
-Content-key and KEK wraps do not use the content-record HKDF suite. The current
-wrap suite identifiers are:
+Content-key and KEK wraps do not use the content-record HKDF suite. The wrap
+suite identifiers are:
 
 - document content-key to container KEK:
   `tearleads.document.content-key-wrap.aes-256-gcm-container-kek`
@@ -587,8 +593,8 @@ needed.
 ## Transparency And Checkpointing
 
 Signed manifests prevent unauthorized mutation, but they do not alone prove
-latest-state freshness. uses local monotonic checkpoints first, with an
-optional transparency log for cross-client append-only proofs.
+latest-state freshness. The protocol uses local monotonic checkpoints first,
+with an optional transparency log for cross-client append-only proofs.
 
 Minimum:
 
@@ -738,7 +744,7 @@ Projection/cache tables include:
 - `document_container_links`
 - `attachment_bindings`
 
-Future or local-only storage still under design:
+Separate storage concerns:
 
 - `identity_states` as a first-contact identity trust boundary
 - transparency log leaves/checkpoints
@@ -792,9 +798,9 @@ by background jobs or first-writer-wins lazy materialization. The security rule
 is that future writes must not continue under a KEK chain reachable by the
 revoked principal.
 
-## Implementation Slices
+## Implementation Surface
 
-Implemented slices:
+Implemented surface:
 
 1. Canonical encodings and shared verifier APIs for Keying objects.
 2. Signed access event and manifest types for containers, document link sets,
@@ -806,21 +812,21 @@ Implemented slices:
 6. Signed document link/unlink manifests and multi-container target validation.
 7. Blob attachment binding/detach with blob KEK targets and staged blob
  write headers.
+8. Document audit entries, baseline checkpoints, attachment audit events, and
+ audit-history verification for signed write paths.
 
-Remaining slices:
+Deployment boundaries:
 
-1. Finish full app adoption of the verifier outputs before every encrypt and
- decrypt decision.
-2. Add or wire remaining local-first intent storage for offline structural
- creation flows that are not yet covered by the current explorer sync paths.
-3. Deploy transparency log inclusion/consistency proofs and decide whether to
- anchor aggregate roots externally.
-4. Add a first-contact identity trust mechanism such as invitations,
- out-of-band verification, or key transparency.
-5. Wire the document audit-history tables into live document/blob mutation
- paths if tamper-evident history is part of the next rollout.
+1. Verifier outputs are required before encryption and decryption decisions;
+ workflows that bypass them are outside the protocol guarantee.
+2. Offline structural creation depends on signed local intents until the server
+ accepts authoritative manifests and KEK targets.
+3. Transparency log inclusion and consistency proofs are optional hardening
+ around the core signed-state protocol.
+4. First-contact identity trust depends on invitations, out-of-band
+ verification, key transparency, or another external trust root.
 
-## Acceptance Criteria
+## Required Invariants
 
 - An honest client can derive document/blob key targets without trusting
  API-authored recipient lists.
@@ -841,6 +847,6 @@ Remaining slices:
  server access hash.
 - Clients enforce monotonic checkpoints for identities, principal policies, and
  object manifests.
-- Tests include malicious API fixtures for forged grants, swapped keys,
- omitted targets, stale manifests, split projection rows, and key-epoch reuse
- after membership shrink.
+- Regression coverage includes malicious API fixtures for forged grants,
+ swapped keys, omitted targets, stale manifests, split projection rows, and
+ key-epoch reuse after membership shrink.
