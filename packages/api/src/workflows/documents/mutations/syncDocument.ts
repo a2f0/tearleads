@@ -512,6 +512,16 @@ function toSyncUpdate(
   };
 }
 
+function toSyncUpdateWithWriteHeader(
+  update: Awaited<ReturnType<typeof listMissingUpdates>>[number],
+  writeHeader: { readonly header: WriteHeader; readonly headerHash: string },
+) {
+  return {
+    update: toSyncUpdate(update, writeHeader),
+    writeHeader: writeHeader.header,
+  };
+}
+
 async function attachWriteHeadersToUpdates(input: {
   readonly executor: DatabaseSession;
   readonly updates: Awaited<ReturnType<typeof listMissingUpdates>>;
@@ -527,32 +537,34 @@ async function attachWriteHeadersToUpdates(input: {
       throw new DocumentMutationError("Document write header missing", 409);
     }
 
-    return toSyncUpdate(update, writeHeader);
+    return toSyncUpdateWithWriteHeader(update, writeHeader);
   });
 }
 
+function uniqueContentKeyEpochs(contentKeyEpochs: Iterable<number>): number[] {
+  return [...new Set(contentKeyEpochs)].sort((left, right) => left - right);
+}
+
 async function listContentKeyBundlesForSyncResponse(input: {
+  readonly contentKeyEpochs: Iterable<number>;
   readonly currentBundle: StoredDocumentContentKeyBundle;
   readonly documentId: string;
   readonly executor: DatabaseSession;
-  readonly updates: ReturnType<typeof toSyncUpdate>[];
 }): Promise<StoredDocumentContentKeyBundle[]> {
   const bundleByEpoch = new Map<number, StoredDocumentContentKeyBundle>([
     [input.currentBundle.contentKeyEpoch, input.currentBundle],
   ]);
 
-  for (const update of input.updates) {
-    const header = readWriteHeader(
-      update.writeHeader,
-      "Document sync response write header",
-    );
-    if (bundleByEpoch.has(header.contentKeyEpoch)) {
+  for (const contentKeyEpoch of uniqueContentKeyEpochs(
+    input.contentKeyEpochs,
+  )) {
+    if (bundleByEpoch.has(contentKeyEpoch)) {
       continue;
     }
 
     const bundle = await getDocumentContentKeyBundle(
       input.documentId,
-      header.contentKeyEpoch,
+      contentKeyEpoch,
       input.executor,
     );
     if (!bundle) {
@@ -561,7 +573,7 @@ async function listContentKeyBundlesForSyncResponse(input: {
         409,
       );
     }
-    bundleByEpoch.set(header.contentKeyEpoch, bundle);
+    bundleByEpoch.set(contentKeyEpoch, bundle);
   }
 
   return [...bundleByEpoch.values()].sort(
@@ -654,18 +666,23 @@ async function listMissingSyncUpdatesWithBundles(input: {
     localVersionVector: input.request.localVersionVector,
     minLsn: input.request.minLsn,
   });
-  const missingUpdates = await attachWriteHeadersToUpdates({
+  const missingUpdateEntries = await attachWriteHeadersToUpdates({
     executor: input.executor,
     updates: missingUpdateRecords,
   });
   const contentKeyBundles = await listContentKeyBundlesForSyncResponse({
+    contentKeyEpochs: missingUpdateEntries.map(
+      (entry) => entry.writeHeader.contentKeyEpoch,
+    ),
     currentBundle: input.contentKeyBundle,
     documentId: input.documentId,
     executor: input.executor,
-    updates: missingUpdates,
   });
 
-  return { contentKeyBundles, missingUpdates };
+  return {
+    contentKeyBundles,
+    missingUpdates: missingUpdateEntries.map((entry) => entry.update),
+  };
 }
 
 async function syncDocumentTransaction(input: {

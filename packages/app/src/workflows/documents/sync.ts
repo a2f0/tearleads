@@ -5,6 +5,7 @@ import {
   signWriteHeader,
   type UnsignedWriteHeader,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
   DocumentOutgoingUpdate,
@@ -343,14 +344,23 @@ function isRecoverableDocumentUpdateIdConflict(
 }
 
 function settledPendingUpdateIdsFromSync(input: {
-  decryptedUpdates: readonly { id: string }[];
-  recoveryPendingUpdateIds: ReadonlySet<string>;
+  decryptedUpdates: readonly {
+    id: string;
+    partialEndVersionVector: string;
+    partialStartVersionVector: string;
+    updateData: Uint8Array;
+  }[];
+  recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   response: DocumentSyncResponse;
 }): string[] {
   const settled = new Set(input.response.acceptedOutgoingUpdateIds);
 
   for (const update of input.decryptedUpdates) {
-    if (input.recoveryPendingUpdateIds.has(update.id)) {
+    const pendingUpdate = input.recoveryPendingUpdatesById.get(update.id);
+    if (
+      pendingUpdate &&
+      pendingUpdateMatchesDecryptedUpdate(pendingUpdate, update)
+    ) {
       settled.add(update.id);
     }
   }
@@ -358,10 +368,40 @@ function settledPendingUpdateIdsFromSync(input: {
   return [...settled];
 }
 
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.byteLength === right.byteLength &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
+function pendingUpdateMatchesDecryptedUpdate(
+  pendingUpdate: PendingUpdateRecord,
+  decryptedUpdate: {
+    partialEndVersionVector: string;
+    partialStartVersionVector: string;
+    updateData: Uint8Array;
+  },
+): boolean {
+  if (
+    pendingUpdate.partialStartVersionVector !==
+      decryptedUpdate.partialStartVersionVector ||
+    pendingUpdate.partialEndVersionVector !==
+      decryptedUpdate.partialEndVersionVector
+  ) {
+    return false;
+  }
+
+  return bytesEqual(
+    base64ToBytes(pendingUpdate.updateData),
+    decryptedUpdate.updateData,
+  );
+}
+
 async function syncRemoteDocumentResultFromResponse(input: {
   execSql?: ExecSql | undefined;
   materializedPlan: MaterializedDocumentSyncPlan;
-  recoveryPendingUpdateIds: ReadonlySet<string>;
+  recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   response: DocumentSyncResponse;
@@ -402,7 +442,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
     response: input.response,
     settledPendingUpdateIds: settledPendingUpdateIdsFromSync({
       decryptedUpdates,
-      recoveryPendingUpdateIds: input.recoveryPendingUpdateIds,
+      recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
       response: input.response,
     }),
     writerProjection: input.writerProjection,
@@ -678,7 +718,7 @@ export async function syncRemoteDocument(input: {
 
   const maxAttempts = input.apiClient.syncDocumentResult ? 3 : 1;
   let pendingUpdates = input.pendingUpdates ?? [];
-  let recoveryPendingUpdateIds = new Set<string>();
+  let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const writerProjection = await input.apiClient.getDocumentWriterProjection(
@@ -720,8 +760,8 @@ export async function syncRemoteDocument(input: {
           submitted as DocumentSyncSubmitFailure,
         )
       ) {
-        recoveryPendingUpdateIds = new Set(
-          pendingUpdates.map((update) => update.id),
+        recoveryPendingUpdatesById = new Map(
+          pendingUpdates.map((update) => [update.id, update]),
         );
         pendingUpdates = [];
         continue;
@@ -734,7 +774,7 @@ export async function syncRemoteDocument(input: {
     return syncRemoteDocumentResultFromResponse({
       execSql: input.execSql,
       materializedPlan,
-      recoveryPendingUpdateIds,
+      recoveryPendingUpdatesById,
       resolveProjectionUserKey,
       resolveWriterPublicKey: input.resolveWriterPublicKey,
       response: submitted.response,

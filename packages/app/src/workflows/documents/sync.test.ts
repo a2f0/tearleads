@@ -850,6 +850,106 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
   ).toBe("settled update");
 });
 
+test("syncRemoteDocument does not settle recovered pending conflicts with different content", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const pendingUpdate = createPendingUpdateRecord({
+    updateData: bytesToBase64(new TextEncoder().encode("local update")),
+  });
+  const remoteUpdate = {
+    ...pendingUpdate,
+    updateData: bytesToBase64(new TextEncoder().encode("remote update")),
+  };
+  const historicalMaterialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [remoteUpdate],
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const historicalResponse = await createSyncResponse(
+    historicalMaterialized.plan,
+  );
+  const historicalUpdate = historicalResponse.updates[0];
+  if (!historicalUpdate) {
+    throw new Error("Expected historical update fixture");
+  }
+  const currentWriterProjection: DocumentWriterProjectionResponse = {
+    ...writerProjection,
+    contentKeyBundle: {
+      ...writerProjection.contentKeyBundle,
+      contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
+    },
+  };
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => currentWriterProjection,
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle recovery");
+      },
+      syncDocumentResult: async (documentId, request) => {
+        if (request.outgoingUpdates.length > 0) {
+          return {
+            message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
+            ok: false,
+            report: () => undefined,
+            status: 409,
+          };
+        }
+
+        const currentMaterialized = await buildMaterializedDocumentSyncPlan({
+          author,
+          localVersionVector: null,
+          pendingUpdates: [],
+          resolveProjectionUserKey,
+          targetSecretKey: secretKey,
+          writerProjection: currentWriterProjection,
+        });
+        return {
+          data: await createSyncResponse(
+            {
+              ...currentMaterialized.plan,
+              documentId,
+              request,
+            },
+            {
+              contentKeyBundles: [
+                writerProjection.contentKeyBundle,
+                currentWriterProjection.contentKeyBundle,
+              ],
+              missingUpdateEpochs: ["current_epoch"],
+              updates: [historicalUpdate],
+            },
+          ),
+          ok: true,
+        };
+      },
+    },
+    author,
+    documentId: currentWriterProjection.documentId,
+    localVersionVector: null,
+    pendingUpdates: [pendingUpdate],
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerPublicKeysByFingerprint: new Map([
+      [author.signerKeyFingerprint, signingPublicKey],
+    ]),
+  });
+
+  expect(synced?.settledPendingUpdateIds).toEqual([]);
+  expect(
+    new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
+  ).toBe("remote update");
+});
+
 test("syncRemoteDocumentFromRuntime resolves author and writer keys from runtime", async () => {
   const {
     author,
