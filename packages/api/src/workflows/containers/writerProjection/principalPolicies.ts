@@ -36,35 +36,21 @@ export function verifiedPrincipalPolicyReferenceCacheKey(
   ].join(":");
 }
 
-function principalPolicyMatchesReference(input: {
-  readonly policy: VerifiedPrincipalPolicy;
-  readonly reference: ReferencedPrincipalHead;
-}): boolean {
-  return (
-    input.policy.principalType === input.reference.principalType &&
-    input.policy.principalId === input.reference.principalId &&
-    input.policy.version === input.reference.version &&
-    input.policy.keyEpoch === input.reference.keyEpoch &&
-    input.policy.stateHash === input.reference.stateHash &&
-    input.policy.state.keyFingerprint === input.reference.keyFingerprint
-  );
-}
-
 export function principalPolicyCacheKey(input: {
   readonly manifest: VerifiedContainerAccessManifest;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }): string {
+  const policyKeys = new Set(
+    input.principalPolicies.map(verifiedPrincipalPolicyReferenceCacheKey),
+  );
+
   return input.manifest.state.referencedPrincipalHeads
     .map((principalHead) => {
       const referenceKey = principalPolicyReferenceCacheKey(principalHead);
-      const matchingPolicy = input.principalPolicies.find((policy) =>
-        principalPolicyMatchesReference({
-          policy,
-          reference: principalHead,
-        }),
-      );
 
-      return matchingPolicy ? referenceKey : `missing:${referenceKey}`;
+      return policyKeys.has(referenceKey)
+        ? referenceKey
+        : `missing:${referenceKey}`;
     })
     .sort()
     .join("|");

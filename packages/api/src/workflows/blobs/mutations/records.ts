@@ -56,16 +56,16 @@ function isContentRecordEncryptionSuite(
 }
 
 function readStringClaim(value: unknown, key: string, label: string): string {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    typeof Reflect.get(value, key) !== "string" ||
-    (Reflect.get(value, key) as string).length === 0
-  ) {
+  if (!value || typeof value !== "object") {
     throw new BlobMutationError(`${label}.${key} is required`, 400);
   }
 
-  return Reflect.get(value, key) as string;
+  const claim = (value as Record<string, unknown>)[key];
+  if (typeof claim !== "string" || claim.length === 0) {
+    throw new BlobMutationError(`${label}.${key} is required`, 400);
+  }
+
+  return claim;
 }
 
 function readNullableStringClaim(
@@ -77,7 +77,7 @@ function readNullableStringClaim(
     throw new BlobMutationError(`${label}.${key} is required`, 400);
   }
 
-  const claim = Reflect.get(value, key);
+  const claim = (value as Record<string, unknown>)[key];
   if (claim === null) {
     return null;
   }
