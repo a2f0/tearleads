@@ -119,11 +119,7 @@ export function isExplorerModalSubmitDisabled(params: {
   }
 
   const nameIsRequired =
-    modalState.mode !== "delete" &&
-    modalState.mode !== "link-document" &&
-    modalState.mode !== "move" &&
-    modalState.mode !== "move-document" &&
-    modalState.mode !== "share-peer";
+    modalState.mode === "create-child" || modalState.mode === "rename";
   if (nameIsRequired && draftName.trim().length === 0) {
     return true;
   }

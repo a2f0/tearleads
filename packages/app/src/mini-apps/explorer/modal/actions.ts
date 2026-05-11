@@ -150,10 +150,11 @@ async function submitExplorerNameModal(params: {
     setModalError,
     setSelectedId,
   } = params;
+  const trimmedName = draftName.trim();
   const nextNode =
     modalState.mode === "create-child"
-      ? await createChild(modalState.nodeId, draftName)
-      : await renameContainer(modalState.nodeId, draftName);
+      ? await createChild(modalState.nodeId, trimmedName)
+      : await renameContainer(modalState.nodeId, trimmedName);
   if (!nextNode) {
     setModalError(getExplorerModalError(modalState.mode));
     return;
