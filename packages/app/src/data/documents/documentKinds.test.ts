@@ -77,8 +77,8 @@ test("credit card fields are stored as first-class Loro state", async () => {
   });
 });
 
-test("note text that resembles legacy JSON does not determine document kind", async () => {
-  const legacyJsonText = JSON.stringify({
+test("JSON-shaped note text does not determine document kind", async () => {
+  const jsonShapedText = JSON.stringify({
     cardNumber: "4111 1111 1111 1234",
     cvvCode: "123",
     expirationDate: "2030-05",
@@ -86,16 +86,16 @@ test("note text that resembles legacy JSON does not determine document kind", as
     nameOnCard: "Ada Lovelace",
     version: 1,
   });
-  const doc = await createDocument("legacy-shaped-note");
-  doc.getText("text").update(legacyJsonText);
+  const doc = await createDocument("json-shaped-note");
+  doc.getText("text").update(jsonShapedText);
 
   expect(readStoredDocumentState(doc)).toMatchObject({
     documentKind: "note",
     structuredFields: {},
-    text: legacyJsonText,
-    title: legacyJsonText,
+    text: jsonShapedText,
+    title: jsonShapedText,
   });
-  expect(deriveStoredDocumentTitle(legacyJsonText)).toBe(legacyJsonText);
+  expect(deriveStoredDocumentTitle(jsonShapedText)).toBe(jsonShapedText);
 });
 
 test("explicit structured metadata determines kind independently of text", async () => {
