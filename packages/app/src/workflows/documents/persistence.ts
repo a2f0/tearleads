@@ -279,6 +279,37 @@ export async function saveLocalDocumentAttachmentsFromRuntime({
   });
 }
 
+async function deleteLocalDocumentAttachment(input: {
+  execSql: ExecSql;
+  localId: string;
+  persistence: DocumentsPersistence;
+  slotId: string;
+  storageKey: string;
+}): Promise<void> {
+  await input.persistence.deleteLocalAttachment(
+    input.execSql,
+    input.localId,
+    input.slotId,
+    input.storageKey,
+  );
+}
+
+export async function deleteLocalDocumentAttachmentFromRuntime({
+  runtime,
+  ...input
+}: {
+  localId: string;
+  persistence: DocumentsPersistence;
+  runtime: DocumentLocalStateRuntime;
+  slotId: string;
+  storageKey: string;
+}): Promise<void> {
+  return deleteLocalDocumentAttachment({
+    ...input,
+    execSql: runtime.execSql,
+  });
+}
+
 async function savePendingDocumentAttachment(input: {
   attachment: PendingAttachmentRecord;
   execSql: ExecSql;

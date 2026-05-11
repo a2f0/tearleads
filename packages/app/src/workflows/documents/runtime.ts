@@ -14,6 +14,7 @@ import {
 import { resolveDocumentCreateAuthor } from "./author";
 import { createRemoteDocumentFromRuntime } from "./create";
 import {
+  deleteLocalDocumentAttachmentFromRuntime,
   deletePendingDocumentAttachmentFromRuntime,
   enqueuePendingDocumentUpdateFromRuntime,
   listPendingDocumentUpdatesFromRuntime,
@@ -59,6 +60,10 @@ type CreateRemoteDocumentInput = Omit<
 >;
 type DeletePendingDocumentAttachmentInput = Omit<
   Parameters<typeof deletePendingDocumentAttachmentFromRuntime>[0],
+  "runtime"
+>;
+type DeleteLocalDocumentAttachmentInput = Omit<
+  Parameters<typeof deleteLocalDocumentAttachmentFromRuntime>[0],
   "runtime"
 >;
 type EnqueuePendingDocumentUpdateInput = Omit<
@@ -123,6 +128,10 @@ export interface DocumentsWorkflowRuntime {
     input: CreateRemoteDocumentInput,
   ) => ReturnType<typeof createRemoteDocumentFromRuntime>;
   createProjectionUserKeyResolver: () => DocumentProjectionUserKeyResolver;
+  deleteBlobBytes: (storageKey: string) => Promise<void>;
+  deleteLocalAttachment: (
+    input: DeleteLocalDocumentAttachmentInput,
+  ) => ReturnType<typeof deleteLocalDocumentAttachmentFromRuntime>;
   deletePendingAttachment: (
     input: DeletePendingDocumentAttachmentInput,
   ) => ReturnType<typeof deletePendingDocumentAttachmentFromRuntime>;
@@ -219,6 +228,71 @@ function documentProjectionRuntime(input: DocumentsWorkflowRuntimeInput) {
   };
 }
 
+function createDocumentsPersistenceRuntimeActions(
+  input: DocumentsWorkflowRuntimeInput,
+): Pick<
+  DocumentsWorkflowRuntimeActions,
+  | "deleteLocalAttachment"
+  | "deletePendingAttachment"
+  | "enqueuePendingUpdate"
+  | "listPendingUpdates"
+  | "loadPersistedStoreState"
+  | "persistState"
+  | "saveLocalAttachments"
+  | "savePendingAttachment"
+> {
+  return {
+    deleteLocalAttachment(deleteInput) {
+      return deleteLocalDocumentAttachmentFromRuntime({
+        ...deleteInput,
+        runtime: input,
+      });
+    },
+    deletePendingAttachment(deleteInput) {
+      return deletePendingDocumentAttachmentFromRuntime({
+        ...deleteInput,
+        runtime: input,
+      });
+    },
+    enqueuePendingUpdate(updateInput) {
+      return enqueuePendingDocumentUpdateFromRuntime({
+        ...updateInput,
+        runtime: input,
+      });
+    },
+    listPendingUpdates(listInput) {
+      return listPendingDocumentUpdatesFromRuntime({
+        ...listInput,
+        runtime: input,
+      });
+    },
+    loadPersistedStoreState(loadInput) {
+      return loadPersistedDocumentStoreStateFromRuntime({
+        ...loadInput,
+        runtime: input,
+      });
+    },
+    persistState(persistInput) {
+      return persistDocumentStateFromRuntime({
+        ...persistInput,
+        runtime: input,
+      });
+    },
+    saveLocalAttachments(saveInput) {
+      return saveLocalDocumentAttachmentsFromRuntime({
+        ...saveInput,
+        runtime: input,
+      });
+    },
+    savePendingAttachment(saveInput) {
+      return savePendingDocumentAttachmentFromRuntime({
+        ...saveInput,
+        runtime: input,
+      });
+    },
+  };
+}
+
 function createDocumentsWorkflowRuntimeActions(
   input: DocumentsWorkflowRuntimeInput,
 ): DocumentsWorkflowRuntimeActions {
@@ -234,11 +308,8 @@ function createDocumentsWorkflowRuntimeActions(
         documentProjectionRuntime(input),
       );
     },
-    deletePendingAttachment(deleteInput) {
-      return deletePendingDocumentAttachmentFromRuntime({
-        ...deleteInput,
-        runtime: input,
-      });
+    deleteBlobBytes(storageKey) {
+      return input.blobStore.deleteBytes(storageKey);
     },
     didProjectionKeyRuntimeChange(previousRuntime) {
       const previousInput =
@@ -264,12 +335,6 @@ function createDocumentsWorkflowRuntimeActions(
         documentSyncPrerequisites(input),
       );
     },
-    enqueuePendingUpdate(updateInput) {
-      return enqueuePendingDocumentUpdateFromRuntime({
-        ...updateInput,
-        runtime: input,
-      });
-    },
     hydrateAttachmentBlobs(hydrateInput) {
       return hydrateDocumentAttachmentBlobsFromRuntime({
         ...hydrateInput,
@@ -279,41 +344,11 @@ function createDocumentsWorkflowRuntimeActions(
     listDocumentAttachments(documentId) {
       return input.apiClient.listDocumentAttachments(documentId);
     },
-    listPendingUpdates(listInput) {
-      return listPendingDocumentUpdatesFromRuntime({
-        ...listInput,
-        runtime: input,
-      });
-    },
-    loadPersistedStoreState(loadInput) {
-      return loadPersistedDocumentStoreStateFromRuntime({
-        ...loadInput,
-        runtime: input,
-      });
-    },
-    persistState(persistInput) {
-      return persistDocumentStateFromRuntime({
-        ...persistInput,
-        runtime: input,
-      });
-    },
     readBlobBytes(storageKey) {
       return input.blobStore.readBytes(storageKey);
     },
     resolveCreateAuthor() {
       return resolveDocumentCreateAuthor(input);
-    },
-    saveLocalAttachments(saveInput) {
-      return saveLocalDocumentAttachmentsFromRuntime({
-        ...saveInput,
-        runtime: input,
-      });
-    },
-    savePendingAttachment(saveInput) {
-      return savePendingDocumentAttachmentFromRuntime({
-        ...saveInput,
-        runtime: input,
-      });
     },
     syncRemoteDocument(syncInput) {
       return syncRemoteDocumentFromRuntime({
@@ -330,6 +365,7 @@ function createDocumentsWorkflowRuntimeActions(
     writeBlobBytes(storageKey, bytes) {
       return input.blobStore.writeBytes(storageKey, bytes);
     },
+    ...createDocumentsPersistenceRuntimeActions(input),
   };
 }
 
