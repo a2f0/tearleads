@@ -1,7 +1,15 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { generateKemSeedAndKeyPair } from "./encapsulation/generateKeyPair";
-import { toFingerprint } from "./fingerprint";
+import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
+import { toFingerprint } from "../fingerprint";
+import {
+  buildPrincipalStateSigningInput,
+  computePrincipalStateHash,
+  type PrincipalProjectionMember,
+  type PrincipalStateMember,
+  signPrincipalState,
+} from "../principalState";
+import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import type {
   KeyingVerificationCode,
   KeyingVerificationResult,
@@ -9,16 +17,8 @@ import type {
   PrincipalPolicySignedState,
   PrincipalPolicySignerPublicKey,
   PrincipalPolicyStateChainEntry,
-} from "./keying";
-import { verifyPrincipalPolicyBundle } from "./keying";
-import {
-  buildPrincipalStateSigningInput,
-  computePrincipalStateHash,
-  type PrincipalProjectionMember,
-  type PrincipalStateMember,
-  signPrincipalState,
-} from "./principalState";
-import { generateSigningSeedAndKeyPair } from "./signing/generateKeyPair";
+} from "./index";
+import { verifyPrincipalPolicyBundle } from "./index";
 
 function expectVerificationError<T>(
   result: KeyingVerificationResult<T>,
