@@ -1,7 +1,11 @@
 import type { ContainerDeleteResponse } from "@tearleads/validators/response";
 import { and, eq, sql } from "drizzle-orm";
 import type { ApiDatabase, DatabaseTransaction } from "../../adapters/postgres";
-import { containerSyncTombstones, containers } from "../../schema";
+import {
+  containerSyncTombstones,
+  containers,
+  documentContainerLinks,
+} from "../../schema";
 import { userIdsByContainerPath } from "./containerPathUsers";
 import {
   ContainerWriterProjectionError,
@@ -115,6 +119,11 @@ async function deleteLeafContainerRow(input: {
           from ${containers} child
           where child.parent_id = ${input.containerId}::uuid
         )`,
+        sql`not exists (
+          select 1
+          from ${documentContainerLinks} link
+          where link.container_id = ${input.containerId}::uuid
+        )`,
       ),
     )
     .returning({ id: containers.id });
@@ -131,6 +140,16 @@ async function deleteLeafContainerRow(input: {
 
   if (child) {
     throw new DeleteContainerError("Container has child containers", 409);
+  }
+
+  const [linkedDocument] = await input.executor
+    .select({ documentId: documentContainerLinks.documentId })
+    .from(documentContainerLinks)
+    .where(eq(documentContainerLinks.containerId, input.containerId))
+    .limit(1);
+
+  if (linkedDocument) {
+    throw new DeleteContainerError("Container has linked documents", 409);
   }
 
   throw new DeleteContainerError("Container not found", 404);
