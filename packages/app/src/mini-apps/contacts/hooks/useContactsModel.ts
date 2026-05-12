@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
+import { useLog } from "../../../providers/logging/LogProvider";
 import { useContacts } from "../../../stores/contacts/ContactsProvider";
 import { useContactsSidebarPanel } from "../ContactsSidebar";
 import {
@@ -32,6 +33,7 @@ export function useContactsModel(
 ): ContactsModel {
   const { entries, importKey, ready, removeKey } = useContacts();
   const { isAuthenticated, userId: sessionUserId } = useCryptoSession();
+  const { logError } = useLog();
   const [draftUserId, setDraftUserId] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const selfImportedRef = useRef(false);
@@ -52,9 +54,11 @@ export function useContactsModel(
       !entries.some((entry) => entry.isSelf || entry.userId === sessionUserId)
     ) {
       selfImportedRef.current = true;
-      void importKey(sessionUserId);
+      void importKey(sessionUserId).catch((error: unknown) => {
+        logError("Contacts: failed to auto-import self key.", error);
+      });
     }
-  }, [ready, isAuthenticated, sessionUserId, entries, importKey]);
+  }, [ready, isAuthenticated, sessionUserId, entries, importKey, logError]);
 
   useEffect(() => {
     if (peerUserId) {

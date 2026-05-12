@@ -6,6 +6,15 @@ function timeLow(uuid: string): string {
   return uuid.split("-")[0] ?? uuid;
 }
 
+function contactSidebarItemClassName(isSelected: boolean): string {
+  return [
+    "contacts-sidebar-item",
+    isSelected ? "contacts-sidebar-item--selected" : null,
+  ]
+    .filter((className) => className !== null)
+    .join(" ");
+}
+
 function ContactsSidebarEntries({
   entries,
   handleContextMenu,
@@ -36,12 +45,9 @@ function ContactsSidebarEntries({
         <button
           key={entry.userId}
           type="button"
-          className={
-            "contacts-sidebar-item" +
-            (selectedUserId === entry.userId
-              ? " contacts-sidebar-item--selected"
-              : "")
-          }
+          className={contactSidebarItemClassName(
+            selectedUserId === entry.userId,
+          )}
           onClick={() => setSelectedUserId(entry.userId)}
           onContextMenu={(event) => handleContextMenu(event, entry.userId)}
         >
