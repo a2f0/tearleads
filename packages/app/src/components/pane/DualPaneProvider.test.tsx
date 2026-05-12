@@ -267,6 +267,7 @@ async function createNoteWithAttachment(pane: HTMLElement) {
   await waitFor(() => {
     expect(within(pane).getByText("peer-one.png")).toBeTruthy();
   });
+  await waitForRemoteAttachmentBlob();
 
   const backButton = within(pane).getByRole("button", {
     name: "Back to Container",
@@ -309,6 +310,44 @@ function requestPath(url: string): string {
   } catch {
     return url;
   }
+}
+
+function parseRequestJsonObject(body: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    return typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function isSuccessfulBlobAttachmentBinding(
+  request: ProxiedApiRequest,
+): boolean {
+  if (
+    request.method !== "POST" ||
+    request.status !== 200 ||
+    !/^\/blobs\/[^/]+\/attachment-bindings$/u.test(requestPath(request.url))
+  ) {
+    return false;
+  }
+
+  const response = parseRequestJsonObject(request.responseBody);
+  return (
+    typeof response?.blobId === "string" &&
+    typeof response.bindingId === "string"
+  );
+}
+
+async function waitForRemoteAttachmentBlob() {
+  await waitForCondition(
+    () => listProxiedApiRequests().some(isSuccessfulBlobAttachmentBinding),
+    `Note attachment blob was not uploaded before sharing.\nrequests=\n${summarizeProxiedApiRequests()}`,
+  );
 }
 
 function summarizeRequestBody(body: string | null): string {
