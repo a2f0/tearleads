@@ -1,5 +1,7 @@
 # Constraints
 
+For shared protocol terminology, see [glossary.md](./glossary.md).
+
 ## Container hierarchy depth limit
 
 The maximum depth of a container hierarchy is **100 levels**. This limit is

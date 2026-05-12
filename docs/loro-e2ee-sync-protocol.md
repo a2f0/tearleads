@@ -4,6 +4,8 @@
 
 This document defines the Loro-native E2EE sync protocol boundary.
 
+For shared protocol terminology, see [glossary.md](./glossary.md).
+
 Core rules:
 
 - Raw Loro sync should cover encrypted CRDT document state.

@@ -6,6 +6,8 @@ The access plane is driven by signed access events and derived access
 manifests. The server stores and indexes those manifests, but the authorization
 state itself is client-verifiable.
 
+For shared protocol terminology, see [glossary.md](./glossary.md).
+
 Protected objects are:
 
 - containers

@@ -3,6 +3,8 @@
 This document defines document rekey, fresh-baseline generation, offline merge
 handling, and tamper-evident document history.
 
+For shared protocol terminology, see [glossary.md](./glossary.md).
+
 It is separate from the signed group / organization policy-state design. Policy
 state protects who should have access. This document covers how document
 content and document history behave when access epochs change.

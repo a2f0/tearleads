@@ -2,6 +2,8 @@
 
 This document defines attachment/blob retention semantics for the access plane.
 
+For shared protocol terminology, see [glossary.md](./glossary.md).
+
 ## Retention Model
 
 Attachment/blob retention is live-only.

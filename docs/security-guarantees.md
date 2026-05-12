@@ -3,6 +3,8 @@
 This document describes the security and validation invariants of the
 Tearleads protocol.
 
+For shared protocol terminology, see [glossary.md](./glossary.md).
+
 ## Short Answer
 
 Given an honest, uncompromised client, the system can detect forged or tampered
