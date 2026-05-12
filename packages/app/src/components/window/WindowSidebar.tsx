@@ -10,6 +10,11 @@ import "./WindowSidebar.css";
 const DEFAULT_WIDTH = 160;
 const MIN_WIDTH = 80;
 const MAX_WIDTH = 400;
+const KEYBOARD_RESIZE_STEP = 10;
+
+function clampSidebarWidth(width: number) {
+  return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, width));
+}
 
 export function WindowSidebar({
   defaultWidth = DEFAULT_WIDTH,
@@ -36,12 +41,7 @@ export function WindowSidebar({
     function handleMouseMove(e: MouseEvent) {
       if (!dragging.current) return;
       const dx = e.clientX - dragging.current.startX;
-      setWidth(
-        Math.min(
-          MAX_WIDTH,
-          Math.max(MIN_WIDTH, dragging.current.startWidth + dx),
-        ),
-      );
+      setWidth(clampSidebarWidth(dragging.current.startWidth + dx));
     }
 
     function handleMouseUp() {
@@ -60,16 +60,46 @@ export function WindowSidebar({
     };
   }, []);
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Home") {
+      e.preventDefault();
+      setWidth(MIN_WIDTH);
+      return;
+    }
+
+    if (e.key === "End") {
+      e.preventDefault();
+      setWidth(MAX_WIDTH);
+      return;
+    }
+
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+
+    e.preventDefault();
+    const direction = e.key === "ArrowLeft" ? -1 : 1;
+    const multiplier = e.shiftKey ? 5 : 1;
+    setWidth((currentWidth) =>
+      clampSidebarWidth(
+        currentWidth + direction * KEYBOARD_RESIZE_STEP * multiplier,
+      ),
+    );
+  }, []);
+
   return (
     <div className="window-sidebar-layout">
       <div className="window-sidebar" style={{ width }}>
         {sidebar}
       </div>
       <hr
+        aria-label="Resize sidebar"
+        aria-orientation="vertical"
+        aria-valuemax={MAX_WIDTH}
+        aria-valuemin={MIN_WIDTH}
         aria-valuenow={width}
-        tabIndex={0}
         className="window-sidebar-handle"
+        onKeyDown={handleKeyDown}
         onMouseDown={handleMouseDown}
+        tabIndex={0}
       />
       <div className="window-sidebar-content">{children}</div>
     </div>
