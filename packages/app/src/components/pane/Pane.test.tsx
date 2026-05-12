@@ -67,6 +67,41 @@ async function openExplorer(view: ReturnType<typeof renderPane>) {
   return readyExplorerWindow;
 }
 
+async function openNotes(view: ReturnType<typeof renderPane>) {
+  const existingWindowCount =
+    view.container.querySelectorAll<HTMLDivElement>("div.window").length;
+
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 160,
+    clientY: 160,
+  });
+  fireEvent.click(view.getByText("Open Notes"));
+
+  let notesWindow: HTMLDivElement | null = null;
+  await waitFor(() => {
+    const windows =
+      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    expect(windows.length).toBeGreaterThan(existingWindowCount);
+    notesWindow = windows[windows.length - 1] ?? null;
+    expect(notesWindow).toBeTruthy();
+  });
+
+  if (!notesWindow) {
+    throw new Error("notes window not found");
+  }
+  const readyNotesWindow: HTMLDivElement = notesWindow;
+
+  await waitFor(() => {
+    expect(
+      readyNotesWindow.querySelector<HTMLTextAreaElement>(
+        "textarea.notes-editor",
+      ),
+    ).toBeTruthy();
+  });
+
+  return readyNotesWindow;
+}
+
 function listExplorerNoteItems(
   explorerWindow: HTMLElement,
 ): HTMLButtonElement[] {
@@ -353,6 +388,53 @@ test("explorer windows in the same pane share newly created notes without refres
         (button) => button.textContent?.trim() === "fresh explorer note",
       ),
     ).toBe(true);
+  });
+
+  view.unmount();
+});
+
+test("notes app lists notes created from explorer", async () => {
+  const view = renderPane();
+
+  await generateIdentityAndWaitForDb(view);
+
+  const explorer = await openExplorer(view);
+
+  fireEvent.click(within(explorer).getByRole("button", { name: "New Note" }));
+
+  const editor = await within(explorer).findByRole("textbox", {
+    name: /Notes editor/,
+  });
+  invariant(editor instanceof HTMLTextAreaElement, "note editor not found");
+
+  fireEvent.change(editor, {
+    target: { value: "visible from notes app" },
+  });
+
+  await waitFor(() => {
+    expect(
+      listExplorerNoteItems(explorer).some(
+        (button) => button.textContent?.trim() === "visible from notes app",
+      ),
+    ).toBe(true);
+  });
+
+  const notesWindow = await openNotes(view);
+
+  await waitFor(() => {
+    expect(
+      within(notesWindow).getByRole("button", {
+        name: "visible from notes app",
+      }),
+    ).toBeTruthy();
+    const notesEditor = within(notesWindow).getByRole("textbox", {
+      name: /Notes editor/,
+    });
+    invariant(
+      notesEditor instanceof HTMLTextAreaElement,
+      "notes app editor not found",
+    );
+    expect(notesEditor.value).toBe("visible from notes app");
   });
 
   view.unmount();
