@@ -29,6 +29,7 @@ function PaneInner({ className }: { className: string }) {
   const { windows } = useWindowStateData();
   const { create } = useWindowActions();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
+  const hasSigningKeyPair = signingKeyPair !== null;
   const bootPaneLogEntry = useMemo(
     () => ({
       id: "boot-pane-prompt",
@@ -36,7 +37,11 @@ function PaneInner({ className }: { className: string }) {
       timestamp: Date.now(),
       message: BOOT_PANE_LOG_MESSAGE,
     }),
-    [],
+    [hasSigningKeyPair],
+  );
+  const trailingLogEntries = useMemo(
+    () => (hasSigningKeyPair ? [] : [bootPaneLogEntry]),
+    [bootPaneLogEntry, hasSigningKeyPair],
   );
 
   const handleContextMenu = useCallback(
@@ -93,7 +98,7 @@ function PaneInner({ className }: { className: string }) {
     >
       <div className="pane-main">
         <PaneStatus />
-        <PaneLog trailingEntries={signingKeyPair ? [] : [bootPaneLogEntry]} />
+        <PaneLog trailingEntries={trailingLogEntries} />
         {windows.map((w) => (
           <Window key={w.id} windowId={w.id} />
         ))}
