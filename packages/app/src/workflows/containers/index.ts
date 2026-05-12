@@ -7,6 +7,10 @@ export {
 export { moveRemoteContainer } from "./child/move";
 export { shareRemoteContainer } from "./child/share";
 export {
+  readContainerMutationMetadataDocumentId,
+  referencedPrincipalHeadsFromContainerMutationResponse,
+} from "./mutationResponse";
+export {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "./root/create";
