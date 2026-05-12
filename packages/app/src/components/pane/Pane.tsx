@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
 import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
 import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
@@ -19,6 +19,9 @@ import { PaneFooter } from "./PaneFooter";
 import { PaneLog } from "./PaneLog";
 import { PaneStatus } from "./PaneStatus";
 
+const BOOT_PANE_LOG_MESSAGE =
+  "Generate a key pair from the pane menu to boot this pane.";
+
 function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
   const { signingKeyPair } = useIdentity();
@@ -26,6 +29,15 @@ function PaneInner({ className }: { className: string }) {
   const { windows } = useWindowStateData();
   const { create } = useWindowActions();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
+  const bootPaneLogEntry = useMemo(
+    () => ({
+      id: "boot-pane-prompt",
+      level: "info" as const,
+      timestamp: Date.now(),
+      message: BOOT_PANE_LOG_MESSAGE,
+    }),
+    [],
+  );
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
@@ -81,12 +93,7 @@ function PaneInner({ className }: { className: string }) {
     >
       <div className="pane-main">
         <PaneStatus />
-        <PaneLog />
-        {!signingKeyPair && (
-          <div className="pane-content">
-            Generate a key pair from the pane menu to boot this pane.
-          </div>
-        )}
+        <PaneLog trailingEntries={signingKeyPair ? [] : [bootPaneLogEntry]} />
         {windows.map((w) => (
           <Window key={w.id} windowId={w.id} />
         ))}

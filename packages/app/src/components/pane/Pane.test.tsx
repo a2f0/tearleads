@@ -124,6 +124,17 @@ async function generateIdentityAndWaitForDb(
   });
 }
 
+test("renders the boot prompt in the pane log", () => {
+  const view = renderPane();
+
+  const prompt = view.getByText(
+    /Generate a key pair from the pane menu to boot this pane\./,
+  );
+  expect(prompt.parentElement?.classList.contains("pane-log")).toBe(true);
+
+  view.unmount();
+});
+
 test("displays userId after registration", async () => {
   const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
