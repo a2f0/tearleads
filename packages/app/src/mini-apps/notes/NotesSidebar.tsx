@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import type { DocumentSummary } from "../../data/documentSummary";
 import { getUntitledDocumentTitle } from "../../data/documents/documentKinds";
+import { NOTES_LABELS } from "./labels";
 import type { NotesSetSidebar } from "./types";
 
 interface NotesSidebarProps {
@@ -30,13 +31,15 @@ function NotesSidebar({
         disabled={!ready}
         onClick={createNote}
       >
-        New Note
+        {NOTES_LABELS.sidebarNewNote}
       </button>
       <div className="notes-sidebar-list">
         {!ready ? (
-          <div className="notes-sidebar-empty">Loading...</div>
+          <div className="notes-sidebar-empty">
+            {NOTES_LABELS.sidebarLoading}
+          </div>
         ) : notes.length === 0 ? (
-          <div className="notes-sidebar-empty">No notes.</div>
+          <div className="notes-sidebar-empty">{NOTES_LABELS.sidebarEmpty}</div>
         ) : (
           notes.map((note) => (
             <button

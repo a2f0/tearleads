@@ -1,4 +1,5 @@
 import type { ChangeEvent, RefObject } from "react";
+import { getNotesToolbarStatusLabel, NOTES_LABELS } from "./labels";
 import type { NotesHandleSelectedFiles } from "./types";
 
 interface NotesToolbarProps {
@@ -33,14 +34,10 @@ export function NotesToolbar({
         onClick={() => fileInputRef.current?.click()}
         disabled={!ready || !canAttach}
       >
-        Attach File
+        {NOTES_LABELS.attachButton}
       </button>
       <span className="notes-toolbar-status">
-        {canAttach
-          ? isAuthenticated && online
-            ? "Drop files into the note to attach them."
-            : "Attachments save locally and sync when you're online."
-          : "Attachments require a local key package."}
+        {getNotesToolbarStatusLabel({ canAttach, isAuthenticated, online })}
       </span>
       <input
         id={fileInputId}

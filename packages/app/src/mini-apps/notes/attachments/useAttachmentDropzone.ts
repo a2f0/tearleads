@@ -1,4 +1,4 @@
-import { type DragEvent, useState } from "react";
+import { type DragEvent, useCallback, useState } from "react";
 import type { NotesHandleSelectedFiles } from "../types";
 
 export function useAttachmentDropzone(
@@ -7,29 +7,35 @@ export function useAttachmentDropzone(
 ) {
   const [dragActive, setDragActive] = useState(false);
 
-  function activateDropzone(event: DragEvent<HTMLLabelElement>) {
-    if (!canAttach) {
-      return;
-    }
+  const activateDropzone = useCallback(
+    (event: DragEvent<HTMLLabelElement>) => {
+      if (!canAttach) {
+        return;
+      }
 
-    event.preventDefault();
-    setDragActive(true);
-  }
+      event.preventDefault();
+      setDragActive(true);
+    },
+    [canAttach],
+  );
 
-  function handleDragLeave(event: DragEvent<HTMLLabelElement>) {
-    event.preventDefault();
-    setDragActive(false);
-  }
-
-  function handleDrop(event: DragEvent<HTMLLabelElement>) {
+  const handleDragLeave = useCallback((event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     setDragActive(false);
-    if (!canAttach) {
-      return;
-    }
+  }, []);
 
-    void handleSelectedFiles(event.dataTransfer.files);
-  }
+  const handleDrop = useCallback(
+    (event: DragEvent<HTMLLabelElement>) => {
+      event.preventDefault();
+      setDragActive(false);
+      if (!canAttach) {
+        return;
+      }
+
+      void handleSelectedFiles(event.dataTransfer.files);
+    },
+    [canAttach, handleSelectedFiles],
+  );
 
   return {
     dragActive,

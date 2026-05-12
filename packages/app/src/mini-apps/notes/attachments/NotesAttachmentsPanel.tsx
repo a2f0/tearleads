@@ -1,6 +1,7 @@
 import type { DragEvent } from "react";
 import type { NoteAttachmentStatus } from "../../../stores/notes/NotesProvider";
 import { formatByteLength } from "../../../utils/formatByteLength";
+import { NOTES_LABELS } from "../labels";
 import type { NoteAttachment } from "../noteDocument";
 import type {
   AttachmentImageUrlBySlotId,
@@ -30,7 +31,7 @@ function getAttachmentStatusLabel(
   status: NoteAttachmentStatus | undefined,
 ): string | null {
   if (status === "syncing") {
-    return "Syncing attachment.";
+    return NOTES_LABELS.attachmentSyncing;
   }
 
   return null;
@@ -91,7 +92,9 @@ export function NotesAttachmentsPanel({
       onDrop={handleDrop}
     >
       {attachments.length === 0 ? (
-        <div className="notes-dropzone-empty">No attachments yet.</div>
+        <div className="notes-dropzone-empty">
+          {NOTES_LABELS.attachmentsEmpty}
+        </div>
       ) : (
         <ul className="notes-attachments">
           {attachments.map((attachment) => (

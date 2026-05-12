@@ -1,4 +1,4 @@
-import { useId, useRef } from "react";
+import { useId, useMemo, useRef } from "react";
 import { useAttachmentImageUrls } from "../../../document-types/shared/useAttachmentImageUrls";
 import { useAppData } from "../../../providers/data/AppDataProvider";
 import { useNotes } from "../../../stores/notes/NotesProvider";
@@ -25,7 +25,10 @@ export function useNotesModel() {
     attachmentStorageKeyBySlotId,
     blobStore,
   );
-  const { handleSelectedFiles } = createNotesFileHandlers({ attachFiles });
+  const { handleSelectedFiles } = useMemo(
+    () => createNotesFileHandlers({ attachFiles }),
+    [attachFiles],
+  );
   const dropzoneState = useAttachmentDropzone(canAttach, handleSelectedFiles);
 
   return {

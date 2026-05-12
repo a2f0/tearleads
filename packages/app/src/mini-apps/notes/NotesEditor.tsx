@@ -1,3 +1,5 @@
+import { NOTES_LABELS } from "./labels";
+
 interface NotesEditorProps {
   ready: boolean;
   setText: (text: string) => void;
@@ -16,9 +18,13 @@ export function NotesEditor({
       className="notes-editor"
       value={text}
       onChange={(event) => setText(event.target.value)}
-      placeholder={ready ? "Type your notes here..." : "Loading notes..."}
+      placeholder={
+        ready
+          ? NOTES_LABELS.editorReadyPlaceholder
+          : NOTES_LABELS.editorLoadingPlaceholder
+      }
       disabled={!ready}
-      aria-label={syncing ? "Notes editor syncing" : "Notes editor"}
+      aria-label={syncing ? NOTES_LABELS.editorSyncing : NOTES_LABELS.editor}
     />
   );
 }
