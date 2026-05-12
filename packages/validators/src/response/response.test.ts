@@ -14,6 +14,9 @@ import {
   isHealthResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
+  isListOrganizationGroupsResponse,
+  isOrganizationDirectoryResponse,
+  isOrganizationGroupMembersResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
   isRegistrationResponse,
@@ -301,6 +304,80 @@ test("isListContainerDocumentsResponse", () => {
     }),
   ).toBe(false);
   expect(isListContainerDocumentsResponse(null)).toBe(false);
+});
+
+test("organization manager responses", () => {
+  expect(
+    isOrganizationDirectoryResponse({
+      organizationId: "org-1",
+      users: [
+        {
+          userId: "user-1",
+          signingKeyFingerprint: "signing-fingerprint",
+          signingPublicKey: "signing-key",
+          encapsulationPublicKey: "encapsulation-key",
+          encapsulationKeyFingerprint: "encapsulation-fingerprint",
+          role: "admin",
+          createdAt: new Date().toISOString(),
+          isSelf: true,
+        },
+      ],
+    }),
+  ).toBe(true);
+  expect(
+    isOrganizationDirectoryResponse({
+      organizationId: "org-1",
+      users: [{ userId: "user-1", role: "owner" }],
+    }),
+  ).toBe(false);
+
+  expect(
+    isListOrganizationGroupsResponse({
+      organizationId: "org-1",
+      groups: [
+        {
+          groupId: "group-1",
+          organizationId: "org-1",
+          name: "Operators",
+          createdAt: new Date().toISOString(),
+          currentState: {
+            stateHash: "state-hash",
+            version: 1,
+            keyEpoch: 1,
+            memberCount: 1,
+          },
+        },
+      ],
+    }),
+  ).toBe(true);
+  expect(
+    isListOrganizationGroupsResponse({
+      organizationId: "org-1",
+      groups: [{ groupId: "group-1", currentState: { memberCount: -1 } }],
+    }),
+  ).toBe(false);
+
+  expect(
+    isOrganizationGroupMembersResponse({
+      organizationId: "org-1",
+      groupId: "group-1",
+      members: [
+        {
+          memberPrincipalType: "user",
+          memberPrincipalId: "user-1",
+          role: "admin",
+          userId: "user-1",
+          signingKeyFingerprint: "signing-fingerprint",
+          signingPublicKey: "signing-key",
+          encapsulationPublicKey: "encapsulation-key",
+          encapsulationKeyFingerprint: "encapsulation-fingerprint",
+          groupId: null,
+          groupName: null,
+        },
+      ],
+    }),
+  ).toBe(true);
+  expect(isOrganizationGroupMembersResponse(null)).toBe(false);
 });
 
 test("isPrincipalStateResponse", () => {

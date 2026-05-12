@@ -2,9 +2,12 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
   ContainerMutationRequest,
+  CreateOrganizationGroupRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
+  PutPrincipalMemberEnvelopesRequest,
+  PutPrincipalStateRequest,
   StageBlobRequest,
 } from "@tearleads/validators/request";
 import {
@@ -46,7 +49,17 @@ import {
   unlinkDocument,
 } from "./routes/documents";
 import { getHealth } from "./routes/health";
-import { getCurrentPrincipalPolicy } from "./routes/principals";
+import {
+  createOrganizationGroup,
+  listOrganizationDirectory,
+  listOrganizationGroupMembers,
+  listOrganizationGroups,
+} from "./routes/organizations";
+import {
+  getCurrentPrincipalPolicy,
+  putPrincipalMemberEnvelopes,
+  putPrincipalState,
+} from "./routes/principals";
 import { postRegistration } from "./routes/register";
 import type {
   HttpMethod,
@@ -311,6 +324,46 @@ export class ApiClient {
     principalId: string,
   ) {
     return getCurrentPrincipalPolicy(this.request, principalType, principalId);
+  }
+
+  putPrincipalState(
+    principalType: "group" | "organization",
+    principalId: string,
+    input: PutPrincipalStateRequest,
+  ) {
+    return putPrincipalState(this.request, principalType, principalId, input);
+  }
+
+  putPrincipalMemberEnvelopes(
+    principalType: "group" | "organization",
+    principalId: string,
+    input: PutPrincipalMemberEnvelopesRequest,
+  ) {
+    return putPrincipalMemberEnvelopes(
+      this.request,
+      principalType,
+      principalId,
+      input,
+    );
+  }
+
+  listOrganizationDirectory(organizationId: string) {
+    return listOrganizationDirectory(this.request, organizationId);
+  }
+
+  listOrganizationGroups(organizationId: string) {
+    return listOrganizationGroups(this.request, organizationId);
+  }
+
+  createOrganizationGroup(
+    organizationId: string,
+    input: CreateOrganizationGroupRequest,
+  ) {
+    return createOrganizationGroup(this.request, organizationId, input);
+  }
+
+  listOrganizationGroupMembers(organizationId: string, groupId: string) {
+    return listOrganizationGroupMembers(this.request, organizationId, groupId);
   }
 
   createDocument(input: DocumentCreateRequest) {

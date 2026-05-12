@@ -1,0 +1,275 @@
+.org-manager {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: #f7f8fa;
+  color: #20242c;
+}
+
+.org-manager--empty {
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+}
+
+.org-manager-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-right: 1px solid #d9dde5;
+  background: #eef1f5;
+}
+
+.org-manager-sidebar button,
+.org-manager-create-group button,
+.org-manager-add-user button,
+.org-manager-member-row button {
+  min-height: 30px;
+  border: 1px solid #c7ced8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #20242c;
+  font: inherit;
+  cursor: pointer;
+}
+
+.org-manager-sidebar button:hover:not(:disabled),
+.org-manager-create-group button:hover:not(:disabled),
+.org-manager-add-user button:hover:not(:disabled),
+.org-manager-member-row button:hover:not(:disabled) {
+  background: #e8f1ff;
+  border-color: #8aa8d8;
+}
+
+.org-manager-sidebar button:disabled,
+.org-manager-create-group button:disabled,
+.org-manager-add-user button:disabled,
+.org-manager-member-row button:disabled {
+  color: #8b93a1;
+  cursor: default;
+}
+
+.org-manager-sidebar .org-manager-nav--selected {
+  background: #dce9f9;
+  border-color: #8aa8d8;
+  font-weight: 600;
+}
+
+.org-manager-main {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+
+.org-manager-error {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid #d78b8b;
+  border-radius: 6px;
+  background: #fff0f0;
+  color: #8a2020;
+}
+
+.org-manager-hint {
+  padding: 12px;
+  color: #68707e;
+}
+
+.org-manager-table {
+  display: grid;
+  gap: 4px;
+}
+
+.org-manager-table-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1.2fr) 80px minmax(120px, 1fr) 90px;
+  gap: 10px;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #dde2ea;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.org-manager-table-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-manager-table-row--header {
+  background: transparent;
+  border-color: transparent;
+  color: #68707e;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.org-manager-groups {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.org-manager-panel {
+  min-width: 0;
+}
+
+.org-manager-create-group,
+.org-manager-add-user {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 74px;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.org-manager-create-group input,
+.org-manager-add-user select {
+  min-width: 0;
+  min-height: 30px;
+  border: 1px solid #c7ced8;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: #ffffff;
+  color: #20242c;
+  font: inherit;
+}
+
+.org-manager-group-list,
+.org-manager-member-list {
+  display: grid;
+  gap: 6px;
+}
+
+.org-manager-group-button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 1px solid #dde2ea;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #20242c;
+  text-align: left;
+  cursor: pointer;
+}
+
+.org-manager-group-button strong,
+.org-manager-group-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-manager-group-button span {
+  color: #68707e;
+  font-size: 12px;
+}
+
+.org-manager-group-button:hover,
+.org-manager-group-button--selected {
+  border-color: #8aa8d8;
+  background: #edf5ff;
+}
+
+.org-manager-panel--detail {
+  border-left: 1px solid #d9dde5;
+  padding-left: 12px;
+}
+
+.org-manager-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.org-manager-detail-header div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.org-manager-detail-header strong,
+.org-manager-detail-header span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-manager-detail-header span,
+.org-manager-member-row span {
+  color: #68707e;
+  font-size: 12px;
+}
+
+.org-manager-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 42px;
+  padding: 7px 9px;
+  border: 1px solid #dde2ea;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.org-manager-member-row div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.org-manager-member-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-manager-member-row button {
+  padding: 0 10px;
+}
+
+@media (max-width: 760px) {
+  .org-manager {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .org-manager-sidebar {
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid #d9dde5;
+  }
+
+  .org-manager-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .org-manager-panel--detail {
+    border-left: 0;
+    border-top: 1px solid #d9dde5;
+    padding-left: 0;
+    padding-top: 12px;
+  }
+
+  .org-manager-table-row {
+    grid-template-columns: minmax(90px, 1fr) 70px minmax(100px, 1fr);
+  }
+
+  .org-manager-table-row span:last-child {
+    display: none;
+  }
+}

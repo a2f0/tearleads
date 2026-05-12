@@ -1,0 +1,140 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { DocumentSummary } from "../../data/documentSummary";
+import { getUntitledDocumentTitle } from "../../data/documents/documentKinds";
+import { useAppData } from "../../providers/data/AppDataProvider";
+import { defaultNotesPersistence } from "../../workflows/notes";
+import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
+import { DEFAULT_NOTE_ID } from "./NotesProvider";
+
+function isNoteSummary(documentSummary: DocumentSummary): boolean {
+  return (documentSummary.documentKind ?? "note") === "note";
+}
+
+function compareNoteSummaries(
+  left: DocumentSummary,
+  right: DocumentSummary,
+): number {
+  const updatedAtComparison = right.updatedAt.localeCompare(left.updatedAt);
+  return updatedAtComparison === 0
+    ? right.id.localeCompare(left.id)
+    : updatedAtComparison;
+}
+
+function mergeNoteSummary(
+  currentNotes: ReadonlyArray<DocumentSummary>,
+  nextNote: DocumentSummary,
+): DocumentSummary[] {
+  if (!isNoteSummary(nextNote)) {
+    return [...currentNotes];
+  }
+
+  const notesById = new Map(currentNotes.map((note) => [note.id, note]));
+  notesById.set(nextNote.id, nextNote);
+
+  return Array.from(notesById.values()).sort(compareNoteSummaries);
+}
+
+export function usePersistedNotesDirectory(explicitNoteId: string | null) {
+  const appData = useAppData();
+  const [notes, setNotes] = useState<ReadonlyArray<DocumentSummary>>([]);
+  const [ready, setReady] = useState(false);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
+    explicitNoteId,
+  );
+  const explicitNoteIdRef = useRef(explicitNoteId);
+
+  useEffect(() => {
+    explicitNoteIdRef.current = explicitNoteId;
+    if (explicitNoteId) {
+      setSelectedNoteId(explicitNoteId);
+    }
+  }, [explicitNoteId]);
+
+  useEffect(() => {
+    if (appData.dbStatus !== "ready") {
+      setNotes([]);
+      setReady(false);
+      if (!explicitNoteIdRef.current) {
+        setSelectedNoteId(null);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await defaultNotesPersistence.ensureSchema(appData.execSql);
+        const nextNotes = (
+          await defaultNotesPersistence.listNotes(appData.execSql)
+        )
+          .filter(isNoteSummary)
+          .sort(compareNoteSummaries);
+
+        if (cancelled) {
+          return;
+        }
+
+        setNotes(nextNotes);
+        setReady(true);
+        setSelectedNoteId((currentNoteId) => {
+          const latestExplicitNoteId = explicitNoteIdRef.current;
+          if (latestExplicitNoteId) {
+            return latestExplicitNoteId;
+          }
+          if (
+            currentNoteId &&
+            (currentNoteId === DEFAULT_NOTE_ID ||
+              nextNotes.some((note) => note.id === currentNoteId))
+          ) {
+            return currentNoteId;
+          }
+
+          return nextNotes[0]?.id ?? DEFAULT_NOTE_ID;
+        });
+      } catch (error) {
+        if (!cancelled) {
+          appData.logError("Notes: failed to load notes.", error);
+          setReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appData.dbStatus, appData.execSql, appData.logError]);
+
+  useEffect(() => {
+    return subscribeToPersistedDocuments(appData.domainScope, (document) => {
+      if (!isNoteSummary(document)) {
+        return;
+      }
+
+      setNotes((currentNotes) => mergeNoteSummary(currentNotes, document));
+      setSelectedNoteId((currentNoteId) => currentNoteId ?? document.id);
+    });
+  }, [appData.domainScope]);
+
+  const createNote = useCallback(() => {
+    const noteId = crypto.randomUUID();
+    const nextNote: DocumentSummary = {
+      id: noteId,
+      containerId: appData.containerId,
+      documentKind: "note",
+      documentId: null,
+      title: getUntitledDocumentTitle("note"),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setNotes((currentNotes) => mergeNoteSummary(currentNotes, nextNote));
+    setSelectedNoteId(noteId);
+  }, [appData.containerId]);
+
+  return {
+    createNote,
+    notes,
+    ready,
+    selectedNoteId,
+    selectNote: setSelectedNoteId,
+  };
+}

@@ -11,6 +11,7 @@ import { createBlobsRouter } from "./routes/blobs";
 import { createContainersRouter } from "./routes/containers";
 import { createDocumentsRouter } from "./routes/documents";
 import { createHealthRoute } from "./routes/health";
+import { createOrganizationsRouter } from "./routes/organizations";
 import { createPrincipalsRouter } from "./routes/principals";
 import {
   type ApiServiceRuntime,
@@ -95,6 +96,13 @@ export function createRouteApp(overrides: RouteAppOverrides) {
     }),
   );
   routeApp.route("/", createHealthRoute());
+  routeApp.route(
+    "/",
+    createOrganizationsRouter({
+      requireAuth: resolvedRequireAuth,
+      runtime: resolvedRuntime,
+    }),
+  );
   routeApp.route(
     "/",
     createPrincipalsRouter({

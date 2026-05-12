@@ -35,6 +35,10 @@ export {
   isDocumentSyncRequest,
 } from "./document";
 export {
+  type CreateOrganizationGroupRequest,
+  isCreateOrganizationGroupRequest,
+} from "./organization";
+export {
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
   type PrincipalMemberEnvelopeRequest,

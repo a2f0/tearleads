@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
 import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
 import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
+import { OrgManagerApp } from "../../mini-apps/org-manager/OrgManagerApp";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import type { MenuPosition } from "../shared/Menu";
@@ -90,6 +91,13 @@ function PaneInner({ className }: { className: string }) {
     setContextMenu(null);
   }, [contextMenu, create]);
 
+  const openOrgManager = useCallback(() => {
+    if (contextMenu) {
+      create("Org Manager", contextMenu.x, contextMenu.y, OrgManagerApp);
+    }
+    setContextMenu(null);
+  }, [contextMenu, create]);
+
   return (
     <section
       role="application"
@@ -110,6 +118,7 @@ function PaneInner({ className }: { className: string }) {
           <MenuItem label="Open Notes" onClick={openNotes} />
           <MenuItem label="Open Contacts" onClick={openContacts} />
           <MenuItem label="Open Explorer" onClick={openExplorer} />
+          <MenuItem label="Open Org Manager" onClick={openOrgManager} />
         </Menu>
       )}
     </section>

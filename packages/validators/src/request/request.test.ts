@@ -8,6 +8,7 @@ import {
   isBlobAttachmentBindRequest,
   isBlobAttachmentDetachRequest,
   isChallengeRequest,
+  isCreateOrganizationGroupRequest,
   isDocumentContentKeyBundleRequest,
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
@@ -287,6 +288,65 @@ test("isPutPrincipalMemberEnvelopesRequest", () => {
     }),
   ).toBe(false);
   expect(isPutPrincipalMemberEnvelopesRequest(null)).toBe(false);
+});
+
+test("isCreateOrganizationGroupRequest", () => {
+  const userId = "550e8400-e29b-41d4-a716-446655440001";
+  const groupId = "550e8400-e29b-41d4-a716-446655440002";
+  const request = {
+    groupId,
+    name: "Operators",
+    initialGroupPolicy: {
+      state: {
+        principalType: "group",
+        principalId: groupId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: "public-key",
+        keyFingerprint: "fingerprint",
+        membershipMode: "projection",
+        membershipRoot: "root",
+        projectionRoot: "projection-root",
+        payloadCiphertextHash: "ciphertext-hash",
+        memberCount: 1,
+        signedAt: new Date().toISOString(),
+        signerUserId: userId,
+        signerUserKeyFingerprint: "policy-key-fingerprint-1",
+        signature: "signature",
+      },
+      encryptedPayload: {
+        cipherSuite: "aes-256-gcm",
+        ciphertext: "ciphertext",
+        ciphertextHash: "ciphertext-hash",
+      },
+      projection: [
+        {
+          memberPrincipalType: "user",
+          memberPrincipalId: userId,
+          role: "admin",
+        },
+      ],
+      memberEnvelopes: [
+        {
+          memberPrincipalType: "user",
+          memberPrincipalId: userId,
+          memberKeyFingerprint: "fingerprint",
+          kemCipherText: "cipher",
+          wrappedKey: "wrapped",
+        },
+      ],
+    },
+  };
+
+  expect(isCreateOrganizationGroupRequest(request)).toBe(true);
+  expect(isCreateOrganizationGroupRequest({ ...request, name: "" })).toBe(
+    false,
+  );
+  expect(isCreateOrganizationGroupRequest({ ...request, groupId: "bad" })).toBe(
+    false,
+  );
+  expect(isCreateOrganizationGroupRequest(null)).toBe(false);
 });
 
 function createBlobContentKeyBundle(overrides = {}) {
