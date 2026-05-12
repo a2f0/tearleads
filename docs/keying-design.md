@@ -10,6 +10,8 @@ This document describes the access and key-delivery model for:
 HTTP routes use the signed mutation surface summarized in
 [api-architecture.md](./api-architecture.md#http-protocol-surface).
 
+For shared protocol terminology, see [glossary.md](./glossary.md).
+
 The signed access-event, access-manifest, container KEK, document
 content-key, blob content-key, principal-policy, write-header, and local
 checkpoint primitives define the executable keying boundary. Transparency

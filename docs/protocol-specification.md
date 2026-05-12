@@ -16,6 +16,7 @@ The executable source of truth is:
 
 Related background documents:
 
+- [glossary.md](./glossary.md)
 - [api-architecture.md](./api-architecture.md)
 - [access-plane.md](./access-plane.md)
 - [keying-design.md](./keying-design.md)

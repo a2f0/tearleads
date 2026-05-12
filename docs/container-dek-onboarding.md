@@ -7,6 +7,8 @@ request. The client generates cryptographic material locally, the server creates
 the relational structure atomically, and the client persists the result to local
 SQLite.
 
+For shared protocol terminology, see [glossary.md](./glossary.md).
+
 The key hierarchy is:
 
 - containers have signed access manifests and KEK epochs

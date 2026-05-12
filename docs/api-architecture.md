@@ -9,6 +9,8 @@ This document defines two related but distinct structures:
 
 Those are related, but they are not the same axis.
 
+For shared protocol terminology, see [glossary.md](./glossary.md).
+
 ## Protocol Planes
 
 The protocol has three main planes:
