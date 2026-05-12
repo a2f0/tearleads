@@ -9,20 +9,27 @@
 .window-sidebar {
   overflow: auto;
   flex-shrink: 0;
-  border-right: 1px solid var(--color-dark);
   min-width: 80px;
 }
 
 .window-sidebar-handle {
-  width: 4px;
+  width: 2px;
   flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
   cursor: col-resize;
-  background: transparent;
+  background: linear-gradient(
+    to right,
+    var(--color-dark) 0 1px,
+    transparent 1px 2px
+  );
+  opacity: 0.45;
 }
 
 .window-sidebar-handle:hover {
   background: var(--color-dark);
-  opacity: 0.3;
+  opacity: 0.8;
 }
 
 .window-sidebar-content {
