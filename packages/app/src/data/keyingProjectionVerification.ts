@@ -678,11 +678,13 @@ async function verifyContainerManifestBundle(input: {
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
 }): Promise<VerifiedContainerAccessManifest> {
+  const parentPath =
+    await resolveContainerManifestVerificationParentPath(input);
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
     assertContainerParentPathMatches({
       label: input.label,
-      parentPath: input.parentPath,
+      parentPath,
       verifiedManifest: cached,
     });
     return cached;
@@ -698,10 +700,11 @@ async function verifyContainerManifestBundle(input: {
       ? null
       : await verifyPreviousContainerManifest({
           ...input,
+          parentPath,
           previousManifestHash: event.event.previousManifestHash,
         });
   const referencedPrincipalHeads = [
-    ...input.parentPath.flatMap(
+    ...parentPath.flatMap(
       (parentManifest) => parentManifest.state.referencedPrincipalHeads,
     ),
     ...(previousManifest?.state.referencedPrincipalHeads ?? []),
@@ -715,15 +718,15 @@ async function verifyContainerManifestBundle(input: {
   });
 
   const verified = await verifyContainerAccessManifest({
-    destinationParentContainerPath: input.parentPath,
+    destinationParentContainerPath: parentPath,
     event,
     expectedManifestHash: input.bundle.manifestHash,
     manifest,
-    parentContainerPath: input.parentPath,
+    parentContainerPath: parentPath,
     principalPolicies,
     ...(previousManifest
       ? {
-          previousContainerPath: [...input.parentPath, previousManifest],
+          previousContainerPath: [...parentPath, previousManifest],
           previousManifest,
         }
       : { previousManifest: null }),
@@ -756,6 +759,81 @@ function assertContainerParentPathMatches(input: {
   }
 }
 
+function readContainerManifestParentReference(
+  bundle: AccessManifestBundleWireResponse,
+  label: string,
+): {
+  parentContainerId: string | null;
+  parentManifestHash: string | null;
+} {
+  const state = readCanonicalRecord(bundle.state, `${label} state`);
+
+  return {
+    parentContainerId: readRecordNullableString(
+      state,
+      "parentContainerId",
+      `${label} state`,
+    ),
+    parentManifestHash: readRecordNullableString(
+      state,
+      "parentManifestHash",
+      `${label} state`,
+    ),
+  };
+}
+
+async function resolveContainerManifestVerificationParentPath(input: {
+  readonly bundle: AccessManifestBundleWireResponse;
+  readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
+  readonly execSql?: ExecSql | undefined;
+  readonly label: string;
+  readonly parentPath: readonly VerifiedContainerAccessManifest[];
+  readonly principalPolicyCache: PrincipalPolicyCache;
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+}): Promise<readonly VerifiedContainerAccessManifest[]> {
+  // Descendants keep the parent manifest hash they were created or moved under;
+  // a later parent share/rekey must not require rewriting descendant manifests.
+  const { parentContainerId, parentManifestHash } =
+    readContainerManifestParentReference(input.bundle, input.label);
+  if (parentContainerId === null || parentManifestHash === null) {
+    return input.parentPath;
+  }
+
+  const currentParent = input.parentPath.at(-1);
+  if (
+    currentParent?.state.containerId === parentContainerId &&
+    currentParent.manifestHash === parentManifestHash
+  ) {
+    return input.parentPath;
+  }
+
+  const parentBundle = input.bundlesByHash.get(parentManifestHash);
+  if (!parentBundle) {
+    return input.parentPath;
+  }
+
+  const parentParentPath = await resolveContainerManifestVerificationParentPath(
+    {
+      ...input,
+      bundle: parentBundle,
+      label: `${input.label} parent manifest`,
+      parentPath: input.parentPath.slice(0, -1),
+    },
+  );
+  const verifiedParent = await verifyContainerManifestBundle({
+    ...input,
+    bundle: parentBundle,
+    label: `${input.label} parent manifest`,
+    parentPath: parentParentPath,
+  });
+  if (verifiedParent.state.containerId !== parentContainerId) {
+    throw new Error(`${input.label} parent manifest container mismatch`);
+  }
+
+  return [...parentParentPath, verifiedParent];
+}
+
 async function verifyPreviousContainerManifest(input: {
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly execSql?: ExecSql | undefined;
@@ -772,13 +850,17 @@ async function verifyPreviousContainerManifest(input: {
       `${input.label} previous manifest ${input.previousManifestHash} is missing`,
     );
   }
+  const parentPath = await resolveContainerManifestVerificationParentPath({
+    ...input,
+    bundle: previousBundle,
+  });
 
   return verifyContainerManifestBundle({
     bundle: previousBundle,
     bundlesByHash: input.bundlesByHash,
     execSql: input.execSql,
     label: `${input.label} previous manifest`,
-    parentPath: input.parentPath,
+    parentPath,
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash: input.verifiedByHash,

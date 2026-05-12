@@ -41,6 +41,11 @@ const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
 
 type ProxiedApiRequest = ReturnType<typeof listProxiedApiRequests>[number];
 
+interface BlobAttachmentBindingJson {
+  bindingId?: unknown;
+  blobId?: unknown;
+}
+
 afterEach(async () => {
   cleanup();
   await resetMockServer();
@@ -225,6 +230,13 @@ async function createNoteWithAttachment(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(getExplorerSidebarItem(pane, "/"));
   });
+  await waitFor(() => {
+    expect(
+      getExplorerSidebarItem(pane, "/").classList.contains(
+        "explorer-sidebar-item--selected",
+      ),
+    ).toBe(true);
+  });
   const newNoteButton = await within(pane).findByRole("button", {
     name: "New Note",
   });
@@ -312,13 +324,15 @@ function requestPath(url: string): string {
   }
 }
 
-function parseRequestJsonObject(body: string): Record<string, unknown> | null {
+function parseBlobAttachmentBindingJson(
+  body: string,
+): BlobAttachmentBindingJson | null {
   try {
     const parsed = JSON.parse(body) as unknown;
     return typeof parsed === "object" &&
       parsed !== null &&
       !Array.isArray(parsed)
-      ? parsed
+      ? (parsed as BlobAttachmentBindingJson)
       : null;
   } catch {
     return null;
@@ -336,7 +350,7 @@ function isSuccessfulBlobAttachmentBinding(
     return false;
   }
 
-  const response = parseRequestJsonObject(request.responseBody);
+  const response = parseBlobAttachmentBindingJson(request.responseBody);
   return (
     typeof response?.blobId === "string" &&
     typeof response.bindingId === "string"
@@ -657,7 +671,7 @@ test(
 );
 
 test(
-  "dual panes can share an owner-granted root container after note attachments",
+  "dual panes can share an owner-granted root container after an empty folder and note attachment",
   async () => {
     useTestApiAppHandlers();
     const view = renderDualPane();
@@ -669,6 +683,7 @@ test(
     await openExplorer(leftPane);
     await openExplorer(rightPane);
 
+    await createChildContainer(leftPane, "Empty");
     await createNoteWithAttachment(leftPane);
     const postShareRequestStartIndex = listProxiedApiRequests().length;
     await shareContainerWithPeer(leftPane, "/");
