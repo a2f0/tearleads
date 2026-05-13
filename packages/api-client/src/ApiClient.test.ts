@@ -1,9 +1,12 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type {
   ContainerMutationRequest,
+  CreateOrganizationGroupRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
+  PutPrincipalMemberEnvelopesRequest,
+  PutPrincipalStateRequest,
 } from "@tearleads/validators/request";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
@@ -231,6 +234,69 @@ function createDocumentSyncResponse() {
     documentKekTargets: mutationResponse.documentKekTargets,
     missingUpdateEpochs: [],
     updates: [],
+  };
+}
+
+function createPrincipalStateRequest(): PutPrincipalStateRequest {
+  return {
+    state: {
+      principalType: "group",
+      principalId: "550e8400-e29b-41d4-a716-446655440001",
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: "public-key",
+      keyFingerprint: "key-fingerprint",
+      membershipMode: "projection",
+      membershipRoot: "membership-root",
+      projectionRoot: "projection-root",
+      payloadCiphertextHash: "ciphertext-hash",
+      memberCount: 1,
+      signedAt: "2026-05-12T12:00:00.000Z",
+      signerUserId: "550e8400-e29b-41d4-a716-446655440002",
+      signerUserKeyFingerprint: "signing-fingerprint",
+      signature: "signature",
+    },
+    encryptedPayload: {
+      cipherSuite: "aes-256-gcm",
+      ciphertext: "ciphertext",
+      ciphertextHash: "ciphertext-hash",
+    },
+    projection: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: "550e8400-e29b-41d4-a716-446655440002",
+        role: "admin",
+      },
+    ],
+  };
+}
+
+function createPrincipalMemberEnvelopesRequest(): PutPrincipalMemberEnvelopesRequest {
+  return {
+    stateHash: "state-hash",
+    envelopes: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: "550e8400-e29b-41d4-a716-446655440002",
+        memberKeyFingerprint: "member-fingerprint",
+        kemCipherText: "kem-ciphertext",
+        wrappedKey: "wrapped-key",
+      },
+    ],
+  };
+}
+
+function createOrganizationGroupRequest(): CreateOrganizationGroupRequest {
+  const stateRequest = createPrincipalStateRequest();
+
+  return {
+    groupId: stateRequest.state.principalId,
+    name: "Operators",
+    initialGroupPolicy: {
+      ...stateRequest,
+      memberEnvelopes: createPrincipalMemberEnvelopesRequest().envelopes,
+    },
   };
 }
 
@@ -555,6 +621,121 @@ test("posts signed document create and sync mutations to the route namespace", a
       body: JSON.stringify(syncRequest),
       input: `${apiBaseUrl}/documents/document-1/sync`,
       method: "POST",
+    },
+  ]);
+});
+
+test("uses organization manager and principal policy route namespaces", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.all(`${apiBaseUrl}/*`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+
+      if (request.url.endsWith("/directory")) {
+        return HttpResponse.json({ organizationId: "org-1", users: [] });
+      }
+      if (request.url.endsWith("/members")) {
+        return HttpResponse.json({
+          organizationId: "org-1",
+          groupId: "group-1",
+          members: [],
+        });
+      }
+      if (request.url.endsWith("/member-envelopes")) {
+        return HttpResponse.json({
+          principalType: "group",
+          principalId: "group-1",
+          stateHash: "state-hash",
+          epoch: 1,
+          envelopes: [],
+        });
+      }
+      if (request.url.endsWith("/state")) {
+        return HttpResponse.json({
+          ...createPrincipalStateRequest().state,
+          stateHash: "state-hash",
+          createdAt: "2026-05-12T12:00:00.000Z",
+        });
+      }
+      if (request.method === "POST") {
+        return HttpResponse.json({
+          groupId: "group-1",
+          organizationId: "org-1",
+          name: "Operators",
+          createdAt: "2026-05-12T12:00:00.000Z",
+          currentState: {
+            stateHash: "state-hash",
+            version: 1,
+            keyEpoch: 1,
+            memberCount: 1,
+          },
+        });
+      }
+
+      return HttpResponse.json({ organizationId: "org-1", groups: [] });
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const groupRequest = createOrganizationGroupRequest();
+  const stateRequest = createPrincipalStateRequest();
+  const envelopeRequest = createPrincipalMemberEnvelopesRequest();
+
+  expect(await client.listOrganizationDirectory("org-1")).not.toBeNull();
+  expect(await client.listOrganizationGroups("org-1")).not.toBeNull();
+  expect(
+    await client.createOrganizationGroup("org-1", groupRequest),
+  ).not.toBeNull();
+  expect(
+    await client.listOrganizationGroupMembers("org-1", "group-1"),
+  ).not.toBeNull();
+  expect(
+    await client.putPrincipalState("group", "group-1", stateRequest),
+  ).not.toBeNull();
+  expect(
+    await client.putPrincipalMemberEnvelopes(
+      "group",
+      "group-1",
+      envelopeRequest,
+    ),
+  ).not.toBeNull();
+
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/directory`,
+      method: "GET",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/groups`,
+      method: "GET",
+    },
+    {
+      body: JSON.stringify(groupRequest),
+      input: `${apiBaseUrl}/organizations/org-1/groups`,
+      method: "POST",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/groups/group-1/members`,
+      method: "GET",
+    },
+    {
+      body: JSON.stringify(stateRequest),
+      input: `${apiBaseUrl}/principals/group/group-1/state`,
+      method: "PUT",
+    },
+    {
+      body: JSON.stringify(envelopeRequest),
+      input: `${apiBaseUrl}/principals/group/group-1/member-envelopes`,
+      method: "PUT",
     },
   ]);
 });

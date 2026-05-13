@@ -59,6 +59,24 @@ export {
 } from "./documentMutation";
 export { type HealthResponse, isHealthResponse } from "./health";
 export {
+  isCreateOrganizationGroupResponse,
+  isListOrganizationGroupsResponse,
+  isOrganizationDirectoryResponse,
+  isOrganizationDirectoryUserResponse,
+  isOrganizationGroupCurrentStateResponse,
+  isOrganizationGroupMemberResponse,
+  isOrganizationGroupMembersResponse,
+  isOrganizationGroupSummaryResponse,
+  type ListOrganizationGroupsResponse,
+  type OrganizationDirectoryResponse,
+  type OrganizationDirectoryUserResponse,
+  type OrganizationGroupCurrentStateResponse,
+  type OrganizationGroupMemberResponse,
+  type OrganizationGroupMembersResponse,
+  type OrganizationGroupSummaryResponse,
+  type OrganizationRole,
+} from "./organization";
+export {
   type CurrentPrincipalMemberEnvelopesResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,
