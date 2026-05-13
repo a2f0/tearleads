@@ -420,6 +420,9 @@ function WindowInner({
   );
   const { handleMouseDown, handleResizeMouseDown, position, size } =
     useWindowGeometry(entry, maximized, windowRef);
+  const handleWindowMouseDown = useCallback(() => {
+    bringToFront(entry.id);
+  }, [bringToFront, entry.id]);
   const style = getWindowStyle(maximized, position, size, zIndex);
 
   if (minimized) {
@@ -430,6 +433,7 @@ function WindowInner({
     <div
       ref={windowRef}
       className={maximized ? "window window--maximized" : "window"}
+      onMouseDownCapture={handleWindowMouseDown}
       style={style}
     >
       <WindowTitleBar
