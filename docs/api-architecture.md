@@ -180,7 +180,6 @@ It injects the infrastructure required by application services:
 - database access
 - key-value storage
 - event publishing
-- principal signer trust lookup
 - session token issuance
 
 This boundary exists so that:
@@ -220,9 +219,10 @@ Auth challenge and verify services return service-level success results and
 typed service errors. Their routes own the HTTP status and response-body
 mapping.
 
-`packages/api/src/services/containers/containerMetadata.ts` owns container
-metadata document creation. Auth registration and container creation call it
-from service code without importing from `routes/**`.
+Container metadata document creation is handled by `insertContainerMetadataBinding`
+in `packages/api/src/workflows/containers/mutations/shared/persistence.ts`.
+Auth registration and container creation call it from workflow code without
+importing from `routes/**`.
 
 API route tests, API integration helpers, and in-process API integration tests
 call `routeApp` directly instead of importing the server entrypoint.
