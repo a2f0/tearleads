@@ -1,4 +1,4 @@
-import { usePersistedNotesDirectory } from "../../../stores/notes/notesDirectory";
+import { usePersistedNotesDirectory } from "../../../stores/documents/notesDirectory";
 import type { ActiveNoteSelection } from "../types";
 
 export function useNotesDirectory(

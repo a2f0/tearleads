@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { DEFAULT_NOTE_ID } from "../../../stores/notes/NotesProvider";
+import { DEFAULT_DOCUMENT_ID } from "../../../stores/documents/DocumentsProvider";
 import type { ActiveNoteSelection, NotesAppProps } from "../types";
 
 export function useExplicitNoteSelection({
@@ -17,7 +17,7 @@ export function useExplicitNoteSelection({
     }
 
     return {
-      noteId: noteId ?? documentId ?? DEFAULT_NOTE_ID,
+      noteId: noteId ?? documentId ?? DEFAULT_DOCUMENT_ID,
       ...(containerId === undefined ? {} : { containerId }),
       ...(documentId === undefined ? {} : { documentId }),
     };

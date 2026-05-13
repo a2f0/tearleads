@@ -1,11 +1,11 @@
 import type { DragEvent } from "react";
-import type { NoteAttachmentStatus } from "../../../stores/notes/NotesProvider";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { NOTES_LABELS } from "../labels";
 import type { NoteAttachment } from "../noteDocument";
 import type {
   AttachmentImageUrlBySlotId,
   AttachmentStatusBySlotId,
+  NoteAttachmentStatus,
 } from "../types";
 
 interface NotesAttachmentsPanelProps {
