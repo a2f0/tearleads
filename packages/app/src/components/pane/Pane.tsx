@@ -25,7 +25,7 @@ const BOOT_PANE_LOG_MESSAGE =
 
 function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
-  const { signingKeyPair } = useIdentity();
+  const { generateKey, signingKeyPair } = useIdentity();
   useRegisterUserId(userId);
   const { windows } = useWindowStateData();
   const { create } = useWindowActions();
@@ -45,18 +45,17 @@ function PaneInner({ className }: { className: string }) {
     [bootPaneLogEntry, hasSigningKeyPair],
   );
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      if (!signingKeyPair) {
-        return;
-      }
-      setContextMenu({ x: e.clientX, y: e.clientY });
-    },
-    [signingKeyPair],
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const generateKeyPair = useCallback(() => {
+    generateKey();
+    setContextMenu(null);
+  }, [generateKey]);
 
   const openFloatingWindow = useCallback(() => {
     if (contextMenu) {
@@ -114,11 +113,20 @@ function PaneInner({ className }: { className: string }) {
       <PaneFooter />
       {contextMenu && (
         <Menu position={contextMenu} onClose={closeContextMenu}>
-          <MenuItem label="Open Floating Window" onClick={openFloatingWindow} />
-          <MenuItem label="Open Notes" onClick={openNotes} />
-          <MenuItem label="Open Contacts" onClick={openContacts} />
-          <MenuItem label="Open Explorer" onClick={openExplorer} />
-          <MenuItem label="Open Org Manager" onClick={openOrgManager} />
+          {!hasSigningKeyPair ? (
+            <MenuItem label="Generate Key Pair" onClick={generateKeyPair} />
+          ) : (
+            <>
+              <MenuItem
+                label="Open Floating Window"
+                onClick={openFloatingWindow}
+              />
+              <MenuItem label="Open Notes" onClick={openNotes} />
+              <MenuItem label="Open Contacts" onClick={openContacts} />
+              <MenuItem label="Open Explorer" onClick={openExplorer} />
+              <MenuItem label="Open Org Manager" onClick={openOrgManager} />
+            </>
+          )}
         </Menu>
       )}
     </section>
