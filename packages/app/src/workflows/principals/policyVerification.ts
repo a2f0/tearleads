@@ -50,35 +50,36 @@ function signerCacheKey(input: {
   return `${input.signerUserId}:${input.signingFingerprint}`;
 }
 
-async function findTrustedSignerPublicKey(input: {
-  readonly state: PrincipalPolicyBundleResponse["currentState"];
+async function trustedSignerPublicKeysByKey(input: {
   readonly trustedSignerPublicKeys:
     | readonly TrustedPrincipalPolicySignerPublicKey[]
     | undefined;
-}): Promise<PrincipalPolicySignerPublicKey | null> {
+}): Promise<Map<string, PrincipalPolicySignerPublicKey>> {
+  const trustedSignerPublicKeysByKey = new Map<
+    string,
+    PrincipalPolicySignerPublicKey
+  >();
+
   for (const trustedSigner of input.trustedSignerPublicKeys ?? []) {
-    if (
-      trustedSigner.signerUserId !== input.state.signerUserId ||
-      trustedSigner.signingFingerprint !== input.state.signerUserKeyFingerprint
-    ) {
+    if (trustedSignerPublicKeysByKey.has(signerCacheKey(trustedSigner))) {
       continue;
     }
 
     if (
       (await toFingerprint(trustedSigner.signingPublicKey)) !==
-      input.state.signerUserKeyFingerprint
+      trustedSigner.signingFingerprint
     ) {
       continue;
     }
 
-    return {
-      userId: input.state.signerUserId,
-      signingKeyFingerprint: input.state.signerUserKeyFingerprint,
+    trustedSignerPublicKeysByKey.set(signerCacheKey(trustedSigner), {
+      userId: trustedSigner.signerUserId,
+      signingKeyFingerprint: trustedSigner.signingFingerprint,
       signingPublicKey: trustedSigner.signingPublicKey,
-    };
+    });
   }
 
-  return null;
+  return trustedSignerPublicKeysByKey;
 }
 
 async function loadRemoteSignerPublicKey(input: {
@@ -139,6 +140,9 @@ export async function collectPrincipalPolicySignerPublicKeys(input: {
     string,
     PrincipalPolicySignerPublicKey
   >();
+  const trustedSignerPublicKeys = await trustedSignerPublicKeysByKey({
+    trustedSignerPublicKeys: input.trustedSignerPublicKeys,
+  });
 
   for (const state of principalPolicyStates(input.bundle)) {
     const cacheKey = signerCacheKey({
@@ -149,10 +153,7 @@ export async function collectPrincipalPolicySignerPublicKeys(input: {
       continue;
     }
 
-    const trustedSignerPublicKey = await findTrustedSignerPublicKey({
-      state,
-      trustedSignerPublicKeys: input.trustedSignerPublicKeys,
-    });
+    const trustedSignerPublicKey = trustedSignerPublicKeys.get(cacheKey);
     if (trustedSignerPublicKey) {
       signerPublicKeysByKey.set(cacheKey, trustedSignerPublicKey);
       continue;

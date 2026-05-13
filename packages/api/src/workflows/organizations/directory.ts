@@ -1,8 +1,29 @@
-import type { OrganizationDirectoryResponse } from "@tearleads/validators/response";
+import type {
+  OrganizationDirectoryResponse,
+  OrganizationRole,
+} from "@tearleads/validators/response";
 import { listCurrentPrincipalProjectionMembers } from "../../access/read/principalStateStore";
 import type { ApiDatabase } from "../../adapters/postgres";
 import { requireDirectOrganizationAccess } from "./access";
 import { loadUsersById } from "./users";
+
+const organizationRoleSortOrder = {
+  admin: 0,
+  member: 1,
+} satisfies Record<OrganizationRole, number>;
+
+type OrganizationDirectoryUser = OrganizationDirectoryResponse["users"][number];
+
+function compareOrganizationDirectoryUsers(
+  left: OrganizationDirectoryUser,
+  right: OrganizationDirectoryUser,
+): number {
+  return (
+    organizationRoleSortOrder[left.role] -
+      organizationRoleSortOrder[right.role] ||
+    left.userId.localeCompare(right.userId)
+  );
+}
 
 export async function runListOrganizationDirectoryWorkflow(
   db: ApiDatabase,
@@ -51,13 +72,7 @@ export async function runListOrganizationDirectoryWorkflow(
             },
           ];
         })
-        .sort((left, right) =>
-          left.role === right.role
-            ? left.userId.localeCompare(right.userId)
-            : left.role === "admin"
-              ? -1
-              : 1,
-        ),
+        .sort(compareOrganizationDirectoryUsers),
     };
   });
 }

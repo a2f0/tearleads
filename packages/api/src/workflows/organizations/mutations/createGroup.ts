@@ -87,6 +87,10 @@ export async function runCreateOrganizationGroupWorkflow(
 ): Promise<OrganizationGroupSummaryResponse> {
   const name = input.name.trim();
 
+  if (name.length === 0) {
+    throw new OrganizationManagerError("Group name cannot be empty", 400);
+  }
+
   if (input.initialGroupPolicy.state.principalType !== "group") {
     throw new OrganizationManagerError(
       "Initial group policy must target a group principal",
@@ -131,7 +135,7 @@ export async function runCreateOrganizationGroupWorkflow(
         createdAt: groupsTable.createdAt,
       });
 
-    if (!insertedGroup?.organizationId) {
+    if (!insertedGroup) {
       throw new OrganizationManagerError("Group already exists", 409);
     }
 
@@ -159,7 +163,7 @@ export async function runCreateOrganizationGroupWorkflow(
         createdAt: insertedGroup.createdAt,
         groupId: insertedGroup.groupId,
         name: insertedGroup.name,
-        organizationId: insertedGroup.organizationId,
+        organizationId,
         state: storedState,
       });
     } catch (error) {
