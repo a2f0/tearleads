@@ -1,0 +1,41 @@
+import type { Context, MiddlewareHandler } from "hono";
+import {
+  destroySession as defaultDestroySession,
+  requireAuth as defaultRequireAuth,
+  type SessionEnv,
+} from "./middleware/session";
+import {
+  type ApiServiceRuntime,
+  defaultApiServiceRuntime,
+} from "./services/runtime";
+
+// Test seam
+export interface RouteAppOverrides {
+  readonly destroySession?: (c: Context) => Promise<void>;
+  readonly publish?: (event: Record<string, unknown>) => Promise<void>;
+  readonly requireAuth?: MiddlewareHandler<SessionEnv>;
+  readonly runtime?: ApiServiceRuntime;
+}
+
+type ResolvedRouteAppDeps = Required<RouteAppOverrides>;
+
+export const productionRouteAppOverrides: RouteAppOverrides = {
+  destroySession: defaultDestroySession,
+  requireAuth: defaultRequireAuth,
+  runtime: defaultApiServiceRuntime,
+};
+
+export function resolveRouteAppDeps({
+  destroySession,
+  publish,
+  requireAuth,
+  runtime,
+}: RouteAppOverrides): ResolvedRouteAppDeps {
+  const resolvedRuntime = runtime ?? defaultApiServiceRuntime;
+  return {
+    destroySession: destroySession ?? defaultDestroySession,
+    publish: publish ?? resolvedRuntime.eventPublisher.publish,
+    requireAuth: requireAuth ?? defaultRequireAuth,
+    runtime: resolvedRuntime,
+  };
+}
