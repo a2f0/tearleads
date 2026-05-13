@@ -169,7 +169,9 @@ CREATE TABLE IF NOT EXISTS containers (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  organization_id UUID NOT NULL,
  parent_id UUID,
- created_at TIMESTAMP NOT NULL DEFAULT now()
+ depth INTEGER NOT NULL DEFAULT 0,
+ created_at TIMESTAMP NOT NULL DEFAULT now(),
+ updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
 ```
 

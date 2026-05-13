@@ -650,7 +650,7 @@ Suggested entry points:
 verifyIdentityStateCheckpoint(input): VerifiedIdentityState | VerificationError;
 verifyPrincipalPolicyBundle(input): VerifiedPrincipalPolicy | VerificationError;
 verifyAccessManifest(input): VerifiedAccessManifest | VerificationError;
-deriveContainerKekState(input): VerifiedContainerKekState | VerificationError;
+verifyContainerKekState(input): VerifiedContainerKekState | VerificationError;
 deriveDocumentKekTargets(input): DocumentKekTarget[] | VerificationError;
 deriveBlobKekTargets(input): BlobKekTarget[] | VerificationError;
 verifyWriteHeader(input): VerifiedWriteHeader | VerificationError;
