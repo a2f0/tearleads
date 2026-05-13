@@ -6,6 +6,7 @@ import {
   type DocumentsPersistence,
   type LocalAttachmentRecord,
   type PendingAttachmentRecord,
+  type PendingUpdateInsert,
   type PendingUpdateRecord,
 } from "../../../workflows/documents";
 import type { DocumentsRuntime } from "../types";
@@ -18,9 +19,6 @@ interface StoredDocumentsState {
 }
 
 type MutableDocumentsState = StoredDocumentsState;
-type PendingUpdateInsert = Parameters<
-  DocumentsPersistence["enqueuePendingUpdate"]
->[1];
 type RuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
 type FixtureBlobBytes = Parameters<RuntimeInput["blobStore"]["writeBytes"]>[1];
 

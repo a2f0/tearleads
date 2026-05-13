@@ -1,9 +1,8 @@
 import type { PropsWithChildren } from "react";
 import {
-  adaptNotesPersistence,
-  defaultNotesPersistence,
-  type NotesPersistence,
-} from "../../workflows/notes";
+  type DocumentsPersistence,
+  defaultDocumentsPersistence,
+} from "../../workflows/documents";
 import {
   createDocumentStore,
   DEFAULT_DOCUMENT_ID,
@@ -23,14 +22,14 @@ export type NotesRuntime = DocumentsRuntime;
 export function createNotesStore(
   noteId: string,
   initialRuntime: NotesRuntime,
-  persistence: NotesPersistence = defaultNotesPersistence,
+  persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
 ): ReturnType<typeof createDocumentStore> {
   return createDocumentStore(
     noteId,
     initialRuntime,
-    adaptNotesPersistence(persistence),
+    persistence,
     initialDocumentId,
     initialText,
   );

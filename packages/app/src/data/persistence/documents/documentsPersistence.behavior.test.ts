@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 import {
-  listNotesByContainerIds,
-  sqlNotesPersistence,
-} from "./notesPersistence";
+  listDocumentsByContainerIds,
+  sqlDocumentsPersistence,
+} from "./documentsPersistence";
 
 const emptyDocumentState = {
   contentKeyBundle: null,
@@ -11,15 +11,17 @@ const emptyDocumentState = {
   documentManifestBundle: null,
 };
 
-test("concurrent note saves are serialized on a shared SQLite connection", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("concurrent document saves are serialized on a shared SQLite connection", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
     await expect(
       Promise.all([
-        sqlNotesPersistence.saveNote(execSql, {
+        sqlDocumentsPersistence.saveDocument(execSql, {
           id: "default",
           containerId: "root-container",
           documentId: null,
@@ -27,7 +29,7 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
           loroSnapshot: "snapshot-1",
           accessEpoch: 1,
         }),
-        sqlNotesPersistence.saveNote(execSql, {
+        sqlDocumentsPersistence.saveDocument(execSql, {
           id: "default",
           containerId: "root-container",
           documentId: null,
@@ -39,7 +41,7 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
     ).resolves.toEqual([expect.any(String), expect.any(String)]);
 
     await expect(
-      sqlNotesPersistence.loadNote(execSql, "default"),
+      sqlDocumentsPersistence.loadDocument(execSql, "default"),
     ).resolves.toEqual({
       id: "default",
       containerId: "root-container",
@@ -57,13 +59,15 @@ test("concurrent note saves are serialized on a shared SQLite connection", async
   }
 });
 
-test("upsertDiscoveredNote reuses an existing local note bound to the remote document id", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("upsertDiscoveredDocument reuses an existing local note bound to the remote document id", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(
+    await sqlDocumentsPersistence.saveDocument(
       execSql,
       {
         id: "local-note",
@@ -79,7 +83,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
     );
 
     await expect(
-      sqlNotesPersistence.upsertDiscoveredNote(execSql, {
+      sqlDocumentsPersistence.upsertDiscoveredDocument(execSql, {
         accessEpoch: 3,
         containerId: "shared-container",
         createdAt: "2026-04-06T00:00:00.000Z",
@@ -97,7 +101,7 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
     });
 
     await expect(
-      sqlNotesPersistence.loadNote(execSql, "local-note"),
+      sqlDocumentsPersistence.loadDocument(execSql, "local-note"),
     ).resolves.toEqual({
       id: "local-note",
       containerId: "shared-container",
@@ -112,20 +116,22 @@ test("upsertDiscoveredNote reuses an existing local note bound to the remote doc
     });
 
     await expect(
-      sqlNotesPersistence.loadNote(execSql, "remote-document"),
+      sqlDocumentsPersistence.loadDocument(execSql, "remote-document"),
     ).resolves.toBeNull();
   } finally {
     close();
   }
 });
 
-test("upsertDiscoveredNote preserves document state for the same remote document id", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("upsertDiscoveredDocument preserves document state for the same remote document id", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(
+    await sqlDocumentsPersistence.saveDocument(
       execSql,
       {
         accessEpoch: 2,
@@ -152,7 +158,7 @@ test("upsertDiscoveredNote preserves document state for the same remote document
       },
     );
 
-    await sqlNotesPersistence.upsertDiscoveredNote(execSql, {
+    await sqlDocumentsPersistence.upsertDiscoveredDocument(execSql, {
       accessEpoch: 2,
       containerId: "shared-container",
       createdAt: "2026-04-06T00:00:00.000Z",
@@ -161,7 +167,7 @@ test("upsertDiscoveredNote preserves document state for the same remote document
     });
 
     await expect(
-      sqlNotesPersistence.loadNote(execSql, "local-note"),
+      sqlDocumentsPersistence.loadDocument(execSql, "local-note"),
     ).resolves.toMatchObject({
       accessStateHash: "access-state-hash-1",
       documentId: "remote-document",
@@ -182,13 +188,15 @@ test("upsertDiscoveredNote preserves document state for the same remote document
   }
 });
 
-test("relinkPersistedNote clears document state for a different remote document id", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("relinkPersistedDocument clears document state for a different remote document id", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(execSql, {
+    await sqlDocumentsPersistence.saveDocument(execSql, {
       accessEpoch: 2,
       containerId: "container-a",
       documentId: "remote-document-a",
@@ -207,15 +215,18 @@ test("relinkPersistedNote clears document state for a different remote document 
       }),
     });
 
-    await sqlNotesPersistence.relinkPersistedNote(execSql, {
+    await sqlDocumentsPersistence.relinkPersistedDocument(execSql, {
       accessEpoch: 3,
       accessStateHash: "access-state-hash-2",
       containerId: "container-b",
       documentId: "remote-document-b",
-      noteId: "local-note",
+      localId: "local-note",
     });
 
-    const note = await sqlNotesPersistence.loadNote(execSql, "local-note");
+    const note = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      "local-note",
+    );
 
     expect(note).toMatchObject({
       accessEpoch: 3,
@@ -231,13 +242,15 @@ test("relinkPersistedNote clears document state for a different remote document 
   }
 });
 
-test("upsertDiscoveredNote preserves the active local container when another linked container rediscovers the document", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("upsertDiscoveredDocument preserves the active local container when another linked container rediscovers the document", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(
+    await sqlDocumentsPersistence.saveDocument(
       execSql,
       {
         id: "local-note",
@@ -253,7 +266,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
     );
 
     await expect(
-      sqlNotesPersistence.upsertDiscoveredNote(execSql, {
+      sqlDocumentsPersistence.upsertDiscoveredDocument(execSql, {
         accessEpoch: 3,
         containerId: "container-b",
         createdAt: "2026-04-06T01:00:00.000Z",
@@ -271,7 +284,7 @@ test("upsertDiscoveredNote preserves the active local container when another lin
     });
 
     await expect(
-      sqlNotesPersistence.loadNote(execSql, "local-note"),
+      sqlDocumentsPersistence.loadDocument(execSql, "local-note"),
     ).resolves.toEqual({
       id: "local-note",
       containerId: "container-a",
@@ -289,13 +302,15 @@ test("upsertDiscoveredNote preserves the active local container when another lin
   }
 });
 
-test("relinkPersistedNote updates the stored container and clears stale bundles on epoch change", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("relinkPersistedDocument updates the stored container and clears stale bundles on epoch change", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(
+    await sqlDocumentsPersistence.saveDocument(
       execSql,
       {
         id: "local-note",
@@ -316,11 +331,11 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
     );
 
     await expect(
-      sqlNotesPersistence.relinkPersistedNote(execSql, {
+      sqlDocumentsPersistence.relinkPersistedDocument(execSql, {
         accessEpoch: 3,
         containerId: "container-b",
         documentId: "remote-document",
-        noteId: "local-note",
+        localId: "local-note",
       }),
     ).resolves.toEqual({
       accessStateHash: null,
@@ -332,7 +347,7 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
       updatedAt: "2026-04-05T02:00:00.000Z",
     });
 
-    const reloadedNote = await sqlNotesPersistence.loadNote(
+    const reloadedNote = await sqlDocumentsPersistence.loadDocument(
       execSql,
       "local-note",
     );
@@ -355,13 +370,15 @@ test("relinkPersistedNote updates the stored container and clears stale bundles 
   }
 });
 
-test("listNotesByContainerIds only returns notes for the requested containers", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("listDocumentsByContainerIds only returns notes for the requested containers", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(execSql, {
+    await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "note-a",
       containerId: "container-a",
       documentId: "document-a",
@@ -369,7 +386,7 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
       loroSnapshot: "snapshot-a",
       accessEpoch: 1,
     });
-    await sqlNotesPersistence.saveNote(execSql, {
+    await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "note-b",
       containerId: "container-b",
       documentId: "document-b",
@@ -377,7 +394,7 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
       loroSnapshot: "snapshot-b",
       accessEpoch: 1,
     });
-    await sqlNotesPersistence.saveNote(execSql, {
+    await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "note-c",
       containerId: "container-c",
       documentId: "document-c",
@@ -387,7 +404,7 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
     });
 
     await expect(
-      listNotesByContainerIds(execSql, ["container-a", "container-c"]),
+      listDocumentsByContainerIds(execSql, ["container-a", "container-c"]),
     ).resolves.toEqual([
       {
         accessStateHash: null,
@@ -413,13 +430,15 @@ test("listNotesByContainerIds only returns notes for the requested containers", 
   }
 });
 
-test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linked notes", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("listDocumentsByContainerIdsOrDocumentIds returns directly and indirectly linked notes", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(execSql, {
+    await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "direct-note",
       containerId: "shared-container",
       documentId: "direct-document",
@@ -427,7 +446,7 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
       loroSnapshot: "snapshot-direct",
       accessEpoch: 1,
     });
-    await sqlNotesPersistence.saveNote(execSql, {
+    await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "linked-note",
       containerId: "outside-container",
       documentId: "linked-document",
@@ -435,7 +454,7 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
       loroSnapshot: "snapshot-linked",
       accessEpoch: 1,
     });
-    await sqlNotesPersistence.saveNote(execSql, {
+    await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "unrelated-note",
       containerId: "outside-container",
       documentId: "unrelated-document",
@@ -445,10 +464,13 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
     });
 
     await expect(
-      sqlNotesPersistence.listNotesByContainerIdsOrDocumentIds(execSql, {
-        containerIds: ["shared-container"],
-        documentIds: ["linked-document"],
-      }),
+      sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
+        execSql,
+        {
+          containerIds: ["shared-container"],
+          documentIds: ["linked-document"],
+        },
+      ),
     ).resolves.toEqual([
       {
         accessStateHash: null,
@@ -474,13 +496,15 @@ test("listNotesByContainerIdsOrDocumentIds returns directly and indirectly linke
   }
 });
 
-test("listNotes reads driver license titles and document kinds from projection metadata", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("listDocuments reads driver license titles and document kinds from projection metadata", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(execSql, {
+    await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "drivers-license",
       containerId: "identity-container",
       documentId: "document-license",
@@ -491,7 +515,9 @@ test("listNotes reads driver license titles and document kinds from projection m
       accessEpoch: 1,
     });
 
-    await expect(sqlNotesPersistence.listNotes(execSql)).resolves.toEqual([
+    await expect(
+      sqlDocumentsPersistence.listDocuments(execSql),
+    ).resolves.toEqual([
       {
         accessStateHash: null,
         id: "drivers-license",
@@ -507,13 +533,15 @@ test("listNotes reads driver license titles and document kinds from projection m
   }
 });
 
-test("listNotes reads masked credit card titles and document kinds from projection metadata", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("listDocuments reads masked credit card titles and document kinds from projection metadata", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    await sqlNotesPersistence.saveNote(execSql, {
+    await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "credit-card",
       containerId: "billing-container",
       documentId: "document-card",
@@ -524,7 +552,9 @@ test("listNotes reads masked credit card titles and document kinds from projecti
       accessEpoch: 1,
     });
 
-    await expect(sqlNotesPersistence.listNotes(execSql)).resolves.toEqual([
+    await expect(
+      sqlDocumentsPersistence.listDocuments(execSql),
+    ).resolves.toEqual([
       {
         accessStateHash: null,
         id: "credit-card",
@@ -540,14 +570,16 @@ test("listNotes reads masked credit card titles and document kinds from projecti
   }
 });
 
-test("upsertDiscoveredNote uses the remote createdAt for a newly discovered document", async () => {
-  const { close, execSql } = await createTestExecSql("notes-persistence-test");
+test("upsertDiscoveredDocument uses the remote createdAt for a newly discovered document", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
 
   try {
-    await sqlNotesPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
 
     await expect(
-      sqlNotesPersistence.upsertDiscoveredNote(execSql, {
+      sqlDocumentsPersistence.upsertDiscoveredDocument(execSql, {
         accessEpoch: 1,
         containerId: "shared-container",
         createdAt: "2026-04-06T12:00:00.000Z",
@@ -564,7 +596,9 @@ test("upsertDiscoveredNote uses the remote createdAt for a newly discovered docu
       updatedAt: "2026-04-06T12:00:00.000Z",
     });
 
-    await expect(sqlNotesPersistence.listNotes(execSql)).resolves.toEqual([
+    await expect(
+      sqlDocumentsPersistence.listDocuments(execSql),
+    ).resolves.toEqual([
       {
         accessStateHash: null,
         id: "remote-document",
