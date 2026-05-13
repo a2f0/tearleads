@@ -34,6 +34,7 @@ export async function buildMaterializedDocumentCreatePlan(
     documentId?: string | undefined;
     eventId?: string | undefined;
     execSql?: ExecSql | undefined;
+    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
     signedAt?: string | undefined;
     targetSecretKey: Uint8Array;
   } & ProjectionVerificationOptions,
@@ -46,6 +47,7 @@ export async function buildMaterializedDocumentCreatePlan(
   const targetEnvelopes = await wrapDocumentContentKeyForCreate({
     contentKey,
     execSql: input.execSql,
+    knownContainerKeks: input.knownContainerKeks,
     projection: input.containerProjection,
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),

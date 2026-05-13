@@ -1,6 +1,7 @@
 import { isPlainObject } from "../isPlainObject";
 import {
   hasArrayProperty,
+  hasNonEmptyStringProperty,
   hasNullableStringProperty,
   hasNumberProperty,
   hasObjectProperty,
@@ -166,7 +167,7 @@ export function isPutPrincipalMemberEnvelopesRequest(
 ): value is PutPrincipalMemberEnvelopesRequest {
   return (
     isPlainObject(value) &&
-    hasStringProperty(value, "stateHash") &&
+    hasNonEmptyStringProperty(value, "stateHash") &&
     hasArrayProperty(value, "envelopes") &&
     value.envelopes.every(isPrincipalMemberEnvelopeRequest)
   );

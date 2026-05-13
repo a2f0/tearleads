@@ -196,8 +196,10 @@ test("group add and remove policy builders preserve additive epochs and rotate s
   });
 
   const addRequest = await buildAddGroupUserPolicyRequest({
+    canAdministerOrganization: false,
     currentPolicy: initialPolicy,
     currentPolicySignerPublicKeys,
+    currentUsers: [],
     currentUserSecretKey: creatorKem.secretKey,
     localPolicyCheckpoint: null,
     signerUserId,
@@ -214,7 +216,7 @@ test("group add and remove policy builders preserve additive epochs and rotate s
   expect(
     addRequest.state.projection.map((member) => member.memberPrincipalId),
   ).toContain(targetUserId);
-  expect(addRequest.memberEnvelopes.envelopes).toHaveLength(2);
+  expect(addRequest.memberEnvelopes).toHaveLength(2);
 
   const addStateHash = await computePrincipalStateHash(addRequest.state.state);
   const addedPolicy: PrincipalPolicyBundleResponse = {
@@ -239,7 +241,7 @@ test("group add and remove policy builders preserve additive epochs and rotate s
       principalId: initialRequest.groupId,
       stateHash: addStateHash,
       epoch: addRequest.state.state.keyEpoch,
-      envelopes: addRequest.memberEnvelopes.envelopes,
+      envelopes: [...addRequest.memberEnvelopes],
     },
     previousStates: [
       {
@@ -250,6 +252,7 @@ test("group add and remove policy builders preserve additive epochs and rotate s
   };
 
   const removeRequest = await buildRemoveGroupUserPolicyRequest({
+    canAdministerOrganization: false,
     currentPolicy: addedPolicy,
     currentPolicySignerPublicKeys,
     localPolicyCheckpoint: {
@@ -277,8 +280,8 @@ test("group add and remove policy builders preserve additive epochs and rotate s
       (member) => member.memberPrincipalId === targetUserId,
     ),
   ).toBe(false);
-  expect(removeRequest.memberEnvelopes.envelopes).toHaveLength(1);
-  expect(removeRequest.memberEnvelopes.envelopes[0]?.memberPrincipalId).toBe(
+  expect(removeRequest.memberEnvelopes).toHaveLength(1);
+  expect(removeRequest.memberEnvelopes[0]?.memberPrincipalId).toBe(
     signerUserId,
   );
 });
@@ -315,12 +318,14 @@ test("group mutation builders reject tampered server policy projections", async 
 
   await expect(
     buildAddGroupUserPolicyRequest({
+      canAdministerOrganization: false,
       currentPolicy: tamperedPolicy,
       currentPolicySignerPublicKeys: policySignerPublicKeys({
         signerUserId,
         signingFingerprint,
         signingKeyPair,
       }),
+      currentUsers: [],
       currentUserSecretKey: creatorKem.secretKey,
       localPolicyCheckpoint: null,
       signerUserId,

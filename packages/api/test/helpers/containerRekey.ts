@@ -8,6 +8,7 @@ import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessEventBodyHash,
@@ -25,6 +26,7 @@ import type {
 interface ContainerRekeyFixture {
   readonly bundle: ContainerManifestBundle | VerifiedContainerAccessManifest;
   readonly kekState: VerifiedContainerKekState;
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
 }
 
 interface BuiltContainerRekeyMutation {
@@ -32,6 +34,7 @@ interface BuiltContainerRekeyMutation {
   readonly container: {
     readonly bundle: VerifiedContainerAccessManifest;
     readonly kekState: VerifiedContainerKekState;
+    readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   };
   readonly kekState: VerifiedContainerKekState;
   readonly request: ContainerMutationRequest;
@@ -122,19 +125,19 @@ function userRecipientKeysFromKekState(
     }));
 }
 
-function createUserKeyWraps(input: {
+function createRecipientKeyWraps(input: {
   readonly containerKeyEpochId: string;
   readonly manifestHash: string;
-  readonly userRecipientKeys: readonly ContainerUserRecipientKey[];
+  readonly recipientTargets: readonly VerifiedContainerKekState["recipientTargets"][number][];
 }): ContainerKeyWrap[] {
-  return input.userRecipientKeys.map((target) => ({
+  return input.recipientTargets.map((target) => ({
     containerKeyEpochId: input.containerKeyEpochId,
-    recipientKind: "user",
-    recipientId: target.userId,
+    recipientKind: target.recipientKind,
+    recipientId: target.recipientId,
     recipientKeyEpochId: target.recipientKeyEpochId,
     recipientKeyFingerprint: target.recipientKeyFingerprint,
-    kemCipherText: `kem:${input.containerKeyEpochId}:${target.userId}`,
-    wrappedKey: `wrapped:${input.containerKeyEpochId}:${target.userId}`,
+    kemCipherText: `kem:${input.containerKeyEpochId}:${target.recipientId}`,
+    wrappedKey: `wrapped:${input.containerKeyEpochId}:${target.recipientId}`,
     wrapManifestHash: input.manifestHash,
   }));
 }
@@ -199,14 +202,16 @@ export async function buildRootContainerRekeyMutation(input: {
   const userRecipientKeys = userRecipientKeysFromKekState(
     input.previous.kekState,
   );
-  const wraps = createUserKeyWraps({
+  const principalPolicies = input.previous.principalPolicies ?? [];
+  const wraps = createRecipientKeyWraps({
     containerKeyEpochId,
     manifestHash,
-    userRecipientKeys,
+    recipientTargets: input.previous.kekState.recipientTargets,
   });
   const verifiedKekState = await verifyContainerKekState({
     containerManifest: asVerifiedContainerManifest(bundle),
     keyEpoch,
+    principalPolicies,
     userRecipientKeys,
     wraps,
   });
@@ -221,6 +226,7 @@ export async function buildRootContainerRekeyMutation(input: {
     container: {
       bundle: verifiedBundle,
       kekState: verifiedKekState.value,
+      principalPolicies,
     },
     kekState: verifiedKekState.value,
     request: {
@@ -231,6 +237,10 @@ export async function buildRootContainerRekeyMutation(input: {
       previousManifest: previousBundle,
       previousContainerPath: [previousBundle],
       keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+      principalPolicies: principalPolicies as unknown as Record<
+        string,
+        unknown
+      >[],
       wraps: wraps as unknown as Record<string, unknown>[],
       userRecipientKeys: userRecipientKeys as unknown as Record<
         string,

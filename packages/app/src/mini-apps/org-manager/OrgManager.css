@@ -85,7 +85,7 @@
 
 .org-manager-table-row {
   display: grid;
-  grid-template-columns: minmax(110px, 1.2fr) 80px minmax(120px, 1fr) 90px;
+  grid-template-columns: minmax(110px, 1.2fr) minmax(120px, 1fr) 90px;
   gap: 10px;
   align-items: center;
   min-height: 34px;

@@ -731,7 +731,10 @@ export function principalPolicyMatchesReference(input: {
 function grantAccessLevelForUser(input: {
   readonly grant: ContainerDirectGrant;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
-  readonly state: ContainerAccessManifestState;
+  readonly state: Pick<
+    ContainerAccessManifestState,
+    "referencedPrincipalHeads"
+  >;
   readonly userId: string;
 }): ContainerAccessLevel | null {
   if (input.grant.subjectType === "user") {
@@ -853,6 +856,7 @@ function requireRootCreateSignerAdmin(input: {
   readonly parentContainerPath:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }): void {
   if (input.parentContainerPath && input.parentContainerPath.length > 0) {
     throwVerification(
@@ -861,16 +865,28 @@ function requireRootCreateSignerAdmin(input: {
     );
   }
 
-  const signerGrant = input.body.directGrants.find(
-    (grant) =>
-      grant.subjectType === "user" &&
-      grant.subjectId === input.event.event.signerUserId,
-  );
+  const accessLevel =
+    input.body.directGrants.reduce<ContainerAccessLevel | null>(
+      (current, grant) => {
+        const grantAccessLevel = grantAccessLevelForUser({
+          grant,
+          principalPolicies: input.principalPolicies,
+          state: {
+            referencedPrincipalHeads: input.body.referencedPrincipalHeads,
+          },
+          userId: input.event.event.signerUserId,
+        });
+
+        return grantAccessLevel
+          ? mergeContainerAccessLevel(current, grantAccessLevel)
+          : current;
+      },
+      null,
+    );
 
   if (
-    !signerGrant ||
-    containerAccessLevelRank(signerGrant.accessLevel) <
-      containerAccessLevelRank("admin")
+    accessLevel === null ||
+    containerAccessLevelRank(accessLevel) < containerAccessLevelRank("admin")
   ) {
     throwVerification(
       "unauthorized",
@@ -943,6 +959,7 @@ function deriveContainerCreateManifestState(
       body,
       event,
       parentContainerPath: input.parentContainerPath,
+      principalPolicies: input.principalPolicies,
     });
   } else {
     requireContainerPathCurrentParent({

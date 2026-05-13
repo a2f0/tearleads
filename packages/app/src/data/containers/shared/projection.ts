@@ -2,10 +2,12 @@ import {
   type ContainerKekRecipientTarget,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
+  derivePrincipalRecipientKeyEpochId,
   encryptWithDek,
+  type ReferencedPrincipalHead,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { ContainerManifestBundle } from "@tearleads/validators/request";
 import type {
@@ -184,6 +186,49 @@ export async function wrapContainerKeyToRootUser(input: {
       recipientId: input.userId,
       recipientKeyEpochId: userRecipientKey.recipientKeyEpochId,
       recipientKeyFingerprint: userRecipientKey.recipientKeyFingerprint,
+      kemCipherText: bytesToBase64(recipient.kemCipherText),
+      wrappedKey: bytesToBase64(recipient.wrappedKey),
+      wrapManifestHash: input.manifestHash,
+    },
+  };
+}
+
+export async function wrapContainerKeyToManagedPrincipal(input: {
+  containerKey: Uint8Array;
+  containerKeyEpochId: string;
+  manifestHash: string;
+  principalEncapsulationPublicKey: string;
+  principalHead: ReferencedPrincipalHead;
+}): Promise<{
+  recipientTarget: ContainerKekRecipientTarget;
+  wrap: ContainerKeyWrap;
+}> {
+  const [recipient] = await wrapDekForRecipients(input.containerKey, [
+    base64ToBytes(input.principalEncapsulationPublicKey),
+  ]);
+  if (!recipient) {
+    throw new Error(
+      "Container managed principal recipient wrap is unavailable",
+    );
+  }
+
+  const recipientTarget: ContainerKekRecipientTarget = {
+    recipientKind: input.principalHead.principalType,
+    recipientId: input.principalHead.principalId,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
+      input.principalHead,
+    ),
+    recipientKeyFingerprint: input.principalHead.keyFingerprint,
+  };
+
+  return {
+    recipientTarget,
+    wrap: {
+      containerKeyEpochId: input.containerKeyEpochId,
+      recipientKind: recipientTarget.recipientKind,
+      recipientId: recipientTarget.recipientId,
+      recipientKeyEpochId: recipientTarget.recipientKeyEpochId,
+      recipientKeyFingerprint: recipientTarget.recipientKeyFingerprint,
       kemCipherText: bytesToBase64(recipient.kemCipherText),
       wrappedKey: bytesToBase64(recipient.wrappedKey),
       wrapManifestHash: input.manifestHash,

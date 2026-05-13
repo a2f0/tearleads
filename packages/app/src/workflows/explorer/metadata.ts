@@ -134,11 +134,15 @@ type NullableExplorerDocumentField =
   | "documentManifestBundle";
 
 function isStaleExplorerMetadataSecurityStateError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : "";
+
   return (
-    error instanceof Error &&
-    (error.message === "Document content key could not be unwrapped" ||
-      error.message === "Document sync target hash mismatch" ||
-      error.message === "Document sync content-key targets mismatch")
+    message.startsWith(
+      "Document authorizing container KEK path could not be unwrapped",
+    ) ||
+    message.startsWith("Document content key could not be unwrapped") ||
+    message === "Document sync target hash mismatch" ||
+    message === "Document sync content-key targets mismatch"
   );
 }
 

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
+  normalizePrincipalProjectionMembers,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
@@ -20,9 +21,14 @@ import {
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  getCurrentPrincipalState,
+  listCurrentPrincipalProjectionMembers,
+} from "../../access/read/principalStateStore";
+import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { users } from "../../schema";
+import { organizations, users } from "../../schema";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);
@@ -91,6 +97,68 @@ async function createGroupRequest(input: {
   };
 }
 
+async function addMemberGroupUser(input: {
+  actor: TestUser;
+  memberUserId: string;
+  organizationId: string;
+}) {
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
+
+  const currentState = await getCurrentPrincipalState(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  invariant(currentState, "expected current member group state");
+
+  const currentProjection = await listCurrentPrincipalProjectionMembers(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  const projection = normalizePrincipalProjectionMembers([
+    ...currentProjection.map((member) => ({
+      memberPrincipalType: member.memberPrincipalType,
+      memberPrincipalId: member.memberPrincipalId,
+      role: member.role,
+    })),
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.memberUserId,
+      role: "member" as const,
+    },
+  ]);
+  const payloadCiphertext = bytesToBase64(
+    new TextEncoder().encode(JSON.stringify({ members: projection })),
+  );
+  const state = await signPrincipalStateBundle({
+    principalType: "group",
+    principalId: organization.memberGroupId,
+    version: currentState.version + 1,
+    prevStateHash: currentState.stateHash,
+    keyEpoch: currentState.keyEpoch,
+    encapsulationPublicKey: currentState.encapsulationPublicKey,
+    keyFingerprint: currentState.keyFingerprint,
+    members: projection.map((member) => ({
+      principalType: member.memberPrincipalType,
+      principalId: member.memberPrincipalId,
+    })),
+    projection,
+    payloadCiphertext,
+    signedAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
+    signerUserId: input.actor.userId,
+    signerUserKeyFingerprint: input.actor.fingerprint,
+    signingPrivateKey: input.actor.signing.signingPrivateKey,
+  });
+
+  await storeVerifiedPrincipalState(state, db);
+}
+
 test("org manager routes list the current org directory", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
@@ -110,9 +178,9 @@ test("org manager routes list the current org directory", async () => {
     "expected organization directory response",
   );
   expect(body.organizationId).toBe(organizationId);
+  expect(body.currentUser.isOrgAdmin).toBe(true);
   expect(body.users).toHaveLength(1);
   expect(body.users[0]?.userId).toBe(actor.userId);
-  expect(body.users[0]?.role).toBe("admin");
   expect(body.users[0]?.isSelf).toBe(true);
 });
 
@@ -131,6 +199,57 @@ test("org manager routes reject users outside the organization", async () => {
   );
 
   expect(response.status).toBe(403);
+});
+
+test("org manager routes allow organization members to read but reserve mutations for Admins members", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const member = createTestUser();
+  await registerAndAuthenticate(member);
+  await addMemberGroupUser({
+    actor,
+    memberUserId: member.userId,
+    organizationId,
+  });
+
+  const directoryResponse = await routeApp.request(
+    `/organizations/${organizationId}/directory`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${member.token}` },
+    },
+  );
+
+  expect(directoryResponse.status).toBe(200);
+  const directoryBody = await directoryResponse.json();
+  invariant(
+    isOrganizationDirectoryResponse(directoryBody),
+    "expected organization directory response",
+  );
+  expect(directoryBody.currentUser.isOrgAdmin).toBe(false);
+  expect(directoryBody.users.map((user) => user.userId)).toEqual(
+    [actor.userId, member.userId].sort(),
+  );
+
+  const createResponse = await routeApp.request(
+    `/organizations/${organizationId}/groups`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${member.token}`,
+      },
+      body: JSON.stringify(
+        await createGroupRequest({
+          actor: member,
+          groupId: crypto.randomUUID(),
+          name: "Operators",
+        }),
+      ),
+    },
+  );
+
+  expect(createResponse.status).toBe(403);
 });
 
 test("org manager routes create and list groups with members", async () => {
@@ -180,6 +299,7 @@ test("org manager routes create and list groups with members", async () => {
     "expected list organization groups response",
   );
   expect(listBody.groups.map((group) => group.groupId)).toContain(groupId);
+  expect(listBody.groups.map((group) => group.name)).toEqual(["Operators"]);
 
   const membersResponse = await routeApp.request(
     `/organizations/${organizationId}/groups/${groupId}/members`,

@@ -13,6 +13,7 @@ import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -62,6 +63,7 @@ import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../test/helpers/containerRekey";
+import { loadVerifiedPrincipalPolicy } from "../../test/helpers/principalPolicy";
 import { registerUser } from "../../test/helpers/registerUser";
 import { getAccessManifestBundle } from "../access/read/accessManifestStore";
 import {
@@ -84,10 +86,12 @@ import {
   documentContentKeyTargets,
   documents,
   documentUpdateAuditEvents,
+  organizations,
   users,
 } from "../schema";
 
 interface RootContainerFixture {
+  readonly adminGroupId: string;
   readonly id: string;
   readonly organizationId: string;
 }
@@ -95,6 +99,7 @@ interface RootContainerFixture {
 interface StoredRootFixture {
   readonly bundle: ContainerManifestBundle;
   readonly kekState: VerifiedContainerKekState;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }
 
 async function getRootContainerForUser(
@@ -120,7 +125,14 @@ async function getRootContainerForUser(
     .limit(1);
 
   invariant(rootContainer, "expected root container row");
-  return rootContainer;
+  const [organization] = await db
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, rootContainer.organizationId))
+    .limit(1);
+  invariant(organization, "expected registered organization");
+
+  return { ...rootContainer, adminGroupId: organization.adminGroupId };
 }
 
 function asVerifiedContainerManifest(
@@ -175,13 +187,15 @@ async function createSignedAccessEvent(input: {
 async function verifyKekState(input: {
   readonly bundle: ContainerManifestBundle;
   readonly keyEpoch: ContainerKeyEpoch;
-  readonly userRecipientKeys: readonly ContainerUserRecipientKey[];
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
   readonly wraps: readonly ContainerKeyWrap[];
 }): Promise<VerifiedContainerKekState> {
   const verified = await verifyContainerKekState({
     containerManifest: asVerifiedContainerManifest(input.bundle),
     keyEpoch: input.keyEpoch,
-    userRecipientKeys: input.userRecipientKeys,
+    principalPolicies: input.principalPolicies ?? [],
+    userRecipientKeys: input.userRecipientKeys ?? [],
     wraps: input.wraps,
   });
 
@@ -224,6 +238,46 @@ function toContainerKeyWrap(
   };
 }
 
+function principalPolicyKey(policy: VerifiedPrincipalPolicy): string {
+  return [
+    policy.principalType,
+    policy.principalId,
+    policy.version,
+    policy.stateHash,
+  ].join(":");
+}
+
+function uniquePrincipalPolicies(
+  policies: readonly VerifiedPrincipalPolicy[],
+): VerifiedPrincipalPolicy[] {
+  const policiesByKey = new Map<string, VerifiedPrincipalPolicy>();
+
+  for (const policy of policies) {
+    policiesByKey.set(principalPolicyKey(policy), policy);
+  }
+
+  return [...policiesByKey.values()];
+}
+
+async function loadPrincipalPoliciesForContainerPath(
+  path: readonly ContainerManifestBundle[],
+): Promise<VerifiedPrincipalPolicy[]> {
+  const principalPolicies = await Promise.all(
+    path.flatMap((bundle) =>
+      asVerifiedContainerManifest(bundle).state.referencedPrincipalHeads.map(
+        (reference) =>
+          loadVerifiedPrincipalPolicy(
+            db,
+            reference.principalType,
+            reference.principalId,
+          ),
+      ),
+    ),
+  );
+
+  return uniquePrincipalPolicies(principalPolicies);
+}
+
 async function userRecipientKey(
   user: TestUser,
 ): Promise<ContainerUserRecipientKey> {
@@ -233,6 +287,41 @@ async function userRecipientKey(
     userId: user.userId,
     recipientKeyEpochId: `user:${user.userId}:encapsulation:${recipientKeyFingerprint}`,
     recipientKeyFingerprint,
+  };
+}
+
+function userRecipientKeysFromRecipientTargets(
+  recipientTargets: readonly VerifiedContainerKekState["recipientTargets"][number][],
+): ContainerUserRecipientKey[] {
+  return recipientTargets
+    .filter((target) => target.recipientKind === "user")
+    .map((target) => ({
+      userId: target.recipientId,
+      recipientKeyEpochId: target.recipientKeyEpochId,
+      recipientKeyFingerprint: target.recipientKeyFingerprint,
+    }));
+}
+
+function userRecipientKeysFromKekTargets(
+  kekState: VerifiedContainerKekState,
+): ContainerUserRecipientKey[] {
+  return userRecipientKeysFromRecipientTargets(kekState.recipientTargets);
+}
+
+function createContainerKeyWrapForRecipientTarget(input: {
+  readonly containerKeyEpochId: string;
+  readonly recipientTarget: VerifiedContainerKekState["recipientTargets"][number];
+  readonly wrapManifestHash: string;
+}): ContainerKeyWrap {
+  return {
+    containerKeyEpochId: input.containerKeyEpochId,
+    recipientKind: input.recipientTarget.recipientKind,
+    recipientId: input.recipientTarget.recipientId,
+    recipientKeyEpochId: input.recipientTarget.recipientKeyEpochId,
+    recipientKeyFingerprint: input.recipientTarget.recipientKeyFingerprint,
+    kemCipherText: `kem:${input.containerKeyEpochId}:${input.recipientTarget.recipientId}`,
+    wrappedKey: `wrapped:${input.containerKeyEpochId}:${input.recipientTarget.recipientId}`,
+    wrapManifestHash: input.wrapManifestHash,
   };
 }
 
@@ -248,24 +337,23 @@ async function bootstrapRoot(owner: TestUser): Promise<StoredRootFixture> {
   const wraps = (await listContainerKeyWraps(keyEpoch.id, db)).map(
     toContainerKeyWrap,
   );
-  const ownerWrap = wraps.find(
-    (wrap) =>
-      wrap.recipientKind === "user" && wrap.recipientId === owner.userId,
+  const adminPolicy = await loadVerifiedPrincipalPolicy(
+    db,
+    "group",
+    rootContainer.adminGroupId,
   );
-  invariant(ownerWrap, "expected registered root user KEK wrap");
-  const ownerKey: ContainerUserRecipientKey = {
-    userId: owner.userId,
-    recipientKeyEpochId: ownerWrap.recipientKeyEpochId,
-    recipientKeyFingerprint: ownerWrap.recipientKeyFingerprint,
-  };
   const kekState = await verifyKekState({
     bundle: bundle as unknown as ContainerManifestBundle,
     keyEpoch,
-    userRecipientKeys: [ownerKey],
+    principalPolicies: [adminPolicy],
     wraps,
   });
 
-  return { bundle: bundle as unknown as ContainerManifestBundle, kekState };
+  return {
+    bundle: bundle as unknown as ContainerManifestBundle,
+    kekState,
+    principalPolicies: [adminPolicy],
+  };
 }
 
 function accessManifestFromContainerResponse(
@@ -401,12 +489,19 @@ async function createChildContainer(input: {
     parentKekState: input.parent.kekState,
     wrapManifestHash: bundle.manifestHash,
   });
+  const principalPolicies = await loadPrincipalPoliciesForContainerPath([
+    input.parent.bundle,
+  ]);
   const request: ContainerMutationRequest = {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
     parentContainerPath: [input.parent.bundle],
+    principalPolicies: principalPolicies as unknown as Record<
+      string,
+      unknown
+    >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     wraps: [wrap as unknown as Record<string, unknown>],
     parentKekState: input.parent.kekState as unknown as Record<string, unknown>,
@@ -621,8 +716,10 @@ async function buildRootGrantRequest(input: {
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
   const previous = asVerifiedContainerManifest(input.previous);
-  const signerKey = await userRecipientKey(input.signer);
   const recipientKey = await userRecipientKey(input.recipient);
+  const principalPolicies = await loadPrincipalPoliciesForContainerPath([
+    input.previous,
+  ]);
   const grant = {
     subjectType: "user" as const,
     subjectId: input.recipient.userId,
@@ -675,6 +772,10 @@ async function buildRootGrantRequest(input: {
     previousManifest: input.previous,
     previousContainerPath: [input.previous],
     containerManifestHistory: [input.previous],
+    principalPolicies: principalPolicies as unknown as Record<
+      string,
+      unknown
+    >[],
     keyEpoch: input.previousKekState.keyEpoch as unknown as Record<
       string,
       unknown
@@ -682,9 +783,9 @@ async function buildRootGrantRequest(input: {
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: null,
     userRecipientKeys: [
-      signerKey as unknown as Record<string, unknown>,
+      ...userRecipientKeysFromKekTargets(input.previousKekState),
       recipientKey as unknown as Record<string, unknown>,
-    ],
+    ] as unknown as Record<string, unknown>[],
   };
 }
 
@@ -695,7 +796,9 @@ async function buildRootRevokeRequest(input: {
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
   const previous = asVerifiedContainerManifest(input.previous);
-  const signerKey = await userRecipientKey(input.signer);
+  const principalPolicies = await loadPrincipalPoliciesForContainerPath([
+    input.previous,
+  ]);
   const containerKeyEpochId = crypto.randomUUID();
   const body: ContainerAccessEventBody = {
     eventType: "container.revoke",
@@ -732,22 +835,23 @@ async function buildRootRevokeRequest(input: {
     keyEpoch: input.previousKekState.containerKeyEpoch + 1,
     manifest: bundle,
   });
-  const wraps: ContainerKeyWrap[] = [
-    {
+  const recipientTargets = input.previousKekState.recipientTargets.filter(
+    (target) =>
+      target.recipientKind !== "user" ||
+      target.recipientId !== input.revokedUser.userId,
+  );
+  const wraps: ContainerKeyWrap[] = recipientTargets.map((recipientTarget) =>
+    createContainerKeyWrapForRecipientTarget({
       containerKeyEpochId,
-      recipientKind: "user",
-      recipientId: signerKey.userId,
-      recipientKeyEpochId: signerKey.recipientKeyEpochId,
-      recipientKeyFingerprint: signerKey.recipientKeyFingerprint,
-      kemCipherText: `kem:${containerKeyEpochId}:${signerKey.userId}`,
-      wrappedKey: `wrapped:${containerKeyEpochId}:${signerKey.userId}`,
+      recipientTarget,
       wrapManifestHash: bundle.manifestHash,
-    },
-  ];
+    }),
+  );
   const kekState = await verifyKekState({
     bundle,
     keyEpoch,
-    userRecipientKeys: [signerKey],
+    principalPolicies,
+    userRecipientKeys: userRecipientKeysFromRecipientTargets(recipientTargets),
     wraps,
   });
 
@@ -759,10 +863,16 @@ async function buildRootRevokeRequest(input: {
     previousManifest: input.previous,
     previousContainerPath: [input.previous],
     containerManifestHistory: [input.previous],
+    principalPolicies: principalPolicies as unknown as Record<
+      string,
+      unknown
+    >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     wraps: kekState.wraps as unknown as Record<string, unknown>[],
     parentKekState: null,
-    userRecipientKeys: [signerKey as unknown as Record<string, unknown>],
+    userRecipientKeys: userRecipientKeysFromKekTargets(
+      kekState,
+    ) as unknown as Record<string, unknown>[],
   };
 }
 
@@ -807,6 +917,7 @@ test("POST /documents applies optional container rekeys before target validation
     root: {
       bundle: rootRekey.bundle,
       kekState: rootRekey.kekState,
+      principalPolicies: root.principalPolicies,
     },
   });
   request.containerRekeys = [rootRekey.request];
@@ -1269,6 +1380,7 @@ test("GET /documents/:documentId/writer-projection blocks revoked users after ro
     root: {
       bundle: accessManifestFromContainerResponse(revoked),
       kekState: kekStateFromContainerResponse(revoked),
+      principalPolicies: root.principalPolicies,
     },
   });
   expect(created.documentKekTargets.linkedContainerKeyEpochIds).toEqual([

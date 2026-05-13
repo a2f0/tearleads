@@ -4,6 +4,7 @@ import {
   hasBooleanProperty,
   hasNullableStringProperty,
   hasNumberProperty,
+  hasObjectProperty,
   hasStringProperty,
 } from "../util";
 
@@ -15,13 +16,15 @@ export interface OrganizationDirectoryUserResponse {
   signingPublicKey: string;
   encapsulationPublicKey: string;
   encapsulationKeyFingerprint: string;
-  role: OrganizationRole;
   createdAt: string;
   isSelf: boolean;
 }
 
 export interface OrganizationDirectoryResponse {
   organizationId: string;
+  currentUser: {
+    isOrgAdmin: boolean;
+  };
   users: OrganizationDirectoryUserResponse[];
 }
 
@@ -82,11 +85,15 @@ export function isOrganizationDirectoryUserResponse(
     hasStringProperty(value, "signingPublicKey") &&
     hasStringProperty(value, "encapsulationPublicKey") &&
     hasStringProperty(value, "encapsulationKeyFingerprint") &&
-    hasStringProperty(value, "role") &&
-    isOrganizationRole(value.role) &&
     hasStringProperty(value, "createdAt") &&
     hasBooleanProperty(value, "isSelf")
   );
+}
+
+function isOrganizationDirectoryCurrentUserResponse(
+  value: unknown,
+): value is OrganizationDirectoryResponse["currentUser"] {
+  return isPlainObject(value) && hasBooleanProperty(value, "isOrgAdmin");
 }
 
 export function isOrganizationDirectoryResponse(
@@ -95,6 +102,8 @@ export function isOrganizationDirectoryResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "organizationId") &&
+    hasObjectProperty(value, "currentUser") &&
+    isOrganizationDirectoryCurrentUserResponse(value.currentUser) &&
     hasArrayProperty(value, "users") &&
     value.users.every(isOrganizationDirectoryUserResponse)
   );

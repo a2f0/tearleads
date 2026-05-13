@@ -45,6 +45,7 @@ Write surfaces:
 | Register identity and bootstrap root state | `POST /auth/register` | `RegistrationRequest` |
 | Store principal policy state | `PUT /principals/:principalType/:principalId/state` | `PutPrincipalStateRequest` |
 | Store principal member envelopes | `PUT /principals/:principalType/:principalId/member-envelopes` | `PutPrincipalMemberEnvelopesRequest` |
+| Create organization group | `POST /organizations/:organizationId/groups` | `CreateOrganizationGroupRequest` |
 | Create container | `POST /containers` | `ContainerMutationRequest` |
 | Share container | `POST /containers/:containerId/share` | `ContainerMutationRequest` |
 | Revoke container grant | `POST /containers/:containerId/revoke` | `ContainerMutationRequest` |
@@ -69,6 +70,9 @@ Read surfaces:
 | List active document attachments | `GET /documents/:documentId/attachments` |
 | Get committed blob bytes | `GET /blobs/:blobId` |
 | Get principal policy bundle | `GET /principals/:principalType/:principalId/policy` |
+| List organization directory | `GET /organizations/:organizationId/directory` |
+| List organization groups | `GET /organizations/:organizationId/groups` |
+| List organization group members | `GET /organizations/:organizationId/groups/:groupId/members` |
 | Get user key material | `GET /auth/encapsulation-key/:userId` |
 
 The document sync request names signed fields:
@@ -207,6 +211,8 @@ The service layer covers these route-backed capabilities:
 - blob staging, attachment binding, and detach mutations
 - document link and unlink mutations
 - principal policy read and write operations
+- org-manager directory and group operations backed by reserved `Admins` and
+  `Members` group policy reachability
 
 The `logout` route remains route-local. It composes `requireAuth` and
 `destroySession` directly and does not orchestrate application-service logic.

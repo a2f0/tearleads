@@ -37,6 +37,8 @@ const VALID_SIGNATURE = Array.from(
 test("isRegistrationRequest", () => {
   const userId = "550e8400-e29b-41d4-a716-446655440001";
   const organizationId = "550e8400-e29b-41d4-a716-446655440002";
+  const adminGroupId = "550e8400-e29b-41d4-a716-446655440003";
+  const memberGroupId = "550e8400-e29b-41d4-a716-446655440004";
   const validInitialOrganizationPolicy = {
     state: {
       principalType: "organization" as const,
@@ -78,12 +80,42 @@ test("isRegistrationRequest", () => {
       },
     ],
   };
+  const validInitialAdminGroup = {
+    groupId: adminGroupId,
+    name: "Admins",
+    initialGroupPolicy: {
+      state: {
+        ...validInitialOrganizationPolicy.state,
+        principalType: "group" as const,
+        principalId: adminGroupId,
+      },
+      encryptedPayload: validInitialOrganizationPolicy.encryptedPayload,
+      projection: validInitialOrganizationPolicy.projection,
+      memberEnvelopes: validInitialOrganizationPolicy.memberEnvelopes,
+    },
+  };
+  const validInitialMemberGroup = {
+    groupId: memberGroupId,
+    name: "Members",
+    initialGroupPolicy: {
+      state: {
+        ...validInitialOrganizationPolicy.state,
+        principalType: "group" as const,
+        principalId: memberGroupId,
+      },
+      encryptedPayload: validInitialOrganizationPolicy.encryptedPayload,
+      projection: validInitialOrganizationPolicy.projection,
+      memberEnvelopes: validInitialOrganizationPolicy.memberEnvelopes,
+    },
+  };
   const createValidRequest = (overrides: Record<string, unknown> = {}) => ({
     userId,
     organizationId,
     rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
     signingPublicKey: VALID_SIGNING_PUBLIC_KEY,
     encapsulationPublicKey: VALID_ENCAPSULATION_PUBLIC_KEY,
+    initialAdminGroup: validInitialAdminGroup,
+    initialMemberGroup: validInitialMemberGroup,
     initialOrganizationPolicy: validInitialOrganizationPolicy,
     initialRootContainer: {
       event: { eventType: "container.create" },
@@ -285,6 +317,12 @@ test("isPutPrincipalMemberEnvelopesRequest", () => {
           wrappedKey: "wrapped",
         },
       ],
+    }),
+  ).toBe(false);
+  expect(
+    isPutPrincipalMemberEnvelopesRequest({
+      stateHash: "",
+      envelopes: [],
     }),
   ).toBe(false);
   expect(isPutPrincipalMemberEnvelopesRequest(null)).toBe(false);

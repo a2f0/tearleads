@@ -1,8 +1,12 @@
 import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
 import type { PrincipalStateResponse } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
+import type { PrincipalStateExternalSignerAuthorizationInput } from "../../access/write/principalStateStore";
 import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
-import type { ApiDatabase } from "../../adapters/postgres";
+import type { ApiDatabase, DatabaseTransaction } from "../../adapters/postgres";
+import { groups, organizations } from "../../schema";
+import { isUserReachableThroughCurrentGroup } from "../organizations/access";
 import { persistPrincipalPolicyAccessLossTombstones } from "./accessLossTombstones";
 import { PrincipalPolicyError, toPrincipalStateResponse } from "./shared";
 
@@ -62,6 +66,47 @@ function toPrincipalStateError(error: unknown): PrincipalPolicyError | null {
   return null;
 }
 
+async function isOrgAdminAuthorizedPrincipalPolicySigner(
+  tx: DatabaseTransaction,
+  input: PutPrincipalStateInput,
+  authorization: PrincipalStateExternalSignerAuthorizationInput,
+): Promise<boolean> {
+  if (input.expectedPrincipalType === "organization") {
+    const [organization] = await tx
+      .select({ adminGroupId: organizations.adminGroupId })
+      .from(organizations)
+      .where(eq(organizations.id, input.expectedPrincipalId))
+      .limit(1);
+
+    return organization
+      ? isUserReachableThroughCurrentGroup({
+          executor: tx,
+          groupId: organization.adminGroupId,
+          userId: authorization.signerUserId,
+        })
+      : false;
+  }
+
+  const [group] = await tx
+    .select({
+      adminGroupId: organizations.adminGroupId,
+    })
+    .from(groups)
+    .innerJoin(organizations, eq(organizations.id, groups.organizationId))
+    .where(eq(groups.id, input.expectedPrincipalId))
+    .limit(1);
+
+  if (!group) {
+    return false;
+  }
+
+  return isUserReachableThroughCurrentGroup({
+    executor: tx,
+    groupId: group.adminGroupId,
+    userId: authorization.signerUserId,
+  });
+}
+
 export async function runPutPrincipalStateWorkflow(
   db: ApiDatabase,
   input: PutPrincipalStateInput,
@@ -119,6 +164,10 @@ export async function runPutPrincipalStateWorkflow(
           })),
         },
         tx,
+        {
+          authorizeExternalAdminSigner: (authorization) =>
+            isOrgAdminAuthorizedPrincipalPolicySigner(tx, input, authorization),
+        },
       );
       await persistPrincipalPolicyAccessLossTombstones({
         currentState: nextState,

@@ -11,7 +11,11 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { db as defaultDb } from "../../src/adapters/postgres";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
-import { createRegistrationBootstrap } from "./registration";
+import {
+  createInitialAdminGroupRequest,
+  createInitialMemberGroupRequest,
+  createRegistrationBootstrap,
+} from "./registration";
 
 export function createServiceTestRuntime(
   db: ApiServiceRuntime["db"] = defaultDb,
@@ -70,7 +74,21 @@ export async function createRegistrationRequest(
   if (!organizationMemberEnvelope) {
     throw new Error("Failed to wrap organization key for test user");
   }
+  const initialAdminGroup = await createInitialAdminGroupRequest({
+    encapsulationPublicKey: user.kem.publicKey,
+    signingPrivateKey: user.signing.signingPrivateKey,
+    signingPublicKey: user.signing.signingPublicKey,
+    userId,
+  });
+  const initialMemberGroup = await createInitialMemberGroupRequest({
+    adminGroup: initialAdminGroup,
+    encapsulationPublicKey: user.kem.publicKey,
+    signingPrivateKey: user.signing.signingPrivateKey,
+    signingPublicKey: user.signing.signingPublicKey,
+    userId,
+  });
   const rootBootstrap = await createRegistrationBootstrap({
+    adminGroup: initialAdminGroup,
     encapsulationPublicKey: user.kem.publicKey,
     organizationId,
     rootContainerId,
@@ -85,6 +103,8 @@ export async function createRegistrationRequest(
     rootContainerId,
     signingPublicKey: Array.from(user.signing.signingPublicKey),
     encapsulationPublicKey: Array.from(user.kem.publicKey),
+    initialAdminGroup,
+    initialMemberGroup,
     initialOrganizationPolicy: {
       state: await signPrincipalState(
         await buildPrincipalStateSigningInput({

@@ -5,7 +5,6 @@ import type {
   AttachmentDetachAccessEventBody,
   ContainerKeyEpoch,
   ContainerKeyWrap,
-  ContainerUserRecipientKey,
   KeyingCanonicalJson,
   VerifiedAccessEvent,
   VerifiedAttachmentBinding,
@@ -13,6 +12,7 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedDocumentLinkSetManifest,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -36,6 +36,7 @@ import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../../test/helpers/containerRekey";
+import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
@@ -54,6 +55,7 @@ import {
   documentAuditEntries,
   documentContainerLinks,
   documents,
+  organizations,
   users,
 } from "../../schema";
 import {
@@ -64,6 +66,7 @@ import {
 import { stageBlob } from "./stageBlob";
 
 interface RootContainerFixture {
+  readonly adminGroupId: string;
   readonly id: string;
   readonly organizationId: string;
 }
@@ -71,6 +74,7 @@ interface RootContainerFixture {
 interface StoredContainerFixture {
   readonly bundle: VerifiedContainerAccessManifest;
   readonly kekState: VerifiedContainerKekState;
+  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
 }
 
 interface StoredDocumentFixture {
@@ -136,7 +140,16 @@ async function getRootContainerForUser(
     throw new Error("Expected root container");
   }
 
-  return rootContainer;
+  const [organization] = await db
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, rootContainer.organizationId))
+    .limit(1);
+  if (!organization) {
+    throw new Error("Expected registered organization");
+  }
+
+  return { ...rootContainer, adminGroupId: organization.adminGroupId };
 }
 
 async function verifyAccessEvent(input: {
@@ -234,22 +247,15 @@ async function bootstrapRoot(owner: TestUser): Promise<StoredContainerFixture> {
   const wraps = (await listContainerKeyWraps(keyEpoch.id, db)).map(
     toContainerKeyWrap,
   );
-  const ownerWrap = wraps.find(
-    (wrap) =>
-      wrap.recipientKind === "user" && wrap.recipientId === owner.userId,
+  const adminPolicy = await loadVerifiedPrincipalPolicy(
+    db,
+    "group",
+    rootContainer.adminGroupId,
   );
-  if (!ownerWrap) {
-    throw new Error("Expected registered root user KEK wrap");
-  }
-  const ownerKey: ContainerUserRecipientKey = {
-    userId: owner.userId,
-    recipientKeyEpochId: ownerWrap.recipientKeyEpochId,
-    recipientKeyFingerprint: ownerWrap.recipientKeyFingerprint,
-  };
   const kekState = await verifyContainerKekState({
     containerManifest: bundle as unknown as VerifiedContainerAccessManifest,
     keyEpoch,
-    userRecipientKeys: [ownerKey],
+    principalPolicies: [adminPolicy],
     wraps,
   });
   expect(kekState.ok).toBe(true);
@@ -260,6 +266,7 @@ async function bootstrapRoot(owner: TestUser): Promise<StoredContainerFixture> {
   return {
     bundle: bundle as unknown as VerifiedContainerAccessManifest,
     kekState: kekState.value,
+    principalPolicies: [adminPolicy],
   };
 }
 
@@ -298,6 +305,7 @@ async function createDocumentFixture(input: {
     event,
     expectedManifestHash: await computeAccessManifestHash(manifest),
     manifest,
+    principalPolicies: input.container.principalPolicies ?? [],
     targetContainerPath: [input.container.bundle],
   });
   expect(verified.ok).toBe(true);
@@ -454,6 +462,7 @@ async function buildBindRequest(input: {
     documentManifest: input.document.bundle,
     event: event.event,
     expectedPreviousBindingId: input.expectedBindingId,
+    principalPolicies: input.container.principalPolicies ?? [],
     signerPublicKey: input.owner.signing.signingPublicKey,
   });
   expect(verifiedBinding.ok).toBe(true);
@@ -533,6 +542,7 @@ async function buildDetachRequest(input: {
     documentManifest: input.document.bundle,
     event: event.event,
     expectedBindingId: input.binding.bindingId,
+    principalPolicies: input.container.principalPolicies ?? [],
     signerPublicKey: input.owner.signing.signingPublicKey,
   });
   expect(verifiedDetach.ok).toBe(true);

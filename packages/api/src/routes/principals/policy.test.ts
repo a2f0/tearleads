@@ -7,6 +7,7 @@ import {
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
 } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -14,7 +15,9 @@ import {
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
+import { groups as groupsTable, users } from "../../schema";
 
 async function createSignedPrincipalState(input: {
   keyEpoch?: number;
@@ -58,6 +61,17 @@ async function createSignedPrincipalState(input: {
     signerUserKeyFingerprint: input.signerUserKeyFingerprint,
     signingPrivateKey: input.signingPrivateKey,
   });
+}
+
+async function getDefaultOrganizationId(userId: string): Promise<string> {
+  const [user] = await db
+    .select({ organizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  invariant(user, "expected registered user");
+  return user.organizationId;
 }
 
 test("PUT /principals/:principalType/:principalId/state stores verified state and GET /policy returns the current bundle", async () => {
@@ -388,4 +402,104 @@ test("PUT /principals/:principalType/:principalId/state rejects signers who are 
   expect(await response.json()).toEqual({
     error: "Principal state signer must be an admin",
   });
+});
+
+test("PUT /principals/:principalType/:principalId/state allows org admins to update org-scoped group policy", async () => {
+  const orgAdmin = createTestUser();
+  await registerUser(orgAdmin);
+  await authenticate(orgAdmin);
+  const organizationId = await getDefaultOrganizationId(orgAdmin.userId);
+
+  const groupAdmin = createTestUser();
+  await registerUser(groupAdmin);
+
+  const groupId = crypto.randomUUID();
+  await db.insert(groupsTable).values({
+    id: groupId,
+    organizationId,
+    name: "Operators",
+  });
+
+  const principalKem = generateKemSeedAndKeyPair();
+  const initialState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: groupId,
+    principalKem,
+    members: [{ principalType: "user", principalId: groupAdmin.userId }],
+    signerUserId: groupAdmin.userId,
+    signerUserKeyFingerprint: groupAdmin.fingerprint,
+    signingPrivateKey: groupAdmin.signing.signingPrivateKey,
+  });
+  const initialResponse = await routeApp.request(
+    `/principals/group/${groupId}/state`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${orgAdmin.token}`,
+      },
+      body: JSON.stringify({
+        state: initialState.state,
+        encryptedPayload: initialState.encryptedPayload,
+        projection: initialState.projection,
+      }),
+    },
+  );
+  expect(initialResponse.status).toBe(200);
+  const initialStoredState = await initialResponse.json();
+  invariant(
+    isPrincipalStateResponse(initialStoredState),
+    "expected initial principal state response",
+  );
+
+  const successorProjection = [
+    ...initialState.projection,
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: orgAdmin.userId,
+      role: "member" as const,
+    },
+  ];
+  const successorState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: groupId,
+    version: 2,
+    prevStateHash: initialStoredState.stateHash,
+    keyEpoch: initialStoredState.keyEpoch,
+    principalKem,
+    members: successorProjection.map((member) => ({
+      principalType: member.memberPrincipalType,
+      principalId: member.memberPrincipalId,
+    })),
+    projection: successorProjection,
+    signedAt: "2026-04-08T16:01:00.000Z",
+    signerUserId: orgAdmin.userId,
+    signerUserKeyFingerprint: orgAdmin.fingerprint,
+    signingPrivateKey: orgAdmin.signing.signingPrivateKey,
+  });
+
+  const successorResponse = await routeApp.request(
+    `/principals/group/${groupId}/state`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${orgAdmin.token}`,
+      },
+      body: JSON.stringify({
+        state: successorState.state,
+        encryptedPayload: successorState.encryptedPayload,
+        projection: successorProjection,
+      }),
+    },
+  );
+
+  expect(successorResponse.status).toBe(200);
+  const successorStoredState = await successorResponse.json();
+  invariant(
+    isPrincipalStateResponse(successorStoredState),
+    "expected successor principal state response",
+  );
+  expect(successorStoredState.signerUserId).toBe(orgAdmin.userId);
+  expect(successorStoredState.version).toBe(2);
 });

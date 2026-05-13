@@ -59,14 +59,16 @@ function projectionWithAdmin(
   return Array.from(projectionByMember.values());
 }
 
-async function createPolicySigner(): Promise<
+async function createPolicySigner(
+  userId = "user-admin",
+): Promise<
   ReturnType<typeof generateSigningSeedAndKeyPair> &
     PrincipalPolicySignerPublicKey
 > {
   const signing = generateSigningSeedAndKeyPair();
   return {
     ...signing,
-    userId: "user-admin",
+    userId,
     signingKeyFingerprint: await toFingerprint(signing.signingPublicKey),
     signingPublicKey: signing.signingPublicKey,
   };
@@ -202,6 +204,71 @@ test("verifyPrincipalPolicyBundle accepts additive membership without key epoch 
       stateHash: second.state.stateHash,
     });
   }
+});
+
+test("verifyPrincipalPolicyBundle limits external admin signers to successor states", async () => {
+  const principalAdmin = await createPolicySigner("principal-admin");
+  const externalAdmin = await createPolicySigner("org-admin");
+  const principalId = "group-external-admin";
+  const principalKeyPair = generateKemSeedAndKeyPair();
+  const first = await signPolicyState({
+    principalId,
+    principalKeyPair,
+    version: 1,
+    prevStateHash: null,
+    members: [{ principalType: "user", principalId: principalAdmin.userId }],
+    signer: principalAdmin,
+  });
+  const secondProjection: PrincipalProjectionMember[] = [
+    ...first.entry.projection,
+    {
+      memberPrincipalType: "user",
+      memberPrincipalId: externalAdmin.userId,
+      role: "member",
+    },
+  ];
+  const second = await signPolicyState({
+    principalId,
+    principalKeyPair,
+    version: 2,
+    prevStateHash: first.state.stateHash,
+    members: secondProjection.map((member) => ({
+      principalType: member.memberPrincipalType,
+      principalId: member.memberPrincipalId,
+    })),
+    projection: secondProjection,
+    signer: externalAdmin,
+  });
+
+  const successorResult = await verifyPrincipalPolicyBundle({
+    bundle: createBundle({ current: second, previous: [first.entry] }),
+    externalAdminSignerUserIds: [externalAdmin.userId],
+    signerPublicKeys: [principalAdmin, externalAdmin],
+  });
+
+  expect(successorResult.ok).toBe(true);
+
+  const invalidInitial = await signPolicyState({
+    principalId: "group-external-initial",
+    version: 1,
+    prevStateHash: null,
+    members: [{ principalType: "user", principalId: principalAdmin.userId }],
+    projection: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: principalAdmin.userId,
+        role: "admin",
+      },
+    ],
+    signer: externalAdmin,
+  });
+  const initialResult = await verifyPrincipalPolicyBundle({
+    bundle: createBundle({ current: invalidInitial }),
+    externalAdminSignerUserIds: [externalAdmin.userId],
+    signerPublicKeys: [principalAdmin, externalAdmin],
+  });
+
+  expectVerificationError(initialResult, "unauthorized");
 });
 
 test("verifyPrincipalPolicyBundle rejects direct member removal without a new key epoch", async () => {

@@ -1,16 +1,11 @@
-import type {
-  OrganizationDirectoryResponse,
-  OrganizationRole,
-} from "@tearleads/validators/response";
-import { listCurrentPrincipalProjectionMembers } from "../../access/read/principalStateStore";
-import type { ApiDatabase } from "../../adapters/postgres";
+import type { OrganizationDirectoryResponse } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
+import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
+import { organizations } from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
+import { OrganizationManagerError } from "./errors";
+import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import { loadUsersById } from "./users";
-
-const organizationRoleSortOrder = {
-  admin: 0,
-  member: 1,
-} satisfies Record<OrganizationRole, number>;
 
 type OrganizationDirectoryUser = OrganizationDirectoryResponse["users"][number];
 
@@ -18,11 +13,24 @@ function compareOrganizationDirectoryUsers(
   left: OrganizationDirectoryUser,
   right: OrganizationDirectoryUser,
 ): number {
-  return (
-    organizationRoleSortOrder[left.role] -
-      organizationRoleSortOrder[right.role] ||
-    left.userId.localeCompare(right.userId)
-  );
+  return left.userId.localeCompare(right.userId);
+}
+
+async function loadMemberGroupId(input: {
+  executor: DatabaseSession;
+  organizationId: string;
+}): Promise<string> {
+  const [organization] = await input.executor
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+
+  if (!organization) {
+    throw new OrganizationManagerError("Organization not found", 404);
+  }
+
+  return organization.memberGroupId;
 }
 
 export async function runListOrganizationDirectoryWorkflow(
@@ -31,30 +39,30 @@ export async function runListOrganizationDirectoryWorkflow(
   sessionUserId: string,
 ): Promise<OrganizationDirectoryResponse> {
   return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
+    const access = await requireDirectOrganizationAccess({
       executor: tx,
       organizationId,
       userId: sessionUserId,
     });
-
-    const projection = await listCurrentPrincipalProjectionMembers(
-      "organization",
+    const memberGroupId = await loadMemberGroupId({
+      executor: tx,
       organizationId,
-      tx,
-    );
-    const directUserMembers = projection.filter(
-      (entry) => entry.memberPrincipalType === "user",
-    );
-    const usersById = await loadUsersById(
-      tx,
-      directUserMembers.map((member) => member.memberPrincipalId),
-    );
+    });
+    const memberUserIds = await listUsersReachableFromCurrentGroup({
+      executor: tx,
+      groupId: memberGroupId,
+    });
+
+    const usersById = await loadUsersById(tx, memberUserIds);
 
     return {
       organizationId,
-      users: directUserMembers
-        .flatMap((member) => {
-          const user = usersById.get(member.memberPrincipalId);
+      currentUser: {
+        isOrgAdmin: access.isOrgAdmin,
+      },
+      users: memberUserIds
+        .flatMap((userId) => {
+          const user = usersById.get(userId);
           if (!user) {
             return [];
           }
@@ -66,7 +74,6 @@ export async function runListOrganizationDirectoryWorkflow(
               signingPublicKey: user.signingPublicKey,
               encapsulationPublicKey: user.encapsulationPublicKey,
               encapsulationKeyFingerprint: user.encapsulationKeyFingerprint,
-              role: member.role,
               createdAt: user.createdAt.toISOString(),
               isSelf: user.userId === sessionUserId,
             },

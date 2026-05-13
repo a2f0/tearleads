@@ -234,9 +234,12 @@ test("listContainers filters managed grants through the manifest-referenced poli
   const containerId = crypto.randomUUID();
   const metadataDocumentId = crypto.randomUUID();
   const groupId = crypto.randomUUID();
+  const memberGroupId = crypto.randomUUID();
 
   await db.insert(organizations).values({
+    adminGroupId: groupId,
     id: organizationId,
+    memberGroupId,
     name: "Manifest Reference Test",
   });
   await db.insert(users).values({
@@ -304,9 +307,12 @@ test("listContainers keeps valid containers when a sibling candidate has a stale
   const staleContainerId = crypto.randomUUID();
   const readableContainerId = crypto.randomUUID();
   const groupId = crypto.randomUUID();
+  const memberGroupId = crypto.randomUUID();
 
   await db.insert(organizations).values({
+    adminGroupId: groupId,
     id: organizationId,
+    memberGroupId,
     name: "Mixed Batch Manifest Reference Test",
   });
   await db.insert(users).values({

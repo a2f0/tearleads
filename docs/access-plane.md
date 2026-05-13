@@ -62,6 +62,21 @@ Group and organization grants require referenced signed principal heads.
 Managed-principal access fails closed when the referenced policy state or member
 envelopes are missing or stale.
 
+Organizations also carry two reserved group pointers:
+
+- `adminGroupId` points to the reserved `Admins` group. Users reachable through
+ this group have organization-admin authority.
+- `memberGroupId` points to the reserved `Members` group. Users reachable
+ through this group belong to the organization.
+
+Registration creates both groups atomically. The initial `Members` policy nests
+`Admins`, so organization admins are organization members by reachability.
+Org-manager directory reads hydrate from the `Members` group projection, and
+org-manager hides both reserved groups from the normal group list. The
+organization principal policy is still signed managed-principal state, but
+org-manager does not expose `directory.users[].role` or treat
+organization-principal roles as product authorization.
+
 ## Containers
 
 Containers form a tree. A container access manifest includes:

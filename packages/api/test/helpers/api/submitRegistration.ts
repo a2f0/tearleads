@@ -8,7 +8,11 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
-import { createRegistrationBootstrap } from "../registration";
+import {
+  createInitialAdminGroupRequest,
+  createInitialMemberGroupRequest,
+  createRegistrationBootstrap,
+} from "../registration";
 
 async function createInitialOrganizationPolicy(input: {
   encapsulationPublicKey: Uint8Array;
@@ -101,7 +105,21 @@ export async function createRegistrationRequestBody(
   const userId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
   const rootContainerId = crypto.randomUUID();
+  const initialAdminGroup = await createInitialAdminGroupRequest({
+    encapsulationPublicKey,
+    signingPrivateKey,
+    signingPublicKey,
+    userId,
+  });
+  const initialMemberGroup = await createInitialMemberGroupRequest({
+    adminGroup: initialAdminGroup,
+    encapsulationPublicKey,
+    signingPrivateKey,
+    signingPublicKey,
+    userId,
+  });
   const rootBootstrap = await createRegistrationBootstrap({
+    adminGroup: initialAdminGroup,
     encapsulationPublicKey,
     organizationId,
     rootContainerId,
@@ -116,6 +134,8 @@ export async function createRegistrationRequestBody(
     rootContainerId,
     signingPublicKey: Array.from(signingPublicKey),
     encapsulationPublicKey: Array.from(encapsulationPublicKey),
+    initialAdminGroup,
+    initialMemberGroup,
     initialOrganizationPolicy: await createInitialOrganizationPolicy({
       encapsulationPublicKey,
       organizationId,

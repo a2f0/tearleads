@@ -18,6 +18,7 @@ import {
   containerMetadataDocuments,
   containers,
   documentContentKeyEpochs,
+  groups,
   organizations,
   users,
 } from "../../schema";
@@ -81,6 +82,59 @@ test("POST /auth/register creates a user in postgres", async () => {
   expect(user.fingerprint).toBe(fingerprint);
   expect(decodeKey(user.signingPublicKey)).toEqual(keyArray);
   expect(user.encapsulationKeyFingerprint).toBe(encapsulationFingerprint);
+});
+
+test("POST /auth/register creates reserved admin and member groups in postgres", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  fingerprint = await toFingerprint(signingPublicKey);
+
+  const res = await submitRegistration(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
+  expect(res.status).toBe(200);
+  const body = await res.json();
+
+  const [organization] = await db
+    .select({
+      adminGroupId: organizations.adminGroupId,
+      memberGroupId: organizations.memberGroupId,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, body.organizationId));
+
+  invariant(organization?.adminGroupId, "expected organization admin group id");
+  invariant(
+    organization.memberGroupId,
+    "expected organization member group id",
+  );
+
+  const reservedGroups = await db
+    .select({
+      groupId: groups.id,
+      organizationId: groups.organizationId,
+      name: groups.name,
+    })
+    .from(groups)
+    .where(eq(groups.organizationId, body.organizationId));
+
+  expect(reservedGroups).toEqual(
+    expect.arrayContaining([
+      {
+        groupId: organization.adminGroupId,
+        organizationId: body.organizationId,
+        name: "Admins",
+      },
+      {
+        groupId: organization.memberGroupId,
+        organizationId: body.organizationId,
+        name: "Members",
+      },
+    ]),
+  );
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {

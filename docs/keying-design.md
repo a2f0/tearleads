@@ -94,6 +94,14 @@ should support one of these trust roots:
 Without one of these, first-contact key substitution remains possible. No
 object keying algorithm can fully fix that by itself.
 
+Organization administration and membership are modeled with reserved
+organization-scoped groups. `Admins` is the org-admin authority, and `Members`
+is the opaque org-membership authority used to hydrate org-manager directory
+views. Registration creates both policies atomically and nests `Admins` into
+`Members`, so admins are members by signed group reachability. The
+organization principal policy remains managed-principal state, but it should
+not expose product role semantics for org-manager.
+
 ## Signed Access Manifests
 
 Every security-relevant graph mutation is represented by a signed access event
@@ -789,9 +797,10 @@ should commit to direct grants and parent/key edges. It should not contain the
 full subtree or all linked documents.
 
 With 1000 users, direct user grants on a container are still acceptable for
-small shares, but organization-wide sharing should go through an organization
-or group principal key. Otherwise an additive grant can still be `O(1000)` key
-wraps, which is manageable occasionally but should not be the default hot path.
+small shares, but organization-wide sharing should go through the reserved
+`Members` group or another group principal key. Otherwise an additive grant can
+still be `O(1000)` key wraps, which is manageable occasionally but should not
+be the default hot path.
 
 The main residual cost is lazy rekey after revocation. A subtractive change on
 a high-level container can force future writes in a large subtree to first

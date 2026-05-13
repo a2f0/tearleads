@@ -10,6 +10,7 @@ import type {
   ContainerKeyWrap,
   ContainerMoveAccessEventBody,
   ContainerUserRecipientKey,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   ContainerManifestBundle,
@@ -39,6 +40,7 @@ export interface BuildContainerCreatePlanInput {
   metadataDocumentId?: string | undefined;
   parentKekMaterial: Uint8Array;
   parentProjection: ContainerWriterProjectionResponse;
+  principalPolicies?: readonly VerifiedPrincipalPolicy[] | undefined;
   signedAt?: string | undefined;
 }
 
