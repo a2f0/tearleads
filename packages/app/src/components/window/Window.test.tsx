@@ -53,6 +53,31 @@ test("maximizing a background window brings it to the front", async () => {
   expect(windowB.style.zIndex).toBe("1");
 });
 
+test("clicking a background window brings it to the front", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowHarness />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("A")).toBeTruthy();
+    expect(view.getByText("B")).toBeTruthy();
+  });
+
+  const windowA = view.getByText("A").closest<HTMLDivElement>(".window");
+  const windowB = view.getByText("B").closest<HTMLDivElement>(".window");
+  if (!windowA || !windowB) throw new Error("window not found");
+
+  expect(windowA.style.zIndex).toBe("1");
+  expect(windowB.style.zIndex).toBe("2");
+
+  fireEvent.mouseDown(windowA);
+
+  expect(windowA.style.zIndex).toBe("2");
+  expect(windowB.style.zIndex).toBe("1");
+});
+
 test("maximized window fills its parent via inline styles", async () => {
   const view = render(
     <WindowStateProvider>
