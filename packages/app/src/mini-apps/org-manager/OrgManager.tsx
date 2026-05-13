@@ -11,6 +11,11 @@ import {
   type OrgManagerUserRecipient,
   useOrgManagerActions,
 } from "../../stores/org-manager/OrgManagerProvider";
+import {
+  getOrgManagerEpochLabel,
+  getOrgManagerMemberCountLabel,
+  ORG_MANAGER_LABELS,
+} from "./labels";
 import "./OrgManager.css";
 
 type OrgManagerView = "directory" | "groups";
@@ -44,29 +49,41 @@ function formatDate(value: string): string {
 
 function DirectoryTable({
   directory,
+  loading,
 }: {
   directory: OrganizationDirectoryResponse | null;
+  loading: boolean;
 }) {
   if (!directory) {
-    return <div className="org-manager-hint">Loading directory...</div>;
+    return (
+      <div className="org-manager-hint">
+        {loading
+          ? ORG_MANAGER_LABELS.loadingDirectory
+          : ORG_MANAGER_LABELS.directoryUnavailable}
+      </div>
+    );
   }
 
   if (directory.users.length === 0) {
-    return <div className="org-manager-hint">No direct users.</div>;
+    return (
+      <div className="org-manager-hint">{ORG_MANAGER_LABELS.noDirectUsers}</div>
+    );
   }
 
   return (
     <div className="org-manager-table">
       <div className="org-manager-table-row org-manager-table-row--header">
-        <span>User</span>
-        <span>Role</span>
-        <span>Signing key</span>
-        <span>Joined</span>
+        <span>{ORG_MANAGER_LABELS.user}</span>
+        <span>{ORG_MANAGER_LABELS.role}</span>
+        <span>{ORG_MANAGER_LABELS.signingKey}</span>
+        <span>{ORG_MANAGER_LABELS.joined}</span>
       </div>
       {directory.users.map((user) => (
         <div className="org-manager-table-row" key={user.userId}>
           <span title={user.userId}>
-            {user.isSelf ? "You" : compactFingerprint(user.userId)}
+            {user.isSelf
+              ? ORG_MANAGER_LABELS.self
+              : compactFingerprint(user.userId)}
           </span>
           <span>{user.role}</span>
           <span title={user.signingKeyFingerprint}>
@@ -89,7 +106,9 @@ function GroupList({
   setSelectedGroupId: (groupId: string) => void;
 }) {
   if (groups.length === 0) {
-    return <div className="org-manager-hint">No groups.</div>;
+    return (
+      <div className="org-manager-hint">{ORG_MANAGER_LABELS.noGroups}</div>
+    );
   }
 
   return (
@@ -108,10 +127,8 @@ function GroupList({
           <strong>{group.name}</strong>
           <span>
             {group.currentState
-              ? `${group.currentState.memberCount} member${
-                  group.currentState.memberCount === 1 ? "" : "s"
-                }`
-              : "Uninitialized"}
+              ? getOrgManagerMemberCountLabel(group.currentState.memberCount)
+              : ORG_MANAGER_LABELS.uninitialized}
           </span>
         </button>
       ))}
@@ -133,7 +150,11 @@ function GroupMembers({
   userId: string | null;
 }) {
   if (members.length === 0) {
-    return <div className="org-manager-hint">No group members.</div>;
+    return (
+      <div className="org-manager-hint">
+        {ORG_MANAGER_LABELS.noGroupMembers}
+      </div>
+    );
   }
 
   const adminCount = members.filter(
@@ -171,7 +192,7 @@ function GroupMembers({
                 onClick={() => removeMember(member.memberPrincipalId)}
                 type="button"
               >
-                Remove
+                {ORG_MANAGER_LABELS.remove}
               </button>
             )}
           </div>
@@ -242,17 +263,26 @@ export function OrgManager() {
         appData.apiClient.listOrganizationGroups(appData.organizationId),
       ]);
 
+      if (nextDirectory === null || nextGroups === null) {
+        setDirectory(null);
+        setGroups([]);
+        setMembers(null);
+        setSelectedGroupId(null);
+        setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
+        return;
+      }
+
       setDirectory(nextDirectory);
-      setGroups(nextGroups?.groups ?? []);
+      setGroups(nextGroups.groups);
       setSelectedGroupId((current) => {
         if (
           current &&
-          nextGroups?.groups.some((group) => group.groupId === current)
+          nextGroups.groups.some((group) => group.groupId === current)
         ) {
           return current;
         }
 
-        return nextGroups?.groups[0]?.groupId ?? null;
+        return nextGroups.groups[0]?.groupId ?? null;
       });
     } catch (nextError) {
       setError(
@@ -270,12 +300,19 @@ export function OrgManager() {
         return;
       }
 
+      setError(null);
       try {
         const nextMembers =
           await appData.apiClient.listOrganizationGroupMembers(
             appData.organizationId,
             groupId,
           );
+        if (nextMembers === null) {
+          setMembers(null);
+          setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
+          return;
+        }
+
         setMembers(nextMembers);
       } catch (nextError) {
         setMembers(null);
@@ -426,7 +463,7 @@ export function OrgManager() {
     return (
       <div className="org-manager org-manager--empty">
         <div className="org-manager-hint">
-          Authenticate to manage an organization.
+          {ORG_MANAGER_LABELS.authenticate}
         </div>
       </div>
     );
@@ -440,27 +477,27 @@ export function OrgManager() {
           onClick={() => setView("directory")}
           type="button"
         >
-          Directory
+          {ORG_MANAGER_LABELS.directory}
         </button>
         <button
           className={view === "groups" ? "org-manager-nav--selected" : ""}
           onClick={() => setView("groups")}
           type="button"
         >
-          Groups
+          {ORG_MANAGER_LABELS.groups}
         </button>
         <button
           disabled={loading || mutating}
           onClick={refreshDirectoryAndGroups}
           type="button"
         >
-          Refresh
+          {ORG_MANAGER_LABELS.refresh}
         </button>
       </aside>
       <main className="org-manager-main">
         {error && <div className="org-manager-error">{error}</div>}
         {view === "directory" ? (
-          <DirectoryTable directory={directory} />
+          <DirectoryTable directory={directory} loading={loading} />
         ) : (
           <div className="org-manager-groups">
             <section className="org-manager-panel">
@@ -468,7 +505,7 @@ export function OrgManager() {
                 <input
                   disabled={!canCreateGroup || mutating}
                   onChange={(event) => setGroupNameDraft(event.target.value)}
-                  placeholder="Group name"
+                  placeholder={ORG_MANAGER_LABELS.groupName}
                   value={groupNameDraft}
                 />
                 <button
@@ -480,7 +517,7 @@ export function OrgManager() {
                   onClick={createGroup}
                   type="button"
                 >
-                  Create
+                  {ORG_MANAGER_LABELS.create}
                 </button>
               </div>
               <GroupList
@@ -501,8 +538,10 @@ export function OrgManager() {
                     </div>
                     <span>
                       {selectedGroup.currentState
-                        ? `Epoch ${selectedGroup.currentState.keyEpoch}`
-                        : "No policy"}
+                        ? getOrgManagerEpochLabel(
+                            selectedGroup.currentState.keyEpoch,
+                          )
+                        : ORG_MANAGER_LABELS.noPolicy}
                     </span>
                   </div>
                   <div className="org-manager-add-user">
@@ -515,11 +554,11 @@ export function OrgManager() {
                       onChange={(event) => setAddUserId(event.target.value)}
                       value={addUserId}
                     >
-                      <option value="">Add user</option>
+                      <option value="">{ORG_MANAGER_LABELS.addUser}</option>
                       {addableUsers.map((user) => (
                         <option key={user.userId} value={user.userId}>
                           {user.isSelf
-                            ? "You"
+                            ? ORG_MANAGER_LABELS.self
                             : compactFingerprint(user.userId)}
                         </option>
                       ))}
@@ -531,7 +570,7 @@ export function OrgManager() {
                       onClick={addUser}
                       type="button"
                     >
-                      Add
+                      {ORG_MANAGER_LABELS.add}
                     </button>
                   </div>
                   <GroupMembers
@@ -543,7 +582,9 @@ export function OrgManager() {
                   />
                 </>
               ) : (
-                <div className="org-manager-hint">Select a group.</div>
+                <div className="org-manager-hint">
+                  {ORG_MANAGER_LABELS.selectGroup}
+                </div>
               )}
             </section>
           </div>

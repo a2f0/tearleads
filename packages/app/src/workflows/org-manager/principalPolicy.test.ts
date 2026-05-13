@@ -3,6 +3,7 @@ import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
+  type PrincipalPolicySignerPublicKey,
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -12,6 +13,20 @@ import {
   buildInitialGroupPolicyRequest,
   buildRemoveGroupUserPolicyRequest,
 } from "./principalPolicy";
+
+function policySignerPublicKeys(input: {
+  readonly signerUserId: string;
+  readonly signingFingerprint: string;
+  readonly signingKeyPair: ReturnType<typeof generateSigningSeedAndKeyPair>;
+}): PrincipalPolicySignerPublicKey[] {
+  return [
+    {
+      userId: input.signerUserId,
+      signingKeyFingerprint: input.signingFingerprint,
+      signingPublicKey: input.signingKeyPair.signingPublicKey,
+    },
+  ];
+}
 
 async function policyBundleFromInitialRequest(
   request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>,
@@ -100,10 +115,17 @@ test("group add and remove policy builders preserve additive epochs and rotate s
     signingKeyPair,
   });
   const initialPolicy = await policyBundleFromInitialRequest(initialRequest);
+  const currentPolicySignerPublicKeys = policySignerPublicKeys({
+    signerUserId,
+    signingFingerprint,
+    signingKeyPair,
+  });
 
   const addRequest = await buildAddGroupUserPolicyRequest({
     currentPolicy: initialPolicy,
+    currentPolicySignerPublicKeys,
     currentUserSecretKey: creatorKem.secretKey,
+    localPolicyCheckpoint: null,
     signerUserId,
     signingFingerprint,
     signingKeyPair,
@@ -145,10 +167,23 @@ test("group add and remove policy builders preserve additive epochs and rotate s
       epoch: addRequest.state.state.keyEpoch,
       envelopes: addRequest.memberEnvelopes.envelopes,
     },
+    previousStates: [
+      {
+        state: initialPolicy.currentState,
+        projection: initialPolicy.currentProjection,
+      },
+    ],
   };
 
   const removeRequest = await buildRemoveGroupUserPolicyRequest({
     currentPolicy: addedPolicy,
+    currentPolicySignerPublicKeys,
+    localPolicyCheckpoint: {
+      principalType: initialPolicy.currentState.principalType,
+      principalId: initialPolicy.currentState.principalId,
+      version: initialPolicy.currentState.version,
+      stateHash: initialPolicy.currentState.stateHash,
+    },
     remainingUsers: [
       {
         userId: signerUserId,
@@ -172,4 +207,56 @@ test("group add and remove policy builders preserve additive epochs and rotate s
   expect(removeRequest.memberEnvelopes.envelopes[0]?.memberPrincipalId).toBe(
     signerUserId,
   );
+});
+
+test("group mutation builders reject tampered server policy projections", async () => {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const creatorKem = generateKemSeedAndKeyPair();
+  const targetKem = generateKemSeedAndKeyPair();
+  const signerUserId = crypto.randomUUID();
+  const targetUserId = crypto.randomUUID();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const initialRequest = await buildInitialGroupPolicyRequest({
+    creatorEncapsulationKeyPair: creatorKem,
+    groupId: crypto.randomUUID(),
+    name: "Operators",
+    signerUserId,
+    signingFingerprint,
+    signingKeyPair,
+  });
+  const initialPolicy = await policyBundleFromInitialRequest(initialRequest);
+  const tamperedPolicy: PrincipalPolicyBundleResponse = {
+    ...initialPolicy,
+    currentProjection: [
+      ...initialPolicy.currentProjection,
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: "server-injected-user",
+        role: "admin",
+      },
+    ],
+  };
+
+  await expect(
+    buildAddGroupUserPolicyRequest({
+      currentPolicy: tamperedPolicy,
+      currentPolicySignerPublicKeys: policySignerPublicKeys({
+        signerUserId,
+        signingFingerprint,
+        signingKeyPair,
+      }),
+      currentUserSecretKey: creatorKem.secretKey,
+      localPolicyCheckpoint: null,
+      signerUserId,
+      signingFingerprint,
+      signingKeyPair,
+      targetUser: {
+        userId: targetUserId,
+        encapsulationPublicKey: bytesToBase64(targetKem.publicKey),
+        encapsulationKeyFingerprint: await toFingerprint(targetKem.publicKey),
+      },
+    }),
+  ).rejects.toThrow("Group policy verification failed");
 });
