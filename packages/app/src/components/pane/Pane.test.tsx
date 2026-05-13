@@ -135,6 +135,27 @@ test("renders the boot prompt in the pane log", () => {
   view.unmount();
 });
 
+test("unbooted pane context menu can generate a key pair", async () => {
+  const view = renderPane();
+
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 120,
+    clientY: 120,
+  });
+
+  expect(view.getByText("Generate Key Pair")).toBeTruthy();
+  expect(view.queryByText("Open Notes")).toBeNull();
+
+  fireEvent.click(view.getByText("Generate Key Pair"));
+
+  await waitFor(() => {
+    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
+    expect(view.queryByText(/publicKey: none/)).toBeNull();
+  });
+
+  view.unmount();
+});
+
 test("displays userId after registration", async () => {
   const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
