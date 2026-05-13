@@ -35,17 +35,9 @@ import {
 } from "../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { type BlobBytes, createMemoryBlobStore } from "../../data/blobs";
+import type { DocumentSummary } from "../../data/documentSummary";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
-import type {
-  LocalAttachmentRecord,
-  NoteRecord,
-  NoteSummary,
-  NotesPersistence,
-  PendingAttachmentRecord,
-  PendingUpdateInsert,
-  PendingUpdateRecord,
-} from "../../data/persistence/notes/notesPersistence";
 import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import {
   decryptDocumentAttachmentBlob,
@@ -54,6 +46,12 @@ import {
 import {
   createDocumentsWorkflowRuntime,
   createRemoteDocument,
+  type DocumentRecord,
+  type DocumentsPersistence,
+  type LocalAttachmentRecord,
+  type PendingAttachmentRecord,
+  type PendingUpdateInsert,
+  type PendingUpdateRecord,
 } from "../../workflows/documents";
 import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
 import {
@@ -64,9 +62,9 @@ import {
 
 interface StoredNotesState {
   localAttachments: LocalAttachmentRecord[];
-  note: NoteRecord | null;
+  note: DocumentRecord | null;
   pendingAttachments: PendingAttachmentRecord[];
-  noteSummaries: NoteSummary[];
+  noteSummaries: DocumentSummary[];
   pendingUpdates: PendingUpdateRecord[];
 }
 
@@ -597,10 +595,10 @@ function isPendingUpdateDetailRow(
   );
 }
 
-function createNotesPersistence(): NotesPersistence & {
+function createNotesPersistence(): DocumentsPersistence & {
   getState: () => StoredNotesState;
 } {
-  let note: NoteRecord | null = null;
+  let note: DocumentRecord | null = null;
   let localAttachments: LocalAttachmentRecord[] = [];
   let pendingAttachments: PendingAttachmentRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
@@ -626,7 +624,7 @@ function createNotesPersistence(): NotesPersistence & {
         pendingUpdates,
       };
     },
-    async listNotes() {
+    async listDocuments() {
       return note
         ? [
             {
@@ -639,7 +637,7 @@ function createNotesPersistence(): NotesPersistence & {
           ]
         : [];
     },
-    async listNotesByContainerIdsOrDocumentIds(_execSql, input) {
+    async listDocumentsByContainerIdsOrDocumentIds(_execSql, input) {
       if (!note) {
         return [];
       }
@@ -664,14 +662,14 @@ function createNotesPersistence(): NotesPersistence & {
         },
       ];
     },
-    async loadNote() {
+    async loadDocument() {
       return note;
     },
-    async saveNote(_execSql, nextNote) {
+    async saveDocument(_execSql, nextNote) {
       note = nextNote;
       return "2026-04-06T00:00:00.000Z";
     },
-    async saveNoteAndDeletePendingUpdates(
+    async saveDocumentAndDeletePendingUpdates(
       _execSql,
       nextNote,
       pendingUpdateIds,
@@ -683,7 +681,7 @@ function createNotesPersistence(): NotesPersistence & {
       );
       return "2026-04-06T00:00:00.000Z";
     },
-    async upsertDiscoveredNote(_execSql, input) {
+    async upsertDiscoveredDocument(_execSql, input) {
       const nextNote = {
         accessEpoch: input.accessEpoch,
         containerId: input.containerId,
@@ -702,8 +700,8 @@ function createNotesPersistence(): NotesPersistence & {
         updatedAt: input.createdAt,
       };
     },
-    async relinkPersistedNote(_execSql, input) {
-      if (!note || note.id !== input.noteId) {
+    async relinkPersistedDocument(_execSql, input) {
+      if (!note || note.id !== input.localId) {
         return null;
       }
 
@@ -751,11 +749,11 @@ function createNotesPersistence(): NotesPersistence & {
     async deletePendingUpdates() {
       pendingUpdates = [];
     },
-    async deletePendingAttachment(_execSql, noteId, slotId, storageKey) {
+    async deletePendingAttachment(_execSql, localId, slotId, storageKey) {
       pendingAttachments = pendingAttachments.filter(
         (attachment) =>
           !(
-            attachment.noteId === noteId &&
+            attachment.localId === localId &&
             attachment.slotId === slotId &&
             attachment.storageKey === storageKey
           ),
@@ -766,18 +764,18 @@ function createNotesPersistence(): NotesPersistence & {
         ...localAttachments.filter(
           (existingAttachment) =>
             !(
-              existingAttachment.noteId === attachment.noteId &&
+              existingAttachment.localId === attachment.localId &&
               existingAttachment.slotId === attachment.slotId
             ),
         ),
         attachment,
       ];
     },
-    async deleteLocalAttachment(_execSql, noteId, slotId, storageKey) {
+    async deleteLocalAttachment(_execSql, localId, slotId, storageKey) {
       localAttachments = localAttachments.filter(
         (attachment) =>
           !(
-            attachment.noteId === noteId &&
+            attachment.localId === localId &&
             attachment.slotId === slotId &&
             attachment.storageKey === storageKey
           ),
@@ -788,16 +786,16 @@ function createNotesPersistence(): NotesPersistence & {
         ...pendingAttachments.filter(
           (existingAttachment) =>
             !(
-              existingAttachment.noteId === attachment.noteId &&
+              existingAttachment.localId === attachment.localId &&
               existingAttachment.slotId === attachment.slotId
             ),
         ),
         attachment,
       ];
     },
-    async deletePendingAttachments(_execSql, noteId) {
+    async deletePendingAttachments(_execSql, localId) {
       pendingAttachments = pendingAttachments.filter(
-        (attachment) => attachment.noteId !== noteId,
+        (attachment) => attachment.localId !== localId,
       );
     },
   };
@@ -1073,8 +1071,8 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
 test("domain-scoped persisted document subscriptions fan out to multiple listeners", async () => {
   const persistence = createNotesPersistence();
   const runtime = createRuntime();
-  const firstListenerDocuments: NoteSummary[] = [];
-  const secondListenerDocuments: NoteSummary[] = [];
+  const firstListenerDocuments: DocumentSummary[] = [];
+  const secondListenerDocuments: DocumentSummary[] = [];
   const unsubscribeFirst = subscribeToPersistedDocuments(
     runtime.domainScope,
     (document) => {
@@ -1262,7 +1260,7 @@ test("notes store clears document state when access epoch changes", async () => 
   const persistence = createNotesPersistence();
   const runtime = createRuntime();
 
-  await persistence.saveNote(runtime.execSql, {
+  await persistence.saveDocument(runtime.execSql, {
     accessEpoch: 1,
     accessStateHash: "access-state-hash-1",
     containerId: "container-a",

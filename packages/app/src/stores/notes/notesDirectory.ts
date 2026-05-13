@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentSummary } from "../../data/documentSummary";
 import { getUntitledDocumentTitle } from "../../data/documents/documentKinds";
 import { useAppData } from "../../providers/data/AppDataProvider";
-import { defaultNotesPersistence } from "../../workflows/notes";
+import { defaultDocumentsPersistence } from "../../workflows/documents";
 import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
 import { DEFAULT_NOTE_ID } from "./NotesProvider";
 
@@ -63,9 +63,9 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
     let cancelled = false;
     void (async () => {
       try {
-        await defaultNotesPersistence.ensureSchema(appData.execSql);
+        await defaultDocumentsPersistence.ensureSchema(appData.execSql);
         const nextNotes = (
-          await defaultNotesPersistence.listNotes(appData.execSql)
+          await defaultDocumentsPersistence.listDocuments(appData.execSql)
         )
           .filter(isNoteSummary)
           .sort(compareNoteSummaries);

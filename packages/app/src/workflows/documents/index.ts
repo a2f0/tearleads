@@ -25,6 +25,7 @@ export {
   type LocalAttachmentRecord,
   loadPersistedDocumentStoreStateFromRuntime,
   type PendingAttachmentRecord,
+  type PendingUpdateInsert,
   type PendingUpdateRecord,
   type RelinkPersistedDocumentInput,
   savePendingDocumentAttachmentFromRuntime,
