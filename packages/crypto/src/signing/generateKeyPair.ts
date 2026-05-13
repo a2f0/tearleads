@@ -1,9 +1,9 @@
 import { ml_dsa87 } from "@noble/post-quantum/ml-dsa.js";
 import { randomBytes } from "@noble/post-quantum/utils.js";
 
-interface SigningKeyPair {
-  signingPublicKey: Uint8Array;
-  signingPrivateKey: Uint8Array;
+export interface SigningKeyPair {
+  readonly signingPublicKey: Uint8Array;
+  readonly signingPrivateKey: Uint8Array;
 }
 
 export const ML_DSA87_PUBLIC_KEY_BYTES = 2592;

@@ -343,6 +343,9 @@ test("isCreateOrganizationGroupRequest", () => {
   expect(isCreateOrganizationGroupRequest({ ...request, name: "" })).toBe(
     false,
   );
+  expect(isCreateOrganizationGroupRequest({ ...request, name: "   " })).toBe(
+    false,
+  );
   expect(isCreateOrganizationGroupRequest({ ...request, groupId: "bad" })).toBe(
     false,
   );
