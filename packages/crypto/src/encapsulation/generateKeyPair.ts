@@ -6,8 +6,13 @@ export const ML_KEM1024_SECRET_KEY_BYTES = 3168;
 export const ML_KEM1024_CIPHERTEXT_BYTES = 1568;
 export const ML_KEM1024_SEED_BYTES = 64;
 
+export interface EncapsulationKeyPair {
+  readonly publicKey: Uint8Array;
+  readonly secretKey: Uint8Array;
+}
+
 // ML-KEM-1024 provides Level 5 security of NIST's Post-Quantum Cryptography standardization (FIPS 203).
-export function generateKemKeyPair(seed: Uint8Array) {
+export function generateKemKeyPair(seed: Uint8Array): EncapsulationKeyPair {
   if (seed.length !== ML_KEM1024_SEED_BYTES) {
     throw new Error("ML-KEM-1024 seed must be 64 bytes");
   }
@@ -15,6 +20,6 @@ export function generateKemKeyPair(seed: Uint8Array) {
   return ml_kem1024.keygen(seed);
 }
 
-export function generateKemSeedAndKeyPair() {
+export function generateKemSeedAndKeyPair(): EncapsulationKeyPair {
   return generateKemKeyPair(randomBytes(ML_KEM1024_SEED_BYTES));
 }

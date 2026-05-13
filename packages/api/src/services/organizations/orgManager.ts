@@ -11,7 +11,7 @@ import {
   runListOrganizationDirectoryWorkflow,
   runListOrganizationGroupMembersWorkflow,
   runListOrganizationGroupsWorkflow,
-} from "../../workflows/organizations/orgManager";
+} from "../../workflows/organizations";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { OrganizationManagerError };

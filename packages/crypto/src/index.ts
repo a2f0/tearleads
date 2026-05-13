@@ -16,6 +16,7 @@ export {
 } from "./challenge";
 export { decryptAsRecipient } from "./encapsulation/decryptAsRecipient";
 export { encryptForRecipients } from "./encapsulation/encryptForRecipients";
+export type { EncapsulationKeyPair } from "./encapsulation/generateKeyPair";
 export {
   generateKemKeyPair,
   generateKemSeedAndKeyPair,
@@ -224,6 +225,7 @@ export {
   signPrincipalState,
   verifySignedPrincipalState,
 } from "./principalState";
+export type { SigningKeyPair } from "./signing/generateKeyPair";
 export {
   generateSigningKeyPair,
   generateSigningSeedAndKeyPair,

@@ -1,11 +1,7 @@
 import {
   type PrincipalPolicyBundle,
-  type PrincipalPolicyCheckpoint,
-  type PrincipalPolicySignerPublicKey,
-  toFingerprint,
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import type {
   EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
@@ -17,6 +13,12 @@ import {
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  type PrincipalPolicySignerPublicKeyLoadErrorCode,
+  principalPolicyCheckpoint,
+  principalPolicyStates,
+} from "./policyVerification";
 
 export interface CacheReferencedPrincipalPoliciesOptions {
   execSql: ExecSql;
@@ -108,103 +110,6 @@ function getBundleReferenceMismatchReason(
   return null;
 }
 
-function getPrincipalPolicyStates(
-  bundle: PrincipalPolicyBundleResponse,
-): PrincipalPolicyBundleResponse["currentState"][] {
-  return [
-    ...bundle.previousStates.map((entry) => entry.state),
-    bundle.currentState,
-  ];
-}
-
-async function loadVerifiedSignerPublicKey(input: {
-  getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"];
-  signerPublicKeysByFingerprint: Map<string, PrincipalPolicySignerPublicKey>;
-  state: PrincipalPolicyBundleResponse["currentState"];
-}): Promise<
-  { signerPublicKey: PrincipalPolicySignerPublicKey } | { error: string }
-> {
-  const signerCacheKey = `${input.state.signerUserId}:${input.state.signerUserKeyFingerprint}`;
-  const cachedSignerPublicKey =
-    input.signerPublicKeysByFingerprint.get(signerCacheKey);
-  if (cachedSignerPublicKey) {
-    return { signerPublicKey: cachedSignerPublicKey };
-  }
-
-  const signerKey = await input.getEncapsulationKey(input.state.signerUserId);
-  if (!signerKey) {
-    return { error: "failed to fetch signer key" };
-  }
-
-  if (signerKey.userId !== input.state.signerUserId) {
-    return { error: "signer key user does not match state signer" };
-  }
-
-  if (
-    signerKey.signingKeyFingerprint !== input.state.signerUserKeyFingerprint
-  ) {
-    return { error: "signer key fingerprint does not match state signer" };
-  }
-
-  const signerPublicKey = base64ToBytes(signerKey.signingPublicKey);
-  if (
-    (await toFingerprint(signerPublicKey)) !==
-    input.state.signerUserKeyFingerprint
-  ) {
-    return {
-      error: "computed signer key fingerprint does not match state signer",
-    };
-  }
-
-  const signerPublicKeyEntry = {
-    userId: input.state.signerUserId,
-    signingKeyFingerprint: input.state.signerUserKeyFingerprint,
-    signingPublicKey: signerPublicKey,
-  };
-  input.signerPublicKeysByFingerprint.set(signerCacheKey, signerPublicKeyEntry);
-  return { signerPublicKey: signerPublicKeyEntry };
-}
-
-async function collectPrincipalPolicySignerPublicKeys(
-  bundle: PrincipalPolicyBundleResponse,
-  getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"],
-): Promise<
-  { signerPublicKeys: PrincipalPolicySignerPublicKey[] } | { error: string }
-> {
-  const signerPublicKeysByFingerprint = new Map<
-    string,
-    PrincipalPolicySignerPublicKey
-  >();
-
-  for (const state of getPrincipalPolicyStates(bundle)) {
-    const loadedSignerPublicKey = await loadVerifiedSignerPublicKey({
-      getEncapsulationKey,
-      signerPublicKeysByFingerprint,
-      state,
-    });
-    if ("error" in loadedSignerPublicKey) {
-      return { error: loadedSignerPublicKey.error };
-    }
-  }
-
-  return {
-    signerPublicKeys: Array.from(signerPublicKeysByFingerprint.values()),
-  };
-}
-
-function principalPolicyCheckpoint(
-  cachedBundle: PrincipalPolicyBundleResponse | null,
-): PrincipalPolicyCheckpoint | null {
-  return cachedBundle
-    ? {
-        principalType: cachedBundle.currentState.principalType,
-        principalId: cachedBundle.currentState.principalId,
-        version: cachedBundle.currentState.version,
-        stateHash: cachedBundle.currentState.stateHash,
-      }
-    : null;
-}
-
 function getPrincipalPolicyCheckpointMismatchReason(
   cachedBundle: PrincipalPolicyBundleResponse | null,
   bundle: PrincipalPolicyBundleResponse,
@@ -228,7 +133,7 @@ function getPrincipalPolicyCheckpointMismatchReason(
     return null;
   }
 
-  const stateChain = getPrincipalPolicyStates(bundle);
+  const stateChain = principalPolicyStates(bundle);
   const checkpointState = stateChain[cachedBundle.currentState.version - 1];
   if (
     !checkpointState ||
@@ -238,6 +143,21 @@ function getPrincipalPolicyCheckpointMismatchReason(
   }
 
   return null;
+}
+
+function signerPublicKeyLoadErrorMessage(
+  code: PrincipalPolicySignerPublicKeyLoadErrorCode,
+): string {
+  switch (code) {
+    case "fingerprint-invalid":
+      return "computed signer key fingerprint does not match state signer";
+    case "fingerprint-mismatch":
+      return "signer key fingerprint does not match state signer";
+    case "not-found":
+      return "failed to fetch signer key";
+    case "user-mismatch":
+      return "signer key user does not match state signer";
+  }
 }
 
 async function validatePrincipalPolicyBundle(
@@ -259,12 +179,12 @@ async function validatePrincipalPolicyBundle(
     return checkpointMismatch;
   }
 
-  const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys(
+  const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle,
     getEncapsulationKey,
-  );
+  });
   if ("error" in signerPublicKeys) {
-    return signerPublicKeys.error;
+    return signerPublicKeyLoadErrorMessage(signerPublicKeys.error);
   }
 
   const verified = await verifyPrincipalPolicyBundle({

@@ -1,6 +1,8 @@
 import {
+  type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
+  type SigningKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
 import {
@@ -13,16 +15,6 @@ import {
   useState,
 } from "react";
 import { useLog } from "../logging/LogProvider";
-
-interface SigningKeyPair {
-  signingPublicKey: Uint8Array;
-  signingPrivateKey: Uint8Array;
-}
-
-interface EncapsulationKeyPair {
-  publicKey: Uint8Array;
-  secretKey: Uint8Array;
-}
 
 interface IdentityContextValue {
   encapsulationKeyPair: EncapsulationKeyPair | null;
