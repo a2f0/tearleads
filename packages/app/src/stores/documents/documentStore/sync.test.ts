@@ -25,24 +25,24 @@ import type {
   DocumentWriterProjectionResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
-import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
-import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
-import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
+import { createContainerWriterProjectionFixture } from "../../../../test/helpers/createContainerWriterProjectionFixture";
+import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
+import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import {
   assertAccessEvent,
   assertOptionalWriteHeader,
   assertWriteHeader,
-} from "../../../test/helpers/keyingAssertions";
-import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { type BlobBytes, createMemoryBlobStore } from "../../data/blobs";
-import type { DocumentSummary } from "../../data/documentSummary";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
-import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
+} from "../../../../test/helpers/keyingAssertions";
+import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { type BlobBytes, createMemoryBlobStore } from "../../../data/blobs";
+import type { DocumentSummary } from "../../../data/documentSummary";
+import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/documentsPersistence";
+import { getOrCreateDomainSyncCoordinator } from "../../../data/sync/syncCoordinator";
 import {
   decryptDocumentAttachmentBlob,
   uploadDocumentAttachment,
-} from "../../workflows/blobs";
+} from "../../../workflows/blobs";
 import {
   createDocumentsWorkflowRuntime,
   createRemoteDocument,
@@ -52,26 +52,28 @@ import {
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
-} from "../../workflows/documents";
-import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
+} from "../../../workflows/documents";
 import {
-  createNotesStore,
-  type NotesRuntime,
-  primeNotesStore,
-} from "./NotesProvider";
+  createDocumentStore,
+  type DocumentsRuntime,
+  primeDocumentStore,
+  subscribeToPersistedDocuments,
+} from "../DocumentsProvider";
 
-interface StoredNotesState {
+interface StoredDocumentsState {
+  document: DocumentRecord | null;
+  documentSummaries: DocumentSummary[];
   localAttachments: LocalAttachmentRecord[];
-  note: DocumentRecord | null;
   pendingAttachments: PendingAttachmentRecord[];
-  noteSummaries: DocumentSummary[];
   pendingUpdates: PendingUpdateRecord[];
 }
 
-type NotesRuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
-type NotesTestRuntime = NotesRuntime &
+type DocumentsRuntimeInput = Parameters<
+  typeof createDocumentsWorkflowRuntime
+>[0];
+type DocumentsTestRuntime = DocumentsRuntime &
   Pick<
-    NotesRuntimeInput,
+    DocumentsRuntimeInput,
     "apiClient" | "blobStore" | "cacheReferencedPrincipalPolicies" | "execSql"
   >;
 
@@ -115,9 +117,9 @@ function createListedContainers(
   };
 }
 
-function createUnavailableNotesApiClient(
+function createUnavailableDocumentsApiClient(
   containerId = "root-container",
-): NotesRuntimeInput["apiClient"] {
+): DocumentsRuntimeInput["apiClient"] {
   return createMockApiClient({
     bindBlobAttachment: async () => null,
     createDocument: async () => null,
@@ -132,7 +134,9 @@ function createUnavailableNotesApiClient(
   });
 }
 
-function createNotesTestRuntime(input: NotesRuntimeInput): NotesTestRuntime {
+function createDocumentsTestRuntime(
+  input: DocumentsRuntimeInput,
+): DocumentsTestRuntime {
   return {
     ...createDocumentsWorkflowRuntime(input),
     apiClient: input.apiClient,
@@ -142,11 +146,11 @@ function createNotesTestRuntime(input: NotesRuntimeInput): NotesTestRuntime {
   };
 }
 
-function cloneNotesTestRuntime(
-  runtime: NotesTestRuntime,
-  overrides: Partial<NotesRuntimeInput>,
-): NotesTestRuntime {
-  return createNotesTestRuntime({
+function cloneDocumentsTestRuntime(
+  runtime: DocumentsTestRuntime,
+  overrides: Partial<DocumentsRuntimeInput>,
+): DocumentsTestRuntime {
+  return createDocumentsTestRuntime({
     apiClient: overrides.apiClient ?? runtime.apiClient,
     blobStore: overrides.blobStore ?? runtime.blobStore,
     cacheReferencedPrincipalPolicies:
@@ -185,13 +189,13 @@ function cloneNotesTestRuntime(
   });
 }
 
-async function createPersistedNoteSnapshot(text: string): Promise<string> {
-  const doc = await createDocument("persisted-note-fixture");
+async function createPersistedDocumentSnapshot(text: string): Promise<string> {
+  const doc = await createDocument("persisted-document-fixture");
   doc.getText("text").update(text);
   return bytesToBase64(exportAllUpdates(doc));
 }
 
-async function createNoteContainerProjection(input: {
+async function createDocumentContainerProjection(input: {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
   signerKeyFingerprint: string;
@@ -208,7 +212,7 @@ async function createNoteContainerProjection(input: {
   });
 }
 
-async function createNoteCreateResponse(
+async function createDocumentCreateResponse(
   request: DocumentCreateRequest,
 ): Promise<DocumentCreateResponse> {
   const manifest = request.manifest as Record<string, unknown>;
@@ -263,7 +267,7 @@ async function createNoteCreateResponse(
   };
 }
 
-async function createNoteSyncResponse(input: {
+async function createDocumentSyncResponse(input: {
   request: DocumentSyncRequest;
   storedDocument: DocumentCreateResponse;
   commitLsn: string;
@@ -306,7 +310,7 @@ function uniqueSortedStrings(values: readonly string[]): string[] {
   return [...new Set(values)].sort();
 }
 
-async function createNoteAttachmentBindResponse(input: {
+async function createDocumentAttachmentBindResponse(input: {
   blobId: string;
   request: BlobAttachmentBindRequest;
 }) {
@@ -376,25 +380,32 @@ async function createNoteAttachmentBindResponse(input: {
   };
 }
 
-interface NoteRuntimePatch {
-  apiClient: NotesRuntimeInput["apiClient"];
+interface DocumentRuntimePatch {
+  apiClient: DocumentsRuntimeInput["apiClient"];
   organizationId: string;
   signingFingerprint: string;
-  signingKeyPair: NonNullable<NotesRuntimeInput["signingKeyPair"]>;
+  signingKeyPair: NonNullable<DocumentsRuntimeInput["signingKeyPair"]>;
   userId: string;
 }
 
-function createNoteProjectionUserKeyResolver(runtimePatch: NoteRuntimePatch) {
-  return createProjectionUserKeyResolver(runtimePatch, "NotesProvider test");
+function createDocumentProjectionUserKeyResolver(
+  runtimePatch: DocumentRuntimePatch,
+) {
+  return createProjectionUserKeyResolver(
+    runtimePatch,
+    "DocumentStore sync test",
+  );
 }
 
-async function createNoteRuntimePatch(input: {
+async function createDocumentRuntimePatch(input: {
   attachmentBinds?: Array<{
     blobId: string;
     request: BlobAttachmentBindRequest;
   }>;
   containerId?: string;
-  encapsulationKeyPair: NonNullable<NotesRuntimeInput["encapsulationKeyPair"]>;
+  encapsulationKeyPair: NonNullable<
+    DocumentsRuntimeInput["encapsulationKeyPair"]
+  >;
   onBindBlobAttachment?: (
     blobId: string,
     request: BlobAttachmentBindRequest,
@@ -407,7 +418,7 @@ async function createNoteRuntimePatch(input: {
   ) => DocumentWriterProjectionResponse;
   commitLsnForSyncCount?: (syncCount: number) => string;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
-}): Promise<NoteRuntimePatch> {
+}): Promise<DocumentRuntimePatch> {
   const containerId = input.containerId ?? "root-container";
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
@@ -432,7 +443,7 @@ async function createNoteRuntimePatch(input: {
     }
   >();
   const getProjection = () => {
-    projectionPromise ??= createNoteContainerProjection({
+    projectionPromise ??= createDocumentContainerProjection({
       containerId,
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
       signerKeyFingerprint: signingFingerprint,
@@ -445,7 +456,7 @@ async function createNoteRuntimePatch(input: {
   return {
     apiClient: createMockApiClient({
       createDocument: async (request) => {
-        storedDocument = await createNoteCreateResponse(request);
+        storedDocument = await createDocumentCreateResponse(request);
         return storedDocument;
       },
       bindBlobAttachment: async (blobId, request) => {
@@ -456,7 +467,7 @@ async function createNoteRuntimePatch(input: {
           return null;
         }
         await input.onBindBlobAttachment?.(blobId, request);
-        const responseFixture = await createNoteAttachmentBindResponse({
+        const responseFixture = await createDocumentAttachmentBindResponse({
           blobId,
           request,
         });
@@ -529,7 +540,7 @@ async function createNoteRuntimePatch(input: {
           outgoingUpdateCount: request.outgoingUpdates.length,
         });
         syncCount += 1;
-        return createNoteSyncResponse({
+        return createDocumentSyncResponse({
           request,
           storedDocument,
           commitLsn:
@@ -595,10 +606,10 @@ function isPendingUpdateDetailRow(
   );
 }
 
-function createNotesPersistence(): DocumentsPersistence & {
-  getState: () => StoredNotesState;
+function createDocumentsPersistence(): DocumentsPersistence & {
+  getState: () => StoredDocumentsState;
 } {
-  let note: DocumentRecord | null = null;
+  let document: DocumentRecord | null = null;
   let localAttachments: LocalAttachmentRecord[] = [];
   let pendingAttachments: PendingAttachmentRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
@@ -607,116 +618,116 @@ function createNotesPersistence(): DocumentsPersistence & {
     async ensureSchema() {},
     getState() {
       return {
-        localAttachments,
-        note,
-        pendingAttachments,
-        noteSummaries: note
+        document,
+        documentSummaries: document
           ? [
               {
-                id: note.id,
-                containerId: note.containerId,
-                documentId: note.documentId,
-                title: note.text.trim() || "Untitled note",
+                id: document.id,
+                containerId: document.containerId,
+                documentId: document.documentId,
+                title: document.text.trim() || "Untitled note",
                 updatedAt: "2026-04-06T00:00:00.000Z",
               },
             ]
           : [],
+        localAttachments,
+        pendingAttachments,
         pendingUpdates,
       };
     },
     async listDocuments() {
-      return note
+      return document
         ? [
             {
-              id: note.id,
-              containerId: note.containerId,
-              documentId: note.documentId,
-              title: note.text.trim() || "Untitled note",
+              id: document.id,
+              containerId: document.containerId,
+              documentId: document.documentId,
+              title: document.text.trim() || "Untitled note",
               updatedAt: "2026-04-06T00:00:00.000Z",
             },
           ]
         : [];
     },
     async listDocumentsByContainerIdsOrDocumentIds(_execSql, input) {
-      if (!note) {
+      if (!document) {
         return [];
       }
 
       const containerIds = new Set(input.containerIds);
       const documentIds = new Set(input.documentIds);
       const containerMatches =
-        note.containerId !== null && containerIds.has(note.containerId);
+        document.containerId !== null && containerIds.has(document.containerId);
       const documentMatches =
-        note.documentId !== null && documentIds.has(note.documentId);
+        document.documentId !== null && documentIds.has(document.documentId);
       if (!containerMatches && !documentMatches) {
         return [];
       }
 
       return [
         {
-          id: note.id,
-          containerId: note.containerId,
-          documentId: note.documentId,
-          title: note.text.trim() || "Untitled note",
+          id: document.id,
+          containerId: document.containerId,
+          documentId: document.documentId,
+          title: document.text.trim() || "Untitled note",
           updatedAt: "2026-04-06T00:00:00.000Z",
         },
       ];
     },
     async loadDocument() {
-      return note;
+      return document;
     },
-    async saveDocument(_execSql, nextNote) {
-      note = nextNote;
+    async saveDocument(_execSql, nextDocument) {
+      document = nextDocument;
       return "2026-04-06T00:00:00.000Z";
     },
     async saveDocumentAndDeletePendingUpdates(
       _execSql,
-      nextNote,
+      nextDocument,
       pendingUpdateIds,
     ) {
       const acceptedPendingUpdateIds = new Set(pendingUpdateIds);
-      note = nextNote;
+      document = nextDocument;
       pendingUpdates = pendingUpdates.filter(
         (pendingUpdate) => !acceptedPendingUpdateIds.has(pendingUpdate.id),
       );
       return "2026-04-06T00:00:00.000Z";
     },
     async upsertDiscoveredDocument(_execSql, input) {
-      const nextNote = {
+      const nextDocument = {
         accessEpoch: input.accessEpoch,
         containerId: input.containerId,
         documentId: input.documentId,
-        id: note?.id ?? input.documentId,
-        loroSnapshot: note?.loroSnapshot ?? "",
-        text: note?.text ?? "",
+        id: document?.id ?? input.documentId,
+        loroSnapshot: document?.loroSnapshot ?? "",
+        text: document?.text ?? "",
       };
-      note = nextNote;
+      document = nextDocument;
 
       return {
-        id: nextNote.id,
-        containerId: nextNote.containerId,
-        documentId: nextNote.documentId,
-        title: nextNote.text.trim() || "Untitled note",
+        id: nextDocument.id,
+        containerId: nextDocument.containerId,
+        documentId: nextDocument.documentId,
+        title: nextDocument.text.trim() || "Untitled note",
         updatedAt: input.createdAt,
       };
     },
     async relinkPersistedDocument(_execSql, input) {
-      if (!note || note.id !== input.localId) {
+      if (!document || document.id !== input.localId) {
         return null;
       }
 
-      note = {
-        ...note,
-        accessEpoch: Math.max(note.accessEpoch, input.accessEpoch),
+      document = {
+        ...document,
+        accessEpoch: Math.max(document.accessEpoch, input.accessEpoch),
         containerId: input.containerId,
         documentId: input.documentId,
       };
 
       return {
-        id: note.id,
-        containerId: note.containerId,
-        documentId: note.documentId,
-        title: note.text.trim() || "Untitled note",
+        id: document.id,
+        containerId: document.containerId,
+        documentId: document.documentId,
+        title: document.text.trim() || "Untitled note",
         updatedAt: "2026-04-06T00:00:00.000Z",
       };
     },
@@ -801,9 +812,9 @@ function createNotesPersistence(): DocumentsPersistence & {
   };
 }
 
-function createRuntime(containerId = "root-container"): NotesTestRuntime {
-  return createNotesTestRuntime({
-    apiClient: createUnavailableNotesApiClient(containerId),
+function createRuntime(containerId = "root-container"): DocumentsTestRuntime {
+  return createDocumentsTestRuntime({
+    apiClient: createUnavailableDocumentsApiClient(containerId),
     blobStore: createMemoryBlobStore(),
     cacheReferencedPrincipalPolicies: async () => {},
     containerId,
@@ -819,7 +830,9 @@ function createRuntime(containerId = "root-container"): NotesTestRuntime {
 }
 
 async function createSyncRuntimeInput(
-  encapsulationKeyPair: NonNullable<NotesRuntimeInput["encapsulationKeyPair"]>,
+  encapsulationKeyPair: NonNullable<
+    DocumentsRuntimeInput["encapsulationKeyPair"]
+  >,
   containerId = "root-container",
   options: {
     attachmentBinds?: Array<{
@@ -833,8 +846,8 @@ async function createSyncRuntimeInput(
     ) => Promise<void> | void;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
-): Promise<NotesRuntimeInput> {
-  const patch = await createNoteRuntimePatch({
+): Promise<DocumentsRuntimeInput> {
+  const patch = await createDocumentRuntimePatch({
     containerId,
     encapsulationKeyPair,
     ...(options.attachmentBinds
@@ -869,7 +882,9 @@ async function createSyncRuntimeInput(
 }
 
 async function createSyncRuntime(
-  encapsulationKeyPair: NonNullable<NotesRuntimeInput["encapsulationKeyPair"]>,
+  encapsulationKeyPair: NonNullable<
+    DocumentsRuntimeInput["encapsulationKeyPair"]
+  >,
   containerId = "root-container",
   options: {
     attachmentBinds?: Array<{
@@ -883,18 +898,20 @@ async function createSyncRuntime(
     ) => Promise<void> | void;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
-): Promise<NotesTestRuntime> {
-  return createNotesTestRuntime(
+): Promise<DocumentsTestRuntime> {
+  return createDocumentsTestRuntime(
     await createSyncRuntimeInput(encapsulationKeyPair, containerId, options),
   );
 }
 
 function createOfflineAttachmentRuntime(
-  encapsulationKeyPair: NonNullable<NotesRuntimeInput["encapsulationKeyPair"]>,
+  encapsulationKeyPair: NonNullable<
+    DocumentsRuntimeInput["encapsulationKeyPair"]
+  >,
   containerId = "root-container",
-): NotesTestRuntime {
-  return createNotesTestRuntime({
-    apiClient: createUnavailableNotesApiClient(containerId),
+): DocumentsTestRuntime {
+  return createDocumentsTestRuntime({
+    apiClient: createUnavailableDocumentsApiClient(containerId),
     blobStore: createMemoryBlobStore(),
     cacheReferencedPrincipalPolicies: async () => {},
     containerId,
@@ -910,7 +927,7 @@ function createOfflineAttachmentRuntime(
 }
 
 async function waitForStoredDocumentText(
-  runtime: NotesTestRuntime,
+  runtime: DocumentsTestRuntime,
   localId: string,
   text: string,
 ) {
@@ -931,30 +948,30 @@ async function waitForStoredDocumentText(
 }
 
 async function createSqlRuntime(): Promise<
-  NotesTestRuntime & {
+  DocumentsTestRuntime & {
     close: () => void;
   }
 > {
-  const runtimeBase = await createSqlRuntimeBase("notes-provider-test");
+  const runtimeBase = await createSqlRuntimeBase("document-store-sync-test");
   const { close, ...runtimeInputBase } = runtimeBase;
 
   return {
-    ...createNotesTestRuntime({
+    ...createDocumentsTestRuntime({
       ...runtimeInputBase,
-      apiClient: createUnavailableNotesApiClient(),
+      apiClient: createUnavailableDocumentsApiClient(),
       containerId: "root-container",
     }),
     close,
   };
 }
 
-test("primeNotesStore reuses a synced remote note across different local ids", async () => {
+test("primeDocumentStore reuses a synced remote note across different local ids", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const patch = await createNoteRuntimePatch({
+  const patch = await createDocumentRuntimePatch({
     encapsulationKeyPair,
   });
-  const runtime = cloneNotesTestRuntime(runtimeBase, {
+  const runtime = cloneDocumentsTestRuntime(runtimeBase, {
     apiClient: patch.apiClient,
     encapsulationKeyPair,
     isAuthenticated: true,
@@ -966,24 +983,28 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
   });
 
   try {
-    const firstStore = primeNotesStore(runtime.domainScope, "note-1", runtime);
+    const firstStore = primeDocumentStore(
+      runtime.domainScope,
+      "note-1",
+      runtime,
+    );
     await waitForCondition(
       () => firstStore.getSnapshot().ready,
-      "First primed note store did not initialize.",
+      "First primed document store did not initialize.",
     );
 
     firstStore.setText("Shared note");
     await waitForStoredDocumentText(runtime, "note-1", "Shared note");
     await waitForCondition(
       () => firstStore.getSnapshot().documentId !== null,
-      "First primed note store did not persist its remote document id.",
+      "First primed document store did not persist its remote document id.",
     );
     const remoteDocumentId = firstStore.getSnapshot().documentId;
     if (!remoteDocumentId) {
       throw new Error("Expected first store to have a remote document id.");
     }
 
-    const secondStore = primeNotesStore(
+    const secondStore = primeDocumentStore(
       runtime.domainScope,
       "default",
       runtime,
@@ -994,20 +1015,20 @@ test("primeNotesStore reuses a synced remote note across different local ids", a
     expect(secondStore.getSnapshot().text).toBe("Shared note");
     await waitForCondition(
       () => !firstStore.getSnapshot().syncing,
-      "Shared note store did not finish syncing before cleanup.",
+      "Shared document store did not finish syncing before cleanup.",
     );
   } finally {
     runtimeBase.close();
   }
 });
 
-test("primeNotesStore collapses live duplicate note facades after remote identity resolves", async () => {
+test("primeDocumentStore collapses live duplicate document facades after remote identity resolves", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const patch = await createNoteRuntimePatch({
+  const patch = await createDocumentRuntimePatch({
     encapsulationKeyPair,
   });
-  const runtime = cloneNotesTestRuntime(runtimeBase, {
+  const runtime = cloneDocumentsTestRuntime(runtimeBase, {
     apiClient: patch.apiClient,
     encapsulationKeyPair,
     isAuthenticated: true,
@@ -1019,8 +1040,12 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
   });
 
   try {
-    const firstStore = primeNotesStore(runtime.domainScope, "note-1", runtime);
-    const secondStore = primeNotesStore(
+    const firstStore = primeDocumentStore(
+      runtime.domainScope,
+      "note-1",
+      runtime,
+    );
+    const secondStore = primeDocumentStore(
       runtime.domainScope,
       "default",
       runtime,
@@ -1031,7 +1056,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
 
     await waitForCondition(
       () => firstStore.getSnapshot().ready && secondStore.getSnapshot().ready,
-      "Duplicate note facades did not initialize before consolidation.",
+      "Duplicate document facades did not initialize before consolidation.",
     );
 
     await firstStore.relink({
@@ -1048,7 +1073,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
       () =>
         secondStore.getSnapshot().documentId === "shared-remote-note" &&
         secondStore.getSnapshot().text === "Shared note",
-      "Live duplicate note facades did not collapse onto the same backing store.",
+      "Live duplicate document facades did not collapse onto the same backing store.",
     );
 
     secondStore.setText("Merged note");
@@ -1056,12 +1081,12 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
 
     await waitForCondition(
       () => firstStore.getSnapshot().text === "Merged note",
-      "Collapsed note facades did not share subsequent updates.",
+      "Collapsed document facades did not share subsequent updates.",
     );
     await waitForCondition(
       () =>
         !firstStore.getSnapshot().syncing && !secondStore.getSnapshot().syncing,
-      "Collapsed note facades did not finish syncing before cleanup.",
+      "Collapsed document facades did not finish syncing before cleanup.",
     );
   } finally {
     runtimeBase.close();
@@ -1069,7 +1094,7 @@ test("primeNotesStore collapses live duplicate note facades after remote identit
 });
 
 test("domain-scoped persisted document subscriptions fan out to multiple listeners", async () => {
-  const persistence = createNotesPersistence();
+  const persistence = createDocumentsPersistence();
   const runtime = createRuntime();
   const firstListenerDocuments: DocumentSummary[] = [];
   const secondListenerDocuments: DocumentSummary[] = [];
@@ -1087,12 +1112,12 @@ test("domain-scoped persisted document subscriptions fan out to multiple listene
   );
 
   try {
-    const store = createNotesStore("shared-listeners", runtime, persistence);
+    const store = createDocumentStore("shared-listeners", runtime, persistence);
     store.updateRuntime(runtime);
 
     await waitForCondition(
       () => store.getSnapshot().ready,
-      "Notes store did not become ready before broadcasting persisted updates.",
+      "Document store did not become ready before broadcasting persisted updates.",
     );
 
     store.setText("Shared note");
@@ -1105,7 +1130,7 @@ test("domain-scoped persisted document subscriptions fan out to multiple listene
         secondListenerDocuments.some(
           (document) => document.title === "Shared note",
         ),
-      "Persisted document listeners did not all receive the saved note summary.",
+      "Persisted document listeners did not all receive the saved document summary.",
     );
   } finally {
     unsubscribeFirst();
@@ -1113,13 +1138,13 @@ test("domain-scoped persisted document subscriptions fan out to multiple listene
   }
 });
 
-test("notes store re-registers sync lane when runtime domain scope changes", async () => {
-  const persistence = createNotesPersistence();
+test("document store re-registers sync lane when runtime domain scope changes", async () => {
+  const persistence = createDocumentsPersistence();
   const firstRuntime = createRuntime();
-  const secondRuntime = cloneNotesTestRuntime(firstRuntime, {
+  const secondRuntime = cloneDocumentsTestRuntime(firstRuntime, {
     domainScope: {},
   });
-  const store = createNotesStore(
+  const store = createDocumentStore(
     "domain-scope-note",
     firstRuntime,
     persistence,
@@ -1128,7 +1153,7 @@ test("notes store re-registers sync lane when runtime domain scope changes", asy
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "Notes store did not become ready before the domain scope changed.",
+    "Document store did not become ready before the domain scope changed.",
   );
 
   store.updateRuntime(secondRuntime);
@@ -1156,21 +1181,21 @@ test("notes store re-registers sync lane when runtime domain scope changes", asy
 
   await waitForCondition(
     () => nextDomainSyncRequested,
-    "Notes store did not request sync through the updated domain scope.",
+    "Document store did not request sync through the updated domain scope.",
   );
   expect(oldDomainSyncRequested).toBe(false);
 });
 
-test("notes store reloads persisted note text and pending updates", async () => {
-  const persistence = createNotesPersistence();
+test("document store reloads persisted note text and pending updates", async () => {
+  const persistence = createDocumentsPersistence();
 
   const firstRuntime = createRuntime();
-  const firstStore = createNotesStore("default", firstRuntime, persistence);
+  const firstStore = createDocumentStore("default", firstRuntime, persistence);
   firstStore.updateRuntime(firstRuntime);
 
   await waitForCondition(
     () => firstStore.getSnapshot().ready,
-    "First notes store did not become ready.",
+    "First document store did not become ready.",
   );
 
   expect(firstStore.getSnapshot()).toEqual({
@@ -1191,7 +1216,7 @@ test("notes store reloads persisted note text and pending updates", async () => 
   firstStore.setText("persisted note");
 
   await waitForCondition(
-    () => persistence.getState().note?.text === "persisted note",
+    () => persistence.getState().document?.text === "persisted note",
     "Persisted note text was not written.",
   );
 
@@ -1201,12 +1226,16 @@ test("notes store reloads persisted note text and pending updates", async () => 
   );
 
   const secondRuntime = createRuntime();
-  const secondStore = createNotesStore("default", secondRuntime, persistence);
+  const secondStore = createDocumentStore(
+    "default",
+    secondRuntime,
+    persistence,
+  );
   secondStore.updateRuntime(secondRuntime);
 
   await waitForCondition(
     () => secondStore.getSnapshot().ready,
-    "Second notes store did not become ready.",
+    "Second document store did not become ready.",
   );
 
   expect(secondStore.getSnapshot()).toEqual({
@@ -1225,20 +1254,20 @@ test("notes store reloads persisted note text and pending updates", async () => 
   });
 });
 
-test("notes store creates a document linked to the configured container", async () => {
-  const persistence = createNotesPersistence();
+test("document store creates a document linked to the configured container", async () => {
+  const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const runtime = await createSyncRuntime(
     encapsulationKeyPair,
     "shared-container",
   );
 
-  const store = createNotesStore("container-note", runtime, persistence);
+  const store = createDocumentStore("container-note", runtime, persistence);
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "Container-scoped notes store did not become ready.",
+    "Container-scoped document store did not become ready.",
   );
 
   store.setText("shared container note");
@@ -1246,18 +1275,18 @@ test("notes store creates a document linked to the configured container", async 
   await waitForCondition(
     () =>
       persistence.getState().pendingUpdates.length === 0 &&
-      persistence.getState().note?.documentId !== null &&
-      persistence.getState().note?.containerId === "shared-container" &&
-      persistence.getState().note?.contentKeyBundle !== null &&
-      persistence.getState().note?.documentKekTargets !== null &&
-      persistence.getState().note?.documentManifestBundle !== null &&
+      persistence.getState().document?.documentId !== null &&
+      persistence.getState().document?.containerId === "shared-container" &&
+      persistence.getState().document?.contentKeyBundle !== null &&
+      persistence.getState().document?.documentKekTargets !== null &&
+      persistence.getState().document?.documentManifestBundle !== null &&
       !store.getSnapshot().syncing,
     "Container-scoped note did not create and sync its document.",
   );
 });
 
-test("notes store clears document state when access epoch changes", async () => {
-  const persistence = createNotesPersistence();
+test("document store clears document state when access epoch changes", async () => {
+  const persistence = createDocumentsPersistence();
   const runtime = createRuntime();
 
   await persistence.saveDocument(runtime.execSql, {
@@ -1267,19 +1296,19 @@ test("notes store clears document state when access epoch changes", async () => 
     documentId: "remote-document",
     id: "epoch-note",
     lastCommitLsn: "0/10",
-    loroSnapshot: await createPersistedNoteSnapshot("Existing note"),
+    loroSnapshot: await createPersistedDocumentSnapshot("Existing note"),
     text: "Existing note",
     contentKeyBundle: "stale-content-key-bundle",
     documentKekTargets: "stale-kek-targets",
     documentManifestBundle: "stale-manifest-bundle",
   });
 
-  const store = createNotesStore("epoch-note", runtime, persistence);
+  const store = createDocumentStore("epoch-note", runtime, persistence);
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "Epoch relink note store did not become ready.",
+    "Epoch relink document store did not become ready.",
   );
 
   await expect(
@@ -1297,7 +1326,7 @@ test("notes store clears document state when access epoch changes", async () => 
     id: "epoch-note",
   });
 
-  expect(persistence.getState().note).toMatchObject({
+  expect(persistence.getState().document).toMatchObject({
     accessEpoch: 2,
     accessStateHash: "access-state-hash-2",
     containerId: "container-b",
@@ -1309,18 +1338,18 @@ test("notes store clears document state when access epoch changes", async () => 
   });
 });
 
-test("notes store attaches files locally without authentication or network", async () => {
-  const persistence = createNotesPersistence();
+test("document store attaches files locally without authentication or network", async () => {
+  const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const blobStore = createMemoryBlobStore();
   const runtime = createOfflineAttachmentRuntime(
     encapsulationKeyPair,
     "offline-container",
   );
-  const offlineRuntime = cloneNotesTestRuntime(runtime, {
+  const offlineRuntime = cloneDocumentsTestRuntime(runtime, {
     blobStore,
   });
-  const store = createNotesStore(
+  const store = createDocumentStore(
     "offline-attachment-note",
     offlineRuntime,
     persistence,
@@ -1329,7 +1358,7 @@ test("notes store attaches files locally without authentication or network", asy
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "Offline attachment notes store did not become ready.",
+    "Offline attachment document store did not become ready.",
   );
 
   expect(store.getSnapshot().canAttach).toBe(true);
@@ -1364,8 +1393,8 @@ test("notes store attaches files locally without authentication or network", asy
   );
 });
 
-test("notes store uploads attachment bytes with signed bindings", async () => {
-  const persistence = createNotesPersistence();
+test("document store uploads attachment bytes with signed bindings", async () => {
+  const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const attachmentBinds: Array<{
     blobId: string;
@@ -1384,7 +1413,7 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
       syncCalls,
     },
   );
-  const runtime = createNotesTestRuntime({
+  const runtime = createDocumentsTestRuntime({
     ...runtimeInput,
     containerId: runtimeInput.containerId ?? null,
     organizationId: runtimeInput.organizationId ?? null,
@@ -1393,12 +1422,12 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
     userId: runtimeInput.userId ?? null,
     log: (message) => logs.push(message),
   });
-  const store = createNotesStore("attachment-upload", runtime, persistence);
+  const store = createDocumentStore("attachment-upload", runtime, persistence);
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "Attachment upload note store did not become ready.",
+    "Attachment upload document store did not become ready.",
   );
 
   store.attachFiles([
@@ -1420,13 +1449,13 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
   expect(store.getSnapshot().attachments).toHaveLength(1);
   expect(persistence.getState().pendingAttachments).toHaveLength(0);
   expect(persistence.getState().pendingUpdates).toHaveLength(0);
-  expect(persistence.getState().note?.documentId).toBeString();
+  expect(persistence.getState().document?.documentId).toBeString();
   expect(persistence.getState().localAttachments[0]?.blobId).toBeString();
   expect(attachmentBinds).toHaveLength(1);
   expect(attachmentBinds[0]?.request.stagedBlob?.writeHeader).toBeDefined();
   expect(attachmentBinds[0]?.request.body).toMatchObject({
     eventType: "attachment.bind",
-    documentId: persistence.getState().note?.documentId,
+    documentId: persistence.getState().document?.documentId,
     slotId: store.getSnapshot().attachments[0]?.slotId,
     expectedBindingId: null,
   });
@@ -1436,7 +1465,7 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
   );
 
   const blobId = persistence.getState().localAttachments[0]?.blobId;
-  const documentId = persistence.getState().note?.documentId;
+  const documentId = persistence.getState().document?.documentId;
   if (!blobId || !documentId) {
     throw new Error("Expected uploaded attachment and remote document ids.");
   }
@@ -1526,7 +1555,7 @@ test("notes store uploads attachment bytes with signed bindings", async () => {
 
 test("uploadDocumentAttachment rejects bind responses with tampered target material", async () => {
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtimePatch = await createNoteRuntimePatch({
+  const runtimePatch = await createDocumentRuntimePatch({
     encapsulationKeyPair,
     mapBindBlobAttachmentResponse: (response) => ({
       ...response,
@@ -1551,7 +1580,7 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
     signerUserId: runtimePatch.userId,
   };
   const resolveProjectionUserKey =
-    createNoteProjectionUserKeyResolver(runtimePatch);
+    createDocumentProjectionUserKeyResolver(runtimePatch);
   const created = await createRemoteDocument({
     apiClient: runtimePatch.apiClient,
     author,
@@ -1582,7 +1611,7 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
 
 test("uploadDocumentAttachment rejects document writer projections with bad signatures", async () => {
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtimePatch = await createNoteRuntimePatch({
+  const runtimePatch = await createDocumentRuntimePatch({
     encapsulationKeyPair,
     mapDocumentWriterProjectionResponse: (projection) => {
       const tamperedProjection = structuredClone(projection);
@@ -1614,7 +1643,7 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
     signerUserId: runtimePatch.userId,
   };
   const resolveProjectionUserKey =
-    createNoteProjectionUserKeyResolver(runtimePatch);
+    createDocumentProjectionUserKeyResolver(runtimePatch);
   const created = await createRemoteDocument({
     apiClient: runtimePatch.apiClient,
     author,
@@ -1645,7 +1674,9 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
 
 test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryption", async () => {
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtimePatch = await createNoteRuntimePatch({ encapsulationKeyPair });
+  const runtimePatch = await createDocumentRuntimePatch({
+    encapsulationKeyPair,
+  });
   const author = {
     organizationId: runtimePatch.organizationId,
     signerDeviceId: "test-device-1",
@@ -1654,7 +1685,7 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
     signerUserId: runtimePatch.userId,
   };
   const resolveProjectionUserKey =
-    createNoteProjectionUserKeyResolver(runtimePatch);
+    createDocumentProjectionUserKeyResolver(runtimePatch);
   const created = await createRemoteDocument({
     apiClient: runtimePatch.apiClient,
     author,
@@ -1714,15 +1745,15 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
   expect(firstRecord.ciphertext).not.toBe(secondRecord.ciphertext);
 });
 
-test("notes store preserves a replacement queued during attachment upload", async () => {
-  const persistence = createNotesPersistence();
+test("document store preserves a replacement queued during attachment upload", async () => {
+  const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const attachmentBinds: Array<{
     blobId: string;
     request: BlobAttachmentBindRequest;
   }> = [];
   let replacementQueued = false;
-  let store: ReturnType<typeof createNotesStore>;
+  let store: ReturnType<typeof createDocumentStore>;
   const runtime = await createSyncRuntime(
     encapsulationKeyPair,
     "shared-container",
@@ -1759,12 +1790,12 @@ test("notes store preserves a replacement queued during attachment upload", asyn
       },
     },
   );
-  store = createNotesStore("attachment-replacement", runtime, persistence);
+  store = createDocumentStore("attachment-replacement", runtime, persistence);
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "Attachment replacement note store did not become ready.",
+    "Attachment replacement document store did not become ready.",
   );
 
   store.attachFiles([
@@ -1800,19 +1831,23 @@ test("notes store preserves a replacement queued during attachment upload", asyn
   );
 });
 
-test("notes store keeps prior attachments when a second file is attached", async () => {
-  const persistence = createNotesPersistence();
+test("document store keeps prior attachments when a second file is attached", async () => {
+  const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const runtime = await createSyncRuntime(
     encapsulationKeyPair,
     "shared-container",
   );
-  const store = createNotesStore("attachment-sequence", runtime, persistence);
+  const store = createDocumentStore(
+    "attachment-sequence",
+    runtime,
+    persistence,
+  );
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "Sequential attachment note store did not become ready.",
+    "Sequential attachment document store did not become ready.",
   );
 
   store.attachFiles([
@@ -1846,11 +1881,11 @@ test("notes store keeps prior attachments when a second file is attached", async
   ).toEqual(["first.png", "second.png"]);
 });
 
-test("notes store reloads persisted attachment metadata from the note snapshot", async () => {
-  const persistence = createNotesPersistence();
+test("document store reloads persisted attachment metadata from the note snapshot", async () => {
+  const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const runtime = await createSyncRuntime(encapsulationKeyPair);
-  const firstStore = createNotesStore(
+  const firstStore = createDocumentStore(
     "attachment-reload",
     runtime,
     persistence,
@@ -1859,7 +1894,7 @@ test("notes store reloads persisted attachment metadata from the note snapshot",
 
   await waitForCondition(
     () => firstStore.getSnapshot().ready,
-    "First attachment note store did not become ready.",
+    "First attachment document store did not become ready.",
   );
 
   firstStore.attachFiles([
@@ -1872,10 +1907,10 @@ test("notes store reloads persisted attachment metadata from the note snapshot",
 
   await waitForCondition(
     () => firstStore.getSnapshot().attachments.length === 1,
-    "Attachment metadata was not persisted to the first note store.",
+    "Attachment metadata was not persisted to the first document store.",
   );
 
-  const secondStore = createNotesStore(
+  const secondStore = createDocumentStore(
     "attachment-reload",
     createRuntime(),
     persistence,
@@ -1884,7 +1919,7 @@ test("notes store reloads persisted attachment metadata from the note snapshot",
 
   await waitForCondition(
     () => secondStore.getSnapshot().ready,
-    "Second attachment note store did not become ready.",
+    "Second attachment document store did not become ready.",
   );
 
   expect(secondStore.getSnapshot().attachments).toEqual([
@@ -1902,12 +1937,12 @@ test("large note edits remain a single pending update row before sync", async ()
 
   try {
     const noteId = "large-note";
-    const store = createNotesStore(noteId, runtime);
+    const store = createDocumentStore(noteId, runtime);
     store.updateRuntime(runtime);
 
     await waitForCondition(
       () => store.getSnapshot().ready,
-      "SQLite-backed notes store did not become ready.",
+      "SQLite-backed document store did not become ready.",
     );
 
     const largeText = createLargeText(1024 * 1024);
@@ -1982,8 +2017,8 @@ test("large note edits remain a single pending update row before sync", async ()
   }
 });
 
-test("notes store does not restart attachment sync for commit-lsn-only probes", async () => {
-  const persistence = createNotesPersistence();
+test("document store does not restart attachment sync for commit-lsn-only probes", async () => {
+  const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const attachmentBinds: Array<{
     blobId: string;
@@ -2002,19 +2037,19 @@ test("notes store does not restart attachment sync for commit-lsn-only probes", 
       syncCalls,
     },
   );
-  const store = createNotesStore("attachment-probe", runtime, persistence);
+  const store = createDocumentStore("attachment-probe", runtime, persistence);
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "Attachment probe note store did not become ready.",
+    "Attachment probe document store did not become ready.",
   );
 
   store.setText("remote attachment note");
 
   await waitForCondition(
     () =>
-      persistence.getState().note?.documentId !== null &&
+      persistence.getState().document?.documentId !== null &&
       persistence.getState().pendingUpdates.length === 0 &&
       syncCalls.length === 1,
     "Attachment probe note was not synced before uploading.",
@@ -2041,8 +2076,8 @@ test("notes store does not restart attachment sync for commit-lsn-only probes", 
   expect(attachmentBinds).toHaveLength(1);
 });
 
-test("notes store persists commitLsn and reuses it as minLsn on the next sync", async () => {
-  const persistence = createNotesPersistence();
+test("document store persists commitLsn and reuses it as minLsn on the next sync", async () => {
+  const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const syncDocumentCalls: Array<{
     minLsn: string | null;
@@ -2055,12 +2090,12 @@ test("notes store persists commitLsn and reuses it as minLsn on the next sync", 
       syncCalls: syncDocumentCalls,
     },
   );
-  const store = createNotesStore("default", runtime, persistence);
+  const store = createDocumentStore("default", runtime, persistence);
   store.updateRuntime(runtime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
-    "Notes sync store did not become ready.",
+    "Document sync store did not become ready.",
   );
 
   store.setText("hello");
@@ -2069,7 +2104,7 @@ test("notes store persists commitLsn and reuses it as minLsn on the next sync", 
     () =>
       syncDocumentCalls.length === 1 &&
       persistence.getState().pendingUpdates.length === 0 &&
-      persistence.getState().note?.lastCommitLsn === "0/10",
+      persistence.getState().document?.lastCommitLsn === "0/10",
     "Initial note document sync did not persist the returned commitLsn.",
   );
 
@@ -2079,7 +2114,7 @@ test("notes store persists commitLsn and reuses it as minLsn on the next sync", 
     () =>
       syncDocumentCalls.length === 2 &&
       persistence.getState().pendingUpdates.length === 0 &&
-      persistence.getState().note?.lastCommitLsn === "0/20",
+      persistence.getState().document?.lastCommitLsn === "0/20",
     "Follow-up note sync did not reuse and refresh the persisted commitLsn.",
   );
 

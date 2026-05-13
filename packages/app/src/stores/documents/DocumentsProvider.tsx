@@ -25,7 +25,6 @@ export {
 } from "./documentStore";
 export type {
   DocumentAttachmentStatus,
-  DocumentContextValue,
   DocumentsRuntime,
 } from "./types";
 export { DEFAULT_DOCUMENT_ID } from "./types";

@@ -3,8 +3,10 @@ import type { DocumentSummary } from "../../data/documentSummary";
 import { getUntitledDocumentTitle } from "../../data/documents/documentKinds";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { defaultDocumentsPersistence } from "../../workflows/documents";
-import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
-import { DEFAULT_NOTE_ID } from "./NotesProvider";
+import {
+  DEFAULT_DOCUMENT_ID,
+  subscribeToPersistedDocuments,
+} from "./DocumentsProvider";
 
 function isNoteSummary(documentSummary: DocumentSummary): boolean {
   return (documentSummary.documentKind ?? "note") === "note";
@@ -83,13 +85,13 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
           }
           if (
             currentNoteId &&
-            (currentNoteId === DEFAULT_NOTE_ID ||
+            (currentNoteId === DEFAULT_DOCUMENT_ID ||
               nextNotes.some((note) => note.id === currentNoteId))
           ) {
             return currentNoteId;
           }
 
-          return nextNotes[0]?.id ?? DEFAULT_NOTE_ID;
+          return nextNotes[0]?.id ?? DEFAULT_DOCUMENT_ID;
         });
       } catch (error) {
         if (!cancelled) {

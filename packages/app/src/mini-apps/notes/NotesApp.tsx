@@ -1,8 +1,8 @@
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import {
-  DEFAULT_NOTE_ID,
-  NotesProvider,
-} from "../../stores/notes/NotesProvider";
+  DEFAULT_DOCUMENT_ID,
+  DocumentsProvider,
+} from "../../stores/documents/DocumentsProvider";
 import { useNotesAppModel } from "./hooks/useNotesAppModel";
 import { Notes } from "./Notes";
 import { NotesEmptyState } from "./NotesEmptyState";
@@ -23,7 +23,7 @@ export function createNotesWindowComponent({
     );
   }
 
-  NotesWindowComponent.displayName = `NotesWindow(${noteId ?? DEFAULT_NOTE_ID})`;
+  NotesWindowComponent.displayName = `NotesWindow(${noteId ?? DEFAULT_DOCUMENT_ID})`;
   return NotesWindowComponent;
 }
 
@@ -36,8 +36,8 @@ function NotesApp(props: NotesAppProps) {
   }
 
   return (
-    <NotesProvider
-      noteId={model.activeSelection.noteId}
+    <DocumentsProvider
+      localId={model.activeSelection.noteId}
       {...(model.activeSelection.containerId === undefined
         ? {}
         : { containerId: model.activeSelection.containerId })}
@@ -46,6 +46,6 @@ function NotesApp(props: NotesAppProps) {
         : { documentId: model.activeSelection.documentId })}
     >
       <Notes />
-    </NotesProvider>
+    </DocumentsProvider>
   );
 }

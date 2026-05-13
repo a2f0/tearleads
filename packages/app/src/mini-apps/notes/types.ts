@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
-import type { DocumentAttachmentUpload } from "../../stores/documents/types";
-import type { NoteAttachmentStatus } from "../../stores/notes/NotesProvider";
+import type {
+  DocumentAttachmentStatus,
+  DocumentAttachmentUpload,
+} from "../../stores/documents/types";
 
 export interface NotesAppProps {
   noteId?: string;
@@ -14,6 +16,7 @@ export interface ActiveNoteSelection {
   documentId?: string | null;
 }
 
+export type NoteAttachmentStatus = DocumentAttachmentStatus;
 export type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
 export type AttachmentStatusBySlotId = Readonly<
   Record<string, NoteAttachmentStatus>

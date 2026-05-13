@@ -1,7 +1,7 @@
 import { useId, useMemo, useRef } from "react";
 import { useAttachmentImageUrls } from "../../../document-types/shared/useAttachmentImageUrls";
 import { useAppData } from "../../../providers/data/AppDataProvider";
-import { useNotes } from "../../../stores/notes/NotesProvider";
+import { useDocument } from "../../../stores/documents/DocumentsProvider";
 import { useAttachmentDropzone } from "../attachments/useAttachmentDropzone";
 import { createNotesFileHandlers } from "./useNotesFileHandlers";
 
@@ -17,7 +17,7 @@ export function useNotesModel() {
     setText,
     syncing,
     text,
-  } = useNotes();
+  } = useDocument();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputId = useId();
   const imageUrlBySlotId = useAttachmentImageUrls(
