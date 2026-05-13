@@ -25,8 +25,10 @@ import {
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
   verifyContainerAccessManifest,
+  verifySignedAccessEvent,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
+import { createContainerManifestFixture as createCryptoContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
@@ -90,10 +92,8 @@ async function signContainerEvent(input: {
   organizationId: string;
   previousManifestHash: string | null;
   signer: ContainerMutationAuthor;
-}): Promise<{
-  event: AccessEvent;
-  eventHash: string;
-}> {
+  signingPublicKey: Uint8Array;
+}): Promise<VerifiedAccessEvent> {
   const event = await signAccessEvent(
     {
       version: 1,
@@ -114,11 +114,17 @@ async function signContainerEvent(input: {
     },
     input.signer.signerPrivateKey,
   );
-
-  return {
+  const verified = await verifySignedAccessEvent({
+    body: input.body as unknown as KeyingCanonicalJson,
     event,
-    eventHash: await computeAccessEventHash(event),
-  };
+    signerPublicKey: input.signingPublicKey,
+  });
+
+  if (!verified.ok) {
+    throw verified.error;
+  }
+
+  return verified.value;
 }
 
 export async function createContainerManifestFixture(input: {
@@ -130,6 +136,7 @@ export async function createContainerManifestFixture(input: {
   metadataDocumentId: string;
   organizationId: string;
   referencedPrincipalHeads: ContainerAccessManifestState["referencedPrincipalHeads"];
+  signingPublicKey: Uint8Array;
 }): Promise<VerifiedContainerAccessManifest> {
   const body: ContainerCreateAccessEventBody = {
     eventType: "container.create",
@@ -140,7 +147,7 @@ export async function createContainerManifestFixture(input: {
     directGrants: [...input.directGrants],
     referencedPrincipalHeads: [...input.referencedPrincipalHeads],
   };
-  const { event, eventHash } = await signContainerEvent({
+  const verifiedEvent = await signContainerEvent({
     body,
     dependencyManifestHashes: [],
     eventId: input.eventId,
@@ -148,31 +155,21 @@ export async function createContainerManifestFixture(input: {
     organizationId: input.organizationId,
     previousManifestHash: null,
     signer: input.author,
+    signingPublicKey: input.signingPublicKey,
   });
-  const state: ContainerAccessManifestState = {
-    version: 1,
+  const fixture = await createCryptoContainerManifestFixture({
     containerId: input.containerId,
-    organizationId: input.organizationId,
-    epoch: 1,
-    previousManifestHash: null,
-    eventHash,
-    parentContainerId: null,
-    parentManifestHash: null,
-    metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId: input.containerKeyEpochId,
-    directGrants: [...input.directGrants],
-    referencedPrincipalHeads: [...input.referencedPrincipalHeads],
-  };
-  const manifest = await deriveContainerAccessManifest(state);
-  const manifestHash = await computeAccessManifestHash(manifest);
+    directGrants: input.directGrants,
+    event: verifiedEvent,
+    metadataDocumentId: input.metadataDocumentId,
+    organizationId: input.organizationId,
+    referencedPrincipalHeads: input.referencedPrincipalHeads,
+  });
   const verified = await verifyContainerAccessManifest({
-    event: {
-      event,
-      body: body as unknown as KeyingCanonicalJson,
-      eventHash,
-    } as VerifiedAccessEvent,
-    expectedManifestHash: manifestHash,
-    manifest,
+    event: verifiedEvent,
+    expectedManifestHash: fixture.manifestHash,
+    manifest: fixture.manifest,
     parentContainerPath: [],
     previousManifest: null,
     principalPolicies: [],
@@ -194,6 +191,7 @@ export async function createContainerRevokeManifestFixture(input: {
   previousManifest: VerifiedContainerAccessManifest;
   subjectId: string;
   subjectType: ContainerRevokeAccessEventBody["subjectType"];
+  signingPublicKey: Uint8Array;
 }): Promise<VerifiedContainerAccessManifest> {
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
@@ -201,7 +199,7 @@ export async function createContainerRevokeManifestFixture(input: {
     subjectId: input.subjectId,
     subjectType: input.subjectType,
   };
-  const { event, eventHash } = await signContainerEvent({
+  const verifiedEvent = await signContainerEvent({
     body,
     dependencyManifestHashes: [input.previousManifest.manifestHash],
     eventId: input.eventId,
@@ -209,12 +207,13 @@ export async function createContainerRevokeManifestFixture(input: {
     organizationId: input.organizationId,
     previousManifestHash: input.previousManifest.manifestHash,
     signer: input.author,
+    signingPublicKey: input.signingPublicKey,
   });
   const state: ContainerAccessManifestState = {
     ...input.previousManifest.state,
     epoch: input.previousManifest.state.epoch + 1,
     previousManifestHash: input.previousManifest.manifestHash,
-    eventHash,
+    eventHash: verifiedEvent.eventHash,
     containerKeyEpochId: input.containerKeyEpochId,
     directGrants: input.previousManifest.state.directGrants.filter(
       (grant) =>
@@ -233,11 +232,7 @@ export async function createContainerRevokeManifestFixture(input: {
   const manifest = await deriveContainerAccessManifest(state);
   const manifestHash = await computeAccessManifestHash(manifest);
   const verified = await verifyContainerAccessManifest({
-    event: {
-      event,
-      body: body as unknown as KeyingCanonicalJson,
-      eventHash,
-    } as VerifiedAccessEvent,
+    event: verifiedEvent,
     expectedManifestHash: manifestHash,
     manifest,
     previousContainerPath: [input.previousManifest],
@@ -335,6 +330,7 @@ export async function createParentProjection(input?: {
     metadataDocumentId: "parent-container-metadata-document",
     organizationId,
     referencedPrincipalHeads: [],
+    signingPublicKey,
   });
   const recipientKeyFingerprint = await toFingerprint(keyPair.publicKey);
   const recipientKeyEpochId = `user:${userId}:encapsulation:${recipientKeyFingerprint}`;
@@ -482,6 +478,9 @@ export function tamperFirstProjectionEventSignature(
     throw new Error("Expected signed container event fixture");
   }
 
+  // Change one trailing character so signature verification fails while the
+  // surrounding event shape stays intact. If it already ends in "A", use "B";
+  // otherwise use "A" so the tampered value is guaranteed to differ.
   signedEvent.signature = `${signature.slice(0, -1)}${
     signature.endsWith("A") ? "B" : "A"
   }`;
