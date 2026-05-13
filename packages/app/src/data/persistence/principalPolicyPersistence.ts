@@ -171,6 +171,8 @@ export async function savePrincipalPolicyBundle(
   bundle: PrincipalPolicyBundleResponse,
   updatedAt: string,
 ): Promise<void> {
+  await ensurePrincipalPolicyTables(execSql);
+
   const nextRow = {
     principalType: bundle.currentState.principalType,
     principalId: bundle.currentState.principalId,

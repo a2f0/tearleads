@@ -8,10 +8,13 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import {
   buildAddGroupUserPolicyRequest,
   buildInitialGroupPolicyRequest,
   buildRemoveGroupUserPolicyRequest,
+  createOrgManagerGroup,
 } from "./principalPolicy";
 
 function policySignerPublicKeys(input: {
@@ -95,6 +98,77 @@ test("buildInitialGroupPolicyRequest creates an admin-only initial group policy"
   expect(request.initialGroupPolicy.memberEnvelopes[0]?.memberPrincipalId).toBe(
     userId,
   );
+});
+
+test("createOrgManagerGroup caches the created group policy in a fresh local database", async () => {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const creatorKem = generateKemSeedAndKeyPair();
+  const organizationId = crypto.randomUUID();
+  const signerUserId = crypto.randomUUID();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const { close, execSql } = await createTestExecSql(
+    "org-manager-create-group-policy-cache-test",
+  );
+  let createdPolicyBundle: PrincipalPolicyBundleResponse | null = null;
+  const apiClient: Parameters<typeof createOrgManagerGroup>[0]["apiClient"] = {
+    createOrganizationGroup: async (nextOrganizationId, request) => {
+      createdPolicyBundle = await policyBundleFromInitialRequest(request);
+
+      return {
+        groupId: request.groupId,
+        organizationId: nextOrganizationId,
+        name: request.name,
+        createdAt: "2026-05-12T12:00:00.000Z",
+        currentState: {
+          stateHash: createdPolicyBundle.currentState.stateHash,
+          version: createdPolicyBundle.currentState.version,
+          keyEpoch: createdPolicyBundle.currentState.keyEpoch,
+          memberCount: createdPolicyBundle.currentState.memberCount,
+        },
+      };
+    },
+    getCurrentPrincipalPolicy: async (principalType, principalId) => {
+      expect(createdPolicyBundle).not.toBeNull();
+      if (!createdPolicyBundle) {
+        return null;
+      }
+
+      expect(principalType).toBe("group");
+      expect(principalId).toBe(createdPolicyBundle.currentState.principalId);
+      return createdPolicyBundle;
+    },
+    getEncapsulationKey: async () => {
+      throw new Error("unexpected signer key load");
+    },
+    putPrincipalMemberEnvelopes: async () => {
+      throw new Error("unexpected member envelope mutation");
+    },
+    putPrincipalState: async () => {
+      throw new Error("unexpected state mutation");
+    },
+  };
+
+  try {
+    const createdGroup = await createOrgManagerGroup({
+      apiClient,
+      creatorEncapsulationKeyPair: creatorKem,
+      execSql,
+      name: " Operators ",
+      organizationId,
+      signerUserId,
+      signingFingerprint,
+      signingKeyPair,
+    });
+
+    expect(createdGroup.name).toBe("Operators");
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", createdGroup.groupId),
+    ).resolves.toEqual(createdPolicyBundle);
+  } finally {
+    close();
+  }
 });
 
 test("group add and remove policy builders preserve additive epochs and rotate shrink epochs", async () => {
