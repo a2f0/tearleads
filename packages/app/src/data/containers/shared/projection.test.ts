@@ -305,6 +305,7 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
     previousManifest,
     subjectId: revokedUserId,
     subjectType: "user",
+    signingPublicKey: parent.signingPublicKey,
   });
   const ownerRecipientKeyFingerprint = await toFingerprint(
     parent.encapsulationPublicKey,
@@ -637,6 +638,7 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
     metadataDocumentId: "managed-group-container-metadata-document",
     organizationId: parent.projection.organizationId,
     referencedPrincipalHeads: [groupHead],
+    signingPublicKey: parent.signingPublicKey,
   });
   const signerRecipientKeyFingerprint = await toFingerprint(
     parent.encapsulationPublicKey,
@@ -782,6 +784,7 @@ test("unwrapContainerKekPath fails closed for managed-principal KEK projections"
     metadataDocumentId: "parent-container-metadata-document",
     organizationId: parent.projection.organizationId,
     referencedPrincipalHeads: [groupHead],
+    signingPublicKey: parent.signingPublicKey,
   });
   const managedProjection: ContainerWriterProjectionResponse = {
     ...parent.projection,
