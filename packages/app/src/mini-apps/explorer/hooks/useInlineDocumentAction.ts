@@ -27,13 +27,15 @@ export function useInlineDocumentAction(params: {
       const nextLocalId = localId ?? crypto.randomUUID();
 
       if (!localId) {
+        const createdAt = new Date().toISOString();
         mergeDocumentSummary({
+          createdAt,
           id: nextLocalId,
           containerId,
           documentKind,
           documentId: null,
           title: getUntitledDocumentTitle(documentKind),
-          updatedAt: new Date().toISOString(),
+          updatedAt: createdAt,
         });
       }
 

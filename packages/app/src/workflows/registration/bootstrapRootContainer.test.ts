@@ -40,6 +40,8 @@ test("bootstrapRootContainer creates one local root container and reuses it", as
         metadataDocumentId: null,
         name: "/",
         icon: null,
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
       },
     ]);
   } finally {

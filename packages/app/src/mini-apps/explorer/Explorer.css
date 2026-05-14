@@ -20,6 +20,11 @@
   border: 1px solid currentColor;
 }
 
+.explorer-detail--container {
+  flex: 1;
+  min-height: 0;
+}
+
 .explorer-detail--note {
   flex: 1;
   min-height: 0;
@@ -35,6 +40,8 @@
 .explorer-detail-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: calc(var(--padding) / 2);
 }
 
@@ -57,6 +64,72 @@
 .explorer-detail-error {
   color: currentColor;
   opacity: 1;
+}
+
+.explorer-item-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid currentColor;
+}
+
+.explorer-item-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.explorer-item-table th,
+.explorer-item-table td {
+  padding: calc(var(--padding) / 2);
+  border-bottom: 1px solid currentColor;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.explorer-item-table th {
+  font-weight: 700;
+}
+
+.explorer-item-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.explorer-item-table-col-name {
+  width: 40%;
+}
+
+.explorer-item-table-col-type {
+  width: 8rem;
+}
+
+.explorer-item-table-col-date {
+  width: 11rem;
+}
+
+.explorer-item-table-name {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.explorer-item-table-name:hover {
+  text-decoration: underline;
+}
+
+.explorer-item-table-empty {
+  opacity: 0.8;
 }
 
 .explorer-inline-note {

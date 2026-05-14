@@ -3,13 +3,22 @@ import type { ContainerRecord } from "../../workflows/explorer";
 import type { ContainerState } from "./explorerSyncAgent";
 
 export function toContainerNode(container: ContainerRecord): ContainerNode {
-  return {
+  const node: ContainerNode = {
     id: container.id,
     kind: "container",
     name: container.name,
     organizationId: container.organizationId,
     parentId: container.parentId,
   };
+
+  if (container.createdAt) {
+    node.createdAt = container.createdAt;
+  }
+  if (container.updatedAt) {
+    node.updatedAt = container.updatedAt;
+  }
+
+  return node;
 }
 
 export function isContainerInSubtree(

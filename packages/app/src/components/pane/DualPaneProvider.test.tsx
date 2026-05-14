@@ -510,22 +510,24 @@ async function waitForSharedNoteVisible(pane: HTMLElement) {
   );
 }
 
-async function selectContainerAndReadId(
+async function selectContainerAndWaitForItemTable(
   pane: HTMLElement,
   name: string,
-): Promise<string> {
+): Promise<HTMLElement> {
   await interact(() => {
     fireEvent.click(getExplorerSidebarItem(pane, name));
   });
 
+  let table: HTMLElement | null = null;
   await waitFor(() => {
-    expect(within(pane).getByText(/^ID:/u)).toBeTruthy();
+    table = within(pane).getByRole("table", {
+      name: `Items in ${name}`,
+    });
+    expect(table).toBeTruthy();
   });
 
-  const idLine = within(pane).getByText(/^ID:/u).textContent ?? "";
-  const containerId = idLine.replace(/^ID:\s*/u, "").trim();
-  invariant(containerId.length > 0, `Expected explorer ID for "${name}".`);
-  return containerId;
+  invariant(table, `Expected explorer item table for "${name}".`);
+  return table;
 }
 
 async function waitForSinglePaneProvisioning(pane: HTMLElement) {
@@ -724,14 +726,17 @@ test(
     await createChildContainer(leftPane, "Target");
     await createChildContainer(leftPane, "Moved");
 
-    const targetId = await selectContainerAndReadId(leftPane, "Target");
+    await selectContainerAndWaitForItemTable(leftPane, "Target");
     await moveContainer(leftPane, "Moved", "Target");
-    await interact(() => {
-      fireEvent.click(getExplorerSidebarItem(leftPane, "Moved"));
-    });
+    const targetTable = await selectContainerAndWaitForItemTable(
+      leftPane,
+      "Target",
+    );
 
     await waitFor(() => {
-      expect(within(leftPane).getByText(`Parent: ${targetId}`)).toBeTruthy();
+      expect(
+        within(targetTable).getByRole("button", { name: "Moved" }),
+      ).toBeTruthy();
     });
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
