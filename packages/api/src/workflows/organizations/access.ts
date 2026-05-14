@@ -40,13 +40,6 @@ async function loadOrganizationAccess(input: {
     throw new OrganizationManagerError("Organization not found", 404);
   }
 
-  if (!organization.adminGroupId) {
-    throw new OrganizationManagerError(
-      "Organization admin group not found",
-      404,
-    );
-  }
-
   const reachableGroupIds = await listUserReachableCurrentGroupIds({
     executor: input.executor,
     groupIds: [organization.adminGroupId, organization.memberGroupId],
