@@ -151,7 +151,7 @@ export async function createExplorerChildContainer(input: {
       : undefined;
   const execSql = getExplorerWorkflowRuntimeExecSql(runtime);
 
-  await saveExplorerContainer(
+  containerState.container = await saveExplorerContainer(
     execSql,
     persistence,
     containerState.container,

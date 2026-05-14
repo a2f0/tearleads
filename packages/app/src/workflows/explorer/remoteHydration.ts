@@ -39,6 +39,7 @@ export type ExplorerContainerMetadataDocument = Awaited<
 >;
 export type ExplorerRemoteContainer = Pick<
   ContainerSummary,
+  | "createdAt"
   | "id"
   | "metadataAccessEpoch"
   | "metadataAccessStateHash"
@@ -46,6 +47,7 @@ export type ExplorerRemoteContainer = Pick<
   | "metadataReferencedPrincipals"
   | "organizationId"
   | "parentId"
+  | "updatedAt"
 >;
 
 export interface ExplorerContainerState {
@@ -193,9 +195,11 @@ async function upsertRemoteExplorerContainerState(input: {
     );
     existingState.container = {
       ...existingState.container,
+      createdAt: existingState.container.createdAt ?? remoteContainer.createdAt,
       metadataDocumentId: remoteContainer.metadataDocumentId,
       organizationId: remoteContainer.organizationId,
       parentId: remoteContainer.parentId,
+      updatedAt: remoteContainer.updatedAt,
     };
     moveIndexedContainerChild(
       childIdsByParentId,
@@ -217,6 +221,8 @@ async function upsertRemoteExplorerContainerState(input: {
       metadataDocumentId: remoteContainer.metadataDocumentId,
       name: getDefaultContainerName(remoteContainer.parentId),
       icon: null,
+      createdAt: remoteContainer.createdAt,
+      updatedAt: remoteContainer.updatedAt,
     },
     doc,
     record: {
@@ -232,11 +238,12 @@ async function upsertRemoteExplorerContainerState(input: {
     },
   };
 
-  await saveExplorerContainer(
+  containerState.container = await saveExplorerContainer(
     execSql,
     state.persistence,
     containerState.container,
     containerState.record,
+    { updatedAt: remoteContainer.updatedAt },
   );
   state.containersById.set(remoteContainer.id, containerState);
   if (childIdsByParentId) {

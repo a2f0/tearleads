@@ -43,8 +43,12 @@ function createExplorerPersistence(input: {
     },
     async markCreateIntentSynced() {},
     async recordCreateIntentError() {},
-    async saveContainer() {},
-    async saveContainerAndDeletePendingUpdates() {},
+    async saveContainer(_execSql, container) {
+      return container;
+    },
+    async saveContainerAndDeletePendingUpdates(_execSql, container) {
+      return container;
+    },
   };
 }
 

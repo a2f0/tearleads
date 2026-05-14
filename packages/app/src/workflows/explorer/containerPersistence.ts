@@ -61,9 +61,10 @@ export async function saveExplorerContainer(
   record: DocumentRecord | null,
   options?: {
     createIntent?: { parentContainerId: string };
+    updatedAt?: string;
   },
-): Promise<void> {
-  await persistence.saveContainer(execSql, container, record, options);
+): Promise<ContainerRecord> {
+  return persistence.saveContainer(execSql, container, record, options);
 }
 
 export async function deleteExplorerContainers(

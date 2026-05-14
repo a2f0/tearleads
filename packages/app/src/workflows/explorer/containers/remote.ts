@@ -158,7 +158,9 @@ export async function moveRemoteExplorerContainer(input: {
     return null;
   }
 
+  const updatedAt = new Date().toISOString();
   return {
+    createdAt: updatedAt,
     id: moved.response.containerId,
     organizationId: moved.response.organizationId,
     parentId: moved.response.parentId,
@@ -171,6 +173,7 @@ export async function moveRemoteExplorerContainer(input: {
       referencedPrincipalHeadsFromContainerMutationResponse({
         response: moved.response,
       }),
+    updatedAt,
   };
 }
 
