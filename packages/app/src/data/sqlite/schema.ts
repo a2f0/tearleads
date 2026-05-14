@@ -207,6 +207,7 @@ export const containers = sqliteTable(
     organizationId: text("organization_id").notNull(),
     parentId: text("parent_id"),
     metadataDocumentId: text("metadata_document_id"),
+    createdAt: text("created_at"),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.id] })],

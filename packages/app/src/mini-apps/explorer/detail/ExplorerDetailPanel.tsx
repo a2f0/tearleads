@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import {
   getStoredDocumentTypeLabel,
@@ -8,6 +8,8 @@ import {
   DOCUMENT_TYPE_DEFINITIONS,
   getDocumentTypeDefinition,
 } from "../../../document-types/registry";
+import type { DocumentContainerProjection } from "../documentProjections";
+import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 import type { ContainerNode } from "../types";
 
 function getDocumentSummaryKind(
@@ -469,9 +471,189 @@ function ExplorerDocumentDetail(params: {
   );
 }
 
+type ExplorerFolderItemRow =
+  | {
+      createdAt: string | null;
+      id: string;
+      itemKind: "container";
+      name: string;
+      typeLabel: string;
+      updatedAt: string | null;
+    }
+  | {
+      containerId: string;
+      createdAt: string | null;
+      itemKind: "document";
+      localId: string;
+      name: string;
+      typeLabel: string;
+      updatedAt: string | null;
+    };
+
+function formatExplorerDate(value: string | null | undefined): string {
+  if (!value) {
+    return EXPLORER_LABELS.unknownDate;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function compareExplorerFolderItemRows(
+  left: ExplorerFolderItemRow,
+  right: ExplorerFolderItemRow,
+): number {
+  if (left.itemKind !== right.itemKind) {
+    return left.itemKind === "container" ? -1 : 1;
+  }
+
+  const nameComparison = left.name.localeCompare(right.name, undefined, {
+    sensitivity: "base",
+  });
+  if (nameComparison !== 0) {
+    return nameComparison;
+  }
+
+  return left.typeLabel.localeCompare(right.typeLabel, undefined, {
+    sensitivity: "base",
+  });
+}
+
+function getExplorerFolderItemRows(params: {
+  documents: ReadonlyArray<DocumentContainerProjection>;
+  nodes: ReadonlyArray<ContainerNode>;
+  selectedNode: ContainerNode;
+}): ExplorerFolderItemRow[] {
+  const { documents, nodes, selectedNode } = params;
+  const childFolderRows = nodes
+    .filter((node) => node.parentId === selectedNode.id)
+    .map<ExplorerFolderItemRow>((node) => ({
+      createdAt: node.createdAt ?? node.updatedAt ?? null,
+      id: node.id,
+      itemKind: "container",
+      name: node.name,
+      typeLabel: EXPLORER_LABELS.folderType,
+      updatedAt: node.updatedAt ?? node.createdAt ?? null,
+    }));
+  const documentRows = documents.map<ExplorerFolderItemRow>((document) => ({
+    containerId: document.containerId,
+    createdAt: document.createdAt,
+    itemKind: "document",
+    localId: document.localId,
+    name: document.title,
+    typeLabel: getStoredDocumentTypeLabel(document.documentKind),
+    updatedAt: document.updatedAt,
+  }));
+
+  return [...childFolderRows, ...documentRows].sort(
+    compareExplorerFolderItemRows,
+  );
+}
+
+function ExplorerContainerItemName(params: {
+  row: ExplorerFolderItemRow;
+  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  setSelectedId: (id: string | null) => void;
+}) {
+  const { row, selectDocumentProjection, setSelectedId } = params;
+
+  return (
+    <button
+      type="button"
+      className="explorer-item-table-name"
+      onClick={() => {
+        if (row.itemKind === "container") {
+          setSelectedId(row.id);
+          return;
+        }
+
+        selectDocumentProjection(row.localId, row.containerId);
+      }}
+    >
+      {row.name}
+    </button>
+  );
+}
+
+function ExplorerContainerItemTable(params: {
+  rows: ReadonlyArray<ExplorerFolderItemRow>;
+  selectedNode: ContainerNode;
+  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  setSelectedId: (id: string | null) => void;
+}) {
+  const { rows, selectedNode, selectDocumentProjection, setSelectedId } =
+    params;
+
+  return (
+    <div className="explorer-item-table-wrap">
+      <table
+        className="explorer-item-table"
+        aria-label={getExplorerItemTableLabel(selectedNode.name)}
+      >
+        <colgroup>
+          <col className="explorer-item-table-col-name" />
+          <col className="explorer-item-table-col-type" />
+          <col className="explorer-item-table-col-date" />
+          <col className="explorer-item-table-col-date" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">{EXPLORER_LABELS.itemNameColumn}</th>
+            <th scope="col">{EXPLORER_LABELS.itemTypeColumn}</th>
+            <th scope="col">{EXPLORER_LABELS.dateCreatedColumn}</th>
+            <th scope="col">{EXPLORER_LABELS.dateModifiedColumn}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length > 0 ? (
+            rows.map((row) => (
+              <tr
+                key={
+                  row.itemKind === "container"
+                    ? `container:${row.id}`
+                    : `document:${row.localId}:${row.containerId}`
+                }
+              >
+                <td>
+                  <ExplorerContainerItemName
+                    row={row}
+                    selectDocumentProjection={selectDocumentProjection}
+                    setSelectedId={setSelectedId}
+                  />
+                </td>
+                <td>{row.typeLabel}</td>
+                <td>{formatExplorerDate(row.createdAt)}</td>
+                <td>{formatExplorerDate(row.updatedAt)}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={4} className="explorer-item-table-empty">
+                {EXPLORER_LABELS.itemTableEmpty}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ExplorerContainerDetail(params: {
+  documentsByContainerId: ReadonlyMap<
+    string,
+    ReadonlyArray<DocumentContainerProjection>
+  >;
   handleRefresh: ExplorerRefreshAction;
   isRefreshing: boolean;
+  nodes: ReadonlyArray<ContainerNode>;
   openInlineDocument: (
     containerId: string,
     documentKind: StoredDocumentKind,
@@ -479,23 +661,41 @@ function ExplorerContainerDetail(params: {
   ) => void;
   ready: boolean;
   refreshError: string | null;
+  selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedNode: ContainerNode;
+  setSelectedId: (id: string | null) => void;
 }) {
   const {
+    documentsByContainerId,
     handleRefresh,
     isRefreshing,
+    nodes,
     openInlineDocument,
     ready,
     refreshError,
+    selectDocumentProjection,
     selectedNode,
+    setSelectedId,
   } = params;
+  const rows = useMemo(
+    () =>
+      getExplorerFolderItemRows({
+        documents: documentsByContainerId.get(selectedNode.id) ?? [],
+        nodes,
+        selectedNode,
+      }),
+    [documentsByContainerId, nodes, selectedNode],
+  );
 
   return (
-    <div className="explorer-detail" key={selectedNode.id}>
+    <div
+      className="explorer-detail explorer-detail--container"
+      key={selectedNode.id}
+    >
       <div className="explorer-detail-header">
         <div className="explorer-detail-copy">
           <strong>{selectedNode.name}</strong>
-          <span>{selectedNode.kind}</span>
+          <span>{EXPLORER_LABELS.folderType}</span>
         </div>
         <div className="explorer-detail-actions">
           {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
@@ -517,12 +717,15 @@ function ExplorerContainerDetail(params: {
           />
         </div>
       </div>
-      <span>ID: {selectedNode.id}</span>
-      <span>Parent: {selectedNode.parentId ?? "(root)"}</span>
-      <span>Organization: {selectedNode.organizationId || "(local)"}</span>
       {refreshError ? (
         <span className="explorer-detail-error">{refreshError}</span>
       ) : null}
+      <ExplorerContainerItemTable
+        rows={rows}
+        selectedNode={selectedNode}
+        selectDocumentProjection={selectDocumentProjection}
+        setSelectedId={setSelectedId}
+      />
     </div>
   );
 }
@@ -553,6 +756,10 @@ export function ExplorerDetailPanel(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
+  documentsByContainerId: ReadonlyMap<
+    string,
+    ReadonlyArray<DocumentContainerProjection>
+  >;
   handleRefresh: ExplorerRefreshAction;
   isRefreshing: boolean;
   linkedContainerIds: ReadonlyArray<string>;
@@ -566,6 +773,7 @@ export function ExplorerDetailPanel(params: {
   openMoveDocumentModal: (noteId: string) => void;
   ready: boolean;
   refreshError: string | null;
+  selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedDocument: DocumentSummary | undefined;
   selectedNode: ContainerNode | undefined;
   setSelectedId: (id: string | null) => void;

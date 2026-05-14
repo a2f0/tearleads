@@ -1,7 +1,10 @@
 import type { DocumentSummary } from "../../data/documentSummary";
+import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 
 export interface DocumentContainerProjection {
   containerId: string;
+  createdAt: string;
+  documentKind: StoredDocumentKind;
   localId: string;
   title: string;
   updatedAt: string;
@@ -42,6 +45,8 @@ export function buildDocumentsByContainerId(
         nextDocumentsByContainerId.get(containerId) ?? [];
       existingDocuments.push({
         containerId,
+        createdAt: documentSummary.createdAt ?? documentSummary.updatedAt,
+        documentKind: documentSummary.documentKind ?? "note",
         localId: documentSummary.id,
         title: documentSummary.title,
         updatedAt: documentSummary.updatedAt,

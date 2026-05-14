@@ -243,6 +243,14 @@ test("app sqlite schema creates tables and indexes", async () => {
         "container_create_intents_status_created_idx",
       ),
     ).toEqual(["sync_status", "created_at"]);
+
+    const containers = await readTableColumns(execSql, "containers");
+    expect(readRecordValue(containers, "created_at")).toEqual({
+      defaultValue: null,
+      notNull: 0,
+      pk: 0,
+      type: "TEXT",
+    });
   } finally {
     close();
   }

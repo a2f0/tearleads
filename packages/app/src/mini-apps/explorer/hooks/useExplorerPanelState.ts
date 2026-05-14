@@ -46,6 +46,7 @@ export interface ExplorerPanelState {
   contextMenuState: ExplorerContextMenuModel;
   modalState: ExplorerDocumentModalState;
   openInlineDocument: OpenInlineDocument;
+  selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
   selectedDocumentMoveTargetOptions: ReadonlyArray<MoveTargetOption>;
@@ -143,6 +144,7 @@ export function useExplorerPanelState(params: {
     contextMenuState,
     modalState,
     openInlineDocument,
+    selectDocumentProjection,
     selectedDocumentLinkedContainerIds:
       selectedNoteStructuralState.selectedDocumentLinkedContainerIds,
     selectedDocumentLinkTargetOptions:

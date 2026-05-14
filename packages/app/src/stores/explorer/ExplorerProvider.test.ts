@@ -667,11 +667,13 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
     expect(firstStore.getSnapshot()).toEqual({
       nodes: [
         {
+          createdAt: expect.any(String),
           id: "root-container",
           kind: "container",
           name: "/",
           organizationId: "org-1",
           parentId: null,
+          updatedAt: expect.any(String),
         },
       ],
       ready: true,

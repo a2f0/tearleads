@@ -25,6 +25,7 @@ export function Explorer() {
         canLinkSelectedDocument={model.canLinkSelectedDocument}
         canMoveSelectedDocument={model.canMoveSelectedDocument}
         canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
+        documentsByContainerId={model.documentsByContainerId}
         handleRefresh={model.handleRefresh}
         isRefreshing={model.isRefreshing}
         linkedContainerIds={model.linkedContainerIds}
@@ -34,6 +35,7 @@ export function Explorer() {
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}
         ready={model.explorer.ready}
         refreshError={model.refreshError}
+        selectDocumentProjection={model.selectDocumentProjection}
         selectedNode={model.selection.selectedNode}
         selectedDocument={model.selection.selectedDocument}
         setSelectedId={model.selection.setSelectedId}

@@ -2,6 +2,7 @@ import { type ReactNode, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import { useExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import type { DocumentContainerProjection } from "../documentProjections";
 import { buildExplorerTree } from "../ExplorerTree";
 import type {
   ExplorerDocumentMutationAction,
@@ -24,6 +25,10 @@ interface ExplorerModel {
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
+  documentsByContainerId: ReadonlyMap<
+    string,
+    ReadonlyArray<DocumentContainerProjection>
+  >;
   explorer: ExplorerModelExplorer;
   handleRefresh: () => Promise<boolean>;
   isRefreshing: boolean;
@@ -33,6 +38,7 @@ interface ExplorerModel {
   openInlineDocument: ExplorerPanelState["openInlineDocument"];
   peerUserId: string | null;
   refreshError: string | null;
+  selectDocumentProjection: ExplorerPanelState["selectDocumentProjection"];
   selection: ExplorerSelectionState;
   unlinkDocument: ExplorerDocumentMutationAction;
 }
@@ -80,6 +86,7 @@ export function useExplorerModel(
     contextMenuState,
     modalState,
     openInlineDocument,
+    selectDocumentProjection,
     selectedDocumentLinkedContainerIds,
     selectedDocumentLinkTargetOptions,
     selectedDocumentMoveTargetOptions,
@@ -110,6 +117,7 @@ export function useExplorerModel(
     activateLinkedContainer,
     ...selectedDocumentMutationState,
     contextMenuState,
+    documentsByContainerId,
     explorer,
     handleRefresh,
     isRefreshing,
@@ -119,6 +127,7 @@ export function useExplorerModel(
     openInlineDocument,
     peerUserId,
     refreshError,
+    selectDocumentProjection,
     selection,
     unlinkDocument,
   };

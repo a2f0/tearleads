@@ -16,11 +16,13 @@ function areSnapshotNodesEqual(
     const rightNode = right[index];
     return (
       rightNode !== undefined &&
+      leftNode.createdAt === rightNode.createdAt &&
       leftNode.id === rightNode.id &&
       leftNode.kind === rightNode.kind &&
       leftNode.name === rightNode.name &&
       leftNode.organizationId === rightNode.organizationId &&
-      leftNode.parentId === rightNode.parentId
+      leftNode.parentId === rightNode.parentId &&
+      leftNode.updatedAt === rightNode.updatedAt
     );
   });
 }

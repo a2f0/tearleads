@@ -22,6 +22,8 @@ test("buildDocumentsByContainerId uses the document container while document lin
   expect(documentsByContainerId.get("root-container")).toEqual([
     {
       containerId: "root-container",
+      createdAt: "2026-04-11T12:00:00.000Z",
+      documentKind: "note",
       localId: "note-1",
       title: "Fresh root note",
       updatedAt: "2026-04-11T12:00:00.000Z",
@@ -50,6 +52,8 @@ test("buildDocumentsByContainerId prefers projected linked containers when they 
   expect(documentsByContainerId.get("child-container")).toEqual([
     {
       containerId: "child-container",
+      createdAt: "2026-04-11T12:00:00.000Z",
+      documentKind: "note",
       localId: "note-1",
       title: "Linked note",
       updatedAt: "2026-04-11T12:00:00.000Z",

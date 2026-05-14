@@ -8,19 +8,26 @@ import {
   containers,
   containerTables,
 } from "../../sqlite/schema";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import {
+  type ExecSql,
+  ensureSqlTables,
+  runSerializedSqlMutation,
+} from "../../sqlite/sqlSchema";
 
 export interface ContainerRecord {
+  createdAt?: string | null;
   id: string;
   organizationId: string;
   parentId: string | null;
   metadataDocumentId: string | null;
   name: string;
   icon: string | null;
+  updatedAt?: string | null;
 }
 
 export async function ensureContainerTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, containerTables);
+  await ensureContainerCreatedAtColumn(execSql);
 }
 
 interface SelectedContainerRecord {
@@ -30,6 +37,43 @@ interface SelectedContainerRecord {
   metadataDocumentId: string | null;
   name: string;
   icon: string | null;
+  createdAt: string | null;
+  updatedAt: string;
+}
+
+function renderContainerSqlIdentifier(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+async function hasContainerColumn(
+  execSql: ExecSql,
+  columnName: string,
+): Promise<boolean> {
+  const rows = (await execSql(
+    `PRAGMA table_info(${renderContainerSqlIdentifier("containers")})`,
+  )) as Array<{ name?: unknown }>;
+
+  return rows.some((row) => row.name === columnName);
+}
+
+async function ensureContainerCreatedAtColumn(execSql: ExecSql): Promise<void> {
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    if (!(await hasContainerColumn(lockedExecSql, "created_at"))) {
+      await lockedExecSql(
+        `ALTER TABLE ${renderContainerSqlIdentifier(
+          "containers",
+        )} ADD COLUMN ${renderContainerSqlIdentifier("created_at")} TEXT`,
+      );
+    }
+
+    await lockedExecSql(`
+      UPDATE ${renderContainerSqlIdentifier("containers")}
+      SET ${renderContainerSqlIdentifier(
+        "created_at",
+      )} = ${renderContainerSqlIdentifier("updated_at")}
+      WHERE ${renderContainerSqlIdentifier("created_at")} IS NULL
+    `);
+  });
 }
 
 function mapSelectedContainerRecord(
@@ -42,6 +86,8 @@ function mapSelectedContainerRecord(
     metadataDocumentId: row.metadataDocumentId,
     name: row.name,
     icon: row.icon && row.icon.length > 0 ? row.icon : null,
+    createdAt: row.createdAt ?? row.updatedAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -56,6 +102,7 @@ export async function saveContainerRows(input: {
     organizationId: record.organizationId,
     parentId: record.parentId,
     metadataDocumentId: record.metadataDocumentId,
+    createdAt: record.createdAt ?? updatedAt,
     updatedAt,
   };
   await tx
@@ -63,7 +110,12 @@ export async function saveContainerRows(input: {
     .values(containerRow)
     .onConflictDoUpdate({
       target: containers.id,
-      set: containerRow,
+      set: {
+        organizationId: containerRow.organizationId,
+        parentId: containerRow.parentId,
+        metadataDocumentId: containerRow.metadataDocumentId,
+        updatedAt: containerRow.updatedAt,
+      },
     })
     .run();
 
@@ -99,6 +151,8 @@ export async function loadContainers(
       metadataDocumentId: containers.metadataDocumentId,
       name,
       icon: containerProjection.icon,
+      createdAt: containers.createdAt,
+      updatedAt: containers.updatedAt,
     })
     .from(containers)
     .leftJoin(
