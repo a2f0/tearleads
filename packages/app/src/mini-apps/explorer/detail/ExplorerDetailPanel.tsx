@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { MiniAppRow } from "../../../components/shared/MiniAppRow";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import {
   getStoredDocumentTypeLabel,
@@ -234,7 +235,11 @@ function ExplorerLinkedContainerRow(params: {
   } = params;
 
   return (
-    <li className="explorer-linked-container-row">
+    <MiniAppRow
+      as="li"
+      className="explorer-linked-container-row"
+      variant="framed"
+    >
       <button
         type="button"
         className="explorer-linked-container-button"
@@ -311,7 +316,7 @@ function ExplorerLinkedContainerRow(params: {
             : "Detach"}
         </button>
       </div>
-    </li>
+    </MiniAppRow>
   );
 }
 

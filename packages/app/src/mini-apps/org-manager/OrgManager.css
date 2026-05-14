@@ -16,45 +16,35 @@
 .org-manager-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 1px;
   padding: 12px;
   border-right: 1px solid #d9dde5;
   background: #eef1f5;
 }
 
-.org-manager-sidebar button,
 .org-manager-create-group button,
 .org-manager-add-user button,
 .org-manager-member-row button {
   min-height: 30px;
-  border: 1px solid #c7ced8;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #20242c;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
   font: inherit;
   cursor: pointer;
 }
 
-.org-manager-sidebar button:hover:not(:disabled),
 .org-manager-create-group button:hover:not(:disabled),
 .org-manager-add-user button:hover:not(:disabled),
 .org-manager-member-row button:hover:not(:disabled) {
-  background: #e8f1ff;
-  border-color: #8aa8d8;
+  background: var(--color-dark);
+  color: var(--color-light);
 }
 
-.org-manager-sidebar button:disabled,
 .org-manager-create-group button:disabled,
 .org-manager-add-user button:disabled,
 .org-manager-member-row button:disabled {
-  color: #8b93a1;
+  opacity: 0.5;
   cursor: default;
-}
-
-.org-manager-sidebar .org-manager-nav--selected {
-  background: #dce9f9;
-  border-color: #8aa8d8;
-  font-weight: 600;
 }
 
 .org-manager-main {
@@ -87,15 +77,9 @@
   display: grid;
   grid-template-columns: minmax(110px, 1.2fr) minmax(120px, 1fr) 90px;
   gap: 10px;
-  align-items: center;
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid #dde2ea;
-  border-radius: 6px;
-  background: #ffffff;
 }
 
-.org-manager-table-row span {
+.org-manager-table-row .mini-app-row-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -103,11 +87,7 @@
 }
 
 .org-manager-table-row--header {
-  background: transparent;
-  border-color: transparent;
-  color: #68707e;
   font-size: 12px;
-  font-weight: 600;
 }
 
 .org-manager-groups {
@@ -133,51 +113,34 @@
 .org-manager-add-user select {
   min-width: 0;
   min-height: 30px;
-  border: 1px solid #c7ced8;
-  border-radius: 6px;
+  border: 1px solid currentColor;
   padding: 0 8px;
-  background: #ffffff;
-  color: #20242c;
+  background: transparent;
+  color: inherit;
   font: inherit;
 }
 
 .org-manager-group-list,
 .org-manager-member-list {
   display: grid;
-  gap: 6px;
+  gap: 1px;
 }
 
 .org-manager-group-button {
-  display: grid;
-  gap: 3px;
-  width: 100%;
-  min-height: 48px;
-  padding: 8px 10px;
-  border: 1px solid #dde2ea;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #20242c;
-  text-align: left;
-  cursor: pointer;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .org-manager-group-button strong,
-.org-manager-group-button span {
+.org-manager-group-button .mini-app-row-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.org-manager-group-button span {
-  color: #68707e;
+.org-manager-group-button .mini-app-row-text {
   font-size: 12px;
-}
-
-.org-manager-group-button:hover,
-.org-manager-group-button--selected {
-  border-color: #8aa8d8;
-  background: #edf5ff;
 }
 
 .org-manager-panel--detail {
@@ -208,26 +171,17 @@
 }
 
 .org-manager-detail-header span,
-.org-manager-member-row span {
-  color: #68707e;
+.org-manager-member-row .mini-app-row-text {
   font-size: 12px;
+  opacity: 0.75;
 }
 
 .org-manager-member-row {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  min-height: 42px;
-  padding: 7px 9px;
-  border: 1px solid #dde2ea;
-  border-radius: 6px;
-  background: #ffffff;
 }
 
-.org-manager-member-row div {
-  display: grid;
-  gap: 2px;
+.org-manager-member-row .mini-app-row-stack {
+  flex: 1 1 auto;
   min-width: 0;
 }
 

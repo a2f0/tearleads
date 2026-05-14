@@ -1,0 +1,85 @@
+.mini-app-row {
+  --mini-app-row-block-padding: calc(var(--padding) / 2);
+  --mini-app-row-inline-padding: calc(var(--padding) / 2);
+
+  display: flex;
+  align-items: center;
+  gap: calc(var(--padding) / 2);
+  min-width: 0;
+  min-height: 2rem;
+  box-sizing: border-box;
+  padding: var(--mini-app-row-block-padding) var(--mini-app-row-inline-padding);
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+}
+
+.mini-app-row--compact {
+  --mini-app-row-block-padding: calc(var(--padding) / 3);
+
+  min-height: 1.75rem;
+}
+
+.mini-app-row--roomy {
+  min-height: 2.625rem;
+}
+
+.mini-app-row--framed {
+  border-color: currentColor;
+  background: var(--color-light);
+}
+
+.mini-app-row--header {
+  min-height: 1.75rem;
+  border-color: transparent;
+  background: transparent;
+  font-weight: 700;
+  opacity: 0.72;
+}
+
+.mini-app-row--button {
+  width: 100%;
+  cursor: pointer;
+}
+
+.mini-app-row--button:hover:not(:disabled),
+.mini-app-row--selected {
+  border-color: var(--color-dark);
+  background: var(--color-dark);
+  color: var(--color-light);
+  opacity: 1;
+}
+
+.mini-app-row--button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mini-app-row-stack {
+  display: inline-grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.mini-app-row-text {
+  min-width: 0;
+}
+
+.mini-app-row > .mini-app-row-stack,
+.mini-app-row > .mini-app-row-text {
+  flex: 1 1 auto;
+}
+
+.mini-app-row-text--truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-app-row-text--muted {
+  font-size: var(--font-size-sm);
+  opacity: 0.75;
+}
