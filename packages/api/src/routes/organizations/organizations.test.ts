@@ -201,6 +201,43 @@ test("org manager routes reject users outside the organization", async () => {
   expect(response.status).toBe(403);
 });
 
+test("org manager routes list the bootstrap Admins group", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const [organization] = await db
+    .select({
+      adminGroupId: organizations.adminGroupId,
+      memberGroupId: organizations.memberGroupId,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
+
+  const listResponse = await routeApp.request(
+    `/organizations/${organizationId}/groups`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+
+  expect(listResponse.status).toBe(200);
+  const listBody = await listResponse.json();
+  invariant(
+    isListOrganizationGroupsResponse(listBody),
+    "expected list organization groups response",
+  );
+  expect(listBody.groups.map((group) => group.groupId)).toEqual([
+    organization.adminGroupId,
+  ]);
+  expect(listBody.groups.map((group) => group.groupId)).not.toContain(
+    organization.memberGroupId,
+  );
+  expect(listBody.groups.map((group) => group.name)).toEqual(["Admins"]);
+  expect(listBody.groups[0]?.currentState?.memberCount).toBe(1);
+});
+
 test("org manager routes allow organization members to read but reserve mutations for Admins members", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
@@ -299,7 +336,10 @@ test("org manager routes create and list groups with members", async () => {
     "expected list organization groups response",
   );
   expect(listBody.groups.map((group) => group.groupId)).toContain(groupId);
-  expect(listBody.groups.map((group) => group.name)).toEqual(["Operators"]);
+  expect(listBody.groups.map((group) => group.name)).toEqual([
+    "Admins",
+    "Operators",
+  ]);
 
   const membersResponse = await routeApp.request(
     `/organizations/${organizationId}/groups/${groupId}/members`,
