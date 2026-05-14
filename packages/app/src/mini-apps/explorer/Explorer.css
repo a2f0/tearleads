@@ -150,17 +150,14 @@
 .explorer-linked-container-list {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--padding) / 3);
+  gap: 1px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .explorer-linked-container-row {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: calc(var(--padding) / 2);
 }
 
 .explorer-linked-container-button {
@@ -223,23 +220,8 @@
 }
 
 .explorer-sidebar-item {
-  display: flex;
-  align-items: center;
   flex: 1;
   min-width: 0;
-  padding: calc(var(--padding) / 2);
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: var(--font-size-sm);
-  text-align: left;
-  cursor: pointer;
-}
-
-.explorer-sidebar-item:hover {
-  background: var(--color-dark);
-  opacity: 0.8;
 }
 
 .explorer-sidebar-item--note {
@@ -266,11 +248,6 @@
 
 .explorer-node-toggle:hover {
   opacity: 0.8;
-}
-
-.explorer-sidebar-item--selected {
-  background: var(--color-dark);
-  color: var(--color-light);
 }
 
 .explorer-node-icon {

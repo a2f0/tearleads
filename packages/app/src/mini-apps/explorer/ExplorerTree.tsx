@@ -5,6 +5,10 @@ import {
   useEffect,
   useMemo,
 } from "react";
+import {
+  MiniAppRowButton,
+  MiniAppRowText,
+} from "../../components/shared/MiniAppRow";
 import type { DocumentContainerProjection } from "./documentProjections";
 import type { ContainerNode } from "./types";
 
@@ -88,6 +92,7 @@ function ExplorerTreeEntryNode(
   } = props;
   const hasChildren = entry.children.length > 0;
   const isCollapsed = collapsedIds.has(entry.node.id);
+  const isSelected = selectedId === entry.node.id;
 
   return (
     <Fragment>
@@ -117,19 +122,14 @@ function ExplorerTreeEntryNode(
         ) : (
           <span className="explorer-node-spacer" aria-hidden="true" />
         )}
-        <button
-          type="button"
-          className={
-            "explorer-sidebar-item" +
-            (selectedId === entry.node.id
-              ? " explorer-sidebar-item--selected"
-              : "")
-          }
+        <MiniAppRowButton
+          className="explorer-sidebar-item"
           onClick={() => onSelectContainer(entry.node.id)}
           onContextMenu={(event) => onContextMenu(event, entry.node.id)}
+          selected={isSelected}
         >
-          {entry.node.name}
-        </button>
+          <MiniAppRowText>{entry.node.name}</MiniAppRowText>
+        </MiniAppRowButton>
       </div>
       {!isCollapsed && (
         <ExplorerTreeEntries
@@ -149,19 +149,16 @@ function ExplorerTreeEntryNode(
                 }}
               >
                 <span className="explorer-node-spacer" aria-hidden="true" />
-                <button
-                  type="button"
+                <MiniAppRowButton
                   data-document-local-id={localId}
-                  className={
-                    "explorer-sidebar-item explorer-sidebar-item--note" +
-                    (selectedId === localId && activeContainerId === containerId
-                      ? " explorer-sidebar-item--selected"
-                      : "")
-                  }
+                  className="explorer-sidebar-item explorer-sidebar-item--note"
                   onClick={() => onSelectDocument(localId, containerId)}
+                  selected={
+                    selectedId === localId && activeContainerId === containerId
+                  }
                 >
-                  {title}
-                </button>
+                  <MiniAppRowText>{title}</MiniAppRowText>
+                </MiniAppRowButton>
               </div>
             ),
           )

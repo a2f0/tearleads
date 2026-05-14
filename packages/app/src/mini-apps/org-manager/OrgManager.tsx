@@ -6,6 +6,12 @@ import type {
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  MiniAppRow,
+  MiniAppRowButton,
+  MiniAppRowStack,
+  MiniAppRowText,
+} from "../../components/shared/MiniAppRow";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   type OrgManagerUserRecipient,
@@ -91,23 +97,30 @@ function DirectoryTable({
 
   return (
     <div className="org-manager-table">
-      <div className="org-manager-table-row org-manager-table-row--header">
-        <span>{ORG_MANAGER_LABELS.user}</span>
-        <span>{ORG_MANAGER_LABELS.signingKey}</span>
-        <span>{ORG_MANAGER_LABELS.joined}</span>
-      </div>
+      <MiniAppRow
+        className="org-manager-table-row org-manager-table-row--header"
+        header
+      >
+        <MiniAppRowText>{ORG_MANAGER_LABELS.user}</MiniAppRowText>
+        <MiniAppRowText>{ORG_MANAGER_LABELS.signingKey}</MiniAppRowText>
+        <MiniAppRowText>{ORG_MANAGER_LABELS.joined}</MiniAppRowText>
+      </MiniAppRow>
       {directory.users.map((user) => (
-        <div className="org-manager-table-row" key={user.userId}>
-          <span title={user.userId}>
+        <MiniAppRow
+          className="org-manager-table-row"
+          key={user.userId}
+          variant="framed"
+        >
+          <MiniAppRowText title={user.userId}>
             {user.isSelf
               ? ORG_MANAGER_LABELS.self
               : compactFingerprint(user.userId)}
-          </span>
-          <span title={user.signingKeyFingerprint}>
+          </MiniAppRowText>
+          <MiniAppRowText title={user.signingKeyFingerprint}>
             {compactFingerprint(user.signingKeyFingerprint)}
-          </span>
-          <span>{formatDate(user.createdAt)}</span>
-        </div>
+          </MiniAppRowText>
+          <MiniAppRowText>{formatDate(user.createdAt)}</MiniAppRowText>
+        </MiniAppRow>
       ))}
     </div>
   );
@@ -130,25 +143,30 @@ function GroupList({
 
   return (
     <div className="org-manager-group-list">
-      {groups.map((group) => (
-        <button
-          className={`org-manager-group-button${
-            selectedGroupId === group.groupId
-              ? " org-manager-group-button--selected"
-              : ""
-          }`}
-          key={group.groupId}
-          onClick={() => setSelectedGroupId(group.groupId)}
-          type="button"
-        >
-          <strong>{group.name}</strong>
-          <span>
-            {group.currentState
-              ? getOrgManagerMemberCountLabel(group.currentState.memberCount)
-              : ORG_MANAGER_LABELS.uninitialized}
-          </span>
-        </button>
-      ))}
+      {groups.map((group) => {
+        const isSelected = selectedGroupId === group.groupId;
+
+        return (
+          <MiniAppRowButton
+            className="org-manager-group-button"
+            density="roomy"
+            key={group.groupId}
+            onClick={() => setSelectedGroupId(group.groupId)}
+            selected={isSelected}
+          >
+            <MiniAppRowStack>
+              <strong>{group.name}</strong>
+              <MiniAppRowText muted>
+                {group.currentState
+                  ? getOrgManagerMemberCountLabel(
+                      group.currentState.memberCount,
+                    )
+                  : ORG_MANAGER_LABELS.uninitialized}
+              </MiniAppRowText>
+            </MiniAppRowStack>
+          </MiniAppRowButton>
+        );
+      })}
     </div>
   );
 }
@@ -190,19 +208,21 @@ function GroupMembers({
           !isLastAdmin;
 
         return (
-          <div
+          <MiniAppRow
             className="org-manager-member-row"
+            density="roomy"
             key={member.memberPrincipalId}
+            variant="framed"
           >
-            <div>
+            <MiniAppRowStack>
               <strong title={member.memberPrincipalId}>
                 {member.userId
                   ? compactFingerprint(member.userId)
                   : (member.groupName ??
                     compactFingerprint(member.memberPrincipalId))}
               </strong>
-              <span>{member.role}</span>
-            </div>
+              <MiniAppRowText muted>{member.role}</MiniAppRowText>
+            </MiniAppRowStack>
             {member.memberPrincipalType === "user" && (
               <button
                 disabled={!canRemove || mutating}
@@ -212,7 +232,7 @@ function GroupMembers({
                 {ORG_MANAGER_LABELS.remove}
               </button>
             )}
-          </div>
+          </MiniAppRow>
         );
       })}
     </div>
@@ -489,27 +509,27 @@ export function OrgManager() {
   return (
     <div className="org-manager">
       <aside className="org-manager-sidebar">
-        <button
-          className={view === "directory" ? "org-manager-nav--selected" : ""}
+        <MiniAppRowButton
+          className="org-manager-nav"
           onClick={() => setView("directory")}
-          type="button"
+          selected={view === "directory"}
         >
           {ORG_MANAGER_LABELS.directory}
-        </button>
-        <button
-          className={view === "groups" ? "org-manager-nav--selected" : ""}
+        </MiniAppRowButton>
+        <MiniAppRowButton
+          className="org-manager-nav"
           onClick={() => setView("groups")}
-          type="button"
+          selected={view === "groups"}
         >
           {ORG_MANAGER_LABELS.groups}
-        </button>
-        <button
+        </MiniAppRowButton>
+        <MiniAppRowButton
+          className="org-manager-nav"
           disabled={loading || mutating}
           onClick={refreshDirectoryAndGroups}
-          type="button"
         >
           {ORG_MANAGER_LABELS.refresh}
-        </button>
+        </MiniAppRowButton>
       </aside>
       <main className="org-manager-main">
         {error && <div className="org-manager-error">{error}</div>}
