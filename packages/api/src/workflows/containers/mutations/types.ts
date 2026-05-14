@@ -31,10 +31,12 @@ export type ContainerMutationHandlerInput = Omit<
 >;
 
 export interface StoredContainerRow {
+  readonly createdAt: Date;
   readonly depth: number;
   readonly id: string;
   readonly organizationId: string;
   readonly parentId: string | null;
+  readonly updatedAt: Date;
 }
 
 export type VerifiedContainerAccessState =

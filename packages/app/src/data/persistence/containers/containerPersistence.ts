@@ -22,12 +22,16 @@ export interface ContainerRecord {
   metadataDocumentId: string | null;
   name: string;
   icon: string | null;
+  localCreatedAt?: string | null;
+  localUpdatedAt?: string | null;
+  serverCreatedAt?: string | null;
+  serverUpdatedAt?: string | null;
   updatedAt?: string | null;
 }
 
 export async function ensureContainerTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, containerTables);
-  await ensureContainerCreatedAtColumn(execSql);
+  await ensureContainerTimestampColumns(execSql);
 }
 
 interface SelectedContainerRecord {
@@ -37,73 +41,152 @@ interface SelectedContainerRecord {
   metadataDocumentId: string | null;
   name: string;
   icon: string | null;
-  createdAt: string | null;
-  updatedAt: string;
+  localCreatedAt: string;
+  localUpdatedAt: string;
+  serverCreatedAt: string | null;
+  serverUpdatedAt: string | null;
 }
 
 function renderContainerSqlIdentifier(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
-async function hasContainerColumn(
-  execSql: ExecSql,
-  columnName: string,
-): Promise<boolean> {
-  const rows = (await execSql(
-    `PRAGMA table_info(${renderContainerSqlIdentifier("containers")})`,
-  )) as Array<{ name?: unknown }>;
-
-  return rows.some((row) => row.name === columnName);
+function renderContainerTimestampExpression(
+  columnNames: ReadonlyArray<string>,
+): string {
+  const columns = columnNames.map(renderContainerSqlIdentifier);
+  return `COALESCE(${[...columns, "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"].join(
+    ", ",
+  )})`;
 }
 
-async function ensureContainerCreatedAtColumn(execSql: ExecSql): Promise<void> {
+async function ensureContainerTimestampColumns(
+  execSql: ExecSql,
+): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    if (!(await hasContainerColumn(lockedExecSql, "created_at"))) {
+    const existingColumns = new Set(
+      (
+        (await lockedExecSql(
+          `PRAGMA table_info(${renderContainerSqlIdentifier("containers")})`,
+        )) as Array<{ name?: unknown }>
+      )
+        .map((row) => row.name)
+        .filter((name): name is string => typeof name === "string"),
+    );
+    const addColumn = async (columnName: string) => {
+      if (existingColumns.has(columnName)) {
+        return;
+      }
       await lockedExecSql(
         `ALTER TABLE ${renderContainerSqlIdentifier(
           "containers",
-        )} ADD COLUMN ${renderContainerSqlIdentifier("created_at")} TEXT`,
+        )} ADD COLUMN ${renderContainerSqlIdentifier(columnName)} TEXT`,
       );
-    }
+      existingColumns.add(columnName);
+    };
+
+    await addColumn("created_at");
+    await addColumn("updated_at");
+    await addColumn("local_created_at");
+    await addColumn("local_updated_at");
+    await addColumn("server_created_at");
+    await addColumn("server_updated_at");
+
+    const legacyCreatedAt = existingColumns.has("created_at")
+      ? ["created_at"]
+      : [];
+    const legacyUpdatedAt = existingColumns.has("updated_at")
+      ? ["updated_at"]
+      : [];
 
     await lockedExecSql(`
       UPDATE ${renderContainerSqlIdentifier("containers")}
-      SET ${renderContainerSqlIdentifier(
-        "created_at",
-      )} = ${renderContainerSqlIdentifier("updated_at")}
-      WHERE ${renderContainerSqlIdentifier("created_at")} IS NULL
+      SET
+        ${renderContainerSqlIdentifier(
+          "local_created_at",
+        )} = ${renderContainerTimestampExpression([
+          "local_created_at",
+          ...legacyCreatedAt,
+          ...legacyUpdatedAt,
+        ])},
+        ${renderContainerSqlIdentifier(
+          "local_updated_at",
+        )} = ${renderContainerTimestampExpression([
+          "local_updated_at",
+          ...legacyUpdatedAt,
+          ...legacyCreatedAt,
+          "local_created_at",
+        ])}
+      WHERE ${renderContainerSqlIdentifier("local_created_at")} IS NULL
+        OR ${renderContainerSqlIdentifier("local_updated_at")} IS NULL
     `);
+  });
+}
+
+function toDisplayContainerRecord(record: ContainerRecord): ContainerRecord {
+  return {
+    ...record,
+    createdAt: record.serverCreatedAt ?? record.localCreatedAt ?? null,
+    updatedAt: record.serverUpdatedAt ?? record.localUpdatedAt ?? null,
+  };
+}
+
+function applyContainerTimestampDefaults(
+  record: ContainerRecord,
+  localUpdatedAt: string,
+): ContainerRecord {
+  const hasServerTimestamps =
+    record.serverCreatedAt !== undefined ||
+    record.serverUpdatedAt !== undefined;
+  const localCreatedAt =
+    record.localCreatedAt ??
+    (!hasServerTimestamps ? record.createdAt : null) ??
+    localUpdatedAt;
+
+  return toDisplayContainerRecord({
+    ...record,
+    localCreatedAt,
+    localUpdatedAt,
+    serverCreatedAt: record.serverCreatedAt ?? null,
+    serverUpdatedAt: record.serverUpdatedAt ?? null,
   });
 }
 
 function mapSelectedContainerRecord(
   row: SelectedContainerRecord,
 ): ContainerRecord {
-  return {
+  return toDisplayContainerRecord({
     id: String(row.id ?? ""),
     organizationId: row.organizationId,
     parentId: row.parentId,
     metadataDocumentId: row.metadataDocumentId,
     name: row.name,
     icon: row.icon && row.icon.length > 0 ? row.icon : null,
-    createdAt: row.createdAt ?? row.updatedAt,
-    updatedAt: row.updatedAt,
-  };
+    localCreatedAt: row.localCreatedAt,
+    localUpdatedAt: row.localUpdatedAt,
+    serverCreatedAt: row.serverCreatedAt,
+    serverUpdatedAt: row.serverUpdatedAt,
+  });
 }
 
 export async function saveContainerRows(input: {
   tx: AppSQLiteTransaction;
   record: ContainerRecord;
-  updatedAt: string;
-}): Promise<void> {
-  const { record, tx, updatedAt } = input;
+  localUpdatedAt: string;
+}): Promise<ContainerRecord> {
+  const { record, tx, localUpdatedAt } = input;
+  const nextRecord = applyContainerTimestampDefaults(record, localUpdatedAt);
   const containerRow = {
-    id: record.id,
-    organizationId: record.organizationId,
-    parentId: record.parentId,
-    metadataDocumentId: record.metadataDocumentId,
-    createdAt: record.createdAt ?? updatedAt,
-    updatedAt,
+    id: nextRecord.id,
+    organizationId: nextRecord.organizationId,
+    parentId: nextRecord.parentId,
+    metadataDocumentId: nextRecord.metadataDocumentId,
+    legacyCreatedAt: nextRecord.localCreatedAt ?? localUpdatedAt,
+    legacyUpdatedAt: localUpdatedAt,
+    localCreatedAt: nextRecord.localCreatedAt ?? localUpdatedAt,
+    localUpdatedAt,
+    serverCreatedAt: nextRecord.serverCreatedAt ?? null,
+    serverUpdatedAt: nextRecord.serverUpdatedAt ?? null,
   };
   await tx
     .insert(containers)
@@ -114,16 +197,25 @@ export async function saveContainerRows(input: {
         organizationId: containerRow.organizationId,
         parentId: containerRow.parentId,
         metadataDocumentId: containerRow.metadataDocumentId,
-        updatedAt: containerRow.updatedAt,
+        legacyUpdatedAt: containerRow.legacyUpdatedAt,
+        localUpdatedAt: containerRow.localUpdatedAt,
+        serverCreatedAt:
+          record.serverCreatedAt === undefined
+            ? sql`${containers.serverCreatedAt}`
+            : containerRow.serverCreatedAt,
+        serverUpdatedAt:
+          record.serverUpdatedAt === undefined
+            ? sql`${containers.serverUpdatedAt}`
+            : containerRow.serverUpdatedAt,
       },
     })
     .run();
 
   const projectionRow = {
-    containerId: record.id,
-    displayName: record.name,
-    icon: record.icon,
-    updatedAt,
+    containerId: nextRecord.id,
+    displayName: nextRecord.name,
+    icon: nextRecord.icon,
+    updatedAt: localUpdatedAt,
   };
   await tx
     .insert(containerProjection)
@@ -133,6 +225,8 @@ export async function saveContainerRows(input: {
       set: projectionRow,
     })
     .run();
+
+  return nextRecord;
 }
 
 export async function loadContainers(
@@ -151,8 +245,10 @@ export async function loadContainers(
       metadataDocumentId: containers.metadataDocumentId,
       name,
       icon: containerProjection.icon,
-      createdAt: containers.createdAt,
-      updatedAt: containers.updatedAt,
+      localCreatedAt: containers.localCreatedAt,
+      localUpdatedAt: containers.localUpdatedAt,
+      serverCreatedAt: containers.serverCreatedAt,
+      serverUpdatedAt: containers.serverUpdatedAt,
     })
     .from(containers)
     .leftJoin(
@@ -168,13 +264,13 @@ export async function saveContainer(
   execSql: ExecSql,
   record: ContainerRecord,
 ): Promise<void> {
-  const updatedAt = new Date().toISOString();
+  const localUpdatedAt = new Date().toISOString();
 
   await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
     await saveContainerRows({
       record,
       tx,
-      updatedAt,
+      localUpdatedAt,
     });
   });
 }

@@ -30,8 +30,10 @@ export interface ContainerKekResponse {
 
 export interface ContainerMutationResponse {
   containerId: string;
+  createdAt: string;
   organizationId: string;
   parentId: string | null;
+  updatedAt: string;
   manifestHead: {
     epoch: number;
     manifestHash: string;
@@ -203,8 +205,10 @@ export function isContainerMutationResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "containerId") &&
+    hasStringProperty(value, "createdAt") &&
     hasStringProperty(value, "organizationId") &&
     hasNullableStringProperty(value, "parentId") &&
+    hasStringProperty(value, "updatedAt") &&
     isPlainObject(manifestHead) &&
     hasNumberProperty(manifestHead, "epoch") &&
     hasStringProperty(manifestHead, "manifestHash") &&

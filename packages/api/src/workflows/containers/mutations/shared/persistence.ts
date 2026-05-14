@@ -49,10 +49,12 @@ async function loadContainerRow(
 ): Promise<StoredContainerRow | null> {
   const [row] = await executor
     .select({
+      createdAt: containers.createdAt,
       depth: containers.depth,
       id: containers.id,
       organizationId: containers.organizationId,
       parentId: containers.parentId,
+      updatedAt: containers.updatedAt,
     })
     .from(containers)
     .where(eq(containers.id, containerId))
@@ -131,7 +133,14 @@ async function persistCreatedContainerStructure(
       updatedAt,
     })
     .onConflictDoNothing({ target: containers.id })
-    .returning({ id: containers.id });
+    .returning({
+      createdAt: containers.createdAt,
+      depth: containers.depth,
+      id: containers.id,
+      organizationId: containers.organizationId,
+      parentId: containers.parentId,
+      updatedAt: containers.updatedAt,
+    });
 
   if (!inserted) {
     throw new ContainerMutationError("Container already exists", 409);
@@ -140,10 +149,12 @@ async function persistCreatedContainerStructure(
   await insertContainerMetadataBinding(executor, state);
 
   return {
-    depth: parent.depth + 1,
-    id: state.containerId,
-    organizationId: state.organizationId,
-    parentId: state.parentContainerId,
+    createdAt: inserted.createdAt,
+    depth: inserted.depth,
+    id: inserted.id,
+    organizationId: inserted.organizationId,
+    parentId: inserted.parentId,
+    updatedAt: inserted.updatedAt,
   };
 }
 
@@ -151,11 +162,24 @@ async function touchContainerStructure(
   executor: DatabaseTransaction,
   containerId: string,
   updatedAt: Date,
-): Promise<void> {
-  await executor
+): Promise<StoredContainerRow> {
+  const [updated] = await executor
     .update(containers)
     .set({ updatedAt })
-    .where(eq(containers.id, containerId));
+    .where(eq(containers.id, containerId))
+    .returning({
+      createdAt: containers.createdAt,
+      depth: containers.depth,
+      id: containers.id,
+      organizationId: containers.organizationId,
+      parentId: containers.parentId,
+      updatedAt: containers.updatedAt,
+    });
+  if (!updated) {
+    throw new ContainerMutationError("Container not found", 404);
+  }
+
+  return updated;
 }
 
 async function persistContainerStructure(
@@ -179,8 +203,7 @@ async function persistContainerStructure(
   }
 
   if (manifest.event.event.eventType !== "container.move") {
-    await touchContainerStructure(executor, state.containerId, updatedAt);
-    return container;
+    return touchContainerStructure(executor, state.containerId, updatedAt);
   }
 
   if (!container.parentId) {
@@ -242,6 +265,7 @@ async function persistContainerStructure(
     ...container,
     depth: destinationParent.depth + 1,
     parentId: state.parentContainerId,
+    updatedAt,
   };
 }
 
@@ -516,8 +540,10 @@ export async function persistVerifiedMutation(
 
   return {
     containerId: manifest.state.containerId,
+    createdAt: container.createdAt.toISOString(),
     organizationId: manifest.state.organizationId,
     parentId: manifest.state.parentContainerId,
+    updatedAt: container.updatedAt.toISOString(),
     manifestHead: {
       epoch: manifestHead.epoch,
       manifestHash: manifestHead.manifestHash,

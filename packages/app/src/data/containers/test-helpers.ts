@@ -496,8 +496,10 @@ export async function createMutationResponseFromRequest(
 
   return {
     containerId: event.objectId,
+    createdAt: "2026-05-05T00:00:00.000Z",
     organizationId: event.organizationId,
     parentId: body.parentContainerId,
+    updatedAt: "2026-05-05T00:00:00.000Z",
     manifestHead: {
       epoch: 1,
       manifestHash: request.expectedManifestHash,

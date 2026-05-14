@@ -102,6 +102,19 @@ interface FetchedContainerParentLanePage {
   syncLane: ReturnType<typeof createExplorerContainerParentSyncLane>;
 }
 
+function applyRemoteContainerTimestamps(
+  container: ContainerRecord,
+  remoteContainer: ExplorerRemoteContainer,
+): ContainerRecord {
+  return {
+    ...container,
+    createdAt: remoteContainer.createdAt,
+    serverCreatedAt: remoteContainer.createdAt,
+    serverUpdatedAt: remoteContainer.updatedAt,
+    updatedAt: remoteContainer.updatedAt,
+  };
+}
+
 function addIndexedContainerChild(
   childIdsByParentId: ContainerChildIndex,
   containerId: string,
@@ -181,6 +194,10 @@ async function upsertRemoteExplorerContainerState(input: {
 
   if (existingState) {
     const previousParentId = existingState.container.parentId;
+    existingState.container = applyRemoteContainerTimestamps(
+      existingState.container,
+      remoteContainer,
+    );
     existingState.record = await host.persistContainerState(
       existingState,
       {
@@ -193,14 +210,15 @@ async function upsertRemoteExplorerContainerState(input: {
       },
       false,
     );
-    existingState.container = {
-      ...existingState.container,
-      createdAt: existingState.container.createdAt ?? remoteContainer.createdAt,
-      metadataDocumentId: remoteContainer.metadataDocumentId,
-      organizationId: remoteContainer.organizationId,
-      parentId: remoteContainer.parentId,
-      updatedAt: remoteContainer.updatedAt,
-    };
+    existingState.container = applyRemoteContainerTimestamps(
+      {
+        ...existingState.container,
+        metadataDocumentId: remoteContainer.metadataDocumentId,
+        organizationId: remoteContainer.organizationId,
+        parentId: remoteContainer.parentId,
+      },
+      remoteContainer,
+    );
     moveIndexedContainerChild(
       childIdsByParentId,
       remoteContainer.id,
@@ -214,16 +232,17 @@ async function upsertRemoteExplorerContainerState(input: {
   const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
   const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
   const containerState: ExplorerContainerState = {
-    container: {
-      id: remoteContainer.id,
-      organizationId: remoteContainer.organizationId,
-      parentId: remoteContainer.parentId,
-      metadataDocumentId: remoteContainer.metadataDocumentId,
-      name: getDefaultContainerName(remoteContainer.parentId),
-      icon: null,
-      createdAt: remoteContainer.createdAt,
-      updatedAt: remoteContainer.updatedAt,
-    },
+    container: applyRemoteContainerTimestamps(
+      {
+        id: remoteContainer.id,
+        organizationId: remoteContainer.organizationId,
+        parentId: remoteContainer.parentId,
+        metadataDocumentId: remoteContainer.metadataDocumentId,
+        name: getDefaultContainerName(remoteContainer.parentId),
+        icon: null,
+      },
+      remoteContainer,
+    ),
     doc,
     record: {
       accessEpoch: remoteContainer.metadataAccessEpoch,
@@ -243,7 +262,12 @@ async function upsertRemoteExplorerContainerState(input: {
     state.persistence,
     containerState.container,
     containerState.record,
-    { updatedAt: remoteContainer.updatedAt },
+    {
+      serverTimestamps: {
+        createdAt: remoteContainer.createdAt,
+        updatedAt: remoteContainer.updatedAt,
+      },
+    },
   );
   state.containersById.set(remoteContainer.id, containerState);
   if (childIdsByParentId) {

@@ -107,6 +107,13 @@ export interface ExplorerPersistence {
     record: DocumentRecord | null,
     options?: {
       createIntent?: ContainerCreateIntentInput;
+      localUpdatedAt?: string;
+      serverTimestamps?:
+        | {
+            createdAt?: string | null;
+            updatedAt?: string | null;
+          }
+        | undefined;
       updatedAt?: string;
     },
   ) => Promise<ContainerRecord>;
@@ -221,19 +228,38 @@ async function saveExplorerContainerRows(input: {
   createIntent?: ContainerCreateIntentInput | undefined;
   record: DocumentRecord | null;
   tx: AppSQLiteTransaction;
-  updatedAt: string;
+  localUpdatedAt: string;
+  serverTimestamps?:
+    | {
+        createdAt?: string | null;
+        updatedAt?: string | null;
+      }
+    | undefined;
 }): Promise<ContainerRecord> {
-  const { container, createIntent, record, tx, updatedAt } = input;
+  const {
+    container,
+    createIntent,
+    localUpdatedAt,
+    record,
+    serverTimestamps,
+    tx,
+  } = input;
   const nextContainer = {
     ...container,
-    createdAt: container.createdAt ?? updatedAt,
-    updatedAt,
+    ...(serverTimestamps
+      ? {
+          serverCreatedAt:
+            serverTimestamps.createdAt ?? container.serverCreatedAt ?? null,
+          serverUpdatedAt:
+            serverTimestamps.updatedAt ?? container.serverUpdatedAt ?? null,
+        }
+      : {}),
   };
 
-  await saveContainerRows({
+  const savedContainer = await saveContainerRows({
     record: nextContainer,
     tx,
-    updatedAt,
+    localUpdatedAt,
   });
 
   if (record) {
@@ -244,7 +270,7 @@ async function saveExplorerContainerRows(input: {
         id: container.id,
       },
       tx,
-      updatedAt,
+      updatedAt: localUpdatedAt,
     });
   }
 
@@ -253,11 +279,11 @@ async function saveExplorerContainerRows(input: {
       containerId: container.id,
       createIntent,
       tx,
-      updatedAt,
+      updatedAt: localUpdatedAt,
     });
   }
 
-  return nextContainer;
+  return savedContainer;
 }
 
 async function saveContainerCreateIntent(input: {
@@ -524,14 +550,18 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
   },
   async saveContainer(execSql, container, record, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      const updatedAt = options?.updatedAt ?? new Date().toISOString();
+      const localUpdatedAt =
+        options?.localUpdatedAt ??
+        options?.updatedAt ??
+        new Date().toISOString();
       return getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) =>
         saveExplorerContainerRows({
           container,
           createIntent: options?.createIntent,
           record,
+          serverTimestamps: options?.serverTimestamps,
           tx,
-          updatedAt,
+          localUpdatedAt,
         }),
       );
     });
@@ -545,7 +575,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
 
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      const updatedAt = new Date().toISOString();
+      const localUpdatedAt = new Date().toISOString();
       return getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         if (uniquePendingUpdateIds.length > 0) {
           await tx
@@ -564,7 +594,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
           container,
           record,
           tx,
-          updatedAt,
+          localUpdatedAt,
         });
       });
     });
