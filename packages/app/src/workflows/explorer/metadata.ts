@@ -229,19 +229,18 @@ async function persistExplorerContainerMetadataState(input: {
     ),
   };
 
-  if (acceptedPendingUpdateIds && acceptedPendingUpdateIds.length > 0) {
-    await persistence.saveContainerAndDeletePendingUpdates(
-      execSql,
-      nextContainer,
-      nextRecord,
-      acceptedPendingUpdateIds,
-    );
-  } else {
-    await persistence.saveContainer(execSql, nextContainer, nextRecord);
-  }
+  const persistedContainer =
+    acceptedPendingUpdateIds && acceptedPendingUpdateIds.length > 0
+      ? await persistence.saveContainerAndDeletePendingUpdates(
+          execSql,
+          nextContainer,
+          nextRecord,
+          acceptedPendingUpdateIds,
+        )
+      : await persistence.saveContainer(execSql, nextContainer, nextRecord);
 
   return {
-    container: nextContainer,
+    container: persistedContainer,
     record: nextRecord,
   };
 }

@@ -107,14 +107,15 @@ export interface ExplorerPersistence {
     record: DocumentRecord | null,
     options?: {
       createIntent?: ContainerCreateIntentInput;
+      updatedAt?: string;
     },
-  ) => Promise<void>;
+  ) => Promise<ContainerRecord>;
   saveContainerAndDeletePendingUpdates: (
     execSql: ExecSql,
     container: ContainerRecord,
     record: DocumentRecord,
     pendingUpdateIds: readonly string[],
-  ) => Promise<void>;
+  ) => Promise<ContainerRecord>;
   markCreateIntentSynced: (
     execSql: ExecSql,
     input: {
@@ -221,10 +222,16 @@ async function saveExplorerContainerRows(input: {
   record: DocumentRecord | null;
   tx: AppSQLiteTransaction;
   updatedAt: string;
-}) {
+}): Promise<ContainerRecord> {
   const { container, createIntent, record, tx, updatedAt } = input;
+  const nextContainer = {
+    ...container,
+    createdAt: container.createdAt ?? updatedAt,
+    updatedAt,
+  };
+
   await saveContainerRows({
-    record: container,
+    record: nextContainer,
     tx,
     updatedAt,
   });
@@ -249,6 +256,8 @@ async function saveExplorerContainerRows(input: {
       updatedAt,
     });
   }
+
+  return nextContainer;
 }
 
 async function saveContainerCreateIntent(input: {
@@ -514,17 +523,17 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     return storedContainers;
   },
   async saveContainer(execSql, container, record, options) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      const updatedAt = new Date().toISOString();
-      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        await saveExplorerContainerRows({
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const updatedAt = options?.updatedAt ?? new Date().toISOString();
+      return getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) =>
+        saveExplorerContainerRows({
           container,
           createIntent: options?.createIntent,
           record,
           tx,
           updatedAt,
-        });
-      });
+        }),
+      );
     });
   },
   async saveContainerAndDeletePendingUpdates(
@@ -535,9 +544,9 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
   ) {
     const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
 
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = new Date().toISOString();
-      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+      return getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         if (uniquePendingUpdateIds.length > 0) {
           await tx
             .delete(documentPendingUpdates)
@@ -551,7 +560,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
             .run();
         }
 
-        await saveExplorerContainerRows({
+        return saveExplorerContainerRows({
           container,
           record,
           tx,

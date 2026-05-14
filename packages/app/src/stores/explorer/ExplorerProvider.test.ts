@@ -687,13 +687,18 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
     expect(childNode.name).toBe("Docs");
     expect(childNode.organizationId).toBe("org-1");
     expect(childNode.parentId).toBe("root-container");
+    expect(childNode.createdAt).toEqual(expect.any(String));
+    expect(childNode.updatedAt).toEqual(expect.any(String));
     expect(firstStore.getSnapshot().nodes).toHaveLength(2);
     expect(
       firstStore
         .getSnapshot()
         .nodes.some(
           (node) =>
-            node.id === childNode.id && node.parentId === "root-container",
+            node.id === childNode.id &&
+            node.parentId === "root-container" &&
+            node.createdAt === childNode.createdAt &&
+            node.updatedAt === childNode.updatedAt,
         ),
     ).toBe(true);
 
@@ -1353,6 +1358,8 @@ test("explorer store creates authenticated child containers through the API befo
     expect(persistedChild).not.toBeUndefined();
     expect(persistedChild?.metadataDocumentId).toBe(childNode.id);
     expect(persistedChild?.name).toBe("Docs");
+    expect(persistedChild?.createdAt).toBe(childNode.createdAt);
+    expect(persistedChild?.updatedAt).toBe(childNode.updatedAt);
     expect(childNode.organizationId).toBe("org-1");
     expect(childNode.parentId).toBe("root-container");
     const pendingRows = await runtime.execSql(

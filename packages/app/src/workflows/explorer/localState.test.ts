@@ -75,8 +75,11 @@ function createExplorerPersistence(input: {
         execSql: receivedExecSql,
         record,
       });
+      return container;
     },
-    async saveContainerAndDeletePendingUpdates() {},
+    async saveContainerAndDeletePendingUpdates(_execSql, container) {
+      return container;
+    },
     async markCreateIntentSynced() {},
   };
 }
