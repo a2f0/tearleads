@@ -35,7 +35,6 @@ export async function runListOrganizationGroupsWorkflow(
     });
     const [organization] = await tx
       .select({
-        adminGroupId: organizations.adminGroupId,
         memberGroupId: organizations.memberGroupId,
       })
       .from(organizations)
@@ -57,10 +56,7 @@ export async function runListOrganizationGroupsWorkflow(
       .where(
         and(
           eq(groupsTable.organizationId, organizationId),
-          notInArray(groupsTable.id, [
-            organization.adminGroupId,
-            organization.memberGroupId,
-          ]),
+          notInArray(groupsTable.id, [organization.memberGroupId]),
         ),
       )
       .orderBy(asc(groupsTable.name), asc(groupsTable.id));
