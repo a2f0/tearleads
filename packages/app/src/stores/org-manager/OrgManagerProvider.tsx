@@ -21,12 +21,15 @@ interface OrgManagerContextValue {
   addUserToGroup: (
     groupId: string,
     targetUser: OrgManagerUserRecipient,
+    currentUsers: ReadonlyArray<OrgManagerUserRecipient>,
+    canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
   createGroup: (name: string) => Promise<OrganizationGroupSummaryResponse>;
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
     remainingUsers: ReadonlyArray<OrgManagerUserRecipient>,
+    canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
 }
 
@@ -85,7 +88,12 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   );
 
   const addUserToGroup = useCallback(
-    async (groupId: string, targetUser: OrgManagerUserRecipient) => {
+    async (
+      groupId: string,
+      targetUser: OrgManagerUserRecipient,
+      currentUsers: ReadonlyArray<OrgManagerUserRecipient>,
+      canAdministerOrganization: boolean,
+    ) => {
       const signingContext = requireSigningContext();
       if (!appData.encapsulationKeyPair) {
         throw new Error("Org Manager encryption context is unavailable");
@@ -93,7 +101,9 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
 
       return addOrgManagerGroupUser({
         apiClient: appData.apiClient,
+        canAdministerOrganization,
         currentUserSecretKey: appData.encapsulationKeyPair.secretKey,
+        currentUsers,
         execSql: appData.execSql,
         groupId,
         targetUser,
@@ -113,11 +123,13 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       groupId: string,
       removedUserId: string,
       remainingUsers: ReadonlyArray<OrgManagerUserRecipient>,
+      canAdministerOrganization: boolean,
     ) => {
       const signingContext = requireSigningContext();
 
       return removeOrgManagerGroupUser({
         apiClient: appData.apiClient,
+        canAdministerOrganization,
         execSql: appData.execSql,
         groupId,
         remainingUsers,

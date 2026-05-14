@@ -3,7 +3,7 @@ import type {
   OrganizationGroupMemberResponse,
   OrganizationGroupMembersResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
@@ -11,7 +11,7 @@ import {
   type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
 import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
-import { groups as groupsTable } from "../../schema";
+import { groups as groupsTable, organizations } from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import { toGroupSummary } from "./groupSummary";
@@ -33,6 +33,18 @@ export async function runListOrganizationGroupsWorkflow(
       organizationId,
       userId: sessionUserId,
     });
+    const [organization] = await tx
+      .select({
+        adminGroupId: organizations.adminGroupId,
+        memberGroupId: organizations.memberGroupId,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+
+    if (!organization) {
+      throw new OrganizationManagerError("Organization not found", 404);
+    }
 
     const groupRows = await tx
       .select({
@@ -42,7 +54,15 @@ export async function runListOrganizationGroupsWorkflow(
         createdAt: groupsTable.createdAt,
       })
       .from(groupsTable)
-      .where(eq(groupsTable.organizationId, organizationId))
+      .where(
+        and(
+          eq(groupsTable.organizationId, organizationId),
+          notInArray(groupsTable.id, [
+            organization.adminGroupId,
+            organization.memberGroupId,
+          ]),
+        ),
+      )
       .orderBy(asc(groupsTable.name), asc(groupsTable.id));
     const currentStates = await getCurrentPrincipalStates(
       "group",

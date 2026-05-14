@@ -281,9 +281,11 @@ export class ApiClient {
     rootContainerId: string,
     signingPublicKey: Uint8Array,
     encapsulationPublicKey: Uint8Array,
-    initialOrganizationPolicy: Parameters<typeof postRegistration>[6],
-    initialRootContainer: Parameters<typeof postRegistration>[7],
-    initialRootMetadataDocument: Parameters<typeof postRegistration>[8],
+    initialAdminGroup: Parameters<typeof postRegistration>[6],
+    initialMemberGroup: Parameters<typeof postRegistration>[7],
+    initialOrganizationPolicy: Parameters<typeof postRegistration>[8],
+    initialRootContainer: Parameters<typeof postRegistration>[9],
+    initialRootMetadataDocument: Parameters<typeof postRegistration>[10],
   ) {
     return postRegistration(
       this.request,
@@ -292,6 +294,8 @@ export class ApiClient {
       rootContainerId,
       signingPublicKey,
       encapsulationPublicKey,
+      initialAdminGroup,
+      initialMemberGroup,
       initialOrganizationPolicy,
       initialRootContainer,
       initialRootMetadataDocument,

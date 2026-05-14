@@ -18,6 +18,7 @@ The key hierarchy is:
 After registration, every user has:
 
 - a default organization
+- reserved `Admins` and `Members` groups for that organization
 - a root container for that organization
 - a signed root container manifest and container KEK wrap
 - an initialized root metadata document with content-key targets
@@ -50,13 +51,18 @@ This avoids a circular foreign key between organizations and containers.
 ### Client Side (before request)
 
 1. Generate signing and encapsulation key pairs (already existed).
-2. Create the initial organization policy and member envelope.
-3. Create the initial root metadata Loro update locally.
-4. Build and sign the root container create request, including the initial
+2. Create the initial reserved `Admins` group policy.
+3. Create the initial reserved `Members` group policy, nesting `Admins` as a
+ direct group member.
+4. Create the initial organization policy and member envelope. The
+ organization policy is cryptographic principal state, not the org-manager
+ product role source.
+5. Create the initial root metadata Loro update locally.
+6. Build and sign the root container create request, including the initial
  container KEK epoch and wrap for the registering user.
-5. Build and sign the root metadata document create request, wrapping its
+7. Build and sign the root metadata document create request, wrapping its
  content key to the root container KEK target.
-6. Send all material in a single `POST /auth/register`.
+8. Send all material in a single `POST /auth/register`.
 
 ### Server Side (atomic transaction)
 
@@ -64,12 +70,14 @@ The register endpoint creates the identity, organization, root container,
 signed root access manifest, and root metadata document rows in one
 transaction:
 
-1. Insert organization (name: `"Personal"`).
+1. Insert organization (name: `"Personal"`) with `admin_group_id` and
+ `member_group_id`.
 2. Insert container (`organization_id = org.id`, `parent_id = NULL`).
 3. Insert user (`default_organization_id = org.id`).
-4. Store the initial organization policy.
-5. Verify and store the root container manifest and KEK state.
-6. Verify and store the root metadata document manifest, content-key
+4. Insert the reserved `Admins` and `Members` group rows.
+5. Store the initial `Admins`, `Members`, and organization policies.
+6. Verify and store the root container manifest and KEK state.
+7. Verify and store the root metadata document manifest, content-key
  targets, and initial encrypted update.
 
 If the user's fingerprint already exists, the transaction rolls back and the
@@ -139,11 +147,19 @@ interface RegistrationRequest {
  rootContainerId: string;
  signingPublicKey: number[];
  encapsulationPublicKey: number[];
+ initialAdminGroup: CreateOrganizationGroupRequest;
+ initialMemberGroup: CreateOrganizationGroupRequest;
  initialOrganizationPolicy: InitialOrganizationPolicyRequest;
  initialRootContainer: ContainerMutationRequest;
  initialRootMetadataDocument: DocumentCreateRequest;
 }
 ```
+
+`initialAdminGroup.name` must be `"Admins"` and its first policy projects the
+registering user as the sole admin. `initialMemberGroup.name` must be
+`"Members"` and its first policy projects the registering user as admin plus
+the `Admins` group as a member. This makes every admin reachable as an
+organization member while preserving a distinct org-admin authority group.
 
 ### `POST /auth/register` response
 
@@ -195,6 +211,23 @@ CREATE TABLE IF NOT EXISTS users (
 constraint with a btree index, so each challenge verification can load the
 canonical signing key by fingerprint without scanning `users`.
 
+### Server: `organizations`
+
+```sql
+CREATE TABLE IF NOT EXISTS organizations (
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ admin_group_id UUID NOT NULL,
+ member_group_id UUID NOT NULL,
+ name TEXT NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+```
+
+`admin_group_id` points to the reserved `Admins` group. Reachability through
+that group is organization-admin authority. `member_group_id` points to the
+reserved opaque `Members` group. Reachability through that group is
+organization membership and is what org-manager uses to hydrate its directory.
+
 ### Local SQLite: `containers`
 
 ```sql
@@ -228,13 +261,17 @@ the database level.
 
 ## Adding Users To An Organization
 
-Adding a user to an organization means they may need access to signed principal
-state and selected container KEK epochs:
+Adding a user to an organization means updating the reserved `Members` group
+policy. If the user should administer the organization, update the reserved
+`Admins` group policy as well. Those group policies are signed principal
+states, so the org directory is a projection of tamper-resistant group
+membership rather than a mutable user table.
 
-1. Org admin publishes a signed principal state update and derived projection.
-2. Principal member envelopes wrap the organization/group key to the new
- member.
-3. Container grants update signed container access manifests.
+1. Org admin publishes a signed `Members` or `Admins` group policy update and
+ derived projection.
+2. Principal member envelopes wrap the group key to the new member.
+3. Container grants update signed container access manifests when the user or
+ group also needs object access.
 4. Additive container access can add container KEK wraps for the new principal
  without rewriting descendant document/blob content-key targets.
 5. Document/blob writes continue to target current container KEK epochs.

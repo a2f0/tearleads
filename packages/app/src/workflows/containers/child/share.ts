@@ -11,6 +11,7 @@ import {
   type ContainerUserRecipientKey,
   computeAccessManifestHash,
   deriveContainerAccessManifest,
+  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   ContainerManifestBundle,
@@ -22,6 +23,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
+import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   getParentKekForTarget,
@@ -51,6 +53,7 @@ import {
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
 import {
+  collectContainerWriterProjectionPrincipalPolicies,
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
@@ -105,6 +108,7 @@ function buildContainerShareRequest(input: {
   parentKek: ContainerKekResponse | null;
   previousManifest: ContainerManifestBundle;
   previousProjection: ContainerWriterProjectionResponse;
+  principalPolicies: readonly VerifiedPrincipalPolicy[];
   userRecipientKeys: readonly ContainerUserRecipientKey[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
@@ -118,7 +122,12 @@ function buildContainerShareRequest(input: {
       asContainerManifestBundle,
     ),
     containerManifestHistory: [input.previousManifest],
-    principalPolicies: [],
+    principalPolicies: readCanonicalRecords(
+      input.principalPolicies.map((policy) =>
+        principalPolicyRequestRecord(policy),
+      ),
+      "Container share principal policies",
+    ),
     keyEpoch: readCanonicalRecord(input.keyEpoch, "Container share key epoch"),
     wraps: readCanonicalRecords(input.wraps, "Container share wraps"),
     parentKekState:
@@ -162,6 +171,7 @@ function buildContainerSharePlanResult(input: {
   manifestHash: string;
   previousManifest: ContainerManifestBundle;
   previousProjection: ContainerWriterProjectionResponse;
+  principalPolicies: readonly VerifiedPrincipalPolicy[];
   recipientTarget: ContainerKekRecipientTarget;
   state: ContainerAccessManifestState;
   targetKek: ContainerKekResponse;
@@ -192,6 +202,7 @@ function buildContainerSharePlanResult(input: {
       parentKek: getParentKekForTarget(input.previousProjection),
       previousManifest: input.previousManifest,
       previousProjection: input.previousProjection,
+      principalPolicies: input.principalPolicies,
       userRecipientKeys: input.userRecipientKeys,
       wraps: input.wraps,
     }),
@@ -324,6 +335,14 @@ async function buildMaterializedContainerSharePlan(
     target.kek.wraps,
     "Container share previous wraps",
   );
+  const principalPolicies = input.resolveProjectionUserKey
+    ? await collectContainerWriterProjectionPrincipalPolicies({
+        execSql: input.execSql,
+        projection: input.previousProjection,
+        resolveUserKey: input.resolveProjectionUserKey,
+      })
+    : [];
+
   return buildContainerSharePlanResult({
     body,
     containerKey,
@@ -334,8 +353,9 @@ async function buildMaterializedContainerSharePlan(
     manifest,
     manifestHash,
     previousManifest: asContainerManifestBundle(target.manifest),
-    recipientTarget,
     previousProjection: input.previousProjection,
+    principalPolicies,
+    recipientTarget,
     state,
     targetKek: target.kek,
     userRecipientKeys,

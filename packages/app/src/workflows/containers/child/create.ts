@@ -6,6 +6,7 @@ import {
   type ContainerKeyWrap,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
@@ -20,6 +21,7 @@ import {
   resolveContainerKekEpochId,
   signContainerCreateEvent,
 } from "../../../data/containers/shared/events";
+import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   getParentCreateContext,
@@ -44,7 +46,10 @@ import {
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { requireProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import {
+  collectContainerWriterProjectionPrincipalPolicies,
+  requireProjectionUserKeyResolver,
+} from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 function assertContainerCreatePlanInput(input: {
@@ -74,6 +79,7 @@ function buildContainerCreateRequest(input: {
   manifestHash: string;
   parentKek: ContainerKekResponse;
   parentProjection: ContainerWriterProjectionResponse;
+  principalPolicies: readonly VerifiedPrincipalPolicy[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {
@@ -85,7 +91,12 @@ function buildContainerCreateRequest(input: {
     parentContainerPath: input.parentProjection.path.map(
       asContainerManifestBundle,
     ),
-    principalPolicies: [],
+    principalPolicies: readCanonicalRecords(
+      input.principalPolicies.map((policy) =>
+        principalPolicyRequestRecord(policy),
+      ),
+      "Container create principal policies",
+    ),
     keyEpoch: readCanonicalRecord(input.keyEpoch, "Container create key epoch"),
     wraps: readCanonicalRecords(input.wraps, "Container create wraps"),
     parentKekState: readCanonicalRecord(
@@ -192,6 +203,7 @@ export async function buildContainerCreatePlan(
       manifestHash,
       parentKek: context.parent.kek,
       parentProjection: context.parentProjection,
+      principalPolicies: context.principalPolicies ?? [],
       wraps,
     }),
     state,
@@ -229,6 +241,13 @@ export async function buildMaterializedContainerCreatePlan(
   if (!parentKekMaterial) {
     throw new Error("Container parent KEK could not be unwrapped");
   }
+  const principalPolicies = input.resolveProjectionUserKey
+    ? await collectContainerWriterProjectionPrincipalPolicies({
+        execSql: input.execSql,
+        projection: input.parentProjection,
+        resolveUserKey: input.resolveProjectionUserKey,
+      })
+    : [];
 
   const plan = await buildContainerCreatePlan({
     author: input.author,
@@ -239,6 +258,7 @@ export async function buildMaterializedContainerCreatePlan(
     metadataDocumentId: input.metadataDocumentId,
     parentKekMaterial,
     parentProjection: input.parentProjection,
+    principalPolicies,
     signedAt: input.signedAt,
   });
 

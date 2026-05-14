@@ -146,16 +146,27 @@ Registration is a bootstrap protocol, not only an account create call.
 
 - `userId`, `organizationId`, and `rootContainerId`
 - signing and encapsulation public keys
+- the initial reserved `Admins` group policy and direct member envelope
+- the initial reserved `Members` group policy, with `Admins` nested as a
+ member
 - the initial signed organization policy state and direct member envelope
 - the signed root container create request
 - the signed root metadata document create request
 
 The API validates the user key fingerprints, creates the user, organization,
-root container, initial organization policy, root container KEK state, and root
-metadata document in one transaction, then returns a login challenge. The
-initial organization policy must target the new organization, be version `1`,
-use key epoch `1`, be signed by the registering user, and project only the
-registering user as admin.
+reserved groups, root container, initial principal policies, root container KEK
+state, and root metadata document in one transaction, then returns a login
+challenge. The initial `Admins` policy must project the registering user as the
+sole admin. The initial `Members` policy must project the registering user as
+admin and the `Admins` group as a member. The initial organization policy must
+target the new organization, be version `1`, use key epoch `1`, be signed by
+the registering user, and project only the registering user as admin.
+
+`organizations.adminGroupId` is the reserved org-admin authority. Reachability
+through it grants org-admin behavior. `organizations.memberGroupId` is the
+reserved org-membership authority. Reachability through it hydrates the
+org-manager directory. The organization principal policy remains signed
+principal state, but it is not the product role source for org-manager.
 
 Authentication uses challenge signing:
 
@@ -183,8 +194,14 @@ A principal state signs the principal id, version, previous state hash, key
 epoch, encapsulation key fingerprint, membership/projection roots, encrypted
 payload hash, member count, signer id, signer key fingerprint, timestamp, and
 signature. The API validates the signature, hash chain, projection root,
-payload hash, member count, and admin-signer rule before storage. The app
-validates fetched bundles again before caching or using them for decryption.
+payload hash, member count, and admin-signer rule before storage. Initial
+states must be signed by an admin in their own initial projection. Successor
+states must normally be signed by an admin in the previous projection. For
+org-scoped principal policy updates, the API can additionally authorize a
+successor signer by proving reachability through the organization's reserved
+`Admins` group. The app validates fetched bundles again before caching or
+using them for decryption; external org-admin signer authority is only accepted
+when the caller supplies that independently verified authority to the verifier.
 
 Direct member envelopes must match the active direct projection exactly:
 

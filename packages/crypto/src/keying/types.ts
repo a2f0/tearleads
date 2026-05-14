@@ -865,6 +865,11 @@ export interface PrincipalPolicySignerPublicKey {
 
 export interface VerifyPrincipalPolicyBundleInput {
   readonly bundle: PrincipalPolicyBundle;
+  /**
+   * Successor-state signers authorized by a verified authority outside the
+   * principal's own projection, such as an organization's reserved Admins group.
+   */
+  readonly externalAdminSignerUserIds?: readonly string[];
   readonly expectedReference?: ReferencedPrincipalHead;
   readonly localCheckpoint?: PrincipalPolicyCheckpoint | null;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];

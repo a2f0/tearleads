@@ -632,7 +632,11 @@ test("uses organization manager and principal policy route namespaces", async ()
       calls.push(await captureHttpCall(request));
 
       if (request.url.endsWith("/directory")) {
-        return HttpResponse.json({ organizationId: "org-1", users: [] });
+        return HttpResponse.json({
+          organizationId: "org-1",
+          currentUser: { isOrgAdmin: true },
+          users: [],
+        });
       }
       if (request.url.endsWith("/members")) {
         return HttpResponse.json({

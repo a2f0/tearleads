@@ -17,6 +17,10 @@ import {
   isDocumentCreateRequest,
 } from "./document";
 import {
+  type CreateOrganizationGroupRequest,
+  isCreateOrganizationGroupRequest,
+} from "./organization";
+import {
   isPrincipalMemberEnvelopeRequest,
   isPrincipalProjectionMemberRequest,
   isPrincipalStateEncryptedPayloadRequest,
@@ -33,6 +37,8 @@ export interface RegistrationRequest {
   rootContainerId: string;
   signingPublicKey: number[];
   encapsulationPublicKey: number[];
+  initialAdminGroup: CreateOrganizationGroupRequest;
+  initialMemberGroup: CreateOrganizationGroupRequest;
   initialOrganizationPolicy: {
     state: PrincipalStateRequest;
     encryptedPayload: PrincipalStateEncryptedPayloadRequest;
@@ -68,6 +74,10 @@ export function isRegistrationRequest(
       value.encapsulationPublicKey,
       ML_KEM1024_PUBLIC_KEY_BYTES,
     ) &&
+    hasObjectProperty(value, "initialAdminGroup") &&
+    isCreateOrganizationGroupRequest(value.initialAdminGroup) &&
+    hasObjectProperty(value, "initialMemberGroup") &&
+    isCreateOrganizationGroupRequest(value.initialMemberGroup) &&
     hasObjectProperty(value, "initialOrganizationPolicy") &&
     hasObjectProperty(value.initialOrganizationPolicy, "state") &&
     isPrincipalStateRequest(value.initialOrganizationPolicy.state) &&

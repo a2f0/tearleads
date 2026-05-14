@@ -47,6 +47,25 @@ function formatDate(value: string): string {
   return date.toLocaleDateString();
 }
 
+function canCurrentUserMutateSelectedGroup(input: {
+  directory: OrganizationDirectoryResponse | null;
+  members: OrganizationGroupMembersResponse | null;
+  userId: string | null;
+}): boolean {
+  if (input.directory?.currentUser.isOrgAdmin) {
+    return true;
+  }
+
+  return (
+    input.members?.members.some(
+      (member) =>
+        member.memberPrincipalType === "user" &&
+        member.memberPrincipalId === input.userId &&
+        member.role === "admin",
+    ) ?? false
+  );
+}
+
 function DirectoryTable({
   directory,
   loading,
@@ -74,7 +93,6 @@ function DirectoryTable({
     <div className="org-manager-table">
       <div className="org-manager-table-row org-manager-table-row--header">
         <span>{ORG_MANAGER_LABELS.user}</span>
-        <span>{ORG_MANAGER_LABELS.role}</span>
         <span>{ORG_MANAGER_LABELS.signingKey}</span>
         <span>{ORG_MANAGER_LABELS.joined}</span>
       </div>
@@ -85,7 +103,6 @@ function DirectoryTable({
               ? ORG_MANAGER_LABELS.self
               : compactFingerprint(user.userId)}
           </span>
-          <span>{user.role}</span>
           <span title={user.signingKeyFingerprint}>
             {compactFingerprint(user.signingKeyFingerprint)}
           </span>
@@ -221,16 +238,12 @@ export function OrgManager() {
 
   const selectedGroup =
     groups.find((group) => group.groupId === selectedGroupId) ?? null;
-  const selfDirectoryUser =
-    directory?.users.find((user) => user.userId === appData.userId) ?? null;
-  const canCreateGroup = selfDirectoryUser?.role === "admin";
-  const canMutateSelectedGroup =
-    members?.members.some(
-      (member) =>
-        member.memberPrincipalType === "user" &&
-        member.memberPrincipalId === appData.userId &&
-        member.role === "admin",
-    ) ?? false;
+  const canCreateGroup = directory?.currentUser.isOrgAdmin ?? false;
+  const canMutateSelectedGroup = canCurrentUserMutateSelectedGroup({
+    directory,
+    members,
+    userId: appData.userId,
+  });
 
   const memberUserIds = useMemo(
     () =>
@@ -375,6 +388,7 @@ export function OrgManager() {
       (user) => user.userId === addUserId,
     );
     if (
+      !directory ||
       !targetUser ||
       !selectedGroupId ||
       !appData.userId ||
@@ -391,6 +405,8 @@ export function OrgManager() {
       await orgManagerActions.addUserToGroup(
         selectedGroupId,
         userRecipient(targetUser),
+        directory.users.map(userRecipient),
+        directory.currentUser.isOrgAdmin,
       );
       setAddUserId("");
       await refreshDirectoryAndGroups();
@@ -436,6 +452,7 @@ export function OrgManager() {
           directory.users
             .filter((user) => user.userId !== removedUserId)
             .map(userRecipient),
+          directory.currentUser.isOrgAdmin,
         );
         await refreshDirectoryAndGroups();
         await refreshSelectedGroupMembers(selectedGroupId);

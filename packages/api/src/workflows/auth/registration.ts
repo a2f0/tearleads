@@ -2,6 +2,7 @@ import {
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
+  type VerifiedAccessEvent,
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifySignedAccessEvent,
@@ -25,20 +26,26 @@ import {
 import {
   containerMetadataDocuments,
   containers,
+  groups,
   organizations,
   users,
 } from "../../schema";
+import { ContainerMutationError } from "../containers/mutations/errors";
+import { assertPrincipalPoliciesCurrent } from "../containers/mutations/shared/principalPolicies";
+import { principalPoliciesFromRequest } from "../containers/mutations/shared/principalPolicyRecords";
 import {
   createDocumentWithExecutor,
   DocumentMutationError,
 } from "../documents/mutations";
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
+const INITIAL_ADMIN_GROUP_NAME = "Admins";
+const INITIAL_MEMBER_GROUP_NAME = "Members";
 
 export class RegistrationError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 403 | 404 | 409 | 503,
+    readonly status: 400 | 403 | 404 | 409 | 500 | 503,
   ) {
     super(message);
   }
@@ -61,11 +68,20 @@ function isKekRecipientKind(
 
 async function createPersonalOrganization(
   tx: DatabaseTransaction,
-  organizationId: string,
+  input: {
+    adminGroupId: string;
+    memberGroupId: string;
+    organizationId: string;
+  },
 ) {
   const [org] = await tx
     .insert(organizations)
-    .values({ id: organizationId, name: "Personal" })
+    .values({
+      adminGroupId: input.adminGroupId,
+      id: input.organizationId,
+      memberGroupId: input.memberGroupId,
+      name: "Personal",
+    })
     .returning({ id: organizations.id });
   if (!org) {
     throw new Error("Failed to create organization");
@@ -191,6 +207,168 @@ function validateInitialOrganizationPolicyInput(
   }
 }
 
+function validateInitialAdminGroupInput(
+  input: RegistrationRequest,
+  signingFingerprint: string,
+  encapsulationFingerprint: string,
+) {
+  const { groupId, initialGroupPolicy } = input.initialAdminGroup;
+  const { memberEnvelopes, projection, state } = initialGroupPolicy;
+
+  if (input.initialAdminGroup.name.trim() !== INITIAL_ADMIN_GROUP_NAME) {
+    throw new RegistrationError("initialAdminGroup name must be Admins", 400);
+  }
+
+  if (state.principalType !== "group" || state.principalId !== groupId) {
+    throw new RegistrationError(
+      "initialAdminGroup policy state must target the admin group",
+      400,
+    );
+  }
+
+  if (
+    state.signerUserId !== input.userId ||
+    state.signerUserKeyFingerprint !== signingFingerprint
+  ) {
+    throw new RegistrationError(
+      "initialAdminGroup policy signer must match the registering user",
+      400,
+    );
+  }
+
+  if (
+    state.version !== 1 ||
+    state.prevStateHash !== null ||
+    state.keyEpoch !== 1
+  ) {
+    throw new RegistrationError(
+      "initialAdminGroup policy state must be the first group state",
+      400,
+    );
+  }
+
+  const onlyProjectionMember = projection[0];
+  if (
+    projection.length !== 1 ||
+    !onlyProjectionMember ||
+    onlyProjectionMember.memberPrincipalType !== "user" ||
+    onlyProjectionMember.memberPrincipalId !== input.userId ||
+    onlyProjectionMember.role !== "admin" ||
+    state.memberCount !== 1
+  ) {
+    throw new RegistrationError(
+      "initialAdminGroup policy projection must contain the registering user as sole admin",
+      400,
+    );
+  }
+
+  const onlyMemberEnvelope = memberEnvelopes[0];
+  if (
+    memberEnvelopes.length !== 1 ||
+    !onlyMemberEnvelope ||
+    onlyMemberEnvelope.memberPrincipalType !== "user" ||
+    onlyMemberEnvelope.memberPrincipalId !== input.userId ||
+    onlyMemberEnvelope.memberKeyFingerprint !== encapsulationFingerprint
+  ) {
+    throw new RegistrationError(
+      "initialAdminGroup member envelope must wrap the registering user",
+      400,
+    );
+  }
+}
+
+function validateInitialMemberGroupInput(
+  input: RegistrationRequest,
+  signingFingerprint: string,
+  encapsulationFingerprint: string,
+) {
+  const { groupId, initialGroupPolicy } = input.initialMemberGroup;
+  const { memberEnvelopes, projection, state } = initialGroupPolicy;
+
+  if (groupId === input.initialAdminGroup.groupId) {
+    throw new RegistrationError(
+      "initialMemberGroup must be distinct from initialAdminGroup",
+      400,
+    );
+  }
+
+  if (input.initialMemberGroup.name.trim() !== INITIAL_MEMBER_GROUP_NAME) {
+    throw new RegistrationError("initialMemberGroup name must be Members", 400);
+  }
+
+  if (state.principalType !== "group" || state.principalId !== groupId) {
+    throw new RegistrationError(
+      "initialMemberGroup policy state must target the member group",
+      400,
+    );
+  }
+
+  if (
+    state.signerUserId !== input.userId ||
+    state.signerUserKeyFingerprint !== signingFingerprint
+  ) {
+    throw new RegistrationError(
+      "initialMemberGroup policy signer must match the registering user",
+      400,
+    );
+  }
+
+  if (
+    state.version !== 1 ||
+    state.prevStateHash !== null ||
+    state.keyEpoch !== 1
+  ) {
+    throw new RegistrationError(
+      "initialMemberGroup policy state must be the first group state",
+      400,
+    );
+  }
+
+  const userMember = projection.find(
+    (member) =>
+      member.memberPrincipalType === "user" &&
+      member.memberPrincipalId === input.userId,
+  );
+  const adminGroupMember = projection.find(
+    (member) =>
+      member.memberPrincipalType === "group" &&
+      member.memberPrincipalId === input.initialAdminGroup.groupId,
+  );
+  if (
+    projection.length !== 2 ||
+    userMember?.role !== "admin" ||
+    adminGroupMember?.role !== "member" ||
+    state.memberCount !== 2
+  ) {
+    throw new RegistrationError(
+      "initialMemberGroup policy must contain the registering user as admin and Admins as member",
+      400,
+    );
+  }
+
+  const userEnvelope = memberEnvelopes.find(
+    (envelope) =>
+      envelope.memberPrincipalType === "user" &&
+      envelope.memberPrincipalId === input.userId,
+  );
+  const adminGroupEnvelope = memberEnvelopes.find(
+    (envelope) =>
+      envelope.memberPrincipalType === "group" &&
+      envelope.memberPrincipalId === input.initialAdminGroup.groupId,
+  );
+  if (
+    memberEnvelopes.length !== 2 ||
+    userEnvelope?.memberKeyFingerprint !== encapsulationFingerprint ||
+    adminGroupEnvelope?.memberKeyFingerprint !==
+      input.initialAdminGroup.initialGroupPolicy.state.keyFingerprint
+  ) {
+    throw new RegistrationError(
+      "initialMemberGroup member envelopes must wrap the registering user and Admins group",
+      400,
+    );
+  }
+}
+
 async function storeInitialOrganizationPolicy(
   tx: DatabaseTransaction,
   input: RegistrationRequest,
@@ -210,6 +388,98 @@ async function storeInitialOrganizationPolicy(
       principalId: input.organizationId,
       stateHash: storedState.stateHash,
       envelopes: input.initialOrganizationPolicy.memberEnvelopes,
+    },
+    tx,
+  );
+}
+
+async function createInitialAdminGroup(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+  organizationId: string,
+) {
+  const [group] = await tx
+    .insert(groups)
+    .values({
+      id: input.initialAdminGroup.groupId,
+      organizationId,
+      name: INITIAL_ADMIN_GROUP_NAME,
+    })
+    .returning({ id: groups.id });
+
+  if (!group) {
+    throw new RegistrationError("Failed to create admin group", 500);
+  }
+
+  return group;
+}
+
+async function createInitialMemberGroup(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+  organizationId: string,
+) {
+  const [group] = await tx
+    .insert(groups)
+    .values({
+      id: input.initialMemberGroup.groupId,
+      organizationId,
+      name: INITIAL_MEMBER_GROUP_NAME,
+    })
+    .returning({ id: groups.id });
+
+  if (!group) {
+    throw new RegistrationError("Failed to create member group", 500);
+  }
+
+  return group;
+}
+
+async function storeInitialAdminGroupPolicy(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+) {
+  const { initialGroupPolicy } = input.initialAdminGroup;
+  const storedState = await storeVerifiedPrincipalStateInTransaction(
+    {
+      state: initialGroupPolicy.state,
+      encryptedPayload: initialGroupPolicy.encryptedPayload,
+      projection: initialGroupPolicy.projection,
+    },
+    tx,
+  );
+
+  await replaceCurrentPrincipalMemberEnvelopesInTransaction(
+    {
+      principalType: "group",
+      principalId: input.initialAdminGroup.groupId,
+      stateHash: storedState.stateHash,
+      envelopes: initialGroupPolicy.memberEnvelopes,
+    },
+    tx,
+  );
+}
+
+async function storeInitialMemberGroupPolicy(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+) {
+  const { initialGroupPolicy } = input.initialMemberGroup;
+  const storedState = await storeVerifiedPrincipalStateInTransaction(
+    {
+      state: initialGroupPolicy.state,
+      encryptedPayload: initialGroupPolicy.encryptedPayload,
+      projection: initialGroupPolicy.projection,
+    },
+    tx,
+  );
+
+  await replaceCurrentPrincipalMemberEnvelopesInTransaction(
+    {
+      principalType: "group",
+      principalId: input.initialMemberGroup.groupId,
+      stateHash: storedState.stateHash,
+      envelopes: initialGroupPolicy.memberEnvelopes,
     },
     tx,
   );
@@ -239,6 +509,28 @@ function requireRootVerification<T>(
   }
 
   throw new RegistrationError(result.error.message, 400);
+}
+
+function assertInitialRootEventMatchesRegistration(input: {
+  event: VerifiedAccessEvent;
+  fingerprint: string;
+  registration: RegistrationRequest;
+}): void {
+  const { event, fingerprint, registration } = input;
+
+  if (
+    event.event.eventType !== "container.create" ||
+    event.event.objectKind !== "container" ||
+    event.event.objectId !== registration.rootContainerId ||
+    event.event.organizationId !== registration.organizationId ||
+    event.event.signerUserId !== registration.userId ||
+    event.event.signerKeyFingerprint !== fingerprint
+  ) {
+    throw new RegistrationError(
+      "Initial root container event does not match registration",
+      400,
+    );
+  }
 }
 
 function readContainerKeyEpoch(
@@ -401,6 +693,8 @@ async function storeInitialRootContainer(
 }> {
   const request = input.initialRootContainer;
   const metadataDocumentId = readInitialRootContainerMetadataDocumentId(input);
+  const principalPolicies = principalPoliciesFromRequest(request);
+  await assertPrincipalPoliciesCurrent(tx, principalPolicies);
 
   const event = requireRootVerification(
     await verifySignedAccessEvent({
@@ -416,19 +710,11 @@ async function storeInitialRootContainer(
     }),
   );
 
-  if (
-    event.event.eventType !== "container.create" ||
-    event.event.objectKind !== "container" ||
-    event.event.objectId !== input.rootContainerId ||
-    event.event.organizationId !== input.organizationId ||
-    event.event.signerUserId !== input.userId ||
-    event.event.signerKeyFingerprint !== fingerprint
-  ) {
-    throw new RegistrationError(
-      "Initial root container event does not match registration",
-      400,
-    );
-  }
+  assertInitialRootEventMatchesRegistration({
+    event,
+    fingerprint,
+    registration: input,
+  });
 
   const manifest = requireRootVerification(
     await verifyContainerAccessManifest({
@@ -440,6 +726,7 @@ async function storeInitialRootContainer(
         registerShapeError,
       ),
       parentContainerPath: [],
+      principalPolicies,
       previousManifest: null,
     }),
   );
@@ -472,6 +759,7 @@ async function storeInitialRootContainer(
         request.wraps,
         "Initial root container wraps",
       ),
+      principalPolicies,
     }),
   );
 
@@ -545,7 +833,11 @@ async function runRegistrationTransaction(
   encapsulationKeyBytes: Uint8Array,
 ) {
   return db.transaction(async (tx) => {
-    const org = await createPersonalOrganization(tx, input.organizationId);
+    const org = await createPersonalOrganization(tx, {
+      adminGroupId: input.initialAdminGroup.groupId,
+      memberGroupId: input.initialMemberGroup.groupId,
+      organizationId: input.organizationId,
+    });
     const container = await createRootContainer(
       tx,
       input.rootContainerId,
@@ -559,6 +851,10 @@ async function runRegistrationTransaction(
       userId: input.userId,
       signingKeyBytes,
     });
+    await createInitialAdminGroup(tx, input, org.id);
+    await createInitialMemberGroup(tx, input, org.id);
+    await storeInitialAdminGroupPolicy(tx, input);
+    await storeInitialMemberGroupPolicy(tx, input);
     await storeInitialOrganizationPolicy(tx, input);
     const rootMetadata = await storeInitialRootContainer(
       tx,
@@ -605,6 +901,10 @@ function toRegisterPrincipalPolicyError(
     return new RegistrationError(error.message, error.status);
   }
 
+  if (error instanceof ContainerMutationError) {
+    return new RegistrationError(error.message, error.status);
+  }
+
   return null;
 }
 
@@ -619,6 +919,16 @@ export async function runRegistrationWorkflow(
   },
 ) {
   validateInitialOrganizationPolicyInput(
+    input,
+    keyMaterial.fingerprint,
+    keyMaterial.encapsulationFingerprint,
+  );
+  validateInitialAdminGroupInput(
+    input,
+    keyMaterial.fingerprint,
+    keyMaterial.encapsulationFingerprint,
+  );
+  validateInitialMemberGroupInput(
     input,
     keyMaterial.fingerprint,
     keyMaterial.encapsulationFingerprint,

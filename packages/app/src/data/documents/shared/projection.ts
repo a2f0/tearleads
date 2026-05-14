@@ -307,9 +307,40 @@ async function assertUnwrappedContainerKekMatchesMaterialId(input: {
   }
 }
 
+async function seedKnownContainerKeks(input: {
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+  projection: ContainerWriterProjectionResponse;
+}): Promise<Map<string, UnwrappedContainerKek>> {
+  const keksByEpochId = new Map<string, UnwrappedContainerKek>();
+
+  for (const [containerKeyEpochId, keyMaterial] of input.knownContainerKeks ??
+    []) {
+    const index = input.projection.containerKeks.findIndex(
+      (candidate) => candidate.containerKeyEpochId === containerKeyEpochId,
+    );
+    const kek = input.projection.containerKeks[index];
+    if (!kek) {
+      continue;
+    }
+    await assertUnwrappedContainerKekMatchesMaterialId({
+      index,
+      kek,
+      keyMaterial,
+    });
+    keksByEpochId.set(containerKeyEpochId, {
+      containerId: kek.containerId,
+      keyEpochHash: kek.keyEpochHash,
+      keyMaterial,
+    });
+  }
+
+  return keksByEpochId;
+}
+
 export async function unwrapContainerKekPath(
   input: {
     execSql?: ExecSql | undefined;
+    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
     projection: ContainerWriterProjectionResponse;
     secretKey: Uint8Array;
   } & ProjectionVerificationOptions,
@@ -331,7 +362,10 @@ export async function unwrapContainerKekPath(
     });
   }
 
-  const keksByEpochId = new Map<string, UnwrappedContainerKek>();
+  const keksByEpochId = await seedKnownContainerKeks({
+    knownContainerKeks: input.knownContainerKeks,
+    projection: input.projection,
+  });
 
   for (
     let index = 0;
@@ -409,12 +443,14 @@ export async function wrapDocumentContentKeyForCreate(
   input: {
     contentKey: Uint8Array;
     execSql?: ExecSql | undefined;
+    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
     projection: ContainerWriterProjectionResponse;
     secretKey: Uint8Array;
   } & ProjectionVerificationOptions,
 ): Promise<DocumentContentKeyTargetEnvelope[]> {
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
+    knownContainerKeks: input.knownContainerKeks,
     projection: input.projection,
     secretKey: input.secretKey,
     ...projectionVerificationOptions(input),

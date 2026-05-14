@@ -1,7 +1,9 @@
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { sqlContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
+import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import { getAppDatabaseRuntime } from "../../data/sqlite/appDatabaseRuntime";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import { addressBookProjection } from "../../data/sqlite/schema";
@@ -15,6 +17,8 @@ import {
 interface RegistrationBootstrapInput {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
+  initialAdminGroupPolicy: PrincipalPolicyBundleResponse;
+  initialMemberGroupPolicy: PrincipalPolicyBundleResponse;
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
   rootMetadataDocumentId: string;
@@ -79,6 +83,16 @@ async function persistRegistrationBootstrapFromExecSql(
       });
     }
     const updatedAt = new Date().toISOString();
+    await savePrincipalPolicyBundle(
+      lockedExecSql,
+      input.initialAdminGroupPolicy,
+      updatedAt,
+    );
+    await savePrincipalPolicyBundle(
+      lockedExecSql,
+      input.initialMemberGroupPolicy,
+      updatedAt,
+    );
     const projectionRow = {
       addressBookId: DEFAULT_ADDRESS_BOOK_ID,
       userId: input.userId,

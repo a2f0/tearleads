@@ -1,13 +1,20 @@
 import {
   buildPrincipalStateSigningInput,
+  computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { RegistrationRequest } from "@tearleads/validators/request";
-import type { RegistrationResponse } from "@tearleads/validators/response";
+import type {
+  CreateOrganizationGroupRequest,
+  RegistrationRequest,
+} from "@tearleads/validators/request";
+import type {
+  PrincipalPolicyBundleResponse,
+  RegistrationResponse,
+} from "@tearleads/validators/response";
 import { useCallback } from "react";
 import { useApiClient } from "../providers/api/ApiClientProvider";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
@@ -23,6 +30,10 @@ import {
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../workflows/documents";
+import {
+  buildInitialGroupPolicyRequest,
+  buildInitialMemberGroupPolicyRequest,
+} from "../workflows/org-manager";
 import {
   createInitialRootMetadataBootstrap,
   type InitialRootMetadataBootstrap,
@@ -111,10 +122,45 @@ async function createInitialOrganizationPolicy(input: {
   };
 }
 
+async function principalPolicyBundleFromInitialGroup(
+  input: CreateOrganizationGroupRequest,
+): Promise<PrincipalPolicyBundleResponse> {
+  const createdAt = new Date().toISOString();
+  const stateHash = await computePrincipalStateHash(
+    input.initialGroupPolicy.state,
+  );
+
+  return {
+    currentState: {
+      ...input.initialGroupPolicy.state,
+      stateHash,
+      createdAt,
+    },
+    currentPayload: {
+      principalType: "group",
+      principalId: input.groupId,
+      stateHash,
+      ...input.initialGroupPolicy.encryptedPayload,
+      createdAt,
+    },
+    currentProjection: input.initialGroupPolicy.projection,
+    currentMemberEnvelopes: {
+      principalType: "group",
+      principalId: input.groupId,
+      stateHash,
+      epoch: input.initialGroupPolicy.state.keyEpoch,
+      envelopes: input.initialGroupPolicy.memberEnvelopes,
+    },
+    previousStates: [],
+  };
+}
+
 async function persistLocalRegistrationState(
   dbClient: ReturnType<typeof useDatabase>["client"],
   containerId: string,
   encapsulationPublicKey: Uint8Array,
+  initialAdminGroupPolicy: PrincipalPolicyBundleResponse,
+  initialMemberGroupPolicy: PrincipalPolicyBundleResponse,
   response: RegistrationResponse,
   bootstrap: InitialRootMetadataBootstrap,
   rootMetadataDocument: InitialRootMetadataDocument,
@@ -128,6 +174,8 @@ async function persistLocalRegistrationState(
     await persistRegistrationBootstrap(dbClient, {
       containerId,
       encapsulationPublicKey,
+      initialAdminGroupPolicy,
+      initialMemberGroupPolicy,
       organizationId: response.organizationId,
       rootMetadataAccessEpoch: response.rootMetadataAccessEpoch,
       rootMetadataAccessStateHash: response.rootMetadataAccessStateHash,
@@ -146,6 +194,51 @@ async function persistLocalRegistrationState(
   }
 }
 
+async function createRegistrationPrincipalPolicies(input: {
+  encapsulationKeyPair: NonNullable<
+    ReturnType<typeof useIdentity>["encapsulationKeyPair"]
+  >;
+  signingKeyPair: NonNullable<ReturnType<typeof useIdentity>["signingKeyPair"]>;
+}) {
+  const newUserId = crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
+  const signingFingerprint = await toFingerprint(
+    input.signingKeyPair.signingPublicKey,
+  );
+  const initialAdminGroup = await buildInitialGroupPolicyRequest({
+    creatorEncapsulationKeyPair: input.encapsulationKeyPair,
+    groupId: crypto.randomUUID(),
+    name: "Admins",
+    signerUserId: newUserId,
+    signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
+  const initialMemberGroup = await buildInitialMemberGroupPolicyRequest({
+    adminGroup: initialAdminGroup,
+    creatorEncapsulationKeyPair: input.encapsulationKeyPair,
+    groupId: crypto.randomUUID(),
+    signerUserId: newUserId,
+    signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
+  const initialOrganizationPolicy = await createInitialOrganizationPolicy({
+    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+    organizationId,
+    signingPrivateKey: input.signingKeyPair.signingPrivateKey,
+    signingPublicKey: input.signingKeyPair.signingPublicKey,
+    userId: newUserId,
+  });
+
+  return {
+    initialAdminGroup,
+    initialMemberGroup,
+    initialOrganizationPolicy,
+    newUserId,
+    organizationId,
+    signingFingerprint,
+  };
+}
+
 async function registerIdentity(input: {
   apiClient: ReturnType<typeof useApiClient>;
   containerId: string;
@@ -162,18 +255,17 @@ async function registerIdentity(input: {
   input.log("Registering identity...");
 
   const bootstrap = await createInitialRootMetadataBootstrap(input.containerId);
-  const newUserId = crypto.randomUUID();
-  const organizationId = crypto.randomUUID();
-  const initialOrganizationPolicy = await createInitialOrganizationPolicy({
-    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+  const {
+    initialAdminGroup,
+    initialMemberGroup,
+    initialOrganizationPolicy,
+    newUserId,
     organizationId,
-    signingPrivateKey: input.signingKeyPair.signingPrivateKey,
-    signingPublicKey: input.signingKeyPair.signingPublicKey,
-    userId: newUserId,
+    signingFingerprint,
+  } = await createRegistrationPrincipalPolicies({
+    encapsulationKeyPair: input.encapsulationKeyPair,
+    signingKeyPair: input.signingKeyPair,
   });
-  const signingFingerprint = await toFingerprint(
-    input.signingKeyPair.signingPublicKey,
-  );
   const author = resolveDocumentCreateAuthor({
     organizationId,
     signingFingerprint,
@@ -187,6 +279,7 @@ async function registerIdentity(input: {
   }
 
   const rootContainer = await buildRootContainerCreatePlan({
+    adminGroup: initialAdminGroup,
     author,
     containerId: input.containerId,
     metadataDocumentId: bootstrap.metadataDocumentId,
@@ -198,6 +291,9 @@ async function registerIdentity(input: {
       rootContainer.plan,
     ),
     documentId: bootstrap.metadataDocumentId,
+    knownContainerKeks: new Map([
+      [rootContainer.plan.containerKeyEpochId, rootContainer.containerKey],
+    ]),
     targetSecretKey: input.encapsulationKeyPair.secretKey,
     trustedLocalProjection: true,
   });
@@ -208,6 +304,8 @@ async function registerIdentity(input: {
     input.containerId,
     input.signingKeyPair.signingPublicKey,
     input.encapsulationKeyPair.publicKey,
+    initialAdminGroup,
+    initialMemberGroup,
     initialOrganizationPolicy,
     rootContainer.plan.request,
     rootMetadataDocument.plan.request,
@@ -223,6 +321,8 @@ async function registerIdentity(input: {
     input.dbClient,
     input.containerId,
     input.encapsulationKeyPair.publicKey,
+    await principalPolicyBundleFromInitialGroup(initialAdminGroup),
+    await principalPolicyBundleFromInitialGroup(initialMemberGroup),
     response,
     bootstrap,
     rootMetadataDocument,

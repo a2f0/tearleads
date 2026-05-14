@@ -48,6 +48,17 @@ function projectionIncludesAdminUser(
   );
 }
 
+function isPrincipalPolicyAdminSigner(input: {
+  readonly externalAdminSignerUserIds: ReadonlySet<string>;
+  readonly projection: readonly PrincipalProjectionMember[];
+  readonly signerUserId: string;
+}): boolean {
+  return (
+    projectionIncludesAdminUser(input.projection, input.signerUserId) ||
+    input.externalAdminSignerUserIds.has(input.signerUserId)
+  );
+}
+
 function hasPrincipalPolicyProjectionShrink(input: {
   currentProjection: readonly PrincipalProjectionMember[];
   previousProjection: readonly PrincipalProjectionMember[];
@@ -495,6 +506,7 @@ function verifyInitialPrincipalPolicyChainEntry(
 }
 
 function verifySuccessorPrincipalPolicyChainEntry(input: {
+  readonly externalAdminSignerUserIds: ReadonlySet<string>;
   readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntry;
   readonly previousEntry: NormalizedPrincipalPolicyStateChainEntry;
 }): void {
@@ -509,10 +521,11 @@ function verifySuccessorPrincipalPolicyChainEntry(input: {
   }
 
   if (
-    !projectionIncludesAdminUser(
-      input.previousEntry.projection,
-      input.normalizedEntry.state.signerUserId,
-    )
+    !isPrincipalPolicyAdminSigner({
+      externalAdminSignerUserIds: input.externalAdminSignerUserIds,
+      projection: input.previousEntry.projection,
+      signerUserId: input.normalizedEntry.state.signerUserId,
+    })
   ) {
     throwVerification(
       "unauthorized",
@@ -555,6 +568,7 @@ async function verifyPrincipalPolicyChainEntrySignature(input: {
 
 async function verifyPrincipalPolicyChain(input: {
   readonly bundle: PrincipalPolicyBundle;
+  readonly externalAdminSignerUserIds: ReadonlySet<string>;
   readonly signerPublicKeyByUserAndFingerprint: ReadonlyMap<string, Uint8Array>;
 }): Promise<NormalizedPrincipalPolicyStateChainEntry[]> {
   const chain = [
@@ -593,6 +607,7 @@ async function verifyPrincipalPolicyChain(input: {
     const previousEntry = normalizedChain[index - 1];
     if (previousEntry) {
       verifySuccessorPrincipalPolicyChainEntry({
+        externalAdminSignerUserIds: input.externalAdminSignerUserIds,
         normalizedEntry,
         previousEntry,
       });
@@ -614,6 +629,7 @@ async function verifyPrincipalPolicyChain(input: {
 
 export async function verifyPrincipalPolicyBundle({
   bundle,
+  externalAdminSignerUserIds = [],
   expectedReference,
   localCheckpoint,
   signerPublicKeys,
@@ -625,6 +641,7 @@ export async function verifyPrincipalPolicyBundle({
       await buildPrincipalPolicySignerKeyMap(signerPublicKeys);
     const normalizedChain = await verifyPrincipalPolicyChain({
       bundle,
+      externalAdminSignerUserIds: new Set(externalAdminSignerUserIds),
       signerPublicKeyByUserAndFingerprint,
     });
     const currentEntry = normalizedChain.at(-1);

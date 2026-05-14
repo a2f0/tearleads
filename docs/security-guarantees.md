@@ -51,11 +51,14 @@ proof.
 The access and policy handshake has these layers:
 
 1. User registration stores the user's signing key, encapsulation key, personal
- organization, root container, root metadata state, and the initial signed
- organization policy inside one registration transaction.
-2. The initial organization policy must be version `1`, must target the new
- organization, must be signed by the registering user, and must project only
- the registering user as admin.
+ organization, reserved `Admins` group, reserved `Members` group, root
+ container, root metadata state, and initial signed principal policies inside
+ one registration transaction.
+2. The initial `Admins` policy must project the registering user as the sole
+ admin. The initial `Members` policy must project the registering user as
+ admin and the `Admins` group as a member. The initial organization policy must
+ be version `1`, must target the new organization, must be signed by the
+ registering user, and must project only the registering user as admin.
 3. Later group and organization policy states are signed principal states. The
  server verifies the signature, state hash, projection root, encrypted payload
  hash, member count, previous-state link, and admin-signer rule before storing
@@ -118,10 +121,15 @@ The signer rule is enforced against signed projection state:
 - For an initial state, the signer must be an admin in that initial projection.
 - For a successor state, the signer must be an admin in the previous signed
  projection.
+- For an org-scoped successor state, the API may also authorize the signer by
+ proving reachability through the organization's reserved `Admins` group.
 
 This prevents the API from authorizing a policy transition merely by editing
 projection rows. A successor must chain from the previous signed state and be
-signed by a user who was admin in that previous signed state.
+signed by either a user who was admin in that previous signed state or a user
+whose external org-admin authority is itself derived from signed `Admins`
+group state. External org-admin authorization does not apply to initial
+principal states.
 
 ### Principal Payload And Projection Binding
 
@@ -303,6 +311,23 @@ admin-signer rule.
 
 Result: detected and fail closed.
 
+### Forged Organization Directory Membership
+
+Org-manager directory membership is projected from the reserved `Members`
+group. The normal write path only updates that projection after storing a
+verified signed `Members` group state. Because `Admins` is nested into
+`Members`, admins appear as organization members through the same signed
+reachability path.
+
+If the database projection rows are edited directly, server-side directory and
+listing surfaces can be distorted, but those rows are still not cryptographic
+authority. Verified policy consumers must reject a forged view unless the
+signed `Members` policy state, chain, projection root, and admin-signer rule
+also verify.
+
+Result: fail closed for verified policy consumers; mutable directory or
+projection rows alone are not authority.
+
 ### Tampered Principal Payload
 
 If the encrypted principal payload is changed, the ciphertext hash no longer
@@ -353,6 +378,11 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Principal state transitions must be signed by an admin from the previous
  signed projection, except the initial state, whose signer must be admin in the
  initial projection.
+- Org-scoped successor states may also be signed by a user reachable through
+ the organization's reserved `Admins` group.
+- Organization membership and org-manager directory hydration are projected
+ from the reserved `Members` group, not from mutable directory rows or product
+ roles on the organization principal.
 - Principal policy bundles fetched by the app are verified before caching and
  skipped on validation failure.
 - Principal member envelopes must match the active direct signed projection.

@@ -88,11 +88,17 @@ export const users = pgTable("users", {
  * Columns:
  * - `id`: Stable organization id. Container and access-manifest rows copy this
  *   id as their organization boundary.
+ * - `adminGroupId`: Reserved organization-scoped group whose reachable members
+ *   have organization-admin authority.
+ * - `memberGroupId`: Reserved organization-scoped group whose reachable
+ *   members belong to the organization.
  * - `name`: Human-readable organization name.
  * - `createdAt`: Server-side insertion timestamp.
  */
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
+  adminGroupId: uuid("admin_group_id").notNull(),
+  memberGroupId: uuid("member_group_id").notNull(),
   name: text("name").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -470,6 +476,10 @@ export const principalMembershipProjection = pgTable(
     index("principal_membership_projection_principal_idx").on(
       table.principalType,
       table.principalId,
+    ),
+    index("principal_membership_projection_member_idx").on(
+      table.memberPrincipalType,
+      table.memberPrincipalId,
     ),
     uniqueIndex("principal_membership_projection_state_member_idx").on(
       table.principalType,

@@ -1097,6 +1097,29 @@ export async function verifyContainerWriterProjection(input: {
   return verifiedPath;
 }
 
+export async function collectContainerWriterProjectionPrincipalPolicies(input: {
+  readonly execSql?: ExecSql | undefined;
+  readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
+  readonly projection: ContainerWriterProjectionResponse;
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+}): Promise<VerifiedPrincipalPolicy[]> {
+  const principalPolicyCache =
+    input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
+  const verifiedPath = await verifyContainerWriterProjection({
+    execSql: input.execSql,
+    principalPolicyCache,
+    projection: input.projection,
+    resolveUserKey: input.resolveUserKey,
+  });
+
+  return collectPrincipalPoliciesForContainerPaths({
+    execSql: input.execSql,
+    paths: [verifiedPath],
+    principalPolicyCache,
+    resolveUserKey: input.resolveUserKey,
+  });
+}
+
 function addContainerWriterProjectionBundles(
   bundlesByHash: Map<string, AccessManifestBundleWireResponse>,
   projection: ContainerWriterProjectionResponse,

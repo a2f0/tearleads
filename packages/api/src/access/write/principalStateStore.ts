@@ -1,4 +1,7 @@
-export type { PrincipalStateBundleInput } from "../shared/internal/principalStateStore";
+export type {
+  PrincipalStateBundleInput,
+  PrincipalStateExternalSignerAuthorizationInput,
+} from "../shared/internal/principalStateStore";
 export {
   storeVerifiedPrincipalState,
   storeVerifiedPrincipalStateInTransaction,

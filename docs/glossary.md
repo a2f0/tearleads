@@ -313,13 +313,41 @@ Related docs:
 ## Organization
 
 The top-level ownership and policy boundary for user data. Registration creates
-a default organization and root container, and organization policy can act as a
-managed principal for grants.
+a default organization, reserved `Admins` and `Members` groups, and a root
+container. The organization row stores `adminGroupId` and `memberGroupId`.
+Reachability through `Admins` is org-admin authority. Reachability through
+`Members` is organization membership and hydrates the org-manager directory.
+Organization policy can still act as a managed principal for grants, but
+org-manager product role semantics come from the reserved groups.
 
 Related docs:
 
 - [container-dek-onboarding.md](./container-dek-onboarding.md)
 - [protocol-specification.md](./protocol-specification.md#identity-and-session-handshake)
+
+## Organization Admins Group
+
+The reserved organization-scoped `Admins` group. Reachable users have
+organization-admin authority, including admin-only org-manager mutations and
+org-scoped principal policy successor signing when the API verifies that
+authority.
+
+Related docs:
+
+- [access-plane.md](./access-plane.md#principals)
+- [security-guarantees.md](./security-guarantees.md#admin-signer-authorization)
+
+## Organization Members Group
+
+The reserved organization-scoped `Members` group. Reachable users belong to the
+organization. Org-manager directory data is hydrated from this group's signed
+membership projection. Registration nests `Admins` into `Members`, so admins
+are organization members by reachability.
+
+Related docs:
+
+- [access-plane.md](./access-plane.md#principals)
+- [container-dek-onboarding.md](./container-dek-onboarding.md#adding-users-to-an-organization)
 
 ## Principal
 

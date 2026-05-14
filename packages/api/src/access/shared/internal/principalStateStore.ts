@@ -80,6 +80,19 @@ export interface PrincipalStateBundleInput {
   projection: PrincipalProjectionMember[];
 }
 
+export interface PrincipalStateExternalSignerAuthorizationInput {
+  currentState: StoredPrincipalState;
+  normalizedInput: PrincipalStateBundleInput;
+  previousProjection: StoredPrincipalProjectionMember[];
+  signerUserId: string;
+}
+
+interface StoreVerifiedPrincipalStateOptions {
+  authorizeExternalAdminSigner?: (
+    input: PrincipalStateExternalSignerAuthorizationInput,
+  ) => Promise<boolean>;
+}
+
 function toStoredPrincipalState(row: {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
@@ -568,6 +581,7 @@ async function validatePrincipalStateChain(
 async function validatePrincipalStateSignerAuthorization(input: {
   currentState: StoredPrincipalState | null;
   normalizedInput: PrincipalStateBundleInput;
+  options?: StoreVerifiedPrincipalStateOptions | undefined;
   signerUserId: string;
   executor: DatabaseSession;
 }): Promise<StoredPrincipalProjectionMember[] | null> {
@@ -590,7 +604,21 @@ async function validatePrincipalStateSignerAuthorization(input: {
     input.executor,
   );
 
-  if (!projectionIncludesAdminUser(previousProjection, input.signerUserId)) {
+  const isDirectAdmin = projectionIncludesAdminUser(
+    previousProjection,
+    input.signerUserId,
+  );
+  const isExternalAdmin =
+    !isDirectAdmin &&
+    input.options?.authorizeExternalAdminSigner &&
+    (await input.options.authorizeExternalAdminSigner({
+      currentState: input.currentState,
+      normalizedInput: input.normalizedInput,
+      previousProjection,
+      signerUserId: input.signerUserId,
+    }));
+
+  if (!isDirectAdmin && !isExternalAdmin) {
     throw new Error("Principal state signer must be an admin");
   }
 
@@ -876,15 +904,17 @@ async function ensureStoredPrincipalEpochKeyMatches(input: {
 export async function storeVerifiedPrincipalState(
   input: PrincipalStateBundleInput,
   database: ApiDatabase,
+  options?: StoreVerifiedPrincipalStateOptions,
 ): Promise<StoredPrincipalState> {
   return database.transaction((tx) =>
-    storeVerifiedPrincipalStateInTransaction(input, tx),
+    storeVerifiedPrincipalStateInTransaction(input, tx, options),
   );
 }
 
 export async function storeVerifiedPrincipalStateInTransaction(
   input: PrincipalStateBundleInput,
   executor: DatabaseTransaction,
+  options?: StoreVerifiedPrincipalStateOptions,
 ): Promise<StoredPrincipalState> {
   const normalizedInput = normalizePrincipalStateWriteInput(input);
   const signer = await loadPrincipalStateSigner(
@@ -912,6 +942,7 @@ export async function storeVerifiedPrincipalStateInTransaction(
   const previousProjection = await validatePrincipalStateSignerAuthorization({
     currentState,
     normalizedInput,
+    options,
     signerUserId: signer.userId,
     executor,
   });

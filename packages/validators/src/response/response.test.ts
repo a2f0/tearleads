@@ -310,6 +310,7 @@ test("organization manager responses", () => {
   expect(
     isOrganizationDirectoryResponse({
       organizationId: "org-1",
+      currentUser: { isOrgAdmin: true },
       users: [
         {
           userId: "user-1",
@@ -317,7 +318,6 @@ test("organization manager responses", () => {
           signingPublicKey: "signing-key",
           encapsulationPublicKey: "encapsulation-key",
           encapsulationKeyFingerprint: "encapsulation-fingerprint",
-          role: "admin",
           createdAt: new Date().toISOString(),
           isSelf: true,
         },
@@ -327,7 +327,8 @@ test("organization manager responses", () => {
   expect(
     isOrganizationDirectoryResponse({
       organizationId: "org-1",
-      users: [{ userId: "user-1", role: "owner" }],
+      currentUser: { isOrgAdmin: false },
+      users: [{ userId: "user-1" }],
     }),
   ).toBe(false);
 

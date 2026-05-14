@@ -22,6 +22,10 @@ import {
   rootContainerWriterProjectionFromCreatePlan,
 } from "../workflows/containers";
 import { buildMaterializedDocumentCreatePlan } from "../workflows/documents";
+import {
+  buildInitialGroupPolicyRequest,
+  buildInitialMemberGroupPolicyRequest,
+} from "../workflows/org-manager";
 
 const apiBaseUrl = "http://localhost:3001";
 
@@ -40,6 +44,34 @@ async function registerIdentity(
   const rootContainerId = crypto.randomUUID();
   const rootMetadataDocumentId = crypto.randomUUID();
   const signingFingerprint = await toFingerprint(signingPublicKey);
+  const initialAdminGroup = await buildInitialGroupPolicyRequest({
+    creatorEncapsulationKeyPair: {
+      publicKey: encapsulationPublicKey,
+      secretKey: encapsulationSecretKey,
+    },
+    groupId: crypto.randomUUID(),
+    name: "Admins",
+    signerUserId: userId,
+    signingFingerprint,
+    signingKeyPair: {
+      signingPrivateKey,
+      signingPublicKey,
+    },
+  });
+  const initialMemberGroup = await buildInitialMemberGroupPolicyRequest({
+    adminGroup: initialAdminGroup,
+    creatorEncapsulationKeyPair: {
+      publicKey: encapsulationPublicKey,
+      secretKey: encapsulationSecretKey,
+    },
+    groupId: crypto.randomUUID(),
+    signerUserId: userId,
+    signingFingerprint,
+    signingKeyPair: {
+      signingPrivateKey,
+      signingPublicKey,
+    },
+  });
   const organizationKem = generateKemSeedAndKeyPair();
   const projection = [
     {
@@ -67,6 +99,7 @@ async function registerIdentity(
     signerUserId: userId,
   };
   const rootContainer = await buildRootContainerCreatePlan({
+    adminGroup: initialAdminGroup,
     author: author,
     containerId: rootContainerId,
     metadataDocumentId: rootMetadataDocumentId,
@@ -79,6 +112,9 @@ async function registerIdentity(
       rootContainer.plan,
     ),
     documentId: rootMetadataDocumentId,
+    knownContainerKeks: new Map([
+      [rootContainer.plan.containerKeyEpochId, rootContainer.containerKey],
+    ]),
     signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
     targetSecretKey: encapsulationSecretKey,
     trustedLocalProjection: true,
@@ -93,6 +129,8 @@ async function registerIdentity(
       rootContainerId,
       signingPublicKey: Array.from(signingPublicKey),
       encapsulationPublicKey: Array.from(encapsulationPublicKey),
+      initialAdminGroup,
+      initialMemberGroup,
       initialOrganizationPolicy: {
         state: await signPrincipalState(
           await buildPrincipalStateSigningInput({

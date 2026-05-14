@@ -8,6 +8,27 @@
       "when": 1778096820507,
       "tag": "0000_perfect_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778691600000,
+      "tag": "0001_admin_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778709771735,
+      "tag": "0002_useful_justice",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778750413619,
+      "tag": "0003_gifted_captain_stacy",
+      "breakpoints": true
     }
   ]
 }
