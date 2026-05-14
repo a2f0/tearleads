@@ -123,10 +123,7 @@ function ExplorerTreeEntryNode(
           <span className="explorer-node-spacer" aria-hidden="true" />
         )}
         <MiniAppRowButton
-          className={
-            "explorer-sidebar-item" +
-            (isSelected ? " explorer-sidebar-item--selected" : "")
-          }
+          className="explorer-sidebar-item"
           onClick={() => onSelectContainer(entry.node.id)}
           onContextMenu={(event) => onContextMenu(event, entry.node.id)}
           selected={isSelected}
@@ -154,12 +151,7 @@ function ExplorerTreeEntryNode(
                 <span className="explorer-node-spacer" aria-hidden="true" />
                 <MiniAppRowButton
                   data-document-local-id={localId}
-                  className={
-                    "explorer-sidebar-item explorer-sidebar-item--note" +
-                    (selectedId === localId && activeContainerId === containerId
-                      ? " explorer-sidebar-item--selected"
-                      : "")
-                  }
+                  className="explorer-sidebar-item explorer-sidebar-item--note"
                   onClick={() => onSelectDocument(localId, containerId)}
                   selected={
                     selectedId === localId && activeContainerId === containerId

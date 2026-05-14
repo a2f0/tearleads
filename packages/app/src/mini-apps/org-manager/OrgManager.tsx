@@ -148,9 +148,7 @@ function GroupList({
 
         return (
           <MiniAppRowButton
-            className={`org-manager-group-button${
-              isSelected ? " org-manager-group-button--selected" : ""
-            }`}
+            className="org-manager-group-button"
             density="roomy"
             key={group.groupId}
             onClick={() => setSelectedGroupId(group.groupId)}
@@ -512,18 +510,14 @@ export function OrgManager() {
     <div className="org-manager">
       <aside className="org-manager-sidebar">
         <MiniAppRowButton
-          className={`org-manager-nav${
-            view === "directory" ? " org-manager-nav--selected" : ""
-          }`}
+          className="org-manager-nav"
           onClick={() => setView("directory")}
           selected={view === "directory"}
         >
           {ORG_MANAGER_LABELS.directory}
         </MiniAppRowButton>
         <MiniAppRowButton
-          className={`org-manager-nav${
-            view === "groups" ? " org-manager-nav--selected" : ""
-          }`}
+          className="org-manager-nav"
           onClick={() => setView("groups")}
           selected={view === "groups"}
         >

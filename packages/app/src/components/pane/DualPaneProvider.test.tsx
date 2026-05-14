@@ -233,7 +233,7 @@ async function createNoteWithAttachment(pane: HTMLElement) {
   await waitFor(() => {
     expect(
       getExplorerSidebarItem(pane, "/").classList.contains(
-        "explorer-sidebar-item--selected",
+        "mini-app-row--selected",
       ),
     ).toBe(true);
   });
