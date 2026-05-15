@@ -2,6 +2,7 @@
   min-height: 0;
   overflow: auto;
   border: 1px solid currentColor;
+  color: var(--color-dark);
 }
 
 .mini-app-table {
