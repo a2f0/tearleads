@@ -291,18 +291,8 @@ test("app sqlite schema creates tables and indexes", async () => {
     ).toEqual(["sync_status", "created_at"]);
 
     const containers = await readTableColumns(execSql, "containers");
-    expect(readRecordValue(containers, "created_at")).toEqual({
-      defaultValue: null,
-      notNull: 0,
-      pk: 0,
-      type: "TEXT",
-    });
-    expect(readRecordValue(containers, "updated_at")).toEqual({
-      defaultValue: null,
-      notNull: 1,
-      pk: 0,
-      type: "TEXT",
-    });
+    expect("created_at" in containers).toBe(false);
+    expect("updated_at" in containers).toBe(false);
     expect(readRecordValue(containers, "local_created_at")).toEqual({
       defaultValue: null,
       notNull: 1,
