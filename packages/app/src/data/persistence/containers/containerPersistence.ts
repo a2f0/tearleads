@@ -8,11 +8,7 @@ import {
   containers,
   containerTables,
 } from "../../sqlite/schema";
-import {
-  type ExecSql,
-  ensureSqlTables,
-  runSerializedSqlMutation,
-} from "../../sqlite/sqlSchema";
+import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 export interface ContainerRecord {
   createdAt?: string | null;
@@ -40,7 +36,6 @@ interface ContainerRecordWithTimestampDefaults extends ContainerRecord {
 
 export async function ensureContainerTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, containerTables);
-  await ensureContainerTimestampColumns(execSql);
 }
 
 interface SelectedContainerRecord {
@@ -54,82 +49,6 @@ interface SelectedContainerRecord {
   localUpdatedAt: string;
   serverCreatedAt: string | null;
   serverUpdatedAt: string | null;
-}
-
-function renderContainerSqlIdentifier(value: string): string {
-  return `"${value.replaceAll('"', '""')}"`;
-}
-
-function renderContainerTimestampExpression(
-  columnNames: ReadonlyArray<string>,
-): string {
-  const columns = columnNames.map(renderContainerSqlIdentifier);
-  return `COALESCE(${[...columns, "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"].join(
-    ", ",
-  )})`;
-}
-
-async function ensureContainerTimestampColumns(
-  execSql: ExecSql,
-): Promise<void> {
-  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    const existingColumns = new Set(
-      (
-        (await lockedExecSql(
-          `PRAGMA table_info(${renderContainerSqlIdentifier("containers")})`,
-        )) as Array<{ name?: unknown }>
-      )
-        .map((row) => row.name)
-        .filter((name): name is string => typeof name === "string"),
-    );
-    const addColumn = async (columnName: string) => {
-      if (existingColumns.has(columnName)) {
-        return;
-      }
-      await lockedExecSql(
-        `ALTER TABLE ${renderContainerSqlIdentifier(
-          "containers",
-        )} ADD COLUMN ${renderContainerSqlIdentifier(columnName)} TEXT`,
-      );
-      existingColumns.add(columnName);
-    };
-
-    await addColumn("created_at");
-    await addColumn("updated_at");
-    await addColumn("local_created_at");
-    await addColumn("local_updated_at");
-    await addColumn("server_created_at");
-    await addColumn("server_updated_at");
-
-    const legacyCreatedAt = existingColumns.has("created_at")
-      ? ["created_at"]
-      : [];
-    const legacyUpdatedAt = existingColumns.has("updated_at")
-      ? ["updated_at"]
-      : [];
-
-    await lockedExecSql(`
-      UPDATE ${renderContainerSqlIdentifier("containers")}
-      SET
-        ${renderContainerSqlIdentifier(
-          "local_created_at",
-        )} = ${renderContainerTimestampExpression([
-          "local_created_at",
-          ...legacyCreatedAt,
-          ...legacyUpdatedAt,
-        ])},
-        ${renderContainerSqlIdentifier(
-          "local_updated_at",
-        )} = ${renderContainerTimestampExpression([
-          "local_updated_at",
-          ...legacyUpdatedAt,
-          ...legacyCreatedAt,
-          "local_created_at",
-        ])}
-      WHERE ${renderContainerSqlIdentifier("local_created_at")} IS NULL
-        OR ${renderContainerSqlIdentifier("local_updated_at")} IS NULL
-    `);
-  });
 }
 
 function toDisplayContainerRecord(record: ContainerRecord): ContainerRecord {
@@ -194,8 +113,6 @@ export async function saveContainerRows(input: {
     organizationId: nextRecord.organizationId,
     parentId: nextRecord.parentId,
     metadataDocumentId: nextRecord.metadataDocumentId,
-    legacyCreatedAt: nextRecord.localCreatedAt,
-    legacyUpdatedAt: localUpdatedAt,
     localCreatedAt: nextRecord.localCreatedAt,
     localUpdatedAt,
     serverCreatedAt: nextRecord.serverCreatedAt,
@@ -210,7 +127,6 @@ export async function saveContainerRows(input: {
         organizationId: containerRow.organizationId,
         parentId: containerRow.parentId,
         metadataDocumentId: containerRow.metadataDocumentId,
-        legacyUpdatedAt: containerRow.legacyUpdatedAt,
         localUpdatedAt: containerRow.localUpdatedAt,
         serverCreatedAt:
           record.serverCreatedAt === undefined
