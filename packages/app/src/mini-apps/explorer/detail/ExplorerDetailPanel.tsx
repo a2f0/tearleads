@@ -1,5 +1,14 @@
 import { useMemo, useState } from "react";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
+import {
+  MiniAppTable,
+  MiniAppTableActionButton,
+  MiniAppTableCell,
+  type MiniAppTableColumn,
+  MiniAppTableEmptyRow,
+  MiniAppTableFrame,
+  MiniAppTableRow,
+} from "../../../components/shared/MiniAppTable";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import {
   getStoredDocumentTypeLabel,
@@ -12,6 +21,29 @@ import {
 import type { DocumentContainerProjection } from "../documentProjections";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 import type { ContainerNode } from "../types";
+
+const EXPLORER_ITEM_TABLE_COLUMNS = [
+  {
+    id: "name",
+    header: EXPLORER_LABELS.itemNameColumn,
+    width: "40%",
+  },
+  {
+    id: "type",
+    header: EXPLORER_LABELS.itemTypeColumn,
+    width: "8rem",
+  },
+  {
+    id: "created",
+    header: EXPLORER_LABELS.dateCreatedColumn,
+    width: "11rem",
+  },
+  {
+    id: "modified",
+    header: EXPLORER_LABELS.dateModifiedColumn,
+    width: "11rem",
+  },
+] satisfies ReadonlyArray<MiniAppTableColumn>;
 
 function getDocumentSummaryKind(
   documentSummary: Pick<DocumentSummary, "documentKind">,
@@ -570,9 +602,7 @@ function ExplorerContainerItemName(params: {
   const { row, selectDocumentProjection, setSelectedId } = params;
 
   return (
-    <button
-      type="button"
-      className="explorer-item-table-name"
+    <MiniAppTableActionButton
       onClick={() => {
         if (row.itemKind === "container") {
           setSelectedId(row.id);
@@ -583,7 +613,7 @@ function ExplorerContainerItemName(params: {
       }}
     >
       {row.name}
-    </button>
+    </MiniAppTableActionButton>
   );
 }
 
@@ -597,57 +627,43 @@ function ExplorerContainerItemTable(params: {
     params;
 
   return (
-    <div className="explorer-item-table-wrap">
-      <table
-        className="explorer-item-table"
+    <MiniAppTableFrame className="explorer-item-table-wrap">
+      <MiniAppTable
         aria-label={getExplorerItemTableLabel(selectedNode.name)}
+        columns={EXPLORER_ITEM_TABLE_COLUMNS}
       >
-        <colgroup>
-          <col className="explorer-item-table-col-name" />
-          <col className="explorer-item-table-col-type" />
-          <col className="explorer-item-table-col-date" />
-          <col className="explorer-item-table-col-date" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th scope="col">{EXPLORER_LABELS.itemNameColumn}</th>
-            <th scope="col">{EXPLORER_LABELS.itemTypeColumn}</th>
-            <th scope="col">{EXPLORER_LABELS.dateCreatedColumn}</th>
-            <th scope="col">{EXPLORER_LABELS.dateModifiedColumn}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length > 0 ? (
-            rows.map((row) => (
-              <tr
-                key={
-                  row.itemKind === "container"
-                    ? `container:${row.id}`
-                    : `document:${row.localId}:${row.containerId}`
-                }
-              >
-                <td>
-                  <ExplorerContainerItemName
-                    row={row}
-                    selectDocumentProjection={selectDocumentProjection}
-                    setSelectedId={setSelectedId}
-                  />
-                </td>
-                <td>{row.typeLabel}</td>
-                <td>{formatExplorerDate(row.createdAt)}</td>
-                <td>{formatExplorerDate(row.updatedAt)}</td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={4} className="explorer-item-table-empty">
-                {EXPLORER_LABELS.itemTableEmpty}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+        {rows.length > 0 ? (
+          rows.map((row) => (
+            <MiniAppTableRow
+              key={
+                row.itemKind === "container"
+                  ? `container:${row.id}`
+                  : `document:${row.localId}:${row.containerId}`
+              }
+            >
+              <MiniAppTableCell>
+                <ExplorerContainerItemName
+                  row={row}
+                  selectDocumentProjection={selectDocumentProjection}
+                  setSelectedId={setSelectedId}
+                />
+              </MiniAppTableCell>
+              <MiniAppTableCell>{row.typeLabel}</MiniAppTableCell>
+              <MiniAppTableCell>
+                {formatExplorerDate(row.createdAt)}
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                {formatExplorerDate(row.updatedAt)}
+              </MiniAppTableCell>
+            </MiniAppTableRow>
+          ))
+        ) : (
+          <MiniAppTableEmptyRow colSpan={EXPLORER_ITEM_TABLE_COLUMNS.length}>
+            {EXPLORER_LABELS.itemTableEmpty}
+          </MiniAppTableEmptyRow>
+        )}
+      </MiniAppTable>
+    </MiniAppTableFrame>
   );
 }
 

@@ -1,0 +1,76 @@
+.mini-app-table-frame {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid currentColor;
+}
+
+.mini-app-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.mini-app-table th,
+.mini-app-table-cell {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: calc(var(--padding) / 2);
+  border-bottom: 1px solid currentColor;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.mini-app-table th {
+  font-weight: 700;
+  opacity: 0.72;
+}
+
+.mini-app-table tbody .mini-app-table-row:last-child .mini-app-table-cell {
+  border-bottom: none;
+}
+
+.mini-app-table-empty {
+  opacity: 0.8;
+}
+
+.mini-app-table-text {
+  display: block;
+  min-width: 0;
+}
+
+.mini-app-table-text--truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-app-table-text--muted {
+  opacity: 0.75;
+}
+
+.mini-app-table-action {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mini-app-table-action:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.mini-app-table-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

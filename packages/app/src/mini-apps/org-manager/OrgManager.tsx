@@ -12,6 +12,14 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
+import {
+  MiniAppTable,
+  MiniAppTableCell,
+  type MiniAppTableColumn,
+  MiniAppTableFrame,
+  MiniAppTableRow,
+  MiniAppTableText,
+} from "../../components/shared/MiniAppTable";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   type OrgManagerUserRecipient,
@@ -25,6 +33,25 @@ import {
 import "./OrgManager.css";
 
 type OrgManagerView = "directory" | "groups";
+
+const DIRECTORY_TABLE_COLUMNS = [
+  {
+    id: "user",
+    header: ORG_MANAGER_LABELS.user,
+    width: "38%",
+  },
+  {
+    id: "signing-key",
+    header: ORG_MANAGER_LABELS.signingKey,
+    width: "38%",
+  },
+  {
+    className: "org-manager-directory-joined-column",
+    id: "joined",
+    header: ORG_MANAGER_LABELS.joined,
+    width: "8rem",
+  },
+] satisfies ReadonlyArray<MiniAppTableColumn>;
 
 function userRecipient(
   user: OrganizationDirectoryUserResponse,
@@ -96,33 +123,32 @@ function DirectoryTable({
   }
 
   return (
-    <div className="org-manager-table">
-      <MiniAppRow
-        className="org-manager-table-row org-manager-table-row--header"
-        header
+    <MiniAppTableFrame>
+      <MiniAppTable
+        aria-label={ORG_MANAGER_LABELS.directory}
+        columns={DIRECTORY_TABLE_COLUMNS}
       >
-        <MiniAppRowText>{ORG_MANAGER_LABELS.user}</MiniAppRowText>
-        <MiniAppRowText>{ORG_MANAGER_LABELS.signingKey}</MiniAppRowText>
-        <MiniAppRowText>{ORG_MANAGER_LABELS.joined}</MiniAppRowText>
-      </MiniAppRow>
-      {directory.users.map((user) => (
-        <MiniAppRow
-          className="org-manager-table-row"
-          key={user.userId}
-          variant="framed"
-        >
-          <MiniAppRowText title={user.userId}>
-            {user.isSelf
-              ? ORG_MANAGER_LABELS.self
-              : compactFingerprint(user.userId)}
-          </MiniAppRowText>
-          <MiniAppRowText title={user.signingKeyFingerprint}>
-            {compactFingerprint(user.signingKeyFingerprint)}
-          </MiniAppRowText>
-          <MiniAppRowText>{formatDate(user.createdAt)}</MiniAppRowText>
-        </MiniAppRow>
-      ))}
-    </div>
+        {directory.users.map((user) => (
+          <MiniAppTableRow key={user.userId}>
+            <MiniAppTableCell>
+              <MiniAppTableText title={user.userId}>
+                {user.isSelf
+                  ? ORG_MANAGER_LABELS.self
+                  : compactFingerprint(user.userId)}
+              </MiniAppTableText>
+            </MiniAppTableCell>
+            <MiniAppTableCell>
+              <MiniAppTableText title={user.signingKeyFingerprint}>
+                {compactFingerprint(user.signingKeyFingerprint)}
+              </MiniAppTableText>
+            </MiniAppTableCell>
+            <MiniAppTableCell className="org-manager-directory-joined-column">
+              <MiniAppTableText>{formatDate(user.createdAt)}</MiniAppTableText>
+            </MiniAppTableCell>
+          </MiniAppTableRow>
+        ))}
+      </MiniAppTable>
+    </MiniAppTableFrame>
   );
 }
 
