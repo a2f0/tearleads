@@ -1,13 +1,9 @@
 import { expect, test } from "bun:test";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
-import { appSqlTables, defineSqlTableSchema } from "./schema";
-import {
-  type ExecSql,
-  ensureSqlTables,
-  type SqlRow,
-  type SqlRowValue,
-} from "./sqlSchema";
+import { appSqlTables } from "./schema";
+import type { ExecSql, SqlRow, SqlRowValue, SqlTableSchema } from "./sqlSchema";
+import { defineSqlTableSchema, ensureSqlTables } from "./sqlTableSchema";
 
 interface ColumnInfo {
   defaultValue: string | null;
@@ -323,7 +319,7 @@ test("app sqlite schema creates tables and indexes", async () => {
 });
 
 test("app sqlite schema renderer quotes identifiers and table unique constraints", async () => {
-  const tableSchema = defineSqlTableSchema(
+  const tableSchema: SqlTableSchema = defineSqlTableSchema(
     sqliteTable(
       "select",
       {

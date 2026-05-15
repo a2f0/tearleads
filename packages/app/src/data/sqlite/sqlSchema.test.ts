@@ -5,6 +5,7 @@ import {
   runSerializedSqlMutation,
   type SqlBind,
   type SqlRow,
+  type SqlRowMode,
 } from "./sqlSchema";
 
 function createLoggingExecSql(log: string[]): ExecSql {
@@ -91,6 +92,7 @@ test("serialized mutations share a queue across adapters for the same client", a
     }: {
       sql: string;
       bind?: SqlBind;
+      rowMode?: SqlRowMode;
     }): Promise<{ rows: SqlRow[] }> => {
       statements.push(sql);
       return { rows: [] };

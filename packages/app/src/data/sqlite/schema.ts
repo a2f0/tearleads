@@ -1,150 +1,13 @@
-import { SQL, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import {
-  getTableConfig,
-  type Index,
-  type IndexColumn,
   index,
   integer,
   primaryKey,
-  type SQLiteColumn,
-  SQLiteSyncDialect,
-  type SQLiteTable,
   sqliteTable,
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import type { SqlTableSchema } from "./sqlSchema";
-
-const sqliteDialect = new SQLiteSyncDialect();
-
-function renderIdentifier(name: string): string {
-  return `"${name.replaceAll('"', '""')}"`;
-}
-
-function renderDefaultValue(value: unknown): string {
-  if (value === null) {
-    return "NULL";
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "1" : "0";
-  }
-
-  if (value instanceof SQL) {
-    return sqliteDialect.sqlToQuery(value).sql;
-  }
-
-  if (typeof value === "number") {
-    return String(value);
-  }
-
-  if (typeof value === "string") {
-    return `'${value.replaceAll("'", "''")}'`;
-  }
-
-  throw new Error(`Unsupported SQLite default value: ${String(value)}`);
-}
-
-function renderColumn(
-  column: SQLiteColumn,
-  inlinePrimaryKeyColumnName?: string,
-): string {
-  const parts = [
-    renderIdentifier(column.name),
-    column.getSQLType().toUpperCase(),
-  ];
-
-  if (column.notNull) {
-    parts.push("NOT NULL");
-  }
-
-  if (column.hasDefault) {
-    parts.push("DEFAULT", renderDefaultValue(column.default));
-  }
-
-  if (column.primary || column.name === inlinePrimaryKeyColumnName) {
-    parts.push("PRIMARY KEY");
-  }
-
-  if (column.isUnique) {
-    parts.push("UNIQUE");
-  }
-
-  return parts.join(" ");
-}
-
-function renderPrimaryKey(columns: ReadonlyArray<SQLiteColumn>): string {
-  const columnNames = columns.map((column) => renderIdentifier(column.name));
-  return `PRIMARY KEY (${columnNames.join(", ")})`;
-}
-
-function renderUniqueConstraint(columns: ReadonlyArray<SQLiteColumn>): string {
-  const columnNames = columns.map((column) => renderIdentifier(column.name));
-  return `UNIQUE (${columnNames.join(", ")})`;
-}
-
-function isSQLiteColumn(value: IndexColumn): value is SQLiteColumn {
-  return (
-    "name" in value && typeof value.name === "string" && "getSQLType" in value
-  );
-}
-
-function renderIndexColumn(column: IndexColumn): string {
-  if (isSQLiteColumn(column)) {
-    return renderIdentifier(column.name);
-  }
-
-  return sqliteDialect.sqlToQuery(column.getSQL(), "indexes").sql;
-}
-
-function renderIndex(indexDefinition: Index): string {
-  const config = indexDefinition.config;
-  const unique = config.unique ? "UNIQUE " : "";
-  const columns = config.columns.map(renderIndexColumn).join(", ");
-  const where = config.where
-    ? ` WHERE ${sqliteDialect.sqlToQuery(config.where, "indexes").sql}`
-    : "";
-
-  return `CREATE ${unique}INDEX IF NOT EXISTS ${renderIdentifier(
-    config.name,
-  )} ON ${renderIdentifier(getTableConfig(config.table).name)} (${columns})${where}`;
-}
-
-/**
- * Render a Drizzle SQLite table definition into executable schema SQL.
- *
- * The app runtime creates local tables through `ensureSqlTables`, which works
- * with raw SQL strings rather than Drizzle migrations. This helper keeps the
- * Drizzle table definitions as the source of truth while preserving primary
- * keys, table-level unique constraints, partial indexes, default values, and
- * identifier quoting.
- */
-export function defineSqlTableSchema(table: SQLiteTable): SqlTableSchema {
-  const config = getTableConfig(table);
-  const inlinePrimaryKeyColumnName =
-    config.primaryKeys.length === 1 &&
-    config.primaryKeys[0]?.columns.length === 1
-      ? config.primaryKeys[0].columns[0]?.name
-      : undefined;
-  const columns = config.columns.map((column) =>
-    renderColumn(column, inlinePrimaryKeyColumnName),
-  );
-  const primaryKeys = inlinePrimaryKeyColumnName
-    ? []
-    : config.primaryKeys.map((key) => renderPrimaryKey(key.columns));
-  const uniqueConstraints = config.uniqueConstraints.map((constraint) =>
-    renderUniqueConstraint(constraint.columns),
-  );
-  const columnDefinitions = [...columns, ...primaryKeys, ...uniqueConstraints];
-
-  return {
-    name: config.name,
-    createSql: `CREATE TABLE IF NOT EXISTS ${renderIdentifier(config.name)} (
-  ${columnDefinitions.join(",\n  ")}
-)`,
-    indexes: config.indexes.map(renderIndex),
-  };
-}
+import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
 /**
  * Durable Loro-backed document records shared by app features.
@@ -626,41 +489,42 @@ export const containerSyncWatermarks = sqliteTable(
   (table) => [primaryKey({ columns: [table.laneKind, table.laneId] })],
 );
 
-export const documentTables = [
+export const documentTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documents),
   defineSqlTableSchema(documentPendingUpdates),
 ];
 
-export const principalPolicyTables = [defineSqlTableSchema(principalPolicies)];
+export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
+  defineSqlTableSchema(principalPolicies),
+];
 
-export const containerTables = [
+export const containerTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containers),
   defineSqlTableSchema(containerProjection),
 ];
 
-export const documentContainerProjectionTables = [
-  defineSqlTableSchema(documentContainerProjection),
-];
+export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
+  [defineSqlTableSchema(documentContainerProjection)];
 
-export const documentProjectionTables = [
+export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentProjection),
   defineSqlTableSchema(documentPendingAttachments),
   defineSqlTableSchema(documentAttachmentBlobProjection),
 ];
 
-export const addressBookProjectionTables = [
+export const addressBookProjectionTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(addressBookProjection),
 ];
 
-export const containerCreateIntentTables = [
+export const containerCreateIntentTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerCreateIntents),
 ];
 
-export const containerSyncWatermarkTables = [
+export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerSyncWatermarks),
 ];
 
-export const appSqlTables = [
+export const appSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...documentTables,
   ...principalPolicyTables,
   ...containerTables,
