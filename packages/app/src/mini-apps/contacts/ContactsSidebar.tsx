@@ -35,6 +35,24 @@ function ContactsSidebarEntries({
     return <div className="contacts-hint">No contacts.</div>;
   }
 
+  function handlePrimaryMouseDown(
+    event: MouseEvent<HTMLButtonElement>,
+    contactId: string,
+  ) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const activeElement = event.currentTarget.ownerDocument.activeElement;
+    if (
+      activeElement instanceof HTMLElement &&
+      activeElement !== event.currentTarget
+    ) {
+      activeElement.blur();
+    }
+    setSelectedContactId(contactId);
+  }
+
   return (
     <>
       {entries.map((entry) => (
@@ -42,6 +60,7 @@ function ContactsSidebarEntries({
           key={entry.id}
           className="contacts-sidebar-item"
           onClick={() => setSelectedContactId(entry.id)}
+          onMouseDown={(event) => handlePrimaryMouseDown(event, entry.id)}
           onContextMenu={(event) => handleContextMenu(event, entry.id)}
           selected={selectedContactId === entry.id}
         >
