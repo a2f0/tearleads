@@ -762,6 +762,13 @@ test(
       [leftPane, rightPane],
       postAdminAddRequestStartIndex,
     );
+
+    await openExplorer(rightPane);
+    await refreshUntil(
+      rightPane,
+      () => listExplorerContainerItems(rightPane).length > 1,
+      "Peer did not discover the Admins-granted root container.",
+    );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
