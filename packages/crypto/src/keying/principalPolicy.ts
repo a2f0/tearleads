@@ -288,19 +288,34 @@ async function normalizePrincipalPolicyStateChainEntry(
   };
 }
 
-function verifyPrincipalPolicyReference(input: {
-  readonly expectedReference: ReferencedPrincipalHead | undefined;
+function principalPolicyStateMatchesReference(input: {
+  readonly reference: ReferencedPrincipalHead;
   readonly state: PrincipalPolicySignedState;
+}): boolean {
+  return (
+    input.reference.principalType === input.state.principalType &&
+    input.reference.principalId === input.state.principalId &&
+    input.reference.version === input.state.version &&
+    input.reference.keyEpoch === input.state.keyEpoch &&
+    input.reference.stateHash === input.state.stateHash &&
+    input.reference.keyFingerprint === input.state.keyFingerprint
+  );
+}
+
+function verifyPrincipalPolicyReference(input: {
+  readonly chain: readonly NormalizedPrincipalPolicyStateChainEntry[];
+  readonly expectedReference: ReferencedPrincipalHead | undefined;
+  readonly currentState: PrincipalPolicySignedState;
 }): void {
-  const { expectedReference, state } = input;
+  const { currentState, expectedReference } = input;
 
   if (!expectedReference) {
     return;
   }
 
   if (
-    expectedReference.principalType !== state.principalType ||
-    expectedReference.principalId !== state.principalId
+    expectedReference.principalType !== currentState.principalType ||
+    expectedReference.principalId !== currentState.principalId
   ) {
     throwVerification(
       "object_mismatch",
@@ -308,12 +323,14 @@ function verifyPrincipalPolicyReference(input: {
     );
   }
 
-  if (
-    expectedReference.version !== state.version ||
-    expectedReference.keyEpoch !== state.keyEpoch ||
-    expectedReference.stateHash !== state.stateHash ||
-    expectedReference.keyFingerprint !== state.keyFingerprint
-  ) {
+  const matchingEntry = input.chain.find((entry) =>
+    principalPolicyStateMatchesReference({
+      reference: expectedReference,
+      state: entry.state,
+    }),
+  );
+
+  if (!matchingEntry) {
     throwVerification(
       "hash_mismatch",
       "principal policy bundle does not match referenced principal head",
@@ -656,8 +673,9 @@ export async function verifyPrincipalPolicyBundle({
     await verifyPrincipalPolicyPayload({ bundle });
     verifyPrincipalPolicyMemberEnvelopes({ bundle });
     verifyPrincipalPolicyReference({
+      chain: normalizedChain,
+      currentState: currentEntry.state,
       expectedReference,
-      state: currentEntry.state,
     });
     verifyPrincipalPolicyCheckpoint({
       chain: normalizedChain,
@@ -673,12 +691,13 @@ export async function verifyPrincipalPolicyBundle({
       stateHash: currentEntry.state.stateHash,
       state: currentEntry.state,
       projection: currentEntry.projection,
+      history: normalizedChain,
       checkpoint: {
         principalType: currentEntry.state.principalType,
         principalId: currentEntry.state.principalId,
         version: currentEntry.state.version,
         stateHash: currentEntry.state.stateHash,
       },
-    } as VerifiedPrincipalPolicy;
+    } as unknown as VerifiedPrincipalPolicy;
   });
 }

@@ -495,6 +495,7 @@ export interface VerifiedPrincipalPolicy {
   readonly stateHash: string;
   readonly state: PrincipalPolicySignedState;
   readonly projection: PrincipalProjectionMember[];
+  readonly history?: readonly NormalizedPrincipalPolicyStateChainEntry[];
   readonly checkpoint: PrincipalPolicyCheckpoint;
   readonly [verifiedPrincipalPolicyBrand]: true;
 }

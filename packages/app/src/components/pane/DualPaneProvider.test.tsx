@@ -165,6 +165,33 @@ async function openExplorer(pane: HTMLElement) {
   });
 }
 
+async function openOrgManager(pane: HTMLElement) {
+  await interact(() => {
+    fireEvent.contextMenu(pane, {
+      clientX: 160,
+      clientY: 160,
+    });
+  });
+  const openOrgManagerButton = await screen.findByRole("button", {
+    name: "Open Org Manager",
+  });
+  await interact(() => {
+    fireEvent.click(openOrgManagerButton);
+  });
+
+  await waitFor(() => {
+    expect(within(pane).getByRole("button", { name: "Groups" })).toBeTruthy();
+  });
+}
+
+function getPaneUserId(pane: HTMLElement): string {
+  const match = pane.textContent?.match(
+    /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u,
+  );
+  invariant(match?.[1] && match[1] !== "none", "Expected pane user id.");
+  return match[1];
+}
+
 function getExplorerSidebarItem(
   pane: HTMLElement,
   name: string,
@@ -316,6 +343,49 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
     () => screen.queryByRole("dialog") === null,
     `Container share did not finish.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
+}
+
+async function addPeerToAdminsGroup(pane: HTMLElement, peerUserId: string) {
+  await openOrgManager(pane);
+
+  const groupsButton = within(pane).getByRole("button", { name: "Groups" });
+  await interact(() => {
+    fireEvent.click(groupsButton);
+  });
+
+  const adminsButton = await within(pane).findByRole("button", {
+    name: /Admins/u,
+  });
+  await interact(() => {
+    fireEvent.click(adminsButton);
+  });
+
+  const userIdInput = await within(pane).findByLabelText("User ID");
+  invariant(
+    userIdInput instanceof HTMLInputElement,
+    "Expected org manager user id input.",
+  );
+  const addButton = within(pane).getByRole("button", { name: "Add" });
+  invariant(addButton instanceof HTMLButtonElement, "Expected add button.");
+
+  await waitFor(() => {
+    expect(userIdInput.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.change(userIdInput, {
+      target: { value: peerUserId },
+    });
+  });
+  await waitFor(() => {
+    expect(addButton.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.click(addButton);
+  });
+
+  await waitFor(() => {
+    expect(userIdInput.value).toBe("");
+  });
 }
 
 function requestPath(url: string): string {
@@ -672,6 +742,28 @@ test(
     expect(listExplorerContainerItems(rightPane).length).toBeGreaterThan(1);
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual pane explorer opens after org manager imports peer into Admins",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+
+    await waitForDualPaneProvisioning(leftPane, rightPane);
+
+    await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
+    const postAdminAddRequestStartIndex = listProxiedApiRequests().length;
+    await openExplorer(leftPane);
+
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postAdminAddRequestStartIndex,
+    );
+  },
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
 test(

@@ -321,6 +321,18 @@ function requireSignerCanManageGroup(
   }
 }
 
+function isDirectGroupAdmin(
+  currentPolicy: PrincipalPolicyBundleResponse,
+  signerUserId: string,
+): boolean {
+  return currentPolicy.currentProjection.some(
+    (member) =>
+      member.memberPrincipalType === "user" &&
+      member.memberPrincipalId === signerUserId &&
+      member.role === "admin",
+  );
+}
+
 function ensureNoNestedGroupMembers(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ): void {
@@ -750,15 +762,9 @@ export async function buildAddGroupUserPolicyRequest(
     userProjectionMember(input.targetUser.userId, "member"),
   ];
 
-  if (input.canAdministerOrganization) {
-    return buildOrgAdminAddGroupUserPolicyRequest(input, projection);
-  }
-
-  return buildDirectAdminAddGroupUserPolicyRequest(
-    input,
-    projection,
-    targetKey,
-  );
+  return isDirectGroupAdmin(input.currentPolicy, input.signerUserId)
+    ? buildDirectAdminAddGroupUserPolicyRequest(input, projection, targetKey)
+    : buildOrgAdminAddGroupUserPolicyRequest(input, projection);
 }
 
 export async function buildRemoveGroupUserPolicyRequest(

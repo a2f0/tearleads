@@ -225,7 +225,7 @@ test("group add and remove policy builders preserve additive epochs and rotate s
   });
 
   const addRequest = await buildAddGroupUserPolicyRequest({
-    canAdministerOrganization: false,
+    canAdministerOrganization: true,
     currentPolicy: initialPolicy,
     currentPolicySignerPublicKeys,
     currentUsers: [],
