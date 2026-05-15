@@ -68,21 +68,6 @@
   color: #68707e;
 }
 
-.org-manager-table {
-  display: grid;
-  gap: 4px;
-}
-
-.org-manager-table-row {
-  display: grid;
-  grid-template-columns: minmax(110px, 1.2fr) minmax(120px, 1fr) 90px;
-  gap: 10px;
-}
-
-.org-manager-table-row--header {
-  font-size: 12px;
-}
-
 .org-manager-groups {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
@@ -212,11 +197,7 @@
     padding-top: 12px;
   }
 
-  .org-manager-table-row {
-    grid-template-columns: minmax(90px, 1fr) 70px minmax(100px, 1fr);
-  }
-
-  .org-manager-table-row span:last-child {
+  .org-manager-directory-joined-column {
     display: none;
   }
 }
