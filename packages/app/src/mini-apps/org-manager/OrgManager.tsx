@@ -5,7 +5,7 @@ import type {
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   MiniAppRow,
   MiniAppRowButton,
@@ -63,6 +63,45 @@ function userRecipient(
     encapsulationPublicKey: user.encapsulationPublicKey,
     encapsulationKeyFingerprint: user.encapsulationKeyFingerprint,
   };
+}
+
+function memberUserRecipient(
+  member: OrganizationGroupMemberResponse,
+): OrgManagerUserRecipient | null {
+  if (
+    member.memberPrincipalType !== "user" ||
+    !member.encapsulationPublicKey ||
+    !member.encapsulationKeyFingerprint
+  ) {
+    return null;
+  }
+
+  return {
+    userId: member.memberPrincipalId,
+    encapsulationPublicKey: member.encapsulationPublicKey,
+    encapsulationKeyFingerprint: member.encapsulationKeyFingerprint,
+  };
+}
+
+function currentGroupUserRecipients(input: {
+  directory: OrganizationDirectoryResponse;
+  members: OrganizationGroupMembersResponse | null;
+}): OrgManagerUserRecipient[] {
+  const recipientsById = new Map<string, OrgManagerUserRecipient>();
+
+  for (const user of input.directory.users) {
+    const recipient = userRecipient(user);
+    recipientsById.set(recipient.userId, recipient);
+  }
+
+  for (const member of input.members?.members ?? []) {
+    const recipient = memberUserRecipient(member);
+    if (recipient) {
+      recipientsById.set(recipient.userId, recipient);
+    }
+  }
+
+  return [...recipientsById.values()];
 }
 
 function compactFingerprint(value: string): string {
@@ -271,6 +310,7 @@ function GroupMembers({
 export function OrgManager() {
   const appData = useAppData();
   const orgManagerActions = useOrgManagerActions();
+  const addUserListId = useId();
   const [view, setView] = useState<OrgManagerView>("directory");
   const [directory, setDirectory] =
     useState<OrganizationDirectoryResponse | null>(null);
@@ -432,12 +472,14 @@ export function OrgManager() {
   ]);
 
   const addUser = useCallback(async () => {
-    const targetUser = directory?.users.find(
-      (user) => user.userId === addUserId,
+    const targetUserId = addUserId.trim();
+    const directoryUser = directory?.users.find(
+      (user) => user.userId === targetUserId,
     );
     if (
       !directory ||
-      !targetUser ||
+      !members ||
+      targetUserId.length === 0 ||
       !selectedGroupId ||
       !appData.userId ||
       !appData.signingFingerprint ||
@@ -450,10 +492,18 @@ export function OrgManager() {
     setMutating(true);
     setError(null);
     try {
+      const targetUser = directoryUser
+        ? userRecipient(directoryUser)
+        : await orgManagerActions.importUserById(targetUserId);
+      if (!targetUser) {
+        setError(ORG_MANAGER_LABELS.userNotFound);
+        return;
+      }
+
       await orgManagerActions.addUserToGroup(
         selectedGroupId,
-        userRecipient(targetUser),
-        directory.users.map(userRecipient),
+        targetUser,
+        currentGroupUserRecipients({ directory, members }),
         directory.currentUser.isOrgAdmin,
       );
       setAddUserId("");
@@ -473,6 +523,7 @@ export function OrgManager() {
     appData.signingKeyPair,
     appData.userId,
     directory,
+    members,
     orgManagerActions,
     refreshDirectoryAndGroups,
     refreshSelectedGroupMembers,
@@ -497,9 +548,9 @@ export function OrgManager() {
         await orgManagerActions.removeUserFromGroup(
           selectedGroupId,
           removedUserId,
-          directory.users
-            .filter((user) => user.userId !== removedUserId)
-            .map(userRecipient),
+          currentGroupUserRecipients({ directory, members }).filter(
+            (user) => user.userId !== removedUserId,
+          ),
           directory.currentUser.isOrgAdmin,
         );
         await refreshDirectoryAndGroups();
@@ -517,6 +568,7 @@ export function OrgManager() {
       appData.signingKeyPair,
       appData.userId,
       directory,
+      members,
       orgManagerActions,
       refreshDirectoryAndGroups,
       refreshSelectedGroupMembers,
@@ -596,16 +648,15 @@ export function OrgManager() {
                     </span>
                   </div>
                   <div className="org-manager-add-user">
-                    <select
-                      disabled={
-                        !canMutateSelectedGroup ||
-                        mutating ||
-                        addableUsers.length === 0
-                      }
+                    <input
+                      aria-label={ORG_MANAGER_LABELS.userId}
+                      disabled={!canMutateSelectedGroup || mutating}
+                      list={addUserListId}
                       onChange={(event) => setAddUserId(event.target.value)}
+                      placeholder={ORG_MANAGER_LABELS.userId}
                       value={addUserId}
-                    >
-                      <option value="">{ORG_MANAGER_LABELS.addUser}</option>
+                    />
+                    <datalist id={addUserListId}>
                       {addableUsers.map((user) => (
                         <option key={user.userId} value={user.userId}>
                           {user.isSelf
@@ -613,10 +664,14 @@ export function OrgManager() {
                             : compactFingerprint(user.userId)}
                         </option>
                       ))}
-                    </select>
+                    </datalist>
                     <button
                       disabled={
-                        !canMutateSelectedGroup || mutating || addUserId === ""
+                        !canMutateSelectedGroup ||
+                        mutating ||
+                        !members ||
+                        addUserId.trim().length === 0 ||
+                        memberUserIds.has(addUserId.trim())
                       }
                       onClick={addUser}
                       type="button"

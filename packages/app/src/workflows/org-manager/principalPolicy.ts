@@ -69,6 +69,29 @@ interface OrgManagerPrincipalPolicyApi {
   ) => Promise<unknown>;
 }
 
+export async function importOrgManagerUserRecipient(input: {
+  readonly apiClient: Pick<OrgManagerPrincipalPolicyApi, "getEncapsulationKey">;
+  readonly userId: string;
+}): Promise<OrgManagerUserRecipient | null> {
+  const userId = input.userId.trim();
+  if (userId.length === 0) {
+    return null;
+  }
+
+  const response = await input.apiClient.getEncapsulationKey(userId);
+  if (!response) {
+    return null;
+  }
+
+  return {
+    userId: response.userId,
+    encapsulationPublicKey: response.encapsulationPublicKey,
+    encapsulationKeyFingerprint: await toFingerprint(
+      base64ToBytes(response.encapsulationPublicKey),
+    ),
+  };
+}
+
 interface BuildInitialGroupPolicyInput {
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly groupId: string;

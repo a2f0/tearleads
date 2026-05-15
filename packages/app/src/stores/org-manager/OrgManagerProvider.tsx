@@ -13,6 +13,7 @@ import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   addOrgManagerGroupUser,
   createOrgManagerGroup,
+  importOrgManagerUserRecipient,
   type OrgManagerUserRecipient,
   removeOrgManagerGroupUser,
 } from "../../workflows/org-manager";
@@ -25,6 +26,7 @@ interface OrgManagerContextValue {
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
   createGroup: (name: string) => Promise<OrganizationGroupSummaryResponse>;
+  importUserById: (userId: string) => Promise<OrgManagerUserRecipient | null>;
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
@@ -140,13 +142,23 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [appData.apiClient, appData.execSql, requireSigningContext],
   );
 
+  const importUserById = useCallback(
+    (userId: string) =>
+      importOrgManagerUserRecipient({
+        apiClient: appData.apiClient,
+        userId,
+      }),
+    [appData.apiClient],
+  );
+
   const value = useMemo(
     () => ({
       addUserToGroup,
       createGroup,
+      importUserById,
       removeUserFromGroup,
     }),
-    [addUserToGroup, createGroup, removeUserFromGroup],
+    [addUserToGroup, createGroup, importUserById, removeUserFromGroup],
   );
 
   return (

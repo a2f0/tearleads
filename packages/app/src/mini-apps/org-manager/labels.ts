@@ -23,6 +23,8 @@ export const ORG_MANAGER_LABELS = {
   signingKey: "Signing key",
   uninitialized: "Uninitialized",
   user: "User",
+  userId: "User ID",
+  userNotFound: "User not found.",
 } as const;
 
 export function getOrgManagerEpochLabel(keyEpoch: number): string {
