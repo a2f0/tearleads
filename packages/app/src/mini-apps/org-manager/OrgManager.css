@@ -1,31 +1,30 @@
 .org-manager {
-  display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: #f7f8fa;
-  color: #20242c;
+  padding: var(--padding);
+  box-sizing: border-box;
 }
 
 .org-manager--empty {
-  display: grid;
-  grid-template-columns: 1fr;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
 }
 
 .org-manager-sidebar {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 12px;
-  border-right: 1px solid #d9dde5;
-  background: #eef1f5;
+  min-height: 100%;
+  padding: calc(var(--padding) / 2);
+  box-sizing: border-box;
 }
 
 .org-manager-create-group button,
 .org-manager-add-user button,
 .org-manager-member-row button {
-  min-height: 30px;
+  min-height: 2rem;
   border: 1px solid currentColor;
   background: transparent;
   color: inherit;
@@ -48,30 +47,28 @@
 }
 
 .org-manager-main {
+  flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: 14px;
 }
 
 .org-manager-error {
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border: 1px solid #d78b8b;
-  border-radius: 6px;
-  background: #fff0f0;
-  color: #8a2020;
+  margin-bottom: calc(var(--padding) / 2);
+  padding: calc(var(--padding) / 2);
+  border: 1px solid currentColor;
+  font-size: var(--font-size-sm);
 }
 
 .org-manager-hint {
-  padding: 12px;
-  color: #68707e;
+  padding: calc(var(--padding) / 2);
+  opacity: 0.75;
 }
 
 .org-manager-groups {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
-  gap: 12px;
+  gap: var(--padding);
   min-height: 0;
 }
 
@@ -82,17 +79,17 @@
 .org-manager-create-group,
 .org-manager-add-user {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 74px;
-  gap: 8px;
-  margin-bottom: 10px;
+  grid-template-columns: minmax(0, 1fr) 4.625rem;
+  gap: calc(var(--padding) / 2);
+  margin-bottom: calc(var(--padding) / 2);
 }
 
 .org-manager-create-group input,
 .org-manager-add-user select {
   min-width: 0;
-  min-height: 30px;
+  min-height: 2rem;
   border: 1px solid currentColor;
-  padding: 0 8px;
+  padding: 0 calc(var(--padding) / 2);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -118,25 +115,25 @@
 }
 
 .org-manager-group-button .mini-app-row-text {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .org-manager-panel--detail {
-  border-left: 1px solid #d9dde5;
-  padding-left: 12px;
+  border-left: 1px solid currentColor;
+  padding-left: var(--padding);
 }
 
 .org-manager-detail-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: var(--padding);
+  margin-bottom: calc(var(--padding) / 2);
 }
 
 .org-manager-detail-header div {
   display: grid;
-  gap: 3px;
+  gap: 0.15rem;
   min-width: 0;
 }
 
@@ -150,7 +147,7 @@
 
 .org-manager-detail-header span,
 .org-manager-member-row .mini-app-row-text {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   opacity: 0.75;
 }
 
@@ -171,30 +168,19 @@
 }
 
 .org-manager-member-row button {
-  padding: 0 10px;
+  padding: 0 calc(var(--padding) / 1.5);
 }
 
 @media (max-width: 760px) {
-  .org-manager {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .org-manager-sidebar {
-    flex-direction: row;
-    border-right: 0;
-    border-bottom: 1px solid #d9dde5;
-  }
-
   .org-manager-groups {
     grid-template-columns: 1fr;
   }
 
   .org-manager-panel--detail {
     border-left: 0;
-    border-top: 1px solid #d9dde5;
+    border-top: 1px solid currentColor;
     padding-left: 0;
-    padding-top: 12px;
+    padding-top: var(--padding);
   }
 
   .org-manager-directory-joined-column {

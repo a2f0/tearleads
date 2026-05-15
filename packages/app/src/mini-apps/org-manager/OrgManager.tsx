@@ -31,8 +31,10 @@ import {
   ORG_MANAGER_LABELS,
 } from "./labels";
 import "./OrgManager.css";
-
-type OrgManagerView = "directory" | "groups";
+import {
+  type OrgManagerView,
+  useOrgManagerSidebarPanel,
+} from "./OrgManagerSidebar";
 
 const DIRECTORY_TABLE_COLUMNS = [
   {
@@ -522,6 +524,15 @@ export function OrgManager() {
     ],
   );
 
+  useOrgManagerSidebarPanel({
+    enabled: Boolean(appData.organizationId && appData.isAuthenticated),
+    loading,
+    mutating,
+    refreshDirectoryAndGroups,
+    setView,
+    view,
+  });
+
   if (!appData.organizationId || !appData.isAuthenticated) {
     return (
       <div className="org-manager org-manager--empty">
@@ -534,29 +545,6 @@ export function OrgManager() {
 
   return (
     <div className="org-manager">
-      <aside className="org-manager-sidebar">
-        <MiniAppRowButton
-          className="org-manager-nav"
-          onClick={() => setView("directory")}
-          selected={view === "directory"}
-        >
-          {ORG_MANAGER_LABELS.directory}
-        </MiniAppRowButton>
-        <MiniAppRowButton
-          className="org-manager-nav"
-          onClick={() => setView("groups")}
-          selected={view === "groups"}
-        >
-          {ORG_MANAGER_LABELS.groups}
-        </MiniAppRowButton>
-        <MiniAppRowButton
-          className="org-manager-nav"
-          disabled={loading || mutating}
-          onClick={refreshDirectoryAndGroups}
-        >
-          {ORG_MANAGER_LABELS.refresh}
-        </MiniAppRowButton>
-      </aside>
       <main className="org-manager-main">
         {error && <div className="org-manager-error">{error}</div>}
         {view === "directory" ? (
