@@ -66,10 +66,12 @@ export async function createRemoteExplorerContainer(input: {
   return {
     accessManifestHash: createdContainer.response.manifestHead.manifestHash,
     containerId: createdContainer.containerId,
+    createdAt: createdContainer.response.createdAt,
     metadataDocumentId: createdMetadataDocument.documentId,
     organizationId: createdContainer.response.organizationId,
     parentId: createdContainer.response.parentId,
     persistedMetadataState: createdMetadataDocument.persistedState,
+    updatedAt: createdContainer.response.updatedAt,
   };
 }
 
@@ -118,6 +120,7 @@ export async function shareRemoteExplorerContainer(input: {
   return {
     accessManifestHash: shared.response.manifestHead.manifestHash,
     accessEpoch: shared.response.manifestHead.epoch,
+    createdAt: shared.response.createdAt,
     metadataDocumentId: readContainerMutationMetadataDocumentId({
       response: shared.response,
     }),
@@ -125,6 +128,7 @@ export async function shareRemoteExplorerContainer(input: {
       referencedPrincipalHeadsFromContainerMutationResponse({
         response: shared.response,
       }),
+    updatedAt: shared.response.updatedAt,
   };
 }
 
@@ -158,9 +162,8 @@ export async function moveRemoteExplorerContainer(input: {
     return null;
   }
 
-  const updatedAt = new Date().toISOString();
   return {
-    createdAt: updatedAt,
+    createdAt: moved.response.createdAt,
     id: moved.response.containerId,
     organizationId: moved.response.organizationId,
     parentId: moved.response.parentId,
@@ -173,7 +176,7 @@ export async function moveRemoteExplorerContainer(input: {
       referencedPrincipalHeadsFromContainerMutationResponse({
         response: moved.response,
       }),
-    updatedAt,
+    updatedAt: moved.response.updatedAt,
   };
 }
 

@@ -61,6 +61,13 @@ export async function saveExplorerContainer(
   record: DocumentRecord | null,
   options?: {
     createIntent?: { parentContainerId: string };
+    localUpdatedAt?: string;
+    serverTimestamps?:
+      | {
+          createdAt?: string | null;
+          updatedAt?: string | null;
+        }
+      | undefined;
     updatedAt?: string;
   },
 ): Promise<ContainerRecord> {

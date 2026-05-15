@@ -251,6 +251,36 @@ test("app sqlite schema creates tables and indexes", async () => {
       pk: 0,
       type: "TEXT",
     });
+    expect(readRecordValue(containers, "updated_at")).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 0,
+      type: "TEXT",
+    });
+    expect(readRecordValue(containers, "local_created_at")).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 0,
+      type: "TEXT",
+    });
+    expect(readRecordValue(containers, "local_updated_at")).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 0,
+      type: "TEXT",
+    });
+    expect(readRecordValue(containers, "server_created_at")).toEqual({
+      defaultValue: null,
+      notNull: 0,
+      pk: 0,
+      type: "TEXT",
+    });
+    expect(readRecordValue(containers, "server_updated_at")).toEqual({
+      defaultValue: null,
+      notNull: 0,
+      pk: 0,
+      type: "TEXT",
+    });
   } finally {
     close();
   }

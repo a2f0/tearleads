@@ -52,6 +52,10 @@ async function buildRemoteExplorerChildContainerState(input: {
       metadataDocumentId: created.metadataDocumentId,
       name: trimmedName,
       icon: null,
+      createdAt: created.createdAt,
+      serverCreatedAt: created.createdAt,
+      serverUpdatedAt: created.updatedAt,
+      updatedAt: created.updatedAt,
     },
     doc,
     record: {

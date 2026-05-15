@@ -53,6 +53,13 @@ async function persistCreatedExplorerContainerFromIntent(input: {
   state: ExplorerContainerCreateIntentSyncState;
 }) {
   const { containerState, created, host, state } = input;
+  containerState.container = {
+    ...containerState.container,
+    createdAt: created.createdAt,
+    serverCreatedAt: created.createdAt,
+    serverUpdatedAt: created.updatedAt,
+    updatedAt: created.updatedAt,
+  };
 
   const nextRecord = await host.persistContainerState(
     containerState,
@@ -74,6 +81,10 @@ async function persistCreatedExplorerContainerFromIntent(input: {
     metadataDocumentId: created.metadataDocumentId,
     organizationId: created.organizationId,
     parentId: created.parentId,
+    serverCreatedAt: created.createdAt,
+    serverUpdatedAt: created.updatedAt,
+    createdAt: created.createdAt,
+    updatedAt: created.updatedAt,
   };
   const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
 

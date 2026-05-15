@@ -73,6 +73,7 @@ export interface ExplorerContainerWorkflowRuntime
 export interface CreatedExplorerContainer {
   accessManifestHash: string;
   containerId: string;
+  createdAt: string;
   metadataDocumentId: string;
   organizationId: string;
   parentId: string | null;
@@ -83,13 +84,16 @@ export interface CreatedExplorerContainer {
     | "documentKekTargets"
     | "documentManifestBundle"
   >;
+  updatedAt: string;
 }
 
 export interface SharedExplorerContainer {
   accessEpoch: number;
   accessManifestHash: string;
+  createdAt: string;
   metadataDocumentId: string;
   referencedPrincipalHeads: ReferencedPrincipalStateResponse[];
+  updatedAt: string;
 }
 
 export interface SharedExplorerContainerState {

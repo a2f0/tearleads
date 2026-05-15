@@ -31,6 +31,13 @@ export async function shareExplorerContainerState(input: {
   await input.runtime.cacheReferencedPrincipalPolicies(
     shared.referencedPrincipalHeads,
   );
+  input.containerState.container = {
+    ...input.containerState.container,
+    createdAt: shared.createdAt,
+    serverCreatedAt: shared.createdAt,
+    serverUpdatedAt: shared.updatedAt,
+    updatedAt: shared.updatedAt,
+  };
 
   const persisted = await persistExplorerContainerMetadataStateFromRuntime({
     metadataState: input.containerState,

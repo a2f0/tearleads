@@ -123,8 +123,10 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
 
         return {
           containerId: parent.projection.containerId,
+          createdAt: "2026-05-05T00:00:00.000Z",
           organizationId: parent.projection.organizationId,
           parentId: null,
+          updatedAt: "2026-05-05T00:00:00.000Z",
           manifestHead: {
             epoch: 2,
             manifestHash: request.expectedManifestHash,

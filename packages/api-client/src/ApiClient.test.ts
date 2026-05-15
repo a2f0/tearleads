@@ -62,8 +62,10 @@ function createContainerMutationRequest(): ContainerMutationRequest {
 function createContainerMutationResponse() {
   return {
     containerId: "container-1",
+    createdAt: "2026-05-06T18:00:00.000Z",
     organizationId: "organization-1",
     parentId: "parent-1",
+    updatedAt: "2026-05-06T18:00:00.000Z",
     manifestHead: {
       epoch: 1,
       manifestHash: "container-manifest-hash",

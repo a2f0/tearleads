@@ -33,7 +33,7 @@ test("bootstrapRootContainer creates one local root container and reuses it", as
 
     const containers = await loadContainers(execSql);
     expect(containers).toEqual([
-      {
+      expect.objectContaining({
         id: created.containerId,
         organizationId: "",
         parentId: null,
@@ -42,7 +42,7 @@ test("bootstrapRootContainer creates one local root container and reuses it", as
         icon: null,
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
-      },
+      }),
     ]);
   } finally {
     close();
