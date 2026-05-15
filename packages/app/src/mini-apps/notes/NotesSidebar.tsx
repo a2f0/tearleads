@@ -35,7 +35,7 @@ function NotesSidebar({
         onClick={createNote}
         variant="framed"
       >
-        {NOTES_LABELS.sidebarNewNote}
+        <MiniAppRowText>{NOTES_LABELS.sidebarNewNote}</MiniAppRowText>
       </MiniAppRowButton>
       <div className="notes-sidebar-list">
         {!ready ? (

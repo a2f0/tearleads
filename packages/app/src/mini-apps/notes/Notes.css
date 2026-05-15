@@ -19,19 +19,11 @@
   min-height: 100%;
 }
 
-.notes-sidebar-new-note {
-  justify-content: flex-start;
-}
-
 .notes-sidebar-list {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-height: 0;
-}
-
-.notes-sidebar-item {
-  min-width: 0;
 }
 
 .notes-sidebar-empty {
