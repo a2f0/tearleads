@@ -184,36 +184,38 @@ export async function loadPrincipalPoliciesForContainerPaths(
       }
     }
 
-    for (const currentState of currentStates.values()) {
-      const history = await listPrincipalStateHistory(
-        currentState.principalType,
-        currentState.principalId,
-        executor,
-      );
-      const referencesForPrincipal = referencesForType.filter(
-        (reference) =>
-          principalIdentityKey(reference) ===
-          principalIdentityKey(currentState),
-      );
+    const resolvedPolicies = await Promise.all(
+      Array.from(currentStates.values()).map(async (currentState) => {
+        const history = await listPrincipalStateHistory(
+          currentState.principalType,
+          currentState.principalId,
+          executor,
+        );
+        const referencesForPrincipal = referencesForType.filter(
+          (reference) =>
+            principalIdentityKey(reference) ===
+            principalIdentityKey(currentState),
+        );
 
-      for (const reference of referencesForPrincipal) {
-        if (
-          !history.some((entry) =>
-            principalStateMatchesReference(reference, entry.state),
-          )
-        ) {
-          throw new PrincipalPolicyProjectionError(
-            "Principal policy state is stale",
-          );
+        for (const reference of referencesForPrincipal) {
+          if (
+            !history.some((entry) =>
+              principalStateMatchesReference(reference, entry.state),
+            )
+          ) {
+            throw new PrincipalPolicyProjectionError(
+              "Principal policy state is stale",
+            );
+          }
         }
-      }
 
-      policies.push(
-        await principalPolicyFromStored({
+        return principalPolicyFromStored({
           history,
-        }),
-      );
-    }
+        });
+      }),
+    );
+
+    policies.push(...resolvedPolicies);
   }
 
   return policies.sort((left, right) =>
