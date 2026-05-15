@@ -15,7 +15,12 @@ export interface ContactEntryPatch {
   isSelf?: boolean | undefined;
 }
 
-export function isTearleadsContact(entry: ContactEntry): boolean {
+export function isTearleadsContact(
+  entry: ContactEntry,
+): entry is ContactEntry & {
+  encapsulationPublicKey: string;
+  userId: string;
+} {
   return (
     typeof entry.userId === "string" &&
     entry.userId.length > 0 &&

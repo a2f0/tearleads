@@ -6,7 +6,10 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
-import type { ContactEntry } from "../../data/contacts/addressBookEntry";
+import {
+  type ContactEntry,
+  isTearleadsContact,
+} from "../../data/contacts/addressBookEntry";
 import {
   type ContactDocument,
   getContactEntryValue,
@@ -229,7 +232,10 @@ async function resolveContactWriterPublicKeys(
     [author.signerKeyFingerprint, signingKeyPair.signingPublicKey],
   ]);
 
-  if (!contactEntry.userId || contactEntry.userId === runtime.userId) {
+  if (
+    !isTearleadsContact(contactEntry) ||
+    contactEntry.userId === runtime.userId
+  ) {
     return writerPublicKeysByFingerprint;
   }
 

@@ -2,10 +2,7 @@ export type {
   ContactEntry,
   ContactEntryPatch,
 } from "../../data/contacts/addressBookEntry";
-export {
-  getContactDisplayName,
-  isTearleadsContact,
-} from "../../data/contacts/addressBookEntry";
+export { getContactDisplayName } from "../../data/contacts/addressBookEntry";
 export { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "./constants";
 export {
   type ContactsPersistence,

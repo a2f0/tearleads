@@ -29,10 +29,7 @@ const CONTACTS_PEER_SEED_SCOPE = "contacts";
 type StoredContact = Awaited<
   ReturnType<ContactsPersistence["loadContacts"]>
 >[number];
-export type ContactLocalStateRuntime = Pick<
-  ContactDocumentSyncRuntime,
-  "execSql"
->;
+type ContactLocalStateRuntime = Pick<ContactDocumentSyncRuntime, "execSql">;
 
 function resolveContactsAddressBookId(addressBookId?: string | null) {
   return addressBookId ?? DEFAULT_CONTACTS_ADDRESS_BOOK_ID;
