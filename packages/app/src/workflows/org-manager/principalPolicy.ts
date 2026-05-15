@@ -69,6 +69,29 @@ interface OrgManagerPrincipalPolicyApi {
   ) => Promise<unknown>;
 }
 
+export async function importOrgManagerUserRecipient(input: {
+  readonly apiClient: Pick<OrgManagerPrincipalPolicyApi, "getEncapsulationKey">;
+  readonly userId: string;
+}): Promise<OrgManagerUserRecipient | null> {
+  const userId = input.userId.trim();
+  if (userId.length === 0) {
+    return null;
+  }
+
+  const response = await input.apiClient.getEncapsulationKey(userId);
+  if (!response) {
+    return null;
+  }
+
+  return {
+    userId: response.userId,
+    encapsulationPublicKey: response.encapsulationPublicKey,
+    encapsulationKeyFingerprint: await toFingerprint(
+      base64ToBytes(response.encapsulationPublicKey),
+    ),
+  };
+}
+
 interface BuildInitialGroupPolicyInput {
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly groupId: string;
@@ -296,6 +319,18 @@ function requireSignerCanManageGroup(
   if (signerMember?.role !== "admin") {
     throw new Error("Group admin membership is required");
   }
+}
+
+function isDirectGroupAdmin(
+  currentPolicy: PrincipalPolicyBundleResponse,
+  signerUserId: string,
+): boolean {
+  return currentPolicy.currentProjection.some(
+    (member) =>
+      member.memberPrincipalType === "user" &&
+      member.memberPrincipalId === signerUserId &&
+      member.role === "admin",
+  );
 }
 
 function ensureNoNestedGroupMembers(
@@ -727,15 +762,9 @@ export async function buildAddGroupUserPolicyRequest(
     userProjectionMember(input.targetUser.userId, "member"),
   ];
 
-  if (input.canAdministerOrganization) {
-    return buildOrgAdminAddGroupUserPolicyRequest(input, projection);
-  }
-
-  return buildDirectAdminAddGroupUserPolicyRequest(
-    input,
-    projection,
-    targetKey,
-  );
+  return isDirectGroupAdmin(input.currentPolicy, input.signerUserId)
+    ? buildDirectAdminAddGroupUserPolicyRequest(input, projection, targetKey)
+    : buildOrgAdminAddGroupUserPolicyRequest(input, projection);
 }
 
 export async function buildRemoveGroupUserPolicyRequest(

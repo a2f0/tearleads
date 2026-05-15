@@ -411,13 +411,19 @@ async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promise<{
 function referencedPrincipalStateFromBundle(
   bundle: PrincipalPolicyBundleResponse,
 ): ReferencedPrincipalStateResponse {
+  return referencedPrincipalStateFromPolicyState(bundle.currentState);
+}
+
+function referencedPrincipalStateFromPolicyState(
+  state: PrincipalPolicyBundleResponse["currentState"],
+): ReferencedPrincipalStateResponse {
   return {
-    principalType: bundle.currentState.principalType,
-    principalId: bundle.currentState.principalId,
-    version: bundle.currentState.version,
-    keyEpoch: bundle.currentState.keyEpoch,
-    stateHash: bundle.currentState.stateHash,
-    keyFingerprint: bundle.currentState.keyFingerprint,
+    principalType: state.principalType,
+    principalId: state.principalId,
+    version: state.version,
+    keyEpoch: state.keyEpoch,
+    stateHash: state.stateHash,
+    keyFingerprint: state.keyFingerprint,
   };
 }
 
@@ -479,6 +485,37 @@ test("principal policy sync verifies successor state from the fetched chain when
       getEncapsulationKey: async () => signerKeyResponse,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromBundle(bundle)],
+    });
+
+    expect(logs).toEqual([]);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(bundle);
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync caches current state when the reference points at a historical head", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
+
+  try {
+    const { bundle, signerKeyResponse } =
+      await createSuccessorPrincipalPolicyBundle();
+    const previousState = bundle.previousStates[0]?.state;
+    if (!previousState) {
+      throw new Error("expected previous principal policy state");
+    }
+    const logs: string[] = [];
+
+    await cacheReferencedPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => bundle,
+      getEncapsulationKey: async () => signerKeyResponse,
+      log: (message) => logs.push(message),
+      references: [referencedPrincipalStateFromPolicyState(previousState)],
     });
 
     expect(logs).toEqual([]);

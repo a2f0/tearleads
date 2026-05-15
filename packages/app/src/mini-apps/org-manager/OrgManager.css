@@ -85,7 +85,7 @@
 }
 
 .org-manager-create-group input,
-.org-manager-add-user select {
+.org-manager-add-user input {
   min-width: 0;
   min-height: 2rem;
   border: 1px solid currentColor;

@@ -15,6 +15,7 @@ import {
   buildInitialGroupPolicyRequest,
   buildRemoveGroupUserPolicyRequest,
   createOrgManagerGroup,
+  importOrgManagerUserRecipient,
 } from "./principalPolicy";
 
 function policySignerPublicKeys(input: {
@@ -98,6 +99,34 @@ test("buildInitialGroupPolicyRequest creates an admin-only initial group policy"
   expect(request.initialGroupPolicy.memberEnvelopes[0]?.memberPrincipalId).toBe(
     userId,
   );
+});
+
+test("importOrgManagerUserRecipient loads a user key by id", async () => {
+  const userId = crypto.randomUUID();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const encapsulationPublicKey = bytesToBase64(encapsulationKeyPair.publicKey);
+  const recipient = await importOrgManagerUserRecipient({
+    apiClient: {
+      getEncapsulationKey: async (requestedUserId) =>
+        requestedUserId === userId
+          ? {
+              userId,
+              signingPublicKey: "signing-public-key",
+              signingKeyFingerprint: "0".repeat(64),
+              encapsulationPublicKey,
+            }
+          : null,
+    },
+    userId: ` ${userId} `,
+  });
+
+  expect(recipient).toEqual({
+    userId,
+    encapsulationPublicKey,
+    encapsulationKeyFingerprint: await toFingerprint(
+      encapsulationKeyPair.publicKey,
+    ),
+  });
 });
 
 test("createOrgManagerGroup caches the created group policy in a fresh local database", async () => {
@@ -196,7 +225,7 @@ test("group add and remove policy builders preserve additive epochs and rotate s
   });
 
   const addRequest = await buildAddGroupUserPolicyRequest({
-    canAdministerOrganization: false,
+    canAdministerOrganization: true,
     currentPolicy: initialPolicy,
     currentPolicySignerPublicKeys,
     currentUsers: [],

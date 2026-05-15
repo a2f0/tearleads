@@ -63,3 +63,39 @@ test("principal policy cache keys distinguish missing referenced policies", () =
     }),
   ).toBe("missing:group:group-1:1:1:state-hash:key-fingerprint");
 });
+
+test("principal policy cache keys match historical referenced policy heads", () => {
+  const reference = createManifestReference({
+    stateHash: "state-hash-1",
+  });
+  const manifest = {
+    state: {
+      referencedPrincipalHeads: [reference],
+    },
+  } as VerifiedContainerAccessManifest;
+
+  expect(
+    principalPolicyCacheKey({
+      manifest,
+      principalPolicies: [
+        createPolicy({
+          version: 2,
+          stateHash: "state-hash-2",
+          history: [
+            {
+              state: {
+                principalType: "group",
+                principalId: "group-1",
+                version: 1,
+                keyEpoch: 1,
+                stateHash: "state-hash-1",
+                keyFingerprint: "key-fingerprint",
+              } as VerifiedPrincipalPolicy["state"],
+              projection: [],
+            },
+          ],
+        }),
+      ],
+    }),
+  ).toBe("group:group-1:1:1:state-hash-1:key-fingerprint");
+});

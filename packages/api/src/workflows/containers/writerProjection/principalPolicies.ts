@@ -23,7 +23,7 @@ export function principalPolicyReferenceCacheKey(
   ].join(":");
 }
 
-export function verifiedPrincipalPolicyReferenceCacheKey(
+function verifiedPrincipalPolicyReferenceCacheKey(
   policy: VerifiedPrincipalPolicy,
 ): string {
   return [
@@ -36,12 +36,41 @@ export function verifiedPrincipalPolicyReferenceCacheKey(
   ].join(":");
 }
 
+function verifiedPrincipalPolicyStateReferenceCacheKey(
+  state: VerifiedPrincipalPolicy["state"],
+): string {
+  return [
+    state.principalType,
+    state.principalId,
+    state.version,
+    state.keyEpoch,
+    state.stateHash,
+    state.keyFingerprint,
+  ].join(":");
+}
+
+export function verifiedPrincipalPolicyReferenceCacheKeys(
+  policy: VerifiedPrincipalPolicy,
+): string[] {
+  const referenceKeys = new Set([
+    verifiedPrincipalPolicyReferenceCacheKey(policy),
+  ]);
+
+  for (const entry of policy.history ?? []) {
+    referenceKeys.add(
+      verifiedPrincipalPolicyStateReferenceCacheKey(entry.state),
+    );
+  }
+
+  return [...referenceKeys].sort();
+}
+
 export function principalPolicyCacheKey(input: {
   readonly manifest: VerifiedContainerAccessManifest;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }): string {
   const policyKeys = new Set(
-    input.principalPolicies.map(verifiedPrincipalPolicyReferenceCacheKey),
+    input.principalPolicies.flatMap(verifiedPrincipalPolicyReferenceCacheKeys),
   );
 
   return input.manifest.state.referencedPrincipalHeads

@@ -718,13 +718,25 @@ export function principalPolicyMatchesReference(input: {
   readonly policy: VerifiedPrincipalPolicy;
   readonly reference: ReferencedPrincipalHead;
 }): boolean {
-  return (
+  const policyHeadMatches =
     input.policy.principalType === input.reference.principalType &&
     input.policy.principalId === input.reference.principalId &&
     input.policy.version === input.reference.version &&
     input.policy.keyEpoch === input.reference.keyEpoch &&
     input.policy.stateHash === input.reference.stateHash &&
-    input.policy.state.keyFingerprint === input.reference.keyFingerprint
+    input.policy.state.keyFingerprint === input.reference.keyFingerprint;
+
+  return (
+    policyHeadMatches ||
+    input.policy.history?.some(
+      (entry) =>
+        entry.state.principalType === input.reference.principalType &&
+        entry.state.principalId === input.reference.principalId &&
+        entry.state.version === input.reference.version &&
+        entry.state.keyEpoch === input.reference.keyEpoch &&
+        entry.state.stateHash === input.reference.stateHash &&
+        entry.state.keyFingerprint === input.reference.keyFingerprint,
+    ) === true
   );
 }
 

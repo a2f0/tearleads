@@ -1,6 +1,7 @@
 import type {
   DocumentLinkSetManifestState,
   ReferencedPrincipalHead,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
@@ -93,6 +94,19 @@ function toReferencedPrincipalStateResponse(
   };
 }
 
+function principalPolicyToReferencedPrincipalStateResponse(
+  policy: VerifiedPrincipalPolicy,
+): ReferencedPrincipalStateResponse {
+  return {
+    principalType: policy.principalType,
+    principalId: policy.principalId,
+    version: policy.version,
+    keyEpoch: policy.keyEpoch,
+    stateHash: policy.stateHash,
+    keyFingerprint: policy.state.keyFingerprint,
+  };
+}
+
 export function collectReferencedPrincipalsFromContainerAccess(
   accessPaths: readonly ContainerAccessProjection[],
 ): ReferencedPrincipalStateResponse[] {
@@ -102,6 +116,19 @@ export function collectReferencedPrincipalsFromContainerAccess(
   >();
 
   for (const accessPath of accessPaths) {
+    for (const policy of accessPath.principalPolicies) {
+      const principal =
+        principalPolicyToReferencedPrincipalStateResponse(policy);
+      referencedPrincipalsByKey.set(
+        referencedPrincipalKey(principal),
+        principal,
+      );
+    }
+
+    if (accessPath.principalPolicies.length > 0) {
+      continue;
+    }
+
     for (const manifest of accessPath.verifiedPath) {
       for (const reference of manifest.state.referencedPrincipalHeads) {
         const principal = toReferencedPrincipalStateResponse(reference);

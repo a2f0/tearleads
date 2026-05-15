@@ -58,53 +58,58 @@ function getBundleReferenceMismatchReason(
   reference: ReferencedPrincipalStateResponse,
   bundle: PrincipalPolicyBundleResponse,
 ): string | null {
-  if (
-    bundle.currentState.principalType !== reference.principalType ||
-    bundle.currentState.principalId !== reference.principalId
-  ) {
+  const states = principalPolicyStates(bundle);
+  const hasReferencedPrincipal = states.some(
+    (state) =>
+      state.principalType === reference.principalType &&
+      state.principalId === reference.principalId,
+  );
+  if (!hasReferencedPrincipal) {
     return "bundle principal does not match referenced principal";
   }
 
-  if (bundle.currentState.version !== reference.version) {
-    return "bundle version does not match referenced principal";
-  }
-
-  if (bundle.currentState.keyEpoch !== reference.keyEpoch) {
-    return "bundle key epoch does not match referenced principal";
-  }
-
-  if (bundle.currentState.stateHash !== reference.stateHash) {
-    return "bundle state hash does not match referenced principal";
-  }
-
-  if (bundle.currentState.keyFingerprint !== reference.keyFingerprint) {
-    return "bundle key fingerprint does not match referenced principal";
+  if (
+    !states.some(
+      (state) =>
+        state.principalType === reference.principalType &&
+        state.principalId === reference.principalId &&
+        state.version === reference.version &&
+        state.keyEpoch === reference.keyEpoch &&
+        state.stateHash === reference.stateHash &&
+        state.keyFingerprint === reference.keyFingerprint,
+    )
+  ) {
+    return "bundle chain does not contain referenced principal";
   }
 
   if (
-    bundle.currentMemberEnvelopes.principalType !== reference.principalType ||
-    bundle.currentMemberEnvelopes.principalId !== reference.principalId
+    bundle.currentMemberEnvelopes.principalType !==
+      bundle.currentState.principalType ||
+    bundle.currentMemberEnvelopes.principalId !==
+      bundle.currentState.principalId
   ) {
-    return "member envelope principal does not match referenced principal";
-  }
-
-  if (bundle.currentMemberEnvelopes.stateHash !== reference.stateHash) {
-    return "member envelope state hash does not match referenced principal";
-  }
-
-  if (bundle.currentMemberEnvelopes.epoch !== reference.keyEpoch) {
-    return "member envelope epoch does not match referenced principal";
+    return "member envelope principal does not match current principal";
   }
 
   if (
-    bundle.currentPayload.principalType !== reference.principalType ||
-    bundle.currentPayload.principalId !== reference.principalId
+    bundle.currentMemberEnvelopes.stateHash !== bundle.currentState.stateHash
   ) {
-    return "payload principal does not match referenced principal";
+    return "member envelope state hash does not match current principal";
   }
 
-  if (bundle.currentPayload.stateHash !== reference.stateHash) {
-    return "payload state hash does not match referenced principal";
+  if (bundle.currentMemberEnvelopes.epoch !== bundle.currentState.keyEpoch) {
+    return "member envelope epoch does not match current principal";
+  }
+
+  if (
+    bundle.currentPayload.principalType !== bundle.currentState.principalType ||
+    bundle.currentPayload.principalId !== bundle.currentState.principalId
+  ) {
+    return "payload principal does not match current principal";
+  }
+
+  if (bundle.currentPayload.stateHash !== bundle.currentState.stateHash) {
+    return "payload state hash does not match current principal";
   }
 
   return null;

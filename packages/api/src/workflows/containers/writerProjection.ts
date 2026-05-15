@@ -15,7 +15,7 @@ import { createContainerWriterProjectionContext } from "./writerProjection/conte
 import { loadContainerKekState } from "./writerProjection/kek";
 import {
   loadPrincipalPoliciesForAccessPaths,
-  verifiedPrincipalPolicyReferenceCacheKey,
+  verifiedPrincipalPolicyReferenceCacheKeys,
 } from "./writerProjection/principalPolicies";
 import { containerKekResponse } from "./writerProjection/records";
 import {
@@ -145,10 +145,11 @@ export async function resolveContainerAccessProjectionBatch(input: {
         ),
       );
       sharedPrincipalPoliciesByReference = new Map(
-        sharedPrincipalPolicies.map((policy) => [
-          verifiedPrincipalPolicyReferenceCacheKey(policy),
-          policy,
-        ]),
+        sharedPrincipalPolicies.flatMap((policy) =>
+          verifiedPrincipalPolicyReferenceCacheKeys(policy).map(
+            (referenceKey) => [referenceKey, policy] as const,
+          ),
+        ),
       );
     } catch (error) {
       const projectionError = asContainerWriterProjectionError(error);

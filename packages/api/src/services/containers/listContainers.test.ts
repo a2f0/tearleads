@@ -223,7 +223,7 @@ async function storeContainerWithDirectUserGrant(input: {
   });
 }
 
-test("listContainers filters managed grants through the manifest-referenced policy head", async () => {
+test("listContainers admits users added by current managed grants when they extend the referenced policy head", async () => {
   const owner = createTestUser();
   const member = createTestUser();
   owner.userId = crypto.randomUUID();
@@ -266,7 +266,7 @@ test("listContainers filters managed grants through the manifest-referenced poli
     signerUserId: owner.userId,
     version: 1,
   });
-  await storeGroupPolicy({
+  const currentGroupPolicy = await storeGroupPolicy({
     groupId,
     keyEpoch: 2,
     members: [{ principalType: "user", principalId: member.userId }],
@@ -291,12 +291,14 @@ test("listContainers filters managed grants through the manifest-referenced poli
     member.userId,
   );
 
-  expect(listed.items.map((container) => container.id)).not.toContain(
-    containerId,
-  );
+  expect(listed.items.map((container) => container.id)).toContain(containerId);
+  expect(
+    listed.items.find((container) => container.id === containerId)
+      ?.metadataReferencedPrincipals,
+  ).toEqual([principalReference(currentGroupPolicy)]);
 });
 
-test("listContainers keeps valid containers when a sibling candidate has a stale managed grant", async () => {
+test("listContainers keeps valid containers when a sibling candidate uses a historical managed grant", async () => {
   const owner = createTestUser();
   const member = createTestUser();
   owner.userId = crypto.randomUUID();
@@ -385,5 +387,5 @@ test("listContainers keeps valid containers when a sibling candidate has a stale
   const listedContainerIds = listed.items.map((container) => container.id);
 
   expect(listedContainerIds).toContain(readableContainerId);
-  expect(listedContainerIds).not.toContain(staleContainerId);
+  expect(listedContainerIds).toContain(staleContainerId);
 });

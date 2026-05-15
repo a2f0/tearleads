@@ -176,8 +176,9 @@ test("verifyPrincipalPolicyBundle accepts additive membership without key epoch 
     signer,
   });
 
+  const bundle = createBundle({ current: second, previous: [first.entry] });
   const result = await verifyPrincipalPolicyBundle({
-    bundle: createBundle({ current: second, previous: [first.entry] }),
+    bundle,
     expectedReference: {
       principalType: "group",
       principalId,
@@ -203,6 +204,36 @@ test("verifyPrincipalPolicyBundle accepts additive membership without key epoch 
       version: 2,
       stateHash: second.state.stateHash,
     });
+  }
+
+  const previousReferenceResult = await verifyPrincipalPolicyBundle({
+    bundle,
+    expectedReference: {
+      principalType: "group",
+      principalId,
+      version: first.state.version,
+      keyEpoch: first.state.keyEpoch,
+      stateHash: first.state.stateHash,
+      keyFingerprint: first.state.keyFingerprint,
+    },
+    localCheckpoint: {
+      principalType: "group",
+      principalId,
+      version: 1,
+      stateHash: first.state.stateHash,
+    },
+    signerPublicKeys: [signer],
+  });
+
+  expect(previousReferenceResult.ok).toBe(true);
+  if (previousReferenceResult.ok) {
+    expect(previousReferenceResult.value.version).toBe(2);
+    expect(previousReferenceResult.value.history).toHaveLength(2);
+    expect(
+      previousReferenceResult.value.projection.some(
+        (member) => member.memberPrincipalId === "user-bob",
+      ),
+    ).toBe(true);
   }
 });
 
