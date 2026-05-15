@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
-import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
+import type { ContactEntry } from "../../data/contacts/addressBookEntry";
 import {
   getContactEntryValue,
   setContactEntryValue,
@@ -11,20 +11,17 @@ import type { ContactsPersistence } from "../../data/persistence/contacts/contac
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "./constants";
-import {
-  loadContactDocumentStates,
-  persistImportedContactEntry,
-} from "./localState";
+import { loadContactDocumentStates, persistContactEntry } from "./localState";
 import type { ContactDocumentState } from "./sync";
 
 const execSql: ExecSql = async () => [];
 
 function createInitialRecord(input: {
+  contactId: string;
   initialUpdate: Uint8Array;
-  userId: string;
 }): DocumentRecord {
   return {
-    id: input.userId,
+    id: input.contactId,
     documentId: null,
     loroSnapshot: bytesToBase64(input.initialUpdate),
     accessEpoch: 1,
@@ -57,13 +54,16 @@ function createFailingContactsPersistence(): ContactsPersistence {
   };
 }
 
-test("persistImportedContactEntry leaves existing state unchanged when persistence fails", async () => {
-  const originalEntry: AddressBookEntry = {
+test("persistContactEntry leaves existing state unchanged when persistence fails", async () => {
+  const originalEntry: ContactEntry = {
     encapsulationPublicKey: "peer-key-1",
+    firstName: "",
+    id: "peer-user-1",
     isSelf: false,
+    lastName: "",
     userId: "peer-user-1",
   };
-  const nextEntry: AddressBookEntry = {
+  const nextEntry: ContactEntry = {
     ...originalEntry,
     encapsulationPublicKey: "peer-key-2",
   };
@@ -74,13 +74,13 @@ test("persistImportedContactEntry leaves existing state unchanged when persisten
     doc,
     entry: originalEntry,
     record: createInitialRecord({
+      contactId: originalEntry.id,
       initialUpdate,
-      userId: originalEntry.userId,
     }),
   };
 
   await expect(
-    persistImportedContactEntry({
+    persistContactEntry({
       addressBookId: "default",
       entry: nextEntry,
       execSql,
@@ -91,7 +91,11 @@ test("persistImportedContactEntry leaves existing state unchanged when persisten
 
   expect(existingContact.entry).toEqual(originalEntry);
   expect(
-    getContactEntryValue(originalEntry.userId, existingContact.doc, false),
+    getContactEntryValue(
+      originalEntry.id,
+      existingContact.doc,
+      originalEntry.isSelf,
+    ),
   ).toEqual(originalEntry);
   expect(existingContact.record.loroSnapshot).toBe(
     bytesToBase64(initialUpdate),

@@ -56,10 +56,12 @@ export function useContacts(): ContactsContextValue {
 
   return useMemo(
     () => ({
+      createContact: store.createContact,
       entries: snapshot.entries,
       importKey: store.importKey,
       ready: snapshot.ready,
-      removeKey: store.removeKey,
+      removeContact: store.removeContact,
+      updateContact: store.updateContact,
     }),
     [snapshot, store],
   );

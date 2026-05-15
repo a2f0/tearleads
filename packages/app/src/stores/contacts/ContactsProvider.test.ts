@@ -31,17 +31,16 @@ import type {
   DocumentRecord,
   PendingUpdateRecord,
 } from "../../data/sqlite/documentPersistence";
-import { createContactsWorkflowRuntime } from "../../workflows/contacts";
+import {
+  type ContactEntry,
+  createContactsWorkflowRuntime,
+} from "../../workflows/contacts";
 import { type ContactsRuntime, createContactsStore } from "./ContactsProvider";
 
 type ContactsRuntimeInput = Parameters<typeof createContactsWorkflowRuntime>[0];
 
 interface StoredContactState {
-  entry: {
-    encapsulationPublicKey: string;
-    isSelf: boolean;
-    userId: string;
-  };
+  entry: ContactEntry;
   record: DocumentRecord | null;
 }
 
@@ -282,33 +281,33 @@ function sortContacts(
   contacts: Iterable<StoredContactState>,
 ): StoredContactState[] {
   return [...contacts].sort((left, right) =>
-    left.entry.userId.localeCompare(right.entry.userId),
+    left.entry.id.localeCompare(right.entry.id),
   );
 }
 
 function createContactsPersistence(): ContactsPersistence & {
-  getContact: (userId: string) => StoredContactState | null;
-  getPendingUpdates: (userId: string) => PendingUpdateRecord[];
+  getContact: (contactId: string) => StoredContactState | null;
+  getPendingUpdates: (contactId: string) => PendingUpdateRecord[];
   getState: () => {
     contacts: StoredContactState[];
     pendingUpdates: PendingUpdateRecord[];
   };
 } {
   const contacts = new Map<string, StoredContactState>();
-  const pendingUpdatesByUserId = new Map<string, PendingUpdateRecord[]>();
+  const pendingUpdatesByContactId = new Map<string, PendingUpdateRecord[]>();
 
   const saveContact = (
     nextRecord: DocumentRecord,
     entry: StoredContactState["entry"],
   ) => {
-    contacts.set(entry.userId, {
+    contacts.set(entry.id, {
       entry: { ...entry },
       record: nextRecord,
     });
   };
 
   const deletePendingUpdateIds = (ids: ReadonlySet<string>) => {
-    for (const [userId, pendingUpdates] of pendingUpdatesByUserId) {
+    for (const [contactId, pendingUpdates] of pendingUpdatesByContactId) {
       const nextPendingUpdates = pendingUpdates.filter(
         (pendingUpdate) => !ids.has(pendingUpdate.id),
       );
@@ -317,25 +316,25 @@ function createContactsPersistence(): ContactsPersistence & {
       }
 
       if (nextPendingUpdates.length === 0) {
-        pendingUpdatesByUserId.delete(userId);
+        pendingUpdatesByContactId.delete(contactId);
       } else {
-        pendingUpdatesByUserId.set(userId, nextPendingUpdates);
+        pendingUpdatesByContactId.set(contactId, nextPendingUpdates);
       }
     }
   };
 
   return {
     async ensureSchema() {},
-    getContact(userId) {
-      return contacts.get(userId) ?? null;
+    getContact(contactId) {
+      return contacts.get(contactId) ?? null;
     },
-    getPendingUpdates(userId) {
-      return [...(pendingUpdatesByUserId.get(userId) ?? [])];
+    getPendingUpdates(contactId) {
+      return [...(pendingUpdatesByContactId.get(contactId) ?? [])];
     },
     getState() {
       return {
         contacts: sortContacts(contacts.values()),
-        pendingUpdates: Array.from(pendingUpdatesByUserId.values()).flat(),
+        pendingUpdates: Array.from(pendingUpdatesByContactId.values()).flat(),
       };
     },
     async loadContacts() {
@@ -357,12 +356,12 @@ function createContactsPersistence(): ContactsPersistence & {
       deletePendingUpdateIds(new Set(pendingUpdateIds));
       saveContact(nextRecord, entry);
     },
-    async deleteContact(_execSql, _addressBookId, userId) {
-      contacts.delete(userId);
-      pendingUpdatesByUserId.delete(userId);
+    async deleteContact(_execSql, _addressBookId, contactId) {
+      contacts.delete(contactId);
+      pendingUpdatesByContactId.delete(contactId);
     },
-    async listPendingUpdates(_execSql, userId) {
-      return [...(pendingUpdatesByUserId.get(userId) ?? [])];
+    async listPendingUpdates(_execSql, contactId) {
+      return [...(pendingUpdatesByContactId.get(contactId) ?? [])];
     },
     async enqueuePendingUpdate(
       _execSql,
@@ -376,13 +375,13 @@ function createContactsPersistence(): ContactsPersistence & {
         updateData: pendingUpdate.updateData,
       };
 
-      pendingUpdatesByUserId.set(pendingUpdate.userId, [
-        ...(pendingUpdatesByUserId.get(pendingUpdate.userId) ?? []),
+      pendingUpdatesByContactId.set(pendingUpdate.contactId, [
+        ...(pendingUpdatesByContactId.get(pendingUpdate.contactId) ?? []),
         nextPendingUpdate,
       ]);
     },
-    async deletePendingUpdates(_execSql, userId) {
-      pendingUpdatesByUserId.delete(userId);
+    async deletePendingUpdates(_execSql, contactId) {
+      pendingUpdatesByContactId.delete(contactId);
     },
   };
 }
@@ -472,7 +471,10 @@ test("contacts store reloads persisted address book entries", async () => {
     entries: [
       {
         encapsulationPublicKey: "peer-user-1-key",
+        firstName: "",
+        id: "peer-user-1",
         isSelf: false,
+        lastName: "",
         userId: "peer-user-1",
       },
     ],
@@ -493,14 +495,17 @@ test("contacts store reloads persisted address book entries", async () => {
     entries: [
       {
         encapsulationPublicKey: "peer-user-1-key",
+        firstName: "",
+        id: "peer-user-1",
         isSelf: false,
+        lastName: "",
         userId: "peer-user-1",
       },
     ],
     ready: true,
   });
 
-  await secondStore.removeKey("peer-user-1");
+  await secondStore.removeContact("peer-user-1");
 
   expect(persistence.getState()).toEqual({
     contacts: [],
@@ -519,6 +524,51 @@ test("contacts store reloads persisted address book entries", async () => {
     entries: [],
     ready: true,
   });
+});
+
+test("contacts store creates and updates ordinary contacts", async () => {
+  const persistence = createContactsPersistence();
+  const runtime = createRuntime();
+  const store = createContactsStore(runtime, persistence);
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Contacts store did not become ready.",
+  );
+
+  const contactId = await store.createContact({
+    firstName: "Ada",
+    lastName: "Lovelace",
+  });
+
+  expect(contactId).toBeString();
+  expect(store.getSnapshot()).toEqual({
+    entries: [
+      {
+        encapsulationPublicKey: null,
+        firstName: "Ada",
+        id: contactId,
+        isSelf: false,
+        lastName: "Lovelace",
+        userId: null,
+      },
+    ],
+    ready: true,
+  });
+  expect(persistence.getContact(contactId ?? "")?.record).not.toBeNull();
+  expect(persistence.getPendingUpdates(contactId ?? "")).toHaveLength(1);
+
+  await store.updateContact(contactId ?? "", { lastName: "Byron" });
+
+  expect(store.getSnapshot().entries[0]).toMatchObject({
+    firstName: "Ada",
+    id: contactId,
+    lastName: "Byron",
+    userId: null,
+  });
+  expect(persistence.getPendingUpdates(contactId ?? "")).toHaveLength(2);
 });
 
 test("contacts store creates and syncs a contact document", async () => {

@@ -368,7 +368,7 @@ test("contacts windows in the same pane share live address book state", async ()
   fireEvent.click(firstImportButton);
 
   await waitFor(() => {
-    expect(view.getAllByText("peer")).toHaveLength(2);
+    expect(view.getAllByText("peer-user-1")).toHaveLength(2);
   });
 
   view.unmount();

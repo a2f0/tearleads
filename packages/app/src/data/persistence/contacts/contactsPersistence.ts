@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import type { AddressBookEntry } from "../../contacts/addressBookEntry";
+import type { ContactEntry } from "../../contacts/addressBookEntry";
 import {
   type AppSQLiteTransaction,
   getAppDatabaseRuntime,
@@ -30,11 +30,11 @@ import {
 } from "../../sqlite/sqlSchema";
 
 export interface ContactPendingUpdateInsert extends PendingUpdateFields {
-  userId: string;
+  contactId: string;
 }
 
 export interface StoredContact {
-  entry: AddressBookEntry;
+  entry: ContactEntry;
   record: DocumentRecord | null;
 }
 
@@ -48,37 +48,37 @@ export interface ContactsPersistence {
     execSql: ExecSql,
     addressBookId: string,
     record: DocumentRecord,
-    entry: AddressBookEntry,
+    entry: ContactEntry,
   ) => Promise<void>;
   saveContactAndDeletePendingUpdates: (
     execSql: ExecSql,
     addressBookId: string,
     record: DocumentRecord,
-    entry: AddressBookEntry,
+    entry: ContactEntry,
     pendingUpdateIds: readonly string[],
   ) => Promise<void>;
   deleteContact: (
     execSql: ExecSql,
     addressBookId: string,
-    userId: string,
+    contactId: string,
   ) => Promise<void>;
   listPendingUpdates: (
     execSql: ExecSql,
-    userId: string,
+    contactId: string,
   ) => Promise<PendingUpdateRecord[]>;
   enqueuePendingUpdate: (
     execSql: ExecSql,
     pendingUpdate: ContactPendingUpdateInsert,
   ) => Promise<void>;
-  deletePendingUpdates: (execSql: ExecSql, userId: string) => Promise<void>;
+  deletePendingUpdates: (execSql: ExecSql, contactId: string) => Promise<void>;
 }
 
 const CONTACTS_APP_KIND = "contacts";
 
-function getContactScope(userId: string): DocumentScope {
+function getContactScope(contactId: string): DocumentScope {
   return {
     appKind: CONTACTS_APP_KIND,
-    localId: userId,
+    localId: contactId,
   };
 }
 
@@ -89,13 +89,19 @@ type NullableSelectedDocumentRecordRow = {
 };
 
 interface SelectedStoredContact extends NullableSelectedDocumentRecordRow {
-  userId: string;
-  encapsulationPublicKey: string;
+  contactId: string;
+  firstName: string;
+  lastName: string;
+  userId: string | null;
+  encapsulationPublicKey: string | null;
   isSelf: number;
 }
 
-function mapAddressBookEntry(row: SelectedStoredContact): AddressBookEntry {
+function mapContactEntry(row: SelectedStoredContact): ContactEntry {
   return {
+    id: row.contactId,
+    firstName: row.firstName,
+    lastName: row.lastName,
     userId: row.userId,
     encapsulationPublicKey: row.encapsulationPublicKey,
     isSelf: row.isSelf === 1,
@@ -119,7 +125,7 @@ function mapStoredContact(row: SelectedStoredContact): StoredContact {
         });
 
   return {
-    entry: mapAddressBookEntry(row),
+    entry: mapContactEntry(row),
     record,
   };
 }
@@ -128,12 +134,12 @@ async function saveContactRows(
   tx: AppSQLiteTransaction,
   addressBookId: string,
   record: DocumentRecord,
-  entry: AddressBookEntry,
+  entry: ContactEntry,
   updatedAt: string,
 ) {
   const documentRow = {
     appKind: CONTACTS_APP_KIND,
-    localId: entry.userId,
+    localId: entry.id,
     documentId: record.documentId,
     loroSnapshot: record.loroSnapshot,
     accessEpoch: record.accessEpoch,
@@ -155,6 +161,9 @@ async function saveContactRows(
 
   const projectionRow = {
     addressBookId,
+    contactId: entry.id,
+    firstName: entry.firstName,
+    lastName: entry.lastName,
     userId: entry.userId,
     encapsulationPublicKey: entry.encapsulationPublicKey,
     isSelf: entry.isSelf ? 1 : 0,
@@ -166,9 +175,12 @@ async function saveContactRows(
     .onConflictDoUpdate({
       target: [
         addressBookProjection.addressBookId,
-        addressBookProjection.userId,
+        addressBookProjection.contactId,
       ],
       set: {
+        firstName: projectionRow.firstName,
+        lastName: projectionRow.lastName,
+        userId: projectionRow.userId,
         encapsulationPublicKey: projectionRow.encapsulationPublicKey,
         isSelf: projectionRow.isSelf,
         updatedAt: projectionRow.updatedAt,
@@ -188,6 +200,9 @@ export const sqlContactsPersistence: ContactsPersistence = {
     const { db } = getAppDatabaseRuntime(execSql);
     const rows = await db
       .select({
+        contactId: addressBookProjection.contactId,
+        firstName: addressBookProjection.firstName,
+        lastName: addressBookProjection.lastName,
         userId: addressBookProjection.userId,
         encapsulationPublicKey: addressBookProjection.encapsulationPublicKey,
         isSelf: addressBookProjection.isSelf,
@@ -206,11 +221,16 @@ export const sqlContactsPersistence: ContactsPersistence = {
         documents,
         and(
           eq(documents.appKind, CONTACTS_APP_KIND),
-          eq(documents.localId, addressBookProjection.userId),
+          eq(documents.localId, addressBookProjection.contactId),
         ),
       )
       .where(eq(addressBookProjection.addressBookId, addressBookId))
-      .orderBy(asc(sql`${addressBookProjection.userId} COLLATE NOCASE`));
+      .orderBy(
+        asc(sql`${addressBookProjection.lastName} COLLATE NOCASE`),
+        asc(sql`${addressBookProjection.firstName} COLLATE NOCASE`),
+        asc(sql`${addressBookProjection.userId} COLLATE NOCASE`),
+        asc(sql`${addressBookProjection.contactId} COLLATE NOCASE`),
+      );
 
     return rows.map((row) => mapStoredContact(row));
   },
@@ -224,7 +244,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
           addressBookId,
           {
             ...record,
-            id: entry.userId,
+            id: entry.id,
           },
           entry,
           updatedAt,
@@ -240,7 +260,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
     pendingUpdateIds,
   ) {
     const updatedAt = new Date().toISOString();
-    const contactScope = getContactScope(entry.userId);
+    const contactScope = getContactScope(entry.id);
     const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
@@ -263,7 +283,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
           addressBookId,
           {
             ...record,
-            id: entry.userId,
+            id: entry.id,
           },
           entry,
           updatedAt,
@@ -271,7 +291,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
       });
     });
   },
-  async deleteContact(execSql, addressBookId, userId) {
+  async deleteContact(execSql, addressBookId, contactId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         await tx
@@ -279,35 +299,35 @@ export const sqlContactsPersistence: ContactsPersistence = {
           .where(
             and(
               eq(addressBookProjection.addressBookId, addressBookId),
-              eq(addressBookProjection.userId, userId),
+              eq(addressBookProjection.contactId, contactId),
             ),
           )
           .run();
-        await deleteDocumentRecord(lockedExecSql, getContactScope(userId));
+        await deleteDocumentRecord(lockedExecSql, getContactScope(contactId));
         await deleteDocumentPendingUpdates(
           lockedExecSql,
-          getContactScope(userId),
+          getContactScope(contactId),
         );
       });
     });
   },
-  async listPendingUpdates(execSql, userId) {
-    return listDocumentPendingUpdates(execSql, getContactScope(userId));
+  async listPendingUpdates(execSql, contactId) {
+    return listDocumentPendingUpdates(execSql, getContactScope(contactId));
   },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await enqueueDocumentPendingUpdate(
         lockedExecSql,
-        getContactScope(pendingUpdate.userId),
+        getContactScope(pendingUpdate.contactId),
         pendingUpdate,
       );
     });
   },
-  async deletePendingUpdates(execSql, userId) {
+  async deletePendingUpdates(execSql, contactId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await deleteDocumentPendingUpdates(
         lockedExecSql,
-        getContactScope(userId),
+        getContactScope(contactId),
       );
     });
   },

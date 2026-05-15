@@ -13,14 +13,23 @@ export function Contacts() {
   return (
     <div className="contacts">
       <ContactsDetailPanel
+        canCreate={model.canCreate}
         canImport={model.canImport}
+        createDraftContact={model.createDraftContact}
+        draftFirstName={model.draftFirstName}
+        draftLastName={model.draftLastName}
         draftUserId={model.draftUserId}
         entries={model.entries}
         importDraftContact={model.importDraftContact}
         isAuthenticated={model.isAuthenticated}
         ready={model.ready}
-        selectedUserId={model.selectedUserId}
+        selectedContactId={model.selectedContactId}
+        setDraftFirstName={model.setDraftFirstName}
+        setDraftLastName={model.setDraftLastName}
         setDraftUserId={model.setDraftUserId}
+        updateContact={(contactId, patch) => {
+          void model.updateContact(contactId, patch);
+        }}
       />
       <ContactsContextMenuLayer
         canRemoveContextMenuContact={

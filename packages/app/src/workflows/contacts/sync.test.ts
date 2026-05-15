@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
 import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
-import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
+import type { ContactEntry } from "../../data/contacts/addressBookEntry";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
@@ -16,10 +16,13 @@ import {
 const execSql: ExecSql = async () => [];
 const resolveProjectionUserKey: ProjectionUserKeyResolver = async () => null;
 
-function createContactEntry(userId: string): AddressBookEntry {
+function createContactEntry(userId: string): ContactEntry {
   return {
     encapsulationPublicKey: `${userId}-key`,
+    firstName: "",
+    id: userId,
     isSelf: false,
+    lastName: "",
     userId,
   };
 }
@@ -71,9 +74,9 @@ test("syncContactDocuments logs a contact failure and continues with remaining c
   const firstContact = await createContact("peer-user-1");
   const secondContact = await createContact("peer-user-2");
   const persistence = createNoopContactsPersistence(
-    async (_execSql, userId) => {
-      requestedContactIds.push(userId);
-      if (userId === firstContact.entry.userId) {
+    async (_execSql, contactId) => {
+      requestedContactIds.push(contactId);
+      if (contactId === firstContact.entry.id) {
         throw new Error("pending update read failed");
       }
 
@@ -106,8 +109,8 @@ test("syncContactDocuments logs a contact failure and continues with remaining c
     syncedContactCount: 0,
   });
   expect(requestedContactIds).toEqual([
-    firstContact.entry.userId,
-    secondContact.entry.userId,
+    firstContact.entry.id,
+    secondContact.entry.id,
   ]);
   expect(logMessages).toEqual([
     "Contacts (peer-user-1): sync failed: pending update read failed",

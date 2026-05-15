@@ -1,11 +1,13 @@
 import {
-  type AddressBookEntry,
   type ContactDocumentState,
+  type ContactEntry,
+  type ContactEntryPatch,
   type ContactProjectionUserKeyResolver,
   type ContactSyncLane,
   type ContactsPersistence,
   DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
   defaultContactsPersistence,
+  getContactDisplayName,
   hasContactDocumentUpdateEvent,
   isDestroyedContactSyncRuntimeError,
   registerContactSyncLane,
@@ -16,24 +18,96 @@ type ContactState = ContactDocumentState;
 
 const contactsStoresByScope = new WeakMap<object, ContactsStore>();
 
-function sortEntries(
-  entries: ReadonlyArray<AddressBookEntry>,
-): AddressBookEntry[] {
-  return [...entries].sort((left, right) =>
-    left.userId.localeCompare(right.userId),
-  );
+function sortEntries(entries: ReadonlyArray<ContactEntry>): ContactEntry[] {
+  return [...entries].sort((left, right) => {
+    const leftName = getContactDisplayName(left);
+    const rightName = getContactDisplayName(right);
+    return (
+      leftName.localeCompare(rightName) ||
+      (left.userId ?? "").localeCompare(right.userId ?? "") ||
+      left.id.localeCompare(right.id)
+    );
+  });
 }
 
 function getSnapshotEntries(
-  contactsByUserId: ReadonlyMap<string, ContactState>,
-): AddressBookEntry[] {
+  contactsById: ReadonlyMap<string, ContactState>,
+): ContactEntry[] {
   return sortEntries(
-    Array.from(contactsByUserId.values(), (contact) => contact.entry),
+    Array.from(contactsById.values(), (contact) => contact.entry),
+  );
+}
+
+function normalizeOptionalString(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function createContactEntryFromPatch(patch: ContactEntryPatch): ContactEntry {
+  return {
+    id: crypto.randomUUID(),
+    firstName: patch.firstName?.trim() ?? "",
+    lastName: patch.lastName?.trim() ?? "",
+    userId: normalizeOptionalString(patch.userId),
+    encapsulationPublicKey: normalizeOptionalString(
+      patch.encapsulationPublicKey,
+    ),
+    isSelf: patch.isSelf ?? false,
+  };
+}
+
+function patchContactEntry(
+  entry: ContactEntry,
+  patch: ContactEntryPatch,
+): ContactEntry {
+  return {
+    id: entry.id,
+    firstName:
+      patch.firstName === undefined ? entry.firstName : patch.firstName.trim(),
+    lastName:
+      patch.lastName === undefined ? entry.lastName : patch.lastName.trim(),
+    userId:
+      patch.userId === undefined
+        ? entry.userId
+        : normalizeOptionalString(patch.userId),
+    encapsulationPublicKey:
+      patch.encapsulationPublicKey === undefined
+        ? entry.encapsulationPublicKey
+        : normalizeOptionalString(patch.encapsulationPublicKey),
+    isSelf: patch.isSelf ?? entry.isSelf,
+  };
+}
+
+function findContactByUserId(
+  contactsById: ReadonlyMap<string, ContactState>,
+  userId: string | null,
+): ContactState | null {
+  if (!userId) {
+    return null;
+  }
+
+  for (const contact of contactsById.values()) {
+    if (contact.entry.userId === userId) {
+      return contact;
+    }
+  }
+
+  return null;
+}
+
+function sameContactEntry(left: ContactEntry, right: ContactEntry): boolean {
+  return (
+    left.id === right.id &&
+    left.firstName === right.firstName &&
+    left.lastName === right.lastName &&
+    left.userId === right.userId &&
+    left.encapsulationPublicKey === right.encapsulationPublicKey &&
+    left.isSelf === right.isSelf
   );
 }
 
 interface ContactsStoreState {
-  contactsByUserId: Map<string, ContactState>;
+  contactsById: Map<string, ContactState>;
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
@@ -51,7 +125,7 @@ function createContactsStoreState(
   persistence: ContactsPersistence,
 ): ContactsStoreState {
   return {
-    contactsByUserId: new Map(),
+    contactsById: new Map(),
     initializePromise: null,
     initialized: false,
     lastEventCount: 0,
@@ -83,11 +157,7 @@ function setContactsSnapshot(
     state.snapshot.entries.length === next.entries.length &&
     state.snapshot.entries.every((entry, index) => {
       const nextEntry = next.entries[index];
-      return (
-        nextEntry &&
-        entry.userId === nextEntry.userId &&
-        entry.encapsulationPublicKey === nextEntry.encapsulationPublicKey
-      );
+      return nextEntry && sameContactEntry(entry, nextEntry);
     })
   ) {
     return;
@@ -98,7 +168,7 @@ function setContactsSnapshot(
 }
 
 function resetContactsStore(state: ContactsStoreState) {
-  state.contactsByUserId = new Map();
+  state.contactsById = new Map();
   state.initialized = false;
   state.initializePromise = null;
   state.writeChain = Promise.resolve();
@@ -125,16 +195,16 @@ async function initializeContactsStore(
   });
 
   for (const storedContact of storedContacts) {
-    state.contactsByUserId.set(storedContact.entry.userId, storedContact);
+    state.contactsById.set(storedContact.entry.id, storedContact);
   }
 
   state.initialized = true;
   state.initializePromise = null;
   setContactsSnapshot(state, {
-    entries: getSnapshotEntries(state.contactsByUserId),
+    entries: getSnapshotEntries(state.contactsById),
     ready: true,
   });
-  if (state.contactsByUserId.size > 0) {
+  if (state.contactsById.size > 0) {
     scheduleSync();
   }
 }
@@ -175,14 +245,14 @@ async function waitForContactsInitialization(
 async function runContactsSyncIteration(state: ContactsStoreState) {
   const result = await state.runtime.syncDocuments({
     addressBookId: DEFAULT_CONTACTS_ADDRESS_BOOK_ID,
-    contacts: Array.from(state.contactsByUserId.values()),
+    contacts: Array.from(state.contactsById.values()),
     persistence: state.persistence,
     ready: state.snapshot.ready,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
   });
   if (result.syncedContactCount > 0) {
     setContactsSnapshot(state, {
-      entries: getSnapshotEntries(state.contactsByUserId),
+      entries: getSnapshotEntries(state.contactsById),
       ready: true,
     });
   }
@@ -202,9 +272,7 @@ function handleContactsRemoteEvents(
 ) {
   const nextEvents = state.runtime.events.slice(state.lastEventCount);
   state.lastEventCount = state.runtime.events.length;
-  if (
-    hasContactDocumentUpdateEvent(nextEvents, state.contactsByUserId.values())
-  ) {
+  if (hasContactDocumentUpdateEvent(nextEvents, state.contactsById.values())) {
     scheduleSync();
   }
 }
@@ -213,36 +281,44 @@ async function importKeyFromRuntime(
   state: ContactsStoreState,
   userId: string,
   scheduleSync: () => void,
-) {
+): Promise<string | null> {
   const entry = await state.runtime.fetchKeyEntry(userId);
   if (!entry) {
-    return;
+    return null;
   }
 
   await waitForContactsInitialization(state, scheduleSync);
   if (state.runtime.dbStatus !== "ready") {
-    return;
+    return null;
   }
 
+  let importedContactId: string | null = null;
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
-      const existingContact = state.contactsByUserId.get(entry.userId);
-      const imported = await state.runtime.persistKeyEntry({
-        entry,
+      const existingContact =
+        findContactByUserId(state.contactsById, entry.userId) ??
+        state.contactsById.get(entry.id);
+      const nextEntry = existingContact
+        ? patchContactEntry(existingContact.entry, {
+            encapsulationPublicKey: entry.encapsulationPublicKey,
+            isSelf: existingContact.entry.isSelf || entry.isSelf,
+            userId: entry.userId,
+          })
+        : entry;
+      const imported = await state.runtime.persistContactEntry({
+        entry: nextEntry,
         existingContact,
         persistence: state.persistence,
       });
+      importedContactId = imported.contact.entry.id;
       if (!imported.changed) {
         return;
       }
 
-      state.contactsByUserId.set(
-        imported.contact.entry.userId,
-        imported.contact,
-      );
+      state.contactsById.set(imported.contact.entry.id, imported.contact);
       setContactsSnapshot(state, {
-        entries: getSnapshotEntries(state.contactsByUserId),
+        entries: getSnapshotEntries(state.contactsById),
         ready: true,
       });
       scheduleSync();
@@ -251,11 +327,51 @@ async function importKeyFromRuntime(
       state.runtime.logError("Failed to persist contact", error);
     });
   await state.writeChain;
+  return importedContactId;
 }
 
-async function removeKeyFromRuntime(
+async function createContactFromRuntime(
   state: ContactsStoreState,
-  userId: string,
+  patch: ContactEntryPatch,
+  scheduleSync: () => void,
+): Promise<string | null> {
+  await waitForContactsInitialization(state, scheduleSync);
+  if (state.runtime.dbStatus !== "ready") {
+    return null;
+  }
+
+  const entry = createContactEntryFromPatch(patch);
+  let createdContactId: string | null = null;
+  state.writeChain = state.writeChain
+    .catch(() => undefined)
+    .then(async () => {
+      const persisted = await state.runtime.persistContactEntry({
+        entry,
+        persistence: state.persistence,
+      });
+      createdContactId = persisted.contact.entry.id;
+      if (!persisted.changed) {
+        return;
+      }
+
+      state.contactsById.set(persisted.contact.entry.id, persisted.contact);
+      setContactsSnapshot(state, {
+        entries: getSnapshotEntries(state.contactsById),
+        ready: true,
+      });
+      scheduleSync();
+    })
+    .catch((error: unknown) => {
+      state.runtime.logError("Failed to create contact", error);
+    });
+  await state.writeChain;
+  return createdContactId;
+}
+
+async function updateContactFromRuntime(
+  state: ContactsStoreState,
+  contactId: string,
+  patch: ContactEntryPatch,
   scheduleSync: () => void,
 ) {
   await waitForContactsInitialization(state, scheduleSync);
@@ -266,17 +382,58 @@ async function removeKeyFromRuntime(
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
-      if (!state.contactsByUserId.has(userId)) {
+      const existingContact = state.contactsById.get(contactId);
+      if (!existingContact) {
         return;
       }
 
-      state.contactsByUserId.delete(userId);
-      await state.runtime.removeKey({
+      const entry = patchContactEntry(existingContact.entry, patch);
+      const persisted = await state.runtime.persistContactEntry({
+        entry,
+        existingContact,
         persistence: state.persistence,
-        userId,
+      });
+      if (!persisted.changed) {
+        return;
+      }
+
+      state.contactsById.set(persisted.contact.entry.id, persisted.contact);
+      setContactsSnapshot(state, {
+        entries: getSnapshotEntries(state.contactsById),
+        ready: true,
+      });
+      scheduleSync();
+    })
+    .catch((error: unknown) => {
+      state.runtime.logError("Failed to update contact", error);
+    });
+  await state.writeChain;
+}
+
+async function removeContactFromRuntime(
+  state: ContactsStoreState,
+  contactId: string,
+  scheduleSync: () => void,
+) {
+  await waitForContactsInitialization(state, scheduleSync);
+  if (state.runtime.dbStatus !== "ready") {
+    return;
+  }
+
+  state.writeChain = state.writeChain
+    .catch(() => undefined)
+    .then(async () => {
+      if (!state.contactsById.has(contactId)) {
+        return;
+      }
+
+      state.contactsById.delete(contactId);
+      await state.runtime.removeContactEntry({
+        contactId,
+        persistence: state.persistence,
       });
       setContactsSnapshot(state, {
-        entries: getSnapshotEntries(state.contactsByUserId),
+        entries: getSnapshotEntries(state.contactsById),
         ready: true,
       });
     })
@@ -340,13 +497,17 @@ export function createContactsStore(
   const scheduleSync = () => scheduleContactsSync(state);
 
   return {
+    createContact: (patch: ContactEntryPatch) =>
+      createContactFromRuntime(state, patch, scheduleSync),
     getSnapshot: () => state.snapshot,
     importKey: (userId: string) =>
       importKeyFromRuntime(state, userId, scheduleSync),
-    removeKey: (userId: string) =>
-      removeKeyFromRuntime(state, userId, scheduleSync),
+    removeContact: (contactId: string) =>
+      removeContactFromRuntime(state, contactId, scheduleSync),
     subscribe: (listener: () => void) =>
       subscribeToContactsStore(state, listener),
+    updateContact: (contactId: string, patch: ContactEntryPatch) =>
+      updateContactFromRuntime(state, contactId, patch, scheduleSync),
     updateRuntime: (runtime: ContactsRuntime) =>
       updateContactsStoreRuntime(state, runtime, scheduleSync),
   };
