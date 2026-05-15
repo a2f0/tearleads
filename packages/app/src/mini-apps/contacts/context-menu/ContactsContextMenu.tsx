@@ -4,8 +4,8 @@ import { MenuItem } from "../../../components/shared/MenuItem";
 import type { ContactEntries } from "../types";
 
 export interface ContactsContextMenuState {
+  contactId: string;
   position: MenuPosition;
-  userId: string;
 }
 
 export interface ContactsContextMenuModel {
@@ -14,32 +14,33 @@ export interface ContactsContextMenuModel {
   contextMenu: ContactsContextMenuState | null;
   handleSidebarContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
-    userId: string,
+    contactId: string,
   ) => void;
   removeContextMenuContact: () => Promise<void>;
 }
 
 export function useContactsContextMenu(params: {
   entries: ContactEntries;
-  removeKey: (userId: string) => Promise<void>;
-  selectedUserId: string | null;
-  setSelectedUserId: (userId: string | null) => void;
+  removeContact: (contactId: string) => Promise<void>;
+  selectedContactId: string | null;
+  setSelectedContactId: (contactId: string | null) => void;
 }): ContactsContextMenuModel {
-  const { entries, removeKey, selectedUserId, setSelectedUserId } = params;
+  const { entries, removeContact, selectedContactId, setSelectedContactId } =
+    params;
   const [contextMenu, setContextMenu] =
     useState<ContactsContextMenuState | null>(null);
-  const entriesByUserId = useMemo(
-    () => new Map(entries.map((entry) => [entry.userId, entry])),
+  const entriesById = useMemo(
+    () => new Map(entries.map((entry) => [entry.id, entry])),
     [entries],
   );
 
   const handleSidebarContextMenu = useCallback(
-    (event: MouseEvent<HTMLButtonElement>, userId: string) => {
+    (event: MouseEvent<HTMLButtonElement>, contactId: string) => {
       event.preventDefault();
       event.stopPropagation();
       setContextMenu({
+        contactId,
         position: { x: event.clientX, y: event.clientY },
-        userId,
       });
     },
     [],
@@ -47,7 +48,7 @@ export function useContactsContextMenu(params: {
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const contextMenuEntry = contextMenu
-    ? entriesByUserId.get(contextMenu.userId)
+    ? entriesById.get(contextMenu.contactId)
     : undefined;
   const canRemoveContextMenuContact = !(contextMenuEntry?.isSelf ?? false);
 
@@ -56,18 +57,18 @@ export function useContactsContextMenu(params: {
       return;
     }
 
-    const { userId } = contextMenu;
+    const { contactId } = contextMenu;
     closeContextMenu();
-    if (selectedUserId === userId) {
-      setSelectedUserId(null);
+    if (selectedContactId === contactId) {
+      setSelectedContactId(null);
     }
-    await removeKey(userId);
+    await removeContact(contactId);
   }, [
     closeContextMenu,
     contextMenu,
-    removeKey,
-    selectedUserId,
-    setSelectedUserId,
+    removeContact,
+    selectedContactId,
+    setSelectedContactId,
   ]);
 
   return {

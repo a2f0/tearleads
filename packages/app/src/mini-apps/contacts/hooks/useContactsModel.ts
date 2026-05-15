@@ -16,34 +16,43 @@ import {
 import type { ContactEntries } from "../types";
 
 interface ContactsModel {
+  canCreate: boolean;
   canImport: boolean;
   contextMenuState: ContactsContextMenuModel;
+  createDraftContact: () => Promise<void>;
+  draftFirstName: string;
+  draftLastName: string;
   draftUserId: string;
   entries: ContactEntries;
   importDraftContact: () => Promise<void>;
   isAuthenticated: boolean;
   ready: boolean;
-  selectedUserId: string | null;
+  selectedContactId: string | null;
+  setDraftFirstName: (firstName: string) => void;
+  setDraftLastName: (lastName: string) => void;
   setDraftUserId: (userId: string) => void;
+  updateContact: ReturnType<typeof useContacts>["updateContact"];
 }
 
-export function useContactsModel(
-  setSidebar: (sidebar: ReactNode) => void,
-  peerUserId: string | null,
-): ContactsModel {
-  const { entries, importKey, ready, removeKey } = useContacts();
-  const { isAuthenticated, userId: sessionUserId } = useCryptoSession();
-  const { logError } = useLog();
-  const [draftUserId, setDraftUserId] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const selfImportedRef = useRef(false);
-
-  const contextMenuState = useContactsContextMenu({
+function useAutoImportSelfContact(input: {
+  entries: ContactEntries;
+  importKey: ReturnType<typeof useContacts>["importKey"];
+  isAuthenticated: boolean;
+  logError: ReturnType<typeof useLog>["logError"];
+  ready: boolean;
+  sessionUserId: string | null;
+  setSelectedContactId: (setter: (currentId: string | null) => string) => void;
+}) {
+  const {
     entries,
-    removeKey,
-    selectedUserId,
-    setSelectedUserId,
-  });
+    importKey,
+    isAuthenticated,
+    logError,
+    ready,
+    sessionUserId,
+    setSelectedContactId,
+  } = input;
+  const selfImportedRef = useRef(false);
 
   useEffect(() => {
     if (
@@ -54,41 +63,125 @@ export function useContactsModel(
       !entries.some((entry) => entry.isSelf || entry.userId === sessionUserId)
     ) {
       selfImportedRef.current = true;
-      void importKey(sessionUserId).catch((error: unknown) => {
-        logError("Contacts: failed to auto-import self key.", error);
-      });
+      void importKey(sessionUserId)
+        .then((contactId) => {
+          if (contactId) {
+            setSelectedContactId((currentId) => currentId ?? contactId);
+          }
+        })
+        .catch((error: unknown) => {
+          logError("Contacts: failed to auto-import self key.", error);
+        });
     }
-  }, [ready, isAuthenticated, sessionUserId, entries, importKey, logError]);
+  }, [
+    entries,
+    importKey,
+    isAuthenticated,
+    logError,
+    ready,
+    sessionUserId,
+    setSelectedContactId,
+  ]);
+}
 
+function usePeerUserIdDraft(
+  peerUserId: string | null,
+  setDraftUserId: (setter: (currentId: string) => string) => void,
+) {
   useEffect(() => {
     if (peerUserId) {
       setDraftUserId((currentId) => (currentId ? currentId : peerUserId));
     }
-  }, [peerUserId]);
+  }, [peerUserId, setDraftUserId]);
+}
+
+export function useContactsModel(
+  setSidebar: (sidebar: ReactNode) => void,
+  peerUserId: string | null,
+): ContactsModel {
+  const {
+    createContact,
+    entries,
+    importKey,
+    ready,
+    removeContact,
+    updateContact,
+  } = useContacts();
+  const { isAuthenticated, userId: sessionUserId } = useCryptoSession();
+  const { logError } = useLog();
+  const [draftFirstName, setDraftFirstName] = useState("");
+  const [draftLastName, setDraftLastName] = useState("");
+  const [draftUserId, setDraftUserId] = useState("");
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(
+    null,
+  );
+
+  const contextMenuState = useContactsContextMenu({
+    entries,
+    removeContact,
+    selectedContactId,
+    setSelectedContactId,
+  });
+
+  useAutoImportSelfContact({
+    entries,
+    importKey,
+    isAuthenticated,
+    logError,
+    ready,
+    sessionUserId,
+    setSelectedContactId,
+  });
+  usePeerUserIdDraft(peerUserId, setDraftUserId);
 
   useContactsSidebarPanel({
     entries,
     handleContextMenu: contextMenuState.handleSidebarContextMenu,
     ready,
-    selectedUserId,
-    setSelectedUserId,
+    selectedContactId,
+    setSelectedContactId,
     setSidebar,
   });
 
+  const canCreate =
+    ready &&
+    (draftFirstName.trim().length > 0 || draftLastName.trim().length > 0);
   const canImport = ready && isAuthenticated && draftUserId.trim().length > 0;
+  const createDraftContact = useCallback(async () => {
+    const contactId = await createContact({
+      firstName: draftFirstName,
+      lastName: draftLastName,
+    });
+    if (contactId) {
+      setSelectedContactId(contactId);
+      setDraftFirstName("");
+      setDraftLastName("");
+    }
+  }, [createContact, draftFirstName, draftLastName]);
   const importDraftContact = useCallback(async () => {
-    await importKey(draftUserId.trim());
+    const contactId = await importKey(draftUserId.trim());
+    if (contactId) {
+      setSelectedContactId(contactId);
+      setDraftUserId("");
+    }
   }, [draftUserId, importKey]);
 
   return {
+    canCreate,
     canImport,
     contextMenuState,
+    createDraftContact,
+    draftFirstName,
+    draftLastName,
     draftUserId,
     entries,
     importDraftContact,
     isAuthenticated,
     ready,
-    selectedUserId,
+    selectedContactId,
+    setDraftFirstName,
+    setDraftLastName,
     setDraftUserId,
+    updateContact,
   };
 }

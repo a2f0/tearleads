@@ -10,21 +10,33 @@ function timeLow(uuid: string): string {
   return uuid.split("-")[0] ?? uuid;
 }
 
+function getSidebarContactLabel(entry: ContactEntries[number]): string {
+  const name = `${entry.firstName} ${entry.lastName}`.trim();
+  const label =
+    name.length > 0
+      ? name
+      : entry.userId
+        ? timeLow(entry.userId)
+        : "Untitled contact";
+
+  return entry.isSelf ? `${label} (me)` : label;
+}
+
 function ContactsSidebarEntries({
   entries,
   handleContextMenu,
   ready,
-  selectedUserId,
-  setSelectedUserId,
+  selectedContactId,
+  setSelectedContactId,
 }: {
   entries: ContactEntries;
   handleContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
-    userId: string,
+    contactId: string,
   ) => void;
   ready: boolean;
-  selectedUserId: string | null;
-  setSelectedUserId: (userId: string) => void;
+  selectedContactId: string | null;
+  setSelectedContactId: (contactId: string) => void;
 }) {
   if (!ready) {
     return <div className="contacts-hint">Loading...</div>;
@@ -34,21 +46,36 @@ function ContactsSidebarEntries({
     return <div className="contacts-hint">No contacts.</div>;
   }
 
+  function handlePrimaryMouseDown(
+    event: MouseEvent<HTMLButtonElement>,
+    contactId: string,
+  ) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const activeElement = event.currentTarget.ownerDocument.activeElement;
+    if (
+      activeElement instanceof HTMLElement &&
+      activeElement !== event.currentTarget
+    ) {
+      activeElement.blur();
+    }
+    setSelectedContactId(contactId);
+  }
+
   return (
     <>
       {entries.map((entry) => (
         <MiniAppRowButton
-          key={entry.userId}
+          key={entry.id}
           className="contacts-sidebar-item"
-          onClick={() => setSelectedUserId(entry.userId)}
-          onContextMenu={(event) => handleContextMenu(event, entry.userId)}
-          selected={selectedUserId === entry.userId}
+          onClick={() => setSelectedContactId(entry.id)}
+          onMouseDown={(event) => handlePrimaryMouseDown(event, entry.id)}
+          onContextMenu={(event) => handleContextMenu(event, entry.id)}
+          selected={selectedContactId === entry.id}
         >
-          <MiniAppRowText>
-            {entry.isSelf
-              ? `${timeLow(entry.userId)} (me)`
-              : timeLow(entry.userId)}
-          </MiniAppRowText>
+          <MiniAppRowText>{getSidebarContactLabel(entry)}</MiniAppRowText>
         </MiniAppRowButton>
       ))}
     </>
@@ -59,19 +86,19 @@ export function useContactsSidebarPanel(params: {
   entries: ContactEntries;
   handleContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
-    userId: string,
+    contactId: string,
   ) => void;
   ready: boolean;
-  selectedUserId: string | null;
-  setSelectedUserId: (userId: string) => void;
+  selectedContactId: string | null;
+  setSelectedContactId: (contactId: string) => void;
   setSidebar: (sidebar: ReactNode) => void;
 }) {
   const {
     entries,
     handleContextMenu,
     ready,
-    selectedUserId,
-    setSelectedUserId,
+    selectedContactId,
+    setSelectedContactId,
     setSidebar,
   } = params;
 
@@ -82,12 +109,18 @@ export function useContactsSidebarPanel(params: {
           entries={entries}
           handleContextMenu={handleContextMenu}
           ready={ready}
-          selectedUserId={selectedUserId}
-          setSelectedUserId={setSelectedUserId}
+          selectedContactId={selectedContactId}
+          setSelectedContactId={setSelectedContactId}
         />
       </div>
     ),
-    [entries, handleContextMenu, ready, selectedUserId, setSelectedUserId],
+    [
+      entries,
+      handleContextMenu,
+      ready,
+      selectedContactId,
+      setSelectedContactId,
+    ],
   );
 
   useEffect(() => {

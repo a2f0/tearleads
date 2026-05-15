@@ -288,16 +288,22 @@ export const addressBookProjection = sqliteTable(
   "address_book_projection",
   {
     addressBookId: text("address_book_id").notNull(),
-    userId: text("user_id").notNull(),
-    encapsulationPublicKey: text("encapsulation_public_key").notNull(),
+    contactId: text("contact_id").notNull(),
+    firstName: text("first_name").notNull().default(""),
+    lastName: text("last_name").notNull().default(""),
+    userId: text("user_id"),
+    encapsulationPublicKey: text("encapsulation_public_key"),
     isSelf: integer("is_self").notNull().default(0),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.addressBookId, table.userId] }),
+    primaryKey({ columns: [table.addressBookId, table.contactId] }),
     uniqueIndex("address_book_projection_self_idx")
       .on(table.addressBookId)
       .where(sql`${table.isSelf} = 1`),
+    uniqueIndex("address_book_projection_user_idx")
+      .on(table.addressBookId, table.userId)
+      .where(sql`${table.userId} IS NOT NULL`),
   ],
 );
 

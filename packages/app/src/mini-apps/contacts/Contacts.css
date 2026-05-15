@@ -13,7 +13,9 @@
   align-items: center;
 }
 
-.contacts-toolbar input {
+.contacts-toolbar input,
+.contacts-field input,
+.contacts-field textarea {
   flex: 1;
   min-width: 0;
   padding: calc(var(--padding) / 2);
@@ -21,6 +23,11 @@
   background: transparent;
   color: inherit;
   font: inherit;
+}
+
+.contacts-field textarea {
+  min-height: 5lh;
+  resize: vertical;
 }
 
 .contacts-toolbar button,
@@ -46,21 +53,21 @@
 
 .contacts-card {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   gap: var(--padding);
   padding: calc(var(--padding) / 1.5);
   border: 1px solid currentColor;
 }
 
-.contacts-card strong,
-.contacts-card span {
-  display: block;
+.contacts-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--padding) / 4);
 }
 
-.contacts-card span {
+.contacts-field span {
   font-size: var(--font-size-sm);
   opacity: 0.8;
-  word-break: break-all;
 }
 
 .contacts-sidebar {

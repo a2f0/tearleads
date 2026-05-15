@@ -6,7 +6,7 @@ import {
   exportUpdatesSince,
   importUpdates,
 } from "@tearleads/loro";
-import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
+import type { ContactEntry } from "../../data/contacts/addressBookEntry";
 import {
   type ContactDocument,
   getContactEntryValue,
@@ -29,10 +29,7 @@ const CONTACTS_PEER_SEED_SCOPE = "contacts";
 type StoredContact = Awaited<
   ReturnType<ContactsPersistence["loadContacts"]>
 >[number];
-export type ContactLocalStateRuntime = Pick<
-  ContactDocumentSyncRuntime,
-  "execSql"
->;
+type ContactLocalStateRuntime = Pick<ContactDocumentSyncRuntime, "execSql">;
 
 function resolveContactsAddressBookId(addressBookId?: string | null) {
   return addressBookId ?? DEFAULT_CONTACTS_ADDRESS_BOOK_ID;
@@ -49,11 +46,11 @@ async function cloneContactDocument(doc: ContactDocument) {
 }
 
 function createInitialContactRecord(input: {
+  contactId: string;
   initialUpdate: Uint8Array;
-  userId: string;
 }): DocumentRecord {
   return {
-    id: input.userId,
+    id: input.contactId,
     documentId: null,
     loroSnapshot: bytesToBase64(input.initialUpdate),
     accessEpoch: 1,
@@ -66,11 +63,11 @@ function createInitialContactRecord(input: {
 }
 
 async function enqueueContactPendingUpdate(input: {
+  contactId: string;
   execSql: ExecSql;
   persistence: ContactsPersistence;
   sourceVersionVector?: string | null;
   update: Uint8Array;
-  userId: string;
 }) {
   const pendingUpdateFields = createPendingUpdateFields(
     input.update,
@@ -81,9 +78,20 @@ async function enqueueContactPendingUpdate(input: {
   }
 
   await input.persistence.enqueuePendingUpdate(input.execSql, {
-    userId: input.userId,
+    contactId: input.contactId,
     ...pendingUpdateFields,
   });
+}
+
+function sameContactEntry(left: ContactEntry, right: ContactEntry): boolean {
+  return (
+    left.id === right.id &&
+    left.firstName === right.firstName &&
+    left.lastName === right.lastName &&
+    left.userId === right.userId &&
+    left.encapsulationPublicKey === right.encapsulationPublicKey &&
+    left.isSelf === right.isSelf
+  );
 }
 
 async function hydrateStoredContactState(input: {
@@ -100,12 +108,11 @@ async function hydrateStoredContactState(input: {
     importUpdates(doc, [base64ToBytes(record.loroSnapshot)]);
     return {
       doc,
-      entry:
-        getContactEntryValue(
-          storedContact.entry.userId,
-          doc,
-          storedContact.entry.isSelf,
-        ) ?? storedContact.entry,
+      entry: getContactEntryValue(
+        storedContact.entry.id,
+        doc,
+        storedContact.entry.isSelf,
+      ),
       record,
     };
   }
@@ -113,15 +120,15 @@ async function hydrateStoredContactState(input: {
   setContactEntryValue(doc, storedContact.entry);
   const initialUpdate = exportAllUpdates(doc);
   const nextRecord = createInitialContactRecord({
+    contactId: storedContact.entry.id,
     initialUpdate,
-    userId: storedContact.entry.userId,
   });
 
   await enqueueContactPendingUpdate({
+    contactId: storedContact.entry.id,
     execSql,
     persistence,
     update: initialUpdate,
-    userId: storedContact.entry.userId,
   });
   await persistence.saveContact(
     execSql,
@@ -170,22 +177,21 @@ export function loadContactDocumentStates(input: {
   });
 }
 
-export async function persistImportedContactEntry(input: {
+export async function persistContactEntry(input: {
   addressBookId: string;
-  entry: AddressBookEntry;
+  entry: ContactEntry;
   execSql: ExecSql;
   existingContact?: ContactDocumentState | null | undefined;
   persistence: ContactsPersistence;
 }): Promise<{ changed: boolean; contact: ContactDocumentState }> {
   const { addressBookId, entry, execSql, existingContact, persistence } = input;
 
-  if (
-    existingContact &&
-    existingContact.entry.encapsulationPublicKey ===
-      entry.encapsulationPublicKey &&
-    existingContact.entry.isSelf === entry.isSelf
-  ) {
+  if (existingContact && sameContactEntry(existingContact.entry, entry)) {
     return { changed: false, contact: existingContact };
+  }
+
+  if (existingContact && existingContact.entry.id !== entry.id) {
+    throw new Error("Cannot change a contact entry id.");
   }
 
   if (!existingContact) {
@@ -196,16 +202,16 @@ export async function persistImportedContactEntry(input: {
       doc,
       entry,
       record: createInitialContactRecord({
+        contactId: entry.id,
         initialUpdate,
-        userId: entry.userId,
       }),
     };
 
     await enqueueContactPendingUpdate({
+      contactId: entry.id,
       execSql,
       persistence,
       update: initialUpdate,
-      userId: entry.userId,
     });
     contact.record = await persistContactDocumentState({
       addressBookId,
@@ -226,10 +232,10 @@ export async function persistImportedContactEntry(input: {
     entry,
   };
   await enqueueContactPendingUpdate({
+    contactId: entry.id,
     execSql,
     persistence,
     update: exportUpdatesSince(nextDoc, previousVersion),
-    userId: entry.userId,
   });
   nextContact.record = await persistContactDocumentState({
     addressBookId,
@@ -241,14 +247,14 @@ export async function persistImportedContactEntry(input: {
   return { changed: true, contact: nextContact };
 }
 
-export function persistImportedContactEntryFromRuntime(input: {
+export function persistContactEntryFromRuntime(input: {
   addressBookId?: string | null;
-  entry: AddressBookEntry;
+  entry: ContactEntry;
   existingContact?: ContactDocumentState | null | undefined;
   persistence: ContactsPersistence;
   runtime: ContactLocalStateRuntime;
 }): Promise<{ changed: boolean; contact: ContactDocumentState }> {
-  return persistImportedContactEntry({
+  return persistContactEntry({
     addressBookId: resolveContactsAddressBookId(input.addressBookId),
     entry: input.entry,
     execSql: input.runtime.execSql,
@@ -259,27 +265,27 @@ export function persistImportedContactEntryFromRuntime(input: {
 
 async function deleteContactEntry(input: {
   addressBookId: string;
+  contactId: string;
   execSql: ExecSql;
   persistence: ContactsPersistence;
-  userId: string;
 }) {
   await input.persistence.deleteContact(
     input.execSql,
     input.addressBookId,
-    input.userId,
+    input.contactId,
   );
 }
 
 export function deleteContactEntryFromRuntime(input: {
   addressBookId?: string | null;
+  contactId: string;
   persistence: ContactsPersistence;
   runtime: ContactLocalStateRuntime;
-  userId: string;
 }): Promise<void> {
   return deleteContactEntry({
     addressBookId: resolveContactsAddressBookId(input.addressBookId),
+    contactId: input.contactId,
     execSql: input.runtime.execSql,
     persistence: input.persistence,
-    userId: input.userId,
   });
 }

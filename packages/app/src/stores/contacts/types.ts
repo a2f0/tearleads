@@ -1,26 +1,31 @@
 import type {
-  AddressBookEntry,
+  ContactEntry,
+  ContactEntryPatch,
   ContactsWorkflowRuntime,
 } from "../../workflows/contacts";
 
 export interface ContactsContextValue {
-  entries: ReadonlyArray<AddressBookEntry>;
-  importKey: (userId: string) => Promise<void>;
+  createContact: (patch: ContactEntryPatch) => Promise<string | null>;
+  entries: ReadonlyArray<ContactEntry>;
+  importKey: (userId: string) => Promise<string | null>;
   ready: boolean;
-  removeKey: (userId: string) => Promise<void>;
+  removeContact: (contactId: string) => Promise<void>;
+  updateContact: (contactId: string, patch: ContactEntryPatch) => Promise<void>;
 }
 
 export interface ContactsSnapshot {
-  entries: ReadonlyArray<AddressBookEntry>;
+  entries: ReadonlyArray<ContactEntry>;
   ready: boolean;
 }
 
 export type ContactsRuntime = ContactsWorkflowRuntime;
 
 export interface ContactsStore {
+  createContact: (patch: ContactEntryPatch) => Promise<string | null>;
   getSnapshot: () => ContactsSnapshot;
-  importKey: (userId: string) => Promise<void>;
-  removeKey: (userId: string) => Promise<void>;
+  importKey: (userId: string) => Promise<string | null>;
+  removeContact: (contactId: string) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
+  updateContact: (contactId: string, patch: ContactEntryPatch) => Promise<void>;
   updateRuntime: (runtime: ContactsRuntime) => void;
 }

@@ -1,10 +1,10 @@
-import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
+import type { ContactEntry } from "../../data/contacts/addressBookEntry";
+import { fetchContactKeyEntryFromRuntime } from "./keys";
 import {
-  fetchContactKeyEntryFromRuntime,
-  persistContactKeyEntryFromRuntime,
-  removeContactKeyFromRuntime,
-} from "./keys";
-import { loadContactDocumentStates } from "./localState";
+  deleteContactEntryFromRuntime,
+  loadContactDocumentStates,
+  persistContactEntryFromRuntime,
+} from "./localState";
 import {
   type ContactProjectionUserKeyResolver,
   createContactProjectionUserKeyResolver,
@@ -26,12 +26,12 @@ type ContactDocumentStateLoadInput = Omit<
   Parameters<typeof loadContactDocumentStates>[0],
   "runtime"
 >;
-type ContactKeyPersistenceInput = Omit<
-  Parameters<typeof persistContactKeyEntryFromRuntime>[0],
+type ContactPersistenceInput = Omit<
+  Parameters<typeof persistContactEntryFromRuntime>[0],
   "runtime"
 >;
-type ContactKeyRemovalInput = Omit<
-  Parameters<typeof removeContactKeyFromRuntime>[0],
+type ContactRemovalInput = Omit<
+  Parameters<typeof deleteContactEntryFromRuntime>[0],
   "runtime"
 >;
 type ContactSyncInput = Omit<
@@ -44,6 +44,7 @@ export interface ContactsWorkflowRuntime {
   readonly domainScope: object;
   readonly events: ReadonlyArray<unknown>;
   readonly logError: (message: string | Error, cause?: unknown) => void;
+  readonly userId: string | null;
   createProjectionUserKeyResolver: () => ContactProjectionUserKeyResolver;
   didProjectionKeyRuntimeChange: (
     previousRuntime: ContactsWorkflowRuntime,
@@ -51,16 +52,16 @@ export interface ContactsWorkflowRuntime {
   didRegainSyncPrerequisites: (
     previousRuntime: ContactsWorkflowRuntime,
   ) => boolean;
-  fetchKeyEntry: (userId: string) => Promise<AddressBookEntry | null>;
+  fetchKeyEntry: (userId: string) => Promise<ContactEntry | null>;
   loadDocumentStates: (
     input: ContactDocumentStateLoadInput,
   ) => Promise<ContactDocumentState[]>;
-  persistKeyEntry: (
-    input: ContactKeyPersistenceInput,
-  ) => ReturnType<typeof persistContactKeyEntryFromRuntime>;
-  removeKey: (
-    input: ContactKeyRemovalInput,
-  ) => ReturnType<typeof removeContactKeyFromRuntime>;
+  persistContactEntry: (
+    input: ContactPersistenceInput,
+  ) => ReturnType<typeof persistContactEntryFromRuntime>;
+  removeContactEntry: (
+    input: ContactRemovalInput,
+  ) => ReturnType<typeof deleteContactEntryFromRuntime>;
   syncDocuments: (
     input: ContactSyncInput,
   ) => ReturnType<typeof syncContactDocuments>;
@@ -93,6 +94,7 @@ export function createContactsWorkflowRuntime(
     domainScope: input.domainScope,
     events: input.events,
     logError: input.logError,
+    userId: input.userId ?? null,
     createProjectionUserKeyResolver: () =>
       createContactProjectionUserKeyResolver(input),
     didProjectionKeyRuntimeChange: (previousRuntime) => {
@@ -120,13 +122,13 @@ export function createContactsWorkflowRuntime(
         ...loadInput,
         runtime: input,
       }),
-    persistKeyEntry: (persistInput) =>
-      persistContactKeyEntryFromRuntime({
+    persistContactEntry: (persistInput) =>
+      persistContactEntryFromRuntime({
         ...persistInput,
         runtime: input,
       }),
-    removeKey: (removeInput) =>
-      removeContactKeyFromRuntime({
+    removeContactEntry: (removeInput) =>
+      deleteContactEntryFromRuntime({
         ...removeInput,
         runtime: input,
       }),

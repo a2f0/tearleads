@@ -95,6 +95,9 @@ async function persistRegistrationBootstrapFromExecSql(
     );
     const projectionRow = {
       addressBookId: DEFAULT_ADDRESS_BOOK_ID,
+      contactId: input.userId,
+      firstName: "",
+      lastName: "",
       userId: input.userId,
       encapsulationPublicKey: bytesToBase64(input.encapsulationPublicKey),
       isSelf: 1,
@@ -107,9 +110,12 @@ async function persistRegistrationBootstrapFromExecSql(
       .onConflictDoUpdate({
         target: [
           addressBookProjection.addressBookId,
-          addressBookProjection.userId,
+          addressBookProjection.contactId,
         ],
         set: {
+          firstName: projectionRow.firstName,
+          lastName: projectionRow.lastName,
+          userId: projectionRow.userId,
           encapsulationPublicKey: projectionRow.encapsulationPublicKey,
           isSelf: 1,
           updatedAt,

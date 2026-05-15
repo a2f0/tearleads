@@ -6,7 +6,10 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
-import type { AddressBookEntry } from "../../data/contacts/addressBookEntry";
+import {
+  type ContactEntry,
+  isTearleadsContact,
+} from "../../data/contacts/addressBookEntry";
 import {
   type ContactDocument,
   getContactEntryValue,
@@ -77,7 +80,7 @@ interface ContactRemoteSyncAttempt {
 
 export interface ContactDocumentState {
   doc: ContactDocument;
-  entry: AddressBookEntry;
+  entry: ContactEntry;
   record: DocumentRecord;
 }
 
@@ -115,7 +118,7 @@ type NullableContactRuntimeField =
   | "documentManifestBundle";
 
 interface SyncedContactDocument {
-  entry: AddressBookEntry;
+  entry: ContactEntry;
   record: DocumentRecord;
   shouldRequestFollowupSync: boolean;
 }
@@ -162,7 +165,7 @@ export async function persistContactDocumentState(input: {
   const nextDocumentId = patch.documentId ?? currentDocumentId;
   const documentIdChanged = nextDocumentId !== currentDocumentId;
   const nextRecord: DocumentRecord = {
-    id: contact.entry.userId,
+    id: contact.entry.id,
     documentId: nextDocumentId,
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(contact.doc)),
@@ -217,7 +220,7 @@ export async function persistContactDocumentState(input: {
 
 async function resolveContactWriterPublicKeys(
   runtime: ContactDocumentSyncRuntime,
-  contactEntry: AddressBookEntry,
+  contactEntry: ContactEntry,
   author: DocumentCreateAuthor,
 ): Promise<Map<string, Uint8Array>> {
   const { signingKeyPair } = runtime;
@@ -229,7 +232,10 @@ async function resolveContactWriterPublicKeys(
     [author.signerKeyFingerprint, signingKeyPair.signingPublicKey],
   ]);
 
-  if (contactEntry.userId === runtime.userId) {
+  if (
+    !isTearleadsContact(contactEntry) ||
+    contactEntry.userId === runtime.userId
+  ) {
     return writerPublicKeysByFingerprint;
   }
 
@@ -292,7 +298,7 @@ async function createRemoteContactDocument(input: {
 }
 
 async function syncRemoteContactDocument(input: {
-  contactEntry: AddressBookEntry;
+  contactEntry: ContactEntry;
   documentId: string;
   lastCommitLsn?: string | null | undefined;
   localVersionVector: string | null;
@@ -388,7 +394,7 @@ async function ensureContactDocumentForSync(input: {
     persistence,
   });
   runtime.log(
-    `Created contact document: ${created.documentId} (${contact.entry.userId})`,
+    `Created contact document: ${created.documentId} (${contact.entry.id})`,
   );
 
   return nextRecord;
@@ -412,7 +418,7 @@ async function syncContactDocument(input: {
   } = input;
   const pendingUpdates = await persistence.listPendingUpdates(
     runtime.execSql,
-    contact.entry.userId,
+    contact.entry.id,
   );
   const record = await ensureContactDocumentForSync({
     addressBookId,
@@ -453,12 +459,11 @@ async function syncContactDocument(input: {
       contact.doc,
       syncAttempt.synced.decryptedUpdates.map((update) => update.updateData),
     );
-    entry =
-      getContactEntryValue(
-        contact.entry.userId,
-        contact.doc,
-        contact.entry.isSelf,
-      ) ?? contact.entry;
+    entry = getContactEntryValue(
+      contact.entry.id,
+      contact.doc,
+      contact.entry.isSelf,
+    );
   }
 
   const nextRecord = await persistContactDocumentState({
@@ -543,7 +548,7 @@ export async function syncContactDocuments(input: {
       }
 
       runtime.log(
-        `Contacts (${contact.entry.userId}): sync failed: ${contactSyncErrorMessage(error)}`,
+        `Contacts (${contact.entry.id}): sync failed: ${contactSyncErrorMessage(error)}`,
       );
     }
   }

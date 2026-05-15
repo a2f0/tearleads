@@ -112,6 +112,7 @@ test("app sqlite schema creates tables and indexes", async () => {
     expect(tableNames).toEqual(appSqlTables.map((table) => table.name).sort());
     expect(indexNames).toEqual([
       "address_book_projection_self_idx",
+      "address_book_projection_user_idx",
       "container_create_intents_status_created_idx",
       "document_pending_updates_scope_created_idx",
       "documents_app_document_idx",
@@ -214,6 +215,42 @@ test("app sqlite schema creates tables and indexes", async () => {
       execSql,
       "address_book_projection",
     );
+    const addressBookColumns = await readTableColumns(
+      execSql,
+      "address_book_projection",
+    );
+    expect(readRecordValue(addressBookColumns, "contact_id")).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 2,
+      type: "TEXT",
+    });
+    expect(readRecordValue(addressBookColumns, "first_name")).toEqual({
+      defaultValue: "''",
+      notNull: 1,
+      pk: 0,
+      type: "TEXT",
+    });
+    expect(readRecordValue(addressBookColumns, "last_name")).toEqual({
+      defaultValue: "''",
+      notNull: 1,
+      pk: 0,
+      type: "TEXT",
+    });
+    expect(readRecordValue(addressBookColumns, "user_id")).toEqual({
+      defaultValue: null,
+      notNull: 0,
+      pk: 0,
+      type: "TEXT",
+    });
+    expect(
+      readRecordValue(addressBookColumns, "encapsulation_public_key"),
+    ).toEqual({
+      defaultValue: null,
+      notNull: 0,
+      pk: 0,
+      type: "TEXT",
+    });
     expect(
       readRecordValue(addressBookIndexes, "address_book_projection_self_idx"),
     ).toEqual({
@@ -223,6 +260,15 @@ test("app sqlite schema creates tables and indexes", async () => {
     expect(
       await readIndexColumns(execSql, "address_book_projection_self_idx"),
     ).toEqual(["address_book_id"]);
+    expect(
+      readRecordValue(addressBookIndexes, "address_book_projection_user_idx"),
+    ).toEqual({
+      partial: 1,
+      unique: 1,
+    });
+    expect(
+      await readIndexColumns(execSql, "address_book_projection_user_idx"),
+    ).toEqual(["address_book_id", "user_id"]);
 
     const intentIndexes = await readIndexList(
       execSql,
