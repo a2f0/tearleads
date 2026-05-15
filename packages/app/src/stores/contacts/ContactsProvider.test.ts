@@ -544,6 +544,9 @@ test("contacts store creates and updates ordinary contacts", async () => {
   });
 
   expect(contactId).toBeString();
+  if (contactId === null) {
+    throw new Error("Expected contact id.");
+  }
   expect(store.getSnapshot()).toEqual({
     entries: [
       {
@@ -557,10 +560,10 @@ test("contacts store creates and updates ordinary contacts", async () => {
     ],
     ready: true,
   });
-  expect(persistence.getContact(contactId ?? "")?.record).not.toBeNull();
-  expect(persistence.getPendingUpdates(contactId ?? "")).toHaveLength(1);
+  expect(persistence.getContact(contactId)?.record).not.toBeNull();
+  expect(persistence.getPendingUpdates(contactId)).toHaveLength(1);
 
-  await store.updateContact(contactId ?? "", { lastName: "Byron" });
+  await store.updateContact(contactId, { lastName: "Byron" });
 
   expect(store.getSnapshot().entries[0]).toMatchObject({
     firstName: "Ada",
@@ -568,7 +571,7 @@ test("contacts store creates and updates ordinary contacts", async () => {
     lastName: "Byron",
     userId: null,
   });
-  expect(persistence.getPendingUpdates(contactId ?? "")).toHaveLength(2);
+  expect(persistence.getPendingUpdates(contactId)).toHaveLength(2);
 });
 
 test("contacts store creates and syncs a contact document", async () => {

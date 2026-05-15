@@ -44,7 +44,7 @@ export interface ContactsWorkflowRuntime {
   readonly domainScope: object;
   readonly events: ReadonlyArray<unknown>;
   readonly logError: (message: string | Error, cause?: unknown) => void;
-  readonly userId?: string | null;
+  readonly userId: string | null;
   createProjectionUserKeyResolver: () => ContactProjectionUserKeyResolver;
   didProjectionKeyRuntimeChange: (
     previousRuntime: ContactsWorkflowRuntime,
@@ -94,7 +94,7 @@ export function createContactsWorkflowRuntime(
     domainScope: input.domainScope,
     events: input.events,
     logError: input.logError,
-    userId: input.userId,
+    userId: input.userId ?? null,
     createProjectionUserKeyResolver: () =>
       createContactProjectionUserKeyResolver(input),
     didProjectionKeyRuntimeChange: (previousRuntime) => {
