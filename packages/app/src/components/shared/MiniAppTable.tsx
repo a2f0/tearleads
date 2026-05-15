@@ -1,9 +1,10 @@
-import type {
-  ButtonHTMLAttributes,
-  HTMLAttributes,
-  ReactNode,
-  TableHTMLAttributes,
-  TdHTMLAttributes,
+import {
+  type ButtonHTMLAttributes,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+  type TableHTMLAttributes,
+  type TdHTMLAttributes,
 } from "react";
 import "./MiniAppTable.css";
 
@@ -14,102 +15,117 @@ export interface MiniAppTableColumn {
   width?: string | undefined;
 }
 
+type MiniAppTableProps = TableHTMLAttributes<HTMLTableElement> & {
+  columns: ReadonlyArray<MiniAppTableColumn>;
+};
+
+type MiniAppTableEmptyRowProps = HTMLAttributes<HTMLTableRowElement> & {
+  children: ReactNode;
+  colSpan: number;
+};
+
+type MiniAppTableTextProps = HTMLAttributes<HTMLSpanElement> & {
+  muted?: boolean | undefined;
+  truncate?: boolean | undefined;
+};
+
 function classNames(
   ...values: Array<string | false | null | undefined>
 ): string {
   return values.filter((value) => Boolean(value)).join(" ");
 }
 
-export function MiniAppTableFrame({
-  className,
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
+export const MiniAppTableFrame = forwardRef<
+  HTMLDivElement,
+  HTMLAttributes<HTMLDivElement>
+>(function MiniAppTableFrame({ className, ...props }, ref) {
   return (
-    <div {...props} className={classNames("mini-app-table-frame", className)} />
+    <div
+      {...props}
+      className={classNames("mini-app-table-frame", className)}
+      ref={ref}
+    />
   );
-}
+});
 
-export function MiniAppTable({
-  children,
-  className,
-  columns,
-  ...props
-}: TableHTMLAttributes<HTMLTableElement> & {
-  columns: ReadonlyArray<MiniAppTableColumn>;
-}) {
-  return (
-    <table {...props} className={classNames("mini-app-table", className)}>
-      <colgroup>
-        {columns.map((column) => (
-          <col
-            className={column.className}
-            key={column.id}
-            style={column.width ? { width: column.width } : undefined}
-          />
-        ))}
-      </colgroup>
-      <thead>
-        <tr>
-          {columns.map((column) => (
-            <th className={column.className} key={column.id} scope="col">
-              {column.header}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>{children}</tbody>
-    </table>
-  );
-}
-
-export function MiniAppTableRow({
-  className,
-  ...props
-}: HTMLAttributes<HTMLTableRowElement>) {
-  return (
-    <tr {...props} className={classNames("mini-app-table-row", className)} />
-  );
-}
-
-export function MiniAppTableCell({
-  className,
-  ...props
-}: TdHTMLAttributes<HTMLTableCellElement>) {
-  return (
-    <td {...props} className={classNames("mini-app-table-cell", className)} />
-  );
-}
-
-export function MiniAppTableEmptyRow({
-  children,
-  className,
-  colSpan,
-}: {
-  children: ReactNode;
-  className?: string | undefined;
-  colSpan: number;
-}) {
-  return (
-    <MiniAppTableRow>
-      <MiniAppTableCell
-        className={classNames("mini-app-table-empty", className)}
-        colSpan={colSpan}
+export const MiniAppTable = forwardRef<HTMLTableElement, MiniAppTableProps>(
+  function MiniAppTable({ children, className, columns, ...props }, ref) {
+    return (
+      <table
+        {...props}
+        className={classNames("mini-app-table", className)}
+        ref={ref}
       >
+        <colgroup>
+          {columns.map((column) => (
+            <col
+              className={column.className}
+              key={column.id}
+              style={column.width ? { width: column.width } : undefined}
+            />
+          ))}
+        </colgroup>
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th className={column.className} key={column.id} scope="col">
+                {column.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    );
+  },
+);
+
+export const MiniAppTableRow = forwardRef<
+  HTMLTableRowElement,
+  HTMLAttributes<HTMLTableRowElement>
+>(function MiniAppTableRow({ className, ...props }, ref) {
+  return (
+    <tr
+      {...props}
+      className={classNames("mini-app-table-row", className)}
+      ref={ref}
+    />
+  );
+});
+
+export const MiniAppTableCell = forwardRef<
+  HTMLTableCellElement,
+  TdHTMLAttributes<HTMLTableCellElement>
+>(function MiniAppTableCell({ className, ...props }, ref) {
+  return (
+    <td
+      {...props}
+      className={classNames("mini-app-table-cell", className)}
+      ref={ref}
+    />
+  );
+});
+
+export const MiniAppTableEmptyRow = forwardRef<
+  HTMLTableRowElement,
+  MiniAppTableEmptyRowProps
+>(function MiniAppTableEmptyRow({ children, colSpan, ...props }, ref) {
+  return (
+    <MiniAppTableRow {...props} ref={ref}>
+      <MiniAppTableCell className="mini-app-table-empty" colSpan={colSpan}>
         {children}
       </MiniAppTableCell>
     </MiniAppTableRow>
   );
-}
+});
 
-export function MiniAppTableText({
-  className,
-  muted = false,
-  truncate = true,
-  ...props
-}: HTMLAttributes<HTMLSpanElement> & {
-  muted?: boolean | undefined;
-  truncate?: boolean | undefined;
-}) {
+export const MiniAppTableText = forwardRef<
+  HTMLSpanElement,
+  MiniAppTableTextProps
+>(function MiniAppTableText(
+  { className, muted = false, truncate = true, ...props },
+  ref,
+) {
   return (
     <span
       {...props}
@@ -119,20 +135,24 @@ export function MiniAppTableText({
         muted && "mini-app-table-text--muted",
         className,
       )}
+      ref={ref}
     />
   );
-}
+});
 
-export function MiniAppTableActionButton({
-  className,
-  type = "button",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+export const MiniAppTableActionButton = forwardRef<
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement>
+>(function MiniAppTableActionButton(
+  { className, type = "button", ...props },
+  ref,
+) {
   return (
     <button
       {...props}
       className={classNames("mini-app-table-action", className)}
+      ref={ref}
       type={type}
     />
   );
-}
+});
