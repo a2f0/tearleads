@@ -210,15 +210,12 @@ async function upsertRemoteExplorerContainerState(input: {
       },
       false,
     );
-    existingState.container = applyRemoteContainerTimestamps(
-      {
-        ...existingState.container,
-        metadataDocumentId: remoteContainer.metadataDocumentId,
-        organizationId: remoteContainer.organizationId,
-        parentId: remoteContainer.parentId,
-      },
-      remoteContainer,
-    );
+    existingState.container = {
+      ...existingState.container,
+      metadataDocumentId: remoteContainer.metadataDocumentId,
+      organizationId: remoteContainer.organizationId,
+      parentId: remoteContainer.parentId,
+    };
     moveIndexedContainerChild(
       childIdsByParentId,
       remoteContainer.id,

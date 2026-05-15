@@ -29,6 +29,15 @@ export interface ContainerRecord {
   updatedAt?: string | null;
 }
 
+interface ContainerRecordWithTimestampDefaults extends ContainerRecord {
+  createdAt: string | null;
+  localCreatedAt: string;
+  localUpdatedAt: string;
+  serverCreatedAt: string | null;
+  serverUpdatedAt: string | null;
+  updatedAt: string | null;
+}
+
 export async function ensureContainerTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, containerTables);
   await ensureContainerTimestampColumns(execSql);
@@ -134,7 +143,7 @@ function toDisplayContainerRecord(record: ContainerRecord): ContainerRecord {
 function applyContainerTimestampDefaults(
   record: ContainerRecord,
   localUpdatedAt: string,
-): ContainerRecord {
+): ContainerRecordWithTimestampDefaults {
   const hasServerTimestamps =
     record.serverCreatedAt !== undefined ||
     record.serverUpdatedAt !== undefined;
@@ -142,14 +151,18 @@ function applyContainerTimestampDefaults(
     record.localCreatedAt ??
     (!hasServerTimestamps ? record.createdAt : null) ??
     localUpdatedAt;
+  const serverCreatedAt = record.serverCreatedAt ?? null;
+  const serverUpdatedAt = record.serverUpdatedAt ?? null;
 
-  return toDisplayContainerRecord({
+  return {
     ...record,
+    createdAt: serverCreatedAt ?? localCreatedAt,
     localCreatedAt,
     localUpdatedAt,
-    serverCreatedAt: record.serverCreatedAt ?? null,
-    serverUpdatedAt: record.serverUpdatedAt ?? null,
-  });
+    serverCreatedAt,
+    serverUpdatedAt,
+    updatedAt: serverUpdatedAt ?? localUpdatedAt,
+  };
 }
 
 function mapSelectedContainerRecord(
@@ -181,12 +194,12 @@ export async function saveContainerRows(input: {
     organizationId: nextRecord.organizationId,
     parentId: nextRecord.parentId,
     metadataDocumentId: nextRecord.metadataDocumentId,
-    legacyCreatedAt: nextRecord.localCreatedAt ?? localUpdatedAt,
+    legacyCreatedAt: nextRecord.localCreatedAt,
     legacyUpdatedAt: localUpdatedAt,
-    localCreatedAt: nextRecord.localCreatedAt ?? localUpdatedAt,
+    localCreatedAt: nextRecord.localCreatedAt,
     localUpdatedAt,
-    serverCreatedAt: nextRecord.serverCreatedAt ?? null,
-    serverUpdatedAt: nextRecord.serverUpdatedAt ?? null,
+    serverCreatedAt: nextRecord.serverCreatedAt,
+    serverUpdatedAt: nextRecord.serverUpdatedAt,
   };
   await tx
     .insert(containers)
