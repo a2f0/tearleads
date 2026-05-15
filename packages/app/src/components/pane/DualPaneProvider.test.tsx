@@ -774,6 +774,33 @@ test(
 );
 
 test(
+  "peer explorer opens directly after org manager imports peer into Admins",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+
+    await waitForDualPaneProvisioning(leftPane, rightPane);
+
+    await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
+    const postAdminAddRequestStartIndex = listProxiedApiRequests().length;
+
+    await openExplorer(rightPane);
+    await refreshUntil(
+      rightPane,
+      () => listExplorerContainerItems(rightPane).length > 1,
+      "Peer did not discover the Admins-granted root container.",
+    );
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postAdminAddRequestStartIndex,
+    );
+  },
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+);
+
+test(
   "dual panes can share an owner-granted root container after an empty folder and note attachment",
   async () => {
     useTestApiAppHandlers();
