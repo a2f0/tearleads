@@ -7,11 +7,12 @@ import {
   persistExplorerContainerMetadataStateFromRuntime,
   renameExplorerContainerMetadataStateFromRuntime,
   shareExplorerContainerState,
+  shareExplorerContainerStateWithGroup,
 } from "../../workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";
-import type { ExplorerStoreState } from "./types";
+import type { ExplorerShareAccessLevel, ExplorerStoreState } from "./types";
 import { isContainerInSubtree, toContainerNode } from "./utils";
 
 export async function persistContainerState(
@@ -216,6 +217,57 @@ export async function shareExplorerContainerWithUser(
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();
   state.runtime.log(`Explorer: shared container ${containerId} with ${userId}`);
+  return toContainerNode(existingState.container);
+}
+
+export async function shareExplorerContainerWithGroup(
+  state: ExplorerStoreState,
+  syncAgent: ExplorerSyncAgent,
+  containerId: string,
+  groupId: string,
+  accessLevel: ExplorerShareAccessLevel,
+) {
+  if (
+    state.runtime.dbStatus !== "ready" ||
+    !state.snapshot.ready ||
+    !state.runtime.isAuthenticated ||
+    !state.runtime.online
+  ) {
+    return null;
+  }
+
+  const existingState = state.containersById.get(containerId);
+  const expectedAccessStateHash = existingState?.record.accessStateHash;
+  if (
+    !existingState?.record.documentId ||
+    typeof expectedAccessStateHash !== "string" ||
+    expectedAccessStateHash.length === 0
+  ) {
+    return null;
+  }
+
+  const shared = await shareExplorerContainerStateWithGroup({
+    accessLevel,
+    containerState: existingState,
+    persistence: state.persistence,
+    recipientGroupId: groupId,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    runtime: state.runtime,
+  });
+
+  if (!shared) {
+    return null;
+  }
+
+  existingState.container = shared.container;
+  existingState.record = shared.record;
+  updateExplorerSnapshot(state);
+  await syncAgent.primeDocumentsForSharedSubtree(containerId);
+  requestDomainDocumentSync(state.runtime.domainScope);
+  syncAgent.scheduleSync();
+  state.runtime.log(
+    `Explorer: shared container ${containerId} with group ${groupId}`,
+  );
   return toContainerNode(existingState.container);
 }
 

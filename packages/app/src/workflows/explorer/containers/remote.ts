@@ -6,6 +6,7 @@ import {
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,
   shareRemoteContainer as shareRemoteContainerMutation,
+  shareRemoteContainerWithGroup as shareRemoteContainerWithGroupMutation,
 } from "../../containers";
 import {
   createRemoteDocument,
@@ -110,6 +111,53 @@ export async function shareRemoteExplorerContainer(input: {
       recipientKey.encapsulationPublicKey,
     ),
     recipientUserId: input.recipientUserId,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    targetSecretKey,
+  });
+  if (!shared) {
+    return null;
+  }
+
+  return {
+    accessManifestHash: shared.response.manifestHead.manifestHash,
+    accessEpoch: shared.response.manifestHead.epoch,
+    createdAt: shared.response.createdAt,
+    metadataDocumentId: readContainerMutationMetadataDocumentId({
+      response: shared.response,
+    }),
+    referencedPrincipalHeads:
+      referencedPrincipalHeadsFromContainerMutationResponse({
+        response: shared.response,
+      }),
+    updatedAt: shared.response.updatedAt,
+  };
+}
+
+export async function shareRemoteExplorerContainerWithGroup(input: {
+  accessLevel: "read" | "write" | "admin";
+  containerId: string;
+  recipientGroupId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ExplorerContainerWorkflowRuntime;
+}): Promise<SharedExplorerContainer | null> {
+  const author = resolveDocumentCreateAuthor(input.runtime);
+  const { apiClient } = input.runtime;
+  const execSql = getExplorerWorkflowRuntimeExecSql(input.runtime);
+  const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  if (!author || !targetSecretKey) {
+    input.runtime.log(
+      "Explorer: skipped container group share because the writer context is unavailable.",
+    );
+    return null;
+  }
+
+  const shared = await shareRemoteContainerWithGroupMutation({
+    accessLevel: input.accessLevel,
+    apiClient,
+    author,
+    containerId: input.containerId,
+    execSql,
+    recipientGroupId: input.recipientGroupId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey,
   });

@@ -5,7 +5,10 @@ export {
   createRemoteContainer,
 } from "./child/create";
 export { moveRemoteContainer } from "./child/move";
-export { shareRemoteContainer } from "./child/share";
+export {
+  shareRemoteContainer,
+  shareRemoteContainerWithGroup,
+} from "./child/share";
 export {
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,

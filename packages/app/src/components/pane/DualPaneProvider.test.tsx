@@ -299,15 +299,17 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
       clientY: 200,
     });
   });
+  const getInfoButton = await screen.findByRole("button", {
+    name: "Get Info",
+  });
+  await interact(() => {
+    fireEvent.click(getInfoButton);
+  });
   const shareWithPeerButton = await screen.findByRole("button", {
     name: "Share With Peer",
   });
   await interact(() => {
     fireEvent.click(shareWithPeerButton);
-  });
-  const shareButton = await screen.findByRole("button", { name: "Share" });
-  await interact(() => {
-    fireEvent.click(shareButton);
   });
 
   await waitForCondition(

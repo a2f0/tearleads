@@ -49,19 +49,26 @@ export function Explorer() {
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
         contextMenuNode={model.contextMenuState.contextMenuNode}
+        openContainerInfoModal={model.modalState.openContainerInfoModal}
         openCreateChildModal={model.modalState.openCreateChildModal}
         openDeleteModal={model.modalState.openDeleteModal}
         openInlineDocument={model.openInlineDocument}
         openMoveModal={model.modalState.openMoveModal}
         openRenameModal={model.modalState.openRenameModal}
-        openSharePeerModal={model.modalState.openSharePeerModal}
-        peerUserId={model.peerUserId}
       />
       <ExplorerModalLayer
         closeModal={model.modalState.closeModal}
+        containerInfo={model.modalState.containerInfo}
+        containerInfoError={model.modalState.containerInfoError}
         draftName={model.modalState.draftName}
+        draftShareAccessLevel={model.modalState.draftShareAccessLevel}
+        draftShareGroupId={model.modalState.draftShareGroupId}
         draftTargetContainerId={model.modalState.draftTargetContainerId}
+        handleContainerInfoPeerShare={
+          model.modalState.handleContainerInfoPeerShare
+        }
         handleModalSubmit={model.modalState.handleModalSubmit}
+        isLoadingContainerInfo={model.modalState.isLoadingContainerInfo}
         isSubmittingModal={model.modalState.isSubmittingModal}
         modalError={model.modalState.modalError}
         modalState={model.modalState.modalState}
@@ -69,6 +76,8 @@ export function Explorer() {
         nameInputRef={model.modalState.nameInputRef}
         peerUserId={model.peerUserId}
         setDraftName={model.modalState.setDraftName}
+        setDraftShareAccessLevel={model.modalState.setDraftShareAccessLevel}
+        setDraftShareGroupId={model.modalState.setDraftShareGroupId}
         setModalError={model.modalState.setModalError}
         setDraftTargetContainerId={model.modalState.setDraftTargetContainerId}
         targetSelectRef={model.modalState.targetSelectRef}
