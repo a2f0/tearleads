@@ -1,18 +1,13 @@
 import { type MouseEvent, type ReactNode, useEffect, useMemo } from "react";
+import {
+  MiniAppRowButton,
+  MiniAppRowText,
+} from "../../components/shared/MiniAppRow";
 import type { ContactEntries } from "./types";
 
 // Extract the time_low field (first 32 bits) from a UUID string.
 function timeLow(uuid: string): string {
   return uuid.split("-")[0] ?? uuid;
-}
-
-function contactSidebarItemClassName(isSelected: boolean): string {
-  return [
-    "contacts-sidebar-item",
-    isSelected ? "contacts-sidebar-item--selected" : null,
-  ]
-    .filter((className) => className !== null)
-    .join(" ");
 }
 
 function ContactsSidebarEntries({
@@ -42,19 +37,19 @@ function ContactsSidebarEntries({
   return (
     <>
       {entries.map((entry) => (
-        <button
+        <MiniAppRowButton
           key={entry.userId}
-          type="button"
-          className={contactSidebarItemClassName(
-            selectedUserId === entry.userId,
-          )}
+          className="contacts-sidebar-item"
           onClick={() => setSelectedUserId(entry.userId)}
           onContextMenu={(event) => handleContextMenu(event, entry.userId)}
+          selected={selectedUserId === entry.userId}
         >
-          {entry.isSelf
-            ? `${timeLow(entry.userId)} (me)`
-            : timeLow(entry.userId)}
-        </button>
+          <MiniAppRowText>
+            {entry.isSelf
+              ? `${timeLow(entry.userId)} (me)`
+              : timeLow(entry.userId)}
+          </MiniAppRowText>
+        </MiniAppRowButton>
       ))}
     </>
   );

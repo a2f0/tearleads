@@ -1,4 +1,8 @@
 import { useEffect, useMemo } from "react";
+import {
+  MiniAppRowButton,
+  MiniAppRowText,
+} from "../../components/shared/MiniAppRow";
 import type { DocumentSummary } from "../../data/documentSummary";
 import { getUntitledDocumentTitle } from "../../data/documents/documentKinds";
 import { NOTES_LABELS } from "./labels";
@@ -25,14 +29,14 @@ function NotesSidebar({
 }: NotesSidebarProps) {
   return (
     <div className="notes-sidebar">
-      <button
-        type="button"
+      <MiniAppRowButton
         className="notes-sidebar-new-note"
         disabled={!ready}
         onClick={createNote}
+        variant="framed"
       >
-        {NOTES_LABELS.sidebarNewNote}
-      </button>
+        <MiniAppRowText>{NOTES_LABELS.sidebarNewNote}</MiniAppRowText>
+      </MiniAppRowButton>
       <div className="notes-sidebar-list">
         {!ready ? (
           <div className="notes-sidebar-empty">
@@ -42,19 +46,14 @@ function NotesSidebar({
           <div className="notes-sidebar-empty">{NOTES_LABELS.sidebarEmpty}</div>
         ) : (
           notes.map((note) => (
-            <button
+            <MiniAppRowButton
               key={note.id}
-              type="button"
-              className={
-                "notes-sidebar-item" +
-                (selectedNoteId === note.id
-                  ? " notes-sidebar-item--selected"
-                  : "")
-              }
+              className="notes-sidebar-item"
               onClick={() => selectNote(note.id)}
+              selected={selectedNoteId === note.id}
             >
-              {getNoteTitle(note)}
-            </button>
+              <MiniAppRowText>{getNoteTitle(note)}</MiniAppRowText>
+            </MiniAppRowButton>
           ))
         )}
       </div>
