@@ -1,7 +1,9 @@
 import type { MouseEvent, ReactNode } from "react";
+import { useCallback } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
+import { loadExplorerContainerInfo } from "../containerInfo";
 import {
   type ContextMenuState,
   useExplorerContextMenu,
@@ -53,6 +55,7 @@ export interface ExplorerPanelState {
   unlinkDocument: ExplorerDocumentMutationAction;
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The panel hook coordinates sidebar, document, modal, and context-menu state.
 export function useExplorerPanelState(params: {
   appData: ReturnType<typeof useAppData>;
   explorer: ExplorerModelExplorer;
@@ -92,6 +95,15 @@ export function useExplorerPanelState(params: {
     explorer.nodes,
     selection.setSelectedId,
   );
+  const loadContainerInfo = useCallback(
+    (containerId: string) =>
+      loadExplorerContainerInfo({
+        apiClient: appData.apiClient,
+        containerId,
+        organizationId: appData.organizationId,
+      }),
+    [appData.apiClient, appData.organizationId],
+  );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentsAppData,
     expandNode: selection.expandNode,
@@ -127,11 +139,13 @@ export function useExplorerPanelState(params: {
     linkDocument: selectedNoteStructuralState.linkDocument,
     moveDocument: selectedNoteStructuralState.moveDocument,
     documentSummaries,
+    loadContainerInfo,
     peerUserId,
     setSelectedId: selection.setSelectedId,
     selectedDocumentLinkedContainerIds:
       selectedNoteStructuralState.selectedDocumentLinkedContainerIds,
     selectionExpandNode: selection.expandNode,
+    shareWithGroup: explorer.shareWithGroup,
     shareWithUser: explorer.shareWithUser,
   });
   const openInlineDocument = useInlineDocumentAction({

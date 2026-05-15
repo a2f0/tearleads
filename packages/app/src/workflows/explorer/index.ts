@@ -10,6 +10,7 @@ export {
   deleteExplorerContainerState,
   moveRemoteExplorerContainer,
   shareExplorerContainerState,
+  shareExplorerContainerStateWithGroup,
   syncPendingExplorerContainerCreateIntents,
 } from "./containers";
 export {

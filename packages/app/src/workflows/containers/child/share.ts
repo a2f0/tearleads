@@ -11,7 +11,11 @@ import {
   type ContainerUserRecipientKey,
   computeAccessManifestHash,
   deriveContainerAccessManifest,
+  type ManagedPrincipalKind,
+  type PrincipalPolicyBundle,
+  type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
+  verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type {
   ContainerManifestBundle,
@@ -21,15 +25,21 @@ import type {
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
+  EncapsulationKeyResponse,
+  PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
-import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
+import {
+  principalPolicyRequestRecord,
+  uniquePrincipalPolicies,
+} from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   getParentKekForTarget,
   getTargetContainerContext,
   readContainerState,
   uniqueSortedManifestHashes,
+  wrapContainerKeyToManagedPrincipal,
   wrapContainerKeyToRootUser,
 } from "../../../data/containers/shared/projection";
 import {
@@ -57,7 +67,38 @@ import {
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import {
+  loadPrincipalPolicyBundle,
+  savePrincipalPolicyBundle,
+} from "../../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  type PrincipalPolicySignerPublicKeyLoadErrorCode,
+  principalPolicyCheckpoint,
+} from "../../principals/policyVerification";
+
+interface ContainerManagedPrincipalShareApi extends ContainerShareApi {
+  getCurrentPrincipalPolicy: (
+    principalType: ManagedPrincipalKind,
+    principalId: string,
+  ) => Promise<PrincipalPolicyBundleResponse | null>;
+  getEncapsulationKey: (
+    userId: string,
+  ) => Promise<EncapsulationKeyResponse | null>;
+}
+
+type ContainerShareRecipient =
+  | {
+      readonly recipientEncapsulationPublicKey: Uint8Array;
+      readonly subjectId: string;
+      readonly subjectType: "user";
+    }
+  | {
+      readonly principalPolicy: VerifiedPrincipalPolicy;
+      readonly subjectId: string;
+      readonly subjectType: ManagedPrincipalKind;
+    };
 
 function grantKey(
   grant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
@@ -77,10 +118,47 @@ function upsertContainerGrant(
   ].sort((left, right) => grantKey(left).localeCompare(grantKey(right)));
 }
 
+function referencedPrincipalKey(reference: {
+  readonly principalId: string;
+  readonly principalType: ManagedPrincipalKind;
+}): string {
+  return `${reference.principalType}:${reference.principalId}`;
+}
+
+function referencedPrincipalHeadFromPolicy(
+  policy: VerifiedPrincipalPolicy,
+): ReferencedPrincipalHead {
+  return {
+    principalType: policy.principalType,
+    principalId: policy.principalId,
+    version: policy.version,
+    keyEpoch: policy.keyEpoch,
+    stateHash: policy.stateHash,
+    keyFingerprint: policy.state.keyFingerprint,
+  };
+}
+
+function upsertReferencedPrincipalHead(
+  references: readonly ReferencedPrincipalHead[],
+  reference: ReferencedPrincipalHead,
+): ReferencedPrincipalHead[] {
+  return [
+    ...references.filter(
+      (existingReference) =>
+        referencedPrincipalKey(existingReference) !==
+        referencedPrincipalKey(reference),
+    ),
+    reference,
+  ].sort((left, right) =>
+    referencedPrincipalKey(left).localeCompare(referencedPrincipalKey(right)),
+  );
+}
+
 async function deriveContainerShareManifest(input: {
   eventHash: string;
   grant: ContainerDirectGrant;
   previousManifest: ContainerWriterProjectionResponse["path"][number];
+  referencedPrincipalHead: ReferencedPrincipalHead | null;
 }): Promise<Pick<ContainerSharePlan, "manifest" | "manifestHash" | "state">> {
   const previousState = readContainerState(input.previousManifest);
   const state: ContainerAccessManifestState = {
@@ -89,6 +167,12 @@ async function deriveContainerShareManifest(input: {
     previousManifestHash: input.previousManifest.manifestHash,
     eventHash: input.eventHash,
     directGrants: upsertContainerGrant(previousState.directGrants, input.grant),
+    referencedPrincipalHeads: input.referencedPrincipalHead
+      ? upsertReferencedPrincipalHead(
+          previousState.referencedPrincipalHeads,
+          input.referencedPrincipalHead,
+        )
+      : previousState.referencedPrincipalHeads,
   };
   const manifest = await deriveContainerAccessManifest(state);
 
@@ -215,7 +299,7 @@ function buildContainerSharePlanResult(input: {
 }
 
 function collectShareUserRecipientKeys(input: {
-  newUserRecipientKey: ContainerUserRecipientKey;
+  newUserRecipientKey?: ContainerUserRecipientKey | undefined;
   state: ContainerAccessManifestState;
   targetKek: ContainerKekResponse;
 }): ContainerUserRecipientKey[] {
@@ -243,10 +327,12 @@ function collectShareUserRecipientKeys(input: {
     });
   }
 
-  userRecipientKeyByUserId.set(
-    input.newUserRecipientKey.userId,
-    input.newUserRecipientKey,
-  );
+  if (input.newUserRecipientKey) {
+    userRecipientKeyByUserId.set(
+      input.newUserRecipientKey.userId,
+      input.newUserRecipientKey,
+    );
+  }
 
   const missingUserId = [...directUserIds].find(
     (userId) => !userRecipientKeyByUserId.has(userId),
@@ -262,6 +348,116 @@ function collectShareUserRecipientKeys(input: {
   );
 }
 
+function principalPolicySignerPublicKeyLoadErrorMessage(
+  code: PrincipalPolicySignerPublicKeyLoadErrorCode,
+): string {
+  switch (code) {
+    case "fingerprint-invalid":
+      return "principal policy signer key fingerprint is invalid";
+    case "fingerprint-mismatch":
+      return "principal policy signer key fingerprint mismatch";
+    case "not-found":
+      return "principal policy signer key could not be loaded";
+    case "user-mismatch":
+      return "principal policy signer key user mismatch";
+  }
+}
+
+function principalPolicyReferenceFromBundle(
+  bundle: PrincipalPolicyBundleResponse,
+): ReferencedPrincipalHead {
+  return {
+    principalType: bundle.currentState.principalType,
+    principalId: bundle.currentState.principalId,
+    version: bundle.currentState.version,
+    keyEpoch: bundle.currentState.keyEpoch,
+    stateHash: bundle.currentState.stateHash,
+    keyFingerprint: bundle.currentState.keyFingerprint,
+  };
+}
+
+async function loadVerifiedSharePrincipalPolicy(input: {
+  apiClient: ContainerManagedPrincipalShareApi;
+  execSql?: ExecSql | undefined;
+  principalId: string;
+  principalType: ManagedPrincipalKind;
+}): Promise<VerifiedPrincipalPolicy> {
+  const bundle = await input.apiClient.getCurrentPrincipalPolicy(
+    input.principalType,
+    input.principalId,
+  );
+  if (!bundle) {
+    throw new Error("Container share principal policy could not be loaded");
+  }
+  if (
+    bundle.currentState.principalType !== input.principalType ||
+    bundle.currentState.principalId !== input.principalId
+  ) {
+    throw new Error("Container share principal policy target mismatch");
+  }
+
+  const cachedBundle = input.execSql
+    ? await loadPrincipalPolicyBundle(
+        input.execSql,
+        input.principalType,
+        input.principalId,
+      )
+    : null;
+  const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
+    bundle,
+    getEncapsulationKey: (userId) =>
+      input.apiClient.getEncapsulationKey(userId),
+  });
+  if ("error" in signerPublicKeys) {
+    throw new Error(
+      principalPolicySignerPublicKeyLoadErrorMessage(signerPublicKeys.error),
+    );
+  }
+
+  const verified = await verifyPrincipalPolicyBundle({
+    bundle: bundle as PrincipalPolicyBundle,
+    expectedReference: principalPolicyReferenceFromBundle(bundle),
+    localCheckpoint: principalPolicyCheckpoint(cachedBundle),
+    signerPublicKeys: signerPublicKeys.signerPublicKeys,
+  });
+  if (!verified.ok) {
+    throw new Error(
+      `Container share principal policy verification failed: ${verified.error.message}`,
+    );
+  }
+
+  if (input.execSql) {
+    await savePrincipalPolicyBundle(
+      input.execSql,
+      bundle,
+      new Date().toISOString(),
+    );
+  }
+
+  return verified.value;
+}
+
+async function collectContainerSharePrincipalPolicies(input: {
+  execSql?: ExecSql | undefined;
+  previousProjection: ContainerWriterProjectionResponse;
+  recipientPolicy?: VerifiedPrincipalPolicy | undefined;
+  resolveUserKey?: ProjectionUserKeyResolver | undefined;
+}): Promise<VerifiedPrincipalPolicy[]> {
+  const previousPolicies = input.resolveUserKey
+    ? await collectContainerWriterProjectionPrincipalPolicies({
+        execSql: input.execSql,
+        projection: input.previousProjection,
+        resolveUserKey: input.resolveUserKey,
+      })
+    : [];
+
+  return uniquePrincipalPolicies([
+    ...previousPolicies,
+    ...(input.recipientPolicy ? [input.recipientPolicy] : []),
+  ]);
+}
+
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Container share planning keeps the cryptographic transition in one auditable sequence.
 async function buildMaterializedContainerSharePlan(
   input: {
     accessLevel: ContainerAccessLevel;
@@ -269,8 +465,7 @@ async function buildMaterializedContainerSharePlan(
     eventId?: string | undefined;
     execSql?: ExecSql | undefined;
     previousProjection: ContainerWriterProjectionResponse;
-    recipientEncapsulationPublicKey: Uint8Array;
-    recipientUserId: string;
+    recipient: ContainerShareRecipient;
     signedAt?: string | undefined;
     targetSecretKey: Uint8Array;
   } & ProjectionVerificationOptions,
@@ -289,14 +484,18 @@ async function buildMaterializedContainerSharePlan(
 
   const grant: ContainerDirectGrant = {
     accessLevel: input.accessLevel,
-    subjectId: input.recipientUserId,
-    subjectType: "user",
+    subjectId: input.recipient.subjectId,
+    subjectType: input.recipient.subjectType,
   };
+  const referencedPrincipalHead =
+    input.recipient.subjectType === "user"
+      ? null
+      : referencedPrincipalHeadFromPolicy(input.recipient.principalPolicy);
   const body: ContainerGrantAccessEventBody = {
     eventType: "container.grant",
     containerKeyEpochId: previousState.containerKeyEpochId,
     grant,
-    referencedPrincipalHead: null,
+    referencedPrincipalHead,
   };
   const { event, eventHash } = await signContainerMutationEvent({
     author: input.author,
@@ -313,35 +512,61 @@ async function buildMaterializedContainerSharePlan(
     eventHash,
     grant,
     previousManifest: target.manifest,
+    referencedPrincipalHead,
   });
   const containerKey = keksByEpochId.get(target.kek.containerKeyEpochId);
   if (!containerKey) {
     throw new Error("Container share target KEK could not be unwrapped");
   }
-  const { recipientTarget, userRecipientKey, wrap } =
-    await wrapContainerKeyToRootUser({
+  let recipientTarget: ContainerKekRecipientTarget;
+  let userRecipientKeys: ContainerUserRecipientKey[];
+  let wrap: ContainerKeyWrap;
+  if (input.recipient.subjectType === "user") {
+    const shareRecipient = await wrapContainerKeyToRootUser({
       containerKey,
       containerKeyEpochId: target.kek.containerKeyEpochId,
       manifestHash,
-      recipientEncapsulationPublicKey: input.recipientEncapsulationPublicKey,
-      userId: input.recipientUserId,
+      recipientEncapsulationPublicKey:
+        input.recipient.recipientEncapsulationPublicKey,
+      userId: input.recipient.subjectId,
     });
-  const userRecipientKeys = collectShareUserRecipientKeys({
-    newUserRecipientKey: userRecipientKey,
-    state,
-    targetKek: target.kek,
-  });
+    recipientTarget = shareRecipient.recipientTarget;
+    userRecipientKeys = collectShareUserRecipientKeys({
+      newUserRecipientKey: shareRecipient.userRecipientKey,
+      state,
+      targetKek: target.kek,
+    });
+    wrap = shareRecipient.wrap;
+  } else {
+    const shareRecipient = await wrapContainerKeyToManagedPrincipal({
+      containerKey,
+      containerKeyEpochId: target.kek.containerKeyEpochId,
+      manifestHash,
+      principalEncapsulationPublicKey:
+        input.recipient.principalPolicy.state.encapsulationPublicKey,
+      principalHead: referencedPrincipalHeadFromPolicy(
+        input.recipient.principalPolicy,
+      ),
+    });
+    recipientTarget = shareRecipient.recipientTarget;
+    userRecipientKeys = collectShareUserRecipientKeys({
+      state,
+      targetKek: target.kek,
+    });
+    wrap = shareRecipient.wrap;
+  }
   const previousWraps = readContainerKeyWraps(
     target.kek.wraps,
     "Container share previous wraps",
   );
-  const principalPolicies = input.resolveProjectionUserKey
-    ? await collectContainerWriterProjectionPrincipalPolicies({
-        execSql: input.execSql,
-        projection: input.previousProjection,
-        resolveUserKey: input.resolveProjectionUserKey,
-      })
-    : [];
+  const principalPolicies = await collectContainerSharePrincipalPolicies({
+    execSql: input.execSql,
+    previousProjection: input.previousProjection,
+    ...(input.recipient.subjectType === "user"
+      ? {}
+      : { recipientPolicy: input.recipient.principalPolicy }),
+    resolveUserKey: input.resolveProjectionUserKey,
+  });
 
   return buildContainerSharePlanResult({
     body,
@@ -397,8 +622,74 @@ export async function shareRemoteContainer(input: {
     eventId: input.eventId,
     execSql: input.execSql,
     previousProjection,
-    recipientEncapsulationPublicKey: input.recipientEncapsulationPublicKey,
-    recipientUserId: input.recipientUserId,
+    recipient: {
+      recipientEncapsulationPublicKey: input.recipientEncapsulationPublicKey,
+      subjectId: input.recipientUserId,
+      subjectType: "user",
+    },
+    resolveProjectionUserKey,
+    signedAt: input.signedAt,
+    targetSecretKey: input.targetSecretKey,
+  });
+  const response = await input.apiClient.shareContainer(
+    input.containerId,
+    materializedPlan.plan.request,
+  );
+  if (!response) {
+    return null;
+  }
+
+  return {
+    containerKey: materializedPlan.containerKey,
+    plan: materializedPlan.plan,
+    response,
+  };
+}
+
+export async function shareRemoteContainerWithGroup(input: {
+  accessLevel: ContainerAccessLevel;
+  apiClient: ContainerManagedPrincipalShareApi;
+  author: ContainerMutationAuthor;
+  containerId: string;
+  eventId?: string | undefined;
+  execSql?: ExecSql | undefined;
+  recipientGroupId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+}): Promise<{
+  containerKey: Uint8Array;
+  plan: ContainerSharePlan;
+  response: ContainerMutationResponse;
+} | null> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote container share",
+  );
+  const previousProjection = await input.apiClient.getContainerWriterProjection(
+    input.containerId,
+  );
+  if (!previousProjection) {
+    return null;
+  }
+  const principalPolicy = await loadVerifiedSharePrincipalPolicy({
+    apiClient: input.apiClient,
+    execSql: input.execSql,
+    principalId: input.recipientGroupId,
+    principalType: "group",
+  });
+
+  const materializedPlan = await buildMaterializedContainerSharePlan({
+    accessLevel: input.accessLevel,
+    author: input.author,
+    eventId: input.eventId,
+    execSql: input.execSql,
+    previousProjection,
+    recipient: {
+      principalPolicy,
+      subjectId: input.recipientGroupId,
+      subjectType: "group",
+    },
     resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,

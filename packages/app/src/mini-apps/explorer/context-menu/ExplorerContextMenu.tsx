@@ -75,10 +75,9 @@ export function ExplorerContextMenuLayer(params: {
     documentKind: StoredDocumentKind,
     localId?: string,
   ) => void;
+  openContainerInfoModal: (containerId: string) => void;
   openMoveModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
-  openSharePeerModal: (containerId: string) => void;
-  peerUserId: string | null;
 }) {
   const {
     canDeleteContextMenuNode,
@@ -89,10 +88,9 @@ export function ExplorerContextMenuLayer(params: {
     openCreateChildModal,
     openDeleteModal,
     openInlineDocument,
+    openContainerInfoModal,
     openMoveModal,
     openRenameModal,
-    openSharePeerModal,
-    peerUserId,
   } = params;
 
   if (!contextMenu) {
@@ -140,11 +138,10 @@ export function ExplorerContextMenuLayer(params: {
         }}
       />
       <MenuItem
-        label="Share With Peer"
-        disabled={!peerUserId}
+        label="Get Info"
         onClick={() => {
           closeContextMenu();
-          openSharePeerModal(contextMenu.nodeId);
+          openContainerInfoModal(contextMenu.nodeId);
         }}
       />
       <MenuItem

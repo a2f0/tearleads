@@ -1,6 +1,8 @@
 import type { ContainerNode } from "../../mini-apps/explorer/types";
 import type { ExplorerRuntime, ExplorerSyncState } from "./explorerSyncAgent";
 
+export type ExplorerShareAccessLevel = "admin" | "read" | "write";
+
 export interface ExplorerContextValue {
   createChild: (
     parentId: string,
@@ -16,6 +18,11 @@ export interface ExplorerContextValue {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  shareWithGroup: (
+    containerId: string,
+    groupId: string,
+    accessLevel: ExplorerShareAccessLevel,
+  ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
@@ -41,6 +48,11 @@ export interface ExplorerStore {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  shareWithGroup: (
+    containerId: string,
+    groupId: string,
+    accessLevel: ExplorerShareAccessLevel,
+  ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   getSnapshot: () => ExplorerSnapshot;
   subscribe: (listener: () => void) => () => void;

@@ -22,6 +22,7 @@ import {
   moveExplorerContainer,
   persistContainerState,
   renameExplorerContainer,
+  shareExplorerContainerWithGroup,
   shareExplorerContainerWithUser,
 } from "./operations";
 import {
@@ -87,6 +88,20 @@ export function createExplorerStore(
         );
       return state.writeChain.then((sharedNode) => sharedNode !== null);
     },
+    shareWithGroup: (containerId, groupId, accessLevel) => {
+      state.writeChain = state.writeChain
+        .catch(() => null)
+        .then(() =>
+          shareExplorerContainerWithGroup(
+            state,
+            syncAgent,
+            containerId,
+            groupId,
+            accessLevel,
+          ),
+        );
+      return state.writeChain.then((sharedNode) => sharedNode !== null);
+    },
     getSnapshot: () => state.snapshot,
     subscribe: (listener) => subscribeToExplorerStore(state, listener),
     updateRuntime: (runtime) =>
@@ -144,6 +159,7 @@ export function useExplorer(): ExplorerContextValue {
     moveContainer: store.moveContainer,
     refresh: store.refresh,
     renameContainer: store.renameContainer,
+    shareWithGroup: store.shareWithGroup,
     shareWithUser: store.shareWithUser,
     nodes: snapshot.nodes,
     ready: snapshot.ready,

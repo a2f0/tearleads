@@ -216,6 +216,10 @@
   box-shadow: 0 0 0 1px var(--color-dark);
 }
 
+.explorer-modal--info {
+  width: min(100%, 34rem);
+}
+
 .explorer-modal-form {
   display: flex;
   flex-direction: column;
@@ -238,12 +242,68 @@
   font-size: var(--font-size-sm);
 }
 
-.explorer-modal-field input {
+.explorer-modal-field input,
+.explorer-modal-field select {
   padding: calc(var(--padding) / 2);
   border: 1px solid var(--color-dark);
   background: var(--color-light);
   color: inherit;
   font: inherit;
+}
+
+.explorer-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding);
+}
+
+.explorer-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--padding) / 2);
+}
+
+.explorer-info-section h3 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.explorer-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.explorer-info-table th,
+.explorer-info-table td {
+  padding: calc(var(--padding) / 3);
+  border: 1px solid currentColor;
+  text-align: left;
+  word-break: break-word;
+}
+
+.explorer-info-table th {
+  font-weight: 600;
+}
+
+.explorer-info-inline-action {
+  align-self: flex-start;
+  padding: calc(var(--padding) / 2) var(--padding);
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.explorer-info-inline-action:hover:not(:disabled) {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.explorer-info-inline-action:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .explorer-modal-error {

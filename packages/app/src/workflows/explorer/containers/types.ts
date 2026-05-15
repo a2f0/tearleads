@@ -9,6 +9,7 @@ import type {
   createRemoteContainer,
   moveRemoteContainer,
   shareRemoteContainer,
+  shareRemoteContainerWithGroup,
 } from "../../containers";
 import type { createRemoteDocument } from "../../documents";
 import type {
@@ -26,6 +27,7 @@ export type ExplorerContainerWorkflowApi = Parameters<
   typeof createRemoteContainer
 >[0]["apiClient"] &
   Parameters<typeof shareRemoteContainer>[0]["apiClient"] &
+  Parameters<typeof shareRemoteContainerWithGroup>[0]["apiClient"] &
   Parameters<typeof moveRemoteContainer>[0]["apiClient"] &
   Parameters<typeof createRemoteDocument>[0]["apiClient"] & {
     deleteContainerResult(

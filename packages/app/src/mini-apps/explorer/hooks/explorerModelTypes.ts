@@ -16,6 +16,11 @@ export interface ExplorerModelExplorer {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  shareWithGroup: (
+    containerId: string,
+    groupId: string,
+    accessLevel: "admin" | "read" | "write",
+  ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
