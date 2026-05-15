@@ -30,6 +30,14 @@ const entries: ContactEntry[] = [
     encapsulationPublicKey: null,
     isSelf: false,
   },
+  {
+    id: "imported-user",
+    firstName: "",
+    lastName: "",
+    userId: "550e8400-e29b-41d4-a716-446655440000",
+    encapsulationPublicKey: "public-key",
+    isSelf: false,
+  },
 ];
 
 function ContactsSidebarHarness() {
@@ -80,4 +88,14 @@ test("contacts sidebar selects on primary mouse down after blurring active field
     );
     expect(view.getByLabelText("Selected contact").textContent).toBe("grace");
   });
+});
+
+test("contacts sidebar shortens user ids when a contact has no name", async () => {
+  const view = render(<ContactsSidebarHarness />);
+
+  expect(
+    await view.findByRole("button", {
+      name: "550e8400",
+    }),
+  ).toBeTruthy();
 });

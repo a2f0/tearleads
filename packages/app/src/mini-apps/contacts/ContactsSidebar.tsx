@@ -3,12 +3,23 @@ import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
-import { getContactDisplayName } from "../../data/contacts/addressBookEntry";
 import type { ContactEntries } from "./types";
 
 // Extract the time_low field (first 32 bits) from a UUID string.
 function timeLow(uuid: string): string {
   return uuid.split("-")[0] ?? uuid;
+}
+
+function getSidebarContactLabel(entry: ContactEntries[number]): string {
+  const name = `${entry.firstName} ${entry.lastName}`.trim();
+  const label =
+    name.length > 0
+      ? name
+      : entry.userId
+        ? timeLow(entry.userId)
+        : "Untitled contact";
+
+  return entry.isSelf ? `${label} (me)` : label;
 }
 
 function ContactsSidebarEntries({
@@ -64,14 +75,7 @@ function ContactsSidebarEntries({
           onContextMenu={(event) => handleContextMenu(event, entry.id)}
           selected={selectedContactId === entry.id}
         >
-          <MiniAppRowText>
-            {entry.isSelf
-              ? `${getContactDisplayName(entry)} (me)`
-              : getContactDisplayName(entry) === "Untitled contact" &&
-                  entry.userId
-                ? timeLow(entry.userId)
-                : getContactDisplayName(entry)}
-          </MiniAppRowText>
+          <MiniAppRowText>{getSidebarContactLabel(entry)}</MiniAppRowText>
         </MiniAppRowButton>
       ))}
     </>
