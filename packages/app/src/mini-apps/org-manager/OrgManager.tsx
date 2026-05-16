@@ -7,7 +7,14 @@ import type {
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   MiniAppRow,
   MiniAppRowButton,
@@ -79,9 +86,9 @@ const GROUP_CONTAINER_TABLE_COLUMNS = [
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
 
 const ACCESS_LEVEL_LABELS = {
-  admin: "Admin",
-  read: "Read",
-  write: "Write",
+  admin: ORG_MANAGER_LABELS.accessAdmin,
+  read: ORG_MANAGER_LABELS.accessRead,
+  write: ORG_MANAGER_LABELS.accessWrite,
 } satisfies Record<OrganizationGroupContainerResponse["accessLevel"], string>;
 
 function userRecipient(
@@ -397,6 +404,12 @@ export function OrgManager() {
   const [loading, setLoading] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const selectedGroupIdRef = useRef(selectedGroupId);
+
+  const selectGroup = useCallback((groupId: string | null) => {
+    selectedGroupIdRef.current = groupId;
+    setSelectedGroupId(groupId);
+  }, []);
 
   const selectedGroup =
     groups.find((group) => group.groupId === selectedGroupId) ?? null;
@@ -428,7 +441,8 @@ export function OrgManager() {
       setGroups([]);
       setMembers(null);
       setGroupContainers(null);
-      return;
+      selectGroup(null);
+      return null;
     }
 
     setLoading(true);
@@ -444,31 +458,36 @@ export function OrgManager() {
         setGroups([]);
         setMembers(null);
         setGroupContainers(null);
-        setSelectedGroupId(null);
+        selectGroup(null);
         setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
-        return;
+        return null;
       }
 
       setDirectory(nextDirectory);
       setGroups(nextGroups.groups);
-      setSelectedGroupId((current) => {
-        if (
-          current &&
-          nextGroups.groups.some((group) => group.groupId === current)
-        ) {
-          return current;
-        }
-
-        return nextGroups.groups[0]?.groupId ?? null;
-      });
+      const nextSelectedGroupId =
+        selectedGroupIdRef.current &&
+        nextGroups.groups.some(
+          (group) => group.groupId === selectedGroupIdRef.current,
+        )
+          ? selectedGroupIdRef.current
+          : (nextGroups.groups[0]?.groupId ?? null);
+      selectGroup(nextSelectedGroupId);
+      return nextSelectedGroupId;
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : String(nextError),
       );
+      return selectedGroupIdRef.current;
     } finally {
       setLoading(false);
     }
-  }, [appData.apiClient, appData.isAuthenticated, appData.organizationId]);
+  }, [
+    appData.apiClient,
+    appData.isAuthenticated,
+    appData.organizationId,
+    selectGroup,
+  ]);
 
   const refreshSelectedGroupMembers = useCallback(
     async (groupId: string | null) => {
@@ -533,16 +552,15 @@ export function OrgManager() {
   );
 
   const refreshOrgManager = useCallback(async () => {
-    await refreshDirectoryAndGroups();
+    const refreshedGroupId = await refreshDirectoryAndGroups();
     await Promise.all([
-      refreshSelectedGroupMembers(selectedGroupId),
-      refreshSelectedGroupContainers(selectedGroupId),
+      refreshSelectedGroupMembers(refreshedGroupId),
+      refreshSelectedGroupContainers(refreshedGroupId),
     ]);
   }, [
     refreshDirectoryAndGroups,
     refreshSelectedGroupContainers,
     refreshSelectedGroupMembers,
-    selectedGroupId,
   ]);
 
   useEffect(() => {
@@ -576,7 +594,7 @@ export function OrgManager() {
       setGroupNameDraft("");
       await refreshDirectoryAndGroups();
       setView("groups");
-      setSelectedGroupId(createdGroup.groupId);
+      selectGroup(createdGroup.groupId);
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : String(nextError),
@@ -593,6 +611,7 @@ export function OrgManager() {
     groupNameDraft,
     orgManagerActions,
     refreshDirectoryAndGroups,
+    selectGroup,
   ]);
 
   const addUser = useCallback(async () => {
@@ -756,7 +775,7 @@ export function OrgManager() {
               <GroupList
                 groups={groups}
                 selectedGroupId={selectedGroupId}
-                setSelectedGroupId={setSelectedGroupId}
+                setSelectedGroupId={selectGroup}
               />
             </section>
             <section className="org-manager-panel org-manager-panel--detail">
