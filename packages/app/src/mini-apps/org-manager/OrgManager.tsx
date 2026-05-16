@@ -1,12 +1,3 @@
-import type {
-  OrganizationDirectoryResponse,
-  OrganizationDirectoryUserResponse,
-  OrganizationGroupContainerResponse,
-  OrganizationGroupContainersResponse,
-  OrganizationGroupMemberResponse,
-  OrganizationGroupMembersResponse,
-  OrganizationGroupSummaryResponse,
-} from "@tearleads/validators/response";
 import {
   useCallback,
   useEffect,
@@ -32,6 +23,13 @@ import {
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
+  type OrgManagerDirectory,
+  type OrgManagerDirectoryUser,
+  type OrgManagerGroupContainer,
+  type OrgManagerGroupContainers,
+  type OrgManagerGroupMember,
+  type OrgManagerGroupMembers,
+  type OrgManagerGroupSummary,
   type OrgManagerUserRecipient,
   useOrgManagerActions,
 } from "../../stores/org-manager/OrgManagerProvider";
@@ -89,11 +87,9 @@ const ACCESS_LEVEL_LABELS = {
   admin: ORG_MANAGER_LABELS.accessAdmin,
   read: ORG_MANAGER_LABELS.accessRead,
   write: ORG_MANAGER_LABELS.accessWrite,
-} satisfies Record<OrganizationGroupContainerResponse["accessLevel"], string>;
+} satisfies Record<OrgManagerGroupContainer["accessLevel"], string>;
 
-function userRecipient(
-  user: OrganizationDirectoryUserResponse,
-): OrgManagerUserRecipient {
+function userRecipient(user: OrgManagerDirectoryUser): OrgManagerUserRecipient {
   return {
     userId: user.userId,
     encapsulationPublicKey: user.encapsulationPublicKey,
@@ -102,7 +98,7 @@ function userRecipient(
 }
 
 function memberUserRecipient(
-  member: OrganizationGroupMemberResponse,
+  member: OrgManagerGroupMember,
 ): OrgManagerUserRecipient | null {
   if (
     member.memberPrincipalType !== "user" ||
@@ -120,8 +116,8 @@ function memberUserRecipient(
 }
 
 function currentGroupUserRecipients(input: {
-  directory: OrganizationDirectoryResponse;
-  members: OrganizationGroupMembersResponse | null;
+  directory: OrgManagerDirectory;
+  members: OrgManagerGroupMembers | null;
 }): OrgManagerUserRecipient[] {
   const recipientsById = new Map<string, OrgManagerUserRecipient>();
 
@@ -149,7 +145,7 @@ function compactFingerprint(value: string): string {
 }
 
 function getAccessLabel(
-  accessLevel: OrganizationGroupContainerResponse["accessLevel"],
+  accessLevel: OrgManagerGroupContainer["accessLevel"],
 ): string {
   return ACCESS_LEVEL_LABELS[accessLevel];
 }
@@ -170,8 +166,8 @@ type GroupDetailsRefreshOptions = {
 };
 
 function canCurrentUserMutateSelectedGroup(input: {
-  directory: OrganizationDirectoryResponse | null;
-  members: OrganizationGroupMembersResponse | null;
+  directory: OrgManagerDirectory | null;
+  members: OrgManagerGroupMembers | null;
   userId: string | null;
 }): boolean {
   if (input.directory?.currentUser.isOrgAdmin) {
@@ -192,7 +188,7 @@ function DirectoryTable({
   directory,
   loading,
 }: {
-  directory: OrganizationDirectoryResponse | null;
+  directory: OrgManagerDirectory | null;
   loading: boolean;
 }) {
   if (!directory) {
@@ -248,7 +244,7 @@ function GroupList({
   selectedGroupId,
   setSelectedGroupId,
 }: {
-  groups: ReadonlyArray<OrganizationGroupSummaryResponse>;
+  groups: ReadonlyArray<OrgManagerGroupSummary>;
   selectedGroupId: string | null;
   setSelectedGroupId: (groupId: string) => void;
 }) {
@@ -296,7 +292,7 @@ function GroupMembers({
   userId,
 }: {
   canMutateGroup: boolean;
-  members: ReadonlyArray<OrganizationGroupMemberResponse>;
+  members: ReadonlyArray<OrgManagerGroupMember>;
   mutating: boolean;
   removeMember: (userId: string) => void;
   userId: string | null;
@@ -359,7 +355,7 @@ function GroupMembers({
 function GroupContainers({
   containers,
 }: {
-  containers: ReadonlyArray<OrganizationGroupContainerResponse>;
+  containers: ReadonlyArray<OrgManagerGroupContainer>;
 }) {
   if (containers.length === 0) {
     return (
@@ -406,13 +402,13 @@ export function OrgManager() {
   const orgManagerActions = useOrgManagerActions();
   const addUserListId = useId();
   const [view, setView] = useState<OrgManagerView>("directory");
-  const [directory, setDirectory] =
-    useState<OrganizationDirectoryResponse | null>(null);
-  const [groups, setGroups] = useState<OrganizationGroupSummaryResponse[]>([]);
-  const [members, setMembers] =
-    useState<OrganizationGroupMembersResponse | null>(null);
+  const [directory, setDirectory] = useState<OrgManagerDirectory | null>(null);
+  const [groups, setGroups] = useState<ReadonlyArray<OrgManagerGroupSummary>>(
+    [],
+  );
+  const [members, setMembers] = useState<OrgManagerGroupMembers | null>(null);
   const [groupContainers, setGroupContainers] =
-    useState<OrganizationGroupContainersResponse | null>(null);
+    useState<OrgManagerGroupContainers | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [addUserId, setAddUserId] = useState("");
@@ -470,27 +466,25 @@ export function OrgManager() {
         return { didLoad: false, groupId: null };
       }
 
-      const [nextDirectory, nextGroups] = await Promise.all([
-        appData.apiClient.listOrganizationDirectory(appData.organizationId),
-        appData.apiClient.listOrganizationGroups(appData.organizationId),
-      ]);
+      const nextDirectoryState =
+        await orgManagerActions.loadDirectoryAndGroups();
 
-      if (nextDirectory === null || nextGroups === null) {
+      if (nextDirectoryState === null) {
         resetDirectoryState();
         setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
         return { didLoad: false, groupId: null };
       }
 
-      setDirectory(nextDirectory);
-      setGroups(nextGroups.groups);
+      setDirectory(nextDirectoryState.directory);
+      setGroups(nextDirectoryState.groups);
       const currentSelectedGroupId = selectedGroupIdRef.current;
       const nextSelectedGroupId =
         currentSelectedGroupId &&
-        nextGroups.groups.some(
+        nextDirectoryState.groups.some(
           (group) => group.groupId === currentSelectedGroupId,
         )
           ? currentSelectedGroupId
-          : (nextGroups.groups[0]?.groupId ?? null);
+          : (nextDirectoryState.groups[0]?.groupId ?? null);
       if (
         options.skipNextGroupDetailsEffect &&
         nextSelectedGroupId !== currentSelectedGroupId
@@ -501,9 +495,9 @@ export function OrgManager() {
       return { didLoad: true, groupId: nextSelectedGroupId };
     },
     [
-      appData.apiClient,
       appData.isAuthenticated,
       appData.organizationId,
+      orgManagerActions,
       resetDirectoryState,
       selectGroup,
     ],
@@ -561,16 +555,8 @@ export function OrgManager() {
         setError(null);
       }
       try {
-        const [nextMembers, nextContainers] = await Promise.all([
-          appData.apiClient.listOrganizationGroupMembers(
-            appData.organizationId,
-            groupId,
-          ),
-          appData.apiClient.listOrganizationGroupContainers(
-            appData.organizationId,
-            groupId,
-          ),
-        ]);
+        const { members: nextMembers, containers: nextContainers } =
+          await orgManagerActions.loadGroupDetails(groupId);
         const errors: string[] = [];
 
         if (nextMembers === null) {
@@ -598,7 +584,7 @@ export function OrgManager() {
         );
       }
     },
-    [appData.apiClient, appData.isAuthenticated, appData.organizationId],
+    [appData.isAuthenticated, appData.organizationId, orgManagerActions],
   );
 
   const refreshOrgManager = useCallback(async () => {

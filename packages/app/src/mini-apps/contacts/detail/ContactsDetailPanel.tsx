@@ -1,5 +1,4 @@
-import type { ContactEntryPatch } from "../../../data/contacts/addressBookEntry";
-import type { ContactEntries } from "../types";
+import type { ContactEntries, ContactEntryPatch } from "../types";
 
 type UpdateContact = (contactId: string, patch: ContactEntryPatch) => void;
 

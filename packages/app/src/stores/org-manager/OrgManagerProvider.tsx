@@ -1,7 +1,4 @@
-import type {
-  OrganizationGroupSummaryResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   createContext,
   type PropsWithChildren,
@@ -14,6 +11,17 @@ import {
   addOrgManagerGroupUser,
   createOrgManagerGroup,
   importOrgManagerUserRecipient,
+  loadOrgManagerDirectoryAndGroups,
+  loadOrgManagerGroupDetails,
+  type OrgManagerDirectory,
+  type OrgManagerDirectoryAndGroups,
+  type OrgManagerDirectoryUser,
+  type OrgManagerGroupContainer,
+  type OrgManagerGroupContainers,
+  type OrgManagerGroupDetails,
+  type OrgManagerGroupMember,
+  type OrgManagerGroupMembers,
+  type OrgManagerGroupSummary,
   type OrgManagerUserRecipient,
   removeOrgManagerGroupUser,
 } from "../../workflows/org-manager";
@@ -25,8 +33,10 @@ interface OrgManagerContextValue {
     currentUsers: ReadonlyArray<OrgManagerUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
-  createGroup: (name: string) => Promise<OrganizationGroupSummaryResponse>;
+  createGroup: (name: string) => Promise<OrgManagerGroupSummary>;
   importUserById: (userId: string) => Promise<OrgManagerUserRecipient | null>;
+  loadDirectoryAndGroups: () => Promise<OrgManagerDirectoryAndGroups | null>;
+  loadGroupDetails: (groupId: string) => Promise<OrgManagerGroupDetails>;
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
@@ -37,7 +47,16 @@ interface OrgManagerContextValue {
 
 const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 
-export type { OrgManagerUserRecipient };
+export type {
+  OrgManagerDirectory,
+  OrgManagerDirectoryUser,
+  OrgManagerGroupContainer,
+  OrgManagerGroupContainers,
+  OrgManagerGroupMember,
+  OrgManagerGroupMembers,
+  OrgManagerGroupSummary,
+  OrgManagerUserRecipient,
+};
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider centralizes action wiring so presentation does not pass raw SQL or import workflows.
 export function OrgManagerProvider({ children }: PropsWithChildren) {
@@ -87,6 +106,39 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       appData.execSql,
       requireSigningContext,
     ],
+  );
+
+  const loadDirectoryAndGroups = useCallback(() => {
+    if (!appData.organizationId || !appData.isAuthenticated) {
+      return Promise.resolve(null);
+    }
+
+    return loadOrgManagerDirectoryAndGroups({
+      apiClient: appData.apiClient,
+      organizationId: appData.organizationId,
+    });
+  }, [appData.apiClient, appData.isAuthenticated, appData.organizationId]);
+
+  const loadGroupDetails = useCallback(
+    (groupId: string) => {
+      if (
+        !appData.organizationId ||
+        !appData.isAuthenticated ||
+        groupId.length === 0
+      ) {
+        return Promise.resolve({
+          members: null,
+          containers: null,
+        });
+      }
+
+      return loadOrgManagerGroupDetails({
+        apiClient: appData.apiClient,
+        groupId,
+        organizationId: appData.organizationId,
+      });
+    },
+    [appData.apiClient, appData.isAuthenticated, appData.organizationId],
   );
 
   const addUserToGroup = useCallback(
@@ -156,9 +208,18 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       addUserToGroup,
       createGroup,
       importUserById,
+      loadDirectoryAndGroups,
+      loadGroupDetails,
       removeUserFromGroup,
     }),
-    [addUserToGroup, createGroup, importUserById, removeUserFromGroup],
+    [
+      addUserToGroup,
+      createGroup,
+      importUserById,
+      loadDirectoryAndGroups,
+      loadGroupDetails,
+      removeUserFromGroup,
+    ],
   );
 
   return (
