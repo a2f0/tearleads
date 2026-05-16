@@ -116,12 +116,16 @@ async function loadContainerSyncCursors(input: {
   parentId: string | null;
 }): Promise<ExplorerContainerInfoSyncCursor[]> {
   const cursorDefinitions = getContainerSyncCursorDefinitions(input);
-  const records = input.execSql
-    ? await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(
-        input.execSql,
-        cursorDefinitions.map(({ lane }) => lane),
-      )
-    : [];
+  let records: Awaited<
+    ReturnType<typeof sqlContainerSyncWatermarkPersistence.loadWatermarkRecords>
+  > = [];
+  if (input.execSql) {
+    await sqlContainerSyncWatermarkPersistence.ensureSchema(input.execSql);
+    records = await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(
+      input.execSql,
+      cursorDefinitions.map(({ lane }) => lane),
+    );
+  }
 
   return cursorDefinitions.map((definition, index) => {
     const { laneId, laneKind } = containerSyncWatermarkLaneKey(definition.lane);
