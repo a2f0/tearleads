@@ -15,6 +15,7 @@ import {
   isListContainerDocumentsResponse,
   isListContainersResponse,
   isListOrganizationGroupsResponse,
+  isOrganizationContainerGrantsResponse,
   isOrganizationDirectoryResponse,
   isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
@@ -405,6 +406,38 @@ test("organization manager responses", () => {
       organizationId: "org-1",
       groupId: "group-1",
       containers: [{ containerId: "container-1", accessLevel: "owner" }],
+    }),
+  ).toBe(false);
+
+  expect(
+    isOrganizationContainerGrantsResponse({
+      organizationId: "org-1",
+      grants: [
+        {
+          accessLevel: "admin",
+          containerId: "container-1",
+          createdAt: new Date().toISOString(),
+          depth: 0,
+          metadataAccessEpoch: 1,
+          metadataAccessStateHash: "access-state-hash",
+          metadataDocumentId: "metadata-document-1",
+          parentId: null,
+          updatedAt: new Date().toISOString(),
+          subjectType: "group",
+          subjectId: "group-1",
+          userId: null,
+          signingKeyFingerprint: null,
+          groupId: "group-1",
+          groupName: "Admins",
+          organizationName: null,
+        },
+      ],
+    }),
+  ).toBe(true);
+  expect(
+    isOrganizationContainerGrantsResponse({
+      organizationId: "org-1",
+      grants: [{ containerId: "container-1", subjectType: "team" }],
     }),
   ).toBe(false);
 });

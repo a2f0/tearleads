@@ -23,6 +23,8 @@ import {
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
+  type OrgManagerContainerGrant,
+  type OrgManagerContainerGrants,
   type OrgManagerDirectory,
   type OrgManagerDirectoryUser,
   type OrgManagerGroupContainer,
@@ -69,6 +71,30 @@ const GROUP_CONTAINER_TABLE_COLUMNS = [
     id: "container",
     header: ORG_MANAGER_LABELS.container,
     width: "42%",
+  },
+  {
+    id: "access",
+    header: ORG_MANAGER_LABELS.access,
+    width: "7rem",
+  },
+  {
+    className: "org-manager-container-updated-column",
+    id: "updated",
+    header: ORG_MANAGER_LABELS.updated,
+    width: "8rem",
+  },
+] satisfies ReadonlyArray<MiniAppTableColumn>;
+
+const GRANT_TABLE_COLUMNS = [
+  {
+    id: "principal",
+    header: ORG_MANAGER_LABELS.principal,
+    width: "34%",
+  },
+  {
+    id: "container",
+    header: ORG_MANAGER_LABELS.container,
+    width: "34%",
   },
   {
     id: "access",
@@ -150,6 +176,19 @@ function getAccessLabel(
   return ACCESS_LEVEL_LABELS[accessLevel];
 }
 
+function getGrantPrincipalLabel(grant: OrgManagerContainerGrant): string {
+  if (grant.subjectType === "group") {
+    return grant.groupName ?? compactFingerprint(grant.subjectId);
+  }
+  if (grant.subjectType === "organization") {
+    return grant.organizationName ?? compactFingerprint(grant.subjectId);
+  }
+
+  return grant.userId
+    ? compactFingerprint(grant.userId)
+    : compactFingerprint(grant.subjectId);
+}
+
 type DirectoryRefreshOptions = {
   clearError?: boolean;
   manageLoading?: boolean;
@@ -163,6 +202,11 @@ type DirectoryRefreshResult = {
 
 type GroupDetailsRefreshOptions = {
   clearError?: boolean;
+};
+
+type GrantsRefreshOptions = {
+  clearError?: boolean;
+  manageLoading?: boolean;
 };
 
 function canCurrentUserMutateSelectedGroup(input: {
@@ -395,6 +439,116 @@ function GroupContainers({
   );
 }
 
+function GrantTable({
+  emptyLabel,
+  grants,
+  label,
+}: {
+  emptyLabel: string;
+  grants: ReadonlyArray<OrgManagerContainerGrant>;
+  label: string;
+}) {
+  if (grants.length === 0) {
+    return <div className="org-manager-hint">{emptyLabel}</div>;
+  }
+
+  return (
+    <MiniAppTableFrame>
+      <MiniAppTable aria-label={label} columns={GRANT_TABLE_COLUMNS}>
+        {grants.map((grant) => (
+          <MiniAppTableRow
+            key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
+          >
+            <MiniAppTableCell>
+              <MiniAppTableText title={grant.subjectId}>
+                {getGrantPrincipalLabel(grant)}
+              </MiniAppTableText>
+            </MiniAppTableCell>
+            <MiniAppTableCell>
+              <MiniAppTableText title={grant.containerId}>
+                {compactFingerprint(grant.containerId)}
+              </MiniAppTableText>
+            </MiniAppTableCell>
+            <MiniAppTableCell>
+              <MiniAppTableText>
+                {getAccessLabel(grant.accessLevel)}
+              </MiniAppTableText>
+            </MiniAppTableCell>
+            <MiniAppTableCell className="org-manager-container-updated-column">
+              <MiniAppTableText title={grant.updatedAt}>
+                {formatMiniAppDate(grant.updatedAt)}
+              </MiniAppTableText>
+            </MiniAppTableCell>
+          </MiniAppTableRow>
+        ))}
+      </MiniAppTable>
+    </MiniAppTableFrame>
+  );
+}
+
+function GrantsView({
+  grants,
+  loading,
+}: {
+  grants: OrgManagerContainerGrants | null;
+  loading: boolean;
+}) {
+  if (!grants) {
+    return (
+      <div className="org-manager-hint">
+        {loading
+          ? ORG_MANAGER_LABELS.loadingGrants
+          : ORG_MANAGER_LABELS.grantsUnavailable}
+      </div>
+    );
+  }
+
+  const groupGrants = grants.grants.filter(
+    (grant) => grant.subjectType === "group",
+  );
+  const userGrants = grants.grants.filter(
+    (grant) => grant.subjectType === "user",
+  );
+  const organizationGrants = grants.grants.filter(
+    (grant) => grant.subjectType === "organization",
+  );
+
+  return (
+    <div className="org-manager-grants">
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.groupContainerLinks}
+        </div>
+        <GrantTable
+          emptyLabel={ORG_MANAGER_LABELS.noGroupContainerLinks}
+          grants={groupGrants}
+          label={ORG_MANAGER_LABELS.groupContainerLinks}
+        />
+      </section>
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.userContainerLinks}
+        </div>
+        <GrantTable
+          emptyLabel={ORG_MANAGER_LABELS.noUserContainerLinks}
+          grants={userGrants}
+          label={ORG_MANAGER_LABELS.userContainerLinks}
+        />
+      </section>
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.organizationContainerLinks}
+        </div>
+        <GrantTable
+          emptyLabel={ORG_MANAGER_LABELS.noOrganizationContainerLinks}
+          grants={organizationGrants}
+          label={ORG_MANAGER_LABELS.organizationContainerLinks}
+        />
+      </section>
+    </div>
+  );
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The mini-app shell coordinates shared async state across the directory and group panes.
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The mini-app shell coordinates shared async state across the directory and group panes.
 export function OrgManager() {
@@ -409,6 +563,7 @@ export function OrgManager() {
   const [members, setMembers] = useState<OrgManagerGroupMembers | null>(null);
   const [groupContainers, setGroupContainers] =
     useState<OrgManagerGroupContainers | null>(null);
+  const [grants, setGrants] = useState<OrgManagerContainerGrants | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [addUserId, setAddUserId] = useState("");
@@ -454,6 +609,7 @@ export function OrgManager() {
     setGroups([]);
     setMembers(null);
     setGroupContainers(null);
+    setGrants(null);
     selectGroup(null);
   }, [selectGroup]);
 
@@ -587,15 +743,60 @@ export function OrgManager() {
     [appData.isAuthenticated, appData.organizationId, orgManagerActions],
   );
 
+  const refreshGrants = useCallback(
+    async (options: GrantsRefreshOptions = {}) => {
+      const shouldClearError = options.clearError ?? true;
+      const shouldManageLoading = options.manageLoading ?? true;
+      if (!appData.organizationId || !appData.isAuthenticated) {
+        setGrants(null);
+        return;
+      }
+
+      if (shouldManageLoading) {
+        setLoading(true);
+      }
+      if (shouldClearError) {
+        setError(null);
+      }
+
+      try {
+        const nextGrants = await orgManagerActions.loadGrants();
+        if (nextGrants === null) {
+          setGrants(null);
+          setError(ORG_MANAGER_LABELS.failedLoadGrants);
+          return;
+        }
+
+        setGrants(nextGrants);
+      } catch (nextError) {
+        setGrants(null);
+        setError(
+          nextError instanceof Error ? nextError.message : String(nextError),
+        );
+      } finally {
+        if (shouldManageLoading) {
+          setLoading(false);
+        }
+      }
+    },
+    [appData.isAuthenticated, appData.organizationId, orgManagerActions],
+  );
+
   const refreshOrgManager = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const refreshedDirectory = await refreshDirectoryAndGroups({
-        clearError: false,
-        manageLoading: false,
-        skipNextGroupDetailsEffect: true,
-      });
+      const [refreshedDirectory] = await Promise.all([
+        refreshDirectoryAndGroups({
+          clearError: false,
+          manageLoading: false,
+          skipNextGroupDetailsEffect: true,
+        }),
+        refreshGrants({
+          clearError: false,
+          manageLoading: false,
+        }),
+      ]);
       if (refreshedDirectory.didLoad) {
         await refreshSelectedGroupDetails(refreshedDirectory.groupId, {
           clearError: false,
@@ -604,11 +805,11 @@ export function OrgManager() {
     } finally {
       setLoading(false);
     }
-  }, [refreshDirectoryAndGroups, refreshSelectedGroupDetails]);
+  }, [refreshDirectoryAndGroups, refreshGrants, refreshSelectedGroupDetails]);
 
   useEffect(() => {
-    void refreshDirectoryAndGroups();
-  }, [refreshDirectoryAndGroups]);
+    void refreshOrgManager();
+  }, [refreshOrgManager]);
 
   useEffect(() => {
     const skippedGroupDetailsEffect = skippedGroupDetailsEffectRef.current;
@@ -803,6 +1004,8 @@ export function OrgManager() {
         {error && <div className="org-manager-error">{error}</div>}
         {view === "directory" ? (
           <DirectoryTable directory={directory} loading={loading} />
+        ) : view === "grants" ? (
+          <GrantsView grants={grants} loading={loading} />
         ) : (
           <div className="org-manager-groups">
             <section className="org-manager-panel">

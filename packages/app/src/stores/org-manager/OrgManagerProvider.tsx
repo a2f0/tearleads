@@ -12,7 +12,10 @@ import {
   createOrgManagerGroup,
   importOrgManagerUserRecipient,
   loadOrgManagerDirectoryAndGroups,
+  loadOrgManagerGrants,
   loadOrgManagerGroupDetails,
+  type OrgManagerContainerGrant,
+  type OrgManagerContainerGrants,
   type OrgManagerDirectory,
   type OrgManagerDirectoryAndGroups,
   type OrgManagerDirectoryUser,
@@ -37,6 +40,7 @@ interface OrgManagerContextValue {
   importUserById: (userId: string) => Promise<OrgManagerUserRecipient | null>;
   loadDirectoryAndGroups: () => Promise<OrgManagerDirectoryAndGroups | null>;
   loadGroupDetails: (groupId: string) => Promise<OrgManagerGroupDetails>;
+  loadGrants: () => Promise<OrgManagerContainerGrants | null>;
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
@@ -48,6 +52,8 @@ interface OrgManagerContextValue {
 const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 
 export type {
+  OrgManagerContainerGrant,
+  OrgManagerContainerGrants,
   OrgManagerDirectory,
   OrgManagerDirectoryUser,
   OrgManagerGroupContainer,
@@ -141,6 +147,17 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [appData.apiClient, appData.isAuthenticated, appData.organizationId],
   );
 
+  const loadGrants = useCallback(() => {
+    if (!appData.organizationId || !appData.isAuthenticated) {
+      return Promise.resolve(null);
+    }
+
+    return loadOrgManagerGrants({
+      apiClient: appData.apiClient,
+      organizationId: appData.organizationId,
+    });
+  }, [appData.apiClient, appData.isAuthenticated, appData.organizationId]);
+
   const addUserToGroup = useCallback(
     async (
       groupId: string,
@@ -210,6 +227,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       importUserById,
       loadDirectoryAndGroups,
       loadGroupDetails,
+      loadGrants,
       removeUserFromGroup,
     }),
     [
@@ -218,6 +236,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       importUserById,
       loadDirectoryAndGroups,
       loadGroupDetails,
+      loadGrants,
       removeUserFromGroup,
     ],
   );

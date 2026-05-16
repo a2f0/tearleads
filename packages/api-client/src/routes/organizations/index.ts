@@ -1,4 +1,5 @@
 export { listOrganizationDirectory } from "./directory";
+export { listOrganizationContainerGrants } from "./grants";
 export {
   listOrganizationGroupContainers,
   listOrganizationGroupMembers,

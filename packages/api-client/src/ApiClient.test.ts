@@ -666,6 +666,31 @@ test("uses organization manager and principal policy route namespaces", async ()
           ],
         });
       }
+      if (request.url.endsWith("/grants")) {
+        return HttpResponse.json({
+          organizationId: "org-1",
+          grants: [
+            {
+              accessLevel: "admin",
+              containerId: "container-1",
+              createdAt: "2026-05-12T12:00:00.000Z",
+              depth: 0,
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "access-state-hash",
+              metadataDocumentId: "metadata-document-1",
+              parentId: null,
+              updatedAt: "2026-05-12T12:00:00.000Z",
+              subjectType: "group",
+              subjectId: "group-1",
+              userId: null,
+              signingKeyFingerprint: null,
+              groupId: "group-1",
+              groupName: "Operators",
+              organizationName: null,
+            },
+          ],
+        });
+      }
       if (request.url.endsWith("/member-envelopes")) {
         return HttpResponse.json({
           principalType: "group",
@@ -708,6 +733,7 @@ test("uses organization manager and principal policy route namespaces", async ()
 
   expect(await client.listOrganizationDirectory("org-1")).not.toBeNull();
   expect(await client.listOrganizationGroups("org-1")).not.toBeNull();
+  expect(await client.listOrganizationContainerGrants("org-1")).not.toBeNull();
   expect(
     await client.createOrganizationGroup("org-1", groupRequest),
   ).not.toBeNull();
@@ -743,6 +769,11 @@ test("uses organization manager and principal policy route namespaces", async ()
     {
       body: null,
       input: `${apiBaseUrl}/organizations/org-1/groups`,
+      method: "GET",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/grants`,
       method: "GET",
     },
     {

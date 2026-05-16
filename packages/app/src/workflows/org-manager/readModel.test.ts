@@ -1,12 +1,14 @@
 import { expect, test } from "bun:test";
 import type {
   ListOrganizationGroupsResponse,
+  OrganizationContainerGrantsResponse,
   OrganizationDirectoryResponse,
   OrganizationGroupContainersResponse,
   OrganizationGroupMembersResponse,
 } from "@tearleads/validators/response";
 import {
   loadOrgManagerDirectoryAndGroups,
+  loadOrgManagerGrants,
   loadOrgManagerGroupDetails,
 } from "./readModel";
 
@@ -54,6 +56,30 @@ const containers: OrganizationGroupContainersResponse = {
       metadataDocumentId: null,
       parentId: null,
       updatedAt: "2026-05-16T12:30:00.000Z",
+    },
+  ],
+};
+
+const grants: OrganizationContainerGrantsResponse = {
+  organizationId,
+  grants: [
+    {
+      accessLevel: "admin",
+      containerId: "container-1",
+      createdAt: "2026-05-16T12:00:00.000Z",
+      depth: 0,
+      metadataAccessEpoch: 1,
+      metadataAccessStateHash: "metadata-state-hash",
+      metadataDocumentId: null,
+      parentId: null,
+      updatedAt: "2026-05-16T12:30:00.000Z",
+      subjectType: "group",
+      subjectId: groupId,
+      userId: null,
+      signingKeyFingerprint: null,
+      groupId,
+      groupName: "Operators",
+      organizationName: null,
     },
   ],
 };
@@ -121,4 +147,20 @@ test("loadOrgManagerGroupDetails preserves partial group detail results", async 
     members,
     containers,
   });
+});
+
+test("loadOrgManagerGrants forwards organization grant enumeration", async () => {
+  const calls: string[] = [];
+  const result = await loadOrgManagerGrants({
+    apiClient: {
+      listOrganizationContainerGrants: async (nextOrganizationId) => {
+        calls.push(`grants:${nextOrganizationId}`);
+        return grants;
+      },
+    },
+    organizationId,
+  });
+
+  expect(calls).toEqual(["grants:org-1"]);
+  expect(result).toEqual(grants);
 });

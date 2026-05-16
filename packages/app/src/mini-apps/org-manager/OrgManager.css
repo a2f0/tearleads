@@ -157,6 +157,10 @@
   margin-top: var(--padding);
 }
 
+.org-manager-grants .org-manager-detail-section:first-child {
+  margin-top: 0;
+}
+
 .org-manager-section-heading {
   font-weight: 700;
   font-size: var(--font-size-sm);

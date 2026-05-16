@@ -68,6 +68,10 @@ export interface OrganizationGroupMembersResponse {
 }
 
 export type OrganizationGroupContainerAccessLevel = "admin" | "read" | "write";
+export type OrganizationContainerGrantSubjectType =
+  | "group"
+  | "organization"
+  | "user";
 
 export interface OrganizationGroupContainerResponse {
   accessLevel: OrganizationGroupContainerAccessLevel;
@@ -87,6 +91,22 @@ export interface OrganizationGroupContainersResponse {
   containers: OrganizationGroupContainerResponse[];
 }
 
+export interface OrganizationContainerGrantResponse
+  extends OrganizationGroupContainerResponse {
+  subjectType: OrganizationContainerGrantSubjectType;
+  subjectId: string;
+  userId: string | null;
+  signingKeyFingerprint: string | null;
+  groupId: string | null;
+  groupName: string | null;
+  organizationName: string | null;
+}
+
+export interface OrganizationContainerGrantsResponse {
+  organizationId: string;
+  grants: OrganizationContainerGrantResponse[];
+}
+
 function isOrganizationRole(value: string): value is OrganizationRole {
   return value === "member" || value === "admin";
 }
@@ -99,6 +119,12 @@ export function isOrganizationGroupContainerAccessLevel(
   value: string,
 ): value is OrganizationGroupContainerAccessLevel {
   return value === "admin" || value === "read" || value === "write";
+}
+
+export function isOrganizationContainerGrantSubjectType(
+  value: string,
+): value is OrganizationContainerGrantSubjectType {
+  return value === "group" || value === "organization" || value === "user";
 }
 
 export function isOrganizationDirectoryUserResponse(
@@ -246,6 +272,34 @@ export function isOrganizationGroupContainersResponse(
     hasStringProperty(value, "groupId") &&
     hasArrayProperty(value, "containers") &&
     value.containers.every(isOrganizationGroupContainerResponse)
+  );
+}
+
+export function isOrganizationContainerGrantResponse(
+  value: unknown,
+): value is OrganizationContainerGrantResponse {
+  return (
+    isPlainObject(value) &&
+    isOrganizationGroupContainerResponse(value) &&
+    hasStringProperty(value, "subjectType") &&
+    isOrganizationContainerGrantSubjectType(value.subjectType) &&
+    hasStringProperty(value, "subjectId") &&
+    hasNullableStringProperty(value, "userId") &&
+    hasNullableStringProperty(value, "signingKeyFingerprint") &&
+    hasNullableStringProperty(value, "groupId") &&
+    hasNullableStringProperty(value, "groupName") &&
+    hasNullableStringProperty(value, "organizationName")
+  );
+}
+
+export function isOrganizationContainerGrantsResponse(
+  value: unknown,
+): value is OrganizationContainerGrantsResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "organizationId") &&
+    hasArrayProperty(value, "grants") &&
+    value.grants.every(isOrganizationContainerGrantResponse)
   );
 }
 
