@@ -1,10 +1,10 @@
-import type {
-  ListOrganizationGroupsResponse,
-  OrganizationGroupContainerAccessLevel,
-  OrganizationGroupContainerResponse,
-  OrganizationGroupContainersResponse,
-  OrganizationGroupMemberResponse,
-  OrganizationGroupMembersResponse,
+import {
+  isOrganizationGroupContainerAccessLevel,
+  type ListOrganizationGroupsResponse,
+  type OrganizationGroupContainerResponse,
+  type OrganizationGroupContainersResponse,
+  type OrganizationGroupMemberResponse,
+  type OrganizationGroupMembersResponse,
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import {
@@ -42,12 +42,6 @@ interface OrganizationGroupContainerRow {
   metadataDocumentId: string | null;
   parentId: string | null;
   updatedAt: Date;
-}
-
-function isOrganizationGroupContainerAccessLevel(
-  value: string,
-): value is OrganizationGroupContainerAccessLevel {
-  return value === "admin" || value === "read" || value === "write";
 }
 
 function toGroupContainerResponse(

@@ -95,7 +95,7 @@ function isPrincipalMemberType(value: string): value is "user" | "group" {
   return value === "user" || value === "group";
 }
 
-function isOrganizationGroupContainerAccessLevel(
+export function isOrganizationGroupContainerAccessLevel(
   value: string,
 ): value is OrganizationGroupContainerAccessLevel {
   return value === "admin" || value === "read" || value === "write";

@@ -63,6 +63,7 @@ export {
   isListOrganizationGroupsResponse,
   isOrganizationDirectoryResponse,
   isOrganizationDirectoryUserResponse,
+  isOrganizationGroupContainerAccessLevel,
   isOrganizationGroupContainerResponse,
   isOrganizationGroupContainersResponse,
   isOrganizationGroupCurrentStateResponse,
