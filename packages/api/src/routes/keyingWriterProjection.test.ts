@@ -712,6 +712,7 @@ async function countDocumentAuditRows(documentId: string, updateId: string) {
 async function buildRootGrantRequest(input: {
   readonly previous: ContainerManifestBundle;
   readonly previousKekState: VerifiedContainerKekState;
+  readonly accessLevel?: "read" | "write" | "admin";
   readonly recipient: TestUser;
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
@@ -723,7 +724,7 @@ async function buildRootGrantRequest(input: {
   const grant = {
     subjectType: "user" as const,
     subjectId: input.recipient.userId,
-    accessLevel: "write" as const,
+    accessLevel: input.accessLevel ?? ("write" as const),
   };
   const body: ContainerAccessEventBody = {
     eventType: "container.grant",
@@ -1309,6 +1310,111 @@ test("GET /documents/:documentId/writer-projection returns document targets and 
     created.contentKeyBundle.targetHash,
   );
   expect(projection.authorizingContainerPaths).toHaveLength(1);
+});
+
+test("read-only document sync works for a user with read access to a linked container", async () => {
+  const owner = createTestUser();
+  const recipient = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  await registerUser(recipient);
+  await authenticate(recipient);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request, updateId } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+
+  const writeResponse = await routeApp.request(
+    `/documents/${created.id}/sync`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  expect(writeResponse.status).toBe(200);
+
+  const grantRequest = await buildRootGrantRequest({
+    accessLevel: "read",
+    previous: root.bundle,
+    previousKekState: root.kekState,
+    recipient,
+    signer: owner,
+  });
+  const shareResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grantRequest),
+    },
+  );
+  expect(shareResponse.status).toBe(200);
+
+  const projectionResponse = await routeApp.request(
+    `/documents/${created.id}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${recipient.token}`,
+      },
+    },
+  );
+  expect(projectionResponse.status).toBe(200);
+  const projection = await projectionResponse.json();
+  expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
+
+  const syncResponse = await routeApp.request(`/documents/${created.id}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${recipient.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contentKeyEpoch: projection.contentKeyBundle.contentKeyEpoch,
+      expectedLinkSetManifestHash:
+        projection.contentKeyBundle.linkSetManifestHash,
+      expectedTargetHash: projection.contentKeyBundle.targetHash,
+      localVersionVector: null,
+      outgoingUpdates: [],
+    } satisfies DocumentSyncRequest),
+  });
+
+  expect(syncResponse.status).toBe(200);
+  const synced = await syncResponse.json();
+  expect(isDocumentSyncResponse(synced)).toBe(true);
+  expect(synced.updates.map((update: { id: string }) => update.id)).toContain(
+    updateId,
+  );
+
+  const stateChangingReadSyncResponse = await routeApp.request(
+    `/documents/${created.id}/sync`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${recipient.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contentKeyBundle: projection.contentKeyBundle,
+        contentKeyEpoch: projection.contentKeyBundle.contentKeyEpoch,
+        expectedLinkSetManifestHash:
+          projection.contentKeyBundle.linkSetManifestHash,
+        expectedTargetHash: projection.contentKeyBundle.targetHash,
+        localVersionVector: null,
+        outgoingUpdates: [],
+      } satisfies DocumentSyncRequest),
+    },
+  );
+  expect(stateChangingReadSyncResponse.status).toBe(400);
 });
 
 test("GET /documents/:documentId/writer-projection blocks revoked users after root KEK rotation", async () => {

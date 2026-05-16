@@ -345,6 +345,74 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
   );
 }
 
+async function shareContainerWithGroup(
+  pane: HTMLElement,
+  name: string,
+  groupName: string,
+  accessLevel: "read" | "write" | "admin",
+) {
+  await interact(() => {
+    fireEvent.contextMenu(getExplorerSidebarItem(pane, name), {
+      clientX: 200,
+      clientY: 200,
+    });
+  });
+  const getInfoButton = await screen.findByRole("button", {
+    name: "Get Info",
+  });
+  await interact(() => {
+    fireEvent.click(getInfoButton);
+  });
+
+  const dialog = await screen.findByRole("dialog");
+  const groupSelect = await within(dialog).findByLabelText("Group");
+  invariant(groupSelect instanceof HTMLSelectElement, "Expected group select.");
+  const permissionSelect = within(dialog).getByLabelText("Permission");
+  invariant(
+    permissionSelect instanceof HTMLSelectElement,
+    "Expected permission select.",
+  );
+  let groupOption: HTMLOptionElement | undefined;
+  await waitFor(() => {
+    groupOption = Array.from(groupSelect.options).find(
+      (option) => option.textContent?.trim() === groupName,
+    );
+    expect(groupOption).toBeTruthy();
+  });
+  const selectedGroupOption = groupOption;
+  invariant(selectedGroupOption, `Expected group option "${groupName}".`);
+
+  await interact(() => {
+    fireEvent.change(groupSelect, {
+      target: { value: selectedGroupOption.value },
+    });
+    fireEvent.change(permissionSelect, {
+      target: { value: accessLevel },
+    });
+  });
+
+  const shareButton = within(dialog).getByRole("button", { name: "Share" });
+  await interact(() => {
+    fireEvent.click(shareButton);
+  });
+  await waitFor(() => {
+    expect(
+      Array.from(dialog.querySelectorAll("tr")).some((row) => {
+        const text = row.textContent ?? "";
+        return text.includes(groupName) && text.includes(accessLevel);
+      }),
+    ).toBe(true);
+  });
+
+  await interact(() => {
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  });
+  await waitForCondition(
+    () => screen.queryByRole("dialog") === null,
+    `Container group share dialog did not close.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+  );
+}
+
 async function addPeerToAdminsGroup(pane: HTMLElement, peerUserId: string) {
   await openOrgManager(pane);
 
@@ -358,6 +426,79 @@ async function addPeerToAdminsGroup(pane: HTMLElement, peerUserId: string) {
   });
   await interact(() => {
     fireEvent.click(adminsButton);
+  });
+
+  const userIdInput = await within(pane).findByLabelText("User ID");
+  invariant(
+    userIdInput instanceof HTMLInputElement,
+    "Expected org manager user id input.",
+  );
+  const addButton = within(pane).getByRole("button", { name: "Add" });
+  invariant(addButton instanceof HTMLButtonElement, "Expected add button.");
+
+  await waitFor(() => {
+    expect(userIdInput.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.change(userIdInput, {
+      target: { value: peerUserId },
+    });
+  });
+  await waitFor(() => {
+    expect(addButton.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.click(addButton);
+  });
+
+  await waitFor(() => {
+    expect(userIdInput.value).toBe("");
+  });
+}
+
+async function createGroupAndAddPeer(
+  pane: HTMLElement,
+  groupName: string,
+  peerUserId: string,
+) {
+  await openOrgManager(pane);
+
+  const groupsButton = within(pane).getByRole("button", { name: "Groups" });
+  await interact(() => {
+    fireEvent.click(groupsButton);
+  });
+
+  const groupNameInput = await within(pane).findByPlaceholderText("Group name");
+  invariant(
+    groupNameInput instanceof HTMLInputElement,
+    "Expected group name input.",
+  );
+  const createButton = within(pane).getByRole("button", { name: "Create" });
+  invariant(
+    createButton instanceof HTMLButtonElement,
+    "Expected create group button.",
+  );
+
+  await waitFor(() => {
+    expect(groupNameInput.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.change(groupNameInput, {
+      target: { value: groupName },
+    });
+  });
+  await waitFor(() => {
+    expect(createButton.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.click(createButton);
+  });
+
+  const groupButton = await within(pane).findByRole("button", {
+    name: new RegExp(groupName, "u"),
+  });
+  await interact(() => {
+    fireEvent.click(groupButton);
   });
 
   const userIdInput = await within(pane).findByLabelText("User ID");
@@ -795,6 +936,44 @@ test(
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       postAdminAddRequestStartIndex,
+    );
+  },
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual pane explorer discovers a root container shared to a newly created group",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+    const groupName = "Pane 2 Readers";
+
+    await waitForDualPaneProvisioning(leftPane, rightPane);
+
+    await createGroupAndAddPeer(leftPane, groupName, getPaneUserId(rightPane));
+    await openExplorer(rightPane);
+    await openExplorer(leftPane);
+    const postShareRequestStartIndex = listProxiedApiRequests().length;
+    await shareContainerWithGroup(leftPane, "/", groupName, "read");
+
+    await clickExplorerRefresh(rightPane);
+    await refreshUntil(
+      rightPane,
+      () => {
+        const containerNames = listExplorerContainerItems(rightPane).map(
+          (button) => button.textContent?.trim() ?? "",
+        );
+        return (
+          containerNames.length > 1 && !containerNames.includes("Untitled")
+        );
+      },
+      "Peer did not hydrate the root container shared to the new group.",
+    );
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postShareRequestStartIndex,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,

@@ -40,6 +40,7 @@ import { applyContainerRekeys } from "../../containers/mutations";
 import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
+  resolveContainerReaderProjection,
   resolveContainerWriterProjection,
 } from "../../containers/writerProjection";
 import { DocumentMutationError, toMutationError } from "./errors";
@@ -100,6 +101,68 @@ async function ensureWritableDocument(input: {
   }
 
   throw new DocumentMutationError("Forbidden", 403);
+}
+
+async function ensureReadableDocument(input: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly executor: DatabaseTransaction;
+  readonly userId: string;
+}): Promise<void> {
+  const containerProjectionContext = createContainerWriterProjectionContext(
+    input.executor,
+  );
+
+  for (const containerId of new Set(
+    input.currentTargets.targets.map((target) => target.containerId),
+  )) {
+    try {
+      await resolveContainerReaderProjection({
+        containerId,
+        context: containerProjectionContext,
+        executor: input.executor,
+        userId: input.userId,
+      });
+      return;
+    } catch (error) {
+      if (
+        error instanceof ContainerWriterProjectionError &&
+        error.status === 403
+      ) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new DocumentMutationError("Forbidden", 403);
+}
+
+async function ensureSyncDocumentAccess(input: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+  readonly userId: string;
+}): Promise<void> {
+  if (input.request.outgoingUpdates.length > 0) {
+    await ensureWritableDocument({
+      currentTargets: input.currentTargets,
+      executor: input.executor,
+      userId: input.userId,
+    });
+    return;
+  }
+
+  // Empty sync requests only pull missing updates, so read access is enough.
+  await ensureReadableDocument({
+    currentTargets: input.currentTargets,
+    executor: input.executor,
+    userId: input.userId,
+  });
 }
 
 async function verifyOutgoingWriteHeader(input: {
@@ -711,9 +774,10 @@ async function syncDocumentTransaction(input: {
     input.documentId,
     input.tx,
   );
-  await ensureWritableDocument({
+  await ensureSyncDocumentAccess({
     currentTargets,
     executor: input.tx,
+    request: input.request,
     userId: input.userId,
   });
   const writeAuthorization = await verifySyncWriteAuthorizationProof({

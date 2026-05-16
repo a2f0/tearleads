@@ -42,7 +42,7 @@ import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
-  resolveContainerWriterProjection,
+  resolveContainerReaderProjection,
 } from "../containers/writerProjection";
 
 type DocumentWriterProjectionStatus = 403 | 404 | 409;
@@ -594,7 +594,9 @@ async function resolveAuthorizingContainerPaths(input: {
         containerId,
       ): Promise<ContainerWriterProjectionResponse | null> => {
         try {
-          return await resolveContainerWriterProjection({
+          // Document sync also uses this projection for read-only pulls. Mutations
+          // still verify write access before accepting document updates.
+          return await resolveContainerReaderProjection({
             containerId,
             context: input.context,
             executor: input.executor,
