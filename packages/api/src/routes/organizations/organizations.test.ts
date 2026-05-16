@@ -10,10 +10,11 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isListOrganizationGroupsResponse,
   isOrganizationDirectoryResponse,
+  isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
   isOrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -28,7 +29,7 @@ import {
 import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { organizations, users } from "../../schema";
+import { containers, organizations, users } from "../../schema";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);
@@ -236,6 +237,74 @@ test("org manager routes list the bootstrap Admins group", async () => {
   );
   expect(listBody.groups.map((group) => group.name)).toEqual(["Admins"]);
   expect(listBody.groups[0]?.currentState?.memberCount).toBe(1);
+});
+
+test("org manager routes list containers directly granted to a group", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const [organization] = await db
+    .select({
+      adminGroupId: organizations.adminGroupId,
+      memberGroupId: organizations.memberGroupId,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
+  const [rootContainer] = await db
+    .select({ id: containers.id })
+    .from(containers)
+    .where(
+      and(
+        eq(containers.organizationId, organizationId),
+        isNull(containers.parentId),
+      ),
+    )
+    .limit(1);
+  invariant(rootContainer, "expected root container row");
+
+  const adminResponse = await routeApp.request(
+    `/organizations/${organizationId}/groups/${organization.adminGroupId}/containers`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+
+  expect(adminResponse.status).toBe(200);
+  const adminBody = await adminResponse.json();
+  invariant(
+    isOrganizationGroupContainersResponse(adminBody),
+    "expected group containers response",
+  );
+  expect(adminBody.groupId).toBe(organization.adminGroupId);
+  expect(
+    adminBody.containers.map((container) => ({
+      accessLevel: container.accessLevel,
+      containerId: container.containerId,
+      parentId: container.parentId,
+    })),
+  ).toContainEqual({
+    accessLevel: "admin",
+    containerId: rootContainer.id,
+    parentId: null,
+  });
+
+  const memberResponse = await routeApp.request(
+    `/organizations/${organizationId}/groups/${organization.memberGroupId}/containers`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+
+  expect(memberResponse.status).toBe(200);
+  const memberBody = await memberResponse.json();
+  invariant(
+    isOrganizationGroupContainersResponse(memberBody),
+    "expected member group containers response",
+  );
+  expect(memberBody.containers).toEqual([]);
 });
 
 test("org manager routes allow organization members to read but reserve mutations for Admins members", async () => {

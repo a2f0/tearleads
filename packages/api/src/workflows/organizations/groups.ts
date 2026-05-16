@@ -1,9 +1,12 @@
-import type {
-  ListOrganizationGroupsResponse,
-  OrganizationGroupMemberResponse,
-  OrganizationGroupMembersResponse,
+import {
+  isOrganizationGroupContainerAccessLevel,
+  type ListOrganizationGroupsResponse,
+  type OrganizationGroupContainerResponse,
+  type OrganizationGroupContainersResponse,
+  type OrganizationGroupMemberResponse,
+  type OrganizationGroupMembersResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
@@ -11,7 +14,14 @@ import {
   type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
 import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
-import { groups as groupsTable, organizations } from "../../schema";
+import {
+  accessManifestContainerGrantProjection,
+  accessManifestHeads,
+  accessManifests,
+  containers,
+  groups as groupsTable,
+  organizations,
+} from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import { toGroupSummary } from "./groupSummary";
@@ -20,6 +30,61 @@ import { loadUsersById, type UserKeyRow } from "./users";
 interface NestedGroupRow {
   groupId: string;
   groupName: string;
+}
+
+interface OrganizationGroupContainerRow {
+  accessLevel: string;
+  containerId: string;
+  createdAt: Date;
+  depth: number;
+  metadataAccessEpoch: number;
+  metadataAccessStateHash: string;
+  metadataDocumentId: string | null;
+  parentId: string | null;
+  updatedAt: Date;
+}
+
+function toGroupContainerResponse(
+  row: OrganizationGroupContainerRow,
+): OrganizationGroupContainerResponse {
+  if (!isOrganizationGroupContainerAccessLevel(row.accessLevel)) {
+    throw new Error(
+      "Organization group container grant access level is invalid",
+    );
+  }
+
+  return {
+    accessLevel: row.accessLevel,
+    containerId: row.containerId,
+    createdAt: row.createdAt.toISOString(),
+    depth: row.depth,
+    metadataAccessEpoch: row.metadataAccessEpoch,
+    metadataAccessStateHash: row.metadataAccessStateHash,
+    metadataDocumentId: row.metadataDocumentId,
+    parentId: row.parentId,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+async function requireGroupInOrganization(input: {
+  executor: DatabaseSession;
+  groupId: string;
+  organizationId: string;
+}): Promise<void> {
+  const [group] = await input.executor
+    .select({ groupId: groupsTable.id })
+    .from(groupsTable)
+    .where(
+      and(
+        eq(groupsTable.id, input.groupId),
+        eq(groupsTable.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+
+  if (!group) {
+    throw new OrganizationManagerError("Group not found", 404);
+  }
 }
 
 export async function runListOrganizationGroupsWorkflow(
@@ -85,6 +150,92 @@ export async function runListOrganizationGroupsWorkflow(
       }),
     };
   });
+}
+
+async function listOrganizationGroupContainersInTransaction(input: {
+  executor: DatabaseSession;
+  groupId: string;
+  organizationId: string;
+  sessionUserId: string;
+}): Promise<OrganizationGroupContainersResponse> {
+  await requireDirectOrganizationAccess({
+    executor: input.executor,
+    organizationId: input.organizationId,
+    userId: input.sessionUserId,
+  });
+  await requireGroupInOrganization({
+    executor: input.executor,
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+  });
+
+  const rows = await input.executor
+    .select({
+      accessLevel: accessManifestContainerGrantProjection.accessLevel,
+      containerId: containers.id,
+      createdAt: containers.createdAt,
+      depth: containers.depth,
+      metadataAccessEpoch: accessManifestHeads.epoch,
+      metadataAccessStateHash: accessManifestHeads.manifestHash,
+      metadataDocumentId: sql<
+        string | null
+      >`${accessManifests.state}->>'metadataDocumentId'`,
+      parentId: containers.parentId,
+      updatedAt: containers.updatedAt,
+    })
+    .from(accessManifestContainerGrantProjection)
+    .innerJoin(
+      accessManifestHeads,
+      and(
+        eq(accessManifestHeads.objectKind, "container"),
+        eq(
+          accessManifestHeads.objectId,
+          accessManifestContainerGrantProjection.containerId,
+        ),
+        eq(
+          accessManifestHeads.manifestHash,
+          accessManifestContainerGrantProjection.manifestHash,
+        ),
+      ),
+    )
+    .innerJoin(
+      accessManifests,
+      eq(accessManifests.manifestHash, accessManifestHeads.manifestHash),
+    )
+    .innerJoin(
+      containers,
+      eq(containers.id, accessManifestContainerGrantProjection.containerId),
+    )
+    .where(
+      and(
+        eq(containers.organizationId, input.organizationId),
+        eq(accessManifestContainerGrantProjection.subjectType, "group"),
+        eq(accessManifestContainerGrantProjection.subjectId, input.groupId),
+      ),
+    )
+    .orderBy(asc(containers.depth), asc(containers.id));
+
+  return {
+    organizationId: input.organizationId,
+    groupId: input.groupId,
+    containers: rows.map((row) => toGroupContainerResponse(row)),
+  };
+}
+
+export async function runListOrganizationGroupContainersWorkflow(
+  db: ApiDatabase,
+  organizationId: string,
+  groupId: string,
+  sessionUserId: string,
+): Promise<OrganizationGroupContainersResponse> {
+  return db.transaction((tx) =>
+    listOrganizationGroupContainersInTransaction({
+      executor: tx,
+      groupId,
+      organizationId,
+      sessionUserId,
+    }),
+  );
 }
 
 async function loadNestedGroupsById(input: {
@@ -165,22 +316,7 @@ async function listOrganizationGroupMembersInTransaction(input: {
     userId: input.sessionUserId,
   });
 
-  const [group] = await input.executor
-    .select({
-      groupId: groupsTable.id,
-    })
-    .from(groupsTable)
-    .where(
-      and(
-        eq(groupsTable.id, input.groupId),
-        eq(groupsTable.organizationId, input.organizationId),
-      ),
-    )
-    .limit(1);
-
-  if (!group) {
-    throw new OrganizationManagerError("Group not found", 404);
-  }
+  await requireGroupInOrganization(input);
 
   const currentState = await getCurrentPrincipalState(
     "group",

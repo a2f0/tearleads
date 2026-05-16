@@ -16,6 +16,7 @@ import {
   isListContainersResponse,
   isListOrganizationGroupsResponse,
   isOrganizationDirectoryResponse,
+  isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
@@ -379,6 +380,33 @@ test("organization manager responses", () => {
     }),
   ).toBe(true);
   expect(isOrganizationGroupMembersResponse(null)).toBe(false);
+
+  expect(
+    isOrganizationGroupContainersResponse({
+      organizationId: "org-1",
+      groupId: "group-1",
+      containers: [
+        {
+          accessLevel: "admin",
+          containerId: "container-1",
+          createdAt: new Date().toISOString(),
+          depth: 0,
+          metadataAccessEpoch: 1,
+          metadataAccessStateHash: "access-state-hash",
+          metadataDocumentId: "metadata-document-1",
+          parentId: null,
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    }),
+  ).toBe(true);
+  expect(
+    isOrganizationGroupContainersResponse({
+      organizationId: "org-1",
+      groupId: "group-1",
+      containers: [{ containerId: "container-1", accessLevel: "owner" }],
+    }),
+  ).toBe(false);
 });
 
 test("isPrincipalStateResponse", () => {

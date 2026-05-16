@@ -52,6 +52,7 @@ import { getHealth } from "./routes/health";
 import {
   createOrganizationGroup,
   listOrganizationDirectory,
+  listOrganizationGroupContainers,
   listOrganizationGroupMembers,
   listOrganizationGroups,
 } from "./routes/organizations";
@@ -368,6 +369,14 @@ export class ApiClient {
 
   listOrganizationGroupMembers(organizationId: string, groupId: string) {
     return listOrganizationGroupMembers(this.request, organizationId, groupId);
+  }
+
+  listOrganizationGroupContainers(organizationId: string, groupId: string) {
+    return listOrganizationGroupContainers(
+      this.request,
+      organizationId,
+      groupId,
+    );
   }
 
   createDocument(input: DocumentCreateRequest) {

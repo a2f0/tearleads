@@ -1,11 +1,20 @@
 import type {
   OrganizationDirectoryResponse,
   OrganizationDirectoryUserResponse,
+  OrganizationGroupContainerResponse,
+  OrganizationGroupContainersResponse,
   OrganizationGroupMemberResponse,
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   MiniAppRow,
   MiniAppRowButton,
@@ -56,6 +65,31 @@ const DIRECTORY_TABLE_COLUMNS = [
     width: "8rem",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
+
+const GROUP_CONTAINER_TABLE_COLUMNS = [
+  {
+    id: "container",
+    header: ORG_MANAGER_LABELS.container,
+    width: "42%",
+  },
+  {
+    id: "access",
+    header: ORG_MANAGER_LABELS.access,
+    width: "7rem",
+  },
+  {
+    className: "org-manager-container-updated-column",
+    id: "updated",
+    header: ORG_MANAGER_LABELS.updated,
+    width: "8rem",
+  },
+] satisfies ReadonlyArray<MiniAppTableColumn>;
+
+const ACCESS_LEVEL_LABELS = {
+  admin: ORG_MANAGER_LABELS.accessAdmin,
+  read: ORG_MANAGER_LABELS.accessRead,
+  write: ORG_MANAGER_LABELS.accessWrite,
+} satisfies Record<OrganizationGroupContainerResponse["accessLevel"], string>;
 
 function userRecipient(
   user: OrganizationDirectoryUserResponse,
@@ -113,6 +147,27 @@ function compactFingerprint(value: string): string {
 
   return `${value.slice(0, 10)}...${value.slice(-6)}`;
 }
+
+function getAccessLabel(
+  accessLevel: OrganizationGroupContainerResponse["accessLevel"],
+): string {
+  return ACCESS_LEVEL_LABELS[accessLevel];
+}
+
+type DirectoryRefreshOptions = {
+  clearError?: boolean;
+  manageLoading?: boolean;
+  skipNextGroupDetailsEffect?: boolean;
+};
+
+type DirectoryRefreshResult = {
+  didLoad: boolean;
+  groupId: string | null;
+};
+
+type GroupDetailsRefreshOptions = {
+  clearError?: boolean;
+};
 
 function canCurrentUserMutateSelectedGroup(input: {
   directory: OrganizationDirectoryResponse | null;
@@ -301,6 +356,50 @@ function GroupMembers({
   );
 }
 
+function GroupContainers({
+  containers,
+}: {
+  containers: ReadonlyArray<OrganizationGroupContainerResponse>;
+}) {
+  if (containers.length === 0) {
+    return (
+      <div className="org-manager-hint">
+        {ORG_MANAGER_LABELS.noDirectContainerLinks}
+      </div>
+    );
+  }
+
+  return (
+    <MiniAppTableFrame>
+      <MiniAppTable
+        aria-label={ORG_MANAGER_LABELS.directContainerLinks}
+        columns={GROUP_CONTAINER_TABLE_COLUMNS}
+      >
+        {containers.map((container) => (
+          <MiniAppTableRow key={container.containerId}>
+            <MiniAppTableCell>
+              <MiniAppTableText title={container.containerId}>
+                {compactFingerprint(container.containerId)}
+              </MiniAppTableText>
+            </MiniAppTableCell>
+            <MiniAppTableCell>
+              <MiniAppTableText>
+                {getAccessLabel(container.accessLevel)}
+              </MiniAppTableText>
+            </MiniAppTableCell>
+            <MiniAppTableCell className="org-manager-container-updated-column">
+              <MiniAppTableText title={container.updatedAt}>
+                {formatMiniAppDate(container.updatedAt)}
+              </MiniAppTableText>
+            </MiniAppTableCell>
+          </MiniAppTableRow>
+        ))}
+      </MiniAppTable>
+    </MiniAppTableFrame>
+  );
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The mini-app shell coordinates shared async state across the directory and group panes.
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The mini-app shell coordinates shared async state across the directory and group panes.
 export function OrgManager() {
   const appData = useAppData();
@@ -312,12 +411,23 @@ export function OrgManager() {
   const [groups, setGroups] = useState<OrganizationGroupSummaryResponse[]>([]);
   const [members, setMembers] =
     useState<OrganizationGroupMembersResponse | null>(null);
+  const [groupContainers, setGroupContainers] =
+    useState<OrganizationGroupContainersResponse | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [addUserId, setAddUserId] = useState("");
   const [loading, setLoading] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const selectedGroupIdRef = useRef(selectedGroupId);
+  const skippedGroupDetailsEffectRef = useRef<{
+    groupId: string | null;
+  } | null>(null);
+
+  const selectGroup = useCallback((groupId: string | null) => {
+    selectedGroupIdRef.current = groupId;
+    setSelectedGroupId(groupId);
+  }, []);
 
   const selectedGroup =
     groups.find((group) => group.groupId === selectedGroupId) ?? null;
@@ -343,75 +453,146 @@ export function OrgManager() {
     [directory, memberUserIds],
   );
 
-  const refreshDirectoryAndGroups = useCallback(async () => {
-    if (!appData.organizationId || !appData.isAuthenticated) {
-      setDirectory(null);
-      setGroups([]);
-      setMembers(null);
-      return;
-    }
+  const resetDirectoryState = useCallback(() => {
+    setDirectory(null);
+    setGroups([]);
+    setMembers(null);
+    setGroupContainers(null);
+    selectGroup(null);
+  }, [selectGroup]);
 
-    setLoading(true);
-    setError(null);
-    try {
+  const loadDirectoryAndGroups = useCallback(
+    async (
+      options: Pick<DirectoryRefreshOptions, "skipNextGroupDetailsEffect"> = {},
+    ): Promise<DirectoryRefreshResult> => {
+      if (!appData.organizationId || !appData.isAuthenticated) {
+        resetDirectoryState();
+        return { didLoad: false, groupId: null };
+      }
+
       const [nextDirectory, nextGroups] = await Promise.all([
         appData.apiClient.listOrganizationDirectory(appData.organizationId),
         appData.apiClient.listOrganizationGroups(appData.organizationId),
       ]);
 
       if (nextDirectory === null || nextGroups === null) {
-        setDirectory(null);
-        setGroups([]);
-        setMembers(null);
-        setSelectedGroupId(null);
+        resetDirectoryState();
         setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
-        return;
+        return { didLoad: false, groupId: null };
       }
 
       setDirectory(nextDirectory);
       setGroups(nextGroups.groups);
-      setSelectedGroupId((current) => {
-        if (
-          current &&
-          nextGroups.groups.some((group) => group.groupId === current)
-        ) {
-          return current;
+      const currentSelectedGroupId = selectedGroupIdRef.current;
+      const nextSelectedGroupId =
+        currentSelectedGroupId &&
+        nextGroups.groups.some(
+          (group) => group.groupId === currentSelectedGroupId,
+        )
+          ? currentSelectedGroupId
+          : (nextGroups.groups[0]?.groupId ?? null);
+      if (
+        options.skipNextGroupDetailsEffect &&
+        nextSelectedGroupId !== currentSelectedGroupId
+      ) {
+        skippedGroupDetailsEffectRef.current = { groupId: nextSelectedGroupId };
+      }
+      selectGroup(nextSelectedGroupId);
+      return { didLoad: true, groupId: nextSelectedGroupId };
+    },
+    [
+      appData.apiClient,
+      appData.isAuthenticated,
+      appData.organizationId,
+      resetDirectoryState,
+      selectGroup,
+    ],
+  );
+
+  const refreshDirectoryAndGroups = useCallback(
+    async (
+      options: DirectoryRefreshOptions = {},
+    ): Promise<DirectoryRefreshResult> => {
+      const shouldClearError = options.clearError ?? true;
+      const shouldManageLoading = options.manageLoading ?? true;
+
+      if (shouldManageLoading) {
+        setLoading(true);
+      }
+      if (shouldClearError) {
+        setError(null);
+      }
+
+      try {
+        return await loadDirectoryAndGroups(
+          options.skipNextGroupDetailsEffect === undefined
+            ? {}
+            : {
+                skipNextGroupDetailsEffect: options.skipNextGroupDetailsEffect,
+              },
+        );
+      } catch (nextError) {
+        setError(
+          nextError instanceof Error ? nextError.message : String(nextError),
+        );
+        return { didLoad: false, groupId: selectedGroupIdRef.current };
+      } finally {
+        if (shouldManageLoading) {
+          setLoading(false);
         }
+      }
+    },
+    [loadDirectoryAndGroups],
+  );
 
-        return nextGroups.groups[0]?.groupId ?? null;
-      });
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : String(nextError),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [appData.apiClient, appData.isAuthenticated, appData.organizationId]);
-
-  const refreshSelectedGroupMembers = useCallback(
-    async (groupId: string | null) => {
+  const refreshSelectedGroupDetails = useCallback(
+    async (
+      groupId: string | null,
+      options: GroupDetailsRefreshOptions = {},
+    ) => {
+      const shouldClearError = options.clearError ?? true;
       if (!appData.organizationId || !groupId || !appData.isAuthenticated) {
         setMembers(null);
+        setGroupContainers(null);
         return;
       }
 
-      setError(null);
+      if (shouldClearError) {
+        setError(null);
+      }
       try {
-        const nextMembers =
-          await appData.apiClient.listOrganizationGroupMembers(
+        const [nextMembers, nextContainers] = await Promise.all([
+          appData.apiClient.listOrganizationGroupMembers(
             appData.organizationId,
             groupId,
-          );
+          ),
+          appData.apiClient.listOrganizationGroupContainers(
+            appData.organizationId,
+            groupId,
+          ),
+        ]);
+        const errors: string[] = [];
+
         if (nextMembers === null) {
           setMembers(null);
-          setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
-          return;
+          errors.push(ORG_MANAGER_LABELS.failedLoadGroupMembers);
+        } else {
+          setMembers(nextMembers);
         }
 
-        setMembers(nextMembers);
+        if (nextContainers === null) {
+          setGroupContainers(null);
+          errors.push(ORG_MANAGER_LABELS.failedLoadGroupContainers);
+        } else {
+          setGroupContainers(nextContainers);
+        }
+
+        if (errors.length > 0) {
+          setError(errors.join(" "));
+        }
       } catch (nextError) {
         setMembers(null);
+        setGroupContainers(null);
         setError(
           nextError instanceof Error ? nextError.message : String(nextError),
         );
@@ -420,13 +601,38 @@ export function OrgManager() {
     [appData.apiClient, appData.isAuthenticated, appData.organizationId],
   );
 
+  const refreshOrgManager = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const refreshedDirectory = await refreshDirectoryAndGroups({
+        clearError: false,
+        manageLoading: false,
+        skipNextGroupDetailsEffect: true,
+      });
+      if (refreshedDirectory.didLoad) {
+        await refreshSelectedGroupDetails(refreshedDirectory.groupId, {
+          clearError: false,
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshDirectoryAndGroups, refreshSelectedGroupDetails]);
+
   useEffect(() => {
     void refreshDirectoryAndGroups();
   }, [refreshDirectoryAndGroups]);
 
   useEffect(() => {
-    void refreshSelectedGroupMembers(selectedGroupId);
-  }, [refreshSelectedGroupMembers, selectedGroupId]);
+    const skippedGroupDetailsEffect = skippedGroupDetailsEffectRef.current;
+    if (skippedGroupDetailsEffect?.groupId === selectedGroupId) {
+      skippedGroupDetailsEffectRef.current = null;
+      return;
+    }
+
+    void refreshSelectedGroupDetails(selectedGroupId);
+  }, [refreshSelectedGroupDetails, selectedGroupId]);
 
   const createGroup = useCallback(async () => {
     if (
@@ -447,7 +653,7 @@ export function OrgManager() {
       setGroupNameDraft("");
       await refreshDirectoryAndGroups();
       setView("groups");
-      setSelectedGroupId(createdGroup.groupId);
+      selectGroup(createdGroup.groupId);
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : String(nextError),
@@ -464,6 +670,7 @@ export function OrgManager() {
     groupNameDraft,
     orgManagerActions,
     refreshDirectoryAndGroups,
+    selectGroup,
   ]);
 
   const addUser = useCallback(async () => {
@@ -502,8 +709,12 @@ export function OrgManager() {
         directory.currentUser.isOrgAdmin,
       );
       setAddUserId("");
-      await refreshDirectoryAndGroups();
-      await refreshSelectedGroupMembers(selectedGroupId);
+      const refreshedDirectory = await refreshDirectoryAndGroups({
+        skipNextGroupDetailsEffect: true,
+      });
+      if (refreshedDirectory.didLoad) {
+        await refreshSelectedGroupDetails(refreshedDirectory.groupId);
+      }
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : String(nextError),
@@ -521,7 +732,7 @@ export function OrgManager() {
     members,
     orgManagerActions,
     refreshDirectoryAndGroups,
-    refreshSelectedGroupMembers,
+    refreshSelectedGroupDetails,
     selectedGroupId,
   ]);
 
@@ -548,8 +759,12 @@ export function OrgManager() {
           ),
           directory.currentUser.isOrgAdmin,
         );
-        await refreshDirectoryAndGroups();
-        await refreshSelectedGroupMembers(selectedGroupId);
+        const refreshedDirectory = await refreshDirectoryAndGroups({
+          skipNextGroupDetailsEffect: true,
+        });
+        if (refreshedDirectory.didLoad) {
+          await refreshSelectedGroupDetails(refreshedDirectory.groupId);
+        }
       } catch (nextError) {
         setError(
           nextError instanceof Error ? nextError.message : String(nextError),
@@ -566,7 +781,7 @@ export function OrgManager() {
       members,
       orgManagerActions,
       refreshDirectoryAndGroups,
-      refreshSelectedGroupMembers,
+      refreshSelectedGroupDetails,
       selectedGroupId,
     ],
   );
@@ -580,7 +795,7 @@ export function OrgManager() {
     appData.organizationId && appData.isAuthenticated
       ? {
           disabled: loading || mutating,
-          onRefresh: refreshDirectoryAndGroups,
+          onRefresh: refreshOrgManager,
           refreshing: loading,
         }
       : null,
@@ -627,7 +842,7 @@ export function OrgManager() {
               <GroupList
                 groups={groups}
                 selectedGroupId={selectedGroupId}
-                setSelectedGroupId={setSelectedGroupId}
+                setSelectedGroupId={selectGroup}
               />
             </section>
             <section className="org-manager-panel org-manager-panel--detail">
@@ -680,13 +895,26 @@ export function OrgManager() {
                       {ORG_MANAGER_LABELS.add}
                     </button>
                   </div>
-                  <GroupMembers
-                    canMutateGroup={canMutateSelectedGroup}
-                    members={members?.members ?? []}
-                    mutating={mutating}
-                    removeMember={removeMember}
-                    userId={appData.userId}
-                  />
+                  <div className="org-manager-detail-section">
+                    <div className="org-manager-section-heading">
+                      {ORG_MANAGER_LABELS.members}
+                    </div>
+                    <GroupMembers
+                      canMutateGroup={canMutateSelectedGroup}
+                      members={members?.members ?? []}
+                      mutating={mutating}
+                      removeMember={removeMember}
+                      userId={appData.userId}
+                    />
+                  </div>
+                  <div className="org-manager-detail-section">
+                    <div className="org-manager-section-heading">
+                      {ORG_MANAGER_LABELS.directContainerLinks}
+                    </div>
+                    <GroupContainers
+                      containers={groupContainers?.containers ?? []}
+                    />
+                  </div>
                 </>
               ) : (
                 <div className="org-manager-hint">
