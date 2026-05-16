@@ -3,7 +3,7 @@ import type { DocumentSummary } from "../../../data/documentSummary";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
-} from "../containerInfo";
+} from "../../../stores/explorer/containerInfo";
 import {
   type ExplorerModalState,
   useExplorerModalController,

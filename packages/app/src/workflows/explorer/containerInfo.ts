@@ -66,7 +66,7 @@ interface ExplorerContainerInfoApi {
   ) => Promise<ListOrganizationGroupsResponse | null>;
 }
 
-type ExplorerContainerInfoRemoteMode = "always" | "if-synced" | "never";
+export type ExplorerContainerInfoRemoteMode = "always" | "if-synced" | "never";
 
 interface LocalContainerInfoRecord {
   hasSyncedContainer: boolean;

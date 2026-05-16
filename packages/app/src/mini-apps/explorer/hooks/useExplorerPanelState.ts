@@ -2,8 +2,8 @@ import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
+import { loadExplorerContainerInfo } from "../../../stores/explorer/containerInfo";
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
-import { loadExplorerContainerInfo } from "../containerInfo";
 import {
   type ContextMenuState,
   useExplorerContextMenu,
@@ -101,24 +101,14 @@ export function useExplorerPanelState(params: {
         (candidate) => candidate.id === containerId,
       );
       return loadExplorerContainerInfo({
-        apiClient: appData.apiClient,
+        appData,
         containerId,
-        execSql: appData.dbStatus === "ready" ? appData.execSql : null,
-        organizationId: appData.organizationId,
         parentId: node?.parentId ?? null,
         remoteInfoMode:
           appData.isAuthenticated && appData.online ? "if-synced" : "never",
       });
     },
-    [
-      appData.apiClient,
-      appData.dbStatus,
-      appData.execSql,
-      appData.isAuthenticated,
-      appData.online,
-      appData.organizationId,
-      explorer.nodes,
-    ],
+    [appData, appData.isAuthenticated, appData.online, explorer.nodes],
   );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentsAppData,

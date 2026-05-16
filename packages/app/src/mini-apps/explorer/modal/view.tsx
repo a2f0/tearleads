@@ -1,9 +1,9 @@
 import type { FormEvent, RefObject } from "react";
-import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
-} from "../containerInfo";
+} from "../../../stores/explorer/containerInfo";
+import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { MoveTargetOption } from "../targetOptions";
 import {
   getExplorerModalSubmitLabel,

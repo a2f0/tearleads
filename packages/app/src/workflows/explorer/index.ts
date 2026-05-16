@@ -1,4 +1,10 @@
 export {
+  type ExplorerContainerInfo,
+  type ExplorerContainerInfoRemoteMode,
+  type ExplorerContainerShareAccessLevel,
+  loadExplorerContainerInfo,
+} from "./containerInfo";
+export {
   type ContainerRecord,
   defaultExplorerPersistence,
   type ExplorerDocumentRecord,
