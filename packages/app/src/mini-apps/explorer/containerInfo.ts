@@ -11,6 +11,14 @@ import {
   getTargetContainerContext,
   readContainerState,
 } from "../../data/containers/shared/projection";
+import {
+  type ContainerSyncWatermarkLane,
+  containerDocumentsSyncLane,
+  containerParentSyncLane,
+  containerSyncWatermarkLaneKey,
+  sqlContainerSyncWatermarkPersistence,
+} from "../../data/persistence/containers/containerSyncWatermarkPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export type ExplorerContainerShareAccessLevel = ContainerAccessLevel;
 
@@ -20,9 +28,19 @@ export interface ExplorerContainerInfoGrant {
   subjectType: ContainerGrantSubjectType;
 }
 
+export interface ExplorerContainerInfoSyncCursor {
+  label: string;
+  laneId: string;
+  laneKind: string;
+  savedAt: string | null;
+  watermarkId: string | null;
+  watermarkUpdatedAt: string | null;
+}
+
 export interface ExplorerContainerInfo {
   grants: ExplorerContainerInfoGrant[];
   groups: OrganizationGroupSummaryResponse[];
+  syncCursors: ExplorerContainerInfoSyncCursor[];
 }
 
 interface ExplorerContainerInfoApi {
@@ -44,16 +62,76 @@ function sortContainerInfoGrants(
   );
 }
 
+interface ExplorerContainerInfoSyncCursorDefinition {
+  label: string;
+  lane: ContainerSyncWatermarkLane;
+}
+
+function getContainerSyncCursorDefinitions(input: {
+  containerId: string;
+  parentId: string | null;
+}): ExplorerContainerInfoSyncCursorDefinition[] {
+  return [
+    {
+      label: "Parent Listing",
+      lane: containerParentSyncLane(input.parentId),
+    },
+    {
+      label: "Child Containers",
+      lane: containerParentSyncLane(input.containerId),
+    },
+    {
+      label: "Documents",
+      lane: containerDocumentsSyncLane(input.containerId),
+    },
+  ];
+}
+
+async function loadContainerSyncCursors(input: {
+  containerId: string;
+  execSql: ExecSql | null;
+  parentId: string | null;
+}): Promise<ExplorerContainerInfoSyncCursor[]> {
+  const cursorDefinitions = getContainerSyncCursorDefinitions(input);
+  const records = input.execSql
+    ? await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(
+        input.execSql,
+        cursorDefinitions.map(({ lane }) => lane),
+      )
+    : [];
+
+  return cursorDefinitions.map((definition, index) => {
+    const { laneId, laneKind } = containerSyncWatermarkLaneKey(definition.lane);
+    const record = records[index] ?? null;
+
+    return {
+      label: definition.label,
+      laneId,
+      laneKind,
+      savedAt: record?.updatedAt ?? null,
+      watermarkId: record?.watermark.id ?? null,
+      watermarkUpdatedAt: record?.watermark.updatedAt ?? null,
+    };
+  });
+}
+
 export async function loadExplorerContainerInfo(input: {
   apiClient: ExplorerContainerInfoApi;
   containerId: string;
+  execSql?: ExecSql | null;
   organizationId: string | null;
+  parentId?: string | null;
 }): Promise<ExplorerContainerInfo> {
-  const [projection, groupsResponse] = await Promise.all([
+  const [projection, groupsResponse, syncCursors] = await Promise.all([
     input.apiClient.getContainerWriterProjection(input.containerId),
     input.organizationId
       ? input.apiClient.listOrganizationGroups(input.organizationId)
       : Promise.resolve(null),
+    loadContainerSyncCursors({
+      containerId: input.containerId,
+      execSql: input.execSql ?? null,
+      parentId: input.parentId ?? null,
+    }),
   ]);
 
   if (!projection) {
@@ -72,5 +150,6 @@ export async function loadExplorerContainerInfo(input: {
       })),
     ),
     groups: groupsResponse?.groups ?? [],
+    syncCursors,
   };
 }

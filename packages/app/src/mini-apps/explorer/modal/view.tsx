@@ -1,4 +1,5 @@
 import type { FormEvent, RefObject } from "react";
+import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
@@ -156,6 +157,55 @@ function principalLabel(
   return compactPrincipalId(subjectId);
 }
 
+function ExplorerContainerInfoSyncCursorList(params: {
+  containerInfo: ExplorerContainerInfo;
+}) {
+  const { containerInfo } = params;
+
+  return (
+    <table className="explorer-info-table">
+      <thead>
+        <tr>
+          <th>Lane</th>
+          <th>Cursor</th>
+          <th>Saved</th>
+        </tr>
+      </thead>
+      <tbody>
+        {containerInfo.syncCursors.map((cursor) => (
+          <tr key={`${cursor.laneKind}:${cursor.laneId}`}>
+            <td>
+              <div>{cursor.label}</div>
+              <code title={`${cursor.laneKind}:${cursor.laneId}`}>
+                {cursor.laneKind}/{cursor.laneId}
+              </code>
+            </td>
+            <td>
+              {cursor.watermarkUpdatedAt ? (
+                <>
+                  <div title={cursor.watermarkUpdatedAt}>
+                    {formatMiniAppDateTime(cursor.watermarkUpdatedAt)}
+                  </div>
+                  <code title={cursor.watermarkId ?? undefined}>
+                    {cursor.watermarkId
+                      ? compactPrincipalId(cursor.watermarkId)
+                      : ""}
+                  </code>
+                </>
+              ) : (
+                <span className="explorer-info-muted">No local cursor</span>
+              )}
+            </td>
+            <td title={cursor.savedAt ?? undefined}>
+              {formatMiniAppDateTime(cursor.savedAt, { emptyFallback: "-" })}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function ExplorerContainerInfoGrantList(params: {
   containerInfo: ExplorerContainerInfo;
 }) {
@@ -238,6 +288,10 @@ function ExplorerContainerInfoModalBody(params: {
       <section className="explorer-info-section">
         <h3>Principal Grants</h3>
         <ExplorerContainerInfoGrantList containerInfo={containerInfo} />
+      </section>
+      <section className="explorer-info-section">
+        <h3>Sync Cursors</h3>
+        <ExplorerContainerInfoSyncCursorList containerInfo={containerInfo} />
       </section>
       <section className="explorer-info-section">
         <h3>Share To Group</h3>

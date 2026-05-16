@@ -404,8 +404,16 @@ async function shareContainerWithGroup(
     ).toBe(true);
   });
 
+  const cancelButton = within(dialog).getByRole("button", { name: "Cancel" });
+  invariant(
+    cancelButton instanceof HTMLButtonElement,
+    "Expected cancel button.",
+  );
+  await waitFor(() => {
+    expect(cancelButton.disabled).toBe(false);
+  });
   await interact(() => {
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    fireEvent.click(cancelButton);
   });
   await waitForCondition(
     () => screen.queryByRole("dialog") === null,

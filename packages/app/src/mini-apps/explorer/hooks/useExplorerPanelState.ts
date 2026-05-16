@@ -96,13 +96,25 @@ export function useExplorerPanelState(params: {
     selection.setSelectedId,
   );
   const loadContainerInfo = useCallback(
-    (containerId: string) =>
-      loadExplorerContainerInfo({
+    (containerId: string) => {
+      const node = explorer.nodes.find(
+        (candidate) => candidate.id === containerId,
+      );
+      return loadExplorerContainerInfo({
         apiClient: appData.apiClient,
         containerId,
+        execSql: appData.dbStatus === "ready" ? appData.execSql : null,
         organizationId: appData.organizationId,
-      }),
-    [appData.apiClient, appData.organizationId],
+        parentId: node?.parentId ?? null,
+      });
+    },
+    [
+      appData.apiClient,
+      appData.dbStatus,
+      appData.execSql,
+      appData.organizationId,
+      explorer.nodes,
+    ],
   );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentsAppData,
