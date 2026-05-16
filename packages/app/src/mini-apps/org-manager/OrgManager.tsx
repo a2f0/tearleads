@@ -545,37 +545,6 @@ export function OrgManager() {
     [loadDirectoryAndGroups],
   );
 
-  const refreshSelectedGroupMembers = useCallback(
-    async (groupId: string | null) => {
-      if (!appData.organizationId || !groupId || !appData.isAuthenticated) {
-        setMembers(null);
-        return;
-      }
-
-      setError(null);
-      try {
-        const nextMembers =
-          await appData.apiClient.listOrganizationGroupMembers(
-            appData.organizationId,
-            groupId,
-          );
-        if (nextMembers === null) {
-          setMembers(null);
-          setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
-          return;
-        }
-
-        setMembers(nextMembers);
-      } catch (nextError) {
-        setMembers(null);
-        setError(
-          nextError instanceof Error ? nextError.message : String(nextError),
-        );
-      }
-    },
-    [appData.apiClient, appData.isAuthenticated, appData.organizationId],
-  );
-
   const refreshSelectedGroupDetails = useCallback(
     async (
       groupId: string | null,
@@ -740,8 +709,12 @@ export function OrgManager() {
         directory.currentUser.isOrgAdmin,
       );
       setAddUserId("");
-      await refreshDirectoryAndGroups();
-      await refreshSelectedGroupMembers(selectedGroupId);
+      const refreshedDirectory = await refreshDirectoryAndGroups({
+        skipNextGroupDetailsEffect: true,
+      });
+      if (refreshedDirectory.didLoad) {
+        await refreshSelectedGroupDetails(refreshedDirectory.groupId);
+      }
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : String(nextError),
@@ -759,7 +732,7 @@ export function OrgManager() {
     members,
     orgManagerActions,
     refreshDirectoryAndGroups,
-    refreshSelectedGroupMembers,
+    refreshSelectedGroupDetails,
     selectedGroupId,
   ]);
 
@@ -786,8 +759,12 @@ export function OrgManager() {
           ),
           directory.currentUser.isOrgAdmin,
         );
-        await refreshDirectoryAndGroups();
-        await refreshSelectedGroupMembers(selectedGroupId);
+        const refreshedDirectory = await refreshDirectoryAndGroups({
+          skipNextGroupDetailsEffect: true,
+        });
+        if (refreshedDirectory.didLoad) {
+          await refreshSelectedGroupDetails(refreshedDirectory.groupId);
+        }
       } catch (nextError) {
         setError(
           nextError instanceof Error ? nextError.message : String(nextError),
@@ -804,7 +781,7 @@ export function OrgManager() {
       members,
       orgManagerActions,
       refreshDirectoryAndGroups,
-      refreshSelectedGroupMembers,
+      refreshSelectedGroupDetails,
       selectedGroupId,
     ],
   );
