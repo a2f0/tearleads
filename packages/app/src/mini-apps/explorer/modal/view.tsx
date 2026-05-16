@@ -1,4 +1,5 @@
 import type { FormEvent, RefObject } from "react";
+import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
@@ -182,7 +183,9 @@ function ExplorerContainerInfoSyncCursorList(params: {
             <td>
               {cursor.watermarkUpdatedAt ? (
                 <>
-                  <div>{cursor.watermarkUpdatedAt}</div>
+                  <div title={cursor.watermarkUpdatedAt}>
+                    {formatMiniAppDateTime(cursor.watermarkUpdatedAt)}
+                  </div>
                   <code title={cursor.watermarkId ?? undefined}>
                     {cursor.watermarkId
                       ? compactPrincipalId(cursor.watermarkId)
@@ -193,7 +196,9 @@ function ExplorerContainerInfoSyncCursorList(params: {
                 <span className="explorer-info-muted">No local cursor</span>
               )}
             </td>
-            <td>{cursor.savedAt ?? "-"}</td>
+            <td title={cursor.savedAt ?? undefined}>
+              {formatMiniAppDateTime(cursor.savedAt, { emptyFallback: "-" })}
+            </td>
           </tr>
         ))}
       </tbody>

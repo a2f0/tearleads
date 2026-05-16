@@ -62,51 +62,57 @@ function sortContainerInfoGrants(
   );
 }
 
-async function loadSyncCursor(input: {
-  execSql: ExecSql | null;
+interface ExplorerContainerInfoSyncCursorDefinition {
   label: string;
   lane: ContainerSyncWatermarkLane;
-}): Promise<ExplorerContainerInfoSyncCursor> {
-  const { laneId, laneKind } = containerSyncWatermarkLaneKey(input.lane);
-  const record = input.execSql
-    ? await sqlContainerSyncWatermarkPersistence.loadWatermarkRecord(
-        input.execSql,
-        input.lane,
-      )
-    : null;
-
-  return {
-    label: input.label,
-    laneId,
-    laneKind,
-    savedAt: record?.updatedAt ?? null,
-    watermarkId: record?.watermark.id ?? null,
-    watermarkUpdatedAt: record?.watermark.updatedAt ?? null,
-  };
 }
 
-function loadContainerSyncCursors(input: {
+function getContainerSyncCursorDefinitions(input: {
+  containerId: string;
+  parentId: string | null;
+}): ExplorerContainerInfoSyncCursorDefinition[] {
+  return [
+    {
+      label: "Parent Listing",
+      lane: containerParentSyncLane(input.parentId),
+    },
+    {
+      label: "Child Containers",
+      lane: containerParentSyncLane(input.containerId),
+    },
+    {
+      label: "Documents",
+      lane: containerDocumentsSyncLane(input.containerId),
+    },
+  ];
+}
+
+async function loadContainerSyncCursors(input: {
   containerId: string;
   execSql: ExecSql | null;
   parentId: string | null;
 }): Promise<ExplorerContainerInfoSyncCursor[]> {
-  return Promise.all([
-    loadSyncCursor({
-      execSql: input.execSql,
-      label: "Parent Listing",
-      lane: containerParentSyncLane(input.parentId),
-    }),
-    loadSyncCursor({
-      execSql: input.execSql,
-      label: "Child Containers",
-      lane: containerParentSyncLane(input.containerId),
-    }),
-    loadSyncCursor({
-      execSql: input.execSql,
-      label: "Documents",
-      lane: containerDocumentsSyncLane(input.containerId),
-    }),
-  ]);
+  const cursorDefinitions = getContainerSyncCursorDefinitions(input);
+  const records = input.execSql
+    ? await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(
+        input.execSql,
+        cursorDefinitions.map(({ lane }) => lane),
+      )
+    : [];
+
+  return cursorDefinitions.map((definition, index) => {
+    const { laneId, laneKind } = containerSyncWatermarkLaneKey(definition.lane);
+    const record = records[index] ?? null;
+
+    return {
+      label: definition.label,
+      laneId,
+      laneKind,
+      savedAt: record?.updatedAt ?? null,
+      watermarkId: record?.watermark.id ?? null,
+      watermarkUpdatedAt: record?.watermark.updatedAt ?? null,
+    };
+  });
 }
 
 export async function loadExplorerContainerInfo(input: {

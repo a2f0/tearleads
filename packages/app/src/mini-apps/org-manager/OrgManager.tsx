@@ -25,6 +25,7 @@ import {
   type OrgManagerUserRecipient,
   useOrgManagerActions,
 } from "../../stores/org-manager/OrgManagerProvider";
+import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import {
   getOrgManagerEpochLabel,
   getOrgManagerMemberCountLabel,
@@ -112,15 +113,6 @@ function compactFingerprint(value: string): string {
   return `${value.slice(0, 10)}...${value.slice(-6)}`;
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString();
-}
-
 function canCurrentUserMutateSelectedGroup(input: {
   directory: OrganizationDirectoryResponse | null;
   members: OrganizationGroupMembersResponse | null;
@@ -184,7 +176,9 @@ function DirectoryTable({
               </MiniAppTableText>
             </MiniAppTableCell>
             <MiniAppTableCell className="org-manager-directory-joined-column">
-              <MiniAppTableText>{formatDate(user.createdAt)}</MiniAppTableText>
+              <MiniAppTableText title={user.createdAt}>
+                {formatMiniAppDate(user.createdAt)}
+              </MiniAppTableText>
             </MiniAppTableCell>
           </MiniAppTableRow>
         ))}

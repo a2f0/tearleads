@@ -18,6 +18,7 @@ import {
   DOCUMENT_TYPE_DEFINITIONS,
   getDocumentTypeDefinition,
 } from "../../../document-types/registry";
+import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { DocumentContainerProjection } from "../documentProjections";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 import type { ContainerNode } from "../types";
@@ -527,22 +528,6 @@ type ExplorerFolderItemRow =
       updatedAt: string | null;
     };
 
-function formatExplorerDate(value: string | null | undefined): string {
-  if (!value) {
-    return EXPLORER_LABELS.unknownDate;
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
 function compareExplorerFolderItemRows(
   left: ExplorerFolderItemRow,
   right: ExplorerFolderItemRow,
@@ -649,11 +634,15 @@ function ExplorerContainerItemTable(params: {
                 />
               </MiniAppTableCell>
               <MiniAppTableCell>{row.typeLabel}</MiniAppTableCell>
-              <MiniAppTableCell>
-                {formatExplorerDate(row.createdAt)}
+              <MiniAppTableCell title={row.createdAt ?? undefined}>
+                {formatMiniAppDateTime(row.createdAt, {
+                  emptyFallback: EXPLORER_LABELS.unknownDate,
+                })}
               </MiniAppTableCell>
-              <MiniAppTableCell>
-                {formatExplorerDate(row.updatedAt)}
+              <MiniAppTableCell title={row.updatedAt ?? undefined}>
+                {formatMiniAppDateTime(row.updatedAt, {
+                  emptyFallback: EXPLORER_LABELS.unknownDate,
+                })}
               </MiniAppTableCell>
             </MiniAppTableRow>
           ))

@@ -76,6 +76,31 @@ test("container sync watermarks are persisted independently per lane", async () 
       },
     });
     await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(execSql, [
+        containerParentSyncLane(null),
+        containerParentSyncLane("missing-parent"),
+        containerDocumentsSyncLane("parent-container"),
+      ]),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        laneId: "root",
+        laneKind: "container_parent",
+        watermark: {
+          id: "root-container",
+          updatedAt: "2026-05-05T00:00:00.000Z",
+        },
+      }),
+      null,
+      expect.objectContaining({
+        laneId: "parent-container",
+        laneKind: "container_documents",
+        watermark: {
+          id: "document-1",
+          updatedAt: "2026-05-05T00:10:00.000Z",
+        },
+      }),
+    ]);
+    await expect(
       sqlContainerSyncWatermarkPersistence.loadWatermark(
         execSql,
         containerParentSyncLane("parent-container"),

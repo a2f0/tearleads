@@ -77,12 +77,6 @@ function containerParentLaneId(parentId: string | null): string {
     : `${CONTAINER_PARENT_LANE_ID_PREFIX}${parentId}`;
 }
 
-function mapSelectedWatermark(
-  row: SelectedContainerSyncWatermark | undefined,
-): SyncWatermark | null {
-  return mapSelectedWatermarkRecord(row)?.watermark ?? null;
-}
-
 function mapSelectedWatermarkRecord(
   row: SelectedContainerSyncWatermark | undefined,
 ): ContainerSyncWatermarkRecord | null {
@@ -99,13 +93,52 @@ function mapSelectedWatermarkRecord(
     : null;
 }
 
-async function selectWatermarkRow(
+function laneKeyString(input: { laneId: string; laneKind: string }): string {
+  return `${input.laneKind}\0${input.laneId}`;
+}
+
+function uniqueLaneKeys(
+  lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
+): Array<{ laneId: string; laneKind: string }> {
+  const seen = new Set<string>();
+  const laneKeys: Array<{ laneId: string; laneKind: string }> = [];
+
+  for (const lane of lanes) {
+    const laneKey = containerSyncWatermarkLaneKey(lane);
+    const key = laneKeyString(laneKey);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    laneKeys.push(laneKey);
+  }
+
+  return laneKeys;
+}
+
+async function selectWatermarkRows(
   execSql: ExecSql,
-  lane: ContainerSyncWatermarkLane,
-): Promise<SelectedContainerSyncWatermark | undefined> {
+  lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
+): Promise<SelectedContainerSyncWatermark[]> {
+  const laneKeys = uniqueLaneKeys(lanes);
+  if (laneKeys.length === 0) {
+    return [];
+  }
+
   await ensureSqlTables(execSql, containerSyncWatermarkTables);
-  const { laneId, laneKind } = containerSyncWatermarkLaneKey(lane);
   const { db } = getAppDatabaseRuntime(execSql);
+  const lanePredicates = laneKeys.map(({ laneId, laneKind }) =>
+    and(
+      eq(containerSyncWatermarks.laneKind, laneKind),
+      eq(containerSyncWatermarks.laneId, laneId),
+    ),
+  );
+  const whereClause =
+    lanePredicates.length === 1 ? lanePredicates[0] : or(...lanePredicates);
+  if (!whereClause) {
+    return [];
+  }
+
   const rows = await db
     .select({
       laneId: containerSyncWatermarks.laneId,
@@ -115,15 +148,9 @@ async function selectWatermarkRow(
       watermarkUpdatedAt: containerSyncWatermarks.watermarkUpdatedAt,
     })
     .from(containerSyncWatermarks)
-    .where(
-      and(
-        eq(containerSyncWatermarks.laneKind, laneKind),
-        eq(containerSyncWatermarks.laneId, laneId),
-      ),
-    )
-    .limit(1);
+    .where(whereClause);
 
-  return rows[0];
+  return rows;
 }
 
 export const sqlContainerSyncWatermarkPersistence = {
@@ -135,14 +162,45 @@ export const sqlContainerSyncWatermarkPersistence = {
     execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
   ): Promise<SyncWatermark | null> {
-    return mapSelectedWatermark(await selectWatermarkRow(execSql, lane));
+    const [record] =
+      await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(execSql, [
+        lane,
+      ]);
+    return record?.watermark ?? null;
   },
 
   async loadWatermarkRecord(
     execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
   ): Promise<ContainerSyncWatermarkRecord | null> {
-    return mapSelectedWatermarkRecord(await selectWatermarkRow(execSql, lane));
+    return (
+      (
+        await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(
+          execSql,
+          [lane],
+        )
+      )[0] ?? null
+    );
+  },
+
+  async loadWatermarkRecords(
+    execSql: ExecSql,
+    lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
+  ): Promise<Array<ContainerSyncWatermarkRecord | null>> {
+    const rows = await selectWatermarkRows(execSql, lanes);
+    const recordsByKey = new Map<string, ContainerSyncWatermarkRecord>();
+
+    for (const row of rows) {
+      const record = mapSelectedWatermarkRecord(row);
+      if (record) {
+        recordsByKey.set(laneKeyString(record), record);
+      }
+    }
+
+    return lanes.map((lane) => {
+      const laneKey = containerSyncWatermarkLaneKey(lane);
+      return recordsByKey.get(laneKeyString(laneKey)) ?? null;
+    });
   },
 
   async saveWatermark(
