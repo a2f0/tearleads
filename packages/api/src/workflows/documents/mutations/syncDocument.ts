@@ -42,6 +42,10 @@ import {
   createContainerWriterProjectionContext,
   resolveContainerWriterProjection,
 } from "../../containers/writerProjection";
+import {
+  KeyingReadAccessError,
+  resolveReadableDocumentAccess,
+} from "../../keyingReadAccess";
 import { DocumentMutationError, toMutationError } from "./errors";
 import {
   ensureDocumentExists,
@@ -100,6 +104,51 @@ async function ensureWritableDocument(input: {
   }
 
   throw new DocumentMutationError("Forbidden", 403);
+}
+
+async function ensureReadableDocument(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly userId: string;
+}): Promise<void> {
+  try {
+    await resolveReadableDocumentAccess({
+      documentId: input.documentId,
+      executor: input.executor,
+      userId: input.userId,
+    });
+  } catch (error) {
+    if (error instanceof KeyingReadAccessError) {
+      throw new DocumentMutationError(error.message, error.status);
+    }
+    throw error;
+  }
+}
+
+async function ensureSyncDocumentAccess(input: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+  readonly userId: string;
+}): Promise<void> {
+  if (input.request.outgoingUpdates.length > 0) {
+    await ensureWritableDocument({
+      currentTargets: input.currentTargets,
+      executor: input.executor,
+      userId: input.userId,
+    });
+    return;
+  }
+
+  // Empty sync requests only pull missing updates, so read access is enough.
+  await ensureReadableDocument({
+    documentId: input.documentId,
+    executor: input.executor,
+    userId: input.userId,
+  });
 }
 
 async function verifyOutgoingWriteHeader(input: {
@@ -711,9 +760,11 @@ async function syncDocumentTransaction(input: {
     input.documentId,
     input.tx,
   );
-  await ensureWritableDocument({
+  await ensureSyncDocumentAccess({
     currentTargets,
+    documentId: input.documentId,
     executor: input.tx,
+    request: input.request,
     userId: input.userId,
   });
   const writeAuthorization = await verifySyncWriteAuthorizationProof({

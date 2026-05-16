@@ -37,10 +37,11 @@ export {
   createContainerWriterProjectionContext,
 };
 
-export async function resolveContainerWriterProjection(input: {
+async function resolveContainerProjectionWithAccess(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
+  readonly minimumAccessLevel: ContainerAccessLevel;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
   const context =
@@ -48,7 +49,6 @@ export async function resolveContainerWriterProjection(input: {
   const access = await resolveContainerAccessProjection({
     ...input,
     context,
-    minimumAccessLevel: "write",
   });
 
   const containerKekStates: ContainerKekProjection[] = [];
@@ -71,6 +71,30 @@ export async function resolveContainerWriterProjection(input: {
     path: access.path,
     containerKeks: containerKekStates.map(containerKekResponse),
   };
+}
+
+export async function resolveContainerReaderProjection(input: {
+  readonly context?: ContainerWriterProjectionContext;
+  readonly containerId: string;
+  readonly executor: DatabaseSession;
+  readonly userId: string;
+}): Promise<ContainerWriterProjectionResponse> {
+  return resolveContainerProjectionWithAccess({
+    ...input,
+    minimumAccessLevel: "read",
+  });
+}
+
+export async function resolveContainerWriterProjection(input: {
+  readonly context?: ContainerWriterProjectionContext;
+  readonly containerId: string;
+  readonly executor: DatabaseSession;
+  readonly userId: string;
+}): Promise<ContainerWriterProjectionResponse> {
+  return resolveContainerProjectionWithAccess({
+    ...input,
+    minimumAccessLevel: "write",
+  });
 }
 
 export async function resolveContainerAccessProjection(input: {

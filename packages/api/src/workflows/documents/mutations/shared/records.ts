@@ -502,6 +502,13 @@ export function assertSyncContentKeyBundleMatchesRequest(
     );
   }
 
+  if (request.contentKeyBundle && request.outgoingUpdates.length === 0) {
+    throw new DocumentMutationError(
+      "Content key bundles require outgoing document writes",
+      400,
+    );
+  }
+
   if (!request.contentKeyBundle) {
     return;
   }
