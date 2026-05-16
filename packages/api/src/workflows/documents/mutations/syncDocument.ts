@@ -40,12 +40,9 @@ import { applyContainerRekeys } from "../../containers/mutations";
 import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
+  resolveContainerReaderProjection,
   resolveContainerWriterProjection,
 } from "../../containers/writerProjection";
-import {
-  KeyingReadAccessError,
-  resolveReadableDocumentAccess,
-} from "../../keyingReadAccess";
 import { DocumentMutationError, toMutationError } from "./errors";
 import {
   ensureDocumentExists,
@@ -107,29 +104,46 @@ async function ensureWritableDocument(input: {
 }
 
 async function ensureReadableDocument(input: {
-  readonly documentId: string;
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
   readonly executor: DatabaseTransaction;
   readonly userId: string;
 }): Promise<void> {
-  try {
-    await resolveReadableDocumentAccess({
-      documentId: input.documentId,
-      executor: input.executor,
-      userId: input.userId,
-    });
-  } catch (error) {
-    if (error instanceof KeyingReadAccessError) {
-      throw new DocumentMutationError(error.message, error.status);
+  const containerProjectionContext = createContainerWriterProjectionContext(
+    input.executor,
+  );
+
+  for (const containerId of new Set(
+    input.currentTargets.targets.map((target) => target.containerId),
+  )) {
+    try {
+      await resolveContainerReaderProjection({
+        containerId,
+        context: containerProjectionContext,
+        executor: input.executor,
+        userId: input.userId,
+      });
+      return;
+    } catch (error) {
+      if (
+        error instanceof ContainerWriterProjectionError &&
+        error.status === 403
+      ) {
+        continue;
+      }
+
+      throw error;
     }
-    throw error;
   }
+
+  throw new DocumentMutationError("Forbidden", 403);
 }
 
 async function ensureSyncDocumentAccess(input: {
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
-  readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
   readonly userId: string;
@@ -145,7 +159,7 @@ async function ensureSyncDocumentAccess(input: {
 
   // Empty sync requests only pull missing updates, so read access is enough.
   await ensureReadableDocument({
-    documentId: input.documentId,
+    currentTargets: input.currentTargets,
     executor: input.executor,
     userId: input.userId,
   });
@@ -762,7 +776,6 @@ async function syncDocumentTransaction(input: {
   );
   await ensureSyncDocumentAccess({
     currentTargets,
-    documentId: input.documentId,
     executor: input.tx,
     request: input.request,
     userId: input.userId,
