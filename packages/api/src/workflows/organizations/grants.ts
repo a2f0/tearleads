@@ -120,10 +120,13 @@ async function listOrganizationContainerGrantsInTransaction(input: {
     ),
     organizationId: input.organizationId,
   });
-  const usersById = await loadUsersById(
-    input.executor,
+  const userIds = uniqueSortedStrings(
     rows.flatMap((row) => (row.subjectType === "user" ? [row.subjectId] : [])),
   );
+  const usersById =
+    userIds.length > 0
+      ? await loadUsersById(input.executor, userIds)
+      : new Map<string, UserKeyRow>();
   const organizationNamesById = await loadOrganizationNamesById({
     executor: input.executor,
     organizationIds: rows.flatMap((row) =>
