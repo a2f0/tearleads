@@ -3,6 +3,7 @@ import "./WindowMenuBar.css";
 
 export interface WindowMenuItem {
   disabled?: boolean;
+  id: string;
   label: string;
   onClick: () => void;
 }
@@ -60,7 +61,7 @@ export function WindowMenuBar({ menus }: { menus: WindowMenu[] }) {
             <div className="window-menubar-dropdown" role="menu">
               {menu.items.map((item) => (
                 <button
-                  key={item.label}
+                  key={item.id}
                   type="button"
                   role="menuitem"
                   disabled={item.disabled}

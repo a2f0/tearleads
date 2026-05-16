@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -81,6 +82,7 @@ function createRefreshMenuItem(
 
   return {
     disabled: item.disabled || item.refreshing,
+    id: "window-refresh",
     label: item.refreshing ? REFRESHING_LABEL : item.label,
     onClick: () => {
       void item.onRefresh();
@@ -160,10 +162,13 @@ export function useWindowRefreshMenuItem(
   const enabled = item !== null;
   const disabled = item?.disabled ?? false;
   const label = item?.label ?? REFRESH_LABEL;
+  const onRefresh = item?.onRefresh ?? null;
   const priority = item?.priority ?? 0;
   const refreshing = item?.refreshing ?? false;
 
-  onRefreshRef.current = item?.onRefresh ?? null;
+  useLayoutEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
 
   const handleRefresh = useCallback(() => {
     return onRefreshRef.current?.();

@@ -327,17 +327,19 @@ function useWindowActions(
     () => [
       {
         label: "File",
-        items: [{ label: "Close", onClick: handleClose }],
+        items: [{ id: "close", label: "Close", onClick: handleClose }],
       },
       {
         label: "View",
         items: [
           ...viewMenuItems,
           {
+            id: "toggle-status-bar",
             label: `${showStatusBar ? "Hide" : "Show"} Status Bar`,
             onClick: toggleStatusBar,
           },
           {
+            id: "toggle-sidebar",
             label: `${showSidebar ? "Hide" : "Show"} Sidebar`,
             onClick: toggleSidebar,
           },
