@@ -2,6 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import { createParentProjection } from "../../data/containers/test-helpers";
 import {
+  ensureContainerTables,
+  saveContainer,
+} from "../../data/persistence/containers/containerPersistence";
+import {
   containerDocumentsSyncLane,
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
@@ -73,21 +77,25 @@ test("loadExplorerContainerInfo reads direct grants, organization groups, and lo
       parentId: null,
     });
 
-    expect(info.grants).toEqual([
+    expect(info.remoteInfo?.grants).toEqual([
       {
         accessLevel: "admin",
         subjectId: parent.userId,
         subjectType: "user",
       },
     ]);
-    expect(info.groups.map((group) => group.name)).toEqual(["Operators"]);
+    expect(info.remoteInfo?.groups.map((group) => group.name)).toEqual([
+      "Operators",
+    ]);
     expect(
-      info.syncCursors.map(({ label, laneId, laneKind, watermarkId }) => ({
-        label,
-        laneId,
-        laneKind,
-        watermarkId,
-      })),
+      info.remoteInfo?.syncCursors.map(
+        ({ label, laneId, laneKind, watermarkId }) => ({
+          label,
+          laneId,
+          laneKind,
+          watermarkId,
+        }),
+      ),
     ).toEqual([
       {
         label: "Parent Listing",
@@ -108,7 +116,55 @@ test("loadExplorerContainerInfo reads direct grants, organization groups, and lo
         watermarkId: "document-1",
       },
     ]);
-    expect(info.syncCursors[0]?.savedAt).toEqual(expect.any(String));
+    expect(info.remoteInfo?.syncCursors[0]?.savedAt).toEqual(
+      expect.any(String),
+    );
+  } finally {
+    close();
+  }
+});
+
+test("loadExplorerContainerInfo returns local details without network for unsynced containers", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "explorer-container-info-local-only-test",
+  );
+
+  try {
+    await ensureContainerTables(execSql);
+    await saveContainer(execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: null,
+      name: "/",
+      icon: null,
+    });
+
+    let projectionCallCount = 0;
+    let groupCallCount = 0;
+    const info = await loadExplorerContainerInfo({
+      apiClient: {
+        getContainerWriterProjection: async () => {
+          projectionCallCount += 1;
+          throw new Error("Unexpected projection fetch.");
+        },
+        listOrganizationGroups: async () => {
+          groupCallCount += 1;
+          throw new Error("Unexpected group fetch.");
+        },
+      },
+      containerId: "root-container",
+      execSql,
+      organizationId: "org-1",
+      parentId: null,
+      remoteInfoMode: "if-synced",
+    });
+
+    expect(info.local.createdAt).toEqual(expect.any(String));
+    expect(info.local.updatedAt).toEqual(expect.any(String));
+    expect(info.remoteInfo).toBeNull();
+    expect(projectionCallCount).toBe(0);
+    expect(groupCallCount).toBe(0);
   } finally {
     close();
   }

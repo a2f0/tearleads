@@ -106,12 +106,16 @@ export function useExplorerPanelState(params: {
         execSql: appData.dbStatus === "ready" ? appData.execSql : null,
         organizationId: appData.organizationId,
         parentId: node?.parentId ?? null,
+        remoteInfoMode:
+          appData.isAuthenticated && appData.online ? "if-synced" : "never",
       });
     },
     [
       appData.apiClient,
       appData.dbStatus,
       appData.execSql,
+      appData.isAuthenticated,
+      appData.online,
       appData.organizationId,
       explorer.nodes,
     ],

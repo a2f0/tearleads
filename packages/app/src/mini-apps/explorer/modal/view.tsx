@@ -143,7 +143,7 @@ function compactPrincipalId(value: string): string {
 function principalLabel(
   subjectType: string,
   subjectId: string,
-  containerInfo: ExplorerContainerInfo,
+  containerInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>,
 ): string {
   if (subjectType === "group") {
     const group = containerInfo.groups.find(
@@ -158,7 +158,7 @@ function principalLabel(
 }
 
 function ExplorerContainerInfoSyncCursorList(params: {
-  containerInfo: ExplorerContainerInfo;
+  containerInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
 }) {
   const { containerInfo } = params;
 
@@ -207,7 +207,7 @@ function ExplorerContainerInfoSyncCursorList(params: {
 }
 
 function ExplorerContainerInfoGrantList(params: {
-  containerInfo: ExplorerContainerInfo;
+  containerInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
 }) {
   const { containerInfo } = params;
   if (containerInfo.grants.length === 0) {
@@ -242,6 +242,35 @@ function ExplorerContainerInfoGrantList(params: {
   );
 }
 
+function ExplorerContainerInfoLocalDetails(params: {
+  containerInfo: ExplorerContainerInfo;
+}) {
+  const { containerInfo } = params;
+
+  return (
+    <table className="explorer-info-table">
+      <tbody>
+        <tr>
+          <th>Created</th>
+          <td title={containerInfo.local.createdAt ?? undefined}>
+            {formatMiniAppDateTime(containerInfo.local.createdAt, {
+              emptyFallback: "-",
+            })}
+          </td>
+        </tr>
+        <tr>
+          <th>Updated</th>
+          <td title={containerInfo.local.updatedAt ?? undefined}>
+            {formatMiniAppDateTime(containerInfo.local.updatedAt, {
+              emptyFallback: "-",
+            })}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
 function ExplorerContainerInfoModalBody(params: {
   containerInfo: ExplorerContainerInfo | null;
   containerInfoError: string | null;
@@ -269,7 +298,8 @@ function ExplorerContainerInfoModalBody(params: {
     setModalError,
   } = params;
   const shareableGroups =
-    containerInfo?.groups.filter((group) => group.currentState) ?? [];
+    containerInfo?.remoteInfo?.groups.filter((group) => group.currentState) ??
+    [];
 
   if (isLoadingContainerInfo && !containerInfo) {
     return <div className="explorer-modal-copy">Loading...</div>;
@@ -286,68 +316,134 @@ function ExplorerContainerInfoModalBody(params: {
   return (
     <div className="explorer-info">
       <section className="explorer-info-section">
-        <h3>Principal Grants</h3>
-        <ExplorerContainerInfoGrantList containerInfo={containerInfo} />
+        <h3>Local Details</h3>
+        <ExplorerContainerInfoLocalDetails containerInfo={containerInfo} />
       </section>
-      <section className="explorer-info-section">
-        <h3>Sync Cursors</h3>
-        <ExplorerContainerInfoSyncCursorList containerInfo={containerInfo} />
-      </section>
-      <section className="explorer-info-section">
-        <h3>Share To Group</h3>
-        <label className="explorer-modal-field">
-          Group
-          <select
-            aria-label="Group"
-            disabled={isSubmittingModal || shareableGroups.length === 0}
-            value={draftShareGroupId}
-            onChange={(event) => {
-              setModalError(null);
-              setDraftShareGroupId(event.target.value);
-            }}
-          >
-            {shareableGroups.length === 0 ? (
-              <option value="">No groups</option>
-            ) : (
-              shareableGroups.map((group) => (
-                <option key={group.groupId} value={group.groupId}>
-                  {group.name}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
-        <label className="explorer-modal-field">
-          Permission
-          <select
-            aria-label="Permission"
-            disabled={isSubmittingModal || shareableGroups.length === 0}
-            value={draftShareAccessLevel}
-            onChange={(event) => {
-              setModalError(null);
-              setDraftShareAccessLevel(
-                event.target.value as ExplorerContainerShareAccessLevel,
-              );
-            }}
-          >
-            <option value="read">read</option>
-            <option value="write">write</option>
-            <option value="admin">admin</option>
-          </select>
-        </label>
-      </section>
-      {peerUserId ? (
-        <section className="explorer-info-section">
-          <h3>Share To Peer</h3>
-          <button
-            className="explorer-info-inline-action"
-            disabled={isSubmittingModal}
-            type="button"
-            onClick={onShareWithPeer}
-          >
-            Share With Peer
-          </button>
-        </section>
+      {containerInfo.remoteInfo ? (
+        <>
+          <section className="explorer-info-section">
+            <h3>Principal Grants</h3>
+            <ExplorerContainerInfoGrantList
+              containerInfo={containerInfo.remoteInfo}
+            />
+          </section>
+          <section className="explorer-info-section">
+            <h3>Sync Cursors</h3>
+            <ExplorerContainerInfoSyncCursorList
+              containerInfo={containerInfo.remoteInfo}
+            />
+          </section>
+          <section className="explorer-info-section">
+            <h3>Share To Group</h3>
+            <label className="explorer-modal-field">
+              Group
+              <select
+                aria-label="Group"
+                disabled={isSubmittingModal || shareableGroups.length === 0}
+                value={draftShareGroupId}
+                onChange={(event) => {
+                  setModalError(null);
+                  setDraftShareGroupId(event.target.value);
+                }}
+              >
+                {shareableGroups.length === 0 ? (
+                  <option value="">No groups</option>
+                ) : (
+                  shareableGroups.map((group) => (
+                    <option key={group.groupId} value={group.groupId}>
+                      {group.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            <label className="explorer-modal-field">
+              Permission
+              <select
+                aria-label="Permission"
+                disabled={isSubmittingModal || shareableGroups.length === 0}
+                value={draftShareAccessLevel}
+                onChange={(event) => {
+                  setModalError(null);
+                  setDraftShareAccessLevel(
+                    event.target.value as ExplorerContainerShareAccessLevel,
+                  );
+                }}
+              >
+                <option value="read">read</option>
+                <option value="write">write</option>
+                <option value="admin">admin</option>
+              </select>
+            </label>
+          </section>
+          {peerUserId ? (
+            <section className="explorer-info-section">
+              <h3>Share To Peer</h3>
+              <button
+                className="explorer-info-inline-action"
+                disabled={isSubmittingModal}
+                type="button"
+                onClick={onShareWithPeer}
+              >
+                Share With Peer
+              </button>
+            </section>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function ExplorerModalActions(params: {
+  closeModal: () => void;
+  containerInfo: ExplorerContainerInfo | null;
+  draftName: string;
+  draftShareGroupId: string;
+  draftTargetContainerId: string;
+  isLoadingContainerInfo: boolean;
+  isSubmittingModal: boolean;
+  modalState: ExplorerModalState;
+  peerUserId: string | null;
+}) {
+  const {
+    closeModal,
+    containerInfo,
+    draftName,
+    draftShareGroupId,
+    draftTargetContainerId,
+    isLoadingContainerInfo,
+    isSubmittingModal,
+    modalState,
+    peerUserId,
+  } = params;
+  const showSubmitButton =
+    modalState.mode !== "container-info" ||
+    isLoadingContainerInfo ||
+    Boolean(containerInfo?.remoteInfo);
+
+  return (
+    <div className="explorer-modal-actions">
+      <button type="button" disabled={isSubmittingModal} onClick={closeModal}>
+        {modalState.mode === "container-info" && !showSubmitButton
+          ? "Close"
+          : "Cancel"}
+      </button>
+      {showSubmitButton ? (
+        <button
+          type="submit"
+          disabled={isExplorerModalSubmitDisabled({
+            draftName,
+            draftShareGroupId,
+            draftTargetContainerId,
+            isLoadingContainerInfo,
+            isSubmittingModal,
+            modalState,
+            peerUserId,
+          })}
+        >
+          {getExplorerModalSubmitLabel(modalState, isSubmittingModal)}
+        </button>
       ) : null}
     </div>
   );
@@ -442,29 +538,17 @@ export function ExplorerModalLayer(params: {
           {modalError && (
             <div className="explorer-modal-error">{modalError}</div>
           )}
-          <div className="explorer-modal-actions">
-            <button
-              type="button"
-              disabled={isSubmittingModal}
-              onClick={closeModal}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isExplorerModalSubmitDisabled({
-                draftName,
-                draftShareGroupId,
-                draftTargetContainerId,
-                isLoadingContainerInfo,
-                isSubmittingModal,
-                modalState,
-                peerUserId,
-              })}
-            >
-              {getExplorerModalSubmitLabel(modalState, isSubmittingModal)}
-            </button>
-          </div>
+          <ExplorerModalActions
+            closeModal={closeModal}
+            containerInfo={containerInfo}
+            draftName={draftName}
+            draftShareGroupId={draftShareGroupId}
+            draftTargetContainerId={draftTargetContainerId}
+            isLoadingContainerInfo={isLoadingContainerInfo}
+            isSubmittingModal={isSubmittingModal}
+            modalState={modalState}
+            peerUserId={peerUserId}
+          />
         </form>
       </div>
     </div>
