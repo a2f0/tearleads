@@ -12,7 +12,7 @@ const CONTAINER_DOCUMENTS_LANE = "container_documents";
 const ROOT_CONTAINER_PARENT_LANE_ID = "root";
 const CONTAINER_PARENT_LANE_ID_PREFIX = "parent:";
 
-type ContainerSyncWatermarkLane =
+export type ContainerSyncWatermarkLane =
   | {
       kind: typeof CONTAINER_PARENT_LANE;
       parentId: string | null;
@@ -23,8 +23,18 @@ type ContainerSyncWatermarkLane =
     };
 
 interface SelectedContainerSyncWatermark {
+  laneId: string;
+  laneKind: string;
+  updatedAt: string;
   watermarkId: string;
   watermarkUpdatedAt: string;
+}
+
+interface ContainerSyncWatermarkRecord {
+  laneId: string;
+  laneKind: string;
+  updatedAt: string;
+  watermark: SyncWatermark;
 }
 
 export const containerParentSyncLane = (
@@ -41,7 +51,9 @@ export const containerDocumentsSyncLane = (
   containerId,
 });
 
-function laneKey(lane: ContainerSyncWatermarkLane): {
+export function containerSyncWatermarkLaneKey(
+  lane: ContainerSyncWatermarkLane,
+): {
   laneId: string;
   laneKind: string;
 } {
@@ -68,12 +80,50 @@ function containerParentLaneId(parentId: string | null): string {
 function mapSelectedWatermark(
   row: SelectedContainerSyncWatermark | undefined,
 ): SyncWatermark | null {
+  return mapSelectedWatermarkRecord(row)?.watermark ?? null;
+}
+
+function mapSelectedWatermarkRecord(
+  row: SelectedContainerSyncWatermark | undefined,
+): ContainerSyncWatermarkRecord | null {
   return row
     ? {
-        id: row.watermarkId,
-        updatedAt: row.watermarkUpdatedAt,
+        laneId: row.laneId,
+        laneKind: row.laneKind,
+        updatedAt: row.updatedAt,
+        watermark: {
+          id: row.watermarkId,
+          updatedAt: row.watermarkUpdatedAt,
+        },
       }
     : null;
+}
+
+async function selectWatermarkRow(
+  execSql: ExecSql,
+  lane: ContainerSyncWatermarkLane,
+): Promise<SelectedContainerSyncWatermark | undefined> {
+  await ensureSqlTables(execSql, containerSyncWatermarkTables);
+  const { laneId, laneKind } = containerSyncWatermarkLaneKey(lane);
+  const { db } = getAppDatabaseRuntime(execSql);
+  const rows = await db
+    .select({
+      laneId: containerSyncWatermarks.laneId,
+      laneKind: containerSyncWatermarks.laneKind,
+      updatedAt: containerSyncWatermarks.updatedAt,
+      watermarkId: containerSyncWatermarks.watermarkId,
+      watermarkUpdatedAt: containerSyncWatermarks.watermarkUpdatedAt,
+    })
+    .from(containerSyncWatermarks)
+    .where(
+      and(
+        eq(containerSyncWatermarks.laneKind, laneKind),
+        eq(containerSyncWatermarks.laneId, laneId),
+      ),
+    )
+    .limit(1);
+
+  return rows[0];
 }
 
 export const sqlContainerSyncWatermarkPersistence = {
@@ -85,24 +135,14 @@ export const sqlContainerSyncWatermarkPersistence = {
     execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
   ): Promise<SyncWatermark | null> {
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
-    const { laneId, laneKind } = laneKey(lane);
-    const { db } = getAppDatabaseRuntime(execSql);
-    const rows = await db
-      .select({
-        watermarkId: containerSyncWatermarks.watermarkId,
-        watermarkUpdatedAt: containerSyncWatermarks.watermarkUpdatedAt,
-      })
-      .from(containerSyncWatermarks)
-      .where(
-        and(
-          eq(containerSyncWatermarks.laneKind, laneKind),
-          eq(containerSyncWatermarks.laneId, laneId),
-        ),
-      )
-      .limit(1);
+    return mapSelectedWatermark(await selectWatermarkRow(execSql, lane));
+  },
 
-    return mapSelectedWatermark(rows[0]);
+  async loadWatermarkRecord(
+    execSql: ExecSql,
+    lane: ContainerSyncWatermarkLane,
+  ): Promise<ContainerSyncWatermarkRecord | null> {
+    return mapSelectedWatermarkRecord(await selectWatermarkRow(execSql, lane));
   },
 
   async saveWatermark(
@@ -111,7 +151,7 @@ export const sqlContainerSyncWatermarkPersistence = {
     watermark: SyncWatermark,
   ): Promise<void> {
     await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
-    const { laneId, laneKind } = laneKey(lane);
+    const { laneId, laneKind } = containerSyncWatermarkLaneKey(lane);
     const updatedAt = new Date().toISOString();
     const row = {
       laneId,
