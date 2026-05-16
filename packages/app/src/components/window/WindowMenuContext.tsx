@@ -65,7 +65,7 @@ function selectRefreshMenuItem(
   let selected: RegisteredWindowRefreshMenuItem | null = null;
 
   for (const item of items.values()) {
-    if (!selected || item.priority >= selected.priority) {
+    if (!selected || item.priority > selected.priority) {
       selected = item;
     }
   }

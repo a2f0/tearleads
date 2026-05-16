@@ -45,6 +45,40 @@ function WindowRefreshHarness({ onRefresh }: { onRefresh: () => void }) {
   );
 }
 
+function WindowMultiRefreshHarness({
+  onFirstRefresh,
+  onSecondRefresh,
+}: {
+  onFirstRefresh: () => void;
+  onSecondRefresh: () => void;
+}) {
+  const { windows, create } = useWindowState();
+
+  useEffect(() => {
+    function MultiRefreshableWindow() {
+      useWindowRefreshMenuItem({
+        label: "First refresh",
+        onRefresh: onFirstRefresh,
+      });
+      useWindowRefreshMenuItem({
+        label: "Second refresh",
+        onRefresh: onSecondRefresh,
+      });
+      return <div>Multi refreshable content</div>;
+    }
+
+    create("Multi Refreshable", 0, 0, MultiRefreshableWindow);
+  }, [create, onFirstRefresh, onSecondRefresh]);
+
+  return (
+    <div>
+      {windows.map((window) => (
+        <Window key={window.id} windowId={window.id} />
+      ))}
+    </div>
+  );
+}
+
 test("maximizing a background window brings it to the front", async () => {
   const view = render(
     <WindowStateProvider>
@@ -175,4 +209,38 @@ test("registered refresh action appears in the view menu", async () => {
   fireEvent.click(view.getByText("Refresh"));
 
   expect(refreshCount).toBe(1);
+});
+
+test("equal-priority refresh actions prefer the first registered item", async () => {
+  let firstRefreshCount = 0;
+  let secondRefreshCount = 0;
+  const view = render(
+    <WindowStateProvider>
+      <WindowMultiRefreshHarness
+        onFirstRefresh={() => {
+          firstRefreshCount += 1;
+        }}
+        onSecondRefresh={() => {
+          secondRefreshCount += 1;
+        }}
+      />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("Multi refreshable content")).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByText("View"));
+
+  await waitFor(() => {
+    expect(view.getByText("First refresh")).toBeTruthy();
+  });
+
+  expect(view.queryByText("Second refresh")).toBeNull();
+
+  fireEvent.click(view.getByText("First refresh"));
+
+  expect(firstRefreshCount).toBe(1);
+  expect(secondRefreshCount).toBe(0);
 });
