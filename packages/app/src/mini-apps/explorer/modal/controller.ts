@@ -128,16 +128,15 @@ function useExplorerModalState(
         const nextInfo = await loadContainerInfo(containerId);
         setContainerInfo(nextInfo);
         setDraftShareGroupId((current) => {
-          const currentGroupIsShareable = nextInfo.groups.some(
+          const groups = nextInfo.remoteInfo?.groups ?? [];
+          const currentGroupIsShareable = groups.some(
             (group) => group.groupId === current && group.currentState,
           );
           if (currentGroupIsShareable) {
             return current;
           }
 
-          return (
-            nextInfo.groups.find((group) => group.currentState)?.groupId ?? ""
-          );
+          return groups.find((group) => group.currentState)?.groupId ?? "";
         });
       } catch (error) {
         setContainerInfo(null);
@@ -194,7 +193,8 @@ function useExplorerModalState(
 
         setContainerInfo(nextInfo);
         setDraftShareGroupId(
-          nextInfo.groups.find((group) => group.currentState)?.groupId ?? "",
+          nextInfo.remoteInfo?.groups.find((group) => group.currentState)
+            ?.groupId ?? "",
         );
       })
       .catch((error) => {
