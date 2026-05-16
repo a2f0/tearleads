@@ -1,4 +1,5 @@
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
+import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
@@ -16,6 +17,12 @@ export function Explorer() {
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
   const model = useExplorerModel(appData, explorer, setSidebar, peerUserId);
+  useWindowRefreshMenuItem({
+    disabled: !model.explorer.ready || model.isRefreshing,
+    onRefresh: model.handleRefresh,
+    priority: 100,
+    refreshing: model.isRefreshing,
+  });
 
   return (
     <div className="explorer">
@@ -26,8 +33,6 @@ export function Explorer() {
         canMoveSelectedDocument={model.canMoveSelectedDocument}
         canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
         documentsByContainerId={model.documentsByContainerId}
-        handleRefresh={model.handleRefresh}
-        isRefreshing={model.isRefreshing}
         linkedContainerIds={model.linkedContainerIds}
         nodes={model.explorer.nodes}
         openInlineDocument={model.openInlineDocument}

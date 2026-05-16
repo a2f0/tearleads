@@ -20,6 +20,7 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../components/shared/MiniAppTable";
+import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   type OrgManagerUserRecipient,
@@ -572,12 +573,18 @@ export function OrgManager() {
 
   useOrgManagerSidebarPanel({
     enabled: Boolean(appData.organizationId && appData.isAuthenticated),
-    loading,
-    mutating,
-    refreshDirectoryAndGroups,
     setView,
     view,
   });
+  useWindowRefreshMenuItem(
+    appData.organizationId && appData.isAuthenticated
+      ? {
+          disabled: loading || mutating,
+          onRefresh: refreshDirectoryAndGroups,
+          refreshing: loading,
+        }
+      : null,
+  );
 
   if (!appData.organizationId || !appData.isAuthenticated) {
     return (

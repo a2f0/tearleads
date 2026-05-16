@@ -1,11 +1,30 @@
+import { useCallback } from "react";
+import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { NotesAttachmentsPanel } from "./attachments/NotesAttachmentsPanel";
 import { useNotesModel } from "./hooks/useNotesModel";
 import { NotesEditor } from "./NotesEditor";
 import { NotesToolbar } from "./NotesToolbar";
 import "./Notes.css";
 
-export function Notes() {
+export function Notes({
+  registerRefreshMenuItem = false,
+}: {
+  registerRefreshMenuItem?: boolean;
+}) {
   const model = useNotesModel();
+  const handleRefresh = useCallback(() => {
+    model.requestSync();
+  }, [model.requestSync]);
+
+  useWindowRefreshMenuItem(
+    registerRefreshMenuItem
+      ? {
+          disabled: !model.ready || model.syncing,
+          onRefresh: handleRefresh,
+          refreshing: model.syncing,
+        }
+      : null,
+  );
 
   return (
     <div className="notes">

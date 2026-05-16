@@ -58,8 +58,6 @@ interface LinkedContainerDetail {
   label: string;
 }
 
-type ExplorerRefreshAction = () => Promise<boolean>;
-
 function getLinkedContainerDetails(
   nodes: ReadonlyArray<ContainerNode>,
   linkedContainerIds: ReadonlyArray<string>,
@@ -76,46 +74,19 @@ function getLinkedContainerDetails(
   });
 }
 
-function ExplorerRefreshButton(params: {
-  handleRefresh: ExplorerRefreshAction;
-  isRefreshing: boolean;
-  ready: boolean;
-}) {
-  const { handleRefresh, isRefreshing, ready } = params;
-
-  return (
-    <button
-      type="button"
-      className="explorer-action-button"
-      disabled={!ready || isRefreshing}
-      onClick={() => {
-        void handleRefresh();
-      }}
-    >
-      {isRefreshing ? "Refreshing..." : "Refresh"}
-    </button>
-  );
-}
-
 function ExplorerDocumentDetailActions(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
-  handleRefresh: ExplorerRefreshAction;
-  isRefreshing: boolean;
   openLinkDocumentModal: (noteId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
-  ready: boolean;
   selectedDocument: DocumentSummary;
   setSelectedId: (id: string | null) => void;
 }) {
   const {
     canLinkSelectedDocument,
     canMoveSelectedDocument,
-    handleRefresh,
-    isRefreshing,
     openLinkDocumentModal,
     openMoveDocumentModal,
-    ready,
     selectedDocument,
     setSelectedId,
   } = params;
@@ -153,11 +124,6 @@ function ExplorerDocumentDetailActions(params: {
       >
         Move
       </button>
-      <ExplorerRefreshButton
-        handleRefresh={handleRefresh}
-        isRefreshing={isRefreshing}
-        ready={ready}
-      />
     </div>
   );
 }
@@ -430,13 +396,10 @@ function ExplorerDocumentDetail(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
-  handleRefresh: ExplorerRefreshAction;
-  isRefreshing: boolean;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
   openLinkDocumentModal: (noteId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
-  ready: boolean;
   refreshError: string | null;
   selectedDocument: DocumentSummary;
   setSelectedId: (id: string | null) => void;
@@ -472,11 +435,8 @@ function ExplorerDocumentDetail(params: {
         <ExplorerDocumentDetailActions
           canLinkSelectedDocument={params.canLinkSelectedDocument}
           canMoveSelectedDocument={params.canMoveSelectedDocument}
-          handleRefresh={params.handleRefresh}
-          isRefreshing={params.isRefreshing}
           openLinkDocumentModal={params.openLinkDocumentModal}
           openMoveDocumentModal={params.openMoveDocumentModal}
-          ready={params.ready}
           selectedDocument={params.selectedDocument}
           setSelectedId={params.setSelectedId}
         />
@@ -661,15 +621,12 @@ function ExplorerContainerDetail(params: {
     string,
     ReadonlyArray<DocumentContainerProjection>
   >;
-  handleRefresh: ExplorerRefreshAction;
-  isRefreshing: boolean;
   nodes: ReadonlyArray<ContainerNode>;
   openInlineDocument: (
     containerId: string,
     documentKind: StoredDocumentKind,
     localId?: string,
   ) => void;
-  ready: boolean;
   refreshError: string | null;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedNode: ContainerNode;
@@ -677,11 +634,8 @@ function ExplorerContainerDetail(params: {
 }) {
   const {
     documentsByContainerId,
-    handleRefresh,
-    isRefreshing,
     nodes,
     openInlineDocument,
-    ready,
     refreshError,
     selectDocumentProjection,
     selectedNode,
@@ -720,11 +674,6 @@ function ExplorerContainerDetail(params: {
               {definition.createLabel}
             </button>
           ))}
-          <ExplorerRefreshButton
-            handleRefresh={handleRefresh}
-            isRefreshing={isRefreshing}
-            ready={ready}
-          />
         </div>
       </div>
       {refreshError ? (
@@ -770,8 +719,6 @@ export function ExplorerDetailPanel(params: {
     string,
     ReadonlyArray<DocumentContainerProjection>
   >;
-  handleRefresh: ExplorerRefreshAction;
-  isRefreshing: boolean;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
   openInlineDocument: (

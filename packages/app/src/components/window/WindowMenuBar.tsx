@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./WindowMenuBar.css";
 
-interface MenuItemDef {
+export interface WindowMenuItem {
+  disabled?: boolean;
   label: string;
   onClick: () => void;
 }
 
-interface MenuDef {
+interface WindowMenu {
   label: string;
-  items: MenuItemDef[];
+  items: WindowMenuItem[];
 }
 
-export function WindowMenuBar({ menus }: { menus: MenuDef[] }) {
+export function WindowMenuBar({ menus }: { menus: WindowMenu[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -62,7 +63,11 @@ export function WindowMenuBar({ menus }: { menus: MenuDef[] }) {
                   key={item.label}
                   type="button"
                   role="menuitem"
+                  disabled={item.disabled}
                   onClick={() => {
+                    if (item.disabled) {
+                      return;
+                    }
                     item.onClick();
                     close();
                   }}

@@ -42,6 +42,11 @@
   white-space: nowrap;
 }
 
-.window-menubar-dropdown button:hover {
+.window-menubar-dropdown button:hover:not(:disabled) {
   background: var(--color-muted);
+}
+
+.window-menubar-dropdown button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

@@ -35,6 +35,7 @@ export interface DocumentContextValue {
   documentKind: StoredDocumentKind;
   fieldValidationIssues: ReadonlyArray<DocumentFieldValidationIssue>;
   ready: boolean;
+  requestSync: () => void;
   setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   setStructuredFields: (

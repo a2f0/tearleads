@@ -12,16 +12,11 @@ import {
 
 afterEach(() => cleanup());
 
-async function refreshDirectoryAndGroups() {}
-
 function setView(_view: OrgManagerView) {}
 
 function SidebarRegistration({ enabled }: { enabled: boolean }) {
   useOrgManagerSidebarPanel({
     enabled,
-    loading: false,
-    mutating: false,
-    refreshDirectoryAndGroups,
     setView,
     view: "directory",
   });

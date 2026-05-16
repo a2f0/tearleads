@@ -45,7 +45,7 @@ function NotesApp(props: NotesAppProps) {
         ? {}
         : { documentId: model.activeSelection.documentId })}
     >
-      <Notes />
+      <Notes registerRefreshMenuItem />
     </DocumentsProvider>
   );
 }

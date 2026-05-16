@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { Window } from "./Window";
+import { useWindowRefreshMenuItem } from "./WindowMenuContext";
 import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
 
 afterEach(() => cleanup());
@@ -13,6 +14,27 @@ function WindowHarness() {
     create("A", 0, 0);
     create("B", 20, 20);
   }, [create]);
+
+  return (
+    <div>
+      {windows.map((window) => (
+        <Window key={window.id} windowId={window.id} />
+      ))}
+    </div>
+  );
+}
+
+function WindowRefreshHarness({ onRefresh }: { onRefresh: () => void }) {
+  const { windows, create } = useWindowState();
+
+  useEffect(() => {
+    function RefreshableWindow() {
+      useWindowRefreshMenuItem({ onRefresh });
+      return <div>Refreshable content</div>;
+    }
+
+    create("Refreshable", 0, 0, RefreshableWindow);
+  }, [create, onRefresh]);
 
   return (
     <div>
@@ -126,4 +148,31 @@ test("right-clicking a rendered window title bar opens the window menu", async (
 
   expect(view.getByText("Move Forward")).toBeTruthy();
   expect(view.getByText("Move Backward")).toBeTruthy();
+});
+
+test("registered refresh action appears in the view menu", async () => {
+  let refreshCount = 0;
+  const view = render(
+    <WindowStateProvider>
+      <WindowRefreshHarness
+        onRefresh={() => {
+          refreshCount += 1;
+        }}
+      />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("Refreshable content")).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByText("View"));
+
+  await waitFor(() => {
+    expect(view.getByText("Refresh")).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByText("Refresh"));
+
+  expect(refreshCount).toBe(1);
 });
