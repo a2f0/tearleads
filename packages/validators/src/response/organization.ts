@@ -67,12 +67,38 @@ export interface OrganizationGroupMembersResponse {
   members: OrganizationGroupMemberResponse[];
 }
 
+export type OrganizationGroupContainerAccessLevel = "admin" | "read" | "write";
+
+export interface OrganizationGroupContainerResponse {
+  accessLevel: OrganizationGroupContainerAccessLevel;
+  containerId: string;
+  createdAt: string;
+  depth: number;
+  metadataAccessEpoch: number;
+  metadataAccessStateHash: string;
+  metadataDocumentId: string | null;
+  parentId: string | null;
+  updatedAt: string;
+}
+
+export interface OrganizationGroupContainersResponse {
+  organizationId: string;
+  groupId: string;
+  containers: OrganizationGroupContainerResponse[];
+}
+
 function isOrganizationRole(value: string): value is OrganizationRole {
   return value === "member" || value === "admin";
 }
 
 function isPrincipalMemberType(value: string): value is "user" | "group" {
   return value === "user" || value === "group";
+}
+
+function isOrganizationGroupContainerAccessLevel(
+  value: string,
+): value is OrganizationGroupContainerAccessLevel {
+  return value === "admin" || value === "read" || value === "write";
 }
 
 export function isOrganizationDirectoryUserResponse(
@@ -185,6 +211,41 @@ export function isOrganizationGroupMembersResponse(
     hasStringProperty(value, "groupId") &&
     hasArrayProperty(value, "members") &&
     value.members.every(isOrganizationGroupMemberResponse)
+  );
+}
+
+export function isOrganizationGroupContainerResponse(
+  value: unknown,
+): value is OrganizationGroupContainerResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "accessLevel") &&
+    isOrganizationGroupContainerAccessLevel(value.accessLevel) &&
+    hasStringProperty(value, "containerId") &&
+    hasStringProperty(value, "createdAt") &&
+    hasNumberProperty(value, "depth") &&
+    Number.isInteger(value.depth) &&
+    value.depth >= 0 &&
+    hasNumberProperty(value, "metadataAccessEpoch") &&
+    Number.isInteger(value.metadataAccessEpoch) &&
+    value.metadataAccessEpoch > 0 &&
+    hasStringProperty(value, "metadataAccessStateHash") &&
+    value.metadataAccessStateHash.length > 0 &&
+    hasNullableStringProperty(value, "metadataDocumentId") &&
+    hasNullableStringProperty(value, "parentId") &&
+    hasStringProperty(value, "updatedAt")
+  );
+}
+
+export function isOrganizationGroupContainersResponse(
+  value: unknown,
+): value is OrganizationGroupContainersResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "organizationId") &&
+    hasStringProperty(value, "groupId") &&
+    hasArrayProperty(value, "containers") &&
+    value.containers.every(isOrganizationGroupContainerResponse)
   );
 }
 

@@ -151,6 +151,17 @@
   opacity: 0.75;
 }
 
+.org-manager-detail-section {
+  display: grid;
+  gap: calc(var(--padding) / 2);
+  margin-top: var(--padding);
+}
+
+.org-manager-section-heading {
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+}
+
 .org-manager-member-row {
   justify-content: space-between;
 }
@@ -184,6 +195,10 @@
   }
 
   .org-manager-directory-joined-column {
+    display: none;
+  }
+
+  .org-manager-container-updated-column {
     display: none;
   }
 }

@@ -647,6 +647,25 @@ test("uses organization manager and principal policy route namespaces", async ()
           members: [],
         });
       }
+      if (request.url.endsWith("/containers")) {
+        return HttpResponse.json({
+          organizationId: "org-1",
+          groupId: "group-1",
+          containers: [
+            {
+              accessLevel: "admin",
+              containerId: "container-1",
+              createdAt: "2026-05-12T12:00:00.000Z",
+              depth: 0,
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "access-state-hash",
+              metadataDocumentId: "metadata-document-1",
+              parentId: null,
+              updatedAt: "2026-05-12T12:00:00.000Z",
+            },
+          ],
+        });
+      }
       if (request.url.endsWith("/member-envelopes")) {
         return HttpResponse.json({
           principalType: "group",
@@ -696,6 +715,9 @@ test("uses organization manager and principal policy route namespaces", async ()
     await client.listOrganizationGroupMembers("org-1", "group-1"),
   ).not.toBeNull();
   expect(
+    await client.listOrganizationGroupContainers("org-1", "group-1"),
+  ).not.toBeNull();
+  expect(
     await client.putPrincipalState("group", "group-1", stateRequest),
   ).not.toBeNull();
   expect(
@@ -731,6 +753,11 @@ test("uses organization manager and principal policy route namespaces", async ()
     {
       body: null,
       input: `${apiBaseUrl}/organizations/org-1/groups/group-1/members`,
+      method: "GET",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/groups/group-1/containers`,
       method: "GET",
     },
     {

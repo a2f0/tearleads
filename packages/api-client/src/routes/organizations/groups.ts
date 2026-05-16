@@ -1,5 +1,6 @@
 import {
   isListOrganizationGroupsResponse,
+  isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
@@ -23,6 +24,18 @@ export function listOrganizationGroupMembers(
   return request(
     `/organizations/${organizationId}/groups/${groupId}/members`,
     isOrganizationGroupMembersResponse,
+    "GET",
+  );
+}
+
+export function listOrganizationGroupContainers(
+  request: RequestFn,
+  organizationId: string,
+  groupId: string,
+) {
+  return request(
+    `/organizations/${organizationId}/groups/${groupId}/containers`,
+    isOrganizationGroupContainersResponse,
     "GET",
   );
 }
