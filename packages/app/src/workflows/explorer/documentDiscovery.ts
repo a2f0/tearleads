@@ -39,6 +39,17 @@ interface ExplorerListContainersResponse {
   nextWatermark: SyncWatermark | null;
 }
 
+interface ExplorerDocumentDiscoveryApi {
+  readonly listContainerDocuments: (
+    containerId: string,
+    options?: { watermark?: SyncWatermark | null },
+  ) => Promise<ExplorerListContainerDocumentsResponse | null>;
+  readonly listContainers: (options: {
+    parentId: string | null;
+    watermark?: SyncWatermark | null;
+  }) => Promise<ExplorerListContainersResponse | null>;
+}
+
 interface DocumentLinkInput {
   containerIds: ReadonlyArray<string>;
   documentId: string;
@@ -58,10 +69,7 @@ interface DiscoverContainerDocumentsOptions {
   loadContainerDocumentWatermark: (
     containerId: string,
   ) => Promise<SyncWatermark | null>;
-  listContainerDocuments: (
-    containerId: string,
-    options?: { watermark?: SyncWatermark | null },
-  ) => Promise<ExplorerListContainerDocumentsResponse | null>;
+  listContainerDocuments: ExplorerDocumentDiscoveryApi["listContainerDocuments"];
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<DocumentLinkInput>,
   ) => Promise<void>;
@@ -331,10 +339,7 @@ export function hasUndiscoveredDocumentUpdateEvent(
 }
 
 export async function listAllRemoteExplorerContainerIds(
-  listContainers: (options: {
-    parentId: string | null;
-    watermark?: SyncWatermark | null;
-  }) => Promise<ExplorerListContainersResponse | null>,
+  listContainers: ExplorerDocumentDiscoveryApi["listContainers"],
 ): Promise<ReadonlyArray<string> | null> {
   const containerIds: string[] = [];
   const queuedParentIds = new Set<string | null>();
@@ -395,6 +400,14 @@ export async function listAllRemoteExplorerContainerIds(
   return containerIds;
 }
 
+export function listAllRemoteExplorerContainerIdsFromApi(
+  apiClient: Pick<ExplorerDocumentDiscoveryApi, "listContainers">,
+): Promise<ReadonlyArray<string> | null> {
+  return listAllRemoteExplorerContainerIds((options) =>
+    apiClient.listContainers(options),
+  );
+}
+
 export async function discoverContainerDocuments({
   applyContainerDocumentTombstones,
   cacheReferencedPrincipalPolicies,
@@ -451,6 +464,22 @@ export async function discoverContainerDocuments({
   });
 
   return [...discoveredDocuments, ...tombstoneDocumentSummaries];
+}
+
+export function discoverContainerDocumentsFromApi({
+  apiClient,
+  ...input
+}: Omit<DiscoverContainerDocumentsOptions, "listContainerDocuments"> & {
+  readonly apiClient: Pick<
+    ExplorerDocumentDiscoveryApi,
+    "listContainerDocuments"
+  >;
+}): Promise<ReadonlyArray<DocumentSummary> | null> {
+  return discoverContainerDocuments({
+    ...input,
+    listContainerDocuments: (containerId, options) =>
+      apiClient.listContainerDocuments(containerId, options),
+  });
 }
 
 export async function discoverAllContainerDocuments({
@@ -520,4 +549,20 @@ export async function discoverAllContainerDocuments({
   );
 
   return [...discoveredDocuments, ...tombstoneDocumentSummaries];
+}
+
+export function discoverAllContainerDocumentsFromApi({
+  apiClient,
+  ...input
+}: Omit<DiscoverAllContainerDocumentsOptions, "listContainerDocuments"> & {
+  readonly apiClient: Pick<
+    ExplorerDocumentDiscoveryApi,
+    "listContainerDocuments"
+  >;
+}): Promise<ReadonlyArray<DocumentSummary>> {
+  return discoverAllContainerDocuments({
+    ...input,
+    listContainerDocuments: (containerId, options) =>
+      apiClient.listContainerDocuments(containerId, options),
+  });
 }
