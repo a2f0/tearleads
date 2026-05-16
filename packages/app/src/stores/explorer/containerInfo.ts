@@ -22,8 +22,6 @@ export function loadExplorerContainerInfo(input: {
     execSql: input.appData.dbStatus === "ready" ? input.appData.execSql : null,
     organizationId: input.appData.organizationId,
     parentId: input.parentId ?? null,
-    ...(input.remoteInfoMode === undefined
-      ? {}
-      : { remoteInfoMode: input.remoteInfoMode }),
+    remoteInfoMode: input.remoteInfoMode,
   });
 }

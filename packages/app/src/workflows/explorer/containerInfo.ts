@@ -207,7 +207,7 @@ export async function loadExplorerContainerInfo(input: {
   execSql?: ExecSql | null;
   organizationId: string | null;
   parentId?: string | null;
-  remoteInfoMode?: ExplorerContainerInfoRemoteMode;
+  remoteInfoMode?: ExplorerContainerInfoRemoteMode | undefined;
 }): Promise<ExplorerContainerInfo> {
   const localContainerInfo = await loadLocalContainerInfoRecord({
     containerId: input.containerId,

@@ -108,7 +108,7 @@ export function useExplorerPanelState(params: {
           appData.isAuthenticated && appData.online ? "if-synced" : "never",
       });
     },
-    [appData, appData.isAuthenticated, appData.online, explorer.nodes],
+    [appData, explorer.nodes],
   );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentsAppData,
