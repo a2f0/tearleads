@@ -703,9 +703,44 @@ async function waitForNoPostShareSyncFailures(
   ).toEqual([]);
 }
 
+function getExplorerWindowRoot(pane: HTMLElement): HTMLElement {
+  const explorerTitle = within(pane).getByText("Explorer");
+  const explorerWindow = explorerTitle.closest<HTMLElement>(".window");
+  invariant(explorerWindow, "Expected Explorer window.");
+  return explorerWindow;
+}
+
+function openExplorerViewMenu(pane: HTMLElement): HTMLElement {
+  const explorerWindow = getExplorerWindowRoot(pane);
+  const viewMenuButton = within(explorerWindow).getByRole("menuitem", {
+    name: "View",
+  });
+
+  if (viewMenuButton.getAttribute("aria-expanded") !== "true") {
+    fireEvent.click(viewMenuButton);
+  }
+
+  return explorerWindow;
+}
+
+function clickAvailableExplorerRefresh(pane: HTMLElement): boolean {
+  const explorerWindow = openExplorerViewMenu(pane);
+  const refreshButton = within(explorerWindow).queryByRole("menuitem", {
+    name: /Refresh/,
+  });
+
+  if (refreshButton instanceof HTMLButtonElement && !refreshButton.disabled) {
+    fireEvent.click(refreshButton);
+    return true;
+  }
+
+  return false;
+}
+
 async function clickExplorerRefresh(pane: HTMLElement) {
   const getRefreshButton = () => {
-    const refreshButton = within(pane).getByRole("button", {
+    const explorerWindow = openExplorerViewMenu(pane);
+    const refreshButton = within(explorerWindow).getByRole("menuitem", {
       name: "Refresh",
     });
     invariant(
@@ -835,13 +870,7 @@ async function refreshUntil(
       return;
     }
 
-    const refreshButton = within(pane).queryByRole("button", {
-      name: /Refresh/,
-    });
-
-    if (refreshButton instanceof HTMLButtonElement && !refreshButton.disabled) {
-      fireEvent.click(refreshButton);
-    }
+    clickAvailableExplorerRefresh(pane);
 
     throw new Error(message);
   });

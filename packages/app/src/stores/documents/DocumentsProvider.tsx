@@ -123,6 +123,7 @@ export function useDocument(): DocumentContextValue {
       documentKind: snapshot.documentKind,
       fieldValidationIssues: snapshot.fieldValidationIssues,
       ready: snapshot.ready,
+      requestSync: store.requestSync,
       setAttachment: store.setAttachment,
       replaceAttachment: store.replaceAttachment,
       setStructuredFields: store.setStructuredFields,

@@ -10,7 +10,11 @@ import {
 } from "react";
 import "./Window.css";
 import { WindowBody } from "./WindowBody";
-import { WindowMenuBar } from "./WindowMenuBar";
+import { WindowMenuBar, type WindowMenuItem } from "./WindowMenuBar";
+import {
+  useWindowViewMenuItems,
+  WindowMenuProvider,
+} from "./WindowMenuContext";
 import type { ResizeCorner } from "./WindowResizeHandle";
 import { WindowResizeHandle } from "./WindowResizeHandle";
 import {
@@ -287,6 +291,7 @@ function useWindowActions(
   minimize: (id: string) => void,
   moveBackward: (id: string) => void,
   moveForward: (id: string) => void,
+  viewMenuItems: WindowMenuItem[],
 ) {
   const [maximized, setMaximized] = useState(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
@@ -322,23 +327,33 @@ function useWindowActions(
     () => [
       {
         label: "File",
-        items: [{ label: "Close", onClick: handleClose }],
+        items: [{ id: "close", label: "Close", onClick: handleClose }],
       },
       {
         label: "View",
         items: [
+          ...viewMenuItems,
           {
+            id: "toggle-status-bar",
             label: `${showStatusBar ? "Hide" : "Show"} Status Bar`,
             onClick: toggleStatusBar,
           },
           {
+            id: "toggle-sidebar",
             label: `${showSidebar ? "Hide" : "Show"} Sidebar`,
             onClick: toggleSidebar,
           },
         ],
       },
     ],
-    [handleClose, showSidebar, showStatusBar, toggleSidebar, toggleStatusBar],
+    [
+      handleClose,
+      showSidebar,
+      showStatusBar,
+      toggleSidebar,
+      toggleStatusBar,
+      viewMenuItems,
+    ],
   );
 
   return {
@@ -398,8 +413,31 @@ function WindowInner({
   moveBackward,
   bringToFront,
 }: WindowInnerProps) {
+  return (
+    <WindowMenuProvider>
+      <WindowInnerContent
+        entry={entry}
+        close={close}
+        minimize={minimize}
+        moveForward={moveForward}
+        moveBackward={moveBackward}
+        bringToFront={bringToFront}
+      />
+    </WindowMenuProvider>
+  );
+}
+
+function WindowInnerContent({
+  entry,
+  close,
+  minimize,
+  moveForward,
+  moveBackward,
+  bringToFront,
+}: WindowInnerProps) {
   const { title, minimized, zIndex, component: Component } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
+  const viewMenuItems = useWindowViewMenuItems();
   const {
     handleClose,
     handleMaximize,
@@ -417,6 +455,7 @@ function WindowInner({
     minimize,
     moveBackward,
     moveForward,
+    viewMenuItems,
   );
   const { handleMouseDown, handleResizeMouseDown, position, size } =
     useWindowGeometry(entry, maximized, windowRef);
