@@ -1,12 +1,10 @@
-import {
-  isOrganizationGroupContainerAccessLevel,
-  type ListOrganizationGroupsResponse,
-  type OrganizationGroupContainerResponse,
-  type OrganizationGroupContainersResponse,
-  type OrganizationGroupMemberResponse,
-  type OrganizationGroupMembersResponse,
+import type {
+  ListOrganizationGroupsResponse,
+  OrganizationGroupContainersResponse,
+  OrganizationGroupMemberResponse,
+  OrganizationGroupMembersResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
@@ -14,15 +12,12 @@ import {
   type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
 import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
-import {
-  accessManifestContainerGrantProjection,
-  accessManifestHeads,
-  accessManifests,
-  containers,
-  groups as groupsTable,
-  organizations,
-} from "../../schema";
+import { groups as groupsTable, organizations } from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
+import {
+  listOrganizationContainerGrantRows,
+  toOrganizationGroupContainerResponse,
+} from "./containerGrants";
 import { OrganizationManagerError } from "./errors";
 import { toGroupSummary } from "./groupSummary";
 import { loadUsersById, type UserKeyRow } from "./users";
@@ -30,40 +25,6 @@ import { loadUsersById, type UserKeyRow } from "./users";
 interface NestedGroupRow {
   groupId: string;
   groupName: string;
-}
-
-interface OrganizationGroupContainerRow {
-  accessLevel: string;
-  containerId: string;
-  createdAt: Date;
-  depth: number;
-  metadataAccessEpoch: number;
-  metadataAccessStateHash: string;
-  metadataDocumentId: string | null;
-  parentId: string | null;
-  updatedAt: Date;
-}
-
-function toGroupContainerResponse(
-  row: OrganizationGroupContainerRow,
-): OrganizationGroupContainerResponse {
-  if (!isOrganizationGroupContainerAccessLevel(row.accessLevel)) {
-    throw new Error(
-      "Organization group container grant access level is invalid",
-    );
-  }
-
-  return {
-    accessLevel: row.accessLevel,
-    containerId: row.containerId,
-    createdAt: row.createdAt.toISOString(),
-    depth: row.depth,
-    metadataAccessEpoch: row.metadataAccessEpoch,
-    metadataAccessStateHash: row.metadataAccessStateHash,
-    metadataDocumentId: row.metadataDocumentId,
-    parentId: row.parentId,
-    updatedAt: row.updatedAt.toISOString(),
-  };
 }
 
 async function requireGroupInOrganization(input: {
@@ -169,56 +130,19 @@ async function listOrganizationGroupContainersInTransaction(input: {
     organizationId: input.organizationId,
   });
 
-  const rows = await input.executor
-    .select({
-      accessLevel: accessManifestContainerGrantProjection.accessLevel,
-      containerId: containers.id,
-      createdAt: containers.createdAt,
-      depth: containers.depth,
-      metadataAccessEpoch: accessManifestHeads.epoch,
-      metadataAccessStateHash: accessManifestHeads.manifestHash,
-      metadataDocumentId: sql<
-        string | null
-      >`${accessManifests.state}->>'metadataDocumentId'`,
-      parentId: containers.parentId,
-      updatedAt: containers.updatedAt,
-    })
-    .from(accessManifestContainerGrantProjection)
-    .innerJoin(
-      accessManifestHeads,
-      and(
-        eq(accessManifestHeads.objectKind, "container"),
-        eq(
-          accessManifestHeads.objectId,
-          accessManifestContainerGrantProjection.containerId,
-        ),
-        eq(
-          accessManifestHeads.manifestHash,
-          accessManifestContainerGrantProjection.manifestHash,
-        ),
-      ),
-    )
-    .innerJoin(
-      accessManifests,
-      eq(accessManifests.manifestHash, accessManifestHeads.manifestHash),
-    )
-    .innerJoin(
-      containers,
-      eq(containers.id, accessManifestContainerGrantProjection.containerId),
-    )
-    .where(
-      and(
-        eq(containers.organizationId, input.organizationId),
-        eq(accessManifestContainerGrantProjection.subjectType, "group"),
-        eq(accessManifestContainerGrantProjection.subjectId, input.groupId),
-      ),
-    )
-    .orderBy(asc(containers.depth), asc(containers.id));
+  const rows = await listOrganizationContainerGrantRows({
+    executor: input.executor,
+    organizationId: input.organizationId,
+    subjectFilter: {
+      subjectId: input.groupId,
+      subjectType: "group",
+    },
+  });
 
   return {
     organizationId: input.organizationId,
     groupId: input.groupId,
-    containers: rows.map((row) => toGroupContainerResponse(row)),
+    containers: rows.map((row) => toOrganizationGroupContainerResponse(row)),
   };
 }
 

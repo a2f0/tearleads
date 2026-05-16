@@ -6,7 +6,7 @@ import {
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { ORG_MANAGER_LABELS } from "./labels";
 
-export type OrgManagerView = "directory" | "groups";
+export type OrgManagerView = "directory" | "groups" | "grants";
 
 function OrgManagerSidebar({
   setView,
@@ -30,6 +30,13 @@ function OrgManagerSidebar({
         selected={view === "groups"}
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.groups}</MiniAppRowText>
+      </MiniAppRowButton>
+      <MiniAppRowButton
+        className="org-manager-nav"
+        onClick={() => setView("grants")}
+        selected={view === "grants"}
+      >
+        <MiniAppRowText>{ORG_MANAGER_LABELS.grants}</MiniAppRowText>
       </MiniAppRowButton>
     </div>
   );

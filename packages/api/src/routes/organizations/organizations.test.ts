@@ -9,6 +9,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isListOrganizationGroupsResponse,
+  isOrganizationContainerGrantsResponse,
   isOrganizationDirectoryResponse,
   isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
@@ -305,6 +306,63 @@ test("org manager routes list containers directly granted to a group", async () 
     "expected member group containers response",
   );
   expect(memberBody.containers).toEqual([]);
+});
+
+test("org manager routes list organization container grants", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const [organization] = await db
+    .select({
+      adminGroupId: organizations.adminGroupId,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
+  const [rootContainer] = await db
+    .select({ id: containers.id })
+    .from(containers)
+    .where(
+      and(
+        eq(containers.organizationId, organizationId),
+        isNull(containers.parentId),
+      ),
+    )
+    .limit(1);
+  invariant(rootContainer, "expected root container row");
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/grants`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  invariant(
+    isOrganizationContainerGrantsResponse(body),
+    "expected organization grants response",
+  );
+  expect(body.organizationId).toBe(organizationId);
+  expect(
+    body.grants.map((grant) => ({
+      accessLevel: grant.accessLevel,
+      containerId: grant.containerId,
+      groupId: grant.groupId,
+      groupName: grant.groupName,
+      subjectId: grant.subjectId,
+      subjectType: grant.subjectType,
+    })),
+  ).toContainEqual({
+    accessLevel: "admin",
+    containerId: rootContainer.id,
+    groupId: organization.adminGroupId,
+    groupName: "Admins",
+    subjectId: organization.adminGroupId,
+    subjectType: "group",
+  });
 });
 
 test("org manager routes allow organization members to read but reserve mutations for Admins members", async () => {

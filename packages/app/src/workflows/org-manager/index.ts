@@ -9,7 +9,10 @@ export {
 } from "./principalPolicy";
 export {
   loadOrgManagerDirectoryAndGroups,
+  loadOrgManagerGrants,
   loadOrgManagerGroupDetails,
+  type OrgManagerContainerGrant,
+  type OrgManagerContainerGrants,
   type OrgManagerDirectory,
   type OrgManagerDirectoryAndGroups,
   type OrgManagerDirectoryUser,

@@ -1,5 +1,7 @@
 import type {
   ListOrganizationGroupsResponse,
+  OrganizationContainerGrantResponse,
+  OrganizationContainerGrantsResponse,
   OrganizationDirectoryResponse,
   OrganizationDirectoryUserResponse,
   OrganizationGroupContainerResponse,
@@ -11,6 +13,8 @@ import type {
 
 export type OrgManagerDirectory = OrganizationDirectoryResponse;
 export type OrgManagerDirectoryUser = OrganizationDirectoryUserResponse;
+export type OrgManagerContainerGrant = OrganizationContainerGrantResponse;
+export type OrgManagerContainerGrants = OrganizationContainerGrantsResponse;
 export type OrgManagerGroupContainer = OrganizationGroupContainerResponse;
 export type OrgManagerGroupContainers = OrganizationGroupContainersResponse;
 export type OrgManagerGroupMember = OrganizationGroupMemberResponse;
@@ -34,6 +38,9 @@ interface OrgManagerReadApi {
   readonly listOrganizationGroups: (
     organizationId: string,
   ) => Promise<ListOrganizationGroupsResponse | null>;
+  readonly listOrganizationContainerGrants: (
+    organizationId: string,
+  ) => Promise<OrganizationContainerGrantsResponse | null>;
   readonly listOrganizationGroupMembers: (
     organizationId: string,
     groupId: string,
@@ -64,6 +71,16 @@ export async function loadOrgManagerDirectoryAndGroups(input: {
     directory,
     groups: groups.groups,
   };
+}
+
+export async function loadOrgManagerGrants(input: {
+  readonly apiClient: Pick<
+    OrgManagerReadApi,
+    "listOrganizationContainerGrants"
+  >;
+  readonly organizationId: string;
+}): Promise<OrgManagerContainerGrants | null> {
+  return input.apiClient.listOrganizationContainerGrants(input.organizationId);
 }
 
 export async function loadOrgManagerGroupDetails(input: {
