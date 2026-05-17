@@ -24,6 +24,40 @@ import type {
   ExplorerModalState,
 } from "./types";
 
+type ExplorerContainerInfoGrant = NonNullable<
+  ExplorerContainerInfo["remoteInfo"]
+>["grants"][number];
+
+function upsertContainerInfoGrant(
+  info: ExplorerContainerInfo,
+  grant: ExplorerContainerInfoGrant | null,
+): ExplorerContainerInfo {
+  if (!grant || !info.remoteInfo) {
+    return info;
+  }
+
+  const existingGrants = info.remoteInfo.grants ?? [];
+  const existingGrantIndex = existingGrants.findIndex(
+    (candidate) =>
+      candidate.subjectType === grant.subjectType &&
+      candidate.subjectId === grant.subjectId,
+  );
+  const grants =
+    existingGrantIndex === -1
+      ? [...existingGrants, grant]
+      : existingGrants.map((candidate, index) =>
+          index === existingGrantIndex ? { ...candidate, ...grant } : candidate,
+        );
+
+  return {
+    ...info,
+    remoteInfo: {
+      ...info.remoteInfo,
+      grants,
+    },
+  };
+}
+
 function useExplorerModalEffects(params: {
   closeModal: () => void;
   isSubmittingModal: boolean;
@@ -121,14 +155,18 @@ function useExplorerModalState(
   }, [resetContainerInfoState]);
 
   const reloadContainerInfo = useCallback(
-    async (containerId: string) => {
+    async (
+      containerId: string,
+      optimisticGrant: ExplorerContainerInfoGrant | null = null,
+    ) => {
       setIsLoadingContainerInfo(true);
       setContainerInfoError(null);
       try {
         const nextInfo = await loadContainerInfo(containerId);
-        setContainerInfo(nextInfo);
+        const updatedInfo = upsertContainerInfoGrant(nextInfo, optimisticGrant);
+        setContainerInfo(updatedInfo);
         setDraftShareGroupId((current) => {
-          const groups = nextInfo.remoteInfo?.groups ?? [];
+          const groups = updatedInfo.remoteInfo?.groups ?? [];
           const currentGroupIsShareable = groups.some(
             (group) => group.groupId === current && group.currentState,
           );
@@ -249,7 +287,10 @@ interface ExplorerModalSubmitControllerParams
   draftShareAccessLevel: ExplorerContainerShareAccessLevel;
   draftShareGroupId: string;
   isSubmittingModal: boolean;
-  reloadContainerInfo: (containerId: string) => Promise<void>;
+  reloadContainerInfo: (
+    containerId: string,
+    optimisticGrant?: ExplorerContainerInfoGrant | null,
+  ) => Promise<void>;
   setIsSubmittingModal: (value: boolean) => void;
   shareWithGroup: ExplorerModalControllerParams["shareWithGroup"];
 }
@@ -308,7 +349,11 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
             return;
           }
 
-          await reloadContainerInfo(modalState.nodeId);
+          await reloadContainerInfo(modalState.nodeId, {
+            accessLevel: draftShareAccessLevel,
+            subjectId: draftShareGroupId,
+            subjectType: "group",
+          });
           return;
         }
 

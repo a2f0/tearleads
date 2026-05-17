@@ -10,8 +10,10 @@ import type {
 import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
+  discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
   listAllRemoteExplorerContainerIds,
+  listAllRemoteExplorerContainerIdsFromApi,
 } from "./documentDiscovery";
 
 type CapturedDiscoveredDocumentInput = Omit<
@@ -273,6 +275,43 @@ test("container document discovery resumes from stored watermark and advances af
       documentId: "peer-note-document",
       title: "peer-note-document",
       updatedAt: "2026-04-06T12:00:00.000Z",
+    },
+  ]);
+});
+
+test("container document discovery API facade lists documents through the api client", async () => {
+  const listContainerDocumentsCalls: Array<{
+    containerId: string;
+    watermark: SyncWatermark | null | undefined;
+  }> = [];
+
+  await discoverContainerDocumentsFromApi({
+    ...nullContainerDocumentWatermarks,
+    apiClient: {
+      listContainerDocuments: async (containerId, options) => {
+        listContainerDocumentsCalls.push({
+          containerId,
+          watermark: options?.watermark,
+        });
+        return listContainerDocumentsResponse([]);
+      },
+    },
+    containerId: "shared-container",
+    loadContainerDocumentWatermark: async () => ({
+      id: "old-document",
+      updatedAt: "2026-04-06T11:00:00.000Z",
+    }),
+    replaceDocumentLinksBatch: async () => {},
+    upsertDiscoveredDocuments: async () => [],
+  });
+
+  expect(listContainerDocumentsCalls).toEqual([
+    {
+      containerId: "shared-container",
+      watermark: {
+        id: "old-document",
+        updatedAt: "2026-04-06T11:00:00.000Z",
+      },
     },
   ]);
 });
@@ -758,6 +797,30 @@ test("manual refresh lists remote container ids across paged parent lanes", asyn
     { parentId: "container-b", watermark: null },
     { parentId: "root-child", watermark: null },
     { parentId: "container-a-child", watermark: null },
+  ]);
+});
+
+test("manual refresh API facade lists remote container ids through the api client", async () => {
+  const listContainersCalls: Array<{
+    parentId: string | null;
+    watermark?: SyncWatermark | null;
+  }> = [];
+
+  const containerIds = await listAllRemoteExplorerContainerIdsFromApi({
+    listContainers: async (options) => {
+      listContainersCalls.push(options);
+      return {
+        hasMore: false,
+        items: options.parentId === null ? [{ id: "container-a" }] : [],
+        nextWatermark: null,
+      };
+    },
+  });
+
+  expect(containerIds).toEqual(["container-a"]);
+  expect(listContainersCalls).toEqual([
+    { parentId: null, watermark: null },
+    { parentId: "container-a", watermark: null },
   ]);
 });
 

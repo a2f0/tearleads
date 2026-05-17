@@ -1,62 +1,36 @@
-import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import {
   hasUndiscoveredDocumentUpdateEvent,
-  discoverAllContainerDocuments as runDiscoverAllContainerDocuments,
-  discoverContainerDocuments as runDiscoverContainerDocuments,
-  listAllRemoteExplorerContainerIds as runListAllRemoteExplorerContainerIds,
+  discoverAllContainerDocumentsFromApi as runDiscoverAllContainerDocuments,
+  discoverContainerDocumentsFromApi as runDiscoverContainerDocuments,
+  listAllRemoteExplorerContainerIdsFromApi as runListAllRemoteExplorerContainerIds,
 } from "../../workflows/explorer";
 
-type ExplorerDocumentDiscoveryApi = Pick<
-  AppDataContextValue["apiClient"],
-  "listContainerDocuments" | "listContainers"
->;
-
-type DiscoverContainerDocumentsInput = Omit<
-  Parameters<typeof runDiscoverContainerDocuments>[0],
-  "listContainerDocuments"
-> & {
-  apiClient: Pick<ExplorerDocumentDiscoveryApi, "listContainerDocuments">;
-};
-
-type DiscoverAllContainerDocumentsInput = Omit<
-  Parameters<typeof runDiscoverAllContainerDocuments>[0],
-  "listContainerDocuments"
-> & {
-  apiClient: Pick<ExplorerDocumentDiscoveryApi, "listContainerDocuments">;
-};
+type ListAllRemoteExplorerContainerIdsInput = Parameters<
+  typeof runListAllRemoteExplorerContainerIds
+>[0];
+type DiscoverContainerDocumentsInput = Parameters<
+  typeof runDiscoverContainerDocuments
+>[0];
+type DiscoverAllContainerDocumentsInput = Parameters<
+  typeof runDiscoverAllContainerDocuments
+>[0];
 
 export { hasUndiscoveredDocumentUpdateEvent };
 
 export function listAllRemoteExplorerContainerIds(
-  apiClient: Pick<ExplorerDocumentDiscoveryApi, "listContainers">,
+  apiClient: ListAllRemoteExplorerContainerIdsInput,
 ): ReturnType<typeof runListAllRemoteExplorerContainerIds> {
-  return runListAllRemoteExplorerContainerIds((options) =>
-    apiClient.listContainers(options),
-  );
+  return runListAllRemoteExplorerContainerIds(apiClient);
 }
 
-export function discoverContainerDocuments({
-  apiClient,
-  ...input
-}: DiscoverContainerDocumentsInput): ReturnType<
-  typeof runDiscoverContainerDocuments
-> {
-  return runDiscoverContainerDocuments({
-    ...input,
-    listContainerDocuments: (containerId, options) =>
-      apiClient.listContainerDocuments(containerId, options),
-  });
+export function discoverContainerDocuments(
+  input: DiscoverContainerDocumentsInput,
+): ReturnType<typeof runDiscoverContainerDocuments> {
+  return runDiscoverContainerDocuments(input);
 }
 
-export function discoverAllContainerDocuments({
-  apiClient,
-  ...input
-}: DiscoverAllContainerDocumentsInput): ReturnType<
-  typeof runDiscoverAllContainerDocuments
-> {
-  return runDiscoverAllContainerDocuments({
-    ...input,
-    listContainerDocuments: (containerId, options) =>
-      apiClient.listContainerDocuments(containerId, options),
-  });
+export function discoverAllContainerDocuments(
+  input: DiscoverAllContainerDocumentsInput,
+): ReturnType<typeof runDiscoverAllContainerDocuments> {
+  return runDiscoverAllContainerDocuments(input);
 }

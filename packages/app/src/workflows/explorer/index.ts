@@ -20,10 +20,10 @@ export {
   syncPendingExplorerContainerCreateIntents,
 } from "./containers";
 export {
-  discoverAllContainerDocuments,
-  discoverContainerDocuments,
+  discoverAllContainerDocumentsFromApi,
+  discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
-  listAllRemoteExplorerContainerIds,
+  listAllRemoteExplorerContainerIdsFromApi,
 } from "./documentDiscovery";
 export {
   createExplorerDocumentReadModelFromRuntime,
