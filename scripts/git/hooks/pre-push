@@ -37,10 +37,7 @@ bun run biome check --error-on-warnings
 echo "Running knip..."
 bun run knip
 
-echo "Checking for circular imports..."
-bun run madge --circular --extensions ts,tsx packages/
-
-echo "Checking architecture boundaries..."
+echo "Checking dependency graph and architecture boundaries..."
 bun run lint:architecture
 
 echo "Checking file names..."

@@ -7,16 +7,16 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import type { BlobBytes } from "../../data/blobs";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
-} from "../../data/containers/test-helpers";
+} from "../../../test/helpers/containerFixtures";
 import {
   createMaterializedSyncFixture,
   createResponse,
-} from "../../data/documents/documentTestFixtures";
+} from "../../../test/helpers/documentFixtures";
+import type { BlobBytes } from "../../data/blobs";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import {
   type DocumentAttachmentUploadRuntime,

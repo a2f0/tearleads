@@ -3,10 +3,12 @@ import type { IConfiguration } from "dependency-cruiser";
 type ForbiddenRules = NonNullable<IConfiguration["forbidden"]>;
 
 const appLayer = {
+  data: "^packages/app/src/data/",
   persistence: "^packages/app/src/data/persistence/",
   sqlite: "^packages/app/src/data/sqlite/",
   blobStorage: "^packages/app/src/data/blobs/",
   contactData: "^packages/app/src/data/contacts/",
+  sync: "^packages/app/src/data/sync/",
   workflows: "^packages/app/src/workflows/",
   stores: "^packages/app/src/stores/",
   shellProviders: "^packages/app/src/providers/",
@@ -32,10 +34,86 @@ const appStorageInternals = [
   appLayer.sqlite,
   appLayer.blobStorage,
   appLayer.contactData,
+  appLayer.sync,
 ];
 const testFilesPattern = "\\.test\\.[tj]sx?$";
 const appRootSqlProvider =
   "^packages/app/src/providers/data/AppDataProvider\\.tsx$";
+
+const standardRules = [
+  {
+    name: "no-circular",
+    severity: "error",
+    comment:
+      "Circular imports make module initialization order fragile and usually signal a boundary leak.",
+    from: {},
+    to: {
+      circular: true,
+    },
+  },
+  {
+    name: "not-to-unresolvable",
+    severity: "error",
+    comment:
+      "Every imported module should resolve from source or an explicitly declared package dependency.",
+    from: {},
+    to: {
+      couldNotResolve: true,
+    },
+  },
+  {
+    name: "no-non-package-json",
+    severity: "error",
+    comment:
+      "Runtime npm imports must be declared in the importing workspace package manifest.",
+    from: {},
+    to: {
+      dependencyTypes: ["npm-no-pkg", "npm-unknown"],
+    },
+  },
+  {
+    name: "not-to-dev-dep",
+    severity: "error",
+    comment:
+      "Production app and API modules must not import runtime values from devDependencies.",
+    from: {
+      path: "^packages/(api|app)/src/",
+      pathNot: testFilesPattern,
+    },
+    to: {
+      dependencyTypes: ["npm-dev"],
+      dependencyTypesNot: ["type-only"],
+      pathNot: "node_modules/@types/",
+    },
+  },
+  {
+    name: "no-duplicate-dep-types",
+    severity: "warn",
+    comment:
+      "A package should not be declared through multiple dependency sections.",
+    from: {},
+    to: {
+      moreThanOneDependencyType: true,
+      dependencyTypesNot: ["type-only"],
+    },
+  },
+  {
+    name: "no-orphans",
+    severity: "warn",
+    comment:
+      "A source module with no imports and no importers is usually dead or misplaced.",
+    from: {
+      orphan: true,
+      pathNot: [
+        "(^|/)\\.[^/]+\\.(js|cjs|mjs|ts|json)$",
+        "\\.d\\.(c|m)?ts$",
+        "(^|/)tsconfig\\.json$",
+        "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
+      ],
+    },
+    to: {},
+  },
+] satisfies ForbiddenRules;
 
 const apiRules = [
   {
@@ -141,12 +219,12 @@ const apiRules = [
 
 const appRules = [
   {
-    name: "app-storage-does-not-depend-on-upper-layers",
+    name: "app-data-does-not-depend-on-upper-layers",
     severity: "error",
     comment:
-      "App persistence modules, SQLite internals, blob storage internals, and contact data internals are low-level stores/helpers and must not depend on React runtime, presentation, or workflow modules, including type-only contracts.",
+      "Production app data modules are low-level stores, contracts, and layer-neutral helpers; they must not depend on React runtime, presentation, or workflow modules, including type-only contracts.",
     from: {
-      path: appStorageInternals,
+      path: appLayer.data,
       pathNot: testFilesPattern,
     },
     to: {
@@ -164,19 +242,6 @@ const appRules = [
     },
     to: {
       path: appUpperLayers,
-    },
-  },
-  {
-    name: "app-shared-helpers-stay-layer-neutral",
-    severity: "error",
-    comment:
-      "Document and container shared helpers are used by workflows and stores, so they must not depend on workflows, providers, hooks, or UI, including type-only contracts.",
-    from: {
-      path: appLayer.sharedHelpers,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: [...appUpperLayers, appLayer.workflows],
     },
   },
   {
@@ -273,7 +338,7 @@ const appRules = [
 ] satisfies ForbiddenRules;
 
 const dependencyCruiserConfig = {
-  forbidden: [...apiRules, ...appRules],
+  forbidden: [...standardRules, ...apiRules, ...appRules],
   options: {
     includeOnly: "^packages/(api|app)/src/",
     tsPreCompilationDeps: "specify",

@@ -23,7 +23,7 @@ import {
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
-} from "../../../data/containers/test-helpers";
+} from "../../../../test/helpers/containerFixtures";
 import {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,

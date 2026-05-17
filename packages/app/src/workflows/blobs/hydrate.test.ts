@@ -5,9 +5,9 @@ import {
   computeWriteHeaderHash,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobs";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
-import { createMaterializedSyncFixture } from "../../data/documents/documentTestFixtures";
 import {
   type DocumentAttachmentHydrationRuntime,
   decryptDocumentAttachmentBlob,

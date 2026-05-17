@@ -7,18 +7,18 @@ import {
   type DocumentCreateRequest,
   isDocumentCreateRequest,
 } from "@tearleads/validators/request";
-import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
   tamperFirstProjectionEventSignature,
-} from "../../data/containers/test-helpers";
+} from "../../../test/helpers/containerFixtures";
+import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
   createAuthor,
   createResponseFromRequest,
   createWrappedProjection,
-} from "../../data/documents/documentTestFixtures";
+} from "../../../test/helpers/documentFixtures";
 import {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
