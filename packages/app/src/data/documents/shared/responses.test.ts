@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
 import {
   createAuthor,
   createMaterializedSyncFixture,
@@ -10,7 +9,8 @@ import {
   createSyncResponse,
   fixtureHash,
   getOnlyTarget,
-} from "../documentTestFixtures";
+} from "../../../../test/helpers/documentFixtures";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
 import { buildDocumentCreatePlan } from "../shared/events";
 import {
   persistedDocumentCreateStateFromResponse,

@@ -30,6 +30,9 @@ components/hooks -> providers/stores -> workflows -> persistence + sqlite + shar
 - Blob byte/store contracts live in `blobContracts.ts` so presentation and
   workflows can share typed attachment payloads without importing workflow
   barrels or storage internals.
+- Sync coordination helpers under `sync/` own shared lane scheduling and
+  prerequisite checks. Workflows compose them; presentation should stay behind
+  stores/providers.
 - Document summary contracts live in `documentSummary.ts` so presentation,
   stores, workflows, and persistence can share document read-model shapes
   without importing document shared-helper internals.
@@ -55,9 +58,9 @@ cleanup should be incremental and behavior-preserving.
 
 ## Rules
 
-- `data/persistence/`, `data/sqlite/`, `data/blobs/`, and `data/contacts/`
-  modules must not import UI, providers, hooks, or workflows, including for
-  type-only contracts.
+- Production `data/` modules must not import UI, providers, hooks, or
+  workflows, including for type-only contracts. Test-only fixture builders that
+  need workflow types belong under `packages/app/test/helpers/`.
 - `workflows/` modules must not import UI, hooks, or providers, including for
   type-only contracts.
 - Production `data/` and `workflows/` files must not import React; React hooks

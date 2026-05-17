@@ -8,7 +8,7 @@ import {
   createAuthor,
   createLinkSetResponseFromRequest,
   createResponse,
-} from "../../data/documents/documentTestFixtures";
+} from "../../../test/helpers/documentFixtures";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import {

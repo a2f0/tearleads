@@ -35,7 +35,7 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { ContainerMutationAuthor } from "../../workflows/containers";
+import type { ContainerMutationAuthor } from "../../src/workflows/containers";
 
 export const SIGNED_AT = "2026-04-28T12:00:00.000Z";
 
@@ -274,7 +274,6 @@ export async function createUserContainerWrap(input: {
   };
 }
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: test fixture
 export async function createParentProjection(input?: {
   existingUserRecipient?: {
     accessLevel: ContainerAccessLevel;

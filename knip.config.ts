@@ -1,6 +1,7 @@
 import type { KnipConfig } from "knip";
 
 export default {
+  treatConfigHintsAsErrors: true,
   workspaces: {
     ".": {
       entry: [],
@@ -8,14 +9,11 @@ export default {
       ignoreDependencies: [
         "@commitlint/cli",
         "@commitlint/config-conventional",
-        "@tearleads/api-client",
-        "app",
         "lint-staged",
-        "madge",
       ],
     },
     "packages/api": {
-      entry: ["src/appTestRuntime.ts", "src/**/*.test.ts", "test/**/*.test.ts"],
+      entry: ["src/appTestRuntime.ts", "src/**/*.test.ts"],
       project: ["src/**/*.ts", "test/**/*.ts"],
     },
     "packages/api-client": {
@@ -39,11 +37,23 @@ export default {
         "electrobun.config.ts",
         "src/bun/index.ts",
         "src/renderer/index.tsx",
-        "src/renderer/sqliteWorker.ts",
+        "src/renderer/databaseWorker.ts",
       ],
       project: ["src/**/*.{ts,tsx}"],
     },
+    "packages/bob-and-alice": {
+      entry: ["src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+    },
     "packages/crypto": {
+      entry: ["src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+    },
+    "packages/encoding": {
+      entry: ["src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+    },
+    "packages/loro": {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
@@ -58,6 +68,10 @@ export default {
     "packages/sqlite-worker": {
       entry: ["tests/**/*.test.ts"],
       project: ["src/**/*.ts", "tests/**/*.ts"],
+    },
+    "packages/test-utils": {
+      entry: [],
+      project: ["src/**/*.ts"],
     },
   },
 } satisfies KnipConfig;

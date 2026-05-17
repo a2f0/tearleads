@@ -4,7 +4,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   tamperFirstProjectionEventSignature,
-} from "../../../data/containers/test-helpers";
+} from "../../../../test/helpers/containerFixtures";
 import { moveRemoteContainer } from "../index";
 
 test("moveRemoteContainer rejects bad source projection signatures before sending", async () => {

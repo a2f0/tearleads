@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
+import { createParentProjection } from "../../../test/helpers/containerFixtures";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
-import { createParentProjection } from "../../data/containers/test-helpers";
 import {
   ensureContainerTables,
   saveContainer,

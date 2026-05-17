@@ -20,7 +20,7 @@ import {
   createWrappedProjection,
   fixtureHash,
   getOnlyTarget,
-} from "../../data/documents/documentTestFixtures";
+} from "../../../test/helpers/documentFixtures";
 import { unwrapDocumentContentKeyTarget } from "../../data/documents/shared/projection";
 import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
 import { buildMaterializedDocumentCreatePlan } from "./create";

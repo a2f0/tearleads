@@ -27,7 +27,7 @@ import {
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
-} from "../../../data/containers/test-helpers";
+} from "../../../../test/helpers/containerFixtures";
 import { buildInitialGroupPolicyRequest } from "../../org-manager/principalPolicy";
 import { shareRemoteContainer, shareRemoteContainerWithGroup } from "../index";
 

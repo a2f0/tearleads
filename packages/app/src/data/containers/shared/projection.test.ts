@@ -27,6 +27,14 @@ import type {
   DocumentWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import {
+  createContainerManifestFixture,
+  createContainerRevokeManifestFixture,
+  createParentProjection,
+  createParentProjectionUserKeyResolver,
+  createUserContainerWrap,
+  SIGNED_AT,
+} from "../../../../test/helpers/containerFixtures";
 import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 import { uploadDocumentAttachment } from "../../../workflows/blobs";
 import {
@@ -39,14 +47,6 @@ import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
 } from "../../persistence/principalPolicyPersistence";
-import {
-  createContainerManifestFixture,
-  createContainerRevokeManifestFixture,
-  createParentProjection,
-  createParentProjectionUserKeyResolver,
-  createUserContainerWrap,
-  SIGNED_AT,
-} from "../test-helpers";
 
 async function createGroupPrincipalPolicyBundle(input: {
   memberRecipientPublicKeys: Array<{

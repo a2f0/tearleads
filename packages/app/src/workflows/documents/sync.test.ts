@@ -12,12 +12,12 @@ import {
   isDocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
-} from "../../data/containers/test-helpers";
+} from "../../../test/helpers/containerFixtures";
+import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
   createAuthor,
   createDeepNonCanonicalRecord,
@@ -29,7 +29,7 @@ import {
   createSyncFixture,
   createSyncResponse,
   projectionPathRecords,
-} from "../../data/documents/documentTestFixtures";
+} from "../../../test/helpers/documentFixtures";
 import {
   buildMaterializedDocumentCreatePlan,
   buildMaterializedDocumentLinkSetMutationPlan,
