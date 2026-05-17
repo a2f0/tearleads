@@ -83,7 +83,7 @@ async function persistDuplicateShareNoop(input: {
   containerState: ContainerState;
   grant: MatchingRemoteContainerGrant;
   state: ExplorerStoreState;
-}) {
+}): Promise<void> {
   const securityContextChanged =
     input.containerState.record.documentId !== input.grant.metadataDocumentId ||
     input.containerState.record.accessEpoch !== input.grant.accessEpoch ||
@@ -103,7 +103,6 @@ async function persistDuplicateShareNoop(input: {
   };
 
   await persistContainerState(input.state, input.containerState, patch);
-  return toContainerNode(input.containerState.container);
 }
 
 export async function createChildContainer(
@@ -279,29 +278,30 @@ export async function shareExplorerContainerWithUser(
     state.runtime.log(
       `Explorer: skipped duplicate share for container ${containerId} with ${userId}`,
     );
-    return persistDuplicateShareNoop({
+    await persistDuplicateShareNoop({
       containerState: existingState,
       grant: duplicateGrant,
       state,
     });
+  } else {
+    const shared = await shareExplorerContainerState({
+      accessLevel: "write",
+      containerState: existingState,
+      persistence: state.persistence,
+      recipientUserId: userId,
+      resolveProjectionUserKey: state.resolveProjectionUserKey,
+      runtime: state.runtime,
+    });
+
+    if (!shared) {
+      return null;
+    }
+
+    existingState.container = shared.container;
+    existingState.record = shared.record;
+    updateExplorerSnapshot(state);
   }
 
-  const shared = await shareExplorerContainerState({
-    accessLevel: "write",
-    containerState: existingState,
-    persistence: state.persistence,
-    recipientUserId: userId,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-  });
-
-  if (!shared) {
-    return null;
-  }
-
-  existingState.container = shared.container;
-  existingState.record = shared.record;
-  updateExplorerSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();
@@ -346,29 +346,30 @@ export async function shareExplorerContainerWithGroup(
     state.runtime.log(
       `Explorer: skipped duplicate share for container ${containerId} with group ${groupId}`,
     );
-    return persistDuplicateShareNoop({
+    await persistDuplicateShareNoop({
       containerState: existingState,
       grant: duplicateGrant,
       state,
     });
+  } else {
+    const shared = await shareExplorerContainerStateWithGroup({
+      accessLevel,
+      containerState: existingState,
+      persistence: state.persistence,
+      recipientGroupId: groupId,
+      resolveProjectionUserKey: state.resolveProjectionUserKey,
+      runtime: state.runtime,
+    });
+
+    if (!shared) {
+      return null;
+    }
+
+    existingState.container = shared.container;
+    existingState.record = shared.record;
+    updateExplorerSnapshot(state);
   }
 
-  const shared = await shareExplorerContainerStateWithGroup({
-    accessLevel,
-    containerState: existingState,
-    persistence: state.persistence,
-    recipientGroupId: groupId,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-  });
-
-  if (!shared) {
-    return null;
-  }
-
-  existingState.container = shared.container;
-  existingState.record = shared.record;
-  updateExplorerSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();
