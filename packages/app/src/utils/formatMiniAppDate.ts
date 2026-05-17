@@ -8,11 +8,10 @@ interface MiniAppDateFormatOptions {
 
 const DEFAULT_EMPTY_FALLBACK = "Unknown";
 
-function formatMiniAppDateValue(
+function getMiniAppDateOrFallback(
   value: MiniAppDateValue,
-  formatOptions: Intl.DateTimeFormatOptions,
-  options: MiniAppDateFormatOptions = {},
-): string {
+  options: MiniAppDateFormatOptions,
+): Date | string {
   if (value === null || value === undefined || value === "") {
     return options.emptyFallback ?? DEFAULT_EMPTY_FALLBACK;
   }
@@ -22,10 +21,31 @@ function formatMiniAppDateValue(
     return String(value);
   }
 
+  return date;
+}
+
+function formatMiniAppDateObject(
+  date: Date,
+  formatOptions: Intl.DateTimeFormatOptions,
+  options: MiniAppDateFormatOptions,
+): string {
   return new Intl.DateTimeFormat(options.locale, {
     ...formatOptions,
     ...(options.timeZone ? { timeZone: options.timeZone } : {}),
   }).format(date);
+}
+
+function formatMiniAppDateValue(
+  value: MiniAppDateValue,
+  formatOptions: Intl.DateTimeFormatOptions,
+  options: MiniAppDateFormatOptions = {},
+): string {
+  const date = getMiniAppDateOrFallback(value, options);
+  if (typeof date === "string") {
+    return date;
+  }
+
+  return formatMiniAppDateObject(date, formatOptions, options);
 }
 
 export function formatMiniAppDate(
@@ -37,11 +57,22 @@ export function formatMiniAppDate(
 
 export function formatMiniAppDateTime(
   value: MiniAppDateValue,
-  options?: MiniAppDateFormatOptions,
+  options: MiniAppDateFormatOptions = {},
 ): string {
-  return formatMiniAppDateValue(
-    value,
-    { dateStyle: "medium", timeStyle: "short" },
+  const date = getMiniAppDateOrFallback(value, options);
+  if (typeof date === "string") {
+    return date;
+  }
+
+  const datePart = formatMiniAppDateObject(
+    date,
+    { dateStyle: "medium" },
     options,
   );
+  const timePart = formatMiniAppDateObject(
+    date,
+    { timeStyle: "short" },
+    options,
+  );
+  return `${datePart}, ${timePart}`;
 }
