@@ -354,6 +354,22 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
   );
 }
 
+async function clickShareWithPeer(pane: HTMLElement) {
+  const shareWithPeerButton = await within(pane).findByRole("button", {
+    name: "Share With Peer",
+  });
+  invariant(
+    shareWithPeerButton instanceof HTMLButtonElement,
+    "Expected share with peer button.",
+  );
+  await waitFor(() => {
+    expect(shareWithPeerButton.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.click(shareWithPeerButton);
+  });
+}
+
 async function shareContainerWithGroup(
   pane: HTMLElement,
   name: string,
@@ -928,6 +944,43 @@ test(
     await selectPeerSharedContainer(rightPane, "Shared");
 
     expect(listExplorerContainerItems(rightPane).length).toBeGreaterThan(1);
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "dual pane explorer treats a duplicate peer share as a no-op",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+
+    await waitForDualPaneProvisioning(leftPane, rightPane);
+
+    await openExplorer(leftPane);
+    await openExplorer(rightPane);
+
+    await createChildContainer(leftPane, "Shared");
+    await shareContainerWithPeer(leftPane, "Shared");
+
+    const duplicateShareRequestStartIndex = listProxiedApiRequests().length;
+    await clickShareWithPeer(leftPane);
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      duplicateShareRequestStartIndex,
+    );
+
+    const duplicateShareRequests = listProxiedApiRequests()
+      .slice(duplicateShareRequestStartIndex)
+      .filter(
+        (request) =>
+          request.method === "POST" && request.url.endsWith("/share"),
+      );
+    expect(
+      duplicateShareRequests,
+      `Duplicate peer share should not create another share mutation.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(duplicateShareRequestStartIndex))}`,
+    ).toEqual([]);
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
 );

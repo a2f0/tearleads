@@ -1,4 +1,8 @@
 import {
+  getTargetContainerContext,
+  readContainerState,
+} from "../../data/containers/shared/projection";
+import {
   createExplorerChildContainer,
   deleteExplorerContainerState,
   type ExplorerContainerMetadataPatch,
@@ -14,6 +18,12 @@ import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";
 import type { ExplorerShareAccessLevel, ExplorerStoreState } from "./types";
 import { isContainerInSubtree, toContainerNode } from "./utils";
+
+interface MatchingRemoteContainerGrant {
+  accessEpoch: number;
+  accessStateHash: string;
+  metadataDocumentId: string;
+}
 
 export async function persistContainerState(
   state: ExplorerStoreState,
@@ -33,6 +43,67 @@ export async function persistContainerState(
     updateExplorerSnapshot(state);
   }
   return persisted.record;
+}
+
+async function loadMatchingRemoteContainerGrant(input: {
+  accessLevel: ExplorerShareAccessLevel;
+  containerId: string;
+  state: ExplorerStoreState;
+  subjectId: string;
+  subjectType: "group" | "user";
+}): Promise<MatchingRemoteContainerGrant | null> {
+  const projection =
+    await input.state.runtime.apiClient.getContainerWriterProjection(
+      input.containerId,
+    );
+  if (!projection) {
+    return null;
+  }
+
+  const target = getTargetContainerContext(projection);
+  const remoteState = readContainerState(target.manifest);
+  const hasMatchingGrant = remoteState.directGrants.some(
+    (grant) =>
+      grant.subjectType === input.subjectType &&
+      grant.subjectId === input.subjectId &&
+      grant.accessLevel === input.accessLevel,
+  );
+  if (!hasMatchingGrant) {
+    return null;
+  }
+
+  return {
+    accessEpoch: remoteState.epoch,
+    accessStateHash: target.manifest.manifestHash,
+    metadataDocumentId: remoteState.metadataDocumentId,
+  };
+}
+
+async function persistDuplicateShareNoop(input: {
+  containerState: ContainerState;
+  grant: MatchingRemoteContainerGrant;
+  state: ExplorerStoreState;
+}) {
+  const securityContextChanged =
+    input.containerState.record.documentId !== input.grant.metadataDocumentId ||
+    input.containerState.record.accessEpoch !== input.grant.accessEpoch ||
+    input.containerState.record.accessStateHash !== input.grant.accessStateHash;
+  const patch: Partial<ExplorerContainerMetadataPatch> = {
+    accessEpoch: input.grant.accessEpoch,
+    accessStateHash: input.grant.accessStateHash,
+    documentId: input.grant.metadataDocumentId,
+    metadataDocumentId: input.grant.metadataDocumentId,
+    ...(securityContextChanged
+      ? {
+          contentKeyBundle: null,
+          documentKekTargets: null,
+          documentManifestBundle: null,
+        }
+      : {}),
+  };
+
+  await persistContainerState(input.state, input.containerState, patch);
+  return toContainerNode(input.containerState.container);
 }
 
 export async function createChildContainer(
@@ -197,6 +268,24 @@ export async function shareExplorerContainerWithUser(
     return null;
   }
 
+  const duplicateGrant = await loadMatchingRemoteContainerGrant({
+    accessLevel: "write",
+    containerId,
+    state,
+    subjectId: userId,
+    subjectType: "user",
+  });
+  if (duplicateGrant) {
+    state.runtime.log(
+      `Explorer: skipped duplicate share for container ${containerId} with ${userId}`,
+    );
+    return persistDuplicateShareNoop({
+      containerState: existingState,
+      grant: duplicateGrant,
+      state,
+    });
+  }
+
   const shared = await shareExplorerContainerState({
     accessLevel: "write",
     containerState: existingState,
@@ -244,6 +333,24 @@ export async function shareExplorerContainerWithGroup(
     expectedAccessStateHash.length === 0
   ) {
     return null;
+  }
+
+  const duplicateGrant = await loadMatchingRemoteContainerGrant({
+    accessLevel,
+    containerId,
+    state,
+    subjectId: groupId,
+    subjectType: "group",
+  });
+  if (duplicateGrant) {
+    state.runtime.log(
+      `Explorer: skipped duplicate share for container ${containerId} with group ${groupId}`,
+    );
+    return persistDuplicateShareNoop({
+      containerState: existingState,
+      grant: duplicateGrant,
+      state,
+    });
   }
 
   const shared = await shareExplorerContainerStateWithGroup({
