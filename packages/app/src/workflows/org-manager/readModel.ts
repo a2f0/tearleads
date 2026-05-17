@@ -10,13 +10,25 @@ import type {
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
+import { loadContainerDisplayNamesByIds } from "../../data/persistence/containers/containerPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export type OrgManagerDirectory = OrganizationDirectoryResponse;
 export type OrgManagerDirectoryUser = OrganizationDirectoryUserResponse;
-export type OrgManagerContainerGrant = OrganizationContainerGrantResponse;
-export type OrgManagerContainerGrants = OrganizationContainerGrantsResponse;
-export type OrgManagerGroupContainer = OrganizationGroupContainerResponse;
-export type OrgManagerGroupContainers = OrganizationGroupContainersResponse;
+export type OrgManagerGroupContainer = OrganizationGroupContainerResponse & {
+  readonly containerDisplayName: string | null;
+};
+export type OrgManagerContainerGrant = OrganizationContainerGrantResponse & {
+  readonly containerDisplayName: string | null;
+};
+export interface OrgManagerGroupContainers
+  extends Omit<OrganizationGroupContainersResponse, "containers"> {
+  readonly containers: OrgManagerGroupContainer[];
+}
+export interface OrgManagerContainerGrants
+  extends Omit<OrganizationContainerGrantsResponse, "grants"> {
+  readonly grants: OrgManagerContainerGrant[];
+}
 export type OrgManagerGroupMember = OrganizationGroupMemberResponse;
 export type OrgManagerGroupMembers = OrganizationGroupMembersResponse;
 export type OrgManagerGroupSummary = OrganizationGroupSummaryResponse;
@@ -51,6 +63,37 @@ interface OrgManagerReadApi {
   ) => Promise<OrganizationGroupContainersResponse | null>;
 }
 
+function uniqueContainerIds(
+  containers: ReadonlyArray<
+    Pick<OrganizationGroupContainerResponse, "containerId">
+  >,
+): string[] {
+  return [...new Set(containers.map((container) => container.containerId))];
+}
+
+async function loadContainerDisplayNamesById(input: {
+  readonly containerIds: readonly string[];
+  readonly execSql?: ExecSql | null | undefined;
+}): Promise<Map<string, string>> {
+  if (!input.execSql || input.containerIds.length === 0) {
+    return new Map();
+  }
+
+  return loadContainerDisplayNamesByIds(input.execSql, input.containerIds);
+}
+
+function withContainerDisplayNames<
+  TContainer extends OrganizationGroupContainerResponse,
+>(
+  containers: ReadonlyArray<TContainer>,
+  displayNamesById: ReadonlyMap<string, string>,
+): Array<TContainer & { readonly containerDisplayName: string | null }> {
+  return containers.map((container) => ({
+    ...container,
+    containerDisplayName: displayNamesById.get(container.containerId) ?? null,
+  }));
+}
+
 export async function loadOrgManagerDirectoryAndGroups(input: {
   readonly apiClient: Pick<
     OrgManagerReadApi,
@@ -78,9 +121,25 @@ export async function loadOrgManagerGrants(input: {
     OrgManagerReadApi,
     "listOrganizationContainerGrants"
   >;
+  readonly execSql?: ExecSql | null | undefined;
   readonly organizationId: string;
 }): Promise<OrgManagerContainerGrants | null> {
-  return input.apiClient.listOrganizationContainerGrants(input.organizationId);
+  const grants = await input.apiClient.listOrganizationContainerGrants(
+    input.organizationId,
+  );
+  if (!grants) {
+    return null;
+  }
+
+  const displayNamesById = await loadContainerDisplayNamesById({
+    containerIds: uniqueContainerIds(grants.grants),
+    execSql: input.execSql,
+  });
+
+  return {
+    ...grants,
+    grants: withContainerDisplayNames(grants.grants, displayNamesById),
+  };
 }
 
 export async function loadOrgManagerGroupDetails(input: {
@@ -88,6 +147,7 @@ export async function loadOrgManagerGroupDetails(input: {
     OrgManagerReadApi,
     "listOrganizationGroupContainers" | "listOrganizationGroupMembers"
   >;
+  readonly execSql?: ExecSql | null | undefined;
   readonly groupId: string;
   readonly organizationId: string;
 }): Promise<OrgManagerGroupDetails> {
@@ -102,8 +162,21 @@ export async function loadOrgManagerGroupDetails(input: {
     ),
   ]);
 
+  const displayNamesById = await loadContainerDisplayNamesById({
+    containerIds: containers ? uniqueContainerIds(containers.containers) : [],
+    execSql: input.execSql,
+  });
+
   return {
     members,
-    containers,
+    containers: containers
+      ? {
+          ...containers,
+          containers: withContainerDisplayNames(
+            containers.containers,
+            displayNamesById,
+          ),
+        }
+      : null,
   };
 }

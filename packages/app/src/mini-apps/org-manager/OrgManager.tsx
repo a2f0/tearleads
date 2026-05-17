@@ -189,6 +189,32 @@ function getGrantPrincipalLabel(grant: OrgManagerContainerGrant): string {
     : compactFingerprint(grant.subjectId);
 }
 
+function getContainerDisplayLabel(
+  container: Pick<
+    OrgManagerGroupContainer,
+    "containerDisplayName" | "containerId"
+  >,
+): string {
+  const displayName = container.containerDisplayName?.trim();
+
+  return displayName && displayName.length > 0
+    ? displayName
+    : compactFingerprint(container.containerId);
+}
+
+function getContainerDisplayTitle(
+  container: Pick<
+    OrgManagerGroupContainer,
+    "containerDisplayName" | "containerId"
+  >,
+): string {
+  const displayName = container.containerDisplayName?.trim();
+
+  return displayName && displayName.length > 0
+    ? `${displayName} (${container.containerId})`
+    : container.containerId;
+}
+
 type DirectoryRefreshOptions = {
   clearError?: boolean;
   manageLoading?: boolean;
@@ -418,8 +444,8 @@ function GroupContainers({
         {containers.map((container) => (
           <MiniAppTableRow key={container.containerId}>
             <MiniAppTableCell>
-              <MiniAppTableText title={container.containerId}>
-                {compactFingerprint(container.containerId)}
+              <MiniAppTableText title={getContainerDisplayTitle(container)}>
+                {getContainerDisplayLabel(container)}
               </MiniAppTableText>
             </MiniAppTableCell>
             <MiniAppTableCell>
@@ -465,8 +491,8 @@ function GrantTable({
               </MiniAppTableText>
             </MiniAppTableCell>
             <MiniAppTableCell>
-              <MiniAppTableText title={grant.containerId}>
-                {compactFingerprint(grant.containerId)}
+              <MiniAppTableText title={getContainerDisplayTitle(grant)}>
+                {getContainerDisplayLabel(grant)}
               </MiniAppTableText>
             </MiniAppTableCell>
             <MiniAppTableCell>

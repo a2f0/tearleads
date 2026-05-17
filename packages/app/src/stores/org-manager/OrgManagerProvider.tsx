@@ -140,11 +140,18 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
 
       return loadOrgManagerGroupDetails({
         apiClient: appData.apiClient,
+        execSql: appData.dbStatus === "ready" ? appData.execSql : null,
         groupId,
         organizationId: appData.organizationId,
       });
     },
-    [appData.apiClient, appData.isAuthenticated, appData.organizationId],
+    [
+      appData.apiClient,
+      appData.dbStatus,
+      appData.execSql,
+      appData.isAuthenticated,
+      appData.organizationId,
+    ],
   );
 
   const loadGrants = useCallback(() => {
@@ -154,9 +161,16 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
 
     return loadOrgManagerGrants({
       apiClient: appData.apiClient,
+      execSql: appData.dbStatus === "ready" ? appData.execSql : null,
       organizationId: appData.organizationId,
     });
-  }, [appData.apiClient, appData.isAuthenticated, appData.organizationId]);
+  }, [
+    appData.apiClient,
+    appData.dbStatus,
+    appData.execSql,
+    appData.isAuthenticated,
+    appData.organizationId,
+  ]);
 
   const addUserToGroup = useCallback(
     async (

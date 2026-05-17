@@ -189,6 +189,44 @@ export async function loadContainers(
   return rows.map((row) => mapSelectedContainerRecord(row));
 }
 
+export async function loadContainerDisplayNamesByIds(
+  execSql: ExecSql,
+  ids: ReadonlyArray<string>,
+): Promise<Map<string, string>> {
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+
+  const { db } = getAppDatabaseRuntime(execSql);
+  const name = sql<string>`COALESCE(
+    ${containerProjection.displayName},
+    CASE WHEN ${containers.parentId} IS NULL THEN '/' ELSE 'Untitled' END
+  )`;
+  const rows = await db
+    .select({
+      id: containers.id,
+      name,
+    })
+    .from(containers)
+    .leftJoin(
+      containerProjection,
+      eq(containerProjection.containerId, containers.id),
+    )
+    .where(inArray(containers.id, uniqueIds));
+
+  return new Map(
+    rows.flatMap((row) => {
+      const displayName = row.name.trim();
+      if (!row.id || displayName.length === 0) {
+        return [];
+      }
+
+      return [[row.id, displayName]];
+    }),
+  );
+}
+
 export async function saveContainer(
   execSql: ExecSql,
   record: ContainerRecord,
