@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 import { sqlExplorerPersistence } from "../explorer/explorerPersistence";
-import { loadContainers } from "./containerPersistence";
+import {
+  loadContainerDisplayNamesByIds,
+  loadContainers,
+} from "./containerPersistence";
 
 test("explorer container saves display server timestamps separately from local timestamps", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -40,6 +43,49 @@ test("explorer container saves display server timestamps separately from local t
     expect(loadedContainer?.localUpdatedAt).toBe(localUpdatedAt);
     expect(loadedContainer?.serverCreatedAt).toBe(serverCreatedAt);
     expect(loadedContainer?.serverUpdatedAt).toBe(serverUpdatedAt);
+  } finally {
+    close();
+  }
+});
+
+test("container display name lookup only returns requested local containers", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-display-name-lookup-test",
+  );
+
+  try {
+    await sqlExplorerPersistence.ensureSchema(execSql);
+    await sqlExplorerPersistence.saveContainer(
+      execSql,
+      {
+        id: "container-1",
+        organizationId: "org-1",
+        parentId: null,
+        metadataDocumentId: null,
+        name: "Planning",
+        icon: null,
+      },
+      null,
+    );
+    await sqlExplorerPersistence.saveContainer(
+      execSql,
+      {
+        id: "container-2",
+        organizationId: "org-1",
+        parentId: null,
+        metadataDocumentId: null,
+        name: "Archive",
+        icon: null,
+      },
+      null,
+    );
+
+    const displayNames = await loadContainerDisplayNamesByIds(execSql, [
+      "container-1",
+      "missing-container",
+    ]);
+
+    expect([...displayNames.entries()]).toEqual([["container-1", "Planning"]]);
   } finally {
     close();
   }

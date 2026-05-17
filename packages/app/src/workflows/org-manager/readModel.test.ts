@@ -6,6 +6,11 @@ import type {
   OrganizationGroupContainersResponse,
   OrganizationGroupMembersResponse,
 } from "@tearleads/validators/response";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+import {
+  ensureContainerTables,
+  saveContainer,
+} from "../../data/persistence/containers/containerPersistence";
 import {
   loadOrgManagerDirectoryAndGroups,
   loadOrgManagerGrants,
@@ -84,6 +89,22 @@ const grants: OrganizationContainerGrantsResponse = {
   ],
 };
 
+const containersWithMissingDisplayNames = {
+  ...containers,
+  containers: containers.containers.map((container) => ({
+    ...container,
+    containerDisplayName: null,
+  })),
+};
+
+const grantsWithMissingDisplayNames = {
+  ...grants,
+  grants: grants.grants.map((grant) => ({
+    ...grant,
+    containerDisplayName: null,
+  })),
+};
+
 test("loadOrgManagerDirectoryAndGroups combines directory and group lists", async () => {
   const calls: string[] = [];
   const result = await loadOrgManagerDirectoryAndGroups({
@@ -145,7 +166,7 @@ test("loadOrgManagerGroupDetails preserves partial group detail results", async 
   ]);
   expect(result).toEqual({
     members,
-    containers,
+    containers: containersWithMissingDisplayNames,
   });
 });
 
@@ -162,5 +183,49 @@ test("loadOrgManagerGrants forwards organization grant enumeration", async () =>
   });
 
   expect(calls).toEqual(["grants:org-1"]);
-  expect(result).toEqual(grants);
+  expect(result).toEqual(grantsWithMissingDisplayNames);
+});
+
+test("org manager read models include local container display names", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "org-manager-container-display-names-test",
+  );
+
+  try {
+    await ensureContainerTables(execSql);
+    await saveContainer(execSql, {
+      id: "container-1",
+      organizationId,
+      parentId: null,
+      metadataDocumentId: null,
+      name: "Quarterly Planning",
+      icon: null,
+    });
+
+    const groupDetails = await loadOrgManagerGroupDetails({
+      apiClient: {
+        listOrganizationGroupMembers: async () => members,
+        listOrganizationGroupContainers: async () => containers,
+      },
+      execSql,
+      groupId,
+      organizationId,
+    });
+    const organizationGrants = await loadOrgManagerGrants({
+      apiClient: {
+        listOrganizationContainerGrants: async () => grants,
+      },
+      execSql,
+      organizationId,
+    });
+
+    expect(groupDetails.containers?.containers[0]?.containerDisplayName).toBe(
+      "Quarterly Planning",
+    );
+    expect(organizationGrants?.grants[0]?.containerDisplayName).toBe(
+      "Quarterly Planning",
+    );
+  } finally {
+    close();
+  }
 });

@@ -72,6 +72,7 @@ function ExplorerModalBody(params: {
   if (modalState.mode === "container-info") {
     return (
       <ExplorerContainerInfoModalBody
+        containerId={modalState.nodeId}
         containerInfo={containerInfo}
         containerInfoError={containerInfoError}
         draftShareAccessLevel={draftShareAccessLevel}
@@ -243,35 +244,45 @@ function ExplorerContainerInfoGrantList(params: {
 }
 
 function ExplorerContainerInfoLocalDetails(params: {
-  containerInfo: ExplorerContainerInfo;
+  containerId: string;
+  containerInfo: ExplorerContainerInfo | null;
 }) {
-  const { containerInfo } = params;
+  const { containerId, containerInfo } = params;
 
   return (
     <table className="explorer-info-table">
       <tbody>
         <tr>
-          <th>Created</th>
-          <td title={containerInfo.local.createdAt ?? undefined}>
-            {formatMiniAppDateTime(containerInfo.local.createdAt, {
-              emptyFallback: "-",
-            })}
-          </td>
+          <th>ID</th>
+          <td title={containerId}>{containerId}</td>
         </tr>
-        <tr>
-          <th>Updated</th>
-          <td title={containerInfo.local.updatedAt ?? undefined}>
-            {formatMiniAppDateTime(containerInfo.local.updatedAt, {
-              emptyFallback: "-",
-            })}
-          </td>
-        </tr>
+        {containerInfo ? (
+          <>
+            <tr>
+              <th>Created</th>
+              <td title={containerInfo.local.createdAt ?? undefined}>
+                {formatMiniAppDateTime(containerInfo.local.createdAt, {
+                  emptyFallback: "-",
+                })}
+              </td>
+            </tr>
+            <tr>
+              <th>Updated</th>
+              <td title={containerInfo.local.updatedAt ?? undefined}>
+                {formatMiniAppDateTime(containerInfo.local.updatedAt, {
+                  emptyFallback: "-",
+                })}
+              </td>
+            </tr>
+          </>
+        ) : null}
       </tbody>
     </table>
   );
 }
 
 function ExplorerContainerInfoModalBody(params: {
+  containerId: string;
   containerInfo: ExplorerContainerInfo | null;
   containerInfoError: string | null;
   draftShareAccessLevel: ExplorerContainerShareAccessLevel;
@@ -285,6 +296,7 @@ function ExplorerContainerInfoModalBody(params: {
   setModalError: (error: string | null) => void;
 }) {
   const {
+    containerId,
     containerInfo,
     containerInfoError,
     draftShareAccessLevel,
@@ -300,25 +312,41 @@ function ExplorerContainerInfoModalBody(params: {
   const shareableGroups =
     containerInfo?.remoteInfo?.groups.filter((group) => group.currentState) ??
     [];
+  const localDetails = (
+    <section className="explorer-info-section">
+      <h3>Local Details</h3>
+      <ExplorerContainerInfoLocalDetails
+        containerId={containerId}
+        containerInfo={containerInfo}
+      />
+    </section>
+  );
 
   if (isLoadingContainerInfo && !containerInfo) {
-    return <div className="explorer-modal-copy">Loading...</div>;
+    return (
+      <div className="explorer-info">
+        {localDetails}
+        <div className="explorer-modal-copy">Loading...</div>
+      </div>
+    );
   }
 
   if (containerInfoError) {
-    return <div className="explorer-modal-error">{containerInfoError}</div>;
+    return (
+      <div className="explorer-info">
+        {localDetails}
+        <div className="explorer-modal-error">{containerInfoError}</div>
+      </div>
+    );
   }
 
   if (!containerInfo) {
-    return null;
+    return <div className="explorer-info">{localDetails}</div>;
   }
 
   return (
     <div className="explorer-info">
-      <section className="explorer-info-section">
-        <h3>Local Details</h3>
-        <ExplorerContainerInfoLocalDetails containerInfo={containerInfo} />
-      </section>
+      {localDetails}
       {containerInfo.remoteInfo ? (
         <>
           <section className="explorer-info-section">
