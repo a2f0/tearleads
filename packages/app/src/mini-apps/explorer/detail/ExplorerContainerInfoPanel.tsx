@@ -121,6 +121,43 @@ function getNextDraftShareGroupId(
   return getInitialDraftShareGroupId(info);
 }
 
+function unknownErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isCurrentContainerInfoRequest(
+  isMountedRef: { current: boolean },
+  requestIdRef: { current: number },
+  requestId: number,
+): boolean {
+  return isMountedRef.current && requestIdRef.current === requestId;
+}
+
+function getReloadedDraftShareGroupId(params: {
+  currentGroupId: string;
+  info: ExplorerContainerInfo;
+  resetDrafts: boolean;
+}): string {
+  if (params.resetDrafts) {
+    return getInitialDraftShareGroupId(params.info);
+  }
+
+  return getNextDraftShareGroupId(params.info, params.currentGroupId);
+}
+
+function useMountedRef() {
+  const isMountedRef = useRef(false);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  return isMountedRef;
+}
+
 function useExplorerContainerInfo(params: {
   containerId: string;
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
@@ -136,15 +173,8 @@ function useExplorerContainerInfo(params: {
   const [draftShareGroupId, setDraftShareGroupId] = useState("");
   const [isLoadingContainerInfo, setIsLoadingContainerInfo] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
-  const isMountedRef = useRef(false);
+  const isMountedRef = useMountedRef();
   const requestIdRef = useRef(0);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   const reloadContainerInfo = useCallback(
     async (
@@ -166,7 +196,9 @@ function useExplorerContainerInfo(params: {
 
       try {
         const nextInfo = await loadContainerInfo(containerId);
-        if (!isMountedRef.current || requestIdRef.current !== requestId) {
+        if (
+          !isCurrentContainerInfoRequest(isMountedRef, requestIdRef, requestId)
+        ) {
           return;
         }
 
@@ -176,21 +208,25 @@ function useExplorerContainerInfo(params: {
         );
         setContainerInfo(updatedInfo);
         setDraftShareGroupId((current) =>
-          options.resetDrafts
-            ? getInitialDraftShareGroupId(updatedInfo)
-            : getNextDraftShareGroupId(updatedInfo, current),
+          getReloadedDraftShareGroupId({
+            currentGroupId: current,
+            info: updatedInfo,
+            resetDrafts: options.resetDrafts ?? false,
+          }),
         );
       } catch (error) {
-        if (!isMountedRef.current || requestIdRef.current !== requestId) {
+        if (
+          !isCurrentContainerInfoRequest(isMountedRef, requestIdRef, requestId)
+        ) {
           return;
         }
 
         setContainerInfo(null);
-        setContainerInfoError(
-          error instanceof Error ? error.message : String(error),
-        );
+        setContainerInfoError(unknownErrorMessage(error));
       } finally {
-        if (isMountedRef.current && requestIdRef.current === requestId) {
+        if (
+          isCurrentContainerInfoRequest(isMountedRef, requestIdRef, requestId)
+        ) {
           setIsLoadingContainerInfo(false);
         }
       }
