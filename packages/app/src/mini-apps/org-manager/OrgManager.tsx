@@ -235,6 +235,60 @@ type GrantsRefreshOptions = {
   manageLoading?: boolean;
 };
 
+type RefreshBehaviorOptions = {
+  clearError?: boolean;
+  manageLoading?: boolean;
+};
+
+function unknownErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function setUnknownError(
+  setError: (error: string | null) => void,
+  error: unknown,
+) {
+  setError(unknownErrorMessage(error));
+}
+
+function getRefreshBehavior(options: RefreshBehaviorOptions) {
+  return {
+    shouldClearError: options.clearError ?? true,
+    shouldManageLoading: options.manageLoading ?? true,
+  };
+}
+
+function clearErrorIfRequested(
+  shouldClearError: boolean,
+  setError: (error: string | null) => void,
+) {
+  if (shouldClearError) {
+    setError(null);
+  }
+}
+
+function setLoadingIfManaged(
+  shouldManageLoading: boolean,
+  setLoading: (loading: boolean) => void,
+  loading: boolean,
+) {
+  if (shouldManageLoading) {
+    setLoading(loading);
+  }
+}
+
+function directoryLoadOptions(
+  options: DirectoryRefreshOptions,
+): Pick<DirectoryRefreshOptions, "skipNextGroupDetailsEffect"> {
+  if (options.skipNextGroupDetailsEffect === undefined) {
+    return {};
+  }
+
+  return {
+    skipNextGroupDetailsEffect: options.skipNextGroupDetailsEffect,
+  };
+}
+
 function canCurrentUserMutateSelectedGroup(input: {
   directory: OrgManagerDirectory | null;
   members: OrgManagerGroupMembers | null;
@@ -600,6 +654,9 @@ export function OrgManager() {
   const skippedGroupDetailsEffectRef = useRef<{
     groupId: string | null;
   } | null>(null);
+  const canLoadAuthenticatedOrgData = Boolean(
+    appData.organizationId && appData.isAuthenticated,
+  );
 
   const selectGroup = useCallback((groupId: string | null) => {
     selectedGroupIdRef.current = groupId;
@@ -689,33 +746,18 @@ export function OrgManager() {
     async (
       options: DirectoryRefreshOptions = {},
     ): Promise<DirectoryRefreshResult> => {
-      const shouldClearError = options.clearError ?? true;
-      const shouldManageLoading = options.manageLoading ?? true;
-
-      if (shouldManageLoading) {
-        setLoading(true);
-      }
-      if (shouldClearError) {
-        setError(null);
-      }
+      const { shouldClearError, shouldManageLoading } =
+        getRefreshBehavior(options);
+      setLoadingIfManaged(shouldManageLoading, setLoading, true);
+      clearErrorIfRequested(shouldClearError, setError);
 
       try {
-        return await loadDirectoryAndGroups(
-          options.skipNextGroupDetailsEffect === undefined
-            ? {}
-            : {
-                skipNextGroupDetailsEffect: options.skipNextGroupDetailsEffect,
-              },
-        );
+        return await loadDirectoryAndGroups(directoryLoadOptions(options));
       } catch (nextError) {
-        setError(
-          nextError instanceof Error ? nextError.message : String(nextError),
-        );
+        setUnknownError(setError, nextError);
         return { didLoad: false, groupId: selectedGroupIdRef.current };
       } finally {
-        if (shouldManageLoading) {
-          setLoading(false);
-        }
+        setLoadingIfManaged(shouldManageLoading, setLoading, false);
       }
     },
     [loadDirectoryAndGroups],
@@ -761,9 +803,7 @@ export function OrgManager() {
       } catch (nextError) {
         setMembers(null);
         setGroupContainers(null);
-        setError(
-          nextError instanceof Error ? nextError.message : String(nextError),
-        );
+        setUnknownError(setError, nextError);
       }
     },
     [appData.isAuthenticated, appData.organizationId, orgManagerActions],
@@ -771,19 +811,15 @@ export function OrgManager() {
 
   const refreshGrants = useCallback(
     async (options: GrantsRefreshOptions = {}) => {
-      const shouldClearError = options.clearError ?? true;
-      const shouldManageLoading = options.manageLoading ?? true;
-      if (!appData.organizationId || !appData.isAuthenticated) {
+      const { shouldClearError, shouldManageLoading } =
+        getRefreshBehavior(options);
+      if (!canLoadAuthenticatedOrgData) {
         setGrants(null);
         return;
       }
 
-      if (shouldManageLoading) {
-        setLoading(true);
-      }
-      if (shouldClearError) {
-        setError(null);
-      }
+      setLoadingIfManaged(shouldManageLoading, setLoading, true);
+      clearErrorIfRequested(shouldClearError, setError);
 
       try {
         const nextGrants = await orgManagerActions.loadGrants();
@@ -796,16 +832,12 @@ export function OrgManager() {
         setGrants(nextGrants);
       } catch (nextError) {
         setGrants(null);
-        setError(
-          nextError instanceof Error ? nextError.message : String(nextError),
-        );
+        setUnknownError(setError, nextError);
       } finally {
-        if (shouldManageLoading) {
-          setLoading(false);
-        }
+        setLoadingIfManaged(shouldManageLoading, setLoading, false);
       }
     },
-    [appData.isAuthenticated, appData.organizationId, orgManagerActions],
+    [canLoadAuthenticatedOrgData, orgManagerActions],
   );
 
   const refreshOrgManager = useCallback(async () => {
@@ -868,9 +900,7 @@ export function OrgManager() {
       setView("groups");
       selectGroup(createdGroup.groupId);
     } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : String(nextError),
-      );
+      setUnknownError(setError, nextError);
     } finally {
       setMutating(false);
     }
@@ -929,9 +959,7 @@ export function OrgManager() {
         await refreshSelectedGroupDetails(refreshedDirectory.groupId);
       }
     } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : String(nextError),
-      );
+      setUnknownError(setError, nextError);
     } finally {
       setMutating(false);
     }
@@ -979,9 +1007,7 @@ export function OrgManager() {
           await refreshSelectedGroupDetails(refreshedDirectory.groupId);
         }
       } catch (nextError) {
-        setError(
-          nextError instanceof Error ? nextError.message : String(nextError),
-        );
+        setUnknownError(setError, nextError);
       } finally {
         setMutating(false);
       }
