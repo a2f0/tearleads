@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { createMemoryBlobStore } from "../../../data/blobs";
-import { createDocumentStore } from "../DocumentsProvider";
 import {
   createDocumentStorePersistence,
   createDocumentStoreRuntime,
-} from "./testFixtures";
+} from "../../../../test/helpers/documentStoreFixtures";
+import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { createMemoryBlobStore } from "../../../data/blobs";
+import { createDocumentStore } from "../DocumentsProvider";
 
 function createTrackedMemoryBlobStore() {
   const blobStore = createMemoryBlobStore();

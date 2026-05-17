@@ -15,11 +15,14 @@ const appReactFreeLayerEntryPoints = [
   "packages/app/src/data",
   "packages/app/src/workflows",
 ];
+const appProductionSourceEntryPoints = ["packages/app/src"];
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
 const reactImportPattern =
   /\bfrom\s*["']react(?:\/[^"']*)?["']|\bimport\s*(?:\(\s*)?["']react(?:\/[^"']*)?["']/;
+const appTestHelperImportPattern =
+  /\bfrom\s*["'][^"']*test\/helpers\/|\bimport\s*(?:\(\s*)?["'][^"']*test\/helpers\//;
 
 interface SourceMatch {
   filePath: string;
@@ -81,6 +84,13 @@ async function findAppReactFreeLayerReferences(): Promise<SourceMatch[]> {
   return findSourceMatches(appReactFreeLayerEntryPoints, reactImportPattern);
 }
 
+async function findAppProductionTestHelperReferences(): Promise<SourceMatch[]> {
+  return findSourceMatches(
+    appProductionSourceEntryPoints,
+    appTestHelperImportPattern,
+  );
+}
+
 async function findSourceMatches(
   entryPoints: ReadonlyArray<string>,
   pattern: RegExp,
@@ -137,6 +147,22 @@ function formatAppReactFreeLayerReferences(
   ].join("\n");
 }
 
+function formatAppProductionTestHelperReferences(
+  matches: ReadonlyArray<SourceMatch>,
+): string {
+  if (matches.length === 0) {
+    return "";
+  }
+
+  return [
+    "error app-production-source-does-not-import-test-helpers: App test helpers belong under packages/app/test and must not be imported by production src files.",
+    ...matches.map(
+      (match) =>
+        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
+    ),
+  ].join("\n");
+}
+
 const result = await cruise(
   architectureEntryPoints,
   configToCruiseOptions(dependencyCruiserConfig),
@@ -144,6 +170,8 @@ const result = await cruise(
 const appPresentationSqlExecutorReferences =
   await findAppPresentationSqlExecutorReferences();
 const appReactFreeLayerReferences = await findAppReactFreeLayerReferences();
+const appProductionTestHelperReferences =
+  await findAppProductionTestHelperReferences();
 
 if (typeof result.output === "string" && result.output.trim().length > 0) {
   const write = result.exitCode === 0 ? console.log : console.error;
@@ -165,10 +193,18 @@ if (appReactFreeLayerOutput.length > 0) {
   console.error(appReactFreeLayerOutput);
 }
 
+const appProductionTestHelperOutput = formatAppProductionTestHelperReferences(
+  appProductionTestHelperReferences,
+);
+if (appProductionTestHelperOutput.length > 0) {
+  console.error(appProductionTestHelperOutput);
+}
+
 process.exit(
   result.exitCode !== 0 ||
     appPresentationSqlExecutorReferences.length > 0 ||
-    appReactFreeLayerReferences.length > 0
+    appReactFreeLayerReferences.length > 0 ||
+    appProductionTestHelperReferences.length > 0
     ? 1
     : 0,
 );
