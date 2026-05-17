@@ -13,6 +13,9 @@ export default {
       ],
     },
     "packages/api": {
+      // `test/preload.ts` is discovered from bunfig.toml. There are no
+      // standalone `test/**/*.test.ts` files; `test/**/*.ts` stays in project so
+      // helper modules are still checked when reached from source tests.
       entry: ["src/appTestRuntime.ts", "src/**/*.test.ts"],
       project: ["src/**/*.ts", "test/**/*.ts"],
     },
@@ -70,7 +73,7 @@ export default {
       project: ["src/**/*.ts", "tests/**/*.ts"],
     },
     "packages/test-utils": {
-      entry: [],
+      // Knip discovers the public entry from package.json exports.
       project: ["src/**/*.ts"],
     },
   },
