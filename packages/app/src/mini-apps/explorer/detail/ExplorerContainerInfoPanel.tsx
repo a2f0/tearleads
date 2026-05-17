@@ -1,4 +1,10 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
@@ -8,6 +14,36 @@ import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 type ExplorerContainerInfoGrant = NonNullable<
   ExplorerContainerInfo["remoteInfo"]
 >["grants"][number];
+
+type ReloadExplorerContainerInfo = (options?: {
+  optimisticGrant?: ExplorerContainerInfoGrant | null;
+  resetDrafts?: boolean;
+}) => Promise<void>;
+
+interface ExplorerContainerInfoShareParams {
+  containerId: string;
+  isSubmitting: boolean;
+  reloadContainerInfo: ReloadExplorerContainerInfo;
+  setIsSubmitting: (value: boolean) => void;
+  setPanelError: (error: string | null) => void;
+}
+
+interface ExplorerContainerInfoGroupShareParams
+  extends ExplorerContainerInfoShareParams {
+  draftShareAccessLevel: ExplorerContainerShareAccessLevel;
+  draftShareGroupId: string;
+  shareWithGroup: (
+    containerId: string,
+    groupId: string,
+    accessLevel: ExplorerContainerShareAccessLevel,
+  ) => Promise<boolean>;
+}
+
+interface ExplorerContainerInfoPeerShareParams
+  extends ExplorerContainerInfoShareParams {
+  peerUserId: string | null;
+  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+}
 
 function compactPrincipalId(value: string): string {
   if (value.length <= 18) {
@@ -61,6 +97,122 @@ function upsertContainerInfoGrant(
       ...info.remoteInfo,
       grants,
     },
+  };
+}
+
+function getInitialDraftShareGroupId(info: ExplorerContainerInfo): string {
+  return (
+    info.remoteInfo?.groups.find((group) => group.currentState)?.groupId ?? ""
+  );
+}
+
+function getNextDraftShareGroupId(
+  info: ExplorerContainerInfo,
+  currentGroupId: string,
+): string {
+  const groups = info.remoteInfo?.groups ?? [];
+  const currentGroupIsShareable = groups.some(
+    (group) => group.groupId === currentGroupId && group.currentState,
+  );
+  if (currentGroupIsShareable) {
+    return currentGroupId;
+  }
+
+  return getInitialDraftShareGroupId(info);
+}
+
+function useExplorerContainerInfo(params: {
+  containerId: string;
+  loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
+}) {
+  const { containerId, loadContainerInfo } = params;
+  const [containerInfo, setContainerInfo] =
+    useState<ExplorerContainerInfo | null>(null);
+  const [containerInfoError, setContainerInfoError] = useState<string | null>(
+    null,
+  );
+  const [draftShareAccessLevel, setDraftShareAccessLevel] =
+    useState<ExplorerContainerShareAccessLevel>("write");
+  const [draftShareGroupId, setDraftShareGroupId] = useState("");
+  const [isLoadingContainerInfo, setIsLoadingContainerInfo] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
+  const isMountedRef = useRef(false);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const reloadContainerInfo = useCallback(
+    async (
+      options: {
+        optimisticGrant?: ExplorerContainerInfoGrant | null;
+        resetDrafts?: boolean;
+      } = {},
+    ) => {
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      setIsLoadingContainerInfo(true);
+      setContainerInfoError(null);
+      if (options.resetDrafts) {
+        setContainerInfo(null);
+        setDraftShareGroupId("");
+        setDraftShareAccessLevel("write");
+        setPanelError(null);
+      }
+
+      try {
+        const nextInfo = await loadContainerInfo(containerId);
+        if (!isMountedRef.current || requestIdRef.current !== requestId) {
+          return;
+        }
+
+        const updatedInfo = upsertContainerInfoGrant(
+          nextInfo,
+          options.optimisticGrant ?? null,
+        );
+        setContainerInfo(updatedInfo);
+        setDraftShareGroupId((current) =>
+          options.resetDrafts
+            ? getInitialDraftShareGroupId(updatedInfo)
+            : getNextDraftShareGroupId(updatedInfo, current),
+        );
+      } catch (error) {
+        if (!isMountedRef.current || requestIdRef.current !== requestId) {
+          return;
+        }
+
+        setContainerInfo(null);
+        setContainerInfoError(
+          error instanceof Error ? error.message : String(error),
+        );
+      } finally {
+        if (isMountedRef.current && requestIdRef.current === requestId) {
+          setIsLoadingContainerInfo(false);
+        }
+      }
+    },
+    [containerId, loadContainerInfo],
+  );
+
+  useEffect(() => {
+    void reloadContainerInfo({ resetDrafts: true });
+  }, [reloadContainerInfo]);
+
+  return {
+    containerInfo,
+    containerInfoError,
+    draftShareAccessLevel,
+    draftShareGroupId,
+    isLoadingContainerInfo,
+    panelError,
+    reloadContainerInfo,
+    setDraftShareAccessLevel,
+    setDraftShareGroupId,
+    setPanelError,
   };
 }
 
@@ -329,114 +481,21 @@ function ExplorerContainerInfoBody(params: {
   );
 }
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The route panel coordinates loading, share drafts, and optimistic grant refresh for one screen.
-export function ExplorerContainerInfoPanel(params: {
-  containerId: string;
-  containerName: string | undefined;
-  loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
-  onBackToContainer: () => void;
-  peerUserId: string | null;
-  shareWithGroup: (
-    containerId: string,
-    groupId: string,
-    accessLevel: ExplorerContainerShareAccessLevel,
-  ) => Promise<boolean>;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
-}) {
+function useExplorerContainerInfoGroupShare(
+  params: ExplorerContainerInfoGroupShareParams,
+) {
   const {
     containerId,
-    containerName,
-    loadContainerInfo,
-    onBackToContainer,
-    peerUserId,
+    draftShareAccessLevel,
+    draftShareGroupId,
+    isSubmitting,
+    reloadContainerInfo,
+    setIsSubmitting,
+    setPanelError,
     shareWithGroup,
-    shareWithUser,
   } = params;
-  const [containerInfo, setContainerInfo] =
-    useState<ExplorerContainerInfo | null>(null);
-  const [containerInfoError, setContainerInfoError] = useState<string | null>(
-    null,
-  );
-  const [draftShareAccessLevel, setDraftShareAccessLevel] =
-    useState<ExplorerContainerShareAccessLevel>("write");
-  const [draftShareGroupId, setDraftShareGroupId] = useState("");
-  const [isLoadingContainerInfo, setIsLoadingContainerInfo] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [panelError, setPanelError] = useState<string | null>(null);
 
-  const reloadContainerInfo = useCallback(
-    async (optimisticGrant: ExplorerContainerInfoGrant | null = null) => {
-      setIsLoadingContainerInfo(true);
-      setContainerInfoError(null);
-      try {
-        const nextInfo = await loadContainerInfo(containerId);
-        const updatedInfo = upsertContainerInfoGrant(nextInfo, optimisticGrant);
-        setContainerInfo(updatedInfo);
-        setDraftShareGroupId((current) => {
-          const groups = updatedInfo.remoteInfo?.groups ?? [];
-          const currentGroupIsShareable = groups.some(
-            (group) => group.groupId === current && group.currentState,
-          );
-          if (currentGroupIsShareable) {
-            return current;
-          }
-
-          return groups.find((group) => group.currentState)?.groupId ?? "";
-        });
-      } catch (error) {
-        setContainerInfo(null);
-        setContainerInfoError(
-          error instanceof Error ? error.message : String(error),
-        );
-      } finally {
-        setIsLoadingContainerInfo(false);
-      }
-    },
-    [containerId, loadContainerInfo],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    setContainerInfo(null);
-    setContainerInfoError(null);
-    setDraftShareGroupId("");
-    setDraftShareAccessLevel("write");
-    setPanelError(null);
-    setIsLoadingContainerInfo(true);
-
-    loadContainerInfo(containerId)
-      .then((nextInfo) => {
-        if (cancelled) {
-          return;
-        }
-
-        setContainerInfo(nextInfo);
-        setDraftShareGroupId(
-          nextInfo.remoteInfo?.groups.find((group) => group.currentState)
-            ?.groupId ?? "",
-        );
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-
-        setContainerInfoError(
-          error instanceof Error ? error.message : String(error),
-        );
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoadingContainerInfo(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [containerId, loadContainerInfo]);
-
-  const handleShareWithGroup = useCallback(
+  return useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (isSubmitting) {
@@ -462,9 +521,11 @@ export function ExplorerContainerInfoPanel(params: {
         }
 
         await reloadContainerInfo({
-          accessLevel: draftShareAccessLevel,
-          subjectId: draftShareGroupId,
-          subjectType: "group",
+          optimisticGrant: {
+            accessLevel: draftShareAccessLevel,
+            subjectId: draftShareGroupId,
+            subjectType: "group",
+          },
         });
       } catch (error) {
         console.error("Failed to share container:", error);
@@ -479,11 +540,27 @@ export function ExplorerContainerInfoPanel(params: {
       draftShareGroupId,
       isSubmitting,
       reloadContainerInfo,
+      setIsSubmitting,
+      setPanelError,
       shareWithGroup,
     ],
   );
+}
 
-  const handleShareWithPeer = useCallback(async () => {
+function useExplorerContainerInfoPeerShare(
+  params: ExplorerContainerInfoPeerShareParams,
+) {
+  const {
+    containerId,
+    isSubmitting,
+    peerUserId,
+    reloadContainerInfo,
+    setIsSubmitting,
+    setPanelError,
+    shareWithUser,
+  } = params;
+
+  return useCallback(async () => {
     if (isSubmitting || !peerUserId) {
       return;
     }
@@ -498,9 +575,11 @@ export function ExplorerContainerInfoPanel(params: {
       }
 
       await reloadContainerInfo({
-        accessLevel: "write",
-        subjectId: peerUserId,
-        subjectType: "user",
+        optimisticGrant: {
+          accessLevel: "write",
+          subjectId: peerUserId,
+          subjectType: "user",
+        },
       });
     } catch (error) {
       console.error("Failed to share container with peer:", error);
@@ -513,8 +592,122 @@ export function ExplorerContainerInfoPanel(params: {
     isSubmitting,
     peerUserId,
     reloadContainerInfo,
+    setIsSubmitting,
+    setPanelError,
     shareWithUser,
   ]);
+}
+
+function ExplorerContainerInfoHeader(params: {
+  containerId: string;
+  containerName: string | undefined;
+  isSubmitting: boolean;
+  onBackToContainer: () => void;
+}) {
+  const { containerId, containerName, isSubmitting, onBackToContainer } =
+    params;
+  return (
+    <div className="explorer-detail-header">
+      <div className="explorer-detail-copy">
+        <strong>Container Info</strong>
+        <span>{containerName ?? compactPrincipalId(containerId)}</span>
+      </div>
+      <div className="explorer-detail-actions">
+        <button
+          type="button"
+          className="explorer-action-button"
+          disabled={isSubmitting}
+          onClick={onBackToContainer}
+        >
+          Back to Container
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ExplorerContainerInfoActions(params: {
+  draftShareGroupId: string;
+  isLoadingContainerInfo: boolean;
+  isSubmitting: boolean;
+  showShareButton: boolean;
+}) {
+  const {
+    draftShareGroupId,
+    isLoadingContainerInfo,
+    isSubmitting,
+    showShareButton,
+  } = params;
+  if (!showShareButton) {
+    return null;
+  }
+
+  return (
+    <div className="explorer-modal-actions">
+      <button
+        type="submit"
+        disabled={isSubmitting || isLoadingContainerInfo || !draftShareGroupId}
+      >
+        {isSubmitting ? "Sharing..." : "Share"}
+      </button>
+    </div>
+  );
+}
+
+export function ExplorerContainerInfoPanel(params: {
+  containerId: string;
+  containerName: string | undefined;
+  loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
+  onBackToContainer: () => void;
+  peerUserId: string | null;
+  shareWithGroup: (
+    containerId: string,
+    groupId: string,
+    accessLevel: ExplorerContainerShareAccessLevel,
+  ) => Promise<boolean>;
+  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+}) {
+  const {
+    containerId,
+    containerName,
+    loadContainerInfo,
+    onBackToContainer,
+    peerUserId,
+    shareWithGroup,
+    shareWithUser,
+  } = params;
+  const {
+    containerInfo,
+    containerInfoError,
+    draftShareAccessLevel,
+    draftShareGroupId,
+    isLoadingContainerInfo,
+    panelError,
+    reloadContainerInfo,
+    setDraftShareAccessLevel,
+    setDraftShareGroupId,
+    setPanelError,
+  } = useExplorerContainerInfo({ containerId, loadContainerInfo });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleShareWithGroup = useExplorerContainerInfoGroupShare({
+    containerId,
+    draftShareAccessLevel,
+    draftShareGroupId,
+    isSubmitting,
+    reloadContainerInfo,
+    setIsSubmitting,
+    setPanelError,
+    shareWithGroup,
+  });
+  const handleShareWithPeer = useExplorerContainerInfoPeerShare({
+    containerId,
+    isSubmitting,
+    peerUserId,
+    reloadContainerInfo,
+    setIsSubmitting,
+    setPanelError,
+    shareWithUser,
+  });
 
   const showShareButton = Boolean(containerInfo?.remoteInfo);
 
@@ -524,22 +717,12 @@ export function ExplorerContainerInfoPanel(params: {
       key={containerId}
       onSubmit={handleShareWithGroup}
     >
-      <div className="explorer-detail-header">
-        <div className="explorer-detail-copy">
-          <strong>Container Info</strong>
-          <span>{containerName ?? compactPrincipalId(containerId)}</span>
-        </div>
-        <div className="explorer-detail-actions">
-          <button
-            type="button"
-            className="explorer-action-button"
-            disabled={isSubmitting}
-            onClick={onBackToContainer}
-          >
-            Back to Container
-          </button>
-        </div>
-      </div>
+      <ExplorerContainerInfoHeader
+        containerId={containerId}
+        containerName={containerName}
+        isSubmitting={isSubmitting}
+        onBackToContainer={onBackToContainer}
+      />
       <ExplorerContainerInfoBody
         containerId={containerId}
         containerInfo={containerInfo}
@@ -557,18 +740,12 @@ export function ExplorerContainerInfoPanel(params: {
       {panelError ? (
         <div className="explorer-modal-error">{panelError}</div>
       ) : null}
-      {showShareButton ? (
-        <div className="explorer-modal-actions">
-          <button
-            type="submit"
-            disabled={
-              isSubmitting || isLoadingContainerInfo || !draftShareGroupId
-            }
-          >
-            {isSubmitting ? "Sharing..." : "Share"}
-          </button>
-        </div>
-      ) : null}
+      <ExplorerContainerInfoActions
+        draftShareGroupId={draftShareGroupId}
+        isLoadingContainerInfo={isLoadingContainerInfo}
+        isSubmitting={isSubmitting}
+        showShareButton={showShareButton}
+      />
     </form>
   );
 }
