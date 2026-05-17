@@ -4,8 +4,6 @@ export function getExplorerModalError(
   mode: ExplorerModalState["mode"],
 ): string {
   switch (mode) {
-    case "container-info":
-      return "Failed to share container.";
     case "create-child":
       return "Failed to create child container.";
     case "rename":
@@ -25,8 +23,6 @@ export function getExplorerModalError(
 
 export function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
   switch (mode) {
-    case "container-info":
-      return "Failed to share container:";
     case "create-child":
       return "Failed to create child container:";
     case "rename":
@@ -46,8 +42,6 @@ export function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
 
 export function getExplorerModalTitle(modalState: ExplorerModalState): string {
   switch (modalState.mode) {
-    case "container-info":
-      return "Container Info";
     case "delete":
       return "Delete Container";
     case "link-document":
@@ -73,8 +67,6 @@ export function getExplorerModalSubmitLabel(
     switch (modalState.mode) {
       case "delete":
         return "Delete";
-      case "container-info":
-        return "Share";
       case "link-document":
         return "Link";
       case "move":
@@ -93,8 +85,6 @@ export function getExplorerModalSubmitLabel(
   switch (modalState.mode) {
     case "delete":
       return "Deleting...";
-    case "container-info":
-      return "Sharing...";
     case "link-document":
       return "Linking...";
     case "move":
@@ -112,18 +102,14 @@ export function getExplorerModalSubmitLabel(
 
 export function isExplorerModalSubmitDisabled(params: {
   draftName: string;
-  draftShareGroupId?: string | undefined;
   draftTargetContainerId: string;
-  isLoadingContainerInfo?: boolean | undefined;
   isSubmittingModal: boolean;
   modalState: ExplorerModalState;
   peerUserId: string | null;
 }): boolean {
   const {
     draftName,
-    draftShareGroupId,
     draftTargetContainerId,
-    isLoadingContainerInfo,
     isSubmittingModal,
     modalState,
     peerUserId,
@@ -148,13 +134,6 @@ export function isExplorerModalSubmitDisabled(params: {
   }
 
   if (modalState.mode === "share-peer" && !peerUserId) {
-    return true;
-  }
-
-  if (
-    modalState.mode === "container-info" &&
-    (isLoadingContainerInfo || !draftShareGroupId)
-  ) {
     return true;
   }
 

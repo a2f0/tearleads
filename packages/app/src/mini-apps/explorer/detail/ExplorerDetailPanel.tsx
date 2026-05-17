@@ -18,10 +18,16 @@ import {
   DOCUMENT_TYPE_DEFINITIONS,
   getDocumentTypeDefinition,
 } from "../../../document-types/registry";
+import type {
+  ExplorerContainerInfo,
+  ExplorerContainerShareAccessLevel,
+} from "../../../stores/explorer/containerInfo";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { DocumentContainerProjection } from "../documentProjections";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
+import type { ExplorerRoute } from "../routes";
 import type { ContainerNode } from "../types";
+import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 
 const EXPLORER_ITEM_TABLE_COLUMNS = [
   {
@@ -720,7 +726,9 @@ export function ExplorerDetailPanel(params: {
     ReadonlyArray<DocumentContainerProjection>
   >;
   linkedContainerIds: ReadonlyArray<string>;
+  loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
   nodes: ReadonlyArray<ContainerNode>;
+  onBackToSelectionRoute: () => void;
   openInlineDocument: (
     containerId: string,
     documentKind: StoredDocumentKind,
@@ -728,18 +736,41 @@ export function ExplorerDetailPanel(params: {
   ) => void;
   openLinkDocumentModal: (noteId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
+  peerUserId: string | null;
   ready: boolean;
   refreshError: string | null;
+  route: ExplorerRoute;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedDocument: DocumentSummary | undefined;
   selectedNode: ContainerNode | undefined;
   setSelectedId: (id: string | null) => void;
+  shareWithGroup: (
+    containerId: string,
+    groupId: string,
+    accessLevel: ExplorerContainerShareAccessLevel,
+  ) => Promise<boolean>;
+  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   unlinkDocument: (
     noteId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
 }) {
-  const { selectedDocument, selectedNode } = params;
+  const { route, selectedDocument, selectedNode } = params;
+
+  if (route.view === "container-info") {
+    const infoNode = params.nodes.find((node) => node.id === route.containerId);
+    return (
+      <ExplorerContainerInfoPanel
+        containerId={route.containerId}
+        containerName={infoNode?.name}
+        loadContainerInfo={params.loadContainerInfo}
+        onBackToContainer={params.onBackToSelectionRoute}
+        peerUserId={params.peerUserId}
+        shareWithGroup={params.shareWithGroup}
+        shareWithUser={params.shareWithUser}
+      />
+    );
+  }
 
   if (selectedDocument) {
     return (

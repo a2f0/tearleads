@@ -75,7 +75,7 @@ export function ExplorerContextMenuLayer(params: {
     documentKind: StoredDocumentKind,
     localId?: string,
   ) => void;
-  openContainerInfoModal: (containerId: string) => void;
+  openContainerInfoRoute: (containerId: string) => void;
   openMoveModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
 }) {
@@ -88,7 +88,7 @@ export function ExplorerContextMenuLayer(params: {
     openCreateChildModal,
     openDeleteModal,
     openInlineDocument,
-    openContainerInfoModal,
+    openContainerInfoRoute,
     openMoveModal,
     openRenameModal,
   } = params;
@@ -141,7 +141,7 @@ export function ExplorerContextMenuLayer(params: {
         label="Get Info"
         onClick={() => {
           closeContextMenu();
-          openContainerInfoModal(contextMenu.nodeId);
+          openContainerInfoRoute(contextMenu.nodeId);
         }}
       />
       <MenuItem

@@ -2,7 +2,10 @@ import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
-import { loadExplorerContainerInfo } from "../../../stores/explorer/containerInfo";
+import {
+  type ExplorerContainerInfo,
+  loadExplorerContainerInfo,
+} from "../../../stores/explorer/containerInfo";
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import {
   type ContextMenuState,
@@ -21,6 +24,7 @@ import {
   type ExplorerDocumentModalState,
   useExplorerDocumentModalState,
 } from "./useExplorerDocumentModalState";
+import { type ExplorerRouteState, useExplorerRoute } from "./useExplorerRoute";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 import {
   type OpenInlineDocument,
@@ -46,8 +50,10 @@ interface ExplorerContextMenuModel {
 export interface ExplorerPanelState {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   contextMenuState: ExplorerContextMenuModel;
+  loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
   modalState: ExplorerDocumentModalState;
   openInlineDocument: OpenInlineDocument;
+  routeState: ExplorerRouteState;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
@@ -91,9 +97,13 @@ export function useExplorerPanelState(params: {
     treeEntries,
   } = params;
   const explorerDocumentsAppData = useExplorerDocumentsRuntimeAppData(appData);
+  const routeState = useExplorerRoute({
+    nodes: explorer.nodes,
+    setSelectedId: selection.setSelectedId,
+  });
   const contextMenuState = useExplorerContextMenu(
     explorer.nodes,
-    selection.setSelectedId,
+    routeState.selectExplorerItem,
   );
   const loadContainerInfo = useCallback(
     (containerId: string) => {
@@ -124,7 +134,7 @@ export function useExplorerPanelState(params: {
   const selectDocumentProjection = useSelectDocumentProjection({
     activateLinkedDocument: selectedNoteStructuralState.activateLinkedDocument,
     documentSummaries,
-    setSelectedId: selection.setSelectedId,
+    setSelectedId: routeState.selectExplorerItem,
   });
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
@@ -135,7 +145,7 @@ export function useExplorerPanelState(params: {
     ready: explorer.ready,
     selectedId: selection.selectedId,
     selectDocumentProjection,
-    setSelectedId: selection.setSelectedId,
+    setSelectedId: routeState.selectExplorerItem,
     setSidebar,
     toggleCollapsed: selection.toggleCollapsed,
     treeEntries,
@@ -145,25 +155,25 @@ export function useExplorerPanelState(params: {
     linkDocument: selectedNoteStructuralState.linkDocument,
     moveDocument: selectedNoteStructuralState.moveDocument,
     documentSummaries,
-    loadContainerInfo,
     peerUserId,
-    setSelectedId: selection.setSelectedId,
+    setSelectedId: routeState.selectExplorerItem,
     selectedDocumentLinkedContainerIds:
       selectedNoteStructuralState.selectedDocumentLinkedContainerIds,
     selectionExpandNode: selection.expandNode,
-    shareWithGroup: explorer.shareWithGroup,
     shareWithUser: explorer.shareWithUser,
   });
   const openInlineDocument = useInlineDocumentAction({
     expandNode: selection.expandNode,
     mergeDocumentSummary,
-    setSelectedId: selection.setSelectedId,
+    setSelectedId: routeState.selectExplorerItem,
   });
   return {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedDocument,
     contextMenuState,
+    loadContainerInfo,
     modalState,
     openInlineDocument,
+    routeState,
     selectDocumentProjection,
     selectedDocumentLinkedContainerIds:
       selectedNoteStructuralState.selectedDocumentLinkedContainerIds,

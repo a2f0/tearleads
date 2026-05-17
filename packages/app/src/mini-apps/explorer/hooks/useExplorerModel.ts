@@ -32,17 +32,20 @@ interface ExplorerModel {
   explorer: ExplorerModelExplorer;
   handleRefresh: () => Promise<boolean>;
   isRefreshing: boolean;
+  loadContainerInfo: ExplorerPanelState["loadContainerInfo"];
   linkedContainerIds: ReadonlyArray<string>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   modalState: ExplorerPanelState["modalState"];
   openInlineDocument: ExplorerPanelState["openInlineDocument"];
   peerUserId: string | null;
   refreshError: string | null;
+  routeState: ExplorerPanelState["routeState"];
   selectDocumentProjection: ExplorerPanelState["selectDocumentProjection"];
   selection: ExplorerSelectionState;
   unlinkDocument: ExplorerDocumentMutationAction;
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The model hook aggregates Explorer route, document, modal, and refresh state for the view.
 export function useExplorerModel(
   appData: ReturnType<typeof useAppData>,
   explorer: ExplorerModelExplorer,
@@ -84,8 +87,10 @@ export function useExplorerModel(
   const {
     activateLinkedContainer,
     contextMenuState,
+    loadContainerInfo,
     modalState,
     openInlineDocument,
+    routeState,
     selectDocumentProjection,
     selectedDocumentLinkedContainerIds,
     selectedDocumentLinkTargetOptions,
@@ -121,12 +126,14 @@ export function useExplorerModel(
     explorer,
     handleRefresh,
     isRefreshing,
+    loadContainerInfo,
     linkedContainerIds: selectedDocumentLinkedContainerIds,
     mergeDocumentSummary,
     modalState,
     openInlineDocument,
     peerUserId,
     refreshError,
+    routeState,
     selectDocumentProjection,
     selection,
     unlinkDocument,

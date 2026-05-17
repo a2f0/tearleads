@@ -34,16 +34,22 @@ export function Explorer() {
         canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
         documentsByContainerId={model.documentsByContainerId}
         linkedContainerIds={model.linkedContainerIds}
+        loadContainerInfo={model.loadContainerInfo}
         nodes={model.explorer.nodes}
+        onBackToSelectionRoute={model.routeState.showSelectionRoute}
         openInlineDocument={model.openInlineDocument}
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}
+        peerUserId={model.peerUserId}
         ready={model.explorer.ready}
         refreshError={model.refreshError}
+        route={model.routeState.route}
         selectDocumentProjection={model.selectDocumentProjection}
         selectedNode={model.selection.selectedNode}
         selectedDocument={model.selection.selectedDocument}
-        setSelectedId={model.selection.setSelectedId}
+        setSelectedId={model.routeState.selectExplorerItem}
+        shareWithGroup={model.explorer.shareWithGroup}
+        shareWithUser={model.explorer.shareWithUser}
         unlinkDocument={model.unlinkDocument}
       />
       <ExplorerContextMenuLayer
@@ -54,7 +60,7 @@ export function Explorer() {
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
         contextMenuNode={model.contextMenuState.contextMenuNode}
-        openContainerInfoModal={model.modalState.openContainerInfoModal}
+        openContainerInfoRoute={model.routeState.openContainerInfoRoute}
         openCreateChildModal={model.modalState.openCreateChildModal}
         openDeleteModal={model.modalState.openDeleteModal}
         openInlineDocument={model.openInlineDocument}
@@ -63,17 +69,9 @@ export function Explorer() {
       />
       <ExplorerModalLayer
         closeModal={model.modalState.closeModal}
-        containerInfo={model.modalState.containerInfo}
-        containerInfoError={model.modalState.containerInfoError}
         draftName={model.modalState.draftName}
-        draftShareAccessLevel={model.modalState.draftShareAccessLevel}
-        draftShareGroupId={model.modalState.draftShareGroupId}
         draftTargetContainerId={model.modalState.draftTargetContainerId}
-        handleContainerInfoPeerShare={
-          model.modalState.handleContainerInfoPeerShare
-        }
         handleModalSubmit={model.modalState.handleModalSubmit}
-        isLoadingContainerInfo={model.modalState.isLoadingContainerInfo}
         isSubmittingModal={model.modalState.isSubmittingModal}
         modalError={model.modalState.modalError}
         modalState={model.modalState.modalState}
@@ -81,8 +79,6 @@ export function Explorer() {
         nameInputRef={model.modalState.nameInputRef}
         peerUserId={model.peerUserId}
         setDraftName={model.modalState.setDraftName}
-        setDraftShareAccessLevel={model.modalState.setDraftShareAccessLevel}
-        setDraftShareGroupId={model.modalState.setDraftShareGroupId}
         setModalError={model.modalState.setModalError}
         setDraftTargetContainerId={model.modalState.setDraftTargetContainerId}
         targetSelectRef={model.modalState.targetSelectRef}
