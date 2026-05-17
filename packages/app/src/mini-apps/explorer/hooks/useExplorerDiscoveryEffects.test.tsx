@@ -43,6 +43,7 @@ function createEmptyListContainerDocumentsResponse(): ListContainerDocumentsResp
 function createDocumentReadModel(): ExplorerDocumentReadModel {
   return {
     applyContainerDocumentTombstones: async () => [],
+    listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
     loadContainerDocumentWatermark: async () => null,
     listLinkedContainerIdsByDocumentIds: async () => new Map(),
     listVisibleDocumentSummaries: async () => [],

@@ -1,7 +1,10 @@
 import { type ReactNode, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
-import { useExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import {
+  type ExplorerDocumentReadModel,
+  useExplorerDocumentReadModel,
+} from "../../../stores/explorer/documentReadModel";
 import type { DocumentContainerProjection } from "../documentProjections";
 import { buildExplorerTree } from "../ExplorerTree";
 import type {
@@ -25,6 +28,7 @@ interface ExplorerModel {
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
+  documentReadModel: ExplorerDocumentReadModel;
   documentsByContainerId: ReadonlyMap<
     string,
     ReadonlyArray<DocumentContainerProjection>
@@ -122,6 +126,7 @@ export function useExplorerModel(
     activateLinkedContainer,
     ...selectedDocumentMutationState,
     contextMenuState,
+    documentReadModel,
     documentsByContainerId,
     explorer,
     handleRefresh,

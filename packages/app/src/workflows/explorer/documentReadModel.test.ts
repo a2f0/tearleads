@@ -1,11 +1,60 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { defaultExplorerPersistence } from "./containerPersistence";
 import {
   createExplorerDocumentReadModelFromRuntime,
   listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
   primeExplorerDocumentsForContainerSubtree,
 } from "./documentReadModel";
 import { createExplorerWorkflowSqlRuntime } from "./runtime";
+
+async function saveTestContainer(input: {
+  execSql: Parameters<typeof defaultExplorerPersistence.saveContainer>[0];
+  id: string;
+  name: string;
+  parentId: string | null;
+  timestamp: string;
+}) {
+  await defaultExplorerPersistence.saveContainer(
+    input.execSql,
+    {
+      icon: null,
+      id: input.id,
+      metadataDocumentId: null,
+      name: input.name,
+      organizationId: "org-1",
+      parentId: input.parentId,
+    },
+    null,
+    { localUpdatedAt: input.timestamp },
+  );
+}
+
+async function saveTestDocument(input: {
+  containerId: string;
+  documentId: string | null;
+  execSql: Parameters<typeof sqlDocumentsPersistence.saveDocument>[0];
+  id: string;
+  kind?: "note" | "drivers_license" | "credit_card";
+  title: string;
+  updatedAt: string;
+}) {
+  await sqlDocumentsPersistence.saveDocument(
+    input.execSql,
+    {
+      accessEpoch: 1,
+      containerId: input.containerId,
+      documentId: input.documentId,
+      documentKind: input.kind ?? "note",
+      id: input.id,
+      loroSnapshot: "",
+      text: input.title,
+      title: input.title,
+    },
+    { updatedAt: input.updatedAt },
+  );
+}
 
 test("createExplorerDocumentReadModelFromRuntime uses the runtime executor", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -24,6 +73,187 @@ test("createExplorerDocumentReadModelFromRuntime uses the runtime executor", asy
     expect(
       await readModel.loadContainerDocumentWatermark("container-1"),
     ).toEqual(watermark);
+  } finally {
+    close();
+  }
+});
+
+test("listContainerItemWindow pages and sorts container rows from SQLite", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "explorer-container-item-window",
+  );
+  try {
+    await defaultExplorerPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const runtime = createExplorerWorkflowSqlRuntime({ execSql });
+    const readModel = createExplorerDocumentReadModelFromRuntime(runtime);
+
+    await saveTestContainer({
+      execSql,
+      id: "root-container",
+      name: "Root",
+      parentId: null,
+      timestamp: "2026-05-01T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "child-container",
+      name: "Archive",
+      parentId: "root-container",
+      timestamp: "2026-05-02T00:00:00.000Z",
+    });
+    await saveTestDocument({
+      containerId: "root-container",
+      documentId: "remote-song-1",
+      execSql,
+      id: "song-1",
+      title: "Older song",
+      updatedAt: "2026-05-03T00:00:00.000Z",
+    });
+    await saveTestDocument({
+      containerId: "root-container",
+      documentId: "remote-song-2",
+      execSql,
+      id: "song-2",
+      kind: "credit_card",
+      title: "Newest song",
+      updatedAt: "2026-05-04T00:00:00.000Z",
+    });
+
+    await expect(
+      readModel.listContainerItemWindow({
+        containerId: "root-container",
+        limit: 2,
+        offset: 0,
+        sort: { direction: "desc", key: "modified" },
+      }),
+    ).resolves.toEqual({
+      totalCount: 3,
+      rows: [
+        {
+          containerId: "root-container",
+          createdAt: "2026-05-04T00:00:00.000Z",
+          documentId: "remote-song-2",
+          documentKind: "credit_card",
+          itemKind: "document",
+          localId: "song-2",
+          name: "Newest song",
+          updatedAt: "2026-05-04T00:00:00.000Z",
+        },
+        {
+          containerId: "root-container",
+          createdAt: "2026-05-03T00:00:00.000Z",
+          documentId: "remote-song-1",
+          documentKind: "note",
+          itemKind: "document",
+          localId: "song-1",
+          name: "Older song",
+          updatedAt: "2026-05-03T00:00:00.000Z",
+        },
+      ],
+    });
+
+    await expect(
+      readModel.listContainerItemWindow({
+        containerId: "root-container",
+        limit: 2,
+        offset: 0,
+        sort: { direction: "asc", key: "type" },
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 3,
+      rows: [
+        {
+          documentKind: "credit_card",
+          itemKind: "document",
+          localId: "song-2",
+        },
+        {
+          id: "child-container",
+          itemKind: "container",
+          name: "Archive",
+        },
+      ],
+    });
+  } finally {
+    close();
+  }
+});
+
+test("listContainerItemWindow includes documents linked to the selected container", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "explorer-linked-container-item-window",
+  );
+  try {
+    await defaultExplorerPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const runtime = createExplorerWorkflowSqlRuntime({ execSql });
+    const readModel = createExplorerDocumentReadModelFromRuntime(runtime);
+
+    await saveTestContainer({
+      execSql,
+      id: "private-container",
+      name: "Private",
+      parentId: null,
+      timestamp: "2026-05-01T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "shared-container",
+      name: "Shared",
+      parentId: null,
+      timestamp: "2026-05-01T00:00:00.000Z",
+    });
+    await saveTestDocument({
+      containerId: "private-container",
+      documentId: "remote-shared-song",
+      execSql,
+      id: "shared-song",
+      title: "Linked song",
+      updatedAt: "2026-05-03T00:00:00.000Z",
+    });
+    await readModel.replaceDocumentLinks("remote-shared-song", [
+      "private-container",
+      "shared-container",
+    ]);
+
+    await expect(
+      readModel.listContainerItemWindow({
+        containerId: "shared-container",
+        limit: 10,
+        offset: 0,
+        sort: { direction: "asc", key: "name" },
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 1,
+      rows: [
+        {
+          containerId: "shared-container",
+          itemKind: "document",
+          localId: "shared-song",
+          name: "Linked song",
+        },
+      ],
+    });
+
+    await expect(
+      readModel.listContainerItemWindow({
+        containerId: "private-container",
+        limit: 10,
+        offset: 0,
+        sort: { direction: "asc", key: "name" },
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 1,
+      rows: [
+        {
+          containerId: "private-container",
+          itemKind: "document",
+          localId: "shared-song",
+          name: "Linked song",
+        },
+      ],
+    });
   } finally {
     close();
   }

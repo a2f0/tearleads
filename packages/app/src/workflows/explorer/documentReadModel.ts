@@ -3,6 +3,8 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../data/documentSummary";
+import type { StoredDocumentKind } from "../../data/documents/documentKinds";
+import { ensureContainerTables } from "../../data/persistence/containers/containerPersistence";
 import {
   containerDocumentsSyncLane,
   sqlContainerSyncWatermarkPersistence,
@@ -27,6 +29,42 @@ export interface ExplorerDocumentLinkInput {
 
 export type ExplorerContainerDocumentTombstone =
   ContainerDocumentTombstoneInput;
+
+export type ExplorerContainerItemSortKey =
+  | "name"
+  | "type"
+  | "created"
+  | "modified";
+export type ExplorerContainerItemSortDirection = "asc" | "desc";
+
+export interface ExplorerContainerItemSort {
+  direction: ExplorerContainerItemSortDirection;
+  key: ExplorerContainerItemSortKey;
+}
+
+export type ExplorerContainerItemRow =
+  | {
+      createdAt: string | null;
+      id: string;
+      itemKind: "container";
+      name: string;
+      updatedAt: string | null;
+    }
+  | {
+      containerId: string;
+      createdAt: string | null;
+      documentId: string | null;
+      documentKind: StoredDocumentKind;
+      itemKind: "document";
+      localId: string;
+      name: string;
+      updatedAt: string | null;
+    };
+
+export interface ExplorerContainerItemWindow {
+  rows: ReadonlyArray<ExplorerContainerItemRow>;
+  totalCount: number;
+}
 
 interface ExplorerDocumentRuntimeTarget {
   documentId: string | null;
@@ -53,6 +91,12 @@ export interface ExplorerDocumentReadModel {
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
   ): Promise<ReadonlyArray<DocumentSummary>>;
+  listContainerItemWindow(input: {
+    containerId: string;
+    limit: number;
+    offset: number;
+    sort: ExplorerContainerItemSort;
+  }): Promise<ExplorerContainerItemWindow>;
   loadContainerDocumentWatermark(
     containerId: string,
   ): Promise<SyncWatermark | null>;
@@ -92,6 +136,7 @@ interface ExplorerContainerSubtreeState {
 
 // Keep each IN clause below SQLite's historical 999 bind-parameter limit.
 const EXPLORER_SQL_ID_BATCH_SIZE = 500;
+const MAX_EXPLORER_CONTAINER_ITEM_WINDOW_LIMIT = 200;
 
 function listExplorerSqlIdBatches(
   values: ReadonlyArray<string>,
@@ -120,6 +165,168 @@ function compareExplorerDocumentSummaries(
   }
 
   return right.id.localeCompare(left.id);
+}
+
+function clampExplorerContainerItemWindowValue(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
+
+function getExplorerContainerItemWindowLimit(limit: number): number {
+  return Math.min(
+    MAX_EXPLORER_CONTAINER_ITEM_WINDOW_LIMIT,
+    clampExplorerContainerItemWindowValue(limit),
+  );
+}
+
+function getExplorerContainerItemOrderBy(
+  sort: ExplorerContainerItemSort,
+): string {
+  const direction = sort.direction === "desc" ? "DESC" : "ASC";
+
+  if (sort.key === "type") {
+    return `type_sort COLLATE NOCASE ${direction}, name COLLATE NOCASE ASC, item_kind_sort ASC, item_id ASC`;
+  }
+
+  if (sort.key === "created") {
+    return `created_at IS NULL ASC, created_at ${direction}, name COLLATE NOCASE ASC, item_id ASC`;
+  }
+
+  if (sort.key === "modified") {
+    return `updated_at IS NULL ASC, updated_at ${direction}, name COLLATE NOCASE ASC, item_id ASC`;
+  }
+
+  return "item_kind_sort ASC, name COLLATE NOCASE ASC, type_sort COLLATE NOCASE ASC, item_id ASC";
+}
+
+function getExplorerContainerItemsBaseSql(): string {
+  return `
+    WITH container_items AS (
+      SELECT
+        'container' AS item_kind,
+        0 AS item_kind_sort,
+        c.id AS item_id,
+        NULL AS document_id,
+        NULL AS document_kind,
+        COALESCE(
+          cp.display_name,
+          CASE WHEN c.parent_id IS NULL THEN '/' ELSE 'Untitled' END
+        ) AS name,
+        'folder' AS type_sort,
+        COALESCE(c.server_created_at, c.local_created_at) AS created_at,
+        COALESCE(c.server_updated_at, c.local_updated_at) AS updated_at
+      FROM containers c
+      LEFT JOIN container_projection cp ON cp.container_id = c.id
+      WHERE c.parent_id = ?
+
+      UNION ALL
+
+      SELECT
+        'document' AS item_kind,
+        1 AS item_kind_sort,
+        d.local_id AS item_id,
+        d.document_id AS document_id,
+        d.document_kind AS document_kind,
+        d.title AS name,
+        d.document_kind AS type_sort,
+        d.updated_at AS created_at,
+        d.updated_at AS updated_at
+      FROM document_projection d
+      WHERE d.container_id = ?
+
+      UNION ALL
+
+      SELECT
+        'document' AS item_kind,
+        1 AS item_kind_sort,
+        d.local_id AS item_id,
+        d.document_id AS document_id,
+        d.document_kind AS document_kind,
+        d.title AS name,
+        d.document_kind AS type_sort,
+        d.updated_at AS created_at,
+        d.updated_at AS updated_at
+      FROM document_container_projection linked
+      INNER JOIN document_projection d ON d.document_id = linked.document_id
+      WHERE linked.container_id = ?
+        AND (
+          d.container_id IS NULL
+          OR d.container_id != linked.container_id
+        )
+    )
+    SELECT *
+    FROM container_items
+  `;
+}
+
+function parseExplorerContainerItemDocumentKind(
+  value: unknown,
+): StoredDocumentKind {
+  if (
+    value === "drivers_license" ||
+    value === "credit_card" ||
+    value === "note"
+  ) {
+    return value;
+  }
+
+  return "note";
+}
+
+function readExplorerContainerItemString(
+  row: Record<string, unknown>,
+  key: string,
+): string {
+  const value = row[key];
+  return typeof value === "string" ? value : "";
+}
+
+function readExplorerContainerItemNullableString(
+  row: Record<string, unknown>,
+  key: string,
+): string | null {
+  const value = row[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function readExplorerContainerItemNumber(
+  row: Record<string, unknown>,
+  key: string,
+): number {
+  const value = row[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function mapExplorerContainerItemRow(
+  containerId: string,
+  row: Record<string, unknown>,
+): ExplorerContainerItemRow {
+  const itemKind = readExplorerContainerItemString(row, "item_kind");
+  if (itemKind === "container") {
+    return {
+      createdAt: readExplorerContainerItemNullableString(row, "created_at"),
+      id: readExplorerContainerItemString(row, "item_id"),
+      itemKind: "container",
+      name: readExplorerContainerItemString(row, "name"),
+      updatedAt: readExplorerContainerItemNullableString(row, "updated_at"),
+    };
+  }
+
+  return {
+    containerId,
+    createdAt: readExplorerContainerItemNullableString(row, "created_at"),
+    documentId: readExplorerContainerItemNullableString(row, "document_id"),
+    documentKind: parseExplorerContainerItemDocumentKind(
+      readExplorerContainerItemString(row, "document_kind"),
+    ),
+    itemKind: "document",
+    localId: readExplorerContainerItemString(row, "item_id"),
+    name: readExplorerContainerItemString(row, "name"),
+    updatedAt: readExplorerContainerItemNullableString(row, "updated_at"),
+  };
+}
+
+function readExplorerContainerItemCount(row: Record<string, unknown>): number {
+  return readExplorerContainerItemNumber(row, "total_count");
 }
 
 function addExplorerDocumentSummaries(
@@ -201,6 +408,45 @@ async function listVisibleExplorerDocumentSummaries(
     containerIds: containers.map((container) => container.id),
     documentIds: [],
   });
+}
+
+async function listExplorerContainerItemWindow(
+  execSql: ExecSql,
+  input: {
+    containerId: string;
+    limit: number;
+    offset: number;
+    sort: ExplorerContainerItemSort;
+  },
+): Promise<ExplorerContainerItemWindow> {
+  await ensureContainerTables(execSql);
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+
+  const limit = getExplorerContainerItemWindowLimit(input.limit);
+  const offset = clampExplorerContainerItemWindowValue(input.offset);
+  const bind = [input.containerId, input.containerId, input.containerId];
+  const baseSql = getExplorerContainerItemsBaseSql();
+  const countRows = await execSql(
+    `SELECT COUNT(*) AS total_count FROM (${baseSql})`,
+    bind,
+  );
+  const totalCount = readExplorerContainerItemCount(countRows[0] ?? {});
+
+  if (limit === 0 || offset >= totalCount) {
+    return { rows: [], totalCount };
+  }
+
+  const rows = await execSql(
+    `${baseSql} ORDER BY ${getExplorerContainerItemOrderBy(input.sort)} LIMIT ? OFFSET ?`,
+    [...bind, limit, offset],
+  );
+
+  return {
+    rows: rows.map((row) =>
+      mapExplorerContainerItemRow(input.containerId, row),
+    ),
+    totalCount,
+  };
 }
 
 async function listExplorerDocumentsForContainerSubtree(
@@ -491,6 +737,9 @@ function createExplorerDocumentReadModel(
   return {
     applyContainerDocumentTombstones(tombstones) {
       return applyExplorerContainerDocumentTombstones(execSql, tombstones);
+    },
+    listContainerItemWindow(input) {
+      return listExplorerContainerItemWindow(execSql, input);
     },
     loadContainerDocumentWatermark(containerId) {
       return loadExplorerContainerDocumentWatermark(execSql, containerId);
