@@ -320,6 +320,7 @@ async function createNoteWithAttachment(pane: HTMLElement) {
 }
 
 async function shareContainerWithPeer(pane: HTMLElement, name: string) {
+  const requestStartIndex = listProxiedApiRequests().length;
   await interact(() => {
     fireEvent.contextMenu(getExplorerSidebarItem(pane, name), {
       clientX: 200,
@@ -340,7 +341,15 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
   });
 
   await waitForCondition(
-    () => screen.queryByRole("dialog") === null,
+    () =>
+      listProxiedApiRequests()
+        .slice(requestStartIndex)
+        .some(
+          (request) =>
+            request.method === "POST" &&
+            request.status === 200 &&
+            request.url.endsWith("/share"),
+        ),
     `Container share did not finish.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
 }
@@ -364,10 +373,9 @@ async function shareContainerWithGroup(
     fireEvent.click(getInfoButton);
   });
 
-  const dialog = await screen.findByRole("dialog");
-  const groupSelect = await within(dialog).findByLabelText("Group");
+  const groupSelect = await within(pane).findByLabelText("Group");
   invariant(groupSelect instanceof HTMLSelectElement, "Expected group select.");
-  const permissionSelect = within(dialog).getByLabelText("Permission");
+  const permissionSelect = within(pane).getByLabelText("Permission");
   invariant(
     permissionSelect instanceof HTMLSelectElement,
     "Expected permission select.",
@@ -391,33 +399,35 @@ async function shareContainerWithGroup(
     });
   });
 
-  const shareButton = within(dialog).getByRole("button", { name: "Share" });
+  const shareButton = within(pane).getByRole("button", { name: "Share" });
   await interact(() => {
     fireEvent.click(shareButton);
   });
   await waitFor(() => {
     expect(
-      Array.from(dialog.querySelectorAll("tr")).some((row) => {
+      Array.from(pane.querySelectorAll("tr")).some((row) => {
         const text = row.textContent ?? "";
         return text.includes(groupName) && text.includes(accessLevel);
       }),
     ).toBe(true);
   });
 
-  const cancelButton = within(dialog).getByRole("button", { name: "Cancel" });
+  const backButton = within(pane).getByRole("button", {
+    name: "Back to Container",
+  });
   invariant(
-    cancelButton instanceof HTMLButtonElement,
-    "Expected cancel button.",
+    backButton instanceof HTMLButtonElement,
+    "Expected back to container button.",
   );
   await waitFor(() => {
-    expect(cancelButton.disabled).toBe(false);
+    expect(backButton.disabled).toBe(false);
   });
   await interact(() => {
-    fireEvent.click(cancelButton);
+    fireEvent.click(backButton);
   });
   await waitForCondition(
-    () => screen.queryByRole("dialog") === null,
-    `Container group share dialog did not close.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    () => Boolean(within(pane).queryByRole("button", { name: "New Note" })),
+    `Container group share route did not return to the container.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
 }
 

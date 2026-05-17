@@ -17,14 +17,6 @@ const modalFixtures: ReadonlyArray<{
   title: string;
 }> = [
   {
-    error: "Failed to share container.",
-    log: "Failed to share container:",
-    state: { mode: "container-info", nodeId: "container-1" },
-    submitLabel: "Share",
-    submittingLabel: "Sharing...",
-    title: "Container Info",
-  },
-  {
     error: "Failed to create child container.",
     log: "Failed to create child container:",
     state: { mode: "create-child", nodeId: "container-1" },
@@ -153,42 +145,6 @@ test("submit disabled state enforces mode-specific requirements", () => {
       draftTargetContainerId: "target-container",
       isSubmittingModal: false,
       modalState: { mode: "move-document", documentLocalId: "note-1" },
-      peerUserId: null,
-    }),
-  ).toBe(false);
-
-  expect(
-    isExplorerModalSubmitDisabled({
-      draftName: "",
-      draftShareGroupId: "",
-      draftTargetContainerId: "",
-      isLoadingContainerInfo: false,
-      isSubmittingModal: false,
-      modalState: { mode: "container-info", nodeId: "container-1" },
-      peerUserId: null,
-    }),
-  ).toBe(true);
-
-  expect(
-    isExplorerModalSubmitDisabled({
-      draftName: "",
-      draftShareGroupId: "group-1",
-      draftTargetContainerId: "",
-      isLoadingContainerInfo: true,
-      isSubmittingModal: false,
-      modalState: { mode: "container-info", nodeId: "container-1" },
-      peerUserId: null,
-    }),
-  ).toBe(true);
-
-  expect(
-    isExplorerModalSubmitDisabled({
-      draftName: "",
-      draftShareGroupId: "group-1",
-      draftTargetContainerId: "",
-      isLoadingContainerInfo: false,
-      isSubmittingModal: false,
-      modalState: { mode: "container-info", nodeId: "container-1" },
       peerUserId: null,
     }),
   ).toBe(false);

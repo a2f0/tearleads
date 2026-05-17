@@ -30,6 +30,12 @@
   min-height: 0;
 }
 
+.explorer-detail--container-info {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
 .explorer-detail-header {
   display: flex;
   align-items: flex-start;
@@ -214,10 +220,6 @@
   background: var(--color-light);
   color: inherit;
   box-shadow: 0 0 0 1px var(--color-dark);
-}
-
-.explorer-modal--info {
-  width: min(100%, 34rem);
 }
 
 .explorer-modal-form {

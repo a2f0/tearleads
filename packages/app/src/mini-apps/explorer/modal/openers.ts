@@ -269,16 +269,6 @@ export function useExplorerModalOpeners(params: {
     [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
   );
 
-  const openContainerInfoModal = useCallback(
-    (containerId: string) => {
-      setModalState({ mode: "container-info", nodeId: containerId });
-      setModalError(null);
-      setDraftName("");
-      setDraftTargetContainerId("");
-    },
-    [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
-  );
-
   const openSharePeerModal = useCallback(
     (containerId: string) => {
       setModalState({ mode: "share-peer", nodeId: containerId });
@@ -291,7 +281,6 @@ export function useExplorerModalOpeners(params: {
 
   return {
     ...targetOpeners,
-    openContainerInfoModal,
     openCreateChildModal,
     openDeleteModal,
     openRenameModal,

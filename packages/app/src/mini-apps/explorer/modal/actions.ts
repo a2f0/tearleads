@@ -296,10 +296,6 @@ export async function submitExplorerModalAction(
     return;
   }
 
-  if (params.modalState.mode === "container-info") {
-    return;
-  }
-
   if (
     params.modalState.mode === "create-child" ||
     params.modalState.mode === "rename"
