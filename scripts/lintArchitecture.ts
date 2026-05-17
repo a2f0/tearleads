@@ -22,7 +22,7 @@ const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
 const reactImportPattern =
   /\bfrom\s*["']react(?:\/[^"']*)?["']|\bimport\s*(?:\(\s*)?["']react(?:\/[^"']*)?["']/;
 const appTestHelperImportPattern =
-  /\bfrom\s*["'][^"']*test\/helpers\/|\bimport\s*\(\s*["'][^"']*test\/helpers\//;
+  /\bfrom\s*["'][^"']*test\/helpers\/|\bimport\s*(?:\(\s*)?["'][^"']*test\/helpers\//;
 
 interface SourceMatch {
   filePath: string;
