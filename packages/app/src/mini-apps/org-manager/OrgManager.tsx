@@ -277,16 +277,15 @@ function setLoadingIfManaged(
   }
 }
 
-function directoryLoadOptions(
-  options: DirectoryRefreshOptions,
-): Pick<DirectoryRefreshOptions, "skipNextGroupDetailsEffect"> {
-  if (options.skipNextGroupDetailsEffect === undefined) {
-    return {};
-  }
-
-  return {
-    skipNextGroupDetailsEffect: options.skipNextGroupDetailsEffect,
-  };
+function directoryLoadOptions({
+  skipNextGroupDetailsEffect,
+}: DirectoryRefreshOptions): Pick<
+  DirectoryRefreshOptions,
+  "skipNextGroupDetailsEffect"
+> {
+  return skipNextGroupDetailsEffect === undefined
+    ? {}
+    : { skipNextGroupDetailsEffect };
 }
 
 function canCurrentUserMutateSelectedGroup(input: {
