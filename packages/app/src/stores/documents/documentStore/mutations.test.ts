@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { createDocumentStore } from "../DocumentsProvider";
 import {
   createDocumentStorePersistence,
   createDocumentStoreRuntime,
-} from "./testFixtures";
+} from "../../../../test/helpers/documentStoreFixtures";
+import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { createDocumentStore } from "../DocumentsProvider";
 
 test("document store persists structured field edits as Loro updates", async () => {
   const persistence = createDocumentStorePersistence();

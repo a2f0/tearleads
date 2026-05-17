@@ -1,5 +1,5 @@
-import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
-import type { DocumentSummary } from "../../../data/documentSummary";
+import type { DocumentSummary } from "../../src/data/documentSummary";
+import type { DocumentsRuntime } from "../../src/stores/documents/types";
 import {
   createDocumentsWorkflowRuntime,
   type DocumentRecord,
@@ -8,8 +8,8 @@ import {
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
-} from "../../../workflows/documents";
-import type { DocumentsRuntime } from "../types";
+} from "../../src/workflows/documents";
+import { createMockApiClient } from "./createMockApiClient";
 
 interface StoredDocumentsState {
   document: DocumentRecord | null;
