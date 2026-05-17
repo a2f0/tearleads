@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
 import {
   MiniAppTable,
@@ -22,6 +22,13 @@ import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
 } from "../../../stores/explorer/containerInfo";
+import type {
+  ExplorerContainerItemRow,
+  ExplorerContainerItemSort,
+  ExplorerContainerItemSortDirection,
+  ExplorerContainerItemSortKey,
+  ExplorerDocumentReadModel,
+} from "../../../stores/explorer/documentReadModel";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { DocumentContainerProjection } from "../documentProjections";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
@@ -29,28 +36,102 @@ import type { ExplorerRoute } from "../routes";
 import type { ContainerNode } from "../types";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 
-const EXPLORER_ITEM_TABLE_COLUMNS = [
-  {
-    id: "name",
-    header: EXPLORER_LABELS.itemNameColumn,
-    width: "40%",
-  },
-  {
-    id: "type",
-    header: EXPLORER_LABELS.itemTypeColumn,
-    width: "8rem",
-  },
-  {
-    id: "created",
-    header: EXPLORER_LABELS.dateCreatedColumn,
-    width: "11rem",
-  },
-  {
-    id: "modified",
-    header: EXPLORER_LABELS.dateModifiedColumn,
-    width: "11rem",
-  },
-] satisfies ReadonlyArray<MiniAppTableColumn>;
+const EXPLORER_VIRTUAL_ROW_HEIGHT = 36;
+const EXPLORER_VIRTUAL_OVERSCAN_ROWS = 8;
+const EXPLORER_VIRTUAL_MIN_WINDOW_ROWS = 24;
+
+function getSortAria(
+  sort: ExplorerContainerItemSort,
+  key: ExplorerContainerItemSortKey,
+): MiniAppTableColumn["ariaSort"] {
+  if (sort.key !== key) {
+    return "none";
+  }
+
+  return sort.direction === "asc" ? "ascending" : "descending";
+}
+
+function getNextExplorerItemSort(
+  currentSort: ExplorerContainerItemSort,
+  key: ExplorerContainerItemSortKey,
+): ExplorerContainerItemSort {
+  if (currentSort.key === key) {
+    return {
+      direction: currentSort.direction === "asc" ? "desc" : "asc",
+      key,
+    };
+  }
+
+  return {
+    direction: key === "type" ? "asc" : "desc",
+    key,
+  };
+}
+
+function ExplorerSortableTableHeader(params: {
+  activeDirection: ExplorerContainerItemSortDirection | null;
+  label: string;
+  onClick: () => void;
+}) {
+  const { activeDirection, label, onClick } = params;
+
+  return (
+    <button
+      type="button"
+      className="explorer-table-sort-button"
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="explorer-table-sort-indicator">
+        {activeDirection === "asc"
+          ? "^"
+          : activeDirection === "desc"
+            ? "v"
+            : ""}
+      </span>
+    </button>
+  );
+}
+
+function getExplorerItemTableColumns(params: {
+  onSort: (key: ExplorerContainerItemSortKey) => void;
+  sort: ExplorerContainerItemSort;
+}): ReadonlyArray<MiniAppTableColumn> {
+  const { onSort, sort } = params;
+  const sortableHeader = (key: ExplorerContainerItemSortKey, label: string) => (
+    <ExplorerSortableTableHeader
+      activeDirection={sort.key === key ? sort.direction : null}
+      label={label}
+      onClick={() => onSort(key)}
+    />
+  );
+
+  return [
+    {
+      id: "name",
+      header: EXPLORER_LABELS.itemNameColumn,
+      width: "40%",
+    },
+    {
+      ariaSort: getSortAria(sort, "type"),
+      id: "type",
+      header: sortableHeader("type", EXPLORER_LABELS.itemTypeColumn),
+      width: "8rem",
+    },
+    {
+      ariaSort: getSortAria(sort, "created"),
+      id: "created",
+      header: sortableHeader("created", EXPLORER_LABELS.dateCreatedColumn),
+      width: "11rem",
+    },
+    {
+      ariaSort: getSortAria(sort, "modified"),
+      id: "modified",
+      header: sortableHeader("modified", EXPLORER_LABELS.dateModifiedColumn),
+      width: "11rem",
+    },
+  ];
+}
 
 function getDocumentSummaryKind(
   documentSummary: Pick<DocumentSummary, "documentKind">,
@@ -475,78 +556,198 @@ function ExplorerDocumentDetail(params: {
   );
 }
 
-type ExplorerFolderItemRow =
-  | {
-      createdAt: string | null;
-      id: string;
-      itemKind: "container";
-      name: string;
-      typeLabel: string;
-      updatedAt: string | null;
-    }
-  | {
-      containerId: string;
-      createdAt: string | null;
-      itemKind: "document";
-      localId: string;
-      name: string;
-      typeLabel: string;
-      updatedAt: string | null;
-    };
-
-function compareExplorerFolderItemRows(
-  left: ExplorerFolderItemRow,
-  right: ExplorerFolderItemRow,
-): number {
-  if (left.itemKind !== right.itemKind) {
-    return left.itemKind === "container" ? -1 : 1;
+function getExplorerContainerItemTypeLabel(
+  row: ExplorerContainerItemRow,
+): string {
+  if (row.itemKind === "container") {
+    return EXPLORER_LABELS.folderType;
   }
 
-  const nameComparison = left.name.localeCompare(right.name, undefined, {
-    sensitivity: "base",
-  });
-  if (nameComparison !== 0) {
-    return nameComparison;
-  }
-
-  return left.typeLabel.localeCompare(right.typeLabel, undefined, {
-    sensitivity: "base",
-  });
+  return getStoredDocumentTypeLabel(row.documentKind);
 }
 
-function getExplorerFolderItemRows(params: {
-  documents: ReadonlyArray<DocumentContainerProjection>;
-  nodes: ReadonlyArray<ContainerNode>;
-  selectedNode: ContainerNode;
-}): ExplorerFolderItemRow[] {
-  const { documents, nodes, selectedNode } = params;
-  const childFolderRows = nodes
-    .filter((node) => node.parentId === selectedNode.id)
-    .map<ExplorerFolderItemRow>((node) => ({
-      createdAt: node.createdAt ?? node.updatedAt ?? null,
-      id: node.id,
-      itemKind: "container",
-      name: node.name,
-      typeLabel: EXPLORER_LABELS.folderType,
-      updatedAt: node.updatedAt ?? node.createdAt ?? null,
-    }));
-  const documentRows = documents.map<ExplorerFolderItemRow>((document) => ({
-    containerId: document.containerId,
-    createdAt: document.createdAt,
-    itemKind: "document",
-    localId: document.localId,
-    name: document.title,
-    typeLabel: getStoredDocumentTypeLabel(document.documentKind),
-    updatedAt: document.updatedAt,
-  }));
+function getExplorerContainerItemRowKey(row: ExplorerContainerItemRow): string {
+  return row.itemKind === "container"
+    ? `container:${row.id}`
+    : `document:${row.localId}:${row.containerId}`;
+}
 
-  return [...childFolderRows, ...documentRows].sort(
-    compareExplorerFolderItemRows,
+function useExplorerContainerItemViewport(frameRef: {
+  current: HTMLDivElement | null;
+}) {
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) {
+      return;
+    }
+
+    const handleScroll = () => {
+      setScrollTop(frame.scrollTop);
+    };
+
+    handleScroll();
+    frame.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      frame.removeEventListener("scroll", handleScroll);
+    };
+  }, [frameRef]);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const [entry] = entries;
+      if (entry) {
+        setViewportHeight(entry.contentRect.height);
+      }
+    });
+    resizeObserver.observe(frame);
+    setViewportHeight(frame.clientHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [frameRef]);
+
+  return { scrollTop, setScrollTop, viewportHeight };
+}
+
+function useExplorerContainerItemRange(params: {
+  frameRef: { current: HTMLDivElement | null };
+  resetKey: string;
+}) {
+  const { frameRef, resetKey } = params;
+  const { scrollTop, setScrollTop, viewportHeight } =
+    useExplorerContainerItemViewport(frameRef);
+
+  useEffect(() => {
+    setScrollTop(0);
+    if (frameRef.current) {
+      frameRef.current.scrollTop = 0;
+    }
+  }, [frameRef, resetKey, setScrollTop]);
+
+  const visibleRows = Math.ceil(viewportHeight / EXPLORER_VIRTUAL_ROW_HEIGHT);
+  const offset = Math.max(
+    0,
+    Math.floor(scrollTop / EXPLORER_VIRTUAL_ROW_HEIGHT) -
+      EXPLORER_VIRTUAL_OVERSCAN_ROWS,
   );
+  const limit = Math.max(
+    EXPLORER_VIRTUAL_MIN_WINDOW_ROWS,
+    visibleRows + EXPLORER_VIRTUAL_OVERSCAN_ROWS * 2,
+  );
+
+  return { limit, offset };
+}
+
+function useExplorerContainerItemWindow(params: {
+  documentReadModel: ExplorerDocumentReadModel;
+  enabled: boolean;
+  limit: number;
+  offset: number;
+  reloadKey: unknown;
+  selectedNode: ContainerNode;
+  sort: ExplorerContainerItemSort;
+}) {
+  const {
+    documentReadModel,
+    enabled,
+    limit,
+    offset,
+    reloadKey,
+    selectedNode,
+    sort,
+  } = params;
+  const [state, setState] = useState<{
+    error: string | null;
+    isLoading: boolean;
+    offset: number;
+    rows: ReadonlyArray<ExplorerContainerItemRow>;
+    totalCount: number;
+  }>({
+    error: null,
+    isLoading: false,
+    offset: 0,
+    rows: [],
+    totalCount: 0,
+  });
+
+  useEffect(() => {
+    if (!enabled) {
+      setState({
+        error: null,
+        isLoading: false,
+        offset: 0,
+        rows: [],
+        totalCount: 0,
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setState((current) => ({
+      ...current,
+      error: null,
+      isLoading: true,
+    }));
+
+    void documentReadModel
+      .listContainerItemWindow({
+        containerId: selectedNode.id,
+        limit,
+        offset,
+        sort,
+      })
+      .then((window) => {
+        if (cancelled) {
+          return;
+        }
+
+        setState({
+          error: null,
+          isLoading: false,
+          offset,
+          rows: window.rows,
+          totalCount: window.totalCount,
+        });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        setState((current) => ({
+          ...current,
+          error: error instanceof Error ? error.message : String(error),
+          isLoading: false,
+        }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    documentReadModel,
+    enabled,
+    limit,
+    offset,
+    reloadKey,
+    selectedNode.id,
+    sort,
+  ]);
+
+  return state;
 }
 
 function ExplorerContainerItemName(params: {
-  row: ExplorerFolderItemRow;
+  row: ExplorerContainerItemRow;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }) {
@@ -569,29 +770,59 @@ function ExplorerContainerItemName(params: {
 }
 
 function ExplorerContainerItemTable(params: {
-  rows: ReadonlyArray<ExplorerFolderItemRow>;
+  error: string | null;
+  frameRef: { current: HTMLDivElement | null };
+  isLoading: boolean;
+  onSort: (key: ExplorerContainerItemSortKey) => void;
+  rows: ReadonlyArray<ExplorerContainerItemRow>;
+  rowOffset: number;
   selectedNode: ContainerNode;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
+  sort: ExplorerContainerItemSort;
+  totalCount: number;
 }) {
-  const { rows, selectedNode, selectDocumentProjection, setSelectedId } =
-    params;
+  const {
+    error,
+    frameRef,
+    isLoading,
+    onSort,
+    rows,
+    rowOffset,
+    selectedNode,
+    selectDocumentProjection,
+    setSelectedId,
+    sort,
+    totalCount,
+  } = params;
+  const columns = useMemo(
+    () => getExplorerItemTableColumns({ onSort, sort }),
+    [onSort, sort],
+  );
+  const topPadding = rowOffset * EXPLORER_VIRTUAL_ROW_HEIGHT;
+  const bottomPadding =
+    Math.max(0, totalCount - rowOffset - rows.length) *
+    EXPLORER_VIRTUAL_ROW_HEIGHT;
 
   return (
-    <MiniAppTableFrame className="explorer-item-table-wrap">
+    <MiniAppTableFrame className="explorer-item-table-wrap" ref={frameRef}>
       <MiniAppTable
         aria-label={getExplorerItemTableLabel(selectedNode.name)}
-        columns={EXPLORER_ITEM_TABLE_COLUMNS}
+        columns={columns}
       >
+        {topPadding > 0 ? (
+          <MiniAppTableEmptyRow
+            aria-hidden="true"
+            className="explorer-virtual-spacer-row"
+            colSpan={columns.length}
+            style={{ height: topPadding }}
+          >
+            {""}
+          </MiniAppTableEmptyRow>
+        ) : null}
         {rows.length > 0 ? (
           rows.map((row) => (
-            <MiniAppTableRow
-              key={
-                row.itemKind === "container"
-                  ? `container:${row.id}`
-                  : `document:${row.localId}:${row.containerId}`
-              }
-            >
+            <MiniAppTableRow key={getExplorerContainerItemRowKey(row)}>
               <MiniAppTableCell>
                 <ExplorerContainerItemName
                   row={row}
@@ -599,7 +830,9 @@ function ExplorerContainerItemTable(params: {
                   setSelectedId={setSelectedId}
                 />
               </MiniAppTableCell>
-              <MiniAppTableCell>{row.typeLabel}</MiniAppTableCell>
+              <MiniAppTableCell>
+                {getExplorerContainerItemTypeLabel(row)}
+              </MiniAppTableCell>
               <MiniAppTableCell title={row.createdAt ?? undefined}>
                 {formatMiniAppDateTime(row.createdAt, {
                   emptyFallback: EXPLORER_LABELS.unknownDate,
@@ -612,17 +845,36 @@ function ExplorerContainerItemTable(params: {
               </MiniAppTableCell>
             </MiniAppTableRow>
           ))
-        ) : (
-          <MiniAppTableEmptyRow colSpan={EXPLORER_ITEM_TABLE_COLUMNS.length}>
+        ) : isLoading ? (
+          <MiniAppTableEmptyRow colSpan={columns.length}>
+            Loading...
+          </MiniAppTableEmptyRow>
+        ) : error ? (
+          <MiniAppTableEmptyRow colSpan={columns.length}>
+            {error}
+          </MiniAppTableEmptyRow>
+        ) : totalCount === 0 ? (
+          <MiniAppTableEmptyRow colSpan={columns.length}>
             {EXPLORER_LABELS.itemTableEmpty}
           </MiniAppTableEmptyRow>
-        )}
+        ) : null}
+        {bottomPadding > 0 ? (
+          <MiniAppTableEmptyRow
+            aria-hidden="true"
+            className="explorer-virtual-spacer-row"
+            colSpan={columns.length}
+            style={{ height: bottomPadding }}
+          >
+            {""}
+          </MiniAppTableEmptyRow>
+        ) : null}
       </MiniAppTable>
     </MiniAppTableFrame>
   );
 }
 
 function ExplorerContainerDetail(params: {
+  documentReadModel: ExplorerDocumentReadModel;
   documentsByContainerId: ReadonlyMap<
     string,
     ReadonlyArray<DocumentContainerProjection>
@@ -639,23 +891,39 @@ function ExplorerContainerDetail(params: {
   setSelectedId: (id: string | null) => void;
 }) {
   const {
+    documentReadModel,
     documentsByContainerId,
-    nodes,
     openInlineDocument,
     refreshError,
     selectDocumentProjection,
     selectedNode,
     setSelectedId,
   } = params;
-  const rows = useMemo(
-    () =>
-      getExplorerFolderItemRows({
-        documents: documentsByContainerId.get(selectedNode.id) ?? [],
-        nodes,
-        selectedNode,
-      }),
-    [documentsByContainerId, nodes, selectedNode],
-  );
+  const [sort, setSort] = useState<ExplorerContainerItemSort>({
+    direction: "asc",
+    key: "name",
+  });
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const resetKey = `${selectedNode.id}:${sort.key}:${sort.direction}`;
+  const { limit, offset } = useExplorerContainerItemRange({
+    frameRef,
+    resetKey,
+  });
+  const itemWindow = useExplorerContainerItemWindow({
+    documentReadModel,
+    enabled: true,
+    limit,
+    offset,
+    reloadKey: documentsByContainerId,
+    selectedNode,
+    sort,
+  });
+  const isShowingRequestedWindow = itemWindow.offset === offset;
+  const rows = isShowingRequestedWindow ? itemWindow.rows : [];
+  const rowOffset = isShowingRequestedWindow ? itemWindow.offset : offset;
+  const handleSort = useCallback((key: ExplorerContainerItemSortKey) => {
+    setSort((currentSort) => getNextExplorerItemSort(currentSort, key));
+  }, []);
 
   return (
     <div
@@ -686,10 +954,17 @@ function ExplorerContainerDetail(params: {
         <span className="explorer-detail-error">{refreshError}</span>
       ) : null}
       <ExplorerContainerItemTable
+        error={itemWindow.error}
+        frameRef={frameRef}
+        isLoading={itemWindow.isLoading}
+        onSort={handleSort}
+        rowOffset={rowOffset}
         rows={rows}
         selectedNode={selectedNode}
         selectDocumentProjection={selectDocumentProjection}
         setSelectedId={setSelectedId}
+        sort={sort}
+        totalCount={itemWindow.totalCount}
       />
     </div>
   );
@@ -721,6 +996,7 @@ export function ExplorerDetailPanel(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
+  documentReadModel: ExplorerDocumentReadModel;
   documentsByContainerId: ReadonlyMap<
     string,
     ReadonlyArray<DocumentContainerProjection>

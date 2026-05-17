@@ -8,6 +8,10 @@ import {
 
 export type {
   ExplorerContainerDocumentTombstone,
+  ExplorerContainerItemRow,
+  ExplorerContainerItemSort,
+  ExplorerContainerItemSortDirection,
+  ExplorerContainerItemSortKey,
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
 } from "../../workflows/explorer";

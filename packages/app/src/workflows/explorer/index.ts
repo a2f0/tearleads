@@ -28,6 +28,10 @@ export {
 export {
   createExplorerDocumentReadModelFromRuntime,
   type ExplorerContainerDocumentTombstone,
+  type ExplorerContainerItemRow,
+  type ExplorerContainerItemSort,
+  type ExplorerContainerItemSortDirection,
+  type ExplorerContainerItemSortKey,
   type ExplorerDocumentLinkInput,
   type ExplorerDocumentPrimeHost,
   type ExplorerDocumentPrimeStore,

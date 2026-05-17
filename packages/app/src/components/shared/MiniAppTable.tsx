@@ -5,10 +5,12 @@ import {
   type ReactNode,
   type TableHTMLAttributes,
   type TdHTMLAttributes,
+  type ThHTMLAttributes,
 } from "react";
 import "./MiniAppTable.css";
 
 export interface MiniAppTableColumn {
+  ariaSort?: ThHTMLAttributes<HTMLTableCellElement>["aria-sort"] | undefined;
   className?: string | undefined;
   header: ReactNode;
   id: string;
@@ -68,7 +70,12 @@ export const MiniAppTable = forwardRef<HTMLTableElement, MiniAppTableProps>(
         <thead>
           <tr>
             {columns.map((column) => (
-              <th className={column.className} key={column.id} scope="col">
+              <th
+                aria-sort={column.ariaSort}
+                className={column.className}
+                key={column.id}
+                scope="col"
+              >
                 {column.header}
               </th>
             ))}
