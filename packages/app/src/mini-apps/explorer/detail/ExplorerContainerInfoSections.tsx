@@ -23,6 +23,8 @@ const CONTAINER_INFO_SUBJECT_TYPE_LABELS = {
   user: EXPLORER_LABELS.containerInfoSubjectTypeUser,
 } satisfies Record<ExplorerContainerInfoGrantSubjectType, string>;
 
+const GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET = 16;
+
 function compactPrincipalId(value: string): string {
   if (value.length <= 18) {
     return value;
@@ -69,8 +71,8 @@ function getKeyboardEventPosition(
 ): MiniAppWindowPosition {
   const rect = event.currentTarget.getBoundingClientRect();
   return {
-    x: rect.left + 16,
-    y: rect.top + 16,
+    x: rect.left + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
+    y: rect.top + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
   };
 }
 
@@ -78,8 +80,8 @@ function getMouseEventPosition(
   event: MouseEvent<HTMLTableRowElement>,
 ): MiniAppWindowPosition {
   return {
-    x: event.clientX + 16,
-    y: event.clientY + 16,
+    x: event.clientX + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
+    y: event.clientY + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
   };
 }
 
@@ -187,6 +189,7 @@ function ExplorerContainerInfoGrantList(params: {
                   : undefined
               }
               onKeyDown={isGroupGrant ? handleGrantRowKeyDown : undefined}
+              role={isGroupGrant ? "button" : undefined}
               tabIndex={isGroupGrant ? 0 : undefined}
             >
               <td title={grant.subjectId}>

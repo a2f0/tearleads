@@ -132,9 +132,11 @@ export function MiniAppBusProvider({
 }>) {
   const { bringToFront, create, restore } = useWindowActions();
   const { windows } = useWindowStateData();
+  const windowsRef = useRef(windows);
   const sequenceRef = useRef(0);
   const [latestMessage, setLatestMessage] =
     useState<MiniAppMessageEnvelope | null>(null);
+  windowsRef.current = windows;
 
   const sendMiniAppMessage = useCallback((message: MiniAppMessage) => {
     const sequence = sequenceRef.current + 1;
@@ -154,7 +156,7 @@ export function MiniAppBusProvider({
       message,
       position = DEFAULT_MINI_APP_POSITION,
     }: OpenMiniAppRequest) => {
-      const existingWindow = findTopMiniAppWindow(windows, appId);
+      const existingWindow = findTopMiniAppWindow(windowsRef.current, appId);
 
       if (existingWindow) {
         restore(existingWindow.id);
@@ -176,7 +178,7 @@ export function MiniAppBusProvider({
         sendMiniAppMessage(message);
       }
     },
-    [bringToFront, create, miniApps, restore, sendMiniAppMessage, windows],
+    [bringToFront, create, miniApps, restore, sendMiniAppMessage],
   );
 
   const actions = useMemo(

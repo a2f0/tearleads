@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ComponentType } from "react";
 import { Window } from "../components/window/Window";
 import {
+  useWindowActions,
   useWindowStateData,
   WindowStateProvider,
 } from "../components/window/WindowStateProvider";
@@ -131,4 +132,49 @@ test("mini-app bus opens a target app and delivers route messages", async () => 
     expect(receivedGroupIds).toEqual(["group-1", "group-2"]);
     expect(view.getByTestId("window-count").textContent).toBe("1");
   });
+});
+
+test("mini-app bus action consumers do not re-render on window state changes", () => {
+  let actionRenderCount = 0;
+
+  function ActionConsumer() {
+    actionRenderCount += 1;
+    useMiniAppBusActions();
+
+    return <div data-testid="action-renders">{actionRenderCount}</div>;
+  }
+
+  function CreateWindowButton() {
+    const { create } = useWindowActions();
+
+    return (
+      <button type="button" onClick={() => create("Window", 0, 0)}>
+        Add window
+      </button>
+    );
+  }
+
+  function WindowCounter() {
+    const { windows } = useWindowStateData();
+
+    return <div data-testid="window-count">{windows.length}</div>;
+  }
+
+  const view = render(
+    <WindowStateProvider>
+      <MiniAppBusProvider miniApps={createMiniApps(EmptyMiniApp)}>
+        <ActionConsumer />
+        <CreateWindowButton />
+        <WindowCounter />
+      </MiniAppBusProvider>
+    </WindowStateProvider>,
+  );
+
+  expect(view.getByTestId("action-renders").textContent).toBe("1");
+  expect(view.getByTestId("window-count").textContent).toBe("0");
+
+  fireEvent.click(view.getByRole("button", { name: "Add window" }));
+
+  expect(view.getByTestId("window-count").textContent).toBe("1");
+  expect(view.getByTestId("action-renders").textContent).toBe("1");
 });
