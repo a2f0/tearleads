@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ContainerNode } from "../types";
 
@@ -31,12 +31,12 @@ function useExplorerSelectedId(
       return;
     }
 
-    const selectedMatchesContainer = nodes.some(
-      (node) => node.id === selectedId,
-    );
-    const selectedDocument = documentSummaries.find(
-      (note) => note.id === selectedId,
-    );
+    const selectedMatchesContainer =
+      selectedId !== null && nodes.some((node) => node.id === selectedId);
+    const selectedDocument =
+      selectedId !== null
+        ? documentSummaries.find((note) => note.id === selectedId)
+        : undefined;
     const selectedMatchesNote = selectedDocument !== undefined;
     const selectedMatchesPendingDocument =
       pendingSelectedDocument?.id === selectedId;
@@ -129,9 +129,19 @@ export function useExplorerSelection(
     useExplorerSelectedId(nodes, documentSummaries);
   const { collapsedIds, expandNode, toggleCollapsed } =
     useExplorerCollapsedIds(nodes);
-  const selectedNode = nodes.find((node) => node.id === selectedId);
-  const selectedDocument = documentSummaries.find(
-    (note) => note.id === selectedId,
+  const selectedNode = useMemo(
+    () =>
+      selectedId !== null
+        ? nodes.find((node) => node.id === selectedId)
+        : undefined,
+    [nodes, selectedId],
+  );
+  const selectedDocument = useMemo(
+    () =>
+      selectedId !== null
+        ? documentSummaries.find((note) => note.id === selectedId)
+        : undefined,
+    [documentSummaries, selectedId],
   );
   const selectedPendingDocument =
     pendingSelectedDocument?.id === selectedId ? pendingSelectedDocument : null;
