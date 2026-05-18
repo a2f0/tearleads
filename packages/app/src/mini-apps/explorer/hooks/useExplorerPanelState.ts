@@ -24,6 +24,10 @@ import {
   type ExplorerDocumentModalState,
   useExplorerDocumentModalState,
 } from "./useExplorerDocumentModalState";
+import {
+  type ImportExplorerDroppedFiles,
+  useExplorerDroppedFileImport,
+} from "./useExplorerDroppedFileImport";
 import { type ExplorerRouteState, useExplorerRoute } from "./useExplorerRoute";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 import {
@@ -50,6 +54,7 @@ interface ExplorerContextMenuModel {
 export interface ExplorerPanelState {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   contextMenuState: ExplorerContextMenuModel;
+  importDroppedFiles: ImportExplorerDroppedFiles;
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
   modalState: ExplorerDocumentModalState;
   openInlineDocument: OpenInlineDocument;
@@ -200,9 +205,16 @@ export function useExplorerPanelState(params: {
     mergeDocumentSummary,
     setSelectedId: routeState.selectExplorerItem,
   });
+  const importDroppedFiles = useExplorerDroppedFileImport({
+    appData: explorerDocumentsAppData,
+    documentReadModel,
+    logError: appData.logError,
+    mergeDocumentSummary,
+  });
   return {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedDocument,
     contextMenuState,
+    importDroppedFiles,
     loadContainerInfo,
     modalState,
     openInlineDocument,

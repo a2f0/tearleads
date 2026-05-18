@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type DragEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
 import {
   MiniAppTable,
@@ -30,6 +37,8 @@ import type {
   ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
+import { useExplorerContainerFileDropTarget } from "../hooks/useExplorerContainerFileDropTarget";
+import type { ImportExplorerDroppedFiles } from "../hooks/useExplorerDroppedFileImport";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 import type { ExplorerRoute } from "../routes";
 import type { ContainerNode } from "../types";
@@ -769,8 +778,14 @@ function ExplorerContainerItemName(params: {
 }
 
 function ExplorerContainerItemTable(params: {
+  dragActive: boolean;
   error: string | null;
   frameRef: { current: HTMLDivElement | null };
+  handleDragEnter: (event: DragEvent<HTMLElement>) => void;
+  handleDragLeave: (event: DragEvent<HTMLElement>) => void;
+  handleDragOver: (event: DragEvent<HTMLElement>) => void;
+  handleDrop: (event: DragEvent<HTMLElement>) => void;
+  isImporting: boolean;
   isLoading: boolean;
   onSort: (key: ExplorerContainerItemSortKey) => void;
   rows: ReadonlyArray<ExplorerContainerItemRow>;
@@ -782,8 +797,14 @@ function ExplorerContainerItemTable(params: {
   totalCount: number;
 }) {
   const {
+    dragActive,
     error,
     frameRef,
+    handleDragEnter,
+    handleDragLeave,
+    handleDragOver,
+    handleDrop,
+    isImporting,
     isLoading,
     onSort,
     rows,
@@ -804,7 +825,17 @@ function ExplorerContainerItemTable(params: {
     EXPLORER_VIRTUAL_ROW_HEIGHT;
 
   return (
-    <MiniAppTableFrame className="explorer-item-table-wrap" ref={frameRef}>
+    <MiniAppTableFrame
+      aria-busy={isImporting}
+      className={`explorer-item-table-wrap${
+        dragActive ? " explorer-item-table-wrap--drop-active" : ""
+      }`}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      ref={frameRef}
+    >
       <MiniAppTable
         aria-label={getExplorerItemTableLabel(selectedNode.name)}
         columns={columns}
@@ -875,6 +906,7 @@ function ExplorerContainerItemTable(params: {
 function ExplorerContainerDetail(params: {
   documentListRevision: number;
   documentReadModel: ExplorerDocumentReadModel;
+  importDroppedFiles: ImportExplorerDroppedFiles;
   nodes: ReadonlyArray<ContainerNode>;
   openInlineDocument: (
     containerId: string,
@@ -889,6 +921,7 @@ function ExplorerContainerDetail(params: {
   const {
     documentListRevision,
     documentReadModel,
+    importDroppedFiles,
     openInlineDocument,
     refreshError,
     selectDocumentProjection,
@@ -920,6 +953,10 @@ function ExplorerContainerDetail(params: {
   const handleSort = useCallback((key: ExplorerContainerItemSortKey) => {
     setSort((currentSort) => getNextExplorerItemSort(currentSort, key));
   }, []);
+  const fileDropTarget = useExplorerContainerFileDropTarget({
+    importDroppedFiles,
+    selectedNode,
+  });
 
   return (
     <div
@@ -949,9 +986,26 @@ function ExplorerContainerDetail(params: {
       {refreshError ? (
         <span className="explorer-detail-error">{refreshError}</span>
       ) : null}
+      {fileDropTarget.importStatus ? (
+        <span
+          className={`explorer-file-import-status${
+            fileDropTarget.importStatusIsError
+              ? " explorer-file-import-status--error"
+              : ""
+          }`}
+        >
+          {fileDropTarget.importStatus}
+        </span>
+      ) : null}
       <ExplorerContainerItemTable
+        dragActive={fileDropTarget.dragActive}
         error={itemWindow.error}
         frameRef={frameRef}
+        handleDragEnter={fileDropTarget.handleDragEnter}
+        handleDragLeave={fileDropTarget.handleDragLeave}
+        handleDragOver={fileDropTarget.handleDragOver}
+        handleDrop={fileDropTarget.handleDrop}
+        isImporting={fileDropTarget.isImporting}
         isLoading={itemWindow.isLoading}
         onSort={handleSort}
         rowOffset={rowOffset}
@@ -994,6 +1048,7 @@ export function ExplorerDetailPanel(params: {
   canUnlinkSelectedDocument: boolean;
   documentListRevision: number;
   documentReadModel: ExplorerDocumentReadModel;
+  importDroppedFiles: ImportExplorerDroppedFiles;
   linkedContainerIds: ReadonlyArray<string>;
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
   nodes: ReadonlyArray<ContainerNode>;

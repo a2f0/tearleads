@@ -76,6 +76,19 @@
   flex: 1;
 }
 
+.explorer-item-table-wrap--drop-active {
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.explorer-file-import-status {
+  font-size: var(--font-size-sm);
+  opacity: 0.8;
+}
+
+.explorer-file-import-status--error {
+  opacity: 1;
+}
+
 .explorer-inline-note {
   flex: 1;
   min-height: 0;
