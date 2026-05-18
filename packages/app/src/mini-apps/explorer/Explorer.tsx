@@ -9,8 +9,6 @@ import { useExplorerModel } from "./hooks/useExplorerModel";
 import { ExplorerModalLayer } from "./modal/ExplorerModal";
 import "./Explorer.css";
 
-export { buildDocumentsByContainerId } from "./documentProjections";
-
 export function Explorer() {
   const appData = useAppData();
   const explorer = useExplorer();

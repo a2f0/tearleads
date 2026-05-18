@@ -67,7 +67,6 @@ function createDocumentReadModel(
     loadContainerDocumentWatermark: async () => null,
     loadDocumentSummary: async () => null,
     listLinkedContainerIdsByDocumentIds: async () => new Map(),
-    listVisibleDocumentSummaries: async () => [],
     replaceDocumentLinks: async () => undefined,
     replaceDocumentLinksBatch: async () => undefined,
     saveContainerDocumentWatermark: async () => undefined,

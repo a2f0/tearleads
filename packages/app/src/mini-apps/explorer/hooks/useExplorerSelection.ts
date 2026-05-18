@@ -2,32 +2,79 @@ import { useCallback, useEffect, useState } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ContainerNode } from "../types";
 
-export function useExplorerSelection(
+interface PendingSelectedDocument {
+  containerId: string;
+  id: string;
+}
+
+function useExplorerSelectedId(
   nodes: ReadonlyArray<ContainerNode>,
   documentSummaries: ReadonlyArray<DocumentSummary>,
 ) {
-  const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pendingSelectedDocument, setPendingSelectedDocument] =
+    useState<PendingSelectedDocument | null>(null);
+
+  const selectItem = useCallback((id: string | null) => {
+    setPendingSelectedDocument(null);
+    setSelectedId(id);
+  }, []);
+
+  const selectDocument = useCallback((id: string, containerId: string) => {
+    setPendingSelectedDocument({ containerId, id });
+    setSelectedId(id);
+  }, []);
 
   useEffect(() => {
     if (nodes.length === 0) {
-      setSelectedId(null);
+      selectItem(null);
       return;
     }
 
     const selectedMatchesContainer = nodes.some(
       (node) => node.id === selectedId,
     );
-    const selectedMatchesNote = documentSummaries.some(
+    const selectedDocument = documentSummaries.find(
       (note) => note.id === selectedId,
     );
-
-    if (!selectedId || (!selectedMatchesContainer && !selectedMatchesNote)) {
-      setSelectedId(nodes[0]?.id ?? null);
+    const selectedMatchesNote = selectedDocument !== undefined;
+    const selectedMatchesPendingDocument =
+      pendingSelectedDocument?.id === selectedId;
+    if (
+      selectedMatchesPendingDocument &&
+      selectedDocument?.containerId === pendingSelectedDocument?.containerId
+    ) {
+      setPendingSelectedDocument(null);
     }
-  }, [nodes, documentSummaries, selectedId]);
+
+    if (
+      !selectedId ||
+      (!selectedMatchesContainer &&
+        !selectedMatchesNote &&
+        !selectedMatchesPendingDocument)
+    ) {
+      selectItem(nodes[0]?.id ?? null);
+    }
+  }, [
+    documentSummaries,
+    nodes,
+    pendingSelectedDocument,
+    selectItem,
+    selectedId,
+  ]);
+
+  return {
+    pendingSelectedDocument,
+    selectDocument,
+    selectedId,
+    setSelectedId: selectItem,
+  };
+}
+
+function useExplorerCollapsedIds(nodes: ReadonlyArray<ContainerNode>) {
+  const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     setCollapsedIds((currentIds) => {
@@ -71,19 +118,36 @@ export function useExplorerSelection(
     });
   }, []);
 
+  return { collapsedIds, expandNode, toggleCollapsed };
+}
+
+export function useExplorerSelection(
+  nodes: ReadonlyArray<ContainerNode>,
+  documentSummaries: ReadonlyArray<DocumentSummary>,
+) {
+  const { pendingSelectedDocument, selectDocument, selectedId, setSelectedId } =
+    useExplorerSelectedId(nodes, documentSummaries);
+  const { collapsedIds, expandNode, toggleCollapsed } =
+    useExplorerCollapsedIds(nodes);
   const selectedNode = nodes.find((node) => node.id === selectedId);
   const selectedDocument = documentSummaries.find(
     (note) => note.id === selectedId,
   );
+  const selectedPendingDocument =
+    pendingSelectedDocument?.id === selectedId ? pendingSelectedDocument : null;
 
   return {
     activeContainerId:
-      selectedDocument?.containerId ?? selectedNode?.id ?? null,
+      selectedPendingDocument?.containerId ??
+      selectedDocument?.containerId ??
+      selectedNode?.id ??
+      null,
     collapsedIds,
     expandNode,
     selectedId,
     selectedNode,
     selectedDocument,
+    selectDocument,
     setSelectedId,
     toggleCollapsed,
   };

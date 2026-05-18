@@ -154,9 +154,17 @@ export function useExplorerPanelState(params: {
     setLinkedContainerIdsForDocument,
     selectedDocument: selection.selectedDocument,
   });
+  const selectDocument = useCallback(
+    (noteId: string, containerId: string) => {
+      selection.selectDocument(noteId, containerId);
+      routeState.showSelectionRoute();
+    },
+    [routeState.showSelectionRoute, selection.selectDocument],
+  );
   const selectDocumentProjection = useSelectDocumentProjection({
     activateLinkedDocument: selectedNoteStructuralState.activateLinkedDocument,
     loadDocumentSummary,
+    selectDocument,
     setSelectedId: routeState.selectExplorerItem,
   });
   useExplorerSidebarPanel({
