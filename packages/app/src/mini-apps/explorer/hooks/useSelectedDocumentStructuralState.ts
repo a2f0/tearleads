@@ -154,24 +154,42 @@ export function useSelectDocumentProjection(params: {
     containerId: string,
   ) => Promise<DocumentSummary | null>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  selectDocument: (id: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }) {
-  const { activateLinkedDocument, loadDocumentSummary, setSelectedId } = params;
+  const {
+    activateLinkedDocument,
+    loadDocumentSummary,
+    selectDocument,
+    setSelectedId,
+  } = params;
 
   return useCallback(
     (noteId: string, containerId: string) => {
-      setSelectedId(noteId);
+      selectDocument(noteId, containerId);
       void (async () => {
         const existingDocument = await loadDocumentSummary(noteId);
         if (!existingDocument) {
+          setSelectedId(containerId);
           return;
         }
 
         if (existingDocument.containerId !== containerId) {
-          await activateLinkedDocument(noteId, containerId);
+          const activatedDocument = await activateLinkedDocument(
+            noteId,
+            containerId,
+          );
+          if (!activatedDocument) {
+            setSelectedId(noteId);
+          }
         }
       })();
     },
-    [activateLinkedDocument, loadDocumentSummary, setSelectedId],
+    [
+      activateLinkedDocument,
+      loadDocumentSummary,
+      selectDocument,
+      setSelectedId,
+    ],
   );
 }

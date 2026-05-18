@@ -120,9 +120,6 @@ export interface ExplorerDocumentReadModel {
   loadContainerDocumentWatermark(
     containerId: string,
   ): Promise<SyncWatermark | null>;
-  listVisibleDocumentSummaries(
-    containers: ReadonlyArray<{ id: string }>,
-  ): Promise<ReadonlyArray<DocumentSummary>>;
   listLinkedContainerIdsByDocumentIds(
     documentIds: ReadonlyArray<string>,
   ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
@@ -502,18 +499,6 @@ async function listExplorerDocumentSummariesByContainerIdsOrDocumentIds(
   return Array.from(documentSummariesById.values()).sort(
     compareExplorerDocumentSummaries,
   );
-}
-
-async function listVisibleExplorerDocumentSummaries(
-  execSql: ExecSql,
-  containers: ReadonlyArray<{ id: string }>,
-): Promise<ReadonlyArray<DocumentSummary>> {
-  await sqlDocumentsPersistence.ensureSchema(execSql);
-
-  return listExplorerDocumentSummariesByContainerIdsOrDocumentIds(execSql, {
-    containerIds: containers.map((container) => container.id),
-    documentIds: [],
-  });
 }
 
 async function listExplorerContainerItemWindow(
@@ -919,9 +904,6 @@ function createExplorerDocumentReadModel(
     },
     loadContainerDocumentWatermark(containerId) {
       return loadExplorerContainerDocumentWatermark(execSql, containerId);
-    },
-    listVisibleDocumentSummaries(containers) {
-      return listVisibleExplorerDocumentSummaries(execSql, containers);
     },
     listLinkedContainerIdsByDocumentIds(documentIds) {
       return listExplorerLinkedContainerIdsByDocumentIds(execSql, documentIds);

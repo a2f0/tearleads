@@ -51,7 +51,6 @@ function createDocumentReadModel(): ExplorerDocumentReadModel {
     loadDocumentSummary: async () => null,
     loadContainerDocumentWatermark: async () => null,
     listLinkedContainerIdsByDocumentIds: async () => new Map(),
-    listVisibleDocumentSummaries: async () => [],
     replaceDocumentLinks: async () => undefined,
     replaceDocumentLinksBatch: async () => undefined,
     saveContainerDocumentWatermark: async () => undefined,

@@ -21,6 +21,7 @@ function createDocumentSummary(
 }
 
 test("document projection selection updates immediately before async lookup", async () => {
+  const selectedDocuments: Array<{ containerId: string; id: string }> = [];
   const selectedIds: Array<string | null> = [];
   const activationCalls: Array<{ containerId: string; noteId: string }> = [];
   let resolveDocument: ((value: DocumentSummary | null) => void) | undefined;
@@ -28,12 +29,15 @@ test("document projection selection updates immediately before async lookup", as
     useSelectDocumentProjection({
       activateLinkedDocument: async (noteId, containerId) => {
         activationCalls.push({ containerId, noteId });
-        return null;
+        return createDocumentSummary({ containerId });
       },
       loadDocumentSummary: async () =>
         new Promise<DocumentSummary | null>((resolve) => {
           resolveDocument = resolve;
         }),
+      selectDocument: (id, containerId) => {
+        selectedDocuments.push({ containerId, id });
+      },
       setSelectedId: (id) => {
         selectedIds.push(id);
       },
@@ -44,7 +48,10 @@ test("document projection selection updates immediately before async lookup", as
     result.current("document-1", "linked-container");
   });
 
-  expect(selectedIds).toEqual(["document-1"]);
+  expect(selectedDocuments).toEqual([
+    { containerId: "linked-container", id: "document-1" },
+  ]);
+  expect(selectedIds).toEqual([]);
   expect(activationCalls).toEqual([]);
 
   resolveDocument?.(createDocumentSummary());
