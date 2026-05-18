@@ -1,3 +1,4 @@
+export { getOrganizationDataUsage } from "./dataUsage";
 export { listOrganizationDirectory } from "./directory";
 export { listOrganizationContainerGrants } from "./grants";
 export {

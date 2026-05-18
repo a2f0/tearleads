@@ -26,6 +26,7 @@ import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   type OrgManagerContainerGrant,
   type OrgManagerContainerGrants,
+  type OrgManagerDataUsage,
   type OrgManagerDirectory,
   type OrgManagerDirectoryUser,
   type OrgManagerGroupContainer,
@@ -37,6 +38,7 @@ import {
   type OrgManagerUserRecipient,
   useOrgManagerActions,
 } from "../../stores/org-manager/OrgManagerProvider";
+import { formatByteLength } from "../../utils/formatByteLength";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import { useMiniAppMessage } from "../bus";
 import { useOrgManagerRoute } from "./hooks/useOrgManagerRoute";
@@ -245,6 +247,11 @@ type GroupDetailsRefreshOptions = {
 };
 
 type GrantsRefreshOptions = {
+  clearError?: boolean;
+  manageLoading?: boolean;
+};
+
+type DataUsageRefreshOptions = {
   clearError?: boolean;
   manageLoading?: boolean;
 };
@@ -863,6 +870,103 @@ function DirectoryView({
   );
 }
 
+function getUsageCountLabel(
+  count: number,
+  singular: string,
+  plural: string,
+): string {
+  return `${count.toLocaleString()} ${count === 1 ? singular : plural}`;
+}
+
+function UsageMetric({
+  byteLength,
+  detail,
+  label,
+}: {
+  byteLength: number;
+  detail: string;
+  label: string;
+}) {
+  return (
+    <MiniAppRow className="org-manager-usage-row" density="roomy">
+      <MiniAppRowStack>
+        <strong>{label}</strong>
+        <MiniAppRowText muted>{detail}</MiniAppRowText>
+      </MiniAppRowStack>
+      <strong
+        title={`${byteLength.toLocaleString()} ${ORG_MANAGER_LABELS.usageBytesUnit}`}
+      >
+        {formatByteLength(byteLength)}
+      </strong>
+    </MiniAppRow>
+  );
+}
+
+function DataUsageView({
+  dataUsage,
+  loading,
+}: {
+  dataUsage: OrgManagerDataUsage | null;
+  loading: boolean;
+}) {
+  if (!dataUsage) {
+    return (
+      <div className="org-manager-hint">
+        {loading
+          ? ORG_MANAGER_LABELS.loadingDataUsage
+          : ORG_MANAGER_LABELS.usageUnavailable}
+      </div>
+    );
+  }
+
+  return (
+    <div className="org-manager-usage">
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.organizationDataUsage}
+        </div>
+        <UsageMetric
+          byteLength={dataUsage.totalByteLength}
+          detail={ORG_MANAGER_LABELS.usageData}
+          label={ORG_MANAGER_LABELS.usageTotal}
+        />
+      </section>
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.usageDocuments}
+        </div>
+        <UsageMetric
+          byteLength={dataUsage.documents.byteLength}
+          detail={`${getUsageCountLabel(
+            dataUsage.documents.documentCount,
+            ORG_MANAGER_LABELS.usageDocument,
+            ORG_MANAGER_LABELS.usageDocumentsUnit,
+          )}, ${getUsageCountLabel(
+            dataUsage.documents.updateCount,
+            ORG_MANAGER_LABELS.usageUpdate,
+            ORG_MANAGER_LABELS.usageUpdatesUnit,
+          )}`}
+          label={ORG_MANAGER_LABELS.usageDocuments}
+        />
+      </section>
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.usageBlobs}
+        </div>
+        <UsageMetric
+          byteLength={dataUsage.blobs.byteLength}
+          detail={getUsageCountLabel(
+            dataUsage.blobs.blobCount,
+            ORG_MANAGER_LABELS.usageBlob,
+            ORG_MANAGER_LABELS.usageBlobsUnit,
+          )}
+          label={ORG_MANAGER_LABELS.usageBlobs}
+        />
+      </section>
+    </div>
+  );
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The mini-app shell coordinates shared async state across the directory and group panes.
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The mini-app shell coordinates shared async state across the directory and group panes.
 export function OrgManager() {
@@ -886,6 +990,7 @@ export function OrgManager() {
   const [groupContainers, setGroupContainers] =
     useState<OrgManagerGroupContainers | null>(null);
   const [grants, setGrants] = useState<OrgManagerContainerGrants | null>(null);
+  const [dataUsage, setDataUsage] = useState<OrgManagerDataUsage | null>(null);
   const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
     null,
   );
@@ -953,6 +1058,7 @@ export function OrgManager() {
     setMembers(null);
     setGroupContainers(null);
     setGrants(null);
+    setDataUsage(null);
     selectUser(null);
     selectGroup(null);
   }, [selectGroup, selectUser]);
@@ -1098,6 +1204,37 @@ export function OrgManager() {
     [canLoadAuthenticatedOrgData, orgManagerActions],
   );
 
+  const refreshDataUsage = useCallback(
+    async (options: DataUsageRefreshOptions = {}) => {
+      const { shouldClearError, shouldManageLoading } =
+        getRefreshBehavior(options);
+      if (!canLoadAuthenticatedOrgData) {
+        setDataUsage(null);
+        return;
+      }
+
+      setLoadingIfManaged(shouldManageLoading, setLoading, true);
+      clearErrorIfRequested(shouldClearError, setError);
+
+      try {
+        const nextUsage = await orgManagerActions.loadDataUsage();
+        if (nextUsage === null) {
+          setDataUsage(null);
+          setError(ORG_MANAGER_LABELS.failedLoadDataUsage);
+          return;
+        }
+
+        setDataUsage(nextUsage);
+      } catch (nextError) {
+        setDataUsage(null);
+        setUnknownError(setError, nextError);
+      } finally {
+        setLoadingIfManaged(shouldManageLoading, setLoading, false);
+      }
+    },
+    [canLoadAuthenticatedOrgData, orgManagerActions],
+  );
+
   const refreshSelectedUserDetail = useCallback(
     async (userId: string | null, options: GroupDetailsRefreshOptions = {}) => {
       const shouldClearError = options.clearError ?? true;
@@ -1144,6 +1281,10 @@ export function OrgManager() {
           clearError: false,
           manageLoading: false,
         }),
+        refreshDataUsage({
+          clearError: false,
+          manageLoading: false,
+        }),
       ]);
       if (refreshedDirectory.didLoad) {
         await refreshSelectedGroupDetails(refreshedDirectory.groupId, {
@@ -1157,6 +1298,7 @@ export function OrgManager() {
       setLoading(false);
     }
   }, [
+    refreshDataUsage,
     refreshDirectoryAndGroups,
     refreshGrants,
     refreshSelectedGroupDetails,
@@ -1385,6 +1527,8 @@ export function OrgManager() {
             loading={loading}
             openGroupRoute={openGroupRoute}
           />
+        ) : view === "usage" ? (
+          <DataUsageView dataUsage={dataUsage} loading={loading} />
         ) : (
           <div className="org-manager-groups">
             <section className="org-manager-panel">

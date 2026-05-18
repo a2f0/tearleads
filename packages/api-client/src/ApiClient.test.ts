@@ -640,6 +640,21 @@ test("uses organization manager and principal policy route namespaces", async ()
           users: [],
         });
       }
+      if (request.url.endsWith("/data-usage")) {
+        return HttpResponse.json({
+          organizationId: "org-1",
+          blobs: {
+            blobCount: 2,
+            byteLength: 96,
+          },
+          documents: {
+            byteLength: 32,
+            documentCount: 1,
+            updateCount: 2,
+          },
+          totalByteLength: 128,
+        });
+      }
       if (request.url.endsWith("/members")) {
         return HttpResponse.json({
           organizationId: "org-1",
@@ -779,6 +794,7 @@ test("uses organization manager and principal policy route namespaces", async ()
   const envelopeRequest = createPrincipalMemberEnvelopesRequest();
 
   expect(await client.listOrganizationDirectory("org-1")).not.toBeNull();
+  expect(await client.getOrganizationDataUsage("org-1")).not.toBeNull();
   expect(await client.listOrganizationGroups("org-1")).not.toBeNull();
   expect(await client.listOrganizationContainerGrants("org-1")).not.toBeNull();
   expect(
@@ -814,6 +830,11 @@ test("uses organization manager and principal policy route namespaces", async ()
     {
       body: null,
       input: `${apiBaseUrl}/organizations/org-1/directory`,
+      method: "GET",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/data-usage`,
       method: "GET",
     },
     {

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
+import { createOrganizationDataUsageRoute } from "./dataUsage";
 import { createOrganizationDirectoryRoute } from "./directory";
 import { createOrganizationGrantsRoute } from "./grants";
 import { createOrganizationGroupsRoute } from "./groups";
@@ -10,6 +11,7 @@ import { createOrganizationUsersRoute } from "./users";
 export function createOrganizationsRouter(deps: OrganizationsRouterDeps) {
   const organizationsRouter = new Hono<SessionEnv>();
 
+  organizationsRouter.route("/", createOrganizationDataUsageRoute(deps));
   organizationsRouter.route("/", createOrganizationDirectoryRoute(deps));
   organizationsRouter.route("/", createOrganizationGrantsRoute(deps));
   organizationsRouter.route("/", createOrganizationGroupsRoute(deps));

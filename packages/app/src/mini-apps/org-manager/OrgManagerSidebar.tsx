@@ -42,6 +42,13 @@ function OrgManagerSidebar({
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.grants}</MiniAppRowText>
       </MiniAppRowButton>
+      <MiniAppRowButton
+        className="org-manager-nav"
+        onClick={() => setView("usage")}
+        selected={view === "usage"}
+      >
+        <MiniAppRowText>{ORG_MANAGER_LABELS.usage}</MiniAppRowText>
+      </MiniAppRowButton>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   saveContainer,
 } from "../../data/persistence/containers/containerPersistence";
 import {
+  loadOrgManagerDataUsage,
   loadOrgManagerDirectoryAndGroups,
   loadOrgManagerGrants,
   loadOrgManagerGroupDetails,
@@ -89,6 +90,20 @@ const grants: OrganizationContainerGrantsResponse = {
       organizationName: null,
     },
   ],
+};
+
+const dataUsage = {
+  organizationId,
+  blobs: {
+    blobCount: 2,
+    byteLength: 96,
+  },
+  documents: {
+    byteLength: 32,
+    documentCount: 1,
+    updateCount: 2,
+  },
+  totalByteLength: 128,
 };
 
 const containersWithMissingDisplayNames = {
@@ -217,6 +232,22 @@ test("loadOrgManagerGrants forwards organization grant enumeration", async () =>
 
   expect(calls).toEqual(["grants:org-1"]);
   expect(result).toEqual(grantsWithMissingDisplayNames);
+});
+
+test("loadOrgManagerDataUsage forwards organization usage summary", async () => {
+  const calls: string[] = [];
+  const result = await loadOrgManagerDataUsage({
+    apiClient: {
+      getOrganizationDataUsage: async (nextOrganizationId) => {
+        calls.push(`usage:${nextOrganizationId}`);
+        return dataUsage;
+      },
+    },
+    organizationId,
+  });
+
+  expect(calls).toEqual(["usage:org-1"]);
+  expect(result).toEqual(dataUsage);
 });
 
 test("loadOrgManagerUserDetail forwards user detail", async () => {

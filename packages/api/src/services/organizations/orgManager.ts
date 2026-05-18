@@ -2,6 +2,7 @@ import type { CreateOrganizationGroupRequest } from "@tearleads/validators/reque
 import type {
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantsResponse,
+  OrganizationDataUsageResponse,
   OrganizationDirectoryResponse,
   OrganizationGroupContainersResponse,
   OrganizationGroupMembersResponse,
@@ -11,6 +12,7 @@ import type {
 import {
   OrganizationManagerError,
   runCreateOrganizationGroupWorkflow,
+  runGetOrganizationDataUsageWorkflow,
   runGetOrganizationUserDetailWorkflow,
   runListOrganizationContainerGrantsWorkflow,
   runListOrganizationDirectoryWorkflow,
@@ -52,6 +54,18 @@ export async function listOrganizationContainerGrants(
   sessionUserId: string,
 ): Promise<OrganizationContainerGrantsResponse> {
   return runListOrganizationContainerGrantsWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
+}
+
+export async function getOrganizationDataUsage(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+): Promise<OrganizationDataUsageResponse> {
+  return runGetOrganizationDataUsageWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,

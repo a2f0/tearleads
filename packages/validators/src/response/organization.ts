@@ -107,6 +107,24 @@ export interface OrganizationContainerGrantsResponse {
   grants: OrganizationContainerGrantResponse[];
 }
 
+export interface OrganizationDocumentDataUsageResponse {
+  byteLength: number;
+  documentCount: number;
+  updateCount: number;
+}
+
+export interface OrganizationBlobDataUsageResponse {
+  blobCount: number;
+  byteLength: number;
+}
+
+export interface OrganizationDataUsageResponse {
+  organizationId: string;
+  blobs: OrganizationBlobDataUsageResponse;
+  documents: OrganizationDocumentDataUsageResponse;
+  totalByteLength: number;
+}
+
 export interface OrganizationUserDetailGrantsResponse {
   directGrants: OrganizationContainerGrantResponse[];
   groupGrants: OrganizationContainerGrantResponse[];
@@ -313,6 +331,55 @@ export function isOrganizationContainerGrantsResponse(
     hasStringProperty(value, "organizationId") &&
     hasArrayProperty(value, "grants") &&
     value.grants.every(isOrganizationContainerGrantResponse)
+  );
+}
+
+function isNonNegativeIntegerProperty(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  const property = Reflect.get(value, key);
+
+  return (
+    typeof property === "number" && Number.isInteger(property) && property >= 0
+  );
+}
+
+function isOrganizationDocumentDataUsageResponse(
+  value: unknown,
+): value is OrganizationDocumentDataUsageResponse {
+  return (
+    isPlainObject(value) &&
+    isNonNegativeIntegerProperty(value, "byteLength") &&
+    isNonNegativeIntegerProperty(value, "documentCount") &&
+    isNonNegativeIntegerProperty(value, "updateCount")
+  );
+}
+
+function isOrganizationBlobDataUsageResponse(
+  value: unknown,
+): value is OrganizationBlobDataUsageResponse {
+  return (
+    isPlainObject(value) &&
+    isNonNegativeIntegerProperty(value, "blobCount") &&
+    isNonNegativeIntegerProperty(value, "byteLength")
+  );
+}
+
+export function isOrganizationDataUsageResponse(
+  value: unknown,
+): value is OrganizationDataUsageResponse {
+  const blobs = isPlainObject(value) ? Reflect.get(value, "blobs") : undefined;
+  const documents = isPlainObject(value)
+    ? Reflect.get(value, "documents")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "organizationId") &&
+    isOrganizationBlobDataUsageResponse(blobs) &&
+    isOrganizationDocumentDataUsageResponse(documents) &&
+    isNonNegativeIntegerProperty(value, "totalByteLength")
   );
 }
 

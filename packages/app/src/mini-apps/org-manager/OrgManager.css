@@ -161,6 +161,23 @@
   margin-top: 0;
 }
 
+.org-manager-usage .org-manager-detail-section:first-child {
+  margin-top: 0;
+}
+
+.org-manager-usage-row {
+  justify-content: space-between;
+}
+
+.org-manager-usage-row .mini-app-row-stack {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.org-manager-usage-row > strong {
+  flex: 0 0 auto;
+}
+
 .org-manager-grant-row--interactive {
   cursor: pointer;
 }

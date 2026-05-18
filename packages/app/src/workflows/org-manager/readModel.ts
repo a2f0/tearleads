@@ -2,6 +2,7 @@ import type {
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantResponse,
   OrganizationContainerGrantsResponse,
+  OrganizationDataUsageResponse,
   OrganizationDirectoryResponse,
   OrganizationDirectoryUserResponse,
   OrganizationGroupContainerResponse,
@@ -15,6 +16,7 @@ import { loadContainerDisplayNamesByIds } from "../../data/persistence/container
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export type OrgManagerDirectory = OrganizationDirectoryResponse;
+export type OrgManagerDataUsage = OrganizationDataUsageResponse;
 export type OrgManagerDirectoryUser = OrganizationDirectoryUserResponse;
 export type OrgManagerGroupContainer = OrganizationGroupContainerResponse & {
   readonly containerDisplayName: string | null;
@@ -62,6 +64,9 @@ interface OrgManagerReadApi {
   readonly listOrganizationContainerGrants: (
     organizationId: string,
   ) => Promise<OrganizationContainerGrantsResponse | null>;
+  readonly getOrganizationDataUsage: (
+    organizationId: string,
+  ) => Promise<OrganizationDataUsageResponse | null>;
   readonly getOrganizationUserDetail: (
     organizationId: string,
     userId: string,
@@ -153,6 +158,13 @@ export async function loadOrgManagerGrants(input: {
     ...grants,
     grants: withContainerDisplayNames(grants.grants, displayNamesById),
   };
+}
+
+export async function loadOrgManagerDataUsage(input: {
+  readonly apiClient: Pick<OrgManagerReadApi, "getOrganizationDataUsage">;
+  readonly organizationId: string;
+}): Promise<OrgManagerDataUsage | null> {
+  return input.apiClient.getOrganizationDataUsage(input.organizationId);
 }
 
 export async function loadOrgManagerUserDetail(input: {

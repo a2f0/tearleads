@@ -8,12 +8,14 @@ export {
   removeOrgManagerGroupUser,
 } from "./principalPolicy";
 export {
+  loadOrgManagerDataUsage,
   loadOrgManagerDirectoryAndGroups,
   loadOrgManagerGrants,
   loadOrgManagerGroupDetails,
   loadOrgManagerUserDetail,
   type OrgManagerContainerGrant,
   type OrgManagerContainerGrants,
+  type OrgManagerDataUsage,
   type OrgManagerDirectory,
   type OrgManagerDirectoryAndGroups,
   type OrgManagerDirectoryUser,

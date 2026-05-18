@@ -1,15 +1,18 @@
 import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
+  CONTENT_RECORD_ENCRYPTION_SUITE,
   generateKemSeedAndKeyPair,
   normalizePrincipalProjectionMembers,
   toFingerprint,
+  type WriteHeader,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isListOrganizationGroupsResponse,
   isOrganizationContainerGrantsResponse,
+  isOrganizationDataUsageResponse,
   isOrganizationDirectoryResponse,
   isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
@@ -31,7 +34,16 @@ import {
 import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { containers, organizations, users } from "../../schema";
+import {
+  blobContentWriteHeaders,
+  blobs,
+  containers,
+  documentContentWriteHeaders,
+  documents,
+  documentUpdates,
+  organizations,
+  users,
+} from "../../schema";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);
@@ -160,6 +172,137 @@ async function addMemberGroupUser(input: {
   });
 
   await storeVerifiedPrincipalState(state, db);
+}
+
+function createUsageWriteHeader(input: {
+  contentRecordId: string;
+  objectId: string;
+  objectKind: "blob" | "document";
+  organizationId: string;
+  writerUserId: string;
+}): WriteHeader {
+  return {
+    version: 1,
+    organizationId: input.organizationId,
+    objectKind: input.objectKind,
+    objectId: input.objectId,
+    accessManifestHash: `${input.contentRecordId}:manifest`,
+    contentKeyEpoch: 1,
+    targetHash: `${input.contentRecordId}:target`,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    contentRecordId: input.contentRecordId,
+    nonceDomainHash: `${input.contentRecordId}:nonce`,
+    metadataHash: `${input.contentRecordId}:metadata`,
+    ciphertextHash: `${input.contentRecordId}:ciphertext`,
+    writerUserId: input.writerUserId,
+    writerDeviceId: "test-device",
+    writerKeyFingerprint: "test-writer-key",
+    signedAt: "2026-05-12T12:00:00.000Z",
+    signature: `${input.contentRecordId}:signature`,
+  };
+}
+
+async function seedOrganizationDataUsage(input: {
+  actor: TestUser;
+  organizationId: string;
+}) {
+  const documentId = crypto.randomUUID();
+  const firstUpdateId = crypto.randomUUID();
+  const secondUpdateId = crypto.randomUUID();
+  const blobId = crypto.randomUUID();
+
+  await db.insert(documents).values({
+    id: documentId,
+    createdByFingerprint: input.actor.fingerprint,
+  });
+  await db.insert(documentUpdates).values([
+    {
+      id: firstUpdateId,
+      documentId,
+      accessEpoch: 1,
+      authorFingerprint: input.actor.fingerprint,
+      encryptedData: "encrypted-document-update-one",
+      byteLength: 11,
+      partialStartVersionVector: "doc-start-1",
+      partialEndVersionVector: "doc-end-1",
+    },
+    {
+      id: secondUpdateId,
+      documentId,
+      accessEpoch: 1,
+      authorFingerprint: input.actor.fingerprint,
+      encryptedData: "encrypted-document-update-two",
+      byteLength: 13,
+      partialStartVersionVector: "doc-start-2",
+      partialEndVersionVector: "doc-end-2",
+    },
+  ]);
+  await db.insert(documentContentWriteHeaders).values(
+    [firstUpdateId, secondUpdateId].map((updateId, index) => {
+      const contentRecordId = `${updateId}:record`;
+      const header = createUsageWriteHeader({
+        contentRecordId,
+        objectId: documentId,
+        objectKind: "document",
+        organizationId: input.organizationId,
+        writerUserId: input.actor.userId,
+      });
+
+      return {
+        updateId,
+        documentId,
+        organizationId: input.organizationId,
+        contentKeyEpoch: 1,
+        accessManifestHash: header.accessManifestHash,
+        targetHash: header.targetHash,
+        encryptionSuite: header.encryptionSuite,
+        contentRecordId: header.contentRecordId,
+        nonceDomainHash: header.nonceDomainHash,
+        headerHash: `${updateId}:header:${index}`,
+        header,
+      };
+    }),
+  );
+
+  await db.insert(blobs).values({
+    id: blobId,
+    storageKey: `${blobId}:storage`,
+    encryptedBytes: "encrypted-blob-bytes",
+    sha256: `${blobId}:sha256`,
+    byteLength: 17,
+  });
+  await db.insert(blobContentWriteHeaders).values(
+    [crypto.randomUUID(), crypto.randomUUID()].map((recordId, index) => {
+      const contentRecordId = `${recordId}:record`;
+      const header = createUsageWriteHeader({
+        contentRecordId,
+        objectId: blobId,
+        objectKind: "blob",
+        organizationId: input.organizationId,
+        writerUserId: input.actor.userId,
+      });
+
+      return {
+        recordId,
+        blobId,
+        organizationId: input.organizationId,
+        contentKeyEpoch: 1,
+        accessManifestHash: header.accessManifestHash,
+        targetHash: header.targetHash,
+        encryptionSuite: header.encryptionSuite,
+        contentRecordId: header.contentRecordId,
+        nonceDomainHash: header.nonceDomainHash,
+        headerHash: `${recordId}:header:${index}`,
+        header,
+      };
+    }),
+  );
+
+  return {
+    blobs: { blobCount: 1, byteLength: 17 },
+    documents: { byteLength: 24, documentCount: 1, updateCount: 2 },
+    totalByteLength: 41,
+  };
 }
 
 test("org manager routes list the current org directory", async () => {
@@ -363,6 +506,34 @@ test("org manager routes list organization container grants", async () => {
     groupName: "Admins",
     subjectId: organization.adminGroupId,
     subjectType: "group",
+  });
+});
+
+test("org manager routes report organization data usage", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const expectedUsage = await seedOrganizationDataUsage({
+    actor,
+    organizationId,
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/data-usage`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  invariant(
+    isOrganizationDataUsageResponse(body),
+    "expected organization data usage response",
+  );
+  expect(body).toEqual({
+    organizationId,
+    ...expectedUsage,
   });
 });
 
