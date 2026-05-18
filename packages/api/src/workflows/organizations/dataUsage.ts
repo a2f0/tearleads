@@ -19,22 +19,23 @@ interface OrganizationDataUsageRow {
 }
 
 function toNonNegativeSafeInteger(value: unknown, label: string): number {
-  const numberValue =
-    typeof value === "bigint"
-      ? Number(value)
-      : typeof value === "number" || typeof value === "string"
-        ? Number(value)
-        : Number.NaN;
+  let bigintValue: bigint;
 
-  if (
-    !Number.isSafeInteger(numberValue) ||
-    !Number.isFinite(numberValue) ||
-    numberValue < 0
-  ) {
+  if (typeof value === "bigint") {
+    bigintValue = value;
+  } else if (typeof value === "number" && Number.isSafeInteger(value)) {
+    bigintValue = BigInt(value);
+  } else if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    bigintValue = BigInt(value.trim());
+  } else {
     throw new Error(`Unexpected organization data usage value: ${label}`);
   }
 
-  return numberValue;
+  if (bigintValue < 0n || bigintValue > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error(`Unexpected organization data usage value: ${label}`);
+  }
+
+  return Number(bigintValue);
 }
 
 function isOrganizationDataUsageRow(
@@ -55,15 +56,26 @@ async function loadOrganizationDataUsageInTransaction(input: {
   });
 
   const result = await input.executor.execute(sql`
-    with document_usage as (
+    with document_rows as (
       select
-        coalesce(sum(${documentUpdates.byteLength}), 0)::text as "documentByteLength",
-        count(distinct ${documentUpdates.documentId})::text as "documentCount",
-        count(${documentUpdates.id})::text as "documentUpdateCount"
+        ${documentUpdates.id} as "updateId",
+        ${documentUpdates.documentId} as "documentId",
+        ${documentUpdates.byteLength} as "byteLength"
       from ${documentUpdates}
       inner join ${documentContentWriteHeaders}
         on ${documentContentWriteHeaders.updateId} = ${documentUpdates.id}
       where ${documentContentWriteHeaders.organizationId} = ${input.organizationId}::uuid
+      group by
+        ${documentUpdates.id},
+        ${documentUpdates.documentId},
+        ${documentUpdates.byteLength}
+    ),
+    document_usage as (
+      select
+        coalesce(sum("byteLength"), 0)::text as "documentByteLength",
+        count(distinct "documentId")::text as "documentCount",
+        count("updateId")::text as "documentUpdateCount"
+      from document_rows
     ),
     blob_rows as (
       select distinct

@@ -893,7 +893,9 @@ function UsageMetric({
         <strong>{label}</strong>
         <MiniAppRowText muted>{detail}</MiniAppRowText>
       </MiniAppRowStack>
-      <strong title={`${byteLength.toLocaleString()} bytes`}>
+      <strong
+        title={`${byteLength.toLocaleString()} ${ORG_MANAGER_LABELS.usageBytesUnit}`}
+      >
         {formatByteLength(byteLength)}
       </strong>
     </MiniAppRow>
@@ -937,12 +939,12 @@ function DataUsageView({
           byteLength={dataUsage.documents.byteLength}
           detail={`${getUsageCountLabel(
             dataUsage.documents.documentCount,
-            "document",
-            "documents",
+            ORG_MANAGER_LABELS.usageDocument,
+            ORG_MANAGER_LABELS.usageDocumentsUnit,
           )}, ${getUsageCountLabel(
             dataUsage.documents.updateCount,
-            "update",
-            "updates",
+            ORG_MANAGER_LABELS.usageUpdate,
+            ORG_MANAGER_LABELS.usageUpdatesUnit,
           )}`}
           label={ORG_MANAGER_LABELS.usageDocuments}
         />
@@ -955,8 +957,8 @@ function DataUsageView({
           byteLength={dataUsage.blobs.byteLength}
           detail={getUsageCountLabel(
             dataUsage.blobs.blobCount,
-            "blob",
-            "blobs",
+            ORG_MANAGER_LABELS.usageBlob,
+            ORG_MANAGER_LABELS.usageBlobsUnit,
           )}
           label={ORG_MANAGER_LABELS.usageBlobs}
         />
