@@ -309,10 +309,6 @@ function useExplorerSidebarDocumentWindows(params: {
       pendingWindowLoadKeysRef.current.add(loadKey);
       setDocumentWindowsByContainerId((currentWindows) => {
         const currentWindow = currentWindows.get(containerId);
-        if (offset === 0 && !currentWindow) {
-          return currentWindows;
-        }
-
         const nextWindows = new Map(currentWindows);
         nextWindows.set(containerId, {
           error: null,

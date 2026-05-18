@@ -1,5 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -132,6 +138,45 @@ test("explorer sidebar requests and renders only a bounded document window", asy
     ]);
   });
   expect(await view.findByRole("button", { name: "Document 51" })).toBeTruthy();
+});
+
+test("explorer sidebar shows loading feedback during the first document window request", async () => {
+  const calls: Array<{ limit: number; offset: number }> = [];
+  const rows = createSidebarRows(1);
+  let resolveWindow:
+    | ((
+        value: Awaited<
+          ReturnType<
+            ExplorerDocumentReadModel["listContainerDocumentSidebarWindow"]
+          >
+        >,
+      ) => void)
+    | undefined;
+  const documentReadModel = {
+    ...createDocumentReadModel(rows, calls),
+    listContainerDocumentSidebarWindow: async ({ limit, offset }) => {
+      calls.push({ limit, offset });
+      return new Promise((resolve) => {
+        resolveWindow = resolve;
+      });
+    },
+  } satisfies ExplorerDocumentReadModel;
+  const view = render(
+    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+  );
+
+  const loadingButton = await view.findByRole("button", { name: "Loading..." });
+  expect((loadingButton as HTMLButtonElement).disabled).toBe(true);
+  expect(calls).toEqual([{ limit: 50, offset: 0 }]);
+
+  await act(async () => {
+    resolveWindow?.({
+      rows,
+      totalCount: rows.length,
+    });
+  });
+
+  expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
 });
 
 test("explorer sidebar can retry a failed initial document window", async () => {

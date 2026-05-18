@@ -160,13 +160,13 @@ export function useSelectDocumentProjection(params: {
 
   return useCallback(
     (noteId: string, containerId: string) => {
+      setSelectedId(noteId);
       void (async () => {
         const existingDocument = await loadDocumentSummary(noteId);
         if (!existingDocument) {
           return;
         }
 
-        setSelectedId(noteId);
         if (existingDocument.containerId !== containerId) {
           await activateLinkedDocument(noteId, containerId);
         }
