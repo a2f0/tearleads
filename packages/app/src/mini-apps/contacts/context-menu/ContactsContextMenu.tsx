@@ -1,12 +1,13 @@
-import { type MouseEvent, useCallback, useMemo, useState } from "react";
-import { Menu, type MenuPosition } from "../../../components/shared/Menu";
+import { type MouseEvent, useCallback, useMemo } from "react";
+import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
+import {
+  type ContextMenuState,
+  useContextMenuState,
+} from "../../../components/shared/useContextMenuState";
 import type { ContactEntries } from "../types";
 
-export interface ContactsContextMenuState {
-  contactId: string;
-  position: MenuPosition;
-}
+export type ContactsContextMenuState = ContextMenuState;
 
 export interface ContactsContextMenuModel {
   canRemoveContextMenuContact: boolean;
@@ -27,8 +28,8 @@ export function useContactsContextMenu(params: {
 }): ContactsContextMenuModel {
   const { entries, removeContact, selectedContactId, setSelectedContactId } =
     params;
-  const [contextMenu, setContextMenu] =
-    useState<ContactsContextMenuState | null>(null);
+  const { closeContextMenu, contextMenu, openContextMenu } =
+    useContextMenuState();
   const entriesById = useMemo(
     () => new Map(entries.map((entry) => [entry.id, entry])),
     [entries],
@@ -36,19 +37,13 @@ export function useContactsContextMenu(params: {
 
   const handleSidebarContextMenu = useCallback(
     (event: MouseEvent<HTMLButtonElement>, contactId: string) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setContextMenu({
-        contactId,
-        position: { x: event.clientX, y: event.clientY },
-      });
+      openContextMenu(event, contactId);
     },
-    [],
+    [openContextMenu],
   );
 
-  const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const contextMenuEntry = contextMenu
-    ? entriesById.get(contextMenu.contactId)
+    ? entriesById.get(contextMenu.id)
     : undefined;
   const canRemoveContextMenuContact = !(contextMenuEntry?.isSelf ?? false);
 
@@ -57,7 +52,7 @@ export function useContactsContextMenu(params: {
       return;
     }
 
-    const { contactId } = contextMenu;
+    const contactId = contextMenu.id;
     closeContextMenu();
     if (selectedContactId === contactId) {
       setSelectedContactId(null);
