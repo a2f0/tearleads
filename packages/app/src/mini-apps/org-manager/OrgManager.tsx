@@ -1,4 +1,5 @@
 import {
+  type KeyboardEvent,
   useCallback,
   useEffect,
   useId,
@@ -212,6 +213,10 @@ function getContainerDisplayTitle(
   return displayName && displayName.length > 0
     ? `${displayName} (${container.containerId})`
     : container.containerId;
+}
+
+function isKeyboardActivationKey(key: string): boolean {
+  return key === "Enter" || key === " ";
 }
 
 type DirectoryRefreshOptions = {
@@ -538,8 +543,14 @@ function GrantTable({
         {grants.map((grant) => {
           const isGroupGrant = grant.subjectType === "group";
           const openGrantGroupRoute = () => {
-            if (isGroupGrant) {
-              openGroupRoute(grant.subjectId);
+            openGroupRoute(grant.subjectId);
+          };
+          const handleGrantRowKeyDown = (
+            event: KeyboardEvent<HTMLTableRowElement>,
+          ) => {
+            if (isKeyboardActivationKey(event.key)) {
+              event.preventDefault();
+              openGrantGroupRoute();
             }
           };
 
@@ -549,16 +560,8 @@ function GrantTable({
                 isGroupGrant ? "org-manager-grant-row--interactive" : undefined
               }
               key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
-              onClick={openGrantGroupRoute}
-              onKeyDown={(event) => {
-                if (
-                  isGroupGrant &&
-                  (event.key === "Enter" || event.key === " ")
-                ) {
-                  event.preventDefault();
-                  openGrantGroupRoute();
-                }
-              }}
+              onClick={isGroupGrant ? openGrantGroupRoute : undefined}
+              onKeyDown={isGroupGrant ? handleGrantRowKeyDown : undefined}
               tabIndex={isGroupGrant ? 0 : undefined}
             >
               <MiniAppTableCell>
