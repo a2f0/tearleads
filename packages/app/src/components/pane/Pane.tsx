@@ -1,4 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
+import {
+  MiniAppBusProvider,
+  type MiniAppDefinition,
+  type MiniAppId,
+} from "../../mini-apps/bus";
 import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
 import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
 import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
@@ -22,6 +27,25 @@ import { PaneStatus } from "./PaneStatus";
 
 const BOOT_PANE_LOG_MESSAGE =
   "Generate a key pair from the pane menu to boot this pane.";
+
+const MINI_APPS = {
+  contacts: {
+    createComponent: () => ContactsApp,
+    title: "Contacts",
+  },
+  explorer: {
+    createComponent: () => ExplorerApp,
+    title: "Explorer",
+  },
+  notes: {
+    createComponent: () => createNotesWindowComponent(),
+    title: "Notes",
+  },
+  "org-manager": {
+    createComponent: () => OrgManagerApp,
+    title: "Org Manager",
+  },
+} satisfies Readonly<Record<MiniAppId, MiniAppDefinition>>;
 
 function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
@@ -71,6 +95,7 @@ function PaneInner({ className }: { className: string }) {
         contextMenu.x,
         contextMenu.y,
         createNotesWindowComponent(),
+        { appId: "notes" },
       );
     }
     setContextMenu(null);
@@ -78,21 +103,27 @@ function PaneInner({ className }: { className: string }) {
 
   const openContacts = useCallback(() => {
     if (contextMenu) {
-      create("Contacts", contextMenu.x, contextMenu.y, ContactsApp);
+      create("Contacts", contextMenu.x, contextMenu.y, ContactsApp, {
+        appId: "contacts",
+      });
     }
     setContextMenu(null);
   }, [contextMenu, create]);
 
   const openExplorer = useCallback(() => {
     if (contextMenu) {
-      create("Explorer", contextMenu.x, contextMenu.y, ExplorerApp);
+      create("Explorer", contextMenu.x, contextMenu.y, ExplorerApp, {
+        appId: "explorer",
+      });
     }
     setContextMenu(null);
   }, [contextMenu, create]);
 
   const openOrgManager = useCallback(() => {
     if (contextMenu) {
-      create("Org Manager", contextMenu.x, contextMenu.y, OrgManagerApp);
+      create("Org Manager", contextMenu.x, contextMenu.y, OrgManagerApp, {
+        appId: "org-manager",
+      });
     }
     setContextMenu(null);
   }, [contextMenu, create]);
@@ -136,7 +167,9 @@ function PaneInner({ className }: { className: string }) {
 export function Pane({ className }: { className: string }) {
   return (
     <WindowStateProvider>
-      <PaneInner className={className} />
+      <MiniAppBusProvider miniApps={MINI_APPS}>
+        <PaneInner className={className} />
+      </MiniAppBusProvider>
     </WindowStateProvider>
   );
 }

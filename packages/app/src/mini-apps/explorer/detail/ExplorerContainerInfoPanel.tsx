@@ -3,6 +3,7 @@ import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
 } from "../../../stores/explorer/containerInfo";
+import type { MiniAppWindowPosition } from "../../bus";
 import {
   ExplorerContainerInfoActions,
   ExplorerContainerInfoBody,
@@ -19,6 +20,7 @@ export function ExplorerContainerInfoPanel(params: {
   containerName: string | undefined;
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
   onBackToContainer: () => void;
+  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
   peerUserId: string | null;
   shareWithGroup: (
     containerId: string,
@@ -32,6 +34,7 @@ export function ExplorerContainerInfoPanel(params: {
     containerName,
     loadContainerInfo,
     onBackToContainer,
+    onOpenGrantGroup,
     peerUserId,
     shareWithGroup,
     shareWithUser,
@@ -92,6 +95,7 @@ export function ExplorerContainerInfoPanel(params: {
         isLoadingContainerInfo={isLoadingContainerInfo}
         isSubmitting={isSubmitting}
         onShareWithPeer={handleShareWithPeer}
+        onOpenGrantGroup={onOpenGrantGroup}
         peerUserId={peerUserId}
         setDraftShareAccessLevel={setDraftShareAccessLevel}
         setDraftShareGroupId={setDraftShareGroupId}

@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 export type WindowMoveDirection = "forward" | "backward";
 
 export interface WindowEntry {
+  appId?: string;
   id: string;
   title: string;
   initialX: number;
@@ -26,6 +27,7 @@ export interface WindowStateActions {
     x: number,
     y: number,
     component?: ComponentType,
+    options?: { appId?: string },
   ) => string;
   close: (id: string) => void;
   minimize: (id: string) => void;

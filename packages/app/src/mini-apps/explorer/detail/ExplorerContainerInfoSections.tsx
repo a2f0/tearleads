@@ -1,8 +1,10 @@
+import type { KeyboardEvent, MouseEvent } from "react";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
 } from "../../../stores/explorer/containerInfo";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
+import type { MiniAppWindowPosition } from "../../bus";
 import { EXPLORER_LABELS } from "../labels";
 
 type ExplorerContainerInfoGrantSubjectType = NonNullable<
@@ -58,6 +60,29 @@ function getContainerInfoSubjectTypeLabel(
   return CONTAINER_INFO_SUBJECT_TYPE_LABELS[subjectType];
 }
 
+function isKeyboardActivationKey(key: string): boolean {
+  return key === "Enter" || key === " ";
+}
+
+function getKeyboardEventPosition(
+  event: KeyboardEvent<HTMLTableRowElement>,
+): MiniAppWindowPosition {
+  const rect = event.currentTarget.getBoundingClientRect();
+  return {
+    x: rect.left + 16,
+    y: rect.top + 16,
+  };
+}
+
+function getMouseEventPosition(
+  event: MouseEvent<HTMLTableRowElement>,
+): MiniAppWindowPosition {
+  return {
+    x: event.clientX + 16,
+    y: event.clientY + 16,
+  };
+}
+
 function ExplorerContainerInfoSyncCursorList(params: {
   containerInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
 }) {
@@ -111,8 +136,9 @@ function ExplorerContainerInfoSyncCursorList(params: {
 
 function ExplorerContainerInfoGrantList(params: {
   containerInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
+  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
 }) {
-  const { containerInfo } = params;
+  const { containerInfo, onOpenGrantGroup } = params;
   if (containerInfo.grants.length === 0) {
     return (
       <div className="explorer-modal-copy">
@@ -131,19 +157,50 @@ function ExplorerContainerInfoGrantList(params: {
         </tr>
       </thead>
       <tbody>
-        {containerInfo.grants.map((grant) => (
-          <tr key={`${grant.subjectType}:${grant.subjectId}`}>
-            <td title={grant.subjectId}>
-              {principalLabel(
-                grant.subjectType,
-                grant.subjectId,
-                containerInfo,
-              )}
-            </td>
-            <td>{getContainerInfoSubjectTypeLabel(grant.subjectType)}</td>
-            <td>{getContainerInfoPermissionLabel(grant.accessLevel)}</td>
-          </tr>
-        ))}
+        {containerInfo.grants.map((grant) => {
+          const isGroupGrant = grant.subjectType === "group";
+          const openGrantGroupRoute = (position?: MiniAppWindowPosition) => {
+            onOpenGrantGroup(grant.subjectId, position);
+          };
+          const handleGrantRowKeyDown = (
+            event: KeyboardEvent<HTMLTableRowElement>,
+          ) => {
+            if (!isKeyboardActivationKey(event.key)) {
+              return;
+            }
+
+            event.preventDefault();
+            openGrantGroupRoute(getKeyboardEventPosition(event));
+          };
+
+          return (
+            <tr
+              className={
+                isGroupGrant
+                  ? "explorer-info-grant-row--interactive"
+                  : undefined
+              }
+              key={`${grant.subjectType}:${grant.subjectId}`}
+              onClick={
+                isGroupGrant
+                  ? (event) => openGrantGroupRoute(getMouseEventPosition(event))
+                  : undefined
+              }
+              onKeyDown={isGroupGrant ? handleGrantRowKeyDown : undefined}
+              tabIndex={isGroupGrant ? 0 : undefined}
+            >
+              <td title={grant.subjectId}>
+                {principalLabel(
+                  grant.subjectType,
+                  grant.subjectId,
+                  containerInfo,
+                )}
+              </td>
+              <td>{getContainerInfoSubjectTypeLabel(grant.subjectType)}</td>
+              <td>{getContainerInfoPermissionLabel(grant.accessLevel)}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -306,6 +363,7 @@ function ExplorerContainerInfoRemoteSections(params: {
   draftShareAccessLevel: ExplorerContainerShareAccessLevel;
   draftShareGroupId: string;
   isSubmitting: boolean;
+  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
   onShareWithPeer: () => void;
   peerUserId: string | null;
   remoteInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
@@ -319,7 +377,10 @@ function ExplorerContainerInfoRemoteSections(params: {
     <>
       <section className="explorer-info-section">
         <h3>{EXPLORER_LABELS.containerInfoPrincipalGrantsHeading}</h3>
-        <ExplorerContainerInfoGrantList containerInfo={remoteInfo} />
+        <ExplorerContainerInfoGrantList
+          containerInfo={remoteInfo}
+          onOpenGrantGroup={params.onOpenGrantGroup}
+        />
       </section>
       <section className="explorer-info-section">
         <h3>{EXPLORER_LABELS.containerInfoSyncCursorsHeading}</h3>
@@ -341,6 +402,7 @@ export function ExplorerContainerInfoBody(params: {
   draftShareGroupId: string;
   isLoadingContainerInfo: boolean;
   isSubmitting: boolean;
+  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
   onShareWithPeer: () => void;
   peerUserId: string | null;
   setDraftShareAccessLevel: (value: ExplorerContainerShareAccessLevel) => void;

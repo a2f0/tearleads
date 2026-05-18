@@ -7,6 +7,7 @@ import type {
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import type { MiniAppWindowPosition } from "../../bus";
 import type { ExplorerRoute } from "../routes";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
@@ -45,6 +46,7 @@ export function ExplorerDetailPanel(params: {
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
   nodes: ReadonlyArray<ContainerNode>;
   onBackToSelectionRoute: () => void;
+  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
   openInlineDocument: (
     containerId: string,
     documentKind: StoredDocumentKind,
@@ -81,6 +83,7 @@ export function ExplorerDetailPanel(params: {
         containerName={infoNode?.name}
         loadContainerInfo={params.loadContainerInfo}
         onBackToContainer={params.onBackToSelectionRoute}
+        onOpenGrantGroup={params.onOpenGrantGroup}
         peerUserId={params.peerUserId}
         shareWithGroup={params.shareWithGroup}
         shareWithUser={params.shareWithUser}

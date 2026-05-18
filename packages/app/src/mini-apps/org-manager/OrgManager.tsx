@@ -38,6 +38,7 @@ import {
   useOrgManagerActions,
 } from "../../stores/org-manager/OrgManagerProvider";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
+import { useMiniAppMessage } from "../bus";
 import { useOrgManagerRoute } from "./hooks/useOrgManagerRoute";
 import {
   getOrgManagerEpochLabel,
@@ -903,6 +904,17 @@ export function OrgManager() {
   const selectedUserIdRef = useRef<string | null>(null);
   const canLoadAuthenticatedOrgData = Boolean(
     appData.organizationId && appData.isAuthenticated,
+  );
+  useMiniAppMessage(
+    "org-manager",
+    useCallback(
+      (message) => {
+        if (message.type === "open-group") {
+          openGroupRoute(message.groupId);
+        }
+      },
+      [openGroupRoute],
+    ),
   );
 
   const selectedGroup =

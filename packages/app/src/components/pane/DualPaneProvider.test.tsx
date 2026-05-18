@@ -419,14 +419,14 @@ async function shareContainerWithGroup(
   await interact(() => {
     fireEvent.click(shareButton);
   });
-  await waitFor(() => {
-    expect(
+  await waitForCondition(
+    () =>
       Array.from(pane.querySelectorAll("tr")).some((row) => {
         const text = row.textContent ?? "";
         return text.includes(groupName) && text.includes(accessLevel);
       }),
-    ).toBe(true);
-  });
+    `Container group share did not appear in grants.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+  );
 
   const backButton = within(pane).getByRole("button", {
     name: "Back to Container",
@@ -561,6 +561,84 @@ async function createGroupAndAddPeer(
   await waitFor(() => {
     expect(userIdInput.value).toBe("");
   });
+}
+
+async function createOrganizationGroup(pane: HTMLElement, groupName: string) {
+  await openOrgManager(pane);
+
+  const groupsButton = within(pane).getByRole("button", { name: "Groups" });
+  await interact(() => {
+    fireEvent.click(groupsButton);
+  });
+
+  const groupNameInput = await within(pane).findByPlaceholderText("Group name");
+  invariant(
+    groupNameInput instanceof HTMLInputElement,
+    "Expected group name input.",
+  );
+  const createButton = within(pane).getByRole("button", { name: "Create" });
+  invariant(
+    createButton instanceof HTMLButtonElement,
+    "Expected create group button.",
+  );
+
+  await waitFor(() => {
+    expect(groupNameInput.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.change(groupNameInput, {
+      target: { value: groupName },
+    });
+  });
+  await waitFor(() => {
+    expect(createButton.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.click(createButton);
+  });
+
+  await within(pane).findByRole("button", {
+    name: new RegExp(groupName, "u"),
+  });
+}
+
+async function openExplorerContainerInfo(pane: HTMLElement, name: string) {
+  await interact(() => {
+    fireEvent.contextMenu(getExplorerSidebarItem(pane, name), {
+      clientX: 200,
+      clientY: 200,
+    });
+  });
+  const getInfoButton = await screen.findByRole("button", {
+    name: "Get Info",
+  });
+  await interact(() => {
+    fireEvent.click(getInfoButton);
+  });
+
+  await within(getExplorerWindowRoot(pane)).findByText("Container Info");
+}
+
+async function findExplorerInfoGrantRow(
+  pane: HTMLElement,
+  groupName: string,
+  accessLevel: string,
+): Promise<HTMLTableRowElement> {
+  let row: HTMLTableRowElement | null = null;
+  await waitFor(() => {
+    const explorerWindow = getExplorerWindowRoot(pane);
+    row =
+      Array.from(
+        explorerWindow.querySelectorAll<HTMLTableRowElement>("tr"),
+      ).find((candidate) => {
+        const text = candidate.textContent ?? "";
+        return text.includes(groupName) && text.includes(accessLevel);
+      }) ?? null;
+    expect(row).toBeTruthy();
+  });
+
+  invariant(row, `Expected grant row for "${groupName}".`);
+  return row;
 }
 
 function requestPath(url: string): string {
@@ -1077,6 +1155,47 @@ test(
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+);
+
+test(
+  "explorer grant rows open the org manager group route",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderSinglePane();
+    const leftPane = getPaneRoot(view, "left");
+    const groupName = "Grant Inspectors";
+
+    await waitForSinglePaneProvisioning(leftPane);
+
+    await createOrganizationGroup(leftPane, groupName);
+    const directoryButton = within(leftPane).getByRole("button", {
+      name: "Directory",
+    });
+    await interact(() => {
+      fireEvent.click(directoryButton);
+    });
+    await waitFor(() => {
+      expect(within(leftPane).queryByLabelText("User ID")).toBeNull();
+    });
+
+    await openExplorer(leftPane);
+    await shareContainerWithGroup(leftPane, "/", groupName, "read");
+    await openExplorerContainerInfo(leftPane, "/");
+    const grantRow = await findExplorerInfoGrantRow(
+      leftPane,
+      groupName,
+      "read",
+    );
+
+    await interact(() => {
+      fireEvent.click(grantRow);
+    });
+
+    await waitFor(() => {
+      expect(within(leftPane).getByLabelText("User ID")).toBeTruthy();
+    });
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
 );
 
 test(
