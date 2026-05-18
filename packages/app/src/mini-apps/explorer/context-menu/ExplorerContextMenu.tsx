@@ -1,21 +1,23 @@
-import { type MouseEvent, useCallback, useMemo, useState } from "react";
-import { Menu, type MenuPosition } from "../../../components/shared/Menu";
+import { type MouseEvent, useCallback, useMemo } from "react";
+import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
+import {
+  type ContextMenuState,
+  useContextMenuState,
+} from "../../../components/shared/useContextMenuState";
 import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import { getMoveTargetOptions } from "../targetOptions";
 
-export interface ContextMenuState {
-  nodeId: string;
-  position: MenuPosition;
-}
+export type { ContextMenuState };
 
 export function useExplorerContextMenu(
   nodes: ReadonlyArray<ContainerNode>,
   setSelectedId: (id: string | null) => void,
 ) {
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const { closeContextMenu, contextMenu, openContextMenu } =
+    useContextMenuState({ onOpen: setSelectedId });
   const nodesById = useMemo(
     () => new Map(nodes.map((node) => [node.id, node])),
     [nodes],
@@ -23,20 +25,13 @@ export function useExplorerContextMenu(
 
   const handleSidebarContextMenu = useCallback(
     (event: MouseEvent<HTMLButtonElement>, nodeId: string) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setSelectedId(nodeId);
-      setContextMenu({
-        nodeId,
-        position: { x: event.clientX, y: event.clientY },
-      });
+      openContextMenu(event, nodeId);
     },
-    [setSelectedId],
+    [openContextMenu],
   );
 
-  const closeContextMenu = useCallback(() => setContextMenu(null), []);
-  const contextMenuNode = contextMenu?.nodeId
-    ? nodesById.get(contextMenu.nodeId)
+  const contextMenuNode = contextMenu?.id
+    ? nodesById.get(contextMenu.id)
     : undefined;
   const contextMenuNodeHasChildren =
     contextMenuNode !== undefined &&
@@ -66,7 +61,7 @@ export function ExplorerContextMenuLayer(params: {
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   closeContextMenu: () => void;
-  contextMenu: { nodeId: string; position: MenuPosition } | null;
+  contextMenu: ContextMenuState | null;
   contextMenuNode: ContainerNode | undefined;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
@@ -107,7 +102,7 @@ export function ExplorerContextMenuLayer(params: {
         label="Create Child"
         onClick={() => {
           closeContextMenu();
-          openCreateChildModal(contextMenu.nodeId);
+          openCreateChildModal(contextMenu.id);
         }}
       />
       {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
@@ -126,7 +121,7 @@ export function ExplorerContextMenuLayer(params: {
         label="Rename"
         onClick={() => {
           closeContextMenu();
-          openRenameModal(contextMenu.nodeId);
+          openRenameModal(contextMenu.id);
         }}
       />
       <MenuItem
@@ -134,14 +129,14 @@ export function ExplorerContextMenuLayer(params: {
         disabled={!canMoveContextMenuNode}
         onClick={() => {
           closeContextMenu();
-          openMoveModal(contextMenu.nodeId);
+          openMoveModal(contextMenu.id);
         }}
       />
       <MenuItem
         label="Get Info"
         onClick={() => {
           closeContextMenu();
-          openContainerInfoRoute(contextMenu.nodeId);
+          openContainerInfoRoute(contextMenu.id);
         }}
       />
       <MenuItem
@@ -149,7 +144,7 @@ export function ExplorerContextMenuLayer(params: {
         disabled={!canDeleteContextMenuNode}
         onClick={() => {
           closeContextMenu();
-          openDeleteModal(contextMenu.nodeId);
+          openDeleteModal(contextMenu.id);
         }}
       />
     </Menu>
