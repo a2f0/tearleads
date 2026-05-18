@@ -11,12 +11,14 @@ import {
   addOrgManagerGroupUser,
   createOrgManagerGroup,
   importOrgManagerUserRecipient,
+  loadOrgManagerDataUsage,
   loadOrgManagerDirectoryAndGroups,
   loadOrgManagerGrants,
   loadOrgManagerGroupDetails,
   loadOrgManagerUserDetail,
   type OrgManagerContainerGrant,
   type OrgManagerContainerGrants,
+  type OrgManagerDataUsage,
   type OrgManagerDirectory,
   type OrgManagerDirectoryAndGroups,
   type OrgManagerDirectoryUser,
@@ -40,6 +42,7 @@ interface OrgManagerContextValue {
   ) => Promise<PrincipalPolicyBundleResponse>;
   createGroup: (name: string) => Promise<OrgManagerGroupSummary>;
   importUserById: (userId: string) => Promise<OrgManagerUserRecipient | null>;
+  loadDataUsage: () => Promise<OrgManagerDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrgManagerDirectoryAndGroups | null>;
   loadGroupDetails: (groupId: string) => Promise<OrgManagerGroupDetails>;
   loadGrants: () => Promise<OrgManagerContainerGrants | null>;
@@ -57,6 +60,7 @@ const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 export type {
   OrgManagerContainerGrant,
   OrgManagerContainerGrants,
+  OrgManagerDataUsage,
   OrgManagerDirectory,
   OrgManagerDirectoryUser,
   OrgManagerGroupContainer,
@@ -176,6 +180,17 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     appData.organizationId,
   ]);
 
+  const loadDataUsage = useCallback(() => {
+    if (!appData.organizationId || !appData.isAuthenticated) {
+      return Promise.resolve(null);
+    }
+
+    return loadOrgManagerDataUsage({
+      apiClient: appData.apiClient,
+      organizationId: appData.organizationId,
+    });
+  }, [appData.apiClient, appData.isAuthenticated, appData.organizationId]);
+
   const loadUserDetail = useCallback(
     (userId: string) => {
       if (
@@ -269,6 +284,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       addUserToGroup,
       createGroup,
       importUserById,
+      loadDataUsage,
       loadDirectoryAndGroups,
       loadGroupDetails,
       loadGrants,
@@ -279,6 +295,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       addUserToGroup,
       createGroup,
       importUserById,
+      loadDataUsage,
       loadDirectoryAndGroups,
       loadGroupDetails,
       loadGrants,

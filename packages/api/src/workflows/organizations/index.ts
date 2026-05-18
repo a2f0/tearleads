@@ -1,3 +1,4 @@
+export { runGetOrganizationDataUsageWorkflow } from "./dataUsage";
 export { runListOrganizationDirectoryWorkflow } from "./directory";
 export { OrganizationManagerError } from "./errors";
 export { runListOrganizationContainerGrantsWorkflow } from "./grants";

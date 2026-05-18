@@ -16,6 +16,7 @@ import {
   isListContainersResponse,
   isListOrganizationGroupsResponse,
   isOrganizationContainerGrantsResponse,
+  isOrganizationDataUsageResponse,
   isOrganizationDirectoryResponse,
   isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
@@ -439,6 +440,37 @@ test("organization manager responses", () => {
     isOrganizationContainerGrantsResponse({
       organizationId: "org-1",
       grants: [{ containerId: "container-1", subjectType: "team" }],
+    }),
+  ).toBe(false);
+
+  expect(
+    isOrganizationDataUsageResponse({
+      organizationId: "org-1",
+      blobs: {
+        blobCount: 2,
+        byteLength: 96,
+      },
+      documents: {
+        byteLength: 32,
+        documentCount: 1,
+        updateCount: 2,
+      },
+      totalByteLength: 128,
+    }),
+  ).toBe(true);
+  expect(
+    isOrganizationDataUsageResponse({
+      organizationId: "org-1",
+      blobs: {
+        blobCount: 2.5,
+        byteLength: 96,
+      },
+      documents: {
+        byteLength: 32,
+        documentCount: 1,
+        updateCount: 2,
+      },
+      totalByteLength: 128,
     }),
   ).toBe(false);
 
