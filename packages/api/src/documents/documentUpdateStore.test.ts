@@ -14,6 +14,8 @@ import {
   listMissingDocumentUpdates,
 } from "./documentUpdateStore";
 
+const textEncoder = new TextEncoder();
+
 async function createStoredDocument(): Promise<string> {
   const [document] = await db
     .insert(documents)
@@ -38,6 +40,7 @@ async function insertStoredUpdate(input: {
     accessEpoch: 1,
     authorFingerprint: "document-update-store-author",
     encryptedData: input.encryptedData,
+    byteLength: textEncoder.encode(input.encryptedData).byteLength,
     partialStartVersionVector: input.partialStartVersionVector,
     partialEndVersionVector: input.partialEndVersionVector,
   });
@@ -78,7 +81,7 @@ test("listMissingDocumentUpdates returns only causally missing document updates"
   const secondUpdateId = crypto.randomUUID();
   await insertStoredUpdate({
     documentId,
-    encryptedData: "encrypted-first-update",
+    encryptedData: "encrypted-first-update-with-checkmark-✓",
     id: firstUpdateId,
     partialStartVersionVector: firstVectors.partialStartVersionVector,
     partialEndVersionVector: firstVectors.partialEndVersionVector,
@@ -99,6 +102,9 @@ test("listMissingDocumentUpdates returns only causally missing document updates"
     firstUpdateId,
     secondUpdateId,
   ]);
+  expect(allMissing[0]?.byteLength).toBe(
+    textEncoder.encode("encrypted-first-update-with-checkmark-✓").byteLength,
+  );
 
   const missingAfterFirstUpdate = await listMissingDocumentUpdates(db, {
     documentId,

@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import type { VerifiedWriteHeader, WriteHeader } from "@tearleads/crypto";
 import {
   computeDocumentContentRecordCiphertextHash,
@@ -65,6 +66,10 @@ import type {
   DocumentWriteAuthorizationProof,
   SyncDocumentInput,
 } from "./types";
+
+function documentUpdateByteLength(update: DocumentOutgoingUpdate): number {
+  return Buffer.byteLength(update.encryptedData, "utf8");
+}
 
 async function ensureWritableDocument(input: {
   readonly currentTargets: Awaited<
@@ -356,6 +361,7 @@ async function insertNewDocumentUpdates(input: {
         accessEpoch: input.accessEpoch,
         authorFingerprint: input.fingerprint,
         encryptedData: update.encryptedData,
+        byteLength: documentUpdateByteLength(update),
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,
       })),

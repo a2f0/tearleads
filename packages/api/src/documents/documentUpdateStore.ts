@@ -13,6 +13,7 @@ interface SqlNamedColumn {
 interface MissingDocumentUpdateRow {
   accessEpoch: number;
   authorFingerprint: string;
+  byteLength: number;
   createdAt: string;
   documentId: string;
   encryptedData: string;
@@ -50,6 +51,7 @@ function isMissingDocumentUpdateRow(
 
   const accessEpoch = Reflect.get(value, "accessEpoch");
   const authorFingerprint = Reflect.get(value, "authorFingerprint");
+  const byteLength = Reflect.get(value, "byteLength");
   const createdAt = Reflect.get(value, "createdAt");
   const documentId = Reflect.get(value, "documentId");
   const encryptedData = Reflect.get(value, "encryptedData");
@@ -65,6 +67,8 @@ function isMissingDocumentUpdateRow(
     typeof accessEpoch === "number" &&
     Number.isInteger(accessEpoch) &&
     typeof authorFingerprint === "string" &&
+    typeof byteLength === "number" &&
+    Number.isInteger(byteLength) &&
     typeof createdAt === "string" &&
     typeof documentId === "string" &&
     typeof encryptedData === "string" &&
@@ -139,6 +143,7 @@ export async function listMissingDocumentUpdates(
     documentUpdates.authorFingerprint,
   );
   const updateEncryptedData = aliasedColumn("u", documentUpdates.encryptedData);
+  const updateByteLength = aliasedColumn("u", documentUpdates.byteLength);
   const updatePartialStartVersionVector = aliasedColumn(
     "u",
     documentUpdates.partialStartVersionVector,
@@ -162,6 +167,7 @@ export async function listMissingDocumentUpdates(
       ${updateAccessEpoch} as "accessEpoch",
       ${updateAuthorFingerprint} as "authorFingerprint",
       ${updateEncryptedData} as "encryptedData",
+      ${updateByteLength} as "byteLength",
       ${updatePartialStartVersionVector} as "partialStartVersionVector",
       ${updatePartialEndVersionVector} as "partialEndVersionVector",
       ${updateCreatedAt} as "createdAt"
@@ -205,6 +211,7 @@ export async function listMissingDocumentUpdates(
     missingUpdates.push({
       accessEpoch: row.accessEpoch,
       authorFingerprint: row.authorFingerprint,
+      byteLength: row.byteLength,
       createdAt,
       documentId: row.documentId,
       encryptedData: row.encryptedData,
