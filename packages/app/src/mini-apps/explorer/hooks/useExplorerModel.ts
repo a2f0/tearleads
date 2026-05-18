@@ -31,6 +31,7 @@ interface ExplorerModel {
   documentReadModel: ExplorerDocumentReadModel;
   explorer: ExplorerModelExplorer;
   handleRefresh: () => Promise<boolean>;
+  importDroppedFiles: ExplorerPanelState["importDroppedFiles"];
   isRefreshing: boolean;
   loadContainerInfo: ExplorerPanelState["loadContainerInfo"];
   linkedContainerIds: ReadonlyArray<string>;
@@ -88,6 +89,7 @@ export function useExplorerModel(
   const {
     activateLinkedContainer,
     contextMenuState,
+    importDroppedFiles,
     loadContainerInfo,
     modalState,
     openInlineDocument,
@@ -130,6 +132,7 @@ export function useExplorerModel(
     documentReadModel,
     explorer,
     handleRefresh,
+    importDroppedFiles,
     isRefreshing,
     loadContainerInfo,
     linkedContainerIds: selectedDocumentLinkedContainerIds,
