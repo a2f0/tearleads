@@ -7,8 +7,14 @@ import {
   createExplorerDocumentsRuntime,
   type ExplorerDocumentsRuntimeAppData,
 } from "../../../stores/explorer/documentRuntime";
+import {
+  EXPLORER_LABELS,
+  getExplorerDroppedFileImportFailureLog,
+  getExplorerDroppedFileTooLargeError,
+} from "../labels";
 
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
+const EXPLORER_DROPPED_FILE_MAX_BYTES = 5 * 1024 * 1024;
 type ExplorerDroppedFileImportRuntime = ReturnType<
   typeof createExplorerDocumentsRuntime
 >;
@@ -78,6 +84,17 @@ function buildFallbackImportedDocumentSummary(input: {
   };
 }
 
+function assertExplorerDroppedFileCanBeImported(file: File): void {
+  if (file.size > EXPLORER_DROPPED_FILE_MAX_BYTES) {
+    throw new Error(
+      getExplorerDroppedFileTooLargeError({
+        fileName: file.name,
+        maxByteLength: EXPLORER_DROPPED_FILE_MAX_BYTES,
+      }),
+    );
+  }
+}
+
 async function importExplorerDroppedFile<TRuntime>(input: {
   containerId: string;
   createDocumentStore: ExplorerDroppedFileImportInput<TRuntime>["createDocumentStore"];
@@ -86,6 +103,7 @@ async function importExplorerDroppedFile<TRuntime>(input: {
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   runtime: TRuntime;
 }): Promise<DocumentSummary> {
+  assertExplorerDroppedFileCanBeImported(input.file);
   const localId = input.createLocalId();
   const text = await input.file.text();
   const store = input.createDocumentStore({
@@ -95,7 +113,7 @@ async function importExplorerDroppedFile<TRuntime>(input: {
   });
   const initialized = await store.ensureInitialized();
   if (!initialized) {
-    throw new Error("Document store was not ready.");
+    throw new Error(EXPLORER_LABELS.fileImportStoreNotReady);
   }
 
   store.requestSync();
@@ -162,7 +180,9 @@ export async function importExplorerDroppedFiles<TRuntime>(
       } else {
         progress.failedCount += 1;
         input.logError?.(
-          `Explorer: failed to import ${batch[batchIndex]?.name ?? "file"}.`,
+          getExplorerDroppedFileImportFailureLog(
+            batch[batchIndex]?.name ?? "file",
+          ),
           result.reason,
         );
       }

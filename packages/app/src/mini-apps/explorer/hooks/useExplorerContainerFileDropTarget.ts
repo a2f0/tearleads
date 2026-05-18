@@ -1,4 +1,10 @@
 import { type DragEvent, useCallback, useRef, useState } from "react";
+import {
+  EXPLORER_LABELS,
+  getExplorerFileImportCompletedStatus,
+  getExplorerFileImportingStatus,
+  getExplorerFileImportPartialStatus,
+} from "../labels";
 import type { ContainerNode } from "../types";
 import type {
   ExplorerDroppedFileImportProgress,
@@ -21,16 +27,14 @@ function getExplorerImportProgressStatus(
   }
 
   if (progress.completedCount < progress.totalCount) {
-    return `Importing ${progress.completedCount}/${progress.totalCount} files...`;
+    return getExplorerFileImportingStatus(progress);
   }
 
   if (progress.failedCount > 0) {
-    return `Imported ${progress.importedCount} of ${progress.totalCount} files.`;
+    return getExplorerFileImportPartialStatus(progress);
   }
 
-  return `Imported ${progress.importedCount} ${
-    progress.importedCount === 1 ? "note" : "notes"
-  }.`;
+  return getExplorerFileImportCompletedStatus(progress.importedCount);
 }
 
 function createExplorerImportProgress(
@@ -66,12 +70,14 @@ function startExplorerDroppedFileImport(input: {
     .then((result) => {
       input.setImportProgress(result);
       if (result.failedCount > 0) {
-        input.setImportError("Some files could not be imported.");
+        input.setImportError(EXPLORER_LABELS.fileImportFailedStatus);
       }
     })
     .catch((error: unknown) => {
       input.setImportError(
-        error instanceof Error ? error.message : "Failed to import files.",
+        error instanceof Error
+          ? error.message
+          : EXPLORER_LABELS.fileImportGenericFailure,
       );
     })
     .finally(() => {
@@ -169,7 +175,7 @@ export function useExplorerContainerFileDropTarget(params: {
     importStatus:
       importError ??
       (dragActive && !isImporting
-        ? "Drop files to import notes."
+        ? EXPLORER_LABELS.fileDropHint
         : getExplorerImportProgressStatus(importProgress)),
     importStatusIsError: importError !== null,
     isImporting,

@@ -9,6 +9,7 @@ interface FakeRuntime {
 function createTextFile(name: string, text: string): File {
   return {
     name,
+    size: text.length,
     text: async () => text,
   } as unknown as File;
 }
@@ -16,8 +17,19 @@ function createTextFile(name: string, text: string): File {
 function createFailingFile(name: string, error: Error): File {
   return {
     name,
+    size: 1,
     text: async () => {
       throw error;
+    },
+  } as unknown as File;
+}
+
+function createOversizedFile(name: string): File {
+  return {
+    name,
+    size: 6 * 1024 * 1024,
+    text: async () => {
+      throw new Error("Oversized files should not be read.");
     },
   } as unknown as File;
 }
@@ -164,4 +176,36 @@ test("dropped file import keeps going when one file fails", async () => {
   expect(result.failedCount).toBe(1);
   expect(merged.map((document) => document.id)).toEqual(["local-1"]);
   expect(errors).toEqual(["Explorer: failed to import bad.txt."]);
+});
+
+test("dropped file import rejects oversized files before reading text", async () => {
+  const errors: string[] = [];
+  let localIdCount = 0;
+  let storeCount = 0;
+
+  const result = await importExplorerDroppedFiles({
+    containerId: "folder-1",
+    createDocumentRuntime: (containerId): FakeRuntime => ({ containerId }),
+    createDocumentStore: () => {
+      storeCount += 1;
+      throw new Error("Oversized files should not create stores.");
+    },
+    createLocalId: () => `local-${++localIdCount}`,
+    files: [createOversizedFile("large.txt")],
+    loadDocumentSummary: async (localId) => createSummary(localId, "folder-1"),
+    logError: (message, cause) => {
+      errors.push(
+        `${message} ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+    },
+    mergeDocumentSummary: () => undefined,
+  });
+
+  expect(result.importedCount).toBe(0);
+  expect(result.failedCount).toBe(1);
+  expect(localIdCount).toBe(0);
+  expect(storeCount).toBe(0);
+  expect(errors).toEqual([
+    "Explorer: failed to import large.txt. large.txt is larger than 5.0 MB.",
+  ]);
 });

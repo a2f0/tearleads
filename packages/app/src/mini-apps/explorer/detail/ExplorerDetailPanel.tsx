@@ -827,10 +827,9 @@ function ExplorerContainerItemTable(params: {
   return (
     <MiniAppTableFrame
       aria-busy={isImporting}
-      className={
-        "explorer-item-table-wrap" +
-        (dragActive ? " explorer-item-table-wrap--drop-active" : "")
-      }
+      className={`explorer-item-table-wrap${
+        dragActive ? " explorer-item-table-wrap--drop-active" : ""
+      }`}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -989,12 +988,11 @@ function ExplorerContainerDetail(params: {
       ) : null}
       {fileDropTarget.importStatus ? (
         <span
-          className={
-            "explorer-file-import-status" +
-            (fileDropTarget.importStatusIsError
+          className={`explorer-file-import-status${
+            fileDropTarget.importStatusIsError
               ? " explorer-file-import-status--error"
-              : "")
-          }
+              : ""
+          }`}
         >
           {fileDropTarget.importStatus}
         </span>
