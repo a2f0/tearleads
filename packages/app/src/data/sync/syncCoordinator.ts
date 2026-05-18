@@ -119,9 +119,10 @@ export function isDestroyedDatabaseClientError(error: unknown): boolean {
   let current = error;
 
   while (current instanceof Error) {
+    const errorMessage = current.message;
     if (
       DESTROYED_DATABASE_CLIENT_MESSAGES.some((message) =>
-        current.message.includes(message),
+        errorMessage.includes(message),
       )
     ) {
       return true;
