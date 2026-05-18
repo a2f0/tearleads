@@ -29,6 +29,7 @@ export const documentUpdates = pgTable("document_updates", {
   accessEpoch: integer("access_epoch").notNull(),
   authorFingerprint: text("author_fingerprint").notNull(),
   encryptedData: text("encrypted_data").notNull(),
+  byteLength: integer("byte_length").notNull(),
   partialStartVersionVector: text("partial_start_version_vector").notNull(),
   partialEndVersionVector: text("partial_end_version_vector").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

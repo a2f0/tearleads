@@ -14,6 +14,7 @@ export const loroSql = `
     access_epoch INTEGER NOT NULL,
     author_fingerprint TEXT NOT NULL,
     encrypted_data TEXT NOT NULL,
+    byte_length INTEGER NOT NULL,
     partial_start_version_vector TEXT NOT NULL,
     partial_end_version_vector TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
