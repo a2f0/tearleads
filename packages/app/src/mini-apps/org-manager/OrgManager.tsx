@@ -36,16 +36,15 @@ import {
   useOrgManagerActions,
 } from "../../stores/org-manager/OrgManagerProvider";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
+import { useOrgManagerRoute } from "./hooks/useOrgManagerRoute";
 import {
   getOrgManagerEpochLabel,
   getOrgManagerMemberCountLabel,
   ORG_MANAGER_LABELS,
 } from "./labels";
 import "./OrgManager.css";
-import {
-  type OrgManagerView,
-  useOrgManagerSidebarPanel,
-} from "./OrgManagerSidebar";
+import { useOrgManagerSidebarPanel } from "./OrgManagerSidebar";
+import { resolveOrgManagerSelectedGroupId } from "./routes";
 
 const DIRECTORY_TABLE_COLUMNS = [
   {
@@ -522,10 +521,12 @@ function GrantTable({
   emptyLabel,
   grants,
   label,
+  openGroupRoute,
 }: {
   emptyLabel: string;
   grants: ReadonlyArray<OrgManagerContainerGrant>;
   label: string;
+  openGroupRoute: (groupId: string) => void;
 }) {
   if (grants.length === 0) {
     return <div className="org-manager-hint">{emptyLabel}</div>;
@@ -534,32 +535,55 @@ function GrantTable({
   return (
     <MiniAppTableFrame>
       <MiniAppTable aria-label={label} columns={GRANT_TABLE_COLUMNS}>
-        {grants.map((grant) => (
-          <MiniAppTableRow
-            key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
-          >
-            <MiniAppTableCell>
-              <MiniAppTableText title={grant.subjectId}>
-                {getGrantPrincipalLabel(grant)}
-              </MiniAppTableText>
-            </MiniAppTableCell>
-            <MiniAppTableCell>
-              <MiniAppTableText title={getContainerDisplayTitle(grant)}>
-                {getContainerDisplayLabel(grant)}
-              </MiniAppTableText>
-            </MiniAppTableCell>
-            <MiniAppTableCell>
-              <MiniAppTableText>
-                {getAccessLabel(grant.accessLevel)}
-              </MiniAppTableText>
-            </MiniAppTableCell>
-            <MiniAppTableCell className="org-manager-container-updated-column">
-              <MiniAppTableText title={grant.updatedAt}>
-                {formatMiniAppDate(grant.updatedAt)}
-              </MiniAppTableText>
-            </MiniAppTableCell>
-          </MiniAppTableRow>
-        ))}
+        {grants.map((grant) => {
+          const isGroupGrant = grant.subjectType === "group";
+          const openGrantGroupRoute = () => {
+            if (isGroupGrant) {
+              openGroupRoute(grant.subjectId);
+            }
+          };
+
+          return (
+            <MiniAppTableRow
+              className={
+                isGroupGrant ? "org-manager-grant-row--interactive" : undefined
+              }
+              key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
+              onClick={openGrantGroupRoute}
+              onKeyDown={(event) => {
+                if (
+                  isGroupGrant &&
+                  (event.key === "Enter" || event.key === " ")
+                ) {
+                  event.preventDefault();
+                  openGrantGroupRoute();
+                }
+              }}
+              tabIndex={isGroupGrant ? 0 : undefined}
+            >
+              <MiniAppTableCell>
+                <MiniAppTableText title={grant.subjectId}>
+                  {getGrantPrincipalLabel(grant)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText title={getContainerDisplayTitle(grant)}>
+                  {getContainerDisplayLabel(grant)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText>
+                  {getAccessLabel(grant.accessLevel)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell className="org-manager-container-updated-column">
+                <MiniAppTableText title={grant.updatedAt}>
+                  {formatMiniAppDate(grant.updatedAt)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+            </MiniAppTableRow>
+          );
+        })}
       </MiniAppTable>
     </MiniAppTableFrame>
   );
@@ -568,9 +592,11 @@ function GrantTable({
 function GrantsView({
   grants,
   loading,
+  openGroupRoute,
 }: {
   grants: OrgManagerContainerGrants | null;
   loading: boolean;
+  openGroupRoute: (groupId: string) => void;
 }) {
   if (!grants) {
     return (
@@ -602,6 +628,7 @@ function GrantsView({
           emptyLabel={ORG_MANAGER_LABELS.noGroupContainerLinks}
           grants={groupGrants}
           label={ORG_MANAGER_LABELS.groupContainerLinks}
+          openGroupRoute={openGroupRoute}
         />
       </section>
       <section className="org-manager-detail-section">
@@ -612,6 +639,7 @@ function GrantsView({
           emptyLabel={ORG_MANAGER_LABELS.noUserContainerLinks}
           grants={userGrants}
           label={ORG_MANAGER_LABELS.userContainerLinks}
+          openGroupRoute={openGroupRoute}
         />
       </section>
       <section className="org-manager-detail-section">
@@ -622,6 +650,7 @@ function GrantsView({
           emptyLabel={ORG_MANAGER_LABELS.noOrganizationContainerLinks}
           grants={organizationGrants}
           label={ORG_MANAGER_LABELS.organizationContainerLinks}
+          openGroupRoute={openGroupRoute}
         />
       </section>
     </div>
@@ -634,33 +663,34 @@ export function OrgManager() {
   const appData = useAppData();
   const orgManagerActions = useOrgManagerActions();
   const addUserListId = useId();
-  const [view, setView] = useState<OrgManagerView>("directory");
   const [directory, setDirectory] = useState<OrgManagerDirectory | null>(null);
   const [groups, setGroups] = useState<ReadonlyArray<OrgManagerGroupSummary>>(
     [],
   );
+  const {
+    openGroupRoute,
+    route,
+    selectedGroupId,
+    selectedGroupIdRef,
+    setSelectedGroupId: selectGroup,
+    setView,
+  } = useOrgManagerRoute({ groups });
+  const view = route.view;
   const [members, setMembers] = useState<OrgManagerGroupMembers | null>(null);
   const [groupContainers, setGroupContainers] =
     useState<OrgManagerGroupContainers | null>(null);
   const [grants, setGrants] = useState<OrgManagerContainerGrants | null>(null);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [addUserId, setAddUserId] = useState("");
   const [loading, setLoading] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const selectedGroupIdRef = useRef(selectedGroupId);
   const skippedGroupDetailsEffectRef = useRef<{
     groupId: string | null;
   } | null>(null);
   const canLoadAuthenticatedOrgData = Boolean(
     appData.organizationId && appData.isAuthenticated,
   );
-
-  const selectGroup = useCallback((groupId: string | null) => {
-    selectedGroupIdRef.current = groupId;
-    setSelectedGroupId(groupId);
-  }, []);
 
   const selectedGroup =
     groups.find((group) => group.groupId === selectedGroupId) ?? null;
@@ -716,13 +746,10 @@ export function OrgManager() {
       setDirectory(nextDirectoryState.directory);
       setGroups(nextDirectoryState.groups);
       const currentSelectedGroupId = selectedGroupIdRef.current;
-      const nextSelectedGroupId =
-        currentSelectedGroupId &&
-        nextDirectoryState.groups.some(
-          (group) => group.groupId === currentSelectedGroupId,
-        )
-          ? currentSelectedGroupId
-          : (nextDirectoryState.groups[0]?.groupId ?? null);
+      const nextSelectedGroupId = resolveOrgManagerSelectedGroupId(
+        currentSelectedGroupId,
+        nextDirectoryState.groups,
+      );
       if (
         options.skipNextGroupDetailsEffect &&
         nextSelectedGroupId !== currentSelectedGroupId
@@ -896,8 +923,7 @@ export function OrgManager() {
       const createdGroup = await orgManagerActions.createGroup(groupNameDraft);
       setGroupNameDraft("");
       await refreshDirectoryAndGroups();
-      setView("groups");
-      selectGroup(createdGroup.groupId);
+      openGroupRoute(createdGroup.groupId);
     } catch (nextError) {
       setUnknownError(setError, nextError);
     } finally {
@@ -910,9 +936,9 @@ export function OrgManager() {
     appData.signingKeyPair,
     appData.userId,
     groupNameDraft,
+    openGroupRoute,
     orgManagerActions,
     refreshDirectoryAndGroups,
-    selectGroup,
   ]);
 
   const addUser = useCallback(async () => {
@@ -1056,7 +1082,11 @@ export function OrgManager() {
         {view === "directory" ? (
           <DirectoryTable directory={directory} loading={loading} />
         ) : view === "grants" ? (
-          <GrantsView grants={grants} loading={loading} />
+          <GrantsView
+            grants={grants}
+            loading={loading}
+            openGroupRoute={openGroupRoute}
+          />
         ) : (
           <div className="org-manager-groups">
             <section className="org-manager-panel">
