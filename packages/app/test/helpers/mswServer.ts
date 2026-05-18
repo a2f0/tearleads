@@ -385,7 +385,7 @@ function isClosableConnection(value: unknown): value is ClosableConnection {
   );
 }
 
-async function waitForSocketClientsToDrain(timeoutMs = 1_000): Promise<void> {
+async function waitForSocketClientsToDrain(timeoutMs = 100): Promise<void> {
   const deadline = Date.now() + timeoutMs;
 
   while (eventsSocket.clients.size > 0 && Date.now() < deadline) {
@@ -393,14 +393,23 @@ async function waitForSocketClientsToDrain(timeoutMs = 1_000): Promise<void> {
   }
 }
 
+function clearMswSocketClientStore(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  // MSW keeps WebSocket clients in its own manager; closing the client does
+  // not remove it from eventsSocket.clients in happy-dom/Bun.
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      data: { type: "msw/worker:stop" },
+    }),
+  );
+}
+
 async function drainSocketClients(): Promise<void> {
   // Let component unmount cleanups call ws.close() before forcing shutdown.
   await new Promise((resolve) => setTimeout(resolve, 0));
-  await waitForSocketClientsToDrain(250);
-
-  if (eventsSocket.clients.size === 0) {
-    return;
-  }
 
   for (const client of eventsSocket.clients) {
     if (isClosableConnection(client)) {
@@ -408,6 +417,7 @@ async function drainSocketClients(): Promise<void> {
     }
   }
 
+  clearMswSocketClientStore();
   await waitForSocketClientsToDrain();
 }
 
@@ -530,9 +540,37 @@ async function waitForProxiedApiRequestsToDrain(
   }
 }
 
+async function waitForProxiedApiRequestsToSettle(
+  timeoutMs = 500,
+  quietMs = 50,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastRequestCount = proxiedApiRequests.length;
+  let quietStartedAt = Date.now();
+
+  while (Date.now() < deadline) {
+    await waitForProxiedApiRequestsToDrain(50);
+
+    const nextRequestCount = proxiedApiRequests.length;
+    if (
+      activeProxiedApiRequestCount === 0 &&
+      nextRequestCount === lastRequestCount
+    ) {
+      if (Date.now() - quietStartedAt >= quietMs) {
+        return;
+      }
+    } else {
+      lastRequestCount = nextRequestCount;
+      quietStartedAt = Date.now();
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 export async function resetMockServer(): Promise<void> {
   await drainSocketClients();
-  await waitForProxiedApiRequestsToDrain();
+  await waitForProxiedApiRequestsToSettle();
   testApiAppPromise = null;
   activeProxiedApiRequestCount = 0;
   proxiedApiRequests.length = 0;
