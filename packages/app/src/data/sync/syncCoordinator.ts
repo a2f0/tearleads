@@ -25,6 +25,10 @@ interface DomainSyncCoordinator {
 }
 
 const coordinatorsByScope = new WeakMap<object, DomainSyncCoordinator>();
+const DESTROYED_DATABASE_CLIENT_MESSAGES = [
+  "Database worker client has been destroyed.",
+  "DB has been closed.",
+] as const;
 
 function scheduleLane(state: SyncLaneState) {
   state.requested = true;
@@ -116,8 +120,9 @@ export function isDestroyedDatabaseClientError(error: unknown): boolean {
 
   while (current instanceof Error) {
     if (
-      current.message === "Database worker client has been destroyed." ||
-      current.message === "DB has been closed."
+      DESTROYED_DATABASE_CLIENT_MESSAGES.some((message) =>
+        current.message.includes(message),
+      )
     ) {
       return true;
     }

@@ -10,3 +10,13 @@ test("isDestroyedDatabaseClientError follows wrapped error causes", () => {
     ),
   ).toBe(true);
 });
+
+test("isDestroyedDatabaseClientError detects wrapped teardown messages", () => {
+  expect(
+    isDestroyedDatabaseClientError(
+      new Error(
+        "Failed to sync document: Database worker client has been destroyed.",
+      ),
+    ),
+  ).toBe(true);
+});

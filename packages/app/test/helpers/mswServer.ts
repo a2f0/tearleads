@@ -540,7 +540,7 @@ async function waitForProxiedApiRequestsToDrain(
   }
 }
 
-async function waitForProxiedApiRequestsToSettle(
+export async function waitForProxiedApiRequestsToSettle(
   timeoutMs = 500,
   quietMs = 50,
 ): Promise<void> {
