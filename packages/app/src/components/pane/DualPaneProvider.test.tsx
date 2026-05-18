@@ -785,9 +785,14 @@ async function waitForNoPostShareSyncFailures(
   const startedAt = Date.now();
   let unresolvedFailures: readonly ProxiedApiRequest[] = [];
   while (Date.now() - startedAt < POST_SHARE_SYNC_SETTLE_TIMEOUT_MS) {
+    const remainingTimeoutMs = Math.max(
+      0,
+      POST_SHARE_SYNC_SETTLE_TIMEOUT_MS - (Date.now() - startedAt),
+    );
+
     await act(async () => {
       await waitForProxiedApiRequestsToSettle(
-        POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+        remainingTimeoutMs,
         POST_SHARE_SYNC_QUIET_MS,
       );
     });
