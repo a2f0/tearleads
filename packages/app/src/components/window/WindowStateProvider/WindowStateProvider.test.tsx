@@ -38,6 +38,18 @@ test("updateTitle, minimize, and restore update the tracked window state", () =>
   expect(result.current.windowMap.get(id)?.minimized).toBe(false);
 });
 
+test("create stores optional app metadata", () => {
+  const { result } = renderHook(() => useWindowState(), { wrapper });
+
+  act(() =>
+    result.current.create("Explorer", 0, 0, undefined, {
+      appId: "explorer",
+    }),
+  );
+
+  expect(at(result, 0).appId).toBe("explorer");
+});
+
 test("zIndex change triggers re-render in consuming component", () => {
   const zIndices: number[][] = [];
 

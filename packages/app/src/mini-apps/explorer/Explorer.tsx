@@ -1,13 +1,34 @@
+import { useCallback } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
+import { type MiniAppWindowPosition, useMiniAppBusActions } from "../bus";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { ExplorerModalLayer } from "./modal/ExplorerModal";
 import "./Explorer.css";
+
+function useOpenGrantGroupInOrgManager() {
+  const { openMiniApp } = useMiniAppBusActions();
+
+  return useCallback(
+    (groupId: string, position?: MiniAppWindowPosition) => {
+      openMiniApp({
+        appId: "org-manager",
+        message: {
+          appId: "org-manager",
+          groupId,
+          type: "open-group",
+        },
+        ...(position ? { position } : {}),
+      });
+    },
+    [openMiniApp],
+  );
+}
 
 export function Explorer() {
   const appData = useAppData();
@@ -15,6 +36,7 @@ export function Explorer() {
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
   const model = useExplorerModel(appData, explorer, setSidebar, peerUserId);
+  const openGrantGroupInOrgManager = useOpenGrantGroupInOrgManager();
   useWindowRefreshMenuItem({
     disabled: !model.explorer.ready || model.isRefreshing,
     onRefresh: model.handleRefresh,
@@ -37,6 +59,7 @@ export function Explorer() {
         loadContainerInfo={model.loadContainerInfo}
         nodes={model.explorer.nodes}
         onBackToSelectionRoute={model.routeState.showSelectionRoute}
+        onOpenGrantGroup={openGrantGroupInOrgManager}
         openInlineDocument={model.openInlineDocument}
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}

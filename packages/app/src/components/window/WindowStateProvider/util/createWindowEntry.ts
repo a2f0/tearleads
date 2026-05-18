@@ -8,9 +8,11 @@ export function createWindowEntry(
   y: number,
   zIndex: number,
   component?: ComponentType,
+  options: { appId?: string } = {},
 ): WindowEntry {
   return {
     id,
+    ...(options.appId ? { appId: options.appId } : {}),
     title,
     initialX: x,
     initialY: y,

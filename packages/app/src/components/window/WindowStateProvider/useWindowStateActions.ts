@@ -19,22 +19,32 @@ interface UseWindowStateActionsParams {
   setWindows: Dispatch<SetStateAction<WindowEntry[]>>;
 }
 
+function getMaxWindowZIndex(windows: ReadonlyArray<WindowEntry>) {
+  return windows.reduce(
+    (currentMaxZIndex, windowEntry) =>
+      Math.max(currentMaxZIndex, windowEntry.zIndex),
+    0,
+  );
+}
+
 export function useWindowStateActions({
   counter,
   setWindows,
 }: UseWindowStateActionsParams) {
   const create = useCallback(
-    (title: string, x: number, y: number, component?: ComponentType) => {
+    (
+      title: string,
+      x: number,
+      y: number,
+      component?: ComponentType,
+      options: { appId?: string } = {},
+    ) => {
       const id = String(++counter.current);
       setWindows((previousWindows) => {
-        const maxZIndex = previousWindows.reduce(
-          (currentMaxZIndex, windowEntry) =>
-            Math.max(currentMaxZIndex, windowEntry.zIndex),
-          0,
-        );
+        const maxZIndex = getMaxWindowZIndex(previousWindows);
         return [
           ...previousWindows,
-          createWindowEntry(id, title, x, y, maxZIndex + 1, component),
+          createWindowEntry(id, title, x, y, maxZIndex + 1, component, options),
         ];
       });
       return id;
