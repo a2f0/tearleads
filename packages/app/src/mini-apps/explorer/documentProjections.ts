@@ -1,7 +1,7 @@
 import type { DocumentSummary } from "../../data/documentSummary";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 
-export interface DocumentContainerProjection {
+interface DocumentContainerProjection {
   containerId: string;
   createdAt: string;
   documentKind: StoredDocumentKind;

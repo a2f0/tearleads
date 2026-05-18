@@ -66,6 +66,20 @@ export interface ExplorerContainerItemWindow {
   totalCount: number;
 }
 
+export interface ExplorerContainerDocumentSidebarRow {
+  containerId: string;
+  documentId: string | null;
+  documentKind: StoredDocumentKind;
+  localId: string;
+  title: string;
+  updatedAt: string | null;
+}
+
+export interface ExplorerContainerDocumentSidebarWindow {
+  rows: ReadonlyArray<ExplorerContainerDocumentSidebarRow>;
+  totalCount: number;
+}
+
 interface ExplorerDocumentRuntimeTarget {
   documentId: string | null;
   localId: string;
@@ -91,12 +105,18 @@ export interface ExplorerDocumentReadModel {
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
   ): Promise<ReadonlyArray<DocumentSummary>>;
+  listContainerDocumentSidebarWindow(input: {
+    containerId: string;
+    limit: number;
+    offset: number;
+  }): Promise<ExplorerContainerDocumentSidebarWindow>;
   listContainerItemWindow(input: {
     containerId: string;
     limit: number;
     offset: number;
     sort: ExplorerContainerItemSort;
   }): Promise<ExplorerContainerItemWindow>;
+  loadDocumentSummary(localId: string): Promise<DocumentSummary | null>;
   loadContainerDocumentWatermark(
     containerId: string,
   ): Promise<SyncWatermark | null>;
@@ -137,6 +157,7 @@ interface ExplorerContainerSubtreeState {
 // Keep each IN clause below SQLite's historical 999 bind-parameter limit.
 const EXPLORER_SQL_ID_BATCH_SIZE = 500;
 const MAX_EXPLORER_CONTAINER_ITEM_WINDOW_LIMIT = 200;
+const MAX_EXPLORER_CONTAINER_DOCUMENT_SIDEBAR_WINDOW_LIMIT = 200;
 
 function listExplorerSqlIdBatches(
   values: ReadonlyArray<string>,
@@ -174,6 +195,13 @@ function clampExplorerContainerItemWindowValue(value: number): number {
 function getExplorerContainerItemWindowLimit(limit: number): number {
   return Math.min(
     MAX_EXPLORER_CONTAINER_ITEM_WINDOW_LIMIT,
+    clampExplorerContainerItemWindowValue(limit),
+  );
+}
+
+function getExplorerContainerDocumentSidebarWindowLimit(limit: number): number {
+  return Math.min(
+    MAX_EXPLORER_CONTAINER_DOCUMENT_SIDEBAR_WINDOW_LIMIT,
     clampExplorerContainerItemWindowValue(limit),
   );
 }
@@ -258,6 +286,45 @@ function getExplorerContainerItemsBaseSql(): string {
   `;
 }
 
+function getExplorerContainerDocumentsBaseSql(): string {
+  return `
+    WITH container_documents AS (
+      SELECT
+        d.local_id AS local_id,
+        d.document_id AS document_id,
+        d.container_id AS container_id,
+        d.document_kind AS document_kind,
+        d.title AS title,
+        d.updated_at AS updated_at
+      FROM document_projection d
+      WHERE d.container_id = ?
+
+      UNION ALL
+
+      SELECT
+        d.local_id AS local_id,
+        d.document_id AS document_id,
+        linked.container_id AS container_id,
+        d.document_kind AS document_kind,
+        d.title AS title,
+        d.updated_at AS updated_at
+      FROM document_container_projection linked
+      INNER JOIN document_projection d ON d.document_id = linked.document_id
+      WHERE linked.container_id = ?
+        AND (
+          d.container_id IS NULL
+          OR d.container_id != linked.container_id
+        )
+    )
+    SELECT *
+    FROM container_documents
+  `;
+}
+
+function getExplorerContainerDocumentSidebarOrderBy(): string {
+  return "updated_at IS NULL ASC, updated_at DESC, title COLLATE NOCASE ASC, local_id ASC";
+}
+
 function parseExplorerContainerItemDocumentKind(
   value: unknown,
 ): StoredDocumentKind {
@@ -327,6 +394,45 @@ function mapExplorerContainerItemRow(
 
 function readExplorerContainerItemCount(row: Record<string, unknown>): number {
   return readExplorerContainerItemNumber(row, "total_count");
+}
+
+function mapExplorerContainerDocumentSidebarRow(
+  row: Record<string, unknown>,
+): ExplorerContainerDocumentSidebarRow {
+  return {
+    containerId: readExplorerContainerItemString(row, "container_id"),
+    documentId: readExplorerContainerItemNullableString(row, "document_id"),
+    documentKind: parseExplorerContainerItemDocumentKind(
+      readExplorerContainerItemString(row, "document_kind"),
+    ),
+    localId: readExplorerContainerItemString(row, "local_id"),
+    title: readExplorerContainerItemString(row, "title"),
+    updatedAt: readExplorerContainerItemNullableString(row, "updated_at"),
+  };
+}
+
+function mapExplorerDocumentSummaryRow(
+  row: Record<string, unknown>,
+): DocumentSummary | null {
+  const localId = readExplorerContainerItemString(row, "local_id");
+  if (localId.length === 0) {
+    return null;
+  }
+
+  return {
+    accessStateHash: readExplorerContainerItemNullableString(
+      row,
+      "access_state_hash",
+    ),
+    id: localId,
+    containerId: readExplorerContainerItemNullableString(row, "container_id"),
+    documentId: readExplorerContainerItemNullableString(row, "document_id"),
+    documentKind: parseExplorerContainerItemDocumentKind(
+      readExplorerContainerItemString(row, "document_kind"),
+    ),
+    title: readExplorerContainerItemString(row, "title"),
+    updatedAt: readExplorerContainerItemString(row, "updated_at"),
+  };
 }
 
 function addExplorerDocumentSummaries(
@@ -447,6 +553,70 @@ async function listExplorerContainerItemWindow(
     ),
     totalCount,
   };
+}
+
+async function listExplorerContainerDocumentSidebarWindow(
+  execSql: ExecSql,
+  input: {
+    containerId: string;
+    limit: number;
+    offset: number;
+  },
+): Promise<ExplorerContainerDocumentSidebarWindow> {
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+
+  const limit = getExplorerContainerDocumentSidebarWindowLimit(input.limit);
+  const offset = clampExplorerContainerItemWindowValue(input.offset);
+  const bind = [input.containerId, input.containerId];
+  const baseSql = getExplorerContainerDocumentsBaseSql();
+  const countRows = await execSql(
+    `SELECT COUNT(*) AS total_count FROM (${baseSql})`,
+    bind,
+  );
+  const totalCount = readExplorerContainerItemCount(countRows[0] ?? {});
+
+  if (limit === 0 || offset >= totalCount) {
+    return { rows: [], totalCount };
+  }
+
+  const rows = await execSql(
+    `${baseSql} ORDER BY ${getExplorerContainerDocumentSidebarOrderBy()} LIMIT ? OFFSET ?`,
+    [...bind, limit, offset],
+  );
+
+  return {
+    rows: rows.map(mapExplorerContainerDocumentSidebarRow),
+    totalCount,
+  };
+}
+
+async function loadExplorerDocumentSummary(
+  execSql: ExecSql,
+  localId: string,
+): Promise<DocumentSummary | null> {
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+
+  const rows = await execSql(
+    `
+      SELECT
+        d.local_id AS local_id,
+        d.document_id AS document_id,
+        d.container_id AS container_id,
+        d.document_kind AS document_kind,
+        d.title AS title,
+        d.updated_at AS updated_at,
+        stored.access_state_hash AS access_state_hash
+      FROM document_projection d
+      LEFT JOIN documents stored
+        ON stored.app_kind = 'documents'
+        AND stored.local_id = d.local_id
+      WHERE d.local_id = ?
+      LIMIT 1
+    `,
+    [localId],
+  );
+
+  return mapExplorerDocumentSummaryRow(rows[0] ?? {});
 }
 
 async function listExplorerDocumentsForContainerSubtree(
@@ -738,8 +908,14 @@ function createExplorerDocumentReadModel(
     applyContainerDocumentTombstones(tombstones) {
       return applyExplorerContainerDocumentTombstones(execSql, tombstones);
     },
+    listContainerDocumentSidebarWindow(input) {
+      return listExplorerContainerDocumentSidebarWindow(execSql, input);
+    },
     listContainerItemWindow(input) {
       return listExplorerContainerItemWindow(execSql, input);
+    },
+    loadDocumentSummary(localId) {
+      return loadExplorerDocumentSummary(execSql, localId);
     },
     loadContainerDocumentWatermark(containerId) {
       return loadExplorerContainerDocumentWatermark(execSql, containerId);

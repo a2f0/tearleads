@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
-import { getDocumentByLocalId } from "../documentSummaries";
 import {
   createExplorerTargetLookups,
   getDocumentLinkTargetOptions,
@@ -91,6 +90,7 @@ export function useSelectedDocumentStructuralState(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
   onDocumentLinksChanged: () => void;
@@ -105,6 +105,7 @@ export function useSelectedDocumentStructuralState(params: {
     documentSummaries,
     expandNode,
     linkedContainerIdsByDocumentId,
+    loadDocumentSummary,
     mergeDocumentSummary,
     nodes,
     onDocumentLinksChanged,
@@ -121,6 +122,7 @@ export function useSelectedDocumentStructuralState(params: {
       appData,
       documentSummaries,
       expandNode,
+      loadDocumentSummary,
       mergeDocumentSummary,
       onDocumentLinksChanged,
       setLinkedContainerIdsForDocument,
@@ -151,21 +153,25 @@ export function useSelectDocumentProjection(params: {
     noteId: string,
     containerId: string,
   ) => Promise<DocumentSummary | null>;
-  documentSummaries: ReadonlyArray<DocumentSummary>;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   setSelectedId: (id: string | null) => void;
 }) {
-  const { activateLinkedDocument, documentSummaries, setSelectedId } = params;
+  const { activateLinkedDocument, loadDocumentSummary, setSelectedId } = params;
 
   return useCallback(
     (noteId: string, containerId: string) => {
-      setSelectedId(noteId);
-      const existingDocument = getDocumentByLocalId(documentSummaries, noteId);
-      if (!existingDocument || existingDocument.containerId === containerId) {
-        return;
-      }
+      void (async () => {
+        const existingDocument = await loadDocumentSummary(noteId);
+        if (!existingDocument) {
+          return;
+        }
 
-      void activateLinkedDocument(noteId, containerId);
+        setSelectedId(noteId);
+        if (existingDocument.containerId !== containerId) {
+          await activateLinkedDocument(noteId, containerId);
+        }
+      })();
     },
-    [activateLinkedDocument, documentSummaries, setSelectedId],
+    [activateLinkedDocument, loadDocumentSummary, setSelectedId],
   );
 }

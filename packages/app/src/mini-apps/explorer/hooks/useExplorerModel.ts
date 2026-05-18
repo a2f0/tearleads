@@ -5,7 +5,6 @@ import {
   type ExplorerDocumentReadModel,
   useExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
-import type { DocumentContainerProjection } from "../documentProjections";
 import { buildExplorerTree } from "../ExplorerTree";
 import type {
   ExplorerDocumentMutationAction,
@@ -28,11 +27,8 @@ interface ExplorerModel {
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
+  documentListRevision: number;
   documentReadModel: ExplorerDocumentReadModel;
-  documentsByContainerId: ReadonlyMap<
-    string,
-    ReadonlyArray<DocumentContainerProjection>
-  >;
   explorer: ExplorerModelExplorer;
   handleRefresh: () => Promise<boolean>;
   isRefreshing: boolean;
@@ -60,12 +56,13 @@ export function useExplorerModel(
     useDocumentLinkProjectionVersion();
   const documentReadModel = useExplorerDocumentReadModel(appData);
   const {
+    documentListRevision,
     knownDocumentIds,
     linkedContainerIdsByDocumentId,
+    loadDocumentSummary,
     mergeDocumentSummaries,
     mergeDocumentSummary,
     documentSummaries,
-    documentsByContainerId,
     selection,
     setLinkedContainerIdsForDocument,
   } = useExplorerDocumentViewModel({
@@ -102,11 +99,14 @@ export function useExplorerModel(
     unlinkDocument,
   } = useExplorerPanelState({
     appData,
+    documentLinkProjectionVersion,
+    documentReadModel,
     explorer,
     linkedContainerIdsByDocumentId,
+    loadDocumentSummary,
     mergeDocumentSummary,
     documentSummaries,
-    documentsByContainerId,
+    documentListRevision,
     onDocumentLinksChanged: handleDocumentLinksChanged,
     peerUserId,
     selection,
@@ -126,8 +126,8 @@ export function useExplorerModel(
     activateLinkedContainer,
     ...selectedDocumentMutationState,
     contextMenuState,
+    documentListRevision,
     documentReadModel,
-    documentsByContainerId,
     explorer,
     handleRefresh,
     isRefreshing,

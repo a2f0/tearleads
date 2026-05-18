@@ -12,10 +12,26 @@ import {
 import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import { getDocumentByLocalId } from "../documentSummaries";
 
+type LoadExplorerDocumentSummary = (
+  localId: string,
+) => Promise<DocumentSummary | null>;
+
+async function resolveExplorerActionDocument(params: {
+  documentSummaries: ReadonlyArray<DocumentSummary>;
+  loadDocumentSummary: LoadExplorerDocumentSummary;
+  noteId: string;
+}): Promise<DocumentSummary | null> {
+  return (
+    getDocumentByLocalId(params.documentSummaries, params.noteId) ??
+    (await params.loadDocumentSummary(params.noteId))
+  );
+}
+
 function useMoveDocumentAction(params: {
   appData: ExplorerDocumentsRuntimeAppData;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
+  loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
   onDocumentLinksChanged: () => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
@@ -24,6 +40,7 @@ function useMoveDocumentAction(params: {
     appData,
     documentSummaries,
     expandNode,
+    loadDocumentSummary,
     mergeDocumentSummary,
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
@@ -35,7 +52,11 @@ function useMoveDocumentAction(params: {
         return null;
       }
 
-      const existingDocument = getDocumentByLocalId(documentSummaries, noteId);
+      const existingDocument = await resolveExplorerActionDocument({
+        documentSummaries,
+        loadDocumentSummary,
+        noteId,
+      });
       if (!existingDocument) {
         return null;
       }
@@ -58,6 +79,7 @@ function useMoveDocumentAction(params: {
       appData,
       documentSummaries,
       expandNode,
+      loadDocumentSummary,
       mergeDocumentSummary,
       onDocumentLinksChanged,
       setLinkedContainerIdsForDocument,
@@ -68,6 +90,7 @@ function useMoveDocumentAction(params: {
 function useLinkDocumentAction(params: {
   appData: ExplorerDocumentsRuntimeAppData;
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
   onDocumentLinksChanged: () => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
@@ -75,6 +98,7 @@ function useLinkDocumentAction(params: {
   const {
     appData,
     documentSummaries,
+    loadDocumentSummary,
     mergeDocumentSummary,
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
@@ -86,7 +110,11 @@ function useLinkDocumentAction(params: {
         return null;
       }
 
-      const existingDocument = getDocumentByLocalId(documentSummaries, noteId);
+      const existingDocument = await resolveExplorerActionDocument({
+        documentSummaries,
+        loadDocumentSummary,
+        noteId,
+      });
       if (!existingDocument) {
         return null;
       }
@@ -107,6 +135,7 @@ function useLinkDocumentAction(params: {
     [
       appData,
       documentSummaries,
+      loadDocumentSummary,
       mergeDocumentSummary,
       onDocumentLinksChanged,
       setLinkedContainerIdsForDocument,
@@ -117,6 +146,7 @@ function useLinkDocumentAction(params: {
 function useUnlinkDocumentAction(params: {
   appData: ExplorerDocumentsRuntimeAppData;
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
   onDocumentLinksChanged: () => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
@@ -124,6 +154,7 @@ function useUnlinkDocumentAction(params: {
   const {
     appData,
     documentSummaries,
+    loadDocumentSummary,
     mergeDocumentSummary,
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
@@ -135,7 +166,11 @@ function useUnlinkDocumentAction(params: {
         return null;
       }
 
-      const existingDocument = getDocumentByLocalId(documentSummaries, noteId);
+      const existingDocument = await resolveExplorerActionDocument({
+        documentSummaries,
+        loadDocumentSummary,
+        noteId,
+      });
       if (!existingDocument) {
         return null;
       }
@@ -156,6 +191,7 @@ function useUnlinkDocumentAction(params: {
     [
       appData,
       documentSummaries,
+      loadDocumentSummary,
       mergeDocumentSummary,
       onDocumentLinksChanged,
       setLinkedContainerIdsForDocument,
@@ -166,9 +202,15 @@ function useUnlinkDocumentAction(params: {
 function useActivateLinkedDocumentAction(params: {
   appData: ExplorerDocumentsRuntimeAppData;
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
 }) {
-  const { appData, documentSummaries, mergeDocumentSummary } = params;
+  const {
+    appData,
+    documentSummaries,
+    loadDocumentSummary,
+    mergeDocumentSummary,
+  } = params;
 
   return useCallback(
     async (noteId: string, targetContainerId: string) => {
@@ -176,7 +218,11 @@ function useActivateLinkedDocumentAction(params: {
         return null;
       }
 
-      const existingDocument = getDocumentByLocalId(documentSummaries, noteId);
+      const existingDocument = await resolveExplorerActionDocument({
+        documentSummaries,
+        loadDocumentSummary,
+        noteId,
+      });
       if (!existingDocument) {
         return null;
       }
@@ -188,7 +234,7 @@ function useActivateLinkedDocumentAction(params: {
         targetContainerId,
       });
     },
-    [appData, documentSummaries, mergeDocumentSummary],
+    [appData, documentSummaries, loadDocumentSummary, mergeDocumentSummary],
   );
 }
 
@@ -196,6 +242,7 @@ export function useSelectedDocumentActions(params: {
   appData: ExplorerDocumentsRuntimeAppData;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
+  loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeExplorerDocumentSummary;
   onDocumentLinksChanged: () => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
@@ -204,6 +251,7 @@ export function useSelectedDocumentActions(params: {
     appData,
     documentSummaries,
     expandNode,
+    loadDocumentSummary,
     mergeDocumentSummary,
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
@@ -213,6 +261,7 @@ export function useSelectedDocumentActions(params: {
     appData,
     documentSummaries,
     expandNode,
+    loadDocumentSummary,
     mergeDocumentSummary,
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
@@ -220,11 +269,13 @@ export function useSelectedDocumentActions(params: {
   const activateLinkedDocument = useActivateLinkedDocumentAction({
     appData,
     documentSummaries,
+    loadDocumentSummary,
     mergeDocumentSummary,
   });
   const linkDocument = useLinkDocumentAction({
     appData,
     documentSummaries,
+    loadDocumentSummary,
     mergeDocumentSummary,
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
@@ -232,6 +283,7 @@ export function useSelectedDocumentActions(params: {
   const unlinkDocument = useUnlinkDocumentAction({
     appData,
     documentSummaries,
+    loadDocumentSummary,
     mergeDocumentSummary,
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,

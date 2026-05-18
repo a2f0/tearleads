@@ -259,6 +259,169 @@ test("listContainerItemWindow includes documents linked to the selected containe
   }
 });
 
+test("listContainerDocumentSidebarWindow pages container document rows from SQLite", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "explorer-sidebar-document-window",
+  );
+  try {
+    await defaultExplorerPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const runtime = createExplorerWorkflowSqlRuntime({ execSql });
+    const readModel = createExplorerDocumentReadModelFromRuntime(runtime);
+
+    await saveTestDocument({
+      containerId: "root-container",
+      documentId: "remote-song-1",
+      execSql,
+      id: "song-1",
+      title: "Older song",
+      updatedAt: "2026-05-03T00:00:00.000Z",
+    });
+    await saveTestDocument({
+      containerId: "root-container",
+      documentId: "remote-song-2",
+      execSql,
+      id: "song-2",
+      kind: "drivers_license",
+      title: "Newest song",
+      updatedAt: "2026-05-04T00:00:00.000Z",
+    });
+    await saveTestDocument({
+      containerId: "root-container",
+      documentId: "remote-song-3",
+      execSql,
+      id: "song-3",
+      title: "Middle song",
+      updatedAt: "2026-05-03T12:00:00.000Z",
+    });
+
+    await expect(
+      readModel.listContainerDocumentSidebarWindow({
+        containerId: "root-container",
+        limit: 2,
+        offset: 0,
+      }),
+    ).resolves.toEqual({
+      totalCount: 3,
+      rows: [
+        {
+          containerId: "root-container",
+          documentId: "remote-song-2",
+          documentKind: "drivers_license",
+          localId: "song-2",
+          title: "Newest song",
+          updatedAt: "2026-05-04T00:00:00.000Z",
+        },
+        {
+          containerId: "root-container",
+          documentId: "remote-song-3",
+          documentKind: "note",
+          localId: "song-3",
+          title: "Middle song",
+          updatedAt: "2026-05-03T12:00:00.000Z",
+        },
+      ],
+    });
+
+    await expect(
+      readModel.listContainerDocumentSidebarWindow({
+        containerId: "root-container",
+        limit: 2,
+        offset: 2,
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 3,
+      rows: [
+        {
+          localId: "song-1",
+          title: "Older song",
+        },
+      ],
+    });
+  } finally {
+    close();
+  }
+});
+
+test("listContainerDocumentSidebarWindow includes linked documents for a sidebar container", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "explorer-linked-sidebar-document-window",
+  );
+  try {
+    await defaultExplorerPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const runtime = createExplorerWorkflowSqlRuntime({ execSql });
+    const readModel = createExplorerDocumentReadModelFromRuntime(runtime);
+
+    await saveTestDocument({
+      containerId: "private-container",
+      documentId: "remote-shared-song",
+      execSql,
+      id: "shared-song",
+      title: "Linked song",
+      updatedAt: "2026-05-03T00:00:00.000Z",
+    });
+    await readModel.replaceDocumentLinks("remote-shared-song", [
+      "private-container",
+      "shared-container",
+    ]);
+
+    await expect(
+      readModel.listContainerDocumentSidebarWindow({
+        containerId: "shared-container",
+        limit: 10,
+        offset: 0,
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 1,
+      rows: [
+        {
+          containerId: "shared-container",
+          localId: "shared-song",
+          title: "Linked song",
+        },
+      ],
+    });
+  } finally {
+    close();
+  }
+});
+
+test("loadDocumentSummary loads a single document projection by local id", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "explorer-load-document-summary",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const runtime = createExplorerWorkflowSqlRuntime({ execSql });
+    const readModel = createExplorerDocumentReadModelFromRuntime(runtime);
+
+    await saveTestDocument({
+      containerId: "root-container",
+      documentId: "remote-song-1",
+      execSql,
+      id: "song-1",
+      title: "Song 1",
+      updatedAt: "2026-05-03T00:00:00.000Z",
+    });
+
+    await expect(readModel.loadDocumentSummary("song-1")).resolves.toEqual({
+      accessStateHash: null,
+      containerId: "root-container",
+      documentId: "remote-song-1",
+      documentKind: "note",
+      id: "song-1",
+      title: "Song 1",
+      updatedAt: "2026-05-03T00:00:00.000Z",
+    });
+    await expect(readModel.loadDocumentSummary("missing-song")).resolves.toBe(
+      null,
+    );
+  } finally {
+    close();
+  }
+});
+
 test("listExplorerDocumentRuntimeTargetsForContainerSubtreeFromRuntime uses the runtime executor", async () => {
   const { close, execSql } = await createTestExecSql(
     "explorer-document-runtime-targets",

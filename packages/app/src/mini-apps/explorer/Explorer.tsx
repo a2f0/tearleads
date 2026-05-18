@@ -32,8 +32,8 @@ export function Explorer() {
         canLinkSelectedDocument={model.canLinkSelectedDocument}
         canMoveSelectedDocument={model.canMoveSelectedDocument}
         canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
+        documentListRevision={model.documentListRevision}
         documentReadModel={model.documentReadModel}
-        documentsByContainerId={model.documentsByContainerId}
         linkedContainerIds={model.linkedContainerIds}
         loadContainerInfo={model.loadContainerInfo}
         nodes={model.explorer.nodes}

@@ -11,7 +11,10 @@ export type {
 } from "../../workflows/explorer";
 
 export function loadExplorerContainerInfo(input: {
-  readonly appData: AppDataContextValue;
+  readonly appData: Pick<
+    AppDataContextValue,
+    "apiClient" | "dbStatus" | "execSql" | "organizationId"
+  >;
   readonly containerId: string;
   readonly parentId?: string | null;
   readonly remoteInfoMode?: ExplorerContainerInfoRemoteMode;

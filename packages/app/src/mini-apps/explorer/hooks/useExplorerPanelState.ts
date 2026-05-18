@@ -1,17 +1,17 @@
 import type { MouseEvent, ReactNode } from "react";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import {
   type ExplorerContainerInfo,
   loadExplorerContainerInfo,
 } from "../../../stores/explorer/containerInfo";
+import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import {
   type ContextMenuState,
   useExplorerContextMenu,
 } from "../context-menu/ExplorerContextMenu";
-import type { DocumentContainerProjection } from "../documentProjections";
 import type { ExplorerTreeEntry } from "../ExplorerTree";
 import { useExplorerSidebarPanel } from "../ExplorerTree";
 import type { MoveTargetOption } from "../targetOptions";
@@ -64,14 +64,14 @@ export interface ExplorerPanelState {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The panel hook coordinates sidebar, document, modal, and context-menu state.
 export function useExplorerPanelState(params: {
   appData: ReturnType<typeof useAppData>;
+  documentLinkProjectionVersion: number;
+  documentListRevision: number;
+  documentReadModel: ExplorerDocumentReadModel;
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   documentSummaries: ReadonlyArray<DocumentSummary>;
-  documentsByContainerId: ReadonlyMap<
-    string,
-    ReadonlyArray<DocumentContainerProjection>
-  >;
   onDocumentLinksChanged: () => void;
   peerUserId: string | null;
   selection: ExplorerSelectionState;
@@ -84,11 +84,14 @@ export function useExplorerPanelState(params: {
 }): ExplorerPanelState {
   const {
     appData,
+    documentLinkProjectionVersion,
+    documentListRevision,
+    documentReadModel,
     explorer,
     linkedContainerIdsByDocumentId,
+    loadDocumentSummary,
     mergeDocumentSummary,
     documentSummaries,
-    documentsByContainerId,
     onDocumentLinksChanged,
     peerUserId,
     selection,
@@ -97,6 +100,20 @@ export function useExplorerPanelState(params: {
     treeEntries,
   } = params;
   const explorerDocumentsAppData = useExplorerDocumentsRuntimeAppData(appData);
+  const containerInfoAppData = useMemo(
+    () => ({
+      apiClient: appData.apiClient,
+      dbStatus: appData.dbStatus,
+      execSql: appData.execSql,
+      organizationId: appData.organizationId,
+    }),
+    [
+      appData.apiClient,
+      appData.dbStatus,
+      appData.execSql,
+      appData.organizationId,
+    ],
+  );
   const routeState = useExplorerRoute({
     nodes: explorer.nodes,
     setSelectedId: selection.setSelectedId,
@@ -111,19 +128,25 @@ export function useExplorerPanelState(params: {
         (candidate) => candidate.id === containerId,
       );
       return loadExplorerContainerInfo({
-        appData,
+        appData: containerInfoAppData,
         containerId,
         parentId: node?.parentId ?? null,
         remoteInfoMode:
           appData.isAuthenticated && appData.online ? "if-synced" : "never",
       });
     },
-    [appData, explorer.nodes],
+    [
+      appData.isAuthenticated,
+      appData.online,
+      containerInfoAppData,
+      explorer.nodes,
+    ],
   );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentsAppData,
     expandNode: selection.expandNode,
     linkedContainerIdsByDocumentId,
+    loadDocumentSummary,
     mergeDocumentSummary,
     nodes: explorer.nodes,
     documentSummaries,
@@ -133,14 +156,16 @@ export function useExplorerPanelState(params: {
   });
   const selectDocumentProjection = useSelectDocumentProjection({
     activateLinkedDocument: selectedNoteStructuralState.activateLinkedDocument,
-    documentSummaries,
+    loadDocumentSummary,
     setSelectedId: routeState.selectExplorerItem,
   });
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
+    documentLinkProjectionVersion,
+    documentListRevision,
+    documentReadModel,
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
-    documentsByContainerId,
     nodes: explorer.nodes,
     ready: explorer.ready,
     selectedId: selection.selectedId,
