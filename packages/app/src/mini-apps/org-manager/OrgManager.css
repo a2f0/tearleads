@@ -161,6 +161,16 @@
   margin-top: 0;
 }
 
+.org-manager-grant-row--interactive {
+  cursor: pointer;
+}
+
+.org-manager-grant-row--interactive:hover .mini-app-table-cell,
+.org-manager-grant-row--interactive:focus .mini-app-table-cell {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
 .org-manager-section-heading {
   font-weight: 700;
   font-size: var(--font-size-sm);

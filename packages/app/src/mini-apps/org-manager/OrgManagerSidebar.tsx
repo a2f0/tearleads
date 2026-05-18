@@ -5,8 +5,9 @@ import {
 } from "../../components/shared/MiniAppRow";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { ORG_MANAGER_LABELS } from "./labels";
+import type { OrgManagerView } from "./routes";
 
-export type OrgManagerView = "directory" | "groups" | "grants";
+export type { OrgManagerView } from "./routes";
 
 function OrgManagerSidebar({
   setView,
