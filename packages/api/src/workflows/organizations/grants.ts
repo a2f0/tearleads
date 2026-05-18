@@ -10,6 +10,7 @@ import { requireDirectOrganizationAccess } from "./access";
 import {
   listOrganizationContainerGrantRows,
   type OrganizationContainerGrantRow,
+  type OrganizationContainerGrantSubjectFilter,
   toOrganizationGroupContainerResponse,
 } from "./containerGrants";
 import { loadUsersById, type UserKeyRow } from "./users";
@@ -108,9 +109,28 @@ async function listOrganizationContainerGrantsInTransaction(input: {
     userId: input.sessionUserId,
   });
 
+  const grants = await listOrganizationContainerGrantResponsesInTransaction({
+    executor: input.executor,
+    organizationId: input.organizationId,
+  });
+
+  return {
+    organizationId: input.organizationId,
+    grants,
+  };
+}
+
+export async function listOrganizationContainerGrantResponsesInTransaction(input: {
+  executor: DatabaseSession;
+  organizationId: string;
+  subjectFilters?:
+    | readonly OrganizationContainerGrantSubjectFilter[]
+    | undefined;
+}): Promise<OrganizationContainerGrantResponse[]> {
   const rows = await listOrganizationContainerGrantRows({
     executor: input.executor,
     organizationId: input.organizationId,
+    subjectFilters: input.subjectFilters,
   });
 
   const groupNamesById = await loadGroupNamesById({
@@ -134,17 +154,14 @@ async function listOrganizationContainerGrantsInTransaction(input: {
     ),
   });
 
-  return {
-    organizationId: input.organizationId,
-    grants: rows.map((row) =>
-      toOrganizationContainerGrantResponse({
-        groupNamesById,
-        organizationNamesById,
-        row,
-        usersById,
-      }),
-    ),
-  };
+  return rows.map((row) =>
+    toOrganizationContainerGrantResponse({
+      groupNamesById,
+      organizationNamesById,
+      row,
+      usersById,
+    }),
+  );
 }
 
 export async function runListOrganizationContainerGrantsWorkflow(

@@ -7,3 +7,4 @@ export {
   runListOrganizationGroupsWorkflow,
 } from "./groups";
 export { runCreateOrganizationGroupWorkflow } from "./mutations";
+export { runGetOrganizationUserDetailWorkflow } from "./userDetail";

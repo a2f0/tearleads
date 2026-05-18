@@ -5,6 +5,7 @@ import type {
   OrganizationDirectoryResponse,
   OrganizationGroupContainersResponse,
   OrganizationGroupMembersResponse,
+  OrganizationUserDetailResponse,
 } from "@tearleads/validators/response";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
@@ -15,6 +16,7 @@ import {
   loadOrgManagerDirectoryAndGroups,
   loadOrgManagerGrants,
   loadOrgManagerGroupDetails,
+  loadOrgManagerUserDetail,
 } from "./readModel";
 
 const organizationId = "org-1";
@@ -105,6 +107,37 @@ const grantsWithMissingDisplayNames = {
   })),
 };
 
+const userDetail: OrganizationUserDetailResponse = {
+  organizationId,
+  user: {
+    userId: "user-1",
+    signingKeyFingerprint: "signing-fingerprint",
+    signingPublicKey: "signing-key",
+    encapsulationPublicKey: "encapsulation-key",
+    encapsulationKeyFingerprint: "encapsulation-fingerprint",
+    createdAt: "2026-05-16T12:00:00.000Z",
+    isSelf: false,
+  },
+  groups: groups.groups,
+  grants: {
+    directGrants: [],
+    groupGrants: grants.grants,
+    organizationGrants: [],
+  },
+};
+
+const userDetailWithMissingDisplayNames = {
+  ...userDetail,
+  grants: {
+    directGrants: [],
+    groupGrants: grants.grants.map((grant) => ({
+      ...grant,
+      containerDisplayName: null,
+    })),
+    organizationGrants: [],
+  },
+};
+
 test("loadOrgManagerDirectoryAndGroups combines directory and group lists", async () => {
   const calls: string[] = [];
   const result = await loadOrgManagerDirectoryAndGroups({
@@ -186,6 +219,23 @@ test("loadOrgManagerGrants forwards organization grant enumeration", async () =>
   expect(result).toEqual(grantsWithMissingDisplayNames);
 });
 
+test("loadOrgManagerUserDetail forwards user detail", async () => {
+  const calls: string[] = [];
+  const result = await loadOrgManagerUserDetail({
+    apiClient: {
+      getOrganizationUserDetail: async (nextOrganizationId, nextUserId) => {
+        calls.push(`detail:${nextOrganizationId}:${nextUserId}`);
+        return userDetail;
+      },
+    },
+    organizationId,
+    userId: "user-1",
+  });
+
+  expect(calls).toEqual(["detail:org-1:user-1"]);
+  expect(result).toEqual(userDetailWithMissingDisplayNames);
+});
+
 test("org manager read models include local container display names", async () => {
   const { close, execSql } = await createTestExecSql(
     "org-manager-container-display-names-test",
@@ -218,11 +268,22 @@ test("org manager read models include local container display names", async () =
       execSql,
       organizationId,
     });
+    const detail = await loadOrgManagerUserDetail({
+      apiClient: {
+        getOrganizationUserDetail: async () => userDetail,
+      },
+      execSql,
+      organizationId,
+      userId: "user-1",
+    });
 
     expect(groupDetails.containers?.containers[0]?.containerDisplayName).toBe(
       "Quarterly Planning",
     );
     expect(organizationGrants?.grants[0]?.containerDisplayName).toBe(
+      "Quarterly Planning",
+    );
+    expect(detail?.grants.groupGrants[0]?.containerDisplayName).toBe(
       "Quarterly Planning",
     );
   } finally {

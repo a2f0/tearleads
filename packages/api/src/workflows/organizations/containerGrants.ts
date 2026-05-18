@@ -2,7 +2,7 @@ import {
   isOrganizationGroupContainerAccessLevel,
   type OrganizationGroupContainerResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import type { DatabaseSession } from "../../adapters/postgres";
 import {
   accessManifestContainerGrantProjection,
@@ -25,9 +25,64 @@ export interface OrganizationContainerGrantRow {
   updatedAt: Date;
 }
 
-interface OrganizationContainerGrantSubjectFilter {
+export interface OrganizationContainerGrantSubjectFilter {
   subjectId: string;
   subjectType: "group" | "organization" | "user";
+}
+
+function uniqueSortedStrings(values: readonly string[]): string[] {
+  return [...new Set(values)].sort();
+}
+
+function buildSubjectFilterCondition(
+  filters: readonly OrganizationContainerGrantSubjectFilter[],
+) {
+  if (filters.length === 0) {
+    return undefined;
+  }
+
+  const groupIds = uniqueSortedStrings(
+    filters.flatMap((filter) =>
+      filter.subjectType === "group" ? [filter.subjectId] : [],
+    ),
+  );
+  const organizationIds = uniqueSortedStrings(
+    filters.flatMap((filter) =>
+      filter.subjectType === "organization" ? [filter.subjectId] : [],
+    ),
+  );
+  const userIds = uniqueSortedStrings(
+    filters.flatMap((filter) =>
+      filter.subjectType === "user" ? [filter.subjectId] : [],
+    ),
+  );
+
+  return or(
+    groupIds.length > 0
+      ? and(
+          eq(accessManifestContainerGrantProjection.subjectType, "group"),
+          inArray(accessManifestContainerGrantProjection.subjectId, groupIds),
+        )
+      : undefined,
+    organizationIds.length > 0
+      ? and(
+          eq(
+            accessManifestContainerGrantProjection.subjectType,
+            "organization",
+          ),
+          inArray(
+            accessManifestContainerGrantProjection.subjectId,
+            organizationIds,
+          ),
+        )
+      : undefined,
+    userIds.length > 0
+      ? and(
+          eq(accessManifestContainerGrantProjection.subjectType, "user"),
+          inArray(accessManifestContainerGrantProjection.subjectId, userIds),
+        )
+      : undefined,
+  );
 }
 
 export function toOrganizationGroupContainerResponse(
@@ -54,7 +109,15 @@ export function listOrganizationContainerGrantRows(input: {
   executor: DatabaseSession;
   organizationId: string;
   subjectFilter?: OrganizationContainerGrantSubjectFilter | undefined;
+  subjectFilters?:
+    | readonly OrganizationContainerGrantSubjectFilter[]
+    | undefined;
 }): Promise<OrganizationContainerGrantRow[]> {
+  const subjectFilters = [
+    ...(input.subjectFilter ? [input.subjectFilter] : []),
+    ...(input.subjectFilters ?? []),
+  ];
+
   return input.executor
     .select({
       accessLevel: accessManifestContainerGrantProjection.accessLevel,
@@ -97,18 +160,7 @@ export function listOrganizationContainerGrantRows(input: {
     .where(
       and(
         eq(containers.organizationId, input.organizationId),
-        input.subjectFilter
-          ? and(
-              eq(
-                accessManifestContainerGrantProjection.subjectType,
-                input.subjectFilter.subjectType,
-              ),
-              eq(
-                accessManifestContainerGrantProjection.subjectId,
-                input.subjectFilter.subjectId,
-              ),
-            )
-          : undefined,
+        buildSubjectFilterCondition(subjectFilters),
       ),
     )
     .orderBy(

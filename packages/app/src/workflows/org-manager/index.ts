@@ -11,6 +11,7 @@ export {
   loadOrgManagerDirectoryAndGroups,
   loadOrgManagerGrants,
   loadOrgManagerGroupDetails,
+  loadOrgManagerUserDetail,
   type OrgManagerContainerGrant,
   type OrgManagerContainerGrants,
   type OrgManagerDirectory,
@@ -22,4 +23,5 @@ export {
   type OrgManagerGroupMember,
   type OrgManagerGroupMembers,
   type OrgManagerGroupSummary,
+  type OrgManagerUserDetail,
 } from "./readModel";

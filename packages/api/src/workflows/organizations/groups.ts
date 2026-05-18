@@ -3,6 +3,7 @@ import type {
   OrganizationGroupContainersResponse,
   OrganizationGroupMemberResponse,
   OrganizationGroupMembersResponse,
+  OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import {
@@ -25,6 +26,11 @@ import { loadUsersById, type UserKeyRow } from "./users";
 interface NestedGroupRow {
   groupId: string;
   groupName: string;
+}
+
+interface OrganizationGroupSummariesResult {
+  readonly groups: OrganizationGroupSummaryResponse[];
+  readonly memberGroupId: string;
 }
 
 async function requireGroupInOrganization(input: {
@@ -59,58 +65,73 @@ export async function runListOrganizationGroupsWorkflow(
       organizationId,
       userId: sessionUserId,
     });
-    const [organization] = await tx
-      .select({
-        memberGroupId: organizations.memberGroupId,
-      })
-      .from(organizations)
-      .where(eq(organizations.id, organizationId))
-      .limit(1);
-
-    if (!organization) {
-      throw new OrganizationManagerError("Organization not found", 404);
-    }
-
-    const groupRows = await tx
-      .select({
-        groupId: groupsTable.id,
-        organizationId: groupsTable.organizationId,
-        name: groupsTable.name,
-        createdAt: groupsTable.createdAt,
-      })
-      .from(groupsTable)
-      .where(
-        and(
-          eq(groupsTable.organizationId, organizationId),
-          notInArray(groupsTable.id, [organization.memberGroupId]),
-        ),
-      )
-      .orderBy(asc(groupsTable.name), asc(groupsTable.id));
-    const currentStates = await getCurrentPrincipalStates(
-      "group",
-      groupRows.map((group) => group.groupId),
-      tx,
-    );
+    const groupSummaries = await listOrganizationGroupSummariesInTransaction({
+      executor: tx,
+      organizationId,
+    });
 
     return {
       organizationId,
-      groups: groupRows.flatMap((group) => {
-        if (!group.organizationId) {
-          return [];
-        }
-
-        return [
-          toGroupSummary({
-            createdAt: group.createdAt,
-            groupId: group.groupId,
-            name: group.name,
-            organizationId: group.organizationId,
-            state: currentStates.get(group.groupId),
-          }),
-        ];
-      }),
+      groups: groupSummaries.groups,
     };
   });
+}
+
+export async function listOrganizationGroupSummariesInTransaction(input: {
+  executor: DatabaseSession;
+  organizationId: string;
+}): Promise<OrganizationGroupSummariesResult> {
+  const [organization] = await input.executor
+    .select({
+      memberGroupId: organizations.memberGroupId,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+
+  if (!organization) {
+    throw new OrganizationManagerError("Organization not found", 404);
+  }
+
+  const groupRows = await input.executor
+    .select({
+      groupId: groupsTable.id,
+      organizationId: groupsTable.organizationId,
+      name: groupsTable.name,
+      createdAt: groupsTable.createdAt,
+    })
+    .from(groupsTable)
+    .where(
+      and(
+        eq(groupsTable.organizationId, input.organizationId),
+        notInArray(groupsTable.id, [organization.memberGroupId]),
+      ),
+    )
+    .orderBy(asc(groupsTable.name), asc(groupsTable.id));
+  const currentStates = await getCurrentPrincipalStates(
+    "group",
+    groupRows.map((group) => group.groupId),
+    input.executor,
+  );
+
+  return {
+    memberGroupId: organization.memberGroupId,
+    groups: groupRows.flatMap((group) => {
+      if (!group.organizationId) {
+        return [];
+      }
+
+      return [
+        toGroupSummary({
+          createdAt: group.createdAt,
+          groupId: group.groupId,
+          name: group.name,
+          organizationId: group.organizationId,
+          state: currentStates.get(group.groupId),
+        }),
+      ];
+    }),
+  };
 }
 
 async function listOrganizationGroupContainersInTransaction(input: {

@@ -165,8 +165,15 @@
   cursor: pointer;
 }
 
+.org-manager-user-row--interactive {
+  cursor: pointer;
+}
+
+.org-manager-user-row--selected .mini-app-table-cell,
 .org-manager-grant-row--interactive:hover .mini-app-table-cell,
-.org-manager-grant-row--interactive:focus .mini-app-table-cell {
+.org-manager-grant-row--interactive:focus .mini-app-table-cell,
+.org-manager-user-row--interactive:hover .mini-app-table-cell,
+.org-manager-user-row--interactive:focus .mini-app-table-cell {
   background: var(--color-dark);
   color: var(--color-light);
 }

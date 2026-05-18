@@ -691,6 +691,53 @@ test("uses organization manager and principal policy route namespaces", async ()
           ],
         });
       }
+      if (request.url.endsWith("/users/user-1/detail")) {
+        return HttpResponse.json({
+          organizationId: "org-1",
+          user: {
+            userId: "user-1",
+            signingKeyFingerprint: "signing-fingerprint",
+            signingPublicKey: "signing-key",
+            encapsulationPublicKey: "encapsulation-key",
+            encapsulationKeyFingerprint: "encapsulation-fingerprint",
+            createdAt: "2026-05-12T12:00:00.000Z",
+            isSelf: true,
+          },
+          groups: [
+            {
+              groupId: "group-1",
+              organizationId: "org-1",
+              name: "Operators",
+              createdAt: "2026-05-12T12:00:00.000Z",
+              currentState: null,
+            },
+          ],
+          grants: {
+            directGrants: [],
+            groupGrants: [
+              {
+                accessLevel: "admin",
+                containerId: "container-1",
+                createdAt: "2026-05-12T12:00:00.000Z",
+                depth: 0,
+                metadataAccessEpoch: 1,
+                metadataAccessStateHash: "access-state-hash",
+                metadataDocumentId: "metadata-document-1",
+                parentId: null,
+                updatedAt: "2026-05-12T12:00:00.000Z",
+                subjectType: "group",
+                subjectId: "group-1",
+                userId: null,
+                signingKeyFingerprint: null,
+                groupId: "group-1",
+                groupName: "Operators",
+                organizationName: null,
+              },
+            ],
+            organizationGrants: [],
+          },
+        });
+      }
       if (request.url.endsWith("/member-envelopes")) {
         return HttpResponse.json({
           principalType: "group",
@@ -735,6 +782,9 @@ test("uses organization manager and principal policy route namespaces", async ()
   expect(await client.listOrganizationGroups("org-1")).not.toBeNull();
   expect(await client.listOrganizationContainerGrants("org-1")).not.toBeNull();
   expect(
+    await client.getOrganizationUserDetail("org-1", "user-1"),
+  ).not.toBeNull();
+  expect(
     await client.createOrganizationGroup("org-1", groupRequest),
   ).not.toBeNull();
   expect(
@@ -774,6 +824,11 @@ test("uses organization manager and principal policy route namespaces", async ()
     {
       body: null,
       input: `${apiBaseUrl}/organizations/org-1/grants`,
+      method: "GET",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/users/user-1/detail`,
       method: "GET",
     },
     {

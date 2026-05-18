@@ -19,6 +19,7 @@ import {
   isOrganizationDirectoryResponse,
   isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
+  isOrganizationUserDetailResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
   isRegistrationResponse,
@@ -438,6 +439,66 @@ test("organization manager responses", () => {
     isOrganizationContainerGrantsResponse({
       organizationId: "org-1",
       grants: [{ containerId: "container-1", subjectType: "team" }],
+    }),
+  ).toBe(false);
+
+  expect(
+    isOrganizationUserDetailResponse({
+      organizationId: "org-1",
+      user: {
+        userId: "user-1",
+        signingKeyFingerprint: "signing-fingerprint",
+        signingPublicKey: "signing-key",
+        encapsulationPublicKey: "encapsulation-key",
+        encapsulationKeyFingerprint: "encapsulation-fingerprint",
+        createdAt: new Date().toISOString(),
+        isSelf: true,
+      },
+      groups: [
+        {
+          groupId: "group-1",
+          organizationId: "org-1",
+          name: "Operators",
+          createdAt: new Date().toISOString(),
+          currentState: null,
+        },
+      ],
+      grants: {
+        directGrants: [],
+        groupGrants: [
+          {
+            accessLevel: "admin",
+            containerId: "container-1",
+            createdAt: new Date().toISOString(),
+            depth: 0,
+            metadataAccessEpoch: 1,
+            metadataAccessStateHash: "access-state-hash",
+            metadataDocumentId: "metadata-document-1",
+            parentId: null,
+            updatedAt: new Date().toISOString(),
+            subjectType: "group",
+            subjectId: "group-1",
+            userId: null,
+            signingKeyFingerprint: null,
+            groupId: "group-1",
+            groupName: "Admins",
+            organizationName: null,
+          },
+        ],
+        organizationGrants: [],
+      },
+    }),
+  ).toBe(true);
+  expect(
+    isOrganizationUserDetailResponse({
+      organizationId: "org-1",
+      user: { userId: "user-1" },
+      groups: [],
+      grants: {
+        directGrants: [],
+        groupGrants: [],
+        organizationGrants: [],
+      },
     }),
   ).toBe(false);
 });
