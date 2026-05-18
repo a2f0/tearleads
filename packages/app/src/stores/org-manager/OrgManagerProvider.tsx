@@ -14,6 +14,7 @@ import {
   loadOrgManagerDirectoryAndGroups,
   loadOrgManagerGrants,
   loadOrgManagerGroupDetails,
+  loadOrgManagerUserDetail,
   type OrgManagerContainerGrant,
   type OrgManagerContainerGrants,
   type OrgManagerDirectory,
@@ -25,6 +26,7 @@ import {
   type OrgManagerGroupMember,
   type OrgManagerGroupMembers,
   type OrgManagerGroupSummary,
+  type OrgManagerUserDetail,
   type OrgManagerUserRecipient,
   removeOrgManagerGroupUser,
 } from "../../workflows/org-manager";
@@ -41,6 +43,7 @@ interface OrgManagerContextValue {
   loadDirectoryAndGroups: () => Promise<OrgManagerDirectoryAndGroups | null>;
   loadGroupDetails: (groupId: string) => Promise<OrgManagerGroupDetails>;
   loadGrants: () => Promise<OrgManagerContainerGrants | null>;
+  loadUserDetail: (userId: string) => Promise<OrgManagerUserDetail | null>;
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
@@ -61,6 +64,7 @@ export type {
   OrgManagerGroupMember,
   OrgManagerGroupMembers,
   OrgManagerGroupSummary,
+  OrgManagerUserDetail,
   OrgManagerUserRecipient,
 };
 
@@ -172,6 +176,32 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     appData.organizationId,
   ]);
 
+  const loadUserDetail = useCallback(
+    (userId: string) => {
+      if (
+        !appData.organizationId ||
+        !appData.isAuthenticated ||
+        userId.length === 0
+      ) {
+        return Promise.resolve(null);
+      }
+
+      return loadOrgManagerUserDetail({
+        apiClient: appData.apiClient,
+        execSql: appData.dbStatus === "ready" ? appData.execSql : null,
+        organizationId: appData.organizationId,
+        userId,
+      });
+    },
+    [
+      appData.apiClient,
+      appData.dbStatus,
+      appData.execSql,
+      appData.isAuthenticated,
+      appData.organizationId,
+    ],
+  );
+
   const addUserToGroup = useCallback(
     async (
       groupId: string,
@@ -242,6 +272,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadDirectoryAndGroups,
       loadGroupDetails,
       loadGrants,
+      loadUserDetail,
       removeUserFromGroup,
     }),
     [
@@ -251,6 +282,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadDirectoryAndGroups,
       loadGroupDetails,
       loadGrants,
+      loadUserDetail,
       removeUserFromGroup,
     ],
   );

@@ -107,6 +107,19 @@ export interface OrganizationContainerGrantsResponse {
   grants: OrganizationContainerGrantResponse[];
 }
 
+export interface OrganizationUserDetailGrantsResponse {
+  directGrants: OrganizationContainerGrantResponse[];
+  groupGrants: OrganizationContainerGrantResponse[];
+  organizationGrants: OrganizationContainerGrantResponse[];
+}
+
+export interface OrganizationUserDetailResponse {
+  organizationId: string;
+  user: OrganizationDirectoryUserResponse;
+  groups: OrganizationGroupSummaryResponse[];
+  grants: OrganizationUserDetailGrantsResponse;
+}
+
 function isOrganizationRole(value: string): value is OrganizationRole {
   return value === "member" || value === "admin";
 }
@@ -300,6 +313,35 @@ export function isOrganizationContainerGrantsResponse(
     hasStringProperty(value, "organizationId") &&
     hasArrayProperty(value, "grants") &&
     value.grants.every(isOrganizationContainerGrantResponse)
+  );
+}
+
+export function isOrganizationUserDetailGrantsResponse(
+  value: unknown,
+): value is OrganizationUserDetailGrantsResponse {
+  return (
+    isPlainObject(value) &&
+    hasArrayProperty(value, "directGrants") &&
+    value.directGrants.every(isOrganizationContainerGrantResponse) &&
+    hasArrayProperty(value, "groupGrants") &&
+    value.groupGrants.every(isOrganizationContainerGrantResponse) &&
+    hasArrayProperty(value, "organizationGrants") &&
+    value.organizationGrants.every(isOrganizationContainerGrantResponse)
+  );
+}
+
+export function isOrganizationUserDetailResponse(
+  value: unknown,
+): value is OrganizationUserDetailResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "organizationId") &&
+    hasObjectProperty(value, "user") &&
+    isOrganizationDirectoryUserResponse(value.user) &&
+    hasArrayProperty(value, "groups") &&
+    value.groups.every(isOrganizationGroupSummaryResponse) &&
+    hasObjectProperty(value, "grants") &&
+    isOrganizationUserDetailGrantsResponse(value.grants)
   );
 }
 

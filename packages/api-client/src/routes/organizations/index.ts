@@ -6,3 +6,4 @@ export {
   listOrganizationGroups,
 } from "./groups";
 export { createOrganizationGroup } from "./mutations";
+export { getOrganizationUserDetail } from "./users";

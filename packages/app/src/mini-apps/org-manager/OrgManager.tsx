@@ -33,6 +33,7 @@ import {
   type OrgManagerGroupMember,
   type OrgManagerGroupMembers,
   type OrgManagerGroupSummary,
+  type OrgManagerUserDetail,
   type OrgManagerUserRecipient,
   useOrgManagerActions,
 } from "../../stores/org-manager/OrgManagerProvider";
@@ -114,6 +115,14 @@ const ACCESS_LEVEL_LABELS = {
   read: ORG_MANAGER_LABELS.accessRead,
   write: ORG_MANAGER_LABELS.accessWrite,
 } satisfies Record<OrgManagerGroupContainer["accessLevel"], string>;
+
+function classNames(
+  ...values: Array<string | false | null | undefined>
+): string | undefined {
+  const result = values.filter((value) => Boolean(value)).join(" ");
+
+  return result.length > 0 ? result : undefined;
+}
 
 function userRecipient(user: OrgManagerDirectoryUser): OrgManagerUserRecipient {
   return {
@@ -314,9 +323,13 @@ function canCurrentUserMutateSelectedGroup(input: {
 function DirectoryTable({
   directory,
   loading,
+  selectedUserId,
+  selectUser,
 }: {
   directory: OrgManagerDirectory | null;
   loading: boolean;
+  selectedUserId?: string | null;
+  selectUser?: ((userId: string) => void) | undefined;
 }) {
   if (!directory) {
     return (
@@ -340,27 +353,52 @@ function DirectoryTable({
         aria-label={ORG_MANAGER_LABELS.directory}
         columns={DIRECTORY_TABLE_COLUMNS}
       >
-        {directory.users.map((user) => (
-          <MiniAppTableRow key={user.userId}>
-            <MiniAppTableCell>
-              <MiniAppTableText title={user.userId}>
-                {user.isSelf
-                  ? ORG_MANAGER_LABELS.self
-                  : compactFingerprint(user.userId)}
-              </MiniAppTableText>
-            </MiniAppTableCell>
-            <MiniAppTableCell>
-              <MiniAppTableText title={user.signingKeyFingerprint}>
-                {compactFingerprint(user.signingKeyFingerprint)}
-              </MiniAppTableText>
-            </MiniAppTableCell>
-            <MiniAppTableCell className="org-manager-directory-joined-column">
-              <MiniAppTableText title={user.createdAt}>
-                {formatMiniAppDate(user.createdAt)}
-              </MiniAppTableText>
-            </MiniAppTableCell>
-          </MiniAppTableRow>
-        ))}
+        {directory.users.map((user) => {
+          const isSelected = selectedUserId === user.userId;
+          const openUserDetail = () => {
+            selectUser?.(user.userId);
+          };
+          const handleUserRowKeyDown = (
+            event: KeyboardEvent<HTMLTableRowElement>,
+          ) => {
+            if (selectUser && isKeyboardActivationKey(event.key)) {
+              event.preventDefault();
+              openUserDetail();
+            }
+          };
+
+          return (
+            <MiniAppTableRow
+              aria-selected={selectUser ? isSelected : undefined}
+              className={classNames(
+                selectUser && "org-manager-user-row--interactive",
+                isSelected && "org-manager-user-row--selected",
+              )}
+              key={user.userId}
+              onClick={selectUser ? openUserDetail : undefined}
+              onKeyDown={selectUser ? handleUserRowKeyDown : undefined}
+              tabIndex={selectUser ? 0 : undefined}
+            >
+              <MiniAppTableCell>
+                <MiniAppTableText title={user.userId}>
+                  {user.isSelf
+                    ? ORG_MANAGER_LABELS.self
+                    : compactFingerprint(user.userId)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText title={user.signingKeyFingerprint}>
+                  {compactFingerprint(user.signingKeyFingerprint)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell className="org-manager-directory-joined-column">
+                <MiniAppTableText title={user.createdAt}>
+                  {formatMiniAppDate(user.createdAt)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+            </MiniAppTableRow>
+          );
+        })}
       </MiniAppTable>
     </MiniAppTableFrame>
   );
@@ -660,6 +698,170 @@ function GrantsView({
   );
 }
 
+function UserGroups({
+  groups,
+  openGroupRoute,
+}: {
+  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  openGroupRoute: (groupId: string) => void;
+}) {
+  if (groups.length === 0) {
+    return (
+      <div className="org-manager-hint">{ORG_MANAGER_LABELS.noGroups}</div>
+    );
+  }
+
+  return (
+    <div className="org-manager-group-list">
+      {groups.map((group) => (
+        <MiniAppRowButton
+          className="org-manager-group-button"
+          density="roomy"
+          key={group.groupId}
+          onClick={() => openGroupRoute(group.groupId)}
+        >
+          <MiniAppRowStack>
+            <strong>{group.name}</strong>
+            <MiniAppRowText muted title={group.groupId}>
+              {compactFingerprint(group.groupId)}
+            </MiniAppRowText>
+          </MiniAppRowStack>
+        </MiniAppRowButton>
+      ))}
+    </div>
+  );
+}
+
+function UserDetailView({
+  detail,
+  loading,
+  openGroupRoute,
+  selectedUserId,
+}: {
+  detail: OrgManagerUserDetail | null;
+  loading: boolean;
+  openGroupRoute: (groupId: string) => void;
+  selectedUserId: string | null;
+}) {
+  if (!selectedUserId) {
+    return (
+      <div className="org-manager-hint">{ORG_MANAGER_LABELS.selectUser}</div>
+    );
+  }
+
+  if (!detail) {
+    return (
+      <div className="org-manager-hint">
+        {loading
+          ? ORG_MANAGER_LABELS.loadingUserDetail
+          : ORG_MANAGER_LABELS.userDetailUnavailable}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="org-manager-detail-header">
+        <div>
+          <strong title={detail.user.userId}>
+            {detail.user.isSelf
+              ? ORG_MANAGER_LABELS.self
+              : compactFingerprint(detail.user.userId)}
+          </strong>
+          <span title={detail.user.signingKeyFingerprint}>
+            {compactFingerprint(detail.user.signingKeyFingerprint)}
+          </span>
+        </div>
+        <span title={detail.user.createdAt}>
+          {formatMiniAppDate(detail.user.createdAt)}
+        </span>
+      </div>
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.groups}
+        </div>
+        <UserGroups groups={detail.groups} openGroupRoute={openGroupRoute} />
+      </section>
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.userContainerLinks}
+        </div>
+        <GrantTable
+          emptyLabel={ORG_MANAGER_LABELS.noUserContainerLinks}
+          grants={detail.grants.directGrants}
+          label={ORG_MANAGER_LABELS.userContainerLinks}
+          openGroupRoute={openGroupRoute}
+        />
+      </section>
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.groupContainerLinks}
+        </div>
+        <GrantTable
+          emptyLabel={ORG_MANAGER_LABELS.noGroupContainerLinks}
+          grants={detail.grants.groupGrants}
+          label={ORG_MANAGER_LABELS.groupContainerLinks}
+          openGroupRoute={openGroupRoute}
+        />
+      </section>
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.organizationContainerLinks}
+        </div>
+        <GrantTable
+          emptyLabel={ORG_MANAGER_LABELS.noOrganizationContainerLinks}
+          grants={detail.grants.organizationGrants}
+          label={ORG_MANAGER_LABELS.organizationContainerLinks}
+          openGroupRoute={openGroupRoute}
+        />
+      </section>
+    </>
+  );
+}
+
+function DirectoryView({
+  detail,
+  directory,
+  loading,
+  loadingUserDetail,
+  openGroupRoute,
+  selectedUserId,
+  selectUser,
+}: {
+  detail: OrgManagerUserDetail | null;
+  directory: OrgManagerDirectory | null;
+  loading: boolean;
+  loadingUserDetail: boolean;
+  openGroupRoute: (groupId: string) => void;
+  selectedUserId: string | null;
+  selectUser: (userId: string) => void;
+}) {
+  if (!directory) {
+    return <DirectoryTable directory={directory} loading={loading} />;
+  }
+
+  return (
+    <div className="org-manager-groups">
+      <section className="org-manager-panel">
+        <DirectoryTable
+          directory={directory}
+          loading={loading}
+          selectedUserId={selectedUserId}
+          selectUser={selectUser}
+        />
+      </section>
+      <section className="org-manager-panel org-manager-panel--detail">
+        <UserDetailView
+          detail={detail}
+          loading={loadingUserDetail}
+          openGroupRoute={openGroupRoute}
+          selectedUserId={selectedUserId}
+        />
+      </section>
+    </div>
+  );
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The mini-app shell coordinates shared async state across the directory and group panes.
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The mini-app shell coordinates shared async state across the directory and group panes.
 export function OrgManager() {
@@ -683,14 +885,22 @@ export function OrgManager() {
   const [groupContainers, setGroupContainers] =
     useState<OrgManagerGroupContainers | null>(null);
   const [grants, setGrants] = useState<OrgManagerContainerGrants | null>(null);
+  const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
+    null,
+  );
+  const [userDetail, setUserDetail] = useState<OrgManagerUserDetail | null>(
+    null,
+  );
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [addUserId, setAddUserId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingUserDetail, setLoadingUserDetail] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const skippedGroupDetailsEffectRef = useRef<{
     groupId: string | null;
   } | null>(null);
+  const selectedUserIdRef = useRef<string | null>(null);
   const canLoadAuthenticatedOrgData = Boolean(
     appData.organizationId && appData.isAuthenticated,
   );
@@ -719,14 +929,21 @@ export function OrgManager() {
     [directory, memberUserIds],
   );
 
+  const selectUser = useCallback((userId: string | null) => {
+    selectedUserIdRef.current = userId;
+    setSelectedUserIdState(userId);
+    setUserDetail(null);
+  }, []);
+
   const resetDirectoryState = useCallback(() => {
     setDirectory(null);
     setGroups([]);
     setMembers(null);
     setGroupContainers(null);
     setGrants(null);
+    selectUser(null);
     selectGroup(null);
-  }, [selectGroup]);
+  }, [selectGroup, selectUser]);
 
   const loadDirectoryAndGroups = useCallback(
     async (
@@ -869,6 +1086,38 @@ export function OrgManager() {
     [canLoadAuthenticatedOrgData, orgManagerActions],
   );
 
+  const refreshSelectedUserDetail = useCallback(
+    async (userId: string | null, options: GroupDetailsRefreshOptions = {}) => {
+      const shouldClearError = options.clearError ?? true;
+      if (!canLoadAuthenticatedOrgData || !userId) {
+        setUserDetail(null);
+        setLoadingUserDetail(false);
+        return;
+      }
+
+      setLoadingUserDetail(true);
+      if (shouldClearError) {
+        setError(null);
+      }
+      try {
+        const nextDetail = await orgManagerActions.loadUserDetail(userId);
+        if (nextDetail === null) {
+          setUserDetail(null);
+          setError(ORG_MANAGER_LABELS.failedLoadUserDetail);
+          return;
+        }
+
+        setUserDetail(nextDetail);
+      } catch (nextError) {
+        setUserDetail(null);
+        setUnknownError(setError, nextError);
+      } finally {
+        setLoadingUserDetail(false);
+      }
+    },
+    [canLoadAuthenticatedOrgData, orgManagerActions],
+  );
+
   const refreshOrgManager = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -889,10 +1138,18 @@ export function OrgManager() {
           clearError: false,
         });
       }
+      await refreshSelectedUserDetail(selectedUserIdRef.current, {
+        clearError: false,
+      });
     } finally {
       setLoading(false);
     }
-  }, [refreshDirectoryAndGroups, refreshGrants, refreshSelectedGroupDetails]);
+  }, [
+    refreshDirectoryAndGroups,
+    refreshGrants,
+    refreshSelectedGroupDetails,
+    refreshSelectedUserDetail,
+  ]);
 
   useEffect(() => {
     void refreshOrgManager();
@@ -907,6 +1164,20 @@ export function OrgManager() {
 
     void refreshSelectedGroupDetails(selectedGroupId);
   }, [refreshSelectedGroupDetails, selectedGroupId]);
+
+  useEffect(() => {
+    if (
+      directory &&
+      selectedUserId &&
+      !directory.users.some((user) => user.userId === selectedUserId)
+    ) {
+      selectUser(null);
+    }
+  }, [directory, selectedUserId, selectUser]);
+
+  useEffect(() => {
+    void refreshSelectedUserDetail(selectedUserId);
+  }, [refreshSelectedUserDetail, selectedUserId]);
 
   const createGroup = useCallback(async () => {
     if (
@@ -986,6 +1257,7 @@ export function OrgManager() {
       if (refreshedDirectory.didLoad) {
         await refreshSelectedGroupDetails(refreshedDirectory.groupId);
       }
+      await refreshSelectedUserDetail(selectedUserIdRef.current);
     } catch (nextError) {
       setUnknownError(setError, nextError);
     } finally {
@@ -1002,6 +1274,7 @@ export function OrgManager() {
     orgManagerActions,
     refreshDirectoryAndGroups,
     refreshSelectedGroupDetails,
+    refreshSelectedUserDetail,
     selectedGroupId,
   ]);
 
@@ -1034,6 +1307,7 @@ export function OrgManager() {
         if (refreshedDirectory.didLoad) {
           await refreshSelectedGroupDetails(refreshedDirectory.groupId);
         }
+        await refreshSelectedUserDetail(selectedUserIdRef.current);
       } catch (nextError) {
         setUnknownError(setError, nextError);
       } finally {
@@ -1049,6 +1323,7 @@ export function OrgManager() {
       orgManagerActions,
       refreshDirectoryAndGroups,
       refreshSelectedGroupDetails,
+      refreshSelectedUserDetail,
       selectedGroupId,
     ],
   );
@@ -1083,7 +1358,15 @@ export function OrgManager() {
       <main className="org-manager-main">
         {error && <div className="org-manager-error">{error}</div>}
         {view === "directory" ? (
-          <DirectoryTable directory={directory} loading={loading} />
+          <DirectoryView
+            detail={userDetail}
+            directory={directory}
+            loading={loading}
+            loadingUserDetail={loadingUserDetail}
+            openGroupRoute={openGroupRoute}
+            selectedUserId={selectedUserId}
+            selectUser={selectUser}
+          />
         ) : view === "grants" ? (
           <GrantsView
             grants={grants}

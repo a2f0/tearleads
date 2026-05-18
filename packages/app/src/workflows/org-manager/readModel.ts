@@ -9,6 +9,7 @@ import type {
   OrganizationGroupMemberResponse,
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
+  OrganizationUserDetailResponse,
 } from "@tearleads/validators/response";
 import { loadContainerDisplayNamesByIds } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -28,6 +29,14 @@ export interface OrgManagerGroupContainers
 export interface OrgManagerContainerGrants
   extends Omit<OrganizationContainerGrantsResponse, "grants"> {
   readonly grants: OrgManagerContainerGrant[];
+}
+export interface OrgManagerUserDetail
+  extends Omit<OrganizationUserDetailResponse, "grants"> {
+  readonly grants: {
+    readonly directGrants: OrgManagerContainerGrant[];
+    readonly groupGrants: OrgManagerContainerGrant[];
+    readonly organizationGrants: OrgManagerContainerGrant[];
+  };
 }
 export type OrgManagerGroupMember = OrganizationGroupMemberResponse;
 export type OrgManagerGroupMembers = OrganizationGroupMembersResponse;
@@ -53,6 +62,10 @@ interface OrgManagerReadApi {
   readonly listOrganizationContainerGrants: (
     organizationId: string,
   ) => Promise<OrganizationContainerGrantsResponse | null>;
+  readonly getOrganizationUserDetail: (
+    organizationId: string,
+    userId: string,
+  ) => Promise<OrganizationUserDetailResponse | null>;
   readonly listOrganizationGroupMembers: (
     organizationId: string,
     groupId: string,
@@ -139,6 +152,49 @@ export async function loadOrgManagerGrants(input: {
   return {
     ...grants,
     grants: withContainerDisplayNames(grants.grants, displayNamesById),
+  };
+}
+
+export async function loadOrgManagerUserDetail(input: {
+  readonly apiClient: Pick<OrgManagerReadApi, "getOrganizationUserDetail">;
+  readonly execSql?: ExecSql | null | undefined;
+  readonly organizationId: string;
+  readonly userId: string;
+}): Promise<OrgManagerUserDetail | null> {
+  const detail = await input.apiClient.getOrganizationUserDetail(
+    input.organizationId,
+    input.userId,
+  );
+  if (!detail) {
+    return null;
+  }
+
+  const grants = [
+    ...detail.grants.directGrants,
+    ...detail.grants.groupGrants,
+    ...detail.grants.organizationGrants,
+  ];
+  const displayNamesById = await loadContainerDisplayNamesById({
+    containerIds: uniqueContainerIds(grants),
+    execSql: input.execSql,
+  });
+
+  return {
+    ...detail,
+    grants: {
+      directGrants: withContainerDisplayNames(
+        detail.grants.directGrants,
+        displayNamesById,
+      ),
+      groupGrants: withContainerDisplayNames(
+        detail.grants.groupGrants,
+        displayNamesById,
+      ),
+      organizationGrants: withContainerDisplayNames(
+        detail.grants.organizationGrants,
+        displayNamesById,
+      ),
+    },
   };
 }
 

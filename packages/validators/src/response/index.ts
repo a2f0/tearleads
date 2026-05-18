@@ -73,6 +73,8 @@ export {
   isOrganizationGroupMemberResponse,
   isOrganizationGroupMembersResponse,
   isOrganizationGroupSummaryResponse,
+  isOrganizationUserDetailGrantsResponse,
+  isOrganizationUserDetailResponse,
   type ListOrganizationGroupsResponse,
   type OrganizationContainerGrantResponse,
   type OrganizationContainerGrantSubjectType,
@@ -87,6 +89,8 @@ export {
   type OrganizationGroupMembersResponse,
   type OrganizationGroupSummaryResponse,
   type OrganizationRole,
+  type OrganizationUserDetailGrantsResponse,
+  type OrganizationUserDetailResponse,
 } from "./organization";
 export {
   type CurrentPrincipalMemberEnvelopesResponse,
