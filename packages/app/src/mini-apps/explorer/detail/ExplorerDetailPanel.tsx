@@ -30,7 +30,6 @@ import type {
   ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
-import type { DocumentContainerProjection } from "../documentProjections";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 import type { ExplorerRoute } from "../routes";
 import type { ContainerNode } from "../types";
@@ -874,11 +873,8 @@ function ExplorerContainerItemTable(params: {
 }
 
 function ExplorerContainerDetail(params: {
+  documentListRevision: number;
   documentReadModel: ExplorerDocumentReadModel;
-  documentsByContainerId: ReadonlyMap<
-    string,
-    ReadonlyArray<DocumentContainerProjection>
-  >;
   nodes: ReadonlyArray<ContainerNode>;
   openInlineDocument: (
     containerId: string,
@@ -891,8 +887,8 @@ function ExplorerContainerDetail(params: {
   setSelectedId: (id: string | null) => void;
 }) {
   const {
+    documentListRevision,
     documentReadModel,
-    documentsByContainerId,
     openInlineDocument,
     refreshError,
     selectDocumentProjection,
@@ -914,7 +910,7 @@ function ExplorerContainerDetail(params: {
     enabled: true,
     limit,
     offset,
-    reloadKey: documentsByContainerId,
+    reloadKey: documentListRevision,
     selectedNode,
     sort,
   });
@@ -996,11 +992,8 @@ export function ExplorerDetailPanel(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
+  documentListRevision: number;
   documentReadModel: ExplorerDocumentReadModel;
-  documentsByContainerId: ReadonlyMap<
-    string,
-    ReadonlyArray<DocumentContainerProjection>
-  >;
   linkedContainerIds: ReadonlyArray<string>;
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
   nodes: ReadonlyArray<ContainerNode>;

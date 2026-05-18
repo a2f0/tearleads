@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import { subscribeToPersistedDocuments } from "../../../stores/documents/DocumentsProvider";
@@ -7,57 +7,37 @@ import {
   mergeDocumentSummaryLists,
   mergeSingleDocumentSummaryList,
 } from "../documentSummaryUtils";
-import type { ContainerNode } from "../types";
 
 export function useExplorerDocumentSummaryState(
   dbStatus: ReturnType<typeof useAppData>["dbStatus"],
   domainScope: ReturnType<typeof useAppData>["domainScope"],
   documentReadModel: ExplorerDocumentReadModel,
-  nodes: ReadonlyArray<ContainerNode>,
 ) {
   const [documentSummaries, setDocumentSummaries] = useState<
     ReadonlyArray<DocumentSummary>
   >([]);
+  const [documentListRevision, setDocumentListRevision] = useState(0);
+  const domainScopeRef = useRef(domainScope);
 
   useEffect(() => {
     if (dbStatus !== "ready") {
       setDocumentSummaries([]);
+      setDocumentListRevision((revision) => revision + 1);
+    }
+  }, [dbStatus]);
+
+  useEffect(() => {
+    if (domainScopeRef.current === domainScope) {
       return;
     }
 
-    let cancelled = false;
-
-    void (async () => {
-      const visibleDocuments =
-        await documentReadModel.listVisibleDocumentSummaries(nodes);
-      const validContainerIds = new Set(nodes.map((node) => node.id));
-
-      if (!cancelled) {
-        setDocumentSummaries((currentDocumentSummaries) => {
-          const visibleDocumentsById = new Map(
-            visibleDocuments.map((documentSummary) => [
-              documentSummary.id,
-              documentSummary,
-            ]),
-          );
-          const pendingVisibleDocuments = currentDocumentSummaries.filter(
-            (documentSummary) =>
-              documentSummary.containerId &&
-              validContainerIds.has(documentSummary.containerId) &&
-              !visibleDocumentsById.has(documentSummary.id),
-          );
-
-          return [...visibleDocuments, ...pendingVisibleDocuments];
-        });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [dbStatus, documentReadModel, domainScope, nodes]);
+    domainScopeRef.current = domainScope;
+    setDocumentSummaries([]);
+    setDocumentListRevision((revision) => revision + 1);
+  }, [domainScope]);
 
   const mergeDocumentSummary = useCallback((nextDocument: DocumentSummary) => {
+    setDocumentListRevision((revision) => revision + 1);
     setDocumentSummaries((currentDocumentSummaries) =>
       mergeSingleDocumentSummaryList(currentDocumentSummaries, nextDocument),
     );
@@ -65,16 +45,71 @@ export function useExplorerDocumentSummaryState(
 
   const mergeDocumentSummaries = useCallback(
     (nextDocuments: ReadonlyArray<DocumentSummary>) => {
+      setDocumentListRevision((revision) => revision + 1);
       setDocumentSummaries((currentDocumentSummaries) =>
-        mergeDocumentSummaryLists(currentDocumentSummaries, nextDocuments),
+        mergeDocumentSummaryLists(
+          currentDocumentSummaries,
+          nextDocuments.filter((nextDocument) =>
+            currentDocumentSummaries.some(
+              (currentDocument) => currentDocument.id === nextDocument.id,
+            ),
+          ),
+        ),
       );
     },
     [],
   );
 
-  useEffect(() => {
-    return subscribeToPersistedDocuments(domainScope, mergeDocumentSummary);
-  }, [domainScope, mergeDocumentSummary]);
+  const mergeTrackedDocumentSummary = useCallback(
+    (nextDocument: DocumentSummary) => {
+      setDocumentListRevision((revision) => revision + 1);
+      setDocumentSummaries((currentDocumentSummaries) => {
+        if (
+          !currentDocumentSummaries.some(
+            (currentDocument) => currentDocument.id === nextDocument.id,
+          )
+        ) {
+          return currentDocumentSummaries;
+        }
 
-  return { mergeDocumentSummaries, mergeDocumentSummary, documentSummaries };
+        return mergeSingleDocumentSummaryList(
+          currentDocumentSummaries,
+          nextDocument,
+        );
+      });
+    },
+    [],
+  );
+
+  const loadDocumentSummary = useCallback(
+    async (localId: string): Promise<DocumentSummary | null> => {
+      if (dbStatus !== "ready") {
+        return null;
+      }
+
+      const documentSummary =
+        await documentReadModel.loadDocumentSummary(localId);
+      if (documentSummary) {
+        mergeDocumentSummary(documentSummary);
+      }
+
+      return documentSummary;
+    },
+    [dbStatus, documentReadModel, mergeDocumentSummary],
+  );
+
+  useEffect(() => {
+    return subscribeToPersistedDocuments(
+      domainScope,
+      mergeTrackedDocumentSummary,
+    );
+  }, [domainScope, mergeTrackedDocumentSummary]);
+
+  return {
+    documentListRevision,
+    documentSummaries,
+    loadDocumentSummary,
+    mergeDocumentSummaries,
+    mergeDocumentSummary,
+  };
 }

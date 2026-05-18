@@ -2,10 +2,6 @@ import { useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
-import {
-  buildDocumentsByContainerId,
-  type DocumentContainerProjection,
-} from "../documentProjections";
 import { getKnownDocumentIds } from "../documentSummaryUtils";
 import type { ContainerNode } from "../types";
 import { useDocumentLinkedContainerIdsByDocumentId } from "./useDocumentLinkedContainerIdsByDocumentId";
@@ -21,13 +17,11 @@ export function useExplorerDocumentViewModel(params: {
   documentLinkProjectionVersion: number;
   nodes: ReadonlyArray<ContainerNode>;
 }): {
+  documentListRevision: number;
   documentSummaries: ReadonlyArray<DocumentSummary>;
-  documentsByContainerId: ReadonlyMap<
-    string,
-    ReadonlyArray<DocumentContainerProjection>
-  >;
   knownDocumentIds: ReadonlySet<string>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
@@ -40,13 +34,17 @@ export function useExplorerDocumentViewModel(params: {
 } {
   const { appData, documentReadModel, documentLinkProjectionVersion, nodes } =
     params;
-  const { mergeDocumentSummaries, mergeDocumentSummary, documentSummaries } =
-    useExplorerDocumentSummaryState(
-      appData.dbStatus,
-      appData.domainScope,
-      documentReadModel,
-      nodes,
-    );
+  const {
+    documentListRevision,
+    documentSummaries,
+    loadDocumentSummary,
+    mergeDocumentSummaries,
+    mergeDocumentSummary,
+  } = useExplorerDocumentSummaryState(
+    appData.dbStatus,
+    appData.domainScope,
+    documentReadModel,
+  );
   const { linkedContainerIdsByDocumentId, setLinkedContainerIdsForDocument } =
     useDocumentLinkedContainerIdsByDocumentId({
       dbStatus: appData.dbStatus,
@@ -54,19 +52,6 @@ export function useExplorerDocumentViewModel(params: {
       documentLinkProjectionVersion,
       documentSummaries,
     });
-  const validContainerIds = useMemo(
-    () => new Set(nodes.map((node) => node.id)),
-    [nodes],
-  );
-  const documentsByContainerId = useMemo(
-    () =>
-      buildDocumentsByContainerId(
-        documentSummaries,
-        linkedContainerIdsByDocumentId,
-        validContainerIds,
-      ),
-    [linkedContainerIdsByDocumentId, documentSummaries, validContainerIds],
-  );
   const knownDocumentIds = useMemo(
     () => getKnownDocumentIds(documentSummaries),
     [documentSummaries],
@@ -74,12 +59,13 @@ export function useExplorerDocumentViewModel(params: {
   const selection = useExplorerSelection(nodes, documentSummaries);
 
   return {
+    documentListRevision,
     knownDocumentIds,
     linkedContainerIdsByDocumentId,
+    loadDocumentSummary,
     mergeDocumentSummaries,
     mergeDocumentSummary,
     documentSummaries,
-    documentsByContainerId,
     selection,
     setLinkedContainerIdsForDocument,
   };

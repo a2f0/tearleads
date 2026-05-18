@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import {
   createExplorerDocumentReadModelFromRuntime,
-  createExplorerWorkflowRuntime,
+  createExplorerWorkflowSqlRuntime,
   type ExplorerDocumentReadModel,
   type ExplorerWorkflowRuntimeInput,
 } from "../../workflows/explorer";
 
 export type {
+  ExplorerContainerDocumentSidebarRow,
   ExplorerContainerDocumentTombstone,
   ExplorerContainerItemRow,
   ExplorerContainerItemSort,
@@ -22,8 +23,8 @@ export function useExplorerDocumentReadModel(
   return useMemo(
     () =>
       createExplorerDocumentReadModelFromRuntime(
-        createExplorerWorkflowRuntime(appData),
+        createExplorerWorkflowSqlRuntime({ execSql: appData.execSql }),
       ),
-    [appData],
+    [appData.execSql],
   );
 }

@@ -27,6 +27,7 @@ export {
 } from "./documentDiscovery";
 export {
   createExplorerDocumentReadModelFromRuntime,
+  type ExplorerContainerDocumentSidebarRow,
   type ExplorerContainerDocumentTombstone,
   type ExplorerContainerItemRow,
   type ExplorerContainerItemSort,
@@ -66,6 +67,7 @@ export {
 } from "./remoteHydration";
 export {
   createExplorerWorkflowRuntime,
+  createExplorerWorkflowSqlRuntime,
   type ExplorerWorkflowRuntime,
   type ExplorerWorkflowRuntimeInput,
 } from "./runtime";
