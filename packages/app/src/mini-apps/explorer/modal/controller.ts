@@ -1,13 +1,13 @@
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   createExplorerTargetLookups,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
   getMoveTargetOptions,
 } from "../targetOptions";
-import type { ContainerNode } from "../types";
 import {
   type ExplorerModalSubmitParams,
   submitExplorerModalAction,

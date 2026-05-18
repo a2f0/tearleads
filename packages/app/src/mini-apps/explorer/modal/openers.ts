@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   type ExplorerTargetLookups,
   getDocumentLinkTargetOptions,
@@ -7,7 +8,6 @@ import {
   getMoveTargetOptions,
   type MoveTargetOption,
 } from "../targetOptions";
-import type { ContainerNode } from "../types";
 import type { ExplorerModalState } from "./types";
 
 export function clearExplorerModalState(

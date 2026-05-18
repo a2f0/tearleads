@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   DEFAULT_EXPLORER_ROUTE,
   type ExplorerRoute,
   isExplorerRouteAvailable,
 } from "../routes";
-import type { ContainerNode } from "../types";
 
 export interface ExplorerRouteState {
   route: ExplorerRoute;

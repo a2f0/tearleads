@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
+import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import type { DocumentSummary } from "../../data/documentSummary";
 import { getUntitledDocumentTitle } from "../../data/documents/documentKinds";
 import { NOTES_LABELS } from "./labels";
@@ -81,8 +82,5 @@ export function useNotesSidebarPanel(
     [createNote, notes, ready, selectNote, selectedNoteId],
   );
 
-  useEffect(() => {
-    setSidebar(sidebar);
-    return () => setSidebar(null);
-  }, [setSidebar, sidebar]);
+  useRegisteredWindowSidebar({ setSidebar, sidebar });
 }

@@ -1,4 +1,4 @@
-import type { ContainerNode } from "./types";
+import type { ContainerNode } from "../../stores/explorer/types";
 
 export type ExplorerRoute =
   | { view: "selection" }

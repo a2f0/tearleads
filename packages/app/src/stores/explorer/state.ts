@@ -1,7 +1,10 @@
-import type { ContainerNode } from "../../mini-apps/explorer/types";
 import type { ExplorerPersistence } from "../../workflows/explorer";
 import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
-import type { ExplorerSnapshot, ExplorerStoreState } from "./types";
+import type {
+  ContainerNode,
+  ExplorerSnapshot,
+  ExplorerStoreState,
+} from "./types";
 import { getSnapshotNodes } from "./utils";
 
 function areSnapshotNodesEqual(

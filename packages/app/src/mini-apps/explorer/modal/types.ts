@@ -1,7 +1,7 @@
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import type { MoveTargetOption } from "../targetOptions";
-import type { ContainerNode } from "../types";
 
 export type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }

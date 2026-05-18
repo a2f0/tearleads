@@ -1,9 +1,12 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
-import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
+import {
+  useRegisteredWindowSidebar,
+  useWindowSidebar,
+} from "../../components/window/WindowSidebarContext";
 import { ORG_MANAGER_LABELS } from "./labels";
 import type { OrgManagerView } from "./routes";
 
@@ -58,8 +61,5 @@ export function useOrgManagerSidebarPanel({
     [setView, view],
   );
 
-  useEffect(() => {
-    setSidebar(enabled ? sidebar : null);
-    return () => setSidebar(null);
-  }, [enabled, setSidebar, sidebar]);
+  useRegisteredWindowSidebar({ enabled, setSidebar, sidebar });
 }

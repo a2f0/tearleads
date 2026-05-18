@@ -1,5 +1,5 @@
 import type { DocumentSummary } from "../../../data/documentSummary";
-import type { ContainerNode } from "../types";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import { getExplorerModalError } from "./labels";
 import type { ExplorerModalState } from "./types";
 

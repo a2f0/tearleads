@@ -1,12 +1,12 @@
 import { useCallback, useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   createExplorerTargetLookups,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
 } from "../targetOptions";
-import type { ContainerNode } from "../types";
 import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 
 function getSelectedDocumentLinkedContainerIds(params: {

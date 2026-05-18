@@ -1,6 +1,6 @@
-import type { ContainerNode } from "../../mini-apps/explorer/types";
 import type { ContainerRecord } from "../../workflows/explorer";
 import type { ContainerState } from "./explorerSyncAgent";
+import type { ContainerNode } from "./types";
 
 export function toContainerNode(container: ContainerRecord): ContainerNode {
   const node: ContainerNode = {

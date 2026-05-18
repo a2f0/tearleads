@@ -1,5 +1,5 @@
 import type { DocumentSummary } from "../../data/documentSummary";
-import type { ContainerNode } from "./types";
+import type { ContainerNode } from "../../stores/explorer/types";
 
 export interface MoveTargetOption {
   id: string;

@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { DocumentSummary } from "../../../data/documentSummary";
-import type { ContainerNode } from "../types";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import { useExplorerSelection } from "./useExplorerSelection";
 
 afterEach(() => {

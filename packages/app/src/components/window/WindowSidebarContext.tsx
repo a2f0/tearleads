@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -33,4 +34,23 @@ export function WindowSidebarProvider({ children }: PropsWithChildren) {
 
 export function useWindowSidebar() {
   return useContext(WindowSidebarContext);
+}
+
+export function useRegisteredWindowSidebar({
+  enabled = true,
+  setSidebar,
+  sidebar,
+}: {
+  enabled?: boolean;
+  setSidebar: (node: ReactNode) => void;
+  sidebar: ReactNode;
+}) {
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    setSidebar(sidebar);
+    return () => setSidebar(null);
+  }, [enabled, setSidebar, sidebar]);
 }

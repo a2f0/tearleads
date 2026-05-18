@@ -12,11 +12,12 @@ import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
+import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import type {
   ExplorerContainerDocumentSidebarRow,
   ExplorerDocumentReadModel,
 } from "../../stores/explorer/documentReadModel";
-import type { ContainerNode } from "./types";
+import type { ContainerNode } from "../../stores/explorer/types";
 
 const EXPLORER_SIDEBAR_DOCUMENT_PAGE_SIZE = 50;
 
@@ -539,8 +540,5 @@ export function useExplorerSidebarPanel(params: {
     ],
   );
 
-  useEffect(() => {
-    setSidebar(sidebar);
-    return () => setSidebar(null);
-  }, [setSidebar, sidebar]);
+  useRegisteredWindowSidebar({ setSidebar, sidebar });
 }

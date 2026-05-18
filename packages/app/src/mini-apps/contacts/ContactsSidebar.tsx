@@ -1,8 +1,9 @@
-import { type MouseEvent, type ReactNode, useEffect, useMemo } from "react";
+import { type MouseEvent, type ReactNode, useMemo } from "react";
 import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
+import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import type { ContactEntries } from "./types";
 
 // Extract the time_low field (first 32 bits) from a UUID string.
@@ -123,8 +124,5 @@ export function useContactsSidebarPanel(params: {
     ],
   );
 
-  useEffect(() => {
-    setSidebar(sidebar);
-    return () => setSidebar(null);
-  }, [setSidebar, sidebar]);
+  useRegisteredWindowSidebar({ setSidebar, sidebar });
 }
