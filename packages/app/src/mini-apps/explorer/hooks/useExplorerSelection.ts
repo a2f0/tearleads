@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
-import type { ContainerNode } from "../types";
+import type { ContainerNode } from "../../../stores/explorer/types";
 
 interface PendingSelectedDocument {
   containerId: string;

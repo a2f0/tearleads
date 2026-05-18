@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import { getKnownDocumentIds } from "../documentSummaryUtils";
-import type { ContainerNode } from "../types";
 import { useDocumentLinkedContainerIdsByDocumentId } from "./useDocumentLinkedContainerIdsByDocumentId";
 import { useExplorerDocumentSummaryState } from "./useExplorerDocumentSummaryState";
 import {

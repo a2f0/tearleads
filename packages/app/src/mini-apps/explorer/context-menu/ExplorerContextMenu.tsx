@@ -3,8 +3,8 @@ import { Menu, type MenuPosition } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
 import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import { getMoveTargetOptions } from "../targetOptions";
-import type { ContainerNode } from "../types";
 
 export interface ContextMenuState {
   nodeId: string;

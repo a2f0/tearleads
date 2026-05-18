@@ -1,11 +1,11 @@
 import { type DragEvent, useCallback, useRef, useState } from "react";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   EXPLORER_LABELS,
   getExplorerFileImportCompletedStatus,
   getExplorerFileImportingStatus,
   getExplorerFileImportPartialStatus,
 } from "../labels";
-import type { ContainerNode } from "../types";
 import type {
   ExplorerDroppedFileImportProgress,
   ImportExplorerDroppedFiles,

@@ -36,12 +36,12 @@ import type {
   ExplorerContainerItemSortKey,
   ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { useExplorerContainerFileDropTarget } from "../hooks/useExplorerContainerFileDropTarget";
 import type { ImportExplorerDroppedFiles } from "../hooks/useExplorerDroppedFileImport";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 import type { ExplorerRoute } from "../routes";
-import type { ContainerNode } from "../types";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 
 const EXPLORER_VIRTUAL_ROW_HEIGHT = 36;

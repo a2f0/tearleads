@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ContainerNode } from "../types";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   type ExplorerModalSubmitParams,
   submitExplorerModalAction,

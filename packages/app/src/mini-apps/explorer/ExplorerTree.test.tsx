@@ -17,8 +17,8 @@ import type {
   ExplorerContainerDocumentSidebarRow,
   ExplorerDocumentReadModel,
 } from "../../stores/explorer/documentReadModel";
+import type { ContainerNode } from "../../stores/explorer/types";
 import { buildExplorerTree, useExplorerSidebarPanel } from "./ExplorerTree";
-import type { ContainerNode } from "./types";
 
 afterEach(() => {
   cleanup();

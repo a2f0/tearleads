@@ -1,7 +1,16 @@
-import type { ContainerNode } from "../../mini-apps/explorer/types";
 import type { ExplorerRuntime, ExplorerSyncState } from "./explorerSyncAgent";
 
 export type ExplorerShareAccessLevel = "admin" | "read" | "write";
+
+export interface ContainerNode {
+  createdAt?: string | null;
+  id: string;
+  organizationId: string;
+  name: string;
+  parentId: string | null;
+  kind: "container";
+  updatedAt?: string | null;
+}
 
 export interface ExplorerContextValue {
   createChild: (

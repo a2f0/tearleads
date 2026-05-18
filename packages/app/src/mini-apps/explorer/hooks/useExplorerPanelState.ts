@@ -1,13 +1,14 @@
 import type { MouseEvent, ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import {
   type ExplorerContainerInfo,
-  loadExplorerContainerInfo,
+  useExplorerContainerInfoLoader,
 } from "../../../stores/explorer/containerInfo";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
+import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   type ContextMenuState,
   useExplorerContextMenu,
@@ -15,7 +16,6 @@ import {
 import type { ExplorerTreeEntry } from "../ExplorerTree";
 import { useExplorerSidebarPanel } from "../ExplorerTree";
 import type { MoveTargetOption } from "../targetOptions";
-import type { ContainerNode } from "../types";
 import type {
   ExplorerDocumentMutationAction,
   ExplorerModelExplorer,
@@ -105,20 +105,10 @@ export function useExplorerPanelState(params: {
     treeEntries,
   } = params;
   const explorerDocumentsAppData = useExplorerDocumentsRuntimeAppData(appData);
-  const containerInfoAppData = useMemo(
-    () => ({
-      apiClient: appData.apiClient,
-      dbStatus: appData.dbStatus,
-      execSql: appData.execSql,
-      organizationId: appData.organizationId,
-    }),
-    [
-      appData.apiClient,
-      appData.dbStatus,
-      appData.execSql,
-      appData.organizationId,
-    ],
-  );
+  const loadContainerInfo = useExplorerContainerInfoLoader({
+    appData,
+    nodes: explorer.nodes,
+  });
   const routeState = useExplorerRoute({
     nodes: explorer.nodes,
     setSelectedId: selection.setSelectedId,
@@ -126,26 +116,6 @@ export function useExplorerPanelState(params: {
   const contextMenuState = useExplorerContextMenu(
     explorer.nodes,
     routeState.selectExplorerItem,
-  );
-  const loadContainerInfo = useCallback(
-    (containerId: string) => {
-      const node = explorer.nodes.find(
-        (candidate) => candidate.id === containerId,
-      );
-      return loadExplorerContainerInfo({
-        appData: containerInfoAppData,
-        containerId,
-        parentId: node?.parentId ?? null,
-        remoteInfoMode:
-          appData.isAuthenticated && appData.online ? "if-synced" : "never",
-      });
-    },
-    [
-      appData.isAuthenticated,
-      appData.online,
-      containerInfoAppData,
-      explorer.nodes,
-    ],
   );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentsAppData,
