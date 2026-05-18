@@ -1,17 +1,12 @@
 import { useCallback } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
-import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
-import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
-import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import type { DocumentSummary } from "../../data/documentSummary";
+import type { StoredDocumentKind } from "../../data/documents/documentKinds";
+import { primeDocumentStore } from "../documents/DocumentsProvider";
+import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import {
   createExplorerDocumentsRuntime,
   type ExplorerDocumentsRuntimeAppData,
-} from "../../../stores/explorer/documentRuntime";
-import {
-  EXPLORER_LABELS,
-  getExplorerDroppedFileImportFailureLog,
-  getExplorerDroppedFileTooLargeError,
-} from "../labels";
+} from "./documentRuntime";
 
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
 const EXPLORER_DROPPED_FILE_MAX_BYTES = 5 * 1024 * 1024;
@@ -55,10 +50,20 @@ interface ExplorerDroppedFileImportInput<TRuntime> {
   ) => ExplorerDroppedFileDocumentStore;
   createLocalId: () => string;
   files: ReadonlyArray<File>;
+  labels: ExplorerDroppedFileImportLabels;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   logError?: (message: string, cause?: unknown) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   onProgress?: (progress: ExplorerDroppedFileImportProgress) => void;
+}
+
+export interface ExplorerDroppedFileImportLabels {
+  fileImportStoreNotReady: string;
+  getFileImportFailureLog: (fileName: string) => string;
+  getFileTooLargeError: (input: {
+    fileName: string;
+    maxByteLength: number;
+  }) => string;
 }
 
 export type ImportExplorerDroppedFiles = (
@@ -84,10 +89,13 @@ function buildFallbackImportedDocumentSummary(input: {
   };
 }
 
-function assertExplorerDroppedFileCanBeImported(file: File): void {
+function assertExplorerDroppedFileCanBeImported(
+  file: File,
+  labels: ExplorerDroppedFileImportLabels,
+): void {
   if (file.size > EXPLORER_DROPPED_FILE_MAX_BYTES) {
     throw new Error(
-      getExplorerDroppedFileTooLargeError({
+      labels.getFileTooLargeError({
         fileName: file.name,
         maxByteLength: EXPLORER_DROPPED_FILE_MAX_BYTES,
       }),
@@ -100,10 +108,11 @@ async function importExplorerDroppedFile<TRuntime>(input: {
   createDocumentStore: ExplorerDroppedFileImportInput<TRuntime>["createDocumentStore"];
   createLocalId: () => string;
   file: File;
+  labels: ExplorerDroppedFileImportLabels;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   runtime: TRuntime;
 }): Promise<DocumentSummary> {
-  assertExplorerDroppedFileCanBeImported(input.file);
+  assertExplorerDroppedFileCanBeImported(input.file, input.labels);
   const localId = input.createLocalId();
   const text = await input.file.text();
   const store = input.createDocumentStore({
@@ -113,7 +122,7 @@ async function importExplorerDroppedFile<TRuntime>(input: {
   });
   const initialized = await store.ensureInitialized();
   if (!initialized) {
-    throw new Error(EXPLORER_LABELS.fileImportStoreNotReady);
+    throw new Error(input.labels.fileImportStoreNotReady);
   }
 
   store.requestSync();
@@ -165,6 +174,7 @@ export async function importExplorerDroppedFiles<TRuntime>(
           createDocumentStore: input.createDocumentStore,
           createLocalId: input.createLocalId,
           file,
+          labels: input.labels,
           loadDocumentSummary: input.loadDocumentSummary,
           runtime,
         }),
@@ -180,7 +190,7 @@ export async function importExplorerDroppedFiles<TRuntime>(
       } else {
         progress.failedCount += 1;
         input.logError?.(
-          getExplorerDroppedFileImportFailureLog(
+          input.labels.getFileImportFailureLog(
             batch[batchIndex]?.name ?? "file",
           ),
           result.reason,
@@ -199,10 +209,12 @@ export async function importExplorerDroppedFiles<TRuntime>(
 export function useExplorerDroppedFileImport(params: {
   appData: ExplorerDocumentsRuntimeAppData;
   documentReadModel: ExplorerDocumentReadModel;
+  labels: ExplorerDroppedFileImportLabels;
   logError: (message: string, cause?: unknown) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
 }): ImportExplorerDroppedFiles {
-  const { appData, documentReadModel, logError, mergeDocumentSummary } = params;
+  const { appData, documentReadModel, labels, logError, mergeDocumentSummary } =
+    params;
 
   return useCallback(
     (containerId, files, onProgress) =>
@@ -221,11 +233,12 @@ export function useExplorerDroppedFileImport(params: {
           ),
         createLocalId: () => crypto.randomUUID(),
         files,
+        labels,
         loadDocumentSummary: documentReadModel.loadDocumentSummary,
         logError,
         mergeDocumentSummary,
         ...(onProgress === undefined ? {} : { onProgress }),
       }),
-    [appData, documentReadModel, logError, mergeDocumentSummary],
+    [appData, documentReadModel, labels, logError, mergeDocumentSummary],
   );
 }

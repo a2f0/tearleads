@@ -1,15 +1,15 @@
 import { type DragEvent, useCallback, useRef, useState } from "react";
 import type { ContainerNode } from "../../../stores/explorer/types";
+import type {
+  ExplorerDroppedFileImportProgress,
+  ImportExplorerDroppedFiles,
+} from "../../../stores/explorer/useExplorerDroppedFileImport";
 import {
   EXPLORER_LABELS,
   getExplorerFileImportCompletedStatus,
   getExplorerFileImportingStatus,
   getExplorerFileImportPartialStatus,
 } from "../labels";
-import type {
-  ExplorerDroppedFileImportProgress,
-  ImportExplorerDroppedFiles,
-} from "./useExplorerDroppedFileImport";
 
 function isExplorerFileDragEvent(event: DragEvent<HTMLElement>): boolean {
   return Array.from(event.dataTransfer.types).includes("Files");

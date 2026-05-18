@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useMemo } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
-import type { AppDataContextValue } from "../../../providers/data/AppDataProvider";
-import { primeDocumentStore } from "../../../stores/documents/DocumentsProvider";
+import type { DocumentSummary } from "../../data/documentSummary";
+import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
+import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
   discoverContainerDocuments,
   hasUndiscoveredDocumentUpdateEvent,
-} from "../../../stores/explorer/documentDiscovery";
+} from "./documentDiscovery";
 import type {
   ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
-} from "../../../stores/explorer/documentReadModel";
+} from "./documentReadModel";
 import {
   createExplorerDocumentsRuntime,
   type ExplorerDocumentsRuntimeAppDataInput,
   isDestroyedDatabaseWorkerError,
   useExplorerDocumentsRuntimeAppData,
-} from "../../../stores/explorer/documentRuntime";
+} from "./documentRuntime";
 
 type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput &
   Pick<AppDataContextValue, "events">;

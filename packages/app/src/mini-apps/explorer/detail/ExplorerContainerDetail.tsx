@@ -28,9 +28,9 @@ import type {
   ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
 import type { ContainerNode } from "../../../stores/explorer/types";
+import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { useExplorerContainerFileDropTarget } from "../hooks/useExplorerContainerFileDropTarget";
-import type { ImportExplorerDroppedFiles } from "../hooks/useExplorerDroppedFileImport";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 
 const EXPLORER_VIRTUAL_ROW_HEIGHT = 36;

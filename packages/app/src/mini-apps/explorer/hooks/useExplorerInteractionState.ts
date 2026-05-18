@@ -6,9 +6,9 @@ import type {
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
 } from "../../../stores/explorer/documentReadModel";
+import { useDiscoveredDocumentsSync } from "../../../stores/explorer/useDiscoveredDocumentsSync";
+import { useExplorerRefreshAction } from "../../../stores/explorer/useExplorerRefreshAction";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
-import { useDiscoveredDocumentsSync } from "./useDiscoveredDocumentsSync";
-import { useExplorerRefreshAction } from "./useExplorerRefreshAction";
 
 export function useExplorerInteractionState(params: {
   activeContainerId: string | null;

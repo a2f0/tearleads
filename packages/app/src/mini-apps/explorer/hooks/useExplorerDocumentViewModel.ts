@@ -2,10 +2,10 @@ import { useMemo } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import { getKnownDocumentIds } from "../../../stores/explorer/documentSummaryUtils";
 import type { ContainerNode } from "../../../stores/explorer/types";
-import { getKnownDocumentIds } from "../documentSummaryUtils";
+import { useExplorerDocumentSummaryState } from "../../../stores/explorer/useExplorerDocumentSummaryState";
 import { useDocumentLinkedContainerIdsByDocumentId } from "./useDocumentLinkedContainerIdsByDocumentId";
-import { useExplorerDocumentSummaryState } from "./useExplorerDocumentSummaryState";
 import {
   type ExplorerSelectionState,
   useExplorerSelection,
