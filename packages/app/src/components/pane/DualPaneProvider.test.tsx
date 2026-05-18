@@ -16,6 +16,7 @@ import {
   listProxiedApiRequests,
   resetMockServer,
   useTestApiAppHandlers,
+  waitForProxiedApiRequestsToSettle,
   wsUrl,
 } from "../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
@@ -30,7 +31,8 @@ import { PaneProvider } from "./PaneProvider";
 
 const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
 const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 20_000;
-const POST_SHARE_SYNC_SETTLE_MS = 1_500;
+const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 1_500;
+const POST_SHARE_SYNC_QUIET_MS = 100;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
 const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
@@ -782,7 +784,19 @@ async function waitForNoPostShareSyncFailures(
 ) {
   const startedAt = Date.now();
   let unresolvedFailures: readonly ProxiedApiRequest[] = [];
-  while (Date.now() - startedAt < POST_SHARE_SYNC_SETTLE_MS) {
+  while (Date.now() - startedAt < POST_SHARE_SYNC_SETTLE_TIMEOUT_MS) {
+    const remainingTimeoutMs = Math.max(
+      0,
+      POST_SHARE_SYNC_SETTLE_TIMEOUT_MS - (Date.now() - startedAt),
+    );
+
+    await act(async () => {
+      await waitForProxiedApiRequestsToSettle(
+        remainingTimeoutMs,
+        POST_SHARE_SYNC_QUIET_MS,
+      );
+    });
+
     const postShareRequests = listProxiedApiRequests().slice(requestStartIndex);
     const paneErrors = listPaneErrorLines(panes);
     unresolvedFailures = listUnresolvedPostShareFailures(postShareRequests);
@@ -798,7 +812,9 @@ async function waitForNoPostShareSyncFailures(
       `Unexpected post-share pane errors.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
     ).toEqual([]);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    if (unresolvedFailures.length === 0) {
+      return;
+    }
   }
 
   expect(

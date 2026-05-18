@@ -7,7 +7,7 @@
     "db:generate": "drizzle-kit generate",
     "dev": "bun --hot src/index.ts",
     "start": "bun src/index.ts",
-    "test": "bun test src"
+    "test": "bun test src --max-concurrency=4"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.4.1",
