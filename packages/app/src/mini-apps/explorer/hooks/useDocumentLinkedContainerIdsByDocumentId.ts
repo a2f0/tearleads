@@ -6,7 +6,7 @@ import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documen
 import {
   areLinkedContainerIdMapsEqual,
   getRequestedDocumentIds,
-} from "../documentSummaryUtils";
+} from "../../../stores/explorer/documentSummaryUtils";
 
 export function useDocumentLinkedContainerIdsByDocumentId(params: {
   dbStatus: ReturnType<typeof useAppData>["dbStatus"];

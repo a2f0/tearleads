@@ -1,16 +1,16 @@
 import { useCallback, useRef, useState } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
-import type { useAppData } from "../../../providers/data/AppDataProvider";
+import type { DocumentSummary } from "../../data/documentSummary";
+import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
   discoverAllContainerDocuments,
   listAllRemoteExplorerContainerIds,
-} from "../../../stores/explorer/documentDiscovery";
+} from "./documentDiscovery";
 import type {
   ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
-} from "../../../stores/explorer/documentReadModel";
-import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
+} from "./documentReadModel";
+import { isDestroyedDatabaseWorkerError } from "./documentRuntime";
 
 type ReplaceDocumentLinksBatch = (
   inputs: ReadonlyArray<ExplorerDocumentLinkInput>,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "../../../data/documentSummary";
+import type { DocumentSummary } from "../../data/documentSummary";
 import { importExplorerDroppedFiles } from "./useExplorerDroppedFileImport";
 
 interface FakeRuntime {
@@ -44,6 +44,14 @@ function createSummary(localId: string, containerId: string): DocumentSummary {
     updatedAt: "2026-05-18T12:00:00.000Z",
   };
 }
+
+const testImportLabels = {
+  fileImportStoreNotReady: "Document store is not ready.",
+  getFileImportFailureLog: (fileName: string) =>
+    `Explorer: failed to import ${fileName}.`,
+  getFileTooLargeError: (input: { fileName: string; maxByteLength: number }) =>
+    `${input.fileName} is larger than ${(input.maxByteLength / 1024 / 1024).toFixed(1)} MB.`,
+};
 
 test("dropped file import initializes notes and merges persisted summaries", async () => {
   const createdStores: Array<{
@@ -94,6 +102,7 @@ test("dropped file import initializes notes and merges persisted summaries", asy
       return nextLocalId;
     },
     files: [createTextFile("a.txt", "Alpha"), createTextFile("b.txt", "Beta")],
+    labels: testImportLabels,
     loadDocumentSummary: async (localId) => createSummary(localId, "folder-1"),
     mergeDocumentSummary: (summary) => {
       merged.push(summary);
@@ -163,6 +172,7 @@ test("dropped file import keeps going when one file fails", async () => {
       createTextFile("ok.txt", "Imported"),
       createFailingFile("bad.txt", new Error("read failed")),
     ],
+    labels: testImportLabels,
     loadDocumentSummary: async (localId) => createSummary(localId, "folder-1"),
     logError: (message) => {
       errors.push(message);
@@ -192,6 +202,7 @@ test("dropped file import rejects oversized files before reading text", async ()
     },
     createLocalId: () => `local-${++localIdCount}`,
     files: [createOversizedFile("large.txt")],
+    labels: testImportLabels,
     loadDocumentSummary: async (localId) => createSummary(localId, "folder-1"),
     logError: (message, cause) => {
       errors.push(

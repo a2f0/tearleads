@@ -6,7 +6,7 @@ import type {
 } from "../../../stores/explorer/containerInfo";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import type { ContainerNode } from "../../../stores/explorer/types";
-import type { ImportExplorerDroppedFiles } from "../hooks/useExplorerDroppedFileImport";
+import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerRoute } from "../routes";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";

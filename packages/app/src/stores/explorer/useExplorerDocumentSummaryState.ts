@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
-import type { useAppData } from "../../../providers/data/AppDataProvider";
-import { subscribeToPersistedDocuments } from "../../../stores/documents/DocumentsProvider";
-import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import type { DocumentSummary } from "../../data/documentSummary";
+import type { useAppData } from "../../providers/data/AppDataProvider";
+import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
+import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import {
   mergeDocumentSummaryLists,
   mergeSingleDocumentSummaryList,
-} from "../documentSummaryUtils";
+} from "./documentSummaryUtils";
 
 export function useExplorerDocumentSummaryState(
   dbStatus: ReturnType<typeof useAppData>["dbStatus"],

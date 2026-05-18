@@ -10,11 +10,21 @@ import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documen
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import {
+  type ExplorerDroppedFileImportLabels,
+  type ImportExplorerDroppedFiles,
+  useExplorerDroppedFileImport,
+} from "../../../stores/explorer/useExplorerDroppedFileImport";
+import {
   type ContextMenuState,
   useExplorerContextMenu,
 } from "../context-menu/ExplorerContextMenu";
 import type { ExplorerTreeEntry } from "../ExplorerTree";
 import { useExplorerSidebarPanel } from "../ExplorerTree";
+import {
+  EXPLORER_LABELS,
+  getExplorerDroppedFileImportFailureLog,
+  getExplorerDroppedFileTooLargeError,
+} from "../labels";
 import type { MoveTargetOption } from "../targetOptions";
 import type {
   ExplorerDocumentMutationAction,
@@ -24,10 +34,6 @@ import {
   type ExplorerDocumentModalState,
   useExplorerDocumentModalState,
 } from "./useExplorerDocumentModalState";
-import {
-  type ImportExplorerDroppedFiles,
-  useExplorerDroppedFileImport,
-} from "./useExplorerDroppedFileImport";
 import { type ExplorerRouteState, useExplorerRoute } from "./useExplorerRoute";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 import {
@@ -50,6 +56,12 @@ interface ExplorerContextMenuModel {
     nodeId: string,
   ) => void;
 }
+
+const explorerDroppedFileImportLabels: ExplorerDroppedFileImportLabels = {
+  fileImportStoreNotReady: EXPLORER_LABELS.fileImportStoreNotReady,
+  getFileImportFailureLog: getExplorerDroppedFileImportFailureLog,
+  getFileTooLargeError: getExplorerDroppedFileTooLargeError,
+};
 
 export interface ExplorerPanelState {
   activateLinkedContainer: ExplorerDocumentMutationAction;
@@ -178,6 +190,7 @@ export function useExplorerPanelState(params: {
   const importDroppedFiles = useExplorerDroppedFileImport({
     appData: explorerDocumentsAppData,
     documentReadModel,
+    labels: explorerDroppedFileImportLabels,
     logError: appData.logError,
     mergeDocumentSummary,
   });
