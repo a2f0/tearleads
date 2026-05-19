@@ -9,7 +9,7 @@ import type {
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { eq, inArray, lte } from "drizzle-orm";
 import { BlobObjectStoreError } from "../../adapters/blobObjectStore";
 import { blobStages } from "../../schema";
 import {
@@ -32,6 +32,20 @@ interface LoadedMultipartBlobStage {
   readonly ownerUserId: string;
   readonly record: NonNullable<ReturnType<typeof readMultipartBlobStageRecord>>;
   readonly sha256: string;
+}
+
+interface CleanupExpiredBlobStagesInput {
+  readonly limit?: number | undefined;
+  readonly now?: Date | undefined;
+}
+
+interface CleanupExpiredBlobStagesResult {
+  readonly abortedMultipartUploads: number;
+  readonly deletedLegacyStages: number;
+  readonly deletedMultipartObjects: number;
+  readonly deletedStages: number;
+  readonly failedStages: number;
+  readonly scannedStages: number;
 }
 
 export class MultipartBlobStageError extends Error {
@@ -63,6 +77,20 @@ function toMultipartBlobStageError(
 
 function storageKeyForStage(stageId: string): string {
   return `blob-stages/${stageId}`;
+}
+
+function normalizeCleanupLimit(limit: number | undefined): number {
+  if (limit === undefined) {
+    return 100;
+  }
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new MultipartBlobStageError(
+      "Blob stage cleanup limit must be a positive integer",
+      400,
+    );
+  }
+
+  return limit;
 }
 
 function assertUploadIdMatches(input: {
@@ -130,6 +158,70 @@ async function listStageParts(
     key: stage.record.storageKey,
     uploadId: stage.record.uploadId,
   });
+}
+
+export async function cleanupExpiredBlobStages(
+  runtime: ApiServiceRuntime,
+  input: CleanupExpiredBlobStagesInput = {},
+): Promise<CleanupExpiredBlobStagesResult> {
+  const now = input.now ?? new Date();
+  const limit = normalizeCleanupLimit(input.limit);
+  const stages = await runtime.db
+    .select({
+      encryptedBytes: blobStages.encryptedBytes,
+      id: blobStages.id,
+    })
+    .from(blobStages)
+    .where(lte(blobStages.expiresAt, now))
+    .limit(limit);
+  let abortedMultipartUploads = 0;
+  let deletedLegacyStages = 0;
+  let deletedMultipartObjects = 0;
+  let deletedStages = 0;
+  let failedStages = 0;
+  const cleanedStageIds: string[] = [];
+
+  for (const stage of stages) {
+    const record = readMultipartBlobStageRecord(stage.encryptedBytes);
+    if (!record) {
+      deletedLegacyStages += 1;
+      cleanedStageIds.push(stage.id);
+      continue;
+    }
+
+    try {
+      if (record.state === "pending") {
+        await runtime.blobObjectStore.abortMultipartUpload({
+          key: record.storageKey,
+          uploadId: record.uploadId,
+        });
+        abortedMultipartUploads += 1;
+      } else {
+        await runtime.blobObjectStore.deleteObject(record.storageKey);
+        deletedMultipartObjects += 1;
+      }
+      cleanedStageIds.push(stage.id);
+    } catch {
+      failedStages += 1;
+    }
+  }
+
+  if (cleanedStageIds.length > 0) {
+    const deletedRows = await runtime.db
+      .delete(blobStages)
+      .where(inArray(blobStages.id, cleanedStageIds))
+      .returning({ id: blobStages.id });
+    deletedStages = deletedRows.length;
+  }
+
+  return {
+    abortedMultipartUploads,
+    deletedLegacyStages,
+    deletedMultipartObjects,
+    deletedStages,
+    failedStages,
+    scannedStages: stages.length,
+  };
 }
 
 export async function initiateMultipartBlobStage(
