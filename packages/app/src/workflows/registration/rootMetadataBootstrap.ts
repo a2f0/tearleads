@@ -1,4 +1,4 @@
-import { createInitializedContainerMetadataDocument } from "../../data/containers";
+import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 
 export interface InitialRootMetadataBootstrap {
   initialUpdate: Uint8Array;

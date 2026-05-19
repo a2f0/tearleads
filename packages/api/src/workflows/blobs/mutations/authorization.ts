@@ -11,13 +11,13 @@ import type {
 import { eq } from "drizzle-orm";
 import { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
 import type { DatabaseTransaction } from "../../../adapters/postgres";
-import { loadPrincipalPoliciesForContainerPaths } from "../../../documents/principalPolicyProjection";
 import { documents } from "../../../schema";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
   assertCurrentContainerPathGroups,
   assertDocumentManifestBundleConsistent,
 } from "../../documents/mutations";
+import { loadPrincipalPoliciesForContainerPaths } from "../../principals/principalPolicyProjection";
 import {
   readBindBodyClaim,
   readBlobEvent,

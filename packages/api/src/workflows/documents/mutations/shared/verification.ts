@@ -24,13 +24,13 @@ import type {
   DatabaseSession,
   DatabaseTransaction,
 } from "../../../../adapters/postgres";
-import { loadPrincipalPoliciesForContainerPaths } from "../../../../documents/principalPolicyProjection";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
 } from "../../../../keyingProjectionRecords";
 import { users } from "../../../../schema";
 import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
+import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
 import { DocumentMutationError, documentShapeError } from "../errors";
 import type { DocumentWriteAuthorizationProof } from "../types";
 import {

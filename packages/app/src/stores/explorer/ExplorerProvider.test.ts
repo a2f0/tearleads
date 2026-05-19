@@ -36,7 +36,7 @@ import {
   assertWriteHeader,
 } from "../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { createInitializedContainerMetadataDocument } from "../../data/containers";
+import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
 import {
   ensureContainerTables,

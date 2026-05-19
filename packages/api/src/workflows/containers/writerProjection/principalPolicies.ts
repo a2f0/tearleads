@@ -7,7 +7,7 @@ import type { DatabaseSession } from "../../../adapters/postgres";
 import {
   loadPrincipalPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,
-} from "../../../documents/principalPolicyProjection";
+} from "../../principals/principalPolicyProjection";
 import { ContainerWriterProjectionError } from "./types";
 
 export function principalPolicyReferenceCacheKey(

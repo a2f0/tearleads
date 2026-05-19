@@ -1,9 +1,9 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { BlobKekTargetError } from "../../../access/read/blobKekTargets";
 import { BlobContentKeyBundleError } from "../../../access/write/blobContentKeyStore";
-import { PrincipalPolicyProjectionError } from "../../../documents/principalPolicyProjection";
 import { ContainerMutationError } from "../../containers/mutations";
 import { DocumentMutationError } from "../../documents/mutations";
+import { PrincipalPolicyProjectionError } from "../../principals/principalPolicyProjection";
 import { BlobMutationError, type BlobMutationStatus } from "./types";
 
 function mapVerificationStatus(

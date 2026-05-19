@@ -10,7 +10,7 @@ import {
   getDefaultContainerName,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../data/containers";
+} from "../../data/containers/containerMetadataDocument";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";

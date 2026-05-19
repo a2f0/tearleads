@@ -3,7 +3,7 @@ import { exportAllUpdates } from "@tearleads/loro";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
-} from "../../data/containers";
+} from "../../data/containers/containerMetadataDocument";
 import type { ExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { enqueuePendingExplorerContainerUpdateFromRuntime } from "./containerPersistence";

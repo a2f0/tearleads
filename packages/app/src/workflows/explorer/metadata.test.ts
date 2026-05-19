@@ -3,7 +3,7 @@ import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../data/containers";
+} from "../../data/containers/containerMetadataDocument";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerRecord,

@@ -7,7 +7,7 @@ should not be replaced with a global database handle.
 The intended dependency direction is:
 
 ```text
-components/hooks -> providers/stores -> workflows -> persistence + sqlite + shared helpers
+components/hooks -> providers/stores -> workflows -> data/persistence + data/sqlite + data/blobs + data/contacts + shared helpers
 ```
 
 ## Layers
@@ -45,6 +45,17 @@ components/hooks -> providers/stores -> workflows -> persistence + sqlite + shar
   shapes that workflows and stores can reuse without importing provider or UI
   layers.
 
+## Import Surface
+
+`data/` is not a package-style public API. Prefer concrete module imports such
+as `data/containers/containerMetadataDocument` or named neutral contracts such
+as `data/blobContracts` and `data/documentSummary`.
+
+Avoid `index.ts`, `types.ts`, and other one-line re-export shims inside data
+domains when they only shorten import paths. Keep a facade only when it marks a
+real layer boundary, such as a workflow, store, provider, or explicit neutral
+contract module shared by multiple layers.
+
 ## Executor Boundary
 
 Providers may create or receive the root app runtime and pass a workflow context
@@ -61,6 +72,8 @@ cleanup should be incremental and behavior-preserving.
 - Production `data/` modules must not import UI, providers, hooks, or
   workflows, including for type-only contracts. Test-only fixture builders that
   need workflow types belong under `packages/app/test/helpers/`.
+- Production callers should import data-domain implementations and contracts
+  from concrete modules, not convenience barrels or pass-through shims.
 - `workflows/` modules must not import UI, hooks, or providers, including for
   type-only contracts.
 - Production `data/` and `workflows/` files must not import React; React hooks

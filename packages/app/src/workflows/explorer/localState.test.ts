@@ -6,7 +6,7 @@ import {
   getDefaultContainerName,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../data/containers";
+} from "../../data/containers/containerMetadataDocument";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type {
   ExplorerPersistence,

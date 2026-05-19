@@ -44,12 +44,21 @@ access-plane orchestration to workflow functions. Routes should call services,
 not access modules directly. Tests may still import access APIs for setup and
 verification.
 
+Production code outside `workflows/` should not import access APIs directly,
+even from the public `read/` and `write/` modules. If support code needs access
+state, move the orchestration into a workflow or pass in the already-loaded
+domain data. Services must not import routes; routes must not import workflows
+or access modules.
+
 Workflow conventions live in `../workflows/README.md`.
 
 ## Implementation Layout
 
 The public API surface lives at `read/*.ts` and `write/*.ts`. New callers
-should import from those modules, not from implementation directories.
+should import from those modules, not from implementation directories. These
+thin files are intentional read/write boundary facades, not convenience barrels.
+Avoid adding `index.ts`, `types.ts`, or one-line re-export shims that do not
+define a layer boundary.
 
 Read-only implementation details may live under `read/internal/` when they are
 not consumed by write paths. Write-only implementation details live under

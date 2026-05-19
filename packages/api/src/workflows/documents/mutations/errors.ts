@@ -2,8 +2,8 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
 import { DocumentContentKeyBundleError } from "../../../access/write/documentContentKeyStore";
 import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";
-import { PrincipalPolicyProjectionError } from "../../../documents/principalPolicyProjection";
 import { ContainerMutationError } from "../../containers/mutations";
+import { PrincipalPolicyProjectionError } from "../../principals/principalPolicyProjection";
 
 type DocumentMutationStatus = 400 | 403 | 404 | 409 | 503;
 
