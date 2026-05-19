@@ -355,6 +355,10 @@ export async function completeMultipartBlobStage(
     });
 
     const completed = await runtime.blobObjectStore.completeMultipartUpload({
+      expected: {
+        byteLength: stage.byteLength,
+        sha256: stage.sha256,
+      },
       key: stage.record.storageKey,
       parts: input.parts,
       uploadId: stage.record.uploadId,

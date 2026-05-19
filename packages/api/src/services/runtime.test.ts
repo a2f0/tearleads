@@ -15,6 +15,10 @@ test("default blob object store uses memory when unconfigured", async () => {
   });
 
   const completed = await store.completeMultipartUpload({
+    expected: {
+      byteLength: new TextEncoder().encode("runtime-default").byteLength,
+      sha256: await sha256Hex("runtime-default"),
+    },
     key: "blob-stages/runtime-default",
     parts: [{ etag: part.etag, partNumber: part.partNumber }],
     uploadId,

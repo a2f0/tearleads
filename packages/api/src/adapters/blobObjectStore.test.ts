@@ -20,6 +20,10 @@ test("memory blob object store completes multipart uploads by part number", asyn
   });
 
   const completed = await store.completeMultipartUpload({
+    expected: {
+      byteLength: new TextEncoder().encode("first-second").byteLength,
+      sha256: await sha256Hex("first-second"),
+    },
     key,
     parts: [
       { etag: secondPart.etag, partNumber: 2 },
@@ -62,6 +66,10 @@ test("memory blob object store releases multipart key conflicts after terminal s
     uploadId: completedUpload.uploadId,
   });
   await store.completeMultipartUpload({
+    expected: {
+      byteLength: new TextEncoder().encode("complete").byteLength,
+      sha256: await sha256Hex("complete"),
+    },
     key: completedKey,
     parts: [{ etag: part.etag, partNumber: 1 }],
     uploadId: completedUpload.uploadId,

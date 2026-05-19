@@ -24,11 +24,18 @@ interface S3BlobObjectStoreInput {
   readonly client: S3BlobObjectStoreClient;
 }
 
-const TEXT_ENCODER = new TextEncoder();
 const MAX_S3_PART_NUMBER = 10_000;
 
 function byteLength(value: string): number {
-  return TEXT_ENCODER.encode(value).byteLength;
+  return Buffer.byteLength(value, "utf8");
+}
+
+function sha256HexToBase64(value: string): string {
+  if (!/^[0-9a-f]{64}$/u.test(value)) {
+    throw new BlobObjectStoreError("Invalid SHA-256 digest", "invalid_part");
+  }
+
+  return Buffer.from(value, "hex").toString("base64");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -102,7 +109,10 @@ function sortedParts(
 
 function isS3InvalidPartError(error: unknown): boolean {
   return (
-    errorName(error) === "InvalidPart" || errorName(error) === "EntityTooSmall"
+    errorName(error) === "InvalidPart" ||
+    errorName(error) === "EntityTooSmall" ||
+    errorName(error) === "BadDigest" ||
+    errorName(error) === "InvalidRequest"
   );
 }
 
@@ -189,7 +199,10 @@ async function responseBodyToString(
     return asyncIterableToString(body);
   }
 
-  throw new BlobObjectStoreError("Unsupported S3 object body", "not_found");
+  throw new BlobObjectStoreError(
+    "Unsupported S3 object body type",
+    "unsupported_body",
+  );
 }
 
 async function getS3Object(input: {
@@ -286,7 +299,7 @@ function createCompleteMultipartUpload({
   bucket,
   client,
 }: S3BlobObjectStoreInput): BlobObjectStore["completeMultipartUpload"] {
-  return async ({ key, parts, uploadId }) => {
+  return async ({ expected, key, parts, uploadId }) => {
     if (parts.length === 0) {
       throw new BlobObjectStoreError(
         "Multipart upload requires at least one part",
@@ -298,6 +311,8 @@ function createCompleteMultipartUpload({
       client.send(
         new CompleteMultipartUploadCommand({
           Bucket: bucket,
+          ChecksumSHA256: sha256HexToBase64(expected.sha256),
+          ChecksumType: "FULL_OBJECT",
           Key: key,
           MultipartUpload: {
             Parts: sortedParts(parts).map((part) => ({
@@ -305,22 +320,13 @@ function createCompleteMultipartUpload({
               PartNumber: part.partNumber,
             })),
           },
+          MpuObjectSize: expected.byteLength,
           UploadId: uploadId,
         }),
       ),
     );
-    const bytes = await getS3Object({ bucket, client, key });
-    if (bytes === null) {
-      throw new BlobObjectStoreError(
-        "Completed multipart object not found",
-        "not_found",
-      );
-    }
 
-    return {
-      byteLength: byteLength(bytes),
-      sha256: await sha256Hex(bytes),
-    };
+    return expected;
   };
 }
 
@@ -333,6 +339,8 @@ function createMultipartUpload({
       const upload = await client.send(
         new CreateMultipartUploadCommand({
           Bucket: bucket,
+          ChecksumAlgorithm: "SHA256",
+          ChecksumType: "FULL_OBJECT",
           Key: key,
         }),
       );
@@ -395,6 +403,8 @@ function createUploadPart({
         new UploadPartCommand({
           Body: input.bytes,
           Bucket: bucket,
+          ChecksumAlgorithm: "SHA256",
+          ChecksumSHA256: sha256HexToBase64(await sha256Hex(input.bytes)),
           ContentLength: byteLength(input.bytes),
           Key: input.key,
           PartNumber: input.partNumber,

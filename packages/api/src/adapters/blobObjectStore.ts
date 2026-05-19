@@ -19,6 +19,7 @@ export interface CompletedBlobObject {
 type BlobObjectStoreErrorCode =
   | "invalid_part"
   | "not_found"
+  | "unsupported_body"
   | "upload_conflict";
 
 export class BlobObjectStoreError extends Error {
@@ -37,6 +38,7 @@ export interface BlobObjectStore {
     readonly uploadId: string;
   }): Promise<void>;
   completeMultipartUpload(input: {
+    readonly expected: CompletedBlobObject;
     readonly key: string;
     readonly parts: readonly CompleteMultipartUploadPart[];
     readonly uploadId: string;
@@ -64,11 +66,10 @@ interface MultipartUploadState {
   readonly uploadId: string;
 }
 
-const TEXT_ENCODER = new TextEncoder();
 const MAX_S3_PART_NUMBER = 10_000;
 
 function byteLength(value: string): number {
-  return TEXT_ENCODER.encode(value).byteLength;
+  return Buffer.byteLength(value, "utf8");
 }
 
 function requireValidPartNumber(partNumber: number): void {

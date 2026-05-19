@@ -19,11 +19,19 @@ interface CommandWithInput {
 
 interface S3CommandInput {
   readonly Body?: unknown;
+  readonly ChecksumAlgorithm?: unknown;
+  readonly ChecksumSHA256?: unknown;
+  readonly ChecksumType?: unknown;
   readonly Key?: unknown;
   readonly MultipartUpload?: unknown;
+  readonly MpuObjectSize?: unknown;
   readonly PartNumber?: unknown;
   readonly PartNumberMarker?: unknown;
   readonly UploadId?: unknown;
+}
+
+async function sha256Base64(value: string): Promise<string> {
+  return Buffer.from(await sha256Hex(value), "hex").toString("base64");
 }
 
 class FakeS3Client {
@@ -47,6 +55,8 @@ class FakeS3Client {
     this.commands.push(command);
     const input = (command as CommandWithInput).input;
     if (command instanceof CreateMultipartUploadCommand) {
+      expect(input.ChecksumAlgorithm).toBe("SHA256");
+      expect(input.ChecksumType).toBe("FULL_OBJECT");
       const uploadId = `upload-${this.nextUploadId}`;
       this.nextUploadId += 1;
       this.uploads.set(uploadId, {
@@ -59,9 +69,12 @@ class FakeS3Client {
     if (command instanceof UploadPartCommand) {
       const upload = this.requireUpload(input);
       const partNumber = Number(input.PartNumber);
+      const bytes = String(input.Body);
+      expect(input.ChecksumAlgorithm).toBe("SHA256");
+      expect(input.ChecksumSHA256).toBe(await sha256Base64(bytes));
       const etag = `"etag-${partNumber}"`;
       upload.parts.set(partNumber, {
-        bytes: String(input.Body),
+        bytes,
         etag,
       });
 
@@ -86,12 +99,13 @@ class FakeS3Client {
         Parts: parts.map(([partNumber, part]) => ({
           ETag: part.etag,
           PartNumber: partNumber,
-          Size: new TextEncoder().encode(part.bytes).byteLength,
+          Size: Buffer.byteLength(part.bytes, "utf8"),
         })),
       };
     }
     if (command instanceof CompleteMultipartUploadCommand) {
       const upload = this.requireUpload(input);
+      expect(input.ChecksumType).toBe("FULL_OBJECT");
       const parts =
         (
           input.MultipartUpload as {
@@ -113,6 +127,16 @@ class FakeS3Client {
           return storedPart.bytes;
         })
         .join("");
+      if (Number(input.MpuObjectSize) !== Buffer.byteLength(bytes, "utf8")) {
+        throw Object.assign(new Error("InvalidRequest"), {
+          name: "InvalidRequest",
+        });
+      }
+      if (input.ChecksumSHA256 !== (await sha256Base64(bytes))) {
+        throw Object.assign(new Error("BadDigest"), {
+          name: "BadDigest",
+        });
+      }
       this.objects.set(upload.key, bytes);
       this.uploads.delete(String(input.UploadId));
 
@@ -197,6 +221,10 @@ test("S3 blob object store completes multipart uploads by part number", async ()
     ),
   ).toEqual([1, 2]);
   const completed = await store.completeMultipartUpload({
+    expected: {
+      byteLength: Buffer.byteLength("first-second", "utf8"),
+      sha256: await sha256Hex("first-second"),
+    },
     key: "blob-stages/s3-complete",
     parts: [
       { etag: secondPart.etag, partNumber: 2 },
@@ -205,9 +233,11 @@ test("S3 blob object store completes multipart uploads by part number", async ()
     uploadId,
   });
 
-  expect(await store.getObject("blob-stages/s3-complete")).toBe("first-second");
+  expect(
+    client.commands.some((command) => command instanceof GetObjectCommand),
+  ).toBe(false);
   expect(completed).toEqual({
-    byteLength: new TextEncoder().encode("first-second").byteLength,
+    byteLength: Buffer.byteLength("first-second", "utf8"),
     sha256: await sha256Hex("first-second"),
   });
   const completeCommand = client.commands.find(
@@ -219,6 +249,14 @@ test("S3 blob object store completes multipart uploads by part number", async ()
       { ETag: secondPart.etag, PartNumber: 2 },
     ],
   });
+  expect(completeCommand?.input.MpuObjectSize).toBe(
+    Buffer.byteLength("first-second", "utf8"),
+  );
+  expect(completeCommand?.input.ChecksumSHA256).toBe(
+    await sha256Base64("first-second"),
+  );
+  expect(completeCommand?.input.ChecksumType).toBe("FULL_OBJECT");
+  expect(await store.getObject("blob-stages/s3-complete")).toBe("first-second");
 });
 
 test("S3 blob object store follows list parts pagination", async () => {
