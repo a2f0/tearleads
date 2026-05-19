@@ -10,12 +10,17 @@ import type {
   ExplorerContainerShareAccessLevel,
 } from "../../../stores/explorer/containerInfo";
 import { EXPLORER_LABELS } from "../labels";
-import type {
-  ExplorerContainerInfoGrant,
-  ReloadExplorerContainerInfo,
-} from "./ExplorerContainerInfoTypes";
 
 const DEFAULT_SHARE_ACCESS_LEVEL: ExplorerContainerShareAccessLevel = "write";
+
+export type ExplorerContainerInfoGrant = NonNullable<
+  ExplorerContainerInfo["remoteInfo"]
+>["grants"][number];
+
+export type ReloadExplorerContainerInfo = (options?: {
+  optimisticGrant?: ExplorerContainerInfoGrant | null;
+  resetDrafts?: boolean;
+}) => Promise<void>;
 
 interface ExplorerContainerInfoShareParams {
   containerId: string;

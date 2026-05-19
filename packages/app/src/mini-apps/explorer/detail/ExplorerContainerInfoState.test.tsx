@@ -3,14 +3,12 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { FormEvent } from "react";
 import type { ExplorerContainerInfo } from "../../../stores/explorer/containerInfo";
 import {
+  type ExplorerContainerInfoGrant,
+  type ReloadExplorerContainerInfo,
   upsertContainerInfoGrant,
   useExplorerContainerInfo,
   useExplorerContainerInfoGroupShare,
 } from "./ExplorerContainerInfoState";
-import type {
-  ExplorerContainerInfoGrant,
-  ReloadExplorerContainerInfo,
-} from "./ExplorerContainerInfoTypes";
 
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;

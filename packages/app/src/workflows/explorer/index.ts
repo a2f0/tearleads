@@ -11,14 +11,14 @@ export {
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdateFromRuntime,
 } from "./containerPersistence";
+export { createExplorerChildContainer } from "./containers/createChild";
+export { syncPendingExplorerContainerCreateIntents } from "./containers/createIntentSync";
+export { deleteExplorerContainerState } from "./containers/delete";
+export { moveRemoteExplorerContainer } from "./containers/remote";
 export {
-  createExplorerChildContainer,
-  deleteExplorerContainerState,
-  moveRemoteExplorerContainer,
   shareExplorerContainerState,
   shareExplorerContainerStateWithGroup,
-  syncPendingExplorerContainerCreateIntents,
-} from "./containers";
+} from "./containers/share";
 export {
   discoverAllContainerDocumentsFromApi,
   discoverContainerDocumentsFromApi,
