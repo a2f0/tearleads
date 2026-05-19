@@ -11,7 +11,7 @@ import {
   hasContactDocumentUpdateEvent,
   isDestroyedContactSyncRuntimeError,
   registerContactSyncLane,
-} from "@tearleads/client-sdk/workflows/contacts/index";
+} from "@tearleads/client-sdk/workflows/contacts";
 import type { ContactsRuntime, ContactsSnapshot, ContactsStore } from "./types";
 
 type ContactState = ContactDocumentState;

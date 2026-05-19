@@ -1,21 +1,21 @@
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
-} from "@tearleads/client-sdk/workflows/containers/index";
+} from "@tearleads/client-sdk/workflows/containers";
 import {
   buildMaterializedDocumentCreatePlan,
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
-} from "@tearleads/client-sdk/workflows/documents/index";
+} from "@tearleads/client-sdk/workflows/documents";
 import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
-} from "@tearleads/client-sdk/workflows/org-manager/index";
+} from "@tearleads/client-sdk/workflows/org-manager";
 import {
   createInitialRootMetadataBootstrap,
   type InitialRootMetadataBootstrap,
   persistRegistrationBootstrap,
-} from "@tearleads/client-sdk/workflows/registration/index";
+} from "@tearleads/client-sdk/workflows/registration";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,

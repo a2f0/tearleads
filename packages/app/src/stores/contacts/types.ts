@@ -2,7 +2,7 @@ import type {
   ContactEntry,
   ContactEntryPatch,
   ContactsWorkflowRuntime,
-} from "@tearleads/client-sdk/workflows/contacts/index";
+} from "@tearleads/client-sdk/workflows/contacts";
 
 export interface ContactsContextValue {
   createContact: (patch: ContactEntryPatch) => Promise<string | null>;

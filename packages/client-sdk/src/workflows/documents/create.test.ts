@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import {
+  type RemoteDocumentCreateRuntime,
+  unwrapDocumentContentKeyTarget,
+} from "@tearleads/client-sdk/workflows/documents";
+import {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
   createRemoteDocumentFromRuntime,
 } from "@tearleads/client-sdk/workflows/documents/create";
-import {
-  type RemoteDocumentCreateRuntime,
-  unwrapDocumentContentKeyTarget,
-} from "@tearleads/client-sdk/workflows/documents/index";
 import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   generateKemSeedAndKeyPair,

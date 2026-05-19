@@ -18,7 +18,7 @@ import {
   registerExplorerSyncLane,
   syncExplorerContainerMetadataState,
   syncPendingExplorerContainerCreateIntents,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 
 export type ExplorerRuntime = ExplorerWorkflowRuntime;

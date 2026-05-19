@@ -1,4 +1,4 @@
-import { bootstrapRootContainer } from "@tearleads/client-sdk/workflows/registration/index";
+import { bootstrapRootContainer } from "@tearleads/client-sdk/workflows/registration";
 import { toFingerprint } from "@tearleads/crypto";
 import {
   createContext,

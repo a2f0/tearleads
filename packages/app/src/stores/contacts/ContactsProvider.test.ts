@@ -10,7 +10,7 @@ import type {
 import {
   type ContactEntry,
   createContactsWorkflowRuntime,
-} from "@tearleads/client-sdk/workflows/contacts/index";
+} from "@tearleads/client-sdk/workflows/contacts";
 import {
   computeAccessEventHash,
   computeWriteHeaderHash,

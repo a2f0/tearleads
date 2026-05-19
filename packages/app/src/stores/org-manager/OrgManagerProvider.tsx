@@ -22,7 +22,7 @@ import {
   type OrgManagerUserDetail,
   type OrgManagerUserRecipient,
   removeOrgManagerGroupUser,
-} from "@tearleads/client-sdk/workflows/org-manager/index";
+} from "@tearleads/client-sdk/workflows/org-manager";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   createContext,

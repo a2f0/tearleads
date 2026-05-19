@@ -12,7 +12,7 @@ import {
   renameExplorerContainerMetadataStateFromRuntime,
   shareExplorerContainerState,
   shareExplorerContainerStateWithGroup,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";

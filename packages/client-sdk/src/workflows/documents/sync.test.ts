@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   buildMaterializedDocumentCreatePlan,
   buildMaterializedDocumentLinkSetMutationPlan,
-} from "@tearleads/client-sdk/workflows/documents/index";
+} from "@tearleads/client-sdk/workflows/documents";
 import {
   buildDocumentSyncPlan,
   buildMaterializedDocumentSyncPlan,

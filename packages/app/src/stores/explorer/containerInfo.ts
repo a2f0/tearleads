@@ -2,7 +2,7 @@ import {
   type ExplorerContainerInfo,
   type ExplorerContainerInfoRemoteMode,
   loadExplorerContainerInfo as loadExplorerContainerInfoWorkflow,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 import { useCallback, useMemo } from "react";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import type { ContainerNode } from "./types";
@@ -10,7 +10,7 @@ import type { ContainerNode } from "./types";
 export type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 
 function loadExplorerContainerInfo(input: {
   readonly appData: Pick<

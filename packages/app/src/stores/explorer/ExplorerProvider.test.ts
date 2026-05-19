@@ -22,8 +22,8 @@ import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
 import {
   buildMaterializedDocumentCreatePlan,
   persistedDocumentCreateStateFromResponse,
-} from "@tearleads/client-sdk/workflows/documents/index";
-import { createExplorerWorkflowRuntime } from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/documents";
+import { createExplorerWorkflowRuntime } from "@tearleads/client-sdk/workflows/explorer";
 import {
   type ContainerKekRecipientTarget,
   computeAccessEventHash,

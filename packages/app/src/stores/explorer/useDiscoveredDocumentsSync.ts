@@ -2,7 +2,7 @@ import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary
 import {
   discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 import { useCallback, useEffect, useMemo } from "react";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../documents/DocumentsProvider";

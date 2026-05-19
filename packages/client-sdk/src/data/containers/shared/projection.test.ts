@@ -4,12 +4,12 @@ import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
 } from "@tearleads/client-sdk/data/persistence/principalPolicyPersistence";
-import { uploadDocumentAttachment } from "@tearleads/client-sdk/workflows/blobs/index";
+import { uploadDocumentAttachment } from "@tearleads/client-sdk/workflows/blobs";
 import {
   buildMaterializedDocumentCreatePlan,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
-} from "@tearleads/client-sdk/workflows/documents/index";
+} from "@tearleads/client-sdk/workflows/documents";
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   buildPrincipalStateSigningInput,

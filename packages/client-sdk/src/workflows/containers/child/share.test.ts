@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   shareRemoteContainer,
   shareRemoteContainerWithGroup,
-} from "@tearleads/client-sdk/workflows/containers/index";
+} from "@tearleads/client-sdk/workflows/containers";
 import { buildInitialGroupPolicyRequest } from "@tearleads/client-sdk/workflows/org-manager/principalPolicy";
 import {
   type AccessEvent,

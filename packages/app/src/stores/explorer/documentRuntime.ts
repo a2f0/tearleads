@@ -3,7 +3,7 @@ import {
   type ExplorerProjectionUserKeyResolver,
   type ExplorerWorkflowRuntime,
   type ExplorerWorkflowRuntimeInput,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 import { useMemo } from "react";
 import type { primeDocumentStore } from "../documents/DocumentsProvider";
 

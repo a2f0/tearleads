@@ -8,7 +8,7 @@ import {
 import {
   type CacheReferencedPrincipalPoliciesOptions,
   cacheReferencedPrincipalPolicies,
-} from "@tearleads/client-sdk/workflows/principals/index";
+} from "@tearleads/client-sdk/workflows/principals";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,

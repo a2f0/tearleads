@@ -7,7 +7,7 @@ import {
   hydrateDocumentAttachmentBlobs,
   hydrateDocumentAttachmentBlobsFromRuntime,
   uploadDocumentAttachment,
-} from "@tearleads/client-sdk/workflows/blobs/index";
+} from "@tearleads/client-sdk/workflows/blobs";
 import {
   type AccessEvent,
   computeBlobAccessManifestHash,
