@@ -10,7 +10,7 @@ import {
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { sha256Hex } from "../utils/sha256";
-import type { BlobObjectPart } from "./blobObjectStore";
+import { type BlobObjectPart, BlobObjectStoreError } from "./blobObjectStore";
 import { createS3BlobObjectStore } from "./s3BlobObjectStore";
 
 interface CommandWithInput {
@@ -349,6 +349,60 @@ test("S3 blob object store streams SDK web streams without string transforms", a
   }
   await expect(new Response(stream).text()).resolves.toBe("from-stream");
   expect(transformToStringCalls).toBe(0);
+});
+
+test("S3 blob object store cancels source streams after conversion errors", async () => {
+  const { client, store } = createFakeS3BlobObjectStore();
+  let cancelReason: unknown;
+  client.objectBodies.set(
+    "blob-stages/bad-stream-chunk",
+    new ReadableStream<unknown>({
+      start(controller) {
+        controller.enqueue({ invalid: true });
+      },
+      cancel(reason) {
+        cancelReason = reason;
+      },
+    }),
+  );
+
+  const stream = await store.getObjectStream("blob-stages/bad-stream-chunk");
+
+  expect(stream).not.toBeNull();
+  if (!stream) {
+    throw new Error("Expected S3 object stream");
+  }
+  await expect(new Response(stream).arrayBuffer()).rejects.toThrow(
+    "Unsupported S3 object body chunk type",
+  );
+  expect(cancelReason).toBeInstanceOf(BlobObjectStoreError);
+});
+
+test("S3 blob object store closes async iterable bodies after iteration errors", async () => {
+  const { client, store } = createFakeS3BlobObjectStore();
+  let returned = false;
+  client.objectBodies.set("blob-stages/failed-iterable", {
+    [Symbol.asyncIterator]() {
+      return {
+        async next(): Promise<IteratorResult<string>> {
+          throw new Error("iterator failed");
+        },
+        async return(): Promise<IteratorResult<string>> {
+          returned = true;
+          return { done: true, value: "" };
+        },
+      };
+    },
+  });
+
+  const stream = await store.getObjectStream("blob-stages/failed-iterable");
+
+  expect(stream).not.toBeNull();
+  if (!stream) {
+    throw new Error("Expected S3 object stream");
+  }
+  await expect(new Response(stream).text()).rejects.toThrow("iterator failed");
+  expect(returned).toBe(true);
 });
 
 test("S3 blob object store deletes objects and aborts multipart uploads", async () => {

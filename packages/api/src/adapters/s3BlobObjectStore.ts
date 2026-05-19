@@ -194,27 +194,57 @@ function readableStreamToBlobObjectStream(
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) {
-        controller.close();
-        return;
-      }
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          return;
+        }
 
-      if (typeof value === "string" || value instanceof Uint8Array) {
-        controller.enqueue(blobObjectChunkToUint8Array(value));
-        return;
-      }
+        if (typeof value === "string" || value instanceof Uint8Array) {
+          controller.enqueue(blobObjectChunkToUint8Array(value));
+          return;
+        }
 
-      throw new BlobObjectStoreError(
-        "Unsupported S3 object body chunk type",
-        "unsupported_body",
-      );
+        throw new BlobObjectStoreError(
+          "Unsupported S3 object body chunk type",
+          "unsupported_body",
+        );
+      } catch (error) {
+        await cancelReader(reader, error);
+        controller.error(error);
+      }
     },
 
     cancel(reason) {
       return reader.cancel(reason);
     },
   });
+}
+
+async function cancelReader(
+  reader: ReadableStreamDefaultReader<unknown>,
+  reason: unknown,
+): Promise<void> {
+  try {
+    await reader.cancel(reason);
+  } catch {
+    // Preserve the original stream error.
+  }
+}
+
+async function closeAsyncIterator(
+  iterator: AsyncIterator<BlobObjectReadChunk>,
+): Promise<void> {
+  if (typeof iterator.return !== "function") {
+    return;
+  }
+
+  try {
+    await iterator.return();
+  } catch {
+    // Preserve the original iterator error.
+  }
 }
 
 function asyncIterableToStream(
@@ -224,19 +254,22 @@ function asyncIterableToStream(
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      const { done, value: chunk } = await iterator.next();
-      if (done) {
-        controller.close();
-        return;
-      }
+      try {
+        const { done, value: chunk } = await iterator.next();
+        if (done) {
+          controller.close();
+          return;
+        }
 
-      controller.enqueue(blobObjectChunkToUint8Array(chunk));
+        controller.enqueue(blobObjectChunkToUint8Array(chunk));
+      } catch (error) {
+        await closeAsyncIterator(iterator);
+        controller.error(error);
+      }
     },
 
     async cancel() {
-      if (typeof iterator.return === "function") {
-        await iterator.return();
-      }
+      await closeAsyncIterator(iterator);
     },
   });
 }

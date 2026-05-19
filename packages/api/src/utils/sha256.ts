@@ -29,6 +29,14 @@ export async function summarizeSha256Stream(
       byteLength += value.byteLength;
       hash.update(value);
     }
+  } catch (error) {
+    try {
+      await reader.cancel(error);
+    } catch {
+      // Preserve the original stream error.
+    }
+
+    throw error;
   } finally {
     reader.releaseLock();
   }
