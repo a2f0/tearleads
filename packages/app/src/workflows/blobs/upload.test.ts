@@ -119,6 +119,139 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
   ]);
 });
 
+test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const blobId = "550e8400-e29b-41d4-a716-446655440565";
+  const bindingId = "550e8400-e29b-41d4-a716-446655440566";
+  const slotId = "preview";
+  const uploadedParts: { encryptedBytes: string; partNumber: number }[] = [];
+  const completedParts: unknown[] = [];
+
+  const uploaded = await uploadDocumentAttachment({
+    apiClient: {
+      bindBlobAttachment: async (_blobId, request) => {
+        const targets = request.contentKeyBundle.targets;
+        const linkedContainerManifestHashes = [
+          ...new Set(targets.map((target) => target.containerManifestHash)),
+        ].sort();
+        const linkedContainerKeyEpochIds = [
+          ...new Set(targets.map((target) => target.containerKeyEpochId)),
+        ].sort();
+        const blobAccessManifestHash = await computeBlobAccessManifestHash({
+          version: 1,
+          blobId,
+          organizationId: author.organizationId,
+          activeBindingIds: [bindingId],
+          documentManifestHashes: [
+            writerProjection.documentManifest.manifestHash,
+          ],
+          linkedContainerManifestHashes,
+          linkedContainerKeyEpochIds,
+          blobKeyTargetHash: request.contentKeyBundle.targetHash,
+        });
+        if (!request.stagedBlob) {
+          throw new Error("Expected staged blob request");
+        }
+
+        return {
+          bindingId,
+          blobId,
+          documentId: writerProjection.documentId,
+          slotId,
+          contentKeyBundle: {
+            blobId,
+            ...request.contentKeyBundle,
+          },
+          blobKekTargets: {
+            blobId,
+            organizationId: author.organizationId,
+            activeBindingIds: [bindingId],
+            documentManifestHashes: [
+              writerProjection.documentManifest.manifestHash,
+            ],
+            linkedContainerManifestHashes,
+            linkedContainerKeyEpochIds,
+            targets: targets.map((target) => ({ ...target })),
+            blobKeyTargetHash: request.contentKeyBundle.targetHash,
+            blobAccessManifestHash,
+          },
+          writeHeaderHash: await computeWriteHeaderHash(
+            request.stagedBlob.writeHeader as unknown as WriteHeader,
+          ),
+        };
+      },
+      completeMultipartBlobStage: async (stageId, request) => {
+        completedParts.push(...request.parts);
+        return {
+          byteLength: uploadedParts.reduce(
+            (total, part) =>
+              total + new TextEncoder().encode(part.encryptedBytes).byteLength,
+            0,
+          ),
+          expiresAt: "2026-04-27T01:00:00.000Z",
+          sha256: "multipart-sha256",
+          stageId,
+        };
+      },
+      getDocumentWriterProjection: async () => writerProjection,
+      getMultipartBlobStage: async () => null,
+      initiateMultipartBlobStage: async (request) => ({
+        ...request,
+        expiresAt: "2026-04-27T01:00:00.000Z",
+        stageId: "stage-multipart-upload",
+        uploadId: "upload-multipart-upload",
+        uploadedParts: [],
+      }),
+      stageBlob: async () => {
+        throw new Error("Expected multipart upload path");
+      },
+      uploadMultipartBlobPart: async (_stageId, partNumber, request) => {
+        uploadedParts.push({
+          encryptedBytes: request.encryptedBytes,
+          partNumber,
+        });
+
+        return {
+          part: {
+            byteLength: new TextEncoder().encode(request.encryptedBytes)
+              .byteLength,
+            etag: `etag-${partNumber}`,
+            partNumber,
+          },
+          stageId: "stage-multipart-upload",
+          uploadId: request.uploadId,
+        };
+      },
+    },
+    author,
+    bindingId,
+    blobId,
+    bytes: new Uint8Array(
+      Array.from({ length: 128 }, (_, index) => index),
+    ) as BlobBytes,
+    documentId: writerProjection.documentId,
+    expectedBindingId: null,
+    multipart: { partSize: 64 },
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    slotId,
+    targetSecretKey: secretKey,
+  });
+
+  expect(uploaded?.blobId).toBe(blobId);
+  expect(uploaded?.request.stagedBlob?.stageId).toBe("stage-multipart-upload");
+  expect(uploadedParts.length).toBeGreaterThan(1);
+  expect(completedParts).toEqual(
+    uploadedParts
+      .map((part) => ({
+        etag: `etag-${part.partNumber}`,
+        partNumber: part.partNumber,
+      }))
+      .sort((left, right) => left.partNumber - right.partNumber),
+  );
+});
+
 test("uploadDocumentAttachmentFromRuntime resolves the author from runtime", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();

@@ -9,7 +9,14 @@ import type { DatabaseTransaction } from "../../../adapters/postgres";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { attachmentBindings, blobStages, blobs } from "../../../schema";
-import { BlobMutationError } from "./types";
+import {
+  encodeExternalBlobBytesRef,
+  readMultipartBlobStageRecord,
+} from "../../../utils/blobStageRecords";
+import {
+  BlobMutationError,
+  type PrevalidatedMultipartBlobStage,
+} from "./types";
 
 type ActiveAttachmentBindingRow = Awaited<
   ReturnType<typeof loadActiveAttachmentBindingsForSlot>
@@ -95,6 +102,7 @@ async function ensureBlobExists(input: {
 export async function promoteStagedBlobIfPresent(input: {
   readonly blobId: string;
   readonly executor: DatabaseTransaction;
+  readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
   readonly request: BlobAttachmentBindRequest;
   readonly userId: string;
 }): Promise<{ readonly sha256: string } | null> {
@@ -136,6 +144,39 @@ export async function promoteStagedBlobIfPresent(input: {
   }
   if (stage.expiresAt.getTime() <= Date.now()) {
     throw new BlobMutationError("Blob stage has expired", 409);
+  }
+
+  const multipartStage = readMultipartBlobStageRecord(stage.encryptedBytes);
+  if (multipartStage) {
+    if (multipartStage.state !== "complete") {
+      throw new BlobMutationError("Blob multipart stage is not complete", 409);
+    }
+    if (
+      !input.prevalidatedMultipartStage ||
+      input.prevalidatedMultipartStage.stageId !== stage.id ||
+      input.prevalidatedMultipartStage.storageKey !==
+        multipartStage.storageKey ||
+      input.prevalidatedMultipartStage.byteLength !== stage.byteLength ||
+      input.prevalidatedMultipartStage.sha256 !== stage.sha256
+    ) {
+      throw new BlobMutationError(
+        "Blob multipart stage prevalidation is stale",
+        409,
+      );
+    }
+
+    await input.executor.insert(blobs).values({
+      id: input.blobId,
+      byteLength: stage.byteLength,
+      encryptedBytes: encodeExternalBlobBytesRef({
+        storageKey: multipartStage.storageKey,
+      }),
+      sha256: stage.sha256,
+      storageKey: multipartStage.storageKey,
+    });
+    await input.executor.delete(blobStages).where(eq(blobStages.id, stage.id));
+
+    return { sha256: stage.sha256 };
   }
 
   await input.executor.insert(blobs).values({

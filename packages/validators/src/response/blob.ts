@@ -12,6 +12,39 @@ export interface StageBlobResponse {
   expiresAt: string;
 }
 
+export interface MultipartBlobStagePart {
+  byteLength: number;
+  etag: string;
+  partNumber: number;
+}
+
+export interface InitiateMultipartBlobStageResponse {
+  byteLength: number;
+  expiresAt: string;
+  sha256: string;
+  stageId: string;
+  uploadId: string;
+  uploadedParts: MultipartBlobStagePart[];
+}
+
+export interface MultipartBlobStageStatusResponse
+  extends InitiateMultipartBlobStageResponse {
+  completed: boolean;
+}
+
+export interface UploadMultipartBlobPartResponse {
+  part: MultipartBlobStagePart;
+  stageId: string;
+  uploadId: string;
+}
+
+export interface CompleteMultipartBlobStageResponse {
+  byteLength: number;
+  expiresAt: string;
+  sha256: string;
+  stageId: string;
+}
+
 export interface BlobAttachmentSummary {
   bindingId: string;
   blobId: string;
@@ -80,6 +113,69 @@ export function isStageBlobResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "stageId") &&
     hasStringProperty(value, "expiresAt")
+  );
+}
+
+function isMultipartBlobStagePart(
+  value: unknown,
+): value is MultipartBlobStagePart {
+  return (
+    isPlainObject(value) &&
+    hasPositiveIntegerProperty(value, "partNumber") &&
+    hasPositiveIntegerProperty(value, "byteLength") &&
+    hasStringProperty(value, "etag") &&
+    value.etag.length > 0
+  );
+}
+
+export function isInitiateMultipartBlobStageResponse(
+  value: unknown,
+): value is InitiateMultipartBlobStageResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "stageId") &&
+    hasStringProperty(value, "uploadId") &&
+    hasStringProperty(value, "expiresAt") &&
+    hasPositiveIntegerProperty(value, "byteLength") &&
+    hasStringProperty(value, "sha256") &&
+    value.sha256.length > 0 &&
+    hasArrayProperty(value, "uploadedParts") &&
+    value.uploadedParts.every(isMultipartBlobStagePart)
+  );
+}
+
+export function isMultipartBlobStageStatusResponse(
+  value: unknown,
+): value is MultipartBlobStageStatusResponse {
+  return (
+    isInitiateMultipartBlobStageResponse(value) &&
+    typeof Reflect.get(value, "completed") === "boolean"
+  );
+}
+
+export function isUploadMultipartBlobPartResponse(
+  value: unknown,
+): value is UploadMultipartBlobPartResponse {
+  const part = isPlainObject(value) ? Reflect.get(value, "part") : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "stageId") &&
+    hasStringProperty(value, "uploadId") &&
+    isMultipartBlobStagePart(part)
+  );
+}
+
+export function isCompleteMultipartBlobStageResponse(
+  value: unknown,
+): value is CompleteMultipartBlobStageResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "stageId") &&
+    hasStringProperty(value, "expiresAt") &&
+    hasPositiveIntegerProperty(value, "byteLength") &&
+    hasStringProperty(value, "sha256") &&
+    value.sha256.length > 0
   );
 }
 

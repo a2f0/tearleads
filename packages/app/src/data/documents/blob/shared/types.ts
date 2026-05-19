@@ -2,12 +2,19 @@ import type { WriteHeader } from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobContentKeyBundleRequest,
+  CompleteMultipartBlobStageRequest,
+  InitiateMultipartBlobStageRequest,
   StageBlobRequest,
+  UploadMultipartBlobPartRequest,
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
+  CompleteMultipartBlobStageResponse,
   DocumentWriterProjectionResponse,
+  InitiateMultipartBlobStageResponse,
+  MultipartBlobStageStatusResponse,
   StageBlobResponse,
+  UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../../blobContracts";
 import type { ProjectionUserKeyResolver } from "../../../keyingProjectionVerification";
@@ -45,10 +52,25 @@ export interface BlobAttachmentApi {
     blobId: string,
     input: BlobAttachmentBindRequest,
   ): Promise<BlobAttachmentBindResponse | null>;
+  completeMultipartBlobStage?(
+    stageId: string,
+    input: CompleteMultipartBlobStageRequest,
+  ): Promise<CompleteMultipartBlobStageResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
+  getMultipartBlobStage?(
+    stageId: string,
+  ): Promise<MultipartBlobStageStatusResponse | null>;
+  initiateMultipartBlobStage?(
+    input: InitiateMultipartBlobStageRequest,
+  ): Promise<InitiateMultipartBlobStageResponse | null>;
   stageBlob(input: StageBlobRequest): Promise<StageBlobResponse | null>;
+  uploadMultipartBlobPart?(
+    stageId: string,
+    partNumber: number,
+    input: UploadMultipartBlobPartRequest,
+  ): Promise<UploadMultipartBlobPartResponse | null>;
 }
 
 export interface BlobContentKeyTarget {
@@ -108,10 +130,20 @@ export interface UploadDocumentAttachmentInput {
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
   expectedBindingId: string | null;
+  multipart?: MultipartBlobUploadOptions | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;
   targetSecretKey: Uint8Array;
+}
+
+export interface MultipartBlobUploadOptions {
+  readonly existingStage?:
+    | InitiateMultipartBlobStageResponse
+    | MultipartBlobStageStatusResponse
+    | undefined;
+  readonly partSize: number;
+  readonly uploadConcurrency?: number | undefined;
 }
 
 export interface UploadDocumentAttachmentResult {

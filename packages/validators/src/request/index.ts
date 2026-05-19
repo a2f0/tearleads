@@ -11,10 +11,17 @@ export {
   type BlobContentKeyTargetEnvelopeRequest,
   type BlobManifestBundleRequest,
   type BlobStagedBlobRequest,
+  type CompleteMultipartBlobStageRequest,
+  type InitiateMultipartBlobStageRequest,
   isBlobAttachmentBindRequest,
   isBlobAttachmentDetachRequest,
+  isCompleteMultipartBlobStageRequest,
+  isInitiateMultipartBlobStageRequest,
   isStageBlobRequest,
+  isUploadMultipartBlobPartRequest,
+  type MultipartBlobPartCommitRequest,
   type StageBlobRequest,
+  type UploadMultipartBlobPartRequest,
 } from "./blob";
 export {
   type ContainerManifestBundle,

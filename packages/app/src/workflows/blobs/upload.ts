@@ -11,7 +11,10 @@ import type {
   BlobAttachmentBindRequest,
   BlobContentKeyBundleRequest,
 } from "@tearleads/validators/request";
-import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
+import type {
+  BlobAttachmentBindResponse,
+  MultipartBlobStagePart,
+} from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobContracts";
 import { encryptBlobBytes } from "../../data/documents/blob/shared/crypto";
 import {
@@ -51,6 +54,183 @@ export type DocumentAttachmentUploadRuntime = DocumentAuthorRuntime & {
   execSql?: ExecSql | undefined;
   log: (message: string) => void;
 };
+
+type MultipartBlobAttachmentApi = BlobAttachmentApi &
+  Required<
+    Pick<
+      BlobAttachmentApi,
+      | "completeMultipartBlobStage"
+      | "getMultipartBlobStage"
+      | "initiateMultipartBlobStage"
+      | "uploadMultipartBlobPart"
+    >
+  >;
+
+const TEXT_ENCODER = new TextEncoder();
+const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
+
+interface MultipartPartCommit {
+  readonly etag: string;
+  readonly partNumber: number;
+}
+
+interface MultipartPartUploadTask {
+  readonly encryptedPart: string;
+  readonly partIndex: number;
+  readonly partNumber: number;
+}
+
+function requireMultipartBlobAttachmentApi(
+  apiClient: BlobAttachmentApi,
+): MultipartBlobAttachmentApi {
+  if (
+    typeof apiClient.completeMultipartBlobStage !== "function" ||
+    typeof apiClient.getMultipartBlobStage !== "function" ||
+    typeof apiClient.initiateMultipartBlobStage !== "function" ||
+    typeof apiClient.uploadMultipartBlobPart !== "function"
+  ) {
+    throw new Error("Multipart blob upload API is unavailable");
+  }
+
+  return apiClient as MultipartBlobAttachmentApi;
+}
+
+function splitEncryptedBytesIntoParts(
+  encryptedBytes: string,
+  partSize: number,
+): string[] {
+  if (!Number.isInteger(partSize) || partSize <= 0) {
+    throw new Error("Multipart blob part size must be a positive integer");
+  }
+
+  if (encryptedBytes.length === 0) {
+    return [];
+  }
+  if (isAsciiString(encryptedBytes)) {
+    const parts: string[] = [];
+    for (let start = 0; start < encryptedBytes.length; start += partSize) {
+      parts.push(encryptedBytes.slice(start, start + partSize));
+    }
+
+    return parts;
+  }
+
+  return splitUnicodeEncryptedBytesIntoParts(encryptedBytes, partSize);
+}
+
+function isAsciiString(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const charCode = value.charCodeAt(index);
+    if (charCode > 0x7f) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function splitUnicodeEncryptedBytesIntoParts(
+  encryptedBytes: string,
+  partSize: number,
+): string[] {
+  const parts: string[] = [];
+  let currentPart = "";
+  let currentPartLength = 0;
+
+  for (const character of encryptedBytes) {
+    const characterLength = TEXT_ENCODER.encode(character).byteLength;
+    if (characterLength > partSize) {
+      throw new Error("Multipart blob part size is too small");
+    }
+    if (
+      currentPart.length > 0 &&
+      currentPartLength + characterLength > partSize
+    ) {
+      parts.push(currentPart);
+      currentPart = "";
+      currentPartLength = 0;
+    }
+
+    currentPart += character;
+    currentPartLength += characterLength;
+  }
+
+  if (currentPart.length > 0) {
+    parts.push(currentPart);
+  }
+
+  return parts;
+}
+
+function partByteLength(encryptedBytes: string): number {
+  return TEXT_ENCODER.encode(encryptedBytes).byteLength;
+}
+
+function normalizeMultipartUploadConcurrency(
+  value: number | undefined,
+): number {
+  if (value === undefined) {
+    return DEFAULT_MULTIPART_UPLOAD_CONCURRENCY;
+  }
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(
+      "Multipart blob upload concurrency must be a positive integer",
+    );
+  }
+
+  return value;
+}
+
+function isMultipartPartCommit(
+  part: MultipartPartCommit | undefined,
+): part is MultipartPartCommit {
+  return part !== undefined;
+}
+
+async function uploadMultipartPartTasks(input: {
+  readonly apiClient: MultipartBlobAttachmentApi;
+  readonly completeParts: (MultipartPartCommit | undefined)[];
+  readonly concurrency: number;
+  readonly stageId: string;
+  readonly tasks: readonly MultipartPartUploadTask[];
+  readonly uploadId: string;
+}): Promise<boolean> {
+  let failed = false;
+  let nextTaskIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (!failed) {
+      const task = input.tasks[nextTaskIndex];
+      nextTaskIndex += 1;
+      if (!task) {
+        return;
+      }
+
+      const uploaded = await input.apiClient.uploadMultipartBlobPart(
+        input.stageId,
+        task.partNumber,
+        {
+          encryptedBytes: task.encryptedPart,
+          uploadId: input.uploadId,
+        },
+      );
+      if (!uploaded) {
+        failed = true;
+        return;
+      }
+
+      input.completeParts[task.partIndex] = {
+        etag: uploaded.part.etag,
+        partNumber: task.partNumber,
+      };
+    }
+  }
+
+  const workerCount = Math.min(input.concurrency, input.tasks.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  return !failed;
+}
 
 async function buildBlobAttachmentMaterial(
   input: {
@@ -177,6 +357,7 @@ async function stageAndBindBlobAttachment(input: {
   eventId: string;
   expectedBindingId: string | null;
   material: BlobAttachmentMaterial;
+  multipart: UploadDocumentAttachmentInput["multipart"];
   signedAt: string;
   slotId: string;
 }): Promise<{
@@ -210,12 +391,21 @@ async function stageAndBindBlobAttachment(input: {
     signedAt: input.signedAt,
     targetHash: input.material.targetHash,
   });
-  const stage = await input.apiClient.stageBlob({
-    encryptedBytes: input.material.encrypted.encryptedBytes,
-    byteLength: input.material.encrypted.byteLength,
-    sha256: input.material.encrypted.sha256,
-  });
-  if (!stage) {
+  const stageId = input.multipart
+    ? await stageMultipartBlobAttachment({
+        apiClient: input.apiClient,
+        encryptedBytes: input.material.encrypted.encryptedBytes,
+        multipart: input.multipart,
+        byteLength: input.material.encrypted.byteLength,
+        sha256: input.material.encrypted.sha256,
+      })
+    : await stageLegacyBlobAttachment({
+        apiClient: input.apiClient,
+        encryptedBytes: input.material.encrypted.encryptedBytes,
+        byteLength: input.material.encrypted.byteLength,
+        sha256: input.material.encrypted.sha256,
+      });
+  if (!stageId) {
     return null;
   }
 
@@ -223,7 +413,7 @@ async function stageAndBindBlobAttachment(input: {
     body,
     event,
     material: input.material,
-    stageId: stage.stageId,
+    stageId,
     writeHeader,
   });
   const response = await input.apiClient.bindBlobAttachment(
@@ -259,6 +449,113 @@ async function stageAndBindBlobAttachment(input: {
   };
 }
 
+async function stageLegacyBlobAttachment(input: {
+  readonly apiClient: BlobAttachmentApi;
+  readonly byteLength: number;
+  readonly encryptedBytes: string;
+  readonly sha256: string;
+}): Promise<string | null> {
+  const stage = await input.apiClient.stageBlob({
+    encryptedBytes: input.encryptedBytes,
+    byteLength: input.byteLength,
+    sha256: input.sha256,
+  });
+
+  return stage?.stageId ?? null;
+}
+
+function uploadedPartsByPartNumber(
+  parts: readonly MultipartBlobStagePart[],
+): ReadonlyMap<number, MultipartBlobStagePart> {
+  return new Map(parts.map((part) => [part.partNumber, part]));
+}
+
+async function stageMultipartBlobAttachment(input: {
+  readonly apiClient: BlobAttachmentApi;
+  readonly byteLength: number;
+  readonly encryptedBytes: string;
+  readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
+  readonly sha256: string;
+}): Promise<string | null> {
+  const apiClient = requireMultipartBlobAttachmentApi(input.apiClient);
+  const stage =
+    input.multipart.existingStage ??
+    (await apiClient.initiateMultipartBlobStage({
+      byteLength: input.byteLength,
+      sha256: input.sha256,
+    }));
+  if (!stage) {
+    return null;
+  }
+
+  const refreshedStage = input.multipart.existingStage
+    ? await apiClient.getMultipartBlobStage(stage.stageId)
+    : null;
+  const status =
+    refreshedStage ??
+    ("completed" in stage
+      ? stage
+      : {
+          ...stage,
+          completed: false,
+        });
+  if (status.completed) {
+    return status.stageId;
+  }
+
+  const uploadedParts = uploadedPartsByPartNumber(status.uploadedParts);
+  const encryptedParts = splitEncryptedBytesIntoParts(
+    input.encryptedBytes,
+    input.multipart.partSize,
+  );
+  const completeParts: (MultipartPartCommit | undefined)[] = new Array(
+    encryptedParts.length,
+  );
+  const uploadTasks: MultipartPartUploadTask[] = [];
+
+  for (const [partIndex, encryptedPart] of encryptedParts.entries()) {
+    const partNumber = partIndex + 1;
+    const uploadedPart = uploadedParts.get(partNumber);
+    if (uploadedPart?.byteLength === partByteLength(encryptedPart)) {
+      completeParts[partIndex] = {
+        etag: uploadedPart.etag,
+        partNumber,
+      };
+      continue;
+    }
+
+    uploadTasks.push({
+      encryptedPart,
+      partIndex,
+      partNumber,
+    });
+  }
+  const uploaded = await uploadMultipartPartTasks({
+    apiClient,
+    completeParts,
+    concurrency: normalizeMultipartUploadConcurrency(
+      input.multipart.uploadConcurrency,
+    ),
+    stageId: stage.stageId,
+    tasks: uploadTasks,
+    uploadId: stage.uploadId,
+  });
+  if (!uploaded) {
+    return null;
+  }
+  const committedParts = completeParts.filter(isMultipartPartCommit);
+  if (committedParts.length !== encryptedParts.length) {
+    return null;
+  }
+
+  const completed = await apiClient.completeMultipartBlobStage(stage.stageId, {
+    parts: committedParts,
+    uploadId: stage.uploadId,
+  });
+
+  return completed?.stageId ?? null;
+}
+
 export async function uploadDocumentAttachment({
   apiClient,
   author,
@@ -271,6 +568,7 @@ export async function uploadDocumentAttachment({
   eventId = crypto.randomUUID(),
   execSql,
   expectedBindingId,
+  multipart,
   resolveProjectionUserKey,
   signedAt = new Date().toISOString(),
   slotId,
@@ -309,6 +607,7 @@ export async function uploadDocumentAttachment({
     eventId,
     expectedBindingId,
     material,
+    multipart,
     signedAt,
     slotId,
   });
@@ -332,6 +631,7 @@ export async function uploadDocumentAttachmentFromRuntime(input: {
   documentId: string;
   eventId?: string | undefined;
   expectedBindingId: string | null;
+  multipart?: UploadDocumentAttachmentInput["multipart"] | undefined;
   resolveProjectionUserKey: UploadDocumentAttachmentInput["resolveProjectionUserKey"];
   runtime: DocumentAttachmentUploadRuntime;
   signedAt?: string | undefined;
@@ -357,6 +657,7 @@ export async function uploadDocumentAttachmentFromRuntime(input: {
     eventId: input.eventId,
     execSql: input.runtime.execSql,
     expectedBindingId: input.expectedBindingId,
+    multipart: input.multipart,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
     slotId: input.slotId,

@@ -1940,10 +1940,9 @@ export const documentAttachmentAuditEvents = pgTable(
  *
  * Columns:
  * - `id`: Stable blob id.
- * - `storageKey`: Storage key for the encrypted bytes. The current
- *   implementation stores bytes in this table and uses the promoted stage id as
- *   the storage key.
- * - `encryptedBytes`: Encrypted blob payload bytes encoded as a string.
+ * - `storageKey`: Storage key for the encrypted bytes.
+ * - `encryptedBytes`: Legacy encrypted blob payload bytes encoded as a string,
+ *   or a metadata pointer for object-store-backed multipart uploads.
  * - `sha256`: SHA-256 digest of `encryptedBytes`.
  * - `byteLength`: Byte length of `encryptedBytes`.
  * - `createdAt`: Server-side promotion timestamp.
@@ -1968,7 +1967,8 @@ export const blobs = pgTable("blobs", {
  * Columns:
  * - `id`: Stage id returned to the client.
  * - `ownerUserId`: User who created the stage and is allowed to promote it.
- * - `encryptedBytes`: Encrypted blob payload bytes encoded as a string.
+ * - `encryptedBytes`: Legacy encrypted blob payload bytes encoded as a string,
+ *   or multipart stage metadata for object-store-backed uploads.
  * - `sha256`: SHA-256 digest of `encryptedBytes`.
  * - `byteLength`: Byte length of `encryptedBytes`.
  * - `expiresAt`: Expiration timestamp after which promotion is rejected.
