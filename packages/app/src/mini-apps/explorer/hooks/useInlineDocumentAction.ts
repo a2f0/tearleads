@@ -1,9 +1,9 @@
-import { useCallback } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import {
   getUntitledDocumentTitle,
   type StoredDocumentKind,
-} from "../../../data/documents/documentKinds";
+} from "@tearleads/client-sdk/data/documents/documentKinds";
+import { useCallback } from "react";
 
 export type OpenInlineDocument = (
   containerId: string,

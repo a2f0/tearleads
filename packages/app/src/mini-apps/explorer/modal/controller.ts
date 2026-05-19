@@ -1,6 +1,6 @@
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   createExplorerTargetLookups,

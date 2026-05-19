@@ -1,7 +1,7 @@
 import {
   getTargetContainerContext,
   readContainerState,
-} from "../../data/containers/shared/projection";
+} from "@tearleads/client-sdk/data/containers/shared/projection";
 import {
   createExplorerChildContainer,
   deleteExplorerContainerState,
@@ -12,7 +12,7 @@ import {
   renameExplorerContainerMetadataStateFromRuntime,
   shareExplorerContainerState,
   shareExplorerContainerStateWithGroup,
-} from "../../workflows/explorer";
+} from "@tearleads/client-sdk/workflows/explorer/index";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";

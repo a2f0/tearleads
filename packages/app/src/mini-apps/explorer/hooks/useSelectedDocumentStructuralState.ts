@@ -1,5 +1,5 @@
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import { useCallback, useMemo } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import {

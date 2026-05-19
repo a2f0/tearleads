@@ -1,9 +1,17 @@
 import { expect, test } from "bun:test";
+import { appSqlTables } from "@tearleads/client-sdk/data/sqlite/schema";
+import type {
+  ExecSql,
+  SqlRow,
+  SqlRowValue,
+  SqlTableSchema,
+} from "@tearleads/client-sdk/data/sqlite/sqlSchema";
+import {
+  defineSqlTableSchema,
+  ensureSqlTables,
+} from "@tearleads/client-sdk/data/sqlite/sqlTableSchema";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
-import { appSqlTables } from "./schema";
-import type { ExecSql, SqlRow, SqlRowValue, SqlTableSchema } from "./sqlSchema";
-import { defineSqlTableSchema, ensureSqlTables } from "./sqlTableSchema";
 
 interface ColumnInfo {
   defaultValue: string | null;

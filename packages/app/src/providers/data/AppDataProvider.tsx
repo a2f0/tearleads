@@ -1,3 +1,9 @@
+import type { DocumentProjectorRegistry } from "@tearleads/client-sdk/data/documents/documentKinds";
+import {
+  createExecSql,
+  type ExecSql,
+} from "@tearleads/client-sdk/data/sqlite/sqlSchema";
+import { cacheReferencedPrincipalPolicies } from "@tearleads/client-sdk/workflows/principals/index";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import {
   createContext,
@@ -6,10 +12,7 @@ import {
   useContext,
   useMemo,
 } from "react";
-import type { DocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { createExecSql, type ExecSql } from "../../data/sqlite/sqlSchema";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../document-types/projectors";
-import { cacheReferencedPrincipalPolicies } from "../../workflows/principals";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useNetworkState } from "../api/NetworkStateProvider";
 import { useBlobStore } from "../blobs/BlobProvider";

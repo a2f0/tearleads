@@ -1,3 +1,4 @@
+import type { StoredDocumentKind } from "@tearleads/client-sdk/data/documents/documentKinds";
 import { type MouseEvent, useCallback, useMemo } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
@@ -5,7 +6,6 @@ import {
   type ContextMenuState,
   useContextMenuState,
 } from "../../../components/shared/useContextMenuState";
-import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import { getMoveTargetOptions } from "../targetOptions";

@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "../../data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import {
   activateExplorerDocumentLinkState,
   canMutateExplorerDocumentLink,
   type ExplorerDocumentStructuralMutationHost,
   type ExplorerDocumentStructuralMutationRelinkInput,
   type ExplorerDocumentStructuralMutationRuntime,
-} from "./documentStructure";
-import { createExplorerWorkflowSqlRuntime } from "./runtime";
+} from "@tearleads/client-sdk/workflows/explorer/documentStructure";
+import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
 
 function createRuntime(
   logs: string[] = [],

@@ -1,3 +1,4 @@
+import { createContactsWorkflowRuntime } from "@tearleads/client-sdk/workflows/contacts/index";
 import {
   createContext,
   type PropsWithChildren,
@@ -7,7 +8,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
-import { createContactsWorkflowRuntime } from "../../workflows/contacts";
 import { getOrCreateContactsStore } from "./contactStore";
 import type {
   ContactsContextValue,

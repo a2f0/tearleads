@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
+import { createMemoryBlobStore } from "@tearleads/client-sdk/data/blobs/memoryBlobStore";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createDocumentStorePersistence,
   createDocumentStoreRuntime,
 } from "../../../../test/helpers/documentStoreFixtures";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createDocumentStore } from "../DocumentsProvider";
 
 function createTrackedMemoryBlobStore() {

@@ -1,6 +1,6 @@
-export type { DocumentAttachment as NoteAttachment } from "../../data/documents/documentContent";
+export type { DocumentAttachment as NoteAttachment } from "@tearleads/client-sdk/data/documents/documentContent";
 export {
   addDocumentAttachments as addNoteAttachments,
   ensureDocumentAttachmentStructure as ensureNoteAttachmentStructure,
   getDocumentAttachments as getNoteAttachments,
-} from "../../data/documents/documentContent";
+} from "@tearleads/client-sdk/data/documents/documentContent";

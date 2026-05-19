@@ -1,12 +1,8 @@
 import { expect, test } from "bun:test";
 import type {
-  ReferencedPrincipalStateResponse,
-  SyncWatermark,
-} from "@tearleads/validators/response";
-import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../data/documentSummary";
+} from "@tearleads/client-sdk/data/documentSummary";
 import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
@@ -14,7 +10,11 @@ import {
   hasUndiscoveredDocumentUpdateEvent,
   listAllRemoteExplorerContainerIds,
   listAllRemoteExplorerContainerIdsFromApi,
-} from "./documentDiscovery";
+} from "@tearleads/client-sdk/workflows/explorer/documentDiscovery";
+import type {
+  ReferencedPrincipalStateResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 
 type CapturedDiscoveredDocumentInput = Omit<
   DiscoveredDocumentInput,

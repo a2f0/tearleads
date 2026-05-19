@@ -6,7 +6,7 @@ import {
   type SqlBind,
   type SqlRow,
   type SqlRowMode,
-} from "./sqlSchema";
+} from "@tearleads/client-sdk/data/sqlite/sqlSchema";
 
 function createLoggingExecSql(log: string[]): ExecSql {
   return createExecSql({

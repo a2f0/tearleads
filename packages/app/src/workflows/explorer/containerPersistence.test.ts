@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { exportAllUpdates } from "@tearleads/loro";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
-} from "../../data/containers/containerMetadataDocument";
-import type { ExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { enqueuePendingExplorerContainerUpdateFromRuntime } from "./containerPersistence";
-import { createExplorerWorkflowSqlRuntime } from "./runtime";
+} from "@tearleads/client-sdk/data/containers/containerMetadataDocument";
+import type { ExplorerPersistence } from "@tearleads/client-sdk/data/persistence/explorer/explorerPersistence";
+import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
+import { enqueuePendingExplorerContainerUpdateFromRuntime } from "@tearleads/client-sdk/workflows/explorer/containerPersistence";
+import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
+import { exportAllUpdates } from "@tearleads/loro";
 
 const execSql: ExecSql = async () => [];
 

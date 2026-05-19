@@ -1,5 +1,15 @@
 import { expect, test } from "bun:test";
 import {
+  ensurePrincipalPolicyTables,
+  loadPrincipalPolicyBundle,
+  loadPrincipalPolicyStateHash,
+  savePrincipalPolicyBundle,
+} from "@tearleads/client-sdk/data/persistence/principalPolicyPersistence";
+import {
+  type CacheReferencedPrincipalPoliciesOptions,
+  cacheReferencedPrincipalPolicies,
+} from "@tearleads/client-sdk/workflows/principals/index";
+import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
@@ -14,16 +24,6 @@ import type {
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
-import {
-  ensurePrincipalPolicyTables,
-  loadPrincipalPolicyBundle,
-  loadPrincipalPolicyStateHash,
-  savePrincipalPolicyBundle,
-} from "../../data/persistence/principalPolicyPersistence";
-import {
-  type CacheReferencedPrincipalPoliciesOptions,
-  cacheReferencedPrincipalPolicies,
-} from ".";
 
 function cacheReferencedPolicies(
   options: CacheReferencedPrincipalPoliciesOptions,

@@ -1,4 +1,12 @@
 import { expect, test } from "bun:test";
+import { loadPrincipalPolicyBundle } from "@tearleads/client-sdk/data/persistence/principalPolicyPersistence";
+import {
+  buildAddGroupUserPolicyRequest,
+  buildInitialGroupPolicyRequest,
+  buildRemoveGroupUserPolicyRequest,
+  createOrgManagerGroup,
+  importOrgManagerUserRecipient,
+} from "@tearleads/client-sdk/workflows/org-manager/principalPolicy";
 import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
@@ -9,14 +17,6 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
-import {
-  buildAddGroupUserPolicyRequest,
-  buildInitialGroupPolicyRequest,
-  buildRemoveGroupUserPolicyRequest,
-  createOrgManagerGroup,
-  importOrgManagerUserRecipient,
-} from "./principalPolicy";
 
 function policySignerPublicKeys(input: {
   readonly signerUserId: string;

@@ -1,4 +1,14 @@
 import { afterEach, expect, test } from "bun:test";
+import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/data/documents/documentConstants";
+import {
+  buildRootContainerCreatePlan,
+  rootContainerWriterProjectionFromCreatePlan,
+} from "@tearleads/client-sdk/workflows/containers/index";
+import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents/index";
+import {
+  buildInitialGroupPolicyRequest,
+  buildInitialMemberGroupPolicyRequest,
+} from "@tearleads/client-sdk/workflows/org-manager/index";
 import {
   authChallengeSigningBytes,
   buildPrincipalStateSigningInput,
@@ -16,16 +26,6 @@ import {
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../test/helpers/mswServer";
-import { createDocumentSignerDeviceId } from "../data/documents/documentConstants";
-import {
-  buildRootContainerCreatePlan,
-  rootContainerWriterProjectionFromCreatePlan,
-} from "../workflows/containers";
-import { buildMaterializedDocumentCreatePlan } from "../workflows/documents";
-import {
-  buildInitialGroupPolicyRequest,
-  buildInitialMemberGroupPolicyRequest,
-} from "../workflows/org-manager";
 
 const apiBaseUrl = "http://localhost:3001";
 

@@ -1,4 +1,12 @@
 import { expect, test } from "bun:test";
+import { unwrapDocumentContentKeyTarget } from "@tearleads/client-sdk/data/documents/shared/projection";
+import { persistedDocumentLinkSetMutationStateFromResponse } from "@tearleads/client-sdk/data/documents/shared/responses";
+import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents/create";
+import {
+  buildMaterializedDocumentLinkSetMutationPlan,
+  relinkRemoteDocument,
+} from "@tearleads/client-sdk/workflows/documents/linkSet";
+import { buildMaterializedDocumentSyncPlan } from "@tearleads/client-sdk/workflows/documents/sync";
 import {
   type AccessEvent,
   computeDocumentContentKeyTargetHash,
@@ -21,14 +29,6 @@ import {
   fixtureHash,
   getOnlyTarget,
 } from "../../../test/helpers/documentFixtures";
-import { unwrapDocumentContentKeyTarget } from "../../data/documents/shared/projection";
-import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
-import { buildMaterializedDocumentCreatePlan } from "./create";
-import {
-  buildMaterializedDocumentLinkSetMutationPlan,
-  relinkRemoteDocument,
-} from "./linkSet";
-import { buildMaterializedDocumentSyncPlan } from "./sync";
 
 test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating and unlinks with a rotated content key", async () => {
   const { author } = await createAuthor();

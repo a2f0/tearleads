@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
-import { sqlDocumentContainerProjectionPersistence } from "../containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "@tearleads/client-sdk/data/persistence/containers/documentContainerProjectionPersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence,
-} from "./documentsPersistence";
+} from "@tearleads/client-sdk/data/persistence/documents/documentsPersistence";
+import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 
 test("saveDocumentAndDeletePendingUpdates saves document rows and clears accepted updates", async () => {
   const { close, execSql } = await createTestExecSql(

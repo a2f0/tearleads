@@ -1,4 +1,8 @@
 import {
+  getStoredDocumentTypeLabel,
+  type StoredDocumentKind,
+} from "@tearleads/client-sdk/data/documents/documentKinds";
+import {
   type DragEvent,
   useCallback,
   useEffect,
@@ -15,10 +19,6 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
 } from "../../../components/shared/MiniAppTable";
-import {
-  getStoredDocumentTypeLabel,
-  type StoredDocumentKind,
-} from "../../../data/documents/documentKinds";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import type {

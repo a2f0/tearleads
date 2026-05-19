@@ -1,6 +1,5 @@
-import type { DocumentSummary } from "../../src/data/documentSummary";
-import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../src/document-types/projectors";
-import type { DocumentsRuntime } from "../../src/stores/documents/types";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import type { DocumentsRuntime } from "@tearleads/client-sdk/stores/documents/types";
 import {
   createDocumentsWorkflowRuntime,
   type DocumentRecord,
@@ -9,7 +8,8 @@ import {
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
-} from "../../src/workflows/documents";
+} from "@tearleads/client-sdk/workflows/documents/index";
+import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../src/document-types/projectors";
 import { createMockApiClient } from "./createMockApiClient";
 
 interface StoredDocumentsState {

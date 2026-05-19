@@ -1,5 +1,14 @@
 import { expect, test } from "bun:test";
 import {
+  buildMaterializedDocumentCreatePlan,
+  createRemoteDocument,
+  createRemoteDocumentFromRuntime,
+} from "@tearleads/client-sdk/workflows/documents/create";
+import {
+  type RemoteDocumentCreateRuntime,
+  unwrapDocumentContentKeyTarget,
+} from "@tearleads/client-sdk/workflows/documents/index";
+import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   generateKemSeedAndKeyPair,
 } from "@tearleads/crypto";
@@ -19,15 +28,6 @@ import {
   createResponseFromRequest,
   createWrappedProjection,
 } from "../../../test/helpers/documentFixtures";
-import {
-  buildMaterializedDocumentCreatePlan,
-  createRemoteDocument,
-  createRemoteDocumentFromRuntime,
-} from "./create";
-import {
-  type RemoteDocumentCreateRuntime,
-  unwrapDocumentContentKeyTarget,
-} from "./index";
 
 test("buildMaterializedDocumentCreatePlan wraps the content key to the target container KEK", async () => {
   const { author } = await createAuthor();

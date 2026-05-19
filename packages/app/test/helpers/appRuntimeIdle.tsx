@@ -1,8 +1,8 @@
-import { useEffect } from "react";
 import {
   hasDomainSyncCoordinatorPendingWork,
   waitForDomainSyncCoordinatorToSettle,
-} from "../../src/data/sync/syncCoordinator";
+} from "@tearleads/client-sdk/data/sync/syncCoordinator";
+import { useEffect } from "react";
 import { useAppData } from "../../src/providers/data/AppDataProvider";
 import { getProxiedApiNetworkActivitySnapshot } from "./mswServer";
 

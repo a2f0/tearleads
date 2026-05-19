@@ -1,12 +1,3 @@
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import {
-  createContext,
-  type PropsWithChildren,
-  useCallback,
-  useContext,
-  useMemo,
-} from "react";
-import { useAppData } from "../../providers/data/AppDataProvider";
 import {
   addOrgManagerGroupUser,
   createOrgManagerGroup,
@@ -31,7 +22,16 @@ import {
   type OrgManagerUserDetail,
   type OrgManagerUserRecipient,
   removeOrgManagerGroupUser,
-} from "../../workflows/org-manager";
+} from "@tearleads/client-sdk/workflows/org-manager/index";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import {
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useMemo,
+} from "react";
+import { useAppData } from "../../providers/data/AppDataProvider";
 
 interface OrgManagerContextValue {
   addUserToGroup: (

@@ -1,4 +1,11 @@
 import { expect, test } from "bun:test";
+import type { BlobBytes } from "@tearleads/client-sdk/data/blobContracts";
+import {
+  type DocumentAttachmentUploadRuntime,
+  uploadDocumentAttachment,
+  uploadDocumentAttachmentFromRuntime,
+} from "@tearleads/client-sdk/workflows/blobs/index";
+import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents/create";
 import {
   type AccessEvent,
   BLOB_CONTENT_KEY_WRAP_SUITE,
@@ -16,13 +23,6 @@ import {
   createMaterializedSyncFixture,
   createResponse,
 } from "../../../test/helpers/documentFixtures";
-import type { BlobBytes } from "../../data/blobContracts";
-import { buildMaterializedDocumentCreatePlan } from "../documents/create";
-import {
-  type DocumentAttachmentUploadRuntime,
-  uploadDocumentAttachment,
-  uploadDocumentAttachmentFromRuntime,
-} from "./index";
 
 test("uploadDocumentAttachment wraps blob keys with the blob content-key suite", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =

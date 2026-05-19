@@ -1,5 +1,5 @@
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import { useMemo } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ActiveNoteSelection } from "../types";
 
 function noteSelectionFromSummary(note: DocumentSummary): ActiveNoteSelection {

@@ -1,6 +1,6 @@
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import type { StoredDocumentKind } from "@tearleads/client-sdk/data/documents/documentKinds";
 import { useCallback } from "react";
-import type { DocumentSummary } from "../../data/documentSummary";
-import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import {

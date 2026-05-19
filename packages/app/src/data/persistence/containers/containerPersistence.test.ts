@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
-import { sqlExplorerPersistence } from "../explorer/explorerPersistence";
 import {
   loadContainerDisplayNamesByIds,
   loadContainers,
-} from "./containerPersistence";
+} from "@tearleads/client-sdk/data/persistence/containers/containerPersistence";
+import { sqlExplorerPersistence } from "@tearleads/client-sdk/data/persistence/explorer/explorerPersistence";
+import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 
 test("explorer container saves display server timestamps separately from local timestamps", async () => {
   const { close, execSql } = await createTestExecSql(

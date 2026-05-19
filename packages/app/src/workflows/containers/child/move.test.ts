@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
+import { moveRemoteContainer } from "@tearleads/client-sdk/workflows/containers/index";
 import {
   createAuthor,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
-import { moveRemoteContainer } from "../index";
 
 test("moveRemoteContainer rejects bad source projection signatures before sending", async () => {
   const parent = await createParentProjection();

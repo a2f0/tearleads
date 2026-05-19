@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo } from "react";
-import type { DocumentSummary } from "../../data/documentSummary";
-import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import {
   discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
-} from "../../workflows/explorer";
+} from "@tearleads/client-sdk/workflows/explorer/index";
+import { useCallback, useEffect, useMemo } from "react";
+import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import type {
   ExplorerContainerDocumentTombstone,

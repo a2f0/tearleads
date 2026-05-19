@@ -1,10 +1,10 @@
-import { useCallback, useRef, useState } from "react";
-import type { DocumentSummary } from "../../data/documentSummary";
-import type { useAppData } from "../../providers/data/AppDataProvider";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import {
   discoverAllContainerDocumentsFromApi,
   listAllRemoteExplorerContainerIdsFromApi,
-} from "../../workflows/explorer";
+} from "@tearleads/client-sdk/workflows/explorer/index";
+import { useCallback, useRef, useState } from "react";
+import type { useAppData } from "../../providers/data/AppDataProvider";
 import type {
   ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,

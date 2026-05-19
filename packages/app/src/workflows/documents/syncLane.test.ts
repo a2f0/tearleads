@@ -3,7 +3,7 @@ import {
   didRegainDocumentSyncPrerequisites,
   isDestroyedDocumentSyncRuntimeError,
   registerDocumentSyncLane,
-} from "./syncLane";
+} from "@tearleads/client-sdk/workflows/documents/syncLane";
 
 function flushSyncLane() {
   return new Promise((resolve) => setTimeout(resolve, 0));

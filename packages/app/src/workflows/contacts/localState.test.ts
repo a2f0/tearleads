@@ -1,18 +1,21 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
-import { createDocument, exportAllUpdates } from "@tearleads/loro";
-import type { ContactEntry } from "../../data/contacts/addressBookEntry";
+import type { ContactEntry } from "@tearleads/client-sdk/data/contacts/addressBookEntry";
 import {
   getContactEntryValue,
   setContactEntryValue,
-} from "../../data/contacts/contactDocument";
-import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
-import type { ContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
-import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "./constants";
-import { loadContactDocumentStates, persistContactEntry } from "./localState";
-import type { ContactDocumentState } from "./sync";
+} from "@tearleads/client-sdk/data/contacts/contactDocument";
+import { getScopedPeerSeed } from "@tearleads/client-sdk/data/crdtPeerSeed";
+import type { ContactsPersistence } from "@tearleads/client-sdk/data/persistence/contacts/contactsPersistence";
+import type { DocumentRecord } from "@tearleads/client-sdk/data/sqlite/documentPersistence";
+import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
+import { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "@tearleads/client-sdk/workflows/contacts/constants";
+import {
+  loadContactDocumentStates,
+  persistContactEntry,
+} from "@tearleads/client-sdk/workflows/contacts/localState";
+import type { ContactDocumentState } from "@tearleads/client-sdk/workflows/contacts/sync";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createDocument, exportAllUpdates } from "@tearleads/loro";
 
 const execSql: ExecSql = async () => [];
 

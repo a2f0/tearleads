@@ -1,3 +1,4 @@
+import { bootstrapRootContainer } from "@tearleads/client-sdk/workflows/registration/index";
 import { toFingerprint } from "@tearleads/crypto";
 import {
   createContext,
@@ -9,7 +10,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { bootstrapRootContainer } from "../../workflows/registration";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useIdentity } from "../identity/IdentityProvider";

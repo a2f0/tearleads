@@ -1,10 +1,10 @@
-import { useMemo } from "react";
 import {
   createExplorerWorkflowRuntime,
   type ExplorerProjectionUserKeyResolver,
   type ExplorerWorkflowRuntime,
   type ExplorerWorkflowRuntimeInput,
-} from "../../workflows/explorer";
+} from "@tearleads/client-sdk/workflows/explorer/index";
+import { useMemo } from "react";
 import type { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerDocumentRuntime = Parameters<typeof primeDocumentStore>[2];
