@@ -1,5 +1,5 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
 import {
+  type DocumentSummary,
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";

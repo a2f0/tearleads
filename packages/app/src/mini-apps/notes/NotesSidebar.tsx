@@ -1,5 +1,7 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
-import { getUntitledDocumentTitle } from "@tearleads/client-sdk";
+import {
+  type DocumentSummary,
+  getUntitledDocumentTitle,
+} from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import {
   MiniAppRowButton,
