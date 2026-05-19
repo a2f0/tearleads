@@ -350,33 +350,36 @@ async function stageEncryptedBlob(input: {
   return { ...staged, sha256 };
 }
 
-async function stageMultipartEncryptedBlob(input: {
-  readonly encryptedBytes: string;
-  readonly owner: TestUser;
-}) {
+async function stageMultipartEncryptedBlob(
+  input: {
+    readonly encryptedBytes: string;
+    readonly owner: TestUser;
+  },
+  serviceRuntime: typeof runtime = runtime,
+) {
   const byteLength = new TextEncoder().encode(input.encryptedBytes).byteLength;
   const sha256 = await sha256Hex(input.encryptedBytes);
-  const staged = await initiateMultipartBlobStage(runtime, {
+  const staged = await initiateMultipartBlobStage(serviceRuntime, {
     byteLength,
     sha256,
     userId: input.owner.userId,
   });
   const midpoint = Math.ceil(input.encryptedBytes.length / 2);
-  const firstPart = await uploadMultipartBlobPart(runtime, {
+  const firstPart = await uploadMultipartBlobPart(serviceRuntime, {
     encryptedBytes: input.encryptedBytes.slice(0, midpoint),
     partNumber: 1,
     stageId: staged.stageId,
     uploadId: staged.uploadId,
     userId: input.owner.userId,
   });
-  const secondPart = await uploadMultipartBlobPart(runtime, {
+  const secondPart = await uploadMultipartBlobPart(serviceRuntime, {
     encryptedBytes: input.encryptedBytes.slice(midpoint),
     partNumber: 2,
     stageId: staged.stageId,
     uploadId: staged.uploadId,
     userId: input.owner.userId,
   });
-  await completeMultipartBlobStage(runtime, {
+  await completeMultipartBlobStage(serviceRuntime, {
     parts: [
       { etag: firstPart.part.etag, partNumber: 1 },
       { etag: secondPart.part.etag, partNumber: 2 },
@@ -944,6 +947,72 @@ test("bindBlobAttachment promotes multipart blob stages without storing payload 
     encryptedBytes,
     sha256: multipartStage.sha256,
   });
+});
+
+test("bindBlobAttachment prevalidates multipart object bytes before opening the transaction", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const container = await bootstrapRoot(owner);
+  const document = await createDocumentFixture({ container, owner });
+  const baseRuntime = createServiceTestRuntime();
+  let transactionDepth = 0;
+  let readObjectOutsideTransaction = false;
+  const trackingDb = new Proxy(baseRuntime.db, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if (property !== "transaction" || typeof value !== "function") {
+        return value;
+      }
+
+      return async (...args: unknown[]) => {
+        transactionDepth += 1;
+        try {
+          return await Reflect.apply(value, target, args);
+        } finally {
+          transactionDepth -= 1;
+        }
+      };
+    },
+  }) as typeof baseRuntime.db;
+  const trackingRuntime: typeof baseRuntime = {
+    ...baseRuntime,
+    blobObjectStore: {
+      ...baseRuntime.blobObjectStore,
+      getObject: async (key: string) => {
+        expect(transactionDepth).toBe(0);
+        readObjectOutsideTransaction = true;
+
+        return baseRuntime.blobObjectStore.getObject(key);
+      },
+    },
+    db: trackingDb,
+  };
+  const blobId = crypto.randomUUID();
+  const multipartStage = await stageMultipartEncryptedBlob(
+    {
+      encryptedBytes: "multipart-prevalidation-bytes",
+      owner,
+    },
+    trackingRuntime,
+  );
+  const bind = await buildBindRequest({
+    blobId,
+    container,
+    document,
+    expectedBindingId: null,
+    owner,
+    slotId: "preview",
+    stagedBlob: multipartStage,
+  });
+
+  await bindBlobAttachment(trackingRuntime, {
+    blobId,
+    fingerprint: owner.fingerprint,
+    request: bind.request,
+    userId: owner.userId,
+  });
+
+  expect(readObjectOutsideTransaction).toBe(true);
 });
 
 test("bindBlobAttachment rolls back optional rekeys when blob write validation fails", async () => {

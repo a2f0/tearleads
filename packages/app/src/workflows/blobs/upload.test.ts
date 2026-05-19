@@ -127,6 +127,8 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
   const slotId = "preview";
   const uploadedParts: { encryptedBytes: string; partNumber: number }[] = [];
   const completedParts: unknown[] = [];
+  let activeUploads = 0;
+  let maxActiveUploads = 0;
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
@@ -207,21 +209,29 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
         throw new Error("Expected multipart upload path");
       },
       uploadMultipartBlobPart: async (_stageId, partNumber, request) => {
-        uploadedParts.push({
-          encryptedBytes: request.encryptedBytes,
-          partNumber,
-        });
+        activeUploads += 1;
+        maxActiveUploads = Math.max(maxActiveUploads, activeUploads);
 
-        return {
-          part: {
-            byteLength: new TextEncoder().encode(request.encryptedBytes)
-              .byteLength,
-            etag: `etag-${partNumber}`,
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          uploadedParts.push({
+            encryptedBytes: request.encryptedBytes,
             partNumber,
-          },
-          stageId: "stage-multipart-upload",
-          uploadId: request.uploadId,
-        };
+          });
+
+          return {
+            part: {
+              byteLength: new TextEncoder().encode(request.encryptedBytes)
+                .byteLength,
+              etag: `etag-${partNumber}`,
+              partNumber,
+            },
+            stageId: "stage-multipart-upload",
+            uploadId: request.uploadId,
+          };
+        } finally {
+          activeUploads -= 1;
+        }
       },
     },
     author,
@@ -232,7 +242,7 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
     ) as BlobBytes,
     documentId: writerProjection.documentId,
     expectedBindingId: null,
-    multipart: { partSize: 64 },
+    multipart: { partSize: 64, uploadConcurrency: 2 },
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
@@ -241,7 +251,8 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
 
   expect(uploaded?.blobId).toBe(blobId);
   expect(uploaded?.request.stagedBlob?.stageId).toBe("stage-multipart-upload");
-  expect(uploadedParts.length).toBeGreaterThan(1);
+  expect(uploadedParts.length).toBeGreaterThan(2);
+  expect(maxActiveUploads).toBe(2);
   expect(completedParts).toEqual(
     uploadedParts
       .map((part) => ({
