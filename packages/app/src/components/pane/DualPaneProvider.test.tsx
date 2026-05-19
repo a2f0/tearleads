@@ -11,12 +11,15 @@ import {
 } from "@testing-library/react";
 import invariant from "invariant";
 import { useEffect, useRef } from "react";
+import {
+  AppTestRuntimeScopeProbe,
+  waitForAppTestRuntimeToSettle,
+} from "../../../test/helpers/appRuntimeIdle";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import {
   listProxiedApiRequests,
   resetMockServer,
   useTestApiAppHandlers,
-  waitForProxiedApiRequestsToSettle,
   wsUrl,
 } from "../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
@@ -32,7 +35,7 @@ import { PaneProvider } from "./PaneProvider";
 const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
 const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 20_000;
 const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 1_500;
-const POST_SHARE_SYNC_QUIET_MS = 100;
+const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
 const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
@@ -108,12 +111,14 @@ function renderDualPane() {
     <DualPaneProvider>
       <PaneSideProvider side="left">
         <PaneProvider hostConfig={hostConfig}>
+          <AppTestRuntimeScopeProbe />
           <PaneAutoProvisioner />
           <Pane className="pane pane-left" />
         </PaneProvider>
       </PaneSideProvider>
       <PaneSideProvider side="right">
         <PaneProvider hostConfig={hostConfig}>
+          <AppTestRuntimeScopeProbe />
           <PaneAutoProvisioner />
           <Pane className="pane pane-right" />
         </PaneProvider>
@@ -131,6 +136,7 @@ function renderSinglePane() {
     <DualPaneProvider>
       <PaneSideProvider side="left">
         <PaneProvider hostConfig={hostConfig}>
+          <AppTestRuntimeScopeProbe />
           <PaneAutoProvisioner />
           <Pane className="pane pane-left" />
         </PaneProvider>
@@ -790,11 +796,12 @@ async function waitForNoPostShareSyncFailures(
       POST_SHARE_SYNC_SETTLE_TIMEOUT_MS - (Date.now() - startedAt),
     );
 
+    let runtimeSettled = false;
     await act(async () => {
-      await waitForProxiedApiRequestsToSettle(
-        remainingTimeoutMs,
-        POST_SHARE_SYNC_QUIET_MS,
-      );
+      runtimeSettled = await waitForAppTestRuntimeToSettle({
+        apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
+        timeoutMs: remainingTimeoutMs,
+      });
     });
 
     const postShareRequests = listProxiedApiRequests().slice(requestStartIndex);
@@ -814,6 +821,9 @@ async function waitForNoPostShareSyncFailures(
 
     if (unresolvedFailures.length === 0) {
       return;
+    }
+    if (!runtimeSettled) {
+      break;
     }
   }
 
