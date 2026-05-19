@@ -1,4 +1,1 @@
-export {
-  type CacheReferencedPrincipalPoliciesOptions,
-  cacheReferencedPrincipalPolicies,
-} from "./policyCache";
+export * from "@tearleads/client-sdk/workflows/principals/index";

@@ -77,7 +77,7 @@ const standardRules = [
     comment:
       "Production app and API modules must not import runtime values from devDependencies.",
     from: {
-      path: "^packages/(api|app)/src/",
+      path: "^packages/(api|app|client-sdk)/src/",
       pathNot: testFilesPattern,
     },
     to: {
@@ -109,9 +109,26 @@ const standardRules = [
         "\\.d\\.(c|m)?ts$",
         "(^|/)tsconfig\\.json$",
         "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
+        "^packages/app/src/(data|workflows)/",
       ],
     },
     to: {},
+  },
+] satisfies ForbiddenRules;
+
+const clientSdkRules = [
+  {
+    name: "client-sdk-does-not-depend-on-app",
+    severity: "error",
+    comment:
+      "The client SDK is the lower-level runtime package and must not import application implementation code.",
+    from: {
+      path: "^packages/client-sdk/src/",
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: "^packages/app/src/",
+    },
   },
 ] satisfies ForbiddenRules;
 
@@ -369,9 +386,9 @@ const appRules = [
 ] satisfies ForbiddenRules;
 
 const dependencyCruiserConfig = {
-  forbidden: [...standardRules, ...apiRules, ...appRules],
+  forbidden: [...standardRules, ...apiRules, ...clientSdkRules, ...appRules],
   options: {
-    includeOnly: "^packages/(api|app)/src/",
+    includeOnly: "^packages/(api|app|client-sdk)/src/",
     tsPreCompilationDeps: "specify",
   },
 } satisfies IConfiguration;

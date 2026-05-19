@@ -4,13 +4,12 @@ import {
   getTextValue,
 } from "@tearleads/loro";
 import {
-  type CreditCardDocumentFields,
-  type DriverLicenseDocumentFields,
   projectStoredDocumentState,
   type StoredDocumentKind,
   writeStoredDocumentFields,
 } from "../../../data/documents/documentKinds";
 import { requestDocumentStoreSync } from "../registry";
+import type { DocumentStructuredFieldPatch } from "../types";
 import { enqueuePendingUpdate, persistDocument } from "./persistence";
 import { type DocumentStoreState, setDocumentSnapshot } from "./state";
 
@@ -65,21 +64,20 @@ export function setDocumentText(state: DocumentStoreState, value: string) {
 export function setDocumentStructuredFields(
   state: DocumentStoreState,
   kind: Exclude<StoredDocumentKind, "note">,
-  patch: Partial<DriverLicenseDocumentFields & CreditCardDocumentFields>,
+  patch: DocumentStructuredFieldPatch,
 ) {
   if (!state.doc) {
     return;
   }
 
-  const nextStructuredFields = {
-    ...state.snapshot.structuredFields,
-    ...Object.fromEntries(
-      Object.entries(patch).filter((entry): entry is [string, string] => {
-        const value = entry[1];
-        return typeof value === "string";
-      }),
-    ),
-  };
+  const nextStructuredFields = { ...state.snapshot.structuredFields };
+  for (const [field, value] of Object.entries(patch)) {
+    if (value === undefined) {
+      delete nextStructuredFields[field];
+    } else {
+      nextStructuredFields[field] = value;
+    }
+  }
   const projectedState = projectStoredDocumentState({
     documentKind: kind,
     structuredFields: nextStructuredFields,

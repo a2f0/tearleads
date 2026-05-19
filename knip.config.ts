@@ -48,6 +48,10 @@ export default {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
+    "packages/client-sdk": {
+      entry: [],
+      project: ["src/**/*.ts"],
+    },
     "packages/crypto": {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],

@@ -1,0 +1,568 @@
+import type {
+  ReferencedPrincipalStateResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
+import type {
+  DiscoveredDocumentInput,
+  DocumentSummary,
+} from "../../data/documentSummary";
+import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
+
+interface ExplorerListedDocument {
+  createdAt: string;
+  currentAccessEpoch: number;
+  currentAccessStateHash: string;
+  id: string;
+  linkedContainerIds: string[];
+  referencedPrincipals?: ReferencedPrincipalStateResponse[];
+  updatedAt: string;
+}
+
+interface ExplorerListContainerDocumentsResponse {
+  hasMore: boolean;
+  items: ExplorerListedDocument[];
+  nextWatermark: SyncWatermark | null;
+  tombstones: ReadonlyArray<{
+    containerId: string;
+    documentId: string;
+    updatedAt: string;
+  }>;
+}
+
+interface ExplorerListedContainer {
+  id: string;
+}
+
+interface ExplorerListContainersResponse {
+  hasMore: boolean;
+  items: ExplorerListedContainer[];
+  nextWatermark: SyncWatermark | null;
+}
+
+interface ExplorerDocumentDiscoveryApi {
+  readonly listContainerDocuments: (
+    containerId: string,
+    options?: { watermark?: SyncWatermark | null },
+  ) => Promise<ExplorerListContainerDocumentsResponse | null>;
+  readonly listContainers: (options: {
+    parentId: string | null;
+    watermark?: SyncWatermark | null;
+  }) => Promise<ExplorerListContainersResponse | null>;
+}
+
+interface DocumentLinkInput {
+  containerIds: ReadonlyArray<string>;
+  documentId: string;
+}
+
+type ContainerDocumentTombstone =
+  ExplorerListContainerDocumentsResponse["tombstones"][number];
+
+interface DiscoverContainerDocumentsOptions {
+  applyContainerDocumentTombstones: (
+    tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+  ) => Promise<ReadonlyArray<DocumentSummary>>;
+  cacheReferencedPrincipalPolicies?: (
+    references: ReadonlyArray<ReferencedPrincipalStateResponse>,
+  ) => Promise<void>;
+  containerId: string;
+  loadContainerDocumentWatermark: (
+    containerId: string,
+  ) => Promise<SyncWatermark | null>;
+  listContainerDocuments: ExplorerDocumentDiscoveryApi["listContainerDocuments"];
+  replaceDocumentLinksBatch: (
+    inputs: ReadonlyArray<DocumentLinkInput>,
+  ) => Promise<void>;
+  saveContainerDocumentWatermark: (
+    containerId: string,
+    watermark: SyncWatermark,
+  ) => Promise<void>;
+  upsertDiscoveredDocuments: (
+    inputs: ReadonlyArray<DiscoveredDocumentInput>,
+  ) => Promise<ReadonlyArray<DocumentSummary>>;
+}
+
+interface ListedContainerDocuments {
+  items: ExplorerListedDocument[];
+  nextWatermark: SyncWatermark | null;
+  tombstones: ContainerDocumentTombstone[];
+}
+
+interface ContainerParentDiscoveryLane {
+  parentId: string | null;
+  watermark: SyncWatermark | null;
+}
+
+interface ListedContainerDocumentsLane {
+  containerId: string;
+  listedDocuments: ListedContainerDocuments | null;
+}
+
+const CONTAINER_PARENT_DISCOVERY_CONCURRENCY = 4;
+const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
+
+function getReferencedPrincipalStateKey(
+  reference: ReferencedPrincipalStateResponse,
+): string {
+  return JSON.stringify([
+    reference.principalType,
+    reference.principalId,
+    reference.version,
+    reference.keyEpoch,
+    reference.keyFingerprint,
+    reference.stateHash,
+  ]);
+}
+
+function uniqueReferencedPrincipalStates(
+  references: ReadonlyArray<ReferencedPrincipalStateResponse>,
+): ReferencedPrincipalStateResponse[] {
+  const referencesByState = new Map<string, ReferencedPrincipalStateResponse>();
+
+  for (const reference of references) {
+    referencesByState.set(getReferencedPrincipalStateKey(reference), reference);
+  }
+
+  return Array.from(referencesByState.values());
+}
+
+function uniqueSortedStrings(values: Iterable<string>): string[] {
+  return Array.from(new Set(values)).sort();
+}
+
+function mergeDiscoveredDocumentInputs(
+  current: DiscoveredDocumentInput,
+  next: DiscoveredDocumentInput,
+): DiscoveredDocumentInput {
+  const accessStateHash =
+    next.accessEpoch >= current.accessEpoch
+      ? next.accessStateHash
+      : current.accessStateHash;
+
+  return {
+    accessEpoch: Math.max(current.accessEpoch, next.accessEpoch),
+    ...(accessStateHash === undefined ? {} : { accessStateHash }),
+    containerId: current.containerId,
+    createdAt:
+      current.createdAt.localeCompare(next.createdAt) <= 0
+        ? current.createdAt
+        : next.createdAt,
+    documentId: current.documentId,
+    linkedContainerIds: uniqueSortedStrings([
+      current.containerId,
+      next.containerId,
+      ...current.linkedContainerIds,
+      ...next.linkedContainerIds,
+    ]),
+  };
+}
+
+function collectDiscoveredDocumentInputs(
+  listedDocumentsByContainer: ReadonlyArray<ListedContainerDocumentsLane>,
+): DiscoveredDocumentInput[] {
+  const discoveredDocumentInputsByDocumentId = new Map<
+    string,
+    DiscoveredDocumentInput
+  >();
+
+  for (const { containerId, listedDocuments } of listedDocumentsByContainer) {
+    if (!listedDocuments) {
+      continue;
+    }
+
+    for (const document of listedDocuments.items) {
+      const discoveredDocumentInput: DiscoveredDocumentInput = {
+        accessEpoch: document.currentAccessEpoch,
+        accessStateHash: document.currentAccessStateHash,
+        containerId,
+        createdAt: document.createdAt,
+        documentId: document.id,
+        linkedContainerIds: uniqueSortedStrings([
+          containerId,
+          ...document.linkedContainerIds,
+        ]),
+      };
+      const currentDiscoveredDocumentInput =
+        discoveredDocumentInputsByDocumentId.get(document.id);
+      discoveredDocumentInputsByDocumentId.set(
+        document.id,
+        currentDiscoveredDocumentInput
+          ? mergeDiscoveredDocumentInputs(
+              currentDiscoveredDocumentInput,
+              discoveredDocumentInput,
+            )
+          : discoveredDocumentInput,
+      );
+    }
+  }
+
+  return Array.from(discoveredDocumentInputsByDocumentId.values());
+}
+
+async function listAllContainerDocuments(input: {
+  containerId: string;
+  loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
+  listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
+}): Promise<ListedContainerDocuments | null> {
+  const items: ExplorerListedDocument[] = [];
+  const tombstones: ContainerDocumentTombstone[] = [];
+  let watermark = await input.loadContainerDocumentWatermark(input.containerId);
+
+  while (true) {
+    const response = await input.listContainerDocuments(input.containerId, {
+      watermark,
+    });
+    if (!response) {
+      return null;
+    }
+    items.push(...response.items);
+    tombstones.push(...response.tombstones);
+    watermark = response.nextWatermark;
+
+    if (!response.hasMore) {
+      return {
+        items,
+        nextWatermark: watermark,
+        tombstones,
+      };
+    }
+
+    if (!watermark) {
+      return null;
+    }
+  }
+}
+
+function getApplicableDocumentTombstones(
+  listedDocuments: ListedContainerDocuments,
+): ContainerDocumentTombstone[] {
+  const latestItemsByDocumentId = new Map<string, ExplorerListedDocument>();
+  for (const document of listedDocuments.items) {
+    const existingDocument = latestItemsByDocumentId.get(document.id);
+    if (
+      !existingDocument ||
+      existingDocument.updatedAt.localeCompare(document.updatedAt) < 0
+    ) {
+      latestItemsByDocumentId.set(document.id, document);
+    }
+  }
+
+  return listedDocuments.tombstones.filter((tombstone) => {
+    const item = latestItemsByDocumentId.get(tombstone.documentId);
+    return (
+      !item ||
+      !item.linkedContainerIds.includes(tombstone.containerId) ||
+      item.updatedAt.localeCompare(tombstone.updatedAt) < 0
+    );
+  });
+}
+
+async function saveAppliedContainerDocumentWatermark(input: {
+  containerId: string;
+  listedDocuments: ListedContainerDocuments;
+  saveContainerDocumentWatermark: DiscoverContainerDocumentsOptions["saveContainerDocumentWatermark"];
+}) {
+  const { containerId, listedDocuments, saveContainerDocumentWatermark } =
+    input;
+  if (!listedDocuments.nextWatermark) {
+    return;
+  }
+
+  await saveContainerDocumentWatermark(
+    containerId,
+    listedDocuments.nextWatermark,
+  );
+}
+
+interface DiscoverAllContainerDocumentsOptions
+  extends Omit<DiscoverContainerDocumentsOptions, "containerId"> {
+  containerIds: ReadonlyArray<string>;
+}
+
+async function listContainerDocumentLanes(input: {
+  containerIds: ReadonlyArray<string>;
+  loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
+  listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
+}): Promise<ListedContainerDocumentsLane[]> {
+  const {
+    containerIds,
+    loadContainerDocumentWatermark,
+    listContainerDocuments,
+  } = input;
+  const listedDocumentsByContainer: ListedContainerDocumentsLane[] = [];
+  let nextContainerIndex = 0;
+
+  async function worker() {
+    while (nextContainerIndex < containerIds.length) {
+      const containerIndex = nextContainerIndex;
+      nextContainerIndex += 1;
+      const containerId = containerIds[containerIndex];
+      if (!containerId) {
+        throw new Error("Container document discovery received an empty lane");
+      }
+
+      listedDocumentsByContainer[containerIndex] = {
+        containerId,
+        listedDocuments: await listAllContainerDocuments({
+          containerId,
+          loadContainerDocumentWatermark,
+          listContainerDocuments,
+        }),
+      };
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      {
+        length: Math.min(
+          CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY,
+          containerIds.length,
+        ),
+      },
+      () => worker(),
+    ),
+  );
+
+  return listedDocumentsByContainer;
+}
+
+export function hasUndiscoveredDocumentUpdateEvent(
+  events: ReadonlyArray<unknown>,
+  knownDocumentIds: ReadonlySet<string>,
+): boolean {
+  return events.some(
+    (event) =>
+      isDocumentUpdateCreatedEvent(event) &&
+      !knownDocumentIds.has(event.documentId),
+  );
+}
+
+export async function listAllRemoteExplorerContainerIds(
+  listContainers: ExplorerDocumentDiscoveryApi["listContainers"],
+): Promise<ReadonlyArray<string> | null> {
+  const containerIds: string[] = [];
+  const queuedParentIds = new Set<string | null>();
+  const seenContainerIds = new Set<string>();
+  const lanes: ContainerParentDiscoveryLane[] = [];
+  const queueParentLane = (parentId: string | null) => {
+    if (queuedParentIds.has(parentId)) {
+      return;
+    }
+
+    queuedParentIds.add(parentId);
+    lanes.push({ parentId, watermark: null });
+  };
+
+  queueParentLane(null);
+
+  while (lanes.length > 0) {
+    const laneBatch = lanes.splice(0, CONTAINER_PARENT_DISCOVERY_CONCURRENCY);
+    const listedLanes = await Promise.all(
+      laneBatch.map(async (lane) => ({
+        lane,
+        response: await listContainers({
+          parentId: lane.parentId,
+          watermark: lane.watermark,
+        }),
+      })),
+    );
+    const continuationLanes: ContainerParentDiscoveryLane[] = [];
+
+    for (const { lane, response } of listedLanes) {
+      if (!response) {
+        return null;
+      }
+
+      for (const container of response.items) {
+        if (!seenContainerIds.has(container.id)) {
+          seenContainerIds.add(container.id);
+          containerIds.push(container.id);
+        }
+
+        queueParentLane(container.id);
+      }
+
+      if (response.hasMore) {
+        if (!response.nextWatermark) {
+          return null;
+        }
+        continuationLanes.push({
+          parentId: lane.parentId,
+          watermark: response.nextWatermark,
+        });
+      }
+    }
+
+    lanes.unshift(...continuationLanes);
+  }
+
+  return containerIds;
+}
+
+export function listAllRemoteExplorerContainerIdsFromApi(
+  apiClient: Pick<ExplorerDocumentDiscoveryApi, "listContainers">,
+): Promise<ReadonlyArray<string> | null> {
+  return listAllRemoteExplorerContainerIds((options) =>
+    apiClient.listContainers(options),
+  );
+}
+
+export async function discoverContainerDocuments({
+  applyContainerDocumentTombstones,
+  cacheReferencedPrincipalPolicies,
+  containerId,
+  loadContainerDocumentWatermark,
+  listContainerDocuments,
+  replaceDocumentLinksBatch,
+  saveContainerDocumentWatermark,
+  upsertDiscoveredDocuments,
+}: DiscoverContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
+  const listedDocuments = await listAllContainerDocuments({
+    containerId,
+    loadContainerDocumentWatermark,
+    listContainerDocuments,
+  });
+  if (!listedDocuments) {
+    return null;
+  }
+
+  await cacheReferencedPrincipalPolicies?.(
+    uniqueReferencedPrincipalStates(
+      listedDocuments.items.flatMap(
+        (document) => document.referencedPrincipals ?? [],
+      ),
+    ),
+  );
+
+  const discoveredDocuments = await upsertDiscoveredDocuments(
+    listedDocuments.items.map((document) => ({
+      accessEpoch: document.currentAccessEpoch,
+      accessStateHash: document.currentAccessStateHash,
+      containerId,
+      createdAt: document.createdAt,
+      documentId: document.id,
+      linkedContainerIds: document.linkedContainerIds,
+    })),
+  );
+
+  await replaceDocumentLinksBatch(
+    listedDocuments.items.map((document) => ({
+      documentId: document.id,
+      containerIds: document.linkedContainerIds,
+    })),
+  );
+
+  const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
+    getApplicableDocumentTombstones(listedDocuments),
+  );
+
+  await saveAppliedContainerDocumentWatermark({
+    containerId,
+    listedDocuments,
+    saveContainerDocumentWatermark,
+  });
+
+  return [...discoveredDocuments, ...tombstoneDocumentSummaries];
+}
+
+export function discoverContainerDocumentsFromApi({
+  apiClient,
+  ...input
+}: Omit<DiscoverContainerDocumentsOptions, "listContainerDocuments"> & {
+  readonly apiClient: Pick<
+    ExplorerDocumentDiscoveryApi,
+    "listContainerDocuments"
+  >;
+}): Promise<ReadonlyArray<DocumentSummary> | null> {
+  return discoverContainerDocuments({
+    ...input,
+    listContainerDocuments: (containerId, options) =>
+      apiClient.listContainerDocuments(containerId, options),
+  });
+}
+
+export async function discoverAllContainerDocuments({
+  applyContainerDocumentTombstones,
+  cacheReferencedPrincipalPolicies,
+  containerIds,
+  loadContainerDocumentWatermark,
+  listContainerDocuments,
+  replaceDocumentLinksBatch,
+  saveContainerDocumentWatermark,
+  upsertDiscoveredDocuments,
+}: DiscoverAllContainerDocumentsOptions): Promise<
+  ReadonlyArray<DocumentSummary>
+> {
+  const uniqueContainerIds = Array.from(new Set(containerIds)).filter(
+    (containerId): containerId is string =>
+      typeof containerId === "string" && containerId.length > 0,
+  );
+  const listedDocumentsByContainer = await listContainerDocumentLanes({
+    containerIds: uniqueContainerIds,
+    loadContainerDocumentWatermark,
+    listContainerDocuments,
+  });
+  await cacheReferencedPrincipalPolicies?.(
+    uniqueReferencedPrincipalStates(
+      listedDocumentsByContainer.flatMap(
+        ({ listedDocuments }) =>
+          listedDocuments?.items.flatMap(
+            (document) => document.referencedPrincipals ?? [],
+          ) ?? [],
+      ),
+    ),
+  );
+  const discoveredDocumentInputs = collectDiscoveredDocumentInputs(
+    listedDocumentsByContainer,
+  );
+  const discoveredDocuments =
+    discoveredDocumentInputs.length === 0
+      ? []
+      : await upsertDiscoveredDocuments(discoveredDocumentInputs);
+
+  if (discoveredDocumentInputs.length > 0) {
+    await replaceDocumentLinksBatch(
+      discoveredDocumentInputs.map((input) => ({
+        documentId: input.documentId,
+        containerIds: input.linkedContainerIds,
+      })),
+    );
+  }
+
+  const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
+    listedDocumentsByContainer.flatMap(({ listedDocuments }) =>
+      listedDocuments ? getApplicableDocumentTombstones(listedDocuments) : [],
+    ),
+  );
+
+  await Promise.all(
+    listedDocumentsByContainer.map(({ containerId, listedDocuments }) =>
+      listedDocuments
+        ? saveAppliedContainerDocumentWatermark({
+            containerId,
+            listedDocuments,
+            saveContainerDocumentWatermark,
+          })
+        : undefined,
+    ),
+  );
+
+  return [...discoveredDocuments, ...tombstoneDocumentSummaries];
+}
+
+export function discoverAllContainerDocumentsFromApi({
+  apiClient,
+  ...input
+}: Omit<DiscoverAllContainerDocumentsOptions, "listContainerDocuments"> & {
+  readonly apiClient: Pick<
+    ExplorerDocumentDiscoveryApi,
+    "listContainerDocuments"
+  >;
+}): Promise<ReadonlyArray<DocumentSummary>> {
+  return discoverAllContainerDocuments({
+    ...input,
+    listContainerDocuments: (containerId, options) =>
+      apiClient.listContainerDocuments(containerId, options),
+  });
+}
