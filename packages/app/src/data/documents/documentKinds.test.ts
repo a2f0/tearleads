@@ -139,6 +139,26 @@ test("unknown structured document kinds preserve generic field state", async () 
   });
 });
 
+test("structured field patches can delete fields", async () => {
+  const doc = await createDocument("structured-field-delete");
+
+  initializeStoredDocumentKind(doc, "insurance_policy");
+  writeStoredDocumentFields(doc, "insurance_policy", {
+    carrier: "Acme Mutual",
+    policyId: "POL-123",
+  });
+  writeStoredDocumentFields(doc, "insurance_policy", {
+    policyId: undefined,
+  });
+
+  expect(readStoredDocumentState(doc)).toMatchObject({
+    documentKind: "insurance_policy",
+    structuredFields: {
+      carrier: "Acme Mutual",
+    },
+  });
+});
+
 test("concurrent independent structured field edits converge", async () => {
   const alice = await createDocument("structured-alice");
   const bob = await createDocument("structured-bob");

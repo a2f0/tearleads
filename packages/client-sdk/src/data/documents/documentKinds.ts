@@ -34,6 +34,7 @@ interface StoredDocumentState {
 }
 
 interface StructuredDocumentMap {
+  delete: (key: string) => void;
   entries: () => Array<[string, unknown]>;
   get: (key: string) => unknown;
   getOrCreateContainer: (
@@ -414,6 +415,7 @@ export function writeStoredDocumentFields(
 
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) {
+      fields.delete(key);
       continue;
     }
 

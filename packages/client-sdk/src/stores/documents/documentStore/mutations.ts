@@ -70,15 +70,14 @@ export function setDocumentStructuredFields(
     return;
   }
 
-  const nextStructuredFields = {
-    ...state.snapshot.structuredFields,
-    ...Object.fromEntries(
-      Object.entries(patch).filter((entry): entry is [string, string] => {
-        const value = entry[1];
-        return typeof value === "string";
-      }),
-    ),
-  };
+  const nextStructuredFields = { ...state.snapshot.structuredFields };
+  for (const [field, value] of Object.entries(patch)) {
+    if (value === undefined) {
+      delete nextStructuredFields[field];
+    } else {
+      nextStructuredFields[field] = value;
+    }
+  }
   const projectedState = projectStoredDocumentState({
     documentKind: kind,
     structuredFields: nextStructuredFields,
