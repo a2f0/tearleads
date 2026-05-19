@@ -21,6 +21,12 @@ const proxiedApiRequests: Array<{
   status: number;
   url: string;
 }> = [];
+
+interface ProxiedApiNetworkActivitySnapshot {
+  activeRequestCount: number;
+  completedRequestCount: number;
+}
+
 let activeProxiedApiRequestCount = 0;
 let testApiAppPromise: Promise<TestApiApp> | null = null;
 
@@ -540,10 +546,10 @@ async function waitForProxiedApiRequestsToDrain(
   }
 }
 
-export async function waitForProxiedApiRequestsToSettle(
+async function waitForProxiedApiNetworkIdle(
   timeoutMs = 500,
   quietMs = 50,
-): Promise<void> {
+): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   let lastRequestCount = proxiedApiRequests.length;
   let quietStartedAt = Date.now();
@@ -557,7 +563,7 @@ export async function waitForProxiedApiRequestsToSettle(
       nextRequestCount === lastRequestCount
     ) {
       if (Date.now() - quietStartedAt >= quietMs) {
-        return;
+        return true;
       }
     } else {
       lastRequestCount = nextRequestCount;
@@ -566,6 +572,22 @@ export async function waitForProxiedApiRequestsToSettle(
 
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
+
+  return false;
+}
+
+export function getProxiedApiNetworkActivitySnapshot(): ProxiedApiNetworkActivitySnapshot {
+  return {
+    activeRequestCount: activeProxiedApiRequestCount,
+    completedRequestCount: proxiedApiRequests.length,
+  };
+}
+
+async function waitForProxiedApiRequestsToSettle(
+  timeoutMs = 500,
+  quietMs = 50,
+): Promise<void> {
+  await waitForProxiedApiNetworkIdle(timeoutMs, quietMs);
 }
 
 export async function resetMockServer(): Promise<void> {
