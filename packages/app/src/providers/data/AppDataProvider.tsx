@@ -6,7 +6,9 @@ import {
   useContext,
   useMemo,
 } from "react";
+import type { DocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createExecSql, type ExecSql } from "../../data/sqlite/sqlSchema";
+import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../document-types/projectors";
 import { cacheReferencedPrincipalPolicies } from "../../workflows/principals";
 import { useApiClient } from "../api/ApiClientProvider";
 import { useNetworkState } from "../api/NetworkStateProvider";
@@ -27,6 +29,7 @@ export interface AppDataContextValue {
   containerId: string | null;
   dbId: string | null;
   dbStatus: ReturnType<typeof useDatabase>["status"];
+  documentProjectors: DocumentProjectorRegistry;
   domainScope: object;
   encapsulationKeyPair: ReturnType<typeof useIdentity>["encapsulationKeyPair"];
   events: ReturnType<typeof useEvents>["events"];
@@ -46,6 +49,30 @@ const unavailableExecSql: ExecSql = async () => {
   throw new Error("Database client is unavailable.");
 };
 
+function useReferencedPrincipalPolicyCache(params: {
+  apiClient: AppDataContextValue["apiClient"];
+  execSql: ExecSql;
+  log: AppDataContextValue["log"];
+}): AppDataContextValue["cacheReferencedPrincipalPolicies"] {
+  const { apiClient, execSql, log } = params;
+
+  return useCallback(
+    async (
+      references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
+    ) => {
+      await cacheReferencedPrincipalPolicies({
+        execSql,
+        getEncapsulationKey: (userId) => apiClient.getEncapsulationKey(userId),
+        getCurrentPrincipalPolicy: (principalType, principalId) =>
+          apiClient.getCurrentPrincipalPolicy(principalType, principalId),
+        log,
+        references,
+      });
+    },
+    [apiClient, execSql, log],
+  );
+}
+
 export function AppDataProvider({ children }: PropsWithChildren) {
   const apiClient = useApiClient();
   const blobStore = useBlobStore();
@@ -63,21 +90,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     () => (dbClient ? createExecSql(dbClient) : unavailableExecSql),
     [dbClient],
   );
-  const cacheReferencedPrincipalPoliciesCallback = useCallback(
-    async (
-      references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
-    ) => {
-      await cacheReferencedPrincipalPolicies({
-        execSql,
-        getEncapsulationKey: (userId) => apiClient.getEncapsulationKey(userId),
-        getCurrentPrincipalPolicy: (principalType, principalId) =>
-          apiClient.getCurrentPrincipalPolicy(principalType, principalId),
-        log,
-        references,
-      });
-    },
-    [apiClient, execSql, log],
-  );
+  const cacheReferencedPrincipalPoliciesCallback =
+    useReferencedPrincipalPolicyCache({ apiClient, execSql, log });
 
   const value = useMemo(
     () => ({
@@ -89,6 +103,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       containerId,
       dbId,
       dbStatus,
+      documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
       domainScope,
       encapsulationKeyPair,
       events,

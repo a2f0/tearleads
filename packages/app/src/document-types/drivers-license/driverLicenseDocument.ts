@@ -1,7 +1,7 @@
 import {
   type DriverLicenseDocumentFields,
   readDriverLicenseFieldsFromRecord,
-} from "../../data/documents/documentKinds";
+} from "../projectors";
 import {
   createFrontAndBackImageSlots,
   type DocumentAttachmentSlot,

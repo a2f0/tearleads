@@ -4,6 +4,10 @@ import type {
 } from "@tearleads/validators/response";
 import type { BlobBytes, BlobStore } from "../../data/blobContracts";
 import {
+  type DocumentProjectorRegistry,
+  defaultDocumentProjectorRegistry,
+} from "../../data/documents/documentKinds";
+import {
   type DocumentAttachmentHydrationRuntime,
   hydrateDocumentAttachmentBlobsFromRuntime,
 } from "../blobs/hydrate";
@@ -41,6 +45,7 @@ type DocumentsWorkflowRuntimeInput = DocumentAttachmentHydrationRuntime &
       references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
     ) => Promise<void>;
     dbStatus: string;
+    documentProjectors?: DocumentProjectorRegistry | undefined;
     domainScope: object;
     encapsulationKeyPair?:
       | {
@@ -53,6 +58,13 @@ type DocumentsWorkflowRuntimeInput = DocumentAttachmentHydrationRuntime &
     isAuthenticated: boolean;
     online: boolean;
   };
+
+type NormalizedDocumentsWorkflowRuntimeInput = Omit<
+  DocumentsWorkflowRuntimeInput,
+  "documentProjectors"
+> & {
+  documentProjectors: DocumentProjectorRegistry;
+};
 
 type CreateRemoteDocumentInput = Omit<
   Parameters<typeof createRemoteDocumentFromRuntime>[0],
@@ -102,6 +114,7 @@ type UploadDocumentAttachmentInput = Omit<
 export interface DocumentsWorkflowRuntime {
   readonly containerId?: string | null | undefined;
   readonly dbStatus: string;
+  readonly documentProjectors: DocumentProjectorRegistry;
   readonly domainScope: object;
   readonly encapsulationKeyPair?:
     | {
@@ -183,6 +196,7 @@ type DocumentsWorkflowRuntimeActions = Omit<
   DocumentsWorkflowRuntime,
   | "containerId"
   | "dbStatus"
+  | "documentProjectors"
   | "domainScope"
   | "encapsulationKeyPair"
   | "events"
@@ -197,12 +211,12 @@ type DocumentsWorkflowRuntimeActions = Omit<
 
 const documentsWorkflowRuntimeInputs = new WeakMap<
   DocumentsWorkflowRuntime,
-  DocumentsWorkflowRuntimeInput
+  NormalizedDocumentsWorkflowRuntimeInput
 >();
 
 function lookupDocumentsWorkflowRuntimeInput(
   runtime: DocumentsWorkflowRuntime,
-): DocumentsWorkflowRuntimeInput | null {
+): NormalizedDocumentsWorkflowRuntimeInput | null {
   return documentsWorkflowRuntimeInputs.get(runtime) ?? null;
 }
 
@@ -229,7 +243,7 @@ function documentProjectionRuntime(input: DocumentsWorkflowRuntimeInput) {
 }
 
 function createDocumentsPersistenceRuntimeActions(
-  input: DocumentsWorkflowRuntimeInput,
+  input: NormalizedDocumentsWorkflowRuntimeInput,
 ): Pick<
   DocumentsWorkflowRuntimeActions,
   | "deleteLocalAttachment"
@@ -294,7 +308,7 @@ function createDocumentsPersistenceRuntimeActions(
 }
 
 function createDocumentsWorkflowRuntimeActions(
-  input: DocumentsWorkflowRuntimeInput,
+  input: NormalizedDocumentsWorkflowRuntimeInput,
 ): DocumentsWorkflowRuntimeActions {
   return {
     createRemoteDocument(createInput) {
@@ -372,22 +386,28 @@ function createDocumentsWorkflowRuntimeActions(
 export function createDocumentsWorkflowRuntime(
   input: DocumentsWorkflowRuntimeInput,
 ): DocumentsWorkflowRuntime {
-  const runtime: DocumentsWorkflowRuntime = {
-    containerId: input.containerId,
-    dbStatus: input.dbStatus,
-    domainScope: input.domainScope,
-    encapsulationKeyPair: input.encapsulationKeyPair,
-    events: input.events,
-    isAuthenticated: input.isAuthenticated,
-    log: input.log,
-    online: input.online,
-    organizationId: input.organizationId,
-    signingFingerprint: input.signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
-    userId: input.userId,
-    ...createDocumentsWorkflowRuntimeActions(input),
+  const normalizedInput: NormalizedDocumentsWorkflowRuntimeInput = {
+    ...input,
+    documentProjectors:
+      input.documentProjectors ?? defaultDocumentProjectorRegistry,
   };
-  documentsWorkflowRuntimeInputs.set(runtime, input);
+  const runtime: DocumentsWorkflowRuntime = {
+    containerId: normalizedInput.containerId,
+    dbStatus: normalizedInput.dbStatus,
+    documentProjectors: normalizedInput.documentProjectors,
+    domainScope: normalizedInput.domainScope,
+    encapsulationKeyPair: normalizedInput.encapsulationKeyPair,
+    events: normalizedInput.events,
+    isAuthenticated: normalizedInput.isAuthenticated,
+    log: normalizedInput.log,
+    online: normalizedInput.online,
+    organizationId: normalizedInput.organizationId,
+    signingFingerprint: normalizedInput.signingFingerprint,
+    signingKeyPair: normalizedInput.signingKeyPair,
+    userId: normalizedInput.userId,
+    ...createDocumentsWorkflowRuntimeActions(normalizedInput),
+  };
+  documentsWorkflowRuntimeInputs.set(runtime, normalizedInput);
 
   return runtime;
 }

@@ -4,7 +4,10 @@ import {
   type DocumentAttachment,
   getDocumentAttachments,
 } from "../../../data/documents/documentContent";
-import { projectStoredDocumentState } from "../../../data/documents/documentKinds";
+import {
+  type DocumentProjectorRegistry,
+  projectStoredDocumentState,
+} from "../../../data/documents/documentKinds";
 import type {
   DocumentRecord,
   LocalAttachmentRecord,
@@ -22,6 +25,7 @@ import {
 function documentSummaryFromRecord(
   record: DocumentRecord,
   updatedAt: string,
+  documentProjectors: DocumentProjectorRegistry,
 ): DocumentSummary {
   return {
     accessStateHash: record.accessStateHash ?? null,
@@ -31,11 +35,14 @@ function documentSummaryFromRecord(
     documentId: record.documentId,
     title:
       record.title ??
-      projectStoredDocumentState({
-        documentKind: record.documentKind ?? "note",
-        structuredFields: {},
-        text: record.text,
-      }).title,
+      projectStoredDocumentState(
+        {
+          documentKind: record.documentKind ?? "note",
+          structuredFields: {},
+          text: record.text,
+        },
+        documentProjectors,
+      ).title,
     updatedAt,
   };
 }
@@ -67,7 +74,11 @@ export async function saveDocumentRecord(
   }
   state.effects.emitPersistedDocument(
     state.runtime.domainScope,
-    documentSummaryFromRecord(nextRecord, updatedAt),
+    documentSummaryFromRecord(
+      nextRecord,
+      updatedAt,
+      state.runtime.documentProjectors,
+    ),
   );
   return {
     record: nextRecord,

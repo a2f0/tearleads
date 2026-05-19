@@ -1,4 +1,5 @@
 import type { DocumentSummary } from "../../src/data/documentSummary";
+import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../src/document-types/projectors";
 import type { DocumentsRuntime } from "../../src/stores/documents/types";
 import {
   createDocumentsWorkflowRuntime,
@@ -287,6 +288,7 @@ export function createDocumentStoreRuntime(
     cacheReferencedPrincipalPolicies: async () => {},
     containerId: "root-container",
     dbStatus: "ready",
+    documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
     domainScope: {},
     encapsulationKeyPair: null,
     events: [],

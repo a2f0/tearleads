@@ -19,6 +19,7 @@ import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "../../../data/documents/documentKinds";
+import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import type {
   ExplorerContainerItemRow,
@@ -137,7 +138,10 @@ function getExplorerContainerItemTypeLabel(
     return EXPLORER_LABELS.folderType;
   }
 
-  return getStoredDocumentTypeLabel(row.documentKind);
+  return getStoredDocumentTypeLabel(
+    row.documentKind,
+    APP_DOCUMENT_PROJECTOR_REGISTRY,
+  );
 }
 
 function getExplorerContainerItemRowKey(row: ExplorerContainerItemRow): string {

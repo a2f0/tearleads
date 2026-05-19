@@ -2,7 +2,10 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates, getTextValue } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
-import { readStoredDocumentState } from "../../data/documents/documentKinds";
+import {
+  type DocumentProjectorRegistry,
+  readStoredDocumentState,
+} from "../../data/documents/documentKinds";
 import type {
   DocumentsPersistence,
   LocalAttachmentRecord,
@@ -29,6 +32,9 @@ export {
 type DocumentContentState = Parameters<typeof exportAllUpdates>[0];
 type DocumentLocalStateRuntime = {
   execSql: ExecSql;
+};
+type DocumentProjectionStateRuntime = DocumentLocalStateRuntime & {
+  documentProjectors: DocumentProjectorRegistry;
 };
 type NullableDocumentRuntimeField =
   | "accessStateHash"
@@ -66,12 +72,20 @@ async function persistDocumentState(input: {
   containerId?: string | null | undefined;
   currentDoc: DocumentContentState;
   currentRecord: StoredDocumentRecord | null;
+  documentProjectors: DocumentProjectorRegistry;
   execSql: ExecSql;
   localId: string;
   patch?: Partial<StoredDocumentRecord> | undefined;
   persistence: DocumentsPersistence;
 }): Promise<PersistedDocumentState> {
-  const { currentDoc, currentRecord, execSql, localId, persistence } = input;
+  const {
+    currentDoc,
+    currentRecord,
+    documentProjectors,
+    execSql,
+    localId,
+    persistence,
+  } = input;
   const patch = input.patch ?? {};
   const acceptedPendingUpdateIds = input.acceptedPendingUpdateIds ?? [];
   const currentDocumentId = currentRecord?.documentId ?? null;
@@ -82,7 +96,7 @@ async function persistDocumentState(input: {
   const nextAccessEpoch = patch.accessEpoch ?? currentAccessEpoch;
   const securityContextChanged =
     documentIdChanged || nextAccessEpoch !== currentAccessEpoch;
-  const documentState = readStoredDocumentState(currentDoc);
+  const documentState = readStoredDocumentState(currentDoc, documentProjectors);
   const nextRecord: StoredDocumentRecord = {
     id: currentRecord?.id ?? localId,
     containerId:
@@ -155,10 +169,11 @@ export async function persistDocumentStateFromRuntime({
   localId: string;
   patch?: Partial<StoredDocumentRecord> | undefined;
   persistence: DocumentsPersistence;
-  runtime: DocumentLocalStateRuntime;
+  runtime: DocumentProjectionStateRuntime;
 }): Promise<PersistedDocumentState> {
   return persistDocumentState({
     ...input,
+    documentProjectors: runtime.documentProjectors,
     execSql: runtime.execSql,
   });
 }
