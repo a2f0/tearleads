@@ -7,10 +7,14 @@ import {
   useExplorerContainerInfo,
   useExplorerContainerInfoGroupShare,
 } from "./ExplorerContainerInfoState";
-import type {
-  ExplorerContainerInfoGrant,
-  ReloadExplorerContainerInfo,
-} from "./ExplorerContainerInfoTypes";
+
+type ExplorerContainerInfoGrant = NonNullable<
+  ExplorerContainerInfo["remoteInfo"]
+>["grants"][number];
+
+type ReloadExplorerContainerInfo = Parameters<
+  typeof useExplorerContainerInfoGroupShare
+>[0]["reloadContainerInfo"];
 
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;

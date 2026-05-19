@@ -1,3 +1,4 @@
+import { usePersistedNotesDirectory } from "../../../stores/documents/notesDirectory";
 import { useNotesSidebarPanel } from "../NotesSidebar";
 import type {
   ActiveNoteSelection,
@@ -6,7 +7,6 @@ import type {
 } from "../types";
 import { useActiveNoteSelection } from "./useActiveNoteSelection";
 import { useExplicitNoteSelection } from "./useExplicitNoteSelection";
-import { useNotesDirectory } from "./useNotesDirectory";
 
 interface NotesAppModel {
   activeSelection: ActiveNoteSelection | null;
@@ -18,7 +18,7 @@ export function useNotesAppModel(
 ): NotesAppModel {
   const explicitSelection = useExplicitNoteSelection(props);
   const { createNote, notes, ready, selectedNoteId, selectNote } =
-    useNotesDirectory(explicitSelection);
+    usePersistedNotesDirectory(explicitSelection?.noteId ?? null);
   const activeSelection = useActiveNoteSelection({
     explicitSelection,
     notes,
