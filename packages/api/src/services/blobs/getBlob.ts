@@ -79,19 +79,12 @@ export async function getBlob(
   runtime: ApiServiceRuntime,
   input: GetBlobInput,
 ): Promise<BlobResponse> {
-  const row = await loadReadableBlobRow(runtime, input);
-  const externalRef = readExternalBlobBytesRef(row.encryptedBytes);
-  const encryptedBytes = externalRef
-    ? await runtime.blobObjectStore.getObject(externalRef.storageKey)
-    : row.encryptedBytes;
-  if (encryptedBytes === null) {
-    throw new GetBlobError("Blob bytes not found", 409);
-  }
+  const blob = await getBlobBytes(runtime, input);
 
   return {
-    blobId: row.blobId,
-    encryptedBytes,
-    sha256: row.sha256,
+    blobId: blob.blobId,
+    encryptedBytes: await new Response(blob.encryptedBytes).text(),
+    sha256: blob.sha256,
   };
 }
 

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { readBlobObjectText } from "../../test/helpers/blobObjectStore";
 import { sha256Hex } from "../utils/sha256";
 import { createDefaultBlobObjectStore } from "./runtime";
 
@@ -24,7 +25,7 @@ test("default blob object store uses memory when unconfigured", async () => {
     uploadId,
   });
 
-  expect(await store.getObject("blob-stages/runtime-default")).toBe(
+  expect(await readBlobObjectText(store, "blob-stages/runtime-default")).toBe(
     "runtime-default",
   );
   expect(completed).toEqual({

@@ -159,14 +159,14 @@ test("getBlobBytes streams external blob objects for readable blobs", async () =
     documentId: document.id,
     slotId: "streamed-service-slot",
   });
-  let stringRead = false;
+  let streamRead = false;
   const runtime = {
     ...createServiceTestRuntime(),
     blobObjectStore: {
       ...objectStore,
-      getObject: async () => {
-        stringRead = true;
-        return objectStore.getObject(storageKey);
+      getObjectStream: async (key: string) => {
+        streamRead = true;
+        return objectStore.getObjectStream(key);
       },
     },
   };
@@ -184,7 +184,7 @@ test("getBlobBytes streams external blob objects for readable blobs", async () =
   await expect(new Response(result.encryptedBytes).text()).resolves.toBe(
     encryptedBytes,
   );
-  expect(stringRead).toBe(false);
+  expect(streamRead).toBe(true);
 });
 
 test("getBlob reports not-found and forbidden cases", async () => {

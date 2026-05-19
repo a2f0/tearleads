@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { readBlobObjectText } from "../../test/helpers/blobObjectStore";
 import { sha256Hex } from "../utils/sha256";
 import { createMemoryBlobObjectStore } from "./blobObjectStore";
 
@@ -32,7 +33,7 @@ test("memory blob object store completes multipart uploads by part number", asyn
     uploadId,
   });
 
-  expect(await store.getObject(key)).toBe("first-second");
+  expect(await readBlobObjectText(store, key)).toBe("first-second");
   const objectStream = await store.getObjectStream(key);
   expect(objectStream).not.toBeNull();
   if (!objectStream) {
