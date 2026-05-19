@@ -1,4 +1,5 @@
-import { type BlobStore, createMemoryBlobStore } from "../../src/data/blobs";
+import type { BlobStore } from "../../src/data/blobContracts";
+import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
 import type { createDocumentsWorkflowRuntime } from "../../src/workflows/documents";
 import { createTestExecSql } from "./createTestExecSql";
 

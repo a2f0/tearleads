@@ -42,7 +42,7 @@ import {
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
 } from "../../../workflows/documents";
-import type { BlobBytes } from "../../blobs";
+import type { BlobBytes } from "../../blobContracts";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,

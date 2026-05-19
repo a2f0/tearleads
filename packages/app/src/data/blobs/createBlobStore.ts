@@ -1,6 +1,6 @@
+import type { BlobStore } from "../blobContracts";
 import { createMemoryBlobStore } from "./memoryBlobStore";
 import { createOpfsBlobStore, isOpfsBlobStoreSupported } from "./opfsBlobStore";
-import type { BlobStore } from "./types";
 
 const memoryStoreByNamespace = new Map<string, BlobStore>();
 const opfsStoreByNamespace = new Map<string, BlobStore>();

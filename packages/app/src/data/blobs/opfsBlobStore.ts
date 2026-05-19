@@ -1,4 +1,4 @@
-import type { BlobBytes, BlobStore } from "./types";
+import type { BlobBytes, BlobStore } from "../blobContracts";
 
 interface StorageDirectoryProvider {
   getDirectory: () => Promise<FileSystemDirectoryHandle>;

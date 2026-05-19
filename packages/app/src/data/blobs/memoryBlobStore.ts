@@ -1,4 +1,4 @@
-import type { BlobBytes, BlobStore } from "./types";
+import type { BlobBytes, BlobStore } from "../blobContracts";
 
 class MemoryBlobStore implements BlobStore {
   private readonly bytesByKey = new Map<string, BlobBytes>();
