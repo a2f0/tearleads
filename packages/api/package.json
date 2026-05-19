@@ -10,6 +10,7 @@
     "test": "bun test src --max-concurrency=4"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1049.0",
     "@electric-sql/pglite": "0.4.1",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/encoding": "workspace:*",
