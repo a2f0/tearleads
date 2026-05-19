@@ -7,6 +7,13 @@ export type RequestFn = <T>(
   body?: string,
 ) => Promise<T | null>;
 
+export type ResponseRequestFn = (
+  path: string,
+  method: HttpMethod,
+  body?: string,
+  options?: RequestResultOptions,
+) => Promise<RequestResult<Response>>;
+
 export type RequestFailureKind = "http" | "network" | "json" | "shape";
 
 export interface RequestFailure {

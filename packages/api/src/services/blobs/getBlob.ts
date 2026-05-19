@@ -1,5 +1,9 @@
 import type { BlobResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import {
+  type BlobObjectReadStream,
+  blobObjectChunkToStream,
+} from "../../adapters/blobObjectStore";
 import { blobs } from "../../schema";
 import { readExternalBlobBytesRef } from "../../utils/blobStageRecords";
 import {
@@ -13,6 +17,18 @@ interface GetBlobInput {
   userId: string;
 }
 
+interface BlobRow {
+  readonly blobId: string;
+  readonly encryptedBytes: string;
+  readonly sha256: string;
+}
+
+interface BlobBytesResponse {
+  readonly blobId: string;
+  readonly encryptedBytes: BlobObjectReadStream;
+  readonly sha256: string;
+}
+
 export class GetBlobError extends Error {
   constructor(
     message: string,
@@ -22,10 +38,10 @@ export class GetBlobError extends Error {
   }
 }
 
-export async function getBlob(
+async function loadReadableBlobRow(
   runtime: ApiServiceRuntime,
   input: GetBlobInput,
-): Promise<BlobResponse> {
+): Promise<BlobRow> {
   try {
     await resolveReadableBlobAccess({
       blobId: input.blobId,
@@ -53,10 +69,38 @@ export async function getBlob(
     throw new GetBlobError("Blob not found", 404);
   }
 
+  return row;
+}
+
+export async function getBlob(
+  runtime: ApiServiceRuntime,
+  input: GetBlobInput,
+): Promise<BlobResponse> {
+  const row = await loadReadableBlobRow(runtime, input);
   const externalRef = readExternalBlobBytesRef(row.encryptedBytes);
   const encryptedBytes = externalRef
     ? await runtime.blobObjectStore.getObject(externalRef.storageKey)
     : row.encryptedBytes;
+  if (encryptedBytes === null) {
+    throw new GetBlobError("Blob bytes not found", 409);
+  }
+
+  return {
+    blobId: row.blobId,
+    encryptedBytes,
+    sha256: row.sha256,
+  };
+}
+
+export async function getBlobBytes(
+  runtime: ApiServiceRuntime,
+  input: GetBlobInput,
+): Promise<BlobBytesResponse> {
+  const row = await loadReadableBlobRow(runtime, input);
+  const externalRef = readExternalBlobBytesRef(row.encryptedBytes);
+  const encryptedBytes = externalRef
+    ? await runtime.blobObjectStore.getObjectStream(externalRef.storageKey)
+    : blobObjectChunkToStream(row.encryptedBytes);
   if (encryptedBytes === null) {
     throw new GetBlobError("Blob bytes not found", 409);
   }

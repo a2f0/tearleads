@@ -720,6 +720,43 @@ test("uses blob multipart stage route namespace", async () => {
   ]);
 });
 
+test("streams blob downloads from the bytes route", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+
+      return HttpResponse.text("encrypted-blob-bytes", {
+        headers: {
+          "X-Tearleads-Blob-Id": "blob-1",
+          "X-Tearleads-Blob-Sha256": "sha256-1",
+        },
+      });
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+
+  await expect(client.getBlob("blob-1")).resolves.toEqual({
+    blobId: "blob-1",
+    encryptedBytes: "encrypted-blob-bytes",
+    sha256: "sha256-1",
+  });
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: null,
+      input: `${apiBaseUrl}/blobs/blob-1/bytes`,
+      method: "GET",
+    },
+  ]);
+});
+
 test("uses organization manager and principal policy route namespaces", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(

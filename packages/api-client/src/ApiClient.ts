@@ -79,6 +79,7 @@ import type {
   RequestFn,
   RequestResult,
   RequestResultOptions,
+  ResponseRequestFn,
 } from "./types";
 
 function bindPrototypeMethods(instance: object, prototype: object): void {
@@ -100,6 +101,7 @@ function bindPrototypeMethods(instance: object, prototype: object): void {
 export class ApiClient {
   private authToken: string | null = null;
   private readonly request: RequestFn;
+  private readonly responseRequest: ResponseRequestFn;
   private onError: ((message: string) => void) | null = null;
   private onNetworkError: (() => void) | null = null;
   private onNetworkSuccess: (() => void) | null = null;
@@ -107,6 +109,7 @@ export class ApiClient {
   constructor(private readonly baseUrl: string) {
     bindPrototypeMethods(this, ApiClient.prototype);
     this.request = this.makeRequest;
+    this.responseRequest = this.makeResponseRequest;
   }
 
   setOnError(handler: ((message: string) => void) | null): void {
@@ -280,6 +283,53 @@ export class ApiClient {
     }
 
     return { data, ok: true };
+  }
+
+  private async makeResponseRequest(
+    path: string,
+    method: HttpMethod,
+    body?: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<Response>> {
+    const reportErrors = options.reportErrors ?? true;
+    const init: RequestInit = { method, headers: this.buildHeaders() };
+    if (body !== undefined) {
+      init.body = body;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, init);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      this.onNetworkError?.();
+      return this.requestFailure({
+        kind: "network",
+        message: `${method} ${path}: ${message}`,
+        method,
+        path,
+        reportErrors,
+        status: null,
+        statusText: "",
+      });
+    }
+
+    this.onNetworkSuccess?.();
+
+    if (!response.ok) {
+      const detail = await this.describeErrorResponse(response);
+      return this.requestFailure({
+        kind: "http",
+        message: `${method} ${path}: ${response.status} ${response.statusText}${detail}`,
+        method,
+        path,
+        reportErrors,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
+
+    return { data: response, ok: true };
   }
 
   getHealth() {
@@ -515,7 +565,7 @@ export class ApiClient {
   }
 
   getBlob(blobId: string) {
-    return getBlob(this.request, blobId);
+    return getBlob(this.responseRequest, blobId);
   }
 
   bindBlobAttachment(blobId: string, input: BlobAttachmentBindRequest) {
