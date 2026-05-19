@@ -1,9 +1,9 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { ContactEntry } from "../../contacts/addressBookEntry";
 import {
-  type AppSQLiteTransaction,
-  getAppDatabaseRuntime,
-} from "../../sqlite/appDatabaseRuntime";
+  type ClientSQLiteTransaction,
+  getClientDatabaseRuntime,
+} from "../../sqlite/clientDatabaseRuntime";
 import {
   type DocumentRecord,
   type DocumentScope,
@@ -131,7 +131,7 @@ function mapStoredContact(row: SelectedStoredContact): StoredContact {
 }
 
 async function saveContactRows(
-  tx: AppSQLiteTransaction,
+  tx: ClientSQLiteTransaction,
   addressBookId: string,
   record: DocumentRecord,
   entry: ContactEntry,
@@ -197,7 +197,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
     });
   },
   async loadContacts(execSql, addressBookId) {
-    const { db } = getAppDatabaseRuntime(execSql);
+    const { db } = getClientDatabaseRuntime(execSql);
     const rows = await db
       .select({
         contactId: addressBookProjection.contactId,
@@ -238,7 +238,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
     const updatedAt = new Date().toISOString();
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         await saveContactRows(
           tx,
           addressBookId,
@@ -264,7 +264,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
     const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         if (uniquePendingUpdateIds.length > 0) {
           await tx
             .delete(documentPendingUpdates)
@@ -293,7 +293,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
   },
   async deleteContact(execSql, addressBookId, contactId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         await tx
           .delete(addressBookProjection)
           .where(

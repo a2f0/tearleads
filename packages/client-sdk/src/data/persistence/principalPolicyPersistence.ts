@@ -4,7 +4,7 @@ import type {
 } from "@tearleads/validators/response";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
-import { getAppDatabaseRuntime } from "../sqlite/appDatabaseRuntime";
+import { getClientDatabaseRuntime } from "../sqlite/clientDatabaseRuntime";
 import { principalPolicies, principalPolicyTables } from "../sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 
@@ -101,7 +101,7 @@ export async function loadPrincipalPolicyBundle(
   principalId: string,
 ): Promise<PrincipalPolicyBundleResponse | null> {
   await ensurePrincipalPolicyTables(execSql);
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const rows = await db
     .select(principalPolicyBundleSelection)
     .from(principalPolicies)
@@ -121,7 +121,7 @@ export async function loadAllPrincipalPolicyBundles(
   execSql: ExecSql,
 ): Promise<PrincipalPolicyBundleResponse[]> {
   await ensurePrincipalPolicyTables(execSql);
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const rows = await db
     .select(principalPolicyBundleSelection)
     .from(principalPolicies)
@@ -151,7 +151,7 @@ export async function loadPrincipalPolicyStateHash(
   principalId: string,
 ): Promise<string | null> {
   await ensurePrincipalPolicyTables(execSql);
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const rows = await db
     .select({ stateHash: principalPolicies.stateHash })
     .from(principalPolicies)
@@ -185,7 +185,7 @@ export async function savePrincipalPolicyBundle(
     updatedAt,
   };
 
-  await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+  await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
     await db
       .insert(principalPolicies)
       .values(nextRow)

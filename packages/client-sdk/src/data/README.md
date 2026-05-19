@@ -53,6 +53,11 @@ needed, use concrete modules such as
 contracts such as `@tearleads/client-sdk/data/blobContracts` and
 `@tearleads/client-sdk/data/documentSummary`.
 
+Package subpath exports are explicit. Adding a new cross-package import from
+`data/`, `stores/`, or `workflows/` should include a matching
+`packages/client-sdk/package.json` export and should be treated as an SDK API
+decision, even when the module is still low-level.
+
 Avoid `index.ts`, `types.ts`, and other one-line re-export shims inside data
 domains when they only shorten import paths. Keep a facade only when it marks a
 real layer boundary, such as a workflow, store, provider, or explicit neutral

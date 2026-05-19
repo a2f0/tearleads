@@ -114,7 +114,7 @@ function renderIndex(indexDefinition: Index): string {
 /**
  * Render a Drizzle SQLite table definition into executable schema SQL.
  *
- * The app runtime creates local tables through `ensureSqlTables`, which works
+ * The client runtime creates local tables through `ensureSqlTables`, which works
  * with raw SQL strings rather than Drizzle migrations. This helper keeps the
  * Drizzle table definitions as the source of truth while preserving primary
  * keys, table-level unique constraints, partial indexes, default values, and

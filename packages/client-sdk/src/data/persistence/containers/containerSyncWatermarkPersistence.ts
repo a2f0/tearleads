@@ -1,6 +1,6 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { and, eq, inArray, or } from "drizzle-orm";
-import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
+import { getClientDatabaseRuntime } from "../../sqlite/clientDatabaseRuntime";
 import {
   containerSyncWatermarks,
   containerSyncWatermarkTables,
@@ -126,7 +126,7 @@ async function selectWatermarkRows(
   }
 
   await ensureSqlTables(execSql, containerSyncWatermarkTables);
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const lanePredicates = laneKeys.map(({ laneId, laneKind }) =>
     and(
       eq(containerSyncWatermarks.laneKind, laneKind),
@@ -219,7 +219,7 @@ export const sqlContainerSyncWatermarkPersistence = {
       updatedAt,
     };
 
-    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
       await db
         .insert(containerSyncWatermarks)
         .values(row)
@@ -248,7 +248,7 @@ export const sqlContainerSyncWatermarkPersistence = {
       containerParentLaneId(containerId),
     );
 
-    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
       await db
         .delete(containerSyncWatermarks)
         .where(

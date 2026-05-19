@@ -117,7 +117,7 @@ export const documentPendingUpdates = sqliteTable(
  * Principal policy bundles are fetched from the API after verification and kept
  * locally so access decisions and projection verification can run offline. The
  * JSON columns intentionally mirror the wire bundle shape rather than
- * normalizing membership rows in the app database.
+ * normalizing membership rows in the client database.
  *
  * Columns:
  * - `principalType`: Managed principal kind, currently `organization` or
@@ -520,7 +520,7 @@ export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerSyncWatermarks),
 ];
 
-export const appSqlTables: ReadonlyArray<SqlTableSchema> = [
+export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...documentTables,
   ...principalPolicyTables,
   ...containerTables,
@@ -531,7 +531,7 @@ export const appSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...containerSyncWatermarkTables,
 ];
 
-export const appSQLiteSchema = {
+export const clientSQLiteSchema = {
   documents,
   documentPendingUpdates,
   principalPolicies,

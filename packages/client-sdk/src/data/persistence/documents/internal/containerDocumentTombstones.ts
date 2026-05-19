@@ -1,8 +1,8 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import {
-  type AppSQLiteTransaction,
-  getAppDatabaseRuntime,
-} from "../../../sqlite/appDatabaseRuntime";
+  type ClientSQLiteTransaction,
+  getClientDatabaseRuntime,
+} from "../../../sqlite/clientDatabaseRuntime";
 import {
   documentContainerProjection,
   documentProjection,
@@ -75,7 +75,7 @@ function buildContainerDocumentTombstoneState(
 }
 
 async function deleteContainerDocumentTombstoneRows(
-  tx: AppSQLiteTransaction,
+  tx: ClientSQLiteTransaction,
   uniqueTombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
 ): Promise<void> {
   for (const tombstone of uniqueTombstones) {
@@ -95,7 +95,7 @@ async function updateSelectedContainerForDocumentTombstones(input: {
   documentId: string;
   removedContainerIds: ReadonlySet<string>;
   tombstoneUpdatedAt: string | undefined;
-  tx: AppSQLiteTransaction;
+  tx: ClientSQLiteTransaction;
 }): Promise<string | null> {
   const { documentId, removedContainerIds, tombstoneUpdatedAt, tx } = input;
   const documentRows = await tx
@@ -159,7 +159,7 @@ export async function applyContainerDocumentTombstonesWithExec(
 
   const { removedContainerIdsByDocumentId, tombstoneUpdatedAtByDocumentId } =
     buildContainerDocumentTombstoneState(uniqueTombstones);
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
 
   return db.transaction(async (tx) => {
     await deleteContainerDocumentTombstoneRows(tx, uniqueTombstones);

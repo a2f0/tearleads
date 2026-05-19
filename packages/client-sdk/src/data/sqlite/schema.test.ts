@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { appSqlTables } from "@tearleads/client-sdk/data/sqlite/schema";
+import { clientSqlTables } from "@tearleads/client-sdk/data/sqlite/schema";
 import type {
   ExecSql,
   SqlRow,
@@ -92,11 +92,11 @@ async function readIndexColumns(
   return rows.map((row) => readString(row, "name"));
 }
 
-test("app sqlite schema creates tables and indexes", async () => {
+test("client sqlite schema creates tables and indexes", async () => {
   const { close, execSql } = await createTestExecSql("app-schema-test");
 
   try {
-    await ensureSqlTables(execSql, appSqlTables);
+    await ensureSqlTables(execSql, clientSqlTables);
 
     const objects = await execSql(`
       SELECT name, type
@@ -113,7 +113,9 @@ test("app sqlite schema creates tables and indexes", async () => {
       .filter((row) => readString(row, "type") === "index")
       .map((row) => readString(row, "name"));
 
-    expect(tableNames).toEqual(appSqlTables.map((table) => table.name).sort());
+    expect(tableNames).toEqual(
+      clientSqlTables.map((table) => table.name).sort(),
+    );
     expect(indexNames).toEqual([
       "address_book_projection_self_idx",
       "address_book_projection_user_idx",
@@ -326,7 +328,7 @@ test("app sqlite schema creates tables and indexes", async () => {
   }
 });
 
-test("app sqlite schema renderer quotes identifiers and table unique constraints", async () => {
+test("client sqlite schema renderer quotes identifiers and table unique constraints", async () => {
   const tableSchema: SqlTableSchema = defineSqlTableSchema(
     sqliteTable(
       "select",

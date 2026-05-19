@@ -1,8 +1,8 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
-  type AppSQLiteTransaction,
-  getAppDatabaseRuntime,
-} from "../../sqlite/appDatabaseRuntime";
+  type ClientSQLiteTransaction,
+  getClientDatabaseRuntime,
+} from "../../sqlite/clientDatabaseRuntime";
 import {
   type DocumentRecord,
   deleteDocumentPendingUpdates,
@@ -195,7 +195,7 @@ function mapContainerCreateIntentRecord(
 async function saveContainerMetadataRecord(input: {
   containerId: string;
   record: DocumentRecord;
-  tx: AppSQLiteTransaction;
+  tx: ClientSQLiteTransaction;
   updatedAt: string;
 }) {
   const { containerId, record, tx, updatedAt } = input;
@@ -227,7 +227,7 @@ async function saveExplorerContainerRows(input: {
   container: ContainerRecord;
   createIntent?: ContainerCreateIntentInput | undefined;
   record: DocumentRecord | null;
-  tx: AppSQLiteTransaction;
+  tx: ClientSQLiteTransaction;
   localUpdatedAt: string;
   serverTimestamps?:
     | {
@@ -287,7 +287,7 @@ async function saveExplorerContainerRows(input: {
 }
 
 async function saveContainerCreateIntent(input: {
-  tx: AppSQLiteTransaction;
+  tx: ClientSQLiteTransaction;
   containerId: string;
   createIntent: ContainerCreateIntentInput;
   updatedAt: string;
@@ -340,7 +340,7 @@ async function repairDocumentsForRemovedContainers(input: {
     ...documentProjectionTables,
   ]);
 
-  await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
+  await getClientDatabaseRuntime(execSql).transaction(async (tx) => {
     const selectedRows = await tx
       .select({
         documentId: documentProjection.documentId,
@@ -420,7 +420,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = options?.updatedAt ?? new Date().toISOString();
-      const { db } = getAppDatabaseRuntime(lockedExecSql);
+      const { db } = getClientDatabaseRuntime(lockedExecSql);
       await repairDocumentsForRemovedContainers({
         containerIds: uniqueContainerIds,
         execSql: lockedExecSql,
@@ -489,7 +489,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     );
   },
   async listPendingCreateIntents(execSql) {
-    const { db } = getAppDatabaseRuntime(execSql);
+    const { db } = getClientDatabaseRuntime(execSql);
     const rows = await db
       .select({
         id: containerCreateIntents.id,
@@ -517,7 +517,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     return rows.map((row) => mapContainerCreateIntentRecord(row));
   },
   async recordCreateIntentError(execSql, containerId, message) {
-    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
       await db
         .update(containerCreateIntents)
         .set({
@@ -554,7 +554,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
         options?.localUpdatedAt ??
         options?.updatedAt ??
         new Date().toISOString();
-      return getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) =>
+      return getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) =>
         saveExplorerContainerRows({
           container,
           createIntent: options?.createIntent,
@@ -576,7 +576,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
 
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const localUpdatedAt = new Date().toISOString();
-      return getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+      return getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         if (uniquePendingUpdateIds.length > 0) {
           await tx
             .delete(documentPendingUpdates)
@@ -600,7 +600,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     });
   },
   async markCreateIntentSynced(execSql, input) {
-    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
       await db
         .update(containerCreateIntents)
         .set({

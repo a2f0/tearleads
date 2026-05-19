@@ -1,8 +1,8 @@
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import {
-  type AppSQLiteTransaction,
-  getAppDatabaseRuntime,
-} from "../../sqlite/appDatabaseRuntime";
+  type ClientSQLiteTransaction,
+  getClientDatabaseRuntime,
+} from "../../sqlite/clientDatabaseRuntime";
 import {
   containerProjection,
   containers,
@@ -102,7 +102,7 @@ function mapSelectedContainerRecord(
 }
 
 export async function saveContainerRows(input: {
-  tx: AppSQLiteTransaction;
+  tx: ClientSQLiteTransaction;
   record: ContainerRecord;
   localUpdatedAt: string;
 }): Promise<ContainerRecord> {
@@ -161,7 +161,7 @@ export async function saveContainerRows(input: {
 export async function loadContainers(
   execSql: ExecSql,
 ): Promise<ContainerRecord[]> {
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const name = sql<string>`COALESCE(
     ${containerProjection.displayName},
     CASE WHEN ${containers.parentId} IS NULL THEN '/' ELSE 'Untitled' END
@@ -198,7 +198,7 @@ export async function loadContainerDisplayNamesByIds(
     return new Map();
   }
 
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const name = sql<string>`COALESCE(
     ${containerProjection.displayName},
     CASE WHEN ${containers.parentId} IS NULL THEN '/' ELSE 'Untitled' END
@@ -233,7 +233,7 @@ export async function saveContainer(
 ): Promise<void> {
   const localUpdatedAt = new Date().toISOString();
 
-  await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
+  await getClientDatabaseRuntime(execSql).transaction(async (tx) => {
     await saveContainerRows({
       record,
       tx,
@@ -251,7 +251,7 @@ export async function deleteContainers(
     return;
   }
 
-  await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
+  await getClientDatabaseRuntime(execSql).transaction(async (tx) => {
     await tx
       .delete(containerProjection)
       .where(inArray(containerProjection.containerId, uniqueIds))

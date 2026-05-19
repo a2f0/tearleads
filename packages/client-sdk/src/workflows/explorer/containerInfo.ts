@@ -20,7 +20,7 @@ import {
   containerSyncWatermarkLaneKey,
   sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
-import { getAppDatabaseRuntime } from "../../data/sqlite/appDatabaseRuntime";
+import { getClientDatabaseRuntime } from "../../data/sqlite/clientDatabaseRuntime";
 import { containers } from "../../data/sqlite/schema";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -160,7 +160,7 @@ async function loadLocalContainerInfoRecord(input: {
 
   await ensureContainerTables(input.execSql);
 
-  const { db } = getAppDatabaseRuntime(input.execSql);
+  const { db } = getClientDatabaseRuntime(input.execSql);
   const rows = await db
     .select({
       localCreatedAt: containers.localCreatedAt,

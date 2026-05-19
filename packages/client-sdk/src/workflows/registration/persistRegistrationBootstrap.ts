@@ -4,7 +4,7 @@ import { createPendingUpdateFields } from "../../data/documentSync";
 import { sqlContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
-import { getAppDatabaseRuntime } from "../../data/sqlite/appDatabaseRuntime";
+import { getClientDatabaseRuntime } from "../../data/sqlite/clientDatabaseRuntime";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import { addressBookProjection } from "../../data/sqlite/schema";
 import {
@@ -103,7 +103,7 @@ async function persistRegistrationBootstrapFromExecSql(
       isSelf: 1,
       updatedAt,
     };
-    const { db } = getAppDatabaseRuntime(lockedExecSql);
+    const { db } = getClientDatabaseRuntime(lockedExecSql);
     await db
       .insert(addressBookProjection)
       .values(projectionRow)
