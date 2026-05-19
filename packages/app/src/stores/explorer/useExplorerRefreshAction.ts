@@ -2,9 +2,9 @@ import { useCallback, useRef, useState } from "react";
 import type { DocumentSummary } from "../../data/documentSummary";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import {
-  discoverAllContainerDocuments,
-  listAllRemoteExplorerContainerIds,
-} from "./documentDiscovery";
+  discoverAllContainerDocumentsFromApi,
+  listAllRemoteExplorerContainerIdsFromApi,
+} from "../../workflows/explorer";
 import type {
   ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
@@ -66,28 +66,29 @@ export function useExplorerRefreshAction(params: {
       }
 
       const remoteContainerIds =
-        await listAllRemoteExplorerContainerIds(apiClient);
+        await listAllRemoteExplorerContainerIdsFromApi(apiClient);
       if (!remoteContainerIds) {
         setRefreshError("Failed to refresh documents.");
         return false;
       }
 
-      const discoveredDocumentSummaries = await discoverAllContainerDocuments({
-        apiClient,
-        applyContainerDocumentTombstones,
-        cacheReferencedPrincipalPolicies,
-        containerIds: remoteContainerIds,
-        loadContainerDocumentWatermark: (containerId) =>
-          documentReadModel.loadContainerDocumentWatermark(containerId),
-        replaceDocumentLinksBatch,
-        saveContainerDocumentWatermark: (containerId, watermark) =>
-          documentReadModel.saveContainerDocumentWatermark(
-            containerId,
-            watermark,
-          ),
-        upsertDiscoveredDocuments: (inputs) =>
-          documentReadModel.upsertDiscoveredDocuments(inputs),
-      });
+      const discoveredDocumentSummaries =
+        await discoverAllContainerDocumentsFromApi({
+          apiClient,
+          applyContainerDocumentTombstones,
+          cacheReferencedPrincipalPolicies,
+          containerIds: remoteContainerIds,
+          loadContainerDocumentWatermark: (containerId) =>
+            documentReadModel.loadContainerDocumentWatermark(containerId),
+          replaceDocumentLinksBatch,
+          saveContainerDocumentWatermark: (containerId, watermark) =>
+            documentReadModel.saveContainerDocumentWatermark(
+              containerId,
+              watermark,
+            ),
+          upsertDiscoveredDocuments: (inputs) =>
+            documentReadModel.upsertDiscoveredDocuments(inputs),
+        });
 
       mergeDocumentSummaries(discoveredDocumentSummaries);
       primeDiscoveredDocuments(discoveredDocumentSummaries);
