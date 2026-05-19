@@ -36,6 +36,7 @@ async function sha256Base64(value: string): Promise<string> {
 
 class FakeS3Client {
   readonly commands: unknown[] = [];
+  readonly objectBodies = new Map<string, unknown>();
   readonly objects = new Map<string, string>();
   readonly uploads = new Map<
     string,
@@ -144,6 +145,11 @@ class FakeS3Client {
     }
     if (command instanceof GetObjectCommand) {
       const key = String(input.Key);
+      const body = this.objectBodies.get(key);
+      if (body !== undefined) {
+        return { Body: body };
+      }
+
       const bytes = this.objects.get(key);
       if (bytes === undefined) {
         throw Object.assign(new Error("NoSuchKey"), {
@@ -295,6 +301,26 @@ test("S3 blob object store maps missing objects to null", async () => {
   const { store } = createFakeS3BlobObjectStore();
 
   await expect(store.getObject("blob-stages/missing")).resolves.toBeNull();
+});
+
+test("S3 blob object store prefers SDK body transforms", async () => {
+  const { client, store } = createFakeS3BlobObjectStore();
+  const body = Object.assign(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("from-stream"));
+        controller.close();
+      },
+    }),
+    {
+      transformToString: async () => "from-transform",
+    },
+  );
+  client.objectBodies.set("blob-stages/transform", body);
+
+  await expect(store.getObject("blob-stages/transform")).resolves.toBe(
+    "from-transform",
+  );
 });
 
 test("S3 blob object store deletes objects and aborts multipart uploads", async () => {

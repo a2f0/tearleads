@@ -180,23 +180,24 @@ async function asyncIterableToString(
 async function responseBodyToString(
   body: NonNullable<GetObjectCommandOutput["Body"]>,
 ): Promise<string> {
-  if (typeof body === "string") {
-    return body;
+  const value: unknown = body;
+  if (typeof value === "string") {
+    return value;
   }
-  if (body instanceof Uint8Array) {
-    return new TextDecoder().decode(body);
+  if (value instanceof Uint8Array) {
+    return new TextDecoder().decode(value);
   }
-  if (body instanceof Blob) {
-    return body.text();
+  if (hasTransformToString(value)) {
+    return value.transformToString();
   }
-  if (body instanceof ReadableStream) {
-    return new Response(body).text();
+  if (value instanceof Blob) {
+    return value.text();
   }
-  if (hasTransformToString(body)) {
-    return body.transformToString();
+  if (value instanceof ReadableStream) {
+    return new Response(value).text();
   }
-  if (isAsyncIterable(body)) {
-    return asyncIterableToString(body);
+  if (isAsyncIterable(value)) {
+    return asyncIterableToString(value);
   }
 
   throw new BlobObjectStoreError(
