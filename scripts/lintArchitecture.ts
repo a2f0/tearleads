@@ -15,11 +15,7 @@ const appPresentationEntryPoints = [
   "packages/app/src/document-types",
   "packages/app/src/mini-apps",
 ];
-const appReactFreeLayerEntryPoints = [
-  "packages/app/src/data",
-  "packages/app/src/workflows",
-  "packages/client-sdk/src",
-];
+const appReactFreeLayerEntryPoints = ["packages/client-sdk/src"];
 const appProductionSourceEntryPoints = ["packages/app/src"];
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
