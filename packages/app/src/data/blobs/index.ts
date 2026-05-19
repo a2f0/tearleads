@@ -1,2 +1,2 @@
+export type { BlobBytes, BlobStore } from "../blobContracts";
 export { createMemoryBlobStore } from "./memoryBlobStore";
-export type { BlobBytes, BlobStore } from "./types";

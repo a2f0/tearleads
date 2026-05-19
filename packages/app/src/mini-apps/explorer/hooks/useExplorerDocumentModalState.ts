@@ -1,9 +1,7 @@
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
 import type { DocumentSummary } from "../../../data/documentSummary";
-import {
-  type ExplorerModalState,
-  useExplorerModalController,
-} from "../modal/ExplorerModal";
+import { useExplorerModalController } from "../modal/controller";
+import type { ExplorerModalState } from "../modal/types";
 import type { MoveTargetOption } from "../targetOptions";
 import type {
   ExplorerDocumentMutationAction,

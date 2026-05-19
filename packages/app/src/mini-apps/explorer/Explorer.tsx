@@ -8,7 +8,7 @@ import { type MiniAppWindowPosition, useMiniAppBusActions } from "../bus";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerModel } from "./hooks/useExplorerModel";
-import { ExplorerModalLayer } from "./modal/ExplorerModal";
+import { ExplorerModalLayer } from "./modal/view";
 import "./Explorer.css";
 
 function useOpenGrantGroupInOrgManager() {
