@@ -3,18 +3,27 @@ import { readBlobObjectText } from "../../test/helpers/blobObjectStore";
 import { sha256Hex } from "../utils/sha256";
 import { createMemoryBlobObjectStore } from "./blobObjectStore";
 
+function textStream(value: string): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(value));
+      controller.close();
+    },
+  });
+}
+
 test("memory blob object store completes multipart uploads by part number", async () => {
   const store = createMemoryBlobObjectStore();
   const key = "blob-stages/out-of-order-completion";
   const { uploadId } = await store.createMultipartUpload({ key });
   const secondPart = await store.uploadPart({
-    bytes: "-second",
+    body: { bytes: "-second" },
     key,
     partNumber: 2,
     uploadId,
   });
   const firstPart = await store.uploadPart({
-    bytes: "first",
+    body: { bytes: "first" },
     key,
     partNumber: 1,
     uploadId,
@@ -46,6 +55,35 @@ test("memory blob object store completes multipart uploads by part number", asyn
   });
 });
 
+test("memory blob object store accepts streamed multipart parts", async () => {
+  const store = createMemoryBlobObjectStore();
+  const key = "blob-stages/streamed-memory-part";
+  const bytes = "streamed-memory";
+  const { uploadId } = await store.createMultipartUpload({ key });
+  const part = await store.uploadPart({
+    body: {
+      byteLength: new TextEncoder().encode(bytes).byteLength,
+      sha256: await sha256Hex(bytes),
+      stream: textStream(bytes),
+    },
+    key,
+    partNumber: 1,
+    uploadId,
+  });
+
+  await store.completeMultipartUpload({
+    expected: {
+      byteLength: new TextEncoder().encode(bytes).byteLength,
+      sha256: await sha256Hex(bytes),
+    },
+    key,
+    parts: [{ etag: part.etag, partNumber: 1 }],
+    uploadId,
+  });
+
+  expect(await readBlobObjectText(store, key)).toBe(bytes);
+});
+
 test("memory blob object store releases multipart key conflicts after terminal states", async () => {
   const store = createMemoryBlobObjectStore();
   const abortedKey = "blob-stages/aborted-conflict";
@@ -67,7 +105,7 @@ test("memory blob object store releases multipart key conflicts after terminal s
     key: completedKey,
   });
   const part = await store.uploadPart({
-    bytes: "complete",
+    body: { bytes: "complete" },
     key: completedKey,
     partNumber: 1,
     uploadId: completedUpload.uploadId,

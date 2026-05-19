@@ -9,7 +9,7 @@ test("default blob object store uses memory when unconfigured", async () => {
     key: "blob-stages/runtime-default",
   });
   const part = await store.uploadPart({
-    bytes: "runtime-default",
+    body: { bytes: "runtime-default" },
     key: "blob-stages/runtime-default",
     partNumber: 1,
     uploadId,

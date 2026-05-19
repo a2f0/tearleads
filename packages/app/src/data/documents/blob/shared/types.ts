@@ -1,3 +1,4 @@
+import type { UploadMultipartBlobPartBytesRequest } from "@tearleads/api-client";
 import type { WriteHeader } from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
@@ -70,6 +71,11 @@ export interface BlobAttachmentApi {
     stageId: string,
     partNumber: number,
     input: UploadMultipartBlobPartRequest,
+  ): Promise<UploadMultipartBlobPartResponse | null>;
+  uploadMultipartBlobPartBytes?(
+    stageId: string,
+    partNumber: number,
+    input: UploadMultipartBlobPartBytesRequest,
   ): Promise<UploadMultipartBlobPartResponse | null>;
 }
 

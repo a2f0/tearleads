@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -19,6 +21,7 @@ import {
   blobObjectChunkToStream,
   blobObjectChunkToUint8Array,
   type CompleteMultipartUploadPart,
+  isStringUploadPartBody,
 } from "./blobObjectStore";
 
 type S3BlobObjectStoreClient = Pick<S3Client, "send">;
@@ -465,7 +468,20 @@ function createUploadPart({
 }: S3BlobObjectStoreInput): BlobObjectStore["uploadPart"] {
   return (input) =>
     mapS3Errors(async () => {
-      if (input.bytes.length === 0) {
+      const uploadBody = isStringUploadPartBody(input.body)
+        ? {
+            body: input.body.bytes,
+            byteLength: byteLength(input.body.bytes),
+            sha256: await sha256Hex(input.body.bytes),
+          }
+        : {
+            body: Readable.fromWeb(
+              input.body.stream as unknown as NodeReadableStream<Uint8Array>,
+            ),
+            byteLength: input.body.byteLength,
+            sha256: input.body.sha256,
+          };
+      if (uploadBody.byteLength <= 0) {
         throw new BlobObjectStoreError(
           "Multipart upload part bytes are required",
           "invalid_part",
@@ -475,11 +491,11 @@ function createUploadPart({
 
       const part = await client.send(
         new UploadPartCommand({
-          Body: input.bytes,
+          Body: uploadBody.body,
           Bucket: bucket,
           ChecksumAlgorithm: "SHA256",
-          ChecksumSHA256: sha256HexToBase64(await sha256Hex(input.bytes)),
-          ContentLength: byteLength(input.bytes),
+          ChecksumSHA256: sha256HexToBase64(uploadBody.sha256),
+          ContentLength: uploadBody.byteLength,
           Key: input.key,
           PartNumber: input.partNumber,
           UploadId: input.uploadId,
@@ -487,7 +503,7 @@ function createUploadPart({
       );
 
       return {
-        byteLength: byteLength(input.bytes),
+        byteLength: uploadBody.byteLength,
         etag: requireString(part.ETag, "S3 multipart part ETag is missing"),
         partNumber: input.partNumber,
       };

@@ -12,6 +12,7 @@ import {
   initiateMultipartBlobStage,
   MultipartBlobStageError,
   uploadMultipartBlobPart,
+  uploadMultipartBlobPartStream,
 } from "./multipartStage";
 
 async function createMultipartStageInput(encryptedBytes: string) {
@@ -19,6 +20,15 @@ async function createMultipartStageInput(encryptedBytes: string) {
     byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
     sha256: await sha256Hex(encryptedBytes),
   };
+}
+
+function textStream(value: string): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(value));
+      controller.close();
+    },
+  });
 }
 
 async function expectMultipartBlobStageError(
@@ -134,6 +144,33 @@ test("multipart blob stage completion rejects mismatched bytes", async () => {
 
   expect(error.status).toBe(409);
   expect(error.message).toBe("Blob byteLength does not match multipart upload");
+});
+
+test("multipart blob stages accept streamed part uploads", async () => {
+  const runtime = createServiceTestRuntime();
+  const userId = crypto.randomUUID();
+  const encryptedBytes = "streamed-multipart-part";
+  const initiated = await initiateMultipartBlobStage(runtime, {
+    ...(await createMultipartStageInput(encryptedBytes)),
+    userId,
+  });
+
+  const part = await uploadMultipartBlobPartStream(runtime, {
+    ...(await createMultipartStageInput(encryptedBytes)),
+    partNumber: 1,
+    stageId: initiated.stageId,
+    stream: textStream(encryptedBytes),
+    uploadId: initiated.uploadId,
+    userId,
+  });
+  const completed = await completeMultipartBlobStage(runtime, {
+    parts: [{ etag: part.part.etag, partNumber: 1 }],
+    stageId: initiated.stageId,
+    uploadId: initiated.uploadId,
+    userId,
+  });
+
+  expect(completed.sha256).toBe(initiated.sha256);
 });
 
 test("expired blob stage cleanup aborts pending multipart uploads and deletes completed objects", async () => {

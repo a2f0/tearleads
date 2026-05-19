@@ -58,14 +58,18 @@ test("multipart blob stage routes support resumable upload completion", async ()
   });
 
   const secondPartResponse = await app.request(
-    `/blobs/stages/multipart/${initiated.stageId}/parts/2`,
+    `/blobs/stages/multipart/${initiated.stageId}/parts/2/bytes`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        encryptedBytes: "-encrypted-bytes",
-        uploadId: initiated.uploadId,
-      }),
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-Tearleads-Blob-Part-Byte-Length": new TextEncoder()
+          .encode("-encrypted-bytes")
+          .byteLength.toString(),
+        "X-Tearleads-Blob-Part-Sha256": await sha256Hex("-encrypted-bytes"),
+        "X-Tearleads-Blob-Upload-Id": initiated.uploadId,
+      },
+      body: "-encrypted-bytes",
     },
   );
   expect(secondPartResponse.status).toBe(200);

@@ -10,7 +10,11 @@ import type {
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
 import { eq, inArray, lte } from "drizzle-orm";
-import { BlobObjectStoreError } from "../../adapters/blobObjectStore";
+import {
+  type BlobObjectReadStream,
+  BlobObjectStoreError,
+  type BlobObjectUploadPartBody,
+} from "../../adapters/blobObjectStore";
 import { blobStages } from "../../schema";
 import {
   encodeMultipartBlobStageRecord,
@@ -46,6 +50,15 @@ interface CleanupExpiredBlobStagesResult {
   readonly deletedStages: number;
   readonly failedStages: number;
   readonly scannedStages: number;
+}
+
+interface UploadMultipartBlobPartStreamInput
+  extends AuthenticatedMultipartBlobStageInput {
+  readonly byteLength: number;
+  readonly partNumber: number;
+  readonly sha256: string;
+  readonly stream: BlobObjectReadStream;
+  readonly uploadId: string;
 }
 
 export class MultipartBlobStageError extends Error {
@@ -300,6 +313,36 @@ export async function uploadMultipartBlobPart(
       readonly partNumber: number;
     },
 ): Promise<UploadMultipartBlobPartResponse> {
+  return uploadMultipartBlobPartBody(runtime, {
+    ...input,
+    body: {
+      bytes: input.encryptedBytes,
+    },
+  });
+}
+
+export async function uploadMultipartBlobPartStream(
+  runtime: ApiServiceRuntime,
+  input: UploadMultipartBlobPartStreamInput,
+): Promise<UploadMultipartBlobPartResponse> {
+  return uploadMultipartBlobPartBody(runtime, {
+    ...input,
+    body: {
+      byteLength: input.byteLength,
+      sha256: input.sha256,
+      stream: input.stream,
+    },
+  });
+}
+
+async function uploadMultipartBlobPartBody(
+  runtime: ApiServiceRuntime,
+  input: AuthenticatedMultipartBlobStageInput & {
+    readonly body: BlobObjectUploadPartBody;
+    readonly partNumber: number;
+    readonly uploadId: string;
+  },
+): Promise<UploadMultipartBlobPartResponse> {
   try {
     const stage = await loadMultipartBlobStage(runtime, input);
     if (stage.record.state === "complete") {
@@ -314,7 +357,7 @@ export async function uploadMultipartBlobPart(
     });
 
     const part = await runtime.blobObjectStore.uploadPart({
-      bytes: input.encryptedBytes,
+      body: input.body,
       key: stage.record.storageKey,
       partNumber: input.partNumber,
       uploadId: stage.record.uploadId,

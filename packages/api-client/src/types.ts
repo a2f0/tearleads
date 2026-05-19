@@ -1,10 +1,17 @@
 export type HttpMethod = "DELETE" | "GET" | "POST" | "PUT";
+export type RequestBody = BodyInit;
+
+export interface RequestResultOptions {
+  readonly headers?: Record<string, string> | undefined;
+  readonly reportErrors?: boolean | undefined;
+}
 
 export type RequestFn = <T>(
   path: string,
   validator: (value: unknown) => value is T,
   method: HttpMethod,
-  body?: string,
+  body?: RequestBody,
+  options?: RequestResultOptions,
 ) => Promise<T | null>;
 
 export type RequestFailureKind = "http" | "network" | "json" | "shape";
@@ -27,10 +34,6 @@ export interface RequestSuccess<T> {
 
 export type RequestResult<T> = RequestFailure | RequestSuccess<T>;
 
-export interface RequestResultOptions {
-  readonly reportErrors?: boolean | undefined;
-}
-
 export interface ResponseRequestValidationFailureInput {
   readonly kind: RequestFailureKind;
   readonly message: string;
@@ -45,7 +48,7 @@ export interface ResponseRequestFn {
   (
     path: string,
     method: HttpMethod,
-    body?: string,
+    body?: RequestBody,
     options?: RequestResultOptions,
   ): Promise<RequestResult<Response>>;
   readonly reportFailure: (
