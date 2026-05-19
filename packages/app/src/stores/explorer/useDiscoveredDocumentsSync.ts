@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo } from "react";
 import type { DocumentSummary } from "../../data/documentSummary";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
-import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
-  discoverContainerDocuments,
+  discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
-} from "./documentDiscovery";
+} from "../../workflows/explorer";
+import { primeDocumentStore } from "../documents/DocumentsProvider";
 import type {
   ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
@@ -63,7 +63,7 @@ function useContainerDiscoveryPromiseFactory(params: {
         return currentPromise;
       }
 
-      const nextPromise = discoverContainerDocuments({
+      const nextPromise = discoverContainerDocumentsFromApi({
         apiClient,
         applyContainerDocumentTombstones,
         cacheReferencedPrincipalPolicies,
