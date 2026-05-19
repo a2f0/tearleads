@@ -155,11 +155,8 @@ function readGenericStructuredFieldsFromRecord(
   const issues: DocumentFieldValidationIssue[] = [];
   const fields: Record<string, string> = {};
 
-  for (const [field, value] of Object.entries(source)) {
+  for (const field of Object.keys(source)) {
     fields[field] = readStringDocumentField(source, field, issues);
-    if (value === undefined) {
-      delete fields[field];
-    }
   }
 
   return { fields, issues };

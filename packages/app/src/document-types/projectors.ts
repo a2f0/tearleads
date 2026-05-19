@@ -38,16 +38,10 @@ function isValidDateOnly(value: string): boolean {
     return false;
   }
 
-  const [year, month, day] = value.split("-").map(Number);
-  if (
-    year === undefined ||
-    month === undefined ||
-    day === undefined ||
-    month < 1 ||
-    month > 12 ||
-    day < 1 ||
-    day > 31
-  ) {
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
     return false;
   }
 
