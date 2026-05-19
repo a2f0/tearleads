@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 import {
   containerDocumentsSyncLane,
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
-} from "./containerSyncWatermarkPersistence";
+} from "@tearleads/client-sdk/data/persistence/containers/containerSyncWatermarkPersistence";
+import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 
 test("container sync watermarks are persisted independently per lane", async () => {
   const { close, execSql } = await createTestExecSql(

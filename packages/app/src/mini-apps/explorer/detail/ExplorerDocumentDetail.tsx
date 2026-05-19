@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { MiniAppRow } from "../../../components/shared/MiniAppRow";
-import type { DocumentSummary } from "../../../data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "../../../data/documents/documentKinds";
+} from "@tearleads/client-sdk/data/documents/documentKinds";
+import { useState } from "react";
+import { MiniAppRow } from "../../../components/shared/MiniAppRow";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../document-types/registry";
 import type { ContainerNode } from "../../../stores/explorer/types";

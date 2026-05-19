@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import type { ContainerMutationAuthor } from "@tearleads/client-sdk/workflows/containers/index";
 import {
   type AccessEvent,
   type ContainerAccessEventBody,
@@ -35,7 +36,6 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { ContainerMutationAuthor } from "../../src/workflows/containers";
 
 export const SIGNED_AT = "2026-04-28T12:00:00.000Z";
 

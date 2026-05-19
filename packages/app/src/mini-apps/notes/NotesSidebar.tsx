@@ -1,11 +1,11 @@
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import { getUntitledDocumentTitle } from "@tearleads/client-sdk/data/documents/documentKinds";
 import { useMemo } from "react";
 import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
-import type { DocumentSummary } from "../../data/documentSummary";
-import { getUntitledDocumentTitle } from "../../data/documents/documentKinds";
 import { NOTES_LABELS } from "./labels";
 import type { NotesSetSidebar } from "./types";
 

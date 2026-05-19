@@ -1,6 +1,6 @@
+import type { BlobStore } from "@tearleads/client-sdk/data/blobContracts";
+import type { DocumentAttachment } from "@tearleads/client-sdk/data/documents/documentContent";
 import { type RefObject, useEffect, useRef, useState } from "react";
-import type { BlobStore } from "../../data/blobContracts";
-import type { DocumentAttachment } from "../../data/documents/documentContent";
 
 type AttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
 type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;

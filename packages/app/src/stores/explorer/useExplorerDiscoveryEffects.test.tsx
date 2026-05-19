@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
-import type { DocumentSummary } from "../../data/documentSummary";
 import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import { useDiscoveredDocumentsSync } from "./useDiscoveredDocumentsSync";
 import { useExplorerRefreshAction } from "./useExplorerRefreshAction";

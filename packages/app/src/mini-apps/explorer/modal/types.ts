@@ -1,5 +1,5 @@
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import type { MoveTargetOption } from "../targetOptions";
 

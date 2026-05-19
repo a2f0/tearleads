@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import {
   activateExplorerDocumentLinkState,
   canMutateExplorerDocumentLink,
@@ -8,7 +8,7 @@ import {
   moveExplorerDocumentLinkState,
   type SetLinkedContainerIdsForDocument,
   unlinkExplorerDocumentLinkState,
-} from "../../workflows/explorer";
+} from "@tearleads/client-sdk/workflows/explorer/index";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
   createExplorerDocumentsRuntime,

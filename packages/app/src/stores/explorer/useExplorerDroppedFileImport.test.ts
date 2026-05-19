@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "../../data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import { importExplorerDroppedFiles } from "./useExplorerDroppedFileImport";
 
 interface FakeRuntime {

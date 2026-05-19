@@ -1,14 +1,14 @@
 import {
+  type BlobStore,
+  createBlobStore,
+  createMemoryBlobStore,
+} from "@tearleads/client-sdk/workflows/blobs/index";
+import {
   createContext,
   type PropsWithChildren,
   useContext,
   useMemo,
 } from "react";
-import {
-  type BlobStore,
-  createBlobStore,
-  createMemoryBlobStore,
-} from "../../workflows/blobs";
 import { useIdentity } from "../identity/IdentityProvider";
 
 const BlobContext = createContext<BlobStore | null>(null);

@@ -1,5 +1,13 @@
 import { expect, test } from "bun:test";
 import {
+  deriveStoredDocumentTitle,
+  initializeStoredDocumentKind as initializeStoredDocumentKindBase,
+  readStoredDocumentState as readStoredDocumentStateBase,
+  type StoredDocumentKind,
+  type StructuredDocumentShape,
+  writeStoredDocumentFields as writeStoredDocumentFieldsBase,
+} from "@tearleads/client-sdk/data/documents/documentKinds";
+import {
   createDocument,
   encodeVersionVector,
   exportUpdatesSince,
@@ -10,14 +18,6 @@ import {
   readCreditCardFieldsFromRecord,
   readDriverLicenseFieldsFromRecord,
 } from "../../document-types/projectors";
-import {
-  deriveStoredDocumentTitle,
-  initializeStoredDocumentKind as initializeStoredDocumentKindBase,
-  readStoredDocumentState as readStoredDocumentStateBase,
-  type StoredDocumentKind,
-  type StructuredDocumentShape,
-  writeStoredDocumentFields as writeStoredDocumentFieldsBase,
-} from "./documentKinds";
 
 function initializeStoredDocumentKind(
   doc: StructuredDocumentShape,

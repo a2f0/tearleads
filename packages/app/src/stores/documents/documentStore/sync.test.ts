@@ -1,4 +1,24 @@
 import { expect, test } from "bun:test";
+import type { BlobBytes } from "@tearleads/client-sdk/data/blobContracts";
+import { createMemoryBlobStore } from "@tearleads/client-sdk/data/blobs/memoryBlobStore";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import { createProjectionUserKeyResolver } from "@tearleads/client-sdk/data/keyingProjectionVerification";
+import { DOCUMENTS_APP_KIND } from "@tearleads/client-sdk/data/persistence/documents/documentsPersistence";
+import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk/data/sync/syncCoordinator";
+import {
+  decryptDocumentAttachmentBlob,
+  uploadDocumentAttachment,
+} from "@tearleads/client-sdk/workflows/blobs/index";
+import {
+  createDocumentsWorkflowRuntime,
+  createRemoteDocument,
+  type DocumentRecord,
+  type DocumentsPersistence,
+  type LocalAttachmentRecord,
+  type PendingAttachmentRecord,
+  type PendingUpdateInsert,
+  type PendingUpdateRecord,
+} from "@tearleads/client-sdk/workflows/documents/index";
 import {
   computeAccessEventHash,
   computeBlobAccessManifestHash,
@@ -34,27 +54,7 @@ import {
   assertWriteHeader,
 } from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import type { BlobBytes } from "../../../data/blobContracts";
-import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
-import type { DocumentSummary } from "../../../data/documentSummary";
-import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/documentsPersistence";
-import { getOrCreateDomainSyncCoordinator } from "../../../data/sync/syncCoordinator";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
-import {
-  decryptDocumentAttachmentBlob,
-  uploadDocumentAttachment,
-} from "../../../workflows/blobs";
-import {
-  createDocumentsWorkflowRuntime,
-  createRemoteDocument,
-  type DocumentRecord,
-  type DocumentsPersistence,
-  type LocalAttachmentRecord,
-  type PendingAttachmentRecord,
-  type PendingUpdateInsert,
-  type PendingUpdateRecord,
-} from "../../../workflows/documents";
 import {
   createDocumentStore,
   type DocumentsRuntime,

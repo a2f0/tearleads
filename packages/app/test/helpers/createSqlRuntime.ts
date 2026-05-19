@@ -1,6 +1,6 @@
-import type { BlobStore } from "../../src/data/blobContracts";
-import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
-import type { createDocumentsWorkflowRuntime } from "../../src/workflows/documents";
+import type { BlobStore } from "@tearleads/client-sdk/data/blobContracts";
+import { createMemoryBlobStore } from "@tearleads/client-sdk/data/blobs/memoryBlobStore";
+import type { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk/workflows/documents/index";
 import { createTestExecSql } from "./createTestExecSql";
 
 type DocumentsWorkflowRuntimeInput = Parameters<

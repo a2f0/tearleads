@@ -3,8 +3,8 @@ import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../data/containers/containerMetadataDocument";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+} from "@tearleads/client-sdk/data/containers/containerMetadataDocument";
+import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
 import {
   type ContainerRecord,
   type ExplorerDocumentRecord,
@@ -12,8 +12,8 @@ import {
   hasExplorerMetadataDocumentUpdateEvent,
   persistExplorerContainerMetadataStateFromRuntime,
   renameExplorerContainerMetadataStateFromRuntime,
-} from "./index";
-import { createExplorerWorkflowSqlRuntime } from "./runtime";
+} from "@tearleads/client-sdk/workflows/explorer/index";
+import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
 
 const execSql: ExecSql = async () => [];
 const runtime = createExplorerWorkflowSqlRuntime({ execSql });

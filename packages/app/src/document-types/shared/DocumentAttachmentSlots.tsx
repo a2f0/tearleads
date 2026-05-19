@@ -1,5 +1,5 @@
+import type { DocumentAttachment } from "@tearleads/client-sdk/data/documents/documentContent";
 import { type ChangeEvent, useId, useRef } from "react";
-import type { DocumentAttachment } from "../../data/documents/documentContent";
 import type { DocumentAttachmentStatus } from "../../stores/documents/DocumentsProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
 import {

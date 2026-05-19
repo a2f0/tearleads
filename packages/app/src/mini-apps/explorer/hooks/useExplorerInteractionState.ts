@@ -1,5 +1,5 @@
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import { useCallback } from "react";
-import type { DocumentSummary } from "../../../data/documentSummary";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type {
   ExplorerContainerDocumentTombstone,

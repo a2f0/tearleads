@@ -1,4 +1,9 @@
 import {
+  createExplorerWorkflowRuntime,
+  defaultExplorerPersistence,
+  type ExplorerPersistence,
+} from "@tearleads/client-sdk/workflows/explorer/index";
+import {
   createContext,
   type PropsWithChildren,
   useContext,
@@ -7,11 +12,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
-import {
-  createExplorerWorkflowRuntime,
-  defaultExplorerPersistence,
-  type ExplorerPersistence,
-} from "../../workflows/explorer";
 import {
   createExplorerSyncAgent,
   type ExplorerRuntime,

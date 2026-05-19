@@ -1,5 +1,14 @@
 import { expect, test } from "bun:test";
 import {
+  decryptBlobEnvelope,
+  serializeBlobEnvelope,
+} from "@tearleads/client-sdk/data/blobEnvelope";
+import {
+  ensurePrincipalPolicyTables,
+  savePrincipalPolicyBundle,
+} from "@tearleads/client-sdk/data/persistence/principalPolicyPersistence";
+import { unwrapKeyEnvelopesWithPrincipalPolicies } from "@tearleads/client-sdk/data/principalPolicyCrypto";
+import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
   encryptForRecipients,
@@ -12,12 +21,6 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createTestExecSql } from "../../test/helpers/createTestExecSql";
-import { decryptBlobEnvelope, serializeBlobEnvelope } from "./blobEnvelope";
-import {
-  ensurePrincipalPolicyTables,
-  savePrincipalPolicyBundle,
-} from "./persistence/principalPolicyPersistence";
-import { unwrapKeyEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 
 async function createPrincipalPolicyBundle(input: {
   keyEpoch?: number;

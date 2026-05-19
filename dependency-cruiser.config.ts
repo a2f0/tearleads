@@ -110,6 +110,7 @@ const standardRules = [
         "(^|/)tsconfig\\.json$",
         "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
         "^packages/app/src/(data|workflows)/",
+        "^packages/app/src/test/",
       ],
     },
     to: {},

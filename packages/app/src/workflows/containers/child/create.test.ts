@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
 import {
+  buildContainerCreatePlan,
+  buildMaterializedContainerCreatePlan,
+  createRemoteContainer,
+} from "@tearleads/client-sdk/workflows/containers/index";
+import {
   CONTAINER_KEK_MATERIAL_ID_PREFIX,
   computeContainerKekMaterialId,
   decryptWithDek,
@@ -24,11 +29,6 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
-import {
-  buildContainerCreatePlan,
-  buildMaterializedContainerCreatePlan,
-  createRemoteContainer,
-} from "../index";
 
 test("buildMaterializedContainerCreatePlan signs a child create and wraps the child KEK to the parent KEK only", async () => {
   const parent = await createParentProjection();

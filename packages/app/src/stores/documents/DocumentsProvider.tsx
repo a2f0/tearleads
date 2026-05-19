@@ -1,3 +1,12 @@
+import type { StoredDocumentKind } from "@tearleads/client-sdk/data/documents/documentKinds";
+import { getOrCreateDocumentStore } from "@tearleads/client-sdk/stores/documents/documentStore";
+import {
+  DEFAULT_DOCUMENT_ID,
+  type DocumentContextValue,
+  type DocumentStore,
+  type DocumentsRuntime,
+} from "@tearleads/client-sdk/stores/documents/types";
+import { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk/workflows/documents/index";
 import {
   createContext,
   type PropsWithChildren,
@@ -6,28 +15,19 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import { useAppData } from "../../providers/data/AppDataProvider";
-import { createDocumentsWorkflowRuntime } from "../../workflows/documents";
-import { getOrCreateDocumentStore } from "./documentStore";
-import {
-  DEFAULT_DOCUMENT_ID,
-  type DocumentContextValue,
-  type DocumentStore,
-  type DocumentsRuntime,
-} from "./types";
 
 export {
   createDocumentStore,
   primeDocumentStore,
   requestDomainDocumentSync,
   subscribeToPersistedDocuments,
-} from "./documentStore";
+} from "@tearleads/client-sdk/stores/documents/documentStore";
 export type {
   DocumentAttachmentStatus,
   DocumentsRuntime,
-} from "./types";
-export { DEFAULT_DOCUMENT_ID } from "./types";
+} from "@tearleads/client-sdk/stores/documents/types";
+export { DEFAULT_DOCUMENT_ID } from "@tearleads/client-sdk/stores/documents/types";
 
 const DocumentContext = createContext<DocumentStore | null>(null);
 

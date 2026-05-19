@@ -1,5 +1,5 @@
-import type { BlobBytes } from "../../data/blobContracts";
-import type { DocumentAttachment } from "../../data/documents/documentContent";
+import type { BlobBytes } from "@tearleads/client-sdk/data/blobContracts";
+import type { DocumentAttachment } from "@tearleads/client-sdk/data/documents/documentContent";
 import type { DocumentAttachmentStatus } from "../../stores/documents/DocumentsProvider";
 
 export interface DocumentAttachmentSlot {

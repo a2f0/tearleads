@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { toFingerprint } from "@tearleads/crypto";
 import {
   createDocumentProjectionUserKeyResolver,
   type DocumentProjectionKeyRuntime,
   didDocumentProjectionKeyRuntimeChange,
-} from "./projectionKeys";
+} from "@tearleads/client-sdk/workflows/documents/projectionKeys";
+import { toFingerprint } from "@tearleads/crypto";
 
 function createRuntime(
   patch: Partial<DocumentProjectionKeyRuntime> = {},

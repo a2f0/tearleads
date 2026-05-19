@@ -1,4 +1,4 @@
-import type { ExplorerPersistence } from "../../workflows/explorer";
+import type { ExplorerPersistence } from "@tearleads/client-sdk/workflows/explorer/index";
 import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
 import type {
   ContainerNode,

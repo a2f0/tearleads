@@ -1,4 +1,13 @@
 import { expect, test } from "bun:test";
+import type { BlobBytes } from "@tearleads/client-sdk/data/blobContracts";
+import type { DocumentAttachment } from "@tearleads/client-sdk/data/documents/documentContent";
+import {
+  type DocumentAttachmentHydrationRuntime,
+  decryptDocumentAttachmentBlob,
+  hydrateDocumentAttachmentBlobs,
+  hydrateDocumentAttachmentBlobsFromRuntime,
+  uploadDocumentAttachment,
+} from "@tearleads/client-sdk/workflows/blobs/index";
 import {
   type AccessEvent,
   computeBlobAccessManifestHash,
@@ -6,15 +15,6 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
-import type { BlobBytes } from "../../data/blobContracts";
-import type { DocumentAttachment } from "../../data/documents/documentContent";
-import {
-  type DocumentAttachmentHydrationRuntime,
-  decryptDocumentAttachmentBlob,
-  hydrateDocumentAttachmentBlobs,
-  hydrateDocumentAttachmentBlobsFromRuntime,
-  uploadDocumentAttachment,
-} from "./index";
 
 const TEXT_ENCODER = new TextEncoder();
 

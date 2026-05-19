@@ -1,4 +1,22 @@
 import {
+  buildRootContainerCreatePlan,
+  rootContainerWriterProjectionFromCreatePlan,
+} from "@tearleads/client-sdk/workflows/containers/index";
+import {
+  buildMaterializedDocumentCreatePlan,
+  persistedDocumentCreateStateFromResponse,
+  resolveDocumentCreateAuthor,
+} from "@tearleads/client-sdk/workflows/documents/index";
+import {
+  buildInitialGroupPolicyRequest,
+  buildInitialMemberGroupPolicyRequest,
+} from "@tearleads/client-sdk/workflows/org-manager/index";
+import {
+  createInitialRootMetadataBootstrap,
+  type InitialRootMetadataBootstrap,
+  persistRegistrationBootstrap,
+} from "@tearleads/client-sdk/workflows/registration/index";
+import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
@@ -21,24 +39,6 @@ import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLog } from "../providers/logging/LogProvider";
-import {
-  buildRootContainerCreatePlan,
-  rootContainerWriterProjectionFromCreatePlan,
-} from "../workflows/containers";
-import {
-  buildMaterializedDocumentCreatePlan,
-  persistedDocumentCreateStateFromResponse,
-  resolveDocumentCreateAuthor,
-} from "../workflows/documents";
-import {
-  buildInitialGroupPolicyRequest,
-  buildInitialMemberGroupPolicyRequest,
-} from "../workflows/org-manager";
-import {
-  createInitialRootMetadataBootstrap,
-  type InitialRootMetadataBootstrap,
-  persistRegistrationBootstrap,
-} from "../workflows/registration";
 
 interface RegisterCurrentIdentityResult {
   canRegisterCurrentIdentity: boolean;

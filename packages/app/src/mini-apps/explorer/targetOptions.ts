@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import type { ContainerNode } from "../../stores/explorer/types";
 
 export interface MoveTargetOption {

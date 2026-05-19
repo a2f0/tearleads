@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
 import {
   type DocumentsPersistence,
   loadPersistedDocumentStoreStateFromRuntime,
   type PendingAttachmentRecord,
   savePendingDocumentAttachmentFromRuntime,
-} from "./index";
+} from "@tearleads/client-sdk/workflows/documents/index";
 
 function createNoopExecSql(): ExecSql {
   return (async () => []) as ExecSql;

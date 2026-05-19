@@ -4,7 +4,7 @@ import {
   hasDomainSyncCoordinatorPendingWork,
   isDestroyedDatabaseClientError,
   waitForDomainSyncCoordinatorToSettle,
-} from "./syncCoordinator";
+} from "@tearleads/client-sdk/data/sync/syncCoordinator";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

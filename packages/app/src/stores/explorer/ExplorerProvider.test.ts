@@ -1,4 +1,29 @@
 import { expect, test } from "bun:test";
+import { createInitializedContainerMetadataDocument } from "@tearleads/client-sdk/data/containers/containerMetadataDocument";
+import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/data/documents/documentConstants";
+import {
+  ensureContainerTables,
+  loadContainers,
+  saveContainer,
+} from "@tearleads/client-sdk/data/persistence/containers/containerPersistence";
+import {
+  containerDocumentsSyncLane,
+  containerParentSyncLane,
+  sqlContainerSyncWatermarkPersistence,
+} from "@tearleads/client-sdk/data/persistence/containers/containerSyncWatermarkPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "@tearleads/client-sdk/data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentsPersistence } from "@tearleads/client-sdk/data/persistence/documents/documentsPersistence";
+import { sqlExplorerPersistence } from "@tearleads/client-sdk/data/persistence/explorer/explorerPersistence";
+import {
+  ensureDocumentTables,
+  saveDocumentRecord,
+} from "@tearleads/client-sdk/data/sqlite/documentPersistence";
+import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
+import {
+  buildMaterializedDocumentCreatePlan,
+  persistedDocumentCreateStateFromResponse,
+} from "@tearleads/client-sdk/workflows/documents/index";
+import { createExplorerWorkflowRuntime } from "@tearleads/client-sdk/workflows/explorer/index";
 import {
   type ContainerKekRecipientTarget,
   computeAccessEventHash,
@@ -36,31 +61,6 @@ import {
   assertWriteHeader,
 } from "../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
-import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
-import {
-  ensureContainerTables,
-  loadContainers,
-  saveContainer,
-} from "../../data/persistence/containers/containerPersistence";
-import {
-  containerDocumentsSyncLane,
-  containerParentSyncLane,
-  sqlContainerSyncWatermarkPersistence,
-} from "../../data/persistence/containers/containerSyncWatermarkPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
-import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
-import {
-  ensureDocumentTables,
-  saveDocumentRecord,
-} from "../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import {
-  buildMaterializedDocumentCreatePlan,
-  persistedDocumentCreateStateFromResponse,
-} from "../../workflows/documents";
-import { createExplorerWorkflowRuntime } from "../../workflows/explorer";
 import { createExplorerStore } from "./ExplorerProvider";
 import {
   createExplorerSyncAgent,

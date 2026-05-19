@@ -1,4 +1,16 @@
 import { expect, test } from "bun:test";
+import type {
+  ContactPendingUpdateInsert,
+  ContactsPersistence,
+} from "@tearleads/client-sdk/data/persistence/contacts/contactsPersistence";
+import type {
+  DocumentRecord,
+  PendingUpdateRecord,
+} from "@tearleads/client-sdk/data/sqlite/documentPersistence";
+import {
+  type ContactEntry,
+  createContactsWorkflowRuntime,
+} from "@tearleads/client-sdk/workflows/contacts/index";
 import {
   computeAccessEventHash,
   computeWriteHeaderHash,
@@ -23,18 +35,6 @@ import {
   assertWriteHeader,
 } from "../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import type {
-  ContactPendingUpdateInsert,
-  ContactsPersistence,
-} from "../../data/persistence/contacts/contactsPersistence";
-import type {
-  DocumentRecord,
-  PendingUpdateRecord,
-} from "../../data/sqlite/documentPersistence";
-import {
-  type ContactEntry,
-  createContactsWorkflowRuntime,
-} from "../../workflows/contacts";
 import { type ContactsRuntime, createContactsStore } from "./ContactsProvider";
 
 type ContactsRuntimeInput = Parameters<typeof createContactsWorkflowRuntime>[0];
