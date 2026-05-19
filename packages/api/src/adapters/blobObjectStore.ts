@@ -16,6 +16,9 @@ export interface CompletedBlobObject {
   readonly sha256: string;
 }
 
+export type BlobObjectReadChunk = string | Uint8Array;
+export type BlobObjectReadStream = ReadableStream<Uint8Array>;
+
 type BlobObjectStoreErrorCode =
   | "invalid_part"
   | "not_found"
@@ -48,6 +51,7 @@ export interface BlobObjectStore {
   }): Promise<{ readonly uploadId: string }>;
   deleteObject(key: string): Promise<void>;
   getObject(key: string): Promise<string | null>;
+  getObjectStream(key: string): Promise<BlobObjectReadStream | null>;
   listParts(input: {
     readonly key: string;
     readonly uploadId: string;
@@ -70,6 +74,29 @@ const MAX_S3_PART_NUMBER = 10_000;
 
 function byteLength(value: string): number {
   return Buffer.byteLength(value, "utf8");
+}
+
+export function blobObjectChunkToUint8Array(
+  chunk: BlobObjectReadChunk,
+): Uint8Array {
+  return typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk;
+}
+
+export function blobObjectChunkToStream(
+  chunk: BlobObjectReadChunk,
+): BlobObjectReadStream {
+  const bytes = blobObjectChunkToUint8Array(chunk);
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+}
+
+function blobObjectStringToStream(value: string): BlobObjectReadStream {
+  return blobObjectChunkToStream(value);
 }
 
 function requireValidPartNumber(partNumber: number): void {
@@ -256,6 +283,12 @@ export function createMemoryBlobObjectStore(): BlobObjectStore {
 
     async getObject(key) {
       return objects.get(key) ?? null;
+    },
+
+    async getObjectStream(key) {
+      const object = objects.get(key);
+
+      return object === undefined ? null : blobObjectStringToStream(object);
     },
 
     listParts: createListParts(uploads),

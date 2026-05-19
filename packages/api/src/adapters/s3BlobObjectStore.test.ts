@@ -323,6 +323,34 @@ test("S3 blob object store prefers SDK body transforms", async () => {
   );
 });
 
+test("S3 blob object store streams SDK web streams without string transforms", async () => {
+  const { client, store } = createFakeS3BlobObjectStore();
+  let transformToStringCalls = 0;
+  client.objectBodies.set("blob-stages/stream", {
+    transformToString: async () => {
+      transformToStringCalls += 1;
+      return "from-transform";
+    },
+    transformToWebStream: () =>
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("from-"));
+          controller.enqueue(new TextEncoder().encode("stream"));
+          controller.close();
+        },
+      }),
+  });
+
+  const stream = await store.getObjectStream("blob-stages/stream");
+
+  expect(stream).not.toBeNull();
+  if (!stream) {
+    throw new Error("Expected S3 object stream");
+  }
+  await expect(new Response(stream).text()).resolves.toBe("from-stream");
+  expect(transformToStringCalls).toBe(0);
+});
+
 test("S3 blob object store deletes objects and aborts multipart uploads", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
   client.objects.set("blob-stages/delete", "delete-me");

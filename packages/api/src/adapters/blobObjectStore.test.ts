@@ -33,6 +33,12 @@ test("memory blob object store completes multipart uploads by part number", asyn
   });
 
   expect(await store.getObject(key)).toBe("first-second");
+  const objectStream = await store.getObjectStream(key);
+  expect(objectStream).not.toBeNull();
+  if (!objectStream) {
+    throw new Error("Expected completed object stream");
+  }
+  expect(await new Response(objectStream).text()).toBe("first-second");
   expect(completed).toEqual({
     byteLength: new TextEncoder().encode("first-second").byteLength,
     sha256: await sha256Hex("first-second"),

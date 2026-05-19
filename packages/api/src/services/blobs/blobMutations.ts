@@ -5,7 +5,7 @@ import type {
 import { eq } from "drizzle-orm";
 import { blobStages } from "../../schema";
 import { readMultipartBlobStageRecord } from "../../utils/blobStageRecords";
-import { sha256Hex } from "../../utils/sha256";
+import { summarizeSha256Stream } from "../../utils/sha256";
 import {
   type BindBlobAttachmentInput,
   BlobMutationError,
@@ -17,8 +17,6 @@ import {
 import type { ApiServiceRuntime } from "../runtime";
 
 export { BlobMutationError } from "../../workflows/blobs/mutations";
-
-const TEXT_ENCODER = new TextEncoder();
 
 async function prevalidateMultipartBlobStage(
   runtime: ApiServiceRuntime,
@@ -60,19 +58,20 @@ async function prevalidateMultipartBlobStage(
     throw new BlobMutationError("Blob multipart stage is not complete", 409);
   }
 
-  const encryptedBytes = await runtime.blobObjectStore.getObject(
+  const objectStream = await runtime.blobObjectStore.getObjectStream(
     multipartStage.storageKey,
   );
-  if (encryptedBytes === null) {
+  if (objectStream === null) {
     throw new BlobMutationError("Blob staged bytes are missing", 409);
   }
-  if (TEXT_ENCODER.encode(encryptedBytes).byteLength !== stage.byteLength) {
+  const objectSummary = await summarizeSha256Stream(objectStream);
+  if (objectSummary.byteLength !== stage.byteLength) {
     throw new BlobMutationError(
       "Blob byteLength does not match staged bytes",
       409,
     );
   }
-  if ((await sha256Hex(encryptedBytes)) !== stage.sha256) {
+  if (objectSummary.sha256 !== stage.sha256) {
     throw new BlobMutationError("Blob sha256 does not match staged bytes", 409);
   }
 
