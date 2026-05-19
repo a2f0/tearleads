@@ -29,6 +29,7 @@ import {
   completeMultipartBlobStage,
   detachBlobAttachment,
   getBlob,
+  getBlobBytes,
   getMultipartBlobStage,
   initiateMultipartBlobStage,
   stageBlob,
@@ -552,6 +553,10 @@ export class ApiClient {
 
   getBlob(blobId: string) {
     return getBlob(this.responseRequest, blobId);
+  }
+
+  getBlobBytes(blobId: string) {
+    return getBlobBytes(this.responseRequest, blobId);
   }
 
   bindBlobAttachment(blobId: string, input: BlobAttachmentBindRequest) {

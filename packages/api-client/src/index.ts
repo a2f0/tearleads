@@ -1,4 +1,5 @@
 export { ApiClient } from "./ApiClient";
+export type { BlobBytesResponse } from "./routes/blobs";
 export type {
   HttpMethod,
   RequestFailure,

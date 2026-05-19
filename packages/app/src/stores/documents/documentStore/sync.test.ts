@@ -493,6 +493,25 @@ async function createDocumentRuntimePatch(input: {
         const blob = blobs.get(blobId);
         return blob ? { blobId, ...blob } : null;
       },
+      getBlobBytes: async (blobId) => {
+        const blob = blobs.get(blobId);
+        if (!blob) {
+          return null;
+        }
+
+        const encryptedBytes = new TextEncoder().encode(blob.encryptedBytes);
+        return {
+          blobId,
+          byteLength: encryptedBytes.byteLength,
+          encryptedBytes: new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(encryptedBytes);
+              controller.close();
+            },
+          }),
+          sha256: blob.sha256,
+        };
+      },
       getEncapsulationKey: async (userId) =>
         userId === "user-1"
           ? {
@@ -1470,18 +1489,19 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     throw new Error("Expected uploaded attachment and remote document ids.");
   }
   const [blob, writerProjection] = await Promise.all([
-    runtime.apiClient.getBlob(blobId),
+    runtime.apiClient.getBlobBytes(blobId),
     runtime.apiClient.getDocumentWriterProjection?.(documentId),
   ]);
   if (!blob || !writerProjection) {
     throw new Error("Expected uploaded blob and writer projection fixtures.");
   }
+  const encryptedBytes = await new Response(blob.encryptedBytes).text();
   const resolveProjectionUserKey = runtime.createProjectionUserKeyResolver();
   const bindingId = String(
     Reflect.get(attachmentBinds[0]?.request.body ?? {}, "bindingId"),
   );
   const decryptedBytes = await decryptDocumentAttachmentBlob({
-    encryptedBytes: blob.encryptedBytes,
+    encryptedBytes,
     expectedBindingId: bindingId,
     expectedBlobId: blobId,
     execSql: runtime.execSql,
@@ -1495,7 +1515,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
 
   await expect(
     decryptDocumentAttachmentBlob({
-      encryptedBytes: blob.encryptedBytes,
+      encryptedBytes,
       expectedBindingId: "wrong-binding-id",
       expectedBlobId: blobId,
       execSql: runtime.execSql,
@@ -1505,7 +1525,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     }),
   ).rejects.toThrow("missing attachment target");
 
-  const tamperedEncryptedBytes = JSON.parse(blob.encryptedBytes) as {
+  const tamperedEncryptedBytes = JSON.parse(encryptedBytes) as {
     contentKeyBundle: { targets: Record<string, unknown>[] };
   };
   await expect(

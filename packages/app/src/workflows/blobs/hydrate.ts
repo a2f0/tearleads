@@ -1,7 +1,7 @@
+import type { BlobBytesResponse } from "@tearleads/api-client";
 import { bytesToHex } from "@tearleads/crypto";
 import type {
   BlobAttachmentSummary,
-  BlobResponse,
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
@@ -12,7 +12,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { decryptDocumentAttachmentBlob } from "./decrypt";
 
 interface DocumentAttachmentHydrationApi {
-  getBlob(blobId: string): Promise<BlobResponse | null>;
+  getBlobBytes(blobId: string): Promise<BlobBytesResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
@@ -51,17 +51,50 @@ interface DocumentAttachmentHydrationTarget {
 
 interface LoadedDocumentAttachmentBlob
   extends DocumentAttachmentHydrationTarget {
-  blob: BlobResponse;
+  encryptedBytes: string;
 }
 
-const TEXT_ENCODER = new TextEncoder();
+const TEXT_DECODER = new TextDecoder();
 
-async function hasExpectedBlobSha256(blob: BlobResponse): Promise<boolean> {
+function concatenateChunks(
+  chunks: ReadonlyArray<Uint8Array>,
+  byteLength: number,
+): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return bytes;
+}
+
+async function readBlobStreamBytes(
+  blob: BlobBytesResponse,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const reader = blob.encryptedBytes.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    chunks.push(value);
+    byteLength += value.byteLength;
+  }
+
+  return concatenateChunks(chunks, byteLength);
+}
+
+async function hasExpectedBlobSha256(
+  blob: BlobBytesResponse,
+  encryptedBytes: Uint8Array<ArrayBuffer>,
+): Promise<boolean> {
   const blobDigest = new Uint8Array(
-    await crypto.subtle.digest(
-      "SHA-256",
-      TEXT_ENCODER.encode(blob.encryptedBytes),
-    ),
+    await crypto.subtle.digest("SHA-256", encryptedBytes),
   );
 
   return bytesToHex(blobDigest) === blob.sha256;
@@ -81,12 +114,31 @@ async function loadDocumentAttachmentBlob(
 ): Promise<LoadedDocumentAttachmentBlob | null> {
   const { apiClient, binding, log } = input;
   const logPrefix = input.logPrefix ?? "Documents";
-  const blob = await apiClient.getBlob(binding.blobId);
+  const blob = await apiClient.getBlobBytes(binding.blobId);
   if (!blob) {
     return null;
   }
 
-  if (!(await hasExpectedBlobSha256(blob))) {
+  let encryptedBytes: Uint8Array<ArrayBuffer>;
+  try {
+    encryptedBytes = await readBlobStreamBytes(blob);
+  } catch (error) {
+    log?.(
+      `${logPrefix}: blob ${binding.blobId} failed to stream during hydration: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return null;
+  }
+
+  if (encryptedBytes.byteLength !== blob.byteLength) {
+    log?.(
+      `${logPrefix}: blob ${binding.blobId} byte length mismatch during hydration.`,
+    );
+    return null;
+  }
+
+  if (!(await hasExpectedBlobSha256(blob, encryptedBytes))) {
     log?.(
       `${logPrefix}: blob ${binding.blobId} sha256 mismatch during hydration.`,
     );
@@ -96,7 +148,7 @@ async function loadDocumentAttachmentBlob(
   return {
     attachment: input.attachment,
     binding,
-    blob,
+    encryptedBytes: TEXT_DECODER.decode(encryptedBytes),
   };
 }
 
@@ -106,9 +158,8 @@ async function decryptLoadedDocumentAttachmentBlob(
     writerProjection: DocumentWriterProjectionResponse;
   },
 ): Promise<HydratedDocumentAttachmentBlob> {
-  const { blob } = input.loaded;
   const bytes = await decryptDocumentAttachmentBlob({
-    encryptedBytes: blob.encryptedBytes,
+    encryptedBytes: input.loaded.encryptedBytes,
     expectedBindingId: input.loaded.binding.bindingId,
     expectedBlobId: input.loaded.binding.blobId,
     execSql: input.execSql,
