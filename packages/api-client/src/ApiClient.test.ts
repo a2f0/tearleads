@@ -728,6 +728,9 @@ test("streams blob downloads from the bytes route", async () => {
 
       return HttpResponse.text("encrypted-blob-bytes", {
         headers: {
+          "Content-Length": new TextEncoder()
+            .encode("encrypted-blob-bytes")
+            .byteLength.toString(),
           "X-Tearleads-Blob-Id": "blob-1",
           "X-Tearleads-Blob-Sha256": "sha256-1",
         },
@@ -755,6 +758,40 @@ test("streams blob downloads from the bytes route", async () => {
       method: "GET",
     },
   ]);
+});
+
+test("exposes streamed blob download responses", async () => {
+  server.use(
+    http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, () => {
+      const encryptedBytes = new TextEncoder().encode("encrypted-blob-bytes");
+
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encryptedBytes);
+            controller.close();
+          },
+        }),
+        {
+          headers: {
+            "Content-Length": encryptedBytes.byteLength.toString(),
+            "X-Tearleads-Blob-Id": "blob-1",
+            "X-Tearleads-Blob-Sha256": "sha256-1",
+          },
+        },
+      );
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const blob = await client.getBlobBytes("blob-1");
+
+  expect(blob?.blobId).toBe("blob-1");
+  expect(blob?.byteLength).toBe(20);
+  expect(blob?.sha256).toBe("sha256-1");
+  await expect(new Response(blob?.encryptedBytes).text()).resolves.toBe(
+    "encrypted-blob-bytes",
+  );
 });
 
 test("reports malformed blob byte responses", async () => {

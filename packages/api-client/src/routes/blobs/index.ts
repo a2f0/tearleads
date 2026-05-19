@@ -1,4 +1,4 @@
-export { getBlob } from "./get";
+export { type BlobBytesResponse, getBlob, getBlobBytes } from "./get";
 export {
   completeMultipartBlobStage,
   getMultipartBlobStage,

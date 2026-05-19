@@ -34,6 +34,7 @@ export function createMockApiClient(
     }),
     detachBlobAttachment: async () => null,
     getBlob: async () => null,
+    getBlobBytes: async () => null,
     getContainerWriterProjection: async () => null,
     getCurrentPrincipalPolicy: async () => null,
     getDocumentWriterProjection: async () => null,
