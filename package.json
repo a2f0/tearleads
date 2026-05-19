@@ -41,6 +41,7 @@
     "packages/app-web",
     "packages/app-electrobun",
     "packages/bob-and-alice",
+    "packages/client-sdk",
     "packages/crypto",
     "packages/encoding",
     "packages/loro",

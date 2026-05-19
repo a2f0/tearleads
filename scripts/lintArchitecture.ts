@@ -5,7 +5,11 @@ import { cruise } from "dependency-cruiser";
 
 import dependencyCruiserConfig from "../dependency-cruiser.config";
 
-const architectureEntryPoints = ["packages/api/src", "packages/app/src"];
+const architectureEntryPoints = [
+  "packages/api/src",
+  "packages/app/src",
+  "packages/client-sdk/src",
+];
 const appPresentationEntryPoints = [
   "packages/app/src/components",
   "packages/app/src/document-types",
@@ -14,6 +18,7 @@ const appPresentationEntryPoints = [
 const appReactFreeLayerEntryPoints = [
   "packages/app/src/data",
   "packages/app/src/workflows",
+  "packages/client-sdk/src",
 ];
 const appProductionSourceEntryPoints = ["packages/app/src"];
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;

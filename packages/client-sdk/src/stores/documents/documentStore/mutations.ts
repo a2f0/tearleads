@@ -4,13 +4,12 @@ import {
   getTextValue,
 } from "@tearleads/loro";
 import {
-  type CreditCardDocumentFields,
-  type DriverLicenseDocumentFields,
   projectStoredDocumentState,
   type StoredDocumentKind,
   writeStoredDocumentFields,
 } from "../../../data/documents/documentKinds";
 import { requestDocumentStoreSync } from "../registry";
+import type { DocumentStructuredFieldPatch } from "../types";
 import { enqueuePendingUpdate, persistDocument } from "./persistence";
 import { type DocumentStoreState, setDocumentSnapshot } from "./state";
 
@@ -65,7 +64,7 @@ export function setDocumentText(state: DocumentStoreState, value: string) {
 export function setDocumentStructuredFields(
   state: DocumentStoreState,
   kind: Exclude<StoredDocumentKind, "note">,
-  patch: Partial<DriverLicenseDocumentFields & CreditCardDocumentFields>,
+  patch: DocumentStructuredFieldPatch,
 ) {
   if (!state.doc) {
     return;

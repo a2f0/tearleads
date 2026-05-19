@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@tearleads/api-client": "workspace:*",
+    "@tearleads/client-sdk": "workspace:*",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/loro": "workspace:*",

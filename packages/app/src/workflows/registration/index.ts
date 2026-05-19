@@ -1,6 +1,1 @@
-export { bootstrapRootContainer } from "./bootstrapRootContainer";
-export { persistRegistrationBootstrap } from "./persistRegistrationBootstrap";
-export {
-  createInitialRootMetadataBootstrap,
-  type InitialRootMetadataBootstrap,
-} from "./rootMetadataBootstrap";
+export * from "@tearleads/client-sdk/workflows/registration/index";

@@ -1,0 +1,36 @@
+{
+  "name": "@tearleads/client-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./data/*": "./src/data/*.ts",
+    "./stores/documents": "./src/stores/documents/index.ts",
+    "./stores/documents/documentStore": "./src/stores/documents/documentStore.ts",
+    "./stores/documents/types": "./src/stores/documents/types.ts",
+    "./workflows/*": "./src/workflows/*.ts",
+    "./workflows/blobs": "./src/workflows/blobs/index.ts",
+    "./workflows/contacts": "./src/workflows/contacts/index.ts",
+    "./workflows/containers": "./src/workflows/containers/index.ts",
+    "./workflows/documents": "./src/workflows/documents/index.ts",
+    "./workflows/explorer": "./src/workflows/explorer/index.ts",
+    "./workflows/org-manager": "./src/workflows/org-manager/index.ts",
+    "./workflows/principals": "./src/workflows/principals/index.ts",
+    "./workflows/registration": "./src/workflows/registration/index.ts"
+  },
+  "scripts": {
+    "test": "bun test src --max-concurrency=4 --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@tearleads/api-client": "workspace:*",
+    "@tearleads/crypto": "workspace:*",
+    "@tearleads/encoding": "workspace:*",
+    "@tearleads/loro": "workspace:*",
+    "@tearleads/validators": "workspace:*",
+    "drizzle-orm": "0.45.1"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

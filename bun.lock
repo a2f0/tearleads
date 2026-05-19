@@ -59,6 +59,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
+        "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
         "@tearleads/encoding": "workspace:*",
         "@tearleads/loro": "workspace:*",
@@ -115,6 +116,21 @@
       "version": "0.1.0",
       "dependencies": {
         "@tearleads/crypto": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/client-sdk": {
+      "name": "@tearleads/client-sdk",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tearleads/api-client": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/loro": "workspace:*",
+        "@tearleads/validators": "workspace:*",
+        "drizzle-orm": "0.45.1",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -557,6 +573,8 @@
     "@tearleads/api-client": ["@tearleads/api-client@workspace:packages/api-client"],
 
     "@tearleads/bob-and-alice": ["@tearleads/bob-and-alice@workspace:packages/bob-and-alice"],
+
+    "@tearleads/client-sdk": ["@tearleads/client-sdk@workspace:packages/client-sdk"],
 
     "@tearleads/crypto": ["@tearleads/crypto@workspace:packages/crypto"],
 
