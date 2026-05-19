@@ -4,4 +4,5 @@ export {
   type BindBlobAttachmentInput,
   BlobMutationError,
   type DetachBlobAttachmentInput,
+  type PrevalidatedMultipartBlobStage,
 } from "./mutations/types";

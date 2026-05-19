@@ -1,6 +1,7 @@
 import type { BlobResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { blobs } from "../../schema";
+import { readExternalBlobBytesRef } from "../../utils/blobStageRecords";
 import {
   KeyingReadAccessError,
   resolveReadableBlobAccess,
@@ -52,9 +53,17 @@ export async function getBlob(
     throw new GetBlobError("Blob not found", 404);
   }
 
+  const externalRef = readExternalBlobBytesRef(row.encryptedBytes);
+  const encryptedBytes = externalRef
+    ? await runtime.blobObjectStore.getObject(externalRef.storageKey)
+    : row.encryptedBytes;
+  if (encryptedBytes === null) {
+    throw new GetBlobError("Blob bytes not found", 409);
+  }
+
   return {
     blobId: row.blobId,
-    encryptedBytes: row.encryptedBytes,
+    encryptedBytes,
     sha256: row.sha256,
   };
 }

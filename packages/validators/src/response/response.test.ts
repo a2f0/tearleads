@@ -4,6 +4,7 @@ import {
   isBlobAttachmentDetachResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
+  isCompleteMultipartBlobStageResponse,
   isContainerDeleteResponse,
   isContainerWriterProjectionResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
@@ -12,9 +13,11 @@ import {
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
   isHealthResponse,
+  isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
   isListOrganizationGroupsResponse,
+  isMultipartBlobStageStatusResponse,
   isOrganizationContainerGrantsResponse,
   isOrganizationDataUsageResponse,
   isOrganizationDirectoryResponse,
@@ -25,6 +28,7 @@ import {
   isPrincipalStateResponse,
   isRegistrationResponse,
   isStageBlobResponse,
+  isUploadMultipartBlobPartResponse,
   isVerifyResponse,
 } from "./index";
 
@@ -101,6 +105,50 @@ test("isStageBlobResponse", () => {
   ).toBe(true);
   expect(isStageBlobResponse({ stageId: "stage_01" })).toBe(false);
   expect(isStageBlobResponse(null)).toBe(false);
+});
+
+test("multipart blob stage responses", () => {
+  const initiated = {
+    byteLength: 12,
+    expiresAt: new Date().toISOString(),
+    sha256: "sha256-1",
+    stageId: "stage-1",
+    uploadId: "upload-1",
+    uploadedParts: [{ byteLength: 6, etag: "etag-1", partNumber: 1 }],
+  };
+
+  expect(isInitiateMultipartBlobStageResponse(initiated)).toBe(true);
+  expect(
+    isMultipartBlobStageStatusResponse({
+      ...initiated,
+      completed: false,
+    }),
+  ).toBe(true);
+  expect(
+    isUploadMultipartBlobPartResponse({
+      part: { byteLength: 6, etag: "etag-1", partNumber: 1 },
+      stageId: "stage-1",
+      uploadId: "upload-1",
+    }),
+  ).toBe(true);
+  expect(
+    isCompleteMultipartBlobStageResponse({
+      byteLength: 12,
+      expiresAt: new Date().toISOString(),
+      sha256: "sha256-1",
+      stageId: "stage-1",
+    }),
+  ).toBe(true);
+
+  expect(
+    isInitiateMultipartBlobStageResponse({
+      ...initiated,
+      uploadedParts: [{ byteLength: 0, etag: "etag-1", partNumber: 1 }],
+    }),
+  ).toBe(false);
+  expect(isMultipartBlobStageStatusResponse(initiated)).toBe(false);
+  expect(isUploadMultipartBlobPartResponse(null)).toBe(false);
+  expect(isCompleteMultipartBlobStageResponse(null)).toBe(false);
 });
 
 function createBlobContentKeyBundleResponse(overrides = {}) {

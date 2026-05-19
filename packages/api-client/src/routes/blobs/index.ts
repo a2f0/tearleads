@@ -1,3 +1,9 @@
 export { getBlob } from "./get";
+export {
+  completeMultipartBlobStage,
+  getMultipartBlobStage,
+  initiateMultipartBlobStage,
+  uploadMultipartBlobPart,
+} from "./multipartStage";
 export { bindBlobAttachment, detachBlobAttachment } from "./mutations";
 export { stageBlob } from "./stage";

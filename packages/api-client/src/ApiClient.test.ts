@@ -627,6 +627,99 @@ test("posts signed document create and sync mutations to the route namespace", a
   ]);
 });
 
+test("uses blob multipart stage route namespace", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.all(`${apiBaseUrl}/*`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+
+      if (request.method === "GET") {
+        return HttpResponse.json({
+          byteLength: 12,
+          completed: false,
+          expiresAt: "2026-05-18T12:00:00.000Z",
+          sha256: "sha256-1",
+          stageId: "stage-1",
+          uploadId: "upload-1",
+          uploadedParts: [{ byteLength: 6, etag: "etag-1", partNumber: 1 }],
+        });
+      }
+      if (request.method === "PUT") {
+        return HttpResponse.json({
+          part: { byteLength: 6, etag: "etag-1", partNumber: 1 },
+          stageId: "stage-1",
+          uploadId: "upload-1",
+        });
+      }
+      if (request.url.endsWith("/complete")) {
+        return HttpResponse.json({
+          byteLength: 12,
+          expiresAt: "2026-05-18T12:00:00.000Z",
+          sha256: "sha256-1",
+          stageId: "stage-1",
+        });
+      }
+
+      return HttpResponse.json({
+        byteLength: 12,
+        expiresAt: "2026-05-18T12:00:00.000Z",
+        sha256: "sha256-1",
+        stageId: "stage-1",
+        uploadId: "upload-1",
+        uploadedParts: [],
+      });
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const initiateRequest = { byteLength: 12, sha256: "sha256-1" };
+  const partRequest = { encryptedBytes: "part-1", uploadId: "upload-1" };
+  const completeRequest = {
+    parts: [{ etag: "etag-1", partNumber: 1 }],
+    uploadId: "upload-1",
+  };
+
+  expect(
+    await client.initiateMultipartBlobStage(initiateRequest),
+  ).not.toBeNull();
+  expect(await client.getMultipartBlobStage("stage-1")).not.toBeNull();
+  expect(
+    await client.uploadMultipartBlobPart("stage-1", 1, partRequest),
+  ).not.toBeNull();
+  expect(
+    await client.completeMultipartBlobStage("stage-1", completeRequest),
+  ).not.toBeNull();
+
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: JSON.stringify(initiateRequest),
+      input: `${apiBaseUrl}/blobs/stages/multipart`,
+      method: "POST",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1`,
+      method: "GET",
+    },
+    {
+      body: JSON.stringify(partRequest),
+      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1/parts/1`,
+      method: "PUT",
+    },
+    {
+      body: JSON.stringify(completeRequest),
+      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1/complete`,
+      method: "POST",
+    },
+  ]);
+});
+
 test("uses organization manager and principal policy route namespaces", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(

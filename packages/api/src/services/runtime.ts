@@ -1,3 +1,7 @@
+import {
+  type BlobObjectStore,
+  createMemoryBlobObjectStore,
+} from "../adapters/blobObjectStore";
 import { db } from "../adapters/postgres";
 import { del, get, getdel, set } from "../adapters/redis";
 import { publish } from "../adapters/redisPubSub";
@@ -20,6 +24,7 @@ export interface SessionTokenIssuer {
 }
 
 export interface ApiServiceRuntime {
+  blobObjectStore: BlobObjectStore;
   db: typeof db;
   eventPublisher: EventPublisher;
   keyValueStore: KeyValueStore;
@@ -27,6 +32,7 @@ export interface ApiServiceRuntime {
 }
 
 export const defaultApiServiceRuntime: ApiServiceRuntime = {
+  blobObjectStore: createMemoryBlobObjectStore(),
   db,
   eventPublisher: { publish },
   keyValueStore: { del, get, getdel, set },

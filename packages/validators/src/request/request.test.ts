@@ -8,15 +8,18 @@ import {
   isBlobAttachmentBindRequest,
   isBlobAttachmentDetachRequest,
   isChallengeRequest,
+  isCompleteMultipartBlobStageRequest,
   isCreateOrganizationGroupRequest,
   isDocumentContentKeyBundleRequest,
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
   isDocumentSyncRequest,
+  isInitiateMultipartBlobStageRequest,
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
   isRegistrationRequest,
   isStageBlobRequest,
+  isUploadMultipartBlobPartRequest,
   isVerifyRequest,
 } from "./index";
 
@@ -222,6 +225,60 @@ test("isStageBlobRequest", () => {
     }),
   ).toBe(false);
   expect(isStageBlobRequest(null)).toBe(false);
+});
+
+test("isInitiateMultipartBlobStageRequest", () => {
+  expect(
+    isInitiateMultipartBlobStageRequest({
+      byteLength: 6,
+      sha256: "sha256-1",
+    }),
+  ).toBe(true);
+  expect(
+    isInitiateMultipartBlobStageRequest({
+      byteLength: 0,
+      sha256: "sha256-1",
+    }),
+  ).toBe(false);
+  expect(isInitiateMultipartBlobStageRequest(null)).toBe(false);
+});
+
+test("isUploadMultipartBlobPartRequest", () => {
+  expect(
+    isUploadMultipartBlobPartRequest({
+      encryptedBytes: "part-1",
+      uploadId: "upload-1",
+    }),
+  ).toBe(true);
+  expect(
+    isUploadMultipartBlobPartRequest({
+      encryptedBytes: "",
+      uploadId: "upload-1",
+    }),
+  ).toBe(false);
+  expect(isUploadMultipartBlobPartRequest(null)).toBe(false);
+});
+
+test("isCompleteMultipartBlobStageRequest", () => {
+  expect(
+    isCompleteMultipartBlobStageRequest({
+      uploadId: "upload-1",
+      parts: [{ partNumber: 1, etag: "etag-1" }],
+    }),
+  ).toBe(true);
+  expect(
+    isCompleteMultipartBlobStageRequest({
+      uploadId: "upload-1",
+      parts: [],
+    }),
+  ).toBe(false);
+  expect(
+    isCompleteMultipartBlobStageRequest({
+      uploadId: "upload-1",
+      parts: [{ partNumber: 0, etag: "etag-1" }],
+    }),
+  ).toBe(false);
+  expect(isCompleteMultipartBlobStageRequest(null)).toBe(false);
 });
 
 test("isPutPrincipalStateRequest", () => {

@@ -19,6 +19,26 @@ export interface StageBlobRequest {
   sha256: string;
 }
 
+export interface InitiateMultipartBlobStageRequest {
+  byteLength: number;
+  sha256: string;
+}
+
+export interface UploadMultipartBlobPartRequest {
+  encryptedBytes: string;
+  uploadId: string;
+}
+
+export interface MultipartBlobPartCommitRequest {
+  etag: string;
+  partNumber: number;
+}
+
+export interface CompleteMultipartBlobStageRequest {
+  parts: MultipartBlobPartCommitRequest[];
+  uploadId: string;
+}
+
 export interface BlobManifestBundleRequest extends AccessManifestBundleWire {}
 
 export interface BlobContentKeyTargetEnvelopeRequest {
@@ -70,6 +90,55 @@ export function isStageBlobRequest(value: unknown): value is StageBlobRequest {
     value.byteLength > 0 &&
     hasStringProperty(value, "sha256") &&
     value.sha256.length > 0
+  );
+}
+
+export function isInitiateMultipartBlobStageRequest(
+  value: unknown,
+): value is InitiateMultipartBlobStageRequest {
+  return (
+    isPlainObject(value) &&
+    hasNumberProperty(value, "byteLength") &&
+    Number.isInteger(value.byteLength) &&
+    value.byteLength > 0 &&
+    hasStringProperty(value, "sha256") &&
+    value.sha256.length > 0
+  );
+}
+
+export function isUploadMultipartBlobPartRequest(
+  value: unknown,
+): value is UploadMultipartBlobPartRequest {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "encryptedBytes") &&
+    value.encryptedBytes.length > 0 &&
+    hasStringProperty(value, "uploadId") &&
+    value.uploadId.length > 0
+  );
+}
+
+function isMultipartBlobPartCommitRequest(
+  value: unknown,
+): value is MultipartBlobPartCommitRequest {
+  return (
+    isPlainObject(value) &&
+    hasPositiveIntegerProperty(value, "partNumber") &&
+    hasStringProperty(value, "etag") &&
+    value.etag.length > 0
+  );
+}
+
+export function isCompleteMultipartBlobStageRequest(
+  value: unknown,
+): value is CompleteMultipartBlobStageRequest {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "uploadId") &&
+    value.uploadId.length > 0 &&
+    hasArrayProperty(value, "parts") &&
+    value.parts.length > 0 &&
+    value.parts.every(isMultipartBlobPartCommitRequest)
   );
 }
 

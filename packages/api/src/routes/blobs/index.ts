@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createGetBlobRoute } from "./getBlob";
+import { createMultipartBlobStageRoute } from "./multipartStage";
 import { createBlobMutationsRoute } from "./mutations";
 import { createStageBlobRoute } from "./stageBlob";
 
@@ -16,6 +17,7 @@ export function createBlobsRouter({ requireAuth, runtime }: BlobsRouterDeps) {
   const routeDeps = { requireAuth, runtime };
 
   blobsRouter.route("/", createStageBlobRoute(routeDeps));
+  blobsRouter.route("/", createMultipartBlobStageRoute(routeDeps));
   blobsRouter.route("/", createBlobMutationsRoute(routeDeps));
   blobsRouter.route("/", createGetBlobRoute(routeDeps));
 

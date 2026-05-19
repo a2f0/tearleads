@@ -9,6 +9,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
+import { createMemoryBlobObjectStore } from "../../src/adapters/blobObjectStore";
 import { db as defaultDb } from "../../src/adapters/postgres";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
 import {
@@ -23,6 +24,7 @@ export function createServiceTestRuntime(
   const values = new Map<string, string>();
 
   return {
+    blobObjectStore: createMemoryBlobObjectStore(),
     db,
     eventPublisher: {
       publish: async () => {},

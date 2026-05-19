@@ -1,14 +1,17 @@
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
+  CompleteMultipartBlobStageRequest,
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
+  InitiateMultipartBlobStageRequest,
   PutPrincipalMemberEnvelopesRequest,
   PutPrincipalStateRequest,
   StageBlobRequest,
+  UploadMultipartBlobPartRequest,
 } from "@tearleads/validators/request";
 import {
   type ContainerDeleteResponse,
@@ -23,9 +26,13 @@ import {
 } from "./routes/auth";
 import {
   bindBlobAttachment,
+  completeMultipartBlobStage,
   detachBlobAttachment,
   getBlob,
+  getMultipartBlobStage,
+  initiateMultipartBlobStage,
   stageBlob,
+  uploadMultipartBlobPart,
 } from "./routes/blobs";
 import {
   createContainer,
@@ -482,6 +489,29 @@ export class ApiClient {
 
   stageBlob(input: StageBlobRequest) {
     return stageBlob(this.request, input);
+  }
+
+  initiateMultipartBlobStage(input: InitiateMultipartBlobStageRequest) {
+    return initiateMultipartBlobStage(this.request, input);
+  }
+
+  getMultipartBlobStage(stageId: string) {
+    return getMultipartBlobStage(this.request, stageId);
+  }
+
+  uploadMultipartBlobPart(
+    stageId: string,
+    partNumber: number,
+    input: UploadMultipartBlobPartRequest,
+  ) {
+    return uploadMultipartBlobPart(this.request, stageId, partNumber, input);
+  }
+
+  completeMultipartBlobStage(
+    stageId: string,
+    input: CompleteMultipartBlobStageRequest,
+  ) {
+    return completeMultipartBlobStage(this.request, stageId, input);
   }
 
   getBlob(blobId: string) {

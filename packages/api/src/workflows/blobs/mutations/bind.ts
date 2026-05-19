@@ -35,7 +35,11 @@ import {
   toStoredContentKeyBundleInput,
   verifiedBlobKekTargetsFromResolved,
 } from "./records";
-import { type BindBlobAttachmentInput, BlobMutationError } from "./types";
+import {
+  type BindBlobAttachmentInput,
+  BlobMutationError,
+  type PrevalidatedMultipartBlobStage,
+} from "./types";
 
 async function verifyAndStoreStagedBlobWriteHeader(input: {
   readonly blobId: string;
@@ -109,7 +113,9 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
 }
 
 async function bindBlobAttachmentTransaction(
-  input: BindBlobAttachmentInput,
+  input: BindBlobAttachmentInput & {
+    readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
+  },
   tx: DatabaseTransaction,
 ): Promise<BlobAttachmentBindResponse> {
   const { bindBody, event } = readBindRequestSession(input);
@@ -152,6 +158,7 @@ async function bindBlobAttachmentTransaction(
   const stagedBlob = await promoteStagedBlobIfPresent({
     blobId: input.blobId,
     executor: tx,
+    prevalidatedMultipartStage: input.prevalidatedMultipartStage,
     request: input.request,
     userId: input.userId,
   });
@@ -196,11 +203,19 @@ async function bindBlobAttachmentTransaction(
 
 export async function runBindBlobAttachmentWorkflow(
   db: ApiDatabase,
-  input: BindBlobAttachmentInput,
+  input: BindBlobAttachmentInput & {
+    readonly prevalidatedMultipartStage?: PrevalidatedMultipartBlobStage | null;
+  },
 ): Promise<BlobAttachmentBindResponse> {
   try {
     return await db.transaction((tx) =>
-      bindBlobAttachmentTransaction(input, tx),
+      bindBlobAttachmentTransaction(
+        {
+          ...input,
+          prevalidatedMultipartStage: input.prevalidatedMultipartStage ?? null,
+        },
+        tx,
+      ),
     );
   } catch (error) {
     const mutationError = toMutationError(error);

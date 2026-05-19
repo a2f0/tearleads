@@ -22,6 +22,13 @@ export interface BindBlobAttachmentInput {
   readonly userId: string;
 }
 
+export interface PrevalidatedMultipartBlobStage {
+  readonly byteLength: number;
+  readonly sha256: string;
+  readonly stageId: string;
+  readonly storageKey: string;
+}
+
 export interface DetachBlobAttachmentInput {
   readonly bindingId: string;
   readonly blobId: string;

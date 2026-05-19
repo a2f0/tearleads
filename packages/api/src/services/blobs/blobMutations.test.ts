@@ -50,6 +50,7 @@ import { verifyDocumentAuditHistory } from "../../documents/verifyDocumentAuditH
 import {
   attachmentBindings,
   blobAuditObjects,
+  blobs,
   containers,
   documentAttachmentAuditEvents,
   documentAuditEntries,
@@ -58,11 +59,18 @@ import {
   organizations,
   users,
 } from "../../schema";
+import { readExternalBlobBytesRef } from "../../utils/blobStageRecords";
 import {
   BlobMutationError,
   bindBlobAttachment,
   detachBlobAttachment,
 } from "./blobMutations";
+import { getBlob } from "./getBlob";
+import {
+  completeMultipartBlobStage,
+  initiateMultipartBlobStage,
+  uploadMultipartBlobPart,
+} from "./multipartStage";
 import { stageBlob } from "./stageBlob";
 
 interface RootContainerFixture {
@@ -336,6 +344,45 @@ async function stageEncryptedBlob(input: {
     encryptedBytes: input.encryptedBytes,
     byteLength,
     sha256,
+    userId: input.owner.userId,
+  });
+
+  return { ...staged, sha256 };
+}
+
+async function stageMultipartEncryptedBlob(input: {
+  readonly encryptedBytes: string;
+  readonly owner: TestUser;
+}) {
+  const byteLength = new TextEncoder().encode(input.encryptedBytes).byteLength;
+  const sha256 = await sha256Hex(input.encryptedBytes);
+  const staged = await initiateMultipartBlobStage(runtime, {
+    byteLength,
+    sha256,
+    userId: input.owner.userId,
+  });
+  const midpoint = Math.ceil(input.encryptedBytes.length / 2);
+  const firstPart = await uploadMultipartBlobPart(runtime, {
+    encryptedBytes: input.encryptedBytes.slice(0, midpoint),
+    partNumber: 1,
+    stageId: staged.stageId,
+    uploadId: staged.uploadId,
+    userId: input.owner.userId,
+  });
+  const secondPart = await uploadMultipartBlobPart(runtime, {
+    encryptedBytes: input.encryptedBytes.slice(midpoint),
+    partNumber: 2,
+    stageId: staged.stageId,
+    uploadId: staged.uploadId,
+    userId: input.owner.userId,
+  });
+  await completeMultipartBlobStage(runtime, {
+    parts: [
+      { etag: firstPart.part.etag, partNumber: 1 },
+      { etag: secondPart.part.etag, partNumber: 2 },
+    ],
+    stageId: staged.stageId,
+    uploadId: staged.uploadId,
     userId: input.owner.userId,
   });
 
@@ -844,6 +891,59 @@ test("bindBlobAttachment applies optional container rekeys before target validat
   expect(currentRootEpoch?.id).toBe(
     rekey.container.kekState.containerKeyEpochId,
   );
+});
+
+test("bindBlobAttachment promotes multipart blob stages without storing payload bytes", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const container = await bootstrapRoot(owner);
+  const document = await createDocumentFixture({ container, owner });
+  const blobId = crypto.randomUUID();
+  const encryptedBytes = "multipart-bind-encrypted-bytes";
+  const multipartStage = await stageMultipartEncryptedBlob({
+    encryptedBytes,
+    owner,
+  });
+  const bind = await buildBindRequest({
+    blobId,
+    container,
+    document,
+    expectedBindingId: null,
+    owner,
+    slotId: "preview",
+    stagedBlob: multipartStage,
+  });
+
+  await bindBlobAttachment(runtime, {
+    blobId,
+    fingerprint: owner.fingerprint,
+    request: bind.request,
+    userId: owner.userId,
+  });
+
+  const [storedBlob] = await db
+    .select({
+      encryptedBytes: blobs.encryptedBytes,
+      storageKey: blobs.storageKey,
+    })
+    .from(blobs)
+    .where(eq(blobs.id, blobId))
+    .limit(1);
+  expect(storedBlob?.encryptedBytes).not.toBe(encryptedBytes);
+  expect(
+    readExternalBlobBytesRef(storedBlob?.encryptedBytes ?? "")?.storageKey,
+  ).toBe(storedBlob?.storageKey);
+
+  await expect(
+    getBlob(runtime, {
+      blobId,
+      userId: owner.userId,
+    }),
+  ).resolves.toMatchObject({
+    blobId,
+    encryptedBytes,
+    sha256: multipartStage.sha256,
+  });
 });
 
 test("bindBlobAttachment rolls back optional rekeys when blob write validation fails", async () => {
