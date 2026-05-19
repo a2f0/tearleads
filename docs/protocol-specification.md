@@ -1,6 +1,6 @@
 # Protocol Specification
 
-This document specifies the protocol boundary between `packages/app`,
+This document specifies the protocol boundary between `@tearleads/client-sdk`,
 `packages/api`, and the shared `@tearleads/*` packages. It describes the
 messages, proofs, encrypted payload boundaries, and validation rules used for
 identity, access, document sync, blob staging, attachment binding, and
@@ -12,7 +12,7 @@ The executable source of truth is:
 - response validators in `packages/validators/src/response`
 - protocol verifiers in `packages/crypto/src/keying.ts`
 - API workflows in `packages/api/src/workflows`
-- app request builders and response checks in `packages/app/src/workflows`
+- client request builders and response checks in `packages/client-sdk/src/workflows`
 
 Related background documents:
 

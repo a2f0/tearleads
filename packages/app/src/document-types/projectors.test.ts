@@ -17,7 +17,7 @@ import {
   APP_DOCUMENT_PROJECTOR_REGISTRY,
   readCreditCardFieldsFromRecord,
   readDriverLicenseFieldsFromRecord,
-} from "../../document-types/projectors";
+} from "./projectors";
 
 function initializeStoredDocumentKind(
   doc: StructuredDocumentShape,

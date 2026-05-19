@@ -69,6 +69,7 @@
         "**/*.test.ts",
         "**/*.test.tsx",
         "packages/api/test/**/*.ts",
+        "packages/client-sdk/test/helpers/**/*.ts",
         "packages/app/test/helpers/**/*.ts",
         "packages/app/test/helpers/**/*.tsx"
       ],
