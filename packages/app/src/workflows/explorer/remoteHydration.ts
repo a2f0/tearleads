@@ -10,7 +10,7 @@ import type {
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
-} from "../../data/containers";
+} from "../../data/containers/containerMetadataDocument";
 import {
   type ContainerRecord,
   createExplorerContainerParentSyncLane,

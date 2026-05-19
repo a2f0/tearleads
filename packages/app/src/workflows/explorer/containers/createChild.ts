@@ -1,5 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createInitializedContainerMetadataDocument } from "../../../data/containers";
+import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { DocumentRecord } from "../../../data/sqlite/documentPersistence";
 import {

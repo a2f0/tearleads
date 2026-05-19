@@ -2,7 +2,7 @@ import type {
   EncapsulationKeyResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import type { createInitializedContainerMetadataDocument } from "../../../data/containers";
+import type { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { DocumentRecord } from "../../../data/sqlite/documentPersistence";
 import type {

@@ -129,11 +129,13 @@ const apiRules = [
     },
   },
   {
-    name: "access-read-internal-does-not-depend-on-write",
+    name: "access-read-does-not-depend-on-write",
     severity: "error",
-    comment: "Read internals must not depend on write APIs or write internals.",
+    comment:
+      "Read APIs and read internals must not depend on write APIs or write internals.",
     from: {
-      path: "^packages/api/src/access/read/internal/",
+      path: "^packages/api/src/access/read/",
+      pathNot: testFilesPattern,
     },
     to: {
       path: "^packages/api/src/access/write/",
@@ -204,6 +206,19 @@ const apiRules = [
     },
   },
   {
+    name: "services-do-not-depend-on-routes",
+    severity: "error",
+    comment:
+      "Services are route-facing facades below routes, so they must not depend back on route modules.",
+    from: {
+      path: "^packages/api/src/services/",
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: "^packages/api/src/routes/",
+    },
+  },
+  {
     name: "workflows-do-not-depend-on-routes-or-services",
     severity: "error",
     comment:
@@ -213,6 +228,22 @@ const apiRules = [
     },
     to: {
       path: "^packages/api/src/(routes|services)/",
+    },
+  },
+  {
+    name: "api-support-code-does-not-compose-access-directly",
+    severity: "error",
+    comment:
+      "Production API support modules outside routes, services, workflows, and access must not compose access APIs directly; move orchestration into workflows.",
+    from: {
+      path: "^packages/api/src/",
+      pathNot: [
+        "^packages/api/src/(access|routes|services|workflows)/",
+        testFilesPattern,
+      ],
+    },
+    to: {
+      path: "^packages/api/src/access/",
     },
   },
 ] satisfies ForbiddenRules;

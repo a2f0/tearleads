@@ -5,7 +5,7 @@ import {
   getDefaultContainerName,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../data/containers";
+} from "../../data/containers/containerMetadataDocument";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
