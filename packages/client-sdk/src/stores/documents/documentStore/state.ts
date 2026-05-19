@@ -299,7 +299,10 @@ export function setReadySnapshot(
   textOverride?: string,
 ) {
   const attachments = getSnapshotAttachments(state, currentDoc);
-  const documentState = readStoredDocumentState(currentDoc);
+  const documentState = readStoredDocumentState(
+    currentDoc,
+    state.runtime.documentProjectors,
+  );
   const text = textOverride ?? documentState.text;
 
   setDocumentSnapshot(state, {
@@ -316,11 +319,14 @@ export function setReadySnapshot(
     title:
       textOverride === undefined
         ? documentState.title
-        : projectStoredDocumentState({
-            documentKind: documentState.documentKind,
-            structuredFields: documentState.structuredFields,
-            text,
-          }).title,
+        : projectStoredDocumentState(
+            {
+              documentKind: documentState.documentKind,
+              structuredFields: documentState.structuredFields,
+              text,
+            },
+            state.runtime.documentProjectors,
+          ).title,
     syncing,
   });
 }

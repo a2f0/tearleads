@@ -66,11 +66,18 @@ async function initializeDocumentStore(
     state.record = existing;
     setReadySnapshot(state, nextDoc, false);
   } else {
-    initializeStoredDocumentKind(nextDoc, state.initialDocumentKind);
+    initializeStoredDocumentKind(
+      nextDoc,
+      state.initialDocumentKind,
+      state.runtime.documentProjectors,
+    );
     if (state.initialText.length > 0) {
       nextDoc.getText("text").update(state.initialText);
     }
-    const initialDocumentState = readStoredDocumentState(nextDoc);
+    const initialDocumentState = readStoredDocumentState(
+      nextDoc,
+      state.runtime.documentProjectors,
+    );
 
     const created: DocumentRecord = {
       id: state.localId,
@@ -209,11 +216,14 @@ export async function relinkDocumentStore(
     documentId: nextRecord.documentId,
     title:
       nextRecord.title ??
-      projectStoredDocumentState({
-        documentKind: nextRecord.documentKind ?? "note",
-        structuredFields: {},
-        text: nextRecord.text,
-      }).title,
+      projectStoredDocumentState(
+        {
+          documentKind: nextRecord.documentKind ?? "note",
+          structuredFields: {},
+          text: nextRecord.text,
+        },
+        state.runtime.documentProjectors,
+      ).title,
     updatedAt,
   };
 }

@@ -1,5 +1,4 @@
 import { useId, useMemo } from "react";
-import type { CreditCardDocumentFields } from "../../data/documents/documentKinds";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
@@ -12,6 +11,7 @@ import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
 import {
   CREDIT_CARD_ATTACHMENT_SLOTS,
+  type CreditCardDocumentFields,
   readCreditCardFields,
 } from "./creditCardDocument";
 

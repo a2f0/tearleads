@@ -29,11 +29,14 @@ export function setDocumentText(state: DocumentStoreState, value: string) {
     ready: state.snapshot.ready,
     structuredFields: state.snapshot.structuredFields,
     text: value,
-    title: projectStoredDocumentState({
-      documentKind: state.snapshot.documentKind,
-      structuredFields: state.snapshot.structuredFields,
-      text: value,
-    }).title,
+    title: projectStoredDocumentState(
+      {
+        documentKind: state.snapshot.documentKind,
+        structuredFields: state.snapshot.structuredFields,
+        text: value,
+      },
+      state.runtime.documentProjectors,
+    ).title,
     syncing: state.snapshot.syncing,
   });
 
@@ -78,11 +81,14 @@ export function setDocumentStructuredFields(
       nextStructuredFields[field] = value;
     }
   }
-  const projectedState = projectStoredDocumentState({
-    documentKind: kind,
-    structuredFields: nextStructuredFields,
-    text: state.snapshot.text,
-  });
+  const projectedState = projectStoredDocumentState(
+    {
+      documentKind: kind,
+      structuredFields: nextStructuredFields,
+      text: state.snapshot.text,
+    },
+    state.runtime.documentProjectors,
+  );
 
   setDocumentSnapshot(state, {
     attachments: state.snapshot.attachments,
@@ -107,7 +113,12 @@ export function setDocumentStructuredFields(
       }
 
       const previousVersion = encodeVersionVector(state.doc);
-      writeStoredDocumentFields(state.doc, kind, patch);
+      writeStoredDocumentFields(
+        state.doc,
+        kind,
+        patch,
+        state.runtime.documentProjectors,
+      );
       const update = exportUpdatesSince(state.doc, previousVersion);
       if (update.byteLength === 0) {
         return;

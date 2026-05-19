@@ -5,6 +5,7 @@ import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "../../../data/documents/documentKinds";
+import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../document-types/registry";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import {
@@ -410,8 +411,10 @@ export function ExplorerDocumentDetail(params: {
           <span>
             {getExplorerDocumentSubtitle({
               containerName: selectedDocumentContainer?.name ?? null,
-              documentTypeLabel:
-                getStoredDocumentTypeLabel(selectedDocumentKind),
+              documentTypeLabel: getStoredDocumentTypeLabel(
+                selectedDocumentKind,
+                APP_DOCUMENT_PROJECTOR_REGISTRY,
+              ),
             })}
           </span>
         </div>

@@ -40,6 +40,7 @@ import type { DocumentSummary } from "../../../data/documentSummary";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/documentsPersistence";
 import { getOrCreateDomainSyncCoordinator } from "../../../data/sync/syncCoordinator";
+import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
 import {
   decryptDocumentAttachmentBlob,
   uploadDocumentAttachment,
@@ -138,12 +139,18 @@ function createUnavailableDocumentsApiClient(
 function createDocumentsTestRuntime(
   input: DocumentsRuntimeInput,
 ): DocumentsTestRuntime {
+  const runtimeInput = {
+    documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
+    ...input,
+  };
+
   return {
-    ...createDocumentsWorkflowRuntime(input),
-    apiClient: input.apiClient,
-    blobStore: input.blobStore,
-    cacheReferencedPrincipalPolicies: input.cacheReferencedPrincipalPolicies,
-    execSql: input.execSql,
+    ...createDocumentsWorkflowRuntime(runtimeInput),
+    apiClient: runtimeInput.apiClient,
+    blobStore: runtimeInput.blobStore,
+    cacheReferencedPrincipalPolicies:
+      runtimeInput.cacheReferencedPrincipalPolicies,
+    execSql: runtimeInput.execSql,
   };
 }
 
@@ -162,6 +169,8 @@ function cloneDocumentsTestRuntime(
         ? overrides.containerId
         : runtime.containerId) ?? null,
     dbStatus: overrides.dbStatus ?? runtime.dbStatus,
+    documentProjectors:
+      overrides.documentProjectors ?? runtime.documentProjectors,
     domainScope: overrides.domainScope ?? runtime.domainScope,
     encapsulationKeyPair: Object.hasOwn(overrides, "encapsulationKeyPair")
       ? overrides.encapsulationKeyPair

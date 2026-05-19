@@ -1,6 +1,10 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { BlobStore } from "../../data/blobContracts";
+import {
+  type DocumentProjectorRegistry,
+  defaultDocumentProjectorRegistry,
+} from "../../data/documents/documentKinds";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createDocumentsWorkflowRuntime,
@@ -29,6 +33,7 @@ export interface ExplorerWorkflowRuntimeInput {
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
   readonly dbStatus: string;
+  readonly documentProjectors?: DocumentProjectorRegistry | undefined;
   readonly domainScope: object;
   readonly encapsulationKeyPair?:
     | {
@@ -67,6 +72,7 @@ export interface ExplorerWorkflowRuntime extends ExplorerWorkflowSqlRuntime {
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
   dbStatus: string;
+  documentProjectors: DocumentProjectorRegistry;
   domainScope: object;
   encapsulationKeyPair: {
     publicKey: Uint8Array;
@@ -152,6 +158,7 @@ function documentsRuntimeInput(
     cacheReferencedPrincipalPolicies: runtime.cacheReferencedPrincipalPolicies,
     containerId,
     dbStatus: runtime.dbStatus,
+    documentProjectors: runtime.documentProjectors,
     domainScope: runtime.domainScope,
     encapsulationKeyPair: runtime.encapsulationKeyPair ?? null,
     events: runtime.events,
@@ -207,6 +214,8 @@ export function createExplorerWorkflowRuntime(
     blobStore: input.blobStore,
     cacheReferencedPrincipalPolicies: input.cacheReferencedPrincipalPolicies,
     dbStatus: input.dbStatus,
+    documentProjectors:
+      input.documentProjectors ?? defaultDocumentProjectorRegistry,
     domainScope: input.domainScope,
     encapsulationKeyPair: input.encapsulationKeyPair ?? null,
     events: input.events,

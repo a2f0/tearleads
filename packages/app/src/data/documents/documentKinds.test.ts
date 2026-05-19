@@ -6,13 +6,54 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import {
+  APP_DOCUMENT_PROJECTOR_REGISTRY,
+  readCreditCardFieldsFromRecord,
+  readDriverLicenseFieldsFromRecord,
+} from "../../document-types/projectors";
+import {
   deriveStoredDocumentTitle,
-  initializeStoredDocumentKind,
-  readCreditCardDocument,
-  readDriverLicenseDocument,
-  readStoredDocumentState,
-  writeStoredDocumentFields,
+  initializeStoredDocumentKind as initializeStoredDocumentKindBase,
+  readStoredDocumentState as readStoredDocumentStateBase,
+  type StoredDocumentKind,
+  type StructuredDocumentShape,
+  writeStoredDocumentFields as writeStoredDocumentFieldsBase,
 } from "./documentKinds";
+
+function initializeStoredDocumentKind(
+  doc: StructuredDocumentShape,
+  kind: StoredDocumentKind,
+): void {
+  initializeStoredDocumentKindBase(doc, kind, APP_DOCUMENT_PROJECTOR_REGISTRY);
+}
+
+function readStoredDocumentState(doc: StructuredDocumentShape) {
+  return readStoredDocumentStateBase(doc, APP_DOCUMENT_PROJECTOR_REGISTRY);
+}
+
+function writeStoredDocumentFields(
+  doc: StructuredDocumentShape,
+  kind: Exclude<StoredDocumentKind, "note">,
+  patch: Readonly<Record<string, string | number | undefined>>,
+): void {
+  writeStoredDocumentFieldsBase(
+    doc,
+    kind,
+    patch,
+    APP_DOCUMENT_PROJECTOR_REGISTRY,
+  );
+}
+
+function readDriverLicenseDocument(doc: StructuredDocumentShape) {
+  return readDriverLicenseFieldsFromRecord(
+    readStoredDocumentState(doc).structuredFields,
+  );
+}
+
+function readCreditCardDocument(doc: StructuredDocumentShape) {
+  return readCreditCardFieldsFromRecord(
+    readStoredDocumentState(doc).structuredFields,
+  );
+}
 
 test("plain note kind is implicit and does not create Loro ops", async () => {
   const doc = await createDocument("plain-note-kind");
