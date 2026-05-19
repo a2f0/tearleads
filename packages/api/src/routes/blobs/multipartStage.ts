@@ -19,11 +19,15 @@ import {
   initiateMultipartBlobStage,
   MultipartBlobStageError,
   uploadMultipartBlobPart,
+  uploadMultipartBlobPartStream,
 } from "../../services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../services/runtime";
 
 const UUID_PATTERN =
   "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
+const BLOB_PART_BYTE_LENGTH_HEADER = "X-Tearleads-Blob-Part-Byte-Length";
+const BLOB_PART_SHA256_HEADER = "X-Tearleads-Blob-Part-Sha256";
+const BLOB_PART_UPLOAD_ID_HEADER = "X-Tearleads-Blob-Upload-Id";
 
 interface MultipartBlobStageRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -32,6 +36,11 @@ interface MultipartBlobStageRouteDeps {
 
 interface JsonValidationContext {
   json: (body: { readonly error: string }, status: 400) => Response;
+}
+
+interface MultipartBlobPartParams {
+  readonly partNumber: number;
+  readonly stageId: string;
 }
 
 function isUuidString(value: string): boolean {
@@ -51,6 +60,40 @@ function createRequestValidator<T>(isRequest: (value: unknown) => value is T) {
 function parsePositiveInteger(value: string): number | null {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseSafePositiveInteger(value: string | null): number | null {
+  if (value === null || !/^\d+$/u.test(value)) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function isSha256Hex(value: string | null): value is string {
+  return value !== null && /^[0-9a-f]{64}$/u.test(value);
+}
+
+function validatePartRouteParams(
+  value: unknown,
+  c: JsonValidationContext,
+): MultipartBlobPartParams | Response {
+  const { partNumber, stageId } = value as {
+    partNumber?: string;
+    stageId?: string;
+  };
+  const parsedPartNumber =
+    typeof partNumber === "string" ? parsePositiveInteger(partNumber) : null;
+  if (
+    typeof stageId !== "string" ||
+    !isUuidString(stageId) ||
+    parsedPartNumber === null
+  ) {
+    return c.json({ error: "Invalid request" }, 400);
+  }
+
+  return { partNumber: parsedPartNumber, stageId };
 }
 
 function registerInitiateRoute(
@@ -124,30 +167,20 @@ function registerStatusRoute(
 
 function registerPartRoute(
   route: Hono<SessionEnv>,
+  deps: MultipartBlobStageRouteDeps,
+): void {
+  registerJsonPartRoute(route, deps);
+  registerPartBytesRoute(route, deps);
+}
+
+function registerJsonPartRoute(
+  route: Hono<SessionEnv>,
   { requireAuth, runtime }: MultipartBlobStageRouteDeps,
 ): void {
   route.put(
     "/blobs/stages/multipart/:stageId/parts/:partNumber",
     requireAuth,
-    validator("param", (value, c) => {
-      const { partNumber, stageId } = value as {
-        partNumber?: string;
-        stageId?: string;
-      };
-      const parsedPartNumber =
-        typeof partNumber === "string"
-          ? parsePositiveInteger(partNumber)
-          : null;
-      if (
-        typeof stageId !== "string" ||
-        !isUuidString(stageId) ||
-        parsedPartNumber === null
-      ) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-
-      return { partNumber: parsedPartNumber, stageId };
-    }),
+    validator("param", validatePartRouteParams),
     validator("json", createRequestValidator(isUploadMultipartBlobPartRequest)),
     async (c) => {
       const session = c.get("session");
@@ -159,6 +192,56 @@ function registerPartRoute(
             ...c.req.valid("json"),
             partNumber,
             stageId,
+            userId: session.userId,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof MultipartBlobStageError) {
+          return c.json({ error: error.message }, error.status);
+        }
+
+        throw error;
+      }
+    },
+  );
+}
+
+function registerPartBytesRoute(
+  route: Hono<SessionEnv>,
+  { requireAuth, runtime }: MultipartBlobStageRouteDeps,
+): void {
+  route.put(
+    "/blobs/stages/multipart/:stageId/parts/:partNumber/bytes",
+    requireAuth,
+    validator("param", validatePartRouteParams),
+    async (c) => {
+      const byteLength = parseSafePositiveInteger(
+        c.req.header(BLOB_PART_BYTE_LENGTH_HEADER) ?? null,
+      );
+      const sha256 = c.req.header(BLOB_PART_SHA256_HEADER) ?? null;
+      const uploadId = c.req.header(BLOB_PART_UPLOAD_ID_HEADER);
+      const stream = c.req.raw.body;
+      if (
+        byteLength === null ||
+        !isSha256Hex(sha256) ||
+        !uploadId ||
+        stream === null
+      ) {
+        return c.json({ error: "Invalid request" }, 400);
+      }
+
+      const session = c.get("session");
+      const { partNumber, stageId } = c.req.valid("param");
+
+      try {
+        return c.json<UploadMultipartBlobPartResponse>(
+          await uploadMultipartBlobPartStream(runtime, {
+            byteLength,
+            partNumber,
+            sha256,
+            stageId,
+            stream,
+            uploadId,
             userId: session.userId,
           }),
         );

@@ -166,6 +166,29 @@ function partByteLength(encryptedBytes: string): number {
   return TEXT_ENCODER.encode(encryptedBytes).byteLength;
 }
 
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
+async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+  return bytesToHex(
+    new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+  );
+}
+
+function blobPartBytesToStream(
+  bytes: Uint8Array<ArrayBuffer>,
+): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+}
+
 function normalizeMultipartUploadConcurrency(
   value: number | undefined,
 ): number {
@@ -206,14 +229,21 @@ async function uploadMultipartPartTasks(input: {
         return;
       }
 
-      const uploaded = await input.apiClient.uploadMultipartBlobPart(
-        input.stageId,
-        task.partNumber,
-        {
-          encryptedBytes: task.encryptedPart,
-          uploadId: input.uploadId,
-        },
-      );
+      const uploaded = input.apiClient.uploadMultipartBlobPartBytes
+        ? await uploadMultipartPartBytes({
+            apiClient: input.apiClient,
+            stageId: input.stageId,
+            task,
+            uploadId: input.uploadId,
+          })
+        : await input.apiClient.uploadMultipartBlobPart(
+            input.stageId,
+            task.partNumber,
+            {
+              encryptedBytes: task.encryptedPart,
+              uploadId: input.uploadId,
+            },
+          );
       if (!uploaded) {
         failed = true;
         return;
@@ -230,6 +260,36 @@ async function uploadMultipartPartTasks(input: {
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   return !failed;
+}
+
+async function uploadMultipartPartBytes(input: {
+  readonly apiClient: MultipartBlobAttachmentApi;
+  readonly stageId: string;
+  readonly task: MultipartPartUploadTask;
+  readonly uploadId: string;
+}): ReturnType<MultipartBlobAttachmentApi["uploadMultipartBlobPart"]> {
+  if (!input.apiClient.uploadMultipartBlobPartBytes) {
+    return input.apiClient.uploadMultipartBlobPart(
+      input.stageId,
+      input.task.partNumber,
+      {
+        encryptedBytes: input.task.encryptedPart,
+        uploadId: input.uploadId,
+      },
+    );
+  }
+
+  const encryptedPartBytes = TEXT_ENCODER.encode(input.task.encryptedPart);
+  return input.apiClient.uploadMultipartBlobPartBytes(
+    input.stageId,
+    input.task.partNumber,
+    {
+      byteLength: encryptedPartBytes.byteLength,
+      encryptedBytes: blobPartBytesToStream(encryptedPartBytes),
+      sha256: await sha256BytesHex(encryptedPartBytes),
+      uploadId: input.uploadId,
+    },
+  );
 }
 
 async function buildBlobAttachmentMaterial(

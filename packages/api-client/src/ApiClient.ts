@@ -34,6 +34,7 @@ import {
   initiateMultipartBlobStage,
   stageBlob,
   uploadMultipartBlobPart,
+  uploadMultipartBlobPartBytes,
 } from "./routes/blobs";
 import {
   createContainer,
@@ -75,6 +76,7 @@ import {
 import { postRegistration } from "./routes/register";
 import type {
   HttpMethod,
+  RequestBody,
   RequestFailure,
   RequestFailureKind,
   RequestFn,
@@ -178,9 +180,16 @@ export class ApiClient {
     path: string,
     validator: (value: unknown) => value is T,
     method: HttpMethod,
-    body?: string,
+    body?: RequestBody,
+    options?: RequestResultOptions,
   ): Promise<T | null> {
-    const result = await this.makeRequestResult(path, validator, method, body);
+    const result = await this.makeRequestResult(
+      path,
+      validator,
+      method,
+      body,
+      options,
+    );
     return result.ok ? result.data : null;
   }
 
@@ -217,7 +226,7 @@ export class ApiClient {
     path: string,
     validator: (value: unknown) => value is T,
     method: HttpMethod,
-    body?: string,
+    body?: RequestBody,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<T>> {
     const responseResult = await this.makeResponseRequest(
@@ -266,13 +275,22 @@ export class ApiClient {
   private async makeResponseRequest(
     path: string,
     method: HttpMethod,
-    body?: string,
+    body?: RequestBody,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<Response>> {
     const reportErrors = options.reportErrors ?? true;
-    const init: RequestInit = { method, headers: this.buildHeaders() };
+    const init: RequestInit & { duplex?: "half" } = {
+      method,
+      headers: {
+        ...this.buildHeaders(),
+        ...options.headers,
+      },
+    };
     if (body !== undefined) {
       init.body = body;
+      if (body instanceof ReadableStream) {
+        init.duplex = "half";
+      }
     }
 
     let response: Response;
@@ -542,6 +560,19 @@ export class ApiClient {
     input: UploadMultipartBlobPartRequest,
   ) {
     return uploadMultipartBlobPart(this.request, stageId, partNumber, input);
+  }
+
+  uploadMultipartBlobPartBytes(
+    stageId: string,
+    partNumber: number,
+    input: Parameters<typeof uploadMultipartBlobPartBytes>[3],
+  ) {
+    return uploadMultipartBlobPartBytes(
+      this.request,
+      stageId,
+      partNumber,
+      input,
+    );
   }
 
   completeMultipartBlobStage(

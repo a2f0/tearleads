@@ -208,21 +208,30 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
       stageBlob: async () => {
         throw new Error("Expected multipart upload path");
       },
-      uploadMultipartBlobPart: async (_stageId, partNumber, request) => {
+      uploadMultipartBlobPart: async () => {
+        throw new Error("Expected streamed multipart upload path");
+      },
+      uploadMultipartBlobPartBytes: async (_stageId, partNumber, request) => {
         activeUploads += 1;
         maxActiveUploads = Math.max(maxActiveUploads, activeUploads);
 
         try {
           await new Promise((resolve) => setTimeout(resolve, 0));
+          const encryptedBytes = await new Response(
+            request.encryptedBytes,
+          ).text();
+          expect(request.byteLength).toBe(
+            new TextEncoder().encode(encryptedBytes).byteLength,
+          );
+          expect(request.sha256).toMatch(/^[0-9a-f]{64}$/);
           uploadedParts.push({
-            encryptedBytes: request.encryptedBytes,
+            encryptedBytes,
             partNumber,
           });
 
           return {
             part: {
-              byteLength: new TextEncoder().encode(request.encryptedBytes)
-                .byteLength,
+              byteLength: request.byteLength,
               etag: `etag-${partNumber}`,
               partNumber,
             },

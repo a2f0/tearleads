@@ -48,6 +48,15 @@ async function captureHttpCall(request: Request): Promise<CapturedHttpCall> {
   };
 }
 
+function textStream(value: string): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(value));
+      controller.close();
+    },
+  });
+}
+
 function createContainerMutationRequest(): ContainerMutationRequest {
   return {
     event: { eventType: "container.create" },
@@ -674,6 +683,12 @@ test("uses blob multipart stage route namespace", async () => {
   const client = new ApiClient(apiBaseUrl);
   const initiateRequest = { byteLength: 12, sha256: "sha256-1" };
   const partRequest = { encryptedBytes: "part-1", uploadId: "upload-1" };
+  const streamedPartRequest = {
+    byteLength: new TextEncoder().encode("part-2").byteLength,
+    encryptedBytes: textStream("part-2"),
+    sha256: "2bb41b3bc344d2a5c1f31d662d86d78d7e98198b1eef7be3209d4f85da4ef14d",
+    uploadId: "upload-1",
+  };
   const completeRequest = {
     parts: [{ etag: "etag-1", partNumber: 1 }],
     uploadId: "upload-1",
@@ -685,6 +700,13 @@ test("uses blob multipart stage route namespace", async () => {
   expect(await client.getMultipartBlobStage("stage-1")).not.toBeNull();
   expect(
     await client.uploadMultipartBlobPart("stage-1", 1, partRequest),
+  ).not.toBeNull();
+  expect(
+    await client.uploadMultipartBlobPartBytes(
+      "stage-1",
+      2,
+      streamedPartRequest,
+    ),
   ).not.toBeNull();
   expect(
     await client.completeMultipartBlobStage("stage-1", completeRequest),
@@ -713,11 +735,17 @@ test("uses blob multipart stage route namespace", async () => {
       method: "PUT",
     },
     {
+      body: "part-2",
+      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1/parts/2/bytes`,
+      method: "PUT",
+    },
+    {
       body: JSON.stringify(completeRequest),
       input: `${apiBaseUrl}/blobs/stages/multipart/stage-1/complete`,
       method: "POST",
     },
   ]);
+  expect(calls[3]?.contentType).toBe("application/octet-stream");
 });
 
 test("streams blob downloads from the bytes route", async () => {

@@ -23,6 +23,7 @@ interface S3CommandInput {
   readonly ChecksumAlgorithm?: unknown;
   readonly ChecksumSHA256?: unknown;
   readonly ChecksumType?: unknown;
+  readonly ContentLength?: unknown;
   readonly Key?: unknown;
   readonly MultipartUpload?: unknown;
   readonly MpuObjectSize?: unknown;
@@ -33,6 +34,61 @@ interface S3CommandInput {
 
 async function sha256Base64(value: string): Promise<string> {
   return Buffer.from(await sha256Hex(value), "hex").toString("base64");
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    Symbol.asyncIterator in value &&
+    typeof value[Symbol.asyncIterator] === "function"
+  );
+}
+
+async function bodyToString(body: unknown): Promise<string> {
+  if (typeof body === "string") {
+    return body;
+  }
+  if (body instanceof Uint8Array) {
+    return new TextDecoder().decode(body);
+  }
+  if (body instanceof ReadableStream) {
+    return new Response(body).text();
+  }
+  if (isAsyncIterable(body)) {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of body) {
+      if (typeof chunk === "string") {
+        chunks.push(new TextEncoder().encode(chunk));
+      } else if (chunk instanceof Uint8Array) {
+        chunks.push(chunk);
+      } else {
+        throw new Error("Unsupported test S3 body chunk");
+      }
+    }
+
+    const bytes = new Uint8Array(
+      chunks.reduce((byteLength, chunk) => byteLength + chunk.byteLength, 0),
+    );
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    return new TextDecoder().decode(bytes);
+  }
+
+  return String(body);
+}
+
+function textStream(value: string): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(value));
+      controller.close();
+    },
+  });
 }
 
 class FakeS3Client {
@@ -71,9 +127,10 @@ class FakeS3Client {
     if (command instanceof UploadPartCommand) {
       const upload = this.requireUpload(input);
       const partNumber = Number(input.PartNumber);
-      const bytes = String(input.Body);
+      const bytes = await bodyToString(input.Body);
       expect(input.ChecksumAlgorithm).toBe("SHA256");
       expect(input.ChecksumSHA256).toBe(await sha256Base64(bytes));
+      expect(input.ContentLength).toBe(Buffer.byteLength(bytes, "utf8"));
       const etag = `"etag-${partNumber}"`;
       upload.parts.set(partNumber, {
         bytes,
@@ -210,13 +267,13 @@ test("S3 blob object store completes multipart uploads by part number", async ()
     key: "blob-stages/s3-complete",
   });
   const secondPart = await store.uploadPart({
-    bytes: "-second",
+    body: { bytes: "-second" },
     key: "blob-stages/s3-complete",
     partNumber: 2,
     uploadId,
   });
   const firstPart = await store.uploadPart({
-    bytes: "first",
+    body: { bytes: "first" },
     key: "blob-stages/s3-complete",
     partNumber: 1,
     uploadId,
@@ -268,6 +325,39 @@ test("S3 blob object store completes multipart uploads by part number", async ()
   );
 });
 
+test("S3 blob object store uploads streamed multipart parts", async () => {
+  const { client, store } = createFakeS3BlobObjectStore();
+  const key = "blob-stages/s3-streamed-part";
+  const bytes = "streamed-s3-part";
+  const { uploadId } = await store.createMultipartUpload({ key });
+  const part = await store.uploadPart({
+    body: {
+      byteLength: Buffer.byteLength(bytes, "utf8"),
+      sha256: await sha256Hex(bytes),
+      stream: textStream(bytes),
+    },
+    key,
+    partNumber: 1,
+    uploadId,
+  });
+
+  await store.completeMultipartUpload({
+    expected: {
+      byteLength: Buffer.byteLength(bytes, "utf8"),
+      sha256: await sha256Hex(bytes),
+    },
+    key,
+    parts: [{ etag: part.etag, partNumber: 1 }],
+    uploadId,
+  });
+
+  const uploadCommand = client.commands.find(
+    (command) => command instanceof UploadPartCommand,
+  ) as CommandWithInput | undefined;
+  expect(typeof uploadCommand?.input.Body).not.toBe("string");
+  expect(await readBlobObjectText(store, key)).toBe(bytes);
+});
+
 test("S3 blob object store follows list parts pagination", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
   client.listPartsPageSize = 1;
@@ -275,13 +365,13 @@ test("S3 blob object store follows list parts pagination", async () => {
     key: "blob-stages/s3-paginated-list",
   });
   await store.uploadPart({
-    bytes: "first",
+    body: { bytes: "first" },
     key: "blob-stages/s3-paginated-list",
     partNumber: 1,
     uploadId,
   });
   await store.uploadPart({
-    bytes: "second",
+    body: { bytes: "second" },
     key: "blob-stages/s3-paginated-list",
     partNumber: 2,
     uploadId,

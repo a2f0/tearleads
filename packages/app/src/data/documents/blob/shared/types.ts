@@ -71,6 +71,18 @@ export interface BlobAttachmentApi {
     partNumber: number,
     input: UploadMultipartBlobPartRequest,
   ): Promise<UploadMultipartBlobPartResponse | null>;
+  uploadMultipartBlobPartBytes?(
+    stageId: string,
+    partNumber: number,
+    input: UploadMultipartBlobPartBytesRequest,
+  ): Promise<UploadMultipartBlobPartResponse | null>;
+}
+
+export interface UploadMultipartBlobPartBytesRequest {
+  readonly byteLength: number;
+  readonly encryptedBytes: ReadableStream<Uint8Array>;
+  readonly sha256: string;
+  readonly uploadId: string;
 }
 
 export interface BlobContentKeyTarget {

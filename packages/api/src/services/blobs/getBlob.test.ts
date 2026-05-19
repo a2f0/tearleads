@@ -127,7 +127,7 @@ test("getBlobBytes streams external blob objects for readable blobs", async () =
     key: storageKey,
   });
   const part = await objectStore.uploadPart({
-    bytes: encryptedBytes,
+    body: { bytes: encryptedBytes },
     key: storageKey,
     partNumber: 1,
     uploadId,
@@ -185,6 +185,74 @@ test("getBlobBytes streams external blob objects for readable blobs", async () =
     encryptedBytes,
   );
   expect(streamRead).toBe(true);
+});
+
+test("getBlobBytes returns external streams without buffering them", async () => {
+  const { registration, user } = await registerServiceUser();
+  const document = await createReadableDocument({
+    containerId: registration.rootContainerId,
+    createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+    organizationId: registration.organizationId,
+  });
+  const encryptedBytes = "lazy-streamed-service-blob";
+  const storageKey = `blob-stages/${crypto.randomUUID()}`;
+  const sha256 = await sha256Hex(encryptedBytes);
+  const [blob] = await db
+    .insert(blobs)
+    .values({
+      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
+      encryptedBytes: encodeExternalBlobBytesRef({ storageKey }),
+      sha256,
+      storageKey: crypto.randomUUID(),
+    })
+    .returning({ id: blobs.id });
+  if (!blob) {
+    throw new Error("Failed to create lazy streamed service test blob");
+  }
+  await db.insert(attachmentBindings).values({
+    blobId: blob.id,
+    documentId: document.id,
+    slotId: "lazy-streamed-service-slot",
+  });
+  let pulls = 0;
+  const runtime = {
+    ...createServiceTestRuntime(),
+    blobObjectStore: {
+      ...createServiceTestRuntime().blobObjectStore,
+      getObjectStream: async (key: string) => {
+        expect(key).toBe(storageKey);
+
+        return new ReadableStream<Uint8Array>(
+          {
+            pull(controller) {
+              pulls += 1;
+              controller.enqueue(
+                new TextEncoder().encode(
+                  pulls === 1 ? "lazy-streamed-" : "service-blob",
+                ),
+              );
+              if (pulls === 2) {
+                controller.close();
+              }
+            },
+          },
+          { highWaterMark: 0 },
+        );
+      },
+    },
+  };
+
+  const result = await getBlobBytes(runtime, {
+    blobId: blob.id,
+    userId: registration.userId,
+  });
+
+  expect(pulls).toBe(0);
+  const reader = result.encryptedBytes.getReader();
+  const firstChunk = await reader.read();
+  expect(new TextDecoder().decode(firstChunk.value)).toBe("lazy-streamed-");
+  expect(pulls).toBe(1);
+  await reader.cancel();
 });
 
 test("getBlob reports not-found and forbidden cases", async () => {

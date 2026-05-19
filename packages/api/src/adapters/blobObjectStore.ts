@@ -18,6 +18,13 @@ export interface CompletedBlobObject {
 
 export type BlobObjectReadChunk = string | Uint8Array;
 export type BlobObjectReadStream = ReadableStream<Uint8Array>;
+export type BlobObjectUploadPartBody =
+  | { readonly bytes: string }
+  | {
+      readonly byteLength: number;
+      readonly sha256: string;
+      readonly stream: BlobObjectReadStream;
+    };
 
 type BlobObjectStoreErrorCode =
   | "invalid_part"
@@ -56,9 +63,9 @@ export interface BlobObjectStore {
     readonly uploadId: string;
   }): Promise<readonly BlobObjectPart[]>;
   uploadPart(input: {
-    readonly bytes: string;
     readonly key: string;
     readonly partNumber: number;
+    readonly body: BlobObjectUploadPartBody;
     readonly uploadId: string;
   }): Promise<BlobObjectPart>;
 }
@@ -73,6 +80,12 @@ const MAX_S3_PART_NUMBER = 10_000;
 
 function byteLength(value: string): number {
   return Buffer.byteLength(value, "utf8");
+}
+
+function isStringUploadPartBody(
+  body: BlobObjectUploadPartBody,
+): body is { readonly bytes: string } {
+  return "bytes" in body;
 }
 
 export function blobObjectChunkToUint8Array(
@@ -96,6 +109,35 @@ export function blobObjectChunkToStream(
 
 function blobObjectStringToStream(value: string): BlobObjectReadStream {
   return blobObjectChunkToStream(value);
+}
+
+async function blobObjectStreamToString(
+  stream: BlobObjectReadStream,
+): Promise<string> {
+  const decoder = new TextDecoder();
+  const reader = stream.getReader();
+  let value = "";
+
+  try {
+    while (true) {
+      const { done, value: chunk } = await reader.read();
+      if (done) {
+        return value + decoder.decode();
+      }
+
+      value += decoder.decode(chunk, { stream: true });
+    }
+  } catch (error) {
+    try {
+      await reader.cancel(error);
+    } catch {
+      // Preserve the original stream error.
+    }
+
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function requireValidPartNumber(partNumber: number): void {
@@ -236,13 +278,30 @@ function createListParts(
 function createUploadPart(
   uploads: Map<string, MultipartUploadState>,
 ): BlobObjectStore["uploadPart"] {
-  return async ({ bytes, key, partNumber, uploadId }) => {
+  return async ({ body, key, partNumber, uploadId }) => {
     requireValidPartNumber(partNumber);
+    const bytes = isStringUploadPartBody(body)
+      ? body.bytes
+      : await blobObjectStreamToString(body.stream);
     if (bytes.length === 0) {
       throw new BlobObjectStoreError(
         "Multipart upload part bytes are required",
         "invalid_part",
       );
+    }
+    if (!isStringUploadPartBody(body)) {
+      if (byteLength(bytes) !== body.byteLength) {
+        throw new BlobObjectStoreError(
+          "Multipart upload part byteLength mismatch",
+          "invalid_part",
+        );
+      }
+      if ((await sha256Hex(bytes)) !== body.sha256) {
+        throw new BlobObjectStoreError(
+          "Multipart upload part sha256 mismatch",
+          "invalid_part",
+        );
+      }
     }
 
     const upload = requireUpload(uploads, { key, uploadId });
