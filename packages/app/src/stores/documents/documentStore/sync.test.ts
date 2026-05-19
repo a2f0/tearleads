@@ -34,7 +34,8 @@ import {
   assertWriteHeader,
 } from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { type BlobBytes, createMemoryBlobStore } from "../../../data/blobs";
+import type { BlobBytes } from "../../../data/blobContracts";
+import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/documentsPersistence";

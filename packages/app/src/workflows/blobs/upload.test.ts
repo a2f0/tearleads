@@ -16,7 +16,7 @@ import {
   createMaterializedSyncFixture,
   createResponse,
 } from "../../../test/helpers/documentFixtures";
-import type { BlobBytes } from "../../data/blobs";
+import type { BlobBytes } from "../../data/blobContracts";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import {
   type DocumentAttachmentUploadRuntime,

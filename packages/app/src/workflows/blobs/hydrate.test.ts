@@ -6,7 +6,7 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
-import type { BlobBytes } from "../../data/blobs";
+import type { BlobBytes } from "../../data/blobContracts";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import {
   type DocumentAttachmentHydrationRuntime,

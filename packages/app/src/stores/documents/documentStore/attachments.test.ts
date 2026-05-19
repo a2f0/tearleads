@@ -5,7 +5,7 @@ import {
   createDocumentStoreRuntime,
 } from "../../../../test/helpers/documentStoreFixtures";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { createMemoryBlobStore } from "../../../data/blobs";
+import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createDocumentStore } from "../DocumentsProvider";
 
 function createTrackedMemoryBlobStore() {
