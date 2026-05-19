@@ -18,12 +18,14 @@ interface GetBlobInput {
 }
 
 interface BlobRow {
+  readonly byteLength: number;
   readonly blobId: string;
   readonly encryptedBytes: string;
   readonly sha256: string;
 }
 
 interface BlobBytesResponse {
+  readonly byteLength: number;
   readonly blobId: string;
   readonly encryptedBytes: BlobObjectReadStream;
   readonly sha256: string;
@@ -57,6 +59,7 @@ async function loadReadableBlobRow(
 
   const [row] = await runtime.db
     .select({
+      byteLength: blobs.byteLength,
       blobId: blobs.id,
       encryptedBytes: blobs.encryptedBytes,
       sha256: blobs.sha256,
@@ -106,6 +109,7 @@ export async function getBlobBytes(
   }
 
   return {
+    byteLength: row.byteLength,
     blobId: row.blobId,
     encryptedBytes,
     sha256: row.sha256,

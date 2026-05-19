@@ -57,6 +57,7 @@ export function createGetBlobRoute({ requireAuth, runtime }: GetBlobRouteDeps) {
               BLOB_BYTES_SHA256_HEADER,
             ].join(", "),
             "Cache-Control": "no-store",
+            "Content-Length": blob.byteLength.toString(),
             "Content-Type": "application/octet-stream",
             [BLOB_BYTES_BLOB_ID_HEADER]: blob.blobId,
             [BLOB_BYTES_SHA256_HEADER]: blob.sha256,

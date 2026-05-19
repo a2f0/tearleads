@@ -119,6 +119,9 @@ test("GET /blobs/:blobId/bytes streams committed encrypted blob bytes", async ()
   expect(blobResponse.headers.get("content-type")).toBe(
     "application/octet-stream",
   );
+  expect(blobResponse.headers.get("content-length")).toBe(
+    stagedBlobInput.byteLength.toString(),
+  );
   expect(blobResponse.headers.get("x-tearleads-blob-id")).toBe(blob.id);
   expect(blobResponse.headers.get("x-tearleads-blob-sha256")).toBe(
     stagedBlobInput.sha256,

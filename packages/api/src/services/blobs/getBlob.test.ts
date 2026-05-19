@@ -177,6 +177,9 @@ test("getBlobBytes streams external blob objects for readable blobs", async () =
   });
 
   expect(result.blobId).toBe(blob.id);
+  expect(result.byteLength).toBe(
+    new TextEncoder().encode(encryptedBytes).byteLength,
+  );
   expect(result.sha256).toBe(sha256);
   await expect(new Response(result.encryptedBytes).text()).resolves.toBe(
     encryptedBytes,

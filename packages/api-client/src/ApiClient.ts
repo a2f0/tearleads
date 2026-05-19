@@ -80,6 +80,7 @@ import type {
   RequestResult,
   RequestResultOptions,
   ResponseRequestFn,
+  ResponseRequestValidationFailureInput,
 } from "./types";
 
 function bindPrototypeMethods(instance: object, prototype: object): void {
@@ -109,7 +110,9 @@ export class ApiClient {
   constructor(private readonly baseUrl: string) {
     bindPrototypeMethods(this, ApiClient.prototype);
     this.request = this.makeRequest;
-    this.responseRequest = this.makeResponseRequest;
+    this.responseRequest = Object.assign(this.makeResponseRequest, {
+      reportFailure: this.reportResponseRequestFailure,
+    });
   }
 
   setOnError(handler: ((message: string) => void) | null): void {
@@ -216,44 +219,18 @@ export class ApiClient {
     body?: string,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<T>> {
+    const responseResult = await this.makeResponseRequest(
+      path,
+      method,
+      body,
+      options,
+    );
+    if (!responseResult.ok) {
+      return responseResult;
+    }
+
+    const response = responseResult.data;
     const reportErrors = options.reportErrors ?? true;
-    const init: RequestInit = { method, headers: this.buildHeaders() };
-    if (body !== undefined) {
-      init.body = body;
-    }
-
-    let response: Response;
-    try {
-      response = await fetch(`${this.baseUrl}${path}`, init);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      this.onNetworkError?.();
-      return this.requestFailure({
-        kind: "network",
-        message: `${method} ${path}: ${message}`,
-        method,
-        path,
-        reportErrors,
-        status: null,
-        statusText: "",
-      });
-    }
-
-    this.onNetworkSuccess?.();
-
-    if (!response.ok) {
-      const detail = await this.describeErrorResponse(response);
-      return this.requestFailure({
-        kind: "http",
-        message: `${method} ${path}: ${response.status} ${response.statusText}${detail}`,
-        method,
-        path,
-        reportErrors,
-        status: response.status,
-        statusText: response.statusText,
-      });
-    }
-
     let data: unknown;
     try {
       data = await response.json();
@@ -330,6 +307,15 @@ export class ApiClient {
     }
 
     return { data: response, ok: true };
+  }
+
+  private reportResponseRequestFailure(
+    input: ResponseRequestValidationFailureInput,
+  ): RequestFailure {
+    return this.requestFailure({
+      ...input,
+      reportErrors: input.options?.reportErrors ?? true,
+    });
   }
 
   getHealth() {
