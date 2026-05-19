@@ -2,7 +2,7 @@ import {
   createExplorerWorkflowRuntime,
   defaultExplorerPersistence,
   type ExplorerPersistence,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 import {
   createContext,
   type PropsWithChildren,

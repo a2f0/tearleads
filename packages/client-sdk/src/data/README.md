@@ -58,6 +58,10 @@ Package subpath exports are explicit. Adding a new cross-package import from
 `packages/client-sdk/package.json` export and should be treated as an SDK API
 decision, even when the module is still low-level.
 
+Use facade subpaths directly, such as `@tearleads/client-sdk/workflows/documents`
+and `@tearleads/client-sdk/stores/documents`, instead of importing their
+implementation `index` modules or nested store implementation files.
+
 Avoid `index.ts`, `types.ts`, and other one-line re-export shims inside data
 domains when they only shorten import paths. Keep a facade only when it marks a
 real layer boundary, such as a workflow, store, provider, or explicit neutral

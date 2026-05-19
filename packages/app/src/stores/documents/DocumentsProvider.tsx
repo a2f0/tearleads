@@ -1,12 +1,12 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk/data/documents/documentKinds";
-import { getOrCreateDocumentStore } from "@tearleads/client-sdk/stores/documents/documentStore";
 import {
   DEFAULT_DOCUMENT_ID,
   type DocumentContextValue,
   type DocumentStore,
   type DocumentsRuntime,
-} from "@tearleads/client-sdk/stores/documents/types";
-import { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk/workflows/documents/index";
+  getOrCreateDocumentStore,
+} from "@tearleads/client-sdk/stores/documents";
+import { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk/workflows/documents";
 import {
   createContext,
   type PropsWithChildren,
@@ -17,17 +17,17 @@ import {
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
 
-export {
-  createDocumentStore,
-  primeDocumentStore,
-  requestDomainDocumentSync,
-  subscribeToPersistedDocuments,
-} from "@tearleads/client-sdk/stores/documents/documentStore";
 export type {
   DocumentAttachmentStatus,
   DocumentsRuntime,
-} from "@tearleads/client-sdk/stores/documents/types";
-export { DEFAULT_DOCUMENT_ID } from "@tearleads/client-sdk/stores/documents/types";
+} from "@tearleads/client-sdk/stores/documents";
+export {
+  createDocumentStore,
+  DEFAULT_DOCUMENT_ID,
+  primeDocumentStore,
+  requestDomainDocumentSync,
+  subscribeToPersistedDocuments,
+} from "@tearleads/client-sdk/stores/documents";
 
 const DocumentContext = createContext<DocumentStore | null>(null);
 

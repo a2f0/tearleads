@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { ContainerMutationAuthor } from "@tearleads/client-sdk/workflows/containers/index";
+import type { ContainerMutationAuthor } from "@tearleads/client-sdk/workflows/containers";
 import {
   type AccessEvent,
   type ContainerAccessEventBody,

@@ -2,7 +2,7 @@ import {
   type BlobStore,
   createBlobStore,
   createMemoryBlobStore,
-} from "@tearleads/client-sdk/workflows/blobs/index";
+} from "@tearleads/client-sdk/workflows/blobs";
 import {
   createContext,
   type PropsWithChildren,

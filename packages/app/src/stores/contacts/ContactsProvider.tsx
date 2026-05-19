@@ -1,4 +1,4 @@
-import { createContactsWorkflowRuntime } from "@tearleads/client-sdk/workflows/contacts/index";
+import { createContactsWorkflowRuntime } from "@tearleads/client-sdk/workflows/contacts";
 import {
   createContext,
   type PropsWithChildren,

@@ -3,7 +3,7 @@ import {
   createExplorerWorkflowSqlRuntime,
   type ExplorerDocumentReadModel,
   type ExplorerWorkflowRuntimeInput,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 import { useMemo } from "react";
 
 export type {
@@ -15,7 +15,7 @@ export type {
   ExplorerContainerItemSortKey,
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 
 export function useExplorerDocumentReadModel(
   appData: ExplorerWorkflowRuntimeInput,

@@ -1,4 +1,4 @@
-import type { ContainerRecord } from "@tearleads/client-sdk/workflows/explorer/index";
+import type { ContainerRecord } from "@tearleads/client-sdk/workflows/explorer";
 import type { ContainerState } from "./explorerSyncAgent";
 import type { ContainerNode } from "./types";
 

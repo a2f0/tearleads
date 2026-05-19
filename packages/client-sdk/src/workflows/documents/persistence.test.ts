@@ -5,7 +5,7 @@ import {
   loadPersistedDocumentStoreStateFromRuntime,
   type PendingAttachmentRecord,
   savePendingDocumentAttachmentFromRuntime,
-} from "@tearleads/client-sdk/workflows/documents/index";
+} from "@tearleads/client-sdk/workflows/documents";
 
 function createNoopExecSql(): ExecSql {
   return (async () => []) as ExecSql;

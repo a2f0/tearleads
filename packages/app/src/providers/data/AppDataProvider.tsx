@@ -3,7 +3,7 @@ import {
   createExecSql,
   type ExecSql,
 } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
-import { cacheReferencedPrincipalPolicies } from "@tearleads/client-sdk/workflows/principals/index";
+import { cacheReferencedPrincipalPolicies } from "@tearleads/client-sdk/workflows/principals";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import {
   createContext,

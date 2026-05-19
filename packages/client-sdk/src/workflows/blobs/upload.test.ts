@@ -4,7 +4,7 @@ import {
   type DocumentAttachmentUploadRuntime,
   uploadDocumentAttachment,
   uploadDocumentAttachmentFromRuntime,
-} from "@tearleads/client-sdk/workflows/blobs/index";
+} from "@tearleads/client-sdk/workflows/blobs";
 import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents/create";
 import {
   type AccessEvent,

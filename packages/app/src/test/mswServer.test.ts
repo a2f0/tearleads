@@ -3,12 +3,12 @@ import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/data/documen
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
-} from "@tearleads/client-sdk/workflows/containers/index";
-import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents/index";
+} from "@tearleads/client-sdk/workflows/containers";
+import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents";
 import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
-} from "@tearleads/client-sdk/workflows/org-manager/index";
+} from "@tearleads/client-sdk/workflows/org-manager";
 import {
   authChallengeSigningBytes,
   buildPrincipalStateSigningInput,

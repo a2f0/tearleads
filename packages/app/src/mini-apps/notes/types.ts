@@ -1,7 +1,7 @@
 import type {
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,
-} from "@tearleads/client-sdk/stores/documents/types";
+} from "@tearleads/client-sdk/stores/documents";
 import type { ReactNode } from "react";
 
 export interface NotesAppProps {

@@ -8,7 +8,7 @@ import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk/data/syn
 import {
   decryptDocumentAttachmentBlob,
   uploadDocumentAttachment,
-} from "@tearleads/client-sdk/workflows/blobs/index";
+} from "@tearleads/client-sdk/workflows/blobs";
 import {
   createDocumentsWorkflowRuntime,
   createRemoteDocument,
@@ -18,7 +18,7 @@ import {
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
-} from "@tearleads/client-sdk/workflows/documents/index";
+} from "@tearleads/client-sdk/workflows/documents";
 import {
   computeAccessEventHash,
   computeBlobAccessManifestHash,

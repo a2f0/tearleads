@@ -12,7 +12,7 @@ import {
   hasExplorerMetadataDocumentUpdateEvent,
   persistExplorerContainerMetadataStateFromRuntime,
   renameExplorerContainerMetadataStateFromRuntime,
-} from "@tearleads/client-sdk/workflows/explorer/index";
+} from "@tearleads/client-sdk/workflows/explorer";
 import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
 
 const execSql: ExecSql = async () => [];
