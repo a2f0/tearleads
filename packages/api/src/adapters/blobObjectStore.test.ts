@@ -1,14 +1,7 @@
 import { expect, test } from "bun:test";
+import { readBlobObjectText } from "../../test/helpers/blobObjectStore";
 import { sha256Hex } from "../utils/sha256";
 import { createMemoryBlobObjectStore } from "./blobObjectStore";
-
-async function readObjectText(
-  store: ReturnType<typeof createMemoryBlobObjectStore>,
-  key: string,
-): Promise<string | null> {
-  const stream = await store.getObjectStream(key);
-  return stream ? new Response(stream).text() : null;
-}
 
 test("memory blob object store completes multipart uploads by part number", async () => {
   const store = createMemoryBlobObjectStore();
@@ -40,7 +33,7 @@ test("memory blob object store completes multipart uploads by part number", asyn
     uploadId,
   });
 
-  expect(await readObjectText(store, key)).toBe("first-second");
+  expect(await readBlobObjectText(store, key)).toBe("first-second");
   const objectStream = await store.getObjectStream(key);
   expect(objectStream).not.toBeNull();
   if (!objectStream) {

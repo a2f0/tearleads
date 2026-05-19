@@ -9,6 +9,7 @@ import {
   type S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
+import { readBlobObjectText } from "../../test/helpers/blobObjectStore";
 import { sha256Hex } from "../utils/sha256";
 import { type BlobObjectPart, BlobObjectStoreError } from "./blobObjectStore";
 import { createS3BlobObjectStore } from "./s3BlobObjectStore";
@@ -199,14 +200,6 @@ function createFakeS3BlobObjectStore() {
   return { client, store };
 }
 
-async function readObjectText(
-  store: ReturnType<typeof createS3BlobObjectStore>,
-  key: string,
-): Promise<string | null> {
-  const stream = await store.getObjectStream(key);
-  return stream ? new Response(stream).text() : null;
-}
-
 function listPartNumbers(parts: readonly BlobObjectPart[]): readonly number[] {
   return parts.map((part) => part.partNumber);
 }
@@ -270,7 +263,7 @@ test("S3 blob object store completes multipart uploads by part number", async ()
     await sha256Base64("first-second"),
   );
   expect(completeCommand?.input.ChecksumType).toBe("FULL_OBJECT");
-  expect(await readObjectText(store, "blob-stages/s3-complete")).toBe(
+  expect(await readBlobObjectText(store, "blob-stages/s3-complete")).toBe(
     "first-second",
   );
 });
