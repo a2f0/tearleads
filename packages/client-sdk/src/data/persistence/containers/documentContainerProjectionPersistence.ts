@@ -1,5 +1,5 @@
 import { asc, eq, inArray } from "drizzle-orm";
-import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
+import { getClientDatabaseRuntime } from "../../sqlite/clientDatabaseRuntime";
 import {
   documentContainerProjection,
   documentContainerProjectionTables,
@@ -41,7 +41,7 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
     },
     async listLinkedContainerIds(execSql, documentId) {
       await ensureSqlTables(execSql, documentContainerProjectionTables);
-      const { db } = getAppDatabaseRuntime(execSql);
+      const { db } = getClientDatabaseRuntime(execSql);
       const rows = await db
         .select({ containerId: documentContainerProjection.containerId })
         .from(documentContainerProjection)
@@ -57,7 +57,7 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
         return new Map();
       }
 
-      const { db } = getAppDatabaseRuntime(execSql);
+      const { db } = getClientDatabaseRuntime(execSql);
       const rows = await db
         .select({
           documentId: documentContainerProjection.documentId,
@@ -93,7 +93,7 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
         return [];
       }
 
-      const { db } = getAppDatabaseRuntime(execSql);
+      const { db } = getClientDatabaseRuntime(execSql);
       const rows = await db
         .selectDistinct({ documentId: documentContainerProjection.documentId })
         .from(documentContainerProjection)
@@ -140,7 +140,7 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
           })),
       );
 
-      await getAppDatabaseRuntime(execSql).transaction(async (tx) => {
+      await getClientDatabaseRuntime(execSql).transaction(async (tx) => {
         await tx
           .delete(documentContainerProjection)
           .where(inArray(documentContainerProjection.documentId, documentIds))

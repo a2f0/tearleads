@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { AppSQLiteTransaction } from "../../../sqlite/appDatabaseRuntime";
+import type { ClientSQLiteTransaction } from "../../../sqlite/clientDatabaseRuntime";
 import {
   type DocumentRecord as BaseDocumentRecord,
   type DocumentScope,
@@ -25,7 +25,7 @@ export function getDocumentScope(localId: string): DocumentScope {
 
 async function loadDocumentRecordInTransaction(input: {
   localId: string;
-  tx: AppSQLiteTransaction;
+  tx: ClientSQLiteTransaction;
 }): Promise<BaseDocumentRecord | null> {
   const { localId, tx } = input;
   const rows = await tx
@@ -74,7 +74,7 @@ function toDocumentRecordRow(input: {
 
 export async function saveDocumentRows(input: {
   document: StoredDocumentRecord;
-  tx: AppSQLiteTransaction;
+  tx: ClientSQLiteTransaction;
   updatedAt: string;
 }): Promise<void> {
   const { document, tx, updatedAt } = input;
@@ -129,7 +129,7 @@ function didStoredDocumentContentChange(
 export async function resolveDocumentSaveTimestamp(input: {
   document: StoredDocumentRecord;
   options?: { updatedAt?: string } | undefined;
-  tx: AppSQLiteTransaction;
+  tx: ClientSQLiteTransaction;
 }): Promise<string> {
   const { document, options, tx } = input;
   if (options?.updatedAt) {

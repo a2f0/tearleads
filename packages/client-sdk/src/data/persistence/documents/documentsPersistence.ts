@@ -4,7 +4,7 @@ import type {
   DocumentSummary,
 } from "../../documentSummary";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../documents/documentConstants";
-import { getAppDatabaseRuntime } from "../../sqlite/appDatabaseRuntime";
+import { getClientDatabaseRuntime } from "../../sqlite/clientDatabaseRuntime";
 import {
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
@@ -176,7 +176,7 @@ async function relinkPersistedDocumentWithExec(
 
   await sqlDocumentsPersistence.saveDocument(execSql, nextDocument);
 
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const updatedAtRows = await db
     .select({ updatedAt: documentProjection.updatedAt })
     .from(documentProjection)
@@ -232,7 +232,7 @@ export async function listDocumentsByContainerIds(
     return [];
   }
 
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const rows = await db
     .select(documentSummarySelection)
     .from(documentProjection)
@@ -269,7 +269,7 @@ async function listDocumentsByContainerIdsOrDocumentIds(
   }
 
   const whereCondition = filters.length === 1 ? filters[0] : or(...filters);
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const rows = await db
     .select(documentSummarySelection)
     .from(documentProjection)
@@ -292,7 +292,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     });
   },
   async listDocuments(execSql) {
-    const { db } = getAppDatabaseRuntime(execSql);
+    const { db } = getClientDatabaseRuntime(execSql);
     const rows = await db
       .select(documentSummarySelection)
       .from(documentProjection)
@@ -306,7 +306,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   },
   listDocumentsByContainerIdsOrDocumentIds,
   async loadDocument(execSql, localId) {
-    const { db } = getAppDatabaseRuntime(execSql);
+    const { db } = getClientDatabaseRuntime(execSql);
     const [documentRecord, projectionRows] = await Promise.all([
       loadDocumentRecord(execSql, getDocumentScope(localId)),
       db
@@ -335,7 +335,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   },
   async saveDocument(execSql, document, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-      getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+      getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         const updatedAt = await resolveDocumentSaveTimestamp({
           document,
           options,
@@ -360,7 +360,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
 
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-      getAppDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+      getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
         const updatedAt = await resolveDocumentSaveTimestamp({
           document,
           options,
@@ -406,7 +406,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     return listDocumentPendingUpdates(execSql, getDocumentScope(localId));
   },
   async listPendingAttachments(execSql, localId) {
-    const { db } = getAppDatabaseRuntime(execSql);
+    const { db } = getClientDatabaseRuntime(execSql);
     const rows = await db
       .select({
         localId: documentPendingAttachments.localId,
@@ -426,7 +426,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     return rows.map(mapPendingAttachmentRecord);
   },
   async listLocalAttachments(execSql, localId) {
-    const { db } = getAppDatabaseRuntime(execSql);
+    const { db } = getClientDatabaseRuntime(execSql);
     const rows = await db
       .select({
         localId: documentAttachmentBlobProjection.localId,
@@ -453,7 +453,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async saveLocalAttachment(execSql, attachment) {
     const updatedAt = new Date().toISOString();
 
-    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
       const attachmentRow = {
         localId: attachment.localId,
         slotId: attachment.slotId,
@@ -477,7 +477,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     });
   },
   async deleteLocalAttachment(execSql, localId, slotId, storageKey) {
-    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
       await db
         .delete(documentAttachmentBlobProjection)
         .where(
@@ -493,7 +493,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async savePendingAttachment(execSql, attachment) {
     const createdAt = new Date().toISOString();
 
-    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
       const attachmentRow = {
         localId: attachment.localId,
         slotId: attachment.slotId,
@@ -535,7 +535,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     });
   },
   async deletePendingAttachment(execSql, localId, slotId, storageKey) {
-    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
       await db
         .delete(documentPendingAttachments)
         .where(
@@ -549,7 +549,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     });
   },
   async deletePendingAttachments(execSql, localId) {
-    await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
       await db
         .delete(documentPendingAttachments)
         .where(eq(documentPendingAttachments.localId, localId))

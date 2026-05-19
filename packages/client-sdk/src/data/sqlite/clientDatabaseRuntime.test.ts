@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import {
-  type AppDatabaseRuntime,
-  createAppDatabaseRuntime,
-} from "@tearleads/client-sdk/data/sqlite/appDatabaseRuntime";
+  type ClientDatabaseRuntime,
+  createClientDatabaseRuntime,
+} from "@tearleads/client-sdk/data/sqlite/clientDatabaseRuntime";
 import { ensureDocumentTables } from "@tearleads/client-sdk/data/sqlite/documentPersistence";
 import { documents } from "@tearleads/client-sdk/data/sqlite/schema";
 import type {
@@ -17,7 +17,7 @@ import { eq, sql } from "drizzle-orm";
 
 async function createTestRuntime(key: string): Promise<{
   close: () => void;
-  runtime: AppDatabaseRuntime;
+  runtime: ClientDatabaseRuntime;
 }> {
   const db = await initDatabase({
     dbName: `/${crypto.randomUUID()}.db`,
@@ -27,7 +27,7 @@ async function createTestRuntime(key: string): Promise<{
 
   return {
     close: () => db.close(),
-    runtime: createAppDatabaseRuntime({
+    runtime: createClientDatabaseRuntime({
       exec: async (options) => ({
         rows: execDatabaseStatement(db, options) as Array<SqlRow | SqlArrayRow>,
       }),
@@ -35,9 +35,9 @@ async function createTestRuntime(key: string): Promise<{
   };
 }
 
-test("app database runtime supports positional binds and row modes", async () => {
+test("client database runtime supports positional binds and row modes", async () => {
   const { close, runtime } = await createTestRuntime(
-    "app-database-runtime-test",
+    "client-database-runtime-test",
   );
 
   try {
@@ -64,9 +64,9 @@ test("app database runtime supports positional binds and row modes", async () =>
   }
 });
 
-test("app database runtime maps Drizzle select rows from array mode", async () => {
+test("client database runtime maps Drizzle select rows from array mode", async () => {
   const { close, runtime } = await createTestRuntime(
-    "app-database-runtime-test",
+    "client-database-runtime-test",
   );
 
   try {
@@ -102,8 +102,8 @@ test("app database runtime maps Drizzle select rows from array mode", async () =
   }
 });
 
-test("app database runtime reuses its Drizzle database for serialized mutations", async () => {
-  const runtime = createAppDatabaseRuntime({
+test("client database runtime reuses its Drizzle database for serialized mutations", async () => {
+  const runtime = createClientDatabaseRuntime({
     exec: async () => ({ rows: [] }),
   });
 
@@ -112,9 +112,9 @@ test("app database runtime reuses its Drizzle database for serialized mutations"
   });
 });
 
-test("app database runtime maps undefined Drizzle params to null", async () => {
+test("client database runtime maps undefined Drizzle params to null", async () => {
   const binds: unknown[] = [];
-  const runtime = createAppDatabaseRuntime({
+  const runtime = createClientDatabaseRuntime({
     exec: async (options) => {
       binds.push(options.bind);
       return { rows: [] };
@@ -126,9 +126,9 @@ test("app database runtime maps undefined Drizzle params to null", async () => {
   expect(binds).toEqual([[null]]);
 });
 
-test("app database runtime serializes Drizzle transactions", async () => {
+test("client database runtime serializes Drizzle transactions", async () => {
   const statements: string[] = [];
-  const runtime = createAppDatabaseRuntime({
+  const runtime = createClientDatabaseRuntime({
     exec: async ({ sql: statement }) => {
       statements.push(statement);
       return { rows: [] };

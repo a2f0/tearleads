@@ -3,7 +3,7 @@ import type {
   SqliteRemoteDatabase,
 } from "drizzle-orm/sqlite-proxy";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
-import { appSQLiteSchema } from "./schema";
+import { clientSQLiteSchema } from "./schema";
 import {
   createExecSql,
   type ExecSql,
@@ -12,24 +12,24 @@ import {
   type SqlRowValue,
 } from "./sqlSchema";
 
-export type AppSQLiteSchema = typeof appSQLiteSchema;
-export type AppSQLiteDatabase = SqliteRemoteDatabase<AppSQLiteSchema>;
-export type AppSQLiteTransaction = Parameters<
-  Parameters<AppSQLiteDatabase["transaction"]>[0]
+export type ClientSQLiteSchema = typeof clientSQLiteSchema;
+export type ClientSQLiteDatabase = SqliteRemoteDatabase<ClientSQLiteSchema>;
+export type ClientSQLiteTransaction = Parameters<
+  Parameters<ClientSQLiteDatabase["transaction"]>[0]
 >[0];
 
-export interface AppDatabaseRuntime {
-  db: AppSQLiteDatabase;
+export interface ClientDatabaseRuntime {
+  db: ClientSQLiteDatabase;
   execSql: ExecSql;
   runMutation<T>(
-    operation: (db: AppSQLiteDatabase) => Promise<T> | T,
+    operation: (db: ClientSQLiteDatabase) => Promise<T> | T,
   ): Promise<T>;
   transaction<T>(
-    operation: (tx: AppSQLiteTransaction) => Promise<T>,
+    operation: (tx: ClientSQLiteTransaction) => Promise<T>,
   ): Promise<T>;
 }
 
-const runtimeByExecSql = new WeakMap<ExecSql, AppDatabaseRuntime>();
+const runtimeByExecSql = new WeakMap<ExecSql, ClientDatabaseRuntime>();
 
 function toSqlRowValue(value: unknown): SqlRowValue {
   if (value === null || value === undefined) {
@@ -63,13 +63,17 @@ function createRemoteCallback(getExecSql: () => ExecSql): RemoteCallback {
   };
 }
 
-function createAppSQLiteDatabase(getExecSql: () => ExecSql): AppSQLiteDatabase {
-  return drizzle(createRemoteCallback(getExecSql), { schema: appSQLiteSchema });
+function createClientSQLiteDatabase(
+  getExecSql: () => ExecSql,
+): ClientSQLiteDatabase {
+  return drizzle(createRemoteCallback(getExecSql), {
+    schema: clientSQLiteSchema,
+  });
 }
 
-function createRuntimeForExecSql(execSql: ExecSql): AppDatabaseRuntime {
+function createRuntimeForExecSql(execSql: ExecSql): ClientDatabaseRuntime {
   let activeExecSql = execSql;
-  const db = createAppSQLiteDatabase(() => activeExecSql);
+  const db = createClientSQLiteDatabase(() => activeExecSql);
 
   async function withActiveExecSql<T>(
     nextExecSql: ExecSql,
@@ -85,7 +89,7 @@ function createRuntimeForExecSql(execSql: ExecSql): AppDatabaseRuntime {
     }
   }
 
-  const runtime: AppDatabaseRuntime = {
+  const runtime: ClientDatabaseRuntime = {
     db,
     execSql,
     runMutation(operation) {
@@ -104,12 +108,14 @@ function createRuntimeForExecSql(execSql: ExecSql): AppDatabaseRuntime {
   return runtime;
 }
 
-export function getAppDatabaseRuntime(execSql: ExecSql): AppDatabaseRuntime {
+export function getClientDatabaseRuntime(
+  execSql: ExecSql,
+): ClientDatabaseRuntime {
   return runtimeByExecSql.get(execSql) ?? createRuntimeForExecSql(execSql);
 }
 
-export function createAppDatabaseRuntime(
+export function createClientDatabaseRuntime(
   client: ExecSqlClientLike,
-): AppDatabaseRuntime {
-  return getAppDatabaseRuntime(createExecSql(client));
+): ClientDatabaseRuntime {
+  return getClientDatabaseRuntime(createExecSql(client));
 }

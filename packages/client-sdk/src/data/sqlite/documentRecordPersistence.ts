@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { getAppDatabaseRuntime } from "./appDatabaseRuntime";
+import { getClientDatabaseRuntime } from "./clientDatabaseRuntime";
 import type {
   DocumentRecord,
   DocumentScope,
@@ -54,7 +54,7 @@ export async function loadDocumentRecord(
   execSql: ExecSql,
   scope: DocumentScope,
 ): Promise<DocumentRecord | null> {
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const rows = await db
     .select({
       id: documents.localId,
@@ -84,7 +84,7 @@ export async function findLocalIdByDocumentId(
   appKind: string,
   documentId: string,
 ): Promise<string | null> {
-  const { db } = getAppDatabaseRuntime(execSql);
+  const { db } = getClientDatabaseRuntime(execSql);
   const rows = await db
     .select({ localId: documents.localId })
     .from(documents)
@@ -104,7 +104,7 @@ export async function saveDocumentRecord(
 ): Promise<void> {
   const nextRow = toDocumentRow({ record, scope, updatedAt });
 
-  await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+  await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
     await db
       .insert(documents)
       .values(nextRow)
@@ -120,7 +120,7 @@ export async function deleteDocumentRecord(
   execSql: ExecSql,
   scope: DocumentScope,
 ): Promise<void> {
-  await getAppDatabaseRuntime(execSql).runMutation(async (db) => {
+  await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
     await db
       .delete(documents)
       .where(
