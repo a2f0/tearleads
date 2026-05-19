@@ -12,11 +12,8 @@ export interface BlobBytesResponse {
   readonly sha256: string;
 }
 
-interface LoadedBlobBytesResponse {
-  readonly blobId: string;
-  readonly byteLength: number;
+interface LoadedBlobBytesResponse extends BlobBytesResponse {
   readonly response: Response;
-  readonly sha256: string;
 }
 
 const BLOB_BYTES_PATH_METHOD = "GET";
@@ -69,7 +66,7 @@ async function loadBlobBytesResponse(
     contentLength ? null : BLOB_BYTES_CONTENT_LENGTH_HEADER,
     sha256 ? null : BLOB_BYTES_SHA256_HEADER,
   ].filter((header): header is string => header !== null);
-  if (missingHeaders.length > 0 || !responseBlobId || !sha256) {
+  if (missingHeaders.length > 0) {
     return reportMalformedBlobBytesResponse(request, {
       message: `Invalid response shape for ${path}: missing ${missingHeaders.join(", ")}`,
       path,
@@ -95,10 +92,11 @@ async function loadBlobBytesResponse(
   }
 
   return {
-    blobId: responseBlobId,
+    blobId: responseBlobId as string,
     byteLength,
+    encryptedBytes: response.body,
     response,
-    sha256,
+    sha256: sha256 as string,
   };
 }
 
@@ -112,14 +110,7 @@ export async function getBlobBytes(
   }
 
   const { response, ...metadata } = loaded;
-  if (response.body === null) {
-    return null;
-  }
-
-  return {
-    ...metadata,
-    encryptedBytes: response.body,
-  };
+  return metadata;
 }
 
 export async function getBlob(

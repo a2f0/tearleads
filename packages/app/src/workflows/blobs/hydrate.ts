@@ -56,37 +56,10 @@ interface LoadedDocumentAttachmentBlob
 
 const TEXT_DECODER = new TextDecoder();
 
-function concatenateChunks(
-  chunks: ReadonlyArray<Uint8Array>,
-  byteLength: number,
-): Uint8Array<ArrayBuffer> {
-  const bytes = new Uint8Array(byteLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return bytes;
-}
-
 async function readBlobStreamBytes(
   blob: BlobBytesResponse,
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const reader = blob.encryptedBytes.getReader();
-  const chunks: Uint8Array[] = [];
-  let byteLength = 0;
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    chunks.push(value);
-    byteLength += value.byteLength;
-  }
-
-  return concatenateChunks(chunks, byteLength);
+  return new Uint8Array(await new Response(blob.encryptedBytes).arrayBuffer());
 }
 
 async function hasExpectedBlobSha256(
