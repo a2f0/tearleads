@@ -87,8 +87,67 @@ test("GET /blobs/:blobId returns committed encrypted blob bytes for readable blo
   });
 });
 
+test("GET /blobs/:blobId/bytes streams committed encrypted blob bytes", async () => {
+  const createdDocument = await createAliceDocumentFixture();
+  const documentId = String(createdDocument.id ?? "");
+  const stagedBlobInput = await createStagedBlobInput("streamed-image-bytes");
+
+  const [blob] = await db
+    .insert(blobs)
+    .values({
+      byteLength: stagedBlobInput.byteLength,
+      encryptedBytes: stagedBlobInput.encryptedBytes,
+      sha256: stagedBlobInput.sha256,
+      storageKey: crypto.randomUUID(),
+    })
+    .returning({ id: blobs.id });
+  invariant(blob, "expected blob row");
+  await db.insert(attachmentBindings).values({
+    blobId: blob.id,
+    documentId,
+    slotId: "slot_streamed_image",
+  });
+
+  const blobResponse = await routeApp.request(`/blobs/${blob.id}/bytes`, {
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+    },
+    method: "GET",
+  });
+
+  expect(blobResponse.status).toBe(200);
+  expect(blobResponse.headers.get("content-type")).toBe(
+    "application/octet-stream",
+  );
+  expect(blobResponse.headers.get("content-length")).toBe(
+    stagedBlobInput.byteLength.toString(),
+  );
+  expect(blobResponse.headers.get("x-tearleads-blob-id")).toBe(blob.id);
+  expect(blobResponse.headers.get("x-tearleads-blob-sha256")).toBe(
+    stagedBlobInput.sha256,
+  );
+  expect(blobResponse.headers.get("access-control-expose-headers")).toContain(
+    "X-Tearleads-Blob-Sha256",
+  );
+  expect(await blobResponse.text()).toBe(stagedBlobInput.encryptedBytes);
+});
+
 test("GET /blobs/:blobId rejects malformed blob ids", async () => {
   const blobResponse = await routeApp.request("/blobs/not-a-uuid", {
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+    },
+    method: "GET",
+  });
+
+  expect(blobResponse.status).toBe(400);
+  expect(await blobResponse.json()).toEqual({
+    error: "Invalid request",
+  });
+});
+
+test("GET /blobs/:blobId/bytes rejects malformed blob ids", async () => {
+  const blobResponse = await routeApp.request("/blobs/not-a-uuid/bytes", {
     headers: {
       Authorization: `Bearer ${alice.token}`,
     },

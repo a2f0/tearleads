@@ -79,6 +79,8 @@ import type {
   RequestFn,
   RequestResult,
   RequestResultOptions,
+  ResponseRequestFn,
+  ResponseRequestValidationFailureInput,
 } from "./types";
 
 function bindPrototypeMethods(instance: object, prototype: object): void {
@@ -100,6 +102,7 @@ function bindPrototypeMethods(instance: object, prototype: object): void {
 export class ApiClient {
   private authToken: string | null = null;
   private readonly request: RequestFn;
+  private readonly responseRequest: ResponseRequestFn;
   private onError: ((message: string) => void) | null = null;
   private onNetworkError: (() => void) | null = null;
   private onNetworkSuccess: (() => void) | null = null;
@@ -107,6 +110,9 @@ export class ApiClient {
   constructor(private readonly baseUrl: string) {
     bindPrototypeMethods(this, ApiClient.prototype);
     this.request = this.makeRequest;
+    this.responseRequest = Object.assign(this.makeResponseRequest, {
+      reportFailure: this.reportResponseRequestFailure,
+    });
   }
 
   setOnError(handler: ((message: string) => void) | null): void {
@@ -213,6 +219,55 @@ export class ApiClient {
     body?: string,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<T>> {
+    const responseResult = await this.makeResponseRequest(
+      path,
+      method,
+      body,
+      options,
+    );
+    if (!responseResult.ok) {
+      return responseResult;
+    }
+
+    const response = responseResult.data;
+    const reportErrors = options.reportErrors ?? true;
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return this.requestFailure({
+        kind: "json",
+        message: `${method} ${path}: failed to parse JSON: ${message}`,
+        method,
+        path,
+        reportErrors,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
+
+    if (!validator(data)) {
+      return this.requestFailure({
+        kind: "shape",
+        message: `Invalid response shape for ${path}`,
+        method,
+        path,
+        reportErrors,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
+
+    return { data, ok: true };
+  }
+
+  private async makeResponseRequest(
+    path: string,
+    method: HttpMethod,
+    body?: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<Response>> {
     const reportErrors = options.reportErrors ?? true;
     const init: RequestInit = { method, headers: this.buildHeaders() };
     if (body !== undefined) {
@@ -251,35 +306,16 @@ export class ApiClient {
       });
     }
 
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      return this.requestFailure({
-        kind: "json",
-        message: `${method} ${path}: failed to parse JSON: ${message}`,
-        method,
-        path,
-        reportErrors,
-        status: response.status,
-        statusText: response.statusText,
-      });
-    }
+    return { data: response, ok: true };
+  }
 
-    if (!validator(data)) {
-      return this.requestFailure({
-        kind: "shape",
-        message: `Invalid response shape for ${path}`,
-        method,
-        path,
-        reportErrors,
-        status: response.status,
-        statusText: response.statusText,
-      });
-    }
-
-    return { data, ok: true };
+  private reportResponseRequestFailure(
+    input: ResponseRequestValidationFailureInput,
+  ): RequestFailure {
+    return this.requestFailure({
+      ...input,
+      reportErrors: input.options?.reportErrors ?? true,
+    });
   }
 
   getHealth() {
@@ -515,7 +551,7 @@ export class ApiClient {
   }
 
   getBlob(blobId: string) {
-    return getBlob(this.request, blobId);
+    return getBlob(this.responseRequest, blobId);
   }
 
   bindBlobAttachment(blobId: string, input: BlobAttachmentBindRequest) {

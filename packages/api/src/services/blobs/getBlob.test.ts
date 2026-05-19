@@ -13,8 +13,9 @@ import {
 } from "../../../test/helpers/serviceRuntime";
 import { db } from "../../adapters/postgres";
 import { attachmentBindings, blobs } from "../../schema";
+import { encodeExternalBlobBytesRef } from "../../utils/blobStageRecords";
 import { sha256Hex } from "../../utils/sha256";
-import { GetBlobError, getBlob } from "./getBlob";
+import { GetBlobError, getBlob, getBlobBytes } from "./getBlob";
 
 async function createReadableDocument(input: {
   containerId: string;
@@ -107,6 +108,83 @@ test("getBlob returns committed blob bytes for readable blobs", async () => {
     sha256: await sha256Hex(encryptedBytes),
   });
   expect(recording.calls.get("select") ?? 0).toBeGreaterThan(0);
+});
+
+test("getBlobBytes streams external blob objects for readable blobs", async () => {
+  const { registration, user } = await registerServiceUser();
+  const document = await createReadableDocument({
+    containerId: registration.rootContainerId,
+    createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+    organizationId: registration.organizationId,
+  });
+  const encryptedBytes = await createEncryptedBlobBytes(
+    "streamed-service-blob-bytes",
+    [bytesToBase64(user.kem.publicKey)],
+  );
+  const storageKey = `blob-stages/${crypto.randomUUID()}`;
+  const objectStore = createServiceTestRuntime().blobObjectStore;
+  const { uploadId } = await objectStore.createMultipartUpload({
+    key: storageKey,
+  });
+  const part = await objectStore.uploadPart({
+    bytes: encryptedBytes,
+    key: storageKey,
+    partNumber: 1,
+    uploadId,
+  });
+  const sha256 = await sha256Hex(encryptedBytes);
+  await objectStore.completeMultipartUpload({
+    expected: {
+      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
+      sha256,
+    },
+    key: storageKey,
+    parts: [{ etag: part.etag, partNumber: 1 }],
+    uploadId,
+  });
+  const [blob] = await db
+    .insert(blobs)
+    .values({
+      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
+      encryptedBytes: encodeExternalBlobBytesRef({ storageKey }),
+      sha256,
+      storageKey: crypto.randomUUID(),
+    })
+    .returning({ id: blobs.id });
+  if (!blob) {
+    throw new Error("Failed to create streamed service test blob");
+  }
+  await db.insert(attachmentBindings).values({
+    blobId: blob.id,
+    documentId: document.id,
+    slotId: "streamed-service-slot",
+  });
+  let stringRead = false;
+  const runtime = {
+    ...createServiceTestRuntime(),
+    blobObjectStore: {
+      ...objectStore,
+      getObject: async () => {
+        stringRead = true;
+        return objectStore.getObject(storageKey);
+      },
+    },
+  };
+
+  const result = await getBlobBytes(runtime, {
+    blobId: blob.id,
+    userId: registration.userId,
+  });
+
+  expect(result.blobId).toBe(blob.id);
+  expect(result.byteLength).toBe(
+    new TextEncoder().encode(encryptedBytes).byteLength,
+  );
+  expect(result.sha256).toBe(sha256);
+  await expect(new Response(result.encryptedBytes).text()).resolves.toBe(
+    encryptedBytes,
+  );
+  expect(stringRead).toBe(false);
 });
 
 test("getBlob reports not-found and forbidden cases", async () => {

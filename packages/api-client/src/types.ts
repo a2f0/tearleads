@@ -30,3 +30,25 @@ export type RequestResult<T> = RequestFailure | RequestSuccess<T>;
 export interface RequestResultOptions {
   readonly reportErrors?: boolean | undefined;
 }
+
+export interface ResponseRequestValidationFailureInput {
+  readonly kind: RequestFailureKind;
+  readonly message: string;
+  readonly method: HttpMethod;
+  readonly options?: RequestResultOptions | undefined;
+  readonly path: string;
+  readonly status: number | null;
+  readonly statusText: string;
+}
+
+export interface ResponseRequestFn {
+  (
+    path: string,
+    method: HttpMethod,
+    body?: string,
+    options?: RequestResultOptions,
+  ): Promise<RequestResult<Response>>;
+  readonly reportFailure: (
+    input: ResponseRequestValidationFailureInput,
+  ) => RequestFailure;
+}
