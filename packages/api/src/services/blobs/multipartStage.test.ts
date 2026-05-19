@@ -20,6 +20,14 @@ async function createMultipartStageInput(encryptedBytes: string) {
   };
 }
 
+async function readObjectText(
+  runtime: ReturnType<typeof createServiceTestRuntime>,
+  key: string,
+): Promise<string | null> {
+  const stream = await runtime.blobObjectStore.getObjectStream(key);
+  return stream ? new Response(stream).text() : null;
+}
+
 async function expectMultipartBlobStageError(
   promise: Promise<unknown>,
 ): Promise<MultipartBlobStageError> {
@@ -98,9 +106,7 @@ test("multipart blob stages upload resumable parts outside Postgres", async () =
     uploadId: initiated.uploadId,
   });
   expect(
-    stageRecord
-      ? await runtime.blobObjectStore.getObject(stageRecord.storageKey)
-      : null,
+    stageRecord ? await readObjectText(runtime, stageRecord.storageKey) : null,
   ).toBe(encryptedBytes);
 });
 
@@ -194,7 +200,7 @@ test("expired blob stage cleanup aborts pending multipart uploads and deletes co
     }),
   ).resolves.toHaveProperty("uploadId");
   await expect(
-    runtime.blobObjectStore.getObject(`blob-stages/${completed.stageId}`),
+    readObjectText(runtime, `blob-stages/${completed.stageId}`),
   ).resolves.toBeNull();
 
   const remainingStages = await runtime.db
@@ -260,7 +266,7 @@ test("expired blob stage cleanup continues after object store cleanup failures",
     scannedStages: 2,
   });
   await expect(
-    runtime.blobObjectStore.getObject(`blob-stages/${completed.stageId}`),
+    readObjectText(runtime, `blob-stages/${completed.stageId}`),
   ).resolves.toBeNull();
   const remainingStageIds = (
     await runtime.db

@@ -160,31 +160,10 @@ function isAsyncIterable(
   );
 }
 
-function hasTransformToString(
-  value: unknown,
-): value is { readonly transformToString: () => Promise<string> } {
-  return typeof recordValue(value, "transformToString") === "function";
-}
-
 function hasTransformToWebStream(
   value: unknown,
 ): value is { readonly transformToWebStream: () => ReadableStream<unknown> } {
   return typeof recordValue(value, "transformToWebStream") === "function";
-}
-
-async function asyncIterableToString(
-  value: AsyncIterable<BlobObjectReadChunk>,
-): Promise<string> {
-  const decoder = new TextDecoder();
-  let output = "";
-  for await (const chunk of value) {
-    output +=
-      typeof chunk === "string"
-        ? chunk
-        : decoder.decode(chunk, { stream: true });
-  }
-
-  return output + decoder.decode();
 }
 
 function readableStreamToBlobObjectStream(
@@ -293,69 +272,11 @@ async function responseBodyToStream(
   if (isAsyncIterable(value)) {
     return asyncIterableToStream(value);
   }
-  if (hasTransformToString(value)) {
-    return blobObjectChunkToStream(await value.transformToString());
-  }
 
   throw new BlobObjectStoreError(
     "Unsupported S3 object body type",
     "unsupported_body",
   );
-}
-
-async function responseBodyToString(
-  body: NonNullable<GetObjectCommandOutput["Body"]>,
-): Promise<string> {
-  const value: unknown = body;
-  if (typeof value === "string") {
-    return value;
-  }
-  if (value instanceof Uint8Array) {
-    return new TextDecoder().decode(value);
-  }
-  if (hasTransformToString(value)) {
-    return value.transformToString();
-  }
-  if (value instanceof Blob) {
-    return value.text();
-  }
-  if (value instanceof ReadableStream) {
-    return new Response(value).text();
-  }
-  if (isAsyncIterable(value)) {
-    return asyncIterableToString(value);
-  }
-
-  throw new BlobObjectStoreError(
-    "Unsupported S3 object body type",
-    "unsupported_body",
-  );
-}
-
-async function getS3Object(input: {
-  readonly bucket: string;
-  readonly client: S3BlobObjectStoreClient;
-  readonly key: string;
-}): Promise<string | null> {
-  try {
-    const object = await input.client.send(
-      new GetObjectCommand({
-        Bucket: input.bucket,
-        Key: input.key,
-      }),
-    );
-    if (!object.Body) {
-      return "";
-    }
-
-    return responseBodyToString(object.Body);
-  } catch (error) {
-    if (isS3NotFoundError(error)) {
-      return null;
-    }
-
-    throw error;
-  }
 }
 
 async function getS3ObjectStream(input: {
@@ -521,13 +442,6 @@ function createDeleteObject({
   };
 }
 
-function createGetObject({
-  bucket,
-  client,
-}: S3BlobObjectStoreInput): BlobObjectStore["getObject"] {
-  return (key) => getS3Object({ bucket, client, key });
-}
-
 function createGetObjectStream({
   bucket,
   client,
@@ -588,7 +502,6 @@ export function createS3BlobObjectStore(
     completeMultipartUpload: createCompleteMultipartUpload(input),
     createMultipartUpload: createMultipartUpload(input),
     deleteObject: createDeleteObject(input),
-    getObject: createGetObject(input),
     getObjectStream: createGetObjectStream(input),
     listParts: createListParts(input),
     uploadPart: createUploadPart(input),

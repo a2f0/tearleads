@@ -50,7 +50,6 @@ export interface BlobObjectStore {
     readonly key: string;
   }): Promise<{ readonly uploadId: string }>;
   deleteObject(key: string): Promise<void>;
-  getObject(key: string): Promise<string | null>;
   getObjectStream(key: string): Promise<BlobObjectReadStream | null>;
   listParts(input: {
     readonly key: string;
@@ -280,11 +279,6 @@ export function createMemoryBlobObjectStore(): BlobObjectStore {
     async deleteObject(key) {
       objects.delete(key);
     },
-
-    async getObject(key) {
-      return objects.get(key) ?? null;
-    },
-
     async getObjectStream(key) {
       const object = objects.get(key);
 

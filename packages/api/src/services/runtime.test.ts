@@ -2,6 +2,14 @@ import { expect, test } from "bun:test";
 import { sha256Hex } from "../utils/sha256";
 import { createDefaultBlobObjectStore } from "./runtime";
 
+async function readObjectText(
+  store: ReturnType<typeof createDefaultBlobObjectStore>,
+  key: string,
+): Promise<string | null> {
+  const stream = await store.getObjectStream(key);
+  return stream ? new Response(stream).text() : null;
+}
+
 test("default blob object store uses memory when unconfigured", async () => {
   const store = createDefaultBlobObjectStore({});
   const { uploadId } = await store.createMultipartUpload({
@@ -24,7 +32,7 @@ test("default blob object store uses memory when unconfigured", async () => {
     uploadId,
   });
 
-  expect(await store.getObject("blob-stages/runtime-default")).toBe(
+  expect(await readObjectText(store, "blob-stages/runtime-default")).toBe(
     "runtime-default",
   );
   expect(completed).toEqual({

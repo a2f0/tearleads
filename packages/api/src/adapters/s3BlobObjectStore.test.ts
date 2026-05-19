@@ -199,6 +199,14 @@ function createFakeS3BlobObjectStore() {
   return { client, store };
 }
 
+async function readObjectText(
+  store: ReturnType<typeof createS3BlobObjectStore>,
+  key: string,
+): Promise<string | null> {
+  const stream = await store.getObjectStream(key);
+  return stream ? new Response(stream).text() : null;
+}
+
 function listPartNumbers(parts: readonly BlobObjectPart[]): readonly number[] {
   return parts.map((part) => part.partNumber);
 }
@@ -262,7 +270,9 @@ test("S3 blob object store completes multipart uploads by part number", async ()
     await sha256Base64("first-second"),
   );
   expect(completeCommand?.input.ChecksumType).toBe("FULL_OBJECT");
-  expect(await store.getObject("blob-stages/s3-complete")).toBe("first-second");
+  expect(await readObjectText(store, "blob-stages/s3-complete")).toBe(
+    "first-second",
+  );
 });
 
 test("S3 blob object store follows list parts pagination", async () => {
@@ -300,27 +310,25 @@ test("S3 blob object store follows list parts pagination", async () => {
 test("S3 blob object store maps missing objects to null", async () => {
   const { store } = createFakeS3BlobObjectStore();
 
-  await expect(store.getObject("blob-stages/missing")).resolves.toBeNull();
+  await expect(
+    store.getObjectStream("blob-stages/missing"),
+  ).resolves.toBeNull();
 });
 
-test("S3 blob object store prefers SDK body transforms", async () => {
+test("S3 blob object store rejects string-only SDK body transforms", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
-  const body = Object.assign(
-    new ReadableStream({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode("from-stream"));
-        controller.close();
-      },
-    }),
-    {
-      transformToString: async () => "from-transform",
+  let transformToStringCalls = 0;
+  client.objectBodies.set("blob-stages/transform", {
+    transformToString: async () => {
+      transformToStringCalls += 1;
+      return "from-transform";
     },
-  );
-  client.objectBodies.set("blob-stages/transform", body);
+  });
 
-  await expect(store.getObject("blob-stages/transform")).resolves.toBe(
-    "from-transform",
+  await expect(store.getObjectStream("blob-stages/transform")).rejects.toThrow(
+    "Unsupported S3 object body type",
   );
+  expect(transformToStringCalls).toBe(0);
 });
 
 test("S3 blob object store streams SDK web streams without string transforms", async () => {
