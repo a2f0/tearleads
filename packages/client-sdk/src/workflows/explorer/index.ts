@@ -1,4 +1,8 @@
 export {
+  getTargetContainerContext,
+  readContainerState,
+} from "../../data/containers/shared/projection";
+export {
   type ExplorerContainerInfo,
   type ExplorerContainerInfoRemoteMode,
   type ExplorerContainerShareAccessLevel,

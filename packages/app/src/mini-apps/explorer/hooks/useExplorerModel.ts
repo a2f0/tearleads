@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { type ReactNode, useMemo } from "react";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import {

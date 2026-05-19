@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";

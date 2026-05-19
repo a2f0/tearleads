@@ -1,8 +1,8 @@
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk/data/documents/documentKinds";
+} from "@tearleads/client-sdk";
 import { useState } from "react";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";

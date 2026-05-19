@@ -47,8 +47,8 @@ app adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite + 
 ## Import Surface
 
 `data/` is a low-level SDK surface, not the preferred application integration
-API. Prefer store or workflow facades for app code. When low-level imports are
-needed, use concrete modules such as
+API. Prefer the SDK root for neutral contracts and store or workflow facades for
+app code. When low-level imports are needed, use concrete modules such as
 `@tearleads/client-sdk/data/containers/containerMetadataDocument` or neutral
 contracts such as `@tearleads/client-sdk/data/blobContracts` and
 `@tearleads/client-sdk/data/documentSummary`.

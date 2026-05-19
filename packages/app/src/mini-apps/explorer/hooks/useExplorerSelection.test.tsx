@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import { useExplorerSelection } from "./useExplorerSelection";

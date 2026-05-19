@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
+import type { ExecSql } from "@tearleads/client-sdk";
+import { createDocumentSignerDeviceId } from "@tearleads/client-sdk";
 import { createInitializedContainerMetadataDocument } from "@tearleads/client-sdk/data/containers/containerMetadataDocument";
-import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/data/documents/documentConstants";
 import {
   ensureContainerTables,
   loadContainers,
@@ -18,7 +19,6 @@ import {
   ensureDocumentTables,
   saveDocumentRecord,
 } from "@tearleads/client-sdk/data/sqlite/documentPersistence";
-import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
 import {
   buildMaterializedDocumentCreatePlan,
   persistedDocumentCreateStateFromResponse,

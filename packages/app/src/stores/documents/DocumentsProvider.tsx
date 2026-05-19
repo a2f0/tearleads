@@ -1,4 +1,4 @@
-import type { StoredDocumentKind } from "@tearleads/client-sdk/data/documents/documentKinds";
+import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import {
   DEFAULT_DOCUMENT_ID,
   type DocumentContextValue,

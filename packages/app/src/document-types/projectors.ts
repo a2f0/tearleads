@@ -4,7 +4,7 @@ import {
   type DocumentProjectorDefinition,
   readStringDocumentField,
   type ValidatedDocumentFields,
-} from "@tearleads/client-sdk/data/documents/documentKinds";
+} from "@tearleads/client-sdk";
 
 export interface DriverLicenseDocumentFields {
   expirationDate: string;

@@ -1,14 +1,12 @@
 import {
-  getTargetContainerContext,
-  readContainerState,
-} from "@tearleads/client-sdk/data/containers/shared/projection";
-import {
   createExplorerChildContainer,
   deleteExplorerContainerState,
   type ExplorerContainerMetadataPatch,
   type ExplorerDocumentRecord,
+  getTargetContainerContext,
   moveRemoteExplorerContainer,
   persistExplorerContainerMetadataStateFromRuntime,
+  readContainerState,
   renameExplorerContainerMetadataStateFromRuntime,
   shareExplorerContainerState,
   shareExplorerContainerStateWithGroup,

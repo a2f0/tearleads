@@ -1,5 +1,7 @@
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
-import type { StoredDocumentKind } from "@tearleads/client-sdk/data/documents/documentKinds";
+import type {
+  DocumentSummary,
+  StoredDocumentKind,
+} from "@tearleads/client-sdk";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,

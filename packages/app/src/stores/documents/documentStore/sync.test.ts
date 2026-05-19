@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
-import type { BlobBytes } from "@tearleads/client-sdk/data/blobContracts";
+import type { BlobBytes, DocumentSummary } from "@tearleads/client-sdk";
 import { createMemoryBlobStore } from "@tearleads/client-sdk/data/blobs/memoryBlobStore";
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import { createProjectionUserKeyResolver } from "@tearleads/client-sdk/data/keyingProjectionVerification";
 import { DOCUMENTS_APP_KIND } from "@tearleads/client-sdk/data/persistence/documents/documentsPersistence";
 import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk/data/sync/syncCoordinator";
