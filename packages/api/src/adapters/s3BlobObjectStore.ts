@@ -18,10 +18,10 @@ import {
   type BlobObjectReadStream,
   type BlobObjectStore,
   BlobObjectStoreError,
-  type BlobObjectUploadPartBody,
   blobObjectChunkToStream,
   blobObjectChunkToUint8Array,
   type CompleteMultipartUploadPart,
+  isStringUploadPartBody,
 } from "./blobObjectStore";
 
 type S3BlobObjectStoreClient = Pick<S3Client, "send">;
@@ -35,12 +35,6 @@ const MAX_S3_PART_NUMBER = 10_000;
 
 function byteLength(value: string): number {
   return Buffer.byteLength(value, "utf8");
-}
-
-function isStringUploadPartBody(
-  body: BlobObjectUploadPartBody,
-): body is { readonly bytes: string } {
-  return "bytes" in body;
 }
 
 function sha256HexToBase64(value: string): string {

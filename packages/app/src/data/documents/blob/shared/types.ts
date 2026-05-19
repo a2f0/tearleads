@@ -1,3 +1,4 @@
+import type { UploadMultipartBlobPartBytesRequest } from "@tearleads/api-client";
 import type { WriteHeader } from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
@@ -76,13 +77,6 @@ export interface BlobAttachmentApi {
     partNumber: number,
     input: UploadMultipartBlobPartBytesRequest,
   ): Promise<UploadMultipartBlobPartResponse | null>;
-}
-
-export interface UploadMultipartBlobPartBytesRequest {
-  readonly byteLength: number;
-  readonly encryptedBytes: ReadableStream<Uint8Array>;
-  readonly sha256: string;
-  readonly uploadId: string;
 }
 
 export interface BlobContentKeyTarget {

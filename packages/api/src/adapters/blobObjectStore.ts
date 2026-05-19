@@ -82,7 +82,7 @@ function byteLength(value: string): number {
   return Buffer.byteLength(value, "utf8");
 }
 
-function isStringUploadPartBody(
+export function isStringUploadPartBody(
   body: BlobObjectUploadPartBody,
 ): body is { readonly bytes: string } {
   return "bytes" in body;
