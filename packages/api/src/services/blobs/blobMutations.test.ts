@@ -978,11 +978,14 @@ test("bindBlobAttachment prevalidates multipart object bytes before opening the 
     ...baseRuntime,
     blobObjectStore: {
       ...baseRuntime.blobObjectStore,
-      getObject: async (key: string) => {
+      getObject: async () => {
+        throw new Error("Expected multipart prevalidation to stream object");
+      },
+      getObjectStream: async (key: string) => {
         expect(transactionDepth).toBe(0);
         readObjectOutsideTransaction = true;
 
-        return baseRuntime.blobObjectStore.getObject(key);
+        return baseRuntime.blobObjectStore.getObjectStream(key);
       },
     },
     db: trackingDb,

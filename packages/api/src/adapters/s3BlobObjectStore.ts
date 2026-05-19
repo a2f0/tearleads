@@ -12,8 +12,12 @@ import {
 import { sha256Hex } from "../utils/sha256";
 import {
   type BlobObjectPart,
+  type BlobObjectReadChunk,
+  type BlobObjectReadStream,
   type BlobObjectStore,
   BlobObjectStoreError,
+  blobObjectChunkToStream,
+  blobObjectChunkToUint8Array,
   type CompleteMultipartUploadPart,
 } from "./blobObjectStore";
 
@@ -162,8 +166,14 @@ function hasTransformToString(
   return typeof recordValue(value, "transformToString") === "function";
 }
 
+function hasTransformToWebStream(
+  value: unknown,
+): value is { readonly transformToWebStream: () => ReadableStream<unknown> } {
+  return typeof recordValue(value, "transformToWebStream") === "function";
+}
+
 async function asyncIterableToString(
-  value: AsyncIterable<string | Uint8Array>,
+  value: AsyncIterable<BlobObjectReadChunk>,
 ): Promise<string> {
   const decoder = new TextDecoder();
   let output = "";
@@ -175,6 +185,122 @@ async function asyncIterableToString(
   }
 
   return output + decoder.decode();
+}
+
+function readableStreamToBlobObjectStream(
+  stream: ReadableStream<unknown>,
+): BlobObjectReadStream {
+  const reader = stream.getReader();
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          return;
+        }
+
+        if (typeof value === "string" || value instanceof Uint8Array) {
+          controller.enqueue(blobObjectChunkToUint8Array(value));
+          return;
+        }
+
+        throw new BlobObjectStoreError(
+          "Unsupported S3 object body chunk type",
+          "unsupported_body",
+        );
+      } catch (error) {
+        await cancelReader(reader, error);
+        controller.error(error);
+      }
+    },
+
+    cancel(reason) {
+      return reader.cancel(reason);
+    },
+  });
+}
+
+async function cancelReader(
+  reader: ReadableStreamDefaultReader<unknown>,
+  reason: unknown,
+): Promise<void> {
+  try {
+    await reader.cancel(reason);
+  } catch {
+    // Preserve the original stream error.
+  }
+}
+
+async function closeAsyncIterator(
+  iterator: AsyncIterator<BlobObjectReadChunk>,
+): Promise<void> {
+  if (typeof iterator.return !== "function") {
+    return;
+  }
+
+  try {
+    await iterator.return();
+  } catch {
+    // Preserve the original iterator error.
+  }
+}
+
+function asyncIterableToStream(
+  value: AsyncIterable<BlobObjectReadChunk>,
+): BlobObjectReadStream {
+  const iterator = value[Symbol.asyncIterator]();
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value: chunk } = await iterator.next();
+        if (done) {
+          controller.close();
+          return;
+        }
+
+        controller.enqueue(blobObjectChunkToUint8Array(chunk));
+      } catch (error) {
+        await closeAsyncIterator(iterator);
+        controller.error(error);
+      }
+    },
+
+    async cancel() {
+      await closeAsyncIterator(iterator);
+    },
+  });
+}
+
+async function responseBodyToStream(
+  body: NonNullable<GetObjectCommandOutput["Body"]>,
+): Promise<BlobObjectReadStream> {
+  const value: unknown = body;
+  if (typeof value === "string" || value instanceof Uint8Array) {
+    return blobObjectChunkToStream(value);
+  }
+  if (hasTransformToWebStream(value)) {
+    return readableStreamToBlobObjectStream(value.transformToWebStream());
+  }
+  if (value instanceof Blob) {
+    return readableStreamToBlobObjectStream(value.stream());
+  }
+  if (value instanceof ReadableStream) {
+    return readableStreamToBlobObjectStream(value);
+  }
+  if (isAsyncIterable(value)) {
+    return asyncIterableToStream(value);
+  }
+  if (hasTransformToString(value)) {
+    return blobObjectChunkToStream(await value.transformToString());
+  }
+
+  throw new BlobObjectStoreError(
+    "Unsupported S3 object body type",
+    "unsupported_body",
+  );
 }
 
 async function responseBodyToString(
@@ -223,6 +349,32 @@ async function getS3Object(input: {
     }
 
     return responseBodyToString(object.Body);
+  } catch (error) {
+    if (isS3NotFoundError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function getS3ObjectStream(input: {
+  readonly bucket: string;
+  readonly client: S3BlobObjectStoreClient;
+  readonly key: string;
+}): Promise<BlobObjectReadStream | null> {
+  try {
+    const object = await input.client.send(
+      new GetObjectCommand({
+        Bucket: input.bucket,
+        Key: input.key,
+      }),
+    );
+    if (!object.Body) {
+      return blobObjectChunkToStream("");
+    }
+
+    return responseBodyToStream(object.Body);
   } catch (error) {
     if (isS3NotFoundError(error)) {
       return null;
@@ -376,6 +528,13 @@ function createGetObject({
   return (key) => getS3Object({ bucket, client, key });
 }
 
+function createGetObjectStream({
+  bucket,
+  client,
+}: S3BlobObjectStoreInput): BlobObjectStore["getObjectStream"] {
+  return (key) => getS3ObjectStream({ bucket, client, key });
+}
+
 function createListParts({
   bucket,
   client,
@@ -430,6 +589,7 @@ export function createS3BlobObjectStore(
     createMultipartUpload: createMultipartUpload(input),
     deleteObject: createDeleteObject(input),
     getObject: createGetObject(input),
+    getObjectStream: createGetObjectStream(input),
     listParts: createListParts(input),
     uploadPart: createUploadPart(input),
   };
