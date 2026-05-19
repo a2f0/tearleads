@@ -112,6 +112,19 @@ test("client database runtime reuses its Drizzle database for serialized mutatio
   });
 });
 
+test("client database runtime reuses one runtime for the same client", () => {
+  const client = {
+    exec: async () => ({ rows: [] }),
+  };
+
+  const first = createClientDatabaseRuntime(client);
+  const second = createClientDatabaseRuntime(client);
+
+  expect(second).toBe(first);
+  expect(second.execSql).toBe(first.execSql);
+  expect(second.db).toBe(first.db);
+});
+
 test("client database runtime maps undefined Drizzle params to null", async () => {
   const binds: unknown[] = [];
   const runtime = createClientDatabaseRuntime({

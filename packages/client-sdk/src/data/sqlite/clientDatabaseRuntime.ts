@@ -30,6 +30,7 @@ export interface ClientDatabaseRuntime {
 }
 
 const runtimeByExecSql = new WeakMap<ExecSql, ClientDatabaseRuntime>();
+const execSqlByClient = new WeakMap<ExecSqlClientLike, ExecSql>();
 
 function toSqlRowValue(value: unknown): SqlRowValue {
   if (value === null || value === undefined) {
@@ -117,5 +118,11 @@ export function getClientDatabaseRuntime(
 export function createClientDatabaseRuntime(
   client: ExecSqlClientLike,
 ): ClientDatabaseRuntime {
-  return getClientDatabaseRuntime(createExecSql(client));
+  let execSql = execSqlByClient.get(client);
+  if (!execSql) {
+    execSql = createExecSql(client);
+    execSqlByClient.set(client, execSql);
+  }
+
+  return getClientDatabaseRuntime(execSql);
 }
