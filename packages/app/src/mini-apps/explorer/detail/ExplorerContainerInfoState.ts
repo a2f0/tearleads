@@ -13,11 +13,11 @@ import { EXPLORER_LABELS } from "../labels";
 
 const DEFAULT_SHARE_ACCESS_LEVEL: ExplorerContainerShareAccessLevel = "write";
 
-type ExplorerContainerInfoGrant = NonNullable<
+export type ExplorerContainerInfoGrant = NonNullable<
   ExplorerContainerInfo["remoteInfo"]
 >["grants"][number];
 
-type ReloadExplorerContainerInfo = (options?: {
+export type ReloadExplorerContainerInfo = (options?: {
   optimisticGrant?: ExplorerContainerInfoGrant | null;
   resetDrafts?: boolean;
 }) => Promise<void>;
