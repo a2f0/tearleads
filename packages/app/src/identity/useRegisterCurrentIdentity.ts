@@ -34,11 +34,11 @@ import type {
   RegistrationResponse,
 } from "@tearleads/validators/response";
 import { useCallback } from "react";
-import { useApiClient } from "../providers/api/ApiClientProvider";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLog } from "../providers/logging/LogProvider";
+import { useTearleads } from "../providers/sdk/TearleadsProvider";
 
 interface RegisterCurrentIdentityResult {
   canRegisterCurrentIdentity: boolean;
@@ -240,7 +240,7 @@ async function createRegistrationPrincipalPolicies(input: {
 }
 
 async function registerIdentity(input: {
-  apiClient: ReturnType<typeof useApiClient>;
+  apiClient: ReturnType<typeof useTearleads>["api"];
   containerId: string;
   dbClient: ReturnType<typeof useDatabase>["client"];
   encapsulationKeyPair: NonNullable<
@@ -344,7 +344,8 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   } = useCryptoSession();
   const { encapsulationKeyPair, signingKeyPair } = useIdentity();
   const { log } = useLog();
-  const apiClient = useApiClient();
+  const tearleads = useTearleads();
+  const apiClient = tearleads.api;
 
   const canRegisterCurrentIdentity =
     signingKeyPair !== null &&
