@@ -24,7 +24,7 @@ const documentTypeAppsByKind = new Map<
 export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
   APP_DOCUMENT_PROJECTOR_DEFINITIONS.map((definition) => {
     const App = documentTypeAppsByKind.get(definition.kind);
-    if (!App) {
+    if (App === undefined) {
       throw new Error(
         `Document type ${definition.kind} is missing a React app registration.`,
       );
