@@ -87,11 +87,6 @@ const GROUP_CONTAINER_TABLE_COLUMNS = [
     header: ORG_MANAGER_LABELS.updated,
     width: "8rem",
   },
-  {
-    id: "action",
-    header: ORG_MANAGER_LABELS.action,
-    width: "6rem",
-  },
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
 
 const GRANT_TABLE_COLUMNS = [
@@ -115,6 +110,11 @@ const GRANT_TABLE_COLUMNS = [
     id: "updated",
     header: ORG_MANAGER_LABELS.updated,
     width: "8rem",
+  },
+  {
+    id: "action",
+    header: ORG_MANAGER_LABELS.action,
+    width: "6rem",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
 
