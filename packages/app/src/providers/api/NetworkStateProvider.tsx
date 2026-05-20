@@ -9,7 +9,6 @@ import {
 } from "react";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
-import { useApiClient } from "./ApiClientProvider";
 
 interface NetworkStateContextValue {
   online: boolean;
@@ -22,7 +21,7 @@ const NetworkStateContext = createContext<NetworkStateContextValue | null>(
 export function NetworkStateProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const [online, setOnlineState] = useState(tearleads.network.online);
-  const apiClient = useApiClient();
+  const apiClient = tearleads.api;
   const { log } = useLog();
   const wasOnlineRef = useRef(tearleads.network.online);
 
