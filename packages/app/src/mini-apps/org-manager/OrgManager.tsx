@@ -250,10 +250,7 @@ function getPolicyChangeLabel(input: {
 
   switch (input.change.changeType) {
     case "added":
-      return getOrgManagerPolicyAddedLabel(
-        memberLabel,
-        getOrgManagerPolicyRoleLabel(input.change.nextRole),
-      );
+      return getOrgManagerPolicyAddedLabel(memberLabel, input.change.nextRole);
     case "removed":
       return getOrgManagerPolicyRemovedLabel(memberLabel);
     case "role_changed":

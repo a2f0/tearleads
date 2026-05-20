@@ -43,6 +43,7 @@ export const ORG_MANAGER_LABELS = {
   organization: "Organization",
   organizationContainerLinks: "Organization-level container links",
   organizationDataUsage: "Organization data usage",
+  policyChangeAdded: "added",
   policyChangeAddedAs: "added as",
   policyChangeChangedFrom: "changed from",
   policyChangeRemoved: "removed",
@@ -93,9 +94,11 @@ export function getOrgManagerMemberCountLabel(memberCount: number): string {
 
 export function getOrgManagerPolicyAddedLabel(
   memberLabel: string,
-  roleLabel: string,
+  role: string | null | undefined,
 ): string {
-  return `${memberLabel} ${ORG_MANAGER_LABELS.policyChangeAddedAs} ${roleLabel}`.trim();
+  return role
+    ? `${memberLabel} ${ORG_MANAGER_LABELS.policyChangeAddedAs} ${role}`
+    : `${memberLabel} ${ORG_MANAGER_LABELS.policyChangeAdded}`;
 }
 
 export function getOrgManagerPolicyRemovedLabel(memberLabel: string): string {

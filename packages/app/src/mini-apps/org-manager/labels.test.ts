@@ -20,6 +20,7 @@ test("org manager labels format variable display text", () => {
   expect(getOrgManagerPolicyAddedLabel("Alice", "admin")).toBe(
     "Alice added as admin",
   );
+  expect(getOrgManagerPolicyAddedLabel("Alice", null)).toBe("Alice added");
   expect(getOrgManagerPolicyRemovedLabel("Alice")).toBe("Alice removed");
   expect(getOrgManagerPolicyRoleChangedLabel("Alice", "member", "admin")).toBe(
     "Alice changed from member to admin",
