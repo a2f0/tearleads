@@ -48,8 +48,10 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
 ## Import Surface
 
 `data/` is an internal SDK layer, not an application integration API. The SDK
-root is reserved for neutral contracts and pure document helpers. Host
-application code should import operations from store or workflow facades.
+root is reserved for the high-level `Tearleads` client facade plus neutral
+contracts and pure document helpers. Host application code should import
+operations from store or workflow facades, or compose them through the
+`Tearleads` instance.
 Cross-package callers should not import `@tearleads/client-sdk/data/*`
 subpaths; promote the needed contract through the root or an explicit workflow
 facade instead.
@@ -67,9 +69,9 @@ implementation `index` modules or nested workflow/store implementation files.
 Shared sync coordination helpers that cross host test/runtime boundaries belong
 behind `@tearleads/client-sdk/workflows/sync`.
 
-Do not re-export store or workflow facades from the SDK root. Keeping the root
-neutral makes the default import surface small while preserving explicit domain
-entry points for operational APIs.
+Do not re-export store or workflow facades directly from the SDK root. Keeping
+domain operations behind the high-level `Tearleads` client or explicit facade
+subpaths preserves clear entry points without making `data/` importable.
 
 Avoid `index.ts`, `types.ts`, and other one-line re-export shims inside data
 domains when they only shorten import paths. Keep a facade only when it marks a
