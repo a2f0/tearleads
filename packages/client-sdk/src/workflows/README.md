@@ -20,3 +20,9 @@ coordination, but they must stay React-free and product-UI-free.
 
 Name SDK facades after the platform state they expose. Product names can stay
 in app providers and components that adapt those platform facades into a UI.
+For example, the SDK exports `workflows/organizations`, while the app can keep
+`OrgManager` provider, route, and screen names in `packages/app`.
+
+`bun run lint:architecture` guards this taxonomy by rejecting product window
+vocabulary in SDK TypeScript source and by keeping package exports at documented
+workflow/store facade boundaries.
