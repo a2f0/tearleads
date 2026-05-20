@@ -1,3 +1,4 @@
+export { revokeOrganizationContainerGrant } from "./containerGrantRevocation";
 export {
   addOrganizationGroupUser,
   buildInitialGroupPolicyRequest,

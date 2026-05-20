@@ -6,6 +6,10 @@ export {
 } from "./child/create";
 export { moveRemoteContainer } from "./child/move";
 export {
+  buildMaterializedContainerRevokePlan,
+  revokeRemoteContainer,
+} from "./child/revoke";
+export {
   shareRemoteContainer,
   shareRemoteContainerWithGroup,
 } from "./child/share";

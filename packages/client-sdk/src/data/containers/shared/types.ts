@@ -9,6 +9,7 @@ import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerMoveAccessEventBody,
+  ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
@@ -108,6 +109,16 @@ export interface ContainerMoveApi {
   ): Promise<ContainerMutationResponse | null>;
 }
 
+export interface ContainerRevokeApi {
+  getContainerWriterProjection(
+    containerId: string,
+  ): Promise<ContainerWriterProjectionResponse | null>;
+  revokeContainer(
+    containerId: string,
+    input: ContainerMutationRequest,
+  ): Promise<ContainerMutationResponse | null>;
+}
+
 export interface CreateRemoteContainerResult {
   containerKey: Uint8Array;
   containerId: string;
@@ -136,6 +147,27 @@ export interface ContainerSharePlan {
 export interface MaterializedContainerSharePlan {
   containerKey: Uint8Array;
   plan: ContainerSharePlan;
+}
+
+export interface ContainerRevokePlan {
+  body: ContainerRevokeAccessEventBody;
+  containerId: string;
+  containerKeyEpochId: string;
+  event: AccessEvent;
+  eventHash: string;
+  keyEpoch: ContainerKeyEpoch;
+  manifest: AccessManifest;
+  manifestHash: string;
+  previousManifest: ContainerManifestBundle;
+  request: ContainerMutationRequest;
+  state: ContainerAccessManifestState;
+  userRecipientKeys: ContainerUserRecipientKey[];
+  wraps: ContainerKeyWrap[];
+}
+
+export interface MaterializedContainerRevokePlan {
+  containerKey: Uint8Array;
+  plan: ContainerRevokePlan;
 }
 
 export interface ContainerMovePlan {

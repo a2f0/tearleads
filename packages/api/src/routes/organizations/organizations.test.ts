@@ -427,11 +427,13 @@ test("org manager routes list containers directly granted to a group", async () 
     adminBody.containers.map((container) => ({
       accessLevel: container.accessLevel,
       containerId: container.containerId,
+      isBuiltin: container.isBuiltin,
       parentId: container.parentId,
     })),
   ).toContainEqual({
     accessLevel: "admin",
     containerId: rootContainer.id,
+    isBuiltin: true,
     parentId: null,
   });
 
@@ -496,6 +498,7 @@ test("org manager routes list organization container grants", async () => {
       containerId: grant.containerId,
       groupId: grant.groupId,
       groupName: grant.groupName,
+      isBuiltin: grant.isBuiltin,
       subjectId: grant.subjectId,
       subjectType: grant.subjectType,
     })),
@@ -504,6 +507,7 @@ test("org manager routes list organization container grants", async () => {
     containerId: rootContainer.id,
     groupId: organization.adminGroupId,
     groupName: "Admins",
+    isBuiltin: true,
     subjectId: organization.adminGroupId,
     subjectType: "group",
   });
@@ -585,6 +589,7 @@ test("org manager routes read user detail with groups and grants", async () => {
       accessLevel: grant.accessLevel,
       containerId: grant.containerId,
       groupId: grant.groupId,
+      isBuiltin: grant.isBuiltin,
       subjectId: grant.subjectId,
       subjectType: grant.subjectType,
     })),
@@ -592,6 +597,7 @@ test("org manager routes read user detail with groups and grants", async () => {
     accessLevel: "admin",
     containerId: rootContainer.id,
     groupId: organization.adminGroupId,
+    isBuiltin: true,
     subjectId: organization.adminGroupId,
     subjectType: "group",
   });

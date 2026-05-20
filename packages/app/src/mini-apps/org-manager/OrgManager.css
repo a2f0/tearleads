@@ -23,6 +23,7 @@
 
 .org-manager-create-group button,
 .org-manager-add-user button,
+.org-manager-grant-revoke-button,
 .org-manager-member-row button {
   min-height: 2rem;
   border: 1px solid currentColor;
@@ -34,6 +35,7 @@
 
 .org-manager-create-group button:hover:not(:disabled),
 .org-manager-add-user button:hover:not(:disabled),
+.org-manager-grant-revoke-button:hover:not(:disabled),
 .org-manager-member-row button:hover:not(:disabled) {
   background: var(--color-dark);
   color: var(--color-light);
@@ -41,6 +43,7 @@
 
 .org-manager-create-group button:disabled,
 .org-manager-add-user button:disabled,
+.org-manager-grant-revoke-button:disabled,
 .org-manager-member-row button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -218,6 +221,11 @@
 
 .org-manager-member-row button {
   padding: 0 calc(var(--padding) / 1.5);
+}
+
+.org-manager-grant-revoke-button {
+  width: 100%;
+  padding: 0 calc(var(--padding) / 2);
 }
 
 @media (max-width: 760px) {

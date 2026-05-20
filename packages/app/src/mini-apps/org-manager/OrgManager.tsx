@@ -87,6 +87,11 @@ const GROUP_CONTAINER_TABLE_COLUMNS = [
     header: ORG_MANAGER_LABELS.updated,
     width: "8rem",
   },
+  {
+    id: "action",
+    header: ORG_MANAGER_LABELS.action,
+    width: "6rem",
+  },
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
 
 const GRANT_TABLE_COLUMNS = [
@@ -569,15 +574,21 @@ function GroupContainers({
 }
 
 function GrantTable({
+  canRevokeGrants,
   emptyLabel,
   grants,
   label,
+  mutating,
   openGroupRoute,
+  revokeGrant,
 }: {
+  canRevokeGrants: boolean;
   emptyLabel: string;
   grants: ReadonlyArray<OrgManagerContainerGrant>;
   label: string;
+  mutating: boolean;
   openGroupRoute: (groupId: string) => void;
+  revokeGrant: (grant: OrgManagerContainerGrant) => void;
 }) {
   if (grants.length === 0) {
     return <div className="org-manager-hint">{emptyLabel}</div>;
@@ -588,6 +599,7 @@ function GrantTable({
       <MiniAppTable aria-label={label} columns={GRANT_TABLE_COLUMNS}>
         {grants.map((grant) => {
           const isGroupGrant = grant.subjectType === "group";
+          const canRevokeGrant = canRevokeGrants && !grant.isBuiltin;
           const openGrantGroupRoute = () => {
             openGroupRoute(grant.subjectId);
           };
@@ -630,6 +642,21 @@ function GrantTable({
                   {formatMiniAppDate(grant.updatedAt)}
                 </MiniAppTableText>
               </MiniAppTableCell>
+              <MiniAppTableCell>
+                <button
+                  className="org-manager-grant-revoke-button"
+                  disabled={!canRevokeGrant || mutating}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    revokeGrant(grant);
+                  }}
+                  type="button"
+                >
+                  {grant.isBuiltin
+                    ? ORG_MANAGER_LABELS.builtIn
+                    : ORG_MANAGER_LABELS.revoke}
+                </button>
+              </MiniAppTableCell>
             </MiniAppTableRow>
           );
         })}
@@ -639,13 +666,19 @@ function GrantTable({
 }
 
 function GrantsView({
+  canRevokeGrants,
   grants,
   loading,
+  mutating,
   openGroupRoute,
+  revokeGrant,
 }: {
+  canRevokeGrants: boolean;
   grants: OrgManagerContainerGrants | null;
   loading: boolean;
+  mutating: boolean;
   openGroupRoute: (groupId: string) => void;
+  revokeGrant: (grant: OrgManagerContainerGrant) => void;
 }) {
   if (!grants) {
     return (
@@ -674,10 +707,13 @@ function GrantsView({
           {ORG_MANAGER_LABELS.groupContainerLinks}
         </div>
         <GrantTable
+          canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noGroupContainerLinks}
           grants={groupGrants}
           label={ORG_MANAGER_LABELS.groupContainerLinks}
+          mutating={mutating}
           openGroupRoute={openGroupRoute}
+          revokeGrant={revokeGrant}
         />
       </section>
       <section className="org-manager-detail-section">
@@ -685,10 +721,13 @@ function GrantsView({
           {ORG_MANAGER_LABELS.userContainerLinks}
         </div>
         <GrantTable
+          canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noUserContainerLinks}
           grants={userGrants}
           label={ORG_MANAGER_LABELS.userContainerLinks}
+          mutating={mutating}
           openGroupRoute={openGroupRoute}
+          revokeGrant={revokeGrant}
         />
       </section>
       <section className="org-manager-detail-section">
@@ -696,10 +735,13 @@ function GrantsView({
           {ORG_MANAGER_LABELS.organizationContainerLinks}
         </div>
         <GrantTable
+          canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noOrganizationContainerLinks}
           grants={organizationGrants}
           label={ORG_MANAGER_LABELS.organizationContainerLinks}
+          mutating={mutating}
           openGroupRoute={openGroupRoute}
+          revokeGrant={revokeGrant}
         />
       </section>
     </div>
@@ -741,14 +783,20 @@ function UserGroups({
 }
 
 function UserDetailView({
+  canRevokeGrants,
   detail,
   loading,
+  mutating,
   openGroupRoute,
+  revokeGrant,
   selectedUserId,
 }: {
+  canRevokeGrants: boolean;
   detail: OrgManagerUserDetail | null;
   loading: boolean;
+  mutating: boolean;
   openGroupRoute: (groupId: string) => void;
+  revokeGrant: (grant: OrgManagerContainerGrant) => void;
   selectedUserId: string | null;
 }) {
   if (!selectedUserId) {
@@ -795,10 +843,13 @@ function UserDetailView({
           {ORG_MANAGER_LABELS.userContainerLinks}
         </div>
         <GrantTable
+          canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noUserContainerLinks}
           grants={detail.grants.directGrants}
           label={ORG_MANAGER_LABELS.userContainerLinks}
+          mutating={mutating}
           openGroupRoute={openGroupRoute}
+          revokeGrant={revokeGrant}
         />
       </section>
       <section className="org-manager-detail-section">
@@ -806,10 +857,13 @@ function UserDetailView({
           {ORG_MANAGER_LABELS.groupContainerLinks}
         </div>
         <GrantTable
+          canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noGroupContainerLinks}
           grants={detail.grants.groupGrants}
           label={ORG_MANAGER_LABELS.groupContainerLinks}
+          mutating={mutating}
           openGroupRoute={openGroupRoute}
+          revokeGrant={revokeGrant}
         />
       </section>
       <section className="org-manager-detail-section">
@@ -817,10 +871,13 @@ function UserDetailView({
           {ORG_MANAGER_LABELS.organizationContainerLinks}
         </div>
         <GrantTable
+          canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noOrganizationContainerLinks}
           grants={detail.grants.organizationGrants}
           label={ORG_MANAGER_LABELS.organizationContainerLinks}
+          mutating={mutating}
           openGroupRoute={openGroupRoute}
+          revokeGrant={revokeGrant}
         />
       </section>
     </>
@@ -828,19 +885,25 @@ function UserDetailView({
 }
 
 function DirectoryView({
+  canRevokeGrants,
   detail,
   directory,
   loading,
   loadingUserDetail,
+  mutating,
   openGroupRoute,
+  revokeGrant,
   selectedUserId,
   selectUser,
 }: {
+  canRevokeGrants: boolean;
   detail: OrgManagerUserDetail | null;
   directory: OrgManagerDirectory | null;
   loading: boolean;
   loadingUserDetail: boolean;
+  mutating: boolean;
   openGroupRoute: (groupId: string) => void;
+  revokeGrant: (grant: OrgManagerContainerGrant) => void;
   selectedUserId: string | null;
   selectUser: (userId: string) => void;
 }) {
@@ -860,9 +923,12 @@ function DirectoryView({
       </section>
       <section className="org-manager-panel org-manager-panel--detail">
         <UserDetailView
+          canRevokeGrants={canRevokeGrants}
           detail={detail}
           loading={loadingUserDetail}
+          mutating={mutating}
           openGroupRoute={openGroupRoute}
+          revokeGrant={revokeGrant}
           selectedUserId={selectedUserId}
         />
       </section>
@@ -1045,6 +1111,7 @@ export function OrgManager() {
       directory?.users.filter((user) => !memberUserIds.has(user.userId)) ?? [],
     [directory, memberUserIds],
   );
+  const canRevokeGrants = directory?.currentUser.isOrgAdmin ?? false;
 
   const selectUser = useCallback((userId: string | null) => {
     selectedUserIdRef.current = userId;
@@ -1482,6 +1549,33 @@ export function OrgManager() {
     ],
   );
 
+  const revokeGrant = useCallback(
+    async (grant: OrgManagerContainerGrant) => {
+      if (grant.isBuiltin) {
+        return;
+      }
+
+      setMutating(true);
+      setError(null);
+      try {
+        await orgManagerActions.revokeGrant(grant);
+        await refreshGrants();
+        await refreshSelectedGroupDetails(selectedGroupIdRef.current);
+        await refreshSelectedUserDetail(selectedUserIdRef.current);
+      } catch (nextError) {
+        setUnknownError(setError, nextError);
+      } finally {
+        setMutating(false);
+      }
+    },
+    [
+      orgManagerActions,
+      refreshGrants,
+      refreshSelectedGroupDetails,
+      refreshSelectedUserDetail,
+    ],
+  );
+
   useOrgManagerSidebarPanel({
     enabled: Boolean(appData.organizationId && appData.isAuthenticated),
     setView,
@@ -1513,19 +1607,25 @@ export function OrgManager() {
         {error && <div className="org-manager-error">{error}</div>}
         {view === "directory" ? (
           <DirectoryView
+            canRevokeGrants={canRevokeGrants}
             detail={userDetail}
             directory={directory}
             loading={loading}
             loadingUserDetail={loadingUserDetail}
+            mutating={mutating}
             openGroupRoute={openGroupRoute}
+            revokeGrant={revokeGrant}
             selectedUserId={selectedUserId}
             selectUser={selectUser}
           />
         ) : view === "grants" ? (
           <GrantsView
+            canRevokeGrants={canRevokeGrants}
             grants={grants}
             loading={loading}
+            mutating={mutating}
             openGroupRoute={openGroupRoute}
+            revokeGrant={revokeGrant}
           />
         ) : view === "usage" ? (
           <DataUsageView dataUsage={dataUsage} loading={loading} />
