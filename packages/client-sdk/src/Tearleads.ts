@@ -349,7 +349,11 @@ export class TearleadsNetwork {
 
     this.onlineValue = online;
     for (const listener of this.listeners) {
-      listener(online);
+      try {
+        listener(online);
+      } catch {
+        // Keep one subscriber failure from blocking later subscribers.
+      }
     }
   }
 
