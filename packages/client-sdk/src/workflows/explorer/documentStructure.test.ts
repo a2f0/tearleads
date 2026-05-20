@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
 import {
   activateExplorerDocumentLinkState,
   canMutateExplorerDocumentLink,
@@ -8,6 +7,7 @@ import {
   type ExplorerDocumentStructuralMutationRuntime,
 } from "@tearleads/client-sdk/workflows/explorer/documentStructure";
 import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
+import type { DocumentSummary } from "../../data/documentSummary";
 
 function createRuntime(
   logs: string[] = [],

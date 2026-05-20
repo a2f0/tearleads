@@ -1,19 +1,16 @@
 import { expect, test } from "bun:test";
 import {
-  type ClientDatabaseRuntime,
-  createClientDatabaseRuntime,
-} from "@tearleads/client-sdk/data/sqlite/clientDatabaseRuntime";
-import { ensureDocumentTables } from "@tearleads/client-sdk/data/sqlite/documentPersistence";
-import { documents } from "@tearleads/client-sdk/data/sqlite/schema";
-import type {
-  SqlArrayRow,
-  SqlRow,
-} from "@tearleads/client-sdk/data/sqlite/sqlSchema";
-import {
   execDatabaseStatement,
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
 import { eq, sql } from "drizzle-orm";
+import {
+  type ClientDatabaseRuntime,
+  createClientDatabaseRuntime,
+} from "./clientDatabaseRuntime";
+import { ensureDocumentTables } from "./documentPersistence";
+import { documents } from "./schema";
+import type { SqlArrayRow, SqlRow } from "./sqlSchema";
 
 async function createTestRuntime(key: string): Promise<{
   close: () => void;

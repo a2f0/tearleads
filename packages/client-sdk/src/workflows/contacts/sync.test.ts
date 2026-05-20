@@ -1,10 +1,4 @@
 import { expect, test } from "bun:test";
-import type { ContactEntry } from "@tearleads/client-sdk/data/contacts/addressBookEntry";
-import { getScopedPeerSeed } from "@tearleads/client-sdk/data/crdtPeerSeed";
-import type { ProjectionUserKeyResolver } from "@tearleads/client-sdk/data/keyingProjectionVerification";
-import type { ContactsPersistence } from "@tearleads/client-sdk/data/persistence/contacts/contactsPersistence";
-import type { DocumentRecord } from "@tearleads/client-sdk/data/sqlite/documentPersistence";
-import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
 import {
   type ContactDocumentState,
   hasContactDocumentUpdateEvent,
@@ -12,6 +6,12 @@ import {
 } from "@tearleads/client-sdk/workflows/contacts/sync";
 import { createDocument } from "@tearleads/loro";
 import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
+import type { ContactEntry } from "../../data/contacts/addressBookEntry";
+import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
+import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import type { ContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
+import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 const execSql: ExecSql = async () => [];
 const resolveProjectionUserKey: ProjectionUserKeyResolver = async () => null;

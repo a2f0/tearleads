@@ -1,11 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  createContainerMetadataDocument,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "@tearleads/client-sdk/data/containers/containerMetadataDocument";
-import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
-import {
   type ContainerRecord,
   type ExplorerDocumentRecord,
   type ExplorerPersistence,
@@ -14,6 +8,12 @@ import {
   renameExplorerContainerMetadataStateFromRuntime,
 } from "@tearleads/client-sdk/workflows/explorer";
 import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
+import {
+  createContainerMetadataDocument,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "../../data/containers/containerMetadataDocument";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 const execSql: ExecSql = async () => [];
 const runtime = createExplorerWorkflowSqlRuntime({ execSql });

@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  ensureContainerTables,
-  saveContainer,
-} from "@tearleads/client-sdk/data/persistence/containers/containerPersistence";
-import {
   loadOrgManagerDataUsage,
   loadOrgManagerDirectoryAndGroups,
   loadOrgManagerGrants,
@@ -19,6 +15,10 @@ import type {
   OrganizationUserDetailResponse,
 } from "@tearleads/validators/response";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+import {
+  ensureContainerTables,
+  saveContainer,
+} from "../../data/persistence/containers/containerPersistence";
 
 const organizationId = "org-1";
 const groupId = "group-1";

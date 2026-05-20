@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { decryptDocumentSyncUpdates } from "@tearleads/client-sdk/data/documents/shared/crypto";
 import { buildMaterializedDocumentSyncPlan } from "@tearleads/client-sdk/workflows/documents/sync";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
@@ -7,6 +6,7 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
+import { decryptDocumentSyncUpdates } from "./crypto";
 
 test("decryptDocumentSyncUpdates verifies and decrypts content records", async () => {
   const { author, contentKey, secretKey, writerProjection } =

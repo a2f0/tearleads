@@ -1,9 +1,4 @@
 import { expect, test } from "bun:test";
-import { buildDocumentCreatePlan } from "@tearleads/client-sdk/data/documents/shared/events";
-import {
-  persistedDocumentCreateStateFromResponse,
-  persistedDocumentSyncStateFromResponse,
-} from "@tearleads/client-sdk/data/documents/shared/responses";
 import { buildMaterializedDocumentSyncPlan } from "@tearleads/client-sdk/workflows/documents/sync";
 import {
   createAuthor,
@@ -16,6 +11,11 @@ import {
   fixtureHash,
   getOnlyTarget,
 } from "../../../../test/helpers/documentFixtures";
+import { buildDocumentCreatePlan } from "./events";
+import {
+  persistedDocumentCreateStateFromResponse,
+  persistedDocumentSyncStateFromResponse,
+} from "./responses";
 
 test("persistedDocumentCreateStateFromResponse stores verified create bundles", async () => {
   const { author } = await createAuthor();

@@ -19,6 +19,7 @@ const appReactFreeLayerEntryPoints = ["packages/client-sdk/src"];
 const appProductionSourceEntryPoints = ["packages/app/src"];
 const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
+const clientSdkPackageJsonPath = "packages/client-sdk/package.json";
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
@@ -33,6 +34,10 @@ interface SourceMatch {
   filePath: string;
   line: string;
   lineNumber: number;
+}
+
+interface PackageJson {
+  exports?: Record<string, unknown>;
 }
 
 function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
@@ -133,6 +138,15 @@ async function findAppTestSdkDataImports(): Promise<SourceMatch[]> {
     appTestSourceEntryPoints,
     appSdkDataImportPattern,
     listTestSourceFiles,
+  );
+}
+
+async function findClientSdkDataPackageExports(): Promise<string[]> {
+  const content = await readFile(clientSdkPackageJsonPath, "utf8");
+  const packageJson = JSON.parse(content) as PackageJson;
+
+  return Object.keys(packageJson.exports ?? {}).filter(
+    (exportPath) => exportPath === "./data" || exportPath.startsWith("./data/"),
   );
 }
 
@@ -255,6 +269,21 @@ function formatAppTestSdkDataImports(
   ].join("\n");
 }
 
+function formatClientSdkDataPackageExports(
+  exportPaths: ReadonlyArray<string>,
+): string {
+  if (exportPaths.length === 0) {
+    return "";
+  }
+
+  return [
+    "error client-sdk-does-not-export-data-internals: Client SDK data internals should stay package-internal; promote contracts through the root or explicit workflow/store facades instead.",
+    ...exportPaths.map(
+      (exportPath) => `  ${clientSdkPackageJsonPath}: ${exportPath}`,
+    ),
+  ].join("\n");
+}
+
 const result = await cruise(
   architectureEntryPoints,
   configToCruiseOptions(dependencyCruiserConfig),
@@ -267,6 +296,7 @@ const appProductionTestHelperReferences =
 const appProductionSdkDataImports = await findAppProductionSdkDataImports();
 const appTestHelperSdkDataImports = await findAppTestHelperSdkDataImports();
 const appTestSdkDataImports = await findAppTestSdkDataImports();
+const clientSdkDataPackageExports = await findClientSdkDataPackageExports();
 
 if (typeof result.output === "string" && result.output.trim().length > 0) {
   const write = result.exitCode === 0 ? console.log : console.error;
@@ -314,6 +344,13 @@ if (appTestSdkDataOutput.length > 0) {
   console.error(appTestSdkDataOutput);
 }
 
+const clientSdkDataPackageExportsOutput = formatClientSdkDataPackageExports(
+  clientSdkDataPackageExports,
+);
+if (clientSdkDataPackageExportsOutput.length > 0) {
+  console.error(clientSdkDataPackageExportsOutput);
+}
+
 process.exit(
   result.exitCode !== 0 ||
     appPresentationSqlExecutorReferences.length > 0 ||
@@ -321,7 +358,8 @@ process.exit(
     appProductionTestHelperReferences.length > 0 ||
     appProductionSdkDataImports.length > 0 ||
     appTestHelperSdkDataImports.length > 0 ||
-    appTestSdkDataImports.length > 0
+    appTestSdkDataImports.length > 0 ||
+    clientSdkDataPackageExports.length > 0
     ? 1
     : 0,
 );

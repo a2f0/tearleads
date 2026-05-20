@@ -1,6 +1,4 @@
 import { expect, test } from "bun:test";
-import { unwrapDocumentContentKeyTarget } from "@tearleads/client-sdk/data/documents/shared/projection";
-import { persistedDocumentLinkSetMutationStateFromResponse } from "@tearleads/client-sdk/data/documents/shared/responses";
 import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents/create";
 import {
   buildMaterializedDocumentLinkSetMutationPlan,
@@ -29,6 +27,8 @@ import {
   fixtureHash,
   getOnlyTarget,
 } from "../../../test/helpers/documentFixtures";
+import { unwrapDocumentContentKeyTarget } from "../../data/documents/shared/projection";
+import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
 
 test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating and unlinks with a rotated content key", async () => {
   const { author } = await createAuthor();

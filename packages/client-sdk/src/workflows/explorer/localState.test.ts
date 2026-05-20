@@ -1,21 +1,21 @@
 import { expect, test } from "bun:test";
+import { loadLocalExplorerContainerStates } from "@tearleads/client-sdk/workflows/explorer/localState";
+import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { exportAllUpdates } from "@tearleads/loro";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "@tearleads/client-sdk/data/containers/containerMetadataDocument";
-import type { ContainerRecord } from "@tearleads/client-sdk/data/persistence/containers/containerPersistence";
+} from "../../data/containers/containerMetadataDocument";
+import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type {
   ExplorerPersistence,
   StoredExplorerContainer,
-} from "@tearleads/client-sdk/data/persistence/explorer/explorerPersistence";
-import type { DocumentRecord } from "@tearleads/client-sdk/data/sqlite/documentPersistence";
-import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
-import { loadLocalExplorerContainerStates } from "@tearleads/client-sdk/workflows/explorer/localState";
-import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
-import { bytesToBase64 } from "@tearleads/encoding";
-import { exportAllUpdates } from "@tearleads/loro";
+} from "../../data/persistence/explorer/explorerPersistence";
+import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 const execSql: ExecSql = async () => [];
 const runtime = createExplorerWorkflowSqlRuntime({ execSql });

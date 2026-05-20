@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createBlobStore } from "@tearleads/client-sdk/data/blobs/createBlobStore";
+import { createBlobStore } from "./createBlobStore";
 
 test("createBlobStore reuses stores per namespace and isolates different namespaces", async () => {
   const namespaceA = crypto.randomUUID();

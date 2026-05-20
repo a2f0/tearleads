@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 import {
   listDocumentsByContainerIds,
   sqlDocumentsPersistence,
-} from "@tearleads/client-sdk/data/persistence/documents/documentsPersistence";
-import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
+} from "./documentsPersistence";
 
 const emptyDocumentState = {
   contentKeyBundle: null,

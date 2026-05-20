@@ -1,11 +1,8 @@
 import { expect, test } from "bun:test";
-import { loadContainers } from "@tearleads/client-sdk/data/persistence/containers/containerPersistence";
-import type {
-  ExecSql,
-  ExecSqlClientLike,
-} from "@tearleads/client-sdk/data/sqlite/sqlSchema";
 import { bootstrapRootContainer } from "@tearleads/client-sdk/workflows/registration/bootstrapRootContainer";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+import { loadContainers } from "../../data/persistence/containers/containerPersistence";
+import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 
 function createBootstrapClient(execSql: ExecSql): ExecSqlClientLike {
   return {

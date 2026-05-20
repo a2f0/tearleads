@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { sqlDocumentsPersistence } from "@tearleads/client-sdk/data/persistence/documents/documentsPersistence";
 import { defaultExplorerPersistence } from "@tearleads/client-sdk/workflows/explorer/containerPersistence";
 import {
   createExplorerDocumentReadModelFromRuntime,
@@ -8,6 +7,7 @@ import {
 } from "@tearleads/client-sdk/workflows/explorer/documentReadModel";
 import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 
 async function saveTestContainer(input: {
   execSql: Parameters<typeof defaultExplorerPersistence.saveContainer>[0];
