@@ -25,6 +25,7 @@ const clientSdkRootIndexPath = "packages/client-sdk/src/index.ts";
 const clientSdkWorkflowDocsPath = "packages/client-sdk/src/workflows/README.md";
 const clientSdkSupportedPackageExports = {
   ".": "./src/index.ts",
+  "./documents": "./src/documents.ts",
   "./stores/documents": "./src/stores/documents/index.ts",
   "./workflows/blobs": "./src/workflows/blobs/index.ts",
   "./workflows/contacts": "./src/workflows/contacts/index.ts",
@@ -664,7 +665,7 @@ function formatAppProductionSdkDataImports(
   }
 
   return [
-    "error app-production-uses-sdk-root-or-facades: App production code should import client SDK contracts from @tearleads/client-sdk or workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+    "error app-production-uses-sdk-root-or-facades: App production code should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
     ...matches.map(
       (match) =>
         `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
@@ -680,7 +681,7 @@ function formatAppTestHelperSdkDataImports(
   }
 
   return [
-    "error app-test-helpers-use-sdk-root-or-facades: App test helpers should import client SDK contracts from @tearleads/client-sdk or workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+    "error app-test-helpers-use-sdk-root-or-facades: App test helpers should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
     ...matches.map(
       (match) =>
         `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
@@ -696,7 +697,7 @@ function formatAppTestSdkDataImports(
   }
 
   return [
-    "error app-tests-use-sdk-root-or-facades: App tests should import client SDK contracts from @tearleads/client-sdk or workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+    "error app-tests-use-sdk-root-or-facades: App tests should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
     ...matches.map(
       (match) =>
         `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
@@ -759,7 +760,7 @@ function formatClientSdkPackageExportContractViolations(
   }
 
   return [
-    "error client-sdk-package-exports-match-supported-entry-points: Client SDK package exports should exactly match the documented root, workflow, and store facade entry points with explicit types and default targets.",
+    "error client-sdk-package-exports-match-supported-entry-points: Client SDK package exports should exactly match the documented root, document, workflow, and store facade entry points with explicit types and default targets.",
     ...violations.map(
       (violation) =>
         `  ${clientSdkPackageJsonPath}: ${violation.exportPath} ${violation.detail}`,
