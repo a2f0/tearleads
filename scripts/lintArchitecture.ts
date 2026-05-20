@@ -40,6 +40,8 @@ interface PackageJson {
   exports?: Record<string, unknown>;
 }
 
+let clientSdkPackageJsonPromise: Promise<PackageJson> | undefined;
+
 function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
   const { options = {}, ...ruleSet } = config;
 
@@ -141,9 +143,17 @@ async function findAppTestSdkDataImports(): Promise<SourceMatch[]> {
   );
 }
 
+async function readClientSdkPackageJson(): Promise<PackageJson> {
+  clientSdkPackageJsonPromise ??= readFile(
+    clientSdkPackageJsonPath,
+    "utf8",
+  ).then((content) => JSON.parse(content) as PackageJson);
+
+  return clientSdkPackageJsonPromise;
+}
+
 async function findClientSdkDataPackageExports(): Promise<string[]> {
-  const content = await readFile(clientSdkPackageJsonPath, "utf8");
-  const packageJson = JSON.parse(content) as PackageJson;
+  const packageJson = await readClientSdkPackageJson();
 
   return Object.keys(packageJson.exports ?? {}).filter(
     (exportPath) => exportPath === "./data" || exportPath.startsWith("./data/"),
@@ -151,8 +161,7 @@ async function findClientSdkDataPackageExports(): Promise<string[]> {
 }
 
 async function findClientSdkDeepFacadePackageExports(): Promise<string[]> {
-  const content = await readFile(clientSdkPackageJsonPath, "utf8");
-  const packageJson = JSON.parse(content) as PackageJson;
+  const packageJson = await readClientSdkPackageJson();
 
   return Object.keys(packageJson.exports ?? {}).filter((exportPath) =>
     /^\.\/(?:stores|workflows)\/[^/]+\/.+/.test(exportPath),
