@@ -47,17 +47,17 @@ app adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite + 
 
 ## Import Surface
 
-`data/` is a low-level SDK surface, not the preferred application integration
-API. Prefer the SDK root for neutral contracts and store or workflow facades for
-app code. When low-level imports are needed, use concrete modules such as
-`@tearleads/client-sdk/data/containers/containerMetadataDocument` or neutral
-contracts such as `@tearleads/client-sdk/data/blobContracts` and
-`@tearleads/client-sdk/data/documentSummary`.
+`data/` is an internal SDK layer, not an application integration API. Prefer the
+SDK root for neutral contracts and store or workflow facades for app code.
+Cross-package callers should not import `@tearleads/client-sdk/data/*`
+subpaths; promote the needed contract through the root or an explicit workflow
+facade instead.
 
 Package subpath exports are explicit. Adding a new cross-package import from
-`data/`, `stores/`, or `workflows/` should include a matching
+`stores/` or `workflows/` should include a matching
 `packages/client-sdk/package.json` export and should be treated as an SDK API
-decision, even when the module is still low-level.
+decision. Low-level `data/` modules should stay package-internal unless there
+is a deliberate decision to promote a new public SDK contract.
 
 Use facade subpaths directly, such as `@tearleads/client-sdk/workflows/documents`
 and `@tearleads/client-sdk/stores/documents`, instead of importing their

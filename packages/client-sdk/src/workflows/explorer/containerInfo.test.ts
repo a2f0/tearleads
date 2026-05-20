@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
+import { loadExplorerContainerInfo } from "@tearleads/client-sdk/workflows/explorer/containerInfo";
+import { createParentProjection } from "../../../test/helpers/containerFixtures";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
   ensureContainerTables,
   saveContainer,
-} from "@tearleads/client-sdk/data/persistence/containers/containerPersistence";
+} from "../../data/persistence/containers/containerPersistence";
 import {
   containerDocumentsSyncLane,
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
-} from "@tearleads/client-sdk/data/persistence/containers/containerSyncWatermarkPersistence";
-import { loadExplorerContainerInfo } from "@tearleads/client-sdk/workflows/explorer/containerInfo";
-import { createParentProjection } from "../../../test/helpers/containerFixtures";
-import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+} from "../../data/persistence/containers/containerSyncWatermarkPersistence";
 
 test("loadExplorerContainerInfo reads direct grants, organization groups, and local sync cursors", async () => {
   const { close, execSql } = await createTestExecSql(

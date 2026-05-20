@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { unwrapContainerKekPath } from "@tearleads/client-sdk/data/documents/shared/projection";
 import {
   createProjection,
   createWrappedProjection,
   fixtureHash,
   getOnlyTarget,
 } from "../../../../test/helpers/documentFixtures";
+import { unwrapContainerKekPath } from "./projection";
 
 test("deriveDocumentCreateTargets uses the leaf projection manifest and KEK", async () => {
   const projection = await createProjection();

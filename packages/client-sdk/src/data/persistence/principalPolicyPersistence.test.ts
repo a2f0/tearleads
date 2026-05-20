@@ -1,12 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  ensurePrincipalPolicyTables,
-  loadAllPrincipalPolicyBundles,
-  loadPrincipalPolicyBundle,
-  loadPrincipalPolicyStateHash,
-  savePrincipalPolicyBundle,
-} from "@tearleads/client-sdk/data/persistence/principalPolicyPersistence";
-import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
@@ -17,6 +10,13 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+import {
+  ensurePrincipalPolicyTables,
+  loadAllPrincipalPolicyBundles,
+  loadPrincipalPolicyBundle,
+  loadPrincipalPolicyStateHash,
+  savePrincipalPolicyBundle,
+} from "./principalPolicyPersistence";
 
 async function createPrincipalPolicyBundle() {
   const principalKem = generateKemSeedAndKeyPair();

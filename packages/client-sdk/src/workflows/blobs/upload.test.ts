@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import type { BlobBytes } from "@tearleads/client-sdk/data/blobContracts";
 import {
   type DocumentAttachmentUploadRuntime,
   uploadDocumentAttachment,
@@ -23,6 +22,7 @@ import {
   createMaterializedSyncFixture,
   createResponse,
 } from "../../../test/helpers/documentFixtures";
+import type { BlobBytes } from "../../data/blobContracts";
 
 test("uploadDocumentAttachment wraps blob keys with the blob content-key suite", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =

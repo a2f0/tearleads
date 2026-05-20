@@ -1,9 +1,4 @@
 import { expect, test } from "bun:test";
-import type { BlobBytes } from "@tearleads/client-sdk/data/blobContracts";
-import {
-  ensurePrincipalPolicyTables,
-  savePrincipalPolicyBundle,
-} from "@tearleads/client-sdk/data/persistence/principalPolicyPersistence";
 import { uploadDocumentAttachment } from "@tearleads/client-sdk/workflows/blobs";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -47,6 +42,11 @@ import {
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
 import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
+import type { BlobBytes } from "../../blobContracts";
+import {
+  ensurePrincipalPolicyTables,
+  savePrincipalPolicyBundle,
+} from "../../persistence/principalPolicyPersistence";
 
 async function createGroupPrincipalPolicyBundle(input: {
   memberRecipientPublicKeys: Array<{

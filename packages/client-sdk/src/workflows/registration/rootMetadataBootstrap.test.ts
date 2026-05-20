@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { createInitialRootMetadataBootstrap } from "@tearleads/client-sdk/workflows/registration/rootMetadataBootstrap";
+import { importUpdates } from "@tearleads/loro";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
-} from "@tearleads/client-sdk/data/containers/containerMetadataDocument";
-import { createInitialRootMetadataBootstrap } from "@tearleads/client-sdk/workflows/registration/rootMetadataBootstrap";
-import { importUpdates } from "@tearleads/loro";
+} from "../../data/containers/containerMetadataDocument";
 
 test("createInitialRootMetadataBootstrap creates root metadata update", async () => {
   const bootstrap =

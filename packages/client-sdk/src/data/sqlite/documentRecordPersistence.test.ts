@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
   ensureDocumentTables,
   loadDocumentRecord,
   saveDocumentRecord,
-} from "@tearleads/client-sdk/data/sqlite/documentPersistence";
-import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+} from "./documentPersistence";
 
 test("document records persist runtime columns", async () => {
   const { close, execSql } = await createTestExecSql(

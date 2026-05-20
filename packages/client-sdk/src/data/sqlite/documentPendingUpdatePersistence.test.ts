@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   listDocumentPendingUpdates,
-} from "@tearleads/client-sdk/data/sqlite/documentPersistence";
-import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+} from "./documentPersistence";
 
 const documentScope = {
   appKind: "documents",

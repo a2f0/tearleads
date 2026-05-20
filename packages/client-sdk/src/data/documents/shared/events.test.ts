@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { buildDocumentCreatePlan } from "@tearleads/client-sdk/data/documents/shared/events";
 import {
   type AccessEvent,
   type KeyingCanonicalJson,
@@ -12,6 +11,7 @@ import {
   fixtureHash,
   getOnlyTarget,
 } from "../../../../test/helpers/documentFixtures";
+import { buildDocumentCreatePlan } from "./events";
 
 test("buildDocumentCreatePlan signs an initial document link manifest from a container projection", async () => {
   const { author, signingPublicKey } = await createAuthor();
