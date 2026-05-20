@@ -69,6 +69,41 @@ describe("Tearleads", () => {
     expect(sdk.network.online).toBe(false);
   });
 
+  test("notifies event subscribers with stable snapshots", () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    const snapshots: ReadonlyArray<unknown>[] = [];
+    const unsubscribe = sdk.events.subscribe(() => {
+      snapshots.push(sdk.events.snapshot.events);
+    });
+
+    sdk.events.push({ type: "document.updated" });
+    sdk.events.setConnected(true);
+    sdk.events.setConnected(true);
+    unsubscribe();
+    sdk.events.push({ type: "ignored" });
+
+    expect(snapshots).toEqual([
+      [{ type: "document.updated" }],
+      [{ type: "document.updated" }],
+    ]);
+    expect(sdk.events.connected).toBe(true);
+  });
+
+  test("continues notifying event subscribers after listener failure", () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    let notifications = 0;
+    sdk.events.subscribe(() => {
+      throw new Error("listener failed");
+    });
+    sdk.events.subscribe(() => {
+      notifications += 1;
+    });
+
+    expect(() => sdk.events.push({ type: "document.updated" })).not.toThrow();
+
+    expect(notifications).toBe(1);
+  });
+
   test("generates identity keys and switches blob storage to the identity namespace", async () => {
     const sdk = new Tearleads({ logger: quietLogger });
     const ephemeralStore = sdk.blobs.store;
