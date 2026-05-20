@@ -23,6 +23,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import invariant from "invariant";
 import {
+  getProxiedApiNetworkActivitySnapshot,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../test/helpers/mswServer";
@@ -32,6 +33,24 @@ const apiBaseUrl = "http://localhost:3001";
 afterEach(async () => {
   await resetMockServer();
 });
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForActiveProxiedApiRequest(): Promise<void> {
+  const deadline = Date.now() + 100;
+
+  while (Date.now() <= deadline) {
+    if (getProxiedApiNetworkActivitySnapshot().activeRequestCount > 0) {
+      return;
+    }
+
+    await delay(1);
+  }
+
+  throw new Error("Expected an active proxied API request.");
+}
 
 async function registerIdentity(
   signingPublicKey: Uint8Array,
@@ -269,3 +288,28 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
   const resetChallengeResponse = await requestChallenge(fingerprint);
   expect(resetChallengeResponse.status).toBe(404);
 }, 10_000);
+
+test("resetMockServer leaves active proxied API accounting intact when idle times out", async () => {
+  useTestApiAppHandlers({ responseDelayMs: 100 });
+
+  const pendingResponse = fetch(`${apiBaseUrl}/`);
+  await waitForActiveProxiedApiRequest();
+
+  await expect(
+    resetMockServer({ proxiedApiQuietMs: 1, proxiedApiTimeoutMs: 10 }),
+  ).rejects.toThrow("Timed out waiting for proxied API network idle");
+
+  expect(getProxiedApiNetworkActivitySnapshot()).toEqual({
+    activeRequestCount: 1,
+    completedRequestCount: 0,
+  });
+
+  const response = await pendingResponse;
+  expect(response.status).toBe(200);
+  expect(getProxiedApiNetworkActivitySnapshot()).toEqual({
+    activeRequestCount: 0,
+    completedRequestCount: 1,
+  });
+
+  await resetMockServer();
+});
