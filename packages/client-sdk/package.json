@@ -1,7 +1,9 @@
 {
   "name": "@tearleads/client-sdk",
   "version": "0.1.0",
+  "description": "React-free Tearleads client SDK runtime and workflow facades.",
   "private": true,
+  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
