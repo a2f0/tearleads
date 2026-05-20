@@ -24,6 +24,8 @@ const reactImportPattern =
   /\bfrom\s*["']react(?:\/[^"']*)?["']|\bimport\s*(?:\(\s*)?["']react(?:\/[^"']*)?["']/;
 const appTestHelperImportPattern =
   /\bfrom\s*["'][^"']*test\/helpers\/|\bimport\s*(?:\(\s*)?["'][^"']*test\/helpers\//;
+const appSdkDataImportPattern =
+  /\bfrom\s*["']@tearleads\/client-sdk\/data\/|\bimport\s*(?:\(\s*)?["']@tearleads\/client-sdk\/data\//;
 
 interface SourceMatch {
   filePath: string;
@@ -89,6 +91,13 @@ async function findAppProductionTestHelperReferences(): Promise<SourceMatch[]> {
   return findSourceMatches(
     appProductionSourceEntryPoints,
     appTestHelperImportPattern,
+  );
+}
+
+async function findAppProductionSdkDataImports(): Promise<SourceMatch[]> {
+  return findSourceMatches(
+    appProductionSourceEntryPoints,
+    appSdkDataImportPattern,
   );
 }
 
@@ -164,6 +173,22 @@ function formatAppProductionTestHelperReferences(
   ].join("\n");
 }
 
+function formatAppProductionSdkDataImports(
+  matches: ReadonlyArray<SourceMatch>,
+): string {
+  if (matches.length === 0) {
+    return "";
+  }
+
+  return [
+    "error app-production-uses-sdk-root-or-facades: App production code should import client SDK contracts from @tearleads/client-sdk or workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+    ...matches.map(
+      (match) =>
+        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
+    ),
+  ].join("\n");
+}
+
 const result = await cruise(
   architectureEntryPoints,
   configToCruiseOptions(dependencyCruiserConfig),
@@ -173,6 +198,7 @@ const appPresentationSqlExecutorReferences =
 const appReactFreeLayerReferences = await findAppReactFreeLayerReferences();
 const appProductionTestHelperReferences =
   await findAppProductionTestHelperReferences();
+const appProductionSdkDataImports = await findAppProductionSdkDataImports();
 
 if (typeof result.output === "string" && result.output.trim().length > 0) {
   const write = result.exitCode === 0 ? console.log : console.error;
@@ -201,11 +227,19 @@ if (appProductionTestHelperOutput.length > 0) {
   console.error(appProductionTestHelperOutput);
 }
 
+const appProductionSdkDataOutput = formatAppProductionSdkDataImports(
+  appProductionSdkDataImports,
+);
+if (appProductionSdkDataOutput.length > 0) {
+  console.error(appProductionSdkDataOutput);
+}
+
 process.exit(
   result.exitCode !== 0 ||
     appPresentationSqlExecutorReferences.length > 0 ||
     appReactFreeLayerReferences.length > 0 ||
-    appProductionTestHelperReferences.length > 0
+    appProductionTestHelperReferences.length > 0 ||
+    appProductionSdkDataImports.length > 0
     ? 1
     : 0,
 );

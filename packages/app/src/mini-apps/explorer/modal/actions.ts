@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import { getExplorerModalError } from "./labels";
 import type { ExplorerModalState } from "./types";

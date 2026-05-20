@@ -1,7 +1,7 @@
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk/data/documents/documentKinds";
+} from "@tearleads/client-sdk";
 import {
   type DragEvent,
   useCallback,

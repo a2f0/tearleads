@@ -1,8 +1,8 @@
-import type { DocumentProjectorRegistry } from "@tearleads/client-sdk/data/documents/documentKinds";
 import {
   createExecSql,
+  type DocumentProjectorRegistry,
   type ExecSql,
-} from "@tearleads/client-sdk/data/sqlite/sqlSchema";
+} from "@tearleads/client-sdk";
 import { cacheReferencedPrincipalPolicies } from "@tearleads/client-sdk/workflows/principals";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import {

@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
 import { useExplorerModalController } from "../modal/controller";
 import type { ExplorerModalState } from "../modal/types";

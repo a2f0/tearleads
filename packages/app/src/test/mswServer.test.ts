@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/data/documents/documentConstants";
+import { createDocumentSignerDeviceId } from "@tearleads/client-sdk";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
