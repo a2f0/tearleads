@@ -1,10 +1,4 @@
 import { expect, test } from "bun:test";
-import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents/create";
-import {
-  moveRemoteExplorerDocument,
-  relinkRemoteExplorerDocument,
-} from "@tearleads/client-sdk/workflows/explorer/documentLinks";
-import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
@@ -16,6 +10,12 @@ import {
   createResponse,
 } from "../../../test/helpers/documentFixtures";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import { buildMaterializedDocumentCreatePlan } from "../documents/create";
+import {
+  moveRemoteExplorerDocument,
+  relinkRemoteExplorerDocument,
+} from "./documentLinks";
+import { createExplorerWorkflowSqlRuntime } from "./runtime";
 
 test("relinkRemoteExplorerDocument persists linked container projections after a successful remote mutation", async () => {
   const { close, execSql } = await createTestExecSql(

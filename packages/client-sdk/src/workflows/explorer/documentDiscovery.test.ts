@@ -1,12 +1,4 @@
 import { expect, test } from "bun:test";
-import {
-  discoverAllContainerDocuments,
-  discoverContainerDocuments,
-  discoverContainerDocumentsFromApi,
-  hasUndiscoveredDocumentUpdateEvent,
-  listAllRemoteExplorerContainerIds,
-  listAllRemoteExplorerContainerIdsFromApi,
-} from "@tearleads/client-sdk/workflows/explorer/documentDiscovery";
 import type {
   ReferencedPrincipalStateResponse,
   SyncWatermark,
@@ -15,6 +7,14 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../data/documentSummary";
+import {
+  discoverAllContainerDocuments,
+  discoverContainerDocuments,
+  discoverContainerDocumentsFromApi,
+  hasUndiscoveredDocumentUpdateEvent,
+  listAllRemoteExplorerContainerIds,
+  listAllRemoteExplorerContainerIdsFromApi,
+} from "./documentDiscovery";
 
 type CapturedDiscoveredDocumentInput = Omit<
   DiscoveredDocumentInput,

@@ -1,5 +1,3 @@
-import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents/create";
-import type { buildDocumentSyncPlan } from "@tearleads/client-sdk/workflows/documents/sync";
 import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -34,6 +32,8 @@ import type {
   DocumentCreateAuthor,
   DocumentCreatePlan,
 } from "../../src/data/documents/shared/types";
+import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
+import type { buildDocumentSyncPlan } from "../../src/workflows/documents/sync";
 import { createContainerWriterProjectionFixture } from "./createContainerWriterProjectionFixture";
 
 interface DeepNonCanonicalRecord {

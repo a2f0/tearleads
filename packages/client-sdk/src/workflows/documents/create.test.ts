@@ -4,11 +4,6 @@ import {
   unwrapDocumentContentKeyTarget,
 } from "@tearleads/client-sdk/workflows/documents";
 import {
-  buildMaterializedDocumentCreatePlan,
-  createRemoteDocument,
-  createRemoteDocumentFromRuntime,
-} from "@tearleads/client-sdk/workflows/documents/create";
-import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   generateKemSeedAndKeyPair,
 } from "@tearleads/crypto";
@@ -28,6 +23,11 @@ import {
   createResponseFromRequest,
   createWrappedProjection,
 } from "../../../test/helpers/documentFixtures";
+import {
+  buildMaterializedDocumentCreatePlan,
+  createRemoteDocument,
+  createRemoteDocumentFromRuntime,
+} from "./create";
 
 test("buildMaterializedDocumentCreatePlan wraps the content key to the target container KEK", async () => {
   const { author } = await createAuthor();

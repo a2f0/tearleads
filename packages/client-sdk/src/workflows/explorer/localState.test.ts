@@ -1,6 +1,4 @@
 import { expect, test } from "bun:test";
-import { loadLocalExplorerContainerStates } from "@tearleads/client-sdk/workflows/explorer/localState";
-import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import {
@@ -16,6 +14,8 @@ import type {
 } from "../../data/persistence/explorer/explorerPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { loadLocalExplorerContainerStates } from "./localState";
+import { createExplorerWorkflowSqlRuntime } from "./runtime";
 
 const execSql: ExecSql = async () => [];
 const runtime = createExplorerWorkflowSqlRuntime({ execSql });

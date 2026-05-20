@@ -7,13 +7,13 @@ import {
   persistExplorerContainerMetadataStateFromRuntime,
   renameExplorerContainerMetadataStateFromRuntime,
 } from "@tearleads/client-sdk/workflows/explorer";
-import { createExplorerWorkflowSqlRuntime } from "@tearleads/client-sdk/workflows/explorer/runtime";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { createExplorerWorkflowSqlRuntime } from "./runtime";
 
 const execSql: ExecSql = async () => [];
 const runtime = createExplorerWorkflowSqlRuntime({ execSql });

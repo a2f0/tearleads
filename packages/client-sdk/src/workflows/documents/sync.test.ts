@@ -4,13 +4,6 @@ import {
   buildMaterializedDocumentLinkSetMutationPlan,
 } from "@tearleads/client-sdk/workflows/documents";
 import {
-  buildDocumentSyncPlan,
-  buildMaterializedDocumentSyncPlan,
-  hasDocumentUpdateEvent,
-  syncRemoteDocument,
-  syncRemoteDocumentFromRuntime,
-} from "@tearleads/client-sdk/workflows/documents/sync";
-import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   generateKemSeedAndKeyPair,
@@ -41,6 +34,13 @@ import {
   createSyncResponse,
   projectionPathRecords,
 } from "../../../test/helpers/documentFixtures";
+import {
+  buildDocumentSyncPlan,
+  buildMaterializedDocumentSyncPlan,
+  hasDocumentUpdateEvent,
+  syncRemoteDocument,
+  syncRemoteDocumentFromRuntime,
+} from "./sync";
 
 interface ContentRecordFields {
   ciphertext?: unknown;

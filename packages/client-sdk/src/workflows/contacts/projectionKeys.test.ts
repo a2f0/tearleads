@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { toFingerprint } from "@tearleads/crypto";
 import {
   type ContactProjectionKeyRuntime,
   createContactProjectionUserKeyResolver,
   didContactProjectionKeyRuntimeChange,
-} from "@tearleads/client-sdk/workflows/contacts/projectionKeys";
-import { toFingerprint } from "@tearleads/crypto";
+} from "./projectionKeys";
 
 function createRuntime(
   patch: Partial<ContactProjectionKeyRuntime> = {},

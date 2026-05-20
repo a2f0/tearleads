@@ -1,11 +1,4 @@
 import { expect, test } from "bun:test";
-import {
-  loadOrgManagerDataUsage,
-  loadOrgManagerDirectoryAndGroups,
-  loadOrgManagerGrants,
-  loadOrgManagerGroupDetails,
-  loadOrgManagerUserDetail,
-} from "@tearleads/client-sdk/workflows/org-manager/readModel";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantsResponse,
@@ -19,6 +12,13 @@ import {
   ensureContainerTables,
   saveContainer,
 } from "../../data/persistence/containers/containerPersistence";
+import {
+  loadOrgManagerDataUsage,
+  loadOrgManagerDirectoryAndGroups,
+  loadOrgManagerGrants,
+  loadOrgManagerGroupDetails,
+  loadOrgManagerUserDetail,
+} from "./readModel";
 
 const organizationId = "org-1";
 const groupId = "group-1";

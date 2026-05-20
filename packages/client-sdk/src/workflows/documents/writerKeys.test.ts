@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { createDocumentWriterPublicKeyResolver } from "@tearleads/client-sdk/workflows/documents/writerKeys";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   toFingerprint,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createDocumentWriterPublicKeyResolver } from "./writerKeys";
 
 function createWriteHeader(input: {
   authorFingerprint: string;

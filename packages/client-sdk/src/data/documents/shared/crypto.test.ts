@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { buildMaterializedDocumentSyncPlan } from "@tearleads/client-sdk/workflows/documents/sync";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
 import { decryptDocumentSyncUpdates } from "./crypto";
 
 test("decryptDocumentSyncUpdates verifies and decrypts content records", async () => {
