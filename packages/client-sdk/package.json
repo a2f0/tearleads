@@ -6,17 +6,50 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./stores/documents": "./src/stores/documents/index.ts",
-    "./workflows/blobs": "./src/workflows/blobs/index.ts",
-    "./workflows/contacts": "./src/workflows/contacts/index.ts",
-    "./workflows/containers": "./src/workflows/containers/index.ts",
-    "./workflows/documents": "./src/workflows/documents/index.ts",
-    "./workflows/explorer": "./src/workflows/explorer/index.ts",
-    "./workflows/organizations": "./src/workflows/organizations/index.ts",
-    "./workflows/principals": "./src/workflows/principals/index.ts",
-    "./workflows/registration": "./src/workflows/registration/index.ts",
-    "./workflows/sync": "./src/workflows/sync/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./stores/documents": {
+      "types": "./src/stores/documents/index.ts",
+      "default": "./src/stores/documents/index.ts"
+    },
+    "./workflows/blobs": {
+      "types": "./src/workflows/blobs/index.ts",
+      "default": "./src/workflows/blobs/index.ts"
+    },
+    "./workflows/contacts": {
+      "types": "./src/workflows/contacts/index.ts",
+      "default": "./src/workflows/contacts/index.ts"
+    },
+    "./workflows/containers": {
+      "types": "./src/workflows/containers/index.ts",
+      "default": "./src/workflows/containers/index.ts"
+    },
+    "./workflows/documents": {
+      "types": "./src/workflows/documents/index.ts",
+      "default": "./src/workflows/documents/index.ts"
+    },
+    "./workflows/explorer": {
+      "types": "./src/workflows/explorer/index.ts",
+      "default": "./src/workflows/explorer/index.ts"
+    },
+    "./workflows/organizations": {
+      "types": "./src/workflows/organizations/index.ts",
+      "default": "./src/workflows/organizations/index.ts"
+    },
+    "./workflows/principals": {
+      "types": "./src/workflows/principals/index.ts",
+      "default": "./src/workflows/principals/index.ts"
+    },
+    "./workflows/registration": {
+      "types": "./src/workflows/registration/index.ts",
+      "default": "./src/workflows/registration/index.ts"
+    },
+    "./workflows/sync": {
+      "types": "./src/workflows/sync/index.ts",
+      "default": "./src/workflows/sync/index.ts"
+    }
   },
   "scripts": {
     "test": "bun test src --max-concurrency=4 --pass-with-no-tests"

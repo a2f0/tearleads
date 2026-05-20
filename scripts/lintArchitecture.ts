@@ -21,6 +21,19 @@ const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
 const clientSdkPackageJsonPath = "packages/client-sdk/package.json";
 const clientSdkRootIndexPath = "packages/client-sdk/src/index.ts";
+const clientSdkSupportedPackageExports = {
+  ".": "./src/index.ts",
+  "./stores/documents": "./src/stores/documents/index.ts",
+  "./workflows/blobs": "./src/workflows/blobs/index.ts",
+  "./workflows/contacts": "./src/workflows/contacts/index.ts",
+  "./workflows/containers": "./src/workflows/containers/index.ts",
+  "./workflows/documents": "./src/workflows/documents/index.ts",
+  "./workflows/explorer": "./src/workflows/explorer/index.ts",
+  "./workflows/organizations": "./src/workflows/organizations/index.ts",
+  "./workflows/principals": "./src/workflows/principals/index.ts",
+  "./workflows/registration": "./src/workflows/registration/index.ts",
+  "./workflows/sync": "./src/workflows/sync/index.ts",
+} as const;
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
@@ -41,6 +54,11 @@ interface SourceMatch {
 
 interface PackageJson {
   exports?: Record<string, unknown>;
+}
+
+interface ClientSdkPackageExportContractViolation {
+  detail: string;
+  exportPath: string;
 }
 
 let clientSdkPackageJsonPromise: Promise<PackageJson> | undefined;
@@ -153,6 +171,79 @@ async function readClientSdkPackageJson(): Promise<PackageJson> {
   ).then((content) => JSON.parse(content) as PackageJson);
 
   return clientSdkPackageJsonPromise;
+}
+
+function packageExportConditionTarget(
+  exportTarget: unknown,
+  condition: string,
+): string | undefined {
+  if (
+    !exportTarget ||
+    typeof exportTarget !== "object" ||
+    Array.isArray(exportTarget)
+  ) {
+    return undefined;
+  }
+
+  const conditionalExport = exportTarget as Record<string, unknown>;
+  const conditionTarget = conditionalExport[condition];
+
+  return typeof conditionTarget === "string" ? conditionTarget : undefined;
+}
+
+function buildClientSdkPackageExportViolation(
+  exportPath: string,
+  detail: string,
+): ClientSdkPackageExportContractViolation {
+  return { detail, exportPath };
+}
+
+async function findClientSdkPackageExportContractViolations(): Promise<
+  ClientSdkPackageExportContractViolation[]
+> {
+  const packageJson = await readClientSdkPackageJson();
+  const packageExports = packageJson.exports ?? {};
+  const expectedExports = Object.entries(clientSdkSupportedPackageExports);
+  const missingOrChangedExports = expectedExports.flatMap(
+    ([exportPath, expectedTarget]) => {
+      const exportTarget = packageExports[exportPath];
+
+      if (!exportTarget) {
+        return [buildClientSdkPackageExportViolation(exportPath, "missing")];
+      }
+
+      const defaultTarget = packageExportConditionTarget(
+        exportTarget,
+        "default",
+      );
+      const typesTarget = packageExportConditionTarget(exportTarget, "types");
+
+      return [
+        defaultTarget === expectedTarget
+          ? undefined
+          : buildClientSdkPackageExportViolation(
+              exportPath,
+              `default target should be ${expectedTarget}`,
+            ),
+        typesTarget === expectedTarget
+          ? undefined
+          : buildClientSdkPackageExportViolation(
+              exportPath,
+              `types target should be ${expectedTarget}`,
+            ),
+      ].filter(
+        (violation): violation is ClientSdkPackageExportContractViolation =>
+          violation !== undefined,
+      );
+    },
+  );
+  const unexpectedExports = Object.keys(packageExports)
+    .filter((exportPath) => !(exportPath in clientSdkSupportedPackageExports))
+    .map((exportPath) =>
+      buildClientSdkPackageExportViolation(exportPath, "unexpected"),
+    );
+
+  return [...missingOrChangedExports, ...unexpectedExports];
 }
 
 async function findClientSdkDataPackageExports(): Promise<string[]> {
@@ -317,6 +408,22 @@ function formatClientSdkDataPackageExports(
   ].join("\n");
 }
 
+function formatClientSdkPackageExportContractViolations(
+  violations: ReadonlyArray<ClientSdkPackageExportContractViolation>,
+): string {
+  if (violations.length === 0) {
+    return "";
+  }
+
+  return [
+    "error client-sdk-package-exports-match-supported-entry-points: Client SDK package exports should exactly match the documented root, workflow, and store facade entry points with explicit types and default targets.",
+    ...violations.map(
+      (violation) =>
+        `  ${clientSdkPackageJsonPath}: ${violation.exportPath} ${violation.detail}`,
+    ),
+  ].join("\n");
+}
+
 function formatClientSdkDeepFacadePackageExports(
   exportPaths: ReadonlyArray<string>,
 ): string {
@@ -360,6 +467,8 @@ const appProductionTestHelperReferences =
 const appProductionSdkDataImports = await findAppProductionSdkDataImports();
 const appTestHelperSdkDataImports = await findAppTestHelperSdkDataImports();
 const appTestSdkDataImports = await findAppTestSdkDataImports();
+const clientSdkPackageExportContractViolations =
+  await findClientSdkPackageExportContractViolations();
 const clientSdkDataPackageExports = await findClientSdkDataPackageExports();
 const clientSdkDeepFacadePackageExports =
   await findClientSdkDeepFacadePackageExports();
@@ -411,6 +520,14 @@ if (appTestSdkDataOutput.length > 0) {
   console.error(appTestSdkDataOutput);
 }
 
+const clientSdkPackageExportContractOutput =
+  formatClientSdkPackageExportContractViolations(
+    clientSdkPackageExportContractViolations,
+  );
+if (clientSdkPackageExportContractOutput.length > 0) {
+  console.error(clientSdkPackageExportContractOutput);
+}
+
 const clientSdkDataPackageExportsOutput = formatClientSdkDataPackageExports(
   clientSdkDataPackageExports,
 );
@@ -439,6 +556,7 @@ process.exit(
     appProductionSdkDataImports.length > 0 ||
     appTestHelperSdkDataImports.length > 0 ||
     appTestSdkDataImports.length > 0 ||
+    clientSdkPackageExportContractViolations.length > 0 ||
     clientSdkDataPackageExports.length > 0 ||
     clientSdkDeepFacadePackageExports.length > 0 ||
     clientSdkRootFacadeReExports.length > 0
