@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
+import { toFingerprint } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createExplorerDocumentProjectionUserKeyResolver,
   createExplorerProjectionUserKeyResolver,
   didExplorerProjectionKeyRuntimeChange,
   type ExplorerProjectionKeyRuntime,
-} from "@tearleads/client-sdk/workflows/explorer/projectionKeys";
-import { toFingerprint } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "./projectionKeys";
 
 function createRuntime(
   patch: Partial<ExplorerProjectionKeyRuntime> = {},

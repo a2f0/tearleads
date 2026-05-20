@@ -1,9 +1,4 @@
 import { expect, test } from "bun:test";
-import {
-  type ContactDocumentState,
-  hasContactDocumentUpdateEvent,
-  syncContactDocuments,
-} from "@tearleads/client-sdk/workflows/contacts/sync";
 import { createDocument } from "@tearleads/loro";
 import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
 import type { ContactEntry } from "../../data/contacts/addressBookEntry";
@@ -12,6 +7,11 @@ import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerif
 import type { ContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ContactDocumentState,
+  hasContactDocumentUpdateEvent,
+  syncContactDocuments,
+} from "./sync";
 
 const execSql: ExecSql = async () => [];
 const resolveProjectionUserKey: ProjectionUserKeyResolver = async () => null;

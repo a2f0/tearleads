@@ -3,7 +3,7 @@ import {
   didRegainContactSyncPrerequisites,
   isDestroyedContactSyncRuntimeError,
   registerContactSyncLane,
-} from "@tearleads/client-sdk/workflows/contacts/syncLane";
+} from "./syncLane";
 
 function flushSyncLane() {
   return new Promise((resolve) => setTimeout(resolve, 0));

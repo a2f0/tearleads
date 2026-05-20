@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { buildMaterializedDocumentSyncPlan } from "@tearleads/client-sdk/workflows/documents/sync";
 import {
   createAuthor,
   createMaterializedSyncFixture,
@@ -11,6 +10,7 @@ import {
   fixtureHash,
   getOnlyTarget,
 } from "../../../../test/helpers/documentFixtures";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
 import { buildDocumentCreatePlan } from "./events";
 import {
   persistedDocumentCreateStateFromResponse,

@@ -3,7 +3,7 @@ import {
   didRegainExplorerSyncPrerequisites,
   isDestroyedExplorerSyncRuntimeError,
   registerExplorerSyncLane,
-} from "@tearleads/client-sdk/workflows/explorer/syncLane";
+} from "./syncLane";
 
 function flushSyncLane() {
   return new Promise((resolve) => setTimeout(resolve, 0));

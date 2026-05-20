@@ -53,17 +53,18 @@ Cross-package callers should not import `@tearleads/client-sdk/data/*`
 subpaths; promote the needed contract through the root or an explicit workflow
 facade instead.
 
-Package subpath exports are explicit. Adding a new cross-package import from
-`stores/` or `workflows/` should include a matching
-`packages/client-sdk/package.json` export and should be treated as an SDK API
-decision. Low-level `data/` modules should stay package-internal unless there
-is a deliberate decision to promote a new public SDK contract.
+Package subpath exports are explicit and should stop at the facade boundary.
+Adding a new cross-package import from `stores/` or `workflows/` should usually
+mean adding or widening a domain facade export, such as
+`@tearleads/client-sdk/workflows/documents`, rather than exporting a nested
+implementation file. Low-level `data/` modules should stay package-internal
+unless there is a deliberate decision to promote a new public SDK contract.
 
 Use facade subpaths directly, such as `@tearleads/client-sdk/workflows/documents`
 and `@tearleads/client-sdk/stores/documents`, instead of importing their
-implementation `index` modules or nested store implementation files. Shared
-sync coordination helpers that cross app test/runtime boundaries belong behind
-`@tearleads/client-sdk/workflows/sync`.
+implementation `index` modules or nested workflow/store implementation files.
+Shared sync coordination helpers that cross app test/runtime boundaries belong
+behind `@tearleads/client-sdk/workflows/sync`.
 
 Avoid `index.ts`, `types.ts`, and other one-line re-export shims inside data
 domains when they only shorten import paths. Keep a facade only when it marks a

@@ -1,10 +1,4 @@
 import { expect, test } from "bun:test";
-import { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "@tearleads/client-sdk/workflows/contacts/constants";
-import {
-  loadContactDocumentStates,
-  persistContactEntry,
-} from "@tearleads/client-sdk/workflows/contacts/localState";
-import type { ContactDocumentState } from "@tearleads/client-sdk/workflows/contacts/sync";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import type { ContactEntry } from "../../data/contacts/addressBookEntry";
@@ -16,6 +10,9 @@ import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import type { ContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { DEFAULT_CONTACTS_ADDRESS_BOOK_ID } from "./constants";
+import { loadContactDocumentStates, persistContactEntry } from "./localState";
+import type { ContactDocumentState } from "./sync";
 
 const execSql: ExecSql = async () => [];
 

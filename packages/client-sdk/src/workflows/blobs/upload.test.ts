@@ -4,7 +4,6 @@ import {
   uploadDocumentAttachment,
   uploadDocumentAttachmentFromRuntime,
 } from "@tearleads/client-sdk/workflows/blobs";
-import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents/create";
 import {
   type AccessEvent,
   BLOB_CONTENT_KEY_WRAP_SUITE,
@@ -23,6 +22,7 @@ import {
   createResponse,
 } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
+import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 
 test("uploadDocumentAttachment wraps blob keys with the blob content-key suite", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =

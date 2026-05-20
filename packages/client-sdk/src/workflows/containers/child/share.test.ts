@@ -3,7 +3,6 @@ import {
   shareRemoteContainer,
   shareRemoteContainerWithGroup,
 } from "@tearleads/client-sdk/workflows/containers";
-import { buildInitialGroupPolicyRequest } from "@tearleads/client-sdk/workflows/org-manager/principalPolicy";
 import {
   type AccessEvent,
   type ContainerGrantAccessEventBody,
@@ -33,6 +32,7 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../org-manager/principalPolicy";
 
 async function policyBundleFromInitialRequest(
   request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>,

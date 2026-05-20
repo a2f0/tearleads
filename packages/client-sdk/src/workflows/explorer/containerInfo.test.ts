@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { loadExplorerContainerInfo } from "@tearleads/client-sdk/workflows/explorer/containerInfo";
 import { createParentProjection } from "../../../test/helpers/containerFixtures";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
@@ -11,6 +10,7 @@ import {
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
+import { loadExplorerContainerInfo } from "./containerInfo";
 
 test("loadExplorerContainerInfo reads direct grants, organization groups, and local sync cursors", async () => {
   const { close, execSql } = await createTestExecSql(

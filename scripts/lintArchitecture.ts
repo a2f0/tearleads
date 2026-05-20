@@ -40,6 +40,8 @@ interface PackageJson {
   exports?: Record<string, unknown>;
 }
 
+let clientSdkPackageJsonPromise: Promise<PackageJson> | undefined;
+
 function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
   const { options = {}, ...ruleSet } = config;
 
@@ -141,12 +143,28 @@ async function findAppTestSdkDataImports(): Promise<SourceMatch[]> {
   );
 }
 
+async function readClientSdkPackageJson(): Promise<PackageJson> {
+  clientSdkPackageJsonPromise ??= readFile(
+    clientSdkPackageJsonPath,
+    "utf8",
+  ).then((content) => JSON.parse(content) as PackageJson);
+
+  return clientSdkPackageJsonPromise;
+}
+
 async function findClientSdkDataPackageExports(): Promise<string[]> {
-  const content = await readFile(clientSdkPackageJsonPath, "utf8");
-  const packageJson = JSON.parse(content) as PackageJson;
+  const packageJson = await readClientSdkPackageJson();
 
   return Object.keys(packageJson.exports ?? {}).filter(
     (exportPath) => exportPath === "./data" || exportPath.startsWith("./data/"),
+  );
+}
+
+async function findClientSdkDeepFacadePackageExports(): Promise<string[]> {
+  const packageJson = await readClientSdkPackageJson();
+
+  return Object.keys(packageJson.exports ?? {}).filter((exportPath) =>
+    /^\.\/(?:stores|workflows)\/[^/]+\/.+/.test(exportPath),
   );
 }
 
@@ -284,6 +302,21 @@ function formatClientSdkDataPackageExports(
   ].join("\n");
 }
 
+function formatClientSdkDeepFacadePackageExports(
+  exportPaths: ReadonlyArray<string>,
+): string {
+  if (exportPaths.length === 0) {
+    return "";
+  }
+
+  return [
+    "error client-sdk-exports-only-root-and-facades: Client SDK package exports should stay at the root or workflow/store facade level instead of exposing implementation files.",
+    ...exportPaths.map(
+      (exportPath) => `  ${clientSdkPackageJsonPath}: ${exportPath}`,
+    ),
+  ].join("\n");
+}
+
 const result = await cruise(
   architectureEntryPoints,
   configToCruiseOptions(dependencyCruiserConfig),
@@ -297,6 +330,8 @@ const appProductionSdkDataImports = await findAppProductionSdkDataImports();
 const appTestHelperSdkDataImports = await findAppTestHelperSdkDataImports();
 const appTestSdkDataImports = await findAppTestSdkDataImports();
 const clientSdkDataPackageExports = await findClientSdkDataPackageExports();
+const clientSdkDeepFacadePackageExports =
+  await findClientSdkDeepFacadePackageExports();
 
 if (typeof result.output === "string" && result.output.trim().length > 0) {
   const write = result.exitCode === 0 ? console.log : console.error;
@@ -351,6 +386,12 @@ if (clientSdkDataPackageExportsOutput.length > 0) {
   console.error(clientSdkDataPackageExportsOutput);
 }
 
+const clientSdkDeepFacadePackageExportsOutput =
+  formatClientSdkDeepFacadePackageExports(clientSdkDeepFacadePackageExports);
+if (clientSdkDeepFacadePackageExportsOutput.length > 0) {
+  console.error(clientSdkDeepFacadePackageExportsOutput);
+}
+
 process.exit(
   result.exitCode !== 0 ||
     appPresentationSqlExecutorReferences.length > 0 ||
@@ -359,7 +400,8 @@ process.exit(
     appProductionSdkDataImports.length > 0 ||
     appTestHelperSdkDataImports.length > 0 ||
     appTestSdkDataImports.length > 0 ||
-    clientSdkDataPackageExports.length > 0
+    clientSdkDataPackageExports.length > 0 ||
+    clientSdkDeepFacadePackageExports.length > 0
     ? 1
     : 0,
 );
