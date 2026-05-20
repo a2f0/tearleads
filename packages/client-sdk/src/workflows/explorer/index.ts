@@ -1,4 +1,11 @@
 export {
+  type ContainerMetadataDocument,
+  createInitializedContainerMetadataDocument,
+  getDefaultContainerName,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "../../data/containers/containerMetadataDocument";
+export {
   getTargetContainerContext,
   readContainerState,
 } from "../../data/containers/shared/projection";
@@ -10,10 +17,18 @@ export {
 } from "./containerInfo";
 export {
   type ContainerRecord,
+  type ContainerSyncWatermarkLane,
+  createExplorerContainerDocumentsSyncLane,
+  createExplorerContainerParentSyncLane,
   defaultExplorerPersistence,
   type ExplorerDocumentRecord,
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdateFromRuntime,
+  initializeExplorerSchema,
+  loadExplorerContainerSyncWatermark,
+  loadStoredExplorerContainers,
+  saveExplorerContainer,
+  saveExplorerContainerSyncWatermark,
 } from "./containerPersistence";
 export { createExplorerChildContainer } from "./containers/createChild";
 export { syncPendingExplorerContainerCreateIntents } from "./containers/createIntentSync";
@@ -29,6 +44,11 @@ export {
   hasUndiscoveredDocumentUpdateEvent,
   listAllRemoteExplorerContainerIdsFromApi,
 } from "./documentDiscovery";
+export {
+  initializeExplorerDocumentLinksSchema,
+  listExplorerDocumentLinkedContainerIds,
+  replaceExplorerDocumentLinks,
+} from "./documentLinks";
 export {
   createExplorerDocumentReadModelFromRuntime,
   type ExplorerContainerDocumentSidebarRow,

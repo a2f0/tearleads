@@ -1,5 +1,6 @@
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type RelinkRemoteDocumentResult,
   relinkRemoteDocument,
@@ -47,6 +48,34 @@ interface MoveRemoteExplorerDocumentResult {
 }
 
 export type { ExplorerRemoteDocumentPersistedState };
+
+export async function initializeExplorerDocumentLinksSchema(
+  execSql: ExecSql,
+): Promise<void> {
+  await sqlDocumentContainerProjectionPersistence.ensureSchema(execSql);
+}
+
+export async function listExplorerDocumentLinkedContainerIds(
+  execSql: ExecSql,
+  documentId: string,
+): Promise<ReadonlyArray<string>> {
+  return sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
+    execSql,
+    documentId,
+  );
+}
+
+export async function replaceExplorerDocumentLinks(
+  execSql: ExecSql,
+  documentId: string,
+  containerIds: ReadonlyArray<string>,
+): Promise<void> {
+  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+    execSql,
+    documentId,
+    containerIds,
+  );
+}
 
 export function resolveActiveExplorerDocumentContainerId(
   linkedContainerIds: ReadonlyArray<string>,
