@@ -7,6 +7,10 @@ export type {
   SqlRowMode,
   SqlRowValue,
 } from "./sqlExec";
-export { createExecSql, runSerializedSqlMutation } from "./sqlExec";
+export {
+  createExecSql,
+  runSerializedSqlMutation,
+  unavailableExecSql,
+} from "./sqlExec";
 export type { SqlTableSchema } from "./sqlTableSchema";
 export { ensureSqlTables } from "./sqlTableSchema";

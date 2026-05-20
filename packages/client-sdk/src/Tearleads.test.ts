@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import type { ExecSqlClientLike } from "./data/sqlite/sqlSchema";
+import type { ExecSql, ExecSqlClientLike } from "./data/sqlite/sqlSchema";
 import { Tearleads, type TearleadsLogger } from "./Tearleads";
 
 const quietLogger: Required<TearleadsLogger> = {
@@ -82,6 +82,69 @@ describe("Tearleads", () => {
       "container-2",
     );
     expect(contacts.userId).toBe("user-1");
+  });
+
+  test("creates workflow runtime input before a database is available", async () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    const input = sdk.createWorkflowRuntimeInput();
+
+    expect(input.dbStatus).toBe("idle");
+    await expect(input.execSql("select 1")).rejects.toThrow(
+      "Database client is unavailable.",
+    );
+  });
+
+  test("workflow runtime callbacks use the captured SQLite executor", async () => {
+    const messages: string[] = [];
+    const execSql: ExecSql = async () => {
+      throw new Error("captured executor");
+    };
+    const sdk = new Tearleads({
+      database: { execSql, status: "ready" },
+      logger: {
+        ...quietLogger,
+        log: (message) => messages.push(message),
+      },
+    });
+    const input = sdk.createWorkflowRuntimeInput();
+
+    sdk.db.clear("terminated");
+
+    await input.cacheReferencedPrincipalPolicies([
+      {
+        keyEpoch: 1,
+        keyFingerprint: "key-fingerprint",
+        principalId: "group-1",
+        principalType: "group",
+        stateHash: "state-hash",
+        version: 1,
+      },
+    ]);
+
+    expect(messages).toContain(
+      "Principal policy cache: failed to initialize cache: captured executor",
+    );
+  });
+
+  test("rotates workflow domain scope when storage or identity changes", async () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    const initialScope = sdk.domainScope;
+
+    sdk.db.configure({
+      client: createNoopSqlClient(),
+      id: "client-db",
+      status: "ready",
+    });
+    const databaseScope = sdk.domainScope;
+
+    expect(databaseScope).not.toBe(initialScope);
+    expect(sdk.createWorkflowRuntimeInput().domainScope).toBe(databaseScope);
+
+    await sdk.identity.generate();
+    const identityScope = sdk.domainScope;
+
+    expect(identityScope).not.toBe(databaseScope);
+    expect(sdk.createWorkflowRuntimeInput().domainScope).toBe(identityScope);
   });
 
   test("login authenticates with the current identity and stores the auth token", async () => {

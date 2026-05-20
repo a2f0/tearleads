@@ -2,6 +2,7 @@ import {
   createExecSql,
   type DocumentProjectorRegistry,
   type ExecSql,
+  unavailableExecSql,
 } from "@tearleads/client-sdk";
 import { cacheReferencedPrincipalPolicies } from "@tearleads/client-sdk/workflows/principals";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
@@ -21,6 +22,7 @@ import { useDatabase } from "../db/DatabaseProvider";
 import { useEvents } from "../events/EventsProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
+import { useTearleads } from "../sdk/TearleadsProvider";
 
 export interface AppDataContextValue {
   apiClient: ReturnType<typeof useApiClient>;
@@ -48,9 +50,6 @@ export interface AppDataContextValue {
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
-const unavailableExecSql: ExecSql = async () => {
-  throw new Error("Database client is unavailable.");
-};
 
 function useReferencedPrincipalPolicyCache(params: {
   apiClient: AppDataContextValue["apiClient"];
@@ -77,6 +76,7 @@ function useReferencedPrincipalPolicyCache(params: {
 }
 
 export function AppDataProvider({ children }: PropsWithChildren) {
+  const tearleads = useTearleads();
   const apiClient = useApiClient();
   const blobStore = useBlobStore();
   const { online } = useNetworkState();
@@ -87,7 +87,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     useIdentity();
   const { events } = useEvents();
   const { log, logError } = useLog();
-  const domainScope = useMemo(() => ({}), [dbId, signingFingerprint]);
+  const domainScope = tearleads.domainScope;
 
   const execSql = useMemo(
     () => (dbClient ? createExecSql(dbClient) : unavailableExecSql),

@@ -30,6 +30,10 @@ export interface ExecSqlClientLike {
   }): Promise<{ rows: Array<SqlRow | SqlArrayRow> }>;
 }
 
+export const unavailableExecSql: ExecSql = async () => {
+  throw new Error("Database client is unavailable.");
+};
+
 // Tracks the active serialized mutation chain for each canonical SQL executor
 // so callers sharing one connection cannot interleave transactional statements.
 const sqlMutationQueue = new WeakMap<ExecSql, Promise<void>>();

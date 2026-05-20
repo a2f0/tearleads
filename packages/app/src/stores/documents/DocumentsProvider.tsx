@@ -6,7 +6,6 @@ import {
   type DocumentsRuntime,
   getOrCreateDocumentStore,
 } from "@tearleads/client-sdk/stores/documents";
-import { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk/workflows/documents";
 import {
   createContext,
   type PropsWithChildren,
@@ -16,6 +15,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 
 export type {
   DocumentAttachmentStatus,
@@ -48,14 +48,13 @@ export function DocumentsProvider({
   initialText = "",
 }: DocumentsProviderProps) {
   const appData = useAppData();
+  const tearleads = useTearleads();
   const runtime = useMemo<DocumentsRuntime>(
     () =>
-      createDocumentsWorkflowRuntime({
-        ...appData,
-        containerId:
-          containerId === undefined ? appData.containerId : containerId,
-      }),
-    [appData, containerId],
+      containerId === undefined
+        ? tearleads.workflows.documents()
+        : tearleads.workflows.documents({ containerId }),
+    [appData, containerId, tearleads],
   );
   const store = useMemo(
     () =>
