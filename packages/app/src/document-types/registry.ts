@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "./projectors";
 import type { DocumentTypeAppProps } from "./types";
 
 interface DocumentTypeDefinition {
@@ -11,24 +12,30 @@ interface DocumentTypeDefinition {
   kind: StoredDocumentKind;
 }
 
+const documentTypeAppsByKind = new Map<
+  StoredDocumentKind,
+  ComponentType<DocumentTypeAppProps>
+>([
+  ["note", NoteDocumentApp],
+  ["drivers_license", DriverLicenseDocumentApp],
+  ["credit_card", CreditCardDocumentApp],
+]);
+
 export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
-  [
-    {
-      App: NoteDocumentApp,
-      createLabel: "New Note",
-      kind: "note",
-    },
-    {
-      App: DriverLicenseDocumentApp,
-      createLabel: "New Driver's License",
-      kind: "drivers_license",
-    },
-    {
-      App: CreditCardDocumentApp,
-      createLabel: "New Credit Card",
-      kind: "credit_card",
-    },
-  ];
+  APP_DOCUMENT_PROJECTOR_DEFINITIONS.map((definition) => {
+    const App = documentTypeAppsByKind.get(definition.kind);
+    if (App === undefined) {
+      throw new Error(
+        `Document type ${definition.kind} is missing a React app registration.`,
+      );
+    }
+
+    return {
+      App,
+      createLabel: definition.createLabel,
+      kind: definition.kind,
+    };
+  });
 
 const documentTypeDefinitionByKind = new Map(
   DOCUMENT_TYPE_DEFINITIONS.map((definition) => [definition.kind, definition]),

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "./projectors";
 import {
   DOCUMENT_TYPE_DEFINITIONS,
   getDocumentTypeDefinition,
@@ -8,6 +9,11 @@ test("document type registry covers the supported inline document kinds", () => 
   expect(
     DOCUMENT_TYPE_DEFINITIONS.map((definition) => definition.kind),
   ).toEqual(["note", "drivers_license", "credit_card"]);
+  expect(
+    DOCUMENT_TYPE_DEFINITIONS.map((definition) => definition.kind),
+  ).toEqual(
+    APP_DOCUMENT_PROJECTOR_DEFINITIONS.map((definition) => definition.kind),
+  );
   expect(getDocumentTypeDefinition("note").createLabel).toBe("New Note");
   expect(getDocumentTypeDefinition("drivers_license").createLabel).toBe(
     "New Driver's License",

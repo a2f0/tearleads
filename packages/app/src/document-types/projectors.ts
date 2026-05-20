@@ -18,6 +18,10 @@ export interface CreditCardDocumentFields {
   nameOnCard: string;
 }
 
+interface AppDocumentProjectorDefinition extends DocumentProjectorDefinition {
+  createLabel: string;
+}
+
 const DRIVER_LICENSE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 const CREDIT_CARD_EXPIRATION_PATTERN = /^\d{4}-\d{2}$/u;
 
@@ -154,45 +158,49 @@ export function readCreditCardFieldsFromRecord(
   return { fields, issues };
 }
 
-const APP_DOCUMENT_PROJECTORS: ReadonlyArray<DocumentProjectorDefinition> = [
-  {
-    kind: "note",
-    label: "note",
-    project: ({ text }) => ({
-      fieldValidationIssues: [],
-      structuredFields: {},
-      title: deriveNoteTitle(text),
-    }),
-    untitledTitle: "Untitled note",
-  },
-  {
-    kind: "drivers_license",
-    label: "driver's license",
-    project: ({ structuredFields }) => {
-      const validated = readDriverLicenseFieldsFromRecord(structuredFields);
-      return {
-        fieldValidationIssues: validated.issues,
-        structuredFields: { ...validated.fields },
-        title: deriveDriverLicenseTitle(validated.fields),
-      };
+export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjectorDefinition> =
+  [
+    {
+      createLabel: "New Note",
+      kind: "note",
+      label: "note",
+      project: ({ text }) => ({
+        fieldValidationIssues: [],
+        structuredFields: {},
+        title: deriveNoteTitle(text),
+      }),
+      untitledTitle: "Untitled note",
     },
-    untitledTitle: "Untitled driver's license",
-  },
-  {
-    kind: "credit_card",
-    label: "credit card",
-    project: ({ structuredFields }) => {
-      const validated = readCreditCardFieldsFromRecord(structuredFields);
-      return {
-        fieldValidationIssues: validated.issues,
-        structuredFields: { ...validated.fields },
-        title: deriveCreditCardTitle(validated.fields),
-      };
+    {
+      createLabel: "New Driver's License",
+      kind: "drivers_license",
+      label: "driver's license",
+      project: ({ structuredFields }) => {
+        const validated = readDriverLicenseFieldsFromRecord(structuredFields);
+        return {
+          fieldValidationIssues: validated.issues,
+          structuredFields: { ...validated.fields },
+          title: deriveDriverLicenseTitle(validated.fields),
+        };
+      },
+      untitledTitle: "Untitled driver's license",
     },
-    untitledTitle: "Untitled credit card",
-  },
-];
+    {
+      createLabel: "New Credit Card",
+      kind: "credit_card",
+      label: "credit card",
+      project: ({ structuredFields }) => {
+        const validated = readCreditCardFieldsFromRecord(structuredFields);
+        return {
+          fieldValidationIssues: validated.issues,
+          structuredFields: { ...validated.fields },
+          title: deriveCreditCardTitle(validated.fields),
+        };
+      },
+      untitledTitle: "Untitled credit card",
+    },
+  ];
 
 export const APP_DOCUMENT_PROJECTOR_REGISTRY = createDocumentProjectorRegistry(
-  APP_DOCUMENT_PROJECTORS,
+  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
 );
