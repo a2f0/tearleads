@@ -1,4 +1,6 @@
 import { Tearleads } from "@tearleads/client-sdk";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { hasStringProperty } from "@tearleads/validators/util";
 import {
   createContext,
   type PropsWithChildren,
@@ -11,6 +13,15 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 
 const TearleadsContext = createContext<Tearleads | null>(null);
+
+function isServerEvent(value: unknown): value is {
+  type: string;
+  [key: string]: unknown;
+} {
+  return isPlainObject(value) && hasStringProperty(value, "type");
+}
+
+let nextEventId = 0;
 
 function useBrowserNetworkBinding(tearleads: Tearleads): void {
   useEffect(() => {
@@ -39,6 +50,59 @@ function useNetworkTransitionLog(tearleads: Tearleads): void {
   );
 }
 
+function useServerEventsBinding(
+  tearleads: Tearleads,
+  wsUrl: string,
+  log: (message: string) => void,
+): void {
+  useEffect(() => {
+    let cancelled = false;
+    const ws = new WebSocket(wsUrl);
+
+    ws.addEventListener("open", () => {
+      if (cancelled) {
+        return;
+      }
+
+      tearleads.events.setConnected(true);
+      log("WebSocket connected");
+    });
+
+    ws.addEventListener("message", (event) => {
+      if (cancelled) {
+        return;
+      }
+
+      try {
+        const data: unknown = JSON.parse(String(event.data));
+        if (isServerEvent(data)) {
+          tearleads.events.push({ ...data, id: String(nextEventId++) });
+        }
+      } catch {
+        // ignore malformed messages
+      }
+    });
+
+    ws.addEventListener("close", () => {
+      if (!cancelled) {
+        tearleads.events.setConnected(false);
+      }
+    });
+
+    ws.addEventListener("error", () => {
+      if (!cancelled) {
+        tearleads.events.setConnected(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      ws.close();
+      tearleads.events.setConnected(false);
+    };
+  }, [log, tearleads, wsUrl]);
+}
+
 export function TearleadsProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
   const { log, logError } = useLog();
@@ -52,6 +116,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
   );
   useBrowserNetworkBinding(tearleads);
   useNetworkTransitionLog(tearleads);
+  useServerEventsBinding(tearleads, hostConfig.wsUrl, log);
 
   return (
     <TearleadsContext.Provider value={tearleads}>

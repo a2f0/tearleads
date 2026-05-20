@@ -83,6 +83,13 @@ export interface TearleadsSessionContext {
 
 export type TearleadsNetworkListener = (online: boolean) => void;
 
+export interface TearleadsEventsSnapshot {
+  connected: boolean;
+  events: ReadonlyArray<unknown>;
+}
+
+export type TearleadsEventsListener = () => void;
+
 function defaultOnline(): boolean {
   return typeof navigator === "object" && typeof navigator.onLine === "boolean"
     ? navigator.onLine
@@ -366,26 +373,71 @@ export class TearleadsNetwork {
 }
 
 export class TearleadsEvents {
-  private eventsValue: ReadonlyArray<unknown>;
+  private connectedValue = false;
+  private readonly listeners = new Set<TearleadsEventsListener>();
+  private snapshotValue: TearleadsEventsSnapshot;
 
   constructor(events: ReadonlyArray<unknown> = []) {
-    this.eventsValue = events;
+    this.snapshotValue = { connected: this.connectedValue, events };
+  }
+
+  get connected(): boolean {
+    return this.connectedValue;
   }
 
   get events(): ReadonlyArray<unknown> {
-    return this.eventsValue;
+    return this.snapshotValue.events;
+  }
+
+  get snapshot(): TearleadsEventsSnapshot {
+    return this.snapshotValue;
   }
 
   clear(): void {
-    this.eventsValue = [];
+    this.setEvents([]);
   }
 
   push(event: unknown): void {
-    this.eventsValue = [...this.eventsValue, event];
+    this.setEvents([...this.events, event]);
+  }
+
+  setConnected(connected: boolean): void {
+    if (this.connectedValue === connected) {
+      return;
+    }
+
+    this.connectedValue = connected;
+    this.updateSnapshot(this.events);
   }
 
   setEvents(events: ReadonlyArray<unknown>): void {
-    this.eventsValue = events;
+    if (this.events === events) {
+      return;
+    }
+
+    this.updateSnapshot(events);
+  }
+
+  subscribe = (listener: TearleadsEventsListener): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // Keep one subscriber failure from blocking later subscribers.
+      }
+    }
+  }
+
+  private updateSnapshot(events: ReadonlyArray<unknown>): void {
+    this.snapshotValue = { connected: this.connectedValue, events };
+    this.notifyListeners();
   }
 }
 
