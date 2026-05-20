@@ -47,11 +47,11 @@ app adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite + 
 
 ## Import Surface
 
-`data/` is an internal SDK layer, not an application integration API. Prefer the
-SDK root for neutral contracts and store or workflow facades for app code.
-Cross-package callers should not import `@tearleads/client-sdk/data/*`
-subpaths; promote the needed contract through the root or an explicit workflow
-facade instead.
+`data/` is an internal SDK layer, not an application integration API. The SDK
+root is reserved for neutral contracts and pure document helpers. Application
+code should import operations from store or workflow facades. Cross-package
+callers should not import `@tearleads/client-sdk/data/*` subpaths; promote the
+needed contract through the root or an explicit workflow facade instead.
 
 Package subpath exports are explicit and should stop at the facade boundary.
 Adding a new cross-package import from `stores/` or `workflows/` should usually
@@ -65,6 +65,10 @@ and `@tearleads/client-sdk/stores/documents`, instead of importing their
 implementation `index` modules or nested workflow/store implementation files.
 Shared sync coordination helpers that cross app test/runtime boundaries belong
 behind `@tearleads/client-sdk/workflows/sync`.
+
+Do not re-export store or workflow facades from the SDK root. Keeping the root
+neutral makes the default import surface small while preserving explicit domain
+entry points for operational APIs.
 
 Avoid `index.ts`, `types.ts`, and other one-line re-export shims inside data
 domains when they only shorten import paths. Keep a facade only when it marks a
