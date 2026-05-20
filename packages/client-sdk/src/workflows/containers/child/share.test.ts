@@ -32,7 +32,7 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
-import { buildInitialGroupPolicyRequest } from "../../org-manager/principalPolicy";
+import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 
 async function policyBundleFromInitialRequest(
   request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>,

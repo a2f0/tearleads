@@ -1,28 +1,28 @@
 import {
-  addOrgManagerGroupUser,
-  createOrgManagerGroup,
-  importOrgManagerUserRecipient,
-  loadOrgManagerDataUsage,
-  loadOrgManagerDirectoryAndGroups,
-  loadOrgManagerGrants,
-  loadOrgManagerGroupDetails,
-  loadOrgManagerUserDetail,
-  type OrgManagerContainerGrant,
-  type OrgManagerContainerGrants,
-  type OrgManagerDataUsage,
-  type OrgManagerDirectory,
-  type OrgManagerDirectoryAndGroups,
-  type OrgManagerDirectoryUser,
-  type OrgManagerGroupContainer,
-  type OrgManagerGroupContainers,
-  type OrgManagerGroupDetails,
-  type OrgManagerGroupMember,
-  type OrgManagerGroupMembers,
-  type OrgManagerGroupSummary,
-  type OrgManagerUserDetail,
-  type OrgManagerUserRecipient,
-  removeOrgManagerGroupUser,
-} from "@tearleads/client-sdk/workflows/org-manager";
+  addOrganizationGroupUser,
+  createOrganizationGroup,
+  importOrganizationUserRecipient,
+  loadOrganizationContainerGrants,
+  loadOrganizationDataUsage,
+  loadOrganizationDirectoryAndGroups,
+  loadOrganizationGroupDetails,
+  loadOrganizationUserDetail,
+  type OrganizationContainerGrant,
+  type OrganizationContainerGrants,
+  type OrganizationDataUsage,
+  type OrganizationDirectory,
+  type OrganizationDirectoryAndGroups,
+  type OrganizationDirectoryUser,
+  type OrganizationGroupContainer,
+  type OrganizationGroupContainers,
+  type OrganizationGroupDetails,
+  type OrganizationGroupMember,
+  type OrganizationGroupMembers,
+  type OrganizationGroupSummary,
+  type OrganizationUserDetail,
+  type OrganizationUserRecipient,
+  removeOrganizationGroupUser,
+} from "@tearleads/client-sdk/workflows/organizations";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   createContext,
@@ -36,41 +36,39 @@ import { useAppData } from "../../providers/data/AppDataProvider";
 interface OrgManagerContextValue {
   addUserToGroup: (
     groupId: string,
-    targetUser: OrgManagerUserRecipient,
-    currentUsers: ReadonlyArray<OrgManagerUserRecipient>,
+    targetUser: OrganizationUserRecipient,
+    currentUsers: ReadonlyArray<OrganizationUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
-  createGroup: (name: string) => Promise<OrgManagerGroupSummary>;
-  importUserById: (userId: string) => Promise<OrgManagerUserRecipient | null>;
-  loadDataUsage: () => Promise<OrgManagerDataUsage | null>;
-  loadDirectoryAndGroups: () => Promise<OrgManagerDirectoryAndGroups | null>;
-  loadGroupDetails: (groupId: string) => Promise<OrgManagerGroupDetails>;
-  loadGrants: () => Promise<OrgManagerContainerGrants | null>;
-  loadUserDetail: (userId: string) => Promise<OrgManagerUserDetail | null>;
+  createGroup: (name: string) => Promise<OrganizationGroupSummary>;
+  importUserById: (userId: string) => Promise<OrganizationUserRecipient | null>;
+  loadDataUsage: () => Promise<OrganizationDataUsage | null>;
+  loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
+  loadGroupDetails: (groupId: string) => Promise<OrganizationGroupDetails>;
+  loadGrants: () => Promise<OrganizationContainerGrants | null>;
+  loadUserDetail: (userId: string) => Promise<OrganizationUserDetail | null>;
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
-    remainingUsers: ReadonlyArray<OrgManagerUserRecipient>,
+    remainingUsers: ReadonlyArray<OrganizationUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
 }
 
 const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 
-export type {
-  OrgManagerContainerGrant,
-  OrgManagerContainerGrants,
-  OrgManagerDataUsage,
-  OrgManagerDirectory,
-  OrgManagerDirectoryUser,
-  OrgManagerGroupContainer,
-  OrgManagerGroupContainers,
-  OrgManagerGroupMember,
-  OrgManagerGroupMembers,
-  OrgManagerGroupSummary,
-  OrgManagerUserDetail,
-  OrgManagerUserRecipient,
-};
+export type OrgManagerContainerGrant = OrganizationContainerGrant;
+export type OrgManagerContainerGrants = OrganizationContainerGrants;
+export type OrgManagerDataUsage = OrganizationDataUsage;
+export type OrgManagerDirectory = OrganizationDirectory;
+export type OrgManagerDirectoryUser = OrganizationDirectoryUser;
+export type OrgManagerGroupContainer = OrganizationGroupContainer;
+export type OrgManagerGroupContainers = OrganizationGroupContainers;
+export type OrgManagerGroupMember = OrganizationGroupMember;
+export type OrgManagerGroupMembers = OrganizationGroupMembers;
+export type OrgManagerGroupSummary = OrganizationGroupSummary;
+export type OrgManagerUserDetail = OrganizationUserDetail;
+export type OrgManagerUserRecipient = OrganizationUserRecipient;
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider centralizes action wiring so presentation does not pass raw SQL or import workflows.
 export function OrgManagerProvider({ children }: PropsWithChildren) {
@@ -106,7 +104,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         throw new Error("Org Manager encryption context is unavailable");
       }
 
-      return createOrgManagerGroup({
+      return createOrganizationGroup({
         apiClient: appData.apiClient,
         creatorEncapsulationKeyPair: appData.encapsulationKeyPair,
         execSql: appData.execSql,
@@ -127,7 +125,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       return Promise.resolve(null);
     }
 
-    return loadOrgManagerDirectoryAndGroups({
+    return loadOrganizationDirectoryAndGroups({
       apiClient: appData.apiClient,
       organizationId: appData.organizationId,
     });
@@ -146,7 +144,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         });
       }
 
-      return loadOrgManagerGroupDetails({
+      return loadOrganizationGroupDetails({
         apiClient: appData.apiClient,
         execSql: appData.dbStatus === "ready" ? appData.execSql : null,
         groupId,
@@ -167,7 +165,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       return Promise.resolve(null);
     }
 
-    return loadOrgManagerGrants({
+    return loadOrganizationContainerGrants({
       apiClient: appData.apiClient,
       execSql: appData.dbStatus === "ready" ? appData.execSql : null,
       organizationId: appData.organizationId,
@@ -185,7 +183,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       return Promise.resolve(null);
     }
 
-    return loadOrgManagerDataUsage({
+    return loadOrganizationDataUsage({
       apiClient: appData.apiClient,
       organizationId: appData.organizationId,
     });
@@ -201,7 +199,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         return Promise.resolve(null);
       }
 
-      return loadOrgManagerUserDetail({
+      return loadOrganizationUserDetail({
         apiClient: appData.apiClient,
         execSql: appData.dbStatus === "ready" ? appData.execSql : null,
         organizationId: appData.organizationId,
@@ -220,8 +218,8 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   const addUserToGroup = useCallback(
     async (
       groupId: string,
-      targetUser: OrgManagerUserRecipient,
-      currentUsers: ReadonlyArray<OrgManagerUserRecipient>,
+      targetUser: OrganizationUserRecipient,
+      currentUsers: ReadonlyArray<OrganizationUserRecipient>,
       canAdministerOrganization: boolean,
     ) => {
       const signingContext = requireSigningContext();
@@ -229,7 +227,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         throw new Error("Org Manager encryption context is unavailable");
       }
 
-      return addOrgManagerGroupUser({
+      return addOrganizationGroupUser({
         apiClient: appData.apiClient,
         canAdministerOrganization,
         currentUserSecretKey: appData.encapsulationKeyPair.secretKey,
@@ -252,12 +250,12 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     async (
       groupId: string,
       removedUserId: string,
-      remainingUsers: ReadonlyArray<OrgManagerUserRecipient>,
+      remainingUsers: ReadonlyArray<OrganizationUserRecipient>,
       canAdministerOrganization: boolean,
     ) => {
       const signingContext = requireSigningContext();
 
-      return removeOrgManagerGroupUser({
+      return removeOrganizationGroupUser({
         apiClient: appData.apiClient,
         canAdministerOrganization,
         execSql: appData.execSql,
@@ -272,7 +270,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
 
   const importUserById = useCallback(
     (userId: string) =>
-      importOrgManagerUserRecipient({
+      importOrganizationUserRecipient({
         apiClient: appData.apiClient,
         userId,
       }),
