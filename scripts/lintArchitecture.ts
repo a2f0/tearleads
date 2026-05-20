@@ -20,6 +20,7 @@ const appProductionSourceEntryPoints = ["packages/app/src"];
 const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
 const clientSdkPackageJsonPath = "packages/client-sdk/package.json";
+const clientSdkRootIndexPath = "packages/client-sdk/src/index.ts";
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
@@ -29,6 +30,8 @@ const appTestHelperImportPattern =
   /\bfrom\s*["'][^"']*test\/helpers\/|\bimport\s*(?:\(\s*)?["'][^"']*test\/helpers\//;
 const appSdkDataImportPattern =
   /\bfrom\s*["']@tearleads\/client-sdk\/data\/|\bimport\s*(?:\(\s*)?["']@tearleads\/client-sdk\/data\//;
+const clientSdkRootFacadeExportPattern =
+  /\bexport\b.*?\bfrom\s*["']\.\/(?:stores|workflows)(?:\/|["'])/;
 
 interface SourceMatch {
   filePath: string;
@@ -165,6 +168,18 @@ async function findClientSdkDeepFacadePackageExports(): Promise<string[]> {
 
   return Object.keys(packageJson.exports ?? {}).filter((exportPath) =>
     /^\.\/(?:stores|workflows)\/[^/]+\/.+/.test(exportPath),
+  );
+}
+
+async function listExactSourceFile(filePath: string): Promise<string[]> {
+  return [filePath];
+}
+
+async function findClientSdkRootFacadeReExports(): Promise<SourceMatch[]> {
+  return findSourceMatches(
+    [clientSdkRootIndexPath],
+    clientSdkRootFacadeExportPattern,
+    listExactSourceFile,
   );
 }
 
@@ -317,6 +332,22 @@ function formatClientSdkDeepFacadePackageExports(
   ].join("\n");
 }
 
+function formatClientSdkRootFacadeReExports(
+  matches: ReadonlyArray<SourceMatch>,
+): string {
+  if (matches.length === 0) {
+    return "";
+  }
+
+  return [
+    "error client-sdk-root-exports-neutral-contracts: Client SDK root exports should stay focused on neutral contracts; workflow and store APIs belong behind explicit facade subpaths.",
+    ...matches.map(
+      (match) =>
+        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
+    ),
+  ].join("\n");
+}
+
 const result = await cruise(
   architectureEntryPoints,
   configToCruiseOptions(dependencyCruiserConfig),
@@ -332,6 +363,7 @@ const appTestSdkDataImports = await findAppTestSdkDataImports();
 const clientSdkDataPackageExports = await findClientSdkDataPackageExports();
 const clientSdkDeepFacadePackageExports =
   await findClientSdkDeepFacadePackageExports();
+const clientSdkRootFacadeReExports = await findClientSdkRootFacadeReExports();
 
 if (typeof result.output === "string" && result.output.trim().length > 0) {
   const write = result.exitCode === 0 ? console.log : console.error;
@@ -392,6 +424,13 @@ if (clientSdkDeepFacadePackageExportsOutput.length > 0) {
   console.error(clientSdkDeepFacadePackageExportsOutput);
 }
 
+const clientSdkRootFacadeReExportsOutput = formatClientSdkRootFacadeReExports(
+  clientSdkRootFacadeReExports,
+);
+if (clientSdkRootFacadeReExportsOutput.length > 0) {
+  console.error(clientSdkRootFacadeReExportsOutput);
+}
+
 process.exit(
   result.exitCode !== 0 ||
     appPresentationSqlExecutorReferences.length > 0 ||
@@ -401,7 +440,8 @@ process.exit(
     appTestHelperSdkDataImports.length > 0 ||
     appTestSdkDataImports.length > 0 ||
     clientSdkDataPackageExports.length > 0 ||
-    clientSdkDeepFacadePackageExports.length > 0
+    clientSdkDeepFacadePackageExports.length > 0 ||
+    clientSdkRootFacadeReExports.length > 0
     ? 1
     : 0,
 );
