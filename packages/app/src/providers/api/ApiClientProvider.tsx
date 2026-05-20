@@ -1,19 +1,18 @@
-import { ApiClient } from "@tearleads/api-client";
+import type { ApiClient } from "@tearleads/api-client";
 import {
   createContext,
   type PropsWithChildren,
   useContext,
   useEffect,
-  useState,
 } from "react";
-import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
+import { useTearleads } from "../sdk/TearleadsProvider";
 
 const ApiClientContext = createContext<ApiClient | null>(null);
 
 export function ApiClientProvider({ children }: PropsWithChildren) {
-  const hostConfig = useAppHostConfig();
-  const [client] = useState(() => new ApiClient(hostConfig.apiBaseUrl));
+  const tearleads = useTearleads();
+  const client = tearleads.api;
   const { logError } = useLog();
 
   useEffect(() => {

@@ -1,5 +1,3 @@
-import { bootstrapRootContainer } from "@tearleads/client-sdk/workflows/registration";
-import { toFingerprint } from "@tearleads/crypto";
 import {
   createContext,
   type MutableRefObject,
@@ -10,10 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { useApiClient } from "../api/ApiClientProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
+import { useTearleads } from "../sdk/TearleadsProvider";
 
 interface CryptoSessionContextValue {
   userId: string | null;
@@ -34,7 +32,6 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
 );
 
 function resetCryptoSessionState(
-  apiClient: ReturnType<typeof useApiClient>,
   setUserId: (value: string | null) => void,
   setOrganizationId: (value: string | null) => void,
   setContainerId: (value: string | null) => void,
@@ -46,39 +43,11 @@ function resetCryptoSessionState(
   setContainerId(null);
   setStoredAuthToken(null);
   setIsAuthenticated(false);
-  apiClient.setAuthToken(null);
-}
-
-async function authenticateCurrentIdentity(
-  apiClient: ReturnType<typeof useApiClient>,
-  fingerprint: string,
-  signingPrivateKey: Uint8Array,
-  log: (message: string) => void,
-  challengeHex?: string,
-) {
-  log(challengeHex ? "Authenticating with challenge..." : "Authenticating...");
-
-  const token = challengeHex
-    ? await apiClient.authenticateWithChallenge(
-        fingerprint,
-        signingPrivateKey,
-        challengeHex,
-      )
-    : await apiClient.authenticate(fingerprint, signingPrivateKey);
-
-  if (!token) {
-    log("Authentication failed");
-    return null;
-  }
-
-  log("Authentication successful");
-  return token;
 }
 
 function useResetCryptoSession(
   containerBootstrapped: MutableRefObject<string | null>,
   signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
-  apiClient: ReturnType<typeof useApiClient>,
   setUserId: (value: string | null) => void,
   setOrganizationId: (value: string | null) => void,
   setContainerId: (value: string | null) => void,
@@ -92,22 +61,28 @@ function useResetCryptoSession(
 
     containerBootstrapped.current = null;
     resetCryptoSessionState(
-      apiClient,
       setUserId,
       setOrganizationId,
       setContainerId,
       setStoredAuthToken,
       setIsAuthenticated,
     );
-  }, [apiClient, signingKeyPair]);
+  }, [
+    setContainerId,
+    setIsAuthenticated,
+    setOrganizationId,
+    setStoredAuthToken,
+    setUserId,
+    signingKeyPair,
+  ]);
 }
 
 function useBootstrapCryptoSessionContainer(
   containerBootstrapped: MutableRefObject<string | null>,
+  tearleads: ReturnType<typeof useTearleads>,
   signingFingerprint: string | null,
   dbStatus: ReturnType<typeof useDatabase>["status"],
   dbClient: ReturnType<typeof useDatabase>["client"],
-  log: (message: string) => void,
   logError: (message: string, error: unknown) => void,
   setContainerId: (value: string | null) => void,
 ) {
@@ -129,56 +104,51 @@ function useBootstrapCryptoSessionContainer(
 
     void (async () => {
       try {
-        const bootstrap = await bootstrapRootContainer(dbClient);
+        tearleads.db.configure({
+          client: dbClient,
+          status: dbStatus,
+        });
+        const bootstrap = await tearleads.session.bootstrapLocalRootContainer();
         setContainerId(bootstrap.containerId);
-        if (bootstrap.created) {
-          log("Root container created");
-        }
       } catch (error: unknown) {
         containerBootstrapped.current = null;
         logError("Failed to bootstrap root container", error);
       }
     })();
-  }, [dbStatus, dbClient, log, logError, signingFingerprint]);
+  }, [
+    dbStatus,
+    dbClient,
+    logError,
+    setContainerId,
+    signingFingerprint,
+    tearleads,
+  ]);
 }
 
 function useCryptoAuthActions(
-  apiClient: ReturnType<typeof useApiClient>,
+  tearleads: ReturnType<typeof useTearleads>,
   signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
-  log: (message: string) => void,
   setStoredAuthToken: (value: string | null) => void,
   setIsAuthenticated: (value: boolean) => void,
 ) {
   const logout = useCallback(() => {
-    setStoredAuthToken(null);
-    setIsAuthenticated(false);
-    apiClient.setAuthToken(null);
-  }, [apiClient, setIsAuthenticated, setStoredAuthToken]);
+    tearleads.session.logout();
+    setStoredAuthToken(tearleads.session.authToken);
+    setIsAuthenticated(tearleads.session.isAuthenticated);
+  }, [setIsAuthenticated, setStoredAuthToken, tearleads]);
 
   const authenticate = useCallback(
     async (challengeHex?: string): Promise<boolean> => {
       if (!signingKeyPair) {
         return false;
       }
-      const fingerprint = await toFingerprint(signingKeyPair.signingPublicKey);
-      const token = await authenticateCurrentIdentity(
-        apiClient,
-        fingerprint,
-        signingKeyPair.signingPrivateKey,
-        log,
-        challengeHex,
-      );
-      if (!token) {
-        setIsAuthenticated(false);
-        return false;
-      }
 
-      apiClient.setAuthToken(token);
-      setStoredAuthToken(token);
-      setIsAuthenticated(true);
-      return true;
+      const authenticated = await tearleads.session.login(challengeHex);
+      setStoredAuthToken(tearleads.session.authToken);
+      setIsAuthenticated(tearleads.session.isAuthenticated);
+      return authenticated;
     },
-    [apiClient, log, setIsAuthenticated, setStoredAuthToken, signingKeyPair],
+    [setIsAuthenticated, setStoredAuthToken, signingKeyPair, tearleads],
   );
 
   const loginWithChallenge = useCallback(
@@ -193,56 +163,110 @@ function useCryptoAuthActions(
   };
 }
 
+function useSdkBackedCryptoSessionState(
+  tearleads: ReturnType<typeof useTearleads>,
+) {
+  const [userId, setStoredUserId] = useState<string | null>(null);
+  const [organizationId, setStoredOrganizationId] = useState<string | null>(
+    null,
+  );
+  const [containerId, setStoredContainerId] = useState<string | null>(null);
+  const [authToken, setStoredAuthTokenState] = useState<string | null>(null);
+  const [isAuthenticated, setStoredIsAuthenticated] = useState(false);
+  const setUserId = useCallback(
+    (value: string | null) => {
+      tearleads.session.setUserId(value);
+      setStoredUserId(value);
+    },
+    [tearleads],
+  );
+  const setOrganizationId = useCallback(
+    (value: string | null) => {
+      tearleads.session.setOrganizationId(value);
+      setStoredOrganizationId(value);
+    },
+    [tearleads],
+  );
+  const setContainerId = useCallback(
+    (value: string | null) => {
+      tearleads.session.setContainerId(value);
+      setStoredContainerId(value);
+    },
+    [tearleads],
+  );
+  const setStoredAuthToken = useCallback(
+    (value: string | null) => {
+      tearleads.session.setAuthToken(value);
+      setStoredAuthTokenState(value);
+    },
+    [tearleads],
+  );
+  const setIsAuthenticated = useCallback(
+    (value: boolean) => {
+      tearleads.session.setContext({ isAuthenticated: value });
+      setStoredIsAuthenticated(value);
+    },
+    [tearleads],
+  );
+
+  return {
+    authToken,
+    containerId,
+    isAuthenticated,
+    organizationId,
+    setContainerId,
+    setIsAuthenticated,
+    setOrganizationId,
+    setStoredAuthToken,
+    setUserId,
+    userId,
+  };
+}
+
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [containerId, setContainerId] = useState<string | null>(null);
-  const [authToken, setStoredAuthToken] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const { log, logError } = useLog();
-  const apiClient = useApiClient();
+  const tearleads = useTearleads();
+  const { logError } = useLog();
   const { client: dbClient, status: dbStatus } = useDatabase();
   const { signingFingerprint, signingKeyPair } = useIdentity();
   const containerBootstrapped = useRef<string | null>(null);
+  const sessionState = useSdkBackedCryptoSessionState(tearleads);
 
   useResetCryptoSession(
     containerBootstrapped,
     signingKeyPair,
-    apiClient,
-    setUserId,
-    setOrganizationId,
-    setContainerId,
-    setStoredAuthToken,
-    setIsAuthenticated,
+    sessionState.setUserId,
+    sessionState.setOrganizationId,
+    sessionState.setContainerId,
+    sessionState.setStoredAuthToken,
+    sessionState.setIsAuthenticated,
   );
   useBootstrapCryptoSessionContainer(
     containerBootstrapped,
+    tearleads,
     signingFingerprint,
     dbStatus,
     dbClient,
-    log,
     logError,
-    setContainerId,
+    sessionState.setContainerId,
   );
   const { login, loginWithChallenge, logout } = useCryptoAuthActions(
-    apiClient,
+    tearleads,
     signingKeyPair,
-    log,
-    setStoredAuthToken,
-    setIsAuthenticated,
+    sessionState.setStoredAuthToken,
+    sessionState.setIsAuthenticated,
   );
 
   return (
     <CryptoSessionContext.Provider
       value={{
-        userId,
-        organizationId,
-        containerId,
-        authToken,
-        isAuthenticated,
-        setUserId,
-        setOrganizationId,
-        setContainerId,
+        userId: sessionState.userId,
+        organizationId: sessionState.organizationId,
+        containerId: sessionState.containerId,
+        authToken: sessionState.authToken,
+        isAuthenticated: sessionState.isAuthenticated,
+        setUserId: sessionState.setUserId,
+        setOrganizationId: sessionState.setOrganizationId,
+        setContainerId: sessionState.setContainerId,
         login,
         loginWithChallenge,
         logout,
