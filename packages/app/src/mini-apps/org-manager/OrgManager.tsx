@@ -305,12 +305,7 @@ function PolicyHistoryChange({
       className="org-manager-policy-change"
       title={getPolicyChangeLabel({ change, directory, groups })}
     >
-      <span
-        className={classNames(
-          "org-manager-policy-change-status",
-          `org-manager-policy-change-status--${change.changeType}`,
-        )}
-      >
+      <span className="org-manager-policy-change-status">
         {getOrgManagerPolicyChangeTypeLabel(change.changeType)}
       </span>
       <span className="org-manager-policy-change-principal">
