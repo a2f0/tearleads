@@ -27,6 +27,15 @@ interface ProxiedApiNetworkActivitySnapshot {
   completedRequestCount: number;
 }
 
+interface ResetMockServerOptions {
+  proxiedApiQuietMs?: number;
+  proxiedApiTimeoutMs?: number;
+}
+
+interface TestApiAppHandlerOptions {
+  responseDelayMs?: number;
+}
+
 let activeProxiedApiRequestCount = 0;
 let testApiAppPromise: Promise<TestApiApp> | null = null;
 
@@ -90,6 +99,14 @@ function isHashString(value: unknown): value is string {
 
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function remainingTimeoutMs(deadline: number): number {
+  return Math.max(0, deadline - Date.now());
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -537,12 +554,15 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
 }
 
 async function waitForProxiedApiRequestsToDrain(
-  timeoutMs = 1_000,
+  deadline: number,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
+  while (activeProxiedApiRequestCount > 0) {
+    const remainingMs = remainingTimeoutMs(deadline);
+    if (remainingMs <= 0) {
+      return;
+    }
 
-  while (activeProxiedApiRequestCount > 0 && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await delay(Math.min(10, remainingMs));
   }
 }
 
@@ -554,8 +574,8 @@ async function waitForProxiedApiNetworkIdle(
   let lastRequestCount = proxiedApiRequests.length;
   let quietStartedAt = Date.now();
 
-  while (Date.now() < deadline) {
-    await waitForProxiedApiRequestsToDrain(50);
+  while (Date.now() <= deadline) {
+    await waitForProxiedApiRequestsToDrain(deadline);
 
     const nextRequestCount = proxiedApiRequests.length;
     if (
@@ -570,7 +590,12 @@ async function waitForProxiedApiNetworkIdle(
       quietStartedAt = Date.now();
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    const remainingMs = remainingTimeoutMs(deadline);
+    if (remainingMs <= 0) {
+      break;
+    }
+
+    await delay(Math.min(10, remainingMs));
   }
 
   return false;
@@ -587,12 +612,25 @@ async function waitForProxiedApiRequestsToSettle(
   timeoutMs = 500,
   quietMs = 50,
 ): Promise<void> {
-  await waitForProxiedApiNetworkIdle(timeoutMs, quietMs);
+  const settled = await waitForProxiedApiNetworkIdle(timeoutMs, quietMs);
+  if (settled) {
+    return;
+  }
+
+  const activity = getProxiedApiNetworkActivitySnapshot();
+  throw new Error(
+    `Timed out waiting for proxied API network idle before resetting mock server. activeRequests=${activity.activeRequestCount}, completedRequests=${activity.completedRequestCount}, timeoutMs=${timeoutMs}, quietMs=${quietMs}`,
+  );
 }
 
-export async function resetMockServer(): Promise<void> {
+export async function resetMockServer(
+  options: ResetMockServerOptions = {},
+): Promise<void> {
   await drainSocketClients();
-  await waitForProxiedApiRequestsToSettle();
+  await waitForProxiedApiRequestsToSettle(
+    options.proxiedApiTimeoutMs,
+    options.proxiedApiQuietMs,
+  );
   testApiAppPromise = null;
   activeProxiedApiRequestCount = 0;
   proxiedApiRequests.length = 0;
@@ -618,7 +656,10 @@ function toHeadersObject(headers: Headers): Record<string, string> {
   return nextHeaders;
 }
 
-async function proxyRequestToApiApp(request: Request): Promise<Response> {
+async function proxyRequestToApiApp(
+  request: Request,
+  options: TestApiAppHandlerOptions = {},
+): Promise<Response> {
   const apiApp = await ensureTestApiApp();
   activeProxiedApiRequestCount += 1;
   try {
@@ -638,6 +679,10 @@ async function proxyRequestToApiApp(request: Request): Promise<Response> {
             body: requestBody,
           });
     const response = await apiApp.fetch(proxiedRequest);
+    if (options.responseDelayMs !== undefined && options.responseDelayMs > 0) {
+      await delay(options.responseDelayMs);
+    }
+
     const responseBody = await response.text();
     proxiedApiRequests.push({
       authorization: request.headers.get("authorization"),
@@ -660,10 +705,10 @@ async function proxyRequestToApiApp(request: Request): Promise<Response> {
   }
 }
 
-export function useTestApiAppHandlers() {
+export function useTestApiAppHandlers(options: TestApiAppHandlerOptions = {}) {
   server.use(
     http.all("http://localhost:3001/*", async ({ request }) =>
-      proxyRequestToApiApp(request),
+      proxyRequestToApiApp(request, options),
     ),
   );
 }
