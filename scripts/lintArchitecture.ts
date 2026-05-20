@@ -398,21 +398,27 @@ function expectedClientSdkWorkflowFacadeNames(): string[] {
   });
 }
 
+function escapeRegExpLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function markdownSectionContent(
   markdownContent: string,
   heading: string,
 ): string | undefined {
-  const headingToken = `## ${heading}`;
-  const headingIndex = markdownContent.indexOf(headingToken);
+  const headingPattern = new RegExp(
+    `(?:^|\\n)##[ \\t]+${escapeRegExpLiteral(heading)}[ \\t]*(?:\\n|$)`,
+  );
+  const headingMatch = headingPattern.exec(markdownContent);
 
-  if (headingIndex === -1) {
+  if (!headingMatch) {
     return undefined;
   }
 
   const sectionContent = markdownContent.slice(
-    headingIndex + headingToken.length,
+    headingMatch.index + headingMatch[0].length,
   );
-  const nextHeading = /\n##\s/.exec(sectionContent);
+  const nextHeading = /(?:^|\n)#{1,6}[ \t]+/.exec(sectionContent);
 
   return nextHeading
     ? sectionContent.slice(0, nextHeading.index)
