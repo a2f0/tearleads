@@ -15,7 +15,6 @@ import {
 } from "react";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../document-types/projectors";
 import { useNetworkState } from "../api/NetworkStateProvider";
-import { useBlobStore } from "../blobs/BlobProvider";
 import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useEvents } from "../events/EventsProvider";
@@ -26,7 +25,7 @@ import { useTearleads } from "../sdk/TearleadsProvider";
 export interface AppDataContextValue {
   apiClient: ReturnType<typeof useTearleads>["api"];
   authToken: string | null;
-  blobStore: ReturnType<typeof useBlobStore>;
+  blobStore: ReturnType<typeof useTearleads>["blobs"]["store"];
   cacheReferencedPrincipalPolicies: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
@@ -77,7 +76,7 @@ function useReferencedPrincipalPolicyCache(params: {
 export function AppDataProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const apiClient = tearleads.api;
-  const blobStore = useBlobStore();
+  const blobStore = tearleads.blobs.store;
   const { online } = useNetworkState();
   const { client: dbClient, id: dbId, status: dbStatus } = useDatabase();
   const { authToken, containerId, isAuthenticated, organizationId, userId } =
