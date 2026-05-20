@@ -283,6 +283,8 @@ function getPolicyChangeRoleDetail(
         getOrgManagerPolicyRoleLabel(change.previousRole),
         getOrgManagerPolicyRoleLabel(change.nextRole),
       );
+    default:
+      return null;
   }
 }
 

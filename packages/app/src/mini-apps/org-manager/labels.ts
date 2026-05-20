@@ -121,6 +121,8 @@ export function getOrgManagerPolicyChangeTypeLabel(
       return ORG_MANAGER_LABELS.policyChangeStatusRemoved;
     case "role_changed":
       return ORG_MANAGER_LABELS.policyChangeStatusRoleChanged;
+    default:
+      return changeType;
   }
 }
 
