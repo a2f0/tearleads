@@ -8,6 +8,7 @@ import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
   accessManifests,
+  containerBuiltinGrants,
   containers,
 } from "../../schema";
 
@@ -16,6 +17,7 @@ export interface OrganizationContainerGrantRow {
   containerId: string;
   createdAt: Date;
   depth: number;
+  isBuiltin: boolean;
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
   metadataDocumentId: string | null;
@@ -97,6 +99,7 @@ export function toOrganizationGroupContainerResponse(
     containerId: row.containerId,
     createdAt: row.createdAt.toISOString(),
     depth: row.depth,
+    isBuiltin: row.isBuiltin,
     metadataAccessEpoch: row.metadataAccessEpoch,
     metadataAccessStateHash: row.metadataAccessStateHash,
     metadataDocumentId: row.metadataDocumentId,
@@ -124,6 +127,7 @@ export function listOrganizationContainerGrantRows(input: {
       containerId: containers.id,
       createdAt: containers.createdAt,
       depth: containers.depth,
+      isBuiltin: sql<boolean>`${containerBuiltinGrants.id} is not null`,
       metadataAccessEpoch: accessManifestHeads.epoch,
       metadataAccessStateHash: accessManifestHeads.manifestHash,
       metadataDocumentId: sql<
@@ -156,6 +160,23 @@ export function listOrganizationContainerGrantRows(input: {
     .innerJoin(
       containers,
       eq(containers.id, accessManifestContainerGrantProjection.containerId),
+    )
+    .leftJoin(
+      containerBuiltinGrants,
+      and(
+        eq(
+          containerBuiltinGrants.containerId,
+          accessManifestContainerGrantProjection.containerId,
+        ),
+        eq(
+          containerBuiltinGrants.subjectType,
+          accessManifestContainerGrantProjection.subjectType,
+        ),
+        eq(
+          containerBuiltinGrants.subjectId,
+          accessManifestContainerGrantProjection.subjectId,
+        ),
+      ),
     )
     .where(
       and(

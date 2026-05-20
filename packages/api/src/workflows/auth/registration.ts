@@ -24,6 +24,7 @@ import {
   readProjectionValue,
 } from "../../keyingProjectionRecords";
 import {
+  containerBuiltinGrants,
   containerMetadataDocuments,
   containers,
   groups,
@@ -778,6 +779,20 @@ async function storeInitialRootContainer(
   };
 }
 
+async function createInitialBuiltinGrants(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+  organizationId: string,
+): Promise<void> {
+  await tx.insert(containerBuiltinGrants).values({
+    accessLevel: "admin",
+    containerId: input.rootContainerId,
+    organizationId,
+    subjectId: input.initialAdminGroup.groupId,
+    subjectType: "group",
+  });
+}
+
 function readInitialRootMetadataDocumentId(input: RegistrationRequest): string {
   const event = input.initialRootMetadataDocument.event;
   const documentId = Reflect.get(event, "objectId");
@@ -861,6 +876,7 @@ async function runRegistrationTransaction(
       input,
       fingerprint,
     );
+    await createInitialBuiltinGrants(tx, input, org.id);
     const rootMetadataDocument = await createInitialRootMetadataDocument(
       tx,
       input,

@@ -15,6 +15,7 @@ import { db } from "../../adapters/postgres";
 import { del, get } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
 import {
+  containerBuiltinGrants,
   containerMetadataDocuments,
   containers,
   documentContentKeyEpochs,
@@ -135,6 +136,46 @@ test("POST /auth/register creates reserved admin and member groups in postgres",
       },
     ]),
   );
+});
+
+test("POST /auth/register marks the bootstrap admin grant as built-in", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  fingerprint = await toFingerprint(signingPublicKey);
+
+  const res = await submitRegistration(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
+  expect(res.status).toBe(200);
+  const body = await res.json();
+
+  const [organization] = await db
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, body.organizationId));
+  invariant(organization, "expected organization row");
+
+  const [builtinGrant] = await db
+    .select({
+      accessLevel: containerBuiltinGrants.accessLevel,
+      containerId: containerBuiltinGrants.containerId,
+      organizationId: containerBuiltinGrants.organizationId,
+      subjectId: containerBuiltinGrants.subjectId,
+      subjectType: containerBuiltinGrants.subjectType,
+    })
+    .from(containerBuiltinGrants)
+    .where(eq(containerBuiltinGrants.organizationId, body.organizationId));
+
+  expect(builtinGrant).toEqual({
+    accessLevel: "admin",
+    containerId: body.rootContainerId,
+    organizationId: body.organizationId,
+    subjectId: organization.adminGroupId,
+    subjectType: "group",
+  });
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {

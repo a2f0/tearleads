@@ -5,6 +5,7 @@ import {
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerMoveAccessEventBody,
+  type ContainerRevokeAccessEventBody,
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
@@ -23,6 +24,7 @@ import type {
   ContainerCreatePlan,
   ContainerMovePlan,
   ContainerMutationAuthor,
+  ContainerRevokePlan,
   ContainerSharePlan,
 } from "./types";
 
@@ -82,14 +84,20 @@ export async function signContainerCreateEvent(input: {
 
 export async function signContainerMutationEvent(input: {
   author: ContainerMutationAuthor;
-  body: ContainerGrantAccessEventBody | ContainerMoveAccessEventBody;
+  body:
+    | ContainerGrantAccessEventBody
+    | ContainerMoveAccessEventBody
+    | ContainerRevokeAccessEventBody;
   containerId: string;
   dependencyManifestHashes: readonly string[];
   eventId: string;
   previousManifestHash: string;
   signedAt: string;
 }): Promise<
-  Pick<ContainerSharePlan | ContainerMovePlan, "event" | "eventHash">
+  Pick<
+    ContainerSharePlan | ContainerMovePlan | ContainerRevokePlan,
+    "event" | "eventHash"
+  >
 > {
   const bodyHash = await computeAccessEventBodyHash(
     readCanonicalJson(input.body, "Container mutation body"),

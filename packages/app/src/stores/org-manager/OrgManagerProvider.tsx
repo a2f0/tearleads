@@ -22,8 +22,12 @@ import {
   type OrganizationUserDetail,
   type OrganizationUserRecipient,
   removeOrganizationGroupUser,
+  revokeOrganizationContainerGrant,
 } from "@tearleads/client-sdk/workflows/organizations";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  ContainerMutationResponse,
+  PrincipalPolicyBundleResponse,
+} from "@tearleads/validators/response";
 import {
   createContext,
   type PropsWithChildren,
@@ -53,6 +57,12 @@ interface OrgManagerContextValue {
     remainingUsers: ReadonlyArray<OrgManagerUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
+  revokeGrant: (
+    grant: Pick<
+      OrgManagerContainerGrant,
+      "containerId" | "subjectId" | "subjectType"
+    >,
+  ) => Promise<ContainerMutationResponse>;
 }
 
 const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
@@ -270,6 +280,42 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [appData.apiClient, appData.execSql, requireSigningContext],
   );
 
+  const revokeGrant = useCallback(
+    async (
+      grant: Pick<
+        OrgManagerContainerGrant,
+        "containerId" | "subjectId" | "subjectType"
+      >,
+    ) => {
+      const signingContext = requireSigningContext();
+      if (!appData.encapsulationKeyPair) {
+        throw new Error("Org Manager encryption context is unavailable");
+      }
+      if (appData.dbStatus !== "ready") {
+        throw new Error("Org Manager local database is unavailable");
+      }
+
+      return revokeOrganizationContainerGrant({
+        apiClient: appData.apiClient,
+        containerId: grant.containerId,
+        encapsulationKeyPair: appData.encapsulationKeyPair,
+        execSql: appData.execSql,
+        revokedSubject: {
+          subjectId: grant.subjectId,
+          subjectType: grant.subjectType,
+        },
+        ...signingContext,
+      });
+    },
+    [
+      appData.apiClient,
+      appData.dbStatus,
+      appData.encapsulationKeyPair,
+      appData.execSql,
+      requireSigningContext,
+    ],
+  );
+
   const importUserById = useCallback(
     (userId: string) =>
       importOrganizationUserRecipient({
@@ -290,6 +336,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadGrants,
       loadUserDetail,
       removeUserFromGroup,
+      revokeGrant,
     }),
     [
       addUserToGroup,
@@ -301,6 +348,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadGrants,
       loadUserDetail,
       removeUserFromGroup,
+      revokeGrant,
     ],
   );
 

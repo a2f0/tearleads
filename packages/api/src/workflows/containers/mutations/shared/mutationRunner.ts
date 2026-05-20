@@ -3,6 +3,7 @@ import type {
   ContainerMutationContext,
   MutateContainerWithExecutorInput,
 } from "../types";
+import { assertContainerBuiltinGrantNotMutated } from "./builtinGrants";
 import { verifyContainerKekFromRequest } from "./containerKek";
 import {
   assertAccessEventDependenciesMatchRequest,
@@ -79,6 +80,10 @@ export async function mutateContainerWithExecutor(
       principalPolicies,
     },
   );
+  await assertContainerBuiltinGrantNotMutated({
+    executor: context.executor,
+    manifest,
+  });
   await assertMutationHeadCanAdvance(context, manifest);
   const kekState = await verifyContainerKekFromRequest(
     context.executor,

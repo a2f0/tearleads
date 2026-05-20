@@ -78,6 +78,7 @@ export interface OrganizationGroupContainerResponse {
   containerId: string;
   createdAt: string;
   depth: number;
+  isBuiltin: boolean;
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
   metadataDocumentId: string | null;
@@ -283,6 +284,7 @@ export function isOrganizationGroupContainerResponse(
     hasNumberProperty(value, "depth") &&
     Number.isInteger(value.depth) &&
     value.depth >= 0 &&
+    hasBooleanProperty(value, "isBuiltin") &&
     hasNumberProperty(value, "metadataAccessEpoch") &&
     Number.isInteger(value.metadataAccessEpoch) &&
     value.metadataAccessEpoch > 0 &&

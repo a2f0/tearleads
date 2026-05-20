@@ -1189,6 +1189,36 @@ export const accessManifestContainerGrantProjection = pgTable(
 );
 
 /**
+ * Organization-defined container grants that product workflows treat as
+ * built-in.
+ *
+ * The signed access manifest remains the source of authority for whether the
+ * grant is active. This table records immutable product policy for grants that
+ * should not be modified or revoked through normal container mutation flows.
+ * Registration seeds the bootstrap Admins -> root container admin grant here.
+ */
+export const containerBuiltinGrants = pgTable(
+  "container_builtin_grants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
+    containerId: uuid("container_id").notNull(),
+    accessLevel: text("access_level").notNull(),
+    subjectType: text("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("container_builtin_grants_org_idx").on(table.organizationId),
+    uniqueIndex("container_builtin_grants_identity_idx").on(
+      table.containerId,
+      table.subjectType,
+      table.subjectId,
+    ),
+  ],
+);
+
+/**
  * Content-key epochs for encrypted document update payloads.
  *
  * A document content-key bundle says which symmetric content key epoch writers

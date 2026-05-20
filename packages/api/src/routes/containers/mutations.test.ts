@@ -791,7 +791,7 @@ async function buildGroupGrantRequest(input: {
 }
 
 async function buildRevokeRequest(input: {
-  readonly parentKekState: VerifiedContainerKekState;
+  readonly parentKekState: VerifiedContainerKekState | null;
   readonly previous: ContainerManifestBundle;
   readonly previousContainerPath: readonly ContainerManifestBundle[];
   readonly previousKekState: VerifiedContainerKekState;
@@ -858,16 +858,18 @@ async function buildRevokeRequest(input: {
     manifest: bundle,
     parentKekState: input.parentKekState,
   });
-  const wraps = [
-    createContainerKeyWrap({
-      containerKeyEpochId,
-      recipientKind: "container",
-      recipientId: input.parentKekState.containerId,
-      recipientKeyEpochId: input.parentKekState.containerKeyEpochId,
-      recipientKeyFingerprint: input.parentKekState.keyEpochHash,
-      wrapManifestHash: bundle.manifestHash,
-    }),
-  ];
+  const wraps = input.parentKekState
+    ? [
+        createContainerKeyWrap({
+          containerKeyEpochId,
+          recipientKind: "container",
+          recipientId: input.parentKekState.containerId,
+          recipientKeyEpochId: input.parentKekState.containerKeyEpochId,
+          recipientKeyFingerprint: input.parentKekState.keyEpochHash,
+          wrapManifestHash: bundle.manifestHash,
+        }),
+      ]
+    : [];
 
   return {
     event: event.event as unknown as Record<string, unknown>,
@@ -1858,6 +1860,39 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
       recipientKeyFingerprint: root.kekState.keyEpochHash,
     },
   ]);
+});
+
+test("POST /containers/:containerId/revoke rejects built-in grants", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const rootManifest = asVerifiedContainerManifest(root.bundle);
+  const adminGrant = rootManifest.state.directGrants.find(
+    (grant) => grant.subjectType === "group" && grant.accessLevel === "admin",
+  );
+  invariant(adminGrant, "expected root admin group grant");
+  const revokeRequest = await buildRevokeRequest({
+    parentKekState: null,
+    previous: root.bundle,
+    previousContainerPath: [root.bundle],
+    previousKekState: root.kekState,
+    revokedGrant: {
+      subjectId: adminGrant.subjectId,
+      subjectType: adminGrant.subjectType,
+    },
+    signer: owner,
+  });
+
+  const response = await postMutation({
+    path: `/containers/${rootManifest.state.containerId}/revoke`,
+    request: revokeRequest,
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(403);
+  expect(await response.json()).toEqual({
+    error: "Built-in container grant cannot be modified",
+  });
 });
 
 test("POST /containers/:containerId/revoke emits tombstones for removed group grant members", async () => {
