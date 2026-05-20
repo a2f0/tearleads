@@ -18,6 +18,7 @@ import {
   type OrganizationGroupDetails,
   type OrganizationGroupMember,
   type OrganizationGroupMembers,
+  type OrganizationGroupPolicyHistory,
   type OrganizationGroupSummary,
   type OrganizationUserDetail,
   type OrganizationUserRecipient,
@@ -78,6 +79,7 @@ export type OrgManagerGroupContainers = OrganizationGroupContainers;
 type OrgManagerGroupDetails = OrganizationGroupDetails;
 export type OrgManagerGroupMember = OrganizationGroupMember;
 export type OrgManagerGroupMembers = OrganizationGroupMembers;
+export type OrgManagerGroupPolicyHistory = OrganizationGroupPolicyHistory;
 export type OrgManagerGroupSummary = OrganizationGroupSummary;
 export type OrgManagerUserDetail = OrganizationUserDetail;
 export type OrgManagerUserRecipient = OrganizationUserRecipient;
@@ -153,6 +155,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         return Promise.resolve({
           members: null,
           containers: null,
+          policyHistory: null,
         });
       }
 

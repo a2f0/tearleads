@@ -11,6 +11,9 @@ import type {
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
   OrganizationUserDetailResponse,
+  PrincipalPolicyBundleResponse,
+  PrincipalProjectionMemberResponse,
+  PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { loadContainerDisplayNamesByIds } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -43,6 +46,32 @@ export interface OrganizationUserDetail
 export type OrganizationGroupMember = OrganizationGroupMemberResponse;
 export type OrganizationGroupMembers = OrganizationGroupMembersResponse;
 export type OrganizationGroupSummary = OrganizationGroupSummaryResponse;
+export type OrganizationPrincipalMemberChangeType =
+  | "added"
+  | "removed"
+  | "role_changed";
+export interface OrganizationPrincipalMemberChange {
+  readonly changeType: OrganizationPrincipalMemberChangeType;
+  readonly memberPrincipalId: string;
+  readonly memberPrincipalType: PrincipalProjectionMemberResponse["memberPrincipalType"];
+  readonly nextRole: PrincipalProjectionMemberResponse["role"] | null;
+  readonly previousRole: PrincipalProjectionMemberResponse["role"] | null;
+}
+export interface OrganizationGroupPolicyHistoryEntry {
+  readonly changes: OrganizationPrincipalMemberChange[];
+  readonly createdAt: string;
+  readonly keyEpoch: number;
+  readonly memberCount: number;
+  readonly signedAt: string;
+  readonly signerUserId: string;
+  readonly signerUserKeyFingerprint: string;
+  readonly stateHash: string;
+  readonly version: number;
+}
+export interface OrganizationGroupPolicyHistory {
+  readonly entries: OrganizationGroupPolicyHistoryEntry[];
+  readonly groupId: string;
+}
 
 export interface OrganizationDirectoryAndGroups {
   readonly directory: OrganizationDirectory;
@@ -52,6 +81,7 @@ export interface OrganizationDirectoryAndGroups {
 export interface OrganizationGroupDetails {
   readonly members: OrganizationGroupMembers | null;
   readonly containers: OrganizationGroupContainers | null;
+  readonly policyHistory: OrganizationGroupPolicyHistory | null;
 }
 
 interface OrganizationReadApi {
@@ -79,6 +109,15 @@ interface OrganizationReadApi {
     organizationId: string,
     groupId: string,
   ) => Promise<OrganizationGroupContainersResponse | null>;
+  readonly getCurrentPrincipalPolicy: (
+    principalType: "group" | "organization",
+    principalId: string,
+  ) => Promise<PrincipalPolicyBundleResponse | null>;
+}
+
+interface PrincipalPolicyHistoryState {
+  readonly projection: ReadonlyArray<PrincipalProjectionMemberResponse>;
+  readonly state: PrincipalStateResponse;
 }
 
 function uniqueContainerIds(
@@ -110,6 +149,137 @@ function withContainerDisplayNames<
     ...container,
     containerDisplayName: displayNamesById.get(container.containerId) ?? null,
   }));
+}
+
+function projectionMemberKey(
+  member: Pick<
+    PrincipalProjectionMemberResponse,
+    "memberPrincipalId" | "memberPrincipalType"
+  >,
+): string {
+  return `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+}
+
+function comparePrincipalMemberChanges(
+  left: OrganizationPrincipalMemberChange,
+  right: OrganizationPrincipalMemberChange,
+): number {
+  return (
+    left.memberPrincipalType.localeCompare(right.memberPrincipalType) ||
+    left.memberPrincipalId.localeCompare(right.memberPrincipalId) ||
+    left.changeType.localeCompare(right.changeType)
+  );
+}
+
+function diffPrincipalProjectionMembers(input: {
+  readonly current: ReadonlyArray<PrincipalProjectionMemberResponse>;
+  readonly previous: ReadonlyArray<PrincipalProjectionMemberResponse>;
+}): OrganizationPrincipalMemberChange[] {
+  const previousMembersByKey = new Map(
+    input.previous.map((member) => [projectionMemberKey(member), member]),
+  );
+  const currentMembersByKey = new Map(
+    input.current.map((member) => [projectionMemberKey(member), member]),
+  );
+  const changes: OrganizationPrincipalMemberChange[] = [];
+
+  for (const currentMember of input.current) {
+    const previousMember = previousMembersByKey.get(
+      projectionMemberKey(currentMember),
+    );
+    if (!previousMember) {
+      changes.push({
+        changeType: "added",
+        memberPrincipalId: currentMember.memberPrincipalId,
+        memberPrincipalType: currentMember.memberPrincipalType,
+        nextRole: currentMember.role,
+        previousRole: null,
+      });
+      continue;
+    }
+
+    if (previousMember.role !== currentMember.role) {
+      changes.push({
+        changeType: "role_changed",
+        memberPrincipalId: currentMember.memberPrincipalId,
+        memberPrincipalType: currentMember.memberPrincipalType,
+        nextRole: currentMember.role,
+        previousRole: previousMember.role,
+      });
+    }
+  }
+
+  for (const previousMember of input.previous) {
+    if (currentMembersByKey.has(projectionMemberKey(previousMember))) {
+      continue;
+    }
+
+    changes.push({
+      changeType: "removed",
+      memberPrincipalId: previousMember.memberPrincipalId,
+      memberPrincipalType: previousMember.memberPrincipalType,
+      nextRole: null,
+      previousRole: previousMember.role,
+    });
+  }
+
+  return changes.sort(comparePrincipalMemberChanges);
+}
+
+function principalPolicyHistoryStates(
+  bundle: PrincipalPolicyBundleResponse,
+): PrincipalPolicyHistoryState[] {
+  return [
+    ...bundle.previousStates.map((entry) => ({
+      projection: entry.projection,
+      state: entry.state,
+    })),
+    {
+      projection: bundle.currentProjection,
+      state: bundle.currentState,
+    },
+  ].sort((left, right) => left.state.version - right.state.version);
+}
+
+export function buildOrganizationGroupPolicyHistory(
+  bundle: PrincipalPolicyBundleResponse,
+): OrganizationGroupPolicyHistory {
+  const states = principalPolicyHistoryStates(bundle);
+  const entries = states.map((entry, index) => {
+    const previousProjection = states[index - 1]?.projection ?? [];
+
+    return {
+      changes: diffPrincipalProjectionMembers({
+        current: entry.projection,
+        previous: previousProjection,
+      }),
+      createdAt: entry.state.createdAt,
+      keyEpoch: entry.state.keyEpoch,
+      memberCount: entry.state.memberCount,
+      signedAt: entry.state.signedAt,
+      signerUserId: entry.state.signerUserId,
+      signerUserKeyFingerprint: entry.state.signerUserKeyFingerprint,
+      stateHash: entry.state.stateHash,
+      version: entry.state.version,
+    };
+  });
+
+  return {
+    entries: entries.reverse(),
+    groupId: bundle.currentState.principalId,
+  };
+}
+
+export async function loadOrganizationGroupPolicyHistory(input: {
+  readonly apiClient: Pick<OrganizationReadApi, "getCurrentPrincipalPolicy">;
+  readonly groupId: string;
+}): Promise<OrganizationGroupPolicyHistory | null> {
+  const bundle = await input.apiClient.getCurrentPrincipalPolicy(
+    "group",
+    input.groupId,
+  );
+
+  return bundle ? buildOrganizationGroupPolicyHistory(bundle) : null;
 }
 
 export async function loadOrganizationDirectoryAndGroups(input: {
@@ -213,13 +383,15 @@ export async function loadOrganizationUserDetail(input: {
 export async function loadOrganizationGroupDetails(input: {
   readonly apiClient: Pick<
     OrganizationReadApi,
-    "listOrganizationGroupContainers" | "listOrganizationGroupMembers"
+    | "getCurrentPrincipalPolicy"
+    | "listOrganizationGroupContainers"
+    | "listOrganizationGroupMembers"
   >;
   readonly execSql?: ExecSql | null | undefined;
   readonly groupId: string;
   readonly organizationId: string;
 }): Promise<OrganizationGroupDetails> {
-  const [members, containers] = await Promise.all([
+  const [members, containers, policyHistory] = await Promise.all([
     input.apiClient.listOrganizationGroupMembers(
       input.organizationId,
       input.groupId,
@@ -228,6 +400,10 @@ export async function loadOrganizationGroupDetails(input: {
       input.organizationId,
       input.groupId,
     ),
+    loadOrganizationGroupPolicyHistory({
+      apiClient: input.apiClient,
+      groupId: input.groupId,
+    }),
   ]);
 
   const displayNamesById = await loadContainerDisplayNamesById({
@@ -237,6 +413,7 @@ export async function loadOrganizationGroupDetails(input: {
 
   return {
     members,
+    policyHistory,
     containers: containers
       ? {
           ...containers,

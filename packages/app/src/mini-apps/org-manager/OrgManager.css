@@ -99,7 +99,8 @@
 }
 
 .org-manager-group-list,
-.org-manager-member-list {
+.org-manager-member-list,
+.org-manager-policy-history {
   display: grid;
   gap: 1px;
 }
@@ -207,12 +208,16 @@
   justify-content: space-between;
 }
 
-.org-manager-member-row .mini-app-row-stack {
+.org-manager-member-row .mini-app-row-stack,
+.org-manager-policy-history-row .mini-app-row-stack {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.org-manager-member-row strong {
+.org-manager-member-row strong,
+.org-manager-policy-history-row strong,
+.org-manager-policy-history-row .mini-app-row-text,
+.org-manager-policy-history-epoch {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -226,6 +231,30 @@
 .org-manager-grant-revoke-button {
   width: 100%;
   padding: 0 calc(var(--padding) / 2);
+}
+
+.org-manager-policy-history-row {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.org-manager-policy-change-list {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.org-manager-policy-change {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-manager-policy-history-epoch {
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  opacity: 0.75;
 }
 
 @media (max-width: 760px) {
