@@ -37,6 +37,7 @@ export function EventsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const [events, setEvents] = useState<ServerEvent[]>([]);
   const [connected, setConnected] = useState(false);
+  const eventsRef = useRef<ServerEvent[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const { log } = useLog();
 
@@ -57,11 +58,10 @@ export function EventsProvider({ children }: PropsWithChildren) {
         const data: unknown = JSON.parse(String(event.data));
         if (isServerEvent(data)) {
           const nextEvent = { ...data, id: String(nextEventId++) };
-          setEvents((prev) => {
-            const nextEvents = [...prev, nextEvent];
-            tearleads.events.setEvents(nextEvents);
-            return nextEvents;
-          });
+          const nextEvents = [...eventsRef.current, nextEvent];
+          eventsRef.current = nextEvents;
+          tearleads.events.setEvents(nextEvents);
+          setEvents(nextEvents);
         }
       } catch {
         // ignore malformed messages
