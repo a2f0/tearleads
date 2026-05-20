@@ -18,7 +18,7 @@ const databaseRuntime = createModuleDatabaseRuntime();
 await databaseRuntime.client.init({
   dbName: "/app-identity.db",
   cipher: "chacha20",
-  key: "development-key",
+  key: "development-key", // For development only. Do not use in production.
 });
 
 const tearleads = new Tearleads({

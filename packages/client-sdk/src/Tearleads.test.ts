@@ -101,4 +101,18 @@ describe("Tearleads", () => {
     expect(apiClient.getAuthToken()).toBe("test-token");
     expect(sdk.session.isAuthenticated).toBe(true);
   });
+
+  test("login fails when authentication returns no token", async () => {
+    const apiClient = new ApiClient("");
+    apiClient.authenticate = async () => null;
+    const sdk = new Tearleads({ apiClient, logger: quietLogger });
+    await sdk.identity.generate();
+    sdk.session.setAuthToken("stale-token");
+
+    await expect(sdk.session.login()).resolves.toBe(false);
+
+    expect(sdk.session.authToken).toBeNull();
+    expect(apiClient.getAuthToken()).toBeNull();
+    expect(sdk.session.isAuthenticated).toBe(false);
+  });
 });
