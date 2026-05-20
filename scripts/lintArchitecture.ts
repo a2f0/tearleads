@@ -19,8 +19,10 @@ const appReactFreeLayerEntryPoints = ["packages/client-sdk/src"];
 const appProductionSourceEntryPoints = ["packages/app/src"];
 const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
+const clientSdkPublicApiDocsPath = "docs/developer/client-sdk.md";
 const clientSdkPackageJsonPath = "packages/client-sdk/package.json";
 const clientSdkRootIndexPath = "packages/client-sdk/src/index.ts";
+const clientSdkWorkflowDocsPath = "packages/client-sdk/src/workflows/README.md";
 const clientSdkSupportedPackageExports = {
   ".": "./src/index.ts",
   "./stores/documents": "./src/stores/documents/index.ts",
@@ -84,6 +86,12 @@ interface ClientSdkWorkspaceDependencyViolation {
   dependencyName: string;
   dependencySection: string;
   declaredRange: string;
+}
+
+interface ClientSdkDocumentationContractViolation {
+  detail: string;
+  docsPath: string;
+  entryName: string;
 }
 
 let clientSdkPackageJsonPromise: Promise<PackageJson> | undefined;
@@ -251,6 +259,14 @@ function buildClientSdkPackageStatusViolation(
   return { detail, field };
 }
 
+function buildClientSdkDocumentationContractViolation(
+  docsPath: string,
+  entryName: string,
+  detail: string,
+): ClientSdkDocumentationContractViolation {
+  return { detail, docsPath, entryName };
+}
+
 async function findClientSdkPackageStatusViolations(): Promise<
   ClientSdkPackageStatusViolation[]
 > {
@@ -360,6 +376,170 @@ async function findClientSdkPackageExportContractViolations(): Promise<
     );
 
   return [...missingOrChangedExports, ...unexpectedExports];
+}
+
+function clientSdkPackageEntryPoint(exportPath: string): string {
+  return exportPath === "."
+    ? "@tearleads/client-sdk"
+    : `@tearleads/client-sdk/${exportPath.slice(2)}`;
+}
+
+function expectedClientSdkPublicApiEntryPoints(): string[] {
+  return Object.keys(clientSdkSupportedPackageExports).map(
+    clientSdkPackageEntryPoint,
+  );
+}
+
+function expectedClientSdkWorkflowFacadeNames(): string[] {
+  return Object.keys(clientSdkSupportedPackageExports).flatMap((exportPath) => {
+    const workflowExport = /^\.\/workflows\/([^/]+)$/.exec(exportPath);
+
+    return workflowExport?.[1] ? [workflowExport[1]] : [];
+  });
+}
+
+function markdownSectionContent(
+  markdownContent: string,
+  heading: string,
+): string | undefined {
+  const headingToken = `## ${heading}`;
+  const headingIndex = markdownContent.indexOf(headingToken);
+
+  if (headingIndex === -1) {
+    return undefined;
+  }
+
+  const sectionContent = markdownContent.slice(
+    headingIndex + headingToken.length,
+  );
+  const nextHeading = /\n##\s/.exec(sectionContent);
+
+  return nextHeading
+    ? sectionContent.slice(0, nextHeading.index)
+    : sectionContent;
+}
+
+function markdownTableFirstColumnCodeValues(sectionContent: string): string[] {
+  return sectionContent.split("\n").flatMap((line) => {
+    const trimmedLine = line.trim();
+
+    if (!trimmedLine.startsWith("|")) {
+      return [];
+    }
+
+    const [firstCell] = trimmedLine
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    const codeSpan = firstCell ? /^`([^`]+)`$/.exec(firstCell) : undefined;
+
+    return codeSpan?.[1] ? [codeSpan[1]] : [];
+  });
+}
+
+function duplicateValues(values: ReadonlyArray<string>): string[] {
+  const seenValues = new Set<string>();
+  const duplicateValues = new Set<string>();
+
+  for (const value of values) {
+    if (seenValues.has(value)) {
+      duplicateValues.add(value);
+      continue;
+    }
+
+    seenValues.add(value);
+  }
+
+  return [...duplicateValues];
+}
+
+function findDocumentationContractViolations(params: {
+  actualEntries: ReadonlyArray<string>;
+  docsPath: string;
+  expectedEntries: ReadonlyArray<string>;
+}): ClientSdkDocumentationContractViolation[] {
+  const actualEntrySet = new Set(params.actualEntries);
+  const expectedEntrySet = new Set(params.expectedEntries);
+  const missingEntries = params.expectedEntries
+    .filter((entryName) => !actualEntrySet.has(entryName))
+    .map((entryName) =>
+      buildClientSdkDocumentationContractViolation(
+        params.docsPath,
+        entryName,
+        "missing",
+      ),
+    );
+  const unexpectedEntries = params.actualEntries
+    .filter((entryName) => !expectedEntrySet.has(entryName))
+    .map((entryName) =>
+      buildClientSdkDocumentationContractViolation(
+        params.docsPath,
+        entryName,
+        "unexpected",
+      ),
+    );
+  const duplicatedEntries = duplicateValues(params.actualEntries).map(
+    (entryName) =>
+      buildClientSdkDocumentationContractViolation(
+        params.docsPath,
+        entryName,
+        "duplicated",
+      ),
+  );
+
+  return [...missingEntries, ...unexpectedEntries, ...duplicatedEntries];
+}
+
+async function findClientSdkPublicApiDocsViolations(): Promise<
+  ClientSdkDocumentationContractViolation[]
+> {
+  const docsContent = await readFile(clientSdkPublicApiDocsPath, "utf8");
+  const publicApiSection = markdownSectionContent(
+    docsContent,
+    "Public API Entry Points",
+  );
+
+  if (!publicApiSection) {
+    return [
+      buildClientSdkDocumentationContractViolation(
+        clientSdkPublicApiDocsPath,
+        "Public API Entry Points",
+        "section missing",
+      ),
+    ];
+  }
+
+  return findDocumentationContractViolations({
+    actualEntries: markdownTableFirstColumnCodeValues(publicApiSection),
+    docsPath: clientSdkPublicApiDocsPath,
+    expectedEntries: expectedClientSdkPublicApiEntryPoints(),
+  });
+}
+
+async function findClientSdkWorkflowTaxonomyDocsViolations(): Promise<
+  ClientSdkDocumentationContractViolation[]
+> {
+  const docsContent = await readFile(clientSdkWorkflowDocsPath, "utf8");
+  const workflowTaxonomySection = markdownSectionContent(
+    docsContent,
+    "Facade Taxonomy",
+  );
+
+  if (!workflowTaxonomySection) {
+    return [
+      buildClientSdkDocumentationContractViolation(
+        clientSdkWorkflowDocsPath,
+        "Facade Taxonomy",
+        "section missing",
+      ),
+    ];
+  }
+
+  return findDocumentationContractViolations({
+    actualEntries: markdownTableFirstColumnCodeValues(workflowTaxonomySection),
+    docsPath: clientSdkWorkflowDocsPath,
+    expectedEntries: expectedClientSdkWorkflowFacadeNames(),
+  });
 }
 
 async function findClientSdkDataPackageExports(): Promise<string[]> {
@@ -581,6 +761,38 @@ function formatClientSdkPackageExportContractViolations(
   ].join("\n");
 }
 
+function formatClientSdkPublicApiDocsViolations(
+  violations: ReadonlyArray<ClientSdkDocumentationContractViolation>,
+): string {
+  if (violations.length === 0) {
+    return "";
+  }
+
+  return [
+    "error client-sdk-public-api-docs-match-package-exports: Client SDK public API docs should match the supported package export entry points exactly.",
+    ...violations.map(
+      (violation) =>
+        `  ${violation.docsPath}: ${violation.entryName} ${violation.detail}`,
+    ),
+  ].join("\n");
+}
+
+function formatClientSdkWorkflowTaxonomyDocsViolations(
+  violations: ReadonlyArray<ClientSdkDocumentationContractViolation>,
+): string {
+  if (violations.length === 0) {
+    return "";
+  }
+
+  return [
+    "error client-sdk-workflow-taxonomy-docs-match-package-exports: Client SDK workflow taxonomy docs should list each exported workflow facade exactly once.",
+    ...violations.map(
+      (violation) =>
+        `  ${violation.docsPath}: ${violation.entryName} ${violation.detail}`,
+    ),
+  ].join("\n");
+}
+
 function formatClientSdkDeepFacadePackageExports(
   exportPaths: ReadonlyArray<string>,
 ): string {
@@ -646,6 +858,10 @@ const clientSdkWorkspaceDependencyViolations =
   await findClientSdkWorkspaceDependencyViolations();
 const clientSdkPackageExportContractViolations =
   await findClientSdkPackageExportContractViolations();
+const clientSdkPublicApiDocsViolations =
+  await findClientSdkPublicApiDocsViolations();
+const clientSdkWorkflowTaxonomyDocsViolations =
+  await findClientSdkWorkflowTaxonomyDocsViolations();
 const clientSdkDataPackageExports = await findClientSdkDataPackageExports();
 const clientSdkDeepFacadePackageExports =
   await findClientSdkDeepFacadePackageExports();
@@ -722,6 +938,21 @@ if (clientSdkPackageExportContractOutput.length > 0) {
   console.error(clientSdkPackageExportContractOutput);
 }
 
+const clientSdkPublicApiDocsOutput = formatClientSdkPublicApiDocsViolations(
+  clientSdkPublicApiDocsViolations,
+);
+if (clientSdkPublicApiDocsOutput.length > 0) {
+  console.error(clientSdkPublicApiDocsOutput);
+}
+
+const clientSdkWorkflowTaxonomyDocsOutput =
+  formatClientSdkWorkflowTaxonomyDocsViolations(
+    clientSdkWorkflowTaxonomyDocsViolations,
+  );
+if (clientSdkWorkflowTaxonomyDocsOutput.length > 0) {
+  console.error(clientSdkWorkflowTaxonomyDocsOutput);
+}
+
 const clientSdkDataPackageExportsOutput = formatClientSdkDataPackageExports(
   clientSdkDataPackageExports,
 );
@@ -761,6 +992,8 @@ process.exit(
     clientSdkPackageStatusViolations.length > 0 ||
     clientSdkWorkspaceDependencyViolations.length > 0 ||
     clientSdkPackageExportContractViolations.length > 0 ||
+    clientSdkPublicApiDocsViolations.length > 0 ||
+    clientSdkWorkflowTaxonomyDocsViolations.length > 0 ||
     clientSdkDataPackageExports.length > 0 ||
     clientSdkDeepFacadePackageExports.length > 0 ||
     clientSdkRootFacadeReExports.length > 0 ||
