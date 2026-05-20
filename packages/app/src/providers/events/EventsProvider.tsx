@@ -37,6 +37,7 @@ export function EventsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const [events, setEvents] = useState<ServerEvent[]>([]);
   const [connected, setConnected] = useState(false);
+  const eventsRef = useRef<ServerEvent[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const { log } = useLog();
 
@@ -56,10 +57,11 @@ export function EventsProvider({ children }: PropsWithChildren) {
       try {
         const data: unknown = JSON.parse(String(event.data));
         if (isServerEvent(data)) {
-          setEvents((prev) => [
-            ...prev,
-            { ...data, id: String(nextEventId++) },
-          ]);
+          const nextEvent = { ...data, id: String(nextEventId++) };
+          const nextEvents = [...eventsRef.current, nextEvent];
+          eventsRef.current = nextEvents;
+          tearleads.events.setEvents(nextEvents);
+          setEvents(nextEvents);
         }
       } catch {
         // ignore malformed messages
@@ -81,11 +83,7 @@ export function EventsProvider({ children }: PropsWithChildren) {
       ws.close();
       wsRef.current = null;
     };
-  }, [hostConfig.wsUrl, log]);
-
-  useEffect(() => {
-    tearleads.events.setEvents(events);
-  }, [events, tearleads]);
+  }, [hostConfig.wsUrl, log, tearleads]);
 
   const value = useMemo(() => ({ events, connected }), [events, connected]);
 
