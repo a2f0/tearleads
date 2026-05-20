@@ -1,5 +1,4 @@
 import {
-  createExplorerWorkflowRuntime,
   defaultExplorerPersistence,
   type ExplorerPersistence,
 } from "@tearleads/client-sdk/workflows/explorer";
@@ -12,6 +11,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import {
   createExplorerSyncAgent,
   type ExplorerRuntime,
@@ -125,9 +125,10 @@ function getOrCreateExplorerStore(
 
 export function ExplorerProvider({ children }: PropsWithChildren) {
   const appData = useAppData();
+  const tearleads = useTearleads();
   const runtime = useMemo(
-    () => createExplorerWorkflowRuntime(appData),
-    [appData],
+    () => tearleads.workflows.explorer(),
+    [appData, tearleads],
   );
   const store = useMemo(
     () => getOrCreateExplorerStore(runtime.domainScope, runtime),

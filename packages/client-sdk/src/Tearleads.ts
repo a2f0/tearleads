@@ -13,6 +13,7 @@ import {
   createExecSql,
   type ExecSql,
   type ExecSqlClientLike,
+  unavailableExecSql,
 } from "./data/sqlite/sqlSchema";
 import {
   type BlobStore,
@@ -522,7 +523,8 @@ export class Tearleads {
   readonly workflows: TearleadsWorkflows;
 
   private readonly documentProjectors: DocumentProjectorRegistry;
-  private readonly domainScope = {};
+  private domainScopeKey: string | null = null;
+  private domainScopeValue = {};
   private readonly logErrorHandler: (
     message: string | Error,
     cause?: unknown,
@@ -561,18 +563,38 @@ export class Tearleads {
     this.logErrorHandler(message, cause);
   };
 
+  get domainScope(): object {
+    const nextScopeKey = `${this.db.id ?? ""}:${this.identity.signingFingerprint ?? ""}`;
+    if (this.domainScopeKey !== nextScopeKey) {
+      this.domainScopeKey = nextScopeKey;
+      this.domainScopeValue = {};
+    }
+
+    return this.domainScopeValue;
+  }
+
   createWorkflowRuntimeInput(containerId?: string | null | undefined) {
+    const dbStatus = this.db.status;
+    const execSql =
+      dbStatus === "ready"
+        ? this.db.requireExecSql("createWorkflowRuntimeInput")
+        : unavailableExecSql;
+
     return {
       apiClient: this.api,
       blobStore: this.blobs.store,
-      cacheReferencedPrincipalPolicies: this.cacheReferencedPrincipalPolicies,
+      cacheReferencedPrincipalPolicies: (
+        references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
+      ) => this.cacheReferencedPrincipalPolicies(execSql, references),
       containerId: containerId ?? null,
-      dbStatus: this.db.status,
+      dbStatus,
       documentProjectors: this.documentProjectors,
       domainScope: this.domainScope,
       encapsulationKeyPair: this.identity.encapsulationKeyPair,
       events: this.events.events,
-      execSql: this.db.requireExecSql("createWorkflowRuntimeInput"),
+      // Runtime consumers branch on dbStatus before touching SQLite. The
+      // fallback preserves the runtime shape and catches lifecycle bugs.
+      execSql,
       isAuthenticated: this.session.isAuthenticated,
       log: this.log,
       logError: this.logError,
@@ -585,10 +607,11 @@ export class Tearleads {
   }
 
   private cacheReferencedPrincipalPolicies = async (
+    execSql: ExecSql,
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ): Promise<void> => {
     await cacheReferencedPrincipalPolicies({
-      execSql: this.db.requireExecSql("cacheReferencedPrincipalPolicies"),
+      execSql,
       getCurrentPrincipalPolicy: (principalType, principalId) =>
         this.api.getCurrentPrincipalPolicy(principalType, principalId),
       getEncapsulationKey: (userId) => this.api.getEncapsulationKey(userId),

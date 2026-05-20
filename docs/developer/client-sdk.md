@@ -56,6 +56,11 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.workflows` | React-free domain workflow runtimes |
 
+Prefer `tearleads.workflows.*()` over constructing workflow runtimes directly
+from host code. The SDK keeps workflow cache scope aligned with the active
+database id and identity fingerprint, which lets document, contacts, and
+explorer stores share the same sync and subscription boundary.
+
 ## Constructor Options
 
 `new Tearleads(options)` accepts host adapters and initial runtime state:

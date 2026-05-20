@@ -1,4 +1,3 @@
-import { createContactsWorkflowRuntime } from "@tearleads/client-sdk/workflows/contacts";
 import {
   createContext,
   type PropsWithChildren,
@@ -8,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { getOrCreateContactsStore } from "./contactStore";
 import type {
   ContactsContextValue,
@@ -22,9 +22,10 @@ const ContactsContext = createContext<ContactsStore | null>(null);
 
 export function ContactsProvider({ children }: PropsWithChildren) {
   const appData = useAppData();
+  const tearleads = useTearleads();
   const runtime = useMemo<ContactsRuntime>(
-    () => createContactsWorkflowRuntime(appData),
-    [appData],
+    () => tearleads.workflows.contacts(),
+    [appData, tearleads],
   );
   const store = useMemo(
     () => getOrCreateContactsStore(runtime.domainScope, runtime),
