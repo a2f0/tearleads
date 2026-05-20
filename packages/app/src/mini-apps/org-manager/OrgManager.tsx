@@ -48,9 +48,12 @@ import {
   getOrgManagerEpochLabel,
   getOrgManagerMemberCountLabel,
   getOrgManagerPolicyAddedLabel,
+  getOrgManagerPolicyChangeTypeLabel,
+  getOrgManagerPolicyMemberTypeLabel,
   getOrgManagerPolicyRemovedLabel,
   getOrgManagerPolicyRoleChangedLabel,
   getOrgManagerPolicyRoleLabel,
+  getOrgManagerPolicyRoleTransitionLabel,
   getOrgManagerPolicySignatureLabel,
   getOrgManagerPolicyVersionLabel,
   ORG_MANAGER_LABELS,
@@ -261,6 +264,66 @@ function getPolicyChangeLabel(input: {
         getOrgManagerPolicyRoleLabel(input.change.nextRole),
       );
   }
+}
+
+function getPolicyChangeRoleDetail(
+  change: OrgManagerPrincipalMemberChange,
+): string | null {
+  switch (change.changeType) {
+    case "added":
+      return change.nextRole
+        ? getOrgManagerPolicyRoleLabel(change.nextRole)
+        : null;
+    case "removed":
+      return change.previousRole
+        ? getOrgManagerPolicyRoleLabel(change.previousRole)
+        : null;
+    case "role_changed":
+      return getOrgManagerPolicyRoleTransitionLabel(
+        getOrgManagerPolicyRoleLabel(change.previousRole),
+        getOrgManagerPolicyRoleLabel(change.nextRole),
+      );
+    default:
+      return null;
+  }
+}
+
+function PolicyHistoryChange({
+  change,
+  directory,
+  groups,
+}: {
+  change: OrgManagerPrincipalMemberChange;
+  directory: OrgManagerDirectory | null;
+  groups: ReadonlyArray<OrgManagerGroupSummary>;
+}) {
+  const memberLabel = getPolicyMemberLabel({ change, directory, groups });
+  const roleDetail = getPolicyChangeRoleDetail(change);
+
+  return (
+    <span
+      className="org-manager-policy-change"
+      title={getPolicyChangeLabel({ change, directory, groups })}
+    >
+      <span className="org-manager-policy-change-status">
+        {getOrgManagerPolicyChangeTypeLabel(change.changeType)}
+      </span>
+      <span className="org-manager-policy-change-principal">
+        <span className="org-manager-policy-change-principal-type">
+          {getOrgManagerPolicyMemberTypeLabel(change.memberPrincipalType)}
+        </span>
+        <span
+          className="org-manager-policy-change-principal-name"
+          title={change.memberPrincipalId}
+        >
+          {memberLabel}
+        </span>
+      </span>
+      {roleDetail && (
+        <span className="org-manager-policy-change-role">{roleDetail}</span>
+      )}
+    </span>
+  );
 }
 
 function getContainerDisplayLabel(
@@ -622,9 +685,14 @@ function PolicyHistory({
           variant="framed"
         >
           <MiniAppRowStack>
-            <strong title={entry.stateHash}>
-              {getOrgManagerPolicyVersionLabel(entry.version)}
-            </strong>
+            <span className="org-manager-policy-history-heading">
+              <strong title={entry.stateHash}>
+                {getOrgManagerPolicyVersionLabel(entry.version)}
+              </strong>
+              <span className="org-manager-policy-history-epoch">
+                {getOrgManagerEpochLabel(entry.keyEpoch)}
+              </span>
+            </span>
             <MiniAppRowText muted title={entry.signerUserId}>
               {getOrgManagerPolicySignatureLabel(
                 formatMiniAppDate(entry.signedAt),
@@ -634,24 +702,20 @@ function PolicyHistory({
             <span className="org-manager-policy-change-list">
               {entry.changes.length > 0 ? (
                 entry.changes.map((change) => (
-                  <span
-                    className="org-manager-policy-change"
+                  <PolicyHistoryChange
+                    change={change}
+                    directory={directory}
                     key={`${change.changeType}:${change.memberPrincipalType}:${change.memberPrincipalId}`}
-                    title={change.memberPrincipalId}
-                  >
-                    {getPolicyChangeLabel({ change, directory, groups })}
-                  </span>
+                    groups={groups}
+                  />
                 ))
               ) : (
-                <span className="org-manager-policy-change">
+                <span className="org-manager-policy-change org-manager-policy-change--empty">
                   {ORG_MANAGER_LABELS.noMembershipChanges}
                 </span>
               )}
             </span>
           </MiniAppRowStack>
-          <span className="org-manager-policy-history-epoch">
-            {getOrgManagerEpochLabel(entry.keyEpoch)}
-          </span>
         </MiniAppRow>
       ))}
     </div>

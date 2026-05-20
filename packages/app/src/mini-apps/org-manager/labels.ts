@@ -22,6 +22,7 @@ export const ORG_MANAGER_LABELS = {
   grants: "Grants",
   grantsUnavailable: "Grants unavailable.",
   groupContainerLinks: "Group container links",
+  group: "Group",
   groupName: "Group name",
   groups: "Groups",
   joined: "Joined",
@@ -47,11 +48,15 @@ export const ORG_MANAGER_LABELS = {
   policyChangeAdded: "added",
   policyChangeAddedAs: "added as",
   policyChangeChangedFrom: "changed from",
+  policyChangeStatusAdded: "Added",
+  policyChangeStatusRemoved: "Removed",
+  policyChangeStatusRoleChanged: "Role changed",
   policyChangeRemoved: "removed",
   policyChangeTo: "to",
   policyHistory: "Policy history",
   policyHistoryUnavailable: "Policy history unavailable.",
   policyRoleNone: "none",
+  policyRoleTransitionSeparator: "->",
   policySignedBy: "signed by",
   policyVersion: "Version",
   principal: "Principal",
@@ -106,6 +111,29 @@ export function getOrgManagerPolicyRemovedLabel(memberLabel: string): string {
   return `${memberLabel} ${ORG_MANAGER_LABELS.policyChangeRemoved}`;
 }
 
+export function getOrgManagerPolicyChangeTypeLabel(
+  changeType: "added" | "removed" | "role_changed",
+): string {
+  switch (changeType) {
+    case "added":
+      return ORG_MANAGER_LABELS.policyChangeStatusAdded;
+    case "removed":
+      return ORG_MANAGER_LABELS.policyChangeStatusRemoved;
+    case "role_changed":
+      return ORG_MANAGER_LABELS.policyChangeStatusRoleChanged;
+    default:
+      return changeType;
+  }
+}
+
+export function getOrgManagerPolicyMemberTypeLabel(
+  memberPrincipalType: "group" | "user",
+): string {
+  return memberPrincipalType === "group"
+    ? ORG_MANAGER_LABELS.group
+    : ORG_MANAGER_LABELS.user;
+}
+
 export function getOrgManagerPolicyRoleChangedLabel(
   memberLabel: string,
   previousRoleLabel: string,
@@ -118,6 +146,13 @@ export function getOrgManagerPolicyRoleLabel(
   role: string | null | undefined,
 ): string {
   return role ?? ORG_MANAGER_LABELS.policyRoleNone;
+}
+
+export function getOrgManagerPolicyRoleTransitionLabel(
+  previousRoleLabel: string,
+  nextRoleLabel: string,
+): string {
+  return `${previousRoleLabel} ${ORG_MANAGER_LABELS.policyRoleTransitionSeparator} ${nextRoleLabel}`;
 }
 
 export function getOrgManagerPolicySignatureLabel(
