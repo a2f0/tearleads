@@ -104,10 +104,6 @@ function useBootstrapCryptoSessionContainer(
 
     void (async () => {
       try {
-        tearleads.db.configure({
-          client: dbClient,
-          status: dbStatus,
-        });
         const bootstrap = await tearleads.session.bootstrapLocalRootContainer();
         setContainerId(bootstrap.containerId);
       } catch (error: unknown) {
