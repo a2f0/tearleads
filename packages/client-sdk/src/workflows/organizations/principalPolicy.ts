@@ -340,9 +340,7 @@ function ensureNoNestedGroupMembers(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ): void {
   if (projection.some((member) => member.memberPrincipalType === "group")) {
-    throw new Error(
-      "Nested group membership is not supported in Organization v1",
-    );
+    throw new Error("Nested group membership is not supported");
   }
 }
 
