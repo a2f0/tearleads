@@ -146,6 +146,12 @@ Supported package entry points are:
 | `@tearleads/client-sdk/workflows/registration` | local registration/root bootstrap helpers |
 | `@tearleads/client-sdk/workflows/sync` | shared sync coordinator helpers |
 
+Each package export maps both `types` and `default` to the same source entry
+point. This is the current monorepo package contract: consumers compile the SDK
+TypeScript source through the workspace dependency rather than consuming emitted
+artifacts. Keep the export map exact; adding a new public subpath should mean
+adding a documented root, store, or workflow facade entry point.
+
 Do not import `@tearleads/client-sdk/data/*` from host code. Promote a contract
 through the root or a workflow/store facade when it is meant to become public.
 
@@ -154,9 +160,12 @@ through the root or a workflow/store facade when it is meant to become public.
 The package remains `private: true` for now. It is ready for monorepo package
 consumption through explicit root, store, and workflow entry points, but not yet
 ready for an external npm release because package exports still point at source
-files and the workspace dependencies do not have a release/build contract.
+files, type targets are source files rather than emitted `.d.ts` files, and the
+workspace dependencies do not have a release/build contract.
 
 Before removing `private: true`, add a release build that emits JavaScript and
 `.d.ts` files, switch package exports to the build output, and confirm all
 runtime dependencies are either published packages or intentionally declared
-peer dependencies.
+peer dependencies. `bun run lint:architecture` enforces the current source
+package export map, rejects `data/*` package exports, and rejects deep
+workflow/store implementation exports.
