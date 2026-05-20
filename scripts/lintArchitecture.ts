@@ -238,7 +238,10 @@ async function findClientSdkPackageExportContractViolations(): Promise<
     },
   );
   const unexpectedExports = Object.keys(packageExports)
-    .filter((exportPath) => !(exportPath in clientSdkSupportedPackageExports))
+    .filter(
+      (exportPath) =>
+        !Object.hasOwn(clientSdkSupportedPackageExports, exportPath),
+    )
     .map((exportPath) =>
       buildClientSdkPackageExportViolation(exportPath, "unexpected"),
     );
