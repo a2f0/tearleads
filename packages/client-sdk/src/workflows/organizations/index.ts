@@ -13,6 +13,7 @@ export {
   loadOrganizationDataUsage,
   loadOrganizationDirectoryAndGroups,
   loadOrganizationGroupDetails,
+  loadOrganizationGroupPolicyHistory,
   loadOrganizationUserDetail,
   type OrganizationContainerGrant,
   type OrganizationContainerGrants,
@@ -25,6 +26,10 @@ export {
   type OrganizationGroupDetails,
   type OrganizationGroupMember,
   type OrganizationGroupMembers,
+  type OrganizationGroupPolicyHistory,
+  type OrganizationGroupPolicyHistoryEntry,
   type OrganizationGroupSummary,
+  type OrganizationPrincipalMemberChange,
+  type OrganizationPrincipalMemberChangeType,
   type OrganizationUserDetail,
 } from "./readModel";

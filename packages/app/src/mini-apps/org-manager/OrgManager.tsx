@@ -33,6 +33,7 @@ import {
   type OrgManagerGroupContainers,
   type OrgManagerGroupMember,
   type OrgManagerGroupMembers,
+  type OrgManagerGroupPolicyHistory,
   type OrgManagerGroupSummary,
   type OrgManagerUserDetail,
   type OrgManagerUserRecipient,
@@ -45,6 +46,12 @@ import { useOrgManagerRoute } from "./hooks/useOrgManagerRoute";
 import {
   getOrgManagerEpochLabel,
   getOrgManagerMemberCountLabel,
+  getOrgManagerPolicyAddedLabel,
+  getOrgManagerPolicyRemovedLabel,
+  getOrgManagerPolicyRoleChangedLabel,
+  getOrgManagerPolicyRoleLabel,
+  getOrgManagerPolicySignatureLabel,
+  getOrgManagerPolicyVersionLabel,
   ORG_MANAGER_LABELS,
 } from "./labels";
 import "./OrgManager.css";
@@ -123,6 +130,11 @@ const ACCESS_LEVEL_LABELS = {
   read: ORG_MANAGER_LABELS.accessRead,
   write: ORG_MANAGER_LABELS.accessWrite,
 } satisfies Record<OrgManagerGroupContainer["accessLevel"], string>;
+
+type OrgManagerGroupPolicyHistoryEntry =
+  OrgManagerGroupPolicyHistory["entries"][number];
+type OrgManagerPrincipalMemberChange =
+  OrgManagerGroupPolicyHistoryEntry["changes"][number];
 
 function classNames(
   ...values: Array<string | false | null | undefined>
@@ -204,6 +216,50 @@ function getGrantPrincipalLabel(grant: OrgManagerContainerGrant): string {
   return grant.userId
     ? compactFingerprint(grant.userId)
     : compactFingerprint(grant.subjectId);
+}
+
+function getPolicyMemberLabel(input: {
+  change: OrgManagerPrincipalMemberChange;
+  directory: OrgManagerDirectory | null;
+  groups: ReadonlyArray<OrgManagerGroupSummary>;
+}): string {
+  if (input.change.memberPrincipalType === "group") {
+    return (
+      input.groups.find(
+        (group) => group.groupId === input.change.memberPrincipalId,
+      )?.name ?? compactFingerprint(input.change.memberPrincipalId)
+    );
+  }
+
+  const user = input.directory?.users.find(
+    (directoryUser) => directoryUser.userId === input.change.memberPrincipalId,
+  );
+  if (user?.isSelf) {
+    return ORG_MANAGER_LABELS.self;
+  }
+
+  return compactFingerprint(input.change.memberPrincipalId);
+}
+
+function getPolicyChangeLabel(input: {
+  change: OrgManagerPrincipalMemberChange;
+  directory: OrgManagerDirectory | null;
+  groups: ReadonlyArray<OrgManagerGroupSummary>;
+}): string {
+  const memberLabel = getPolicyMemberLabel(input);
+
+  switch (input.change.changeType) {
+    case "added":
+      return getOrgManagerPolicyAddedLabel(memberLabel, input.change.nextRole);
+    case "removed":
+      return getOrgManagerPolicyRemovedLabel(memberLabel);
+    case "role_changed":
+      return getOrgManagerPolicyRoleChangedLabel(
+        memberLabel,
+        getOrgManagerPolicyRoleLabel(input.change.previousRole),
+        getOrgManagerPolicyRoleLabel(input.change.nextRole),
+      );
+  }
 }
 
 function getContainerDisplayLabel(
@@ -526,6 +582,77 @@ function GroupMembers({
           </MiniAppRow>
         );
       })}
+    </div>
+  );
+}
+
+function GroupPolicyHistory({
+  directory,
+  groups,
+  history,
+}: {
+  directory: OrgManagerDirectory | null;
+  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  history: OrgManagerGroupPolicyHistory | null;
+}) {
+  if (!history) {
+    return (
+      <div className="org-manager-hint">
+        {ORG_MANAGER_LABELS.policyHistoryUnavailable}
+      </div>
+    );
+  }
+
+  if (history.entries.length === 0) {
+    return (
+      <div className="org-manager-hint">
+        {ORG_MANAGER_LABELS.noPolicyHistory}
+      </div>
+    );
+  }
+
+  return (
+    <div className="org-manager-policy-history">
+      {history.entries.map((entry) => (
+        <MiniAppRow
+          className="org-manager-policy-history-row"
+          density="roomy"
+          key={entry.stateHash}
+          variant="framed"
+        >
+          <MiniAppRowStack>
+            <strong title={entry.stateHash}>
+              {getOrgManagerPolicyVersionLabel(entry.version)}
+            </strong>
+            <MiniAppRowText muted title={entry.signerUserId}>
+              {getOrgManagerPolicySignatureLabel(
+                formatMiniAppDate(entry.signedAt),
+                compactFingerprint(entry.signerUserId),
+              )}
+            </MiniAppRowText>
+            <span className="org-manager-policy-change-list">
+              {entry.changes.length > 0 ? (
+                entry.changes.map((change) => (
+                  <span
+                    className="org-manager-policy-change"
+                    key={`${change.changeType}:${change.memberPrincipalType}:${change.memberPrincipalId}`}
+                    title={change.memberPrincipalId}
+                  >
+                    {getPolicyChangeLabel({ change, directory, groups })}
+                  </span>
+                ))
+              ) : (
+                <span className="org-manager-policy-change">
+                  {ORG_MANAGER_LABELS.noMembershipChanges}
+                </span>
+              )}
+            </span>
+          </MiniAppRowStack>
+          <span className="org-manager-policy-history-epoch">
+            {getOrgManagerEpochLabel(entry.keyEpoch)}
+          </span>
+        </MiniAppRow>
+      ))}
     </div>
   );
 }
@@ -1137,6 +1264,8 @@ export function OrgManager() {
   const [members, setMembers] = useState<OrgManagerGroupMembers | null>(null);
   const [groupContainers, setGroupContainers] =
     useState<OrgManagerGroupContainers | null>(null);
+  const [groupPolicyHistory, setGroupPolicyHistory] =
+    useState<OrgManagerGroupPolicyHistory | null>(null);
   const [grants, setGrants] = useState<OrgManagerContainerGrants | null>(null);
   const [dataUsage, setDataUsage] = useState<OrgManagerDataUsage | null>(null);
   const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
@@ -1206,6 +1335,7 @@ export function OrgManager() {
     setGroups([]);
     setMembers(null);
     setGroupContainers(null);
+    setGroupPolicyHistory(null);
     setGrants(null);
     setDataUsage(null);
     selectUser(null);
@@ -1285,6 +1415,7 @@ export function OrgManager() {
       if (!appData.organizationId || !groupId || !appData.isAuthenticated) {
         setMembers(null);
         setGroupContainers(null);
+        setGroupPolicyHistory(null);
         return;
       }
 
@@ -1292,8 +1423,11 @@ export function OrgManager() {
         setError(null);
       }
       try {
-        const { members: nextMembers, containers: nextContainers } =
-          await orgManagerActions.loadGroupDetails(groupId);
+        const {
+          containers: nextContainers,
+          members: nextMembers,
+          policyHistory: nextPolicyHistory,
+        } = await orgManagerActions.loadGroupDetails(groupId);
         const errors: string[] = [];
 
         if (nextMembers === null) {
@@ -1310,12 +1444,15 @@ export function OrgManager() {
           setGroupContainers(nextContainers);
         }
 
+        setGroupPolicyHistory(nextPolicyHistory);
+
         if (errors.length > 0) {
           setError(errors.join(" "));
         }
       } catch (nextError) {
         setMembers(null);
         setGroupContainers(null);
+        setGroupPolicyHistory(null);
         setUnknownError(setError, nextError);
       }
     },
@@ -1800,6 +1937,16 @@ export function OrgManager() {
                       mutating={mutating}
                       removeMember={removeMember}
                       userId={appData.userId}
+                    />
+                  </div>
+                  <div className="org-manager-detail-section">
+                    <div className="org-manager-section-heading">
+                      {ORG_MANAGER_LABELS.policyHistory}
+                    </div>
+                    <GroupPolicyHistory
+                      directory={directory}
+                      groups={groups}
+                      history={groupPolicyHistory}
                     />
                   </div>
                   <div className="org-manager-detail-section">
