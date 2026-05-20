@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMemoryBlobStore } from "@tearleads/client-sdk/data/blobs/memoryBlobStore";
+import { createMemoryBlobStore } from "@tearleads/client-sdk/workflows/blobs";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createDocumentStorePersistence,

@@ -1,16 +1,15 @@
 import { expect, test } from "bun:test";
 import type { BlobBytes, DocumentSummary } from "@tearleads/client-sdk";
-import { createMemoryBlobStore } from "@tearleads/client-sdk/data/blobs/memoryBlobStore";
-import { createProjectionUserKeyResolver } from "@tearleads/client-sdk/data/keyingProjectionVerification";
-import { DOCUMENTS_APP_KIND } from "@tearleads/client-sdk/data/persistence/documents/documentsPersistence";
-import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk/data/sync/syncCoordinator";
 import {
+  createMemoryBlobStore,
   decryptDocumentAttachmentBlob,
   uploadDocumentAttachment,
 } from "@tearleads/client-sdk/workflows/blobs";
 import {
+  createDocumentProjectionUserKeyResolver,
   createDocumentsWorkflowRuntime,
   createRemoteDocument,
+  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentsPersistence,
   type LocalAttachmentRecord,
@@ -18,6 +17,7 @@ import {
   type PendingUpdateInsert,
   type PendingUpdateRecord,
 } from "@tearleads/client-sdk/workflows/documents";
+import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk/workflows/sync";
 import {
   computeAccessEventHash,
   computeBlobAccessManifestHash,
@@ -395,15 +395,6 @@ interface DocumentRuntimePatch {
   signingFingerprint: string;
   signingKeyPair: NonNullable<DocumentsRuntimeInput["signingKeyPair"]>;
   userId: string;
-}
-
-function createDocumentProjectionUserKeyResolver(
-  runtimePatch: DocumentRuntimePatch,
-) {
-  return createProjectionUserKeyResolver(
-    runtimePatch,
-    "DocumentStore sync test",
-  );
 }
 
 async function createDocumentRuntimePatch(input: {

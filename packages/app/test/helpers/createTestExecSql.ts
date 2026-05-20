@@ -1,5 +1,4 @@
-import type { ExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
-import { createExecSql as createClientExecSql } from "@tearleads/client-sdk/data/sqlite/sqlSchema";
+import { createExecSql, type ExecSql } from "@tearleads/client-sdk";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -17,7 +16,7 @@ export async function createTestExecSql(key: string): Promise<{
 
   return {
     close: () => db.close(),
-    execSql: createClientExecSql({
+    execSql: createExecSql({
       exec: async (options) => ({
         rows: execDatabaseStatement(db, options),
       }),

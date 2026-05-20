@@ -71,7 +71,8 @@
     "./workflows/principals": "./src/workflows/principals/index.ts",
     "./workflows/registration": "./src/workflows/registration/index.ts",
     "./workflows/registration/bootstrapRootContainer": "./src/workflows/registration/bootstrapRootContainer.ts",
-    "./workflows/registration/rootMetadataBootstrap": "./src/workflows/registration/rootMetadataBootstrap.ts"
+    "./workflows/registration/rootMetadataBootstrap": "./src/workflows/registration/rootMetadataBootstrap.ts",
+    "./workflows/sync": "./src/workflows/sync/index.ts"
   },
   "scripts": {
     "test": "bun test src --max-concurrency=4 --pass-with-no-tests"

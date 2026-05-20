@@ -17,6 +17,7 @@ const appPresentationEntryPoints = [
 ];
 const appReactFreeLayerEntryPoints = ["packages/client-sdk/src"];
 const appProductionSourceEntryPoints = ["packages/app/src"];
+const appTestHelperEntryPoints = ["packages/app/test/helpers"];
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
@@ -99,6 +100,10 @@ async function findAppProductionSdkDataImports(): Promise<SourceMatch[]> {
     appProductionSourceEntryPoints,
     appSdkDataImportPattern,
   );
+}
+
+async function findAppTestHelperSdkDataImports(): Promise<SourceMatch[]> {
+  return findSourceMatches(appTestHelperEntryPoints, appSdkDataImportPattern);
 }
 
 async function findSourceMatches(
@@ -189,6 +194,22 @@ function formatAppProductionSdkDataImports(
   ].join("\n");
 }
 
+function formatAppTestHelperSdkDataImports(
+  matches: ReadonlyArray<SourceMatch>,
+): string {
+  if (matches.length === 0) {
+    return "";
+  }
+
+  return [
+    "error app-test-helpers-use-sdk-root-or-facades: App test helpers should import client SDK contracts from @tearleads/client-sdk or workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+    ...matches.map(
+      (match) =>
+        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
+    ),
+  ].join("\n");
+}
+
 const result = await cruise(
   architectureEntryPoints,
   configToCruiseOptions(dependencyCruiserConfig),
@@ -199,6 +220,7 @@ const appReactFreeLayerReferences = await findAppReactFreeLayerReferences();
 const appProductionTestHelperReferences =
   await findAppProductionTestHelperReferences();
 const appProductionSdkDataImports = await findAppProductionSdkDataImports();
+const appTestHelperSdkDataImports = await findAppTestHelperSdkDataImports();
 
 if (typeof result.output === "string" && result.output.trim().length > 0) {
   const write = result.exitCode === 0 ? console.log : console.error;
@@ -234,12 +256,20 @@ if (appProductionSdkDataOutput.length > 0) {
   console.error(appProductionSdkDataOutput);
 }
 
+const appTestHelperSdkDataOutput = formatAppTestHelperSdkDataImports(
+  appTestHelperSdkDataImports,
+);
+if (appTestHelperSdkDataOutput.length > 0) {
+  console.error(appTestHelperSdkDataOutput);
+}
+
 process.exit(
   result.exitCode !== 0 ||
     appPresentationSqlExecutorReferences.length > 0 ||
     appReactFreeLayerReferences.length > 0 ||
     appProductionTestHelperReferences.length > 0 ||
-    appProductionSdkDataImports.length > 0
+    appProductionSdkDataImports.length > 0 ||
+    appTestHelperSdkDataImports.length > 0
     ? 1
     : 0,
 );
