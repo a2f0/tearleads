@@ -128,14 +128,12 @@ function useBootstrapCryptoSessionContainer(
 function useCryptoAuthActions(
   tearleads: ReturnType<typeof useTearleads>,
   signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
-  setStoredAuthToken: (value: string | null) => void,
-  setIsAuthenticated: (value: boolean) => void,
+  syncAuthStateFromSession: () => void,
 ) {
   const logout = useCallback(() => {
     tearleads.session.logout();
-    setStoredAuthToken(tearleads.session.authToken);
-    setIsAuthenticated(tearleads.session.isAuthenticated);
-  }, [setIsAuthenticated, setStoredAuthToken, tearleads]);
+    syncAuthStateFromSession();
+  }, [syncAuthStateFromSession, tearleads]);
 
   const authenticate = useCallback(
     async (challengeHex?: string): Promise<boolean> => {
@@ -144,11 +142,10 @@ function useCryptoAuthActions(
       }
 
       const authenticated = await tearleads.session.login(challengeHex);
-      setStoredAuthToken(tearleads.session.authToken);
-      setIsAuthenticated(tearleads.session.isAuthenticated);
+      syncAuthStateFromSession();
       return authenticated;
     },
-    [setIsAuthenticated, setStoredAuthToken, signingKeyPair, tearleads],
+    [signingKeyPair, syncAuthStateFromSession, tearleads],
   );
 
   const loginWithChallenge = useCallback(
@@ -208,6 +205,10 @@ function useSdkBackedCryptoSessionState(
     },
     [tearleads],
   );
+  const syncAuthStateFromSession = useCallback(() => {
+    setStoredAuthTokenState(tearleads.session.authToken);
+    setStoredIsAuthenticated(tearleads.session.isAuthenticated);
+  }, [tearleads]);
 
   return {
     authToken,
@@ -218,6 +219,7 @@ function useSdkBackedCryptoSessionState(
     setIsAuthenticated,
     setOrganizationId,
     setStoredAuthToken,
+    syncAuthStateFromSession,
     setUserId,
     userId,
   };
@@ -252,8 +254,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const { login, loginWithChallenge, logout } = useCryptoAuthActions(
     tearleads,
     signingKeyPair,
-    sessionState.setStoredAuthToken,
-    sessionState.setIsAuthenticated,
+    sessionState.syncAuthStateFromSession,
   );
 
   return (

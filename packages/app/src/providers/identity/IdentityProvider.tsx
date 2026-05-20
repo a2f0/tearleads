@@ -50,7 +50,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
         }
 
         generationInFlight.current = false;
-        console.error("Failed to generate identity keys:", error);
+        tearleads.logError("Failed to generate identity keys", error);
       });
   }, [tearleads]);
 
