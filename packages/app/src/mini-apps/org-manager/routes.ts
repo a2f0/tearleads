@@ -1,4 +1,9 @@
-export type OrgManagerView = "directory" | "groups" | "grants" | "usage";
+export type OrgManagerView =
+  | "directory"
+  | "groups"
+  | "grants"
+  | "organization"
+  | "usage";
 
 export interface OrgManagerRoute {
   selectedGroupId: string | null;

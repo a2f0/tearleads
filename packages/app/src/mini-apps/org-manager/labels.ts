@@ -43,6 +43,7 @@ export const ORG_MANAGER_LABELS = {
   organization: "Organization",
   organizationContainerLinks: "Organization-level container links",
   organizationDataUsage: "Organization data usage",
+  organizationPolicyHistory: "Organization policy history",
   policyChangeAdded: "added",
   policyChangeAddedAs: "added as",
   policyChangeChangedFrom: "changed from",

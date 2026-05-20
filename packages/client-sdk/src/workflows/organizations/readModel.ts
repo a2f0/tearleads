@@ -57,7 +57,7 @@ export interface OrganizationPrincipalMemberChange {
   readonly nextRole: PrincipalProjectionMemberResponse["role"] | null;
   readonly previousRole: PrincipalProjectionMemberResponse["role"] | null;
 }
-export interface OrganizationGroupPolicyHistoryEntry {
+export interface OrganizationPrincipalPolicyHistoryEntry {
   readonly changes: OrganizationPrincipalMemberChange[];
   readonly createdAt: string;
   readonly keyEpoch: number;
@@ -68,9 +68,22 @@ export interface OrganizationGroupPolicyHistoryEntry {
   readonly stateHash: string;
   readonly version: number;
 }
-export interface OrganizationGroupPolicyHistory {
-  readonly entries: OrganizationGroupPolicyHistoryEntry[];
+export type OrganizationGroupPolicyHistoryEntry =
+  OrganizationPrincipalPolicyHistoryEntry;
+export interface OrganizationPrincipalPolicyHistory {
+  readonly entries: OrganizationPrincipalPolicyHistoryEntry[];
+  readonly principalId: string;
+  readonly principalType: PrincipalStateResponse["principalType"];
+}
+export interface OrganizationGroupPolicyHistory
+  extends OrganizationPrincipalPolicyHistory {
   readonly groupId: string;
+  readonly principalType: "group";
+}
+export interface OrganizationPolicyHistory
+  extends OrganizationPrincipalPolicyHistory {
+  readonly organizationId: string;
+  readonly principalType: "organization";
 }
 
 export interface OrganizationDirectoryAndGroups {
@@ -241,9 +254,9 @@ function principalPolicyHistoryStates(
   ].sort((left, right) => left.state.version - right.state.version);
 }
 
-export function buildOrganizationGroupPolicyHistory(
+function buildPrincipalPolicyHistoryEntries(
   bundle: PrincipalPolicyBundleResponse,
-): OrganizationGroupPolicyHistory {
+): OrganizationPrincipalPolicyHistoryEntry[] {
   const states = principalPolicyHistoryStates(bundle);
   const entries = states.map((entry, index) => {
     const previousProjection = states[index - 1]?.projection ?? [];
@@ -264,9 +277,28 @@ export function buildOrganizationGroupPolicyHistory(
     };
   });
 
+  return entries.reverse();
+}
+
+export function buildOrganizationGroupPolicyHistory(
+  bundle: PrincipalPolicyBundleResponse,
+): OrganizationGroupPolicyHistory {
   return {
-    entries: entries.reverse(),
+    entries: buildPrincipalPolicyHistoryEntries(bundle),
     groupId: bundle.currentState.principalId,
+    principalId: bundle.currentState.principalId,
+    principalType: "group",
+  };
+}
+
+export function buildOrganizationPolicyHistory(
+  bundle: PrincipalPolicyBundleResponse,
+): OrganizationPolicyHistory {
+  return {
+    entries: buildPrincipalPolicyHistoryEntries(bundle),
+    organizationId: bundle.currentState.principalId,
+    principalId: bundle.currentState.principalId,
+    principalType: "organization",
   };
 }
 
@@ -280,6 +312,18 @@ export async function loadOrganizationGroupPolicyHistory(input: {
   );
 
   return bundle ? buildOrganizationGroupPolicyHistory(bundle) : null;
+}
+
+export async function loadOrganizationPolicyHistory(input: {
+  readonly apiClient: Pick<OrganizationReadApi, "getCurrentPrincipalPolicy">;
+  readonly organizationId: string;
+}): Promise<OrganizationPolicyHistory | null> {
+  const bundle = await input.apiClient.getCurrentPrincipalPolicy(
+    "organization",
+    input.organizationId,
+  );
+
+  return bundle ? buildOrganizationPolicyHistory(bundle) : null;
 }
 
 export async function loadOrganizationDirectoryAndGroups(input: {
