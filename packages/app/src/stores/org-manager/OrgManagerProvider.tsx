@@ -36,21 +36,21 @@ import { useAppData } from "../../providers/data/AppDataProvider";
 interface OrgManagerContextValue {
   addUserToGroup: (
     groupId: string,
-    targetUser: OrganizationUserRecipient,
-    currentUsers: ReadonlyArray<OrganizationUserRecipient>,
+    targetUser: OrgManagerUserRecipient,
+    currentUsers: ReadonlyArray<OrgManagerUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
-  createGroup: (name: string) => Promise<OrganizationGroupSummary>;
-  importUserById: (userId: string) => Promise<OrganizationUserRecipient | null>;
-  loadDataUsage: () => Promise<OrganizationDataUsage | null>;
-  loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
-  loadGroupDetails: (groupId: string) => Promise<OrganizationGroupDetails>;
-  loadGrants: () => Promise<OrganizationContainerGrants | null>;
-  loadUserDetail: (userId: string) => Promise<OrganizationUserDetail | null>;
+  createGroup: (name: string) => Promise<OrgManagerGroupSummary>;
+  importUserById: (userId: string) => Promise<OrgManagerUserRecipient | null>;
+  loadDataUsage: () => Promise<OrgManagerDataUsage | null>;
+  loadDirectoryAndGroups: () => Promise<OrgManagerDirectoryAndGroups | null>;
+  loadGroupDetails: (groupId: string) => Promise<OrgManagerGroupDetails>;
+  loadGrants: () => Promise<OrgManagerContainerGrants | null>;
+  loadUserDetail: (userId: string) => Promise<OrgManagerUserDetail | null>;
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
-    remainingUsers: ReadonlyArray<OrganizationUserRecipient>,
+    remainingUsers: ReadonlyArray<OrgManagerUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
 }
@@ -61,9 +61,11 @@ export type OrgManagerContainerGrant = OrganizationContainerGrant;
 export type OrgManagerContainerGrants = OrganizationContainerGrants;
 export type OrgManagerDataUsage = OrganizationDataUsage;
 export type OrgManagerDirectory = OrganizationDirectory;
+type OrgManagerDirectoryAndGroups = OrganizationDirectoryAndGroups;
 export type OrgManagerDirectoryUser = OrganizationDirectoryUser;
 export type OrgManagerGroupContainer = OrganizationGroupContainer;
 export type OrgManagerGroupContainers = OrganizationGroupContainers;
+type OrgManagerGroupDetails = OrganizationGroupDetails;
 export type OrgManagerGroupMember = OrganizationGroupMember;
 export type OrgManagerGroupMembers = OrganizationGroupMembers;
 export type OrgManagerGroupSummary = OrganizationGroupSummary;
