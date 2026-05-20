@@ -10,7 +10,7 @@ import {
 import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
-} from "@tearleads/client-sdk/workflows/org-manager";
+} from "@tearleads/client-sdk/workflows/organizations";
 import {
   createInitialRootMetadataBootstrap,
   type InitialRootMetadataBootstrap,

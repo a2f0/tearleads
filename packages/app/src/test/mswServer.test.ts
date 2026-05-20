@@ -8,7 +8,7 @@ import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workf
 import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
-} from "@tearleads/client-sdk/workflows/org-manager";
+} from "@tearleads/client-sdk/workflows/organizations";
 import {
   authChallengeSigningBytes,
   buildPrincipalStateSigningInput,

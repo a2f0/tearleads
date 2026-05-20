@@ -13,7 +13,7 @@
     "./workflows/containers": "./src/workflows/containers/index.ts",
     "./workflows/documents": "./src/workflows/documents/index.ts",
     "./workflows/explorer": "./src/workflows/explorer/index.ts",
-    "./workflows/org-manager": "./src/workflows/org-manager/index.ts",
+    "./workflows/organizations": "./src/workflows/organizations/index.ts",
     "./workflows/principals": "./src/workflows/principals/index.ts",
     "./workflows/registration": "./src/workflows/registration/index.ts",
     "./workflows/sync": "./src/workflows/sync/index.ts"

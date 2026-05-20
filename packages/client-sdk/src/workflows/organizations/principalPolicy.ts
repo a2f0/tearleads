@@ -39,13 +39,13 @@ import {
   principalPolicyCheckpoint,
 } from "../principals/policyVerification";
 
-export interface OrgManagerUserRecipient {
+export interface OrganizationUserRecipient {
   readonly userId: string;
   readonly encapsulationPublicKey: string;
   readonly encapsulationKeyFingerprint: string;
 }
 
-interface OrgManagerPrincipalPolicyApi {
+interface OrganizationPrincipalPolicyApi {
   createOrganizationGroup: (
     organizationId: string,
     input: CreateOrganizationGroupRequest,
@@ -69,10 +69,13 @@ interface OrgManagerPrincipalPolicyApi {
   ) => Promise<unknown>;
 }
 
-export async function importOrgManagerUserRecipient(input: {
-  readonly apiClient: Pick<OrgManagerPrincipalPolicyApi, "getEncapsulationKey">;
+export async function importOrganizationUserRecipient(input: {
+  readonly apiClient: Pick<
+    OrganizationPrincipalPolicyApi,
+    "getEncapsulationKey"
+  >;
   readonly userId: string;
-}): Promise<OrgManagerUserRecipient | null> {
+}): Promise<OrganizationUserRecipient | null> {
   const userId = input.userId.trim();
   if (userId.length === 0) {
     return null;
@@ -117,9 +120,9 @@ type GroupPolicyMutationRequest = {
 };
 
 type BuildAddGroupUserPolicyInput = BuildGroupMembershipMutationInput & {
-  readonly currentUsers: ReadonlyArray<OrgManagerUserRecipient>;
+  readonly currentUsers: ReadonlyArray<OrganizationUserRecipient>;
   readonly currentUserSecretKey: Uint8Array;
-  readonly targetUser: OrgManagerUserRecipient;
+  readonly targetUser: OrganizationUserRecipient;
 };
 
 function projectionMemberKey(member: {
@@ -216,7 +219,7 @@ function groupPolicySignerPublicKeyLoadErrorMessage(
 }
 
 async function collectGroupPolicySignerPublicKeys(input: {
-  readonly apiClient: OrgManagerPrincipalPolicyApi;
+  readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly currentUserSigningKey: {
     readonly signerUserId: string;
@@ -271,7 +274,7 @@ async function verifyGroupPolicy(input: {
 }
 
 async function prepareGroupPolicyVerification(input: {
-  readonly apiClient: OrgManagerPrincipalPolicyApi;
+  readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly execSql: ExecSql;
   readonly signerUserId: string;
@@ -338,7 +341,7 @@ function ensureNoNestedGroupMembers(
 ): void {
   if (projection.some((member) => member.memberPrincipalType === "group")) {
     throw new Error(
-      "Nested group membership is not supported in Org Manager v1",
+      "Nested group membership is not supported in this version of organization administration",
     );
   }
 }
@@ -399,7 +402,7 @@ async function signedGroupStateRequest(input: {
 }
 
 async function cacheGroupPolicy(input: {
-  readonly apiClient: OrgManagerPrincipalPolicyApi;
+  readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly canAdministerOrganization?: boolean | undefined;
   readonly execSql: ExecSql;
   readonly groupId: string;
@@ -444,7 +447,7 @@ async function cacheGroupPolicy(input: {
 }
 
 async function loadGroupPolicyMutationContext(input: {
-  readonly apiClient: OrgManagerPrincipalPolicyApi;
+  readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly canAdministerOrganization: boolean;
   readonly execSql: ExecSql;
   readonly groupId: string;
@@ -481,7 +484,7 @@ async function loadGroupPolicyMutationContext(input: {
 }
 
 async function commitGroupPolicyMutation(input: {
-  readonly apiClient: OrgManagerPrincipalPolicyApi;
+  readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly groupId: string;
   readonly request: GroupPolicyMutationRequest;
 }): Promise<void> {
@@ -769,7 +772,7 @@ export async function buildAddGroupUserPolicyRequest(
 
 export async function buildRemoveGroupUserPolicyRequest(
   input: BuildGroupMembershipMutationInput & {
-    readonly remainingUsers: ReadonlyArray<OrgManagerUserRecipient>;
+    readonly remainingUsers: ReadonlyArray<OrganizationUserRecipient>;
     readonly removedUserId: string;
   },
 ): Promise<GroupPolicyMutationRequest> {
@@ -851,8 +854,8 @@ export async function buildRemoveGroupUserPolicyRequest(
   };
 }
 
-export async function createOrgManagerGroup(input: {
-  readonly apiClient: OrgManagerPrincipalPolicyApi;
+export async function createOrganizationGroup(input: {
+  readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly execSql: ExecSql;
   readonly name: string;
@@ -891,17 +894,17 @@ export async function createOrgManagerGroup(input: {
   return group;
 }
 
-export async function addOrgManagerGroupUser(input: {
-  readonly apiClient: OrgManagerPrincipalPolicyApi;
+export async function addOrganizationGroupUser(input: {
+  readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly canAdministerOrganization: boolean;
   readonly currentUserSecretKey: Uint8Array;
-  readonly currentUsers: ReadonlyArray<OrgManagerUserRecipient>;
+  readonly currentUsers: ReadonlyArray<OrganizationUserRecipient>;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
-  readonly targetUser: OrgManagerUserRecipient;
+  readonly targetUser: OrganizationUserRecipient;
 }): Promise<PrincipalPolicyBundleResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
@@ -938,12 +941,12 @@ export async function addOrgManagerGroupUser(input: {
   });
 }
 
-export async function removeOrgManagerGroupUser(input: {
-  readonly apiClient: OrgManagerPrincipalPolicyApi;
+export async function removeOrganizationGroupUser(input: {
+  readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly canAdministerOrganization: boolean;
   readonly execSql: ExecSql;
   readonly groupId: string;
-  readonly remainingUsers: ReadonlyArray<OrgManagerUserRecipient>;
+  readonly remainingUsers: ReadonlyArray<OrganizationUserRecipient>;
   readonly removedUserId: string;
   readonly signerUserId: string;
   readonly signingFingerprint: string;

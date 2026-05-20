@@ -61,6 +61,24 @@ from host code. The SDK keeps workflow cache scope aligned with the active
 database id and identity fingerprint, which lets document, contacts, and
 explorer stores share the same sync and subscription boundary.
 
+## Workflow Facade Taxonomy
+
+SDK workflow facades expose client platform capabilities. Product UI, route
+state, menu labels, component-local hooks, and React providers stay in
+`packages/app`.
+
+| Facade | Classification | Boundary |
+| --- | --- | --- |
+| `workflows/documents`, `workflows/blobs`, `workflows/containers`, `workflows/principals`, `workflows/registration`, `workflows/sync` | Platform runtime | Protocol-facing client operations, local persistence orchestration, sync coordination, key verification, and registration bootstrap helpers |
+| `workflows/explorer` | Platform read model and runtime | Container tree state, container metadata projection, document link/discovery read models, and container/document sync helpers used by Explorer UI without owning Explorer presentation state |
+| `workflows/contacts` | Platform read model and runtime | Local address-book documents and key lookup helpers used by contacts sync and recipient selection without owning Contacts UI interactions |
+| `workflows/organizations` | Platform organization administration | Organization directory, groups, grants, usage, user-detail read models, and principal-policy mutation helpers; the Org Manager mini-app adapts these into product screens in `packages/app` |
+
+When a workflow exists mainly to support a product screen, keep its name tied to
+the platform state it exposes rather than to the app window that consumes it.
+The SDK should export `workflows/organizations`, for example, while the app may
+continue to call its React provider and components `OrgManager`.
+
 ## Constructor Options
 
 `new Tearleads(options)` accepts host adapters and initial runtime state:
@@ -123,7 +141,7 @@ Supported package entry points are:
 | `@tearleads/client-sdk/workflows/containers` | container mutation planning and remote container operations |
 | `@tearleads/client-sdk/workflows/documents` | document creation, sync, persistence, and projection-key helpers |
 | `@tearleads/client-sdk/workflows/explorer` | explorer container/document read models and sync helpers |
-| `@tearleads/client-sdk/workflows/org-manager` | organization manager read models and principal-policy helpers |
+| `@tearleads/client-sdk/workflows/organizations` | organization administration read models and principal-policy helpers |
 | `@tearleads/client-sdk/workflows/principals` | principal policy cache helpers |
 | `@tearleads/client-sdk/workflows/registration` | local registration/root bootstrap helpers |
 | `@tearleads/client-sdk/workflows/sync` | shared sync coordinator helpers |

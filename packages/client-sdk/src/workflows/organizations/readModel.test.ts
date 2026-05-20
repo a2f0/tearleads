@@ -13,11 +13,11 @@ import {
   saveContainer,
 } from "../../data/persistence/containers/containerPersistence";
 import {
-  loadOrgManagerDataUsage,
-  loadOrgManagerDirectoryAndGroups,
-  loadOrgManagerGrants,
-  loadOrgManagerGroupDetails,
-  loadOrgManagerUserDetail,
+  loadOrganizationContainerGrants,
+  loadOrganizationDataUsage,
+  loadOrganizationDirectoryAndGroups,
+  loadOrganizationGroupDetails,
+  loadOrganizationUserDetail,
 } from "./readModel";
 
 const organizationId = "org-1";
@@ -153,9 +153,9 @@ const userDetailWithMissingDisplayNames = {
   },
 };
 
-test("loadOrgManagerDirectoryAndGroups combines directory and group lists", async () => {
+test("loadOrganizationDirectoryAndGroups combines directory and group lists", async () => {
   const calls: string[] = [];
-  const result = await loadOrgManagerDirectoryAndGroups({
+  const result = await loadOrganizationDirectoryAndGroups({
     apiClient: {
       listOrganizationDirectory: async (nextOrganizationId) => {
         calls.push(`directory:${nextOrganizationId}`);
@@ -176,8 +176,8 @@ test("loadOrgManagerDirectoryAndGroups combines directory and group lists", asyn
   });
 });
 
-test("loadOrgManagerDirectoryAndGroups reports unavailable directory state", async () => {
-  const result = await loadOrgManagerDirectoryAndGroups({
+test("loadOrganizationDirectoryAndGroups reports unavailable directory state", async () => {
+  const result = await loadOrganizationDirectoryAndGroups({
     apiClient: {
       listOrganizationDirectory: async () => null,
       listOrganizationGroups: async () => groups,
@@ -188,9 +188,9 @@ test("loadOrgManagerDirectoryAndGroups reports unavailable directory state", asy
   expect(result).toBeNull();
 });
 
-test("loadOrgManagerGroupDetails preserves partial group detail results", async () => {
+test("loadOrganizationGroupDetails preserves partial group detail results", async () => {
   const calls: string[] = [];
-  const result = await loadOrgManagerGroupDetails({
+  const result = await loadOrganizationGroupDetails({
     apiClient: {
       listOrganizationGroupMembers: async (nextOrganizationId, nextGroupId) => {
         calls.push(`members:${nextOrganizationId}:${nextGroupId}`);
@@ -218,9 +218,9 @@ test("loadOrgManagerGroupDetails preserves partial group detail results", async 
   });
 });
 
-test("loadOrgManagerGrants forwards organization grant enumeration", async () => {
+test("loadOrganizationContainerGrants forwards organization grant enumeration", async () => {
   const calls: string[] = [];
-  const result = await loadOrgManagerGrants({
+  const result = await loadOrganizationContainerGrants({
     apiClient: {
       listOrganizationContainerGrants: async (nextOrganizationId) => {
         calls.push(`grants:${nextOrganizationId}`);
@@ -234,9 +234,9 @@ test("loadOrgManagerGrants forwards organization grant enumeration", async () =>
   expect(result).toEqual(grantsWithMissingDisplayNames);
 });
 
-test("loadOrgManagerDataUsage forwards organization usage summary", async () => {
+test("loadOrganizationDataUsage forwards organization usage summary", async () => {
   const calls: string[] = [];
-  const result = await loadOrgManagerDataUsage({
+  const result = await loadOrganizationDataUsage({
     apiClient: {
       getOrganizationDataUsage: async (nextOrganizationId) => {
         calls.push(`usage:${nextOrganizationId}`);
@@ -250,9 +250,9 @@ test("loadOrgManagerDataUsage forwards organization usage summary", async () => 
   expect(result).toEqual(dataUsage);
 });
 
-test("loadOrgManagerUserDetail forwards user detail", async () => {
+test("loadOrganizationUserDetail forwards user detail", async () => {
   const calls: string[] = [];
-  const result = await loadOrgManagerUserDetail({
+  const result = await loadOrganizationUserDetail({
     apiClient: {
       getOrganizationUserDetail: async (nextOrganizationId, nextUserId) => {
         calls.push(`detail:${nextOrganizationId}:${nextUserId}`);
@@ -267,9 +267,9 @@ test("loadOrgManagerUserDetail forwards user detail", async () => {
   expect(result).toEqual(userDetailWithMissingDisplayNames);
 });
 
-test("org manager read models include local container display names", async () => {
+test("organization read models include local container display names", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-manager-container-display-names-test",
+    "organization-container-display-names-test",
   );
 
   try {
@@ -283,7 +283,7 @@ test("org manager read models include local container display names", async () =
       icon: null,
     });
 
-    const groupDetails = await loadOrgManagerGroupDetails({
+    const groupDetails = await loadOrganizationGroupDetails({
       apiClient: {
         listOrganizationGroupMembers: async () => members,
         listOrganizationGroupContainers: async () => containers,
@@ -292,14 +292,14 @@ test("org manager read models include local container display names", async () =
       groupId,
       organizationId,
     });
-    const organizationGrants = await loadOrgManagerGrants({
+    const organizationGrants = await loadOrganizationContainerGrants({
       apiClient: {
         listOrganizationContainerGrants: async () => grants,
       },
       execSql,
       organizationId,
     });
-    const detail = await loadOrgManagerUserDetail({
+    const detail = await loadOrganizationUserDetail({
       apiClient: {
         getOrganizationUserDetail: async () => userDetail,
       },

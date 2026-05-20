@@ -15,46 +15,46 @@ import type {
 import { loadContainerDisplayNamesByIds } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
-export type OrgManagerDirectory = OrganizationDirectoryResponse;
-export type OrgManagerDataUsage = OrganizationDataUsageResponse;
-export type OrgManagerDirectoryUser = OrganizationDirectoryUserResponse;
-export type OrgManagerGroupContainer = OrganizationGroupContainerResponse & {
+export type OrganizationDirectory = OrganizationDirectoryResponse;
+export type OrganizationDataUsage = OrganizationDataUsageResponse;
+export type OrganizationDirectoryUser = OrganizationDirectoryUserResponse;
+export type OrganizationGroupContainer = OrganizationGroupContainerResponse & {
   readonly containerDisplayName: string | null;
 };
-export type OrgManagerContainerGrant = OrganizationContainerGrantResponse & {
+export type OrganizationContainerGrant = OrganizationContainerGrantResponse & {
   readonly containerDisplayName: string | null;
 };
-export interface OrgManagerGroupContainers
+export interface OrganizationGroupContainers
   extends Omit<OrganizationGroupContainersResponse, "containers"> {
-  readonly containers: OrgManagerGroupContainer[];
+  readonly containers: OrganizationGroupContainer[];
 }
-export interface OrgManagerContainerGrants
+export interface OrganizationContainerGrants
   extends Omit<OrganizationContainerGrantsResponse, "grants"> {
-  readonly grants: OrgManagerContainerGrant[];
+  readonly grants: OrganizationContainerGrant[];
 }
-export interface OrgManagerUserDetail
+export interface OrganizationUserDetail
   extends Omit<OrganizationUserDetailResponse, "grants"> {
   readonly grants: {
-    readonly directGrants: OrgManagerContainerGrant[];
-    readonly groupGrants: OrgManagerContainerGrant[];
-    readonly organizationGrants: OrgManagerContainerGrant[];
+    readonly directGrants: OrganizationContainerGrant[];
+    readonly groupGrants: OrganizationContainerGrant[];
+    readonly organizationGrants: OrganizationContainerGrant[];
   };
 }
-export type OrgManagerGroupMember = OrganizationGroupMemberResponse;
-export type OrgManagerGroupMembers = OrganizationGroupMembersResponse;
-export type OrgManagerGroupSummary = OrganizationGroupSummaryResponse;
+export type OrganizationGroupMember = OrganizationGroupMemberResponse;
+export type OrganizationGroupMembers = OrganizationGroupMembersResponse;
+export type OrganizationGroupSummary = OrganizationGroupSummaryResponse;
 
-export interface OrgManagerDirectoryAndGroups {
-  readonly directory: OrgManagerDirectory;
-  readonly groups: ReadonlyArray<OrgManagerGroupSummary>;
+export interface OrganizationDirectoryAndGroups {
+  readonly directory: OrganizationDirectory;
+  readonly groups: ReadonlyArray<OrganizationGroupSummary>;
 }
 
-export interface OrgManagerGroupDetails {
-  readonly members: OrgManagerGroupMembers | null;
-  readonly containers: OrgManagerGroupContainers | null;
+export interface OrganizationGroupDetails {
+  readonly members: OrganizationGroupMembers | null;
+  readonly containers: OrganizationGroupContainers | null;
 }
 
-interface OrgManagerReadApi {
+interface OrganizationReadApi {
   readonly listOrganizationDirectory: (
     organizationId: string,
   ) => Promise<OrganizationDirectoryResponse | null>;
@@ -112,13 +112,13 @@ function withContainerDisplayNames<
   }));
 }
 
-export async function loadOrgManagerDirectoryAndGroups(input: {
+export async function loadOrganizationDirectoryAndGroups(input: {
   readonly apiClient: Pick<
-    OrgManagerReadApi,
+    OrganizationReadApi,
     "listOrganizationDirectory" | "listOrganizationGroups"
   >;
   readonly organizationId: string;
-}): Promise<OrgManagerDirectoryAndGroups | null> {
+}): Promise<OrganizationDirectoryAndGroups | null> {
   const [directory, groups] = await Promise.all([
     input.apiClient.listOrganizationDirectory(input.organizationId),
     input.apiClient.listOrganizationGroups(input.organizationId),
@@ -134,14 +134,14 @@ export async function loadOrgManagerDirectoryAndGroups(input: {
   };
 }
 
-export async function loadOrgManagerGrants(input: {
+export async function loadOrganizationContainerGrants(input: {
   readonly apiClient: Pick<
-    OrgManagerReadApi,
+    OrganizationReadApi,
     "listOrganizationContainerGrants"
   >;
   readonly execSql?: ExecSql | null | undefined;
   readonly organizationId: string;
-}): Promise<OrgManagerContainerGrants | null> {
+}): Promise<OrganizationContainerGrants | null> {
   const grants = await input.apiClient.listOrganizationContainerGrants(
     input.organizationId,
   );
@@ -160,19 +160,19 @@ export async function loadOrgManagerGrants(input: {
   };
 }
 
-export async function loadOrgManagerDataUsage(input: {
-  readonly apiClient: Pick<OrgManagerReadApi, "getOrganizationDataUsage">;
+export async function loadOrganizationDataUsage(input: {
+  readonly apiClient: Pick<OrganizationReadApi, "getOrganizationDataUsage">;
   readonly organizationId: string;
-}): Promise<OrgManagerDataUsage | null> {
+}): Promise<OrganizationDataUsage | null> {
   return input.apiClient.getOrganizationDataUsage(input.organizationId);
 }
 
-export async function loadOrgManagerUserDetail(input: {
-  readonly apiClient: Pick<OrgManagerReadApi, "getOrganizationUserDetail">;
+export async function loadOrganizationUserDetail(input: {
+  readonly apiClient: Pick<OrganizationReadApi, "getOrganizationUserDetail">;
   readonly execSql?: ExecSql | null | undefined;
   readonly organizationId: string;
   readonly userId: string;
-}): Promise<OrgManagerUserDetail | null> {
+}): Promise<OrganizationUserDetail | null> {
   const detail = await input.apiClient.getOrganizationUserDetail(
     input.organizationId,
     input.userId,
@@ -210,15 +210,15 @@ export async function loadOrgManagerUserDetail(input: {
   };
 }
 
-export async function loadOrgManagerGroupDetails(input: {
+export async function loadOrganizationGroupDetails(input: {
   readonly apiClient: Pick<
-    OrgManagerReadApi,
+    OrganizationReadApi,
     "listOrganizationGroupContainers" | "listOrganizationGroupMembers"
   >;
   readonly execSql?: ExecSql | null | undefined;
   readonly groupId: string;
   readonly organizationId: string;
-}): Promise<OrgManagerGroupDetails> {
+}): Promise<OrganizationGroupDetails> {
   const [members, containers] = await Promise.all([
     input.apiClient.listOrganizationGroupMembers(
       input.organizationId,
