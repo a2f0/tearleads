@@ -134,7 +134,8 @@ Supported package entry points are:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, neutral document/blob contracts, document projector helpers, and SQLite executor contracts |
+| `@tearleads/client-sdk` | `Tearleads`, aggregate compatibility exports, and SQLite executor contracts |
+| `@tearleads/client-sdk/documents` | neutral document/blob contracts and document projector helpers |
 | `@tearleads/client-sdk/stores/documents` | React-free document store facade |
 | `@tearleads/client-sdk/workflows/blobs` | blob upload, hydration, and local blob stores |
 | `@tearleads/client-sdk/workflows/contacts` | contacts runtime and read/write helpers |

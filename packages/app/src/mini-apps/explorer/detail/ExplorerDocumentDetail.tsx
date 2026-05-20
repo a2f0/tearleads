@@ -2,7 +2,7 @@ import {
   type DocumentSummary,
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@tearleads/client-sdk/documents";
 import { useState } from "react";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";

@@ -1,4 +1,4 @@
-import type { StoredDocumentKind } from "@tearleads/client-sdk";
+import type { StoredDocumentKind } from "@tearleads/client-sdk/documents";
 import type { ComponentType } from "react";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
