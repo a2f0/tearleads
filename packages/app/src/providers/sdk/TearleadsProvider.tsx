@@ -98,6 +98,7 @@ function useServerEventsBinding(
     return () => {
       cancelled = true;
       ws.close();
+      tearleads.events.setConnected(false);
     };
   }, [log, tearleads, wsUrl]);
 }
