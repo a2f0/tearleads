@@ -81,6 +81,8 @@ export interface TearleadsSessionContext {
   userId?: string | null | undefined;
 }
 
+export type TearleadsNetworkListener = (online: boolean) => void;
+
 function defaultOnline(): boolean {
   return typeof navigator === "object" && typeof navigator.onLine === "boolean"
     ? navigator.onLine
@@ -329,6 +331,7 @@ export class TearleadsIdentity {
 }
 
 export class TearleadsNetwork {
+  private readonly listeners = new Set<TearleadsNetworkListener>();
   private onlineValue: boolean;
 
   constructor(online: boolean = defaultOnline()) {
@@ -340,8 +343,26 @@ export class TearleadsNetwork {
   }
 
   setOnline(online: boolean): void {
+    if (this.onlineValue === online) {
+      return;
+    }
+
     this.onlineValue = online;
+    for (const listener of this.listeners) {
+      try {
+        listener(online);
+      } catch {
+        // Keep one subscriber failure from blocking later subscribers.
+      }
+    }
   }
+
+  subscribe = (listener: TearleadsNetworkListener): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
 }
 
 export class TearleadsEvents {

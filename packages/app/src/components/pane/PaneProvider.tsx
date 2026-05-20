@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
-import { NetworkStateProvider } from "../../providers/api/NetworkStateProvider";
 import { CryptoSessionProvider } from "../../providers/crypto/CryptoSessionProvider";
 import { AppDataProvider } from "../../providers/data/AppDataProvider";
 import { DatabaseProvider } from "../../providers/db/DatabaseProvider";
@@ -19,17 +18,15 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
     <AppHostConfigProvider value={hostConfig}>
       <LogProvider>
         <TearleadsProvider>
-          <NetworkStateProvider>
-            <IdentityProvider>
-              <DatabaseProvider>
-                <CryptoSessionProvider>
-                  <EventsProvider>
-                    <AppDataProvider>{children}</AppDataProvider>
-                  </EventsProvider>
-                </CryptoSessionProvider>
-              </DatabaseProvider>
-            </IdentityProvider>
-          </NetworkStateProvider>
+          <IdentityProvider>
+            <DatabaseProvider>
+              <CryptoSessionProvider>
+                <EventsProvider>
+                  <AppDataProvider>{children}</AppDataProvider>
+                </EventsProvider>
+              </CryptoSessionProvider>
+            </DatabaseProvider>
+          </IdentityProvider>
         </TearleadsProvider>
       </LogProvider>
     </AppHostConfigProvider>
