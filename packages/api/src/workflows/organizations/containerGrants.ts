@@ -164,7 +164,6 @@ export function listOrganizationContainerGrantRows(input: {
     .leftJoin(
       containerBuiltinGrants,
       and(
-        eq(containerBuiltinGrants.organizationId, containers.organizationId),
         eq(
           containerBuiltinGrants.containerId,
           accessManifestContainerGrantProjection.containerId,

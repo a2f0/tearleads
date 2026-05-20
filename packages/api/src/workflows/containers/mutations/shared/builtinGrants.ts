@@ -1,45 +1,75 @@
-import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import type {
+  ContainerDirectGrant,
+  ContainerGrantAccessEventBody,
+  ContainerGrantSubjectType,
+  ContainerRevokeAccessEventBody,
+  KeyingCanonicalJson,
+  VerifiedContainerAccessManifest,
+} from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
 import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import { containerBuiltinGrants } from "../../../../schema";
 import { ContainerMutationError } from "../errors";
 
-function readMutationSubject(manifest: VerifiedContainerAccessManifest): {
-  readonly subjectId: string;
-  readonly subjectType: string;
-} | null {
+type ContainerMutationSubject = Pick<
+  ContainerDirectGrant,
+  "subjectId" | "subjectType"
+>;
+
+function isCanonicalRecord(
+  value: KeyingCanonicalJson,
+): value is { readonly [key: string]: KeyingCanonicalJson } {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isContainerGrantSubjectType(
+  value: unknown,
+): value is ContainerGrantSubjectType {
+  return value === "group" || value === "organization" || value === "user";
+}
+
+function isContainerMutationSubject(
+  value: unknown,
+): value is ContainerMutationSubject {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const subject = value as Partial<ContainerMutationSubject>;
+  return (
+    typeof subject.subjectId === "string" &&
+    isContainerGrantSubjectType(subject.subjectType)
+  );
+}
+
+function readMutationSubject(
+  manifest: VerifiedContainerAccessManifest,
+): ContainerMutationSubject | null {
   const { body } = manifest.event;
 
-  if (
-    manifest.event.event.eventType === "container.grant" &&
-    body &&
-    typeof body === "object" &&
-    "grant" in body
-  ) {
-    const grant = Reflect.get(body, "grant");
-    if (!grant || typeof grant !== "object") {
+  if (!isCanonicalRecord(body)) {
+    return null;
+  }
+
+  if (manifest.event.event.eventType === "container.grant") {
+    const { grant } = body as Partial<ContainerGrantAccessEventBody>;
+    if (!isContainerMutationSubject(grant)) {
       return null;
     }
 
-    const subjectId = Reflect.get(grant, "subjectId");
-    const subjectType = Reflect.get(grant, "subjectType");
-
-    return typeof subjectId === "string" && typeof subjectType === "string"
-      ? { subjectId, subjectType }
-      : null;
+    return { subjectId: grant.subjectId, subjectType: grant.subjectType };
   }
 
-  if (
-    manifest.event.event.eventType === "container.revoke" &&
-    body &&
-    typeof body === "object"
-  ) {
-    const subjectId = Reflect.get(body, "subjectId");
-    const subjectType = Reflect.get(body, "subjectType");
+  if (manifest.event.event.eventType === "container.revoke") {
+    const revokeBody = body as Partial<ContainerRevokeAccessEventBody>;
+    if (!isContainerMutationSubject(revokeBody)) {
+      return null;
+    }
 
-    return typeof subjectId === "string" && typeof subjectType === "string"
-      ? { subjectId, subjectType }
-      : null;
+    return {
+      subjectId: revokeBody.subjectId,
+      subjectType: revokeBody.subjectType,
+    };
   }
 
   return null;

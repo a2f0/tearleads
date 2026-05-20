@@ -665,6 +665,88 @@ function GrantTable({
   );
 }
 
+function isSameGrantSubject(
+  left: OrgManagerContainerGrant,
+  right: OrgManagerContainerGrant,
+): boolean {
+  return (
+    left.subjectType === right.subjectType && left.subjectId === right.subjectId
+  );
+}
+
+function isSameContainerGrant(
+  left: OrgManagerContainerGrant,
+  right: OrgManagerContainerGrant,
+): boolean {
+  return (
+    left.containerId === right.containerId && isSameGrantSubject(left, right)
+  );
+}
+
+function removeRevokedGrantRows(
+  grants: ReadonlyArray<OrgManagerContainerGrant>,
+  revokedGrant: OrgManagerContainerGrant,
+): OrgManagerContainerGrant[] {
+  return grants.filter((grant) => !isSameContainerGrant(grant, revokedGrant));
+}
+
+function removeRevokedGrantFromGrantState(
+  grants: OrgManagerContainerGrants | null,
+  revokedGrant: OrgManagerContainerGrant,
+): OrgManagerContainerGrants | null {
+  return grants
+    ? {
+        ...grants,
+        grants: removeRevokedGrantRows(grants.grants, revokedGrant),
+      }
+    : grants;
+}
+
+function removeRevokedGrantFromGroupContainers(
+  groupContainers: OrgManagerGroupContainers | null,
+  revokedGrant: OrgManagerContainerGrant,
+): OrgManagerGroupContainers | null {
+  if (
+    !groupContainers ||
+    revokedGrant.subjectType !== "group" ||
+    groupContainers.groupId !== revokedGrant.subjectId
+  ) {
+    return groupContainers;
+  }
+
+  return {
+    ...groupContainers,
+    containers: groupContainers.containers.filter(
+      (container) => container.containerId !== revokedGrant.containerId,
+    ),
+  };
+}
+
+function removeRevokedGrantFromUserDetail(
+  userDetail: OrgManagerUserDetail | null,
+  revokedGrant: OrgManagerContainerGrant,
+): OrgManagerUserDetail | null {
+  return userDetail
+    ? {
+        ...userDetail,
+        grants: {
+          directGrants: removeRevokedGrantRows(
+            userDetail.grants.directGrants,
+            revokedGrant,
+          ),
+          groupGrants: removeRevokedGrantRows(
+            userDetail.grants.groupGrants,
+            revokedGrant,
+          ),
+          organizationGrants: removeRevokedGrantRows(
+            userDetail.grants.organizationGrants,
+            revokedGrant,
+          ),
+        },
+      }
+    : userDetail;
+}
+
 function GrantsView({
   canRevokeGrants,
   grants,
@@ -1559,21 +1641,22 @@ export function OrgManager() {
       setError(null);
       try {
         await orgManagerActions.revokeGrant(grant);
-        await refreshGrants();
-        await refreshSelectedGroupDetails(selectedGroupIdRef.current);
-        await refreshSelectedUserDetail(selectedUserIdRef.current);
+        setGrants((currentGrants) =>
+          removeRevokedGrantFromGrantState(currentGrants, grant),
+        );
+        setGroupContainers((currentGroupContainers) =>
+          removeRevokedGrantFromGroupContainers(currentGroupContainers, grant),
+        );
+        setUserDetail((currentUserDetail) =>
+          removeRevokedGrantFromUserDetail(currentUserDetail, grant),
+        );
       } catch (nextError) {
         setUnknownError(setError, nextError);
       } finally {
         setMutating(false);
       }
     },
-    [
-      orgManagerActions,
-      refreshGrants,
-      refreshSelectedGroupDetails,
-      refreshSelectedUserDetail,
-    ],
+    [orgManagerActions],
   );
 
   useOrgManagerSidebarPanel({

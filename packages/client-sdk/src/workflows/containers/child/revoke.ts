@@ -69,18 +69,32 @@ type ContainerRevokeSubject = Pick<
   "subjectId" | "subjectType"
 >;
 
-function grantSubjectKey(
-  grant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
-): string {
-  return `${grant.subjectType}:${grant.subjectId}`;
+function isSameContainerGrantSubject(
+  left: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
+  right: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
+): boolean {
+  return (
+    left.subjectType === right.subjectType && left.subjectId === right.subjectId
+  );
+}
+
+function isSameReferencedPrincipalSubject(
+  head: ReferencedPrincipalHead,
+  revokedSubject: ContainerRevokeSubject,
+): boolean {
+  return (
+    head.principalType === revokedSubject.subjectType &&
+    head.principalId === revokedSubject.subjectId
+  );
 }
 
 function removeContainerGrant(
   grants: readonly ContainerDirectGrant[],
   revokedSubject: ContainerRevokeSubject,
 ): ContainerDirectGrant[] {
-  const revokedKey = grantSubjectKey(revokedSubject);
-  return grants.filter((grant) => grantSubjectKey(grant) !== revokedKey);
+  return grants.filter(
+    (grant) => !isSameContainerGrantSubject(grant, revokedSubject),
+  );
 }
 
 function removeReferencedPrincipalHead(
@@ -91,9 +105,8 @@ function removeReferencedPrincipalHead(
     return [...principalHeads];
   }
 
-  const revokedKey = grantSubjectKey(revokedSubject);
   return principalHeads.filter(
-    (head) => `${head.principalType}:${head.principalId}` !== revokedKey,
+    (head) => !isSameReferencedPrincipalSubject(head, revokedSubject),
   );
 }
 
@@ -101,10 +114,9 @@ function requireRevokedGrantExists(input: {
   previousState: ContainerAccessManifestState;
   revokedSubject: ContainerRevokeSubject;
 }): void {
-  const revokedKey = grantSubjectKey(input.revokedSubject);
   if (
-    !input.previousState.directGrants.some(
-      (grant) => grantSubjectKey(grant) === revokedKey,
+    !input.previousState.directGrants.some((grant) =>
+      isSameContainerGrantSubject(grant, input.revokedSubject),
     )
   ) {
     throw new Error("Container grant is not present");
