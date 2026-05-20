@@ -31,7 +31,7 @@ const appTestHelperImportPattern =
 const appSdkDataImportPattern =
   /\bfrom\s*["']@tearleads\/client-sdk\/data\/|\bimport\s*(?:\(\s*)?["']@tearleads\/client-sdk\/data\//;
 const clientSdkRootFacadeExportPattern =
-  /\bexport\b[\s\S]*\bfrom\s*["']\.\/(?:stores|workflows)(?:\/|["'])/;
+  /\bexport\b.*?\bfrom\s*["']\.\/(?:stores|workflows)(?:\/|["'])/;
 
 interface SourceMatch {
   filePath: string;
@@ -171,25 +171,16 @@ async function findClientSdkDeepFacadePackageExports(): Promise<string[]> {
   );
 }
 
+async function listExactSourceFile(filePath: string): Promise<string[]> {
+  return [filePath];
+}
+
 async function findClientSdkRootFacadeReExports(): Promise<SourceMatch[]> {
-  const content = await readFile(clientSdkRootIndexPath, "utf8");
-
-  return content.split("\n").flatMap((line, index): SourceMatch[] => {
-    if (
-      isCommentOnlyLine(line) ||
-      !clientSdkRootFacadeExportPattern.test(line)
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        filePath: clientSdkRootIndexPath,
-        line,
-        lineNumber: index + 1,
-      },
-    ];
-  });
+  return findSourceMatches(
+    [clientSdkRootIndexPath],
+    clientSdkRootFacadeExportPattern,
+    listExactSourceFile,
+  );
 }
 
 async function findSourceMatches(
