@@ -6,6 +6,7 @@ import {
   loadOrganizationDataUsage,
   loadOrganizationDirectoryAndGroups,
   loadOrganizationGroupDetails,
+  loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
   type OrganizationContainerGrant,
   type OrganizationContainerGrants,
@@ -20,6 +21,7 @@ import {
   type OrganizationGroupMembers,
   type OrganizationGroupPolicyHistory,
   type OrganizationGroupSummary,
+  type OrganizationPolicyHistory,
   type OrganizationUserDetail,
   type OrganizationUserRecipient,
   removeOrganizationGroupUser,
@@ -51,6 +53,7 @@ interface OrgManagerContextValue {
   loadDirectoryAndGroups: () => Promise<OrgManagerDirectoryAndGroups | null>;
   loadGroupDetails: (groupId: string) => Promise<OrgManagerGroupDetails>;
   loadGrants: () => Promise<OrgManagerContainerGrants | null>;
+  loadPolicyHistory: () => Promise<OrgManagerPolicyHistory | null>;
   loadUserDetail: (userId: string) => Promise<OrgManagerUserDetail | null>;
   removeUserFromGroup: (
     groupId: string,
@@ -81,6 +84,7 @@ export type OrgManagerGroupMember = OrganizationGroupMember;
 export type OrgManagerGroupMembers = OrganizationGroupMembers;
 export type OrgManagerGroupPolicyHistory = OrganizationGroupPolicyHistory;
 export type OrgManagerGroupSummary = OrganizationGroupSummary;
+export type OrgManagerPolicyHistory = OrganizationPolicyHistory;
 export type OrgManagerUserDetail = OrganizationUserDetail;
 export type OrgManagerUserRecipient = OrganizationUserRecipient;
 
@@ -192,6 +196,17 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     appData.isAuthenticated,
     appData.organizationId,
   ]);
+
+  const loadPolicyHistory = useCallback(() => {
+    if (!appData.organizationId || !appData.isAuthenticated) {
+      return Promise.resolve(null);
+    }
+
+    return loadOrganizationPolicyHistory({
+      apiClient: appData.apiClient,
+      organizationId: appData.organizationId,
+    });
+  }, [appData.apiClient, appData.isAuthenticated, appData.organizationId]);
 
   const loadDataUsage = useCallback(() => {
     if (!appData.organizationId || !appData.isAuthenticated) {
@@ -337,6 +352,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadDirectoryAndGroups,
       loadGroupDetails,
       loadGrants,
+      loadPolicyHistory,
       loadUserDetail,
       removeUserFromGroup,
       revokeGrant,
@@ -349,6 +365,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadDirectoryAndGroups,
       loadGroupDetails,
       loadGrants,
+      loadPolicyHistory,
       loadUserDetail,
       removeUserFromGroup,
       revokeGrant,

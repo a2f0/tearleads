@@ -15,10 +15,12 @@ import {
 } from "../../data/persistence/containers/containerPersistence";
 import {
   buildOrganizationGroupPolicyHistory,
+  buildOrganizationPolicyHistory,
   loadOrganizationContainerGrants,
   loadOrganizationDataUsage,
   loadOrganizationDirectoryAndGroups,
   loadOrganizationGroupDetails,
+  loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
 } from "./readModel";
 
@@ -161,6 +163,33 @@ const principalPolicy: PrincipalPolicyBundleResponse = {
       ],
     },
   ],
+};
+
+const organizationPrincipalPolicy: PrincipalPolicyBundleResponse = {
+  ...principalPolicy,
+  currentState: {
+    ...principalPolicy.currentState,
+    principalType: "organization",
+    principalId: organizationId,
+  },
+  currentPayload: {
+    ...principalPolicy.currentPayload,
+    principalType: "organization",
+    principalId: organizationId,
+  },
+  currentMemberEnvelopes: {
+    ...principalPolicy.currentMemberEnvelopes,
+    principalType: "organization",
+    principalId: organizationId,
+  },
+  previousStates: principalPolicy.previousStates.map((entry) => ({
+    ...entry,
+    state: {
+      ...entry.state,
+      principalType: "organization",
+      principalId: organizationId,
+    },
+  })),
 };
 
 const containers: OrganizationGroupContainersResponse = {
@@ -343,6 +372,8 @@ test("buildOrganizationGroupPolicyHistory diffs policy projections", () => {
   const history = buildOrganizationGroupPolicyHistory(principalPolicy);
 
   expect(history.groupId).toBe(groupId);
+  expect(history.principalId).toBe(groupId);
+  expect(history.principalType).toBe("group");
   expect(history.entries.map((entry) => entry.version)).toEqual([3, 2, 1]);
   expect(history.entries[0]?.changes).toEqual([
     {
@@ -385,6 +416,49 @@ test("buildOrganizationGroupPolicyHistory diffs policy projections", () => {
       nextRole: "admin",
     },
   ]);
+});
+
+test("buildOrganizationPolicyHistory diffs organization policy projections", () => {
+  const history = buildOrganizationPolicyHistory(organizationPrincipalPolicy);
+
+  expect(history.organizationId).toBe(organizationId);
+  expect(history.principalId).toBe(organizationId);
+  expect(history.principalType).toBe("organization");
+  expect(history.entries.map((entry) => entry.version)).toEqual([3, 2, 1]);
+  expect(history.entries[0]?.changes).toEqual([
+    {
+      changeType: "role_changed",
+      memberPrincipalType: "user",
+      memberPrincipalId: "user-1",
+      previousRole: "member",
+      nextRole: "admin",
+    },
+    {
+      changeType: "removed",
+      memberPrincipalType: "user",
+      memberPrincipalId: "user-2",
+      previousRole: "member",
+      nextRole: null,
+    },
+  ]);
+});
+
+test("loadOrganizationPolicyHistory fetches organization principal policy", async () => {
+  const calls: string[] = [];
+  const result = await loadOrganizationPolicyHistory({
+    apiClient: {
+      getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        calls.push(`policy:${principalType}:${principalId}`);
+        return organizationPrincipalPolicy;
+      },
+    },
+    organizationId,
+  });
+
+  expect(calls).toEqual(["policy:organization:org-1"]);
+  expect(result).toEqual(
+    buildOrganizationPolicyHistory(organizationPrincipalPolicy),
+  );
 });
 
 test("loadOrganizationContainerGrants forwards organization grant enumeration", async () => {

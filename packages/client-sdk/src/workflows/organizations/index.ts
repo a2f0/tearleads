@@ -14,6 +14,7 @@ export {
   loadOrganizationDirectoryAndGroups,
   loadOrganizationGroupDetails,
   loadOrganizationGroupPolicyHistory,
+  loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
   type OrganizationContainerGrant,
   type OrganizationContainerGrants,
@@ -29,7 +30,10 @@ export {
   type OrganizationGroupPolicyHistory,
   type OrganizationGroupPolicyHistoryEntry,
   type OrganizationGroupSummary,
+  type OrganizationPolicyHistory,
   type OrganizationPrincipalMemberChange,
   type OrganizationPrincipalMemberChangeType,
+  type OrganizationPrincipalPolicyHistory,
+  type OrganizationPrincipalPolicyHistoryEntry,
   type OrganizationUserDetail,
 } from "./readModel";

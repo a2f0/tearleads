@@ -35,6 +35,7 @@ import {
   type OrgManagerGroupMembers,
   type OrgManagerGroupPolicyHistory,
   type OrgManagerGroupSummary,
+  type OrgManagerPolicyHistory,
   type OrgManagerUserDetail,
   type OrgManagerUserRecipient,
   useOrgManagerActions,
@@ -586,14 +587,14 @@ function GroupMembers({
   );
 }
 
-function GroupPolicyHistory({
+function PolicyHistory({
   directory,
   groups,
   history,
 }: {
   directory: OrgManagerDirectory | null;
   groups: ReadonlyArray<OrgManagerGroupSummary>;
-  history: OrgManagerGroupPolicyHistory | null;
+  history: OrgManagerGroupPolicyHistory | OrgManagerPolicyHistory | null;
 }) {
   if (!history) {
     return (
@@ -1242,6 +1243,41 @@ function DataUsageView({
   );
 }
 
+function OrganizationView({
+  directory,
+  groups,
+  organizationId,
+  policyHistory,
+}: {
+  directory: OrgManagerDirectory | null;
+  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  organizationId: string;
+  policyHistory: OrgManagerPolicyHistory | null;
+}) {
+  return (
+    <div className="org-manager-organization">
+      <div className="org-manager-detail-header">
+        <div>
+          <strong>{ORG_MANAGER_LABELS.organization}</strong>
+          <span title={organizationId}>
+            {compactFingerprint(organizationId)}
+          </span>
+        </div>
+      </div>
+      <section className="org-manager-detail-section">
+        <div className="org-manager-section-heading">
+          {ORG_MANAGER_LABELS.organizationPolicyHistory}
+        </div>
+        <PolicyHistory
+          directory={directory}
+          groups={groups}
+          history={policyHistory}
+        />
+      </section>
+    </div>
+  );
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The mini-app shell coordinates shared async state across the directory and group panes.
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The mini-app shell coordinates shared async state across the directory and group panes.
 export function OrgManager() {
@@ -1266,6 +1302,8 @@ export function OrgManager() {
     useState<OrgManagerGroupContainers | null>(null);
   const [groupPolicyHistory, setGroupPolicyHistory] =
     useState<OrgManagerGroupPolicyHistory | null>(null);
+  const [organizationPolicyHistory, setOrganizationPolicyHistory] =
+    useState<OrgManagerPolicyHistory | null>(null);
   const [grants, setGrants] = useState<OrgManagerContainerGrants | null>(null);
   const [dataUsage, setDataUsage] = useState<OrgManagerDataUsage | null>(null);
   const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
@@ -1336,6 +1374,7 @@ export function OrgManager() {
     setMembers(null);
     setGroupContainers(null);
     setGroupPolicyHistory(null);
+    setOrganizationPolicyHistory(null);
     setGrants(null);
     setDataUsage(null);
     selectUser(null);
@@ -1521,6 +1560,32 @@ export function OrgManager() {
     [canLoadAuthenticatedOrgData, orgManagerActions],
   );
 
+  const refreshOrganizationPolicyHistory = useCallback(
+    async (options: RefreshBehaviorOptions = {}) => {
+      const { shouldClearError, shouldManageLoading } =
+        getRefreshBehavior(options);
+      if (!canLoadAuthenticatedOrgData) {
+        setOrganizationPolicyHistory(null);
+        return;
+      }
+
+      setLoadingIfManaged(shouldManageLoading, setLoading, true);
+      clearErrorIfRequested(shouldClearError, setError);
+
+      try {
+        setOrganizationPolicyHistory(
+          await orgManagerActions.loadPolicyHistory(),
+        );
+      } catch (nextError) {
+        setOrganizationPolicyHistory(null);
+        setUnknownError(setError, nextError);
+      } finally {
+        setLoadingIfManaged(shouldManageLoading, setLoading, false);
+      }
+    },
+    [canLoadAuthenticatedOrgData, orgManagerActions],
+  );
+
   const refreshSelectedUserDetail = useCallback(
     async (userId: string | null, options: GroupDetailsRefreshOptions = {}) => {
       const shouldClearError = options.clearError ?? true;
@@ -1571,6 +1636,10 @@ export function OrgManager() {
           clearError: false,
           manageLoading: false,
         }),
+        refreshOrganizationPolicyHistory({
+          clearError: false,
+          manageLoading: false,
+        }),
       ]);
       if (refreshedDirectory.didLoad) {
         await refreshSelectedGroupDetails(refreshedDirectory.groupId, {
@@ -1587,6 +1656,7 @@ export function OrgManager() {
     refreshDataUsage,
     refreshDirectoryAndGroups,
     refreshGrants,
+    refreshOrganizationPolicyHistory,
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
   ]);
@@ -1847,6 +1917,13 @@ export function OrgManager() {
             openGroupRoute={openGroupRoute}
             revokeGrant={revokeGrant}
           />
+        ) : view === "organization" ? (
+          <OrganizationView
+            directory={directory}
+            groups={groups}
+            organizationId={appData.organizationId}
+            policyHistory={organizationPolicyHistory}
+          />
         ) : view === "usage" ? (
           <DataUsageView dataUsage={dataUsage} loading={loading} />
         ) : (
@@ -1943,7 +2020,7 @@ export function OrgManager() {
                     <div className="org-manager-section-heading">
                       {ORG_MANAGER_LABELS.policyHistory}
                     </div>
-                    <GroupPolicyHistory
+                    <PolicyHistory
                       directory={directory}
                       groups={groups}
                       history={groupPolicyHistory}
