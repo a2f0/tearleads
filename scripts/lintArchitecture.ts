@@ -80,10 +80,7 @@ async function listTestSourceFiles(dirPath: string): Promise<string[]> {
         return listTestSourceFiles(entryPath);
       }
 
-      if (
-        productionSourceFilePattern.test(entryPath) &&
-        testFilePattern.test(entryPath)
-      ) {
+      if (testFilePattern.test(entryPath)) {
         return [entryPath];
       }
 
