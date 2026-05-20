@@ -53,7 +53,26 @@ interface SourceMatch {
 }
 
 interface PackageJson {
+  dependencies?: Record<string, string>;
+  description?: string;
+  devDependencies?: Record<string, string>;
   exports?: Record<string, unknown>;
+  files?: unknown;
+  main?: unknown;
+  module?: unknown;
+  name?: string;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  private?: boolean;
+  sideEffects?: boolean;
+  type?: string;
+  types?: unknown;
+  version?: string;
+}
+
+interface ClientSdkPackageStatusViolation {
+  detail: string;
+  field: string;
 }
 
 interface ClientSdkPackageExportContractViolation {
@@ -61,7 +80,34 @@ interface ClientSdkPackageExportContractViolation {
   exportPath: string;
 }
 
+interface ClientSdkWorkspaceDependencyViolation {
+  dependencyName: string;
+  dependencySection: string;
+  declaredRange: string;
+}
+
 let clientSdkPackageJsonPromise: Promise<PackageJson> | undefined;
+
+const clientSdkPackageStatusContract = {
+  name: "@tearleads/client-sdk",
+  private: true,
+  sideEffects: false,
+  type: "module",
+} as const;
+const clientSdkSourceOnlyArtifactFields = [
+  "files",
+  "main",
+  "module",
+  "types",
+] as const;
+const clientSdkPackageDependencySections = [
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "peerDependencies",
+] as const;
+const clientSdkProductUiVocabularyPattern =
+  /\b(?:MiniApp|OrgManager|mini-apps?|org-manager)/i;
 
 function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
   const { options = {}, ...ruleSet } = config;
@@ -198,6 +244,73 @@ function buildClientSdkPackageExportViolation(
   return { detail, exportPath };
 }
 
+function buildClientSdkPackageStatusViolation(
+  field: string,
+  detail: string,
+): ClientSdkPackageStatusViolation {
+  return { detail, field };
+}
+
+async function findClientSdkPackageStatusViolations(): Promise<
+  ClientSdkPackageStatusViolation[]
+> {
+  const packageJson = await readClientSdkPackageJson();
+  const contractViolations = Object.entries(clientSdkPackageStatusContract)
+    .map(([field, expectedValue]) => {
+      const actualValue = packageJson[field as keyof PackageJson];
+
+      return actualValue === expectedValue
+        ? undefined
+        : buildClientSdkPackageStatusViolation(
+            field,
+            `should be ${JSON.stringify(expectedValue)}`,
+          );
+    })
+    .filter(
+      (violation): violation is ClientSdkPackageStatusViolation =>
+        violation !== undefined,
+    );
+  const artifactFieldViolations = clientSdkSourceOnlyArtifactFields
+    .filter((field) => Object.hasOwn(packageJson, field))
+    .map((field) =>
+      buildClientSdkPackageStatusViolation(
+        field,
+        "should be omitted while package exports target TypeScript source files",
+      ),
+    );
+
+  return [...contractViolations, ...artifactFieldViolations];
+}
+
+async function findClientSdkWorkspaceDependencyViolations(): Promise<
+  ClientSdkWorkspaceDependencyViolation[]
+> {
+  const packageJson = await readClientSdkPackageJson();
+
+  return clientSdkPackageDependencySections.flatMap((dependencySection) => {
+    const dependencies = packageJson[dependencySection] ?? {};
+
+    return Object.entries(dependencies).flatMap(
+      ([dependencyName, declaredRange]) => {
+        if (
+          !dependencyName.startsWith("@tearleads/") ||
+          declaredRange === "workspace:*"
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            declaredRange,
+            dependencyName,
+            dependencySection,
+          },
+        ];
+      },
+    );
+  });
+}
+
 async function findClientSdkPackageExportContractViolations(): Promise<
   ClientSdkPackageExportContractViolation[]
 > {
@@ -274,6 +387,15 @@ async function findClientSdkRootFacadeReExports(): Promise<SourceMatch[]> {
     [clientSdkRootIndexPath],
     clientSdkRootFacadeExportPattern,
     listExactSourceFile,
+  );
+}
+
+async function findClientSdkProductUiVocabularyReferences(): Promise<
+  SourceMatch[]
+> {
+  return findSourceMatches(
+    appReactFreeLayerEntryPoints,
+    clientSdkProductUiVocabularyPattern,
   );
 }
 
@@ -411,6 +533,38 @@ function formatClientSdkDataPackageExports(
   ].join("\n");
 }
 
+function formatClientSdkPackageStatusViolations(
+  violations: ReadonlyArray<ClientSdkPackageStatusViolation>,
+): string {
+  if (violations.length === 0) {
+    return "";
+  }
+
+  return [
+    "error client-sdk-package-status-stays-private-source-consumed: Client SDK package metadata should match the documented private, source-consumed package contract until an external release build exists.",
+    ...violations.map(
+      (violation) =>
+        `  ${clientSdkPackageJsonPath}: ${violation.field} ${violation.detail}`,
+    ),
+  ].join("\n");
+}
+
+function formatClientSdkWorkspaceDependencyViolations(
+  violations: ReadonlyArray<ClientSdkWorkspaceDependencyViolation>,
+): string {
+  if (violations.length === 0) {
+    return "";
+  }
+
+  return [
+    "error client-sdk-local-dependencies-use-workspace-ranges: Client SDK local package dependencies should use workspace:* while the SDK is source-consumed inside the monorepo.",
+    ...violations.map(
+      (violation) =>
+        `  ${clientSdkPackageJsonPath}: ${violation.dependencySection}.${violation.dependencyName} is ${JSON.stringify(violation.declaredRange)}`,
+    ),
+  ].join("\n");
+}
+
 function formatClientSdkPackageExportContractViolations(
   violations: ReadonlyArray<ClientSdkPackageExportContractViolation>,
 ): string {
@@ -458,6 +612,22 @@ function formatClientSdkRootFacadeReExports(
   ].join("\n");
 }
 
+function formatClientSdkProductUiVocabularyReferences(
+  matches: ReadonlyArray<SourceMatch>,
+): string {
+  if (matches.length === 0) {
+    return "";
+  }
+
+  return [
+    "error client-sdk-workflows-use-platform-taxonomy: Client SDK source should use platform workflow names and keep product/app window vocabulary in packages/app.",
+    ...matches.map(
+      (match) =>
+        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
+    ),
+  ].join("\n");
+}
+
 const result = await cruise(
   architectureEntryPoints,
   configToCruiseOptions(dependencyCruiserConfig),
@@ -470,12 +640,18 @@ const appProductionTestHelperReferences =
 const appProductionSdkDataImports = await findAppProductionSdkDataImports();
 const appTestHelperSdkDataImports = await findAppTestHelperSdkDataImports();
 const appTestSdkDataImports = await findAppTestSdkDataImports();
+const clientSdkPackageStatusViolations =
+  await findClientSdkPackageStatusViolations();
+const clientSdkWorkspaceDependencyViolations =
+  await findClientSdkWorkspaceDependencyViolations();
 const clientSdkPackageExportContractViolations =
   await findClientSdkPackageExportContractViolations();
 const clientSdkDataPackageExports = await findClientSdkDataPackageExports();
 const clientSdkDeepFacadePackageExports =
   await findClientSdkDeepFacadePackageExports();
 const clientSdkRootFacadeReExports = await findClientSdkRootFacadeReExports();
+const clientSdkProductUiVocabularyReferences =
+  await findClientSdkProductUiVocabularyReferences();
 
 if (typeof result.output === "string" && result.output.trim().length > 0) {
   const write = result.exitCode === 0 ? console.log : console.error;
@@ -523,6 +699,21 @@ if (appTestSdkDataOutput.length > 0) {
   console.error(appTestSdkDataOutput);
 }
 
+const clientSdkPackageStatusOutput = formatClientSdkPackageStatusViolations(
+  clientSdkPackageStatusViolations,
+);
+if (clientSdkPackageStatusOutput.length > 0) {
+  console.error(clientSdkPackageStatusOutput);
+}
+
+const clientSdkWorkspaceDependencyOutput =
+  formatClientSdkWorkspaceDependencyViolations(
+    clientSdkWorkspaceDependencyViolations,
+  );
+if (clientSdkWorkspaceDependencyOutput.length > 0) {
+  console.error(clientSdkWorkspaceDependencyOutput);
+}
+
 const clientSdkPackageExportContractOutput =
   formatClientSdkPackageExportContractViolations(
     clientSdkPackageExportContractViolations,
@@ -551,6 +742,14 @@ if (clientSdkRootFacadeReExportsOutput.length > 0) {
   console.error(clientSdkRootFacadeReExportsOutput);
 }
 
+const clientSdkProductUiVocabularyOutput =
+  formatClientSdkProductUiVocabularyReferences(
+    clientSdkProductUiVocabularyReferences,
+  );
+if (clientSdkProductUiVocabularyOutput.length > 0) {
+  console.error(clientSdkProductUiVocabularyOutput);
+}
+
 process.exit(
   result.exitCode !== 0 ||
     appPresentationSqlExecutorReferences.length > 0 ||
@@ -559,10 +758,13 @@ process.exit(
     appProductionSdkDataImports.length > 0 ||
     appTestHelperSdkDataImports.length > 0 ||
     appTestSdkDataImports.length > 0 ||
+    clientSdkPackageStatusViolations.length > 0 ||
+    clientSdkWorkspaceDependencyViolations.length > 0 ||
     clientSdkPackageExportContractViolations.length > 0 ||
     clientSdkDataPackageExports.length > 0 ||
     clientSdkDeepFacadePackageExports.length > 0 ||
-    clientSdkRootFacadeReExports.length > 0
+    clientSdkRootFacadeReExports.length > 0 ||
+    clientSdkProductUiVocabularyReferences.length > 0
     ? 1
     : 0,
 );

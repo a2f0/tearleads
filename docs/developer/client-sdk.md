@@ -165,7 +165,18 @@ workspace dependencies do not have a release/build contract.
 
 Before removing `private: true`, add a release build that emits JavaScript and
 `.d.ts` files, switch package exports to the build output, and confirm all
-runtime dependencies are either published packages or intentionally declared
-peer dependencies. `bun run lint:architecture` enforces the current source
-package export map, rejects `data/*` package exports, and rejects deep
-workflow/store implementation exports.
+runtime dependencies are either published packages or intentionally declared peer
+dependencies.
+
+`bun run lint:architecture` enforces the current package-consumption contract:
+
+- `@tearleads/client-sdk` stays private, ESM, side-effect-free, and source-only
+  until a release build exists.
+- Local `@tearleads/*` package dependencies stay on `workspace:*` ranges while
+  the SDK is source-consumed inside the monorepo.
+- The package export map matches the documented root, store, and workflow
+  facades exactly.
+- `data/*` package exports and deep workflow/store implementation exports are
+  rejected.
+- Product window vocabulary such as `OrgManager` and `mini-app` stays in
+  `packages/app`; SDK source should use platform workflow names.

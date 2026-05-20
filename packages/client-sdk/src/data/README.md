@@ -122,4 +122,5 @@ cleanup should be incremental and behavior-preserving.
 
 `bun run lint:architecture` enforces the current high-confidence subset of
 these rules for `packages/client-sdk/src`, `packages/app/src`, and
-`packages/api/src`.
+`packages/api/src`, plus the SDK package export, private source-consumption, and
+workflow taxonomy guardrails documented in `docs/developer/client-sdk.md`.
