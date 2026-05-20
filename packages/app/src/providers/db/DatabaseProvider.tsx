@@ -16,6 +16,7 @@ import {
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
+import { useTearleads } from "../sdk/TearleadsProvider";
 
 type DatabaseRuntimeStatus = "idle" | "ready" | "error" | "terminated";
 
@@ -213,6 +214,7 @@ function useManagedDatabaseRuntime(
 export function DatabaseProvider({ children }: PropsWithChildren) {
   const { createDatabaseRuntime = createModuleDatabaseRuntime } =
     useAppHostConfig();
+  const tearleads = useTearleads();
   const { log } = useLog();
   const { signingFingerprint } = useIdentity();
   const dbName =
@@ -220,6 +222,25 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
       ? null
       : `/app-identity-${signingFingerprint}.db`;
   const value = useManagedDatabaseRuntime(createDatabaseRuntime, dbName, log);
+
+  useEffect(() => {
+    if (value.client) {
+      tearleads.db.configure({
+        client: value.client,
+        id: value.id,
+        status: value.status,
+      });
+      return;
+    }
+
+    tearleads.db.clear(value.status);
+  }, [tearleads, value.client, value.id, value.status]);
+
+  useEffect(() => {
+    return () => {
+      tearleads.db.clear("idle");
+    };
+  }, [tearleads]);
 
   return (
     <DatabaseContext.Provider value={value}>

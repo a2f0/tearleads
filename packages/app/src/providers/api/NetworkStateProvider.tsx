@@ -1,12 +1,14 @@
 import {
   createContext,
   type PropsWithChildren,
+  useCallback,
   useContext,
   useEffect,
   useRef,
   useState,
 } from "react";
 import { useLog } from "../logging/LogProvider";
+import { useTearleads } from "../sdk/TearleadsProvider";
 import { useApiClient } from "./ApiClientProvider";
 
 interface NetworkStateContextValue {
@@ -18,10 +20,19 @@ const NetworkStateContext = createContext<NetworkStateContextValue | null>(
 );
 
 export function NetworkStateProvider({ children }: PropsWithChildren) {
-  const [online, setOnline] = useState(navigator.onLine);
+  const tearleads = useTearleads();
+  const [online, setOnlineState] = useState(tearleads.network.online);
   const apiClient = useApiClient();
   const { log } = useLog();
-  const wasOnlineRef = useRef(navigator.onLine);
+  const wasOnlineRef = useRef(tearleads.network.online);
+
+  const setOnline = useCallback(
+    (nextOnline: boolean) => {
+      tearleads.network.setOnline(nextOnline);
+      setOnlineState(nextOnline);
+    },
+    [tearleads],
+  );
 
   useEffect(() => {
     const goOnline = () => setOnline(true);
@@ -38,7 +49,7 @@ export function NetworkStateProvider({ children }: PropsWithChildren) {
       apiClient.setOnNetworkError(null);
       apiClient.setOnNetworkSuccess(null);
     };
-  }, [apiClient]);
+  }, [apiClient, setOnline]);
 
   useEffect(() => {
     if (online && !wasOnlineRef.current) {

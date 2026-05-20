@@ -1,28 +1,14 @@
-import {
-  type BlobStore,
-  createBlobStore,
-  createMemoryBlobStore,
-} from "@tearleads/client-sdk/workflows/blobs";
-import {
-  createContext,
-  type PropsWithChildren,
-  useContext,
-  useMemo,
-} from "react";
+import type { BlobStore } from "@tearleads/client-sdk/workflows/blobs";
+import { createContext, type PropsWithChildren, useContext } from "react";
 import { useIdentity } from "../identity/IdentityProvider";
+import { useTearleads } from "../sdk/TearleadsProvider";
 
 const BlobContext = createContext<BlobStore | null>(null);
 
 export function BlobProvider({ children }: PropsWithChildren) {
-  const { signingFingerprint } = useIdentity();
-  const ephemeralBlobStore = useMemo(() => createMemoryBlobStore(), []);
-  const blobStore = useMemo(
-    () =>
-      signingFingerprint
-        ? createBlobStore(signingFingerprint)
-        : ephemeralBlobStore,
-    [ephemeralBlobStore, signingFingerprint],
-  );
+  const tearleads = useTearleads();
+  useIdentity();
+  const blobStore = tearleads.blobs.store;
 
   return (
     <BlobContext.Provider value={blobStore}>{children}</BlobContext.Provider>

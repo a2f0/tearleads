@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
+import { useTearleads } from "../sdk/TearleadsProvider";
 
 function isServerEvent(value: unknown): value is ServerEvent {
   return isPlainObject(value) && hasStringProperty(value, "type");
@@ -33,6 +34,7 @@ const EventsContext = createContext<EventsContextValue | null>(null);
 
 export function EventsProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
+  const tearleads = useTearleads();
   const [events, setEvents] = useState<ServerEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -80,6 +82,10 @@ export function EventsProvider({ children }: PropsWithChildren) {
       wsRef.current = null;
     };
   }, [hostConfig.wsUrl, log]);
+
+  useEffect(() => {
+    tearleads.events.setEvents(events);
+  }, [events, tearleads]);
 
   const value = useMemo(() => ({ events, connected }), [events, connected]);
 

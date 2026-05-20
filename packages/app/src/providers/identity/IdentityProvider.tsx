@@ -1,20 +1,14 @@
-import {
-  type EncapsulationKeyPair,
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-  type SigningKeyPair,
-  toFingerprint,
-} from "@tearleads/crypto";
+import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import {
   createContext,
   type PropsWithChildren,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { useLog } from "../logging/LogProvider";
+import { useTearleads } from "../sdk/TearleadsProvider";
 
 interface IdentityContextValue {
   encapsulationKeyPair: EncapsulationKeyPair | null;
@@ -27,66 +21,60 @@ interface IdentityContextValue {
 const IdentityContext = createContext<IdentityContextValue | null>(null);
 
 export function IdentityProvider({ children }: PropsWithChildren) {
-  const [signingKeyPair, setSigningKeyPair] = useState<SigningKeyPair | null>(
-    null,
-  );
-  const [encapsulationKeyPair, setEncapsulationKeyPair] =
-    useState<EncapsulationKeyPair | null>(null);
-  const [signingFingerprint, setSigningFingerprint] = useState<string | null>(
-    null,
-  );
-  const { log } = useLog();
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!signingKeyPair) {
-      setSigningFingerprint(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    void toFingerprint(signingKeyPair.signingPublicKey).then(
-      (nextFingerprint) => {
-        if (!cancelled) {
-          setSigningFingerprint(nextFingerprint);
-        }
-      },
-    );
-
-    return () => {
-      cancelled = true;
-    };
-  }, [signingKeyPair]);
+  const tearleads = useTearleads();
+  const generationInFlight = useRef(false);
+  const generationIdRef = useRef(0);
+  const [snapshot, setSnapshot] = useState(() => tearleads.identity.snapshot);
 
   const generateKey = useCallback(() => {
-    setSigningKeyPair(generateSigningSeedAndKeyPair());
-    setEncapsulationKeyPair(generateKemSeedAndKeyPair());
-    log("Key pair generated");
-  }, [log]);
+    if (generationInFlight.current) {
+      return;
+    }
+
+    const generationId = generationIdRef.current + 1;
+    generationIdRef.current = generationId;
+    generationInFlight.current = true;
+    void tearleads.identity
+      .generate()
+      .then((nextSnapshot) => {
+        if (generationIdRef.current !== generationId) {
+          return;
+        }
+
+        generationInFlight.current = false;
+        setSnapshot(nextSnapshot);
+      })
+      .catch((error: unknown) => {
+        if (generationIdRef.current !== generationId) {
+          return;
+        }
+
+        generationInFlight.current = false;
+        tearleads.logError("Failed to generate identity keys", error);
+      });
+  }, [tearleads]);
 
   const destroyKey = useCallback(() => {
-    setSigningKeyPair(null);
-    setEncapsulationKeyPair(null);
-    setSigningFingerprint(null);
-    log("Key pair destroyed");
-  }, [log]);
+    generationIdRef.current += 1;
+    generationInFlight.current = false;
+    tearleads.identity.destroy();
+    setSnapshot(tearleads.identity.snapshot);
+  }, [tearleads]);
 
   const value = useMemo(
     () => ({
-      encapsulationKeyPair,
+      encapsulationKeyPair: snapshot.encapsulationKeyPair,
       destroyKey,
       generateKey,
-      signingFingerprint,
-      signingKeyPair,
+      signingFingerprint: snapshot.signingFingerprint,
+      signingKeyPair: snapshot.signingKeyPair,
     }),
     [
-      encapsulationKeyPair,
       destroyKey,
       generateKey,
-      signingFingerprint,
-      signingKeyPair,
+      snapshot.encapsulationKeyPair,
+      snapshot.signingFingerprint,
+      snapshot.signingKeyPair,
     ],
   );
 
