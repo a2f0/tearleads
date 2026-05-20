@@ -3,29 +3,27 @@ import {
   createDocumentSignerDeviceId,
   type ExecSql,
 } from "@tearleads/client-sdk";
-import { createInitializedContainerMetadataDocument } from "@tearleads/client-sdk/data/containers/containerMetadataDocument";
-import {
-  ensureContainerTables,
-  loadContainers,
-  saveContainer,
-} from "@tearleads/client-sdk/data/persistence/containers/containerPersistence";
-import {
-  containerDocumentsSyncLane,
-  containerParentSyncLane,
-  sqlContainerSyncWatermarkPersistence,
-} from "@tearleads/client-sdk/data/persistence/containers/containerSyncWatermarkPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "@tearleads/client-sdk/data/persistence/containers/documentContainerProjectionPersistence";
-import { sqlDocumentsPersistence } from "@tearleads/client-sdk/data/persistence/documents/documentsPersistence";
-import { sqlExplorerPersistence } from "@tearleads/client-sdk/data/persistence/explorer/explorerPersistence";
-import {
-  ensureDocumentTables,
-  saveDocumentRecord,
-} from "@tearleads/client-sdk/data/sqlite/documentPersistence";
 import {
   buildMaterializedDocumentCreatePlan,
+  defaultDocumentsPersistence,
   persistedDocumentCreateStateFromResponse,
 } from "@tearleads/client-sdk/workflows/documents";
-import { createExplorerWorkflowRuntime } from "@tearleads/client-sdk/workflows/explorer";
+import {
+  createExplorerContainerDocumentsSyncLane,
+  createExplorerContainerParentSyncLane,
+  createExplorerWorkflowRuntime,
+  createInitializedContainerMetadataDocument,
+  defaultExplorerPersistence,
+  type ExplorerDocumentRecord,
+  initializeExplorerDocumentLinksSchema,
+  initializeExplorerSchema,
+  listExplorerDocumentLinkedContainerIds,
+  loadExplorerContainerSyncWatermark,
+  loadStoredExplorerContainers,
+  replaceExplorerDocumentLinks,
+  saveExplorerContainer,
+  saveExplorerContainerSyncWatermark,
+} from "@tearleads/client-sdk/workflows/explorer";
 import {
   type ContainerKekRecipientTarget,
   computeAccessEventHash,
@@ -77,6 +75,7 @@ import {
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void; execSql: ExecSql };
 type ListedContainer = ContainerSummary;
+type TestContainerRecord = Parameters<typeof saveExplorerContainer>[2];
 const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
 
 function listedContainer(
@@ -110,6 +109,66 @@ function readSqlRowValue(
   key: string,
 ): string | number | null | undefined {
   return row[key];
+}
+
+async function ensureContainerTables(execSql: ExecSql): Promise<void> {
+  await initializeExplorerSchema(execSql, defaultExplorerPersistence);
+}
+
+async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
+  await defaultDocumentsPersistence.ensureSchema(execSql);
+}
+
+async function loadContainers(
+  execSql: ExecSql,
+): Promise<ReadonlyArray<TestContainerRecord>> {
+  const storedContainers = await loadStoredExplorerContainers(
+    execSql,
+    defaultExplorerPersistence,
+  );
+  return storedContainers.map(({ container }) => container);
+}
+
+async function saveContainer(
+  execSql: ExecSql,
+  container: TestContainerRecord,
+): Promise<TestContainerRecord> {
+  return saveExplorerContainer(
+    execSql,
+    defaultExplorerPersistence,
+    container,
+    null,
+  );
+}
+
+async function saveDocumentRecord(
+  execSql: ExecSql,
+  scope: { appKind: string; localId: string },
+  record: ExplorerDocumentRecord,
+  updatedAt: string,
+): Promise<void> {
+  if (scope.appKind !== "container-metadata") {
+    throw new Error(
+      `Unsupported explorer test document scope ${scope.appKind}`,
+    );
+  }
+
+  const container = (await loadContainers(execSql)).find(
+    (candidate) => candidate.id === scope.localId,
+  );
+  if (!container) {
+    throw new Error(
+      `Cannot save metadata document for missing container ${scope.localId}.`,
+    );
+  }
+
+  await saveExplorerContainer(
+    execSql,
+    defaultExplorerPersistence,
+    container,
+    record,
+    { localUpdatedAt: updatedAt },
+  );
 }
 
 async function createExplorerMetadataContainerProjection(input: {
@@ -931,7 +990,7 @@ test("explorer snapshot update skips notifications when node contents are unchan
   const runtime = await createSqlRuntime();
 
   try {
-    const state = createExplorerStoreState(runtime, sqlExplorerPersistence);
+    const state = createExplorerStoreState(runtime, defaultExplorerPersistence);
     const { doc } = await createInitializedContainerMetadataDocument(
       "root-container",
       {
@@ -986,14 +1045,14 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
   };
 
   try {
-    await sqlExplorerPersistence.ensureSchema(runtime.execSql);
+    await defaultExplorerPersistence.ensureSchema(runtime.execSql);
 
     const state: ExplorerSyncState = {
       containersById: new Map(),
       initializePromise: null,
       initialized: false,
       lastEventCount: 0,
-      persistence: sqlExplorerPersistence,
+      persistence: defaultExplorerPersistence,
       remoteHydrationPromise: null,
       resolveProjectionUserKey: runtime.createProjectionUserKeyResolver(),
       runtime,
@@ -1005,7 +1064,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
     const syncAgent = createExplorerSyncAgent({
       host: {
         persistContainerState: async (containerState) => {
-          await sqlExplorerPersistence.saveContainer(
+          await defaultExplorerPersistence.saveContainer(
             runtime.execSql,
             containerState.container,
             containerState.record,
@@ -1083,14 +1142,14 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
   };
 
   try {
-    await sqlExplorerPersistence.ensureSchema(runtime.execSql);
+    await defaultExplorerPersistence.ensureSchema(runtime.execSql);
 
     const state: ExplorerSyncState = {
       containersById: new Map(),
       initializePromise: null,
       initialized: false,
       lastEventCount: 0,
-      persistence: sqlExplorerPersistence,
+      persistence: defaultExplorerPersistence,
       remoteHydrationPromise: null,
       resolveProjectionUserKey: runtime.createProjectionUserKeyResolver(),
       runtime,
@@ -1102,7 +1161,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
     const syncAgent = createExplorerSyncAgent({
       host: {
         persistContainerState: async (containerState) => {
-          await sqlExplorerPersistence.saveContainer(
+          await defaultExplorerPersistence.saveContainer(
             runtime.execSql,
             containerState.container,
             containerState.record,
@@ -1186,7 +1245,7 @@ test("explorer sync skips pending metadata updates for containers without docume
 
   try {
     const persistence = {
-      ...sqlExplorerPersistence,
+      ...defaultExplorerPersistence,
       listPendingCreateIntents: async () => {
         listPendingCreateIntentCalls += 1;
         return [];
@@ -1426,7 +1485,9 @@ test("explorer store queues authenticated child create when parent has no remote
     expect(childNode.name).toBe("Docs");
 
     const pendingIntents =
-      await sqlExplorerPersistence.listPendingCreateIntents(runtime.execSql);
+      await defaultExplorerPersistence.listPendingCreateIntents(
+        runtime.execSql,
+      );
     expect(pendingIntents).toEqual([
       expect.objectContaining({
         containerId: childNode.id,
@@ -1609,7 +1670,9 @@ test("explorer sync creates queued local containers parent before child", async 
       },
     ]);
     expect(
-      await sqlExplorerPersistence.listPendingCreateIntents(runtime.execSql),
+      await defaultExplorerPersistence.listPendingCreateIntents(
+        runtime.execSql,
+      ),
     ).toEqual([]);
 
     const persistedContainers = await loadContainers(runtime.execSql);
@@ -2303,9 +2366,9 @@ test("explorer store refreshes remote containers on demand after initialization"
       ),
     ).toBe(true);
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
+      loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        containerParentSyncLane(null),
+        createExplorerContainerParentSyncLane(null),
       ),
     ).resolves.toEqual({
       id: "shared-root-container",
@@ -2500,15 +2563,15 @@ test("explorer sync retries failed parent lane batches without advancing their w
     );
 
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
+      loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        containerParentSyncLane("parent-a"),
+        createExplorerContainerParentSyncLane("parent-a"),
       ),
     ).resolves.toBeNull();
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
+      loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        containerParentSyncLane("parent-b"),
+        createExplorerContainerParentSyncLane("parent-b"),
       ),
     ).resolves.toBeNull();
 
@@ -2524,18 +2587,18 @@ test("explorer sync retries failed parent lane batches without advancing their w
     );
 
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
+      loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        containerParentSyncLane("parent-a"),
+        createExplorerContainerParentSyncLane("parent-a"),
       ),
     ).resolves.toEqual({
       id: "child-a",
       updatedAt: TEST_SYNC_TIMESTAMP,
     });
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
+      loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        containerParentSyncLane("parent-b"),
+        createExplorerContainerParentSyncLane("parent-b"),
       ),
     ).resolves.toEqual({
       id: "child-b",
@@ -2599,11 +2662,9 @@ test("explorer sync applies container tombstones before advancing the parent wat
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
   try {
-    await sqlExplorerPersistence.ensureSchema(runtime.execSql);
-    await sqlDocumentsPersistence.ensureSchema(runtime.execSql);
-    await sqlDocumentContainerProjectionPersistence.ensureSchema(
-      runtime.execSql,
-    );
+    await defaultExplorerPersistence.ensureSchema(runtime.execSql);
+    await defaultDocumentsPersistence.ensureSchema(runtime.execSql);
+    await initializeExplorerDocumentLinksSchema(runtime.execSql);
 
     await saveContainer(runtime.execSql, {
       id: "root-container",
@@ -2637,7 +2698,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       name: "Grandchild",
       icon: null,
     });
-    await sqlDocumentsPersistence.saveDocument(
+    await defaultDocumentsPersistence.saveDocument(
       runtime.execSql,
       {
         accessEpoch: 1,
@@ -2651,30 +2712,29 @@ test("explorer sync applies container tombstones before advancing the parent wat
       },
       { updatedAt: "2026-05-05T00:00:00.000Z" },
     );
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+    await replaceExplorerDocumentLinks(runtime.execSql, "remote-document", [
+      "archive-container",
+      "child-container",
+    ]);
+    await saveExplorerContainerSyncWatermark(
       runtime.execSql,
-      "remote-document",
-      ["archive-container", "child-container"],
-    );
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
-      runtime.execSql,
-      containerParentSyncLane("child-container"),
+      createExplorerContainerParentSyncLane("child-container"),
       {
         id: "previous-child-lane",
         updatedAt: "2026-05-04T00:00:00.000Z",
       },
     );
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
+    await saveExplorerContainerSyncWatermark(
       runtime.execSql,
-      containerDocumentsSyncLane("child-container"),
+      createExplorerContainerDocumentsSyncLane("child-container"),
       {
         id: "previous-document-lane",
         updatedAt: "2026-05-04T00:00:00.000Z",
       },
     );
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
+    await saveExplorerContainerSyncWatermark(
       runtime.execSql,
-      containerParentSyncLane("grandchild-container"),
+      createExplorerContainerParentSyncLane("grandchild-container"),
       {
         id: "previous-grandchild-lane",
         updatedAt: "2026-05-04T00:00:00.000Z",
@@ -2713,40 +2773,40 @@ test("explorer sync applies container tombstones before advancing the parent wat
         .nodes.some((node) => node.id === "grandchild-container"),
     ).toBe(false);
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
+      loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        containerParentSyncLane("root-container"),
+        createExplorerContainerParentSyncLane("root-container"),
       ),
     ).resolves.toEqual({
       id: "child-container",
       updatedAt: "2026-05-05T00:00:02.000Z",
     });
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
+      loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        containerParentSyncLane("child-container"),
+        createExplorerContainerParentSyncLane("child-container"),
       ),
     ).resolves.toBeNull();
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
+      loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        containerDocumentsSyncLane("child-container"),
+        createExplorerContainerDocumentsSyncLane("child-container"),
       ),
     ).resolves.toBeNull();
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
+      loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        containerParentSyncLane("grandchild-container"),
+        createExplorerContainerParentSyncLane("grandchild-container"),
       ),
     ).resolves.toBeNull();
     await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
+      listExplorerDocumentLinkedContainerIds(
         runtime.execSql,
         "remote-document",
       ),
     ).resolves.toEqual(["archive-container"]);
 
-    const repairedDocument = await sqlDocumentsPersistence.loadDocument(
+    const repairedDocument = await defaultDocumentsPersistence.loadDocument(
       runtime.execSql,
       "local-document",
     );

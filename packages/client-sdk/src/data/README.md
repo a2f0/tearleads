@@ -109,10 +109,9 @@ cleanup should be incremental and behavior-preserving.
 - Production presentation files should not accept, pass, or import raw `ExecSql`
   values. Bind the executor inside stores/providers and expose domain-shaped
   actions or read models instead.
-- App test helpers should also consume the SDK root or workflow/store facades
-  rather than `data/` internals. Individual characterization tests may still
-  import low-level persistence modules when they are explicitly building
-  storage fixtures.
+- App tests and app test helpers should also consume the SDK root or
+  workflow/store facades rather than `data/` internals. Low-level persistence
+  characterization belongs in `packages/client-sdk` tests, not app tests.
 
 `bun run lint:architecture` enforces the current high-confidence subset of
 these rules for `packages/client-sdk/src`, `packages/app/src`, and

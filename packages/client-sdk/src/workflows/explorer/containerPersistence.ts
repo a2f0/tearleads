@@ -2,6 +2,8 @@ import type { SyncWatermark } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import {
+  type ContainerSyncWatermarkLane,
+  containerDocumentsSyncLane,
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
@@ -21,6 +23,7 @@ import {
 } from "./runtime";
 
 export type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
+export type { ContainerSyncWatermarkLane } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
 export type {
   ContainerCreateIntentRecord,
   ExplorerPersistence,
@@ -35,8 +38,6 @@ interface ExplorerContainerCreateIntentSyncInput {
   remoteMetadataAccessStateHash: string;
   remoteMetadataDocumentId: string;
 }
-
-type ContainerSyncWatermarkLane = ReturnType<typeof containerParentSyncLane>;
 
 type ExplorerContainerPersistenceRuntime = ExplorerWorkflowSqlRuntime;
 
@@ -168,14 +169,20 @@ export function createExplorerContainerParentSyncLane(
   return containerParentSyncLane(parentId);
 }
 
-export async function loadContainerParentSyncWatermark(
+export function createExplorerContainerDocumentsSyncLane(
+  containerId: string,
+): ContainerSyncWatermarkLane {
+  return containerDocumentsSyncLane(containerId);
+}
+
+export async function loadExplorerContainerSyncWatermark(
   execSql: ExecSql,
   syncLane: ContainerSyncWatermarkLane,
 ): Promise<SyncWatermark | null> {
   return sqlContainerSyncWatermarkPersistence.loadWatermark(execSql, syncLane);
 }
 
-export async function saveContainerParentSyncWatermark(
+export async function saveExplorerContainerSyncWatermark(
   execSql: ExecSql,
   syncLane: ContainerSyncWatermarkLane,
   watermark: SyncWatermark,
@@ -185,4 +192,19 @@ export async function saveContainerParentSyncWatermark(
     syncLane,
     watermark,
   );
+}
+
+export async function loadContainerParentSyncWatermark(
+  execSql: ExecSql,
+  syncLane: ContainerSyncWatermarkLane,
+): Promise<SyncWatermark | null> {
+  return loadExplorerContainerSyncWatermark(execSql, syncLane);
+}
+
+export async function saveContainerParentSyncWatermark(
+  execSql: ExecSql,
+  syncLane: ContainerSyncWatermarkLane,
+  watermark: SyncWatermark,
+): Promise<void> {
+  await saveExplorerContainerSyncWatermark(execSql, syncLane, watermark);
 }
