@@ -43,8 +43,15 @@ export const ORG_MANAGER_LABELS = {
   organization: "Organization",
   organizationContainerLinks: "Organization-level container links",
   organizationDataUsage: "Organization data usage",
+  policyChangeAddedAs: "added as",
+  policyChangeChangedFrom: "changed from",
+  policyChangeRemoved: "removed",
+  policyChangeTo: "to",
   policyHistory: "Policy history",
   policyHistoryUnavailable: "Policy history unavailable.",
+  policyRoleNone: "none",
+  policySignedBy: "signed by",
+  policyVersion: "Version",
   principal: "Principal",
   refresh: "Refresh",
   remove: "Remove",
@@ -82,4 +89,40 @@ export function getOrgManagerEpochLabel(keyEpoch: number): string {
 
 export function getOrgManagerMemberCountLabel(memberCount: number): string {
   return `${memberCount} member${memberCount === 1 ? "" : "s"}`;
+}
+
+export function getOrgManagerPolicyAddedLabel(
+  memberLabel: string,
+  roleLabel: string,
+): string {
+  return `${memberLabel} ${ORG_MANAGER_LABELS.policyChangeAddedAs} ${roleLabel}`.trim();
+}
+
+export function getOrgManagerPolicyRemovedLabel(memberLabel: string): string {
+  return `${memberLabel} ${ORG_MANAGER_LABELS.policyChangeRemoved}`;
+}
+
+export function getOrgManagerPolicyRoleChangedLabel(
+  memberLabel: string,
+  previousRoleLabel: string,
+  nextRoleLabel: string,
+): string {
+  return `${memberLabel} ${ORG_MANAGER_LABELS.policyChangeChangedFrom} ${previousRoleLabel} ${ORG_MANAGER_LABELS.policyChangeTo} ${nextRoleLabel}`;
+}
+
+export function getOrgManagerPolicyRoleLabel(
+  role: string | null | undefined,
+): string {
+  return role ?? ORG_MANAGER_LABELS.policyRoleNone;
+}
+
+export function getOrgManagerPolicySignatureLabel(
+  signedAtLabel: string,
+  signerLabel: string,
+): string {
+  return `${signedAtLabel} - ${ORG_MANAGER_LABELS.policySignedBy} ${signerLabel}`;
+}
+
+export function getOrgManagerPolicyVersionLabel(version: number): string {
+  return `${ORG_MANAGER_LABELS.policyVersion} ${version}`;
 }

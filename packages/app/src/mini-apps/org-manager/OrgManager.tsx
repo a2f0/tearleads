@@ -46,6 +46,12 @@ import { useOrgManagerRoute } from "./hooks/useOrgManagerRoute";
 import {
   getOrgManagerEpochLabel,
   getOrgManagerMemberCountLabel,
+  getOrgManagerPolicyAddedLabel,
+  getOrgManagerPolicyRemovedLabel,
+  getOrgManagerPolicyRoleChangedLabel,
+  getOrgManagerPolicyRoleLabel,
+  getOrgManagerPolicySignatureLabel,
+  getOrgManagerPolicyVersionLabel,
   ORG_MANAGER_LABELS,
 } from "./labels";
 import "./OrgManager.css";
@@ -244,13 +250,18 @@ function getPolicyChangeLabel(input: {
 
   switch (input.change.changeType) {
     case "added":
-      return `${memberLabel} added as ${input.change.nextRole ?? ""}`.trim();
+      return getOrgManagerPolicyAddedLabel(
+        memberLabel,
+        getOrgManagerPolicyRoleLabel(input.change.nextRole),
+      );
     case "removed":
-      return `${memberLabel} removed`;
+      return getOrgManagerPolicyRemovedLabel(memberLabel);
     case "role_changed":
-      return `${memberLabel} changed from ${
-        input.change.previousRole ?? "none"
-      } to ${input.change.nextRole ?? "none"}`;
+      return getOrgManagerPolicyRoleChangedLabel(
+        memberLabel,
+        getOrgManagerPolicyRoleLabel(input.change.previousRole),
+        getOrgManagerPolicyRoleLabel(input.change.nextRole),
+      );
   }
 }
 
@@ -613,10 +624,14 @@ function GroupPolicyHistory({
           variant="framed"
         >
           <MiniAppRowStack>
-            <strong title={entry.stateHash}>Version {entry.version}</strong>
+            <strong title={entry.stateHash}>
+              {getOrgManagerPolicyVersionLabel(entry.version)}
+            </strong>
             <MiniAppRowText muted title={entry.signerUserId}>
-              {formatMiniAppDate(entry.signedAt)} - signed by{" "}
-              {compactFingerprint(entry.signerUserId)}
+              {getOrgManagerPolicySignatureLabel(
+                formatMiniAppDate(entry.signedAt),
+                compactFingerprint(entry.signerUserId),
+              )}
             </MiniAppRowText>
             <span className="org-manager-policy-change-list">
               {entry.changes.length > 0 ? (
