@@ -175,7 +175,7 @@ dependencies.
 - Local `@tearleads/*` package dependencies stay on `workspace:*` ranges while
   the SDK is source-consumed inside the monorepo.
 - The package export map matches the documented root, store, and workflow
-  facades exactly.
+  facades exactly, and the public API entry-point table stays in sync with it.
 - `data/*` package exports and deep workflow/store implementation exports are
   rejected.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in
