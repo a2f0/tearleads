@@ -107,7 +107,7 @@ const clientSdkPackageDependencySections = [
   "peerDependencies",
 ] as const;
 const clientSdkProductUiVocabularyPattern =
-  /\b(?:MiniApp|OrgManager|mini-apps?|org-manager)\b/;
+  /\b(?:MiniApp|OrgManager|mini-apps?|org-manager)/i;
 
 function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
   const { options = {}, ...ruleSet } = config;
