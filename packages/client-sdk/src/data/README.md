@@ -32,7 +32,8 @@ app adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite + 
   barrels or storage internals.
 - Sync coordination helpers under `sync/` own shared lane scheduling and
   prerequisite checks. Workflows compose them; presentation should stay behind
-  stores/providers.
+  stores/providers. Runtime-idle helpers that need to observe sync activity
+  should use the sync workflow facade instead of importing these internals.
 - Document summary contracts live in `documentSummary.ts` so presentation,
   stores, workflows, and persistence can share document read-model shapes
   without importing document shared-helper internals.
@@ -60,7 +61,9 @@ decision, even when the module is still low-level.
 
 Use facade subpaths directly, such as `@tearleads/client-sdk/workflows/documents`
 and `@tearleads/client-sdk/stores/documents`, instead of importing their
-implementation `index` modules or nested store implementation files.
+implementation `index` modules or nested store implementation files. Shared
+sync coordination helpers that cross app test/runtime boundaries belong behind
+`@tearleads/client-sdk/workflows/sync`.
 
 Avoid `index.ts`, `types.ts`, and other one-line re-export shims inside data
 domains when they only shorten import paths. Keep a facade only when it marks a
@@ -106,6 +109,10 @@ cleanup should be incremental and behavior-preserving.
 - Production presentation files should not accept, pass, or import raw `ExecSql`
   values. Bind the executor inside stores/providers and expose domain-shaped
   actions or read models instead.
+- App test helpers should also consume the SDK root or workflow/store facades
+  rather than `data/` internals. Individual characterization tests may still
+  import low-level persistence modules when they are explicitly building
+  storage fixtures.
 
 `bun run lint:architecture` enforces the current high-confidence subset of
 these rules for `packages/client-sdk/src`, `packages/app/src`, and

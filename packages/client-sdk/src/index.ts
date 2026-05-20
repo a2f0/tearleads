@@ -13,3 +13,4 @@ export * from "./workflows/explorer";
 export * from "./workflows/org-manager";
 export * from "./workflows/principals";
 export * from "./workflows/registration";
+export * from "./workflows/sync";

@@ -1,16 +1,12 @@
 import { expect, test } from "bun:test";
 import type {
+  ContactDocumentRecord,
+  ContactEntry,
   ContactPendingUpdateInsert,
+  ContactPendingUpdateRecord,
   ContactsPersistence,
-} from "@tearleads/client-sdk/data/persistence/contacts/contactsPersistence";
-import type {
-  DocumentRecord,
-  PendingUpdateRecord,
-} from "@tearleads/client-sdk/data/sqlite/documentPersistence";
-import {
-  type ContactEntry,
-  createContactsWorkflowRuntime,
 } from "@tearleads/client-sdk/workflows/contacts";
+import { createContactsWorkflowRuntime } from "@tearleads/client-sdk/workflows/contacts";
 import {
   computeAccessEventHash,
   computeWriteHeaderHash,
@@ -41,7 +37,7 @@ type ContactsRuntimeInput = Parameters<typeof createContactsWorkflowRuntime>[0];
 
 interface StoredContactState {
   entry: ContactEntry;
-  record: DocumentRecord | null;
+  record: ContactDocumentRecord | null;
 }
 
 function createUnavailableContactsApiClient(
@@ -287,17 +283,20 @@ function sortContacts(
 
 function createContactsPersistence(): ContactsPersistence & {
   getContact: (contactId: string) => StoredContactState | null;
-  getPendingUpdates: (contactId: string) => PendingUpdateRecord[];
+  getPendingUpdates: (contactId: string) => ContactPendingUpdateRecord[];
   getState: () => {
     contacts: StoredContactState[];
-    pendingUpdates: PendingUpdateRecord[];
+    pendingUpdates: ContactPendingUpdateRecord[];
   };
 } {
   const contacts = new Map<string, StoredContactState>();
-  const pendingUpdatesByContactId = new Map<string, PendingUpdateRecord[]>();
+  const pendingUpdatesByContactId = new Map<
+    string,
+    ContactPendingUpdateRecord[]
+  >();
 
   const saveContact = (
-    nextRecord: DocumentRecord,
+    nextRecord: ContactDocumentRecord,
     entry: StoredContactState["entry"],
   ) => {
     contacts.set(entry.id, {
@@ -367,7 +366,7 @@ function createContactsPersistence(): ContactsPersistence & {
       _execSql,
       pendingUpdate: ContactPendingUpdateInsert,
     ) {
-      const nextPendingUpdate: PendingUpdateRecord = {
+      const nextPendingUpdate: ContactPendingUpdateRecord = {
         id: crypto.randomUUID(),
         partialEndVersionVector: pendingUpdate.partialEndVersionVector,
         partialStartVersionVector: pendingUpdate.partialStartVersionVector,

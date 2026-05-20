@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContactEntry } from "@tearleads/client-sdk/data/contacts/addressBookEntry";
+import type { ContactEntry } from "@tearleads/client-sdk/workflows/contacts";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   type MouseEvent as ReactMouseEvent,

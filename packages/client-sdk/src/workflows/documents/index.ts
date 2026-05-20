@@ -30,7 +30,12 @@ export {
   type RelinkPersistedDocumentInput,
   savePendingDocumentAttachmentFromRuntime,
 } from "./persistence";
-export type { DocumentProjectionUserKeyResolver } from "./projectionKeys";
+export {
+  createDocumentProjectionUserKeyResolver,
+  type DocumentProjectionKeyRuntime,
+  type DocumentProjectionUserKeyResolver,
+  didDocumentProjectionKeyRuntimeChange,
+} from "./projectionKeys";
 export {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,

@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk/data/documentSummary";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import type { DocumentsRuntime } from "@tearleads/client-sdk/stores/documents";
 import {
   createDocumentsWorkflowRuntime,
