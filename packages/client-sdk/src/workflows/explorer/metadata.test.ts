@@ -84,6 +84,7 @@ function createExplorerPersistence(input: {
     async markCreateIntentSynced() {},
     async recordCreateIntentError() {},
     async reassignContainerDocuments() {},
+    async reconcileLocalRootContainer() {},
     async saveContainer(receivedExecSql, container, record) {
       input.savedContainers?.push({
         container,

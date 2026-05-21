@@ -10,6 +10,7 @@ import {
 import type {
   ContainerCreateIntentRecord,
   ExplorerPersistence,
+  LocalRootDescendantReparentInput,
   StoredExplorerContainer,
 } from "../../data/persistence/explorer/explorerPersistence";
 import type {
@@ -27,6 +28,7 @@ export type { ContainerSyncWatermarkLane } from "../../data/persistence/containe
 export type {
   ContainerCreateIntentRecord,
   ExplorerPersistence,
+  LocalRootDescendantReparentInput,
   StoredExplorerContainer,
 } from "../../data/persistence/explorer/explorerPersistence";
 export { sqlExplorerPersistence as defaultExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
@@ -173,6 +175,20 @@ export async function reassignExplorerContainerDocuments(
   },
 ): Promise<void> {
   await persistence.reassignContainerDocuments(execSql, input);
+}
+
+export async function reconcileExplorerLocalRootContainer(
+  execSql: ExecSql,
+  persistence: ExplorerPersistence,
+  input: {
+    descendantReparents: ReadonlyArray<LocalRootDescendantReparentInput>;
+    localRootContainerId: string;
+    remoteOrganizationId: string;
+    remoteRootContainerId: string;
+    updatedAt?: string | undefined;
+  },
+): Promise<void> {
+  await persistence.reconcileLocalRootContainer(execSql, input);
 }
 
 export function createExplorerContainerParentSyncLane(

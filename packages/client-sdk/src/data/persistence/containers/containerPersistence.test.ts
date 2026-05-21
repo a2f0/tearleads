@@ -5,6 +5,7 @@ import {
   loadContainerDisplayNamesByIds,
   loadContainers,
 } from "./containerPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "./documentContainerProjectionPersistence";
 
 test("explorer container saves display server timestamps separately from local timestamps", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -86,6 +87,36 @@ test("container display name lookup only returns requested local containers", as
     ]);
 
     expect([...displayNames.entries()]).toEqual([["container-1", "Planning"]]);
+  } finally {
+    close();
+  }
+});
+
+test("explorer document reassignment folds duplicate links into the target container", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-document-reassignment-conflict-test",
+  );
+
+  try {
+    await sqlExplorerPersistence.ensureSchema(execSql);
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      execSql,
+      "document-1",
+      ["local-root", "remote-root"],
+    );
+
+    await sqlExplorerPersistence.reassignContainerDocuments(execSql, {
+      fromContainerId: "local-root",
+      toContainerId: "remote-root",
+      updatedAt: "2026-05-21T00:00:00.000Z",
+    });
+
+    await expect(
+      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
+        execSql,
+        "document-1",
+      ),
+    ).resolves.toEqual(["remote-root"]);
   } finally {
     close();
   }
