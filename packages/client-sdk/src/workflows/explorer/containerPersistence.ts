@@ -163,6 +163,18 @@ export async function recordExplorerContainerCreateIntentError(
   await persistence.recordCreateIntentError(execSql, containerId, message);
 }
 
+export async function reassignExplorerContainerDocuments(
+  execSql: ExecSql,
+  persistence: ExplorerPersistence,
+  input: {
+    fromContainerId: string;
+    toContainerId: string;
+    updatedAt?: string | undefined;
+  },
+): Promise<void> {
+  await persistence.reassignContainerDocuments(execSql, input);
+}
+
 export function createExplorerContainerParentSyncLane(
   parentId: string | null,
 ): ContainerSyncWatermarkLane {

@@ -27,6 +27,7 @@ export {
   initializeExplorerSchema,
   loadExplorerContainerSyncWatermark,
   loadStoredExplorerContainers,
+  reassignExplorerContainerDocuments,
   saveExplorerContainer,
   saveExplorerContainerSyncWatermark,
 } from "./containerPersistence";

@@ -5,6 +5,7 @@ import {
   buildMaterializedDocumentCreatePlan,
   defaultDocumentsPersistence,
   persistedDocumentCreateStateFromResponse,
+  type DocumentRecord as StoredDocumentRecord,
 } from "@tearleads/client-sdk/workflows/documents";
 import {
   createExplorerContainerDocumentsSyncLane,
@@ -2395,6 +2396,125 @@ test("explorer store refreshes remote containers on demand after initialization"
     ).resolves.toEqual({
       id: "shared-root-container",
       updatedAt: "2026-05-05T00:00:00.000Z",
+    });
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
+test("explorer hydration reconciles a restored local-only root into the authenticated remote root", async () => {
+  const runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.organizationId = "org-remote";
+  runtime.encapsulationKeyPair = localKeyPair;
+  runtime.apiClient = createMockApiClient({
+    ...runtime.apiClient,
+    listContainers: async (options = {}) =>
+      options.parentId === null || options.parentId === undefined
+        ? listContainersResponse([
+            listedContainer({
+              id: "remote-root",
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "remote-root-access-state-hash-1",
+              metadataDocumentId: "remote-root-metadata-document",
+              organizationId: "org-remote",
+              parentId: null,
+            }),
+          ])
+        : listContainersResponse(),
+  });
+
+  await ensureContainerTables(runtime.execSql);
+  await ensureDocumentTables(runtime.execSql);
+  const localRoot = await saveExplorerContainer(
+    runtime.execSql,
+    defaultExplorerPersistence,
+    {
+      id: "local-root",
+      icon: null,
+      metadataDocumentId: null,
+      name: "/",
+      organizationId: "",
+      parentId: null,
+    },
+    null,
+  );
+  await saveExplorerContainer(
+    runtime.execSql,
+    defaultExplorerPersistence,
+    {
+      id: "local-child",
+      icon: null,
+      metadataDocumentId: null,
+      name: "Local child",
+      organizationId: localRoot.organizationId,
+      parentId: localRoot.id,
+    },
+    null,
+    { createIntent: { parentContainerId: localRoot.id } },
+  );
+  const localNote: StoredDocumentRecord = {
+    accessEpoch: 1,
+    accessStateHash: null,
+    containerId: localRoot.id,
+    contentKeyBundle: null,
+    documentId: null,
+    documentKekTargets: null,
+    documentKind: "note",
+    documentManifestBundle: null,
+    id: "local-note",
+    lastCommitLsn: null,
+    loroSnapshot: "",
+    text: "Local note",
+    title: "Local note",
+  };
+  await defaultDocumentsPersistence.saveDocument(runtime.execSql, localNote, {
+    updatedAt: "2026-05-05T00:00:00.000Z",
+  });
+
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+  try {
+    const createdStore = createExplorerStore(runtime);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(
+      () =>
+        createdStore
+          .getSnapshot()
+          .nodes.some(
+            (node) =>
+              node.id === "local-child" && node.parentId === "remote-root",
+          ),
+      "Explorer hydration did not reparent the local child to the remote root.",
+    );
+
+    const nodes = createdStore.getSnapshot().nodes;
+    expect(nodes.some((node) => node.id === "local-root")).toBe(false);
+    expect(nodes.some((node) => node.id === "remote-root")).toBe(true);
+
+    const pendingIntents =
+      await defaultExplorerPersistence.listPendingCreateIntents(
+        runtime.execSql,
+      );
+    expect(pendingIntents).toEqual([
+      expect.objectContaining({
+        containerId: "local-child",
+        parentContainerId: "remote-root",
+      }),
+    ]);
+    await expect(
+      defaultDocumentsPersistence.loadDocument(runtime.execSql, "local-note"),
+    ).resolves.toMatchObject({
+      containerId: "remote-root",
+      documentId: null,
+      id: "local-note",
     });
   } finally {
     if (store) {

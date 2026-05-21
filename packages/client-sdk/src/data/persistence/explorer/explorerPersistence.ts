@@ -98,6 +98,14 @@ export interface ExplorerPersistence {
     containerId: string,
     message: string,
   ) => Promise<void>;
+  reassignContainerDocuments: (
+    execSql: ExecSql,
+    input: {
+      fromContainerId: string;
+      toContainerId: string;
+      updatedAt?: string | undefined;
+    },
+  ) => Promise<void>;
   loadContainers: (
     execSql: ExecSql,
   ) => Promise<ReadonlyArray<StoredExplorerContainer>>;
@@ -404,6 +412,81 @@ async function repairDocumentsForRemovedContainers(input: {
   });
 }
 
+async function reassignDocumentLinksForContainer(input: {
+  fromContainerId: string;
+  toContainerId: string;
+  tx: ClientSQLiteTransaction;
+  updatedAt: string;
+}): Promise<void> {
+  const { fromContainerId, toContainerId, tx, updatedAt } = input;
+  const linkRows = await tx
+    .select({
+      documentId: documentContainerProjection.documentId,
+      updatedAt: documentContainerProjection.updatedAt,
+    })
+    .from(documentContainerProjection)
+    .where(eq(documentContainerProjection.containerId, fromContainerId));
+
+  for (const row of linkRows) {
+    const nextUpdatedAt = getLatestTimestamp(row.updatedAt, updatedAt);
+    const linkRow = {
+      documentId: row.documentId,
+      containerId: toContainerId,
+      updatedAt: nextUpdatedAt,
+    };
+
+    await tx
+      .insert(documentContainerProjection)
+      .values(linkRow)
+      .onConflictDoUpdate({
+        target: [
+          documentContainerProjection.documentId,
+          documentContainerProjection.containerId,
+        ],
+        set: {
+          updatedAt: nextUpdatedAt,
+        },
+      })
+      .run();
+  }
+
+  await tx
+    .delete(documentContainerProjection)
+    .where(eq(documentContainerProjection.containerId, fromContainerId))
+    .run();
+}
+
+async function reassignPrimaryDocumentsForContainer(input: {
+  fromContainerId: string;
+  toContainerId: string;
+  tx: ClientSQLiteTransaction;
+  updatedAt: string;
+}): Promise<void> {
+  const { fromContainerId, toContainerId, tx, updatedAt } = input;
+  const projectionRows = await tx
+    .select({
+      localId: documentProjection.localId,
+      updatedAt: documentProjection.updatedAt,
+    })
+    .from(documentProjection)
+    .where(eq(documentProjection.containerId, fromContainerId));
+
+  for (const row of projectionRows) {
+    if (!row.localId) {
+      continue;
+    }
+
+    await tx
+      .update(documentProjection)
+      .set({
+        containerId: toContainerId,
+        updatedAt: getLatestTimestamp(row.updatedAt, updatedAt),
+      })
+      .where(eq(documentProjection.localId, row.localId))
+      .run();
+  }
+}
+
 export const sqlExplorerPersistence: ExplorerPersistence = {
   async deleteContainer(execSql, containerId, options) {
     await sqlExplorerPersistence.deleteContainers(
@@ -532,6 +615,33 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
           ),
         )
         .run();
+    });
+  },
+  async reassignContainerDocuments(execSql, input) {
+    if (input.fromContainerId === input.toContainerId) {
+      return;
+    }
+
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const updatedAt = input.updatedAt ?? new Date().toISOString();
+      await ensureSqlTables(lockedExecSql, [
+        ...documentContainerProjectionTables,
+        ...documentProjectionTables,
+      ]);
+      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+        await reassignDocumentLinksForContainer({
+          fromContainerId: input.fromContainerId,
+          toContainerId: input.toContainerId,
+          tx,
+          updatedAt,
+        });
+        await reassignPrimaryDocumentsForContainer({
+          fromContainerId: input.fromContainerId,
+          toContainerId: input.toContainerId,
+          tx,
+          updatedAt,
+        });
+      });
     });
   },
   async loadContainers(execSql) {
