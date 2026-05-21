@@ -29,14 +29,16 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     signingKeyPair !== null &&
     encapsulationKeyPair !== null &&
     userId === null &&
-    containerId !== null;
+    containerId !== null &&
+    dbClient !== null;
 
   const registerCurrentIdentity = useCallback(async (): Promise<boolean> => {
     if (
       signingKeyPair === null ||
       encapsulationKeyPair === null ||
       userId !== null ||
-      containerId === null
+      containerId === null ||
+      dbClient === null
     ) {
       return false;
     }
@@ -56,8 +58,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
 
     setUserId(response.userId);
     setOrganizationId(response.organizationId);
-    await loginWithChallenge(response.challenge);
-    return true;
+    return loginWithChallenge(response.challenge);
   }, [
     apiClient,
     containerId,
