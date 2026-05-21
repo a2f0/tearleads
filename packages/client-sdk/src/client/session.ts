@@ -18,7 +18,32 @@ interface TearleadsSessionDependencies {
   log: (message: string) => void;
 }
 
-export class TearleadsSession {
+export interface TearleadsSession {
+  readonly authToken: string | null;
+  readonly containerId: string | null;
+  readonly isAuthenticated: boolean;
+  readonly organizationId: string | null;
+  readonly userId: string | null;
+  bootstrapLocalRootContainer(): Promise<{
+    containerId: string;
+    created: boolean;
+  }>;
+  login(challengeHex?: string | undefined): Promise<boolean>;
+  logout(): void;
+  setAuthToken(authToken: string | null): void;
+  setContainerId(containerId: string | null): void;
+  setContext(context: TearleadsSessionContext): void;
+  setOrganizationId(organizationId: string | null): void;
+  setUserId(userId: string | null): void;
+}
+
+export function createTearleadsSession(
+  dependencies: TearleadsSessionDependencies,
+): TearleadsSession {
+  return new TearleadsSessionService(dependencies);
+}
+
+class TearleadsSessionService implements TearleadsSession {
   private authTokenValue: string | null = null;
   private containerIdValue: string | null = null;
   private isAuthenticatedValue = false;

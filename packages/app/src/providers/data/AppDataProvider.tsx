@@ -12,7 +12,7 @@ import { useIdentity } from "../identity/IdentityProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 
 type SdkWorkflowRuntimeInput = ReturnType<
-  ReturnType<typeof useTearleads>["createWorkflowRuntimeInput"]
+  ReturnType<typeof useTearleads>["runtime"]["input"]
 >;
 
 export interface AppDataContextValue extends SdkWorkflowRuntimeInput {
@@ -32,7 +32,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     useIdentity();
   const { events } = useEvents();
   const runtimeInput = useMemo(
-    () => tearleads.createWorkflowRuntimeInput(containerId),
+    () => tearleads.runtime.input(containerId),
     [
       containerId,
       dbClient,

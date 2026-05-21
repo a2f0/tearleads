@@ -54,6 +54,7 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.session` | auth token and user/org/container context |
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
+| `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
 | `tearleads.documents` | document workflow runtime composition |
 | `tearleads.explorer` | explorer workflow runtime composition |
 | `tearleads.contacts` | contacts workflow runtime composition |
@@ -62,6 +63,10 @@ Prefer these instance services over constructing workflow runtimes directly
 from host code. The SDK keeps workflow cache scope aligned with the active
 database id and identity fingerprint, which lets document, contacts, and
 explorer stores share the same sync and subscription boundary.
+
+Host adapters that still need the raw workflow runtime contract should use
+`tearleads.runtime.input(containerId)` instead of reconstructing the dependency
+bundle themselves.
 
 ## Workflow Facade Taxonomy
 

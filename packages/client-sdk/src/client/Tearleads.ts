@@ -5,18 +5,22 @@ import {
   defaultDocumentProjectorRegistry,
 } from "../data/documents/documentKinds";
 import { TearleadsBlobs } from "./blobs";
-import { TearleadsContacts } from "./contacts";
+import { createTearleadsContacts, type TearleadsContacts } from "./contacts";
 import { TearleadsDatabase, type TearleadsDatabaseOptions } from "./database";
-import { TearleadsDocuments } from "./documents";
+import { createTearleadsDocuments, type TearleadsDocuments } from "./documents";
 import { TearleadsEvents } from "./events";
-import { TearleadsExplorer } from "./explorer";
-import { TearleadsIdentity, type TearleadsIdentityOptions } from "./identity";
+import { createTearleadsExplorer, type TearleadsExplorer } from "./explorer";
+import {
+  createTearleadsIdentity,
+  type TearleadsIdentity,
+  type TearleadsIdentityOptions,
+} from "./identity";
 import { logErrorToConsole, type TearleadsLogger } from "./logger";
 import { TearleadsNetwork } from "./network";
-import { TearleadsSession } from "./session";
+import { createTearleadsSession, type TearleadsSession } from "./session";
 import {
-  createTearleadsWorkflowRuntimeInput,
-  type TearleadsWorkflowRuntimeInput,
+  createTearleadsRuntime,
+  type TearleadsRuntime,
 } from "./workflowRuntime";
 
 export interface TearleadsOptions {
@@ -41,6 +45,7 @@ export class Tearleads {
   readonly explorer: TearleadsExplorer;
   readonly identity: TearleadsIdentity;
   readonly network: TearleadsNetwork;
+  readonly runtime: TearleadsRuntime;
   readonly session: TearleadsSession;
 
   private readonly documentProjectors: DocumentProjectorRegistry;
@@ -62,29 +67,37 @@ export class Tearleads {
     this.logHandler = options.logger?.log ?? (() => undefined);
     this.logErrorHandler = options.logger?.logError ?? logErrorToConsole;
     this.network = new TearleadsNetwork(options.online);
-    this.identity = new TearleadsIdentity(
+    this.identity = createTearleadsIdentity(
       options.identity,
       (signingFingerprint) =>
         this.blobs.updateIdentityNamespace(signingFingerprint),
       this.log,
     );
-    this.session = new TearleadsSession({
+    this.session = createTearleadsSession({
       api: this.api,
       database: this.database,
       identity: this.identity,
       log: this.log,
     });
-    this.contacts = new TearleadsContacts({
-      createWorkflowRuntimeInput: () => this.createWorkflowRuntimeInput(),
+    this.runtime = createTearleadsRuntime({
+      api: this.api,
+      blobs: this.blobs,
+      database: this.database,
+      documentProjectors: this.documentProjectors,
+      events: this.events,
+      getDomainScope: () => this.domainScope,
+      identity: this.identity,
+      log: this.log,
+      logError: this.logError,
+      network: this.network,
+      session: this.session,
     });
-    this.documents = new TearleadsDocuments({
-      createWorkflowRuntimeInput: (containerId) =>
-        this.createWorkflowRuntimeInput(containerId),
+    this.contacts = createTearleadsContacts(this.runtime);
+    this.documents = createTearleadsDocuments({
       getDefaultContainerId: () => this.session.containerId,
+      runtime: this.runtime,
     });
-    this.explorer = new TearleadsExplorer({
-      createWorkflowRuntimeInput: () => this.createWorkflowRuntimeInput(),
-    });
+    this.explorer = createTearleadsExplorer(this.runtime);
 
     this.api.setOnError((message) => this.logError(message));
     this.api.setOnNetworkError(() => this.network.setOnline(false));
@@ -107,26 +120,5 @@ export class Tearleads {
     }
 
     return this.domainScopeValue;
-  }
-
-  createWorkflowRuntimeInput(
-    containerId?: string | null | undefined,
-  ): TearleadsWorkflowRuntimeInput {
-    return createTearleadsWorkflowRuntimeInput(
-      {
-        api: this.api,
-        blobs: this.blobs,
-        database: this.database,
-        documentProjectors: this.documentProjectors,
-        domainScope: this.domainScope,
-        events: this.events,
-        identity: this.identity,
-        log: this.log,
-        logError: this.logError,
-        network: this.network,
-        session: this.session,
-      },
-      containerId,
-    );
   }
 }

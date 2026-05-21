@@ -18,7 +18,31 @@ export interface TearleadsIdentitySnapshot {
   signingKeyPair: SigningKeyPair | null;
 }
 
-export class TearleadsIdentity {
+export interface TearleadsIdentity {
+  readonly encapsulationKeyPair: EncapsulationKeyPair | null;
+  readonly signingFingerprint: string | null;
+  readonly signingKeyPair: SigningKeyPair | null;
+  readonly snapshot: TearleadsIdentitySnapshot;
+  destroy(): void;
+  generate(): Promise<TearleadsIdentitySnapshot>;
+  requireSigningKeyPair(operation?: string): SigningKeyPair;
+  refreshSigningFingerprint(): Promise<string | null>;
+  setKeyPairs(options: {
+    encapsulationKeyPair: EncapsulationKeyPair | null;
+    signingFingerprint?: string | null | undefined;
+    signingKeyPair: SigningKeyPair | null;
+  }): Promise<TearleadsIdentitySnapshot>;
+}
+
+export function createTearleadsIdentity(
+  options: TearleadsIdentityOptions = {},
+  onIdentityChanged: (signingFingerprint: string | null) => void,
+  log: (message: string) => void,
+): TearleadsIdentity {
+  return new TearleadsIdentityService(options, onIdentityChanged, log);
+}
+
+class TearleadsIdentityService implements TearleadsIdentity {
   private encapsulationKeyPairValue: EncapsulationKeyPair | null;
   private signingFingerprintValue: string | null;
   private signingKeyPairValue: SigningKeyPair | null;

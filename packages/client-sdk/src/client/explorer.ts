@@ -2,18 +2,22 @@ import {
   createExplorerWorkflowRuntime,
   type ExplorerWorkflowRuntime,
 } from "../workflows/explorer";
-import type { TearleadsWorkflowRuntimeInput } from "./workflowRuntime";
+import type { TearleadsRuntime } from "./workflowRuntime";
 
-interface TearleadsExplorerDependencies {
-  createWorkflowRuntimeInput: () => TearleadsWorkflowRuntimeInput;
+export interface TearleadsExplorer {
+  runtime(): ExplorerWorkflowRuntime;
 }
 
-export class TearleadsExplorer {
-  constructor(private readonly dependencies: TearleadsExplorerDependencies) {}
+export function createTearleadsExplorer(
+  runtime: TearleadsRuntime,
+): TearleadsExplorer {
+  return new TearleadsExplorerService(runtime);
+}
+
+class TearleadsExplorerService implements TearleadsExplorer {
+  constructor(private readonly runtimeService: TearleadsRuntime) {}
 
   runtime(): ExplorerWorkflowRuntime {
-    return createExplorerWorkflowRuntime(
-      this.dependencies.createWorkflowRuntimeInput(),
-    );
+    return createExplorerWorkflowRuntime(this.runtimeService.input());
   }
 }

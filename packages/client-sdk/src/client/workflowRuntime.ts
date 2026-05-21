@@ -35,13 +35,17 @@ export interface TearleadsWorkflowRuntimeInput {
   userId: string | null;
 }
 
+export interface TearleadsRuntime {
+  input(containerId?: string | null | undefined): TearleadsWorkflowRuntimeInput;
+}
+
 interface TearleadsWorkflowRuntimeDependencies {
   api: ApiClient;
   blobs: TearleadsBlobs;
   database: TearleadsDatabase;
   documentProjectors: DocumentProjectorRegistry;
-  domainScope: object;
   events: TearleadsEvents;
+  getDomainScope: () => object;
   identity: TearleadsIdentity;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
@@ -49,14 +53,23 @@ interface TearleadsWorkflowRuntimeDependencies {
   session: TearleadsSession;
 }
 
-export function createTearleadsWorkflowRuntimeInput(
+export function createTearleadsRuntime(
+  dependencies: TearleadsWorkflowRuntimeDependencies,
+): TearleadsRuntime {
+  return {
+    input: (containerId) =>
+      createTearleadsWorkflowRuntimeInput(dependencies, containerId),
+  };
+}
+
+function createTearleadsWorkflowRuntimeInput(
   dependencies: TearleadsWorkflowRuntimeDependencies,
   containerId?: string | null | undefined,
 ): TearleadsWorkflowRuntimeInput {
   const dbStatus = dependencies.database.status;
   const execSql =
     dbStatus === "ready"
-      ? dependencies.database.requireExecSql("createWorkflowRuntimeInput")
+      ? dependencies.database.requireExecSql("tearleads.runtime.input")
       : unavailableExecSql;
 
   return {
@@ -80,7 +93,7 @@ export function createTearleadsWorkflowRuntimeInput(
     containerId: containerId ?? null,
     dbStatus,
     documentProjectors: dependencies.documentProjectors,
-    domainScope: dependencies.domainScope,
+    domainScope: dependencies.getDomainScope(),
     encapsulationKeyPair: dependencies.identity.encapsulationKeyPair,
     events: dependencies.events.events,
     // Runtime consumers branch on dbStatus before touching SQLite. The

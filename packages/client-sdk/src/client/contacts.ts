@@ -2,18 +2,22 @@ import {
   type ContactsWorkflowRuntime,
   createContactsWorkflowRuntime,
 } from "../workflows/contacts";
-import type { TearleadsWorkflowRuntimeInput } from "./workflowRuntime";
+import type { TearleadsRuntime } from "./workflowRuntime";
 
-interface TearleadsContactsDependencies {
-  createWorkflowRuntimeInput: () => TearleadsWorkflowRuntimeInput;
+export interface TearleadsContacts {
+  runtime(): ContactsWorkflowRuntime;
 }
 
-export class TearleadsContacts {
-  constructor(private readonly dependencies: TearleadsContactsDependencies) {}
+export function createTearleadsContacts(
+  runtime: TearleadsRuntime,
+): TearleadsContacts {
+  return new TearleadsContactsService(runtime);
+}
+
+class TearleadsContactsService implements TearleadsContacts {
+  constructor(private readonly runtimeService: TearleadsRuntime) {}
 
   runtime(): ContactsWorkflowRuntime {
-    return createContactsWorkflowRuntime(
-      this.dependencies.createWorkflowRuntimeInput(),
-    );
+    return createContactsWorkflowRuntime(this.runtimeService.input());
   }
 }
