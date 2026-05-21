@@ -113,9 +113,9 @@ Use `database.client` for a SQLite worker client that implements
 Use `database.execSql` only when the host already owns executor construction.
 
 `new Tearleads(...)` does not initialize SQLite or call `client.init(...)`; the
-constructor stays synchronous and only captures the current database client,
-executor, id, and status. If the host has already initialized the worker, pass a
-ready database into the constructor:
+constructor stays synchronous and only captures the current database `client`,
+`execSql`, `id`, and `status`. If the host has already initialized the worker,
+pass a ready database into the constructor:
 
 ```ts
 new Tearleads({
