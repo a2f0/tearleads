@@ -11,39 +11,6 @@ interface RegisterCurrentIdentityResult {
   registerCurrentIdentity: () => Promise<boolean>;
 }
 
-async function registerCurrentIdentityWithSdk(input: {
-  apiClient: ReturnType<typeof useTearleads>["api"];
-  containerId: string;
-  dbClient: ReturnType<typeof useDatabase>["client"];
-  encapsulationKeyPair: NonNullable<
-    ReturnType<typeof useIdentity>["encapsulationKeyPair"]
-  >;
-  log: (message: string) => void;
-  logError: ReturnType<typeof useLog>["logError"];
-  loginWithChallenge: (challenge: string) => Promise<boolean>;
-  setOrganizationId: (organizationId: string | null) => void;
-  setUserId: (userId: string | null) => void;
-  signingKeyPair: NonNullable<ReturnType<typeof useIdentity>["signingKeyPair"]>;
-}): Promise<boolean> {
-  const response = await registerIdentity({
-    apiClient: input.apiClient,
-    containerId: input.containerId,
-    dbClient: input.dbClient,
-    encapsulationKeyPair: input.encapsulationKeyPair,
-    log: input.log,
-    logError: input.logError,
-    signingKeyPair: input.signingKeyPair,
-  });
-  if (!response) {
-    return false;
-  }
-
-  input.setUserId(response.userId);
-  input.setOrganizationId(response.organizationId);
-  await input.loginWithChallenge(response.challenge);
-  return true;
-}
-
 export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const { client: dbClient } = useDatabase();
   const {
@@ -74,18 +41,23 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       return false;
     }
 
-    return registerCurrentIdentityWithSdk({
+    const response = await registerIdentity({
       apiClient,
       containerId,
       dbClient,
       encapsulationKeyPair,
       log,
       logError,
-      loginWithChallenge,
-      setOrganizationId,
-      setUserId,
       signingKeyPair,
     });
+    if (!response) {
+      return false;
+    }
+
+    setUserId(response.userId);
+    setOrganizationId(response.organizationId);
+    await loginWithChallenge(response.challenge);
+    return true;
   }, [
     apiClient,
     containerId,
