@@ -33,6 +33,7 @@ describe("Tearleads", () => {
     expect(sdk.database.status).toBe("ready");
     expect(sdk.identity.signingFingerprint).toBeNull();
     expect(sdk.network.online).toBe(false);
+    expect(sdk.runtime.input).toBeFunction();
     expect(sdk.session.isAuthenticated).toBe(false);
   });
 
@@ -154,7 +155,7 @@ describe("Tearleads", () => {
 
   test("creates workflow runtime input before a database is available", async () => {
     const sdk = new Tearleads({ logger: quietLogger });
-    const input = sdk.createWorkflowRuntimeInput();
+    const input = sdk.runtime.input();
 
     expect(input.dbStatus).toBe("idle");
     await expect(input.execSql("select 1")).rejects.toThrow(
@@ -184,7 +185,7 @@ describe("Tearleads", () => {
         log: (message) => messages.push(message),
       },
     });
-    const input = sdk.createWorkflowRuntimeInput();
+    const input = sdk.runtime.input();
 
     sdk.database.clear("terminated");
 
@@ -216,13 +217,13 @@ describe("Tearleads", () => {
     const databaseScope = sdk.domainScope;
 
     expect(databaseScope).not.toBe(initialScope);
-    expect(sdk.createWorkflowRuntimeInput().domainScope).toBe(databaseScope);
+    expect(sdk.runtime.input().domainScope).toBe(databaseScope);
 
     await sdk.identity.generate();
     const identityScope = sdk.domainScope;
 
     expect(identityScope).not.toBe(databaseScope);
-    expect(sdk.createWorkflowRuntimeInput().domainScope).toBe(identityScope);
+    expect(sdk.runtime.input().domainScope).toBe(identityScope);
   });
 
   test("login authenticates with the current identity and stores the auth token", async () => {
