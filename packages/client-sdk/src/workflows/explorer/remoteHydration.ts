@@ -17,7 +17,9 @@ import {
   deleteExplorerContainers,
   type ExplorerDocumentRecord,
   type ExplorerPersistence,
+  type LocalRootDescendantReparentInput,
   loadContainerParentSyncWatermark,
+  reconcileExplorerLocalRootContainer,
   saveContainerParentSyncWatermark,
   saveExplorerContainer,
 } from "./containerPersistence";
@@ -74,6 +76,7 @@ interface ExplorerRemoteContainerHydrationRuntime
   isAuthenticated: boolean;
   log: (message: string) => void;
   online: boolean;
+  organizationId?: string | null | undefined;
 }
 
 interface ExplorerRemoteContainerHydrationState {
@@ -183,48 +186,281 @@ function createContainerChildIndex(
   return childIdsByParentId;
 }
 
-async function upsertRemoteExplorerContainerState(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  host: ExplorerRemoteContainerHydrationHost;
-  remoteContainer: ExplorerRemoteContainer;
-  state: ExplorerRemoteContainerHydrationState;
-}): Promise<ExplorerContainerState> {
-  const { childIdsByParentId, host, remoteContainer, state } = input;
-  const existingState = state.containersById.get(remoteContainer.id);
+function hasRemoteExplorerContainerMetadataState(
+  containerState: ExplorerContainerState,
+): boolean {
+  return (
+    typeof containerState.record.documentId === "string" &&
+    containerState.record.documentId.length > 0 &&
+    typeof containerState.record.accessStateHash === "string" &&
+    containerState.record.accessStateHash.length > 0 &&
+    typeof containerState.container.metadataDocumentId === "string" &&
+    containerState.container.metadataDocumentId.length > 0
+  );
+}
 
-  if (existingState) {
-    const previousParentId = existingState.container.parentId;
-    existingState.container = applyRemoteContainerTimestamps(
-      existingState.container,
-      remoteContainer,
-    );
-    existingState.record = await host.persistContainerState(
-      existingState,
-      {
-        accessEpoch: remoteContainer.metadataAccessEpoch,
-        accessStateHash: remoteContainer.metadataAccessStateHash,
-        documentId: remoteContainer.metadataDocumentId,
-        metadataDocumentId: remoteContainer.metadataDocumentId,
-        organizationId: remoteContainer.organizationId,
-        parentId: remoteContainer.parentId,
-      },
-      false,
-    );
-    existingState.container = {
-      ...existingState.container,
-      metadataDocumentId: remoteContainer.metadataDocumentId,
-      organizationId: remoteContainer.organizationId,
-      parentId: remoteContainer.parentId,
+function isLocalOnlyRootContainerState(
+  containerState: ExplorerContainerState,
+): boolean {
+  return (
+    containerState.container.parentId === null &&
+    !hasRemoteExplorerContainerMetadataState(containerState)
+  );
+}
+
+function canUseRemoteRootAsLocalRootReconciliationTarget(input: {
+  remoteRootState: ExplorerContainerState;
+  state: ExplorerRemoteContainerHydrationState;
+}): boolean {
+  const { remoteRootState, state } = input;
+  return (
+    remoteRootState.container.parentId === null &&
+    (!state.runtime.organizationId ||
+      remoteRootState.container.organizationId === state.runtime.organizationId)
+  );
+}
+
+function collectContainerSubtreeStates(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  containersById: ReadonlyMap<string, ExplorerContainerState>;
+  rootContainerId: string;
+}): ExplorerContainerState[] {
+  const { childIdsByParentId, containersById, rootContainerId } = input;
+  const subtreeStates: ExplorerContainerState[] = [];
+  const pendingContainerIds = [rootContainerId];
+  const visitedContainerIds = new Set<string>();
+  const index = childIdsByParentId ?? createContainerChildIndex(containersById);
+
+  while (pendingContainerIds.length > 0) {
+    const containerId = pendingContainerIds.pop();
+    if (!containerId || visitedContainerIds.has(containerId)) {
+      continue;
+    }
+    visitedContainerIds.add(containerId);
+
+    const childIds = index.get(containerId);
+    if (!childIds) {
+      continue;
+    }
+
+    for (const childId of childIds) {
+      const childState = containersById.get(childId);
+      if (!childState) {
+        continue;
+      }
+
+      subtreeStates.push(childState);
+      pendingContainerIds.push(childId);
+    }
+  }
+
+  return subtreeStates;
+}
+
+function buildLocalRootDescendantReparents(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  localRootState: ExplorerContainerState;
+  remoteRootState: ExplorerContainerState;
+  state: ExplorerRemoteContainerHydrationState;
+}): {
+  descendantReparents: LocalRootDescendantReparentInput[];
+  descendants: ExplorerContainerState[];
+} {
+  const { childIdsByParentId, localRootState, remoteRootState, state } = input;
+  const descendants = collectContainerSubtreeStates({
+    childIdsByParentId,
+    containersById: state.containersById,
+    rootContainerId: localRootState.container.id,
+  });
+  const descendantReparents = descendants.map((descendant) => {
+    const previousParentId = descendant.container.parentId;
+    const parentContainerId =
+      previousParentId === localRootState.container.id
+        ? remoteRootState.container.id
+        : previousParentId;
+
+    return {
+      containerId: descendant.container.id,
+      parentContainerId,
+      updateCreateIntent: !descendant.record.documentId && !!parentContainerId,
+    };
+  });
+
+  return { descendantReparents, descendants };
+}
+
+function applyLocalRootDescendantReparents(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  descendantReparents: ReadonlyArray<LocalRootDescendantReparentInput>;
+  descendants: ReadonlyArray<ExplorerContainerState>;
+  remoteRootState: ExplorerContainerState;
+  updatedAt: string;
+}): void {
+  const {
+    childIdsByParentId,
+    descendantReparents,
+    descendants,
+    remoteRootState,
+    updatedAt,
+  } = input;
+  const reparentByContainerId = new Map(
+    descendantReparents.map((reparent) => [reparent.containerId, reparent]),
+  );
+
+  for (const descendant of descendants) {
+    const previousParentId = descendant.container.parentId;
+    const reparent = reparentByContainerId.get(descendant.container.id);
+    if (!reparent) {
+      continue;
+    }
+
+    descendant.container = {
+      ...descendant.container,
+      organizationId: remoteRootState.container.organizationId,
+      parentId: reparent.parentContainerId,
+      localUpdatedAt: updatedAt,
+      updatedAt: descendant.container.serverUpdatedAt ?? updatedAt,
     };
     moveIndexedContainerChild(
       childIdsByParentId,
-      remoteContainer.id,
+      descendant.container.id,
       previousParentId,
-      existingState.container.parentId,
+      reparent.parentContainerId,
     );
-    return existingState;
+  }
+}
+
+async function reconcileLocalOnlyRootContainer(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  localRootState: ExplorerContainerState;
+  remoteRootState: ExplorerContainerState;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<void> {
+  const { childIdsByParentId, localRootState, remoteRootState, state } = input;
+  const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
+  const updatedAt = new Date().toISOString();
+  const { descendantReparents, descendants } =
+    buildLocalRootDescendantReparents({
+      childIdsByParentId,
+      localRootState,
+      remoteRootState,
+      state,
+    });
+
+  await reconcileExplorerLocalRootContainer(execSql, state.persistence, {
+    descendantReparents,
+    localRootContainerId: localRootState.container.id,
+    remoteOrganizationId: remoteRootState.container.organizationId,
+    remoteRootContainerId: remoteRootState.container.id,
+    updatedAt,
+  });
+  applyLocalRootDescendantReparents({
+    childIdsByParentId,
+    descendantReparents,
+    descendants,
+    remoteRootState,
+    updatedAt,
+  });
+
+  if (childIdsByParentId) {
+    removeIndexedContainerChild(
+      childIdsByParentId,
+      localRootState.container.id,
+      localRootState.container.parentId,
+    );
+    childIdsByParentId.delete(localRootState.container.id);
+  }
+  state.containersById.delete(localRootState.container.id);
+  state.runtime.log(
+    `Explorer: reconciled local root ${localRootState.container.id} into remote root ${remoteRootState.container.id}`,
+  );
+}
+
+async function reconcileLocalOnlyRootContainers(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  remoteRootState: ExplorerContainerState;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<number> {
+  const { childIdsByParentId, remoteRootState, state } = input;
+  if (
+    !canUseRemoteRootAsLocalRootReconciliationTarget({
+      remoteRootState,
+      state,
+    })
+  ) {
+    return 0;
   }
 
+  const localRootStates = Array.from(state.containersById.values()).filter(
+    (containerState) =>
+      containerState.container.id !== remoteRootState.container.id &&
+      isLocalOnlyRootContainerState(containerState),
+  );
+
+  for (const localRootState of localRootStates) {
+    await reconcileLocalOnlyRootContainer({
+      childIdsByParentId,
+      localRootState,
+      remoteRootState,
+      state,
+    });
+  }
+
+  return localRootStates.length;
+}
+
+async function updateExistingRemoteExplorerContainerState(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  host: ExplorerRemoteContainerHydrationHost;
+  existingState: ExplorerContainerState;
+  remoteContainer: ExplorerRemoteContainer;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<ExplorerContainerState> {
+  const { childIdsByParentId, existingState, host, remoteContainer, state } =
+    input;
+  const previousParentId = existingState.container.parentId;
+  existingState.container = applyRemoteContainerTimestamps(
+    existingState.container,
+    remoteContainer,
+  );
+  existingState.record = await host.persistContainerState(
+    existingState,
+    {
+      accessEpoch: remoteContainer.metadataAccessEpoch,
+      accessStateHash: remoteContainer.metadataAccessStateHash,
+      documentId: remoteContainer.metadataDocumentId,
+      metadataDocumentId: remoteContainer.metadataDocumentId,
+      organizationId: remoteContainer.organizationId,
+      parentId: remoteContainer.parentId,
+    },
+    false,
+  );
+  existingState.container = {
+    ...existingState.container,
+    metadataDocumentId: remoteContainer.metadataDocumentId,
+    organizationId: remoteContainer.organizationId,
+    parentId: remoteContainer.parentId,
+  };
+  moveIndexedContainerChild(
+    childIdsByParentId,
+    remoteContainer.id,
+    previousParentId,
+    existingState.container.parentId,
+  );
+  await reconcileLocalOnlyRootContainers({
+    childIdsByParentId,
+    remoteRootState: existingState,
+    state,
+  });
+  return existingState;
+}
+
+async function insertRemoteExplorerContainerState(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  remoteContainer: ExplorerRemoteContainer;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<ExplorerContainerState> {
+  const { childIdsByParentId, remoteContainer, state } = input;
   const doc = await createContainerMetadataDocument(remoteContainer.id);
   const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
   const execSql = getExplorerWorkflowRuntimeExecSql(state.runtime);
@@ -274,7 +510,36 @@ async function upsertRemoteExplorerContainerState(input: {
       remoteContainer.parentId,
     );
   }
+  await reconcileLocalOnlyRootContainers({
+    childIdsByParentId,
+    remoteRootState: containerState,
+    state,
+  });
   return containerState;
+}
+
+async function upsertRemoteExplorerContainerState(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  host: ExplorerRemoteContainerHydrationHost;
+  remoteContainer: ExplorerRemoteContainer;
+  state: ExplorerRemoteContainerHydrationState;
+}): Promise<ExplorerContainerState> {
+  const existingState = input.state.containersById.get(
+    input.remoteContainer.id,
+  );
+  return existingState
+    ? updateExistingRemoteExplorerContainerState({
+        childIdsByParentId: input.childIdsByParentId,
+        existingState,
+        host: input.host,
+        remoteContainer: input.remoteContainer,
+        state: input.state,
+      })
+    : insertRemoteExplorerContainerState({
+        childIdsByParentId: input.childIdsByParentId,
+        remoteContainer: input.remoteContainer,
+        state: input.state,
+      });
 }
 
 function isCurrentQueuedRemoteContainer(

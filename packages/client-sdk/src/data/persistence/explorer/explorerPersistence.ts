@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import {
   type ClientSQLiteTransaction,
   getClientDatabaseRuntime,
@@ -16,6 +16,9 @@ import {
 import {
   containerCreateIntents,
   containerCreateIntentTables,
+  containerProjection,
+  containerSyncWatermarks,
+  containers,
   documentContainerProjection,
   documentContainerProjectionTables,
   documentPendingUpdates,
@@ -35,7 +38,12 @@ import {
   loadContainers as loadContainerRecords,
   saveContainerRows,
 } from "../containers/containerPersistence";
-import { sqlContainerSyncWatermarkPersistence } from "../containers/containerSyncWatermarkPersistence";
+import {
+  containerDocumentsSyncLane,
+  containerParentSyncLane,
+  containerSyncWatermarkLaneKey,
+  sqlContainerSyncWatermarkPersistence,
+} from "../containers/containerSyncWatermarkPersistence";
 
 const CONTAINER_METADATA_APP_KIND = "container-metadata";
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
@@ -59,6 +67,12 @@ export interface ContainerCreateIntentRecord {
 export interface ContainerCreateIntentInput {
   id?: string;
   parentContainerId: string;
+}
+
+export interface LocalRootDescendantReparentInput {
+  containerId: string;
+  parentContainerId: string | null;
+  updateCreateIntent?: boolean | undefined;
 }
 
 export interface StoredExplorerContainer {
@@ -97,6 +111,24 @@ export interface ExplorerPersistence {
     execSql: ExecSql,
     containerId: string,
     message: string,
+  ) => Promise<void>;
+  reassignContainerDocuments: (
+    execSql: ExecSql,
+    input: {
+      fromContainerId: string;
+      toContainerId: string;
+      updatedAt?: string | undefined;
+    },
+  ) => Promise<void>;
+  reconcileLocalRootContainer: (
+    execSql: ExecSql,
+    input: {
+      descendantReparents: ReadonlyArray<LocalRootDescendantReparentInput>;
+      localRootContainerId: string;
+      remoteOrganizationId: string;
+      remoteRootContainerId: string;
+      updatedAt?: string | undefined;
+    },
   ) => Promise<void>;
   loadContainers: (
     execSql: ExecSql,
@@ -404,6 +436,163 @@ async function repairDocumentsForRemovedContainers(input: {
   });
 }
 
+async function reassignDocumentLinksForContainer(input: {
+  fromContainerId: string;
+  toContainerId: string;
+  tx: ClientSQLiteTransaction;
+  updatedAt: string;
+}): Promise<void> {
+  const { fromContainerId, toContainerId, tx, updatedAt } = input;
+  await tx.run(sql`
+    INSERT INTO ${documentContainerProjection} (
+      ${sql.raw("document_id")},
+      ${sql.raw("container_id")},
+      ${sql.raw("updated_at")}
+    )
+    SELECT
+      ${documentContainerProjection.documentId},
+      ${toContainerId},
+      max(${documentContainerProjection.updatedAt}, ${updatedAt})
+    FROM ${documentContainerProjection}
+    WHERE ${documentContainerProjection.containerId} = ${fromContainerId}
+    ON CONFLICT (
+      ${sql.raw("document_id")},
+      ${sql.raw("container_id")}
+    ) DO UPDATE SET
+      ${sql.raw("updated_at")} = max(
+        ${sql.raw("updated_at")},
+        excluded.${sql.raw("updated_at")}
+      )
+  `);
+
+  await tx
+    .delete(documentContainerProjection)
+    .where(eq(documentContainerProjection.containerId, fromContainerId))
+    .run();
+}
+
+async function reassignPrimaryDocumentsForContainer(input: {
+  fromContainerId: string;
+  toContainerId: string;
+  tx: ClientSQLiteTransaction;
+  updatedAt: string;
+}): Promise<void> {
+  const { fromContainerId, toContainerId, tx, updatedAt } = input;
+  await tx
+    .update(documentProjection)
+    .set({
+      containerId: toContainerId,
+      updatedAt: sql`max(${documentProjection.updatedAt}, ${updatedAt})`,
+    })
+    .where(eq(documentProjection.containerId, fromContainerId))
+    .run();
+}
+
+async function updateReparentedDescendantContainers(input: {
+  descendantReparents: ReadonlyArray<LocalRootDescendantReparentInput>;
+  remoteOrganizationId: string;
+  tx: ClientSQLiteTransaction;
+  updatedAt: string;
+}): Promise<void> {
+  const { descendantReparents, remoteOrganizationId, tx, updatedAt } = input;
+  const descendantIds = Array.from(
+    new Set(descendantReparents.map((reparent) => reparent.containerId)),
+  );
+  if (descendantIds.length === 0) {
+    return;
+  }
+
+  await tx
+    .update(containers)
+    .set({
+      organizationId: remoteOrganizationId,
+      localUpdatedAt: updatedAt,
+    })
+    .where(inArray(containers.id, descendantIds))
+    .run();
+  await tx
+    .update(containerProjection)
+    .set({ updatedAt })
+    .where(inArray(containerProjection.containerId, descendantIds))
+    .run();
+
+  for (const reparent of descendantReparents) {
+    await tx
+      .update(containers)
+      .set({ parentId: reparent.parentContainerId })
+      .where(eq(containers.id, reparent.containerId))
+      .run();
+
+    if (reparent.updateCreateIntent && reparent.parentContainerId) {
+      await saveContainerCreateIntent({
+        containerId: reparent.containerId,
+        createIntent: { parentContainerId: reparent.parentContainerId },
+        tx,
+        updatedAt,
+      });
+    }
+  }
+}
+
+async function deleteLocalRootContainerRows(input: {
+  localRootContainerId: string;
+  tx: ClientSQLiteTransaction;
+}): Promise<void> {
+  const { localRootContainerId, tx } = input;
+  const parentLane = containerSyncWatermarkLaneKey(
+    containerParentSyncLane(localRootContainerId),
+  );
+  const documentsLane = containerSyncWatermarkLaneKey(
+    containerDocumentsSyncLane(localRootContainerId),
+  );
+
+  await tx
+    .delete(containerCreateIntents)
+    .where(eq(containerCreateIntents.containerId, localRootContainerId))
+    .run();
+  await tx
+    .delete(containerProjection)
+    .where(eq(containerProjection.containerId, localRootContainerId))
+    .run();
+  await tx
+    .delete(containers)
+    .where(eq(containers.id, localRootContainerId))
+    .run();
+  await tx
+    .delete(documents)
+    .where(
+      and(
+        eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documents.localId, localRootContainerId),
+      ),
+    )
+    .run();
+  await tx
+    .delete(documentPendingUpdates)
+    .where(
+      and(
+        eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documentPendingUpdates.localId, localRootContainerId),
+      ),
+    )
+    .run();
+  await tx
+    .delete(containerSyncWatermarks)
+    .where(
+      or(
+        and(
+          eq(containerSyncWatermarks.laneKind, parentLane.laneKind),
+          eq(containerSyncWatermarks.laneId, parentLane.laneId),
+        ),
+        and(
+          eq(containerSyncWatermarks.laneKind, documentsLane.laneKind),
+          eq(containerSyncWatermarks.laneId, documentsLane.laneId),
+        ),
+      ),
+    )
+    .run();
+}
+
 export const sqlExplorerPersistence: ExplorerPersistence = {
   async deleteContainer(execSql, containerId, options) {
     await sqlExplorerPersistence.deleteContainers(
@@ -532,6 +721,74 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
           ),
         )
         .run();
+    });
+  },
+  async reassignContainerDocuments(execSql, input) {
+    if (input.fromContainerId === input.toContainerId) {
+      return;
+    }
+
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const updatedAt = input.updatedAt ?? new Date().toISOString();
+      await ensureSqlTables(lockedExecSql, [
+        ...documentContainerProjectionTables,
+        ...documentProjectionTables,
+      ]);
+      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+        await reassignDocumentLinksForContainer({
+          fromContainerId: input.fromContainerId,
+          toContainerId: input.toContainerId,
+          tx,
+          updatedAt,
+        });
+        await reassignPrimaryDocumentsForContainer({
+          fromContainerId: input.fromContainerId,
+          toContainerId: input.toContainerId,
+          tx,
+          updatedAt,
+        });
+      });
+    });
+  },
+  async reconcileLocalRootContainer(execSql, input) {
+    if (input.localRootContainerId === input.remoteRootContainerId) {
+      return;
+    }
+
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const updatedAt = input.updatedAt ?? new Date().toISOString();
+      await ensureSqlTables(lockedExecSql, [
+        ...containerCreateIntentTables,
+        ...documentContainerProjectionTables,
+        ...documentProjectionTables,
+      ]);
+      await ensureContainerTables(lockedExecSql);
+      await ensureDocumentTables(lockedExecSql);
+      await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
+      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
+        await updateReparentedDescendantContainers({
+          descendantReparents: input.descendantReparents,
+          remoteOrganizationId: input.remoteOrganizationId,
+          tx,
+          updatedAt,
+        });
+        await reassignDocumentLinksForContainer({
+          fromContainerId: input.localRootContainerId,
+          toContainerId: input.remoteRootContainerId,
+          tx,
+          updatedAt,
+        });
+        await reassignPrimaryDocumentsForContainer({
+          fromContainerId: input.localRootContainerId,
+          toContainerId: input.remoteRootContainerId,
+          tx,
+          updatedAt,
+        });
+        await deleteLocalRootContainerRows({
+          localRootContainerId: input.localRootContainerId,
+          tx,
+        });
+      });
     });
   },
   async loadContainers(execSql) {

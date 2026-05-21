@@ -43,6 +43,8 @@ function createExplorerPersistence(input: {
     },
     async markCreateIntentSynced() {},
     async recordCreateIntentError() {},
+    async reassignContainerDocuments() {},
+    async reconcileLocalRootContainer() {},
     async saveContainer(_execSql, container) {
       return container;
     },

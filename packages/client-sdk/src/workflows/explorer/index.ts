@@ -25,8 +25,11 @@ export {
   type ExplorerPersistence,
   enqueuePendingExplorerContainerUpdateFromRuntime,
   initializeExplorerSchema,
+  type LocalRootDescendantReparentInput,
   loadExplorerContainerSyncWatermark,
   loadStoredExplorerContainers,
+  reassignExplorerContainerDocuments,
+  reconcileExplorerLocalRootContainer,
   saveExplorerContainer,
   saveExplorerContainerSyncWatermark,
 } from "./containerPersistence";

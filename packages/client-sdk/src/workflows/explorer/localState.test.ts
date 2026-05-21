@@ -66,6 +66,8 @@ function createExplorerPersistence(input: {
       return [];
     },
     async recordCreateIntentError() {},
+    async reassignContainerDocuments() {},
+    async reconcileLocalRootContainer() {},
     async loadContainers() {
       return input.storedContainers;
     },
