@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
-import type { ClientSQLiteTransaction } from "../../../sqlite/clientDatabaseRuntime";
 import {
   type DocumentRecord as BaseDocumentRecord,
   type DocumentScope,
   mapSelectedDocumentRecord,
 } from "../../../sqlite/documentPersistence";
 import { documentProjection, documents } from "../../../sqlite/schema";
+import type { ClientSQLiteTransaction } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
 import {

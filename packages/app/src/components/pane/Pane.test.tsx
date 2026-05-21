@@ -1,6 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { createModuleDatabaseRuntime } from "@tearleads/sqlite-worker/runtime";
+import { createModuleSQLiteWorkerRuntime } from "@tearleads/client-sdk/sqlite";
 import { isRegistrationResponse } from "@tearleads/validators/response";
 import {
   cleanup,
@@ -29,7 +29,9 @@ function renderPane() {
         <PaneProvider
           hostConfig={
             new AppHostConfig("http://localhost:3001", wsUrl, () =>
-              createModuleDatabaseRuntime({ workerConstructor: MockWorker }),
+              createModuleSQLiteWorkerRuntime({
+                workerConstructor: MockWorker,
+              }),
             )
           }
         >

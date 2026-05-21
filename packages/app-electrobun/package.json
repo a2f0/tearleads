@@ -9,6 +9,7 @@
     "build:dev": "electrobun build --env dev"
   },
   "dependencies": {
+    "@tearleads/client-sdk": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
     "react-dom": "catalog:react",

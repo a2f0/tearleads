@@ -1,9 +1,9 @@
 import type { Tearleads, TearleadsDatabaseStatus } from "@tearleads/client-sdk";
-import type { DatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
 import {
-  createModuleDatabaseRuntime,
-  type DatabaseRuntime,
-} from "@tearleads/sqlite-worker/runtime";
+  createModuleSQLiteWorkerRuntime,
+  type SQLiteWorkerClient,
+  type SQLiteWorkerRuntime,
+} from "@tearleads/client-sdk/sqlite";
 import {
   createContext,
   type PropsWithChildren,
@@ -19,12 +19,12 @@ import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 
-type DatabaseRuntimeStatus = TearleadsDatabaseStatus;
+type SQLiteRuntimeStatus = TearleadsDatabaseStatus;
 
 interface DatabaseContextValue {
   id: string | null;
-  client: DatabaseWorkerClient | null;
-  status: DatabaseRuntimeStatus;
+  client: SQLiteWorkerClient | null;
+  status: SQLiteRuntimeStatus;
   killWorker: () => void;
   spawnWorker: () => void;
 }
@@ -32,14 +32,14 @@ interface DatabaseContextValue {
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
 function destroyRuntime(
-  runtimeRef: RefObject<DatabaseRuntime | null>,
+  runtimeRef: RefObject<SQLiteWorkerRuntime | null>,
   bootingRef: RefObject<boolean>,
   currentDbNameRef: RefObject<string | null>,
   tearleads: Tearleads,
   setId: (value: string | null) => void,
   setClient: (value: DatabaseContextValue["client"]) => void,
-  setStatus: (value: DatabaseRuntimeStatus) => void,
-  nextStatus: DatabaseRuntimeStatus,
+  setStatus: (value: SQLiteRuntimeStatus) => void,
+  nextStatus: SQLiteRuntimeStatus,
 ) {
   if (runtimeRef.current) {
     runtimeRef.current.destroy();
@@ -54,8 +54,8 @@ function destroyRuntime(
   setStatus(nextStatus);
 }
 
-async function bootDatabaseRuntime(
-  runtime: DatabaseRuntime,
+async function bootSQLiteWorkerRuntime(
+  runtime: SQLiteWorkerRuntime,
   dbName: string,
   log: (message: string) => void,
 ) {
@@ -68,10 +68,10 @@ async function bootDatabaseRuntime(
   });
 }
 
-function configureSdkDatabaseRuntime(
+function configureSdkSQLiteRuntime(
   tearleads: Tearleads,
-  runtime: DatabaseRuntime,
-  status: DatabaseRuntimeStatus,
+  runtime: SQLiteWorkerRuntime,
+  status: SQLiteRuntimeStatus,
 ) {
   tearleads.database.configure({
     client: runtime.client,
@@ -80,12 +80,12 @@ function configureSdkDatabaseRuntime(
   });
 }
 
-function completeDatabaseRuntimeBoot(params: {
-  runtime: DatabaseRuntime;
-  runtimeRef: RefObject<DatabaseRuntime | null>;
+function completeSQLiteWorkerRuntimeBoot(params: {
+  runtime: SQLiteWorkerRuntime;
+  runtimeRef: RefObject<SQLiteWorkerRuntime | null>;
   bootingRef: RefObject<boolean>;
   tearleads: Tearleads;
-  setStatus: (value: DatabaseRuntimeStatus) => void;
+  setStatus: (value: SQLiteRuntimeStatus) => void;
   dbName: string;
   log: (message: string) => void;
 }) {
@@ -97,18 +97,18 @@ function completeDatabaseRuntimeBoot(params: {
   }
 
   bootingRef.current = false;
-  configureSdkDatabaseRuntime(tearleads, runtime, "ready");
+  configureSdkSQLiteRuntime(tearleads, runtime, "ready");
   setStatus("ready");
   log(`Database initialized successfully: ${dbName}`);
   log("Worker spawned");
 }
 
-function failDatabaseRuntimeBoot(params: {
-  runtime: DatabaseRuntime;
-  runtimeRef: RefObject<DatabaseRuntime | null>;
+function failSQLiteWorkerRuntimeBoot(params: {
+  runtime: SQLiteWorkerRuntime;
+  runtimeRef: RefObject<SQLiteWorkerRuntime | null>;
   bootingRef: RefObject<boolean>;
   tearleads: Tearleads;
-  setStatus: (value: DatabaseRuntimeStatus) => void;
+  setStatus: (value: SQLiteRuntimeStatus) => void;
   error: unknown;
 }) {
   const { runtime, runtimeRef, bootingRef, tearleads, setStatus, error } =
@@ -120,18 +120,18 @@ function failDatabaseRuntimeBoot(params: {
 
   bootingRef.current = false;
   console.error("Failed to initialize database worker:", error);
-  configureSdkDatabaseRuntime(tearleads, runtime, "error");
+  configureSdkSQLiteRuntime(tearleads, runtime, "error");
   setStatus("error");
 }
 
-function useDestroyDatabaseRuntime(params: {
-  runtimeRef: RefObject<DatabaseRuntime | null>;
+function useDestroySQLiteWorkerRuntime(params: {
+  runtimeRef: RefObject<SQLiteWorkerRuntime | null>;
   bootingRef: RefObject<boolean>;
   currentDbNameRef: RefObject<string | null>;
   tearleads: Tearleads;
   setId: (value: string | null) => void;
   setClient: (value: DatabaseContextValue["client"]) => void;
-  setStatus: (value: DatabaseRuntimeStatus) => void;
+  setStatus: (value: SQLiteRuntimeStatus) => void;
 }) {
   const {
     runtimeRef,
@@ -144,7 +144,7 @@ function useDestroyDatabaseRuntime(params: {
   } = params;
 
   return useCallback(
-    (nextStatus: DatabaseRuntimeStatus) => {
+    (nextStatus: SQLiteRuntimeStatus) => {
       destroyRuntime(
         runtimeRef,
         bootingRef,
@@ -168,14 +168,14 @@ function useDestroyDatabaseRuntime(params: {
   );
 }
 
-function useDatabaseRuntimeLifecycle(
+function useSQLiteWorkerRuntimeLifecycle(
   dbName: string | null,
-  status: DatabaseRuntimeStatus,
-  runtimeRef: RefObject<DatabaseRuntime | null>,
+  status: SQLiteRuntimeStatus,
+  runtimeRef: RefObject<SQLiteWorkerRuntime | null>,
   bootingRef: RefObject<boolean>,
   currentDbNameRef: RefObject<string | null>,
   killedRef: RefObject<boolean>,
-  destroyCurrentRuntime: (nextStatus: DatabaseRuntimeStatus) => void,
+  destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void,
   spawnRuntime: () => void,
 ) {
   useEffect(() => {
@@ -214,20 +214,20 @@ function useDatabaseRuntimeLifecycle(
   }, [destroyCurrentRuntime]);
 }
 
-function useManagedDatabaseRuntime(
-  createDatabaseRuntime: () => DatabaseRuntime,
+function useManagedSQLiteWorkerRuntime(
+  createSQLiteWorkerRuntime: () => SQLiteWorkerRuntime,
   dbName: string | null,
   log: (message: string) => void,
   tearleads: Tearleads,
 ): DatabaseContextValue {
-  const [status, setStatus] = useState<DatabaseRuntimeStatus>("idle");
+  const [status, setStatus] = useState<SQLiteRuntimeStatus>("idle");
   const [id, setId] = useState<string | null>(null);
   const [client, setClient] = useState<DatabaseContextValue["client"]>(null);
-  const runtimeRef = useRef<DatabaseRuntime | null>(null);
+  const runtimeRef = useRef<SQLiteWorkerRuntime | null>(null);
   const bootingRef = useRef(false);
   const currentDbNameRef = useRef<string | null>(null);
   const killedRef = useRef(false);
-  const destroyCurrentRuntime = useDestroyDatabaseRuntime({
+  const destroyCurrentRuntime = useDestroySQLiteWorkerRuntime({
     runtimeRef,
     bootingRef,
     currentDbNameRef,
@@ -247,16 +247,16 @@ function useManagedDatabaseRuntime(
     currentDbNameRef.current = dbName;
 
     try {
-      const runtime = createDatabaseRuntime();
+      const runtime = createSQLiteWorkerRuntime();
       runtimeRef.current = runtime;
-      configureSdkDatabaseRuntime(tearleads, runtime, "idle");
+      configureSdkSQLiteRuntime(tearleads, runtime, "idle");
       setId(runtime.id);
       setClient(runtime.client);
       setStatus("idle");
 
-      void bootDatabaseRuntime(runtime, dbName, log)
+      void bootSQLiteWorkerRuntime(runtime, dbName, log)
         .then(() => {
-          completeDatabaseRuntimeBoot({
+          completeSQLiteWorkerRuntimeBoot({
             runtime,
             runtimeRef,
             bootingRef,
@@ -267,7 +267,7 @@ function useManagedDatabaseRuntime(
           });
         })
         .catch((error) => {
-          failDatabaseRuntimeBoot({
+          failSQLiteWorkerRuntimeBoot({
             runtime,
             runtimeRef,
             bootingRef,
@@ -282,7 +282,7 @@ function useManagedDatabaseRuntime(
       tearleads.database.clear("error");
       setStatus("error");
     }
-  }, [createDatabaseRuntime, dbName, log, tearleads]);
+  }, [createSQLiteWorkerRuntime, dbName, log, tearleads]);
 
   const killWorker = useCallback(() => {
     if (!runtimeRef.current) {
@@ -294,7 +294,7 @@ function useManagedDatabaseRuntime(
     log("Worker killed");
   }, [destroyCurrentRuntime, log]);
 
-  useDatabaseRuntimeLifecycle(
+  useSQLiteWorkerRuntimeLifecycle(
     dbName,
     status,
     runtimeRef,
@@ -315,7 +315,7 @@ function useManagedDatabaseRuntime(
 }
 
 export function DatabaseProvider({ children }: PropsWithChildren) {
-  const { createDatabaseRuntime = createModuleDatabaseRuntime } =
+  const { createSQLiteWorkerRuntime = createModuleSQLiteWorkerRuntime } =
     useAppHostConfig();
   const tearleads = useTearleads();
   const { log } = useLog();
@@ -324,8 +324,8 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     signingFingerprint === null
       ? null
       : `/app-identity-${signingFingerprint}.db`;
-  const value = useManagedDatabaseRuntime(
-    createDatabaseRuntime,
+  const value = useManagedSQLiteWorkerRuntime(
+    createSQLiteWorkerRuntime,
     dbName,
     log,
     tearleads,

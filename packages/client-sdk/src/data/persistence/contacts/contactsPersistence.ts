@@ -1,10 +1,6 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { ContactEntry } from "../../contacts/addressBookEntry";
 import {
-  type ClientSQLiteTransaction,
-  getClientDatabaseRuntime,
-} from "../../sqlite/clientDatabaseRuntime";
-import {
   type DocumentRecord,
   type DocumentScope,
   deleteDocumentPendingUpdates,
@@ -23,6 +19,10 @@ import {
   documentPendingUpdates,
   documents,
 } from "../../sqlite/schema";
+import {
+  type ClientSQLiteTransaction,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -197,7 +197,7 @@ export const sqlContactsPersistence: ContactsPersistence = {
     });
   },
   async loadContacts(execSql, addressBookId) {
-    const { db } = getClientDatabaseRuntime(execSql);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
       .select({
         contactId: addressBookProjection.contactId,
@@ -238,18 +238,20 @@ export const sqlContactsPersistence: ContactsPersistence = {
     const updatedAt = new Date().toISOString();
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        await saveContactRows(
-          tx,
-          addressBookId,
-          {
-            ...record,
-            id: entry.id,
-          },
-          entry,
-          updatedAt,
-        );
-      });
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          await saveContactRows(
+            tx,
+            addressBookId,
+            {
+              ...record,
+              id: entry.id,
+            },
+            entry,
+            updatedAt,
+          );
+        },
+      );
     });
   },
   async saveContactAndDeletePendingUpdates(
@@ -264,51 +266,55 @@ export const sqlContactsPersistence: ContactsPersistence = {
     const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        if (uniquePendingUpdateIds.length > 0) {
-          await tx
-            .delete(documentPendingUpdates)
-            .where(
-              and(
-                eq(documentPendingUpdates.appKind, contactScope.appKind),
-                eq(documentPendingUpdates.localId, contactScope.localId),
-                inArray(documentPendingUpdates.id, uniquePendingUpdateIds),
-              ),
-            )
-            .run();
-        }
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          if (uniquePendingUpdateIds.length > 0) {
+            await tx
+              .delete(documentPendingUpdates)
+              .where(
+                and(
+                  eq(documentPendingUpdates.appKind, contactScope.appKind),
+                  eq(documentPendingUpdates.localId, contactScope.localId),
+                  inArray(documentPendingUpdates.id, uniquePendingUpdateIds),
+                ),
+              )
+              .run();
+          }
 
-        await saveContactRows(
-          tx,
-          addressBookId,
-          {
-            ...record,
-            id: entry.id,
-          },
-          entry,
-          updatedAt,
-        );
-      });
+          await saveContactRows(
+            tx,
+            addressBookId,
+            {
+              ...record,
+              id: entry.id,
+            },
+            entry,
+            updatedAt,
+          );
+        },
+      );
     });
   },
   async deleteContact(execSql, addressBookId, contactId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        await tx
-          .delete(addressBookProjection)
-          .where(
-            and(
-              eq(addressBookProjection.addressBookId, addressBookId),
-              eq(addressBookProjection.contactId, contactId),
-            ),
-          )
-          .run();
-        await deleteDocumentRecord(lockedExecSql, getContactScope(contactId));
-        await deleteDocumentPendingUpdates(
-          lockedExecSql,
-          getContactScope(contactId),
-        );
-      });
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          await tx
+            .delete(addressBookProjection)
+            .where(
+              and(
+                eq(addressBookProjection.addressBookId, addressBookId),
+                eq(addressBookProjection.contactId, contactId),
+              ),
+            )
+            .run();
+          await deleteDocumentRecord(lockedExecSql, getContactScope(contactId));
+          await deleteDocumentPendingUpdates(
+            lockedExecSql,
+            getContactScope(contactId),
+          );
+        },
+      );
     });
   },
   async listPendingUpdates(execSql, contactId) {

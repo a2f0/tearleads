@@ -20,8 +20,8 @@ import {
   containerSyncWatermarkLaneKey,
   sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
-import { getClientDatabaseRuntime } from "../../data/sqlite/clientDatabaseRuntime";
 import { containers } from "../../data/sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export type ExplorerContainerShareAccessLevel = ContainerAccessLevel;
@@ -160,7 +160,7 @@ async function loadLocalContainerInfoRecord(input: {
 
   await ensureContainerTables(input.execSql);
 
-  const { db } = getClientDatabaseRuntime(input.execSql);
+  const { db } = getClientSQLitePersistenceRuntime(input.execSql);
   const rows = await db
     .select({
       localCreatedAt: containers.localCreatedAt,

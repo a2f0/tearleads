@@ -4,8 +4,8 @@ import type {
 } from "@tearleads/validators/response";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
-import { getClientDatabaseRuntime } from "../sqlite/clientDatabaseRuntime";
 import { principalPolicies, principalPolicyTables } from "../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 
 interface PrincipalPolicyRow {
@@ -101,7 +101,7 @@ export async function loadPrincipalPolicyBundle(
   principalId: string,
 ): Promise<PrincipalPolicyBundleResponse | null> {
   await ensurePrincipalPolicyTables(execSql);
-  const { db } = getClientDatabaseRuntime(execSql);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select(principalPolicyBundleSelection)
     .from(principalPolicies)
@@ -121,7 +121,7 @@ export async function loadAllPrincipalPolicyBundles(
   execSql: ExecSql,
 ): Promise<PrincipalPolicyBundleResponse[]> {
   await ensurePrincipalPolicyTables(execSql);
-  const { db } = getClientDatabaseRuntime(execSql);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select(principalPolicyBundleSelection)
     .from(principalPolicies)
@@ -151,7 +151,7 @@ export async function loadPrincipalPolicyStateHash(
   principalId: string,
 ): Promise<string | null> {
   await ensurePrincipalPolicyTables(execSql);
-  const { db } = getClientDatabaseRuntime(execSql);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({ stateHash: principalPolicies.stateHash })
     .from(principalPolicies)
@@ -185,7 +185,7 @@ export async function savePrincipalPolicyBundle(
     updatedAt,
   };
 
-  await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
       .insert(principalPolicies)
       .values(nextRow)

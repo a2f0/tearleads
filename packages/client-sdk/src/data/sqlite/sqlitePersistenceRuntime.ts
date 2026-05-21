@@ -18,7 +18,7 @@ export type ClientSQLiteTransaction = Parameters<
   Parameters<ClientSQLiteDatabase["transaction"]>[0]
 >[0];
 
-export interface ClientDatabaseRuntime {
+export interface ClientSQLitePersistenceRuntime {
   db: ClientSQLiteDatabase;
   execSql: ExecSql;
   runMutation<T>(
@@ -29,7 +29,7 @@ export interface ClientDatabaseRuntime {
   ): Promise<T>;
 }
 
-const runtimeByExecSql = new WeakMap<ExecSql, ClientDatabaseRuntime>();
+const runtimeByExecSql = new WeakMap<ExecSql, ClientSQLitePersistenceRuntime>();
 const execSqlByClient = new WeakMap<ExecSqlClientLike, ExecSql>();
 
 function toSqlRowValue(value: unknown): SqlRowValue {
@@ -72,7 +72,9 @@ function createClientSQLiteDatabase(
   });
 }
 
-function createRuntimeForExecSql(execSql: ExecSql): ClientDatabaseRuntime {
+function createRuntimeForExecSql(
+  execSql: ExecSql,
+): ClientSQLitePersistenceRuntime {
   let activeExecSql = execSql;
   const db = createClientSQLiteDatabase(() => activeExecSql);
 
@@ -90,7 +92,7 @@ function createRuntimeForExecSql(execSql: ExecSql): ClientDatabaseRuntime {
     }
   }
 
-  const runtime: ClientDatabaseRuntime = {
+  const runtime: ClientSQLitePersistenceRuntime = {
     db,
     execSql,
     runMutation(operation) {
@@ -109,20 +111,20 @@ function createRuntimeForExecSql(execSql: ExecSql): ClientDatabaseRuntime {
   return runtime;
 }
 
-export function getClientDatabaseRuntime(
+export function getClientSQLitePersistenceRuntime(
   execSql: ExecSql,
-): ClientDatabaseRuntime {
+): ClientSQLitePersistenceRuntime {
   return runtimeByExecSql.get(execSql) ?? createRuntimeForExecSql(execSql);
 }
 
-export function createClientDatabaseRuntime(
+export function createClientSQLitePersistenceRuntime(
   client: ExecSqlClientLike,
-): ClientDatabaseRuntime {
+): ClientSQLitePersistenceRuntime {
   let execSql = execSqlByClient.get(client);
   if (!execSql) {
     execSql = createExecSql(client);
     execSqlByClient.set(client, execSql);
   }
 
-  return getClientDatabaseRuntime(execSql);
+  return getClientSQLitePersistenceRuntime(execSql);
 }

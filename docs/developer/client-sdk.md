@@ -12,10 +12,13 @@ Create one SDK instance for the active client environment:
 
 ```ts
 import { Tearleads } from "@tearleads/client-sdk";
-import { createModuleDatabaseRuntime } from "@tearleads/sqlite-worker/runtime";
+import {
+  createModuleSQLiteWorkerRuntime,
+  type SQLiteWorkerRuntime,
+} from "@tearleads/client-sdk/sqlite";
 
-const databaseRuntime = createModuleDatabaseRuntime();
-await databaseRuntime.client.init({
+const sqliteRuntime: SQLiteWorkerRuntime = createModuleSQLiteWorkerRuntime();
+await sqliteRuntime.client.init({
   dbName: "/app-identity.db",
   cipher: "chacha20",
   key: "development-key", // For development only. Do not use in production.
@@ -24,8 +27,8 @@ await databaseRuntime.client.init({
 const tearleads = new Tearleads({
   apiBaseUrl: "http://localhost:3000",
   database: {
-    client: databaseRuntime.client,
-    id: databaseRuntime.id,
+    client: sqliteRuntime.client,
+    id: sqliteRuntime.id,
     status: "ready",
   },
   logger: {
@@ -109,6 +112,19 @@ Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.
 
+Browser and Electron hosts should create worker-backed SQLite runtimes through
+the SDK SQLite facade:
+
+```ts
+import { createModuleSQLiteWorkerRuntime } from "@tearleads/client-sdk/sqlite";
+```
+
+`SQLiteWorkerRuntime` is the host lifecycle object with `{ id, client,
+destroy() }`. The lower-level `@tearleads/sqlite-worker` package still owns the
+worker thread implementation, but host application code should prefer the SDK
+facade so database setup, executor contracts, and workflow runtime integration
+stay behind one developer-facing package.
+
 Identity setup is asynchronous because the signing fingerprint is derived from
 the public key:
 
@@ -143,7 +159,7 @@ Supported package entry points are:
 | --- | --- |
 | `@tearleads/client-sdk` | `Tearleads` and top-level SDK service types |
 | `@tearleads/client-sdk/documents` | neutral document/blob contracts and document projector helpers |
-| `@tearleads/client-sdk/sqlite` | SQLite executor contracts and adapter helpers |
+| `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
 | `@tearleads/client-sdk/stores/documents` | React-free document store facade |
 | `@tearleads/client-sdk/workflows/blobs` | blob upload, hydration, and local blob stores |
 | `@tearleads/client-sdk/workflows/contacts` | contacts runtime and read/write helpers |

@@ -1,9 +1,9 @@
 import { asc, eq, inArray } from "drizzle-orm";
-import { getClientDatabaseRuntime } from "../../sqlite/clientDatabaseRuntime";
 import {
   documentContainerProjection,
   documentContainerProjectionTables,
 } from "../../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 interface DocumentContainerProjectionPersistence {
@@ -41,7 +41,7 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
     },
     async listLinkedContainerIds(execSql, documentId) {
       await ensureSqlTables(execSql, documentContainerProjectionTables);
-      const { db } = getClientDatabaseRuntime(execSql);
+      const { db } = getClientSQLitePersistenceRuntime(execSql);
       const rows = await db
         .select({ containerId: documentContainerProjection.containerId })
         .from(documentContainerProjection)
@@ -57,7 +57,7 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
         return new Map();
       }
 
-      const { db } = getClientDatabaseRuntime(execSql);
+      const { db } = getClientSQLitePersistenceRuntime(execSql);
       const rows = await db
         .select({
           documentId: documentContainerProjection.documentId,
@@ -93,7 +93,7 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
         return [];
       }
 
-      const { db } = getClientDatabaseRuntime(execSql);
+      const { db } = getClientSQLitePersistenceRuntime(execSql);
       const rows = await db
         .selectDistinct({ documentId: documentContainerProjection.documentId })
         .from(documentContainerProjection)
@@ -140,18 +140,20 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
           })),
       );
 
-      await getClientDatabaseRuntime(execSql).transaction(async (tx) => {
-        await tx
-          .delete(documentContainerProjection)
-          .where(inArray(documentContainerProjection.documentId, documentIds))
-          .run();
-
-        if (projectionRows.length > 0) {
+      await getClientSQLitePersistenceRuntime(execSql).transaction(
+        async (tx) => {
           await tx
-            .insert(documentContainerProjection)
-            .values(projectionRows)
+            .delete(documentContainerProjection)
+            .where(inArray(documentContainerProjection.documentId, documentIds))
             .run();
-        }
-      });
+
+          if (projectionRows.length > 0) {
+            await tx
+              .insert(documentContainerProjection)
+              .values(projectionRows)
+              .run();
+          }
+        },
+      );
     },
   };
