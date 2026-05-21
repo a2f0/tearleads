@@ -8,6 +8,10 @@ import {
   primeExplorerDocumentsForContainerSubtree,
 } from "./documentReadModel";
 import { createExplorerWorkflowSqlRuntime } from "./runtime";
+import {
+  createExplorerObjectSyncState,
+  syncedExplorerObjectSyncState,
+} from "./syncState";
 
 async function saveTestContainer(input: {
   execSql: Parameters<typeof defaultExplorerPersistence.saveContainer>[0];
@@ -138,6 +142,7 @@ test("listContainerItemWindow pages and sorts container rows from SQLite", async
           itemKind: "document",
           localId: "song-2",
           name: "Newest song",
+          syncState: syncedExplorerObjectSyncState,
           updatedAt: "2026-05-04T00:00:00.000Z",
         },
         {
@@ -148,6 +153,7 @@ test("listContainerItemWindow pages and sorts container rows from SQLite", async
           itemKind: "document",
           localId: "song-1",
           name: "Older song",
+          syncState: syncedExplorerObjectSyncState,
           updatedAt: "2026-05-03T00:00:00.000Z",
         },
       ],
@@ -309,6 +315,7 @@ test("listContainerDocumentSidebarWindow pages container document rows from SQLi
           documentId: "remote-song-2",
           documentKind: "drivers_license",
           localId: "song-2",
+          syncState: syncedExplorerObjectSyncState,
           title: "Newest song",
           updatedAt: "2026-05-04T00:00:00.000Z",
         },
@@ -317,6 +324,7 @@ test("listContainerDocumentSidebarWindow pages container document rows from SQLi
           documentId: "remote-song-3",
           documentKind: "note",
           localId: "song-3",
+          syncState: syncedExplorerObjectSyncState,
           title: "Middle song",
           updatedAt: "2026-05-03T12:00:00.000Z",
         },
@@ -415,6 +423,54 @@ test("loadDocumentSummary loads a single document projection by local id", async
       updatedAt: "2026-05-03T00:00:00.000Z",
     });
     await expect(readModel.loadDocumentSummary("missing-song")).resolves.toBe(
+      null,
+    );
+  } finally {
+    close();
+  }
+});
+
+test("loadDocumentSyncState summarizes pending document work", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "explorer-load-document-sync-state",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const runtime = createExplorerWorkflowSqlRuntime({ execSql });
+    const readModel = createExplorerDocumentReadModelFromRuntime(runtime);
+
+    await saveTestDocument({
+      containerId: "root-container",
+      documentId: "remote-song-1",
+      execSql,
+      id: "song-1",
+      title: "Song 1",
+      updatedAt: "2026-05-03T00:00:00.000Z",
+    });
+    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+      localId: "song-1",
+      partialEndVersionVector: "{}",
+      partialStartVersionVector: "{}",
+      sourceVersionVector: null,
+      updateData: "update",
+    });
+    await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      byteLength: 123_456,
+      localId: "song-1",
+      mimeType: "audio/mpeg",
+      name: "song.mp3",
+      slotId: "song-file",
+      storageKey: "local-blob-1",
+    });
+
+    await expect(readModel.loadDocumentSyncState("song-1")).resolves.toEqual(
+      createExplorerObjectSyncState({
+        pendingAttachmentBytes: 123_456,
+        pendingAttachmentCount: 1,
+        pendingUpdateCount: 1,
+      }),
+    );
+    await expect(readModel.loadDocumentSyncState("missing-song")).resolves.toBe(
       null,
     );
   } finally {

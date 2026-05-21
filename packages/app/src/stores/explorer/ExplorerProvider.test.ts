@@ -9,6 +9,7 @@ import {
 import {
   createExplorerContainerDocumentsSyncLane,
   createExplorerContainerParentSyncLane,
+  createExplorerObjectSyncState,
   createExplorerWorkflowRuntime,
   createInitializedContainerMetadataDocument,
   defaultExplorerPersistence,
@@ -734,6 +735,10 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
           name: "/",
           organizationId: "org-1",
           parentId: null,
+          syncState: createExplorerObjectSyncState({
+            localOnly: true,
+            pendingUpdateCount: 1,
+          }),
           updatedAt: expect.any(String),
         },
       ],

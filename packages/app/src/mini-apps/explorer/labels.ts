@@ -49,6 +49,7 @@ export const EXPLORER_LABELS = {
   fileImportStoreNotReady: "Document store was not ready.",
   folderType: "Folder",
   itemNameColumn: "Name",
+  itemSyncColumn: "Sync",
   itemTableEmpty: "No items.",
   itemTypeColumn: "Type",
   linkedContainerActiveBadge: "Active",
@@ -57,8 +58,64 @@ export const EXPLORER_LABELS = {
   linkedContainerDetachingAction: "Detaching...",
   linkedContainerMakeActiveAction: "Make Active",
   linkedContainersHeading: "Linked Containers",
+  syncStateError: "Error",
+  syncStateBlobCountOne: "blob",
+  syncStateBlobCountOther: "blobs",
+  syncStateLocal: "Local",
+  syncStateOffline: "Offline",
+  syncStatePending: "Pending",
+  syncStatePendingBlobCountOne: "pending blob",
+  syncStatePendingBlobCountOther: "pending blobs",
+  syncStatePendingUpdateCountOne: "pending update",
+  syncStatePendingUpdateCountOther: "pending updates",
+  syncStateSynced: "Synced",
   unknownDate: "Unknown",
 } as const;
+
+const EXPLORER_COUNT_FORMATTER = new Intl.NumberFormat();
+const EXPLORER_PLURAL_RULES = new Intl.PluralRules();
+
+function getExplorerPluralLabel(
+  value: number,
+  labels: { one: string; other: string },
+): string {
+  return EXPLORER_PLURAL_RULES.select(value) === "one"
+    ? labels.one
+    : labels.other;
+}
+
+function formatExplorerCountLabel(
+  value: number,
+  labels: { one: string; other: string },
+): string {
+  return `${EXPLORER_COUNT_FORMATTER.format(value)} ${getExplorerPluralLabel(value, labels)}`;
+}
+
+export function getExplorerSyncBlobCountLabel(value: number): string {
+  return formatExplorerCountLabel(value, {
+    one: EXPLORER_LABELS.syncStateBlobCountOne,
+    other: EXPLORER_LABELS.syncStateBlobCountOther,
+  });
+}
+
+export function getExplorerSyncPendingUpdateCountLabel(value: number): string {
+  return formatExplorerCountLabel(value, {
+    one: EXPLORER_LABELS.syncStatePendingUpdateCountOne,
+    other: EXPLORER_LABELS.syncStatePendingUpdateCountOther,
+  });
+}
+
+export function getExplorerSyncPendingBlobCountLabel(
+  value: number,
+  byteLength: number,
+): string {
+  const label = formatExplorerCountLabel(value, {
+    one: EXPLORER_LABELS.syncStatePendingBlobCountOne,
+    other: EXPLORER_LABELS.syncStatePendingBlobCountOther,
+  });
+
+  return byteLength > 0 ? `${label} (${formatByteLength(byteLength)})` : label;
+}
 
 export function getExplorerActivateLinkedContainerError(
   containerName: string,

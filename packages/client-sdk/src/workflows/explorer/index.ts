@@ -100,3 +100,11 @@ export {
   isDestroyedExplorerSyncRuntimeError,
   registerExplorerSyncLane,
 } from "./syncLane";
+export type {
+  ExplorerObjectSyncState,
+  ExplorerObjectSyncStatus,
+} from "./syncState";
+export {
+  createExplorerObjectSyncState,
+  syncedExplorerObjectSyncState,
+} from "./syncState";

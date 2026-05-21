@@ -31,6 +31,7 @@ import type {
 import type { ContainerNode } from "../../../stores/explorer/types";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
+import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../hooks/useExplorerContainerFileDropTarget";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 
@@ -115,6 +116,11 @@ function getExplorerItemTableColumns(params: {
       id: "type",
       header: sortableHeader("type", EXPLORER_LABELS.itemTypeColumn),
       width: "8rem",
+    },
+    {
+      id: "sync",
+      header: EXPLORER_LABELS.itemSyncColumn,
+      width: "7rem",
     },
     {
       ariaSort: getSortAria(sort, "created"),
@@ -347,6 +353,47 @@ function ExplorerContainerItemName(params: {
   );
 }
 
+function ExplorerContainerItemTableRow(params: {
+  online: boolean;
+  row: ExplorerContainerItemRow;
+  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  setSelectedId: (id: string | null) => void;
+}) {
+  const { online, row, selectDocumentProjection, setSelectedId } = params;
+
+  return (
+    <MiniAppTableRow>
+      <MiniAppTableCell>
+        <ExplorerContainerItemName
+          row={row}
+          selectDocumentProjection={selectDocumentProjection}
+          setSelectedId={setSelectedId}
+        />
+      </MiniAppTableCell>
+      <MiniAppTableCell>
+        {getExplorerContainerItemTypeLabel(row)}
+      </MiniAppTableCell>
+      <MiniAppTableCell>
+        <ExplorerSyncStateBadge
+          online={online}
+          showSynced
+          syncState={row.syncState}
+        />
+      </MiniAppTableCell>
+      <MiniAppTableCell title={row.createdAt ?? undefined}>
+        {formatMiniAppDateTime(row.createdAt, {
+          emptyFallback: EXPLORER_LABELS.unknownDate,
+        })}
+      </MiniAppTableCell>
+      <MiniAppTableCell title={row.updatedAt ?? undefined}>
+        {formatMiniAppDateTime(row.updatedAt, {
+          emptyFallback: EXPLORER_LABELS.unknownDate,
+        })}
+      </MiniAppTableCell>
+    </MiniAppTableRow>
+  );
+}
+
 function ExplorerContainerItemTable(params: {
   dragActive: boolean;
   error: string | null;
@@ -357,6 +404,7 @@ function ExplorerContainerItemTable(params: {
   handleDrop: (event: DragEvent<HTMLElement>) => void;
   isImporting: boolean;
   isLoading: boolean;
+  online: boolean;
   onSort: (key: ExplorerContainerItemSortKey) => void;
   rows: ReadonlyArray<ExplorerContainerItemRow>;
   rowOffset: number;
@@ -376,6 +424,7 @@ function ExplorerContainerItemTable(params: {
     handleDrop,
     isImporting,
     isLoading,
+    online,
     onSort,
     rows,
     rowOffset,
@@ -422,28 +471,13 @@ function ExplorerContainerItemTable(params: {
         ) : null}
         {rows.length > 0 ? (
           rows.map((row) => (
-            <MiniAppTableRow key={getExplorerContainerItemRowKey(row)}>
-              <MiniAppTableCell>
-                <ExplorerContainerItemName
-                  row={row}
-                  selectDocumentProjection={selectDocumentProjection}
-                  setSelectedId={setSelectedId}
-                />
-              </MiniAppTableCell>
-              <MiniAppTableCell>
-                {getExplorerContainerItemTypeLabel(row)}
-              </MiniAppTableCell>
-              <MiniAppTableCell title={row.createdAt ?? undefined}>
-                {formatMiniAppDateTime(row.createdAt, {
-                  emptyFallback: EXPLORER_LABELS.unknownDate,
-                })}
-              </MiniAppTableCell>
-              <MiniAppTableCell title={row.updatedAt ?? undefined}>
-                {formatMiniAppDateTime(row.updatedAt, {
-                  emptyFallback: EXPLORER_LABELS.unknownDate,
-                })}
-              </MiniAppTableCell>
-            </MiniAppTableRow>
+            <ExplorerContainerItemTableRow
+              key={getExplorerContainerItemRowKey(row)}
+              online={online}
+              row={row}
+              selectDocumentProjection={selectDocumentProjection}
+              setSelectedId={setSelectedId}
+            />
           ))
         ) : isLoading ? (
           <MiniAppTableEmptyRow colSpan={columns.length}>
@@ -473,6 +507,48 @@ function ExplorerContainerItemTable(params: {
   );
 }
 
+function ExplorerContainerDetailHeader(params: {
+  online: boolean;
+  openInlineDocument: (
+    containerId: string,
+    documentKind: StoredDocumentKind,
+    localId?: string,
+  ) => void;
+  selectedNode: ContainerNode;
+}) {
+  const { online, openInlineDocument, selectedNode } = params;
+
+  return (
+    <div className="explorer-detail-header">
+      <div className="explorer-detail-copy">
+        <div className="explorer-detail-title-row">
+          <strong>{selectedNode.name}</strong>
+          <ExplorerSyncStateBadge
+            online={online}
+            showSynced
+            syncState={selectedNode.syncState}
+          />
+        </div>
+        <span>{EXPLORER_LABELS.folderType}</span>
+      </div>
+      <div className="explorer-detail-actions">
+        {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
+          <button
+            type="button"
+            key={definition.kind}
+            className="explorer-action-button"
+            onClick={() => {
+              openInlineDocument(selectedNode.id, definition.kind);
+            }}
+          >
+            {definition.createLabel}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ExplorerContainerDetail(params: {
   documentListRevision: number;
   documentReadModel: ExplorerDocumentReadModel;
@@ -482,6 +558,7 @@ export function ExplorerContainerDetail(params: {
     documentKind: StoredDocumentKind,
     localId?: string,
   ) => void;
+  online: boolean;
   refreshError: string | null;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedNode: ContainerNode;
@@ -492,6 +569,7 @@ export function ExplorerContainerDetail(params: {
     documentReadModel,
     importDroppedFiles,
     openInlineDocument,
+    online,
     refreshError,
     selectDocumentProjection,
     selectedNode,
@@ -532,26 +610,11 @@ export function ExplorerContainerDetail(params: {
       className="explorer-detail explorer-detail--container"
       key={selectedNode.id}
     >
-      <div className="explorer-detail-header">
-        <div className="explorer-detail-copy">
-          <strong>{selectedNode.name}</strong>
-          <span>{EXPLORER_LABELS.folderType}</span>
-        </div>
-        <div className="explorer-detail-actions">
-          {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
-            <button
-              type="button"
-              key={definition.kind}
-              className="explorer-action-button"
-              onClick={() => {
-                openInlineDocument(selectedNode.id, definition.kind);
-              }}
-            >
-              {definition.createLabel}
-            </button>
-          ))}
-        </div>
-      </div>
+      <ExplorerContainerDetailHeader
+        online={online}
+        openInlineDocument={openInlineDocument}
+        selectedNode={selectedNode}
+      />
       {refreshError ? (
         <span className="explorer-detail-error">{refreshError}</span>
       ) : null}
@@ -576,6 +639,7 @@ export function ExplorerContainerDetail(params: {
         handleDrop={fileDropTarget.handleDrop}
         isImporting={fileDropTarget.isImporting}
         isLoading={itemWindow.isLoading}
+        online={online}
         onSort={handleSort}
         rowOffset={rowOffset}
         rows={rows}

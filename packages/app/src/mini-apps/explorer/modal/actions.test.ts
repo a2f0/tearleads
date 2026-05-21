@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { syncedExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/explorer";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   type ExplorerModalSubmitParams,
@@ -11,6 +12,7 @@ const containerNode: ContainerNode = {
   name: "Container",
   organizationId: "organization-1",
   parentId: "root-container",
+  syncState: syncedExplorerObjectSyncState,
 };
 
 function createSubmitParams(

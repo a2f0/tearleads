@@ -3,11 +3,17 @@ import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk/documents";
-import { useState } from "react";
+import { createExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/explorer";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../document-types/registry";
+import type {
+  ExplorerDocumentReadModel,
+  ExplorerObjectSyncState,
+} from "../../../stores/explorer/documentReadModel";
 import type { ContainerNode } from "../../../stores/explorer/types";
+import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import {
   EXPLORER_LABELS,
   getExplorerActivateLinkedContainerError,
@@ -370,6 +376,57 @@ function ExplorerLinkedContainerSection(params: {
   );
 }
 
+function useSelectedDocumentSyncState(params: {
+  documentListRevision: number;
+  documentReadModel: ExplorerDocumentReadModel;
+  selectedDocument: DocumentSummary;
+}): ExplorerObjectSyncState {
+  const { documentListRevision, documentReadModel, selectedDocument } = params;
+  const fallbackSyncState = useMemo(
+    () =>
+      createExplorerObjectSyncState({
+        localOnly: selectedDocument.documentId === null,
+      }),
+    [selectedDocument.documentId],
+  );
+  const [syncState, setSyncState] = useState(fallbackSyncState);
+  const selectedDocumentIdRef = useRef(selectedDocument.id);
+
+  useEffect(() => {
+    let cancelled = false;
+    const selectedDocumentChanged =
+      selectedDocumentIdRef.current !== selectedDocument.id;
+    selectedDocumentIdRef.current = selectedDocument.id;
+    if (selectedDocumentChanged) {
+      setSyncState(fallbackSyncState);
+    }
+
+    void documentReadModel
+      .loadDocumentSyncState(selectedDocument.id)
+      .then((nextSyncState) => {
+        if (!cancelled && nextSyncState) {
+          setSyncState(nextSyncState);
+        }
+      })
+      .catch(() => {
+        if (!cancelled && selectedDocumentChanged) {
+          setSyncState(fallbackSyncState);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    documentListRevision,
+    documentReadModel,
+    fallbackSyncState,
+    selectedDocument.id,
+  ]);
+
+  return syncState;
+}
+
 export function ExplorerDocumentDetail(params: {
   activateLinkedContainer: (
     noteId: string,
@@ -379,8 +436,11 @@ export function ExplorerDocumentDetail(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
+  documentListRevision: number;
+  documentReadModel: ExplorerDocumentReadModel;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
+  online: boolean;
   openLinkDocumentModal: (noteId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
   refreshError: string | null;
@@ -397,6 +457,11 @@ export function ExplorerDocumentDetail(params: {
         (node) => node.id === params.selectedDocument.containerId,
       )
     : null;
+  const selectedDocumentSyncState = useSelectedDocumentSyncState({
+    documentListRevision: params.documentListRevision,
+    documentReadModel: params.documentReadModel,
+    selectedDocument: params.selectedDocument,
+  });
   const SelectedDocumentApp =
     getDocumentTypeDefinition(selectedDocumentKind).App;
 
@@ -407,7 +472,14 @@ export function ExplorerDocumentDetail(params: {
     >
       <div className="explorer-detail-header">
         <div className="explorer-detail-copy">
-          <strong>{params.selectedDocument.title}</strong>
+          <div className="explorer-detail-title-row">
+            <strong>{params.selectedDocument.title}</strong>
+            <ExplorerSyncStateBadge
+              online={params.online}
+              showSynced
+              syncState={selectedDocumentSyncState}
+            />
+          </div>
           <span>
             {getExplorerDocumentSubtitle({
               containerName: selectedDocumentContainer?.name ?? null,

@@ -48,6 +48,7 @@ function createDocumentReadModel(): ExplorerDocumentReadModel {
       totalCount: 0,
     }),
     listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
+    loadDocumentSyncState: async () => null,
     loadDocumentSummary: async () => null,
     loadContainerDocumentWatermark: async () => null,
     listLinkedContainerIdsByDocumentIds: async () => new Map(),
