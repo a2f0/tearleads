@@ -2,6 +2,7 @@ import type {
   DocumentSummary,
   StoredDocumentKind,
 } from "@tearleads/client-sdk/documents";
+import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
@@ -22,13 +23,13 @@ function ExplorerEmptyDetail(params: {
   const { nodes, ready } = params;
 
   return (
-    <div className="explorer-hint">
+    <MiniAppStatus>
       {ready && nodes.length > 0
         ? "Select a container."
         : !ready
           ? "Loading..."
           : "No containers."}
-    </div>
+    </MiniAppStatus>
   );
 }
 

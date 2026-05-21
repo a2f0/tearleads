@@ -7,6 +7,7 @@ import {
   type TdHTMLAttributes,
   type ThHTMLAttributes,
 } from "react";
+import { classNames } from "./classNames";
 import "./MiniAppTable.css";
 
 export interface MiniAppTableColumn {
@@ -31,11 +32,10 @@ type MiniAppTableTextProps = HTMLAttributes<HTMLSpanElement> & {
   truncate?: boolean | undefined;
 };
 
-function classNames(
-  ...values: Array<string | false | null | undefined>
-): string {
-  return values.filter((value) => Boolean(value)).join(" ");
-}
+type MiniAppTableRowProps = HTMLAttributes<HTMLTableRowElement> & {
+  interactive?: boolean | undefined;
+  selected?: boolean | undefined;
+};
 
 export const MiniAppTableFrame = forwardRef<
   HTMLDivElement,
@@ -89,12 +89,20 @@ export const MiniAppTable = forwardRef<HTMLTableElement, MiniAppTableProps>(
 
 export const MiniAppTableRow = forwardRef<
   HTMLTableRowElement,
-  HTMLAttributes<HTMLTableRowElement>
->(function MiniAppTableRow({ className, ...props }, ref) {
+  MiniAppTableRowProps
+>(function MiniAppTableRow(
+  { className, interactive = false, selected = false, ...props },
+  ref,
+) {
   return (
     <tr
       {...props}
-      className={classNames("mini-app-table-row", className)}
+      className={classNames(
+        "mini-app-table-row",
+        interactive && "mini-app-table-row--interactive",
+        selected && "mini-app-table-row--selected",
+        className,
+      )}
       ref={ref}
     />
   );

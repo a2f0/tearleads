@@ -8,6 +8,14 @@ import {
   useState,
 } from "react";
 import {
+  MiniAppButton,
+  MiniAppInput,
+  MiniAppRoot,
+  MiniAppSection,
+  MiniAppSectionHeading,
+  MiniAppStatus,
+} from "../../components/shared/MiniAppLayout";
+import {
   MiniAppRow,
   MiniAppRowButton,
   MiniAppRowStack,
@@ -139,14 +147,6 @@ type OrgManagerGroupPolicyHistoryEntry =
   OrgManagerGroupPolicyHistory["entries"][number];
 type OrgManagerPrincipalMemberChange =
   OrgManagerGroupPolicyHistoryEntry["changes"][number];
-
-function classNames(
-  ...values: Array<string | false | null | undefined>
-): string | undefined {
-  const result = values.filter((value) => Boolean(value)).join(" ");
-
-  return result.length > 0 ? result : undefined;
-}
 
 function userRecipient(user: OrgManagerDirectoryUser): OrgManagerUserRecipient {
   return {
@@ -466,17 +466,19 @@ function DirectoryTable({
 }) {
   if (!directory) {
     return (
-      <div className="org-manager-hint">
+      <MiniAppStatus className="org-manager-hint">
         {loading
           ? ORG_MANAGER_LABELS.loadingDirectory
           : ORG_MANAGER_LABELS.directoryUnavailable}
-      </div>
+      </MiniAppStatus>
     );
   }
 
   if (directory.users.length === 0) {
     return (
-      <div className="org-manager-hint">{ORG_MANAGER_LABELS.noDirectUsers}</div>
+      <MiniAppStatus className="org-manager-hint">
+        {ORG_MANAGER_LABELS.noDirectUsers}
+      </MiniAppStatus>
     );
   }
 
@@ -503,13 +505,11 @@ function DirectoryTable({
           return (
             <MiniAppTableRow
               aria-selected={selectUser ? isSelected : undefined}
-              className={classNames(
-                selectUser && "org-manager-user-row--interactive",
-                isSelected && "org-manager-user-row--selected",
-              )}
+              interactive={Boolean(selectUser)}
               key={user.userId}
               onClick={selectUser ? openUserDetail : undefined}
               onKeyDown={selectUser ? handleUserRowKeyDown : undefined}
+              selected={isSelected}
               tabIndex={selectUser ? 0 : undefined}
             >
               <MiniAppTableCell>
@@ -548,7 +548,9 @@ function GroupList({
 }) {
   if (groups.length === 0) {
     return (
-      <div className="org-manager-hint">{ORG_MANAGER_LABELS.noGroups}</div>
+      <MiniAppStatus className="org-manager-hint">
+        {ORG_MANAGER_LABELS.noGroups}
+      </MiniAppStatus>
     );
   }
 
@@ -597,9 +599,9 @@ function GroupMembers({
 }) {
   if (members.length === 0) {
     return (
-      <div className="org-manager-hint">
+      <MiniAppStatus className="org-manager-hint">
         {ORG_MANAGER_LABELS.noGroupMembers}
-      </div>
+      </MiniAppStatus>
     );
   }
 
@@ -635,13 +637,12 @@ function GroupMembers({
               <MiniAppRowText muted>{member.role}</MiniAppRowText>
             </MiniAppRowStack>
             {member.memberPrincipalType === "user" && (
-              <button
+              <MiniAppButton
                 disabled={!canRemove || mutating}
                 onClick={() => removeMember(member.memberPrincipalId)}
-                type="button"
               >
                 {ORG_MANAGER_LABELS.remove}
-              </button>
+              </MiniAppButton>
             )}
           </MiniAppRow>
         );
@@ -661,17 +662,17 @@ function PolicyHistory({
 }) {
   if (!history) {
     return (
-      <div className="org-manager-hint">
+      <MiniAppStatus className="org-manager-hint">
         {ORG_MANAGER_LABELS.policyHistoryUnavailable}
-      </div>
+      </MiniAppStatus>
     );
   }
 
   if (history.entries.length === 0) {
     return (
-      <div className="org-manager-hint">
+      <MiniAppStatus className="org-manager-hint">
         {ORG_MANAGER_LABELS.noPolicyHistory}
-      </div>
+      </MiniAppStatus>
     );
   }
 
@@ -729,9 +730,9 @@ function GroupContainers({
 }) {
   if (containers.length === 0) {
     return (
-      <div className="org-manager-hint">
+      <MiniAppStatus className="org-manager-hint">
         {ORG_MANAGER_LABELS.noDirectContainerLinks}
-      </div>
+      </MiniAppStatus>
     );
   }
 
@@ -783,7 +784,9 @@ function GrantTable({
   revokeGrant: (grant: OrgManagerContainerGrant) => void;
 }) {
   if (grants.length === 0) {
-    return <div className="org-manager-hint">{emptyLabel}</div>;
+    return (
+      <MiniAppStatus className="org-manager-hint">{emptyLabel}</MiniAppStatus>
+    );
   }
 
   return (
@@ -806,9 +809,7 @@ function GrantTable({
 
           return (
             <MiniAppTableRow
-              className={
-                isGroupGrant ? "org-manager-grant-row--interactive" : undefined
-              }
+              interactive={isGroupGrant}
               key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
               onClick={isGroupGrant ? openGrantGroupRoute : undefined}
               onKeyDown={isGroupGrant ? handleGrantRowKeyDown : undefined}
@@ -835,7 +836,8 @@ function GrantTable({
                 </MiniAppTableText>
               </MiniAppTableCell>
               <MiniAppTableCell>
-                <button
+                <MiniAppButton
+                  block
                   className="org-manager-grant-revoke-button"
                   disabled={!canRevokeGrant || mutating}
                   onClick={(event) => {
@@ -847,7 +849,7 @@ function GrantTable({
                   {grant.isBuiltin
                     ? ORG_MANAGER_LABELS.builtIn
                     : ORG_MANAGER_LABELS.revoke}
-                </button>
+                </MiniAppButton>
               </MiniAppTableCell>
             </MiniAppTableRow>
           );
@@ -956,11 +958,11 @@ function GrantsView({
 }) {
   if (!grants) {
     return (
-      <div className="org-manager-hint">
+      <MiniAppStatus className="org-manager-hint">
         {loading
           ? ORG_MANAGER_LABELS.loadingGrants
           : ORG_MANAGER_LABELS.grantsUnavailable}
-      </div>
+      </MiniAppStatus>
     );
   }
 
@@ -975,11 +977,11 @@ function GrantsView({
   );
 
   return (
-    <div className="org-manager-grants">
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+    <div>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.groupContainerLinks}
-        </div>
+        </MiniAppSectionHeading>
         <GrantTable
           canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noGroupContainerLinks}
@@ -989,11 +991,11 @@ function GrantsView({
           openGroupRoute={openGroupRoute}
           revokeGrant={revokeGrant}
         />
-      </section>
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+      </MiniAppSection>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.userContainerLinks}
-        </div>
+        </MiniAppSectionHeading>
         <GrantTable
           canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noUserContainerLinks}
@@ -1003,11 +1005,11 @@ function GrantsView({
           openGroupRoute={openGroupRoute}
           revokeGrant={revokeGrant}
         />
-      </section>
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+      </MiniAppSection>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.organizationContainerLinks}
-        </div>
+        </MiniAppSectionHeading>
         <GrantTable
           canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noOrganizationContainerLinks}
@@ -1017,7 +1019,7 @@ function GrantsView({
           openGroupRoute={openGroupRoute}
           revokeGrant={revokeGrant}
         />
-      </section>
+      </MiniAppSection>
     </div>
   );
 }
@@ -1031,7 +1033,9 @@ function UserGroups({
 }) {
   if (groups.length === 0) {
     return (
-      <div className="org-manager-hint">{ORG_MANAGER_LABELS.noGroups}</div>
+      <MiniAppStatus className="org-manager-hint">
+        {ORG_MANAGER_LABELS.noGroups}
+      </MiniAppStatus>
     );
   }
 
@@ -1075,17 +1079,19 @@ function UserDetailView({
 }) {
   if (!selectedUserId) {
     return (
-      <div className="org-manager-hint">{ORG_MANAGER_LABELS.selectUser}</div>
+      <MiniAppStatus className="org-manager-hint">
+        {ORG_MANAGER_LABELS.selectUser}
+      </MiniAppStatus>
     );
   }
 
   if (!detail) {
     return (
-      <div className="org-manager-hint">
+      <MiniAppStatus className="org-manager-hint">
         {loading
           ? ORG_MANAGER_LABELS.loadingUserDetail
           : ORG_MANAGER_LABELS.userDetailUnavailable}
-      </div>
+      </MiniAppStatus>
     );
   }
 
@@ -1106,16 +1112,16 @@ function UserDetailView({
           {formatMiniAppDate(detail.user.createdAt)}
         </span>
       </div>
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.groups}
-        </div>
+        </MiniAppSectionHeading>
         <UserGroups groups={detail.groups} openGroupRoute={openGroupRoute} />
-      </section>
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+      </MiniAppSection>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.userContainerLinks}
-        </div>
+        </MiniAppSectionHeading>
         <GrantTable
           canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noUserContainerLinks}
@@ -1125,11 +1131,11 @@ function UserDetailView({
           openGroupRoute={openGroupRoute}
           revokeGrant={revokeGrant}
         />
-      </section>
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+      </MiniAppSection>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.groupContainerLinks}
-        </div>
+        </MiniAppSectionHeading>
         <GrantTable
           canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noGroupContainerLinks}
@@ -1139,11 +1145,11 @@ function UserDetailView({
           openGroupRoute={openGroupRoute}
           revokeGrant={revokeGrant}
         />
-      </section>
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+      </MiniAppSection>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.organizationContainerLinks}
-        </div>
+        </MiniAppSectionHeading>
         <GrantTable
           canRevokeGrants={canRevokeGrants}
           emptyLabel={ORG_MANAGER_LABELS.noOrganizationContainerLinks}
@@ -1153,7 +1159,7 @@ function UserDetailView({
           openGroupRoute={openGroupRoute}
           revokeGrant={revokeGrant}
         />
-      </section>
+      </MiniAppSection>
     </>
   );
 }
@@ -1251,30 +1257,30 @@ function DataUsageView({
 }) {
   if (!dataUsage) {
     return (
-      <div className="org-manager-hint">
+      <MiniAppStatus className="org-manager-hint">
         {loading
           ? ORG_MANAGER_LABELS.loadingDataUsage
           : ORG_MANAGER_LABELS.usageUnavailable}
-      </div>
+      </MiniAppStatus>
     );
   }
 
   return (
-    <div className="org-manager-usage">
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+    <div>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.organizationDataUsage}
-        </div>
+        </MiniAppSectionHeading>
         <UsageMetric
           byteLength={dataUsage.totalByteLength}
           detail={ORG_MANAGER_LABELS.usageData}
           label={ORG_MANAGER_LABELS.usageTotal}
         />
-      </section>
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+      </MiniAppSection>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.usageDocuments}
-        </div>
+        </MiniAppSectionHeading>
         <UsageMetric
           byteLength={dataUsage.documents.byteLength}
           detail={`${getUsageCountLabel(
@@ -1288,11 +1294,11 @@ function DataUsageView({
           )}`}
           label={ORG_MANAGER_LABELS.usageDocuments}
         />
-      </section>
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+      </MiniAppSection>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.usageBlobs}
-        </div>
+        </MiniAppSectionHeading>
         <UsageMetric
           byteLength={dataUsage.blobs.byteLength}
           detail={getUsageCountLabel(
@@ -1302,7 +1308,7 @@ function DataUsageView({
           )}
           label={ORG_MANAGER_LABELS.usageBlobs}
         />
-      </section>
+      </MiniAppSection>
     </div>
   );
 }
@@ -1319,7 +1325,7 @@ function OrganizationView({
   policyHistory: OrgManagerPolicyHistory | null;
 }) {
   return (
-    <div className="org-manager-organization">
+    <div>
       <div className="org-manager-detail-header">
         <div>
           <strong>{ORG_MANAGER_LABELS.organization}</strong>
@@ -1328,16 +1334,16 @@ function OrganizationView({
           </span>
         </div>
       </div>
-      <section className="org-manager-detail-section">
-        <div className="org-manager-section-heading">
+      <MiniAppSection>
+        <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.organizationPolicyHistory}
-        </div>
+        </MiniAppSectionHeading>
         <PolicyHistory
           directory={directory}
           groups={groups}
           history={policyHistory}
         />
-      </section>
+      </MiniAppSection>
     </div>
   );
 }
@@ -1947,18 +1953,22 @@ export function OrgManager() {
 
   if (!appData.organizationId || !appData.isAuthenticated) {
     return (
-      <div className="org-manager org-manager--empty">
-        <div className="org-manager-hint">
+      <MiniAppRoot centered>
+        <MiniAppStatus className="org-manager-hint">
           {ORG_MANAGER_LABELS.authenticate}
-        </div>
-      </div>
+        </MiniAppStatus>
+      </MiniAppRoot>
     );
   }
 
   return (
-    <div className="org-manager">
+    <MiniAppRoot>
       <main className="org-manager-main">
-        {error && <div className="org-manager-error">{error}</div>}
+        {error && (
+          <MiniAppStatus className="org-manager-error" tone="error">
+            {error}
+          </MiniAppStatus>
+        )}
         {view === "directory" ? (
           <DirectoryView
             canRevokeGrants={canRevokeGrants}
@@ -1994,23 +2004,22 @@ export function OrgManager() {
           <div className="org-manager-groups">
             <section className="org-manager-panel">
               <div className="org-manager-create-group">
-                <input
+                <MiniAppInput
                   disabled={!canCreateGroup || mutating}
                   onChange={(event) => setGroupNameDraft(event.target.value)}
                   placeholder={ORG_MANAGER_LABELS.groupName}
                   value={groupNameDraft}
                 />
-                <button
+                <MiniAppButton
                   disabled={
                     !canCreateGroup ||
                     mutating ||
                     groupNameDraft.trim().length === 0
                   }
                   onClick={createGroup}
-                  type="button"
                 >
                   {ORG_MANAGER_LABELS.create}
-                </button>
+                </MiniAppButton>
               </div>
               <GroupList
                 groups={groups}
@@ -2037,7 +2046,7 @@ export function OrgManager() {
                     </span>
                   </div>
                   <div className="org-manager-add-user">
-                    <input
+                    <MiniAppInput
                       aria-label={ORG_MANAGER_LABELS.userId}
                       disabled={!canMutateSelectedGroup || mutating}
                       list={addUserListId}
@@ -2054,7 +2063,7 @@ export function OrgManager() {
                         </option>
                       ))}
                     </datalist>
-                    <button
+                    <MiniAppButton
                       disabled={
                         !canMutateSelectedGroup ||
                         mutating ||
@@ -2063,15 +2072,14 @@ export function OrgManager() {
                         memberUserIds.has(addUserId.trim())
                       }
                       onClick={addUser}
-                      type="button"
                     >
                       {ORG_MANAGER_LABELS.add}
-                    </button>
+                    </MiniAppButton>
                   </div>
-                  <div className="org-manager-detail-section">
-                    <div className="org-manager-section-heading">
+                  <MiniAppSection>
+                    <MiniAppSectionHeading>
                       {ORG_MANAGER_LABELS.members}
-                    </div>
+                    </MiniAppSectionHeading>
                     <GroupMembers
                       canMutateGroup={canMutateSelectedGroup}
                       members={members?.members ?? []}
@@ -2079,35 +2087,35 @@ export function OrgManager() {
                       removeMember={removeMember}
                       userId={appData.userId}
                     />
-                  </div>
-                  <div className="org-manager-detail-section">
-                    <div className="org-manager-section-heading">
+                  </MiniAppSection>
+                  <MiniAppSection>
+                    <MiniAppSectionHeading>
                       {ORG_MANAGER_LABELS.policyHistory}
-                    </div>
+                    </MiniAppSectionHeading>
                     <PolicyHistory
                       directory={directory}
                       groups={groups}
                       history={groupPolicyHistory}
                     />
-                  </div>
-                  <div className="org-manager-detail-section">
-                    <div className="org-manager-section-heading">
+                  </MiniAppSection>
+                  <MiniAppSection>
+                    <MiniAppSectionHeading>
                       {ORG_MANAGER_LABELS.directContainerLinks}
-                    </div>
+                    </MiniAppSectionHeading>
                     <GroupContainers
                       containers={groupContainers?.containers ?? []}
                     />
-                  </div>
+                  </MiniAppSection>
                 </>
               ) : (
-                <div className="org-manager-hint">
+                <MiniAppStatus className="org-manager-hint">
                   {ORG_MANAGER_LABELS.selectGroup}
-                </div>
+                </MiniAppStatus>
               )}
             </section>
           </div>
         )}
       </main>
-    </div>
+    </MiniAppRoot>
   );
 }

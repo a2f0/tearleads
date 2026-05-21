@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { MiniAppSidebar } from "../../components/shared/MiniAppLayout";
 import {
   MiniAppRowButton,
   MiniAppRowText,
@@ -20,43 +21,38 @@ function OrgManagerSidebar({
   view: OrgManagerView;
 }) {
   return (
-    <div className="org-manager-sidebar">
+    <MiniAppSidebar>
       <MiniAppRowButton
-        className="org-manager-nav"
         onClick={() => setView("directory")}
         selected={view === "directory"}
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.directory}</MiniAppRowText>
       </MiniAppRowButton>
       <MiniAppRowButton
-        className="org-manager-nav"
         onClick={() => setView("groups")}
         selected={view === "groups"}
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.groups}</MiniAppRowText>
       </MiniAppRowButton>
       <MiniAppRowButton
-        className="org-manager-nav"
         onClick={() => setView("grants")}
         selected={view === "grants"}
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.grants}</MiniAppRowText>
       </MiniAppRowButton>
       <MiniAppRowButton
-        className="org-manager-nav"
         onClick={() => setView("organization")}
         selected={view === "organization"}
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.organization}</MiniAppRowText>
       </MiniAppRowButton>
       <MiniAppRowButton
-        className="org-manager-nav"
         onClick={() => setView("usage")}
         selected={view === "usage"}
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.usage}</MiniAppRowText>
       </MiniAppRowButton>
-    </div>
+    </MiniAppSidebar>
   );
 }
 

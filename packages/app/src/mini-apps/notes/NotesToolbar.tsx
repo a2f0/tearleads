@@ -1,4 +1,9 @@
 import type { ChangeEvent, RefObject } from "react";
+import {
+  MiniAppButton,
+  MiniAppStatus,
+  MiniAppToolbar,
+} from "../../components/shared/MiniAppLayout";
 import { getNotesToolbarStatusLabel, NOTES_LABELS } from "./labels";
 import type { NotesHandleSelectedFiles } from "./types";
 
@@ -27,18 +32,16 @@ export function NotesToolbar({
   }
 
   return (
-    <div className="notes-toolbar">
-      <button
-        type="button"
-        className="notes-attach-button"
+    <MiniAppToolbar className="notes-toolbar">
+      <MiniAppButton
         onClick={() => fileInputRef.current?.click()}
         disabled={!ready || !canAttach}
       >
         {NOTES_LABELS.attachButton}
-      </button>
-      <span className="notes-toolbar-status">
+      </MiniAppButton>
+      <MiniAppStatus as="span">
         {getNotesToolbarStatusLabel({ canAttach, isAuthenticated, online })}
-      </span>
+      </MiniAppStatus>
       <input
         id={fileInputId}
         ref={fileInputRef}
@@ -48,6 +51,6 @@ export function NotesToolbar({
         disabled={!ready || !canAttach}
         onChange={handleInputChange}
       />
-    </div>
+    </MiniAppToolbar>
   );
 }

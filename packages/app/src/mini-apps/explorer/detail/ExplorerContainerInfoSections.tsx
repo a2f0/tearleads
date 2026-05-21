@@ -1,4 +1,11 @@
 import type { KeyboardEvent, MouseEvent } from "react";
+import {
+  MiniAppActions,
+  MiniAppButton,
+  MiniAppField,
+  MiniAppSelect,
+  MiniAppStatus,
+} from "../../../components/shared/MiniAppLayout";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
@@ -121,9 +128,9 @@ function ExplorerContainerInfoSyncCursorList(params: {
                   </code>
                 </>
               ) : (
-                <span className="explorer-info-muted">
+                <MiniAppStatus as="span" className="explorer-info-muted">
                   {EXPLORER_LABELS.containerInfoNoLocalCursor}
-                </span>
+                </MiniAppStatus>
               )}
             </td>
             <td title={cursor.savedAt ?? undefined}>
@@ -143,9 +150,7 @@ function ExplorerContainerInfoGrantList(params: {
   const { containerInfo, onOpenGrantGroup } = params;
   if (containerInfo.grants.length === 0) {
     return (
-      <div className="explorer-modal-copy">
-        {EXPLORER_LABELS.containerInfoNoGrants}
-      </div>
+      <MiniAppStatus>{EXPLORER_LABELS.containerInfoNoGrants}</MiniAppStatus>
     );
   }
 
@@ -289,9 +294,9 @@ function ExplorerContainerInfoGroupShareSection(params: {
   return (
     <section className="explorer-info-section">
       <h3>{EXPLORER_LABELS.containerInfoShareToGroupHeading}</h3>
-      <label className="explorer-modal-field">
-        {EXPLORER_LABELS.containerInfoGroupField}
-        <select
+      <MiniAppField>
+        <span>{EXPLORER_LABELS.containerInfoGroupField}</span>
+        <MiniAppSelect
           aria-label={EXPLORER_LABELS.containerInfoGroupField}
           disabled={isSubmitting || shareableGroups.length === 0}
           value={draftShareGroupId}
@@ -311,11 +316,11 @@ function ExplorerContainerInfoGroupShareSection(params: {
               </option>
             ))
           )}
-        </select>
-      </label>
-      <label className="explorer-modal-field">
-        {EXPLORER_LABELS.containerInfoPermissionField}
-        <select
+        </MiniAppSelect>
+      </MiniAppField>
+      <MiniAppField>
+        <span>{EXPLORER_LABELS.containerInfoPermissionField}</span>
+        <MiniAppSelect
           aria-label={EXPLORER_LABELS.containerInfoPermissionField}
           disabled={isSubmitting || shareableGroups.length === 0}
           value={draftShareAccessLevel}
@@ -335,8 +340,8 @@ function ExplorerContainerInfoGroupShareSection(params: {
           <option value="admin">
             {getContainerInfoPermissionLabel("admin")}
           </option>
-        </select>
-      </label>
+        </MiniAppSelect>
+      </MiniAppField>
     </section>
   );
 }
@@ -350,14 +355,13 @@ function ExplorerContainerInfoPeerShareSection(params: {
   return (
     <section className="explorer-info-section">
       <h3>{EXPLORER_LABELS.containerInfoShareToPeerHeading}</h3>
-      <button
+      <MiniAppButton
         className="explorer-info-inline-action"
         disabled={isSubmitting}
-        type="button"
         onClick={onShareWithPeer}
       >
         {EXPLORER_LABELS.containerInfoShareToPeerAction}
-      </button>
+      </MiniAppButton>
     </section>
   );
 }
@@ -424,9 +428,7 @@ export function ExplorerContainerInfoBody(params: {
     return (
       <div className="explorer-info">
         {localSection}
-        <div className="explorer-modal-copy">
-          {EXPLORER_LABELS.containerInfoLoading}
-        </div>
+        <MiniAppStatus>{EXPLORER_LABELS.containerInfoLoading}</MiniAppStatus>
       </div>
     );
   }
@@ -435,7 +437,7 @@ export function ExplorerContainerInfoBody(params: {
     return (
       <div className="explorer-info">
         {localSection}
-        <div className="explorer-modal-error">{containerInfoError}</div>
+        <MiniAppStatus tone="error">{containerInfoError}</MiniAppStatus>
       </div>
     );
   }
@@ -471,16 +473,11 @@ export function ExplorerContainerInfoHeader(params: {
         <strong>{EXPLORER_LABELS.containerInfoTitle}</strong>
         <span>{containerName ?? compactPrincipalId(containerId)}</span>
       </div>
-      <div className="explorer-detail-actions">
-        <button
-          type="button"
-          className="explorer-action-button"
-          disabled={isSubmitting}
-          onClick={onBackToContainer}
-        >
+      <MiniAppActions>
+        <MiniAppButton disabled={isSubmitting} onClick={onBackToContainer}>
           {EXPLORER_LABELS.backToContainerAction}
-        </button>
-      </div>
+        </MiniAppButton>
+      </MiniAppActions>
     </div>
   );
 }
@@ -502,15 +499,15 @@ export function ExplorerContainerInfoActions(params: {
   }
 
   return (
-    <div className="explorer-modal-actions">
-      <button
+    <MiniAppActions>
+      <MiniAppButton
         type="submit"
         disabled={isSubmitting || isLoadingContainerInfo || !draftShareGroupId}
       >
         {isSubmitting
           ? EXPLORER_LABELS.containerInfoSharingAction
           : EXPLORER_LABELS.containerInfoShareAction}
-      </button>
-    </div>
+      </MiniAppButton>
+    </MiniAppActions>
   );
 }

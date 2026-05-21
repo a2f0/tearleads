@@ -1,7 +1,10 @@
+import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { NOTES_LABELS } from "./labels";
 
 export function NotesEmptyState() {
   return (
-    <div className="notes notes--empty">{NOTES_LABELS.emptyStateLoading}</div>
+    <MiniAppRoot centered padding="none">
+      {NOTES_LABELS.emptyStateLoading}
+    </MiniAppRoot>
   );
 }

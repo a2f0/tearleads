@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { NotesAttachmentsPanel } from "./attachments/NotesAttachmentsPanel";
 import { useNotesModel } from "./hooks/useNotesModel";
@@ -27,7 +28,7 @@ export function Notes({
   );
 
   return (
-    <div className="notes">
+    <MiniAppRoot padding="none">
       <NotesToolbar
         canAttach={model.canAttach}
         fileInputId={model.fileInputId}
@@ -55,6 +56,6 @@ export function Notes({
         syncing={model.syncing}
         text={model.text}
       />
-    </div>
+    </MiniAppRoot>
   );
 }

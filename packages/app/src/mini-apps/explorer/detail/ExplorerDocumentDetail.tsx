@@ -5,6 +5,12 @@ import {
 } from "@tearleads/client-sdk/documents";
 import { createExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/explorer";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  MiniAppActions,
+  MiniAppButton,
+  MiniAppPanel,
+  MiniAppStatus,
+} from "../../../components/shared/MiniAppLayout";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../document-types/registry";
@@ -77,10 +83,8 @@ function ExplorerDocumentDetailActions(params: {
   } = params;
 
   return (
-    <div className="explorer-detail-actions">
-      <button
-        type="button"
-        className="explorer-action-button"
+    <MiniAppActions>
+      <MiniAppButton
         onClick={() => {
           if (selectedDocument.containerId) {
             setSelectedId(selectedDocument.containerId);
@@ -88,28 +92,24 @@ function ExplorerDocumentDetailActions(params: {
         }}
       >
         {EXPLORER_LABELS.documentBackToContainerAction}
-      </button>
-      <button
-        type="button"
-        className="explorer-action-button"
+      </MiniAppButton>
+      <MiniAppButton
         disabled={!canLinkSelectedDocument}
         onClick={() => {
           openLinkDocumentModal(selectedDocument.id);
         }}
       >
         {EXPLORER_LABELS.documentLinkAction}
-      </button>
-      <button
-        type="button"
-        className="explorer-action-button"
+      </MiniAppButton>
+      <MiniAppButton
         disabled={!canMoveSelectedDocument}
         onClick={() => {
           openMoveDocumentModal(selectedDocument.id);
         }}
       >
         {EXPLORER_LABELS.documentMoveAction}
-      </button>
-    </div>
+      </MiniAppButton>
+    </MiniAppActions>
   );
 }
 
@@ -236,25 +236,23 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
       className="explorer-linked-container-row"
       variant="framed"
     >
-      <button
-        type="button"
+      <MiniAppButton
         className="explorer-linked-container-button"
+        variant="ghost"
         aria-label={getExplorerOpenLinkedContainerLabel(linkedContainer.label)}
         onClick={() => {
           setSelectedId(linkedContainer.id);
         }}
       >
         {linkedContainer.label}
-      </button>
+      </MiniAppButton>
       <div className="explorer-linked-container-actions">
         {linkedContainer.isActive ? (
           <span className="explorer-linked-container-badge">
             {EXPLORER_LABELS.linkedContainerActiveBadge}
           </span>
         ) : (
-          <button
-            type="button"
-            className="explorer-action-button"
+          <MiniAppButton
             aria-label={getExplorerMakeLinkedContainerActiveLabel(
               linkedContainer.label,
             )}
@@ -276,11 +274,9 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
             {activatingContainerId === linkedContainer.id
               ? EXPLORER_LABELS.linkedContainerActivatingAction
               : EXPLORER_LABELS.linkedContainerMakeActiveAction}
-          </button>
+          </MiniAppButton>
         )}
-        <button
-          type="button"
-          className="explorer-action-button"
+        <MiniAppButton
           aria-label={getExplorerDetachLinkedContainerLabel(
             linkedContainer.label,
           )}
@@ -302,7 +298,7 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
           {unlinkingContainerId === linkedContainer.id
             ? EXPLORER_LABELS.linkedContainerDetachingAction
             : EXPLORER_LABELS.linkedContainerDetachAction}
-        </button>
+        </MiniAppButton>
       </div>
     </MiniAppRow>
   );
@@ -370,7 +366,9 @@ function ExplorerLinkedContainerSection(params: {
         ))}
       </ul>
       {actionError ? (
-        <span className="explorer-detail-error">{actionError}</span>
+        <MiniAppStatus as="span" tone="error">
+          {actionError}
+        </MiniAppStatus>
       ) : null}
     </div>
   );
@@ -466,9 +464,10 @@ export function ExplorerDocumentDetail(params: {
     getDocumentTypeDefinition(selectedDocumentKind).App;
 
   return (
-    <div
+    <MiniAppPanel
       className="explorer-detail explorer-detail--note"
       key={params.selectedDocument.id}
+      variant="framed"
     >
       <div className="explorer-detail-header">
         <div className="explorer-detail-copy">
@@ -500,7 +499,9 @@ export function ExplorerDocumentDetail(params: {
         />
       </div>
       {params.refreshError ? (
-        <span className="explorer-detail-error">{params.refreshError}</span>
+        <MiniAppStatus as="span" tone="error">
+          {params.refreshError}
+        </MiniAppStatus>
       ) : null}
       <ExplorerLinkedContainerSection
         activateLinkedContainer={params.activateLinkedContainer}
@@ -523,6 +524,6 @@ export function ExplorerDocumentDetail(params: {
             : { documentId: params.selectedDocument.documentId })}
         />
       </div>
-    </div>
+    </MiniAppPanel>
   );
 }

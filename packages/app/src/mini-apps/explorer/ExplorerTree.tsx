@@ -9,6 +9,10 @@ import {
   useState,
 } from "react";
 import {
+  MiniAppSidebar,
+  MiniAppStatus,
+} from "../../components/shared/MiniAppLayout";
+import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
@@ -539,11 +543,11 @@ export function useExplorerSidebarPanel(params: {
 
   const sidebar = useMemo(
     () => (
-      <div className="explorer-sidebar">
+      <MiniAppSidebar>
         {!ready ? (
-          <div className="explorer-hint">Loading...</div>
+          <MiniAppStatus>Loading...</MiniAppStatus>
         ) : nodes.length === 0 ? (
-          <div className="explorer-hint">No containers.</div>
+          <MiniAppStatus>No containers.</MiniAppStatus>
         ) : (
           <ExplorerTreeEntries
             activeContainerId={activeContainerId}
@@ -560,7 +564,7 @@ export function useExplorerSidebarPanel(params: {
             selectedId={selectedId}
           />
         )}
-      </div>
+      </MiniAppSidebar>
     ),
     [
       activeContainerId,
