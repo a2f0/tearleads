@@ -4,17 +4,17 @@ import {
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
 import { eq, sql } from "drizzle-orm";
-import {
-  type ClientDatabaseRuntime,
-  createClientDatabaseRuntime,
-} from "./clientDatabaseRuntime";
 import { ensureDocumentTables } from "./documentPersistence";
 import { documents } from "./schema";
+import {
+  type ClientSQLitePersistenceRuntime,
+  createClientSQLitePersistenceRuntime,
+} from "./sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "./sqlSchema";
 
 async function createTestRuntime(key: string): Promise<{
   close: () => void;
-  runtime: ClientDatabaseRuntime;
+  runtime: ClientSQLitePersistenceRuntime;
 }> {
   const db = await initDatabase({
     dbName: `/${crypto.randomUUID()}.db`,
@@ -24,7 +24,7 @@ async function createTestRuntime(key: string): Promise<{
 
   return {
     close: () => db.close(),
-    runtime: createClientDatabaseRuntime({
+    runtime: createClientSQLitePersistenceRuntime({
       exec: async (options) => ({
         rows: execDatabaseStatement(db, options) as Array<SqlRow | SqlArrayRow>,
       }),
@@ -32,9 +32,9 @@ async function createTestRuntime(key: string): Promise<{
   };
 }
 
-test("client database runtime supports positional binds and row modes", async () => {
+test("client SQLite persistence runtime supports positional binds and row modes", async () => {
   const { close, runtime } = await createTestRuntime(
-    "client-database-runtime-test",
+    "client-sqlite-persistence-runtime-test",
   );
 
   try {
@@ -61,9 +61,9 @@ test("client database runtime supports positional binds and row modes", async ()
   }
 });
 
-test("client database runtime maps Drizzle select rows from array mode", async () => {
+test("client SQLite persistence runtime maps Drizzle select rows from array mode", async () => {
   const { close, runtime } = await createTestRuntime(
-    "client-database-runtime-test",
+    "client-sqlite-persistence-runtime-test",
   );
 
   try {
@@ -99,8 +99,8 @@ test("client database runtime maps Drizzle select rows from array mode", async (
   }
 });
 
-test("client database runtime reuses its Drizzle database for serialized mutations", async () => {
-  const runtime = createClientDatabaseRuntime({
+test("client SQLite persistence runtime reuses its Drizzle database for serialized mutations", async () => {
+  const runtime = createClientSQLitePersistenceRuntime({
     exec: async () => ({ rows: [] }),
   });
 
@@ -109,22 +109,22 @@ test("client database runtime reuses its Drizzle database for serialized mutatio
   });
 });
 
-test("client database runtime reuses one runtime for the same client", () => {
+test("client SQLite persistence runtime reuses one runtime for the same client", () => {
   const client = {
     exec: async () => ({ rows: [] }),
   };
 
-  const first = createClientDatabaseRuntime(client);
-  const second = createClientDatabaseRuntime(client);
+  const first = createClientSQLitePersistenceRuntime(client);
+  const second = createClientSQLitePersistenceRuntime(client);
 
   expect(second).toBe(first);
   expect(second.execSql).toBe(first.execSql);
   expect(second.db).toBe(first.db);
 });
 
-test("client database runtime maps undefined Drizzle params to null", async () => {
+test("client SQLite persistence runtime maps undefined Drizzle params to null", async () => {
   const binds: unknown[] = [];
-  const runtime = createClientDatabaseRuntime({
+  const runtime = createClientSQLitePersistenceRuntime({
     exec: async (options) => {
       binds.push(options.bind);
       return { rows: [] };
@@ -136,9 +136,9 @@ test("client database runtime maps undefined Drizzle params to null", async () =
   expect(binds).toEqual([[null]]);
 });
 
-test("client database runtime serializes Drizzle transactions", async () => {
+test("client SQLite persistence runtime serializes Drizzle transactions", async () => {
   const statements: string[] = [];
-  const runtime = createClientDatabaseRuntime({
+  const runtime = createClientSQLitePersistenceRuntime({
     exec: async ({ sql: statement }) => {
       statements.push(statement);
       return { rows: [] };

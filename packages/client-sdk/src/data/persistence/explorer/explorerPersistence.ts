@@ -1,9 +1,5 @@
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import {
-  type ClientSQLiteTransaction,
-  getClientDatabaseRuntime,
-} from "../../sqlite/clientDatabaseRuntime";
-import {
   type DocumentRecord,
   deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
@@ -26,6 +22,10 @@ import {
   documentProjectionTables,
   documents,
 } from "../../sqlite/schema";
+import {
+  type ClientSQLiteTransaction,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -372,7 +372,7 @@ async function repairDocumentsForRemovedContainers(input: {
     ...documentProjectionTables,
   ]);
 
-  await getClientDatabaseRuntime(execSql).transaction(async (tx) => {
+  await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
     const selectedRows = await tx
       .select({
         documentId: documentProjection.documentId,
@@ -609,7 +609,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = options?.updatedAt ?? new Date().toISOString();
-      const { db } = getClientDatabaseRuntime(lockedExecSql);
+      const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
       await repairDocumentsForRemovedContainers({
         containerIds: uniqueContainerIds,
         execSql: lockedExecSql,
@@ -678,7 +678,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     );
   },
   async listPendingCreateIntents(execSql) {
-    const { db } = getClientDatabaseRuntime(execSql);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
       .select({
         id: containerCreateIntents.id,
@@ -706,7 +706,7 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
     return rows.map((row) => mapContainerCreateIntentRecord(row));
   },
   async recordCreateIntentError(execSql, containerId, message) {
-    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
       await db
         .update(containerCreateIntents)
         .set({
@@ -734,20 +734,22 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
         ...documentContainerProjectionTables,
         ...documentProjectionTables,
       ]);
-      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        await reassignDocumentLinksForContainer({
-          fromContainerId: input.fromContainerId,
-          toContainerId: input.toContainerId,
-          tx,
-          updatedAt,
-        });
-        await reassignPrimaryDocumentsForContainer({
-          fromContainerId: input.fromContainerId,
-          toContainerId: input.toContainerId,
-          tx,
-          updatedAt,
-        });
-      });
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          await reassignDocumentLinksForContainer({
+            fromContainerId: input.fromContainerId,
+            toContainerId: input.toContainerId,
+            tx,
+            updatedAt,
+          });
+          await reassignPrimaryDocumentsForContainer({
+            fromContainerId: input.fromContainerId,
+            toContainerId: input.toContainerId,
+            tx,
+            updatedAt,
+          });
+        },
+      );
     });
   },
   async reconcileLocalRootContainer(execSql, input) {
@@ -765,30 +767,32 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
       await ensureContainerTables(lockedExecSql);
       await ensureDocumentTables(lockedExecSql);
       await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
-      await getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        await updateReparentedDescendantContainers({
-          descendantReparents: input.descendantReparents,
-          remoteOrganizationId: input.remoteOrganizationId,
-          tx,
-          updatedAt,
-        });
-        await reassignDocumentLinksForContainer({
-          fromContainerId: input.localRootContainerId,
-          toContainerId: input.remoteRootContainerId,
-          tx,
-          updatedAt,
-        });
-        await reassignPrimaryDocumentsForContainer({
-          fromContainerId: input.localRootContainerId,
-          toContainerId: input.remoteRootContainerId,
-          tx,
-          updatedAt,
-        });
-        await deleteLocalRootContainerRows({
-          localRootContainerId: input.localRootContainerId,
-          tx,
-        });
-      });
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          await updateReparentedDescendantContainers({
+            descendantReparents: input.descendantReparents,
+            remoteOrganizationId: input.remoteOrganizationId,
+            tx,
+            updatedAt,
+          });
+          await reassignDocumentLinksForContainer({
+            fromContainerId: input.localRootContainerId,
+            toContainerId: input.remoteRootContainerId,
+            tx,
+            updatedAt,
+          });
+          await reassignPrimaryDocumentsForContainer({
+            fromContainerId: input.localRootContainerId,
+            toContainerId: input.remoteRootContainerId,
+            tx,
+            updatedAt,
+          });
+          await deleteLocalRootContainerRows({
+            localRootContainerId: input.localRootContainerId,
+            tx,
+          });
+        },
+      );
     });
   },
   async loadContainers(execSql) {
@@ -811,15 +815,16 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
         options?.localUpdatedAt ??
         options?.updatedAt ??
         new Date().toISOString();
-      return getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) =>
-        saveExplorerContainerRows({
-          container,
-          createIntent: options?.createIntent,
-          record,
-          serverTimestamps: options?.serverTimestamps,
-          tx,
-          localUpdatedAt,
-        }),
+      return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) =>
+          saveExplorerContainerRows({
+            container,
+            createIntent: options?.createIntent,
+            record,
+            serverTimestamps: options?.serverTimestamps,
+            tx,
+            localUpdatedAt,
+          }),
       );
     });
   },
@@ -833,31 +838,36 @@ export const sqlExplorerPersistence: ExplorerPersistence = {
 
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const localUpdatedAt = new Date().toISOString();
-      return getClientDatabaseRuntime(lockedExecSql).transaction(async (tx) => {
-        if (uniquePendingUpdateIds.length > 0) {
-          await tx
-            .delete(documentPendingUpdates)
-            .where(
-              and(
-                eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-                eq(documentPendingUpdates.localId, container.id),
-                inArray(documentPendingUpdates.id, uniquePendingUpdateIds),
-              ),
-            )
-            .run();
-        }
+      return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          if (uniquePendingUpdateIds.length > 0) {
+            await tx
+              .delete(documentPendingUpdates)
+              .where(
+                and(
+                  eq(
+                    documentPendingUpdates.appKind,
+                    CONTAINER_METADATA_APP_KIND,
+                  ),
+                  eq(documentPendingUpdates.localId, container.id),
+                  inArray(documentPendingUpdates.id, uniquePendingUpdateIds),
+                ),
+              )
+              .run();
+          }
 
-        return saveExplorerContainerRows({
-          container,
-          record,
-          tx,
-          localUpdatedAt,
-        });
-      });
+          return saveExplorerContainerRows({
+            container,
+            record,
+            tx,
+            localUpdatedAt,
+          });
+        },
+      );
     });
   },
   async markCreateIntentSynced(execSql, input) {
-    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
       await db
         .update(containerCreateIntents)
         .set({

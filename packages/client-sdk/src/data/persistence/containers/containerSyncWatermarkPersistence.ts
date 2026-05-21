@@ -1,10 +1,10 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { and, eq, inArray, or } from "drizzle-orm";
-import { getClientDatabaseRuntime } from "../../sqlite/clientDatabaseRuntime";
 import {
   containerSyncWatermarks,
   containerSyncWatermarkTables,
 } from "../../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 const CONTAINER_PARENT_LANE = "container_parent";
@@ -126,7 +126,7 @@ async function selectWatermarkRows(
   }
 
   await ensureSqlTables(execSql, containerSyncWatermarkTables);
-  const { db } = getClientDatabaseRuntime(execSql);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const lanePredicates = laneKeys.map(({ laneId, laneKind }) =>
     and(
       eq(containerSyncWatermarks.laneKind, laneKind),
@@ -219,7 +219,7 @@ export const sqlContainerSyncWatermarkPersistence = {
       updatedAt,
     };
 
-    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
       await db
         .insert(containerSyncWatermarks)
         .values(row)
@@ -248,7 +248,7 @@ export const sqlContainerSyncWatermarkPersistence = {
       containerParentLaneId(containerId),
     );
 
-    await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
       await db
         .delete(containerSyncWatermarks)
         .where(

@@ -67,11 +67,11 @@
     "@tearleads/crypto": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/loro": "workspace:*",
+    "@tearleads/sqlite-worker": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "drizzle-orm": "0.45.1"
   },
   "devDependencies": {
-    "@tearleads/sqlite-worker": "workspace:*",
     "@types/bun": "catalog:"
   }
 }

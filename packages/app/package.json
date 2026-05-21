@@ -17,15 +17,15 @@
     "@tearleads/crypto": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/loro": "workspace:*",
-    "@tearleads/sqlite-worker": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },
   "devDependencies": {
-    "@tearleads/test-utils": "workspace:*",
     "@happy-dom/global-registrator": "catalog:testing",
     "@testing-library/react": "catalog:testing",
+    "@tearleads/sqlite-worker": "workspace:*",
+    "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",

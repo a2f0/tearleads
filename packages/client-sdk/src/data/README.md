@@ -50,9 +50,10 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
 `data/` is an internal SDK layer, not an application integration API. The SDK
 root is reserved for the high-level `Tearleads` client facade and top-level
 service types. Neutral document contracts and pure document helpers belong
-behind `@tearleads/client-sdk/documents`; SQLite executor contracts belong
-behind `@tearleads/client-sdk/sqlite`. Host application code should import
-operations from store or workflow facades, or compose them through the
+behind `@tearleads/client-sdk/documents`; SQLite worker runtime and executor
+contracts belong behind `@tearleads/client-sdk/sqlite`. Host application code
+should import operations from store or workflow facades, create worker-backed
+SQLite runtimes through the SQLite facade, or compose them through the
 `Tearleads` instance.
 Cross-package callers should not import `@tearleads/client-sdk/data/*`
 subpaths; promote the needed contract through the document facade, the SQLite

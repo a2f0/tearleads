@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
-import { getClientDatabaseRuntime } from "./clientDatabaseRuntime";
 import type {
   DocumentRecord,
   DocumentScope,
   SelectedDocumentRecordRow,
 } from "./documentPersistenceTypes";
 import { documents } from "./schema";
+import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
 export function mapSelectedDocumentRecord(
@@ -54,7 +54,7 @@ export async function loadDocumentRecord(
   execSql: ExecSql,
   scope: DocumentScope,
 ): Promise<DocumentRecord | null> {
-  const { db } = getClientDatabaseRuntime(execSql);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({
       id: documents.localId,
@@ -84,7 +84,7 @@ export async function findLocalIdByDocumentId(
   appKind: string,
   documentId: string,
 ): Promise<string | null> {
-  const { db } = getClientDatabaseRuntime(execSql);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({ localId: documents.localId })
     .from(documents)
@@ -104,7 +104,7 @@ export async function saveDocumentRecord(
 ): Promise<void> {
   const nextRow = toDocumentRow({ record, scope, updatedAt });
 
-  await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
       .insert(documents)
       .values(nextRow)
@@ -120,7 +120,7 @@ export async function deleteDocumentRecord(
   execSql: ExecSql,
   scope: DocumentScope,
 ): Promise<void> {
-  await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
       .delete(documents)
       .where(

@@ -1,5 +1,4 @@
 import { and, asc, eq, sql } from "drizzle-orm";
-import { getClientDatabaseRuntime } from "./clientDatabaseRuntime";
 import type {
   DocumentScope,
   PendingUpdateFields,
@@ -7,6 +6,7 @@ import type {
   SelectedPendingUpdateRow,
 } from "./documentPersistenceTypes";
 import { documentPendingUpdates } from "./schema";
+import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
 function mapSelectedPendingUpdate(
@@ -25,7 +25,7 @@ export async function listDocumentPendingUpdates(
   execSql: ExecSql,
   scope: DocumentScope,
 ): Promise<PendingUpdateRecord[]> {
-  const { db } = getClientDatabaseRuntime(execSql);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({
       id: documentPendingUpdates.id,
@@ -52,7 +52,7 @@ export async function enqueueDocumentPendingUpdate(
   scope: DocumentScope,
   pendingUpdate: PendingUpdateFields,
 ): Promise<void> {
-  await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
       .insert(documentPendingUpdates)
       .values({
@@ -73,7 +73,7 @@ export async function deleteDocumentPendingUpdate(
   execSql: ExecSql,
   id: string,
 ): Promise<void> {
-  await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
       .delete(documentPendingUpdates)
       .where(eq(documentPendingUpdates.id, id))
@@ -85,7 +85,7 @@ export async function deleteDocumentPendingUpdates(
   execSql: ExecSql,
   scope: DocumentScope,
 ): Promise<void> {
-  await getClientDatabaseRuntime(execSql).runMutation(async (db) => {
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
       .delete(documentPendingUpdates)
       .where(

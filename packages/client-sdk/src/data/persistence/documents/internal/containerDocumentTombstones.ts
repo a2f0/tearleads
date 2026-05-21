@@ -1,13 +1,13 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import {
-  type ClientSQLiteTransaction,
-  getClientDatabaseRuntime,
-} from "../../../sqlite/clientDatabaseRuntime";
-import {
   documentContainerProjection,
   documentProjection,
   documents,
 } from "../../../sqlite/schema";
+import {
+  type ClientSQLiteTransaction,
+  getClientSQLitePersistenceRuntime,
+} from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { ContainerDocumentTombstoneInput } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
@@ -159,7 +159,7 @@ export async function applyContainerDocumentTombstonesWithExec(
 
   const { removedContainerIdsByDocumentId, tombstoneUpdatedAtByDocumentId } =
     buildContainerDocumentTombstoneState(uniqueTombstones);
-  const { db } = getClientDatabaseRuntime(execSql);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
 
   return db.transaction(async (tx) => {
     await deleteContainerDocumentTombstoneRows(tx, uniqueTombstones);
