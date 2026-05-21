@@ -112,6 +112,29 @@ Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.
 
+`new Tearleads(...)` does not initialize SQLite or call `client.init(...)`; the
+constructor stays synchronous and only captures the current database `client`,
+`execSql`, `id`, and `status`. If the host has already initialized the worker,
+pass a ready database into the constructor:
+
+```ts
+new Tearleads({
+  database: { client: runtime.client, id: runtime.id, status: "ready" },
+});
+```
+
+If the host boots SQLite after constructing the SDK, create `new Tearleads(...)`
+without a ready database, call `runtime.client.init(...)`, then publish the
+initialized runtime:
+
+```ts
+tearleads.database.configure({
+  client: runtime.client,
+  id: runtime.id,
+  status: "ready",
+});
+```
+
 Browser and Electron hosts should create worker-backed SQLite runtimes through
 the SDK SQLite facade:
 
@@ -124,6 +147,23 @@ destroy() }`. The lower-level `@tearleads/sqlite-worker` package still owns the
 worker thread implementation, but host application code should prefer the SDK
 facade so database setup, executor contracts, and workflow runtime integration
 stay behind one developer-facing package.
+
+The SQLite facade intentionally aliases the lower-level worker runtime names
+into SDK vocabulary:
+
+| SDK export | Use for |
+| --- | --- |
+| `createModuleSQLiteWorkerRuntime(options?)` | Creating the default module-worker runtime, optionally with `workerUrl` or a custom `workerConstructor` |
+| `createSQLiteWorkerRuntime(worker)` | Wrapping a host-created terminable worker-like object |
+| `SQLiteWorkerRuntime` | The `{ id, client, destroy() }` lifecycle contract returned by both runtime factories |
+| `SQLiteWorkerClient` | The worker client contract accepted by `database.client` through `ExecSqlClientLike` |
+| `CreateModuleSQLiteWorkerRuntimeOptions`, `SQLiteModuleWorkerConstructor`, `SQLiteModuleWorkerLike` | Host adapter types for custom module-worker construction |
+
+Host runtime code should use these aliases instead of importing
+`createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or
+`DatabaseWorkerClient` from `@tearleads/sqlite-worker` directly. Worker-thread
+entry files and low-level SQLite tests may still import the underlying worker
+package when they are implementing or exercising the worker itself.
 
 Identity setup is asynchronous because the signing fingerprint is derived from
 the public key:
