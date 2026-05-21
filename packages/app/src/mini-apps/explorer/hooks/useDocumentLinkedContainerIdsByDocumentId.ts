@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";

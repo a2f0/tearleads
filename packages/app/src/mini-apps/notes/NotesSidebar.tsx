@@ -1,7 +1,7 @@
 import {
   type DocumentSummary,
   getUntitledDocumentTitle,
-} from "@tearleads/client-sdk";
+} from "@tearleads/client-sdk/documents";
 import { useMemo } from "react";
 import {
   MiniAppRowButton,

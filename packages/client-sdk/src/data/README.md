@@ -48,14 +48,15 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
 ## Import Surface
 
 `data/` is an internal SDK layer, not an application integration API. The SDK
-root is reserved for the high-level `Tearleads` client facade and aggregate
-compatibility exports. Neutral document contracts and pure document helpers
-belong behind `@tearleads/client-sdk/documents`. Host application code should
-import operations from store or workflow facades, or compose them through the
+root is reserved for the high-level `Tearleads` client facade and top-level
+service types. Neutral document contracts and pure document helpers belong
+behind `@tearleads/client-sdk/documents`; SQLite executor contracts belong
+behind `@tearleads/client-sdk/sqlite`. Host application code should import
+operations from store or workflow facades, or compose them through the
 `Tearleads` instance.
 Cross-package callers should not import `@tearleads/client-sdk/data/*`
-subpaths; promote the needed contract through the document facade, the root, or
-an explicit workflow facade instead.
+subpaths; promote the needed contract through the document facade, the SQLite
+facade, the root client facade, or an explicit workflow facade instead.
 
 Package subpath exports are explicit and should stop at the facade boundary.
 Adding a new cross-package import from `stores/` or `workflows/` should usually
@@ -65,6 +66,7 @@ implementation file. Low-level `data/` modules should stay package-internal
 unless there is a deliberate decision to promote a new public SDK contract.
 
 Use facade subpaths directly, such as `@tearleads/client-sdk/documents`,
+`@tearleads/client-sdk/sqlite`,
 `@tearleads/client-sdk/workflows/documents`, and
 `@tearleads/client-sdk/stores/documents`, instead of importing their
 implementation modules or nested workflow/store implementation files.

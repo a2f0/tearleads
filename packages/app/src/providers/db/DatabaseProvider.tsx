@@ -48,7 +48,7 @@ function destroyRuntime(
 
   bootingRef.current = false;
   currentDbNameRef.current = null;
-  tearleads.db.clear(nextStatus);
+  tearleads.database.clear(nextStatus);
   setId(null);
   setClient(null);
   setStatus(nextStatus);
@@ -73,7 +73,7 @@ function configureSdkDatabaseRuntime(
   runtime: DatabaseRuntime,
   status: DatabaseRuntimeStatus,
 ) {
-  tearleads.db.configure({
+  tearleads.database.configure({
     client: runtime.client,
     id: runtime.id,
     status,
@@ -279,7 +279,7 @@ function useManagedDatabaseRuntime(
     } catch (error) {
       bootingRef.current = false;
       console.error("Failed to create database worker:", error);
-      tearleads.db.clear("error");
+      tearleads.database.clear("error");
       setStatus("error");
     }
   }, [createDatabaseRuntime, dbName, log, tearleads]);

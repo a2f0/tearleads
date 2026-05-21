@@ -1,4 +1,4 @@
-import type { StoredDocumentKind } from "@tearleads/client-sdk";
+import type { StoredDocumentKind } from "@tearleads/client-sdk/documents";
 import { type MouseEvent, useCallback, useMemo } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";

@@ -37,8 +37,8 @@ const tearleads = new Tearleads({
 await tearleads.identity.generate();
 await tearleads.session.bootstrapLocalRootContainer();
 
-const explorer = tearleads.workflows.explorer();
-const documents = tearleads.workflows.documents({
+const explorer = tearleads.explorer.runtime();
+const documents = tearleads.documents.runtime({
   containerId: tearleads.session.containerId,
 });
 ```
@@ -48,15 +48,17 @@ The instance intentionally groups client capabilities by responsibility:
 | Namespace | Owns |
 | --- | --- |
 | `tearleads.api` | HTTP API calls and auth token headers |
-| `tearleads.db` | SQLite client and `ExecSql` executor |
+| `tearleads.database` | SQLite client and `ExecSql` executor |
 | `tearleads.identity` | signing and encapsulation key pairs |
 | `tearleads.blobs` | local blob byte storage |
 | `tearleads.session` | auth token and user/org/container context |
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
-| `tearleads.workflows` | React-free domain workflow runtimes |
+| `tearleads.documents` | document workflow runtime composition |
+| `tearleads.explorer` | explorer workflow runtime composition |
+| `tearleads.contacts` | contacts workflow runtime composition |
 
-Prefer `tearleads.workflows.*()` over constructing workflow runtimes directly
+Prefer these instance services over constructing workflow runtimes directly
 from host code. The SDK keeps workflow cache scope aligned with the active
 database id and identity fingerprint, which lets document, contacts, and
 explorer stores share the same sync and subscription boundary.
@@ -134,8 +136,9 @@ Supported package entry points are:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, aggregate compatibility exports, and SQLite executor contracts |
+| `@tearleads/client-sdk` | `Tearleads` and top-level SDK service types |
 | `@tearleads/client-sdk/documents` | neutral document/blob contracts and document projector helpers |
+| `@tearleads/client-sdk/sqlite` | SQLite executor contracts and adapter helpers |
 | `@tearleads/client-sdk/stores/documents` | React-free document store facade |
 | `@tearleads/client-sdk/workflows/blobs` | blob upload, hydration, and local blob stores |
 | `@tearleads/client-sdk/workflows/contacts` | contacts runtime and read/write helpers |

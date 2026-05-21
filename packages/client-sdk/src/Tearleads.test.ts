@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import type { ExecSql, ExecSqlClientLike } from "./data/sqlite/sqlSchema";
-import { Tearleads, type TearleadsLogger } from "./Tearleads";
+import { Tearleads, type TearleadsLogger } from "./client";
+import type { ExecSql, ExecSqlClientLike } from "./sqlite";
 
 const quietLogger: Required<TearleadsLogger> = {
   log: () => undefined,
@@ -27,10 +27,10 @@ describe("Tearleads", () => {
     });
 
     expect(sdk.api).toBeInstanceOf(ApiClient);
-    expect(sdk.db.client).toBe(sqlClient);
-    expect(sdk.db.execSql).toBeFunction();
-    expect(sdk.db.id).toBe("client-db");
-    expect(sdk.db.status).toBe("ready");
+    expect(sdk.database.client).toBe(sqlClient);
+    expect(sdk.database.execSql).toBeFunction();
+    expect(sdk.database.id).toBe("client-db");
+    expect(sdk.database.status).toBe("ready");
     expect(sdk.identity.signingFingerprint).toBeNull();
     expect(sdk.network.online).toBe(false);
     expect(sdk.session.isAuthenticated).toBe(false);
@@ -136,9 +136,9 @@ describe("Tearleads", () => {
       userId: "user-1",
     });
 
-    const documents = sdk.workflows.documents();
-    const explorer = sdk.workflows.explorer();
-    const contacts = sdk.workflows.contacts();
+    const documents = sdk.documents.runtime();
+    const explorer = sdk.explorer.runtime();
+    const contacts = sdk.contacts.runtime();
 
     expect(documents.containerId).toBe("container-1");
     expect(documents.dbStatus).toBe("ready");
@@ -162,6 +162,16 @@ describe("Tearleads", () => {
     );
   });
 
+  test("rejects ready database state without a SQLite executor", () => {
+    expect(
+      () =>
+        new Tearleads({
+          database: { status: "ready" },
+          logger: quietLogger,
+        }),
+    ).toThrow("ready SQLite database requires a configured executor");
+  });
+
   test("workflow runtime callbacks use the captured SQLite executor", async () => {
     const messages: string[] = [];
     const execSql: ExecSql = async () => {
@@ -176,7 +186,7 @@ describe("Tearleads", () => {
     });
     const input = sdk.createWorkflowRuntimeInput();
 
-    sdk.db.clear("terminated");
+    sdk.database.clear("terminated");
 
     await input.cacheReferencedPrincipalPolicies([
       {
@@ -198,7 +208,7 @@ describe("Tearleads", () => {
     const sdk = new Tearleads({ logger: quietLogger });
     const initialScope = sdk.domainScope;
 
-    sdk.db.configure({
+    sdk.database.configure({
       client: createNoopSqlClient(),
       id: "client-db",
       status: "ready",

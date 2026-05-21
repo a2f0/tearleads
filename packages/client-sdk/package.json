@@ -1,7 +1,7 @@
 {
   "name": "@tearleads/client-sdk",
   "version": "0.1.0",
-  "description": "React-free Tearleads client SDK runtime and workflow facades.",
+  "description": "React-free Tearleads client runtime and domain service facades.",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -13,6 +13,10 @@
     "./documents": {
       "types": "./src/documents.ts",
       "default": "./src/documents.ts"
+    },
+    "./sqlite": {
+      "types": "./src/sqlite.ts",
+      "default": "./src/sqlite.ts"
     },
     "./stores/documents": {
       "types": "./src/stores/documents/index.ts",

@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import type { ContainerNode } from "../../../stores/explorer/types";
 
 export interface ExplorerModelExplorer {

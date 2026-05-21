@@ -1,0 +1,114 @@
+import {
+  type EncapsulationKeyPair,
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  type SigningKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
+
+export interface TearleadsIdentityOptions {
+  encapsulationKeyPair?: EncapsulationKeyPair | null | undefined;
+  signingFingerprint?: string | null | undefined;
+  signingKeyPair?: SigningKeyPair | null | undefined;
+}
+
+export interface TearleadsIdentitySnapshot {
+  encapsulationKeyPair: EncapsulationKeyPair | null;
+  signingFingerprint: string | null;
+  signingKeyPair: SigningKeyPair | null;
+}
+
+export class TearleadsIdentity {
+  private encapsulationKeyPairValue: EncapsulationKeyPair | null;
+  private signingFingerprintValue: string | null;
+  private signingKeyPairValue: SigningKeyPair | null;
+
+  constructor(
+    options: TearleadsIdentityOptions = {},
+    private readonly onIdentityChanged: (
+      signingFingerprint: string | null,
+    ) => void,
+    private readonly log: (message: string) => void,
+  ) {
+    this.encapsulationKeyPairValue = options.encapsulationKeyPair ?? null;
+    this.signingFingerprintValue = options.signingFingerprint ?? null;
+    this.signingKeyPairValue = options.signingKeyPair ?? null;
+    this.onIdentityChanged(this.signingFingerprintValue);
+  }
+
+  get encapsulationKeyPair(): EncapsulationKeyPair | null {
+    return this.encapsulationKeyPairValue;
+  }
+
+  get signingFingerprint(): string | null {
+    return this.signingFingerprintValue;
+  }
+
+  get signingKeyPair(): SigningKeyPair | null {
+    return this.signingKeyPairValue;
+  }
+
+  get snapshot(): TearleadsIdentitySnapshot {
+    return {
+      encapsulationKeyPair: this.encapsulationKeyPairValue,
+      signingFingerprint: this.signingFingerprintValue,
+      signingKeyPair: this.signingKeyPairValue,
+    };
+  }
+
+  destroy(): void {
+    this.encapsulationKeyPairValue = null;
+    this.signingFingerprintValue = null;
+    this.signingKeyPairValue = null;
+    this.onIdentityChanged(null);
+    this.log("Key pair destroyed");
+  }
+
+  async generate(): Promise<TearleadsIdentitySnapshot> {
+    this.signingKeyPairValue = generateSigningSeedAndKeyPair();
+    this.encapsulationKeyPairValue = generateKemSeedAndKeyPair();
+    await this.refreshSigningFingerprint();
+    this.log("Key pair generated");
+    return this.snapshot;
+  }
+
+  requireSigningKeyPair(operation = "This operation"): SigningKeyPair {
+    if (!this.signingKeyPairValue) {
+      throw new Error(`${operation} requires a signing key pair.`);
+    }
+
+    return this.signingKeyPairValue;
+  }
+
+  async refreshSigningFingerprint(): Promise<string | null> {
+    if (!this.signingKeyPairValue) {
+      this.signingFingerprintValue = null;
+      this.onIdentityChanged(null);
+      return null;
+    }
+
+    this.signingFingerprintValue = await toFingerprint(
+      this.signingKeyPairValue.signingPublicKey,
+    );
+    this.onIdentityChanged(this.signingFingerprintValue);
+    return this.signingFingerprintValue;
+  }
+
+  async setKeyPairs(options: {
+    encapsulationKeyPair: EncapsulationKeyPair | null;
+    signingFingerprint?: string | null | undefined;
+    signingKeyPair: SigningKeyPair | null;
+  }): Promise<TearleadsIdentitySnapshot> {
+    this.encapsulationKeyPairValue = options.encapsulationKeyPair;
+    this.signingKeyPairValue = options.signingKeyPair;
+    this.signingFingerprintValue = options.signingFingerprint ?? null;
+
+    if (!this.signingFingerprintValue) {
+      await this.refreshSigningFingerprint();
+    } else {
+      this.onIdentityChanged(this.signingFingerprintValue);
+    }
+
+    return this.snapshot;
+  }
+}
