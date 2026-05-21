@@ -1,3 +1,4 @@
+import type { TearleadsIdentityKeyPackage } from "@tearleads/client-sdk";
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import {
   createContext,
@@ -13,7 +14,9 @@ import { useTearleads } from "../sdk/TearleadsProvider";
 interface IdentityContextValue {
   encapsulationKeyPair: EncapsulationKeyPair | null;
   destroyKey: () => void;
+  exportKeyPackage: () => Promise<TearleadsIdentityKeyPackage>;
   generateKey: () => void;
+  restoreKeyPackage: (keyPackage: unknown) => Promise<void>;
   signingFingerprint: string | null;
   signingKeyPair: SigningKeyPair | null;
 }
@@ -61,17 +64,37 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     setSnapshot(tearleads.identity.snapshot);
   }, [tearleads]);
 
+  const exportKeyPackage = useCallback(
+    () => tearleads.identity.exportKeyPackage(),
+    [tearleads],
+  );
+
+  const restoreKeyPackage = useCallback(
+    async (keyPackage: unknown) => {
+      generationIdRef.current += 1;
+      generationInFlight.current = false;
+      const nextSnapshot =
+        await tearleads.identity.importKeyPackage(keyPackage);
+      setSnapshot(nextSnapshot);
+    },
+    [tearleads],
+  );
+
   const value = useMemo(
     () => ({
       encapsulationKeyPair: snapshot.encapsulationKeyPair,
       destroyKey,
+      exportKeyPackage,
       generateKey,
+      restoreKeyPackage,
       signingFingerprint: snapshot.signingFingerprint,
       signingKeyPair: snapshot.signingKeyPair,
     }),
     [
       destroyKey,
+      exportKeyPackage,
       generateKey,
+      restoreKeyPackage,
       snapshot.encapsulationKeyPair,
       snapshot.signingFingerprint,
       snapshot.signingKeyPair,

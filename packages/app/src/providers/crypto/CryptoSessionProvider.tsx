@@ -80,6 +80,7 @@ function useResetCryptoSession(
 function useBootstrapCryptoSessionContainer(
   containerBootstrapped: MutableRefObject<string | null>,
   tearleads: ReturnType<typeof useTearleads>,
+  containerId: string | null,
   signingFingerprint: string | null,
   dbStatus: ReturnType<typeof useDatabase>["status"],
   dbClient: ReturnType<typeof useDatabase>["client"],
@@ -93,6 +94,7 @@ function useBootstrapCryptoSessionContainer(
         : null;
 
     if (
+      containerId !== null ||
       !signingFingerprint ||
       dbStatus !== "ready" ||
       !dbClient ||
@@ -114,6 +116,7 @@ function useBootstrapCryptoSessionContainer(
   }, [
     dbStatus,
     dbClient,
+    containerId,
     logError,
     setContainerId,
     signingFingerprint,
@@ -123,7 +126,6 @@ function useBootstrapCryptoSessionContainer(
 
 function useCryptoAuthActions(
   tearleads: ReturnType<typeof useTearleads>,
-  signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
   syncAuthStateFromSession: () => void,
 ) {
   const logout = useCallback(() => {
@@ -133,7 +135,7 @@ function useCryptoAuthActions(
 
   const authenticate = useCallback(
     async (challengeHex?: string): Promise<boolean> => {
-      if (!signingKeyPair) {
+      if (!tearleads.identity.signingKeyPair) {
         return false;
       }
 
@@ -141,7 +143,7 @@ function useCryptoAuthActions(
       syncAuthStateFromSession();
       return authenticated;
     },
-    [signingKeyPair, syncAuthStateFromSession, tearleads],
+    [syncAuthStateFromSession, tearleads],
   );
 
   const loginWithChallenge = useCallback(
@@ -241,6 +243,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   useBootstrapCryptoSessionContainer(
     containerBootstrapped,
     tearleads,
+    sessionState.containerId,
     signingFingerprint,
     dbStatus,
     dbClient,
@@ -249,7 +252,6 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   );
   const { login, loginWithChallenge, logout } = useCryptoAuthActions(
     tearleads,
-    signingKeyPair,
     sessionState.syncAuthStateFromSession,
   );
 

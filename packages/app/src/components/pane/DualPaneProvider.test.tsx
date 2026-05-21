@@ -127,7 +127,11 @@ function renderDualPane() {
   );
 }
 
-function renderSinglePane() {
+function renderSinglePane({
+  autoProvision = true,
+}: {
+  autoProvision?: boolean;
+} = {}) {
   const hostConfig = new AppHostConfig("http://localhost:3001", wsUrl, () =>
     createModuleDatabaseRuntime({ workerConstructor: MockWorker }),
   );
@@ -137,7 +141,7 @@ function renderSinglePane() {
       <PaneSideProvider side="left">
         <PaneProvider hostConfig={hostConfig}>
           <AppTestRuntimeScopeProbe />
-          <PaneAutoProvisioner />
+          {autoProvision && <PaneAutoProvisioner />}
           <Pane className="pane pane-left" />
         </PaneProvider>
       </PaneSideProvider>
@@ -925,6 +929,121 @@ async function waitForSinglePaneProvisioning(pane: HTMLElement) {
   );
 }
 
+async function provisionPaneFromMenu(pane: HTMLElement) {
+  await interact(() => {
+    fireEvent.click(within(pane).getByText("Menu"));
+  });
+  const generateButton = await screen.findByRole("button", {
+    name: "Generate Key Pair",
+  });
+  await interact(() => {
+    fireEvent.click(generateButton);
+  });
+
+  await waitFor(() => {
+    expect(within(pane).getByText(/sqlite worker: ready/)).toBeTruthy();
+  });
+
+  await interact(() => {
+    fireEvent.click(within(pane).getByText("Menu"));
+  });
+  const uploadButton = await screen.findByRole("button", {
+    name: "Upload Public Key",
+  });
+  await interact(() => {
+    fireEvent.click(uploadButton);
+  });
+
+  await waitForSinglePaneProvisioning(pane);
+}
+
+async function downloadPaneKeyPackageBackup(
+  pane: HTMLElement,
+): Promise<string> {
+  const downloaded = { blob: null as Blob | null };
+  const originalCreateObjectUrl = URL.createObjectURL;
+  const originalRevokeObjectUrl = URL.revokeObjectURL;
+  const originalAnchorClick = HTMLAnchorElement.prototype.click;
+
+  try {
+    URL.createObjectURL = ((blob: Blob) => {
+      downloaded.blob = blob;
+      return "blob:tearleads-key-package-test";
+    }) as typeof URL.createObjectURL;
+    URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL;
+    HTMLAnchorElement.prototype.click = () => undefined;
+
+    await interact(() => {
+      fireEvent.click(within(pane).getByText("Menu"));
+    });
+    const backupButton = await screen.findByRole("button", {
+      name: "Backup Key Package",
+    });
+    await interact(() => {
+      fireEvent.click(backupButton);
+    });
+
+    const blob = downloaded.blob;
+    if (!blob) {
+      throw new Error("Expected key package backup blob.");
+    }
+    return blob.text();
+  } finally {
+    URL.createObjectURL = originalCreateObjectUrl;
+    URL.revokeObjectURL = originalRevokeObjectUrl;
+    HTMLAnchorElement.prototype.click = originalAnchorClick;
+  }
+}
+
+async function destroyPaneKeyPackage(pane: HTMLElement) {
+  await interact(() => {
+    fireEvent.click(within(pane).getByText("Menu"));
+  });
+  const destroyButton = await screen.findByRole("button", {
+    name: "Destroy Key Pair",
+  });
+  await interact(() => {
+    fireEvent.click(destroyButton);
+  });
+
+  await waitForCondition(
+    () =>
+      (pane.textContent?.includes("userId: none") ?? false) &&
+      (pane.textContent?.includes("sqlite worker: idle") ?? false),
+    "Pane did not clear local identity state after key destruction.",
+  );
+}
+
+async function restorePaneKeyPackageBackup(
+  pane: HTMLElement,
+  backupJson: string,
+) {
+  await interact(() => {
+    fireEvent.click(within(pane).getByText("Menu"));
+  });
+  const fileInput = await screen.findByLabelText("Restore Key Package File");
+  const restoreButton = await screen.findByRole("button", {
+    name: "Restore Key Package",
+  });
+  await interact(() => {
+    fireEvent.click(restoreButton);
+  });
+
+  const backupFile = new File([backupJson], "tearleads-key-package.json", {
+    type: "application/json",
+  });
+  await interact(() => {
+    fireEvent.change(fileInput, {
+      target: { files: [backupFile] },
+    });
+  });
+
+  await waitForSinglePaneProvisioning(pane);
+  await waitFor(() => {
+    expect(within(pane).getByText(/sqlite worker: ready/)).toBeTruthy();
+  });
+}
+
 async function waitForDualPaneProvisioning(
   leftPane: HTMLElement,
   rightPane: HTMLElement,
@@ -1029,6 +1148,38 @@ async function selectPeerSharedContainer(
     fireEvent.click(sharedContainer);
   });
 }
+
+test(
+  "pane menu backs up and restores a registered key package",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderSinglePane({ autoProvision: false });
+    const pane = getPaneRoot(view, "left");
+
+    await provisionPaneFromMenu(pane);
+    const backupJson = await downloadPaneKeyPackageBackup(pane);
+
+    await destroyPaneKeyPackage(pane);
+
+    const restoreRequestStartIndex = listProxiedApiRequests().length;
+    await restorePaneKeyPackageBackup(pane, backupJson);
+    await waitForCondition(
+      () =>
+        listProxiedApiRequests()
+          .slice(restoreRequestStartIndex)
+          .some(
+            (request) =>
+              request.method === "POST" &&
+              request.status === 200 &&
+              requestPath(request.url) === "/auth/verify",
+          ),
+      `Restored key package did not authenticate.\nrequests=\n${summarizeProxiedApiRequests()}`,
+    );
+
+    expect(listPaneErrorLines([pane])).toEqual([]);
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
 
 test(
   "dual panes can share a container and refresh peer discovery",

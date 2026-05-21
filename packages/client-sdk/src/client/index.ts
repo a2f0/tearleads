@@ -20,6 +20,10 @@ export type {
   TearleadsIdentityOptions,
   TearleadsIdentitySnapshot,
 } from "./identity";
+export {
+  TEARLEADS_IDENTITY_KEY_PACKAGE_FORMAT,
+  type TearleadsIdentityKeyPackage,
+} from "./identityKeyPackage";
 export type { TearleadsLogger } from "./logger";
 export {
   TearleadsNetwork,

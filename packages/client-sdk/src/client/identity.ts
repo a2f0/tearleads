@@ -5,6 +5,11 @@ import {
   type SigningKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import {
+  createIdentityKeyPackage,
+  parseIdentityKeyPackage,
+  type TearleadsIdentityKeyPackage,
+} from "./identityKeyPackage";
 
 export interface TearleadsIdentityOptions {
   encapsulationKeyPair?: EncapsulationKeyPair | null | undefined;
@@ -24,7 +29,9 @@ export interface TearleadsIdentity {
   readonly signingKeyPair: SigningKeyPair | null;
   readonly snapshot: TearleadsIdentitySnapshot;
   destroy(): void;
+  exportKeyPackage(): Promise<TearleadsIdentityKeyPackage>;
   generate(): Promise<TearleadsIdentitySnapshot>;
+  importKeyPackage(keyPackage: unknown): Promise<TearleadsIdentitySnapshot>;
   requireSigningKeyPair(operation?: string): SigningKeyPair;
   refreshSigningFingerprint(): Promise<string | null>;
   setKeyPairs(options: {
@@ -88,11 +95,27 @@ class TearleadsIdentityService implements TearleadsIdentity {
     this.log("Key pair destroyed");
   }
 
+  exportKeyPackage(): Promise<TearleadsIdentityKeyPackage> {
+    return createIdentityKeyPackage(this.snapshot);
+  }
+
   async generate(): Promise<TearleadsIdentitySnapshot> {
     this.signingKeyPairValue = generateSigningSeedAndKeyPair();
     this.encapsulationKeyPairValue = generateKemSeedAndKeyPair();
     await this.refreshSigningFingerprint();
     this.log("Key pair generated");
+    return this.snapshot;
+  }
+
+  async importKeyPackage(
+    keyPackage: unknown,
+  ): Promise<TearleadsIdentitySnapshot> {
+    const parsed = await parseIdentityKeyPackage(keyPackage);
+    this.encapsulationKeyPairValue = parsed.encapsulationKeyPair;
+    this.signingKeyPairValue = parsed.signingKeyPair;
+    this.signingFingerprintValue = parsed.package.signingFingerprint;
+    this.onIdentityChanged(this.signingFingerprintValue);
+    this.log("Key package imported");
     return this.snapshot;
   }
 
