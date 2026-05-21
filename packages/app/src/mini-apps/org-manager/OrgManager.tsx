@@ -14,6 +14,7 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
+  MiniAppToolbar,
 } from "../../components/shared/MiniAppLayout";
 import {
   MiniAppRow,
@@ -2003,7 +2004,7 @@ export function OrgManager() {
         ) : (
           <div className="org-manager-groups">
             <section className="org-manager-panel">
-              <div className="org-manager-create-group">
+              <MiniAppToolbar className="org-manager-form-toolbar">
                 <MiniAppInput
                   disabled={!canCreateGroup || mutating}
                   onChange={(event) => setGroupNameDraft(event.target.value)}
@@ -2020,7 +2021,7 @@ export function OrgManager() {
                 >
                   {ORG_MANAGER_LABELS.create}
                 </MiniAppButton>
-              </div>
+              </MiniAppToolbar>
               <GroupList
                 groups={groups}
                 selectedGroupId={selectedGroupId}
@@ -2045,7 +2046,7 @@ export function OrgManager() {
                         : ORG_MANAGER_LABELS.noPolicy}
                     </span>
                   </div>
-                  <div className="org-manager-add-user">
+                  <MiniAppToolbar className="org-manager-form-toolbar">
                     <MiniAppInput
                       aria-label={ORG_MANAGER_LABELS.userId}
                       disabled={!canMutateSelectedGroup || mutating}
@@ -2075,7 +2076,7 @@ export function OrgManager() {
                     >
                       {ORG_MANAGER_LABELS.add}
                     </MiniAppButton>
-                  </div>
+                  </MiniAppToolbar>
                   <MiniAppSection>
                     <MiniAppSectionHeading>
                       {ORG_MANAGER_LABELS.members}

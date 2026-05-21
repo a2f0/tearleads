@@ -26,11 +26,7 @@
   min-width: 0;
 }
 
-.org-manager-create-group,
-.org-manager-add-user {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 4.625rem;
-  gap: calc(var(--padding) / 2);
+.org-manager-form-toolbar {
   margin-bottom: calc(var(--padding) / 2);
 }
 
