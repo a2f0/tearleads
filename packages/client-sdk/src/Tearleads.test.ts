@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { Tearleads, type TearleadsLogger } from "./client";
 import type { ExecSql, ExecSqlClientLike } from "./sqlite";
 
@@ -121,6 +126,75 @@ describe("Tearleads", () => {
 
     expect(sdk.identity.signingFingerprint).toBeNull();
     expect(sdk.blobs.store).toBe(ephemeralStore);
+  });
+
+  test("exports and imports identity key packages", async () => {
+    const source = new Tearleads({ logger: quietLogger });
+    await source.identity.generate();
+
+    const keyPackage = await source.identity.exportKeyPackage();
+    source.identity.destroy();
+    await source.identity.importKeyPackage(
+      JSON.parse(JSON.stringify(keyPackage)),
+    );
+
+    expect(source.identity.signingFingerprint).toBe(
+      keyPackage.signingFingerprint,
+    );
+    expect(
+      Array.from(source.identity.signingKeyPair?.signingPublicKey ?? []),
+    ).toEqual(
+      Array.from(base64ToBytes(keyPackage.signingKeyPair.signingPublicKey)),
+    );
+  });
+
+  test("rejects identity key packages with mismatched signing fingerprints", async () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    await sdk.identity.generate();
+    const keyPackage = await sdk.identity.exportKeyPackage();
+
+    await expect(
+      sdk.identity.importKeyPackage({
+        ...keyPackage,
+        signingFingerprint: "0".repeat(64),
+      }),
+    ).rejects.toThrow("signing fingerprint does not match");
+  });
+
+  test("rejects identity key packages with mismatched signing key pairs", async () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    await sdk.identity.generate();
+    const keyPackage = await sdk.identity.exportKeyPackage();
+    const otherSigningKeyPair = generateSigningSeedAndKeyPair();
+
+    await expect(
+      sdk.identity.importKeyPackage({
+        ...keyPackage,
+        signingKeyPair: {
+          ...keyPackage.signingKeyPair,
+          signingPrivateKey: bytesToBase64(
+            otherSigningKeyPair.signingPrivateKey,
+          ),
+        },
+      }),
+    ).rejects.toThrow("signing private key does not match");
+  });
+
+  test("rejects identity key packages with mismatched encapsulation key pairs", async () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    await sdk.identity.generate();
+    const keyPackage = await sdk.identity.exportKeyPackage();
+    const otherEncapsulationKeyPair = generateKemSeedAndKeyPair();
+
+    await expect(
+      sdk.identity.importKeyPackage({
+        ...keyPackage,
+        encapsulationKeyPair: {
+          ...keyPackage.encapsulationKeyPair,
+          secretKey: bytesToBase64(otherEncapsulationKeyPair.secretKey),
+        },
+      }),
+    ).rejects.toThrow("encapsulation secret key does not match");
   });
 
   test("creates workflow runtimes from the current SDK state", async () => {

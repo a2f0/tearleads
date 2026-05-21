@@ -2317,12 +2317,20 @@ test("explorer store refreshes remote containers on demand after initialization"
         };
       }
 
-      return {
-        hasMore: false,
-        items: [],
-        nextWatermark: null,
-        tombstones: [],
-      };
+      return listContainersResponse(
+        options.parentId === "shared-root-container"
+          ? [
+              listedContainer({
+                id: "shared-child-container",
+                metadataAccessEpoch: 1,
+                metadataAccessStateHash: "shared-child-access-state-hash-1",
+                metadataDocumentId: "shared-child-metadata-document",
+                organizationId: "org-2",
+                parentId: "shared-root-container",
+              }),
+            ]
+          : [],
+      );
     },
   });
   let store: ReturnType<typeof createExplorerStore> | null = null;
@@ -2349,6 +2357,17 @@ test("explorer store refreshes remote containers on demand after initialization"
           .getSnapshot()
           .nodes.some((node) => node.id === "shared-root-container"),
       "Explorer refresh did not hydrate shared remote root.",
+    );
+    await waitForCondition(
+      () =>
+        createdStore
+          .getSnapshot()
+          .nodes.some(
+            (node) =>
+              node.id === "shared-child-container" &&
+              node.parentId === "shared-root-container",
+          ),
+      "Explorer refresh did not hydrate shared remote child container.",
     );
 
     expect(listContainersCalls).toBeGreaterThanOrEqual(2);
