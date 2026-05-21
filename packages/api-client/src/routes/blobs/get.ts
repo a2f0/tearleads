@@ -2,6 +2,7 @@ import type { BlobResponse } from "@tearleads/validators/response";
 import type { ResponseRequestFn } from "../../types";
 
 const BLOB_BYTES_BLOB_ID_HEADER = "x-tearleads-blob-id";
+const BLOB_BYTES_BYTE_LENGTH_HEADER = "x-tearleads-blob-byte-length";
 const BLOB_BYTES_CONTENT_LENGTH_HEADER = "content-length";
 const BLOB_BYTES_SHA256_HEADER = "x-tearleads-blob-sha256";
 
@@ -25,6 +26,28 @@ function parseContentLength(value: string | null): number | null {
 
   const byteLength = Number(value);
   return Number.isSafeInteger(byteLength) ? byteLength : null;
+}
+
+function readBlobByteLength(response: Response): {
+  byteLength: number | null;
+  headerName: string;
+  missing: boolean;
+} {
+  const blobByteLength = response.headers.get(BLOB_BYTES_BYTE_LENGTH_HEADER);
+  if (blobByteLength !== null) {
+    return {
+      byteLength: parseContentLength(blobByteLength),
+      headerName: BLOB_BYTES_BYTE_LENGTH_HEADER,
+      missing: false,
+    };
+  }
+
+  const contentLength = response.headers.get(BLOB_BYTES_CONTENT_LENGTH_HEADER);
+  return {
+    byteLength: parseContentLength(contentLength),
+    headerName: BLOB_BYTES_CONTENT_LENGTH_HEADER,
+    missing: contentLength === null,
+  };
 }
 
 function reportMalformedBlobBytesResponse(
@@ -59,11 +82,13 @@ async function loadBlobBytesResponse(
 
   const response = result.data;
   const responseBlobId = response.headers.get(BLOB_BYTES_BLOB_ID_HEADER);
-  const contentLength = response.headers.get(BLOB_BYTES_CONTENT_LENGTH_HEADER);
+  const byteLengthHeader = readBlobByteLength(response);
   const sha256 = response.headers.get(BLOB_BYTES_SHA256_HEADER);
   const missingHeaders = [
     responseBlobId ? null : BLOB_BYTES_BLOB_ID_HEADER,
-    contentLength ? null : BLOB_BYTES_CONTENT_LENGTH_HEADER,
+    byteLengthHeader.missing
+      ? `(${BLOB_BYTES_BYTE_LENGTH_HEADER} or ${BLOB_BYTES_CONTENT_LENGTH_HEADER})`
+      : null,
     sha256 ? null : BLOB_BYTES_SHA256_HEADER,
   ].filter((header): header is string => header !== null);
   if (missingHeaders.length > 0) {
@@ -74,10 +99,10 @@ async function loadBlobBytesResponse(
     });
   }
 
-  const byteLength = parseContentLength(contentLength);
+  const byteLength = byteLengthHeader.byteLength;
   if (byteLength === null) {
     return reportMalformedBlobBytesResponse(request, {
-      message: `Invalid response shape for ${path}: invalid ${BLOB_BYTES_CONTENT_LENGTH_HEADER}`,
+      message: `Invalid response shape for ${path}: invalid ${byteLengthHeader.headerName}`,
       path,
       response,
     });

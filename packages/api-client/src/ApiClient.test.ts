@@ -822,6 +822,39 @@ test("exposes streamed blob download responses", async () => {
   );
 });
 
+test("uses blob byte length header when content-length is unavailable", async () => {
+  server.use(
+    http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, () => {
+      const encryptedBytes = new TextEncoder().encode("encrypted-blob-bytes");
+
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encryptedBytes);
+            controller.close();
+          },
+        }),
+        {
+          headers: {
+            "X-Tearleads-Blob-Byte-Length":
+              encryptedBytes.byteLength.toString(),
+            "X-Tearleads-Blob-Id": "blob-1",
+            "X-Tearleads-Blob-Sha256": "sha256-1",
+          },
+        },
+      );
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const blob = await client.getBlobBytes("blob-1");
+
+  expect(blob?.byteLength).toBe(20);
+  await expect(new Response(blob?.encryptedBytes).text()).resolves.toBe(
+    "encrypted-blob-bytes",
+  );
+});
+
 test("reports malformed blob byte responses", async () => {
   server.use(
     http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, () => {
@@ -838,6 +871,25 @@ test("reports malformed blob byte responses", async () => {
   await expect(client.getBlob("blob-1")).resolves.toBeNull();
   expect(errors).toEqual([
     "Invalid response shape for /blobs/blob-1/bytes: missing x-tearleads-blob-id, x-tearleads-blob-sha256",
+  ]);
+});
+
+test("groups alternative blob byte length headers in malformed responses", async () => {
+  server.use(
+    http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, () => {
+      return new Response(textStream("encrypted-blob-bytes"));
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const errors: string[] = [];
+  client.setOnError((message) => {
+    errors.push(message);
+  });
+
+  await expect(client.getBlob("blob-1")).resolves.toBeNull();
+  expect(errors).toEqual([
+    "Invalid response shape for /blobs/blob-1/bytes: missing x-tearleads-blob-id, (x-tearleads-blob-byte-length or content-length), x-tearleads-blob-sha256",
   ]);
 });
 
