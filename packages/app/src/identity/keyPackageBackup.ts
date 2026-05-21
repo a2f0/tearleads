@@ -99,12 +99,19 @@ export function downloadKeyPackageFile(input: {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
+  const revokeObjectUrl = URL.revokeObjectURL.bind(URL);
   const anchor = document.createElement("a");
   anchor.download = input.fileName;
   anchor.href = url;
   anchor.rel = "noopener";
-  anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  try {
+    anchor.click();
+  } finally {
+    anchor.remove();
+    setTimeout(() => revokeObjectUrl(url), 1000);
+  }
 }
 
 export function parseKeyPackageFileText(text: string): unknown {
