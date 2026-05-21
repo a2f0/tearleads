@@ -1,4 +1,4 @@
-import type { BlobBytes } from "@tearleads/client-sdk";
+import type { BlobBytes } from "@tearleads/client-sdk/documents";
 import type { NotesAttachFiles, NotesAttachmentUpload } from "../types";
 
 async function readAttachmentUpload(

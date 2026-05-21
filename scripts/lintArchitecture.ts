@@ -26,6 +26,7 @@ const clientSdkWorkflowDocsPath = "packages/client-sdk/src/workflows/README.md";
 const clientSdkSupportedPackageExports = {
   ".": "./src/index.ts",
   "./documents": "./src/documents.ts",
+  "./sqlite": "./src/sqlite.ts",
   "./stores/documents": "./src/stores/documents/index.ts",
   "./workflows/blobs": "./src/workflows/blobs/index.ts",
   "./workflows/contacts": "./src/workflows/contacts/index.ts",

@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-  createDocumentSignerDeviceId,
-  type ExecSql,
-} from "@tearleads/client-sdk";
+import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
+import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import {
   buildMaterializedDocumentCreatePlan,
   defaultDocumentsPersistence,

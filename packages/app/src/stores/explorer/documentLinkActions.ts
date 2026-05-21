@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import {
   activateExplorerDocumentLinkState,
   canMutateExplorerDocumentLink,

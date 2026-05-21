@@ -1,7 +1,7 @@
 import {
   type DocumentSummary,
   getUntitledDocumentTitle,
-} from "@tearleads/client-sdk";
+} from "@tearleads/client-sdk/documents";
 import { defaultDocumentsPersistence } from "@tearleads/client-sdk/workflows/documents";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";

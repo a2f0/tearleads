@@ -1,4 +1,4 @@
-import { createExecSql, type ExecSql } from "@tearleads/client-sdk";
+import { createExecSql, type ExecSql } from "@tearleads/client-sdk/sqlite";
 import {
   execDatabaseStatement,
   initDatabase,

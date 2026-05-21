@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import type { BlobBytes, DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  BlobBytes,
+  DocumentSummary,
+} from "@tearleads/client-sdk/documents";
 import {
   createMemoryBlobStore,
   decryptDocumentAttachmentBlob,

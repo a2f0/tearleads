@@ -1,0 +1,42 @@
+export type TearleadsNetworkListener = (online: boolean) => void;
+
+function defaultOnline(): boolean {
+  return typeof navigator === "object" && typeof navigator.onLine === "boolean"
+    ? navigator.onLine
+    : true;
+}
+
+export class TearleadsNetwork {
+  private readonly listeners = new Set<TearleadsNetworkListener>();
+  private onlineValue: boolean;
+
+  constructor(online: boolean = defaultOnline()) {
+    this.onlineValue = online;
+  }
+
+  get online(): boolean {
+    return this.onlineValue;
+  }
+
+  setOnline(online: boolean): void {
+    if (this.onlineValue === online) {
+      return;
+    }
+
+    this.onlineValue = online;
+    for (const listener of this.listeners) {
+      try {
+        listener(online);
+      } catch {
+        // Keep one subscriber failure from blocking later subscribers.
+      }
+    }
+  }
+
+  subscribe = (listener: TearleadsNetworkListener): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+}

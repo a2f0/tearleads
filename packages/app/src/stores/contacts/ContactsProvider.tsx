@@ -24,7 +24,7 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const appData = useAppData();
   const tearleads = useTearleads();
   const runtime = useMemo<ContactsRuntime>(
-    () => tearleads.workflows.contacts(),
+    () => tearleads.contacts.runtime(),
     [appData, tearleads],
   );
   const store = useMemo(

@@ -127,7 +127,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   const appData = useAppData();
   const tearleads = useTearleads();
   const runtime = useMemo(
-    () => tearleads.workflows.explorer(),
+    () => tearleads.explorer.runtime(),
     [appData, tearleads],
   );
   const store = useMemo(

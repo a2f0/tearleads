@@ -1,7 +1,7 @@
 import type {
   DocumentSummary,
   StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@tearleads/client-sdk/documents";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,

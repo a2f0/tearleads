@@ -1,4 +1,4 @@
-import type { StoredDocumentKind } from "@tearleads/client-sdk";
+import type { StoredDocumentKind } from "@tearleads/client-sdk/documents";
 import {
   DEFAULT_DOCUMENT_ID,
   type DocumentContextValue,
@@ -52,8 +52,8 @@ export function DocumentsProvider({
   const runtime = useMemo<DocumentsRuntime>(
     () =>
       containerId === undefined
-        ? tearleads.workflows.documents()
-        : tearleads.workflows.documents({ containerId }),
+        ? tearleads.documents.runtime()
+        : tearleads.documents.runtime({ containerId }),
     [appData, containerId, tearleads],
   );
   const store = useMemo(
