@@ -253,3 +253,66 @@ test("registerIdentity submits the registration request and persists the local b
     close();
   }
 });
+
+test("registerIdentity propagates local bootstrap persistence failures", async () => {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const containerId = crypto.randomUUID();
+  const persistenceError = new Error("local db unavailable");
+  const errors: Array<{ message: string | Error; cause: unknown }> = [];
+  let registrationSubmitted = false;
+  const apiClient = {
+    registerUser: async (
+      userId: string,
+      organizationId: string,
+      rootContainerId: string,
+      _signingPublicKey: Uint8Array,
+      _encapsulationPublicKey: Uint8Array,
+      _initialAdminGroup: CreateOrganizationGroupRequest,
+      _initialMemberGroup: CreateOrganizationGroupRequest,
+      _initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
+      _initialRootContainer: RegistrationRequest["initialRootContainer"],
+      initialRootMetadataDocument: DocumentCreateRequest,
+    ): Promise<RegistrationResponse> => {
+      registrationSubmitted = true;
+      const rootMetadataDocument = await createResponseFromRequest(
+        initialRootMetadataDocument,
+      );
+
+      return {
+        userId,
+        organizationId,
+        rootContainerId,
+        rootMetadataDocumentId: rootMetadataDocument.id,
+        rootMetadataAccessEpoch: 1,
+        rootMetadataAccessStateHash:
+          rootMetadataDocument.accessManifest.manifestHash,
+        rootMetadataDocument,
+        challenge: "a".repeat(64),
+      };
+    },
+  };
+
+  await expect(
+    registerIdentity({
+      apiClient,
+      containerId,
+      dbClient: {
+        async exec() {
+          throw persistenceError;
+        },
+      },
+      encapsulationKeyPair,
+      logError: (message, cause) => errors.push({ message, cause }),
+      signingKeyPair,
+    }),
+  ).rejects.toThrow("local db unavailable");
+
+  expect(registrationSubmitted).toBe(true);
+  expect(errors).toEqual([
+    {
+      message: "Failed to persist registration data",
+      cause: persistenceError,
+    },
+  ]);
+});

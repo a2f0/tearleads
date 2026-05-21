@@ -222,10 +222,11 @@ async function persistLocalRegistrationState(input: {
   } catch (error: unknown) {
     if (input.logError) {
       input.logError("Failed to persist registration data", error);
-      return;
+    } else {
+      console.error("Failed to persist registration data:", error);
     }
 
-    console.error("Failed to persist registration data:", error);
+    throw error;
   }
 }
 
