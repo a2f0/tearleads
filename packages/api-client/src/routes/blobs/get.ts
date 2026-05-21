@@ -87,7 +87,7 @@ async function loadBlobBytesResponse(
   const missingHeaders = [
     responseBlobId ? null : BLOB_BYTES_BLOB_ID_HEADER,
     byteLengthHeader.missing
-      ? `${BLOB_BYTES_BYTE_LENGTH_HEADER} or ${BLOB_BYTES_CONTENT_LENGTH_HEADER}`
+      ? `(${BLOB_BYTES_BYTE_LENGTH_HEADER} or ${BLOB_BYTES_CONTENT_LENGTH_HEADER})`
       : null,
     sha256 ? null : BLOB_BYTES_SHA256_HEADER,
   ].filter((header): header is string => header !== null);
