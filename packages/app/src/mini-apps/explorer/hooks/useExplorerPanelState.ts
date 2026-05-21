@@ -162,6 +162,7 @@ export function useExplorerPanelState(params: {
     documentReadModel,
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
     nodes: explorer.nodes,
+    online: appData.online,
     ready: explorer.ready,
     selectedId: selection.selectedId,
     selectDocumentProjection,

@@ -16,11 +16,16 @@ import {
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { containerCreateIntentTables } from "../../data/sqlite/schema";
+import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import {
   type ExplorerWorkflowSqlRuntime,
   getExplorerWorkflowRuntimeExecSql,
 } from "./runtime";
+import {
+  createExplorerObjectSyncState,
+  type ExplorerObjectSyncState,
+} from "./syncState";
 
 export interface ExplorerDocumentLinkInput {
   containerIds: ReadonlyArray<string>;
@@ -48,6 +53,7 @@ export type ExplorerContainerItemRow =
       id: string;
       itemKind: "container";
       name: string;
+      syncState: ExplorerObjectSyncState;
       updatedAt: string | null;
     }
   | {
@@ -58,6 +64,7 @@ export type ExplorerContainerItemRow =
       itemKind: "document";
       localId: string;
       name: string;
+      syncState: ExplorerObjectSyncState;
       updatedAt: string | null;
     };
 
@@ -71,6 +78,7 @@ export interface ExplorerContainerDocumentSidebarRow {
   documentId: string | null;
   documentKind: StoredDocumentKind;
   localId: string;
+  syncState: ExplorerObjectSyncState;
   title: string;
   updatedAt: string | null;
 }
@@ -116,6 +124,9 @@ export interface ExplorerDocumentReadModel {
     offset: number;
     sort: ExplorerContainerItemSort;
   }): Promise<ExplorerContainerItemWindow>;
+  loadDocumentSyncState(
+    localId: string,
+  ): Promise<ExplorerObjectSyncState | null>;
   loadDocumentSummary(localId: string): Promise<DocumentSummary | null>;
   loadContainerDocumentWatermark(
     containerId: string,
@@ -223,15 +234,62 @@ function getExplorerContainerItemOrderBy(
   return "item_kind_sort ASC, name COLLATE NOCASE ASC, type_sort COLLATE NOCASE ASC, item_id ASC";
 }
 
+function getExplorerDocumentPendingStateCtes(): string {
+  return `
+    document_pending_update_counts AS (
+      SELECT
+        local_id,
+        COUNT(*) AS pending_update_count
+      FROM document_pending_updates
+      WHERE app_kind = 'documents'
+      GROUP BY local_id
+    ),
+    document_pending_attachment_counts AS (
+      SELECT
+        local_id,
+        COUNT(*) AS pending_attachment_count,
+        COALESCE(SUM(byte_length), 0) AS pending_attachment_bytes
+      FROM document_pending_attachments
+      GROUP BY local_id
+    )
+  `;
+}
+
 function getExplorerContainerItemsBaseSql(): string {
   return `
-    WITH container_items AS (
+    WITH ${getExplorerDocumentPendingStateCtes()},
+    container_metadata_pending_update_counts AS (
+      SELECT
+        local_id,
+        COUNT(*) AS pending_update_count
+      FROM document_pending_updates
+      WHERE app_kind = 'container-metadata'
+      GROUP BY local_id
+    ),
+    pending_container_create_intents AS (
+      SELECT
+        container_id,
+        MAX(last_error) AS last_error
+      FROM container_create_intents
+      WHERE intent_type = 'container.create'
+        AND sync_status = 'pending'
+      GROUP BY container_id
+    ),
+    container_items AS (
       SELECT
         'container' AS item_kind,
         0 AS item_kind_sort,
         c.id AS item_id,
         NULL AS document_id,
         NULL AS document_kind,
+        c.metadata_document_id AS metadata_document_id,
+        c.local_updated_at AS local_updated_at,
+        c.server_created_at AS server_created_at,
+        c.server_updated_at AS server_updated_at,
+        COALESCE(container_updates.pending_update_count, 0) AS pending_update_count,
+        0 AS pending_attachment_count,
+        0 AS pending_attachment_bytes,
+        create_intent.last_error AS sync_last_error,
         COALESCE(
           cp.display_name,
           CASE WHEN c.parent_id IS NULL THEN '/' ELSE 'Untitled' END
@@ -241,6 +299,10 @@ function getExplorerContainerItemsBaseSql(): string {
         COALESCE(c.server_updated_at, c.local_updated_at) AS updated_at
       FROM containers c
       LEFT JOIN container_projection cp ON cp.container_id = c.id
+      LEFT JOIN container_metadata_pending_update_counts container_updates
+        ON container_updates.local_id = c.id
+      LEFT JOIN pending_container_create_intents create_intent
+        ON create_intent.container_id = c.id
       WHERE c.parent_id = ?
 
       UNION ALL
@@ -251,11 +313,23 @@ function getExplorerContainerItemsBaseSql(): string {
         d.local_id AS item_id,
         d.document_id AS document_id,
         d.document_kind AS document_kind,
+        NULL AS metadata_document_id,
+        NULL AS local_updated_at,
+        NULL AS server_created_at,
+        NULL AS server_updated_at,
+        COALESCE(document_updates.pending_update_count, 0) AS pending_update_count,
+        COALESCE(document_attachments.pending_attachment_count, 0) AS pending_attachment_count,
+        COALESCE(document_attachments.pending_attachment_bytes, 0) AS pending_attachment_bytes,
+        NULL AS sync_last_error,
         d.title AS name,
         d.document_kind AS type_sort,
         d.updated_at AS created_at,
         d.updated_at AS updated_at
       FROM document_projection d
+      LEFT JOIN document_pending_update_counts document_updates
+        ON document_updates.local_id = d.local_id
+      LEFT JOIN document_pending_attachment_counts document_attachments
+        ON document_attachments.local_id = d.local_id
       WHERE d.container_id = ?
 
       UNION ALL
@@ -266,12 +340,24 @@ function getExplorerContainerItemsBaseSql(): string {
         d.local_id AS item_id,
         d.document_id AS document_id,
         d.document_kind AS document_kind,
+        NULL AS metadata_document_id,
+        NULL AS local_updated_at,
+        NULL AS server_created_at,
+        NULL AS server_updated_at,
+        COALESCE(document_updates.pending_update_count, 0) AS pending_update_count,
+        COALESCE(document_attachments.pending_attachment_count, 0) AS pending_attachment_count,
+        COALESCE(document_attachments.pending_attachment_bytes, 0) AS pending_attachment_bytes,
+        NULL AS sync_last_error,
         d.title AS name,
         d.document_kind AS type_sort,
         d.updated_at AS created_at,
         d.updated_at AS updated_at
       FROM document_container_projection linked
       INNER JOIN document_projection d ON d.document_id = linked.document_id
+      LEFT JOIN document_pending_update_counts document_updates
+        ON document_updates.local_id = d.local_id
+      LEFT JOIN document_pending_attachment_counts document_attachments
+        ON document_attachments.local_id = d.local_id
       WHERE linked.container_id = ?
         AND (
           d.container_id IS NULL
@@ -285,15 +371,23 @@ function getExplorerContainerItemsBaseSql(): string {
 
 function getExplorerContainerDocumentsBaseSql(): string {
   return `
-    WITH container_documents AS (
+    WITH ${getExplorerDocumentPendingStateCtes()},
+    container_documents AS (
       SELECT
         d.local_id AS local_id,
         d.document_id AS document_id,
         d.container_id AS container_id,
         d.document_kind AS document_kind,
+        COALESCE(document_updates.pending_update_count, 0) AS pending_update_count,
+        COALESCE(document_attachments.pending_attachment_count, 0) AS pending_attachment_count,
+        COALESCE(document_attachments.pending_attachment_bytes, 0) AS pending_attachment_bytes,
         d.title AS title,
         d.updated_at AS updated_at
       FROM document_projection d
+      LEFT JOIN document_pending_update_counts document_updates
+        ON document_updates.local_id = d.local_id
+      LEFT JOIN document_pending_attachment_counts document_attachments
+        ON document_attachments.local_id = d.local_id
       WHERE d.container_id = ?
 
       UNION ALL
@@ -303,10 +397,17 @@ function getExplorerContainerDocumentsBaseSql(): string {
         d.document_id AS document_id,
         linked.container_id AS container_id,
         d.document_kind AS document_kind,
+        COALESCE(document_updates.pending_update_count, 0) AS pending_update_count,
+        COALESCE(document_attachments.pending_attachment_count, 0) AS pending_attachment_count,
+        COALESCE(document_attachments.pending_attachment_bytes, 0) AS pending_attachment_bytes,
         d.title AS title,
         d.updated_at AS updated_at
       FROM document_container_projection linked
       INNER JOIN document_projection d ON d.document_id = linked.document_id
+      LEFT JOIN document_pending_update_counts document_updates
+        ON document_updates.local_id = d.local_id
+      LEFT JOIN document_pending_attachment_counts document_attachments
+        ON document_attachments.local_id = d.local_id
       WHERE linked.container_id = ?
         AND (
           d.container_id IS NULL
@@ -352,6 +453,52 @@ function readExplorerContainerItemNumber(
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+function hasPendingLocalTimestamp(
+  row: Record<string, unknown>,
+  localUpdatedAtKey: string,
+  serverUpdatedAtKey: string,
+): boolean {
+  const localUpdatedAt = readExplorerContainerItemNullableString(
+    row,
+    localUpdatedAtKey,
+  );
+  const serverUpdatedAt = readExplorerContainerItemNullableString(
+    row,
+    serverUpdatedAtKey,
+  );
+
+  return (
+    localUpdatedAt !== null &&
+    (serverUpdatedAt === null ||
+      localUpdatedAt.localeCompare(serverUpdatedAt) > 0)
+  );
+}
+
+function readExplorerObjectSyncState(
+  row: Record<string, unknown>,
+  options: {
+    localOnly: boolean;
+    localTimestampPending?: boolean | undefined;
+  },
+): ExplorerObjectSyncState {
+  return createExplorerObjectSyncState({
+    lastError: readExplorerContainerItemNullableString(row, "sync_last_error"),
+    localOnly: options.localOnly,
+    pendingAttachmentBytes: readExplorerContainerItemNumber(
+      row,
+      "pending_attachment_bytes",
+    ),
+    pendingAttachmentCount: readExplorerContainerItemNumber(
+      row,
+      "pending_attachment_count",
+    ),
+    pendingUpdateCount: Math.max(
+      readExplorerContainerItemNumber(row, "pending_update_count"),
+      options.localTimestampPending ? 1 : 0,
+    ),
+  });
+}
+
 function mapExplorerContainerItemRow(
   containerId: string,
   row: Record<string, unknown>,
@@ -363,6 +510,16 @@ function mapExplorerContainerItemRow(
       id: readExplorerContainerItemString(row, "item_id"),
       itemKind: "container",
       name: readExplorerContainerItemString(row, "name"),
+      syncState: readExplorerObjectSyncState(row, {
+        localOnly:
+          !readExplorerContainerItemNullableString(row, "server_created_at") ||
+          !readExplorerContainerItemNullableString(row, "metadata_document_id"),
+        localTimestampPending: hasPendingLocalTimestamp(
+          row,
+          "local_updated_at",
+          "server_updated_at",
+        ),
+      }),
       updatedAt: readExplorerContainerItemNullableString(row, "updated_at"),
     };
   }
@@ -377,6 +534,9 @@ function mapExplorerContainerItemRow(
     itemKind: "document",
     localId: readExplorerContainerItemString(row, "item_id"),
     name: readExplorerContainerItemString(row, "name"),
+    syncState: readExplorerObjectSyncState(row, {
+      localOnly: !readExplorerContainerItemNullableString(row, "document_id"),
+    }),
     updatedAt: readExplorerContainerItemNullableString(row, "updated_at"),
   };
 }
@@ -395,6 +555,9 @@ function mapExplorerContainerDocumentSidebarRow(
       readExplorerContainerItemString(row, "document_kind"),
     ),
     localId: readExplorerContainerItemString(row, "local_id"),
+    syncState: readExplorerObjectSyncState(row, {
+      localOnly: !readExplorerContainerItemNullableString(row, "document_id"),
+    }),
     title: readExplorerContainerItemString(row, "title"),
     updatedAt: readExplorerContainerItemNullableString(row, "updated_at"),
   };
@@ -504,6 +667,7 @@ async function listExplorerContainerItemWindow(
 ): Promise<ExplorerContainerItemWindow> {
   await ensureContainerTables(execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
+  await ensureSqlTables(execSql, containerCreateIntentTables);
 
   const limit = getExplorerContainerItemWindowLimit(input.limit);
   const offset = clampExplorerContainerItemWindowValue(input.offset);
@@ -594,6 +758,41 @@ async function loadExplorerDocumentSummary(
   );
 
   return mapExplorerDocumentSummaryRow(rows[0] ?? {});
+}
+
+async function loadExplorerDocumentSyncState(
+  execSql: ExecSql,
+  localId: string,
+): Promise<ExplorerObjectSyncState | null> {
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+
+  const rows = await execSql(
+    `
+      WITH ${getExplorerDocumentPendingStateCtes()}
+      SELECT
+        d.document_id AS document_id,
+        COALESCE(document_updates.pending_update_count, 0) AS pending_update_count,
+        COALESCE(document_attachments.pending_attachment_count, 0) AS pending_attachment_count,
+        COALESCE(document_attachments.pending_attachment_bytes, 0) AS pending_attachment_bytes,
+        NULL AS sync_last_error
+      FROM document_projection d
+      LEFT JOIN document_pending_update_counts document_updates
+        ON document_updates.local_id = d.local_id
+      LEFT JOIN document_pending_attachment_counts document_attachments
+        ON document_attachments.local_id = d.local_id
+      WHERE d.local_id = ?
+      LIMIT 1
+    `,
+    [localId],
+  );
+  const [row] = rows;
+  if (!row) {
+    return null;
+  }
+
+  return readExplorerObjectSyncState(row, {
+    localOnly: !readExplorerContainerItemNullableString(row, "document_id"),
+  });
 }
 
 async function listExplorerDocumentsForContainerSubtree(
@@ -890,6 +1089,9 @@ function createExplorerDocumentReadModel(
     },
     listContainerItemWindow(input) {
       return listExplorerContainerItemWindow(execSql, input);
+    },
+    loadDocumentSyncState(localId) {
+      return loadExplorerDocumentSyncState(execSql, localId);
     },
     loadDocumentSummary(localId) {
       return loadExplorerDocumentSummary(execSql, localId);

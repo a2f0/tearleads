@@ -58,6 +58,7 @@ export function Explorer() {
         linkedContainerIds={model.linkedContainerIds}
         loadContainerInfo={model.loadContainerInfo}
         nodes={model.explorer.nodes}
+        online={appData.online}
         onBackToSelectionRoute={model.routeState.showSelectionRoute}
         onOpenGrantGroup={openGrantGroupInOrgManager}
         openInlineDocument={model.openInlineDocument}

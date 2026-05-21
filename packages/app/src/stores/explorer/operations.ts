@@ -151,7 +151,7 @@ export async function createChildContainer(
   );
   updateExplorerSnapshot(state);
   state.runtime.log(`Explorer: created container "${trimmedName}"`);
-  return toContainerNode(created.containerState.container);
+  return toContainerNode(created.containerState);
 }
 
 export async function deleteExplorerContainer(
@@ -180,7 +180,7 @@ export async function deleteExplorerContainer(
     }
   }
 
-  const deletedNode = toContainerNode(existingState.container);
+  const deletedNode = toContainerNode(existingState);
   const deleted = await deleteExplorerContainerState({
     containerState: existingState,
     persistence: state.persistence,
@@ -219,7 +219,7 @@ export async function renameExplorerContainer(
   }
 
   if (existingState.container.name === trimmedName) {
-    return toContainerNode(existingState.container);
+    return toContainerNode(existingState);
   }
 
   const renamed = await renameExplorerContainerMetadataStateFromRuntime({
@@ -237,7 +237,7 @@ export async function renameExplorerContainer(
   updateExplorerSnapshot(state);
   syncAgent.scheduleSync();
   state.runtime.log(`Explorer: renamed container to "${trimmedName}"`);
-  return toContainerNode(existingState.container);
+  return toContainerNode(existingState);
 }
 
 export async function shareExplorerContainerWithUser(
@@ -304,7 +304,7 @@ export async function shareExplorerContainerWithUser(
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();
   state.runtime.log(`Explorer: shared container ${containerId} with ${userId}`);
-  return toContainerNode(existingState.container);
+  return toContainerNode(existingState);
 }
 
 export async function shareExplorerContainerWithGroup(
@@ -374,7 +374,7 @@ export async function shareExplorerContainerWithGroup(
   state.runtime.log(
     `Explorer: shared container ${containerId} with group ${groupId}`,
   );
-  return toContainerNode(existingState.container);
+  return toContainerNode(existingState);
 }
 
 export async function moveExplorerContainer(
@@ -422,5 +422,5 @@ export async function moveExplorerContainer(
   state.runtime.log(
     `Explorer: moved container ${containerId} under ${parentId}`,
   );
-  return toContainerNode(existingState.container);
+  return toContainerNode(existingState);
 }

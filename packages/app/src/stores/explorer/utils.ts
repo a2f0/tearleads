@@ -1,14 +1,36 @@
-import type { ContainerRecord } from "@tearleads/client-sdk/workflows/explorer";
+import {
+  type ContainerRecord,
+  createExplorerObjectSyncState,
+} from "@tearleads/client-sdk/workflows/explorer";
 import type { ContainerState } from "./explorerSyncAgent";
 import type { ContainerNode } from "./types";
 
-export function toContainerNode(container: ContainerRecord): ContainerNode {
+function hasPendingContainerTimestamp(container: ContainerRecord): boolean {
+  const localUpdatedAt = container.localUpdatedAt ?? null;
+  const serverUpdatedAt = container.serverUpdatedAt ?? null;
+
+  return (
+    localUpdatedAt !== null &&
+    (serverUpdatedAt === null ||
+      localUpdatedAt.localeCompare(serverUpdatedAt) > 0)
+  );
+}
+
+export function toContainerNode(containerState: ContainerState): ContainerNode {
+  const { container, record } = containerState;
   const node: ContainerNode = {
     id: container.id,
     kind: "container",
     name: container.name,
     organizationId: container.organizationId,
     parentId: container.parentId,
+    syncState: createExplorerObjectSyncState({
+      localOnly:
+        !container.serverCreatedAt ||
+        !container.metadataDocumentId ||
+        !record.documentId,
+      pendingUpdateCount: hasPendingContainerTimestamp(container) ? 1 : 0,
+    }),
   };
 
   if (container.createdAt) {
@@ -50,7 +72,7 @@ export function getSnapshotNodes(
   containersById: ReadonlyMap<string, ContainerState>,
 ): ReadonlyArray<ContainerNode> {
   return Array.from(containersById.values(), (containerState) =>
-    toContainerNode(containerState.container),
+    toContainerNode(containerState),
   ).sort((left, right) =>
     left.name.localeCompare(right.name, undefined, {
       sensitivity: "base",

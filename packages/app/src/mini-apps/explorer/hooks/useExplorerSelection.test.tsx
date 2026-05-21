@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
+import { syncedExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/explorer";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import { useExplorerSelection } from "./useExplorerSelection";
@@ -15,6 +16,7 @@ const nodes: ContainerNode[] = [
     name: "Root",
     organizationId: "org-1",
     parentId: null,
+    syncState: syncedExplorerObjectSyncState,
   },
 ];
 

@@ -47,6 +47,7 @@ export function ExplorerDetailPanel(params: {
   linkedContainerIds: ReadonlyArray<string>;
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
   nodes: ReadonlyArray<ContainerNode>;
+  online: boolean;
   onBackToSelectionRoute: () => void;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
   openInlineDocument: (
@@ -101,8 +102,11 @@ export function ExplorerDetailPanel(params: {
         canLinkSelectedDocument={params.canLinkSelectedDocument}
         canMoveSelectedDocument={params.canMoveSelectedDocument}
         canUnlinkSelectedDocument={params.canUnlinkSelectedDocument}
+        documentListRevision={params.documentListRevision}
+        documentReadModel={params.documentReadModel}
         linkedContainerIds={params.linkedContainerIds}
         nodes={params.nodes}
+        online={params.online}
         openLinkDocumentModal={params.openLinkDocumentModal}
         openMoveDocumentModal={params.openMoveDocumentModal}
         refreshError={params.refreshError}
@@ -119,6 +123,7 @@ export function ExplorerDetailPanel(params: {
         documentListRevision={params.documentListRevision}
         documentReadModel={params.documentReadModel}
         importDroppedFiles={params.importDroppedFiles}
+        online={params.online}
         openInlineDocument={params.openInlineDocument}
         refreshError={params.refreshError}
         selectedNode={selectedNode}

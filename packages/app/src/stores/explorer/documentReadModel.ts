@@ -15,6 +15,7 @@ export type {
   ExplorerContainerItemSortKey,
   ExplorerDocumentLinkInput,
   ExplorerDocumentReadModel,
+  ExplorerObjectSyncState,
 } from "@tearleads/client-sdk/workflows/explorer";
 
 export function useExplorerDocumentReadModel(

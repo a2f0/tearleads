@@ -57,18 +57,28 @@
   gap: 0.25rem;
 }
 
-.explorer-detail strong,
-.explorer-detail span {
+.explorer-detail-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--padding) / 2);
+}
+
+.explorer-detail-copy > strong,
+.explorer-detail-copy > span,
+.explorer-detail-title-row > strong,
+.explorer-linked-container-section > strong {
   display: block;
 }
 
-.explorer-detail span {
+.explorer-detail-copy > span {
   font-size: var(--font-size-sm);
   opacity: 0.8;
 }
 
 .explorer-detail-error {
   color: currentColor;
+  font-size: var(--font-size-sm);
   opacity: 1;
 }
 
@@ -187,6 +197,36 @@
 
 .explorer-sidebar-item--more {
   opacity: 0.75;
+}
+
+.explorer-sync-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  max-width: 8rem;
+  min-height: 1.2rem;
+  padding: 0 calc(var(--padding) / 3);
+  border: 1px solid currentColor;
+  font-size: 0.72rem;
+  line-height: 1;
+  opacity: 0.78;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-sync-badge::before {
+  content: attr(data-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explorer-sync-badge--error {
+  opacity: 1;
+}
+
+.explorer-sync-badge--synced {
+  opacity: 0.55;
 }
 
 .explorer-node-toggle,

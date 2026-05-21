@@ -1,3 +1,4 @@
+import type { ExplorerObjectSyncState } from "./documentReadModel";
 import type { ExplorerRuntime, ExplorerSyncState } from "./explorerSyncAgent";
 
 export type ExplorerShareAccessLevel = "admin" | "read" | "write";
@@ -8,6 +9,7 @@ export interface ContainerNode {
   organizationId: string;
   name: string;
   parentId: string | null;
+  syncState: ExplorerObjectSyncState;
   kind: "container";
   updatedAt?: string | null;
 }

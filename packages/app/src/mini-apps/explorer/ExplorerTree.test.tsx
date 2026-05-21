@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { syncedExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/explorer";
 import {
   act,
   cleanup,
@@ -31,6 +32,7 @@ const nodes: ContainerNode[] = [
     name: "Root",
     organizationId: "org-1",
     parentId: null,
+    syncState: syncedExplorerObjectSyncState,
   },
 ];
 
@@ -44,6 +46,7 @@ function createSidebarRows(
       documentId: `remote-document-${rowNumber}`,
       documentKind: "note",
       localId: `document-${rowNumber}`,
+      syncState: syncedExplorerObjectSyncState,
       title: `Document ${rowNumber}`,
       updatedAt: `2026-05-17T00:${String(index).padStart(2, "0")}:00.000Z`,
     };
@@ -65,6 +68,7 @@ function createDocumentReadModel(
     },
     listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
     loadContainerDocumentWatermark: async () => null,
+    loadDocumentSyncState: async () => null,
     loadDocumentSummary: async () => null,
     listLinkedContainerIdsByDocumentIds: async () => new Map(),
     replaceDocumentLinks: async () => undefined,
@@ -100,6 +104,7 @@ function ExplorerSidebarHarness(params: {
     documentReadModel,
     handleSidebarContextMenu,
     nodes,
+    online: true,
     ready: true,
     selectedId,
     selectDocumentProjection,

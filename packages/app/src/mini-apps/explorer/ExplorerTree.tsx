@@ -18,6 +18,7 @@ import type {
   ExplorerDocumentReadModel,
 } from "../../stores/explorer/documentReadModel";
 import type { ContainerNode } from "../../stores/explorer/types";
+import { ExplorerSyncStateBadge } from "./ExplorerSyncStateBadge";
 
 const EXPLORER_SIDEBAR_DOCUMENT_PAGE_SIZE = 50;
 
@@ -74,6 +75,7 @@ interface ExplorerTreeEntriesProps {
   onSelectContainer: (id: string) => void;
   onSelectDocument: (documentId: string, containerId: string) => void;
   onToggleCollapsed: (id: string) => void;
+  online: boolean;
   selectedId: string | null;
 }
 
@@ -83,13 +85,60 @@ function ExplorerTreeEntries(props: ExplorerTreeEntriesProps): ReactNode {
   ));
 }
 
+function ExplorerSidebarItemLabel(params: {
+  children: string;
+  online: boolean;
+  syncState: ContainerNode["syncState"];
+}) {
+  return (
+    <>
+      <MiniAppRowText>{params.children}</MiniAppRowText>
+      <ExplorerSyncStateBadge
+        online={params.online}
+        syncState={params.syncState}
+      />
+    </>
+  );
+}
+
+function ExplorerTreeDocumentRows(
+  props: Omit<ExplorerTreeEntriesProps, "entries"> & {
+    depth: number;
+    rows: ReadonlyArray<ExplorerContainerDocumentSidebarRow>;
+  },
+) {
+  return props.rows.map(({ containerId, localId, syncState, title }) => (
+    <div
+      className="explorer-sidebar-row"
+      key={`${localId}:${containerId}`}
+      style={{
+        paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${props.depth}))`,
+      }}
+    >
+      <span className="explorer-node-spacer" aria-hidden="true" />
+      <MiniAppRowButton
+        data-document-local-id={localId}
+        className="explorer-sidebar-item explorer-sidebar-item--note"
+        onClick={() => props.onSelectDocument(localId, containerId)}
+        selected={
+          props.selectedId === localId &&
+          props.activeContainerId === containerId
+        }
+      >
+        <ExplorerSidebarItemLabel online={props.online} syncState={syncState}>
+          {title}
+        </ExplorerSidebarItemLabel>
+      </MiniAppRowButton>
+    </div>
+  ));
+}
+
 function ExplorerTreeEntryNode(
   props: Omit<ExplorerTreeEntriesProps, "entries"> & {
     entry: ExplorerTreeEntry;
   },
 ) {
   const {
-    activeContainerId,
     collapsedIds,
     depth,
     documentWindowsByContainerId,
@@ -97,8 +146,8 @@ function ExplorerTreeEntryNode(
     onLoadMoreDocuments,
     onContextMenu,
     onSelectContainer,
-    onSelectDocument,
     onToggleCollapsed,
+    online,
     selectedId,
   } = props;
   const hasChildren = entry.children.length > 0;
@@ -139,7 +188,12 @@ function ExplorerTreeEntryNode(
           onContextMenu={(event) => onContextMenu(event, entry.node.id)}
           selected={isSelected}
         >
-          <MiniAppRowText>{entry.node.name}</MiniAppRowText>
+          <ExplorerSidebarItemLabel
+            online={online}
+            syncState={entry.node.syncState}
+          >
+            {entry.node.name}
+          </ExplorerSidebarItemLabel>
         </MiniAppRowButton>
       </div>
       {!isCollapsed && (
@@ -149,31 +203,13 @@ function ExplorerTreeEntryNode(
           entries={entry.children}
         />
       )}
-      {!isCollapsed
-        ? (documentWindowsByContainerId.get(entry.node.id)?.rows ?? []).map(
-            ({ containerId, localId, title }) => (
-              <div
-                className="explorer-sidebar-row"
-                key={`${localId}:${containerId}`}
-                style={{
-                  paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth + 1}))`,
-                }}
-              >
-                <span className="explorer-node-spacer" aria-hidden="true" />
-                <MiniAppRowButton
-                  data-document-local-id={localId}
-                  className="explorer-sidebar-item explorer-sidebar-item--note"
-                  onClick={() => onSelectDocument(localId, containerId)}
-                  selected={
-                    selectedId === localId && activeContainerId === containerId
-                  }
-                >
-                  <MiniAppRowText>{title}</MiniAppRowText>
-                </MiniAppRowButton>
-              </div>
-            ),
-          )
-        : null}
+      {!isCollapsed ? (
+        <ExplorerTreeDocumentRows
+          {...props}
+          depth={depth + 1}
+          rows={documentWindowsByContainerId.get(entry.node.id)?.rows ?? []}
+        />
+      ) : null}
       {!isCollapsed ? (
         <ExplorerTreeEntryDocumentMoreRow
           depth={depth + 1}
@@ -465,6 +501,7 @@ export function useExplorerSidebarPanel(params: {
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
   setSidebar: (sidebar: ReactNode | null) => void;
+  online: boolean;
   toggleCollapsed: (nodeId: string) => void;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }) {
@@ -481,6 +518,7 @@ export function useExplorerSidebarPanel(params: {
     selectDocumentProjection,
     setSelectedId,
     setSidebar,
+    online,
     toggleCollapsed,
     treeEntries,
   } = params;
@@ -518,6 +556,7 @@ export function useExplorerSidebarPanel(params: {
             onSelectContainer={setSelectedId}
             onSelectDocument={selectDocumentProjection}
             onToggleCollapsed={toggleCollapsed}
+            online={online}
             selectedId={selectedId}
           />
         )}
@@ -531,6 +570,7 @@ export function useExplorerSidebarPanel(params: {
       handleSidebarContextMenu,
       nodes.length,
       loadMoreDocuments,
+      online,
       ready,
       selectedId,
       selectDocumentProjection,
