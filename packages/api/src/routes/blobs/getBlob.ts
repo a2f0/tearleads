@@ -12,6 +12,7 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 
 const UUID_PATTERN =
   "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
+const BLOB_BYTES_BYTE_LENGTH_HEADER = "X-Tearleads-Blob-Byte-Length";
 const BLOB_BYTES_BLOB_ID_HEADER = "X-Tearleads-Blob-Id";
 const BLOB_BYTES_SHA256_HEADER = "X-Tearleads-Blob-Sha256";
 
@@ -53,12 +54,15 @@ export function createGetBlobRoute({ requireAuth, runtime }: GetBlobRouteDeps) {
         return new Response(blob.encryptedBytes, {
           headers: {
             "Access-Control-Expose-Headers": [
+              "Content-Length",
+              BLOB_BYTES_BYTE_LENGTH_HEADER,
               BLOB_BYTES_BLOB_ID_HEADER,
               BLOB_BYTES_SHA256_HEADER,
             ].join(", "),
             "Cache-Control": "no-store",
             "Content-Length": blob.byteLength.toString(),
             "Content-Type": "application/octet-stream",
+            [BLOB_BYTES_BYTE_LENGTH_HEADER]: blob.byteLength.toString(),
             [BLOB_BYTES_BLOB_ID_HEADER]: blob.blobId,
             [BLOB_BYTES_SHA256_HEADER]: blob.sha256,
           },
