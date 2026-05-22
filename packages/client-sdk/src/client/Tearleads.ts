@@ -6,10 +6,13 @@ import {
 } from "../data/documents/documentKinds";
 import { TearleadsBlobs } from "./blobs";
 import { createTearleadsContacts, type TearleadsContacts } from "./contacts";
+import {
+  createTearleadsContainerDocuments,
+  type TearleadsContainerDocuments,
+} from "./containerDocuments";
 import { TearleadsDatabase, type TearleadsDatabaseOptions } from "./database";
 import { createTearleadsDocuments, type TearleadsDocuments } from "./documents";
 import { TearleadsEvents } from "./events";
-import { createTearleadsExplorer, type TearleadsExplorer } from "./explorer";
 import {
   createTearleadsIdentity,
   type TearleadsIdentity,
@@ -42,7 +45,7 @@ export class Tearleads {
   readonly database: TearleadsDatabase;
   readonly documents: TearleadsDocuments;
   readonly events: TearleadsEvents;
-  readonly explorer: TearleadsExplorer;
+  readonly containerDocuments: TearleadsContainerDocuments;
   readonly identity: TearleadsIdentity;
   readonly network: TearleadsNetwork;
   readonly runtime: TearleadsRuntime;
@@ -97,7 +100,7 @@ export class Tearleads {
       getDefaultContainerId: () => this.session.containerId,
       runtime: this.runtime,
     });
-    this.explorer = createTearleadsExplorer(this.runtime);
+    this.containerDocuments = createTearleadsContainerDocuments(this.runtime);
 
     this.api.setOnError((message) => this.logError(message));
     this.api.setOnNetworkError(() => this.network.setOnline(false));

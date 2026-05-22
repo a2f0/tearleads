@@ -2,7 +2,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { sqlContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
-import { sqlExplorerPersistence } from "../../data/persistence/explorer/explorerPersistence";
+import { sqlContainerDocumentsPersistence } from "../../data/persistence/container-documents/containerDocumentsPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import { addressBookProjection } from "../../data/sqlite/schema";
@@ -39,7 +39,7 @@ const DEFAULT_ADDRESS_BOOK_ID = "default";
 
 /**
  * Persists the local root-container and self-contact bootstrap created during
- * successful registration so the explorer and contacts apps can initialize
+ * successful registration so the containerDocuments and contacts apps can initialize
  * from SQLite on first login.
  */
 async function persistRegistrationBootstrapFromExecSql(
@@ -47,7 +47,7 @@ async function persistRegistrationBootstrapFromExecSql(
   input: RegistrationBootstrapInput,
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await sqlExplorerPersistence.ensureSchema(lockedExecSql);
+    await sqlContainerDocumentsPersistence.ensureSchema(lockedExecSql);
     await sqlContactsPersistence.ensureSchema(lockedExecSql);
     const rootRecord: DocumentRecord = {
       accessEpoch: input.rootMetadataAccessEpoch,
@@ -61,7 +61,7 @@ async function persistRegistrationBootstrapFromExecSql(
       documentManifestBundle:
         input.rootMetadataState.documentManifestBundle ?? null,
     };
-    await sqlExplorerPersistence.saveContainer(
+    await sqlContainerDocumentsPersistence.saveContainer(
       lockedExecSql,
       {
         id: input.containerId,
@@ -77,10 +77,13 @@ async function persistRegistrationBootstrapFromExecSql(
       input.rootMetadataInitialUpdate,
     );
     if (initialMetadataUpdate) {
-      await sqlExplorerPersistence.enqueuePendingUpdate(lockedExecSql, {
-        containerId: input.containerId,
-        ...initialMetadataUpdate,
-      });
+      await sqlContainerDocumentsPersistence.enqueuePendingUpdate(
+        lockedExecSql,
+        {
+          containerId: input.containerId,
+          ...initialMetadataUpdate,
+        },
+      );
     }
     const updatedAt = new Date().toISOString();
     await savePrincipalPolicyBundle(

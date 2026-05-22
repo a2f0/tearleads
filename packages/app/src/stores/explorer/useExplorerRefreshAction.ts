@@ -1,8 +1,8 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import {
   discoverAllContainerDocumentsFromApi,
-  listAllRemoteExplorerContainerIdsFromApi,
-} from "@tearleads/client-sdk/workflows/explorer";
+  listAllRemoteContainerIdsFromApi as listAllRemoteExplorerContainerIdsFromApi,
+} from "@tearleads/client-sdk/workflows/container-documents";
 import { useCallback, useRef, useState } from "react";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import type {

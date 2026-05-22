@@ -72,7 +72,7 @@ test("createDocumentWriterPublicKeyResolver caches remote writer keys", async ()
   let remoteFetchCount = 0;
   const resolver = createDocumentWriterPublicKeyResolver({
     includeLocalSigningKey: false,
-    logPrefix: "Explorer",
+    logPrefix: "Container documents",
     runtime: {
       apiClient: {
         getEncapsulationKey: async (userId) => {

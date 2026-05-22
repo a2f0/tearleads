@@ -32,7 +32,8 @@ const clientSdkSupportedPackageExports = {
   "./workflows/contacts": "./src/workflows/contacts/index.ts",
   "./workflows/containers": "./src/workflows/containers/index.ts",
   "./workflows/documents": "./src/workflows/documents/index.ts",
-  "./workflows/explorer": "./src/workflows/explorer/index.ts",
+  "./workflows/container-documents":
+    "./src/workflows/container-documents/index.ts",
   "./workflows/organizations": "./src/workflows/organizations/index.ts",
   "./workflows/principals": "./src/workflows/principals/index.ts",
   "./workflows/registration": "./src/workflows/registration/index.ts",
@@ -117,7 +118,7 @@ const clientSdkPackageDependencySections = [
   "peerDependencies",
 ] as const;
 const clientSdkProductUiVocabularyPattern =
-  /\b(?:MiniApp|OrgManager|mini-apps?|org-manager)/i;
+  /\b(?:Explorer|MiniApp|OrgManager|explorer|mini-apps?|org-manager)/;
 
 function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
   const { options = {}, ...ruleSet } = config;

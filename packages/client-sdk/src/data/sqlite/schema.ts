@@ -157,7 +157,7 @@ export const principalPolicies = sqliteTable(
 /**
  * Materialized local container tree.
  *
- * Container rows describe the structural explorer tree and the document that
+ * Container rows describe the structural container tree and the document that
  * stores encrypted container metadata. Display fields are kept in
  * `containerProjection`; the Loro metadata document itself is stored in
  * `documents` under the container-metadata app kind.
@@ -195,7 +195,7 @@ export const containers = sqliteTable(
 /**
  * Decrypted container metadata read model.
  *
- * Container metadata is authored as a Loro document, but explorer lists need a
+ * Container metadata is authored as a Loro document, but container lists need a
  * small queryable projection for names and icons. This table is updated
  * together with `containers` when local metadata changes or sync applies remote
  * metadata.
@@ -204,7 +204,7 @@ export const containers = sqliteTable(
  * - `containerId`: Container whose metadata is projected.
  * - `displayName`: Decrypted display name, or `null` when the UI should fall
  *   back to a default such as `/` or `Untitled`.
- * - `icon`: Optional decrypted icon value for explorer display.
+ * - `icon`: Optional decrypted icon value for container display.
  * - `updatedAt`: Local timestamp for the projection update.
  *
  * Indexes:
@@ -401,7 +401,7 @@ export const addressBookProjection = sqliteTable(
 );
 
 /**
- * Offline create queue for explorer containers.
+ * Offline create queue for containers.
  *
  * A user can create a local container before the API has assigned all remote
  * state for the container and its metadata document. This table keeps the sync
@@ -454,7 +454,7 @@ export const containerCreateIntents = sqliteTable(
 );
 
 /**
- * Per-lane sync cursors for container explorer data.
+ * Per-lane sync cursors for container data.
  *
  * Container sync is split into lanes, such as a parent-container child lane or
  * a container-document membership lane. This table stores the last accepted
