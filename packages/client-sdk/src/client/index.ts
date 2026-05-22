@@ -34,6 +34,7 @@ export type {
   TearleadsSession,
   TearleadsSessionContext,
   TearleadsSessionRegistrationResult,
+  TearleadsUserSession,
 } from "./session";
 export { Tearleads, type TearleadsOptions } from "./Tearleads";
 export type {

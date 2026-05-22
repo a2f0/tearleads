@@ -486,4 +486,87 @@ describe("Tearleads", () => {
     expect(apiClient.getAuthToken()).toBeNull();
     expect(sdk.session.isAuthenticated).toBe(false);
   });
+
+  test("session lists active sessions through the internal api client", async () => {
+    const apiClient = new ApiClient("");
+    let listSessionsCalls = 0;
+    apiClient.listSessions = async () => {
+      listSessionsCalls += 1;
+      return {
+        sessions: [
+          {
+            createdAt: "2026-05-22T10:00:00.000Z",
+            id: "a".repeat(64),
+            isCurrent: true,
+            signingKeyFingerprint: "b".repeat(64),
+          },
+        ],
+      };
+    };
+    const sdk = new Tearleads({ apiClient, logger: quietLogger });
+
+    await expect(sdk.session.listSessions()).resolves.toEqual([
+      {
+        createdAt: "2026-05-22T10:00:00.000Z",
+        id: "a".repeat(64),
+        isCurrent: true,
+        signingKeyFingerprint: "b".repeat(64),
+      },
+    ]);
+
+    expect(listSessionsCalls).toBe(1);
+  });
+
+  test("session destroys active sessions through the internal api client", async () => {
+    const apiClient = new ApiClient("");
+    const destroyedSessionIds: string[] = [];
+    apiClient.destroySession = async (sessionId) => {
+      destroyedSessionIds.push(sessionId);
+      return { message: "ok" };
+    };
+    const sdk = new Tearleads({ apiClient, logger: quietLogger });
+    const sessionId = "c".repeat(64);
+
+    await expect(sdk.session.destroySession(sessionId)).resolves.toBe(true);
+
+    expect(destroyedSessionIds).toEqual([sessionId]);
+  });
+
+  test("remote logout clears the local authenticated session", async () => {
+    const apiClient = new ApiClient("");
+    let logoutCalls = 0;
+    apiClient.logout = async () => {
+      logoutCalls += 1;
+      return { message: "ok" };
+    };
+    const sdk = new Tearleads({ apiClient, logger: quietLogger });
+    sdk.session.setAuthToken("test-token");
+    sdk.session.setContext({ isAuthenticated: true });
+
+    await expect(sdk.session.logoutRemote()).resolves.toBe(true);
+
+    expect(logoutCalls).toBe(1);
+    expect(sdk.session.authToken).toBeNull();
+    expect(apiClient.getAuthToken()).toBeNull();
+    expect(sdk.session.isAuthenticated).toBe(false);
+  });
+
+  test("remote logout clears the local session when the remote request fails", async () => {
+    const apiClient = new ApiClient("");
+    let logoutCalls = 0;
+    apiClient.logout = async () => {
+      logoutCalls += 1;
+      return null;
+    };
+    const sdk = new Tearleads({ apiClient, logger: quietLogger });
+    sdk.session.setAuthToken("stale-token");
+    sdk.session.setContext({ isAuthenticated: true });
+
+    await expect(sdk.session.logoutRemote()).resolves.toBe(false);
+
+    expect(logoutCalls).toBe(1);
+    expect(sdk.session.authToken).toBeNull();
+    expect(apiClient.getAuthToken()).toBeNull();
+    expect(sdk.session.isAuthenticated).toBe(false);
+  });
 });

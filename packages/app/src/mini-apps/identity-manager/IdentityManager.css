@@ -1,0 +1,52 @@
+.identity-manager {
+  min-width: 34rem;
+  min-height: 26rem;
+}
+
+.identity-manager-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding);
+  min-height: 0;
+}
+
+.identity-manager-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--padding);
+}
+
+.identity-manager-section-heading h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.identity-manager-details {
+  display: grid;
+  grid-template-columns: minmax(7rem, max-content) minmax(0, 1fr);
+  gap: calc(var(--padding) / 2) var(--padding);
+  margin: 0;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+}
+
+.identity-manager-details dt {
+  opacity: 0.75;
+}
+
+.identity-manager-details dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-manager-sessions {
+  min-height: 0;
+}
+
+.identity-manager-session-table {
+  min-height: 8rem;
+}

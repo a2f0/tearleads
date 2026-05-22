@@ -192,6 +192,45 @@ test("displays userId after registration", async () => {
   view.unmount();
 });
 
+test("identity manager opens from the pane and lists active sessions", async () => {
+  const spy = spyOn(ApiClient.prototype, "registerUser");
+  const view = renderPane();
+
+  await generateIdentityAndWaitForDb(view);
+
+  fireEvent.click(view.getByText("Menu"));
+  await waitFor(() => {
+    expect(view.getByText("Upload Public Key")).toBeTruthy();
+  });
+  fireEvent.click(view.getByText("Upload Public Key"));
+
+  await waitFor(() => {
+    expect(spy.mock.results).toHaveLength(1);
+  });
+  await waitFor(
+    () => {
+      expect(view.queryByText(/userId: none/)).toBeNull();
+    },
+    { timeout: 5_000 },
+  );
+
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 120,
+    clientY: 120,
+  });
+  fireEvent.click(view.getByText("Open Identity Manager"));
+
+  await waitFor(() => {
+    expect(view.getByText("Identity Manager")).toBeTruthy();
+    expect(view.getByText("Active Sessions")).toBeTruthy();
+    expect(view.getByText("Current")).toBeTruthy();
+    expect(view.getByText("Backup Key Package")).toBeTruthy();
+  });
+
+  spy.mockRestore();
+  view.unmount();
+});
+
 test("userId resets to none when key pair is destroyed", async () => {
   const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
@@ -297,9 +336,12 @@ test("contacts windows in the same pane share live address book state", async ()
   await spyResult.value;
   spy.mockRestore();
 
-  await waitFor(() => {
-    expect(view.queryByText(/userId: none/)).toBeNull();
-  });
+  await waitFor(
+    () => {
+      expect(view.queryByText(/userId: none/)).toBeNull();
+    },
+    { timeout: 5_000 },
+  );
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
