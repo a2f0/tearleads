@@ -117,7 +117,10 @@ export class Tearleads {
   };
 
   get domainScope(): DomainScope {
-    const nextScopeKey = `${this.database.id ?? ""}:${this.identity.signingFingerprint ?? ""}`;
+    const nextScopeKey = JSON.stringify([
+      this.database.id,
+      this.identity.signingFingerprint,
+    ]);
     if (this.domainScopeKey !== nextScopeKey) {
       this.domainScopeKey = nextScopeKey;
       this.domainScopeValue = createDomainScope();
