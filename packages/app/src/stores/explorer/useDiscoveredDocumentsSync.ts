@@ -1,7 +1,7 @@
 import type { TearleadsContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { hasUndiscoveredDocumentUpdateEvent } from "@tearleads/client-sdk/workflows/container-contents";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import type {
@@ -117,6 +117,11 @@ export function useDiscoveredDocumentsSync(params: {
     replaceDocumentLinksBatch,
   } = params;
   const { isAuthenticated, online } = appData;
+  const primeDiscoveredDocumentsRef = useRef(primeDiscoveredDocuments);
+
+  useEffect(() => {
+    primeDiscoveredDocumentsRef.current = primeDiscoveredDocuments;
+  }, [primeDiscoveredDocuments]);
 
   const getDiscoveryPromise = useContainerDiscoveryPromiseFactory({
     applyContainerDocumentTombstones,
@@ -136,7 +141,7 @@ export function useDiscoveredDocumentsSync(params: {
           }
 
           mergeDocumentSummaries(discoveredDocumentSummaries);
-          primeDiscoveredDocuments(discoveredDocumentSummaries);
+          primeDiscoveredDocumentsRef.current(discoveredDocumentSummaries);
         })
         .catch((error: unknown) => {
           if (!isDestroyedDatabaseWorkerError(error)) {
@@ -148,7 +153,7 @@ export function useDiscoveredDocumentsSync(params: {
         cancelled = true;
       };
     },
-    [getDiscoveryPromise, mergeDocumentSummaries, primeDiscoveredDocuments],
+    [getDiscoveryPromise, mergeDocumentSummaries],
   );
 
   useContainerDiscoveryEffects({
