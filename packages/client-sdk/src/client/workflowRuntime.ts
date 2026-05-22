@@ -14,7 +14,6 @@ import type { TearleadsNetwork } from "./network";
 import type { TearleadsSession } from "./session";
 
 export interface TearleadsWorkflowRuntimeInput {
-  apiClient: ApiClient;
   blobStore: BlobStore;
   cacheReferencedPrincipalPolicies: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
@@ -40,6 +39,18 @@ export interface TearleadsRuntime {
   input(containerId?: string | null | undefined): TearleadsWorkflowRuntimeInput;
 }
 
+export interface TearleadsInternalWorkflowRuntimeInput
+  extends TearleadsWorkflowRuntimeInput {
+  apiClient: ApiClient;
+}
+
+export interface TearleadsInternalRuntime {
+  readonly publicRuntime: TearleadsRuntime;
+  workflowInput(
+    containerId?: string | null | undefined,
+  ): TearleadsInternalWorkflowRuntimeInput;
+}
+
 interface TearleadsWorkflowRuntimeDependencies {
   api: ApiClient;
   blobs: TearleadsBlobs;
@@ -56,17 +67,30 @@ interface TearleadsWorkflowRuntimeDependencies {
 
 export function createTearleadsRuntime(
   dependencies: TearleadsWorkflowRuntimeDependencies,
-): TearleadsRuntime {
+): TearleadsInternalRuntime {
   return {
-    input: (containerId) =>
+    publicRuntime: {
+      input: (containerId) =>
+        createTearleadsHostRuntimeInput(dependencies, containerId),
+    },
+    workflowInput: (containerId) =>
       createTearleadsWorkflowRuntimeInput(dependencies, containerId),
   };
+}
+
+function createTearleadsHostRuntimeInput(
+  dependencies: TearleadsWorkflowRuntimeDependencies,
+  containerId?: string | null | undefined,
+): TearleadsWorkflowRuntimeInput {
+  const { apiClient: _apiClient, ...input } =
+    createTearleadsWorkflowRuntimeInput(dependencies, containerId);
+  return input;
 }
 
 function createTearleadsWorkflowRuntimeInput(
   dependencies: TearleadsWorkflowRuntimeDependencies,
   containerId?: string | null | undefined,
-): TearleadsWorkflowRuntimeInput {
+): TearleadsInternalWorkflowRuntimeInput {
   const dbStatus = dependencies.database.status;
   const execSql =
     dbStatus === "ready"

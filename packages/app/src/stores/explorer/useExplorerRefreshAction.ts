@@ -1,7 +1,6 @@
+import type { TearleadsContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
-import { refreshAllContainerDocumentsFromApi } from "@tearleads/client-sdk/workflows/container-contents";
 import { useCallback, useRef, useState } from "react";
-import type { useAppData } from "../../providers/data/AppDataProvider";
 import type {
   ExplorerContainerDocumentTombstone,
   ExplorerDocumentLinkInput,
@@ -18,10 +17,6 @@ type ApplyContainerDocumentTombstones = (
 ) => Promise<ReadonlyArray<DocumentSummary>>;
 
 export function useExplorerRefreshAction(params: {
-  appData: Pick<
-    ReturnType<typeof useAppData>,
-    "apiClient" | "cacheReferencedPrincipalPolicies"
-  >;
   applyContainerDocumentTombstones: ApplyContainerDocumentTombstones;
   documentReadModel: ExplorerDocumentReadModel;
   mergeDocumentSummaries: (
@@ -32,17 +27,17 @@ export function useExplorerRefreshAction(params: {
   ) => void;
   replaceDocumentLinksBatch: ReplaceDocumentLinksBatch;
   refresh: () => Promise<boolean>;
+  refreshDocuments: TearleadsContainerContents["refreshDocuments"];
 }) {
   const {
-    appData,
     applyContainerDocumentTombstones,
     documentReadModel,
     mergeDocumentSummaries,
     primeDiscoveredDocuments,
     replaceDocumentLinksBatch,
     refresh,
+    refreshDocuments,
   } = params;
-  const { apiClient, cacheReferencedPrincipalPolicies } = appData;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const refreshPromiseRef = useRef<Promise<boolean> | null>(null);
@@ -62,22 +57,19 @@ export function useExplorerRefreshAction(params: {
         return false;
       }
 
-      const discoveredDocumentSummaries =
-        await refreshAllContainerDocumentsFromApi({
-          apiClient,
-          applyContainerDocumentTombstones,
-          cacheReferencedPrincipalPolicies,
-          loadContainerDocumentWatermark: (containerId) =>
-            documentReadModel.loadContainerDocumentWatermark(containerId),
-          replaceDocumentLinksBatch,
-          saveContainerDocumentWatermark: (containerId, watermark) =>
-            documentReadModel.saveContainerDocumentWatermark(
-              containerId,
-              watermark,
-            ),
-          upsertDiscoveredDocuments: (inputs) =>
-            documentReadModel.upsertDiscoveredDocuments(inputs),
-        });
+      const discoveredDocumentSummaries = await refreshDocuments({
+        applyContainerDocumentTombstones,
+        loadContainerDocumentWatermark: (containerId) =>
+          documentReadModel.loadContainerDocumentWatermark(containerId),
+        replaceDocumentLinksBatch,
+        saveContainerDocumentWatermark: (containerId, watermark) =>
+          documentReadModel.saveContainerDocumentWatermark(
+            containerId,
+            watermark,
+          ),
+        upsertDiscoveredDocuments: (inputs) =>
+          documentReadModel.upsertDiscoveredDocuments(inputs),
+      });
       if (!discoveredDocumentSummaries) {
         setRefreshError("Failed to refresh documents.");
         return false;
@@ -104,14 +96,13 @@ export function useExplorerRefreshAction(params: {
     refreshPromiseRef.current = refreshPromise;
     return refreshPromise;
   }, [
-    apiClient,
     applyContainerDocumentTombstones,
-    cacheReferencedPrincipalPolicies,
     documentReadModel,
     mergeDocumentSummaries,
     primeDiscoveredDocuments,
     replaceDocumentLinksBatch,
     refresh,
+    refreshDocuments,
   ]);
 
   return { handleRefresh, isRefreshing, refreshError };

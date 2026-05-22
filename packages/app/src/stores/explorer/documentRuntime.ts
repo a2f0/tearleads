@@ -1,15 +1,16 @@
-import {
-  createContainerContentsWorkflowRuntime as createExplorerWorkflowRuntime,
-  type ContainerContentsProjectionUserKeyResolver as ExplorerProjectionUserKeyResolver,
-  type ContainerContentsWorkflowRuntime as ExplorerWorkflowRuntime,
-  type ContainerContentsWorkflowRuntimeInput as ExplorerWorkflowRuntimeInput,
+import type { TearleadsWorkflowRuntimeInput } from "@tearleads/client-sdk";
+import type {
+  ContainerContentsProjectionUserKeyResolver as ExplorerProjectionUserKeyResolver,
+  ContainerContentsWorkflowRuntime as ExplorerWorkflowRuntime,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import { useMemo } from "react";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import type { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerDocumentRuntime = Parameters<typeof primeDocumentStore>[2];
 
-export type ExplorerDocumentsRuntimeAppDataInput = ExplorerWorkflowRuntimeInput;
+export type ExplorerDocumentsRuntimeAppDataInput =
+  TearleadsWorkflowRuntimeInput;
 
 export type ExplorerDocumentsRuntimeAppData = ExplorerWorkflowRuntime & {
   resolveProjectionUserKey: ExplorerProjectionUserKeyResolver;
@@ -32,9 +33,10 @@ export function createExplorerDocumentsRuntime(
 export function useExplorerDocumentsRuntimeAppData(
   appData: ExplorerDocumentsRuntimeAppDataInput,
 ): ExplorerDocumentsRuntimeAppData {
+  const { containerContents } = useTearleads();
   const runtime = useMemo(
-    () => createExplorerWorkflowRuntime(appData),
-    [appData],
+    () => containerContents.runtime(),
+    [appData, containerContents],
   );
   const resolveProjectionUserKey = useMemo(
     () => runtime.createDocumentProjectionUserKeyResolver(),

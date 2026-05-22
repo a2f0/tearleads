@@ -1,8 +1,8 @@
+import type { TearleadsWorkflowRuntimeInput } from "@tearleads/client-sdk";
 import {
   createContainerDocumentReadModelFromRuntime as createExplorerDocumentReadModelFromRuntime,
   createContainerContentsWorkflowSqlRuntime as createExplorerWorkflowSqlRuntime,
   type ContainerDocumentReadModel as ExplorerDocumentReadModel,
-  type ContainerContentsWorkflowRuntimeInput as ExplorerWorkflowRuntimeInput,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import { useMemo } from "react";
 
@@ -19,7 +19,7 @@ export type {
 } from "@tearleads/client-sdk/workflows/container-contents";
 
 export function useExplorerDocumentReadModel(
-  appData: ExplorerWorkflowRuntimeInput,
+  appData: Pick<TearleadsWorkflowRuntimeInput, "execSql">,
 ): ExplorerDocumentReadModel {
   return useMemo(
     () =>

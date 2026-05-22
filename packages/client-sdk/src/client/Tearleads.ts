@@ -21,6 +21,10 @@ import {
 } from "./identity";
 import { logErrorToConsole, type TearleadsLogger } from "./logger";
 import { TearleadsNetwork } from "./network";
+import {
+  createTearleadsOrganizations,
+  type TearleadsOrganizations,
+} from "./organizations";
 import { createTearleadsSession, type TearleadsSession } from "./session";
 import {
   createTearleadsRuntime,
@@ -48,6 +52,7 @@ export class Tearleads {
   readonly containerContents: TearleadsContainerContents;
   readonly identity: TearleadsIdentity;
   readonly network: TearleadsNetwork;
+  readonly organizations: TearleadsOrganizations;
   readonly runtime: TearleadsRuntime;
   readonly session: TearleadsSession;
 
@@ -85,7 +90,7 @@ export class Tearleads {
       log: this.log,
       logError: this.logError,
     });
-    this.runtime = createTearleadsRuntime({
+    const runtime = createTearleadsRuntime({
       api: this.apiClient,
       blobs: this.blobs,
       database: this.database,
@@ -98,12 +103,14 @@ export class Tearleads {
       network: this.network,
       session: this.session,
     });
-    this.contacts = createTearleadsContacts(this.runtime);
+    this.runtime = runtime.publicRuntime;
+    this.contacts = createTearleadsContacts(runtime);
     this.documents = createTearleadsDocuments({
       getDefaultContainerId: () => this.session.containerId,
-      runtime: this.runtime,
+      runtime,
     });
-    this.containerContents = createTearleadsContainerContents(this.runtime);
+    this.containerContents = createTearleadsContainerContents(runtime);
+    this.organizations = createTearleadsOrganizations(runtime);
 
     this.apiClient.setOnError((message) => this.logError(message));
     this.apiClient.setOnNetworkError(() => this.network.setOnline(false));

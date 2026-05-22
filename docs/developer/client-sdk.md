@@ -60,6 +60,7 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.documents` | document workflow runtime composition |
 | `tearleads.containerContents` | container contents workflow runtime composition |
 | `tearleads.contacts` | contacts workflow runtime composition |
+| `tearleads.organizations` | organization administration and directory operations |
 
 Prefer these instance services over constructing workflow runtimes directly
 from host code. The SDK keeps workflow cache scope aligned with the active
@@ -68,7 +69,9 @@ container/document stores share the same sync and subscription boundary.
 
 Host adapters that still need the raw workflow runtime contract should use
 `tearleads.runtime.input(containerId)` instead of reconstructing the dependency
-bundle themselves.
+bundle themselves. This host-facing runtime input intentionally does not expose
+the raw API client; SDK namespaces and workflow facades own HTTP transport
+access.
 
 ## Workflow Facade Taxonomy
 
