@@ -165,16 +165,15 @@ const MAX_CONTAINER_DOCUMENT_SIDEBAR_WINDOW_LIMIT = 200;
 function listContainerDocumentsSqlIdBatches(
   values: ReadonlyArray<string>,
 ): ReadonlyArray<ReadonlyArray<string>> {
-  const uniqueValues = Array.from(new Set(values));
   const batches: string[][] = [];
 
   for (
     let index = 0;
-    index < uniqueValues.length;
+    index < values.length;
     index += CONTAINER_DOCUMENT_SQL_ID_BATCH_SIZE
   ) {
     batches.push(
-      uniqueValues.slice(index, index + CONTAINER_DOCUMENT_SQL_ID_BATCH_SIZE),
+      values.slice(index, index + CONTAINER_DOCUMENT_SQL_ID_BATCH_SIZE),
     );
   }
 
