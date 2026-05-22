@@ -1,4 +1,4 @@
-declare const domainScopeBrand: unique symbol;
+const domainScopeBrand = Symbol("tearleads.domainScope");
 
 // Identity token for in-process caches that must rotate together when the
 // active database or signing identity changes.
@@ -7,5 +7,5 @@ export interface DomainScope {
 }
 
 export function createDomainScope(): DomainScope {
-  return {} as DomainScope;
+  return { [domainScopeBrand]: true } satisfies DomainScope;
 }
