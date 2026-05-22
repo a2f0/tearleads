@@ -2,7 +2,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { sqlContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
-import { sqlContainerDocumentsPersistence } from "../../data/persistence/container-documents/containerDocumentsPersistence";
+import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import { addressBookProjection } from "../../data/sqlite/schema";
@@ -39,15 +39,15 @@ const DEFAULT_ADDRESS_BOOK_ID = "default";
 
 /**
  * Persists the local root-container and self-contact bootstrap created during
- * successful registration so the containerDocuments and contacts apps can initialize
- * from SQLite on first login.
+ * successful registration so the container contents and contacts workflows can
+ * initialize from SQLite on first login.
  */
 async function persistRegistrationBootstrapFromExecSql(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await sqlContainerDocumentsPersistence.ensureSchema(lockedExecSql);
+    await sqlContainerContentsPersistence.ensureSchema(lockedExecSql);
     await sqlContactsPersistence.ensureSchema(lockedExecSql);
     const rootRecord: DocumentRecord = {
       accessEpoch: input.rootMetadataAccessEpoch,
@@ -61,7 +61,7 @@ async function persistRegistrationBootstrapFromExecSql(
       documentManifestBundle:
         input.rootMetadataState.documentManifestBundle ?? null,
     };
-    await sqlContainerDocumentsPersistence.saveContainer(
+    await sqlContainerContentsPersistence.saveContainer(
       lockedExecSql,
       {
         id: input.containerId,
@@ -77,7 +77,7 @@ async function persistRegistrationBootstrapFromExecSql(
       input.rootMetadataInitialUpdate,
     );
     if (initialMetadataUpdate) {
-      await sqlContainerDocumentsPersistence.enqueuePendingUpdate(
+      await sqlContainerContentsPersistence.enqueuePendingUpdate(
         lockedExecSql,
         {
           containerId: input.containerId,

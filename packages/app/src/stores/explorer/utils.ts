@@ -1,7 +1,7 @@
 import {
   type ContainerRecord,
   createContainerDocumentObjectSyncState as createExplorerObjectSyncState,
-} from "@tearleads/client-sdk/workflows/container-documents";
+} from "@tearleads/client-sdk/workflows/container-contents";
 import type { ContainerState } from "./explorerSyncAgent";
 import type { ContainerNode } from "./types";
 

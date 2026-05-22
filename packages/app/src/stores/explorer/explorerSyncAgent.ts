@@ -3,22 +3,22 @@ import {
   type ContainerState as ExplorerContainerState,
   type ContainerDocumentPrimeHost as ExplorerDocumentPrimeHost,
   type ContainerDocumentPrimeStore as ExplorerDocumentPrimeStore,
-  type ContainerDocumentsPersistence as ExplorerPersistence,
-  type ContainerDocumentsProjectionUserKeyResolver as ExplorerProjectionUserKeyResolver,
+  type ContainerContentsPersistence as ExplorerPersistence,
+  type ContainerContentsProjectionUserKeyResolver as ExplorerProjectionUserKeyResolver,
   type RemoteContainer as ExplorerRemoteContainer,
   type RemoteContainerHydrationHost as ExplorerRemoteContainerHydrationHost,
-  type ContainerDocumentsSyncLane as ExplorerSyncLane,
-  type ContainerDocumentsWorkflowRuntime as ExplorerWorkflowRuntime,
+  type ContainerContentsSyncLane as ExplorerSyncLane,
+  type ContainerContentsWorkflowRuntime as ExplorerWorkflowRuntime,
   enqueuePendingContainerUpdateFromRuntime as enqueuePendingExplorerContainerUpdateFromRuntime,
   hasContainerMetadataDocumentUpdateEvent as hasExplorerMetadataDocumentUpdateEvent,
   hydrateRemoteContainers as hydrateRemoteExplorerContainers,
-  isDestroyedContainerDocumentsSyncRuntimeError as isDestroyedExplorerSyncRuntimeError,
+  isDestroyedContainerContentsSyncRuntimeError as isDestroyedExplorerSyncRuntimeError,
   loadLocalContainerStates as loadLocalExplorerContainerStates,
   primeDocumentsForContainerSubtree as primeExplorerDocumentsForContainerSubtree,
-  registerContainerDocumentsSyncLane as registerExplorerSyncLane,
+  registerContainerContentsSyncLane as registerExplorerSyncLane,
   syncContainerMetadataState as syncExplorerContainerMetadataState,
   syncPendingContainerCreateIntents as syncPendingExplorerContainerCreateIntents,
-} from "@tearleads/client-sdk/workflows/container-documents";
+} from "@tearleads/client-sdk/workflows/container-contents";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 
 export type ExplorerRuntime = ExplorerWorkflowRuntime;

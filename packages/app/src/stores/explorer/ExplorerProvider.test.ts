@@ -2,22 +2,22 @@ import { expect, test } from "bun:test";
 import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import {
-  createContainerDocumentsSyncLane as createExplorerContainerDocumentsSyncLane,
+  createContainerContentsSyncLane as createExplorerContainerContentsSyncLane,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
   createContainerDocumentObjectSyncState as createExplorerObjectSyncState,
-  createContainerDocumentsWorkflowRuntime as createExplorerWorkflowRuntime,
+  createContainerContentsWorkflowRuntime as createExplorerWorkflowRuntime,
   createInitializedContainerMetadataDocument,
-  defaultContainerDocumentsPersistence as defaultExplorerPersistence,
+  defaultContainerContentsPersistence as defaultExplorerPersistence,
   type ContainerDocumentRecord as ExplorerDocumentRecord,
   initializeDocumentLinksSchema as initializeExplorerDocumentLinksSchema,
-  initializeContainerDocumentsSchema as initializeExplorerSchema,
+  initializeContainerContentsSchema as initializeExplorerSchema,
   listDocumentLinkedContainerIds as listExplorerDocumentLinkedContainerIds,
   loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
   loadStoredContainerStates as loadStoredExplorerContainers,
   replaceDocumentLinks as replaceExplorerDocumentLinks,
   saveContainer as saveExplorerContainer,
   saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
-} from "@tearleads/client-sdk/workflows/container-documents";
+} from "@tearleads/client-sdk/workflows/container-contents";
 import {
   buildMaterializedDocumentCreatePlan,
   defaultDocumentsPersistence,
@@ -2868,7 +2868,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
     );
     await saveExplorerContainerSyncWatermark(
       runtime.execSql,
-      createExplorerContainerDocumentsSyncLane("child-container"),
+      createExplorerContainerContentsSyncLane("child-container"),
       {
         id: "previous-document-lane",
         updatedAt: "2026-05-04T00:00:00.000Z",
@@ -2932,7 +2932,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
     await expect(
       loadExplorerContainerSyncWatermark(
         runtime.execSql,
-        createExplorerContainerDocumentsSyncLane("child-container"),
+        createExplorerContainerContentsSyncLane("child-container"),
       ),
     ).resolves.toBeNull();
     await expect(

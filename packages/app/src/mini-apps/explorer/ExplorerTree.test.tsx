@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { syncedContainerDocumentObjectSyncState as syncedExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/container-documents";
+import { syncedContainerDocumentObjectSyncState as syncedExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/container-contents";
 import {
   act,
   cleanup,
