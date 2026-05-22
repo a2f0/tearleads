@@ -3,10 +3,8 @@ import {
   deleteContainerState as deleteExplorerContainerState,
   type ContainerMetadataPatch as ExplorerContainerMetadataPatch,
   type ContainerDocumentRecord as ExplorerDocumentRecord,
-  getTargetContainerContext,
   moveRemoteContainer as moveRemoteExplorerContainer,
   persistContainerMetadataStateFromRuntime as persistExplorerContainerMetadataStateFromRuntime,
-  readContainerState,
   renameContainerMetadataStateFromRuntime as renameExplorerContainerMetadataStateFromRuntime,
   shareContainerState as shareExplorerContainerState,
   shareContainerStateWithGroup as shareExplorerContainerStateWithGroup,
@@ -16,12 +14,6 @@ import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";
 import type { ExplorerShareAccessLevel, ExplorerStoreState } from "./types";
 import { isContainerInSubtree, toContainerNode } from "./utils";
-
-interface MatchingRemoteContainerGrant {
-  accessEpoch: number;
-  accessStateHash: string;
-  metadataDocumentId: string;
-}
 
 export async function persistContainerState(
   state: ExplorerStoreState,
@@ -41,66 +33,6 @@ export async function persistContainerState(
     updateExplorerSnapshot(state);
   }
   return persisted.record;
-}
-
-async function loadMatchingRemoteContainerGrant(input: {
-  accessLevel: ExplorerShareAccessLevel;
-  containerId: string;
-  state: ExplorerStoreState;
-  subjectId: string;
-  subjectType: "group" | "user";
-}): Promise<MatchingRemoteContainerGrant | null> {
-  const projection =
-    await input.state.runtime.apiClient.getContainerWriterProjection(
-      input.containerId,
-    );
-  if (!projection) {
-    return null;
-  }
-
-  const target = getTargetContainerContext(projection);
-  const remoteState = readContainerState(target.manifest);
-  const hasMatchingGrant = remoteState.directGrants.some(
-    (grant) =>
-      grant.subjectType === input.subjectType &&
-      grant.subjectId === input.subjectId &&
-      grant.accessLevel === input.accessLevel,
-  );
-  if (!hasMatchingGrant) {
-    return null;
-  }
-
-  return {
-    accessEpoch: remoteState.epoch,
-    accessStateHash: target.manifest.manifestHash,
-    metadataDocumentId: remoteState.metadataDocumentId,
-  };
-}
-
-async function persistDuplicateShareNoop(input: {
-  containerState: ContainerState;
-  grant: MatchingRemoteContainerGrant;
-  state: ExplorerStoreState;
-}): Promise<void> {
-  const securityContextChanged =
-    input.containerState.record.documentId !== input.grant.metadataDocumentId ||
-    input.containerState.record.accessEpoch !== input.grant.accessEpoch ||
-    input.containerState.record.accessStateHash !== input.grant.accessStateHash;
-  const patch: Partial<ExplorerContainerMetadataPatch> = {
-    accessEpoch: input.grant.accessEpoch,
-    accessStateHash: input.grant.accessStateHash,
-    documentId: input.grant.metadataDocumentId,
-    metadataDocumentId: input.grant.metadataDocumentId,
-    ...(securityContextChanged
-      ? {
-          contentKeyBundle: null,
-          documentKekTargets: null,
-          documentManifestBundle: null,
-        }
-      : {}),
-  };
-
-  await persistContainerState(input.state, input.containerState, patch);
 }
 
 export async function createChildContainer(
@@ -137,11 +69,7 @@ export async function createChildContainer(
     return null;
   }
 
-  if (created.shouldEnqueueInitialUpdate) {
-    await syncAgent.enqueuePendingContainerUpdate(
-      created.containerState.container.id,
-      created.initialUpdate,
-    );
+  if (created.shouldRequestSync) {
     syncAgent.scheduleSync();
   }
 
@@ -265,41 +193,22 @@ export async function shareExplorerContainerWithUser(
     return null;
   }
 
-  const duplicateGrant = await loadMatchingRemoteContainerGrant({
+  const shared = await shareExplorerContainerState({
     accessLevel: "write",
-    containerId,
-    state,
-    subjectId: userId,
-    subjectType: "user",
+    containerState: existingState,
+    persistence: state.persistence,
+    recipientUserId: userId,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    runtime: state.runtime,
   });
-  if (duplicateGrant) {
-    state.runtime.log(
-      `Explorer: skipped duplicate share for container ${containerId} with ${userId}`,
-    );
-    await persistDuplicateShareNoop({
-      containerState: existingState,
-      grant: duplicateGrant,
-      state,
-    });
-  } else {
-    const shared = await shareExplorerContainerState({
-      accessLevel: "write",
-      containerState: existingState,
-      persistence: state.persistence,
-      recipientUserId: userId,
-      resolveProjectionUserKey: state.resolveProjectionUserKey,
-      runtime: state.runtime,
-    });
 
-    if (!shared) {
-      return null;
-    }
-
-    existingState.container = shared.container;
-    existingState.record = shared.record;
-    updateExplorerSnapshot(state);
+  if (!shared) {
+    return null;
   }
 
+  existingState.container = shared.container;
+  existingState.record = shared.record;
+  updateExplorerSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();
@@ -333,41 +242,22 @@ export async function shareExplorerContainerWithGroup(
     return null;
   }
 
-  const duplicateGrant = await loadMatchingRemoteContainerGrant({
+  const shared = await shareExplorerContainerStateWithGroup({
     accessLevel,
-    containerId,
-    state,
-    subjectId: groupId,
-    subjectType: "group",
+    containerState: existingState,
+    persistence: state.persistence,
+    recipientGroupId: groupId,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    runtime: state.runtime,
   });
-  if (duplicateGrant) {
-    state.runtime.log(
-      `Explorer: skipped duplicate share for container ${containerId} with group ${groupId}`,
-    );
-    await persistDuplicateShareNoop({
-      containerState: existingState,
-      grant: duplicateGrant,
-      state,
-    });
-  } else {
-    const shared = await shareExplorerContainerStateWithGroup({
-      accessLevel,
-      containerState: existingState,
-      persistence: state.persistence,
-      recipientGroupId: groupId,
-      resolveProjectionUserKey: state.resolveProjectionUserKey,
-      runtime: state.runtime,
-    });
 
-    if (!shared) {
-      return null;
-    }
-
-    existingState.container = shared.container;
-    existingState.record = shared.record;
-    updateExplorerSnapshot(state);
+  if (!shared) {
+    return null;
   }
 
+  existingState.container = shared.container;
+  existingState.record = shared.record;
+  updateExplorerSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();

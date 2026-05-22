@@ -1,4 +1,5 @@
 import { base64ToBytes } from "@tearleads/encoding";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
   createRemoteContainer as createRemoteContainerMutation,
@@ -79,6 +80,7 @@ export async function createRemoteContainer(input: {
 export async function shareRemoteContainer(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
+  previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientUserId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
@@ -107,6 +109,7 @@ export async function shareRemoteContainer(input: {
     author,
     containerId: input.containerId,
     execSql,
+    previousProjection: input.previousProjection,
     recipientEncapsulationPublicKey: base64ToBytes(
       recipientKey.encapsulationPublicKey,
     ),
@@ -136,6 +139,7 @@ export async function shareRemoteContainer(input: {
 export async function shareRemoteContainerWithGroup(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
+  previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientGroupId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
@@ -157,6 +161,7 @@ export async function shareRemoteContainerWithGroup(input: {
     author,
     containerId: input.containerId,
     execSql,
+    previousProjection: input.previousProjection,
     recipientGroupId: input.recipientGroupId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey,

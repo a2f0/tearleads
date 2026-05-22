@@ -9,7 +9,6 @@ import {
   type RemoteContainerHydrationHost as ExplorerRemoteContainerHydrationHost,
   type ContainerContentsSyncLane as ExplorerSyncLane,
   type ContainerContentsWorkflowRuntime as ExplorerWorkflowRuntime,
-  enqueuePendingContainerUpdateFromRuntime as enqueuePendingExplorerContainerUpdateFromRuntime,
   hasContainerMetadataDocumentUpdateEvent as hasExplorerMetadataDocumentUpdateEvent,
   hydrateRemoteContainers as hydrateRemoteExplorerContainers,
   isDestroyedContainerContentsSyncRuntimeError as isDestroyedExplorerSyncRuntimeError,
@@ -41,11 +40,6 @@ export interface ExplorerSyncState {
 }
 
 export interface ExplorerSyncAgent {
-  enqueuePendingContainerUpdate: (
-    containerId: string,
-    update: Uint8Array,
-    sourceVersionVector?: string | null,
-  ) => Promise<void>;
   ensureInitialized: () => void;
   handleRemoteEvents: () => void;
   ingestRemoteContainer: (
@@ -96,21 +90,6 @@ async function primeDocumentsForSharedSubtree(
     host: createExplorerDocumentPrimeHost(state),
     rootContainerId,
     runtime: state.runtime,
-  });
-}
-
-async function enqueuePendingContainerUpdate(
-  state: ExplorerSyncState,
-  containerId: string,
-  update: Uint8Array,
-  sourceVersionVector?: string | null,
-) {
-  await enqueuePendingExplorerContainerUpdateFromRuntime({
-    containerId,
-    persistence: state.persistence,
-    runtime: state.runtime,
-    sourceVersionVector,
-    update,
   });
 }
 
@@ -301,17 +280,6 @@ export function createExplorerSyncAgent(input: {
     requestRemoteHydration({ host, scheduleSync, state });
 
   return {
-    enqueuePendingContainerUpdate: (
-      containerId: string,
-      update: Uint8Array,
-      sourceVersionVector?: string | null,
-    ) =>
-      enqueuePendingContainerUpdate(
-        state,
-        containerId,
-        update,
-        sourceVersionVector,
-      ),
     ensureInitialized: () =>
       ensureExplorerStoreInitialized({ host, scheduleSync, state }),
     handleRemoteEvents: () => {

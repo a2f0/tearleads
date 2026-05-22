@@ -595,6 +595,7 @@ export async function shareRemoteContainer(input: {
   containerId: string;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
+  previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientEncapsulationPublicKey: Uint8Array;
   recipientUserId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -609,9 +610,9 @@ export async function shareRemoteContainer(input: {
     input.resolveProjectionUserKey,
     "Remote container share",
   );
-  const previousProjection = await input.apiClient.getContainerWriterProjection(
-    input.containerId,
-  );
+  const previousProjection =
+    input.previousProjection ??
+    (await input.apiClient.getContainerWriterProjection(input.containerId));
   if (!previousProjection) {
     return null;
   }
@@ -653,6 +654,7 @@ export async function shareRemoteContainerWithGroup(input: {
   containerId: string;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
+  previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientGroupId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
@@ -666,9 +668,9 @@ export async function shareRemoteContainerWithGroup(input: {
     input.resolveProjectionUserKey,
     "Remote container share",
   );
-  const previousProjection = await input.apiClient.getContainerWriterProjection(
-    input.containerId,
-  );
+  const previousProjection =
+    input.previousProjection ??
+    (await input.apiClient.getContainerWriterProjection(input.containerId));
   if (!previousProjection) {
     return null;
   }
