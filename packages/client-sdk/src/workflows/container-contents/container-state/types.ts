@@ -112,7 +112,7 @@ export type ContainerMetadataDocumentState = Awaited<
 export interface CreatedChildContainerState {
   containerState: ContainerState;
   initialUpdate: Uint8Array;
-  shouldEnqueueInitialUpdate: boolean;
+  shouldRequestSync: boolean;
 }
 
 export interface ContainerCreateIntentSyncState {

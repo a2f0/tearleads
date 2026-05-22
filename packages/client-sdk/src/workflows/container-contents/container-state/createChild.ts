@@ -4,6 +4,7 @@ import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVe
 import type { DocumentRecord } from "../../../data/sqlite/documentPersistence";
 import {
   type ContainerContentsPersistence,
+  enqueuePendingContainerUpdate,
   saveContainer,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
@@ -163,11 +164,19 @@ export async function createChildContainerState(input: {
     createIntent ? { createIntent } : undefined,
   );
 
+  const shouldRequestSync =
+    !containerState.record.documentId ||
+    Boolean(containerState.record.contentKeyBundle);
+  if (shouldRequestSync) {
+    await enqueuePendingContainerUpdate(execSql, persistence, {
+      containerId: containerState.container.id,
+      update: initialUpdate,
+    });
+  }
+
   return {
     containerState,
     initialUpdate,
-    shouldEnqueueInitialUpdate:
-      !containerState.record.documentId ||
-      Boolean(containerState.record.contentKeyBundle),
+    shouldRequestSync,
   };
 }
