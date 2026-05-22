@@ -1,6 +1,6 @@
 export { TearleadsBlobs } from "./blobs";
 export type { TearleadsContacts } from "./contacts";
-export type { TearleadsContainerDocuments } from "./containerDocuments";
+export type { TearleadsContainerContents } from "./containerContents";
 export {
   TearleadsDatabase,
   type TearleadsDatabaseOptions,

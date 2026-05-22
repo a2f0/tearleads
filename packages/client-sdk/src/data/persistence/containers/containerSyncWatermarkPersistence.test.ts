@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 import {
-  containerDocumentsSyncLane,
+  containerContentsSyncLane,
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
 } from "./containerSyncWatermarkPersistence";
@@ -45,7 +45,7 @@ test("container sync watermarks are persisted independently per lane", async () 
     );
     await sqlContainerSyncWatermarkPersistence.saveWatermark(
       execSql,
-      containerDocumentsSyncLane("parent-container"),
+      containerContentsSyncLane("parent-container"),
       {
         id: "document-1",
         updatedAt: "2026-05-05T00:10:00.000Z",
@@ -79,7 +79,7 @@ test("container sync watermarks are persisted independently per lane", async () 
       sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(execSql, [
         containerParentSyncLane(null),
         containerParentSyncLane("missing-parent"),
-        containerDocumentsSyncLane("parent-container"),
+        containerContentsSyncLane("parent-container"),
       ]),
     ).resolves.toEqual([
       expect.objectContaining({
@@ -121,7 +121,7 @@ test("container sync watermarks are persisted independently per lane", async () 
     await expect(
       sqlContainerSyncWatermarkPersistence.loadWatermark(
         execSql,
-        containerDocumentsSyncLane("parent-container"),
+        containerContentsSyncLane("parent-container"),
       ),
     ).resolves.toEqual({
       id: "document-1",

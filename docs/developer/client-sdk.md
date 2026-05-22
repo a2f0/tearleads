@@ -40,7 +40,7 @@ const tearleads = new Tearleads({
 await tearleads.identity.generate();
 await tearleads.session.bootstrapLocalRootContainer();
 
-const containerDocuments = tearleads.containerDocuments.runtime();
+const containerContents = tearleads.containerContents.runtime();
 const documents = tearleads.documents.runtime({
   containerId: tearleads.session.containerId,
 });
@@ -59,7 +59,7 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
 | `tearleads.documents` | document workflow runtime composition |
-| `tearleads.containerDocuments` | container/document workflow runtime composition |
+| `tearleads.containerContents` | container contents workflow runtime composition |
 | `tearleads.contacts` | contacts workflow runtime composition |
 
 Prefer these instance services over constructing workflow runtimes directly
@@ -80,7 +80,7 @@ state, menu labels, component-local hooks, and React providers stay in
 | Facade | Classification | Boundary |
 | --- | --- | --- |
 | `workflows/documents`, `workflows/blobs`, `workflows/containers`, `workflows/principals`, `workflows/registration`, `workflows/sync` | Platform runtime | Protocol-facing client operations, local persistence orchestration, sync coordination, key verification, and registration bootstrap helpers |
-| `workflows/container-documents` | Platform read model and runtime | Container tree state, container metadata documents, document link/discovery read models, and container/document sync helpers. The Explorer mini-app adapts these into UI state in `packages/app`. |
+| `workflows/container-contents` | Platform read model and runtime | Container tree state, container metadata documents, document link/discovery read models, and container contents sync helpers. The Explorer mini-app adapts these into UI state in `packages/app`. |
 | `workflows/contacts` | Platform read model and runtime | Local address-book documents and key lookup helpers used by contacts sync and recipient selection without owning Contacts UI interactions |
 | `workflows/organizations` | Platform organization administration | Organization directory, groups, grants, usage, user-detail read models, and principal-policy mutation helpers; the Org Manager mini-app adapts these into product screens in `packages/app` |
 
@@ -205,7 +205,7 @@ Supported package entry points are:
 | `@tearleads/client-sdk/workflows/contacts` | contacts runtime and read/write helpers |
 | `@tearleads/client-sdk/workflows/containers` | container mutation planning and remote container operations |
 | `@tearleads/client-sdk/workflows/documents` | document creation, sync, persistence, and projection-key helpers |
-| `@tearleads/client-sdk/workflows/container-documents` | container/document read models, document-link helpers, and sync helpers |
+| `@tearleads/client-sdk/workflows/container-contents` | container contents read models, document-link helpers, and sync helpers |
 | `@tearleads/client-sdk/workflows/organizations` | organization administration read models and principal-policy helpers |
 | `@tearleads/client-sdk/workflows/principals` | principal policy cache helpers |
 | `@tearleads/client-sdk/workflows/registration` | local registration/root bootstrap helpers |

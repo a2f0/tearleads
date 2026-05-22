@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { syncedContainerDocumentObjectSyncState as syncedExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/container-documents";
+import { syncedContainerDocumentObjectSyncState as syncedExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/container-contents";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   type ExplorerModalSubmitParams,

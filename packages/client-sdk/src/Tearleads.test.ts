@@ -212,7 +212,7 @@ describe("Tearleads", () => {
     });
 
     const documents = sdk.documents.runtime();
-    const containerDocuments = sdk.containerDocuments.runtime();
+    const containerContents = sdk.containerContents.runtime();
     const contacts = sdk.contacts.runtime();
 
     expect(documents.containerId).toBe("container-1");
@@ -220,9 +220,9 @@ describe("Tearleads", () => {
     expect(documents.isAuthenticated).toBe(true);
     expect(documents.online).toBe(true);
     expect(documents.resolveCreateAuthor()).not.toBeNull();
-    expect(containerDocuments.userId).toBe("user-1");
+    expect(containerContents.userId).toBe("user-1");
     expect(
-      containerDocuments.createDocumentsRuntime("container-2").containerId,
+      containerContents.createDocumentsRuntime("container-2").containerId,
     ).toBe("container-2");
     expect(contacts.userId).toBe("user-1");
   });

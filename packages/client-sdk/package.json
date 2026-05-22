@@ -38,9 +38,9 @@
       "types": "./src/workflows/documents/index.ts",
       "default": "./src/workflows/documents/index.ts"
     },
-    "./workflows/container-documents": {
-      "types": "./src/workflows/container-documents/index.ts",
-      "default": "./src/workflows/container-documents/index.ts"
+    "./workflows/container-contents": {
+      "types": "./src/workflows/container-contents/index.ts",
+      "default": "./src/workflows/container-contents/index.ts"
     },
     "./workflows/organizations": {
       "types": "./src/workflows/organizations/index.ts",

@@ -15,7 +15,7 @@ import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
 import { sqlContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
-import { sqlContainerDocumentsPersistence } from "../../data/persistence/container-documents/containerDocumentsPersistence";
+import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import {
@@ -212,7 +212,7 @@ test("registerIdentity submits the registration request and persists the local b
     );
 
     const containers =
-      await sqlContainerDocumentsPersistence.loadContainers(execSql);
+      await sqlContainerContentsPersistence.loadContainers(execSql);
     expect(containers).toHaveLength(1);
     expect(containers[0]?.container).toEqual(
       expect.objectContaining({

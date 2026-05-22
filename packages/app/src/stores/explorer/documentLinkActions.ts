@@ -8,7 +8,7 @@ import {
   moveDocumentLinkState as moveExplorerDocumentLinkState,
   type SetLinkedContainerIdsForDocument,
   unlinkDocumentLinkState as unlinkExplorerDocumentLinkState,
-} from "@tearleads/client-sdk/workflows/container-documents";
+} from "@tearleads/client-sdk/workflows/container-contents";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
   createExplorerDocumentsRuntime,

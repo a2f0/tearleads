@@ -1,9 +1,9 @@
 import {
-  createContainerDocumentsWorkflowRuntime as createExplorerWorkflowRuntime,
-  type ContainerDocumentsProjectionUserKeyResolver as ExplorerProjectionUserKeyResolver,
-  type ContainerDocumentsWorkflowRuntime as ExplorerWorkflowRuntime,
-  type ContainerDocumentsWorkflowRuntimeInput as ExplorerWorkflowRuntimeInput,
-} from "@tearleads/client-sdk/workflows/container-documents";
+  createContainerContentsWorkflowRuntime as createExplorerWorkflowRuntime,
+  type ContainerContentsProjectionUserKeyResolver as ExplorerProjectionUserKeyResolver,
+  type ContainerContentsWorkflowRuntime as ExplorerWorkflowRuntime,
+  type ContainerContentsWorkflowRuntimeInput as ExplorerWorkflowRuntimeInput,
+} from "@tearleads/client-sdk/workflows/container-contents";
 import { useMemo } from "react";
 import type { primeDocumentStore } from "../documents/DocumentsProvider";
 

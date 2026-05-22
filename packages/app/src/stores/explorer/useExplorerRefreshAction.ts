@@ -2,7 +2,7 @@ import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import {
   discoverAllContainerDocumentsFromApi,
   listAllRemoteContainerIdsFromApi as listAllRemoteExplorerContainerIdsFromApi,
-} from "@tearleads/client-sdk/workflows/container-documents";
+} from "@tearleads/client-sdk/workflows/container-contents";
 import { useCallback, useRef, useState } from "react";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import type {

@@ -7,9 +7,9 @@ import {
 import { TearleadsBlobs } from "./blobs";
 import { createTearleadsContacts, type TearleadsContacts } from "./contacts";
 import {
-  createTearleadsContainerDocuments,
-  type TearleadsContainerDocuments,
-} from "./containerDocuments";
+  createTearleadsContainerContents,
+  type TearleadsContainerContents,
+} from "./containerContents";
 import { TearleadsDatabase, type TearleadsDatabaseOptions } from "./database";
 import { createTearleadsDocuments, type TearleadsDocuments } from "./documents";
 import { TearleadsEvents } from "./events";
@@ -45,7 +45,7 @@ export class Tearleads {
   readonly database: TearleadsDatabase;
   readonly documents: TearleadsDocuments;
   readonly events: TearleadsEvents;
-  readonly containerDocuments: TearleadsContainerDocuments;
+  readonly containerContents: TearleadsContainerContents;
   readonly identity: TearleadsIdentity;
   readonly network: TearleadsNetwork;
   readonly runtime: TearleadsRuntime;
@@ -100,7 +100,7 @@ export class Tearleads {
       getDefaultContainerId: () => this.session.containerId,
       runtime: this.runtime,
     });
-    this.containerDocuments = createTearleadsContainerDocuments(this.runtime);
+    this.containerContents = createTearleadsContainerContents(this.runtime);
 
     this.api.setOnError((message) => this.logError(message));
     this.api.setOnNetworkError(() => this.network.setOnline(false));
