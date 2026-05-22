@@ -45,9 +45,13 @@ interface AppTestProcessState {
 
 interface TestApiKeyValueStore {
   del: (key: string) => Promise<void>;
+  expire: (key: string, ttlSeconds: number) => Promise<void>;
   get: (key: string) => Promise<string | null>;
   getdel: (key: string) => Promise<string | null>;
+  sadd: (key: string, member: string) => Promise<void>;
   set: (key: string, value: string, ttlSeconds?: number) => Promise<void>;
+  srem: (key: string, member: string) => Promise<void>;
+  sscanMembers: (key: string) => AsyncIterable<string[]>;
 }
 
 function createApiModuleUrl(relativePath: string): string {
@@ -445,43 +449,91 @@ async function drainSocketClients(): Promise<void> {
 }
 
 function createInMemoryKeyValueStore(): TestApiKeyValueStore {
-  const entries = new Map<
+  const strings = new Map<
     string,
     { expiresAt: number | null; value: string }
   >();
+  const sets = new Map<
+    string,
+    { expiresAt: number | null; members: Set<string> }
+  >();
+
+  const expiresAtFromTtl = (ttlSeconds: number | undefined): number | null =>
+    ttlSeconds === undefined ? null : Date.now() + ttlSeconds * 1000;
 
   const getNonExpired = (key: string): string | null => {
-    const entry = entries.get(key);
+    const entry = strings.get(key);
     if (!entry) {
       return null;
     }
 
     if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
-      entries.delete(key);
+      strings.delete(key);
       return null;
     }
 
     return entry.value;
   };
 
+  const getNonExpiredSet = (key: string): Set<string> | null => {
+    const entry = sets.get(key);
+    if (!entry) {
+      return null;
+    }
+
+    if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      sets.delete(key);
+      return null;
+    }
+
+    return entry.members;
+  };
+
   return {
     del: async (key: string) => {
-      entries.delete(key);
+      strings.delete(key);
+      sets.delete(key);
+    },
+    expire: async (key: string, ttlSeconds: number) => {
+      const expiresAt = expiresAtFromTtl(ttlSeconds);
+      const stringEntry = strings.get(key);
+      if (stringEntry) {
+        stringEntry.expiresAt = expiresAt;
+      }
+      const setEntry = sets.get(key);
+      if (setEntry) {
+        setEntry.expiresAt = expiresAt;
+      }
     },
     get: async (key: string) => getNonExpired(key),
     getdel: async (key: string) => {
       const value = getNonExpired(key);
       if (value !== null) {
-        entries.delete(key);
+        strings.delete(key);
       }
       return value;
     },
+    sadd: async (key: string, member: string) => {
+      const members = getNonExpiredSet(key) ?? new Set<string>();
+      members.add(member);
+      sets.set(key, { expiresAt: sets.get(key)?.expiresAt ?? null, members });
+    },
     set: async (key: string, value: string, ttlSeconds?: number) => {
-      entries.set(key, {
-        expiresAt:
-          ttlSeconds === undefined ? null : Date.now() + ttlSeconds * 1000,
+      strings.set(key, {
+        expiresAt: expiresAtFromTtl(ttlSeconds),
         value,
       });
+    },
+    srem: async (key: string, member: string) => {
+      const members = getNonExpiredSet(key);
+      members?.delete(member);
+    },
+    sscanMembers: async function* (key: string) {
+      const members = getNonExpiredSet(key);
+      if (!members) {
+        return;
+      }
+      yield Array.from(members);
     },
   };
 }
@@ -496,6 +548,8 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     const [
       {
         createDestroySession,
+        createDestroyUserSession,
+        createListUserSessions,
         createRequireAuth,
         createRouteApp,
         createSessionTokenIssuer,
@@ -509,6 +563,16 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     if (typeof createDestroySession !== "function") {
       throw new Error(
         "API session module missing createDestroySession export.",
+      );
+    }
+    if (typeof createDestroyUserSession !== "function") {
+      throw new Error(
+        "API session module missing createDestroyUserSession export.",
+      );
+    }
+    if (typeof createListUserSessions !== "function") {
+      throw new Error(
+        "API session module missing createListUserSessions export.",
       );
     }
     if (typeof createRequireAuth !== "function") {
@@ -534,11 +598,29 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
       eventPublisher,
       keyValueStore,
       sessionTokenIssuer: {
-        createSession: createSessionTokenIssuer(keyValueStore.set),
+        createSession: createSessionTokenIssuer(
+          keyValueStore.set,
+          keyValueStore.sadd,
+          keyValueStore.expire,
+        ),
       },
     };
     const routeApp = createRouteApp({
-      destroySession: createDestroySession(keyValueStore.del),
+      destroySession: createDestroySession(
+        keyValueStore.get,
+        keyValueStore.del,
+        keyValueStore.srem,
+      ),
+      destroyUserSession: createDestroyUserSession(
+        keyValueStore.get,
+        keyValueStore.del,
+        keyValueStore.srem,
+      ),
+      listUserSessions: createListUserSessions(
+        keyValueStore.get,
+        keyValueStore.srem,
+        keyValueStore.sscanMembers,
+      ),
       publish: (event: Record<string, unknown>) =>
         eventPublisher.publish(event),
       requireAuth: createRequireAuth(keyValueStore.get),

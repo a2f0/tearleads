@@ -358,6 +358,75 @@ test("allows public methods to be called after destructuring", async () => {
   expect(call.contentType).toBe("application/json");
 });
 
+test("uses auth session management routes", async () => {
+  const calls: CapturedHttpCall[] = [];
+  const sessionId = "a".repeat(64);
+  server.use(
+    http.all(`${apiBaseUrl}/auth/*`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+
+      if (request.method === "GET" && request.url.endsWith("/sessions")) {
+        return HttpResponse.json({
+          sessions: [
+            {
+              id: sessionId,
+              createdAt: "2026-05-22T12:00:00.000Z",
+              isCurrent: true,
+              signingKeyFingerprint: "signing-fingerprint",
+            },
+          ],
+        });
+      }
+
+      return HttpResponse.json({ message: "ok" });
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  client.setAuthToken("abc");
+
+  expect(await client.listSessions()).toEqual({
+    sessions: [
+      {
+        id: sessionId,
+        createdAt: "2026-05-22T12:00:00.000Z",
+        isCurrent: true,
+        signingKeyFingerprint: "signing-fingerprint",
+      },
+    ],
+  });
+  expect(await client.destroySession(sessionId)).toEqual({ message: "ok" });
+  expect(await client.logout()).toEqual({ message: "ok" });
+
+  expect(
+    calls.map((call) => ({
+      authorization: call.authorization,
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      authorization: "Bearer abc",
+      body: null,
+      input: `${apiBaseUrl}/auth/sessions`,
+      method: "GET",
+    },
+    {
+      authorization: "Bearer abc",
+      body: "",
+      input: `${apiBaseUrl}/auth/sessions/${sessionId}`,
+      method: "DELETE",
+    },
+    {
+      authorization: "Bearer abc",
+      body: "",
+      input: `${apiBaseUrl}/auth/logout`,
+      method: "POST",
+    },
+  ]);
+});
+
 test("returns null on network error", async () => {
   server.use(
     http.get(`${apiBaseUrl}/`, () => {

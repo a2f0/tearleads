@@ -17,6 +17,7 @@ import {
   isListContainerDocumentsResponse,
   isListContainersResponse,
   isListOrganizationGroupsResponse,
+  isListSessionsResponse,
   isMultipartBlobStageStatusResponse,
   isOrganizationContainerGrantsResponse,
   isOrganizationDataUsageResponse,
@@ -29,6 +30,7 @@ import {
   isRegistrationResponse,
   isStageBlobResponse,
   isUploadMultipartBlobPartResponse,
+  isUserSessionResponse,
   isVerifyResponse,
 } from "./index";
 
@@ -94,6 +96,24 @@ test("isVerifyResponse", () => {
   expect(isVerifyResponse({ authenticated: true, error: 123 })).toBe(false);
   expect(isVerifyResponse({})).toBe(false);
   expect(isVerifyResponse(null)).toBe(false);
+});
+
+test("session responses", () => {
+  const session = {
+    id: "a".repeat(64),
+    createdAt: new Date().toISOString(),
+    isCurrent: true,
+    signingKeyFingerprint: "signing-fingerprint",
+  };
+
+  expect(isUserSessionResponse(session)).toBe(true);
+  expect(isListSessionsResponse({ sessions: [session] })).toBe(true);
+  expect(isUserSessionResponse({ ...session, id: "not-hex" })).toBe(false);
+  expect(isUserSessionResponse({ ...session, isCurrent: "yes" })).toBe(false);
+  expect(
+    isListSessionsResponse({ sessions: [{ ...session, id: "bad" }] }),
+  ).toBe(false);
+  expect(isListSessionsResponse(null)).toBe(false);
 });
 
 test("isStageBlobResponse", () => {

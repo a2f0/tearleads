@@ -22,7 +22,10 @@ import {
 import {
   authenticate,
   authenticateWithChallenge,
+  destroySession,
   getEncapsulationKey,
+  listSessions,
+  logout,
 } from "./routes/auth";
 import {
   bindBlobAttachment,
@@ -387,6 +390,18 @@ export class ApiClient {
 
   getEncapsulationKey(userId: string) {
     return getEncapsulationKey(this.request, userId);
+  }
+
+  listSessions() {
+    return listSessions(this.request);
+  }
+
+  destroySession(sessionId: string) {
+    return destroySession(this.request, sessionId);
+  }
+
+  logout() {
+    return logout(this.request);
   }
 
   getCurrentPrincipalPolicy(
