@@ -14,6 +14,7 @@ import {
   hasUndiscoveredDocumentUpdateEvent,
   listAllRemoteContainerIds,
   listAllRemoteContainerIdsFromApi,
+  refreshAllContainerDocumentsFromApi,
 } from "./documentDiscovery";
 
 type CapturedDiscoveredDocumentInput = Omit<
@@ -820,6 +821,103 @@ test("manual refresh API facade lists remote container ids through the api clien
     { parentId: null, watermark: null },
     { parentId: "container-a", watermark: null },
   ]);
+});
+
+test("manual refresh API facade discovers documents for every remote container", async () => {
+  const listContainersCalls: Array<{
+    parentId: string | null;
+    watermark?: SyncWatermark | null;
+  }> = [];
+  const listContainerDocumentsCalls: string[] = [];
+  const replaceDocumentLinksBatchCalls: Array<
+    ReadonlyArray<{
+      containerIds: ReadonlyArray<string>;
+      documentId: string;
+    }>
+  > = [];
+
+  const discovered = await refreshAllContainerDocumentsFromApi({
+    ...nullContainerDocumentWatermarks,
+    apiClient: {
+      listContainerDocuments: async (containerId) => {
+        listContainerDocumentsCalls.push(containerId);
+        return listContainerDocumentsResponse([
+          {
+            createdAt: "2026-05-01T12:00:00.000Z",
+            currentAccessEpoch: 1,
+            currentAccessStateHash: `access-${containerId}`,
+            id: `document-${containerId}`,
+            linkedContainerIds: [containerId],
+            updatedAt: "2026-05-01T12:30:00.000Z",
+          },
+        ]);
+      },
+      listContainers: async (options) => {
+        listContainersCalls.push(options);
+        return {
+          hasMore: false,
+          items: options.parentId === null ? [{ id: "container-a" }] : [],
+          nextWatermark: null,
+        };
+      },
+    },
+    replaceDocumentLinksBatch: async (inputs) => {
+      replaceDocumentLinksBatchCalls.push(inputs);
+    },
+    upsertDiscoveredDocuments: async (inputs) =>
+      inputs.map(
+        (input): DocumentSummary => ({
+          id: `local-${input.documentId}`,
+          containerId: input.containerId,
+          documentId: input.documentId,
+          title: input.documentId,
+          updatedAt: "2026-05-01T12:30:00.000Z",
+        }),
+      ),
+  });
+
+  expect(discovered).toEqual([
+    {
+      id: "local-document-container-a",
+      containerId: "container-a",
+      documentId: "document-container-a",
+      title: "document-container-a",
+      updatedAt: "2026-05-01T12:30:00.000Z",
+    },
+  ]);
+  expect(listContainersCalls).toEqual([
+    { parentId: null, watermark: null },
+    { parentId: "container-a", watermark: null },
+  ]);
+  expect(listContainerDocumentsCalls).toEqual(["container-a"]);
+  expect(replaceDocumentLinksBatchCalls).toEqual([
+    [
+      {
+        containerIds: ["container-a"],
+        documentId: "document-container-a",
+      },
+    ],
+  ]);
+});
+
+test("manual refresh API facade stops when remote container listing is unavailable", async () => {
+  let listContainerDocumentsCallCount = 0;
+
+  const discovered = await refreshAllContainerDocumentsFromApi({
+    ...nullContainerDocumentWatermarks,
+    apiClient: {
+      listContainerDocuments: async () => {
+        listContainerDocumentsCallCount += 1;
+        return listContainerDocumentsResponse([]);
+      },
+      listContainers: async () => null,
+    },
+    replaceDocumentLinksBatch: async () => {},
+    upsertDiscoveredDocuments: async () => [],
+  });
+
+  expect(discovered).toBeNull();
+  expect(listContainerDocumentsCallCount).toBe(0);
 });
 
 test("manual refresh container listing stops on unavailable pages", async () => {

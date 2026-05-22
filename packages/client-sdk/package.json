@@ -18,6 +18,10 @@
       "types": "./src/sqlite.ts",
       "default": "./src/sqlite.ts"
     },
+    "./stores/contacts": {
+      "types": "./src/stores/contacts/index.ts",
+      "default": "./src/stores/contacts/index.ts"
+    },
     "./stores/documents": {
       "types": "./src/stores/documents/index.ts",
       "default": "./src/stores/documents/index.ts"

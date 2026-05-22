@@ -1,4 +1,10 @@
 import {
+  type ContactsRuntime,
+  type ContactsStore,
+  createContactsStore,
+  getOrCreateContactsStore,
+} from "@tearleads/client-sdk/stores/contacts";
+import {
   createContext,
   type PropsWithChildren,
   useContext,
@@ -8,15 +14,10 @@ import {
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
-import { getOrCreateContactsStore } from "./contactStore";
-import type {
-  ContactsContextValue,
-  ContactsRuntime,
-  ContactsStore,
-} from "./types";
+import type { ContactsContextValue } from "./types";
 
-export { createContactsStore } from "./contactStore";
-export type { ContactsRuntime } from "./types";
+export type { ContactsRuntime };
+export { createContactsStore };
 
 const ContactsContext = createContext<ContactsStore | null>(null);
 

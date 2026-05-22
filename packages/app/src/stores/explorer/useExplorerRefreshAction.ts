@@ -1,8 +1,5 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
-import {
-  discoverAllContainerDocumentsFromApi,
-  listAllRemoteContainerIdsFromApi as listAllRemoteExplorerContainerIdsFromApi,
-} from "@tearleads/client-sdk/workflows/container-contents";
+import { refreshAllContainerDocumentsFromApi } from "@tearleads/client-sdk/workflows/container-contents";
 import { useCallback, useRef, useState } from "react";
 import type { useAppData } from "../../providers/data/AppDataProvider";
 import type {
@@ -65,19 +62,11 @@ export function useExplorerRefreshAction(params: {
         return false;
       }
 
-      const remoteContainerIds =
-        await listAllRemoteExplorerContainerIdsFromApi(apiClient);
-      if (!remoteContainerIds) {
-        setRefreshError("Failed to refresh documents.");
-        return false;
-      }
-
       const discoveredDocumentSummaries =
-        await discoverAllContainerDocumentsFromApi({
+        await refreshAllContainerDocumentsFromApi({
           apiClient,
           applyContainerDocumentTombstones,
           cacheReferencedPrincipalPolicies,
-          containerIds: remoteContainerIds,
           loadContainerDocumentWatermark: (containerId) =>
             documentReadModel.loadContainerDocumentWatermark(containerId),
           replaceDocumentLinksBatch,
@@ -89,6 +78,10 @@ export function useExplorerRefreshAction(params: {
           upsertDiscoveredDocuments: (inputs) =>
             documentReadModel.upsertDiscoveredDocuments(inputs),
         });
+      if (!discoveredDocumentSummaries) {
+        setRefreshError("Failed to refresh documents.");
+        return false;
+      }
 
       mergeDocumentSummaries(discoveredDocumentSummaries);
       primeDiscoveredDocuments(discoveredDocumentSummaries);
