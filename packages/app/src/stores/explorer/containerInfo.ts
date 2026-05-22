@@ -1,10 +1,7 @@
-import {
-  type ContainerInfo as ExplorerContainerInfo,
-  type ContainerInfoRemoteMode as ExplorerContainerInfoRemoteMode,
-  loadContainerInfo as loadExplorerContainerInfoWorkflow,
-} from "@tearleads/client-sdk/workflows/container-contents";
+import type { ContainerInfo as ExplorerContainerInfo } from "@tearleads/client-sdk/workflows/container-contents";
 import { useCallback, useMemo } from "react";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import type { ContainerNode } from "./types";
 
 export type {
@@ -12,52 +9,12 @@ export type {
   ContainerShareAccessLevel as ExplorerContainerShareAccessLevel,
 } from "@tearleads/client-sdk/workflows/container-contents";
 
-function loadExplorerContainerInfo(input: {
-  readonly appData: Pick<
-    AppDataContextValue,
-    "apiClient" | "dbStatus" | "execSql" | "organizationId"
-  >;
-  readonly containerId: string;
-  readonly parentId?: string | null;
-  readonly remoteInfoMode?: ExplorerContainerInfoRemoteMode;
-}): Promise<ExplorerContainerInfo> {
-  return loadExplorerContainerInfoWorkflow({
-    apiClient: input.appData.apiClient,
-    containerId: input.containerId,
-    execSql: input.appData.dbStatus === "ready" ? input.appData.execSql : null,
-    organizationId: input.appData.organizationId,
-    parentId: input.parentId ?? null,
-    remoteInfoMode: input.remoteInfoMode,
-  });
-}
-
 export function useExplorerContainerInfoLoader(input: {
-  readonly appData: Pick<
-    AppDataContextValue,
-    | "apiClient"
-    | "dbStatus"
-    | "execSql"
-    | "isAuthenticated"
-    | "online"
-    | "organizationId"
-  >;
+  readonly appData: Pick<AppDataContextValue, "isAuthenticated" | "online">;
   readonly nodes: ReadonlyArray<ContainerNode>;
 }): (containerId: string) => Promise<ExplorerContainerInfo> {
   const { appData, nodes } = input;
-  const containerInfoAppData = useMemo(
-    () => ({
-      apiClient: appData.apiClient,
-      dbStatus: appData.dbStatus,
-      execSql: appData.execSql,
-      organizationId: appData.organizationId,
-    }),
-    [
-      appData.apiClient,
-      appData.dbStatus,
-      appData.execSql,
-      appData.organizationId,
-    ],
-  );
+  const { containerContents } = useTearleads();
   const nodesById = useMemo(
     () => new Map(nodes.map((node) => [node.id, node])),
     [nodes],
@@ -66,14 +23,13 @@ export function useExplorerContainerInfoLoader(input: {
   return useCallback(
     (containerId: string) => {
       const node = nodesById.get(containerId);
-      return loadExplorerContainerInfo({
-        appData: containerInfoAppData,
+      return containerContents.loadInfo({
         containerId,
         parentId: node?.parentId ?? null,
         remoteInfoMode:
           appData.isAuthenticated && appData.online ? "if-synced" : "never",
       });
     },
-    [appData.isAuthenticated, appData.online, containerInfoAppData, nodesById],
+    [appData.isAuthenticated, appData.online, containerContents, nodesById],
   );
 }

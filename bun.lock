@@ -58,7 +58,6 @@
       "name": "app",
       "version": "0.1.0",
       "dependencies": {
-        "@tearleads/api-client": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
         "@tearleads/encoding": "workspace:*",
@@ -69,6 +68,7 @@
       },
       "devDependencies": {
         "@happy-dom/global-registrator": "catalog:testing",
+        "@tearleads/api-client": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "@tearleads/test-utils": "workspace:*",
         "@testing-library/react": "catalog:testing",

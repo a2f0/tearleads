@@ -2,7 +2,7 @@ import {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
 } from "../workflows/documents";
-import type { TearleadsRuntime } from "./workflowRuntime";
+import type { TearleadsInternalRuntime } from "./workflowRuntime";
 
 export interface TearleadsDocumentsRuntimeOptions {
   containerId?: string | null | undefined;
@@ -14,7 +14,7 @@ export interface TearleadsDocuments {
 
 interface TearleadsDocumentsDependencies {
   getDefaultContainerId: () => string | null;
-  runtime: TearleadsRuntime;
+  runtime: TearleadsInternalRuntime;
 }
 
 export function createTearleadsDocuments(
@@ -32,7 +32,7 @@ class TearleadsDocumentsService implements TearleadsDocuments {
     const containerId = Object.hasOwn(options, "containerId")
       ? options.containerId
       : this.dependencies.getDefaultContainerId();
-    const input = this.dependencies.runtime.input(containerId);
+    const input = this.dependencies.runtime.workflowInput(containerId);
     return createDocumentsWorkflowRuntime(input);
   }
 }

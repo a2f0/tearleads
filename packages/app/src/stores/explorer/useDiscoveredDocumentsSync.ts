@@ -1,8 +1,6 @@
+import type { TearleadsContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
-import {
-  discoverContainerDocumentsFromApi,
-  hasUndiscoveredDocumentUpdateEvent,
-} from "@tearleads/client-sdk/workflows/container-contents";
+import { hasUndiscoveredDocumentUpdateEvent } from "@tearleads/client-sdk/workflows/container-contents";
 import { useCallback, useEffect, useMemo } from "react";
 import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
@@ -32,25 +30,22 @@ type ApplyContainerDocumentTombstones = (
 type DiscoveryPromise = Promise<ReadonlyArray<DocumentSummary> | null>;
 
 function useContainerDiscoveryPromiseFactory(params: {
-  apiClient: ExplorerDiscoveryAppData["apiClient"];
   applyContainerDocumentTombstones: ApplyContainerDocumentTombstones;
-  cacheReferencedPrincipalPolicies: ExplorerDiscoveryAppData["cacheReferencedPrincipalPolicies"];
+  discoverDocuments: TearleadsContainerContents["discoverDocuments"];
   documentReadModel: ExplorerDocumentReadModel;
   replaceDocumentLinksBatch: ReplaceDocumentLinksBatch;
 }) {
   const {
-    apiClient,
     applyContainerDocumentTombstones,
-    cacheReferencedPrincipalPolicies,
+    discoverDocuments,
     documentReadModel,
     replaceDocumentLinksBatch,
   } = params;
   const discoveryPromisesByContainerId = useMemo(
     () => new Map<string, DiscoveryPromise>(),
     [
-      apiClient,
       applyContainerDocumentTombstones,
-      cacheReferencedPrincipalPolicies,
+      discoverDocuments,
       documentReadModel,
       replaceDocumentLinksBatch,
     ],
@@ -63,10 +58,8 @@ function useContainerDiscoveryPromiseFactory(params: {
         return currentPromise;
       }
 
-      const nextPromise = discoverContainerDocumentsFromApi({
-        apiClient,
+      const nextPromise = discoverDocuments({
         applyContainerDocumentTombstones,
-        cacheReferencedPrincipalPolicies,
         containerId,
         loadContainerDocumentWatermark: (nextContainerId) =>
           documentReadModel.loadContainerDocumentWatermark(nextContainerId),
@@ -88,9 +81,8 @@ function useContainerDiscoveryPromiseFactory(params: {
       return nextPromise;
     },
     [
-      apiClient,
       applyContainerDocumentTombstones,
-      cacheReferencedPrincipalPolicies,
+      discoverDocuments,
       discoveryPromisesByContainerId,
       documentReadModel,
       replaceDocumentLinksBatch,
@@ -102,10 +94,14 @@ export function useDiscoveredDocumentsSync(params: {
   activeContainerId: string | null;
   appData: ExplorerDiscoveryAppData;
   applyContainerDocumentTombstones: ApplyContainerDocumentTombstones;
+  discoverDocuments: TearleadsContainerContents["discoverDocuments"];
   documentReadModel: ExplorerDocumentReadModel;
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
+  ) => void;
+  primeDiscoveredDocuments: (
+    discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>,
   ) => void;
   replaceDocumentLinksBatch: ReplaceDocumentLinksBatch;
 }) {
@@ -113,23 +109,18 @@ export function useDiscoveredDocumentsSync(params: {
     activeContainerId,
     appData,
     applyContainerDocumentTombstones,
+    discoverDocuments,
     documentReadModel,
     knownDocumentIds,
     mergeDocumentSummaries,
+    primeDiscoveredDocuments,
     replaceDocumentLinksBatch,
   } = params;
-  const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({ appData });
-  const {
-    apiClient,
-    cacheReferencedPrincipalPolicies,
-    isAuthenticated,
-    online,
-  } = appData;
+  const { isAuthenticated, online } = appData;
 
   const getDiscoveryPromise = useContainerDiscoveryPromiseFactory({
-    apiClient,
     applyContainerDocumentTombstones,
-    cacheReferencedPrincipalPolicies,
+    discoverDocuments,
     documentReadModel,
     replaceDocumentLinksBatch,
   });
@@ -236,7 +227,7 @@ function useContainerDiscoveryEffects(params: {
   ]);
 }
 
-function usePrimeDiscoveredDocuments(params: {
+export function usePrimeDiscoveredDocuments(params: {
   appData: ExplorerDiscoveryAppData;
 }) {
   const { appData } = params;

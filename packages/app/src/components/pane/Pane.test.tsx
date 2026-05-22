@@ -1,7 +1,5 @@
-import { afterEach, expect, spyOn, test } from "bun:test";
-import { ApiClient } from "@tearleads/api-client";
+import { afterEach, expect, test } from "bun:test";
 import { createModuleSQLiteWorkerRuntime } from "@tearleads/client-sdk/sqlite";
-import { isRegistrationResponse } from "@tearleads/validators/response";
 import {
   cleanup,
   fireEvent,
@@ -114,6 +112,9 @@ function listExplorerNoteItems(
   );
 }
 
+const userIdStatusPattern =
+  /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
+
 async function generateIdentityAndWaitForDb(
   view: ReturnType<typeof renderPane>,
 ) {
@@ -124,6 +125,33 @@ async function generateIdentityAndWaitForDb(
     expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
     expect(view.queryByText(/publicKey: none/)).toBeNull();
   });
+}
+
+async function uploadPublicKeyAndWaitForUserId(
+  view: ReturnType<typeof renderPane>,
+): Promise<string> {
+  fireEvent.click(view.getByText("Menu"));
+  await waitFor(() => {
+    expect(view.getByText("Upload Public Key")).toBeTruthy();
+  });
+  fireEvent.click(view.getByText("Upload Public Key"));
+
+  let userId = "";
+  await waitFor(
+    () => {
+      const statusText =
+        view.container.querySelector(".pane-content")?.textContent ?? "";
+      const match = userIdStatusPattern.exec(statusText);
+      expect(match).toBeTruthy();
+      userId = match?.[1] ?? "";
+    },
+    { timeout: 5_000 },
+  );
+  await waitFor(() => {
+    expect(view.queryByText("Upload Public Key")).toBeNull();
+  });
+
+  return userId;
 }
 
 test("renders the boot prompt in the pane log", () => {
@@ -159,27 +187,12 @@ test("unbooted pane context menu can generate a key pair", async () => {
 });
 
 test("displays userId after registration", async () => {
-  const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
 
   expect(view.getByText(/userId: none/)).toBeTruthy();
 
   await generateIdentityAndWaitForDb(view);
-
-  fireEvent.click(view.getByText("Menu"));
-  await waitFor(() => {
-    expect(view.getByText("Upload Public Key")).toBeTruthy();
-  });
-  fireEvent.click(view.getByText("Upload Public Key"));
-
-  await waitFor(() => {
-    expect(spy.mock.results).toHaveLength(1);
-  });
-  const spyResult = spy.mock.results[0];
-  invariant(spyResult, "spy has no results");
-  const result = await spyResult.value;
-  if (!isRegistrationResponse(result)) throw new Error("invalid response");
-  const { userId } = result;
+  const userId = await uploadPublicKeyAndWaitForUserId(view);
 
   await waitFor(() => {
     expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
@@ -188,31 +201,14 @@ test("displays userId after registration", async () => {
   fireEvent.click(view.getByText("Menu"));
   expect(view.queryByText("Upload Public Key")).toBeNull();
 
-  spy.mockRestore();
   view.unmount();
 });
 
 test("identity manager opens from the pane and lists active sessions", async () => {
-  const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-
-  fireEvent.click(view.getByText("Menu"));
-  await waitFor(() => {
-    expect(view.getByText("Upload Public Key")).toBeTruthy();
-  });
-  fireEvent.click(view.getByText("Upload Public Key"));
-
-  await waitFor(() => {
-    expect(spy.mock.results).toHaveLength(1);
-  });
-  await waitFor(
-    () => {
-      expect(view.queryByText(/userId: none/)).toBeNull();
-    },
-    { timeout: 5_000 },
-  );
+  await uploadPublicKeyAndWaitForUserId(view);
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
@@ -227,30 +223,14 @@ test("identity manager opens from the pane and lists active sessions", async () 
     expect(view.getByText("Backup Key Package")).toBeTruthy();
   });
 
-  spy.mockRestore();
   view.unmount();
 });
 
 test("userId resets to none when key pair is destroyed", async () => {
-  const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-
-  fireEvent.click(view.getByText("Menu"));
-  await waitFor(() => {
-    expect(view.getByText("Upload Public Key")).toBeTruthy();
-  });
-  fireEvent.click(view.getByText("Upload Public Key"));
-
-  await waitFor(() => {
-    expect(spy.mock.results).toHaveLength(1);
-  });
-  const spyResult = spy.mock.results[0];
-  invariant(spyResult, "spy has no results");
-  const result = await spyResult.value;
-  if (!isRegistrationResponse(result)) throw new Error("invalid response");
-  const { userId } = result;
+  const userId = await uploadPublicKeyAndWaitForUserId(view);
 
   await waitFor(() => {
     expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
@@ -263,7 +243,6 @@ test("userId resets to none when key pair is destroyed", async () => {
     expect(view.getByText(/userId: none/)).toBeTruthy();
   });
 
-  spy.mockRestore();
   view.unmount();
 });
 
@@ -317,31 +296,10 @@ test("notes windows in the same pane share live note state", async () => {
 });
 
 test("contacts windows in the same pane share live address book state", async () => {
-  const spy = spyOn(ApiClient.prototype, "registerUser");
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-
-  fireEvent.click(view.getByText("Menu"));
-  await waitFor(() => {
-    expect(view.getByText("Upload Public Key")).toBeTruthy();
-  });
-  fireEvent.click(view.getByText("Upload Public Key"));
-
-  await waitFor(() => {
-    expect(spy.mock.results).toHaveLength(1);
-  });
-  const spyResult = spy.mock.results[0];
-  invariant(spyResult, "spy has no results");
-  await spyResult.value;
-  spy.mockRestore();
-
-  await waitFor(
-    () => {
-      expect(view.queryByText(/userId: none/)).toBeNull();
-    },
-    { timeout: 5_000 },
-  );
+  await uploadPublicKeyAndWaitForUserId(view);
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,

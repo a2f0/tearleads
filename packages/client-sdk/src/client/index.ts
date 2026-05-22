@@ -1,7 +1,12 @@
 export { createDomainScope, type DomainScope } from "../data/domainScope";
 export { TearleadsBlobs } from "./blobs";
 export type { TearleadsContacts } from "./contacts";
-export type { TearleadsContainerContents } from "./containerContents";
+export type {
+  TearleadsContainerContents,
+  TearleadsContainerDocumentDiscoveryInput,
+  TearleadsContainerDocumentRefreshInput,
+  TearleadsContainerInfoInput,
+} from "./containerContents";
 export {
   TearleadsDatabase,
   type TearleadsDatabaseOptions,
@@ -30,6 +35,12 @@ export {
   TearleadsNetwork,
   type TearleadsNetworkListener,
 } from "./network";
+export type {
+  TearleadsAddOrganizationGroupUserInput,
+  TearleadsOrganizationGrantRef,
+  TearleadsOrganizations,
+  TearleadsRemoveOrganizationGroupUserInput,
+} from "./organizations";
 export type {
   TearleadsSession,
   TearleadsSessionContext,

@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import type { TearleadsContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
@@ -10,10 +11,6 @@ import { useExplorerRefreshAction } from "./useExplorerRefreshAction";
 type UseDiscoveredDocumentsSyncParams = Parameters<
   typeof useDiscoveredDocumentsSync
 >[0];
-type UseExplorerRefreshActionParams = Parameters<
-  typeof useExplorerRefreshAction
->[0];
-
 interface ListContainerDocumentsResponse {
   hasMore: boolean;
   items: [];
@@ -70,12 +67,6 @@ test("container document discovery reuses an in-flight run for repeated effect t
   let replaceDocumentLinksCallCount = 0;
   const documentReadModel = createDocumentReadModel();
   const baseAppData = {
-    apiClient: {
-      listContainerDocuments: () => {
-        listContainerDocumentsCallCount += 1;
-        return listedDocuments.promise;
-      },
-    },
     blobStore: {},
     cacheReferencedPrincipalPolicies: async () => undefined,
     dbStatus: "ready",
@@ -100,6 +91,13 @@ test("container document discovery reuses an in-flight run for repeated effect t
   const replaceDocumentLinksBatch = async () => {
     replaceDocumentLinksCallCount += 1;
   };
+  const discoverDocuments: TearleadsContainerContents["discoverDocuments"] =
+    async (input) => {
+      listContainerDocumentsCallCount += 1;
+      await listedDocuments.promise;
+      await input.replaceDocumentLinksBatch([]);
+      return [];
+    };
   const remoteUpdateEvents = [
     {
       documentId: "remote-doc-1",
@@ -121,9 +119,11 @@ test("container document discovery reuses an in-flight run for repeated effect t
           events,
         },
         applyContainerDocumentTombstones,
+        discoverDocuments,
         documentReadModel,
         knownDocumentIds: new Set(),
         mergeDocumentSummaries,
+        primeDiscoveredDocuments: () => undefined,
         replaceDocumentLinksBatch,
       }),
     {
@@ -173,10 +173,7 @@ test("container document discovery starts a new run when discovery dependencies 
     signingFingerprint: null,
     signingKeyPair: null,
     userId: null,
-  } as unknown as Omit<
-    UseDiscoveredDocumentsSyncParams["appData"],
-    "apiClient"
-  >;
+  } as unknown as UseDiscoveredDocumentsSyncParams["appData"];
   const mergeDocumentSummaries = (
     _nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => undefined;
@@ -184,30 +181,41 @@ test("container document discovery starts a new run when discovery dependencies 
   const replaceDocumentLinksBatch = async () => {
     replaceDocumentLinksCallCount += 1;
   };
-  const createAppData = (
-    listContainerDocuments: UseDiscoveredDocumentsSyncParams["appData"]["apiClient"]["listContainerDocuments"],
-  ): UseDiscoveredDocumentsSyncParams["appData"] =>
-    ({
-      ...baseAppData,
-      apiClient: {
-        listContainerDocuments,
-      },
-    }) as unknown as UseDiscoveredDocumentsSyncParams["appData"];
+  const createDiscoverDocuments =
+    (
+      listContainerDocuments: () => Promise<ListContainerDocumentsResponse>,
+    ): TearleadsContainerContents["discoverDocuments"] =>
+    async (input) => {
+      await listContainerDocuments();
+      await input.replaceDocumentLinksBatch([]);
+      return [];
+    };
 
   const view = renderHook(
-    ({ appData }: { appData: UseDiscoveredDocumentsSyncParams["appData"] }) =>
+    ({
+      appData,
+      discoverDocuments,
+    }: {
+      appData: UseDiscoveredDocumentsSyncParams["appData"];
+      discoverDocuments: TearleadsContainerContents["discoverDocuments"];
+    }) =>
       useDiscoveredDocumentsSync({
         activeContainerId: "container-1",
         appData,
         applyContainerDocumentTombstones,
+        discoverDocuments,
         documentReadModel,
         knownDocumentIds: new Set(),
         mergeDocumentSummaries,
+        primeDiscoveredDocuments: () => undefined,
         replaceDocumentLinksBatch,
       }),
     {
       initialProps: {
-        appData: createAppData(() => {
+        appData: {
+          ...baseAppData,
+        } as UseDiscoveredDocumentsSyncParams["appData"],
+        discoverDocuments: createDiscoverDocuments(() => {
           firstListContainerDocumentsCallCount += 1;
           return firstListedDocuments.promise;
         }),
@@ -221,7 +229,10 @@ test("container document discovery starts a new run when discovery dependencies 
   });
 
   view.rerender({
-    appData: createAppData(() => {
+    appData: {
+      ...baseAppData,
+    } as UseDiscoveredDocumentsSyncParams["appData"],
+    discoverDocuments: createDiscoverDocuments(() => {
       secondListContainerDocumentsCallCount += 1;
       return secondListedDocuments.promise;
     }),
@@ -243,23 +254,10 @@ test("container document discovery starts a new run when discovery dependencies 
 test("manual explorer refresh reuses an in-flight refresh", async () => {
   const refreshed = createDeferred<boolean>();
   let refreshCallCount = 0;
-  let listContainersCallCount = 0;
+  let refreshDocumentsCallCount = 0;
   const documentReadModel = createDocumentReadModel();
   const view = renderHook(() =>
     useExplorerRefreshAction({
-      appData: {
-        apiClient: {
-          listContainers: async () => {
-            listContainersCallCount += 1;
-            return {
-              hasMore: false,
-              items: [],
-              nextWatermark: null,
-            };
-          },
-        },
-        cacheReferencedPrincipalPolicies: async () => undefined,
-      } as unknown as UseExplorerRefreshActionParams["appData"],
       applyContainerDocumentTombstones: async () => [],
       documentReadModel,
       mergeDocumentSummaries: () => undefined,
@@ -267,6 +265,10 @@ test("manual explorer refresh reuses an in-flight refresh", async () => {
       refresh: () => {
         refreshCallCount += 1;
         return refreshed.promise;
+      },
+      refreshDocuments: async () => {
+        refreshDocumentsCallCount += 1;
+        return [];
       },
       replaceDocumentLinksBatch: async () => undefined,
     }),
@@ -288,7 +290,7 @@ test("manual explorer refresh reuses an in-flight refresh", async () => {
   });
 
   await expect(firstRefresh).resolves.toBe(true);
-  expect(listContainersCallCount).toBe(1);
+  expect(refreshDocumentsCallCount).toBe(1);
   await waitFor(() => {
     expect(view.result.current.isRefreshing).toBe(false);
   });
