@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
+import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useAppData } from "../../providers/data/AppDataProvider";
@@ -45,7 +46,7 @@ export function Explorer() {
   });
 
   return (
-    <div className="explorer">
+    <MiniAppRoot className="explorer">
       <ExplorerDetailPanel
         activateLinkedContainer={model.activateLinkedContainer}
         canActivateSelectedDocument={model.canActivateSelectedDocument}
@@ -107,6 +108,6 @@ export function Explorer() {
         setDraftTargetContainerId={model.modalState.setDraftTargetContainerId}
         targetSelectRef={model.modalState.targetSelectRef}
       />
-    </div>
+    </MiniAppRoot>
   );
 }

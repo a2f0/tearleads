@@ -1,5 +1,9 @@
 import { type MouseEvent, type ReactNode, useMemo } from "react";
 import {
+  MiniAppSidebar,
+  MiniAppStatus,
+} from "../../components/shared/MiniAppLayout";
+import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
@@ -40,11 +44,11 @@ function ContactsSidebarEntries({
   setSelectedContactId: (contactId: string) => void;
 }) {
   if (!ready) {
-    return <div className="contacts-hint">Loading...</div>;
+    return <MiniAppStatus>Loading...</MiniAppStatus>;
   }
 
   if (entries.length === 0) {
-    return <div className="contacts-hint">No contacts.</div>;
+    return <MiniAppStatus>No contacts.</MiniAppStatus>;
   }
 
   function handlePrimaryMouseDown(
@@ -70,7 +74,6 @@ function ContactsSidebarEntries({
       {entries.map((entry) => (
         <MiniAppRowButton
           key={entry.id}
-          className="contacts-sidebar-item"
           onClick={() => setSelectedContactId(entry.id)}
           onMouseDown={(event) => handlePrimaryMouseDown(event, entry.id)}
           onContextMenu={(event) => handleContextMenu(event, entry.id)}
@@ -105,7 +108,7 @@ export function useContactsSidebarPanel(params: {
 
   const sidebar = useMemo(
     () => (
-      <div className="contacts-sidebar">
+      <MiniAppSidebar>
         <ContactsSidebarEntries
           entries={entries}
           handleContextMenu={handleContextMenu}
@@ -113,7 +116,7 @@ export function useContactsSidebarPanel(params: {
           selectedContactId={selectedContactId}
           setSelectedContactId={setSelectedContactId}
         />
-      </div>
+      </MiniAppSidebar>
     ),
     [
       entries,

@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
+import { classNames } from "./classNames";
 import "./MiniAppRow.css";
 
 type MiniAppRowDensity = "compact" | "normal" | "roomy";
@@ -11,12 +12,6 @@ interface MiniAppRowStyleProps {
   variant?: MiniAppRowVariant | undefined;
 }
 
-function classNames(
-  ...values: Array<string | false | null | undefined>
-): string {
-  return values.filter((value) => Boolean(value)).join(" ");
-}
-
 function getMiniAppRowClassName({
   className,
   density = "normal",
@@ -27,7 +22,7 @@ function getMiniAppRowClassName({
 }: MiniAppRowStyleProps & {
   className?: string | undefined;
   interactive?: boolean | undefined;
-}): string {
+}): string | undefined {
   return classNames(
     "mini-app-row",
     density !== "normal" && `mini-app-row--${density}`,

@@ -1,3 +1,12 @@
+import {
+  MiniAppButton,
+  MiniAppField,
+  MiniAppInput,
+  MiniAppPanel,
+  MiniAppStatus,
+  MiniAppTextarea,
+  MiniAppToolbar,
+} from "../../../components/shared/MiniAppLayout";
 import type { ContactEntries, ContactEntryPatch } from "../types";
 
 type UpdateContact = (contactId: string, patch: ContactEntryPatch) => void;
@@ -11,14 +20,14 @@ function ContactTextField(params: {
   const { label, onCommit, placeholder, value } = params;
 
   return (
-    <label className="contacts-field">
+    <MiniAppField>
       <span>{label}</span>
-      <input
+      <MiniAppInput
         defaultValue={value}
         placeholder={placeholder}
         onBlur={(event) => onCommit(event.currentTarget.value)}
       />
-    </label>
+    </MiniAppField>
   );
 }
 
@@ -37,18 +46,18 @@ function ContactsSelectionState({
 
   if (!selectedEntry) {
     return (
-      <div className="contacts-hint">
+      <MiniAppStatus>
         {ready && entries.length > 0
           ? "Select a contact."
           : !ready
             ? "Loading contacts..."
             : "No contacts imported yet."}
-      </div>
+      </MiniAppStatus>
     );
   }
 
   return (
-    <div className="contacts-card" key={selectedEntry.id}>
+    <MiniAppPanel key={selectedEntry.id} variant="framed">
       <ContactTextField
         label="First name"
         value={selectedEntry.firstName}
@@ -65,9 +74,9 @@ function ContactsSelectionState({
         placeholder="Optional"
         onCommit={(userId) => updateContact(selectedEntry.id, { userId })}
       />
-      <label className="contacts-field">
+      <MiniAppField>
         <span>Public key</span>
-        <textarea
+        <MiniAppTextarea
           defaultValue={selectedEntry.encapsulationPublicKey ?? ""}
           placeholder="Optional"
           onBlur={(event) =>
@@ -76,8 +85,8 @@ function ContactsSelectionState({
             })
           }
         />
-      </label>
-    </div>
+      </MiniAppField>
+    </MiniAppPanel>
   );
 }
 
@@ -118,50 +127,46 @@ export function ContactsDetailPanel(params: {
 
   return (
     <>
-      <div className="contacts-toolbar">
-        <input
+      <MiniAppToolbar>
+        <MiniAppInput
           aria-label="First name"
           value={draftFirstName}
           onChange={(event) => setDraftFirstName(event.target.value)}
           placeholder="First name"
         />
-        <input
+        <MiniAppInput
           aria-label="Last name"
           value={draftLastName}
           onChange={(event) => setDraftLastName(event.target.value)}
           placeholder="Last name"
         />
-        <button
-          type="button"
+        <MiniAppButton
           disabled={!canCreate}
           onClick={() => {
             void createDraftContact();
           }}
         >
           Add
-        </button>
-      </div>
-      <div className="contacts-toolbar">
-        <input
+        </MiniAppButton>
+      </MiniAppToolbar>
+      <MiniAppToolbar>
+        <MiniAppInput
           aria-label="Contact user ID"
           value={draftUserId}
           onChange={(event) => setDraftUserId(event.target.value)}
           placeholder="User ID"
         />
-        <button
-          type="button"
+        <MiniAppButton
           disabled={!canImport}
           onClick={() => {
             void importDraftContact();
           }}
         >
           Import
-        </button>
-      </div>
+        </MiniAppButton>
+      </MiniAppToolbar>
       {!isAuthenticated && (
-        <div className="contacts-hint">
-          Authenticate before importing peer keys.
-        </div>
+        <MiniAppStatus>Authenticate before importing peer keys.</MiniAppStatus>
       )}
       <ContactsSelectionState
         entries={entries}

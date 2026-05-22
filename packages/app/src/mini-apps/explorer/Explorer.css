@@ -1,23 +1,9 @@
 .explorer {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--padding);
-  height: 100%;
-  padding: var(--padding);
-  box-sizing: border-box;
-}
-
-.explorer-hint {
-  opacity: 0.8;
 }
 
 .explorer-detail {
-  display: flex;
-  flex-direction: column;
   gap: calc(var(--padding) / 2);
-  padding: calc(var(--padding) / 1.5);
-  border: 1px solid currentColor;
 }
 
 .explorer-detail--container {
@@ -41,14 +27,6 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--padding);
-}
-
-.explorer-detail-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: calc(var(--padding) / 2);
 }
 
 .explorer-detail-copy {
@@ -76,27 +54,12 @@
   opacity: 0.8;
 }
 
-.explorer-detail-error {
-  color: currentColor;
-  font-size: var(--font-size-sm);
-  opacity: 1;
-}
-
 .explorer-item-table-wrap {
   flex: 1;
 }
 
 .explorer-item-table-wrap--drop-active {
   box-shadow: inset 0 0 0 2px currentColor;
-}
-
-.explorer-file-import-status {
-  font-size: var(--font-size-sm);
-  opacity: 0.8;
-}
-
-.explorer-file-import-status--error {
-  opacity: 1;
 }
 
 .explorer-inline-note {
@@ -130,12 +93,8 @@
 .explorer-linked-container-button {
   padding: 0;
   border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
   font-size: var(--font-size-sm);
   text-align: left;
-  cursor: pointer;
 }
 
 .explorer-linked-container-button:hover {
@@ -151,32 +110,6 @@
 .explorer-linked-container-badge {
   font-size: var(--font-size-sm);
   opacity: 0.8;
-}
-
-.explorer-action-button {
-  padding: calc(var(--padding) / 2) var(--padding);
-  border: 1px solid currentColor;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.explorer-action-button:hover:not(:disabled) {
-  background: var(--color-dark);
-  color: var(--color-light);
-}
-
-.explorer-action-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.explorer-sidebar {
-  display: flex;
-  flex-direction: column;
-  padding: calc(var(--padding) / 2);
-  gap: 1px;
 }
 
 .explorer-sidebar-row {
@@ -258,56 +191,6 @@
 
 .explorer-node-icon--expanded {
   transform: rotate(90deg);
-}
-
-.explorer-modal-backdrop {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--padding);
-  background: rgb(0 0 0 / 35%);
-}
-
-.explorer-modal {
-  width: min(100%, 22rem);
-  padding: var(--padding);
-  border: 1px solid var(--color-dark);
-  background: var(--color-light);
-  color: inherit;
-  box-shadow: 0 0 0 1px var(--color-dark);
-}
-
-.explorer-modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--padding);
-}
-
-.explorer-modal-form h2 {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.explorer-modal-field {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--padding) / 2);
-  font-size: var(--font-size-sm);
-}
-
-.explorer-modal-copy {
-  font-size: var(--font-size-sm);
-}
-
-.explorer-modal-field input,
-.explorer-modal-field select {
-  padding: calc(var(--padding) / 2);
-  border: 1px solid var(--color-dark);
-  background: var(--color-light);
-  color: inherit;
-  font: inherit;
 }
 
 .explorer-info {
@@ -414,50 +297,4 @@
 
 .explorer-info-inline-action {
   align-self: flex-start;
-  padding: calc(var(--padding) / 2) var(--padding);
-  border: 1px solid currentColor;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.explorer-info-inline-action:hover:not(:disabled) {
-  background: var(--color-dark);
-  color: var(--color-light);
-}
-
-.explorer-info-inline-action:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.explorer-modal-error {
-  font-size: var(--font-size-sm);
-  color: currentColor;
-}
-
-.explorer-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: calc(var(--padding) / 2);
-}
-
-.explorer-modal-actions button {
-  padding: calc(var(--padding) / 2) var(--padding);
-  border: 1px solid currentColor;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.explorer-modal-actions button:hover:not(:disabled) {
-  background: var(--color-dark);
-  color: var(--color-light);
-}
-
-.explorer-modal-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
 }

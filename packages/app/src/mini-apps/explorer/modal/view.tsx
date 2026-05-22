@@ -1,4 +1,15 @@
 import type { FormEvent, RefObject } from "react";
+import {
+  MiniAppActions,
+  MiniAppButton,
+  MiniAppField,
+  MiniAppInput,
+  MiniAppModalBackdrop,
+  MiniAppModalForm,
+  MiniAppModalPanel,
+  MiniAppSelect,
+  MiniAppStatus,
+} from "../../../components/shared/MiniAppLayout";
 import type { MoveTargetOption } from "../targetOptions";
 import {
   getExplorerModalSubmitLabel,
@@ -35,16 +46,16 @@ function ExplorerModalBody(params: {
   } = params;
 
   if (modalState.mode === "delete") {
-    return <div className="explorer-modal-copy">Delete this container?</div>;
+    return <MiniAppStatus>Delete this container?</MiniAppStatus>;
   }
 
   if (modalState.mode === "share-peer") {
     return (
-      <div className="explorer-modal-copy">
+      <MiniAppStatus>
         {peerUserId
           ? `Share this container with peer user ${peerUserId}?`
           : "No peer user is available."}
-      </div>
+      </MiniAppStatus>
     );
   }
 
@@ -54,9 +65,9 @@ function ExplorerModalBody(params: {
     modalState.mode === "move-document"
   ) {
     return (
-      <label className="explorer-modal-field">
-        Destination
-        <select
+      <MiniAppField>
+        <span>Destination</span>
+        <MiniAppSelect
           ref={targetSelectRef}
           aria-label="Destination container"
           disabled={isSubmittingModal}
@@ -71,15 +82,15 @@ function ExplorerModalBody(params: {
               {option.label}
             </option>
           ))}
-        </select>
-      </label>
+        </MiniAppSelect>
+      </MiniAppField>
     );
   }
 
   return (
-    <label className="explorer-modal-field">
-      Name
-      <input
+    <MiniAppField>
+      <span>Name</span>
+      <MiniAppInput
         ref={nameInputRef}
         aria-label="Container name"
         disabled={isSubmittingModal}
@@ -89,7 +100,7 @@ function ExplorerModalBody(params: {
           setDraftName(event.target.value);
         }}
       />
-    </label>
+    </MiniAppField>
   );
 }
 
@@ -111,11 +122,11 @@ function ExplorerModalActions(params: {
   } = params;
 
   return (
-    <div className="explorer-modal-actions">
-      <button type="button" disabled={isSubmittingModal} onClick={closeModal}>
+    <MiniAppActions>
+      <MiniAppButton disabled={isSubmittingModal} onClick={closeModal}>
         Cancel
-      </button>
-      <button
+      </MiniAppButton>
+      <MiniAppButton
         type="submit"
         disabled={isExplorerModalSubmitDisabled({
           draftName,
@@ -126,8 +137,8 @@ function ExplorerModalActions(params: {
         })}
       >
         {getExplorerModalSubmitLabel(modalState, isSubmittingModal)}
-      </button>
-    </div>
+      </MiniAppButton>
+    </MiniAppActions>
   );
 }
 
@@ -169,14 +180,13 @@ export function ExplorerModalLayer(params: {
   }
 
   return (
-    <div className="explorer-modal-backdrop" role="presentation">
-      <div
-        className="explorer-modal"
+    <MiniAppModalBackdrop role="presentation">
+      <MiniAppModalPanel
         role="dialog"
         aria-labelledby="explorer-modal-title"
         aria-modal="true"
       >
-        <form className="explorer-modal-form" onSubmit={handleModalSubmit}>
+        <MiniAppModalForm onSubmit={handleModalSubmit}>
           <h2 id="explorer-modal-title">{getExplorerModalTitle(modalState)}</h2>
           <ExplorerModalBody
             draftName={draftName}
@@ -192,7 +202,7 @@ export function ExplorerModalLayer(params: {
             targetSelectRef={targetSelectRef}
           />
           {modalError && (
-            <div className="explorer-modal-error">{modalError}</div>
+            <MiniAppStatus tone="error">{modalError}</MiniAppStatus>
           )}
           <ExplorerModalActions
             closeModal={closeModal}
@@ -202,8 +212,8 @@ export function ExplorerModalLayer(params: {
             modalState={modalState}
             peerUserId={peerUserId}
           />
-        </form>
-      </div>
-    </div>
+        </MiniAppModalForm>
+      </MiniAppModalPanel>
+    </MiniAppModalBackdrop>
   );
 }

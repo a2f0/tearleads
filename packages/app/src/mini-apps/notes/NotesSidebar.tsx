@@ -4,6 +4,11 @@ import {
 } from "@tearleads/client-sdk/documents";
 import { useMemo } from "react";
 import {
+  MiniAppSidebar,
+  MiniAppSidebarList,
+  MiniAppStatus,
+} from "../../components/shared/MiniAppLayout";
+import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
@@ -31,27 +36,23 @@ function NotesSidebar({
   selectedNoteId,
 }: NotesSidebarProps) {
   return (
-    <div className="notes-sidebar">
-      <MiniAppRowButton
-        className="notes-sidebar-new-note"
-        disabled={!ready}
-        onClick={createNote}
-        variant="framed"
-      >
+    <MiniAppSidebar spacious>
+      <MiniAppRowButton disabled={!ready} onClick={createNote} variant="framed">
         <MiniAppRowText>{NOTES_LABELS.sidebarNewNote}</MiniAppRowText>
       </MiniAppRowButton>
-      <div className="notes-sidebar-list">
+      <MiniAppSidebarList>
         {!ready ? (
-          <div className="notes-sidebar-empty">
+          <MiniAppStatus className="notes-sidebar-empty">
             {NOTES_LABELS.sidebarLoading}
-          </div>
+          </MiniAppStatus>
         ) : notes.length === 0 ? (
-          <div className="notes-sidebar-empty">{NOTES_LABELS.sidebarEmpty}</div>
+          <MiniAppStatus className="notes-sidebar-empty">
+            {NOTES_LABELS.sidebarEmpty}
+          </MiniAppStatus>
         ) : (
           notes.map((note) => (
             <MiniAppRowButton
               key={note.id}
-              className="notes-sidebar-item"
               onClick={() => selectNote(note.id)}
               selected={selectedNoteId === note.id}
             >
@@ -59,8 +60,8 @@ function NotesSidebar({
             </MiniAppRowButton>
           ))
         )}
-      </div>
-    </div>
+      </MiniAppSidebarList>
+    </MiniAppSidebar>
   );
 }
 

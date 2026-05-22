@@ -1,4 +1,8 @@
 import { useState } from "react";
+import {
+  MiniAppFormPanel,
+  MiniAppStatus,
+} from "../../../components/shared/MiniAppLayout";
 import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
@@ -75,10 +79,12 @@ export function ExplorerContainerInfoPanel(params: {
   const showShareButton = Boolean(containerInfo?.remoteInfo);
 
   return (
-    <form
+    <MiniAppFormPanel
       className="explorer-detail explorer-detail--container-info"
       key={containerId}
       onSubmit={handleShareWithGroup}
+      scroll
+      variant="framed"
     >
       <ExplorerContainerInfoHeader
         containerId={containerId}
@@ -102,7 +108,7 @@ export function ExplorerContainerInfoPanel(params: {
         setPanelError={setPanelError}
       />
       {panelError ? (
-        <div className="explorer-modal-error">{panelError}</div>
+        <MiniAppStatus tone="error">{panelError}</MiniAppStatus>
       ) : null}
       <ExplorerContainerInfoActions
         draftShareGroupId={draftShareGroupId}
@@ -110,6 +116,6 @@ export function ExplorerContainerInfoPanel(params: {
         isSubmitting={isSubmitting}
         showShareButton={showShareButton}
       />
-    </form>
+    </MiniAppFormPanel>
   );
 }

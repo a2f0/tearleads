@@ -1,9 +1,9 @@
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
+import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { ContactsContextMenuLayer } from "./context-menu/ContactsContextMenu";
 import { ContactsDetailPanel } from "./detail/ContactsDetailPanel";
 import { useContactsModel } from "./hooks/useContactsModel";
-import "./Contacts.css";
 
 export function Contacts() {
   const { setSidebar } = useWindowSidebar();
@@ -11,7 +11,7 @@ export function Contacts() {
   const model = useContactsModel(setSidebar, peerUserId);
 
   return (
-    <div className="contacts">
+    <MiniAppRoot className="contacts">
       <ContactsDetailPanel
         canCreate={model.canCreate}
         canImport={model.canImport}
@@ -41,6 +41,6 @@ export function Contacts() {
           model.contextMenuState.removeContextMenuContact
         }
       />
-    </div>
+    </MiniAppRoot>
   );
 }

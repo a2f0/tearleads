@@ -10,6 +10,13 @@ import {
   useRef,
   useState,
 } from "react";
+import { classNames } from "../../../components/shared/classNames";
+import {
+  MiniAppActions,
+  MiniAppButton,
+  MiniAppPanel,
+  MiniAppStatus,
+} from "../../../components/shared/MiniAppLayout";
 import {
   MiniAppTable,
   MiniAppTableActionButton,
@@ -446,9 +453,10 @@ function ExplorerContainerItemTable(params: {
   return (
     <MiniAppTableFrame
       aria-busy={isImporting}
-      className={`explorer-item-table-wrap${
-        dragActive ? " explorer-item-table-wrap--drop-active" : ""
-      }`}
+      className={classNames(
+        "explorer-item-table-wrap",
+        dragActive && "explorer-item-table-wrap--drop-active",
+      )}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -531,20 +539,18 @@ function ExplorerContainerDetailHeader(params: {
         </div>
         <span>{EXPLORER_LABELS.folderType}</span>
       </div>
-      <div className="explorer-detail-actions">
+      <MiniAppActions>
         {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
-          <button
-            type="button"
+          <MiniAppButton
             key={definition.kind}
-            className="explorer-action-button"
             onClick={() => {
               openInlineDocument(selectedNode.id, definition.kind);
             }}
           >
             {definition.createLabel}
-          </button>
+          </MiniAppButton>
         ))}
-      </div>
+      </MiniAppActions>
     </div>
   );
 }
@@ -606,9 +612,10 @@ export function ExplorerContainerDetail(params: {
   });
 
   return (
-    <div
+    <MiniAppPanel
       className="explorer-detail explorer-detail--container"
       key={selectedNode.id}
+      variant="framed"
     >
       <ExplorerContainerDetailHeader
         online={online}
@@ -616,18 +623,17 @@ export function ExplorerContainerDetail(params: {
         selectedNode={selectedNode}
       />
       {refreshError ? (
-        <span className="explorer-detail-error">{refreshError}</span>
+        <MiniAppStatus as="span" tone="error">
+          {refreshError}
+        </MiniAppStatus>
       ) : null}
       {fileDropTarget.importStatus ? (
-        <span
-          className={`explorer-file-import-status${
-            fileDropTarget.importStatusIsError
-              ? " explorer-file-import-status--error"
-              : ""
-          }`}
+        <MiniAppStatus
+          as="span"
+          tone={fileDropTarget.importStatusIsError ? "error" : "muted"}
         >
           {fileDropTarget.importStatus}
-        </span>
+        </MiniAppStatus>
       ) : null}
       <ExplorerContainerItemTable
         dragActive={fileDropTarget.dragActive}
@@ -649,6 +655,6 @@ export function ExplorerContainerDetail(params: {
         sort={sort}
         totalCount={itemWindow.totalCount}
       />
-    </div>
+    </MiniAppPanel>
   );
 }

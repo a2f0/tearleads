@@ -1,4 +1,5 @@
 import type { DragEvent } from "react";
+import { classNames } from "../../../components/shared/classNames";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { NOTES_LABELS } from "../labels";
 import type { NoteAttachment } from "../noteDocument";
@@ -85,7 +86,11 @@ export function NotesAttachmentsPanel({
   return (
     <label
       htmlFor={fileInputId}
-      className={`notes-dropzone${dragActive ? " notes-dropzone--active" : ""}${!canAttach ? " notes-dropzone--disabled" : ""}`}
+      className={classNames(
+        "notes-dropzone",
+        dragActive && "notes-dropzone--active",
+        !canAttach && "notes-dropzone--disabled",
+      )}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
