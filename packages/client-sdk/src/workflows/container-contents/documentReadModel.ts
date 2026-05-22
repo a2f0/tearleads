@@ -162,7 +162,7 @@ const CONTAINER_DOCUMENT_SQL_ID_BATCH_SIZE = 500;
 const MAX_CONTAINER_ITEM_WINDOW_LIMIT = 200;
 const MAX_CONTAINER_DOCUMENT_SIDEBAR_WINDOW_LIMIT = 200;
 
-function listContainerDocumentsSqlIdBatches(
+function listContainerContentsSqlIdBatches(
   values: ReadonlyArray<string>,
 ): ReadonlyArray<ReadonlyArray<string>> {
   const batches: string[][] = [];
@@ -365,7 +365,7 @@ function getContainerContentsContainerItemsBaseSql(): string {
   `;
 }
 
-function getContainerContentsContainerDocumentsBaseSql(): string {
+function getContainerContentsDocumentRowsBaseSql(): string {
   return `
     WITH ${getContainerContentsDocumentPendingStateCtes()},
     container_documents AS (
@@ -419,7 +419,7 @@ function getContainerContentsContainerDocumentSidebarOrderBy(): string {
   return "updated_at IS NULL ASC, updated_at DESC, title COLLATE NOCASE ASC, local_id ASC";
 }
 
-function parseContainerDocumentsContainerItemDocumentKind(
+function parseContainerContentsContainerItemDocumentKind(
   value: unknown,
 ): StoredDocumentKind {
   return typeof value === "string" && value.trim().length > 0 ? value : "note";
@@ -545,7 +545,7 @@ function mapContainerItemRow(
       row,
       "document_id",
     ),
-    documentKind: parseContainerDocumentsContainerItemDocumentKind(
+    documentKind: parseContainerContentsContainerItemDocumentKind(
       readContainerContentsContainerItemString(row, "document_kind"),
     ),
     itemKind: "document",
@@ -579,7 +579,7 @@ function mapContainerDocumentSidebarRow(
       row,
       "document_id",
     ),
-    documentKind: parseContainerDocumentsContainerItemDocumentKind(
+    documentKind: parseContainerContentsContainerItemDocumentKind(
       readContainerContentsContainerItemString(row, "document_kind"),
     ),
     localId: readContainerContentsContainerItemString(row, "local_id"),
@@ -619,7 +619,7 @@ function mapContainerContentsDocumentSummaryRow(
       row,
       "document_id",
     ),
-    documentKind: parseContainerDocumentsContainerItemDocumentKind(
+    documentKind: parseContainerContentsContainerItemDocumentKind(
       readContainerContentsContainerItemString(row, "document_kind"),
     ),
     title: readContainerContentsContainerItemString(row, "title"),
@@ -636,13 +636,13 @@ function addContainerContentsDocumentSummaries(
   }
 }
 
-async function listContainerDocumentsDocumentIdsByContainerIds(
+async function listContainerContentsDocumentIdsByContainerIds(
   execSql: ExecSql,
   containerIds: ReadonlyArray<string>,
 ): Promise<string[]> {
   const documentIds = new Set<string>();
 
-  for (const containerIdBatch of listContainerDocumentsSqlIdBatches(
+  for (const containerIdBatch of listContainerContentsSqlIdBatches(
     containerIds,
   )) {
     const batchDocumentIds =
@@ -658,7 +658,7 @@ async function listContainerDocumentsDocumentIdsByContainerIds(
   return Array.from(documentIds).sort();
 }
 
-async function listContainerDocumentsDocumentSummariesByContainerIdsOrDocumentIds(
+async function listContainerContentsDocumentSummariesByContainerIdsOrDocumentIds(
   execSql: ExecSql,
   input: {
     containerIds: ReadonlyArray<string>;
@@ -667,7 +667,7 @@ async function listContainerDocumentsDocumentSummariesByContainerIdsOrDocumentId
 ): Promise<DocumentSummary[]> {
   const documentSummariesById = new Map<string, DocumentSummary>();
 
-  for (const containerIdBatch of listContainerDocumentsSqlIdBatches(
+  for (const containerIdBatch of listContainerContentsSqlIdBatches(
     input.containerIds,
   )) {
     addContainerContentsDocumentSummaries(
@@ -682,7 +682,7 @@ async function listContainerDocumentsDocumentSummariesByContainerIdsOrDocumentId
     );
   }
 
-  for (const documentIdBatch of listContainerDocumentsSqlIdBatches(
+  for (const documentIdBatch of listContainerContentsSqlIdBatches(
     input.documentIds,
   )) {
     addContainerContentsDocumentSummaries(
@@ -755,7 +755,7 @@ async function listContainerDocumentSidebarWindow(
   const limit = getContainerDocumentSidebarWindowLimit(input.limit);
   const offset = clampContainerItemWindowValue(input.offset);
   const bind = [input.containerId, input.containerId];
-  const baseSql = getContainerContentsContainerDocumentsBaseSql();
+  const baseSql = getContainerContentsDocumentRowsBaseSql();
   const countRows = await execSql(
     `SELECT COUNT(*) AS total_count FROM (${baseSql})`,
     bind,
@@ -846,18 +846,15 @@ async function loadContainerContentsDocumentSyncState(
   });
 }
 
-async function listContainerDocumentsDocumentsForContainerSubtree(
+async function listContainerContentsDocumentsForContainerSubtree(
   execSql: ExecSql,
   containerIds: ReadonlyArray<string>,
 ): Promise<ContainerContentsSharedDocumentSummaries> {
   await sqlDocumentsPersistence.ensureSchema(execSql);
   const linkedDocumentIds =
-    await listContainerDocumentsDocumentIdsByContainerIds(
-      execSql,
-      containerIds,
-    );
+    await listContainerContentsDocumentIdsByContainerIds(execSql, containerIds);
   const documentSummaries =
-    await listContainerDocumentsDocumentSummariesByContainerIdsOrDocumentIds(
+    await listContainerContentsDocumentSummariesByContainerIdsOrDocumentIds(
       execSql,
       {
         containerIds,
@@ -880,7 +877,7 @@ async function listContainerDocumentsDocumentsForContainerSubtree(
   return { documentSummaries, linkedContainerIdsByDocumentId };
 }
 
-function listContainerDocumentsContainerSubtreeIds(
+function listContainerContentsContainerSubtreeIds(
   containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>,
   rootContainerId: string,
 ): string[] {
@@ -957,14 +954,14 @@ async function listDocumentRuntimeTargetsForContainerSubtree(input: {
 }): Promise<ContainerContentsDocumentRuntimeTarget[]> {
   const { containersById, execSql, rootContainerId } = input;
   const sharedContainerIds = new Set(
-    listContainerDocumentsContainerSubtreeIds(containersById, rootContainerId),
+    listContainerContentsContainerSubtreeIds(containersById, rootContainerId),
   );
   if (sharedContainerIds.size === 0) {
     return [];
   }
 
   const { documentSummaries, linkedContainerIdsByDocumentId } =
-    await listContainerDocumentsDocumentsForContainerSubtree(
+    await listContainerContentsDocumentsForContainerSubtree(
       execSql,
       Array.from(sharedContainerIds),
     );
@@ -1039,7 +1036,7 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
   return targets.length;
 }
 
-async function listContainerDocumentsLinkedContainerIdsByDocumentIds(
+async function listContainerContentsLinkedContainerIdsByDocumentIds(
   execSql: ExecSql,
   documentIds: ReadonlyArray<string>,
 ): Promise<ReadonlyMap<string, ReadonlyArray<string>>> {
@@ -1053,7 +1050,7 @@ async function listContainerDocumentsLinkedContainerIdsByDocumentIds(
     linkedContainerIdsByDocumentId.set(documentId, []);
   }
 
-  for (const documentIdBatch of listContainerDocumentsSqlIdBatches(
+  for (const documentIdBatch of listContainerContentsSqlIdBatches(
     uniqueDocumentIds,
   )) {
     const batchLinkedContainerIdsByDocumentId =
@@ -1159,7 +1156,7 @@ function createContainerDocumentReadModel(
       );
     },
     listLinkedContainerIdsByDocumentIds(documentIds) {
-      return listContainerDocumentsLinkedContainerIdsByDocumentIds(
+      return listContainerContentsLinkedContainerIdsByDocumentIds(
         execSql,
         documentIds,
       );
