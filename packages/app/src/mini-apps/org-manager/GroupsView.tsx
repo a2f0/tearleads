@@ -40,6 +40,7 @@ import {
 import {
   getOrgManagerEpochLabel,
   getOrgManagerMemberCountLabel,
+  getOrgManagerPolicyRoleLabel,
   ORG_MANAGER_LABELS,
 } from "./labels";
 import { PolicyHistorySection } from "./PolicyHistory";
@@ -160,7 +161,9 @@ function GroupMembers({
                   : (member.groupName ??
                     compactFingerprint(member.memberPrincipalId))}
               </strong>
-              <MiniAppRowText muted>{member.role}</MiniAppRowText>
+              <MiniAppRowText muted>
+                {getOrgManagerPolicyRoleLabel(member.role)}
+              </MiniAppRowText>
             </MiniAppRowStack>
             {member.memberPrincipalType === "user" && (
               <MiniAppButton
