@@ -3,7 +3,7 @@ import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk/documents";
-import { createExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/explorer";
+import { createContainerDocumentObjectSyncState as createExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/container-documents";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppActions,

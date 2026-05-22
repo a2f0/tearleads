@@ -1,5 +1,6 @@
 export { TearleadsBlobs } from "./blobs";
 export type { TearleadsContacts } from "./contacts";
+export type { TearleadsContainerDocuments } from "./containerDocuments";
 export {
   TearleadsDatabase,
   type TearleadsDatabaseOptions,
@@ -14,7 +15,6 @@ export {
   type TearleadsEventsListener,
   type TearleadsEventsSnapshot,
 } from "./events";
-export type { TearleadsExplorer } from "./explorer";
 export type {
   TearleadsIdentity,
   TearleadsIdentityOptions,

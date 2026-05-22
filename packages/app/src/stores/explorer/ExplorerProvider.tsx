@@ -1,7 +1,7 @@
 import {
-  defaultExplorerPersistence,
-  type ExplorerPersistence,
-} from "@tearleads/client-sdk/workflows/explorer";
+  defaultContainerDocumentsPersistence as defaultExplorerPersistence,
+  type ContainerDocumentsPersistence as ExplorerPersistence,
+} from "@tearleads/client-sdk/workflows/container-documents";
 import {
   createContext,
   type PropsWithChildren,
@@ -127,7 +127,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   const appData = useAppData();
   const tearleads = useTearleads();
   const runtime = useMemo(
-    () => tearleads.explorer.runtime(),
+    () => tearleads.containerDocuments.runtime(),
     [appData, tearleads],
   );
   const store = useMemo(

@@ -1,4 +1,4 @@
-import type { ExplorerPersistence } from "@tearleads/client-sdk/workflows/explorer";
+import type { ContainerDocumentsPersistence as ExplorerPersistence } from "@tearleads/client-sdk/workflows/container-documents";
 import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
 import type {
   ContainerNode,

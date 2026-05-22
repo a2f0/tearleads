@@ -1,16 +1,16 @@
 import {
-  createExplorerChildContainer,
-  deleteExplorerContainerState,
-  type ExplorerContainerMetadataPatch,
-  type ExplorerDocumentRecord,
+  createChildContainerState as createExplorerChildContainer,
+  deleteContainerState as deleteExplorerContainerState,
+  type ContainerMetadataPatch as ExplorerContainerMetadataPatch,
+  type ContainerDocumentRecord as ExplorerDocumentRecord,
   getTargetContainerContext,
-  moveRemoteExplorerContainer,
-  persistExplorerContainerMetadataStateFromRuntime,
+  moveRemoteContainer as moveRemoteExplorerContainer,
+  persistContainerMetadataStateFromRuntime as persistExplorerContainerMetadataStateFromRuntime,
   readContainerState,
-  renameExplorerContainerMetadataStateFromRuntime,
-  shareExplorerContainerState,
-  shareExplorerContainerStateWithGroup,
-} from "@tearleads/client-sdk/workflows/explorer";
+  renameContainerMetadataStateFromRuntime as renameExplorerContainerMetadataStateFromRuntime,
+  shareContainerState as shareExplorerContainerState,
+  shareContainerStateWithGroup as shareExplorerContainerStateWithGroup,
+} from "@tearleads/client-sdk/workflows/container-documents";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
 import { updateExplorerSnapshot } from "./state";

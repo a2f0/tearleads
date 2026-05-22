@@ -1,14 +1,14 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import {
-  activateExplorerDocumentLinkState,
-  canMutateExplorerDocumentLink,
-  type ExplorerDocumentStructuralMutationHost,
-  linkExplorerDocumentLinkState,
-  type MergeExplorerDocumentSummary,
-  moveExplorerDocumentLinkState,
+  activateDocumentLinkState as activateExplorerDocumentLinkState,
+  canMutateDocumentLink as canMutateExplorerDocumentLink,
+  type DocumentStructuralMutationHost as ExplorerDocumentStructuralMutationHost,
+  linkDocumentLinkState as linkExplorerDocumentLinkState,
+  type MergeDocumentSummary as MergeExplorerDocumentSummary,
+  moveDocumentLinkState as moveExplorerDocumentLinkState,
   type SetLinkedContainerIdsForDocument,
-  unlinkExplorerDocumentLinkState,
-} from "@tearleads/client-sdk/workflows/explorer";
+  unlinkDocumentLinkState as unlinkExplorerDocumentLinkState,
+} from "@tearleads/client-sdk/workflows/container-documents";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
   createExplorerDocumentsRuntime,

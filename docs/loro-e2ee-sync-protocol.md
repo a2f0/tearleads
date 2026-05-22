@@ -156,7 +156,8 @@ Behavior:
  - signed `/containers` mutations
 - those routes verify signed manifests and current derived targets before
  accepting key material or writes
-- the app explorer drives signed container mutations directly for
+- the Explorer app drives signed container mutations through the
+ container/document workflow for
  container writes and uses `link` + `unlink` to move a note between containers
  without creating a new document object; it also exposes direct note
  link/detach controls in note detail and can locally switch which linked
@@ -181,7 +182,7 @@ Limitations:
 - container/document discovery and Loro create/sync responses expose
  `referencedPrincipals[]` summaries so clients can discover and cache the
  current signed group/org policy states that back those principal recipients
-- the app explorer renders linked document projections beneath each
+- the Explorer app renders linked document projections beneath each
  linked container, exposes document link/unlink management, and can switch
  which linked container is locally active
 - subtractive rotation for document epochs uses the fresh-baseline path with

@@ -2,28 +2,28 @@ import { expect, test } from "bun:test";
 import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import {
+  createContainerDocumentsSyncLane as createExplorerContainerDocumentsSyncLane,
+  createContainerParentSyncLane as createExplorerContainerParentSyncLane,
+  createContainerDocumentObjectSyncState as createExplorerObjectSyncState,
+  createContainerDocumentsWorkflowRuntime as createExplorerWorkflowRuntime,
+  createInitializedContainerMetadataDocument,
+  defaultContainerDocumentsPersistence as defaultExplorerPersistence,
+  type ContainerDocumentRecord as ExplorerDocumentRecord,
+  initializeDocumentLinksSchema as initializeExplorerDocumentLinksSchema,
+  initializeContainerDocumentsSchema as initializeExplorerSchema,
+  listDocumentLinkedContainerIds as listExplorerDocumentLinkedContainerIds,
+  loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
+  loadStoredContainerStates as loadStoredExplorerContainers,
+  replaceDocumentLinks as replaceExplorerDocumentLinks,
+  saveContainer as saveExplorerContainer,
+  saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
+} from "@tearleads/client-sdk/workflows/container-documents";
+import {
   buildMaterializedDocumentCreatePlan,
   defaultDocumentsPersistence,
   persistedDocumentCreateStateFromResponse,
   type DocumentRecord as StoredDocumentRecord,
 } from "@tearleads/client-sdk/workflows/documents";
-import {
-  createExplorerContainerDocumentsSyncLane,
-  createExplorerContainerParentSyncLane,
-  createExplorerObjectSyncState,
-  createExplorerWorkflowRuntime,
-  createInitializedContainerMetadataDocument,
-  defaultExplorerPersistence,
-  type ExplorerDocumentRecord,
-  initializeExplorerDocumentLinksSchema,
-  initializeExplorerSchema,
-  listExplorerDocumentLinkedContainerIds,
-  loadExplorerContainerSyncWatermark,
-  loadStoredExplorerContainers,
-  replaceExplorerDocumentLinks,
-  saveExplorerContainer,
-  saveExplorerContainerSyncWatermark,
-} from "@tearleads/client-sdk/workflows/explorer";
 import {
   type ContainerKekRecipientTarget,
   computeAccessEventHash,
