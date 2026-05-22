@@ -7,6 +7,7 @@ import type {
   ContactsPersistence,
 } from "@tearleads/client-sdk/workflows/contacts";
 import { createContactsWorkflowRuntime } from "@tearleads/client-sdk/workflows/contacts";
+import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
 import {
   computeAccessEventHash,
   computeWriteHeaderHash,
@@ -390,7 +391,7 @@ function createRuntime(userIdToImport?: string): ContactsRuntime {
     apiClient: createUnavailableContactsApiClient(userIdToImport),
     containerId: "root-container",
     dbStatus: "ready",
-    domainScope: {},
+    domainScope: createDomainScope(),
     encapsulationKeyPair: null,
     events: [],
     execSql: async () => [],
@@ -419,7 +420,7 @@ async function createSyncRuntimeInput(
     apiClient: patch.apiClient,
     containerId: "root-container",
     dbStatus: "ready",
-    domainScope: {},
+    domainScope: createDomainScope(),
     encapsulationKeyPair,
     events: [],
     execSql: async () => [],

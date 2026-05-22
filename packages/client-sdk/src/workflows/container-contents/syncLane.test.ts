@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createDomainScope } from "../../data/domainScope";
 import {
   didRegainContainerContentsSyncPrerequisites,
   isDestroyedContainerContentsSyncRuntimeError,
@@ -10,7 +11,7 @@ function flushSyncLane() {
 }
 
 test("registerContainerContentsSyncLane registers the container contents lane for a domain scope", async () => {
-  const domainScope = {};
+  const domainScope = createDomainScope();
   const calls: string[] = [];
   const firstLane = registerContainerContentsSyncLane({
     domainScope,

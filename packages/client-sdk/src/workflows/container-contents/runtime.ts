@@ -5,6 +5,7 @@ import {
   type DocumentProjectorRegistry,
   defaultDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createDocumentsWorkflowRuntime,
@@ -34,7 +35,7 @@ export interface ContainerContentsWorkflowRuntimeInput {
   ) => Promise<void>;
   readonly dbStatus: string;
   readonly documentProjectors?: DocumentProjectorRegistry | undefined;
-  readonly domainScope: object;
+  readonly domainScope: DomainScope;
   readonly encapsulationKeyPair?:
     | {
         publicKey: Uint8Array;
@@ -76,7 +77,7 @@ export interface ContainerContentsWorkflowRuntime
   ) => Promise<void>;
   dbStatus: string;
   documentProjectors: DocumentProjectorRegistry;
-  domainScope: object;
+  domainScope: DomainScope;
   encapsulationKeyPair: {
     publicKey: Uint8Array;
     secretKey: Uint8Array;

@@ -12,11 +12,12 @@ import {
   isDestroyedContactSyncRuntimeError,
   registerContactSyncLane,
 } from "@tearleads/client-sdk/workflows/contacts";
+import type { DomainScope } from "@tearleads/client-sdk/workflows/sync";
 import type { ContactsRuntime, ContactsSnapshot, ContactsStore } from "./types";
 
 type ContactState = ContactDocumentState;
 
-const contactsStoresByScope = new WeakMap<object, ContactsStore>();
+const contactsStoresByScope = new WeakMap<DomainScope, ContactsStore>();
 
 function sortEntries(entries: ReadonlyArray<ContactEntry>): ContactEntry[] {
   return [...entries].sort((left, right) => {
@@ -514,7 +515,7 @@ export function createContactsStore(
 }
 
 export function getOrCreateContactsStore(
-  domainScope: object,
+  domainScope: DomainScope,
   runtime: ContactsRuntime,
 ): ContactsStore {
   const existingStore = contactsStoresByScope.get(domainScope);

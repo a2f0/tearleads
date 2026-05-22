@@ -1,4 +1,5 @@
 import {
+  type DomainScope,
   hasDomainSyncCoordinatorPendingWork,
   waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk/workflows/sync";
@@ -18,7 +19,7 @@ const DEFAULT_APP_TEST_RUNTIME_INTERVAL_MS = 10;
 const DEFAULT_APP_TEST_RUNTIME_SYNC_QUIET_MS = 0;
 const DEFAULT_APP_TEST_RUNTIME_TIMEOUT_MS = 500;
 
-const activeDomainScopeMountCounts = new Map<object, number>();
+const activeDomainScopeMountCounts = new Map<DomainScope, number>();
 
 function remainingTimeoutMs(deadline: number): number {
   return Math.max(0, deadline - Date.now());

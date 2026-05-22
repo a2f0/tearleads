@@ -7,6 +7,7 @@ import {
   type DocumentProjectorRegistry,
   defaultDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import type { DomainScope } from "../../data/domainScope";
 import {
   type DocumentAttachmentHydrationRuntime,
   hydrateDocumentAttachmentBlobsFromRuntime,
@@ -46,7 +47,7 @@ type DocumentsWorkflowRuntimeInput = DocumentAttachmentHydrationRuntime &
     ) => Promise<void>;
     dbStatus: string;
     documentProjectors?: DocumentProjectorRegistry | undefined;
-    domainScope: object;
+    domainScope: DomainScope;
     encapsulationKeyPair?:
       | {
           publicKey: Uint8Array;
@@ -115,7 +116,7 @@ export interface DocumentsWorkflowRuntime {
   readonly containerId?: string | null | undefined;
   readonly dbStatus: string;
   readonly documentProjectors: DocumentProjectorRegistry;
-  readonly domainScope: object;
+  readonly domainScope: DomainScope;
   readonly encapsulationKeyPair?:
     | {
         publicKey: Uint8Array;

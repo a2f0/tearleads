@@ -9,6 +9,7 @@ import {
   type PendingUpdateInsert,
   type PendingUpdateRecord,
 } from "@tearleads/client-sdk/workflows/documents";
+import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../src/document-types/projectors";
 import { createMockApiClient } from "./createMockApiClient";
 
@@ -289,7 +290,7 @@ export function createDocumentStoreRuntime(
     containerId: "root-container",
     dbStatus: "ready",
     documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
-    domainScope: {},
+    domainScope: createDomainScope(),
     encapsulationKeyPair: null,
     events: [],
     execSql: async () => [],

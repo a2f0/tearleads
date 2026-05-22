@@ -4,6 +4,7 @@ import {
   type DocumentProjectorRegistry,
   defaultDocumentProjectorRegistry,
 } from "../data/documents/documentKinds";
+import { createDomainScope, type DomainScope } from "../data/domainScope";
 import { TearleadsBlobs } from "./blobs";
 import { createTearleadsContacts, type TearleadsContacts } from "./contacts";
 import {
@@ -53,7 +54,7 @@ export class Tearleads {
 
   private readonly documentProjectors: DocumentProjectorRegistry;
   private domainScopeKey: string | null = null;
-  private domainScopeValue = {};
+  private domainScopeValue: DomainScope = createDomainScope();
   private readonly logErrorHandler: (
     message: string | Error,
     cause?: unknown,
@@ -115,11 +116,14 @@ export class Tearleads {
     this.logErrorHandler(message, cause);
   };
 
-  get domainScope(): object {
-    const nextScopeKey = `${this.database.id ?? ""}:${this.identity.signingFingerprint ?? ""}`;
+  get domainScope(): DomainScope {
+    const nextScopeKey = JSON.stringify([
+      this.database.id,
+      this.identity.signingFingerprint,
+    ]);
     if (this.domainScopeKey !== nextScopeKey) {
       this.domainScopeKey = nextScopeKey;
-      this.domainScopeValue = {};
+      this.domainScopeValue = createDomainScope();
     }
 
     return this.domainScopeValue;

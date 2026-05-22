@@ -3,6 +3,7 @@ import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { BlobStore } from "../data/blobContracts";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
+import type { DomainScope } from "../data/domainScope";
 import { type ExecSql, unavailableExecSql } from "../data/sqlite/sqlSchema";
 import { cacheReferencedPrincipalPolicies } from "../workflows/principals";
 import type { TearleadsBlobs } from "./blobs";
@@ -21,7 +22,7 @@ export interface TearleadsWorkflowRuntimeInput {
   containerId: string | null;
   dbStatus: TearleadsDatabaseStatus;
   documentProjectors: DocumentProjectorRegistry;
-  domainScope: object;
+  domainScope: DomainScope;
   encapsulationKeyPair: EncapsulationKeyPair | null;
   events: ReadonlyArray<unknown>;
   execSql: ExecSql;
@@ -45,7 +46,7 @@ interface TearleadsWorkflowRuntimeDependencies {
   database: TearleadsDatabase;
   documentProjectors: DocumentProjectorRegistry;
   events: TearleadsEvents;
-  getDomainScope: () => object;
+  getDomainScope: () => DomainScope;
   identity: TearleadsIdentity;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;

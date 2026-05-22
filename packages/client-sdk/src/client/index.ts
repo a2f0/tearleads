@@ -1,3 +1,4 @@
+export { createDomainScope, type DomainScope } from "../data/domainScope";
 export { TearleadsBlobs } from "./blobs";
 export type { TearleadsContacts } from "./contacts";
 export type { TearleadsContainerContents } from "./containerContents";

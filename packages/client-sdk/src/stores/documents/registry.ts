@@ -1,3 +1,4 @@
+import type { DomainScope } from "../../data/domainScope";
 import type {
   DocumentAttachmentUpload,
   DocumentStore,
@@ -13,16 +14,16 @@ interface DocumentStoreRegistry {
 }
 
 const documentStoreRegistriesByScope = new WeakMap<
-  object,
+  DomainScope,
   DocumentStoreRegistry
 >();
 const persistedDocumentListenersByScope = new WeakMap<
-  object,
+  DomainScope,
   Set<PersistedDocumentListener>
 >();
 
 export function getOrCreateDocumentStoreRegistry(
-  domainScope: object,
+  domainScope: DomainScope,
 ): DocumentStoreRegistry {
   const existingRegistry = documentStoreRegistriesByScope.get(domainScope);
   if (existingRegistry) {
@@ -51,7 +52,7 @@ export function resolveDocumentStoreKey(
 }
 
 export function registerDocumentStore(
-  domainScope: object,
+  domainScope: DomainScope,
   localId: string,
   store: DocumentStoreFacade,
   documentId: string | null,
@@ -66,7 +67,7 @@ export function registerDocumentStore(
 }
 
 export function registerDocumentStoreIdentity(
-  domainScope: object,
+  domainScope: DomainScope,
   localId: string,
   documentId: string | null,
 ) {
@@ -159,7 +160,7 @@ export function createDocumentStoreFacade(
 }
 
 export function emitPersistedDocument(
-  domainScope: object,
+  domainScope: DomainScope,
   persistedDocument: Parameters<PersistedDocumentListener>[0],
 ): void {
   const listeners = persistedDocumentListenersByScope.get(domainScope);
@@ -173,7 +174,7 @@ export function emitPersistedDocument(
 }
 
 export function subscribeToPersistedDocuments(
-  domainScope: object,
+  domainScope: DomainScope,
   listener: PersistedDocumentListener,
 ): () => void {
   const listeners =
@@ -190,7 +191,7 @@ export function subscribeToPersistedDocuments(
   };
 }
 
-export function requestDomainDocumentSync(domainScope: object): void {
+export function requestDomainDocumentSync(domainScope: DomainScope): void {
   const registry = documentStoreRegistriesByScope.get(domainScope);
   if (!registry) {
     return;

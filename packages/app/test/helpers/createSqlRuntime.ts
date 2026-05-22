@@ -3,6 +3,7 @@ import {
   createMemoryBlobStore,
 } from "@tearleads/client-sdk/workflows/blobs";
 import type { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk/workflows/documents";
+import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
 import { createTestExecSql } from "./createTestExecSql";
 
 type DocumentsWorkflowRuntimeInput = Parameters<
@@ -41,7 +42,7 @@ export async function createSqlRuntimeBase(
     cacheReferencedPrincipalPolicies: async () => {},
     close,
     dbStatus: "ready",
-    domainScope: {},
+    domainScope: createDomainScope(),
     encapsulationKeyPair: null,
     events: [],
     execSql,

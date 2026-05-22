@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createDomainScope } from "../../data/domainScope";
 import {
   didRegainContactSyncPrerequisites,
   isDestroyedContactSyncRuntimeError,
@@ -10,7 +11,7 @@ function flushSyncLane() {
 }
 
 test("registerContactSyncLane registers the contacts lane for a domain scope", async () => {
-  const domainScope = {};
+  const domainScope = createDomainScope();
   const calls: string[] = [];
   const firstLane = registerContactSyncLane({
     domainScope,
