@@ -10,6 +10,7 @@ import {
   readStoredDocumentState,
   type StoredDocumentKind,
 } from "../../../data/documents/documentKinds";
+import type { DomainScope } from "../../../data/domainScope";
 import type {
   DocumentProjectionUserKeyResolver,
   DocumentRecord,
@@ -47,11 +48,11 @@ export type DocumentSyncAttempt = NonNullable<
 
 export interface DocumentStorePersistenceEffects {
   emitPersistedDocument: (
-    domainScope: object,
+    domainScope: DomainScope,
     persistedDocument: DocumentSummary,
   ) => void;
   registerDocumentIdentity: (
-    domainScope: object,
+    domainScope: DomainScope,
     localId: string,
     documentId: string | null,
   ) => void;

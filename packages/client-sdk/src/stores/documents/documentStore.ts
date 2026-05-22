@@ -1,4 +1,5 @@
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
+import type { DomainScope } from "../../data/domainScope";
 import {
   type DocumentsPersistence,
   defaultDocumentsPersistence,
@@ -169,7 +170,7 @@ export function createDocumentStore(
 }
 
 export function getOrCreateDocumentStore(
-  domainScope: object,
+  domainScope: DomainScope,
   localId: string,
   runtime: DocumentsRuntime,
   initialDocumentId: string | null = null,
@@ -203,7 +204,7 @@ export function getOrCreateDocumentStore(
 }
 
 export function primeDocumentStore(
-  domainScope: object,
+  domainScope: DomainScope,
   localId: string,
   runtime: DocumentsRuntime,
   initialDocumentId: string | null = null,

@@ -1,3 +1,4 @@
+import type { DomainScope } from "../../data/domainScope";
 import {
   didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
@@ -14,7 +15,7 @@ interface ContactSyncPrerequisiteRuntime {
 }
 
 export function registerContactSyncLane(input: {
-  readonly domainScope: object;
+  readonly domainScope: DomainScope;
   readonly run: () => Promise<void>;
 }): ContactSyncLane {
   return getOrCreateDomainSyncCoordinator(input.domainScope).registerLane(

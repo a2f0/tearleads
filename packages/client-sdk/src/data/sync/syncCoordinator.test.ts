@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createDomainScope } from "../domainScope";
 import {
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
@@ -21,7 +22,7 @@ test("isDestroyedDatabaseClientError follows wrapped error causes", () => {
 });
 
 test("waitForDomainSyncCoordinatorToSettle waits for running lanes", async () => {
-  const domainScope = {};
+  const domainScope = createDomainScope();
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
   let releaseRun: () => void = () => {};
   let resolveStarted: () => void = () => {};
@@ -63,7 +64,7 @@ test("waitForDomainSyncCoordinatorToSettle waits for running lanes", async () =>
 });
 
 test("waitForDomainSyncCoordinatorToSettle reports timeout while work remains", async () => {
-  const domainScope = {};
+  const domainScope = createDomainScope();
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
   let releaseRun: () => void = () => {};
   let resolveStarted: () => void = () => {};

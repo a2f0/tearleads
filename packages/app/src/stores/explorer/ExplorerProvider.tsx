@@ -2,6 +2,7 @@ import {
   defaultContainerContentsPersistence as defaultExplorerPersistence,
   type ContainerContentsPersistence as ExplorerPersistence,
 } from "@tearleads/client-sdk/workflows/container-contents";
+import type { DomainScope } from "@tearleads/client-sdk/workflows/sync";
 import {
   createContext,
   type PropsWithChildren,
@@ -33,7 +34,7 @@ import {
 } from "./state";
 import type { ExplorerContextValue, ExplorerStore } from "./types";
 
-const explorerStoresByScope = new WeakMap<object, ExplorerStore>();
+const explorerStoresByScope = new WeakMap<DomainScope, ExplorerStore>();
 const ExplorerContext = createContext<ExplorerStore | null>(null);
 
 export function createExplorerStore(
@@ -110,7 +111,7 @@ export function createExplorerStore(
 }
 
 function getOrCreateExplorerStore(
-  domainScope: object,
+  domainScope: DomainScope,
   runtime: ExplorerRuntime,
 ): ExplorerStore {
   const existingStore = explorerStoresByScope.get(domainScope);

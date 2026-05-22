@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createDomainScope } from "../../data/domainScope";
 import {
   didRegainDocumentSyncPrerequisites,
   isDestroyedDocumentSyncRuntimeError,
@@ -10,7 +11,7 @@ function flushSyncLane() {
 }
 
 test("registerDocumentSyncLane registers a document lane by local id", async () => {
-  const domainScope = {};
+  const domainScope = createDomainScope();
   const calls: string[] = [];
   const firstLane = registerDocumentSyncLane({
     domainScope,

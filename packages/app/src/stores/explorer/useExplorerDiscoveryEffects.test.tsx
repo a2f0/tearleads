@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
+import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import type { ExplorerDocumentReadModel } from "./documentReadModel";
@@ -78,7 +79,7 @@ test("container document discovery reuses an in-flight run for repeated effect t
     blobStore: {},
     cacheReferencedPrincipalPolicies: async () => undefined,
     dbStatus: "ready",
-    domainScope: {},
+    domainScope: createDomainScope(),
     encapsulationKeyPair: null,
     events: [],
     execSql: async () => {
@@ -159,7 +160,7 @@ test("container document discovery starts a new run when discovery dependencies 
     blobStore: {},
     cacheReferencedPrincipalPolicies: async () => undefined,
     dbStatus: "ready",
-    domainScope: {},
+    domainScope: createDomainScope(),
     encapsulationKeyPair: null,
     events: [],
     execSql: async () => {

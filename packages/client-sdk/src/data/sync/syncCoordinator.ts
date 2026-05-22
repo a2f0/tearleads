@@ -1,3 +1,5 @@
+import type { DomainScope } from "../domainScope";
+
 interface SyncRuntimeStatus {
   encapsulationKeyPair: unknown;
   isAuthenticated: boolean;
@@ -32,7 +34,7 @@ interface DomainSyncCoordinator {
   waitForIdle: (options?: SyncIdleOptions) => Promise<boolean>;
 }
 
-const coordinatorsByScope = new WeakMap<object, DomainSyncCoordinator>();
+const coordinatorsByScope = new WeakMap<DomainScope, DomainSyncCoordinator>();
 const DEFAULT_SYNC_IDLE_INTERVAL_MS = 10;
 const DEFAULT_SYNC_IDLE_QUIET_MS = 0;
 const DEFAULT_SYNC_IDLE_TIMEOUT_MS = 500;
@@ -147,7 +149,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
 }
 
 export function getOrCreateDomainSyncCoordinator(
-  domainScope: object,
+  domainScope: DomainScope,
 ): DomainSyncCoordinator {
   const existingCoordinator = coordinatorsByScope.get(domainScope);
   if (existingCoordinator) {
@@ -160,13 +162,13 @@ export function getOrCreateDomainSyncCoordinator(
 }
 
 export function hasDomainSyncCoordinatorPendingWork(
-  domainScope: object,
+  domainScope: DomainScope,
 ): boolean {
   return coordinatorsByScope.get(domainScope)?.hasPendingWork() ?? false;
 }
 
 export function waitForDomainSyncCoordinatorToSettle(
-  domainScope: object,
+  domainScope: DomainScope,
   options?: SyncIdleOptions,
 ): Promise<boolean> {
   return (

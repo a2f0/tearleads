@@ -20,7 +20,10 @@ import {
   type PendingUpdateInsert,
   type PendingUpdateRecord,
 } from "@tearleads/client-sdk/workflows/documents";
-import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk/workflows/sync";
+import {
+  createDomainScope,
+  getOrCreateDomainSyncCoordinator,
+} from "@tearleads/client-sdk/workflows/sync";
 import {
   computeAccessEventHash,
   computeBlobAccessManifestHash,
@@ -841,7 +844,7 @@ function createRuntime(containerId = "root-container"): DocumentsTestRuntime {
     cacheReferencedPrincipalPolicies: async () => {},
     containerId,
     dbStatus: "ready",
-    domainScope: {},
+    domainScope: createDomainScope(),
     encapsulationKeyPair: null,
     events: [],
     execSql: async () => [],
@@ -889,7 +892,7 @@ async function createSyncRuntimeInput(
     cacheReferencedPrincipalPolicies: async () => {},
     containerId,
     dbStatus: "ready",
-    domainScope: {},
+    domainScope: createDomainScope(),
     encapsulationKeyPair,
     events: [],
     execSql: async () => [],
@@ -938,7 +941,7 @@ function createOfflineAttachmentRuntime(
     cacheReferencedPrincipalPolicies: async () => {},
     containerId,
     dbStatus: "ready",
-    domainScope: {},
+    domainScope: createDomainScope(),
     encapsulationKeyPair,
     events: [],
     execSql: async () => [],
@@ -1164,7 +1167,7 @@ test("document store re-registers sync lane when runtime domain scope changes", 
   const persistence = createDocumentsPersistence();
   const firstRuntime = createRuntime();
   const secondRuntime = cloneDocumentsTestRuntime(firstRuntime, {
-    domainScope: {},
+    domainScope: createDomainScope(),
   });
   const store = createDocumentStore(
     "domain-scope-note",

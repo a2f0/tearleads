@@ -1,4 +1,5 @@
 import type { ContactEntry } from "../../data/contacts/addressBookEntry";
+import type { DomainScope } from "../../data/domainScope";
 import { fetchContactKeyEntryFromRuntime } from "./keys";
 import {
   deleteContactEntryFromRuntime,
@@ -17,7 +18,7 @@ type ContactsWorkflowRuntimeInput = Parameters<
   typeof syncContactDocuments
 >[0]["runtime"] & {
   dbStatus: string;
-  domainScope: object;
+  domainScope: DomainScope;
   events: ReadonlyArray<unknown>;
   logError: (message: string | Error, cause?: unknown) => void;
 };
@@ -41,7 +42,7 @@ type ContactSyncInput = Omit<
 
 export interface ContactsWorkflowRuntime {
   readonly dbStatus: string;
-  readonly domainScope: object;
+  readonly domainScope: DomainScope;
   readonly events: ReadonlyArray<unknown>;
   readonly logError: (message: string | Error, cause?: unknown) => void;
   readonly userId: string | null;

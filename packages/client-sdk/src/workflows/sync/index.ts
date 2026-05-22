@@ -1,3 +1,4 @@
+export { createDomainScope, type DomainScope } from "../../data/domainScope";
 export {
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
