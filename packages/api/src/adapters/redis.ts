@@ -68,6 +68,32 @@ export async function del(key: string): Promise<void> {
   await activeClient.del(key);
 }
 
+export async function expire(key: string, ttlSeconds: number): Promise<void> {
+  const activeClient = await ensureClient();
+  await activeClient.expire(key, ttlSeconds);
+}
+
+export async function sadd(key: string, member: string): Promise<void> {
+  const activeClient = await ensureClient();
+  await activeClient.sAdd(key, member);
+}
+
+export async function srem(key: string, member: string): Promise<void> {
+  const activeClient = await ensureClient();
+  await activeClient.sRem(key, member);
+}
+
+// Stream Redis set members in bounded batches. This keeps session listing scoped
+// to one user's set without materializing the full set or scanning the keyspace.
+export async function* sscanMembers(
+  key: string,
+): AsyncGenerator<string[], void, unknown> {
+  const activeClient = await ensureClient();
+  yield* activeClient.sScanIterator(key, {
+    COUNT: 100,
+  });
+}
+
 export async function closeRedisClient(): Promise<void> {
   const activeClient = client;
   client = null;

@@ -2,11 +2,17 @@ export type { AccessManifestBundleWireResponse } from "../util";
 export {
   type ChallengeErrorResponse,
   type ChallengeResponse,
+  type DestroySessionResponse,
   type EncapsulationKeyResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
+  isDestroySessionResponse,
   isEncapsulationKeyResponse,
+  isListSessionsResponse,
+  isUserSessionResponse,
   isVerifyResponse,
+  type ListSessionsResponse,
+  type UserSessionResponse,
   type VerifyResponse,
 } from "./auth";
 export {

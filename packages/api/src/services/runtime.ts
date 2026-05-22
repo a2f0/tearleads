@@ -8,7 +8,7 @@ import { del, get, getdel, set } from "../adapters/redis";
 import { publish } from "../adapters/redisPubSub";
 import { createS3BlobObjectStore } from "../adapters/s3BlobObjectStore";
 import { createSession } from "../middleware/session";
-import type { SessionData } from "../validators/session";
+import type { SessionCreateInput } from "../validators/session";
 
 interface RuntimeEnv {
   readonly BLOB_OBJECT_STORE?: string | undefined;
@@ -31,7 +31,7 @@ export interface EventPublisher {
 }
 
 export interface SessionTokenIssuer {
-  createSession: (data: SessionData) => Promise<string>;
+  createSession: (data: SessionCreateInput) => Promise<string>;
 }
 
 export interface ApiServiceRuntime {

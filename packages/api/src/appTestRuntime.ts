@@ -1,6 +1,8 @@
 export { db } from "./adapters/postgres";
 export {
   createDestroySession,
+  createDestroyUserSession,
+  createListUserSessions,
   createRequireAuth,
   createSessionTokenIssuer,
 } from "./middleware/session";

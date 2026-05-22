@@ -16,6 +16,8 @@ import { createPrincipalsRouter } from "./routes/principals";
 export function createRouteApp(overrides: RouteAppOverrides) {
   const {
     destroySession: resolvedDestroySession,
+    destroyUserSession: resolvedDestroyUserSession,
+    listUserSessions: resolvedListUserSessions,
     publish: resolvedPublish,
     requireAuth: resolvedRequireAuth,
     runtime: resolvedRuntime,
@@ -28,6 +30,8 @@ export function createRouteApp(overrides: RouteAppOverrides) {
     "/",
     createAuthRouter({
       destroySession: resolvedDestroySession,
+      destroyUserSession: resolvedDestroyUserSession,
+      listUserSessions: resolvedListUserSessions,
       requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),

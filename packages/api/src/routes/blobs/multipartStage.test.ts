@@ -11,6 +11,7 @@ function createAuthenticatedTestApp(userId: string) {
       c.set("session", {
         createdAt: Date.now(),
         fingerprint: "test-fingerprint",
+        id: "test-session",
         userId,
       });
       return next();
