@@ -6,6 +6,7 @@ import {
 } from "../../mini-apps/bus";
 import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
 import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
+import { IdentityManagerApp } from "../../mini-apps/identity-manager/IdentityManagerApp";
 import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
 import { OrgManagerApp } from "../../mini-apps/org-manager/OrgManagerApp";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
@@ -37,6 +38,10 @@ const MINI_APPS = {
     createComponent: () => ExplorerApp,
     title: "Explorer",
   },
+  "identity-manager": {
+    createComponent: () => IdentityManagerApp,
+    title: "Identity Manager",
+  },
   notes: {
     createComponent: () => createNotesWindowComponent(),
     title: "Notes",
@@ -46,6 +51,17 @@ const MINI_APPS = {
     title: "Org Manager",
   },
 } satisfies Readonly<Record<MiniAppId, MiniAppDefinition>>;
+
+const PANE_MINI_APP_MENU_ITEMS = [
+  { appId: "notes", label: "Open Notes" },
+  { appId: "contacts", label: "Open Contacts" },
+  { appId: "explorer", label: "Open Explorer" },
+  { appId: "identity-manager", label: "Open Identity Manager" },
+  { appId: "org-manager", label: "Open Org Manager" },
+] satisfies ReadonlyArray<{
+  appId: MiniAppId;
+  label: string;
+}>;
 
 function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
@@ -88,45 +104,22 @@ function PaneInner({ className }: { className: string }) {
     setContextMenu(null);
   }, [contextMenu, create]);
 
-  const openNotes = useCallback(() => {
-    if (contextMenu) {
-      create(
-        "Notes",
-        contextMenu.x,
-        contextMenu.y,
-        createNotesWindowComponent(),
-        { appId: "notes" },
-      );
-    }
-    setContextMenu(null);
-  }, [contextMenu, create]);
-
-  const openContacts = useCallback(() => {
-    if (contextMenu) {
-      create("Contacts", contextMenu.x, contextMenu.y, ContactsApp, {
-        appId: "contacts",
-      });
-    }
-    setContextMenu(null);
-  }, [contextMenu, create]);
-
-  const openExplorer = useCallback(() => {
-    if (contextMenu) {
-      create("Explorer", contextMenu.x, contextMenu.y, ExplorerApp, {
-        appId: "explorer",
-      });
-    }
-    setContextMenu(null);
-  }, [contextMenu, create]);
-
-  const openOrgManager = useCallback(() => {
-    if (contextMenu) {
-      create("Org Manager", contextMenu.x, contextMenu.y, OrgManagerApp, {
-        appId: "org-manager",
-      });
-    }
-    setContextMenu(null);
-  }, [contextMenu, create]);
+  const openMiniApp = useCallback(
+    (appId: MiniAppId) => {
+      if (contextMenu) {
+        const definition = MINI_APPS[appId];
+        create(
+          definition.title,
+          contextMenu.x,
+          contextMenu.y,
+          definition.createComponent(),
+          { appId },
+        );
+      }
+      setContextMenu(null);
+    },
+    [contextMenu, create],
+  );
 
   return (
     <section
@@ -152,10 +145,13 @@ function PaneInner({ className }: { className: string }) {
                 label="Open Floating Window"
                 onClick={openFloatingWindow}
               />
-              <MenuItem label="Open Notes" onClick={openNotes} />
-              <MenuItem label="Open Contacts" onClick={openContacts} />
-              <MenuItem label="Open Explorer" onClick={openExplorer} />
-              <MenuItem label="Open Org Manager" onClick={openOrgManager} />
+              {PANE_MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
+                <MenuItem
+                  key={appId}
+                  label={label}
+                  onClick={() => openMiniApp(appId)}
+                />
+              ))}
             </>
           )}
         </Menu>

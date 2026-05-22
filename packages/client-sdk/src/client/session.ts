@@ -29,6 +29,13 @@ export interface TearleadsSessionRegistrationResult {
   readonly userId: string;
 }
 
+export interface TearleadsUserSession {
+  readonly createdAt: string;
+  readonly id: string;
+  readonly isCurrent: boolean;
+  readonly signingKeyFingerprint: string;
+}
+
 export interface TearleadsSession {
   readonly authToken: string | null;
   readonly containerId: string | null;
@@ -39,8 +46,11 @@ export interface TearleadsSession {
     containerId: string;
     created: boolean;
   }>;
+  destroySession(sessionId: string): Promise<boolean>;
+  listSessions(): Promise<TearleadsUserSession[]>;
   login(challengeHex?: string | undefined): Promise<boolean>;
   logout(): void;
+  logoutRemote(): Promise<boolean>;
   registerIdentity(): Promise<TearleadsSessionRegistrationResult | null>;
   setAuthToken(authToken: string | null): void;
   setContainerId(containerId: string | null): void;
@@ -98,6 +108,27 @@ class TearleadsSessionService implements TearleadsSession {
     return result;
   }
 
+  async listSessions(): Promise<TearleadsUserSession[]> {
+    const response = await this.dependencies.api.listSessions();
+    if (!response) {
+      return [];
+    }
+
+    return response.sessions.map(
+      ({ createdAt, id, isCurrent, signingKeyFingerprint }) => ({
+        createdAt,
+        id,
+        isCurrent,
+        signingKeyFingerprint,
+      }),
+    );
+  }
+
+  async destroySession(sessionId: string): Promise<boolean> {
+    const response = await this.dependencies.api.destroySession(sessionId);
+    return response?.message === "ok";
+  }
+
   async login(challengeHex?: string | undefined): Promise<boolean> {
     const signingKeyPair =
       this.dependencies.identity.requireSigningKeyPair("login");
@@ -138,6 +169,19 @@ class TearleadsSessionService implements TearleadsSession {
   logout(): void {
     this.setAuthToken(null);
     this.isAuthenticatedValue = false;
+  }
+
+  async logoutRemote(): Promise<boolean> {
+    try {
+      if (!this.authTokenValue) {
+        return true;
+      }
+
+      const response = await this.dependencies.api.logout();
+      return response?.message === "ok";
+    } finally {
+      this.logout();
+    }
   }
 
   async registerIdentity(): Promise<TearleadsSessionRegistrationResult | null> {

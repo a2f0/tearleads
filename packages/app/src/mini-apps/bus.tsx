@@ -14,7 +14,12 @@ import {
   useWindowStateData,
 } from "../components/window/WindowStateProvider";
 
-export type MiniAppId = "contacts" | "explorer" | "notes" | "org-manager";
+export type MiniAppId =
+  | "contacts"
+  | "explorer"
+  | "identity-manager"
+  | "notes"
+  | "org-manager";
 
 export interface MiniAppDefinition {
   createComponent: () => ComponentType;

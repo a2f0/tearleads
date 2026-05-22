@@ -31,6 +31,10 @@ function createMiniApps(
       createComponent: () => EmptyMiniApp,
       title: "Explorer",
     },
+    "identity-manager": {
+      createComponent: () => EmptyMiniApp,
+      title: "Identity Manager",
+    },
     notes: {
       createComponent: () => EmptyMiniApp,
       title: "Notes",

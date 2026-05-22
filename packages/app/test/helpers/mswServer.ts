@@ -1,9 +1,11 @@
 import { afterAll } from "bun:test";
 import { type AccessEvent, computeAccessEventHash } from "@tearleads/crypto";
 import type {
+  DestroySessionResponse,
   DocumentContentKeyTargetEnvelopeResponse,
   EncapsulationKeyResponse,
   ListContainersResponse,
+  ListSessionsResponse,
   RegistrationResponse,
   VerifyResponse,
 } from "@tearleads/validators/response";
@@ -366,6 +368,24 @@ const server = setupServer(
       authenticated: true,
       token: randomHex(64),
     });
+  }),
+  http.get("http://localhost:3001/auth/sessions", () => {
+    return HttpResponse.json<ListSessionsResponse>({
+      sessions: [
+        {
+          createdAt: "2026-05-22T10:00:00.000Z",
+          id: randomHex(32),
+          isCurrent: true,
+          signingKeyFingerprint: randomHex(32),
+        },
+      ],
+    });
+  }),
+  http.delete("http://localhost:3001/auth/sessions/:sessionId", () => {
+    return HttpResponse.json<DestroySessionResponse>({ message: "ok" });
+  }),
+  http.post("http://localhost:3001/auth/logout", () => {
+    return HttpResponse.json<DestroySessionResponse>({ message: "ok" });
   }),
   http.get("http://localhost:3001/containers", () => {
     return HttpResponse.json<ListContainersResponse>({
