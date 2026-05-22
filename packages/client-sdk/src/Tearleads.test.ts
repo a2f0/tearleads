@@ -5,6 +5,8 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "../test/helpers/createTestExecSql";
+import { createResponseFromRequest } from "../test/helpers/documentFixtures";
 import { Tearleads, type TearleadsLogger } from "./client";
 import type { ExecSql, ExecSqlClientLike } from "./sqlite";
 
@@ -21,6 +23,16 @@ function createNoopSqlClient(): ExecSqlClientLike {
   };
 }
 
+function createSqlClient(execSql: ExecSql): ExecSqlClientLike {
+  return {
+    async exec({ bind, rowMode, sql }) {
+      return {
+        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
+      };
+    },
+  };
+}
+
 describe("Tearleads", () => {
   test("creates grouped SDK namespaces from constructor options", () => {
     const sqlClient = createNoopSqlClient();
@@ -31,7 +43,6 @@ describe("Tearleads", () => {
       online: false,
     });
 
-    expect(sdk.api).toBeInstanceOf(ApiClient);
     expect(sdk.database.client).toBe(sqlClient);
     expect(sdk.database.execSql).toBeFunction();
     expect(sdk.database.id).toBe("client-db");
@@ -298,6 +309,150 @@ describe("Tearleads", () => {
 
     expect(identityScope).not.toBe(databaseScope);
     expect(sdk.runtime.input().domainScope).toBe(identityScope);
+  });
+
+  test("session registers the current identity through the internal api client", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "tearleads-session-register-identity-test",
+    );
+    const apiClient = new ApiClient("");
+    const containerId = crypto.randomUUID();
+    let registerUserCalls = 0;
+    apiClient.registerUser = async (
+      userId,
+      organizationId,
+      rootContainerId,
+      _signingPublicKey,
+      _encapsulationPublicKey,
+      _initialAdminGroup,
+      _initialMemberGroup,
+      _initialOrganizationPolicy,
+      _initialRootContainer,
+      initialRootMetadataDocument,
+    ) => {
+      registerUserCalls += 1;
+      const rootMetadataDocument = await createResponseFromRequest(
+        initialRootMetadataDocument,
+      );
+
+      return {
+        challenge: "a".repeat(64),
+        organizationId,
+        rootContainerId,
+        rootMetadataAccessEpoch: 1,
+        rootMetadataAccessStateHash:
+          rootMetadataDocument.accessManifest.manifestHash,
+        rootMetadataDocument,
+        rootMetadataDocumentId: rootMetadataDocument.id,
+        userId,
+      };
+    };
+    const sdk = new Tearleads({
+      apiClient,
+      database: {
+        client: createSqlClient(execSql),
+        id: "registration-test-db",
+        status: "ready",
+      },
+      logger: quietLogger,
+    });
+
+    try {
+      await sdk.identity.generate();
+      sdk.session.setContainerId(containerId);
+
+      const result = await sdk.session.registerIdentity();
+      if (!result) {
+        throw new Error("Expected registration to succeed");
+      }
+
+      expect(registerUserCalls).toBe(1);
+      expect(result).toEqual({
+        challenge: "a".repeat(64),
+        containerId,
+        organizationId: expect.any(String),
+        userId: expect.any(String),
+      });
+      expect(sdk.session.containerId).toBe(containerId);
+      expect(sdk.session.organizationId).toBe(result.organizationId);
+      expect(sdk.session.userId).toBe(result.userId);
+    } finally {
+      close();
+    }
+  });
+
+  test("session registration skips unavailable prerequisites", async () => {
+    const messages: string[] = [];
+    const sdk = new Tearleads({
+      logger: {
+        ...quietLogger,
+        log: (message) => messages.push(message),
+      },
+    });
+
+    await expect(sdk.session.registerIdentity()).resolves.toBeNull();
+
+    sdk.session.setContainerId("container-1");
+    await expect(sdk.session.registerIdentity()).resolves.toBeNull();
+
+    await sdk.identity.setKeyPairs({
+      encapsulationKeyPair: null,
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+    });
+    await expect(sdk.session.registerIdentity()).resolves.toBeNull();
+
+    await sdk.identity.generate();
+    await expect(sdk.session.registerIdentity()).resolves.toBeNull();
+
+    expect(messages).toEqual([
+      "Registration skipped: container id is unavailable",
+      "Registration skipped: signing key is unavailable",
+      "Registration skipped: encapsulation key is unavailable",
+      "Key pair generated",
+      "Registration skipped: database client is unavailable",
+    ]);
+  });
+
+  test("session registration logs workflow failures before propagating them", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "tearleads-session-register-identity-failure-test",
+    );
+    const registrationError = new Error("remote registration unavailable");
+    const errors: Array<{ cause: unknown; message: string | Error }> = [];
+    const apiClient = new ApiClient("");
+    apiClient.registerUser = async () => {
+      throw registrationError;
+    };
+    const sdk = new Tearleads({
+      apiClient,
+      database: {
+        client: createSqlClient(execSql),
+        id: "registration-failure-test-db",
+        status: "ready",
+      },
+      logger: {
+        ...quietLogger,
+        logError: (message, cause) => errors.push({ cause, message }),
+      },
+    });
+
+    try {
+      await sdk.identity.generate();
+      sdk.session.setContainerId(crypto.randomUUID());
+
+      await expect(sdk.session.registerIdentity()).rejects.toThrow(
+        "remote registration unavailable",
+      );
+
+      expect(errors).toEqual([
+        {
+          cause: registrationError,
+          message: "Identity registration failed",
+        },
+      ]);
+    } finally {
+      close();
+    }
   });
 
   test("login authenticates with the current identity and stores the auth token", async () => {

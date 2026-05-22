@@ -33,6 +33,7 @@ export {
 export type {
   TearleadsSession,
   TearleadsSessionContext,
+  TearleadsSessionRegistrationResult,
 } from "./session";
 export { Tearleads, type TearleadsOptions } from "./Tearleads";
 export type {
