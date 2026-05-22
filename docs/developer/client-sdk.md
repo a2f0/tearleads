@@ -205,6 +205,7 @@ Supported package entry points are:
 | `@tearleads/client-sdk` | `Tearleads` and top-level SDK service types |
 | `@tearleads/client-sdk/documents` | neutral document/blob contracts and document projector helpers |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
+| `@tearleads/client-sdk/stores/contacts` | React-free contacts store facade |
 | `@tearleads/client-sdk/stores/documents` | React-free document store facade |
 | `@tearleads/client-sdk/workflows/blobs` | blob upload, hydration, and local blob stores |
 | `@tearleads/client-sdk/workflows/contacts` | contacts runtime and read/write helpers |

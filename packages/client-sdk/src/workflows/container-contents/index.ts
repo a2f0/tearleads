@@ -46,6 +46,10 @@ export {
   discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
   listAllRemoteContainerIdsFromApi,
+  type RefreshAllContainerDocumentsFromApiOptions,
+  type RefreshAllContainerDocumentsOptions,
+  refreshAllContainerDocuments,
+  refreshAllContainerDocumentsFromApi,
 } from "./documentDiscovery";
 export {
   initializeDocumentLinksSchema,

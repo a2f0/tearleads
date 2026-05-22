@@ -279,6 +279,22 @@ interface DiscoverAllContainerDocumentsOptions
   containerIds: ReadonlyArray<string>;
 }
 
+export interface RefreshAllContainerDocumentsOptions
+  extends Omit<DiscoverAllContainerDocumentsOptions, "containerIds"> {
+  listContainers: ContainerDocumentDiscoveryApi["listContainers"];
+}
+
+export interface RefreshAllContainerDocumentsFromApiOptions
+  extends Omit<
+    RefreshAllContainerDocumentsOptions,
+    "listContainerDocuments" | "listContainers"
+  > {
+  readonly apiClient: Pick<
+    ContainerDocumentDiscoveryApi,
+    "listContainerDocuments" | "listContainers"
+  >;
+}
+
 async function listContainerDocumentLanes(input: {
   containerIds: ReadonlyArray<string>;
   loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
@@ -564,5 +580,32 @@ export function discoverAllContainerDocumentsFromApi({
     ...input,
     listContainerDocuments: (containerId, options) =>
       apiClient.listContainerDocuments(containerId, options),
+  });
+}
+
+export async function refreshAllContainerDocuments({
+  listContainers,
+  ...input
+}: RefreshAllContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
+  const containerIds = await listAllRemoteContainerIds(listContainers);
+  if (!containerIds) {
+    return null;
+  }
+
+  return discoverAllContainerDocuments({
+    ...input,
+    containerIds,
+  });
+}
+
+export function refreshAllContainerDocumentsFromApi({
+  apiClient,
+  ...input
+}: RefreshAllContainerDocumentsFromApiOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
+  return refreshAllContainerDocuments({
+    ...input,
+    listContainerDocuments: (containerId, options) =>
+      apiClient.listContainerDocuments(containerId, options),
+    listContainers: (options) => apiClient.listContainers(options),
   });
 }

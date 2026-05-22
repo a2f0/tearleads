@@ -1,3 +1,4 @@
+import type { DomainScope } from "../../data/domainScope";
 import {
   type ContactDocumentState,
   type ContactEntry,
@@ -11,8 +12,7 @@ import {
   hasContactDocumentUpdateEvent,
   isDestroyedContactSyncRuntimeError,
   registerContactSyncLane,
-} from "@tearleads/client-sdk/workflows/contacts";
-import type { DomainScope } from "@tearleads/client-sdk/workflows/sync";
+} from "../../workflows/contacts";
 import type { ContactsRuntime, ContactsSnapshot, ContactsStore } from "./types";
 
 type ContactState = ContactDocumentState;
