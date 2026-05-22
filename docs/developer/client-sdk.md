@@ -50,11 +50,10 @@ The instance intentionally groups client capabilities by responsibility:
 
 | Namespace | Owns |
 | --- | --- |
-| `tearleads.api` | HTTP API calls and auth token headers |
 | `tearleads.database` | SQLite client and `ExecSql` executor |
 | `tearleads.identity` | signing and encapsulation key pairs |
 | `tearleads.blobs` | local blob byte storage |
-| `tearleads.session` | auth token and user/org/container context |
+| `tearleads.session` | registration, auth token, and user/org/container context |
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
@@ -107,7 +106,9 @@ const tearleads = new Tearleads({
 });
 ```
 
-Use `apiBaseUrl` for the default `ApiClient`, or pass an existing `apiClient`.
+Use `apiBaseUrl` for the SDK-managed HTTP transport, or pass an existing
+`apiClient` for host integration and tests. The raw API client is internal SDK
+wiring, not a public instance namespace for host code.
 Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.
@@ -183,12 +184,16 @@ an ephemeral memory store to the identity-scoped store returned by
 pass `blobStore` or call `tearleads.blobs.setStore(store)`.
 
 Session state is explicit. Registration flows should call
-`tearleads.session.setUserId(...)`, `setOrganizationId(...)`, and
-`setContainerId(...)` as the API returns canonical IDs. Login stores the auth
-token on both `tearleads.session` and `tearleads.api`:
+`tearleads.session.registerIdentity()`, which submits the current identity,
+persists the local bootstrap, and updates the session with canonical user,
+organization, and container IDs. Login stores the auth token on
+`tearleads.session` and configures the internal API client:
 
 ```ts
-const authenticated = await tearleads.session.login();
+const registration = await tearleads.session.registerIdentity();
+if (registration) {
+  const authenticated = await tearleads.session.login(registration.challenge);
+}
 ```
 
 ## Public API Entry Points

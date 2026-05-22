@@ -40,7 +40,6 @@ export interface TearleadsOptions {
 }
 
 export class Tearleads {
-  readonly api: ApiClient;
   readonly blobs: TearleadsBlobs;
   readonly contacts: TearleadsContacts;
   readonly database: TearleadsDatabase;
@@ -52,6 +51,7 @@ export class Tearleads {
   readonly runtime: TearleadsRuntime;
   readonly session: TearleadsSession;
 
+  private readonly apiClient: ApiClient;
   private readonly documentProjectors: DocumentProjectorRegistry;
   private domainScopeKey: string | null = null;
   private domainScopeValue: DomainScope = createDomainScope();
@@ -62,7 +62,8 @@ export class Tearleads {
   private readonly logHandler: (message: string) => void;
 
   constructor(options: TearleadsOptions = {}) {
-    this.api = options.apiClient ?? new ApiClient(options.apiBaseUrl ?? "");
+    this.apiClient =
+      options.apiClient ?? new ApiClient(options.apiBaseUrl ?? "");
     this.blobs = new TearleadsBlobs(options.blobStore);
     this.database = new TearleadsDatabase(options.database);
     this.documentProjectors =
@@ -78,13 +79,14 @@ export class Tearleads {
       this.log,
     );
     this.session = createTearleadsSession({
-      api: this.api,
+      api: this.apiClient,
       database: this.database,
       identity: this.identity,
       log: this.log,
+      logError: this.logError,
     });
     this.runtime = createTearleadsRuntime({
-      api: this.api,
+      api: this.apiClient,
       blobs: this.blobs,
       database: this.database,
       documentProjectors: this.documentProjectors,
@@ -103,9 +105,9 @@ export class Tearleads {
     });
     this.containerContents = createTearleadsContainerContents(this.runtime);
 
-    this.api.setOnError((message) => this.logError(message));
-    this.api.setOnNetworkError(() => this.network.setOnline(false));
-    this.api.setOnNetworkSuccess(() => this.network.setOnline(true));
+    this.apiClient.setOnError((message) => this.logError(message));
+    this.apiClient.setOnNetworkError(() => this.network.setOnline(false));
+    this.apiClient.setOnNetworkSuccess(() => this.network.setOnline(true));
   }
 
   log = (message: string): void => {

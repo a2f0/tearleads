@@ -1,9 +1,7 @@
-import { registerIdentity } from "@tearleads/client-sdk/workflows/registration";
 import { useCallback } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
-import { useLog } from "../providers/logging/LogProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
 
 interface RegisterCurrentIdentityResult {
@@ -18,12 +16,11 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     containerId,
     setUserId,
     setOrganizationId,
+    setContainerId,
     loginWithChallenge,
   } = useCryptoSession();
   const { encapsulationKeyPair, signingKeyPair } = useIdentity();
-  const { log, logError } = useLog();
   const tearleads = useTearleads();
-  const apiClient = tearleads.api;
 
   const canRegisterCurrentIdentity =
     signingKeyPair !== null &&
@@ -33,44 +30,26 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     dbClient !== null;
 
   const registerCurrentIdentity = useCallback(async (): Promise<boolean> => {
-    if (
-      signingKeyPair === null ||
-      encapsulationKeyPair === null ||
-      userId !== null ||
-      containerId === null ||
-      dbClient === null
-    ) {
+    if (!canRegisterCurrentIdentity) {
       return false;
     }
 
-    const response = await registerIdentity({
-      apiClient,
-      containerId,
-      dbClient,
-      encapsulationKeyPair,
-      log,
-      logError,
-      signingKeyPair,
-    });
+    const response = await tearleads.session.registerIdentity();
     if (!response) {
       return false;
     }
 
     setUserId(response.userId);
     setOrganizationId(response.organizationId);
+    setContainerId(response.containerId);
     return loginWithChallenge(response.challenge);
   }, [
-    apiClient,
-    containerId,
-    dbClient,
-    encapsulationKeyPair,
-    log,
-    logError,
+    canRegisterCurrentIdentity,
     loginWithChallenge,
+    setContainerId,
     setOrganizationId,
     setUserId,
-    signingKeyPair,
-    userId,
+    tearleads,
   ]);
 
   return { canRegisterCurrentIdentity, registerCurrentIdentity };

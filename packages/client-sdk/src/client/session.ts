@@ -1,5 +1,8 @@
 import type { ApiClient } from "@tearleads/api-client";
-import { bootstrapRootContainer } from "../workflows/registration";
+import {
+  bootstrapRootContainer,
+  registerIdentity as registerIdentityWorkflow,
+} from "../workflows/registration";
 import type { TearleadsDatabase } from "./database";
 import type { TearleadsIdentity } from "./identity";
 
@@ -16,6 +19,14 @@ interface TearleadsSessionDependencies {
   database: TearleadsDatabase;
   identity: TearleadsIdentity;
   log: (message: string) => void;
+  logError: (message: string | Error, cause?: unknown) => void;
+}
+
+export interface TearleadsSessionRegistrationResult {
+  readonly challenge: string;
+  readonly containerId: string;
+  readonly organizationId: string;
+  readonly userId: string;
 }
 
 export interface TearleadsSession {
@@ -30,6 +41,7 @@ export interface TearleadsSession {
   }>;
   login(challengeHex?: string | undefined): Promise<boolean>;
   logout(): void;
+  registerIdentity(): Promise<TearleadsSessionRegistrationResult | null>;
   setAuthToken(authToken: string | null): void;
   setContainerId(containerId: string | null): void;
   setContext(context: TearleadsSessionContext): void;
@@ -126,6 +138,71 @@ class TearleadsSessionService implements TearleadsSession {
   logout(): void {
     this.setAuthToken(null);
     this.isAuthenticatedValue = false;
+  }
+
+  async registerIdentity(): Promise<TearleadsSessionRegistrationResult | null> {
+    const containerId = this.containerIdValue;
+    if (!containerId) {
+      this.dependencies.log(
+        "Registration skipped: container id is unavailable",
+      );
+      return null;
+    }
+
+    const signingKeyPair = this.dependencies.identity.signingKeyPair;
+    if (!signingKeyPair) {
+      this.dependencies.log("Registration skipped: signing key is unavailable");
+      return null;
+    }
+
+    const encapsulationKeyPair =
+      this.dependencies.identity.encapsulationKeyPair;
+    if (!encapsulationKeyPair) {
+      this.dependencies.log(
+        "Registration skipped: encapsulation key is unavailable",
+      );
+      return null;
+    }
+
+    const dbClient = this.dependencies.database.client;
+    if (!dbClient) {
+      this.dependencies.log(
+        "Registration skipped: database client is unavailable",
+      );
+      return null;
+    }
+
+    let response: Awaited<ReturnType<typeof registerIdentityWorkflow>>;
+    try {
+      response = await registerIdentityWorkflow({
+        apiClient: this.dependencies.api,
+        containerId,
+        dbClient,
+        encapsulationKeyPair,
+        log: this.dependencies.log,
+        logError: this.dependencies.logError,
+        signingKeyPair,
+      });
+    } catch (error: unknown) {
+      this.dependencies.logError("Identity registration failed", error);
+      throw error;
+    }
+
+    if (!response) {
+      this.dependencies.log("Registration failed");
+      return null;
+    }
+
+    this.setUserId(response.userId);
+    this.setOrganizationId(response.organizationId);
+    this.setContainerId(response.rootContainerId);
+
+    return {
+      challenge: response.challenge,
+      containerId: response.rootContainerId,
+      organizationId: response.organizationId,
+      userId: response.userId,
+    };
   }
 
   setAuthToken(authToken: string | null): void {
