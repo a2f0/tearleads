@@ -34,6 +34,7 @@ interface ExplorerModel {
   importDroppedFiles: ExplorerPanelState["importDroppedFiles"];
   isRefreshing: boolean;
   loadContainerInfo: ExplorerPanelState["loadContainerInfo"];
+  loadDocumentInfo: ExplorerPanelState["loadDocumentInfo"];
   linkedContainerIds: ReadonlyArray<string>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   modalState: ExplorerPanelState["modalState"];
@@ -91,6 +92,7 @@ export function useExplorerModel(
     contextMenuState,
     importDroppedFiles,
     loadContainerInfo,
+    loadDocumentInfo,
     modalState,
     openInlineDocument,
     routeState,
@@ -135,6 +137,7 @@ export function useExplorerModel(
     importDroppedFiles,
     isRefreshing,
     loadContainerInfo,
+    loadDocumentInfo,
     linkedContainerIds: selectedDocumentLinkedContainerIds,
     mergeDocumentSummary,
     modalState,

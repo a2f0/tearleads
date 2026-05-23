@@ -80,14 +80,26 @@ function createDocumentReadModel(
 
 function ExplorerSidebarHarness(params: {
   documentReadModel: ExplorerDocumentReadModel;
+  onDocumentContextMenu?: (localId: string, containerId: string) => void;
 }) {
-  const { documentReadModel } = params;
+  const { documentReadModel, onDocumentContextMenu } = params;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebar, setSidebar] = useState<ReactNode>(null);
   const collapsedIds = useMemo(() => new Set<string>(), []);
   const handleSidebarContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>) => event.preventDefault(),
     [],
+  );
+  const handleSidebarDocumentContextMenu = useCallback(
+    (
+      event: ReactMouseEvent<HTMLButtonElement>,
+      localId: string,
+      containerId: string,
+    ) => {
+      event.preventDefault();
+      onDocumentContextMenu?.(localId, containerId);
+    },
+    [onDocumentContextMenu],
   );
   const selectDocumentProjection = useCallback(
     (localId: string) => setSelectedId(localId),
@@ -103,6 +115,7 @@ function ExplorerSidebarHarness(params: {
     documentListRevision: 0,
     documentReadModel,
     handleSidebarContextMenu,
+    handleSidebarDocumentContextMenu,
     nodes,
     online: true,
     ready: true,
@@ -181,6 +194,27 @@ test("explorer sidebar shows loading feedback during the first document window r
   });
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
+});
+
+test("explorer sidebar forwards document context-menu events with document and container ids", async () => {
+  const calls: Array<{ containerId: string; localId: string }> = [];
+  const documentReadModel = createDocumentReadModel(createSidebarRows(1), []);
+  const view = render(
+    <ExplorerSidebarHarness
+      documentReadModel={documentReadModel}
+      onDocumentContextMenu={(localId, containerId) => {
+        calls.push({ containerId, localId });
+      }}
+    />,
+  );
+
+  fireEvent.contextMenu(
+    await view.findByRole("button", { name: "Document 1" }),
+  );
+
+  expect(calls).toEqual([
+    { containerId: "root-container", localId: "document-1" },
+  ]);
 });
 
 test("explorer sidebar can retry a failed initial document window", async () => {

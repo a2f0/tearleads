@@ -249,6 +249,100 @@ function ExplorerContainerInfoGrantList(params: {
   );
 }
 
+function ExplorerContainerInfoSecuritySection(params: {
+  containerNamesById: ReadonlyMap<string, string>;
+  remoteInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
+}) {
+  const { containerNamesById, remoteInfo } = params;
+  const security = remoteInfo.security;
+  if (!security) {
+    return null;
+  }
+
+  return (
+    <section className="explorer-info-section">
+      <h3>{EXPLORER_LABELS.containerInfoSecurityHeading}</h3>
+      <table className="explorer-info-table">
+        <tbody>
+          <tr>
+            <th>{EXPLORER_LABELS.containerInfoSecurityManifestHashRow}</th>
+            <td title={security.currentManifestHash}>
+              {compactPrincipalId(security.currentManifestHash)}
+            </td>
+          </tr>
+          <tr>
+            <th>{EXPLORER_LABELS.containerInfoSecurityKeyEpochRow}</th>
+            <td title={security.currentContainerKeyEpochId}>
+              {security.currentContainerKeyEpoch} /{" "}
+              {compactPrincipalId(security.currentContainerKeyEpochId)}
+            </td>
+          </tr>
+          <tr>
+            <th>{EXPLORER_LABELS.containerInfoSecurityParentKeyEpochRow}</th>
+            <td title={security.currentParentContainerKeyEpochId ?? undefined}>
+              {security.currentParentContainerKeyEpochId
+                ? compactPrincipalId(security.currentParentContainerKeyEpochId)
+                : "-"}
+            </td>
+          </tr>
+          <tr>
+            <th>{EXPLORER_LABELS.containerInfoManifestHistoryRow}</th>
+            <td>
+              {security.currentManifestHistoryCount.toLocaleString()} entries
+            </td>
+          </tr>
+          <tr>
+            <th>{EXPLORER_LABELS.containerInfoPathRow}</th>
+            <td>
+              {security.pathLength.toLocaleString()} entries,{" "}
+              {security.currentReferencedPrincipalCount.toLocaleString()}{" "}
+              referenced principals
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <h3>{EXPLORER_LABELS.containerInfoPathHeading}</h3>
+      <table className="explorer-info-table">
+        <thead>
+          <tr>
+            <th>{EXPLORER_LABELS.containerInfoPathColumn}</th>
+            <th>{EXPLORER_LABELS.containerInfoManifestColumn}</th>
+            <th>{EXPLORER_LABELS.containerInfoSecurityKeyEpochRow}</th>
+            <th>{EXPLORER_LABELS.containerInfoRecipientsColumn}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {security.path.map((entry) => (
+            <tr key={`${entry.containerId}:${entry.manifestHash}`}>
+              <td title={entry.containerId}>
+                {containerNamesById.get(entry.containerId) ??
+                  compactPrincipalId(entry.containerId)}
+              </td>
+              <td title={entry.manifestHash}>
+                <div>{compactPrincipalId(entry.manifestHash)}</div>
+                <code title={entry.eventHash}>
+                  event {compactPrincipalId(entry.eventHash)}
+                </code>
+              </td>
+              <td title={entry.containerKeyEpochId}>
+                <div>{entry.containerKeyEpoch}</div>
+                <code>{compactPrincipalId(entry.containerKeyEpochId)}</code>
+              </td>
+              <td>
+                {entry.recipientTargetCount.toLocaleString()} targets,{" "}
+                {entry.wrapCount.toLocaleString()} wraps
+                <br />
+                {entry.directGrantCount.toLocaleString()} grants,{" "}
+                {entry.referencedPrincipalCount.toLocaleString()} principals
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 function ExplorerContainerInfoLocalDetails(params: {
   containerId: string;
   containerInfo: ExplorerContainerInfo | null;
@@ -426,6 +520,10 @@ function ExplorerContainerInfoRemoteSections(params: {
           onOpenGrantGroup={params.onOpenGrantGroup}
         />
       </section>
+      <ExplorerContainerInfoSecuritySection
+        containerNamesById={params.containerNamesById}
+        remoteInfo={remoteInfo}
+      />
       <section className="explorer-info-section">
         <h3>{EXPLORER_LABELS.containerInfoSyncCursorsHeading}</h3>
         <ExplorerContainerInfoSyncCursorList containerInfo={remoteInfo} />

@@ -1,18 +1,18 @@
 import { type MouseEvent, useCallback, useState } from "react";
 import type { MenuPosition } from "./Menu";
 
-export interface ContextMenuState<TId extends string = string> {
+export interface ContextMenuState<TId = string> {
   id: TId;
   position: MenuPosition;
 }
 
-interface ContextMenuStateModel<TId extends string = string> {
+interface ContextMenuStateModel<TId = string> {
   closeContextMenu: () => void;
   contextMenu: ContextMenuState<TId> | null;
   openContextMenu: (event: MouseEvent<HTMLElement>, id: TId) => void;
 }
 
-export function useContextMenuState<TId extends string = string>(params?: {
+export function useContextMenuState<TId = string>(params?: {
   onOpen?: (id: TId) => void;
 }): ContextMenuStateModel<TId> {
   const [contextMenu, setContextMenu] = useState<ContextMenuState<TId> | null>(

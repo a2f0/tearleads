@@ -68,6 +68,7 @@ export function getLinkedContainerDetails(
 function ExplorerDocumentDetailActions(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
+  openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openLinkDocumentModal: (noteId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
   selectedDocument: DocumentSummary;
@@ -76,6 +77,7 @@ function ExplorerDocumentDetailActions(params: {
   const {
     canLinkSelectedDocument,
     canMoveSelectedDocument,
+    openDocumentInfoRoute,
     openLinkDocumentModal,
     openMoveDocumentModal,
     selectedDocument,
@@ -92,6 +94,19 @@ function ExplorerDocumentDetailActions(params: {
         }}
       >
         {EXPLORER_LABELS.documentBackToContainerAction}
+      </MiniAppButton>
+      <MiniAppButton
+        disabled={!selectedDocument.containerId}
+        onClick={() => {
+          if (selectedDocument.containerId) {
+            openDocumentInfoRoute(
+              selectedDocument.id,
+              selectedDocument.containerId,
+            );
+          }
+        }}
+      >
+        {EXPLORER_LABELS.documentInfoGetInfoAction}
       </MiniAppButton>
       <MiniAppButton
         disabled={!canLinkSelectedDocument}
@@ -440,6 +455,7 @@ export function ExplorerDocumentDetail(params: {
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   openLinkDocumentModal: (noteId: string) => void;
+  openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
   refreshError: string | null;
   selectedDocument: DocumentSummary;
@@ -492,6 +508,7 @@ export function ExplorerDocumentDetail(params: {
         <ExplorerDocumentDetailActions
           canLinkSelectedDocument={params.canLinkSelectedDocument}
           canMoveSelectedDocument={params.canMoveSelectedDocument}
+          openDocumentInfoRoute={params.openDocumentInfoRoute}
           openLinkDocumentModal={params.openLinkDocumentModal}
           openMoveDocumentModal={params.openMoveDocumentModal}
           selectedDocument={params.selectedDocument}

@@ -31,6 +31,7 @@ function useOpenGrantGroupInOrgManager() {
   );
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Explorer composes the mini-app shell from model state.
 export function Explorer() {
   const appData = useAppData();
   const explorer = useExplorer();
@@ -58,11 +59,13 @@ export function Explorer() {
         importDroppedFiles={model.importDroppedFiles}
         linkedContainerIds={model.linkedContainerIds}
         loadContainerInfo={model.loadContainerInfo}
+        loadDocumentInfo={model.loadDocumentInfo}
         nodes={model.explorer.nodes}
         online={appData.online}
         onBackToSelectionRoute={model.routeState.showSelectionRoute}
         onOpenGrantGroup={openGrantGroupInOrgManager}
         openInlineDocument={model.openInlineDocument}
+        openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}
         peerUserId={model.peerUserId}
@@ -78,19 +81,25 @@ export function Explorer() {
         unlinkDocument={model.unlinkDocument}
       />
       <ExplorerContextMenuLayer
+        canLinkSelectedDocument={model.canLinkSelectedDocument}
         canDeleteContextMenuNode={
           model.contextMenuState.canDeleteContextMenuNode
         }
         canMoveContextMenuNode={model.contextMenuState.canMoveContextMenuNode}
+        canMoveSelectedDocument={model.canMoveSelectedDocument}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
         contextMenuNode={model.contextMenuState.contextMenuNode}
+        openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
         openContainerInfoRoute={model.routeState.openContainerInfoRoute}
         openCreateChildModal={model.modalState.openCreateChildModal}
         openDeleteModal={model.modalState.openDeleteModal}
         openInlineDocument={model.openInlineDocument}
+        openLinkDocumentModal={model.modalState.openLinkDocumentModal}
         openMoveModal={model.modalState.openMoveModal}
+        openMoveDocumentModal={model.modalState.openMoveDocumentModal}
         openRenameModal={model.modalState.openRenameModal}
+        selectContainer={model.routeState.selectExplorerItem}
       />
       <ExplorerModalLayer
         closeModal={model.modalState.closeModal}

@@ -6,6 +6,10 @@ import {
   type ExplorerContainerInfo,
   useExplorerContainerInfoLoader,
 } from "../../../stores/explorer/containerInfo";
+import {
+  type ExplorerDocumentInfo,
+  useExplorerDocumentInfoLoader,
+} from "../../../stores/explorer/documentInfo";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import type { ContainerNode } from "../../../stores/explorer/types";
@@ -15,7 +19,7 @@ import {
   useExplorerDroppedFileImport,
 } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import {
-  type ContextMenuState,
+  type ExplorerContextMenuState,
   useExplorerContextMenu,
 } from "../context-menu/ExplorerContextMenu";
 import type { ExplorerTreeEntry } from "../ExplorerTree";
@@ -49,8 +53,13 @@ interface ExplorerContextMenuModel {
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   closeContextMenu: () => void;
-  contextMenu: ContextMenuState | null;
+  contextMenu: ExplorerContextMenuState | null;
   contextMenuNode: ContainerNode | undefined;
+  handleSidebarDocumentContextMenu: (
+    event: MouseEvent<HTMLButtonElement>,
+    localId: string,
+    containerId: string,
+  ) => void;
   handleSidebarContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
     nodeId: string,
@@ -68,6 +77,7 @@ export interface ExplorerPanelState {
   contextMenuState: ExplorerContextMenuModel;
   importDroppedFiles: ImportExplorerDroppedFiles;
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
+  loadDocumentInfo: (localId: string) => Promise<ExplorerDocumentInfo>;
   modalState: ExplorerDocumentModalState;
   openInlineDocument: OpenInlineDocument;
   routeState: ExplorerRouteState;
@@ -121,14 +131,11 @@ export function useExplorerPanelState(params: {
     appData,
     nodes: explorer.nodes,
   });
+  const loadDocumentInfo = useExplorerDocumentInfoLoader({ appData });
   const routeState = useExplorerRoute({
     nodes: explorer.nodes,
     setSelectedId: selection.setSelectedId,
   });
-  const contextMenuState = useExplorerContextMenu(
-    explorer.nodes,
-    routeState.selectExplorerItem,
-  );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentsAppData,
     expandNode: selection.expandNode,
@@ -154,12 +161,19 @@ export function useExplorerPanelState(params: {
     selectDocument,
     setSelectedId: routeState.selectExplorerItem,
   });
+  const contextMenuState = useExplorerContextMenu(
+    explorer.nodes,
+    routeState.selectExplorerItem,
+    selectDocumentProjection,
+  );
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
     documentLinkProjectionVersion,
     documentListRevision,
     documentReadModel,
+    handleSidebarDocumentContextMenu:
+      contextMenuState.handleSidebarDocumentContextMenu,
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
     nodes: explorer.nodes,
     online: appData.online,
@@ -200,6 +214,7 @@ export function useExplorerPanelState(params: {
     contextMenuState,
     importDroppedFiles,
     loadContainerInfo,
+    loadDocumentInfo,
     modalState,
     openInlineDocument,
     routeState,

@@ -21,7 +21,9 @@ export {
   type ContainerInfo,
   type ContainerInfoGrant,
   type ContainerInfoGrantRow,
+  type ContainerInfoPathEntry,
   type ContainerInfoRemoteMode,
+  type ContainerInfoSecurityDetails,
   type ContainerShareAccessLevel,
   loadContainerInfo,
 } from "./containerInfo";
@@ -53,6 +55,16 @@ export {
   refreshAllContainerDocuments,
   refreshAllContainerDocumentsFromApi,
 } from "./documentDiscovery";
+export {
+  type DocumentInfo,
+  type DocumentInfoAttachment,
+  type DocumentInfoAuthorizingContainerPath,
+  type DocumentInfoLocalDetails,
+  type DocumentInfoRemoteAttachmentBinding,
+  type DocumentInfoRemoteDetails,
+  type DocumentInfoRemoteMode,
+  loadDocumentInfo,
+} from "./documentInfo";
 export {
   initializeDocumentLinksSchema,
   listDocumentLinkedContainerIds,
