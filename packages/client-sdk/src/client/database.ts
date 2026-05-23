@@ -6,6 +6,15 @@ import {
 
 export type TearleadsDatabaseStatus = "idle" | "ready" | "error" | "terminated";
 
+export interface TearleadsDatabaseSnapshot {
+  client: ExecSqlClientLike | null;
+  execSql: ExecSql | null;
+  id: string | null;
+  status: TearleadsDatabaseStatus;
+}
+
+export type TearleadsDatabaseListener = () => void;
+
 export interface TearleadsDatabaseOptions {
   client?: ExecSqlClientLike | null | undefined;
   execSql?: ExecSql | null | undefined;
@@ -14,10 +23,13 @@ export interface TearleadsDatabaseOptions {
 }
 
 export class TearleadsDatabase {
-  private clientValue: ExecSqlClientLike | null = null;
-  private execSqlValue: ExecSql | null = null;
-  private idValue: string | null = null;
-  private statusValue: TearleadsDatabaseStatus = "idle";
+  private readonly listeners = new Set<TearleadsDatabaseListener>();
+  private snapshotValue: TearleadsDatabaseSnapshot = {
+    client: null,
+    execSql: null,
+    id: null,
+    status: "idle",
+  };
 
   constructor(options?: TearleadsDatabaseOptions | undefined) {
     if (options) {
@@ -26,26 +38,32 @@ export class TearleadsDatabase {
   }
 
   get client(): ExecSqlClientLike | null {
-    return this.clientValue;
+    return this.snapshotValue.client;
   }
 
   get execSql(): ExecSql | null {
-    return this.execSqlValue;
+    return this.snapshotValue.execSql;
   }
 
   get id(): string | null {
-    return this.idValue;
+    return this.snapshotValue.id;
+  }
+
+  get snapshot(): TearleadsDatabaseSnapshot {
+    return this.snapshotValue;
   }
 
   get status(): TearleadsDatabaseStatus {
-    return this.statusValue;
+    return this.snapshotValue.status;
   }
 
   clear(status: TearleadsDatabaseStatus = "idle"): void {
-    this.clientValue = null;
-    this.execSqlValue = null;
-    this.idValue = null;
-    this.statusValue = status;
+    this.setSnapshot({
+      client: null,
+      execSql: null,
+      id: null,
+      status,
+    });
   }
 
   configure(options: TearleadsDatabaseOptions): void {
@@ -57,26 +75,28 @@ export class TearleadsDatabase {
       );
     }
 
-    this.clientValue = client;
-    this.execSqlValue = execSql;
-    this.idValue = options.id ?? null;
-    this.statusValue = options.status ?? (execSql ? "ready" : "idle");
+    this.setSnapshot({
+      client,
+      execSql,
+      id: options.id ?? null,
+      status: options.status ?? (execSql ? "ready" : "idle"),
+    });
   }
 
   requireClient(operation = "This operation"): ExecSqlClientLike {
-    if (!this.clientValue) {
+    if (!this.snapshotValue.client) {
       throw new Error(`${operation} requires a configured SQLite client.`);
     }
 
-    return this.clientValue;
+    return this.snapshotValue.client;
   }
 
   requireExecSql(operation = "This operation"): ExecSql {
-    if (!this.execSqlValue) {
+    if (!this.snapshotValue.execSql) {
       throw new Error(`${operation} requires a configured SQLite executor.`);
     }
 
-    return this.execSqlValue;
+    return this.snapshotValue.execSql;
   }
 
   setClient(
@@ -91,5 +111,37 @@ export class TearleadsDatabase {
     options: Omit<TearleadsDatabaseOptions, "client" | "execSql"> = {},
   ): void {
     this.configure({ ...options, execSql });
+  }
+
+  subscribe = (listener: TearleadsDatabaseListener): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // Keep one subscriber failure from blocking later subscribers.
+      }
+    }
+  }
+
+  private setSnapshot(next: TearleadsDatabaseSnapshot): void {
+    const previous = this.snapshotValue;
+    if (
+      previous.client === next.client &&
+      previous.execSql === next.execSql &&
+      previous.id === next.id &&
+      previous.status === next.status
+    ) {
+      return;
+    }
+
+    this.snapshotValue = next;
+    this.notifyListeners();
   }
 }

@@ -56,6 +56,40 @@ describe("Tearleads", () => {
     expect(sdk.session.isAuthenticated).toBe(false);
   });
 
+  test("notifies database subscribers with stable snapshots", () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    const sqlClient = createNoopSqlClient();
+    const snapshots: Array<{
+      id: string | null;
+      status: string;
+    }> = [];
+    const unsubscribe = sdk.database.subscribe(() => {
+      snapshots.push({
+        id: sdk.database.snapshot.id,
+        status: sdk.database.snapshot.status,
+      });
+    });
+
+    sdk.database.configure({
+      client: sqlClient,
+      id: "client-db",
+      status: "ready",
+    });
+    sdk.database.configure({
+      client: sqlClient,
+      id: "client-db",
+      status: "ready",
+    });
+    sdk.database.clear("terminated");
+    unsubscribe();
+    sdk.database.clear();
+
+    expect(snapshots).toEqual([
+      { id: "client-db", status: "ready" },
+      { id: null, status: "terminated" },
+    ]);
+  });
+
   test("notifies network subscribers when online state changes", () => {
     const sdk = new Tearleads({ logger: quietLogger, online: true });
     const snapshots: boolean[] = [];
@@ -140,6 +174,41 @@ describe("Tearleads", () => {
 
     expect(sdk.identity.signingFingerprint).toBeNull();
     expect(sdk.blobs.store).toBe(ephemeralStore);
+  });
+
+  test("notifies identity subscribers with stable snapshots", async () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    const snapshots: Array<{
+      hasEncapsulationKeyPair: boolean;
+      hasSigningKeyPair: boolean;
+      signingFingerprint: string | null;
+    }> = [];
+    const unsubscribe = sdk.identity.subscribe(() => {
+      snapshots.push({
+        hasEncapsulationKeyPair:
+          sdk.identity.snapshot.encapsulationKeyPair !== null,
+        hasSigningKeyPair: sdk.identity.snapshot.signingKeyPair !== null,
+        signingFingerprint: sdk.identity.snapshot.signingFingerprint,
+      });
+    });
+
+    await sdk.identity.generate();
+    sdk.identity.destroy();
+    unsubscribe();
+    sdk.identity.destroy();
+
+    expect(snapshots).toEqual([
+      {
+        hasEncapsulationKeyPair: true,
+        hasSigningKeyPair: true,
+        signingFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      },
+      {
+        hasEncapsulationKeyPair: false,
+        hasSigningKeyPair: false,
+        signingFingerprint: null,
+      },
+    ]);
   });
 
   test("exports and imports identity key packages", async () => {
@@ -239,6 +308,62 @@ describe("Tearleads", () => {
       containerContents.createDocumentsRuntime("container-2").containerId,
     ).toBe("container-2");
     expect(contacts.userId).toBe("user-1");
+  });
+
+  test("notifies session and runtime subscribers from SDK state changes", () => {
+    const sdk = new Tearleads({ logger: quietLogger, online: true });
+    const sessionSnapshots: Array<{
+      authToken: string | null;
+      containerId: string | null;
+      isAuthenticated: boolean;
+      organizationId: string | null;
+      userId: string | null;
+    }> = [];
+    const runtimeVersions: number[] = [];
+    const unsubscribeSession = sdk.session.subscribe(() => {
+      sessionSnapshots.push(sdk.session.snapshot);
+    });
+    const unsubscribeRuntime = sdk.runtime.subscribe(() => {
+      runtimeVersions.push(sdk.runtime.version);
+    });
+
+    sdk.session.setContext({
+      containerId: "container-1",
+      organizationId: "organization-1",
+      userId: "user-1",
+    });
+    sdk.session.setContext({
+      containerId: "container-1",
+      organizationId: "organization-1",
+      userId: "user-1",
+    });
+    sdk.session.setContext({
+      authToken: "session-token",
+      isAuthenticated: true,
+    });
+    sdk.network.setOnline(false);
+    unsubscribeSession();
+    unsubscribeRuntime();
+    sdk.session.logout();
+
+    expect(sdk.runtime.input().containerId).toBe("container-1");
+    expect(sessionSnapshots).toEqual([
+      {
+        authToken: null,
+        containerId: "container-1",
+        isAuthenticated: false,
+        organizationId: "organization-1",
+        userId: "user-1",
+      },
+      {
+        authToken: "session-token",
+        containerId: "container-1",
+        isAuthenticated: true,
+        organizationId: "organization-1",
+        userId: "user-1",
+      },
+    ]);
+    expect(runtimeVersions).toEqual([1, 2, 3]);
   });
 
   test("creates workflow runtime input before a database is available", async () => {

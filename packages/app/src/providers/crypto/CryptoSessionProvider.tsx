@@ -6,7 +6,7 @@ import {
   useContext,
   useEffect,
   useRef,
-  useState,
+  useSyncExternalStore,
 } from "react";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useIdentity } from "../identity/IdentityProvider";
@@ -31,28 +31,10 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
   null,
 );
 
-function resetCryptoSessionState(
-  setUserId: (value: string | null) => void,
-  setOrganizationId: (value: string | null) => void,
-  setContainerId: (value: string | null) => void,
-  setStoredAuthToken: (value: string | null) => void,
-  setIsAuthenticated: (value: boolean) => void,
-) {
-  setUserId(null);
-  setOrganizationId(null);
-  setContainerId(null);
-  setStoredAuthToken(null);
-  setIsAuthenticated(false);
-}
-
 function useResetCryptoSession(
   containerBootstrapped: MutableRefObject<string | null>,
   signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
-  setUserId: (value: string | null) => void,
-  setOrganizationId: (value: string | null) => void,
-  setContainerId: (value: string | null) => void,
-  setStoredAuthToken: (value: string | null) => void,
-  setIsAuthenticated: (value: boolean) => void,
+  resetSession: () => void,
 ) {
   useEffect(() => {
     if (signingKeyPair) {
@@ -60,21 +42,8 @@ function useResetCryptoSession(
     }
 
     containerBootstrapped.current = null;
-    resetCryptoSessionState(
-      setUserId,
-      setOrganizationId,
-      setContainerId,
-      setStoredAuthToken,
-      setIsAuthenticated,
-    );
-  }, [
-    setContainerId,
-    setIsAuthenticated,
-    setOrganizationId,
-    setStoredAuthToken,
-    setUserId,
-    signingKeyPair,
-  ]);
+    resetSession();
+  }, [resetSession, signingKeyPair]);
 }
 
 function useBootstrapCryptoSessionContainer(
@@ -85,7 +54,6 @@ function useBootstrapCryptoSessionContainer(
   dbStatus: ReturnType<typeof useDatabase>["status"],
   dbClient: ReturnType<typeof useDatabase>["client"],
   logError: (message: string, error: unknown) => void,
-  setContainerId: (value: string | null) => void,
 ) {
   useEffect(() => {
     const bootstrapKey =
@@ -106,8 +74,7 @@ function useBootstrapCryptoSessionContainer(
 
     void (async () => {
       try {
-        const bootstrap = await tearleads.session.bootstrapLocalRootContainer();
-        setContainerId(bootstrap.containerId);
+        await tearleads.session.bootstrapLocalRootContainer();
       } catch (error: unknown) {
         containerBootstrapped.current = null;
         logError("Failed to bootstrap root container", error);
@@ -118,20 +85,15 @@ function useBootstrapCryptoSessionContainer(
     dbClient,
     containerId,
     logError,
-    setContainerId,
     signingFingerprint,
     tearleads,
   ]);
 }
 
-function useCryptoAuthActions(
-  tearleads: ReturnType<typeof useTearleads>,
-  syncAuthStateFromSession: () => void,
-) {
+function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
   const logout = useCallback(() => {
     tearleads.session.logout();
-    syncAuthStateFromSession();
-  }, [syncAuthStateFromSession, tearleads]);
+  }, [tearleads]);
 
   const authenticate = useCallback(
     async (challengeHex?: string): Promise<boolean> => {
@@ -139,11 +101,9 @@ function useCryptoAuthActions(
         return false;
       }
 
-      const authenticated = await tearleads.session.login(challengeHex);
-      syncAuthStateFromSession();
-      return authenticated;
+      return tearleads.session.login(challengeHex);
     },
-    [syncAuthStateFromSession, tearleads],
+    [tearleads],
   );
 
   const loginWithChallenge = useCallback(
@@ -161,65 +121,49 @@ function useCryptoAuthActions(
 function useSdkBackedCryptoSessionState(
   tearleads: ReturnType<typeof useTearleads>,
 ) {
-  const [userId, setStoredUserId] = useState<string | null>(null);
-  const [organizationId, setStoredOrganizationId] = useState<string | null>(
-    null,
+  const snapshot = useSyncExternalStore(
+    tearleads.session.subscribe,
+    () => tearleads.session.snapshot,
+    () => tearleads.session.snapshot,
   );
-  const [containerId, setStoredContainerId] = useState<string | null>(null);
-  const [authToken, setStoredAuthTokenState] = useState<string | null>(null);
-  const [isAuthenticated, setStoredIsAuthenticated] = useState(false);
   const setUserId = useCallback(
     (value: string | null) => {
       tearleads.session.setUserId(value);
-      setStoredUserId(value);
     },
     [tearleads],
   );
   const setOrganizationId = useCallback(
     (value: string | null) => {
       tearleads.session.setOrganizationId(value);
-      setStoredOrganizationId(value);
     },
     [tearleads],
   );
   const setContainerId = useCallback(
     (value: string | null) => {
       tearleads.session.setContainerId(value);
-      setStoredContainerId(value);
     },
     [tearleads],
   );
-  const setStoredAuthToken = useCallback(
-    (value: string | null) => {
-      tearleads.session.setAuthToken(value);
-      setStoredAuthTokenState(value);
-    },
-    [tearleads],
-  );
-  const setIsAuthenticated = useCallback(
-    (value: boolean) => {
-      tearleads.session.setContext({ isAuthenticated: value });
-      setStoredIsAuthenticated(value);
-    },
-    [tearleads],
-  );
-  const syncAuthStateFromSession = useCallback(() => {
-    setStoredAuthTokenState(tearleads.session.authToken);
-    setStoredIsAuthenticated(tearleads.session.isAuthenticated);
+  const resetSession = useCallback(() => {
+    tearleads.session.setContext({
+      authToken: null,
+      containerId: null,
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+    });
   }, [tearleads]);
 
   return {
-    authToken,
-    containerId,
-    isAuthenticated,
-    organizationId,
+    authToken: snapshot.authToken,
+    containerId: snapshot.containerId,
+    isAuthenticated: snapshot.isAuthenticated,
+    organizationId: snapshot.organizationId,
+    resetSession,
     setContainerId,
-    setIsAuthenticated,
     setOrganizationId,
-    setStoredAuthToken,
-    syncAuthStateFromSession,
     setUserId,
-    userId,
+    userId: snapshot.userId,
   };
 }
 
@@ -234,11 +178,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   useResetCryptoSession(
     containerBootstrapped,
     signingKeyPair,
-    sessionState.setUserId,
-    sessionState.setOrganizationId,
-    sessionState.setContainerId,
-    sessionState.setStoredAuthToken,
-    sessionState.setIsAuthenticated,
+    sessionState.resetSession,
   );
   useBootstrapCryptoSessionContainer(
     containerBootstrapped,
@@ -248,12 +188,8 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     dbStatus,
     dbClient,
     logError,
-    sessionState.setContainerId,
   );
-  const { login, loginWithChallenge, logout } = useCryptoAuthActions(
-    tearleads,
-    sessionState.syncAuthStateFromSession,
-  );
+  const { login, loginWithChallenge, logout } = useCryptoAuthActions(tearleads);
 
   return (
     <CryptoSessionContext.Provider

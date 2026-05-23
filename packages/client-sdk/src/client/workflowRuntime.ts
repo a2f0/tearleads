@@ -35,8 +35,12 @@ export interface TearleadsWorkflowRuntimeInput {
   userId: string | null;
 }
 
+export type TearleadsRuntimeListener = () => void;
+
 export interface TearleadsRuntime {
+  readonly version: number;
   input(containerId?: string | null | undefined): TearleadsWorkflowRuntimeInput;
+  subscribe(listener: TearleadsRuntimeListener): () => void;
 }
 
 export interface TearleadsInternalWorkflowRuntimeInput
@@ -68,13 +72,54 @@ interface TearleadsWorkflowRuntimeDependencies {
 export function createTearleadsRuntime(
   dependencies: TearleadsWorkflowRuntimeDependencies,
 ): TearleadsInternalRuntime {
+  const runtimeSubscription = createTearleadsRuntimeSubscription(dependencies);
+
   return {
     publicRuntime: {
+      get version() {
+        return runtimeSubscription.version;
+      },
       input: (containerId) =>
         createTearleadsHostRuntimeInput(dependencies, containerId),
+      subscribe: runtimeSubscription.subscribe,
     },
     workflowInput: (containerId) =>
       createTearleadsWorkflowRuntimeInput(dependencies, containerId),
+  };
+}
+
+function createTearleadsRuntimeSubscription(
+  dependencies: TearleadsWorkflowRuntimeDependencies,
+) {
+  const listeners = new Set<TearleadsRuntimeListener>();
+  let version = 0;
+  const notifyListeners = () => {
+    version += 1;
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch {
+        // Keep one subscriber failure from blocking later subscribers.
+      }
+    }
+  };
+
+  dependencies.database.subscribe(notifyListeners);
+  dependencies.events.subscribe(notifyListeners);
+  dependencies.identity.subscribe(notifyListeners);
+  dependencies.network.subscribe(() => notifyListeners());
+  dependencies.session.subscribe(notifyListeners);
+
+  return {
+    get version() {
+      return version;
+    },
+    subscribe(listener: TearleadsRuntimeListener): () => void {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   };
 }
 
@@ -115,7 +160,10 @@ function createTearleadsWorkflowRuntimeInput(
         log: dependencies.log,
         references,
       }),
-    containerId: containerId ?? null,
+    containerId:
+      (containerId === undefined
+        ? dependencies.session.containerId
+        : containerId) ?? null,
     dbStatus,
     documentProjectors: dependencies.documentProjectors,
     domainScope: dependencies.getDomainScope(),

@@ -7,7 +7,7 @@ import {
   useContext,
   useMemo,
   useRef,
-  useState,
+  useSyncExternalStore,
 } from "react";
 import { useTearleads } from "../sdk/TearleadsProvider";
 
@@ -27,7 +27,11 @@ export function IdentityProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const generationInFlight = useRef(false);
   const generationIdRef = useRef(0);
-  const [snapshot, setSnapshot] = useState(() => tearleads.identity.snapshot);
+  const snapshot = useSyncExternalStore(
+    tearleads.identity.subscribe,
+    () => tearleads.identity.snapshot,
+    () => tearleads.identity.snapshot,
+  );
 
   const generateKey = useCallback(() => {
     if (generationInFlight.current) {
@@ -39,13 +43,12 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     generationInFlight.current = true;
     void tearleads.identity
       .generate()
-      .then((nextSnapshot) => {
+      .then(() => {
         if (generationIdRef.current !== generationId) {
           return;
         }
 
         generationInFlight.current = false;
-        setSnapshot(nextSnapshot);
       })
       .catch((error: unknown) => {
         if (generationIdRef.current !== generationId) {
@@ -61,7 +64,6 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     generationIdRef.current += 1;
     generationInFlight.current = false;
     tearleads.identity.destroy();
-    setSnapshot(tearleads.identity.snapshot);
   }, [tearleads]);
 
   const exportKeyPackage = useCallback(
@@ -73,9 +75,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     async (keyPackage: unknown) => {
       generationIdRef.current += 1;
       generationInFlight.current = false;
-      const nextSnapshot =
-        await tearleads.identity.importKeyPackage(keyPackage);
-      setSnapshot(nextSnapshot);
+      await tearleads.identity.importKeyPackage(keyPackage);
     },
     [tearleads],
   );

@@ -14,6 +14,16 @@ export interface TearleadsSessionContext {
   userId?: string | null | undefined;
 }
 
+export interface TearleadsSessionSnapshot {
+  authToken: string | null;
+  containerId: string | null;
+  isAuthenticated: boolean;
+  organizationId: string | null;
+  userId: string | null;
+}
+
+export type TearleadsSessionListener = () => void;
+
 interface TearleadsSessionDependencies {
   api: ApiClient;
   database: TearleadsDatabase;
@@ -41,6 +51,7 @@ export interface TearleadsSession {
   readonly containerId: string | null;
   readonly isAuthenticated: boolean;
   readonly organizationId: string | null;
+  readonly snapshot: TearleadsSessionSnapshot;
   readonly userId: string | null;
   bootstrapLocalRootContainer(): Promise<{
     containerId: string;
@@ -57,6 +68,7 @@ export interface TearleadsSession {
   setContext(context: TearleadsSessionContext): void;
   setOrganizationId(organizationId: string | null): void;
   setUserId(userId: string | null): void;
+  subscribe(listener: TearleadsSessionListener): () => void;
 }
 
 export function createTearleadsSession(
@@ -66,32 +78,39 @@ export function createTearleadsSession(
 }
 
 class TearleadsSessionService implements TearleadsSession {
-  private authTokenValue: string | null = null;
-  private containerIdValue: string | null = null;
-  private isAuthenticatedValue = false;
-  private organizationIdValue: string | null = null;
-  private userIdValue: string | null = null;
+  private readonly listeners = new Set<TearleadsSessionListener>();
+  private snapshotValue: TearleadsSessionSnapshot = {
+    authToken: null,
+    containerId: null,
+    isAuthenticated: false,
+    organizationId: null,
+    userId: null,
+  };
 
   constructor(private readonly dependencies: TearleadsSessionDependencies) {}
 
   get authToken(): string | null {
-    return this.authTokenValue;
+    return this.snapshotValue.authToken;
   }
 
   get containerId(): string | null {
-    return this.containerIdValue;
+    return this.snapshotValue.containerId;
   }
 
   get isAuthenticated(): boolean {
-    return this.isAuthenticatedValue;
+    return this.snapshotValue.isAuthenticated;
   }
 
   get organizationId(): string | null {
-    return this.organizationIdValue;
+    return this.snapshotValue.organizationId;
+  }
+
+  get snapshot(): TearleadsSessionSnapshot {
+    return this.snapshotValue;
   }
 
   get userId(): string | null {
-    return this.userIdValue;
+    return this.snapshotValue.userId;
   }
 
   async bootstrapLocalRootContainer(): Promise<{
@@ -154,26 +173,23 @@ class TearleadsSessionService implements TearleadsSession {
         );
 
     if (!token) {
-      this.setAuthToken(null);
-      this.isAuthenticatedValue = false;
+      this.setContext({ authToken: null, isAuthenticated: false });
       this.dependencies.log("Authentication failed");
       return false;
     }
 
-    this.setAuthToken(token);
-    this.isAuthenticatedValue = true;
+    this.setContext({ authToken: token, isAuthenticated: true });
     this.dependencies.log("Authentication successful");
     return true;
   }
 
   logout(): void {
-    this.setAuthToken(null);
-    this.isAuthenticatedValue = false;
+    this.setContext({ authToken: null, isAuthenticated: false });
   }
 
   async logoutRemote(): Promise<boolean> {
     try {
-      if (!this.authTokenValue) {
+      if (!this.authToken) {
         return true;
       }
 
@@ -185,7 +201,7 @@ class TearleadsSessionService implements TearleadsSession {
   }
 
   async registerIdentity(): Promise<TearleadsSessionRegistrationResult | null> {
-    const containerId = this.containerIdValue;
+    const containerId = this.containerId;
     if (!containerId) {
       this.dependencies.log(
         "Registration skipped: container id is unavailable",
@@ -237,9 +253,11 @@ class TearleadsSessionService implements TearleadsSession {
       return null;
     }
 
-    this.setUserId(response.userId);
-    this.setOrganizationId(response.organizationId);
-    this.setContainerId(response.rootContainerId);
+    this.setContext({
+      containerId: response.rootContainerId,
+      organizationId: response.organizationId,
+      userId: response.userId,
+    });
 
     return {
       challenge: response.challenge,
@@ -250,37 +268,80 @@ class TearleadsSessionService implements TearleadsSession {
   }
 
   setAuthToken(authToken: string | null): void {
-    this.authTokenValue = authToken;
-    this.dependencies.api.setAuthToken(authToken);
+    this.setSnapshot({ ...this.snapshotValue, authToken });
   }
 
   setContainerId(containerId: string | null): void {
-    this.containerIdValue = containerId;
+    this.setSnapshot({ ...this.snapshotValue, containerId });
   }
 
   setContext(context: TearleadsSessionContext): void {
-    if ("authToken" in context) {
-      this.setAuthToken(context.authToken ?? null);
-    }
-    if ("containerId" in context) {
-      this.setContainerId(context.containerId ?? null);
-    }
-    if ("isAuthenticated" in context) {
-      this.isAuthenticatedValue = context.isAuthenticated ?? false;
-    }
-    if ("organizationId" in context) {
-      this.organizationIdValue = context.organizationId ?? null;
-    }
-    if ("userId" in context) {
-      this.userIdValue = context.userId ?? null;
-    }
+    this.setSnapshot({
+      authToken:
+        "authToken" in context
+          ? (context.authToken ?? null)
+          : this.snapshotValue.authToken,
+      containerId:
+        "containerId" in context
+          ? (context.containerId ?? null)
+          : this.snapshotValue.containerId,
+      isAuthenticated:
+        "isAuthenticated" in context
+          ? (context.isAuthenticated ?? false)
+          : this.snapshotValue.isAuthenticated,
+      organizationId:
+        "organizationId" in context
+          ? (context.organizationId ?? null)
+          : this.snapshotValue.organizationId,
+      userId:
+        "userId" in context
+          ? (context.userId ?? null)
+          : this.snapshotValue.userId,
+    });
   }
 
   setOrganizationId(organizationId: string | null): void {
-    this.organizationIdValue = organizationId;
+    this.setSnapshot({ ...this.snapshotValue, organizationId });
   }
 
   setUserId(userId: string | null): void {
-    this.userIdValue = userId;
+    this.setSnapshot({ ...this.snapshotValue, userId });
+  }
+
+  subscribe = (listener: TearleadsSessionListener): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // Keep one subscriber failure from blocking later subscribers.
+      }
+    }
+  }
+
+  private setSnapshot(next: TearleadsSessionSnapshot): void {
+    const previous = this.snapshotValue;
+    if (previous.authToken !== next.authToken) {
+      this.dependencies.api.setAuthToken(next.authToken);
+    }
+
+    if (
+      previous.authToken === next.authToken &&
+      previous.containerId === next.containerId &&
+      previous.isAuthenticated === next.isAuthenticated &&
+      previous.organizationId === next.organizationId &&
+      previous.userId === next.userId
+    ) {
+      return;
+    }
+
+    this.snapshotValue = next;
+    this.notifyListeners();
   }
 }

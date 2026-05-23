@@ -11,14 +11,7 @@ interface RegisterCurrentIdentityResult {
 
 export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const { client: dbClient } = useDatabase();
-  const {
-    userId,
-    containerId,
-    setUserId,
-    setOrganizationId,
-    setContainerId,
-    loginWithChallenge,
-  } = useCryptoSession();
+  const { userId, containerId, loginWithChallenge } = useCryptoSession();
   const { encapsulationKeyPair, signingKeyPair } = useIdentity();
   const tearleads = useTearleads();
 
@@ -39,18 +32,8 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       return false;
     }
 
-    setUserId(response.userId);
-    setOrganizationId(response.organizationId);
-    setContainerId(response.containerId);
     return loginWithChallenge(response.challenge);
-  }, [
-    canRegisterCurrentIdentity,
-    loginWithChallenge,
-    setContainerId,
-    setOrganizationId,
-    setUserId,
-    tearleads,
-  ]);
+  }, [canRegisterCurrentIdentity, loginWithChallenge, tearleads]);
 
   return { canRegisterCurrentIdentity, registerCurrentIdentity };
 }
