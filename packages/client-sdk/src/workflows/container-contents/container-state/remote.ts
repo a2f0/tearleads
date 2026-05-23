@@ -2,6 +2,8 @@ import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
+  buildMaterializedContainerCreatePlan,
+  childContainerWriterProjectionFromCreatePlan,
   createRemoteContainer as createRemoteContainerMutation,
   moveRemoteContainer as moveRemoteContainerMutation,
   readContainerMutationMetadataDocumentId,
@@ -10,7 +12,9 @@ import {
   shareRemoteContainerWithGroup as shareRemoteContainerWithGroupMutation,
 } from "../../containers";
 import {
+  buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
+  persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../documents";
 import { getContainerContentsWorkflowRuntimeExecSql } from "../runtime";
@@ -21,7 +25,94 @@ import type {
   SharedRemoteContainerState,
 } from "./types";
 
-export async function createRemoteContainer(input: {
+async function createRemoteContainerWithMetadataDocument(input: {
+  containerId: string;
+  parentContainerId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ContainerWorkflowRuntime;
+}): Promise<CreatedRemoteContainerState | null> {
+  const author = resolveDocumentCreateAuthor(input.runtime);
+  const { apiClient } = input.runtime;
+  const execSql = getContainerContentsWorkflowRuntimeExecSql(input.runtime);
+  const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  if (!author || !parentSecretKey) {
+    input.runtime.log(
+      "Container contents: skipped container create because the writer context is unavailable.",
+    );
+    return null;
+  }
+
+  if (!apiClient.createContainerWithMetadataDocument) {
+    return null;
+  }
+
+  const parentProjection = await apiClient.getContainerWriterProjection(
+    input.parentContainerId,
+  );
+  if (!parentProjection) {
+    return null;
+  }
+
+  const containerPlan = await buildMaterializedContainerCreatePlan({
+    author,
+    containerId: input.containerId,
+    execSql,
+    metadataDocumentId: input.containerId,
+    parentProjection,
+    parentSecretKey,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+  });
+  const childProjection = childContainerWriterProjectionFromCreatePlan({
+    materializedPlan: containerPlan,
+    parentProjection,
+  });
+  const metadataDocumentPlan = await buildMaterializedDocumentCreatePlan({
+    author,
+    containerProjection: childProjection,
+    documentId: containerPlan.plan.metadataDocumentId,
+    execSql,
+    knownContainerKeks: new Map([
+      [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
+    ]),
+    targetSecretKey: parentSecretKey,
+    trustedLocalProjection: true,
+  });
+  const response = await apiClient.createContainerWithMetadataDocument({
+    container: containerPlan.plan.request,
+    metadataDocument: metadataDocumentPlan.plan.request,
+  });
+  if (!response) {
+    return null;
+  }
+  if (response.container.containerId !== containerPlan.plan.containerId) {
+    throw new Error("Container metadata create response container mismatch");
+  }
+  const metadataDocumentId = readContainerMutationMetadataDocumentId({
+    response: response.container,
+  });
+  if (
+    metadataDocumentId !== containerPlan.plan.metadataDocumentId ||
+    response.metadataDocument.id !== metadataDocumentPlan.plan.documentId
+  ) {
+    throw new Error("Container metadata create response document mismatch");
+  }
+
+  return {
+    accessManifestHash: response.container.manifestHead.manifestHash,
+    containerId: response.container.containerId,
+    createdAt: response.container.createdAt,
+    metadataDocumentId,
+    organizationId: response.container.organizationId,
+    parentId: response.container.parentId,
+    persistedMetadataState: persistedDocumentCreateStateFromResponse(
+      metadataDocumentPlan.plan,
+      response.metadataDocument,
+    ),
+    updatedAt: response.container.updatedAt,
+  };
+}
+
+async function createRemoteContainerWithSeparateMetadataDocument(input: {
   containerId: string;
   parentContainerId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -75,6 +166,19 @@ export async function createRemoteContainer(input: {
     persistedMetadataState: createdMetadataDocument.persistedState,
     updatedAt: createdContainer.response.updatedAt,
   };
+}
+
+export async function createRemoteContainer(input: {
+  containerId: string;
+  parentContainerId: string;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ContainerWorkflowRuntime;
+}): Promise<CreatedRemoteContainerState | null> {
+  if (input.runtime.apiClient.createContainerWithMetadataDocument) {
+    return createRemoteContainerWithMetadataDocument(input);
+  }
+
+  return createRemoteContainerWithSeparateMetadataDocument(input);
 }
 
 export async function shareRemoteContainer(input: {

@@ -14,10 +14,12 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
+  ContainerCreateWithMetadataDocumentRequest,
   ContainerManifestBundle,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import type {
+  ContainerCreateWithMetadataDocumentResponse,
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
@@ -84,6 +86,9 @@ export interface ContainerCreateApi {
   createContainer(
     input: ContainerMutationRequest,
   ): Promise<ContainerMutationResponse | null>;
+  createContainerWithMetadataDocument?(
+    input: ContainerCreateWithMetadataDocumentRequest,
+  ): Promise<ContainerCreateWithMetadataDocumentResponse | null>;
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;

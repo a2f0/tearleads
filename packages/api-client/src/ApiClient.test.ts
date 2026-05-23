@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type {
+  ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
@@ -65,6 +66,13 @@ function createContainerMutationRequest(): ContainerMutationRequest {
     manifest: { objectKind: "container" },
     keyEpoch: { containerKeyEpochId: "container-key-epoch-id" },
     wraps: [],
+  };
+}
+
+function createContainerCreateWithMetadataDocumentRequest(): ContainerCreateWithMetadataDocumentRequest {
+  return {
+    container: createContainerMutationRequest(),
+    metadataDocument: createDocumentCreateRequest(),
   };
 }
 
@@ -221,6 +229,13 @@ function createDocumentCreateResponse() {
   return {
     ...createDocumentLinkSetMutationResponse(),
     createdAt: "2026-04-28T00:00:00.000Z",
+  };
+}
+
+function createContainerCreateWithMetadataDocumentResponse() {
+  return {
+    container: createContainerMutationResponse(),
+    metadataDocument: createDocumentCreateResponse(),
   };
 }
 
@@ -561,6 +576,39 @@ test("posts signed container mutations to the route namespace", async () => {
     {
       body: JSON.stringify(mutation),
       input: `${apiBaseUrl}/containers/container-1/move`,
+      method: "POST",
+    },
+  ]);
+});
+
+test("posts composite container metadata creates to the route namespace", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.all(`${apiBaseUrl}/*`, async ({ request }) => {
+      calls.push(await captureHttpCall(request));
+      return HttpResponse.json(
+        createContainerCreateWithMetadataDocumentResponse(),
+      );
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const request = createContainerCreateWithMetadataDocumentRequest();
+
+  expect(
+    await client.createContainerWithMetadataDocument(request),
+  ).not.toBeNull();
+
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: JSON.stringify(request),
+      input: `${apiBaseUrl}/containers/with-metadata-document`,
       method: "POST",
     },
   ]);

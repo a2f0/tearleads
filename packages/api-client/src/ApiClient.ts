@@ -2,6 +2,7 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
   CompleteMultipartBlobStageRequest,
+  ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
@@ -41,6 +42,7 @@ import {
 } from "./routes/blobs";
 import {
   createContainer,
+  createContainerWithMetadataDocument,
   deleteContainer,
   getContainerWriterProjection,
   type ListContainerDocumentsOptions,
@@ -481,6 +483,12 @@ export class ApiClient {
 
   createContainer(input: ContainerMutationRequest) {
     return createContainer(this.request, input);
+  }
+
+  createContainerWithMetadataDocument(
+    input: ContainerCreateWithMetadataDocumentRequest,
+  ) {
+    return createContainerWithMetadataDocument(this.request, input);
   }
 
   shareContainer(containerId: string, input: ContainerMutationRequest) {

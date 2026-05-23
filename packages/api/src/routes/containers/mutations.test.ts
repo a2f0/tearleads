@@ -8,6 +8,8 @@ import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
+  DocumentLinkAccessEventBody,
+  DocumentLinkSetManifestState,
   KekRecipientKind,
   KeyingCanonicalJson,
   PrincipalProjectionMember,
@@ -22,8 +24,10 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeDocumentContentKeyTargetHash,
   computePrincipalStateHash,
   deriveContainerAccessManifest,
+  deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
   generateKemSeedAndKeyPair,
   signAccessEvent,
@@ -35,9 +39,11 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   ContainerManifestBundle,
   ContainerMutationRequest,
+  DocumentCreateRequest,
 } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
+  isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
   isPrincipalStateResponse,
@@ -609,6 +615,115 @@ async function buildCreateRequest(input: {
   };
 }
 
+async function buildMetadataDocumentCreateRequest(input: {
+  readonly containerId: string;
+  readonly containerRequest: ContainerMutationRequest;
+  readonly parent: ContainerManifestBundle;
+  readonly signer: TestUser;
+}): Promise<DocumentCreateRequest> {
+  const parentState = asVerifiedContainerManifest(input.parent).state;
+  const containerBody = input.containerRequest.body as {
+    readonly containerKeyEpochId: string;
+    readonly metadataDocumentId: string;
+    readonly parentContainerId: string;
+    readonly parentManifestHash: string;
+  };
+  const containerEventHash = await computeAccessEventHash(
+    input.containerRequest.event as unknown as AccessEvent,
+  );
+  const childBundle: ContainerManifestBundle = {
+    event: {
+      event: input.containerRequest.event,
+      body: input.containerRequest.body,
+      eventHash: containerEventHash,
+    },
+    manifest: input.containerRequest.manifest,
+    manifestHash: input.containerRequest.expectedManifestHash,
+    state: {
+      version: 1,
+      containerId: input.containerId,
+      organizationId: parentState.organizationId,
+      epoch: 1,
+      previousManifestHash: null,
+      eventHash: containerEventHash,
+      parentContainerId: containerBody.parentContainerId,
+      parentManifestHash: containerBody.parentManifestHash,
+      metadataDocumentId: containerBody.metadataDocumentId,
+      containerKeyEpochId: containerBody.containerKeyEpochId,
+      directGrants: [],
+      referencedPrincipalHeads: [],
+    },
+  };
+  const target = {
+    containerId: input.containerId,
+    containerManifestHash: childBundle.manifestHash,
+    containerKeyEpochId: containerBody.containerKeyEpochId,
+    containerKeyEpoch: 1,
+  };
+  const body: DocumentLinkAccessEventBody = {
+    eventType: "document.link",
+    containerId: target.containerId,
+    containerManifestHash: target.containerManifestHash,
+  };
+  const event = await signAccessEvent(
+    {
+      version: 1,
+      eventId: crypto.randomUUID(),
+      eventType: "document.link",
+      objectKind: "document",
+      objectId: containerBody.metadataDocumentId,
+      organizationId: parentState.organizationId,
+      previousManifestHash: null,
+      dependencyManifestHashes: [target.containerManifestHash],
+      bodyHash: await computeAccessEventBodyHash(
+        body as unknown as KeyingCanonicalJson,
+      ),
+      signerUserId: input.signer.userId,
+      signerDeviceId: "test-device",
+      signerKeyFingerprint: input.signer.fingerprint,
+      signedAt: "2026-04-26T12:00:00.000Z",
+    },
+    input.signer.signing.signingPrivateKey,
+  );
+  const eventHash = await computeAccessEventHash(event);
+  const state: DocumentLinkSetManifestState = {
+    version: 1,
+    documentId: containerBody.metadataDocumentId,
+    organizationId: parentState.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash,
+    linkedContainerIds: [target.containerId],
+  };
+  const manifest = await deriveDocumentLinkSetManifest(state);
+  const manifestHash = await computeAccessManifestHash(manifest);
+  const targetHash = await computeDocumentContentKeyTargetHash([target]);
+
+  return {
+    event: event as unknown as Record<string, unknown>,
+    body: body as unknown,
+    expectedManifestHash: manifestHash,
+    manifest: manifest as unknown as Record<string, unknown>,
+    previousManifest: null,
+    targetContainerPath: [
+      input.parent as unknown as Record<string, unknown>,
+      childBundle as unknown as Record<string, unknown>,
+    ],
+    contentKeyBundle: {
+      contentKeyEpoch: 1,
+      linkSetManifestHash: manifestHash,
+      targetHash,
+      targets: [
+        {
+          ...target,
+          wrappedKey: `metadata-document-key:${containerBody.metadataDocumentId}`,
+          wrappingMetadata: { alg: "test-wrap" },
+        },
+      ],
+    },
+  };
+}
+
 async function buildGrantRequest(input: {
   readonly parentKekState: VerifiedContainerKekState;
   readonly previous: ContainerManifestBundle;
@@ -1066,6 +1181,21 @@ async function postMutation(input: {
   });
 }
 
+async function postJson(input: {
+  readonly path: string;
+  readonly request: unknown;
+  readonly token: string;
+}): Promise<Response> {
+  return routeApp.request(input.path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${input.token}`,
+    },
+    body: JSON.stringify(input.request),
+  });
+}
+
 async function deleteContainerForUser(input: {
   readonly containerId: string;
   readonly token: string;
@@ -1309,6 +1439,72 @@ test("POST /containers materializes the signed metadata document binding", async
   expect(binding).toEqual({
     containerId: created.containerId,
     documentId: metadataDocumentId,
+  });
+});
+
+test("POST /containers/with-metadata-document creates container and metadata document atomically", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const containerId = crypto.randomUUID();
+  const containerRequest = await buildCreateRequest({
+    containerId,
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const metadataDocumentRequest = await buildMetadataDocumentCreateRequest({
+    containerId,
+    containerRequest,
+    parent: root.bundle,
+    signer: owner,
+  });
+
+  const response = await postJson({
+    path: "/containers/with-metadata-document",
+    request: {
+      container: containerRequest,
+      metadataDocument: metadataDocumentRequest,
+    },
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(isContainerCreateWithMetadataDocumentResponse(body)).toBe(true);
+  if (!isContainerCreateWithMetadataDocumentResponse(body)) {
+    throw new Error("expected composite container metadata response");
+  }
+  expect(body.container.containerId).toBe(containerId);
+  expect(body.metadataDocument.id).toBe(
+    (containerRequest.body as { readonly metadataDocumentId: string })
+      .metadataDocumentId,
+  );
+
+  const [metadataBinding] = await db
+    .select({
+      containerId: containerMetadataDocuments.containerId,
+      documentId: containerMetadataDocuments.documentId,
+    })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.containerId, containerId))
+    .limit(1);
+  expect(metadataBinding).toEqual({
+    containerId,
+    documentId: body.metadataDocument.id,
+  });
+
+  const [documentLink] = await db
+    .select({
+      containerId: documentContainerLinks.containerId,
+      documentId: documentContainerLinks.documentId,
+    })
+    .from(documentContainerLinks)
+    .where(eq(documentContainerLinks.documentId, body.metadataDocument.id))
+    .limit(1);
+  expect(documentLink).toEqual({
+    containerId,
+    documentId: body.metadataDocument.id,
   });
 });
 

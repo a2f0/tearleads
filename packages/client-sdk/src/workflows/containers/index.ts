@@ -2,6 +2,7 @@ export type { ContainerMutationAuthor } from "../../data/containers/shared/types
 export {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,
+  childContainerWriterProjectionFromCreatePlan,
   createRemoteContainer,
 } from "./child/create";
 export { moveRemoteContainer } from "./child/move";

@@ -36,6 +36,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
+  ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   DocumentCreateRequest,
   DocumentSyncRequest,
@@ -443,6 +444,10 @@ function createExplorerContainerApiHarness(
     containerId: string;
     documentId: string;
   }> = [];
+  const containerMetadataCreateCalls: Array<{
+    containerId: string;
+    metadataDocumentId: string;
+  }> = [];
   const documentSyncCalls: Array<{
     documentId: string;
     outgoingUpdateCount: number;
@@ -490,6 +495,57 @@ function createExplorerContainerApiHarness(
             .sort(),
         });
         return response;
+      },
+      createContainerWithMetadataDocument: async (
+        request: ContainerCreateWithMetadataDocumentRequest,
+      ) => {
+        const container = await createExplorerContainerMutationResponse(
+          request.container,
+        );
+        const parentProjection = projections.get(container.parentId ?? "");
+        if (!parentProjection) {
+          return null;
+        }
+
+        projections.set(container.containerId, {
+          containerId: container.containerId,
+          organizationId: container.organizationId,
+          path: [...parentProjection.path, container.accessManifest],
+          containerKeks: [
+            ...parentProjection.containerKeks,
+            container.containerKek,
+          ],
+        });
+
+        const metadataDocument = await createExplorerMetadataCreateResponse(
+          request.metadataDocument,
+        );
+        createdDocuments.set(metadataDocument.id, metadataDocument);
+        containerCreateCalls.push({
+          containerId: container.containerId,
+          metadataDocumentId: readRequestString(
+            request.container.body as Record<string, unknown>,
+            "metadataDocumentId",
+          ),
+          parentId: container.parentId ?? "",
+          wrapRecipientKinds: request.container.wraps
+            .map((wrap) => Reflect.get(wrap, "recipientKind"))
+            .filter((kind): kind is string => typeof kind === "string")
+            .sort(),
+        });
+        documentCreateCalls.push({
+          containerId: readRequestString(
+            request.metadataDocument.body as Record<string, unknown>,
+            "containerId",
+          ),
+          documentId: metadataDocument.id,
+        });
+        containerMetadataCreateCalls.push({
+          containerId: container.containerId,
+          metadataDocumentId: metadataDocument.id,
+        });
+
+        return { container, metadataDocument };
       },
       createDocument: async (request: DocumentCreateRequest) => {
         const response = await createExplorerMetadataCreateResponse(request);
@@ -623,6 +679,7 @@ function createExplorerContainerApiHarness(
       },
     }),
     containerCreateCalls,
+    containerMetadataCreateCalls,
     documentCreateCalls,
     documentSyncCalls,
     containerMoveCalls,
@@ -1540,6 +1597,12 @@ test("explorer store creates authenticated child containers through the API befo
       {
         containerId: childNode.id,
         documentId: childNode.id,
+      },
+    ]);
+    expect(harness.containerMetadataCreateCalls).toEqual([
+      {
+        containerId: childNode.id,
+        metadataDocumentId: childNode.id,
       },
     ]);
 

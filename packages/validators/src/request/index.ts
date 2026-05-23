@@ -29,6 +29,10 @@ export {
   isContainerMutationRequest,
 } from "./container";
 export {
+  type ContainerCreateWithMetadataDocumentRequest,
+  isContainerCreateWithMetadataDocumentRequest,
+} from "./containerMetadata";
+export {
   type DocumentContentKeyBundleRequest,
   type DocumentContentKeyTargetEnvelope,
   type DocumentCreateRequest,
