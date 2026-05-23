@@ -9,6 +9,7 @@ import {
 export interface ExplorerRouteState {
   route: ExplorerRoute;
   openContainerInfoRoute: (containerId: string) => void;
+  openDocumentInfoRoute: (localId: string, containerId: string) => void;
   selectExplorerItem: (id: string | null) => void;
   showSelectionRoute: () => void;
 }
@@ -46,8 +47,16 @@ export function useExplorerRoute(params: {
     [setSelectedId],
   );
 
+  const openDocumentInfoRoute = useCallback(
+    (localId: string, containerId: string) => {
+      setRoute({ view: "document-info", containerId, localId });
+    },
+    [],
+  );
+
   return {
     openContainerInfoRoute,
+    openDocumentInfoRoute,
     route,
     selectExplorerItem,
     showSelectionRoute,

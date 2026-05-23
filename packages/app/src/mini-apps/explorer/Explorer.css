@@ -22,6 +22,12 @@
   overflow: auto;
 }
 
+.explorer-detail--document-info {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
 .explorer-detail-header {
   display: flex;
   align-items: flex-start;

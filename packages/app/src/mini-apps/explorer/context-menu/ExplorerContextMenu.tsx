@@ -8,16 +8,43 @@ import {
 } from "../../../components/shared/useContextMenuState";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import type { ContainerNode } from "../../../stores/explorer/types";
+import { EXPLORER_LABELS } from "../labels";
 import { getMoveTargetOptions } from "../targetOptions";
 
-export type { ContextMenuState };
+export type ExplorerContextMenuTarget =
+  | { kind: "container"; containerId: string }
+  | { kind: "document"; containerId: string; localId: string };
+
+export type ExplorerContextMenuState =
+  ContextMenuState<ExplorerContextMenuTarget>;
+
+type ExplorerDocumentContextMenuState = ContextMenuState<
+  Extract<ExplorerContextMenuTarget, { kind: "document" }>
+>;
+
+type ExplorerContainerContextMenuState = ContextMenuState<
+  Extract<ExplorerContextMenuTarget, { kind: "container" }>
+>;
+
+function isExplorerDocumentContextMenu(
+  contextMenu: ExplorerContextMenuState,
+): contextMenu is ExplorerDocumentContextMenuState {
+  return contextMenu.id.kind === "document";
+}
+
+function isExplorerContainerContextMenu(
+  contextMenu: ExplorerContextMenuState,
+): contextMenu is ExplorerContainerContextMenuState {
+  return contextMenu.id.kind === "container";
+}
 
 export function useExplorerContextMenu(
   nodes: ReadonlyArray<ContainerNode>,
-  setSelectedId: (id: string | null) => void,
+  selectContainer: (id: string | null) => void,
+  selectDocumentProjection: (localId: string, containerId: string) => void,
 ) {
   const { closeContextMenu, contextMenu, openContextMenu } =
-    useContextMenuState({ onOpen: setSelectedId });
+    useContextMenuState<ExplorerContextMenuTarget>();
   const nodesById = useMemo(
     () => new Map(nodes.map((node) => [node.id, node])),
     [nodes],
@@ -25,13 +52,28 @@ export function useExplorerContextMenu(
 
   const handleSidebarContextMenu = useCallback(
     (event: MouseEvent<HTMLButtonElement>, nodeId: string) => {
-      openContextMenu(event, nodeId);
+      selectContainer(nodeId);
+      openContextMenu(event, { kind: "container", containerId: nodeId });
     },
-    [openContextMenu],
+    [openContextMenu, selectContainer],
+  );
+
+  const handleSidebarDocumentContextMenu = useCallback(
+    (
+      event: MouseEvent<HTMLButtonElement>,
+      localId: string,
+      containerId: string,
+    ) => {
+      selectDocumentProjection(localId, containerId);
+      openContextMenu(event, { kind: "document", containerId, localId });
+    },
+    [openContextMenu, selectDocumentProjection],
   );
 
   const contextMenuNode = contextMenu?.id
-    ? nodesById.get(contextMenu.id)
+    ? contextMenu.id.kind === "container"
+      ? nodesById.get(contextMenu.id.containerId)
+      : undefined
     : undefined;
   const contextMenuNodeHasChildren =
     contextMenuNode !== undefined &&
@@ -53,15 +95,82 @@ export function useExplorerContextMenu(
     closeContextMenu,
     contextMenu,
     contextMenuNode,
+    handleSidebarDocumentContextMenu,
     handleSidebarContextMenu,
   };
 }
 
-export function ExplorerContextMenuLayer(params: {
+interface ExplorerDocumentContextMenuProps {
+  canLinkSelectedDocument: boolean;
+  canMoveSelectedDocument: boolean;
+  closeContextMenu: () => void;
+  contextMenu: ExplorerDocumentContextMenuState;
+  openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openLinkDocumentModal: (localId: string) => void;
+  openMoveDocumentModal: (localId: string) => void;
+  selectContainer: (containerId: string) => void;
+}
+
+function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
+  const {
+    canLinkSelectedDocument,
+    canMoveSelectedDocument,
+    closeContextMenu,
+    contextMenu,
+    openDocumentInfoRoute,
+    openLinkDocumentModal,
+    openMoveDocumentModal,
+    selectContainer,
+  } = params;
+
+  return (
+    <Menu
+      position={contextMenu.position}
+      onClose={closeContextMenu}
+      direction="down"
+    >
+      <MenuItem
+        label={EXPLORER_LABELS.documentInfoGetInfoAction}
+        onClick={() => {
+          closeContextMenu();
+          openDocumentInfoRoute(
+            contextMenu.id.localId,
+            contextMenu.id.containerId,
+          );
+        }}
+      />
+      <MenuItem
+        label={EXPLORER_LABELS.documentLinkAction}
+        disabled={!canLinkSelectedDocument}
+        onClick={() => {
+          closeContextMenu();
+          openLinkDocumentModal(contextMenu.id.localId);
+        }}
+      />
+      <MenuItem
+        label={EXPLORER_LABELS.documentMoveAction}
+        disabled={!canMoveSelectedDocument}
+        onClick={() => {
+          closeContextMenu();
+          openMoveDocumentModal(contextMenu.id.localId);
+        }}
+      />
+      <MenuItem
+        label={EXPLORER_LABELS.documentBackToContainerAction}
+        onClick={() => {
+          closeContextMenu();
+          selectContainer(contextMenu.id.containerId);
+        }}
+      />
+    </Menu>
+  );
+}
+
+interface ExplorerContainerContextMenuProps {
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   closeContextMenu: () => void;
-  contextMenu: ContextMenuState | null;
+  contextMenu: ExplorerContainerContextMenuState;
   contextMenuNode: ContainerNode | undefined;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
@@ -73,7 +182,11 @@ export function ExplorerContextMenuLayer(params: {
   openContainerInfoRoute: (containerId: string) => void;
   openMoveModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
-}) {
+}
+
+function ExplorerContainerContextMenu(
+  params: ExplorerContainerContextMenuProps,
+) {
   const {
     canDeleteContextMenuNode,
     canMoveContextMenuNode,
@@ -87,10 +200,7 @@ export function ExplorerContextMenuLayer(params: {
     openMoveModal,
     openRenameModal,
   } = params;
-
-  if (!contextMenu) {
-    return null;
-  }
+  const containerId = contextMenu.id.containerId;
 
   return (
     <Menu
@@ -102,7 +212,7 @@ export function ExplorerContextMenuLayer(params: {
         label="Create Child"
         onClick={() => {
           closeContextMenu();
-          openCreateChildModal(contextMenu.id);
+          openCreateChildModal(containerId);
         }}
       />
       {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
@@ -121,7 +231,7 @@ export function ExplorerContextMenuLayer(params: {
         label="Rename"
         onClick={() => {
           closeContextMenu();
-          openRenameModal(contextMenu.id);
+          openRenameModal(containerId);
         }}
       />
       <MenuItem
@@ -129,14 +239,14 @@ export function ExplorerContextMenuLayer(params: {
         disabled={!canMoveContextMenuNode}
         onClick={() => {
           closeContextMenu();
-          openMoveModal(contextMenu.id);
+          openMoveModal(containerId);
         }}
       />
       <MenuItem
         label="Get Info"
         onClick={() => {
           closeContextMenu();
-          openContainerInfoRoute(contextMenu.id);
+          openContainerInfoRoute(containerId);
         }}
       />
       <MenuItem
@@ -144,9 +254,57 @@ export function ExplorerContextMenuLayer(params: {
         disabled={!canDeleteContextMenuNode}
         onClick={() => {
           closeContextMenu();
-          openDeleteModal(contextMenu.id);
+          openDeleteModal(containerId);
         }}
       />
     </Menu>
   );
+}
+
+export function ExplorerContextMenuLayer(params: {
+  canLinkSelectedDocument: boolean;
+  canDeleteContextMenuNode: boolean;
+  canMoveContextMenuNode: boolean;
+  canMoveSelectedDocument: boolean;
+  closeContextMenu: () => void;
+  contextMenu: ExplorerContextMenuState | null;
+  contextMenuNode: ContainerNode | undefined;
+  openCreateChildModal: (containerId: string) => void;
+  openDeleteModal: (containerId: string) => void;
+  openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openInlineDocument: (
+    containerId: string,
+    documentKind: StoredDocumentKind,
+    localId?: string,
+  ) => void;
+  openLinkDocumentModal: (localId: string) => void;
+  openContainerInfoRoute: (containerId: string) => void;
+  openMoveModal: (containerId: string) => void;
+  openMoveDocumentModal: (localId: string) => void;
+  openRenameModal: (containerId: string) => void;
+  selectContainer: (containerId: string) => void;
+}) {
+  if (!params.contextMenu) {
+    return null;
+  }
+
+  if (isExplorerDocumentContextMenu(params.contextMenu)) {
+    return (
+      <ExplorerDocumentContextMenu
+        {...params}
+        contextMenu={params.contextMenu}
+      />
+    );
+  }
+
+  if (isExplorerContainerContextMenu(params.contextMenu)) {
+    return (
+      <ExplorerContainerContextMenu
+        {...params}
+        contextMenu={params.contextMenu}
+      />
+    );
+  }
+
+  return null;
 }

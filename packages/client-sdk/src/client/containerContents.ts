@@ -3,8 +3,11 @@ import {
   type ContainerInfo,
   type ContainerInfoRemoteMode,
   createContainerContentsWorkflowRuntime,
+  type DocumentInfo,
+  type DocumentInfoRemoteMode,
   discoverContainerDocumentsFromApi,
   loadContainerInfo,
+  loadDocumentInfo,
   refreshAllContainerDocumentsFromApi,
 } from "../workflows/container-contents";
 import type { TearleadsInternalRuntime } from "./workflowRuntime";
@@ -25,10 +28,16 @@ export interface TearleadsContainerInfoInput {
   remoteInfoMode?: ContainerInfoRemoteMode | undefined;
 }
 
+export interface TearleadsDocumentInfoInput {
+  localId: string;
+  remoteInfoMode?: DocumentInfoRemoteMode | undefined;
+}
+
 export interface TearleadsContainerContents {
   discoverDocuments(
     input: TearleadsContainerDocumentDiscoveryInput,
   ): ReturnType<typeof discoverContainerDocumentsFromApi>;
+  loadDocumentInfo(input: TearleadsDocumentInfoInput): Promise<DocumentInfo>;
   loadInfo(input: TearleadsContainerInfoInput): Promise<ContainerInfo>;
   refreshDocuments(
     input: TearleadsContainerDocumentRefreshInput,
@@ -65,6 +74,15 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
       execSql: runtime.dbStatus === "ready" ? runtime.execSql : null,
       organizationId: runtime.organizationId,
       parentId: input.parentId ?? null,
+    });
+  }
+
+  loadDocumentInfo(input: TearleadsDocumentInfoInput): Promise<DocumentInfo> {
+    const runtime = this.runtimeService.workflowInput();
+    return loadDocumentInfo({
+      ...input,
+      apiClient: runtime.apiClient,
+      execSql: runtime.dbStatus === "ready" ? runtime.execSql : null,
     });
   }
 

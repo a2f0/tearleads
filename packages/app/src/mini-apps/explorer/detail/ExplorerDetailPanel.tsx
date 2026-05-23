@@ -7,6 +7,7 @@ import type {
   ExplorerContainerInfo,
   ExplorerContainerShareAccessLevel,
 } from "../../../stores/explorer/containerInfo";
+import type { ExplorerDocumentInfo } from "../../../stores/explorer/documentInfo";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
@@ -15,6 +16,7 @@ import type { ExplorerRoute } from "../routes";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 import { ExplorerDocumentDetail } from "./ExplorerDocumentDetail";
+import { ExplorerDocumentInfoPanel } from "./ExplorerDocumentInfoPanel";
 
 function ExplorerEmptyDetail(params: {
   nodes: ReadonlyArray<ContainerNode>;
@@ -47,6 +49,7 @@ export function ExplorerDetailPanel(params: {
   importDroppedFiles: ImportExplorerDroppedFiles;
   linkedContainerIds: ReadonlyArray<string>;
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
+  loadDocumentInfo: (localId: string) => Promise<ExplorerDocumentInfo>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   onBackToSelectionRoute: () => void;
@@ -57,6 +60,7 @@ export function ExplorerDetailPanel(params: {
     localId?: string,
   ) => void;
   openLinkDocumentModal: (noteId: string) => void;
+  openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
   peerUserId: string | null;
   ready: boolean;
@@ -99,6 +103,19 @@ export function ExplorerDetailPanel(params: {
     );
   }
 
+  if (route.view === "document-info") {
+    return (
+      <ExplorerDocumentInfoPanel
+        containerId={route.containerId}
+        documentTitle={selectedDocument?.title}
+        loadDocumentInfo={params.loadDocumentInfo}
+        localId={route.localId}
+        nodes={params.nodes}
+        onBackToDocument={params.onBackToSelectionRoute}
+      />
+    );
+  }
+
   if (selectedDocument) {
     return (
       <ExplorerDocumentDetail
@@ -113,6 +130,7 @@ export function ExplorerDetailPanel(params: {
         nodes={params.nodes}
         online={params.online}
         openLinkDocumentModal={params.openLinkDocumentModal}
+        openDocumentInfoRoute={params.openDocumentInfoRoute}
         openMoveDocumentModal={params.openMoveDocumentModal}
         refreshError={params.refreshError}
         selectedDocument={selectedDocument}

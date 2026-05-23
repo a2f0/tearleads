@@ -100,6 +100,17 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
     expect(info.remoteInfo?.groups.map((group) => group.name)).toEqual([
       "Operators",
     ]);
+    expect(info.remoteInfo?.security).toMatchObject({
+      currentContainerKeyEpoch: expect.any(Number),
+      currentContainerKeyEpochId: expect.any(String),
+      currentManifestHash: parent.projection.path.at(-1)?.manifestHash,
+      currentManifestHistoryCount: expect.any(Number),
+      currentReferencedPrincipalCount: expect.any(Number),
+      pathLength: parent.projection.path.length,
+    });
+    expect(info.remoteInfo?.security?.path).toHaveLength(
+      parent.projection.path.length,
+    );
     expect(
       info.remoteInfo?.syncCursors.map(
         ({ label, laneId, laneKind, watermarkId }) => ({

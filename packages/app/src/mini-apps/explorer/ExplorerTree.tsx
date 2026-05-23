@@ -76,6 +76,11 @@ interface ExplorerTreeEntriesProps {
   entries: ReadonlyArray<ExplorerTreeEntry>;
   onLoadMoreDocuments: (containerId: string) => void;
   onContextMenu: (event: MouseEvent<HTMLButtonElement>, id: string) => void;
+  onDocumentContextMenu: (
+    event: MouseEvent<HTMLButtonElement>,
+    localId: string,
+    containerId: string,
+  ) => void;
   onSelectContainer: (id: string) => void;
   onSelectDocument: (documentId: string, containerId: string) => void;
   onToggleCollapsed: (id: string) => void;
@@ -124,6 +129,9 @@ function ExplorerTreeDocumentRows(
         data-document-local-id={localId}
         className="explorer-sidebar-item explorer-sidebar-item--note"
         onClick={() => props.onSelectDocument(localId, containerId)}
+        onContextMenu={(event) =>
+          props.onDocumentContextMenu(event, localId, containerId)
+        }
         selected={
           props.selectedId === localId &&
           props.activeContainerId === containerId
@@ -499,6 +507,11 @@ export function useExplorerSidebarPanel(params: {
     event: MouseEvent<HTMLButtonElement>,
     nodeId: string,
   ) => void;
+  handleSidebarDocumentContextMenu: (
+    event: MouseEvent<HTMLButtonElement>,
+    localId: string,
+    containerId: string,
+  ) => void;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
   selectedId: string | null;
@@ -516,6 +529,7 @@ export function useExplorerSidebarPanel(params: {
     documentListRevision,
     documentReadModel,
     handleSidebarContextMenu,
+    handleSidebarDocumentContextMenu,
     nodes,
     ready,
     selectedId,
@@ -556,6 +570,7 @@ export function useExplorerSidebarPanel(params: {
             documentWindowsByContainerId={documentWindowsByContainerId}
             entries={treeEntries}
             onContextMenu={handleSidebarContextMenu}
+            onDocumentContextMenu={handleSidebarDocumentContextMenu}
             onLoadMoreDocuments={loadMoreDocuments}
             onSelectContainer={setSelectedId}
             onSelectDocument={selectDocumentProjection}
@@ -572,6 +587,7 @@ export function useExplorerSidebarPanel(params: {
       collapsedIdsKey,
       documentWindowsByContainerId,
       handleSidebarContextMenu,
+      handleSidebarDocumentContextMenu,
       nodes.length,
       loadMoreDocuments,
       online,

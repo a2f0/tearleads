@@ -46,10 +46,39 @@ export interface ContainerInfoSyncCursor {
   watermarkUpdatedAt: string | null;
 }
 
+export interface ContainerInfoPathEntry {
+  containerId: string;
+  containerKeyEpoch: number;
+  containerKeyEpochId: string;
+  directGrantCount: number;
+  eventHash: string;
+  keyEpochHash: string;
+  keyTargetHash: string;
+  manifestHash: string;
+  manifestHistoryCount: number;
+  parentContainerId: string | null;
+  parentManifestHash: string | null;
+  recipientTargetCount: number;
+  referencedPrincipalCount: number;
+  wrapCount: number;
+}
+
+export interface ContainerInfoSecurityDetails {
+  currentContainerKeyEpoch: number;
+  currentContainerKeyEpochId: string;
+  currentManifestHash: string;
+  currentManifestHistoryCount: number;
+  currentParentContainerKeyEpochId: string | null;
+  currentReferencedPrincipalCount: number;
+  path: ContainerInfoPathEntry[];
+  pathLength: number;
+}
+
 export interface ContainerInfoRemoteDetails {
   grantRows: ContainerInfoGrantRow[];
   grants: ContainerInfoGrant[];
   groups: OrganizationGroupSummaryResponse[];
+  security?: ContainerInfoSecurityDetails;
   syncCursors: ContainerInfoSyncCursor[];
 }
 
@@ -113,6 +142,57 @@ function getContainerInfoGrantRows(
   });
 
   return sortContainerInfoGrants(rows);
+}
+
+function getContainerInfoPathEntries(
+  projection: ContainerWriterProjectionResponse,
+): ContainerInfoPathEntry[] {
+  return projection.path.map((bundle, index) => {
+    const state = readContainerState(bundle);
+    const kek = projection.containerKeks[index];
+    if (!kek) {
+      throw new Error("Container projection path and KEKs are inconsistent");
+    }
+
+    return {
+      containerId: state.containerId,
+      containerKeyEpoch: kek.containerKeyEpoch,
+      containerKeyEpochId: kek.containerKeyEpochId,
+      directGrantCount: state.directGrants.length,
+      eventHash: state.eventHash,
+      keyEpochHash: kek.keyEpochHash,
+      keyTargetHash: kek.keyTargetHash,
+      manifestHash: bundle.manifestHash,
+      manifestHistoryCount: kek.containerManifestHistory?.length ?? 0,
+      parentContainerId: state.parentContainerId,
+      parentManifestHash: state.parentManifestHash,
+      recipientTargetCount: kek.recipientTargets.length,
+      referencedPrincipalCount: state.referencedPrincipalHeads.length,
+      wrapCount: kek.wraps.length,
+    };
+  });
+}
+
+function getContainerInfoSecurityDetails(
+  projection: ContainerWriterProjectionResponse,
+): ContainerInfoSecurityDetails {
+  const path = getContainerInfoPathEntries(projection);
+  const targetPathEntry = path.at(-1);
+  const targetKek = projection.containerKeks.at(-1);
+  if (!targetPathEntry || !targetKek) {
+    throw new Error("Container projection is empty");
+  }
+
+  return {
+    currentContainerKeyEpoch: targetPathEntry.containerKeyEpoch,
+    currentContainerKeyEpochId: targetPathEntry.containerKeyEpochId,
+    currentManifestHash: targetPathEntry.manifestHash,
+    currentManifestHistoryCount: targetPathEntry.manifestHistoryCount,
+    currentParentContainerKeyEpochId: targetKek.parentContainerKeyEpochId,
+    currentReferencedPrincipalCount: targetPathEntry.referencedPrincipalCount,
+    path,
+    pathLength: path.length,
+  };
 }
 
 interface ContainerInfoSyncCursorDefinition {
@@ -292,6 +372,7 @@ export async function loadContainerInfo(input: {
         })),
       ),
       groups: groupsResponse?.groups ?? [],
+      security: getContainerInfoSecurityDetails(projection),
       syncCursors,
     },
   };
