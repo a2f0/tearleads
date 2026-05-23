@@ -28,6 +28,7 @@ const clientSdkSupportedPackageExports = {
   "./documents": "./src/documents.ts",
   "./sqlite": "./src/sqlite.ts",
   "./stores/contacts": "./src/stores/contacts/index.ts",
+  "./stores/container-contents": "./src/stores/container-contents/index.ts",
   "./stores/documents": "./src/stores/documents/index.ts",
   "./workflows/blobs": "./src/workflows/blobs/index.ts",
   "./workflows/contacts": "./src/workflows/contacts/index.ts",

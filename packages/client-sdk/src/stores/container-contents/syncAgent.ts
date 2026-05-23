@@ -17,29 +17,30 @@ import {
   registerContainerContentsSyncLane,
   syncContainerMetadataState,
   syncPendingContainerCreateIntents,
-} from "@tearleads/client-sdk/workflows/container-contents";
-import { primeDocumentStore } from "../documents/DocumentsProvider";
+} from "../../workflows/container-contents";
+import { primeDocumentStore } from "../documents";
 
 export type { ContainerState };
 
-export type ExplorerRuntime = ContainerContentsWorkflowRuntime;
+export type ContainerContentsStoreRuntime = ContainerContentsWorkflowRuntime;
 
-export interface ExplorerSyncState {
+export interface ContainerContentsStoreSyncState {
   containersById: Map<string, ContainerState>;
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
+  logLabel?: string | undefined;
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
-  runtime: ExplorerRuntime;
+  runtime: ContainerContentsStoreRuntime;
   snapshot: {
     ready: boolean;
   };
   syncLane: ContainerContentsSyncLane | null;
 }
 
-export interface ExplorerSyncAgent {
+export interface ContainerContentsStoreSyncAgent {
   ensureInitialized: () => void;
   handleRemoteEvents: () => void;
   ingestRemoteContainer: (remoteContainer: RemoteContainer) => Promise<void>;
@@ -50,18 +51,26 @@ export interface ExplorerSyncAgent {
   scheduleSync: () => void;
 }
 
-type ExplorerSyncHost = RemoteContainerHydrationHost;
-type ExplorerPrimeDocumentRuntime = ReturnType<
-  ExplorerRuntime["createDocumentsRuntime"]
+type ContainerContentsStoreSyncHost = RemoteContainerHydrationHost;
+type ContainerContentsStorePrimeDocumentRuntime = ReturnType<
+  ContainerContentsStoreRuntime["createDocumentsRuntime"]
 >;
 
-function requestExplorerSync(state: ExplorerSyncState) {
+function getContainerContentsStoreLogLabel(
+  state: ContainerContentsStoreSyncState,
+): string {
+  return state.logLabel ?? "Container contents";
+}
+
+function requestContainerContentsStoreSync(
+  state: ContainerContentsStoreSyncState,
+) {
   state.syncLane?.requestSync();
 }
 
-function createExplorerDocumentPrimeHost(
-  state: ExplorerSyncState,
-): ContainerDocumentPrimeHost<ExplorerPrimeDocumentRuntime> {
+function createContainerContentsStoreDocumentPrimeHost(
+  state: ContainerContentsStoreSyncState,
+): ContainerDocumentPrimeHost<ContainerContentsStorePrimeDocumentRuntime> {
   return {
     createDocumentRuntime: (containerId) =>
       state.runtime.createDocumentsRuntime(containerId),
@@ -80,21 +89,21 @@ function createExplorerDocumentPrimeHost(
 }
 
 async function primeDocumentsForSharedSubtree(
-  state: ExplorerSyncState,
+  state: ContainerContentsStoreSyncState,
   rootContainerId: string,
 ) {
   await primeDocumentsForContainerSubtree({
     containersById: state.containersById,
-    host: createExplorerDocumentPrimeHost(state),
+    host: createContainerContentsStoreDocumentPrimeHost(state),
     rootContainerId,
     runtime: state.runtime,
   });
 }
 
 function requestRemoteHydration(input: {
-  host: ExplorerSyncHost;
+  host: ContainerContentsStoreSyncHost;
   scheduleSync: () => void;
-  state: ExplorerSyncState;
+  state: ContainerContentsStoreSyncState;
 }): Promise<void> {
   const { host, scheduleSync, state } = input;
   if (state.remoteHydrationPromise) {
@@ -127,10 +136,10 @@ function requestRemoteHydration(input: {
   return state.remoteHydrationPromise;
 }
 
-async function initializeExplorerStore(input: {
-  host: ExplorerSyncHost;
+async function initializeContainerContentsStore(input: {
+  host: ContainerContentsStoreSyncHost;
   scheduleSync: () => void;
-  state: ExplorerSyncState;
+  state: ContainerContentsStoreSyncState;
 }) {
   const { host, scheduleSync, state } = input;
   if (state.runtime.dbStatus !== "ready") {
@@ -151,7 +160,7 @@ async function initializeExplorerStore(input: {
   host.updateSnapshot();
 
   state.runtime.log(
-    `Explorer: loaded ${state.containersById.size} container(s)`,
+    `${getContainerContentsStoreLogLabel(state)}: loaded ${state.containersById.size} container(s)`,
   );
 
   if (state.runtime.isAuthenticated && state.runtime.online) {
@@ -166,10 +175,10 @@ async function initializeExplorerStore(input: {
   }
 }
 
-function ensureExplorerStoreInitialized(input: {
-  host: ExplorerSyncHost;
+function ensureContainerContentsStoreInitialized(input: {
+  host: ContainerContentsStoreSyncHost;
   scheduleSync: () => void;
-  state: ExplorerSyncState;
+  state: ContainerContentsStoreSyncState;
 }) {
   const { host, scheduleSync, state } = input;
   if (
@@ -180,7 +189,7 @@ function ensureExplorerStoreInitialized(input: {
     return;
   }
 
-  state.initializePromise = initializeExplorerStore({
+  state.initializePromise = initializeContainerContentsStore({
     host,
     scheduleSync,
     state,
@@ -196,10 +205,12 @@ function ensureExplorerStoreInitialized(input: {
 }
 
 async function syncSingleContainerMetadata(input: {
-  host: ExplorerSyncHost;
-  state: ExplorerSyncState;
+  host: ContainerContentsStoreSyncHost;
+  state: ContainerContentsStoreSyncState;
   containerState: ContainerState;
-  encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>;
+  encapsulationKeyPair: NonNullable<
+    ContainerContentsStoreRuntime["encapsulationKeyPair"]
+  >;
 }) {
   const { containerState, encapsulationKeyPair, host, state } = input;
   const synced = await syncContainerMetadataState({
@@ -218,13 +229,13 @@ async function syncSingleContainerMetadata(input: {
   host.updateSnapshot();
 
   if (synced.shouldRequestFollowupSync) {
-    requestExplorerSync(state);
+    requestContainerContentsStoreSync(state);
   }
 }
 
-async function runExplorerSyncIteration(input: {
-  host: ExplorerSyncHost;
-  state: ExplorerSyncState;
+async function runContainerContentsStoreSyncIteration(input: {
+  host: ContainerContentsStoreSyncHost;
+  state: ContainerContentsStoreSyncState;
 }) {
   const { host, state } = input;
   const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
@@ -256,17 +267,17 @@ async function runExplorerSyncIteration(input: {
   }
 }
 
-export function createExplorerSyncAgent(input: {
-  host: ExplorerSyncHost;
-  state: ExplorerSyncState;
-}): ExplorerSyncAgent {
+export function createContainerContentsStoreSyncAgent(input: {
+  host: ContainerContentsStoreSyncHost;
+  state: ContainerContentsStoreSyncState;
+}): ContainerContentsStoreSyncAgent {
   const { host, state } = input;
 
   state.syncLane = registerContainerContentsSyncLane({
     domainScope: state.runtime.domainScope,
-    run: () => runExplorerSyncIteration({ host, state }),
+    run: () => runContainerContentsStoreSyncIteration({ host, state }),
   });
-  const scheduleSync = () => requestExplorerSync(state);
+  const scheduleSync = () => requestContainerContentsStoreSync(state);
   const ingestRemoteContainer = createRemoteContainerIngestor({
     host,
     state,
@@ -277,7 +288,7 @@ export function createExplorerSyncAgent(input: {
 
   return {
     ensureInitialized: () =>
-      ensureExplorerStoreInitialized({ host, scheduleSync, state }),
+      ensureContainerContentsStoreInitialized({ host, scheduleSync, state }),
     handleRemoteEvents: () => {
       const nextEvents = state.runtime.events.slice(state.lastEventCount);
       state.lastEventCount = state.runtime.events.length;

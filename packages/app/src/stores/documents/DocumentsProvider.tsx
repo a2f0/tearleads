@@ -25,7 +25,6 @@ export {
   createDocumentStore,
   DEFAULT_DOCUMENT_ID,
   primeDocumentStore,
-  requestDomainDocumentSync,
   subscribeToPersistedDocuments,
 } from "@tearleads/client-sdk/stores/documents";
 

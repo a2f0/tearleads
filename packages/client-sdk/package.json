@@ -22,6 +22,10 @@
       "types": "./src/stores/contacts/index.ts",
       "default": "./src/stores/contacts/index.ts"
     },
+    "./stores/container-contents": {
+      "types": "./src/stores/container-contents/index.ts",
+      "default": "./src/stores/container-contents/index.ts"
+    },
     "./stores/documents": {
       "types": "./src/stores/documents/index.ts",
       "default": "./src/stores/documents/index.ts"

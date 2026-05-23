@@ -69,8 +69,9 @@ unless there is a deliberate decision to promote a new public SDK contract.
 Use facade subpaths directly, such as `@tearleads/client-sdk/documents`,
 `@tearleads/client-sdk/sqlite`,
 `@tearleads/client-sdk/workflows/documents`, and
-`@tearleads/client-sdk/stores/documents`, instead of importing their
-implementation modules or nested workflow/store implementation files.
+`@tearleads/client-sdk/stores/documents`, or
+`@tearleads/client-sdk/stores/container-contents`, instead of importing
+their implementation modules or nested workflow/store implementation files.
 Shared sync coordination helpers that cross host test/runtime boundaries belong
 behind `@tearleads/client-sdk/workflows/sync`.
 
