@@ -1,8 +1,8 @@
 import type { Tearleads, TearleadsDatabaseStatus } from "@tearleads/client-sdk";
 import {
-  createModuleSQLiteWorkerRuntime,
+  createModuleSQLiteRuntime,
+  type SQLiteRuntime,
   type SQLiteWorkerClient,
-  type SQLiteWorkerRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import {
   createContext,
@@ -32,7 +32,7 @@ interface DatabaseContextValue {
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
 function destroyRuntime(
-  runtimeRef: RefObject<SQLiteWorkerRuntime | null>,
+  runtimeRef: RefObject<SQLiteRuntime | null>,
   bootingRef: RefObject<boolean>,
   currentDbNameRef: RefObject<string | null>,
   tearleads: Tearleads,
@@ -54,8 +54,8 @@ function destroyRuntime(
   setStatus(nextStatus);
 }
 
-async function bootSQLiteWorkerRuntime(
-  runtime: SQLiteWorkerRuntime,
+async function bootSQLiteRuntime(
+  runtime: SQLiteRuntime,
   dbName: string,
   log: (message: string) => void,
 ) {
@@ -70,7 +70,7 @@ async function bootSQLiteWorkerRuntime(
 
 function configureSdkSQLiteRuntime(
   tearleads: Tearleads,
-  runtime: SQLiteWorkerRuntime,
+  runtime: SQLiteRuntime,
   status: SQLiteRuntimeStatus,
 ) {
   tearleads.database.configure({
@@ -80,9 +80,9 @@ function configureSdkSQLiteRuntime(
   });
 }
 
-function completeSQLiteWorkerRuntimeBoot(params: {
-  runtime: SQLiteWorkerRuntime;
-  runtimeRef: RefObject<SQLiteWorkerRuntime | null>;
+function completeSQLiteRuntimeBoot(params: {
+  runtime: SQLiteRuntime;
+  runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
   tearleads: Tearleads;
   setStatus: (value: SQLiteRuntimeStatus) => void;
@@ -103,9 +103,9 @@ function completeSQLiteWorkerRuntimeBoot(params: {
   log("Worker spawned");
 }
 
-function failSQLiteWorkerRuntimeBoot(params: {
-  runtime: SQLiteWorkerRuntime;
-  runtimeRef: RefObject<SQLiteWorkerRuntime | null>;
+function failSQLiteRuntimeBoot(params: {
+  runtime: SQLiteRuntime;
+  runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
   tearleads: Tearleads;
   setStatus: (value: SQLiteRuntimeStatus) => void;
@@ -124,8 +124,8 @@ function failSQLiteWorkerRuntimeBoot(params: {
   setStatus("error");
 }
 
-function useDestroySQLiteWorkerRuntime(params: {
-  runtimeRef: RefObject<SQLiteWorkerRuntime | null>;
+function useDestroySQLiteRuntime(params: {
+  runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
   currentDbNameRef: RefObject<string | null>;
   tearleads: Tearleads;
@@ -168,10 +168,10 @@ function useDestroySQLiteWorkerRuntime(params: {
   );
 }
 
-function useSQLiteWorkerRuntimeLifecycle(
+function useSQLiteRuntimeLifecycle(
   dbName: string | null,
   status: SQLiteRuntimeStatus,
-  runtimeRef: RefObject<SQLiteWorkerRuntime | null>,
+  runtimeRef: RefObject<SQLiteRuntime | null>,
   bootingRef: RefObject<boolean>,
   currentDbNameRef: RefObject<string | null>,
   killedRef: RefObject<boolean>,
@@ -214,8 +214,8 @@ function useSQLiteWorkerRuntimeLifecycle(
   }, [destroyCurrentRuntime]);
 }
 
-function useManagedSQLiteWorkerRuntime(
-  createSQLiteWorkerRuntime: () => SQLiteWorkerRuntime,
+function useManagedSQLiteRuntime(
+  createSQLiteRuntime: () => SQLiteRuntime,
   dbName: string | null,
   log: (message: string) => void,
   tearleads: Tearleads,
@@ -223,11 +223,11 @@ function useManagedSQLiteWorkerRuntime(
   const [status, setStatus] = useState<SQLiteRuntimeStatus>("idle");
   const [id, setId] = useState<string | null>(null);
   const [client, setClient] = useState<DatabaseContextValue["client"]>(null);
-  const runtimeRef = useRef<SQLiteWorkerRuntime | null>(null);
+  const runtimeRef = useRef<SQLiteRuntime | null>(null);
   const bootingRef = useRef(false);
   const currentDbNameRef = useRef<string | null>(null);
   const killedRef = useRef(false);
-  const destroyCurrentRuntime = useDestroySQLiteWorkerRuntime({
+  const destroyCurrentRuntime = useDestroySQLiteRuntime({
     runtimeRef,
     bootingRef,
     currentDbNameRef,
@@ -247,16 +247,16 @@ function useManagedSQLiteWorkerRuntime(
     currentDbNameRef.current = dbName;
 
     try {
-      const runtime = createSQLiteWorkerRuntime();
+      const runtime = createSQLiteRuntime();
       runtimeRef.current = runtime;
       configureSdkSQLiteRuntime(tearleads, runtime, "idle");
       setId(runtime.id);
       setClient(runtime.client);
       setStatus("idle");
 
-      void bootSQLiteWorkerRuntime(runtime, dbName, log)
+      void bootSQLiteRuntime(runtime, dbName, log)
         .then(() => {
-          completeSQLiteWorkerRuntimeBoot({
+          completeSQLiteRuntimeBoot({
             runtime,
             runtimeRef,
             bootingRef,
@@ -267,7 +267,7 @@ function useManagedSQLiteWorkerRuntime(
           });
         })
         .catch((error) => {
-          failSQLiteWorkerRuntimeBoot({
+          failSQLiteRuntimeBoot({
             runtime,
             runtimeRef,
             bootingRef,
@@ -282,7 +282,7 @@ function useManagedSQLiteWorkerRuntime(
       tearleads.database.clear("error");
       setStatus("error");
     }
-  }, [createSQLiteWorkerRuntime, dbName, log, tearleads]);
+  }, [createSQLiteRuntime, dbName, log, tearleads]);
 
   const killWorker = useCallback(() => {
     if (!runtimeRef.current) {
@@ -294,7 +294,7 @@ function useManagedSQLiteWorkerRuntime(
     log("Worker killed");
   }, [destroyCurrentRuntime, log]);
 
-  useSQLiteWorkerRuntimeLifecycle(
+  useSQLiteRuntimeLifecycle(
     dbName,
     status,
     runtimeRef,
@@ -315,7 +315,7 @@ function useManagedSQLiteWorkerRuntime(
 }
 
 export function DatabaseProvider({ children }: PropsWithChildren) {
-  const { createSQLiteWorkerRuntime = createModuleSQLiteWorkerRuntime } =
+  const { createSQLiteRuntime = createModuleSQLiteRuntime } =
     useAppHostConfig();
   const tearleads = useTearleads();
   const { log } = useLog();
@@ -324,8 +324,8 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     signingFingerprint === null
       ? null
       : `/app-identity-${signingFingerprint}.db`;
-  const value = useManagedSQLiteWorkerRuntime(
-    createSQLiteWorkerRuntime,
+  const value = useManagedSQLiteRuntime(
+    createSQLiteRuntime,
     dbName,
     log,
     tearleads,

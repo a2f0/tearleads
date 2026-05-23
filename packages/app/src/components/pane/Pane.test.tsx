@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { createModuleSQLiteWorkerRuntime } from "@tearleads/client-sdk/sqlite";
+import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import {
   cleanup,
   fireEvent,
@@ -27,7 +27,7 @@ function renderPane() {
         <PaneProvider
           hostConfig={
             new AppHostConfig("http://localhost:3001", wsUrl, () =>
-              createModuleSQLiteWorkerRuntime({
+              createModuleSQLiteRuntime({
                 workerConstructor: MockWorker,
               }),
             )

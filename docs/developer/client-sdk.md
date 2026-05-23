@@ -13,11 +13,11 @@ Create one SDK instance for the active client environment:
 ```ts
 import { Tearleads } from "@tearleads/client-sdk";
 import {
-  createModuleSQLiteWorkerRuntime,
-  type SQLiteWorkerRuntime,
+  createModuleSQLiteRuntime,
+  type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 
-const sqliteRuntime: SQLiteWorkerRuntime = createModuleSQLiteWorkerRuntime();
+const sqliteRuntime: SQLiteRuntime = createModuleSQLiteRuntime();
 await sqliteRuntime.client.init({
   dbName: "/app-identity.db",
   cipher: "chacha20",
@@ -143,25 +143,25 @@ Browser and Electron hosts should create worker-backed SQLite runtimes through
 the SDK SQLite facade:
 
 ```ts
-import { createModuleSQLiteWorkerRuntime } from "@tearleads/client-sdk/sqlite";
+import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 ```
 
-`SQLiteWorkerRuntime` is the host lifecycle object with `{ id, client,
+`SQLiteRuntime` is the host lifecycle object with `{ id, client,
 destroy() }`. The lower-level `@tearleads/sqlite-worker` package still owns the
 worker thread implementation, but host application code should prefer the SDK
 facade so database setup, executor contracts, and workflow runtime integration
 stay behind one developer-facing package.
 
-The SQLite facade intentionally aliases the lower-level worker runtime names
-into SDK vocabulary:
+The SQLite facade intentionally aliases the lower-level database runtime names
+into SDK SQLite vocabulary:
 
 | SDK export | Use for |
 | --- | --- |
-| `createModuleSQLiteWorkerRuntime(options?)` | Creating the default module-worker runtime, optionally with `workerUrl` or a custom `workerConstructor` |
-| `createSQLiteWorkerRuntime(worker)` | Wrapping a host-created terminable worker-like object |
-| `SQLiteWorkerRuntime` | The `{ id, client, destroy() }` lifecycle contract returned by both runtime factories |
+| `createModuleSQLiteRuntime(options?)` | Creating the default module-worker runtime, optionally with `workerUrl` or a custom `workerConstructor` |
+| `createSQLiteRuntime(worker)` | Wrapping a host-created terminable worker-like object |
+| `SQLiteRuntime` | The `{ id, client, destroy() }` lifecycle contract returned by both runtime factories |
 | `SQLiteWorkerClient` | The worker client contract accepted by `database.client` through `ExecSqlClientLike` |
-| `CreateModuleSQLiteWorkerRuntimeOptions`, `SQLiteModuleWorkerConstructor`, `SQLiteModuleWorkerLike` | Host adapter types for custom module-worker construction |
+| `CreateModuleSQLiteRuntimeOptions`, `SQLiteModuleWorkerConstructor`, `SQLiteModuleWorkerLike` | Host adapter types for custom module-worker construction |
 
 Host runtime code should use these aliases instead of importing
 `createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or
