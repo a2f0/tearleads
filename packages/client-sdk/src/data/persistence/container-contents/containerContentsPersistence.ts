@@ -103,6 +103,10 @@ export interface ContainerContentsPersistence {
   listPendingCreateIntents: (
     execSql: ExecSql,
   ) => Promise<ContainerCreateIntentRecord[]>;
+  listContainerIdsWithPendingUpdates: (
+    execSql: ExecSql,
+    containerIds: ReadonlyArray<string>,
+  ) => Promise<string[]>;
   listPendingUpdates: (
     execSql: ExecSql,
     containerId: string,
@@ -722,6 +726,26 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       .orderBy(asc(containerCreateIntents.createdAt));
 
     return rows.map((row) => mapContainerCreateIntentRecord(row));
+  },
+  async listContainerIdsWithPendingUpdates(execSql, containerIds) {
+    const uniqueContainerIds = Array.from(new Set(containerIds));
+    if (uniqueContainerIds.length === 0) {
+      return [];
+    }
+
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    const rows = await db
+      .selectDistinct({ containerId: documentPendingUpdates.localId })
+      .from(documentPendingUpdates)
+      .where(
+        and(
+          eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+          inArray(documentPendingUpdates.localId, uniqueContainerIds),
+        ),
+      )
+      .orderBy(asc(documentPendingUpdates.localId));
+
+    return rows.map((row) => row.containerId);
   },
   async recordCreateIntentError(execSql, containerId, message) {
     await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {

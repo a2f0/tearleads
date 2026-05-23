@@ -78,6 +78,7 @@ type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void; execSql: ExecSql };
 type ListedContainer = ContainerSummary;
 type TestContainerRecord = Parameters<typeof saveExplorerContainer>[2];
+type TestSaveContainerOptions = Parameters<typeof saveExplorerContainer>[4];
 const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
 
 function listedContainer(
@@ -134,12 +135,14 @@ async function loadContainers(
 async function saveContainer(
   execSql: ExecSql,
   container: TestContainerRecord,
+  options?: TestSaveContainerOptions,
 ): Promise<TestContainerRecord> {
   return saveExplorerContainer(
     execSql,
     defaultExplorerPersistence,
     container,
     null,
+    options,
   );
 }
 
@@ -1243,11 +1246,17 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
     };
     const syncAgent = createExplorerSyncAgent({
       host: {
-        persistContainerState: async (containerState) => {
+        persistContainerState: async (
+          containerState,
+          _patch,
+          _updateView,
+          saveOptions,
+        ) => {
           await defaultExplorerPersistence.saveContainer(
             runtime.execSql,
             containerState.container,
             containerState.record,
+            saveOptions,
           );
           return containerState.record;
         },
@@ -1304,6 +1313,20 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
     expect(snapshotUpdateCount).toBe(1);
     expect(state.containersById.size).toBe(2);
     expect(cachedPrincipalBatches).toEqual([2]);
+    await expect(loadContainers(runtime.execSql)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "container-a",
+          localUpdatedAt: TEST_SYNC_TIMESTAMP,
+          serverUpdatedAt: TEST_SYNC_TIMESTAMP,
+        }),
+        expect.objectContaining({
+          id: "container-b",
+          localUpdatedAt: TEST_SYNC_TIMESTAMP,
+          serverUpdatedAt: TEST_SYNC_TIMESTAMP,
+        }),
+      ]),
+    );
   } finally {
     runtime.close();
   }
@@ -1340,11 +1363,17 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
     };
     const syncAgent = createExplorerSyncAgent({
       host: {
-        persistContainerState: async (containerState) => {
+        persistContainerState: async (
+          containerState,
+          _patch,
+          _updateView,
+          saveOptions,
+        ) => {
           await defaultExplorerPersistence.saveContainer(
             runtime.execSql,
             containerState.container,
             containerState.record,
+            saveOptions,
           );
           return containerState.record;
         },
@@ -2589,6 +2618,15 @@ test("explorer store refreshes remote containers on demand after initialization"
           ),
       "Explorer refresh did not hydrate shared remote child container.",
     );
+    const refreshedNodes = createdStore.getSnapshot().nodes;
+    expect(
+      refreshedNodes.find((node) => node.id === "shared-root-container")
+        ?.syncState,
+    ).toEqual(createExplorerObjectSyncState({}));
+    expect(
+      refreshedNodes.find((node) => node.id === "shared-child-container")
+        ?.syncState,
+    ).toEqual(createExplorerObjectSyncState({}));
 
     expect(listContainersCalls).toBeGreaterThanOrEqual(2);
     expect(
@@ -2611,6 +2649,216 @@ test("explorer store refreshes remote containers on demand after initialization"
       id: "shared-root-container",
       updatedAt: "2026-05-05T00:00:00.000Z",
     });
+  } finally {
+    if (store) {
+      runtime.dbStatus = "terminated";
+      store.updateRuntime(runtime);
+    }
+    runtime.close();
+  }
+});
+
+test("explorer hydration repairs stale local timestamps for remote containers without pending metadata", async () => {
+  const runtime = await createSqlRuntime();
+  const remoteUpdatedAt = "2026-05-05T00:00:00.000Z";
+  const staleLocalUpdatedAt = "2026-05-05T00:00:01.000Z";
+  const listContainerIdsWithPendingUpdatesCalls: string[][] = [];
+  let listPendingUpdateCalls = 0;
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+  const persistence: typeof defaultExplorerPersistence = {
+    ...defaultExplorerPersistence,
+    async listContainerIdsWithPendingUpdates(execSql, containerIds) {
+      listContainerIdsWithPendingUpdatesCalls.push([...containerIds].sort());
+      return defaultExplorerPersistence.listContainerIdsWithPendingUpdates(
+        execSql,
+        containerIds,
+      );
+    },
+    async listPendingUpdates(execSql, containerId) {
+      listPendingUpdateCalls += 1;
+      return defaultExplorerPersistence.listPendingUpdates(
+        execSql,
+        containerId,
+      );
+    },
+  };
+
+  async function saveStaleRemoteContainer(input: {
+    id: string;
+    metadataAccessStateHash: string;
+    metadataDocumentId: string;
+    name: string;
+    parentId: string | null;
+  }) {
+    const { initialUpdate } = await createInitializedContainerMetadataDocument(
+      input.id,
+      {
+        icon: null,
+        name: input.name,
+      },
+    );
+    await saveContainer(
+      runtime.execSql,
+      {
+        id: input.id,
+        icon: null,
+        metadataDocumentId: input.metadataDocumentId,
+        name: input.name,
+        organizationId: "org-2",
+        parentId: input.parentId,
+      },
+      {
+        localUpdatedAt: staleLocalUpdatedAt,
+        serverTimestamps: {
+          createdAt: remoteUpdatedAt,
+          updatedAt: remoteUpdatedAt,
+        },
+      },
+    );
+    await saveDocumentRecord(
+      runtime.execSql,
+      {
+        appKind: "container-metadata",
+        localId: input.id,
+      },
+      {
+        accessEpoch: 1,
+        accessStateHash: input.metadataAccessStateHash,
+        documentId: input.metadataDocumentId,
+        id: input.id,
+        lastCommitLsn: null,
+        loroSnapshot: bytesToBase64(initialUpdate),
+      },
+      staleLocalUpdatedAt,
+    );
+  }
+
+  runtime.isAuthenticated = true;
+  runtime.online = true;
+  runtime.apiClient = createMockApiClient({
+    ...runtime.apiClient,
+    listContainers: async (options = {}) =>
+      options.parentId === null || options.parentId === undefined
+        ? listContainersResponse([
+            listedContainer({
+              id: "shared-root-container",
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "shared-root-access-state-hash-1",
+              metadataDocumentId: "shared-root-metadata-document",
+              organizationId: "org-2",
+              parentId: null,
+              updatedAt: remoteUpdatedAt,
+            }),
+          ])
+        : listContainersResponse(
+            options.parentId === "shared-root-container"
+              ? [
+                  listedContainer({
+                    id: "shared-child-container",
+                    metadataAccessEpoch: 1,
+                    metadataAccessStateHash: "shared-child-access-state-hash-1",
+                    metadataDocumentId: "shared-child-metadata-document",
+                    organizationId: "org-2",
+                    parentId: "shared-root-container",
+                    updatedAt: remoteUpdatedAt,
+                  }),
+                  listedContainer({
+                    id: "shared-child-container-b",
+                    metadataAccessEpoch: 1,
+                    metadataAccessStateHash:
+                      "shared-child-b-access-state-hash-1",
+                    metadataDocumentId: "shared-child-b-metadata-document",
+                    organizationId: "org-2",
+                    parentId: "shared-root-container",
+                    updatedAt: remoteUpdatedAt,
+                  }),
+                ]
+              : [],
+          ),
+  });
+
+  try {
+    await ensureContainerTables(runtime.execSql);
+    await ensureDocumentTables(runtime.execSql);
+    await saveStaleRemoteContainer({
+      id: "shared-root-container",
+      metadataAccessStateHash: "shared-root-access-state-hash-1",
+      metadataDocumentId: "shared-root-metadata-document",
+      name: "/",
+      parentId: null,
+    });
+    await saveStaleRemoteContainer({
+      id: "shared-child-container",
+      metadataAccessStateHash: "shared-child-access-state-hash-1",
+      metadataDocumentId: "shared-child-metadata-document",
+      name: "Shared child",
+      parentId: "shared-root-container",
+    });
+    await saveStaleRemoteContainer({
+      id: "shared-child-container-b",
+      metadataAccessStateHash: "shared-child-b-access-state-hash-1",
+      metadataDocumentId: "shared-child-b-metadata-document",
+      name: "Shared child B",
+      parentId: "shared-root-container",
+    });
+
+    const createdStore = createExplorerStore(runtime, persistence);
+    store = createdStore;
+    createdStore.updateRuntime(runtime);
+
+    await waitForCondition(() => {
+      const repairedNodes = createdStore
+        .getSnapshot()
+        .nodes.filter((node) =>
+          [
+            "shared-root-container",
+            "shared-child-container",
+            "shared-child-container-b",
+          ].includes(node.id),
+        );
+      return (
+        repairedNodes.length === 3 &&
+        repairedNodes.every((node) => node.syncState.status === "synced")
+      );
+    }, "Explorer hydration did not repair stale local remote-container timestamps.");
+
+    const refreshedNodes = createdStore.getSnapshot().nodes;
+    expect(
+      refreshedNodes.find((node) => node.id === "shared-root-container")
+        ?.syncState,
+    ).toEqual(createExplorerObjectSyncState({}));
+    expect(
+      refreshedNodes.find((node) => node.id === "shared-child-container")
+        ?.syncState,
+    ).toEqual(createExplorerObjectSyncState({}));
+    expect(
+      refreshedNodes.find((node) => node.id === "shared-child-container-b")
+        ?.syncState,
+    ).toEqual(createExplorerObjectSyncState({}));
+    await expect(loadContainers(runtime.execSql)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "shared-root-container",
+          localUpdatedAt: remoteUpdatedAt,
+          serverUpdatedAt: remoteUpdatedAt,
+        }),
+        expect.objectContaining({
+          id: "shared-child-container",
+          localUpdatedAt: remoteUpdatedAt,
+          serverUpdatedAt: remoteUpdatedAt,
+        }),
+        expect.objectContaining({
+          id: "shared-child-container-b",
+          localUpdatedAt: remoteUpdatedAt,
+          serverUpdatedAt: remoteUpdatedAt,
+        }),
+      ]),
+    );
+    expect(listPendingUpdateCalls).toBe(0);
+    expect(listContainerIdsWithPendingUpdatesCalls).toContainEqual([
+      "shared-child-container",
+      "shared-child-container-b",
+    ]);
   } finally {
     if (store) {
       runtime.dbStatus = "terminated";

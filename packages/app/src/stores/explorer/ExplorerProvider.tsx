@@ -44,8 +44,14 @@ export function createExplorerStore(
   const state = createExplorerStoreState(initialRuntime, persistence);
   const syncAgent = createExplorerSyncAgent({
     host: {
-      persistContainerState: (containerState, patch, updateView) =>
-        persistContainerState(state, containerState, patch, updateView),
+      persistContainerState: (containerState, patch, updateView, saveOptions) =>
+        persistContainerState(
+          state,
+          containerState,
+          patch,
+          updateView,
+          saveOptions,
+        ),
       updateSnapshot: () => updateExplorerSnapshot(state),
     },
     state,

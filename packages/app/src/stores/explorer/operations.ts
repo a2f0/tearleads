@@ -15,17 +15,23 @@ import { updateExplorerSnapshot } from "./state";
 import type { ExplorerShareAccessLevel, ExplorerStoreState } from "./types";
 import { isContainerInSubtree, toContainerNode } from "./utils";
 
+type PersistContainerSaveOptions = Parameters<
+  typeof persistContainerMetadataStateFromRuntime
+>[0]["saveOptions"];
+
 export async function persistContainerState(
   state: ExplorerStoreState,
   containerState: ContainerState,
   patch: Partial<ContainerMetadataPatch> = {},
   updateView = true,
+  saveOptions?: PersistContainerSaveOptions,
 ): Promise<ContainerDocumentRecord> {
   const persisted = await persistContainerMetadataStateFromRuntime({
     metadataState: containerState,
     patch,
     persistence: state.persistence,
     runtime: state.runtime,
+    saveOptions,
   });
   containerState.container = persisted.container;
   containerState.record = persisted.record;

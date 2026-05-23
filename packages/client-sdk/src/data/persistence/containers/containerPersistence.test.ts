@@ -92,6 +92,37 @@ test("container display name lookup only returns requested local containers", as
   }
 });
 
+test("containerContents pending update lookup batches requested container ids", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-pending-update-batch-lookup-test",
+  );
+
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.enqueuePendingUpdate(execSql, {
+      containerId: "container-3",
+      partialEndVersionVector: "container-3-end",
+      partialStartVersionVector: "container-3-start",
+      updateData: "container-3-update",
+    });
+    await sqlContainerContentsPersistence.enqueuePendingUpdate(execSql, {
+      containerId: "container-1",
+      partialEndVersionVector: "container-1-end",
+      partialStartVersionVector: "container-1-start",
+      updateData: "container-1-update",
+    });
+
+    await expect(
+      sqlContainerContentsPersistence.listContainerIdsWithPendingUpdates(
+        execSql,
+        ["container-1", "container-1", "container-2", "container-3"],
+      ),
+    ).resolves.toEqual(["container-1", "container-3"]);
+  } finally {
+    close();
+  }
+});
+
 test("containerContents document reassignment folds duplicate links into the target container", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-document-reassignment-conflict-test",

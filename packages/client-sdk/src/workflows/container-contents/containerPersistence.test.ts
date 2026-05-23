@@ -35,6 +35,9 @@ function createContainerContentsPersistence(input: {
     async listPendingCreateIntents() {
       return [];
     },
+    async listContainerIdsWithPendingUpdates() {
+      return [];
+    },
     async listPendingUpdates() {
       return [];
     },
