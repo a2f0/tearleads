@@ -20,6 +20,7 @@ export function createMockApiClient(
     authenticateWithChallenge: async () => null,
     bindBlobAttachment: async () => null,
     createContainer: async () => null,
+    createContainerWithMetadataDocument: async () => null,
     createDocument: async () => null,
     deleteContainer: async () => null,
     detachBlobAttachment: async () => null,

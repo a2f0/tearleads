@@ -5,7 +5,9 @@ import {
   isChallengeErrorResponse,
   isChallengeResponse,
   isCompleteMultipartBlobStageResponse,
+  isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
+  isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isDocumentCreateResponse,
@@ -816,6 +818,33 @@ function createContainerKekResponse(overrides = {}) {
   };
 }
 
+function createContainerMutationResponse(overrides = {}) {
+  return {
+    containerId: "550e8400-e29b-41d4-a716-446655440000",
+    createdAt: new Date().toISOString(),
+    organizationId: "550e8400-e29b-41d4-a716-446655440099",
+    parentId: "550e8400-e29b-41d4-a716-446655440098",
+    updatedAt: new Date().toISOString(),
+    manifestHead: {
+      epoch: 1,
+      manifestHash: "container-manifest-hash",
+    },
+    accessManifest: {
+      event: {
+        event: { eventType: "container.create" },
+        body: { eventType: "container.create" },
+        eventHash: "container-event-hash",
+      },
+      manifest: { objectType: "container" },
+      manifestHash: "container-manifest-hash",
+      state: { containerId: "550e8400-e29b-41d4-a716-446655440000" },
+    },
+    containerKek: createContainerKekResponse(),
+    referencedPrincipalHeads: [],
+    ...overrides,
+  };
+}
+
 function createContainerWriterProjectionResponse(overrides = {}) {
   return {
     containerId: "550e8400-e29b-41d4-a716-446655440000",
@@ -858,6 +887,31 @@ test("isDocumentCreateResponse", () => {
     }),
   ).toBe(false);
   expect(isDocumentCreateResponse(null)).toBe(false);
+});
+
+test("isContainerCreateWithMetadataDocumentResponse", () => {
+  const validResponse = {
+    container: createContainerMutationResponse(),
+    metadataDocument: createDocumentCreateResponse(),
+  };
+
+  expect(isContainerMutationResponse(validResponse.container)).toBe(true);
+  expect(isContainerCreateWithMetadataDocumentResponse(validResponse)).toBe(
+    true,
+  );
+  expect(
+    isContainerCreateWithMetadataDocumentResponse({
+      ...validResponse,
+      container: { containerId: "550e8400-e29b-41d4-a716-446655440000" },
+    }),
+  ).toBe(false);
+  expect(
+    isContainerCreateWithMetadataDocumentResponse({
+      ...validResponse,
+      metadataDocument: { id: "550e8400-e29b-41d4-a716-446655440001" },
+    }),
+  ).toBe(false);
+  expect(isContainerCreateWithMetadataDocumentResponse(null)).toBe(false);
 });
 
 test("isDocumentLinkSetMutationResponse", () => {

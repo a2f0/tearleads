@@ -1,5 +1,9 @@
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type {
+  ContainerCreateWithMetadataDocumentRequest,
+  ContainerMutationRequest,
+} from "@tearleads/validators/request";
 import {
+  isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
 } from "@tearleads/validators/response";
@@ -23,6 +27,18 @@ export function createContainer(
   input: ContainerMutationRequest,
 ) {
   return postContainerMutation(request, "/containers", input);
+}
+
+export function createContainerWithMetadataDocument(
+  request: RequestFn,
+  input: ContainerCreateWithMetadataDocumentRequest,
+) {
+  return request(
+    "/containers/with-metadata-document",
+    isContainerCreateWithMetadataDocumentResponse,
+    "POST",
+    JSON.stringify(input),
+  );
 }
 
 export function shareContainer(

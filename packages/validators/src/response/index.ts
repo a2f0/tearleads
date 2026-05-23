@@ -54,6 +54,10 @@ export {
   type ListContainersResponse,
 } from "./container";
 export {
+  type ContainerCreateWithMetadataDocumentResponse,
+  isContainerCreateWithMetadataDocumentResponse,
+} from "./containerMetadata";
+export {
   type ContainerDocumentSummary,
   type ContainerDocumentSyncTombstone,
   isListContainerDocumentsResponse,

@@ -9,6 +9,7 @@ import {
   isBlobAttachmentDetachRequest,
   isChallengeRequest,
   isCompleteMultipartBlobStageRequest,
+  isContainerCreateWithMetadataDocumentRequest,
   isCreateOrganizationGroupRequest,
   isDocumentContentKeyBundleRequest,
   isDocumentCreateRequest,
@@ -635,6 +636,36 @@ test("isDocumentCreateRequest", () => {
     }),
   ).toBe(false);
   expect(isDocumentCreateRequest(null)).toBe(false);
+});
+
+test("isContainerCreateWithMetadataDocumentRequest", () => {
+  const validRequest = {
+    container: createContainerMutationRequest(),
+    metadataDocument: {
+      event: { eventType: "document.link" },
+      body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
+      expectedManifestHash: "manifest-hash",
+      manifest: { objectType: "document", objectId: "doc-1" },
+      previousManifest: null,
+      targetContainerPath: [{ containerId: "container-1" }],
+      contentKeyBundle: createDocumentContentKeyBundle(),
+    },
+  };
+
+  expect(isContainerCreateWithMetadataDocumentRequest(validRequest)).toBe(true);
+  expect(
+    isContainerCreateWithMetadataDocumentRequest({
+      ...validRequest,
+      container: { event: { eventType: "container.create" } },
+    }),
+  ).toBe(false);
+  expect(
+    isContainerCreateWithMetadataDocumentRequest({
+      ...validRequest,
+      metadataDocument: { event: { eventType: "document.link" } },
+    }),
+  ).toBe(false);
+  expect(isContainerCreateWithMetadataDocumentRequest(null)).toBe(false);
 });
 
 test("isDocumentLinkSetMutationRequest", () => {

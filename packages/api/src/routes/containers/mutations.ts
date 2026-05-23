@@ -1,9 +1,12 @@
 import type { AccessEventType } from "@tearleads/crypto";
 import {
+  type ContainerCreateWithMetadataDocumentRequest,
   type ContainerMutationRequest,
+  isContainerCreateWithMetadataDocumentRequest,
   isContainerMutationRequest,
 } from "@tearleads/validators/request";
 import type {
+  ContainerCreateWithMetadataDocumentResponse,
   ContainerDeleteResponse,
   ContainerMutationResponse,
 } from "@tearleads/validators/response";
@@ -17,9 +20,11 @@ import {
 } from "../../services/containers/deleteContainer";
 import {
   ContainerMutationError,
+  createContainerWithMetadataDocument,
   mutateContainer,
 } from "../../services/containers/mutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { DocumentMutationError } from "../../workflows/documents/mutations/errors";
 
 interface ContainerMutationsRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -46,6 +51,28 @@ function validateContainerMutationRequest(
   }
 
   return value;
+}
+
+function validateContainerCreateWithMetadataDocumentRequest(
+  value: unknown,
+  c: JsonValidationContext,
+) {
+  if (!isContainerCreateWithMetadataDocumentRequest(value)) {
+    return c.json({ error: "Invalid request" }, 400);
+  }
+
+  return value;
+}
+
+function handleContainerMetadataCreateError(error: unknown) {
+  if (
+    error instanceof ContainerMutationError ||
+    error instanceof DocumentMutationError
+  ) {
+    return { error: error.message, status: error.status };
+  }
+
+  return null;
 }
 
 function addContainerMutationRoute({
@@ -92,6 +119,34 @@ export function createContainerMutationsRoute({
 }: ContainerMutationsRouteDeps) {
   const route = new Hono<SessionEnv>();
   const routeDeps = { requireAuth, route, runtime };
+
+  route.post(
+    "/containers/with-metadata-document",
+    requireAuth,
+    validator("json", validateContainerCreateWithMetadataDocumentRequest),
+    async (c) => {
+      const session = c.get("session");
+
+      try {
+        return c.json<ContainerCreateWithMetadataDocumentResponse>(
+          await createContainerWithMetadataDocument(runtime, {
+            fingerprint: session.fingerprint,
+            request: c.req.valid(
+              "json",
+            ) as ContainerCreateWithMetadataDocumentRequest,
+            userId: session.userId,
+          }),
+        );
+      } catch (error) {
+        const mutationError = handleContainerMetadataCreateError(error);
+        if (mutationError) {
+          return c.json({ error: mutationError.error }, mutationError.status);
+        }
+
+        throw error;
+      }
+    },
+  );
 
   addContainerMutationRoute({
     ...routeDeps,
