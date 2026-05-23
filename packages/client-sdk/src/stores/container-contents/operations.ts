@@ -8,19 +8,31 @@ import {
   renameContainerMetadataStateFromRuntime,
   shareContainerState,
   shareContainerStateWithGroup,
-} from "@tearleads/client-sdk/workflows/container-contents";
-import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
-import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
-import { updateExplorerSnapshot } from "./state";
-import type { ExplorerShareAccessLevel, ExplorerStoreState } from "./types";
+} from "../../workflows/container-contents";
+import { requestDomainDocumentSync } from "../documents";
+import { updateContainerContentsSnapshot } from "./state";
+import type {
+  ContainerContentsStoreSyncAgent,
+  ContainerState,
+} from "./syncAgent";
+import type {
+  ContainerContentsShareAccessLevel,
+  ContainerContentsStoreState,
+} from "./types";
 import { isContainerInSubtree, toContainerNode } from "./utils";
 
 type PersistContainerSaveOptions = Parameters<
   typeof persistContainerMetadataStateFromRuntime
 >[0]["saveOptions"];
 
+function getContainerContentsStoreLogLabel(
+  state: ContainerContentsStoreState,
+): string {
+  return state.logLabel ?? "Container contents";
+}
+
 export async function persistContainerState(
-  state: ExplorerStoreState,
+  state: ContainerContentsStoreState,
   containerState: ContainerState,
   patch: Partial<ContainerMetadataPatch> = {},
   updateView = true,
@@ -36,14 +48,14 @@ export async function persistContainerState(
   containerState.container = persisted.container;
   containerState.record = persisted.record;
   if (updateView) {
-    updateExplorerSnapshot(state);
+    updateContainerContentsSnapshot(state);
   }
   return persisted.record;
 }
 
 export async function createChildContainer(
-  state: ExplorerStoreState,
-  syncAgent: ExplorerSyncAgent,
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   parentId: string,
   name: string,
 ) {
@@ -79,16 +91,18 @@ export async function createChildContainer(
     created.containerState.container.id,
     created.containerState,
   );
-  updateExplorerSnapshot(state);
+  updateContainerContentsSnapshot(state);
   if (created.shouldRequestSync) {
     syncAgent.scheduleSync();
   }
-  state.runtime.log(`Explorer: created container "${trimmedName}"`);
+  state.runtime.log(
+    `${getContainerContentsStoreLogLabel(state)}: created container "${trimmedName}"`,
+  );
   return toContainerNode(created.containerState);
 }
 
-export async function deleteExplorerContainer(
-  state: ExplorerStoreState,
+export async function deleteContainer(
+  state: ContainerContentsStoreState,
   containerId: string,
 ) {
   if (state.runtime.dbStatus !== "ready" || !state.snapshot.ready) {
@@ -124,16 +138,16 @@ export async function deleteExplorerContainer(
   }
 
   state.containersById.delete(existingState.container.id);
-  updateExplorerSnapshot(state);
+  updateContainerContentsSnapshot(state);
   state.runtime.log(
-    `Explorer: deleted container "${existingState.container.name}"`,
+    `${getContainerContentsStoreLogLabel(state)}: deleted container "${existingState.container.name}"`,
   );
   return deletedNode;
 }
 
-export async function renameExplorerContainer(
-  state: ExplorerStoreState,
-  syncAgent: ExplorerSyncAgent,
+export async function renameContainer(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   name: string,
 ) {
@@ -167,15 +181,17 @@ export async function renameExplorerContainer(
 
   existingState.container = renamed.container;
   existingState.record = renamed.record;
-  updateExplorerSnapshot(state);
+  updateContainerContentsSnapshot(state);
   syncAgent.scheduleSync();
-  state.runtime.log(`Explorer: renamed container to "${trimmedName}"`);
+  state.runtime.log(
+    `${getContainerContentsStoreLogLabel(state)}: renamed container to "${trimmedName}"`,
+  );
   return toContainerNode(existingState);
 }
 
-export async function shareExplorerContainerWithUser(
-  state: ExplorerStoreState,
-  syncAgent: ExplorerSyncAgent,
+export async function shareContainerWithUser(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   userId: string,
 ) {
@@ -213,20 +229,22 @@ export async function shareExplorerContainerWithUser(
 
   existingState.container = shared.container;
   existingState.record = shared.record;
-  updateExplorerSnapshot(state);
+  updateContainerContentsSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();
-  state.runtime.log(`Explorer: shared container ${containerId} with ${userId}`);
+  state.runtime.log(
+    `${getContainerContentsStoreLogLabel(state)}: shared container ${containerId} with ${userId}`,
+  );
   return toContainerNode(existingState);
 }
 
-export async function shareExplorerContainerWithGroup(
-  state: ExplorerStoreState,
-  syncAgent: ExplorerSyncAgent,
+export async function shareContainerWithGroup(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   groupId: string,
-  accessLevel: ExplorerShareAccessLevel,
+  accessLevel: ContainerContentsShareAccessLevel,
 ) {
   if (
     state.runtime.dbStatus !== "ready" ||
@@ -262,19 +280,19 @@ export async function shareExplorerContainerWithGroup(
 
   existingState.container = shared.container;
   existingState.record = shared.record;
-  updateExplorerSnapshot(state);
+  updateContainerContentsSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();
   state.runtime.log(
-    `Explorer: shared container ${containerId} with group ${groupId}`,
+    `${getContainerContentsStoreLogLabel(state)}: shared container ${containerId} with group ${groupId}`,
   );
   return toContainerNode(existingState);
 }
 
-export async function moveExplorerContainer(
-  state: ExplorerStoreState,
-  syncAgent: ExplorerSyncAgent,
+export async function moveContainer(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   parentId: string,
 ) {
@@ -315,7 +333,8 @@ export async function moveExplorerContainer(
   requestDomainDocumentSync(state.runtime.domainScope);
   syncAgent.scheduleSync();
   state.runtime.log(
-    `Explorer: moved container ${containerId} under ${parentId}`,
+    `${getContainerContentsStoreLogLabel(state)}: moved container ${containerId} under ${parentId}`,
   );
-  return toContainerNode(existingState);
+  const latestState = state.containersById.get(containerId) ?? existingState;
+  return toContainerNode(latestState);
 }

@@ -1,9 +1,12 @@
-import type { ContainerContentsPersistence } from "@tearleads/client-sdk/workflows/container-contents";
-import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
+import type { ContainerContentsPersistence } from "../../workflows/container-contents";
 import type {
+  ContainerContentsStoreRuntime,
+  ContainerContentsStoreSyncAgent,
+} from "./syncAgent";
+import type {
+  ContainerContentsSnapshot,
+  ContainerContentsStoreState,
   ContainerNode,
-  ExplorerSnapshot,
-  ExplorerStoreState,
 } from "./types";
 import { getSnapshotNodes } from "./utils";
 
@@ -44,16 +47,18 @@ function areSnapshotNodesEqual(
   });
 }
 
-export function createExplorerStoreState(
-  initialRuntime: ExplorerRuntime,
+export function createContainerContentsStoreState(
+  initialRuntime: ContainerContentsStoreRuntime,
   persistence: ContainerContentsPersistence,
-): ExplorerStoreState {
+  logLabel?: string | undefined,
+): ContainerContentsStoreState {
   return {
     containersById: new Map(),
     initializePromise: null,
     initialized: false,
     lastEventCount: 0,
     listeners: new Set(),
+    logLabel,
     persistence,
     remoteHydrationPromise: null,
     resolveProjectionUserKey: initialRuntime.createProjectionUserKeyResolver(),
@@ -67,15 +72,15 @@ export function createExplorerStoreState(
   };
 }
 
-function emitExplorerStore(state: ExplorerStoreState) {
+function emitContainerContentsStore(state: ContainerContentsStoreState) {
   for (const listener of state.listeners) {
     listener();
   }
 }
 
-function setExplorerSnapshot(
-  state: ExplorerStoreState,
-  next: ExplorerSnapshot,
+function setContainerContentsSnapshot(
+  state: ContainerContentsStoreState,
+  next: ContainerContentsSnapshot,
 ) {
   if (
     next.ready === state.snapshot.ready &&
@@ -85,40 +90,42 @@ function setExplorerSnapshot(
   }
 
   state.snapshot = next;
-  emitExplorerStore(state);
+  emitContainerContentsStore(state);
 }
 
-export function updateExplorerSnapshot(state: ExplorerStoreState) {
-  setExplorerSnapshot(state, {
+export function updateContainerContentsSnapshot(
+  state: ContainerContentsStoreState,
+) {
+  setContainerContentsSnapshot(state, {
     nodes: getSnapshotNodes(state.containersById),
     ready: true,
   });
 }
 
-function resetExplorerStore(state: ExplorerStoreState) {
+function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.containersById = new Map();
   state.initialized = false;
   state.initializePromise = null;
   state.remoteHydrationPromise = null;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
-  setExplorerSnapshot(state, {
+  setContainerContentsSnapshot(state, {
     nodes: [],
     ready: false,
   });
 }
 
-export function subscribeToExplorerStore(
-  state: ExplorerStoreState,
+export function subscribeToContainerContentsStore(
+  state: ContainerContentsStoreState,
   listener: () => void,
 ) {
   state.listeners.add(listener);
   return () => state.listeners.delete(listener);
 }
 
-export function updateExplorerStoreRuntime(
-  state: ExplorerStoreState,
-  nextRuntime: ExplorerRuntime,
-  syncAgent: ExplorerSyncAgent,
+export function updateContainerContentsStoreRuntime(
+  state: ContainerContentsStoreState,
+  nextRuntime: ContainerContentsStoreRuntime,
+  syncAgent: ContainerContentsStoreSyncAgent,
 ) {
   const previousRuntime = state.runtime;
   if (nextRuntime.didProjectionKeyRuntimeChange(previousRuntime)) {
@@ -129,14 +136,14 @@ export function updateExplorerStoreRuntime(
 
   if (nextRuntime.dbStatus !== "ready") {
     if (state.snapshot.ready || state.initialized || state.initializePromise) {
-      resetExplorerStore(state);
+      resetContainerContentsStore(state);
     }
     state.lastEventCount = nextRuntime.events.length;
     return;
   }
 
   if (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) {
-    resetExplorerStore(state);
+    resetContainerContentsStore(state);
     state.lastEventCount = nextRuntime.events.length;
   }
 

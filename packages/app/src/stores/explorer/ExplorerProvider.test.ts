@@ -2,6 +2,15 @@ import { expect, test } from "bun:test";
 import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import {
+  type ContainerState,
+  createContainerContentsStore as createExplorerStore,
+  createContainerContentsStoreState as createExplorerStoreState,
+  createContainerContentsStoreSyncAgent as createExplorerSyncAgent,
+  type ContainerContentsStoreSyncState as ExplorerSyncState,
+  subscribeToContainerContentsStore as subscribeToExplorerStore,
+  updateContainerContentsSnapshot as updateExplorerSnapshot,
+} from "@tearleads/client-sdk/stores/container-contents";
+import {
   createContainerContentsSyncLane as createExplorerContainerContentsSyncLane,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
   createContainerDocumentObjectSyncState as createExplorerObjectSyncState,
@@ -62,17 +71,6 @@ import {
   assertWriteHeader,
 } from "../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { createExplorerStore } from "./ExplorerProvider";
-import {
-  type ContainerState,
-  createExplorerSyncAgent,
-  type ExplorerSyncState,
-} from "./explorerSyncAgent";
-import {
-  createExplorerStoreState,
-  subscribeToExplorerStore,
-  updateExplorerSnapshot,
-} from "./state";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void; execSql: ExecSql };

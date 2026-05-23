@@ -82,7 +82,7 @@ state, menu labels, component-local hooks, and React providers stay in
 | Facade | Classification | Boundary |
 | --- | --- | --- |
 | `workflows/documents`, `workflows/blobs`, `workflows/containers`, `workflows/principals`, `workflows/registration`, `workflows/sync` | Platform runtime | Protocol-facing client operations, local persistence orchestration, sync coordination, key verification, and registration bootstrap helpers |
-| `workflows/container-contents` | Platform read model and runtime | Container tree state, container metadata documents, document link/discovery read models, and container contents sync helpers. The Explorer mini-app adapts these into UI state in `packages/app`. |
+| `workflows/container-contents` | Platform read model and runtime | Container tree state, container metadata documents, document link/discovery read models, and container contents sync helpers. The container-contents store facade adapts these into UI state without React. |
 | `workflows/contacts` | Platform read model and runtime | Local address-book documents and key lookup helpers used by contacts sync and recipient selection without owning Contacts UI interactions |
 | `workflows/organizations` | Platform organization administration | Organization directory, groups, grants, usage, user-detail read models, and principal-policy mutation helpers; the Org Manager mini-app adapts these into product screens in `packages/app` |
 
@@ -209,6 +209,7 @@ Supported package entry points are:
 | `@tearleads/client-sdk/documents` | neutral document/blob contracts and document projector helpers |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
 | `@tearleads/client-sdk/stores/contacts` | React-free contacts store facade |
+| `@tearleads/client-sdk/stores/container-contents` | React-free container tree store facade |
 | `@tearleads/client-sdk/stores/documents` | React-free document store facade |
 | `@tearleads/client-sdk/workflows/blobs` | blob upload, hydration, and local blob stores |
 | `@tearleads/client-sdk/workflows/contacts` | contacts runtime and read/write helpers |

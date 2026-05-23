@@ -1,8 +1,8 @@
 import {
   type ContainerRecord,
   createContainerDocumentObjectSyncState,
-} from "@tearleads/client-sdk/workflows/container-contents";
-import type { ContainerState } from "./explorerSyncAgent";
+} from "../../workflows/container-contents";
+import type { ContainerState } from "./syncAgent";
 import type { ContainerNode } from "./types";
 
 function hasPendingContainerTimestamp(container: ContainerRecord): boolean {
