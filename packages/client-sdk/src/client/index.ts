@@ -9,7 +9,9 @@ export type {
 } from "./containerContents";
 export {
   TearleadsDatabase,
+  type TearleadsDatabaseListener,
   type TearleadsDatabaseOptions,
+  type TearleadsDatabaseSnapshot,
   type TearleadsDatabaseStatus,
 } from "./database";
 export type {
@@ -23,6 +25,7 @@ export {
 } from "./events";
 export type {
   TearleadsIdentity,
+  TearleadsIdentityListener,
   TearleadsIdentityOptions,
   TearleadsIdentitySnapshot,
 } from "./identity";
@@ -44,11 +47,14 @@ export type {
 export type {
   TearleadsSession,
   TearleadsSessionContext,
+  TearleadsSessionListener,
   TearleadsSessionRegistrationResult,
+  TearleadsSessionSnapshot,
   TearleadsUserSession,
 } from "./session";
 export { Tearleads, type TearleadsOptions } from "./Tearleads";
 export type {
   TearleadsRuntime,
+  TearleadsRuntimeListener,
   TearleadsWorkflowRuntimeInput,
 } from "./workflowRuntime";

@@ -3,12 +3,8 @@ import {
   type PropsWithChildren,
   useContext,
   useMemo,
+  useSyncExternalStore,
 } from "react";
-import { useNetworkState } from "../api/NetworkStateProvider";
-import { useCryptoSession } from "../crypto/CryptoSessionProvider";
-import { useDatabase } from "../db/DatabaseProvider";
-import { useEvents } from "../events/EventsProvider";
-import { useIdentity } from "../identity/IdentityProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 
 type SdkWorkflowRuntimeInput = ReturnType<
@@ -24,39 +20,23 @@ const AppDataContext = createContext<AppDataContextValue | null>(null);
 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
-  const { online } = useNetworkState();
-  const { client: dbClient, id: dbId, status: dbStatus } = useDatabase();
-  const { authToken, containerId, isAuthenticated, organizationId, userId } =
-    useCryptoSession();
-  const { encapsulationKeyPair, signingFingerprint, signingKeyPair } =
-    useIdentity();
-  const { events } = useEvents();
+  const runtimeVersion = useSyncExternalStore(
+    tearleads.runtime.subscribe,
+    () => tearleads.runtime.version,
+    () => tearleads.runtime.version,
+  );
   const runtimeInput = useMemo(
-    () => tearleads.runtime.input(containerId),
-    [
-      containerId,
-      dbClient,
-      dbId,
-      dbStatus,
-      encapsulationKeyPair,
-      events,
-      isAuthenticated,
-      online,
-      organizationId,
-      signingFingerprint,
-      signingKeyPair,
-      tearleads,
-      userId,
-    ],
+    () => tearleads.runtime.input(),
+    [runtimeVersion, tearleads],
   );
 
   const value = useMemo(
     () => ({
-      authToken,
-      dbId,
+      authToken: tearleads.session.authToken,
+      dbId: tearleads.database.id,
       ...runtimeInput,
     }),
-    [authToken, dbId, runtimeInput],
+    [runtimeInput, tearleads],
   );
 
   return (

@@ -23,6 +23,8 @@ export interface TearleadsIdentitySnapshot {
   signingKeyPair: SigningKeyPair | null;
 }
 
+export type TearleadsIdentityListener = () => void;
+
 export interface TearleadsIdentity {
   readonly encapsulationKeyPair: EncapsulationKeyPair | null;
   readonly signingFingerprint: string | null;
@@ -39,6 +41,7 @@ export interface TearleadsIdentity {
     signingFingerprint?: string | null | undefined;
     signingKeyPair: SigningKeyPair | null;
   }): Promise<TearleadsIdentitySnapshot>;
+  subscribe(listener: TearleadsIdentityListener): () => void;
 }
 
 export function createTearleadsIdentity(
@@ -51,8 +54,10 @@ export function createTearleadsIdentity(
 
 class TearleadsIdentityService implements TearleadsIdentity {
   private encapsulationKeyPairValue: EncapsulationKeyPair | null;
+  private readonly listeners = new Set<TearleadsIdentityListener>();
   private signingFingerprintValue: string | null;
   private signingKeyPairValue: SigningKeyPair | null;
+  private snapshotValue: TearleadsIdentitySnapshot;
 
   constructor(
     options: TearleadsIdentityOptions = {},
@@ -64,6 +69,7 @@ class TearleadsIdentityService implements TearleadsIdentity {
     this.encapsulationKeyPairValue = options.encapsulationKeyPair ?? null;
     this.signingFingerprintValue = options.signingFingerprint ?? null;
     this.signingKeyPairValue = options.signingKeyPair ?? null;
+    this.snapshotValue = this.createSnapshot();
     this.onIdentityChanged(this.signingFingerprintValue);
   }
 
@@ -80,18 +86,14 @@ class TearleadsIdentityService implements TearleadsIdentity {
   }
 
   get snapshot(): TearleadsIdentitySnapshot {
-    return {
-      encapsulationKeyPair: this.encapsulationKeyPairValue,
-      signingFingerprint: this.signingFingerprintValue,
-      signingKeyPair: this.signingKeyPairValue,
-    };
+    return this.snapshotValue;
   }
 
   destroy(): void {
     this.encapsulationKeyPairValue = null;
     this.signingFingerprintValue = null;
     this.signingKeyPairValue = null;
-    this.onIdentityChanged(null);
+    this.publishSnapshot();
     this.log("Key pair destroyed");
   }
 
@@ -114,7 +116,7 @@ class TearleadsIdentityService implements TearleadsIdentity {
     this.encapsulationKeyPairValue = parsed.encapsulationKeyPair;
     this.signingKeyPairValue = parsed.signingKeyPair;
     this.signingFingerprintValue = parsed.package.signingFingerprint;
-    this.onIdentityChanged(this.signingFingerprintValue);
+    this.publishSnapshot();
     this.log("Key package imported");
     return this.snapshot;
   }
@@ -130,14 +132,14 @@ class TearleadsIdentityService implements TearleadsIdentity {
   async refreshSigningFingerprint(): Promise<string | null> {
     if (!this.signingKeyPairValue) {
       this.signingFingerprintValue = null;
-      this.onIdentityChanged(null);
+      this.publishSnapshot();
       return null;
     }
 
     this.signingFingerprintValue = await toFingerprint(
       this.signingKeyPairValue.signingPublicKey,
     );
-    this.onIdentityChanged(this.signingFingerprintValue);
+    this.publishSnapshot();
     return this.signingFingerprintValue;
   }
 
@@ -153,9 +155,51 @@ class TearleadsIdentityService implements TearleadsIdentity {
     if (!this.signingFingerprintValue) {
       await this.refreshSigningFingerprint();
     } else {
-      this.onIdentityChanged(this.signingFingerprintValue);
+      this.publishSnapshot();
     }
 
     return this.snapshot;
+  }
+
+  subscribe = (listener: TearleadsIdentityListener): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  private createSnapshot(): TearleadsIdentitySnapshot {
+    return {
+      encapsulationKeyPair: this.encapsulationKeyPairValue,
+      signingFingerprint: this.signingFingerprintValue,
+      signingKeyPair: this.signingKeyPairValue,
+    };
+  }
+
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // Keep one subscriber failure from blocking later subscribers.
+      }
+    }
+  }
+
+  private publishSnapshot(): void {
+    const nextSnapshot = this.createSnapshot();
+    const previousSnapshot = this.snapshotValue;
+    if (
+      previousSnapshot.encapsulationKeyPair ===
+        nextSnapshot.encapsulationKeyPair &&
+      previousSnapshot.signingFingerprint === nextSnapshot.signingFingerprint &&
+      previousSnapshot.signingKeyPair === nextSnapshot.signingKeyPair
+    ) {
+      return;
+    }
+
+    this.snapshotValue = nextSnapshot;
+    this.onIdentityChanged(nextSnapshot.signingFingerprint);
+    this.notifyListeners();
   }
 }
