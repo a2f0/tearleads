@@ -459,7 +459,9 @@ export async function loadDocumentInfo(input: {
   ]);
 
   if (!projection) {
-    throw new Error("Document info could not be loaded.");
+    throw new Error(
+      `Document info projection was unavailable for local document ${input.localId} with remote document ${local.documentId}.`,
+    );
   }
 
   return {

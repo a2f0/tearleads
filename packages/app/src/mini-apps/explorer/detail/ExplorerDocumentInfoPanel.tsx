@@ -14,7 +14,17 @@ import type { ExplorerDocumentInfo } from "../../../stores/explorer/documentInfo
 import type { ContainerNode } from "../../../stores/explorer/types";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
-import { EXPLORER_LABELS } from "../labels";
+import {
+  EXPLORER_LABELS,
+  getExplorerDocumentInfoAttachmentKindLabel,
+  getExplorerDocumentInfoBundleStateLabel,
+  getExplorerDocumentInfoEpochLabel,
+  getExplorerDocumentInfoLinkedContainersLabel,
+  getExplorerDocumentInfoManifestHistoryLabel,
+  getExplorerDocumentInfoPathLengthLabel,
+  getExplorerDocumentInfoPendingChangesLabel,
+  getExplorerDocumentInfoTargetCountsLabel,
+} from "../labels";
 
 interface Props {
   containerId: string;
@@ -33,14 +43,6 @@ function compactId(value: string | null | undefined): string {
   return value.length <= 18
     ? value
     : `${value.slice(0, 10)}...${value.slice(-6)}`;
-}
-
-function yesNo(value: boolean): string {
-  return value ? "yes" : "no";
-}
-
-function countLabel(value: number, singular: string, plural: string): string {
-  return `${value.toLocaleString()} ${value === 1 ? singular : plural}`;
 }
 
 function unknownErrorMessage(error: unknown): string {
@@ -121,19 +123,18 @@ function ExplorerDocumentInfoLocalSection(params: {
   const { containerName, documentInfo, localId } = params;
   const local = documentInfo?.local;
   const bundleState = local
-    ? [
-        `manifest ${yesNo(local.hasDocumentManifestBundle)}`,
-        `content key ${yesNo(local.hasContentKeyBundle)}`,
-        `document KEK ${yesNo(local.hasDocumentKekTargets)}`,
-      ].join(", ")
+    ? getExplorerDocumentInfoBundleStateLabel({
+        hasContentKeyBundle: local.hasContentKeyBundle,
+        hasDocumentKekTargets: local.hasDocumentKekTargets,
+        hasDocumentManifestBundle: local.hasDocumentManifestBundle,
+      })
     : "-";
   const pendingChanges = local
-    ? [
-        countLabel(local.pendingUpdateCount, "update", "updates"),
-        `${countLabel(local.pendingAttachmentCount, "attachment", "attachments")} (${formatByteLength(
-          local.pendingAttachmentByteLength,
-        )})`,
-      ].join(", ")
+    ? getExplorerDocumentInfoPendingChangesLabel({
+        pendingAttachmentByteLength: local.pendingAttachmentByteLength,
+        pendingAttachmentCount: local.pendingAttachmentCount,
+        pendingUpdateCount: local.pendingUpdateCount,
+      })
     : "-";
 
   return (
@@ -243,34 +244,22 @@ function ExplorerDocumentInfoRemoteSecuritySection(params: {
           <DocumentInfoRow
             label={EXPLORER_LABELS.documentInfoDocumentManifestHistoryRow}
           >
-            {[
-              countLabel(
-                remoteInfo.documentManifestHistoryCount,
-                "document manifest",
-                "document manifests",
-              ),
-              countLabel(
+            {getExplorerDocumentInfoManifestHistoryLabel({
+              documentContainerManifestHistoryCount:
                 remoteInfo.documentContainerManifestHistoryCount,
-                "container manifest",
-                "container manifests",
-              ),
-            ].join(", ")}
+              documentManifestHistoryCount:
+                remoteInfo.documentManifestHistoryCount,
+            })}
           </DocumentInfoRow>
           <DocumentInfoRow
             label={EXPLORER_LABELS.documentInfoLinkedContainersRow}
           >
-            {[
-              countLabel(
-                remoteInfo.linkedContainerManifestCount,
-                "manifest",
-                "manifests",
-              ),
-              countLabel(
+            {getExplorerDocumentInfoLinkedContainersLabel({
+              linkedContainerKeyEpochCount:
                 remoteInfo.linkedContainerKeyEpochCount,
-                "key epoch",
-                "key epochs",
-              ),
-            ].join(", ")}
+              linkedContainerManifestCount:
+                remoteInfo.linkedContainerManifestCount,
+            })}
           </DocumentInfoRow>
           <DocumentInfoRow
             label={EXPLORER_LABELS.documentInfoContentKeyEpochRow}
@@ -290,18 +279,10 @@ function ExplorerDocumentInfoRemoteSecuritySection(params: {
             {compactId(remoteInfo.documentKeyTargetHash)}
           </DocumentInfoRow>
           <DocumentInfoRow label={EXPLORER_LABELS.documentInfoTargetCountRow}>
-            {[
-              countLabel(
-                remoteInfo.contentKeyTargetCount,
-                "content target",
-                "content targets",
-              ),
-              countLabel(
-                remoteInfo.documentKekTargetCount,
-                "KEK target",
-                "KEK targets",
-              ),
-            ].join(", ")}
+            {getExplorerDocumentInfoTargetCountsLabel({
+              contentKeyTargetCount: remoteInfo.contentKeyTargetCount,
+              documentKekTargetCount: remoteInfo.documentKekTargetCount,
+            })}
           </DocumentInfoRow>
         </tbody>
       </table>
@@ -340,7 +321,7 @@ function ExplorerDocumentInfoAuthorizingContainersSection(params: {
                     compactId(row.containerId)}
                 </td>
                 <td>
-                  {countLabel(row.pathLength, "path entry", "path entries")}
+                  {getExplorerDocumentInfoPathLengthLabel(row.pathLength)}
                 </td>
                 <td>
                   <div title={row.leafManifestHash ?? undefined}>
@@ -348,7 +329,7 @@ function ExplorerDocumentInfoAuthorizingContainersSection(params: {
                   </div>
                   <code title={row.containerKeyEpochId ?? undefined}>
                     {row.containerKeyEpoch
-                      ? `epoch ${row.containerKeyEpoch}`
+                      ? getExplorerDocumentInfoEpochLabel(row.containerKeyEpoch)
                       : "-"}
                   </code>
                 </td>
@@ -394,7 +375,11 @@ function ExplorerDocumentInfoAttachmentsSection(params: {
                 <tr
                   key={`${attachment.attachmentKind}:${attachment.slotId}:${attachment.storageKey}`}
                 >
-                  <td>{attachment.attachmentKind}</td>
+                  <td>
+                    {getExplorerDocumentInfoAttachmentKindLabel(
+                      attachment.attachmentKind,
+                    )}
+                  </td>
                   <td title={attachment.slotId}>
                     {compactId(attachment.slotId)}
                   </td>
@@ -413,7 +398,7 @@ function ExplorerDocumentInfoAttachmentsSection(params: {
             })}
             {remoteBindings.map((binding) => (
               <tr key={`remote:${binding.bindingId}`}>
-                <td>remote</td>
+                <td>{getExplorerDocumentInfoAttachmentKindLabel("remote")}</td>
                 <td title={binding.slotId}>{compactId(binding.slotId)}</td>
                 <td title={binding.blobId}>{compactId(binding.blobId)}</td>
                 <td title={binding.bindingId}>

@@ -8,6 +8,7 @@ import {
 } from "../../../components/shared/useContextMenuState";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import type { ContainerNode } from "../../../stores/explorer/types";
+import { EXPLORER_LABELS } from "../labels";
 import { getMoveTargetOptions } from "../targetOptions";
 
 export type ExplorerContextMenuTarget =
@@ -129,7 +130,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
       direction="down"
     >
       <MenuItem
-        label="Get Info"
+        label={EXPLORER_LABELS.documentInfoGetInfoAction}
         onClick={() => {
           closeContextMenu();
           openDocumentInfoRoute(
@@ -139,7 +140,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         }}
       />
       <MenuItem
-        label="Link"
+        label={EXPLORER_LABELS.documentLinkAction}
         disabled={!canLinkSelectedDocument}
         onClick={() => {
           closeContextMenu();
@@ -147,7 +148,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         }}
       />
       <MenuItem
-        label="Move"
+        label={EXPLORER_LABELS.documentMoveAction}
         disabled={!canMoveSelectedDocument}
         onClick={() => {
           closeContextMenu();
@@ -155,7 +156,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         }}
       />
       <MenuItem
-        label="Back to Container"
+        label={EXPLORER_LABELS.documentBackToContainerAction}
         onClick={() => {
           closeContextMenu();
           selectContainer(contextMenu.id.containerId);

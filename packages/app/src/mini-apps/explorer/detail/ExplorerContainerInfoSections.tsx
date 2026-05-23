@@ -14,7 +14,12 @@ import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { MiniAppWindowPosition } from "../../bus";
 import {
   EXPLORER_LABELS,
+  getExplorerContainerInfoEventLabel,
+  getExplorerContainerInfoGrantSummaryLabel,
   getExplorerContainerInfoInheritedGrantSource,
+  getExplorerContainerInfoManifestHistoryLabel,
+  getExplorerContainerInfoPathSummaryLabel,
+  getExplorerContainerInfoRecipientSummaryLabel,
 } from "../labels";
 
 type ExplorerContainerInfoGrantSubjectType = NonNullable<
@@ -288,15 +293,19 @@ function ExplorerContainerInfoSecuritySection(params: {
           <tr>
             <th>{EXPLORER_LABELS.containerInfoManifestHistoryRow}</th>
             <td>
-              {security.currentManifestHistoryCount.toLocaleString()} entries
+              {getExplorerContainerInfoManifestHistoryLabel(
+                security.currentManifestHistoryCount,
+              )}
             </td>
           </tr>
           <tr>
             <th>{EXPLORER_LABELS.containerInfoPathRow}</th>
             <td>
-              {security.pathLength.toLocaleString()} entries,{" "}
-              {security.currentReferencedPrincipalCount.toLocaleString()}{" "}
-              referenced principals
+              {getExplorerContainerInfoPathSummaryLabel({
+                pathLength: security.pathLength,
+                referencedPrincipalCount:
+                  security.currentReferencedPrincipalCount,
+              })}
             </td>
           </tr>
         </tbody>
@@ -321,7 +330,9 @@ function ExplorerContainerInfoSecuritySection(params: {
               <td title={entry.manifestHash}>
                 <div>{compactPrincipalId(entry.manifestHash)}</div>
                 <code title={entry.eventHash}>
-                  event {compactPrincipalId(entry.eventHash)}
+                  {getExplorerContainerInfoEventLabel(
+                    compactPrincipalId(entry.eventHash),
+                  )}
                 </code>
               </td>
               <td title={entry.containerKeyEpochId}>
@@ -329,11 +340,15 @@ function ExplorerContainerInfoSecuritySection(params: {
                 <code>{compactPrincipalId(entry.containerKeyEpochId)}</code>
               </td>
               <td>
-                {entry.recipientTargetCount.toLocaleString()} targets,{" "}
-                {entry.wrapCount.toLocaleString()} wraps
+                {getExplorerContainerInfoRecipientSummaryLabel({
+                  recipientTargetCount: entry.recipientTargetCount,
+                  wrapCount: entry.wrapCount,
+                })}
                 <br />
-                {entry.directGrantCount.toLocaleString()} grants,{" "}
-                {entry.referencedPrincipalCount.toLocaleString()} principals
+                {getExplorerContainerInfoGrantSummaryLabel({
+                  directGrantCount: entry.directGrantCount,
+                  referencedPrincipalCount: entry.referencedPrincipalCount,
+                })}
               </td>
             </tr>
           ))}
