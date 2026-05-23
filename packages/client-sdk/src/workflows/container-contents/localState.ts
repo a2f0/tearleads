@@ -23,6 +23,7 @@ import {
 } from "./runtime";
 
 type LocalContainerStateRuntime = ContainerContentsWorkflowSqlRuntime;
+type SaveContainerOptions = Parameters<typeof saveContainer>[4];
 
 function createInitialContainerContentsContainerRecord(input: {
   container: StoredContainerState["container"];
@@ -39,6 +40,21 @@ function createInitialContainerContentsContainerRecord(input: {
     documentKekTargets: null,
     documentManifestBundle: null,
   };
+}
+
+function hasContainerMetadataProjectionChanged(
+  left: StoredContainerState["container"],
+  right: StoredContainerState["container"],
+): boolean {
+  return left.icon !== right.icon || left.name !== right.name;
+}
+
+function createMetadataSnapshotReplaySaveOptions(
+  container: StoredContainerState["container"],
+): SaveContainerOptions {
+  const localUpdatedAt =
+    container.localUpdatedAt ?? container.updatedAt ?? null;
+  return localUpdatedAt ? { localUpdatedAt } : undefined;
 }
 
 async function hydrateStoredContainerStateState(input: {
@@ -63,7 +79,15 @@ async function hydrateStoredContainerStateState(input: {
       icon: metadata.icon,
       name: metadata.name,
     };
-    await saveContainer(execSql, persistence, nextContainer, nextRecord);
+    if (hasContainerMetadataProjectionChanged(container, nextContainer)) {
+      await saveContainer(
+        execSql,
+        persistence,
+        nextContainer,
+        nextRecord,
+        createMetadataSnapshotReplaySaveOptions(container),
+      );
+    }
   } else {
     writeContainerMetadataValue(doc, {
       icon: container.icon,

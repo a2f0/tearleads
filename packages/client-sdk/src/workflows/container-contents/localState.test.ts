@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
+import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
@@ -14,8 +15,11 @@ import type {
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { defaultContainerContentsPersistence } from "./containerPersistence";
+import { createContainerDocumentReadModelFromRuntime } from "./documentReadModel";
 import { loadLocalContainerStates } from "./localState";
 import { createContainerContentsWorkflowSqlRuntime } from "./runtime";
+import { syncedContainerDocumentObjectSyncState } from "./syncState";
 
 const execSql: ExecSql = async () => [];
 const runtime = createContainerContentsWorkflowSqlRuntime({ execSql });
@@ -23,6 +27,15 @@ const runtime = createContainerContentsWorkflowSqlRuntime({ execSql });
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]
 >[1];
+type SaveContainerOptions = Parameters<
+  ContainerContentsPersistence["saveContainer"]
+>[3];
+interface SaveContainerCall {
+  container: ContainerRecord;
+  execSql: ExecSql;
+  options?: SaveContainerOptions;
+  record: DocumentRecord | null;
+}
 
 function createContainerRecord(
   input: Partial<ContainerRecord> & Pick<ContainerRecord, "id" | "parentId">,
@@ -37,11 +50,7 @@ function createContainerRecord(
 }
 
 function createContainerContentsPersistence(input: {
-  savedContainers?: Array<{
-    container: ContainerRecord;
-    execSql: ExecSql;
-    record: DocumentRecord | null;
-  }>;
+  savedContainers?: SaveContainerCall[];
   pendingUpdates?: Array<{
     execSql: ExecSql;
     input: PendingUpdateInput;
@@ -62,6 +71,9 @@ function createContainerContentsPersistence(input: {
     async listPendingCreateIntents() {
       return [];
     },
+    async listContainerIdsWithPendingUpdates() {
+      return [];
+    },
     async listPendingUpdates() {
       return [];
     },
@@ -71,12 +83,16 @@ function createContainerContentsPersistence(input: {
     async loadContainers() {
       return input.storedContainers;
     },
-    async saveContainer(receivedExecSql, container, record) {
-      input.savedContainers?.push({
+    async saveContainer(receivedExecSql, container, record, options) {
+      const call: SaveContainerCall = {
         container,
         execSql: receivedExecSql,
         record,
-      });
+      };
+      if (options) {
+        call.options = options;
+      }
+      input.savedContainers?.push(call);
       return container;
     },
     async saveContainerAndDeletePendingUpdates(_execSql, container) {
@@ -86,6 +102,53 @@ function createContainerContentsPersistence(input: {
   };
 }
 
+async function saveSyncedStoredContainer(input: {
+  execSql: ExecSql;
+  id: string;
+  metadataName: string;
+  parentId: string | null;
+  storedName: string;
+  syncedAt: string;
+}) {
+  const metadataDocumentId = `${input.id}-metadata-document`;
+  const doc = await createContainerMetadataDocument(input.id);
+  writeContainerMetadataValue(doc, {
+    icon: null,
+    name: input.metadataName,
+  });
+  const record: DocumentRecord = {
+    accessEpoch: 1,
+    accessStateHash: `${input.id}-access-hash`,
+    contentKeyBundle: `${input.id}-content-key-bundle`,
+    documentId: metadataDocumentId,
+    documentKekTargets: `${input.id}-document-kek-targets`,
+    documentManifestBundle: `${input.id}-document-manifest-bundle`,
+    id: input.id,
+    lastCommitLsn: `${input.id}-commit-lsn`,
+    loroSnapshot: bytesToBase64(exportAllUpdates(doc)),
+  };
+
+  await defaultContainerContentsPersistence.saveContainer(
+    input.execSql,
+    {
+      icon: null,
+      id: input.id,
+      metadataDocumentId,
+      name: input.storedName,
+      organizationId: "org-1",
+      parentId: input.parentId,
+    },
+    record,
+    {
+      localUpdatedAt: input.syncedAt,
+      serverTimestamps: {
+        createdAt: input.syncedAt,
+        updatedAt: input.syncedAt,
+      },
+    },
+  );
+}
+
 test("loadLocalContainerStates materializes metadata records and pending updates", async () => {
   const container = createContainerRecord({
     icon: "folder",
@@ -93,11 +156,7 @@ test("loadLocalContainerStates materializes metadata records and pending updates
     name: "Local folder",
     parentId: null,
   });
-  const savedContainers: Array<{
-    container: ContainerRecord;
-    execSql: ExecSql;
-    record: DocumentRecord | null;
-  }> = [];
+  const savedContainers: SaveContainerCall[] = [];
   const pendingUpdates: Array<{
     execSql: ExecSql;
     input: PendingUpdateInput;
@@ -148,9 +207,11 @@ test("loadLocalContainerStates replays metadata snapshots into containers", asyn
   const container = createContainerRecord({
     icon: null,
     id: "container-2",
+    localUpdatedAt: "2026-05-01T00:00:00.000Z",
     metadataDocumentId: "metadata-document-2",
     name: "Stale name",
     parentId: "parent-1",
+    serverUpdatedAt: "2026-05-01T00:00:00.000Z",
   });
   const doc = await createContainerMetadataDocument(container.id);
   writeContainerMetadataValue(doc, {
@@ -168,11 +229,7 @@ test("loadLocalContainerStates replays metadata snapshots into containers", asyn
     documentKekTargets: "document-kek-targets",
     documentManifestBundle: "document-manifest-bundle",
   };
-  const savedContainers: Array<{
-    container: ContainerRecord;
-    execSql: ExecSql;
-    record: DocumentRecord | null;
-  }> = [];
+  const savedContainers: SaveContainerCall[] = [];
   const pendingUpdates: Array<{
     execSql: ExecSql;
     input: PendingUpdateInput;
@@ -200,8 +257,74 @@ test("loadLocalContainerStates replays metadata snapshots into containers", asyn
     {
       container: containerState.container,
       execSql,
+      options: { localUpdatedAt: "2026-05-01T00:00:00.000Z" },
       record,
     },
   ]);
   expect(pendingUpdates).toEqual([]);
+});
+
+test("loadLocalContainerStates keeps replayed remote metadata snapshots synced", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-local-state-replay-synced-metadata",
+  );
+  try {
+    const runtime = createContainerContentsWorkflowSqlRuntime({ execSql });
+    const syncedAt = "2026-05-01T00:00:00.000Z";
+
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await saveSyncedStoredContainer({
+      execSql,
+      id: "root-container",
+      metadataName: "Root",
+      parentId: null,
+      storedName: "Root",
+      syncedAt,
+    });
+    await saveSyncedStoredContainer({
+      execSql,
+      id: "child-container",
+      metadataName: "Synced child",
+      parentId: "root-container",
+      storedName: "Stale child projection",
+      syncedAt,
+    });
+
+    const loadedStates = await loadLocalContainerStates({
+      persistence: defaultContainerContentsPersistence,
+      runtime,
+    });
+    const loadedChild = loadedStates.find(
+      (containerState) => containerState.container.id === "child-container",
+    );
+    expect(loadedChild?.container).toMatchObject({
+      localUpdatedAt: syncedAt,
+      name: "Synced child",
+      serverUpdatedAt: syncedAt,
+    });
+
+    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    await expect(
+      readModel.listContainerItemWindow({
+        containerId: "root-container",
+        limit: 10,
+        offset: 0,
+        sort: { direction: "asc", key: "name" },
+      }),
+    ).resolves.toEqual({
+      rows: [
+        {
+          createdAt: syncedAt,
+          id: "child-container",
+          itemKind: "container",
+          name: "Synced child",
+          syncState: syncedContainerDocumentObjectSyncState,
+          updatedAt: syncedAt,
+        },
+      ],
+      totalCount: 1,
+    });
+  } finally {
+    close();
+  }
 });

@@ -33,6 +33,7 @@ type ListedRemoteContainerPageItem = ListContainersResponse["items"][number];
 type ContainerChildIndex = Map<string, Set<string>>;
 type QueueContainerParentLane = (parentId: string | null) => void;
 type RemoteContainerIngestQueue = Map<string, RemoteContainer>;
+type SaveContainerOptions = Parameters<typeof saveContainer>[4];
 
 const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
 
@@ -90,6 +91,7 @@ export interface RemoteContainerHydrationHost {
     containerState: ContainerState,
     patch?: Partial<ContainerMetadataPatch>,
     updateView?: boolean,
+    saveOptions?: SaveContainerOptions,
   ) => Promise<ContainerDocumentRecord>;
   updateSnapshot: () => void;
 }
@@ -116,6 +118,70 @@ function applyRemoteContainerTimestamps(
     serverUpdatedAt: remoteContainer.updatedAt,
     updatedAt: remoteContainer.updatedAt,
   };
+}
+
+function remoteContainerHydrationSaveOptions(input: {
+  localUpdatedAt?: string | null | undefined;
+  remoteContainer: RemoteContainer;
+}): SaveContainerOptions {
+  return {
+    localUpdatedAt: input.localUpdatedAt ?? input.remoteContainer.updatedAt,
+    serverTimestamps: {
+      createdAt: input.remoteContainer.createdAt,
+      updatedAt: input.remoteContainer.updatedAt,
+    },
+  };
+}
+
+function resolveRemoteContainerHydrationLocalUpdatedAt(input: {
+  containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
+  previousLocalUpdatedAt: string | null | undefined;
+  remoteContainer: RemoteContainer;
+}): string {
+  const {
+    containerIdsWithPendingMetadataUpdates,
+    previousLocalUpdatedAt,
+    remoteContainer,
+  } = input;
+  if (
+    !previousLocalUpdatedAt ||
+    previousLocalUpdatedAt.localeCompare(remoteContainer.updatedAt) <= 0
+  ) {
+    return remoteContainer.updatedAt;
+  }
+
+  return containerIdsWithPendingMetadataUpdates.has(remoteContainer.id)
+    ? previousLocalUpdatedAt
+    : remoteContainer.updatedAt;
+}
+
+async function listRemoteContainerIdsWithPendingMetadataUpdates(input: {
+  remoteContainers: ReadonlyArray<RemoteContainer>;
+  state: RemoteContainerHydrationState;
+}): Promise<Set<string>> {
+  const containerIds = input.remoteContainers.flatMap((remoteContainer) => {
+    const previousLocalUpdatedAt = input.state.containersById.get(
+      remoteContainer.id,
+    )?.container.localUpdatedAt;
+
+    return previousLocalUpdatedAt &&
+      previousLocalUpdatedAt.localeCompare(remoteContainer.updatedAt) > 0
+      ? [remoteContainer.id]
+      : [];
+  });
+  if (containerIds.length === 0) {
+    return new Set();
+  }
+
+  const execSql = getContainerContentsWorkflowRuntimeExecSql(
+    input.state.runtime,
+  );
+  return new Set(
+    await input.state.persistence.listContainerIdsWithPendingUpdates(
+      execSql,
+      containerIds,
+    ),
+  );
 }
 
 function addIndexedContainerChild(
@@ -411,6 +477,7 @@ async function reconcileLocalOnlyRootContainers(input: {
 
 async function updateExistingRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
+  containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
   existingState: ContainerState;
   remoteContainer: RemoteContainer;
@@ -419,6 +486,13 @@ async function updateExistingRemoteContainerState(input: {
   const { childIdsByParentId, existingState, host, remoteContainer, state } =
     input;
   const previousParentId = existingState.container.parentId;
+  const previousLocalUpdatedAt = existingState.container.localUpdatedAt;
+  const localUpdatedAt = resolveRemoteContainerHydrationLocalUpdatedAt({
+    containerIdsWithPendingMetadataUpdates:
+      input.containerIdsWithPendingMetadataUpdates,
+    previousLocalUpdatedAt,
+    remoteContainer,
+  });
   existingState.container = applyRemoteContainerTimestamps(
     existingState.container,
     remoteContainer,
@@ -434,6 +508,10 @@ async function updateExistingRemoteContainerState(input: {
       parentId: remoteContainer.parentId,
     },
     false,
+    remoteContainerHydrationSaveOptions({
+      localUpdatedAt,
+      remoteContainer,
+    }),
   );
   existingState.container = {
     ...existingState.container,
@@ -495,12 +573,7 @@ async function insertRemoteContainerState(input: {
     state.persistence,
     containerState.container,
     containerState.record,
-    {
-      serverTimestamps: {
-        createdAt: remoteContainer.createdAt,
-        updatedAt: remoteContainer.updatedAt,
-      },
-    },
+    remoteContainerHydrationSaveOptions({ remoteContainer }),
   );
   state.containersById.set(remoteContainer.id, containerState);
   if (childIdsByParentId) {
@@ -520,6 +593,7 @@ async function insertRemoteContainerState(input: {
 
 async function upsertRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
+  containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -530,6 +604,8 @@ async function upsertRemoteContainerState(input: {
   return existingState
     ? updateExistingRemoteContainerState({
         childIdsByParentId: input.childIdsByParentId,
+        containerIdsWithPendingMetadataUpdates:
+          input.containerIdsWithPendingMetadataUpdates,
         existingState,
         host: input.host,
         remoteContainer: input.remoteContainer,
@@ -563,17 +639,25 @@ async function cacheQueuedRemoteContainerPrincipals(input: {
 }
 
 async function upsertQueuedRemoteContainer(input: {
+  containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
   queue: RemoteContainerIngestQueue;
   queuedRemoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
 }): Promise<boolean> {
-  const { host, queue, queuedRemoteContainer, state } = input;
+  const {
+    containerIdsWithPendingMetadataUpdates,
+    host,
+    queue,
+    queuedRemoteContainer,
+    state,
+  } = input;
   if (!isCurrentQueuedRemoteContainer(queue, queuedRemoteContainer)) {
     return false;
   }
 
   await upsertRemoteContainerState({
+    containerIdsWithPendingMetadataUpdates,
     host,
     remoteContainer: queuedRemoteContainer,
     state,
@@ -599,10 +683,16 @@ async function drainRemoteContainerIngestQueue(input: {
         queuedRemoteContainers,
         state,
       });
+      const containerIdsWithPendingMetadataUpdates =
+        await listRemoteContainerIdsWithPendingMetadataUpdates({
+          remoteContainers: queuedRemoteContainers,
+          state,
+        });
 
       for (const queuedRemoteContainer of queuedRemoteContainers) {
         shouldUpdateSnapshot =
           (await upsertQueuedRemoteContainer({
+            containerIdsWithPendingMetadataUpdates,
             host,
             queue,
             queuedRemoteContainer,
@@ -703,12 +793,18 @@ async function applyRemoteContainerPage(input: {
       (remoteContainer) => remoteContainer.metadataReferencedPrincipals ?? [],
     ),
   );
+  const containerIdsWithPendingMetadataUpdates =
+    await listRemoteContainerIdsWithPendingMetadataUpdates({
+      remoteContainers: items,
+      state,
+    });
 
   for (const container of items) {
     if (!seenContainerIds.has(container.id)) {
       seenContainerIds.add(container.id);
       await upsertRemoteContainerState({
         childIdsByParentId,
+        containerIdsWithPendingMetadataUpdates,
         host,
         remoteContainer: container,
         state,
