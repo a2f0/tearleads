@@ -1,7 +1,7 @@
 import type { TearleadsWorkflowRuntimeInput } from "@tearleads/client-sdk";
 import type {
-  ContainerContentsProjectionUserKeyResolver as ExplorerProjectionUserKeyResolver,
-  ContainerContentsWorkflowRuntime as ExplorerWorkflowRuntime,
+  ContainerContentsProjectionUserKeyResolver,
+  ContainerContentsWorkflowRuntime,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import { useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
@@ -12,9 +12,10 @@ type ExplorerDocumentRuntime = Parameters<typeof primeDocumentStore>[2];
 export type ExplorerDocumentsRuntimeAppDataInput =
   TearleadsWorkflowRuntimeInput;
 
-export type ExplorerDocumentsRuntimeAppData = ExplorerWorkflowRuntime & {
-  resolveProjectionUserKey: ExplorerProjectionUserKeyResolver;
-};
+export type ExplorerDocumentsRuntimeAppData =
+  ContainerContentsWorkflowRuntime & {
+    resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
+  };
 
 export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
   return (

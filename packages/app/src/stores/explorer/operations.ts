@@ -1,13 +1,13 @@
 import {
-  createChildContainerState as createExplorerChildContainer,
-  deleteContainerState as deleteExplorerContainerState,
-  type ContainerMetadataPatch as ExplorerContainerMetadataPatch,
-  type ContainerDocumentRecord as ExplorerDocumentRecord,
-  moveRemoteContainer as moveRemoteExplorerContainer,
-  persistContainerMetadataStateFromRuntime as persistExplorerContainerMetadataStateFromRuntime,
-  renameContainerMetadataStateFromRuntime as renameExplorerContainerMetadataStateFromRuntime,
-  shareContainerState as shareExplorerContainerState,
-  shareContainerStateWithGroup as shareExplorerContainerStateWithGroup,
+  type ContainerDocumentRecord,
+  type ContainerMetadataPatch,
+  createChildContainerState,
+  deleteContainerState,
+  moveRemoteContainer,
+  persistContainerMetadataStateFromRuntime,
+  renameContainerMetadataStateFromRuntime,
+  shareContainerState,
+  shareContainerStateWithGroup,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import { requestDomainDocumentSync } from "../documents/DocumentsProvider";
 import type { ContainerState, ExplorerSyncAgent } from "./explorerSyncAgent";
@@ -18,10 +18,10 @@ import { isContainerInSubtree, toContainerNode } from "./utils";
 export async function persistContainerState(
   state: ExplorerStoreState,
   containerState: ContainerState,
-  patch: Partial<ExplorerContainerMetadataPatch> = {},
+  patch: Partial<ContainerMetadataPatch> = {},
   updateView = true,
-): Promise<ExplorerDocumentRecord> {
-  const persisted = await persistExplorerContainerMetadataStateFromRuntime({
+): Promise<ContainerDocumentRecord> {
+  const persisted = await persistContainerMetadataStateFromRuntime({
     metadataState: containerState,
     patch,
     persistence: state.persistence,
@@ -55,7 +55,7 @@ export async function createChildContainer(
     return null;
   }
 
-  const created = await createExplorerChildContainer({
+  const created = await createChildContainerState({
     createRemote:
       state.runtime.isAuthenticated &&
       Boolean(state.runtime.encapsulationKeyPair),
@@ -109,7 +109,7 @@ export async function deleteExplorerContainer(
   }
 
   const deletedNode = toContainerNode(existingState);
-  const deleted = await deleteExplorerContainerState({
+  const deleted = await deleteContainerState({
     containerState: existingState,
     persistence: state.persistence,
     runtime: state.runtime,
@@ -150,7 +150,7 @@ export async function renameExplorerContainer(
     return toContainerNode(existingState);
   }
 
-  const renamed = await renameExplorerContainerMetadataStateFromRuntime({
+  const renamed = await renameContainerMetadataStateFromRuntime({
     metadataState: existingState,
     name: trimmedName,
     persistence: state.persistence,
@@ -193,7 +193,7 @@ export async function shareExplorerContainerWithUser(
     return null;
   }
 
-  const shared = await shareExplorerContainerState({
+  const shared = await shareContainerState({
     accessLevel: "write",
     containerState: existingState,
     persistence: state.persistence,
@@ -242,7 +242,7 @@ export async function shareExplorerContainerWithGroup(
     return null;
   }
 
-  const shared = await shareExplorerContainerStateWithGroup({
+  const shared = await shareContainerStateWithGroup({
     accessLevel,
     containerState: existingState,
     persistence: state.persistence,
@@ -295,7 +295,7 @@ export async function moveExplorerContainer(
     return null;
   }
 
-  const moved = await moveRemoteExplorerContainer({
+  const moved = await moveRemoteContainer({
     containerId,
     parentContainerId: parentId,
     resolveProjectionUserKey: state.resolveProjectionUserKey,

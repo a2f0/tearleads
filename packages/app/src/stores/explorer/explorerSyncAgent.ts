@@ -1,50 +1,48 @@
 import {
-  createRemoteContainerIngestor as createRemoteExplorerContainerIngestor,
-  type ContainerState as ExplorerContainerState,
-  type ContainerDocumentPrimeHost as ExplorerDocumentPrimeHost,
-  type ContainerDocumentPrimeStore as ExplorerDocumentPrimeStore,
-  type ContainerContentsPersistence as ExplorerPersistence,
-  type ContainerContentsProjectionUserKeyResolver as ExplorerProjectionUserKeyResolver,
-  type RemoteContainer as ExplorerRemoteContainer,
-  type RemoteContainerHydrationHost as ExplorerRemoteContainerHydrationHost,
-  type ContainerContentsSyncLane as ExplorerSyncLane,
-  type ContainerContentsWorkflowRuntime as ExplorerWorkflowRuntime,
-  hasContainerMetadataDocumentUpdateEvent as hasExplorerMetadataDocumentUpdateEvent,
-  hydrateRemoteContainers as hydrateRemoteExplorerContainers,
-  isDestroyedContainerContentsSyncRuntimeError as isDestroyedExplorerSyncRuntimeError,
-  loadLocalContainerStates as loadLocalExplorerContainerStates,
-  primeDocumentsForContainerSubtree as primeExplorerDocumentsForContainerSubtree,
-  registerContainerContentsSyncLane as registerExplorerSyncLane,
-  syncContainerMetadataState as syncExplorerContainerMetadataState,
-  syncPendingContainerCreateIntents as syncPendingExplorerContainerCreateIntents,
+  type ContainerContentsPersistence,
+  type ContainerContentsProjectionUserKeyResolver,
+  type ContainerContentsSyncLane,
+  type ContainerContentsWorkflowRuntime,
+  type ContainerDocumentPrimeHost,
+  type ContainerDocumentPrimeStore,
+  type ContainerState,
+  createRemoteContainerIngestor,
+  hasContainerMetadataDocumentUpdateEvent,
+  hydrateRemoteContainers,
+  isDestroyedContainerContentsSyncRuntimeError,
+  loadLocalContainerStates,
+  primeDocumentsForContainerSubtree,
+  type RemoteContainer,
+  type RemoteContainerHydrationHost,
+  registerContainerContentsSyncLane,
+  syncContainerMetadataState,
+  syncPendingContainerCreateIntents,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 
-export type ExplorerRuntime = ExplorerWorkflowRuntime;
+export type { ContainerState };
 
-export type ContainerState = ExplorerContainerState;
+export type ExplorerRuntime = ContainerContentsWorkflowRuntime;
 
 export interface ExplorerSyncState {
   containersById: Map<string, ContainerState>;
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
-  persistence: ExplorerPersistence;
+  persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
-  resolveProjectionUserKey: ExplorerProjectionUserKeyResolver;
+  resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   runtime: ExplorerRuntime;
   snapshot: {
     ready: boolean;
   };
-  syncLane: ExplorerSyncLane | null;
+  syncLane: ContainerContentsSyncLane | null;
 }
 
 export interface ExplorerSyncAgent {
   ensureInitialized: () => void;
   handleRemoteEvents: () => void;
-  ingestRemoteContainer: (
-    remoteContainer: ExplorerRemoteContainer,
-  ) => Promise<void>;
+  ingestRemoteContainer: (remoteContainer: RemoteContainer) => Promise<void>;
   primeDocumentsForSharedSubtree: (rootContainerId: string) => Promise<void>;
   refresh: () => Promise<boolean>;
   requestRemoteHydration: () => Promise<void>;
@@ -52,7 +50,7 @@ export interface ExplorerSyncAgent {
   scheduleSync: () => void;
 }
 
-type ExplorerSyncHost = ExplorerRemoteContainerHydrationHost;
+type ExplorerSyncHost = RemoteContainerHydrationHost;
 type ExplorerPrimeDocumentRuntime = ReturnType<
   ExplorerRuntime["createDocumentsRuntime"]
 >;
@@ -63,7 +61,7 @@ function requestExplorerSync(state: ExplorerSyncState) {
 
 function createExplorerDocumentPrimeHost(
   state: ExplorerSyncState,
-): ExplorerDocumentPrimeHost<ExplorerPrimeDocumentRuntime> {
+): ContainerDocumentPrimeHost<ExplorerPrimeDocumentRuntime> {
   return {
     createDocumentRuntime: (containerId) =>
       state.runtime.createDocumentsRuntime(containerId),
@@ -71,7 +69,7 @@ function createExplorerDocumentPrimeHost(
       documentId,
       localId,
       runtime,
-    }): ExplorerDocumentPrimeStore =>
+    }): ContainerDocumentPrimeStore =>
       primeDocumentStore(
         state.runtime.domainScope,
         localId,
@@ -85,7 +83,7 @@ async function primeDocumentsForSharedSubtree(
   state: ExplorerSyncState,
   rootContainerId: string,
 ) {
-  await primeExplorerDocumentsForContainerSubtree({
+  await primeDocumentsForContainerSubtree({
     containersById: state.containersById,
     host: createExplorerDocumentPrimeHost(state),
     rootContainerId,
@@ -103,12 +101,12 @@ function requestRemoteHydration(input: {
     return state.remoteHydrationPromise;
   }
 
-  state.remoteHydrationPromise = hydrateRemoteExplorerContainers({
+  state.remoteHydrationPromise = hydrateRemoteContainers({
     host,
     state,
   })
     .catch((error: unknown) => {
-      if (isDestroyedExplorerSyncRuntimeError(error)) {
+      if (isDestroyedContainerContentsSyncRuntimeError(error)) {
         return;
       }
 
@@ -139,7 +137,7 @@ async function initializeExplorerStore(input: {
     return;
   }
 
-  const localContainerStates = await loadLocalExplorerContainerStates({
+  const localContainerStates = await loadLocalContainerStates({
     persistence: state.persistence,
     runtime: state.runtime,
   });
@@ -157,7 +155,7 @@ async function initializeExplorerStore(input: {
   );
 
   if (state.runtime.isAuthenticated && state.runtime.online) {
-    await hydrateRemoteExplorerContainers({ host, state });
+    await hydrateRemoteContainers({ host, state });
   }
 
   if (
@@ -189,7 +187,7 @@ function ensureExplorerStoreInitialized(input: {
   }).catch((error: unknown) => {
     state.initializePromise = null;
 
-    if (isDestroyedExplorerSyncRuntimeError(error)) {
+    if (isDestroyedContainerContentsSyncRuntimeError(error)) {
       return;
     }
 
@@ -204,7 +202,7 @@ async function syncSingleContainerMetadata(input: {
   encapsulationKeyPair: NonNullable<ExplorerRuntime["encapsulationKeyPair"]>;
 }) {
   const { containerState, encapsulationKeyPair, host, state } = input;
-  const synced = await syncExplorerContainerMetadataState({
+  const synced = await syncContainerMetadataState({
     metadataState: containerState,
     persistence: state.persistence,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
@@ -240,12 +238,10 @@ async function runExplorerSyncIteration(input: {
     return;
   }
 
-  const createdContainerCount = await syncPendingExplorerContainerCreateIntents(
-    {
-      host,
-      state,
-    },
-  );
+  const createdContainerCount = await syncPendingContainerCreateIntents({
+    host,
+    state,
+  });
   if (createdContainerCount > 0) {
     host.updateSnapshot();
   }
@@ -266,12 +262,12 @@ export function createExplorerSyncAgent(input: {
 }): ExplorerSyncAgent {
   const { host, state } = input;
 
-  state.syncLane = registerExplorerSyncLane({
+  state.syncLane = registerContainerContentsSyncLane({
     domainScope: state.runtime.domainScope,
     run: () => runExplorerSyncIteration({ host, state }),
   });
   const scheduleSync = () => requestExplorerSync(state);
-  const ingestRemoteContainer = createRemoteExplorerContainerIngestor({
+  const ingestRemoteContainer = createRemoteContainerIngestor({
     host,
     state,
   });
@@ -287,7 +283,7 @@ export function createExplorerSyncAgent(input: {
       state.lastEventCount = state.runtime.events.length;
 
       if (
-        hasExplorerMetadataDocumentUpdateEvent(
+        hasContainerMetadataDocumentUpdateEvent(
           nextEvents,
           state.containersById.values(),
         )
