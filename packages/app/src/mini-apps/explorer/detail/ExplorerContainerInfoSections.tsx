@@ -12,11 +12,18 @@ import type {
 } from "../../../stores/explorer/containerInfo";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { MiniAppWindowPosition } from "../../bus";
-import { EXPLORER_LABELS } from "../labels";
+import {
+  EXPLORER_LABELS,
+  getExplorerContainerInfoInheritedGrantSource,
+} from "../labels";
 
 type ExplorerContainerInfoGrantSubjectType = NonNullable<
   ExplorerContainerInfo["remoteInfo"]
 >["grants"][number]["subjectType"];
+
+type ExplorerContainerInfoGrantRow = NonNullable<
+  ExplorerContainerInfo["remoteInfo"]
+>["grantRows"][number];
 
 const CONTAINER_INFO_PERMISSION_LABELS = {
   admin: EXPLORER_LABELS.containerInfoPermissionAdmin,
@@ -55,6 +62,29 @@ function principalLabel(
   }
 
   return compactPrincipalId(subjectId);
+}
+
+function sourceContainerLabel(
+  sourceContainerId: string,
+  containerNamesById: ReadonlyMap<string, string>,
+): string {
+  return (
+    containerNamesById.get(sourceContainerId) ??
+    compactPrincipalId(sourceContainerId)
+  );
+}
+
+function grantSourceLabel(
+  grant: ExplorerContainerInfoGrantRow,
+  containerNamesById: ReadonlyMap<string, string>,
+): string {
+  if (!grant.inherited) {
+    return EXPLORER_LABELS.containerInfoSourceDirect;
+  }
+
+  return getExplorerContainerInfoInheritedGrantSource(
+    sourceContainerLabel(grant.sourceContainerId, containerNamesById),
+  );
 }
 
 function getContainerInfoPermissionLabel(
@@ -144,11 +174,12 @@ function ExplorerContainerInfoSyncCursorList(params: {
 }
 
 function ExplorerContainerInfoGrantList(params: {
+  containerNamesById: ReadonlyMap<string, string>;
   containerInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
 }) {
-  const { containerInfo, onOpenGrantGroup } = params;
-  if (containerInfo.grants.length === 0) {
+  const { containerInfo, containerNamesById, onOpenGrantGroup } = params;
+  if (containerInfo.grantRows.length === 0) {
     return (
       <MiniAppStatus>{EXPLORER_LABELS.containerInfoNoGrants}</MiniAppStatus>
     );
@@ -161,10 +192,11 @@ function ExplorerContainerInfoGrantList(params: {
           <th>{EXPLORER_LABELS.containerInfoPrincipalColumn}</th>
           <th>{EXPLORER_LABELS.containerInfoTypeColumn}</th>
           <th>{EXPLORER_LABELS.containerInfoPermissionColumn}</th>
+          <th>{EXPLORER_LABELS.containerInfoSourceColumn}</th>
         </tr>
       </thead>
       <tbody>
-        {containerInfo.grants.map((grant) => {
+        {containerInfo.grantRows.map((grant) => {
           const isGroupGrant = grant.subjectType === "group";
           const openGrantGroupRoute = (position?: MiniAppWindowPosition) => {
             onOpenGrantGroup(grant.subjectId, position);
@@ -187,7 +219,7 @@ function ExplorerContainerInfoGrantList(params: {
                   ? "explorer-info-grant-row--interactive"
                   : undefined
               }
-              key={`${grant.subjectType}:${grant.subjectId}`}
+              key={`${grant.sourceContainerId}:${grant.subjectType}:${grant.subjectId}`}
               onClick={
                 isGroupGrant
                   ? (event) => openGrantGroupRoute(getMouseEventPosition(event))
@@ -206,6 +238,9 @@ function ExplorerContainerInfoGrantList(params: {
               </td>
               <td>{getContainerInfoSubjectTypeLabel(grant.subjectType)}</td>
               <td>{getContainerInfoPermissionLabel(grant.accessLevel)}</td>
+              <td title={grant.sourceContainerId}>
+                {grantSourceLabel(grant, containerNamesById)}
+              </td>
             </tr>
           );
         })}
@@ -367,6 +402,7 @@ function ExplorerContainerInfoPeerShareSection(params: {
 }
 
 function ExplorerContainerInfoRemoteSections(params: {
+  containerNamesById: ReadonlyMap<string, string>;
   draftShareAccessLevel: ExplorerContainerShareAccessLevel;
   draftShareGroupId: string;
   isSubmitting: boolean;
@@ -385,6 +421,7 @@ function ExplorerContainerInfoRemoteSections(params: {
       <section className="explorer-info-section">
         <h3>{EXPLORER_LABELS.containerInfoPrincipalGrantsHeading}</h3>
         <ExplorerContainerInfoGrantList
+          containerNamesById={params.containerNamesById}
           containerInfo={remoteInfo}
           onOpenGrantGroup={params.onOpenGrantGroup}
         />
@@ -402,6 +439,7 @@ function ExplorerContainerInfoRemoteSections(params: {
 }
 
 export function ExplorerContainerInfoBody(params: {
+  containerNamesById: ReadonlyMap<string, string>;
   containerId: string;
   containerInfo: ExplorerContainerInfo | null;
   containerInfoError: string | null;

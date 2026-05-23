@@ -19,6 +19,8 @@ export {
 } from "./container-state/share";
 export {
   type ContainerInfo,
+  type ContainerInfoGrant,
+  type ContainerInfoGrantRow,
   type ContainerInfoRemoteMode,
   type ContainerShareAccessLevel,
   loadContainerInfo,

@@ -51,6 +51,15 @@ function createContainerInfo(
       updatedAt: "2026-05-18T11:00:00.000Z",
     },
     remoteInfo: {
+      grantRows: [
+        {
+          accessLevel: "read",
+          inherited: false,
+          sourceContainerId: "container-1",
+          subjectId: "group-1",
+          subjectType: "group",
+        },
+      ],
       grants: [
         {
           accessLevel: "read",
@@ -91,19 +100,46 @@ test("upsertContainerInfoGrant appends and updates remote grants", () => {
     subjectType: "user",
   };
 
-  const updatedInfo = upsertContainerInfoGrant(info, updatedGrant);
+  const updatedInfo = upsertContainerInfoGrant(
+    info,
+    updatedGrant,
+    "container-1",
+  );
   expect(updatedInfo.remoteInfo?.grants).toEqual([updatedGrant]);
+  expect(updatedInfo.remoteInfo?.grantRows).toEqual([
+    {
+      ...updatedGrant,
+      inherited: false,
+      sourceContainerId: "container-1",
+    },
+  ]);
 
-  const appendedInfo = upsertContainerInfoGrant(updatedInfo, appendedGrant);
+  const appendedInfo = upsertContainerInfoGrant(
+    updatedInfo,
+    appendedGrant,
+    "container-1",
+  );
   expect(appendedInfo.remoteInfo?.grants).toEqual([
     updatedGrant,
     appendedGrant,
   ]);
+  expect(appendedInfo.remoteInfo?.grantRows).toEqual([
+    {
+      ...updatedGrant,
+      inherited: false,
+      sourceContainerId: "container-1",
+    },
+    {
+      ...appendedGrant,
+      inherited: false,
+      sourceContainerId: "container-1",
+    },
+  ]);
 
   const localOnlyInfo = createContainerInfo({ remoteInfo: null });
-  expect(upsertContainerInfoGrant(localOnlyInfo, appendedGrant)).toBe(
-    localOnlyInfo,
-  );
+  expect(
+    upsertContainerInfoGrant(localOnlyInfo, appendedGrant, "container-1"),
+  ).toBe(localOnlyInfo);
 });
 
 test("useExplorerContainerInfo loads info and selects the first shareable group", async () => {

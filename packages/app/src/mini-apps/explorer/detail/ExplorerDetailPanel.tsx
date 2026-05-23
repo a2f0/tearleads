@@ -81,10 +81,14 @@ export function ExplorerDetailPanel(params: {
 
   if (route.view === "container-info") {
     const infoNode = params.nodes.find((node) => node.id === route.containerId);
+    const containerNamesById = new Map(
+      params.nodes.map((node) => [node.id, node.name]),
+    );
     return (
       <ExplorerContainerInfoPanel
         containerId={route.containerId}
         containerName={infoNode?.name}
+        containerNamesById={containerNamesById}
         loadContainerInfo={params.loadContainerInfo}
         onBackToContainer={params.onBackToSelectionRoute}
         onOpenGrantGroup={params.onOpenGrantGroup}

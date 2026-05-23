@@ -19,9 +19,10 @@ import {
   useExplorerContainerInfoPeerShare,
 } from "./ExplorerContainerInfoState";
 
-export function ExplorerContainerInfoPanel(params: {
+interface Props {
   containerId: string;
   containerName: string | undefined;
+  containerNamesById: ReadonlyMap<string, string>;
   loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
   onBackToContainer: () => void;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
@@ -32,10 +33,13 @@ export function ExplorerContainerInfoPanel(params: {
     accessLevel: ExplorerContainerShareAccessLevel,
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
-}) {
+}
+
+export function ExplorerContainerInfoPanel(params: Props) {
   const {
     containerId,
     containerName,
+    containerNamesById,
     loadContainerInfo,
     onBackToContainer,
     onOpenGrantGroup,
@@ -76,8 +80,6 @@ export function ExplorerContainerInfoPanel(params: {
     shareWithUser,
   });
 
-  const showShareButton = Boolean(containerInfo?.remoteInfo);
-
   return (
     <MiniAppFormPanel
       className="explorer-detail explorer-detail--container-info"
@@ -93,6 +95,7 @@ export function ExplorerContainerInfoPanel(params: {
         onBackToContainer={onBackToContainer}
       />
       <ExplorerContainerInfoBody
+        containerNamesById={containerNamesById}
         containerId={containerId}
         containerInfo={containerInfo}
         containerInfoError={containerInfoError}
@@ -114,7 +117,7 @@ export function ExplorerContainerInfoPanel(params: {
         draftShareGroupId={draftShareGroupId}
         isLoadingContainerInfo={isLoadingContainerInfo}
         isSubmitting={isSubmitting}
-        showShareButton={showShareButton}
+        showShareButton={Boolean(containerInfo?.remoteInfo)}
       />
     </MiniAppFormPanel>
   );
