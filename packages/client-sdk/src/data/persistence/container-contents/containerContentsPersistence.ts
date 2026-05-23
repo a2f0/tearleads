@@ -356,6 +356,24 @@ async function saveContainerCreateIntent(input: {
     .run();
 }
 
+async function hasPendingContainerMetadataUpdates(input: {
+  tx: ClientSQLiteTransaction;
+  containerId: string;
+}): Promise<boolean> {
+  const rows = await input.tx
+    .select({ id: documentPendingUpdates.id })
+    .from(documentPendingUpdates)
+    .where(
+      and(
+        eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documentPendingUpdates.localId, input.containerId),
+      ),
+    )
+    .limit(1);
+
+  return rows.length > 0;
+}
+
 async function repairDocumentsForRemovedContainers(input: {
   containerIds: ReadonlyArray<string>;
   execSql: ExecSql;
@@ -856,8 +874,23 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
               .run();
           }
 
+          const hasRemainingPendingUpdates =
+            await hasPendingContainerMetadataUpdates({
+              containerId: container.id,
+              tx,
+            });
+          const containerToSave = hasRemainingPendingUpdates
+            ? container
+            : {
+                ...container,
+                serverUpdatedAt: getLatestTimestamp(
+                  container.serverUpdatedAt,
+                  localUpdatedAt,
+                ),
+              };
+
           return saveContainerContentsContainerRows({
-            container,
+            container: containerToSave,
             record,
             tx,
             localUpdatedAt,
