@@ -10,6 +10,10 @@ import {
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
+import {
+  buildMaterializedContainerCreatePlan,
+  childContainerWriterProjectionFromCreatePlan,
+} from "../containers";
 import { loadContainerInfo } from "./containerInfo";
 
 test("loadContainerInfo reads direct grants, organization groups, and local sync cursors", async () => {
@@ -84,6 +88,15 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
         subjectType: "user",
       },
     ]);
+    expect(info.remoteInfo?.grantRows).toEqual([
+      {
+        accessLevel: "admin",
+        inherited: false,
+        sourceContainerId: parent.projection.containerId,
+        subjectId: parent.userId,
+        subjectType: "user",
+      },
+    ]);
     expect(info.remoteInfo?.groups.map((group) => group.name)).toEqual([
       "Operators",
     ]);
@@ -122,6 +135,61 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
   } finally {
     close();
   }
+});
+
+test("loadContainerInfo includes inherited grants from ancestor containers", async () => {
+  const parent = await createParentProjection();
+  const childDirectGrant = {
+    accessLevel: "read" as const,
+    subjectId: "user-0",
+    subjectType: "user" as const,
+  };
+  const childMaterialized = await buildMaterializedContainerCreatePlan({
+    author: parent.author,
+    containerId: "child-container",
+    metadataDocumentId: "child-container-metadata-document",
+    parentProjection: parent.projection,
+    parentSecretKey: parent.secretKey,
+    trustedLocalProjection: true,
+  });
+  const childProjection = childContainerWriterProjectionFromCreatePlan({
+    materializedPlan: childMaterialized,
+    parentProjection: parent.projection,
+  });
+  const childState = childProjection.path.at(-1)?.state;
+  if (!childState || typeof childState !== "object") {
+    throw new Error("Expected child projection state");
+  }
+  Reflect.set(childState, "directGrants", [childDirectGrant]);
+
+  const info = await loadContainerInfo({
+    apiClient: {
+      getContainerWriterProjection: async (containerId) => {
+        expect(containerId).toBe(childProjection.containerId);
+        return childProjection;
+      },
+      listOrganizationGroups: async () => null,
+    },
+    containerId: childProjection.containerId,
+    organizationId: childProjection.organizationId,
+    parentId: parent.projection.containerId,
+  });
+
+  expect(info.remoteInfo?.grants).toEqual([childDirectGrant]);
+  expect(info.remoteInfo?.grantRows).toEqual([
+    {
+      ...childDirectGrant,
+      inherited: false,
+      sourceContainerId: childProjection.containerId,
+    },
+    {
+      accessLevel: "admin",
+      inherited: true,
+      sourceContainerId: parent.projection.containerId,
+      subjectId: parent.userId,
+      subjectType: "user",
+    },
+  ]);
 });
 
 test("loadContainerInfo returns local details without network for unsynced containers", async () => {

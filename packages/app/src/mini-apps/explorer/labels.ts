@@ -31,6 +31,8 @@ export const EXPLORER_LABELS = {
   containerInfoShareToPeerFailureLog: "Failed to share container with peer:",
   containerInfoShareToPeerHeading: "Share To Peer",
   containerInfoSharingAction: "Sharing...",
+  containerInfoSourceColumn: "Source",
+  containerInfoSourceDirect: "Direct",
   containerInfoSubjectTypeGroup: "group",
   containerInfoSubjectTypeOrganization: "organization",
   containerInfoSubjectTypeUser: "user",
@@ -146,6 +148,12 @@ export function getExplorerDocumentSubtitle(input: {
 
 export function getExplorerItemTableLabel(containerName: string): string {
   return `Items in ${containerName}`;
+}
+
+export function getExplorerContainerInfoInheritedGrantSource(
+  containerName: string,
+): string {
+  return `Inherited from ${containerName}`;
 }
 
 export function getExplorerMakeLinkedContainerActiveLabel(

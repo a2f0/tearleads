@@ -50,6 +50,7 @@ interface ExplorerContainerInfoPeerShareParams
 export function upsertContainerInfoGrant(
   info: ExplorerContainerInfo,
   grant: ExplorerContainerInfoGrant | null,
+  containerId: string,
 ): ExplorerContainerInfo {
   if (!grant || !info.remoteInfo) {
     return info;
@@ -67,11 +68,33 @@ export function upsertContainerInfoGrant(
       : existingGrants.map((candidate, index) =>
           index === existingGrantIndex ? { ...candidate, ...grant } : candidate,
         );
+  const directGrantRow = {
+    ...grant,
+    inherited: false,
+    sourceContainerId: containerId,
+  };
+  const existingGrantRows = info.remoteInfo.grantRows ?? [];
+  const existingGrantRowIndex = existingGrantRows.findIndex(
+    (candidate) =>
+      !candidate.inherited &&
+      candidate.sourceContainerId === containerId &&
+      candidate.subjectType === grant.subjectType &&
+      candidate.subjectId === grant.subjectId,
+  );
+  const grantRows =
+    existingGrantRowIndex === -1
+      ? [...existingGrantRows, directGrantRow]
+      : existingGrantRows.map((candidate, index) =>
+          index === existingGrantRowIndex
+            ? { ...candidate, ...directGrantRow }
+            : candidate,
+        );
 
   return {
     ...info,
     remoteInfo: {
       ...info.remoteInfo,
+      grantRows,
       grants,
     },
   };
@@ -187,6 +210,7 @@ export function useExplorerContainerInfo(params: {
         const updatedInfo = upsertContainerInfoGrant(
           nextInfo,
           options.optimisticGrant ?? null,
+          containerId,
         );
         setContainerInfo(updatedInfo);
         setDraftShareGroupId((current) =>

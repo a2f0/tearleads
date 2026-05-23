@@ -32,6 +32,11 @@ export interface ContainerInfoGrant {
   subjectType: ContainerGrantSubjectType;
 }
 
+export interface ContainerInfoGrantRow extends ContainerInfoGrant {
+  inherited: boolean;
+  sourceContainerId: string;
+}
+
 export interface ContainerInfoSyncCursor {
   label: string;
   laneId: string;
@@ -42,6 +47,7 @@ export interface ContainerInfoSyncCursor {
 }
 
 export interface ContainerInfoRemoteDetails {
+  grantRows: ContainerInfoGrantRow[];
   grants: ContainerInfoGrant[];
   groups: OrganizationGroupSummaryResponse[];
   syncCursors: ContainerInfoSyncCursor[];
@@ -75,14 +81,38 @@ interface LocalContainerInfoRecord {
   parentId: string | null;
 }
 
-function sortContainerInfoGrants(
-  grants: readonly ContainerInfoGrant[],
-): ContainerInfoGrant[] {
+function sortContainerInfoGrants<T extends ContainerInfoGrant>(
+  grants: readonly T[],
+): T[] {
   return [...grants].sort((left, right) =>
     `${left.subjectType}:${left.subjectId}`.localeCompare(
       `${right.subjectType}:${right.subjectId}`,
     ),
   );
+}
+
+function toContainerInfoGrant(grant: ContainerInfoGrant): ContainerInfoGrant {
+  return {
+    accessLevel: grant.accessLevel,
+    subjectId: grant.subjectId,
+    subjectType: grant.subjectType,
+  };
+}
+
+function getContainerInfoGrantRows(
+  projection: ContainerWriterProjectionResponse,
+): ContainerInfoGrantRow[] {
+  const rows = projection.path.flatMap((bundle) => {
+    const state = readContainerState(bundle);
+
+    return state.directGrants.map((grant) => ({
+      ...toContainerInfoGrant(grant),
+      inherited: state.containerId !== projection.containerId,
+      sourceContainerId: state.containerId,
+    }));
+  });
+
+  return sortContainerInfoGrants(rows);
 }
 
 interface ContainerInfoSyncCursorDefinition {
@@ -253,6 +283,7 @@ export async function loadContainerInfo(input: {
   return {
     local,
     remoteInfo: {
+      grantRows: getContainerInfoGrantRows(projection),
       grants: sortContainerInfoGrants(
         state.directGrants.map((grant) => ({
           accessLevel: grant.accessLevel,
