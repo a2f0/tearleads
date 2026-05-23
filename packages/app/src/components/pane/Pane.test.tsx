@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -8,8 +9,17 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
+import {
+  AppTestRuntimeScopeProbe,
+  waitForAppTestRuntimeToSettle,
+} from "../../../test/helpers/appRuntimeIdle";
 import { MockWorker } from "../../../test/helpers/mockWorker";
-import { resetMockServer, wsUrl } from "../../../test/helpers/mswServer";
+import {
+  listProxiedApiRequests,
+  resetMockServer,
+  useTestApiAppHandlers,
+  wsUrl,
+} from "../../../test/helpers/mswServer";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
@@ -33,6 +43,7 @@ function renderPane() {
             )
           }
         >
+          <AppTestRuntimeScopeProbe />
           <Pane className="pane" />
         </PaneProvider>
       </PaneSideProvider>
@@ -110,6 +121,108 @@ function listExplorerNoteItems(
       "button.explorer-sidebar-item--note",
     ),
   );
+}
+
+function listExplorerContainerItems(
+  explorerWindow: HTMLElement,
+): HTMLButtonElement[] {
+  return Array.from(
+    explorerWindow.querySelectorAll<HTMLButtonElement>(
+      "button.explorer-sidebar-item",
+    ),
+  ).filter(
+    (button) => !button.classList.contains("explorer-sidebar-item--note"),
+  );
+}
+
+function getExplorerContainerItem(
+  explorerWindow: HTMLElement,
+  name: string,
+): HTMLButtonElement {
+  const item = listExplorerContainerItems(explorerWindow).find(
+    (button) => button.textContent?.trim() === name,
+  );
+  invariant(item, `Expected explorer container item "${name}".`);
+  return item;
+}
+
+async function createExplorerChildContainer(
+  view: ReturnType<typeof renderPane>,
+  explorerWindow: HTMLElement,
+  name: string,
+) {
+  fireEvent.contextMenu(getExplorerContainerItem(explorerWindow, "/"), {
+    clientX: 180,
+    clientY: 180,
+  });
+  fireEvent.click(view.getByRole("button", { name: "Create Child" }));
+
+  const containerNameInput = view.getByLabelText("Container name");
+  invariant(
+    containerNameInput instanceof HTMLInputElement,
+    "Expected container name input.",
+  );
+  fireEvent.change(containerNameInput, { target: { value: name } });
+  fireEvent.click(view.getByRole("button", { name: "Create" }));
+
+  await waitFor(() => {
+    expect(getExplorerContainerItem(explorerWindow, name)).toBeTruthy();
+  });
+}
+
+function getSelectedExplorerContainerSyncLabel(
+  explorerWindow: HTMLElement,
+): string | null {
+  const badge = explorerWindow.querySelector<HTMLElement>(
+    ".explorer-detail-title-row .explorer-sync-badge",
+  );
+  return badge?.getAttribute("aria-label") ?? null;
+}
+
+function summarizeProxiedApiRequests(): string {
+  return listProxiedApiRequests()
+    .map((request) => {
+      const path = new URL(request.url).pathname;
+      const response = (() => {
+        try {
+          const parsed = JSON.parse(request.responseBody) as unknown;
+          if (
+            typeof parsed === "object" &&
+            parsed !== null &&
+            "error" in parsed
+          ) {
+            return ` ${String(Reflect.get(parsed, "error"))}`;
+          }
+          if (
+            typeof parsed === "object" &&
+            parsed !== null &&
+            "acceptedOutgoingUpdateIds" in parsed
+          ) {
+            const ids = Reflect.get(parsed, "acceptedOutgoingUpdateIds");
+            return ` accepted=${Array.isArray(ids) ? ids.length : "?"}`;
+          }
+        } catch {
+          // fall through to status-only summary
+        }
+        return "";
+      })();
+      return `${request.method} ${path} ${request.status}${response}`;
+    })
+    .join("\n");
+}
+
+async function waitForPaneRuntimeToSettle(): Promise<void> {
+  let settled = false;
+  await act(async () => {
+    settled = await waitForAppTestRuntimeToSettle({
+      apiQuietMs: 25,
+      timeoutMs: 5_000,
+    });
+  });
+  expect(
+    settled,
+    `Pane runtime did not settle.\nrequests=\n${summarizeProxiedApiRequests()}`,
+  ).toBe(true);
 }
 
 const userIdStatusPattern =
@@ -473,3 +586,28 @@ test("notes app lists notes created from explorer", async () => {
 
   view.unmount();
 });
+
+test("registered explorer child folders settle to synced in the pane UI", async () => {
+  useTestApiAppHandlers();
+  const view = renderPane();
+
+  await generateIdentityAndWaitForDb(view);
+  await uploadPublicKeyAndWaitForUserId(view);
+  const explorer = await openExplorer(view);
+
+  await waitFor(() => {
+    expect(getExplorerContainerItem(explorer, "/")).toBeTruthy();
+  });
+
+  await createExplorerChildContainer(view, explorer, "Docs");
+  await waitForPaneRuntimeToSettle();
+
+  await waitFor(() => {
+    expect(
+      getSelectedExplorerContainerSyncLabel(explorer),
+      `Child folder did not sync.\nrequests=\n${summarizeProxiedApiRequests()}`,
+    ).toBe("Synced");
+  });
+
+  view.unmount();
+}, 20_000);
