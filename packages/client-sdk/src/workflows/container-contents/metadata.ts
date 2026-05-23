@@ -132,6 +132,9 @@ type NullableContainerMetadataDocumentField =
   | "contentKeyBundle"
   | "documentKekTargets"
   | "documentManifestBundle";
+type SaveContainerOptions = Parameters<
+  ContainerContentsPersistence["saveContainer"]
+>[3];
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : "";
@@ -159,15 +162,46 @@ function resolveNullableContainerMetadataDocumentField(
   return resetWhenUnpatched ? null : (currentValue ?? null);
 }
 
+function savePersistedContainerMetadataState(input: {
+  acceptedPendingUpdateIds?: readonly string[] | undefined;
+  container: ContainerRecord;
+  execSql: ExecSql;
+  persistence: ContainerContentsPersistence;
+  record: DocumentRecord;
+  saveOptions?: SaveContainerOptions;
+}): Promise<ContainerRecord> {
+  if (input.acceptedPendingUpdateIds?.length) {
+    return input.persistence.saveContainerAndDeletePendingUpdates(
+      input.execSql,
+      input.container,
+      input.record,
+      input.acceptedPendingUpdateIds,
+    );
+  }
+
+  return input.persistence.saveContainer(
+    input.execSql,
+    input.container,
+    input.record,
+    input.saveOptions,
+  );
+}
+
 async function persistContainerMetadataState(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   execSql: ExecSql;
   metadataState: ContainerMetadataState;
   patch?: Partial<ContainerMetadataPatch> | undefined;
   persistence: ContainerContentsPersistence;
+  saveOptions?: SaveContainerOptions;
 }): Promise<PersistedContainerMetadataState> {
-  const { acceptedPendingUpdateIds, execSql, metadataState, persistence } =
-    input;
+  const {
+    acceptedPendingUpdateIds,
+    execSql,
+    metadataState,
+    persistence,
+    saveOptions,
+  } = input;
   const patch = input.patch ?? {};
   const currentDocumentId = metadataState.record.documentId ?? null;
   const nextDocumentId = patch.documentId ?? currentDocumentId;
@@ -229,15 +263,14 @@ async function persistContainerMetadataState(input: {
     ),
   };
 
-  const persistedContainer =
-    acceptedPendingUpdateIds && acceptedPendingUpdateIds.length > 0
-      ? await persistence.saveContainerAndDeletePendingUpdates(
-          execSql,
-          nextContainer,
-          nextRecord,
-          acceptedPendingUpdateIds,
-        )
-      : await persistence.saveContainer(execSql, nextContainer, nextRecord);
+  const persistedContainer = await savePersistedContainerMetadataState({
+    acceptedPendingUpdateIds,
+    container: nextContainer,
+    execSql,
+    persistence,
+    record: nextRecord,
+    saveOptions,
+  });
 
   return {
     container: persistedContainer,
@@ -426,6 +459,7 @@ export async function syncContainerMetadataState(input: {
     );
   }
 
+  const readOnlySyncTimestamp = new Date().toISOString();
   const persisted = await persistContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
     metadataState,
@@ -438,6 +472,13 @@ export async function syncContainerMetadataState(input: {
     },
     persistence,
     runtime,
+    saveOptions:
+      outgoingUpdateCount === 0
+        ? {
+            localUpdatedAt: readOnlySyncTimestamp,
+            serverTimestamps: { updatedAt: readOnlySyncTimestamp },
+          }
+        : undefined,
   });
 
   return {
