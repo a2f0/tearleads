@@ -7,6 +7,19 @@ import type {
 } from "./types";
 import { getSnapshotNodes } from "./utils";
 
+function areSyncStatesEqual(
+  left: ContainerNode["syncState"],
+  right: ContainerNode["syncState"],
+): boolean {
+  return (
+    left.lastError === right.lastError &&
+    left.pendingAttachmentBytes === right.pendingAttachmentBytes &&
+    left.pendingAttachmentCount === right.pendingAttachmentCount &&
+    left.pendingUpdateCount === right.pendingUpdateCount &&
+    left.status === right.status
+  );
+}
+
 function areSnapshotNodesEqual(
   left: ReadonlyArray<ContainerNode>,
   right: ReadonlyArray<ContainerNode>,
@@ -25,6 +38,7 @@ function areSnapshotNodesEqual(
       leftNode.name === rightNode.name &&
       leftNode.organizationId === rightNode.organizationId &&
       leftNode.parentId === rightNode.parentId &&
+      areSyncStatesEqual(leftNode.syncState, rightNode.syncState) &&
       leftNode.updatedAt === rightNode.updatedAt
     );
   });

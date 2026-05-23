@@ -63,6 +63,7 @@ import {
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { createExplorerStore } from "./ExplorerProvider";
 import {
+  type ContainerState,
   createExplorerSyncAgent,
   type ExplorerSyncState,
 } from "./explorerSyncAgent";
@@ -431,6 +432,7 @@ function createExplorerContainerApiHarness(
       projection,
     ]),
   );
+  const createdDocuments = new Map<string, DocumentCreateResponse>();
   const containerCreateCalls: Array<{
     containerId: string;
     metadataDocumentId: string;
@@ -440,6 +442,10 @@ function createExplorerContainerApiHarness(
   const documentCreateCalls: Array<{
     containerId: string;
     documentId: string;
+  }> = [];
+  const documentSyncCalls: Array<{
+    documentId: string;
+    outgoingUpdateCount: number;
   }> = [];
   const containerShareCalls: Array<{
     accessLevel: unknown;
@@ -487,6 +493,7 @@ function createExplorerContainerApiHarness(
       },
       createDocument: async (request: DocumentCreateRequest) => {
         const response = await createExplorerMetadataCreateResponse(request);
+        createdDocuments.set(response.id, response);
         documentCreateCalls.push({
           containerId: readRequestString(
             request.body as Record<string, unknown>,
@@ -496,8 +503,56 @@ function createExplorerContainerApiHarness(
         });
         return response;
       },
+      getDocumentWriterProjection: async (
+        documentId: string,
+      ): Promise<DocumentWriterProjectionResponse | null> => {
+        const storedDocument = createdDocuments.get(documentId);
+        if (!storedDocument) {
+          return null;
+        }
+        const linkedContainerIds = Reflect.get(
+          storedDocument.accessManifest.state,
+          "linkedContainerIds",
+        );
+        const linkedContainerId =
+          Array.isArray(linkedContainerIds) &&
+          typeof linkedContainerIds[0] === "string"
+            ? linkedContainerIds[0]
+            : "";
+        const containerProjection = projections.get(linkedContainerId);
+        if (!containerProjection) {
+          return null;
+        }
+
+        return {
+          authorizingContainerPaths: [containerProjection],
+          contentKeyBundle: storedDocument.contentKeyBundle,
+          documentId: storedDocument.id,
+          documentKekTargets: storedDocument.documentKekTargets,
+          documentManifest: storedDocument.accessManifest,
+        };
+      },
       getContainerWriterProjection: async (containerId: string) =>
         projections.get(containerId) ?? null,
+      syncDocument: async (
+        documentId: string,
+        request: DocumentSyncRequest,
+      ) => {
+        const storedDocument = createdDocuments.get(documentId);
+        if (!storedDocument) {
+          return null;
+        }
+        documentSyncCalls.push({
+          documentId,
+          outgoingUpdateCount: request.outgoingUpdates.length,
+        });
+
+        return createExplorerMetadataSyncResponse({
+          commitLsn: `0/${documentSyncCalls.length * 10}`,
+          request,
+          storedDocument,
+        });
+      },
       shareContainer: async (
         containerId: string,
         request: ContainerMutationRequest,
@@ -569,6 +624,7 @@ function createExplorerContainerApiHarness(
     }),
     containerCreateCalls,
     documentCreateCalls,
+    documentSyncCalls,
     containerMoveCalls,
     containerShareCalls,
     projections,
@@ -1039,6 +1095,69 @@ test("explorer snapshot update skips notifications when node contents are unchan
   }
 });
 
+test("explorer snapshot update emits when only node sync state changes", async () => {
+  const runtime = await createSqlRuntime();
+
+  try {
+    const state = createExplorerStoreState(runtime, defaultExplorerPersistence);
+    const { doc } = await createInitializedContainerMetadataDocument(
+      "root-container",
+      {
+        icon: null,
+        name: "/",
+      },
+    );
+    const timestamp = "2026-05-05T00:00:00.000Z";
+    const containerState: ContainerState = {
+      container: {
+        createdAt: timestamp,
+        id: "root-container",
+        organizationId: "org-1",
+        parentId: null,
+        metadataDocumentId: "root-metadata-document",
+        name: "/",
+        icon: null,
+        localCreatedAt: timestamp,
+        localUpdatedAt: timestamp,
+        serverCreatedAt: timestamp,
+        serverUpdatedAt: timestamp,
+        updatedAt: timestamp,
+      },
+      doc,
+      record: {
+        id: "root-container",
+        documentId: null,
+        loroSnapshot: "",
+        accessEpoch: 1,
+      },
+    };
+    state.containersById.set("root-container", containerState);
+
+    let notificationCount = 0;
+    const unsubscribe = subscribeToExplorerStore(state, () => {
+      notificationCount += 1;
+    });
+
+    updateExplorerSnapshot(state);
+    expect(notificationCount).toBe(1);
+    expect(state.snapshot.nodes[0]?.syncState).toEqual(
+      createExplorerObjectSyncState({ localOnly: true }),
+    );
+
+    containerState.record.documentId = "root-metadata-document";
+    updateExplorerSnapshot(state);
+
+    expect(notificationCount).toBe(2);
+    expect(state.snapshot.nodes[0]?.syncState).toEqual(
+      createExplorerObjectSyncState({}),
+    );
+
+    unsubscribe();
+  } finally {
+    runtime.close();
+  }
+});
+
 test("explorer sync agent batches concurrent remote ingests into one snapshot update", async () => {
   const runtime = await createSqlRuntime();
   let snapshotUpdateCount = 0;
@@ -1347,6 +1466,7 @@ test("explorer store creates authenticated child containers through the API befo
 
   runtime.isAuthenticated = true;
   runtime.encapsulationKeyPair = localKeyPair;
+  runtime.online = true;
   runtime.organizationId = "org-1";
   runtime.signingFingerprint = signingFingerprint;
   runtime.signingKeyPair = signingKeyPair;
@@ -1354,6 +1474,12 @@ test("explorer store creates authenticated child containers through the API befo
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...harness.apiClient,
+    getEncapsulationKey: async (requestedUserId: string) => ({
+      encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
+      signingKeyFingerprint: signingFingerprint,
+      signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+      userId: requestedUserId,
+    }),
     listContainers: async () => listContainersResponse(),
   });
   try {
@@ -1429,18 +1555,31 @@ test("explorer store creates authenticated child containers through the API befo
     expect(persistedChild?.updatedAt).toBe(childNode.updatedAt);
     expect(childNode.organizationId).toBe("org-1");
     expect(childNode.parentId).toBe("root-container");
-    const pendingRows = await runtime.execSql(
-      `
+    await waitForCondition(async () => {
+      const pendingRows = await runtime.execSql(
+        `
  SELECT COUNT(*) AS count
  FROM document_pending_updates
  WHERE app_kind = 'container-metadata'
  AND local_id = :containerId
  `,
+        {
+          ":containerId": childNode.id,
+        },
+      );
+      return Number(readSqlRowValue(pendingRows[0] ?? {}, "count")) === 0;
+    }, "Created child metadata update was not synced.");
+
+    expect(harness.documentSyncCalls).toEqual([
       {
-        ":containerId": childNode.id,
+        documentId: childNode.id,
+        outgoingUpdateCount: 1,
       },
-    );
-    expect(Number(readSqlRowValue(pendingRows[0] ?? {}, "count"))).toBe(1);
+    ]);
+    expect(
+      store.getSnapshot().nodes.find((node) => node.id === childNode.id)
+        ?.syncState,
+    ).toEqual(createExplorerObjectSyncState({}));
   } finally {
     runtime.close();
   }
@@ -1623,6 +1762,12 @@ test("explorer sync creates queued local containers parent before child", async 
       apiClient: createMockApiClient({
         ...runtime.apiClient,
         ...harness.apiClient,
+        getEncapsulationKey: async (requestedUserId: string) => ({
+          encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
+          signingKeyFingerprint: signingFingerprint,
+          signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+          userId: requestedUserId,
+        }),
         listContainers: async () =>
           listContainersResponse(Array.from(remoteContainers.values())),
       }),
@@ -1736,6 +1881,12 @@ test("explorer store creates a child under a writable shared root through the pa
   runtime.apiClient = createMockApiClient({
     ...runtime.apiClient,
     ...harness.apiClient,
+    getEncapsulationKey: async (requestedUserId: string) => ({
+      encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
+      signingKeyFingerprint: signingFingerprint,
+      signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+      userId: requestedUserId,
+    }),
     listContainers: async () =>
       listContainersResponse([
         listedContainer({

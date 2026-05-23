@@ -69,15 +69,14 @@ export async function createChildContainer(
     return null;
   }
 
-  if (created.shouldRequestSync) {
-    syncAgent.scheduleSync();
-  }
-
   state.containersById.set(
     created.containerState.container.id,
     created.containerState,
   );
   updateExplorerSnapshot(state);
+  if (created.shouldRequestSync) {
+    syncAgent.scheduleSync();
+  }
   state.runtime.log(`Explorer: created container "${trimmedName}"`);
   return toContainerNode(created.containerState);
 }
