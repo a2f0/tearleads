@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createModuleSQLiteWorkerRuntime } from "./sqlite";
+import { createModuleSQLiteRuntime } from "./sqlite";
 
 type WorkerMessage = {
   id: number;
@@ -32,7 +32,7 @@ class MockWorker extends EventTarget {
 }
 
 test("SQLite facade exposes the module worker runtime factory", async () => {
-  const runtime = createModuleSQLiteWorkerRuntime({
+  const runtime = createModuleSQLiteRuntime({
     workerConstructor: MockWorker,
     workerUrl: "/custom-worker.js",
   });

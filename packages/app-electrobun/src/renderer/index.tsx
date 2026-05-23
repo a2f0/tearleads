@@ -1,15 +1,15 @@
-import { createModuleSQLiteWorkerRuntime } from "@tearleads/client-sdk/sqlite";
+import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import { AppHostConfig } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
 
-function createElectrobunSQLiteWorkerRuntime() {
+function createElectrobunSQLiteRuntime() {
   const workerUrl =
     location.protocol === "http:"
       ? "/worker.js"
       : new URL("./databaseWorker.ts", import.meta.url);
 
-  return createModuleSQLiteWorkerRuntime({ workerUrl });
+  return createModuleSQLiteRuntime({ workerUrl });
 }
 
 const elem = document.getElementById("root");
@@ -21,6 +21,6 @@ renderApp(createRoot(elem), {
   hostConfig: new AppHostConfig(
     "http://localhost:3001",
     "ws://localhost:3001",
-    createElectrobunSQLiteWorkerRuntime,
+    createElectrobunSQLiteRuntime,
   ),
 });

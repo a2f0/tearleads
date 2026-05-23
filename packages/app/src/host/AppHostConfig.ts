@@ -1,11 +1,11 @@
-import type { SQLiteWorkerRuntime } from "@tearleads/client-sdk/sqlite";
+import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 
-export type CreateSQLiteWorkerRuntimeFn = () => SQLiteWorkerRuntime;
+export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
 
 export class AppHostConfig {
   constructor(
     readonly apiBaseUrl: string,
     readonly wsUrl: string,
-    readonly createSQLiteWorkerRuntime?: CreateSQLiteWorkerRuntimeFn,
+    readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn,
   ) {}
 }

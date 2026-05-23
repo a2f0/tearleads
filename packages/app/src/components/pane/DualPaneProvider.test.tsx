@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { createModuleSQLiteWorkerRuntime } from "@tearleads/client-sdk/sqlite";
+import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import {
   act,
   cleanup,
@@ -104,7 +104,7 @@ function PaneAutoProvisioner() {
 
 function renderDualPane() {
   const hostConfig = new AppHostConfig("http://localhost:3001", wsUrl, () =>
-    createModuleSQLiteWorkerRuntime({ workerConstructor: MockWorker }),
+    createModuleSQLiteRuntime({ workerConstructor: MockWorker }),
   );
 
   return render(
@@ -133,7 +133,7 @@ function renderSinglePane({
   autoProvision?: boolean;
 } = {}) {
   const hostConfig = new AppHostConfig("http://localhost:3001", wsUrl, () =>
-    createModuleSQLiteWorkerRuntime({ workerConstructor: MockWorker }),
+    createModuleSQLiteRuntime({ workerConstructor: MockWorker }),
   );
 
   return render(
