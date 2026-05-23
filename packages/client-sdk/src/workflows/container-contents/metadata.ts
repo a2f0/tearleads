@@ -187,6 +187,14 @@ function savePersistedContainerMetadataState(input: {
   );
 }
 
+function createReadOnlyMetadataSyncSaveOptions(): SaveContainerOptions {
+  const syncTimestamp = new Date().toISOString();
+  return {
+    localUpdatedAt: syncTimestamp,
+    serverTimestamps: { updatedAt: syncTimestamp },
+  };
+}
+
 async function persistContainerMetadataState(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   execSql: ExecSql;
@@ -459,7 +467,6 @@ export async function syncContainerMetadataState(input: {
     );
   }
 
-  const readOnlySyncTimestamp = new Date().toISOString();
   const persisted = await persistContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
     metadataState,
@@ -474,10 +481,7 @@ export async function syncContainerMetadataState(input: {
     runtime,
     saveOptions:
       outgoingUpdateCount === 0
-        ? {
-            localUpdatedAt: readOnlySyncTimestamp,
-            serverTimestamps: { updatedAt: readOnlySyncTimestamp },
-          }
+        ? createReadOnlyMetadataSyncSaveOptions()
         : undefined,
   });
 
