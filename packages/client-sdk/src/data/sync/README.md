@@ -15,8 +15,8 @@ callers trigger that callback through `requestSync()`.
 Current production lanes include:
 
 - `documents:${localId}` lanes registered by document stores.
-- `contacts` lanes registered by the contacts store.
-- `container-contents` lanes registered by the explorer/container contents
+- `contacts` lane registered by the contacts store.
+- `container-contents` lane registered by the explorer/container contents
   store.
 
 The coordinator guarantees that a single lane does not run concurrently with
@@ -29,7 +29,7 @@ Different lane keys are independent and may run at the same time.
 The coordinator is not specifically read-only or write-only. It can schedule
 either because it only calls the lane's `run()` callback.
 
-The current document lane does both sides of document sync:
+The current document lanes do both sides of document sync:
 
 - pushes local pending document updates through the document sync workflow;
 - pulls and applies remote document updates returned by that workflow;
@@ -37,7 +37,7 @@ The current document lane does both sides of document sync:
 - uploads pending attachment blob bytes before regular document-state sync when
   a document has attachment mutations.
 
-Those blob uploads are part of the document store's sync lane. The byte stores,
+Those blob uploads are part of the document store's sync lanes. The byte stores,
 blob envelopes, and attachment persistence live elsewhere under `data/blobs`,
 `data/blob*`, and document persistence modules. This coordinator never reads or
 writes blob bytes directly.
