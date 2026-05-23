@@ -1,6 +1,6 @@
 import {
-  defaultContainerContentsPersistence as defaultExplorerPersistence,
-  type ContainerContentsPersistence as ExplorerPersistence,
+  type ContainerContentsPersistence,
+  defaultContainerContentsPersistence,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import type { DomainScope } from "@tearleads/client-sdk/workflows/sync";
 import {
@@ -39,7 +39,7 @@ const ExplorerContext = createContext<ExplorerStore | null>(null);
 
 export function createExplorerStore(
   initialRuntime: ExplorerRuntime,
-  persistence: ExplorerPersistence = defaultExplorerPersistence,
+  persistence: ContainerContentsPersistence = defaultContainerContentsPersistence,
 ): ExplorerStore {
   const state = createExplorerStoreState(initialRuntime, persistence);
   const syncAgent = createExplorerSyncAgent({

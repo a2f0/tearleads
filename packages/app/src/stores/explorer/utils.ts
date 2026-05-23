@@ -1,6 +1,6 @@
 import {
   type ContainerRecord,
-  createContainerDocumentObjectSyncState as createExplorerObjectSyncState,
+  createContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import type { ContainerState } from "./explorerSyncAgent";
 import type { ContainerNode } from "./types";
@@ -24,7 +24,7 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
     name: container.name,
     organizationId: container.organizationId,
     parentId: container.parentId,
-    syncState: createExplorerObjectSyncState({
+    syncState: createContainerDocumentObjectSyncState({
       localOnly:
         !container.serverCreatedAt ||
         !container.metadataDocumentId ||

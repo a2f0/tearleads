@@ -1,4 +1,4 @@
-import type { ContainerContentsPersistence as ExplorerPersistence } from "@tearleads/client-sdk/workflows/container-contents";
+import type { ContainerContentsPersistence } from "@tearleads/client-sdk/workflows/container-contents";
 import type { ExplorerRuntime, ExplorerSyncAgent } from "./explorerSyncAgent";
 import type {
   ContainerNode,
@@ -32,7 +32,7 @@ function areSnapshotNodesEqual(
 
 export function createExplorerStoreState(
   initialRuntime: ExplorerRuntime,
-  persistence: ExplorerPersistence,
+  persistence: ContainerContentsPersistence,
 ): ExplorerStoreState {
   return {
     containersById: new Map(),

@@ -1,13 +1,13 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import {
-  activateDocumentLinkState as activateExplorerDocumentLinkState,
-  canMutateDocumentLink as canMutateExplorerDocumentLink,
-  type DocumentStructuralMutationHost as ExplorerDocumentStructuralMutationHost,
-  linkDocumentLinkState as linkExplorerDocumentLinkState,
-  type MergeDocumentSummary as MergeExplorerDocumentSummary,
-  moveDocumentLinkState as moveExplorerDocumentLinkState,
+  activateDocumentLinkState,
+  canMutateDocumentLink,
+  type DocumentStructuralMutationHost,
+  linkDocumentLinkState,
+  type MergeDocumentSummary,
+  moveDocumentLinkState,
   type SetLinkedContainerIdsForDocument,
-  unlinkDocumentLinkState as unlinkExplorerDocumentLinkState,
+  unlinkDocumentLinkState,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
@@ -19,10 +19,12 @@ type ExplorerDocumentsRuntime = ReturnType<
   typeof createExplorerDocumentsRuntime
 >;
 
+export type MergeExplorerDocumentSummary = MergeDocumentSummary;
+
 function createExplorerDocumentLinkHost(
   appData: ExplorerDocumentsRuntimeAppData,
   mergeDocumentSummary: MergeExplorerDocumentSummary,
-): ExplorerDocumentStructuralMutationHost<ExplorerDocumentsRuntime> {
+): DocumentStructuralMutationHost<ExplorerDocumentsRuntime> {
   return {
     createDocumentRuntime: (containerId) =>
       createExplorerDocumentsRuntime(appData, containerId),
@@ -37,12 +39,12 @@ function createExplorerDocumentLinkHost(
   };
 }
 
-export type { MergeExplorerDocumentSummary, SetLinkedContainerIdsForDocument };
+export type { SetLinkedContainerIdsForDocument };
 
 export function canMutateSelectedDocument(
   appData: ExplorerDocumentsRuntimeAppData,
 ) {
-  return canMutateExplorerDocumentLink(appData);
+  return canMutateDocumentLink(appData);
 }
 
 export function moveExplorerNote(params: {
@@ -62,7 +64,7 @@ export function moveExplorerNote(params: {
     targetContainerId,
   } = params;
 
-  return moveExplorerDocumentLinkState({
+  return moveDocumentLinkState({
     expandNode,
     host: createExplorerDocumentLinkHost(appData, mergeDocumentSummary),
     note,
@@ -87,7 +89,7 @@ export function linkExplorerNote(params: {
     targetContainerId,
   } = params;
 
-  return linkExplorerDocumentLinkState({
+  return linkDocumentLinkState({
     host: createExplorerDocumentLinkHost(appData, mergeDocumentSummary),
     note,
     runtime: appData,
@@ -111,7 +113,7 @@ export function unlinkExplorerLinkedNote(params: {
     setLinkedContainerIdsForDocument,
   } = params;
 
-  return unlinkExplorerDocumentLinkState({
+  return unlinkDocumentLinkState({
     host: createExplorerDocumentLinkHost(appData, mergeDocumentSummary),
     note,
     removedContainerId,
@@ -128,7 +130,7 @@ export function activateExplorerLinkedNote(params: {
 }) {
   const { appData, mergeDocumentSummary, note, targetContainerId } = params;
 
-  return activateExplorerDocumentLinkState({
+  return activateDocumentLinkState({
     host: createExplorerDocumentLinkHost(appData, mergeDocumentSummary),
     note,
     runtime: appData,

@@ -1,15 +1,16 @@
 import type { TearleadsWorkflowRuntimeInput } from "@tearleads/client-sdk";
 import {
-  createContainerDocumentReadModelFromRuntime as createExplorerDocumentReadModelFromRuntime,
-  createContainerContentsWorkflowSqlRuntime as createExplorerWorkflowSqlRuntime,
-  type ContainerDocumentReadModel as ExplorerDocumentReadModel,
+  type ContainerDocumentReadModel,
+  createContainerContentsWorkflowSqlRuntime,
+  createContainerDocumentReadModelFromRuntime,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import { useMemo } from "react";
+
+export type ExplorerDocumentReadModel = ContainerDocumentReadModel;
 
 export type {
   ContainerDocumentLinkInput as ExplorerDocumentLinkInput,
   ContainerDocumentObjectSyncState as ExplorerObjectSyncState,
-  ContainerDocumentReadModel as ExplorerDocumentReadModel,
   ContainerDocumentSidebarRow as ExplorerContainerDocumentSidebarRow,
   ContainerDocumentTombstone as ExplorerContainerDocumentTombstone,
   ContainerItemRow as ExplorerContainerItemRow,
@@ -23,8 +24,8 @@ export function useExplorerDocumentReadModel(
 ): ExplorerDocumentReadModel {
   return useMemo(
     () =>
-      createExplorerDocumentReadModelFromRuntime(
-        createExplorerWorkflowSqlRuntime({ execSql: appData.execSql }),
+      createContainerDocumentReadModelFromRuntime(
+        createContainerContentsWorkflowSqlRuntime({ execSql: appData.execSql }),
       ),
     [appData.execSql],
   );
