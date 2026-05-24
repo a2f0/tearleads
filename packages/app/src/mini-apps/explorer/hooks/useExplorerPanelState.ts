@@ -1,7 +1,7 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
-import type { useAppData } from "../../../providers/data/AppDataProvider";
+import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import {
   type ExplorerContainerInfo,
   useExplorerContainerInfoLoader,
@@ -90,7 +90,7 @@ export interface ExplorerPanelState {
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The panel hook coordinates sidebar, document, modal, and context-menu state.
 export function useExplorerPanelState(params: {
-  appData: ReturnType<typeof useAppData>;
+  appData: TearleadsRuntimeSnapshot;
   documentLinkProjectionVersion: number;
   documentListRevision: number;
   documentReadModel: ExplorerDocumentReadModel;

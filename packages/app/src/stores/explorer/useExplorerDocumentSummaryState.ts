@@ -1,6 +1,6 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { useAppData } from "../../providers/data/AppDataProvider";
+import type { TearleadsRuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
 import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import {
@@ -9,8 +9,8 @@ import {
 } from "./documentSummaryUtils";
 
 export function useExplorerDocumentSummaryState(
-  dbStatus: ReturnType<typeof useAppData>["dbStatus"],
-  domainScope: ReturnType<typeof useAppData>["domainScope"],
+  dbStatus: TearleadsRuntimeSnapshot["dbStatus"],
+  domainScope: TearleadsRuntimeSnapshot["domainScope"],
   documentReadModel: ExplorerDocumentReadModel,
 ) {
   const [documentSummaries, setDocumentSummaries] = useState<

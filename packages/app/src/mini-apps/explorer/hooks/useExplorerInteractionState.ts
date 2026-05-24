@@ -1,7 +1,9 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback } from "react";
-import type { useAppData } from "../../../providers/data/AppDataProvider";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import {
+  type TearleadsRuntimeSnapshot,
+  useTearleads,
+} from "../../../providers/sdk/TearleadsProvider";
 import {
   useDiscoveredDocumentsSync,
   usePrimeDiscoveredDocuments,
@@ -11,7 +13,7 @@ import type { ExplorerModelExplorer } from "./explorerModelTypes";
 
 export function useExplorerInteractionState(params: {
   activeContainerId: string | null;
-  appData: ReturnType<typeof useAppData>;
+  appData: TearleadsRuntimeSnapshot;
   explorer: ExplorerModelExplorer;
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (

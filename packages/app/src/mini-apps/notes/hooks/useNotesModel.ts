@@ -1,12 +1,12 @@
 import { useId, useMemo, useRef } from "react";
 import { useAttachmentImageUrls } from "../../../document-types/shared/useAttachmentImageUrls";
-import { useAppData } from "../../../providers/data/AppDataProvider";
+import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../../stores/documents/DocumentsProvider";
 import { useAttachmentDropzone } from "../attachments/useAttachmentDropzone";
 import { createNotesFileHandlers } from "./useNotesFileHandlers";
 
 export function useNotesModel() {
-  const { blobStore, isAuthenticated, online } = useAppData();
+  const { blobStore, isAuthenticated, online } = useTearleadsRuntime();
   const {
     attachments,
     attachmentStatusBySlotId,

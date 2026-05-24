@@ -1,6 +1,6 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useMemo } from "react";
-import type { useAppData } from "../../../providers/data/AppDataProvider";
+import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import { getKnownDocumentIds } from "../../../stores/explorer/documentSummaryUtils";
 import type { ContainerNode } from "../../../stores/explorer/types";
@@ -12,7 +12,7 @@ import {
 } from "./useExplorerSelection";
 
 export function useExplorerDocumentViewModel(params: {
-  appData: Pick<ReturnType<typeof useAppData>, "dbStatus" | "domainScope">;
+  appData: Pick<TearleadsRuntimeSnapshot, "dbStatus" | "domainScope">;
   documentReadModel: ExplorerDocumentReadModel;
   documentLinkProjectionVersion: number;
   nodes: ReadonlyArray<ContainerNode>;

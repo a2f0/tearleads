@@ -1,5 +1,5 @@
 import { useId, useMemo } from "react";
-import { useAppData } from "../../providers/data/AppDataProvider";
+import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   StructuredDocument,
@@ -94,7 +94,7 @@ function ContactDocumentFieldsForm({
 }
 
 export function ContactDocument() {
-  const { isAuthenticated, online } = useAppData();
+  const { isAuthenticated, online } = useTearleadsRuntime();
   const { ready, setStructuredFields, structuredFields, syncing } =
     useDocument();
   const fields = useMemo(

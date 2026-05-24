@@ -1,5 +1,5 @@
 import { useId, useMemo } from "react";
-import { useAppData } from "../../providers/data/AppDataProvider";
+import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
@@ -21,7 +21,7 @@ const DRIVER_LICENSE_ATTACHMENT_COPY = {
 };
 
 export function DriverLicense() {
-  const { blobStore, isAuthenticated, online } = useAppData();
+  const { blobStore, isAuthenticated, online } = useTearleadsRuntime();
   const {
     attachments,
     attachmentStatusBySlotId,

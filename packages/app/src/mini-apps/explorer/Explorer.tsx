@@ -3,7 +3,7 @@ import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
-import { useAppData } from "../../providers/data/AppDataProvider";
+import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { type MiniAppWindowPosition, useMiniAppBusActions } from "../bus";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
@@ -33,7 +33,7 @@ function useOpenGrantGroupInOrgManager() {
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Explorer composes the mini-app shell from model state.
 export function Explorer() {
-  const appData = useAppData();
+  const appData = useTearleadsRuntime();
   const explorer = useExplorer();
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();

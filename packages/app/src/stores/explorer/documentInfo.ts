@@ -1,12 +1,17 @@
 import type { DocumentInfo } from "@tearleads/client-sdk/workflows/container-contents";
 import { useCallback } from "react";
-import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  type TearleadsRuntimeSnapshot,
+  useTearleads,
+} from "../../providers/sdk/TearleadsProvider";
 
 export type ExplorerDocumentInfo = DocumentInfo;
 
 export function useExplorerDocumentInfoLoader(input: {
-  readonly appData: Pick<AppDataContextValue, "isAuthenticated" | "online">;
+  readonly appData: Pick<
+    TearleadsRuntimeSnapshot,
+    "isAuthenticated" | "online"
+  >;
 }): (localId: string) => Promise<ExplorerDocumentInfo> {
   const { appData } = input;
   const { containerContents } = useTearleads();

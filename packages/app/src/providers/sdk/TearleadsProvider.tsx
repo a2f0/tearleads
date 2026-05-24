@@ -6,13 +6,26 @@ import {
   type PropsWithChildren,
   useContext,
   useEffect,
+  useMemo,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../document-types/projectors";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 
 const TearleadsContext = createContext<Tearleads | null>(null);
+
+export type TearleadsRuntimeSnapshot = ReturnType<
+  Tearleads["runtime"]["input"]
+> & {
+  authToken: string | null;
+  dbId: string | null;
+};
+
+const TearleadsRuntimeContext = createContext<TearleadsRuntimeSnapshot | null>(
+  null,
+);
 
 function isServerEvent(value: unknown): value is {
   type: string;
@@ -114,13 +127,38 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
         logger: { log, logError },
       }),
   );
+  const runtimeVersion = useSyncExternalStore(
+    tearleads.runtime.subscribe,
+    () => tearleads.runtime.version,
+    () => tearleads.runtime.version,
+  );
+  const runtimeInput = useMemo(
+    () => tearleads.runtime.input(),
+    [runtimeVersion, tearleads],
+  );
+  const runtimeSnapshot = useMemo<TearleadsRuntimeSnapshot>(
+    () => ({
+      ...runtimeInput,
+      authToken: tearleads.session.authToken,
+      dbId: tearleads.database.id,
+    }),
+    [
+      runtimeInput,
+      tearleads.session.authToken,
+      tearleads.database.id,
+      tearleads,
+    ],
+  );
+
   useBrowserNetworkBinding(tearleads);
   useNetworkTransitionLog(tearleads);
   useServerEventsBinding(tearleads, hostConfig.wsUrl, log);
 
   return (
     <TearleadsContext.Provider value={tearleads}>
-      {children}
+      <TearleadsRuntimeContext.Provider value={runtimeSnapshot}>
+        {children}
+      </TearleadsRuntimeContext.Provider>
     </TearleadsContext.Provider>
   );
 }
@@ -129,6 +167,17 @@ export function useTearleads(): Tearleads {
   const context = useContext(TearleadsContext);
   if (!context) {
     throw new Error("useTearleads must be used within a TearleadsProvider.");
+  }
+
+  return context;
+}
+
+export function useTearleadsRuntime(): TearleadsRuntimeSnapshot {
+  const context = useContext(TearleadsRuntimeContext);
+  if (!context) {
+    throw new Error(
+      "useTearleadsRuntime must be used within a TearleadsProvider.",
+    );
   }
 
   return context;

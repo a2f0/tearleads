@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useAppData } from "../../../providers/data/AppDataProvider";
+import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import {
   type OrgManagerContainerGrant,
   type OrgManagerContainerGrants,
@@ -49,7 +49,7 @@ import { useOrgManagerRoute } from "./useOrgManagerRoute";
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The hook keeps related async refresh and mutation ordering in one place.
 export function useOrgManagerModel() {
-  const appData = useAppData();
+  const appData = useTearleadsRuntime();
   const orgManagerActions = useOrgManagerActions();
   const addUserListId = useId();
   const [directory, setDirectory] = useState<OrgManagerDirectory | null>(null);
