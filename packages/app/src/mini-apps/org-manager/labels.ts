@@ -7,6 +7,7 @@ export const ORG_MANAGER_LABELS = {
   accessRead: "Read",
   accessWrite: "Write",
   action: "Action",
+  active: "Active",
   builtIn: "Built-in",
   container: "Container",
   create: "Create",
@@ -68,6 +69,7 @@ export const ORG_MANAGER_LABELS = {
   selectUser: "Select a user.",
   self: "You",
   signingKey: "Signing key",
+  status: "Status",
   uninitialized: "Uninitialized",
   updated: "Updated",
   usage: "Usage",
@@ -88,6 +90,7 @@ export const ORG_MANAGER_LABELS = {
   userDetailUnavailable: "User detail unavailable.",
   userId: "User ID",
   userNotFound: "User not found.",
+  disabled: "Disabled",
 } as const;
 
 export function getOrgManagerEpochLabel(keyEpoch: number): string {

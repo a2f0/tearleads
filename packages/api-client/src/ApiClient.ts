@@ -12,6 +12,7 @@ import type {
   PutPrincipalMemberEnvelopesRequest,
   PutPrincipalStateRequest,
   StageBlobRequest,
+  UpdateOrganizationRosterEntryRequest,
   UploadMultipartBlobPartRequest,
 } from "@tearleads/validators/request";
 import {
@@ -72,6 +73,7 @@ import {
   listOrganizationGroupContainers,
   listOrganizationGroupMembers,
   listOrganizationGroups,
+  updateOrganizationRosterEntry,
 } from "./routes/organizations";
 import {
   getCurrentPrincipalPolicy,
@@ -452,6 +454,19 @@ export class ApiClient {
 
   getOrganizationUserDetail(organizationId: string, userId: string) {
     return getOrganizationUserDetail(this.request, organizationId, userId);
+  }
+
+  updateOrganizationRosterEntry(
+    organizationId: string,
+    userId: string,
+    input: UpdateOrganizationRosterEntryRequest,
+  ) {
+    return updateOrganizationRosterEntry(
+      this.request,
+      organizationId,
+      userId,
+      input,
+    );
   }
 
   createOrganizationGroup(

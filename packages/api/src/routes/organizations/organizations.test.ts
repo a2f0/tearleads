@@ -14,6 +14,7 @@ import {
   isOrganizationContainerGrantsResponse,
   isOrganizationDataUsageResponse,
   isOrganizationDirectoryResponse,
+  isOrganizationDirectoryUserResponse,
   isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
   isOrganizationGroupSummaryResponse,
@@ -41,6 +42,7 @@ import {
   documentContentWriteHeaders,
   documents,
   documentUpdates,
+  organizationRosterEntries,
   organizations,
   users,
 } from "../../schema";
@@ -328,6 +330,106 @@ test("org manager routes list the current org directory", async () => {
   expect(body.users).toHaveLength(1);
   expect(body.users[0]?.userId).toBe(actor.userId);
   expect(body.users[0]?.isSelf).toBe(true);
+  expect(body.users[0]?.status).toBe("active");
+  expect(body.users[0]?.profileDocumentId).toBeNull();
+  expect(body.users[0]?.disabledAt).toBeNull();
+});
+
+test("org manager routes keep disabled roster entries visible outside access groups", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const disabledUser = createTestUser();
+  await registerAndAuthenticate(disabledUser);
+  const disabledAt = new Date("2026-05-13T12:00:00.000Z");
+
+  await db.insert(organizationRosterEntries).values({
+    organizationId,
+    userId: disabledUser.userId,
+    status: "disabled",
+    disabledAt,
+    disabledByUserId: actor.userId,
+  });
+
+  const directoryResponse = await routeApp.request(
+    `/organizations/${organizationId}/directory`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+
+  expect(directoryResponse.status).toBe(200);
+  const directoryBody = await directoryResponse.json();
+  invariant(
+    isOrganizationDirectoryResponse(directoryBody),
+    "expected organization directory response",
+  );
+  expect(
+    directoryBody.users.map((user) => ({
+      disabledByUserId: user.disabledByUserId,
+      status: user.status,
+      userId: user.userId,
+    })),
+  ).toContainEqual({
+    disabledByUserId: actor.userId,
+    status: "disabled",
+    userId: disabledUser.userId,
+  });
+
+  const detailResponse = await routeApp.request(
+    `/organizations/${organizationId}/users/${disabledUser.userId}/detail`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+
+  expect(detailResponse.status).toBe(200);
+  const detailBody = await detailResponse.json();
+  invariant(
+    isOrganizationUserDetailResponse(detailBody),
+    "expected organization user detail response",
+  );
+  expect(detailBody.user.status).toBe("disabled");
+  expect(detailBody.groups).toEqual([]);
+  expect(detailBody.grants.directGrants).toEqual([]);
+  expect(detailBody.grants.groupGrants).toEqual([]);
+
+  const disabledUserDirectoryResponse = await routeApp.request(
+    `/organizations/${organizationId}/directory`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${disabledUser.token}` },
+    },
+  );
+  expect(disabledUserDirectoryResponse.status).toBe(403);
+});
+
+test("org manager routes let admins bind an encrypted roster profile document", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/roster/${actor.userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({ profileDocumentId: null }),
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  invariant(
+    isOrganizationDirectoryUserResponse(body),
+    "expected organization roster user response",
+  );
+  expect(body.userId).toBe(actor.userId);
+  expect(body.profileDocumentId).toBeNull();
+  expect(body.status).toBe("active");
 });
 
 test("org manager routes reject users outside the organization", async () => {
@@ -653,6 +755,32 @@ test("org manager routes allow organization members to read but reserve mutation
   );
 
   expect(createResponse.status).toBe(403);
+
+  const selfRosterResponse = await routeApp.request(
+    `/organizations/${organizationId}/roster/${member.userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${member.token}`,
+      },
+      body: JSON.stringify({ profileDocumentId: null }),
+    },
+  );
+  expect(selfRosterResponse.status).toBe(200);
+
+  const otherRosterResponse = await routeApp.request(
+    `/organizations/${organizationId}/roster/${actor.userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${member.token}`,
+      },
+      body: JSON.stringify({ profileDocumentId: null }),
+    },
+  );
+  expect(otherRosterResponse.status).toBe(403);
 });
 
 test("org manager routes create and list groups with members", async () => {

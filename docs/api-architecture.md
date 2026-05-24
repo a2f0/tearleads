@@ -46,6 +46,7 @@ Write surfaces:
 | Store principal policy state | `PUT /principals/:principalType/:principalId/state` | `PutPrincipalStateRequest` |
 | Store principal member envelopes | `PUT /principals/:principalType/:principalId/member-envelopes` | `PutPrincipalMemberEnvelopesRequest` |
 | Create organization group | `POST /organizations/:organizationId/groups` | `CreateOrganizationGroupRequest` |
+| Bind encrypted roster profile document | `PUT /organizations/:organizationId/roster/:userId` | `UpdateOrganizationRosterEntryRequest` |
 | Create container | `POST /containers` | `ContainerMutationRequest` |
 | Share container | `POST /containers/:containerId/share` | `ContainerMutationRequest` |
 | Revoke container grant | `POST /containers/:containerId/revoke` | `ContainerMutationRequest` |
@@ -211,8 +212,8 @@ The service layer covers these route-backed capabilities:
 - blob staging, attachment binding, and detach mutations
 - document link and unlink mutations
 - principal policy read and write operations
-- org-manager directory and group operations backed by reserved `Admins` and
-  `Members` group policy reachability
+- org-manager roster, directory, and group operations backed by roster rows and
+  reserved `Admins` / `Members` group policy reachability
 
 The `logout` route remains route-local. It composes `requireAuth` and
 `destroySession` directly and does not orchestrate application-service logic.

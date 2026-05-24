@@ -9,6 +9,7 @@ import {
 } from "../util";
 
 export type OrganizationRole = "member" | "admin";
+export type OrganizationRosterStatus = "active" | "disabled";
 
 export interface OrganizationDirectoryUserResponse {
   userId: string;
@@ -18,6 +19,11 @@ export interface OrganizationDirectoryUserResponse {
   encapsulationKeyFingerprint: string;
   createdAt: string;
   isSelf: boolean;
+  status: OrganizationRosterStatus;
+  profileDocumentId: string | null;
+  joinedAt: string;
+  disabledAt: string | null;
+  disabledByUserId: string | null;
 }
 
 export interface OrganizationDirectoryResponse {
@@ -143,6 +149,12 @@ function isOrganizationRole(value: string): value is OrganizationRole {
   return value === "member" || value === "admin";
 }
 
+function isOrganizationRosterStatus(
+  value: string,
+): value is OrganizationRosterStatus {
+  return value === "active" || value === "disabled";
+}
+
 function isPrincipalMemberType(value: string): value is "user" | "group" {
   return value === "user" || value === "group";
 }
@@ -170,7 +182,13 @@ export function isOrganizationDirectoryUserResponse(
     hasStringProperty(value, "encapsulationPublicKey") &&
     hasStringProperty(value, "encapsulationKeyFingerprint") &&
     hasStringProperty(value, "createdAt") &&
-    hasBooleanProperty(value, "isSelf")
+    hasBooleanProperty(value, "isSelf") &&
+    hasStringProperty(value, "status") &&
+    isOrganizationRosterStatus(value.status) &&
+    hasNullableStringProperty(value, "profileDocumentId") &&
+    hasStringProperty(value, "joinedAt") &&
+    hasNullableStringProperty(value, "disabledAt") &&
+    hasNullableStringProperty(value, "disabledByUserId")
   );
 }
 

@@ -12,6 +12,7 @@ import {
   type OrganizationUserRecipient,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
+  updateOrganizationRosterEntry,
 } from "../workflows/organizations";
 import type {
   TearleadsInternalRuntime,
@@ -70,6 +71,10 @@ export interface TearleadsOrganizations {
   loadUserDetail: (
     userId: string,
   ) => ReturnType<typeof loadOrganizationUserDetail>;
+  updateRosterEntry: (
+    userId: string,
+    profileDocumentId: string | null,
+  ) => ReturnType<typeof updateOrganizationRosterEntry>;
   removeUserFromGroup: (
     input: TearleadsRemoveOrganizationGroupUserInput,
   ) => ReturnType<typeof removeOrganizationGroupUser>;
@@ -247,6 +252,21 @@ class TearleadsOrganizationsService implements TearleadsOrganizations {
       apiClient: runtime.apiClient,
       execSql: runtime.dbStatus === "ready" ? runtime.execSql : null,
       organizationId,
+      userId,
+    });
+  }
+
+  updateRosterEntry(userId: string, profileDocumentId: string | null) {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    if (!organizationId || userId.length === 0) {
+      return Promise.resolve(null);
+    }
+
+    return updateOrganizationRosterEntry({
+      apiClient: runtime.apiClient,
+      organizationId,
+      profileDocumentId,
       userId,
     });
   }

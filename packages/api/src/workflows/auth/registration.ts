@@ -38,6 +38,7 @@ import {
   createDocumentWithExecutor,
   DocumentMutationError,
 } from "../documents/mutations";
+import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
 const INITIAL_ADMIN_GROUP_NAME = "Admins";
@@ -871,6 +872,12 @@ async function runRegistrationTransaction(
     await storeInitialAdminGroupPolicy(tx, input);
     await storeInitialMemberGroupPolicy(tx, input);
     await storeInitialOrganizationPolicy(tx, input);
+    await syncOrganizationRosterFromMemberReachability({
+      disabledByUserId: null,
+      executor: tx,
+      memberGroupId: input.initialMemberGroup.groupId,
+      organizationId: org.id,
+    });
     const rootMetadata = await storeInitialRootContainer(
       tx,
       input,

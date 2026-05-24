@@ -20,6 +20,7 @@ import {
   isPutPrincipalStateRequest,
   isRegistrationRequest,
   isStageBlobRequest,
+  isUpdateOrganizationRosterEntryRequest,
   isUploadMultipartBlobPartRequest,
   isVerifyRequest,
 } from "./index";
@@ -182,6 +183,25 @@ test("isRegistrationRequest", () => {
   expect(isRegistrationRequest({ encapsulationPublicKey: [1] })).toBe(false);
   expect(isRegistrationRequest({})).toBe(false);
   expect(isRegistrationRequest(null)).toBe(false);
+});
+
+test("isUpdateOrganizationRosterEntryRequest", () => {
+  expect(
+    isUpdateOrganizationRosterEntryRequest({
+      profileDocumentId: "550e8400-e29b-41d4-a716-446655440001",
+    }),
+  ).toBe(true);
+  expect(
+    isUpdateOrganizationRosterEntryRequest({
+      profileDocumentId: null,
+    }),
+  ).toBe(true);
+  expect(
+    isUpdateOrganizationRosterEntryRequest({
+      profileDocumentId: "not-a-uuid",
+    }),
+  ).toBe(false);
+  expect(isUpdateOrganizationRosterEntryRequest({})).toBe(false);
 });
 
 test("isChallengeRequest", () => {

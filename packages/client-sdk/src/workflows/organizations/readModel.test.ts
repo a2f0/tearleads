@@ -22,6 +22,7 @@ import {
   loadOrganizationGroupDetails,
   loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
+  updateOrganizationRosterEntry,
 } from "./readModel";
 
 const organizationId = "org-1";
@@ -276,6 +277,11 @@ const userDetail: OrganizationUserDetailResponse = {
     encapsulationKeyFingerprint: "encapsulation-fingerprint",
     createdAt: "2026-05-16T12:00:00.000Z",
     isSelf: false,
+    status: "active",
+    profileDocumentId: null,
+    joinedAt: "2026-05-16T12:00:00.000Z",
+    disabledAt: null,
+    disabledByUserId: null,
   },
   groups: groups.groups,
   grants: {
@@ -508,6 +514,33 @@ test("loadOrganizationUserDetail forwards user detail", async () => {
 
   expect(calls).toEqual(["detail:org-1:user-1"]);
   expect(result).toEqual(userDetailWithMissingDisplayNames);
+});
+
+test("updateOrganizationRosterEntry binds encrypted profile document ids", async () => {
+  const calls: string[] = [];
+  const result = await updateOrganizationRosterEntry({
+    apiClient: {
+      updateOrganizationRosterEntry: async (
+        nextOrganizationId,
+        nextUserId,
+        input,
+      ) => {
+        calls.push(
+          `roster:${nextOrganizationId}:${nextUserId}:${input.profileDocumentId}`,
+        );
+        return {
+          ...userDetail.user,
+          profileDocumentId: input.profileDocumentId,
+        };
+      },
+    },
+    organizationId,
+    profileDocumentId: "profile-document-1",
+    userId: "user-1",
+  });
+
+  expect(calls).toEqual(["roster:org-1:user-1:profile-document-1"]);
+  expect(result?.profileDocumentId).toBe("profile-document-1");
 });
 
 test("organization read models include local container display names", async () => {

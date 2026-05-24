@@ -1102,6 +1102,11 @@ test("uses organization manager and principal policy route namespaces", async ()
             encapsulationKeyFingerprint: "encapsulation-fingerprint",
             createdAt: "2026-05-12T12:00:00.000Z",
             isSelf: true,
+            status: "active",
+            profileDocumentId: null,
+            joinedAt: "2026-05-12T12:00:00.000Z",
+            disabledAt: null,
+            disabledByUserId: null,
           },
           groups: [
             {
@@ -1137,6 +1142,22 @@ test("uses organization manager and principal policy route namespaces", async ()
             ],
             organizationGrants: [],
           },
+        });
+      }
+      if (request.url.endsWith("/roster/user-1")) {
+        return HttpResponse.json({
+          userId: "user-1",
+          signingKeyFingerprint: "signing-fingerprint",
+          signingPublicKey: "signing-key",
+          encapsulationPublicKey: "encapsulation-key",
+          encapsulationKeyFingerprint: "encapsulation-fingerprint",
+          createdAt: "2026-05-12T12:00:00.000Z",
+          isSelf: true,
+          status: "active",
+          profileDocumentId: null,
+          joinedAt: "2026-05-12T12:00:00.000Z",
+          disabledAt: null,
+          disabledByUserId: null,
         });
       }
       if (request.url.endsWith("/member-envelopes")) {
@@ -1185,6 +1206,11 @@ test("uses organization manager and principal policy route namespaces", async ()
   expect(await client.listOrganizationContainerGrants("org-1")).not.toBeNull();
   expect(
     await client.getOrganizationUserDetail("org-1", "user-1"),
+  ).not.toBeNull();
+  expect(
+    await client.updateOrganizationRosterEntry("org-1", "user-1", {
+      profileDocumentId: null,
+    }),
   ).not.toBeNull();
   expect(
     await client.createOrganizationGroup("org-1", groupRequest),
@@ -1237,6 +1263,11 @@ test("uses organization manager and principal policy route namespaces", async ()
       body: null,
       input: `${apiBaseUrl}/organizations/org-1/users/user-1/detail`,
       method: "GET",
+    },
+    {
+      body: JSON.stringify({ profileDocumentId: null }),
+      input: `${apiBaseUrl}/organizations/org-1/roster/user-1`,
+      method: "PUT",
     },
     {
       body: JSON.stringify(groupRequest),

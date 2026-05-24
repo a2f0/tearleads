@@ -1,12 +1,14 @@
 import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
 import type { PrincipalStateResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import type { PrincipalStateExternalSignerAuthorizationInput } from "../../access/write/principalStateStore";
 import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
 import type { ApiDatabase, DatabaseTransaction } from "../../adapters/postgres";
-import { groups, organizations } from "../../schema";
+import { groups, organizationRosterEntries, organizations } from "../../schema";
 import { isUserReachableThroughCurrentGroup } from "../organizations/access";
+import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
+import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
 import { persistPrincipalPolicyAccessLossTombstones } from "./accessLossTombstones";
 import { PrincipalPolicyError, toPrincipalStateResponse } from "./shared";
 
@@ -107,6 +109,100 @@ async function isOrgAdminAuthorizedPrincipalPolicySigner(
   });
 }
 
+async function loadRosterSyncTargetForPrincipal(input: {
+  readonly input: PutPrincipalStateInput;
+  readonly tx: DatabaseTransaction;
+}): Promise<{ organizationId: string; memberGroupId: string } | null> {
+  if (input.input.expectedPrincipalType === "organization") {
+    const [organization] = await input.tx
+      .select({
+        organizationId: organizations.id,
+        memberGroupId: organizations.memberGroupId,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, input.input.expectedPrincipalId))
+      .limit(1);
+
+    return organization ?? null;
+  }
+
+  const [organization] = await input.tx
+    .select({
+      organizationId: organizations.id,
+      memberGroupId: organizations.memberGroupId,
+    })
+    .from(groups)
+    .innerJoin(organizations, eq(organizations.id, groups.organizationId))
+    .where(eq(groups.id, input.input.expectedPrincipalId))
+    .limit(1);
+
+  return organization ?? null;
+}
+
+async function assertManagedPrincipalUsersAreNotDisabledRosterEntries(input: {
+  readonly organizationId: string;
+  readonly principalId: string;
+  readonly principalType: "group" | "organization";
+  readonly tx: DatabaseTransaction;
+}): Promise<void> {
+  const reachableUserIds = await listUsersReachableFromCurrentPrincipal({
+    executor: input.tx,
+    principalId: input.principalId,
+    principalType: input.principalType,
+  });
+  if (reachableUserIds.length === 0) {
+    return;
+  }
+
+  const disabledRows = await input.tx
+    .select({ userId: organizationRosterEntries.userId })
+    .from(organizationRosterEntries)
+    .where(
+      and(
+        eq(organizationRosterEntries.organizationId, input.organizationId),
+        eq(organizationRosterEntries.status, "disabled"),
+        inArray(organizationRosterEntries.userId, reachableUserIds),
+      ),
+    );
+  if (disabledRows.length > 0) {
+    throw new PrincipalPolicyError(
+      "Principal contains disabled organization users",
+      409,
+    );
+  }
+}
+
+async function syncRosterForStoredPrincipalState(input: {
+  readonly request: PutPrincipalStateInput;
+  readonly tx: DatabaseTransaction;
+}): Promise<void> {
+  const rosterSyncTarget = await loadRosterSyncTargetForPrincipal({
+    input: input.request,
+    tx: input.tx,
+  });
+  if (!rosterSyncTarget) {
+    return;
+  }
+
+  await syncOrganizationRosterFromMemberReachability({
+    disabledByUserId: input.request.state.signerUserId,
+    executor: input.tx,
+    memberGroupId: rosterSyncTarget.memberGroupId,
+    organizationId: rosterSyncTarget.organizationId,
+  });
+  if (
+    input.request.expectedPrincipalType === "organization" ||
+    input.request.expectedPrincipalId !== rosterSyncTarget.memberGroupId
+  ) {
+    await assertManagedPrincipalUsersAreNotDisabledRosterEntries({
+      organizationId: rosterSyncTarget.organizationId,
+      principalId: input.request.expectedPrincipalId,
+      principalType: input.request.expectedPrincipalType,
+      tx: input.tx,
+    });
+  }
+}
+
 export async function runPutPrincipalStateWorkflow(
   db: ApiDatabase,
   input: PutPrincipalStateInput,
@@ -175,6 +271,7 @@ export async function runPutPrincipalStateWorkflow(
         previousState,
         updatedAt: new Date(),
       });
+      await syncRosterForStoredPrincipalState({ request: input, tx });
 
       return nextState;
     });

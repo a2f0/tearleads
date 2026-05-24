@@ -106,6 +106,8 @@ export function useOrgManagerModel() {
 
   const selectedGroup =
     groups.find((group) => group.groupId === selectedGroupId) ?? null;
+  const selectedGroupIsMembersGroup =
+    selectedGroup?.name === ORG_MANAGER_LABELS.members;
   const canCreateGroup = directory?.currentUser.isOrgAdmin ?? false;
   const canMutateSelectedGroup = canCurrentUserMutateSelectedGroup({
     directory,
@@ -124,8 +126,12 @@ export function useOrgManagerModel() {
   );
   const addableUsers = useMemo(
     () =>
-      directory?.users.filter((user) => !memberUserIds.has(user.userId)) ?? [],
-    [directory, memberUserIds],
+      directory?.users.filter(
+        (user) =>
+          (user.status === "active" || selectedGroupIsMembersGroup) &&
+          !memberUserIds.has(user.userId),
+      ) ?? [],
+    [directory, memberUserIds, selectedGroupIsMembersGroup],
   );
   const canRevokeGrants = directory?.currentUser.isOrgAdmin ?? false;
 
@@ -467,7 +473,6 @@ export function useOrgManagerModel() {
     ) {
       return;
     }
-
     setMutating(true);
     setError(null);
     try {
@@ -507,6 +512,10 @@ export function useOrgManagerModel() {
       !appData.signingKeyPair ||
       !appData.encapsulationKeyPair
     ) {
+      return;
+    }
+    if (directoryUser?.status === "disabled" && !selectedGroupIsMembersGroup) {
+      setError(ORG_MANAGER_LABELS.userNotFound);
       return;
     }
 
@@ -552,6 +561,7 @@ export function useOrgManagerModel() {
     refreshDirectoryAndGroups,
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
+    selectedGroupIsMembersGroup,
     selectedGroupId,
   ]);
 

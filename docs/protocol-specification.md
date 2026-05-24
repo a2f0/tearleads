@@ -164,9 +164,10 @@ the registering user, and project only the registering user as admin.
 
 `organizations.adminGroupId` is the reserved org-admin authority. Reachability
 through it grants org-admin behavior. `organizations.memberGroupId` is the
-reserved org-membership authority. Reachability through it hydrates the
-org-manager directory. The organization principal policy remains signed
-principal state, but it is not the product role source for org-manager.
+reserved org-membership authority. Reachability through it drives active roster
+state; disabled roster rows can remain visible without access. The organization
+principal policy remains signed principal state, but it is not the product role
+source for org-manager.
 
 Authentication uses challenge signing:
 

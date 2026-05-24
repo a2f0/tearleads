@@ -71,11 +71,16 @@ Organizations also carry two reserved group pointers:
 
 Registration creates both groups atomically. The initial `Members` policy nests
 `Admins`, so organization admins are organization members by reachability.
-Org-manager directory reads hydrate from the `Members` group projection, and
-org-manager hides both reserved groups from the normal group list. The
-organization principal policy is still signed managed-principal state, but
-org-manager does not expose `directory.users[].role` or treat
-organization-principal roles as product authorization.
+Org-manager keeps separate roster rows for directory lifecycle state. Active
+roster entries are synchronized from users reachable through `Members`, while
+disabled roster entries can remain visible after access removal. The roster is
+not access authority; signed groups and container grants remain authoritative.
+Optional roster profile details are bound by `profileDocumentId` and live in
+encrypted documents, not in plaintext directory responses. Org-manager hides
+both reserved groups from the normal group list. The organization principal
+policy is still signed managed-principal state, but org-manager does not expose
+`directory.users[].role` or treat organization-principal roles as product
+authorization.
 
 ## Containers
 

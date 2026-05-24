@@ -225,7 +225,10 @@ CREATE TABLE IF NOT EXISTS organizations (
 `admin_group_id` points to the reserved `Admins` group. Reachability through
 that group is organization-admin authority. `member_group_id` points to the
 reserved opaque `Members` group. Reachability through that group is
-organization membership and is what org-manager uses to hydrate its directory.
+organization membership. Org-manager stores directory lifecycle in
+`organization_roster_entries`; active roster rows are synchronized from
+`Members` reachability, while disabled rows can remain visible after access
+removal.
 
 ### Local SQLite: `containers`
 
@@ -266,14 +269,20 @@ read model derived from decrypted contact documents, not an SDK platform table.
 Adding a user to an organization means updating the reserved `Members` group
 policy. If the user should administer the organization, update the reserved
 `Admins` group policy as well. Those group policies are signed principal
-states, so the org directory is a projection of tamper-resistant group
-membership rather than a mutable user table.
+states, so access remains a projection of tamper-resistant group membership.
+The roster row is product lifecycle state only.
 
 1. Org admin publishes a signed `Members` or `Admins` group policy update and
  derived projection.
 2. Principal member envelopes wrap the group key to the new member.
-3. Container grants update signed container access manifests when the user or
+3. The API synchronizes active roster rows from `Members` reachability.
+4. Container grants update signed container access manifests when the user or
  group also needs object access.
+
+Disabling a user removes access through signed group/grant mutations and leaves
+the roster entry with `status = disabled`. Encrypted org-specific profile fields
+such as first name, last name, email, and title belong in a Loro document named
+by `profile_document_id`, not in server-visible roster columns.
 4. Additive container access can add container KEK wraps for the new principal
  without rewriting descendant document/blob content-key targets.
 5. Document/blob writes continue to target current container KEK epochs.
