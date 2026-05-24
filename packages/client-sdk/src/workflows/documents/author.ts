@@ -1,7 +1,7 @@
 import { createDocumentSignerDeviceId } from "../../data/documents/documentConstants";
 import type { DocumentCreateAuthor } from "../../data/documents/shared/types";
 
-export interface DocumentAuthorRuntime {
+interface DocumentAuthorRuntime {
   organizationId?: string | null;
   signingFingerprint?: string | null;
   signingKeyPair?:

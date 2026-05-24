@@ -3,7 +3,7 @@ import { base64ToBytes } from "@tearleads/encoding";
 import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
 import type { DocumentWriterPublicKeyResolver } from "../../data/documents/shared/types";
 
-export interface DocumentWriterPublicKeyRuntime {
+interface DocumentWriterPublicKeyRuntime {
   apiClient: {
     getEncapsulationKey(
       userId: string,

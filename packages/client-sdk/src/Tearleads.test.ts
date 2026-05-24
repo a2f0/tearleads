@@ -16,7 +16,10 @@ import type {
   SqlRow,
   SqlRowMode,
 } from "./sqlite";
-import { defaultDocumentsPersistence } from "./workflows/documents";
+import {
+  defaultDocumentsPersistence,
+  resolveDocumentCreateAuthor,
+} from "./workflows/documents";
 
 const quietLogger: Required<TearleadsLogger> = {
   log: () => undefined,
@@ -326,7 +329,7 @@ describe("Tearleads", () => {
     expect(documents.dbStatus).toBe("ready");
     expect(documents.isAuthenticated).toBe(true);
     expect(documents.online).toBe(true);
-    expect(documents.resolveCreateAuthor()).not.toBeNull();
+    expect(resolveDocumentCreateAuthor(documents)).not.toBeNull();
     expect(containerContents.userId).toBe("user-1");
     expect(
       containerContents.createDocumentsRuntime("container-2").containerId,

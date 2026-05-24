@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import {
-  type DocumentAttachmentHydrationRuntime,
   decryptDocumentAttachmentBlob,
   hydrateDocumentAttachmentBlobs,
-  hydrateDocumentAttachmentBlobsFromRuntime,
   uploadDocumentAttachment,
 } from "@tearleads/client-sdk/workflows/blobs";
 import {
@@ -210,44 +208,6 @@ test("hydrateDocumentAttachmentBlobs downloads and decrypts remote attachment by
     Array.from(fixture.bytes),
   );
   expect(streamedChunks).toBeGreaterThan(1);
-});
-
-test("hydrateDocumentAttachmentBlobsFromRuntime uses runtime APIs", async () => {
-  const fixture = await createUploadedAttachmentFixture();
-  const runtime: DocumentAttachmentHydrationRuntime = {
-    apiClient: {
-      getBlobBytes: async (blobId) =>
-        createBlobBytesResponse({
-          blobId,
-          encryptedBytes: fixture.stagedBlob.encryptedBytes,
-          sha256: fixture.stagedBlob.sha256,
-        }),
-      getDocumentWriterProjection: async () => fixture.writerProjection,
-      listDocumentAttachments: async () => [
-        {
-          bindingId: fixture.bindingId,
-          blobId: fixture.blobId,
-          slotId: fixture.attachment.slotId,
-        },
-      ],
-    },
-    log: () => undefined,
-  };
-
-  const hydratedBlobs = await hydrateDocumentAttachmentBlobsFromRuntime({
-    attachments: [fixture.attachment],
-    documentId: fixture.writerProjection.documentId,
-    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    runtime,
-    targetSecretKey: fixture.secretKey,
-  });
-  const [hydratedBlob] = hydratedBlobs ?? [];
-
-  expect(hydratedBlob?.attachment).toEqual(fixture.attachment);
-  expect(hydratedBlob?.binding.blobId).toBe(fixture.blobId);
-  expect(Array.from(hydratedBlob?.bytes ?? [])).toEqual(
-    Array.from(fixture.bytes),
-  );
 });
 
 test("decryptDocumentAttachmentBlob rejects bad writer projection signatures", async () => {

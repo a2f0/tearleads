@@ -1,14 +1,17 @@
 import { encodeVersionVector, importUpdates } from "@tearleads/loro";
-import type {
-  DocumentRecord,
-  PendingAttachmentRecord,
-  PendingUpdateRecord,
-} from "../../../workflows/documents";
+import { uploadDocumentAttachment } from "../../../workflows/blobs";
 import {
+  createDocumentWriterPublicKeyResolver,
+  createRemoteDocument,
+  type DocumentRecord,
   type DocumentSyncLane,
   hasDocumentUpdateEvent,
   isDestroyedDocumentSyncRuntimeError,
+  type PendingAttachmentRecord,
+  type PendingUpdateRecord,
   registerDocumentSyncLane,
+  resolveDocumentCreateAuthor,
+  syncRemoteDocument,
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
@@ -40,13 +43,28 @@ async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  const created = await state.runtime.createRemoteDocument({
-    missingContainerLogMessage:
+  if (!state.runtime.containerId) {
+    state.runtime.log(
       "Documents: cannot create a remote document without a container.",
+    );
+    return nextRecord;
+  }
+
+  const author = resolveDocumentCreateAuthor(state.runtime);
+  if (!author) {
+    state.runtime.log(
+      "Documents: skipped remote create because the writer context is unavailable.",
+    );
+    return nextRecord;
+  }
+
+  const created = await createRemoteDocument({
+    apiClient: state.runtime.apiClient,
+    author,
+    containerId: state.runtime.containerId,
+    execSql: state.runtime.execSql,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
-    unavailableWriterLogMessage:
-      "Documents: skipped remote create because the writer context is unavailable.",
   });
   if (!created) {
     return nextRecord;
@@ -68,7 +86,7 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.online &&
     state.runtime.isAuthenticated &&
     state.runtime.encapsulationKeyPair !== null &&
-    state.runtime.resolveCreateAuthor() !== null
+    resolveDocumentCreateAuthor(state.runtime) !== null
   );
 }
 
@@ -98,7 +116,7 @@ async function syncPendingAttachments(
   const remoteDocumentId = currentRecord.documentId;
 
   const remoteBindings =
-    await state.runtime.listDocumentAttachments(remoteDocumentId);
+    await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
   if (!remoteBindings) {
     return { completed: false, nextRecord: currentRecord };
   }
@@ -183,7 +201,9 @@ async function syncPendingAttachmentUpload(input: {
   state: DocumentStoreState;
 }): Promise<boolean> {
   const { pendingAttachment, state } = input;
-  const bytes = await state.runtime.readBlobBytes(pendingAttachment.storageKey);
+  const bytes = await state.runtime.blobStore.readBytes(
+    pendingAttachment.storageKey,
+  );
   if (!bytes) {
     state.runtime.log(
       `Documents: pending attachment ${pendingAttachment.slotId} is missing local bytes.`,
@@ -191,17 +211,26 @@ async function syncPendingAttachmentUpload(input: {
     return false;
   }
 
-  const uploaded = await state.runtime.uploadAttachment({
+  const author = resolveDocumentCreateAuthor(state.runtime);
+  if (!author) {
+    state.runtime.log(
+      "Documents: skipped attachment upload because the writer context is unavailable.",
+    );
+    return false;
+  }
+
+  const uploaded = await uploadDocumentAttachment({
+    apiClient: state.runtime.apiClient,
+    author,
     bytes,
     documentId: input.remoteDocumentId,
+    execSql: state.runtime.execSql,
     expectedBindingId:
       input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
       null,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
-    unavailableWriterLogMessage:
-      "Documents: skipped attachment upload because the writer context is unavailable.",
   });
   if (!uploaded) {
     return false;
@@ -248,15 +277,40 @@ async function requestRemoteDocumentSync(input: {
     unavailableWriterLogMessage,
   } = input;
 
-  return state.runtime.syncRemoteDocument({
+  if (!currentRecord.documentId) {
+    return null;
+  }
+
+  const author = resolveDocumentCreateAuthor(state.runtime);
+  if (!author) {
+    state.runtime.log(unavailableWriterLogMessage);
+    return null;
+  }
+
+  const synced = await syncRemoteDocument({
+    apiClient: state.runtime.apiClient,
+    author,
     documentId: currentRecord.documentId,
-    lastCommitLsn: currentRecord.lastCommitLsn,
+    execSql: state.runtime.execSql,
     localVersionVector: encodeVersionVector(currentDoc),
+    minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
+    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
+      logPrefix: "Documents",
+      runtime: state.runtime,
+      writerKeyLabel: "writer key",
+    }),
     targetSecretKey: encapsulationKeyPair.secretKey,
-    unavailableWriterLogMessage,
   });
+  if (!synced) {
+    return null;
+  }
+
+  return {
+    outgoingUpdateCount: pendingUpdates.length,
+    synced,
+  };
 }
 
 async function applyIncomingSyncedUpdates(

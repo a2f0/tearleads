@@ -81,21 +81,21 @@ test("document store attaches files locally without authentication or network", 
 });
 
 test("document store rolls back staged attachment rows and bytes when local attachment persistence fails", async () => {
-  const persistence = createDocumentStorePersistence();
+  const basePersistence = createDocumentStorePersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const { blobStore, storageKeys } = createTrackedMemoryBlobStore();
-  const baseRuntime = createDocumentStoreRuntime({
+  const runtime = createDocumentStoreRuntime({
     blobStore,
     encapsulationKeyPair,
   });
   let attemptedLocalSave = false;
-  const runtime = {
-    ...baseRuntime,
-    async saveLocalAttachments(
-      input: Parameters<typeof baseRuntime.saveLocalAttachments>[0],
+  const persistence = {
+    ...basePersistence,
+    async saveLocalAttachment(
+      ...input: Parameters<typeof basePersistence.saveLocalAttachment>
     ) {
       attemptedLocalSave = true;
-      await baseRuntime.saveLocalAttachments(input);
+      await basePersistence.saveLocalAttachment(...input);
       throw new Error("forced local attachment save failure");
     },
   };

@@ -11,7 +11,6 @@ export { resolveDocumentCreateAuthor } from "./author";
 export {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
-  type RemoteDocumentCreateRuntime,
 } from "./create";
 export {
   buildMaterializedDocumentLinkSetMutationPlan,
@@ -22,13 +21,20 @@ export {
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
+  deleteLocalDocumentAttachment,
+  deletePendingDocumentAttachment,
+  deletePersistedDocument,
+  enqueuePendingDocumentUpdate,
   type LocalAttachmentRecord,
-  loadPersistedDocumentStoreStateFromRuntime,
+  listPendingDocumentUpdates,
+  loadPersistedDocumentStoreState,
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
+  persistDocumentState,
   type RelinkPersistedDocumentInput,
-  savePendingDocumentAttachmentFromRuntime,
+  saveLocalDocumentAttachments,
+  savePendingDocumentAttachment,
 } from "./persistence";
 export {
   createDocumentProjectionUserKeyResolver,
@@ -39,6 +45,7 @@ export {
 export {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
+  type DocumentsWorkflowRuntimeInput,
 } from "./runtime";
 export {
   hasDocumentUpdateEvent,
@@ -46,6 +53,7 @@ export {
 } from "./sync";
 export {
   type DocumentSyncLane,
+  didRegainDocumentSyncPrerequisites,
   isDestroyedDocumentSyncRuntimeError,
   registerDocumentSyncLane,
 } from "./syncLane";

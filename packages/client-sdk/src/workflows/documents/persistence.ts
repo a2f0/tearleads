@@ -34,12 +34,6 @@ export {
 } from "../../data/persistence/documents/documentsPersistence";
 
 type DocumentContentState = Parameters<typeof exportAllUpdates>[0];
-type DocumentLocalStateRuntime = {
-  execSql: ExecSql;
-};
-type DocumentProjectionStateRuntime = DocumentLocalStateRuntime & {
-  documentProjectors: DocumentProjectorRegistry;
-};
 type NullableDocumentRuntimeField =
   | "accessStateHash"
   | "lastCommitLsn"
@@ -233,7 +227,7 @@ async function saveDocumentClientProjection(input: {
   });
 }
 
-async function persistDocumentState(input: {
+export async function persistDocumentState(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   containerId?: string | null | undefined;
   currentDoc: DocumentContentState;
@@ -287,27 +281,7 @@ async function persistDocumentState(input: {
   };
 }
 
-export async function persistDocumentStateFromRuntime({
-  runtime,
-  ...input
-}: {
-  acceptedPendingUpdateIds?: readonly string[] | undefined;
-  containerId?: string | null | undefined;
-  currentDoc: DocumentContentState;
-  currentRecord: StoredDocumentRecord | null;
-  localId: string;
-  patch?: Partial<StoredDocumentRecord> | undefined;
-  persistence: DocumentsPersistence;
-  runtime: DocumentProjectionStateRuntime;
-}): Promise<PersistedDocumentState> {
-  return persistDocumentState({
-    ...input,
-    documentProjectors: runtime.documentProjectors,
-    execSql: runtime.execSql,
-  });
-}
-
-async function loadPersistedDocumentStoreState(input: {
+export async function loadPersistedDocumentStoreState(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -327,7 +301,7 @@ async function loadPersistedDocumentStoreState(input: {
   };
 }
 
-async function deletePersistedDocument(input: {
+export async function deletePersistedDocument(input: {
   documentProjectors: DocumentProjectorRegistry;
   execSql: ExecSql;
   localId: string;
@@ -350,36 +324,7 @@ async function deletePersistedDocument(input: {
   });
 }
 
-export async function deletePersistedDocumentFromRuntime({
-  runtime,
-  ...input
-}: {
-  localId: string;
-  persistence: DocumentsPersistence;
-  runtime: DocumentProjectionStateRuntime;
-}): Promise<void> {
-  return deletePersistedDocument({
-    ...input,
-    documentProjectors: runtime.documentProjectors,
-    execSql: runtime.execSql,
-  });
-}
-
-export async function loadPersistedDocumentStoreStateFromRuntime({
-  runtime,
-  ...input
-}: {
-  localId: string;
-  persistence: DocumentsPersistence;
-  runtime: DocumentLocalStateRuntime;
-}): Promise<LoadedPersistedDocumentStoreState> {
-  return loadPersistedDocumentStoreState({
-    ...input,
-    execSql: runtime.execSql,
-  });
-}
-
-async function listPendingDocumentUpdates(input: {
+export async function listPendingDocumentUpdates(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -387,21 +332,7 @@ async function listPendingDocumentUpdates(input: {
   return input.persistence.listPendingUpdates(input.execSql, input.localId);
 }
 
-export async function listPendingDocumentUpdatesFromRuntime({
-  runtime,
-  ...input
-}: {
-  localId: string;
-  persistence: DocumentsPersistence;
-  runtime: DocumentLocalStateRuntime;
-}): Promise<PendingUpdateRecord[]> {
-  return listPendingDocumentUpdates({
-    ...input,
-    execSql: runtime.execSql,
-  });
-}
-
-async function enqueuePendingDocumentUpdate(input: {
+export async function enqueuePendingDocumentUpdate(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -422,23 +353,7 @@ async function enqueuePendingDocumentUpdate(input: {
   });
 }
 
-export async function enqueuePendingDocumentUpdateFromRuntime({
-  runtime,
-  ...input
-}: {
-  localId: string;
-  persistence: DocumentsPersistence;
-  runtime: DocumentLocalStateRuntime;
-  sourceVersionVector?: string | null;
-  update: Uint8Array;
-}): Promise<void> {
-  return enqueuePendingDocumentUpdate({
-    ...input,
-    execSql: runtime.execSql,
-  });
-}
-
-async function saveLocalDocumentAttachments(input: {
+export async function saveLocalDocumentAttachments(input: {
   attachments: ReadonlyArray<LocalAttachmentRecord>;
   execSql: ExecSql;
   persistence: DocumentsPersistence;
@@ -448,21 +363,7 @@ async function saveLocalDocumentAttachments(input: {
   }
 }
 
-export async function saveLocalDocumentAttachmentsFromRuntime({
-  runtime,
-  ...input
-}: {
-  attachments: ReadonlyArray<LocalAttachmentRecord>;
-  persistence: DocumentsPersistence;
-  runtime: DocumentLocalStateRuntime;
-}): Promise<void> {
-  return saveLocalDocumentAttachments({
-    ...input,
-    execSql: runtime.execSql,
-  });
-}
-
-async function deleteLocalDocumentAttachment(input: {
+export async function deleteLocalDocumentAttachment(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -477,23 +378,7 @@ async function deleteLocalDocumentAttachment(input: {
   );
 }
 
-export async function deleteLocalDocumentAttachmentFromRuntime({
-  runtime,
-  ...input
-}: {
-  localId: string;
-  persistence: DocumentsPersistence;
-  runtime: DocumentLocalStateRuntime;
-  slotId: string;
-  storageKey: string;
-}): Promise<void> {
-  return deleteLocalDocumentAttachment({
-    ...input,
-    execSql: runtime.execSql,
-  });
-}
-
-async function savePendingDocumentAttachment(input: {
+export async function savePendingDocumentAttachment(input: {
   attachment: PendingAttachmentRecord;
   execSql: ExecSql;
   persistence: DocumentsPersistence;
@@ -504,21 +389,7 @@ async function savePendingDocumentAttachment(input: {
   );
 }
 
-export async function savePendingDocumentAttachmentFromRuntime({
-  runtime,
-  ...input
-}: {
-  attachment: PendingAttachmentRecord;
-  persistence: DocumentsPersistence;
-  runtime: DocumentLocalStateRuntime;
-}): Promise<void> {
-  return savePendingDocumentAttachment({
-    ...input,
-    execSql: runtime.execSql,
-  });
-}
-
-async function deletePendingDocumentAttachment(input: {
+export async function deletePendingDocumentAttachment(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -531,20 +402,4 @@ async function deletePendingDocumentAttachment(input: {
     input.slotId,
     input.storageKey,
   );
-}
-
-export async function deletePendingDocumentAttachmentFromRuntime({
-  runtime,
-  ...input
-}: {
-  localId: string;
-  persistence: DocumentsPersistence;
-  runtime: DocumentLocalStateRuntime;
-  slotId: string;
-  storageKey: string;
-}): Promise<void> {
-  return deletePendingDocumentAttachment({
-    ...input,
-    execSql: runtime.execSql,
-  });
 }

@@ -63,25 +63,6 @@ import {
 } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import {
-  type DocumentAuthorRuntime,
-  resolveDocumentCreateAuthor,
-} from "./author";
-import {
-  createDocumentWriterPublicKeyResolver,
-  type DocumentWriterPublicKeyRuntime,
-} from "./writerKeys";
-
-type RemoteDocumentSyncRuntime = DocumentAuthorRuntime &
-  DocumentWriterPublicKeyRuntime & {
-    apiClient: DocumentSyncApi & DocumentWriterPublicKeyRuntime["apiClient"];
-    execSql?: ExecSql | undefined;
-  };
-
-interface RemoteDocumentSyncAttempt {
-  outgoingUpdateCount: number;
-  synced: SyncRemoteDocumentResult;
-}
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
@@ -785,61 +766,4 @@ export async function syncRemoteDocument(input: {
   }
 
   return null;
-}
-
-export async function syncRemoteDocumentFromRuntime(input: {
-  documentId: string | null | undefined;
-  lastCommitLsn?: string | null | undefined;
-  localVersionVector: string | null;
-  logPrefix?: string | undefined;
-  pendingUpdates: readonly PendingUpdateRecord[];
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  runtime: RemoteDocumentSyncRuntime;
-  targetSecretKey: Uint8Array;
-  unavailableWriterLogMessage: string;
-  writerKeyLabel?: string | undefined;
-}): Promise<RemoteDocumentSyncAttempt | null> {
-  const {
-    documentId,
-    lastCommitLsn,
-    localVersionVector,
-    pendingUpdates,
-    resolveProjectionUserKey,
-    runtime,
-    targetSecretKey,
-  } = input;
-  if (!documentId) {
-    return null;
-  }
-
-  const author = resolveDocumentCreateAuthor(runtime);
-  if (!author) {
-    runtime.log(input.unavailableWriterLogMessage);
-    return null;
-  }
-
-  const synced = await syncRemoteDocument({
-    apiClient: runtime.apiClient,
-    author,
-    documentId,
-    execSql: runtime.execSql,
-    localVersionVector,
-    minLsn: lastCommitLsn ?? undefined,
-    pendingUpdates,
-    resolveProjectionUserKey,
-    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-      logPrefix: input.logPrefix ?? "Documents",
-      runtime,
-      writerKeyLabel: input.writerKeyLabel ?? "writer key",
-    }),
-    targetSecretKey,
-  });
-  if (!synced) {
-    return null;
-  }
-
-  return {
-    outgoingUpdateCount: pendingUpdates.length,
-    synced,
-  };
 }

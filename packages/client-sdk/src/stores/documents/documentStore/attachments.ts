@@ -3,9 +3,12 @@ import {
   addDocumentAttachments,
   type DocumentAttachment,
 } from "../../../data/documents/documentContent";
-import type {
-  LocalAttachmentRecord,
-  PendingAttachmentRecord,
+import {
+  deleteLocalDocumentAttachment,
+  deletePendingDocumentAttachment,
+  type LocalAttachmentRecord,
+  type PendingAttachmentRecord,
+  savePendingDocumentAttachment,
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentAttachmentUpload } from "../types";
@@ -74,12 +77,13 @@ async function persistPendingAttachments(
         continue;
       }
 
-      await state.runtime.writeBlobBytes(
+      await state.runtime.blobStore.writeBytes(
         pendingAttachment.storageKey,
         sourceFile.bytes,
       );
-      await state.runtime.savePendingAttachment({
+      await savePendingDocumentAttachment({
         attachment: pendingAttachment,
+        execSql: state.runtime.execSql,
         persistence: state.persistence,
       });
       await saveLocalAttachmentRecord(
@@ -112,7 +116,8 @@ async function rollbackPendingAttachmentPersistence(
 ) {
   const cleanupResults = await Promise.allSettled([
     ...pendingAttachments.map((attachment) =>
-      state.runtime.deletePendingAttachment({
+      deletePendingDocumentAttachment({
+        execSql: state.runtime.execSql,
         localId: state.localId,
         persistence: state.persistence,
         slotId: attachment.slotId,
@@ -120,7 +125,8 @@ async function rollbackPendingAttachmentPersistence(
       }),
     ),
     ...localAttachments.map((attachment) =>
-      state.runtime.deleteLocalAttachment({
+      deleteLocalDocumentAttachment({
+        execSql: state.runtime.execSql,
         localId: state.localId,
         persistence: state.persistence,
         slotId: attachment.slotId,
@@ -128,7 +134,7 @@ async function rollbackPendingAttachmentPersistence(
       }),
     ),
     ...pendingAttachments.map((attachment) =>
-      state.runtime.deleteBlobBytes(attachment.storageKey),
+      state.runtime.blobStore.deleteBytes(attachment.storageKey),
     ),
   ]);
   const failedCleanupCount = cleanupResults.filter(
@@ -209,7 +215,7 @@ async function persistSlotAttachmentFile(
   }
 
   const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
-  await state.runtime.writeBlobBytes(storageKey, file.bytes);
+  await state.runtime.blobStore.writeBytes(storageKey, file.bytes);
   await saveLocalAttachmentRecord(state, {
     blobId: null,
     byteLength: replacementAttachment.byteLength,
