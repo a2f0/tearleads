@@ -2,29 +2,34 @@ import type { IConfiguration } from "dependency-cruiser";
 
 type ForbiddenRules = NonNullable<IConfiguration["forbidden"]>;
 
-const appLayer = {
-  data: "^packages/app/src/data/",
-  persistence: "^packages/app/src/data/persistence/",
-  sqlite: "^packages/app/src/data/sqlite/",
-  blobStorage: "^packages/app/src/data/blobs/",
-  contactData: "^packages/app/src/data/contacts/",
-  sync: "^packages/app/src/data/sync/",
-  workflows: "^packages/app/src/workflows/",
-  stores: "^packages/app/src/stores/",
-  shellProviders: "^packages/app/src/providers/",
-  sharedHelpers:
-    "^packages/app/src/data/(containers|documents)(/blob)?/shared/",
-};
+const testFilesPattern = "\\.test\\.[tj]sx?$";
 
-// Keep app layer definitions broad and directory-shaped. If a rule needs a
-// one-off file path, move that code into a directory that exposes the layer.
+const sourceRoot = {
+  api: "^packages/api/src/",
+  app: "^packages/app/src/",
+  clientSdk: "^packages/client-sdk/src/",
+} as const;
+
+const appLayer = {
+  data: `${sourceRoot.app}data/`,
+  persistence: `${sourceRoot.app}data/persistence/`,
+  sqlite: `${sourceRoot.app}data/sqlite/`,
+  blobStorage: `${sourceRoot.app}data/blobs/`,
+  contactData: `${sourceRoot.app}data/contacts/`,
+  sync: `${sourceRoot.app}data/sync/`,
+  workflows: `${sourceRoot.app}workflows/`,
+  stores: `${sourceRoot.app}stores/`,
+  shellProviders: `${sourceRoot.app}providers/`,
+  sharedHelpers: `${sourceRoot.app}data/(containers|documents)(/blob)?/shared/`,
+} as const;
+
 const appPresentation = [
-  "^packages/app/src/components/",
-  "^packages/app/src/document-types/",
-  "^packages/app/src/mini-apps/",
+  `${sourceRoot.app}components/`,
+  `${sourceRoot.app}document-types/`,
+  `${sourceRoot.app}mini-apps/`,
 ];
 const appReactRuntime = [
-  "^packages/app/src/identity/",
+  `${sourceRoot.app}identity/`,
   appLayer.shellProviders,
   appLayer.stores,
 ];
@@ -36,9 +41,35 @@ const appStorageInternals = [
   appLayer.contactData,
   appLayer.sync,
 ];
-const testFilesPattern = "\\.test\\.[tj]sx?$";
 const appRootSqlProvider =
   "^packages/app/src/providers/data/AppDataProvider\\.tsx$";
+
+const apiLayer = {
+  access: `${sourceRoot.api}access/`,
+  accessInternals: `${sourceRoot.api}access/(shared|read/internal|write/internal)/`,
+  accessRead: `${sourceRoot.api}access/read/`,
+  accessReadOrWrite: `${sourceRoot.api}access/(read|write)/`,
+  accessSharedInternal: `${sourceRoot.api}access/shared/internal/`,
+  accessWrite: `${sourceRoot.api}access/write/`,
+  routes: `${sourceRoot.api}routes/`,
+  services: `${sourceRoot.api}services/`,
+  workflows: `${sourceRoot.api}workflows/`,
+} as const;
+
+const clientSdkLayer = {
+  app: sourceRoot.app,
+  client: `${sourceRoot.clientSdk}client/`,
+  data: `${sourceRoot.clientSdk}data/`,
+  dataInternals: [
+    `${sourceRoot.clientSdk}data/persistence/`,
+    `${sourceRoot.clientSdk}data/sqlite/`,
+    `${sourceRoot.clientSdk}data/blobs/`,
+    `${sourceRoot.clientSdk}data/contacts/`,
+    `${sourceRoot.clientSdk}data/sync/`,
+  ] as string[],
+  stores: `${sourceRoot.clientSdk}stores/`,
+  workflows: `${sourceRoot.clientSdk}workflows/`,
+} as const;
 
 const standardRules = [
   {
@@ -55,7 +86,7 @@ const standardRules = [
     name: "not-to-unresolvable",
     severity: "error",
     comment:
-      "Every imported module should resolve from source or an explicitly declared package dependency.",
+      "Cruised local source imports should resolve. Workspace package/export contracts are checked by scripts/lintArchitecture.ts.",
     from: {},
     to: {
       couldNotResolve: true,
@@ -117,22 +148,6 @@ const standardRules = [
   },
 ] satisfies ForbiddenRules;
 
-const clientSdkRules = [
-  {
-    name: "client-sdk-does-not-depend-on-app",
-    severity: "error",
-    comment:
-      "The client SDK is the lower-level runtime package and must not import application implementation code.",
-    from: {
-      path: "^packages/client-sdk/src/",
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: "^packages/app/src/",
-    },
-  },
-] satisfies ForbiddenRules;
-
 const apiRules = [
   {
     name: "access-shared-internal-is-layer-neutral",
@@ -140,10 +155,10 @@ const apiRules = [
     comment:
       "Access shared internals are consumed by read and write APIs, so they must not depend back on either side.",
     from: {
-      path: "^packages/api/src/access/shared/internal/",
+      path: apiLayer.accessSharedInternal,
     },
     to: {
-      path: "^packages/api/src/access/(read|write)/",
+      path: apiLayer.accessReadOrWrite,
     },
   },
   {
@@ -152,11 +167,11 @@ const apiRules = [
     comment:
       "Read APIs and read internals must not depend on write APIs or write internals.",
     from: {
-      path: "^packages/api/src/access/read/",
+      path: apiLayer.accessRead,
       pathNot: testFilesPattern,
     },
     to: {
-      path: "^packages/api/src/access/write/",
+      path: apiLayer.accessWrite,
     },
   },
   {
@@ -165,10 +180,10 @@ const apiRules = [
     comment:
       "Access APIs are low-level stores/resolvers and must not call routes, route-facing services, or transaction workflows.",
     from: {
-      path: "^packages/api/src/access/",
+      path: apiLayer.access,
     },
     to: {
-      path: "^packages/api/src/(routes|services|workflows)/",
+      path: [apiLayer.routes, apiLayer.services, apiLayer.workflows],
     },
   },
   {
@@ -177,11 +192,11 @@ const apiRules = [
     comment:
       "Code outside access/ should import the public access/read and access/write modules, not implementation internals.",
     from: {
-      path: "^packages/api/src/",
-      pathNot: "^packages/api/src/access/",
+      path: sourceRoot.api,
+      pathNot: apiLayer.access,
     },
     to: {
-      path: "^packages/api/src/access/(shared|read/internal|write/internal)/",
+      path: apiLayer.accessInternals,
     },
   },
   {
@@ -190,11 +205,11 @@ const apiRules = [
     comment:
       "Production routes should call services instead of composing access read/write modules directly.",
     from: {
-      path: "^packages/api/src/routes/",
+      path: apiLayer.routes,
       pathNot: "\\.test\\.ts$",
     },
     to: {
-      path: "^packages/api/src/access/",
+      path: apiLayer.access,
     },
   },
   {
@@ -203,11 +218,11 @@ const apiRules = [
     comment:
       "Production routes should call service facades; services own runtime concerns and delegate transaction orchestration to workflows.",
     from: {
-      path: "^packages/api/src/routes/",
+      path: apiLayer.routes,
       pathNot: "\\.test\\.ts$",
     },
     to: {
-      path: "^packages/api/src/workflows/",
+      path: apiLayer.workflows,
     },
   },
   {
@@ -216,11 +231,11 @@ const apiRules = [
     comment:
       "Production services should delegate access-plane reads and writes to workflows instead of importing access modules directly.",
     from: {
-      path: "^packages/api/src/services/",
+      path: apiLayer.services,
       pathNot: "\\.test\\.ts$",
     },
     to: {
-      path: "^packages/api/src/access/",
+      path: apiLayer.access,
     },
   },
   {
@@ -229,11 +244,11 @@ const apiRules = [
     comment:
       "Services are route-facing facades below routes, so they must not depend back on route modules.",
     from: {
-      path: "^packages/api/src/services/",
+      path: apiLayer.services,
       pathNot: testFilesPattern,
     },
     to: {
-      path: "^packages/api/src/routes/",
+      path: apiLayer.routes,
     },
   },
   {
@@ -242,10 +257,10 @@ const apiRules = [
     comment:
       "Workflows own transaction-scoped orchestration below services and must not depend back on routes or services.",
     from: {
-      path: "^packages/api/src/workflows/",
+      path: apiLayer.workflows,
     },
     to: {
-      path: "^packages/api/src/(routes|services)/",
+      path: [apiLayer.routes, apiLayer.services],
     },
   },
   {
@@ -254,14 +269,14 @@ const apiRules = [
     comment:
       "Production API support modules outside routes, services, workflows, and access must not compose access APIs directly; move orchestration into workflows.",
     from: {
-      path: "^packages/api/src/",
+      path: sourceRoot.api,
       pathNot: [
-        "^packages/api/src/(access|routes|services|workflows)/",
+        `${sourceRoot.api}(access|routes|services|workflows)/`,
         testFilesPattern,
       ],
     },
     to: {
-      path: "^packages/api/src/access/",
+      path: apiLayer.access,
     },
   },
 ] satisfies ForbiddenRules;
@@ -386,9 +401,70 @@ const appRules = [
   },
 ] satisfies ForbiddenRules;
 
+const clientSdkRules = [
+  {
+    name: "client-sdk-does-not-depend-on-app",
+    severity: "error",
+    comment:
+      "The client SDK is the lower-level runtime package and must not import application implementation code.",
+    from: {
+      path: sourceRoot.clientSdk,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: clientSdkLayer.app,
+    },
+  },
+  {
+    name: "client-sdk-data-does-not-depend-on-upper-layers",
+    severity: "error",
+    comment:
+      "SDK data modules are low-level stores, contracts, and layer-neutral helpers; they must not depend on client, store, or workflow modules.",
+    from: {
+      path: clientSdkLayer.data,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [
+        clientSdkLayer.client,
+        clientSdkLayer.stores,
+        clientSdkLayer.workflows,
+      ],
+    },
+  },
+  {
+    name: "client-sdk-workflows-do-not-depend-on-stores-or-client-facade",
+    severity: "error",
+    comment:
+      "SDK workflows own domain orchestration below stores and the high-level client facade.",
+    from: {
+      path: clientSdkLayer.workflows,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [clientSdkLayer.client, clientSdkLayer.stores],
+    },
+  },
+  {
+    name: "client-sdk-stores-use-workflow-facades-not-data-internals",
+    severity: "error",
+    comment:
+      "SDK stores should compose public workflow facades instead of importing low-level persistence, SQLite, blob, contact, or sync internals directly.",
+    from: {
+      path: clientSdkLayer.stores,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: clientSdkLayer.dataInternals,
+    },
+  },
+] satisfies ForbiddenRules;
+
 const dependencyCruiserConfig = {
-  forbidden: [...standardRules, ...apiRules, ...clientSdkRules, ...appRules],
+  forbidden: [...standardRules, ...apiRules, ...appRules, ...clientSdkRules],
   options: {
+    // Bun workspace subpath exports are checked separately in lintArchitecture.
+    // Keep dependency-cruiser focused on source files whose paths it can resolve.
     includeOnly: "^packages/(api|app|client-sdk)/src/",
     tsPreCompilationDeps: "specify",
   },

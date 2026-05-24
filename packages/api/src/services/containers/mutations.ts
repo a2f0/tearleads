@@ -13,6 +13,7 @@ import {
 import type { ApiServiceRuntime } from "../runtime";
 
 export { ContainerMutationError } from "../../workflows/containers/mutations";
+export { DocumentMutationError } from "../documents/documentMutations";
 
 export async function mutateContainer(
   runtime: ApiServiceRuntime,
