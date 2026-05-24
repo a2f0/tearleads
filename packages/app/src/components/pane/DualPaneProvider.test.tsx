@@ -25,6 +25,7 @@ import {
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
+import { ORG_MANAGER_LABELS } from "../../mini-apps/org-manager/labels";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
@@ -1346,7 +1347,7 @@ test(
 
     await createOrganizationGroup(leftPane, groupName);
     const directoryButton = within(leftPane).getByRole("button", {
-      name: "Directory",
+      name: ORG_MANAGER_LABELS.directory,
     });
     await interact(() => {
       fireEvent.click(directoryButton);

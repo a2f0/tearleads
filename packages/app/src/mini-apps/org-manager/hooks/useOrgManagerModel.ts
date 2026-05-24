@@ -12,6 +12,7 @@ import {
   type OrgManagerContainerGrants,
   type OrgManagerDataUsage,
   type OrgManagerDirectory,
+  type OrgManagerDirectoryUser,
   type OrgManagerGroupContainers,
   type OrgManagerGroupMembers,
   type OrgManagerGroupPolicyHistory,
@@ -81,6 +82,7 @@ export function useOrgManagerModel() {
   );
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [addUserId, setAddUserId] = useState("");
+  const [profileDocumentIdDraft, setProfileDocumentIdDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingUserDetail, setLoadingUserDetail] = useState(false);
   const [mutating, setMutating] = useState(false);
@@ -114,6 +116,22 @@ export function useOrgManagerModel() {
     members,
     userId: appData.userId,
   });
+  const selectedRosterUser = useMemo(
+    () =>
+      userDetail?.user ??
+      directory?.users.find((user) => user.userId === selectedUserId) ??
+      null,
+    [directory?.users, selectedUserId, userDetail?.user],
+  );
+  const canUpdateSelectedRosterEntry = Boolean(
+    selectedRosterUser &&
+      (directory?.currentUser.isOrgAdmin ||
+        selectedRosterUser.userId === appData.userId),
+  );
+  const selectedRosterProfileDocumentId =
+    selectedRosterUser?.profileDocumentId ?? null;
+  const profileDocumentIdDraftChanged =
+    (profileDocumentIdDraft.trim() || null) !== selectedRosterProfileDocumentId;
 
   const memberUserIds = useMemo(
     () =>
@@ -139,6 +157,7 @@ export function useOrgManagerModel() {
     selectedUserIdRef.current = userId;
     setSelectedUserIdState(userId);
     setUserDetail(null);
+    setProfileDocumentIdDraft("");
   }, []);
 
   const resetDirectoryState = useCallback(() => {
@@ -459,8 +478,35 @@ export function useOrgManagerModel() {
   }, [directory, selectedUserId, selectUser]);
 
   useEffect(() => {
+    setProfileDocumentIdDraft(selectedRosterUser?.profileDocumentId ?? "");
+  }, [selectedRosterUser?.profileDocumentId, selectedRosterUser?.userId]);
+
+  useEffect(() => {
     void refreshSelectedUserDetail(selectedUserId);
   }, [refreshSelectedUserDetail, selectedUserId]);
+
+  const updateRosterUserState = useCallback(
+    (updatedUser: OrgManagerDirectoryUser) => {
+      setDirectory((currentDirectory) => {
+        if (!currentDirectory) {
+          return currentDirectory;
+        }
+
+        return {
+          ...currentDirectory,
+          users: currentDirectory.users.map((user) =>
+            user.userId === updatedUser.userId ? updatedUser : user,
+          ),
+        };
+      });
+      setUserDetail((currentUserDetail) =>
+        currentUserDetail?.user.userId === updatedUser.userId
+          ? { ...currentUserDetail, user: updatedUser }
+          : currentUserDetail,
+      );
+    },
+    [],
+  );
 
   const createGroup = useCallback(async () => {
     if (
@@ -615,6 +661,46 @@ export function useOrgManagerModel() {
     ],
   );
 
+  const updateSelectedRosterProfileDocument = useCallback(async () => {
+    const targetUserId = selectedUserIdRef.current;
+    const nextProfileDocumentId = profileDocumentIdDraft.trim() || null;
+    if (
+      !targetUserId ||
+      !canLoadAuthenticatedOrgData ||
+      !canUpdateSelectedRosterEntry ||
+      nextProfileDocumentId === selectedRosterProfileDocumentId
+    ) {
+      return;
+    }
+
+    setMutating(true);
+    setError(null);
+    try {
+      const updatedUser = await orgManagerActions.updateRosterEntry(
+        targetUserId,
+        nextProfileDocumentId,
+      );
+      if (!updatedUser) {
+        setError(ORG_MANAGER_LABELS.failedUpdateRosterEntry);
+        return;
+      }
+
+      updateRosterUserState(updatedUser);
+      setProfileDocumentIdDraft(updatedUser.profileDocumentId ?? "");
+    } catch (nextError) {
+      setUnknownError(setError, nextError);
+    } finally {
+      setMutating(false);
+    }
+  }, [
+    canLoadAuthenticatedOrgData,
+    canUpdateSelectedRosterEntry,
+    orgManagerActions,
+    profileDocumentIdDraft,
+    selectedRosterProfileDocumentId,
+    updateRosterUserState,
+  ]);
+
   const revokeGrant = useCallback(
     async (grant: OrgManagerContainerGrant) => {
       if (grant.isBuiltin) {
@@ -658,6 +744,7 @@ export function useOrgManagerModel() {
     canLoadAuthenticatedOrgData,
     canMutateSelectedGroup,
     canRevokeGrants,
+    canUpdateSelectedRosterEntry,
     createGroup,
     dataUsage,
     directory,
@@ -676,6 +763,8 @@ export function useOrgManagerModel() {
     openGroupRoute,
     organizationId: appData.organizationId,
     organizationPolicyHistory,
+    profileDocumentIdDraft,
+    profileDocumentIdDraftChanged,
     refreshOrgManager,
     removeMember,
     revokeGrant,
@@ -686,6 +775,8 @@ export function useOrgManagerModel() {
     selectUser,
     setAddUserId,
     setGroupNameDraft,
+    setProfileDocumentIdDraft,
+    updateSelectedRosterProfileDocument,
     userDetail,
     userId: appData.userId,
     view,

@@ -56,6 +56,10 @@ interface OrgManagerContextValue {
       "containerId" | "subjectId" | "subjectType"
     >,
   ) => Promise<ContainerMutationResponse>;
+  updateRosterEntry: (
+    userId: string,
+    profileDocumentId: string | null,
+  ) => Promise<OrgManagerDirectoryUser | null>;
 }
 
 const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
@@ -171,6 +175,12 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [organizations],
   );
 
+  const updateRosterEntry = useCallback(
+    (userId: string, profileDocumentId: string | null) =>
+      organizations.updateRosterEntry(userId, profileDocumentId),
+    [organizations],
+  );
+
   const value = useMemo(
     () => ({
       addUserToGroup,
@@ -184,6 +194,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadUserDetail,
       removeUserFromGroup,
       revokeGrant,
+      updateRosterEntry,
     }),
     [
       addUserToGroup,
@@ -197,6 +208,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadUserDetail,
       removeUserFromGroup,
       revokeGrant,
+      updateRosterEntry,
     ],
   );
 
