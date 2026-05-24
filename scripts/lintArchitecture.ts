@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { IConfiguration, ICruiseOptions } from "dependency-cruiser";
 import { cruise } from "dependency-cruiser";
+import * as ts from "typescript";
 
 import dependencyCruiserConfig from "../dependency-cruiser.config";
 
@@ -15,10 +16,10 @@ const appPresentationEntryPoints = [
   "packages/app/src/document-types",
   "packages/app/src/mini-apps",
 ];
-const appReactFreeLayerEntryPoints = ["packages/client-sdk/src"];
 const appProductionSourceEntryPoints = ["packages/app/src"];
 const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
+const clientSdkSourceEntryPoints = ["packages/client-sdk/src"];
 const clientSdkPublicApiDocsPath = "docs/developer/client-sdk.md";
 const clientSdkPackageJsonPath = "packages/client-sdk/package.json";
 const clientSdkRootIndexPath = "packages/client-sdk/src/index.ts";
@@ -44,14 +45,19 @@ const clientSdkSupportedPackageExports = {
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
-const reactImportPattern =
-  /\bfrom\s*["']react(?:\/[^"']*)?["']|\bimport\s*(?:\(\s*)?["']react(?:\/[^"']*)?["']/;
-const appTestHelperImportPattern =
-  /\bfrom\s*["'][^"']*test\/helpers\/|\bimport\s*(?:\(\s*)?["'][^"']*test\/helpers\//;
-const appSdkDataImportPattern =
-  /\bfrom\s*["']@tearleads\/client-sdk\/data\/|\bimport\s*(?:\(\s*)?["']@tearleads\/client-sdk\/data\//;
-const clientSdkRootFacadeExportPattern =
-  /\bexport\b.*?\bfrom\s*["']\.\/(?:stores|workflows)(?:\/|["'])/;
+const clientSdkProductUiVocabularyPattern =
+  /\b(?:Explorer|MiniApp|OrgManager|explorer|mini-apps?|org-manager)/;
+
+type SourceFileLister = (dirPath: string) => Promise<string[]>;
+
+interface ArchitectureCheckResult {
+  failed: boolean;
+  output: string;
+}
+
+interface ArchitectureCheck {
+  run: () => Promise<ArchitectureCheckResult | undefined>;
+}
 
 interface SourceMatch {
   filePath: string;
@@ -119,8 +125,6 @@ const clientSdkPackageDependencySections = [
   "optionalDependencies",
   "peerDependencies",
 ] as const;
-const clientSdkProductUiVocabularyPattern =
-  /\b(?:Explorer|MiniApp|OrgManager|explorer|mini-apps?|org-manager)/;
 
 function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
   const { options = {}, ...ruleSet } = config;
@@ -133,49 +137,80 @@ function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
   };
 }
 
-async function listProductionSourceFiles(dirPath: string): Promise<string[]> {
-  const entries = await readdir(dirPath, { withFileTypes: true });
+function formatViolation(
+  name: string,
+  message: string,
+  details: ReadonlyArray<string>,
+): string {
+  return [
+    `error ${name}: ${message}`,
+    ...details.map((detail) => `  ${detail}`),
+  ].join("\n");
+}
+
+function createListCheck<T>(params: {
+  findItems: () => Promise<ReadonlyArray<T>>;
+  formatItem: (item: T) => string;
+  message: string;
+  name: string;
+}): ArchitectureCheck {
+  return {
+    async run() {
+      const items = await params.findItems();
+
+      if (items.length === 0) {
+        return undefined;
+      }
+
+      return {
+        failed: true,
+        output: formatViolation(
+          params.name,
+          params.message,
+          items.map(params.formatItem),
+        ),
+      };
+    },
+  };
+}
+
+async function listSourceFiles(
+  dirPath: string,
+  includeFile: (filePath: string) => boolean,
+): Promise<string[]> {
+  const entries = (await readdir(dirPath, { withFileTypes: true })).sort(
+    (left, right) => left.name.localeCompare(right.name),
+  );
   const nestedFiles = await Promise.all(
     entries.map(async (entry) => {
       const entryPath = join(dirPath, entry.name);
 
       if (entry.isDirectory()) {
-        return listProductionSourceFiles(entryPath);
+        return listSourceFiles(entryPath, includeFile);
       }
 
-      if (
-        productionSourceFilePattern.test(entryPath) &&
-        !testFilePattern.test(entryPath)
-      ) {
-        return [entryPath];
-      }
-
-      return [];
+      return includeFile(entryPath) ? [entryPath] : [];
     }),
   );
 
   return nestedFiles.flat();
 }
 
-async function listTestSourceFiles(dirPath: string): Promise<string[]> {
-  const entries = await readdir(dirPath, { withFileTypes: true });
-  const nestedFiles = await Promise.all(
-    entries.map(async (entry) => {
-      const entryPath = join(dirPath, entry.name);
-
-      if (entry.isDirectory()) {
-        return listTestSourceFiles(entryPath);
-      }
-
-      if (testFilePattern.test(entryPath)) {
-        return [entryPath];
-      }
-
-      return [];
-    }),
+async function listProductionSourceFiles(dirPath: string): Promise<string[]> {
+  return listSourceFiles(
+    dirPath,
+    (filePath) =>
+      productionSourceFilePattern.test(filePath) &&
+      !testFilePattern.test(filePath),
   );
+}
 
-  return nestedFiles.flat();
+async function listTestSourceFiles(dirPath: string): Promise<string[]> {
+  return listSourceFiles(dirPath, (filePath) => testFilePattern.test(filePath));
+}
+
+async function listExactSourceFile(filePath: string): Promise<string[]> {
+  return [filePath];
 }
 
 function isCommentOnlyLine(line: string): boolean {
@@ -187,40 +222,190 @@ function isCommentOnlyLine(line: string): boolean {
   );
 }
 
-async function findAppPresentationSqlExecutorReferences(): Promise<
-  SourceMatch[]
-> {
-  return findSourceMatches(appPresentationEntryPoints, rawSqlExecutorPattern);
+function matchesPattern(pattern: RegExp, value: string): boolean {
+  pattern.lastIndex = 0;
+  return pattern.test(value);
 }
 
-async function findAppReactFreeLayerReferences(): Promise<SourceMatch[]> {
-  return findSourceMatches(appReactFreeLayerEntryPoints, reactImportPattern);
+async function listedSourceFiles(
+  entryPoints: ReadonlyArray<string>,
+  listFiles: SourceFileLister,
+): Promise<string[]> {
+  const sourceFiles = (await Promise.all(entryPoints.map(listFiles))).flat();
+
+  return [...new Set(sourceFiles)].sort();
 }
 
-async function findAppProductionTestHelperReferences(): Promise<SourceMatch[]> {
-  return findSourceMatches(
-    appProductionSourceEntryPoints,
-    appTestHelperImportPattern,
+async function findSourceTextMatches(params: {
+  entryPoints: ReadonlyArray<string>;
+  listFiles?: SourceFileLister;
+  pattern: RegExp;
+}): Promise<SourceMatch[]> {
+  const sourceFiles = await listedSourceFiles(
+    params.entryPoints,
+    params.listFiles ?? listProductionSourceFiles,
   );
-}
+  const fileMatches = await Promise.all(
+    sourceFiles.map(async (filePath) => {
+      const content = await readFile(filePath, "utf8");
 
-async function findAppProductionSdkDataImports(): Promise<SourceMatch[]> {
-  return findSourceMatches(
-    appProductionSourceEntryPoints,
-    appSdkDataImportPattern,
+      return content.split("\n").flatMap((line, index): SourceMatch[] => {
+        if (isCommentOnlyLine(line) || !matchesPattern(params.pattern, line)) {
+          return [];
+        }
+
+        return [{ filePath, line, lineNumber: index + 1 }];
+      });
+    }),
   );
+
+  return fileMatches.flat();
 }
 
-async function findAppTestHelperSdkDataImports(): Promise<SourceMatch[]> {
-  return findSourceMatches(appTestHelperEntryPoints, appSdkDataImportPattern);
+function sourceScriptKind(filePath: string): ts.ScriptKind {
+  if (filePath.endsWith(".tsx") || filePath.endsWith(".jsx")) {
+    return ts.ScriptKind.TSX;
+  }
+  if (filePath.endsWith(".json")) {
+    return ts.ScriptKind.JSON;
+  }
+
+  return ts.ScriptKind.TS;
 }
 
-async function findAppTestSdkDataImports(): Promise<SourceMatch[]> {
-  return findSourceMatches(
-    appTestSourceEntryPoints,
-    appSdkDataImportPattern,
-    listTestSourceFiles,
+function isStringModuleSpecifier(
+  node: ts.Node,
+): node is ts.StringLiteral | ts.NoSubstitutionTemplateLiteral {
+  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
+}
+
+function moduleSpecifierFromNode(
+  node: ts.Node,
+): ts.StringLiteral | ts.NoSubstitutionTemplateLiteral | undefined {
+  if (
+    (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+    node.moduleSpecifier &&
+    isStringModuleSpecifier(node.moduleSpecifier)
+  ) {
+    return node.moduleSpecifier;
+  }
+
+  if (
+    ts.isCallExpression(node) &&
+    node.expression.kind === ts.SyntaxKind.ImportKeyword
+  ) {
+    const [argument] = node.arguments;
+    return argument && isStringModuleSpecifier(argument) ? argument : undefined;
+  }
+
+  if (
+    ts.isImportTypeNode(node) &&
+    ts.isLiteralTypeNode(node.argument) &&
+    isStringModuleSpecifier(node.argument.literal)
+  ) {
+    return node.argument.literal;
+  }
+
+  return undefined;
+}
+
+async function findModuleSpecifierMatches(params: {
+  entryPoints: ReadonlyArray<string>;
+  listFiles?: SourceFileLister;
+  matches: (specifier: string) => boolean;
+}): Promise<SourceMatch[]> {
+  const sourceFiles = await listedSourceFiles(
+    params.entryPoints,
+    params.listFiles ?? listProductionSourceFiles,
   );
+  const fileMatches = await Promise.all(
+    sourceFiles.map((filePath) =>
+      findFileModuleSpecifierMatches(filePath, params.matches),
+    ),
+  );
+
+  return fileMatches.flat();
+}
+
+async function findFileModuleSpecifierMatches(
+  filePath: string,
+  matches: (specifier: string) => boolean,
+): Promise<SourceMatch[]> {
+  const content = await readFile(filePath, "utf8");
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    sourceScriptKind(filePath),
+  );
+  const lines = content.split("\n");
+  const fileMatches: SourceMatch[] = [];
+
+  function visit(node: ts.Node) {
+    const moduleSpecifier = moduleSpecifierFromNode(node);
+    if (moduleSpecifier && matches(moduleSpecifier.text)) {
+      const location = sourceFile.getLineAndCharacterOfPosition(
+        moduleSpecifier.getStart(sourceFile),
+      );
+
+      fileMatches.push({
+        filePath,
+        line: lines[location.line]?.trim() ?? moduleSpecifier.text,
+        lineNumber: location.line + 1,
+      });
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+
+  return fileMatches;
+}
+
+function sourceMatchDetail(match: SourceMatch): string {
+  return `${match.filePath}:${match.lineNumber}: ${match.line.trim()}`;
+}
+
+function createSourceTextCheck(params: {
+  entryPoints: ReadonlyArray<string>;
+  listFiles?: SourceFileLister;
+  message: string;
+  name: string;
+  pattern: RegExp;
+}): ArchitectureCheck {
+  return createListCheck({
+    findItems: () =>
+      findSourceTextMatches({
+        entryPoints: params.entryPoints,
+        listFiles: params.listFiles,
+        pattern: params.pattern,
+      }),
+    formatItem: sourceMatchDetail,
+    message: params.message,
+    name: params.name,
+  });
+}
+
+function createModuleSpecifierCheck(params: {
+  entryPoints: ReadonlyArray<string>;
+  listFiles?: SourceFileLister;
+  matches: (specifier: string) => boolean;
+  message: string;
+  name: string;
+}): ArchitectureCheck {
+  return createListCheck({
+    findItems: () =>
+      findModuleSpecifierMatches({
+        entryPoints: params.entryPoints,
+        listFiles: params.listFiles,
+        matches: params.matches,
+      }),
+    formatItem: sourceMatchDetail,
+    message: params.message,
+    name: params.name,
+  });
 }
 
 async function readClientSdkPackageJson(): Promise<PackageJson> {
@@ -250,28 +435,6 @@ function packageExportConditionTarget(
   return typeof conditionTarget === "string" ? conditionTarget : undefined;
 }
 
-function buildClientSdkPackageExportViolation(
-  exportPath: string,
-  detail: string,
-): ClientSdkPackageExportContractViolation {
-  return { detail, exportPath };
-}
-
-function buildClientSdkPackageStatusViolation(
-  field: string,
-  detail: string,
-): ClientSdkPackageStatusViolation {
-  return { detail, field };
-}
-
-function buildClientSdkDocumentationContractViolation(
-  docsPath: string,
-  entryName: string,
-  detail: string,
-): ClientSdkDocumentationContractViolation {
-  return { detail, docsPath, entryName };
-}
-
 async function findClientSdkPackageStatusViolations(): Promise<
   ClientSdkPackageStatusViolation[]
 > {
@@ -282,10 +445,10 @@ async function findClientSdkPackageStatusViolations(): Promise<
 
       return actualValue === expectedValue
         ? undefined
-        : buildClientSdkPackageStatusViolation(
+        : {
+            detail: `should be ${JSON.stringify(expectedValue)}`,
             field,
-            `should be ${JSON.stringify(expectedValue)}`,
-          );
+          };
     })
     .filter(
       (violation): violation is ClientSdkPackageStatusViolation =>
@@ -293,12 +456,11 @@ async function findClientSdkPackageStatusViolations(): Promise<
     );
   const artifactFieldViolations = clientSdkSourceOnlyArtifactFields
     .filter((field) => Object.hasOwn(packageJson, field))
-    .map((field) =>
-      buildClientSdkPackageStatusViolation(
-        field,
+    .map((field) => ({
+      detail:
         "should be omitted while package exports target TypeScript source files",
-      ),
-    );
+      field,
+    }));
 
   return [...contractViolations, ...artifactFieldViolations];
 }
@@ -320,13 +482,7 @@ async function findClientSdkWorkspaceDependencyViolations(): Promise<
           return [];
         }
 
-        return [
-          {
-            declaredRange,
-            dependencyName,
-            dependencySection,
-          },
-        ];
+        return [{ declaredRange, dependencyName, dependencySection }];
       },
     );
   });
@@ -337,50 +493,54 @@ async function findClientSdkPackageExportContractViolations(): Promise<
 > {
   const packageJson = await readClientSdkPackageJson();
   const packageExports = packageJson.exports ?? {};
-  const expectedExports = Object.entries(clientSdkSupportedPackageExports);
-  const missingOrChangedExports = expectedExports.flatMap(
-    ([exportPath, expectedTarget]) => {
-      const exportTarget = packageExports[exportPath];
-
-      if (!exportTarget) {
-        return [buildClientSdkPackageExportViolation(exportPath, "missing")];
-      }
-
-      const defaultTarget = packageExportConditionTarget(
-        exportTarget,
-        "default",
-      );
-      const typesTarget = packageExportConditionTarget(exportTarget, "types");
-
-      return [
-        defaultTarget === expectedTarget
-          ? undefined
-          : buildClientSdkPackageExportViolation(
-              exportPath,
-              `default target should be ${expectedTarget}`,
-            ),
-        typesTarget === expectedTarget
-          ? undefined
-          : buildClientSdkPackageExportViolation(
-              exportPath,
-              `types target should be ${expectedTarget}`,
-            ),
-      ].filter(
-        (violation): violation is ClientSdkPackageExportContractViolation =>
-          violation !== undefined,
-      );
-    },
+  const missingOrChangedExports = Object.entries(
+    clientSdkSupportedPackageExports,
+  ).flatMap(([exportPath, expectedTarget]) =>
+    expectedClientSdkExportViolations(
+      packageExports[exportPath],
+      exportPath,
+      expectedTarget,
+    ),
   );
   const unexpectedExports = Object.keys(packageExports)
     .filter(
       (exportPath) =>
         !Object.hasOwn(clientSdkSupportedPackageExports, exportPath),
     )
-    .map((exportPath) =>
-      buildClientSdkPackageExportViolation(exportPath, "unexpected"),
-    );
+    .map((exportPath) => ({ detail: "unexpected", exportPath }));
 
   return [...missingOrChangedExports, ...unexpectedExports];
+}
+
+function expectedClientSdkExportViolations(
+  exportTarget: unknown,
+  exportPath: string,
+  expectedTarget: string,
+): ClientSdkPackageExportContractViolation[] {
+  if (!exportTarget) {
+    return [{ detail: "missing", exportPath }];
+  }
+
+  const defaultTarget = packageExportConditionTarget(exportTarget, "default");
+  const typesTarget = packageExportConditionTarget(exportTarget, "types");
+
+  return [
+    defaultTarget === expectedTarget
+      ? undefined
+      : {
+          detail: `default target should be ${expectedTarget}`,
+          exportPath,
+        },
+    typesTarget === expectedTarget
+      ? undefined
+      : {
+          detail: `types target should be ${expectedTarget}`,
+          exportPath,
+        },
+  ].filter(
+    (violation): violation is ClientSdkPackageExportContractViolation =>
+      violation !== undefined,
+  );
 }
 
 function clientSdkPackageEntryPoint(exportPath: string): string {
@@ -473,29 +633,24 @@ function findDocumentationContractViolations(params: {
   const expectedEntrySet = new Set(params.expectedEntries);
   const missingEntries = params.expectedEntries
     .filter((entryName) => !actualEntrySet.has(entryName))
-    .map((entryName) =>
-      buildClientSdkDocumentationContractViolation(
-        params.docsPath,
-        entryName,
-        "missing",
-      ),
-    );
+    .map((entryName) => ({
+      detail: "missing",
+      docsPath: params.docsPath,
+      entryName,
+    }));
   const unexpectedEntries = params.actualEntries
     .filter((entryName) => !expectedEntrySet.has(entryName))
-    .map((entryName) =>
-      buildClientSdkDocumentationContractViolation(
-        params.docsPath,
-        entryName,
-        "unexpected",
-      ),
-    );
+    .map((entryName) => ({
+      detail: "unexpected",
+      docsPath: params.docsPath,
+      entryName,
+    }));
   const duplicatedEntries = duplicateValues(params.actualEntries).map(
-    (entryName) =>
-      buildClientSdkDocumentationContractViolation(
-        params.docsPath,
-        entryName,
-        "duplicated",
-      ),
+    (entryName) => ({
+      detail: "duplicated",
+      docsPath: params.docsPath,
+      entryName,
+    }),
   );
 
   return [...missingEntries, ...unexpectedEntries, ...duplicatedEntries];
@@ -512,11 +667,11 @@ async function findClientSdkPublicApiDocsViolations(): Promise<
 
   if (!publicApiSection) {
     return [
-      buildClientSdkDocumentationContractViolation(
-        clientSdkPublicApiDocsPath,
-        "Public API Entry Points",
-        "section missing",
-      ),
+      {
+        detail: "section missing",
+        docsPath: clientSdkPublicApiDocsPath,
+        entryName: "Public API Entry Points",
+      },
     ];
   }
 
@@ -538,11 +693,11 @@ async function findClientSdkWorkflowTaxonomyDocsViolations(): Promise<
 
   if (!workflowTaxonomySection) {
     return [
-      buildClientSdkDocumentationContractViolation(
-        clientSdkWorkflowDocsPath,
-        "Facade Taxonomy",
-        "section missing",
-      ),
+      {
+        detail: "section missing",
+        docsPath: clientSdkWorkflowDocsPath,
+        entryName: "Facade Taxonomy",
+      },
     ];
   }
 
@@ -569,446 +724,171 @@ async function findClientSdkDeepFacadePackageExports(): Promise<string[]> {
   );
 }
 
-async function listExactSourceFile(filePath: string): Promise<string[]> {
-  return [filePath];
+function isReactImport(specifier: string): boolean {
+  return specifier === "react" || specifier.startsWith("react/");
 }
 
-async function findClientSdkRootFacadeReExports(): Promise<SourceMatch[]> {
-  return findSourceMatches(
-    [clientSdkRootIndexPath],
-    clientSdkRootFacadeExportPattern,
-    listExactSourceFile,
+function isAppTestHelperImport(specifier: string): boolean {
+  return /(?:^|\/)test\/helpers(?:\/|$)/.test(specifier);
+}
+
+function isClientSdkDataImport(specifier: string): boolean {
+  return (
+    specifier === "@tearleads/client-sdk/data" ||
+    specifier.startsWith("@tearleads/client-sdk/data/")
   );
 }
 
-async function findClientSdkProductUiVocabularyReferences(): Promise<
-  SourceMatch[]
-> {
-  return findSourceMatches(
-    appReactFreeLayerEntryPoints,
-    clientSdkProductUiVocabularyPattern,
+function isClientSdkRootFacadeReExport(specifier: string): boolean {
+  return /^\.\/(?:stores|workflows)(?:\/|$)/.test(specifier);
+}
+
+async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResult> {
+  const result = await cruise(
+    architectureEntryPoints,
+    configToCruiseOptions(dependencyCruiserConfig),
   );
+  const output =
+    typeof result.output === "string" && result.output.trim().length > 0
+      ? result.output.trim()
+      : "";
+
+  return { failed: result.exitCode !== 0, output };
 }
 
-async function findSourceMatches(
-  entryPoints: ReadonlyArray<string>,
-  pattern: RegExp,
-  listFiles: (dirPath: string) => Promise<string[]> = listProductionSourceFiles,
-): Promise<SourceMatch[]> {
-  const sourceFiles = (await Promise.all(entryPoints.map(listFiles))).flat();
-  const fileMatches = await Promise.all(
-    sourceFiles.map(async (filePath) => {
-      const content = await readFile(filePath, "utf8");
+const architectureChecks: ArchitectureCheck[] = [
+  createSourceTextCheck({
+    entryPoints: appPresentationEntryPoints,
+    message:
+      "App presentation files should go through stores or providers instead of accepting, passing, or importing raw ExecSql values.",
+    name: "app-presentation-does-not-thread-raw-sql-executors",
+    pattern: rawSqlExecutorPattern,
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: clientSdkSourceEntryPoints,
+    matches: isReactImport,
+    message:
+      "Client SDK source should stay below React runtime and presentation code.",
+    name: "client-sdk-source-does-not-import-react",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appProductionSourceEntryPoints,
+    matches: isAppTestHelperImport,
+    message:
+      "App test helpers belong under packages/app/test and must not be imported by production src files.",
+    name: "app-production-source-does-not-import-test-helpers",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appProductionSourceEntryPoints,
+    matches: isClientSdkDataImport,
+    message:
+      "App production code should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+    name: "app-production-uses-sdk-root-or-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appTestHelperEntryPoints,
+    matches: isClientSdkDataImport,
+    message:
+      "App test helpers should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+    name: "app-test-helpers-use-sdk-root-or-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appTestSourceEntryPoints,
+    listFiles: listTestSourceFiles,
+    matches: isClientSdkDataImport,
+    message:
+      "App tests should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+    name: "app-tests-use-sdk-root-or-facades",
+  }),
+  createListCheck({
+    findItems: findClientSdkPackageStatusViolations,
+    formatItem: (violation) =>
+      `${clientSdkPackageJsonPath}: ${violation.field} ${violation.detail}`,
+    message:
+      "Client SDK package metadata should match the documented private, source-consumed package contract until an external release build exists.",
+    name: "client-sdk-package-status-stays-private-source-consumed",
+  }),
+  createListCheck({
+    findItems: findClientSdkWorkspaceDependencyViolations,
+    formatItem: (violation) =>
+      `${clientSdkPackageJsonPath}: ${violation.dependencySection}.${violation.dependencyName} is ${JSON.stringify(violation.declaredRange)}`,
+    message:
+      "Client SDK local package dependencies should use workspace:* while the SDK is source-consumed inside the monorepo.",
+    name: "client-sdk-local-dependencies-use-workspace-ranges",
+  }),
+  createListCheck({
+    findItems: findClientSdkPackageExportContractViolations,
+    formatItem: (violation) =>
+      `${clientSdkPackageJsonPath}: ${violation.exportPath} ${violation.detail}`,
+    message:
+      "Client SDK package exports should exactly match the documented root, document, workflow, and store facade entry points with explicit types and default targets.",
+    name: "client-sdk-package-exports-match-supported-entry-points",
+  }),
+  createListCheck({
+    findItems: findClientSdkPublicApiDocsViolations,
+    formatItem: (violation) =>
+      `${violation.docsPath}: ${violation.entryName} ${violation.detail}`,
+    message:
+      "Client SDK public API docs should match the supported package export entry points exactly.",
+    name: "client-sdk-public-api-docs-match-package-exports",
+  }),
+  createListCheck({
+    findItems: findClientSdkWorkflowTaxonomyDocsViolations,
+    formatItem: (violation) =>
+      `${violation.docsPath}: ${violation.entryName} ${violation.detail}`,
+    message:
+      "Client SDK workflow taxonomy docs should list each exported workflow facade exactly once.",
+    name: "client-sdk-workflow-taxonomy-docs-match-package-exports",
+  }),
+  createListCheck({
+    findItems: findClientSdkDataPackageExports,
+    formatItem: (exportPath) => `${clientSdkPackageJsonPath}: ${exportPath}`,
+    message:
+      "Client SDK data internals should stay package-internal; promote contracts through the root or explicit workflow/store facades instead.",
+    name: "client-sdk-does-not-export-data-internals",
+  }),
+  createListCheck({
+    findItems: findClientSdkDeepFacadePackageExports,
+    formatItem: (exportPath) => `${clientSdkPackageJsonPath}: ${exportPath}`,
+    message:
+      "Client SDK package exports should stay at the root or workflow/store facade level instead of exposing implementation files.",
+    name: "client-sdk-exports-only-root-and-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: [clientSdkRootIndexPath],
+    listFiles: listExactSourceFile,
+    matches: isClientSdkRootFacadeReExport,
+    message:
+      "Client SDK root exports should stay focused on neutral contracts; workflow and store APIs belong behind explicit facade subpaths.",
+    name: "client-sdk-root-exports-neutral-contracts",
+  }),
+  createSourceTextCheck({
+    entryPoints: clientSdkSourceEntryPoints,
+    message:
+      "Client SDK source should use platform workflow names and keep product/app window vocabulary in packages/app.",
+    name: "client-sdk-workflows-use-platform-taxonomy",
+    pattern: clientSdkProductUiVocabularyPattern,
+  }),
+];
 
-      return content.split("\n").flatMap((line, index): SourceMatch[] => {
-        if (isCommentOnlyLine(line) || !pattern.test(line)) {
-          return [];
-        }
-
-        return [{ filePath, line, lineNumber: index + 1 }];
-      });
-    }),
-  );
-
-  return fileMatches.flat();
-}
-
-function formatAppPresentationSqlExecutorReferences(
-  matches: ReadonlyArray<SourceMatch>,
-): string {
-  if (matches.length === 0) {
-    return "";
-  }
-
-  return [
-    "error app-presentation-does-not-thread-raw-sql-executors: App presentation files should go through stores or providers instead of accepting, passing, or importing raw ExecSql values.",
-    ...matches.map(
-      (match) =>
-        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
-    ),
-  ].join("\n");
-}
-
-function formatAppReactFreeLayerReferences(
-  matches: ReadonlyArray<SourceMatch>,
-): string {
-  if (matches.length === 0) {
-    return "";
-  }
-
-  return [
-    "error app-data-and-workflows-do-not-import-react: App data and workflow files should stay below React runtime and presentation code.",
-    ...matches.map(
-      (match) =>
-        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
-    ),
-  ].join("\n");
-}
-
-function formatAppProductionTestHelperReferences(
-  matches: ReadonlyArray<SourceMatch>,
-): string {
-  if (matches.length === 0) {
-    return "";
-  }
-
-  return [
-    "error app-production-source-does-not-import-test-helpers: App test helpers belong under packages/app/test and must not be imported by production src files.",
-    ...matches.map(
-      (match) =>
-        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
-    ),
-  ].join("\n");
-}
-
-function formatAppProductionSdkDataImports(
-  matches: ReadonlyArray<SourceMatch>,
-): string {
-  if (matches.length === 0) {
-    return "";
-  }
-
-  return [
-    "error app-production-uses-sdk-root-or-facades: App production code should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
-    ...matches.map(
-      (match) =>
-        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
-    ),
-  ].join("\n");
-}
-
-function formatAppTestHelperSdkDataImports(
-  matches: ReadonlyArray<SourceMatch>,
-): string {
-  if (matches.length === 0) {
-    return "";
-  }
-
-  return [
-    "error app-test-helpers-use-sdk-root-or-facades: App test helpers should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
-    ...matches.map(
-      (match) =>
-        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
-    ),
-  ].join("\n");
-}
-
-function formatAppTestSdkDataImports(
-  matches: ReadonlyArray<SourceMatch>,
-): string {
-  if (matches.length === 0) {
-    return "";
-  }
-
-  return [
-    "error app-tests-use-sdk-root-or-facades: App tests should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
-    ...matches.map(
-      (match) =>
-        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
-    ),
-  ].join("\n");
-}
-
-function formatClientSdkDataPackageExports(
-  exportPaths: ReadonlyArray<string>,
-): string {
-  if (exportPaths.length === 0) {
-    return "";
-  }
-
-  return [
-    "error client-sdk-does-not-export-data-internals: Client SDK data internals should stay package-internal; promote contracts through the root or explicit workflow/store facades instead.",
-    ...exportPaths.map(
-      (exportPath) => `  ${clientSdkPackageJsonPath}: ${exportPath}`,
-    ),
-  ].join("\n");
-}
-
-function formatClientSdkPackageStatusViolations(
-  violations: ReadonlyArray<ClientSdkPackageStatusViolation>,
-): string {
-  if (violations.length === 0) {
-    return "";
-  }
-
-  return [
-    "error client-sdk-package-status-stays-private-source-consumed: Client SDK package metadata should match the documented private, source-consumed package contract until an external release build exists.",
-    ...violations.map(
-      (violation) =>
-        `  ${clientSdkPackageJsonPath}: ${violation.field} ${violation.detail}`,
-    ),
-  ].join("\n");
-}
-
-function formatClientSdkWorkspaceDependencyViolations(
-  violations: ReadonlyArray<ClientSdkWorkspaceDependencyViolation>,
-): string {
-  if (violations.length === 0) {
-    return "";
-  }
-
-  return [
-    "error client-sdk-local-dependencies-use-workspace-ranges: Client SDK local package dependencies should use workspace:* while the SDK is source-consumed inside the monorepo.",
-    ...violations.map(
-      (violation) =>
-        `  ${clientSdkPackageJsonPath}: ${violation.dependencySection}.${violation.dependencyName} is ${JSON.stringify(violation.declaredRange)}`,
-    ),
-  ].join("\n");
-}
-
-function formatClientSdkPackageExportContractViolations(
-  violations: ReadonlyArray<ClientSdkPackageExportContractViolation>,
-): string {
-  if (violations.length === 0) {
-    return "";
-  }
-
-  return [
-    "error client-sdk-package-exports-match-supported-entry-points: Client SDK package exports should exactly match the documented root, document, workflow, and store facade entry points with explicit types and default targets.",
-    ...violations.map(
-      (violation) =>
-        `  ${clientSdkPackageJsonPath}: ${violation.exportPath} ${violation.detail}`,
-    ),
-  ].join("\n");
-}
-
-function formatClientSdkPublicApiDocsViolations(
-  violations: ReadonlyArray<ClientSdkDocumentationContractViolation>,
-): string {
-  if (violations.length === 0) {
-    return "";
-  }
-
-  return [
-    "error client-sdk-public-api-docs-match-package-exports: Client SDK public API docs should match the supported package export entry points exactly.",
-    ...violations.map(
-      (violation) =>
-        `  ${violation.docsPath}: ${violation.entryName} ${violation.detail}`,
-    ),
-  ].join("\n");
-}
-
-function formatClientSdkWorkflowTaxonomyDocsViolations(
-  violations: ReadonlyArray<ClientSdkDocumentationContractViolation>,
-): string {
-  if (violations.length === 0) {
-    return "";
-  }
-
-  return [
-    "error client-sdk-workflow-taxonomy-docs-match-package-exports: Client SDK workflow taxonomy docs should list each exported workflow facade exactly once.",
-    ...violations.map(
-      (violation) =>
-        `  ${violation.docsPath}: ${violation.entryName} ${violation.detail}`,
-    ),
-  ].join("\n");
-}
-
-function formatClientSdkDeepFacadePackageExports(
-  exportPaths: ReadonlyArray<string>,
-): string {
-  if (exportPaths.length === 0) {
-    return "";
-  }
-
-  return [
-    "error client-sdk-exports-only-root-and-facades: Client SDK package exports should stay at the root or workflow/store facade level instead of exposing implementation files.",
-    ...exportPaths.map(
-      (exportPath) => `  ${clientSdkPackageJsonPath}: ${exportPath}`,
-    ),
-  ].join("\n");
-}
-
-function formatClientSdkRootFacadeReExports(
-  matches: ReadonlyArray<SourceMatch>,
-): string {
-  if (matches.length === 0) {
-    return "";
-  }
-
-  return [
-    "error client-sdk-root-exports-neutral-contracts: Client SDK root exports should stay focused on neutral contracts; workflow and store APIs belong behind explicit facade subpaths.",
-    ...matches.map(
-      (match) =>
-        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
-    ),
-  ].join("\n");
-}
-
-function formatClientSdkProductUiVocabularyReferences(
-  matches: ReadonlyArray<SourceMatch>,
-): string {
-  if (matches.length === 0) {
-    return "";
-  }
-
-  return [
-    "error client-sdk-workflows-use-platform-taxonomy: Client SDK source should use platform workflow names and keep product/app window vocabulary in packages/app.",
-    ...matches.map(
-      (match) =>
-        `  ${match.filePath}:${match.lineNumber}: ${match.line.trim()}`,
-    ),
-  ].join("\n");
-}
-
-const result = await cruise(
-  architectureEntryPoints,
-  configToCruiseOptions(dependencyCruiserConfig),
+const dependencyCruiserResult = await runDependencyCruiserCheck();
+const customResults = await Promise.all(
+  architectureChecks.map((check) => check.run()),
 );
-const appPresentationSqlExecutorReferences =
-  await findAppPresentationSqlExecutorReferences();
-const appReactFreeLayerReferences = await findAppReactFreeLayerReferences();
-const appProductionTestHelperReferences =
-  await findAppProductionTestHelperReferences();
-const appProductionSdkDataImports = await findAppProductionSdkDataImports();
-const appTestHelperSdkDataImports = await findAppTestHelperSdkDataImports();
-const appTestSdkDataImports = await findAppTestSdkDataImports();
-const clientSdkPackageStatusViolations =
-  await findClientSdkPackageStatusViolations();
-const clientSdkWorkspaceDependencyViolations =
-  await findClientSdkWorkspaceDependencyViolations();
-const clientSdkPackageExportContractViolations =
-  await findClientSdkPackageExportContractViolations();
-const clientSdkPublicApiDocsViolations =
-  await findClientSdkPublicApiDocsViolations();
-const clientSdkWorkflowTaxonomyDocsViolations =
-  await findClientSdkWorkflowTaxonomyDocsViolations();
-const clientSdkDataPackageExports = await findClientSdkDataPackageExports();
-const clientSdkDeepFacadePackageExports =
-  await findClientSdkDeepFacadePackageExports();
-const clientSdkRootFacadeReExports = await findClientSdkRootFacadeReExports();
-const clientSdkProductUiVocabularyReferences =
-  await findClientSdkProductUiVocabularyReferences();
+const checkResults = [
+  dependencyCruiserResult,
+  ...customResults.filter(
+    (result): result is ArchitectureCheckResult => result !== undefined,
+  ),
+];
 
-if (typeof result.output === "string" && result.output.trim().length > 0) {
-  const write = result.exitCode === 0 ? console.log : console.error;
-  write(result.output.trim());
+for (const result of checkResults) {
+  if (result.output.length === 0) {
+    continue;
+  }
+
+  const write = result.failed ? console.error : console.log;
+  write(result.output);
 }
 
-const appPresentationSqlExecutorOutput =
-  formatAppPresentationSqlExecutorReferences(
-    appPresentationSqlExecutorReferences,
-  );
-if (appPresentationSqlExecutorOutput.length > 0) {
-  console.error(appPresentationSqlExecutorOutput);
-}
-
-const appReactFreeLayerOutput = formatAppReactFreeLayerReferences(
-  appReactFreeLayerReferences,
-);
-if (appReactFreeLayerOutput.length > 0) {
-  console.error(appReactFreeLayerOutput);
-}
-
-const appProductionTestHelperOutput = formatAppProductionTestHelperReferences(
-  appProductionTestHelperReferences,
-);
-if (appProductionTestHelperOutput.length > 0) {
-  console.error(appProductionTestHelperOutput);
-}
-
-const appProductionSdkDataOutput = formatAppProductionSdkDataImports(
-  appProductionSdkDataImports,
-);
-if (appProductionSdkDataOutput.length > 0) {
-  console.error(appProductionSdkDataOutput);
-}
-
-const appTestHelperSdkDataOutput = formatAppTestHelperSdkDataImports(
-  appTestHelperSdkDataImports,
-);
-if (appTestHelperSdkDataOutput.length > 0) {
-  console.error(appTestHelperSdkDataOutput);
-}
-
-const appTestSdkDataOutput = formatAppTestSdkDataImports(appTestSdkDataImports);
-if (appTestSdkDataOutput.length > 0) {
-  console.error(appTestSdkDataOutput);
-}
-
-const clientSdkPackageStatusOutput = formatClientSdkPackageStatusViolations(
-  clientSdkPackageStatusViolations,
-);
-if (clientSdkPackageStatusOutput.length > 0) {
-  console.error(clientSdkPackageStatusOutput);
-}
-
-const clientSdkWorkspaceDependencyOutput =
-  formatClientSdkWorkspaceDependencyViolations(
-    clientSdkWorkspaceDependencyViolations,
-  );
-if (clientSdkWorkspaceDependencyOutput.length > 0) {
-  console.error(clientSdkWorkspaceDependencyOutput);
-}
-
-const clientSdkPackageExportContractOutput =
-  formatClientSdkPackageExportContractViolations(
-    clientSdkPackageExportContractViolations,
-  );
-if (clientSdkPackageExportContractOutput.length > 0) {
-  console.error(clientSdkPackageExportContractOutput);
-}
-
-const clientSdkPublicApiDocsOutput = formatClientSdkPublicApiDocsViolations(
-  clientSdkPublicApiDocsViolations,
-);
-if (clientSdkPublicApiDocsOutput.length > 0) {
-  console.error(clientSdkPublicApiDocsOutput);
-}
-
-const clientSdkWorkflowTaxonomyDocsOutput =
-  formatClientSdkWorkflowTaxonomyDocsViolations(
-    clientSdkWorkflowTaxonomyDocsViolations,
-  );
-if (clientSdkWorkflowTaxonomyDocsOutput.length > 0) {
-  console.error(clientSdkWorkflowTaxonomyDocsOutput);
-}
-
-const clientSdkDataPackageExportsOutput = formatClientSdkDataPackageExports(
-  clientSdkDataPackageExports,
-);
-if (clientSdkDataPackageExportsOutput.length > 0) {
-  console.error(clientSdkDataPackageExportsOutput);
-}
-
-const clientSdkDeepFacadePackageExportsOutput =
-  formatClientSdkDeepFacadePackageExports(clientSdkDeepFacadePackageExports);
-if (clientSdkDeepFacadePackageExportsOutput.length > 0) {
-  console.error(clientSdkDeepFacadePackageExportsOutput);
-}
-
-const clientSdkRootFacadeReExportsOutput = formatClientSdkRootFacadeReExports(
-  clientSdkRootFacadeReExports,
-);
-if (clientSdkRootFacadeReExportsOutput.length > 0) {
-  console.error(clientSdkRootFacadeReExportsOutput);
-}
-
-const clientSdkProductUiVocabularyOutput =
-  formatClientSdkProductUiVocabularyReferences(
-    clientSdkProductUiVocabularyReferences,
-  );
-if (clientSdkProductUiVocabularyOutput.length > 0) {
-  console.error(clientSdkProductUiVocabularyOutput);
-}
-
-process.exit(
-  result.exitCode !== 0 ||
-    appPresentationSqlExecutorReferences.length > 0 ||
-    appReactFreeLayerReferences.length > 0 ||
-    appProductionTestHelperReferences.length > 0 ||
-    appProductionSdkDataImports.length > 0 ||
-    appTestHelperSdkDataImports.length > 0 ||
-    appTestSdkDataImports.length > 0 ||
-    clientSdkPackageStatusViolations.length > 0 ||
-    clientSdkWorkspaceDependencyViolations.length > 0 ||
-    clientSdkPackageExportContractViolations.length > 0 ||
-    clientSdkPublicApiDocsViolations.length > 0 ||
-    clientSdkWorkflowTaxonomyDocsViolations.length > 0 ||
-    clientSdkDataPackageExports.length > 0 ||
-    clientSdkDeepFacadePackageExports.length > 0 ||
-    clientSdkRootFacadeReExports.length > 0 ||
-    clientSdkProductUiVocabularyReferences.length > 0
-    ? 1
-    : 0,
-);
+process.exit(checkResults.some((result) => result.failed) ? 1 : 0);

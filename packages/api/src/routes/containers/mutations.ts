@@ -21,10 +21,10 @@ import {
 import {
   ContainerMutationError,
   createContainerWithMetadataDocument,
+  DocumentMutationError,
   mutateContainer,
 } from "../../services/containers/mutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
-import { DocumentMutationError } from "../../workflows/documents/mutations/errors";
 
 interface ContainerMutationsRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
