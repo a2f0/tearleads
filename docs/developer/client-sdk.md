@@ -12,6 +12,7 @@ Create one SDK instance for the active client environment:
 
 ```ts
 import { Tearleads } from "@tearleads/client-sdk";
+import { DEFAULT_DOCUMENT_KIND } from "@tearleads/client-sdk/documents";
 import {
   createModuleSQLiteRuntime,
   type SQLiteRuntime,
@@ -41,11 +42,9 @@ await tearleads.identity.generate();
 await tearleads.session.bootstrapLocalRootContainer();
 
 const containerContents = tearleads.containerContents.runtime();
-const documents = tearleads.documents.runtime({
-  containerId: tearleads.session.containerId,
-});
+const documents = tearleads.documents.runtime(tearleads.session.containerId);
 const localNotes = await tearleads.documents.listLocalSummaries({
-  documentKind: "note",
+  documentKind: DEFAULT_DOCUMENT_KIND,
 });
 const containerDocumentReadModel =
   tearleads.containerContents.documentReadModel();

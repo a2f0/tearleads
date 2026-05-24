@@ -1,4 +1,5 @@
 import {
+  DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
@@ -33,7 +34,7 @@ import {
 function getDocumentSummaryKind(
   documentSummary: Pick<DocumentSummary, "documentKind">,
 ): StoredDocumentKind {
-  return documentSummary.documentKind ?? "note";
+  return documentSummary.documentKind ?? DEFAULT_DOCUMENT_KIND;
 }
 
 interface LinkedContainerDetail {

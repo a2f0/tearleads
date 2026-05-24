@@ -83,8 +83,8 @@ type DeleteLocalDocumentAttachmentInput = Omit<
   "runtime"
 >;
 type DeletePersistedDocumentInput = Omit<
-  Omit<Parameters<typeof deletePersistedDocumentFromRuntime>[0], "runtime">,
-  "persistence"
+  Parameters<typeof deletePersistedDocumentFromRuntime>[0],
+  "runtime" | "persistence"
 > & {
   persistence?: DocumentsPersistence | undefined;
 };

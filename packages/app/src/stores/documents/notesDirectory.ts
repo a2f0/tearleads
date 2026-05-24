@@ -1,4 +1,5 @@
 import {
+  DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk/documents";
@@ -11,7 +12,10 @@ import {
 } from "./DocumentsProvider";
 
 function isNoteSummary(documentSummary: DocumentSummary): boolean {
-  return (documentSummary.documentKind ?? "note") === "note";
+  return (
+    (documentSummary.documentKind ?? DEFAULT_DOCUMENT_KIND) ===
+    DEFAULT_DOCUMENT_KIND
+  );
 }
 
 function compareNoteSummaries(
@@ -70,7 +74,7 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
       try {
         const persistedNotes =
           (await tearleads.documents.listLocalSummaries({
-            documentKind: "note",
+            documentKind: DEFAULT_DOCUMENT_KIND,
           })) ?? [];
         const nextNotes = Array.from(persistedNotes).sort(compareNoteSummaries);
 
@@ -124,9 +128,9 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
     const nextNote: DocumentSummary = {
       id: noteId,
       containerId: appData.containerId,
-      documentKind: "note",
+      documentKind: DEFAULT_DOCUMENT_KIND,
       documentId: null,
-      title: getUntitledDocumentTitle("note"),
+      title: getUntitledDocumentTitle(DEFAULT_DOCUMENT_KIND),
       updatedAt: new Date().toISOString(),
     };
 

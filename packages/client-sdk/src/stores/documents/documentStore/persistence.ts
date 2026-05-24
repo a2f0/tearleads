@@ -1,5 +1,6 @@
 import { getTextValue } from "@tearleads/loro";
 import type { DocumentSummary } from "../../../data/documentSummary";
+import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
   type DocumentAttachment,
   getDocumentAttachments,
@@ -31,13 +32,13 @@ function documentSummaryFromRecord(
     accessStateHash: record.accessStateHash ?? null,
     id: record.id,
     containerId: record.containerId,
-    documentKind: record.documentKind ?? "note",
+    documentKind: record.documentKind ?? DEFAULT_DOCUMENT_KIND,
     documentId: record.documentId,
     title:
       record.title ??
       projectStoredDocumentState(
         {
-          documentKind: record.documentKind ?? "note",
+          documentKind: record.documentKind ?? DEFAULT_DOCUMENT_KIND,
           structuredFields: {},
           text: record.text,
         },

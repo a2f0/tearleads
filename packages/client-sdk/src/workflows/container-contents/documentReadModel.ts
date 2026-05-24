@@ -3,6 +3,7 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../data/documentSummary";
+import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import { ensureContainerTables } from "../../data/persistence/containers/containerPersistence";
 import {
@@ -422,7 +423,9 @@ function getContainerContentsContainerDocumentSidebarOrderBy(): string {
 function parseContainerContentsContainerItemDocumentKind(
   value: unknown,
 ): StoredDocumentKind {
-  return typeof value === "string" && value.trim().length > 0 ? value : "note";
+  return typeof value === "string" && value.trim().length > 0
+    ? value
+    : DEFAULT_DOCUMENT_KIND;
 }
 
 function readContainerContentsContainerItemString(

@@ -3,7 +3,10 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../documentSummary";
-import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../documents/documentConstants";
+import {
+  DEFAULT_DOCUMENT_ACCESS_EPOCH,
+  DEFAULT_DOCUMENT_KIND,
+} from "../../documents/documentConstants";
 import {
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
@@ -107,7 +110,7 @@ async function upsertDiscoveredDocumentWithExec(
     id: localId,
     containerId: nextContainerId,
     documentId: input.documentId,
-    documentKind: existingDocument?.documentKind ?? "note",
+    documentKind: existingDocument?.documentKind ?? DEFAULT_DOCUMENT_KIND,
     text: existingDocument?.text ?? "",
     title: existingDocument?.title ?? deriveDocumentTitle(""),
     loroSnapshot: existingDocument?.loroSnapshot ?? "",
@@ -137,7 +140,7 @@ async function upsertDiscoveredDocumentWithExec(
     accessStateHash: nextDocument.accessStateHash ?? null,
     id: localId,
     containerId: nextDocument.containerId,
-    documentKind: nextDocument.documentKind ?? "note",
+    documentKind: nextDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
     documentId: nextDocument.documentId,
     title: nextDocument.title ?? deriveDocumentTitle(nextDocument.text),
     updatedAt,
@@ -189,7 +192,7 @@ async function relinkPersistedDocumentWithExec(
     accessStateHash: nextDocument.accessStateHash ?? null,
     id: nextDocument.id,
     containerId: nextDocument.containerId,
-    documentKind: nextDocument.documentKind ?? "note",
+    documentKind: nextDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
     documentId: nextDocument.documentId,
     title: nextDocument.title ?? deriveDocumentTitle(nextDocument.text),
     updatedAt: getProjectionUpdatedAt(updatedAtRows[0]),

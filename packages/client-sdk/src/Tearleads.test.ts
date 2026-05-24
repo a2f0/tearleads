@@ -8,7 +8,14 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "../test/helpers/createTestExecSql";
 import { createResponseFromRequest } from "../test/helpers/documentFixtures";
 import { Tearleads, type TearleadsLogger } from "./client";
-import type { ExecSql, ExecSqlClientLike } from "./sqlite";
+import type {
+  ExecSql,
+  ExecSqlClientLike,
+  SqlArrayRow,
+  SqlBind,
+  SqlRow,
+  SqlRowMode,
+} from "./sqlite";
 import { defaultDocumentsPersistence } from "./workflows/documents";
 
 const quietLogger: Required<TearleadsLogger> = {
@@ -32,6 +39,22 @@ function createSqlClient(execSql: ExecSql): ExecSqlClientLike {
       };
     },
   };
+}
+
+function createObservedExecSql(
+  execSql: ExecSql,
+  observe: (sql: string) => void,
+): ExecSql {
+  async function observedExecSql(
+    sql: string,
+    bind?: SqlBind,
+    options?: { rowMode?: SqlRowMode },
+  ): Promise<Array<SqlRow | SqlArrayRow>> {
+    observe(sql);
+    return execSql(sql, bind, options);
+  }
+
+  return observedExecSql as ExecSql;
 }
 
 describe("Tearleads", () => {
@@ -372,6 +395,39 @@ describe("Tearleads", () => {
           updatedAt: "2026-05-24T12:00:00.000Z",
         },
       ]);
+    } finally {
+      close();
+    }
+  });
+
+  test("caches documents service schema initialization per SQL executor", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "tearleads-documents-list-summaries-schema-cache-test",
+    );
+    try {
+      let createTableStatementCount = 0;
+      const observedExecSql = createObservedExecSql(execSql, (sql) => {
+        if (sql.startsWith("CREATE TABLE IF NOT EXISTS")) {
+          createTableStatementCount += 1;
+        }
+      });
+      const sdk = new Tearleads({
+        database: {
+          execSql: observedExecSql,
+          id: "client-db",
+          status: "ready",
+        },
+        logger: quietLogger,
+      });
+
+      expect(await sdk.documents.listLocalSummaries()).toEqual([]);
+      const firstCallCreateTableStatementCount = createTableStatementCount;
+      expect(firstCallCreateTableStatementCount).toBeGreaterThan(0);
+
+      expect(await sdk.documents.listLocalSummaries()).toEqual([]);
+      expect(createTableStatementCount).toBe(
+        firstCallCreateTableStatementCount,
+      );
     } finally {
       close();
     }

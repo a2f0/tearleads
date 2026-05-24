@@ -1,5 +1,7 @@
 import type { DocumentSummary } from "../data/documentSummary";
+import { DEFAULT_DOCUMENT_KIND } from "../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../data/documents/documentKinds";
+import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
@@ -30,6 +32,11 @@ export function createTearleadsDocuments(
 }
 
 class TearleadsDocumentsService implements TearleadsDocuments {
+  private readonly schemaEnsuresByExecSql = new WeakMap<
+    ExecSql,
+    Promise<void>
+  >();
+
   constructor(private readonly dependencies: TearleadsDocumentsDependencies) {}
 
   async listLocalSummaries(
@@ -40,7 +47,7 @@ class TearleadsDocumentsService implements TearleadsDocuments {
       return null;
     }
 
-    await defaultDocumentsPersistence.ensureSchema(runtime.execSql);
+    await this.ensureSchema(runtime.execSql);
     const summaries = await defaultDocumentsPersistence.listDocuments(
       runtime.execSql,
     );
@@ -49,7 +56,8 @@ class TearleadsDocumentsService implements TearleadsDocuments {
     }
 
     return summaries.filter(
-      (summary) => (summary.documentKind ?? "note") === input.documentKind,
+      (summary) =>
+        (summary.documentKind ?? DEFAULT_DOCUMENT_KIND) === input.documentKind,
     );
   }
 
@@ -58,5 +66,21 @@ class TearleadsDocumentsService implements TearleadsDocuments {
   ): DocumentsWorkflowRuntime {
     const input = this.dependencies.runtime.workflowInput(containerId);
     return createDocumentsWorkflowRuntime(input);
+  }
+
+  private ensureSchema(execSql: ExecSql): Promise<void> {
+    const existing = this.schemaEnsuresByExecSql.get(execSql);
+    if (existing) {
+      return existing;
+    }
+
+    const ensure = defaultDocumentsPersistence
+      .ensureSchema(execSql)
+      .catch((error: unknown) => {
+        this.schemaEnsuresByExecSql.delete(execSql);
+        throw error;
+      });
+    this.schemaEnsuresByExecSql.set(execSql, ensure);
+    return ensure;
   }
 }

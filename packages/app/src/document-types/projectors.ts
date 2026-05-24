@@ -1,5 +1,6 @@
 import {
   createDocumentProjectorRegistry,
+  DEFAULT_DOCUMENT_KIND,
   type DocumentClientProjectionDefinition,
   type DocumentFieldValidationIssue,
   type DocumentProjectorDefinition,
@@ -402,7 +403,7 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
   [
     {
       createLabel: "New Note",
-      kind: "note",
+      kind: DEFAULT_DOCUMENT_KIND,
       label: "note",
       project: ({ text }) => ({
         fieldValidationIssues: [],

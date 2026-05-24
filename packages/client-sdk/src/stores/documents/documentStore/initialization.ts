@@ -7,7 +7,10 @@ import {
 } from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
 import type { DocumentSummary } from "../../../data/documentSummary";
-import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../../data/documents/documentConstants";
+import {
+  DEFAULT_DOCUMENT_ACCESS_EPOCH,
+  DEFAULT_DOCUMENT_KIND,
+} from "../../../data/documents/documentConstants";
 import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
 import {
   initializeStoredDocumentKind,
@@ -95,7 +98,10 @@ async function initializeDocumentStore(
       documentManifestBundle: null,
     };
     await saveDocumentRecord(state, nextDoc, created);
-    if (state.initialText.length > 0 || state.initialDocumentKind !== "note") {
+    if (
+      state.initialText.length > 0 ||
+      state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND
+    ) {
       await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
     }
     setReadySnapshot(state, nextDoc, false);
@@ -212,13 +218,13 @@ export async function relinkDocumentStore(
     accessStateHash: nextRecord.accessStateHash ?? null,
     id: nextRecord.id,
     containerId: nextRecord.containerId,
-    documentKind: nextRecord.documentKind ?? "note",
+    documentKind: nextRecord.documentKind ?? DEFAULT_DOCUMENT_KIND,
     documentId: nextRecord.documentId,
     title:
       nextRecord.title ??
       projectStoredDocumentState(
         {
-          documentKind: nextRecord.documentKind ?? "note",
+          documentKind: nextRecord.documentKind ?? DEFAULT_DOCUMENT_KIND,
           structuredFields: {},
           text: nextRecord.text,
         },

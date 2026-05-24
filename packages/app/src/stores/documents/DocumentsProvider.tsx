@@ -1,4 +1,7 @@
-import type { StoredDocumentKind } from "@tearleads/client-sdk/documents";
+import {
+  DEFAULT_DOCUMENT_KIND,
+  type StoredDocumentKind,
+} from "@tearleads/client-sdk/documents";
 import {
   DEFAULT_DOCUMENT_ID,
   type DocumentContextValue,
@@ -43,7 +46,7 @@ export function DocumentsProvider({
   localId = DEFAULT_DOCUMENT_ID,
   containerId,
   documentId = null,
-  initialDocumentKind = "note",
+  initialDocumentKind = DEFAULT_DOCUMENT_KIND,
   initialText = "",
 }: DocumentsProviderProps) {
   const appData = useAppData();
