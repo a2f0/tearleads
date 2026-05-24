@@ -2,20 +2,20 @@ import { expect, test } from "bun:test";
 import {
   type DocumentRecord,
   type DocumentsPersistence,
-  loadPersistedDocumentStoreStateFromRuntime,
+  loadPersistedDocumentStoreState,
   type PendingAttachmentRecord,
-  savePendingDocumentAttachmentFromRuntime,
+  persistDocumentState,
+  savePendingDocumentAttachment,
 } from "@tearleads/client-sdk/workflows/documents";
 import { createDocument } from "@tearleads/loro";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";
-import { persistDocumentStateFromRuntime } from "./persistence";
 
 function createNoopExecSql(): ExecSql {
   return (async () => []) as ExecSql;
 }
 
-test("loadPersistedDocumentStoreStateFromRuntime uses the runtime executor", async () => {
+test("loadPersistedDocumentStoreState uses the provided executor", async () => {
   const execSql = createNoopExecSql();
   const calls: string[] = [];
   const persistence = {
@@ -43,10 +43,10 @@ test("loadPersistedDocumentStoreStateFromRuntime uses the runtime executor", asy
     },
   } as unknown as DocumentsPersistence;
 
-  const loaded = await loadPersistedDocumentStoreStateFromRuntime({
+  const loaded = await loadPersistedDocumentStoreState({
+    execSql,
     localId: "local-document",
     persistence,
-    runtime: { execSql },
   });
 
   expect(calls).toEqual([
@@ -62,7 +62,7 @@ test("loadPersistedDocumentStoreStateFromRuntime uses the runtime executor", asy
   });
 });
 
-test("savePendingDocumentAttachmentFromRuntime uses the runtime executor", async () => {
+test("savePendingDocumentAttachment uses the provided executor", async () => {
   const execSql = createNoopExecSql();
   const attachment: PendingAttachmentRecord = {
     byteLength: 12,
@@ -83,16 +83,16 @@ test("savePendingDocumentAttachmentFromRuntime uses the runtime executor", async
     },
   } as unknown as DocumentsPersistence;
 
-  await savePendingDocumentAttachmentFromRuntime({
+  await savePendingDocumentAttachment({
     attachment,
+    execSql,
     persistence,
-    runtime: { execSql },
   });
 
   expect(savedAttachments).toEqual([attachment]);
 });
 
-test("persistDocumentStateFromRuntime ensures client projection tables once per executor and registry", async () => {
+test("persistDocumentState ensures client projection tables once per executor and registry", async () => {
   const statements: string[] = [];
   const execSql: ExecSql = (async (sql: string) => {
     statements.push(sql);
@@ -128,21 +128,21 @@ test("persistDocumentStateFromRuntime ensures client projection tables once per 
     },
   ]);
   const currentDoc = await createDocument("projection-schema-cache");
-  const runtime = { documentProjectors, execSql };
-
-  await persistDocumentStateFromRuntime({
+  await persistDocumentState({
     currentDoc,
     currentRecord,
+    documentProjectors,
+    execSql,
     localId: "local-document",
     persistence,
-    runtime,
   });
-  await persistDocumentStateFromRuntime({
+  await persistDocumentState({
     currentDoc,
     currentRecord,
+    documentProjectors,
+    execSql,
     localId: "local-document",
     persistence,
-    runtime,
   });
 
   expect(

@@ -21,6 +21,7 @@ import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   isDestroyedDocumentSyncRuntimeError,
+  loadPersistedDocumentStoreState,
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentStoreRelinkInput } from "../types";
@@ -48,7 +49,8 @@ async function initializeDocumentStore(
   }
 
   const nextDoc = await createStoredDocument();
-  const persistedState = await state.runtime.loadPersistedStoreState({
+  const persistedState = await loadPersistedDocumentStoreState({
+    execSql: state.runtime.execSql,
     localId: state.localId,
     persistence: state.persistence,
   });

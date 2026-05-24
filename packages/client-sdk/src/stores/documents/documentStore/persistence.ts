@@ -9,11 +9,18 @@ import {
   type DocumentProjectorRegistry,
   projectStoredDocumentState,
 } from "../../../data/documents/documentKinds";
-import type {
-  DocumentRecord,
-  LocalAttachmentRecord,
-  PendingAttachmentRecord,
-  PendingUpdateRecord,
+import { hydrateDocumentAttachmentBlobs } from "../../../workflows/blobs";
+import {
+  type DocumentRecord,
+  deletePendingDocumentAttachment,
+  enqueuePendingDocumentUpdate,
+  type LocalAttachmentRecord,
+  listPendingDocumentUpdates,
+  type PendingAttachmentRecord,
+  type PendingUpdateRecord,
+  persistDocumentState,
+  saveLocalDocumentAttachments,
+  savePendingDocumentAttachment,
 } from "../../../workflows/documents";
 import {
   type DocumentState,
@@ -55,11 +62,13 @@ export async function saveDocumentRecord(
   options: SaveDocumentRecordOptions = {},
 ): Promise<PersistedDocumentRecord> {
   const previousDocumentId = state.record?.documentId ?? null;
-  const persistedDocumentState = await state.runtime.persistState({
+  const persistedDocumentState = await persistDocumentState({
     acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
     containerId: state.runtime.containerId,
     currentDoc,
     currentRecord: state.record,
+    documentProjectors: state.runtime.documentProjectors,
+    execSql: state.runtime.execSql,
     localId: state.localId,
     patch,
     persistence: state.persistence,
@@ -111,7 +120,8 @@ export async function persistDocument(
 export async function listPendingUpdates(
   state: DocumentStoreState,
 ): Promise<PendingUpdateRecord[]> {
-  return state.runtime.listPendingUpdates({
+  return listPendingDocumentUpdates({
+    execSql: state.runtime.execSql,
     localId: state.localId,
     persistence: state.persistence,
   });
@@ -122,7 +132,8 @@ export async function enqueuePendingUpdate(
   update: Uint8Array,
   sourceVersionVector?: string | null,
 ) {
-  await state.runtime.enqueuePendingUpdate({
+  await enqueuePendingDocumentUpdate({
+    execSql: state.runtime.execSql,
     localId: state.localId,
     persistence: state.persistence,
     ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
@@ -135,7 +146,8 @@ export async function deletePendingAttachment(
   slotId: string,
   storageKey: string,
 ) {
-  await state.runtime.deletePendingAttachment({
+  await deletePendingDocumentAttachment({
+    execSql: state.runtime.execSql,
     localId: state.localId,
     persistence: state.persistence,
     slotId,
@@ -160,8 +172,9 @@ async function saveLocalAttachmentRecords(
     return;
   }
 
-  await state.runtime.saveLocalAttachments({
+  await saveLocalDocumentAttachments({
     attachments,
+    execSql: state.runtime.execSql,
     persistence: state.persistence,
   });
 
@@ -217,9 +230,12 @@ export async function hydrateAttachmentBlobs(
     return;
   }
 
-  const hydratedBlobs = await state.runtime.hydrateAttachmentBlobs({
+  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
+    apiClient: state.runtime.apiClient,
     attachments: attachmentsMissingLocalBytes,
     documentId: currentRecord.documentId,
+    execSql: state.runtime.execSql,
+    log: state.runtime.log,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -229,7 +245,7 @@ export async function hydrateAttachmentBlobs(
 
   const localAttachmentRecords: LocalAttachmentRecord[] = [];
   for (const hydratedBlob of hydratedBlobs) {
-    await state.runtime.writeBlobBytes(
+    await state.runtime.blobStore.writeBytes(
       hydratedBlob.storageKey,
       hydratedBlob.bytes,
     );
@@ -274,8 +290,9 @@ export async function queuePendingAttachmentUpload(
     slotId: attachment.slotId,
     storageKey,
   };
-  await state.runtime.savePendingAttachment({
+  await savePendingDocumentAttachment({
     attachment: pendingAttachment,
+    execSql: state.runtime.execSql,
     persistence: state.persistence,
   });
   upsertPendingAttachments(state, [pendingAttachment]);

@@ -1514,7 +1514,8 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     throw new Error("Expected uploaded blob and writer projection fixtures.");
   }
   const encryptedBytes = await new Response(blob.encryptedBytes).text();
-  const resolveProjectionUserKey = runtime.createProjectionUserKeyResolver();
+  const resolveProjectionUserKey =
+    createDocumentProjectionUserKeyResolver(runtime);
   const bindingId = String(
     Reflect.get(attachmentBinds[0]?.request.body ?? {}, "bindingId"),
   );

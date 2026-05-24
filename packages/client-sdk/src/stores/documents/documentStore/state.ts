@@ -11,13 +11,15 @@ import {
   readStoredDocumentState,
   type StoredDocumentKind,
 } from "../../../data/documents/documentKinds";
+import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/types";
 import type { DomainScope } from "../../../data/domainScope";
-import type {
-  DocumentProjectionUserKeyResolver,
-  DocumentRecord,
-  DocumentSyncLane,
-  DocumentsPersistence,
-  PendingAttachmentRecord,
+import {
+  createDocumentProjectionUserKeyResolver,
+  type DocumentProjectionUserKeyResolver,
+  type DocumentRecord,
+  type DocumentSyncLane,
+  type DocumentsPersistence,
+  type PendingAttachmentRecord,
 } from "../../../workflows/documents";
 import type {
   DocumentAttachmentStatus,
@@ -30,7 +32,7 @@ export type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["encapsulationKeyPair"]
 >;
 export type DocumentAttachmentBinding = NonNullable<
-  Awaited<ReturnType<DocumentsRuntime["listDocumentAttachments"]>>
+  Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
 >[number];
 export type PendingMutationSyncResult = {
   completed: boolean;
@@ -43,9 +45,10 @@ export interface PersistedDocumentRecord {
 export interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
 }
-export type DocumentSyncAttempt = NonNullable<
-  Awaited<ReturnType<DocumentsRuntime["syncRemoteDocument"]>>
->;
+export interface DocumentSyncAttempt {
+  outgoingUpdateCount: number;
+  synced: SyncRemoteDocumentResult;
+}
 
 export interface DocumentStorePersistenceEffects {
   emitPersistedDocument: (
@@ -81,42 +84,16 @@ export interface DocumentStoreState {
   writeChain: Promise<void>;
 }
 
-function sameAttachmentStorageKeys(
-  left: Readonly<Record<string, string>>,
-  right: Readonly<Record<string, string>>,
+function shallowEqualRecord<Value>(
+  left: Readonly<Record<string, Value>>,
+  right: Readonly<Record<string, Value>>,
 ): boolean {
   const leftEntries = Object.entries(left);
   const rightEntries = Object.entries(right);
 
   return (
     leftEntries.length === rightEntries.length &&
-    leftEntries.every(([slotId, storageKey]) => right[slotId] === storageKey)
-  );
-}
-
-function sameAttachmentStatuses(
-  left: Readonly<Record<string, DocumentAttachmentStatus>>,
-  right: Readonly<Record<string, DocumentAttachmentStatus>>,
-): boolean {
-  const leftEntries = Object.entries(left);
-  const rightEntries = Object.entries(right);
-
-  return (
-    leftEntries.length === rightEntries.length &&
-    leftEntries.every(([slotId, status]) => right[slotId] === status)
-  );
-}
-
-function sameStringRecord(
-  left: Readonly<Record<string, string>>,
-  right: Readonly<Record<string, string>>,
-): boolean {
-  const leftEntries = Object.entries(left);
-  const rightEntries = Object.entries(right);
-
-  return (
-    leftEntries.length === rightEntries.length &&
-    leftEntries.every(([key, value]) => right[key] === value)
+    leftEntries.every(([key, value]) => Object.is(right[key], value))
   );
 }
 
@@ -162,7 +139,8 @@ export function createDocumentStoreState(
     pendingAttachments: [],
     persistence,
     record: null,
-    resolveProjectionUserKey: initialRuntime.createProjectionUserKeyResolver(),
+    resolveProjectionUserKey:
+      createDocumentProjectionUserKeyResolver(initialRuntime),
     runtime: initialRuntime,
     snapshot: {
       attachments: [],
@@ -195,11 +173,11 @@ export function setDocumentSnapshot(
 ) {
   if (
     sameDocumentAttachments(state.snapshot.attachments, next.attachments) &&
-    sameAttachmentStatuses(
+    shallowEqualRecord(
       state.snapshot.attachmentStatusBySlotId,
       next.attachmentStatusBySlotId,
     ) &&
-    sameAttachmentStorageKeys(
+    shallowEqualRecord(
       state.snapshot.attachmentStorageKeyBySlotId,
       next.attachmentStorageKeyBySlotId,
     ) &&
@@ -211,7 +189,10 @@ export function setDocumentSnapshot(
       next.fieldValidationIssues,
     ) &&
     state.snapshot.ready === next.ready &&
-    sameStringRecord(state.snapshot.structuredFields, next.structuredFields) &&
+    shallowEqualRecord(
+      state.snapshot.structuredFields,
+      next.structuredFields,
+    ) &&
     state.snapshot.text === next.text &&
     state.snapshot.title === next.title &&
     state.snapshot.syncing === next.syncing

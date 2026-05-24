@@ -2,8 +2,11 @@ import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import type { DomainScope } from "../../data/domainScope";
 import {
+  createDocumentProjectionUserKeyResolver,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
+  didDocumentProjectionKeyRuntimeChange,
+  didRegainDocumentSyncPrerequisites,
 } from "../../workflows/documents";
 import {
   attachFilesToDocumentStore,
@@ -59,9 +62,9 @@ function updateDocumentStoreRuntime(
   const previousRuntime = state.runtime;
   const domainScopeChanged =
     previousRuntime.domainScope !== nextRuntime.domainScope;
-  if (nextRuntime.didProjectionKeyRuntimeChange(previousRuntime)) {
+  if (didDocumentProjectionKeyRuntimeChange(previousRuntime, nextRuntime)) {
     state.resolveProjectionUserKey =
-      nextRuntime.createProjectionUserKeyResolver();
+      createDocumentProjectionUserKeyResolver(nextRuntime);
   }
   state.runtime = nextRuntime;
   if (domainScopeChanged) {
@@ -82,7 +85,7 @@ function updateDocumentStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    state.runtime.didRegainSyncPrerequisites(previousRuntime)
+    didRegainDocumentSyncPrerequisites(previousRuntime, state.runtime)
   ) {
     scheduleSync();
   }
