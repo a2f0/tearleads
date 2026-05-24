@@ -209,22 +209,13 @@ async function listTestSourceFiles(dirPath: string): Promise<string[]> {
   return listSourceFiles(dirPath, (filePath) => testFilePattern.test(filePath));
 }
 
-async function listExactSourceFile(filePath: string): Promise<string[]> {
-  return [filePath];
-}
-
-function isCommentOnlyLine(line: string): boolean {
-  const trimmedLine = line.trimStart();
-  return (
-    trimmedLine.startsWith("//") ||
-    trimmedLine.startsWith("/*") ||
-    trimmedLine.startsWith("*")
-  );
-}
-
 function matchesPattern(pattern: RegExp, value: string): boolean {
   pattern.lastIndex = 0;
   return pattern.test(value);
+}
+
+async function listExactSourceFile(filePath: string): Promise<string[]> {
+  return [filePath];
 }
 
 async function listedSourceFiles(
@@ -248,18 +239,74 @@ async function findSourceTextMatches(params: {
   const fileMatches = await Promise.all(
     sourceFiles.map(async (filePath) => {
       const content = await readFile(filePath, "utf8");
+      const codeOnlyContent = sourceTextWithoutComments(content, filePath);
+      const originalLines = content.split("\n");
 
-      return content.split("\n").flatMap((line, index): SourceMatch[] => {
-        if (isCommentOnlyLine(line) || !matchesPattern(params.pattern, line)) {
-          return [];
-        }
+      return codeOnlyContent
+        .split("\n")
+        .flatMap((line, index): SourceMatch[] => {
+          if (!matchesPattern(params.pattern, line)) {
+            return [];
+          }
 
-        return [{ filePath, line, lineNumber: index + 1 }];
-      });
+          return [
+            {
+              filePath,
+              line: originalLines[index] ?? line,
+              lineNumber: index + 1,
+            },
+          ];
+        });
     }),
   );
 
   return fileMatches.flat();
+}
+
+function sourceLanguageVariant(filePath: string): ts.LanguageVariant {
+  return filePath.endsWith(".tsx") || filePath.endsWith(".jsx")
+    ? ts.LanguageVariant.JSX
+    : ts.LanguageVariant.Standard;
+}
+
+function maskNonNewlineCharacters(
+  characters: string[],
+  start: number,
+  end: number,
+): void {
+  for (let index = start; index < end; index += 1) {
+    if (characters[index] !== "\n" && characters[index] !== "\r") {
+      characters[index] = " ";
+    }
+  }
+}
+
+function sourceTextWithoutComments(content: string, filePath: string): string {
+  const characters = content.split("");
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    false,
+    sourceLanguageVariant(filePath),
+    content,
+  );
+  let token = scanner.scan();
+
+  while (token !== ts.SyntaxKind.EndOfFileToken) {
+    if (
+      token === ts.SyntaxKind.SingleLineCommentTrivia ||
+      token === ts.SyntaxKind.MultiLineCommentTrivia
+    ) {
+      maskNonNewlineCharacters(
+        characters,
+        scanner.getTokenPos(),
+        scanner.getTextPos(),
+      );
+    }
+
+    token = scanner.scan();
+  }
+
+  return characters.join("");
 }
 
 function sourceScriptKind(filePath: string): ts.ScriptKind {

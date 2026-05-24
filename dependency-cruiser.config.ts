@@ -10,6 +10,40 @@ const sourceRoot = {
   clientSdk: "^packages/client-sdk/src/",
 } as const;
 
+const appLayer = {
+  data: `${sourceRoot.app}data/`,
+  persistence: `${sourceRoot.app}data/persistence/`,
+  sqlite: `${sourceRoot.app}data/sqlite/`,
+  blobStorage: `${sourceRoot.app}data/blobs/`,
+  contactData: `${sourceRoot.app}data/contacts/`,
+  sync: `${sourceRoot.app}data/sync/`,
+  workflows: `${sourceRoot.app}workflows/`,
+  stores: `${sourceRoot.app}stores/`,
+  shellProviders: `${sourceRoot.app}providers/`,
+  sharedHelpers: `${sourceRoot.app}data/(containers|documents)(/blob)?/shared/`,
+} as const;
+
+const appPresentation = [
+  `${sourceRoot.app}components/`,
+  `${sourceRoot.app}document-types/`,
+  `${sourceRoot.app}mini-apps/`,
+];
+const appReactRuntime = [
+  `${sourceRoot.app}identity/`,
+  appLayer.shellProviders,
+  appLayer.stores,
+];
+const appUpperLayers = [...appPresentation, ...appReactRuntime];
+const appStorageInternals = [
+  appLayer.persistence,
+  appLayer.sqlite,
+  appLayer.blobStorage,
+  appLayer.contactData,
+  appLayer.sync,
+];
+const appRootSqlProvider =
+  "^packages/app/src/providers/data/AppDataProvider\\.tsx$";
+
 const apiLayer = {
   access: `${sourceRoot.api}access/`,
   accessInternals: `${sourceRoot.api}access/(shared|read/internal|write/internal)/`,
@@ -56,6 +90,42 @@ const standardRules = [
     from: {},
     to: {
       couldNotResolve: true,
+    },
+  },
+  {
+    name: "no-non-package-json",
+    severity: "error",
+    comment:
+      "Runtime npm imports must be declared in the importing workspace package manifest.",
+    from: {},
+    to: {
+      dependencyTypes: ["npm-no-pkg", "npm-unknown"],
+    },
+  },
+  {
+    name: "not-to-dev-dep",
+    severity: "error",
+    comment:
+      "Production app and API modules must not import runtime values from devDependencies.",
+    from: {
+      path: "^packages/(api|app|client-sdk)/src/",
+      pathNot: testFilesPattern,
+    },
+    to: {
+      dependencyTypes: ["npm-dev"],
+      dependencyTypesNot: ["type-only"],
+      pathNot: "node_modules/@types/",
+    },
+  },
+  {
+    name: "no-duplicate-dep-types",
+    severity: "warn",
+    comment:
+      "A package should not be declared through multiple dependency sections.",
+    from: {},
+    to: {
+      moreThanOneDependencyType: true,
+      dependencyTypesNot: ["type-only"],
     },
   },
   {
@@ -113,7 +183,7 @@ const apiRules = [
       path: apiLayer.access,
     },
     to: {
-      path: [`${sourceRoot.api}routes/`, apiLayer.services, apiLayer.workflows],
+      path: [apiLayer.routes, apiLayer.services, apiLayer.workflows],
     },
   },
   {
@@ -211,6 +281,126 @@ const apiRules = [
   },
 ] satisfies ForbiddenRules;
 
+const appRules = [
+  {
+    name: "app-data-does-not-depend-on-upper-layers",
+    severity: "error",
+    comment:
+      "Production app data modules are low-level stores, contracts, and layer-neutral helpers; they must not depend on React runtime, presentation, or workflow modules, including type-only contracts.",
+    from: {
+      path: appLayer.data,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [...appUpperLayers, appLayer.workflows],
+    },
+  },
+  {
+    name: "app-workflows-do-not-depend-on-react-runtime",
+    severity: "error",
+    comment:
+      "App workflows own multi-step local/remote orchestration below stores and providers, so they must not depend back on React runtime or presentation modules, including type-only contracts.",
+    from: {
+      path: appLayer.workflows,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appUpperLayers,
+    },
+  },
+  {
+    name: "app-presentation-does-not-import-workflows-directly",
+    severity: "error",
+    comment:
+      "Production app presentation should go through stores or providers so workflow orchestration and workflow-owned contracts stay outside components and hooks, including type-only contracts.",
+    from: {
+      path: appPresentation,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appLayer.workflows,
+    },
+  },
+  {
+    name: "app-presentation-does-not-import-storage-directly",
+    severity: "error",
+    comment:
+      "Production app presentation should go through stores or providers instead of importing persistence stores, SQLite internals, blob storage internals, or contact data internals directly, including type-only contracts.",
+    from: {
+      path: appPresentation,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appStorageInternals,
+    },
+  },
+  {
+    name: "app-presentation-does-not-import-domain-shared-helpers",
+    severity: "error",
+    comment:
+      "Production app presentation should use stores/providers or neutral data contracts instead of importing document/container shared helper internals directly, including type-only contracts.",
+    from: {
+      path: appPresentation,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appLayer.sharedHelpers,
+    },
+  },
+  {
+    name: "app-react-runtime-does-not-import-persistence-directly",
+    severity: "error",
+    comment:
+      "Production app providers, identity runtime, and stores should consume domain workflow facades instead of importing low-level persistence stores directly, including type-only contracts.",
+    from: {
+      path: appReactRuntime,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appLayer.persistence,
+    },
+  },
+  {
+    name: "app-react-runtime-does-not-import-sqlite-directly",
+    severity: "error",
+    comment:
+      "Production app providers, identity runtime, and stores should not import SQLite internals directly; the root app data provider owns executor construction.",
+    from: {
+      path: appReactRuntime,
+      pathNot: `${testFilesPattern}|${appRootSqlProvider}`,
+    },
+    to: {
+      path: appLayer.sqlite,
+    },
+  },
+  {
+    name: "app-react-runtime-does-not-import-blob-storage-directly",
+    severity: "error",
+    comment:
+      "Production app providers, identity runtime, and stores should consume the blob workflow facade instead of importing blob storage internals directly.",
+    from: {
+      path: appReactRuntime,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appLayer.blobStorage,
+    },
+  },
+  {
+    name: "app-react-runtime-does-not-import-contact-data-directly",
+    severity: "error",
+    comment:
+      "Production app providers, identity runtime, and stores should consume the contacts workflow facade instead of importing contact data internals directly.",
+    from: {
+      path: appReactRuntime,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: appLayer.contactData,
+    },
+  },
+] satisfies ForbiddenRules;
+
 const clientSdkRules = [
   {
     name: "client-sdk-does-not-depend-on-app",
@@ -271,7 +461,7 @@ const clientSdkRules = [
 ] satisfies ForbiddenRules;
 
 const dependencyCruiserConfig = {
-  forbidden: [...standardRules, ...apiRules, ...clientSdkRules],
+  forbidden: [...standardRules, ...apiRules, ...appRules, ...clientSdkRules],
   options: {
     // Bun workspace subpath exports are checked separately in lintArchitecture.
     // Keep dependency-cruiser focused on source files whose paths it can resolve.
