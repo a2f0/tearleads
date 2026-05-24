@@ -32,6 +32,7 @@
 
 .org-manager-group-list,
 .org-manager-member-list,
+.org-manager-roster-metadata,
 .org-manager-policy-history {
   display: grid;
   gap: 1px;
@@ -104,13 +105,20 @@
   justify-content: space-between;
 }
 
+.org-manager-roster-row {
+  align-items: flex-start;
+}
+
 .org-manager-member-row .mini-app-row-stack,
+.org-manager-roster-row .mini-app-row-stack,
 .org-manager-policy-history-row .mini-app-row-stack {
   flex: 1 1 auto;
   min-width: 0;
 }
 
 .org-manager-member-row strong,
+.org-manager-roster-row strong,
+.org-manager-roster-row .mini-app-row-text,
 .org-manager-policy-history-row .mini-app-row-text,
 .org-manager-policy-history-heading strong,
 .org-manager-policy-change-principal-name,
@@ -124,6 +132,10 @@
 
 .org-manager-member-row .mini-app-button {
   padding: 0 calc(var(--padding) / 1.5);
+}
+
+.org-manager-roster-profile-field {
+  flex: 1 1 16rem;
 }
 
 .org-manager-grant-revoke-button {
