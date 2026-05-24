@@ -222,36 +222,40 @@ Supported package entry points are:
 | `@tearleads/client-sdk/workflows/registration` | local registration/root bootstrap helpers |
 | `@tearleads/client-sdk/workflows/sync` | shared sync coordinator helpers |
 
-Each package export maps both `types` and `default` to the same source entry
-point. This is the current monorepo package contract: consumers compile the SDK
-TypeScript source through the workspace dependency rather than consuming emitted
-artifacts. Keep the export map exact; adding a new public subpath should mean
-adding a documented root, store, or workflow facade entry point.
+Each package export maps `types` to an emitted `.d.ts` file and `default` to an
+emitted ESM JavaScript file under `dist`. Keep the export map exact; adding a
+new public subpath should mean adding a documented root, store, or workflow
+facade entry point and including it in the SDK build entry list.
 
 Do not import `@tearleads/client-sdk/data/*` from host code. Promote a contract
 through the root or a workflow/store facade when it is meant to become public.
 
 ## Package Status
 
-The package remains `private: true` for now. It is ready for monorepo package
-consumption through explicit root, store, and workflow entry points, but not yet
-ready for an external npm release because package exports still point at source
-files, type targets are source files rather than emitted `.d.ts` files, and the
-workspace dependencies do not have a release/build contract.
+The package remains `private: true` for now. It has an explicit build contract
+for monorepo package consumption and publish rehearsal:
 
-Before removing `private: true`, add a release build that emits JavaScript and
-`.d.ts` files, switch package exports to the build output, and confirm all
-runtime dependencies are either published packages or intentionally declared peer
-dependencies.
+```sh
+bun run --filter='@tearleads/client-sdk' build
+```
+
+The build removes the previous `dist` and emits ESM JavaScript, inline-source
+source maps, and declaration files from `tsconfig.build.json`.
+
+Before removing `private: true`, confirm all runtime dependencies are either
+published packages or intentionally declared peer dependencies, replace
+workspace-only dependency ranges with publishable ranges, and run a package
+dry-run against the built `dist` contents.
 
 `bun run lint:architecture` enforces the current package-consumption contract:
 
-- `@tearleads/client-sdk` stays private, ESM, side-effect-free, and source-only
-  until a release build exists.
+- `@tearleads/client-sdk` stays private, ESM, side-effect-free, and backed by
+  build-output package exports until a release decision is made.
 - Local `@tearleads/*` package dependencies stay on `workspace:*` ranges while
-  the SDK is source-consumed inside the monorepo.
+  the SDK remains private inside the monorepo.
 - The package export map matches the documented root, store, and workflow
-  facades exactly, and the public API entry-point table stays in sync with it.
+  facades exactly, points at `dist` JavaScript/declaration files, and keeps the
+  public API entry-point table in sync with it.
 - `data/*` package exports and deep workflow/store implementation exports are
   rejected.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in

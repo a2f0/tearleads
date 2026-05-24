@@ -28,20 +28,58 @@ const clientSdkPackageJsonPath = "packages/client-sdk/package.json";
 const clientSdkRootIndexPath = "packages/client-sdk/src/index.ts";
 const clientSdkWorkflowDocsPath = "packages/client-sdk/src/workflows/README.md";
 const clientSdkSupportedPackageExports = {
-  ".": "./src/index.ts",
-  "./documents": "./src/documents.ts",
-  "./sqlite": "./src/sqlite.ts",
-  "./stores/container-contents": "./src/stores/container-contents/index.ts",
-  "./stores/documents": "./src/stores/documents/index.ts",
-  "./workflows/blobs": "./src/workflows/blobs/index.ts",
-  "./workflows/containers": "./src/workflows/containers/index.ts",
-  "./workflows/documents": "./src/workflows/documents/index.ts",
-  "./workflows/container-contents":
-    "./src/workflows/container-contents/index.ts",
-  "./workflows/organizations": "./src/workflows/organizations/index.ts",
-  "./workflows/principals": "./src/workflows/principals/index.ts",
-  "./workflows/registration": "./src/workflows/registration/index.ts",
-  "./workflows/sync": "./src/workflows/sync/index.ts",
+  ".": {
+    default: "./dist/index.js",
+    types: "./dist/index.d.ts",
+  },
+  "./documents": {
+    default: "./dist/documents.js",
+    types: "./dist/documents.d.ts",
+  },
+  "./sqlite": {
+    default: "./dist/sqlite.js",
+    types: "./dist/sqlite.d.ts",
+  },
+  "./stores/container-contents": {
+    default: "./dist/stores/container-contents/index.js",
+    types: "./dist/stores/container-contents/index.d.ts",
+  },
+  "./stores/documents": {
+    default: "./dist/stores/documents/index.js",
+    types: "./dist/stores/documents/index.d.ts",
+  },
+  "./workflows/blobs": {
+    default: "./dist/workflows/blobs/index.js",
+    types: "./dist/workflows/blobs/index.d.ts",
+  },
+  "./workflows/containers": {
+    default: "./dist/workflows/containers/index.js",
+    types: "./dist/workflows/containers/index.d.ts",
+  },
+  "./workflows/documents": {
+    default: "./dist/workflows/documents/index.js",
+    types: "./dist/workflows/documents/index.d.ts",
+  },
+  "./workflows/container-contents": {
+    default: "./dist/workflows/container-contents/index.js",
+    types: "./dist/workflows/container-contents/index.d.ts",
+  },
+  "./workflows/organizations": {
+    default: "./dist/workflows/organizations/index.js",
+    types: "./dist/workflows/organizations/index.d.ts",
+  },
+  "./workflows/principals": {
+    default: "./dist/workflows/principals/index.js",
+    types: "./dist/workflows/principals/index.d.ts",
+  },
+  "./workflows/registration": {
+    default: "./dist/workflows/registration/index.js",
+    types: "./dist/workflows/registration/index.d.ts",
+  },
+  "./workflows/sync": {
+    default: "./dist/workflows/sync/index.js",
+    types: "./dist/workflows/sync/index.d.ts",
+  },
 } as const;
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
@@ -78,6 +116,7 @@ interface PackageJson {
   optionalDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   private?: boolean;
+  scripts?: Record<string, string>;
   sideEffects?: boolean;
   type?: string;
   types?: unknown;
@@ -109,17 +148,18 @@ interface ClientSdkDocumentationContractViolation {
 let clientSdkPackageJsonPromise: Promise<PackageJson> | undefined;
 
 const clientSdkPackageStatusContract = {
+  files: ["dist"],
+  main: "./dist/index.js",
   name: "@tearleads/client-sdk",
   private: true,
   sideEffects: false,
+  types: "./dist/index.d.ts",
   type: "module",
 } as const;
-const clientSdkSourceOnlyArtifactFields = [
-  "files",
-  "main",
-  "module",
-  "types",
-] as const;
+const clientSdkPackageScriptContract = {
+  build: "sh scripts/build.sh",
+} as const;
+const clientSdkForbiddenPackageFields = ["module"] as const;
 const clientSdkPackageDependencySections = [
   "dependencies",
   "devDependencies",
@@ -147,6 +187,10 @@ function formatViolation(
     `error ${name}: ${message}`,
     ...details.map((detail) => `  ${detail}`),
   ].join("\n");
+}
+
+function hasJsonValue(actualValue: unknown, expectedValue: unknown): boolean {
+  return JSON.stringify(actualValue) === JSON.stringify(expectedValue);
 }
 
 function createListCheck<T>(params: {
@@ -500,7 +544,7 @@ async function findClientSdkPackageStatusViolations(): Promise<
     .map(([field, expectedValue]) => {
       const actualValue = packageJson[field as keyof PackageJson];
 
-      return actualValue === expectedValue
+      return hasJsonValue(actualValue, expectedValue)
         ? undefined
         : {
             detail: `should be ${JSON.stringify(expectedValue)}`,
@@ -511,15 +555,33 @@ async function findClientSdkPackageStatusViolations(): Promise<
       (violation): violation is ClientSdkPackageStatusViolation =>
         violation !== undefined,
     );
-  const artifactFieldViolations = clientSdkSourceOnlyArtifactFields
+  const scriptViolations = Object.entries(clientSdkPackageScriptContract)
+    .map(([scriptName, expectedValue]) => {
+      const actualValue = packageJson.scripts?.[scriptName];
+
+      return hasJsonValue(actualValue, expectedValue)
+        ? undefined
+        : {
+            detail: `should be ${JSON.stringify(expectedValue)}`,
+            field: `scripts.${scriptName}`,
+          };
+    })
+    .filter(
+      (violation): violation is ClientSdkPackageStatusViolation =>
+        violation !== undefined,
+    );
+  const forbiddenFieldViolations = clientSdkForbiddenPackageFields
     .filter((field) => Object.hasOwn(packageJson, field))
     .map((field) => ({
-      detail:
-        "should be omitted while package exports target TypeScript source files",
+      detail: "should be omitted from the ESM export-map package contract",
       field,
     }));
 
-  return [...contractViolations, ...artifactFieldViolations];
+  return [
+    ...contractViolations,
+    ...scriptViolations,
+    ...forbiddenFieldViolations,
+  ];
 }
 
 async function findClientSdkWorkspaceDependencyViolations(): Promise<
@@ -572,7 +634,7 @@ async function findClientSdkPackageExportContractViolations(): Promise<
 function expectedClientSdkExportViolations(
   exportTarget: unknown,
   exportPath: string,
-  expectedTarget: string,
+  expectedTarget: { default: string; types: string },
 ): ClientSdkPackageExportContractViolation[] {
   if (!exportTarget) {
     return [{ detail: "missing", exportPath }];
@@ -582,16 +644,16 @@ function expectedClientSdkExportViolations(
   const typesTarget = packageExportConditionTarget(exportTarget, "types");
 
   return [
-    defaultTarget === expectedTarget
+    defaultTarget === expectedTarget.default
       ? undefined
       : {
-          detail: `default target should be ${expectedTarget}`,
+          detail: `default target should be ${expectedTarget.default}`,
           exportPath,
         },
-    typesTarget === expectedTarget
+    typesTarget === expectedTarget.types
       ? undefined
       : {
-          detail: `types target should be ${expectedTarget}`,
+          detail: `types target should be ${expectedTarget.types}`,
           exportPath,
         },
   ].filter(
@@ -863,8 +925,8 @@ const architectureChecks: ArchitectureCheck[] = [
     formatItem: (violation) =>
       `${clientSdkPackageJsonPath}: ${violation.field} ${violation.detail}`,
     message:
-      "Client SDK package metadata should match the documented private, source-consumed package contract until an external release build exists.",
-    name: "client-sdk-package-status-stays-private-source-consumed",
+      "Client SDK package metadata should match the documented private package contract with build-output exports.",
+    name: "client-sdk-package-status-stays-private-built-package",
   }),
   createListCheck({
     findItems: findClientSdkWorkspaceDependencyViolations,
@@ -879,7 +941,7 @@ const architectureChecks: ArchitectureCheck[] = [
     formatItem: (violation) =>
       `${clientSdkPackageJsonPath}: ${violation.exportPath} ${violation.detail}`,
     message:
-      "Client SDK package exports should exactly match the documented root, document, workflow, and store facade entry points with explicit types and default targets.",
+      "Client SDK package exports should exactly match the documented root, document, workflow, and store facade entry points with explicit dist types and default targets.",
     name: "client-sdk-package-exports-match-supported-entry-points",
   }),
   createListCheck({
