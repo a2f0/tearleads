@@ -1,4 +1,5 @@
 import {
+  DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk/documents";
@@ -25,7 +26,7 @@ interface NotesSidebarProps {
 }
 
 function getNoteTitle(note: DocumentSummary): string {
-  return note.title.trim() || getUntitledDocumentTitle("note");
+  return note.title.trim() || getUntitledDocumentTitle(DEFAULT_DOCUMENT_KIND);
 }
 
 function NotesSidebar({

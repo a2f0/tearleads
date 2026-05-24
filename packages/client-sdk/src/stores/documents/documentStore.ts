@@ -1,3 +1,4 @@
+import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import type { DomainScope } from "../../data/domainScope";
 import {
@@ -93,7 +94,7 @@ function createBackingDocumentStore(
   persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
-  initialDocumentKind: StoredDocumentKind = "note",
+  initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
 ): DocumentStore {
   const state = createDocumentStoreState(
     localId,
@@ -137,7 +138,7 @@ function createRegisteredDocumentStore(
   persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
-  initialDocumentKind: StoredDocumentKind = "note",
+  initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
 ): DocumentStoreFacade {
   return createDocumentStoreFacade(
     createBackingDocumentStore(
@@ -157,7 +158,7 @@ export function createDocumentStore(
   persistence: DocumentsPersistence = defaultDocumentsPersistence,
   initialDocumentId: string | null = null,
   initialText = "",
-  initialDocumentKind: StoredDocumentKind = "note",
+  initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
 ): DocumentStore {
   return createRegisteredDocumentStore(
     localId,
@@ -175,7 +176,7 @@ export function getOrCreateDocumentStore(
   runtime: DocumentsRuntime,
   initialDocumentId: string | null = null,
   initialText = "",
-  initialDocumentKind: StoredDocumentKind = "note",
+  initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
 ): DocumentStore {
   const registry = getOrCreateDocumentStoreRegistry(domainScope);
   const existingStore = registry.storesByKey.get(
@@ -209,7 +210,7 @@ export function primeDocumentStore(
   runtime: DocumentsRuntime,
   initialDocumentId: string | null = null,
   initialText = "",
-  initialDocumentKind: StoredDocumentKind = "note",
+  initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
 ): DocumentStore {
   const store = getOrCreateDocumentStore(
     domainScope,

@@ -12,6 +12,7 @@ Create one SDK instance for the active client environment:
 
 ```ts
 import { Tearleads } from "@tearleads/client-sdk";
+import { DEFAULT_DOCUMENT_KIND } from "@tearleads/client-sdk/documents";
 import {
   createModuleSQLiteRuntime,
   type SQLiteRuntime,
@@ -41,9 +42,12 @@ await tearleads.identity.generate();
 await tearleads.session.bootstrapLocalRootContainer();
 
 const containerContents = tearleads.containerContents.runtime();
-const documents = tearleads.documents.runtime({
-  containerId: tearleads.session.containerId,
+const documents = tearleads.documents.runtime(tearleads.session.containerId);
+const localNotes = await tearleads.documents.listLocalSummaries({
+  documentKind: DEFAULT_DOCUMENT_KIND,
 });
+const containerDocumentReadModel =
+  tearleads.containerContents.documentReadModel();
 ```
 
 The instance intentionally groups client capabilities by responsibility:
@@ -57,8 +61,8 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
-| `tearleads.documents` | document workflow runtime composition |
-| `tearleads.containerContents` | container contents workflow runtime composition |
+| `tearleads.documents` | local document summaries and document workflow runtime composition |
+| `tearleads.containerContents` | container contents read models, discovery, diagnostics, and workflow runtime composition |
 | `tearleads.organizations` | organization administration and directory operations |
 | `tearleads.userKeys` | verified user key lookup for product read models and recipient UIs |
 

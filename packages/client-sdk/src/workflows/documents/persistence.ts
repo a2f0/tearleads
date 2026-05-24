@@ -1,7 +1,10 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates, getTextValue } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../data/documentSync";
-import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
+import {
+  DEFAULT_DOCUMENT_ACCESS_EPOCH,
+  DEFAULT_DOCUMENT_KIND,
+} from "../../data/documents/documentConstants";
 import {
   type DocumentProjectorRegistry,
   readStoredDocumentState,
@@ -206,8 +209,9 @@ async function saveDocumentClientProjection(input: {
   record: StoredDocumentRecord;
   updatedAt: string;
 }): Promise<void> {
-  const previousDocumentKind = input.currentRecord?.documentKind ?? "note";
-  const nextDocumentKind = input.record.documentKind ?? "note";
+  const previousDocumentKind =
+    input.currentRecord?.documentKind ?? DEFAULT_DOCUMENT_KIND;
+  const nextDocumentKind = input.record.documentKind ?? DEFAULT_DOCUMENT_KIND;
   if (previousDocumentKind !== nextDocumentKind) {
     await input.documentProjectors.deleteStoredDocumentClientProjection({
       documentKind: previousDocumentKind,
@@ -340,7 +344,7 @@ async function deletePersistedDocument(input: {
   });
   await input.persistence.deleteDocument(input.execSql, input.localId);
   await input.documentProjectors.deleteStoredDocumentClientProjection({
-    documentKind: existing?.documentKind ?? "note",
+    documentKind: existing?.documentKind ?? DEFAULT_DOCUMENT_KIND,
     execSql: input.execSql,
     localId: input.localId,
   });

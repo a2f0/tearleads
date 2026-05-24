@@ -1,5 +1,6 @@
 import type { LoroMap } from "@tearleads/loro";
 import type { ExecSql, SqlTableSchema } from "../sqlite/sqlSchema";
+import { DEFAULT_DOCUMENT_KIND } from "./documentConstants";
 
 export type StoredDocumentKind = string;
 
@@ -115,7 +116,6 @@ const DOCUMENT_FIELDS_MAP_KEY = "fields";
 const DOCUMENT_KIND_KEY = "kind";
 const DOCUMENT_SCHEMA_VERSION_KEY = "schemaVersion";
 const STRUCTURED_DOCUMENT_SCHEMA_VERSION = 1;
-const NOTE_DOCUMENT_KIND = "note";
 
 function isStoredDocumentKind(value: unknown): value is StoredDocumentKind {
   return typeof value === "string" && value.trim().length > 0;
@@ -124,7 +124,7 @@ function isStoredDocumentKind(value: unknown): value is StoredDocumentKind {
 function isStructuredDocumentKind(
   value: unknown,
 ): value is Exclude<StoredDocumentKind, "note"> {
-  return isStoredDocumentKind(value) && value !== NOTE_DOCUMENT_KIND;
+  return isStoredDocumentKind(value) && value !== DEFAULT_DOCUMENT_KIND;
 }
 
 function getDocumentText(doc: StructuredDocumentShape): string {
@@ -141,7 +141,7 @@ function getFieldsMap(doc: StructuredDocumentShape): StructuredDocumentMap {
 
 function readDocumentKind(doc: StructuredDocumentShape): StoredDocumentKind {
   const kind = getMetadataMap(doc).get(DOCUMENT_KIND_KEY);
-  return isStoredDocumentKind(kind) ? kind : NOTE_DOCUMENT_KIND;
+  return isStoredDocumentKind(kind) ? kind : DEFAULT_DOCUMENT_KIND;
 }
 
 function readStructuredFields(
@@ -210,9 +210,9 @@ function projectDefaultDocumentState(
   input: DocumentProjectorInput,
   registry: DocumentProjectorRegistry,
 ): StoredDocumentState {
-  if (input.documentKind === NOTE_DOCUMENT_KIND) {
+  if (input.documentKind === DEFAULT_DOCUMENT_KIND) {
     return {
-      documentKind: NOTE_DOCUMENT_KIND,
+      documentKind: DEFAULT_DOCUMENT_KIND,
       fieldValidationIssues: [],
       structuredFields: {},
       text: input.text,
@@ -280,7 +280,7 @@ export function createDocumentProjectorRegistry(
         return definition.untitledTitle;
       }
 
-      if (kind === NOTE_DOCUMENT_KIND) {
+      if (kind === DEFAULT_DOCUMENT_KIND) {
         return "Untitled note";
       }
 

@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
 import {
   type DocumentRecord as BaseDocumentRecord,
   type DocumentScope,
@@ -92,7 +93,7 @@ export async function saveDocumentRows(input: {
     localId: document.id,
     documentId: document.documentId,
     containerId: document.containerId,
-    documentKind: document.documentKind ?? "note",
+    documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
     text: document.text,
     title: document.title ?? deriveDocumentTitle(document.text),
     updatedAt,
@@ -119,7 +120,7 @@ function didStoredDocumentContentChange(
 ): boolean {
   return (
     existing === null ||
-    existing.documentKind !== (next.documentKind ?? "note") ||
+    existing.documentKind !== (next.documentKind ?? DEFAULT_DOCUMENT_KIND) ||
     existing.loroSnapshot !== next.loroSnapshot ||
     existing.text !== next.text ||
     existing.title !== (next.title ?? deriveDocumentTitle(next.text))

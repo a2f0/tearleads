@@ -1,4 +1,3 @@
-import type { TearleadsWorkflowRuntimeInput } from "@tearleads/client-sdk";
 import type {
   ContainerContentsProjectionUserKeyResolver,
   ContainerContentsWorkflowRuntime,
@@ -9,8 +8,13 @@ import type { primeDocumentStore } from "../documents/DocumentsProvider";
 
 type ExplorerDocumentRuntime = Parameters<typeof primeDocumentStore>[2];
 
-export type ExplorerDocumentsRuntimeAppDataInput =
-  TearleadsWorkflowRuntimeInput;
+export interface ExplorerDocumentsRuntimeAppDataInput {
+  dbStatus: string;
+  domainScope: object;
+  events: ReadonlyArray<unknown>;
+  isAuthenticated: boolean;
+  online: boolean;
+}
 
 export type ExplorerDocumentsRuntimeAppData =
   ContainerContentsWorkflowRuntime & {

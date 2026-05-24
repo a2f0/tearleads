@@ -5,6 +5,7 @@ import type {
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {
@@ -329,7 +330,7 @@ async function loadLocalDocumentInfo(input: {
       accessStateHash: document.accessStateHash ?? null,
       containerId: document.containerId,
       documentId: document.documentId,
-      documentKind: document.documentKind ?? "note",
+      documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
       hasContentKeyBundle: Boolean(document.contentKeyBundle),
       hasDocumentKekTargets: Boolean(document.documentKekTargets),
       hasDocumentManifestBundle: Boolean(document.documentManifestBundle),

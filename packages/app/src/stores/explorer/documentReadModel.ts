@@ -1,10 +1,11 @@
-import type { TearleadsWorkflowRuntimeInput } from "@tearleads/client-sdk";
-import {
-  type ContainerDocumentReadModel,
-  createContainerContentsWorkflowSqlRuntime,
-  createContainerDocumentReadModelFromRuntime,
-} from "@tearleads/client-sdk/workflows/container-contents";
+import type { ContainerDocumentReadModel } from "@tearleads/client-sdk/workflows/container-contents";
 import { useMemo } from "react";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+
+interface ExplorerDocumentReadModelRuntimeState {
+  dbStatus: string;
+  domainScope: object;
+}
 
 export type ExplorerDocumentReadModel = ContainerDocumentReadModel;
 
@@ -18,13 +19,12 @@ export type {
 } from "@tearleads/client-sdk/workflows/container-contents";
 
 export function useExplorerDocumentReadModel(
-  appData: Pick<TearleadsWorkflowRuntimeInput, "execSql">,
+  appData: ExplorerDocumentReadModelRuntimeState,
 ): ExplorerDocumentReadModel {
+  const { containerContents } = useTearleads();
+
   return useMemo(
-    () =>
-      createContainerDocumentReadModelFromRuntime(
-        createContainerContentsWorkflowSqlRuntime({ execSql: appData.execSql }),
-      ),
-    [appData.execSql],
+    () => containerContents.documentReadModel(),
+    [appData.dbStatus, appData.domainScope, containerContents],
   );
 }

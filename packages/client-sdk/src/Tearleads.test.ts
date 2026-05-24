@@ -8,7 +8,15 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "../test/helpers/createTestExecSql";
 import { createResponseFromRequest } from "../test/helpers/documentFixtures";
 import { Tearleads, type TearleadsLogger } from "./client";
-import type { ExecSql, ExecSqlClientLike } from "./sqlite";
+import type {
+  ExecSql,
+  ExecSqlClientLike,
+  SqlArrayRow,
+  SqlBind,
+  SqlRow,
+  SqlRowMode,
+} from "./sqlite";
+import { defaultDocumentsPersistence } from "./workflows/documents";
 
 const quietLogger: Required<TearleadsLogger> = {
   log: () => undefined,
@@ -31,6 +39,22 @@ function createSqlClient(execSql: ExecSql): ExecSqlClientLike {
       };
     },
   };
+}
+
+function createObservedExecSql(
+  execSql: ExecSql,
+  observe: (sql: string) => void,
+): ExecSql {
+  async function observedExecSql(
+    sql: string,
+    bind?: SqlBind,
+    options?: { rowMode?: SqlRowMode },
+  ): Promise<Array<SqlRow | SqlArrayRow>> {
+    observe(sql);
+    return execSql(sql, bind, options);
+  }
+
+  return observedExecSql as ExecSql;
 }
 
 describe("Tearleads", () => {
@@ -307,6 +331,151 @@ describe("Tearleads", () => {
     expect(
       containerContents.createDocumentsRuntime("container-2").containerId,
     ).toBe("container-2");
+  });
+
+  test("lists local document summaries through the documents service", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "tearleads-documents-list-summaries-test",
+    );
+    try {
+      await defaultDocumentsPersistence.ensureSchema(execSql);
+      await defaultDocumentsPersistence.saveDocument(
+        execSql,
+        {
+          accessEpoch: 1,
+          accessStateHash: null,
+          containerId: "container-1",
+          contentKeyBundle: null,
+          documentId: null,
+          documentKekTargets: null,
+          documentKind: "note",
+          documentManifestBundle: null,
+          id: "note-1",
+          lastCommitLsn: null,
+          loroSnapshot: "",
+          text: "Note text",
+          title: "Note title",
+        },
+        { updatedAt: "2026-05-24T12:00:00.000Z" },
+      );
+      await defaultDocumentsPersistence.saveDocument(
+        execSql,
+        {
+          accessEpoch: 1,
+          accessStateHash: null,
+          containerId: "container-1",
+          contentKeyBundle: null,
+          documentId: null,
+          documentKekTargets: null,
+          documentKind: "contact",
+          documentManifestBundle: null,
+          id: "contact-1",
+          lastCommitLsn: null,
+          loroSnapshot: "",
+          text: "",
+          title: "Contact title",
+        },
+        { updatedAt: "2026-05-24T11:00:00.000Z" },
+      );
+      const sdk = new Tearleads({
+        database: { execSql, id: "client-db", status: "ready" },
+        logger: quietLogger,
+      });
+
+      expect(
+        await sdk.documents.listLocalSummaries({ documentKind: "note" }),
+      ).toEqual([
+        {
+          accessStateHash: null,
+          containerId: "container-1",
+          documentId: null,
+          documentKind: "note",
+          id: "note-1",
+          title: "Note title",
+          updatedAt: "2026-05-24T12:00:00.000Z",
+        },
+      ]);
+    } finally {
+      close();
+    }
+  });
+
+  test("caches documents service schema initialization per SQL executor", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "tearleads-documents-list-summaries-schema-cache-test",
+    );
+    try {
+      let createTableStatementCount = 0;
+      const observedExecSql = createObservedExecSql(execSql, (sql) => {
+        if (sql.startsWith("CREATE TABLE IF NOT EXISTS")) {
+          createTableStatementCount += 1;
+        }
+      });
+      const sdk = new Tearleads({
+        database: {
+          execSql: observedExecSql,
+          id: "client-db",
+          status: "ready",
+        },
+        logger: quietLogger,
+      });
+
+      expect(await sdk.documents.listLocalSummaries()).toEqual([]);
+      const firstCallCreateTableStatementCount = createTableStatementCount;
+      expect(firstCallCreateTableStatementCount).toBeGreaterThan(0);
+
+      expect(await sdk.documents.listLocalSummaries()).toEqual([]);
+      expect(createTableStatementCount).toBe(
+        firstCallCreateTableStatementCount,
+      );
+    } finally {
+      close();
+    }
+  });
+
+  test("creates the container contents document read model from the SDK runtime", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "tearleads-container-contents-read-model-test",
+    );
+    try {
+      await defaultDocumentsPersistence.ensureSchema(execSql);
+      await defaultDocumentsPersistence.saveDocument(
+        execSql,
+        {
+          accessEpoch: 1,
+          accessStateHash: "access-state-hash",
+          containerId: "container-1",
+          contentKeyBundle: null,
+          documentId: "document-1",
+          documentKekTargets: null,
+          documentKind: "note",
+          documentManifestBundle: null,
+          id: "note-1",
+          lastCommitLsn: null,
+          loroSnapshot: "",
+          text: "Note text",
+          title: "Note title",
+        },
+        { updatedAt: "2026-05-24T12:00:00.000Z" },
+      );
+      const sdk = new Tearleads({
+        database: { execSql, id: "client-db", status: "ready" },
+        logger: quietLogger,
+      });
+      const readModel = sdk.containerContents.documentReadModel();
+
+      expect(await readModel.loadDocumentSummary("note-1")).toEqual({
+        accessStateHash: "access-state-hash",
+        containerId: "container-1",
+        documentId: "document-1",
+        documentKind: "note",
+        id: "note-1",
+        title: "Note title",
+        updatedAt: "2026-05-24T12:00:00.000Z",
+      });
+    } finally {
+      close();
+    }
   });
 
   test("notifies session and runtime subscribers from SDK state changes", () => {

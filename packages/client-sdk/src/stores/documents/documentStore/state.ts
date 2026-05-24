@@ -1,5 +1,6 @@
 import type { createDocument } from "@tearleads/loro";
 import type { DocumentSummary } from "../../../data/documentSummary";
+import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
   type DocumentAttachment,
   getDocumentAttachments,
@@ -144,7 +145,7 @@ export function createDocumentStoreState(
   effects: DocumentStorePersistenceEffects,
   initialDocumentId: string | null,
   initialText = "",
-  initialDocumentKind: StoredDocumentKind = "note",
+  initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
 ): DocumentStoreState {
   return {
     attachmentStorageKeyBySlotId: {},
@@ -169,7 +170,7 @@ export function createDocumentStoreState(
       attachmentStorageKeyBySlotId: {},
       canAttach: false,
       documentId: null,
-      documentKind: "note",
+      documentKind: DEFAULT_DOCUMENT_KIND,
       fieldValidationIssues: [],
       ready: false,
       structuredFields: {},
@@ -236,7 +237,7 @@ export function resetDocumentStore(state: DocumentStoreState) {
     attachmentStorageKeyBySlotId: {},
     canAttach: false,
     documentId: null,
-    documentKind: "note",
+    documentKind: DEFAULT_DOCUMENT_KIND,
     fieldValidationIssues: [],
     ready: false,
     structuredFields: {},

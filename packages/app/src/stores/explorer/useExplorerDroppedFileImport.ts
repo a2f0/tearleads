@@ -1,6 +1,7 @@
-import type {
-  DocumentSummary,
-  StoredDocumentKind,
+import {
+  DEFAULT_DOCUMENT_KIND,
+  type DocumentSummary,
+  type StoredDocumentKind,
 } from "@tearleads/client-sdk/documents";
 import { useCallback } from "react";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
@@ -231,7 +232,7 @@ export function useExplorerDroppedFileImport(params: {
             runtime,
             null,
             initialText,
-            "note",
+            DEFAULT_DOCUMENT_KIND,
           ),
         createLocalId: () => crypto.randomUUID(),
         files,

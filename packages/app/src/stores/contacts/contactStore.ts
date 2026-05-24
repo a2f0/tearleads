@@ -5,7 +5,6 @@ import {
   type DocumentsRuntime,
   getOrCreateDocumentStore,
 } from "@tearleads/client-sdk/stores/documents";
-import { defaultDocumentsPersistence } from "@tearleads/client-sdk/workflows/documents";
 import {
   type ContactEntry,
   type ContactEntryPatch,
@@ -452,10 +451,7 @@ async function removeContactFromRuntime(
       const trackedStore = state.contactDocumentStoresById.get(contactId);
       trackedStore?.unsubscribe();
       state.contactDocumentStoresById.delete(contactId);
-      await state.runtime.documents.deleteDocument({
-        localId: contactId,
-        persistence: defaultDocumentsPersistence,
-      });
+      await state.runtime.documents.deleteDocument({ localId: contactId });
       removeContactEntry(state, contactId);
     })
     .catch((error: unknown) => {

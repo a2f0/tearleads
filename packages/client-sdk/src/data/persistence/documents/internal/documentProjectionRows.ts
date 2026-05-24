@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { DocumentSummary } from "../../../documentSummary";
+import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
 import {
   deriveStoredDocumentTitle,
   getUntitledDocumentTitle,
@@ -88,7 +89,7 @@ export function getProjectionDocumentKind(
     | SelectedDocumentProjectionTimestamp
     | undefined,
 ): StoredDocumentKind {
-  return row?.documentKind ?? "note";
+  return row?.documentKind ?? DEFAULT_DOCUMENT_KIND;
 }
 
 export function getProjectionTitle(
@@ -98,7 +99,10 @@ export function getProjectionTitle(
     | undefined,
 ): string {
   const title = row?.title ?? "";
-  if (title.length > 0 && title !== getUntitledDocumentTitle("note")) {
+  if (
+    title.length > 0 &&
+    title !== getUntitledDocumentTitle(DEFAULT_DOCUMENT_KIND)
+  ) {
     return title;
   }
 

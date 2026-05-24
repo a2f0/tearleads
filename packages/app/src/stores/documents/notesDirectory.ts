@@ -1,17 +1,21 @@
 import {
+  DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk/documents";
-import { defaultDocumentsPersistence } from "@tearleads/client-sdk/workflows/documents";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import {
   DEFAULT_DOCUMENT_ID,
   subscribeToPersistedDocuments,
 } from "./DocumentsProvider";
 
 function isNoteSummary(documentSummary: DocumentSummary): boolean {
-  return (documentSummary.documentKind ?? "note") === "note";
+  return (
+    (documentSummary.documentKind ?? DEFAULT_DOCUMENT_KIND) ===
+    DEFAULT_DOCUMENT_KIND
+  );
 }
 
 function compareNoteSummaries(
@@ -40,6 +44,7 @@ function mergeNoteSummary(
 
 export function usePersistedNotesDirectory(explicitNoteId: string | null) {
   const appData = useAppData();
+  const tearleads = useTearleads();
   const [notes, setNotes] = useState<ReadonlyArray<DocumentSummary>>([]);
   const [ready, setReady] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
@@ -67,12 +72,11 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
     let cancelled = false;
     void (async () => {
       try {
-        await defaultDocumentsPersistence.ensureSchema(appData.execSql);
-        const nextNotes = (
-          await defaultDocumentsPersistence.listDocuments(appData.execSql)
-        )
-          .filter(isNoteSummary)
-          .sort(compareNoteSummaries);
+        const persistedNotes =
+          (await tearleads.documents.listLocalSummaries({
+            documentKind: DEFAULT_DOCUMENT_KIND,
+          })) ?? [];
+        const nextNotes = Array.from(persistedNotes).sort(compareNoteSummaries);
 
         if (cancelled) {
           return;
@@ -106,7 +110,7 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [appData.dbStatus, appData.execSql, appData.logError]);
+  }, [appData.dbStatus, appData.domainScope, appData.logError, tearleads]);
 
   useEffect(() => {
     return subscribeToPersistedDocuments(appData.domainScope, (document) => {
@@ -124,9 +128,9 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
     const nextNote: DocumentSummary = {
       id: noteId,
       containerId: appData.containerId,
-      documentKind: "note",
+      documentKind: DEFAULT_DOCUMENT_KIND,
       documentId: null,
-      title: getUntitledDocumentTitle("note"),
+      title: getUntitledDocumentTitle(DEFAULT_DOCUMENT_KIND),
       updatedAt: new Date().toISOString(),
     };
 
