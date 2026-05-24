@@ -15,7 +15,6 @@ import {
   moveRemoteContainerDocument,
   relinkRemoteContainerDocument,
 } from "./documentLinks";
-import { createContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 test("relinkRemoteContainerDocument persists linked container projections after a successful remote mutation", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -78,7 +77,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
       operation: "link",
       resolveProjectionUserKey,
       runtime: {
-        ...createContainerContentsWorkflowSqlRuntime({ execSql }),
+        execSql,
         apiClient: {
           getContainerWriterProjection: async (containerId) =>
             containerId === siblingProjection.containerId
@@ -187,7 +186,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
       noteId: "containerContents-note-1",
       resolveProjectionUserKey,
       runtime: {
-        ...createContainerContentsWorkflowSqlRuntime({ execSql }),
+        execSql,
         apiClient: {
           getContainerWriterProjection: async (containerId) => {
             if (containerId === rootProjection.containerId) {

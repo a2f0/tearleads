@@ -102,7 +102,12 @@ export {
   renameContainerMetadataStateFromRuntime,
   syncContainerMetadataState,
 } from "./metadata";
-export type { ContainerContentsProjectionUserKeyResolver } from "./projectionKeys";
+export {
+  type ContainerContentsProjectionUserKeyResolver,
+  createContainerContentsDocumentProjectionUserKeyResolver,
+  createContainerContentsProjectionUserKeyResolver,
+  didContainerContentsProjectionKeyRuntimeChange,
+} from "./projectionKeys";
 export {
   type ContainerState,
   createRemoteContainerIngestor,
@@ -113,11 +118,12 @@ export {
 export {
   type ContainerContentsWorkflowRuntime,
   type ContainerContentsWorkflowRuntimeInput,
+  createContainerContentsDocumentsRuntime,
   createContainerContentsWorkflowRuntime,
-  createContainerContentsWorkflowSqlRuntime,
 } from "./runtime";
 export {
   type ContainerContentsSyncLane,
+  didRegainContainerContentsSyncPrerequisites,
   isDestroyedContainerContentsSyncRuntimeError,
   registerContainerContentsSyncLane,
 } from "./syncLane";

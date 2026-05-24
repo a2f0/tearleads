@@ -1,6 +1,8 @@
-import type {
-  ContainerContentsProjectionUserKeyResolver,
-  ContainerContentsWorkflowRuntime,
+import {
+  type ContainerContentsProjectionUserKeyResolver,
+  type ContainerContentsWorkflowRuntime,
+  createContainerContentsDocumentProjectionUserKeyResolver,
+  createContainerContentsDocumentsRuntime,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import { useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
@@ -32,7 +34,7 @@ export function createExplorerDocumentsRuntime(
   appData: ExplorerDocumentsRuntimeAppData,
   containerId: string,
 ): ExplorerDocumentRuntime {
-  return appData.createDocumentsRuntime(containerId);
+  return createContainerContentsDocumentsRuntime(appData, containerId);
 }
 
 export function useExplorerDocumentsRuntimeAppData(
@@ -44,7 +46,7 @@ export function useExplorerDocumentsRuntimeAppData(
     [appData, containerContents],
   );
   const resolveProjectionUserKey = useMemo(
-    () => runtime.createDocumentProjectionUserKeyResolver(),
+    () => createContainerContentsDocumentProjectionUserKeyResolver(runtime),
     [runtime],
   );
 

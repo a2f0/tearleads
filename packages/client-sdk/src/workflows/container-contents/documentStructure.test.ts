@@ -7,11 +7,10 @@ import {
   type DocumentStructuralMutationRelinkInput,
   type DocumentStructuralMutationRuntime,
 } from "./documentStructure";
-import { createContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 function createRuntime(logs: string[] = []): DocumentStructuralMutationRuntime {
   return {
-    ...createContainerContentsWorkflowSqlRuntime({ execSql: async () => [] }),
+    execSql: async () => [],
     apiClient: {} as DocumentStructuralMutationRuntime["apiClient"],
     dbStatus: "ready",
     encapsulationKeyPair: null,

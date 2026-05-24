@@ -4,7 +4,6 @@ import {
   recordContainerCreateIntentError,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
-import { getContainerContentsWorkflowRuntimeExecSql } from "../runtime";
 import { createRemoteContainer } from "./remote";
 import type {
   ContainerCreateIntentSyncHost,
@@ -36,7 +35,7 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
   if (!remoteMetadataDocumentId || !remoteMetadataAccessStateHash) {
     return;
   }
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+  const execSql = state.runtime.execSql;
 
   await markContainerCreateIntentSynced(execSql, state.persistence, {
     containerId: intent.containerId,
@@ -86,7 +85,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     createdAt: created.createdAt,
     updatedAt: created.updatedAt,
   };
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+  const execSql = state.runtime.execSql;
 
   await markContainerCreateIntentSynced(execSql, state.persistence, {
     containerId: containerState.container.id,
@@ -104,7 +103,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   const parentState = state.containersById.get(intent.parentContainerId);
 
   if (!containerState || !parentState) {
-    const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+    const execSql = state.runtime.execSql;
     await recordContainerCreateIntentError(
       execSql,
       state.persistence,
@@ -135,7 +134,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   });
 
   if (!created) {
-    const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+    const execSql = state.runtime.execSql;
     await recordContainerCreateIntentError(
       execSql,
       state.persistence,
@@ -162,7 +161,7 @@ export async function syncPendingContainerCreateIntents(input: {
   state: ContainerCreateIntentSyncState;
 }): Promise<number> {
   const { host, state } = input;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+  const execSql = state.runtime.execSql;
   const pendingIntents = await listPendingContainerCreateIntents(
     execSql,
     state.persistence,

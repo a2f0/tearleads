@@ -6,10 +6,7 @@ import {
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
 } from "../documents";
-import {
-  type ContainerContentsWorkflowSqlRuntime,
-  getContainerContentsWorkflowRuntimeExecSql,
-} from "./runtime";
+import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 type ContainerDocumentLinkApi = Parameters<
   typeof relinkRemoteDocument
@@ -125,7 +122,7 @@ export async function relinkRemoteContainerDocument(input: {
   } = input;
   const author = resolveDocumentCreateAuthor(runtime);
   const targetSecretKey = runtime.encapsulationKeyPair?.secretKey;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(runtime);
+  const execSql = runtime.execSql;
   if (!author || !targetSecretKey) {
     runtime.log(
       "Container contents: document mutation skipped because the local key context is unavailable",

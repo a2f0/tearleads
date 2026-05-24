@@ -7,7 +7,6 @@ import {
 import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { enqueuePendingContainerUpdateFromRuntime } from "./containerPersistence";
-import { createContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 const execSql: ExecSql = async () => [];
 
@@ -71,7 +70,7 @@ test("enqueuePendingContainerUpdateFromRuntime uses the runtime executor", async
   await enqueuePendingContainerUpdateFromRuntime({
     containerId: "container-1",
     persistence: createContainerContentsPersistence({ pendingUpdates }),
-    runtime: createContainerContentsWorkflowSqlRuntime({ execSql }),
+    runtime: { execSql },
     sourceVersionVector: "version-1",
     update: exportAllUpdates(doc),
   });

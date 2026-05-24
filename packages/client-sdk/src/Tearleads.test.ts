@@ -16,6 +16,7 @@ import type {
   SqlRow,
   SqlRowMode,
 } from "./sqlite";
+import { createContainerContentsDocumentsRuntime } from "./workflows/container-contents";
 import {
   defaultDocumentsPersistence,
   resolveDocumentCreateAuthor,
@@ -332,7 +333,8 @@ describe("Tearleads", () => {
     expect(resolveDocumentCreateAuthor(documents)).not.toBeNull();
     expect(containerContents.userId).toBe("user-1");
     expect(
-      containerContents.createDocumentsRuntime("container-2").containerId,
+      createContainerContentsDocumentsRuntime(containerContents, "container-2")
+        .containerId,
     ).toBe("container-2");
   });
 

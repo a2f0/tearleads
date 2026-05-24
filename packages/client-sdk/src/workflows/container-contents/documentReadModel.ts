@@ -19,10 +19,7 @@ import {
 } from "../../data/persistence/documents/documentsPersistence";
 import { containerCreateIntentTables } from "../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
-import {
-  type ContainerContentsWorkflowSqlRuntime,
-  getContainerContentsWorkflowRuntimeExecSql,
-} from "./runtime";
+import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 import {
   type ContainerDocumentObjectSyncState,
   createContainerDocumentObjectSyncState,
@@ -999,10 +996,9 @@ export function listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
 > & {
   runtime: ContainerDocumentReadModelRuntime;
 }): ReturnType<typeof listDocumentRuntimeTargetsForContainerSubtree> {
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(runtime);
   return listDocumentRuntimeTargetsForContainerSubtree({
     ...input,
-    execSql,
+    execSql: runtime.execSql,
   });
 }
 
@@ -1182,7 +1178,5 @@ function createContainerDocumentReadModel(
 export function createContainerDocumentReadModelFromRuntime(
   runtime: ContainerDocumentReadModelRuntime,
 ): ContainerDocumentReadModel {
-  return createContainerDocumentReadModel(
-    getContainerContentsWorkflowRuntimeExecSql(runtime),
-  );
+  return createContainerDocumentReadModel(runtime.execSql);
 }

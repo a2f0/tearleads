@@ -18,11 +18,10 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { createContainerDocumentReadModelFromRuntime } from "./documentReadModel";
 import { loadLocalContainerStates } from "./localState";
-import { createContainerContentsWorkflowSqlRuntime } from "./runtime";
 import { syncedContainerDocumentObjectSyncState } from "./syncState";
 
 const execSql: ExecSql = async () => [];
-const runtime = createContainerContentsWorkflowSqlRuntime({ execSql });
+const runtime = { execSql };
 
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]
@@ -269,7 +268,7 @@ test("loadLocalContainerStates keeps replayed remote metadata snapshots synced",
     "containerContents-local-state-replay-synced-metadata",
   );
   try {
-    const runtime = createContainerContentsWorkflowSqlRuntime({ execSql });
+    const runtime = { execSql };
     const syncedAt = "2026-05-01T00:00:00.000Z";
 
     await defaultContainerContentsPersistence.ensureSchema(execSql);

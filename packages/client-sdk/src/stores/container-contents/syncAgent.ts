@@ -6,6 +6,7 @@ import {
   type ContainerDocumentPrimeHost,
   type ContainerDocumentPrimeStore,
   type ContainerState,
+  createContainerContentsDocumentsRuntime,
   createRemoteContainerIngestor,
   hasContainerMetadataDocumentUpdateEvent,
   hydrateRemoteContainers,
@@ -53,7 +54,7 @@ export interface ContainerContentsStoreSyncAgent {
 
 type ContainerContentsStoreSyncHost = RemoteContainerHydrationHost;
 type ContainerContentsStorePrimeDocumentRuntime = ReturnType<
-  ContainerContentsStoreRuntime["createDocumentsRuntime"]
+  typeof createContainerContentsDocumentsRuntime
 >;
 
 function getContainerContentsStoreLogLabel(
@@ -73,7 +74,7 @@ function createContainerContentsStoreDocumentPrimeHost(
 ): ContainerDocumentPrimeHost<ContainerContentsStorePrimeDocumentRuntime> {
   return {
     createDocumentRuntime: (containerId) =>
-      state.runtime.createDocumentsRuntime(containerId),
+      createContainerContentsDocumentsRuntime(state.runtime, containerId),
     primeDocumentStore: ({
       documentId,
       localId,

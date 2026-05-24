@@ -24,10 +24,7 @@ import {
   saveContainerParentSyncWatermark,
 } from "./containerPersistence";
 import type { ContainerMetadataPatch } from "./metadata";
-import {
-  type ContainerContentsWorkflowSqlRuntime,
-  getContainerContentsWorkflowRuntimeExecSql,
-} from "./runtime";
+import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 type ListedRemoteContainerPageItem = ListContainersResponse["items"][number];
 type ContainerChildIndex = Map<string, Set<string>>;
@@ -173,9 +170,7 @@ async function listRemoteContainerIdsWithPendingMetadataUpdates(input: {
     return new Set();
   }
 
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(
-    input.state.runtime,
-  );
+  const execSql = input.state.runtime.execSql;
   return new Set(
     await input.state.persistence.listContainerIdsWithPendingUpdates(
       execSql,
@@ -403,7 +398,7 @@ async function reconcileLocalOnlyRootContainer(input: {
   state: RemoteContainerHydrationState;
 }): Promise<void> {
   const { childIdsByParentId, localRootState, remoteRootState, state } = input;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+  const execSql = state.runtime.execSql;
   const updatedAt = new Date().toISOString();
   const { descendantReparents, descendants } =
     buildLocalRootDescendantReparents({
@@ -541,7 +536,7 @@ async function insertRemoteContainerState(input: {
   const { childIdsByParentId, remoteContainer, state } = input;
   const doc = await createContainerMetadataDocument(remoteContainer.id);
   const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+  const execSql = state.runtime.execSql;
   const containerState: ContainerState = {
     container: applyRemoteContainerTimestamps(
       {
@@ -942,7 +937,7 @@ async function applyContainerTombstones(input: {
     tombstones,
   });
   const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+  const execSql = state.runtime.execSql;
 
   await deleteContainers(
     execSql,
@@ -968,7 +963,7 @@ async function advanceContainerParentWatermark(input: {
 }): Promise<boolean> {
   const { response, state, syncLane } = input;
   if (response.nextWatermark) {
-    const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+    const execSql = state.runtime.execSql;
     await saveContainerParentSyncWatermark(
       execSql,
       syncLane,
@@ -995,7 +990,7 @@ async function fetchContainerParentLanePage(input: {
 }): Promise<FetchedContainerParentLanePage | null> {
   const { lane, state } = input;
   const syncLane = createContainerParentSyncLane(lane.parentId);
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(state.runtime);
+  const execSql = state.runtime.execSql;
   const watermark =
     lane.watermark === undefined
       ? await loadContainerParentSyncWatermark(execSql, syncLane)

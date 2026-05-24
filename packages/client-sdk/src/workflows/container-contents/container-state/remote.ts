@@ -17,7 +17,6 @@ import {
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../documents";
-import { getContainerContentsWorkflowRuntimeExecSql } from "../runtime";
 import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
@@ -33,7 +32,7 @@ async function createRemoteContainerWithMetadataDocument(input: {
 }): Promise<CreatedRemoteContainerState | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(input.runtime);
+  const execSql = input.runtime.execSql;
   const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !parentSecretKey) {
     input.runtime.log(
@@ -120,7 +119,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
 }): Promise<CreatedRemoteContainerState | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(input.runtime);
+  const execSql = input.runtime.execSql;
   const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !parentSecretKey) {
     input.runtime.log(
@@ -191,7 +190,7 @@ export async function shareRemoteContainer(input: {
 }): Promise<SharedRemoteContainerState | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(input.runtime);
+  const execSql = input.runtime.execSql;
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
     input.runtime.log(
@@ -250,7 +249,7 @@ export async function shareRemoteContainerWithGroup(input: {
 }): Promise<SharedRemoteContainerState | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(input.runtime);
+  const execSql = input.runtime.execSql;
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
     input.runtime.log(
@@ -297,7 +296,7 @@ export async function moveRemoteContainer(input: {
 }): Promise<RemoteContainer | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(input.runtime);
+  const execSql = input.runtime.execSql;
   const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
     input.runtime.log(

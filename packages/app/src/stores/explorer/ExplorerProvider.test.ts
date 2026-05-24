@@ -14,6 +14,7 @@ import {
   createContainerContentsSyncLane as createExplorerContainerContentsSyncLane,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
   createContainerDocumentObjectSyncState as createExplorerObjectSyncState,
+  createContainerContentsProjectionUserKeyResolver as createExplorerProjectionUserKeyResolver,
   createContainerContentsWorkflowRuntime as createExplorerWorkflowRuntime,
   createInitializedContainerMetadataDocument,
   defaultContainerContentsPersistence as defaultExplorerPersistence,
@@ -818,6 +819,16 @@ async function createSqlRuntime(): Promise<TestRuntime> {
   };
 }
 
+function runtimeWithPatch(
+  runtime: TestRuntime,
+  patch: Partial<ExplorerRuntime>,
+): TestRuntime {
+  return {
+    ...runtime,
+    ...patch,
+  };
+}
+
 test("explorer store creates, renames, deletes, and reloads child containers", async () => {
   const runtime = await createSqlRuntime();
 
@@ -929,21 +940,23 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
 });
 
 test("explorer store deletes remote leaf containers through the API", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const deletedContainerIds: string[] = [];
 
   try {
-    runtime.isAuthenticated = true;
-    runtime.online = true;
-    runtime.apiClient = createMockApiClient({
-      deleteContainer: async (containerId: string) => {
-        deletedContainerIds.push(containerId);
-        return {
-          containerId,
-          deletedAt: "2026-05-06T18:00:00.000Z",
-        };
-      },
-      listContainers: async () => listContainersResponse(),
+    runtime = runtimeWithPatch(runtime, {
+      apiClient: createMockApiClient({
+        deleteContainer: async (containerId: string) => {
+          deletedContainerIds.push(containerId);
+          return {
+            containerId,
+            deletedAt: "2026-05-06T18:00:00.000Z",
+          };
+        },
+        listContainers: async () => listContainersResponse(),
+      }),
+      isAuthenticated: true,
+      online: true,
     });
 
     await ensureContainerTables(runtime.execSql);
@@ -990,14 +1003,16 @@ test("explorer store deletes remote leaf containers through the API", async () =
 });
 
 test("explorer store keeps remote containers local when API delete fails", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
 
   try {
-    runtime.isAuthenticated = true;
-    runtime.online = true;
-    runtime.apiClient = createMockApiClient({
-      deleteContainer: async () => null,
-      listContainers: async () => listContainersResponse(),
+    runtime = runtimeWithPatch(runtime, {
+      apiClient: createMockApiClient({
+        deleteContainer: async () => null,
+        listContainers: async () => listContainersResponse(),
+      }),
+      isAuthenticated: true,
+      online: true,
     });
 
     await ensureContainerTables(runtime.execSql);
@@ -1038,27 +1053,29 @@ test("explorer store keeps remote containers local when API delete fails", async
 });
 
 test("explorer store removes local remote containers when API delete returns 404", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const deletedContainerIds: string[] = [];
 
   try {
-    runtime.isAuthenticated = true;
-    runtime.online = true;
-    runtime.apiClient = createMockApiClient({
-      deleteContainerResult: async (containerId: string) => {
-        deletedContainerIds.push(containerId);
-        return {
-          kind: "http",
-          message: `DELETE /containers/${containerId}: 404 Not Found`,
-          method: "DELETE",
-          ok: false,
-          path: `/containers/${containerId}`,
-          report: () => {},
-          status: 404,
-          statusText: "Not Found",
-        };
-      },
-      listContainers: async () => listContainersResponse(),
+    runtime = runtimeWithPatch(runtime, {
+      apiClient: createMockApiClient({
+        deleteContainerResult: async (containerId: string) => {
+          deletedContainerIds.push(containerId);
+          return {
+            kind: "http",
+            message: `DELETE /containers/${containerId}: 404 Not Found`,
+            method: "DELETE",
+            ok: false,
+            path: `/containers/${containerId}`,
+            report: () => {},
+            status: 404,
+            statusText: "Not Found",
+          };
+        },
+        listContainers: async () => listContainersResponse(),
+      }),
+      isAuthenticated: true,
+      online: true,
     });
 
     await ensureContainerTables(runtime.execSql);
@@ -1217,13 +1234,13 @@ test("explorer snapshot update emits when only node sync state changes", async (
 });
 
 test("explorer sync agent batches concurrent remote ingests into one snapshot update", async () => {
-  const runtime = await createSqlRuntime();
   let snapshotUpdateCount = 0;
   const cachedPrincipalBatches: number[] = [];
-
-  runtime.cacheReferencedPrincipalPolicies = async (principals) => {
-    cachedPrincipalBatches.push(principals?.length ?? 0);
-  };
+  const runtime = runtimeWithPatch(await createSqlRuntime(), {
+    cacheReferencedPrincipalPolicies: async (principals) => {
+      cachedPrincipalBatches.push(principals?.length ?? 0);
+    },
+  });
 
   try {
     await defaultExplorerPersistence.ensureSchema(runtime.execSql);
@@ -1235,7 +1252,8 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
       lastEventCount: 0,
       persistence: defaultExplorerPersistence,
       remoteHydrationPromise: null,
-      resolveProjectionUserKey: runtime.createProjectionUserKeyResolver(),
+      resolveProjectionUserKey:
+        createExplorerProjectionUserKeyResolver(runtime),
       runtime,
       snapshot: {
         ready: true,
@@ -1331,16 +1349,16 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
 });
 
 test("explorer sync agent retries remote ingests after a failed batch", async () => {
-  const runtime = await createSqlRuntime();
   let snapshotUpdateCount = 0;
   const cachedPrincipalBatches: number[] = [];
-
-  runtime.cacheReferencedPrincipalPolicies = async (principals) => {
-    cachedPrincipalBatches.push(principals?.length ?? 0);
-    if (cachedPrincipalBatches.length === 1) {
-      throw new Error("principal cache unavailable");
-    }
-  };
+  const runtime = runtimeWithPatch(await createSqlRuntime(), {
+    cacheReferencedPrincipalPolicies: async (principals) => {
+      cachedPrincipalBatches.push(principals?.length ?? 0);
+      if (cachedPrincipalBatches.length === 1) {
+        throw new Error("principal cache unavailable");
+      }
+    },
+  });
 
   try {
     await defaultExplorerPersistence.ensureSchema(runtime.execSql);
@@ -1352,7 +1370,8 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
       lastEventCount: 0,
       persistence: defaultExplorerPersistence,
       remoteHydrationPromise: null,
-      resolveProjectionUserKey: runtime.createProjectionUserKeyResolver(),
+      resolveProjectionUserKey:
+        createExplorerProjectionUserKeyResolver(runtime),
       runtime,
       snapshot: {
         ready: true,
@@ -1441,14 +1460,14 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
 });
 
 test("explorer sync skips pending metadata updates for containers without document ids", async () => {
-  const runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
+  const runtime = runtimeWithPatch(await createSqlRuntime(), {
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
+  });
   let listPendingCreateIntentCalls = 0;
   let listPendingUpdateCalls = 0;
-
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
 
   try {
     const persistence = {
@@ -1502,7 +1521,8 @@ test("explorer sync skips pending metadata updates for containers without docume
       lastEventCount: 0,
       persistence,
       remoteHydrationPromise: null,
-      resolveProjectionUserKey: runtime.createProjectionUserKeyResolver(),
+      resolveProjectionUserKey:
+        createExplorerProjectionUserKeyResolver(runtime),
       runtime,
       snapshot: {
         ready: true,
@@ -1531,7 +1551,7 @@ test("explorer sync skips pending metadata updates for containers without docume
 });
 
 test("explorer store creates authenticated child containers through the API before persisting locally", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
@@ -1548,23 +1568,25 @@ test("explorer store creates authenticated child containers through the API befo
     }),
   ]);
 
-  runtime.isAuthenticated = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.online = true;
-  runtime.organizationId = "org-1";
-  runtime.signingFingerprint = signingFingerprint;
-  runtime.signingKeyPair = signingKeyPair;
-  runtime.userId = "user-1";
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    ...harness.apiClient,
-    getEncapsulationKey: async (requestedUserId: string) => ({
-      encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
-      signingKeyFingerprint: signingFingerprint,
-      signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
-      userId: requestedUserId,
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      ...harness.apiClient,
+      getEncapsulationKey: async (requestedUserId: string) => ({
+        encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
+        signingKeyFingerprint: signingFingerprint,
+        signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+        userId: requestedUserId,
+      }),
+      listContainers: async () => listContainersResponse(),
     }),
-    listContainers: async () => listContainersResponse(),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
+    organizationId: "org-1",
+    signingFingerprint,
+    signingKeyPair,
+    userId: "user-1",
   });
   try {
     await ensureContainerTables(runtime.execSql);
@@ -1676,16 +1698,18 @@ test("explorer store creates authenticated child containers through the API befo
 });
 
 test("explorer store queues authenticated child create when parent has no remote access state", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    listContainers: async () => listContainersResponse(),
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      listContainers: async () => listContainersResponse(),
+    }),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
   });
 
   try {
@@ -1745,8 +1769,9 @@ test("explorer store queues authenticated child create when parent has no remote
     );
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
@@ -1840,15 +1865,7 @@ test("explorer sync creates queued local containers parent before child", async 
         }),
       ],
     ]);
-    const authenticatedRuntime: TestRuntime = {
-      ...runtime,
-      encapsulationKeyPair: localKeyPair,
-      isAuthenticated: true,
-      online: true,
-      organizationId: "org-1",
-      signingFingerprint,
-      signingKeyPair,
-      userId: "user-1",
+    const authenticatedRuntime = runtimeWithPatch(runtime, {
       apiClient: createMockApiClient({
         ...runtime.apiClient,
         ...harness.apiClient,
@@ -1861,7 +1878,14 @@ test("explorer sync creates queued local containers parent before child", async 
         listContainers: async () =>
           listContainersResponse(Array.from(remoteContainers.values())),
       }),
-    };
+      encapsulationKeyPair: localKeyPair,
+      isAuthenticated: true,
+      online: true,
+      organizationId: "org-1",
+      signingFingerprint,
+      signingKeyPair,
+      userId: "user-1",
+    });
 
     createdStore.updateRuntime(authenticatedRuntime);
 
@@ -1930,15 +1954,16 @@ test("explorer sync creates queued local containers parent before child", async 
     ).toBe(grandchildNode.id);
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
 });
 
 test("explorer store creates a child under a writable shared root through the parent KEK", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const cachedPrincipalReferences: Array<
     ReadonlyArray<ReferencedPrincipalStateResponse>
   > = [];
@@ -1958,46 +1983,48 @@ test("explorer store creates a child under a writable shared root through the pa
     }),
   ]);
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.organizationId = "org-2";
-  runtime.signingFingerprint = signingFingerprint;
-  runtime.signingKeyPair = signingKeyPair;
-  runtime.userId = "user-1";
-  runtime.cacheReferencedPrincipalPolicies = async (references) => {
-    cachedPrincipalReferences.push(references ?? []);
-  };
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    ...harness.apiClient,
-    getEncapsulationKey: async (requestedUserId: string) => ({
-      encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
-      signingKeyFingerprint: signingFingerprint,
-      signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
-      userId: requestedUserId,
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      ...harness.apiClient,
+      getEncapsulationKey: async (requestedUserId: string) => ({
+        encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
+        signingKeyFingerprint: signingFingerprint,
+        signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+        userId: requestedUserId,
+      }),
+      listContainers: async () =>
+        listContainersResponse([
+          listedContainer({
+            id: "shared-root-container",
+            metadataAccessEpoch: 1,
+            metadataAccessStateHash: "shared-root-access-state-hash-1",
+            metadataDocumentId: "shared-root-metadata-document",
+            metadataReferencedPrincipals: [
+              {
+                keyEpoch: 1,
+                keyFingerprint: "key-fingerprint-1",
+                principalId: "group-1",
+                principalType: "group",
+                stateHash: "state-hash-1",
+                version: 1,
+              },
+            ],
+            organizationId: "org-2",
+            parentId: null,
+          }),
+        ]),
     }),
-    listContainers: async () =>
-      listContainersResponse([
-        listedContainer({
-          id: "shared-root-container",
-          metadataAccessEpoch: 1,
-          metadataAccessStateHash: "shared-root-access-state-hash-1",
-          metadataDocumentId: "shared-root-metadata-document",
-          metadataReferencedPrincipals: [
-            {
-              keyEpoch: 1,
-              keyFingerprint: "key-fingerprint-1",
-              principalId: "group-1",
-              principalType: "group",
-              stateHash: "state-hash-1",
-              version: 1,
-            },
-          ],
-          organizationId: "org-2",
-          parentId: null,
-        }),
-      ]),
+    cacheReferencedPrincipalPolicies: async (references) => {
+      cachedPrincipalReferences.push(references ?? []);
+    },
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
+    organizationId: "org-2",
+    signingFingerprint,
+    signingKeyPair,
+    userId: "user-1",
   });
 
   try {
@@ -2047,7 +2074,7 @@ test("explorer store creates a child under a writable shared root through the pa
 });
 
 test("explorer store moves an authenticated child container through the API and refreshes local state", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
@@ -2129,42 +2156,44 @@ test("explorer store moves an authenticated child container through the API and 
     }),
   ];
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.organizationId = "org-1";
-  runtime.signingFingerprint = signingFingerprint;
-  runtime.signingKeyPair = signingKeyPair;
-  runtime.userId = "user-1";
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    ...harness.apiClient,
-    listContainers: async () => listContainersResponse(remoteContainers),
-    moveContainer: async (containerId, request) => {
-      const response = await harness.apiClient.moveContainer(
-        containerId,
-        request,
-      );
-      if (response) {
-        remoteContainers = remoteContainers.map((container) =>
-          container.id === containerId
-            ? {
-                ...container,
-                metadataAccessEpoch: response.manifestHead.epoch,
-                metadataAccessStateHash: response.manifestHead.manifestHash,
-                metadataDocumentId: String(
-                  Reflect.get(
-                    response.accessManifest.state,
-                    "metadataDocumentId",
-                  ),
-                ),
-                parentId: response.parentId,
-              }
-            : container,
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      ...harness.apiClient,
+      listContainers: async () => listContainersResponse(remoteContainers),
+      moveContainer: async (containerId, request) => {
+        const response = await harness.apiClient.moveContainer(
+          containerId,
+          request,
         );
-      }
-      return response;
-    },
+        if (response) {
+          remoteContainers = remoteContainers.map((container) =>
+            container.id === containerId
+              ? {
+                  ...container,
+                  metadataAccessEpoch: response.manifestHead.epoch,
+                  metadataAccessStateHash: response.manifestHead.manifestHash,
+                  metadataDocumentId: String(
+                    Reflect.get(
+                      response.accessManifest.state,
+                      "metadataDocumentId",
+                    ),
+                  ),
+                  parentId: response.parentId,
+                }
+              : container,
+          );
+        }
+        return response;
+      },
+    }),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
+    organizationId: "org-1",
+    signingFingerprint,
+    signingKeyPair,
+    userId: "user-1",
   });
 
   try {
@@ -2214,7 +2243,7 @@ test("explorer store moves an authenticated child container through the API and 
 });
 
 test("explorer store shares an authenticated container without reseeding metadata envelopes", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const peerKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -2233,37 +2262,39 @@ test("explorer store shares an authenticated container without reseeding metadat
   let writerProjectionCallCount = 0;
   let syncCallCount = 0;
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.organizationId = "org-1";
-  runtime.signingFingerprint = signingFingerprint;
-  runtime.signingKeyPair = signingKeyPair;
-  runtime.userId = "user-1";
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    ...harness.apiClient,
-    getEncapsulationKey: async (requestedUserId: string) => {
-      if (requestedUserId !== "550e8400-e29b-41d4-a716-446655440000") {
-        return null;
-      }
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      ...harness.apiClient,
+      getEncapsulationKey: async (requestedUserId: string) => {
+        if (requestedUserId !== "550e8400-e29b-41d4-a716-446655440000") {
+          return null;
+        }
 
-      return {
-        encapsulationPublicKey: bytesToBase64(peerKeyPair.publicKey),
-        signingKeyFingerprint: signingFingerprint,
-        signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
-        userId: requestedUserId,
-      };
-    },
-    getDocumentWriterProjection: async () => {
-      writerProjectionCallCount += 1;
-      return null;
-    },
-    listContainers: async () => listContainersResponse(),
-    syncDocument: async () => {
-      syncCallCount += 1;
-      return null;
-    },
+        return {
+          encapsulationPublicKey: bytesToBase64(peerKeyPair.publicKey),
+          signingKeyFingerprint: signingFingerprint,
+          signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+          userId: requestedUserId,
+        };
+      },
+      getDocumentWriterProjection: async () => {
+        writerProjectionCallCount += 1;
+        return null;
+      },
+      listContainers: async () => listContainersResponse(),
+      syncDocument: async () => {
+        syncCallCount += 1;
+        return null;
+      },
+    }),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
+    organizationId: "org-1",
+    signingFingerprint,
+    signingKeyPair,
+    userId: "user-1",
   });
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
@@ -2370,15 +2401,16 @@ test("explorer store shares an authenticated container without reseeding metadat
     ]);
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
 }, 20_000);
 
 test("explorer store persists commitLsn and reuses it as minLsn on the next metadata sync", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const syncCalls: Array<{
     minLsn: string | null;
@@ -2393,17 +2425,19 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
     syncCalls,
   });
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.organizationId = fixture.organizationId;
-  runtime.signingFingerprint = fixture.signingFingerprint;
-  runtime.signingKeyPair = fixture.signingKeyPair;
-  runtime.userId = fixture.userId;
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    ...fixture.apiClient,
-    listContainers: async () => listContainersResponse(),
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      ...fixture.apiClient,
+      listContainers: async () => listContainersResponse(),
+    }),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
+    organizationId: fixture.organizationId,
+    signingFingerprint: fixture.signingFingerprint,
+    signingKeyPair: fixture.signingKeyPair,
+    userId: fixture.userId,
   });
 
   try {
@@ -2514,71 +2548,74 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
     ).toBeString();
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
 });
 
 test("explorer store refreshes remote containers on demand after initialization", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   let listContainersCalls = 0;
   const listContainersOptions: Array<{ parentId?: string | null }> = [];
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    listContainers: async (options = {}) => {
-      listContainersCalls += 1;
-      listContainersOptions.push(options);
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      listContainers: async (options = {}) => {
+        listContainersCalls += 1;
+        listContainersOptions.push(options);
 
-      if (listContainersCalls === 1) {
-        return listContainersResponse();
-      }
+        if (listContainersCalls === 1) {
+          return listContainersResponse();
+        }
 
-      if (options.parentId === null || options.parentId === undefined) {
-        return {
-          hasMore: false,
-          items: [
-            {
-              createdAt: "2026-05-05T00:00:00.000Z",
-              depth: 0,
+        if (options.parentId === null || options.parentId === undefined) {
+          return {
+            hasMore: false,
+            items: [
+              {
+                createdAt: "2026-05-05T00:00:00.000Z",
+                depth: 0,
+                id: "shared-root-container",
+                metadataAccessEpoch: 1,
+                metadataAccessStateHash: "shared-root-access-state-hash-1",
+                metadataDocumentId: "shared-root-metadata-document",
+                organizationId: "org-2",
+                parentId: null,
+                updatedAt: "2026-05-05T00:00:00.000Z",
+              },
+            ],
+            nextWatermark: {
               id: "shared-root-container",
-              metadataAccessEpoch: 1,
-              metadataAccessStateHash: "shared-root-access-state-hash-1",
-              metadataDocumentId: "shared-root-metadata-document",
-              organizationId: "org-2",
-              parentId: null,
               updatedAt: "2026-05-05T00:00:00.000Z",
             },
-          ],
-          nextWatermark: {
-            id: "shared-root-container",
-            updatedAt: "2026-05-05T00:00:00.000Z",
-          },
-          tombstones: [],
-        };
-      }
+            tombstones: [],
+          };
+        }
 
-      return listContainersResponse(
-        options.parentId === "shared-root-container"
-          ? [
-              listedContainer({
-                id: "shared-child-container",
-                metadataAccessEpoch: 1,
-                metadataAccessStateHash: "shared-child-access-state-hash-1",
-                metadataDocumentId: "shared-child-metadata-document",
-                organizationId: "org-2",
-                parentId: "shared-root-container",
-              }),
-            ]
-          : [],
-      );
-    },
+        return listContainersResponse(
+          options.parentId === "shared-root-container"
+            ? [
+                listedContainer({
+                  id: "shared-child-container",
+                  metadataAccessEpoch: 1,
+                  metadataAccessStateHash: "shared-child-access-state-hash-1",
+                  metadataDocumentId: "shared-child-metadata-document",
+                  organizationId: "org-2",
+                  parentId: "shared-root-container",
+                }),
+              ]
+            : [],
+        );
+      },
+    }),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
   });
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
@@ -2649,15 +2686,16 @@ test("explorer store refreshes remote containers on demand after initialization"
     });
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
 });
 
 test("explorer hydration repairs stale local timestamps for remote containers without pending metadata", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const remoteUpdatedAt = "2026-05-05T00:00:00.000Z";
   const staleLocalUpdatedAt = "2026-05-05T00:00:01.000Z";
   const listContainerIdsWithPendingUpdatesCalls: string[][] = [];
@@ -2731,48 +2769,51 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
     );
   }
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    listContainers: async (options = {}) =>
-      options.parentId === null || options.parentId === undefined
-        ? listContainersResponse([
-            listedContainer({
-              id: "shared-root-container",
-              metadataAccessEpoch: 1,
-              metadataAccessStateHash: "shared-root-access-state-hash-1",
-              metadataDocumentId: "shared-root-metadata-document",
-              organizationId: "org-2",
-              parentId: null,
-              updatedAt: remoteUpdatedAt,
-            }),
-          ])
-        : listContainersResponse(
-            options.parentId === "shared-root-container"
-              ? [
-                  listedContainer({
-                    id: "shared-child-container",
-                    metadataAccessEpoch: 1,
-                    metadataAccessStateHash: "shared-child-access-state-hash-1",
-                    metadataDocumentId: "shared-child-metadata-document",
-                    organizationId: "org-2",
-                    parentId: "shared-root-container",
-                    updatedAt: remoteUpdatedAt,
-                  }),
-                  listedContainer({
-                    id: "shared-child-container-b",
-                    metadataAccessEpoch: 1,
-                    metadataAccessStateHash:
-                      "shared-child-b-access-state-hash-1",
-                    metadataDocumentId: "shared-child-b-metadata-document",
-                    organizationId: "org-2",
-                    parentId: "shared-root-container",
-                    updatedAt: remoteUpdatedAt,
-                  }),
-                ]
-              : [],
-          ),
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      listContainers: async (options = {}) =>
+        options.parentId === null || options.parentId === undefined
+          ? listContainersResponse([
+              listedContainer({
+                id: "shared-root-container",
+                metadataAccessEpoch: 1,
+                metadataAccessStateHash: "shared-root-access-state-hash-1",
+                metadataDocumentId: "shared-root-metadata-document",
+                organizationId: "org-2",
+                parentId: null,
+                updatedAt: remoteUpdatedAt,
+              }),
+            ])
+          : listContainersResponse(
+              options.parentId === "shared-root-container"
+                ? [
+                    listedContainer({
+                      id: "shared-child-container",
+                      metadataAccessEpoch: 1,
+                      metadataAccessStateHash:
+                        "shared-child-access-state-hash-1",
+                      metadataDocumentId: "shared-child-metadata-document",
+                      organizationId: "org-2",
+                      parentId: "shared-root-container",
+                      updatedAt: remoteUpdatedAt,
+                    }),
+                    listedContainer({
+                      id: "shared-child-container-b",
+                      metadataAccessEpoch: 1,
+                      metadataAccessStateHash:
+                        "shared-child-b-access-state-hash-1",
+                      metadataDocumentId: "shared-child-b-metadata-document",
+                      organizationId: "org-2",
+                      parentId: "shared-root-container",
+                      updatedAt: remoteUpdatedAt,
+                    }),
+                  ]
+                : [],
+            ),
+    }),
+    isAuthenticated: true,
+    online: true,
   });
 
   try {
@@ -2859,35 +2900,38 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
     ]);
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
 });
 
 test("explorer hydration reconciles a restored local-only root into the authenticated remote root", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.organizationId = "org-remote";
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    listContainers: async (options = {}) =>
-      options.parentId === null || options.parentId === undefined
-        ? listContainersResponse([
-            listedContainer({
-              id: "remote-root",
-              metadataAccessEpoch: 1,
-              metadataAccessStateHash: "remote-root-access-state-hash-1",
-              metadataDocumentId: "remote-root-metadata-document",
-              organizationId: "org-remote",
-              parentId: null,
-            }),
-          ])
-        : listContainersResponse(),
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      listContainers: async (options = {}) =>
+        options.parentId === null || options.parentId === undefined
+          ? listContainersResponse([
+              listedContainer({
+                id: "remote-root",
+                metadataAccessEpoch: 1,
+                metadataAccessStateHash: "remote-root-access-state-hash-1",
+                metadataDocumentId: "remote-root-metadata-document",
+                organizationId: "org-remote",
+                parentId: null,
+              }),
+            ])
+          : listContainersResponse(),
+    }),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
+    organizationId: "org-remote",
   });
 
   await ensureContainerTables(runtime.execSql);
@@ -2978,69 +3022,72 @@ test("explorer hydration reconciles a restored local-only root into the authenti
     });
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
 });
 
 test("explorer sync hydrates container parent lanes concurrently", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   let activeListContainerCalls = 0;
   let maxActiveListContainerCalls = 0;
   const requestedParentIds: Array<string | null | undefined> = [];
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    listContainers: async (options = {}) => {
-      requestedParentIds.push(options.parentId);
-      activeListContainerCalls += 1;
-      maxActiveListContainerCalls = Math.max(
-        maxActiveListContainerCalls,
-        activeListContainerCalls,
-      );
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      listContainers: async (options = {}) => {
+        requestedParentIds.push(options.parentId);
+        activeListContainerCalls += 1;
+        maxActiveListContainerCalls = Math.max(
+          maxActiveListContainerCalls,
+          activeListContainerCalls,
+        );
 
-      try {
-        await new Promise((resolve) => {
-          setTimeout(
-            resolve,
-            options.parentId === "parent-a" || options.parentId === "parent-b"
-              ? 50
-              : 0,
-          );
-        });
+        try {
+          await new Promise((resolve) => {
+            setTimeout(
+              resolve,
+              options.parentId === "parent-a" || options.parentId === "parent-b"
+                ? 50
+                : 0,
+            );
+          });
 
-        if (options.parentId === null || options.parentId === undefined) {
-          return listContainersResponse([
-            listedContainer({
-              id: "parent-a",
-              metadataAccessEpoch: 1,
-              metadataAccessStateHash: "parent-a-access-state-hash-1",
-              metadataDocumentId: "parent-a-metadata-document",
-              organizationId: "org-1",
-              parentId: null,
-            }),
-            listedContainer({
-              id: "parent-b",
-              metadataAccessEpoch: 1,
-              metadataAccessStateHash: "parent-b-access-state-hash-1",
-              metadataDocumentId: "parent-b-metadata-document",
-              organizationId: "org-1",
-              parentId: null,
-            }),
-          ]);
+          if (options.parentId === null || options.parentId === undefined) {
+            return listContainersResponse([
+              listedContainer({
+                id: "parent-a",
+                metadataAccessEpoch: 1,
+                metadataAccessStateHash: "parent-a-access-state-hash-1",
+                metadataDocumentId: "parent-a-metadata-document",
+                organizationId: "org-1",
+                parentId: null,
+              }),
+              listedContainer({
+                id: "parent-b",
+                metadataAccessEpoch: 1,
+                metadataAccessStateHash: "parent-b-access-state-hash-1",
+                metadataDocumentId: "parent-b-metadata-document",
+                organizationId: "org-1",
+                parentId: null,
+              }),
+            ]);
+          }
+
+          return listContainersResponse();
+        } finally {
+          activeListContainerCalls -= 1;
         }
-
-        return listContainersResponse();
-      } finally {
-        activeListContainerCalls -= 1;
-      }
-    },
+      },
+    }),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
   });
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
@@ -3064,84 +3111,87 @@ test("explorer sync hydrates container parent lanes concurrently", async () => {
     expect(maxActiveListContainerCalls).toBeGreaterThan(1);
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
 });
 
 test("explorer sync retries failed parent lane batches without advancing their watermarks", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   let parentAFetchCount = 0;
   let parentBFetchCount = 0;
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    listContainers: async (options = {}) => {
-      await Promise.resolve();
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      listContainers: async (options = {}) => {
+        await Promise.resolve();
 
-      if (options.parentId === null || options.parentId === undefined) {
-        return options.watermark
-          ? listContainersResponse()
-          : listContainersResponse([
-              listedContainer({
-                id: "parent-a",
-                metadataAccessEpoch: 1,
-                metadataAccessStateHash: "parent-a-access-state-hash-1",
-                metadataDocumentId: "parent-a-metadata-document",
-                organizationId: "org-1",
-                parentId: null,
-              }),
-              listedContainer({
-                id: "parent-b",
-                metadataAccessEpoch: 1,
-                metadataAccessStateHash: "parent-b-access-state-hash-1",
-                metadataDocumentId: "parent-b-metadata-document",
-                organizationId: "org-1",
-                parentId: null,
-              }),
-            ]);
-      }
-
-      if (options.parentId === "parent-a") {
-        parentAFetchCount += 1;
-        if (parentAFetchCount === 1) {
-          return null;
+        if (options.parentId === null || options.parentId === undefined) {
+          return options.watermark
+            ? listContainersResponse()
+            : listContainersResponse([
+                listedContainer({
+                  id: "parent-a",
+                  metadataAccessEpoch: 1,
+                  metadataAccessStateHash: "parent-a-access-state-hash-1",
+                  metadataDocumentId: "parent-a-metadata-document",
+                  organizationId: "org-1",
+                  parentId: null,
+                }),
+                listedContainer({
+                  id: "parent-b",
+                  metadataAccessEpoch: 1,
+                  metadataAccessStateHash: "parent-b-access-state-hash-1",
+                  metadataDocumentId: "parent-b-metadata-document",
+                  organizationId: "org-1",
+                  parentId: null,
+                }),
+              ]);
         }
 
-        return listContainersResponse([
-          listedContainer({
-            id: "child-a",
-            metadataAccessEpoch: 1,
-            metadataAccessStateHash: "child-a-access-state-hash-1",
-            metadataDocumentId: "child-a-metadata-document",
-            organizationId: "org-1",
-            parentId: "parent-a",
-          }),
-        ]);
-      }
+        if (options.parentId === "parent-a") {
+          parentAFetchCount += 1;
+          if (parentAFetchCount === 1) {
+            return null;
+          }
 
-      if (options.parentId === "parent-b") {
-        parentBFetchCount += 1;
-        return listContainersResponse([
-          listedContainer({
-            id: "child-b",
-            metadataAccessEpoch: 1,
-            metadataAccessStateHash: "child-b-access-state-hash-1",
-            metadataDocumentId: "child-b-metadata-document",
-            organizationId: "org-1",
-            parentId: "parent-b",
-          }),
-        ]);
-      }
+          return listContainersResponse([
+            listedContainer({
+              id: "child-a",
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "child-a-access-state-hash-1",
+              metadataDocumentId: "child-a-metadata-document",
+              organizationId: "org-1",
+              parentId: "parent-a",
+            }),
+          ]);
+        }
 
-      return listContainersResponse();
-    },
+        if (options.parentId === "parent-b") {
+          parentBFetchCount += 1;
+          return listContainersResponse([
+            listedContainer({
+              id: "child-b",
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "child-b-access-state-hash-1",
+              metadataDocumentId: "child-b-metadata-document",
+              organizationId: "org-1",
+              parentId: "parent-b",
+            }),
+          ]);
+        }
+
+        return listContainersResponse();
+      },
+    }),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
   });
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
@@ -3208,58 +3258,61 @@ test("explorer sync retries failed parent lane batches without advancing their w
     });
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
 });
 
 test("explorer sync applies container tombstones before advancing the parent watermark", async () => {
-  const runtime = await createSqlRuntime();
+  let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
 
-  runtime.isAuthenticated = true;
-  runtime.online = true;
-  runtime.encapsulationKeyPair = localKeyPair;
-  runtime.apiClient = createMockApiClient({
-    ...runtime.apiClient,
-    listContainers: async (options = {}) => {
-      if (options.parentId === "child-container") {
-        return listContainersResponse([
-          listedContainer({
-            id: "grandchild-container",
-            metadataAccessEpoch: 1,
-            metadataAccessStateHash: "grandchild-access-state-hash-1",
-            metadataDocumentId: "grandchild-metadata-document",
-            organizationId: "org-1",
-            parentId: "child-container",
-          }),
-        ]);
-      }
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      listContainers: async (options = {}) => {
+        if (options.parentId === "child-container") {
+          return listContainersResponse([
+            listedContainer({
+              id: "grandchild-container",
+              metadataAccessEpoch: 1,
+              metadataAccessStateHash: "grandchild-access-state-hash-1",
+              metadataDocumentId: "grandchild-metadata-document",
+              organizationId: "org-1",
+              parentId: "child-container",
+            }),
+          ]);
+        }
 
-      if (options.parentId === "root-container") {
-        return {
-          hasMore: false,
-          items: [],
-          nextWatermark: {
-            id: "child-container",
-            updatedAt: "2026-05-05T00:00:02.000Z",
-          },
-          tombstones: [
-            {
-              containerId: "child-container",
-              depth: 1,
-              parentId: "root-container",
-              reason: "access_revoked",
+        if (options.parentId === "root-container") {
+          return {
+            hasMore: false,
+            items: [],
+            nextWatermark: {
+              id: "child-container",
               updatedAt: "2026-05-05T00:00:02.000Z",
             },
-          ],
-        };
-      }
+            tombstones: [
+              {
+                containerId: "child-container",
+                depth: 1,
+                parentId: "root-container",
+                reason: "access_revoked",
+                updatedAt: "2026-05-05T00:00:02.000Z",
+              },
+            ],
+          };
+        }
 
-      return listContainersResponse();
-    },
+        return listContainersResponse();
+      },
+    }),
+    encapsulationKeyPair: localKeyPair,
+    isAuthenticated: true,
+    online: true,
   });
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
@@ -3415,8 +3468,9 @@ test("explorer sync applies container tombstones before advancing the parent wat
     expect(repairedDocument?.containerId).toBe("archive-container");
   } finally {
     if (store) {
-      runtime.dbStatus = "terminated";
-      store.updateRuntime(runtime);
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
     }
     runtime.close();
   }
