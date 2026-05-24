@@ -2,7 +2,7 @@ import type { TearleadsContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { hasUndiscoveredDocumentUpdateEvent } from "@tearleads/client-sdk/workflows/container-contents";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { AppDataContextValue } from "../../providers/data/AppDataProvider";
+import type { TearleadsRuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
   createExplorerDocumentsRuntime,
@@ -12,7 +12,7 @@ import {
 } from "./documentRuntime";
 
 type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput &
-  Pick<AppDataContextValue, "events">;
+  Pick<TearleadsRuntimeSnapshot, "events">;
 
 type DiscoveryPromise = Promise<ReadonlyArray<DocumentSummary> | null>;
 

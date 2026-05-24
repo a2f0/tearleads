@@ -11,13 +11,15 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { useAppData } from "../../providers/data/AppDataProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 
 const ExplorerContext = createContext<ContainerContentsStore | null>(null);
 
 export function ExplorerProvider({ children }: PropsWithChildren) {
-  const appData = useAppData();
+  const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
   const runtime = useMemo(
     () => tearleads.containerContents.runtime(),

@@ -1,6 +1,6 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { useAppData } from "../../../providers/data/AppDataProvider";
+import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import {
@@ -9,7 +9,7 @@ import {
 } from "../../../stores/explorer/documentSummaryUtils";
 
 export function useDocumentLinkedContainerIdsByDocumentId(params: {
-  dbStatus: ReturnType<typeof useAppData>["dbStatus"];
+  dbStatus: TearleadsRuntimeSnapshot["dbStatus"];
   documentReadModel: ExplorerDocumentReadModel;
   documentLinkProjectionVersion: number;
   documentSummaries: ReadonlyArray<DocumentSummary>;

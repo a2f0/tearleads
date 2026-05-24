@@ -1,10 +1,10 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
-import type { useAppData } from "../../../providers/data/AppDataProvider";
+import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { MoveTargetOption } from "../targetOptions";
 
 export function getSelectedDocumentMutationState(params: {
   appData: Pick<
-    ReturnType<typeof useAppData>,
+    TearleadsRuntimeSnapshot,
     "dbStatus" | "isAuthenticated" | "online"
   >;
   selectedDocument: DocumentSummary | undefined;

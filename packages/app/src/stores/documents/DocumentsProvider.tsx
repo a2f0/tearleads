@@ -17,8 +17,10 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { useAppData } from "../../providers/data/AppDataProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 
 export type {
   DocumentAttachmentStatus,
@@ -49,7 +51,7 @@ export function DocumentsProvider({
   initialDocumentKind = DEFAULT_DOCUMENT_KIND,
   initialText = "",
 }: DocumentsProviderProps) {
-  const appData = useAppData();
+  const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
   const runtime = useMemo<DocumentsRuntime>(
     () =>

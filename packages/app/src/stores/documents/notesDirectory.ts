@@ -4,8 +4,10 @@ import {
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk/documents";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAppData } from "../../providers/data/AppDataProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import {
   DEFAULT_DOCUMENT_ID,
   subscribeToPersistedDocuments,
@@ -43,7 +45,7 @@ function mergeNoteSummary(
 }
 
 export function usePersistedNotesDirectory(explicitNoteId: string | null) {
-  const appData = useAppData();
+  const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
   const [notes, setNotes] = useState<ReadonlyArray<DocumentSummary>>([]);
   const [ready, setReady] = useState(false);

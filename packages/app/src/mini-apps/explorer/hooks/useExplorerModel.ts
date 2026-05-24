@@ -1,6 +1,6 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { type ReactNode, useMemo } from "react";
-import type { useAppData } from "../../../providers/data/AppDataProvider";
+import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import {
   type ExplorerDocumentReadModel,
   useExplorerDocumentReadModel,
@@ -49,7 +49,7 @@ interface ExplorerModel {
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The model hook aggregates Explorer route, document, modal, and refresh state for the view.
 export function useExplorerModel(
-  appData: ReturnType<typeof useAppData>,
+  appData: TearleadsRuntimeSnapshot,
   explorer: ExplorerModelExplorer,
   setSidebar: (sidebar: ReactNode | null) => void,
   peerUserId: string | null,

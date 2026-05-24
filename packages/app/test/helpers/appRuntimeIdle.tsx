@@ -4,7 +4,7 @@ import {
   waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk/workflows/sync";
 import { useEffect } from "react";
-import { useAppData } from "../../src/providers/data/AppDataProvider";
+import { useTearleadsRuntime } from "../../src/providers/sdk/TearleadsProvider";
 import { getProxiedApiNetworkActivitySnapshot } from "./mswServer";
 
 interface AppTestRuntimeSettleOptions {
@@ -100,7 +100,7 @@ async function waitForAppTestRuntimeFinalDrain(input: {
 }
 
 export function AppTestRuntimeScopeProbe() {
-  const { domainScope } = useAppData();
+  const { domainScope } = useTearleadsRuntime();
 
   useEffect(() => {
     activeDomainScopeMountCounts.set(
