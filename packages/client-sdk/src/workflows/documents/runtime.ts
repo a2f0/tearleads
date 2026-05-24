@@ -19,6 +19,8 @@ import {
 import { resolveDocumentCreateAuthor } from "./author";
 import { createRemoteDocumentFromRuntime } from "./create";
 import {
+  type DocumentsPersistence,
+  defaultDocumentsPersistence,
   deleteLocalDocumentAttachmentFromRuntime,
   deletePendingDocumentAttachmentFromRuntime,
   deletePersistedDocumentFromRuntime,
@@ -81,9 +83,11 @@ type DeleteLocalDocumentAttachmentInput = Omit<
   "runtime"
 >;
 type DeletePersistedDocumentInput = Omit<
-  Parameters<typeof deletePersistedDocumentFromRuntime>[0],
-  "runtime"
->;
+  Omit<Parameters<typeof deletePersistedDocumentFromRuntime>[0], "runtime">,
+  "persistence"
+> & {
+  persistence?: DocumentsPersistence | undefined;
+};
 type EnqueuePendingDocumentUpdateInput = Omit<
   Parameters<typeof enqueuePendingDocumentUpdateFromRuntime>[0],
   "runtime"
@@ -272,9 +276,13 @@ function createDocumentsPersistenceRuntimeActions(
         runtime: input,
       });
     },
-    deleteDocument(deleteInput) {
+    deleteDocument({
+      persistence = defaultDocumentsPersistence,
+      ...deleteInput
+    }) {
       return deletePersistedDocumentFromRuntime({
         ...deleteInput,
+        persistence,
         runtime: input,
       });
     },

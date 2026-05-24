@@ -73,6 +73,14 @@ export interface TearleadsDocumentInfoInput {
  */
 export interface TearleadsContainerContents {
   /**
+   * Create the default local document read model for container contents.
+   *
+   * The model is bound to the current SDK runtime snapshot, including the
+   * active SQLite executor. Recreate it when the SDK runtime version changes.
+   */
+  documentReadModel(): ContainerDocumentReadModel;
+
+  /**
    * Discover remote documents linked to one container.
    *
    * The method pages the remote container-document lane, writes discovered
@@ -141,6 +149,10 @@ export function createTearleadsContainerContents(
 
 class TearleadsContainerContentsService implements TearleadsContainerContents {
   constructor(private readonly runtimeService: TearleadsInternalRuntime) {}
+
+  documentReadModel(): ContainerDocumentReadModel {
+    return createContainerDocumentReadModelFromRuntime(this.runtime());
+  }
 
   discoverDocuments(
     containerId: string,

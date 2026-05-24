@@ -12,7 +12,10 @@ export {
   type TearleadsDatabaseSnapshot,
   type TearleadsDatabaseStatus,
 } from "./database";
-export type { TearleadsDocuments } from "./documents";
+export type {
+  TearleadsDocuments,
+  TearleadsListLocalDocumentSummariesInput,
+} from "./documents";
 export {
   TearleadsEvents,
   type TearleadsEventsListener,
