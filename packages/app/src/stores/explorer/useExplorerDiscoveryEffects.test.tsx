@@ -4,7 +4,6 @@ import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
-import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import { useDiscoveredDocumentsSync } from "./useDiscoveredDocumentsSync";
 import { useExplorerRefreshAction } from "./useExplorerRefreshAction";
 
@@ -38,22 +37,13 @@ function createEmptyListContainerDocumentsResponse(): ListContainerDocumentsResp
   };
 }
 
-function createDocumentReadModel(): ExplorerDocumentReadModel {
+function createDocumentSummary(id: string): DocumentSummary {
   return {
-    applyContainerDocumentTombstones: async () => [],
-    listContainerDocumentSidebarWindow: async () => ({
-      rows: [],
-      totalCount: 0,
-    }),
-    listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
-    loadDocumentSyncState: async () => null,
-    loadDocumentSummary: async () => null,
-    loadContainerDocumentWatermark: async () => null,
-    listLinkedContainerIdsByDocumentIds: async () => new Map(),
-    replaceDocumentLinks: async () => undefined,
-    replaceDocumentLinksBatch: async () => undefined,
-    saveContainerDocumentWatermark: async () => undefined,
-    upsertDiscoveredDocuments: async () => [],
+    containerId: "container-1",
+    documentId: `${id}-remote`,
+    id,
+    title: "Discovered document",
+    updatedAt: "2026-05-24T00:00:00.000Z",
   };
 }
 
@@ -63,9 +53,9 @@ afterEach(() => {
 
 test("container document discovery reuses an in-flight run for repeated effect triggers", async () => {
   const listedDocuments = createDeferred<ListContainerDocumentsResponse>();
+  const applyOrder: string[] = [];
   let listContainerDocumentsCallCount = 0;
-  let replaceDocumentLinksCallCount = 0;
-  const documentReadModel = createDocumentReadModel();
+  let documentLinksChangedCallCount = 0;
   const baseAppData = {
     blobStore: {},
     cacheReferencedPrincipalPolicies: async () => undefined,
@@ -86,17 +76,14 @@ test("container document discovery reuses an in-flight run for repeated effect t
   } as unknown as UseDiscoveredDocumentsSyncParams["appData"];
   const mergeDocumentSummaries = (
     _nextDocuments: ReadonlyArray<DocumentSummary>,
-  ) => undefined;
-  const applyContainerDocumentTombstones = async () => [];
-  const replaceDocumentLinksBatch = async () => {
-    replaceDocumentLinksCallCount += 1;
+  ) => {
+    applyOrder.push("merge");
   };
   const discoverDocuments: TearleadsContainerContents["discoverDocuments"] =
-    async (input) => {
+    async () => {
       listContainerDocumentsCallCount += 1;
       await listedDocuments.promise;
-      await input.replaceDocumentLinksBatch([]);
-      return [];
+      return [createDocumentSummary("document-1")];
     };
   const remoteUpdateEvents = [
     {
@@ -118,13 +105,16 @@ test("container document discovery reuses an in-flight run for repeated effect t
           ...baseAppData,
           events,
         },
-        applyContainerDocumentTombstones,
         discoverDocuments,
-        documentReadModel,
         knownDocumentIds: new Set(),
         mergeDocumentSummaries,
-        primeDiscoveredDocuments: () => undefined,
-        replaceDocumentLinksBatch,
+        onDocumentLinksChanged: () => {
+          documentLinksChangedCallCount += 1;
+          applyOrder.push("links");
+        },
+        primeDiscoveredDocuments: () => {
+          applyOrder.push("prime");
+        },
       }),
     {
       initialProps: {
@@ -144,8 +134,9 @@ test("container document discovery reuses an in-flight run for repeated effect t
   listedDocuments.resolve(createEmptyListContainerDocumentsResponse());
 
   await waitFor(() => {
-    expect(replaceDocumentLinksCallCount).toBe(1);
+    expect(documentLinksChangedCallCount).toBe(1);
   });
+  expect(applyOrder).toEqual(["merge", "links", "prime"]);
 });
 
 test("container document discovery starts a new run when discovery dependencies change", async () => {
@@ -154,8 +145,7 @@ test("container document discovery starts a new run when discovery dependencies 
     createDeferred<ListContainerDocumentsResponse>();
   let firstListContainerDocumentsCallCount = 0;
   let secondListContainerDocumentsCallCount = 0;
-  let replaceDocumentLinksCallCount = 0;
-  const documentReadModel = createDocumentReadModel();
+  let documentLinksChangedCallCount = 0;
   const baseAppData = {
     blobStore: {},
     cacheReferencedPrincipalPolicies: async () => undefined,
@@ -177,18 +167,13 @@ test("container document discovery starts a new run when discovery dependencies 
   const mergeDocumentSummaries = (
     _nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => undefined;
-  const applyContainerDocumentTombstones = async () => [];
-  const replaceDocumentLinksBatch = async () => {
-    replaceDocumentLinksCallCount += 1;
-  };
   const createDiscoverDocuments =
     (
       listContainerDocuments: () => Promise<ListContainerDocumentsResponse>,
     ): TearleadsContainerContents["discoverDocuments"] =>
-    async (input) => {
+    async () => {
       await listContainerDocuments();
-      await input.replaceDocumentLinksBatch([]);
-      return [];
+      return [createDocumentSummary("document-1")];
     };
 
   const view = renderHook(
@@ -202,13 +187,13 @@ test("container document discovery starts a new run when discovery dependencies 
       useDiscoveredDocumentsSync({
         activeContainerId: "container-1",
         appData,
-        applyContainerDocumentTombstones,
         discoverDocuments,
-        documentReadModel,
         knownDocumentIds: new Set(),
         mergeDocumentSummaries,
+        onDocumentLinksChanged: () => {
+          documentLinksChangedCallCount += 1;
+        },
         primeDiscoveredDocuments: () => undefined,
-        replaceDocumentLinksBatch,
       }),
     {
       initialProps: {
@@ -247,21 +232,28 @@ test("container document discovery starts a new run when discovery dependencies 
   secondListedDocuments.resolve(createEmptyListContainerDocumentsResponse());
 
   await waitFor(() => {
-    expect(replaceDocumentLinksCallCount).toBe(2);
+    expect(documentLinksChangedCallCount).toBe(1);
   });
 });
 
 test("manual explorer refresh reuses an in-flight refresh", async () => {
   const refreshed = createDeferred<boolean>();
+  let documentLinksChangedCallCount = 0;
+  let mergeDocumentSummariesCallCount = 0;
+  let primeDiscoveredDocumentsCallCount = 0;
   let refreshCallCount = 0;
   let refreshDocumentsCallCount = 0;
-  const documentReadModel = createDocumentReadModel();
   const view = renderHook(() =>
     useExplorerRefreshAction({
-      applyContainerDocumentTombstones: async () => [],
-      documentReadModel,
-      mergeDocumentSummaries: () => undefined,
-      primeDiscoveredDocuments: () => undefined,
+      mergeDocumentSummaries: () => {
+        mergeDocumentSummariesCallCount += 1;
+      },
+      onDocumentLinksChanged: () => {
+        documentLinksChangedCallCount += 1;
+      },
+      primeDiscoveredDocuments: () => {
+        primeDiscoveredDocumentsCallCount += 1;
+      },
       refresh: () => {
         refreshCallCount += 1;
         return refreshed.promise;
@@ -270,7 +262,6 @@ test("manual explorer refresh reuses an in-flight refresh", async () => {
         refreshDocumentsCallCount += 1;
         return [];
       },
-      replaceDocumentLinksBatch: async () => undefined,
     }),
   );
 
@@ -291,6 +282,9 @@ test("manual explorer refresh reuses an in-flight refresh", async () => {
 
   await expect(firstRefresh).resolves.toBe(true);
   expect(refreshDocumentsCallCount).toBe(1);
+  expect(mergeDocumentSummariesCallCount).toBe(0);
+  expect(documentLinksChangedCallCount).toBe(0);
+  expect(primeDiscoveredDocumentsCallCount).toBe(0);
   await waitFor(() => {
     expect(view.result.current.isRefreshing).toBe(false);
   });

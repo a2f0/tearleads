@@ -1,40 +1,23 @@
 import type { TearleadsContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useRef, useState } from "react";
-import type {
-  ExplorerContainerDocumentTombstone,
-  ExplorerDocumentLinkInput,
-  ExplorerDocumentReadModel,
-} from "./documentReadModel";
 import { isDestroyedDatabaseWorkerError } from "./documentRuntime";
 
-type ReplaceDocumentLinksBatch = (
-  inputs: ReadonlyArray<ExplorerDocumentLinkInput>,
-) => Promise<void>;
-
-type ApplyContainerDocumentTombstones = (
-  tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>,
-) => Promise<ReadonlyArray<DocumentSummary>>;
-
 export function useExplorerRefreshAction(params: {
-  applyContainerDocumentTombstones: ApplyContainerDocumentTombstones;
-  documentReadModel: ExplorerDocumentReadModel;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
+  onDocumentLinksChanged: () => void;
   primeDiscoveredDocuments: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
-  replaceDocumentLinksBatch: ReplaceDocumentLinksBatch;
   refresh: () => Promise<boolean>;
   refreshDocuments: TearleadsContainerContents["refreshDocuments"];
 }) {
   const {
-    applyContainerDocumentTombstones,
-    documentReadModel,
     mergeDocumentSummaries,
+    onDocumentLinksChanged,
     primeDiscoveredDocuments,
-    replaceDocumentLinksBatch,
     refresh,
     refreshDocuments,
   } = params;
@@ -57,26 +40,17 @@ export function useExplorerRefreshAction(params: {
         return false;
       }
 
-      const discoveredDocumentSummaries = await refreshDocuments({
-        applyContainerDocumentTombstones,
-        loadContainerDocumentWatermark: (containerId) =>
-          documentReadModel.loadContainerDocumentWatermark(containerId),
-        replaceDocumentLinksBatch,
-        saveContainerDocumentWatermark: (containerId, watermark) =>
-          documentReadModel.saveContainerDocumentWatermark(
-            containerId,
-            watermark,
-          ),
-        upsertDiscoveredDocuments: (inputs) =>
-          documentReadModel.upsertDiscoveredDocuments(inputs),
-      });
+      const discoveredDocumentSummaries = await refreshDocuments();
       if (!discoveredDocumentSummaries) {
         setRefreshError("Failed to refresh documents.");
         return false;
       }
 
-      mergeDocumentSummaries(discoveredDocumentSummaries);
-      primeDiscoveredDocuments(discoveredDocumentSummaries);
+      if (discoveredDocumentSummaries.length > 0) {
+        mergeDocumentSummaries(discoveredDocumentSummaries);
+        onDocumentLinksChanged();
+        primeDiscoveredDocuments(discoveredDocumentSummaries);
+      }
       return true;
     })()
       .catch((error: unknown) => {
@@ -96,11 +70,9 @@ export function useExplorerRefreshAction(params: {
     refreshPromiseRef.current = refreshPromise;
     return refreshPromise;
   }, [
-    applyContainerDocumentTombstones,
-    documentReadModel,
     mergeDocumentSummaries,
+    onDocumentLinksChanged,
     primeDiscoveredDocuments,
-    replaceDocumentLinksBatch,
     refresh,
     refreshDocuments,
   ]);

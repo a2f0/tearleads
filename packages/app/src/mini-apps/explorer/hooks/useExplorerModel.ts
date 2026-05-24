@@ -81,7 +81,6 @@ export function useExplorerModel(
     useExplorerInteractionState({
       activeContainerId: selection.activeContainerId,
       appData,
-      documentReadModel,
       explorer,
       knownDocumentIds,
       mergeDocumentSummaries,
