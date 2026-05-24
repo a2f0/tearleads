@@ -18,10 +18,7 @@ import type {
   PendingUpdateRecord,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import {
-  type ContainerContentsWorkflowSqlRuntime,
-  getContainerContentsWorkflowRuntimeExecSql,
-} from "./runtime";
+import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 export type {
   ContainerContentsPersistence,
@@ -133,7 +130,7 @@ export function enqueuePendingContainerUpdateFromRuntime(input: {
   sourceVersionVector?: string | null | undefined;
   update: Uint8Array;
 }): Promise<void> {
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(input.runtime);
+  const execSql = input.runtime.execSql;
   return enqueuePendingContainerUpdate(execSql, input.persistence, {
     containerId: input.containerId,
     sourceVersionVector: input.sourceVersionVector,

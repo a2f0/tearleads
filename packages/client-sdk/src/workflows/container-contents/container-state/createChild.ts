@@ -8,7 +8,6 @@ import {
   saveContainer,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
-import { getContainerContentsWorkflowRuntimeExecSql } from "../runtime";
 import { createRemoteContainer } from "./remote";
 import type {
   ContainerMetadataDocumentState,
@@ -154,7 +153,7 @@ export async function createChildContainerState(input: {
     !containerState.record.documentId && containerState.container.parentId
       ? { parentContainerId: containerState.container.parentId }
       : undefined;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(runtime);
+  const execSql = runtime.execSql;
 
   containerState.container = await saveContainer(
     execSql,

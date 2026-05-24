@@ -3,7 +3,6 @@ import {
   deleteSingleContainer,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
-import { getContainerContentsWorkflowRuntimeExecSql } from "../runtime";
 import { deleteRemoteContainer } from "./remote";
 import type { ContainerWorkflowRuntime } from "./types";
 
@@ -23,7 +22,7 @@ export async function deleteContainerState(input: {
       return false;
     }
   }
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(input.runtime);
+  const execSql = input.runtime.execSql;
 
   await deleteSingleContainer(
     execSql,

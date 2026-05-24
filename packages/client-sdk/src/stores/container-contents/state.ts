@@ -1,4 +1,9 @@
-import type { ContainerContentsPersistence } from "../../workflows/container-contents";
+import {
+  type ContainerContentsPersistence,
+  createContainerContentsProjectionUserKeyResolver,
+  didContainerContentsProjectionKeyRuntimeChange,
+  didRegainContainerContentsSyncPrerequisites,
+} from "../../workflows/container-contents";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,
@@ -61,7 +66,8 @@ export function createContainerContentsStoreState(
     logLabel,
     persistence,
     remoteHydrationPromise: null,
-    resolveProjectionUserKey: initialRuntime.createProjectionUserKeyResolver(),
+    resolveProjectionUserKey:
+      createContainerContentsProjectionUserKeyResolver(initialRuntime),
     runtime: initialRuntime,
     snapshot: {
       nodes: [],
@@ -128,9 +134,11 @@ export function updateContainerContentsStoreRuntime(
   syncAgent: ContainerContentsStoreSyncAgent,
 ) {
   const previousRuntime = state.runtime;
-  if (nextRuntime.didProjectionKeyRuntimeChange(previousRuntime)) {
+  if (
+    didContainerContentsProjectionKeyRuntimeChange(previousRuntime, nextRuntime)
+  ) {
     state.resolveProjectionUserKey =
-      nextRuntime.createProjectionUserKeyResolver();
+      createContainerContentsProjectionUserKeyResolver(nextRuntime);
   }
   state.runtime = nextRuntime;
 
@@ -153,7 +161,7 @@ export function updateContainerContentsStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    nextRuntime.didRegainSyncPrerequisites(previousRuntime)
+    didRegainContainerContentsSyncPrerequisites(previousRuntime, nextRuntime)
   ) {
     syncAgent.scheduleRemoteHydration();
   }

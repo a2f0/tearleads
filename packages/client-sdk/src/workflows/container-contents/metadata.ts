@@ -29,10 +29,7 @@ import {
   enqueuePendingContainerUpdate,
   listPendingContainerUpdates,
 } from "./containerPersistence";
-import {
-  type ContainerContentsWorkflowSqlRuntime,
-  getContainerContentsWorkflowRuntimeExecSql,
-} from "./runtime";
+import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 type ContainerMetadataSyncApi = Parameters<
   typeof syncRemoteDocument
@@ -293,7 +290,7 @@ export async function persistContainerMetadataStateFromRuntime({
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
 }): ReturnType<typeof persistContainerMetadataState> {
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(runtime);
+  const execSql = runtime.execSql;
   return persistContainerMetadataState({
     ...input,
     execSql,
@@ -343,7 +340,7 @@ export async function renameContainerMetadataStateFromRuntime({
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
 }): ReturnType<typeof renameContainerMetadataState> {
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(runtime);
+  const execSql = runtime.execSql;
   return renameContainerMetadataState({
     ...input,
     execSql,
@@ -370,7 +367,7 @@ async function syncRemoteContainerMetadata(input: {
     runtime,
     targetSecretKey,
   } = input;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(runtime);
+  const execSql = runtime.execSql;
 
   if (!documentId) {
     return null;
@@ -438,7 +435,7 @@ export async function syncContainerMetadataState(input: {
   if (!documentId) {
     return null;
   }
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(runtime);
+  const execSql = runtime.execSql;
 
   const pendingUpdates = await listPendingContainerUpdates(
     execSql,

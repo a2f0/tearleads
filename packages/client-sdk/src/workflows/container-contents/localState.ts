@@ -17,10 +17,7 @@ import {
   saveContainer,
 } from "./containerPersistence";
 import type { ContainerState } from "./remoteHydration";
-import {
-  type ContainerContentsWorkflowSqlRuntime,
-  getContainerContentsWorkflowRuntimeExecSql,
-} from "./runtime";
+import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 type LocalContainerStateRuntime = ContainerContentsWorkflowSqlRuntime;
 type SaveContainerOptions = Parameters<typeof saveContainer>[4];
@@ -120,7 +117,7 @@ export async function loadLocalContainerStates(input: {
   runtime: LocalContainerStateRuntime;
 }): Promise<ReadonlyArray<ContainerState>> {
   const { persistence, runtime } = input;
-  const execSql = getContainerContentsWorkflowRuntimeExecSql(runtime);
+  const execSql = runtime.execSql;
   await initializeContainerContentsSchema(execSql, persistence);
   const storedContainers = await loadStoredContainerStates(
     execSql,

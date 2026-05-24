@@ -13,10 +13,9 @@ import {
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 const execSql: ExecSql = async () => [];
-const runtime = createContainerContentsWorkflowSqlRuntime({ execSql });
+const runtime = { execSql };
 
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]

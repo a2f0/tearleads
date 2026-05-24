@@ -9,17 +9,36 @@ export type ContainerContentsProjectionKeyRuntime = Parameters<
   typeof createProjectionUserKeyResolver
 >[0];
 
+function containerContentsProjectionRuntime(
+  runtime: ContainerContentsProjectionKeyRuntime,
+): ContainerContentsProjectionKeyRuntime {
+  const projectionRuntime: ContainerContentsProjectionKeyRuntime = {
+    apiClient: runtime.apiClient,
+    encapsulationKeyPair: runtime.encapsulationKeyPair ?? null,
+    signingFingerprint: runtime.signingFingerprint ?? null,
+    signingKeyPair: runtime.signingKeyPair ?? null,
+    userId: runtime.userId ?? null,
+  };
+
+  return runtime.log
+    ? { ...projectionRuntime, log: runtime.log }
+    : projectionRuntime;
+}
+
 export function createContainerContentsProjectionUserKeyResolver(
   runtime: ContainerContentsProjectionKeyRuntime,
 ): ContainerContentsProjectionUserKeyResolver {
-  return createProjectionUserKeyResolver(runtime, "Container contents");
+  return createProjectionUserKeyResolver(
+    containerContentsProjectionRuntime(runtime),
+    "Container contents",
+  );
 }
 
 export function createContainerContentsDocumentProjectionUserKeyResolver(
   runtime: ContainerContentsProjectionKeyRuntime,
 ): ContainerContentsProjectionUserKeyResolver {
   return createProjectionUserKeyResolver(
-    runtime,
+    containerContentsProjectionRuntime(runtime),
     "Container document projections",
   );
 }
