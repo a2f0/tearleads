@@ -1,17 +1,20 @@
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join } from "node:path";
 
-async function listJavaScriptFiles(dirPath: string): Promise<string[]> {
+async function listOutputFiles(dirPath: string): Promise<string[]> {
   const entries = await readdir(dirPath, { withFileTypes: true });
   const nestedFiles = await Promise.all(
     entries.map((entry) => {
       const entryPath = join(dirPath, entry.name);
 
       if (entry.isDirectory()) {
-        return listJavaScriptFiles(entryPath);
+        return listOutputFiles(entryPath);
       }
 
-      return entry.isFile() && entry.name.endsWith(".js") ? [entryPath] : [];
+      return entry.isFile() &&
+        (entry.name.endsWith(".js") || entry.name.endsWith(".d.ts"))
+        ? [entryPath]
+        : [];
     }),
   );
 
@@ -51,13 +54,13 @@ async function resolveRelativeModuleSpecifier(
 async function rewriteStaticSpecifiers(filePath: string): Promise<void> {
   const content = await readFile(filePath, "utf8");
   const replacements = await Promise.all(
-    [...content.matchAll(/\bfrom\s+(["'])(\.[^"']+)\1/g)].map(
+    [...content.matchAll(/\b(from|import)\s+(["'])(\.[^"']+)\2/g)].map(
       async (match) => ({
         from: match[0],
-        to: `from ${match[1]}${await resolveRelativeModuleSpecifier(
+        to: `${match[1]} ${match[2]}${await resolveRelativeModuleSpecifier(
           filePath,
-          match[2] ?? "",
-        )}${match[1]}`,
+          match[3] ?? "",
+        )}${match[2]}`,
       }),
     ),
   );
@@ -73,6 +76,6 @@ async function rewriteStaticSpecifiers(filePath: string): Promise<void> {
 }
 
 const distPath = join(import.meta.dir, "..", "dist");
-const javaScriptFiles = await listJavaScriptFiles(distPath);
+const outputFiles = await listOutputFiles(distPath);
 
-await Promise.all(javaScriptFiles.map(rewriteStaticSpecifiers));
+await Promise.all(outputFiles.map(rewriteStaticSpecifiers));
