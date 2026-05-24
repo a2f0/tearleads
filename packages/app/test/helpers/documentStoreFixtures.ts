@@ -96,6 +96,7 @@ function createDocumentWritePersistence(
   DocumentsPersistence,
   | "saveDocument"
   | "saveDocumentAndDeletePendingUpdates"
+  | "deleteDocument"
   | "upsertDiscoveredDocument"
   | "relinkPersistedDocument"
 > {
@@ -115,6 +116,18 @@ function createDocumentWritePersistence(
         (pendingUpdate) => !acceptedPendingUpdateIds.has(pendingUpdate.id),
       );
       return "2026-04-06T00:00:00.000Z";
+    },
+    async deleteDocument(_execSql, localId) {
+      if (state.document?.id === localId) {
+        state.document = null;
+      }
+      state.pendingUpdates = [];
+      state.pendingAttachments = state.pendingAttachments.filter(
+        (attachment) => attachment.localId !== localId,
+      );
+      state.localAttachments = state.localAttachments.filter(
+        (attachment) => attachment.localId !== localId,
+      );
     },
     async upsertDiscoveredDocument(_execSql, input) {
       const nextDocument: DocumentRecord = {

@@ -6,7 +6,6 @@ import {
 } from "../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../data/domainScope";
 import { TearleadsBlobs } from "./blobs";
-import { createTearleadsContacts, type TearleadsContacts } from "./contacts";
 import {
   createTearleadsContainerContents,
   type TearleadsContainerContents,
@@ -26,6 +25,7 @@ import {
   type TearleadsOrganizations,
 } from "./organizations";
 import { createTearleadsSession, type TearleadsSession } from "./session";
+import { createTearleadsUserKeys, type TearleadsUserKeys } from "./userKeys";
 import {
   createTearleadsRuntime,
   type TearleadsRuntime,
@@ -45,7 +45,6 @@ export interface TearleadsOptions {
 
 export class Tearleads {
   readonly blobs: TearleadsBlobs;
-  readonly contacts: TearleadsContacts;
   readonly database: TearleadsDatabase;
   readonly documents: TearleadsDocuments;
   readonly events: TearleadsEvents;
@@ -55,6 +54,7 @@ export class Tearleads {
   readonly organizations: TearleadsOrganizations;
   readonly runtime: TearleadsRuntime;
   readonly session: TearleadsSession;
+  readonly userKeys: TearleadsUserKeys;
 
   private readonly apiClient: ApiClient;
   private readonly documentProjectors: DocumentProjectorRegistry;
@@ -104,13 +104,16 @@ export class Tearleads {
       session: this.session,
     });
     this.runtime = runtime.publicRuntime;
-    this.contacts = createTearleadsContacts(runtime);
     this.documents = createTearleadsDocuments({
       getDefaultContainerId: () => this.session.containerId,
       runtime,
     });
     this.containerContents = createTearleadsContainerContents(runtime);
     this.organizations = createTearleadsOrganizations(runtime);
+    this.userKeys = createTearleadsUserKeys({
+      apiClient: this.apiClient,
+      log: this.log,
+    });
 
     this.apiClient.setOnError((message) => this.logError(message));
     this.apiClient.setOnNetworkError(() => this.network.setOnline(false));

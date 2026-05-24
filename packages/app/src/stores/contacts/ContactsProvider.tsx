@@ -1,10 +1,4 @@
 import {
-  type ContactsRuntime,
-  type ContactsStore,
-  createContactsStore,
-  getOrCreateContactsStore,
-} from "@tearleads/client-sdk/stores/contacts";
-import {
   createContext,
   type PropsWithChildren,
   useContext,
@@ -14,10 +8,12 @@ import {
 } from "react";
 import { useAppData } from "../../providers/data/AppDataProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  type ContactsRuntime,
+  type ContactsStore,
+  getOrCreateContactsStore,
+} from "./contactStore";
 import type { ContactsContextValue } from "./types";
-
-export type { ContactsRuntime };
-export { createContactsStore };
 
 const ContactsContext = createContext<ContactsStore | null>(null);
 
@@ -25,12 +21,19 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const appData = useAppData();
   const tearleads = useTearleads();
   const runtime = useMemo<ContactsRuntime>(
-    () => tearleads.contacts.runtime(),
+    () => ({
+      documents: tearleads.documents.runtime(),
+      execSql: appData.execSql,
+    }),
     [appData, tearleads],
   );
   const store = useMemo(
-    () => getOrCreateContactsStore(runtime.domainScope, runtime),
-    [runtime.domainScope],
+    () =>
+      getOrCreateContactsStore(runtime.documents.domainScope, runtime, {
+        fetchUserKey: (userId) => tearleads.userKeys.fetch(userId),
+        logError: tearleads.logError,
+      }),
+    [runtime, tearleads],
   );
 
   useEffect(() => {

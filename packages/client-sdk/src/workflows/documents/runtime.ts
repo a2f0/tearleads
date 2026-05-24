@@ -21,6 +21,7 @@ import { createRemoteDocumentFromRuntime } from "./create";
 import {
   deleteLocalDocumentAttachmentFromRuntime,
   deletePendingDocumentAttachmentFromRuntime,
+  deletePersistedDocumentFromRuntime,
   enqueuePendingDocumentUpdateFromRuntime,
   listPendingDocumentUpdatesFromRuntime,
   loadPersistedDocumentStoreStateFromRuntime,
@@ -77,6 +78,10 @@ type DeletePendingDocumentAttachmentInput = Omit<
 >;
 type DeleteLocalDocumentAttachmentInput = Omit<
   Parameters<typeof deleteLocalDocumentAttachmentFromRuntime>[0],
+  "runtime"
+>;
+type DeletePersistedDocumentInput = Omit<
+  Parameters<typeof deletePersistedDocumentFromRuntime>[0],
   "runtime"
 >;
 type EnqueuePendingDocumentUpdateInput = Omit<
@@ -146,6 +151,9 @@ export interface DocumentsWorkflowRuntime {
   deleteLocalAttachment: (
     input: DeleteLocalDocumentAttachmentInput,
   ) => ReturnType<typeof deleteLocalDocumentAttachmentFromRuntime>;
+  deleteDocument: (
+    input: DeletePersistedDocumentInput,
+  ) => ReturnType<typeof deletePersistedDocumentFromRuntime>;
   deletePendingAttachment: (
     input: DeletePendingDocumentAttachmentInput,
   ) => ReturnType<typeof deletePendingDocumentAttachmentFromRuntime>;
@@ -248,6 +256,7 @@ function createDocumentsPersistenceRuntimeActions(
 ): Pick<
   DocumentsWorkflowRuntimeActions,
   | "deleteLocalAttachment"
+  | "deleteDocument"
   | "deletePendingAttachment"
   | "enqueuePendingUpdate"
   | "listPendingUpdates"
@@ -259,6 +268,12 @@ function createDocumentsPersistenceRuntimeActions(
   return {
     deleteLocalAttachment(deleteInput) {
       return deleteLocalDocumentAttachmentFromRuntime({
+        ...deleteInput,
+        runtime: input,
+      });
+    },
+    deleteDocument(deleteInput) {
+      return deletePersistedDocumentFromRuntime({
         ...deleteInput,
         runtime: input,
       });

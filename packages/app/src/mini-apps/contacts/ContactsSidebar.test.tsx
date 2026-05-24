@@ -1,5 +1,4 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContactEntry } from "@tearleads/client-sdk/workflows/contacts";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -7,6 +6,7 @@ import {
   useCallback,
   useState,
 } from "react";
+import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
 import { useContactsSidebarPanel } from "./ContactsSidebar";
 
 afterEach(() => {

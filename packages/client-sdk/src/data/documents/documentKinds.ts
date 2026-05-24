@@ -1,4 +1,5 @@
 import type { LoroMap } from "@tearleads/loro";
+import type { ExecSql, SqlTableSchema } from "../sqlite/sqlSchema";
 
 export type StoredDocumentKind = string;
 
@@ -53,11 +54,36 @@ export interface DocumentProjection {
   title: string;
 }
 
+export interface DocumentClientProjectionSaveInput {
+  containerId: string | null;
+  documentId: string | null;
+  documentKind: StoredDocumentKind;
+  execSql: ExecSql;
+  localId: string;
+  structuredFields: Readonly<Record<string, string>>;
+  text: string;
+  title: string;
+  updatedAt: string;
+}
+
+export interface DocumentClientProjectionDeleteInput {
+  documentKind: StoredDocumentKind;
+  execSql: ExecSql;
+  localId: string;
+}
+
+export interface DocumentClientProjectionDefinition {
+  delete?: (input: DocumentClientProjectionDeleteInput) => Promise<void> | void;
+  save: (input: DocumentClientProjectionSaveInput) => Promise<void> | void;
+  tables: ReadonlyArray<SqlTableSchema>;
+}
+
 export interface DocumentProjectorDefinition {
   kind: StoredDocumentKind;
   label?: string | undefined;
   schemaVersion?: number | undefined;
   untitledTitle?: string | undefined;
+  clientProjection?: DocumentClientProjectionDefinition | undefined;
   initialize?: ((doc: StructuredDocumentShape) => void) | undefined;
   project?: ((input: DocumentProjectorInput) => DocumentProjection) | undefined;
 }
@@ -67,6 +93,7 @@ export interface DocumentProjectorRegistry {
     kind: StoredDocumentKind,
   ) => DocumentProjectorDefinition | undefined;
   getStoredDocumentTypeLabel: (kind: StoredDocumentKind) => string;
+  getClientProjectionTables: () => ReadonlyArray<SqlTableSchema>;
   getUntitledDocumentTitle: (kind: StoredDocumentKind) => string;
   initializeStoredDocumentKind: (
     doc: StructuredDocumentShape,
@@ -75,6 +102,12 @@ export interface DocumentProjectorRegistry {
   projectStoredDocumentState: (
     input: DocumentProjectorInput,
   ) => StoredDocumentState;
+  deleteStoredDocumentClientProjection: (
+    input: DocumentClientProjectionDeleteInput,
+  ) => Promise<void>;
+  saveStoredDocumentClientProjection: (
+    input: DocumentClientProjectionSaveInput,
+  ) => Promise<void>;
 }
 
 const DOCUMENT_METADATA_MAP_KEY = "metadata";
@@ -233,6 +266,11 @@ export function createDocumentProjectorRegistry(
     getDefinition(kind) {
       return definitionsByKind.get(kind);
     },
+    getClientProjectionTables() {
+      return definitions.flatMap(
+        (definition) => definition.clientProjection?.tables ?? [],
+      );
+    },
     getStoredDocumentTypeLabel(kind) {
       return definitionsByKind.get(kind)?.label ?? humanizeDocumentKind(kind);
     },
@@ -270,6 +308,16 @@ export function createDocumentProjectorRegistry(
       }
 
       return projectDefaultDocumentState(input, registry);
+    },
+    async deleteStoredDocumentClientProjection(input) {
+      await definitionsByKind
+        .get(input.documentKind)
+        ?.clientProjection?.delete?.(input);
+    },
+    async saveStoredDocumentClientProjection(input) {
+      await definitionsByKind
+        .get(input.documentKind)
+        ?.clientProjection?.save(input);
     },
   };
 

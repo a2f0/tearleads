@@ -14,6 +14,7 @@ import type {
   StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 
 export type {
   DocumentsPersistence,
@@ -43,15 +44,57 @@ type NullableDocumentRuntimeField =
   | "documentKekTargets"
   | "documentManifestBundle";
 
+const projectionSchemaEnsuresByExecSql = new WeakMap<
+  ExecSql,
+  WeakMap<DocumentProjectorRegistry, Promise<void>>
+>();
+
 interface PersistedDocumentState {
   record: StoredDocumentRecord;
   updatedAt: string;
+}
+
+interface BuiltStoredDocumentRecord {
+  documentState: ReturnType<typeof readStoredDocumentState>;
+  record: StoredDocumentRecord;
 }
 
 interface LoadedPersistedDocumentStoreState {
   document: StoredDocumentRecord | null;
   localAttachments: LocalAttachmentRecord[];
   pendingAttachments: PendingAttachmentRecord[];
+}
+
+async function ensureDocumentClientProjectionTables(input: {
+  documentProjectors: DocumentProjectorRegistry;
+  execSql: ExecSql;
+}): Promise<void> {
+  let ensuresByProjector = projectionSchemaEnsuresByExecSql.get(input.execSql);
+  if (!ensuresByProjector) {
+    ensuresByProjector = new WeakMap();
+    projectionSchemaEnsuresByExecSql.set(input.execSql, ensuresByProjector);
+  }
+
+  const existingEnsure = ensuresByProjector.get(input.documentProjectors);
+  if (existingEnsure) {
+    await existingEnsure;
+    return;
+  }
+
+  const tables = input.documentProjectors.getClientProjectionTables();
+  if (tables.length === 0) {
+    ensuresByProjector.set(input.documentProjectors, Promise.resolve());
+    return;
+  }
+
+  const ensurePromise = ensureSqlTables(input.execSql, tables).catch(
+    (error: unknown) => {
+      ensuresByProjector.delete(input.documentProjectors);
+      throw error;
+    },
+  );
+  ensuresByProjector.set(input.documentProjectors, ensurePromise);
+  await ensurePromise;
 }
 
 function resolveNullableDocumentRuntimeField(
@@ -65,6 +108,125 @@ function resolveNullableDocumentRuntimeField(
   }
 
   return resetWhenUnpatched ? null : (currentValue ?? null);
+}
+
+function buildStoredDocumentRecord(input: {
+  containerId?: string | null | undefined;
+  currentDoc: DocumentContentState;
+  currentRecord: StoredDocumentRecord | null;
+  documentProjectors: DocumentProjectorRegistry;
+  localId: string;
+  patch: Partial<StoredDocumentRecord>;
+}): BuiltStoredDocumentRecord {
+  const { currentDoc, currentRecord, documentProjectors, localId, patch } =
+    input;
+  const currentDocumentId = currentRecord?.documentId ?? null;
+  const nextDocumentId = patch.documentId ?? currentDocumentId;
+  const documentIdChanged = nextDocumentId !== currentDocumentId;
+  const currentAccessEpoch =
+    currentRecord?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
+  const nextAccessEpoch = patch.accessEpoch ?? currentAccessEpoch;
+  const securityContextChanged =
+    documentIdChanged || nextAccessEpoch !== currentAccessEpoch;
+  const documentState = readStoredDocumentState(currentDoc, documentProjectors);
+
+  return {
+    documentState,
+    record: {
+      id: currentRecord?.id ?? localId,
+      accessEpoch: nextAccessEpoch,
+      accessStateHash: resolveNullableDocumentRuntimeField(
+        patch,
+        "accessStateHash",
+        currentRecord?.accessStateHash,
+        securityContextChanged,
+      ),
+      containerId:
+        patch.containerId ??
+        currentRecord?.containerId ??
+        input.containerId ??
+        null,
+      contentKeyBundle: resolveNullableDocumentRuntimeField(
+        patch,
+        "contentKeyBundle",
+        currentRecord?.contentKeyBundle,
+        securityContextChanged,
+      ),
+      documentId: nextDocumentId,
+      documentKekTargets: resolveNullableDocumentRuntimeField(
+        patch,
+        "documentKekTargets",
+        currentRecord?.documentKekTargets,
+        securityContextChanged,
+      ),
+      documentKind: patch.documentKind ?? documentState.documentKind,
+      documentManifestBundle: resolveNullableDocumentRuntimeField(
+        patch,
+        "documentManifestBundle",
+        currentRecord?.documentManifestBundle,
+        securityContextChanged,
+      ),
+      lastCommitLsn: resolveNullableDocumentRuntimeField(
+        patch,
+        "lastCommitLsn",
+        currentRecord?.lastCommitLsn,
+        documentIdChanged,
+      ),
+      loroSnapshot:
+        patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
+      text: patch.text ?? getTextValue(currentDoc),
+      title: patch.title ?? documentState.title,
+    },
+  };
+}
+
+async function saveDocumentRecord(input: {
+  acceptedPendingUpdateIds: readonly string[];
+  execSql: ExecSql;
+  persistence: DocumentsPersistence;
+  record: StoredDocumentRecord;
+}): Promise<string> {
+  if (input.acceptedPendingUpdateIds.length > 0) {
+    return input.persistence.saveDocumentAndDeletePendingUpdates(
+      input.execSql,
+      input.record,
+      input.acceptedPendingUpdateIds,
+    );
+  }
+
+  return input.persistence.saveDocument(input.execSql, input.record);
+}
+
+async function saveDocumentClientProjection(input: {
+  currentRecord: StoredDocumentRecord | null;
+  documentProjectors: DocumentProjectorRegistry;
+  documentState: ReturnType<typeof readStoredDocumentState>;
+  execSql: ExecSql;
+  localId: string;
+  record: StoredDocumentRecord;
+  updatedAt: string;
+}): Promise<void> {
+  const previousDocumentKind = input.currentRecord?.documentKind ?? "note";
+  const nextDocumentKind = input.record.documentKind ?? "note";
+  if (previousDocumentKind !== nextDocumentKind) {
+    await input.documentProjectors.deleteStoredDocumentClientProjection({
+      documentKind: previousDocumentKind,
+      execSql: input.execSql,
+      localId: input.localId,
+    });
+  }
+
+  await input.documentProjectors.saveStoredDocumentClientProjection({
+    containerId: input.record.containerId,
+    documentId: input.record.documentId,
+    documentKind: nextDocumentKind,
+    execSql: input.execSql,
+    localId: input.record.id,
+    structuredFields: input.documentState.structuredFields,
+    text: input.record.text,
+    title: input.record.title ?? input.documentState.title,
+    updatedAt: input.updatedAt,
+  });
 }
 
 async function persistDocumentState(input: {
@@ -88,72 +250,35 @@ async function persistDocumentState(input: {
   } = input;
   const patch = input.patch ?? {};
   const acceptedPendingUpdateIds = input.acceptedPendingUpdateIds ?? [];
-  const currentDocumentId = currentRecord?.documentId ?? null;
-  const nextDocumentId = patch.documentId ?? currentDocumentId;
-  const documentIdChanged = nextDocumentId !== currentDocumentId;
-  const currentAccessEpoch =
-    currentRecord?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
-  const nextAccessEpoch = patch.accessEpoch ?? currentAccessEpoch;
-  const securityContextChanged =
-    documentIdChanged || nextAccessEpoch !== currentAccessEpoch;
-  const documentState = readStoredDocumentState(currentDoc, documentProjectors);
-  const nextRecord: StoredDocumentRecord = {
-    id: currentRecord?.id ?? localId,
-    containerId:
-      patch.containerId ??
-      currentRecord?.containerId ??
-      input.containerId ??
-      null,
-    documentId: nextDocumentId,
-    documentKind: patch.documentKind ?? documentState.documentKind,
-    text: patch.text ?? getTextValue(currentDoc),
-    title: patch.title ?? documentState.title,
-    loroSnapshot:
-      patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
-    accessEpoch: nextAccessEpoch,
-    accessStateHash: resolveNullableDocumentRuntimeField(
-      patch,
-      "accessStateHash",
-      currentRecord?.accessStateHash,
-      securityContextChanged,
-    ),
-    lastCommitLsn: resolveNullableDocumentRuntimeField(
-      patch,
-      "lastCommitLsn",
-      currentRecord?.lastCommitLsn,
-      documentIdChanged,
-    ),
-    contentKeyBundle: resolveNullableDocumentRuntimeField(
-      patch,
-      "contentKeyBundle",
-      currentRecord?.contentKeyBundle,
-      securityContextChanged,
-    ),
-    documentKekTargets: resolveNullableDocumentRuntimeField(
-      patch,
-      "documentKekTargets",
-      currentRecord?.documentKekTargets,
-      securityContextChanged,
-    ),
-    documentManifestBundle: resolveNullableDocumentRuntimeField(
-      patch,
-      "documentManifestBundle",
-      currentRecord?.documentManifestBundle,
-      securityContextChanged,
-    ),
-  };
+  const { documentState, record } = buildStoredDocumentRecord({
+    containerId: input.containerId,
+    currentDoc,
+    currentRecord,
+    documentProjectors,
+    localId,
+    patch,
+  });
 
-  const updatedAt =
-    acceptedPendingUpdateIds.length > 0
-      ? await persistence.saveDocumentAndDeletePendingUpdates(
-          execSql,
-          nextRecord,
-          acceptedPendingUpdateIds,
-        )
-      : await persistence.saveDocument(execSql, nextRecord);
+  await ensureDocumentClientProjectionTables({ documentProjectors, execSql });
+
+  const updatedAt = await saveDocumentRecord({
+    acceptedPendingUpdateIds,
+    execSql,
+    persistence,
+    record,
+  });
+  await saveDocumentClientProjection({
+    currentRecord,
+    documentProjectors,
+    documentState,
+    execSql,
+    localId,
+    record,
+    updatedAt,
+  });
 
   return {
-    record: nextRecord,
+    record,
     updatedAt,
   };
 }
@@ -196,6 +321,44 @@ async function loadPersistedDocumentStoreState(input: {
     localAttachments,
     pendingAttachments,
   };
+}
+
+async function deletePersistedDocument(input: {
+  documentProjectors: DocumentProjectorRegistry;
+  execSql: ExecSql;
+  localId: string;
+  persistence: DocumentsPersistence;
+}): Promise<void> {
+  await input.persistence.ensureSchema(input.execSql);
+  const existing = await input.persistence.loadDocument(
+    input.execSql,
+    input.localId,
+  );
+  await ensureDocumentClientProjectionTables({
+    documentProjectors: input.documentProjectors,
+    execSql: input.execSql,
+  });
+  await input.persistence.deleteDocument(input.execSql, input.localId);
+  await input.documentProjectors.deleteStoredDocumentClientProjection({
+    documentKind: existing?.documentKind ?? "note",
+    execSql: input.execSql,
+    localId: input.localId,
+  });
+}
+
+export async function deletePersistedDocumentFromRuntime({
+  runtime,
+  ...input
+}: {
+  localId: string;
+  persistence: DocumentsPersistence;
+  runtime: DocumentProjectionStateRuntime;
+}): Promise<void> {
+  return deletePersistedDocument({
+    ...input,
+    documentProjectors: runtime.documentProjectors,
+    execSql: runtime.execSql,
+  });
 }
 
 export async function loadPersistedDocumentStoreStateFromRuntime({

@@ -84,6 +84,7 @@ export interface DocumentsPersistence {
       updatedAt?: string;
     },
   ) => Promise<string>;
+  deleteDocument: (execSql: ExecSql, localId: string) => Promise<void>;
   upsertDiscoveredDocument: (
     execSql: ExecSql,
     input: DiscoveredDocumentInput,

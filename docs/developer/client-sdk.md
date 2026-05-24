@@ -59,12 +59,12 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
 | `tearleads.documents` | document workflow runtime composition |
 | `tearleads.containerContents` | container contents workflow runtime composition |
-| `tearleads.contacts` | contacts workflow runtime composition |
 | `tearleads.organizations` | organization administration and directory operations |
+| `tearleads.userKeys` | verified user key lookup for product read models and recipient UIs |
 
 Prefer these instance services over constructing workflow runtimes directly
 from host code. The SDK keeps workflow cache scope aligned with the active
-database id and identity fingerprint, which lets document, contacts, and
+database id and identity fingerprint, which lets document and
 container/document stores share the same sync and subscription boundary.
 
 Host adapters that still need the raw workflow runtime contract should use
@@ -83,7 +83,6 @@ state, menu labels, component-local hooks, and React providers stay in
 | --- | --- | --- |
 | `workflows/documents`, `workflows/blobs`, `workflows/containers`, `workflows/principals`, `workflows/registration`, `workflows/sync` | Platform runtime | Protocol-facing client operations, local persistence orchestration, sync coordination, key verification, and registration bootstrap helpers |
 | `workflows/container-contents` | Platform read model and runtime | Container tree state, container metadata documents, document link/discovery read models, and container contents sync helpers. The container-contents store facade adapts these into UI state without React. |
-| `workflows/contacts` | Platform read model and runtime | Local address-book documents and key lookup helpers used by contacts sync and recipient selection without owning Contacts UI interactions |
 | `workflows/organizations` | Platform organization administration | Organization directory, groups, grants, usage, user-detail read models, and principal-policy mutation helpers; the Org Manager mini-app adapts these into product screens in `packages/app` |
 
 When a workflow exists mainly to support a product screen, keep its name tied to
@@ -208,11 +207,9 @@ Supported package entry points are:
 | `@tearleads/client-sdk` | `Tearleads` and top-level SDK service types |
 | `@tearleads/client-sdk/documents` | neutral document/blob contracts and document projector helpers |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
-| `@tearleads/client-sdk/stores/contacts` | React-free contacts store facade |
 | `@tearleads/client-sdk/stores/container-contents` | React-free container tree store facade |
 | `@tearleads/client-sdk/stores/documents` | React-free document store facade |
 | `@tearleads/client-sdk/workflows/blobs` | blob upload, hydration, and local blob stores |
-| `@tearleads/client-sdk/workflows/contacts` | contacts runtime and read/write helpers |
 | `@tearleads/client-sdk/workflows/containers` | container mutation planning and remote container operations |
 | `@tearleads/client-sdk/workflows/documents` | document creation, sync, persistence, and projection-key helpers |
 | `@tearleads/client-sdk/workflows/container-contents` | container contents read models, document-link helpers, and sync helpers |

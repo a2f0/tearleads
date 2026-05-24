@@ -15,7 +15,6 @@ callers trigger that callback through `requestSync()`.
 Current production lanes include:
 
 - `documents:${localId}` lanes registered by document stores.
-- `contacts` lane registered by the contacts store.
 - `container-contents` lane registered by the explorer/container contents
   store.
 
@@ -42,8 +41,7 @@ blob envelopes, and attachment persistence live elsewhere under `data/blobs`,
 `data/blob*`, and document persistence modules. This coordinator never reads or
 writes blob bytes directly.
 
-Contacts and container contents also use lanes for domain-specific sync work.
-Contacts sync contact documents using the document sync workflow. Container
+Container contents also uses lanes for domain-specific sync work. Container
 contents sync creates pending remote containers and syncs container metadata
 documents.
 
@@ -57,7 +55,7 @@ runtime helpers:
 - common "sync prerequisites regained" checks such as online/auth/key restore;
 - common teardown-error detection for destroyed database clients.
 
-Do not add domain-specific document, contact, container, blob, or persistence
+Do not add domain-specific document, container, blob, or persistence
 logic here. Add that to the owning workflow/store lane and register it with the
 coordinator.
 

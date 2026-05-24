@@ -7,7 +7,7 @@ behavior, so it should not be replaced with a global database handle.
 The intended dependency direction is:
 
 ```text
-host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite + data/blobs + data/contacts + shared helpers
+host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite + data/blobs + shared helpers
 ```
 
 ## Layers
@@ -37,9 +37,6 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
 - Document summary contracts live in `documentSummary.ts` so presentation,
   stores, workflows, and persistence can share document read-model shapes
   without importing document shared-helper internals.
-- Contact data internals under `contacts/` own low-level address-book record
-  contracts and document serialization helpers. Host adapters should consume
-  the contacts workflow facade for contact read-model types.
 - Shared helpers and domain read-model contracts hold pure or mostly pure
   projection, crypto, event, request, response validation, and view-facing data
   shapes that workflows and stores can reuse without importing provider or UI
@@ -116,8 +113,8 @@ cleanup should be incremental and behavior-preserving.
   shared-helper internals directly.
 - Production host stores, providers, and identity runtime should consume domain
   workflow facades rather than importing `data/persistence/`, `data/sqlite/`,
-  `data/blobs/`, or `data/contacts/` directly. The host application's data
-  provider is the executor construction boundary. Tests may still use low-level
+  `data/blobs/` directly. The host application's data provider is the executor
+  construction boundary. Tests may still use low-level
   persistence stores for fixtures and characterization checks.
 - Production presentation files should not accept, pass, or import raw `ExecSql`
   values. Bind the executor inside stores/providers and expose domain-shaped

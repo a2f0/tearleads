@@ -197,7 +197,6 @@ async function persistLocalRegistrationState(input: {
   try {
     await persistRegistrationBootstrap(input.dbClient, {
       containerId: input.containerId,
-      encapsulationPublicKey: input.encapsulationPublicKey,
       initialAdminGroupPolicy:
         await principalPolicyBundleFromInitialGroupRequest(
           input.initialAdminGroup,
