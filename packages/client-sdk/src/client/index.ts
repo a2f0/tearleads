@@ -3,7 +3,6 @@ export { TearleadsBlobs } from "./blobs";
 export type { TearleadsContacts } from "./contacts";
 export type {
   TearleadsContainerContents,
-  TearleadsContainerDocumentDiscoveryInput,
   TearleadsContainerInfoInput,
   TearleadsDocumentInfoInput,
 } from "./containerContents";
@@ -14,10 +13,7 @@ export {
   type TearleadsDatabaseSnapshot,
   type TearleadsDatabaseStatus,
 } from "./database";
-export type {
-  TearleadsDocuments,
-  TearleadsDocumentsRuntimeOptions,
-} from "./documents";
+export type { TearleadsDocuments } from "./documents";
 export {
   TearleadsEvents,
   type TearleadsEventsListener,
