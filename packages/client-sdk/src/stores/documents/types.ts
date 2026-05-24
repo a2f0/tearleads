@@ -42,12 +42,12 @@ export interface DocumentContextValue {
   setStructuredFields: (
     kind: Exclude<StoredDocumentKind, "note">,
     patch: DocumentStructuredFieldPatch,
-  ) => void;
+  ) => Promise<void>;
   structuredFields: Readonly<Record<string, string>>;
   text: string;
   title: string;
   syncing: boolean;
-  setText: (value: string) => void;
+  setText: (value: string) => Promise<void>;
 }
 
 export interface DocumentSnapshot {
@@ -76,8 +76,8 @@ export interface DocumentStore {
   setStructuredFields: (
     kind: Exclude<StoredDocumentKind, "note">,
     patch: DocumentStructuredFieldPatch,
-  ) => void;
-  setText: (value: string) => void;
+  ) => Promise<void>;
+  setText: (value: string) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
   updateRuntime: (runtime: DocumentsRuntime) => void;
 }

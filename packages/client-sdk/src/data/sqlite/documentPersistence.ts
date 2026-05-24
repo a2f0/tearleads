@@ -16,7 +16,6 @@ export type {
   DocumentScope,
   PendingUpdateFields,
   PendingUpdateRecord,
-  SelectedDocumentRecordRow,
 } from "./documentPersistenceTypes";
 export {
   deleteDocumentRecord,

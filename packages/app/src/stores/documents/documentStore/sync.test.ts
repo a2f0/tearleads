@@ -717,6 +717,18 @@ function createDocumentsPersistence(): DocumentsPersistence & {
       );
       return "2026-04-06T00:00:00.000Z";
     },
+    async deleteDocument(_execSql, localId) {
+      if (document?.id === localId) {
+        document = null;
+      }
+      pendingUpdates = [];
+      pendingAttachments = pendingAttachments.filter(
+        (attachment) => attachment.localId !== localId,
+      );
+      localAttachments = localAttachments.filter(
+        (attachment) => attachment.localId !== localId,
+      );
+    },
     async upsertDiscoveredDocument(_execSql, input) {
       const nextDocument = {
         accessEpoch: input.accessEpoch,

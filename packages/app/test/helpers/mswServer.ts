@@ -1,5 +1,12 @@
 import { afterAll } from "bun:test";
-import { type AccessEvent, computeAccessEventHash } from "@tearleads/crypto";
+import {
+  type AccessEvent,
+  computeAccessEventHash,
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   DestroySessionResponse,
   DocumentContentKeyTargetEnvelopeResponse,
@@ -89,6 +96,33 @@ function randomHex(bytes: number): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(bytes)))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+const mockEncapsulationKeysByUserId = new Map<
+  string,
+  Promise<EncapsulationKeyResponse>
+>();
+
+function getMockEncapsulationKeyResponse(
+  userId: string,
+): Promise<EncapsulationKeyResponse> {
+  let response = mockEncapsulationKeysByUserId.get(userId);
+  if (!response) {
+    response = (async () => {
+      const signingKeyPair = generateSigningSeedAndKeyPair();
+      const encapsulationKeyPair = generateKemSeedAndKeyPair();
+      return {
+        userId,
+        signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+        signingKeyFingerprint: await toFingerprint(
+          signingKeyPair.signingPublicKey,
+        ),
+        encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
+      };
+    })();
+    mockEncapsulationKeysByUserId.set(userId, response);
+  }
+  return response;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -406,13 +440,10 @@ const server = setupServer(
   }),
   http.get<{ userId: string }>(
     "http://localhost:3001/auth/encapsulation-key/:userId",
-    ({ params }) => {
-      return HttpResponse.json<EncapsulationKeyResponse>({
-        userId: params.userId,
-        signingPublicKey: randomHex(32),
-        signingKeyFingerprint: randomHex(32),
-        encapsulationPublicKey: randomHex(32),
-      });
+    async ({ params }) => {
+      return HttpResponse.json<EncapsulationKeyResponse>(
+        await getMockEncapsulationKeyResponse(params.userId),
+      );
     },
   ),
 );

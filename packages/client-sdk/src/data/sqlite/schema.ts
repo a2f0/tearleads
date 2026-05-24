@@ -5,7 +5,6 @@ import {
   primaryKey,
   sqliteTable,
   text,
-  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
@@ -13,14 +12,14 @@ import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
  * Durable Loro-backed document records shared by app features.
  *
  * This table stores the encrypted document runtime state for multiple local app
- * domains. `appKind` namespaces records for notes, contacts, and container
+ * domains. `appKind` namespaces records for documents and container
  * metadata so the same persistence helpers can manage all Loro documents.
  * User-facing list data is projected into feature-specific read models such as
- * `documentProjection`, `containerProjection`, and `addressBookProjection`.
+ * `documentProjection` and `containerProjection`.
  *
  * Columns:
- * - `appKind`: Local domain namespace for the row, such as `documents`,
- *   `contacts`, or `container-metadata`.
+ * - `appKind`: Local domain namespace for the row, such as `documents` or
+ *   `container-metadata`.
  * - `localId`: Stable local id inside `appKind`. It may be created before a
  *   server `documentId` exists.
  * - `documentId`: Server document id once the record is known remotely, or
@@ -352,55 +351,6 @@ export const documentAttachmentBlobProjection = sqliteTable(
 );
 
 /**
- * Address-book contact read model.
- *
- * Contact details are stored as Loro documents under the contacts app kind.
- * This projection keeps the fields needed for address-book lists, self-contact
- * lookup, and user-recipient targeting without opening every contact document.
- *
- * Columns:
- * - `addressBookId`: Local address book document/principal that owns the
- *   contact list.
- * - `contactId`: Local contact document id.
- * - `firstName`: Projected first name used for sorting and display.
- * - `lastName`: Projected last name used for sorting and display.
- * - `userId`: Server user id when the contact is linked to a registered user.
- * - `encapsulationPublicKey`: User recipient public key copied from contact
- *   data when available.
- * - `isSelf`: Integer boolean marking the current user's own contact row.
- * - `updatedAt`: Local timestamp for the projection update.
- *
- * Indexes:
- * - `(addressBookId, contactId)` is the primary key.
- * - `addressBookId where isSelf = 1` is unique so each address book has at most
- *   one self contact.
- * - `(addressBookId, userId) where userId is not null` is unique so a remote
- *   user appears once per address book.
- */
-export const addressBookProjection = sqliteTable(
-  "address_book_projection",
-  {
-    addressBookId: text("address_book_id").notNull(),
-    contactId: text("contact_id").notNull(),
-    firstName: text("first_name").notNull().default(""),
-    lastName: text("last_name").notNull().default(""),
-    userId: text("user_id"),
-    encapsulationPublicKey: text("encapsulation_public_key"),
-    isSelf: integer("is_self").notNull().default(0),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.addressBookId, table.contactId] }),
-    uniqueIndex("address_book_projection_self_idx")
-      .on(table.addressBookId)
-      .where(sql`${table.isSelf} = 1`),
-    uniqueIndex("address_book_projection_user_idx")
-      .on(table.addressBookId, table.userId)
-      .where(sql`${table.userId} IS NOT NULL`),
-  ],
-);
-
-/**
  * Offline create queue for containers.
  *
  * A user can create a local container before the API has assigned all remote
@@ -508,10 +458,6 @@ export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentAttachmentBlobProjection),
 ];
 
-export const addressBookProjectionTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(addressBookProjection),
-];
-
 export const containerCreateIntentTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerCreateIntents),
 ];
@@ -526,7 +472,6 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...containerTables,
   ...documentContainerProjectionTables,
   ...documentProjectionTables,
-  ...addressBookProjectionTables,
   ...containerCreateIntentTables,
   ...containerSyncWatermarkTables,
 ];
@@ -541,7 +486,6 @@ export const clientSQLiteSchema = {
   documentProjection,
   documentPendingAttachments,
   documentAttachmentBlobProjection,
-  addressBookProjection,
   containerCreateIntents,
   containerSyncWatermarks,
 };

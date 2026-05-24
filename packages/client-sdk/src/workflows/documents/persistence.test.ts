@@ -1,11 +1,15 @@
 import { expect, test } from "bun:test";
 import {
+  type DocumentRecord,
   type DocumentsPersistence,
   loadPersistedDocumentStoreStateFromRuntime,
   type PendingAttachmentRecord,
   savePendingDocumentAttachmentFromRuntime,
 } from "@tearleads/client-sdk/workflows/documents";
+import { createDocument } from "@tearleads/loro";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { createDocumentProjectorRegistry } from "../../documents";
+import { persistDocumentStateFromRuntime } from "./persistence";
 
 function createNoopExecSql(): ExecSql {
   return (async () => []) as ExecSql;
@@ -86,4 +90,71 @@ test("savePendingDocumentAttachmentFromRuntime uses the runtime executor", async
   });
 
   expect(savedAttachments).toEqual([attachment]);
+});
+
+test("persistDocumentStateFromRuntime ensures client projection tables once per executor and registry", async () => {
+  const statements: string[] = [];
+  const execSql: ExecSql = (async (sql: string) => {
+    statements.push(sql);
+    return [];
+  }) as ExecSql;
+  let currentRecord: DocumentRecord | null = null;
+  const persistence = {
+    saveDocument: async (_execSql: ExecSql, record: DocumentRecord) => {
+      currentRecord = record;
+      return "2026-05-24T00:00:00.000Z";
+    },
+  } as unknown as DocumentsPersistence;
+  const documentProjectors = createDocumentProjectorRegistry([
+    {
+      kind: "note",
+      clientProjection: {
+        tables: [
+          {
+            name: "note_projection",
+            createSql:
+              'CREATE TABLE IF NOT EXISTS "note_projection" ("local_id" TEXT PRIMARY KEY)',
+            indexes: [
+              'CREATE INDEX IF NOT EXISTS "note_projection_local_idx" ON "note_projection" ("local_id")',
+            ],
+          },
+        ],
+        save: async ({ execSql: projectionExecSql }) => {
+          await projectionExecSql(
+            'INSERT INTO "note_projection" DEFAULT VALUES',
+          );
+        },
+      },
+    },
+  ]);
+  const currentDoc = await createDocument("projection-schema-cache");
+  const runtime = { documentProjectors, execSql };
+
+  await persistDocumentStateFromRuntime({
+    currentDoc,
+    currentRecord,
+    localId: "local-document",
+    persistence,
+    runtime,
+  });
+  await persistDocumentStateFromRuntime({
+    currentDoc,
+    currentRecord,
+    localId: "local-document",
+    persistence,
+    runtime,
+  });
+
+  expect(
+    statements.filter((statement) =>
+      statement.includes('CREATE TABLE IF NOT EXISTS "note_projection"'),
+    ),
+  ).toHaveLength(1);
+  expect(
+    statements.filter((statement) =>
+      statement.includes(
+        'CREATE INDEX IF NOT EXISTS "note_projection_local_idx"',
+      ),
+    ),
+  ).toHaveLength(1);
 });

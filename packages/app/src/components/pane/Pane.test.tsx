@@ -408,7 +408,7 @@ test("notes windows in the same pane share live note state", async () => {
   view.unmount();
 });
 
-test("contacts windows in the same pane share live address book state", async () => {
+test("contacts windows in the same pane share live contact document state", async () => {
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);

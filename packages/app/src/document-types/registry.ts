@@ -1,5 +1,6 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk/documents";
 import type { ComponentType } from "react";
+import { ContactDocumentApp } from "./contact/ContactDocumentApp";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
@@ -17,6 +18,7 @@ const documentTypeAppsByKind = new Map<
   ComponentType<DocumentTypeAppProps>
 >([
   ["note", NoteDocumentApp],
+  ["contact", ContactDocumentApp],
   ["drivers_license", DriverLicenseDocumentApp],
   ["credit_card", CreditCardDocumentApp],
 ]);

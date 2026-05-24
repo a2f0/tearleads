@@ -91,8 +91,7 @@ The response includes `userId`, `organizationId`, `rootContainerId`,
 
 1. Set `userId`, `organizationId`, and `rootContainerId` in session state.
 2. Persist the root container and root metadata document state to local SQLite.
-3. Persist a "me" contact in `address_book_projection` with `is_self = 1`.
-4. Authenticate using the challenge.
+3. Authenticate using the challenge.
 
 The root metadata content key is recovered through the document content-key
 target bundle and root container KEK state.
@@ -240,24 +239,27 @@ CREATE TABLE containers (
 );
 ```
 
-### Local SQLite: `address_book_projection`
+### Product Contact Projection
 
 ```sql
-CREATE TABLE address_book_projection (
- address_book_id TEXT NOT NULL,
- user_id TEXT NOT NULL,
- encapsulation_public_key TEXT NOT NULL,
+CREATE TABLE contact_projection (
+ local_id TEXT PRIMARY KEY,
+ document_id TEXT,
+ container_id TEXT,
+ first_name TEXT NOT NULL DEFAULT '',
+ last_name TEXT NOT NULL DEFAULT '',
+ user_id TEXT,
+ encapsulation_public_key TEXT,
  is_self INTEGER NOT NULL DEFAULT 0,
- updated_at TEXT NOT NULL,
- PRIMARY KEY (address_book_id, user_id)
+ updated_at TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX address_book_projection_self_idx
- ON address_book_projection (address_book_id) WHERE is_self = 1;
+CREATE UNIQUE INDEX contact_projection_self_idx
+ ON contact_projection (is_self) WHERE is_self = 1;
 ```
 
-The partial unique index enforces at most one self-contact per address book at
-the database level.
+Contacts are product document types. The product contact projection is a local
+read model derived from decrypted contact documents, not an SDK platform table.
 
 ## Adding Users To An Organization
 

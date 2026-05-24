@@ -15,6 +15,7 @@ import {
 } from "@tearleads/loro";
 import {
   APP_DOCUMENT_PROJECTOR_REGISTRY,
+  readContactFieldsFromRecord,
   readCreditCardFieldsFromRecord,
   readDriverLicenseFieldsFromRecord,
 } from "./projectors";
@@ -51,6 +52,12 @@ function readDriverLicenseDocument(doc: StructuredDocumentShape) {
 
 function readCreditCardDocument(doc: StructuredDocumentShape) {
   return readCreditCardFieldsFromRecord(
+    readStoredDocumentState(doc).structuredFields,
+  );
+}
+
+function readContactDocument(doc: StructuredDocumentShape) {
+  return readContactFieldsFromRecord(
     readStoredDocumentState(doc).structuredFields,
   );
 }
@@ -115,6 +122,34 @@ test("credit card fields are stored as first-class Loro state", async () => {
   expect(readStoredDocumentState(doc)).toMatchObject({
     documentKind: "credit_card",
     title: "Credit Card ending in 1234",
+  });
+});
+
+test("contact fields are stored as a structured document", async () => {
+  const doc = await createDocument("contact-fields");
+
+  initializeStoredDocumentKind(doc, "contact");
+  writeStoredDocumentFields(doc, "contact", {
+    encapsulationPublicKey: "enc-pub",
+    firstName: "Ada",
+    isSelf: "1",
+    lastName: "Lovelace",
+    userId: "user-1",
+  });
+
+  expect(readContactDocument(doc)).toEqual({
+    fields: {
+      encapsulationPublicKey: "enc-pub",
+      firstName: "Ada",
+      isSelf: "1",
+      lastName: "Lovelace",
+      userId: "user-1",
+    },
+    issues: [],
+  });
+  expect(readStoredDocumentState(doc)).toMatchObject({
+    documentKind: "contact",
+    title: "Ada Lovelace",
   });
 });
 

@@ -163,9 +163,9 @@ Behavior:
  link/detach controls in note detail and can locally switch which linked
  container is treated as the active note projection
 - additive document epoch changes reuse the current document DEK by
- materializing a current-epoch key-target bundle; notes and contacts preserve
- pending Loro updates and retry them under the new epoch instead of replacing
- them with a full baseline
+ materializing a current-epoch key-target bundle; documents preserve pending
+ Loro updates and retry them under the new epoch instead of replacing them
+ with a full baseline
 - note attachment rewrap-only work commits blob key-target updates
  without sending an unrelated Loro baseline
 - note clients with pending local attachment drafts for an existing remote

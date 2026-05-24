@@ -8,13 +8,14 @@ import {
 test("document type registry covers the supported inline document kinds", () => {
   expect(
     DOCUMENT_TYPE_DEFINITIONS.map((definition) => definition.kind),
-  ).toEqual(["note", "drivers_license", "credit_card"]);
+  ).toEqual(["note", "contact", "drivers_license", "credit_card"]);
   expect(
     DOCUMENT_TYPE_DEFINITIONS.map((definition) => definition.kind),
   ).toEqual(
     APP_DOCUMENT_PROJECTOR_DEFINITIONS.map((definition) => definition.kind),
   );
   expect(getDocumentTypeDefinition("note").createLabel).toBe("New Note");
+  expect(getDocumentTypeDefinition("contact").createLabel).toBe("New Contact");
   expect(getDocumentTypeDefinition("drivers_license").createLabel).toBe(
     "New Driver's License",
   );

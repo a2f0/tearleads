@@ -5,7 +5,6 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
@@ -14,7 +13,6 @@ import type {
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
-import { sqlContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
@@ -231,19 +229,6 @@ test("registerIdentity submits the registration request and persists the local b
       }),
     );
 
-    const contacts = await sqlContactsPersistence.loadContacts(
-      execSql,
-      "default",
-    );
-    expect(contacts).toHaveLength(1);
-    expect(contacts[0]?.entry).toEqual({
-      id: request.userId,
-      firstName: "",
-      lastName: "",
-      userId: request.userId,
-      encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
-      isSelf: true,
-    });
     expect(logs).toEqual([
       "Registering identity...",
       `Key registered (${request.userId})`,

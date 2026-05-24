@@ -54,6 +54,7 @@ describe("Tearleads", () => {
     expect("apiClient" in sdk.runtime.input()).toBe(false);
     expect("workflowInput" in sdk.runtime).toBe(false);
     expect(sdk.session.isAuthenticated).toBe(false);
+    expect(sdk.userKeys.fetch).toBeFunction();
   });
 
   test("notifies database subscribers with stable snapshots", () => {
@@ -296,7 +297,6 @@ describe("Tearleads", () => {
 
     const documents = sdk.documents.runtime();
     const containerContents = sdk.containerContents.runtime();
-    const contacts = sdk.contacts.runtime();
 
     expect(documents.containerId).toBe("container-1");
     expect(documents.dbStatus).toBe("ready");
@@ -307,7 +307,6 @@ describe("Tearleads", () => {
     expect(
       containerContents.createDocumentsRuntime("container-2").containerId,
     ).toBe("container-2");
-    expect(contacts.userId).toBe("user-1");
   });
 
   test("notifies session and runtime subscribers from SDK state changes", () => {

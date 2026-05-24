@@ -16,6 +16,9 @@ const appPresentationEntryPoints = [
   "packages/app/src/document-types",
   "packages/app/src/mini-apps",
 ];
+const appDocumentProjectionSourcePaths = new Set([
+  "packages/app/src/document-types/projectors.ts",
+]);
 const appProductionSourceEntryPoints = ["packages/app/src"];
 const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
@@ -28,11 +31,9 @@ const clientSdkSupportedPackageExports = {
   ".": "./src/index.ts",
   "./documents": "./src/documents.ts",
   "./sqlite": "./src/sqlite.ts",
-  "./stores/contacts": "./src/stores/contacts/index.ts",
   "./stores/container-contents": "./src/stores/container-contents/index.ts",
   "./stores/documents": "./src/stores/documents/index.ts",
   "./workflows/blobs": "./src/workflows/blobs/index.ts",
-  "./workflows/contacts": "./src/workflows/contacts/index.ts",
   "./workflows/containers": "./src/workflows/containers/index.ts",
   "./workflows/documents": "./src/workflows/documents/index.ts",
   "./workflows/container-contents":
@@ -207,6 +208,15 @@ async function listProductionSourceFiles(dirPath: string): Promise<string[]> {
 
 async function listTestSourceFiles(dirPath: string): Promise<string[]> {
   return listSourceFiles(dirPath, (filePath) => testFilePattern.test(filePath));
+}
+
+async function listAppPresentationSourceFiles(
+  dirPath: string,
+): Promise<string[]> {
+  const productionSourceFiles = await listProductionSourceFiles(dirPath);
+  return productionSourceFiles.filter(
+    (filePath) => !appDocumentProjectionSourcePaths.has(filePath),
+  );
 }
 
 function matchesPattern(pattern: RegExp, value: string): boolean {
@@ -806,6 +816,7 @@ async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResult> {
 const architectureChecks: ArchitectureCheck[] = [
   createSourceTextCheck({
     entryPoints: appPresentationEntryPoints,
+    listFiles: listAppPresentationSourceFiles,
     message:
       "App presentation files should go through stores or providers instead of accepting, passing, or importing raw ExecSql values.",
     name: "app-presentation-does-not-thread-raw-sql-executors",

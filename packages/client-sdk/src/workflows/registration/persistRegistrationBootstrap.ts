@@ -1,12 +1,8 @@
-import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documentSync";
-import { sqlContactsPersistence } from "../../data/persistence/contacts/contactsPersistence";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
-import { addressBookProjection } from "../../data/sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import {
   createExecSql,
   type ExecSql,
@@ -16,7 +12,6 @@ import {
 
 interface RegistrationBootstrapInput {
   containerId: string;
-  encapsulationPublicKey: Uint8Array;
   initialAdminGroupPolicy: PrincipalPolicyBundleResponse;
   initialMemberGroupPolicy: PrincipalPolicyBundleResponse;
   rootMetadataAccessEpoch: number;
@@ -35,12 +30,9 @@ interface RegistrationBootstrapInput {
   userId: string;
 }
 
-const DEFAULT_ADDRESS_BOOK_ID = "default";
-
 /**
- * Persists the local root-container and self-contact bootstrap created during
- * successful registration so the container contents and contacts workflows can
- * initialize from SQLite on first login.
+ * Persists the local root-container bootstrap created during successful
+ * registration so container contents can initialize from SQLite on first login.
  */
 async function persistRegistrationBootstrapFromExecSql(
   execSql: ExecSql,
@@ -48,7 +40,6 @@ async function persistRegistrationBootstrapFromExecSql(
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await sqlContainerContentsPersistence.ensureSchema(lockedExecSql);
-    await sqlContactsPersistence.ensureSchema(lockedExecSql);
     const rootRecord: DocumentRecord = {
       accessEpoch: input.rootMetadataAccessEpoch,
       accessStateHash: input.rootMetadataAccessStateHash,
@@ -96,35 +87,6 @@ async function persistRegistrationBootstrapFromExecSql(
       input.initialMemberGroupPolicy,
       updatedAt,
     );
-    const projectionRow = {
-      addressBookId: DEFAULT_ADDRESS_BOOK_ID,
-      contactId: input.userId,
-      firstName: "",
-      lastName: "",
-      userId: input.userId,
-      encapsulationPublicKey: bytesToBase64(input.encapsulationPublicKey),
-      isSelf: 1,
-      updatedAt,
-    };
-    const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
-    await db
-      .insert(addressBookProjection)
-      .values(projectionRow)
-      .onConflictDoUpdate({
-        target: [
-          addressBookProjection.addressBookId,
-          addressBookProjection.contactId,
-        ],
-        set: {
-          firstName: projectionRow.firstName,
-          lastName: projectionRow.lastName,
-          userId: projectionRow.userId,
-          encapsulationPublicKey: projectionRow.encapsulationPublicKey,
-          isSelf: 1,
-          updatedAt,
-        },
-      })
-      .run();
   });
 }
 

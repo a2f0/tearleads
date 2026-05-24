@@ -18,10 +18,6 @@
       "types": "./src/sqlite.ts",
       "default": "./src/sqlite.ts"
     },
-    "./stores/contacts": {
-      "types": "./src/stores/contacts/index.ts",
-      "default": "./src/stores/contacts/index.ts"
-    },
     "./stores/container-contents": {
       "types": "./src/stores/container-contents/index.ts",
       "default": "./src/stores/container-contents/index.ts"
@@ -33,10 +29,6 @@
     "./workflows/blobs": {
       "types": "./src/workflows/blobs/index.ts",
       "default": "./src/workflows/blobs/index.ts"
-    },
-    "./workflows/contacts": {
-      "types": "./src/workflows/contacts/index.ts",
-      "default": "./src/workflows/contacts/index.ts"
     },
     "./workflows/containers": {
       "types": "./src/workflows/containers/index.ts",

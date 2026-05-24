@@ -13,9 +13,12 @@ import type { DocumentStructuredFieldPatch } from "../types";
 import { enqueuePendingUpdate, persistDocument } from "./persistence";
 import { type DocumentStoreState, setDocumentSnapshot } from "./state";
 
-export function setDocumentText(state: DocumentStoreState, value: string) {
+export function setDocumentText(
+  state: DocumentStoreState,
+  value: string,
+): Promise<void> {
   if (!state.doc) {
-    return;
+    return Promise.resolve();
   }
 
   setDocumentSnapshot(state, {
@@ -62,15 +65,16 @@ export function setDocumentText(state: DocumentStoreState, value: string) {
     .catch((error: unknown) => {
       console.error("Failed to persist document changes:", error);
     });
+  return state.writeChain;
 }
 
 export function setDocumentStructuredFields(
   state: DocumentStoreState,
   kind: Exclude<StoredDocumentKind, "note">,
   patch: DocumentStructuredFieldPatch,
-) {
+): Promise<void> {
   if (!state.doc) {
-    return;
+    return Promise.resolve();
   }
 
   const nextStructuredFields = { ...state.snapshot.structuredFields };
@@ -131,4 +135,5 @@ export function setDocumentStructuredFields(
     .catch((error: unknown) => {
       console.error("Failed to persist structured document changes:", error);
     });
+  return state.writeChain;
 }

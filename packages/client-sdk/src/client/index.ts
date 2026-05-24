@@ -1,6 +1,5 @@
 export { createDomainScope, type DomainScope } from "../data/domainScope";
 export { TearleadsBlobs } from "./blobs";
-export type { TearleadsContacts } from "./contacts";
 export type {
   TearleadsContainerContents,
   TearleadsContainerInfoInput,
@@ -49,6 +48,7 @@ export type {
   TearleadsUserSession,
 } from "./session";
 export { Tearleads, type TearleadsOptions } from "./Tearleads";
+export type { TearleadsUserKey, TearleadsUserKeys } from "./userKeys";
 export type {
   TearleadsRuntime,
   TearleadsRuntimeListener,

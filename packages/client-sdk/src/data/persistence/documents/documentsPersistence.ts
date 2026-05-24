@@ -7,6 +7,7 @@ import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../documents/documentConstants
 import {
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
+  deleteDocumentRecord,
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   findLocalIdByDocumentId,
@@ -15,6 +16,7 @@ import {
 } from "../../sqlite/documentPersistence";
 import {
   documentAttachmentBlobProjection,
+  documentContainerProjection,
   documentContainerProjectionTables,
   documentPendingAttachments,
   documentPendingUpdates,
@@ -391,6 +393,47 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         },
       ),
     );
+  },
+  async deleteDocument(execSql, localId) {
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const existingDocument = await sqlStoredDocumentsPersistence.loadDocument(
+        lockedExecSql,
+        localId,
+      );
+
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          await tx
+            .delete(documentProjection)
+            .where(eq(documentProjection.localId, localId))
+            .run();
+          await tx
+            .delete(documentPendingAttachments)
+            .where(eq(documentPendingAttachments.localId, localId))
+            .run();
+          await tx
+            .delete(documentAttachmentBlobProjection)
+            .where(eq(documentAttachmentBlobProjection.localId, localId))
+            .run();
+          if (existingDocument?.documentId) {
+            await tx
+              .delete(documentContainerProjection)
+              .where(
+                eq(
+                  documentContainerProjection.documentId,
+                  existingDocument.documentId,
+                ),
+              )
+              .run();
+          }
+          await deleteDocumentPendingUpdates(
+            lockedExecSql,
+            getDocumentScope(localId),
+          );
+          await deleteDocumentRecord(lockedExecSql, getDocumentScope(localId));
+        },
+      );
+    });
   },
   async upsertDiscoveredDocument(execSql, input) {
     const [nextSummary] = await upsertDiscoveredDocuments(execSql, [input]);

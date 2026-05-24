@@ -9,7 +9,6 @@ coordination, but they must stay React-free and product-UI-free.
 | Facade | Classification | Notes |
 | --- | --- | --- |
 | `blobs` | Platform runtime | Encrypted blob upload, hydration, decryption, and local byte-store helpers. |
-| `contacts` | Platform read model and runtime | Address-book documents, contact sync, and recipient key lookup. Contacts UI state belongs in `packages/app`. |
 | `containers` | Platform runtime | Container mutation planning and remote container operations. |
 | `documents` | Platform runtime | Document creation, persistence, sync, projection keys, and document link-set helpers. |
 | `container-contents` | Platform read model and runtime | Container tree projections, container metadata documents, document discovery, document links, and sync helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |

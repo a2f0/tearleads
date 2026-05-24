@@ -4,6 +4,9 @@ export * from "./data/documents/documentConstants";
 export * from "./data/documents/documentContent";
 export {
   createDocumentProjectorRegistry,
+  type DocumentClientProjectionDefinition,
+  type DocumentClientProjectionDeleteInput,
+  type DocumentClientProjectionSaveInput,
   type DocumentFieldValidationIssue,
   type DocumentProjection,
   type DocumentProjectorDefinition,
