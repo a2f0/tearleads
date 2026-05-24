@@ -116,10 +116,13 @@ export function useOrgManagerModel() {
     members,
     userId: appData.userId,
   });
-  const selectedRosterUser =
-    userDetail?.user ??
-    directory?.users.find((user) => user.userId === selectedUserId) ??
-    null;
+  const selectedRosterUser = useMemo(
+    () =>
+      userDetail?.user ??
+      directory?.users.find((user) => user.userId === selectedUserId) ??
+      null,
+    [directory?.users, selectedUserId, userDetail?.user],
+  );
   const canUpdateSelectedRosterEntry = Boolean(
     selectedRosterUser &&
       (directory?.currentUser.isOrgAdmin ||
