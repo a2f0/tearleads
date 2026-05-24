@@ -57,7 +57,7 @@ export interface ContainerWorkflowRuntime
     | null
     | undefined;
   readonly cacheReferencedPrincipalPolicies: (
-    references: ReferencedPrincipalStateResponse[],
+    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
   readonly log: (message: string) => void;
   readonly organizationId?: string | null;
