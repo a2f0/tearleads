@@ -6,18 +6,6 @@ export {
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 export {
-  getTargetContainerContext,
-  readContainerState,
-} from "../../data/containers/shared/projection";
-export { createChildContainerState } from "./container-state/createChild";
-export { syncPendingContainerCreateIntents } from "./container-state/createIntentSync";
-export { deleteContainerState } from "./container-state/delete";
-export { moveRemoteContainer } from "./container-state/remote";
-export {
-  shareContainerState,
-  shareContainerStateWithGroup,
-} from "./container-state/share";
-export {
   type ContainerInfo,
   type ContainerInfoGrant,
   type ContainerInfoGrantRow,
@@ -28,31 +16,17 @@ export {
   loadContainerInfo,
 } from "./containerInfo";
 export {
-  type ContainerContentsPersistence,
-  type ContainerDocumentRecord,
-  type ContainerRecord,
   type ContainerSyncWatermarkLane,
   createContainerContentsSyncLane,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  enqueuePendingContainerUpdateFromRuntime,
-  initializeContainerContentsSchema,
-  type LocalRootDescendantReparentInput,
   loadContainerSyncWatermark,
-  loadStoredContainerStates,
-  reassignContainerDocuments,
-  reconcileLocalRootContainer,
-  saveContainer,
   saveContainerSyncWatermark,
 } from "./containerPersistence";
 export {
-  discoverAllContainerDocumentsFromApi,
   discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
-  listAllRemoteContainerIdsFromApi,
   type RefreshAllContainerDocumentsFromApiOptions,
-  type RefreshAllContainerDocumentsOptions,
-  refreshAllContainerDocuments,
   refreshAllContainerDocumentsFromApi,
 } from "./documentDiscovery";
 export {
@@ -72,8 +46,6 @@ export {
 } from "./documentLinks";
 export {
   type ContainerDocumentLinkInput,
-  type ContainerDocumentPrimeHost,
-  type ContainerDocumentPrimeStore,
   type ContainerDocumentReadModel,
   type ContainerDocumentSidebarRow,
   type ContainerDocumentTombstone,
@@ -82,7 +54,6 @@ export {
   type ContainerItemSortDirection,
   type ContainerItemSortKey,
   createContainerDocumentReadModelFromRuntime,
-  primeDocumentsForContainerSubtree,
 } from "./documentReadModel";
 export {
   activateDocumentLinkState,
@@ -94,7 +65,6 @@ export {
   type SetLinkedContainerIdsForDocument,
   unlinkDocumentLinkState,
 } from "./documentStructure";
-export { loadLocalContainerStates } from "./localState";
 export {
   type ContainerMetadataPatch,
   hasContainerMetadataDocumentUpdateEvent,
@@ -109,24 +79,11 @@ export {
   didContainerContentsProjectionKeyRuntimeChange,
 } from "./projectionKeys";
 export {
-  type ContainerState,
-  createRemoteContainerIngestor,
-  hydrateRemoteContainers,
-  type RemoteContainer,
-  type RemoteContainerHydrationHost,
-} from "./remoteHydration";
-export {
   type ContainerContentsWorkflowRuntime,
   type ContainerContentsWorkflowRuntimeInput,
   createContainerContentsDocumentsRuntime,
   createContainerContentsWorkflowRuntime,
 } from "./runtime";
-export {
-  type ContainerContentsSyncLane,
-  didRegainContainerContentsSyncPrerequisites,
-  isDestroyedContainerContentsSyncRuntimeError,
-  registerContainerContentsSyncLane,
-} from "./syncLane";
 export type {
   ContainerDocumentObjectSyncState,
   ContainerDocumentObjectSyncStatus,

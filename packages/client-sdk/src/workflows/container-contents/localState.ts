@@ -11,16 +11,15 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
   enqueuePendingContainerUpdate,
-  initializeContainerContentsSchema,
-  loadStoredContainerStates,
   type StoredContainerState,
-  saveContainer,
 } from "./containerPersistence";
 import type { ContainerState } from "./remoteHydration";
 import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 type LocalContainerStateRuntime = ContainerContentsWorkflowSqlRuntime;
-type SaveContainerOptions = Parameters<typeof saveContainer>[4];
+type SaveContainerOptions = Parameters<
+  ContainerContentsPersistence["saveContainer"]
+>[3];
 
 function createInitialContainerContentsContainerRecord(input: {
   container: StoredContainerState["container"];
@@ -77,9 +76,8 @@ async function hydrateStoredContainerStateState(input: {
       name: metadata.name,
     };
     if (hasContainerMetadataProjectionChanged(container, nextContainer)) {
-      await saveContainer(
+      await persistence.saveContainer(
         execSql,
-        persistence,
         nextContainer,
         nextRecord,
         createMetadataSnapshotReplaySaveOptions(container),
@@ -95,7 +93,7 @@ async function hydrateStoredContainerStateState(input: {
       container,
       loroSnapshot: bytesToBase64(initialUpdate),
     });
-    await saveContainer(execSql, persistence, nextContainer, nextRecord);
+    await persistence.saveContainer(execSql, nextContainer, nextRecord);
 
     if (!container.metadataDocumentId) {
       await enqueuePendingContainerUpdate(execSql, persistence, {
@@ -118,11 +116,8 @@ export async function loadLocalContainerStates(input: {
 }): Promise<ReadonlyArray<ContainerState>> {
   const { persistence, runtime } = input;
   const execSql = runtime.execSql;
-  await initializeContainerContentsSchema(execSql, persistence);
-  const storedContainers = await loadStoredContainerStates(
-    execSql,
-    persistence,
-  );
+  await persistence.ensureSchema(execSql);
+  const storedContainers = await persistence.loadContainers(execSql);
 
   const containerStates: ContainerState[] = [];
   for (const storedContainer of storedContainers) {

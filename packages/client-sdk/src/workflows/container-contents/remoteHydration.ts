@@ -16,12 +16,9 @@ import {
   type ContainerDocumentRecord,
   type ContainerRecord,
   createContainerParentSyncLane,
-  deleteContainers,
   type LocalRootDescendantReparentInput,
-  loadContainerParentSyncWatermark,
-  reconcileLocalRootContainer,
-  saveContainer,
-  saveContainerParentSyncWatermark,
+  loadContainerSyncWatermark,
+  saveContainerSyncWatermark,
 } from "./containerPersistence";
 import type { ContainerMetadataPatch } from "./metadata";
 import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
@@ -30,7 +27,9 @@ type ListedRemoteContainerPageItem = ListContainersResponse["items"][number];
 type ContainerChildIndex = Map<string, Set<string>>;
 type QueueContainerParentLane = (parentId: string | null) => void;
 type RemoteContainerIngestQueue = Map<string, RemoteContainer>;
-type SaveContainerOptions = Parameters<typeof saveContainer>[4];
+type SaveContainerOptions = Parameters<
+  ContainerContentsPersistence["saveContainer"]
+>[3];
 
 const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
 
@@ -408,7 +407,7 @@ async function reconcileLocalOnlyRootContainer(input: {
       state,
     });
 
-  await reconcileLocalRootContainer(execSql, state.persistence, {
+  await state.persistence.reconcileLocalRootContainer(execSql, {
     descendantReparents,
     localRootContainerId: localRootState.container.id,
     remoteOrganizationId: remoteRootState.container.organizationId,
@@ -563,9 +562,8 @@ async function insertRemoteContainerState(input: {
     },
   };
 
-  containerState.container = await saveContainer(
+  containerState.container = await state.persistence.saveContainer(
     execSql,
-    state.persistence,
     containerState.container,
     containerState.record,
     remoteContainerHydrationSaveOptions({ remoteContainer }),
@@ -939,9 +937,8 @@ async function applyContainerTombstones(input: {
   const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
   const execSql = state.runtime.execSql;
 
-  await deleteContainers(
+  await state.persistence.deleteContainers(
     execSql,
-    state.persistence,
     removedContainerIds,
     tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : undefined,
   );
@@ -964,11 +961,7 @@ async function advanceContainerParentWatermark(input: {
   const { response, state, syncLane } = input;
   if (response.nextWatermark) {
     const execSql = state.runtime.execSql;
-    await saveContainerParentSyncWatermark(
-      execSql,
-      syncLane,
-      response.nextWatermark,
-    );
+    await saveContainerSyncWatermark(execSql, syncLane, response.nextWatermark);
   }
 
   return true;
@@ -993,7 +986,7 @@ async function fetchContainerParentLanePage(input: {
   const execSql = state.runtime.execSql;
   const watermark =
     lane.watermark === undefined
-      ? await loadContainerParentSyncWatermark(execSql, syncLane)
+      ? await loadContainerSyncWatermark(execSql, syncLane)
       : lane.watermark;
   const response = await state.runtime.apiClient.listContainers({
     parentId: lane.parentId,

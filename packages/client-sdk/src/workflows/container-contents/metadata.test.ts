@@ -1,18 +1,18 @@
 import { expect, test } from "bun:test";
 import {
-  type ContainerContentsPersistence,
-  type ContainerDocumentRecord,
-  type ContainerRecord,
-  hasContainerMetadataDocumentUpdateEvent,
-  persistContainerMetadataStateFromRuntime,
-  renameContainerMetadataStateFromRuntime,
-} from "@tearleads/client-sdk/workflows/container-contents";
-import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
+import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
+import type { DocumentRecord as ContainerDocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  hasContainerMetadataDocumentUpdateEvent,
+  persistContainerMetadataStateFromRuntime,
+  renameContainerMetadataStateFromRuntime,
+} from "./metadata";
 
 const execSql: ExecSql = async () => [];
 const runtime = { execSql };

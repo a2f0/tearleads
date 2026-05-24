@@ -1,7 +1,5 @@
-import type {
-  ContainerContentsPersistence,
-  ContainerDocumentObjectSyncState,
-} from "../../workflows/container-contents";
+import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
+import type { ContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncState,

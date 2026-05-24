@@ -86,7 +86,7 @@ state, menu labels, component-local hooks, and React providers stay in
 | Facade | Classification | Boundary |
 | --- | --- | --- |
 | `workflows/documents`, `workflows/blobs`, `workflows/containers`, `workflows/principals`, `workflows/registration`, `workflows/sync` | Platform runtime | Protocol-facing client operations, local persistence orchestration, sync coordination, key verification, and registration bootstrap helpers |
-| `workflows/container-contents` | Platform read model and runtime | Container tree state, container metadata documents, document link/discovery read models, and container contents sync helpers. The container-contents store facade adapts these into UI state without React. |
+| `workflows/container-contents` | Platform read model and runtime | Container tree state, container metadata documents, document link/discovery read models, diagnostics, and sync-state helpers. The container-contents store facade adapts these into UI state without React. |
 | `workflows/organizations` | Platform organization administration | Organization roster/directory, encrypted roster profile document binding, groups, grants, usage, user-detail read models, and principal-policy mutation helpers; the Org Manager mini-app adapts these into product screens in `packages/app` |
 
 When a workflow exists mainly to support a product screen, keep its name tied to
@@ -216,7 +216,7 @@ Supported package entry points are:
 | `@tearleads/client-sdk/workflows/blobs` | blob upload, hydration, and local blob stores |
 | `@tearleads/client-sdk/workflows/containers` | container mutation planning and remote container operations |
 | `@tearleads/client-sdk/workflows/documents` | document creation, sync, persistence, and projection-key helpers |
-| `@tearleads/client-sdk/workflows/container-contents` | container contents read models, document-link helpers, and sync helpers |
+| `@tearleads/client-sdk/workflows/container-contents` | container contents read models, document-link helpers, diagnostics, and sync-state helpers |
 | `@tearleads/client-sdk/workflows/organizations` | organization administration read models and principal-policy helpers |
 | `@tearleads/client-sdk/workflows/principals` | principal policy cache helpers |
 | `@tearleads/client-sdk/workflows/registration` | local registration/root bootstrap helpers |

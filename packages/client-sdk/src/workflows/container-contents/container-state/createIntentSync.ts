@@ -1,8 +1,3 @@
-import {
-  listPendingContainerCreateIntents,
-  markContainerCreateIntentSynced,
-  recordContainerCreateIntentError,
-} from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { createRemoteContainer } from "./remote";
 import type {
@@ -37,7 +32,7 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
   }
   const execSql = state.runtime.execSql;
 
-  await markContainerCreateIntentSynced(execSql, state.persistence, {
+  await state.persistence.markCreateIntentSynced(execSql, {
     containerId: intent.containerId,
     remoteContainerId: containerState.container.id,
     remoteMetadataAccessStateHash,
@@ -87,7 +82,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   };
   const execSql = state.runtime.execSql;
 
-  await markContainerCreateIntentSynced(execSql, state.persistence, {
+  await state.persistence.markCreateIntentSynced(execSql, {
     containerId: containerState.container.id,
     remoteContainerId: created.containerId,
     remoteMetadataAccessStateHash: created.accessManifestHash,
@@ -104,9 +99,8 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
 
   if (!containerState || !parentState) {
     const execSql = state.runtime.execSql;
-    await recordContainerCreateIntentError(
+    await state.persistence.recordCreateIntentError(
       execSql,
-      state.persistence,
       intent.containerId,
       "Container create intent references a missing local container",
     );
@@ -135,9 +129,8 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
 
   if (!created) {
     const execSql = state.runtime.execSql;
-    await recordContainerCreateIntentError(
+    await state.persistence.recordCreateIntentError(
       execSql,
-      state.persistence,
       intent.containerId,
       "Remote container create was rejected or unavailable",
     );
@@ -162,10 +155,8 @@ export async function syncPendingContainerCreateIntents(input: {
 }): Promise<number> {
   const { host, state } = input;
   const execSql = state.runtime.execSql;
-  const pendingIntents = await listPendingContainerCreateIntents(
-    execSql,
-    state.persistence,
-  );
+  const pendingIntents =
+    await state.persistence.listPendingCreateIntents(execSql);
   const remainingContainerIds = new Set(
     pendingIntents.map((intent) => intent.containerId),
   );

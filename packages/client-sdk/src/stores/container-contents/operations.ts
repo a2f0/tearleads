@@ -1,14 +1,16 @@
+import { createChildContainerState } from "../../workflows/container-contents/container-state/createChild";
+import { deleteContainerState } from "../../workflows/container-contents/container-state/delete";
+import { moveRemoteContainer } from "../../workflows/container-contents/container-state/remote";
 import {
-  type ContainerDocumentRecord,
-  type ContainerMetadataPatch,
-  createChildContainerState,
-  deleteContainerState,
-  moveRemoteContainer,
-  persistContainerMetadataStateFromRuntime,
-  renameContainerMetadataStateFromRuntime,
   shareContainerState,
   shareContainerStateWithGroup,
-} from "../../workflows/container-contents";
+} from "../../workflows/container-contents/container-state/share";
+import type { ContainerDocumentRecord } from "../../workflows/container-contents/containerPersistence";
+import {
+  type ContainerMetadataPatch,
+  persistContainerMetadataStateFromRuntime,
+  renameContainerMetadataStateFromRuntime,
+} from "../../workflows/container-contents/metadata";
 import { requestDomainDocumentSync } from "../documents";
 import { updateContainerContentsSnapshot } from "./state";
 import type {

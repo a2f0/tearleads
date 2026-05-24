@@ -4,9 +4,9 @@ import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
-  createContainerContentsWorkflowRuntime,
   defaultContainerContentsPersistence,
-} from "../../workflows/container-contents";
+} from "../../workflows/container-contents/containerPersistence";
+import { createContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { getOrCreateContainerContentsStore } from "./containerContentsStore";
 
 function createTestRuntime(input: {

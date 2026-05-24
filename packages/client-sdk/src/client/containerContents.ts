@@ -1,18 +1,26 @@
 import type { DocumentSummary } from "../data/documentSummary";
 import {
-  type ContainerContentsWorkflowRuntime,
-  type ContainerDocumentReadModel,
   type ContainerInfo,
   type ContainerInfoRemoteMode,
-  createContainerContentsWorkflowRuntime,
-  createContainerDocumentReadModelFromRuntime,
+  loadContainerInfo,
+} from "../workflows/container-contents/containerInfo";
+import {
+  discoverContainerDocumentsFromApi,
+  refreshAllContainerDocumentsFromApi,
+} from "../workflows/container-contents/documentDiscovery";
+import {
   type DocumentInfo,
   type DocumentInfoRemoteMode,
-  discoverContainerDocumentsFromApi,
-  loadContainerInfo,
   loadDocumentInfo,
-  refreshAllContainerDocumentsFromApi,
-} from "../workflows/container-contents";
+} from "../workflows/container-contents/documentInfo";
+import {
+  type ContainerDocumentReadModel,
+  createContainerDocumentReadModelFromRuntime,
+} from "../workflows/container-contents/documentReadModel";
+import {
+  type ContainerContentsWorkflowRuntime,
+  createContainerContentsWorkflowRuntime,
+} from "../workflows/container-contents/runtime";
 import type {
   TearleadsInternalRuntime,
   TearleadsInternalWorkflowRuntimeInput,

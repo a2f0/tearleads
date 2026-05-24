@@ -1,7 +1,4 @@
-import {
-  type ContainerContentsPersistence,
-  deleteSingleContainer,
-} from "../containerPersistence";
+import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { deleteRemoteContainer } from "./remote";
 import type { ContainerWorkflowRuntime } from "./types";
@@ -24,9 +21,8 @@ export async function deleteContainerState(input: {
   }
   const execSql = input.runtime.execSql;
 
-  await deleteSingleContainer(
+  await input.persistence.deleteContainer(
     execSql,
-    input.persistence,
     input.containerState.container.id,
   );
   return true;

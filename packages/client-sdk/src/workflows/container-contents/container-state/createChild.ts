@@ -5,7 +5,6 @@ import type { DocumentRecord } from "../../../data/sqlite/documentPersistence";
 import {
   type ContainerContentsPersistence,
   enqueuePendingContainerUpdate,
-  saveContainer,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { createRemoteContainer } from "./remote";
@@ -155,9 +154,8 @@ export async function createChildContainerState(input: {
       : undefined;
   const execSql = runtime.execSql;
 
-  containerState.container = await saveContainer(
+  containerState.container = await persistence.saveContainer(
     execSql,
-    persistence,
     containerState.container,
     containerState.record,
     createIntent ? { createIntent } : undefined,

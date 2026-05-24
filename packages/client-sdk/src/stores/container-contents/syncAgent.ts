@@ -1,24 +1,32 @@
+import { syncPendingContainerCreateIntents } from "../../workflows/container-contents/container-state/createIntentSync";
+import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import {
-  type ContainerContentsPersistence,
-  type ContainerContentsProjectionUserKeyResolver,
-  type ContainerContentsSyncLane,
-  type ContainerContentsWorkflowRuntime,
   type ContainerDocumentPrimeHost,
   type ContainerDocumentPrimeStore,
-  type ContainerState,
-  createContainerContentsDocumentsRuntime,
-  createRemoteContainerIngestor,
-  hasContainerMetadataDocumentUpdateEvent,
-  hydrateRemoteContainers,
-  isDestroyedContainerContentsSyncRuntimeError,
-  loadLocalContainerStates,
   primeDocumentsForContainerSubtree,
+} from "../../workflows/container-contents/documentReadModel";
+import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
+import {
+  hasContainerMetadataDocumentUpdateEvent,
+  syncContainerMetadataState,
+} from "../../workflows/container-contents/metadata";
+import type { ContainerContentsProjectionUserKeyResolver } from "../../workflows/container-contents/projectionKeys";
+import {
+  type ContainerState,
+  createRemoteContainerIngestor,
+  hydrateRemoteContainers,
   type RemoteContainer,
   type RemoteContainerHydrationHost,
+} from "../../workflows/container-contents/remoteHydration";
+import {
+  type ContainerContentsWorkflowRuntime,
+  createContainerContentsDocumentsRuntime,
+} from "../../workflows/container-contents/runtime";
+import {
+  type ContainerContentsSyncLane,
+  isDestroyedContainerContentsSyncRuntimeError,
   registerContainerContentsSyncLane,
-  syncContainerMetadataState,
-  syncPendingContainerCreateIntents,
-} from "../../workflows/container-contents";
+} from "../../workflows/container-contents/syncLane";
 import { primeDocumentStore } from "../documents";
 
 export type { ContainerState };

@@ -48,28 +48,28 @@ export type ContainerWorkflowApi = Parameters<
 
 export interface ContainerWorkflowRuntime
   extends ContainerContentsWorkflowSqlRuntime {
-  apiClient: ContainerWorkflowApi;
-  encapsulationKeyPair?:
+  readonly apiClient: ContainerWorkflowApi;
+  readonly encapsulationKeyPair?:
     | {
         publicKey: Uint8Array;
         secretKey: Uint8Array;
       }
     | null
     | undefined;
-  cacheReferencedPrincipalPolicies: (
-    references: ReferencedPrincipalStateResponse[],
+  readonly cacheReferencedPrincipalPolicies: (
+    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
-  log: (message: string) => void;
-  organizationId?: string | null;
-  signingFingerprint?: string | null;
-  signingKeyPair?:
+  readonly log: (message: string) => void;
+  readonly organizationId?: string | null;
+  readonly signingFingerprint?: string | null;
+  readonly signingKeyPair?:
     | {
         signingPrivateKey: Uint8Array;
         signingPublicKey: Uint8Array;
       }
     | null
     | undefined;
-  userId?: string | null;
+  readonly userId?: string | null;
 }
 
 export interface CreatedRemoteContainerState {

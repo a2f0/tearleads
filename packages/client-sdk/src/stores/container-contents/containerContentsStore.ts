@@ -2,7 +2,7 @@ import type { DomainScope } from "../../data/domainScope";
 import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
-} from "../../workflows/container-contents";
+} from "../../workflows/container-contents/containerPersistence";
 import {
   createChildContainer,
   deleteContainer,
