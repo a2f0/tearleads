@@ -29,8 +29,7 @@ export function useExplorerInteractionState(params: {
   } = params;
   const { containerContents } = useTearleads();
   const discoverDocuments = useCallback(
-    (...args: Parameters<typeof containerContents.discoverDocuments>) =>
-      containerContents.discoverDocuments(...args),
+    (containerId: string) => containerContents.discoverDocuments(containerId),
     [containerContents],
   );
   const refreshDocuments = useCallback(

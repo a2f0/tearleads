@@ -52,7 +52,7 @@ export function DocumentsProvider({
     () =>
       containerId === undefined
         ? tearleads.documents.runtime()
-        : tearleads.documents.runtime({ containerId }),
+        : tearleads.documents.runtime(containerId),
     [appData, containerId, tearleads],
   );
   const store = useMemo(

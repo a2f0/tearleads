@@ -28,21 +28,6 @@ type ContainerDocumentDiscoveryPersistence = Pick<
 >;
 
 /**
- * Selects the remote container-document lane to discover.
- *
- * Discovery reads the remote document listing for one container, persists the
- * resulting document summaries and link projection locally, applies container
- * document tombstones, and advances that container's document watermark only
- * after the local apply succeeds.
- *
- * Fields:
- * - `containerId`: Remote container id whose document lane should be listed.
- */
-export interface TearleadsContainerDocumentDiscoveryInput {
-  containerId: string;
-}
-
-/**
  * Selects the container to inspect.
  *
  * Container info combines local SQLite timestamps with optional remote writer
@@ -98,9 +83,12 @@ export interface TearleadsContainerContents {
    *
    * Returns the document summaries touched by the apply, or `null` when the
    * local database is unavailable or the remote lane could not be fully listed.
+   *
+   * Parameters:
+   * - `containerId`: Remote container id whose document lane should be listed.
    */
   discoverDocuments(
-    input: TearleadsContainerDocumentDiscoveryInput,
+    containerId: string,
   ): Promise<ReadonlyArray<DocumentSummary> | null>;
 
   /**
@@ -155,7 +143,7 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
   constructor(private readonly runtimeService: TearleadsInternalRuntime) {}
 
   discoverDocuments(
-    input: TearleadsContainerDocumentDiscoveryInput,
+    containerId: string,
   ): Promise<ReadonlyArray<DocumentSummary> | null> {
     const runtime = createContainerContentsDiscoveryRuntime(
       this.runtimeService.workflowInput(),
@@ -169,7 +157,7 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
       apiClient: runtime.apiClient,
       cacheReferencedPrincipalPolicies:
         runtime.cacheReferencedPrincipalPolicies,
-      containerId: input.containerId,
+      containerId,
     });
   }
 

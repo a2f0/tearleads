@@ -32,7 +32,7 @@ function useContainerDiscoveryPromiseFactory(params: {
         return currentPromise;
       }
 
-      const nextPromise = discoverDocuments({ containerId }).finally(() => {
+      const nextPromise = discoverDocuments(containerId).finally(() => {
         if (discoveryPromisesByContainerId.get(containerId) === nextPromise) {
           discoveryPromisesByContainerId.delete(containerId);
         }
