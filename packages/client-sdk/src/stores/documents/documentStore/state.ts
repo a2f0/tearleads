@@ -88,13 +88,26 @@ function shallowEqualRecord<Value>(
   left: Readonly<Record<string, Value>>,
   right: Readonly<Record<string, Value>>,
 ): boolean {
-  const leftEntries = Object.entries(left);
-  const rightEntries = Object.entries(right);
+  let leftKeyCount = 0;
+  for (const key in left) {
+    if (!Object.hasOwn(left, key)) {
+      continue;
+    }
 
-  return (
-    leftEntries.length === rightEntries.length &&
-    leftEntries.every(([key, value]) => Object.is(right[key], value))
-  );
+    leftKeyCount += 1;
+    if (!Object.hasOwn(right, key) || !Object.is(left[key], right[key])) {
+      return false;
+    }
+  }
+
+  let rightKeyCount = 0;
+  for (const key in right) {
+    if (Object.hasOwn(right, key)) {
+      rightKeyCount += 1;
+    }
+  }
+
+  return leftKeyCount === rightKeyCount;
 }
 
 function sameValidationIssues(
