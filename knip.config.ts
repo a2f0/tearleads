@@ -49,7 +49,23 @@ export default {
       project: ["src/**/*.ts"],
     },
     "packages/client-sdk": {
-      entry: [],
+      // Package exports point at dist, so list the source facades that feed the
+      // build and public API contract explicitly.
+      entry: [
+        "src/index.ts",
+        "src/documents.ts",
+        "src/sqlite.ts",
+        "src/stores/container-contents/index.ts",
+        "src/stores/documents/index.ts",
+        "src/workflows/blobs/index.ts",
+        "src/workflows/containers/index.ts",
+        "src/workflows/documents/index.ts",
+        "src/workflows/container-contents/index.ts",
+        "src/workflows/organizations/index.ts",
+        "src/workflows/principals/index.ts",
+        "src/workflows/registration/index.ts",
+        "src/workflows/sync/index.ts",
+      ],
       project: ["src/**/*.ts"],
     },
     "packages/crypto": {
