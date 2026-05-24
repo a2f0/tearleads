@@ -112,6 +112,7 @@ export {
   type OrganizationGroupMembersResponse,
   type OrganizationGroupSummaryResponse,
   type OrganizationRole,
+  type OrganizationRosterStatus,
   type OrganizationUserDetailGrantsResponse,
   type OrganizationUserDetailResponse,
 } from "./organization";

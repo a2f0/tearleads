@@ -311,17 +311,17 @@ admin-signer rule.
 
 Result: detected and fail closed.
 
-### Forged Organization Directory Membership
+### Forged Organization Roster Membership
 
-Org-manager directory membership is projected from the reserved `Members`
-group. The normal write path only updates that projection after storing a
-verified signed `Members` group state. Because `Admins` is nested into
-`Members`, admins appear as organization members through the same signed
-reachability path.
+Org-manager directory lifecycle is stored in `organization_roster_entries`.
+Active roster state is synchronized from users reachable through the reserved
+`Members` group, and disabled rows may remain visible after access removal.
+Because `Admins` is nested into `Members`, admins appear as active organization
+members through the same signed reachability path.
 
-If the database projection rows are edited directly, server-side directory and
+If roster or projection rows are edited directly, server-side directory and
 listing surfaces can be distorted, but those rows are still not cryptographic
-authority. Verified policy consumers must reject a forged view unless the
+authority. Verified policy consumers must reject forged access unless the
 signed `Members` policy state, chain, projection root, and admin-signer rule
 also verify.
 
@@ -380,9 +380,8 @@ Result: not reliably detected without prior trust in the identity key binding.
  initial projection.
 - Org-scoped successor states may also be signed by a user reachable through
  the organization's reserved `Admins` group.
-- Organization membership and org-manager directory hydration are projected
- from the reserved `Members` group, not from mutable directory rows or product
- roles on the organization principal.
+- Organization membership is verified from the reserved `Members` group, not
+ from mutable roster rows or product roles on the organization principal.
 - Principal policy bundles fetched by the app are verified before caching and
  skipped on validation failure.
 - Principal member envelopes must match the active direct signed projection.

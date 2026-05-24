@@ -5,6 +5,11 @@ import { organizations } from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
+import {
+  listOrganizationRosterEntries,
+  toOrganizationDirectoryUser,
+  upsertActiveOrganizationRosterEntries,
+} from "./roster";
 import { loadUsersById } from "./users";
 
 type OrganizationDirectoryUser = OrganizationDirectoryResponse["users"][number];
@@ -52,31 +57,39 @@ export async function runListOrganizationDirectoryWorkflow(
       executor: tx,
       groupId: memberGroupId,
     });
+    await upsertActiveOrganizationRosterEntries({
+      executor: tx,
+      organizationId,
+      userIds: [...memberUserIds],
+    });
+    const rosterEntries = await listOrganizationRosterEntries({
+      executor: tx,
+      organizationId,
+    });
 
-    const usersById = await loadUsersById(tx, memberUserIds);
+    const usersById = await loadUsersById(
+      tx,
+      rosterEntries.map((entry) => entry.userId),
+    );
 
     return {
       organizationId,
       currentUser: {
         isOrgAdmin: access.isOrgAdmin,
       },
-      users: memberUserIds
-        .flatMap((userId) => {
-          const user = usersById.get(userId);
+      users: rosterEntries
+        .flatMap((rosterEntry) => {
+          const user = usersById.get(rosterEntry.userId);
           if (!user) {
             return [];
           }
 
           return [
-            {
-              userId: user.userId,
-              signingKeyFingerprint: user.signingKeyFingerprint,
-              signingPublicKey: user.signingPublicKey,
-              encapsulationPublicKey: user.encapsulationPublicKey,
-              encapsulationKeyFingerprint: user.encapsulationKeyFingerprint,
-              createdAt: user.createdAt.toISOString(),
-              isSelf: user.userId === sessionUserId,
-            },
+            toOrganizationDirectoryUser({
+              rosterEntry,
+              sessionUserId,
+              user,
+            }),
           ];
         })
         .sort(compareOrganizationDirectoryUsers),

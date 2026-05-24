@@ -2,6 +2,18 @@ import { sql } from "drizzle-orm";
 import type { DatabaseSession } from "../../adapters/postgres";
 import { principalMembershipProjection, principalStates } from "../../schema";
 
+const currentManagedPrincipalStatesCte = sql`
+  current_managed_principal_states as (
+    select distinct on (principal_type, principal_id)
+      principal_type,
+      principal_id,
+      state_hash
+    from ${principalStates}
+    where principal_type in (${"group"}, ${"organization"})
+    order by principal_type asc, principal_id asc, version desc
+  )
+`;
+
 const currentGroupStatesCte = sql`
   current_group_states as (
     select distinct on (principal_type, principal_id)
@@ -99,9 +111,21 @@ export async function listUsersReachableFromCurrentGroup(input: {
   executor: DatabaseSession;
   groupId: string;
 }): Promise<string[]> {
+  return listUsersReachableFromCurrentPrincipal({
+    executor: input.executor,
+    principalId: input.groupId,
+    principalType: "group",
+  });
+}
+
+export async function listUsersReachableFromCurrentPrincipal(input: {
+  executor: DatabaseSession;
+  principalId: string;
+  principalType: "group" | "organization";
+}): Promise<string[]> {
   const result = await input.executor.execute(sql`
     with recursive
-      ${currentGroupStatesCte},
+      ${currentManagedPrincipalStatesCte},
       reachable_members(
         member_principal_type,
         member_principal_id
@@ -110,13 +134,13 @@ export async function listUsersReachableFromCurrentGroup(input: {
           pmp.member_principal_type,
           pmp.member_principal_id
         from ${principalMembershipProjection} pmp
-        inner join current_group_states current_state
+        inner join current_managed_principal_states current_state
           on current_state.principal_type = pmp.principal_type
           and current_state.principal_id = pmp.principal_id
           and current_state.state_hash = pmp.state_hash
         where
-          pmp.principal_type = ${"group"}
-          and pmp.principal_id = ${input.groupId}
+          pmp.principal_type = ${input.principalType}
+          and pmp.principal_id = ${input.principalId}
         union
         select
           pmp.member_principal_type,
@@ -125,7 +149,7 @@ export async function listUsersReachableFromCurrentGroup(input: {
         inner join ${principalMembershipProjection} pmp
           on pmp.principal_type = ${"group"}
           and pmp.principal_id = reachable.member_principal_id
-        inner join current_group_states current_state
+        inner join current_managed_principal_states current_state
           on current_state.principal_type = pmp.principal_type
           and current_state.principal_id = pmp.principal_id
           and current_state.state_hash = pmp.state_hash

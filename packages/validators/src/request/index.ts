@@ -48,6 +48,8 @@ export {
 export {
   type CreateOrganizationGroupRequest,
   isCreateOrganizationGroupRequest,
+  isUpdateOrganizationRosterEntryRequest,
+  type UpdateOrganizationRosterEntryRequest,
 } from "./organization";
 export {
   isPutPrincipalMemberEnvelopesRequest,

@@ -316,9 +316,10 @@ The top-level ownership and policy boundary for user data. Registration creates
 a default organization, reserved `Admins` and `Members` groups, and a root
 container. The organization row stores `adminGroupId` and `memberGroupId`.
 Reachability through `Admins` is org-admin authority. Reachability through
-`Members` is organization membership and hydrates the org-manager directory.
-Organization policy can still act as a managed principal for grants, but
-org-manager product role semantics come from the reserved groups.
+`Members` is organization membership. Org-manager directory lifecycle is stored
+in organization roster entries so disabled accounts can remain visible after
+access removal. Organization policy can still act as a managed principal for
+grants, but org-manager product role semantics come from the reserved groups.
 
 Related docs:
 
@@ -340,9 +341,18 @@ Related docs:
 ## Organization Members Group
 
 The reserved organization-scoped `Members` group. Reachable users belong to the
-organization. Org-manager directory data is hydrated from this group's signed
-membership projection. Registration nests `Admins` into `Members`, so admins
-are organization members by reachability.
+organization. Active roster entries are synchronized from this group's signed
+reachability, but disabled roster entries may remain visible without granting
+access. Registration nests `Admins` into `Members`, so admins are organization
+members by reachability.
+
+## Organization Roster Entry
+
+An organization-scoped product row that records directory lifecycle state for a
+user. It stores server-visible routing/status metadata such as `status`,
+`joinedAt`, `disabledAt`, `disabledByUserId`, and optional `profileDocumentId`.
+It does not store plaintext profile fields such as email, first name, or last
+name; those belong in encrypted documents.
 
 Related docs:
 

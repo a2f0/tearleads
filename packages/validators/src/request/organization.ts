@@ -1,6 +1,7 @@
 import { isPlainObject } from "../isPlainObject";
 import {
   hasArrayProperty,
+  hasNullableStringProperty,
   hasObjectProperty,
   hasStringProperty,
   isUuidV4String,
@@ -27,6 +28,10 @@ export interface CreateOrganizationGroupRequest {
   };
 }
 
+export interface UpdateOrganizationRosterEntryRequest {
+  profileDocumentId: string | null;
+}
+
 export function isCreateOrganizationGroupRequest(
   value: unknown,
 ): value is CreateOrganizationGroupRequest {
@@ -51,5 +56,16 @@ export function isCreateOrganizationGroupRequest(
     value.initialGroupPolicy.memberEnvelopes.every(
       isPrincipalMemberEnvelopeRequest,
     )
+  );
+}
+
+export function isUpdateOrganizationRosterEntryRequest(
+  value: unknown,
+): value is UpdateOrganizationRosterEntryRequest {
+  return (
+    isPlainObject(value) &&
+    hasNullableStringProperty(value, "profileDocumentId") &&
+    (value.profileDocumentId === null ||
+      isUuidV4String(value.profileDocumentId))
   );
 }

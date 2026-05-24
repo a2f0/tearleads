@@ -394,6 +394,11 @@ test("organization manager responses", () => {
           encapsulationKeyFingerprint: "encapsulation-fingerprint",
           createdAt: new Date().toISOString(),
           isSelf: true,
+          status: "active",
+          profileDocumentId: null,
+          joinedAt: new Date().toISOString(),
+          disabledAt: null,
+          disabledByUserId: null,
         },
       ],
     }),
@@ -557,6 +562,11 @@ test("organization manager responses", () => {
         encapsulationKeyFingerprint: "encapsulation-fingerprint",
         createdAt: new Date().toISOString(),
         isSelf: true,
+        status: "disabled",
+        profileDocumentId: "profile-document-1",
+        joinedAt: new Date().toISOString(),
+        disabledAt: new Date().toISOString(),
+        disabledByUserId: "admin-1",
       },
       groups: [
         {

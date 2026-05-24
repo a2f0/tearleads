@@ -43,6 +43,13 @@
       "when": 1779293066964,
       "tag": "0005_nappy_annihilus",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779649855521,
+      "tag": "0006_black_sue_storm",
+      "breakpoints": true
     }
   ]
 }

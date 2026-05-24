@@ -5,36 +5,37 @@ import { OrganizationManagerError } from "./errors";
 import { listOrganizationContainerGrantResponsesInTransaction } from "./grants";
 import { listOrganizationGroupSummariesInTransaction } from "./groups";
 import { listUserReachableCurrentGroupIds } from "./principalReachability";
+import {
+  loadOrganizationRosterEntry,
+  type OrganizationRosterEntryRow,
+  toOrganizationDirectoryUser,
+} from "./roster";
 import { loadUsersById, type UserKeyRow } from "./users";
 
 type OrganizationUserDetailUser = OrganizationUserDetailResponse["user"];
 
 function toOrganizationUserDetailUser(input: {
+  readonly rosterEntry: OrganizationRosterEntryRow;
   readonly sessionUserId: string;
   readonly user: UserKeyRow;
 }): OrganizationUserDetailUser {
-  return {
-    userId: input.user.userId,
-    signingKeyFingerprint: input.user.signingKeyFingerprint,
-    signingPublicKey: input.user.signingPublicKey,
-    encapsulationPublicKey: input.user.encapsulationPublicKey,
-    encapsulationKeyFingerprint: input.user.encapsulationKeyFingerprint,
-    createdAt: input.user.createdAt.toISOString(),
-    isSelf: input.user.userId === input.sessionUserId,
-  };
+  return toOrganizationDirectoryUser(input);
 }
 
-async function loadOrganizationUser(input: {
+async function loadOrganizationRosterUser(input: {
   readonly executor: DatabaseSession;
-  readonly memberGroupId: string;
+  readonly organizationId: string;
   readonly userId: string;
-}): Promise<UserKeyRow> {
-  const reachableMemberGroupIds = await listUserReachableCurrentGroupIds({
+}): Promise<{
+  readonly rosterEntry: OrganizationRosterEntryRow;
+  readonly user: UserKeyRow;
+}> {
+  const rosterEntry = await loadOrganizationRosterEntry({
     executor: input.executor,
-    groupIds: [input.memberGroupId],
+    organizationId: input.organizationId,
     userId: input.userId,
   });
-  if (!reachableMemberGroupIds.has(input.memberGroupId)) {
+  if (!rosterEntry) {
     throw new OrganizationManagerError("User not found", 404);
   }
 
@@ -44,7 +45,7 @@ async function loadOrganizationUser(input: {
     throw new OrganizationManagerError("User not found", 404);
   }
 
-  return user;
+  return { rosterEntry, user };
 }
 
 export async function runGetOrganizationUserDetailWorkflow(
@@ -64,9 +65,9 @@ export async function runGetOrganizationUserDetailWorkflow(
       executor: tx,
       organizationId,
     });
-    const user = await loadOrganizationUser({
+    const { rosterEntry, user } = await loadOrganizationRosterUser({
       executor: tx,
-      memberGroupId: groupSummaries.memberGroupId,
+      organizationId,
       userId,
     });
     const reachableGroupIds = await listUserReachableCurrentGroupIds({
@@ -98,7 +99,11 @@ export async function runGetOrganizationUserDetailWorkflow(
 
     return {
       organizationId,
-      user: toOrganizationUserDetailUser({ sessionUserId, user }),
+      user: toOrganizationUserDetailUser({
+        rosterEntry,
+        sessionUserId,
+        user,
+      }),
       groups,
       grants: {
         directGrants: grants.filter(

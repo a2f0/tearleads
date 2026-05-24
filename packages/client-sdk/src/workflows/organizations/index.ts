@@ -36,4 +36,5 @@ export {
   type OrganizationPrincipalPolicyHistory,
   type OrganizationPrincipalPolicyHistoryEntry,
   type OrganizationUserDetail,
+  updateOrganizationRosterEntry,
 } from "./readModel";

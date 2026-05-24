@@ -37,7 +37,12 @@ const DIRECTORY_TABLE_COLUMNS = [
   {
     id: "signing-key",
     header: ORG_MANAGER_LABELS.signingKey,
-    width: "38%",
+    width: "30%",
+  },
+  {
+    id: "status",
+    header: ORG_MANAGER_LABELS.status,
+    width: "7rem",
   },
   {
     className: "org-manager-directory-joined-column",
@@ -118,9 +123,16 @@ function DirectoryTable({
                   {compactFingerprint(user.signingKeyFingerprint)}
                 </MiniAppTableText>
               </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText>
+                  {user.status === "disabled"
+                    ? ORG_MANAGER_LABELS.disabled
+                    : ORG_MANAGER_LABELS.active}
+                </MiniAppTableText>
+              </MiniAppTableCell>
               <MiniAppTableCell className="org-manager-directory-joined-column">
                 <MiniAppTableText title={user.createdAt}>
-                  {formatMiniAppDate(user.createdAt)}
+                  {formatMiniAppDate(user.joinedAt)}
                 </MiniAppTableText>
               </MiniAppTableCell>
             </MiniAppTableRow>
@@ -215,8 +227,10 @@ function UserDetailView({
             {compactFingerprint(detail.user.signingKeyFingerprint)}
           </span>
         </div>
-        <span title={detail.user.createdAt}>
-          {formatMiniAppDate(detail.user.createdAt)}
+        <span title={detail.user.joinedAt}>
+          {detail.user.status === "disabled"
+            ? ORG_MANAGER_LABELS.disabled
+            : formatMiniAppDate(detail.user.joinedAt)}
         </span>
       </div>
       <MiniAppSection>

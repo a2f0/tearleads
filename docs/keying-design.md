@@ -96,11 +96,12 @@ object keying algorithm can fully fix that by itself.
 
 Organization administration and membership are modeled with reserved
 organization-scoped groups. `Admins` is the org-admin authority, and `Members`
-is the opaque org-membership authority used to hydrate org-manager directory
-views. Registration creates both policies atomically and nests `Admins` into
-`Members`, so admins are members by signed group reachability. The
-organization principal policy remains managed-principal state, but it should
-not expose product role semantics for org-manager.
+is the opaque org-membership authority used to drive active org-manager roster
+state. Disabled roster entries can remain visible after access removal.
+Registration creates both policies atomically and nests `Admins` into
+`Members`, so admins are members by signed group reachability. The organization
+principal policy remains managed-principal state, but it should not expose
+product role semantics for org-manager.
 
 ## Signed Access Manifests
 

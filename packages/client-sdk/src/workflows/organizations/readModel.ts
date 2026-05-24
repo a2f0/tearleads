@@ -1,3 +1,4 @@
+import type { UpdateOrganizationRosterEntryRequest } from "@tearleads/validators/request";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantResponse,
@@ -114,6 +115,11 @@ interface OrganizationReadApi {
     organizationId: string,
     userId: string,
   ) => Promise<OrganizationUserDetailResponse | null>;
+  readonly updateOrganizationRosterEntry: (
+    organizationId: string,
+    userId: string,
+    input: UpdateOrganizationRosterEntryRequest,
+  ) => Promise<OrganizationDirectoryUserResponse | null>;
   readonly listOrganizationGroupMembers: (
     organizationId: string,
     groupId: string,
@@ -422,6 +428,22 @@ export async function loadOrganizationUserDetail(input: {
       ),
     },
   };
+}
+
+export async function updateOrganizationRosterEntry(input: {
+  readonly apiClient: Pick<
+    OrganizationReadApi,
+    "updateOrganizationRosterEntry"
+  >;
+  readonly organizationId: string;
+  readonly profileDocumentId: string | null;
+  readonly userId: string;
+}): Promise<OrganizationDirectoryUser | null> {
+  return input.apiClient.updateOrganizationRosterEntry(
+    input.organizationId,
+    input.userId,
+    { profileDocumentId: input.profileDocumentId },
+  );
 }
 
 export async function loadOrganizationGroupDetails(input: {

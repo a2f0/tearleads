@@ -15,9 +15,18 @@ import {
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  getCurrentPrincipalState,
+  listCurrentPrincipalProjectionMembers,
+} from "../../access/read/principalStateStore";
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import { groups as groupsTable, users } from "../../schema";
+import {
+  groups as groupsTable,
+  organizationRosterEntries,
+  organizations,
+  users,
+} from "../../schema";
 
 async function createSignedPrincipalState(input: {
   keyEpoch?: number;
@@ -72,6 +81,74 @@ async function getDefaultOrganizationId(userId: string): Promise<string> {
 
   invariant(user, "expected registered user");
   return user.organizationId;
+}
+
+async function addOrganizationMember(input: {
+  actor: ReturnType<typeof createTestUser>;
+  memberUserId: string;
+  organizationId: string;
+}) {
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
+  const currentState = await getCurrentPrincipalState(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  invariant(currentState, "expected current Members state");
+  const currentProjection = await listCurrentPrincipalProjectionMembers(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  const nextProjection = [
+    ...currentProjection.map((projectionMember) => ({
+      memberPrincipalType: projectionMember.memberPrincipalType,
+      memberPrincipalId: projectionMember.memberPrincipalId,
+      role: projectionMember.role,
+    })),
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.memberUserId,
+      role: "member" as const,
+    },
+  ];
+  const signedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: organization.memberGroupId,
+    version: currentState.version + 1,
+    prevStateHash: currentState.stateHash,
+    keyEpoch: currentState.keyEpoch + 1,
+    members: nextProjection.map((projectionMember) => ({
+      principalType: projectionMember.memberPrincipalType,
+      principalId: projectionMember.memberPrincipalId,
+    })),
+    projection: nextProjection,
+    signerUserId: input.actor.userId,
+    signerUserKeyFingerprint: input.actor.fingerprint,
+    signingPrivateKey: input.actor.signing.signingPrivateKey,
+  });
+
+  const response = await routeApp.request(
+    `/principals/group/${organization.memberGroupId}/state`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${input.actor.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+      }),
+    },
+  );
+  expect(response.status).toBe(200);
 }
 
 test("PUT /principals/:principalType/:principalId/state stores verified state and GET /policy returns the current bundle", async () => {
@@ -142,6 +219,158 @@ test("PUT /principals/:principalType/:principalId/state stores verified state an
   expect(policyBundle.currentMemberEnvelopes.epoch).toBe(1);
   expect(policyBundle.currentMemberEnvelopes.envelopes).toEqual([]);
   expect(policyBundle.previousStates).toEqual([]);
+});
+
+test("PUT /principals/:principalType/:principalId/state syncs org roster from Members reachability", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const member = createTestUser();
+  await registerUser(member);
+
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
+  const currentState = await getCurrentPrincipalState(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  invariant(currentState, "expected current Members state");
+  const currentProjection = await listCurrentPrincipalProjectionMembers(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  const nextProjection = [
+    ...currentProjection.map((projectionMember) => ({
+      memberPrincipalType: projectionMember.memberPrincipalType,
+      memberPrincipalId: projectionMember.memberPrincipalId,
+      role: projectionMember.role,
+    })),
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: member.userId,
+      role: "member" as const,
+    },
+  ];
+  const signedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: organization.memberGroupId,
+    version: currentState.version + 1,
+    prevStateHash: currentState.stateHash,
+    keyEpoch: currentState.keyEpoch + 1,
+    members: nextProjection.map((projectionMember) => ({
+      principalType: projectionMember.memberPrincipalType,
+      principalId: projectionMember.memberPrincipalId,
+    })),
+    projection: nextProjection,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const response = await routeApp.request(
+    `/principals/group/${organization.memberGroupId}/state`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+      }),
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const rosterEntries = await db
+    .select({
+      status: organizationRosterEntries.status,
+      userId: organizationRosterEntries.userId,
+    })
+    .from(organizationRosterEntries)
+    .where(eq(organizationRosterEntries.organizationId, organizationId));
+  expect(rosterEntries).toContainEqual({
+    status: "active",
+    userId: member.userId,
+  });
+});
+
+test("PUT /principals/:principalType/:principalId/state rejects disabled roster users in non-Members groups", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const disabledUser = createTestUser();
+  await registerUser(disabledUser);
+  await db.insert(organizationRosterEntries).values({
+    organizationId,
+    userId: disabledUser.userId,
+    status: "disabled",
+    disabledAt: new Date("2026-05-24T12:00:00.000Z"),
+    disabledByUserId: actor.userId,
+  });
+
+  const groupId = crypto.randomUUID();
+  await db.insert(groupsTable).values({
+    id: groupId,
+    organizationId,
+    name: "Operators",
+  });
+  const projection = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: actor.userId,
+      role: "admin" as const,
+    },
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: disabledUser.userId,
+      role: "member" as const,
+    },
+  ];
+  const signedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: groupId,
+    members: projection.map((projectionMember) => ({
+      principalType: projectionMember.memberPrincipalType,
+      principalId: projectionMember.memberPrincipalId,
+    })),
+    projection,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const response = await routeApp.request(
+    `/principals/group/${groupId}/state`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+      }),
+    },
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Principal contains disabled organization users",
+  });
+  expect(await getCurrentPrincipalState("group", groupId, db)).toBeNull();
 });
 
 test("GET /principals/:principalType/:principalId/policy returns previous states for successor verification", async () => {
@@ -412,6 +641,11 @@ test("PUT /principals/:principalType/:principalId/state allows org admins to upd
 
   const groupAdmin = createTestUser();
   await registerUser(groupAdmin);
+  await addOrganizationMember({
+    actor: orgAdmin,
+    memberUserId: groupAdmin.userId,
+    organizationId,
+  });
 
   const groupId = crypto.randomUUID();
   await db.insert(groupsTable).values({
