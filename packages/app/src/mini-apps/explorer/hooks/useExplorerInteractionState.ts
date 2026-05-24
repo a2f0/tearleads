@@ -2,11 +2,6 @@ import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback } from "react";
 import type { useAppData } from "../../../providers/data/AppDataProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import type {
-  ExplorerContainerDocumentTombstone,
-  ExplorerDocumentLinkInput,
-  ExplorerDocumentReadModel,
-} from "../../../stores/explorer/documentReadModel";
 import {
   useDiscoveredDocumentsSync,
   usePrimeDiscoveredDocuments,
@@ -17,7 +12,6 @@ import type { ExplorerModelExplorer } from "./explorerModelTypes";
 export function useExplorerInteractionState(params: {
   activeContainerId: string | null;
   appData: ReturnType<typeof useAppData>;
-  documentReadModel: ExplorerDocumentReadModel;
   explorer: ExplorerModelExplorer;
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (
@@ -28,7 +22,6 @@ export function useExplorerInteractionState(params: {
   const {
     activeContainerId,
     appData,
-    documentReadModel,
     explorer,
     knownDocumentIds,
     mergeDocumentSummaries,
@@ -41,51 +34,26 @@ export function useExplorerInteractionState(params: {
     [containerContents],
   );
   const refreshDocuments = useCallback(
-    (...args: Parameters<typeof containerContents.refreshDocuments>) =>
-      containerContents.refreshDocuments(...args),
+    () => containerContents.refreshDocuments(),
     [containerContents],
   );
   const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({
     appData,
   });
-  const replaceDocumentLinksBatch = useCallback(
-    async (inputs: ReadonlyArray<ExplorerDocumentLinkInput>) => {
-      await documentReadModel.replaceDocumentLinksBatch(inputs);
-      onDocumentLinksChanged();
-    },
-    [documentReadModel, onDocumentLinksChanged],
-  );
-  const applyContainerDocumentTombstones = useCallback(
-    async (tombstones: ReadonlyArray<ExplorerContainerDocumentTombstone>) => {
-      if (tombstones.length === 0) {
-        return [];
-      }
-
-      const updatedDocuments =
-        await documentReadModel.applyContainerDocumentTombstones(tombstones);
-      onDocumentLinksChanged();
-      return updatedDocuments;
-    },
-    [documentReadModel, onDocumentLinksChanged],
-  );
   useDiscoveredDocumentsSync({
     activeContainerId,
     appData,
-    applyContainerDocumentTombstones,
     discoverDocuments,
-    documentReadModel,
     knownDocumentIds,
     mergeDocumentSummaries,
+    onDocumentLinksChanged,
     primeDiscoveredDocuments,
-    replaceDocumentLinksBatch,
   });
 
   return useExplorerRefreshAction({
-    applyContainerDocumentTombstones,
-    documentReadModel,
     mergeDocumentSummaries,
+    onDocumentLinksChanged,
     primeDiscoveredDocuments,
-    replaceDocumentLinksBatch,
     refresh: explorer.refresh,
     refreshDocuments,
   });

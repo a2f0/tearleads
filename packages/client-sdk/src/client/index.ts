@@ -4,8 +4,8 @@ export type { TearleadsContacts } from "./contacts";
 export type {
   TearleadsContainerContents,
   TearleadsContainerDocumentDiscoveryInput,
-  TearleadsContainerDocumentRefreshInput,
   TearleadsContainerInfoInput,
+  TearleadsDocumentInfoInput,
 } from "./containerContents";
 export {
   TearleadsDatabase,

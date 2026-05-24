@@ -9,10 +9,8 @@ import { useMemo } from "react";
 export type ExplorerDocumentReadModel = ContainerDocumentReadModel;
 
 export type {
-  ContainerDocumentLinkInput as ExplorerDocumentLinkInput,
   ContainerDocumentObjectSyncState as ExplorerObjectSyncState,
   ContainerDocumentSidebarRow as ExplorerContainerDocumentSidebarRow,
-  ContainerDocumentTombstone as ExplorerContainerDocumentTombstone,
   ContainerItemRow as ExplorerContainerItemRow,
   ContainerItemSort as ExplorerContainerItemSort,
   ContainerItemSortDirection as ExplorerContainerItemSortDirection,
