@@ -12,35 +12,35 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 type DocumentsWorkflowApi = Pick<ApiClient, keyof ApiClient>;
 
 export interface DocumentsWorkflowRuntimeInput {
-  apiClient: DocumentsWorkflowApi;
-  blobStore: BlobStore;
-  cacheReferencedPrincipalPolicies: (
+  readonly apiClient: DocumentsWorkflowApi;
+  readonly blobStore: BlobStore;
+  readonly cacheReferencedPrincipalPolicies: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
-  containerId?: string | null | undefined;
-  dbStatus: string;
-  documentProjectors?: DocumentProjectorRegistry | undefined;
-  domainScope: DomainScope;
-  encapsulationKeyPair?: EncapsulationKeyPair | null | undefined;
-  events: ReadonlyArray<unknown>;
-  execSql: ExecSql;
-  isAuthenticated: boolean;
-  log: (message: string) => void;
-  online: boolean;
-  organizationId?: string | null | undefined;
-  signingFingerprint?: string | null | undefined;
-  signingKeyPair?: SigningKeyPair | null | undefined;
-  userId?: string | null | undefined;
+  readonly containerId?: string | null | undefined;
+  readonly dbStatus: string;
+  readonly documentProjectors?: DocumentProjectorRegistry | undefined;
+  readonly domainScope: DomainScope;
+  readonly encapsulationKeyPair?: EncapsulationKeyPair | null | undefined;
+  readonly events: ReadonlyArray<unknown>;
+  readonly execSql: ExecSql;
+  readonly isAuthenticated: boolean;
+  readonly log: (message: string) => void;
+  readonly online: boolean;
+  readonly organizationId?: string | null | undefined;
+  readonly signingFingerprint?: string | null | undefined;
+  readonly signingKeyPair?: SigningKeyPair | null | undefined;
+  readonly userId?: string | null | undefined;
 }
 
 export interface DocumentsWorkflowRuntime
   extends Omit<DocumentsWorkflowRuntimeInput, "documentProjectors"> {
-  documentProjectors: DocumentProjectorRegistry;
-  encapsulationKeyPair: EncapsulationKeyPair | null;
-  organizationId: string | null;
-  signingFingerprint: string | null;
-  signingKeyPair: SigningKeyPair | null;
-  userId: string | null;
+  readonly documentProjectors: DocumentProjectorRegistry;
+  readonly encapsulationKeyPair: EncapsulationKeyPair | null;
+  readonly organizationId: string | null;
+  readonly signingFingerprint: string | null;
+  readonly signingKeyPair: SigningKeyPair | null;
+  readonly userId: string | null;
 }
 
 export function createDocumentsWorkflowRuntime(

@@ -1,7 +1,5 @@
-import {
-  type ContainerRecord,
-  createContainerDocumentObjectSyncState,
-} from "../../workflows/container-contents";
+import type { ContainerRecord } from "../../workflows/container-contents/containerPersistence";
+import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type { ContainerState } from "./syncAgent";
 import type { ContainerNode } from "./types";
 

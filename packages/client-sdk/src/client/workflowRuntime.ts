@@ -14,25 +14,25 @@ import type { TearleadsNetwork } from "./network";
 import type { TearleadsSession } from "./session";
 
 export interface TearleadsWorkflowRuntimeInput {
-  blobStore: BlobStore;
-  cacheReferencedPrincipalPolicies: (
+  readonly blobStore: BlobStore;
+  readonly cacheReferencedPrincipalPolicies: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
-  containerId: string | null;
-  dbStatus: TearleadsDatabaseStatus;
-  documentProjectors: DocumentProjectorRegistry;
-  domainScope: DomainScope;
-  encapsulationKeyPair: EncapsulationKeyPair | null;
-  events: ReadonlyArray<unknown>;
-  execSql: ExecSql;
-  isAuthenticated: boolean;
-  log: (message: string) => void;
-  logError: (message: string | Error, cause?: unknown) => void;
-  online: boolean;
-  organizationId: string | null;
-  signingFingerprint: string | null;
-  signingKeyPair: SigningKeyPair | null;
-  userId: string | null;
+  readonly containerId: string | null;
+  readonly dbStatus: TearleadsDatabaseStatus;
+  readonly documentProjectors: DocumentProjectorRegistry;
+  readonly domainScope: DomainScope;
+  readonly encapsulationKeyPair: EncapsulationKeyPair | null;
+  readonly events: ReadonlyArray<unknown>;
+  readonly execSql: ExecSql;
+  readonly isAuthenticated: boolean;
+  readonly log: (message: string) => void;
+  readonly logError: (message: string | Error, cause?: unknown) => void;
+  readonly online: boolean;
+  readonly organizationId: string | null;
+  readonly signingFingerprint: string | null;
+  readonly signingKeyPair: SigningKeyPair | null;
+  readonly userId: string | null;
 }
 
 export type TearleadsRuntimeListener = () => void;
@@ -45,7 +45,7 @@ export interface TearleadsRuntime {
 
 export interface TearleadsInternalWorkflowRuntimeInput
   extends TearleadsWorkflowRuntimeInput {
-  apiClient: ApiClient;
+  readonly apiClient: ApiClient;
 }
 
 export interface TearleadsInternalRuntime {

@@ -25,10 +25,7 @@ import {
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../documents";
-import {
-  enqueuePendingContainerUpdate,
-  listPendingContainerUpdates,
-} from "./containerPersistence";
+import { enqueuePendingContainerUpdate } from "./containerPersistence";
 import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 type ContainerMetadataSyncApi = Parameters<
@@ -437,9 +434,8 @@ export async function syncContainerMetadataState(input: {
   }
   const execSql = runtime.execSql;
 
-  const pendingUpdates = await listPendingContainerUpdates(
+  const pendingUpdates = await persistence.listPendingUpdates(
     execSql,
-    persistence,
     metadataState.container.id,
   );
   const syncAttempt = await syncRemoteContainerMetadata({

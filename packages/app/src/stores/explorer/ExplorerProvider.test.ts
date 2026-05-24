@@ -18,14 +18,10 @@ import {
   createContainerContentsWorkflowRuntime as createExplorerWorkflowRuntime,
   createInitializedContainerMetadataDocument,
   defaultContainerContentsPersistence as defaultExplorerPersistence,
-  type ContainerDocumentRecord as ExplorerDocumentRecord,
   initializeDocumentLinksSchema as initializeExplorerDocumentLinksSchema,
-  initializeContainerContentsSchema as initializeExplorerSchema,
   listDocumentLinkedContainerIds as listExplorerDocumentLinkedContainerIds,
   loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
-  loadStoredContainerStates as loadStoredExplorerContainers,
   replaceDocumentLinks as replaceExplorerDocumentLinks,
-  saveContainer as saveExplorerContainer,
   saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import {
@@ -76,8 +72,15 @@ import { waitForCondition } from "../../../test/helpers/waitForCondition";
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void; execSql: ExecSql };
 type ListedContainer = ContainerSummary;
-type TestContainerRecord = Parameters<typeof saveExplorerContainer>[2];
-type TestSaveContainerOptions = Parameters<typeof saveExplorerContainer>[4];
+type TestContainerRecord = Parameters<
+  typeof defaultExplorerPersistence.saveContainer
+>[1];
+type ExplorerDocumentRecord = NonNullable<
+  Parameters<typeof defaultExplorerPersistence.saveContainer>[2]
+>;
+type TestSaveContainerOptions = Parameters<
+  typeof defaultExplorerPersistence.saveContainer
+>[3];
 const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
 
 function listedContainer(
@@ -114,7 +117,7 @@ function readSqlRowValue(
 }
 
 async function ensureContainerTables(execSql: ExecSql): Promise<void> {
-  await initializeExplorerSchema(execSql, defaultExplorerPersistence);
+  await defaultExplorerPersistence.ensureSchema(execSql);
 }
 
 async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
@@ -124,10 +127,8 @@ async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
 async function loadContainers(
   execSql: ExecSql,
 ): Promise<ReadonlyArray<TestContainerRecord>> {
-  const storedContainers = await loadStoredExplorerContainers(
-    execSql,
-    defaultExplorerPersistence,
-  );
+  const storedContainers =
+    await defaultExplorerPersistence.loadContainers(execSql);
   return storedContainers.map(({ container }) => container);
 }
 
@@ -136,9 +137,8 @@ async function saveContainer(
   container: TestContainerRecord,
   options?: TestSaveContainerOptions,
 ): Promise<TestContainerRecord> {
-  return saveExplorerContainer(
+  return defaultExplorerPersistence.saveContainer(
     execSql,
-    defaultExplorerPersistence,
     container,
     null,
     options,
@@ -166,13 +166,9 @@ async function saveDocumentRecord(
     );
   }
 
-  await saveExplorerContainer(
-    execSql,
-    defaultExplorerPersistence,
-    container,
-    record,
-    { localUpdatedAt: updatedAt },
-  );
+  await defaultExplorerPersistence.saveContainer(execSql, container, record, {
+    localUpdatedAt: updatedAt,
+  });
 }
 
 async function createExplorerMetadataContainerProjection(input: {
@@ -2936,9 +2932,8 @@ test("explorer hydration reconciles a restored local-only root into the authenti
 
   await ensureContainerTables(runtime.execSql);
   await ensureDocumentTables(runtime.execSql);
-  const localRoot = await saveExplorerContainer(
+  const localRoot = await defaultExplorerPersistence.saveContainer(
     runtime.execSql,
-    defaultExplorerPersistence,
     {
       id: "local-root",
       icon: null,
@@ -2949,9 +2944,8 @@ test("explorer hydration reconciles a restored local-only root into the authenti
     },
     null,
   );
-  await saveExplorerContainer(
+  await defaultExplorerPersistence.saveContainer(
     runtime.execSql,
-    defaultExplorerPersistence,
     {
       id: "local-child",
       icon: null,

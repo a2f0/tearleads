@@ -1,9 +1,9 @@
+import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import {
-  type ContainerContentsPersistence,
   createContainerContentsProjectionUserKeyResolver,
   didContainerContentsProjectionKeyRuntimeChange,
-  didRegainContainerContentsSyncPrerequisites,
-} from "../../workflows/container-contents";
+} from "../../workflows/container-contents/projectionKeys";
+import { didRegainContainerContentsSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,

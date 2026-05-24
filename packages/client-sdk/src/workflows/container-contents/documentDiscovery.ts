@@ -279,7 +279,7 @@ interface DiscoverAllContainerDocumentsOptions
   containerIds: ReadonlyArray<string>;
 }
 
-export interface RefreshAllContainerDocumentsOptions
+interface RefreshAllContainerDocumentsOptions
   extends Omit<DiscoverAllContainerDocumentsOptions, "containerIds"> {
   listContainers: ContainerDocumentDiscoveryApi["listContainers"];
 }
@@ -567,23 +567,7 @@ export async function discoverAllContainerDocuments({
   return [...discoveredDocuments, ...tombstoneDocumentSummaries];
 }
 
-export function discoverAllContainerDocumentsFromApi({
-  apiClient,
-  ...input
-}: Omit<DiscoverAllContainerDocumentsOptions, "listContainerDocuments"> & {
-  readonly apiClient: Pick<
-    ContainerDocumentDiscoveryApi,
-    "listContainerDocuments"
-  >;
-}): Promise<ReadonlyArray<DocumentSummary>> {
-  return discoverAllContainerDocuments({
-    ...input,
-    listContainerDocuments: (containerId, options) =>
-      apiClient.listContainerDocuments(containerId, options),
-  });
-}
-
-export async function refreshAllContainerDocuments({
+async function refreshAllContainerDocuments({
   listContainers,
   ...input
 }: RefreshAllContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
