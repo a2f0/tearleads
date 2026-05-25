@@ -216,7 +216,7 @@ Supported package entry points are:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads` and top-level SDK service types |
+| `@tearleads/client-sdk` | `Tearleads`, top-level SDK service types, and migration-phase compatibility exports for public document, store, and workflow facade symbols |
 | `@tearleads/client-sdk/documents` | neutral document/blob contracts and document projector helpers |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
 | `@tearleads/client-sdk/stores/container-contents` | React-free container tree store facade |
@@ -237,6 +237,41 @@ facade entry point and including it in the SDK build entry list.
 
 Do not import `@tearleads/client-sdk/data/*` from host code. Promote a contract
 through the root or a workflow/store facade when it is meant to become public.
+
+## Entrypoint Consolidation Migration
+
+The long-term package API target is a smaller public import surface:
+
+| Entry point | Target use |
+| --- | --- |
+| `@tearleads/client-sdk` | SDK instance, public service types, document contracts, store facades, and workflow facade symbols that remain public |
+| `@tearleads/client-sdk/sqlite` | SQLite worker runtime and executor contracts |
+| `@tearleads/client-sdk/testing` | SDK-specific test helpers, if package-level test helpers are needed after the shared `@tearleads/test-utils` move |
+
+Track the migration in issue #750. Do not remove the existing document, store,
+or workflow subpath exports in the same change that introduces root-level
+imports. The staged order is:
+
+1. Keep the current export map intact and expose root compatibility exports for
+   public document, store, and workflow facade symbols.
+2. Move production app code to SDK instance methods first. When no instance
+   method exists, import the public facade symbol from `@tearleads/client-sdk`
+   instead of a `workflows/*` or `stores/*` subpath.
+3. Move tests and test helpers to root compatibility exports or a dedicated
+   testing facade when the symbol is test-only.
+4. Once consumers no longer import the deprecated subpaths, remove those
+   package export-map entries and tighten `lint:architecture` to enforce the
+   reduced public API.
+
+During the migration, the root entry point may aggregate documented public
+facades. This does not make `data/*` internals public, and it should not be used
+to expose deep workflow or store implementation files.
+
+When a lower-level workflow facade name conflicts with an existing root service
+type, keep the existing root meaning stable and add an explicit migration alias.
+For example, root `ContainerDocumentLinkInput` remains the high-level client
+document-link input, while the lower-level container read-model link input is
+available as `ContainerDocumentReadModelLinkInput`.
 
 ## Package Status
 
