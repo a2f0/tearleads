@@ -50,6 +50,7 @@ const containerDocumentReadModel =
   tearleads.containerContents.documentReadModel();
 const containerDocumentLinksRuntime =
   tearleads.containerContents.documentLinksRuntime();
+const containerContentsStore = tearleads.containerContents.store();
 ```
 
 The instance intentionally groups client capabilities by responsibility:
@@ -63,8 +64,8 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
-| `tearleads.documents` | local document summaries and document workflow runtime composition |
-| `tearleads.containerContents` | container contents read models, document-link runtimes, discovery, diagnostics, and workflow runtime composition |
+| `tearleads.documents` | local document summaries, local document deletion, and document workflow runtime composition |
+| `tearleads.containerContents` | container contents stores, read models, document-link runtimes, discovery, diagnostics, and workflow runtime composition |
 | `tearleads.organizations` | organization administration and directory operations |
 | `tearleads.userKeys` | verified user key lookup for product read models and recipient UIs |
 

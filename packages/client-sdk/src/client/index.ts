@@ -1,11 +1,35 @@
 export { createDomainScope, type DomainScope } from "../data/domainScope";
 export { TearleadsBlobs } from "./blobs";
 export type {
+  TearleadsActivateContainerDocumentLinkInput,
   TearleadsContainerContents,
+  TearleadsContainerContentsContextValue,
+  TearleadsContainerContentsStore,
+  TearleadsContainerContentsStoreOptions,
+  TearleadsContainerDocumentLinkInput,
   TearleadsContainerDocumentLinksRuntime,
+  TearleadsContainerDocumentObjectSyncState,
+  TearleadsContainerDocumentObjectSyncStatus,
+  TearleadsContainerDocumentReadModel,
+  TearleadsContainerDocumentSidebarRow,
+  TearleadsContainerInfo,
   TearleadsContainerInfoInput,
+  TearleadsContainerItemRow,
+  TearleadsContainerItemSort,
+  TearleadsContainerItemSortDirection,
+  TearleadsContainerItemSortKey,
+  TearleadsContainerNode,
+  TearleadsContainerShareAccessLevel,
+  TearleadsDocumentInfo,
   TearleadsDocumentInfoInput,
+  TearleadsLinkContainerDocumentLinkInput,
+  TearleadsMergeDocumentSummary,
+  TearleadsMoveContainerDocumentLinkInput,
+  TearleadsPrimeContainerDocumentStoreInput,
+  TearleadsSetLinkedContainerIdsForDocument,
+  TearleadsUnlinkContainerDocumentLinkInput,
 } from "./containerContents";
+export { createContainerDocumentObjectSyncState } from "./containerContents";
 export {
   TearleadsDatabase,
   type TearleadsDatabaseListener,
@@ -39,8 +63,24 @@ export {
 } from "./network";
 export type {
   TearleadsAddOrganizationGroupUserInput,
+  TearleadsOrganizationContainerGrant,
+  TearleadsOrganizationContainerGrants,
+  TearleadsOrganizationDataUsage,
+  TearleadsOrganizationDirectory,
+  TearleadsOrganizationDirectoryAndGroups,
+  TearleadsOrganizationDirectoryUser,
   TearleadsOrganizationGrantRef,
+  TearleadsOrganizationGroupContainer,
+  TearleadsOrganizationGroupContainers,
+  TearleadsOrganizationGroupDetails,
+  TearleadsOrganizationGroupMember,
+  TearleadsOrganizationGroupMembers,
+  TearleadsOrganizationGroupPolicyHistory,
+  TearleadsOrganizationGroupSummary,
+  TearleadsOrganizationPolicyHistory,
   TearleadsOrganizations,
+  TearleadsOrganizationUserDetail,
+  TearleadsOrganizationUserRecipient,
   TearleadsRemoveOrganizationGroupUserInput,
 } from "./organizations";
 export type {

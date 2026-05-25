@@ -1,8 +1,7 @@
-import {
-  type ContainerContentsContextValue,
-  type ContainerContentsStore,
-  getOrCreateContainerContentsStore,
-} from "@tearleads/client-sdk/stores/container-contents";
+import type {
+  TearleadsContainerContentsContextValue,
+  TearleadsContainerContentsStore,
+} from "@tearleads/client-sdk";
 import {
   createContext,
   type PropsWithChildren,
@@ -16,7 +15,9 @@ import {
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 
-const ExplorerContext = createContext<ContainerContentsStore | null>(null);
+const ExplorerContext = createContext<TearleadsContainerContentsStore | null>(
+  null,
+);
 
 export function ExplorerProvider({ children }: PropsWithChildren) {
   const appData = useTearleadsRuntime();
@@ -26,11 +27,8 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     [appData, tearleads],
   );
   const store = useMemo(
-    () =>
-      getOrCreateContainerContentsStore(runtime.domainScope, runtime, {
-        logLabel: "Explorer",
-      }),
-    [runtime.domainScope],
+    () => tearleads.containerContents.store({ logLabel: "Explorer" }),
+    [runtime.domainScope, tearleads],
   );
 
   useEffect(() => {
@@ -44,7 +42,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   );
 }
 
-export function useExplorer(): ContainerContentsContextValue {
+export function useExplorer(): TearleadsContainerContentsContextValue {
   const store = useContext(ExplorerContext);
   if (!store) {
     throw new Error("useExplorer must be used within an ExplorerProvider.");

@@ -1,4 +1,7 @@
-import type { ContainerInfo } from "@tearleads/client-sdk/workflows/container-contents";
+import type {
+  TearleadsContainerInfo,
+  TearleadsContainerShareAccessLevel,
+} from "@tearleads/client-sdk";
 import { useCallback, useMemo } from "react";
 import {
   type TearleadsRuntimeSnapshot,
@@ -6,8 +9,9 @@ import {
 } from "../../providers/sdk/TearleadsProvider";
 import type { ContainerNode } from "./types";
 
-export type ExplorerContainerInfo = ContainerInfo;
-export type { ContainerShareAccessLevel as ExplorerContainerShareAccessLevel } from "@tearleads/client-sdk/workflows/container-contents";
+export type ExplorerContainerInfo = TearleadsContainerInfo;
+export type ExplorerContainerShareAccessLevel =
+  TearleadsContainerShareAccessLevel;
 
 export function useExplorerContainerInfoLoader(input: {
   readonly appData: Pick<

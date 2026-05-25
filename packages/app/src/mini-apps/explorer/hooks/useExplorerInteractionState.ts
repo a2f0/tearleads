@@ -38,6 +38,11 @@ export function useExplorerInteractionState(params: {
     () => containerContents.refreshDocuments(),
     [containerContents],
   );
+  const hasUndiscoveredDocumentUpdates = useCallback(
+    (knownDocumentIds: ReadonlySet<string>) =>
+      containerContents.hasUndiscoveredDocumentUpdates(knownDocumentIds),
+    [containerContents],
+  );
   const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({
     appData,
   });
@@ -45,6 +50,7 @@ export function useExplorerInteractionState(params: {
     activeContainerId,
     appData,
     discoverDocuments,
+    hasUndiscoveredDocumentUpdates,
     knownDocumentIds,
     mergeDocumentSummaries,
     onDocumentLinksChanged,

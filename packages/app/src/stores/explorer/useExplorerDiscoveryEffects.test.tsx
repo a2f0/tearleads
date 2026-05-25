@@ -106,6 +106,7 @@ test("container document discovery reuses an in-flight run for repeated effect t
           events,
         },
         discoverDocuments,
+        hasUndiscoveredDocumentUpdates: () => events.length > 0,
         knownDocumentIds: new Set(),
         mergeDocumentSummaries,
         onDocumentLinksChanged: () => {
@@ -188,6 +189,7 @@ test("container document discovery starts a new run when discovery dependencies 
         activeContainerId: "container-1",
         appData,
         discoverDocuments,
+        hasUndiscoveredDocumentUpdates: () => false,
         knownDocumentIds: new Set(),
         mergeDocumentSummaries,
         onDocumentLinksChanged: () => {

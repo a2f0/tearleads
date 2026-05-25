@@ -1,4 +1,13 @@
-import type { ContainerDocumentReadModel } from "@tearleads/client-sdk/workflows/container-contents";
+import type {
+  TearleadsContainerDocumentObjectSyncState,
+  TearleadsContainerDocumentReadModel,
+  TearleadsContainerDocumentSidebarRow,
+  TearleadsContainerItemRow,
+  TearleadsContainerItemSort,
+  TearleadsContainerItemSortDirection,
+  TearleadsContainerItemSortKey,
+} from "@tearleads/client-sdk";
+import { createContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 
@@ -7,16 +16,20 @@ interface ExplorerDocumentReadModelRuntimeState {
   domainScope: object;
 }
 
-export type ExplorerDocumentReadModel = ContainerDocumentReadModel;
+export type ExplorerDocumentReadModel = TearleadsContainerDocumentReadModel;
 
-export type {
-  ContainerDocumentObjectSyncState as ExplorerObjectSyncState,
-  ContainerDocumentSidebarRow as ExplorerContainerDocumentSidebarRow,
-  ContainerItemRow as ExplorerContainerItemRow,
-  ContainerItemSort as ExplorerContainerItemSort,
-  ContainerItemSortDirection as ExplorerContainerItemSortDirection,
-  ContainerItemSortKey as ExplorerContainerItemSortKey,
-} from "@tearleads/client-sdk/workflows/container-contents";
+export type ExplorerObjectSyncState = TearleadsContainerDocumentObjectSyncState;
+export type ExplorerContainerDocumentSidebarRow =
+  TearleadsContainerDocumentSidebarRow;
+export type ExplorerContainerItemRow = TearleadsContainerItemRow;
+export type ExplorerContainerItemSort = TearleadsContainerItemSort;
+export type ExplorerContainerItemSortDirection =
+  TearleadsContainerItemSortDirection;
+export type ExplorerContainerItemSortKey = TearleadsContainerItemSortKey;
+
+export {
+  createContainerDocumentObjectSyncState as createExplorerObjectSyncState,
+};
 
 export function useExplorerDocumentReadModel(
   appData: ExplorerDocumentReadModelRuntimeState,

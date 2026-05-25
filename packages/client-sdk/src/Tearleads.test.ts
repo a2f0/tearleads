@@ -337,6 +337,14 @@ describe("Tearleads", () => {
     ).toBe("container-2");
     expect(documentLinksRuntime.resolveProjectionUserKey).toBeFunction();
     expect(documentLinksRuntime.canMutateDocumentLinks).toBe(true);
+    expect(documentLinksRuntime.primeDocumentStore).toBeFunction();
+    expect(documentLinksRuntime.moveDocumentToContainer).toBeFunction();
+    expect(documentLinksRuntime.linkDocumentToContainer).toBeFunction();
+    expect(documentLinksRuntime.unlinkDocumentFromContainer).toBeFunction();
+    expect(documentLinksRuntime.activateDocumentContainer).toBeFunction();
+    expect(
+      sdk.containerContents.hasUndiscoveredDocumentUpdates(new Set()),
+    ).toBe(false);
   });
 
   test("lists local document summaries through the documents service", async () => {
@@ -401,6 +409,12 @@ describe("Tearleads", () => {
           updatedAt: "2026-05-24T12:00:00.000Z",
         },
       ]);
+      await expect(sdk.documents.deleteLocalDocument("note-1")).resolves.toBe(
+        true,
+      );
+      expect(
+        await sdk.documents.listLocalSummaries({ documentKind: "note" }),
+      ).toEqual([]);
     } finally {
       close();
     }

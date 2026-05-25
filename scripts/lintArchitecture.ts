@@ -858,6 +858,13 @@ function isClientSdkDataImport(specifier: string): boolean {
   );
 }
 
+function isClientSdkWorkflowImport(specifier: string): boolean {
+  return (
+    specifier === "@tearleads/client-sdk/workflows" ||
+    specifier.startsWith("@tearleads/client-sdk/workflows/")
+  );
+}
+
 function isClientSdkRootFacadeReExport(specifier: string): boolean {
   return /^\.\/(?:stores|workflows)(?:\/|$)/.test(specifier);
 }
@@ -902,8 +909,15 @@ const architectureChecks: ArchitectureCheck[] = [
     entryPoints: appProductionSourceEntryPoints,
     matches: isClientSdkDataImport,
     message:
-      "App production code should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+      "App production code should import client SDK contracts from @tearleads/client-sdk or document, SQLite, and store facades instead of @tearleads/client-sdk/data/* internals.",
     name: "app-production-uses-sdk-root-or-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appProductionSourceEntryPoints,
+    matches: isClientSdkWorkflowImport,
+    message:
+      "App production code should use SDK root services, document contracts, SQLite contracts, or store facades instead of importing SDK workflow facades directly.",
+    name: "app-production-does-not-import-sdk-workflows-directly",
   }),
   createModuleSpecifierCheck({
     entryPoints: appTestHelperEntryPoints,

@@ -9,6 +9,21 @@ import {
   loadOrganizationGroupDetails,
   loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
+  type OrganizationContainerGrant,
+  type OrganizationContainerGrants,
+  type OrganizationDataUsage,
+  type OrganizationDirectory,
+  type OrganizationDirectoryAndGroups,
+  type OrganizationDirectoryUser,
+  type OrganizationGroupContainer,
+  type OrganizationGroupContainers,
+  type OrganizationGroupDetails,
+  type OrganizationGroupMember,
+  type OrganizationGroupMembers,
+  type OrganizationGroupPolicyHistory,
+  type OrganizationGroupSummary,
+  type OrganizationPolicyHistory,
+  type OrganizationUserDetail,
   type OrganizationUserRecipient,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
@@ -50,6 +65,25 @@ export interface TearleadsRemoveOrganizationGroupUserInput
   remainingUsers: ReadonlyArray<OrganizationUserRecipient>;
   removedUserId: string;
 }
+
+export type TearleadsOrganizationContainerGrant = OrganizationContainerGrant;
+export type TearleadsOrganizationContainerGrants = OrganizationContainerGrants;
+export type TearleadsOrganizationDataUsage = OrganizationDataUsage;
+export type TearleadsOrganizationDirectory = OrganizationDirectory;
+export type TearleadsOrganizationDirectoryAndGroups =
+  OrganizationDirectoryAndGroups;
+export type TearleadsOrganizationDirectoryUser = OrganizationDirectoryUser;
+export type TearleadsOrganizationGroupContainer = OrganizationGroupContainer;
+export type TearleadsOrganizationGroupContainers = OrganizationGroupContainers;
+export type TearleadsOrganizationGroupDetails = OrganizationGroupDetails;
+export type TearleadsOrganizationGroupMember = OrganizationGroupMember;
+export type TearleadsOrganizationGroupMembers = OrganizationGroupMembers;
+export type TearleadsOrganizationGroupPolicyHistory =
+  OrganizationGroupPolicyHistory;
+export type TearleadsOrganizationGroupSummary = OrganizationGroupSummary;
+export type TearleadsOrganizationPolicyHistory = OrganizationPolicyHistory;
+export type TearleadsOrganizationUserDetail = OrganizationUserDetail;
+export type TearleadsOrganizationUserRecipient = OrganizationUserRecipient;
 
 export interface TearleadsOrganizations {
   addUserToGroup: (

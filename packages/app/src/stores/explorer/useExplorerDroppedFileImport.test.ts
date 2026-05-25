@@ -2,10 +2,6 @@ import { expect, test } from "bun:test";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { importExplorerDroppedFiles } from "./useExplorerDroppedFileImport";
 
-interface FakeRuntime {
-  containerId: string;
-}
-
 function createTextFile(name: string, text: string): File {
   return {
     name,
@@ -55,9 +51,9 @@ const testImportLabels = {
 
 test("dropped file import initializes notes and merges persisted summaries", async () => {
   const createdStores: Array<{
+    containerId: string;
     initialText: string;
     localId: string;
-    runtime: FakeRuntime;
     syncRequests: number;
   }> = [];
   const merged: DocumentSummary[] = [];
@@ -71,12 +67,11 @@ test("dropped file import initializes notes and merges persisted summaries", asy
 
   const result = await importExplorerDroppedFiles({
     containerId: "folder-1",
-    createDocumentRuntime: (containerId): FakeRuntime => ({ containerId }),
-    createDocumentStore: ({ initialText, localId, runtime }) => {
+    createDocumentStore: ({ containerId, initialText, localId }) => {
       const createdStore = {
+        containerId,
         initialText,
         localId,
-        runtime,
         syncRequests: 0,
       };
       createdStores.push(createdStore);
@@ -124,15 +119,15 @@ test("dropped file import initializes notes and merges persisted summaries", asy
   ]);
   expect(createdStores).toEqual([
     {
+      containerId: "folder-1",
       initialText: "Alpha",
       localId: "local-a",
-      runtime: { containerId: "folder-1" },
       syncRequests: 1,
     },
     {
+      containerId: "folder-1",
       initialText: "Beta",
       localId: "local-b",
-      runtime: { containerId: "folder-1" },
       syncRequests: 1,
     },
   ]);
@@ -157,7 +152,6 @@ test("dropped file import keeps going when one file fails", async () => {
 
   const result = await importExplorerDroppedFiles({
     containerId: "folder-1",
-    createDocumentRuntime: (containerId): FakeRuntime => ({ containerId }),
     createDocumentStore: ({ initialText }) => ({
       ensureInitialized: async () => true,
       getSnapshot: () => ({
@@ -195,7 +189,6 @@ test("dropped file import rejects oversized files before reading text", async ()
 
   const result = await importExplorerDroppedFiles({
     containerId: "folder-1",
-    createDocumentRuntime: (containerId): FakeRuntime => ({ containerId }),
     createDocumentStore: () => {
       storeCount += 1;
       throw new Error("Oversized files should not create stores.");
