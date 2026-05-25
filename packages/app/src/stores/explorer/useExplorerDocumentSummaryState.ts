@@ -1,7 +1,7 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TearleadsRuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
-import { subscribeToPersistedDocuments } from "../documents/DocumentsProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import {
   mergeDocumentSummaryLists,
@@ -11,8 +11,10 @@ import {
 export function useExplorerDocumentSummaryState(
   dbStatus: TearleadsRuntimeSnapshot["dbStatus"],
   domainScope: TearleadsRuntimeSnapshot["domainScope"],
+  containerId: TearleadsRuntimeSnapshot["containerId"],
   documentReadModel: ExplorerDocumentReadModel,
 ) {
+  const tearleads = useTearleads();
   const [documentSummaries, setDocumentSummaries] = useState<
     ReadonlyArray<DocumentSummary>
   >([]);
@@ -99,11 +101,11 @@ export function useExplorerDocumentSummaryState(
   );
 
   useEffect(() => {
-    return subscribeToPersistedDocuments(
-      domainScope,
+    return tearleads.documents.subscribeToLocalSummaries(
       mergeTrackedDocumentSummary,
+      { containerId },
     );
-  }, [domainScope, mergeTrackedDocumentSummary]);
+  }, [containerId, domainScope, mergeTrackedDocumentSummary, tearleads]);
 
   return {
     documentListRevision,

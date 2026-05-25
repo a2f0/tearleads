@@ -324,12 +324,22 @@ describe("Tearleads", () => {
 
     const documents = sdk.documents.runtime();
     const containerContents = sdk.containerContents.runtime();
+    const unsubscribeDocuments = sdk.documents.subscribeToLocalSummaries(
+      () => undefined,
+      { containerId: "container-1" },
+    );
 
     expect(documents.containerId).toBe("container-1");
     expect(documents.dbStatus).toBe("ready");
     expect(documents.isAuthenticated).toBe(true);
     expect(documents.online).toBe(true);
     expect(resolveDocumentCreateAuthor(documents)).not.toBeNull();
+    expect(sdk.documents.store().getSnapshot).toBeFunction();
+    expect(
+      sdk.documents.primeStore({ localId: "sdk-runtime-note" }).getSnapshot,
+    ).toBeFunction();
+    expect(unsubscribeDocuments).toBeFunction();
+    unsubscribeDocuments();
     expect(containerContents.userId).toBe("user-1");
     const documentLinksRuntime = sdk.containerContents.documentLinksRuntime();
     expect(

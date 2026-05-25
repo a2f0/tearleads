@@ -12,7 +12,10 @@ import {
 } from "./useExplorerSelection";
 
 export function useExplorerDocumentViewModel(params: {
-  appData: Pick<TearleadsRuntimeSnapshot, "dbStatus" | "domainScope">;
+  appData: Pick<
+    TearleadsRuntimeSnapshot,
+    "containerId" | "dbStatus" | "domainScope"
+  >;
   documentReadModel: ExplorerDocumentReadModel;
   documentLinkProjectionVersion: number;
   nodes: ReadonlyArray<ContainerNode>;
@@ -43,6 +46,7 @@ export function useExplorerDocumentViewModel(params: {
   } = useExplorerDocumentSummaryState(
     appData.dbStatus,
     appData.domainScope,
+    appData.containerId,
     documentReadModel,
   );
   const { linkedContainerIdsByDocumentId, setLinkedContainerIdsForDocument } =

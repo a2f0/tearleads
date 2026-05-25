@@ -1,7 +1,7 @@
 import type {
-  DocumentAttachmentStatus,
-  DocumentAttachmentUpload,
-} from "@tearleads/client-sdk/stores/documents";
+  TearleadsDocumentAttachmentStatus,
+  TearleadsDocumentAttachmentUpload,
+} from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
 
 export interface NotesAppProps {
@@ -16,12 +16,12 @@ export interface ActiveNoteSelection {
   documentId?: string | null;
 }
 
-export type NoteAttachmentStatus = DocumentAttachmentStatus;
+export type NoteAttachmentStatus = TearleadsDocumentAttachmentStatus;
 export type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
 export type AttachmentStatusBySlotId = Readonly<
   Record<string, NoteAttachmentStatus>
 >;
-export type NotesAttachmentUpload = DocumentAttachmentUpload;
+export type NotesAttachmentUpload = TearleadsDocumentAttachmentUpload;
 export type NotesAttachFiles = (
   files: ReadonlyArray<NotesAttachmentUpload>,
 ) => void;
