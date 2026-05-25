@@ -11,9 +11,9 @@ import {
   updateContainerContentsSnapshot as updateExplorerSnapshot,
 } from "@tearleads/client-sdk/stores/container-contents";
 import {
+  createContainerDocumentObjectSyncState,
   createContainerContentsSyncLane as createExplorerContainerContentsSyncLane,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
-  createContainerDocumentObjectSyncState as createExplorerObjectSyncState,
   createContainerContentsProjectionUserKeyResolver as createExplorerProjectionUserKeyResolver,
   createContainerContentsWorkflowRuntime as createExplorerWorkflowRuntime,
   createInitializedContainerMetadataDocument,
@@ -857,7 +857,7 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
           name: "/",
           organizationId: "org-1",
           parentId: null,
-          syncState: createExplorerObjectSyncState({
+          syncState: createContainerDocumentObjectSyncState({
             localOnly: true,
             pendingUpdateCount: 1,
           }),
@@ -1212,7 +1212,7 @@ test("explorer snapshot update emits when only node sync state changes", async (
     updateExplorerSnapshot(state);
     expect(notificationCount).toBe(1);
     expect(state.snapshot.nodes[0]?.syncState).toEqual(
-      createExplorerObjectSyncState({ localOnly: true }),
+      createContainerDocumentObjectSyncState({ localOnly: true }),
     );
 
     containerState.record.documentId = "root-metadata-document";
@@ -1220,7 +1220,7 @@ test("explorer snapshot update emits when only node sync state changes", async (
 
     expect(notificationCount).toBe(2);
     expect(state.snapshot.nodes[0]?.syncState).toEqual(
-      createExplorerObjectSyncState({}),
+      createContainerDocumentObjectSyncState({}),
     );
 
     unsubscribe();
@@ -1687,7 +1687,7 @@ test("explorer store creates authenticated child containers through the API befo
     expect(
       store.getSnapshot().nodes.find((node) => node.id === childNode.id)
         ?.syncState,
-    ).toEqual(createExplorerObjectSyncState({}));
+    ).toEqual(createContainerDocumentObjectSyncState({}));
   } finally {
     runtime.close();
   }
@@ -2653,11 +2653,11 @@ test("explorer store refreshes remote containers on demand after initialization"
     expect(
       refreshedNodes.find((node) => node.id === "shared-root-container")
         ?.syncState,
-    ).toEqual(createExplorerObjectSyncState({}));
+    ).toEqual(createContainerDocumentObjectSyncState({}));
     expect(
       refreshedNodes.find((node) => node.id === "shared-child-container")
         ?.syncState,
-    ).toEqual(createExplorerObjectSyncState({}));
+    ).toEqual(createContainerDocumentObjectSyncState({}));
 
     expect(listContainersCalls).toBeGreaterThanOrEqual(2);
     expect(
@@ -2861,15 +2861,15 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
     expect(
       refreshedNodes.find((node) => node.id === "shared-root-container")
         ?.syncState,
-    ).toEqual(createExplorerObjectSyncState({}));
+    ).toEqual(createContainerDocumentObjectSyncState({}));
     expect(
       refreshedNodes.find((node) => node.id === "shared-child-container")
         ?.syncState,
-    ).toEqual(createExplorerObjectSyncState({}));
+    ).toEqual(createContainerDocumentObjectSyncState({}));
     expect(
       refreshedNodes.find((node) => node.id === "shared-child-container-b")
         ?.syncState,
-    ).toEqual(createExplorerObjectSyncState({}));
+    ).toEqual(createContainerDocumentObjectSyncState({}));
     await expect(loadContainers(runtime.execSql)).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({

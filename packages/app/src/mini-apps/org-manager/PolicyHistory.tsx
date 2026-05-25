@@ -1,3 +1,9 @@
+import type {
+  OrganizationDirectory,
+  OrganizationGroupPolicyHistory,
+  OrganizationGroupSummary,
+  OrganizationPolicyHistory,
+} from "@tearleads/client-sdk";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
@@ -8,12 +14,6 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
-import type {
-  OrgManagerDirectory,
-  OrgManagerGroupPolicyHistory,
-  OrgManagerGroupSummary,
-  OrgManagerPolicyHistory,
-} from "../../stores/org-manager/OrgManagerProvider";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import { compactFingerprint } from "./display";
 import {
@@ -31,14 +31,14 @@ import {
 } from "./labels";
 
 type OrgManagerGroupPolicyHistoryEntry =
-  OrgManagerGroupPolicyHistory["entries"][number];
+  OrganizationGroupPolicyHistory["entries"][number];
 type OrgManagerPrincipalMemberChange =
   OrgManagerGroupPolicyHistoryEntry["changes"][number];
 
 function getPolicyMemberLabel(input: {
   change: OrgManagerPrincipalMemberChange;
-  directory: OrgManagerDirectory | null;
-  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  directory: OrganizationDirectory | null;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
 }): string {
   if (input.change.memberPrincipalType === "group") {
     return (
@@ -60,8 +60,8 @@ function getPolicyMemberLabel(input: {
 
 function getPolicyChangeLabel(input: {
   change: OrgManagerPrincipalMemberChange;
-  directory: OrgManagerDirectory | null;
-  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  directory: OrganizationDirectory | null;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
 }): string {
   const memberLabel = getPolicyMemberLabel(input);
 
@@ -107,8 +107,8 @@ function PolicyHistoryChange({
   groups,
 }: {
   change: OrgManagerPrincipalMemberChange;
-  directory: OrgManagerDirectory | null;
-  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  directory: OrganizationDirectory | null;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
 }) {
   const memberLabel = getPolicyMemberLabel({ change, directory, groups });
   const roleDetail = getPolicyChangeRoleDetail(change);
@@ -144,9 +144,9 @@ function PolicyHistory({
   groups,
   history,
 }: {
-  directory: OrgManagerDirectory | null;
-  groups: ReadonlyArray<OrgManagerGroupSummary>;
-  history: OrgManagerGroupPolicyHistory | OrgManagerPolicyHistory | null;
+  directory: OrganizationDirectory | null;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
+  history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
 }) {
   if (!history) {
     return (
@@ -217,10 +217,10 @@ export function PolicyHistorySection({
   heading,
   history,
 }: {
-  directory: OrgManagerDirectory | null;
-  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  directory: OrganizationDirectory | null;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
   heading: string;
-  history: OrgManagerGroupPolicyHistory | OrgManagerPolicyHistory | null;
+  history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
 }) {
   return (
     <MiniAppSection>

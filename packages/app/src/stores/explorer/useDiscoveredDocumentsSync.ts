@@ -1,7 +1,7 @@
-import type { TearleadsContainerContents } from "@tearleads/client-sdk";
+import type { ContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { TearleadsRuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import {
   type ExplorerDocumentsRuntimeAppDataInput,
   isDestroyedDatabaseWorkerError,
@@ -9,12 +9,12 @@ import {
 } from "./documentRuntime";
 
 type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput &
-  Pick<TearleadsRuntimeSnapshot, "events">;
+  Pick<RuntimeSnapshot, "events">;
 
 type DiscoveryPromise = Promise<ReadonlyArray<DocumentSummary> | null>;
 
 function useContainerDiscoveryPromiseFactory(params: {
-  discoverDocuments: TearleadsContainerContents["discoverDocuments"];
+  discoverDocuments: ContainerContents["discoverDocuments"];
 }) {
   const { discoverDocuments } = params;
   const discoveryPromisesByContainerId = useMemo(
@@ -45,8 +45,8 @@ function useContainerDiscoveryPromiseFactory(params: {
 export function useDiscoveredDocumentsSync(params: {
   activeContainerId: string | null;
   appData: ExplorerDiscoveryAppData;
-  discoverDocuments: TearleadsContainerContents["discoverDocuments"];
-  hasUndiscoveredDocumentUpdates: TearleadsContainerContents["hasUndiscoveredDocumentUpdates"];
+  discoverDocuments: ContainerContents["discoverDocuments"];
+  hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
@@ -132,7 +132,7 @@ function useContainerDiscoveryEffects(params: {
     containerId: string,
   ) => (() => void) | undefined;
   events: ExplorerDiscoveryAppData["events"];
-  hasUndiscoveredDocumentUpdates: TearleadsContainerContents["hasUndiscoveredDocumentUpdates"];
+  hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
   isAuthenticated: ExplorerDiscoveryAppData["isAuthenticated"];
   knownDocumentIds: ReadonlySet<string>;
   online: ExplorerDiscoveryAppData["online"];

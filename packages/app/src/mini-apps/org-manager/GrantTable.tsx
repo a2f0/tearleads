@@ -1,3 +1,4 @@
+import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
 import type { KeyboardEvent } from "react";
 import {
   MiniAppButton,
@@ -11,7 +12,6 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../components/shared/MiniAppTable";
-import type { OrgManagerContainerGrant } from "../../stores/org-manager/OrgManagerProvider";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import {
   getAccessLabel,
@@ -62,11 +62,11 @@ export function GrantTable({
 }: {
   canRevokeGrants: boolean;
   emptyLabel: string;
-  grants: ReadonlyArray<OrgManagerContainerGrant>;
+  grants: ReadonlyArray<OrganizationContainerGrant>;
   label: string;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
-  revokeGrant: (grant: OrgManagerContainerGrant) => void;
+  revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
   if (grants.length === 0) {
     return (

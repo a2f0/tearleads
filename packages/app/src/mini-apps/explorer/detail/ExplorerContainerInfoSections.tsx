@@ -1,3 +1,7 @@
+import type {
+  ContainerInfo,
+  ContainerShareAccessLevel,
+} from "@tearleads/client-sdk";
 import type { KeyboardEvent, MouseEvent } from "react";
 import {
   MiniAppActions,
@@ -6,10 +10,6 @@ import {
   MiniAppSelect,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
-import type {
-  ExplorerContainerInfo,
-  ExplorerContainerShareAccessLevel,
-} from "../../../stores/explorer/containerInfo";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { MiniAppWindowPosition } from "../../bus";
 import {
@@ -23,18 +23,18 @@ import {
 } from "../labels";
 
 type ExplorerContainerInfoGrantSubjectType = NonNullable<
-  ExplorerContainerInfo["remoteInfo"]
+  ContainerInfo["remoteInfo"]
 >["grants"][number]["subjectType"];
 
 type ExplorerContainerInfoGrantRow = NonNullable<
-  ExplorerContainerInfo["remoteInfo"]
+  ContainerInfo["remoteInfo"]
 >["grantRows"][number];
 
 const CONTAINER_INFO_PERMISSION_LABELS = {
   admin: EXPLORER_LABELS.containerInfoPermissionAdmin,
   read: EXPLORER_LABELS.containerInfoPermissionRead,
   write: EXPLORER_LABELS.containerInfoPermissionWrite,
-} satisfies Record<ExplorerContainerShareAccessLevel, string>;
+} satisfies Record<ContainerShareAccessLevel, string>;
 
 const CONTAINER_INFO_SUBJECT_TYPE_LABELS = {
   group: EXPLORER_LABELS.containerInfoSubjectTypeGroup,
@@ -55,7 +55,7 @@ function compactPrincipalId(value: string): string {
 function principalLabel(
   subjectType: string,
   subjectId: string,
-  containerInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>,
+  containerInfo: NonNullable<ContainerInfo["remoteInfo"]>,
 ): string {
   if (subjectType === "group") {
     const group = containerInfo.groups.find(
@@ -93,7 +93,7 @@ function grantSourceLabel(
 }
 
 function getContainerInfoPermissionLabel(
-  accessLevel: ExplorerContainerShareAccessLevel,
+  accessLevel: ContainerShareAccessLevel,
 ): string {
   return CONTAINER_INFO_PERMISSION_LABELS[accessLevel];
 }
@@ -128,7 +128,7 @@ function getMouseEventPosition(
 }
 
 function ExplorerContainerInfoSyncCursorList(params: {
-  containerInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
+  containerInfo: NonNullable<ContainerInfo["remoteInfo"]>;
 }) {
   const { containerInfo } = params;
 
@@ -180,7 +180,7 @@ function ExplorerContainerInfoSyncCursorList(params: {
 
 function ExplorerContainerInfoGrantList(params: {
   containerNamesById: ReadonlyMap<string, string>;
-  containerInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
+  containerInfo: NonNullable<ContainerInfo["remoteInfo"]>;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
 }) {
   const { containerInfo, containerNamesById, onOpenGrantGroup } = params;
@@ -256,7 +256,7 @@ function ExplorerContainerInfoGrantList(params: {
 
 function ExplorerContainerInfoSecuritySection(params: {
   containerNamesById: ReadonlyMap<string, string>;
-  remoteInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
+  remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
 }) {
   const { containerNamesById, remoteInfo } = params;
   const security = remoteInfo.security;
@@ -360,7 +360,7 @@ function ExplorerContainerInfoSecuritySection(params: {
 
 function ExplorerContainerInfoLocalDetails(params: {
   containerId: string;
-  containerInfo: ExplorerContainerInfo | null;
+  containerInfo: ContainerInfo | null;
 }) {
   const { containerId, containerInfo } = params;
 
@@ -398,7 +398,7 @@ function ExplorerContainerInfoLocalDetails(params: {
 
 function ExplorerContainerInfoLocalSection(params: {
   containerId: string;
-  containerInfo: ExplorerContainerInfo | null;
+  containerInfo: ContainerInfo | null;
 }) {
   const { containerId, containerInfo } = params;
 
@@ -414,11 +414,11 @@ function ExplorerContainerInfoLocalSection(params: {
 }
 
 function ExplorerContainerInfoGroupShareSection(params: {
-  draftShareAccessLevel: ExplorerContainerShareAccessLevel;
+  draftShareAccessLevel: ContainerShareAccessLevel;
   draftShareGroupId: string;
   isSubmitting: boolean;
-  remoteInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
-  setDraftShareAccessLevel: (value: ExplorerContainerShareAccessLevel) => void;
+  remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
+  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
   setDraftShareGroupId: (value: string) => void;
   setPanelError: (error: string | null) => void;
 }) {
@@ -471,7 +471,7 @@ function ExplorerContainerInfoGroupShareSection(params: {
           onChange={(event) => {
             setPanelError(null);
             setDraftShareAccessLevel(
-              event.target.value as ExplorerContainerShareAccessLevel,
+              event.target.value as ContainerShareAccessLevel,
             );
           }}
         >
@@ -512,14 +512,14 @@ function ExplorerContainerInfoPeerShareSection(params: {
 
 function ExplorerContainerInfoRemoteSections(params: {
   containerNamesById: ReadonlyMap<string, string>;
-  draftShareAccessLevel: ExplorerContainerShareAccessLevel;
+  draftShareAccessLevel: ContainerShareAccessLevel;
   draftShareGroupId: string;
   isSubmitting: boolean;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
   onShareWithPeer: () => void;
   peerUserId: string | null;
-  remoteInfo: NonNullable<ExplorerContainerInfo["remoteInfo"]>;
-  setDraftShareAccessLevel: (value: ExplorerContainerShareAccessLevel) => void;
+  remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
+  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
   setDraftShareGroupId: (value: string) => void;
   setPanelError: (error: string | null) => void;
 }) {
@@ -554,16 +554,16 @@ function ExplorerContainerInfoRemoteSections(params: {
 export function ExplorerContainerInfoBody(params: {
   containerNamesById: ReadonlyMap<string, string>;
   containerId: string;
-  containerInfo: ExplorerContainerInfo | null;
+  containerInfo: ContainerInfo | null;
   containerInfoError: string | null;
-  draftShareAccessLevel: ExplorerContainerShareAccessLevel;
+  draftShareAccessLevel: ContainerShareAccessLevel;
   draftShareGroupId: string;
   isLoadingContainerInfo: boolean;
   isSubmitting: boolean;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
   onShareWithPeer: () => void;
   peerUserId: string | null;
-  setDraftShareAccessLevel: (value: ExplorerContainerShareAccessLevel) => void;
+  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
   setDraftShareGroupId: (value: string) => void;
   setPanelError: (error: string | null) => void;
 }) {

@@ -1,4 +1,4 @@
-import type { ContainerNode } from "../../stores/explorer/types";
+import type { ContainerNode } from "@tearleads/client-sdk";
 
 export type ExplorerRoute =
   | { view: "selection" }

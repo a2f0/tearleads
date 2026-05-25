@@ -1,9 +1,8 @@
 import {
   DEFAULT_DOCUMENT_ID,
-  type TearleadsDocumentAttachmentStatus,
-  type TearleadsDocumentContextValue,
-  type TearleadsDocumentStore,
-  type TearleadsDocumentsRuntime,
+  type DocumentContextValue,
+  type DocumentStore,
+  type DocumentsRuntime,
 } from "@tearleads/client-sdk";
 import {
   DEFAULT_DOCUMENT_KIND,
@@ -22,10 +21,9 @@ import {
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 
-export type { TearleadsDocumentAttachmentStatus as DocumentAttachmentStatus };
 export { DEFAULT_DOCUMENT_ID };
 
-const DocumentContext = createContext<TearleadsDocumentStore | null>(null);
+const DocumentContext = createContext<DocumentStore | null>(null);
 
 interface DocumentsProviderProps extends PropsWithChildren {
   localId?: string;
@@ -45,7 +43,7 @@ export function DocumentsProvider({
 }: DocumentsProviderProps) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
-  const runtime = useMemo<TearleadsDocumentsRuntime>(
+  const runtime = useMemo<DocumentsRuntime>(
     () =>
       containerId === undefined
         ? tearleads.documents.runtime()
@@ -99,7 +97,7 @@ export function DocumentsProvider({
   );
 }
 
-export function useDocument(): TearleadsDocumentContextValue {
+export function useDocument(): DocumentContextValue {
   const store = useContext(DocumentContext);
   if (!store) {
     throw new Error("useDocument must be used within a DocumentsProvider.");

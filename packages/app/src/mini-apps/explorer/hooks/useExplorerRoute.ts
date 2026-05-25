@@ -1,5 +1,5 @@
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useState } from "react";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   DEFAULT_EXPLORER_ROUTE,
   type ExplorerRoute,

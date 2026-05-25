@@ -1,7 +1,7 @@
+import type { ContainerNode } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   createExplorerTargetLookups,
   getDocumentLinkTargetOptions,

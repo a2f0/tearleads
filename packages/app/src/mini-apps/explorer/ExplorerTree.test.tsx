@@ -1,5 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
-import { syncedContainerDocumentObjectSyncState as syncedExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/container-contents";
+import type {
+  ContainerDocumentReadModel,
+  ContainerDocumentSidebarRow,
+  ContainerNode,
+} from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk/workflows/container-contents";
 import {
   act,
   cleanup,
@@ -14,11 +19,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import type {
-  ExplorerContainerDocumentSidebarRow,
-  ExplorerDocumentReadModel,
-} from "../../stores/explorer/documentReadModel";
-import type { ContainerNode } from "../../stores/explorer/types";
 import { buildExplorerTree, useExplorerSidebarPanel } from "./ExplorerTree";
 
 afterEach(() => {
@@ -32,13 +32,11 @@ const nodes: ContainerNode[] = [
     name: "Root",
     organizationId: "org-1",
     parentId: null,
-    syncState: syncedExplorerObjectSyncState,
+    syncState: syncedContainerDocumentObjectSyncState,
   },
 ];
 
-function createSidebarRows(
-  count: number,
-): ExplorerContainerDocumentSidebarRow[] {
+function createSidebarRows(count: number): ContainerDocumentSidebarRow[] {
   return Array.from({ length: count }, (_, index) => {
     const rowNumber = index + 1;
     return {
@@ -46,7 +44,7 @@ function createSidebarRows(
       documentId: `remote-document-${rowNumber}`,
       documentKind: "note",
       localId: `document-${rowNumber}`,
-      syncState: syncedExplorerObjectSyncState,
+      syncState: syncedContainerDocumentObjectSyncState,
       title: `Document ${rowNumber}`,
       updatedAt: `2026-05-17T00:${String(index).padStart(2, "0")}:00.000Z`,
     };
@@ -54,9 +52,9 @@ function createSidebarRows(
 }
 
 function createDocumentReadModel(
-  rows: ReadonlyArray<ExplorerContainerDocumentSidebarRow>,
+  rows: ReadonlyArray<ContainerDocumentSidebarRow>,
   calls: Array<{ limit: number; offset: number }>,
-): ExplorerDocumentReadModel {
+): ContainerDocumentReadModel {
   return {
     applyContainerDocumentTombstones: async () => [],
     listContainerDocumentSidebarWindow: async ({ limit, offset }) => {
@@ -79,7 +77,7 @@ function createDocumentReadModel(
 }
 
 function ExplorerSidebarHarness(params: {
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   onDocumentContextMenu?: (localId: string, containerId: string) => void;
 }) {
   const { documentReadModel, onDocumentContextMenu } = params;
@@ -164,7 +162,7 @@ test("explorer sidebar shows loading feedback during the first document window r
     | ((
         value: Awaited<
           ReturnType<
-            ExplorerDocumentReadModel["listContainerDocumentSidebarWindow"]
+            ContainerDocumentReadModel["listContainerDocumentSidebarWindow"]
           >
         >,
       ) => void)
@@ -177,7 +175,7 @@ test("explorer sidebar shows loading feedback during the first document window r
         resolveWindow = resolve;
       });
     },
-  } satisfies ExplorerDocumentReadModel;
+  } satisfies ContainerDocumentReadModel;
   const view = render(
     <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
   );
@@ -233,7 +231,7 @@ test("explorer sidebar can retry a failed initial document window", async () => 
         totalCount: rows.length,
       };
     },
-  } satisfies ExplorerDocumentReadModel;
+  } satisfies ContainerDocumentReadModel;
   const view = render(
     <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
   );

@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
 import {
+  addDocumentAttachments,
+  ensureDocumentAttachmentStructure,
+  getDocumentAttachments,
+} from "@tearleads/client-sdk/documents";
+import {
   createDocument,
   encodeVersionVector,
   exportAllUpdates,
   exportUpdatesSince,
   importUpdates,
 } from "@tearleads/loro";
-import {
-  addNoteAttachments,
-  ensureNoteAttachmentStructure,
-  getNoteAttachments,
-} from "./noteDocument";
 
 interface MutableOrderMap {
   set: (key: string, value: number) => void;
@@ -27,7 +27,7 @@ function isMutableOrderMap(value: unknown): value is MutableOrderMap {
 
 test("concurrent attachment additions merge by slot id", async () => {
   const baseDoc = await createDocument("notes-base");
-  ensureNoteAttachmentStructure(baseDoc);
+  ensureDocumentAttachmentStructure(baseDoc);
   const baseUpdate = exportAllUpdates(baseDoc);
 
   const leftDoc = await createDocument("notes-left");
@@ -39,7 +39,7 @@ test("concurrent attachment additions merge by slot id", async () => {
   const leftVersion = encodeVersionVector(leftDoc);
   const rightVersion = encodeVersionVector(rightDoc);
 
-  addNoteAttachments(leftDoc, [
+  addDocumentAttachments(leftDoc, [
     {
       byteLength: 10,
       mimeType: "image/jpeg",
@@ -47,7 +47,7 @@ test("concurrent attachment additions merge by slot id", async () => {
       slotId: "slot-front",
     },
   ]);
-  addNoteAttachments(rightDoc, [
+  addDocumentAttachments(rightDoc, [
     {
       byteLength: 12,
       mimeType: "image/jpeg",
@@ -63,12 +63,12 @@ test("concurrent attachment additions merge by slot id", async () => {
   importUpdates(rightDoc, [leftUpdate]);
 
   expect(
-    getNoteAttachments(leftDoc)
+    getDocumentAttachments(leftDoc)
       .map((attachment) => attachment.slotId)
       .sort(),
   ).toEqual(["slot-back", "slot-front"]);
   expect(
-    getNoteAttachments(rightDoc)
+    getDocumentAttachments(rightDoc)
       .map((attachment) => attachment.slotId)
       .sort(),
   ).toEqual(["slot-back", "slot-front"]);
@@ -76,9 +76,9 @@ test("concurrent attachment additions merge by slot id", async () => {
 
 test("new attachment order follows the highest existing order value", async () => {
   const doc = await createDocument("notes-order");
-  ensureNoteAttachmentStructure(doc);
+  ensureDocumentAttachmentStructure(doc);
 
-  addNoteAttachments(doc, [
+  addDocumentAttachments(doc, [
     {
       byteLength: 10,
       mimeType: "image/jpeg",
@@ -93,7 +93,7 @@ test("new attachment order follows the highest existing order value", async () =
   }
   attachmentMap.set("order", 10);
 
-  addNoteAttachments(doc, [
+  addDocumentAttachments(doc, [
     {
       byteLength: 12,
       mimeType: "image/jpeg",
@@ -103,6 +103,6 @@ test("new attachment order follows the highest existing order value", async () =
   ]);
 
   expect(
-    getNoteAttachments(doc).map((attachment) => attachment.slotId),
+    getDocumentAttachments(doc).map((attachment) => attachment.slotId),
   ).toEqual(["slot-front", "slot-back"]);
 });

@@ -1,9 +1,10 @@
+import type { DocumentAttachmentUpload } from "@tearleads/client-sdk";
 import type { BlobBytes } from "@tearleads/client-sdk/documents";
-import type { NotesAttachFiles, NotesAttachmentUpload } from "../types";
+import type { NotesAttachFiles } from "../types";
 
 async function readAttachmentUpload(
   file: File,
-): Promise<NotesAttachmentUpload> {
+): Promise<DocumentAttachmentUpload> {
   return {
     bytes: new Uint8Array(await file.arrayBuffer()) as BlobBytes,
     mimeType: file.type.length > 0 ? file.type : null,

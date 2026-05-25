@@ -1,18 +1,16 @@
+import type {
+  ContainerDocumentReadModel,
+  ContainerInfo,
+  ContainerNode,
+  DocumentInfo,
+} from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
-import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import {
-  type ExplorerContainerInfo,
-  useExplorerContainerInfoLoader,
-} from "../../../stores/explorer/containerInfo";
-import {
-  type ExplorerDocumentInfo,
-  useExplorerDocumentInfoLoader,
-} from "../../../stores/explorer/documentInfo";
-import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { useExplorerContainerInfoLoader } from "../../../stores/explorer/containerInfo";
+import { useExplorerDocumentInfoLoader } from "../../../stores/explorer/documentInfo";
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   type ExplorerDroppedFileImportLabels,
   type ImportExplorerDroppedFiles,
@@ -76,8 +74,8 @@ export interface ExplorerPanelState {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   contextMenuState: ExplorerContextMenuModel;
   importDroppedFiles: ImportExplorerDroppedFiles;
-  loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
-  loadDocumentInfo: (localId: string) => Promise<ExplorerDocumentInfo>;
+  loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
+  loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   modalState: ExplorerDocumentModalState;
   openInlineDocument: OpenInlineDocument;
   routeState: ExplorerRouteState;
@@ -90,10 +88,10 @@ export interface ExplorerPanelState {
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The panel hook coordinates sidebar, document, modal, and context-menu state.
 export function useExplorerPanelState(params: {
-  appData: TearleadsRuntimeSnapshot;
+  appData: RuntimeSnapshot;
   documentLinkProjectionVersion: number;
   documentListRevision: number;
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;

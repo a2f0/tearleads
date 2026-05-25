@@ -1,3 +1,11 @@
+import type {
+  ContainerDocumentReadModel,
+  ContainerItemRow,
+  ContainerItemSort,
+  ContainerItemSortDirection,
+  ContainerItemSortKey,
+  ContainerNode,
+} from "@tearleads/client-sdk";
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
@@ -28,14 +36,6 @@ import {
 } from "../../../components/shared/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
-import type {
-  ExplorerContainerItemRow,
-  ExplorerContainerItemSort,
-  ExplorerContainerItemSortDirection,
-  ExplorerContainerItemSortKey,
-  ExplorerDocumentReadModel,
-} from "../../../stores/explorer/documentReadModel";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
@@ -47,8 +47,8 @@ const EXPLORER_VIRTUAL_OVERSCAN_ROWS = 8;
 const EXPLORER_VIRTUAL_MIN_WINDOW_ROWS = 24;
 
 function getSortAria(
-  sort: ExplorerContainerItemSort,
-  key: ExplorerContainerItemSortKey,
+  sort: ContainerItemSort,
+  key: ContainerItemSortKey,
 ): MiniAppTableColumn["ariaSort"] {
   if (sort.key !== key) {
     return "none";
@@ -58,9 +58,9 @@ function getSortAria(
 }
 
 export function getNextExplorerItemSort(
-  currentSort: ExplorerContainerItemSort,
-  key: ExplorerContainerItemSortKey,
-): ExplorerContainerItemSort {
+  currentSort: ContainerItemSort,
+  key: ContainerItemSortKey,
+): ContainerItemSort {
   if (currentSort.key === key) {
     return {
       direction: currentSort.direction === "asc" ? "desc" : "asc",
@@ -75,7 +75,7 @@ export function getNextExplorerItemSort(
 }
 
 function ExplorerSortableTableHeader(params: {
-  activeDirection: ExplorerContainerItemSortDirection | null;
+  activeDirection: ContainerItemSortDirection | null;
   label: string;
   onClick: () => void;
 }) {
@@ -100,11 +100,11 @@ function ExplorerSortableTableHeader(params: {
 }
 
 function getExplorerItemTableColumns(params: {
-  onSort: (key: ExplorerContainerItemSortKey) => void;
-  sort: ExplorerContainerItemSort;
+  onSort: (key: ContainerItemSortKey) => void;
+  sort: ContainerItemSort;
 }): ReadonlyArray<MiniAppTableColumn> {
   const { onSort, sort } = params;
-  const sortableHeader = (key: ExplorerContainerItemSortKey, label: string) => (
+  const sortableHeader = (key: ContainerItemSortKey, label: string) => (
     <ExplorerSortableTableHeader
       activeDirection={sort.key === key ? sort.direction : null}
       label={label}
@@ -144,9 +144,7 @@ function getExplorerItemTableColumns(params: {
   ];
 }
 
-function getExplorerContainerItemTypeLabel(
-  row: ExplorerContainerItemRow,
-): string {
+function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
   if (row.itemKind === "container") {
     return EXPLORER_LABELS.folderType;
   }
@@ -157,7 +155,7 @@ function getExplorerContainerItemTypeLabel(
   );
 }
 
-function getExplorerContainerItemRowKey(row: ExplorerContainerItemRow): string {
+function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
   return row.itemKind === "container"
     ? `container:${row.id}`
     : `document:${row.localId}:${row.containerId}`;
@@ -239,13 +237,13 @@ function useExplorerContainerItemRange(params: {
 }
 
 function useExplorerContainerItemWindow(params: {
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   enabled: boolean;
   limit: number;
   offset: number;
   reloadKey: unknown;
   selectedNode: ContainerNode;
-  sort: ExplorerContainerItemSort;
+  sort: ContainerItemSort;
 }) {
   const {
     documentReadModel,
@@ -260,7 +258,7 @@ function useExplorerContainerItemWindow(params: {
     error: string | null;
     isLoading: boolean;
     offset: number;
-    rows: ReadonlyArray<ExplorerContainerItemRow>;
+    rows: ReadonlyArray<ContainerItemRow>;
     totalCount: number;
   }>({
     error: null,
@@ -338,7 +336,7 @@ function useExplorerContainerItemWindow(params: {
 }
 
 function ExplorerContainerItemName(params: {
-  row: ExplorerContainerItemRow;
+  row: ContainerItemRow;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }) {
@@ -362,7 +360,7 @@ function ExplorerContainerItemName(params: {
 
 function ExplorerContainerItemTableRow(params: {
   online: boolean;
-  row: ExplorerContainerItemRow;
+  row: ContainerItemRow;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }) {
@@ -412,13 +410,13 @@ function ExplorerContainerItemTable(params: {
   isImporting: boolean;
   isLoading: boolean;
   online: boolean;
-  onSort: (key: ExplorerContainerItemSortKey) => void;
-  rows: ReadonlyArray<ExplorerContainerItemRow>;
+  onSort: (key: ContainerItemSortKey) => void;
+  rows: ReadonlyArray<ContainerItemRow>;
   rowOffset: number;
   selectedNode: ContainerNode;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
-  sort: ExplorerContainerItemSort;
+  sort: ContainerItemSort;
   totalCount: number;
 }) {
   const {
@@ -557,7 +555,7 @@ function ExplorerContainerDetailHeader(params: {
 
 export function ExplorerContainerDetail(params: {
   documentListRevision: number;
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   importDroppedFiles: ImportExplorerDroppedFiles;
   openInlineDocument: (
     containerId: string,
@@ -581,7 +579,7 @@ export function ExplorerContainerDetail(params: {
     selectedNode,
     setSelectedId,
   } = params;
-  const [sort, setSort] = useState<ExplorerContainerItemSort>({
+  const [sort, setSort] = useState<ContainerItemSort>({
     direction: "asc",
     key: "name",
   });
@@ -603,7 +601,7 @@ export function ExplorerContainerDetail(params: {
   const isShowingRequestedWindow = itemWindow.offset === offset;
   const rows = isShowingRequestedWindow ? itemWindow.rows : [];
   const rowOffset = isShowingRequestedWindow ? itemWindow.offset : offset;
-  const handleSort = useCallback((key: ExplorerContainerItemSortKey) => {
+  const handleSort = useCallback((key: ContainerItemSortKey) => {
     setSort((currentSort) => getNextExplorerItemSort(currentSort, key));
   }, []);
   const fileDropTarget = useExplorerContainerFileDropTarget({

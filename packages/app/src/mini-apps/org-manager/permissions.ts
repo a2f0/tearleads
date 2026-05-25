@@ -1,11 +1,11 @@
 import type {
-  OrgManagerDirectory,
-  OrgManagerGroupMembers,
-} from "../../stores/org-manager/OrgManagerProvider";
+  OrganizationDirectory,
+  OrganizationGroupMembers,
+} from "@tearleads/client-sdk";
 
 export function canCurrentUserMutateSelectedGroup(input: {
-  directory: OrgManagerDirectory | null;
-  members: OrgManagerGroupMembers | null;
+  directory: OrganizationDirectory | null;
+  members: OrganizationGroupMembers | null;
   userId: string | null;
 }): boolean {
   if (input.directory?.currentUser.isOrgAdmin) {

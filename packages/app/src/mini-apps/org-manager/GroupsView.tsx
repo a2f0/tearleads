@@ -1,3 +1,13 @@
+import type {
+  OrganizationDirectory,
+  OrganizationDirectoryUser,
+  OrganizationGroupContainer,
+  OrganizationGroupContainers,
+  OrganizationGroupMember,
+  OrganizationGroupMembers,
+  OrganizationGroupPolicyHistory,
+  OrganizationGroupSummary,
+} from "@tearleads/client-sdk";
 import {
   MiniAppButton,
   MiniAppInput,
@@ -20,16 +30,6 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../components/shared/MiniAppTable";
-import type {
-  OrgManagerDirectory,
-  OrgManagerDirectoryUser,
-  OrgManagerGroupContainer,
-  OrgManagerGroupContainers,
-  OrgManagerGroupMember,
-  OrgManagerGroupMembers,
-  OrgManagerGroupPolicyHistory,
-  OrgManagerGroupSummary,
-} from "../../stores/org-manager/OrgManagerProvider";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import {
   compactFingerprint,
@@ -69,7 +69,7 @@ function GroupList({
   selectedGroupId,
   setSelectedGroupId,
 }: {
-  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
   selectedGroupId: string | null;
   setSelectedGroupId: (groupId: string) => void;
 }) {
@@ -119,7 +119,7 @@ function GroupMembers({
   userId,
 }: {
   canMutateGroup: boolean;
-  members: ReadonlyArray<OrgManagerGroupMember>;
+  members: ReadonlyArray<OrganizationGroupMember>;
   mutating: boolean;
   removeMember: (userId: string) => void;
   userId: string | null;
@@ -183,7 +183,7 @@ function GroupMembers({
 function GroupContainers({
   containers,
 }: {
-  containers: ReadonlyArray<OrgManagerGroupContainer>;
+  containers: ReadonlyArray<OrganizationGroupContainer>;
 }) {
   if (containers.length === 0) {
     return (
@@ -250,20 +250,20 @@ export function GroupsView({
   addUser: () => void;
   addUserId: string;
   addUserListId: string;
-  addableUsers: ReadonlyArray<OrgManagerDirectoryUser>;
+  addableUsers: ReadonlyArray<OrganizationDirectoryUser>;
   canCreateGroup: boolean;
   canMutateSelectedGroup: boolean;
   createGroup: () => void;
-  directory: OrgManagerDirectory | null;
-  groupContainers: OrgManagerGroupContainers | null;
+  directory: OrganizationDirectory | null;
+  groupContainers: OrganizationGroupContainers | null;
   groupNameDraft: string;
-  groupPolicyHistory: OrgManagerGroupPolicyHistory | null;
-  groups: ReadonlyArray<OrgManagerGroupSummary>;
-  members: OrgManagerGroupMembers | null;
+  groupPolicyHistory: OrganizationGroupPolicyHistory | null;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
+  members: OrganizationGroupMembers | null;
   memberUserIds: ReadonlySet<string>;
   mutating: boolean;
   removeMember: (userId: string) => void;
-  selectedGroup: OrgManagerGroupSummary | null;
+  selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
   selectGroup: (groupId: string) => void;
   setAddUserId: (userId: string) => void;

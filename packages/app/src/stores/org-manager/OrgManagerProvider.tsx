@@ -1,20 +1,14 @@
 import type {
-  TearleadsOrganizationContainerGrant,
-  TearleadsOrganizationContainerGrants,
-  TearleadsOrganizationDataUsage,
-  TearleadsOrganizationDirectory,
-  TearleadsOrganizationDirectoryAndGroups,
-  TearleadsOrganizationDirectoryUser,
-  TearleadsOrganizationGroupContainer,
-  TearleadsOrganizationGroupContainers,
-  TearleadsOrganizationGroupDetails,
-  TearleadsOrganizationGroupMember,
-  TearleadsOrganizationGroupMembers,
-  TearleadsOrganizationGroupPolicyHistory,
-  TearleadsOrganizationGroupSummary,
-  TearleadsOrganizationPolicyHistory,
-  TearleadsOrganizationUserDetail,
-  TearleadsOrganizationUserRecipient,
+  OrganizationContainerGrant,
+  OrganizationContainerGrants,
+  OrganizationDataUsage,
+  OrganizationDirectoryAndGroups,
+  OrganizationDirectoryUser,
+  OrganizationGroupDetails,
+  OrganizationGroupSummary,
+  OrganizationPolicyHistory,
+  OrganizationUserDetail,
+  OrganizationUserRecipient,
 } from "@tearleads/client-sdk";
 import type {
   ContainerMutationResponse,
@@ -32,55 +26,37 @@ import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 interface OrgManagerContextValue {
   addUserToGroup: (
     groupId: string,
-    targetUser: OrgManagerUserRecipient,
-    currentUsers: ReadonlyArray<OrgManagerUserRecipient>,
+    targetUser: OrganizationUserRecipient,
+    currentUsers: ReadonlyArray<OrganizationUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
-  createGroup: (name: string) => Promise<OrgManagerGroupSummary>;
-  importUserById: (userId: string) => Promise<OrgManagerUserRecipient | null>;
-  loadDataUsage: () => Promise<OrgManagerDataUsage | null>;
-  loadDirectoryAndGroups: () => Promise<OrgManagerDirectoryAndGroups | null>;
-  loadGroupDetails: (groupId: string) => Promise<OrgManagerGroupDetails>;
-  loadGrants: () => Promise<OrgManagerContainerGrants | null>;
-  loadPolicyHistory: () => Promise<OrgManagerPolicyHistory | null>;
-  loadUserDetail: (userId: string) => Promise<OrgManagerUserDetail | null>;
+  createGroup: (name: string) => Promise<OrganizationGroupSummary>;
+  importUserById: (userId: string) => Promise<OrganizationUserRecipient | null>;
+  loadDataUsage: () => Promise<OrganizationDataUsage | null>;
+  loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
+  loadGroupDetails: (groupId: string) => Promise<OrganizationGroupDetails>;
+  loadGrants: () => Promise<OrganizationContainerGrants | null>;
+  loadPolicyHistory: () => Promise<OrganizationPolicyHistory | null>;
+  loadUserDetail: (userId: string) => Promise<OrganizationUserDetail | null>;
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
-    remainingUsers: ReadonlyArray<OrgManagerUserRecipient>,
+    remainingUsers: ReadonlyArray<OrganizationUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
   revokeGrant: (
     grant: Pick<
-      OrgManagerContainerGrant,
+      OrganizationContainerGrant,
       "containerId" | "subjectId" | "subjectType"
     >,
   ) => Promise<ContainerMutationResponse>;
   updateRosterEntry: (
     userId: string,
     profileDocumentId: string | null,
-  ) => Promise<OrgManagerDirectoryUser | null>;
+  ) => Promise<OrganizationDirectoryUser | null>;
 }
 
 const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
-
-export type OrgManagerContainerGrant = TearleadsOrganizationContainerGrant;
-export type OrgManagerContainerGrants = TearleadsOrganizationContainerGrants;
-export type OrgManagerDataUsage = TearleadsOrganizationDataUsage;
-export type OrgManagerDirectory = TearleadsOrganizationDirectory;
-type OrgManagerDirectoryAndGroups = TearleadsOrganizationDirectoryAndGroups;
-export type OrgManagerDirectoryUser = TearleadsOrganizationDirectoryUser;
-export type OrgManagerGroupContainer = TearleadsOrganizationGroupContainer;
-export type OrgManagerGroupContainers = TearleadsOrganizationGroupContainers;
-type OrgManagerGroupDetails = TearleadsOrganizationGroupDetails;
-export type OrgManagerGroupMember = TearleadsOrganizationGroupMember;
-export type OrgManagerGroupMembers = TearleadsOrganizationGroupMembers;
-export type OrgManagerGroupPolicyHistory =
-  TearleadsOrganizationGroupPolicyHistory;
-export type OrgManagerGroupSummary = TearleadsOrganizationGroupSummary;
-export type OrgManagerPolicyHistory = TearleadsOrganizationPolicyHistory;
-export type OrgManagerUserDetail = TearleadsOrganizationUserDetail;
-export type OrgManagerUserRecipient = TearleadsOrganizationUserRecipient;
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider keeps the React context wiring for SDK organization actions in one place.
 export function OrgManagerProvider({ children }: PropsWithChildren) {
@@ -124,8 +100,8 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   const addUserToGroup = useCallback(
     async (
       groupId: string,
-      targetUser: TearleadsOrganizationUserRecipient,
-      currentUsers: ReadonlyArray<TearleadsOrganizationUserRecipient>,
+      targetUser: OrganizationUserRecipient,
+      currentUsers: ReadonlyArray<OrganizationUserRecipient>,
       canAdministerOrganization: boolean,
     ) => {
       return organizations.addUserToGroup({
@@ -142,7 +118,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     async (
       groupId: string,
       removedUserId: string,
-      remainingUsers: ReadonlyArray<TearleadsOrganizationUserRecipient>,
+      remainingUsers: ReadonlyArray<OrganizationUserRecipient>,
       canAdministerOrganization: boolean,
     ) => {
       return organizations.removeUserFromGroup({
@@ -158,7 +134,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   const revokeGrant = useCallback(
     async (
       grant: Pick<
-        OrgManagerContainerGrant,
+        OrganizationContainerGrant,
         "containerId" | "subjectId" | "subjectType"
       >,
     ) => {

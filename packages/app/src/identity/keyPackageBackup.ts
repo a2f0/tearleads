@@ -1,7 +1,7 @@
 import type {
-  TearleadsIdentity,
-  TearleadsIdentityKeyPackage,
-  TearleadsSessionContext,
+  Identity,
+  IdentityKeyPackage,
+  SessionContext,
 } from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 
@@ -11,14 +11,14 @@ interface AppKeyPackageSession {
   readonly userId: string;
 }
 
-type AppKeyPackage = TearleadsIdentityKeyPackage & {
+type AppKeyPackage = IdentityKeyPackage & {
   readonly session?: AppKeyPackageSession;
 };
 
 interface CreateAppKeyPackageBackupInput {
-  readonly identity: Pick<TearleadsIdentity, "exportKeyPackage">;
+  readonly identity: Pick<Identity, "exportKeyPackage">;
   readonly session: Pick<
-    TearleadsSessionContext,
+    SessionContext,
     "containerId" | "organizationId" | "userId"
   >;
 }
@@ -83,7 +83,7 @@ export function readAppKeyPackageSession(
 }
 
 export function createKeyPackageFileName(
-  keyPackage: TearleadsIdentityKeyPackage,
+  keyPackage: IdentityKeyPackage,
 ): string {
   return `tearleads-key-package-${keyPackage.signingFingerprint.slice(
     0,

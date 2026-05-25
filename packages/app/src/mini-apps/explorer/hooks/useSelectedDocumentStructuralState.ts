@@ -1,7 +1,9 @@
+import type {
+  ContainerDocumentLinksRuntime,
+  ContainerNode,
+} from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useMemo } from "react";
-import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import {
   createExplorerTargetLookups,
   getDocumentLinkTargetOptions,
@@ -86,7 +88,7 @@ function useSelectedDocumentTargetOptions(params: {
 }
 
 export function useSelectedDocumentStructuralState(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
+  appData: ContainerDocumentLinksRuntime;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;

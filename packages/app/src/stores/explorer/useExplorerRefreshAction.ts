@@ -1,4 +1,4 @@
-import type { TearleadsContainerContents } from "@tearleads/client-sdk";
+import type { ContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useRef, useState } from "react";
 import { isDestroyedDatabaseWorkerError } from "./documentRuntime";
@@ -12,7 +12,7 @@ export function useExplorerRefreshAction(params: {
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
   refresh: () => Promise<boolean>;
-  refreshDocuments: TearleadsContainerContents["refreshDocuments"];
+  refreshDocuments: ContainerContents["refreshDocuments"];
 }) {
   const {
     mergeDocumentSummaries,

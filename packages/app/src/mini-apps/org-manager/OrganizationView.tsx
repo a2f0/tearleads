@@ -1,8 +1,8 @@
 import type {
-  OrgManagerDirectory,
-  OrgManagerGroupSummary,
-  OrgManagerPolicyHistory,
-} from "../../stores/org-manager/OrgManagerProvider";
+  OrganizationDirectory,
+  OrganizationGroupSummary,
+  OrganizationPolicyHistory,
+} from "@tearleads/client-sdk";
 import { compactFingerprint } from "./display";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { PolicyHistorySection } from "./PolicyHistory";
@@ -13,10 +13,10 @@ export function OrganizationView({
   organizationId,
   policyHistory,
 }: {
-  directory: OrgManagerDirectory | null;
-  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  directory: OrganizationDirectory | null;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
   organizationId: string;
-  policyHistory: OrgManagerPolicyHistory | null;
+  policyHistory: OrganizationPolicyHistory | null;
 }) {
   return (
     <div>

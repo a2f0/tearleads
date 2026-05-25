@@ -1,3 +1,4 @@
+import type { OrganizationDataUsage } from "@tearleads/client-sdk";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
@@ -8,7 +9,6 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
-import type { OrgManagerDataUsage } from "../../stores/org-manager/OrgManagerProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
 import { ORG_MANAGER_LABELS } from "./labels";
 
@@ -48,7 +48,7 @@ export function DataUsageView({
   dataUsage,
   loading,
 }: {
-  dataUsage: OrgManagerDataUsage | null;
+  dataUsage: OrganizationDataUsage | null;
   loading: boolean;
 }) {
   if (!dataUsage) {

@@ -1,3 +1,9 @@
+import type {
+  ContainerDocumentObjectSyncState,
+  ContainerDocumentReadModel,
+  ContainerNode,
+} from "@tearleads/client-sdk";
+import { createContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
@@ -14,12 +20,6 @@ import {
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../document-types/registry";
-import type {
-  ExplorerDocumentReadModel,
-  ExplorerObjectSyncState,
-} from "../../../stores/explorer/documentReadModel";
-import { createExplorerObjectSyncState } from "../../../stores/explorer/documentReadModel";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import {
   EXPLORER_LABELS,
@@ -392,13 +392,13 @@ function ExplorerLinkedContainerSection(params: {
 
 function useSelectedDocumentSyncState(params: {
   documentListRevision: number;
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   selectedDocument: DocumentSummary;
-}): ExplorerObjectSyncState {
+}): ContainerDocumentObjectSyncState {
   const { documentListRevision, documentReadModel, selectedDocument } = params;
   const fallbackSyncState = useMemo(
     () =>
-      createExplorerObjectSyncState({
+      createContainerDocumentObjectSyncState({
         localOnly: selectedDocument.documentId === null,
       }),
     [selectedDocument.documentId],
@@ -451,7 +451,7 @@ export function ExplorerDocumentDetail(params: {
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   documentListRevision: number;
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;

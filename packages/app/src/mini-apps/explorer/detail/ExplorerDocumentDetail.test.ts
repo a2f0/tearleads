@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { syncedContainerDocumentObjectSyncState as syncedExplorerObjectSyncState } from "@tearleads/client-sdk/workflows/container-contents";
-import type { ContainerNode } from "../../../stores/explorer/types";
+import type { ContainerNode } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk/workflows/container-contents";
 import { getLinkedContainerDetails } from "./ExplorerDocumentDetail";
 
 const nodes = [
@@ -10,7 +10,7 @@ const nodes = [
     name: "Root",
     organizationId: "org-1",
     parentId: null,
-    syncState: syncedExplorerObjectSyncState,
+    syncState: syncedContainerDocumentObjectSyncState,
   },
   {
     id: "archive-container",
@@ -18,7 +18,7 @@ const nodes = [
     name: "Archive",
     organizationId: "org-1",
     parentId: "root-container",
-    syncState: syncedExplorerObjectSyncState,
+    syncState: syncedContainerDocumentObjectSyncState,
   },
 ] satisfies ReadonlyArray<ContainerNode>;
 
@@ -59,7 +59,7 @@ test("linked container details preserve first matching node names", () => {
           name: "Duplicate Root",
           organizationId: "org-1",
           parentId: null,
-          syncState: syncedExplorerObjectSyncState,
+          syncState: syncedContainerDocumentObjectSyncState,
         },
       ],
       ["root-container"],

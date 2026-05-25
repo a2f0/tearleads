@@ -1,16 +1,16 @@
+import type { DocumentAttachmentStatus } from "@tearleads/client-sdk";
+import type { DocumentAttachment } from "@tearleads/client-sdk/documents";
 import type { DragEvent } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { NOTES_LABELS } from "../labels";
-import type { NoteAttachment } from "../noteDocument";
 import type {
   AttachmentImageUrlBySlotId,
   AttachmentStatusBySlotId,
-  NoteAttachmentStatus,
 } from "../types";
 
 interface NotesAttachmentsPanelProps {
-  attachments: ReadonlyArray<NoteAttachment>;
+  attachments: ReadonlyArray<DocumentAttachment>;
   attachmentStatusBySlotId: AttachmentStatusBySlotId;
   canAttach: boolean;
   dragActive: boolean;
@@ -23,13 +23,13 @@ interface NotesAttachmentsPanelProps {
 }
 
 interface NotesAttachmentItemProps {
-  attachment: NoteAttachment;
+  attachment: DocumentAttachment;
   imageUrl: string | undefined;
-  status: NoteAttachmentStatus | undefined;
+  status: DocumentAttachmentStatus | undefined;
 }
 
 function getAttachmentStatusLabel(
-  status: NoteAttachmentStatus | undefined,
+  status: DocumentAttachmentStatus | undefined,
 ): string | null {
   if (status === "syncing") {
     return NOTES_LABELS.attachmentSyncing;

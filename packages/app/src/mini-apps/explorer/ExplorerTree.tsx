@@ -1,3 +1,8 @@
+import type {
+  ContainerDocumentReadModel,
+  ContainerDocumentSidebarRow,
+  ContainerNode,
+} from "@tearleads/client-sdk";
 import {
   Fragment,
   type MouseEvent,
@@ -17,11 +22,6 @@ import {
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
-import type {
-  ExplorerContainerDocumentSidebarRow,
-  ExplorerDocumentReadModel,
-} from "../../stores/explorer/documentReadModel";
-import type { ContainerNode } from "../../stores/explorer/types";
 import { ExplorerSyncStateBadge } from "./ExplorerSyncStateBadge";
 
 const EXPLORER_SIDEBAR_DOCUMENT_PAGE_SIZE = 50;
@@ -113,7 +113,7 @@ function ExplorerSidebarItemLabel(params: {
 function ExplorerTreeDocumentRows(
   props: Omit<ExplorerTreeEntriesProps, "entries"> & {
     depth: number;
-    rows: ReadonlyArray<ExplorerContainerDocumentSidebarRow>;
+    rows: ReadonlyArray<ContainerDocumentSidebarRow>;
   },
 ) {
   return props.rows.map(({ containerId, localId, syncState, title }) => (
@@ -236,7 +236,7 @@ function ExplorerTreeEntryNode(
 interface ExplorerSidebarDocumentWindowState {
   error: string | null;
   isLoading: boolean;
-  rows: ReadonlyArray<ExplorerContainerDocumentSidebarRow>;
+  rows: ReadonlyArray<ContainerDocumentSidebarRow>;
   totalCount: number;
 }
 
@@ -313,7 +313,7 @@ function useExplorerSidebarDocumentWindows(params: {
   collapsedIds: ReadonlySet<string>;
   documentLinkProjectionVersion: number;
   documentListRevision: number;
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
@@ -502,7 +502,7 @@ export function useExplorerSidebarPanel(params: {
   collapsedIds: ReadonlySet<string>;
   documentLinkProjectionVersion: number;
   documentListRevision: number;
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   handleSidebarContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
     nodeId: string,

@@ -1,14 +1,14 @@
 import type {
-  OrgManagerDirectory,
-  OrgManagerDirectoryUser,
-  OrgManagerGroupMember,
-  OrgManagerGroupMembers,
-  OrgManagerUserRecipient,
-} from "../../stores/org-manager/OrgManagerProvider";
+  OrganizationDirectory,
+  OrganizationDirectoryUser,
+  OrganizationGroupMember,
+  OrganizationGroupMembers,
+  OrganizationUserRecipient,
+} from "@tearleads/client-sdk";
 
 export function userRecipient(
-  user: OrgManagerDirectoryUser,
-): OrgManagerUserRecipient {
+  user: OrganizationDirectoryUser,
+): OrganizationUserRecipient {
   return {
     userId: user.userId,
     encapsulationPublicKey: user.encapsulationPublicKey,
@@ -17,8 +17,8 @@ export function userRecipient(
 }
 
 function memberUserRecipient(
-  member: OrgManagerGroupMember,
-): OrgManagerUserRecipient | null {
+  member: OrganizationGroupMember,
+): OrganizationUserRecipient | null {
   if (
     member.memberPrincipalType !== "user" ||
     !member.encapsulationPublicKey ||
@@ -35,10 +35,10 @@ function memberUserRecipient(
 }
 
 export function currentGroupUserRecipients(input: {
-  directory: OrgManagerDirectory;
-  members: OrgManagerGroupMembers | null;
-}): OrgManagerUserRecipient[] {
-  const recipientsById = new Map<string, OrgManagerUserRecipient>();
+  directory: OrganizationDirectory;
+  members: OrganizationGroupMembers | null;
+}): OrganizationUserRecipient[] {
+  const recipientsById = new Map<string, OrganizationUserRecipient>();
 
   for (const user of input.directory.users) {
     const recipient = userRecipient(user);

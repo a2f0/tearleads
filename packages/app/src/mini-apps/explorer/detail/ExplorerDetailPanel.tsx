@@ -1,15 +1,15 @@
 import type {
+  ContainerDocumentReadModel,
+  ContainerInfo,
+  ContainerNode,
+  ContainerShareAccessLevel,
+  DocumentInfo,
+} from "@tearleads/client-sdk";
+import type {
   DocumentSummary,
   StoredDocumentKind,
 } from "@tearleads/client-sdk/documents";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
-import type {
-  ExplorerContainerInfo,
-  ExplorerContainerShareAccessLevel,
-} from "../../../stores/explorer/containerInfo";
-import type { ExplorerDocumentInfo } from "../../../stores/explorer/documentInfo";
-import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { MiniAppWindowPosition } from "../../bus";
 import type { ExplorerRoute } from "../routes";
@@ -45,11 +45,11 @@ export function ExplorerDetailPanel(params: {
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   documentListRevision: number;
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   importDroppedFiles: ImportExplorerDroppedFiles;
   linkedContainerIds: ReadonlyArray<string>;
-  loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
-  loadDocumentInfo: (localId: string) => Promise<ExplorerDocumentInfo>;
+  loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
+  loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   onBackToSelectionRoute: () => void;
@@ -73,7 +73,7 @@ export function ExplorerDetailPanel(params: {
   shareWithGroup: (
     containerId: string,
     groupId: string,
-    accessLevel: ExplorerContainerShareAccessLevel,
+    accessLevel: ContainerShareAccessLevel,
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   unlinkDocument: (

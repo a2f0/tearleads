@@ -1,3 +1,16 @@
+import type {
+  OrganizationContainerGrant,
+  OrganizationContainerGrants,
+  OrganizationDataUsage,
+  OrganizationDirectory,
+  OrganizationDirectoryUser,
+  OrganizationGroupContainers,
+  OrganizationGroupMembers,
+  OrganizationGroupPolicyHistory,
+  OrganizationGroupSummary,
+  OrganizationPolicyHistory,
+  OrganizationUserDetail,
+} from "@tearleads/client-sdk";
 import {
   useCallback,
   useEffect,
@@ -7,20 +20,7 @@ import {
   useState,
 } from "react";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
-import {
-  type OrgManagerContainerGrant,
-  type OrgManagerContainerGrants,
-  type OrgManagerDataUsage,
-  type OrgManagerDirectory,
-  type OrgManagerDirectoryUser,
-  type OrgManagerGroupContainers,
-  type OrgManagerGroupMembers,
-  type OrgManagerGroupPolicyHistory,
-  type OrgManagerGroupSummary,
-  type OrgManagerPolicyHistory,
-  type OrgManagerUserDetail,
-  useOrgManagerActions,
-} from "../../../stores/org-manager/OrgManagerProvider";
+import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useMiniAppMessage } from "../../bus";
 import {
   removeRevokedGrantFromGrantState,
@@ -52,8 +52,10 @@ export function useOrgManagerModel() {
   const appData = useTearleadsRuntime();
   const orgManagerActions = useOrgManagerActions();
   const addUserListId = useId();
-  const [directory, setDirectory] = useState<OrgManagerDirectory | null>(null);
-  const [groups, setGroups] = useState<ReadonlyArray<OrgManagerGroupSummary>>(
+  const [directory, setDirectory] = useState<OrganizationDirectory | null>(
+    null,
+  );
+  const [groups, setGroups] = useState<ReadonlyArray<OrganizationGroupSummary>>(
     [],
   );
   const {
@@ -65,19 +67,23 @@ export function useOrgManagerModel() {
     setView,
   } = useOrgManagerRoute({ groups });
   const view = route.view;
-  const [members, setMembers] = useState<OrgManagerGroupMembers | null>(null);
+  const [members, setMembers] = useState<OrganizationGroupMembers | null>(null);
   const [groupContainers, setGroupContainers] =
-    useState<OrgManagerGroupContainers | null>(null);
+    useState<OrganizationGroupContainers | null>(null);
   const [groupPolicyHistory, setGroupPolicyHistory] =
-    useState<OrgManagerGroupPolicyHistory | null>(null);
+    useState<OrganizationGroupPolicyHistory | null>(null);
   const [organizationPolicyHistory, setOrganizationPolicyHistory] =
-    useState<OrgManagerPolicyHistory | null>(null);
-  const [grants, setGrants] = useState<OrgManagerContainerGrants | null>(null);
-  const [dataUsage, setDataUsage] = useState<OrgManagerDataUsage | null>(null);
+    useState<OrganizationPolicyHistory | null>(null);
+  const [grants, setGrants] = useState<OrganizationContainerGrants | null>(
+    null,
+  );
+  const [dataUsage, setDataUsage] = useState<OrganizationDataUsage | null>(
+    null,
+  );
   const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
     null,
   );
-  const [userDetail, setUserDetail] = useState<OrgManagerUserDetail | null>(
+  const [userDetail, setUserDetail] = useState<OrganizationUserDetail | null>(
     null,
   );
   const [groupNameDraft, setGroupNameDraft] = useState("");
@@ -486,7 +492,7 @@ export function useOrgManagerModel() {
   }, [refreshSelectedUserDetail, selectedUserId]);
 
   const updateRosterUserState = useCallback(
-    (updatedUser: OrgManagerDirectoryUser) => {
+    (updatedUser: OrganizationDirectoryUser) => {
       setDirectory((currentDirectory) => {
         if (!currentDirectory) {
           return currentDirectory;
@@ -702,7 +708,7 @@ export function useOrgManagerModel() {
   ]);
 
   const revokeGrant = useCallback(
-    async (grant: OrgManagerContainerGrant) => {
+    async (grant: OrganizationContainerGrant) => {
       if (grant.isBuiltin) {
         return;
       }

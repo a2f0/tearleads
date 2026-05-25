@@ -1,16 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
 import type {
-  OrgManagerDirectory,
-  OrgManagerDirectoryUser,
-  OrgManagerUserDetail,
-} from "../../stores/org-manager/OrgManagerProvider";
+  OrganizationDirectory,
+  OrganizationDirectoryUser,
+  OrganizationUserDetail,
+} from "@tearleads/client-sdk";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { DirectoryView } from "./DirectoryView";
 import { ORG_MANAGER_LABELS } from "./labels";
 
 afterEach(() => cleanup());
 
-const rosterUser: OrgManagerDirectoryUser = {
+const rosterUser: OrganizationDirectoryUser = {
   createdAt: "2026-05-20T12:00:00.000Z",
   disabledAt: "2026-05-24T12:00:00.000Z",
   disabledByUserId: "550e8400-e29b-41d4-a716-446655440002",
@@ -25,13 +25,13 @@ const rosterUser: OrgManagerDirectoryUser = {
   userId: "550e8400-e29b-41d4-a716-446655440000",
 };
 
-const directory: OrgManagerDirectory = {
+const directory: OrganizationDirectory = {
   currentUser: { isOrgAdmin: true },
   organizationId: "organization-1",
   users: [rosterUser],
 };
 
-const detail: OrgManagerUserDetail = {
+const detail: OrganizationUserDetail = {
   grants: {
     directGrants: [],
     groupGrants: [],

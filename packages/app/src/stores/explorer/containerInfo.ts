@@ -1,25 +1,14 @@
-import type {
-  TearleadsContainerInfo,
-  TearleadsContainerShareAccessLevel,
-} from "@tearleads/client-sdk";
+import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
 import { useCallback, useMemo } from "react";
 import {
-  type TearleadsRuntimeSnapshot,
+  type RuntimeSnapshot,
   useTearleads,
 } from "../../providers/sdk/TearleadsProvider";
-import type { ContainerNode } from "./types";
-
-export type ExplorerContainerInfo = TearleadsContainerInfo;
-export type ExplorerContainerShareAccessLevel =
-  TearleadsContainerShareAccessLevel;
 
 export function useExplorerContainerInfoLoader(input: {
-  readonly appData: Pick<
-    TearleadsRuntimeSnapshot,
-    "isAuthenticated" | "online"
-  >;
+  readonly appData: Pick<RuntimeSnapshot, "isAuthenticated" | "online">;
   readonly nodes: ReadonlyArray<ContainerNode>;
-}): (containerId: string) => Promise<ExplorerContainerInfo> {
+}): (containerId: string) => Promise<ContainerInfo> {
   const { appData, nodes } = input;
   const { containerContents } = useTearleads();
   const nodesById = useMemo(
