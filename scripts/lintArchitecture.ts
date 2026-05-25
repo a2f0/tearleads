@@ -863,9 +863,7 @@ function isUnsupportedClientSdkRootReExport(specifier: string): boolean {
 function isAppMiniAppBusBoundaryImport(specifier: string): boolean {
   return (
     specifier.startsWith("@tearleads/") ||
-    specifier.startsWith("../providers/") ||
-    specifier.startsWith("../stores/") ||
-    specifier.startsWith("../document-types/") ||
+    /^\.\.\/(?:providers|stores|document-types)(?:\/|$)/.test(specifier) ||
     /^\.\/(?:contacts|explorer|identity-manager|notes|org-manager)(?:\/|$)/.test(
       specifier,
     )
