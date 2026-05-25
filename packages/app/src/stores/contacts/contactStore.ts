@@ -1,9 +1,9 @@
 import type {
+  DocumentStore,
+  DocumentsRuntime,
   DomainScope,
-  TearleadsDocumentStore,
-  TearleadsDocumentsRuntime,
-  TearleadsPrimeDocumentStoreInput,
-  TearleadsUserKey,
+  PrimeDocumentStoreInput,
+  UserKey,
 } from "@tearleads/client-sdk";
 import { type ExecSql, ensureSqlTables } from "@tearleads/client-sdk/sqlite";
 import {
@@ -22,11 +22,9 @@ export interface ContactsSnapshot {
 
 export interface ContactsRuntime {
   deleteLocalDocument: (localId: string) => Promise<boolean>;
-  documents: TearleadsDocumentsRuntime;
+  documents: DocumentsRuntime;
   execSql: ExecSql;
-  primeDocumentStore: (
-    input: TearleadsPrimeDocumentStoreInput,
-  ) => TearleadsDocumentStore;
+  primeDocumentStore: (input: PrimeDocumentStoreInput) => DocumentStore;
 }
 
 export interface ContactsStore {
@@ -40,12 +38,12 @@ export interface ContactsStore {
 }
 
 interface ContactsStoreDependencies {
-  fetchUserKey: (userId: string) => Promise<TearleadsUserKey | null>;
+  fetchUserKey: (userId: string) => Promise<UserKey | null>;
   logError: (message: string | Error, cause?: unknown) => void;
 }
 
 interface TrackedContactDocumentStore {
-  store: TearleadsDocumentStore;
+  store: DocumentStore;
   unsubscribe: () => void;
 }
 
@@ -224,7 +222,7 @@ async function loadProjectedContacts(
 
 function contactEntryFromDocumentStore(
   contactId: string,
-  store: TearleadsDocumentStore,
+  store: DocumentStore,
 ): ContactEntry | null {
   const snapshot = store.getSnapshot();
   if (!snapshot.ready || snapshot.documentKind !== "contact") {
@@ -240,7 +238,7 @@ function contactEntryFromDocumentStore(
 function ensureContactDocumentStore(
   state: ContactsStoreState,
   contactId: string,
-): TearleadsDocumentStore {
+): DocumentStore {
   const existing = state.contactDocumentStoresById.get(contactId);
   if (existing) {
     existing.store.updateRuntime(state.runtime.documents);

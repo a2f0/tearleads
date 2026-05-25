@@ -1,19 +1,19 @@
+import type {
+  OrganizationContainerGrant,
+  OrganizationContainerGrants,
+} from "@tearleads/client-sdk";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
-import type {
-  OrgManagerContainerGrant,
-  OrgManagerContainerGrants,
-} from "../../stores/org-manager/OrgManagerProvider";
 import { GrantTable } from "./GrantTable";
 import { ORG_MANAGER_LABELS } from "./labels";
 
 function grantsBySubjectType(
-  grants: ReadonlyArray<OrgManagerContainerGrant>,
-  subjectType: OrgManagerContainerGrant["subjectType"],
-): OrgManagerContainerGrant[] {
+  grants: ReadonlyArray<OrganizationContainerGrant>,
+  subjectType: OrganizationContainerGrant["subjectType"],
+): OrganizationContainerGrant[] {
   return grants.filter((grant) => grant.subjectType === subjectType);
 }
 
@@ -26,11 +26,11 @@ export function GrantsView({
   revokeGrant,
 }: {
   canRevokeGrants: boolean;
-  grants: OrgManagerContainerGrants | null;
+  grants: OrganizationContainerGrants | null;
   loading: boolean;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
-  revokeGrant: (grant: OrgManagerContainerGrant) => void;
+  revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
   if (!grants) {
     return (

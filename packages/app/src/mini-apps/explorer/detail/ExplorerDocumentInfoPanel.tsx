@@ -1,3 +1,4 @@
+import type { ContainerNode, DocumentInfo } from "@tearleads/client-sdk";
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
@@ -10,8 +11,6 @@ import {
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
-import type { ExplorerDocumentInfo } from "../../../stores/explorer/documentInfo";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import {
@@ -29,7 +28,7 @@ import {
 interface Props {
   containerId: string;
   documentTitle: string | undefined;
-  loadDocumentInfo: (localId: string) => Promise<ExplorerDocumentInfo>;
+  loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   localId: string;
   nodes: ReadonlyArray<ContainerNode>;
   onBackToDocument: () => void;
@@ -56,14 +55,12 @@ function getDocumentTypeLabel(documentKind: StoredDocumentKind | null): string {
 }
 
 function useExplorerDocumentInfo(params: {
-  loadDocumentInfo: (localId: string) => Promise<ExplorerDocumentInfo>;
+  loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   localId: string;
 }) {
   const { loadDocumentInfo, localId } = params;
   const requestIdRef = useRef(0);
-  const [documentInfo, setDocumentInfo] = useState<ExplorerDocumentInfo | null>(
-    null,
-  );
+  const [documentInfo, setDocumentInfo] = useState<DocumentInfo | null>(null);
   const [documentInfoError, setDocumentInfoError] = useState<string | null>(
     null,
   );
@@ -117,7 +114,7 @@ function DocumentInfoRow(params: {
 
 function ExplorerDocumentInfoLocalSection(params: {
   containerName: string | null;
-  documentInfo: ExplorerDocumentInfo | null;
+  documentInfo: DocumentInfo | null;
   localId: string;
 }) {
   const { containerName, documentInfo, localId } = params;
@@ -207,7 +204,7 @@ function ExplorerDocumentInfoLocalSection(params: {
 }
 
 function ExplorerDocumentInfoRemoteSecuritySection(params: {
-  documentInfo: ExplorerDocumentInfo;
+  documentInfo: DocumentInfo;
 }) {
   const remoteInfo = params.documentInfo.remoteInfo;
   if (!remoteInfo) {
@@ -292,7 +289,7 @@ function ExplorerDocumentInfoRemoteSecuritySection(params: {
 
 function ExplorerDocumentInfoAuthorizingContainersSection(params: {
   containerNamesById: ReadonlyMap<string, string>;
-  documentInfo: ExplorerDocumentInfo;
+  documentInfo: DocumentInfo;
 }) {
   const remoteInfo = params.documentInfo.remoteInfo;
   const rows = remoteInfo?.authorizingContainerPaths ?? [];
@@ -343,7 +340,7 @@ function ExplorerDocumentInfoAuthorizingContainersSection(params: {
 }
 
 function ExplorerDocumentInfoAttachmentsSection(params: {
-  documentInfo: ExplorerDocumentInfo;
+  documentInfo: DocumentInfo;
 }) {
   const { attachments, remoteInfo } = params.documentInfo;
   const remoteBindings = remoteInfo?.activeAttachmentBindings ?? [];

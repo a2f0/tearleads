@@ -1,4 +1,4 @@
-import type { ExplorerObjectSyncState } from "../../stores/explorer/documentReadModel";
+import type { ContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
   EXPLORER_LABELS,
   getExplorerSyncBlobCountLabel,
@@ -6,7 +6,9 @@ import {
   getExplorerSyncPendingUpdateCountLabel,
 } from "./labels";
 
-function getExplorerSyncStateLabel(syncState: ExplorerObjectSyncState): string {
+function getExplorerSyncStateLabel(
+  syncState: ContainerDocumentObjectSyncState,
+): string {
   if (syncState.status === "synced") {
     return EXPLORER_LABELS.syncStateSynced;
   }
@@ -27,7 +29,7 @@ function getExplorerSyncStateLabel(syncState: ExplorerObjectSyncState): string {
 }
 
 function getExplorerSyncStateTitle(
-  syncState: ExplorerObjectSyncState,
+  syncState: ContainerDocumentObjectSyncState,
   online: boolean,
 ): string {
   const details: string[] = [];
@@ -59,7 +61,7 @@ function getExplorerSyncStateTitle(
 export function ExplorerSyncStateBadge(params: {
   online: boolean;
   showSynced?: boolean | undefined;
-  syncState: ExplorerObjectSyncState;
+  syncState: ContainerDocumentObjectSyncState;
 }) {
   const { online, showSynced = false, syncState } = params;
   if (!showSynced && syncState.status === "synced") {

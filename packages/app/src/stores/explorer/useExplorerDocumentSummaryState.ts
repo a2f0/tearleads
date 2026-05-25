@@ -1,18 +1,18 @@
+import type { ContainerDocumentReadModel } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TearleadsRuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
-import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import {
   mergeDocumentSummaryLists,
   mergeSingleDocumentSummaryList,
 } from "./documentSummaryUtils";
 
 export function useExplorerDocumentSummaryState(
-  dbStatus: TearleadsRuntimeSnapshot["dbStatus"],
-  domainScope: TearleadsRuntimeSnapshot["domainScope"],
-  containerId: TearleadsRuntimeSnapshot["containerId"],
-  documentReadModel: ExplorerDocumentReadModel,
+  dbStatus: RuntimeSnapshot["dbStatus"],
+  domainScope: RuntimeSnapshot["domainScope"],
+  containerId: RuntimeSnapshot["containerId"],
+  documentReadModel: ContainerDocumentReadModel,
 ) {
   const tearleads = useTearleads();
   const [documentSummaries, setDocumentSummaries] = useState<

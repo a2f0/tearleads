@@ -1,10 +1,8 @@
+import type { ContainerDocumentReadModel } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { type ReactNode, useMemo } from "react";
-import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import {
-  type ExplorerDocumentReadModel,
-  useExplorerDocumentReadModel,
-} from "../../../stores/explorer/documentReadModel";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { useExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
 import { buildExplorerTree } from "../ExplorerTree";
 import type {
   ExplorerDocumentMutationAction,
@@ -28,7 +26,7 @@ interface ExplorerModel {
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
   documentListRevision: number;
-  documentReadModel: ExplorerDocumentReadModel;
+  documentReadModel: ContainerDocumentReadModel;
   explorer: ExplorerModelExplorer;
   handleRefresh: () => Promise<boolean>;
   importDroppedFiles: ExplorerPanelState["importDroppedFiles"];
@@ -49,7 +47,7 @@ interface ExplorerModel {
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The model hook aggregates Explorer route, document, modal, and refresh state for the view.
 export function useExplorerModel(
-  appData: TearleadsRuntimeSnapshot,
+  appData: RuntimeSnapshot,
   explorer: ExplorerModelExplorer,
   setSidebar: (sidebar: ReactNode | null) => void,
   peerUserId: string | null,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk/workflows/container-contents";
-import type { ContainerNode } from "../../stores/explorer/types";
 import { isExplorerRouteAvailable } from "./routes";
 
 const nodes = [

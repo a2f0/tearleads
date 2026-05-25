@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { TearleadsUserKey } from "@tearleads/client-sdk";
+import type { UserKey } from "@tearleads/client-sdk";
 import { primeDocumentStore } from "@tearleads/client-sdk/stores/documents";
 import {
   createDocumentsWorkflowRuntime,
@@ -92,7 +92,7 @@ async function createContactsRuntime(): Promise<
 
 test("contacts store persists contacts as documents with app-owned projections", async () => {
   const runtime = await createContactsRuntime();
-  const peerKey: TearleadsUserKey = {
+  const peerKey: UserKey = {
     encapsulationPublicKey: "peer-encapsulation-public-key",
     signingKeyFingerprint: "peer-signing-fingerprint",
     signingPublicKey: "peer-signing-public-key",

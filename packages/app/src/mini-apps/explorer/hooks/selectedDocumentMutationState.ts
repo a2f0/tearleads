@@ -1,12 +1,9 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
-import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { MoveTargetOption } from "../targetOptions";
 
 export function getSelectedDocumentMutationState(params: {
-  appData: Pick<
-    TearleadsRuntimeSnapshot,
-    "dbStatus" | "isAuthenticated" | "online"
-  >;
+  appData: Pick<RuntimeSnapshot, "dbStatus" | "isAuthenticated" | "online">;
   selectedDocument: DocumentSummary | undefined;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;

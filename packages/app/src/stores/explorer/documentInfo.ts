@@ -1,18 +1,13 @@
-import type { TearleadsDocumentInfo } from "@tearleads/client-sdk";
+import type { DocumentInfo } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import {
-  type TearleadsRuntimeSnapshot,
+  type RuntimeSnapshot,
   useTearleads,
 } from "../../providers/sdk/TearleadsProvider";
 
-export type ExplorerDocumentInfo = TearleadsDocumentInfo;
-
 export function useExplorerDocumentInfoLoader(input: {
-  readonly appData: Pick<
-    TearleadsRuntimeSnapshot,
-    "isAuthenticated" | "online"
-  >;
-}): (localId: string) => Promise<ExplorerDocumentInfo> {
+  readonly appData: Pick<RuntimeSnapshot, "isAuthenticated" | "online">;
+}): (localId: string) => Promise<DocumentInfo> {
   const { appData } = input;
   const { containerContents } = useTearleads();
 

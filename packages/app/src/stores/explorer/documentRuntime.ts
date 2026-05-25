@@ -1,4 +1,4 @@
-import type { TearleadsContainerDocumentLinksRuntime } from "@tearleads/client-sdk";
+import type { ContainerDocumentLinksRuntime } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 
@@ -10,9 +10,6 @@ export interface ExplorerDocumentsRuntimeAppDataInput {
   online: boolean;
 }
 
-export type ExplorerDocumentsRuntimeAppData =
-  TearleadsContainerDocumentLinksRuntime;
-
 export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
   return (
     error instanceof Error &&
@@ -22,7 +19,7 @@ export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
 
 export function useExplorerDocumentsRuntimeAppData(
   appData: ExplorerDocumentsRuntimeAppDataInput,
-): ExplorerDocumentsRuntimeAppData {
+): ContainerDocumentLinksRuntime {
   const { containerContents } = useTearleads();
 
   return useMemo(

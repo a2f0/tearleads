@@ -1,6 +1,6 @@
+import type { ContainerNode } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ContainerNode } from "../../../stores/explorer/types";
 
 interface PendingSelectedDocument {
   containerId: string;

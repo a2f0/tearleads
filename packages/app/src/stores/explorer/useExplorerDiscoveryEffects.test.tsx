@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { TearleadsContainerContents } from "@tearleads/client-sdk";
+import type { ContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
@@ -79,7 +79,7 @@ test("container document discovery reuses an in-flight run for repeated effect t
   ) => {
     applyOrder.push("merge");
   };
-  const discoverDocuments: TearleadsContainerContents["discoverDocuments"] =
+  const discoverDocuments: ContainerContents["discoverDocuments"] =
     async () => {
       listContainerDocumentsCallCount += 1;
       await listedDocuments.promise;
@@ -171,7 +171,7 @@ test("container document discovery starts a new run when discovery dependencies 
   const createDiscoverDocuments =
     (
       listContainerDocuments: () => Promise<ListContainerDocumentsResponse>,
-    ): TearleadsContainerContents["discoverDocuments"] =>
+    ): ContainerContents["discoverDocuments"] =>
     async () => {
       await listContainerDocuments();
       return [createDocumentSummary("document-1")];
@@ -183,7 +183,7 @@ test("container document discovery starts a new run when discovery dependencies 
       discoverDocuments,
     }: {
       appData: UseDiscoveredDocumentsSyncParams["appData"];
-      discoverDocuments: TearleadsContainerContents["discoverDocuments"];
+      discoverDocuments: ContainerContents["discoverDocuments"];
     }) =>
       useDiscoveredDocumentsSync({
         activeContainerId: "container-1",

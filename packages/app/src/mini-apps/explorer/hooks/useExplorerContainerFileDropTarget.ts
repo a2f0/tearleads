@@ -1,5 +1,5 @@
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { type DragEvent, useCallback, useRef, useState } from "react";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import type {
   ExplorerDroppedFileImportProgress,
   ImportExplorerDroppedFiles,

@@ -1,4 +1,4 @@
-import type { TearleadsIdentityKeyPackage } from "@tearleads/client-sdk";
+import type { IdentityKeyPackage } from "@tearleads/client-sdk";
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import {
   createContext,
@@ -14,7 +14,7 @@ import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 interface IdentityContextValue {
   encapsulationKeyPair: EncapsulationKeyPair | null;
   destroyKey: () => void;
-  exportKeyPackage: () => Promise<TearleadsIdentityKeyPackage>;
+  exportKeyPackage: () => Promise<IdentityKeyPackage>;
   generateKey: () => void;
   restoreKeyPackage: (keyPackage: unknown) => Promise<void>;
   signingFingerprint: string | null;

@@ -1,10 +1,12 @@
 import type {
+  ContainerDocumentLinksRuntime,
+  ContainerDocumentReadModel,
+} from "@tearleads/client-sdk";
+import type {
   DocumentSummary,
   StoredDocumentKind,
 } from "@tearleads/client-sdk/documents";
 import { useCallback } from "react";
-import type { ExplorerDocumentReadModel } from "./documentReadModel";
-import type { ExplorerDocumentsRuntimeAppData } from "./documentRuntime";
 
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
 const EXPLORER_DROPPED_FILE_MAX_BYTES = 5 * 1024 * 1024;
@@ -198,8 +200,8 @@ export async function importExplorerDroppedFiles(
 }
 
 export function useExplorerDroppedFileImport(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
-  documentReadModel: ExplorerDocumentReadModel;
+  appData: ContainerDocumentLinksRuntime;
+  documentReadModel: ContainerDocumentReadModel;
   labels: ExplorerDroppedFileImportLabels;
   logError: (message: string, cause?: unknown) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;

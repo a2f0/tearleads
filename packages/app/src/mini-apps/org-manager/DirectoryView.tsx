@@ -1,3 +1,9 @@
+import type {
+  OrganizationContainerGrant,
+  OrganizationDirectory,
+  OrganizationGroupSummary,
+  OrganizationUserDetail,
+} from "@tearleads/client-sdk";
 import type { KeyboardEvent } from "react";
 import {
   MiniAppButton,
@@ -22,12 +28,6 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../components/shared/MiniAppTable";
-import type {
-  OrgManagerContainerGrant,
-  OrgManagerDirectory,
-  OrgManagerGroupSummary,
-  OrgManagerUserDetail,
-} from "../../stores/org-manager/OrgManagerProvider";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "./display";
 import { GrantTable } from "./GrantTable";
@@ -71,7 +71,7 @@ function DirectoryTable({
   selectedUserId,
   selectUser,
 }: {
-  directory: OrgManagerDirectory | null;
+  directory: OrganizationDirectory | null;
   loading: boolean;
   selectedUserId?: string | null;
   selectUser?: ((userId: string) => void) | undefined;
@@ -160,7 +160,7 @@ function UserGroups({
   groups,
   openGroupRoute,
 }: {
-  groups: ReadonlyArray<OrgManagerGroupSummary>;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
   openGroupRoute: (groupId: string) => void;
 }) {
   if (groups.length === 0) {
@@ -217,7 +217,11 @@ function RosterMetadataRow({
   );
 }
 
-function UserRosterMetadata({ user }: { user: OrgManagerUserDetail["user"] }) {
+function UserRosterMetadata({
+  user,
+}: {
+  user: OrganizationUserDetail["user"];
+}) {
   return (
     <div className="org-manager-roster-metadata">
       <RosterMetadataRow
@@ -312,13 +316,13 @@ function UserDetailView({
 }: {
   canUpdateRosterEntry: boolean;
   canRevokeGrants: boolean;
-  detail: OrgManagerUserDetail | null;
+  detail: OrganizationUserDetail | null;
   loading: boolean;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
   profileDocumentIdDraft: string;
   profileDocumentIdDraftChanged: boolean;
-  revokeGrant: (grant: OrgManagerContainerGrant) => void;
+  revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
   setProfileDocumentIdDraft: (profileDocumentId: string) => void;
   updateRosterProfileDocument: () => void;
@@ -445,15 +449,15 @@ export function DirectoryView({
 }: {
   canUpdateRosterEntry: boolean;
   canRevokeGrants: boolean;
-  detail: OrgManagerUserDetail | null;
-  directory: OrgManagerDirectory | null;
+  detail: OrganizationUserDetail | null;
+  directory: OrganizationDirectory | null;
   loading: boolean;
   loadingUserDetail: boolean;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
   profileDocumentIdDraft: string;
   profileDocumentIdDraftChanged: boolean;
-  revokeGrant: (grant: OrgManagerContainerGrant) => void;
+  revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
   selectUser: (userId: string) => void;
   setProfileDocumentIdDraft: (profileDocumentId: string) => void;

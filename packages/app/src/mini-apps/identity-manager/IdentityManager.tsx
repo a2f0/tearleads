@@ -1,4 +1,4 @@
-import type { TearleadsUserSession } from "@tearleads/client-sdk";
+import type { UserSession } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MiniAppButton,
@@ -82,14 +82,14 @@ function getIdentityState({
   return userId ? "Registered" : "Local only";
 }
 
-function getSessionMutationLabel(session: TearleadsUserSession): string {
+function getSessionMutationLabel(session: UserSession): string {
   return session.isCurrent ? "Log Out" : "Revoke";
 }
 
 type CryptoSessionContextValue = ReturnType<typeof useCryptoSession>;
 type IdentityContextValue = ReturnType<typeof useIdentity>;
 type LogContextValue = ReturnType<typeof useLog>;
-type TearleadsClient = ReturnType<typeof useTearleads>;
+type SdkClient = ReturnType<typeof useTearleads>;
 type IdentityBusyState = "authenticate" | "register" | null;
 
 function useIdentityManagerSessionList({
@@ -99,9 +99,9 @@ function useIdentityManagerSessionList({
 }: {
   canManageSessions: boolean;
   logError: LogContextValue["logError"];
-  tearleads: TearleadsClient;
+  tearleads: SdkClient;
 }) {
-  const [sessions, setSessions] = useState<TearleadsUserSession[]>([]);
+  const [sessions, setSessions] = useState<UserSession[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
@@ -165,7 +165,7 @@ function useIdentityManagerSessionMutations({
   logout: CryptoSessionContextValue["logout"];
   refreshSessions: () => Promise<void>;
   setSessionError: (error: string | null) => void;
-  tearleads: TearleadsClient;
+  tearleads: SdkClient;
 }) {
   const [mutatingSessionId, setMutatingSessionId] = useState<string | null>(
     null,
@@ -193,7 +193,7 @@ function useIdentityManagerSessionMutations({
   }, [clearSessions, log, logError, logout, setSessionError, tearleads]);
 
   const endSession = useCallback(
-    async (session: TearleadsUserSession) => {
+    async (session: UserSession) => {
       if (session.isCurrent) {
         await logoutCurrentSession();
         return;
@@ -422,9 +422,9 @@ function SessionTableRow({
   mutatingSessionId,
   session,
 }: {
-  handleEndSession: (session: TearleadsUserSession) => Promise<void>;
+  handleEndSession: (session: UserSession) => Promise<void>;
   mutatingSessionId: string | null;
-  session: TearleadsUserSession;
+  session: UserSession;
 }) {
   const rowIsMutating =
     mutatingSessionId === session.id ||
@@ -470,10 +470,10 @@ function SessionTableBody({
   mutatingSessionId,
   sessions,
 }: {
-  handleEndSession: (session: TearleadsUserSession) => Promise<void>;
+  handleEndSession: (session: UserSession) => Promise<void>;
   loadingSessions: boolean;
   mutatingSessionId: string | null;
-  sessions: ReadonlyArray<TearleadsUserSession>;
+  sessions: ReadonlyArray<UserSession>;
 }) {
   if (sessions.length === 0) {
     return (
@@ -503,12 +503,12 @@ function SessionsSection({
   sessions,
 }: {
   canManageSessions: boolean;
-  handleEndSession: (session: TearleadsUserSession) => Promise<void>;
+  handleEndSession: (session: UserSession) => Promise<void>;
   loadingSessions: boolean;
   mutatingSessionId: string | null;
   refreshSessions: () => Promise<void>;
   sessionError: string | null;
-  sessions: ReadonlyArray<TearleadsUserSession>;
+  sessions: ReadonlyArray<UserSession>;
 }) {
   return (
     <MiniAppSection className="identity-manager-sessions">

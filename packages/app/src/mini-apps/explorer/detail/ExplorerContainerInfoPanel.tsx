@@ -1,12 +1,12 @@
+import type {
+  ContainerInfo,
+  ContainerShareAccessLevel,
+} from "@tearleads/client-sdk";
 import { useState } from "react";
 import {
   MiniAppFormPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
-import type {
-  ExplorerContainerInfo,
-  ExplorerContainerShareAccessLevel,
-} from "../../../stores/explorer/containerInfo";
 import type { MiniAppWindowPosition } from "../../bus";
 import {
   ExplorerContainerInfoActions,
@@ -23,14 +23,14 @@ interface Props {
   containerId: string;
   containerName: string | undefined;
   containerNamesById: ReadonlyMap<string, string>;
-  loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
+  loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   onBackToContainer: () => void;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
   peerUserId: string | null;
   shareWithGroup: (
     containerId: string,
     groupId: string,
-    accessLevel: ExplorerContainerShareAccessLevel,
+    accessLevel: ContainerShareAccessLevel,
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }

@@ -14,18 +14,14 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
-const TearleadsContext = createContext<Tearleads | null>(null);
+const SdkContext = createContext<Tearleads | null>(null);
 
-export type TearleadsRuntimeSnapshot = ReturnType<
-  Tearleads["runtime"]["input"]
-> & {
+export type RuntimeSnapshot = ReturnType<Tearleads["runtime"]["input"]> & {
   authToken: string | null;
   dbId: string | null;
 };
 
-const TearleadsRuntimeContext = createContext<TearleadsRuntimeSnapshot | null>(
-  null,
-);
+const RuntimeContext = createContext<RuntimeSnapshot | null>(null);
 
 function isServerEvent(value: unknown): value is {
   type: string;
@@ -135,7 +131,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     () => tearleads.runtime.input(),
     [runtimeVersion, tearleads],
   );
-  const runtimeSnapshot = useMemo<TearleadsRuntimeSnapshot>(
+  const runtimeSnapshot = useMemo<RuntimeSnapshot>(
     () => ({
       ...runtimeInput,
       authToken: tearleads.session.authToken,
@@ -154,16 +150,16 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
   useServerEventsBinding(tearleads, hostConfig.wsUrl, log);
 
   return (
-    <TearleadsContext.Provider value={tearleads}>
-      <TearleadsRuntimeContext.Provider value={runtimeSnapshot}>
+    <SdkContext.Provider value={tearleads}>
+      <RuntimeContext.Provider value={runtimeSnapshot}>
         {children}
-      </TearleadsRuntimeContext.Provider>
-    </TearleadsContext.Provider>
+      </RuntimeContext.Provider>
+    </SdkContext.Provider>
   );
 }
 
 export function useTearleads(): Tearleads {
-  const context = useContext(TearleadsContext);
+  const context = useContext(SdkContext);
   if (!context) {
     throw new Error("useTearleads must be used within a TearleadsProvider.");
   }
@@ -171,8 +167,8 @@ export function useTearleads(): Tearleads {
   return context;
 }
 
-export function useTearleadsRuntime(): TearleadsRuntimeSnapshot {
-  const context = useContext(TearleadsRuntimeContext);
+export function useTearleadsRuntime(): RuntimeSnapshot {
+  const context = useContext(RuntimeContext);
   if (!context) {
     throw new Error(
       "useTearleadsRuntime must be used within a TearleadsProvider.",

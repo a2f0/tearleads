@@ -1,7 +1,7 @@
 import type {
+  DatabaseSnapshot,
+  DatabaseStatus,
   Tearleads,
-  TearleadsDatabaseSnapshot,
-  TearleadsDatabaseStatus,
 } from "@tearleads/client-sdk";
 import {
   createModuleSQLiteRuntime,
@@ -22,11 +22,11 @@ import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 
-type SQLiteRuntimeStatus = TearleadsDatabaseStatus;
+type SQLiteRuntimeStatus = DatabaseStatus;
 
 interface DatabaseContextValue {
   id: string | null;
-  client: TearleadsDatabaseSnapshot["client"];
+  client: DatabaseSnapshot["client"];
   status: SQLiteRuntimeStatus;
   killWorker: () => void;
   spawnWorker: () => void;

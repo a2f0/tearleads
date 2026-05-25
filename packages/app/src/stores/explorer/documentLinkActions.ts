@@ -1,24 +1,20 @@
 import type {
-  TearleadsMergeDocumentSummary,
-  TearleadsSetLinkedContainerIdsForDocument,
+  ContainerDocumentLinksRuntime,
+  MergeDocumentSummary,
+  SetLinkedContainerIdsForDocument,
 } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
-import type { ExplorerDocumentsRuntimeAppData } from "./documentRuntime";
-
-export type MergeExplorerDocumentSummary = TearleadsMergeDocumentSummary;
-export type SetLinkedContainerIdsForDocument =
-  TearleadsSetLinkedContainerIdsForDocument;
 
 export function canMutateSelectedDocument(
-  appData: ExplorerDocumentsRuntimeAppData,
+  appData: ContainerDocumentLinksRuntime,
 ) {
   return appData.canMutateDocumentLinks;
 }
 
 export function moveExplorerNote(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
+  appData: ContainerDocumentLinksRuntime;
   expandNode: (nodeId: string) => void;
-  mergeDocumentSummary: MergeExplorerDocumentSummary;
+  mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
   targetContainerId: string;
@@ -42,8 +38,8 @@ export function moveExplorerNote(params: {
 }
 
 export function linkExplorerNote(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
-  mergeDocumentSummary: MergeExplorerDocumentSummary;
+  appData: ContainerDocumentLinksRuntime;
+  mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
   targetContainerId: string;
@@ -65,8 +61,8 @@ export function linkExplorerNote(params: {
 }
 
 export function unlinkExplorerLinkedNote(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
-  mergeDocumentSummary: MergeExplorerDocumentSummary;
+  appData: ContainerDocumentLinksRuntime;
+  mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   removedContainerId: string;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
@@ -88,8 +84,8 @@ export function unlinkExplorerLinkedNote(params: {
 }
 
 export function activateExplorerLinkedNote(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
-  mergeDocumentSummary: MergeExplorerDocumentSummary;
+  appData: ContainerDocumentLinksRuntime;
+  mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   targetContainerId: string;
 }) {

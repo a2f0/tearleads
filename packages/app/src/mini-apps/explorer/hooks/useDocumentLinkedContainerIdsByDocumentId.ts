@@ -1,7 +1,7 @@
+import type { ContainerDocumentReadModel } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import {
   areLinkedContainerIdMapsEqual,
@@ -9,8 +9,8 @@ import {
 } from "../../../stores/explorer/documentSummaryUtils";
 
 export function useDocumentLinkedContainerIdsByDocumentId(params: {
-  dbStatus: TearleadsRuntimeSnapshot["dbStatus"];
-  documentReadModel: ExplorerDocumentReadModel;
+  dbStatus: RuntimeSnapshot["dbStatus"];
+  documentReadModel: ContainerDocumentReadModel;
   documentLinkProjectionVersion: number;
   documentSummaries: ReadonlyArray<DocumentSummary>;
 }) {

@@ -1,7 +1,7 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback } from "react";
 import {
-  type TearleadsRuntimeSnapshot,
+  type RuntimeSnapshot,
   useTearleads,
 } from "../../../providers/sdk/TearleadsProvider";
 import {
@@ -13,7 +13,7 @@ import type { ExplorerModelExplorer } from "./explorerModelTypes";
 
 export function useExplorerInteractionState(params: {
   activeContainerId: string | null;
-  appData: TearleadsRuntimeSnapshot;
+  appData: RuntimeSnapshot;
   explorer: ExplorerModelExplorer;
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (

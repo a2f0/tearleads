@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
+import type { ContainerInfo } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { FormEvent } from "react";
-import type { ExplorerContainerInfo } from "../../../stores/explorer/containerInfo";
 import {
   type ExplorerContainerInfoGrant,
   type ReloadExplorerContainerInfo,
@@ -43,8 +43,8 @@ function createGroup(input: {
 }
 
 function createContainerInfo(
-  overrides: Partial<ExplorerContainerInfo> = {},
-): ExplorerContainerInfo {
+  overrides: Partial<ContainerInfo> = {},
+): ContainerInfo {
   return {
     local: {
       createdAt: "2026-05-18T10:00:00.000Z",
@@ -162,8 +162,8 @@ test("useExplorerContainerInfo loads info and selects the first shareable group"
 });
 
 test("useExplorerContainerInfo ignores stale requests after the container changes", async () => {
-  const firstLoad = createDeferred<ExplorerContainerInfo>();
-  const secondLoad = createDeferred<ExplorerContainerInfo>();
+  const firstLoad = createDeferred<ContainerInfo>();
+  const secondLoad = createDeferred<ContainerInfo>();
   const requestedContainerIds: string[] = [];
   const loadContainerInfo = (requestedContainerId: string) => {
     requestedContainerIds.push(requestedContainerId);

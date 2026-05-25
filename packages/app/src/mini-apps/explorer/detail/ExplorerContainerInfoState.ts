@@ -1,3 +1,7 @@
+import type {
+  ContainerInfo,
+  ContainerShareAccessLevel,
+} from "@tearleads/client-sdk";
 import {
   type FormEvent,
   useCallback,
@@ -5,16 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
-import type {
-  ExplorerContainerInfo,
-  ExplorerContainerShareAccessLevel,
-} from "../../../stores/explorer/containerInfo";
 import { EXPLORER_LABELS } from "../labels";
 
-const DEFAULT_SHARE_ACCESS_LEVEL: ExplorerContainerShareAccessLevel = "write";
+const DEFAULT_SHARE_ACCESS_LEVEL: ContainerShareAccessLevel = "write";
 
 export type ExplorerContainerInfoGrant = NonNullable<
-  ExplorerContainerInfo["remoteInfo"]
+  ContainerInfo["remoteInfo"]
 >["grants"][number];
 
 export type ReloadExplorerContainerInfo = (options?: {
@@ -32,12 +32,12 @@ interface ExplorerContainerInfoShareParams {
 
 interface ExplorerContainerInfoGroupShareParams
   extends ExplorerContainerInfoShareParams {
-  draftShareAccessLevel: ExplorerContainerShareAccessLevel;
+  draftShareAccessLevel: ContainerShareAccessLevel;
   draftShareGroupId: string;
   shareWithGroup: (
     containerId: string,
     groupId: string,
-    accessLevel: ExplorerContainerShareAccessLevel,
+    accessLevel: ContainerShareAccessLevel,
   ) => Promise<boolean>;
 }
 
@@ -48,10 +48,10 @@ interface ExplorerContainerInfoPeerShareParams
 }
 
 export function upsertContainerInfoGrant(
-  info: ExplorerContainerInfo,
+  info: ContainerInfo,
   grant: ExplorerContainerInfoGrant | null,
   containerId: string,
-): ExplorerContainerInfo {
+): ContainerInfo {
   if (!grant || !info.remoteInfo) {
     return info;
   }
@@ -100,14 +100,14 @@ export function upsertContainerInfoGrant(
   };
 }
 
-function getInitialDraftShareGroupId(info: ExplorerContainerInfo): string {
+function getInitialDraftShareGroupId(info: ContainerInfo): string {
   return (
     info.remoteInfo?.groups.find((group) => group.currentState)?.groupId ?? ""
   );
 }
 
 function getNextDraftShareGroupId(
-  info: ExplorerContainerInfo,
+  info: ContainerInfo,
   currentGroupId: string,
 ): string {
   const groups = info.remoteInfo?.groups ?? [];
@@ -123,7 +123,7 @@ function getNextDraftShareGroupId(
 
 function getReloadedDraftShareGroupId(params: {
   currentGroupId: string;
-  info: ExplorerContainerInfo;
+  info: ContainerInfo;
   resetDrafts: boolean;
 }): string {
   if (params.resetDrafts) {
@@ -160,11 +160,12 @@ function useMountedRef() {
 
 export function useExplorerContainerInfo(params: {
   containerId: string;
-  loadContainerInfo: (containerId: string) => Promise<ExplorerContainerInfo>;
+  loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
 }) {
   const { containerId, loadContainerInfo } = params;
-  const [containerInfo, setContainerInfo] =
-    useState<ExplorerContainerInfo | null>(null);
+  const [containerInfo, setContainerInfo] = useState<ContainerInfo | null>(
+    null,
+  );
   const [containerInfoError, setContainerInfoError] = useState<string | null>(
     null,
   );

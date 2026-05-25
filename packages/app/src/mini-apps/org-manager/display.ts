@@ -1,14 +1,14 @@
 import type {
-  OrgManagerContainerGrant,
-  OrgManagerGroupContainer,
-} from "../../stores/org-manager/OrgManagerProvider";
+  OrganizationContainerGrant,
+  OrganizationGroupContainer,
+} from "@tearleads/client-sdk";
 import { ORG_MANAGER_LABELS } from "./labels";
 
 const ACCESS_LEVEL_LABELS = {
   admin: ORG_MANAGER_LABELS.accessAdmin,
   read: ORG_MANAGER_LABELS.accessRead,
   write: ORG_MANAGER_LABELS.accessWrite,
-} satisfies Record<OrgManagerGroupContainer["accessLevel"], string>;
+} satisfies Record<OrganizationGroupContainer["accessLevel"], string>;
 
 export function compactFingerprint(value: string): string {
   if (value.length <= 18) {
@@ -19,13 +19,13 @@ export function compactFingerprint(value: string): string {
 }
 
 export function getAccessLabel(
-  accessLevel: OrgManagerGroupContainer["accessLevel"],
+  accessLevel: OrganizationGroupContainer["accessLevel"],
 ): string {
   return ACCESS_LEVEL_LABELS[accessLevel];
 }
 
 export function getGrantPrincipalLabel(
-  grant: OrgManagerContainerGrant,
+  grant: OrganizationContainerGrant,
 ): string {
   if (grant.subjectType === "group") {
     return grant.groupName ?? compactFingerprint(grant.subjectId);
@@ -41,7 +41,7 @@ export function getGrantPrincipalLabel(
 
 export function getContainerDisplayLabel(
   container: Pick<
-    OrgManagerGroupContainer,
+    OrganizationGroupContainer,
     "containerDisplayName" | "containerId"
   >,
 ): string {
@@ -54,7 +54,7 @@ export function getContainerDisplayLabel(
 
 export function getContainerDisplayTitle(
   container: Pick<
-    OrgManagerGroupContainer,
+    OrganizationGroupContainer,
     "containerDisplayName" | "containerId"
   >,
 ): string {

@@ -1,9 +1,11 @@
+import type {
+  ContainerDocumentReadModel,
+  ContainerNode,
+} from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useMemo } from "react";
-import type { TearleadsRuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import type { ExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { getKnownDocumentIds } from "../../../stores/explorer/documentSummaryUtils";
-import type { ContainerNode } from "../../../stores/explorer/types";
 import { useExplorerDocumentSummaryState } from "../../../stores/explorer/useExplorerDocumentSummaryState";
 import { useDocumentLinkedContainerIdsByDocumentId } from "./useDocumentLinkedContainerIdsByDocumentId";
 import {
@@ -12,11 +14,8 @@ import {
 } from "./useExplorerSelection";
 
 export function useExplorerDocumentViewModel(params: {
-  appData: Pick<
-    TearleadsRuntimeSnapshot,
-    "containerId" | "dbStatus" | "domainScope"
-  >;
-  documentReadModel: ExplorerDocumentReadModel;
+  appData: Pick<RuntimeSnapshot, "containerId" | "dbStatus" | "domainScope">;
+  documentReadModel: ContainerDocumentReadModel;
   documentLinkProjectionVersion: number;
   nodes: ReadonlyArray<ContainerNode>;
 }): {

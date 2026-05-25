@@ -1,13 +1,13 @@
 import type {
-  OrgManagerContainerGrant,
-  OrgManagerContainerGrants,
-  OrgManagerGroupContainers,
-  OrgManagerUserDetail,
-} from "../../stores/org-manager/OrgManagerProvider";
+  OrganizationContainerGrant,
+  OrganizationContainerGrants,
+  OrganizationGroupContainers,
+  OrganizationUserDetail,
+} from "@tearleads/client-sdk";
 
 function isSameGrantSubject(
-  left: OrgManagerContainerGrant,
-  right: OrgManagerContainerGrant,
+  left: OrganizationContainerGrant,
+  right: OrganizationContainerGrant,
 ): boolean {
   return (
     left.subjectType === right.subjectType && left.subjectId === right.subjectId
@@ -15,8 +15,8 @@ function isSameGrantSubject(
 }
 
 function isSameContainerGrant(
-  left: OrgManagerContainerGrant,
-  right: OrgManagerContainerGrant,
+  left: OrganizationContainerGrant,
+  right: OrganizationContainerGrant,
 ): boolean {
   return (
     left.containerId === right.containerId && isSameGrantSubject(left, right)
@@ -24,16 +24,16 @@ function isSameContainerGrant(
 }
 
 function removeRevokedGrantRows(
-  grants: ReadonlyArray<OrgManagerContainerGrant>,
-  revokedGrant: OrgManagerContainerGrant,
-): OrgManagerContainerGrant[] {
+  grants: ReadonlyArray<OrganizationContainerGrant>,
+  revokedGrant: OrganizationContainerGrant,
+): OrganizationContainerGrant[] {
   return grants.filter((grant) => !isSameContainerGrant(grant, revokedGrant));
 }
 
 export function removeRevokedGrantFromGrantState(
-  grants: OrgManagerContainerGrants | null,
-  revokedGrant: OrgManagerContainerGrant,
-): OrgManagerContainerGrants | null {
+  grants: OrganizationContainerGrants | null,
+  revokedGrant: OrganizationContainerGrant,
+): OrganizationContainerGrants | null {
   return grants
     ? {
         ...grants,
@@ -43,9 +43,9 @@ export function removeRevokedGrantFromGrantState(
 }
 
 export function removeRevokedGrantFromGroupContainers(
-  groupContainers: OrgManagerGroupContainers | null,
-  revokedGrant: OrgManagerContainerGrant,
-): OrgManagerGroupContainers | null {
+  groupContainers: OrganizationGroupContainers | null,
+  revokedGrant: OrganizationContainerGrant,
+): OrganizationGroupContainers | null {
   if (
     !groupContainers ||
     revokedGrant.subjectType !== "group" ||
@@ -63,9 +63,9 @@ export function removeRevokedGrantFromGroupContainers(
 }
 
 export function removeRevokedGrantFromUserDetail(
-  userDetail: OrgManagerUserDetail | null,
-  revokedGrant: OrgManagerContainerGrant,
-): OrgManagerUserDetail | null {
+  userDetail: OrganizationUserDetail | null,
+  revokedGrant: OrganizationContainerGrant,
+): OrganizationUserDetail | null {
   return userDetail
     ? {
         ...userDetail,

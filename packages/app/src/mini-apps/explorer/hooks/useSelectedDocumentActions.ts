@@ -1,15 +1,17 @@
+import type {
+  ContainerDocumentLinksRuntime,
+  MergeDocumentSummary,
+  SetLinkedContainerIdsForDocument,
+} from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback } from "react";
 import {
   activateExplorerLinkedNote,
   canMutateSelectedDocument,
   linkExplorerNote,
-  type MergeExplorerDocumentSummary,
   moveExplorerNote,
-  type SetLinkedContainerIdsForDocument,
   unlinkExplorerLinkedNote,
 } from "../../../stores/explorer/documentLinkActions";
-import type { ExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
 import { getDocumentByLocalId } from "../documentSummaries";
 
 type LoadExplorerDocumentSummary = (
@@ -28,11 +30,11 @@ async function resolveExplorerActionDocument(params: {
 }
 
 function useMoveDocumentAction(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
+  appData: ContainerDocumentLinksRuntime;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   loadDocumentSummary: LoadExplorerDocumentSummary;
-  mergeDocumentSummary: MergeExplorerDocumentSummary;
+  mergeDocumentSummary: MergeDocumentSummary;
   onDocumentLinksChanged: () => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
@@ -88,10 +90,10 @@ function useMoveDocumentAction(params: {
 }
 
 function useLinkDocumentAction(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
+  appData: ContainerDocumentLinksRuntime;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
-  mergeDocumentSummary: MergeExplorerDocumentSummary;
+  mergeDocumentSummary: MergeDocumentSummary;
   onDocumentLinksChanged: () => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
@@ -144,10 +146,10 @@ function useLinkDocumentAction(params: {
 }
 
 function useUnlinkDocumentAction(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
+  appData: ContainerDocumentLinksRuntime;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
-  mergeDocumentSummary: MergeExplorerDocumentSummary;
+  mergeDocumentSummary: MergeDocumentSummary;
   onDocumentLinksChanged: () => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
@@ -200,10 +202,10 @@ function useUnlinkDocumentAction(params: {
 }
 
 function useActivateLinkedDocumentAction(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
+  appData: ContainerDocumentLinksRuntime;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
-  mergeDocumentSummary: MergeExplorerDocumentSummary;
+  mergeDocumentSummary: MergeDocumentSummary;
 }) {
   const {
     appData,
@@ -239,11 +241,11 @@ function useActivateLinkedDocumentAction(params: {
 }
 
 export function useSelectedDocumentActions(params: {
-  appData: ExplorerDocumentsRuntimeAppData;
+  appData: ContainerDocumentLinksRuntime;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   loadDocumentSummary: LoadExplorerDocumentSummary;
-  mergeDocumentSummary: MergeExplorerDocumentSummary;
+  mergeDocumentSummary: MergeDocumentSummary;
   onDocumentLinksChanged: () => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
