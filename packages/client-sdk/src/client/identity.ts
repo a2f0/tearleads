@@ -7,60 +7,60 @@ import {
 } from "@tearleads/crypto";
 import {
   createIdentityKeyPackage,
+  type IdentityKeyPackage,
   parseIdentityKeyPackage,
-  type TearleadsIdentityKeyPackage,
 } from "./identityKeyPackage";
 
-export interface TearleadsIdentityOptions {
+export interface IdentityOptions {
   encapsulationKeyPair?: EncapsulationKeyPair | null | undefined;
   signingFingerprint?: string | null | undefined;
   signingKeyPair?: SigningKeyPair | null | undefined;
 }
 
-export interface TearleadsIdentitySnapshot {
+export interface IdentitySnapshot {
   encapsulationKeyPair: EncapsulationKeyPair | null;
   signingFingerprint: string | null;
   signingKeyPair: SigningKeyPair | null;
 }
 
-export type TearleadsIdentityListener = () => void;
+export type IdentityListener = () => void;
 
-export interface TearleadsIdentity {
+export interface Identity {
   readonly encapsulationKeyPair: EncapsulationKeyPair | null;
   readonly signingFingerprint: string | null;
   readonly signingKeyPair: SigningKeyPair | null;
-  readonly snapshot: TearleadsIdentitySnapshot;
+  readonly snapshot: IdentitySnapshot;
   destroy(): void;
-  exportKeyPackage(): Promise<TearleadsIdentityKeyPackage>;
-  generate(): Promise<TearleadsIdentitySnapshot>;
-  importKeyPackage(keyPackage: unknown): Promise<TearleadsIdentitySnapshot>;
+  exportKeyPackage(): Promise<IdentityKeyPackage>;
+  generate(): Promise<IdentitySnapshot>;
+  importKeyPackage(keyPackage: unknown): Promise<IdentitySnapshot>;
   requireSigningKeyPair(operation?: string): SigningKeyPair;
   refreshSigningFingerprint(): Promise<string | null>;
   setKeyPairs(options: {
     encapsulationKeyPair: EncapsulationKeyPair | null;
     signingFingerprint?: string | null | undefined;
     signingKeyPair: SigningKeyPair | null;
-  }): Promise<TearleadsIdentitySnapshot>;
-  subscribe(listener: TearleadsIdentityListener): () => void;
+  }): Promise<IdentitySnapshot>;
+  subscribe(listener: IdentityListener): () => void;
 }
 
-export function createTearleadsIdentity(
-  options: TearleadsIdentityOptions = {},
+export function createIdentity(
+  options: IdentityOptions = {},
   onIdentityChanged: (signingFingerprint: string | null) => void,
   log: (message: string) => void,
-): TearleadsIdentity {
-  return new TearleadsIdentityService(options, onIdentityChanged, log);
+): Identity {
+  return new IdentityService(options, onIdentityChanged, log);
 }
 
-class TearleadsIdentityService implements TearleadsIdentity {
+class IdentityService implements Identity {
   private encapsulationKeyPairValue: EncapsulationKeyPair | null;
-  private readonly listeners = new Set<TearleadsIdentityListener>();
+  private readonly listeners = new Set<IdentityListener>();
   private signingFingerprintValue: string | null;
   private signingKeyPairValue: SigningKeyPair | null;
-  private snapshotValue: TearleadsIdentitySnapshot;
+  private snapshotValue: IdentitySnapshot;
 
   constructor(
-    options: TearleadsIdentityOptions = {},
+    options: IdentityOptions = {},
     private readonly onIdentityChanged: (
       signingFingerprint: string | null,
     ) => void,
@@ -85,7 +85,7 @@ class TearleadsIdentityService implements TearleadsIdentity {
     return this.signingKeyPairValue;
   }
 
-  get snapshot(): TearleadsIdentitySnapshot {
+  get snapshot(): IdentitySnapshot {
     return this.snapshotValue;
   }
 
@@ -97,11 +97,11 @@ class TearleadsIdentityService implements TearleadsIdentity {
     this.log("Key pair destroyed");
   }
 
-  exportKeyPackage(): Promise<TearleadsIdentityKeyPackage> {
+  exportKeyPackage(): Promise<IdentityKeyPackage> {
     return createIdentityKeyPackage(this.snapshot);
   }
 
-  async generate(): Promise<TearleadsIdentitySnapshot> {
+  async generate(): Promise<IdentitySnapshot> {
     this.signingKeyPairValue = generateSigningSeedAndKeyPair();
     this.encapsulationKeyPairValue = generateKemSeedAndKeyPair();
     await this.refreshSigningFingerprint();
@@ -109,9 +109,7 @@ class TearleadsIdentityService implements TearleadsIdentity {
     return this.snapshot;
   }
 
-  async importKeyPackage(
-    keyPackage: unknown,
-  ): Promise<TearleadsIdentitySnapshot> {
+  async importKeyPackage(keyPackage: unknown): Promise<IdentitySnapshot> {
     const parsed = await parseIdentityKeyPackage(keyPackage);
     this.encapsulationKeyPairValue = parsed.encapsulationKeyPair;
     this.signingKeyPairValue = parsed.signingKeyPair;
@@ -147,7 +145,7 @@ class TearleadsIdentityService implements TearleadsIdentity {
     encapsulationKeyPair: EncapsulationKeyPair | null;
     signingFingerprint?: string | null | undefined;
     signingKeyPair: SigningKeyPair | null;
-  }): Promise<TearleadsIdentitySnapshot> {
+  }): Promise<IdentitySnapshot> {
     this.encapsulationKeyPairValue = options.encapsulationKeyPair;
     this.signingKeyPairValue = options.signingKeyPair;
     this.signingFingerprintValue = options.signingFingerprint ?? null;
@@ -161,14 +159,14 @@ class TearleadsIdentityService implements TearleadsIdentity {
     return this.snapshot;
   }
 
-  subscribe = (listener: TearleadsIdentityListener): (() => void) => {
+  subscribe = (listener: IdentityListener): (() => void) => {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
     };
   };
 
-  private createSnapshot(): TearleadsIdentitySnapshot {
+  private createSnapshot(): IdentitySnapshot {
     return {
       encapsulationKeyPair: this.encapsulationKeyPairValue,
       signingFingerprint: this.signingFingerprintValue,

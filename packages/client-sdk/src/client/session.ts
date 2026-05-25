@@ -3,10 +3,10 @@ import {
   bootstrapRootContainer,
   registerIdentity as registerIdentityWorkflow,
 } from "../workflows/registration";
-import type { TearleadsDatabase } from "./database";
-import type { TearleadsIdentity } from "./identity";
+import type { Database } from "./database";
+import type { Identity } from "./identity";
 
-export interface TearleadsSessionContext {
+export interface SessionContext {
   authToken?: string | null | undefined;
   containerId?: string | null | undefined;
   isAuthenticated?: boolean | undefined;
@@ -14,7 +14,7 @@ export interface TearleadsSessionContext {
   userId?: string | null | undefined;
 }
 
-export interface TearleadsSessionSnapshot {
+export interface SessionSnapshot {
   authToken: string | null;
   containerId: string | null;
   isAuthenticated: boolean;
@@ -22,64 +22,62 @@ export interface TearleadsSessionSnapshot {
   userId: string | null;
 }
 
-export type TearleadsSessionListener = () => void;
+export type SessionListener = () => void;
 
-interface TearleadsSessionDependencies {
+interface SessionDependencies {
   api: ApiClient;
-  database: TearleadsDatabase;
-  identity: TearleadsIdentity;
+  database: Database;
+  identity: Identity;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
 }
 
-export interface TearleadsSessionRegistrationResult {
+export interface SessionRegistrationResult {
   readonly challenge: string;
   readonly containerId: string;
   readonly organizationId: string;
   readonly userId: string;
 }
 
-export interface TearleadsUserSession {
+export interface UserSession {
   readonly createdAt: string;
   readonly id: string;
   readonly isCurrent: boolean;
   readonly signingKeyFingerprint: string;
 }
 
-export interface TearleadsSession {
+export interface Session {
   readonly authToken: string | null;
   readonly containerId: string | null;
   readonly isAuthenticated: boolean;
   readonly organizationId: string | null;
-  readonly snapshot: TearleadsSessionSnapshot;
+  readonly snapshot: SessionSnapshot;
   readonly userId: string | null;
   bootstrapLocalRootContainer(): Promise<{
     containerId: string;
     created: boolean;
   }>;
   destroySession(sessionId: string): Promise<boolean>;
-  listSessions(): Promise<TearleadsUserSession[]>;
+  listSessions(): Promise<UserSession[]>;
   login(challengeHex?: string | undefined): Promise<boolean>;
   logout(): void;
   logoutRemote(): Promise<boolean>;
-  registerIdentity(): Promise<TearleadsSessionRegistrationResult | null>;
+  registerIdentity(): Promise<SessionRegistrationResult | null>;
   setAuthToken(authToken: string | null): void;
   setContainerId(containerId: string | null): void;
-  setContext(context: TearleadsSessionContext): void;
+  setContext(context: SessionContext): void;
   setOrganizationId(organizationId: string | null): void;
   setUserId(userId: string | null): void;
-  subscribe(listener: TearleadsSessionListener): () => void;
+  subscribe(listener: SessionListener): () => void;
 }
 
-export function createTearleadsSession(
-  dependencies: TearleadsSessionDependencies,
-): TearleadsSession {
-  return new TearleadsSessionService(dependencies);
+export function createSession(dependencies: SessionDependencies): Session {
+  return new SessionService(dependencies);
 }
 
-class TearleadsSessionService implements TearleadsSession {
-  private readonly listeners = new Set<TearleadsSessionListener>();
-  private snapshotValue: TearleadsSessionSnapshot = {
+class SessionService implements Session {
+  private readonly listeners = new Set<SessionListener>();
+  private snapshotValue: SessionSnapshot = {
     authToken: null,
     containerId: null,
     isAuthenticated: false,
@@ -87,7 +85,7 @@ class TearleadsSessionService implements TearleadsSession {
     userId: null,
   };
 
-  constructor(private readonly dependencies: TearleadsSessionDependencies) {}
+  constructor(private readonly dependencies: SessionDependencies) {}
 
   get authToken(): string | null {
     return this.snapshotValue.authToken;
@@ -105,7 +103,7 @@ class TearleadsSessionService implements TearleadsSession {
     return this.snapshotValue.organizationId;
   }
 
-  get snapshot(): TearleadsSessionSnapshot {
+  get snapshot(): SessionSnapshot {
     return this.snapshotValue;
   }
 
@@ -127,7 +125,7 @@ class TearleadsSessionService implements TearleadsSession {
     return result;
   }
 
-  async listSessions(): Promise<TearleadsUserSession[]> {
+  async listSessions(): Promise<UserSession[]> {
     const response = await this.dependencies.api.listSessions();
     if (!response) {
       return [];
@@ -200,7 +198,7 @@ class TearleadsSessionService implements TearleadsSession {
     }
   }
 
-  async registerIdentity(): Promise<TearleadsSessionRegistrationResult | null> {
+  async registerIdentity(): Promise<SessionRegistrationResult | null> {
     const containerId = this.containerId;
     if (!containerId) {
       this.dependencies.log(
@@ -275,7 +273,7 @@ class TearleadsSessionService implements TearleadsSession {
     this.setSnapshot({ ...this.snapshotValue, containerId });
   }
 
-  setContext(context: TearleadsSessionContext): void {
+  setContext(context: SessionContext): void {
     this.setSnapshot({
       authToken:
         "authToken" in context
@@ -308,7 +306,7 @@ class TearleadsSessionService implements TearleadsSession {
     this.setSnapshot({ ...this.snapshotValue, userId });
   }
 
-  subscribe = (listener: TearleadsSessionListener): (() => void) => {
+  subscribe = (listener: SessionListener): (() => void) => {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -325,7 +323,7 @@ class TearleadsSessionService implements TearleadsSession {
     }
   }
 
-  private setSnapshot(next: TearleadsSessionSnapshot): void {
+  private setSnapshot(next: SessionSnapshot): void {
     const previous = this.snapshotValue;
     if (previous.authToken !== next.authToken) {
       this.dependencies.api.setAuthToken(next.authToken);

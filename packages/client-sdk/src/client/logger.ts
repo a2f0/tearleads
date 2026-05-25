@@ -1,4 +1,4 @@
-export interface TearleadsLogger {
+export interface Logger {
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
 }

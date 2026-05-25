@@ -6,20 +6,20 @@ import type { DocumentProjectorRegistry } from "../data/documents/documentKinds"
 import type { DomainScope } from "../data/domainScope";
 import { type ExecSql, unavailableExecSql } from "../data/sqlite/sqlSchema";
 import { cacheReferencedPrincipalPolicies } from "../workflows/principals";
-import type { TearleadsBlobs } from "./blobs";
-import type { TearleadsDatabase, TearleadsDatabaseStatus } from "./database";
-import type { TearleadsEvents } from "./events";
-import type { TearleadsIdentity } from "./identity";
-import type { TearleadsNetwork } from "./network";
-import type { TearleadsSession } from "./session";
+import type { Blobs } from "./blobs";
+import type { Database, DatabaseStatus } from "./database";
+import type { Events } from "./events";
+import type { Identity } from "./identity";
+import type { Network } from "./network";
+import type { Session } from "./session";
 
-export interface TearleadsWorkflowRuntimeInput {
+export interface WorkflowRuntimeInput {
   readonly blobStore: BlobStore;
   readonly cacheReferencedPrincipalPolicies: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
   readonly containerId: string | null;
-  readonly dbStatus: TearleadsDatabaseStatus;
+  readonly dbStatus: DatabaseStatus;
   readonly documentProjectors: DocumentProjectorRegistry;
   readonly domainScope: DomainScope;
   readonly encapsulationKeyPair: EncapsulationKeyPair | null;
@@ -35,63 +35,59 @@ export interface TearleadsWorkflowRuntimeInput {
   readonly userId: string | null;
 }
 
-export type TearleadsRuntimeListener = () => void;
+export type RuntimeListener = () => void;
 
-export interface TearleadsRuntime {
+export interface Runtime {
   readonly version: number;
-  input(containerId?: string | null | undefined): TearleadsWorkflowRuntimeInput;
-  subscribe(listener: TearleadsRuntimeListener): () => void;
+  input(containerId?: string | null | undefined): WorkflowRuntimeInput;
+  subscribe(listener: RuntimeListener): () => void;
 }
 
-export interface TearleadsInternalWorkflowRuntimeInput
-  extends TearleadsWorkflowRuntimeInput {
+export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeInput {
   readonly apiClient: ApiClient;
 }
 
-export interface TearleadsInternalRuntime {
-  readonly publicRuntime: TearleadsRuntime;
+export interface InternalRuntime {
+  readonly publicRuntime: Runtime;
   workflowInput(
     containerId?: string | null | undefined,
-  ): TearleadsInternalWorkflowRuntimeInput;
+  ): InternalWorkflowRuntimeInput;
 }
 
-interface TearleadsWorkflowRuntimeDependencies {
+interface WorkflowRuntimeDependencies {
   api: ApiClient;
-  blobs: TearleadsBlobs;
-  database: TearleadsDatabase;
+  blobs: Blobs;
+  database: Database;
   documentProjectors: DocumentProjectorRegistry;
-  events: TearleadsEvents;
+  events: Events;
   getDomainScope: () => DomainScope;
-  identity: TearleadsIdentity;
+  identity: Identity;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
-  network: TearleadsNetwork;
-  session: TearleadsSession;
+  network: Network;
+  session: Session;
 }
 
-export function createTearleadsRuntime(
-  dependencies: TearleadsWorkflowRuntimeDependencies,
-): TearleadsInternalRuntime {
-  const runtimeSubscription = createTearleadsRuntimeSubscription(dependencies);
+export function createRuntime(
+  dependencies: WorkflowRuntimeDependencies,
+): InternalRuntime {
+  const runtimeSubscription = createRuntimeSubscription(dependencies);
 
   return {
     publicRuntime: {
       get version() {
         return runtimeSubscription.version;
       },
-      input: (containerId) =>
-        createTearleadsHostRuntimeInput(dependencies, containerId),
+      input: (containerId) => createHostRuntimeInput(dependencies, containerId),
       subscribe: runtimeSubscription.subscribe,
     },
     workflowInput: (containerId) =>
-      createTearleadsWorkflowRuntimeInput(dependencies, containerId),
+      createWorkflowRuntimeInput(dependencies, containerId),
   };
 }
 
-function createTearleadsRuntimeSubscription(
-  dependencies: TearleadsWorkflowRuntimeDependencies,
-) {
-  const listeners = new Set<TearleadsRuntimeListener>();
+function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
+  const listeners = new Set<RuntimeListener>();
   let version = 0;
   const notifyListeners = () => {
     version += 1;
@@ -114,7 +110,7 @@ function createTearleadsRuntimeSubscription(
     get version() {
       return version;
     },
-    subscribe(listener: TearleadsRuntimeListener): () => void {
+    subscribe(listener: RuntimeListener): () => void {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
@@ -123,19 +119,21 @@ function createTearleadsRuntimeSubscription(
   };
 }
 
-function createTearleadsHostRuntimeInput(
-  dependencies: TearleadsWorkflowRuntimeDependencies,
+function createHostRuntimeInput(
+  dependencies: WorkflowRuntimeDependencies,
   containerId?: string | null | undefined,
-): TearleadsWorkflowRuntimeInput {
-  const { apiClient: _apiClient, ...input } =
-    createTearleadsWorkflowRuntimeInput(dependencies, containerId);
+): WorkflowRuntimeInput {
+  const { apiClient: _apiClient, ...input } = createWorkflowRuntimeInput(
+    dependencies,
+    containerId,
+  );
   return input;
 }
 
-function createTearleadsWorkflowRuntimeInput(
-  dependencies: TearleadsWorkflowRuntimeDependencies,
+function createWorkflowRuntimeInput(
+  dependencies: WorkflowRuntimeDependencies,
   containerId?: string | null | undefined,
-): TearleadsInternalWorkflowRuntimeInput {
+): InternalWorkflowRuntimeInput {
   const dbStatus = dependencies.database.status;
   const execSql =
     dbStatus === "ready"

@@ -6,13 +6,13 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createTearleadsUserKeys } from "./userKeys";
+import { createUserKeys } from "./userKeys";
 
 test("user keys fetch verifies the returned signing public key fingerprint", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const logs: string[] = [];
-  const userKeys = createTearleadsUserKeys({
+  const userKeys = createUserKeys({
     apiClient: {
       getEncapsulationKey: async (userId: string) => ({
         encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
@@ -39,7 +39,7 @@ test("user keys fetch skips mismatched responses", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const logs: string[] = [];
-  const userKeys = createTearleadsUserKeys({
+  const userKeys = createUserKeys({
     apiClient: {
       getEncapsulationKey: async () => ({
         encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),

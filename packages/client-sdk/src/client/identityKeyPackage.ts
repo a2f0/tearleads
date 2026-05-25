@@ -14,20 +14,19 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 
-export const TEARLEADS_IDENTITY_KEY_PACKAGE_FORMAT =
-  "tearleads.identity-key-package";
+export const IDENTITY_KEY_PACKAGE_FORMAT = "tearleads.identity-key-package";
 
 const KEY_PACKAGE_PROBE_MESSAGE = new TextEncoder().encode(
   "tearleads.identity-key-package.probe",
 );
 
-export interface TearleadsIdentityKeyPackage {
+export interface IdentityKeyPackage {
   readonly createdAt: string;
   readonly encapsulationKeyPair: {
     readonly publicKey: string;
     readonly secretKey: string;
   };
-  readonly format: typeof TEARLEADS_IDENTITY_KEY_PACKAGE_FORMAT;
+  readonly format: typeof IDENTITY_KEY_PACKAGE_FORMAT;
   readonly signingFingerprint: string;
   readonly signingKeyPair: {
     readonly signingPrivateKey: string;
@@ -38,7 +37,7 @@ export interface TearleadsIdentityKeyPackage {
 
 interface ParsedIdentityKeyPackage {
   readonly encapsulationKeyPair: EncapsulationKeyPair;
-  readonly package: TearleadsIdentityKeyPackage;
+  readonly package: IdentityKeyPackage;
   readonly signingKeyPair: SigningKeyPair;
 }
 
@@ -186,7 +185,7 @@ export async function createIdentityKeyPackage(input: {
   encapsulationKeyPair: EncapsulationKeyPair | null;
   signingFingerprint: string | null;
   signingKeyPair: SigningKeyPair | null;
-}): Promise<TearleadsIdentityKeyPackage> {
+}): Promise<IdentityKeyPackage> {
   if (!input.signingKeyPair || !input.encapsulationKeyPair) {
     throw new Error("Cannot export an identity key package without key pairs.");
   }
@@ -201,7 +200,7 @@ export async function createIdentityKeyPackage(input: {
       publicKey: bytesToBase64(input.encapsulationKeyPair.publicKey),
       secretKey: bytesToBase64(input.encapsulationKeyPair.secretKey),
     },
-    format: TEARLEADS_IDENTITY_KEY_PACKAGE_FORMAT,
+    format: IDENTITY_KEY_PACKAGE_FORMAT,
     signingFingerprint,
     signingKeyPair: {
       signingPrivateKey: bytesToBase64(input.signingKeyPair.signingPrivateKey),
@@ -219,7 +218,7 @@ export async function parseIdentityKeyPackage(
   }
 
   const format = readStringProperty(value, "format", "format");
-  if (format !== TEARLEADS_IDENTITY_KEY_PACKAGE_FORMAT) {
+  if (format !== IDENTITY_KEY_PACKAGE_FORMAT) {
     throw new Error("Invalid identity key package: unsupported format.");
   }
 

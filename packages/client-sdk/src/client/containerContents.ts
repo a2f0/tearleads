@@ -1,17 +1,14 @@
 import type { DocumentSummary } from "../data/documentSummary";
 import type { StoredDocumentKind } from "../data/documents/documentKinds";
 import {
-  type ContainerContentsContextValue,
   type ContainerContentsStore,
   type ContainerContentsStoreOptions,
-  type ContainerNode,
   getOrCreateContainerContentsStore,
 } from "../stores/container-contents";
 import { type DocumentStore, primeDocumentStore } from "../stores/documents";
 import {
   type ContainerInfo,
   type ContainerInfoRemoteMode,
-  type ContainerShareAccessLevel,
   loadContainerInfo,
 } from "../workflows/container-contents/containerInfo";
 import {
@@ -26,11 +23,6 @@ import {
 } from "../workflows/container-contents/documentInfo";
 import {
   type ContainerDocumentReadModel,
-  type ContainerDocumentSidebarRow,
-  type ContainerItemRow,
-  type ContainerItemSort,
-  type ContainerItemSortDirection,
-  type ContainerItemSortKey,
   createContainerDocumentReadModelFromRuntime,
 } from "../workflows/container-contents/documentReadModel";
 import {
@@ -51,16 +43,37 @@ import {
   createContainerContentsDocumentsRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
-import {
-  type ContainerDocumentObjectSyncState,
-  type ContainerDocumentObjectSyncStatus,
-  createContainerDocumentObjectSyncState,
-} from "../workflows/container-contents/syncState";
+import { createContainerDocumentObjectSyncState } from "../workflows/container-contents/syncState";
 import type { DocumentsWorkflowRuntime } from "../workflows/documents";
 import type {
-  TearleadsInternalRuntime,
-  TearleadsInternalWorkflowRuntimeInput,
+  InternalRuntime,
+  InternalWorkflowRuntimeInput,
 } from "./workflowRuntime";
+
+export type {
+  ContainerContentsContextValue,
+  ContainerContentsStore,
+  ContainerContentsStoreOptions,
+  ContainerNode,
+} from "../stores/container-contents";
+export type {
+  ContainerInfo,
+  ContainerShareAccessLevel,
+} from "../workflows/container-contents/containerInfo";
+export type { DocumentInfo } from "../workflows/container-contents/documentInfo";
+export type {
+  ContainerDocumentReadModel,
+  ContainerDocumentSidebarRow,
+  ContainerItemRow,
+  ContainerItemSort,
+  ContainerItemSortDirection,
+  ContainerItemSortKey,
+} from "../workflows/container-contents/documentReadModel";
+export type { SetLinkedContainerIdsForDocument } from "../workflows/container-contents/documentStructure";
+export type {
+  ContainerDocumentObjectSyncState,
+  ContainerDocumentObjectSyncStatus,
+} from "../workflows/container-contents/syncState";
 
 type ContainerDocumentDiscoveryPersistence = Pick<
   ContainerDocumentReadModel,
@@ -85,7 +98,7 @@ type ContainerDocumentDiscoveryPersistence = Pick<
  *   locally yet. Synced local state wins when available.
  * - `remoteInfoMode`: Controls whether remote projection details are fetched.
  */
-export interface TearleadsContainerInfoInput {
+export interface ContainerInfoInput {
   containerId: string;
   parentId?: string | null | undefined;
   remoteInfoMode?: ContainerInfoRemoteMode | undefined;
@@ -101,40 +114,16 @@ export interface TearleadsContainerInfoInput {
  * - `localId`: Local document id stored in the client database.
  * - `remoteInfoMode`: Controls whether remote projection details are fetched.
  */
-export interface TearleadsDocumentInfoInput {
+export interface DocumentInfoInput {
   localId: string;
   remoteInfoMode?: DocumentInfoRemoteMode | undefined;
 }
 
 export { createContainerDocumentObjectSyncState };
 
-export type TearleadsContainerContentsContextValue =
-  ContainerContentsContextValue;
-export type TearleadsContainerContentsStore = ContainerContentsStore;
-export type TearleadsContainerContentsStoreOptions =
-  ContainerContentsStoreOptions;
-export type TearleadsContainerDocumentObjectSyncState =
-  ContainerDocumentObjectSyncState;
-export type TearleadsContainerDocumentObjectSyncStatus =
-  ContainerDocumentObjectSyncStatus;
-export type TearleadsContainerDocumentReadModel = ContainerDocumentReadModel;
-export type TearleadsContainerDocumentSidebarRow = ContainerDocumentSidebarRow;
-export type TearleadsContainerInfo = ContainerInfo;
-export type TearleadsContainerItemRow = ContainerItemRow;
-export type TearleadsContainerItemSort = ContainerItemSort;
-export type TearleadsContainerItemSortDirection = ContainerItemSortDirection;
-export type TearleadsContainerItemSortKey = ContainerItemSortKey;
-export type TearleadsContainerNode = ContainerNode;
-export type TearleadsContainerShareAccessLevel = ContainerShareAccessLevel;
-export type TearleadsDocumentInfo = DocumentInfo;
+export type MergeDocumentSummary = (nextDocument: DocumentSummary) => void;
 
-export type TearleadsMergeDocumentSummary = (
-  nextDocument: DocumentSummary,
-) => void;
-export type TearleadsSetLinkedContainerIdsForDocument =
-  SetLinkedContainerIdsForDocument;
-
-export interface TearleadsPrimeContainerDocumentStoreInput {
+export interface PrimeContainerDocumentStoreInput {
   readonly containerId: string;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
@@ -142,57 +131,55 @@ export interface TearleadsPrimeContainerDocumentStoreInput {
   readonly localId: string;
 }
 
-export interface TearleadsContainerDocumentLinkInput {
-  readonly mergeDocumentSummary: TearleadsMergeDocumentSummary;
+export interface ContainerDocumentLinkInput {
+  readonly mergeDocumentSummary: MergeDocumentSummary;
   readonly note: DocumentSummary;
 }
 
-export interface TearleadsMoveContainerDocumentLinkInput
-  extends TearleadsContainerDocumentLinkInput {
+export interface MoveContainerDocumentLinkInput
+  extends ContainerDocumentLinkInput {
   readonly expandNode: (nodeId: string) => void;
-  readonly setLinkedContainerIdsForDocument: TearleadsSetLinkedContainerIdsForDocument;
+  readonly setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
   readonly targetContainerId: string;
 }
 
-export interface TearleadsLinkContainerDocumentLinkInput
-  extends TearleadsContainerDocumentLinkInput {
-  readonly setLinkedContainerIdsForDocument: TearleadsSetLinkedContainerIdsForDocument;
+export interface LinkContainerDocumentLinkInput
+  extends ContainerDocumentLinkInput {
+  readonly setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
   readonly targetContainerId: string;
 }
 
-export interface TearleadsUnlinkContainerDocumentLinkInput
-  extends TearleadsContainerDocumentLinkInput {
+export interface UnlinkContainerDocumentLinkInput
+  extends ContainerDocumentLinkInput {
   readonly removedContainerId: string;
-  readonly setLinkedContainerIdsForDocument: TearleadsSetLinkedContainerIdsForDocument;
+  readonly setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }
 
-export interface TearleadsActivateContainerDocumentLinkInput
-  extends TearleadsContainerDocumentLinkInput {
+export interface ActivateContainerDocumentLinkInput
+  extends ContainerDocumentLinkInput {
   readonly targetContainerId: string;
 }
 
-export interface TearleadsContainerDocumentLinksRuntime
+export interface ContainerDocumentLinksRuntime
   extends ContainerContentsWorkflowRuntime {
   readonly dbStatus: ContainerContentsWorkflowRuntime["dbStatus"];
   readonly isAuthenticated: ContainerContentsWorkflowRuntime["isAuthenticated"];
   readonly online: ContainerContentsWorkflowRuntime["online"];
   activateDocumentContainer(
-    input: TearleadsActivateContainerDocumentLinkInput,
+    input: ActivateContainerDocumentLinkInput,
   ): Promise<DocumentSummary | null>;
   readonly canMutateDocumentLinks: boolean;
   createDocumentRuntime(containerId: string): DocumentsWorkflowRuntime;
   linkDocumentToContainer(
-    input: TearleadsLinkContainerDocumentLinkInput,
+    input: LinkContainerDocumentLinkInput,
   ): Promise<DocumentSummary | null>;
   moveDocumentToContainer(
-    input: TearleadsMoveContainerDocumentLinkInput,
+    input: MoveContainerDocumentLinkInput,
   ): Promise<{ linksChanged: boolean; note: DocumentSummary | null }>;
-  primeDocumentStore(
-    input: TearleadsPrimeContainerDocumentStoreInput,
-  ): DocumentStore;
+  primeDocumentStore(input: PrimeContainerDocumentStoreInput): DocumentStore;
   readonly resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   unlinkDocumentFromContainer(
-    input: TearleadsUnlinkContainerDocumentLinkInput,
+    input: UnlinkContainerDocumentLinkInput,
   ): Promise<DocumentSummary | null>;
 }
 
@@ -205,7 +192,7 @@ export interface TearleadsContainerDocumentLinksRuntime
  * custom persistence protocol can call the lower-level workflows directly from
  * `@tearleads/client-sdk/workflows/container-contents`.
  */
-export interface TearleadsContainerContents {
+export interface ContainerContents {
   /**
    * Get the default container contents store for the current SDK runtime.
    *
@@ -214,8 +201,8 @@ export interface TearleadsContainerContents {
    * changes, such as from a React effect.
    */
   store(
-    options?: TearleadsContainerContentsStoreOptions | undefined,
-  ): TearleadsContainerContentsStore;
+    options?: ContainerContentsStoreOptions | undefined,
+  ): ContainerContentsStore;
 
   /**
    * Create the default local document read model for container contents.
@@ -233,7 +220,7 @@ export interface TearleadsContainerContents {
    * priming, and container document-link mutations. Product stores can pass
    * this bundle around without rebuilding SDK runtime plumbing themselves.
    */
-  documentLinksRuntime(): TearleadsContainerDocumentLinksRuntime;
+  documentLinksRuntime(): ContainerDocumentLinksRuntime;
 
   /**
    * Discover remote documents linked to one container.
@@ -269,7 +256,7 @@ export interface TearleadsContainerContents {
    * from the document writer projection according to `remoteInfoMode`; the
    * default is `"always"`.
    */
-  loadDocumentInfo(input: TearleadsDocumentInfoInput): Promise<DocumentInfo>;
+  loadDocumentInfo(input: DocumentInfoInput): Promise<DocumentInfo>;
 
   /**
    * Load diagnostic information for one container.
@@ -279,7 +266,7 @@ export interface TearleadsContainerContents {
    * `"always"`. Pass `parentId` when inspecting a container before its local row
    * has been synced.
    */
-  loadInfo(input: TearleadsContainerInfoInput): Promise<ContainerInfo>;
+  loadInfo(input: ContainerInfoInput): Promise<ContainerInfo>;
 
   /**
    * Refresh document discovery for every remotely visible container.
@@ -304,15 +291,15 @@ export interface TearleadsContainerContents {
   runtime(): ContainerContentsWorkflowRuntime;
 }
 
-export function createTearleadsContainerContents(
-  runtime: TearleadsInternalRuntime,
-): TearleadsContainerContents {
-  return new TearleadsContainerContentsService(runtime);
+export function createContainerContents(
+  runtime: InternalRuntime,
+): ContainerContents {
+  return new ContainerContentsService(runtime);
 }
 
-function createTearleadsDocumentLinkHost(
-  runtime: TearleadsContainerDocumentLinksRuntime,
-  mergeDocumentSummary: TearleadsMergeDocumentSummary,
+function createDocumentLinkHost(
+  runtime: ContainerDocumentLinksRuntime,
+  mergeDocumentSummary: MergeDocumentSummary,
 ): DocumentStructuralMutationHost<DocumentsWorkflowRuntime> {
   return {
     createDocumentRuntime: runtime.createDocumentRuntime,
@@ -326,12 +313,12 @@ function createTearleadsDocumentLinkHost(
   };
 }
 
-class TearleadsContainerContentsService implements TearleadsContainerContents {
-  constructor(private readonly runtimeService: TearleadsInternalRuntime) {}
+class ContainerContentsService implements ContainerContents {
+  constructor(private readonly runtimeService: InternalRuntime) {}
 
   store(
-    options?: TearleadsContainerContentsStoreOptions | undefined,
-  ): TearleadsContainerContentsStore {
+    options?: ContainerContentsStoreOptions | undefined,
+  ): ContainerContentsStore {
     const runtime = this.runtime();
     const store = getOrCreateContainerContentsStore(
       runtime.domainScope,
@@ -345,12 +332,12 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
     return createContainerDocumentReadModelFromRuntime(this.runtime());
   }
 
-  documentLinksRuntime(): TearleadsContainerDocumentLinksRuntime {
+  documentLinksRuntime(): ContainerDocumentLinksRuntime {
     const runtime = this.runtime();
     const createDocumentRuntime = (containerId: string) =>
       createContainerContentsDocumentsRuntime(runtime, containerId);
     const primeContainerDocumentStore = (
-      input: TearleadsPrimeContainerDocumentStoreInput,
+      input: PrimeContainerDocumentStoreInput,
     ) =>
       primeDocumentStore(
         runtime.domainScope,
@@ -360,11 +347,11 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
         input.initialText,
         input.initialDocumentKind,
       );
-    const documentLinksRuntime: TearleadsContainerDocumentLinksRuntime = {
+    const documentLinksRuntime: ContainerDocumentLinksRuntime = {
       ...runtime,
       activateDocumentContainer: (input) =>
         activateDocumentLinkState({
-          host: createTearleadsDocumentLinkHost(
+          host: createDocumentLinkHost(
             documentLinksRuntime,
             input.mergeDocumentSummary,
           ),
@@ -376,7 +363,7 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
       createDocumentRuntime,
       linkDocumentToContainer: (input) =>
         linkDocumentLinkState({
-          host: createTearleadsDocumentLinkHost(
+          host: createDocumentLinkHost(
             documentLinksRuntime,
             input.mergeDocumentSummary,
           ),
@@ -389,7 +376,7 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
       moveDocumentToContainer: (input) =>
         moveDocumentLinkState({
           expandNode: input.expandNode,
-          host: createTearleadsDocumentLinkHost(
+          host: createDocumentLinkHost(
             documentLinksRuntime,
             input.mergeDocumentSummary,
           ),
@@ -404,7 +391,7 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
         createContainerContentsDocumentProjectionUserKeyResolver(runtime),
       unlinkDocumentFromContainer: (input) =>
         unlinkDocumentLinkState({
-          host: createTearleadsDocumentLinkHost(
+          host: createDocumentLinkHost(
             documentLinksRuntime,
             input.mergeDocumentSummary,
           ),
@@ -447,7 +434,7 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
     );
   }
 
-  loadInfo(input: TearleadsContainerInfoInput): Promise<ContainerInfo> {
+  loadInfo(input: ContainerInfoInput): Promise<ContainerInfo> {
     const runtime = this.runtimeService.workflowInput();
     return loadContainerInfo({
       ...input,
@@ -458,7 +445,7 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
     });
   }
 
-  loadDocumentInfo(input: TearleadsDocumentInfoInput): Promise<DocumentInfo> {
+  loadDocumentInfo(input: DocumentInfoInput): Promise<DocumentInfo> {
     const runtime = this.runtimeService.workflowInput();
     return loadDocumentInfo({
       ...input,
@@ -491,7 +478,7 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
 }
 
 function createContainerContentsDiscoveryRuntime(
-  input: TearleadsInternalWorkflowRuntimeInput,
+  input: InternalWorkflowRuntimeInput,
 ): ContainerContentsWorkflowRuntime | null {
   if (input.dbStatus !== "ready") {
     return null;

@@ -2,7 +2,7 @@ import type { BlobStore } from "../data/blobContracts";
 import { createBlobStore } from "../data/blobs/createBlobStore";
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 
-export class TearleadsBlobs {
+export class Blobs {
   private readonly ephemeralStore = createMemoryBlobStore();
   private identityScoped = false;
   private storeValue: BlobStore;

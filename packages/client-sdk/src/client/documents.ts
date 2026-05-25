@@ -4,9 +4,6 @@ import type { StoredDocumentKind } from "../data/documents/documentKinds";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
   DEFAULT_DOCUMENT_ID as DEFAULT_LOCAL_DOCUMENT_ID,
-  type DocumentAttachmentStatus,
-  type DocumentAttachmentUpload,
-  type DocumentContextValue,
   type DocumentStore,
   type DocumentsRuntime,
   getOrCreateDocumentStore,
@@ -19,22 +16,24 @@ import {
   defaultDocumentsPersistence,
   deletePersistedDocument,
 } from "../workflows/documents";
-import type { TearleadsInternalRuntime } from "./workflowRuntime";
+import type { InternalRuntime } from "./workflowRuntime";
 
-export interface TearleadsListLocalDocumentSummariesInput {
+export type {
+  DocumentAttachmentStatus,
+  DocumentAttachmentUpload,
+  DocumentContextValue,
+  DocumentStore,
+  DocumentsRuntime,
+  PersistedDocumentListener,
+} from "../stores/documents";
+
+export interface ListLocalDocumentSummariesInput {
   documentKind?: StoredDocumentKind | undefined;
 }
 
 export { DEFAULT_LOCAL_DOCUMENT_ID as DEFAULT_DOCUMENT_ID };
 
-export type TearleadsDocumentAttachmentStatus = DocumentAttachmentStatus;
-export type TearleadsDocumentAttachmentUpload = DocumentAttachmentUpload;
-export type TearleadsDocumentContextValue = DocumentContextValue;
-export type TearleadsDocumentStore = DocumentStore;
-export type TearleadsDocumentsRuntime = DocumentsRuntime;
-export type TearleadsPersistedDocumentListener = PersistedDocumentListener;
-
-export interface TearleadsDocumentStoreInput {
+export interface DocumentStoreInput {
   readonly containerId?: string | null | undefined;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
@@ -42,53 +41,52 @@ export interface TearleadsDocumentStoreInput {
   readonly localId?: string | undefined;
 }
 
-export interface TearleadsPrimeDocumentStoreInput
-  extends TearleadsDocumentStoreInput {
+export interface PrimeDocumentStoreInput extends DocumentStoreInput {
   readonly localId: string;
 }
 
-export interface TearleadsSubscribeToLocalSummariesOptions {
+export interface SubscribeToLocalSummariesOptions {
   readonly containerId?: string | null | undefined;
 }
 
-export interface TearleadsDocuments {
+export interface Documents {
   deleteLocalDocument(localId: string): Promise<boolean>;
   listLocalSummaries(
-    input?: TearleadsListLocalDocumentSummariesInput | undefined,
+    input?: ListLocalDocumentSummariesInput | undefined,
   ): Promise<ReadonlyArray<DocumentSummary> | null>;
   primeStore(
-    input: TearleadsPrimeDocumentStoreInput,
-    runtime?: TearleadsDocumentsRuntime | undefined,
-  ): TearleadsDocumentStore;
-  runtime(containerId?: string | null | undefined): TearleadsDocumentsRuntime;
+    input: PrimeDocumentStoreInput,
+    runtime?: DocumentsRuntime | undefined,
+  ): DocumentStore;
+  runtime(containerId?: string | null | undefined): DocumentsRuntime;
   store(
-    input?: TearleadsDocumentStoreInput | undefined,
-    runtime?: TearleadsDocumentsRuntime | undefined,
-  ): TearleadsDocumentStore;
+    input?: DocumentStoreInput | undefined,
+    runtime?: DocumentsRuntime | undefined,
+  ): DocumentStore;
   subscribeToLocalSummaries(
-    listener: TearleadsPersistedDocumentListener,
-    options?: TearleadsSubscribeToLocalSummariesOptions | undefined,
+    listener: PersistedDocumentListener,
+    options?: SubscribeToLocalSummariesOptions | undefined,
   ): () => void;
 }
 
-interface TearleadsDocumentsDependencies {
+interface DocumentsDependencies {
   getDefaultContainerId: () => string | null;
-  runtime: TearleadsInternalRuntime;
+  runtime: InternalRuntime;
 }
 
-export function createTearleadsDocuments(
-  dependencies: TearleadsDocumentsDependencies,
-): TearleadsDocuments {
-  return new TearleadsDocumentsService(dependencies);
+export function createDocuments(
+  dependencies: DocumentsDependencies,
+): Documents {
+  return new DocumentsService(dependencies);
 }
 
-class TearleadsDocumentsService implements TearleadsDocuments {
+class DocumentsService implements Documents {
   private readonly schemaEnsuresByExecSql = new WeakMap<
     ExecSql,
     Promise<void>
   >();
 
-  constructor(private readonly dependencies: TearleadsDocumentsDependencies) {}
+  constructor(private readonly dependencies: DocumentsDependencies) {}
 
   async deleteLocalDocument(localId: string): Promise<boolean> {
     const runtime = this.runtime();
@@ -106,7 +104,7 @@ class TearleadsDocumentsService implements TearleadsDocuments {
   }
 
   async listLocalSummaries(
-    input: TearleadsListLocalDocumentSummariesInput = {},
+    input: ListLocalDocumentSummariesInput = {},
   ): Promise<ReadonlyArray<DocumentSummary> | null> {
     const runtime = this.dependencies.runtime.workflowInput();
     if (runtime.dbStatus !== "ready") {
@@ -128,9 +126,9 @@ class TearleadsDocumentsService implements TearleadsDocuments {
   }
 
   primeStore(
-    input: TearleadsPrimeDocumentStoreInput,
-    runtimeOverride?: TearleadsDocumentsRuntime | undefined,
-  ): TearleadsDocumentStore {
+    input: PrimeDocumentStoreInput,
+    runtimeOverride?: DocumentsRuntime | undefined,
+  ): DocumentStore {
     const {
       containerId,
       documentId = null,
@@ -151,15 +149,15 @@ class TearleadsDocumentsService implements TearleadsDocuments {
 
   runtime(
     containerId = this.dependencies.getDefaultContainerId(),
-  ): TearleadsDocumentsRuntime {
+  ): DocumentsRuntime {
     const input = this.dependencies.runtime.workflowInput(containerId);
     return createDocumentsWorkflowRuntime(input);
   }
 
   store(
-    input: TearleadsDocumentStoreInput = {},
-    runtimeOverride?: TearleadsDocumentsRuntime | undefined,
-  ): TearleadsDocumentStore {
+    input: DocumentStoreInput = {},
+    runtimeOverride?: DocumentsRuntime | undefined,
+  ): DocumentStore {
     const {
       containerId,
       documentId = null,
@@ -179,8 +177,8 @@ class TearleadsDocumentsService implements TearleadsDocuments {
   }
 
   subscribeToLocalSummaries(
-    listener: TearleadsPersistedDocumentListener,
-    options: TearleadsSubscribeToLocalSummariesOptions = {},
+    listener: PersistedDocumentListener,
+    options: SubscribeToLocalSummariesOptions = {},
   ): () => void {
     return subscribeToPersistedDocuments(
       this.dependencies.runtime.workflowInput(options.containerId).domainScope,

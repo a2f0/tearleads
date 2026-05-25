@@ -7,7 +7,7 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "../test/helpers/createTestExecSql";
 import { createResponseFromRequest } from "../test/helpers/documentFixtures";
-import { Tearleads, type TearleadsLogger } from "./client";
+import { type Logger, Tearleads } from "./client";
 import type {
   ExecSql,
   ExecSqlClientLike,
@@ -21,7 +21,7 @@ import {
   resolveDocumentCreateAuthor,
 } from "./workflows/documents";
 
-const quietLogger: Required<TearleadsLogger> = {
+const quietLogger: Required<Logger> = {
   log: () => undefined,
   logError: () => undefined,
 };
