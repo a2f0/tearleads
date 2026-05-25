@@ -23,6 +23,7 @@ export type MiniAppId =
 
 export interface MiniAppDefinition {
   createComponent: () => ComponentType;
+  initialShowSidebar?: boolean | undefined;
   title: string;
 }
 
@@ -175,6 +176,7 @@ export function MiniAppBusProvider({
           definition.createComponent(),
           {
             appId,
+            initialShowSidebar: definition.initialShowSidebar,
           },
         );
       }

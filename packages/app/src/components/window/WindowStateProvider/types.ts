@@ -5,12 +5,18 @@ export type WindowMoveDirection = "forward" | "backward";
 export interface WindowEntry {
   appId?: string;
   id: string;
+  initialShowSidebar?: boolean | undefined;
   title: string;
   initialX: number;
   initialY: number;
   minimized: boolean;
   zIndex: number;
   component?: ComponentType;
+}
+
+export interface WindowCreateOptions {
+  appId?: string;
+  initialShowSidebar?: boolean | undefined;
 }
 
 export interface WindowStateData {
@@ -27,7 +33,7 @@ export interface WindowStateActions {
     x: number,
     y: number,
     component?: ComponentType,
-    options?: { appId?: string },
+    options?: WindowCreateOptions,
   ) => string;
   close: (id: string) => void;
   minimize: (id: string) => void;
