@@ -1,10 +1,11 @@
-import type { DomainScope, TearleadsUserKey } from "@tearleads/client-sdk";
+import type {
+  DomainScope,
+  TearleadsDocumentStore,
+  TearleadsDocumentsRuntime,
+  TearleadsPrimeDocumentStoreInput,
+  TearleadsUserKey,
+} from "@tearleads/client-sdk";
 import { type ExecSql, ensureSqlTables } from "@tearleads/client-sdk/sqlite";
-import {
-  type DocumentStore,
-  type DocumentsRuntime,
-  getOrCreateDocumentStore,
-} from "@tearleads/client-sdk/stores/documents";
 import {
   type ContactEntry,
   type ContactEntryPatch,
@@ -21,8 +22,11 @@ export interface ContactsSnapshot {
 
 export interface ContactsRuntime {
   deleteLocalDocument: (localId: string) => Promise<boolean>;
-  documents: DocumentsRuntime;
+  documents: TearleadsDocumentsRuntime;
   execSql: ExecSql;
+  primeDocumentStore: (
+    input: TearleadsPrimeDocumentStoreInput,
+  ) => TearleadsDocumentStore;
 }
 
 export interface ContactsStore {
@@ -41,7 +45,7 @@ interface ContactsStoreDependencies {
 }
 
 interface TrackedContactDocumentStore {
-  store: DocumentStore;
+  store: TearleadsDocumentStore;
   unsubscribe: () => void;
 }
 
@@ -220,7 +224,7 @@ async function loadProjectedContacts(
 
 function contactEntryFromDocumentStore(
   contactId: string,
-  store: DocumentStore,
+  store: TearleadsDocumentStore,
 ): ContactEntry | null {
   const snapshot = store.getSnapshot();
   if (!snapshot.ready || snapshot.documentKind !== "contact") {
@@ -236,21 +240,20 @@ function contactEntryFromDocumentStore(
 function ensureContactDocumentStore(
   state: ContactsStoreState,
   contactId: string,
-): DocumentStore {
+): TearleadsDocumentStore {
   const existing = state.contactDocumentStoresById.get(contactId);
   if (existing) {
     existing.store.updateRuntime(state.runtime.documents);
     return existing.store;
   }
 
-  const store = getOrCreateDocumentStore(
-    state.runtime.documents.domainScope,
-    contactId,
-    state.runtime.documents,
-    null,
-    "",
-    "contact",
-  );
+  const store = state.runtime.primeDocumentStore({
+    containerId: null,
+    documentId: null,
+    initialDocumentKind: "contact",
+    initialText: "",
+    localId: contactId,
+  });
   const unsubscribe = store.subscribe(() => {
     const entry = contactEntryFromDocumentStore(contactId, store);
     if (entry) {

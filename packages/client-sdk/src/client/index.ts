@@ -38,9 +38,19 @@ export {
   type TearleadsDatabaseStatus,
 } from "./database";
 export type {
+  TearleadsDocumentAttachmentStatus,
+  TearleadsDocumentAttachmentUpload,
+  TearleadsDocumentContextValue,
+  TearleadsDocumentStore,
+  TearleadsDocumentStoreInput,
   TearleadsDocuments,
+  TearleadsDocumentsRuntime,
   TearleadsListLocalDocumentSummariesInput,
+  TearleadsPersistedDocumentListener,
+  TearleadsPrimeDocumentStoreInput,
+  TearleadsSubscribeToLocalSummariesOptions,
 } from "./documents";
+export { DEFAULT_DOCUMENT_ID } from "./documents";
 export {
   TearleadsEvents,
   type TearleadsEventsListener,

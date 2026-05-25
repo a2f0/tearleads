@@ -1,14 +1,14 @@
 import {
+  DEFAULT_DOCUMENT_ID,
+  type TearleadsDocumentAttachmentStatus,
+  type TearleadsDocumentContextValue,
+  type TearleadsDocumentStore,
+  type TearleadsDocumentsRuntime,
+} from "@tearleads/client-sdk";
+import {
   DEFAULT_DOCUMENT_KIND,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk/documents";
-import {
-  DEFAULT_DOCUMENT_ID,
-  type DocumentContextValue,
-  type DocumentStore,
-  type DocumentsRuntime,
-  getOrCreateDocumentStore,
-} from "@tearleads/client-sdk/stores/documents";
 import {
   createContext,
   type PropsWithChildren,
@@ -22,18 +22,10 @@ import {
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 
-export type {
-  DocumentAttachmentStatus,
-  DocumentsRuntime,
-} from "@tearleads/client-sdk/stores/documents";
-export {
-  createDocumentStore,
-  DEFAULT_DOCUMENT_ID,
-  primeDocumentStore,
-  subscribeToPersistedDocuments,
-} from "@tearleads/client-sdk/stores/documents";
+export type { TearleadsDocumentAttachmentStatus as DocumentAttachmentStatus };
+export { DEFAULT_DOCUMENT_ID };
 
-const DocumentContext = createContext<DocumentStore | null>(null);
+const DocumentContext = createContext<TearleadsDocumentStore | null>(null);
 
 interface DocumentsProviderProps extends PropsWithChildren {
   localId?: string;
@@ -53,7 +45,7 @@ export function DocumentsProvider({
 }: DocumentsProviderProps) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
-  const runtime = useMemo<DocumentsRuntime>(
+  const runtime = useMemo<TearleadsDocumentsRuntime>(
     () =>
       containerId === undefined
         ? tearleads.documents.runtime()
@@ -62,20 +54,24 @@ export function DocumentsProvider({
   );
   const store = useMemo(
     () =>
-      getOrCreateDocumentStore(
-        runtime.domainScope,
-        localId,
+      tearleads.documents.store(
+        {
+          containerId,
+          documentId,
+          initialDocumentKind,
+          initialText,
+          localId,
+        },
         runtime,
-        documentId,
-        initialText,
-        initialDocumentKind,
       ),
     [
+      containerId,
       documentId,
       initialDocumentKind,
       initialText,
       localId,
-      runtime.domainScope,
+      runtime,
+      tearleads,
     ],
   );
 
@@ -103,7 +99,7 @@ export function DocumentsProvider({
   );
 }
 
-export function useDocument(): DocumentContextValue {
+export function useDocument(): TearleadsDocumentContextValue {
   const store = useContext(DocumentContext);
   if (!store) {
     throw new Error("useDocument must be used within a DocumentsProvider.");

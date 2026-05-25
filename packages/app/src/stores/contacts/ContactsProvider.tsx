@@ -26,8 +26,9 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     () => ({
       deleteLocalDocument: (localId) =>
         tearleads.documents.deleteLocalDocument(localId),
-      documents: tearleads.documents.runtime(),
+      documents: tearleads.documents.runtime(null),
       execSql: appData.execSql,
+      primeDocumentStore: (input) => tearleads.documents.primeStore(input),
     }),
     [appData, tearleads],
   );

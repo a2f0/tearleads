@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { TearleadsUserKey } from "@tearleads/client-sdk";
+import { primeDocumentStore } from "@tearleads/client-sdk/stores/documents";
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
@@ -56,6 +57,14 @@ async function createContactsRuntime(): Promise<
     "contacts-store-test",
   );
   const { close, ...runtimeInputBase } = runtimeBase;
+  const documents = createDocumentsWorkflowRuntime({
+    ...runtimeInputBase,
+    apiClient: createMockApiClient(),
+    containerId: null,
+    documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
+    userId: "self-user",
+  });
+
   return {
     close,
     deleteLocalDocument: async (localId) => {
@@ -67,14 +76,17 @@ async function createContactsRuntime(): Promise<
       });
       return true;
     },
-    documents: createDocumentsWorkflowRuntime({
-      ...runtimeInputBase,
-      apiClient: createMockApiClient(),
-      containerId: null,
-      documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
-      userId: "self-user",
-    }),
+    documents,
     execSql: runtimeInputBase.execSql,
+    primeDocumentStore: (input) =>
+      primeDocumentStore(
+        documents.domainScope,
+        input.localId,
+        documents,
+        input.documentId ?? null,
+        input.initialText,
+        input.initialDocumentKind,
+      ),
   };
 }
 

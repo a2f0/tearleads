@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createDocumentStore } from "@tearleads/client-sdk/stores/documents";
 import { createMemoryBlobStore } from "@tearleads/client-sdk/workflows/blobs";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
@@ -6,7 +7,6 @@ import {
   createDocumentStoreRuntime,
 } from "../../../../test/helpers/documentStoreFixtures";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { createDocumentStore } from "../DocumentsProvider";
 
 function createTrackedMemoryBlobStore() {
   const blobStore = createMemoryBlobStore();

@@ -43,6 +43,7 @@ await tearleads.session.bootstrapLocalRootContainer();
 
 const containerContents = tearleads.containerContents.runtime();
 const documents = tearleads.documents.runtime(tearleads.session.containerId);
+const documentStore = tearleads.documents.store();
 const localNotes = await tearleads.documents.listLocalSummaries({
   documentKind: DEFAULT_DOCUMENT_KIND,
 });
@@ -64,7 +65,7 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
-| `tearleads.documents` | local document summaries, local document deletion, and document workflow runtime composition |
+| `tearleads.documents` | document stores, local document summaries, local document deletion, and document workflow runtime composition |
 | `tearleads.containerContents` | container contents stores, read models, document-link runtimes, discovery, diagnostics, and workflow runtime composition |
 | `tearleads.organizations` | organization administration and directory operations |
 | `tearleads.userKeys` | verified user key lookup for product read models and recipient UIs |
@@ -73,6 +74,10 @@ Prefer these instance services over constructing workflow runtimes directly
 from host code. The SDK keeps workflow cache scope aligned with the active
 database id and identity fingerprint, which lets document and
 container/document stores share the same sync and subscription boundary.
+Product app code should prefer `tearleads.documents.store(...)`,
+`tearleads.documents.primeStore(...)`, and
+`tearleads.documents.subscribeToLocalSummaries(listener, { containerId })` over
+importing the document store facade package directly.
 
 Host adapters that still need the raw workflow runtime contract should use
 `tearleads.runtime.input(containerId)` instead of reconstructing the dependency
@@ -261,5 +266,7 @@ dry-run against the built `dist` contents.
   public API entry-point table in sync with it.
 - `data/*` package exports and deep workflow/store implementation exports are
   rejected.
+- Production app code uses SDK root service surfaces instead of importing SDK
+  workflow or store package facades directly.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in
   `packages/app`; SDK source should use platform workflow names.

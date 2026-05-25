@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { createDocumentStore } from "@tearleads/client-sdk/stores/documents";
 import {
   createDocumentStorePersistence,
   createDocumentStoreRuntime,
 } from "../../../../test/helpers/documentStoreFixtures";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { createDocumentStore } from "../DocumentsProvider";
 
 test("document store seeds initial note text before first persistence", async () => {
   const persistence = createDocumentStorePersistence();

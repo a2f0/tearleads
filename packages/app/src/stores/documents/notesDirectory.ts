@@ -8,10 +8,7 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
-import {
-  DEFAULT_DOCUMENT_ID,
-  subscribeToPersistedDocuments,
-} from "./DocumentsProvider";
+import { DEFAULT_DOCUMENT_ID } from "./DocumentsProvider";
 
 function isNoteSummary(documentSummary: DocumentSummary): boolean {
   return (
@@ -115,15 +112,18 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
   }, [appData.dbStatus, appData.domainScope, appData.logError, tearleads]);
 
   useEffect(() => {
-    return subscribeToPersistedDocuments(appData.domainScope, (document) => {
-      if (!isNoteSummary(document)) {
-        return;
-      }
+    return tearleads.documents.subscribeToLocalSummaries(
+      (document) => {
+        if (!isNoteSummary(document)) {
+          return;
+        }
 
-      setNotes((currentNotes) => mergeNoteSummary(currentNotes, document));
-      setSelectedNoteId((currentNoteId) => currentNoteId ?? document.id);
-    });
-  }, [appData.domainScope]);
+        setNotes((currentNotes) => mergeNoteSummary(currentNotes, document));
+        setSelectedNoteId((currentNoteId) => currentNoteId ?? document.id);
+      },
+      { containerId: appData.containerId },
+    );
+  }, [appData.containerId, appData.domainScope, tearleads]);
 
   const createNote = useCallback(() => {
     const noteId = crypto.randomUUID();

@@ -4,6 +4,12 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk/documents";
 import {
+  createDocumentStore,
+  type DocumentsRuntime,
+  primeDocumentStore,
+  subscribeToPersistedDocuments,
+} from "@tearleads/client-sdk/stores/documents";
+import {
   createMemoryBlobStore,
   decryptDocumentAttachmentBlob,
   uploadDocumentAttachment,
@@ -60,12 +66,6 @@ import {
 } from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
-import {
-  createDocumentStore,
-  type DocumentsRuntime,
-  primeDocumentStore,
-  subscribeToPersistedDocuments,
-} from "../DocumentsProvider";
 
 interface StoredDocumentsState {
   document: DocumentRecord | null;
