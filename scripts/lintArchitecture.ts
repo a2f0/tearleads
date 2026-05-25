@@ -24,6 +24,8 @@ const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
 const clientSdkSourceEntryPoints = ["packages/client-sdk/src"];
 const clientSdkPublicApiDocsPath = "docs/developer/client-sdk.md";
+const clientSdkClientFacadeIndexPath =
+  "packages/client-sdk/src/client/index.ts";
 const clientSdkPackageJsonPath = "packages/client-sdk/package.json";
 const clientSdkRootIndexPath = "packages/client-sdk/src/index.ts";
 const clientSdkWorkflowDocsPath = "packages/client-sdk/src/workflows/README.md";
@@ -84,6 +86,8 @@ const clientSdkSupportedPackageExports = {
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
+const clientSdkPrefixedFacadeAliasPattern =
+  /\bas\s+(?:Tearleads[A-Z][A-Za-z0-9_]*|TEARLEADS_[A-Z0-9_]+)/;
 const clientSdkProductUiVocabularyPattern =
   /\b(?:Explorer|MiniApp|OrgManager|explorer|mini-apps?|org-manager)/;
 
@@ -1009,6 +1013,14 @@ const architectureChecks: ArchitectureCheck[] = [
     message:
       "Client SDK root exports should stay focused on neutral contracts; workflow and store APIs belong behind explicit facade subpaths.",
     name: "client-sdk-root-exports-neutral-contracts",
+  }),
+  createSourceTextCheck({
+    entryPoints: [clientSdkClientFacadeIndexPath],
+    listFiles: listExactSourceFile,
+    message:
+      "Client SDK root facade exports should use canonical unprefixed names instead of prefixed compatibility aliases.",
+    name: "client-sdk-root-facade-uses-unprefixed-names",
+    pattern: clientSdkPrefixedFacadeAliasPattern,
   }),
   createSourceTextCheck({
     entryPoints: clientSdkSourceEntryPoints,
