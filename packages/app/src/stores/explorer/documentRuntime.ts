@@ -1,14 +1,6 @@
-import {
-  type ContainerContentsProjectionUserKeyResolver,
-  type ContainerContentsWorkflowRuntime,
-  createContainerContentsDocumentProjectionUserKeyResolver,
-  createContainerContentsDocumentsRuntime,
-} from "@tearleads/client-sdk/workflows/container-contents";
+import type { TearleadsContainerDocumentLinksRuntime } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
-import type { primeDocumentStore } from "../documents/DocumentsProvider";
-
-type ExplorerDocumentRuntime = Parameters<typeof primeDocumentStore>[2];
 
 export interface ExplorerDocumentsRuntimeAppDataInput {
   dbStatus: string;
@@ -19,9 +11,7 @@ export interface ExplorerDocumentsRuntimeAppDataInput {
 }
 
 export type ExplorerDocumentsRuntimeAppData =
-  ContainerContentsWorkflowRuntime & {
-    resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
-  };
+  TearleadsContainerDocumentLinksRuntime;
 
 export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
   return (
@@ -30,31 +20,13 @@ export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
   );
 }
 
-export function createExplorerDocumentsRuntime(
-  appData: ExplorerDocumentsRuntimeAppData,
-  containerId: string,
-): ExplorerDocumentRuntime {
-  return createContainerContentsDocumentsRuntime(appData, containerId);
-}
-
 export function useExplorerDocumentsRuntimeAppData(
   appData: ExplorerDocumentsRuntimeAppDataInput,
 ): ExplorerDocumentsRuntimeAppData {
   const { containerContents } = useTearleads();
-  const runtime = useMemo(
-    () => containerContents.runtime(),
-    [appData, containerContents],
-  );
-  const resolveProjectionUserKey = useMemo(
-    () => createContainerContentsDocumentProjectionUserKeyResolver(runtime),
-    [runtime],
-  );
 
   return useMemo(
-    () => ({
-      ...runtime,
-      resolveProjectionUserKey,
-    }),
-    [runtime, resolveProjectionUserKey],
+    () => containerContents.documentLinksRuntime(),
+    [appData, containerContents],
   );
 }
