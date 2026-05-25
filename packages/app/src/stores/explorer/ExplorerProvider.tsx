@@ -8,12 +8,12 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useSyncExternalStore,
 } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 
 const ExplorerContext = createContext<ContainerContentsStore | null>(null);
 
@@ -46,7 +46,7 @@ export function useExplorer(): ContainerContentsContextValue {
     throw new Error("useExplorer must be used within an ExplorerProvider.");
   }
 
-  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const snapshot = useTearleadsExternalStoreSnapshot(store);
 
   return {
     createChild: store.createChild,

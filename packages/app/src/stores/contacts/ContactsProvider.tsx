@@ -4,12 +4,12 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useSyncExternalStore,
 } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import {
   type ContactsRuntime,
   type ContactsStore,
@@ -58,11 +58,7 @@ export function useContacts(): ContactsContextValue {
     throw new Error("useContacts must be used within a ContactsProvider.");
   }
 
-  const snapshot = useSyncExternalStore(
-    store.subscribe,
-    store.getSnapshot,
-    store.getSnapshot,
-  );
+  const snapshot = useTearleadsExternalStoreSnapshot(store);
 
   return useMemo(
     () => ({

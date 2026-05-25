@@ -20,6 +20,8 @@ const appDocumentProjectionSourcePaths = new Set([
   "packages/app/src/document-types/projectors.ts",
 ]);
 const appMiniAppBusSourcePath = "packages/app/src/mini-apps/bus.tsx";
+const appTearleadsSubscriptionHelperPath =
+  "packages/app/src/providers/sdk/useTearleadsSubscription.ts";
 const appProductionSourceEntryPoints = ["packages/app/src"];
 const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
@@ -60,6 +62,7 @@ const clientSdkRootAllowedReExports = new Set([
 ]);
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
+const directSyncExternalStorePattern = /\buseSyncExternalStore\b/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
 const clientSdkPrefixedFacadeAliasPattern =
   /\bas\s+(?:Tearleads[A-Z][A-Za-z0-9_]*|TEARLEADS_[A-Z0-9_]+)/;
@@ -239,6 +242,15 @@ async function listAppPresentationSourceFiles(
   const productionSourceFiles = await listProductionSourceFiles(dirPath);
   return productionSourceFiles.filter(
     (filePath) => !appDocumentProjectionSourcePaths.has(filePath),
+  );
+}
+
+async function listAppSourceFilesOutsideTearleadsSubscriptionHelper(
+  dirPath: string,
+): Promise<string[]> {
+  const productionSourceFiles = await listProductionSourceFiles(dirPath);
+  return productionSourceFiles.filter(
+    (filePath) => filePath !== appTearleadsSubscriptionHelperPath,
   );
 }
 
@@ -905,6 +917,14 @@ const architectureChecks: ArchitectureCheck[] = [
     message:
       "App test helpers belong under packages/app/test and must not be imported by production src files.",
     name: "app-production-source-does-not-import-test-helpers",
+  }),
+  createSourceTextCheck({
+    entryPoints: appProductionSourceEntryPoints,
+    listFiles: listAppSourceFilesOutsideTearleadsSubscriptionHelper,
+    message:
+      "App production code should centralize React external-store subscriptions in providers/sdk/useTearleadsSubscription.ts.",
+    name: "app-production-centralizes-use-sync-external-store",
+    pattern: directSyncExternalStorePattern,
   }),
   createModuleSpecifierCheck({
     entryPoints: [appMiniAppBusSourcePath],

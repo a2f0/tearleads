@@ -12,12 +12,12 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useSyncExternalStore,
 } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 
 export { DEFAULT_DOCUMENT_ID };
 
@@ -101,11 +101,7 @@ export function useDocument(): DocumentContextValue {
     throw new Error("useDocument must be used within a DocumentsProvider.");
   }
 
-  const snapshot = useSyncExternalStore(
-    store.subscribe,
-    store.getSnapshot,
-    store.getSnapshot,
-  );
+  const snapshot = useTearleadsExternalStoreSnapshot(store);
 
   return useMemo(
     () => ({

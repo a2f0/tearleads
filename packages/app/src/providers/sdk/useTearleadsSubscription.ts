@@ -7,6 +7,11 @@ interface SnapshotStore<TSnapshot> {
   subscribe(listener: StoreChangeListener): () => void;
 }
 
+interface ExternalSnapshotStore<TSnapshot> {
+  getSnapshot(): TSnapshot;
+  subscribe(listener: StoreChangeListener): () => void;
+}
+
 export function useTearleadsStoreSnapshot<TSnapshot>(
   store: SnapshotStore<TSnapshot>,
 ): TSnapshot {
@@ -22,4 +27,10 @@ export function useTearleadsExternalValue<TValue>(
   getSnapshot: () => TValue,
 ): TValue {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+export function useTearleadsExternalStoreSnapshot<TSnapshot>(
+  store: ExternalSnapshotStore<TSnapshot>,
+): TSnapshot {
+  return useTearleadsExternalValue(store.subscribe, store.getSnapshot);
 }
